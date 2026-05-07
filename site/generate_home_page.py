@@ -155,7 +155,7 @@ ERIN_VIDEO_URL = "/_static/erin1.mp4"
 # CONTACT
 # =============================================================================
 
-CONTACT_URL = "%scontact" % DOMAIN_ROOT
+CONTACT_URL = "%scontact.html" % DOMAIN_ROOT
 
 # =============================================================================
 # MARKET BAR TICKERS

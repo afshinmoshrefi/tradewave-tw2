@@ -49,6 +49,11 @@ DISCLAIMER_FILENAME = "disclaimer.html"
 DISCLAIMER_TITLE = "Financial Disclaimer"
 DISCLAIMER_SUBTITLE = "What TradeWave is, what it isn't, and how to read what we publish."
 
+CONTACT_FILENAME = "contact.html"
+CONTACT_TITLE = "Contact"
+CONTACT_SUBTITLE = "Reach out — we read every email."
+CONTACT_EMAIL = "afshin@tradewave.ai"
+
 # Year for the footer copyright + page-modified hint.
 YEAR = datetime.now().year
 TODAY_ISO = datetime.now().strftime("%Y-%m-%d")
@@ -240,6 +245,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
     <a href="/">Home</a>
     <a href="/app/">Wave Viewer</a>
     <a href="/learn.html">Learn</a>
+    <a href="/contact.html">Contact</a>
     <a href="/privacy.html">Privacy</a>
     <a href="/terms.html">Terms</a>
     <a href="/disclaimer.html">Disclaimer</a>
@@ -258,6 +264,7 @@ def title_to_filename(title: str) -> str:
         "Privacy Policy": "privacy.html",
         "Learn": "learn.html",
         "Financial Disclaimer": "disclaimer.html",
+        "Contact": "contact.html",
     }.get(title, title.lower().replace(" ", "-") + ".html")
 
 
@@ -305,6 +312,45 @@ def build_learn_placeholder() -> tuple[str, dict]:
     return html, {
         "src": "(placeholder — WP source intentionally not used)",
         "out": LEARN_FILENAME,
+        "raw_size": 0,
+        "stripped_size": len(body),
+        "wrapped_size": len(html),
+        "last_updated": None,
+    }
+
+
+def build_contact() -> tuple[str, dict]:
+    body = f"""
+<p>Thanks for using TradeWave. The fastest way to reach us is by email — we read every message.</p>
+
+<div class="tw-callout">
+  <p style="font-size:18px;"><strong>Email:</strong> <a href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a></p>
+  <p style="margin-top:8px;font-size:14px;color:var(--text-dim);">We typically respond within 1 business day. For urgent billing or account access issues, include your account email so we can find you faster.</p>
+</div>
+
+<h2>What to email us about</h2>
+<ul>
+  <li><strong>Bug reports</strong> — what you were doing, what you expected, what happened. A screenshot or screen recording is gold.</li>
+  <li><strong>Feature requests</strong> — what you wished the platform did. We read every one and the most-requested ones tend to ship.</li>
+  <li><strong>Billing &amp; subscriptions</strong> — refunds, plan changes, invoice questions, tax forms.</li>
+  <li><strong>Account access</strong> — locked out, login issues, can't receive verification email.</li>
+  <li><strong>Data accuracy</strong> — if a pattern, score, or chart looks wrong, send the ticker + the date and we'll investigate.</li>
+  <li><strong>Institutional / API access</strong> — pricing for funds, RIAs, and research desks. Tell us your use case and rough volume.</li>
+  <li><strong>Press &amp; partnerships</strong> — we're a small team but always open to a conversation.</li>
+</ul>
+
+<h2>Mailing address</h2>
+<p>Tara Data Research LLC<br>
+25 Storey Ave Ste 8 — PMB 111<br>
+Newburyport, MA 01950<br>
+United States</p>
+
+<p style="margin-top:32px;"><a href="/">&larr; Back to home</a></p>
+"""
+    html = render_page(CONTACT_TITLE, CONTACT_SUBTITLE, body, None)
+    return html, {
+        "src": "(authored in generator — single source of truth)",
+        "out": CONTACT_FILENAME,
         "raw_size": 0,
         "stripped_size": len(body),
         "wrapped_size": len(html),
@@ -384,6 +430,12 @@ def main() -> int:
     print(f"  building {DISCLAIMER_FILENAME} (authored)...")
     html, info = build_disclaimer()
     write_output(DISCLAIMER_FILENAME, html)
+    summary.append(info)
+    print(f"    authored    -> wrapped {info['wrapped_size']:>7} bytes")
+
+    print(f"  building {CONTACT_FILENAME} (authored)...")
+    html, info = build_contact()
+    write_output(CONTACT_FILENAME, html)
     summary.append(info)
     print(f"    authored    -> wrapped {info['wrapped_size']:>7} bytes")
 
