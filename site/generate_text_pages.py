@@ -35,7 +35,7 @@ HEADER_PARTIAL = TEMPLATES_DIR / "_tw_header.html"
 
 PAGES = [
     # (output filename, page title, source WP file id, hero subtitle)
-    ("disclaimer.html", "Terms & Conditions", "222576",
+    ("terms.html", "Terms & Conditions", "222576",
      "The terms governing your use of TradeWave."),
     ("privacy.html",    "Privacy Policy",     "222578",
      "How we collect, use, and protect your information."),
@@ -44,6 +44,10 @@ PAGES = [
 LEARN_FILENAME = "learn.html"
 LEARN_TITLE = "Learn"
 LEARN_SUBTITLE = "Guides, tutorials, and methodology — coming soon."
+
+DISCLAIMER_FILENAME = "disclaimer.html"
+DISCLAIMER_TITLE = "Financial Disclaimer"
+DISCLAIMER_SUBTITLE = "What TradeWave is, what it isn't, and how to read what we publish."
 
 # Year for the footer copyright + page-modified hint.
 YEAR = datetime.now().year
@@ -237,7 +241,8 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
     <a href="/app/">Wave Viewer</a>
     <a href="/learn.html">Learn</a>
     <a href="/privacy.html">Privacy</a>
-    <a href="/disclaimer.html">Terms</a>
+    <a href="/terms.html">Terms</a>
+    <a href="/disclaimer.html">Disclaimer</a>
   </nav>
   <p>&copy; {YEAR} Tara Data Research LLC. All rights reserved.</p>
   <p class="tw-disclaimer">{LEGAL_DISCLAIMER}</p>
@@ -249,9 +254,10 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
 
 def title_to_filename(title: str) -> str:
     return {
-        "Terms & Conditions": "disclaimer.html",
+        "Terms & Conditions": "terms.html",
         "Privacy Policy": "privacy.html",
         "Learn": "learn.html",
+        "Financial Disclaimer": "disclaimer.html",
     }.get(title, title.lower().replace(" ", "-") + ".html")
 
 
@@ -306,6 +312,44 @@ def build_learn_placeholder() -> tuple[str, dict]:
     }
 
 
+def build_disclaimer() -> tuple[str, dict]:
+    body = """
+<p>TradeWave is a research and analysis platform. We are not a registered investment adviser, broker-dealer, or financial planner. Read this page in full before acting on anything you find on the site.</p>
+
+<h2>Not investment advice</h2>
+<p>All content on TradeWave — including seasonal patterns, AI scores, scorecards, daily picks, opportunity lists, charts, and any commentary or articles — is provided for informational and educational purposes only. Nothing on TradeWave is a recommendation, solicitation, or offer to buy or sell any security, derivative, or other financial instrument.</p>
+
+<h2>Past performance does not guarantee future results</h2>
+<p>Historical seasonal patterns may not repeat. Markets evolve. Statistical edges that held for the last 10, 20, or 30 years can break in the next 10. The probability scores, win rates, and historical returns shown on TradeWave are computed from the data available at the time of analysis and are not guarantees of any future outcome.</p>
+
+<h2>Investing involves risk</h2>
+<p>The value of any investment can go up or down, and you may lose some or all of the money you invest. Before acting on any information from TradeWave, consider whether it is appropriate for your personal financial situation, risk tolerance, and investment objectives — and consult a licensed financial professional.</p>
+
+<h2>No liability</h2>
+<p>TradeWave, Tara Data Research LLC, and their operators, employees, and affiliates are not liable for any decisions you make based on the content of this site or for any losses, costs, or damages — direct or indirect — arising from your use of the platform. You are solely responsible for your own investment decisions.</p>
+
+<h2>Data accuracy</h2>
+<p>While we make best efforts to use accurate and up-to-date data from licensed providers, occasional errors, missing data points, corporate-action adjustments, and survivorship-bias gaps may occur. We do not warrant the completeness or accuracy of any specific data point, score, or backtest result.</p>
+
+<h2>Forward-looking statements</h2>
+<p>Articles and analysis published on TradeWave or its companion site Seasonal Market News may contain forward-looking statements about price movements, sectors, or economic conditions. These statements reflect the author's view at the time of writing and are not predictions. Conditions change. We may not update older content as new information becomes available.</p>
+
+<h2>Third-party content</h2>
+<p>TradeWave may link to or display content from third-party sources (news outlets, data providers, AI research tools). We do not endorse third-party content and are not responsible for its accuracy or for actions you take based on it.</p>
+
+<p><a href="/">&larr; Back to home</a></p>
+"""
+    html = render_page(DISCLAIMER_TITLE, DISCLAIMER_SUBTITLE, body, TODAY_ISO)
+    return html, {
+        "src": "(authored in generator — single source of truth)",
+        "out": DISCLAIMER_FILENAME,
+        "raw_size": 0,
+        "stripped_size": len(body),
+        "wrapped_size": len(html),
+        "last_updated": TODAY_ISO,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
@@ -336,6 +380,12 @@ def main() -> int:
         write_output(out_name, html)
         summary.append(info)
         print(f"    raw {info['raw_size']:>7} -> stripped {info['stripped_size']:>7} -> wrapped {info['wrapped_size']:>7} bytes")
+
+    print(f"  building {DISCLAIMER_FILENAME} (authored)...")
+    html, info = build_disclaimer()
+    write_output(DISCLAIMER_FILENAME, html)
+    summary.append(info)
+    print(f"    authored    -> wrapped {info['wrapped_size']:>7} bytes")
 
     print(f"  building {LEARN_FILENAME} (placeholder)...")
     html, info = build_learn_placeholder()
