@@ -261,36 +261,33 @@ def get_keys(): # get key1 and key2 from keystore url
 #-------------------------------------------------------------------------------------------------
 
 def get_keyprovider_token():
-    url = config.appserver_url+'/login/2/3/4/5/6'
-    api_result = requests.get(url)
-    # print(url)
-    # print(api_result)
-    result = api_result.json()
-    
-    # write_to_log('get_key_provider',url,result)
-
-    t = result['message'].split(' ')
-    return t[4]
+    # TW2: see create_report.get_keyprovider_token for context. This duplicate
+    # exists because thumbnails.py imports it from blog_tools. Returns the
+    # SERVICE_API_KEY which login_appserver() exchanges for a real JWT.
+    api_key = os.environ.get('SERVICE_API_KEY', '')
+    if not api_key:
+        raise RuntimeError(
+            'SERVICE_API_KEY not set in environment. SMN service requires it to '
+            'authenticate with the TW2 appserver via /login/api/<key>.'
+        )
+    return api_key
 #-------------------------------------------------------------------------------------------------
 # after logging in, the returned token is used to make other calls to the appserver
 def login_appserver(keyprovider_token):
-    url = config.appserver_url+'/login/28/3/4/5/'+keyprovider_token
-    api_result = requests.get(url)
-    print('blog_tools: api_result=',api_result)
+    # TW2: keyprovider_token is the SERVICE_API_KEY supplied by get_keyprovider_token() above.
+    url = config.appserver_url + '/login/api/' + keyprovider_token
+    api_result = requests.get(url, timeout=15)
     result = api_result.json()
 
-
-    if 'message' in result: # login failed due to timing - happens less than 0.1% of the time - try again
-        time.sleep(10)
-        api_result = requests.get(url) # try again
+    if 'token' not in result: # transient failure - rare - try again once
+        time.sleep(5)
+        api_result = requests.get(url, timeout=15)
         result = api_result.json()
-        if 'message' in result: # should not have happened - possibly due to appserver being down - lets log this message or print it
-            print('message:',result['message'])
+        if 'token' not in result:
+            print('login_appserver: failed to obtain token, response:', result)
             return -1
         else:
             print('attempt 2 to login succeeded')
-
-    # write_to_log('login_appserver',url,result)
 
     return result['token']
 #-------------------------------------------------------------------------------------------------
