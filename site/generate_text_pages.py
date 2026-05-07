@@ -321,31 +321,209 @@ def build_learn_placeholder() -> tuple[str, dict]:
 
 def build_contact() -> tuple[str, dict]:
     body = f"""
-<p>Thanks for using TradeWave. The fastest way to reach us is by email — we read every message.</p>
+<style>
+  .contact-intro {{ text-align:center; max-width:640px; margin:0 auto 40px; color:var(--text-dim); font-size:17px; }}
+  .contact-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:0 0 48px; }}
+  .contact-card {{
+    background: linear-gradient(180deg, rgba(139,92,246,0.06) 0%, rgba(99,102,241,0.03) 100%);
+    border: 1px solid rgba(139,92,246,0.18);
+    border-radius: 14px;
+    padding: 28px 28px 24px;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }}
+  .contact-card:hover {{
+    transform: translateY(-2px);
+    border-color: rgba(139,92,246,0.36);
+    box-shadow: 0 12px 32px rgba(139,92,246,0.12);
+  }}
+  .contact-card .icon {{
+    width:42px; height:42px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color:#fff; font-size:20px; margin-bottom:14px;
+  }}
+  .contact-card h3 {{ margin:0 0 8px; font-size:18px; font-weight:700; color:#fff; }}
+  .contact-card .lead {{ font-size:18px; margin:6px 0 4px; color:#fff; font-weight:600; }}
+  .contact-card .meta {{ font-size:13px; color:var(--text-muted); margin:0 0 14px; line-height:1.6; }}
+  .contact-card .cta {{
+    display:inline-block; font-size:14px; font-weight:600;
+    color:#a78bfa; text-decoration:none; margin-top:6px;
+  }}
+  .contact-card .cta:hover {{ color:#c4b5fd; }}
+  .contact-card .addr {{ font-size:14px; color:var(--text); line-height:1.7; margin:0; }}
 
-<div class="tw-callout">
-  <p style="font-size:18px;"><strong>Email:</strong> <a href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a></p>
-  <p style="margin-top:8px;font-size:14px;color:var(--text-dim);">We typically respond within 1 business day. For urgent billing or account access issues, include your account email so we can find you faster.</p>
+  .contact-pills {{ display:flex; flex-wrap:wrap; gap:10px; margin:0 0 48px; }}
+  .contact-pills a {{
+    display:inline-flex; align-items:center; padding:9px 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 999px;
+    color: var(--text); text-decoration: none;
+    font-size: 14px; font-weight: 500;
+    transition: all 140ms ease;
+  }}
+  .contact-pills a:hover {{
+    background: rgba(139,92,246,0.14);
+    border-color: rgba(139,92,246,0.4);
+    color: #fff;
+    transform: translateY(-1px);
+  }}
+
+  .contact-form {{
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 32px;
+    margin: 0 0 16px;
+  }}
+  .contact-form .row {{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }}
+  .contact-form label {{ display:block; font-size:13px; font-weight:600; color:var(--text-dim); margin-bottom:6px; letter-spacing:0.02em; text-transform:uppercase; }}
+  .contact-form input,
+  .contact-form select,
+  .contact-form textarea {{
+    width:100%; box-sizing:border-box;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    transition: border-color 140ms ease, background 140ms ease;
+  }}
+  .contact-form input:focus,
+  .contact-form select:focus,
+  .contact-form textarea:focus {{
+    outline: none;
+    border-color: rgba(139,92,246,0.55);
+    background: rgba(0,0,0,0.42);
+  }}
+  .contact-form textarea {{ resize: vertical; min-height: 140px; }}
+  .contact-form .field {{ margin-bottom: 16px; }}
+  .contact-form .submit-row {{ display:flex; align-items:center; gap:18px; margin-top:8px; }}
+  .contact-form button {{
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff; border: 0; border-radius: 8px;
+    padding: 12px 28px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: transform 140ms ease, box-shadow 140ms ease;
+  }}
+  .contact-form button:hover {{ transform: translateY(-1px); box-shadow: 0 8px 24px rgba(139,92,246,0.25); }}
+  .contact-form .form-note {{ font-size: 13px; color: var(--text-muted); margin: 0; }}
+
+  .contact-faq {{ margin: 56px 0 0; }}
+  .contact-faq h2 {{ text-align:center; }}
+  .contact-faq .q {{ background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 16px 20px; margin-bottom: 10px; }}
+  .contact-faq .q strong {{ display:block; color:#fff; margin-bottom:4px; font-size:15px; }}
+  .contact-faq .q p {{ margin:0; font-size:14px; color:var(--text-dim); line-height:1.7; }}
+
+  @media (max-width: 720px) {{
+    .contact-grid {{ grid-template-columns: 1fr; }}
+    .contact-form .row {{ grid-template-columns: 1fr; }}
+    .contact-form {{ padding: 24px 20px; }}
+  }}
+</style>
+
+<p class="contact-intro">We're a small team that reads every message. Pick a topic below for a faster response, or use the form to send us a note.</p>
+
+<div class="contact-grid">
+  <div class="contact-card">
+    <div class="icon">@</div>
+    <h3>Email us</h3>
+    <p class="lead">{CONTACT_EMAIL}</p>
+    <p class="meta">Typical response time: <strong>1 business day</strong>. For account or billing issues, include your account email so we can find you faster.</p>
+    <a class="cta" href="mailto:{CONTACT_EMAIL}">Open email →</a>
+  </div>
+  <div class="contact-card">
+    <div class="icon">⌂</div>
+    <h3>Mailing address</h3>
+    <p class="addr">Tara Data Research LLC<br>
+       25 Storey Ave Ste 8 — PMB 111<br>
+       Newburyport, MA 01950<br>
+       United States</p>
+  </div>
 </div>
 
-<h2>What to email us about</h2>
-<ul>
-  <li><strong>Bug reports</strong> — what you were doing, what you expected, what happened. A screenshot or screen recording is gold.</li>
-  <li><strong>Feature requests</strong> — what you wished the platform did. We read every one and the most-requested ones tend to ship.</li>
-  <li><strong>Billing &amp; subscriptions</strong> — refunds, plan changes, invoice questions, tax forms.</li>
-  <li><strong>Account access</strong> — locked out, login issues, can't receive verification email.</li>
-  <li><strong>Data accuracy</strong> — if a pattern, score, or chart looks wrong, send the ticker + the date and we'll investigate.</li>
-  <li><strong>Institutional / API access</strong> — pricing for funds, RIAs, and research desks. Tell us your use case and rough volume.</li>
-  <li><strong>Press &amp; partnerships</strong> — we're a small team but always open to a conversation.</li>
-</ul>
+<h2>Pick a topic</h2>
+<div class="contact-pills">
+  <a href="mailto:{CONTACT_EMAIL}?subject=Bug%20report">Bug report</a>
+  <a href="mailto:{CONTACT_EMAIL}?subject=Feature%20request">Feature request</a>
+  <a href="mailto:{CONTACT_EMAIL}?subject=Billing%20question">Billing</a>
+  <a href="mailto:{CONTACT_EMAIL}?subject=Account%20access">Account access</a>
+  <a href="mailto:{CONTACT_EMAIL}?subject=Data%20accuracy">Data accuracy</a>
+  <a href="mailto:{CONTACT_EMAIL}?subject=Institutional%20%2F%20API">Institutional / API</a>
+  <a href="mailto:{CONTACT_EMAIL}?subject=Press%20inquiry">Press</a>
+  <a href="mailto:{CONTACT_EMAIL}?subject=Other">Other</a>
+</div>
 
-<h2>Mailing address</h2>
-<p>Tara Data Research LLC<br>
-25 Storey Ave Ste 8 — PMB 111<br>
-Newburyport, MA 01950<br>
-United States</p>
+<h2>Or write to us directly</h2>
+<form class="contact-form" id="tw-contact-form" onsubmit="return twContactSubmit(event)">
+  <div class="row">
+    <div class="field">
+      <label for="cf-name">Your name</label>
+      <input id="cf-name" name="name" type="text" required autocomplete="name">
+    </div>
+    <div class="field">
+      <label for="cf-email">Your email</label>
+      <input id="cf-email" name="email" type="email" required autocomplete="email">
+    </div>
+  </div>
+  <div class="field">
+    <label for="cf-subject">Topic</label>
+    <select id="cf-subject" name="subject">
+      <option>Bug report</option>
+      <option>Feature request</option>
+      <option>Billing question</option>
+      <option>Account access</option>
+      <option>Data accuracy</option>
+      <option>Institutional / API</option>
+      <option>Press inquiry</option>
+      <option>Other</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="cf-message">Message</label>
+    <textarea id="cf-message" name="message" rows="6" required placeholder="Tell us what's on your mind…"></textarea>
+  </div>
+  <div class="submit-row">
+    <button type="submit">Send message</button>
+    <p class="form-note">Submitting opens your email client with this message pre-filled.</p>
+  </div>
+</form>
 
-<p style="margin-top:32px;"><a href="/">&larr; Back to home</a></p>
+<div class="contact-faq">
+  <h2>Frequently asked</h2>
+  <div class="q">
+    <strong>How fast do you respond?</strong>
+    <p>We aim to reply within one business day. Billing and account-access issues get triaged first.</p>
+  </div>
+  <div class="q">
+    <strong>I think a chart or score is wrong — what should I send?</strong>
+    <p>The ticker, the date, and a screenshot of what looks off. We'll re-run the data pipeline and either fix the bug or explain what you're seeing.</p>
+  </div>
+  <div class="q">
+    <strong>Do you offer institutional or API access?</strong>
+    <p>Yes — pricing depends on your use case and volume. Email us with a sentence or two about what you'd build and we'll send a tailored quote.</p>
+  </div>
+  <div class="q">
+    <strong>Can I get a refund?</strong>
+    <p>Subscription fees are generally non-refundable, but write us if your situation is unusual — we review case-by-case.</p>
+  </div>
+</div>
+
+<script>
+function twContactSubmit(e) {{
+  e.preventDefault();
+  var name = document.getElementById('cf-name').value.trim();
+  var email = document.getElementById('cf-email').value.trim();
+  var subject = document.getElementById('cf-subject').value;
+  var message = document.getElementById('cf-message').value.trim();
+  var body = 'From: ' + name + ' <' + email + '>\\n\\n' + message;
+  var url = 'mailto:{CONTACT_EMAIL}?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  window.location.href = url;
+  return false;
+}}
+</script>
 """
     html = render_page(CONTACT_TITLE, CONTACT_SUBTITLE, body, None)
     return html, {
