@@ -328,7 +328,11 @@ def synthesize_research_with_grok(raw_text_context: str, json_schema_str: str,
         prompt=user_prompt,
         model=DEFAULT_MODEL,  # grok-3-mini — extraction task, no reasoning needed
         system=system_prompt,
-        temperature=0.0
+        temperature=0.0,
+        # Synth call processes 14+ Tavily sources; 60s default is too tight on .176
+        # (frequent reads time out). Bumping to 180s leaves headroom; retries are
+        # still bounded by send_grok_prompt's max_retries.
+        timeout=180,
     )
 
 # ------------------------------------------------------------------
