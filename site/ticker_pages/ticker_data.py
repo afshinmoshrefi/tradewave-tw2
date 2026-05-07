@@ -35,7 +35,7 @@ from compute_monthly_seasonality import (
     compute_forward_window,
 )
 
-APPSERVER_URL = config.appserver_url  # e.g. http://192.168.1.151:5000
+APPSERVER_URL = config.appserver_url  # TW2: from secrets.env (TW2_APPSERVER_URL)
 ML_SCORER_URL = config.ml_scorer_url
 EDGAR_SERVICE_URL = config.edgar_service_url
 REALTIME_URL = config.realtime_service_url

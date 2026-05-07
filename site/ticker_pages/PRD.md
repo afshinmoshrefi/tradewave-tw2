@@ -127,7 +127,7 @@ This gives each page genuinely unique data. Even if two tickers are in the same 
 
 Deployed as static HTML: `/_static/patterns/AAPL.html`
 
-Nginx rewrite: `location /patterns/ { alias /var/www/html/wordpress/_static/patterns/; }`
+Nginx rewrite: `location /patterns/ { alias /var/www/tradewave/patterns/; }`
 
 ### 5.2 Page Layout (Top to Bottom)
 

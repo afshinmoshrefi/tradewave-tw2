@@ -90,3 +90,6 @@ pip-delete-this-directory.txt
 *.mov
 *.webm
 *.avi
+
+# Appserver runtime caches
+appserver/appserver/trend_chart_cache/

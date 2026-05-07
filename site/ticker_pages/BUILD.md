@@ -82,4 +82,4 @@ Alternatively, hardcode a starter list of 30 and expand.
 - Use "AI" not "ML" in all user-facing text
 - No em dashes in generated text
 - SEO enabled only on production (check config.seo_enabled)
-- This is the dev server (192.168.1.151), production URLs come from config
+- This is the TW2 dev server (.176), production URLs come from config

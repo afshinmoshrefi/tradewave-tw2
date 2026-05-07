@@ -51,7 +51,7 @@ HUB_TEMPLATE_NAME = 'patterns_index.html'
 TICKER_LIST_JSON = '/home/flask/site/ticker_pages/data/ticker_list_phase1.json'
 SECTOR_MAP_JSON = '/home/flask/site/ticker_pages/data/sector_map.json'
 
-WEB_ROOT_DIR = config.web_root_dir  # '/var/www/html/wordpress/' on this dev server
+WEB_ROOT_DIR = config.web_root_dir  # TW2: /var/www/tradewave/
 DEFAULT_OUTPUT_DIR = os.path.join(WEB_ROOT_DIR, 'patterns') + os.sep
 
 # Production-facing URL base for the sitemap. Per PRD section 6.5 this is
