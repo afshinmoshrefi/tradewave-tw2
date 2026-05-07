@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(zcat:*)",
+      "Bash(python3:*)",
+      "Bash(grep:*)",
+      "Bash(ls /home/flask/appserver/appserver/*.log)",
+      "WebSearch",
+      "Bash(test:*)",
+      "Bash(crontab:*)",
+      "WebFetch(domain:data.sec.gov)",
+      "WebFetch(domain:github.com)",
+      "Bash(ls:*)",
+      "Bash(du:*)",
+      "WebFetch(domain:www.sec.gov)",
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(git pull:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:eodhd.com)"
+    ]
+  }
+}

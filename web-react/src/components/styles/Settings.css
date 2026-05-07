@@ -1,0 +1,46 @@
+
+.div_basic{
+  display:flex;
+  justify-content: center;
+  align-items: center;
+  /* border-bottom: 1px solid black; */
+}
+
+.line {
+  display: inline-block;
+  width: 100px; /* Adjust the width as needed */
+  border: none; /* Remove default border */
+  border-top: 1px solid black; /* Set the desired line style */
+  margin-left: 4px; /* Adjust the margin as needed */
+}
+  .settings-dialog {
+    /* display: flex; */
+    align-items: center;
+  }
+
+  .markets-scroll-checkbox{
+    overflow-y:auto;
+  }
+
+  .popup-dialog-style{
+  
+       /* disable selecting text */
+   -webkit-user-select: none;  /* Chrome all / Safari all */
+   -moz-user-select: none;     /* Firefox all */
+   -ms-user-select: none;      /* IE 10+ */
+   user-select: none;          /* Likely future */
+  
+}
+
+
+
+
+
+.myList {
+  list-style-type: disc;
+  padding-left: 20px;
+}
+
+.myList li {
+  list-style-type: disc;
+}

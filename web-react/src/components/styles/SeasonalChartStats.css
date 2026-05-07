@@ -1,0 +1,71 @@
+
+.seasonal-chart-stats{
+    display:flex;
+    width:100%;
+    background-color: rgb(173, 216, 230);
+    /* border-bottom: 1px dashed black; */
+}
+
+.info-cell{
+    display:flex;
+    height:100%;
+    border-bottom: 1px solid blue;
+    width:25%;
+    background-color: red;
+    align-items: center; /* vertical centering */
+    justify-content:center; /* horizantal centering */
+    /* font-size: 0.8vw; */
+   
+}
+
+.info-cell-left{
+    display:flex;
+    background-color: lightgray;
+    color:black;
+    height:100%;
+    width: 50%;
+    align-items: center; /* vertical centering */
+    justify-content:center; /* horizantal centering */
+    padding-right: 4px;
+}
+
+.info-cell-right{
+    display:flex;
+    background-color: white;
+    color:black;
+    height:100%;
+    width: 50%;
+    align-items: center; /* vertical centering */
+    justify-content:center; /* horizantal centering */
+}
+
+.info-cell-left-bh{
+    display:flex;
+    background-color: lightgray;
+    color:black;
+    height:100%;
+    width: 50%;
+    align-items: center; /* vertical centering */
+    justify-content:center; /* horizantal centering */
+    padding-right: 4px;
+}
+
+.info-cell-right-bh{
+    display:flex;
+    background-color: white;
+    color:black;
+    height:100%;
+    width: 50%;
+    align-items: center; /* vertical centering */
+    justify-content:center; /* horizantal centering */
+}
+
+.noselect {
+    -webkit-touch-callout: none; /* iOS Safari */
+      -webkit-user-select: none; /* Safari */
+       -khtml-user-select: none; /* Konqueror HTML */
+         -moz-user-select: none; /* Old versions of Firefox */
+          -ms-user-select: none; /* Internet Explorer/Edge */
+              user-select: none; /* Non-prefixed version, currently
+                                    supported by Chrome, Edge, Opera and Firefox */
+  }

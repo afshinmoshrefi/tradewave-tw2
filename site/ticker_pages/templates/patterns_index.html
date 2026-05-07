@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Stock Seasonal Patterns & AI Scores | TradeWave</title>
+    <meta name="description" content="Free seasonal pattern analysis and AI scores for {{ tickers|length }} stocks and ETFs. Updated daily with up to 98 years of historical data.">
+    <meta name="keywords" content="stock seasonal patterns, best month to buy stocks, seasonal stock analysis, AI stock score, election cycle stocks">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+
+    <link rel="canonical" href="https://tradewave.ai/patterns/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="TradeWave">
+    <meta property="og:title" content="Stock Seasonal Patterns & AI Scores">
+    <meta property="og:description" content="Free seasonal pattern analysis and AI scores for {{ tickers|length }} stocks and ETFs. Updated daily.">
+    <meta property="og:url" content="https://tradewave.ai/patterns/">
+    <meta property="og:locale" content="en_US">
+
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Stock Seasonal Patterns & AI Scores | TradeWave">
+
+    <link rel="icon" type="image/png" href="{{ favicon }}">
+    <link rel="shortcut icon" href="{{ favicon }}">
+
+    {# ----- BreadcrumbList schema ----- #}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://tradewave.ai/" },
+            { "@type": "ListItem", "position": 2, "name": "Seasonal Patterns", "item": "https://tradewave.ai/patterns/" }
+        ]
+    }
+    </script>
+
+    {# ----- ItemList schema ----- #}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": "Stock Seasonal Patterns & AI Scores",
+        "description": "Free seasonal pattern analysis and AI scores for {{ tickers|length }} stocks and ETFs. Updated daily.",
+        "url": "https://tradewave.ai/patterns/",
+        "dateModified": "{{ generated_at }}",
+        "publisher": {
+            "@type": "Organization",
+            "name": "TradeWave",
+            "url": "https://tradewave.ai"
+        },
+        "mainEntity": {
+            "@type": "ItemList",
+            "numberOfItems": {{ tickers|length }},
+            "itemListElement": [
+                {% for t in tickers %}
+                {
+                    "@type": "ListItem",
+                    "position": {{ loop.index }},
+                    "name": "{{ t.company_name }} ({{ t.symbol }}) Seasonal Pattern",
+                    "url": "https://tradewave.ai/patterns/{{ t.symbol }}"
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ]
+        }
+    }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+
+    <style>
+        :root {
+            --bg-primary: rgb(15,10,21);
+            --bg-secondary: rgb(25,22,35);
+            --bg-tertiary: #111936;
+            --bg-card: #0c1225;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-hover: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.25);
+            --accent-glow-strong: rgba(99, 102, 241, 0.5);
+            --success: #10b981;
+            --success-dark: rgba(16, 185, 129, 0.15);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #1f2937;
+            --border-light: #374151;
+            --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        .gradient-bg {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 100% 0%, rgba(139,92,246,0.1), transparent),
+                radial-gradient(ellipse 60% 40% at 0% 100%, rgba(99,102,241,0.08), transparent);
+            pointer-events: none; z-index: 0;
+        }
+
+        nav { background: rgba(15,10,21,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; z-index: 100; }
+        nav .container { position: relative; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 30px; font-weight: 800; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-decoration: none; }
+        .hamburger { display: none; }
+        .nav-links { display: flex; gap: 32px; align-items: center; }
+        .nav-links a { color: var(--text-secondary); text-decoration: none; font-weight: 500; font-size: 14px; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--text-primary); }
+
+        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 14px 28px; border-radius: 12px; font-weight: 600; font-size: 15px; text-decoration: none; transition: all 0.3s; cursor: pointer; border: none; }
+        .btn-primary { background: var(--gradient-primary); color: white; box-shadow: 0 4px 20px var(--accent-glow), 0 0 0 1px rgba(255,255,255,0.1) inset; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--accent-glow-strong), 0 0 0 1px rgba(255,255,255,0.15) inset; }
+
+        .page-hero { padding: 56px 0 32px; position: relative; z-index: 1; text-align: center; }
+        .page-title { font-size: 48px; font-weight: 800; letter-spacing: -1px; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .page-subtitle { font-size: 18px; color: var(--text-secondary); max-width: 640px; margin: 0 auto; }
+
+        .sector-nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 28px 0 8px; }
+        .sector-btn { background: rgba(99,102,241,0.08); border: 1px solid var(--border); color: var(--text-secondary); padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .sector-btn:hover, .sector-btn.active { background: rgba(99,102,241,0.2); border-color: var(--accent); color: var(--text-primary); }
+
+        .tp-section { padding: 32px 0 48px; position: relative; z-index: 1; }
+
+        .ticker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+
+        .ticker-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 22px 24px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.25s;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .ticker-card:hover {
+            border-color: var(--accent);
+            background: rgba(99,102,241,0.06);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        }
+        .ticker-card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .ticker-card-sym { font-size: 22px; font-weight: 800; color: var(--accent-hover); }
+        .ticker-card-name { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        .ticker-card-sector { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; white-space: nowrap; }
+        .ticker-card-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+        .ticker-card-stat { display: flex; flex-direction: column; }
+        .ticker-card-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+        .ticker-card-stat-value { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .ticker-card-stat-value.pos { color: var(--success); }
+        .ticker-card-stat-value.neg { color: var(--danger); }
+        .ticker-card-stat-value.neutral { color: var(--text-secondary); }
+        .ticker-card-stat-value.score { color: var(--warning); }
+
+        .ticker-card-arrow { font-size: 14px; color: var(--text-muted); align-self: center; margin-left: auto; transition: transform 0.2s; }
+        .ticker-card:hover .ticker-card-arrow { transform: translateX(4px); color: var(--accent); }
+
+        .cta-strip { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 20px; padding: 40px 32px; text-align: center; margin-top: 40px; }
+        .cta-strip h2 { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+        .cta-strip p { color: var(--text-secondary); font-size: 15px; margin-bottom: 22px; }
+
+        footer { background: var(--bg-secondary); border-top: 1px solid var(--border); padding: 48px 0 36px; position: relative; z-index: 1; }
+        .footer-bottom { text-align: center; }
+        .footer-copyright { font-size: 13px; color: var(--text-muted); }
+        .footer-disclaimer { font-size: 11px; color: var(--text-muted); margin-top: 16px; max-width: 800px; margin-left: auto; margin-right: auto; line-height: 1.9; opacity: 0.65; }
+        .footer-account { margin-top: 16px; }
+        .footer-account a { color: var(--text-muted); text-decoration: none; font-size: 13px; }
+
+        .breadcrumb { font-size: 13px; color: var(--text-muted); }
+        .breadcrumb a { color: var(--text-muted); text-decoration: none; }
+        .breadcrumb a:hover { color: var(--text-primary); }
+        .intro-text { font-size: 15px; color: var(--text-secondary); line-height: 1.8; max-width: 800px; margin: 0 auto 24px; }
+        .intro-text h2 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+
+        .updated-stamp { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 16px; }
+
+        @media (max-width: 768px) {
+            .page-title { font-size: 32px; }
+            .page-subtitle { font-size: 15px; }
+            .ticker-grid { grid-template-columns: 1fr; }
+            .nav-links { display: none; }
+            .nav-links.open { display: flex; flex-direction: column; gap: 0; position: absolute; top: calc(100% + 8px); right: 16px; left: auto; width: 66%; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,0.5); padding: 8px 0; z-index: 200; }
+            .nav-links.open a { display: block; padding: 14px 20px; font-size: 15px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+            .nav-links.open a:last-child { border-bottom: none; }
+            .nav-links.open .btn.btn-primary { margin: 8px 12px; border-radius: 10px; text-align: center; padding: 12px 20px; border-bottom: none; color: white; }
+            .hamburger { display: flex; flex-direction: column; gap: 5px; cursor: pointer; z-index: 201; background: none; border: none; padding: 8px; }
+            .hamburger span { display: block; width: 24px; height: 2px; background: var(--text-primary); border-radius: 2px; transition: all 0.3s; }
+            .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+            .hamburger.open span:nth-child(2) { opacity: 0; }
+            .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+            .cta-strip { padding: 28px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg"></div>
+
+    <nav>
+        <div class="container">
+            <a href="/" class="logo">TradeWave</a>
+            <button class="hamburger" onclick="this.classList.toggle('open');document.querySelector('.nav-links').classList.toggle('open');" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/patterns/" style="color:var(--text-primary);">Patterns</a>
+                <a href="/wave-viewer">Wave Viewer</a>
+                <a href="/login" class="nav-logged-out">Log In</a>
+                <a href="{{ signup_url }}" class="btn btn-primary nav-logged-out">Start Free Trial</a>
+                <a href="{{ upgrade_url }}" class="btn btn-primary nav-logged-in nav-logged-in-cta" style="display:none;">Upgrade</a>
+                <a href="/logout" class="nav-logged-in" style="display:none;">Log Out</a>
+            </div>
+        </div>
+    </nav>
+
+    {# ----- BREADCRUMB ----- #}
+    <div class="container" style="padding-top: 12px; position: relative; z-index: 1;">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="/">Home</a> &rsaquo; <span>Seasonal Patterns</span>
+        </nav>
+    </div>
+
+    <section class="page-hero">
+        <div class="container">
+            <h1 class="page-title">Stock Seasonal Patterns & AI Scores</h1>
+            <p class="page-subtitle">AI-powered seasonal analysis for {{ tickers|length }} stocks and ETFs, backed by up to 98 years of historical data. Updated daily.</p>
+
+            <div class="intro-text">
+                <h2>What Are Seasonal Stock Patterns?</h2>
+                <p>Stocks tend to perform differently depending on the time of year. These recurring tendencies, called seasonal patterns, are driven by earnings cycles, tax-loss harvesting in December, mutual fund rebalancing at quarter-end, and shifts in investor sentiment around holidays and elections. For example, the "sell in May and go away" effect reflects a well-documented tendency for stocks to underperform during summer months.</p>
+                <p>TradeWave analyzes up to 98 years of historical daily price data for each stock to identify the best and worst months to buy, calculate win rates and average returns per month, and score seasonal windows using AI. Each page below shows the complete monthly seasonality breakdown, election-cycle overlays for {{ current_year }}, and any currently active AI-scored seasonal patterns.</p>
+                <p>Click any ticker to see its full seasonal analysis, or filter by sector using the buttons below.</p>
+            </div>
+
+            <div class="sector-nav">
+                <button class="sector-btn active" onclick="filterSector('all', this)">All</button>
+                {% for sector in sectors %}
+                <button class="sector-btn" onclick="filterSector('{{ sector }}', this)">{{ sector }}</button>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="tp-section">
+        <div class="container">
+            <div class="ticker-grid">
+                {% for t in tickers %}
+                <a href="/patterns/{{ t.symbol }}" class="ticker-card" data-sector="{{ t.sector }}">
+                    <div class="ticker-card-header">
+                        <div>
+                            <div class="ticker-card-sym">{{ t.symbol }}</div>
+                            <div class="ticker-card-name">{{ t.company_name }}</div>
+                        </div>
+                        <span class="ticker-card-sector">{{ t.sector }}</span>
+                    </div>
+                    <div class="ticker-card-stats">
+                        {% if t.ai_score is not none %}
+                        <div class="ticker-card-stat">
+                            <span class="ticker-card-stat-label">AI Score</span>
+                            <span class="ticker-card-stat-value score">{{ '%.1f'|format(t.ai_score) }}</span>
+                        </div>
+                        {% endif %}
+                        {% if t.best_month %}
+                        <div class="ticker-card-stat">
+                            <span class="ticker-card-stat-label">Best Month</span>
+                            <span class="ticker-card-stat-value pos">{{ t.best_month }}{% if t.best_month_return is not none %} ({{ '%+.1f'|format(t.best_month_return) }}%){% endif %}</span>
+                        </div>
+                        {% endif %}
+                        {% if t.worst_month %}
+                        <div class="ticker-card-stat">
+                            <span class="ticker-card-stat-label">Worst Month</span>
+                            <span class="ticker-card-stat-value neg">{{ t.worst_month }}{% if t.worst_month_return is not none %} ({{ '%+.1f'|format(t.worst_month_return) }}%){% endif %}</span>
+                        </div>
+                        {% endif %}
+                        {% if t.active_patterns > 0 %}
+                        <div class="ticker-card-stat">
+                            <span class="ticker-card-stat-label">Active Patterns</span>
+                            <span class="ticker-card-stat-value" style="color:var(--accent-hover);">{{ t.active_patterns }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <span class="ticker-card-arrow">&#8594;</span>
+                </a>
+                {% endfor %}
+            </div>
+
+            <div class="cta-strip">
+                <h2>See the Full Analysis</h2>
+                <p>Wave Viewer shows every seasonal window, AI score, and election-cycle overlay in real time. Free to start.</p>
+                <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Start Free</a>
+            </div>
+
+            <p class="updated-stamp">Last updated {{ generated_at }}</p>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div style="display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-bottom: 20px;">
+                <a href="/" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Home</a>
+                <a href="/patterns/" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">All Patterns</a>
+                <a href="/scorecard" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Scorecard</a>
+                <a href="/wave-viewer" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Wave Viewer</a>
+                <a href="/#pricing" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Pricing</a>
+            </div>
+            <div class="footer-bottom">
+                <p class="footer-copyright">&copy; {{ current_year }} Tara Data Research LLC. All rights reserved.</p>
+                <p class="footer-disclaimer">TradeWave provides seasonal pattern analysis and AI scoring for educational purposes only. Nothing on this site constitutes investment advice, a buy or sell recommendation, or a solicitation to trade securities. Past performance does not guarantee future results. Trading involves risk of loss.</p>
+                <div class="footer-account nav-logged-in" style="display:none;">
+                    <a href="/my-account/">My Account</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function filterSector(sector, btn) {
+            document.querySelectorAll('.sector-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            document.querySelectorAll('.ticker-card').forEach(function(card) {
+                if (sector === 'all' || card.getAttribute('data-sector') === sector) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Auth (shared pattern)
+        (function() {
+            function applyAuth(data) {
+                if (!data || !data.logged_in) return;
+                var level = data.level || 'free';
+                document.querySelectorAll('.nav-logged-out').forEach(function(el) { el.style.display = 'none'; });
+                document.querySelectorAll('.nav-logged-in').forEach(function(el) { el.style.display = ''; });
+                document.querySelectorAll('.pricing-signup-btn').forEach(function(el) {
+                    if (level === 'strategist') {
+                        el.setAttribute('href', el.getAttribute('data-strategist-href') || '/wave-viewer');
+                        el.textContent = el.getAttribute('data-strategist-text') || 'Launch Wave Viewer';
+                    } else if (level === 'analyst') {
+                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ upgrade_url }}');
+                        el.textContent = 'Upgrade to Strategist';
+                    } else {
+                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ upgrade_url }}');
+                        el.textContent = 'Upgrade';
+                    }
+                });
+                var navCta = document.querySelector('.nav-logged-in-cta');
+                if (navCta) {
+                    if (level === 'strategist') {
+                        navCta.setAttribute('href', '/wave-viewer');
+                        navCta.textContent = 'Wave Viewer';
+                    } else {
+                        navCta.setAttribute('href', '{{ upgrade_url }}');
+                        navCta.textContent = 'Upgrade';
+                    }
+                }
+            }
+            var cached = sessionStorage.getItem('tw_auth');
+            if (cached) { try { applyAuth(JSON.parse(cached)); } catch(e) {} }
+            fetch('/tw-auth-check.php', { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    sessionStorage.setItem('tw_auth', JSON.stringify(data));
+                    applyAuth(data);
+                })
+                .catch(function() {});
+        })();
+    </script>
+</body>
+</html>

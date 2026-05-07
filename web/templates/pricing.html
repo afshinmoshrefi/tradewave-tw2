@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TradeWave — Pricing</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: rgb(15, 10, 21);
+      color: #e5e7eb;
+      min-height: 100vh;
+    }
+    .nav {
+      background: rgba(15,10,21,0.95);
+      border-bottom: 1px solid #1f2937;
+      padding: 16px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .nav .logo {
+      font-size: 22px; font-weight: 800;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-decoration: none;
+    }
+    .nav a.btn {
+      color: white;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      padding: 8px 18px; border-radius: 8px;
+      text-decoration: none; font-weight: 600;
+    }
+    .container { max-width: 1100px; margin: 64px auto; padding: 0 24px; }
+    h1 {
+      font-size: 42px;
+      background: linear-gradient(135deg, #ffffff, #c7d2fe);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px; text-align: center;
+    }
+    .subtitle { color: #9ca3af; text-align: center; margin-bottom: 48px; }
+    .tiers { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+    .tier {
+      background: rgba(25,22,35,0.6);
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 32px;
+    }
+    .tier.highlighted {
+      border-color: #6366f1;
+      background: rgba(99,102,241,0.05);
+    }
+    .tier h2 { margin: 0 0 8px 0; font-size: 24px; }
+    .price { font-size: 36px; font-weight: 800; margin: 12px 0; }
+    .price .small { font-size: 16px; color: #9ca3af; font-weight: 500; }
+    .features { list-style: none; padding: 0; margin: 24px 0; }
+    .features li { padding: 8px 0; color: #d1d5db; }
+    .features li:before { content: "✓ "; color: #34d399; font-weight: 700; }
+    .cta {
+      display: block; text-align: center;
+      padding: 14px 24px; border-radius: 12px;
+      text-decoration: none; font-weight: 600;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+    }
+    .cta.disabled {
+      background: #374151; cursor: not-allowed;
+      pointer-events: none;
+    }
+    .current { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(52,211,153,0.15); color: #34d399; font-size: 12px; margin-left: 8px; }
+    .deferred {
+      background: rgba(251,191,36,0.1);
+      border: 1px solid rgba(251,191,36,0.3);
+      color: #fcd34d;
+      padding: 16px; border-radius: 12px;
+      margin: 32px 0;
+      text-align: center;
+    }
+    @media (max-width: 768px) {
+      .tiers { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/" class="logo">TradeWave</a>
+    {% if user %}
+    <a href="/account" class="btn">Account</a>
+    {% else %}
+    <a href="/login" class="btn">Sign in</a>
+    {% endif %}
+  </nav>
+
+  <div class="container">
+    <h1>Simple Pricing for Serious Traders</h1>
+    <p class="subtitle">Start free, upgrade when you're ready.</p>
+
+    <div class="deferred">
+      <strong>⚠️ Stripe Checkout flow ready in Phase 5.</strong> Buttons below will activate once Stripe price IDs are configured in <code>/home/flask/config.py</code>.
+    </div>
+
+    <div class="tiers">
+      <div class="tier">
+        <h2>Explorer{% if user and user.tier == 'explorer' %}<span class="current">current</span>{% endif %}</h2>
+        <div class="price">Free</div>
+        <ul class="features">
+          <li>Today's top 5 patterns</li>
+          <li>Real-time prices + earnings dates</li>
+          <li>1 portfolio, 5 tracked opportunities</li>
+          <li>Election-cycle overlay</li>
+        </ul>
+        {% if user %}
+          {% if user.tier == 'explorer' %}<a href="/app/" class="cta">Open Wave Viewer</a>{% else %}<span class="cta disabled">Currently on a higher tier</span>{% endif %}
+        {% else %}
+          <a href="/signup" class="cta">Sign up free</a>
+        {% endif %}
+      </div>
+
+      <div class="tier highlighted">
+        <h2>Analyst{% if user and user.tier == 'analyst' %}<span class="current">current</span>{% endif %}</h2>
+        <div class="price">$41<span class="small">/mo billed yearly</span></div>
+        <p style="color:#9ca3af;font-size:13px;margin-top:-4px;">or $58/mo</p>
+        <ul class="features">
+          <li>All US stocks + ETFs + indices</li>
+          <li>AI Pattern Analyst with scoring</li>
+          <li>Custom start dates + manual PE filter</li>
+          <li>25 portfolios / 100 opps / 5×50 watchlists</li>
+          <li>Weekly Q&A webinar</li>
+          <li>Email support</li>
+        </ul>
+        <a href="/api/stripe/create-checkout?tier=analyst&period=yearly" class="cta disabled" id="cta-analyst-yearly">Try free for 7 days</a>
+      </div>
+
+      <div class="tier">
+        <h2>Strategist{% if user and user.tier == 'strategist' %}<span class="current">current</span>{% endif %}</h2>
+        <div class="price">$131<span class="small">/mo billed yearly</span></div>
+        <p style="color:#9ca3af;font-size:13px;margin-top:-4px;">or $199/mo</p>
+        <ul class="features">
+          <li>Everything in Analyst, plus:</li>
+          <li>All 15 markets, full coverage</li>
+          <li>Auto PE-cycle detection in Opportunity Table</li>
+          <li>100 portfolios / 500 opps / 50×500 watchlists</li>
+          <li>Weekly strategy Zoom</li>
+          <li>Premium support</li>
+        </ul>
+        <a href="/api/stripe/create-checkout?tier=strategist&period=yearly" class="cta disabled" id="cta-strategist-yearly">Try free for 7 days</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

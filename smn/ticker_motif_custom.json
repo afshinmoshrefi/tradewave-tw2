@@ -1,0 +1,1123 @@
+{
+  "GC": {
+    "motifs": [
+      "macro editorial photo of scattered gold bullion coins on a dark matte surface with shallow depth of field, warm highlights and crisp metallic texture, subtle out-of-focus abstract candlestick-chart shapes in the background glow (no readable text), institutional finance news style lighting",
+      "stacked bullion ingots (not jewelry) arranged in clean geometric rows on brushed steel trays in a professional storage setting, warm tungsten reflections and cool rim light, shallow depth of field, premium financial editorial photography look, no people, no text, no logos",
+      "sealed bullion assay package on a pristine stainless steel inspection table, transparent packaging revealing a small polished gold ingot with weight and purity certification markings, soft directional studio lighting, documentary commodity authentication photography, neutral gray background, no people, no text",
+      "wide cinematic shot inside a modern precious-metals refining facility: stainless piping, controlled steam haze, warm industrial lighting reflecting off metal surfaces, conveyor or staging area with uniform metallic ingot-like shapes, clean editorial composition, no signage, no people, no text",
+      "finance-safe-haven concept image: sleek glass financial district interior with sunrise light casting warm gold tones across a polished conference table, faint abstract gold price line-chart reflection in the window glass (no readable ticks), minimal high-end institutional style, generous negative space"
+    ]
+  },
+  "BA": {
+    "motifs": [
+      "Boeing 787 Dreamliner inside a bright final assembly line with teal and white livery colors",
+      "Boeing 737 MAX rollout scene with blue and white factory paint scheme",
+      "freshly painted Boeing jet emerging from a massive aircraft hangar in Boeing house colors",
+      "two Boeing aircraft in clean Boeing-style blue and white test-flight livery taxiing together",
+      "Boeing airframe sections suspended in a high tech assembly hall with signature blue accents"
+    ]
+  },
+  "LMT": {
+    "motifs": [
+      "F-35 fighter jet in a spotless maintenance hangar with matte gray stealth coating",
+      "multiple F-35s lined up on a runway with their characteristic angular gray surfaces",
+      "C-5 Galaxy military transport parked on a tarmac in neutral gray air mobility colors",
+      "Lockheed Martin aerospace floor assembling large aircraft structures under bright lighting",
+      "wide view of an airfield with F-35 silhouettes parked in formation"
+    ]
+  },
+  "NOC": {
+    "motifs": [
+      "B-2 Spirit stealth bomber sitting on a runway at dusk with its distinctive dark gray flying wing shape",
+      "B-21 style stealth aircraft silhouette inside a dim hangar with soft overhead lighting",
+      "stealth aircraft assembly line with flying wing sections in matte black and gray",
+      "military aerospace facility preparing a stealth aircraft for testing",
+      "low profile radar-evading aircraft parked under hangar floodlights"
+    ]
+  },
+  "RTX": {
+    "motifs": [
+      "Pratt & Whitney jet engine test cell with a modern turbofan in metallic silver and blue accents",
+      "turbine blade manufacturing line with polished titanium components and robotics",
+      "aerospace avionics lab with dark racks of sensors and illuminated instrumentation",
+      "large turbofan engine core being assembled on a spotless factory floor",
+      "rows of aerospace electronic modules arranged in a clean inspection room"
+    ]
+  },
+  "GD": {
+    "motifs": [
+      "aircraft systems integration lab with large aerospace components on test stands",
+      "aerospace manufacturing bay assembling fuselage structures in metallic gray",
+      "precision assembly room with aircraft hydraulic systems being fitted",
+      "industrial aerospace research facility with flight hardware on platforms",
+      "large composite aircraft components arranged under overhead cranes"
+    ]
+  },
+  "HII": {
+    "motifs": [
+      "aerospace structural fabrication hall with massive metal airframe components",
+      "industrial facility assembling large metallic sections for defense aviation",
+      "rows of heavy duty aerospace parts lined up on fabrication platforms",
+      "precision machining of large structural components inside a vast workshop",
+      "aerospace welding and fitting bays assembling large scale structures"
+    ]
+  },
+  "LHX": {
+    "motifs": [
+      "advanced avionics testing lab with glowing screens and integrated aircraft systems",
+      "aerospace electronics assembly line producing high reliability flight modules",
+      "secure communications equipment room with racks of polished metal hardware",
+      "flight-ready sensor arrays undergoing calibration in a clean facility",
+      "system integration environment filled with ruggedized avionics units"
+    ]
+  },
+  "TXT": {
+    "motifs": [
+      "Bell helicopter airframes in a clean assembly hall with matte gray and metallic tones",
+      "Cessna jets lined up outside a hangar in white and silver general aviation paint schemes",
+      "aerospace assembly floor with aircraft fuselage sections suspended on jigs",
+      "light jet production area with partially completed aircraft under bright lighting",
+      "helicopter maintenance bay featuring exposed rotor hubs and transmission systems"
+    ]
+  },
+  "GE": {
+    "motifs": [
+      "row of GE aviation turbofan engines in metallic silver and blue accents on a factory floor",
+      "jet engine fan blades aligned for inspection under bright studio lighting",
+      "large engine cores suspended from overhead cranes inside an industrial hall",
+      "precision engine assembly area with robotics and diagnostic panels",
+      "completed turbofan engines staged for delivery in a spotless assembly room"
+    ]
+  },
+  "HON": {
+    "motifs": [
+      "aerospace avionics production line with black and silver flight displays on conveyors",
+      "cockpit systems integration bay with illuminated instrument panels pre-installation",
+      "flight control electronics arranged neatly across a clean test bench",
+      "precision manufacturing of navigation systems under bright overhead lights",
+      "rows of compact avionics modules aligned for quality inspection"
+    ]
+  },
+  "SPR": {
+    "motifs": [
+      "Boeing fuselage sections in signature green primer lining a massive assembly hall",
+      "wing structures suspended by cranes inside a high ceiling aerospace factory",
+      "rows of large cylindrical aircraft bodies aligned for final assembly",
+      "aircraft frames on yellow support platforms under intense industrial lighting",
+      "Spirit AeroSystems factory floor assembling major structural components"
+    ]
+  },
+  "ERJ": {
+    "motifs": [
+      "Embraer regional jets in blue and white house colors parked outside a final assembly hangar",
+      "regional jet assembly hall with white and navy aircraft bodies on stands",
+      "Embraer aircraft taxiing near a compact terminal with signature tail colors",
+      "multiple regional jets parked on a warm ramp with blue accented tail designs",
+      "clean maintenance hangar with Embraer aircraft in metallic and blue paint schemes"
+    ]
+  },
+  "AIR": {
+    "motifs": [
+      "aircraft maintenance hangar with a narrow-body jet in white and light gray colors",
+      "open engine cowling exposing a metallic turbofan during inspection",
+      "wide hangar scene with aircraft in neutral white service liveries",
+      "rows of aircraft components staged neatly inside a maintenance facility",
+      "MRO bay with a jet raised on jacks under bright white lighting"
+    ]
+  },
+  "AJRD": {
+    "motifs": [
+      "liquid rocket engine mounted on a static test stand with metallic copper and steel details",
+      "rocket engine turbomachinery in a clean assembly bay with silver piping",
+      "warehouse floor with multiple rocket engine components arranged on stands",
+      "propulsion control room with engine telemetry displays glowing softly",
+      "rocket propulsion hardware undergoing assembly under industrial lighting"
+    ]
+  },
+  "RKLB": {
+    "motifs": [
+      "Rocket Lab launch vehicle on a minimalist black and white coastal launch pad",
+      "sleek black rocket stage being prepared inside a clean facility",
+      "mission control room with dark consoles and bright trajectory displays",
+      "satellite payload inside a black and white fairing under clean room lighting",
+      "rocket positioned on launch mount at night with floodlights illuminating its surface"
+    ]
+  },
+  "MAXR": {
+    "motifs": [
+      "Earth observation satellite in a clean room with white and gold thermal blankets",
+      "ground station with large silver satellite dishes aimed at the sky",
+      "satellite assembly bay with solar panels and antenna structures on supports",
+      "operations center with Earth imagery across large wall displays",
+      "satellite bus under construction with metallic framework exposed"
+    ]
+  },
+  "UAL": {
+    "motifs": [
+      "United Airlines style jet at a gate in blue and gold tail colors with no logos",
+      "United style blue and white airliner taxiing near a terminal",
+      "multiple aircraft in United style blue-gold tail palette lined up at airport stands",
+      "United color scheme jet rotating on takeoff with runway markings visible",
+      "airliner in United style blue-white livery parked at a gate under mid-day light"
+    ]
+  },
+  "DAL": {
+    "motifs": [
+      "Delta style jet at a terminal featuring red-navy tail colors without logos",
+      "airliner in Delta style red-navy livery taxiing on a runway with terminal buildings behind",
+      "Delta style palette jets parked in a row at adjacent gates",
+      "aircraft in Delta style red-navy tail design climbing after takeoff with city backdrop",
+      "Delta style narrow-body jet under bright sunlight at a gate"
+    ]
+  },
+  "AAL": {
+    "motifs": [
+      "American Airlines style jet with metallic silver fuselage and red-blue tail stripes at a gate",
+      "silver fuselage jet in American style taxiing past a terminal with red-blue striped tail",
+      "row of aircraft in American style silver with red-blue tails parked at mainline gates",
+      "American style livery jet rolling on the runway during takeoff",
+      "silver airliner with American style tri-color tail parked under warm light"
+    ]
+  },
+  "JBLU": {
+    "motifs": [
+      "JetBlue style jet at a gate with blue mosaic tail design without logos",
+      "narrow-body jet with JetBlue style blue patterned tail taxiing past airport windows",
+      "JetBlue style aircraft lined up on a ramp with dark blue tail mosaic patterns",
+      "single aisle jet in JetBlue style blue-white livery preparing for pushback",
+      "airliner with JetBlue style blue mosaic tail scheme climbing through light clouds"
+    ]
+  },
+  "LUV": {
+    "motifs": [
+      "Southwest style jet at a gate with red yellow and blue tail colors without logos",
+      "bright Southwest style tri-color jet taxiing on a sunny runway",
+      "multiple jets in the Southwest red-yellow-blue palette lined up at a low-rise terminal",
+      "737 style jet in Southwest warm tri-color paint rotating on takeoff",
+      "aircraft with bold Southwest style red-yellow-blue color blocks parked on a ramp"
+    ]
+  },
+  "ALGT": {
+    "motifs": [
+      "Allegiant style jet at a small regional airport with blue tail and orange sunburst colors",
+      "airliner with Allegiant style blue-orange tail palette parked near a simple terminal",
+      "Allegiant colored jet taxiing on a narrow taxiway in bright sunlight",
+      "jet in Allegiant blue-orange tail palette parked at a remote stand",
+      "aircraft taking off with Allegiant style warm tail colors visible against the sky"
+    ]
+  },
+  "SKYW": {
+    "motifs": [
+      "regional jet with SkyWest style navy and white tail colors parked at a commuter gate",
+      "compact jet in SkyWest style dark blue and white palette taxiing beside a mainline aircraft",
+      "regional jets in SkyWest style navy-white schemes lined up on a ramp",
+      "aircraft in SkyWest subdued navy-white palette turning toward the runway",
+      "small jet with SkyWest style navy-white tail design parked on a quiet apron"
+    ]
+  },
+  "SAVE": {
+    "motifs": [
+      "Spirit Airlines style bright yellow jet parked at a budget terminal gate",
+      "all-yellow Spirit style narrow-body jet taxiing under full sunlight",
+      "yellow Spirit style jet with black accent striping parked on a minimalist ramp",
+      "single aisle aircraft in Spirit style yellow livery preparing for departure",
+      "Spirit style yellow fuselage jet rotating on takeoff in clear blue skies"
+    ]
+  },
+  "HA": {
+    "motifs": [
+      "Hawaiian Airlines style jet at an island airport with purple-pink tail colors without logos",
+      "airliner in Hawaiian style purple-pink palette taxiing near palm trees and mountains",
+      "jet with Hawaiian style purple-pink tail parked near an ocean shoreline",
+      "aircraft in Hawaiian style purple-pink tail scheme taking off over blue water",
+      "jet with Hawaiian style island-inspired tail palette parked under warm sunset light"
+    ]
+  },
+  "SPX": {
+    "motifs": [
+      "aerial view of Lower Manhattan financial district at golden hour, glass towers reflecting warm sunset light, Hudson River visible, editorial documentary photography style, no people, no text",
+      "New York Stock Exchange building exterior on Wall Street, neoclassical columns in soft morning light, quiet street scene, professional institutional photography, no people, no logos",
+      "Manhattan skyline from Brooklyn Bridge perspective at blue hour, city lights beginning to glow, financial district towers silhouetted, editorial landscape photography",
+      "One World Trade Center and surrounding financial district towers against clear blue sky, modern glass architecture, wide establishing shot, professional documentary style",
+      "Wall Street canyon view looking up at historic and modern buildings, dramatic perspective, soft diffused daylight, architectural photography style, empty street"
+    ]
+  },
+  "DJI": {
+    "motifs": [
+      "New York Stock Exchange facade with American flags, neoclassical architecture in warm afternoon light, quiet moment, institutional documentary photography, no people visible",
+      "Lower Manhattan financial district at dawn, first light hitting glass towers, professional editorial style, serene atmosphere",
+      "historic Wall Street architecture mixed with modern glass towers, morning light, documentary photography aesthetic"
+    ]
+  },
+  "NDX": {
+    "motifs": [
+      "modern tech campus architecture with clean glass and steel lines, Silicon Valley aesthetic, bright California daylight, corporate editorial photography",
+      "sleek contemporary office buildings with geometric patterns, professional institutional style, clear sky, no logos or text",
+      "abstract reflection patterns in modern tech headquarters glass facade, minimalist architectural photography"
+    ]
+  },
+  "AAPL": {
+    "motifs": [
+      "Apple Store glass cube architecture in urban plaza at blue hour, glowing white Apple logo visible through glass, iconic retail landmark, professional street photography",
+      "minimalist Apple Store interior with warm wood tables displaying products under bright gallery lighting, clean modern retail aesthetic, architectural photography",
+      "aerial view of Apple Park circular headquarters in Cupertino surrounded by trees, distinctive ring-shaped glass building, California golden hour light, corporate campus photography",
+      "close-up of premium aluminum laptop and smartphone on minimal white desk, soft natural window light, high-end consumer electronics product photography aesthetic",
+      "Apple Store facade with large illuminated Apple logo on glass wall, evening city setting, modern retail architecture, editorial street photography"
+    ]
+  },
+  "MSFT": {
+    "motifs": [
+      "Microsoft corporate campus in Redmond with modern glass buildings among Pacific Northwest evergreens, overcast Seattle-area light, tech headquarters photography",
+      "massive cloud data center exterior with industrial cooling infrastructure, hyperscale technology architecture, professional corporate photography",
+      "rows of illuminated server racks in pristine data center interior, cool blue operational lighting, technology infrastructure documentary style",
+      "Surface laptop and devices arranged on modern desk setup, premium consumer electronics, clean product photography aesthetic",
+      "Microsoft headquarters building with reflective glass facade, Puget Sound corporate campus setting, professional architectural photography"
+    ]
+  },
+  "GOOGL": {
+    "motifs": [
+      "Google campus in Mountain View with colorful bikes and modern architecture, bright California sunshine, iconic tech company headquarters photography",
+      "vast data center interior with endless server rows and distinctive colored pipe infrastructure, massive tech scale, industrial documentary photography",
+      "Googleplex campus courtyard with contemporary architecture and outdoor workspaces, Silicon Valley tech aesthetic, corporate editorial photography",
+      "Android statue garden with green robot figures at tech headquarters, playful campus landmark, professional corporate photography",
+      "modern tech office interior with open collaborative workspace design, bright natural light, contemporary workplace editorial photography"
+    ]
+  },
+  "AMZN": {
+    "motifs": [
+      "Amazon Spheres glass conservatory domes in Seattle with lush interior gardens visible through glass, iconic headquarters architecture, urban landmark photography",
+      "massive fulfillment center interior with signature orange Kiva robots and towering shelving systems, logistics automation at scale, industrial documentary photography",
+      "Amazon delivery van in Prime blue livery on suburban residential street, last-mile logistics moment, commercial fleet photography",
+      "aerial view of enormous distribution warehouse complex with geometric rooftop patterns, industrial logistics infrastructure at scale, professional documentary style",
+      "automated warehouse floor with organized grid of mobile robots, modern logistics technology, clean operational environment, technology documentary photography"
+    ]
+  },
+  "NVDA": {
+    "motifs": [
+      "NVIDIA headquarters building in Santa Clara with distinctive green company branding, modern Silicon Valley tech campus architecture, corporate photography",
+      "close-up of high-performance graphics card with illuminated green LED accents, gaming and AI hardware product photography, dramatic lighting",
+      "dense GPU server rack installation with green accent lighting in data center environment, AI computing infrastructure at scale, technology documentary photography",
+      "semiconductor clean room interior with yellow lithography lighting and advanced fabrication equipment, chip manufacturing environment, industrial technology documentary",
+      "AI supercomputer installation with massive cooling infrastructure and dense compute arrays, cutting-edge technology at scale, professional technical documentary"
+    ]
+  },
+  "META": {
+    "motifs": [
+      "Meta headquarters campus sign at entrance, modern Menlo Park tech campus setting, Silicon Valley corporate landmark photography",
+      "hyperscale data center with distinctive architectural cooling towers, massive social media infrastructure, professional industrial photography",
+      "VR headset and controllers on minimal white surface, virtual reality consumer technology product, clean studio lighting, premium product photography",
+      "vast server farm interior with blue LED lighting and organized cable infrastructure, social media scale technology, data center documentary photography",
+      "modern tech campus with open collaborative architecture and indoor green spaces, contemporary Silicon Valley workplace, editorial corporate photography"
+    ]
+  },
+  "TSLA": {
+    "motifs": [
+      "Tesla vehicle in modern showroom with prominent red Tesla T logo on wall, electric vehicle retail environment, automotive photography",
+      "row of Tesla Superchargers with vehicles charging, distinctive red branding visible, EV infrastructure photography, clean modern aesthetic",
+      "Tesla Gigafactory exterior showing massive industrial scale, modern EV manufacturing architecture, professional corporate photography",
+      "automotive assembly line with robotic arms working on vehicle bodies, modern EV manufacturing technology, industrial documentary photography",
+      "close-up of Tesla steering wheel with T logo and large touchscreen display, premium EV interior detail, automotive product photography"
+    ]
+  },
+  "KO": {
+    "motifs": [
+      "classic red Coca-Cola vending machine on urban street corner in warm afternoon light, iconic American beverage branding, street photography style",
+      "close-up of ice-cold Coca-Cola glass bottles in carrier with condensation droplets, classic contour bottle shape, beverage product photography",
+      "vintage Coca-Cola neon sign glowing red at night on brick building exterior, iconic American brand landmark, urban night photography",
+      "high-speed beverage bottling line with glass bottles moving through filling equipment, industrial beverage manufacturing, production documentary photography",
+      "Coca-Cola delivery truck in signature red livery on city street, beverage distribution logistics, commercial photography"
+    ]
+  },
+  "PEP": {
+    "motifs": [
+      "Pepsi blue vending machine in modern urban setting, iconic beverage branding, commercial street photography",
+      "close-up of chilled Pepsi bottles with blue labels and condensation, refreshment product photography aesthetic",
+      "Frito-Lay snack products display in retail store aisle, colorful PepsiCo brand portfolio, commercial product photography",
+      "beverage bottling plant production line with high-speed filling equipment, modern food and beverage manufacturing, industrial documentary",
+      "PepsiCo brand products arranged showing portfolio diversity, consumer packaged goods photography, commercial style"
+    ]
+  },
+  "WMT": {
+    "motifs": [
+      "Walmart Supercenter exterior with large blue signage and spark logo against clear sky, American retail architecture, commercial photography",
+      "Walmart store entrance with shopping cart corral and blue branding elements, retail operations moment, documentary photography style",
+      "inside Walmart store aisle with organized shelving and blue directional signage, retail interior, commercial documentary aesthetic"
+    ]
+  },
+  "COST": {
+    "motifs": [
+      "Costco warehouse exterior with distinctive red and blue company signage, membership retail architecture, commercial photography",
+      "Costco interior with high warehouse ceilings and bulk merchandise on industrial shelving, wholesale retail scale, documentary photography",
+      "shopping carts lined up outside Costco entrance, retail operations scene, commercial documentary style"
+    ]
+  },
+  "TGT": {
+    "motifs": [
+      "Target store exterior with iconic red bullseye logo on white facade, modern retail architecture, commercial photography",
+      "Target shopping cart with red bullseye branding in store parking lot, American retail landmark, documentary photography style"
+    ]
+  },
+  "JPM": {
+    "motifs": [
+      "JPMorgan Chase headquarters tower at 383 Madison Avenue in Manhattan, modern financial district architecture, corporate photography",
+      "Chase bank branch exterior with blue octagon logo signage, American retail banking, commercial street photography",
+      "Wall Street area JPMorgan building with distinctive corporate architecture, investment banking landmark, professional architectural photography"
+    ]
+  },
+  "GS": {
+    "motifs": [
+      "Goldman Sachs headquarters at 200 West Street in Lower Manhattan, modern glass investment banking tower, financial district architecture photography",
+      "Goldman Sachs building exterior in New York financial district, prestigious Wall Street institution, corporate architectural photography"
+    ]
+  },
+  "BAC": {
+    "motifs": [
+      "Bank of America corporate tower in Charlotte NC with company signage, banking headquarters architecture, professional corporate photography",
+      "Bank of America branch with distinctive red signage on urban street corner, retail banking presence, commercial photography"
+    ]
+  },
+  "DIS": {
+    "motifs": [
+      "Cinderella Castle at Magic Kingdom during blue hour with warm lights glowing, iconic Disney theme park landmark, travel photography",
+      "Walt Disney Studios water tower with Mickey ears silhouette in Burbank, entertainment industry landmark, corporate campus photography",
+      "Disneyland entrance with classic Disney script lettering and floral displays, theme park arrival experience, editorial travel photography"
+    ]
+  },
+  "NFLX": {
+    "motifs": [
+      "Netflix red N logo glowing on large television screen in darkened living room, streaming entertainment moment, lifestyle technology photography",
+      "Netflix headquarters campus in Los Gatos with company signage and modern architecture, Silicon Valley tech entertainment company, corporate photography",
+      "film production set with cameras and lighting equipment, Netflix original content production, entertainment industry documentary photography",
+      "smartphone displaying Netflix app interface with red branding held in hand, mobile streaming entertainment, lifestyle product photography",
+      "home theater setup with Netflix content on large screen, premium streaming experience, consumer entertainment lifestyle photography"
+    ]
+  },
+  "MCD": {
+    "motifs": [
+      "McDonald's golden arches sign illuminated against blue sky, iconic American fast food landmark, commercial photography",
+      "McDonald's restaurant exterior with classic red and yellow color scheme and drive-thru lane, quick service retail architecture, street photography",
+      "Big Mac, fries and drink on McDonald's branded tray, iconic fast food product photography, commercial food styling",
+      "McDonald's drive-thru window with cars in queue, quick service restaurant operations, American commercial documentary photography",
+      "McDonald's kitchen with crew preparing food on stainless steel equipment, fast food operations behind the scenes, editorial restaurant photography"
+    ]
+  },
+  "SBUX": {
+    "motifs": [
+      "Starbucks storefront with green siren logo and warm interior lighting visible through windows, urban coffee shop, lifestyle photography",
+      "Starbucks green cup held on city street, iconic coffee brand moment, lifestyle documentary photography",
+      "Starbucks Reserve Roastery interior with copper roasting equipment, premium coffee experience, editorial interior photography"
+    ]
+  },
+  "XOM": {
+    "motifs": [
+      "ExxonMobil gas station with blue and red Exxon signage at dusk, iconic American fuel retail, commercial street photography",
+      "massive ExxonMobil oil refinery complex with towers and flare stacks against twilight sky, industrial energy production at scale, documentary photography",
+      "ExxonMobil oil supertanker at sea or docked at terminal, global petroleum logistics scale, maritime industrial photography",
+      "petrochemical manufacturing facility with complex piping and reactor towers, ExxonMobil chemicals production, industrial infrastructure photography",
+      "aerial view of sprawling ExxonMobil refinery complex showing industrial scale, major oil processing infrastructure, professional documentary style"
+    ]
+  },
+  "CVX": {
+    "motifs": [
+      "Chevron gas station with red and blue hallmark logo against California blue sky, West Coast fuel retail, commercial photography",
+      "Chevron oil drilling rig in Permian Basin desert landscape, upstream energy exploration, industrial documentary photography",
+      "Chevron offshore drilling platform in Pacific waters, deepwater energy extraction, maritime industrial photography",
+      "oil well pump jacks with Chevron branding in West Texas oilfield at golden hour, American energy production, landscape industrial photography",
+      "Chevron refinery at El Segundo or Richmond California with coastal setting, West Coast energy infrastructure, industrial architectural photography"
+    ]
+  },
+  "CL": {
+    "motifs": [
+      "crude oil pump jack silhouetted against orange Texas sunset, American energy production iconic image, industrial landscape photography",
+      "rows of oil storage tanks at Cushing Oklahoma hub aerial view, crude oil commodity infrastructure, industrial documentary photography",
+      "black crude oil pouring or flowing in industrial close-up, raw petroleum commodity, abstract industrial photography",
+      "oil pipeline stretching across plains landscape, crude oil transportation infrastructure, American energy documentary photography",
+      "offshore oil platform in Gulf of Mexico waters at dawn, crude oil extraction infrastructure, maritime industrial photography",
+      "oil barrel drums stacked in industrial storage facility, crude petroleum commodity trading, commercial industrial photography"
+    ]
+  },
+  "JNJ": {
+    "motifs": [
+      "Johnson & Johnson headquarters building in New Brunswick NJ with red J&J logo on facade, pharmaceutical corporate campus, professional architectural photography",
+      "Johnson & Johnson pharmaceutical clean room interior with automated stainless steel vial filling and capping machinery under bright white fluorescent lighting, pharmaceutical drug manufacturing at industrial scale, no people, industrial documentary photography",
+      "Band-Aid, Tylenol and Neutrogena products displayed on pharmacy retail shelf, iconic J&J consumer health brands, commercial product photography",
+      "medical device manufacturing facility with precision surgical equipment in production, healthcare technology manufacturing, professional industrial photography",
+      "J&J pharmaceutical research laboratory interior with centrifuges, mass spectrometers, and high-throughput screening instruments arranged on stainless benches under cool lab lighting, pharmaceutical R&D infrastructure, no people, industrial science documentary photography"
+    ]
+  },
+  "PFE": {
+    "motifs": [
+      "Pfizer world headquarters building in Manhattan with blue Pfizer logo signage, pharmaceutical corporate landmark, New York architectural photography",
+      "Pfizer vaccine vials in manufacturing cold storage facility, pharmaceutical production at scale, healthcare industrial documentary photography",
+      "pharmaceutical tablet and capsule production line with high-speed equipment, drug manufacturing facility, industrial healthcare photography",
+      "Pfizer pharmaceutical research laboratory interior with advanced drug discovery equipment \u2014 mass spectrometry instruments, analytical centrifuges, and cold storage units \u2014 under bright laboratory lighting, pharmaceutical R&D infrastructure at scale, no people, industrial documentary photography",
+      "pharmaceutical distribution center with cold chain logistics and Pfizer branded shipping containers, drug supply chain infrastructure, industrial photography"
+    ]
+  },
+  "UNH": {
+    "motifs": [
+      "UnitedHealth Group corporate headquarters tower in Minnetonka Minnesota with company signage, healthcare insurance corporate campus, professional architectural photography",
+      "modern hospital interior with advanced medical imaging equipment and technology, healthcare services environment, medical facility photography",
+      "health insurance customer service center with modern workstations and technology, healthcare operations facility, corporate documentary photography",
+      "medical professional using digital health records system on computer display, healthcare technology in practice, editorial medical photography",
+      "UnitedHealthcare branded signage at medical facility entrance, healthcare insurance presence, commercial healthcare photography"
+    ]
+  },
+  "CAT": {
+    "motifs": [
+      "aerial view of massive Caterpillar manufacturing facility with rows of yellow industrial equipment, heavy machinery production at scale, corporate industrial photography",
+      "vast Caterpillar factory floor with gas turbines and generator systems in production, yellow industrial equipment manufacturing, professional documentary photography",
+      "fleet of large yellow CAT diesel generators and power systems staged at industrial facility, Caterpillar energy equipment at scale, infrastructure photography",
+      "Caterpillar heavy machinery assembly plant with turbines and generators alongside construction equipment, industrial manufacturing scale, editorial documentary style",
+      "massive yellow Caterpillar gas turbine being assembled in factory setting, industrial power generation manufacturing, professional corporate photography"
+    ]
+  },
+  "CL|STOCK": {
+    "motifs": [
+      "pharmacy retail shelf with Colgate-branded toothpaste and oral care products in distinctive blue and white packaging neatly arranged in rows, consumer goods commercial photography, clean retail lighting",
+      "Colgate-Palmolive consumer goods manufacturing facility interior with high-speed automated toothpaste tube filling line, pharmaceutical-grade production environment, blue and white color scheme, industrial documentary photography",
+      "close-up arrangement of Colgate oral care product lineup on a clean white surface, blue and white consumer packaging, beauty and personal care product photography aesthetic",
+      "Colgate-Palmolive corporate headquarters campus with company signage on modern glass office building, consumer goods industry headquarters, professional architectural photography",
+      "supermarket personal care aisle featuring Colgate and Palmolive branded products prominently displayed, consumer packaged goods retail environment, commercial documentary photography"
+    ]
+  },
+  "HD": {
+    "motifs": [
+      "vast interior of a Home Depot warehouse store with signature orange racking systems rising to the ceiling, lumber and building materials filling wide aisles, dramatic wide-angle perspective, retail documentary photography",
+      "Home Depot big-box store exterior with distinctive orange facade and large parking lot at golden hour, suburban home improvement retail architecture, commercial photography",
+      "Home Depot outdoor garden center with seasonal plants and flowers displayed under the signature orange signage canopy, big-box retail garden section, warm daylight, commercial retail photography",
+      "orange-accented power tool department inside a Home Depot warehouse store, organized hardware inventory on industrial shelving, wide retail interior shot, commercial documentary photography",
+      "Home Depot lumber yard section with stacked dimensional lumber on orange warehouse racking, home improvement materials at scale, industrial retail interior photography"
+    ]
+  },
+  "IBM": {
+    "motifs": [
+      "IBM quantum computing system: a gold-colored cylindrical cryogenic dilution refrigerator with blue IBM branding visible in a pristine white research laboratory, quantum hardware editorial photography",
+      "rows of IBM Z-series blue mainframe servers with polished IBM logos and blue status indicator lighting in a modern enterprise data center, IBM computing infrastructure at scale, technology documentary photography",
+      "IBM corporate headquarters building with bold blue IBM logo signage on modern glass architecture, enterprise technology company landmark, professional architectural photography",
+      "IBM Research laboratory interior with advanced computing test benches and blue-white-gray IBM corporate color palette, empty high-tech environment, technology infrastructure editorial photography",
+      "close-up of IBM blue mainframe panel with brushed metallic finish, polished IBM logo, and organized blue indicator lights, enterprise hardware product photography"
+    ]
+  },
+  "ADP": {
+    "motifs": [
+      "ADP corporate headquarters campus in Roseland New Jersey with ADP logo visible on a modern glass office building, enterprise HR and payroll technology company, professional architectural photography",
+      "modern payroll and HR technology operations center with large digital displays showing workforce analytics dashboards, clean corporate environment, business technology editorial photography",
+      "enterprise data center interior with organized server racks and blue LED lighting supporting payroll processing at scale, ADP-style technology infrastructure, documentary photography",
+      "contemporary corporate office workspace with enterprise HR software interfaces displayed on wide monitors, modern business technology environment, commercial editorial photography",
+      "aerial view of a suburban corporate technology campus with multiple modern glass buildings and manicured grounds, enterprise software company headquarters, professional corporate photography"
+    ]
+  },
+  "NEM": {
+    "motifs": [
+      "dramatic aerial view of a large open-pit gold mine with terraced yellow and ochre earth walls, massive yellow haul trucks visible at scale on spiral access roads, industrial landscape documentary photography",
+      "gold mining processing plant infrastructure with industrial conveyors, ore crushers, and processing towers in a remote arid landscape, Newmont-style mining operations, professional industrial photography",
+      "industrial gold pour: molten gold streaming from a crucible into rectangular ingot molds at a smelting facility, dramatic warm metallic glow, precious metals production documentary photography",
+      "massive yellow Caterpillar haul truck in foreground at an open-pit gold mine, towering terraced mine walls stretching into the distance, industrial mining scale photography",
+      "gold mine processing facility at dusk with industrial lighting casting warm reflections off metal equipment surfaces, remote operations center, wide cinematic industrial photography"
+    ]
+  },
+  "BRK.B": {
+    "motifs": [
+      "Berkshire Hathaway headquarters at Kiewit Plaza in Omaha Nebraska, modest mid-century office building exterior with Berkshire Hathaway signage, late afternoon Great Plains light, understated corporate landmark contrasting with the company's immense scale, professional architectural documentary photography",
+      "BNSF Railway locomotive in the company's iconic orange and black livery pulling a long freight consist across the vast Nebraska flatlands, sweeping prairie horizon, golden hour cinematic light, railroad infrastructure documentary photography",
+      "Dairy Queen restaurant exterior with the iconic red DQ logo and soft-serve imagery on a small-town American main street under warm afternoon light, Berkshire Hathaway subsidiary consumer brand, classic American fast food franchise architecture, commercial street photography",
+      "GEICO Insurance corporate campus in Chevy Chase Maryland with prominent GEICO signage on modern office buildings, insurance industry headquarters, suburban corporate campus photography, professional architectural style",
+      "Berkshire Hathaway Energy wind farm with rows of tall turbines stretching to the horizon in the Iowa or Nevada landscape, BHE renewable energy infrastructure, clean energy industrial landscape photography, wide cinematic establishing shot"
+    ]
+  },
+  "V": {
+    "motifs": [
+      "Visa Inc. headquarters campus in Foster City California with prominent Visa wordmark signage on modern glass towers, Silicon Valley financial technology company, professional corporate campus photography, warm California daylight",
+      "close-up of a Visa credit card showing the iconic blue and gold brand mark with holographic security elements on a dark matte surface, financial product photography, shallow depth of field, editorial style",
+      "point-of-sale terminal with Visa contactless payment symbol glowing on a modern retail checkout device, digital payments technology, commercial product photography, clean neutral background",
+      "aerial view of Visa's Foster City campus along San Francisco Bay, contemporary glass office buildings surrounded by water, Silicon Valley financial technology headquarters, professional architectural photography",
+      "data center interior with dense server infrastructure processing millions of payment transactions, financial technology at planetary scale, blue LED operational lighting, technology infrastructure documentary photography"
+    ]
+  },
+  "MA": {
+    "motifs": [
+      "Mastercard headquarters in Purchase New York with the iconic overlapping red and orange circles logo prominently displayed on a modern corporate campus building, financial company landmark, professional architectural photography",
+      "close-up of a Mastercard card with the distinctive overlapping red and yellow circle logo on a dark reflective surface, premium financial product photography, dramatic macro editorial lighting",
+      "contactless payment terminal with Mastercard acceptance logo glowing, modern retail fintech moment, product photography aesthetic, clean studio-style lighting",
+      "Mastercard's Times Square digital advertising presence with the red and orange circles logo illuminated on large outdoor displays, financial brand in iconic New York setting, urban editorial photography",
+      "global financial data infrastructure interior, dense organized server rack environment supporting cross-border payment networks, fintech at scale, cool blue data center documentary photography"
+    ]
+  },
+  "WFC": {
+    "motifs": [
+      "Wells Fargo corporate headquarters tower at 420 Montgomery Street in San Francisco with distinctive red and yellow Wells Fargo signage, West Coast banking landmark, professional urban architectural photography",
+      "Wells Fargo bank branch exterior with signature red and yellow Wells Fargo color scheme and ATM vestibule, American retail banking presence, commercial street photography",
+      "Wells Fargo Center skyscraper in Charlotte North Carolina with red Wells Fargo branding at the top against a clear blue sky, Southeast banking hub, professional corporate architecture photography",
+      "modern Wells Fargo branch interior with contemporary banking design, teller counters and customer service areas under warm institutional lighting, retail banking operations, documentary editorial style",
+      "aerial view of Wells Fargo's San Francisco financial district headquarters surrounded by downtown towers, major American bank urban footprint, city architecture editorial photography"
+    ]
+  },
+  "C": {
+    "motifs": [
+      "Citibank headquarters at 388 Greenwich Street in Tribeca Manhattan with iconic Citi umbrella logo and blue branding on the modern glass tower, Wall Street financial institution landmark, professional architectural photography",
+      "Citibank branded ATM kiosks with distinctive blue and red Citi umbrella logo in an urban banking hall, retail financial services, commercial photography",
+      "Citi Tower exterior at night with illuminated blue Citi branding and corporate windows glowing against the Manhattan skyline, financial district nighttime architectural photography",
+      "Citigroup global trading floor interior concept: rows of dark workstations with multiple screens and blue ambient lighting, investment bank operations environment, financial industry editorial style",
+      "Citi bank branch exterior in a major international financial center with blue and white company signage, global banking presence in urban setting, commercial architectural photography"
+    ]
+  },
+  "MS": {
+    "motifs": [
+      "Morgan Stanley headquarters at 1585 Broadway in Times Square with prominent Morgan Stanley signage on the sleek glass tower, iconic New York financial services landmark, professional architectural photography",
+      "Morgan Stanley wealth management office interior with polished dark wood finishes, contemporary institutional furniture, and floor-to-ceiling windows overlooking Manhattan, premium financial services environment, editorial photography",
+      "Wall Street financial district skyline view including Morgan Stanley and neighboring towers at golden hour, investment banking epicenter, cinematic urban editorial photography",
+      "sleek Morgan Stanley corporate conference room interior with long glass table and Manhattan skyline through panoramic windows, institutional investment banking aesthetic, architectural interior photography",
+      "Morgan Stanley Times Square exterior at dusk with illuminated corporate signage, theater district and financial brand convergence, urban nighttime editorial photography"
+    ]
+  },
+  "BLK": {
+    "motifs": [
+      "BlackRock headquarters at 55 East 52nd Street in Midtown Manhattan with bold BlackRock wordmark signage, major asset management firm landmark, professional architectural photography, New York corporate style",
+      "BlackRock iShares ETF product suite displayed on institutional portfolio management terminals, world's largest ETF provider analytics dashboard, financial data visualization across multiple monitors, asset management technology at scale, editorial financial technology photography",
+      "modern BlackRock office interior with floor-to-ceiling windows offering Manhattan skyline panorama, institutional asset management firm environment, premium corporate interior photography",
+      "BlackRock Aladdin risk management platform operations center with portfolio analytics and global market risk dashboards across a wall of screens, the world's most widely used institutional investment operating system, enterprise financial technology, editorial documentary photography",
+      "sleek institutional trading infrastructure: dark server room with financial analytics hardware and blue LED lighting, systematic investment technology at scale, technology editorial documentary photography"
+    ]
+  },
+  "AXP": {
+    "motifs": [
+      "American Express headquarters at 200 Vesey Street in Lower Manhattan with AmEx blue logo on the tower facade, financial services corporate landmark, professional architectural photography",
+      "premium American Express Centurion card in brushed titanium on a dark matte surface, luxury financial product close-up photography, dramatic editorial macro lighting, brand identity image",
+      "American Express blue centurion logo signage on a travel lounge entrance at an international airport terminal, premium financial services brand in travel context, commercial interior photography",
+      "Centurion Lounge interior at a major airport with premium furnishings and the AmEx blue branding, luxury financial services travel benefit, premium editorial interior photography",
+      "American Express WorldService customer operations center with modern workstations and blue AmEx branded displays, financial services operations at scale, corporate documentary photography"
+    ]
+  },
+  "SCHW": {
+    "motifs": [
+      "Charles Schwab corporate headquarters tower in Westlake Texas with Schwab wordmark and blue brand accents, major retail brokerage headquarters, professional architectural photography",
+      "Schwab Investor Center branch exterior with blue and white Charles Schwab signage on a modern retail financial services location, brokerage retail presence, commercial street photography",
+      "investment brokerage trading platform interfaces on multiple monitors in a modern home office setup, retail investor technology experience, editorial lifestyle technology photography",
+      "Charles Schwab corporate campus in Westlake Texas with multiple modern glass office buildings and Texas landscape, major financial services campus, aerial corporate campus photography",
+      "Schwab Bank and brokerage ATM kiosk in blue and white brand colors at an indoor financial center location, retail financial services touchpoint, commercial product photography"
+    ]
+  },
+  "SPGI": {
+    "motifs": [
+      "S&P Global headquarters at 55 Water Street in Manhattan with company signage, financial data and ratings firm landmark in Lower Manhattan financial district, professional architectural photography",
+      "S&P 500 index ticker display board with streaming financial market data in green and red on dark screens, market intelligence data environment, financial editorial photography",
+      "Platts energy market data operations center with large wall screens showing commodity price feeds and global energy market maps, financial intelligence at scale, editorial technology photography",
+      "financial ratings agency conference room with data analytics displays and market intelligence dashboards, institutional financial data environment, corporate editorial photography",
+      "modern financial data center with organized server infrastructure supporting global market indices and ratings calculations, financial intelligence technology at scale, documentary photography"
+    ]
+  },
+  "USB": {
+    "motifs": [
+      "U.S. Bank corporate headquarters tower at U.S. Bancorp Center in Minneapolis with red U.S. Bank wordmark at the top, Midwest financial institution landmark, professional urban architectural photography",
+      "U.S. Bank branch exterior with distinctive red and white company signage in a suburban banking location, American retail banking, commercial photography",
+      "US Bancorp tower in Minneapolis at dusk with illuminated U.S. Bank red branding against the Minnesota skyline, Midwest banking landmark nighttime architectural photography",
+      "U.S. Bank Stadium exterior in Minneapolis with red US Bank branding visible, regional banking corporate community presence, editorial architectural photography",
+      "modern U.S. Bank branch interior with contemporary retail banking design and red brand accents, teller counter and customer service area, retail banking operations documentary photography"
+    ]
+  },
+  "CB": {
+    "motifs": [
+      "Chubb Limited corporate headquarters in Zurich Switzerland with Chubb wordmark on a classic European commercial building, global insurance firm international headquarters, professional architectural photography",
+      "Chubb Insurance North America headquarters in Whitehouse Station New Jersey with corporate signage on a modern campus building, major insurer domestic operations center, corporate photography",
+      "insurance underwriting operations center with rows of workstations displaying risk analytics and policy management systems, commercial insurance operations at scale, editorial corporate photography",
+      "commercial property risk assessment context: aerial view of dense urban downtown skyline representing insured property at scale, commercial insurance market environment, editorial landscape photography",
+      "Chubb corporate campus exterior with manicured grounds and modern office buildings bearing Chubb branding, premium property and casualty insurance company headquarters, professional architectural photography"
+    ]
+  },
+  "TSM": {
+    "motifs": [
+      "TSMC semiconductor fabrication plant exterior in Hsinchu Science Park Taiwan with clean modern industrial architecture, distinctive cleanroom building design, company signage visible, semiconductor industry landmark, professional architectural photography",
+      "extreme ultraviolet EUV lithography machine inside a TSMC cleanroom, massive precision instrument with complex optical and plasma systems, yellow cleanroom safety lighting, semiconductor manufacturing technology editorial photography",
+      "semiconductor silicon wafers arranged in rows on a cleanroom surface, mirror-like circular discs reflecting cleanroom overhead lighting, precision manufacturing product photography, shallow depth of field",
+      "TSMC advanced packaging facility interior showing automated wafer handling robots moving silicon wafers between processing chambers in yellow cleanroom light, semiconductor automation at scale, industrial technology documentary",
+      "close-up of a completed silicon wafer showing intricate circuit patterns visible under specialized lighting, billions of nanoscale transistors on a single disc, semiconductor product photography, technical editorial style"
+    ]
+  },
+  "AVGO": {
+    "motifs": [
+      "Broadcom corporate headquarters campus in San Jose California with Broadcom wordmark signage on a modern Silicon Valley office building, semiconductor company landmark, professional architectural photography",
+      "close-up of a Broadcom networking ASIC chip mounted on a printed circuit board with intricate copper trace patterns, semiconductor product photography, extreme macro editorial lighting",
+      "data center networking infrastructure with Broadcom-powered switch equipment and dense fiber optic cable routing in organized cable management systems, networking technology at scale, technology documentary photography",
+      "semiconductor chip design workstation with complex VLSI circuit layout software displayed on multiple large monitors, integrated circuit design environment, technology editorial photography",
+      "silicon chip close-up showing multilayer semiconductor architecture under specialized imaging, advanced integrated circuit manufacturing detail, technical product editorial photography"
+    ]
+  },
+  "ORCL": {
+    "motifs": [
+      "Oracle headquarters campus in Austin Texas with distinctive Oracle red wordmark signage on modern glass towers, enterprise software company landmark post-Texas relocation, professional architectural photography",
+      "Oracle Cloud data center exterior with modern industrial architecture, hyperscale cloud infrastructure facility, enterprise technology at scale, professional documentary photography",
+      "Oracle database server hardware: Sun-branded rack servers with Oracle red and white branding in an enterprise data center setting, database technology infrastructure, editorial technology photography",
+      "Oracle Redwood headquarters campus in Austin Texas aerial view showing the new campus design along the Colorado River, tech company architecture, corporate campus photography",
+      "enterprise software database operations center with Oracle-branded server infrastructure and orange Oracle logo accents, large-scale database management environment, technology infrastructure documentary"
+    ]
+  },
+  "AMD": {
+    "motifs": [
+      "AMD Ryzen and EPYC processor chips arranged on a dark matte surface with AMD red logo branding visible on packaging, semiconductor product photography, dramatic macro editorial lighting",
+      "AMD corporate headquarters in Santa Clara California with the red AMD logo on a modern office building, semiconductor company campus, professional architectural photography, Silicon Valley setting",
+      "AMD EPYC server processor installed in a dense data center rack, red AMD branding on chip packaging, enterprise computing infrastructure, technology product photography",
+      "close-up of an AMD Radeon graphics card with red AMD branding and cooling system detail, gaming and compute GPU product photography, dramatic directional lighting",
+      "semiconductor chip wafer with AMD circuit patterns under specialized lighting, silicon manufacturing product, technical editorial photography, clean room aesthetic"
+    ]
+  },
+  "CRM": {
+    "motifs": [
+      "Salesforce Tower at 415 Mission Street in San Francisco with the iconic blue illuminated crown visible above the surrounding skyline, tallest building in San Francisco, distinctive corporate landmark, urban editorial photography at dusk",
+      "Salesforce Tower base exterior with blue Salesforce wordmark and cloud logo on the glass podium, San Francisco downtown landmark, professional architectural street photography",
+      "Salesforce corporate campus in San Francisco's Mission Bay neighborhood with blue Salesforce branding on modern campus buildings, CRM company campus, corporate architectural photography",
+      "aerial view of San Francisco skyline dominated by the distinctive Salesforce Tower with its illuminated blue crown, city landmark photography, cinematic urban landscape, golden hour light",
+      "Salesforce Dreamforce conference infrastructure: large branded installation with blue Salesforce clouds and wordmark at Moscone Center exterior, enterprise software event landmark, commercial event photography"
+    ]
+  },
+  "ADBE": {
+    "motifs": [
+      "Adobe Systems headquarters campus in San Jose California with the iconic red Adobe A logo on a modern glass corporate building, creative software company landmark, professional architectural photography",
+      "Adobe creative software interface displayed on a large professional monitor, vibrant color editing environment with Photoshop or Illustrator workspace, creative technology editorial photography",
+      "Adobe Firefly generative AI creative interface on a professional workstation monitor showing AI-generated imagery being refined in Photoshop, generative AI creative tools, editorial creative technology photography, studio lighting, no people",
+      "professional creative workstation with multiple monitors displaying Adobe Creative Suite applications, color-calibrated screens and graphic tablet, editorial technology lifestyle photography",
+      "Adobe MAX creative conference branding: red Adobe logo on large-scale event signage and exhibition displays, creative software company event presence, commercial event photography"
+    ]
+  },
+  "QCOM": {
+    "motifs": [
+      "Qualcomm headquarters campus in San Diego California with Qualcomm wordmark on modern corporate buildings, mobile semiconductor company landmark, professional architectural photography, Southern California setting",
+      "close-up of a Qualcomm Snapdragon mobile processor chip on a smartphone circuit board, semiconductor product photography, macro editorial lighting, mobile technology detail",
+      "5G antenna infrastructure tower in urban setting representing Qualcomm's cellular technology ecosystem, wireless communication infrastructure, editorial technology photography",
+      "Qualcomm research and development facility interior with advanced wireless testing equipment and antenna arrays, mobile chip company technology environment, editorial corporate photography",
+      "smartphone motherboard close-up with Qualcomm Snapdragon processor clearly labeled, mobile technology component photography, extreme macro editorial style"
+    ]
+  },
+  "INTU": {
+    "motifs": [
+      "Intuit corporate headquarters campus in Mountain View California with Intuit wordmark signage on modern office buildings, fintech software company landmark in Silicon Valley, professional architectural photography",
+      "TurboTax software interface displayed on a laptop screen with tax return preparation environment, consumer financial software product, editorial lifestyle technology photography",
+      "QuickBooks accounting dashboard on a modern desktop computer in a small business setting, small business financial management software, commercial editorial photography",
+      "Credit Karma app interface on a smartphone screen showing personalized credit score and financial recommendations dashboard, Intuit consumer finance product, mobile fintech editorial photography, clean studio background",
+      "Mailchimp brand identity: colorful marketing platform interface on a laptop in a small business context, representing Intuit's acquisition of the marketing technology brand, commercial editorial lifestyle photography"
+    ]
+  },
+  "CSCO": {
+    "motifs": [
+      "Cisco Systems headquarters campus in San Jose California with Cisco bridge logo on a modern glass corporate tower, networking technology company landmark, professional architectural photography",
+      "Cisco enterprise network switch equipment with bridge logo on modular chassis in a data center rack, networking infrastructure product photography, technology editorial style",
+      "data center infrastructure with Cisco-branded switches, routers and cable management systems with characteristic blue and black Cisco hardware, network operations at scale, technology documentary photography",
+      "Cisco Webex collaboration technology: sleek video conference room kit with Cisco branding on camera and touchpad hardware, enterprise collaboration product photography",
+      "close-up of a Cisco IOS-powered router chassis with blue bridge logo and modular port configuration, enterprise networking hardware product photography, technical editorial style"
+    ]
+  },
+  "NOW": {
+    "motifs": [
+      "ServiceNow headquarters campus at 2225 Lawson Lane in Santa Clara California with ServiceNow wordmark on modern glass office buildings, enterprise cloud software company, professional architectural photography",
+      "ServiceNow Now Platform dashboard displayed across multiple large monitors in a modern enterprise IT operations center, digital workflow management software environment, commercial technology photography",
+      "ServiceNow Now Assist AI platform displayed on large enterprise monitors \u2014 intelligent workflow automation dashboards with AI recommendations overlaid on IT service management data \u2014 enterprise AI software in operations context, commercial technology editorial photography",
+      "enterprise IT service management operations center with ServiceNow dashboards visible on large wall screens, ITSM workflow technology in action, corporate documentary photography",
+      "ServiceNow executive briefing center interior with immersive digital displays and the company's signature green and blue color palette, enterprise software showcase environment, commercial interior photography"
+    ]
+  },
+  "INTC": {
+    "motifs": [
+      "Intel headquarters campus in Santa Clara California with Intel corporate logo on the distinctive glass research and development buildings, semiconductor giant landmark, professional architectural photography",
+      "Intel semiconductor fabrication plant cleanroom interior with advanced photolithography equipment under yellow cleanroom lighting, chip manufacturing technology, industrial documentary photography",
+      "close-up of an Intel Core processor in a CPU socket on a motherboard showing pins and processor details, semiconductor product photography, macro editorial lighting",
+      "Intel Campus aerial view showing sprawling Santa Clara headquarters complex with multiple R&D buildings, major technology company headquarters, corporate campus aerial photography",
+      "Intel inside logo branding on a consumer laptop computer, iconic semiconductor brand presence in finished products, commercial product photography, clean editorial style"
+    ]
+  },
+  "MU": {
+    "motifs": [
+      "Micron Technology headquarters campus in Boise Idaho with Micron wordmark on a modern corporate building, memory semiconductor company landmark, professional architectural photography with Idaho landscape",
+      "close-up of Micron DRAM memory modules arranged in rows on a dark surface with Micron branding on the chips, memory semiconductor product photography, macro editorial lighting",
+      "silicon wafer production in a Micron cleanroom facility with DRAM and NAND flash memory circuits patterned on silicon, semiconductor manufacturing, technical documentary photography",
+      "Micron memory chip circuit board close-up showing stacked NAND flash packages, storage semiconductor product detail, extreme macro photography, technical editorial style",
+      "semiconductor manufacturing cleanroom interior with automated wafer handling systems and yellow cleanroom lighting representing Micron's Idaho fabrication operations, industrial technology documentary"
+    ]
+  },
+  "AMAT": {
+    "motifs": [
+      "Applied Materials headquarters campus in Santa Clara California with Applied Materials wordmark on modern corporate buildings, semiconductor equipment company landmark, professional architectural photography",
+      "close-up of semiconductor wafer processing equipment chamber interior with plasma etching components, Applied Materials-style precision manufacturing equipment, technical editorial photography",
+      "chemical vapor deposition CVD reactor chamber with metallic showerhead components and quartz chamber walls, semiconductor tooling product photography, technical editorial style",
+      "semiconductor equipment manufacturing facility with large process tool assemblies on production floor, Applied Materials scale equipment production, industrial documentary photography",
+      "ion implantation equipment for semiconductor fabrication: large metallic beamline system with precision engineering detail, chip manufacturing tools at scale, technical product editorial photography"
+    ]
+  },
+  "LRCX": {
+    "motifs": [
+      "Lam Research headquarters campus in Fremont California with Lam Research wordmark on modern industrial-style corporate buildings, semiconductor etch equipment company, professional architectural photography",
+      "plasma etch chamber interior of a Lam Research-style semiconductor processing tool, showing circular electrode plates and precision chamber geometry, semiconductor equipment product photography",
+      "semiconductor wafer etch process equipment on a fab floor showing the distinctive blue and silver Lam Research tool design, semiconductor manufacturing technology, industrial documentary photography",
+      "close-up of silicon wafer after plasma etching with sub-nanometer pattern precision visible, semiconductor process result photography, technical editorial macro style",
+      "Lam Research atomic layer deposition ALD tool exterior with precision gas delivery systems and electronic control panels, semiconductor equipment product photography, technical editorial"
+    ]
+  },
+  "KLAC": {
+    "motifs": [
+      "KLA Corporation headquarters campus in Milpitas California with KLA wordmark on modern corporate buildings, semiconductor inspection equipment company, professional architectural photography, Silicon Valley setting",
+      "semiconductor wafer inspection system interior showing optical inspection optics and laser measurement components, KLA-style process control equipment, technical product photography",
+      "automated optical inspection system scanning silicon wafers for defects with precision laser optics and high-speed imaging systems, semiconductor quality control technology, documentary photography",
+      "KLA patterned wafer inspection tool exterior showing blue and silver instrument design in a semiconductor fab setting, metrology equipment product photography",
+      "close-up of semiconductor measurement data on a KLA-style metrology workstation showing wafer maps and defect analysis, semiconductor process control technology, editorial technology photography"
+    ]
+  },
+  "ADI": {
+    "motifs": [
+      "Analog Devices headquarters campus in Wilmington Massachusetts with ADI wordmark on a modern corporate building, analog semiconductor company landmark, professional architectural photography, New England setting",
+      "close-up of Analog Devices precision analog IC chips on a measurement circuit board in a laboratory environment, precision electronics product photography, technical macro editorial style",
+      "precision analog measurement instrument with Analog Devices branded components visible inside, electronic testing equipment, technical editorial photography",
+      "ADI semiconductor wafer with analog circuit patterns on silicon, precision mixed-signal chip manufacturing, technical product photography, cleanroom aesthetic",
+      "industrial automation control system with ADI precision signal processing components, analog semiconductor in industrial application context, technical documentary photography"
+    ]
+  },
+  "TXN": {
+    "motifs": [
+      "Texas Instruments corporate headquarters campus in Dallas Texas with TI logo on modern glass corporate buildings, semiconductor company landmark, professional architectural photography, Texas setting",
+      "close-up of Texas Instruments TI DSP processor chips on an electronics PCB with TI branding visible, analog and embedded processing semiconductor product photography, macro editorial style",
+      "TI calculator product: classic TI-84 graphing calculator with Texas Instruments branding, iconic educational electronics product photography, clean studio lighting",
+      "Texas Instruments semiconductor fabrication facility exterior in Dallas Texas, chip manufacturing plant architecture, industrial documentary photography",
+      "industrial control board with Texas Instruments microcontrollers and analog chips, embedded semiconductor components in industrial application, technical product photography"
+    ]
+  },
+  "PANW": {
+    "motifs": [
+      "Palo Alto Networks headquarters campus in Santa Clara California with the PANW sunflower logo on modern glass corporate buildings, cybersecurity company landmark, professional architectural photography",
+      "network security operations center with multiple large screens displaying real-time threat maps and cybersecurity dashboards, cyber defense monitoring environment, technology editorial photography",
+      "Palo Alto Networks next-generation firewall hardware appliance with distinctive PANW branding, enterprise cybersecurity product photography, clean commercial technology style",
+      "cybersecurity data visualization: global network threat map with connection lines and attack vectors displayed on a large dark screen, cyber defense intelligence aesthetic, editorial technology photography",
+      "PANW Cortex XDR platform displayed on monitors in a security operations center, enterprise cybersecurity software environment, corporate technology documentary photography"
+    ]
+  },
+  "LLY": {
+    "motifs": [
+      "Eli Lilly and Company world headquarters campus in Indianapolis Indiana with red Lilly logo on iconic corporate buildings along the White River, major pharmaceutical company landmark, professional architectural photography",
+      "Eli Lilly pharmaceutical manufacturing facility with automated capsule and tablet production lines, drug manufacturing at scale, industrial healthcare documentary photography",
+      "Mounjaro and Zepbound GLP-1 medication autoinjector packaging on a clean pharmaceutical surface, Eli Lilly blockbuster drug product photography, healthcare commercial photography",
+      "Lilly Biotechnology Center in San Diego California with Lilly wordmark on modern research facility buildings, pharmaceutical biotech research campus, professional architectural photography",
+      "pharmaceutical research laboratory with advanced biotech equipment for antibody and protein drug development, Eli Lilly R&D facility environment, editorial healthcare documentary photography"
+    ]
+  },
+  "ABBV": {
+    "motifs": [
+      "AbbVie corporate headquarters campus in North Chicago Illinois with AbbVie wordmark and blue logo on modern glass research buildings, biopharmaceutical company landmark, professional architectural photography",
+      "Humira biologic drug manufacturing facility with specialized stainless steel bioreactors and sterile production environment, biologic drug production at scale, industrial pharmaceutical documentary photography",
+      "AbbVie research laboratory with advanced immunology research equipment and protein analysis instruments, pharmaceutical R&D environment, editorial healthcare photography",
+      "biopharmaceutical production cleanroom with sterile filling lines for injectable biologic medications, pharmaceutical manufacturing precision, industrial documentary photography",
+      "AbbVie Allergan aesthetic medicine product line: Botox vials and injectable product packaging arranged on clinical white surface, pharmaceutical product photography, healthcare commercial style"
+    ]
+  },
+  "MRK": {
+    "motifs": [
+      "Merck and Co headquarters campus in Rahway New Jersey with blue Merck wordmark on a modern glass research building, major pharmaceutical company landmark, professional architectural photography",
+      "Merck pharmaceutical manufacturing facility with automated tablet coating and packaging lines, prescription drug production at industrial scale, documentary healthcare photography",
+      "Keytruda cancer immunotherapy drug packaging: distinctive Merck packaging design on clinical surface, oncology pharmaceutical product photography, clean healthcare commercial style",
+      "Merck Animal Health manufacturing facility with veterinary pharmaceutical production equipment, diversified pharmaceutical business context, industrial documentary photography",
+      "pharmaceutical vaccine production line with vial filling and capping equipment in sterile manufacturing environment, Merck vaccine manufacturing scale, industrial healthcare editorial photography"
+    ]
+  },
+  "TMO": {
+    "motifs": [
+      "Thermo Fisher Scientific headquarters campus in Waltham Massachusetts with Thermo Fisher wordmark on modern corporate office buildings, life science equipment company landmark, professional architectural photography",
+      "Thermo Fisher laboratory centrifuges, mass spectrometers, and analytical instruments arranged in a research laboratory setting, scientific equipment portfolio display, professional product photography",
+      "biotech laboratory with Thermo Fisher branded ultra-low temperature freezers storing biological samples and reagents, cold chain life science infrastructure, scientific documentary photography",
+      "Thermo Fisher Scientific manufacturing facility producing laboratory instruments and reagent kits at scale, life science supply chain manufacturing, industrial documentary photography",
+      "close-up of a Thermo Fisher Orbitrap mass spectrometer analytical instrument, precision scientific equipment product photography, laboratory technology editorial style"
+    ]
+  },
+  "DHR": {
+    "motifs": [
+      "Danaher Corporation headquarters in Washington DC with Danaher wordmark on a modern corporate office building, diversified science and technology conglomerate landmark, professional architectural photography",
+      "Beckman Coulter clinical diagnostic analyzer in a hospital laboratory, automated blood analysis system with Beckman Coulter branding, medical diagnostic technology photography",
+      "Leica Biosystems pathology imaging instrument with Leica branding, precision biomedical imaging equipment product photography, laboratory technology editorial style",
+      "Cytiva bioprocessing bioreactor system with stainless steel vessels and monitoring systems, life science manufacturing equipment at scale, industrial biotech documentary photography",
+      "Hach water quality analysis instruments in a water treatment facility, environmental monitoring technology in industrial application, documentary photography"
+    ]
+  },
+  "AMGN": {
+    "motifs": [
+      "Amgen headquarters campus in Thousand Oaks California with Amgen wordmark on iconic modern biotech campus buildings, pioneer biotechnology company landmark, professional architectural photography, California setting",
+      "Amgen biomanufacturing facility with large-scale bioreactor systems for protein drug production, biotech manufacturing at industrial scale, documentary healthcare photography",
+      "Enbrel and Prolia biologic drug packaging arranged on a clinical surface, Amgen specialty pharmaceutical product photography, healthcare commercial style",
+      "biotechnology research laboratory with protein crystallography and cell culture equipment, Amgen R&D facility environment, editorial biotech documentary photography",
+      "Amgen Rhode Island manufacturing plant exterior, major biopharmaceutical production campus, industrial pharmaceutical architecture, professional documentary photography"
+    ]
+  },
+  "ISRG": {
+    "motifs": [
+      "da Vinci surgical robot system positioned in an empty operating room, four robotic arms extended over the operating table, no patients or surgeons, clean white and gray OR environment, medical technology editorial photography",
+      "close-up of da Vinci robotic surgical instrument tips showing the articulating EndoWrist instruments with precise mechanical detail, surgical robotics product photography, dramatic macro lighting",
+      "Intuitive Surgical headquarters campus in Sunnyvale California with Intuitive Surgical wordmark on a modern biotech campus building, surgical robotics company landmark, professional architectural photography",
+      "multiple da Vinci Xi robot consoles lined up in a training facility, robotic surgical systems in education and training context, medical technology environment, editorial healthcare photography",
+      "da Vinci robotic surgical cart with camera and instrument arms folded in transport position in a hospital corridor, surgical robotics in healthcare facility context, medical technology documentary photography"
+    ]
+  },
+  "BMY": {
+    "motifs": [
+      "Bristol-Myers Squibb headquarters in Princeton New Jersey with BMS wordmark on a modern pharmaceutical campus building, major biopharmaceutical company landmark, professional architectural photography",
+      "Opdivo cancer immunotherapy drug packaging and vials on a clinical surface, BMS oncology pharmaceutical product photography, healthcare commercial editorial style",
+      "Bristol-Myers Squibb biopharmaceutical manufacturing plant exterior, drug production facility architecture, industrial pharmaceutical documentary photography",
+      "pharmaceutical biologics manufacturing with stainless steel bioreactors and sterile processing equipment, BMS-scale biotech drug production, industrial healthcare editorial",
+      "BMS research facility interior with advanced cell biology and immunology research equipment, pharmaceutical drug discovery environment, editorial biotech documentary photography"
+    ]
+  },
+  "SYK": {
+    "motifs": [
+      "Stryker Corporation headquarters campus in Kalamazoo Michigan with Stryker wordmark and orange logo on modern corporate buildings, medical device company landmark, professional architectural photography",
+      "Stryker Mako robotic joint replacement surgery system in an empty operating room, robotic arm extended over the orthopedic OR table, no people, medical robotics technology editorial photography",
+      "Stryker orthopedic implant products: titanium hip and knee replacement components arranged on a clinical surface, medical device product photography, surgical hardware editorial style",
+      "Stryker medical stretchers and hospital beds with orange Stryker branding in a hospital corridor, healthcare equipment in facility context, medical commercial photography",
+      "Stryker neurovascular intervention device packaging and catheter products on a clinical surface, advanced medical device product photography, healthcare commercial editorial"
+    ]
+  },
+  "REGN": {
+    "motifs": [
+      "Regeneron Pharmaceuticals headquarters campus in Tarrytown New York with Regeneron wordmark on distinctive biotech campus buildings along the Hudson River, innovative biopharmaceutical company landmark, professional architectural photography",
+      "Dupixent biologic drug packaging and autoinjector on a clean clinical surface, Regeneron blockbuster product photography, pharmaceutical commercial editorial style",
+      "Regeneron biotech manufacturing facility with large-scale mammalian cell culture bioreactors, biologics drug production at scale, industrial biotech documentary photography",
+      "antibody cocktail drug production cleanroom, biologic manufacturing precision environment, industrial pharmaceutical editorial photography",
+      "advanced biotech research laboratory with CRISPR gene editing equipment and antibody screening systems, Regeneron R&D facility environment, editorial biotech documentary photography"
+    ]
+  },
+  "ZTS": {
+    "motifs": [
+      "Zoetis corporate headquarters campus in Parsippany New Jersey with Zoetis wordmark on modern corporate office buildings, world's largest animal health company landmark, professional architectural photography",
+      "veterinary pharmaceutical products: Simparica, Revolution and Apoquel packaging arranged on a clean surface, Zoetis companion animal product photography, veterinary commercial editorial",
+      "Zoetis livestock health product manufacturing facility with vaccine production lines for cattle and swine, animal health pharmaceutical manufacturing at scale, industrial documentary photography",
+      "veterinary clinic context with Zoetis branded products and animal health supplies on shelving, animal health distribution network, commercial documentary photography",
+      "Zoetis Research and Development facility exterior with biotech campus architecture, animal health pharmaceutical innovation center, professional architectural photography"
+    ]
+  },
+  "BSX": {
+    "motifs": [
+      "Boston Scientific headquarters campus in Marlborough Massachusetts with Boston Scientific wordmark on modern medical device campus buildings, interventional medicine company landmark, professional architectural photography",
+      "Boston Scientific cardiac rhythm management devices: ICD and pacemaker units on a clinical surface, cardiac device product photography, medical commercial editorial style",
+      "Boston Scientific endoscopy product portfolio with scopes and interventional tools displayed, minimally invasive medical device product photography, clean clinical photography",
+      "Boston Scientific cardiovascular stent and guidewire products in sterile packaging, interventional cardiology device photography, medical product editorial style",
+      "Boston Scientific manufacturing facility with precision medical device assembly and cleanroom production, medical device manufacturing at scale, industrial documentary photography"
+    ]
+  },
+  "ABT": {
+    "motifs": [
+      "Abbott Laboratories headquarters campus in Abbott Park Illinois with Abbott wordmark on classic corporate campus buildings, diversified healthcare company landmark, professional architectural photography",
+      "FreeStyle Libre continuous glucose monitor on a clean clinical surface with Abbott branding, diabetes management device product photography, medical technology editorial style",
+      "Abbott Alinity diagnostic analyzer in a hospital laboratory setting, clinical diagnostic instrument with Abbott branding, medical technology product photography",
+      "Abbott cardiovascular device products including structural heart valves and electrophysiology catheters, medical device product photography, clinical editorial style",
+      "Abbott nutrition products: Ensure and Pedialyte bottles arranged on a clean surface with Abbott branding, consumer healthcare product photography, commercial editorial style"
+    ]
+  },
+  "GILD": {
+    "motifs": [
+      "Gilead Sciences headquarters campus in Foster City California with Gilead wordmark on modern biotech campus buildings, antiviral pharmaceutical company landmark, professional architectural photography, Bay Area setting",
+      "Biktarvy HIV medication packaging in distinctive Gilead branding on a clinical surface, flagship antiviral product photography, pharmaceutical commercial editorial style",
+      "Veklury remdesivir vials and packaging in medical setting, Gilead antiviral drug product photography, pharmaceutical commercial editorial",
+      "Gilead Sciences biotech research facility interior with viral disease research equipment and pharmaceutical development instruments, R&D environment, editorial biotech photography",
+      "Gilead Sciences manufacturing plant for antiviral drug production with sterile tablet and capsule production lines, pharmaceutical manufacturing at scale, industrial documentary photography"
+    ]
+  },
+  "CI": {
+    "motifs": [
+      "Cigna Group corporate headquarters in Bloomfield Connecticut with Cigna logo and blue branding on a modern glass office campus, health insurance conglomerate landmark, professional architectural photography",
+      "Evernorth Health Services pharmacy benefits management operations center with Cigna-branded displays and technology, PBM operations environment, corporate documentary photography",
+      "Express Scripts specialty pharmacy distribution center with high-throughput prescription dispensing automation, pharmacy benefits management at scale, industrial documentary photography",
+      "Cigna branded health insurance facility exterior with blue Cigna Tree of Life logo on corporate building, healthcare insurance retail presence, commercial architectural photography",
+      "Cigna healthcare analytics center with health data visualization displays showing population health management, health insurance technology operations, editorial technology photography"
+    ]
+  },
+  "DE": {
+    "motifs": [
+      "John Deere combine harvester in signature yellow and green livery working in a golden wheat field at harvest time, American agricultural machinery, cinematic landscape documentary photography",
+      "John Deere 8R series tractor in iconic green and yellow colors operating in a vast Iowa cornfield, precision agriculture at scale, wide-angle landscape editorial photography",
+      "John Deere manufacturing facility in Moline Illinois with green equipment assembly lines producing tractors and combines, agricultural machinery manufacturing at scale, industrial documentary photography",
+      "close-up of John Deere leaping deer logo emblem on a green tractor hood with yellow lettering, brand identity macro photography, agricultural equipment product detail",
+      "fleet of John Deere construction equipment: yellow and green excavators, loaders, and graders staged at a dealer lot, construction machinery product photography, commercial editorial style"
+    ]
+  },
+  "ETN": {
+    "motifs": [
+      "Eaton Corporation headquarters campus in Dublin Ireland with Eaton wordmark on a modern global corporate building, diversified power management company international headquarters, professional architectural photography",
+      "Eaton power distribution equipment: large industrial switchgear panels and circuit breaker assemblies in a manufacturing facility, electrical power management product photography, technical editorial style",
+      "Eaton data center power management infrastructure: UPS systems and PDU equipment with Eaton branding in a server room, critical power technology, technology editorial photography",
+      "Eaton aerospace hydraulic systems components for commercial aircraft, precision hydraulic actuation equipment product photography, aerospace manufacturing context",
+      "Eaton electrical substation equipment with transformers and distribution switchgear, grid-scale power management infrastructure, industrial electrical engineering documentary photography"
+    ]
+  },
+  "NEE": {
+    "motifs": [
+      "NextEra Energy wind turbine farm with dozens of white turbines extending to the horizon in a Florida or Texas landscape, America's largest renewable energy company, cinematic landscape documentary photography",
+      "FPL Florida Power and Light substations and transmission infrastructure in Florida with the NextEra blue and green branding, utility infrastructure, industrial documentary photography",
+      "NextEra solar photovoltaic farm with rows of solar panels stretching to the horizon in the Florida sunshine, massive utility-scale renewable energy generation, aerial landscape photography",
+      "NextEra Energy Center wind farm aerial view showing geometric wind turbine array pattern, renewable energy at scale, drone photography documentary style",
+      "FPL nuclear power plant with cooling towers in the Florida landscape, NextEra Energy nuclear generation asset, industrial energy infrastructure photography"
+    ]
+  },
+  "LOW": {
+    "motifs": [
+      "Lowe's home improvement store exterior with distinctive blue Lowe's logo and large format retail architecture, American home improvement retail landmark, commercial architectural photography",
+      "Lowe's store interior with high warehouse ceilings, blue directional signage, and organized lumber and building materials aisles, home improvement retail interior, documentary commercial photography",
+      "Lowe's outdoor garden center with seasonal plants and landscaping materials under blue Lowe's branded canopy, big-box retail garden department, warm daylight commercial photography",
+      "Lowe's tool department interior with power tools organized on blue-themed merchandise displays, home improvement retail product selection at scale, commercial editorial photography",
+      "Lowe's delivery truck in blue and white company livery on a residential street, home improvement delivery service, commercial fleet photography"
+    ]
+  },
+  "UNP": {
+    "motifs": [
+      "Union Pacific locomotive in classic Armour Yellow livery pulling a freight train through the American West desert landscape, iconic American railroad, cinematic landscape documentary photography",
+      "Union Pacific intermodal train with double-stacked containers crossing a steel bridge over a dramatic river canyon, railroad infrastructure in western landscape, wide-angle editorial photography",
+      "Union Pacific rail yard aerial view in Omaha Nebraska showing dozens of parallel tracks with locomotives and freight cars in organized classification patterns, railroad logistics at scale, aerial documentary photography",
+      "Union Pacific locomotive close-up showing the distinctive Armour Yellow paint scheme and Union Pacific shield logo on the nose of a modern diesel locomotive, railroad brand photography",
+      "Union Pacific freight train disappearing into the Rocky Mountains, long train of covered hoppers and boxcars on curving mountain track, cinematic American landscape photography"
+    ]
+  },
+  "DUK": {
+    "motifs": [
+      "Duke Energy corporate headquarters tower in Charlotte North Carolina with Duke Energy wordmark and blue logo, major electric utility company landmark, professional architectural photography",
+      "Duke Energy combined cycle gas turbine power plant with modern generation infrastructure, electric utility generation facility, industrial energy documentary photography",
+      "Duke Energy solar farm in the Carolinas with vast solar panel arrays generating clean electricity, utility-scale renewable energy, landscape documentary photography",
+      "Duke Energy nuclear power station with characteristic cooling towers in the Piedmont landscape of the Carolinas, baseload electricity generation infrastructure, industrial documentary photography",
+      "Duke Energy electric transmission towers and high-voltage power lines crossing through the southern landscape, electric grid infrastructure, wide-angle industrial landscape photography"
+    ]
+  },
+  "SHW": {
+    "motifs": [
+      "Sherwin-Williams headquarters tower at 101 West Prospect in Cleveland Ohio, distinctive new global headquarters skyscraper, iconic Cleveland landmark, professional architectural photography",
+      "Sherwin-Williams paint store interior with the famous color chip wall displaying thousands of paint samples in floor-to-ceiling array, retail paint store environment, commercial interior photography",
+      "Sherwin-Williams Emerald and Duration paint cans with distinctive red and white branding arranged on retail store shelving, paint product photography, commercial editorial style",
+      "Sherwin-Williams Cover the Earth globe logo on exterior building signage, brand identity landmark photography, classic American paint company heritage",
+      "industrial coatings application in a manufacturing context: Sherwin-Williams coil coatings on metal panels, industrial paint application at scale, manufacturing documentary photography"
+    ]
+  },
+  "MMM": {
+    "motifs": [
+      "3M corporate headquarters campus in Maplewood Minnesota with 3M Innovation Center exterior and distinctive company signage, American diversified industrial company landmark, professional architectural photography, Minnesota setting",
+      "3M N95 respirator mask product alongside safety equipment, 3M personal protection product photography in clean studio environment, healthcare safety commercial photography",
+      "3M Command adhesive strips and Post-it Note products arranged on a clean surface, iconic 3M consumer product portfolio, commercial product photography, warm studio lighting",
+      "3M industrial abrasives and adhesive tape manufacturing facility with production lines for specialty materials, industrial product manufacturing at scale, documentary photography",
+      "3M Scotch tape and film products arranged with the distinctive plaid Scotch branding, classic consumer product photography, warm studio commercial editorial style"
+    ]
+  },
+  "LIN": {
+    "motifs": [
+      "Linde industrial gas facility with large spherical cryogenic storage tanks for liquid oxygen, nitrogen, and argon, industrial gas company infrastructure, wide-angle industrial documentary photography",
+      "Linde air separation unit with complex distillation column towers extracting oxygen and nitrogen from atmosphere, industrial gas production at scale, industrial chemical engineering photography",
+      "Linde hydrogen fueling station with distinctive blue Linde branding, clean energy infrastructure, commercial exterior photography",
+      "cryogenic liquid nitrogen tanker truck with Linde blue and white branding delivering industrial gas, industrial gas distribution logistics, commercial fleet photography",
+      "Linde engineering hydrogen electrolyzer facility for green hydrogen production, industrial clean energy infrastructure, documentary industrial photography"
+    ]
+  },
+  "PG": {
+    "motifs": [
+      "Procter and Gamble corporate headquarters towers in Cincinnati Ohio with P&G logo on the distinctive twin towers, consumer goods company landmark, professional architectural photography",
+      "P&G brand portfolio display: Tide, Pampers, Gillette, Crest, and Pantene products arranged on clean white surface, consumer packaged goods commercial photography",
+      "Procter and Gamble Tide detergent manufacturing facility with high-speed laundry product production lines, consumer goods manufacturing at scale, industrial documentary photography",
+      "P&G Beauty research laboratory with cosmetic formulation equipment and product development environment, consumer beauty brand innovation, editorial corporate photography",
+      "Pampers diaper production facility with automated manufacturing equipment, P&G baby care product manufacturing at industrial scale, documentary industrial photography"
+    ]
+  },
+  "ACN": {
+    "motifs": [
+      "Accenture headquarters office tower in New York with distinctive purple Accenture greater-than logo on a modern glass skyscraper, professional services company landmark, professional architectural photography",
+      "Accenture innovation hub interior with collaborative digital workspace, large touchscreen walls, and purple Accenture branding, consulting firm technology environment, corporate editorial photography",
+      "Accenture Dublin Ireland headquarters exterior with purple company branding on modern campus buildings, global consulting firm European base, professional architectural photography",
+      "Accenture AI and digital transformation operations center with data visualization screens and consulting technology infrastructure, professional services technology, editorial corporate photography",
+      "Accenture Federal Services building exterior with government consulting focus, professional services in federal market context, corporate architectural photography"
+    ]
+  },
+  "TJX": {
+    "motifs": [
+      "T.J. Maxx retail store exterior with distinctive red and white TJX branding, off-price retail chain landmark, commercial architectural photography",
+      "Marshalls department store interior with merchandise on racks under bright retail lighting, off-price fashion retail environment, commercial documentary photography",
+      "TJ Maxx HomeGoods store interior showing home furnishings and decor organized on white and red branded displays, off-price home retail, commercial interior photography",
+      "TJX Companies distribution center exterior, large retail logistics warehouse facility, industrial supply chain photography",
+      "Marshalls clothing rack aisle with colorful merchandise hanging on white fixtures under bright store lighting, off-price fashion retail environment, commercial retail photography"
+    ]
+  },
+  "MDLZ": {
+    "motifs": [
+      "Mondelez International Oreo cookie production line with round cookies moving along automated manufacturing conveyors, iconic snack brand manufacturing, industrial food production documentary photography",
+      "Cadbury Dairy Milk chocolate bar and packaging in classic purple branding on a dark studio surface, global chocolate brand product photography, commercial editorial confectionery style",
+      "Mondelez International headquarters in Deerfield Illinois with company signage on modern corporate campus building, global snacking company landmark, professional architectural photography",
+      "Toblerone triangular chocolate bars in distinctive packaging arranged in a row, iconic Swiss chocolate brand product photography, commercial editorial style",
+      "Nabisco Chips Ahoy and Ritz cracker products with blue and red branding on retail shelving, Mondelez North American snack brand portfolio, commercial retail photography"
+    ]
+  },
+  "CMG": {
+    "motifs": [
+      "Chipotle Mexican Grill restaurant exterior with distinctive aluminum foil and natural wood design aesthetic, fast casual restaurant architecture, commercial street photography",
+      "Chipotle burrito bowl being assembled at the serving line, fresh ingredients and guacamole in clean Chipotle serving containers, food product photography, commercial editorial style",
+      "Chipotle restaurant interior with natural materials design including reclaimed wood and exposed steel, fast casual dining environment, commercial interior editorial photography",
+      "Chipotle Newport Beach California headquarters exterior with company branding, fast casual restaurant chain headquarters, professional architectural photography",
+      "Chipotle digital order pickup shelf with branded bags awaiting pickup, digital ordering and delivery operations, fast casual restaurant technology, commercial editorial photography"
+    ]
+  },
+  "NKE": {
+    "motifs": [
+      "Nike world headquarters campus in Beaverton Oregon with the iconic Nike Swoosh logo on the main building facade, iconic athletic brand campus, professional architectural photography, Pacific Northwest setting",
+      "close-up of Nike Air Jordan sneaker sole and swoosh logo on a clean dark surface, athletic footwear product photography, dramatic directional macro lighting",
+      "Nike Vaporfly running shoe on a clean white studio surface with Nike Swoosh prominently visible, premium athletic footwear product photography, editorial commercial style",
+      "Nike Beaverton Oregon campus aerial view showing the distinctive campus buildings named after famous athletes, iconic brand headquarters, corporate campus photography",
+      "Nike store retail interior with illuminated swoosh logo and signature brand wall displays, Nike retail environment, commercial interior photography"
+    ]
+  },
+  "MO": {
+    "motifs": [
+      "Altria Group corporate headquarters campus in Richmond Virginia with Altria wordmark on a modern corporate building, tobacco conglomerate landmark, professional architectural photography",
+      "Philip Morris USA cigarette manufacturing facility with large-scale tobacco product production equipment, tobacco manufacturing at industrial scale, documentary photography",
+      "IQOS heated tobacco device in Marlboro branded packaging on a dark surface, Altria smoke-free product innovation, commercial product photography, editorial style",
+      "tobacco leaf curing barn in Virginia landscape, American tobacco agriculture heritage, rural landscape documentary photography",
+      "Richmond Virginia skyline from the James River with Altria campus buildings visible, corporate headquarters in regional business context, urban landscape editorial photography"
+    ]
+  },
+  "BKNG": {
+    "motifs": [
+      "Booking.com corporate headquarters in Amsterdam Netherlands with the distinctive navy blue Booking.com logo on a modern glass building along an Amsterdam canal, global travel tech company European headquarters, professional architectural photography",
+      "Priceline and Booking Holdings brand portfolio signage, online travel technology brand presence, commercial editorial photography",
+      "luxury hotel exterior representing the breadth of the Booking.com global inventory, world-class accommodation photography, travel editorial photography",
+      "Booking Holdings offices in Norwalk Connecticut with corporate signage, American operations headquarters, professional corporate architectural photography",
+      "online hotel booking interface displayed on laptop and smartphone screens showing Booking.com platform, travel technology product photography, commercial editorial lifestyle style"
+    ]
+  },
+  "VZ": {
+    "motifs": [
+      "Verizon corporate headquarters in New York with distinctive red Verizon checkmark logo on a modern Midtown tower, major telecom company landmark, professional architectural photography",
+      "Verizon 5G Ultra Wideband cell tower installation in an urban setting with distinctive red and white Verizon branding, wireless infrastructure, telecommunications editorial photography",
+      "Verizon retail store exterior with red checkmark logo and modern storefront design, wireless carrier retail presence, commercial street photography",
+      "5G telecommunications tower close-up with Verizon branding and antenna arrays, wireless network infrastructure, telecommunications documentary photography",
+      "Verizon network operations center with large wall screens showing national network status maps and telecommunications infrastructure data, telecom operations at scale, corporate documentary photography"
+    ]
+  },
+  "T": {
+    "motifs": [
+      "AT&T corporate headquarters at Whitacre Tower in Dallas Texas with AT&T globe logo on the modern glass tower, major telecommunications company landmark, professional architectural photography",
+      "AT&T cell tower with distinctive globe branding amid urban skyline, wireless telecommunications infrastructure, 5G deployment editorial photography",
+      "AT&T retail store exterior with blue AT&T globe logo and modern storefront, wireless carrier retail presence, commercial street photography",
+      "AT&T fiber optic cable installation in an urban telecommunications context, broadband infrastructure deployment, documentary telecommunications photography",
+      "AT&T network operations and switching center exterior, telecommunications exchange facility, industrial telecom infrastructure photography"
+    ]
+  },
+  "FDX": {
+    "motifs": [
+      "FedEx Express purple and orange Boeing 777 freighter on the tarmac at Memphis International Airport hub, cargo aviation at scale, editorial aviation photography",
+      "FedEx Ground delivery trucks in distinctive purple and orange livery lined up at a suburban depot, package delivery fleet operations, commercial fleet photography",
+      "aerial view of the FedEx Memphis Superhub with aircraft parked at multiple cargo gates and ramp areas, global express logistics hub at scale, aerial documentary photography",
+      "close-up of FedEx purple and orange truck cab with bold FedEx wordmark, delivery vehicle brand photography, commercial editorial style",
+      "FedEx Office retail shipping center with purple and orange signage, package shipping retail environment, commercial street photography"
+    ]
+  },
+  "UPS": {
+    "motifs": [
+      "UPS Worldport package sorting hub at Louisville Muhammad Ali International Airport, massive automated conveyor system interior with brown UPS branding, global logistics hub at scale, industrial documentary photography",
+      "UPS brown delivery truck with golden UPS shield logo in a residential neighborhood, iconic American package delivery moment, commercial fleet photography",
+      "fleet of UPS brown trucks at a distribution depot with UPS shield branding on multiple vehicles, delivery fleet logistics operations, commercial documentary photography",
+      "UPS Boeing 747-8F cargo aircraft with brown UPS livery on the Louisville Worldport ramp, air cargo operations, aviation documentary photography",
+      "UPS package sorting facility interior with high-speed automated conveyor belts routing packages, logistics automation at scale, industrial documentary photography"
+    ]
+  },
+  "PLD": {
+    "motifs": [
+      "Prologis industrial logistics warehouse exterior in a major distribution hub, massive modern warehouse facility with Prologis branding, industrial real estate at scale, professional architectural photography",
+      "aerial view of a Prologis industrial park showing multiple large distribution center buildings with truck docks and parking lots, industrial REIT portfolio at scale, aerial real estate photography",
+      "Prologis ESG solar rooftop installation on a massive distribution warehouse, renewable energy on industrial real estate, sustainability infrastructure photography",
+      "modern Prologis distribution center interior with high ceilings and organized storage racking systems, industrial real estate functional interior, documentary photography",
+      "Prologis global headquarters in San Francisco with Prologis wordmark on a modern corporate building, industrial REIT company headquarters, professional architectural photography"
+    ]
+  }
+}

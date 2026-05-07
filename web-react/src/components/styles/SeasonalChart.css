@@ -1,0 +1,76 @@
+
+
+.seasonal-chart-parent{
+    /* height:32%; */
+    background-color: blue;
+}
+
+.seasonal-linechart{
+    background-color:lightblue;
+}
+
+.seasonal-chart-controls{
+    width: 100%;
+    background-color: blue;
+
+    /* make div unselectable */
+    user-select: none;
+    -moz-user-select: none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    -o-user-select: none;
+}
+
+
+
+.seasonal-scstats{
+    background-color: purple;
+}
+
+.seasonal-linechart{
+    /* background-color: gold; */
+}
+
+
+
+
+.seasonal-opp {
+    display:flex;
+    position: absolute;
+    background-color: pink;
+    cursor: default;
+    /* background-color: rgb(0, 0, 135,0.55); */
+    
+}
+.seasonal-opp-left-resizer{
+    display:flex;
+    position: absolute;
+    /* background-color: purple; */
+    /* background-color: transparent; */
+    cursor: col-resize;
+    height: 100%;
+    left: 0;
+    top: 0;
+    /* width: 5px; */
+}
+.seasonal-opp-right-resizer{
+    display:flex;
+    position: absolute;
+    /* background-color: blue; */
+    /* background-color: transparent; */
+    cursor: col-resize;
+    height: 100%;
+    right: 0;
+    top: 0;
+    /* width: 5px; */
+}
+
+.noselect {
+    -webkit-touch-callout: none; /* iOS Safari */
+      -webkit-user-select: none; /* Safari */
+       -khtml-user-select: none; /* Konqueror HTML */
+         -moz-user-select: none; /* Old versions of Firefox */
+          -ms-user-select: none; /* Internet Explorer/Edge */
+              user-select: none; /* Non-prefixed version, currently
+                                    supported by Chrome, Edge, Opera and Firefox */
+  }

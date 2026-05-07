@@ -1,0 +1,9 @@
+numpy
+pandas
+tables
+Flask
+Flask-Cors
+pyjwt
+redis
+filelock
+Flask-Limiter

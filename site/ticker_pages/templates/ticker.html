@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    {# ----- Title (PRD 6.1) ----- #}
+    {% if forward_outlook and forward_outlook.ai_score is not none %}
+    <title>{{ symbol }} Next 30 Days: AI {{ forward_outlook.direction_label }} (score {{ '%.1f'|format(forward_outlook.ai_score) }}) | TradeWave</title>
+    {% else %}
+    <title>{{ company_name }} ({{ symbol }}) Seasonal Stock Pattern | TradeWave</title>
+    {% endif %}
+
+    {# ----- Meta description (PRD 6.2), built in generator with <=160 char truncation ----- #}
+    <meta name="description" content="{{ meta_description }}">
+
+    <meta name="keywords" content="{{ symbol }} seasonal pattern, {{ symbol }} best month, {{ symbol }} AI score, {{ company_name }} seasonality, {{ symbol }} election cycle">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+
+    <link rel="canonical" href="https://tradewave.ai/patterns/{{ symbol }}">
+
+    {# ----- Open Graph (PRD 6.4) ----- #}
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="TradeWave">
+    <meta property="og:title" content="{{ symbol }} Seasonal Pattern & AI Score">
+    {% if forward_outlook and forward_outlook.ai_score is not none %}
+    <meta property="og:description" content="Next 30 days for {{ symbol }}: AI {{ forward_outlook.direction_label }} bias, score {{ '%.1f'|format(forward_outlook.ai_score) }}. {{ years_of_data }} years of seasonal data.">
+    {% else %}
+    <meta property="og:description" content="{{ years_of_data }} years of data. Best month: {{ best_month }}. Worst month: {{ worst_month }}.">
+    {% endif %}
+    <meta property="og:image" content="https://tradewave.ai/patterns/og/{{ symbol }}.png">
+    <meta property="og:url" content="https://tradewave.ai/patterns/{{ symbol }}">
+    <meta property="og:locale" content="en_US">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ symbol }} Seasonal Pattern & AI Score">
+    <meta name="twitter:image" content="https://tradewave.ai/patterns/og/{{ symbol }}.png">
+
+    <link rel="icon" type="image/png" href="{{ favicon }}">
+    <link rel="shortcut icon" href="{{ favicon }}">
+
+    {# ----- Schema.org FAQPage (PRD 6.3) ----- #}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "Is {{ symbol }} a good stock to buy right now?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "{% if forward_outlook and forward_outlook.ai_score is not none %}Over the last {{ forward_outlook.sample_years|length }} years, {{ symbol }} has averaged {{ '%+.2f'|format(forward_outlook.avg_return) }}% in the 30 days after {{ forward_outlook.anchor_date }}, winning {{ forward_outlook.pos_count }} of {{ forward_outlook.pos_count + forward_outlook.neg_count }} completed years. TradeWave's AI derives a {{ forward_outlook.direction_label }} bias with an AI Score of {{ '%.1f'|format(forward_outlook.ai_score) }}{% if forward_outlook.win_prob is not none %} and {{ '%.1f'|format(forward_outlook.win_prob) }}% model win probability{% endif %}. This is seasonal pattern analysis, not a buy recommendation.{% else %}{{ symbol }} has {{ years_of_data }} years of seasonal data. Historically its strongest month is {{ best_month }} ({{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% avg) and weakest month is {{ worst_month }} ({{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}% avg). This is seasonal analysis, not a buy recommendation.{% endif %}"
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What is the best month to buy {{ company_name }} stock?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Based on {{ years_of_data }} years of historical data, {{ best_month }} is the best month to buy {{ company_name }} ({{ symbol }}) stock, with an average return of {{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% and a {{ '%.0f'|format(monthly_returns[best_month].win_rate) }}% win rate."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What is the worst month for {{ symbol }} stock?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "{{ worst_month }} is historically the worst month for {{ company_name }} ({{ symbol }}) stock, with an average return of {{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}% and a {{ '%.0f'|format(monthly_returns[worst_month].win_rate) }}% win rate over {{ years_of_data }} years of data."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Does {{ company_name }} follow seasonal patterns?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes. {{ company_name }} ({{ symbol }}) shows measurable seasonal tendencies across {{ years_of_data }} years of data. The strongest month is {{ best_month }} ({{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% avg, {{ '%.0f'|format(monthly_returns[best_month].win_rate) }}% win rate) and the weakest is {{ worst_month }} ({{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}% avg). These patterns are driven by earnings cycles, tax-loss harvesting, fund rebalancing, and investor sentiment shifts."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Does {{ symbol }} follow election cycle patterns?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "{{ cycle_faq_schema_text }}"
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How has {{ symbol }} performed historically by month?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Over {{ years_of_data }} years of data, {{ company_name }} ({{ symbol }}) shows distinct monthly patterns. The best month is {{ best_month }} ({{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% avg, {{ '%.0f'|format(monthly_returns[best_month].win_rate) }}% win rate) and the worst is {{ worst_month }} ({{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}% avg, {{ '%.0f'|format(monthly_returns[worst_month].win_rate) }}% win rate)."
+                }
+            }
+        ]
+    }
+    </script>
+
+    {# ----- BreadcrumbList schema ----- #}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://tradewave.ai/" },
+            { "@type": "ListItem", "position": 2, "name": "Seasonal Patterns", "item": "https://tradewave.ai/patterns/" },
+            { "@type": "ListItem", "position": 3, "name": "{{ symbol }}", "item": "https://tradewave.ai/patterns/{{ symbol }}" }
+        ]
+    }
+    </script>
+
+    {# ----- WebPage + Organization schema ----- #}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "{{ company_name }} ({{ symbol }}) Seasonal Stock Pattern",
+        "description": "{{ meta_description }}",
+        "url": "https://tradewave.ai/patterns/{{ symbol }}",
+        "dateModified": "{{ generated_at }}",
+        "publisher": {
+            "@type": "Organization",
+            "name": "TradeWave",
+            "url": "https://tradewave.ai"
+        },
+        "about": {
+            "@type": "Corporation",
+            "name": "{{ company_name }}",
+            "tickerSymbol": "{{ symbol }}"
+        }
+    }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+
+    <style>
+        :root {
+            --bg-primary: rgb(15,10,21);
+            --bg-secondary: rgb(25,22,35);
+            --bg-tertiary: #111936;
+            --bg-card: #0c1225;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-hover: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.25);
+            --accent-glow-strong: rgba(99, 102, 241, 0.5);
+            --accent-green: rgb(100,220,140);
+            --success: #10b981;
+            --success-dark: rgba(16, 185, 129, 0.15);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #1f2937;
+            --border-light: #374151;
+            --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+            --gradient-text: linear-gradient(135deg, #ffffff 0%, #c7d2fe 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        .gradient-bg {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 100% 0%, rgba(139,92,246,0.1), transparent),
+                radial-gradient(ellipse 60% 40% at 0% 100%, rgba(99,102,241,0.08), transparent);
+            pointer-events: none; z-index: 0;
+        }
+
+        /* Nav (copied verbatim from homepage) */
+        nav { background: rgba(15,10,21,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; z-index: 100; }
+        nav .container { position: relative; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 30px; font-weight: 800; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-decoration: none; }
+        .hamburger { display: none; }
+        .nav-links { display: flex; gap: 32px; align-items: center; }
+        .nav-links a { color: var(--text-secondary); text-decoration: none; font-weight: 500; font-size: 14px; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--text-primary); }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 14px 28px; border-radius: 12px; font-weight: 600; font-size: 15px; text-decoration: none; transition: all 0.3s; cursor: pointer; border: none; }
+        .btn-primary { background: var(--gradient-primary); color: white; box-shadow: 0 4px 20px var(--accent-glow), 0 0 0 1px rgba(255,255,255,0.1) inset; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--accent-glow-strong), 0 0 0 1px rgba(255,255,255,0.15) inset; }
+        .btn-secondary { background: rgba(99,102,241,0.1); color: var(--accent); border: 1px solid rgba(99,102,241,0.3); }
+        .btn-secondary:hover { background: rgba(99,102,241,0.2); border-color: var(--accent); }
+
+        /* Ticker hero */
+        .ticker-hero { padding: 56px 0 32px; position: relative; z-index: 1; text-align: center; }
+        .ticker-symbol { font-size: 64px; font-weight: 800; letter-spacing: -1px; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; }
+        .ticker-company { font-size: 22px; font-weight: 500; color: var(--text-secondary); margin-bottom: 24px; }
+        .ticker-price-row { display: inline-flex; align-items: baseline; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; justify-content: center; }
+        .ticker-price { font-size: 36px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .ticker-change { font-size: 18px; font-weight: 700; padding: 4px 10px; border-radius: 8px; }
+        .ticker-change.up { color: var(--success); background: var(--success-dark); }
+        .ticker-change.down { color: var(--danger); background: rgba(239,68,68,0.15); }
+        .ticker-subtitle { font-size: 16px; color: var(--text-muted); max-width: 560px; margin: 0 auto; }
+
+        /* Summary strip */
+        .summary-strip { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 28px; max-width: 700px; margin: 0 auto; }
+        .summary-item { text-align: center; }
+        .summary-label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 4px; }
+        .summary-value { display: block; font-size: 18px; font-weight: 700; color: var(--text-primary); }
+        .summary-value.pos { color: var(--success); }
+        .summary-value.neg { color: var(--danger); }
+        .summary-sub { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .sr-summary { font-size: 14px; line-height: 1.7; color: var(--text-muted); max-width: 700px; margin: 16px auto 0; text-align: center; }
+
+        /* Section wrapper */
+        .tp-section { padding: 48px 0; position: relative; z-index: 1; }
+        .tp-section.alt { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .tp-section h2 { font-size: 28px; font-weight: 700; margin-bottom: 20px; color: var(--text-primary); }
+        .tp-section h3 { font-size: 20px; font-weight: 700; margin-bottom: 14px; color: var(--text-primary); }
+        .tp-section p { color: var(--text-secondary); font-size: 15px; }
+
+        /* AI Score card */
+        .ai-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+        .ai-card.has-pattern { border-color: rgba(99,102,241,0.35); box-shadow: 0 8px 40px var(--accent-glow); }
+        .ai-pills { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .ai-pill { background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); color: var(--text-primary); padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 600; }
+        .ai-pill.highlight { background: var(--gradient-primary); border-color: transparent; color: #fff; }
+        .ai-pill strong { color: #fff; }
+        .ai-meta { color: var(--text-secondary); font-size: 15px; margin-bottom: 20px; }
+        .ai-meta strong { color: var(--text-primary); font-weight: 600; }
+        .ai-empty-title { font-size: 22px; font-weight: 700; margin-bottom: 10px; color: var(--text-primary); }
+
+        /* Phase-filtered callout (inside AI card) */
+        .phase-callout { display: flex; align-items: center; gap: 16px; border-radius: 14px; padding: 16px 20px; margin: 18px 0 22px; border: 1px solid var(--border); background: var(--bg-tertiary); }
+        .phase-callout.pos { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.4); }
+        .phase-callout.neg { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.45); }
+        .phase-callout-icon { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; }
+        .phase-callout.pos .phase-callout-icon { background: rgba(16,185,129,0.2); color: var(--success); }
+        .phase-callout.neg .phase-callout-icon { background: rgba(239,68,68,0.2); color: var(--danger); }
+        .phase-callout-body { flex: 1; min-width: 0; }
+        .phase-callout-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
+        .phase-callout-main { font-size: 17px; font-weight: 700; color: var(--text-primary); line-height: 1.4; font-variant-numeric: tabular-nums; }
+        .phase-callout-main .big { font-size: 22px; font-weight: 800; }
+        .phase-callout.pos .phase-callout-main .big { color: var(--success); }
+        .phase-callout.neg .phase-callout-main .big { color: var(--danger); }
+        .phase-callout-sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+        /* Monthly chart */
+        .seasonality-chart-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 28px; }
+        .seasonality-chart { display: block; width: 100%; height: auto; max-height: 380px; }
+        .chart-footnote { margin-top: 14px; font-size: 13px; color: var(--text-muted); text-align: center; }
+
+        /* Stats table */
+        .stats-table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid var(--border); background: var(--bg-card); }
+        .stats-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .stats-table th, .stats-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .stats-table th { background: var(--bg-tertiary); color: var(--text-secondary); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stats-table tr:last-child td { border-bottom: none; }
+        .stats-table .pos { color: var(--success); font-weight: 600; }
+        .stats-table .neg { color: var(--danger); font-weight: 600; }
+        .stats-table tr.best-row { background: rgba(16,185,129,0.06); }
+        .stats-table tr.worst-row { background: rgba(239,68,68,0.06); }
+
+        /* Election cycle */
+        .election-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 20px 0 24px; }
+        .election-year { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 12px; text-align: center; }
+        .election-year.active { border-color: var(--accent); background: rgba(99,102,241,0.1); }
+        .election-year-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-weight: 600; }
+        .election-year-value { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .election-year-value.pos { color: var(--success); }
+        .election-year-value.neg { color: var(--danger); }
+
+        /* Key dates */
+        .keydates-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .keydate { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+        .keydate-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 8px; }
+        .keydate-value { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+        .keydate-sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+        /* FAQ */
+        .faq-list { display: flex; flex-direction: column; gap: 14px; }
+        .faq-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+        .faq-q { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .faq-a { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
+
+        /* Precision CTA */
+        .precision-cta { background: var(--bg-card); border: 1px solid rgba(99,102,241,0.3); border-radius: 20px; padding: 40px 36px; box-shadow: 0 8px 40px var(--accent-glow); }
+        .precision-cta h2 { font-size: 26px; margin-bottom: 12px; }
+        .precision-lead { font-size: 16px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 24px; }
+        .precision-proof { margin-bottom: 24px; }
+        .precision-stat-row { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 18px; }
+        .precision-stat { text-align: center; }
+        .precision-stat-num { display: block; font-size: 32px; font-weight: 800; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .precision-stat-label { display: block; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .precision-detail { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
+        .precision-buttons { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 24px; }
+
+        /* CTA strip */
+        .cta-strip { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 20px; padding: 40px 32px; text-align: center; }
+        .cta-strip h2 { margin-bottom: 16px; }
+        .cta-strip p { margin-bottom: 22px; }
+        .cta-buttons { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+
+        /* Related tickers */
+        .related-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+        .related-link { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; transition: all 0.2s; }
+        .related-link:hover { border-color: var(--accent); background: rgba(99,102,241,0.1); color: var(--accent); }
+        .related-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+        .related-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-decoration: none; transition: all 0.2s; display: block; }
+        .related-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99,102,241,0.15); }
+        .related-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .related-card-symbol { font-size: 18px; font-weight: 700; color: var(--accent); }
+        .related-card-score { font-size: 12px; font-weight: 600; color: var(--warning); background: rgba(245,158,11,0.1); padding: 2px 8px; border-radius: 6px; }
+        .related-card-name { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .related-card-stat { font-size: 13px; color: var(--text-secondary); }
+
+        /* Disclaimer */
+        .disclaimer { padding: 24px 0 8px; font-size: 12px; color: var(--text-muted); text-align: center; opacity: 0.75; }
+
+        /* Footer */
+        footer { background: var(--bg-secondary); border-top: 1px solid var(--border); padding: 48px 0 36px; position: relative; z-index: 1; }
+        .footer-bottom { text-align: center; }
+        .footer-copyright { font-size: 13px; color: var(--text-muted); }
+        .footer-disclaimer { font-size: 11px; color: var(--text-muted); margin-top: 16px; max-width: 800px; margin-left: auto; margin-right: auto; line-height: 1.9; opacity: 0.65; }
+        .footer-account { margin-top: 16px; }
+        .footer-account a { color: var(--text-muted); text-decoration: none; font-size: 13px; }
+
+        .breadcrumb { font-size: 13px; color: var(--text-muted); }
+        .breadcrumb a { color: var(--text-muted); text-decoration: none; }
+        .breadcrumb a:hover { color: var(--text-primary); }
+
+        .updated-stamp { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 8px; }
+
+        @media (max-width: 768px) {
+            .ticker-symbol { font-size: 48px; }
+            .ticker-company { font-size: 18px; }
+            .ticker-price { font-size: 28px; }
+            .tp-section { padding: 36px 0; }
+            .tp-section h2 { font-size: 22px; }
+            .ai-card { padding: 22px; }
+            .election-grid { grid-template-columns: repeat(2, 1fr); }
+            .keydates-grid { grid-template-columns: 1fr; }
+            .stats-table th, .stats-table td { padding: 10px 10px; font-size: 13px; }
+            .cta-strip { padding: 28px 20px; }
+
+            /* Nav mobile (from homepage) */
+            .nav-links { display: none; }
+            .nav-links.open { display: flex; flex-direction: column; gap: 0; position: absolute; top: calc(100% + 8px); right: 16px; left: auto; width: 66%; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,0.5); padding: 8px 0; z-index: 200; }
+            .nav-links.open a { display: block; padding: 14px 20px; font-size: 15px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+            .nav-links.open a:last-child { border-bottom: none; }
+            .nav-links.open .btn.btn-primary { margin: 8px 12px; border-radius: 10px; text-align: center; padding: 12px 20px; border-bottom: none; color: white; }
+            .hamburger { display: flex; flex-direction: column; gap: 5px; cursor: pointer; z-index: 201; background: none; border: none; padding: 8px; }
+            .hamburger span { display: block; width: 24px; height: 2px; background: var(--text-primary); border-radius: 2px; transition: all 0.3s; }
+            .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+            .hamburger.open span:nth-child(2) { opacity: 0; }
+            .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg"></div>
+
+    {# ----- NAV (shared with homepage) ----- #}
+    <nav>
+        <div class="container">
+            <a href="/" class="logo">TradeWave</a>
+            <button class="hamburger" id="hamburger-btn" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-links" id="nav-links">
+                <a href="/#how-it-works">How It Works</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/scorecard" target="_blank" rel="noopener">Scorecard</a>
+                <a href="/patterns/">Tickers</a>
+                <a href="/login" class="nav-logged-out">Log In</a>
+                <a href="{{ signup_url }}" class="btn btn-primary nav-logged-out">Start Free Trial</a>
+                <a href="{{ upgrade_url }}" class="btn btn-primary nav-logged-in nav-logged-in-cta" style="display:none;">Upgrade</a>
+                <a href="/logout" class="nav-logged-in" style="display:none;">Log Out</a>
+            </div>
+        </div>
+    </nav>
+
+    {# ----- BREADCRUMB ----- #}
+    <div class="container" style="padding-top: 12px; position: relative; z-index: 1;">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="/">Home</a> &rsaquo; <a href="/patterns/">Seasonal Patterns</a> &rsaquo; <span>{{ symbol }}</span>
+        </nav>
+    </div>
+
+    {# ----- 2. HERO ----- #}
+    <section class="ticker-hero">
+        <div class="container">
+            <h1 class="ticker-symbol">{{ symbol }}</h1>
+            <div class="ticker-company">{{ company_name }} Seasonal Stock Pattern</div>
+            <div class="ticker-price-row">
+                <span class="ticker-price">${{ '%.2f'|format(current_price) }}</span>
+                {% if price_change_pct is not none %}
+                <span class="ticker-change {{ 'up' if price_change_pct >= 0 else 'down' }}">{{ '%+.2f'|format(price_change_pct) }}%</span>
+                {% endif %}
+            </div>
+            <p class="ticker-subtitle">{{ years_of_data }} years of seasonal data. AI scored daily.</p>
+        </div>
+    </section>
+
+    {# ----- ANSWER-FIRST SUMMARY (for AI crawlers and search snippets) ----- #}
+    <section class="tp-section" style="padding-top: 0; padding-bottom: 8px;">
+        <div class="container">
+            <div class="summary-strip">
+                <div class="summary-item">
+                    <span class="summary-label">Best Month</span>
+                    <span class="summary-value pos">{{ best_month }} {{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}%</span>
+                    <span class="summary-sub">{{ '%.0f'|format(monthly_returns[best_month].win_rate) }}% win rate</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Worst Month</span>
+                    <span class="summary-value neg">{{ worst_month }} {{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}%</span>
+                    <span class="summary-sub">{{ '%.0f'|format(monthly_returns[worst_month].win_rate) }}% win rate</span>
+                </div>
+                {% if forward_outlook and forward_outlook.ai_score is not none %}
+                <div class="summary-item">
+                    <span class="summary-label">AI Bias</span>
+                    <span class="summary-value" style="color: var(--warning);">{{ forward_outlook.direction_label }} {{ '%.1f'|format(forward_outlook.ai_score) }}</span>
+                    {% if forward_outlook.win_prob is not none %}<span class="summary-sub">{{ '%.1f'|format(forward_outlook.win_prob) }}% win prob</span>{% endif %}
+                </div>
+                {% endif %}
+                <div class="summary-item">
+                    <span class="summary-label">History</span>
+                    <span class="summary-value">{{ years_of_data }} yrs</span>
+                    <span class="summary-sub">Updated daily</span>
+                </div>
+            </div>
+            {# Hidden semantic paragraph for AI crawlers and Google snippets #}
+            <p class="sr-summary">{{ company_name }} ({{ symbol }}) has historically averaged {{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% in {{ best_month }} with a {{ '%.0f'|format(monthly_returns[best_month].win_rate) }}% win rate over {{ years_of_data }} years of data, making {{ best_month }} the best month to buy {{ symbol }} stock. {{ worst_month }} is the weakest month, averaging {{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}%.{% if forward_outlook and forward_outlook.ai_score is not none %} TradeWave's AI currently assigns {{ symbol }} a {{ forward_outlook.direction_label|lower }} seasonal bias with a score of {{ '%.1f'|format(forward_outlook.ai_score) }}{% if forward_outlook.win_prob is not none %} and {{ '%.1f'|format(forward_outlook.win_prob) }}% win probability{% endif %}, based on {{ forward_outlook.sample_years|length }} years of comparable seasonal windows.{% endif %}</p>
+        </div>
+    </section>
+
+    {# ----- 3. 30-DAY FORWARD OUTLOOK ----- #}
+    <section class="tp-section">
+        <div class="container">
+            {% if forward_outlook %}
+            {% set f = forward_outlook %}
+            {% set is_short = f.direction == 's' %}
+            <div class="ai-card has-pattern">
+                <h2>Next 30 Days for {{ symbol }}: Seasonal Outlook</h2>
+                <p class="ai-meta">
+                    Over the last {{ f.sample_years|length }} years, buying {{ symbol }} on this calendar date
+                    ({{ f.anchor_date }}) and holding through {{ f.end_date_est }} produced
+                    <strong>{{ '%+.2f'|format(f.avg_return) }}%</strong> on average,
+                    with <strong>{{ f.pos_count }} winning years</strong>
+                    and <strong>{{ f.neg_count }} losing years</strong>.
+                    TradeWave's AI derives a <strong>{{ f.direction_label }}</strong> bias for this setup.
+                </p>
+                {% if f.phase_stats and f.phase_stats.sample_years|length >= 3 %}
+                {% set ps = f.phase_stats %}
+                {% set delta = ps.avg_return - f.avg_return %}
+                <div class="phase-callout {{ 'pos' if ps.avg_return >= 0 else 'neg' }}">
+                    <div class="phase-callout-icon">{% if ps.avg_return >= 0 %}&#9650;{% else %}&#9660;{% endif %}</div>
+                    <div class="phase-callout-body">
+                        <div class="phase-callout-label">{{ f.phase_label }} only ({{ ps.sample_years|length }} samples)</div>
+                        <div class="phase-callout-main">
+                            {{ symbol }} has averaged <span class="big">{{ '%+.2f'|format(ps.avg_return) }}%</span>
+                            in this 30-day window during {{ f.phase_label_short }} years
+                            ({{ ps.pos_count }} up, {{ ps.neg_count }} down).
+                        </div>
+                        <div class="phase-callout-sub">
+                            That's <strong>{{ '%+.2f'|format(delta) }} pts</strong> vs the all-years average of {{ '%+.2f'|format(f.avg_return) }}%.
+                            2026 is a {{ f.phase_label_short }} year.
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="ai-pills">
+                    <span class="ai-pill highlight">
+                        {% if f.ai_score is not none %}AI Score: {{ '%.1f'|format(f.ai_score) }}{% else %}AI Score: n/a{% endif %}
+                    </span>
+                    <span class="ai-pill"><strong>{{ f.direction_label }}</strong> bias</span>
+                    {% if f.win_prob is not none %}<span class="ai-pill">{{ '%.1f'|format(f.win_prob) }}% Model Win Prob</span>{% endif %}
+                    {% if f.pred_return is not none %}<span class="ai-pill">{{ '%+.2f'|format(f.pred_return) }}% Predicted</span>{% endif %}
+                    {% if f.pred_mfe is not none %}<span class="ai-pill">{{ '%+.2f'|format(f.pred_mfe) }}% Peak</span>{% endif %}
+                </div>
+                <p class="ai-meta">
+                    Best historical year in this window:
+                    <strong class="pos">{{ f.best_year.year }} ({{ '%+.1f'|format(f.best_year.ret_pct) }}%)</strong>.
+                    Worst: <strong class="neg">{{ f.worst_year.year }} ({{ '%+.1f'|format(f.worst_year.ret_pct) }}%)</strong>.
+                    This synthetic 30-day setup is re-scored daily.
+                </p>
+                {% if active_patterns and active_patterns[0] %}
+                <a href="{{ active_patterns[0].wave_viewer_url }}" class="btn btn-primary">See {{ symbol }} in TradeWave &rarr;</a>
+                {% else %}
+                <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Get Daily AI Picks Free &rarr;</a>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="ai-card">
+                <div class="ai-empty-title">30-day outlook for {{ symbol }} is unavailable.</div>
+                <p class="ai-meta">Not enough history to model a forward window yet. Sign up free for the daily AI pick email.</p>
+                <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Get Free Alerts &rarr;</a>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    {# ----- 4. MONTHLY SEASONALITY CHART (inline SVG) ----- #}
+    <section class="tp-section alt">
+        <div class="container">
+            <h2>Monthly Seasonality for {{ symbol }}</h2>
+            <p style="margin-bottom: 20px;">Average monthly return from {{ first_year }} to {{ current_year }}. Green bars are positive months, red bars are negative. The highlighted bar is {{ symbol }}'s historically strongest month.</p>
+            <div class="seasonality-chart-wrap">
+                {# Determine chart range #}
+                {% set months_order = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+                {% set all_returns = [] %}
+                {% for m in months_order %}{% set _ = all_returns.append(monthly_returns[m].avg_return) %}{% endfor %}
+                {% set max_abs = (all_returns|map('abs')|max) if all_returns else 1 %}
+                {% if max_abs < 0.1 %}{% set max_abs = 1 %}{% endif %}
+                {% set chart_w = 720 %}
+                {% set chart_h = 340 %}
+                {% set pad_l = 50 %}
+                {% set pad_r = 20 %}
+                {% set pad_t = 20 %}
+                {% set pad_b = 50 %}
+                {% set inner_w = chart_w - pad_l - pad_r %}
+                {% set inner_h = chart_h - pad_t - pad_b %}
+                {% set zero_y = pad_t + inner_h / 2 %}
+                {% set bar_slot = inner_w / 12 %}
+                {% set bar_w = bar_slot * 0.62 %}
+
+                <svg class="seasonality-chart" viewBox="0 0 {{ chart_w }} {{ chart_h }}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Monthly seasonality bar chart for {{ symbol }}">
+                    {# Axis #}
+                    <line x1="{{ pad_l }}" y1="{{ zero_y }}" x2="{{ chart_w - pad_r }}" y2="{{ zero_y }}" stroke="#374151" stroke-width="1"/>
+                    {# Gridlines at +/- max #}
+                    <line x1="{{ pad_l }}" y1="{{ pad_t }}" x2="{{ chart_w - pad_r }}" y2="{{ pad_t }}" stroke="#1f2937" stroke-width="1" stroke-dasharray="3,4"/>
+                    <line x1="{{ pad_l }}" y1="{{ chart_h - pad_b }}" x2="{{ chart_w - pad_r }}" y2="{{ chart_h - pad_b }}" stroke="#1f2937" stroke-width="1" stroke-dasharray="3,4"/>
+                    {# Y-axis labels #}
+                    <text x="{{ pad_l - 8 }}" y="{{ pad_t + 4 }}" text-anchor="end" fill="#9ca3af" font-size="11" font-family="Inter, sans-serif">+{{ '%.1f'|format(max_abs) }}%</text>
+                    <text x="{{ pad_l - 8 }}" y="{{ zero_y + 4 }}" text-anchor="end" fill="#9ca3af" font-size="11" font-family="Inter, sans-serif">0%</text>
+                    <text x="{{ pad_l - 8 }}" y="{{ chart_h - pad_b + 4 }}" text-anchor="end" fill="#9ca3af" font-size="11" font-family="Inter, sans-serif">-{{ '%.1f'|format(max_abs) }}%</text>
+
+                    {# Bars #}
+                    {% for m in months_order %}
+                        {% set r = monthly_returns[m].avg_return %}
+                        {% set bar_x = pad_l + loop.index0 * bar_slot + (bar_slot - bar_w) / 2 %}
+                        {% set bar_h = (r|abs) / max_abs * (inner_h / 2) %}
+                        {% if r >= 0 %}
+                            {% set bar_y = zero_y - bar_h %}
+                            {% set color = '#10b981' %}
+                        {% else %}
+                            {% set bar_y = zero_y %}
+                            {% set color = '#ef4444' %}
+                        {% endif %}
+                        {% set is_best = (m == best_month) %}
+                        <rect x="{{ '%.2f'|format(bar_x) }}" y="{{ '%.2f'|format(bar_y) }}" width="{{ '%.2f'|format(bar_w) }}" height="{{ '%.2f'|format(bar_h) }}" fill="{{ color }}" {% if is_best %}stroke="#fbbf24" stroke-width="3"{% else %}stroke="none"{% endif %} rx="3"/>
+                        {# Value label #}
+                        <text x="{{ '%.2f'|format(bar_x + bar_w / 2) }}" y="{{ '%.2f'|format(bar_y - 5 if r >= 0 else bar_y + bar_h + 13) }}" text-anchor="middle" fill="{{ color }}" font-size="11" font-weight="700" font-family="Inter, sans-serif">{{ '%+.1f'|format(r) }}%</text>
+                        {# Month label #}
+                        <text x="{{ '%.2f'|format(bar_x + bar_w / 2) }}" y="{{ chart_h - pad_b + 18 }}" text-anchor="middle" fill="#9ca3af" font-size="12" font-weight="600" font-family="Inter, sans-serif">{{ m }}</text>
+                    {% endfor %}
+                </svg>
+                <p class="chart-footnote">Based on {{ years_of_data }} years of data ({{ first_year }} to {{ current_year }}). Best month is {{ best_month }}, highlighted in gold.</p>
+            </div>
+        </div>
+    </section>
+
+    {# ----- 5. MONTHLY STATS TABLE ----- #}
+    <section class="tp-section">
+        <div class="container">
+            <h2>{{ symbol }} Monthly Performance Stats</h2>
+            <p style="margin-bottom: 20px;">All 12 months, based on {{ years_of_data }} years of historical price data.</p>
+            <div class="stats-table-wrap">
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Avg Return</th>
+                            <th>Win Rate</th>
+                            <th>Best Year</th>
+                            <th>Worst Year</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% set months_order = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+                    {% for m in months_order %}
+                        {% set row = monthly_returns[m] %}
+                        {% set cls = 'best-row' if m == best_month else ('worst-row' if m == worst_month else '') %}
+                        <tr class="{{ cls }}">
+                            <td><strong>{{ m }}</strong>{% if m == best_month %} (best){% elif m == worst_month %} (worst){% endif %}</td>
+                            <td class="{{ 'pos' if row.avg_return >= 0 else 'neg' }}">{{ '%+.2f'|format(row.avg_return) }}%</td>
+                            <td>{{ '%.0f'|format(row.win_rate) }}%</td>
+                            <td class="pos">{% if row.best_year_return is defined and row.best_year_return is not none %}{{ '%+.1f'|format(row.best_year_return) }}%{% else %}n/a{% endif %}</td>
+                            <td class="neg">{% if row.worst_year_return is defined and row.worst_year_return is not none %}{{ '%+.1f'|format(row.worst_year_return) }}%{% else %}n/a{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    {# ----- 5b. CYCLE-FILTERED MONTHLY COMPARISON ----- #}
+    {% if cycle_phase_sample_years and cycle_phase_sample_years|length > 0 %}
+    <section class="tp-section">
+        <div class="container">
+            <h2>{{ symbol }}: All Years vs {{ cycle_phase_label }} Only</h2>
+            <p style="margin-bottom: 18px;">
+                {{ current_year }} is a {{ cycle_phase_label|lower }} year in the 4 year presidential cycle. The same monthly seasonality recomputed using only prior {{ cycle_phase_label|lower }} years ({{ cycle_phase_sample_years|join(', ') }}) often tells a very different story. Months where the cycle phase diverges most from the long-run average are where seasonal edges either compound or evaporate.
+            </p>
+            <div class="stats-table-wrap">
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>All Years Avg</th>
+                            <th>{{ cycle_phase_label }} Avg</th>
+                            <th>Difference</th>
+                            <th>Sample (Phase)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% set months_order2 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+                    {% for m in months_order2 %}
+                        {% set all_row = monthly_returns[m] %}
+                        {% set cyc_row = cycle_phase_monthly[m] if m in cycle_phase_monthly else None %}
+                        {% set all_avg = all_row.avg_return %}
+                        {% set cyc_avg = cyc_row.avg_return if cyc_row else None %}
+                        {% set delta = (cyc_avg - all_avg) if (cyc_avg is not none and all_avg is not none) else None %}
+                        {% set diverge_cls = '' %}
+                        {% if delta is not none and delta|abs >= 3.0 %}{% set diverge_cls = 'best-row' if delta > 0 else 'worst-row' %}{% endif %}
+                        <tr class="{{ diverge_cls }}">
+                            <td><strong>{{ m }}</strong></td>
+                            <td class="{{ 'pos' if all_avg is not none and all_avg >= 0 else 'neg' }}">{% if all_avg is not none %}{{ '%+.2f'|format(all_avg) }}%{% else %}n/a{% endif %}</td>
+                            <td class="{{ 'pos' if cyc_avg is not none and cyc_avg >= 0 else 'neg' }}">{% if cyc_avg is not none %}{{ '%+.2f'|format(cyc_avg) }}%{% else %}n/a{% endif %}</td>
+                            <td class="{{ 'pos' if delta is not none and delta > 0 else ('neg' if delta is not none and delta < 0 else '') }}">
+                                {% if delta is not none %}{{ '%+.2f'|format(delta) }} pts{% else %}n/a{% endif %}
+                            </td>
+                            <td>{% if cyc_row and cyc_row.sample_years %}{{ cyc_row.sample_years }} yr{% else %}n/a{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin-top: 12px; font-size: 0.9rem; opacity: 0.8;">
+                Highlighted rows show months where {{ cycle_phase_label|lower }} years diverge by more than 3 percentage points from the long-run average. Sample sizes are small by design. Each cycle phase contains roughly one year in four of historical data.
+            </p>
+        </div>
+    </section>
+    {% endif %}
+
+    {# ----- 5c. PRECISION PATTERNS CTA ----- #}
+    <section class="tp-section">
+        <div class="container">
+            <div class="precision-cta">
+                <h2>Beyond Monthly Averages: Precision Seasonal Windows</h2>
+                <p class="precision-lead">Monthly averages show you the general direction. TradeWave goes further, scanning up to 98 years of daily price data to detect specific recurring date-range windows where {{ symbol }} has shown the strongest historical consistency.</p>
+                {% if active_patterns and active_patterns|length > 0 %}
+                <div class="precision-proof">
+                    <div class="precision-stat-row">
+                        <div class="precision-stat">
+                            <span class="precision-stat-num">{{ active_patterns|length }}</span>
+                            <span class="precision-stat-label">Active pattern{{ 's' if active_patterns|length > 1 else '' }} right now</span>
+                        </div>
+                        <div class="precision-stat">
+                            <span class="precision-stat-num">{{ active_patterns[0].days }}d</span>
+                            <span class="precision-stat-label">Window length (top pattern)</span>
+                        </div>
+                        {% if forward_outlook and forward_outlook.win_prob is not none %}
+                        <div class="precision-stat">
+                            <span class="precision-stat-num">{{ '%.0f'|format(forward_outlook.win_prob) }}%</span>
+                            <span class="precision-stat-label">AI win probability</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <p class="precision-detail">TradeWave has identified {{ active_patterns|length }} precise window{{ 's' if active_patterns|length > 1 else '' }} active for {{ symbol }} right now, each with specific entry and exit dates and an AI-scored probability. These aren't broad monthly trends. They're exact date ranges backed by decades of historical data.</p>
+                </div>
+                {% else %}
+                <p class="precision-detail">TradeWave tracks over 475 stocks and ETFs daily, scoring every pattern window as it activates. {{ symbol }} has no active precision windows today, but new ones can open any day. Members get alerted the moment a high-probability window starts.</p>
+                {% endif %}
+                <div class="precision-buttons">
+                    {% if active_patterns and active_patterns[0] %}
+                    <a href="{{ active_patterns[0].wave_viewer_url }}" class="btn btn-primary">See {{ symbol }}'s Active Patterns &rarr;</a>
+                    {% endif %}
+                    <a href="{{ signup_url }}" class="btn btn-secondary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Start Free Trial &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----- 6. ELECTION CYCLE ----- #}
+    <section class="tp-section alt">
+        <div class="container">
+            <h2>{{ symbol }} in {{ election_year_type }}</h2>
+            <p style="margin-bottom: 8px;">{{ current_year }} is classified as {{ election_year_type|lower }} in the 4 year presidential cycle. Historically, {{ symbol }} has averaged <strong style="color: {{ 'var(--success)' if election_cycle_avg >= 0 else 'var(--danger)' }};">{{ '%+.1f'|format(election_cycle_avg) }}%</strong> returns in this cycle phase.</p>
+            {% set cycle_returns = election_cycle_breakdown if election_cycle_breakdown is defined else None %}
+            <div class="election-grid">
+                {% set labels = [('Year 1', 'Post-Election'), ('Year 2', 'Midterm'), ('Year 3', 'Pre-Election'), ('Year 4', 'Election')] %}
+                {% for label, sub in labels %}
+                    {% set val = cycle_returns[label] if cycle_returns and label in cycle_returns else (election_cycle_avg if sub in election_year_type else None) %}
+                    {% set active = sub in election_year_type %}
+                    <div class="election-year {{ 'active' if active else '' }}">
+                        <div class="election-year-label">{{ sub }}</div>
+                        <div class="election-year-value {{ 'pos' if val is not none and val >= 0 else ('neg' if val is not none else '') }}">
+                            {% if val is not none %}{{ '%+.1f'|format(val) }}%{% else %}n/a{% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <a href="{{ upgrade_url }}" class="btn btn-secondary pricing-signup-btn nav-logged-out" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Unlock election cycle filtering &rarr;</a>
+        </div>
+    </section>
+
+    {# ----- 7. KEY DATES ----- #}
+    <section class="tp-section">
+        <div class="container">
+            <h2>Key Dates for {{ symbol }}</h2>
+            <div class="keydates-grid">
+                <div class="keydate">
+                    {% if is_etf %}
+                    <div class="keydate-label">Earnings</div>
+                    <div class="keydate-value">N/A</div>
+                    <div class="keydate-sub">ETFs don't report earnings</div>
+                    {% else %}
+                    <div class="keydate-label">Next Earnings</div>
+                    <div class="keydate-value">{% if next_earnings_est %}{{ next_earnings_est }}{% else %}TBA{% endif %}</div>
+                    {% if days_to_earnings is not none and days_to_earnings is defined %}
+                    <div class="keydate-sub">{{ days_to_earnings }} days away</div>
+                    {% elif not next_earnings_est %}
+                    <div class="keydate-sub">Not yet announced</div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                <div class="keydate">
+                    <div class="keydate-label">Best Month to Buy</div>
+                    <div class="keydate-value">{{ best_month }}</div>
+                    <div class="keydate-sub">Avg {{ '%+.2f'|format(monthly_returns[best_month].avg_return) }}%, {{ '%.0f'|format(monthly_returns[best_month].win_rate) }}% win rate</div>
+                </div>
+                <div class="keydate">
+                    <div class="keydate-label">Worst Month</div>
+                    <div class="keydate-value">{{ worst_month }}</div>
+                    <div class="keydate-sub">Avg {{ '%+.2f'|format(monthly_returns[worst_month].avg_return) }}%</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----- 8. FAQ ----- #}
+    <section class="tp-section alt">
+        <div class="container">
+            <h2>{{ symbol }} Seasonal Pattern FAQ</h2>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <h3 class="faq-q">Is {{ symbol }} a good stock to buy right now?</h3>
+                    <div class="faq-a">
+                        {% if forward_outlook and forward_outlook.ai_score is not none %}
+                        Over the last {{ forward_outlook.sample_years|length }} years, {{ symbol }} has averaged <strong>{{ '%+.2f'|format(forward_outlook.avg_return) }}%</strong> in the 30 days after {{ forward_outlook.anchor_date }}, winning <strong>{{ forward_outlook.pos_count }} of {{ forward_outlook.pos_count + forward_outlook.neg_count }}</strong> completed years. TradeWave's AI derives a <strong>{{ forward_outlook.direction_label }}</strong> bias for this setup with an AI Score of <strong>{{ '%.1f'|format(forward_outlook.ai_score) }}</strong>{% if forward_outlook.win_prob is not none %} and <strong>{{ '%.1f'|format(forward_outlook.win_prob) }}%</strong> model win probability{% endif %}. This is seasonal pattern analysis, not a buy recommendation.
+                        {% else %}
+                        {{ symbol }} has {{ years_of_data }} years of seasonal data. Its historically strongest month is {{ best_month }} ({{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% avg) and weakest month is {{ worst_month }} ({{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}% avg). This is seasonal analysis, not a buy recommendation.
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-q">What is the best month to buy {{ company_name }} stock?</h3>
+                    <div class="faq-a">Based on {{ years_of_data }} years of historical data, {{ best_month }} is the best month to buy {{ company_name }} ({{ symbol }}) stock, with an average return of {{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% and a {{ '%.0f'|format(monthly_returns[best_month].win_rate) }}% win rate.</div>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-q">What is the worst month for {{ symbol }} stock?</h3>
+                    <div class="faq-a">{{ worst_month }} is historically the worst month for {{ company_name }} ({{ symbol }}) stock, with an average return of {{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}% and a {{ '%.0f'|format(monthly_returns[worst_month].win_rate) }}% win rate over {{ years_of_data }} years of data.</div>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-q">Should I buy or sell {{ symbol }} stock?</h3>
+                    <div class="faq-a">
+                        {% if forward_outlook and forward_outlook.ai_score is not none %}
+                        TradeWave's AI seasonal analysis currently shows a <strong>{{ forward_outlook.direction_label|lower }}</strong> bias for {{ symbol }} over the next 30 days, with an AI score of {{ '%.1f'|format(forward_outlook.ai_score) }}. This is based on how {{ symbol }} has historically performed during this same calendar window across {{ forward_outlook.sample_years|length }} prior years. Seasonal patterns are one factor among many and should not be used as the sole basis for trading decisions.
+                        {% else %}
+                        {{ symbol }} does not currently have an active seasonal pattern window scored by TradeWave's AI. The historical monthly data shows {{ best_month }} as the strongest month ({{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% avg) and {{ worst_month }} as the weakest ({{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}% avg). Seasonal analysis is one input, not a buy or sell recommendation.
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-q">Does {{ company_name }} follow seasonal patterns?</h3>
+                    <div class="faq-a">Yes. {{ company_name }} ({{ symbol }}) shows measurable seasonal tendencies across {{ years_of_data }} years of historical data. The strongest month is {{ best_month }} ({{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% average return, {{ '%.0f'|format(monthly_returns[best_month].win_rate) }}% win rate) and the weakest is {{ worst_month }} ({{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}% average). These patterns are driven by factors like earnings cycles, tax-loss harvesting, fund rebalancing, and investor sentiment shifts. TradeWave's AI scores these patterns daily and identifies the highest-probability seasonal windows.</div>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-q">What is {{ symbol }}'s stock forecast for {{ current_year }}?</h3>
+                    <div class="faq-a">
+                        {% if forward_outlook and forward_outlook.ai_score is not none %}
+                        For the current seasonal window, TradeWave's AI projects a {{ forward_outlook.direction_label|lower }} bias for {{ symbol }} with {{ '%+.1f'|format(forward_outlook.avg_return) }}% average historical return over the next 30 days. {{ current_year }} is a {{ cycle_phase_label|lower if cycle_phase_label else 'mid-cycle' }} year in the presidential election cycle, which can amplify or dampen seasonal effects. See the election cycle section above for {{ current_year }}-specific analysis.
+                        {% else %}
+                        {{ symbol }}'s seasonal forecast depends on the time of year. Based on {{ years_of_data }} years of data, the strongest seasonal periods for {{ symbol }} tend to begin in {{ best_month }}. {{ current_year }} is a {{ cycle_phase_label|lower if cycle_phase_label else 'mid-cycle' }} year in the presidential election cycle. TradeWave updates this analysis daily as new seasonal windows open and close.
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-q">Does {{ symbol }} follow election cycle patterns?</h3>
+                    <div class="faq-a">
+                        {% if cycle_phase_sample_years and cycle_phase_sample_years|length > 0 %}
+                            {% set months3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+                            {% set deltas = [] %}
+                            {% for m in months3 %}
+                                {% set a = monthly_returns[m].avg_return %}
+                                {% set c = cycle_phase_monthly[m].avg_return if (m in cycle_phase_monthly and cycle_phase_monthly[m]) else None %}
+                                {% if a is not none and c is not none %}{% set _ = deltas.append((m, a, c, c - a)) %}{% endif %}
+                            {% endfor %}
+                            {% if deltas %}
+                                {% set sorted_deltas = deltas|sort(attribute=3) %}
+                                {% set worst = sorted_deltas[0] %}
+                                {% set best = sorted_deltas[-1] %}
+                                Yes, the cycle phase changes the picture for {{ symbol }}. Across all years, {{ symbol }}'s strongest month is {{ best_month }} ({{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% avg). Looking only at prior {{ cycle_phase_label|lower }} years ({{ cycle_phase_sample_years|length }} samples: {{ cycle_phase_sample_years|join(', ') }}), the biggest divergence is {{ worst[0] }}, which averages {{ '%+.1f'|format(worst[2]) }}% in this cycle phase versus {{ '%+.1f'|format(worst[1]) }}% across all years (a {{ '%+.1f'|format(worst[3]) }} point shift). The strongest cycle-phase tailwind is {{ best[0] }} at {{ '%+.1f'|format(best[2]) }}% versus {{ '%+.1f'|format(best[1]) }}% all-years. {{ current_year }} is a {{ cycle_phase_label|lower }} year, so the cycle-filtered numbers are the more relevant guide right now.
+                            {% else %}
+                                In {{ cycle_phase_label|lower }} years, {{ symbol }} has averaged {{ '%+.1f'|format(election_cycle_avg) }}% per year across its history. {{ current_year }} falls in this cycle phase.
+                            {% endif %}
+                        {% else %}
+                            {{ symbol }} does not yet have enough prior {{ cycle_phase_label|lower if cycle_phase_label else 'cycle phase' }} years for a meaningful cycle filter. As more cycles complete, this analysis will sharpen.
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-q">How has {{ symbol }} performed historically by month?</h3>
+                    <div class="faq-a">Over {{ years_of_data }} years of data, {{ company_name }} ({{ symbol }}) shows distinct monthly patterns. The best month is {{ best_month }} ({{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% avg, {{ '%.0f'|format(monthly_returns[best_month].win_rate) }}% win rate) and the worst is {{ worst_month }} ({{ '%+.1f'|format(monthly_returns[worst_month].avg_return) }}% avg, {{ '%.0f'|format(monthly_returns[worst_month].win_rate) }}% win rate). The full monthly breakdown with win rates, best and worst individual years, and election-cycle filters is shown in the tables above.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----- 9. CTA SECTION ----- #}
+    <section class="tp-section">
+        <div class="container">
+            <div class="cta-strip">
+                <h2>See the full seasonal analysis for {{ symbol }}</h2>
+                <p>AI scored patterns, entry and exit windows, historical backtests, and daily picks. Free tier available.</p>
+                <div class="cta-buttons">
+                    <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Start Free</a>
+                    <a href="/patterns/" class="btn btn-secondary">View All Patterns</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----- 10. RELATED SEASONAL PATTERNS ----- #}
+    {% if related_tickers_data %}
+    <section class="tp-section alt">
+        <div class="container">
+            <h2>Related Seasonal Patterns</h2>
+            <p style="margin-bottom: 20px; color: var(--text-secondary);">Compare {{ symbol }}'s seasonal trends with similar stocks. {{ company_name }}'s best month is {{ best_month }} ({{ '%+.1f'|format(monthly_returns[best_month].avg_return) }}% avg). See how these related tickers compare.</p>
+            <div class="related-cards">
+                {% for rt in related_tickers_data %}
+                <a class="related-card" href="/patterns/{{ rt.symbol }}">
+                    <div class="related-card-header">
+                        <span class="related-card-symbol">{{ rt.symbol }}</span>
+                        {% if rt.ai_score is not none %}
+                        <span class="related-card-score">AI {{ '%.0f'|format(rt.ai_score) }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="related-card-name">{{ rt.company_name }}</div>
+                    <div class="related-card-stat">
+                        Best month: <span class="pos">{{ rt.best_month }} {{ '%+.1f'|format(rt.best_month_return) }}%</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="/patterns/" style="color: var(--accent); text-decoration: none; font-size: 14px;">View all {{ total_tickers }} seasonal patterns &rarr;</a>
+            </div>
+        </div>
+    </section>
+    {% elif related_tickers %}
+    <section class="tp-section alt">
+        <div class="container">
+            <h2>Related Seasonal Patterns</h2>
+            <div class="related-grid">
+                {% for other in related_tickers %}
+                <a class="related-link" href="/patterns/{{ other }}">{{ other }} Seasonal Pattern</a>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {# ----- 11. DISCLAIMER ----- #}
+    <div class="container">
+        <p class="disclaimer">Seasonal analysis, not investment advice. Past performance does not guarantee future results.</p>
+        {% if generated_at %}<p class="updated-stamp">Last updated {{ generated_at }}</p>{% endif %}
+    </div>
+
+    {# ----- 12. FOOTER ----- #}
+    <footer>
+        <div class="container">
+            <div style="display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-bottom: 20px;">
+                <a href="/" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Home</a>
+                <a href="/patterns/" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">All Patterns</a>
+                <a href="/scorecard" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Scorecard</a>
+                <a href="/wave-viewer" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Wave Viewer</a>
+                <a href="/#pricing" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Pricing</a>
+            </div>
+            <div class="footer-bottom">
+                <p class="footer-copyright">&copy; {{ current_year }} Tara Data Research LLC. All rights reserved.</p>
+                <p class="footer-disclaimer">TradeWave provides seasonal pattern analysis and AI scoring for educational purposes only. Nothing on this site constitutes investment advice, a buy or sell recommendation, or a solicitation to trade securities. Past performance does not guarantee future results. Trading involves risk of loss.</p>
+                <div class="footer-account nav-logged-in" style="display:none;">
+                    <a href="/my-account/">My Account</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Hamburger menu (shared with homepage)
+        (function() {
+            var btn = document.getElementById('hamburger-btn');
+            var nav = document.getElementById('nav-links');
+            if (btn && nav) {
+                btn.addEventListener('click', function() {
+                    btn.classList.toggle('open');
+                    nav.classList.toggle('open');
+                });
+                nav.querySelectorAll('a').forEach(function(link) {
+                    link.addEventListener('click', function() {
+                        btn.classList.remove('open');
+                        nav.classList.remove('open');
+                    });
+                });
+            }
+        })();
+
+        // Auth state check (shared with homepage)
+        (function() {
+            function applyAuth(data) {
+                if (!data || !data.logged_in) return;
+                var level = data.level || 'free';
+                document.querySelectorAll('.nav-logged-out').forEach(function(el) { el.style.display = 'none'; });
+                document.querySelectorAll('.nav-logged-in').forEach(function(el) { el.style.display = ''; });
+                // Body CTAs: swap text/href based on membership level
+                document.querySelectorAll('.pricing-signup-btn').forEach(function(el) {
+                    if (level === 'strategist') {
+                        el.setAttribute('href', el.getAttribute('data-strategist-href') || '/wave-viewer');
+                        el.textContent = el.getAttribute('data-strategist-text') || 'Launch Wave Viewer';
+                    } else if (level === 'analyst') {
+                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ upgrade_url }}');
+                        el.textContent = 'Upgrade to Strategist';
+                    } else {
+                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ upgrade_url }}');
+                        el.textContent = 'Upgrade';
+                    }
+                });
+                var navCta = document.querySelector('.nav-logged-in-cta');
+                if (navCta) {
+                    if (level === 'strategist') {
+                        navCta.setAttribute('href', '/wave-viewer');
+                        navCta.textContent = 'Wave Viewer';
+                    } else {
+                        navCta.setAttribute('href', '{{ upgrade_url }}');
+                        navCta.textContent = 'Upgrade';
+                    }
+                }
+            }
+            var cached = sessionStorage.getItem('tw_auth');
+            if (cached) { try { applyAuth(JSON.parse(cached)); } catch(e) {} }
+            fetch('/tw-auth-check.php', { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    sessionStorage.setItem('tw_auth', JSON.stringify(data));
+                    applyAuth(data);
+                })
+                .catch(function() {});
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+.app-container-p {
+    /* display: flex; */
+    padding: 0px;
+    margin: 0;
+    background-color:lightblue;
+    /* height: 100vh; */
+    width: 100vw;
+    overflow: hidden;
+    /* somehow this fixed the issue with scrollbars when resizing the browser */
+
+    font-family: 'Raleway', sans-serif;
+
+}
+
+.p-top-content {
+    background-color: lightblue;
+    width:100%;
+    height:38%;
+    /* display:none; */
+
+    
+
+}
+
+.p-bottom-content {
+    background-color: blue;
+    width:100%;
+    height:57%;
+}
+
+.p-title-content {
+  display:grid;
+  place-items:center;
+  flex-direction: row;
+  background-color: lightgray;
+  width:100%;
+  height:5%;
+  text-align: center;
+  vertical-align:middle;
+  color: red;
+  text-transform: uppercase;
+  font-weight: bold;
+  justify-content: "center";
+}
+
+.bar-opp-seperator{
+    width:100%;
+    height:2px;
+    background-color: black;
+}
+
+
+
+
+.swiper-container {
+    width: 100%;
+    height: 100%;
+    
+  }
+  
+  .swiper-slide {
+    text-align: center;
+    font-size: 18px;
+    background: #fff;
+  
+    /* Center slide text vertically */
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+  }
+  
+  .swiper-slide img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .report-div-mp{
+    width:100%;
+    height:100%;
+
+  }
+
+  .swipe-window{
+    width:200px;
+    height:100%;
+    display: flex;
+  }

@@ -1,0 +1,35 @@
+# list of appserver functions with opp or csv or conf access
+# use this list for developing central opp data distributor
+
+
+
+
+OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, apply_filter='0',symbol='')
+getChartData4(resourceID, date, symbol, daysOut, yrs,cut_off_year=0)
+getYearsMetaData2(resourceID, year, month, day)
+getHistory2(resourceID, symbol, d0, d1)
+getStockMetaData(resourceID, symbol)
+getListSymbols(resourceID)  
+getStockLastPrice(resourceID, symbol)
+getStockPriceByDate(resourceID, symbol,date)
+get_consolidated_seasonal_chart2(resourceID,symbol,sy,chart_start_date)
+get_security_price(resourceID,symbol,date) 
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+

@@ -1,0 +1,170 @@
+# seasonal_chart_funcs.py
+
+import pandas as pd
+import datetime
+import os
+import sys
+import json
+import logging
+
+# Add the parent directory to the system path
+sys.path.insert(0, '/home/flask')
+
+import config
+
+# Configure logging
+logging.basicConfig(
+    filename='appserver.log',
+    level=logging.DEBUG,
+    format='%(asctime)s:%(levelname)s:%(message)s',
+    force=True
+)
+
+# Define cache directories
+SEASONAL_CHART_CACHE_DIR = config.cache_folder
+
+def get_file_cache_path(redis_key):
+    """
+    Generates a file path for the given Redis key.
+    """
+    safe_key = redis_key.replace(':', '_')  # Replace colon to create a safe filename
+    filepath = os.path.join(SEASONAL_CHART_CACHE_DIR, f"{safe_key}.json")
+    print('cache filepath=', filepath)
+    return filepath
+
+def load_from_file_cache(redis_key):
+    """
+    Loads cached data from a file based on the Redis key.
+    Returns None if the file does not exist or fails to load.
+    """
+    file_path = get_file_cache_path(redis_key)
+    if os.path.isfile(file_path):
+        try:
+            with open(file_path, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logging.error(f"Failed to load cache from file {file_path}: {e}")
+    return None
+
+def save_to_file_cache(redis_key, data):
+    """
+    Saves data to a file-based cache.
+    """
+    file_path = get_file_cache_path(redis_key)
+    try:
+        with open(file_path, 'w') as f:
+            json.dump(data, f)
+    except Exception as e:
+        logging.error(f"Failed to save cache to file {file_path}: {e}")
+
+def seasonal_year_filter(sy, years_series):
+    """
+    Filters the years based on the 'sy' parameter.
+    Supports 'odd', 'even', 'pe0', 'pe1', 'pe2', 'pe3', 'bull', 'bear', etc.
+    """
+    if sy == 'odd':
+        return years_series % 2 != 0
+    elif sy == 'even':
+        return years_series % 2 == 0
+    elif sy.startswith('pe'):
+        try:
+            remainder = int(sy[2:])
+            return years_series % 4 == remainder
+        except:
+            logging.error(f"Invalid presidential election filter: {sy}")
+            return pd.Series([False]*len(years_series))
+    elif sy == 'bull':
+        # Implement your bull market logic here
+        return pd.Series([True]*len(years_series))  # Placeholder
+    elif sy == 'bear':
+        # Implement your bear market logic here
+        return pd.Series([True]*len(years_series))  # Placeholder
+    else:
+        logging.error(f"Unknown seasonal_year_filter: {sy}")
+        return pd.Series([True]*len(years_series))  # Default to include all
+
+def process_seasonal_chart(resourceID, symbol, sy, chart_start_date):
+    """
+    Processes the seasonal chart data.
+
+    Parameters:
+    - resourceID: Identifier for the resource/exchange.
+    - symbol: Stock symbol.
+    - sy: Seasonal years or custom filter.
+    - chart_start_date: Start date for the chart.
+
+    Returns:
+    - cons_seas_chart: List of [date, mean_close] pairs.
+    """
+    exchange = config.exchange_mapping.get(resourceID, 'US')  # Default to 'US' if not found
+    fn_csv = os.path.join(config.csv_folder, exchange, f"{symbol}.csv")
+    
+    if not os.path.isfile(fn_csv):
+        logging.error(f"CSV file not found: {fn_csv}")
+        return None  # Or handle the error as needed
+    
+    # Load data with only necessary columns and parse dates
+    try:
+        df = pd.read_csv(fn_csv, usecols=['date', 'close'], parse_dates=['date'])
+    except Exception as e:
+        logging.error(f"Failed to read CSV file {fn_csv}: {e}")
+        return None
+    
+    # Ensure 'date' column is datetime
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # Handle missing dates by forward-filling
+    df.set_index('date', inplace=True)
+    df = df.asfreq('D', method='ffill').reset_index()
+    
+    # Add 'year' column
+    df['year'] = df['date'].dt.year
+    
+    # Determine seasonal years
+    current_year = datetime.datetime.now().year
+    if not sy.isdigit():
+        # Implement the logic based on 'sy' (e.g., 'odd', 'even', etc.)
+        seasonal_years_filter = seasonal_year_filter(sy, df['year'])
+        seasonal_years = df['year'][seasonal_years_filter].nunique()
+    else:
+        seasonal_years = int(sy)
+    
+    y1 = current_year - seasonal_years
+    y1 = max(y1, df['year'].min())  # Ensure y1 does not go below available data
+    
+    # Filter data for the desired years and make an explicit copy to avoid SettingWithCopyWarning
+    df_filtered = df[df['year'] >= y1].copy()
+    
+    # Add 'day_of_year' column using .loc to avoid SettingWithCopyWarning
+    df_filtered.loc[:, 'day_of_year'] = df_filtered['date'].dt.dayofyear
+    
+    # Group by 'day_of_year' and calculate seasonal averages
+    seasonal_avg = df_filtered.groupby('day_of_year')['close'].mean().reset_index()
+    
+    # Generate date range based on chart_start_date
+    try:
+        start_date = pd.to_datetime(chart_start_date)
+    except Exception as e:
+        logging.error(f"Invalid chart_start_date format: {chart_start_date}. Error: {e}")
+        return None
+    
+    end_date = start_date + pd.Timedelta(days=364)  # 365 days total
+    date_range = pd.date_range(start=start_date, end=end_date, freq='D')
+    
+    # Create a mapping from day_of_year to close_avg
+    seasonal_avg_dict = seasonal_avg.set_index('day_of_year')['close'].to_dict()
+    
+    # Assign close_avg to each date in the date range based on day_of_year
+    cons_seas_chart = []
+    for date in date_range:
+        day_of_year = date.dayofyear
+        # Handle leap day by assigning the value of day 365
+        if day_of_year > 365:
+            day_of_year = 365
+        value = seasonal_avg_dict.get(day_of_year, None)
+        if value is not None:
+            cons_seas_chart.append([date.strftime('%Y-%m-%d'), round(value, 2)])
+        else:
+            cons_seas_chart.append([date.strftime('%Y-%m-%d'), None])
+    
+    return cons_seas_chart

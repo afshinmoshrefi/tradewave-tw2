@@ -1,0 +1,36 @@
+.app-container-l {
+    /* display: flex; */
+    padding: 0px;
+    margin: 0;
+    background-color: red;
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* somehow this fixed the issue with scrollbars when resizing the browser */
+ }
+
+ .l-content {
+     background-color: green;
+     height: 100%;
+     width:100%
+ }
+
+ .report-div-ml{
+    width:100%;
+    height:100%;
+    /* margin-right: 2px; */
+    border: 1px solid blue;
+  }
+
+  .report-div-row-ml{
+    width:100%;
+    height:50%;
+    display:flex;
+  }
+
+  .report-div-body-ml{
+    width:100%;
+    height:100%;
+    display:flex;
+    flex-direction: column;
+    
+}

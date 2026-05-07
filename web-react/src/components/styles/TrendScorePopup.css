@@ -1,0 +1,198 @@
+.trend-score-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: tsOverlayIn 0.25s ease-out;
+}
+
+@keyframes tsOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.trend-score-popup {
+  position: relative;
+  width: 520px;
+  max-width: 92vw;
+  max-height: 82vh;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
+  animation: tsSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tsSlideUp {
+  from { opacity: 0; transform: translateY(30px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.trend-score-popup.ts-closing {
+  animation: tsSlideOut 0.2s ease-in forwards;
+}
+@keyframes tsSlideOut {
+  to { opacity: 0; transform: translateY(20px) scale(0.97); }
+}
+
+/* Header with gradient accent bar */
+.ts-header {
+  position: relative;
+  padding: 20px 24px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ts-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #22c55e 0%, #3b82f6 50%, #ef4444 100%);
+}
+.ts-header h2 {
+  margin: 0;
+  font-size: 1.15em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.ts-close-btn {
+  background: none;
+  border: 1px solid rgba(128,128,128,0.3);
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ts-close-btn:hover {
+  border-color: rgba(128,128,128,0.6);
+}
+
+/* Scrollable body */
+.ts-body {
+  padding: 0 24px 24px;
+  overflow-y: auto;
+  flex: 1;
+  line-height: 1.6;
+  font-size: 0.88em;
+}
+
+.ts-body p {
+  margin: 0 0 14px;
+}
+
+/* Score bar visualization */
+.ts-score-bar-container {
+  margin: 18px 0;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(128,128,128,0.2);
+}
+.ts-score-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78em;
+  margin-bottom: 6px;
+  opacity: 0.7;
+}
+.ts-score-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #ef4444 0%, #f59e0b 25%, #9ca3af 50%, #22c55e 75%, #16a34a 100%);
+  position: relative;
+}
+.ts-score-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72em;
+  margin-top: 4px;
+  opacity: 0.5;
+}
+.ts-score-range-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 0.82em;
+  border-bottom: 1px solid rgba(128,128,128,0.1);
+}
+.ts-score-range-row:last-child {
+  border-bottom: none;
+}
+.ts-range-label {
+  font-weight: 600;
+  min-width: 52px;
+}
+
+/* Formula table */
+.ts-formula-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 0.82em;
+}
+.ts-formula-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 2px solid rgba(128,128,128,0.3);
+}
+.ts-formula-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(128,128,128,0.12);
+}
+.ts-formula-table tr:last-child td {
+  border-bottom: none;
+}
+.ts-formula-table .ts-pts {
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap;
+  width: 50px;
+}
+
+.ts-section-title {
+  font-weight: 700;
+  font-size: 0.92em;
+  margin: 18px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ts-section-title .ts-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.ts-note {
+  font-size: 0.8em;
+  opacity: 0.6;
+  font-style: italic;
+  margin-top: 12px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+  .trend-score-popup {
+    max-height: 88vh;
+    border-radius: 10px;
+  }
+  .ts-header { padding: 16px 18px 12px; }
+  .ts-body { padding: 0 18px 18px; font-size: 0.84em; }
+}

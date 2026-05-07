@@ -1,0 +1,92 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg
+
+# Virtual envs
+venv/
+.venv/
+env/
+
+# Node / React
+node_modules/
+web-react/build/
+*.tsbuildinfo
+
+# Caches
+.cache/
+.npm/
+.config/
+.gunicorn/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Env files (secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# .env.production is OK to commit (only contains GENERATE_SOURCEMAP=false)
+
+# SSH keys (deploy key for this VM)
+.ssh/
+
+# Market data (38GB, regeneratable from EODHD)
+data/
+
+# data_updater downloaded samples (regeneratable)
+data_updater/*.csv
+data_updater/1/
+data_updater/symbols_*.txt
+
+# Generated runtime outputs
+site/data/featured_chart.svg
+site/data/featured_history.json
+site/data/home_opportunities.csv
+
+# Backup / patch leftovers
+*.bak
+*.orig
+*.rej
+*.work
+*.1py
+
+# Database dumps
+*.sql
+*.sql.gz
+*.dump
+
+# Compiled translation/locale files
+*.mo
+*.pot
+
+# pyenv
+.python-version
+
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Large media (host on CDN/object storage; reference by URL)
+*.mp4
+*.mov
+*.webm
+*.avi

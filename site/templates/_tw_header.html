@@ -1,0 +1,191 @@
+<style id="tw-app-header-css">
+  /* Unified TradeWave site header — used on home page and inside React /app.
+     #main-header id is required: React's resize calc reads its clientHeight.
+     #main-header.tw-header selector + !important defeats Divi/WP cascade
+     that targets #main-header (white background, dark text) in the React app. */
+
+  #main-header.tw-header,
+  #main-header.tw-header * {
+    box-sizing: border-box !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Arial, sans-serif !important;
+  }
+
+  #main-header.tw-header {
+    position: relative !important;
+    z-index: 100 !important;
+    width: 100% !important;
+    background: rgba(15,10,21,0.95) !important;
+    background-color: rgba(15,10,21,0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid #1f2937 !important;
+    padding: 16px 0 !important;
+    margin: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    line-height: normal !important;
+  }
+
+  #main-header.tw-header .tw-container {
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    padding: 0 24px !important;
+    position: relative !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    background: transparent !important;
+  }
+
+  /* Inside React /app: span full viewport so logo/menu sit at page edges. */
+  body.page-template #main-header.tw-header .tw-container {
+    max-width: none !important;
+  }
+
+  /* Logo: 30px, weight 800, purple gradient text — matches home page exactly */
+  #main-header.tw-header .tw-logo {
+    font-size: 30px !important;
+    font-weight: 800 !important;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    text-decoration: none !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+  }
+
+  #main-header.tw-header .tw-nav-links {
+    display: flex !important;
+    gap: 32px !important;
+    align-items: center !important;
+    background: transparent !important;
+  }
+
+  #main-header.tw-header .tw-nav-links a {
+    color: #9ca3af !important;
+    text-decoration: none !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+    transition: color 0.2s !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  #main-header.tw-header .tw-nav-links a:hover {
+    color: #ffffff !important;
+  }
+
+  /* Primary CTA button (Start Free Trial / Upgrade) */
+  #main-header.tw-header .tw-btn-primary {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 10px 20px !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    text-decoration: none !important;
+    transition: all 0.3s !important;
+    cursor: pointer !important;
+    border: none !important;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%) !important;
+    color: white !important;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.25), 0 0 0 1px rgba(255,255,255,0.1) inset !important;
+  }
+
+  #main-header.tw-header .tw-btn-primary:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 24px rgba(99,102,241,0.4), 0 0 0 1px rgba(255,255,255,0.15) inset !important;
+  }
+
+  /* Hamburger (mobile only) */
+  #main-header.tw-header .tw-hamburger {
+    display: none !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    cursor: pointer !important;
+    z-index: 201 !important;
+    background: none !important;
+    border: none !important;
+    padding: 8px !important;
+  }
+
+  #main-header.tw-header .tw-hamburger span {
+    display: block !important;
+    width: 24px !important;
+    height: 2px !important;
+    background: #ffffff !important;
+    border-radius: 2px !important;
+    transition: all 0.3s !important;
+  }
+
+  /* Mobile breakpoint: hide entire header inside the React app
+     (React renders its own mobile layout). On home page, swap to hamburger. */
+  @media (max-width: 768px) {
+    /* Inside React app, hide entirely — mobile layout owns the screen */
+    body.page-template #main-header.tw-header {
+      display: none !important;
+    }
+    /* On home page (no .page-template body class), use hamburger menu */
+    #main-header.tw-header .tw-hamburger { display: flex !important; }
+    #main-header.tw-header .tw-nav-links { display: none !important; }
+    #main-header.tw-header .tw-nav-links.open {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0 !important;
+      position: absolute !important;
+      top: calc(100% + 8px) !important;
+      right: 16px !important;
+      width: 66% !important;
+      background: rgba(25,22,35,0.98) !important;
+      border: 1px solid #374151 !important;
+      border-radius: 14px !important;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5) !important;
+      padding: 8px 0 !important;
+      z-index: 200 !important;
+    }
+    #main-header.tw-header .tw-nav-links.open a {
+      padding: 14px 20px !important;
+      font-size: 15px !important;
+      border-bottom: 1px solid #1f2937 !important;
+      display: block !important;
+    }
+    #main-header.tw-header .tw-nav-links.open a:last-child { border-bottom: none !important; }
+    #main-header.tw-header .tw-container { padding: 0 16px !important; }
+  }
+</style>
+
+<header id="main-header" class="tw-header">
+  <div class="tw-container">
+    <a href="/" class="tw-logo">TradeWave</a>
+    <button class="tw-hamburger" id="tw-hamburger-btn" aria-label="Menu" onclick="document.getElementById('tw-nav-links').classList.toggle('open');this.classList.toggle('open')">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="tw-nav-links" id="tw-nav-links">
+      <a href="/app/">Wave Viewer</a>
+      <a href="/patterns/">Tickers</a>
+      <a href="/_static/research.html">Research</a>
+      <a href="https://smn-dev.trxstat.com/">News</a>
+      <a href="/login" id="tw-auth-link">Log In</a>
+      <a href="/pricing" id="tw-cta-link" class="tw-btn-primary">Start Free Trial</a>
+    </div>
+  </div>
+</header>
+<script id="tw-auth-swap">
+  (function(){
+    fetch('/api/me', {credentials: 'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d || !d.authenticated) return;
+        var auth = document.getElementById('tw-auth-link');
+        var cta  = document.getElementById('tw-cta-link');
+        if (auth) { auth.href = '/logout'; auth.textContent = 'Log Out'; }
+        if (cta) {
+          var tier = (d.user && d.user.tier) || 'explorer';
+          if (tier === 'explorer') { cta.href = '/pricing'; cta.textContent = 'Upgrade'; }
+          else { cta.href = '/account'; cta.textContent = 'Account'; }
+        }
+      }).catch(function(){});
+  })();
+</script>

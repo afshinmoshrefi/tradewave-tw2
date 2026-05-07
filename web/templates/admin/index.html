@@ -1,0 +1,59 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div style="padding: 20px;">
+  <h2>TradeWave 2.0 — Dashboard</h2>
+  <p style="color:#666;">Logged in as <strong>{{ current_admin.email }}</strong></p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+    <div>
+      <h3>Users</h3>
+      <p style="font-size: 32px; margin: 0;">{{ user_count }}</p>
+      <p style="color:#666;">total registered</p>
+
+      <h4 style="margin-top: 24px;">Tier breakdown</h4>
+      <ul>
+        <li><strong>Explorer:</strong> {{ tier_counts.explorer }}</li>
+        <li><strong>Analyst:</strong> {{ tier_counts.analyst }}</li>
+        <li><strong>Strategist:</strong> {{ tier_counts.strategist }}</li>
+      </ul>
+
+      <p style="margin-top: 16px;"><a href="/admin/user/" class="btn btn-primary">Manage users →</a></p>
+    </div>
+
+    <div>
+      <h3>Recent Audit Activity</h3>
+      {% if recent_audit %}
+      <ul style="font-size: 12px;">
+        {% for a in recent_audit %}
+        <li><code>{{ a.created_at.strftime('%Y-%m-%d %H:%M') }}</code> [{{ a.actor_label or 'system' }}] {{ a.action }} {% if a.target_user_id %}<small>→ {{ a.target_user_id }}</small>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p style="color:#999;">No audit entries yet.</p>
+      {% endif %}
+
+      <h3 style="margin-top: 24px;">Recent Stripe Events</h3>
+      {% if recent_stripe %}
+      <ul style="font-size: 12px;">
+        {% for e in recent_stripe %}
+        <li><code>{{ e.received_at.strftime('%Y-%m-%d %H:%M') }}</code> {{ e.event_type }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p style="color:#999;">No Stripe events yet (webhook not configured).</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="margin-top: 32px; padding: 16px; background: #f0f0f0; border-radius: 8px;">
+    <h4>Quick links</h4>
+    <ul>
+      <li><a href="/account">Your account</a></li>
+      <li><a href="/app/">Wave Viewer</a></li>
+      <li><a href="/" target="_blank">Marketing site</a></li>
+      <li><a href="/healthz" target="_blank">Health check</a></li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

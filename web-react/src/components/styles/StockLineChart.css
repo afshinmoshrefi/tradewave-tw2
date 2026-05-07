@@ -1,0 +1,50 @@
+
+.linechart-desc{
+    color:white;
+    /* font-size:1vw; */
+}
+
+.linechart-parent{
+    width:100%;
+    height:100%;
+    background-color: purple;
+}
+.linechart-controls {
+    width: 100%;
+    display:flex;
+    justify-content: center;
+    align-items: center;
+}
+.linechart {
+    height: 92%;
+    width: 100%;
+
+}
+
+.linechart-desc-left{
+    height:100%;
+    width:17%;
+    /* background-color: red; */
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.linechart-desc{
+ height:100%;
+ flex: 1;
+ min-width: 0;
+ display:flex;
+ align-items: center;
+ justify-content: center;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+.linechart-desc-right{
+    height:100%;
+    width:10%;
+    /* background-color:green; */
+    display:flex;
+    justify-content: flex-end;
+}

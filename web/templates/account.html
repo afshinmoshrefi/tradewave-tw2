@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your TradeWave Account</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: rgb(15, 10, 21);
+      color: #e5e7eb;
+      min-height: 100vh;
+    }
+    .nav {
+      background: rgba(15,10,21,0.95);
+      border-bottom: 1px solid #1f2937;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav .logo {
+      font-size: 22px; font-weight: 800;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-decoration: none;
+    }
+    .nav a.btn {
+      color: white;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      padding: 8px 18px; border-radius: 8px;
+      text-decoration: none; font-weight: 600;
+    }
+    .container {
+      max-width: 720px; margin: 64px auto; padding: 0 24px;
+    }
+    h1 {
+      font-size: 36px;
+      background: linear-gradient(135deg, #ffffff, #c7d2fe);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .subtitle { color: #9ca3af; margin-bottom: 32px; }
+    .card {
+      background: rgba(25,22,35,0.6);
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 16px;
+    }
+    .card h3 {
+      margin-top: 0;
+      font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;
+      color: #9ca3af;
+    }
+    .card .value {
+      font-size: 18px; color: #fff; margin-bottom: 8px;
+    }
+    .tier {
+      display: inline-block;
+      padding: 4px 12px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; text-transform: capitalize;
+      background: rgba(99, 102, 241, 0.15);
+      color: #c7d2fe;
+    }
+    .actions { display: flex; gap: 12px; margin-top: 32px; }
+    .actions a {
+      display: inline-flex; align-items: center;
+      padding: 12px 24px; border-radius: 10px;
+      text-decoration: none; font-weight: 600;
+    }
+    .actions a.primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+    }
+    .actions a.secondary {
+      background: rgba(99,102,241,0.15);
+      color: #c7d2fe;
+      border: 1px solid rgba(99,102,241,0.3);
+    }
+    .actions a.danger {
+      background: rgba(239,68,68,0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/" class="logo">TradeWave</a>
+    <a href="/app/" class="btn">Open Wave Viewer</a>
+  </nav>
+
+  <div class="container">
+    <h1>Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
+    <p class="subtitle">Your TradeWave account is active.</p>
+
+    <div class="card">
+      <h3>Email</h3>
+      <div class="value">{{ user.email }} {% if user.email_verified %}<span style="color:#34d399;">✓ verified</span>{% else %}<span style="color:#fbbf24;">— please verify</span>{% endif %}</div>
+    </div>
+
+    <div class="card">
+      <h3>Tier</h3>
+      <div class="value"><span class="tier">{{ user.tier }}</span></div>
+      {% if user.tier == 'explorer' %}
+      <p style="color:#9ca3af; font-size:14px; margin-top:12px;">
+        You're on the free Explorer plan. Upgrade to Analyst or Strategist for full access to all markets, AI scoring, and unlimited patterns.
+      </p>
+      {% endif %}
+    </div>
+
+    {% if user.stripe_subscription_status %}
+    <div class="card">
+      <h3>Subscription</h3>
+      <div class="value">{{ user.stripe_subscription_status }}</div>
+      {% if billing_interval %}
+      <div class="value" style="font-size:15px; color:#c7d2fe; margin-top:8px;">
+        Billing: {% if billing_interval == 'year' %}Yearly{% elif billing_interval == 'month' %}Monthly{% else %}{{ billing_interval|capitalize }}{% endif %}
+      </div>
+      {% endif %}
+      {% if next_renewal_date %}
+      <div class="value" style="font-size:15px; color:#c7d2fe;">
+        Next renewal: {{ next_renewal_date }}
+      </div>
+      {% endif %}
+      {% if started_date %}
+      <div class="value" style="font-size:15px; color:#c7d2fe;">
+        Started: {{ started_date }}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if 'super_admin' in (user.roles or []) %}
+    <div class="card" style="border-color: rgba(168, 85, 247, 0.4);">
+      <h3>Admin</h3>
+      <div class="value">You have super_admin access</div>
+      <a href="/admin/" style="color:#a855f7;">→ Open admin panel</a>
+    </div>
+    {% endif %}
+
+    <div class="actions">
+      <a href="/app/" class="primary">Open Wave Viewer</a>
+      {% if user.stripe_customer_id %}
+      <a href="/account/manage-subscription" class="secondary">Manage subscription</a>
+      {% else %}
+      <a href="/pricing" class="secondary">Upgrade plan</a>
+      {% endif %}
+      <a href="/logout" class="danger">Sign out</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,50 @@
+# list of appserver functions with redis access as of 5/19/2024 - will be used for developing the central data capability
+# from this list create a list of functions that access either opportunities data or csv data
+
+def get_num_reports(wp_userid):
+def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, apply_filter='0',symbol=''):
+def getChartData4(resourceID, date, symbol, daysOut, yrs,cut_off_year=0):
+def getYearsMetaData(resourceID, month):
+def getYearsMetaData2(resourceID, year, month, day):
+def getHistory(resourceID, symbol, d0, d1):   //xxxxxxxxxx
+def getHistory2(resourceID, symbol, d0, d1):
+def getStockMetaData(resourceID, symbol):
+def getListSymbols(resourceID):  # for now not using resourceID, maybe later
+def getStockLastPrice(resourceID, symbol):
+def getStockPriceByDate(resourceID, symbol,date):
+def get_consolidated_seasonal_chart2(resourceID,symbol,sy,chart_start_date):
+def check_for_duplicates(redis_user_reports_list,newdict):
+def get_id_from_portfolio_name(userid,portfolio_name):
+def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,selected_portfolio):
+def get_security_price(resourceID,symbol,date): # need today_date to calculate expiration for tomorrow at 6PM
+def dr_report_list(portfolio_id): # get the list of reports from redis and returns a list of dictionaries
+def update_number_of_shares(num_shares,portfolioID,dr_id): # use slug as an identifier for which saved report to update
+def update_status(status,portfolioID,dr_id): # use slug as an identifier for which saved report to update
+def dr_report_remove(dr_id): # get the list of reports from redis and returns a list of dictionaries
+def get_user_portfolio_names(): 
+def add_user_portfolio_name(portfolio_name): # use slug as an identifier for which saved report to update
+def edit_user_portfolio_name(old_name,new_name): # use slug as an identifier for which saved report to update
+def del_user_portfolio_name(portfolio_name): # use slug as an identifier for which saved report to update
+def get_note(dr_id): # use dr_id as an identifier for which saved report to update
+def save_note(note,dr_id): # use dr_id as an identifier for which saved opp to update
+def opp_to_social_media(note,slug): # use slug as an identifier for which saved opp to update
+def opp_del_social_media(slug): # use slug as an identifier for which saved opp to update
+def settings_top10_email_get(): 
+def settings_email_markets_set(email_selection): # email selection is either 0 or 1
+def populate_portfolio(qvars,portfolio_name,action): 
+def process_old_daily_to_monthlys(portfolios,userid):
+def save_order_id(order_id,dr_id):
+def get_positions_for_dr_id(dr_id):  
+
+
+
+
+
+
+    
+
+
+
+
+
+

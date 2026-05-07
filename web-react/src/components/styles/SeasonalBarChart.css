@@ -1,0 +1,150 @@
+.seasonal-barchart-container {
+    background-color: orange;
+    height: 100%;
+    width:100%;
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+
+.barchart {
+    background-color: lightblue;
+    /* height: 92%; */
+    width: 100%;
+    
+}
+
+.barchart-background {
+    background-color: transparent;
+    width:82%;
+    height:40%;
+    position:relative;
+    top:30%;
+    left:10%;
+
+    display:flex;
+
+    align-items: center;
+    justify-content: center;
+}
+
+
+
+
+.barchart-controls {
+    background-color: blue;
+    width: 100%;
+    display:flex;
+    flex-wrap: nowrap;
+    align-items: center;        /* center vertically */
+    justify-content: flex-end;
+
+ 
+}
+
+/* .barchart-controls  div  {    */
+     
+    /* font-size: 1.5vmin; */
+    /* align-items: center;  */
+    /* text-align: center; */
+    /* justify-content: center;  */
+    /* vertical-align: middle; */
+    /* display:flex; */
+/* }  */
+
+
+/* .barchart-controls input[type="text"]  {
+    font-size: 3.75vmin;
+}
+.barchart-controls option  {
+    font-size: 3.75vmin;
+} */
+/* .barchart-controls-items{ */
+    /* margin: 2px; */
+    /* font-size: 3vmin; */
+    /* flex: 1 0 auto; */
+    /* height:100%; */
+    /* padding: 1px ; */
+    
+    /* text-align: center; */
+    /* display: table-cell; */
+    /* text-align: center; */
+    /* vertical-align: middle; */
+
+    /* justify-content: center; */
+    /* align-items: center; */
+
+/* } */
+
+.barchart-controls-div{
+    /* font-size: 1.7vmin; */
+    height:100%;
+    /* width:100%; */
+    /* text-align: center; */
+    margin-left: 3px;
+    margin-right: 3px;
+    display:flex;
+    align-items: center;
+}
+
+
+.barchart-controls-div barchart-controls-div2 input {
+    vertical-align: -2px; /* for some reason this makes text and checkbox vertically aligned !!!! */
+}
+
+.barchart-controls-div barchart-controls-div2 input[type="text"] {
+    font-size: 1.70vmin;
+}
+
+.barchart-controls-div barchart-controls-div2  optgroup {
+    font-size: 1.70vh;
+}
+
+
+
+/* if below 1200 pixels don't show the display text above seasonalchart */
+/* @media screen and (max-width: 1000px) {
+    .hide-when-small {
+        display: none !important;
+    }
+} */
+
+
+
+.nav-buttons{
+    background-color: transparent;
+    border-width: 0px;
+    height: 20px;
+    width:22px;
+}
+
+.second-layer-parent{
+    width:100%;
+    height: 14%;
+    background-color: rgb(0,0,250,0.3);
+    position: absolute;
+    top:12%;
+    left:0;
+    width:100%;
+    height:12%;
+    align-items: center; /* vertical alignment */
+    justify-content: space-evenly;
+}
+
+/* .barchart-controls-div2{
+
+
+} */
+
+.watchlist-dropdown {
+  scrollbar-width: thin;
+}
+.watchlist-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+.watchlist-dropdown::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}

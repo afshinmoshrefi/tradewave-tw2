@@ -1,0 +1,11 @@
+# Chatbot access control
+# Add one user ID per line to grant access to the chatbot robot icon.
+# Lines starting with # are comments and are ignored.
+# No app restart needed - file is read on every request.
+# Example:
+# 15
+# 29
+16
+22
+1
+
