@@ -5,9 +5,11 @@ TW2 web tier - small DB admin script.
 Subcommands:
 
   hash-api-keys
-    Backfill users.api_key_hash from users.api_key for every row that has
-    api_key set but api_key_hash unset. Idempotent: re-running on
-    already-hashed rows is a no-op.
+    DEPRECATED. The plaintext users.api_key column has been dropped
+    (alembic 5a3c1e2f4d6b). This subcommand now refuses to run and
+    exits non-zero so any cron / runbook that still calls it surfaces
+    a clear error instead of silently no-op'ing. The hash_api_key()
+    helper below is preserved (tests + future seeding still need it).
 
 The HMAC secret is read from API_KEY_HMAC_SECRET in the environment.
 If unset, it falls back to APPSERVER_JWT_SECRET from /home/flask/config.py
@@ -15,7 +17,7 @@ If unset, it falls back to APPSERVER_JWT_SECRET from /home/flask/config.py
 already share that secret).
 
 Usage:
-  sudo /home/flask/venv/bin/python /home/flask/web/db_admin.py hash-api-keys
+  (no operational subcommands at present; see deprecation note above)
 """
 import argparse
 import hashlib
@@ -54,7 +56,12 @@ sys.path.insert(0, '/home/flask')
 sys.path.insert(0, '/home/flask/web')
 
 import config as tw2_config  # noqa: E402
-from models import Session, User  # noqa: E402
+# NOTE: User is intentionally NOT imported here. The plaintext api_key
+# column was dropped in alembic 5a3c1e2f4d6b, so the previous backfill
+# loop (filter(User.api_key.isnot(None))) would now raise at the ORM
+# layer. Anything still needing the helper imports models lazily.
+from models import Session  # noqa: E402  (kept so external callers of this module's Session re-export still work)
+_ = Session  # silence unused-import linters
 
 
 def _hmac_secret() -> bytes:
@@ -76,25 +83,15 @@ def hash_api_key(plaintext: str, secret: bytes) -> str:
 
 
 def cmd_hash_api_keys(args) -> int:
-    secret = _hmac_secret()
-    s = Session()
-    try:
-        users = s.query(User).filter(User.api_key.isnot(None)).all()
-        hashed = 0
-        skipped = 0
-        for u in users:
-            expected = hash_api_key(u.api_key, secret)
-            if u.api_key_hash == expected:
-                skipped += 1
-                continue
-            u.api_key_hash = expected
-            hashed += 1
-        s.commit()
-        print(f"hash-api-keys: hashed={hashed} already_correct={skipped} "
-              f"total_with_api_key={len(users)}")
-        return 0
-    finally:
-        s.close()
+    """Refuse to run: the plaintext column this used to read is gone."""
+    sys.stderr.write(
+        "hash-api-keys is deprecated: users.api_key was dropped in alembic "
+        "5a3c1e2f4d6b. There is nothing to backfill from. If you need to "
+        "issue a new service-account key, generate one client-side, hash it "
+        "with hash_api_key() (using the API_KEY_HMAC_SECRET), and write only "
+        "the hash to users.api_key_hash.\n"
+    )
+    return 2
 
 
 def main() -> int:

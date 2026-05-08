@@ -60,6 +60,8 @@ import pandas as pd
 import datetime
 from datetime import timedelta
 import base64
+import hashlib
+import hmac
 from dateutil.relativedelta import relativedelta
 import glob
 import json
@@ -565,8 +567,11 @@ def login(wp_userid, user_level, country_code, zip, skey): # I had ip for no rea
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # TW2: API-key login for service accounts (scorecard, ticker pages, blog gen).
 # Replaces the multi-step keyprovider handshake those scripts used in TW1 prod.
-# Looks up api_key in TW2 Postgres `users`; on match, mints a JWT scoped to that
-# user's legacy_wp_level (typically '6' for service accounts = full access (Strategist)).
+# Looks up the HMAC-SHA256 hash of the submitted api_key in TW2 Postgres
+# `users.api_key_hash`; on match, mints a JWT scoped to that user's
+# legacy_wp_level (typically '6' for service accounts = full access (Strategist)).
+# The plaintext column is gone (alembic 5a3c1e2f4d6b); the hash is the only
+# server-side secret material for service-account auth.
 @app.route('/login/api/<string:api_key>', methods=['GET'])
 @limiter.limit("10/minute")
 @limiter.limit(config.rate_limit_login[2])
@@ -575,11 +580,24 @@ def login_api(api_key):
     import psycopg2, psycopg2.extras
 
     # TW2: brute-force guard. Reject empty / too-short keys before any DB hit so a
-    # WHERE api_key = '' query can never match a NULL/empty column row.
+    # WHERE api_key_hash = <hash of ''> query can never match a real row.
     if not api_key or len(api_key) < 16:
         logging.warning("login_api: short/empty api_key rejected ip=%s ua=%s",
                         get_remote_address(), request.headers.get('User-Agent', '-'))
         return jsonify({'message': 'invalid api_key'}), 401
+
+    # Hash the submitted plaintext with the shared HMAC secret. Fail loud if
+    # the secret is unset: returning 503 here is better than silently 403'ing
+    # every legitimate caller because we hashed with an empty key.
+    hmac_secret = getattr(config, 'API_KEY_HMAC_SECRET', '') or ''
+    if not hmac_secret:
+        logging.error("login_api: API_KEY_HMAC_SECRET not configured; refusing")
+        return jsonify({'message': 'service misconfigured'}), 503
+    submitted_hash = hmac.new(
+        hmac_secret.encode('utf-8'),
+        api_key.encode('utf-8'),
+        hashlib.sha256,
+    ).hexdigest()
 
     try:
         conn = psycopg2.connect(config.POSTGRES_DSN)
@@ -590,8 +608,8 @@ def login_api(api_key):
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            "SELECT id, email, roles, tier, legacy_wp_level FROM users WHERE api_key = %s",
-            (api_key,),
+            "SELECT id, email, roles, tier, legacy_wp_level FROM users WHERE api_key_hash = %s",
+            (submitted_hash,),
         )
         row = cur.fetchone()
         cur.close()

@@ -20,6 +20,12 @@ SERVICE_API_KEY = os.environ.get('SERVICE_API_KEY', '')  # set in /etc/tradewave
 # === APPSERVER (TW2) ===
 APPSERVER_JWT_SECRET = os.environ.get('APPSERVER_JWT_SECRET', '')  # set in /etc/tradewave/secrets.env
 
+# HMAC secret for users.api_key_hash lookup. The appserver and the
+# db_admin backfill MUST agree, or every login_api will 403. If
+# API_KEY_HMAC_SECRET is unset (transition default), fall back to
+# APPSERVER_JWT_SECRET (same shared-secret model the JWT path uses).
+API_KEY_HMAC_SECRET = os.environ.get('API_KEY_HMAC_SECRET', '') or APPSERVER_JWT_SECRET
+
 # === STRIPE (TW2) ===
 # Get test keys from Stripe dashboard → Developers → API keys (toggle test mode)
 # Get from Stripe dashboard → Webhooks → Add endpoint (won't work until cloudflared tunnel is set up)

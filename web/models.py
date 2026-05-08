@@ -33,14 +33,10 @@ class User(Base):
     stripe_customer_id          = Column(Text, unique=True)
     stripe_subscription_id      = Column(Text)
     stripe_subscription_status  = Column(Text)
-    # api_key: legacy plaintext column. Kept populated during the
-    # transition window so the appserver can fall back while it is
-    # being switched over to api_key_hash. Will be NULLed out in a
-    # follow-up migration once the appserver is fully on api_key_hash.
-    api_key                     = Column(Text, unique=True)
-    # api_key_hash: HMAC-SHA256(api_key, API_KEY_HMAC_SECRET). New
-    # canonical lookup column (see migration 4c2f28489e2b and
-    # /home/flask/web/db_admin.py).
+    # api_key_hash: HMAC-SHA256(api_key, API_KEY_HMAC_SECRET). The ONLY
+    # server-side material for service-account auth. The plaintext
+    # api_key column was dropped in alembic 5a3c1e2f4d6b; if a caller
+    # loses their key, issue a fresh one and overwrite this hash.
     api_key_hash                = Column(Text)
     trial_ends_at               = Column(TIMESTAMP(timezone=True))
     created_at                  = Column(TIMESTAMP(timezone=True), server_default=func.now())
