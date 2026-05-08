@@ -1,52 +1,21 @@
 import jwt_decode from 'jwt-decode';
 
-/*
-zip -r /home/afshin/build.zip build
-stage:	
-
-scp -P 4369 /home/afshin/build.zip root@147.185.238.136:/home/afshin
-
-prod:
-
-scp -P 4369 /home/afshin/build.zip root@78.138.0.7:/home/afshin
-
-cd /var/www/html/wp-content/reactpress/apps/seasonals/
-unzip /home/afshin/build.zip
-chown -R www-data:www-data build
-*/
-
 export const showChatbotIcon = true;
 export const debug           = false; // TW2: off so window.current_user_level / window.ltk drive the live values
-//#####################################################################################################################################
-const env_type = 'dev'; //dev, stage, prod
-//#####################################################################################################################################
-export const appserverURL = () => {
-  var url;
- 
-  
 
-  switch (env_type) {
-    case 'dev':
-      // TW2 dev: same-origin path so nginx proxies /appserver/ → 127.0.0.1:5000.
-      // Avoids mixed-content (HTTPS page → HTTP IP) and works through cloudflared tunnel.
-      url = '/appserver';
-      break;
-    case 'stage':
-      url = 'https://app1stage.trxstat.com';
-      break;
-    case 'prod':
-      if (window.current_user_id !== '0')
-        url = 'https://app1pp.trxstat.com'; //premium production server
-      else
-        // url = 'https://app1pf.trxstat.com'   // free production server
-        url = 'https://app1pp.trxstat.com'   // free production server
-      break;
-    default:
-      url = 'https://f.tararesearch.net';
-      break;
-  }
-  return url;
-}
+// =====================================================================
+// TW2 build is environment-agnostic.
+//
+// All three environments (dev / staging / prod) hit the appserver via
+// the same same-origin path: each box's nginx proxies /appserver/ ->
+// 127.0.0.1:5000. The React bundle is identical across envs - one
+// build, copy to all three boxes, no rebuild on promotion.
+//
+// If the appserver ever needs to live on a separate origin again,
+// reintroduce a switch here keyed off window.location.host (NOT a
+// hardcoded constant), so a single build still works everywhere.
+// =====================================================================
+export const appserverURL = () => '/appserver';
 
 // ===================== THEME COLOR DICTIONARIES =====================
 // Edit these dictionaries to change colors for light and dark themes
@@ -192,26 +161,10 @@ export const LightTheme = {
 export const DarkBGColor  = DarkTheme.pageBg;
 export const LightBGColor = LightTheme.pageBg;
 
-//#####################################################################################################################################
-//#####################################################################################################################################
-// it has to be set per enviornment in order for CORS to work - I didn't setup cross access so logos have to be on each server
-// this is used to watermark the barchart jpeg
-export const TWlogoURL = () => {
-  
-  var logo_url;
-
-  switch (env_type) {
-    case 'dev':
-      logo_url = 'http://192.168.1.151/wp-content/uploads/2025/01/TradeWave-Icon.png';
-      break; 
-    case 'stage':
-      logo_url = 'https://trxstat.com/wp-content/uploads/2025/01/TradeWave-Icon.png';
-      break;
-    case 'prod':
-      logo_url = 'https://tradewave.ai/wp-content/uploads/2025/01/TradeWave-Icon-1.png';
-  }
-  return logo_url;
-}
+// Same-origin watermark for the barchart-jpeg export. Returns the env's
+// favicon (white on dev, black on staging, brand colour on prod). One
+// build serves all envs because the URL is root-relative.
+export const TWlogoURL = () => '/favicon.png';
 //#####################################################################################################################################
 //#####################################################################################################################################
 //#####################################################################################################################################
