@@ -52,7 +52,7 @@ DISCLAIMER_SUBTITLE = "What TradeWave is, what it isn't, and how to read what we
 CONTACT_FILENAME = "contact.html"
 CONTACT_TITLE = "Contact"
 CONTACT_SUBTITLE = "Reach out — we read every email."
-CONTACT_EMAIL = "afshin@tradewave.ai"
+CONTACT_EMAIL = "help@tradewave.ai"
 
 # Year for the footer copyright + page-modified hint.
 YEAR = datetime.now().year
@@ -323,7 +323,8 @@ def build_contact() -> tuple[str, dict]:
     body = f"""
 <style>
   .contact-intro {{ text-align:center; max-width:640px; margin:0 auto 40px; color:var(--text-dim); font-size:17px; }}
-  .contact-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:0 0 48px; }}
+  .contact-grid {{ display:flex; justify-content:center; margin:0 0 48px; }}
+  .contact-grid > .contact-card {{ width:100%; max-width:480px; }}
   .contact-card {{
     background: linear-gradient(180deg, rgba(139,92,246,0.06) 0%, rgba(99,102,241,0.03) 100%);
     border: 1px solid rgba(139,92,246,0.18);
@@ -418,7 +419,6 @@ def build_contact() -> tuple[str, dict]:
   .contact-faq .q p {{ margin:0; font-size:14px; color:var(--text-dim); line-height:1.7; }}
 
   @media (max-width: 720px) {{
-    .contact-grid {{ grid-template-columns: 1fr; }}
     .contact-form .row {{ grid-template-columns: 1fr; }}
     .contact-form {{ padding: 24px 20px; }}
   }}
@@ -433,14 +433,6 @@ def build_contact() -> tuple[str, dict]:
     <p class="lead">{CONTACT_EMAIL}</p>
     <p class="meta">Typical response time: <strong>1 business day</strong>. For account or billing issues, include your account email so we can find you faster.</p>
     <a class="cta" href="mailto:{CONTACT_EMAIL}">Open email →</a>
-  </div>
-  <div class="contact-card">
-    <div class="icon">⌂</div>
-    <h3>Mailing address</h3>
-    <p class="addr">Tara Data Research LLC<br>
-       25 Storey Ave Ste 8 — PMB 111<br>
-       Newburyport, MA 01950<br>
-       United States</p>
   </div>
 </div>
 
