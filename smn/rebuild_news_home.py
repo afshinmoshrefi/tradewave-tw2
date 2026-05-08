@@ -27,6 +27,7 @@ V3: Multi-template support with 12 unique designs.
 import json
 import os
 import re
+import html as _html_module
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
@@ -36,6 +37,40 @@ sys.path.insert(0, '/home/flask')
 import config
 import redis
 from get_price_eod import get_quote_details
+
+
+# =============================================================================
+# XSS escape helpers (security fix C5)
+# All LLM-supplied fields (title, dek, symbol, url, hero_image_url) MUST be
+# routed through these before being interpolated into HTML f-strings.
+# =============================================================================
+
+def _safe_text(value):
+    """HTML-escape a string for safe insertion into element text or attribute
+    contents. Returns empty string for None."""
+    if value is None:
+        return ""
+    return _html_module.escape(str(value), quote=True)
+
+
+def _safe_url(value):
+    """Validate and HTML-escape a URL for safe insertion into href/src attrs.
+    Strips javascript:, data:, vbscript: schemes (returns '#'). Anything else
+    is returned with HTML special chars escaped so it cannot break out of the
+    surrounding attribute quotes."""
+    if value is None:
+        return ""
+    s = str(value).strip()
+    if not s:
+        return ""
+    low = s.lstrip().lower()
+    # Reject any control-char prefix used to bypass scheme blocklists
+    while low and (low[0] < ' ' or low[0] == '\x00'):
+        low = low[1:]
+    for bad in ("javascript:", "data:", "vbscript:", "file:"):
+        if low.startswith(bad):
+            return "#"
+    return _html_module.escape(s, quote=True)
 
 # =============================================================================
 # CONFIGURATION - CHANGE THESE TO CUSTOMIZE YOUR HOME PAGE
@@ -375,12 +410,12 @@ def _load_articles_from_json(limit=None):
 
 def _build_article_card(p):
     """Generate HTML for a standard article card (default template grid)."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
     meta_parts = [date, symbol]
@@ -406,12 +441,12 @@ def _build_article_card(p):
 
 def _build_featured_article(p):
     """Generate HTML for the featured article (larger, with hero image)."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
     meta_parts = [date, symbol]
@@ -425,7 +460,7 @@ def _build_featured_article(p):
         if sentiment_label and sentiment_class:
             badge_html = f'<span class="featured-tag {sentiment_class}">{sentiment_label}</span>'
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     hero_html = ""
     if hero_image_url:
         hero_html = f'''
@@ -448,10 +483,10 @@ def _build_featured_article(p):
 
 def _build_secondary_card(p):
     """Generate HTML for secondary cards (benzinga template)."""
-    url = p.get("url", "")
-    title = p.get("title", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
+    symbol = _safe_text(p.get("symbol", ""))
     direction = p.get("direction", "")
     
     badge_html = ""
@@ -460,7 +495,7 @@ def _build_secondary_card(p):
         if sentiment_label and sentiment_class:
             badge_html = f'<span class="secondary-tag {sentiment_class}">{sentiment_label}</span>'
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = '<div class="no-image"></div>'
     if hero_image_url:
         image_html = f'<img src="{hero_image_url}" alt="{symbol}">'
@@ -478,12 +513,12 @@ def _build_secondary_card(p):
 
 def _build_list_item(p):
     """Generate HTML for list items (benzinga template)."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
     meta_parts = [date, symbol]
@@ -497,7 +532,7 @@ def _build_list_item(p):
         if sentiment_label and sentiment_class:
             badge_html = f'<span class="list-tag {sentiment_class}">{sentiment_label}</span>'
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = '<div class="no-image"></div>'
     if hero_image_url:
         image_html = f'<img src="{hero_image_url}" alt="{symbol}">'
@@ -1512,15 +1547,15 @@ def _get_flagship_template_css():
 
 def _build_flagship_main(p):
     """Build the main hero article for flagship template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}" class="flagship-main-image">' if hero_image_url else '<div class="flagship-main-image" style="background:var(--bg-tertiary)"></div>'
     
     meta_parts = [date, symbol]
@@ -1550,13 +1585,13 @@ def _build_flagship_main(p):
 
 def _build_flagship_stack_card(p):
     """Build a stacked side card for flagship template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
+    symbol = _safe_text(p.get("symbol", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}">' if hero_image_url else ''
     
     tag_html = ""
@@ -1578,15 +1613,15 @@ def _build_flagship_stack_card(p):
 
 def _build_flagship_card(p):
     """Build a grid card for flagship template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}">' if hero_image_url else ''
     
     meta_parts = [date, symbol]
@@ -1614,15 +1649,15 @@ def _build_flagship_card(p):
 
 def _build_flagship_list_item(p):
     """Build a list item for flagship template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}">' if hero_image_url else ''
     
     meta_parts = [date, symbol]
@@ -1951,15 +1986,15 @@ def _get_mosaic_template_css():
 
 def _build_mosaic_card(p, size="standard"):
     """Build a mosaic card with specified size."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}" class="mosaic-card-image">' if hero_image_url else '<div class="mosaic-card-image" style="background:var(--bg-tertiary)"></div>'
     
     meta_parts = [date]
@@ -2533,13 +2568,13 @@ def _get_wire_template_css():
 
 def _build_wire_lead(p):
     """Build the lead story for wire template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}" class="wire-lead-image">' if hero_image_url else '<div class="wire-lead-image" style="background:var(--bg-tertiary)"></div>'
     
     pattern_date = _extract_pattern_date_from_url(url)
@@ -2567,10 +2602,10 @@ def _build_wire_lead(p):
 
 def _build_wire_headline(p):
     """Build a headline item for wire template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
+    symbol = _safe_text(p.get("symbol", ""))
     direction = p.get("direction", "")
     
     tag_html = ""
@@ -2592,15 +2627,15 @@ def _build_wire_headline(p):
 
 def _build_wire_card(p, size="small"):
     """Build a card for wire template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}">' if hero_image_url else ''
     
     sentiment_label, sentiment_class = _direction_to_sentiment(direction)
@@ -2629,14 +2664,14 @@ def _build_wire_card(p, size="small"):
 
 def _build_wire_list_item(p):
     """Build a list item for wire template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}">' if hero_image_url else ''
     
     sentiment_label, sentiment_class = _direction_to_sentiment(direction)
@@ -3093,15 +3128,15 @@ def _get_pulse_template_css():
 
 def _build_pulse_hero(p):
     """Build the cinematic hero for pulse template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}" class="pulse-hero-image">' if hero_image_url else '<div class="pulse-hero-image" style="background:var(--bg-tertiary)"></div>'
     
     meta_parts = [date, symbol]
@@ -3131,14 +3166,14 @@ def _build_pulse_hero(p):
 
 def _build_pulse_card(p):
     """Build a grid card for pulse template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}">' if hero_image_url else ''
     
     meta_parts = [date, symbol]
@@ -3165,15 +3200,15 @@ def _build_pulse_card(p):
 
 def _build_pulse_list_item(p):
     """Build a list item for pulse template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}">' if hero_image_url else ''
     
     meta_parts = [date, symbol]
@@ -3594,15 +3629,15 @@ def _get_spotlight_template_css():
 
 def _build_spotlight_hero(p):
     """Build the full-width hero for spotlight template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}" class="spotlight-hero-image">' if hero_image_url else '<div class="spotlight-hero-image" style="background:var(--bg-tertiary)"></div>'
     
     meta_parts = [date, symbol]
@@ -3633,14 +3668,14 @@ def _build_spotlight_hero(p):
 
 def _build_spotlight_card(p):
     """Build a column card for spotlight template."""
-    url = p.get("url", "")
-    title = p.get("title", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}">' if hero_image_url else ''
     
     meta_parts = [date, symbol]
@@ -3667,9 +3702,9 @@ def _build_spotlight_card(p):
 
 def _build_spotlight_upcoming(p):
     """Build an upcoming item for spotlight sidebar."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    symbol = p.get("symbol", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    symbol = _safe_text(p.get("symbol", ""))
     direction = p.get("direction", "")
     
     pattern_date = _extract_pattern_date_from_url(url)
@@ -3684,7 +3719,7 @@ def _build_spotlight_upcoming(p):
     else:
         date_str = pattern_date.strftime("%b %d") if pattern_date else ""
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = f'<img src="{hero_image_url}" alt="{symbol}">' if hero_image_url else ''
     
     sentiment_label, sentiment_class = _direction_to_sentiment(direction)
@@ -4047,14 +4082,14 @@ def _get_calendar_template_css():
 
 def _build_calendar_card(p):
     """Generate HTML for a calendar timeline card."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = ""
     if hero_image_url:
         image_html = f'''
@@ -4461,11 +4496,11 @@ def _get_terminal_template_css():
 
 def _build_terminal_news_item(p):
     """Generate HTML for a terminal news item."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = p.get("published_date", "")
-    symbol = p.get("symbol", "")
+    symbol = _safe_text(p.get("symbol", ""))
     direction = p.get("direction", "")
     
     # Format time as HH:MM
@@ -4509,7 +4544,7 @@ def _build_terminal_template(items, t):
     # Build upcoming patterns (next 5 by pattern date)
     upcoming_html = ""
     for p in items[:8]:
-        symbol = p.get("symbol", "")
+        symbol = _safe_text(p.get("symbol", ""))
         direction = p.get("direction", "")
         url = p.get("url", "")
         pattern_date = _extract_pattern_date_from_url(url)
@@ -4882,15 +4917,15 @@ def _get_broadsheet_template_css():
 
 def _build_broadsheet_article(p, show_image=True):
     """Generate HTML for a broadsheet column article."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    dek = p.get("dek", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    dek = _safe_text(p.get("dek", ""))
     date = _fmt_date(p.get("published_date", ""))
-    symbol = p.get("symbol", "")
+    symbol = _safe_text(p.get("symbol", ""))
     direction = p.get("direction", "")
-    days = p.get("pattern_days", "")
+    days = _safe_text(p.get("pattern_days", ""))
     
-    hero_image_url = _get_hero_image_url(url, symbol, p.get("hero_image", ""))
+    hero_image_url = _safe_url(_get_hero_image_url(url, symbol, p.get("hero_image", "")))
     image_html = ""
     if show_image and hero_image_url:
         image_html = f'''
@@ -4924,19 +4959,19 @@ def _build_broadsheet_template(items, t):
     
     # Lead story
     lead = items[0]
-    lead_url = lead.get("url", "")
-    lead_title = lead.get("title", "")
-    lead_dek = lead.get("dek", "")
-    lead_symbol = lead.get("symbol", "")
+    lead_url = _safe_url(lead.get("url", ""))
+    lead_title = _safe_text(lead.get("title", ""))
+    lead_dek = _safe_text(lead.get("dek", ""))
+    lead_symbol = _safe_text(lead.get("symbol", ""))
     lead_date = _fmt_date(lead.get("published_date", ""))
     lead_days = lead.get("pattern_days", "")
     lead_direction = lead.get("direction", "")
-    
-    lead_image_url = _get_hero_image_url(lead_url, lead_symbol, lead.get("hero_image", ""))
+
+    lead_image_url = _safe_url(_get_hero_image_url(lead_url, lead_symbol, lead.get("hero_image", "")))
     lead_image_html = ""
     if lead_image_url:
         lead_image_html = f'<img src="{lead_image_url}" alt="{lead_symbol}">'
-    
+
     sentiment_label, _ = _direction_to_sentiment(lead_direction)
     lead_kicker = f"{lead_symbol} • {sentiment_label}" if sentiment_label else lead_symbol
     
@@ -5282,10 +5317,10 @@ def _get_dashboard_template_css():
 
 def _build_signal_card(p):
     """Generate HTML for a dashboard signal card."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     date = _fmt_date(p.get("published_date", ""))
     
@@ -5659,10 +5694,10 @@ def _get_radar_template_css():
 
 def _build_radar_card(p, days_until):
     """Generate HTML for a radar card."""
-    url = p.get("url", "")
-    title = p.get("title", "")
-    symbol = p.get("symbol", "")
-    days = p.get("pattern_days", "")
+    url = _safe_url(p.get("url", ""))
+    title = _safe_text(p.get("title", ""))
+    symbol = _safe_text(p.get("symbol", ""))
+    days = _safe_text(p.get("pattern_days", ""))
     direction = p.get("direction", "")
     
     sentiment_label, sentiment_class = _direction_to_sentiment(direction)

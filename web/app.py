@@ -959,6 +959,58 @@ def stripe_success():
     # fully-recursive plain dict - the only safe way to traverse the tree.
     sess_d = sess.to_dict() if hasattr(sess, "to_dict") else dict(sess)
 
+    # SEC-C1 - bind the Stripe session to the authenticated user. Without this,
+    # any logged-in user can visit /stripe/success?session_id=<someone_elses_id>
+    # and have that other user's paid tier flipped onto their own row. Stripe
+    # populates client_reference_id from the value we set in stripe_create_checkout
+    # (str(u.id)); the subscription metadata carries the same id as a fallback.
+    expected_user_id = str(u.id)
+    client_ref = sess_d.get("client_reference_id")
+    sub_meta_user = None
+    sub_raw_for_id = sess_d.get("subscription")
+    if isinstance(sub_raw_for_id, dict):
+        sub_meta = sub_raw_for_id.get("metadata") or {}
+        if isinstance(sub_meta, dict):
+            sub_meta_user = sub_meta.get("tw2_user_id")
+
+    bound_user_id = client_ref or sub_meta_user
+    if bound_user_id != expected_user_id:
+        log.warning(
+            "stripe_success: client_reference mismatch user_id=%s session=%s "
+            "client_ref=%s sub_meta_user=%s ip=%s ua=%s",
+            expected_user_id, session_id, client_ref, sub_meta_user,
+            request.headers.get("X-Forwarded-For", request.remote_addr),
+            request.headers.get("User-Agent", "-"),
+        )
+        try:
+            write_audit(
+                actor_label="stripe_success",
+                action="stripe_session_user_mismatch",
+                target_user_id=u.id,
+                details={
+                    "stripe_session_id": session_id,
+                    "expected_user_id": expected_user_id,
+                    "client_reference_id": str(client_ref) if client_ref is not None else None,
+                    "subscription_metadata_user_id": str(sub_meta_user) if sub_meta_user is not None else None,
+                },
+            )
+        except Exception:
+            log.exception("stripe_success: write_audit failed for mismatch event")
+        return jsonify({"error": "session_user_mismatch"}), 403
+
+    # SEC-C1 - never write an upgrade for an unpaid session. Stripe checkout
+    # sessions can be retrieved before payment lands (e.g. user closes the tab
+    # mid-flow); writing the tier change off an unpaid session would let any
+    # user upgrade for free by hitting /stripe/success with their own
+    # half-completed session_id.
+    payment_status = sess_d.get("payment_status")
+    if payment_status != "paid":
+        log.warning(
+            "stripe_success: refusing unpaid session user_id=%s session=%s status=%s",
+            expected_user_id, session_id, payment_status,
+        )
+        return redirect("/pricing?payment_pending=1")
+
     # Resolve tier from price_id
     new_tier = None
     sub_raw = sess_d.get("subscription")
@@ -1105,21 +1157,27 @@ def webhook_stripe():
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature", "")
 
-    # Signature verification (skip if webhook secret is missing/placeholder - dev)
+    # SEC-H4 - fail closed when the webhook secret is missing or still a
+    # placeholder. The previous fail-open path let a forged checkout.session.completed
+    # event flip a user to Strategist for free if ops forgot to rotate the
+    # placeholder at staging/prod cutover. Refuse to process the webhook
+    # rather than parse unsigned JSON; ops must explicitly set the real
+    # secret in /etc/tradewave/secrets.env (STRIPE_WEBHOOK_SECRET) before
+    # this route can accept events.
     secret = getattr(config, "STRIPE_WEBHOOK_SECRET", "") or ""
-    if secret and "PLACEHOLDER" not in secret:
-        try:
-            event = stripe.Webhook.construct_event(payload, sig_header, secret)
-        except Exception as e:
-            log.warning("Stripe webhook signature verification failed: %s", e)
-            return jsonify({"error": "invalid_signature"}), 400
-    else:
-        # Dev mode: parse without verification
-        try:
-            import json as _json
-            event = _json.loads(payload)
-        except Exception:
-            return jsonify({"error": "invalid_payload"}), 400
+    if not secret or "PLACEHOLDER" in secret:
+        log.error(
+            "webhook_stripe: STRIPE_WEBHOOK_SECRET missing or placeholder; "
+            "refusing webhook ip=%s ua=%s",
+            request.headers.get("X-Forwarded-For", request.remote_addr),
+            request.headers.get("User-Agent", "-"),
+        )
+        return jsonify({"error": "webhook_secret_not_configured"}), 503
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, secret)
+    except Exception as e:
+        log.warning("Stripe webhook signature verification failed: %s", e)
+        return jsonify({"error": "invalid_signature"}), 400
 
     # Normalize: convert Stripe Event object → plain nested dict so .get() is safe.
     if not isinstance(event, dict):

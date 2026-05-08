@@ -3355,6 +3355,29 @@ def article_prompt(resourceID, symbol, date, days_hold, years, userid, mode, not
                     background job via blog_queue/article_processor.
     """
 
+    # SEC-H3 - IDOR fix - derive userid from JWT, not URL. Mirrors the
+    # article_publish/article_delete pattern. Admins may keep the URL value
+    # so they can run prompt/load on another user's article-in-progress.
+    token = request.args.get("token")
+    data_jwt = jwt.decode(
+        token, app.config['SECRET_KEY'],
+        algorithms=['HS256'],
+        audience='tw2-appserver',
+        issuer='tw2-web',
+    )
+    jwt_userid = str(data_jwt['user'])
+    if data_jwt.get('is_admin', False):
+        userid = str(userid)
+    else:
+        if str(userid) != jwt_userid:
+            logging.warning(
+                "article_prompt: URL userid override user=%s url_userid=%s ip=%s ua=%s",
+                jwt_userid, userid,
+                request.headers.get("X-Forwarded-For", request.remote_addr),
+                request.headers.get("User-Agent", "-"),
+            )
+        userid = jwt_userid
+
     # -------------------------
     # MODE 2 → async workflow
     # -------------------------
@@ -3525,6 +3548,29 @@ def article_delete(resourceID, symbol, date, days, years, userid):
 @app.route('/article_load/<string:resourceID>/<string:symbol>/<string:date>/<string:days>/<string:years>/<string:userid>', methods=['GET'])
 @check_for_token
 def article_load(resourceID, symbol, date, days, years, userid):
+
+    # SEC-H3 - IDOR fix - derive userid from JWT, not URL. Mirrors the
+    # article_publish/article_delete pattern. Admins may keep the URL
+    # value so they can load another user's article-in-progress.
+    token = request.args.get("token")
+    data_jwt = jwt.decode(
+        token, app.config['SECRET_KEY'],
+        algorithms=['HS256'],
+        audience='tw2-appserver',
+        issuer='tw2-web',
+    )
+    jwt_userid = str(data_jwt['user'])
+    if data_jwt.get('is_admin', False):
+        userid = str(userid)
+    else:
+        if str(userid) != jwt_userid:
+            logging.warning(
+                "article_load: URL userid override user=%s url_userid=%s ip=%s ua=%s",
+                jwt_userid, userid,
+                request.headers.get("X-Forwarded-For", request.remote_addr),
+                request.headers.get("User-Agent", "-"),
+            )
+        userid = jwt_userid
 
     # Build correct URL to blog_queue (webserver)
     # NOTE: your route on webserver is /article_load_bq/<params...>
@@ -5770,9 +5816,40 @@ def place_creditspread_order():
     new_order = True
     live_trade_dict = get_live_order(data['dr_id']) # this function will retrieve an order from live_trades with this dr_id
                                                     # if it didn't exist, an empty dictionary is returned
-    
-    
-    if live_trade_dict != {}: 
+
+    # SEC-H2 - if the dr_id maps to an existing live_trade row, verify that
+    # row is owned by the authenticated user before allowing a re-price /
+    # modification. Without this filter any authenticated user could pass
+    # another user's dr_id in the JSON body and modify the co-tenant's
+    # pending Tradier order in the shared autotrade account. New-order
+    # path (live_trade_dict == {}) is unaffected since no other user's
+    # state is referenced.
+    if live_trade_dict != {}:
+        token_h2 = request.args.get("token")
+        jwt_data_h2 = jwt.decode(
+            token_h2, app.config['SECRET_KEY'],
+            algorithms=['HS256'],
+            audience='tw2-appserver',
+            issuer='tw2-web',
+        )
+        jwt_userid_h2 = str(jwt_data_h2['user'])
+        owner_userid = str(live_trade_dict.get('userid'))
+        if owner_userid != jwt_userid_h2:
+            logging.warning(
+                "place_creditspread_order: ownership check failed user=%s "
+                "dr_id=%s owner=%s ip=%s ua=%s",
+                jwt_userid_h2, data.get('dr_id'), owner_userid,
+                request.headers.get("X-Forwarded-For", request.remote_addr),
+                request.headers.get("User-Agent", "-"),
+            )
+            return jsonify({
+                'return_status': 403,
+                'order_status': 'forbidden',
+                'order_id': -1,
+                'message': 'order not owned by user',
+            }), 403
+
+    if live_trade_dict != {}:
         order_id  = live_trade_dict['open_order_id'] # made a change from close_order_id to open_order_id 8/30/2024
         price     = data['price']
         new_order = False
@@ -6044,10 +6121,41 @@ def remove_order_from_live_trades_list(order_id):
 #-----------------------------------------------------------------------------------------------------
 @app.route('/cancel_placed_order', methods=['POST'])
 @check_for_token
-def cancel_placed_order():   
+def cancel_placed_order():
 
-    data = request.json  # this is for POST 
+    data = request.json  # this is for POST
     order_id = data['order_id']
+
+    # SEC-H1 - verify the order belongs to the authenticated user before
+    # cancelling. The autotrade brokerage account is shared across all
+    # users, so without this check any authenticated user could pass an
+    # arbitrary order_id and cancel another user's pending Tradier order.
+    token = request.args.get("token")
+    jwt_data = jwt.decode(
+        token, app.config['SECRET_KEY'],
+        algorithms=['HS256'],
+        audience='tw2-appserver',
+        issuer='tw2-web',
+    )
+    jwt_userid = str(jwt_data['user'])
+
+    redis_live_trades = redis_client1.get('live_trades')  # db=1 is for autotrading
+    matching_trade = None
+    if redis_live_trades is not None:
+        live_trades_check = json.loads(redis_live_trades)
+        for t in live_trades_check:
+            if t.get('open_order_id') == order_id and str(t.get('userid')) == jwt_userid:
+                matching_trade = t
+                break
+
+    if matching_trade is None:
+        logging.warning(
+            "cancel_placed_order: ownership check failed user=%s order_id=%s ip=%s ua=%s",
+            jwt_userid, order_id,
+            request.headers.get("X-Forwarded-For", request.remote_addr),
+            request.headers.get("User-Agent", "-"),
+        )
+        return jsonify({'response': {'error': 'forbidden'}, 'message': 'order not owned by user'}), 403
 
     json_response = cancel_order(order_id,config_autotrade.account_id)
 

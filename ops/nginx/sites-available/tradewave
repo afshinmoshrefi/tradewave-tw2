@@ -1,0 +1,122 @@
+# TradeWave 2.0 — nginx site config
+# Routes:
+#   /                           → marketing home page (static)
+#   /_static/, /_partials/      → static assets for marketing site
+#   /scorecard, /pricing.html…  → static pages from /var/www/tradewave/
+#   /signup, /login, /auth/,
+#   /logout, /account,
+#   /pricing, /api/me,
+#   /api/stripe/, /webhooks/,
+#   /admin/                     → web tier (port 5500)
+#   /app, /app/                 → React build (with auth stub injection — phase 4 swaps to real)
+#   /appserver/                 → Flask appserver (port 5000)
+
+upstream tw2_web {
+    server 127.0.0.1:5500;
+    keepalive 16;
+}
+
+upstream tw2_appserver {
+    server 127.0.0.1:5000;
+    keepalive 16;
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    # Security headers (shared across vhosts).
+    include /etc/nginx/snippets/security_headers.conf;
+
+    root /var/www/tradewave;
+    index home.html index.html;
+
+    client_max_body_size 50M;
+
+    # ============================================================
+    # Marketing site (static)
+    # ============================================================
+    location = / {
+        try_files /home.html =404;
+    }
+
+    location /_static/ {
+        try_files $uri =404;
+        expires 1d;
+    }
+
+    location /_partials/ {
+        try_files $uri =404;
+    }
+
+    # ============================================================
+    # Web tier (auth, account, pricing, api, webhooks, admin)
+    # ============================================================
+    location = /signup    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location = /login     { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location = /logout    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location = /account   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location /account/    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location = /pricing   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location = /healthz   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+
+    location /auth/       { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location /api/        { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location /webhooks/   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location /admin       { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location /admin/      { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location /stripe/     { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+
+    # ============================================================
+    # React SaaS at /app  — index.html via web tier (real auth);
+    # /app/static/*, /app/og/, etc. served directly by nginx (perf).
+    # ============================================================
+
+    # Exact-match index requests → web tier with REAL session injection
+    location = /app             { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location = /app/            { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location = /app/index.html  { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+
+    # Everything else under /app/ → static from React build dir
+    location /app/ {
+        alias /home/flask/web-react/build/;
+    }
+
+    # ============================================================
+    # Appserver proxy (React calls :5000 directly via CORS today)
+    # ============================================================
+    location /appserver/ {
+        proxy_pass http://tw2_appserver/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+
+    # ============================================================
+    # Block source maps from being publicly served (defense-in-depth even with GENERATE_SOURCEMAP=false)
+    # ============================================================
+    location ~ \.map$ {
+        return 404;
+    }
+
+    # ============================================================
+    # Branded 404
+    # ============================================================
+    error_page 404 /404.html;
+    location = /404.html {
+        root /var/www/tradewave;
+        internal;
+    }
+
+    # ============================================================
+    # Catch-all: $uri.html for static pages, else 404
+    # ============================================================
+    location / {
+        try_files $uri $uri/ $uri.html =404;
+    }
+
+    access_log /var/log/nginx/tradewave.access.log;
+    error_log  /var/log/nginx/tradewave.error.log;
+}

@@ -12,6 +12,30 @@ Provides functions to:
 
 from typing import List, Dict, Any
 import re
+import html as _html_module
+
+
+def _safe_text(value):
+    """HTML-escape text/attribute content. Empty string for None."""
+    if value is None:
+        return ""
+    return _html_module.escape(str(value), quote=True)
+
+
+def _safe_url(value):
+    """HTML-escape a URL after stripping dangerous schemes."""
+    if value is None:
+        return ""
+    s = str(value).strip()
+    if not s:
+        return ""
+    low = s.lstrip().lower()
+    while low and (low[0] < ' ' or low[0] == '\x00'):
+        low = low[1:]
+    for bad in ("javascript:", "data:", "vbscript:", "file:"):
+        if low.startswith(bad):
+            return "#"
+    return _html_module.escape(s, quote=True)
 
 
 
@@ -54,19 +78,17 @@ def generate_related_articles_html(related_articles: List[Dict[str, Any]]) -> st
     html_parts.append('    <ul class="related-articles-list">')
     
     for article in related_articles:
-        url = article.get('url', '')
-        title = article.get('title', '')
-        symbol = article.get('symbol', '')
-        relation_type = article.get('relation_type', 'thematic')
-        
-        # Clean title for display
-        display_title = title.replace('"', '&quot;')
-        
+        # Escape every LLM-supplied field before HTML interpolation (security fix C5).
+        url = _safe_url(article.get('url', ''))
+        title = _safe_text(article.get('title', ''))
+        symbol = _safe_text(article.get('symbol', ''))
+        relation_type = _safe_text(article.get('relation_type', 'thematic'))
+
         # Add relation type as data attribute for potential styling
         html_parts.append(f'      <li data-relation-type="{relation_type}">')
         html_parts.append(f'        <a href="{url}" rel="related">')
         html_parts.append(f'          <span class="article-symbol">{symbol}</span>')
-        html_parts.append(f'          <span class="article-title">{display_title}</span>')
+        html_parts.append(f'          <span class="article-title">{title}</span>')
         html_parts.append('        </a>')
         html_parts.append('      </li>')
     

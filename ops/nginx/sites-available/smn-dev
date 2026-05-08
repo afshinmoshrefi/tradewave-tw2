@@ -1,0 +1,37 @@
+# SMN dev — Seasonal Market News dev site
+# Routes smn-dev.trxstat.com → /var/www/smn/ (lifted from TW1 .151)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name smn-dev.trxstat.com;
+
+    # Security headers (shared across vhosts).
+    include /etc/nginx/snippets/security_headers.conf;
+
+    root /var/www/smn;
+    index index.html;
+
+    client_max_body_size 50M;
+
+    # Don't serve .py source files
+    location ~ \.py$ {
+        return 404;
+    }
+
+    # Static charts dir gets long cache
+    location /markets/charts/ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800";
+        try_files $uri =404;
+    }
+
+    # Default: serve static files, fall back to index.html for SPA-style routes
+    location / {
+        try_files $uri $uri/ $uri.html =404;
+    }
+
+    # Article pages by ticker class
+    location /articles/ {
+        try_files $uri $uri/ =404;
+    }
+}

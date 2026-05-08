@@ -13,9 +13,205 @@ from typing import Any, Dict, List, Optional
 import fcntl  # Linux-only (matches your deployment)
 
 # --- Third-party ---
+import bleach
 import redis
 import requests
 from slugify import slugify
+
+
+# =============================================================================
+# Bleach allow-list for LLM-generated article HTML (security fix C3).
+# The article body originates from GPT and may inadvertently echo prompt-
+# injected markup from Tavily-sourced news content. This sanitiser strips
+# any tag/attribute outside the editorial allow-list before the file is
+# written to /var/www/smn/articles/. Pair with the CSP (security fix C4).
+# =============================================================================
+
+# Tags allowed inside <body>. Bleach strips html/head/body/article tags itself
+# (html5lib removes them as implicit in fragments), so we sanitise only the
+# body fragment and re-wrap with the original document skeleton.
+_ARTICLE_BODY_ALLOWED_TAGS = [
+    "article", "section", "aside", "nav", "header", "footer", "main",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "ul", "ol", "li", "blockquote", "em", "strong", "i", "b",
+    "a", "img", "figure", "figcaption", "hr", "br",
+    "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption",
+    "code", "pre", "span", "div", "small", "sub", "sup", "time", "abbr",
+]
+
+_ARTICLE_BODY_ALLOWED_ATTRIBUTES = {
+    "*": ["class", "id", "lang", "dir"],
+    "a": ["href", "title", "target", "rel"],
+    "img": ["src", "alt", "title", "width", "height", "loading"],
+    "th": ["scope", "colspan", "rowspan"],
+    "td": ["colspan", "rowspan"],
+    "time": ["datetime"],
+    "abbr": ["title"],
+    "blockquote": ["cite"],
+}
+
+_ARTICLE_BODY_ALLOWED_PROTOCOLS = ["http", "https", "mailto"]
+
+# Head section (LLM-emitted) is restricted to the elements the post-processor
+# expects: title, meta, link, plus JSON-LD scripts (handled separately) and
+# style blocks (the audit accepts inline style as a known limitation pending
+# a future refactor).
+_HEAD_ALLOWED_TAGS = [
+    "title", "meta", "link", "style",
+]
+_HEAD_ALLOWED_ATTRIBUTES = {
+    "meta": ["name", "property", "content", "charset", "http-equiv"],
+    "link": ["rel", "href", "type", "sizes", "as", "media", "crossorigin"],
+    "style": ["type", "media"],
+}
+
+_BODY_OPEN_RE = re.compile(r'<body\b[^>]*>', re.IGNORECASE)
+_BODY_CLOSE_RE = re.compile(r'</body\s*>', re.IGNORECASE)
+_HEAD_OPEN_RE = re.compile(r'<head\b[^>]*>', re.IGNORECASE)
+_HEAD_CLOSE_RE = re.compile(r'</head\s*>', re.IGNORECASE)
+_JSONLD_RE = re.compile(
+    r'<script\s+type=["\']application/ld\+json["\'][^>]*>.*?</script>',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _stash_jsonld(html_text):
+    """Replace each JSON-LD <script> block with a unique placeholder. Returns
+    (stashed_text, list_of_blocks). Bleach would strip these otherwise."""
+    blocks = []
+
+    def _capture(m):
+        blocks.append(m.group(0))
+        return f" __JSONLD_BLOCK_{len(blocks) - 1}__ "
+
+    return _JSONLD_RE.sub(_capture, html_text), blocks
+
+
+def _restore_jsonld(html_text, blocks):
+    for idx, block in enumerate(blocks):
+        html_text = html_text.replace(f" __JSONLD_BLOCK_{idx}__ ", block)
+    return html_text
+
+
+_SITE_WRAPPER_MARKER = '<!-- smn-site-wrapper -->'
+# Top chrome runs from the first marker to its terminating </div>; bottom
+# chrome runs from the matching <div class="smn-chrome"> to the second
+# marker. These are emitted by article_post_process._inject_site_wrapper
+# and contain trusted markup (live-quote inline script, header, footer)
+# that we must NOT pass through bleach.
+_TOP_CHROME_RE = re.compile(
+    re.escape(_SITE_WRAPPER_MARKER)
+    + r'\s*<div class="smn-chrome">.*?</div>',
+    re.DOTALL,
+)
+_BOTTOM_CHROME_RE = re.compile(
+    r'<div class="smn-chrome">.*?</div>\s*'
+    + re.escape(_SITE_WRAPPER_MARKER),
+    re.DOTALL,
+)
+
+
+def _stash_pattern(html_text, regex, label):
+    """Replace each match of `regex` with a unique placeholder. Returns
+    (stashed_text, list_of_blocks)."""
+    blocks: List[str] = []
+
+    def _capture(m):
+        blocks.append(m.group(0))
+        return f" __{label}_BLOCK_{len(blocks) - 1}__ "
+
+    return regex.sub(_capture, html_text), blocks
+
+
+def _restore_blocks(html_text, blocks, label):
+    for idx, block in enumerate(blocks):
+        html_text = html_text.replace(f" __{label}_BLOCK_{idx}__ ", block)
+    return html_text
+
+
+def _sanitize_article_html(article_html: str) -> str:
+    """Strip non-allow-listed tags/attributes/URL schemes from an LLM-emitted
+    article HTML document. Preserves the doctype, <html>, <head>, <body>
+    skeleton so the file remains a complete document, and preserves JSON-LD
+    <script type="application/ld+json"> blocks needed for SEO.
+
+    Trusted post-process injections (the SMN site chrome between the
+    `<!-- smn-site-wrapper -->` markers, which carry an inline live-quote
+    <script>) are stashed before the bleach pass and restored after, so
+    sanitisation never strips legitimate scaffolding.
+
+    The head is restricted to {title, meta, link, style} plus JSON-LD; the
+    body is restricted to the editorial allow-list and runs with strip=True
+    so any disallowed tag (script, iframe, object, embed, svg, form, etc.)
+    is removed entirely. Attribute filtering eliminates on*= event handlers
+    and javascript:/data:/vbscript: URL schemes.
+    """
+    if not article_html:
+        return article_html
+
+    # 0. Stash trusted site-wrapper chrome (top + bottom) so bleach does not
+    # strip its inline live-quote script or normalise its data-* attributes.
+    article_html, top_blocks = _stash_pattern(article_html, _TOP_CHROME_RE, "TOPCHROME")
+    article_html, bot_blocks = _stash_pattern(article_html, _BOTTOM_CHROME_RE, "BOTCHROME")
+
+    head_open = _HEAD_OPEN_RE.search(article_html)
+    head_close = _HEAD_CLOSE_RE.search(article_html, head_open.end()) if head_open else None
+    body_open = _BODY_OPEN_RE.search(article_html)
+    body_close = _BODY_CLOSE_RE.search(article_html, body_open.end()) if body_open else None
+
+    if not (head_open and head_close and body_open and body_close):
+        # Fall back to whole-document fragment sanitisation. We lose the
+        # skeleton tags but no XSS slips through.
+        stashed, blocks = _stash_jsonld(article_html)
+        cleaned = bleach.clean(
+            stashed,
+            tags=list(set(_ARTICLE_BODY_ALLOWED_TAGS + _HEAD_ALLOWED_TAGS)),
+            attributes={**_HEAD_ALLOWED_ATTRIBUTES, **_ARTICLE_BODY_ALLOWED_ATTRIBUTES},
+            protocols=_ARTICLE_BODY_ALLOWED_PROTOCOLS,
+            strip=True,
+            strip_comments=False,
+        )
+        cleaned = _restore_jsonld(cleaned, blocks)
+        cleaned = _restore_blocks(cleaned, top_blocks, "TOPCHROME")
+        cleaned = _restore_blocks(cleaned, bot_blocks, "BOTCHROME")
+        return cleaned
+
+    pre_head = article_html[:head_open.end()]            # up to and incl. <head>
+    head_inner = article_html[head_open.end():head_close.start()]
+    between = article_html[head_close.start():body_open.end()]  # </head>...<body>
+    body_inner = article_html[body_open.end():body_close.start()]
+    post_body = article_html[body_close.start():]        # </body>...
+
+    # --- Head sanitiser ---
+    head_stashed, head_blocks = _stash_jsonld(head_inner)
+    head_clean = bleach.clean(
+        head_stashed,
+        tags=_HEAD_ALLOWED_TAGS,
+        attributes=_HEAD_ALLOWED_ATTRIBUTES,
+        protocols=_ARTICLE_BODY_ALLOWED_PROTOCOLS,
+        strip=True,
+        strip_comments=False,
+    )
+    head_clean = _restore_jsonld(head_clean, head_blocks)
+
+    # --- Body sanitiser ---
+    body_stashed, body_blocks = _stash_jsonld(body_inner)
+    body_clean = bleach.clean(
+        body_stashed,
+        tags=_ARTICLE_BODY_ALLOWED_TAGS,
+        attributes=_ARTICLE_BODY_ALLOWED_ATTRIBUTES,
+        protocols=_ARTICLE_BODY_ALLOWED_PROTOCOLS,
+        strip=True,
+        strip_comments=False,
+    )
+    body_clean = _restore_jsonld(body_clean, body_blocks)
+
+    cleaned = pre_head + head_clean + between + body_clean + post_body
+
+    # Restore stashed trusted chrome blocks last.
+    cleaned = _restore_blocks(cleaned, top_blocks, "TOPCHROME")
+    cleaned = _restore_blocks(cleaned, bot_blocks, "BOTCHROME")
+    return cleaned
 
 # --- Project / internal ---
 sys.path.insert(0, '/home/flask')
@@ -685,6 +881,13 @@ def write_article_and_register(info, resource_id, symbol, pattern_start_date, da
         zero_last_year=True,
         article_html=article_html
     )
+
+    # Sanitise the article HTML (security fix C3). Strips any tag/attribute
+    # outside the editorial allow-list, including <script>, <iframe>, and
+    # event-handler attributes the LLM may have echoed from a poisoned news
+    # source. Run before no_em_dash so cosmetic regex passes act on the
+    # already-cleansed markup.
+    article_html = _sanitize_article_html(article_html)
 
     # Strip em dashes (forbidden in TradeWave content).
     article_html = no_em_dash(article_html)

@@ -1,10 +1,13 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
 import datetime
 import re
 import sys
 import os
 import json
+import logging
+from functools import wraps
+import jwt
 from AI_tools_appserver import (
     send_claude_messages,
     CLAUDE_HAIKU_35,   # claude-3-5-haiku-20241022 - very cheap, fast
@@ -17,6 +20,69 @@ from tradewave_api_calls_cb import (
     get_opp_list, get_years_pyears_from_resource_id,
     create_opportunity_url
 )
+
+
+# -----------------------------------------------------------------
+# SEC-C2 - local check_for_token decorator. Mirrors appserver.py's
+# check_for_token (aud='tw2-appserver', iss='tw2-web', algorithms=['HS256']).
+# Defined locally to avoid circular import: appserver.py imports chatbot_bp
+# at module load before its own check_for_token is defined.
+# Stashes decoded claims on flask.g.chatbot_jwt for the route to read.
+# -----------------------------------------------------------------
+def _client_meta():
+    return (
+        request.headers.get("X-Forwarded-For", request.remote_addr),
+        request.headers.get("User-Agent", "-"),
+    )
+
+
+def check_for_token(func):
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        # Token is accepted from query string (parity with appserver.py
+        # check_for_token) and falls back to JSON body for chatbot/chat
+        # which historically posted {"token": ...} as part of the body.
+        token = request.args.get('token')
+        if not token and request.is_json:
+            try:
+                token = (request.get_json(silent=True) or {}).get('token')
+            except Exception:
+                token = None
+        if not token:
+            ip, ua = _client_meta()
+            logging.warning("chatbot.check_for_token: missing token ip=%s ua=%s", ip, ua)
+            return jsonify({'message': 'Missing token'}), 403
+        try:
+            data = jwt.decode(
+                token, current_app.config['SECRET_KEY'],
+                algorithms=['HS256'],
+                audience='tw2-appserver',
+                issuer='tw2-web',
+            )
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'session expired'}), 401
+        except jwt.InvalidAudienceError:
+            ip, ua = _client_meta()
+            logging.warning("chatbot.check_for_token: invalid/missing audience ip=%s ua=%s", ip, ua)
+            return jsonify({'message': 'invalid token'}), 401
+        except jwt.InvalidIssuerError:
+            ip, ua = _client_meta()
+            logging.warning("chatbot.check_for_token: invalid/missing issuer ip=%s ua=%s", ip, ua)
+            return jsonify({'message': 'invalid token'}), 401
+        except jwt.DecodeError:
+            ip, ua = _client_meta()
+            logging.warning("chatbot.check_for_token: decode error ip=%s ua=%s", ip, ua)
+            return jsonify({'message': 'invalid token'}), 401
+        except jwt.InvalidTokenError:
+            ip, ua = _client_meta()
+            logging.warning("chatbot.check_for_token: invalid token ip=%s ua=%s", ip, ua)
+            return jsonify({'message': 'invalid token'}), 401
+        # Stash for the wrapped route - resolve user_id once, here.
+        from flask import g
+        g.chatbot_jwt = data
+        g.chatbot_user_id = str(data.get('user') or data.get('sub') or data.get('user_id') or 'unknown')
+        return func(*args, **kwargs)
+    return wrapped
 
 # -----------------------------------------------------------------
 # Model selection - change this to test different models:
@@ -433,17 +499,17 @@ def _load_chatbot_users():
         return set()
 
 @chatbot_bp.route("/chatbot_access", methods=["GET"])
+@check_for_token
 def chatbot_access():
-    """Return {"allowed": true/false} for the user identified by the JWT token."""
-    from flask import current_app
-    import jwt
-    token = request.args.get('token', '')
-    user_id = 'unknown'
-    try:
-        decoded = jwt.decode(token, current_app.config['SECRET_KEY'])
-        user_id = str(decoded.get('user') or decoded.get('sub') or decoded.get('user_id') or 'unknown')
-    except Exception:
-        pass
+    """Return {"allowed": true/false} for the user identified by the JWT token.
+
+    SEC-C2 - this route is now protected by check_for_token (aud/iss/HS256
+    enforced). The previous bare-except fail-open path that let unauthenticated
+    callers in with user_id='unknown' is gone; check_for_token returns 401/403
+    before this body runs if the token is missing or invalid.
+    """
+    from flask import g
+    user_id = getattr(g, 'chatbot_user_id', 'unknown')
     # chatbot is available to all users (free and paid)
     allowed = True
     return jsonify({"allowed": allowed, "user_id": user_id})
@@ -663,27 +729,27 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None):
 
 #-------------------------------------------------------------------------------------------------------------------
 @chatbot_bp.route("/chat", methods=["POST"])
+@check_for_token
 def chat():
     """
     Endpoint to process chat messages with wave-viewer and opportunity-table context.
+
+    SEC-C2 - this route is now protected by check_for_token (aud/iss/HS256
+    enforced). The previous bare-except fail-open path that let unauthenticated
+    callers burn Anthropic credits with user_id='unknown' is gone; the
+    decorator returns 401/403 before this body runs if the token is missing
+    or invalid, and the decoded user_id is read from flask.g.
     """
-    incoming_data = request.json
+    incoming_data = request.json or {}
     user_message  = incoming_data.get("message", "")
-    token         = incoming_data.get("token")
     history       = incoming_data.get("history", [])   # list of {role, content}
     wave_viewer   = incoming_data.get("wave_viewer", {})
     opportunities = incoming_data.get("opportunities", [])
     opp_table_length = incoming_data.get("opp_table_length")
 
-    # Extract user_id from JWT token
-    from flask import current_app
-    import jwt
-    user_id = 'unknown'
-    try:
-        decoded = jwt.decode(token, current_app.config['SECRET_KEY'])
-        user_id = str(decoded.get('user') or decoded.get('sub') or decoded.get('user_id') or 'unknown')
-    except Exception:
-        pass
+    # SEC-C2 - user_id is the authenticated id from the verified JWT.
+    from flask import g
+    user_id = getattr(g, 'chatbot_user_id', 'unknown')
 
     try:
         system_prompt = build_system_prompt(wave_viewer, opportunities, opp_table_length)
