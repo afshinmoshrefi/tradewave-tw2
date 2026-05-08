@@ -97,13 +97,13 @@ def tw_rebrand(s: str) -> str:
     address, third-party brand mentions) into TW2 equivalents. Runs after
     the WP markup strip so it operates on prose, not Divi attribute strings.
     """
-    # Old company name + street address → just the LLC + state of operation.
-    # Legal docs need an entity + jurisdiction, but a stale street address
-    # is worse than no street address. Update if/when the LLC moves.
+    # Old company name + street address → current LLC + Boston address.
+    # Update both segments together when the LLC moves.
     s = re.sub(
         r"Tara Research LLC,\s*25 Storey Ave Ste 8\s*-\s*PMB 111\s*"
         r"Newburyport,\s*MA\s*01950",
-        "Tara Data Research LLC, organized in Massachusetts, United States",
+        "Tara Data Research LLC, Government Center, "
+        "1 Washington Mall #1129, Boston, MA 02108",
         s,
     )
     # Catch any remaining bare references to the old LLC name.
