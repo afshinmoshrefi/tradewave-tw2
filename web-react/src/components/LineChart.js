@@ -484,7 +484,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
             tension: 0.3,
             spanGaps: false,
         });
-        // Lower band — fill to previous dataset (upper) when fill enabled
+        // Lower band - fill to previous dataset (upper) when fill enabled
         bbDatasets.push({
             label: 'BB Lower',
             data: bb.lower.slice(seedLen),
@@ -497,7 +497,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
             tension: 0.3,
             spanGaps: false,
         });
-        // Middle band (SMA basis) — dashed, reduced opacity
+        // Middle band (SMA basis) - dashed, reduced opacity
         bbDatasets.push({
             label: 'BB Middle',
             data: bb.middle.slice(seedLen),
@@ -937,7 +937,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
         },
     };
 
-    // Candlestick / OHLC drawing plugin (created once on mount — reads from refs for live values)
+    // Candlestick / OHLC drawing plugin (created once on mount - reads from refs for live values)
     const candlestickPlugin = {
         id: 'candlestickPlugin',
         afterDraw: (chart) => {
@@ -994,7 +994,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
                     ctx.moveTo(x, yH);
                     ctx.lineTo(x, yL);
                     ctx.stroke();
-                    // Open tick (left) and close tick (right) — thicker for visibility
+                    // Open tick (left) and close tick (right) - thicker for visibility
                     ctx.lineWidth = 2;
                     ctx.beginPath();
                     ctx.moveTo(x - barW / 2, yO);
@@ -1062,7 +1062,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
         },
     }
 
-    // Earnings date marker plugin — draws professional vertical markers + badges
+    // Earnings date marker plugin - draws professional vertical markers + badges
     // Format "YYYY-MM-DD" → "Jan 29, 2026"
     const fmtEarningsDate = (dateStr) => {
         const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1123,7 +1123,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
 
             const isDark = (chart.options._squareGridColor || '').includes('255,255,255');
 
-            // Helper: get pixel X for a date — exact match first, then nearest label
+            // Helper: get pixel X for a date - exact match first, then nearest label
             // (weekly mode labels are end-of-week dates that won't match daily earnings dates)
             const getPixelX = (dateStr) => {
                 const idx = labelIndexMap[dateStr];
@@ -1206,7 +1206,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
             };
 
             // Draw past earnings markers
-            // Prefer 8-K/E (announcement day) — skip 10-Q/10-K when a preceding 8-K/E
+            // Prefer 8-K/E (announcement day) - skip 10-Q/10-K when a preceding 8-K/E
             // exists within 45 days (annual 10-K can lag the announcement by up to ~5 weeks)
             // Fall back to 10-Q/10-K when no 8-K/E data is available (varies by company)
             if (filings && filings.length > 0) {

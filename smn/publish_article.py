@@ -25,6 +25,11 @@ from article_post_process import article_post_process
 from article_tools import compute_article_paths_and_url
 from blog_tools import get_company_name
 from create_report import get_or_create_tag
+
+# Hard rule: no em dashes in any TradeWave/SMN content. LLM-generated
+# article copy frequently uses them; strip at publish time.
+sys.path.insert(0, '/home/flask/site/lib')
+from text_utils import no_em_dash
 from rebuild_news_home import build_home
 
 # Default tone and website-id for now
@@ -680,6 +685,9 @@ def write_article_and_register(info, resource_id, symbol, pattern_start_date, da
         zero_last_year=True,
         article_html=article_html
     )
+
+    # Strip em dashes (forbidden in TradeWave content).
+    article_html = no_em_dash(article_html)
 
     # Write HTML atomically
     _write_atomic(out_path, article_html)
@@ -1450,7 +1458,7 @@ Sitemap: {site_url}/sitemap-news.xml
 
 def generate_llms_txt():
     """
-    Generate /llms.txt — the emerging standard that tells AI systems (ChatGPT,
+    Generate /llms.txt - the emerging standard that tells AI systems (ChatGPT,
     Perplexity, Claude, Gemini, etc.) what this site is, what it covers, and
     which pages are most worth reading.  Spec: https://llmstxt.org
     """
@@ -1526,10 +1534,10 @@ quantitative, data-backed seasonal trading insights.
 
 ## About
 
-- [Methodology]({site_url}/methodology.html) — How seasonal patterns are sourced, calculated, and validated using TradeWave.ai data
-- [Home]({site_url}/) — Latest articles, featured pattern of the day, and market overview
-- [About]({site_url}/about.html) — About Afshin Moshrefi, founder and quantitative researcher
-- [Search]({site_url}/search.html) — Search all published seasonal pattern articles
+- [Methodology]({site_url}/methodology.html) - How seasonal patterns are sourced, calculated, and validated using TradeWave.ai data
+- [Home]({site_url}/) - Latest articles, featured pattern of the day, and market overview
+- [About]({site_url}/about.html) - About Afshin Moshrefi, founder and quantitative researcher
+- [Search]({site_url}/search.html) - Search all published seasonal pattern articles
 
 ## Data Source
 

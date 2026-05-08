@@ -374,7 +374,7 @@ def build_article_prompt(resource_id: str,
 
     # For PE patterns, convert plain years (e.g. '10') to the pe2-N format
     # (e.g. 'pe2-10') that create_article_prompt and the appserver both expect.
-    # MUST be lowercase — appserver custom_year_filter does sv_code == 'pe2' (case-sensitive).
+    # MUST be lowercase - appserver custom_year_filter does sv_code == 'pe2' (case-sensitive).
     if pattern_mode == 'pe':
         pe_phase = datetime.date.today().year % 4
         prompt_years = f'pe{pe_phase}-{years}'
@@ -499,10 +499,10 @@ def generate_news_article(resource_id: str,
     article_id: str = secrets.token_hex(4)   # unique per article, used to avoid hero filename collisions
 
     # For PE patterns, convert plain years (e.g. '6') to pe2-N format (e.g. 'pe2-6').
-    # Both charts AND the article prompt need this — charts use it for the ChartData4
+    # Both charts AND the article prompt need this - charts use it for the ChartData4
     # API call which filters to PE-cycle years only.  Without it, charts show
     # consecutive data even when the pattern is PE-mode.
-    # MUST be lowercase — appserver custom_year_filter does sv_code == 'pe2' (case-sensitive).
+    # MUST be lowercase - appserver custom_year_filter does sv_code == 'pe2' (case-sensitive).
     if pattern_mode == 'pe':
         pe_phase = datetime.date.today().year % 4
         chart_years = f'pe{pe_phase}-{years}'
@@ -526,7 +526,7 @@ def generate_news_article(resource_id: str,
             mark_step_error(tracking, "generate_tradewave_charts", e)
             return tracking
 
-        # 2) Hero image (non-fatal — article proceeds without hero on failure)
+        # 2) Hero image (non-fatal - article proceeds without hero on failure)
         hero_html = ""
         try:
             hero_html, img_paths = generate_hero_image(
@@ -610,7 +610,7 @@ def generate_news_article(resource_id: str,
             mark_step_error(tracking, "write_article", e)
             return tracking
 
-        # 6) Publish article — use chart_years (PE-qualified) so the Redis key
+        # 6) Publish article - use chart_years (PE-qualified) so the Redis key
         # matches what the portfolio page uses for the article_exists check.
         hero_url = next((p["url"] for p in img_paths if p.get("variant") == "hero"), "")
         try:

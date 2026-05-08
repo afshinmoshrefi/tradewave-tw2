@@ -53,7 +53,7 @@ def appserver_login():
             print("   ERROR TW2 service-account login exception: %s" % e)
             return None
 
-    # Legacy TW1 path — only runs if SERVICE_API_KEY isn't set
+    # Legacy TW1 path - only runs if SERVICE_API_KEY isn't set
     def _get(url, attempts=3, timeout=30, sleep_s=5):
         last = None
         for i in range(attempts):

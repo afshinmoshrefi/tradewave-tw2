@@ -755,7 +755,7 @@ YOUR READERS: Active investors and traders who follow specific stocks. They find
 Both types of headlines work. Your job is to write a MIX of both styles so the site reads like a 
 real newsroom with variety, not a template engine.
 
-STYLE A — NEWS-FIRST (2-3 of your candidates should be this style):
+STYLE A - NEWS-FIRST (2-3 of your candidates should be this style):
 Lead with the news hook, weave seasonal context in naturally.
 Good examples:
 "Chevron (CVX) Q4 Earnings Beat Arrives Alongside a Perfect 10-for-10 Midterm Streak"
@@ -764,17 +764,17 @@ Good examples:
 "Newmont (NEM) Rides Analyst Upgrades Into a Historically Flawless Spring Run"
 "Venezuela Upside Meets a 40-Year Winning Streak for Chevron (CVX)"
 
-STYLE B — STAT-FIRST (2-3 of your candidates should be this style):
-Lead with the most striking seasonal number. {"USE THIS STYLE MORE — the data is very strong." if seasonal_strength == "strong" else "Use when the seasonal stat is genuinely surprising."}
+STYLE B - STAT-FIRST (2-3 of your candidates should be this style):
+Lead with the most striking seasonal number. {"USE THIS STYLE MORE - the data is very strong." if seasonal_strength == "strong" else "Use when the seasonal stat is genuinely surprising."}
 Good examples:
 "Newmont (NEM) Has Rallied Every Spring for 10 Straight Years, Averaging 13% Gains"
 "Chevron (CVX) Has Never Lost Money in This 70-Day Midterm Window Since 1986"
-"NVIDIA Has Dropped 6 of 6 Midterm Election Summers — and the Window Just Opened"
+"NVIDIA Has Dropped 6 of 6 Midterm Election Summers - and the Window Just Opened"
 "Toll Brothers (TOL) Has Fallen Every Midterm Summer for 9 Straight Cycles"
 "This 39-Day Window Has Delivered 238% Cumulative Gains for Newmont (NEM)"
 
 BAD TITLES (never write these):
-"NVIDIA enters a historically strong seasonal window this week" (generic template — could be any stock)
+"NVIDIA enters a historically strong seasonal window this week" (generic template - could be any stock)
 "Tesla approaches a historically weak seasonal stretch into December" (same template, different ticker)
 "Chevron (CVX) seasonal outlook remains bullish" (vague, no hook, no stat)
 "Chevron (CVX) in focus ahead of year-end" (generic, boring)
@@ -785,7 +785,7 @@ RULES:
 2. Never use these exact phrases: "in focus", "on watch", "spotlight", "in the spotlight", "setup"
 3. The word "pattern" is banned (use "streak", "record", "run", "stretch", "window" instead)
 4. Under 100 characters
-5. Every title must sound like a DIFFERENT journalist wrote it — vary sentence structure, verb choice, and which element leads
+5. Every title must sound like a DIFFERENT journalist wrote it - vary sentence structure, verb choice, and which element leads
 6. At least one title must contain a specific number from the article (e.g. "10 of 10", "13%", "70-day")
 7. CRITICAL DIRECTION RULE: This is a {"BEARISH/SHORT" if direction == "short" else "BULLISH/LONG"} article. The title sentiment MUST match. {"Use words like: drop, fall, decline, weak, downside, loss, slide, sell-off. NEVER use bullish words like rally, surge, gain, rise, climb, upside." if direction == "short" else "Use words like: rally, gain, rise, climb, surge, upside, bullish. NEVER use bearish words like drop, fall, decline, weak, downside, loss."}
 
@@ -793,14 +793,14 @@ Return ONLY headlines, one per line, no numbering."""
 
     direction_label = "BEARISH (short)" if direction == "short" else "BULLISH (long)"
     user_prompt = f"""Write {num_candidates} headlines for {company} ({symbol}).
-Direction: {direction_label} — ALL titles must reflect this sentiment.
+Direction: {direction_label} - ALL titles must reflect this sentiment.
 Generate a MIX: some news-first, some stat-first.
 
 ===== NEWS HOOKS FROM RESEARCH (for news-first titles) =====
 {hooks_text}
 ===== END NEWS HOOKS =====
 
-===== ARTICLE TEXT (for stat-first titles — find the most striking seasonal numbers) =====
+===== ARTICLE TEXT (for stat-first titles - find the most striking seasonal numbers) =====
 {sections['opening']}
 
 {sections['macro_political'] if sections['macro_political'] else sections['price_drivers']}
@@ -813,7 +813,7 @@ REQUIREMENTS:
 - {num_candidates} headlines total: mix of news-first AND stat-first styles
 - Include {company} and ({symbol})
 - Under 100 characters
-- Vary the structure — no two titles should start the same way
+- Vary the structure - no two titles should start the same way
 - At least one title must include a specific seasonal stat from the article
 
 Write {num_candidates} varied headlines:"""

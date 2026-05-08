@@ -88,7 +88,7 @@ const ReportsDashboard = (props) => {
     // props.SetSelectedPortfolio and props.selectedPortfolio is used to put reports in the right portfolio
     //-------------------------------------------------------------------------------------------
 
-    // Drag state — null means use default CSS position, {x,y} px means user has dragged it
+    // Drag state - null means use default CSS position, {x,y} px means user has dragged it
     const [dragPos, setDragPos] = useState(null);
     const dragRef = useRef({ active: false, offsetX: 0, offsetY: 0 });
 

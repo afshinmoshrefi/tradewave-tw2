@@ -2,7 +2,7 @@
 select_news_articles.py
 
 Generates 40-100 article ideas by combining current news with TradeWave
-seasonal patterns.  Every idea MUST have a seasonal pattern — the pattern
+seasonal patterns.  Every idea MUST have a seasonal pattern - the pattern
 is what makes the article worth writing on SeasonalMarketNews.com.
 
 Pipeline:
@@ -71,12 +71,12 @@ WEEKLY_YEAR_CONFIGS = [
 
 DAY_RANGES = ['7-30', '31-60']
 
-# OppBySymbol fallback ladders — try each (year1, year2) in order until
+# OppBySymbol fallback ladders - try each (year1, year2) in order until
 # patterns are found in the window.  Lower year2 is more permissive (fewer
 # profitable years required) and may reveal dates the tighter combo misses.
 # Note: OppBySymbol uses mode='consecutive' or 'pe'  (not 'cons')
 #
-# Consecutive — stop at 8/8 (below that the signal is too weak)
+# Consecutive - stop at 8/8 (below that the signal is too weak)
 def _cons_ladder(start, floor_ratio=0.8):
     """
     Generate sequential (year1, year2) ladder rungs for consecutive-year scans.
@@ -94,27 +94,27 @@ def _cons_ladder(start, floor_ratio=0.8):
             y1 = y2
     return rungs
 
-# Consecutive — floor at 80% probability (year2 / original_year1 >= 0.8)
+# Consecutive - floor at 80% probability (year2 / original_year1 >= 0.8)
 # 10yr floor=8:  (10,10),(10,9),(9,9),(9,8),(8,8)
 CONS_YEAR_LADDER = _cons_ladder(10)
 
-# PE — go down to 6/5 because 6 PE years ≈ 24 calendar years (still meaningful)
+# PE - go down to 6/5 because 6 PE years ≈ 24 calendar years (still meaningful)
 PE_YEAR_LADDER = [
     ('10', '10'), ('10', '9'), ('9', '9'), ('9', '8'), ('8', '8'),
     ('8',  '7'), ('7', '7'), ('7', '6'), ('6', '6'), ('6', '5'),
 ]
 
-# Longer consecutive lookbacks — generated with same 80% floor rule
+# Longer consecutive lookbacks - generated with same 80% floor rule
 # 15yr floor=12: (15,15),(15,14),(14,14),(14,13),(13,13),(13,12),(12,12)
 # 20yr floor=16: (20,20),(20,19),(19,19),(19,18),(18,18),(18,17),(17,17),(17,16),(16,16)
-# 30yr floor=24: (30,30),(30,29),...,(25,24),(24,24)  — 13 rungs
+# 30yr floor=24: (30,30),(30,29),...,(25,24),(24,24) - 13 rungs
 LONG_CONS_LADDERS = [
     ('15yr', _cons_ladder(15)),
     ('20yr', _cons_ladder(20)),
     ('30yr', _cons_ladder(30)),
 ]
 
-# Longer PE lookbacks — all asset types
+# Longer PE lookbacks - all asset types
 # 15 PE years ≈ 60 calendar years; 20 PE years ≈ 80 calendar years
 # Same 80% floor: 15yr floor=12, 20yr floor=16
 LONG_PE_LADDERS = [
@@ -122,7 +122,7 @@ LONG_PE_LADDERS = [
     ('20yr_pe', _cons_ladder(20)),
 ]
 
-# Index-specific extended ladders — only run for indices, only up to their
+# Index-specific extended ladders - only run for indices, only up to their
 # actual data depth (avoids wasting API calls on non-existent files).
 # Consecutive: 40 → 50 → 60 → 70 → 80 → 90yr, each with 80% floor
 INDEX_LONG_CONS_LADDERS = [
@@ -131,7 +131,7 @@ INDEX_LONG_CONS_LADDERS = [
     ('60yr', _cons_ladder(60)),   # floor=48
     ('70yr', _cons_ladder(70)),   # floor=56
     ('80yr', _cons_ladder(80)),   # floor=64
-    ('90yr', _cons_ladder(90)),   # floor=72  — SPX max useful range
+    ('90yr', _cons_ladder(90)),   # floor=72 - SPX max useful range
 ]
 
 # Known calendar-year data depth per index symbol.
@@ -149,13 +149,13 @@ INDEX_DEFAULT_MAX_YEARS = 30
 # PE ladder for deep-data indices (SPX, DJI, etc.).
 # Keeps y1 fixed at the symbol's maximum PE years and steps y2 down
 # while y2/y1 > 0.9 (90–100% success rate window).
-# Max PE years = INDEX_DATA_YEARS[symbol] // 4  (dynamic — auto-adjusts if
+# Max PE years = INDEX_DATA_YEARS[symbol] // 4  (dynamic - auto-adjusts if
 # data depth grows, e.g. SPX reaches 100 cal yrs → 25 PE years).
 #
 # Examples:
-#   SPX (98 cal yrs → 24 PE):  (24,24),(24,23),(24,22)   — 3 rungs
-#   DJI (75 cal yrs → 18 PE):  (18,18),(18,17)           — 2 rungs
-#   SPX future (100 cal yrs → 25 PE): (25,25),(25,24),(25,23) — 3 rungs
+#   SPX (98 cal yrs → 24 PE):  (24,24),(24,23),(24,22) - 3 rungs
+#   DJI (75 cal yrs → 18 PE):  (18,18),(18,17) - 2 rungs
+#   SPX future (100 cal yrs → 25 PE): (25,25),(25,24),(25,23) - 3 rungs
 def _index_pe_ladder(max_pe_years, min_ratio=0.9):
     """
     Fixed-y1 PE ladder: keeps y1=max_pe_years, steps y2 down while
@@ -193,11 +193,11 @@ MIN_AVGP = 3.5
 OBS_PAST_DAYS    = 3   # look back – catches recently-started patterns still in play
 OBS_HORIZON_DAYS = 30  # look ahead – 30-day max (OppBySymbol window)
 
-# OppList4 forward scan window — how far ahead the pattern sweep looks.
+# OppList4 forward scan window - how far ahead the pattern sweep looks.
 # 14 days is enough for daily mode (heads-up articles for next 2 weeks).
 OPP_LIST_HORIZON_DAYS = 14
 
-# Symbol activity check — last traded price must be within this many days.
+# Symbol activity check - last traded price must be within this many days.
 # Covers weekends + holidays; symbols older than this are likely delisted/suspended.
 SYMBOL_MAX_STALE_DAYS = 10
 
@@ -205,7 +205,7 @@ SYMBOL_MAX_STALE_DAYS = 10
 OBS_MIN_SR   = 1.0
 OBS_MIN_AVGP = 4.0
 
-# Output — daily mode generates 10-20 ideas; 3AM queuing job picks how many to publish.
+# Output - daily mode generates 10-20 ideas; 3AM queuing job picks how many to publish.
 # Files are date-stamped with TODAY so each nightly run has its own output.
 TARGET_IDEAS_MAX = 20
 IDEAS_DIR       = '/home/flask/smn/article_ideas'
@@ -215,8 +215,8 @@ CSV_FILE_TPL    = IDEAS_DIR + '/article_queue_{}.csv'
 # ---------- Published-article dedup ----------
 # Path to the news site posts.json (tracks every published article)
 POSTS_JSON_PATH  = config.news_root_folder.rstrip('/') + '/posts.json'
-HARD_MIN_DAYS    = 4   # hard skip — never repeat a ticker within this many days
-SOFT_MIN_DAYS    = 7   # soft preference — flag and lower score if < 7 days
+HARD_MIN_DAYS    = 4   # hard skip - never repeat a ticker within this many days
+SOFT_MIN_DAYS    = 7   # soft preference - flag and lower score if < 7 days
 
 # ---------- Volume data ----------
 VOLUME_LIST_PATH   = '/home/flask/smn/volume_lists/highest_volume_list.csv'
@@ -225,7 +225,7 @@ VOLUME_SPIKE_MIN_RVOL  = 1.5   # minimum rvol to treat as a spike signal
 VOLUME_LIST_MIN_RVOL   = 1.3   # minimum rvol for high-volume-list bonus
 
 # ---------- Ranking LLM ----------
-# Claude (Anthropic) — recommended:
+# Claude (Anthropic) - recommended:
 #   'sonnet46'  → claude-sonnet-4-6           strong + fast, best balance
 #   'opus46'    → claude-opus-4-6             most capable, best angles
 #   'haiku45'   → claude-haiku-4-5-20251001   fast + cheap
@@ -253,21 +253,21 @@ PE_PHASE = TODAY.year % 4   # 2026 → 2,  2027 → 3
 PE2_YEAR = (PE_PHASE == 2)
 
 PE2_SENSITIVE_TICKERS = {
-    # Energy — Fed tightening / oil-price cycles hit directly
+    # Energy - Fed tightening / oil-price cycles hit directly
     'XOM','CVX','COP','EOG','SLB','PSX','VLO','MPC','OXY','PXD',
     'XLE','XOP','USO','UNG',
     # Energy futures
     'CL','NG','HO','RB',
-    # Defense — government-spending politics are acute in midterm years
+    # Defense - government-spending politics are acute in midterm years
     'LMT','RTX','NOC','GD','BA','HII','LDOS','SAIC',
     'XAR','ITA',
-    # Big-cap tech & broad indices — rate-sensitive valuations
+    # Big-cap tech & broad indices - rate-sensitive valuations
     'AAPL','MSFT','GOOGL','GOOG','AMZN','META','NVDA','TSLA',
     'SPX','NDX','DJI','RUT','SPY','QQQ','IWM',
     # Financials / rates
     'JPM','BAC','GS','MS','WFC','C',
     'XLF','XLK','XLV','TLT','IEF',
-    # Gold / safe-haven — cycle turning points / rate uncertainty
+    # Gold / safe-haven - cycle turning points / rate uncertainty
     'GLD','GC','SI','SLV',
 }
 
@@ -275,7 +275,7 @@ PE2_PE_PATTERN_BONUS  = 1.5   # pre_score bonus: PE-mode pattern in sensitive se
 PE2_LONG_CONS_BONUS   = 1.0   # pre_score bonus: consecutive ≥15yr lookback (PE+2 yr)
 PE2_LONG_CONS_MIN_YRS = 15    # consecutive year threshold to earn the long-cons bonus
 
-# PE+2 Danger Zone — midterm-year summer downturn window
+# PE+2 Danger Zone - midterm-year summer downturn window
 PE2_DANGER_START = (4, 15)   # April 15
 PE2_DANGER_END   = (9, 27)   # September 27
 PE2_DANGER_MIN_CONS_YRS     = 12   # consecutive minimum during danger zone
@@ -328,12 +328,12 @@ def pe2_filter_patterns(patterns):
         is_cons = (mode == 'cons')
         is_pe = (mode == 'pe')
 
-        # Bearish patterns — always pass
+        # Bearish patterns - always pass
         if not is_bullish:
             filtered.append(p)
             continue
 
-        # After Sep 27 — normal rules, no restriction
+        # After Sep 27 - normal rules, no restriction
         if start_md > PE2_DANGER_END:
             filtered.append(p)
             continue
@@ -483,7 +483,7 @@ def load_published_articles(path=POSTS_JSON_PATH, days_back=30):
         with open(path) as f:
             posts = json.load(f)
     except Exception as e:
-        print(f'  Warning: could not load posts.json ({e}) — dedup disabled')
+        print(f'  Warning: could not load posts.json ({e}) - dedup disabled')
         return {}
 
     for post in posts:
@@ -515,7 +515,7 @@ def load_queued_articles():
     """
     Non-destructively read all pending jobs from the Redis news queue.
     Returns {TICKER: most_recent_publish_date_str} for every article that
-    is queued but not yet published — covers both automation-queued jobs
+    is queued but not yet published - covers both automation-queued jobs
     AND articles manually queued from the TradeWave dashboard.
 
     Uses lrange (read-only) so nothing is consumed from the queue.
@@ -535,7 +535,7 @@ def load_queued_articles():
                 continue
         return queued
     except Exception as e:
-        print(f'  Warning: could not read Redis queue ({e}) — queued-article dedup disabled')
+        print(f'  Warning: could not read Redis queue ({e}) - queued-article dedup disabled')
         return {}
 
 
@@ -543,7 +543,7 @@ def load_article_history(days_back=30):
     """
     Merge published articles (posts.json) and queued-but-pending articles
     (Redis queue) into a single {TICKER: most_recent_date_str} map.
-    This is the definitive dedup source — whichever date is more recent wins.
+    This is the definitive dedup source - whichever date is more recent wins.
     """
     published = load_published_articles(days_back=days_back)
     queued    = load_queued_articles()
@@ -572,7 +572,7 @@ def days_since_last_article(ticker, ticker_latest):
 def load_volume_data():
     """
     Load both volume CSVs.
-    Returns (volume_list, volume_spikes) — each a list of dicts with
+    Returns (volume_list, volume_spikes) - each a list of dicts with
     keys: ticker, avg_volume_30d, today_volume, rvol
     """
     def _read_csv(path):
@@ -632,7 +632,7 @@ def spread_article_dates(ideas, pub_start, pub_end, max_per_day=MAX_ARTICLES_PER
       - Earnings articles that fall inside the publish window keep their date
       - All other articles (and out-of-window earnings) are assigned to the
         least-filled weekday in [pub_start, pub_end], subject to max_per_day
-      - Publish dates are ALWAYS within this week's Mon-Sat — never outside
+      - Publish dates are ALWAYS within this week's Mon-Sat - never outside
     Ideas are sorted by article_date then grok_score on exit.
     """
     avail_days = []
@@ -655,7 +655,7 @@ def spread_article_dates(ideas, pub_start, pub_end, max_per_day=MAX_ARTICLES_PER
     for idea in locked:
         day_counts[idea['article_date']] = day_counts.get(idea['article_date'], 0) + 1
 
-    # Sort flexible by score desc — highest priority gets preferred day
+    # Sort flexible by score desc - highest priority gets preferred day
     flexible.sort(key=lambda x: x.get('grok_score', 0), reverse=True)
 
     for idea in flexible:
@@ -670,7 +670,7 @@ def spread_article_dates(ideas, pub_start, pub_end, max_per_day=MAX_ARTICLES_PER
         if preferred_dt > pub_end:   preferred_dt = pub_end
 
         # Find best day: lowest count, closest to preferred (secondary sort).
-        # max_per_day is a soft cap — if all days are full, overflow to the
+        # max_per_day is a soft cap - if all days are full, overflow to the
         # least-full day so every article always gets a valid publish date.
         best_day = min(
             avail_days,
@@ -736,11 +736,11 @@ def get_scan_range(horizon_days=None):
     cur = scan_start
     while cur <= scan_end:
         wd = cur.weekday()
-        if wd == 5:    # Saturday — covers Sat/Sun/Mon
+        if wd == 5:    # Saturday - covers Sat/Sun/Mon
             api_dates.append(cur); cur += timedelta(days=3)
-        elif wd == 6:  # Sunday — covered by Saturday
+        elif wd == 6:  # Sunday - covered by Saturday
             cur += timedelta(days=2)
-        elif wd == 0:  # Monday — covered by Saturday
+        elif wd == 0:  # Monday - covered by Saturday
             cur += timedelta(days=1)
         else:          # Tue-Fri
             api_dates.append(cur); cur += timedelta(days=1)
@@ -819,14 +819,14 @@ def fetch_weekly_patterns(token, scan_start, scan_end, api_dates):
                         patterns.setdefault(opp[1], []).append(pat)
 
         pct = int(100 * done / total)
-        print(f'    [{res_name}] {pct}% done — '
+        print(f'    [{res_name}] {pct}% done - '
               f'{len(patterns)} unique symbols with patterns so far')
 
     return patterns
 
 
 # ============================================================
-# OppBySymbol — PATTERN LOOKUP FOR INDIVIDUAL SYMBOLS
+# OppBySymbol - PATTERN LOOKUP FOR INDIVIDUAL SYMBOLS
 # ============================================================
 
 def _obs_call(token, resource_id, symbol, year1, year2, mode):
@@ -835,8 +835,8 @@ def _obs_call(token, resource_id, symbol, year1, year2, mode):
     and top_pct=100 so we get the full result set and can window-filter locally.
 
     Returns:
-      list of rows (possibly []) — status was 'ok'
-      None                       — status was 'feature_not_available' or error
+      list of rows (possibly []) - status was 'ok'
+      None - status was 'feature_not_available' or error
                                    (this specific year1/year2/mode file doesn't
                                     exist for this symbol in this resource)
     """
@@ -892,8 +892,8 @@ def _filter_obs_rows(rows, window_start, window_end, year1, year2, mode, resourc
 def _check_symbol_active(token, resource_id, symbol):
     """
     Call StockLastPrice to verify the symbol is still actively traded.
-    Returns True  — last price date is within SYMBOL_MAX_STALE_DAYS
-    Returns False — delisted ([0,0] response), not found, or data too stale
+    Returns True - last price date is within SYMBOL_MAX_STALE_DAYS
+    Returns False - delisted ([0,0] response), not found, or data too stale
 
     On any network/parse error we return True (don't filter on uncertainty).
     """
@@ -907,7 +907,7 @@ def _check_symbol_active(token, resource_id, symbol):
         last_date = datetime.date.fromisoformat(str(slp[0])[:10])
         return (TODAY - last_date).days <= SYMBOL_MAX_STALE_DAYS
     except Exception:
-        return True   # assume active on error — don't drop on uncertainty
+        return True   # assume active on error - don't drop on uncertainty
 
 
 def _find_resource_for_symbol(token, symbol, resource_ids):
@@ -961,7 +961,7 @@ def _run_ladder(token, resource_id, symbol, ladder, mode, window_start, window_e
             if len(tried) > 1:
                 print(f'      [{mode_short}] found at {rung_label} '
                       f'(tried: {", ".join(tried)})')
-            return hits         # found qualifying patterns — stop
+            return hits         # found qualifying patterns - stop
         # file had rows but none in window → continue down ladder
     return []
 
@@ -995,7 +995,7 @@ def lookup_patterns_for_symbol(token, symbol, asset_type='unknown'):
 
     # Gate: skip symbols that are no longer actively traded
     if not _check_symbol_active(token, resource_id, symbol):
-        print(f'      [{symbol}] delisted/stale — skipped')
+        print(f'      [{symbol}] delisted/stale - skipped')
         return []
 
     all_patterns = []
@@ -1016,18 +1016,18 @@ def lookup_patterns_for_symbol(token, symbol, asset_type='unknown'):
         hits = _run_ladder(token, resource_id, symbol,
                            index_pe_ldr, 'pe', window_start, window_end)
         all_patterns.extend(hits)
-    # Standard PE ladder (10 PE yrs → 6) — all asset types
+    # Standard PE ladder (10 PE yrs → 6) - all asset types
     hits = _run_ladder(token, resource_id, symbol,
                        PE_YEAR_LADDER, 'pe', window_start, window_end)
     all_patterns.extend(hits)
 
-    # --- Longer PE (15yr, 20yr) — all asset types ---
+    # --- Longer PE (15yr, 20yr) - all asset types ---
     for label, ladder in LONG_PE_LADDERS:
         hits = _run_ladder(token, resource_id, symbol,
                            ladder, 'pe', window_start, window_end)
         all_patterns.extend(hits)
 
-    # --- Longer consecutive (15yr, 20yr, 30yr) — all asset types ---
+    # --- Longer consecutive (15yr, 20yr, 30yr) - all asset types ---
     for label, ladder in LONG_CONS_LADDERS:
         hits = _run_ladder(token, resource_id, symbol,
                            ladder, 'consecutive', window_start, window_end)
@@ -1039,12 +1039,12 @@ def lookup_patterns_for_symbol(token, symbol, asset_type='unknown'):
         for label, ladder in INDEX_LONG_CONS_LADDERS:
             start_yr = int(ladder[0][0])
             if start_yr > max_cal_years:
-                continue   # no data that far back — skip entirely
+                continue   # no data that far back - skip entirely
             hits = _run_ladder(token, resource_id, symbol,
                                ladder, 'consecutive', window_start, window_end)
             all_patterns.extend(hits)
 
-    # Deduplicate by (start_date, normalised_mode, years) — keep highest SR.
+    # Deduplicate by (start_date, normalised_mode, years) - keep highest SR.
     # _norm_mode maps 'consecutive' → 'cons' so OppList4 and OppBySymbol hits
     # for the same start_date/years are correctly recognised as the same pattern.
     deduped = {}
@@ -1087,7 +1087,7 @@ def filter_patterns_by_asset_type(patterns, asset_type):
 
 _MONTH_YEAR = TODAY.strftime('%B %Y')
 
-# News queries — ordered by signal quality for SeasonalMarketNews.com.
+# News queries - ordered by signal quality for SeasonalMarketNews.com.
 # The first NEWS_SEARCH_COUNT are used each run.  Queries are deliberately
 # varied across categories so Grok gets a broad, non-redundant news universe.
 NEWS_SEARCH_COUNT = 10
@@ -1164,7 +1164,7 @@ def extract_tickers_with_grok(news_results, earnings_results,
     Grok extracts structured {ticker, company, asset_type, news_reason,
     earnings_date, earnings_type, rvol} from raw Tavily results + volume data.
     """
-    # Volume data FIRST — placed before news so it is never cut off by the
+    # Volume data FIRST - placed before news so it is never cut off by the
     # token limit.  News articles alone exceed 8 k chars, which would truncate
     # volume spikes if they appeared at the end of the blob.
     lines = []
@@ -1252,7 +1252,7 @@ def rank_ideas_with_llm(candidates, pub_start=None, pub_end=None):
     candidates: list of dicts (ticker, company, asset_type, news_reason,
                                earnings_type, earnings_date, in_news, patterns)
     Returns: list of dicts with added grok_score, selected_pattern_idx,
-             article_date, article_angle  — sorted by grok_score desc.
+             article_date, article_angle - sorted by grok_score desc.
     """
     # Build compact payload for Grok (keep tokens reasonable)
     compact = []
@@ -1283,32 +1283,32 @@ def rank_ideas_with_llm(candidates, pub_start=None, pub_end=None):
             ],
         })
 
-    # Build PE+2 block separately — can't embed triple-quoted strings inside f"""..."""
+    # Build PE+2 block separately - can't embed triple-quoted strings inside f"""..."""
     # (Python 3.8 syntax restriction: same-type quotes can't be nested in f-string exprs)
     _pe2_block = (
-        f'\nPE+2 MIDTERM-YEAR DANGER ZONE RULES ({TODAY.year} — active now):\n'
+        f'\nPE+2 MIDTERM-YEAR DANGER ZONE RULES ({TODAY.year} - active now):\n'
         '  TradeWave data shows elevated probability of summer downturns in PE+2 years.\n'
         '  Bullish patterns have already been hard-filtered by quality zone:\n'
         '\n'
-        '  ZONE 1 — Before Apr 15 (pre-danger):\n'
+        '  ZONE 1 - Before Apr 15 (pre-danger):\n'
         '    Bullish consecutive patterns require 100% success (N/N winners), min 10yr.\n'
         '    Bullish PE-mode patterns require >=5 profitable PE years.\n'
         '\n'
-        '  ZONE 2 — Apr 15 to Sep 27 (DANGER ZONE):\n'
+        '  ZONE 2 - Apr 15 to Sep 27 (DANGER ZONE):\n'
         '    Only >=12yr consecutive with 12/12 winners OR PE-mode with >=5 profitable years\n'
-        '    survived filtering.  These are confirmed strong signals — score them highly.\n'
+        '    survived filtering.  These are confirmed strong signals - score them highly.\n'
         '    BOOST +1.5 for PE-mode patterns (directly capture midterm cycle effects).\n'
         '    BOOST +1.0 for 12/12+ consecutive (long-confirmed signals).\n'
         '    Prefer SHORT (bearish) patterns when both directions available for same ticker.\n'
         '\n'
-        '  ZONE 3 — After Sep 27 (post-danger, 100-Year Pattern territory):\n'
-        '    All pattern types welcome.  BOOST +0.5 for long bullish patterns here —\n'
+        '  ZONE 3 - After Sep 27 (post-danger, 100-Year Pattern territory):\n'
+        '    All pattern types welcome.  BOOST +0.5 for long bullish patterns here - \n'
         '    Q4 historically strong after midterm lows.\n'
         '\n'
         '  When selecting selected_pattern_idx from multiple valid patterns:\n'
         '    - Prefer PE-mode over short consecutive (PE directly models the cycle)\n'
         '    - Prefer 12/12+ consecutive over 10/10 when both available\n'
-        '    - Do NOT downgrade an idea solely because it lacks a news catalyst —\n'
+        '    - Do NOT downgrade an idea solely because it lacks a news catalyst - \n'
         '      strong PE+2 pattern combinations deserve high scores on their own.\n'
     ) if PE2_YEAR else ''
 
@@ -1316,10 +1316,10 @@ def rank_ideas_with_llm(candidates, pub_start=None, pub_end=None):
 
 You are the content strategist for SeasonalMarketNews.com.
 We publish articles that combine CURRENT NEWS with TRADEWAVE SEASONAL PATTERNS.
-The seasonal pattern is the core content — without a pattern there is no article.
+The seasonal pattern is the core content - without a pattern there is no article.
 
-All articles publish today ({TODAY.isoformat()}) — set article_date to {TODAY.isoformat()} for every candidate.
-The pattern may start today or up to 30 days ahead — this is a forward-looking "heads-up" piece so
+All articles publish today ({TODAY.isoformat()}) - set article_date to {TODAY.isoformat()} for every candidate.
+The pattern may start today or up to 30 days ahead - this is a forward-looking "heads-up" piece so
 readers can act before the pattern starts.
 
 Candidate context fields:
@@ -1332,11 +1332,11 @@ For EACH of the {len(compact)} candidates below:
   score (1-10)               : article opportunity quality
   selected_pattern_idx (int) : 0-based index into the patterns array of the best pattern to feature
   article_date (ISO string)  : set to {TODAY.isoformat()} for all candidates
-  angle (string)             : ONE compelling sentence — the news hook + seasonal insight
+  angle (string)             : ONE compelling sentence - the news hook + seasonal insight
                                that makes someone click; include direction, timeframe, AvgP,
                                and note if pattern starts soon vs. in X days
 
-Score guidance (use the FULL 1-10 range — avoid clustering scores at 7-8):
+Score guidance (use the FULL 1-10 range - avoid clustering scores at 7-8):
   9-10 : Big-name + strong pattern (SR>2) + earnings or volume-spike alignment
          Example: major stock beat earnings, 10yr pattern starts in 3 days, long +11% avg
   7-8  : Good name in news OR very strong pattern; one element slightly weaker
@@ -1344,7 +1344,7 @@ Score guidance (use the FULL 1-10 range — avoid clustering scores at 7-8):
   5-6  : Decent signal; name is mid-tier OR pattern is marginal (SR=1.0-1.5)
          Example: sector ETF with pattern, no specific news catalyst today
   3-4  : Pattern-only, small/obscure name, no news, marginal SR (<1.2), AvgP<5%
-  1-2  : Very weak — no real catalyst, tiny pattern; rarely assigned
+  1-2  : Very weak - no real catalyst, tiny pattern; rarely assigned
 
 Stock vs ETF/Index preference:
   Individual stocks (type="stock") score +0.5 vs an ETF or index of equivalent quality.
@@ -1353,21 +1353,21 @@ Stock vs ETF/Index preference:
   Prefer a recognisable mid-cap stock over a sector ETF covering the same theme.
 
 Volume spikes (rvol field in candidates):
-  - rvol > 3: very unusual — strong signal, prioritise even without other news
-  - rvol > 2: notable — treat like earnings signal for scoring
-  - rvol > 1.5: mild spike — small bonus
+  - rvol > 3: very unusual - strong signal, prioritise even without other news
+  - rvol > 2: notable - treat like earnings signal for scoring
+  - rvol > 1.5: mild spike - small bonus
 {_pe2_block}
 Reader order (reader_order field):
   After scoring, assign reader_order 1…N to ALL candidates.
-  This is the ideal READING SEQUENCE for the day's published set — think like a
+  This is the ideal READING SEQUENCE for the day's published set - think like a
   newspaper front-page editor, not a ranked list.  Rules:
-    1. Lead (reader_order=1) with the most urgent/exciting stock story — big name,
+    1. Lead (reader_order=1) with the most urgent/exciting stock story - big name,
        earnings beat, volume spike, or pattern starting very soon.
     2. reader_order=2 should contrast or complement #1 (different sector, or broader
        market context that explains why #1 matters).
     3. Alternate between stocks and ETFs/indices to maintain variety.
     4. End the sequence with the most forward-looking "heads-up" piece.
-    5. reader_order is independent of score — a score-8 article can be reader_order=1
+    5. reader_order is independent of score - a score-8 article can be reader_order=1
        if it makes the strongest opening hook.
   Every candidate must have a unique reader_order integer starting from 1.
 
@@ -1376,7 +1376,7 @@ CANDIDATES (JSON):
 
 Return ONLY a valid JSON array sorted by score descending.
 Each element must include: ticker, score, selected_pattern_idx, article_date, angle, reader_order.
-[{{"ticker":"X","score":9.5,"selected_pattern_idx":0,"article_date":"{TODAY.isoformat()}","angle":"NVDA just beat Q4 earnings and its 10-year seasonal pattern shows a Long trade averaging +11% over the next 21 days — the pattern starts {(TODAY + timedelta(days=7)).isoformat()}.","reader_order":1}}]"""
+[{{"ticker":"X","score":9.5,"selected_pattern_idx":0,"article_date":"{TODAY.isoformat()}","angle":"NVDA just beat Q4 earnings and its 10-year seasonal pattern shows a Long trade averaging +11% over the next 21 days - the pattern starts {(TODAY + timedelta(days=7)).isoformat()}.","reader_order":1}}]"""
 
     # Choose ranking LLM
     _llm = RANKING_LLM
@@ -1474,7 +1474,7 @@ def apply_grok_ranking(candidates, grok_ranked):
 
 
 # ============================================================
-# PRE-SCORING (before Grok — used as tiebreaker / fallback)
+# PRE-SCORING (before Grok - used as tiebreaker / fallback)
 # ============================================================
 
 def pre_score(news_item, patterns, ticker='', asset_type=''):
@@ -1500,7 +1500,7 @@ def pre_score(news_item, patterns, ticker='', asset_type=''):
         s += min(1.0, best_avgp / 10.0)
         if has_pe: s += 0.5
 
-        # PE+2 (midterm year) bonuses — zone-aware scoring
+        # PE+2 (midterm year) bonuses - zone-aware scoring
         if PE2_YEAR:
             # Classify each pattern's start_date into danger zone
             for p in patterns:
@@ -1514,7 +1514,7 @@ def pre_score(news_item, patterns, ticker='', asset_type=''):
                 _ppyrs = int(p.get('pyears', 0))
                 _dir   = p.get('direction', '').lower()
 
-                # Post-Sep-27 bullish patterns — 100-Year Pattern territory
+                # Post-Sep-27 bullish patterns - 100-Year Pattern territory
                 if _dir == 'long' and _pmd > PE2_DANGER_END:
                     s += 0.5
                     break  # one bonus per candidate
@@ -1526,11 +1526,11 @@ def pre_score(news_item, patterns, ticker='', asset_type=''):
                 if len(p.get('start_date', '')) >= 10
             )
             if _in_dz:
-                # PE-mode pattern in danger zone — extra valuable since
+                # PE-mode pattern in danger zone - extra valuable since
                 # PE-mode directly captures midterm-year cycle effects
                 if has_pe:
                     s += PE2_PE_PATTERN_BONUS
-                # 12/12+ consecutive in danger zone — survived the hard filter,
+                # 12/12+ consecutive in danger zone - survived the hard filter,
                 # so it's a strong confirmed signal
                 if any(_norm_mode(p.get('mode', '')) == 'cons'
                        and int(p.get('years', 0)) >= PE2_DANGER_MIN_CONS_YRS
@@ -1563,9 +1563,9 @@ def main():
     csv_file    = CSV_FILE_TPL.format(TODAY.isoformat())
 
     print('=' * 72)
-    print(f'SELECT NEWS ARTICLES  —  Daily Article Idea Generator  —  Started {datetime.datetime.now():%Y-%m-%d %H:%M:%S}')
+    print(f'SELECT NEWS ARTICLES - Daily Article Idea Generator - Started {datetime.datetime.now():%Y-%m-%d %H:%M:%S}')
     print(f'Date: {TODAY}  ({TODAY.strftime("%A")})    PE Phase: PE{PE_PHASE} ({TODAY.year})')
-    print(f'Publish date  : {TODAY} (all ideas for today — 3AM job picks how many)')
+    print(f'Publish date  : {TODAY} (all ideas for today - 3AM job picks how many)')
     print(f'Pattern search: today-{OBS_PAST_DAYS}d → today+{OBS_HORIZON_DAYS}d')
     print(f'OppList4 scan : today → today+{OPP_LIST_HORIZON_DAYS}d')
     print(f'Target ideas  : {TARGET_IDEAS_MAX}')
@@ -1573,7 +1573,7 @@ def main():
     print('=' * 72)
 
     # ------------------------------------------------------------------
-    # 1. Load static data — article history (published + queued) + volume
+    # 1. Load static data - article history (published + queued) + volume
     # ------------------------------------------------------------------
     print('\n[1/7] Loading article history & volume data...')
     published = load_published_articles()
@@ -1607,9 +1607,9 @@ def main():
             token    = login_appserver(kp_token)
             if token:
                 break
-            print(f'  Login returned no token (attempt {_login_attempt}/3) — retrying in 15s...')
+            print(f'  Login returned no token (attempt {_login_attempt}/3) - retrying in 15s...')
         except Exception as e:
-            print(f'  Login error (attempt {_login_attempt}/3): {e} — retrying in 15s...')
+            print(f'  Login error (attempt {_login_attempt}/3): {e} - retrying in 15s...')
         if _login_attempt < 3:
             time.sleep(15)
     if not token:
@@ -1634,7 +1634,7 @@ def main():
           f'× {len(DAY_RANGES)} day-ranges × {len(api_dates)} dates)')
 
     # ------------------------------------------------------------------
-    # 4. Pattern sweep (OppList4) — 30-day window
+    # 4. Pattern sweep (OppList4) - 30-day window
     # ------------------------------------------------------------------
     print(f'\n[4/7] Fetching OppList4 patterns (next {OPP_LIST_HORIZON_DAYS} days)...')
     weekly_patterns = fetch_weekly_patterns(token, scan_start, scan_end, api_dates)
@@ -1689,7 +1689,7 @@ def main():
         since = days_since_last_article(ticker, ticker_latest)
         if since < HARD_MIN_DAYS:
             skipped_hard.append((ticker, since))
-            print(f'  [{i}/{len(news_tickers)}] {ticker} — SKIP (written {since}d ago)')
+            print(f'  [{i}/{len(news_tickers)}] {ticker} - SKIP (written {since}d ago)')
             continue
         recently_written = since < SOFT_MIN_DAYS   # flag but don't skip
 
@@ -1720,7 +1720,7 @@ def main():
             if _pe2_rm: rm_parts.append(f'{_pe2_rm} PE+2')
             if _div_rm: rm_parts.append(f'{_div_rm} divergence')
             rm_msg = f' ({", ".join(rm_parts)} removed)' if rm_parts else ''
-            print(f'no patterns — skipped{rm_msg}')
+            print(f'no patterns - skipped{rm_msg}')
             continue
 
         rvol = item.get('rvol') or rvol_map.get(ticker)
@@ -1750,11 +1750,11 @@ def main():
     news_with_patterns = len(candidates)
     news_without       = len(news_tickers) - news_with_patterns - len(skipped_hard)
     print(f'\n  News tickers with patterns      : {news_with_patterns}')
-    print(f'  Skipped — written < {HARD_MIN_DAYS}d ago       : {len(skipped_hard)}'
+    print(f'  Skipped - written < {HARD_MIN_DAYS}d ago       : {len(skipped_hard)}'
           f'  ({", ".join(t for t,_ in skipped_hard[:8])})')
-    print(f'  Flagged — written {HARD_MIN_DAYS}–{SOFT_MIN_DAYS}d ago (penalised) : '
+    print(f'  Flagged - written {HARD_MIN_DAYS}–{SOFT_MIN_DAYS}d ago (penalised) : '
           f'{len(flagged_soft)}')
-    print(f'  Dropped — no patterns           : {news_without}')
+    print(f'  Dropped - no patterns           : {news_without}')
 
     # Add top pattern-only symbols from weekly scan
     pattern_only = sorted(
@@ -1825,25 +1825,25 @@ def main():
     random.shuffle(cand_list)
 
     # ------------------------------------------------------------------
-    # 7. LLM final ranking — all ideas publish TODAY
+    # 7. LLM final ranking - all ideas publish TODAY
     # ------------------------------------------------------------------
     print(f'\n[7/7] {RANKING_LLM.upper()} final ranking of {len(cand_list)} candidates...')
-    print(f'  Publish date: {TODAY} (daily mode — 3AM job decides how many to queue)')
+    print(f'  Publish date: {TODAY} (daily mode - 3AM job decides how many to queue)')
     llm_ranked  = rank_ideas_with_llm(cand_list, pub_start=pub_start, pub_end=pub_end)
     print(f'  LLM returned rankings for {len(llm_ranked)} tickers')
 
     final_ideas = apply_grok_ranking(cand_list, llm_ranked)
 
-    # Daily mode: all articles publish today — no weekly spreading needed
+    # Daily mode: all articles publish today - no weekly spreading needed
     for idea in final_ideas:
         idea['article_date'] = TODAY.isoformat()
 
     # ------------------------------------------------------------------
-    # OUTPUT — console table (ranked, pick top N for queuing at 3AM)
+    # OUTPUT - console table (ranked, pick top N for queuing at 3AM)
     # ------------------------------------------------------------------
     print(f'\n{"=" * 72}')
-    print(f'ARTICLE IDEAS  —  {TODAY}  ({TODAY.strftime("%A")})')
-    print(f'{len(final_ideas)} ideas ranked by {RANKING_LLM.upper()} — 3AM job picks how many to publish')
+    print(f'ARTICLE IDEAS - {TODAY}  ({TODAY.strftime("%A")})')
+    print(f'{len(final_ideas)} ideas ranked by {RANKING_LLM.upper()} - 3AM job picks how many to publish')
     print(f'{"=" * 72}')
     print(f'{"#":<4} {"Ticker":<8} {"Score":<6} {"Earn":<8} {"rvol":<6} '
           f'{"Ago":<5} {"FeatPattern":<28} Company')
@@ -1943,7 +1943,7 @@ def main():
         json.dump(output, f, indent=2, default=str)
 
     # ------------------------------------------------------------------
-    # Save CSV — one row per article idea, ready for queue processing
+    # Save CSV - one row per article idea, ready for queue processing
     # ------------------------------------------------------------------
     CSV_COLUMNS = [
         'rank', 'reader_order', 'publish_date', 'ticker', 'company', 'asset_type',

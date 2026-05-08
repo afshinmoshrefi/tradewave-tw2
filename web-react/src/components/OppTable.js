@@ -891,7 +891,7 @@ const OppTable = (props) => {
     props.SetOpportunities([])
   }
 
-  // Portal dropdown — renders at document.body to escape any overflow:hidden parent
+  // Portal dropdown - renders at document.body to escape any overflow:hidden parent
   const filterHistoryDropdown = showFilterHistory && filterHistory.length > 0 && filterDropdownRect
     ? ReactDOM.createPortal(
         <div style={{
@@ -1394,7 +1394,7 @@ const OppTable = (props) => {
             content={
               <div theme="tw" >
                 {/* {props.tooltipSW ? 'Premium Feature: By default 1 opportunity is returned per ticker with highest sharpe-ratio. Expand will return every trade for each ticker for the current start date.' : ''} */}
-                {props.tooltipSW ? "Click 'Active' to view waves that started within the last 5 days and still fall within the opportunity's date range. Use this to identify which past waves remain viable—such as those with minimal price changes or those moving against the wave's expected direction. This helps refine your analysis and decision-making for active opportunities." : ""}
+                {props.tooltipSW ? "Click 'Active' to view waves that started within the last 5 days and still fall within the opportunity's date range. Use this to identify which past waves remain viable - such as those with minimal price changes or those moving against the wave's expected direction. This helps refine your analysis and decision-making for active opportunities." : ""}
               </div>
             }
           >

@@ -416,7 +416,7 @@ def generate_hero_image(
             )
         except Exception as e:
             if "nsfw" in str(e).lower() or "safety" in str(e).lower() or "content detected" in str(e).lower():
-                print(f"[ROUTER] NSFW on premium — retrying with sanitized safe prompt on premium...")
+                print(f"[ROUTER] NSFW on premium - retrying with sanitized safe prompt on premium...")
                 sector = concept_brief.get('sector', 'financial services')
                 safe_prompt = (
                     f"Wide cinematic editorial photograph of institutional architecture and industrial infrastructure, "

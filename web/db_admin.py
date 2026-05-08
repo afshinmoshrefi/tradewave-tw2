@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TW2 web tier — small DB admin script.
+TW2 web tier - small DB admin script.
 
 Subcommands:
 

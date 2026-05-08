@@ -6,11 +6,11 @@ a numeric WP/UMP level ID. TW2 uses named tiers.
 
 Mapping (matches Stripe product names + price ordering):
   TW2 Explorer   = legacy level 1 (Ripple, free).
-  TW2 Analyst    = legacy levels 4 (yearly) / 5 (monthly) — entry paid tier.
+  TW2 Analyst    = legacy levels 4 (yearly) / 5 (monthly) - entry paid tier.
                    Premium = US stocks + ETFs (6 markets); date-locked
                    for indices/futures/forex/bonds/foreign/crypto.
                    Stripe: $58/mo or $488/yr.
-  TW2 Strategist = legacy levels 6 (yearly) / 7 (monthly) — top paid tier.
+  TW2 Strategist = legacy levels 6 (yearly) / 7 (monthly) - top paid tier.
                    Premium = all 17 markets; ML scoring; max limits.
                    Stripe: $199/mo or $1574/yr.
 
@@ -24,7 +24,7 @@ window.current_user_level → wpUserLevels.
 # get the same access dicts; the distinction matters only for Stripe billing.
 TIER_TO_LEGACY_LEVEL = {
     'explorer':   '1',
-    'analyst':    '4',  # entry paid (was PRO yearly; '5' for monthly — same access)
+    'analyst':    '4',  # entry paid (was PRO yearly; '5' for monthly - same access)
     'strategist': '6',  # top paid (was Institutional yearly; '7' for monthly)
 }
 
@@ -37,7 +37,7 @@ def tier_to_legacy_level(tier: str) -> str:
     return TIER_TO_LEGACY_LEVEL.get(tier, '1')
 
 
-# Inverse — for migration / Stripe-event handling.
+# Inverse - for migration / Stripe-event handling.
 LEGACY_LEVEL_TO_TIER = {
     '1': 'explorer',
     '4': 'analyst',

@@ -659,7 +659,7 @@ const PublishArticle = (props) => {
 
                         <span>&nbsp;</span>
 
-                        {/* CREATE PROMPT — only if NO article exists AND NOT queued */}
+                        {/* CREATE PROMPT - only if NO article exists AND NOT queued */}
                         {!r.article_exists && !r.article_queued && (
                             <button onClick={() => create_article_prompt('0')}>
                                 {createPromptButtonText}
@@ -667,7 +667,7 @@ const PublishArticle = (props) => {
                         )}
                         {/* <span>&nbsp;</span> */}
 
-                        {/* LOAD HTML — only if article exists */}
+                        {/* LOAD HTML - only if article exists */}
                         {r.article_exists && (
                             <button onClick={load_article_html}>
                                 {loadHTMLButtonText}
@@ -675,7 +675,7 @@ const PublishArticle = (props) => {
                         )}
                         <span>&nbsp;</span>
 
-                        {/* REC HERO — only if article exists */}
+                        {/* REC HERO - only if article exists */}
                         {r.article_exists && (
                             <button onClick={() => create_article_prompt('hero')}>
                                 {recHeroButtonText}
@@ -685,8 +685,8 @@ const PublishArticle = (props) => {
                         )}
 
 
-                        {/* DELETE ARTICLE — always visible */}
-                        {/* DEL ARTICLE — only if article exists OR queued */}
+                        {/* DELETE ARTICLE - always visible */}
+                        {/* DEL ARTICLE - only if article exists OR queued */}
                         {(r.article_exists || r.article_queued) && (
                             <>
                                 <span>&nbsp;</span>

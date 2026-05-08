@@ -254,7 +254,7 @@ def write_news_article(resource_id, symbol, date, days, years, direction, userid
         'userid': uid,
         'article_publish_date': article_publish_date,  # YYYY-MM-DD
         'mode': '2',                   # full async article generation
-        'pattern_mode': pattern_mode,  # 'pe' or 'consecutive' — drives article_prompt PE formatting
+        'pattern_mode': pattern_mode,  # 'pe' or 'consecutive' - drives article_prompt PE formatting
         'request_datetime': now_iso,
     }
 

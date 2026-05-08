@@ -86,7 +86,7 @@ from tradier_api import get_quotes, get_creditspreads_for_opportunity,get_accoun
 from tradier_api import get_orders,cancel_order,get_brokerage_clock,get_position_from_filled_order,get_one_order # 1/2/2024
 from tradier_api import place_multileg_option_trade,update_multileg_option_order
 
-# TW2: optional Sentry init — no-op when SENTRY_DSN is empty/placeholder
+# TW2: optional Sentry init - no-op when SENTRY_DSN is empty/placeholder
 try:
     import sentry_sdk
     if hasattr(config, 'SENTRY_DSN') and config.SENTRY_DSN and 'PLACEHOLDER' not in config.SENTRY_DSN:
@@ -410,7 +410,7 @@ def login(wp_userid, user_level, country_code, zip, skey): # I had ip for no rea
 
     # TW2: when useUMP=False, the skey MUST be a valid LTK JWT issued by the
     # web tier. ALL gating (admin status, user_level, identity) is sourced from
-    # the signed LTK claims — URL parameters are decorative and cannot grant access.
+    # the signed LTK claims - URL parameters are decorative and cannot grant access.
     if not useUMP:
         if not skey:
             return jsonify({'message': 'authentication required'}), 401
@@ -433,7 +433,7 @@ def login(wp_userid, user_level, country_code, zip, skey): # I had ip for no rea
                             e, get_remote_address(), request.headers.get('User-Agent', '-'))
             return jsonify({'message': 'invalid token'}), 401
 
-        # Cross-check URL wp_userid against LTK user_id — prevents identity spoofing
+        # Cross-check URL wp_userid against LTK user_id - prevents identity spoofing
         if str(tw2_ltk_claims.get('user_id')) != str(wp_userid):
             logging.warning("login: identity mismatch URL=%s LTK=%s ip=%s ua=%s",
                             wp_userid, tw2_ltk_claims.get('user_id'),
@@ -454,7 +454,7 @@ def login(wp_userid, user_level, country_code, zip, skey): # I had ip for no rea
         key1 = json['key1']
         key2 = json['key2']
         if skey != key1:
-            # tried to login without the correct secret key — do NOT echo skey or key1
+            # tried to login without the correct secret key - do NOT echo skey or key1
             logging.warning("login: UMP key mismatch ip=%s ua=%s",
                             get_remote_address(), request.headers.get('User-Agent', '-'))
             return jsonify({'message': 'Invalid login attempt'}), 401
@@ -1108,7 +1108,7 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
 
 #########################################################################
 # logged-in paid users on a market they only have FREE (date-locked) access to
-# — same per-query cap as Ripple, regardless of tier (Strategist viewing
+# - same per-query cap as Ripple, regardless of tier (Strategist viewing
 # futures/forex sees only the top 5 patterns, not 5000).
 #########################################################################
     user_free_resources = config.level_access_hierarchy_free_registered.get(userlevel, [])
@@ -1252,7 +1252,7 @@ def OppBySymbol(resourceID, symbol, year1, year2, day_range, top_pct):
         day_range_n1 = int(s[0])
         day_range_n2 = int(s[1])
 
-    # top_pct is not part of the cache key — the full deduped+sorted list is cached,
+    # top_pct is not part of the cache key - the full deduped+sorted list is cached,
     # and the top_pct slice is applied at serve time
     redis_key = f'opp_by_sym_{resourceID}_{symbol}_{year1}_{year2}_{day_range}{redis_suffix}'
     opp_redis = redis_client.get(redis_key)
@@ -1281,7 +1281,7 @@ def OppBySymbol(resourceID, symbol, year1, year2, day_range, top_pct):
         opp = opp[idx]
         opp = opp.drop_duplicates(subset=['date'])
 
-        # sort by sharpe_ratio descending — best opportunities on top
+        # sort by sharpe_ratio descending - best opportunities on top
         opp = opp.sort_values('sharpe_ratio', ascending=False).reset_index(drop=True)
 
         odic = opp.to_dict(orient='records')
@@ -1298,7 +1298,7 @@ def OppBySymbol(resourceID, symbol, year1, year2, day_range, top_pct):
     if opp.empty:
         return jsonify({'OppBySymbol': [], 'status': 'ok'})
 
-    # apply top_pct slice after cache read — keeps cache generic across different top_pct values
+    # apply top_pct slice after cache read - keeps cache generic across different top_pct values
     import math
     top_n = max(1, math.ceil(len(opp) * top_pct / 100))
     opp = opp.head(top_n)
@@ -1713,7 +1713,7 @@ def get_earnings_dates(symbol):
 
 def get_realtime_prices_cached():
     """Get all real-time prices from the realtime service, cached in Redis for 55 min.
-    Returns dict of {symbol: [price, change_p]} — compact format to minimize Redis payload.
+    Returns dict of {symbol: [price, change_p]} - compact format to minimize Redis payload.
     Full /prices/all response is ~3MB; we trim to only price+change_p (~400KB)."""
     if not getattr(config, 'realtime_service_url', ''):
         return {}
@@ -1730,12 +1730,12 @@ def get_realtime_prices_cached():
             return {}
         data = resp.json()
         prices = data.get('prices', {})
-        # Trim to [price, change_p] arrays — reduces ~3MB to ~400KB
+        # Trim to [price, change_p] arrays - reduces ~3MB to ~400KB
         trimmed = {}
         for sym, p in prices.items():
             trimmed[sym] = [p.get('price'), p.get('change_p')]
         redis_client.set(redis_key, json.dumps(trimmed))
-        redis_client.expire(redis_key, 3300)  # 55 min — slightly less than the 60 min refresh interval
+        redis_client.expire(redis_key, 3300)  # 55 min - slightly less than the 60 min refresh interval
         return trimmed
     except Exception as e:
         logging.warning(f'Realtime price service error: {e}')
@@ -2987,12 +2987,12 @@ def resolve_resource_id(symbol, resource_id):
     """If resource_id is a US stock group and symbol doesn't belong, find the correct group."""
     us_ids = {rid for rid, _ in _us_stock_groups}
     if resource_id not in us_ids:
-        return resource_id  # non-US group — don't touch it
+        return resource_id  # non-US group - don't touch it
     sym = symbol.strip().upper()
     for rid, path in _us_stock_groups:
         if sym in _load_us_stock_set(rid, path):
             return rid  # return most specific group that contains the ticker
-    return resource_id  # not found in any group — keep original
+    return resource_id  # not found in any group - keep original
 #---------------------------------------------------------------------------------------------------
 @app.route('/dr_report_publish/<string:resourceID>/<string:symbol>/<string:date>/<string:days_hold>/<string:years>/<string:dir>/<string:sharpe_ratio>/<string:selected_portfolio>', methods=['GET'])
 @check_for_token
@@ -3153,7 +3153,7 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
         daemon=True,
     ).start()
 
-    # Return the URL even though render hasn't completed — the file will exist
+    # Return the URL even though render hasn't completed - the file will exist
     # by the time the user navigates to it.
     report_url = f"https://tw2.trxstat.com/r/{slug}/"
 
@@ -3405,7 +3405,7 @@ def article_prompt(resourceID, symbol, date, days_hold, years, userid, mode, not
 @app.route('/article_publish/<string:resourceID>/<string:symbol>/<string:date>/<string:days_hold>/<string:years>/<string:direction>/<string:userid>', methods=['POST'])
 @check_for_token
 def article_publish(resourceID, symbol, date, days_hold, years, direction, userid):
-    # TW2: IDOR fix — derive userid from JWT, not URL. Admins may publish for
+    # TW2: IDOR fix - derive userid from JWT, not URL. Admins may publish for
     # another user; that path is gated on is_admin.
     token = request.args.get("token")
     data_jwt = jwt.decode(
@@ -3416,7 +3416,7 @@ def article_publish(resourceID, symbol, date, days_hold, years, direction, useri
     )
     jwt_userid = str(data_jwt['user'])
     if data_jwt.get('is_admin', False):
-        # admins may publish for another user — keep the URL value as-is
+        # admins may publish for another user - keep the URL value as-is
         userid = str(userid)
     else:
         userid = jwt_userid

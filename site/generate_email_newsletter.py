@@ -3,7 +3,7 @@
 TradeWave Daily Top-10 Email Newsletter Generator (TW2)
 
 Lifted from /home/flask/blog/generate_emails.py on .151 (canonical winner of 6
-variants — see /home/afshin/F5_EMAIL_NEWSLETTER_REPORT.md). Original sent via
+variants - see /home/afshin/F5_EMAIL_NEWSLETTER_REPORT.md). Original sent via
 MailerLite immediately; this lift defaults to dry-run and writes the rendered
 HTML to a preview file for inspection.
 
@@ -11,12 +11,12 @@ Usage:
     # Render with synthetic demo data (no .151 dependencies needed):
     python generate_email_newsletter.py --demo
 
-    # Render against live TW2 data layer (NOT yet implemented — TODO when
+    # Render against live TW2 data layer (NOT yet implemented - TODO when
     # /home/flask/site grows a get_top10_data equivalent):
     python generate_email_newsletter.py --live
 
     # Send via MailerLite (requires MAILERLITE_API_KEY in /etc/tradewave/secrets.env
-    # AND TW2 user/group sync — currently blocked):
+    # AND TW2 user/group sync - currently blocked):
     python generate_email_newsletter.py --send
 
 The send path is intentionally gated. If MAILERLITE_API_KEY is empty / placeholder,
@@ -54,7 +54,7 @@ import config
 
 # TW1 config.py exposed `mailerlite_token` (read from MAILERLITE_TOKEN env var).
 # TW2 standardizes on MAILERLITE_API_KEY in /etc/tradewave/secrets.env.
-# We deliberately do NOT fall back to MAILERLITE_TOKEN — the TW1 JWT in there is
+# We deliberately do NOT fall back to MAILERLITE_TOKEN - the TW1 JWT in there is
 # legacy and we want explicit opt-in via the new env var name.
 MAILERLITE_API_KEY = os.environ.get('MAILERLITE_API_KEY', '')
 
@@ -69,7 +69,7 @@ def _mailerlite_enabled():
 
 
 # ---------------------------------------------------------------------------
-# MailerLite client wrappers (all gated — never run in --demo / --dry-run)
+# MailerLite client wrappers (all gated - never run in --demo / --dry-run)
 # ---------------------------------------------------------------------------
 
 def _ml_client():
@@ -120,7 +120,7 @@ def get_num_subscribers(group_id):
 
 
 def create_campaign(campaign_name, subject, from_name, from_email, group_id, content):
-    """Lifted verbatim from generate_emails.py — body shape preserved."""
+    """Lifted verbatim from generate_emails.py - body shape preserved."""
     client = _ml_client()
     response = client.campaigns.create({
         "name": campaign_name,
@@ -161,7 +161,7 @@ def today_date_hour_min():
 def future_date_hour_min(num_minutes):
     dt = datetime.datetime.now()
     f = dt + timedelta(minutes=num_minutes)
-    fdate = f.strftime("%y-%m-%d")  # NOTE: %y not %Y — preserved from original
+    fdate = f.strftime("%y-%m-%d")  # NOTE: %y not %Y - preserved from original
     ftime = f.strftime("%H:%M:%S")
     return fdate[:10], ftime[:2], ftime[3:5]
 
@@ -526,7 +526,7 @@ def create_final_email(dfe, flag, out_path=None):
 
 def load_data_for_email():
     """TW1 version: read top10 hdf + thumbnails JSON + redis. TW2 has none of these
-    yet on .176 — a real implementation would query the TW2 appserver / Postgres
+    yet on .176 - a real implementation would query the TW2 appserver / Postgres
     layer that replaces them. Until then, --live mode will exit with this error."""
     raise NotImplementedError(
         "TW2 has no live top10 data layer yet on .176. Use --demo for now. "
@@ -562,7 +562,7 @@ def main():
                         help='Path to write rendered HTML preview (default /tmp/email_preview.html).')
     parser.add_argument('--flag', default='111111111111',
                         choices=['111111111111', '111110000001', '000001111110'],
-                        help='Market segment flag — which markets to include.')
+                        help='Market segment flag - which markets to include.')
     args = parser.parse_args()
 
     # TW2_EMAIL_DRY_RUN env var also forces dry-run, per task spec.
@@ -592,13 +592,13 @@ def main():
 
     # Send path
     if not _mailerlite_enabled():
-        print("[skip] MAILERLITE_API_KEY not set in /etc/tradewave/secrets.env — campaign NOT created.")
+        print("[skip] MAILERLITE_API_KEY not set in /etc/tradewave/secrets.env - campaign NOT created.")
         print("[skip] Set MAILERLITE_API_KEY=<real key> and re-run with --send to actually mail.")
         return
 
     # Live send is currently blocked because TW2 has no user/group sync yet.
     print("[skip] --send requires TW2 user->MailerLite group sync, which is not yet implemented.")
-    print("[skip] Stubs: get_users_from_redis(), get_email_groups(), update_mailerlite() — wire these to Postgres first.")
+    print("[skip] Stubs: get_users_from_redis(), get_email_groups(), update_mailerlite() - wire these to Postgres first.")
     print("[skip] Render-only path completed successfully; no campaign created.")
 
 

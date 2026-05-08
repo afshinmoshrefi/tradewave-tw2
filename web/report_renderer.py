@@ -1,11 +1,11 @@
 """
-TW2 static report renderer — lifted from TW1 create_report.py + post_template.py.
+TW2 static report renderer - lifted from TW1 create_report.py + post_template.py.
 
 Renders a TW1-style "date-range opportunity report" as a static HTML file plus
 3 PNG charts to /var/www/tradewave/r/{slug}/. Called from appserver's
 dr_report_publish endpoint after the redis portfolio-add succeeds.
 
-No WordPress, no queue — direct call, file-on-disk output.
+No WordPress, no queue - direct call, file-on-disk output.
 
 The chart functions (get_chart_data, create_barchart, create_cumulative_chart,
 get_seasonal_chart_data, create_seasonals_chart) are lifted near-verbatim from
@@ -37,7 +37,7 @@ sys.path.insert(0, '/home/flask')
 import config
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Constants formerly in TW1 config — kept local to avoid polluting TW2 config.
+# Constants formerly in TW1 config - kept local to avoid polluting TW2 config.
 # ──────────────────────────────────────────────────────────────────────────────
 MAX_LABELS_TO_SHOW = 10
 REPORT_OUTPUT_ROOT = '/var/www/tradewave/r'        # nginx serves this
@@ -82,7 +82,7 @@ def convert_param_base64(financial_group_id, symbol, date1, days_hold, history_y
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Data fetchers — call appserver via local URL
+# Data fetchers - call appserver via local URL
 # ──────────────────────────────────────────────────────────────────────────────
 
 def get_chart_data(id, opp_date, symbol, days_out, years, zero_last_year, appserver_token):
@@ -113,7 +113,7 @@ def get_seasonal_chart_data(id, symbol, years, opp_start_date, token, chart_star
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Chart generators — produce PNGs at given filename
+# Chart generators - produce PNGs at given filename
 # (signatures kept compatible with TW1 to ease future maintenance)
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -222,7 +222,7 @@ def create_seasonals_chart(bar_label, labels, sea_vals, date1, date2, opp_dir, f
     plt.savefig(filename)
     plt.close()
 
-    # Hide the year part of the date axis with a white rectangle (TW1 trick — adapting axis format
+    # Hide the year part of the date axis with a white rectangle (TW1 trick - adapting axis format
     # broke the chart layout, so this masks the year labels post-render).
     source_img = Image.open(filename).convert("RGBA")
     draw = ImageDraw.Draw(source_img)
@@ -231,7 +231,7 @@ def create_seasonals_chart(bar_label, labels, sea_vals, date1, date2, opp_dir, f
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# HTML template strings — lifted from post_template.py, WP shortcodes stripped
+# HTML template strings - lifted from post_template.py, WP shortcodes stripped
 # ──────────────────────────────────────────────────────────────────────────────
 
 HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
@@ -280,11 +280,11 @@ HTML_TABLE_TEMPLATE = """
   <h3 class="report-h3">Days Held</h3><p class="info-block">The recommended holding period after initiating the trade. The end date is derived from start-date and days-held.</p>
   <h3 class="report-h3">History Years</h3><p class="info-block">The number of years of historical data this report is based on. This report uses <span class="hl">{history_years}</span> years.</p>
   <h3 class="report-h3">Securities Group</h3><p class="info-block">Categorizes the financial instrument by sector, industry, asset class, or market segment.</p>
-  <h3 class="report-h3">Number of Losers / Winners</h3><p class="info-block">Counts of trades that resulted in losses vs. profits during the analyzed period — direct measures of risk and reliability.</p>
+  <h3 class="report-h3">Number of Losers / Winners</h3><p class="info-block">Counts of trades that resulted in losses vs. profits during the analyzed period - direct measures of risk and reliability.</p>
   <h3 class="report-h3">Percent Profitable</h3><p class="info-block">Percentage of profitable trades out of the total executed.</p>
-  <h3 class="report-h3">Average Profit / Average Loss</h3><p class="info-block">Mean profit per winning trade and mean loss per losing trade — drives expected value.</p>
+  <h3 class="report-h3">Average Profit / Average Loss</h3><p class="info-block">Mean profit per winning trade and mean loss per losing trade - drives expected value.</p>
   <h3 class="report-h3">Biggest Winner</h3><p class="info-block">The largest profit from a single trade in the analyzed period.</p>
-  <h3 class="report-h3">Median Profit</h3><p class="info-block">The middle value of all profits — reduces the impact of outliers compared to the mean.</p>
+  <h3 class="report-h3">Median Profit</h3><p class="info-block">The middle value of all profits - reduces the impact of outliers compared to the mean.</p>
   <h3 class="report-h3">Standard Deviation</h3><p class="info-block">Variability of profits and losses. Lower means more consistent; higher means more volatile.</p>
   <h3 class="report-h3">Cumulative Return</h3><p class="info-block">Total return on investment over the analyzed period.</p>
   <h3 class="report-h3">Sharpe Ratio</h3><p class="info-block">Risk-adjusted return. Higher = better return for the level of risk taken.</p>
@@ -353,7 +353,7 @@ def _chart_sections(symbol, date1, date2, years, bar_img, cum_img, sea_img, bar_
   TradeWave analysis examines historical patterns in an asset's price movements during specific times of the year. By integrating these insights into trading strategies, investors can anticipate market movements influenced by seasonal trends, economic cycles, and recurring events.
 </p>
 <p class="closing">
-  This report provides a thorough analysis of {symbol}'s historical price movements within the specified date range. Past performance does not guarantee future results — but recurring seasonal patterns offer a data-driven edge for risk management and timing decisions.
+  This report provides a thorough analysis of {symbol}'s historical price movements within the specified date range. Past performance does not guarantee future results - but recurring seasonal patterns offer a data-driven edge for risk management and timing decisions.
 </p>
 """
 
@@ -395,7 +395,7 @@ def render(report_dict, appserver_token, post_title, post_slug):
     f_cumchart = os.path.join(out_dir, f'cumulative-return-{post_slug}.png')
     f_seachart = os.path.join(out_dir, f'trend-chart-{post_slug}.png')
 
-    # Public URLs (relative — nginx serves /r/{slug}/...)
+    # Public URLs (relative - nginx serves /r/{slug}/...)
     bar_img = f"{REPORT_URL_BASE}/{post_slug}/gain-loss-barchart-{post_slug}.png"
     cum_img = f"{REPORT_URL_BASE}/{post_slug}/cumulative-return-{post_slug}.png"
     sea_img = f"{REPORT_URL_BASE}/{post_slug}/trend-chart-{post_slug}.png"
@@ -486,7 +486,7 @@ def render(report_dict, appserver_token, post_title, post_slug):
 
     # ── Assemble full page ──
     canonical_url = f"{DOMAIN_ROOT}{REPORT_URL_BASE.lstrip('/')}/{post_slug}/"
-    excerpt = f"{years_updated}-Year Date Range Report for {company} ({symbol}) — {format_date(date1)} to {format_date(date2)}. Detailed charts and statistics."
+    excerpt = f"{years_updated}-Year Date Range Report for {company} ({symbol}) - {format_date(date1)} to {format_date(date2)}. Detailed charts and statistics."
 
     # Optional: header/footer partials
     header_partial = _read_partial('/var/www/tradewave/_partials/tw_app_header.html')

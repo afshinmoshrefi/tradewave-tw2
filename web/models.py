@@ -1,5 +1,5 @@
 """
-TW2 web tier — SQLAlchemy models.
+TW2 web tier - SQLAlchemy models.
 Mirror of the schema defined in Postgres (see schema_version table).
 """
 from datetime import datetime
@@ -103,7 +103,7 @@ class CouponUsed(Base):
     metadata_         = Column("metadata", JSONB)
 
 
-# Engine + session factory — used app-wide
+# Engine + session factory - used app-wide
 engine = create_engine(
     config.POSTGRES_DSN,
     pool_pre_ping=True,

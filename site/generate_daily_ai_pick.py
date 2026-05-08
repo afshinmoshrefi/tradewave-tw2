@@ -16,7 +16,7 @@ Usage:
     python generate_daily_ai_pick.py --date 2026-05-07
 
 Skipped financial groups:
-  - Forex All (id 8) — same exclusion as original (config.restrict_gov_bonds_sr
+  - Forex All (id 8) - same exclusion as original (config.restrict_gov_bonds_sr
     isn't applied here because we don't write a separate gov-bond ranking).
 """
 
@@ -59,7 +59,7 @@ RESTRICT_GOV_BONDS = getattr(config, 'restrict_gov_bonds_sr', -1)
 # ---------------------------------------------------------------------------
 
 def appserver_login():
-    """Login pattern from generate_home_page.py — keyprovider hack via APPSERVER_URL."""
+    """Login pattern from generate_home_page.py - keyprovider hack via APPSERVER_URL."""
     def _get(url, attempts=3, timeout=30, sleep_s=5):
         last = None
         for i in range(attempts):
@@ -139,7 +139,7 @@ def load_top10(opp_date, token):
     frames = []
     for key, name in config.available_resources.items():
         gid = int(key)
-        if gid == 8:                          # FOREX ALL — same skip as original
+        if gid == 8:                          # FOREX ALL - same skip as original
             continue
         years, pyears = assign_years_pyears(gid)
 
@@ -245,7 +245,7 @@ def render_html(df, opp_date):
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daily AI Pick &mdash; Top 10 Patterns for {NICE_DATE} | TradeWave</title>
+  <title>Daily AI Pick - Top 10 Patterns for {NICE_DATE} | TradeWave</title>
   <meta name="description" content="TradeWave top 10 AI-scored seasonal patterns for {NICE_DATE}, ranked by Sharpe Ratio across 16 markets.">
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="{FAVICON}">

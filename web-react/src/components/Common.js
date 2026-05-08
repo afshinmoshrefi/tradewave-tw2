@@ -88,7 +88,7 @@ export const DarkTheme = {
   iconFill:        'white',
 
   // bar chart
-  // bar chart — solid colors for dark bg so MFE/MAE stay lighter than main
+  // bar chart - solid colors for dark bg so MFE/MAE stay lighter than main
   barGreen:        'rgb(0, 140, 0)',
   barRed:          'rgb(200, 0, 0)',
   barMFE:          'rgb(100, 220, 100)',

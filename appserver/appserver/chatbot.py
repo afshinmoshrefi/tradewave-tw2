@@ -7,10 +7,10 @@ import os
 import json
 from AI_tools_appserver import (
     send_claude_messages,
-    CLAUDE_HAIKU_35,   # claude-3-5-haiku-20241022  — very cheap, fast
-    CLAUDE_HAIKU_45,   # claude-haiku-4-5-20251001  — fast + cheap
-    CLAUDE_SONNET_46,  # claude-sonnet-4-6           — strong + fast
-    CLAUDE_OPUS_46,    # claude-opus-4-6             — most capable
+    CLAUDE_HAIKU_35,   # claude-3-5-haiku-20241022 - very cheap, fast
+    CLAUDE_HAIKU_45,   # claude-haiku-4-5-20251001 - fast + cheap
+    CLAUDE_SONNET_46,  # claude-sonnet-4-6 - strong + fast
+    CLAUDE_OPUS_46,    # claude-opus-4-6 - most capable
 )
 from tradewave_api_calls_cb import (
     get_keyprovider_token, login_appserver, get_financial_groups,
@@ -19,18 +19,18 @@ from tradewave_api_calls_cb import (
 )
 
 # -----------------------------------------------------------------
-# Model selection — change this to test different models:
+# Model selection - change this to test different models:
 #   CLAUDE_HAIKU_35   very cheap  (~$0.001 / 1k tokens)
 #   CLAUDE_HAIKU_45   cheap       (~$0.002 / 1k tokens)
 #   CLAUDE_SONNET_46  balanced    (~$0.015 / 1k tokens)
 #   CLAUDE_OPUS_46    most capable (~$0.075 / 1k tokens)
 # -----------------------------------------------------------------
 # -----------------------------------------------------------------
-# Cache TTL — '5m' or '1h'
-#   '5m'  — $1.25/MTok to write, resets on every hit. Good for active users.
-#   '1h'  — $2.00/MTok to write, survives 1hr of inactivity. Good for sporadic use.
+# Cache TTL - '5m' or '1h'
+#   '5m' - $1.25/MTok to write, resets on every hit. Good for active users.
+#   '1h' - $2.00/MTok to write, survives 1hr of inactivity. Good for sporadic use.
 # -----------------------------------------------------------------
-CACHE_TTL     = '5m'   # '1h' not yet enabled — see chatbot_readme.txt
+CACHE_TTL     = '5m'   # '1h' not yet enabled - see chatbot_readme.txt
 CHATBOT_MODEL = CLAUDE_HAIKU_45
 
 # Initialize Blueprint
@@ -531,7 +531,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None):
     if symbol:
         parts.append("\n<b>Currently Loaded Pattern (Wave Viewer):</b>")
         if is_100_year_pattern(wave_viewer):
-            parts.append("*** NAMED PATTERN ALERT: This is 'The 100-Year Pattern' — a famous seasonal pattern on SPX discovered by the TradeWave founder and published in the book 'The 100-Year Pattern' (Amazon: https://www.amazon.com/dp/B0FCX61K4Y). When discussing this pattern, always refer to it by name. ***")
+            parts.append("*** NAMED PATTERN ALERT: This is 'The 100-Year Pattern' - a famous seasonal pattern on SPX discovered by the TradeWave founder and published in the book 'The 100-Year Pattern' (Amazon: https://www.amazon.com/dp/B0FCX61K4Y). When discussing this pattern, always refer to it by name. ***")
         if wave_viewer.get("company"):
             parts.append(f"Company: {wave_viewer['company']} ({symbol})")
         else:
@@ -573,7 +573,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None):
         if pe_cycle in pe_labels:
             short, desc = pe_labels[pe_cycle]
             approx_calendar_years = int(years) * 4 if str(years).isdigit() else '?'
-            parts.append(f"Historical Years: {years} {short} years — only {desc}. "
+            parts.append(f"Historical Years: {years} {short} years - only {desc}. "
                          f"This covers approximately {approx_calendar_years} calendar years of history. "
                          f"When discussing this pattern, always mention it uses {short} cycle years, NOT consecutive years.")
         else:
@@ -615,7 +615,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None):
                 parts.append("Year-by-year results (return_pct = trade return, mfe_pct = max gain above entry close, mae_pct = max loss below entry close):")
             else:
                 parts.append("Year-by-year results (return_pct = trade return, mfe_pct = max gain above entry close). "
-                             "NOTE: MAE (max adverse excursion) is NOT enabled — the MAE checkbox is unchecked. "
+                             "NOTE: MAE (max adverse excursion) is NOT enabled - the MAE checkbox is unchecked. "
                              "Do NOT mention or discuss MAE values. If the user asks about MAE or drawdown, tell them MAE is not currently enabled and suggest they check the MAE checkbox in the bar chart controls to enable it.")
             for y in yearly:
                 yr = int(y.get("year", 0))

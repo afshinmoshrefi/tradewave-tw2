@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-article_images.py — Article-ready charts for TradeWave opportunities.
+article_images.py - Article-ready charts for TradeWave opportunities.
 
 Produces 11 images:
   1) bars             -> year-by-year seasonal window returns (final return only)
@@ -545,7 +545,7 @@ def _stats_pairs_from_payload(p, symbol, date, days, years):
     Date Range is omitted (caption shows it). Includes TradeWave Ratio (TWR).
     """
     pairs = []
-    def _val(x, default="—"):
+    def _val(x, default=" - "):
         return default if x in (None, "") else x
 
     # Identification
@@ -585,7 +585,7 @@ def _stats_pairs_from_payload(p, symbol, date, days, years):
     elif winrate:
         success_val = winrate
     else:
-        success_val = "—"
+        success_val = " - "
     pairs.append(("Success (W|L)", success_val))
 
     return pairs

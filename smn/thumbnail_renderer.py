@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-thumbnail_renderer.py — renders FIVE TradeWave thumbnails:
+thumbnail_renderer.py - renders FIVE TradeWave thumbnails:
 
 1) Stats-only (ticker → avg gain → seasonal edge + stacked stats row)
 2) Bar chart (year-by-year window returns; negatives red; % axis)
@@ -37,7 +37,7 @@ CTA_LINES = [
     "Catch the Move Before It Starts",
     "History Points to This Pattern",
     "Don’t Miss the Seasonal Edge",
-    "Timing Is Everything—Be Early",
+    "Timing Is Everything - Be Early",
     "Ride the Pattern, Not the Noise",
     "Profit from History’s Repeats",
     "Your Edge Is Waiting Here",
@@ -282,7 +282,7 @@ def _add_header(fig, ticker, rest_after_ticker, subtitle, W, H, trade_dir=None):
                  ha="center", va="top", fontsize=fs, color=TEXT_MAIN, weight=900)
 
     if subtitle:
-        # NOTE: subtitle stays tied to the original base_y — unchanged
+        # NOTE: subtitle stays tied to the original base_y - unchanged
         base = int(H * SUB_SIZE_H)
         fs   = _fit_single(fig, W, subtitle, base, weight=600)
         fig.text(0.5, base_y - HEADER_GAP, subtitle,  # <-- uses base_y, not title_y

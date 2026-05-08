@@ -865,7 +865,7 @@ const SeasonalBarChart = (props) => {
   }
   //-----------------------------------------------------------------------------------------------------------
   // nudge start date by +-1 day while keeping end date fixed (adjusts daysOut inversely)
-  // does NOT trigger trend chart refetch — only the highlight window moves
+  // does NOT trigger trend chart refetch - only the highlight window moves
   //-----------------------------------------------------------------------------------------------------------
   const handleDateNudge = (direction) => {
     const newDaysOut = parseInt(props.daysOut) - direction
@@ -1535,7 +1535,7 @@ const SeasonalBarChart = (props) => {
 
               if (data['publish_dr_report'] === 'success') {
                 props.SetNumReportsCreated(props.numReportsCreated + 1) // increment the number of reports created
-                let contentText = `Opportunity Added — ${(props.numReportsAllowed - props.numReportsCreated - 1)} Remaining`;
+                let contentText = `Opportunity Added - ${(props.numReportsAllowed - props.numReportsCreated - 1)} Remaining`;
                 props.SetDialogProp({ title: 'delay', contentText: contentText, button1Text: '', button2Text: '', coverDivColor: 'rgba(0,0,0,0.4)' })
               }
               else if (data['publish_dr_report'] === 'duplicate') {

@@ -69,7 +69,7 @@ def _pe_cycle(year=None):
 
 
 # =============================================================================
-# SECURITY DEFINITIONS — flexible list, add/remove as needed
+# SECURITY DEFINITIONS - flexible list, add/remove as needed
 # =============================================================================
 
 SECURITY_PAGES = [
@@ -286,7 +286,7 @@ def _generate_projection_chart(dates, prices, trend_labels, trend_values,
     )
 
     W, H = CHART_W, CHART_H
-    # No caption — use tighter layout
+    # No caption - use tighter layout
     P_BOTTOM, P_TOP = 0.12, 0.94
     AX_LEFT, AX_RIGHT = 0.075, 0.040
 
@@ -500,16 +500,16 @@ SEASONAL PROJECTION DATA:
 {vix_instructions}
 PARAGRAPH 1: Lead with the most striking data point. What does seasonal history say about {name} right now? Reference specific win rates, projected returns, and time horizons. If the consecutive and PE-cycle projections diverge, highlight that tension. If they agree, emphasize the confluence.
 
-PARAGRAPH 2: Put the seasonal data in context for this specific {sec_type}. What makes {name}'s seasonal behavior distinctive? How does the {pe_label.lower()} year pattern compare to the broader trend? Give the reader a clear takeaway — what should they be watching for.
+PARAGRAPH 2: Put the seasonal data in context for this specific {sec_type}. What makes {name}'s seasonal behavior distinctive? How does the {pe_label.lower()} year pattern compare to the broader trend? Give the reader a clear takeaway - what should they be watching for.
 
 RULES:
 - Be specific with numbers, reference actual win rates and returns
 - No disclaimers, caveats, or "past performance" language (that's elsewhere on the page)
 - No emojis, no markdown formatting, no bullet points, no em dashes
-- Professional but accessible — write for a retail investor who knows basics
+- Professional but accessible - write for a retail investor who knows basics
 - Do not exceed 120 words total
 - Write in present tense
-- Do not start with the security name — vary the opening"""
+- Do not start with the security name - vary the opening"""
 
     try:
         text = send_claude_prompt(
@@ -519,7 +519,7 @@ RULES:
             max_tokens=512,
             temperature=0.5,
         )
-        return text.strip().replace("—", ",").replace("–", ",") if text else None
+        return text.strip().replace(" - ", ",").replace("–", ",") if text else None
     except Exception as e:
         print(f"  [AI] Error generating analysis for {name}: {e}")
         return None
@@ -575,7 +575,7 @@ PARAGRAPH 2 - READING THE TWO BASES: Explain what it means when consecutive and 
 
 PARAGRAPH 3 - WHAT THIS DOES NOT TELL YOU: Be specific about limitations. Seasonal patterns cannot account for breaking news, policy changes, earnings surprises, or geopolitical events. {"A high VIX increase rate does not guarantee volatility will spike in any specific year." if sec["symbol"] == "VIX" else "A high win rate does not mean a gain is guaranteed in any specific year."} The projection is a statistical tendency, not a forecast.
 
-PARAGRAPH 4 - PRACTICAL CONTEXT: Suggest how investors might incorporate seasonal data as one lens alongside fundamental analysis, technical indicators, and risk management. Do NOT recommend any specific action — no "buy", "sell", "hold", or "consider entering a position." Frame it as information that can inform timing and expectations, not dictate decisions.
+PARAGRAPH 4 - PRACTICAL CONTEXT: Suggest how investors might incorporate seasonal data as one lens alongside fundamental analysis, technical indicators, and risk management. Do NOT recommend any specific action - no "buy", "sell", "hold", or "consider entering a position." Frame it as information that can inform timing and expectations, not dictate decisions.
 
 RULES:
 - Do NOT give financial advice or recommend any action
@@ -584,7 +584,7 @@ RULES:
 - No emojis, no markdown, no bullet points, no headers, no em dashes
 - Professional, educational tone
 - Do not exceed 200 words total
-- Do not start any paragraph with "This data" — vary openings"""
+- Do not start any paragraph with "This data" - vary openings"""
 
     try:
         text = send_claude_prompt(
@@ -594,7 +594,7 @@ RULES:
             max_tokens=600,
             temperature=0.4,
         )
-        return text.strip().replace("—", ",").replace("–", ",") if text else None
+        return text.strip().replace(" - ", ",").replace("–", ",") if text else None
     except Exception as e:
         print(f"  [AI] Error generating usage guide for {name}: {e}")
         return None
@@ -607,7 +607,7 @@ RULES:
 def _fmt_price(val):
     """Format a price value for display."""
     if val is None:
-        return "—"
+        return " - "
     if abs(val) >= 1000:
         return f"{val:,.2f}"
     if abs(val) >= 10:
@@ -1488,7 +1488,7 @@ def _build_market_bar_html(current_slug=None, all_quotes=None):
             price_fmt = f"{price:,.2f}"
             chg_fmt = f"{sign}{change_p:.2f}%"
         else:
-            price_fmt = "—"
+            price_fmt = " - "
             chg_fmt = ""
             direction = "flat"
 
@@ -1660,7 +1660,7 @@ def build_security_page(sec, quote, news, related, chart_urls, max_pe=0,
                           f'<span class="quote-detail-value">{_fmt_price(val)}</span></span>')
     if quote and quote.get("volume"):
         vol = quote["volume"]
-        vol_fmt = f"{vol:,.0f}" if vol else "—"
+        vol_fmt = f"{vol:,.0f}" if vol else " - "
         detail_items.append(f'<span class="quote-detail"><span class="quote-detail-label">Volume</span>'
                           f'<span class="quote-detail-value">{vol_fmt}</span></span>')
 
@@ -2074,7 +2074,7 @@ def build_security_page(sec, quote, news, related, chart_urls, max_pe=0,
     let currentDays = '60';
 
     function fmtPrice(v) {{
-        if (!v) return '—';
+        if (!v) return ' - ';
         return v >= 1000 ? v.toLocaleString('en-US', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})
              : v >= 10 ? v.toFixed(2)
              : v.toFixed(4);
@@ -2470,7 +2470,7 @@ def inject_security_prices(quotes_by_symbol=None):
             try:
                 vol_fmt = f"{float(vol):,.0f}"
             except (ValueError, TypeError):
-                vol_fmt = "—"
+                vol_fmt = " - "
             html = re.sub(
                 r'(<span class="quote-detail-label">Volume</span>'
                 r'<span class="quote-detail-value">)[^<]*(</span>)',

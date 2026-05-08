@@ -9,7 +9,7 @@ for article generation by calling the blog_queue write_news_article route.
 The article_processor.py worker (always running) picks jobs from the Redis
 queue one at a time.  Each article goes through a 9-step AI pipeline
 (research → images → hero → prompt → GPT-5.1 → publish) which takes
-~3 minutes per article, so 5 articles finish by ~3:20 AM — well before
+~3 minutes per article, so 5 articles finish by ~3:20 AM - well before
 the 7 AM email send.
 
 Crontab line:
@@ -29,7 +29,7 @@ sys.path.insert(0, '/home/flask')
 import config
 
 # ============================================================
-# CONFIGURATION  —  edit these to control daily publishing
+# CONFIGURATION - edit these to control daily publishing
 # ============================================================
 
 # How many articles to queue each day.
@@ -63,10 +63,10 @@ ENSURE_NON_STOCK = True
 MAX_PER_SECTOR = 2
 
 # Maximum index articles (SPX, DJI, NDX, etc.) per day.
-# One index article per day is enough — multiple looks AI-generated.
+# One index article per day is enough - multiple looks AI-generated.
 MAX_INDICES = 1
 
-# Sector map — ticker → sector label.
+# Sector map - ticker → sector label.
 # Tickers not listed here fall into 'other' (each counts separately, no cap).
 SECTOR_MAP = {
     # Technology / Semiconductors
@@ -117,7 +117,7 @@ SECTOR_MAP = {
     'CMCSA':'telecom','CHTR':'telecom',
 }
 
-# Correlated-symbol groups — tickers that track the same underlying index/theme.
+# Correlated-symbol groups - tickers that track the same underlying index/theme.
 # Only ONE ticker from each group is allowed per day's lineup.
 # This prevents e.g. SPY + SPX or DJI + DIA on the same day.
 CORRELATED_GROUPS = {
@@ -133,12 +133,12 @@ CORRELATED_GROUPS = {
     'RUT':  'rut2k',  'IWM':  'rut2k',  'RTY': 'rut2k',
     # Volatility
     'VIX':  'vix',    'UVXY': 'vix',    'VXX': 'vix',  'SVXY': 'vix',
-    # Bitcoin / crypto — mining stocks and spot ETF are highly correlated
+    # Bitcoin / crypto - mining stocks and spot ETF are highly correlated
     'MSTR': 'btc',    'MARA': 'btc',    'RIOT': 'btc',
     'WULF': 'btc',    'IBIT': 'btc',    'CLSK': 'btc',
 }
 
-# ---- Featured article scoring — name recognition tiers ----
+# ---- Featured article scoring - name recognition tiers ----
 # Mega-cap: household names, highest click-through for hero position
 MEGA_CAP_TICKERS = {
     'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NVDA', 'TSLA',
@@ -164,7 +164,7 @@ CSV_FILE_TPL = 'article_queue_{}.csv'
 # blog_queue service URL (Flask app receiving queue requests).
 BLOG_QUEUE_URL = config.blog_queue_server   # e.g. 'http://localhost:7171/'
 
-# Seconds to wait between queuing calls — just enough to avoid hammering
+# Seconds to wait between queuing calls - just enough to avoid hammering
 # blog_queue.py (the actual processing delay comes from article_processor).
 QUEUE_CALL_DELAY = 2
 
@@ -193,9 +193,9 @@ def featured_score(row):
     # Earnings
     earn = (row.get('earnings_type') or '').strip().lower()
     if earn == 'recent':
-        fs += 3.0        # earnings just reported — peak urgency
+        fs += 3.0        # earnings just reported - peak urgency
     elif earn == 'upcoming':
-        fs += 1.5        # earnings soon — anticipation hook
+        fs += 1.5        # earnings soon - anticipation hook
 
     # Volume spike
     try:
@@ -205,7 +205,7 @@ def featured_score(row):
     if   rvol >= 3.0:  fs += 2.5   # extreme volume spike
     elif rvol >= 2.0:  fs += 1.5   # notable volume spike
 
-    # Pattern starts soon — actionable
+    # Pattern starts soon - actionable
     try:
         pat_start = datetime.date.fromisoformat(row['pat_start_date'][:10])
         days_to_start = (pat_start - TODAY).days
@@ -241,7 +241,7 @@ def featured_score(row):
     except (ValueError, TypeError):
         years = pyears = 0
     if years >= 12 and pyears >= years:
-        fs += 1.0    # long lookback, 100% success — authoritative
+        fs += 1.0    # long lookback, 100% success - authoritative
 
     # --- Tier 4: News catalyst ---
     if str(row.get('in_news', '0')).strip() == '1':
@@ -344,7 +344,7 @@ def filter_ideas(rows):
         required = ['pat_resource_id', 'ticker', 'pat_start_date',
                     'pat_days', 'pat_years', 'pat_direction']
         if any(not str(row.get(f, '')).strip() for f in required):
-            print(f"  [SKIP] {row.get('ticker','?')} — missing pattern field(s)")
+            print(f"  [SKIP] {row.get('ticker','?')} - missing pattern field(s)")
             continue
         eligible.append(row)
     return eligible
@@ -360,11 +360,11 @@ def select_diverse_lineup(eligible, n):
     Pick up to `n` articles from `eligible` (score-sorted desc) while
     enforcing diversity rules:
 
-      1. ENSURE_EARNINGS  — reserve 1 slot for the best earnings article
+      1. ENSURE_EARNINGS - reserve 1 slot for the best earnings article
                             (earnings_type != '') if one exists above MIN_SCORE.
-      2. ENSURE_NON_STOCK — reserve 1 slot for the best non-stock
+      2. ENSURE_NON_STOCK - reserve 1 slot for the best non-stock
                             (asset_type not in {'stock','other'}) if available.
-      3. MAX_PER_SECTOR   — no more than MAX_PER_SECTOR articles from the
+      3. MAX_PER_SECTOR - no more than MAX_PER_SECTOR articles from the
                             same sector label in the final lineup.
 
     After reserved slots are filled, remaining slots go to the highest-scored
@@ -513,7 +513,7 @@ def log_run(queued, skipped, csv_path, csv_date):
 
 def main():
     print('=' * 68)
-    print(f'DAILY ARTICLE QUEUE  —  {TODAY}  ({TODAY.strftime("%A")})  —  Started {datetime.datetime.now():%Y-%m-%d %H:%M:%S}')
+    print(f'DAILY ARTICLE QUEUE - {TODAY}  ({TODAY.strftime("%A")}) - Started {datetime.datetime.now():%Y-%m-%d %H:%M:%S}')
     print(f'Target: {ARTICLES_PER_DAY} articles  |  min score: {MIN_SCORE}  |  userid: {USERID}')
     print('=' * 68)
 
@@ -539,7 +539,7 @@ def main():
           f'max_per_sector={MAX_PER_SECTOR})')
 
     if not to_queue:
-        print('[WARN] Nothing to queue — check MIN_SCORE or ideas CSV.')
+        print('[WARN] Nothing to queue - check MIN_SCORE or ideas CSV.')
         log_run([], [], csv_path, csv_date)
         return
 
@@ -583,7 +583,7 @@ def main():
         # Live check: skip if this symbol is already in the queue right now
         # (catches manual dashboard queues added between 2AM select run and now)
         if is_already_queued(ticker):
-            print(f'SKIP (already in Redis queue — manual or prior auto)')
+            print(f'SKIP (already in Redis queue - manual or prior auto)')
             skipped_log.append({'ticker': ticker,
                                  'reason': 'already in Redis queue'})
             continue
@@ -615,7 +615,7 @@ def main():
     print(f'Failed              : {len(skipped_log)}')
     if skipped_log:
         for s in skipped_log:
-            print(f"  FAIL: {s['ticker']} — {s['reason']}")
+            print(f"  FAIL: {s['ticker']} - {s['reason']}")
 
     print(f'\nArticles in queue order (article_processor will handle sequentially):')
     for i, q in enumerate(queued_log, 1):

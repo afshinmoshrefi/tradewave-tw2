@@ -152,10 +152,10 @@ def get_symbol_csv(ticker, exchange):
                     # Market-day-aware freshness: Friday's data is still fresh on Sat/Sun/Mon
                     # weekday(): 0=Mon 1=Tue 2=Wed 3=Thu 4=Fri 5=Sat 6=Sun
                     weekday = date.today().weekday()
-                    if weekday == 5:   max_stale = 2  # Saturday  — Friday data is 1 day old
-                    elif weekday == 6: max_stale = 3  # Sunday    — Friday data is 2 days old
-                    elif weekday == 0: max_stale = 4  # Monday    — Friday data is 3 days old
-                    else:              max_stale = 2  # Tue–Fri   — yesterday is acceptable
+                    if weekday == 5:   max_stale = 2  # Saturday - Friday data is 1 day old
+                    elif weekday == 6: max_stale = 3  # Sunday - Friday data is 2 days old
+                    elif weekday == 0: max_stale = 4  # Monday - Friday data is 3 days old
+                    else:              max_stale = 2  # Tue–Fri - yesterday is acceptable
 
                     if days_ago <= max_stale:
                         logger.info(f"Data is fresh for {ticker} ({exchange}), shape={df.shape}")

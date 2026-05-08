@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TradeWave 2 — text-page generator (F4).
+TradeWave 2 - text-page generator (F4).
 
 Lifts 3 legacy WP pages out of /home/afshin/wp-pages/ and emits TW2-branded
 static HTML at /var/www/tradewave/{disclaimer.html, privacy.html, learn.html}.
@@ -23,6 +23,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent / "lib"))
+from text_utils import no_em_dash  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -43,7 +46,7 @@ PAGES = [
 
 LEARN_FILENAME = "learn.html"
 LEARN_TITLE = "Learn"
-LEARN_SUBTITLE = "Guides, tutorials, and methodology — coming soon."
+LEARN_SUBTITLE = "Guides, tutorials, and methodology - coming soon."
 
 DISCLAIMER_FILENAME = "disclaimer.html"
 DISCLAIMER_TITLE = "Financial Disclaimer"
@@ -51,7 +54,7 @@ DISCLAIMER_SUBTITLE = "What TradeWave is, what it isn't, and how to read what we
 
 CONTACT_FILENAME = "contact.html"
 CONTACT_TITLE = "Contact"
-CONTACT_SUBTITLE = "Reach out — we read every email."
+CONTACT_SUBTITLE = "Reach out - we read every email."
 CONTACT_EMAIL = "help@tradewave.ai"
 
 # Year for the footer copyright + page-modified hint.
@@ -77,7 +80,7 @@ def strip_wp_markup(raw: str) -> str:
     """Strip Divi shortcodes + WP block comments from a WP HTML blob."""
     s = DIVI_RE.sub("", raw)
     s = WP_COMMENT_RE.sub("", s)
-    # The dumps contain literal "\n" rather than newlines — flatten.
+    # The dumps contain literal "\n" rather than newlines - flatten.
     s = LITERAL_NEWLINE_RE.sub("\n", s)
     # Collapse stacked &nbsp; placeholders that the Divi hero left behind.
     s = NBSP_RUN_RE.sub("", s)
@@ -120,7 +123,7 @@ def tw_rebrand(s: str) -> str:
 
     # Third-party brand contamination from the original WP source.
     # The "Barchart Content" clause was a copy-paste from a Barchart TOS
-    # template — TradeWave doesn't redistribute Barchart data.
+    # template - TradeWave doesn't redistribute Barchart data.
     s = s.replace("Barchart Content", "TradeWave Content")
     s = s.replace("Barchart", "TradeWave")
 
@@ -265,7 +268,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{title} — TradeWave</title>
+  <title>{title} - TradeWave</title>
   <meta name="description" content="{subtitle}">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://tw2.trxstat.com/{title_to_filename(title)}">
@@ -329,9 +332,11 @@ def build_legal_page(out_name: str, title: str, src_id: str, subtitle: str) -> t
     src = SRC_DIR / f"page_{src_id}.html"
     raw = src.read_text(encoding="utf-8")
     stripped = strip_wp_markup(raw)
-    # Apply TW2 rebrand (TradeSeasonals → TradeWave, old address, etc.).
+    # Apply TW2 rebrand (TradeSeasonals - > TradeWave, old address, etc.).
     stripped = tw_rebrand(stripped)
-    # Drop any stale "Last updated:" line from the source body — we stamp
+    # Hard rule: no em dashes in any TradeWave content.
+    stripped = no_em_dash(stripped)
+    # Drop any stale "Last updated:" line from the source body - we stamp
     # a single canonical date below so all three legal pages stay in sync.
     stripped = LAST_UPDATED_RE.sub("", stripped, count=1)
     last_updated = LEGAL_LAST_UPDATED
@@ -352,7 +357,7 @@ def build_learn_placeholder() -> tuple[str, dict]:
   <p><strong>Learn pages are coming soon.</strong> We're putting the finishing touches on a series of guides covering seasonal patterns, AI scoring, the wave viewer, and how to read a TradeWave opportunity.</p>
 </div>
 
-<p>TradeWave is built around one idea: certain stocks repeat the same seasonal patterns year after year, and a 62-feature AI model can score how likely the next instance is to play out. The Learn section will walk you through the reasoning, the math, and the practical workflow — with worked examples on real tickers.</p>
+<p>TradeWave is built around one idea: certain stocks repeat the same seasonal patterns year after year, and a 62-feature AI model can score how likely the next instance is to play out. The Learn section will walk you through the reasoning, the math, and the practical workflow - with worked examples on real tickers.</p>
 
 <p>In the meantime, the fastest way to get a feel for the platform is to <a href="/app/">open the Wave Viewer</a>, pick any symbol from <a href="/patterns/">today's pattern list</a>, and read the chart. Every opportunity links to its historical proof.</p>
 
@@ -360,7 +365,7 @@ def build_learn_placeholder() -> tuple[str, dict]:
 """
     html = render_page(LEARN_TITLE, LEARN_SUBTITLE, body, None)
     return html, {
-        "src": "(placeholder — WP source intentionally not used)",
+        "src": "(placeholder - WP source intentionally not used)",
         "out": LEARN_FILENAME,
         "raw_size": 0,
         "stripped_size": len(body),
@@ -540,16 +545,16 @@ def build_contact() -> tuple[str, dict]:
     <p>We aim to reply within one business day. Billing and account-access issues get triaged first.</p>
   </div>
   <div class="q">
-    <strong>I think a chart or score is wrong — what should I send?</strong>
+    <strong>I think a chart or score is wrong - what should I send?</strong>
     <p>The ticker, the date, and a screenshot of what looks off. We'll re-run the data pipeline and either fix the bug or explain what you're seeing.</p>
   </div>
   <div class="q">
     <strong>Do you offer institutional or API access?</strong>
-    <p>Yes — pricing depends on your use case and volume. Email us with a sentence or two about what you'd build and we'll send a tailored quote.</p>
+    <p>Yes - pricing depends on your use case and volume. Email us with a sentence or two about what you'd build and we'll send a tailored quote.</p>
   </div>
   <div class="q">
     <strong>Can I get a refund?</strong>
-    <p>Subscription fees are generally non-refundable, but write us if your situation is unusual — we review case-by-case.</p>
+    <p>Subscription fees are generally non-refundable, but write us if your situation is unusual - we review case-by-case.</p>
   </div>
 </div>
 
@@ -569,7 +574,7 @@ function twContactSubmit(e) {{
 """
     html = render_page(CONTACT_TITLE, CONTACT_SUBTITLE, body, None)
     return html, {
-        "src": "(authored in generator — single source of truth)",
+        "src": "(authored in generator - single source of truth)",
         "out": CONTACT_FILENAME,
         "raw_size": 0,
         "stripped_size": len(body),
@@ -583,16 +588,16 @@ def build_disclaimer() -> tuple[str, dict]:
 <p>TradeWave is a research and analysis platform. We are not a registered investment adviser, broker-dealer, or financial planner. Read this page in full before acting on anything you find on the site.</p>
 
 <h2>Not investment advice</h2>
-<p>All content on TradeWave — including seasonal patterns, AI scores, scorecards, daily picks, opportunity lists, charts, and any commentary or articles — is provided for informational and educational purposes only. Nothing on TradeWave is a recommendation, solicitation, or offer to buy or sell any security, derivative, or other financial instrument.</p>
+<p>All content on TradeWave - including seasonal patterns, AI scores, scorecards, daily picks, opportunity lists, charts, and any commentary or articles - is provided for informational and educational purposes only. Nothing on TradeWave is a recommendation, solicitation, or offer to buy or sell any security, derivative, or other financial instrument.</p>
 
 <h2>Past performance does not guarantee future results</h2>
 <p>Historical seasonal patterns may not repeat. Markets evolve. Statistical edges that held for the last 10, 20, or 30 years can break in the next 10. The probability scores, win rates, and historical returns shown on TradeWave are computed from the data available at the time of analysis and are not guarantees of any future outcome.</p>
 
 <h2>Investing involves risk</h2>
-<p>The value of any investment can go up or down, and you may lose some or all of the money you invest. Before acting on any information from TradeWave, consider whether it is appropriate for your personal financial situation, risk tolerance, and investment objectives — and consult a licensed financial professional.</p>
+<p>The value of any investment can go up or down, and you may lose some or all of the money you invest. Before acting on any information from TradeWave, consider whether it is appropriate for your personal financial situation, risk tolerance, and investment objectives - and consult a licensed financial professional.</p>
 
 <h2>No liability</h2>
-<p>TradeWave, Tara Data Research LLC, and their operators, employees, and affiliates are not liable for any decisions you make based on the content of this site or for any losses, costs, or damages — direct or indirect — arising from your use of the platform. You are solely responsible for your own investment decisions.</p>
+<p>TradeWave, Tara Data Research LLC, and their operators, employees, and affiliates are not liable for any decisions you make based on the content of this site or for any losses, costs, or damages - direct or indirect - arising from your use of the platform. You are solely responsible for your own investment decisions.</p>
 
 <h2>Data accuracy</h2>
 <p>While we make best efforts to use accurate and up-to-date data from licensed providers, occasional errors, missing data points, corporate-action adjustments, and survivorship-bias gaps may occur. We do not warrant the completeness or accuracy of any specific data point, score, or backtest result.</p>
@@ -607,7 +612,7 @@ def build_disclaimer() -> tuple[str, dict]:
 """
     html = render_page(DISCLAIMER_TITLE, DISCLAIMER_SUBTITLE, body, LEGAL_LAST_UPDATED)
     return html, {
-        "src": "(authored in generator — single source of truth)",
+        "src": "(authored in generator - single source of truth)",
         "out": DISCLAIMER_FILENAME,
         "raw_size": 0,
         "stripped_size": len(body),
@@ -623,6 +628,8 @@ def build_disclaimer() -> tuple[str, dict]:
 def write_output(out_name: str, html: str) -> None:
     """Write HTML to /var/www/tradewave/<out_name>, preserving flask:flask:644."""
     target = OUTPUT_DIR / out_name
+    # Final defense against em dashes (forbidden in TradeWave content).
+    html = no_em_dash(html)
     target.write_text(html, encoding="utf-8")  # we run AS flask via sudo wrapper
 
 

@@ -284,7 +284,7 @@ def _interleave_by_family(articles):
                     picked = True
                     break
             if not picked:
-                # Only one family left — drain it
+                # Only one family left - drain it
                 mf, q = candidates[0]
                 result.append(q.popleft())
                 last_mf = mf
@@ -4517,7 +4517,7 @@ def _build_terminal_template(items, t):
         date_str = pattern_date.strftime("%b %d") if pattern_date else "TBD"
         
         sentiment_label, sentiment_class = _direction_to_sentiment(direction)
-        dir_html = f'<span class="upcoming-direction {sentiment_class or ""}">{sentiment_label or "—"}</span>' if sentiment_label else ""
+        dir_html = f'<span class="upcoming-direction {sentiment_class or ""}">{sentiment_label or " - "}</span>' if sentiment_label else ""
         
         upcoming_html += f'''
                 <div class="upcoming-item">
@@ -5309,7 +5309,7 @@ def _build_signal_card(p):
     strength_class = "high" if strength >= 75 else ("medium" if strength >= 50 else "low")
     
     # Time horizon
-    horizon = f"{days}D" if days else "—"
+    horizon = f"{days}D" if days else " - "
     
     return f'''
             <a href="{url}" class="signal-card">
@@ -6474,7 +6474,7 @@ def _get_market_bar_html():
             price_fmt = f"{price:,.2f}"
             chg_fmt   = f"{sign}{change_p:.2f}%"
         else:
-            price_fmt = "—"
+            price_fmt = " - "
             chg_fmt   = ""
             direction = "flat"
 

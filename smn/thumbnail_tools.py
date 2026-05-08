@@ -101,7 +101,7 @@ def build_stats_triplet(cdata):
 
     w = int(cdata['stats'].get('Num Winners', 0))
     l = int(cdata['stats'].get('Num Losers', 0))
-    winrate = f"{round(100.0*w/(w+l))}%" if (w+l) else "—"
+    winrate = f"{round(100.0*w/(w+l))}%" if (w+l) else " - "
 
     cum_raw = cdata['stats'].get('Cumulative') or cdata['stats'].get('Cumulative Return')
     cum_val = f2(cum_raw, 0.0)

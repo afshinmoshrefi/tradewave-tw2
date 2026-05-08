@@ -1,12 +1,12 @@
 """
-TradeWave 2.0 — Web Tier
+TradeWave 2.0 - Web Tier
 ========================
 
 Single Flask service handling:
   - Auth flow (signup / login / logout / callback) via WorkOS AuthKit
   - JSON API for current user (/api/me)
-  - Account page (/account) — minimal landing post-signup
-  - Pricing page (/pricing) — basic stub for Stripe Checkout (Phase 5)
+  - Account page (/account) - minimal landing post-signup
+  - Pricing page (/pricing) - basic stub for Stripe Checkout (Phase 5)
   - Stripe Checkout + success/cancel (Phase 5)
   - Flask-Admin at /admin (Phase 6)
   - /app/ React shell with REAL auth globals injected (Phase 4)
@@ -14,7 +14,7 @@ Single Flask service handling:
 Runs on 127.0.0.1:5500 behind nginx. Internal-only HTTP; nginx terminates
 the public connection. WorkOS hosted UI is the user-facing auth surface.
 
-Sessions: we use WorkOS' "sealed session" pattern — the entire session
+Sessions: we use WorkOS' "sealed session" pattern - the entire session
 is encrypted client-side as a single cookie value. No server-side session
 store needed for auth state. Custom data (e.g. flash messages) go through
 Flask's signed-cookie session.
@@ -46,7 +46,7 @@ from flask import (
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-# F2.5 — Defense in depth: cap any unbounded socket reads at 15s. Applies
+# F2.5 - Defense in depth: cap any unbounded socket reads at 15s. Applies
 # globally to every stdlib socket op including the requests/httpx layers used
 # by Stripe + WorkOS SDKs. Per-call timeouts below add finer-grained limits.
 socket.setdefaulttimeout(15)
@@ -56,7 +56,7 @@ def _json_safe(obj):
     """Convert Stripe response shapes (Decimal, nested dicts/lists) to JSON-safe
     primitives so they survive json.dumps into a JSONB column.
 
-    F2.7 — Stripe occasionally returns Decimal in webhook payloads; the default
+    F2.7 - Stripe occasionally returns Decimal in webhook payloads; the default
     json encoder raises TypeError on Decimal, which used to drop the entire
     StripeEvent insert and force a webhook 500 -> Stripe retry storm.
     """
@@ -102,7 +102,7 @@ from workos._errors import BadRequestError as WorkOSBadRequestError
 # --- Stripe ---
 import stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
-# F2.6 — Cap Stripe network timeouts and turn on built-in retries. Without
+# F2.6 - Cap Stripe network timeouts and turn on built-in retries. Without
 # these, a Stripe slow-response can wedge a worker for the OS socket default.
 stripe.max_network_retries = 2
 try:
@@ -140,7 +140,7 @@ log = logging.getLogger("tw2.web")
 workos_client = WorkOSClient(
     api_key=config.WORKOS_API_KEY,
     client_id=config.WORKOS_CLIENT_ID,
-    # F2.5 — cap every WorkOS HTTP call at 10s. Default is 60s (or whatever
+    # F2.5 - cap every WorkOS HTTP call at 10s. Default is 60s (or whatever
     # the WORKOS_REQUEST_TIMEOUT env says). 60s is too long to leave a Flask
     # worker blocked when a single request from a user is in flight.
     request_timeout=10,
@@ -152,7 +152,7 @@ REDIRECT_URI = os.environ.get(
     f"http://{os.environ.get('TW2_PUBLIC_HOST', '192.168.1.176')}/auth/callback",
 )
 
-# Auth cookie name — the sealed session token
+# Auth cookie name - the sealed session token
 SESSION_COOKIE = "tw2_session"
 
 # How long we trust a session before re-validating against WorkOS
@@ -242,7 +242,7 @@ def current_user_from_db(workos_user_id: str):
 def lazy_create_user(workos_user) -> User:
     """Create a Postgres mirror row if it doesn't exist; return the User row.
 
-    F2.4 — race-hardened: a duplicate signup hitting two workers simultaneously
+    F2.4 - race-hardened: a duplicate signup hitting two workers simultaneously
     used to surface as an IntegrityError 500 from the unique workos_user_id /
     email constraints. Now we catch IntegrityError, rollback, and re-query.
     Also: if a user's WorkOS email has changed since we last saw them, sync it
@@ -252,7 +252,7 @@ def lazy_create_user(workos_user) -> User:
     try:
         u = s.query(User).filter_by(workos_user_id=workos_user.id).first()
         if u is not None:
-            # F2.4 — sync email if WorkOS shows it changed (e.g. user updated
+            # F2.4 - sync email if WorkOS shows it changed (e.g. user updated
             # their email in the WorkOS hosted UI).
             if workos_user.email and workos_user.email != u.email:
                 old_email = u.email
@@ -267,7 +267,7 @@ def lazy_create_user(workos_user) -> User:
                         details={"from": old_email, "to": workos_user.email},
                     )
                 except IntegrityError:
-                    # Email collides with a different existing user — rare, but
+                    # Email collides with a different existing user - rare, but
                     # don't crash signup. Log and roll back the email update.
                     s.rollback()
                     log.warning(
@@ -308,7 +308,7 @@ def lazy_create_user(workos_user) -> User:
             s.commit()
             s.refresh(u)
         except IntegrityError:
-            # F2.4 — two-tab signup race: the sibling worker won. Roll back our
+            # F2.4 - two-tab signup race: the sibling worker won. Roll back our
             # insert, re-query by workos_user_id, and return the row that won.
             s.rollback()
             log.info("lazy_create_user race: re-querying workos_user_id=%s", workos_user.id)
@@ -328,7 +328,7 @@ def lazy_create_user(workos_user) -> User:
             target_user_id=u.id,
             details={"email": workos_user.email, "workos_user_id": workos_user.id},
         )
-        # F2.15 — Mailerlite list-add (best-effort; never blocks user creation).
+        # F2.15 - Mailerlite list-add (best-effort; never blocks user creation).
         # Reduced timeout to 2s inside email_utils so a Mailerlite blip does not
         # add up to 5s of delay on the signup hot path. Returns False fast if
         # MAILERLITE_API_KEY is placeholder.
@@ -369,7 +369,7 @@ def require_login(view):
     def wrapped(*args, **kwargs):
         u = get_current_user()
         if u is None:
-            # Bounce to WorkOS hosted SIGNUP (default for protected pricing/checkout pages —
+            # Bounce to WorkOS hosted SIGNUP (default for protected pricing/checkout pages - 
             # most cold visitors hitting these are new users).
             full_path = request.full_path.rstrip("?")
             url = _get_authorization_url(state=full_path, screen_hint="sign-up")
@@ -396,8 +396,8 @@ def require_super_admin(view):
 
 @app.route("/healthz")
 def healthz():
-    """Cheap health probe — checks DB.
-    F2.2 — generic error response; details only to log.
+    """Cheap health probe - checks DB.
+    F2.2 - generic error response; details only to log.
     """
     try:
         s = DBSession()
@@ -431,16 +431,16 @@ def login():
 
 @app.route("/auth/callback")
 def auth_callback():
-    """User returns from WorkOS with ?code=... — exchange for token + create session.
+    """User returns from WorkOS with ?code=... - exchange for token + create session.
 
-    F2.1 — `state` is treated as a same-origin path. We reject protocol-relative
+    F2.1 - `state` is treated as a same-origin path. We reject protocol-relative
     redirects ("//evil.com/x") and backslash-prefixed forms.
-    F2.2 — error responses no longer leak request.args or exception strings to
+    F2.2 - error responses no longer leak request.args or exception strings to
     the browser; details go to the server log only.
-    F2.3 — when WorkOS bounces the user back with ?error=access_denied (clicked
+    F2.3 - when WorkOS bounces the user back with ?error=access_denied (clicked
     Cancel on the hosted UI), redirect home instead of showing a 400 JSON page.
     """
-    # F2.3 — user clicked Cancel / declined consent on WorkOS hosted UI
+    # F2.3 - user clicked Cancel / declined consent on WorkOS hosted UI
     workos_error = request.args.get("error")
     if workos_error:
         log.info("auth_callback: WorkOS returned error=%s", workos_error)
@@ -450,7 +450,7 @@ def auth_callback():
     state = request.args.get("state") or "/account"
 
     if not code:
-        # F2.2 — don't echo request.args; log them server-side instead
+        # F2.2 - don't echo request.args; log them server-side instead
         log.warning("auth_callback: missing code; args=%s", dict(request.args))
         return jsonify({"error": "missing_code"}), 400
 
@@ -461,7 +461,7 @@ def auth_callback():
         log.warning("auth_callback: invalid grant: %s", e)
         return jsonify({"error": "invalid_grant"}), 400
     except Exception:
-        # F2.2 — log the full traceback, return a generic message
+        # F2.2 - log the full traceback, return a generic message
         log.exception("auth_callback: authenticate_with_code failed")
         return jsonify({"error": "auth_failed"}), 500
 
@@ -493,7 +493,7 @@ def auth_callback():
     finally:
         s.close()
 
-    # F2.1 — Build redirect with strict same-origin path validation. Rejects:
+    # F2.1 - Build redirect with strict same-origin path validation. Rejects:
     #   "//evil.com/x"   protocol-relative
     #   "/\\evil.com"    backslash bypass
     #   "https://..."    absolute URL (any scheme)
@@ -523,7 +523,7 @@ def auth_callback():
 def logout():
     """Clear session cookie + redirect to WorkOS logout to clear their session too.
 
-    F2.16 — also call user_management.revoke_session() so the access_token /
+    F2.16 - also call user_management.revoke_session() so the access_token /
     refresh_token are invalidated server-side at WorkOS. Without this, a leaked
     sealed cookie could still talk to WorkOS until natural token expiry.
     """
@@ -545,13 +545,13 @@ def logout():
                 if getattr(auth_result, "authenticated", False):
                     sid_for_revoke = getattr(auth_result, "session_id", None)
             except Exception:
-                # Authenticate may fail on expired sessions; fine — get_logout_url
+                # Authenticate may fail on expired sessions; fine - get_logout_url
                 # already returned a URL.
                 pass
         except Exception as e:
             log.warning("get_logout_url failed: %s; redirecting to %s anyway", e, redirect_after)
 
-    # F2.16 — explicit server-side session revoke (best-effort)
+    # F2.16 - explicit server-side session revoke (best-effort)
     if sid_for_revoke:
         try:
             workos_client.user_management.revoke_session(session_id=sid_for_revoke)
@@ -581,7 +581,7 @@ def api_me():
 
 
 # ============================================================
-# /app/ — React shell with REAL session globals injected
+# /app/ - React shell with REAL session globals injected
 # (replaces the milestone-1 nginx sub_filter stub)
 # ============================================================
 
@@ -594,13 +594,13 @@ def generate_ltk(user) -> str:
     The appserver verifies this with config.APPSERVER_JWT_SECRET when
     useUMP=False, and uses its claims for is_admin and tier resolution.
 
-    F2.13 — adds aud/iss claims so the appserver can defend against tokens
+    F2.13 - adds aud/iss claims so the appserver can defend against tokens
     minted by other services that might share the same secret. The appserver
     side must add `audience="tw2-appserver"` and `issuer="tw2-web"` to its
     jwt.decode() call to enforce these.
     TODO(F3): enforce aud="tw2-appserver" and iss="tw2-web" in appserver's
     decode (currently appserver does not pass these and will accept any LTK
-    that signature-verifies — defense-in-depth, not a bypass).
+    that signature-verifies - defense-in-depth, not a bypass).
     """
     return jwt.encode(
         {
@@ -638,13 +638,13 @@ def app_index():
     ltk = generate_ltk(u)
     user_id = str(u.id)
     user_level = tier_to_legacy_level(u.tier or "explorer")
-    # F2.14 — JSON-escape every value that is interpolated into the inline
+    # F2.14 - JSON-escape every value that is interpolated into the inline
     # <script>. The previous f-string approach would break if u.email or
     # any other field contained a `"`, `</script>`, line terminator, or null
-    # byte — all valid in DB strings, none safe in a raw-quoted JS literal.
+    # byte - all valid in DB strings, none safe in a raw-quoted JS literal.
     #
     # json.dumps quotes the string and escapes inner quotes / control chars,
-    # but does NOT escape `</script>` — which would still close the script
+    # but does NOT escape `</script>` - which would still close the script
     # tag in HTML parsing. We do the standard `</` -> `<\/` rewrite to fully
     # neutralize that vector. The result is still valid JSON and parses to
     # the original string at JS-runtime.
@@ -685,7 +685,7 @@ def app_index():
 
 
 # ============================================================
-# Account page (minimal — phase 4 will fancy this up)
+# Account page (minimal - phase 4 will fancy this up)
 # ============================================================
 
 def _format_unix_date(ts):
@@ -700,7 +700,7 @@ def _format_unix_date(ts):
 
 def _stripe_subscription_summary(sub_id):
     """Pull billing interval + period dates from a Stripe subscription.
-    Returns (interval, current_period_end_str, start_date_str) — any/all may be None.
+    Returns (interval, current_period_end_str, start_date_str) - any/all may be None.
     Never raises; logs and returns Nones on Stripe errors."""
     if not sub_id or not _stripe_configured():
         return (None, None, None)
@@ -758,7 +758,7 @@ def account():
 
 
 # ============================================================
-# Pricing page — simple fallback so /pricing isn't a 404
+# Pricing page - simple fallback so /pricing isn't a 404
 # (Phase 5 will turn into a real Stripe Checkout flow)
 # ============================================================
 
@@ -834,7 +834,7 @@ def _tier_period_for_price(price_id):
     return (None, None)
 
 
-# F2.12 — Allow POST as well as GET. POST is preferred (state-changing call,
+# F2.12 - Allow POST as well as GET. POST is preferred (state-changing call,
 # CSRF-friendlier), GET is left for backward-compat with current pricing
 # templates. Cutover to POST-only after the templates are updated.
 # TODO: deprecate GET on this endpoint after the pricing template uses POST forms.
@@ -909,7 +909,7 @@ def stripe_create_checkout():
         session_obj = stripe.checkout.Session.create(**kwargs)
         return redirect(session_obj.url, code=303)
     except Exception:
-        # F2.2 — log the full traceback, return generic message
+        # F2.2 - log the full traceback, return generic message
         log.exception("stripe checkout creation failed")
         return jsonify({"error": "stripe_error"}), 500
 
@@ -920,10 +920,10 @@ def stripe_success():
     """Stripe redirects here after successful checkout. Poll the session,
     update our user row, then send them to /app/.
 
-    F2.11 — idempotent: if we've already processed this checkout session
+    F2.11 - idempotent: if we've already processed this checkout session
     (StripeEvent row with stripe_event_id=session_id exists), short-circuit
     and redirect to /app/?upgraded=1 without re-running mutations.
-    F2.10 — User row read happens with SELECT ... FOR UPDATE so concurrent
+    F2.10 - User row read happens with SELECT ... FOR UPDATE so concurrent
     /stripe/success and /webhooks/stripe handlers don't race on tier writes.
     """
     session_id = request.args.get("session_id")
@@ -932,7 +932,7 @@ def stripe_success():
 
     u = get_current_user()
 
-    # F2.11 — idempotency: if the matching StripeEvent already exists, skip
+    # F2.11 - idempotency: if the matching StripeEvent already exists, skip
     # the work and just redirect. Either /webhooks/stripe handled it, or a
     # previous visit to this URL did. This stops user-driven page refreshes
     # from racing against the webhook handler.
@@ -951,12 +951,12 @@ def stripe_success():
     try:
         sess = stripe.checkout.Session.retrieve(session_id, expand=["subscription", "subscription.items.data.price"])
     except Exception:
-        # F2.2 — log full traceback, generic response
+        # F2.2 - log full traceback, generic response
         log.exception("stripe.session.retrieve failed for session_id=%s", session_id)
         return jsonify({"error": "stripe_lookup_failed"}), 500
 
     # StripeObject is NOT a dict subclass and has no .get(). .to_dict() yields a
-    # fully-recursive plain dict — the only safe way to traverse the tree.
+    # fully-recursive plain dict - the only safe way to traverse the tree.
     sess_d = sess.to_dict() if hasattr(sess, "to_dict") else dict(sess)
 
     # Resolve tier from price_id
@@ -981,13 +981,13 @@ def stripe_success():
         # If customer was expanded into a nested object, pull its id
         customer_id = customer_id.get("id") if isinstance(customer_id, dict) else None
 
-    # F2.10 — Update Postgres with row-level locking.
+    # F2.10 - Update Postgres with row-level locking.
     audit_payload = None
     rebind_conflict_payload = None
     s = DBSession()
     try:
         db_user = s.query(User).filter_by(id=u.id).with_for_update().first()
-        # F2.9 — only assign stripe_customer_id if no OTHER user already owns it.
+        # F2.9 - only assign stripe_customer_id if no OTHER user already owns it.
         # Otherwise we'd silently steal a customer record from a different account
         # row, which is data corruption that's hard to unwind.
         if customer_id and not db_user.stripe_customer_id:
@@ -1013,7 +1013,7 @@ def stripe_success():
             old_tier = db_user.tier
             db_user.tier = new_tier
             db_user.legacy_wp_level = tier_to_legacy_level(new_tier)
-            # Defer write_audit to after this session commits — write_audit
+            # Defer write_audit to after this session commits - write_audit
             # reuses the same scoped_session and closing it would expunge
             # our pending db_user mutations.
             audit_payload = dict(
@@ -1076,7 +1076,7 @@ def manage_subscription():
         )
         return redirect(session_obj.url, code=303)
     except Exception:
-        # F2.2 — log full traceback, generic response
+        # F2.2 - log full traceback, generic response
         log.exception("portal session creation failed")
         return jsonify({"error": "portal_session_failed"}), 500
 
@@ -1105,7 +1105,7 @@ def webhook_stripe():
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature", "")
 
-    # Signature verification (skip if webhook secret is missing/placeholder — dev)
+    # Signature verification (skip if webhook secret is missing/placeholder - dev)
     secret = getattr(config, "STRIPE_WEBHOOK_SECRET", "") or ""
     if secret and "PLACEHOLDER" not in secret:
         try:
@@ -1140,14 +1140,14 @@ def webhook_stripe():
 
     s = DBSession()
     try:
-        # Idempotency — if we already saw this event_id, skip.
+        # Idempotency - if we already saw this event_id, skip.
         # SELECT-then-INSERT can lose the race to a sibling worker; the
         # IntegrityError below is the second line of defence.
         existing = s.query(StripeEvent).filter_by(stripe_event_id=event_id).first()
         if existing:
             return jsonify({"received": True, "duplicate": True}), 200
 
-        # F2.7 — event was already normalized to a plain dict above; now
+        # F2.7 - event was already normalized to a plain dict above; now
         # additionally scrub Decimal types so the JSONB insert doesn't blow up
         # when Stripe returns numeric fields as Decimal.
         payload_dict = _json_safe(event)
@@ -1163,7 +1163,7 @@ def webhook_stripe():
             # Race: a sibling worker inserted the same event_id concurrently.
             # That worker will process it; we ack 200 so Stripe stops retrying.
             s.rollback()
-            log.info("Concurrent duplicate Stripe webhook %s — returning 200", event_id)
+            log.info("Concurrent duplicate Stripe webhook %s - returning 200", event_id)
             return jsonify({"received": True, "duplicate": True, "race": True}), 200
 
         # Determine which user this event affects
@@ -1204,9 +1204,9 @@ def webhook_stripe():
             sub_id = data_obj.get("subscription")
             # No tier change; just record the event
 
-        # Look up our user — try in order: stripe_customer_id, client_reference_id (our UUID),
+        # Look up our user - try in order: stripe_customer_id, client_reference_id (our UUID),
         # email lookup against Stripe customer record. Whichever finds the row wins.
-        # F2.10 — every successful lookup is locked with SELECT ... FOR UPDATE so
+        # F2.10 - every successful lookup is locked with SELECT ... FOR UPDATE so
         # a concurrent /stripe/success or sibling webhook serializes on tier writes.
         db_user = None
         if customer_id:
@@ -1227,11 +1227,11 @@ def webhook_stripe():
             db_user = s.query(User).filter_by(email=cust_email).with_for_update().first()
 
         if not db_user:
-            # F2.8 — Don't silently 200 when we can't find the user. Stripe
+            # F2.8 - Don't silently 200 when we can't find the user. Stripe
             # retries 5xx events for ~3 days with exponential backoff, which
             # gives /stripe/success or a manual operator action time to create
             # the user row. We keep the StripeEvent row recorded so an admin can
-            # trace the event, but we do NOT mark processed — return 500 to
+            # trace the event, but we do NOT mark processed - return 500 to
             # trigger retry.
             err_detail = (
                 f"No user found for stripe_customer_id={customer_id}, "
@@ -1257,7 +1257,7 @@ def webhook_stripe():
                 log.exception("write_audit for user_not_found failed")
             return jsonify({"error": "user_not_found"}), 500
 
-        # F2.9 — Backfill stripe_customer_id if it was missing — but refuse
+        # F2.9 - Backfill stripe_customer_id if it was missing - but refuse
         # to rebind a customer_id that already belongs to a different user row.
         # This prevents a malicious or duplicate-account event from silently
         # stealing another user's Stripe identity.
@@ -1308,7 +1308,7 @@ def webhook_stripe():
 
         # Commit our row mutations BEFORE calling write_audit. write_audit uses
         # the same scoped_session and closes its inner session, which expunges
-        # objects from the outer session — silently dropping later updates
+        # objects from the outer session - silently dropping later updates
         # (this is why processed_at was missing from subscription.* events).
         evrow.processed_at = datetime.now(timezone.utc)
         final_tier = db_user.tier
@@ -1325,7 +1325,7 @@ def webhook_stripe():
         return jsonify({"received": True, "tier": final_tier, "status": sub_status}), 200
 
     except Exception:
-        # F2.2 — log full traceback, generic response. Stripe will retry on 500.
+        # F2.2 - log full traceback, generic response. Stripe will retry on 500.
         log.exception("Stripe webhook processing failed (event_id=%s type=%s)", event_id, event_type)
         s.rollback()
         return jsonify({"error": "processing_failed"}), 500

@@ -243,7 +243,7 @@ const DesktopLayout = (props) => {
     }, []);
 
     // When #right-content changes width, tell Swiper to re-measure so its slides
-    // get new pixel widths — Chart.js ResizeObservers then pick up the change naturally.
+    // get new pixel widths - Chart.js ResizeObservers then pick up the change naturally.
     useEffect(() => {
         const rightContent = document.getElementById('right-content');
         if (!rightContent) return;

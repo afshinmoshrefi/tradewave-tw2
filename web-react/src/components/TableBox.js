@@ -277,7 +277,7 @@ const TableBox = ({
         tmpDict_tt['sharpe_ratio2'] = 'TradeWave Ratio based on MFE.'
       } else if (k === 'TL') {
         tmpDict['TL'] = 'TL'
-        tmpDict_tt['TL'] = 'Trend Long (0-100) — how bullish the current price trend is. Higher means price is above key moving averages with upward momentum. Click to sort.'
+        tmpDict_tt['TL'] = 'Trend Long (0-100) - how bullish the current price trend is. Higher means price is above key moving averages with upward momentum. Click to sort.'
       } else if (k === 'price') {
         tmpDict['price'] = 'Price'
         tmpDict_tt['price'] = 'Current real-time price. Green = up today, Red = down today. Hover for % change. Click to sort.'
@@ -330,7 +330,7 @@ const TableBox = ({
   }
 
   //-------------------------------------------------------------------------------------------------------------------
-  // Min-width per column — when total exceeds container, horizontal scrollbar appears
+  // Min-width per column - when total exceeds container, horizontal scrollbar appears
   const COL_MIN_W = { symbol: 70, date: shortDates ? 55 : 80, daysOut: 60, price: 65, avg_profit: 65, win_prob: 60, pred_return: 65, pred_mfe: 65, ml_score: 55 };
   const DEFAULT_COL_MIN = 55;
   const tableMinWidth = visibleColumns.reduce((sum, c) => sum + (COL_MIN_W[c] || DEFAULT_COL_MIN), 0);
@@ -345,7 +345,7 @@ const TableBox = ({
 
         <colgroup>
           {(() => {
-            // Weight per column — symbol and date need more room, rest are equal
+            // Weight per column - symbol and date need more room, rest are equal
             const W = { symbol: 1.3, date: shortDates ? 1.1 : 1.8, daysOut: 1.1, price: 1.1, avg_profit: 1.2, win_prob: 1.1, pred_return: 1.2, pred_mfe: 1.2 };
             const weights = visibleColumns.map(c => W[c] || 1);
             const total = weights.reduce((a, b) => a + b, 0);
@@ -433,7 +433,7 @@ const TableBox = ({
                               {row.price.toFixed(2)}
                             </span>
                           </Tippy>
-                        : '—')
+                        : ' - ')
                       : key === 'ml_score'
                         ? (row.ml_score != null ? row.ml_score.toFixed(1) : row.ml_pending ? <CellSpinner /> : '---')
                         : key === 'win_prob'

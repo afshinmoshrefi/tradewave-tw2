@@ -1,9 +1,9 @@
 """
-TradeWave 2.0 — Web Tier — Email / Newsletter Utilities
+TradeWave 2.0 - Web Tier - Email / Newsletter Utilities
 =======================================================
 
 Thin wrappers around third-party email/list-management APIs. Currently:
-  - mailerlite_subscribe() — POST a new subscriber to Mailerlite
+  - mailerlite_subscribe() - POST a new subscriber to Mailerlite
 
 Design rules:
   - Fail fast and silently when API keys are placeholders/empty. Caller does
@@ -38,7 +38,7 @@ def mailerlite_subscribe(email: str, name: str = None) -> bool:
     False otherwise. Never raises.
 
     Skips silently (returns False) when MAILERLITE_API_KEY or
-    MAILERLITE_GROUP_ID is empty/placeholder — this is the normal dev/staging
+    MAILERLITE_GROUP_ID is empty/placeholder - this is the normal dev/staging
     path before Mailerlite is wired live.
     """
     api_key  = getattr(config, 'MAILERLITE_API_KEY', '')
@@ -61,7 +61,7 @@ def mailerlite_subscribe(email: str, name: str = None) -> bool:
     }
 
     try:
-        # F2.15 — lower from 5s to 2s. lazy_create_user() calls this on the
+        # F2.15 - lower from 5s to 2s. lazy_create_user() calls this on the
         # signup hot path; we'd rather lose a Mailerlite subscribe than have
         # the user-facing /auth/callback wait up to 5s on a Mailerlite blip.
         # The Mailerlite list-add is best-effort and safe to retry later via
@@ -78,7 +78,7 @@ def mailerlite_subscribe(email: str, name: str = None) -> bool:
         log.info("mailerlite_subscribe ok: email=%s status=%s", email, resp.status_code)
         return True
 
-    # Capture body for debugging — but cap length so we don't flood logs
+    # Capture body for debugging - but cap length so we don't flood logs
     body_preview = (resp.text or "")[:300]
     log.warning(
         "mailerlite_subscribe failed: email=%s status=%s body=%s",

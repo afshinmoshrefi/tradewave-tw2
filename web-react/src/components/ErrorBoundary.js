@@ -41,7 +41,7 @@ export default class ErrorBoundary extends React.Component {
     console.error(`TradeWave error caught: ${where}`, error, errorInfo);
   }
 
-  // Reset just this boundary's error state (for nested panels — don't reload the whole app).
+  // Reset just this boundary's error state (for nested panels - don't reload the whole app).
   handleRetryPanel = () => {
     try {
       sessionStorage.removeItem(RELOAD_COUNT_KEY);

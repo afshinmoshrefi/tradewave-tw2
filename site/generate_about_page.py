@@ -72,7 +72,7 @@ def build_html():
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>About TradeWave &mdash; Afshin Moshrefi, Tara Data Research</title>
+  <title>About TradeWave - Afshin Moshrefi, Tara Data Research</title>
   <meta name="description" content="TradeWave is built by Afshin Moshrefi at Tara Data Research LLC. AI-scored seasonal market patterns across stocks, ETFs, indices, futures, forex, and bonds.">
   <link rel="canonical" href="{CANONICAL}">
   <meta name="robots" content="noindex, nofollow">
@@ -80,7 +80,7 @@ def build_html():
 
   <meta property="og:locale" content="en_US">
   <meta property="og:type" content="profile">
-  <meta property="og:title" content="About TradeWave &mdash; Afshin Moshrefi">
+  <meta property="og:title" content="About TradeWave - Afshin Moshrefi">
   <meta property="og:description" content="The founder, the research, and the methodology behind TradeWave.">
   <meta property="og:url" content="{CANONICAL}">
   <meta property="og:image" content="https://moshrefi.com/assets/img/afshin-1024.webp">
@@ -209,9 +209,9 @@ def build_html():
 
       <h2>Products</h2>
       <ul>
-        <li><a href="https://tradewave.ai/">TradeWave.ai</a> &mdash; AI-scored seasonal pattern research for US stocks, ETFs, indices, futures, forex, and bonds.</li>
-        <li><a href="https://seasonalmarketnews.com/">Seasonal Market News</a> &mdash; Institutional-style market news grounded in measurable seasonal history.</li>
-        <li><a href="https://taradataresearch.com/">Tara Data Research LLC</a> &mdash; Parent company for all research and product work.</li>
+        <li><a href="https://tradewave.ai/">TradeWave.ai</a> - AI-scored seasonal pattern research for US stocks, ETFs, indices, futures, forex, and bonds.</li>
+        <li><a href="https://seasonalmarketnews.com/">Seasonal Market News</a> - Institutional-style market news grounded in measurable seasonal history.</li>
+        <li><a href="https://taradataresearch.com/">Tara Data Research LLC</a> - Parent company for all research and product work.</li>
       </ul>
 
       <section class="methodology-note">

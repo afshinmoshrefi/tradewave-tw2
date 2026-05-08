@@ -5,7 +5,7 @@ svg_wave_chart.py
 Generate an SVG rendering of the TradeWave Wave Viewer for homepage use.
 Two panels with title bars: seasonal bar chart (top) + candlestick price
 chart with SMA, projection, volume, and earnings markers (bottom).
-Pure SVG string generation — no matplotlib.
+Pure SVG string generation - no matplotlib.
 """
 
 import sys
@@ -102,7 +102,7 @@ def get_appserver_token():
 # ============================================================
 
 def fetch_bar_data(resource_id, date, symbol, days_out, years, token):
-    """Fetch ChartData4 — year-by-year bar chart with MFE/MAE."""
+    """Fetch ChartData4 - year-by-year bar chart with MFE/MAE."""
     url = (f"{config.appserver_url}/ChartData4/{resource_id}/{date}"
            f"/{symbol}/{days_out}/{years}?token={token}")
     resp = requests.get(url)
@@ -111,7 +111,7 @@ def fetch_bar_data(resource_id, date, symbol, days_out, years, token):
 
 
 def fetch_ohlc_data(resource_id, symbol, d0, d1, token):
-    """Fetch ChartHistorical2 — OHLC candle data."""
+    """Fetch ChartHistorical2 - OHLC candle data."""
     url = (f"{config.appserver_url}/ChartHistorical2/{resource_id}"
            f"/{symbol}/{d0}/{d1}?token={token}")
     resp = requests.get(url)
@@ -120,7 +120,7 @@ def fetch_ohlc_data(resource_id, symbol, d0, d1, token):
 
 
 def fetch_seasonal_data(resource_id, symbol, years, chart_start, opp_start, token):
-    """Fetch consolidated_seasonal_chart2 — seasonal projection data."""
+    """Fetch consolidated_seasonal_chart2 - seasonal projection data."""
     url = (f"{config.appserver_url}/consolidated_seasonal_chart2/{resource_id}"
            f"/{symbol}/{years}/{chart_start}/{opp_start}?token={token}")
     resp = requests.get(url)
@@ -377,7 +377,7 @@ def render_bottom_title_bar(company_name, bar_x, bar_y, bar_w, bar_h):
     return '\n  '.join(elements)
 
 # ============================================================
-# TOP PANEL — SEASONAL BAR CHART (MFE only, no MAE)
+# TOP PANEL - SEASONAL BAR CHART (MFE only, no MAE)
 # ============================================================
 
 def _nice_ticks(data_min, data_max, target_count=5):
@@ -428,7 +428,7 @@ def render_bar_chart(bar_data, panel_x, panel_y, panel_w, panel_h):
         mfe_pct   = float(parts[1])
         parsed.append((int(row['year']), close_pct, mfe_pct))
 
-    # Y-axis range (only close and MFE — no MAE)
+    # Y-axis range (only close and MFE - no MAE)
     all_vals = [0.0]
     for _, c, mfe in parsed:
         all_vals.extend([c, mfe])
@@ -489,7 +489,7 @@ def render_bar_chart(bar_data, panel_x, panel_y, panel_w, panel_h):
     return '\n  '.join(elements)
 
 # ============================================================
-# BOTTOM PANEL — CANDLESTICK + VOLUME + EARNINGS
+# BOTTOM PANEL - CANDLESTICK + VOLUME + EARNINGS
 # ============================================================
 
 def render_candle_chart(ohlc_data, sma_values, projection_points,
@@ -503,7 +503,7 @@ def render_candle_chart(ohlc_data, sma_values, projection_points,
     if n_candles == 0:
         return ''
 
-    # Plot area — split into price zone (top) and volume zone (bottom)
+    # Plot area - split into price zone (top) and volume zone (bottom)
     px_left   = panel_x + CHART_LEFT
     px_right  = panel_x + panel_w - CHART_RIGHT
     px_top    = panel_y + CHART_TOP
@@ -777,7 +777,7 @@ def generate_wave_chart_svg(resource_id, symbol, start_date, days_out, years,
 
 
 # ============================================================
-# SMOKE TEST — just run: python svg_wave_chart.py
+# SMOKE TEST - just run: python svg_wave_chart.py
 # ============================================================
 
 if __name__ == "__main__":

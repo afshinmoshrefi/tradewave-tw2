@@ -817,7 +817,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
     content = {
         "show_opportunities": SHOW_OPPORTUNITIES,
         "enable_seo": ENABLE_SEO,
-        # Absolute URL for canonical, og:url, and JSON-LD — independent of host.
+        # Absolute URL for canonical, og:url, and JSON-LD - independent of host.
         "canonical_url": CANONICAL_ROOT,
 
         # -- Meta --
@@ -966,7 +966,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "monthly_url": PRICING_ANALYST_MONTHLY_URL,
                     "yearly_url": PRICING_ANALYST_YEARLY_URL,
                     "highlighted": False,
-                    "after_launch_price": "",  # launch promo expired — Stripe drives current price
+                    "after_launch_price": "",  # launch promo expired - Stripe drives current price
                     "yearly_daily": _p['analyst_yearly_daily'],
                     "yearly_savings": _p['analyst_yearly_savings'],
                 },
@@ -995,7 +995,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "monthly_url": PRICING_STRATEGIST_MONTHLY_URL,
                     "yearly_url": PRICING_STRATEGIST_YEARLY_URL,
                     "highlighted": True,
-                    "after_launch_price": "",  # launch promo expired — Stripe drives current price
+                    "after_launch_price": "",  # launch promo expired - Stripe drives current price
                     "yearly_daily": _p['strategist_yearly_daily'],
                     "yearly_savings": _p['strategist_yearly_savings'],
                 },

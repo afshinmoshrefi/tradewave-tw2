@@ -9,7 +9,7 @@ Post-build step for the React app. Two transformations:
 
 2. Inject the TW2 unified header (logo + nav + Upgrade) right before
    <div id="root"> so /app/ shows the same site nav as marketing pages.
-   Hidden on mobile via CSS — React's mobile layouts own that screen.
+   Hidden on mobile via CSS - React's mobile layouts own that screen.
 
 Idempotent: safe to run multiple times. Run after every `npm run build`.
 """
@@ -51,9 +51,9 @@ def inject_header(src: str) -> tuple[str, bool]:
         raise RuntimeError(f"marker {MARKER!r} not in build/index.html")
     header = HEADER_PARTIAL.read_text()
     # Stub for React's footer-height calc (App.js looks for .et-l when debug=False).
-    # Hidden, so clientHeight=0 — preserves React's arithmetic without visible chrome.
+    # Hidden, so clientHeight=0 - preserves React's arithmetic without visible chrome.
     header = '<div class="et-l" style="display:none"></div>' + header
-    # In /app context the React shell spans 100vw — make the header span the same
+    # In /app context the React shell spans 100vw - make the header span the same
     # by overriding the partial's max-width: 1200px. Home page keeps the partial as-is.
     app_override = (
         '<style id="tw-app-header-app-override">'

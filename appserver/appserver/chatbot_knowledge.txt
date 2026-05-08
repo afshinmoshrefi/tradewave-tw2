@@ -679,9 +679,9 @@ For signup: tradewave.ai/pricing
 ## Notable Users and Endorsements
 If a user asks "who uses TradeWave", "any notable traders", "endorsements", or asks about any of these people by name, Tara can share what is publicly known:
 
-- **Anne-Marie Baiynd** — Professional trader, author of "The Trading Book", and frequent speaker at trading conferences. She has endorsed TradeWave and uses it in her trading workflow. She is well known in the retail and institutional trading community.
-- **Erin West** — Certified financial educator and trader who has endorsed TradeWave. She teaches trading strategies and incorporates seasonal analysis in her approach.
-- **Jason Perz** — Trader and TradeWave user who has publicly endorsed the platform.
+- **Anne-Marie Baiynd** - Professional trader, author of "The Trading Book", and frequent speaker at trading conferences. She has endorsed TradeWave and uses it in her trading workflow. She is well known in the retail and institutional trading community.
+- **Erin West** - Certified financial educator and trader who has endorsed TradeWave. She teaches trading strategies and incorporates seasonal analysis in her approach.
+- **Jason Perz** - Trader and TradeWave user who has publicly endorsed the platform.
 
 These endorsements are shown on the TradeWave website. Tara should mention them naturally if relevant but should not oversell or exaggerate. If asked about other users, say TradeWave is used by individual traders and institutional analysts but do not fabricate names or claims.
 
@@ -801,7 +801,7 @@ The Price column shows the current real-time stock price for each ticker in the 
 
 - Price text is colored green if the stock is up today, red if it is down.
 - Hovering over a price shows a tooltip with the percentage change (e.g. ▲ +0.83% or ▼ -1.12%).
-- If price data is not available for a ticker (e.g. non-US stocks), the cell shows a dash (—).
+- If price data is not available for a ticker (e.g. non-US stocks), the cell shows a dash ( - ).
 - The Price column can be toggled on/off in Settings under Visible Columns.
 - Prices are fetched when the opportunity table loads and reflect the most recent market data.
 
@@ -813,7 +813,7 @@ Options: 3M (3 months), 6M (6 months, default), 1Y (1 year), 2Y (2 years).
 - Buttons appear in the price chart title bar on desktop (next to the D/W, E, and Proj buttons).
 - Also available in Settings under Chart Range.
 - Only affects the current price chart. Historical year views are not changed.
-- Desktop only — not shown on mobile.
+- Desktop only - not shown on mobile.
 - The selected range persists across sessions.
 
 ## Settings Window
@@ -825,7 +825,7 @@ Settings available:
 - Seasonal Projection on Price Chart: toggles a dashed golden line that projects where the price might go based on the seasonal trend pattern. A period selector lets the user choose how far to project: 2 Weeks, 1 Month, 2 Months, or 3 Months. See the Seasonal Projection section for details.
 - Timeframe: switches the Current Price Chart between Daily and Weekly bars. See the Weekly Price Chart section for details.
 - Earnings Dates: toggles vertical markers on the price chart showing past earnings announcement dates and the projected next earnings date. See the Earnings Dates section for details.
-- Chart Range: controls how much price history is shown on the Current Price Chart. Options are 3M (3 months), 6M (6 months), 1Y (1 year), and 2Y (2 years). Default is 6M. Only affects the current price chart, not historical year views. Desktop only — buttons also appear in the price chart title bar for quick access.
+- Chart Range: controls how much price history is shown on the Current Price Chart. Options are 3M (3 months), 6M (6 months), 1Y (1 year), and 2Y (2 years). Default is 6M. Only affects the current price chart, not historical year views. Desktop only - buttons also appear in the price chart title bar for quick access.
 - Visible Columns: lets users choose which columns appear in the opportunity table. Required columns (Ticker, Days, SR) cannot be hidden. Optional columns: Date, DIR, AvgP, TWA, TWR, TL, Price.
 - Column Order: users can reorder columns in the opportunity table using up/down arrows next to each column in settings. A "Reset order" link restores the default order.
 - Other display and behavior preferences as they are added.
@@ -877,7 +877,7 @@ Important notes:
 The Current Price Chart (slide 3) can display data in either Daily or Weekly timeframe.
 
 Daily (default): Each bar, candle, or line point represents one trading day.
-Weekly: Each bar, candle, or line point represents one trading week. Weekly bars are aggregated from the daily data — the open is from the first trading day of the week, the close is from the last trading day, the high is the week's highest price, the low is the week's lowest, and volume is the sum for the week.
+Weekly: Each bar, candle, or line point represents one trading week. Weekly bars are aggregated from the daily data - the open is from the first trading day of the week, the close is from the last trading day, the high is the week's highest price, the low is the week's lowest, and volume is the sum for the week.
 
 How to switch timeframes:
 1) Open the Settings window (gear icon) and go to Price Chart. Use the Daily/Weekly toggle buttons under Timeframe.

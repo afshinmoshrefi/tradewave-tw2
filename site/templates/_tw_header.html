@@ -1,5 +1,5 @@
 <style id="tw-app-header-css">
-  /* Unified TradeWave site header — used on home page and inside React /app.
+  /* Unified TradeWave site header - used on home page and inside React /app.
      #main-header id is required: React's resize calc reads its clientHeight.
      #main-header.tw-header selector + !important defeats Divi/WP cascade
      that targets #main-header (white background, dark text) in the React app. */
@@ -42,7 +42,7 @@
     max-width: none !important;
   }
 
-  /* Logo: 30px, weight 800, purple gradient text — matches home page exactly */
+  /* Logo: 30px, weight 800, purple gradient text - matches home page exactly */
   #main-header.tw-header .tw-logo {
     font-size: 30px !important;
     font-weight: 800 !important;
@@ -123,7 +123,7 @@
   /* Mobile breakpoint: hide entire header inside the React app
      (React renders its own mobile layout). On home page, swap to hamburger. */
   @media (max-width: 768px) {
-    /* Inside React app, hide entirely — mobile layout owns the screen */
+    /* Inside React app, hide entirely - mobile layout owns the screen */
     body.page-template #main-header.tw-header {
       display: none !important;
     }

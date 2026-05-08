@@ -57,7 +57,7 @@ const TrendScorePopup = ({ onClose }) => {
 
                 <div className="ts-body">
                     <p>
-                        Seasonal patterns tell you what a stock has <em>historically</em> done at a given time of year &mdash; but they don't tell you what the stock is doing <em>right now</em>. Is it actually following the pattern? Is it trending up, down, or going nowhere?
+                        Seasonal patterns tell you what a stock has <em>historically</em> done at a given time of year - but they don't tell you what the stock is doing <em>right now</em>. Is it actually following the pattern? Is it trending up, down, or going nowhere?
                     </p>
                     <p>
                         The <strong>Trend Score</strong> answers that question. It's a technical analysis score that captures how the stock has been behaving over the last one to two weeks, giving you a real-time read on momentum and direction to pair with the seasonal data.

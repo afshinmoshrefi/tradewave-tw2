@@ -40,7 +40,7 @@ def get_current_price(symbol: str, exchange: str = "US") -> Optional[float]:
         response.raise_for_status()
         data = response.json()
         
-        # The 'close' field contains the latest price — may be 'NA' when market is closed
+        # The 'close' field contains the latest price - may be 'NA' when market is closed
         return _safe_float(data.get("close"))
 
     except requests.RequestException as e:
@@ -107,7 +107,7 @@ def get_quote_details(symbol: str, exchange: str = "US") -> Optional[Dict[str, A
 
     Returns:
         Dictionary with quote data, or None if error.
-        Numeric fields are returned as float or None — never the string 'NA'.
+        Numeric fields are returned as float or None - never the string 'NA'.
     """
     # Try realtime service first (free, fast)
     result = _try_realtime_service(symbol, exchange)

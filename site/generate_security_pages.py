@@ -51,14 +51,14 @@ PAGE_DATA_FILE = SMN_MARKETS_DIR / "_page_data.json"
 TW_MARKETS_DIR = Path(config.web_root_dir) / "markets"
 TW_CHARTS_DIR = TW_MARKETS_DIR / "charts"
 
-# Canonical TradeWave domain — pinned so generated metadata never leaks the
+# Canonical TradeWave domain - pinned so generated metadata never leaks the
 # LAN IP from config.domain_root into canonical/og:url/JSON-LD or hrefs.
 # TODO(prod-cutover): swap to https://tradewave.ai/.
 DOMAIN_ROOT = "https://tw2.trxstat.com/"
 
 
 # =============================================================================
-# DARK MARKET BAR — LINKS POINT TO /markets/ (NOT /_static/markets/)
+# DARK MARKET BAR - LINKS POINT TO /markets/ (NOT /_static/markets/)
 # =============================================================================
 
 def _dark_market_bar_html(current_slug=None, all_quotes=None):
@@ -204,7 +204,7 @@ def main():
 
         # Strip any leftover SMN dev-host or LAN-IP references in the dark
         # TW marketing pages so nothing leaks private hostnames out to crawlers.
-        # (Pages live at /markets/ — no /_static/ rewrite needed.)
+        # (Pages live at /markets/ - no /_static/ rewrite needed.)
         for stale in ('http://192.168.1.151:9000', 'http://192.168.1.151',
                       'http://192.168.1.176'):
             html = html.replace(f'{stale}/markets/',

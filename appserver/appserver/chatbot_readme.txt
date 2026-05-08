@@ -1,5 +1,5 @@
 ================================================================================
- TRADEWAVE CHATBOT — README
+ TRADEWAVE CHATBOT - README
 ================================================================================
 Last updated: Feb 2026
 
@@ -11,26 +11,26 @@ UI. It knows about the currently loaded wave pattern, the opportunity table,
 and the TradeWave interface. It uses Anthropic Claude via the Anthropic API.
 
 Files involved:
-  appserver:  chatbot.py              — Flask blueprint, route, prompt builder
-              chatbot_knowledge.txt   — editable knowledge base (no code change needed)
-              chatbot_readme.txt      — this file
-  UI:         src/components/Chatbot.js       — React chatbot component
-              src/components/DesktopLayout.js — mounts chatbot, resizable panel
+  appserver:  chatbot.py - Flask blueprint, route, prompt builder
+              chatbot_knowledge.txt - editable knowledge base (no code change needed)
+              chatbot_readme.txt - this file
+  UI:         src/components/Chatbot.js - React chatbot component
+              src/components/DesktopLayout.js - mounts chatbot, resizable panel
 
 --------------------------------------------------------------------------------
  CONFIGURATION (top of chatbot.py)
 --------------------------------------------------------------------------------
-  CHATBOT_MODEL — which Claude model to use:
+  CHATBOT_MODEL - which Claude model to use:
     CLAUDE_HAIKU_45   = claude-haiku-4-5-20251001   cheap + fast   ~$1/MTok in
     CLAUDE_HAIKU_35   = claude-3-5-haiku-20241022   (NOT available on this key)
     CLAUDE_SONNET_46  = claude-sonnet-4-6            stronger       ~$3/MTok in
     CLAUDE_OPUS_46    = claude-opus-4-6              most capable   ~$15/MTok in
 
-  CACHE_TTL — Anthropic prompt caching tier:
-    '5m'  — $1.25/MTok to write. Cache resets on every hit. Good for active chat.
+  CACHE_TTL - Anthropic prompt caching tier:
+    '5m' - $1.25/MTok to write. Cache resets on every hit. Good for active chat.
             This is the currently working option.
-    '1h'  — $2.00/MTok to write. Cache survives 1hr of inactivity. Better for
-            sporadic use. NOT YET ENABLED — the correct beta header string needs
+    '1h' - $2.00/MTok to write. Cache survives 1hr of inactivity. Better for
+            sporadic use. NOT YET ENABLED - the correct beta header string needs
             to be verified at docs.claude.com before implementing.
 
 After changing either variable: sudo systemctl restart appserver
@@ -41,8 +41,8 @@ After changing either variable: sudo systemctl restart appserver
   Base input tokens:      $1.00 / MTok
   5m cache write:         $1.25 / MTok  (first message of a session)
   1h cache write:         $2.00 / MTok  (first message of a session)
-  Cache hits:             $0.10 / MTok  (every subsequent message — 10x cheaper)
-  Output tokens:          $5.00 / MTok  (the bot's reply — keep answers short!)
+  Cache hits:             $0.10 / MTok  (every subsequent message - 10x cheaper)
+  Output tokens:          $5.00 / MTok  (the bot's reply - keep answers short!)
 
   Example per message (knowledge base ~1,500 tokens, currently):
     First message (cache write):  ~0.2 cents
@@ -73,7 +73,7 @@ Every message to the LLM includes:
   FIRST in the prompt and be identical across all requests. Dynamic content
   comes after and is not cached. This is already implemented correctly.
 
-  Future optimization: split into TWO cached blocks — one for the knowledge
+  Future optimization: split into TWO cached blocks - one for the knowledge
   base (never changes) and one for the wave viewer stats (changes per pattern
   but stays constant within a session). Anthropic supports up to 4 cache blocks.
 
@@ -88,11 +88,11 @@ Edit: /home/flask/appserver/appserver/chatbot_knowledge.txt
 
 The knowledge base teaches the bot TradeWave-specific things the AI doesn't
 know (UI layout, terminology, what makes a good pattern, user workflow, etc.).
-Keep it focused — the AI already knows general trading and finance concepts.
+Keep it focused - the AI already knows general trading and finance concepts.
 Target: under 3,000 words to keep token cost manageable.
 
 --------------------------------------------------------------------------------
- FUTURE WORK — RATE LIMITING & QUOTAS
+ FUTURE WORK - RATE LIMITING & QUOTAS
 --------------------------------------------------------------------------------
 This needs to be implemented before opening the chatbot to all users.
 
@@ -116,7 +116,7 @@ This needs to be implemented before opening the chatbot to all users.
     Cap users at a monthly token budget (e.g. 500,000 tokens/month).
 
 [ ] RATE LIMITING (per minute/hour)
-    Prevent abuse — e.g. max 5 messages per minute per user.
+    Prevent abuse - e.g. max 5 messages per minute per user.
     Can use Redis with a sliding window counter, or a simple DB timestamp check.
 
 [ ] USER LEVEL GATING

@@ -956,7 +956,7 @@ const App = () => {
           historyInitialized.current = false;
         }
 
-        // fetch watchlist items and update filter with symbols — triggers re-filter via opportunities refetch
+        // fetch watchlist items and update filter with symbols - triggers re-filter via opportunities refetch
         let asURL = appserverURL()
         fetch(`${asURL}/get_user_watchlist_items/${wlName}?token=${token}`)
           .then(res => res.json())
@@ -970,7 +970,7 @@ const App = () => {
           })
           .catch(err => console.log('fetch watchlist filter items error:', err.message))
 
-        return; // don't clear opportunities yet — will be cleared after watchlist items arrive
+        return; // don't clear opportunities yet - will be cleared after watchlist items arrive
       }
 
       else {
@@ -1541,7 +1541,7 @@ const App = () => {
     }
     else SetUserDateRange([])
 
-    // TW2: always prefer the freshly-injected window globals — Flask re-mints the
+    // TW2: always prefer the freshly-injected window globals - Flask re-mints the
     // LTK on every /app/ load, so a page-reload picks up DB tier / legacy_level
     // changes immediately. Only fall back to legacy 'apsl' cookie if globals are
     // missing (TW1 / dev shim path).
@@ -2525,7 +2525,7 @@ const App = () => {
         {/* had to add test !rdd.isMobile only for safari on ipad */}
         {/*
             Nested ErrorBoundary wraps each layout root so a crash in DesktopLayout
-            (chart canvas, OppTable, etc.) doesn't kill the whole shell — the user
+            (chart canvas, OppTable, etc.) doesn't kill the whole shell - the user
             sees a localized "panel encountered an error" + reload-only-this-panel
             UI, not the full-screen "Session interrupted" outer fallback.
             Pattern: wrap any high-risk subtree (chart canvas, settings dialog,

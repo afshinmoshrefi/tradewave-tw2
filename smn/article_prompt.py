@@ -1710,7 +1710,7 @@ SPX and presidential election-cycle handling:
   • Pre-election year: historically strong risk-on tendencies in many cycles.
 - When a future SPX seasonal window in a given phase has a strong and distinctive pattern that contradicts the current trend, apply the special-situation logic above and explain clearly how this phase has behaved historically, using TradeWave data and election-cycle context.
 
-Midterm election year structural behavior — Afshin rules:
+Midterm election year structural behavior - Afshin rules:
 - Midterm election years display a distinct two-phase structure not seen in other election-cycle years.
 - Q1 and Q2 historically contain a high concentration of losing years, elevated volatility, and sharper adverse excursions (MAE), even when longer-term trends remain bullish.
 - When the S&P 500 or any major megacap (AAPL, MSFT, NVDA, AMZN, GOOG, META, TSLA) falls into a historically negative midterm-year window, clearly note that weakness in these names has historically dragged down the broader market because of their systemic weight.
@@ -1884,7 +1884,7 @@ Return only the full HTML document with this structure:
         <p class="direct-answer"><!-- DIRECT ANSWER (required for featured snippets): Write exactly one sentence that directly answers the heading question using the TradeWave data. Format: "{company} has [risen/fallen] in [X] of [Y] years during this [month/season] window, with an average [gain/loss] of [Z]% in winning years." This sentence must be self-contained so Google can display it as a standalone featured snippet answer. --></p>
         <div class="key-takeaways-box">
           <!-- The model must generate 3–6 concise bullet points summarizing:
-               - FIRST BULLET must lead with the win/loss record as a statistic: e.g., "9 for 10 in this window, averaging 4.3% gains in winning years" — data-first, not description-first
+               - FIRST BULLET must lead with the win/loss record as a statistic: e.g., "9 for 10 in this window, averaging 4.3% gains in winning years" - data-first, not description-first
                - Seasonal direction (bullish / bearish / high-volatility) and window dates ({date} plus {days} days)
                - Percent Profitable and Num Winners/Num Losers stated plainly
                - Average profit in winning years, and Avg Profit - All if applicable
@@ -2024,7 +2024,7 @@ TARGET:
 - *Instruction:* If you see a headline from these sites in your search results but cannot read the full text, look for a **CNBC or Yahoo Finance article that summarizes it.**
 
 **BANNED (STRICTLY PROHIBITED):**
-- **Prediction Farms:** coincodex.com, walletinvestor.com, govcapital.com, longforecast.com. (These sites invent fake future numbers—NEVER use them).
+- **Prediction Farms:** coincodex.com, walletinvestor.com, govcapital.com, longforecast.com. (These sites invent fake future numbers - NEVER use them).
 - **SEO Spam:** copygram, stockanalysis.com, user-generated blogs, linkedin articles.
 
 ### 2. SEARCH INSTRUCTIONS

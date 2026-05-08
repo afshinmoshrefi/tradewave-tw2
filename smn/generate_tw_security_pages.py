@@ -39,7 +39,7 @@ TW_ROOT = Path(config.web_root_dir) / "_static"
 TW_MARKETS_DIR = TW_ROOT / "markets"
 TW_CHARTS_DIR = TW_MARKETS_DIR / "charts"
 
-# Canonical TradeWave domain — pinned here so the dark market pages never
+# Canonical TradeWave domain - pinned here so the dark market pages never
 # leak the LAN IP from config.domain_root into canonical/og:url/JSON-LD or
 # into header/market-bar hrefs. TODO(prod-cutover): swap to https://tradewave.ai/.
 DOMAIN_ROOT = "https://tw2.trxstat.com/"
