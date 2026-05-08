@@ -58,11 +58,19 @@ plt.rcParams.update({
 
 
 def _save(fig, name: str) -> Path:
-    path = CHART_DIR / f'{name}.svg'
-    fig.savefig(path, format='svg', bbox_inches='tight', pad_inches=0.2)
+    """Save both SVG (in-page) and PNG (social-card og:image) variants.
+
+    SVG is the canonical embed (sharp, small, theme-aware). PNG is needed
+    because Twitter/X and a few other social platforms reject SVG for
+    Open Graph card images.
+    """
+    svg_path = CHART_DIR / f'{name}.svg'
+    png_path = CHART_DIR / f'{name}.png'
+    fig.savefig(svg_path, format='svg', bbox_inches='tight', pad_inches=0.2)
+    fig.savefig(png_path, format='png', dpi=160, bbox_inches='tight', pad_inches=0.2)
     plt.close(fig)
-    print(f'  {name}.svg  {path.stat().st_size:>6} bytes')
-    return path
+    print(f'  {name}  svg={svg_path.stat().st_size:>6}  png={png_path.stat().st_size:>6} bytes')
+    return svg_path
 
 
 def _style_axes(ax, *, xlabel='', ylabel='', title=''):

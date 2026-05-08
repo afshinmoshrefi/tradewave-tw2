@@ -113,7 +113,8 @@ def load_articles() -> List[Dict[str, Any]]:
         meta['body_md']         = body
         meta['body_html']       = render_markdown(body)
         meta.setdefault('author', 'TradeWave Research')
-        meta.setdefault('reading_minutes', max(1, len(body.split()) // 220))
+        meta['word_count']      = len(body.split())
+        meta.setdefault('reading_minutes', max(1, meta['word_count'] // 220))
         meta.setdefault('tags', [])
         meta.setdefault('featured', False)
         meta.setdefault('related', [])
@@ -121,6 +122,22 @@ def load_articles() -> List[Dict[str, Any]]:
             meta['date'] = datetime.now().strftime('%Y-%m-%d')
         meta['date_pretty'] = date_pretty(meta['date'])
         meta['date_iso']    = date_iso(meta['date'])
+        # og:image: first chart URL embedded in the body, else fallback to favicon.
+        # Open Graph / Twitter Cards prefer raster (PNG), so swap the SVG
+        # extension to PNG when the matching .png exists alongside.
+        import re as _re
+        m = _re.search(r'<img[^>]+src="(/insights/charts/[^"]+)"', meta['body_html'])
+        if m:
+            chart_path = m.group(1)
+            png_candidate = _re.sub(r'\.svg$', '.png', chart_path)
+            png_disk = Path('/var/www/tradewave') / png_candidate.lstrip('/')
+            chosen = png_candidate if png_disk.exists() else chart_path
+            meta['og_image_url'] = 'https://tw2.trxstat.com' + chosen
+        elif meta.get('hero'):
+            meta['og_image_url'] = ('https://tw2.trxstat.com' + meta['hero']
+                                    if meta['hero'].startswith('/') else meta['hero'])
+        else:
+            meta['og_image_url'] = 'https://tw2.trxstat.com/favicon.png'
         arts.append(meta)
     arts.sort(key=lambda a: a['date_iso'], reverse=True)
     return arts
