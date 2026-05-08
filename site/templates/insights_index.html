@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Insights - Research, Education, and Methodology - TradeWave</title>
+  <meta name="description" content="Research-backed articles on financial seasonality, AI in markets, and rigorous investment methodology. From a small team at TradeWave.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://tw2.trxstat.com/insights/">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="shortcut icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <meta property="og:title" content="Insights - TradeWave">
+  <meta property="og:description" content="Research-backed articles on financial seasonality, AI in markets, and methodology.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://tw2.trxstat.com/insights/">
+  <style>
+    :root {
+      --bg: #0f0a15;
+      --bg-alt: #15101e;
+      --text: #e5e7eb;
+      --text-dim: #9ca3af;
+      --text-muted: #6b7280;
+      --border: #1f2937;
+      --link: #a78bfa;
+      --link-hover: #c4b5fd;
+      --accent: #8b5cf6;
+    }
+    html, body { background: var(--bg); color: var(--text); margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Arial, sans-serif; font-size: 16px; line-height: 1.65; }
+    .insights-hero { background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(168,85,247,0.10) 100%); border-bottom: 1px solid var(--border); padding: 64px 24px 48px; text-align: center; }
+    .insights-hero h1 { margin: 0 0 12px; font-size: 44px; font-weight: 800; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .insights-hero p { margin: 0 auto; max-width: 720px; color: var(--text-dim); font-size: 18px; }
+    main.insights-grid { max-width: 1100px; margin: 0 auto; padding: 48px 24px 72px; }
+    .insights-grid-inner { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+    .insights-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 24px 24px 20px; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; display: flex; flex-direction: column; }
+    .insights-card:hover { transform: translateY(-2px); border-color: rgba(139,92,246,0.36); box-shadow: 0 12px 32px rgba(139,92,246,0.12); }
+    .insights-card h2 { margin: 0 0 10px; font-size: 19px; font-weight: 700; line-height: 1.35; }
+    .insights-card h2 a { color: var(--text); text-decoration: none; }
+    .insights-card h2 a:hover { color: var(--link); }
+    .insights-card .meta { font-size: 12px; color: var(--text-muted); margin: 0 0 12px; letter-spacing: 0.02em; text-transform: uppercase; }
+    .insights-card .summary { color: var(--text-dim); font-size: 14.5px; line-height: 1.65; margin: 0 0 16px; flex-grow: 1; }
+    .insights-card .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .insights-card .tag { font-size: 11px; padding: 3px 8px; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.22); border-radius: 999px; color: var(--text-dim); text-transform: lowercase; }
+    .insights-card .read-link { font-size: 13px; font-weight: 600; color: var(--link); text-decoration: none; align-self: flex-start; }
+    .insights-card .read-link:hover { color: var(--link-hover); }
+    .insights-card.featured { grid-column: 1 / -1; background: linear-gradient(180deg, rgba(139,92,246,0.06) 0%, rgba(99,102,241,0.03) 100%); border-color: rgba(139,92,246,0.25); padding: 32px; }
+    .insights-card.featured h2 { font-size: 26px; }
+    .insights-card.featured .summary { font-size: 16px; }
+    .insights-page-footer { border-top: 1px solid var(--border); background: var(--bg-alt); padding: 40px 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
+    .insights-page-footer nav { margin-bottom: 16px; }
+    .insights-page-footer nav a { color: var(--text-dim); text-decoration: none; margin: 0 12px; font-size: 14px; }
+    .insights-page-footer nav a:hover { color: #fff; }
+    @media (max-width: 720px) {
+      .insights-hero h1 { font-size: 32px; }
+      .insights-grid-inner { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+{{ tw_header | safe }}
+
+<section class="insights-hero">
+  <h1>Insights</h1>
+  <p>Research-backed writing on financial seasonality, machine learning in markets, and the methodology that separates a real edge from a coincidence.</p>
+</section>
+
+<main class="insights-grid">
+  <div class="insights-grid-inner">
+    {% for a in articles %}
+    <article class="insights-card{{ ' featured' if a.featured else '' }}">
+      <h2><a href="/insights/{{ a.slug }}.html">{{ a.title }}</a></h2>
+      <div class="meta">{{ a.date_pretty }} - {{ a.reading_minutes }} min read</div>
+      {% if a.tags %}
+      <div class="tags">{% for t in a.tags %}<span class="tag">{{ t }}</span>{% endfor %}</div>
+      {% endif %}
+      <p class="summary">{{ a.summary }}</p>
+      <a class="read-link" href="/insights/{{ a.slug }}.html">Read article -&gt;</a>
+    </article>
+    {% endfor %}
+  </div>
+</main>
+
+<footer class="insights-page-footer">
+  <nav aria-label="Footer">
+    <a href="/">Home</a>
+    <a href="/app/">Wave Viewer</a>
+    <a href="/learn.html">Learn</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+    <a href="/disclaimer.html">Disclaimer</a>
+  </nav>
+  <p>&copy; {{ year }} Tara Data Research LLC. All rights reserved.</p>
+</footer>
+</body>
+</html>

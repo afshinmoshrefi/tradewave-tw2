@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ article.title }} - TradeWave Insights</title>
+  <meta name="description" content="{{ article.summary }}">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://tw2.trxstat.com/insights/{{ article.slug }}.html">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="shortcut icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <meta property="og:title" content="{{ article.title }}">
+  <meta property="og:description" content="{{ article.summary }}">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://tw2.trxstat.com/insights/{{ article.slug }}.html">
+  <meta property="article:published_time" content="{{ article.date_iso }}">
+  <meta property="article:author" content="{{ article.author }}">
+  {% for t in article.tags %}<meta property="article:tag" content="{{ t }}">
+  {% endfor %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": {{ article.title | tojson }},
+    "description": {{ article.summary | tojson }},
+    "datePublished": "{{ article.date_iso }}",
+    "author": {"@type": "Organization", "name": "{{ article.author }}", "url": "https://tw2.trxstat.com/"},
+    "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tw2.trxstat.com/favicon.png"}},
+    "mainEntityOfPage": "https://tw2.trxstat.com/insights/{{ article.slug }}.html"
+  }
+  </script>
+  <style>
+    :root {
+      --bg: #0f0a15;
+      --bg-alt: #15101e;
+      --text: #e5e7eb;
+      --text-dim: #9ca3af;
+      --text-muted: #6b7280;
+      --border: #1f2937;
+      --link: #a78bfa;
+      --link-hover: #c4b5fd;
+      --accent: #8b5cf6;
+      --code-bg: rgba(139,92,246,0.08);
+    }
+    html, body { background: var(--bg); color: var(--text); margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Arial, sans-serif; font-size: 17px; line-height: 1.75; }
+    .article-hero { background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(168,85,247,0.10) 100%); border-bottom: 1px solid var(--border); padding: 56px 24px 40px; }
+    .article-hero-inner { max-width: 760px; margin: 0 auto; }
+    .article-hero .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
+    .article-hero .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .article-hero .breadcrumb a:hover { color: var(--text); }
+    .article-hero h1 { margin: 0 0 16px; font-size: 38px; font-weight: 800; line-height: 1.2; color: #fff; }
+    .article-hero .meta { font-size: 13px; color: var(--text-muted); letter-spacing: 0.02em; text-transform: uppercase; margin-bottom: 14px; }
+    .article-hero .summary { font-size: 18px; color: var(--text-dim); margin: 0 0 18px; line-height: 1.6; }
+    .article-hero .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .article-hero .tag { font-size: 11px; padding: 4px 10px; background: rgba(139,92,246,0.14); border: 1px solid rgba(139,92,246,0.28); border-radius: 999px; color: var(--text); text-transform: lowercase; letter-spacing: 0.02em; }
+    main.article-prose { max-width: 760px; margin: 0 auto; padding: 48px 24px 72px; }
+    .article-prose h2 { margin: 44px 0 16px; font-size: 28px; font-weight: 700; color: #fff; line-height: 1.3; }
+    .article-prose h3 { margin: 32px 0 12px; font-size: 21px; font-weight: 700; color: #f3f4f6; }
+    .article-prose h4 { margin: 24px 0 10px; font-size: 17px; font-weight: 700; color: #f3f4f6; text-transform: uppercase; letter-spacing: 0.04em; }
+    .article-prose p { color: var(--text); margin: 0 0 18px; }
+    .article-prose a { color: var(--link); text-decoration: underline; }
+    .article-prose a:hover { color: var(--link-hover); }
+    .article-prose ul, .article-prose ol { padding-left: 24px; margin: 0 0 22px; }
+    .article-prose li { margin-bottom: 10px; }
+    .article-prose strong { color: #fff; }
+    .article-prose blockquote { border-left: 3px solid var(--accent); padding: 6px 18px; margin: 22px 0; color: var(--text-dim); background: rgba(139,92,246,0.05); font-style: italic; }
+    .article-prose code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.92em; }
+    .article-prose pre { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; }
+    .article-prose pre code { background: transparent; padding: 0; }
+    .article-prose img { max-width: 100%; height: auto; border-radius: 8px; margin: 22px 0; }
+    .article-prose figure { margin: 28px 0; text-align: center; }
+    .article-prose figure svg, .article-prose figure img { max-width: 100%; height: auto; }
+    .article-prose figcaption { font-size: 13px; color: var(--text-muted); margin-top: 10px; }
+    .article-prose hr { border: 0; border-top: 1px solid var(--border); margin: 36px 0; }
+    .article-prose table { width: 100%; border-collapse: collapse; margin: 22px 0; font-size: 14.5px; }
+    .article-prose th { background: rgba(139,92,246,0.08); border-bottom: 2px solid rgba(139,92,246,0.3); padding: 10px 14px; text-align: left; color: #fff; }
+    .article-prose td { border-bottom: 1px solid var(--border); padding: 10px 14px; }
+    .article-prose tr:hover td { background: rgba(255,255,255,0.02); }
+    .article-callout { background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.25); border-radius: 12px; padding: 18px 22px; margin: 28px 0; }
+    .article-callout p { margin: 0; font-size: 15px; }
+    .article-tw-callout { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.18); border-radius: 12px; padding: 16px 20px; margin: 28px 0; font-size: 14px; color: var(--text-dim); }
+    .article-tw-callout strong { color: var(--text); }
+    .article-footnotes { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--border); font-size: 14px; color: var(--text-dim); }
+    .article-footnotes h2 { font-size: 18px; margin-top: 0; }
+    .article-footnotes ol { padding-left: 22px; }
+    .article-footnotes li { margin-bottom: 8px; }
+    .article-related { margin-top: 48px; padding-top: 36px; border-top: 1px solid var(--border); }
+    .article-related h2 { font-size: 22px; margin-bottom: 18px; }
+    .article-related .related-list { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .article-related .related-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 16px 18px; }
+    .article-related .related-card a { color: var(--text); text-decoration: none; font-weight: 600; font-size: 14.5px; }
+    .article-related .related-card a:hover { color: var(--link); }
+    .article-related .related-card .related-summary { color: var(--text-muted); font-size: 12.5px; margin-top: 6px; line-height: 1.5; }
+    .article-page-footer { border-top: 1px solid var(--border); background: var(--bg-alt); padding: 40px 24px; text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 32px; }
+    .article-page-footer nav { margin-bottom: 14px; }
+    .article-page-footer nav a { color: var(--text-dim); text-decoration: none; margin: 0 12px; font-size: 14px; }
+    .article-page-footer nav a:hover { color: #fff; }
+    @media (max-width: 720px) {
+      .article-hero h1 { font-size: 28px; }
+      .article-hero .summary { font-size: 16px; }
+      body { font-size: 16px; }
+      .article-related .related-list { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+{{ tw_header | safe }}
+
+<section class="article-hero">
+  <div class="article-hero-inner">
+    <div class="breadcrumb"><a href="/">Home</a> -&gt; <a href="/insights/">Insights</a> -&gt; {{ article.title }}</div>
+    <h1>{{ article.title }}</h1>
+    <div class="meta">{{ article.date_pretty }} - {{ article.reading_minutes }} min read - {{ article.author }}</div>
+    <p class="summary">{{ article.summary }}</p>
+    {% if article.tags %}
+    <div class="tags">{% for t in article.tags %}<span class="tag">{{ t }}</span>{% endfor %}</div>
+    {% endif %}
+  </div>
+</section>
+
+<main class="article-prose">
+  {{ article.body_html | safe }}
+
+  {% if related %}
+  <section class="article-related">
+    <h2>Continue reading</h2>
+    <div class="related-list">
+      {% for r in related %}
+      <div class="related-card">
+        <a href="/insights/{{ r.slug }}.html">{{ r.title }}</a>
+        <div class="related-summary">{{ r.summary }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</main>
+
+<footer class="article-page-footer">
+  <nav aria-label="Footer">
+    <a href="/">Home</a>
+    <a href="/insights/">Insights</a>
+    <a href="/app/">Wave Viewer</a>
+    <a href="/learn.html">Learn</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+    <a href="/disclaimer.html">Disclaimer</a>
+  </nav>
+  <p>&copy; {{ year }} Tara Data Research LLC. All rights reserved.</p>
+</footer>
+</body>
+</html>
