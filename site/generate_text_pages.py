@@ -82,9 +82,53 @@ def strip_wp_markup(raw: str) -> str:
     # Collapse stacked &nbsp; placeholders that the Divi hero left behind.
     s = NBSP_RUN_RE.sub("", s)
     # Rewrite legacy contact link to TW2's home so we don't ship dangling URLs.
-    s = s.replace("https://tradeseasonals/contact", "/")
-    s = s.replace("https://tradeseasonals.com", "/")
+    s = s.replace("https://tradeseasonals/contact", "/contact.html")
+    s = s.replace("https://tradeseasonals.com", "https://tradewave.ai")
     return s.strip()
+
+
+# Last-updated date the generator stamps on every legal page. Bump this
+# whenever the content of Terms / Privacy / Disclaimer changes.
+LEGAL_LAST_UPDATED = "January 15, 2026"
+
+
+def tw_rebrand(s: str) -> str:
+    """Rewrite TW1-era references (TradeSeasonals, old company name and
+    address, third-party brand mentions) into TW2 equivalents. Runs after
+    the WP markup strip so it operates on prose, not Divi attribute strings.
+    """
+    # Old company name + street address → just the LLC + state of operation.
+    # Legal docs need an entity + jurisdiction, but a stale street address
+    # is worse than no street address. Update if/when the LLC moves.
+    s = re.sub(
+        r"Tara Research LLC,\s*25 Storey Ave Ste 8\s*-\s*PMB 111\s*"
+        r"Newburyport,\s*MA\s*01950",
+        "Tara Data Research LLC, organized in Massachusetts, United States",
+        s,
+    )
+    # Catch any remaining bare references to the old LLC name.
+    s = s.replace("Tara Research LLC", "Tara Data Research LLC")
+
+    # Brand rename. Order matters: the longest variants first so a partial
+    # match doesn't leave half a word behind.
+    s = s.replace("TradeSeasonals.com", "TradeWave.ai")
+    s = s.replace("tradeseasonals.com", "tradewave.ai")
+    s = s.replace("TradeSeasonals", "TradeWave")
+    s = s.replace("tradeseasonals", "tradewave")
+    s = re.sub(r"\bTrade Seasonals\b", "TradeWave", s)
+    s = re.sub(r"\btrade seasonals\b", "tradewave", s, flags=re.I)
+
+    # Third-party brand contamination from the original WP source.
+    # The "Barchart Content" clause was a copy-paste from a Barchart TOS
+    # template — TradeWave doesn't redistribute Barchart data.
+    s = s.replace("Barchart Content", "TradeWave Content")
+    s = s.replace("Barchart", "TradeWave")
+
+    # Typos in the original Financial Disclaimer prose.
+    s = s.replace("investement adviser", "investment adviser")
+    s = s.replace("unintended erros", "unintended errors")
+
+    return s
 
 
 # ---------------------------------------------------------------------------
@@ -279,12 +323,12 @@ def build_legal_page(out_name: str, title: str, src_id: str, subtitle: str) -> t
     src = SRC_DIR / f"page_{src_id}.html"
     raw = src.read_text(encoding="utf-8")
     stripped = strip_wp_markup(raw)
-    # Pull "Last updated: ..." out of the body and surface it in the layout.
-    last_updated = None
-    m = LAST_UPDATED_RE.search(stripped)
-    if m:
-        last_updated = m.group(1).strip()
-        stripped = LAST_UPDATED_RE.sub("", stripped, count=1)
+    # Apply TW2 rebrand (TradeSeasonals → TradeWave, old address, etc.).
+    stripped = tw_rebrand(stripped)
+    # Drop any stale "Last updated:" line from the source body — we stamp
+    # a single canonical date below so all three legal pages stay in sync.
+    stripped = LAST_UPDATED_RE.sub("", stripped, count=1)
+    last_updated = LEGAL_LAST_UPDATED
     html = render_page(title, subtitle, stripped, last_updated)
     return html, {
         "src": str(src),
@@ -555,14 +599,14 @@ def build_disclaimer() -> tuple[str, dict]:
 
 <p><a href="/">&larr; Back to home</a></p>
 """
-    html = render_page(DISCLAIMER_TITLE, DISCLAIMER_SUBTITLE, body, TODAY_ISO)
+    html = render_page(DISCLAIMER_TITLE, DISCLAIMER_SUBTITLE, body, LEGAL_LAST_UPDATED)
     return html, {
         "src": "(authored in generator — single source of truth)",
         "out": DISCLAIMER_FILENAME,
         "raw_size": 0,
         "stripped_size": len(body),
         "wrapped_size": len(html),
-        "last_updated": TODAY_ISO,
+        "last_updated": LEGAL_LAST_UPDATED,
     }
 
 
