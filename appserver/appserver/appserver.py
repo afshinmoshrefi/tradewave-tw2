@@ -3012,7 +3012,7 @@ def resolve_resource_id(symbol, resource_id):
             return rid  # return most specific group that contains the ticker
     return resource_id  # not found in any group - keep original
 #---------------------------------------------------------------------------------------------------
-@app.route('/dr_report_publish/<string:resourceID>/<string:symbol>/<string:date>/<string:days_hold>/<string:years>/<string:dir>/<string:sharpe_ratio>/<string:selected_portfolio>', methods=['GET'])
+@app.route('/dr_report_publish/<string:resourceID>/<string:symbol>/<string:date>/<string:days_hold>/<string:years>/<string:dir>/<string:sharpe_ratio>/<string:selected_portfolio>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -3180,7 +3180,7 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
 #---------------------------------------------------------------------------------------------------   
 # start writing an AI article for the newsroom by placing it on the writing queue
 #---------------------------------------------------------------------------------------------------   
-@app.route('/write_article_queue/<string:resourceID>/<string:symbol>/<string:date>/<string:days>/<string:years>/<string:direction>/<string:userid>/<string:publish_date>', methods=['GET'])
+@app.route('/write_article_queue/<string:resourceID>/<string:symbol>/<string:date>/<string:days>/<string:years>/<string:direction>/<string:userid>/<string:publish_date>', methods=['POST'])
 @check_for_token
 def write_article_queue(resourceID, symbol, date, days, years, direction, userid, publish_date):
 
@@ -3227,7 +3227,7 @@ def write_article_queue(resourceID, symbol, date, days, years, direction, userid
 # send all opportunities in this portfolio without an article AND not in the queue
 # to the AI article queue for a given publish_date
 #------------------------------------------------------------------------------------------------------------------   
-@app.route('/article_folder_workflow/<int:portfolio_id>/<string:publish_date>', methods=['GET'])
+@app.route('/article_folder_workflow/<int:portfolio_id>/<string:publish_date>', methods=['POST'])
 @check_for_token
 def article_folder_workflow(portfolio_id, publish_date):
     """
@@ -3855,7 +3855,7 @@ def dr_report_list(portfolio_id,articleToggle): # get the list of reports from r
     return jsonify({'reports_list':reports_list_by_portfolio})
 #---------------------------------------------------------------------------------------------------
 # using dr_id as the primary key to update the num_shares of the opportunity in the list 
-@app.route('/update_number_of_shares/<string:num_shares>/<int:portfolioID>/<string:dr_id>', methods=['GET'])
+@app.route('/update_number_of_shares/<string:num_shares>/<int:portfolioID>/<string:dr_id>', methods=['POST'])
 @check_for_token
 def update_number_of_shares(num_shares,portfolioID,dr_id): # use slug as an identifier for which saved report to update
 
@@ -3895,7 +3895,7 @@ def update_number_of_shares(num_shares,portfolioID,dr_id): # use slug as an iden
 # this implements colored marking for user to mark an opportunity for reminder or any reason
 # using dr_id as the primary key to update the status of the opportunity in the list 
 #---------------------------------------------------------------------------------------------------
-@app.route('/update_status/<string:status>/<int:portfolioID>/<string:dr_id>', methods=['GET'])
+@app.route('/update_status/<string:status>/<int:portfolioID>/<string:dr_id>', methods=['POST'])
 @check_for_token
 def update_status(status,portfolioID,dr_id): # use slug as an identifier for which saved report to update
     
@@ -3943,7 +3943,7 @@ def update_status(status,portfolioID,dr_id): # use slug as an identifier for whi
 # when dr_id = -1 remove all
 # need to also put a delete on the queue on the webserver to remove the report
 #---------------------------------------------------------------------------------------------------
-@app.route('/dr_report_remove/<string:dr_id>', methods=['GET'])
+@app.route('/dr_report_remove/<string:dr_id>', methods=['POST'])
 @check_for_token
 def dr_report_remove(dr_id): # get the list of reports from redis and returns a list of dictionaries
 
@@ -4017,7 +4017,7 @@ def get_user_portfolio_names():
 
     return jsonify({'portfolio_names_list':user_portfolios})
 #---------------------------------------------------------------------------------------------------
-@app.route('/add_user_portfolio_name/<string:portfolio_name>', methods=['GET'])
+@app.route('/add_user_portfolio_name/<string:portfolio_name>', methods=['POST'])
 @check_for_token
 def add_user_portfolio_name(portfolio_name): # use slug as an identifier for which saved report to update
 
@@ -4056,7 +4056,7 @@ def add_user_portfolio_name(portfolio_name): # use slug as an identifier for whi
 
     return jsonify({'portfolio_names_list':user_portfolios,'new_portfolio':port_dict})
 #---------------------------------------------------------------------------------------------------
-@app.route('/edit_user_portfolio_name/<string:old_name>/<string:new_name>', methods=['GET'])
+@app.route('/edit_user_portfolio_name/<string:old_name>/<string:new_name>', methods=['POST'])
 @check_for_token
 def edit_user_portfolio_name(old_name,new_name): # use slug as an identifier for which saved report to update
 
@@ -4092,7 +4092,7 @@ def edit_user_portfolio_name(old_name,new_name): # use slug as an identifier for
 
     return jsonify({'portfolio_names_list':user_portfolios})
 #---------------------------------------------------------------------------------------------------
-@app.route('/del_user_portfolio_name/<string:portfolio_name>', methods=['GET'])
+@app.route('/del_user_portfolio_name/<string:portfolio_name>', methods=['POST'])
 @check_for_token
 def del_user_portfolio_name(portfolio_name): # use slug as an identifier for which saved report to update
     
@@ -4182,7 +4182,7 @@ def get_user_watchlist_items(name):
 
     return jsonify({'watchlist_items': items})
 #---------------------------------------------------------------------------------------------------
-@app.route('/add_user_watchlist_name/<string:name>/<string:resourceId>/<string:resourceName>', methods=['GET'])
+@app.route('/add_user_watchlist_name/<string:name>/<string:resourceId>/<string:resourceName>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -4217,7 +4217,7 @@ def add_user_watchlist_name(name, resourceId, resourceName):
 
     return jsonify({'watchlist_names_list': watchlists, 'new_watchlist': new_wl})
 #---------------------------------------------------------------------------------------------------
-@app.route('/edit_user_watchlist_name/<string:old_name>/<string:new_name>', methods=['GET'])
+@app.route('/edit_user_watchlist_name/<string:old_name>/<string:new_name>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -4253,7 +4253,7 @@ def edit_user_watchlist_name(old_name, new_name):
 
     return jsonify({'watchlist_names_list': watchlists})
 #---------------------------------------------------------------------------------------------------
-@app.route('/del_user_watchlist_name/<string:name>', methods=['GET'])
+@app.route('/del_user_watchlist_name/<string:name>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -4282,7 +4282,7 @@ def del_user_watchlist_name(name):
 
     return jsonify({'watchlist_names_list': watchlists})
 #---------------------------------------------------------------------------------------------------
-@app.route('/set_default_watchlist/<string:name>', methods=['GET'])
+@app.route('/set_default_watchlist/<string:name>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -4304,7 +4304,7 @@ def set_default_watchlist(name):
 
     return jsonify({'watchlist_names_list': watchlists})
 #---------------------------------------------------------------------------------------------------
-@app.route('/set_watchlist_add_to_securities/<string:name>/<string:value>', methods=['GET'])
+@app.route('/set_watchlist_add_to_securities/<string:name>/<string:value>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -4325,7 +4325,7 @@ def set_watchlist_add_to_securities(name, value):
     redis_client2.set(redis_key, json.dumps(watchlists))
     return jsonify({'watchlist_names_list': watchlists})
 #---------------------------------------------------------------------------------------------------
-@app.route('/add_user_watchlist_item/<string:watchlist_name>/<string:symbol>', methods=['GET'])
+@app.route('/add_user_watchlist_item/<string:watchlist_name>/<string:symbol>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -4356,7 +4356,7 @@ def add_user_watchlist_item(watchlist_name, symbol):
 
     return jsonify({'watchlist_items': items})
 #---------------------------------------------------------------------------------------------------
-@app.route('/del_user_watchlist_item/<string:watchlist_name>/<string:symbol>', methods=['GET'])
+@app.route('/del_user_watchlist_item/<string:watchlist_name>/<string:symbol>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -4428,7 +4428,7 @@ def detect_symbols_group(encoded_symbols):
         'all_groups': [{'resource_id': g['resource_id'], 'resource_name': g['resource_name'], 'match_count': g['match_count']} for g in group_matches]
     })
 #---------------------------------------------------------------------------------------------------
-@app.route('/bulk_add_watchlist_items/<string:watchlist_name>/<string:encoded_symbols>', methods=['GET'])
+@app.route('/bulk_add_watchlist_items/<string:watchlist_name>/<string:encoded_symbols>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -4624,7 +4624,7 @@ def update_published_list():
     return jsonify({'published_lists': all_lists})
 
 #---------------------------------------------------------------------------------------------------
-@app.route('/delete_published_list/<string:name>', methods=['GET'])
+@app.route('/delete_published_list/<string:name>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
 @limiter.limit(config.rate_limit_general[1])
@@ -4753,7 +4753,7 @@ def get_note(dr_id): # use dr_id as an identifier for which saved report to upda
     return jsonify({'note':note})
 #---------------------------------------------------------------------------------------------------
 # using slug as the primary key to update the num_shares of the opportunity in the list 
-@app.route('/save_note/<string:note>/<int:dr_id>', methods=['GET'])
+@app.route('/save_note/<string:note>/<int:dr_id>', methods=['POST'])
 @check_for_token
 def save_note(note,dr_id): # use dr_id as an identifier for which saved opp to update
 
@@ -4795,7 +4795,7 @@ def save_note(note,dr_id): # use dr_id as an identifier for which saved opp to u
 #---------------------------------------------------------------------------------------------------
 # send this opp to social media
 #---------------------------------------------------------------------------------------------------
-@app.route('/opp_to_social_media/<string:note>/<string:slug>', methods=['GET'])
+@app.route('/opp_to_social_media/<string:note>/<string:slug>', methods=['POST'])
 @check_for_token
 def opp_to_social_media(note,slug): # use slug as an identifier for which saved opp to update
 
@@ -4863,7 +4863,7 @@ def opp_to_social_media(note,slug): # use slug as an identifier for which saved 
 #---------------------------------------------------------------------------------------------------
 # del this opp to social media
 #---------------------------------------------------------------------------------------------------
-@app.route('/opp_del_social_media/<string:slug>', methods=['GET'])
+@app.route('/opp_del_social_media/<string:slug>', methods=['POST'])
 @check_for_token
 def opp_del_social_media(slug): # use slug as an identifier for which saved opp to update
 
@@ -5165,7 +5165,7 @@ def settings_top10_email_get():
 
 #---------------------------------------------------------------------------------------------------
 # this is for email selection by user 1 is opt-in and 0 is opt-out
-@app.route('/settings_top10_email_set/<int:email_selection>', methods=['GET'])
+@app.route('/settings_top10_email_set/<int:email_selection>', methods=['POST'])
 @check_for_token
 def settings_email_markets_set(email_selection): # email selection is either 0 or 1
 
@@ -5209,7 +5209,7 @@ def settings_email_markets_set(email_selection): # email selection is either 0 o
     return jsonify({'settings_email_top10_set':'success'})
 #-----------------------------------------------------------------------------------------------------
 # this is called from populate portfolio - does 2 things - gets the # or populates a portfolio
-@app.route('/populate_portfolio/<string:qvars>/<string:portfolio_name>/<string:action>', methods=['GET'])
+@app.route('/populate_portfolio/<string:qvars>/<string:portfolio_name>/<string:action>', methods=['POST'])
 @check_for_token
 def populate_portfolio(qvars,portfolio_name,action): 
 
@@ -5551,8 +5551,8 @@ def find_weekdays_around_xdate(d,num_days):
 # 2) creates a & type portfolio with the name of the current month, if it doesn't exist
 # 3) moves daily type portfolios from previous days to the monthly portfolio - deletes the day portfolio - so there should be 1 day protfolio and 1 month portfolio for today
 # option parameter is used to process either today or any date
-@app.route('/process_auto_portfolio/<string:auto_portfolio_date>', methods=['GET'])
-@app.route('/process_auto_portfolio', methods=['GET'])
+@app.route('/process_auto_portfolio/<string:auto_portfolio_date>', methods=['POST'])
+@app.route('/process_auto_portfolio', methods=['POST'])
 @check_for_token
 def process_auto_portfolio(auto_portfolio_date='today'):    
 

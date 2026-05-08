@@ -526,7 +526,7 @@ const AutoTrade = (props) => {
         var url = `${asURL}/populate_portfolio/${qvars}/${props.selectedPortfolio}/${action}`; // action is either count or populate
         url += '?token=' + token;
 
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK

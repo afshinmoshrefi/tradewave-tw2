@@ -336,7 +336,7 @@ const PublishArticle = (props) => {
             // Route signature: /resourceID/symbol/date/days_hold/years/userid/publish_date
             let workflowUrl = `${asURL}/write_article_queue/${r['resourceID']}/${r['symbol']}/${r['date']}/${r['days_hold']}/${r['years']}/${r['direction']}/${userid}/${articleDate}?token=${token}`;
 
-            fetch(workflowUrl)
+            fetch(workflowUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
                 .then((response) => {
                     if (!response.ok) {
                         throw new Error(response.status);

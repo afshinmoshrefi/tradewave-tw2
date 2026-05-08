@@ -210,3 +210,73 @@ class TestChatbotDecorator:
         assert hasattr(chatbot.chat, "__wrapped__"), "chat must be wrapped by check_for_token"
         assert hasattr(chatbot.chatbot_access, "__wrapped__"), \
             "chatbot_access must be wrapped by check_for_token"
+
+
+# ---------------------------------------------------------------------
+# M2 - State-changing routes must reject GET (POST-only conversion)
+# ---------------------------------------------------------------------
+
+class TestStateChangingRoutesArePostOnly:
+    """A2-M2 closeout: 24 state-mutation routes were converted from GET
+    to POST. We sample a representative subset and assert that hitting
+    them with GET yields 405 Method Not Allowed at the route layer
+    (BEFORE check_for_token would have run, so an invalid token does
+    NOT mask the assertion).
+    """
+
+    SAMPLE_ROUTES = [
+        "/dr_report_remove/1",
+        "/save_note/foo/1",
+        "/add_user_portfolio_name/sample",
+        "/del_user_watchlist_item/wl/AAPL",
+        "/delete_published_list/anything",
+        "/populate_portfolio/abc/main/count",
+    ]
+
+    def _get(self, path):
+        import socket
+        try:
+            import http.client as http_client
+            conn = http_client.HTTPConnection("127.0.0.1", 5000, timeout=2)
+            conn.request("GET", path + "?token=invalid")
+            resp = conn.getresponse()
+            status = resp.status
+            conn.close()
+            return status
+        except (ConnectionError, OSError, socket.error):
+            pytest.skip("appserver not reachable on 127.0.0.1:5000")
+
+    def _post(self, path):
+        import socket
+        try:
+            import http.client as http_client
+            conn = http_client.HTTPConnection("127.0.0.1", 5000, timeout=2)
+            conn.request(
+                "POST", path + "?token=invalid",
+                body="{}",
+                headers={"Content-Type": "application/json"},
+            )
+            resp = conn.getresponse()
+            status = resp.status
+            conn.close()
+            return status
+        except (ConnectionError, OSError, socket.error):
+            pytest.skip("appserver not reachable on 127.0.0.1:5000")
+
+    def test_get_returns_405(self):
+        for path in self.SAMPLE_ROUTES:
+            code = self._get(path)
+            assert code == 405, \
+                f"GET {path} expected 405 (POST-only) but got {code}"
+
+    def test_post_does_not_405(self):
+        # POST should not be 405 - it should pass through to
+        # check_for_token, which then 401s on the invalid token. This
+        # guards against a future regression where someone changes
+        # methods=['POST'] to methods=['PUT'] etc.
+        for path in self.SAMPLE_ROUTES:
+            code = self._post(path)
+            assert code != 405, \
+                f"POST {path} returned 405 but should reach the handler"
+            assert code in (401, 403), \
+                f"POST {path} expected 401/403 (invalid token) but got {code}"

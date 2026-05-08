@@ -378,7 +378,7 @@ const DesktopLayout = (props) => {
 
     const handleDeletePublishedList = (name) => {
         let asURL = appserverURL();
-        fetch(`${asURL}/delete_published_list/${encodeURIComponent(name)}?token=${token}`)
+        fetch(`${asURL}/delete_published_list/${encodeURIComponent(name)}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => res.json())
             .then(data => { if (data['published_lists']) { props.SetPublishedLists(data['published_lists']); SetSgMessage(`Deleted: ${name}`); SetSgMsgColor('green'); } })
             .catch(() => { SetSgMessage('Error deleting list'); SetSgMsgColor('red'); });

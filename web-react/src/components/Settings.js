@@ -350,7 +350,7 @@ const Settings = (props) => {
         var url = `${asURL}/process_auto_portfolio?token=${token}`
 
 
-        fetch(url) 
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => {
                 const contentType = res.headers.get("content-type");
                 if (contentType && contentType.indexOf("application/json") !== -1) {

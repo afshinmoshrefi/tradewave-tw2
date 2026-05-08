@@ -226,7 +226,7 @@ const PortfolioSettings = (props) => {
         let url = `${asURL}/add_user_portfolio_name/${newText.trim()}?token=${token}`
 
 
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -243,7 +243,7 @@ const PortfolioSettings = (props) => {
                 // console.log('tmp=', tmp)
                 props.SetPortfolios(tmp);
                 SetMessage(`${newText} has been added`);
-                SetMsgColor('green'); 
+                SetMsgColor('green');
 
                 // props.SetSelectedPortfolio(newText)  // set the current portfolio to the newly created portfolio
 
@@ -359,7 +359,7 @@ const PortfolioSettings = (props) => {
 
         // console.log('url=', url)
 
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -416,7 +416,7 @@ const PortfolioSettings = (props) => {
         let asURL = appserverURL()
         let url = `${asURL}/del_user_portfolio_name/${delname}?token=${token}`
 
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status)

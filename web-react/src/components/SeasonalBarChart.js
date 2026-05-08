@@ -1521,7 +1521,7 @@ const SeasonalBarChart = (props) => {
 
           // console.log('add report url in seasonalbarchart',url)
 
-          fetch(url)
+          fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
               // console.log('response=',response)
               if (!response.ok) {

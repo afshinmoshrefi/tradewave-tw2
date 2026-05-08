@@ -574,7 +574,7 @@ const PopulatePortfolio = (props) => {
 
         url += '?token=' + token;
 
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK

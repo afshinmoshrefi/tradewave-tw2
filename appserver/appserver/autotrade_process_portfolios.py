@@ -41,7 +41,8 @@ def process_auto_portfolios(appserver_token): # create auto portfolio for today 
 
 
 
-    result = requests.get(url)
+    # TW2 A2-M2: route is now POST-only.
+    result = requests.post(url, json={})
     if result.status_code > 201 : print('process_auto_portfolio ',result.status_code,result.text,result.reason)
     api_result = result.json()
     return api_result
@@ -50,7 +51,8 @@ def process_auto_portfolios(appserver_token): # create auto portfolio for today 
 def process_auto_portfolios_by_date(appserver_token,portfolio_date): # this is used to create multiple days in the future instead of just today like process_auto_porfolios
 
     url = f'{config.appserver_url}/process_auto_portfolio/{portfolio_date}?token={appserver_token}'
-    result = requests.get(url)
+    # TW2 A2-M2: route is now POST-only.
+    result = requests.post(url, json={})
     if result.status_code > 201 : print('get_chart_data returned',result.status_code,result.text,result.reason)
     api_result = result.json()
     return api_result

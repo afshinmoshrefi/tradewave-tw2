@@ -647,7 +647,7 @@ const ReportsDashboard = (props) => {
         let selected_portfolio = props.selectedPortfolio;
 
         let url = `${asURL}/dr_report_publish/${id}/${symbol}/${date}/${days_hold}/${years}/${direction}/${sharpe_ratio}/${selected_portfolio}?token=${token}`
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -969,7 +969,7 @@ const ReportsDashboard = (props) => {
         let asURL = appserverURL()
         let url = `${asURL}/update_status/${new_status_value}/${id}/${dr_id}?token=${token}`
 
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -1075,7 +1075,7 @@ const ReportsDashboard = (props) => {
         let asURL = appserverURL()
         let url = `${asURL}/update_number_of_shares/${num_shares}/${id}/${dr_id}?token=${token}`
 
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -1197,7 +1197,7 @@ const ReportsDashboard = (props) => {
         const url = `${asURL}/article_folder_workflow/${portfolioId}/${articleDate}?token=${token}`;
 
 
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((resp) => {
                 if (!resp.ok) {
                     throw new Error(`HTTP ${resp.status}`);

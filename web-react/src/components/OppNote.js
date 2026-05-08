@@ -250,7 +250,7 @@ const OppNote = (props) => {
         let asURL = appserverURL()
         let url = `${asURL}/save_note/${encodedText}/${props.selectedDRID}?token=${token}`
         // console.log('save note url=',url)
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -302,7 +302,7 @@ const OppNote = (props) => {
         let asURL = appserverURL()
         let url = `${asURL}/opp_to_social_media/${encodedText}/${props.selectedDRID}?token=${token}`
         // console.log('handle_sm url=',url)
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -333,7 +333,7 @@ const OppNote = (props) => {
         let asURL = appserverURL()
         let url = `${asURL}/opp_del_social_media/${props.selectedDRID}?token=${token}`
 
-        fetch(url)
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
