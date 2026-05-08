@@ -272,6 +272,9 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
   <meta name="description" content="{subtitle}">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://tw2.trxstat.com/{title_to_filename(title)}">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="shortcut icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
   <style>{PAGE_CSS}</style>
 </head>
 <body>

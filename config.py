@@ -257,7 +257,7 @@ num_watchlist_items_allowed_by_level = {
 # appserver_url        = 'http://192.168.1.151:8001'
 appserver_url        = os.environ.get('TW2_APPSERVER_URL', '')  # set in /etc/tradewave/secrets.env (per-env appserver URL)
 
-tw_favicon     = '/_static/favicon.png'  # TW2: relative to marketing site root
+tw_favicon     = '/favicon.png'  # served from /var/www/tradewave/favicon.png
 smn_favicon    = os.environ.get('TW2_SMN_FAVICON_URL', '')  # set in /etc/tradewave/secrets.env (per-env favicon URL)
 article_favicon = os.environ.get('TW2_ARTICLE_FAVICON_URL', '')  # set in /etc/tradewave/secrets.env (per-env article favicon URL)
 smn_from_name  = 'Seasonal Market News'
