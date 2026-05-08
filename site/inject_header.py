@@ -18,7 +18,7 @@ import re
 import sys
 
 BUILD_INDEX = Path("/home/flask/web-react/build/index.html")
-HEADER_PARTIAL = Path("/var/www/tradewave/_partials/tw_app_header.html")
+HEADER_PARTIAL = Path("/home/flask/site/templates/_tw_header.html")
 MARKER = '<div id="root">'
 SENTINEL = "tw-app-header"
 

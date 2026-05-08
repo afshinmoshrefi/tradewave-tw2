@@ -23,11 +23,13 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, '/home/flask')
 sys.path.insert(0, '/home/flask/smn')  # reuse SMN heavy lifting + dark theme bits
+sys.path.insert(0, '/home/flask/site/lib')  # text_utils.no_em_dash
 import config
 
 import requests
 
 from get_price_eod import get_quote_details
+from text_utils import no_em_dash
 
 # Reuse the SMN generator (heavy lifting: build_security_page, _build_*_html,
 # SECURITY_PAGES list, _fmt_price, _fmt_change, etc.)
@@ -36,6 +38,27 @@ import generate_security_pages as gsp
 # Reuse the dark-theme overrides from the existing TW generator so we keep
 # branding consistent without duplicating CSS / header / CTA / footer code.
 import generate_tw_security_pages as tw
+
+
+# =============================================================================
+# CANONICAL TW2 HEADER PARTIAL
+# =============================================================================
+# Single source of truth for the TW2 site nav. Read at build time and spliced
+# into every dark security page so the menu stays in lockstep with the home
+# page and the React /app shell. See /home/flask/site/templates/_tw_header.html.
+# (The marketing-site generator inherits this through tw._dark_header_html,
+# which is monkey-patched onto gsp._build_header_html below; this constant is
+# defined here too as a defensive backstop in case the partial is ever read
+# outside of the tw module.)
+
+_HEADER_PARTIAL_PATH = '/home/flask/site/templates/_tw_header.html'
+
+def _read_header_partial():
+    try:
+        with open(_HEADER_PARTIAL_PATH, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return ''
 
 # =============================================================================
 # CONFIGURATION
@@ -213,6 +236,9 @@ def main():
                                 f'"{DOMAIN_ROOT.rstrip("/")}/"')
             html = html.replace(f'"{stale}"',
                                 f'"{DOMAIN_ROOT.rstrip("/")}"')
+
+        # Defensive em-dash sweep before write (project rule: no U+2014).
+        html = no_em_dash(html)
 
         out_path = TW_MARKETS_DIR / ("%s.html" % slug)
         out_path.write_text(html, "utf-8")

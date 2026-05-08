@@ -47,7 +47,7 @@ APPSERVER_URL = 'https://app1pp.trxstat.com'
 
 OUTPUT_DIR = config.web_root_dir
 OUTPUT_FILENAME = 'daily-ai-pick.html'
-HEADER_PARTIAL = '/var/www/tradewave/_partials/tw_app_header.html'
+HEADER_PARTIAL = '/home/flask/site/templates/_tw_header.html'
 
 NUM_PER_GROUP = getattr(config, 'num_opps_per_fi', 10)
 TOP10_AVG_PROFIT_FILTER = getattr(config, 'top10_avg_profit_filter', 5)
@@ -322,7 +322,7 @@ def render_html(df, opp_date):
     </table>
     <div class="pick-foot">
       &copy; {YEAR} Tara Data Research LLC &middot;
-      <a href="/_static/research.html">Research</a> &middot;
+      <a href="/research.html">Research</a> &middot;
       <a href="/patterns/">Tickers</a> &middot;
       <a href="/app/">Wave Viewer</a>
       <p style="margin-top:14px;">TradeWave is a research platform. It is not a brokerage and does not execute trades.

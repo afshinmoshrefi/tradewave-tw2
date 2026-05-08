@@ -489,7 +489,7 @@ def render(report_dict, appserver_token, post_title, post_slug):
     excerpt = f"{years_updated}-Year Date Range Report for {company} ({symbol}) - {format_date(date1)} to {format_date(date2)}. Detailed charts and statistics."
 
     # Optional: header/footer partials
-    header_partial = _read_partial('/var/www/tradewave/_partials/tw_app_header.html')
+    header_partial = _read_partial('/home/flask/site/templates/_tw_header.html')
     footer_partial = _read_partial('/var/www/tradewave/_partials/tw_app_footer.html')
 
     page_html = HTML_PAGE_TEMPLATE.format(

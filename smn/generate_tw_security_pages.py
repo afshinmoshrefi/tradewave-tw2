@@ -19,11 +19,30 @@ from datetime import datetime
 
 sys.path.insert(0, '/home/flask')
 sys.path.insert(0, '/home/flask/smn')  # TW2 path
+sys.path.insert(0, '/home/flask/site/lib')  # text_utils.no_em_dash
 import config
 from get_price_eod import get_quote_details
+from text_utils import no_em_dash
 
 # Import the heavy lifting from the SMN generator
 import generate_security_pages as gsp
+
+
+# =============================================================================
+# CANONICAL TW2 HEADER PARTIAL
+# =============================================================================
+# Single source of truth for the TW2 site nav. Read at build time and spliced
+# into every dark security page so the menu stays in lockstep with the home
+# page and the React /app shell. See /home/flask/site/templates/_tw_header.html.
+
+_HEADER_PARTIAL_PATH = '/home/flask/site/templates/_tw_header.html'
+
+def _read_header_partial():
+    try:
+        with open(_HEADER_PARTIAL_PATH, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return ''
 
 # =============================================================================
 # CONFIGURATION
@@ -102,23 +121,13 @@ def _dark_base_css():
 
 
 def _dark_header_html():
-    """TradeWave branded header. Uses relative hrefs so the page works on any
-    host (LAN IP, cloudflared tunnel, prod). The DOMAIN_ROOT canonical URL is
-    only used in metadata blocks, never in clickable links."""
-    return '''
-    <header>
-        <div class="header-content">
-            <a href="/" class="logo" style="font-size:30px;font-weight:800;background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-decoration:none;">TradeWave</a>
-            <div class="header-right">
-                <nav>
-                    <a href="/">Home</a>
-                    <a href="/app/">Wave Viewer</a>
-                    <a href="/scorecard">Track Record</a>
-                    <a href="https://smn-dev.trxstat.com/">News</a>
-                </nav>
-            </div>
-        </div>
-    </header>'''
+    """Render the canonical TW2 header.
+
+    Reads /home/flask/site/templates/_tw_header.html so the menu items
+    (Wave Viewer / Tickers / Scorecard / Research / Learn / News + Log In /
+    CTA) stay in lockstep with the home page and the React /app shell.
+    """
+    return _read_header_partial()
 
 
 def _get_daily_ai_pick_group_id():
@@ -376,6 +385,9 @@ def main():
             html = html.replace(f'"{stale}"',
                                 f'"{DOMAIN_ROOT.rstrip("/")}"')
 
+        # Defensive em-dash sweep before write (project rule: no U+2014).
+        html = no_em_dash(html)
+
         out_path = TW_MARKETS_DIR / ("%s.html" % slug)
         out_path.write_text(html, "utf-8")
         print("  -> Wrote %s (%s bytes)" % (out_path, format(len(html), ',')))
@@ -507,6 +519,9 @@ def inject_tw_security_prices(quotes_by_symbol=None):
             flags=re.DOTALL,
             count=1
         )
+
+        # Defensive em-dash sweep before write (project rule: no U+2014).
+        html = no_em_dash(html)
 
         page_path.write_text(html, "utf-8")
         updated += 1

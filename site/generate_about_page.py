@@ -26,7 +26,7 @@ import config
 
 OUTPUT_DIR = config.web_root_dir
 OUTPUT_FILENAME = 'about.html'
-HEADER_PARTIAL = '/var/www/tradewave/_partials/tw_app_header.html'
+HEADER_PARTIAL = '/home/flask/site/templates/_tw_header.html'
 
 CANONICAL = 'https://tradewave.ai/about.html'
 

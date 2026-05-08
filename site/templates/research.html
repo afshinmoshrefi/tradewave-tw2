@@ -66,16 +66,6 @@
             pointer-events: none; z-index: 0;
         }
 
-        /* Nav */
-        nav { background: rgba(15,10,21,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; z-index: 100; }
-        nav .container { position: relative; display: flex; justify-content: space-between; align-items: center; }
-        .logo { font-size: 30px; font-weight: 800; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-decoration: none; }
-        .hamburger { display: none; }
-        .nav-links { display: flex; gap: 32px; align-items: center; }
-        .nav-links a { color: var(--text-secondary); text-decoration: none; font-weight: 500; font-size: 14px; transition: color 0.2s; }
-        .nav-links a:hover { color: var(--text-primary); }
-        .nav-links a.active { color: var(--text-primary); }
-
         .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 14px; text-decoration: none; transition: all 0.3s; cursor: pointer; border: none; }
         .btn-primary { background: var(--gradient-primary); color: white; box-shadow: 0 4px 20px var(--accent-glow), 0 0 0 1px rgba(255,255,255,0.1) inset; }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--accent-glow-strong), 0 0 0 1px rgba(255,255,255,0.15) inset; }
@@ -299,40 +289,14 @@
             .research-section h2 { font-size: 22px; }
             .citation { padding: 20px; }
             .model-stat-grid { grid-template-columns: 1fr; }
-            .nav-links { display: none; }
-            .nav-links.open { display: flex; flex-direction: column; gap: 0; position: absolute; top: calc(100% + 8px); right: 24px; left: auto; width: 66%; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,0.5); padding: 8px 0; z-index: 200; }
-            .nav-links.open a { display: block; padding: 14px 20px; font-size: 15px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
-            .nav-links.open a:last-child { border-bottom: none; }
-            .nav-links.open .btn.btn-primary { margin: 8px 12px; border-radius: 10px; text-align: center; padding: 12px 20px; border-bottom: none; color: white; }
-            .hamburger { display: flex; flex-direction: column; gap: 5px; cursor: pointer; z-index: 201; background: none; border: none; padding: 8px; }
-            .hamburger span { display: block; width: 24px; height: 2px; background: var(--text-primary); border-radius: 2px; transition: all 0.3s; }
-            .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
-            .hamburger.open span:nth-child(2) { opacity: 0; }
-            .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
         }
 
         html { scroll-behavior: smooth; }
     </style>
 </head>
 <body>
+    {% include "_tw_header.html" %}
     <div class="gradient-bg"></div>
-
-    <!-- Nav -->
-    <nav>
-        <div class="container">
-            <a href="/" class="logo">TradeWave</a>
-            <button class="hamburger" id="hamburger-btn" aria-label="Menu">
-                <span></span><span></span><span></span>
-            </button>
-            <div class="nav-links" id="nav-links">
-                <a href="/wave-viewer">Wave Viewer</a>
-                <a href="/_static/research.html" class="active">Research</a>
-                <a href="{{ login_url }}" class="nav-logged-out">Log In</a>
-                <a href="{{ signup_url }}" class="btn btn-primary nav-logged-out">Start Free Trial</a>
-                <a href="{{ logout_url }}" class="nav-logged-in" style="display:none;">Log Out</a>
-            </div>
-        </div>
-    </nav>
 
     <!-- Header -->
     <section class="page-header">
@@ -574,53 +538,28 @@
     </footer>
 
     <script>
-        // Auth state
+        // Auth-aware swap for body CTA buttons (pricing-signup-btn).
+        // Nav-bar auth swap is handled inside _tw_header.html (uses /api/me).
         (function() {
-            function applyAuth(data) {
-                if (!data.logged_in) return;
-                var level = data.level || 'free';
-                document.querySelectorAll('.nav-logged-out').forEach(function(el) { el.style.display = 'none'; });
-                document.querySelectorAll('.nav-logged-in').forEach(function(el) { el.style.display = ''; });
-                document.querySelectorAll('.pricing-signup-btn').forEach(function(el) {
-                    if (level === 'strategist') {
-                        el.setAttribute('href', el.getAttribute('data-strategist-href') || '/wave-viewer');
-                        el.textContent = el.getAttribute('data-strategist-text') || 'Launch Wave Viewer';
-                    } else if (level === 'analyst') {
-                        el.setAttribute('href', el.getAttribute('data-upgrade-url'));
-                        el.textContent = 'Upgrade to Strategist';
-                    } else {
-                        el.setAttribute('href', el.getAttribute('data-upgrade-url'));
-                        el.textContent = 'Upgrade';
-                    }
-                });
-            }
-            var cached = sessionStorage.getItem('tw_auth');
-            if (cached) { try { applyAuth(JSON.parse(cached)); } catch(e) {} }
-            fetch('/tw-auth-check.php', { credentials: 'same-origin' })
+            fetch('/api/me', { credentials: 'same-origin' })
                 .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    sessionStorage.setItem('tw_auth', JSON.stringify(data));
-                    applyAuth(data);
+                .then(function(d) {
+                    if (!d || !d.authenticated) return;
+                    var tier = (d.user && d.user.tier) || 'explorer';
+                    document.querySelectorAll('.pricing-signup-btn').forEach(function(el) {
+                        if (tier === 'strategist') {
+                            el.setAttribute('href', el.getAttribute('data-strategist-href') || '/app/');
+                            el.textContent = el.getAttribute('data-strategist-text') || 'Launch Wave Viewer';
+                        } else if (tier === 'analyst') {
+                            el.setAttribute('href', el.getAttribute('data-upgrade-url') || '/pricing');
+                            el.textContent = 'Upgrade to Strategist';
+                        } else {
+                            el.setAttribute('href', el.getAttribute('data-upgrade-url') || '/pricing');
+                            el.textContent = 'Upgrade';
+                        }
+                    });
                 })
                 .catch(function() {});
-        })();
-
-        // Hamburger menu
-        (function() {
-            var btn = document.getElementById('hamburger-btn');
-            var nav = document.getElementById('nav-links');
-            if (btn && nav) {
-                btn.addEventListener('click', function() {
-                    btn.classList.toggle('open');
-                    nav.classList.toggle('open');
-                });
-                nav.querySelectorAll('a').forEach(function(link) {
-                    link.addEventListener('click', function() {
-                        btn.classList.remove('open');
-                        nav.classList.remove('open');
-                    });
-                });
-            }
         })();
     </script>
 </body>

@@ -181,15 +181,6 @@
             pointer-events: none; z-index: 0;
         }
 
-        /* Nav (copied verbatim from homepage) */
-        nav { background: rgba(15,10,21,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; z-index: 100; }
-        nav .container { position: relative; display: flex; justify-content: space-between; align-items: center; }
-        .logo { font-size: 30px; font-weight: 800; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-decoration: none; }
-        .hamburger { display: none; }
-        .nav-links { display: flex; gap: 32px; align-items: center; }
-        .nav-links a { color: var(--text-secondary); text-decoration: none; font-weight: 500; font-size: 14px; transition: color 0.2s; }
-        .nav-links a:hover { color: var(--text-primary); }
-
         /* Buttons */
         .btn { display: inline-flex; align-items: center; justify-content: center; padding: 14px 28px; border-radius: 12px; font-weight: 600; font-size: 15px; text-decoration: none; transition: all 0.3s; cursor: pointer; border: none; }
         .btn-primary { background: var(--gradient-primary); color: white; box-shadow: 0 4px 20px var(--accent-glow), 0 0 0 1px rgba(255,255,255,0.1) inset; }
@@ -348,43 +339,12 @@
             .keydates-grid { grid-template-columns: 1fr; }
             .stats-table th, .stats-table td { padding: 10px 10px; font-size: 13px; }
             .cta-strip { padding: 28px 20px; }
-
-            /* Nav mobile (from homepage) */
-            .nav-links { display: none; }
-            .nav-links.open { display: flex; flex-direction: column; gap: 0; position: absolute; top: calc(100% + 8px); right: 16px; left: auto; width: 66%; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,0.5); padding: 8px 0; z-index: 200; }
-            .nav-links.open a { display: block; padding: 14px 20px; font-size: 15px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
-            .nav-links.open a:last-child { border-bottom: none; }
-            .nav-links.open .btn.btn-primary { margin: 8px 12px; border-radius: 10px; text-align: center; padding: 12px 20px; border-bottom: none; color: white; }
-            .hamburger { display: flex; flex-direction: column; gap: 5px; cursor: pointer; z-index: 201; background: none; border: none; padding: 8px; }
-            .hamburger span { display: block; width: 24px; height: 2px; background: var(--text-primary); border-radius: 2px; transition: all 0.3s; }
-            .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
-            .hamburger.open span:nth-child(2) { opacity: 0; }
-            .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
         }
     </style>
 </head>
 <body>
+    {% include "_tw_header.html" %}
     <div class="gradient-bg"></div>
-
-    {# ----- NAV (shared with homepage) ----- #}
-    <nav>
-        <div class="container">
-            <a href="/" class="logo">TradeWave</a>
-            <button class="hamburger" id="hamburger-btn" aria-label="Menu">
-                <span></span><span></span><span></span>
-            </button>
-            <div class="nav-links" id="nav-links">
-                <a href="/#how-it-works">How It Works</a>
-                <a href="/#pricing">Pricing</a>
-                <a href="/scorecard" target="_blank" rel="noopener">Scorecard</a>
-                <a href="/patterns/">Tickers</a>
-                <a href="/login" class="nav-logged-out">Log In</a>
-                <a href="{{ signup_url }}" class="btn btn-primary nav-logged-out">Start Free Trial</a>
-                <a href="{{ upgrade_url }}" class="btn btn-primary nav-logged-in nav-logged-in-cta" style="display:none;">Upgrade</a>
-                <a href="/logout" class="nav-logged-in" style="display:none;">Log Out</a>
-            </div>
-        </div>
-    </nav>
 
     {# ----- BREADCRUMB ----- #}
     <div class="container" style="padding-top: 12px; position: relative; z-index: 1;">
@@ -493,14 +453,14 @@
                 {% if active_patterns and active_patterns[0] %}
                 <a href="{{ active_patterns[0].wave_viewer_url }}" class="btn btn-primary">See {{ symbol }} in TradeWave &rarr;</a>
                 {% else %}
-                <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Get Daily AI Picks Free &rarr;</a>
+                <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/app/" data-strategist-text="Launch Wave Viewer">Get Daily AI Picks Free &rarr;</a>
                 {% endif %}
             </div>
             {% else %}
             <div class="ai-card">
                 <div class="ai-empty-title">30-day outlook for {{ symbol }} is unavailable.</div>
                 <p class="ai-meta">Not enough history to model a forward window yet. Sign up free for the daily AI pick email.</p>
-                <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Get Free Alerts &rarr;</a>
+                <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/app/" data-strategist-text="Launch Wave Viewer">Get Free Alerts &rarr;</a>
             </div>
             {% endif %}
         </div>
@@ -683,7 +643,7 @@
                     {% if active_patterns and active_patterns[0] %}
                     <a href="{{ active_patterns[0].wave_viewer_url }}" class="btn btn-primary">See {{ symbol }}'s Active Patterns &rarr;</a>
                     {% endif %}
-                    <a href="{{ signup_url }}" class="btn btn-secondary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Start Free Trial &rarr;</a>
+                    <a href="{{ signup_url }}" class="btn btn-secondary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/app/" data-strategist-text="Launch Wave Viewer">Start Free Trial &rarr;</a>
                 </div>
             </div>
         </div>
@@ -708,7 +668,7 @@
                     </div>
                 {% endfor %}
             </div>
-            <a href="{{ upgrade_url }}" class="btn btn-secondary pricing-signup-btn nav-logged-out" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Unlock election cycle filtering &rarr;</a>
+            <a href="{{ upgrade_url }}" class="btn btn-secondary pricing-signup-btn nav-logged-out" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/app/" data-strategist-text="Launch Wave Viewer">Unlock election cycle filtering &rarr;</a>
         </div>
     </section>
 
@@ -832,7 +792,7 @@
                 <h2>See the full seasonal analysis for {{ symbol }}</h2>
                 <p>AI scored patterns, entry and exit windows, historical backtests, and daily picks. Free tier available.</p>
                 <div class="cta-buttons">
-                    <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/wave-viewer" data-strategist-text="Launch Wave Viewer">Start Free</a>
+                    <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="/app/" data-strategist-text="Launch Wave Viewer">Start Free</a>
                     <a href="/patterns/" class="btn btn-secondary">View All Patterns</a>
                 </div>
             </div>
@@ -891,8 +851,8 @@
             <div style="display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-bottom: 20px;">
                 <a href="/" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Home</a>
                 <a href="/patterns/" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">All Patterns</a>
-                <a href="/scorecard" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Scorecard</a>
-                <a href="/wave-viewer" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Wave Viewer</a>
+                <a href="/scorecard.html" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Scorecard</a>
+                <a href="/app/" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Wave Viewer</a>
                 <a href="/#pricing" style="color: var(--text-muted); text-decoration: none; font-size: 13px;">Pricing</a>
             </div>
             <div class="footer-bottom">
@@ -906,62 +866,29 @@
     </footer>
 
     <script>
-        // Hamburger menu (shared with homepage)
+        // Auth-aware swap for body CTA buttons (pricing-signup-btn) and
+        // body-level nav-logged-in / nav-logged-out reveal/hide.
+        // Nav-bar auth swap is handled inside _tw_header.html (uses /api/me).
         (function() {
-            var btn = document.getElementById('hamburger-btn');
-            var nav = document.getElementById('nav-links');
-            if (btn && nav) {
-                btn.addEventListener('click', function() {
-                    btn.classList.toggle('open');
-                    nav.classList.toggle('open');
-                });
-                nav.querySelectorAll('a').forEach(function(link) {
-                    link.addEventListener('click', function() {
-                        btn.classList.remove('open');
-                        nav.classList.remove('open');
-                    });
-                });
-            }
-        })();
-
-        // Auth state check (shared with homepage)
-        (function() {
-            function applyAuth(data) {
-                if (!data || !data.logged_in) return;
-                var level = data.level || 'free';
-                document.querySelectorAll('.nav-logged-out').forEach(function(el) { el.style.display = 'none'; });
-                document.querySelectorAll('.nav-logged-in').forEach(function(el) { el.style.display = ''; });
-                // Body CTAs: swap text/href based on membership level
-                document.querySelectorAll('.pricing-signup-btn').forEach(function(el) {
-                    if (level === 'strategist') {
-                        el.setAttribute('href', el.getAttribute('data-strategist-href') || '/wave-viewer');
-                        el.textContent = el.getAttribute('data-strategist-text') || 'Launch Wave Viewer';
-                    } else if (level === 'analyst') {
-                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ upgrade_url }}');
-                        el.textContent = 'Upgrade to Strategist';
-                    } else {
-                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ upgrade_url }}');
-                        el.textContent = 'Upgrade';
-                    }
-                });
-                var navCta = document.querySelector('.nav-logged-in-cta');
-                if (navCta) {
-                    if (level === 'strategist') {
-                        navCta.setAttribute('href', '/wave-viewer');
-                        navCta.textContent = 'Wave Viewer';
-                    } else {
-                        navCta.setAttribute('href', '{{ upgrade_url }}');
-                        navCta.textContent = 'Upgrade';
-                    }
-                }
-            }
-            var cached = sessionStorage.getItem('tw_auth');
-            if (cached) { try { applyAuth(JSON.parse(cached)); } catch(e) {} }
-            fetch('/tw-auth-check.php', { credentials: 'same-origin' })
+            fetch('/api/me', { credentials: 'same-origin' })
                 .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    sessionStorage.setItem('tw_auth', JSON.stringify(data));
-                    applyAuth(data);
+                .then(function(d) {
+                    if (!d || !d.authenticated) return;
+                    var tier = (d.user && d.user.tier) || 'explorer';
+                    document.querySelectorAll('.nav-logged-out').forEach(function(el) { el.style.display = 'none'; });
+                    document.querySelectorAll('.nav-logged-in').forEach(function(el) { el.style.display = ''; });
+                    document.querySelectorAll('.pricing-signup-btn').forEach(function(el) {
+                        if (tier === 'strategist') {
+                            el.setAttribute('href', el.getAttribute('data-strategist-href') || '/app/');
+                            el.textContent = el.getAttribute('data-strategist-text') || 'Launch Wave Viewer';
+                        } else if (tier === 'analyst') {
+                            el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ upgrade_url }}');
+                            el.textContent = 'Upgrade to Strategist';
+                        } else {
+                            el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ upgrade_url }}');
+                            el.textContent = 'Upgrade';
+                        }
+                    });
                 })
                 .catch(function() {});
         })();

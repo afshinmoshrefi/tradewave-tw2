@@ -890,7 +890,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 
         # -- Featured Pattern --
         "featured_pattern": featured_data,
-        "scorecard_url": "%sscorecard" % DOMAIN_ROOT,
+        "scorecard_url": "%sscorecard.html" % DOMAIN_ROOT,
         "scorecard_stats": compute_homepage_scorecard_stats(),
         "recent_picks": [e['symbol'] for e in reversed(load_featured_history())][:3],
         "market_bar": market_bar_items or [],

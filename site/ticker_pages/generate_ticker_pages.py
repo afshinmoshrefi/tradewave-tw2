@@ -92,8 +92,11 @@ def load_sector_map():
 
 
 def build_jinja_env():
+    # Search ticker_pages/templates first (page templates live there), then
+    # fall back to /home/flask/site/templates so {% include "_tw_header.html" %}
+    # resolves to the canonical shared header partial.
     env = Environment(
-        loader=FileSystemLoader(TEMPLATE_DIR),
+        loader=FileSystemLoader([TEMPLATE_DIR, '/home/flask/site/templates']),
         autoescape=select_autoescape(['html', 'xml']),
     )
     return env
