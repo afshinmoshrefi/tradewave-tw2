@@ -316,7 +316,13 @@ def title_to_filename(title: str) -> str:
 # Per-page builders
 # ---------------------------------------------------------------------------
 
-LAST_UPDATED_RE = re.compile(r"<p>\s*Last updated:\s*([^<]+?)\s*</p>", re.I)
+# Match a "<p>...Last Updated: <date>...</p>" block, tolerant of inline
+# tags (<span>, <strong>, <b>, etc.) between the <p> and the text.
+# Non-greedy + DOTALL keeps it from spanning across multiple paragraphs.
+LAST_UPDATED_RE = re.compile(
+    r"<p>.*?Last\s+[Uu]pdated:.*?</p>",
+    re.I | re.DOTALL,
+)
 
 
 def build_legal_page(out_name: str, title: str, src_id: str, subtitle: str) -> tuple[str, dict]:
