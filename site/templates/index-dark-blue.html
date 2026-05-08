@@ -1522,6 +1522,18 @@
                     {% if tier.roi_anchor %}
                     <div class="pricing-roi-anchor">{{ tier.roi_anchor }}</div>
                     {% endif %}
+                    {% if tier.checkout_tier %}
+                    <form method="post" action="/api/stripe/create-checkout" class="pricing-cta-form">
+                        <input type="hidden" name="tier" value="{{ tier.checkout_tier }}">
+                        <input type="hidden" name="period" class="pricing-cta-period"
+                               value="{% if content.pricing.default_billing == 'monthly' %}monthly{% else %}yearly{% endif %}">
+                        <button type="submit"
+                                class="btn {% if tier.highlighted %}btn-primary{% else %}btn-secondary{% endif %} pricing-signup-btn cta"
+                                data-upgrade-url="{{ content.nav.upgrade_url }}">
+                            {{ tier.cta }}
+                        </button>
+                    </form>
+                    {% else %}
                     <a href="{% if content.pricing.default_billing == 'monthly' %}{{ tier.monthly_url }}{% else %}{{ tier.yearly_url }}{% endif %}"
                        class="btn {% if tier.highlighted %}btn-primary{% else %}btn-secondary{% endif %} pricing-signup-btn cta"
                        data-monthly-url="{{ tier.monthly_url }}"
@@ -1531,6 +1543,7 @@
                        data-upgrade-url="{{ content.nav.upgrade_url }}">
                         {{ tier.cta }}
                     </a>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -1555,6 +1568,9 @@
                 document.querySelectorAll('.cta').forEach(function(el) {
                     var href = el.getAttribute('data-' + billing + '-href');
                     if (href) el.setAttribute('href', href);
+                });
+                document.querySelectorAll('.pricing-cta-period').forEach(function(el) {
+                    el.value = billing;
                 });
                 document.querySelectorAll('.pricing-price').forEach(function(el) {
                     var p = el.getAttribute('data-' + billing + '-price');

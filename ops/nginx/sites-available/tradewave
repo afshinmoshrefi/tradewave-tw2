@@ -28,6 +28,8 @@ server {
 
     # Security headers (shared across vhosts).
     include /etc/nginx/snippets/security_headers.conf;
+    # Block /.git, /.env, /.htaccess, etc. (allows /.well-known for ACME).
+    include /etc/nginx/snippets/dotfile_deny.conf;
 
     root /var/www/tradewave;
     index home.html index.html;

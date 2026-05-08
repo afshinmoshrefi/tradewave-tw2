@@ -920,7 +920,7 @@ def write_article_and_register(info, resource_id, symbol, pattern_start_date, da
         "hero_image": hero_image,
         "seo_title": info["title"],
         "meta_description": dek[:160],
-        "author_id": userid,
+        "author": "TradeWave Research",
         "direction": direction,
         "publish_status": DEFAULT_PUBLISH_STATUS,
     }

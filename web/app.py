@@ -519,7 +519,7 @@ def auth_callback():
     return resp
 
 
-@app.route("/logout", methods=["GET", "POST"])
+@app.route("/logout", methods=["POST"])
 def logout():
     """Clear session cookie + redirect to WorkOS logout to clear their session too.
 
@@ -571,13 +571,17 @@ def logout():
 def api_me():
     u = get_current_user()
     if u is None:
-        return jsonify({"authenticated": False}), 200
-    return jsonify({
+        resp = jsonify({"authenticated": False})
+        resp.headers["Cache-Control"] = "private, no-store"
+        return resp, 200
+    resp = jsonify({
         "authenticated": True,
         "user": u.to_dict(),
         "wp_user_levels": tier_to_wp_user_levels(u.tier or "explorer"),
         "legacy_wp_level": tier_to_legacy_level(u.tier or "explorer"),
     })
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
 
 
 # ============================================================
@@ -610,7 +614,7 @@ def generate_ltk(user) -> str:
             "tier": user.tier or "explorer",
             "legacy_level": tier_to_legacy_level(user.tier or "explorer"),
             "roles": user.roles or ["user"],
-            "is_admin": ("super_admin" in (user.roles or [])) or (user.email == "afshin@tradewave.ai"),
+            "is_admin": "super_admin" in (user.roles or []),
             "aud": "tw2-appserver",
             "iss": "tw2-web",
             "iat": int(time.time()),
@@ -834,16 +838,14 @@ def _tier_period_for_price(price_id):
     return (None, None)
 
 
-# F2.12 - Allow POST as well as GET. POST is preferred (state-changing call,
-# CSRF-friendlier), GET is left for backward-compat with current pricing
-# templates. Cutover to POST-only after the templates are updated.
-# TODO: deprecate GET on this endpoint after the pricing template uses POST forms.
-@app.route("/api/stripe/create-checkout", methods=["POST", "GET"])
+# State-changing endpoint: POST only. The pricing template uses
+# <form method="post"> hidden-input forms to hit this route.
+@app.route("/api/stripe/create-checkout", methods=["POST"])
 @require_login
 def stripe_create_checkout():
     """Initiate Stripe Checkout for the requested tier+period.
     Required params: tier=analyst|strategist, period=monthly|yearly
-    Accepted via either form data (POST) or query string (GET, deprecated).
+    Accepted via form data (POST).
     """
     if not _stripe_configured():
         return jsonify({
@@ -851,10 +853,9 @@ def stripe_create_checkout():
             "message": "Stripe keys / price IDs are placeholders. Edit /home/flask/config.py and restart the web tier.",
         }), 503
 
-    # Pull tier/period from form first (POST), fall back to query args (GET).
-    src = request.form if request.method == "POST" else request.args
-    tier   = (src.get("tier")   or request.args.get("tier")   or "").lower()
-    period = (src.get("period") or request.args.get("period") or "").lower()
+    # Pull tier/period from form (POST).
+    tier   = (request.form.get("tier")   or "").lower()
+    period = (request.form.get("period") or "").lower()
     price_id = _price_id_for(tier, period)
     if not price_id:
         return jsonify({

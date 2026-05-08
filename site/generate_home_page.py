@@ -965,6 +965,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "cta": "Try Analyst Free for 7 Days",
                     "monthly_url": PRICING_ANALYST_MONTHLY_URL,
                     "yearly_url": PRICING_ANALYST_YEARLY_URL,
+                    "checkout_tier": "analyst",
                     "highlighted": False,
                     "after_launch_price": "",  # launch promo expired - Stripe drives current price
                     "yearly_daily": _p['analyst_yearly_daily'],
@@ -994,6 +995,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "cta": "Try Full Access Free for 7 Days",
                     "monthly_url": PRICING_STRATEGIST_MONTHLY_URL,
                     "yearly_url": PRICING_STRATEGIST_YEARLY_URL,
+                    "checkout_tier": "strategist",
                     "highlighted": True,
                     "after_launch_price": "",  # launch promo expired - Stripe drives current price
                     "yearly_daily": _p['strategist_yearly_daily'],

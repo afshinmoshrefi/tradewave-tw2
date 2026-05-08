@@ -2390,22 +2390,37 @@ const App = () => {
   }, []);
   //------------------------------------------------------------------------------------------------------------------------------------------------------
   // Logout: clear this user's localStorage entries before navigation.
-  // The /logout link lives in the Flask-substituted header, so we intercept
-  // clicks on any anchor whose href ends in /logout. Also wire pagehide as
-  // a belt-and-suspenders catch (covers right-click → open in new tab + back-nav).
+  // The header renders a small <form method="POST" action="/logout"> in the
+  // Flask-substituted nav, so we intercept on submit (form path) and on
+  // anchor-click (legacy/fallback path).
   useEffect(() => {
+    const matchLogout = (s) => s === '/logout' || s.endsWith('/logout') || s.indexOf('/logout?') !== -1;
     const handleClick = (ev) => {
       try {
         const a = ev.target && ev.target.closest && ev.target.closest('a[href]');
         if (!a) return;
         const href = a.getAttribute('href') || '';
-        if (href === '/logout' || href.endsWith('/logout') || href.indexOf('/logout?') !== -1) {
+        if (matchLogout(href)) {
+          clearUserStorage();
+        }
+      } catch (e) { /* never block navigation on a clear-storage error */ }
+    };
+    const handleSubmit = (ev) => {
+      try {
+        const f = ev.target && ev.target.closest && ev.target.closest('form');
+        if (!f) return;
+        const action = (f.getAttribute('action') || '');
+        if (matchLogout(action)) {
           clearUserStorage();
         }
       } catch (e) { /* never block navigation on a clear-storage error */ }
     };
     document.addEventListener('click', handleClick, true);
-    return () => document.removeEventListener('click', handleClick, true);
+    document.addEventListener('submit', handleSubmit, true);
+    return () => {
+      document.removeEventListener('click', handleClick, true);
+      document.removeEventListener('submit', handleSubmit, true);
+    };
   }, []);
   //------------------------------------------------------------------------------------------------------------------------------------------------------
   return (

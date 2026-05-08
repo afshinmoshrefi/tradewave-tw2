@@ -183,7 +183,27 @@
         if (!d || !d.authenticated) return;
         var auth = document.getElementById('tw-auth-link');
         var cta  = document.getElementById('tw-cta-link');
-        if (auth) { auth.href = '/logout'; auth.textContent = 'Log Out'; }
+        if (auth) {
+          // Replace the GET link with a POST form so /logout (POST-only) works
+          // and a stray GET (prefetch, link-scan) cannot trigger a sign-out.
+          var form = document.createElement('form');
+          form.method = 'POST';
+          form.action = '/logout';
+          form.style.display = 'inline';
+          var btn = document.createElement('button');
+          btn.type = 'submit';
+          btn.id = auth.id;
+          btn.className = auth.className;
+          btn.textContent = 'Log Out';
+          btn.style.background = 'none';
+          btn.style.border = '0';
+          btn.style.padding = '0';
+          btn.style.cursor = 'pointer';
+          btn.style.color = 'inherit';
+          btn.style.font = 'inherit';
+          form.appendChild(btn);
+          auth.parentNode.replaceChild(form, auth);
+        }
         if (cta) {
           var tier = (d.user && d.user.tier) || 'explorer';
           if (tier === 'explorer') { cta.href = '/pricing'; cta.textContent = 'Upgrade'; }
