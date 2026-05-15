@@ -458,13 +458,18 @@ def _site_header_html():
 
 
 def _site_breadcrumb_html(symbol, title):
-    """Return breadcrumb navigation."""
+    """Return breadcrumb navigation.
+
+    Title is LLM-generated; chrome is stashed-and-restored around bleach
+    elsewhere, so this function MUST escape its inputs itself.
+    """
+    import html as _html
     news_url = getattr(config, 'news_website_url', '').rstrip('/')
-    home_href = f"{news_url}/" if news_url else "/"
+    home_href = _html.escape(f"{news_url}/" if news_url else "/", quote=True)
     short_title = title[:60] + "..." if len(title) > 60 else title
     return f'''
     <div class="smn-breadcrumb">
-        <a href="{home_href}">Home</a> <span>/</span> <span>{short_title}</span>
+        <a href="{home_href}">Home</a> <span>/</span> <span>{_html.escape(short_title)}</span>
     </div>'''
 
 

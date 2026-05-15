@@ -289,9 +289,12 @@ def lazy_create_user(workos_user) -> User:
                 u = s.query(User).filter_by(workos_user_id=workos_user.id).first()
             return u
 
-        # First sign-in: create row as Explorer; super_admin role for Afshin's email
+        # First sign-in: create row as Explorer; super_admin role only for
+        # Afshin's verified email. Without email_verified, an attacker could
+        # WorkOS-signup as afshin@tradewave.ai (before the real row exists)
+        # and inherit super_admin. Verification is the gate.
         first_role = ["user"]
-        if workos_user.email == "afshin@tradewave.ai":
+        if workos_user.email == "afshin@tradewave.ai" and bool(getattr(workos_user, "email_verified", False)):
             first_role = ["super_admin", "user"]
         u = User(
             workos_user_id=workos_user.id,
@@ -1512,9 +1515,28 @@ class StripeEventAdmin(_AdminAuth, ModelView):
 # is written on the web tier (where /var/www/tradewave/ lives)
 # regardless of whether dev (single box) or split web/app.
 # ============================================================
+def _check_service_key():
+    """Constant-time compare so a timing oracle can't leak the key."""
+    import hmac
+    provided = request.headers.get("X-Service-Key", "")
+    expected = config.SERVICE_API_KEY or ""
+    return bool(expected) and hmac.compare_digest(provided, expected)
+
+
+def _slug_safe(slug: str) -> bool:
+    """ASCII-only [a-zA-Z0-9_-]+ allowlist.
+
+    str.isalnum() is Unicode-aware (٠ café Ⅰ all pass), so we explicitly
+    constrain to ASCII alphanumerics + '-' and '_'. Refuses NUL, '/',
+    '..', control chars, and anything not in the allowlist.
+    """
+    import re
+    return bool(slug) and bool(re.fullmatch(r"[a-zA-Z0-9_-]{1,200}", slug))
+
+
 @app.route("/internal/render_report", methods=["POST"])
 def internal_render_report():
-    if request.headers.get("X-Service-Key") != config.SERVICE_API_KEY:
+    if not _check_service_key():
         return jsonify({"error": "unauthorized"}), 401
     payload = request.get_json(force=True, silent=True) or {}
     try:
@@ -1524,6 +1546,8 @@ def internal_render_report():
         post_slug = payload["slug"]
     except KeyError as e:
         return jsonify({"error": f"missing field {e}"}), 400
+    if not _slug_safe(post_slug):
+        return jsonify({"error": "invalid slug"}), 400
 
     import threading, sys
     def _render():
@@ -1541,12 +1565,11 @@ def internal_render_report():
 
 @app.route("/internal/delete_report", methods=["POST"])
 def internal_delete_report():
-    if request.headers.get("X-Service-Key") != config.SERVICE_API_KEY:
+    if not _check_service_key():
         return jsonify({"error": "unauthorized"}), 401
     payload = request.get_json(force=True, silent=True) or {}
     slug = payload.get("slug", "")
-    # Defensive: refuse anything that could escape /var/www/tradewave/r/
-    if not slug or "/" in slug or ".." in slug or not slug.replace("-", "").replace("_", "").isalnum():
+    if not _slug_safe(slug):
         return jsonify({"error": "invalid slug"}), 400
     import shutil
     from pathlib import Path

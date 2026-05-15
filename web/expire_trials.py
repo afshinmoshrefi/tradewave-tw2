@@ -38,12 +38,18 @@ def main() -> int:
     engine = create_engine(dsn, future=True)
     now_utc = dt.datetime.now(dt.timezone.utc)
 
-    with engine.begin() as conn:
-        rows = conn.execute(
+    expired = 0
+
+    # One transaction per row keeps the lock window small and prevents a
+    # single slow audit-log insert from holding rows for the whole batch.
+    # FOR UPDATE inside the transaction gives us serial access against
+    # the Stripe webhook path — re-check the IS NULL guard after the lock
+    # so a webhook that wrote stripe_subscription_id mid-flight aborts us.
+    with engine.connect() as conn:
+        ids = conn.execute(
             text(
                 """
-                SELECT id, email, tier, trial_ends_at
-                FROM users
+                SELECT id FROM users
                 WHERE trial_ends_at IS NOT NULL
                   AND trial_ends_at < :now
                   AND tier IN ('analyst', 'strategist')
@@ -51,18 +57,43 @@ def main() -> int:
                 """
             ),
             {"now": now_utc},
-        ).all()
+        ).scalars().all()
 
-        if not rows:
-            log.info("nothing to expire (checked at %s)", now_utc.isoformat())
-            return 0
+    if not ids:
+        log.info("nothing to expire (checked at %s)", now_utc.isoformat())
+        return 0
 
-        for r in rows:
+    for uid in ids:
+        with engine.begin() as txn:
+            row = txn.execute(
+                text(
+                    """
+                    SELECT id, email, tier, trial_ends_at, stripe_subscription_id
+                    FROM users
+                    WHERE id = :id
+                    FOR UPDATE
+                    """
+                ),
+                {"id": uid},
+            ).first()
+            if row is None:
+                continue
+            # Re-check the guards under the lock — a webhook may have
+            # written stripe_subscription_id between the SELECT above
+            # and this transaction.
+            if (
+                row.stripe_subscription_id is not None
+                or row.tier not in ("analyst", "strategist")
+                or row.trial_ends_at is None
+                or row.trial_ends_at >= now_utc
+            ):
+                log.info("skip user_id=%s — guard re-check failed (raced with webhook?)", uid)
+                continue
             log.info(
                 "expiring user_id=%s email=%s tier=%s trial_ended=%s",
-                r.id, r.email, r.tier, r.trial_ends_at.isoformat(),
+                row.id, row.email, row.tier, row.trial_ends_at.isoformat(),
             )
-            conn.execute(
+            txn.execute(
                 text(
                     """
                     UPDATE users
@@ -72,23 +103,28 @@ def main() -> int:
                     WHERE id = :id
                     """
                 ),
-                {"id": r.id},
+                {"id": row.id},
             )
-            conn.execute(
+            import json as _json
+            txn.execute(
                 text(
                     """
                     INSERT INTO audit_log (actor_user_id, actor_label, action, target_user_id, details)
-                    VALUES (NULL, 'system:expire_trials', :action, :target, :details)
+                    VALUES (NULL, 'system:expire_trials', :action, :target, CAST(:details AS jsonb))
                     """
                 ),
                 {
                     "action": "trial_expired_revert_to_explorer",
-                    "target": r.id,
-                    "details": '{"from_tier":"' + r.tier + '","ended_at":"' + r.trial_ends_at.isoformat() + '"}',
+                    "target": row.id,
+                    "details": _json.dumps({
+                        "from_tier": row.tier,
+                        "ended_at": row.trial_ends_at.isoformat(),
+                    }),
                 },
             )
+            expired += 1
 
-    log.info("expired %d user(s)", len(rows))
+    log.info("expired %d user(s)", expired)
     return 0
 
 

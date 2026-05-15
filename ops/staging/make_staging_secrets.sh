@@ -46,11 +46,14 @@ get_dev() {
 
 # Helper: 32 bytes hex.
 randhex32() { openssl rand -hex 32; }
+# Fernet key: 32 url-safe base64-encoded bytes. WorkOS SDK seal_data() calls
+# Fernet(cookie_password) which REJECTS anything else with ValueError.
+fernet_key() { python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"; }
 
 # Fresh per-pair secrets for staging.
 STAGE_JWT=$(randhex32)
 STAGE_SERVICE_API=$(randhex32)
-STAGE_WORKOS_COOKIE=$(randhex32)
+STAGE_WORKOS_COOKIE=$(fernet_key)
 STAGE_PG_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | cut -c1-32)
 
 umask 077
