@@ -1539,6 +1539,24 @@ def internal_render_report():
     return jsonify({"status": "queued", "slug": post_slug})
 
 
+@app.route("/internal/delete_report", methods=["POST"])
+def internal_delete_report():
+    if request.headers.get("X-Service-Key") != config.SERVICE_API_KEY:
+        return jsonify({"error": "unauthorized"}), 401
+    payload = request.get_json(force=True, silent=True) or {}
+    slug = payload.get("slug", "")
+    # Defensive: refuse anything that could escape /var/www/tradewave/r/
+    if not slug or "/" in slug or ".." in slug or not slug.replace("-", "").replace("_", "").isalnum():
+        return jsonify({"error": "invalid slug"}), 400
+    import shutil
+    from pathlib import Path
+    target = Path("/var/www/tradewave/r") / slug
+    if target.is_dir() and target.resolve().is_relative_to("/var/www/tradewave/r"):
+        shutil.rmtree(target, ignore_errors=True)
+        return jsonify({"status": "deleted", "slug": slug})
+    return jsonify({"status": "absent", "slug": slug})
+
+
 # Register Flask-Admin on the existing app
 admin = Admin(
     app,

@@ -3982,12 +3982,30 @@ def dr_report_remove(dr_id): # get the list of reports from redis and returns a 
             slug = rec_to_del[0]["slug"]
             # if there is a social media post for this record delete it here
             if rec_to_del[0]["sm_post"] == "pos":
-                opp_del_social_media(slug)
-            # put rec del in the queue for webserver to remove teh blog also
+                try:
+                    opp_del_social_media(slug)
+                except Exception as e:
+                    logging.exception("opp_del_social_media failed slug=%s", slug)
+            # Vestigial TW1 blog_queue ping — must not block the user delete.
             hostname = socket.gethostname()
-            if hostname != 'afshin-VirtualBox': # can't send to queue when on dev server
-                url = f'{config.blog_queue_server}delreport/{userid}/{slug}'
-                response=requests.get(url, timeout=10)
+            if hostname != 'afshin-VirtualBox' and config.blog_queue_server:
+                try:
+                    requests.get(f'{config.blog_queue_server}delreport/{userid}/{slug}', timeout=5)
+                except Exception as e:
+                    with open('add_to_blog_queue.log', 'a') as f:
+                        f.write(f'DELREPORT-QUEUE-EXC-{e}-slug={slug}\n')
+            # Remove the static HTML on the web tier (where /var/www/tradewave/r/ lives).
+            try:
+                web_host = config.webserver_ip or 'localhost'
+                requests.post(
+                    f'http://{web_host}:5500/internal/delete_report',
+                    headers={'X-Service-Key': config.SERVICE_API_KEY},
+                    json={'slug': slug},
+                    timeout=5,
+                )
+            except Exception as e:
+                with open('add_to_blog_queue.log', 'a') as f:
+                    f.write(f'DELREPORT-WEB-EXC-{e}-slug={slug}\n')
             # remove it from the user reports list
             redis_user_reports_list = [d for d in redis_user_reports_list if d['dr_id'] != int(dr_id)]
             num_removed = 1
