@@ -14,7 +14,7 @@ hdr() { printf '\n=== %s ===\n' "$*"; }
 # ---------------------------- config ---------------------------------
 TW1_VLAN_IP="10.0.0.40"
 TW1_USER="root"
-TW1_PORT="22"
+TW1_PORT="4369"
 TW1_SMN_DIR="/var/www/smn/"
 
 WEB_HOST="185.53.209.8"
