@@ -52,6 +52,10 @@ logs/
 
 # Market data (38GB, regeneratable from EODHD)
 data/
+# ...but site/ticker_pages/data/ is curated config (ticker list + sector
+# map), not regeneratable runtime data — it MUST ship to every env.
+!site/ticker_pages/data/
+!site/ticker_pages/data/*.json
 
 # data_updater downloaded samples (regeneratable)
 data_updater/*.csv
