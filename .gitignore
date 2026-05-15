@@ -28,6 +28,7 @@ web-react/build/
 # Editor / OS
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *.swn
