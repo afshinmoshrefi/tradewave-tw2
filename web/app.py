@@ -1506,6 +1506,39 @@ class StripeEventAdmin(_AdminAuth, ModelView):
     page_size = 100
 
 
+# ============================================================
+# Internal cross-tier endpoint: render a date-range report.
+# Called by appserver's /dr_report_publish so the static HTML
+# is written on the web tier (where /var/www/tradewave/ lives)
+# regardless of whether dev (single box) or split web/app.
+# ============================================================
+@app.route("/internal/render_report", methods=["POST"])
+def internal_render_report():
+    if request.headers.get("X-Service-Key") != config.SERVICE_API_KEY:
+        return jsonify({"error": "unauthorized"}), 401
+    payload = request.get_json(force=True, silent=True) or {}
+    try:
+        report_dict = payload["report_dict"]
+        appserver_token = payload["token"]
+        post_title = payload["title"]
+        post_slug = payload["slug"]
+    except KeyError as e:
+        return jsonify({"error": f"missing field {e}"}), 400
+
+    import threading, sys
+    def _render():
+        try:
+            if "/home/flask/web" not in sys.path:
+                sys.path.insert(0, "/home/flask/web")
+            import report_renderer
+            report_renderer.render(report_dict, appserver_token, post_title, post_slug)
+        except Exception as exc:
+            log.exception("internal_render_report: render failed slug=%s err=%s", post_slug, exc)
+
+    threading.Thread(target=_render, daemon=True).start()
+    return jsonify({"status": "queued", "slug": post_slug})
+
+
 # Register Flask-Admin on the existing app
 admin = Admin(
     app,

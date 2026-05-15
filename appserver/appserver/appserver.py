@@ -3148,20 +3148,26 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
 
     redis_client2.set(redis_key_user_reports,json.dumps(redis_user_reports_list)) # set the list to the new list on redis
 
-    # ── Render the static HTML report in the BACKGROUND ──
-    # Matplotlib takes ~2-3s for the 3 PNGs; doing it inline made the success
-    # response feel sluggish vs. the instant-return duplicate path. Now we fire
-    # off a thread and return immediately. The static page is ready by the
-    # time the user clicks the report link in the portfolio dashboard.
-    # Failures inside the thread don't affect the user (already in redis).
+    # ── Render the static HTML report on the WEB tier ──
+    # The output lives at /var/www/tradewave/r/{slug}/ on the web box; on a
+    # split web/app deployment the appserver can't write there, so it POSTs
+    # to the web tier's /internal/render_report and the web tier renders
+    # locally. On dev (single box) webserver_ip=localhost so this is just a
+    # loopback HTTP call. Background thread keeps the user response instant.
     import threading
     def _render_background(report_dict, tok, t, s):
         try:
-            import sys
-            if '/home/flask/web' not in sys.path:
-                sys.path.insert(0, '/home/flask/web')
-            import report_renderer
-            report_renderer.render(report_dict, tok, t, s)
+            web_host = config.webserver_ip or 'localhost'
+            url = f'http://{web_host}:5500/internal/render_report'
+            resp = requests.post(
+                url,
+                headers={'X-Service-Key': config.SERVICE_API_KEY},
+                json={'report_dict': report_dict, 'token': tok, 'title': t, 'slug': s},
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                with open('add_to_blog_queue.log', 'a') as f:
+                    f.write(f'RENDER-HTTP-{resp.status_code}-{resp.text[:200]}-slug={s}\n')
         except Exception as e:
             with open('add_to_blog_queue.log', 'a') as f:
                 f.write(f'RENDER-EXC-{e}-slug={s}\n')
