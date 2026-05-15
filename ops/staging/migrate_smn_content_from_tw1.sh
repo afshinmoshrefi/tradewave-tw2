@@ -30,7 +30,9 @@ REMOTE_KEY="/root/.tw1_migration_key"   # tempfile on stage-web; wiped at end
 cleanup() {
     ssh -p "$WEB_SSH_PORT" "root@${WEB_HOST}" "shred -u $REMOTE_KEY 2>/dev/null || rm -f $REMOTE_KEY" || true
 }
-trap cleanup EXIT
+# SIGKILL bypasses traps, but INT/TERM/HUP we can catch — at least don't
+# leak the key on Ctrl+C or session disconnect.
+trap cleanup EXIT INT TERM HUP
 
 hdr "1. push key to stage-web (temp)"
 scp -P "$WEB_SSH_PORT" "$LOCAL_KEY" "root@${WEB_HOST}:${REMOTE_KEY}"

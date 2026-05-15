@@ -127,6 +127,13 @@ from flask import flash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = config.WORKOS_COOKIE_PASSWORD  # for Flask's own session signing
 
+# CSRF protection for all POST routes. Flask-Admin's form rendering picks
+# this up automatically; webhooks (no browser session) and the SERVICE_API_KEY-
+# authed /internal/* routes are exempted below at decorator level. SameSite=Lax
+# alone is not enough for top-level cross-site POSTs.
+from flask_wtf.csrf import CSRFProtect  # noqa: E402
+csrf = CSRFProtect(app)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -523,6 +530,7 @@ def auth_callback():
 
 
 @app.route("/logout", methods=["POST"])
+@csrf.exempt
 def logout():
     """Clear session cookie + redirect to WorkOS logout to clear their session too.
 
@@ -841,6 +849,7 @@ def _tier_period_for_price(price_id):
 # State-changing endpoint: POST only. The pricing template uses
 # <form method="post"> hidden-input forms to hit this route.
 @app.route("/api/stripe/create-checkout", methods=["POST"])
+@csrf.exempt
 @require_login
 def stripe_create_checkout():
     """Initiate Stripe Checkout for the requested tier+period.
@@ -1075,7 +1084,17 @@ def stripe_success():
                 target_user_id=db_user.id,
                 details={"from": old_tier, "to": new_tier, "stripe_session_id": session_id, "stripe_sub_id": sub_id},
             )
-        s.commit()
+        try:
+            s.commit()
+        except IntegrityError as ie:
+            # Race: webhook+success path both committed stripe_customer_id
+            # simultaneously, or the unique constraint on stripe_subscription_id
+            # rejected. Roll back; the webhook side will replay via Stripe retry
+            # and will see the now-set value on its next pass.
+            s.rollback()
+            log.warning("stripe_success commit IntegrityError uid=%s session=%s err=%s",
+                        db_user.id if db_user else None, session_id, ie)
+            return jsonify({"error": "race_with_webhook_retry_shortly"}), 503
     finally:
         s.close()
 
@@ -1139,6 +1158,7 @@ def manage_subscription():
 # ============================================================
 
 @app.route("/webhooks/workos", methods=["POST"])
+@csrf.exempt
 def webhook_workos():
     """Receive WorkOS events (user.created/updated/deleted). Lazy-sync on login
     handles most cases; this is just a stub until cloudflared+webhook is wired."""
@@ -1146,6 +1166,7 @@ def webhook_workos():
 
 
 @app.route("/webhooks/stripe", methods=["POST"])
+@csrf.exempt
 def webhook_stripe():
     """Stripe webhook handler with signature verification. Reacts to:
       - checkout.session.completed       → confirm new subscription
@@ -1515,6 +1536,14 @@ class StripeEventAdmin(_AdminAuth, ModelView):
 # is written on the web tier (where /var/www/tradewave/ lives)
 # regardless of whether dev (single box) or split web/app.
 # ============================================================
+import threading as _threading  # noqa: E402
+
+# Bound concurrent /internal/render_report threads so a burst can't OOM
+# the 1-CPU/961M staging box. matplotlib in report_renderer.render()
+# spikes to ~200M per thread.
+_RENDER_SEM = _threading.Semaphore(4)
+
+
 def _check_service_key():
     """Constant-time compare so a timing oracle can't leak the key."""
     import hmac
@@ -1535,6 +1564,7 @@ def _slug_safe(slug: str) -> bool:
 
 
 @app.route("/internal/render_report", methods=["POST"])
+@csrf.exempt
 def internal_render_report():
     if not _check_service_key():
         return jsonify({"error": "unauthorized"}), 401
@@ -1550,6 +1580,11 @@ def internal_render_report():
         return jsonify({"error": "invalid slug"}), 400
 
     import threading, sys
+    # Bounded concurrency so a flood of /dr_report_publish calls can't fork
+    # unbounded matplotlib threads on the 1-CPU staging box (RAM is 961M).
+    # Returns 503 if all slots are busy — caller sees fast-fail.
+    if not _RENDER_SEM.acquire(blocking=False):
+        return jsonify({"status": "busy"}), 503
     def _render():
         try:
             if "/home/flask/web" not in sys.path:
@@ -1558,12 +1593,15 @@ def internal_render_report():
             report_renderer.render(report_dict, appserver_token, post_title, post_slug)
         except Exception as exc:
             log.exception("internal_render_report: render failed slug=%s err=%s", post_slug, exc)
+        finally:
+            _RENDER_SEM.release()
 
     threading.Thread(target=_render, daemon=True).start()
     return jsonify({"status": "queued", "slug": post_slug})
 
 
 @app.route("/internal/delete_report", methods=["POST"])
+@csrf.exempt
 def internal_delete_report():
     if not _check_service_key():
         return jsonify({"error": "unauthorized"}), 401

@@ -39,6 +39,14 @@ if [[ "$EUID" -ne 0 ]]; then
 fi
 [[ -r "$SRC" ]] || { echo "Cannot read $SRC" >&2; exit 1; }
 
+# Wipe the output file on ANY exit path (success, error, ^C, SIGTERM, SIGHUP).
+# The output file contains every secret the staging env needs — if scp races
+# with a crash, we don't want it lingering on .176 disk.
+on_exit() {
+    [[ -f "$DST" ]] && shred -u "$DST" 2>/dev/null || true
+}
+trap on_exit INT TERM HUP   # NOT EXIT — normal exit keeps the file for scp
+
 # Helper: get a value from the dev file by key name. Empty if absent.
 get_dev() {
     grep -E "^${1}=" "$SRC" | head -1 | sed -E "s/^${1}=//"
@@ -156,9 +164,9 @@ chmod 600 "$DST"
 
 echo "Wrote $DST ($(wc -l < "$DST") lines, mode 600)"
 echo
-echo "POSTGRES password for tradewave role on staging-app:"
-echo "  ${STAGE_PG_PASSWORD}"
-echo "Save this — bootstrap_stage_app_db.sh will need it (or grep it back out of /tmp/staging_secrets.env)."
+echo "POSTGRES password is embedded in POSTGRES_DSN in $DST."
+echo "bootstrap_stage_app_db.sh reads it from /etc/tradewave/secrets.env after you scp."
+echo "If you need it on .176 for a manual check:  grep POSTGRES_DSN $DST | cut -d: -f3 | cut -d@ -f1"
 echo
 echo "Next:"
 echo "  1. Inspect /tmp/staging_secrets.env (less /tmp/staging_secrets.env)"
