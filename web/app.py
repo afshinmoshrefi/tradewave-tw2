@@ -1434,7 +1434,7 @@ class UserAdmin(_AdminAuth, ModelView):
     column_list = ("email", "tier", "roles", "stripe_subscription_status", "email_verified", "last_login_at", "created_at")
     column_searchable_list = ("email", "workos_user_id", "stripe_customer_id")
     column_filters = ("tier", "email_verified", "stripe_subscription_status")
-    form_columns = ("email", "first_name", "last_name", "tier", "roles", "email_verified", "stripe_customer_id", "stripe_subscription_id", "stripe_subscription_status")
+    form_columns = ("email", "first_name", "last_name", "tier", "roles", "email_verified", "stripe_customer_id", "stripe_subscription_id", "stripe_subscription_status", "trial_ends_at")
     column_default_sort = ("created_at", True)
     page_size = 50
 
