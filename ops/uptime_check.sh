@@ -13,6 +13,10 @@ LOG=/var/log/tradewave/uptime.log
 TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 EXIT=0
 
+if [ -r /etc/tradewave/secrets.env ]; then
+    set -a; . /etc/tradewave/secrets.env; set +a
+fi
+
 BASE=$(/home/flask/venv/bin/python -c \
     "import sys; sys.path.insert(0,'/home/flask'); import config; print((config.domain_root or 'https://tw2.trxstat.com').rstrip('/'))" 2>/dev/null) \
     || BASE="https://tw2.trxstat.com"

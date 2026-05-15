@@ -5,6 +5,10 @@
 
 set -uo pipefail
 
+if [ -r /etc/tradewave/secrets.env ]; then
+    set -a; . /etc/tradewave/secrets.env; set +a
+fi
+
 BACKUP_DIR=/var/backups/tradewave
 TMP_DB=tradewave_restore_test
 LOG=/var/log/tradewave/restore_drill.log

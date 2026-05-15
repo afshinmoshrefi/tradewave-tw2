@@ -5,6 +5,13 @@
 
 set -euo pipefail
 
+# Self-source secrets so this works from cron (no EnvironmentFile) the same
+# as when launched via a secrets-wrapped shell. config.POSTGRES_DSN reads
+# os.environ — without this it's empty under a bare cron invocation.
+if [ -r /etc/tradewave/secrets.env ]; then
+    set -a; . /etc/tradewave/secrets.env; set +a
+fi
+
 # Run from a dir flask can stat — caller cwd may be unreadable (e.g. /home/afshin).
 cd /tmp
 
