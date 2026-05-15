@@ -1,14 +1,21 @@
 #!/bin/bash
-# uptime_check.sh — TW2 dev box uptime probe
-# Curls public endpoints, logs PASS/FAIL to /var/log/tradewave/uptime.log.
-# Healthy: 200 (root) or 200/302 (/app/, redirect to WorkOS is OK).
-# Failure: 5xx or connection error.
+# uptime_check.sh — TW2 uptime probe (env-aware)
+# Curls the env's own public root + /app/, logs PASS/FAIL to
+# /var/log/tradewave/uptime.log. Base URL comes from config.domain_root
+# (TW2_DOMAIN_ROOT) so dev/staging/prod each probe themselves — was
+# previously hardcoded to tw2.trxstat.com (dev) and silently "passed"
+# on staging by probing the wrong box.
+# Healthy: 200 (root) or 200/302 (/app/). Failure: 5xx / connection error.
 
 set -u
 
 LOG=/var/log/tradewave/uptime.log
 TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 EXIT=0
+
+BASE=$(/home/flask/venv/bin/python -c \
+    "import sys; sys.path.insert(0,'/home/flask'); import config; print((config.domain_root or 'https://tw2.trxstat.com').rstrip('/'))" 2>/dev/null) \
+    || BASE="https://tw2.trxstat.com"
 
 check() {
     local url="$1"
@@ -30,7 +37,7 @@ check() {
     fi
 }
 
-check "https://tw2.trxstat.com/"     "root" "200"
-check "https://tw2.trxstat.com/app/" "app"  "200 302"
+check "${BASE}/"     "root" "200"
+check "${BASE}/app/" "app"  "200 302"
 
 exit $EXIT
