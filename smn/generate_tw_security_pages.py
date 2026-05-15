@@ -58,10 +58,9 @@ TW_ROOT = Path(config.web_root_dir) / "_static"
 TW_MARKETS_DIR = TW_ROOT / "markets"
 TW_CHARTS_DIR = TW_MARKETS_DIR / "charts"
 
-# Canonical TradeWave domain - pinned here so the dark market pages never
-# leak the LAN IP from config.domain_root into canonical/og:url/JSON-LD or
-# into header/market-bar hrefs. TODO(prod-cutover): swap to https://tradewave.ai/.
-DOMAIN_ROOT = "https://tw2.trxstat.com/"
+# Canonical TradeWave domain — driven by config.domain_root (TW2_DOMAIN_ROOT).
+# Falls back to https://tw2.trxstat.com/ if unset (ad-hoc dev runs).
+DOMAIN_ROOT = (config.domain_root.rstrip('/') + '/') if config.domain_root else "https://tw2.trxstat.com/"
 MAILERLITE_FORM_URL = "https://assets.mailerlite.com/jsonp/489451/forms/173861813170996648/subscribe"
 
 # Save original functions BEFORE any patching

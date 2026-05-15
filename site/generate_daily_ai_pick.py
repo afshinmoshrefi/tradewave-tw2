@@ -39,11 +39,10 @@ from blog_tools import assign_years_pyears
 # Constants
 # ---------------------------------------------------------------------------
 
-# OppList4 is served by the public staging app server. config.appserver_url
-# (127.0.0.1:5000) on .176 returns "invalid token" for the keyprovider hack
-# because the local instance has no central_server_url. Mirrors the choice in
-# generate_home_page.py.
-APPSERVER_URL = 'https://app1pp.trxstat.com'
+# OppList4 is served by the tier-local app server. Env-driven via
+# config.appserver_url (TW2_APPSERVER_URL): dev=127.0.0.1:5000,
+# staging=http://10.0.0.92:5000, prod=appserver-prod URL.
+APPSERVER_URL = config.appserver_url.rstrip('/')
 
 OUTPUT_DIR = config.web_root_dir
 OUTPUT_FILENAME = 'daily-ai-pick.html'

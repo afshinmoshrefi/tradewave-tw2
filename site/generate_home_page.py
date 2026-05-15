@@ -104,10 +104,9 @@ STOCKSCORE_URL = config.stockscore_url
 STOCKSCORE_RESOURCE_ID = 2
 
 # Canonical domain for absolute URLs (og:url, canonical, JSON-LD).
-# We deliberately ignore config.domain_root (which is the LAN IP on dev) so
-# the generated home.html never leaks 192.168.1.176 into external metadata.
-# TODO(prod-cutover): switch to https://tradewave.ai/ when we cut over.
-CANONICAL_ROOT = "https://tw2.trxstat.com/"
+# Driven by config.domain_root (TW2_DOMAIN_ROOT env var): per-env public root.
+# Falls back to https://tw2.trxstat.com/ if unset (e.g. ad-hoc dev runs).
+CANONICAL_ROOT = (config.domain_root.rstrip('/') + '/') if config.domain_root else "https://tw2.trxstat.com/"
 
 # Internal links: use relative paths ("/") so the page works on any host
 # (LAN IP, cloudflared tunnel, or prod) without baking the dev hostname
@@ -228,7 +227,7 @@ FEATURED_YEARS = 10
 FEATURED_MIN_PYEARS = 8
 
 # Appserver URL for OppList4 lookups
-APPSERVER_URL = 'https://app1pp.trxstat.com'
+APPSERVER_URL = config.appserver_url.rstrip('/')
 APPSERVER_USERID = 16
 
 

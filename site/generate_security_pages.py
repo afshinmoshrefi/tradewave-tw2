@@ -74,10 +74,9 @@ PAGE_DATA_FILE = SMN_MARKETS_DIR / "_page_data.json"
 TW_MARKETS_DIR = Path(config.web_root_dir) / "markets"
 TW_CHARTS_DIR = TW_MARKETS_DIR / "charts"
 
-# Canonical TradeWave domain - pinned so generated metadata never leaks the
-# LAN IP from config.domain_root into canonical/og:url/JSON-LD or hrefs.
-# TODO(prod-cutover): swap to https://tradewave.ai/.
-DOMAIN_ROOT = "https://tw2.trxstat.com/"
+# Canonical TradeWave domain — driven by config.domain_root (TW2_DOMAIN_ROOT).
+# Falls back to https://tw2.trxstat.com/ if unset (ad-hoc dev runs).
+DOMAIN_ROOT = (config.domain_root.rstrip('/') + '/') if config.domain_root else "https://tw2.trxstat.com/"
 
 
 # =============================================================================

@@ -528,7 +528,7 @@ def logout():
     sealed cookie could still talk to WorkOS until natural token expiry.
     """
     sealed = request.cookies.get(SESSION_COOKIE)
-    redirect_after = "https://tw2.trxstat.com/"
+    redirect_after = (config.domain_root.rstrip('/') + '/') if config.domain_root else "https://tw2.trxstat.com/"
 
     workos_logout_url = redirect_after
     sid_for_revoke = None
@@ -599,12 +599,9 @@ def generate_ltk(user) -> str:
     useUMP=False, and uses its claims for is_admin and tier resolution.
 
     F2.13 - adds aud/iss claims so the appserver can defend against tokens
-    minted by other services that might share the same secret. The appserver
-    side must add `audience="tw2-appserver"` and `issuer="tw2-web"` to its
-    jwt.decode() call to enforce these.
-    TODO(F3): enforce aud="tw2-appserver" and iss="tw2-web" in appserver's
-    decode (currently appserver does not pass these and will accept any LTK
-    that signature-verifies - defense-in-depth, not a bypass).
+    minted by other services that might share the same secret. Appserver
+    enforces `audience="tw2-appserver"` and `issuer="tw2-web"` at all 16
+    jwt.decode() call sites in appserver.py (F3 closed).
     """
     return jwt.encode(
         {

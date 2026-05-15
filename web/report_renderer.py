@@ -42,7 +42,7 @@ import config
 MAX_LABELS_TO_SHOW = 10
 REPORT_OUTPUT_ROOT = '/var/www/tradewave/r'        # nginx serves this
 REPORT_URL_BASE    = '/r'                          # public URL prefix
-DOMAIN_ROOT        = 'https://tw2.trxstat.com/'    # absolute base for links
+DOMAIN_ROOT        = (config.domain_root.rstrip('/') + '/') if config.domain_root else 'https://tw2.trxstat.com/'  # absolute base for links
 WAVE_VIEWER_PATH   = 'app/'                        # TW2's React app (was TW1's wave-viewer/)
 
 

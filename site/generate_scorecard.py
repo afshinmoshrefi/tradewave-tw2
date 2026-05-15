@@ -28,7 +28,7 @@ OUTPUT_DIR = config.web_root_dir
 OUTPUT_FILENAME = "scorecard.html"
 TEMPLATES_DIR = "/home/flask/site/templates"
 DOMAIN_ROOT = config.domain_root
-APPSERVER_URL = 'http://127.0.0.1:5000'
+APPSERVER_URL = config.appserver_url.rstrip('/')
 REALTIME_SERVICE_URL = config.realtime_service_url
 X_PROFILE_URL = config.x_profile_url
 

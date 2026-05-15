@@ -320,6 +320,17 @@ update_server      = os.environ.get('TW2_UPDATE_SERVER', '')  # set in /etc/trad
 
 ddir               = '/home/flask/data/'
 wordpress_url      = os.environ.get('TW2_WORDPRESS_URL', '')  # set in /etc/tradewave/secrets.env (per-env WP URL)
+
+# WordPress REST endpoints — derived from wordpress_url. Used by smn/blog_tools.py,
+# smn/create_report.py, smn/generate_top10_sr.py, smn/set_redirect.py,
+# site/lib/blog_tools.py. If wordpress_url is empty (TW2 has no WordPress in that
+# env), these become empty strings — callers that exercise these paths will fail
+# with a clear connection error rather than AttributeError.
+_wp_base             = wordpress_url.rstrip('/') + '/' if wordpress_url else ''
+post_endpoint_url    = (_wp_base + 'wp-json/wp/v2/posts') if _wp_base else ''
+tags_endpoint_url    = (_wp_base + 'wp-json/wp/v2/tags') if _wp_base else ''
+redirect_endpoint_url = (_wp_base + 'wp-json/redirection/v1/') if _wp_base else ''
+
 #logcollector_url  = 'http://192.168.1.151:7676/' # when there is a value, every API activity will be logged in this server
 logcollector_url   = os.environ.get('TW2_LOGCOLLECTOR_URL', '')  # set in /etc/tradewave/secrets.env (per-env log collector)
 # set TW2_LOGCOLLECTOR_URL='' to turn off log collector
