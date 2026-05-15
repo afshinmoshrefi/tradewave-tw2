@@ -33,6 +33,16 @@ Group=flask
 WorkingDirectory=/home/flask/web
 EnvironmentFile=/etc/tradewave/secrets.env
 Environment=PYTHONPATH=/home/flask:/home/flask/web
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/tradewave /var/www/tradewave /var/www/smn /home/flask/web /home/flask/site/data
+ProtectHome=read-only
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
 ExecStart=/home/flask/venv/bin/gunicorn \
     --workers 2 \
     --worker-class sync \
@@ -59,7 +69,10 @@ add_header X-Content-Type-Options "nosniff" always;
 add_header X-Frame-Options "SAMEORIGIN" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header Permissions-Policy "interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(self \"https://checkout.stripe.com\")" always;
-add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https://api.stripe.com https://api.workos.com https://*.authkit.app; frame-src 'self' https://js.stripe.com https://checkout.stripe.com https://*.authkit.app; frame-ancestors 'self'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://api.workos.com https://*.authkit.app; object-src 'none'; upgrade-insecure-requests" always;
+# CSP allow-list:
+#   - Cloudflare Insights beacon (auto-injected by CF on proxied responses)
+#   - Mailerlite signup forms (assets.mailerlite.com + form action posts)
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://static.cloudflareinsights.com https://assets.mailerlite.com; style-src 'self' 'unsafe-inline' https://assets.mailerlite.com; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https://api.stripe.com https://api.workos.com https://*.authkit.app https://cloudflareinsights.com https://static.cloudflareinsights.com https://assets.mailerlite.com; frame-src 'self' https://js.stripe.com https://checkout.stripe.com https://*.authkit.app; frame-ancestors 'self'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://api.workos.com https://*.authkit.app https://assets.mailerlite.com; object-src 'none'; upgrade-insecure-requests" always;
 SNIP
 
 cat >/etc/nginx/snippets/dotfile_deny.conf <<'SNIP'

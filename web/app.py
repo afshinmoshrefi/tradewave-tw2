@@ -805,24 +805,49 @@ def _stripe_configured():
 
 
 def _refresh_price_cache():
-    """Pull all active prices + products and bucket them into (tier, period) slots
-    by matching product.name (case-insensitive substring) and price.recurring.interval."""
+    """Pull all active prices + products and bucket them into (tier, period) slots.
+
+    Resolution order per price:
+      1. product.metadata.tier + .period — recommended: set these in Stripe
+         dashboard for unambiguous mapping. Audit (2026-05-15) flagged the
+         substring-only path as fragile if a future product name happens to
+         contain "analyst" or "strategist".
+      2. Fallback: product.name case-insensitive substring + recurring.interval
+         match. Preserved for back-compat with the current Stripe product set.
+         Logs a warning so the dashboard misconfig is visible.
+
+    Paginates so >100 active prices don't get silently truncated.
+    """
     if not _stripe_configured():
         return
+    valid_tiers = {"analyst", "strategist"}
+    valid_periods = {"monthly", "yearly"}
     try:
-        prices = stripe.Price.list(active=True, limit=100, expand=["data.product"])
-        for p in prices.data:
+        for p in stripe.Price.list(active=True, limit=100, expand=["data.product"]).auto_paging_iter():
             prod = p.product
             if not isinstance(prod, dict):
                 prod = prod.to_dict() if hasattr(prod, "to_dict") else dict(prod)
+            metadata = prod.get("metadata") or {}
+            md_tier = (metadata.get("tier") or "").strip().lower()
+            md_period = (metadata.get("period") or "").strip().lower()
+            if md_tier in valid_tiers and md_period in valid_periods:
+                _price_cache[(md_tier, md_period)] = p
+                continue
+            # Fallback path (legacy): substring match.
             name = (prod.get("name") or "").lower()
             recurring = p.recurring or {}
             interval = recurring.get("interval") if isinstance(recurring, dict) else getattr(recurring, "interval", None)
+            matched = False
             for (tier, period), (substr, want_interval) in TIER_PRODUCT_NAMES.items():
                 if substr in name and interval == want_interval:
                     _price_cache[(tier, period)] = p
+                    log.info("price_cache: matched %s/%s by name substring (set metadata.tier/.period on product to remove fallback)", tier, period)
+                    matched = True
                     break
-    except Exception as e:
+            if not matched and (("analyst" in name) or ("strategist" in name)):
+                log.warning("price_cache: product name has tier-like substring but didn't match — review: id=%s name=%r interval=%s",
+                            prod.get("id"), prod.get("name"), interval)
+    except Exception:
         log.exception("Failed to refresh Stripe price cache")
 
 

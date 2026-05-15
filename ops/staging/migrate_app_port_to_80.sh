@@ -29,6 +29,16 @@ EnvironmentFile=/etc/tradewave/secrets.env
 Environment=PYTHONPATH=/home/flask:/home/flask/appserver/appserver
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/tradewave /var/www/tradewave /home/flask/appserver/appserver
+ProtectHome=read-only
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
 ExecStart=/home/flask/venv/bin/gunicorn --workers 2 --worker-class sync --timeout 120 --bind 127.0.0.1:80 --bind 10.0.0.92:80 --access-logfile /var/log/tradewave/appserver.access.log --error-logfile /var/log/tradewave/appserver.error.log --capture-output appserver:app
 Restart=on-failure
 RestartSec=3
