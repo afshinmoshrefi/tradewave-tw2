@@ -34,10 +34,7 @@ WorkingDirectory=/home/flask/web
 EnvironmentFile=/etc/tradewave/secrets.env
 Environment=PYTHONPATH=/home/flask:/home/flask/web
 NoNewPrivileges=true
-ProtectSystem=strict
-ReadWritePaths=/var/log/tradewave /var/www/tradewave /var/www/smn /home/flask/web /home/flask/site/data
-ProtectHome=read-only
-PrivateTmp=true
+ProtectSystem=full
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

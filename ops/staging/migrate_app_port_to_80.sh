@@ -30,10 +30,7 @@ Environment=PYTHONPATH=/home/flask:/home/flask/appserver/appserver
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
-ProtectSystem=strict
-ReadWritePaths=/var/log/tradewave /var/www/tradewave /home/flask/appserver/appserver
-ProtectHome=read-only
-PrivateTmp=true
+ProtectSystem=full
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
