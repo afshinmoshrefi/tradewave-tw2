@@ -436,6 +436,21 @@ export const securities_groups_default_years =
 
 }
 
+//----------------------------------------------------------------------------------------------
+// PE (presidential-election-cycle) defaults. Same global→per-market-override→cookie
+// model as cons above, but a SEPARATE slot so PE and cons selections never clobber
+// each other. Global PE default is [6 years, 6 partial]. No per-market PE overrides
+// yet — add to securities_groups_default_years_pe to override a specific market.
+// This exists so PE mode never falls through to the SeasonalBarChart "max years"
+// computation (which collapses to ~N/4 ≈ 4 and produced the empty-chart bug).
+//----------------------------------------------------------------------------------------------
+export const default_years_pe = [6, 6];
+
+export const securities_groups_default_years_pe =
+{
+  // 'DOW 30 STOCKS': [6, 6],   // example override; none active
+}
+
 
 
 // Merged resource families: securities groups whose symbols overlap

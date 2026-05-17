@@ -21,7 +21,7 @@ import 'tippy.js/dist/tippy.css';
 import { freeYears, startingSecurity, startingSecurityName } from './Common' // for free users
 import { incrementDate } from './Common'
 import { debug } from './Common';
-import { appserverURL, securities_groups_default_years } from './Common'
+import { appserverURL, securities_groups_default_years, default_years_pe, securities_groups_default_years_pe } from './Common'
 import { getSelectedIDFromSecuritiesList2 } from './Common'
 import { trend_chart_left_gap_days } from './Common'
 import { userAccessToSelectedSecurity } from './Common'
@@ -537,13 +537,21 @@ const App = () => {
 
   //-------------------------------------------------------------------------------------------------------
   // Get saved oppTable years/pyears for a security group, falling back to Common.js defaults
-  const getOppYearsForGroup = (groupName) => {
-    let [y1, y2] = [10, 10];
-    if (groupName in securities_groups_default_years) {
-      [y1, y2] = securities_groups_default_years[groupName];
+  // Resolution: global default -> per-market override -> cookie. PE mode uses
+  // a separate global default ([6,6]), separate override dict, and a separate
+  // cookie slot so PE and cons selections persist independently. This is the
+  // ONLY source of the years value on a market switch — the SeasonalBarChart
+  // "max years" computation must never silently rewrite it (that produced the
+  // jump-to-4 / empty-chart bug).
+  const getOppYearsForGroup = (groupName, peMode = false) => {
+    let [y1, y2] = peMode ? [...default_years_pe] : [10, 10];
+    const overrideDict = peMode ? securities_groups_default_years_pe : securities_groups_default_years;
+    if (groupName in overrideDict) {
+      [y1, y2] = overrideDict[groupName];
     }
+    const cookieKey = peMode ? 'oppYearsPerGroupPE' : 'oppYearsPerGroup';
     try {
-      const saved = JSON.parse(getCookie('oppYearsPerGroup') || '{}');
+      const saved = JSON.parse(getCookie(cookieKey) || '{}');
       if (saved[groupName]) {
         [y1, y2] = saved[groupName];
       }
@@ -551,11 +559,12 @@ const App = () => {
     return [y1, y2];
   }
 
-  const saveOppYearsForGroup = (groupName, y1, y2) => {
+  const saveOppYearsForGroup = (groupName, y1, y2, peMode = false) => {
+    const cookieKey = peMode ? 'oppYearsPerGroupPE' : 'oppYearsPerGroup';
     let saved = {};
-    try { saved = JSON.parse(getCookie('oppYearsPerGroup') || '{}'); } catch (e) { }
+    try { saved = JSON.parse(getCookie(cookieKey) || '{}'); } catch (e) { }
     saved[groupName] = [y1, y2];
-    setCookie('oppYearsPerGroup', JSON.stringify(saved), 300);
+    setCookie(cookieKey, JSON.stringify(saved), 300);
   }
 
   //-------------------------------------------------------------------------------------------------------
@@ -797,13 +806,13 @@ const App = () => {
 
 
       SetOppTableYears(event.target.value)
-      saveOppYearsForGroup(selectedSecurity, parseInt(event.target.value), parseInt(oppTablePartialYears))
+      saveOppYearsForGroup(selectedSecurity, parseInt(event.target.value), parseInt(oppTablePartialYears), PEselected !== 'cons')
       SetOppTablePartialYears(-1) // (1) this is to force render only after new partial year is established.  fixed the lockup bug 8/22/2021
     }
     else if (event.target.id === 'partialYears') {
       SetOpportunities([])
       SetOppTablePartialYears(event.target.value)
-      saveOppYearsForGroup(selectedSecurity, parseInt(oppTableYears), parseInt(event.target.value))
+      saveOppYearsForGroup(selectedSecurity, parseInt(oppTableYears), parseInt(event.target.value), PEselected !== 'cons')
     }
     else if (event.target.id === 'day') {  // 4/30/2022 - changed day of the month to a pull down
 
@@ -882,7 +891,7 @@ const App = () => {
           symbols: new Set(pl.symbols || [])
         });
 
-        const [y1, y2] = getOppYearsForGroup(parentGroupName);
+        const [y1, y2] = getOppYearsForGroup(parentGroupName, PEselected !== 'cons');
 
         SetOppTableYears(-1);
         SetOppTablePartialYears(-1);
@@ -932,7 +941,7 @@ const App = () => {
           symbols: null // will be populated after fetch
         });
 
-        const [y1, y2] = getOppYearsForGroup(parentGroupName);
+        const [y1, y2] = getOppYearsForGroup(parentGroupName, PEselected !== 'cons');
 
         SetOppTableYears(-1)
         SetOppTablePartialYears(-1)
@@ -992,7 +1001,7 @@ const App = () => {
 
         // check if key exist first:
 
-        const [y1, y2] = getOppYearsForGroup(event.target.value);
+        const [y1, y2] = getOppYearsForGroup(event.target.value, PEselected !== 'cons');
 
 
 
@@ -1031,6 +1040,11 @@ const App = () => {
 
         SetOppTableYears(y1.toString())
         SetOppTablePartialYears(y2.toString())
+        // Wave-viewer years follows the same cookie->override->default model.
+        // Previously nothing set seasonalYears on a market switch; the only
+        // thing touching it was the SeasonalBarChart max-years clamp, which
+        // collapsed it to ~4 under a PE filter (the reported bug).
+        SetSeasonalYears(y1.toString())
 
 
         setCookie('selectedSecurity', event.target.value, 300)
@@ -1607,12 +1621,12 @@ const App = () => {
 
         if (wpUserLevels.length === 1 && wpUserLevels[0] === '1') { //free registered
 
-          const [y1, y2] = getOppYearsForGroup(tmp_selected_security);
+          const [y1, y2] = getOppYearsForGroup(tmp_selected_security, PEselected !== 'cons');
           SetOppTableYears(y1.toString())
           SetOppTablePartialYears(y2.toString())
         }
         else { // all paid registered users
-          const [y1, y2] = getOppYearsForGroup(tmp_selected_security);
+          const [y1, y2] = getOppYearsForGroup(tmp_selected_security, PEselected !== 'cons');
           SetOppTableYears(y1.toString())
           SetOppTablePartialYears(y2.toString())
         }
@@ -2202,7 +2216,7 @@ const App = () => {
           SetSelectedSecurity(resource_group)
           setCookie('selectedSecurity', resource_group, 300) // sync cookie so refresh without querystring loads correct group
 
-          let [y1, y2] = getOppYearsForGroup(resource_group);
+          let [y1, y2] = getOppYearsForGroup(resource_group, parsedPE !== 'cons');
 
 
           const timer = setTimeout(() => {

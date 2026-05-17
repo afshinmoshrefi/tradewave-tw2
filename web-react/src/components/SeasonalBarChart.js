@@ -231,14 +231,14 @@ const SeasonalBarChart = (props) => {
         }
         setSeasonalYearsList(tmp)
 
-        const maxYearsValue = tmp[tmp.length - 1]?.value
-        const minYearsValue = tmp[0]?.value
-        const cur = parseInt(props.seasonalYears)
-        if (Number(props.seasonalYears) && maxYearsValue && cur > parseInt(maxYearsValue)) {
-          props.SetSeasonalYears(maxYearsValue)
-        } else if (Number(props.seasonalYears) && minYearsValue && cur < parseInt(minYearsValue)) {
-          props.SetSeasonalYears(minYearsValue)
-        }
+        // NOTE: deliberately do NOT rewrite props.seasonalYears here. This
+        // block used to snap it to maxYears/minYears, but under a PE filter
+        // maxYears collapses to ~N/4 (≈4), silently clobbering the user's
+        // selection on every market/symbol switch and emptying the chart.
+        // The years value is owned by App.js (cookie -> per-market override
+        // -> global default; PE default [6,6]). The dropdown list above can
+        // legitimately show fewer options than the selected value; the
+        // select box handles an out-of-list value without mutating state.
       })
       .catch(err => {
         if (err?.name === 'AbortError') return
