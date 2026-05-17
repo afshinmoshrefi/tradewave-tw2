@@ -1,8 +1,17 @@
 # TW2 Production Cutover Runbook
 
 The domain cutover of `tradewave.ai` from TW1 (live, ~30 paying users) to TW2.
-Execute this in a **fresh, focused session** with this file open. TW1 stays
-fully running and untouched until TW2 is proven on the live domain.
+
+**Scope of the cutover session = the flip ONLY (Phase 1 → 2 → 3).**
+Phase 0 (build TW2 prod on the `tw2-prod.trxstat.com` placeholder) is NOT
+done in the cutover session — it is executed ahead of time in a general
+build session via the parameterized staging playbook (`ops/staging/*.sh`
+with `prod_target.env`). By the time the cutover session runs, TW2 prod is
+already fully built, validated and soaked on the placeholder; the only
+remaining work is the irreversible domain flip and its rollback path.
+
+Execute the cutover in a **fresh, focused session** with this file open.
+TW1 stays fully running and untouched until TW2 is proven on the live domain.
 
 Everything not domain-related (build, secrets, services, crons, hardening,
 bulletproofing) is the staging playbook: run `ops/staging/*.sh` against the
@@ -29,7 +38,7 @@ Record the finding + exact rollback value at the top of the cutover session befo
 
 ---
 
-## PHASE 0 — Build TW2 prod on the placeholder (no `tradewave.ai` involvement)
+## PHASE 0 — Build TW2 prod on the placeholder (DONE in the build session, NOT the cutover session)
 
 Bring prod-web + prod-app up on **`tw2-prod.trxstat.com`** (off-brand, no
 SEO/leak risk, tunnel is hostname-agnostic so this doesn't constrain the flip).
