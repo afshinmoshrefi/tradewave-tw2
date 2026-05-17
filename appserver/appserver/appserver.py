@@ -2216,6 +2216,14 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
 @limiter.limit(config.rate_limit_YearsMetaData[3])
 def getYearsMetaData2(resourceID, year, month, day):
 
+    # The React app fires this with resourceID='-1' (the uninitialized
+    # sentinel) before the real market settles after a switch. '-1' would
+    # negative-index into the resource list (→ last market = CC) and read
+    # the wrong market's opp_meta — on dev that silently returned garbage;
+    # on a partial-data env it 500s. Reject the sentinel like OppList4 does.
+    if resourceID == '-1' or resourceID == -1:
+        return jsonify({'YearsMetaData': [], 'YearsMetaDataPE': [], 'error': 'invalid_resource_id'})
+
     date = year + '-' + month + '-' + day
     date = datetime.datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m-%d')
 
@@ -2234,15 +2242,27 @@ def getYearsMetaData2(resourceID, year, month, day):
     # Base metadata (required)
     # -----------------------
     if redis_ylst is None:
-        df = pd.read_csv(metaFile)
-        df = df[df['date'] == date]
-
-        # keep existing behavior: if missing, this should explode
-        ylst = eval(df['meta_col'].iloc[0])
-
-        sylst = []
-        for b in ylst:
-            sylst.append([str(b[0]), str(b[1])])
+        # A missing per-market opp_meta.csv means this market's precomputed
+        # opportunity data isn't provisioned in THIS environment (e.g. the
+        # US-only staging subset has no CC/ETF/etc. opp data). That must not
+        # 500 the whole wave-viewer — return empty metadata (the React side
+        # already renders this as "no data for current selection"). Logged at
+        # WARNING so a genuine prod data-pipeline failure still surfaces
+        # loudly in logs/Sentry rather than being silently swallowed.
+        if not os.path.exists(metaFile):
+            logging.warning("YearsMetaData2: opp_meta missing, returning empty: %s (resourceID=%s date=%s)", metaFile, resourceID, date)
+            sylst = []
+        else:
+            df = pd.read_csv(metaFile)
+            df = df[df['date'] == date]
+            if df.empty:
+                logging.warning("YearsMetaData2: no opp_meta row for date, returning empty: %s date=%s", metaFile, date)
+                sylst = []
+            else:
+                ylst = eval(df['meta_col'].iloc[0])
+                sylst = []
+                for b in ylst:
+                    sylst.append([str(b[0]), str(b[1])])
 
         redis_client.set(redis_key_yearsMetaData, json.dumps(sylst))
         redis_client.expire(redis_key_yearsMetaData, config.years_metadata_expire_time)
