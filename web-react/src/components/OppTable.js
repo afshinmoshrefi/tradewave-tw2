@@ -63,6 +63,7 @@ const OppTable = (props) => {
   const mlFetchIdRef = useRef(0)                               // prevents stale ML fetches from writing state
 
   const userChangedPYearsRef = useRef(false)  // true when user explicitly picks a partial years value
+  const lastOppUrlRef = useRef('')  // last OppList4 URL actually fetched — fetch when the resolved query changes, not when opportunities happens to be empty
 
   const [PELabel, SetPELabel] = useState(() => {
     const remainder = new Date().getFullYear() % 4;
@@ -305,7 +306,16 @@ const OppTable = (props) => {
 
       // if (debug) console.log('opplist4 url: ', url)
 
-      if (token.length > 0 && props.opportunities.length === 0) {
+      // Fetch when the resolved query URL changes — NOT gated on
+      // opportunities.length===0. The old gate suppressed the fetch for the
+      // final settled params whenever a transitional effect pass (during the
+      // -1 -> value settle after a market switch) had already populated
+      // opportunities, so the table showed a stale/empty interim result and
+      // only a manual partial-years toggle (which clears opportunities in
+      // App.js) forced the correct fetch. The URL ref also dedupes redundant
+      // re-renders that don't change the query.
+      if (token.length > 0 && url !== lastOppUrlRef.current) {
+        lastOppUrlRef.current = url
 
         fetch(url)
           .then(res => {
