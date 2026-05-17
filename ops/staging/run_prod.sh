@@ -37,7 +37,7 @@ esac
 
 # script -> routing
 case "$SCRIPT" in
-  bootstrap_stage_app.sh|bootstrap_stage_app_services.sh)        MODE=payload; BOX="$TGT_APP_PUB" ;;
+  bootstrap_stage_app.sh|bootstrap_stage_app_services.sh|bootstrap_stage_app_db.sh)  MODE=payload; BOX="$TGT_APP_PUB" ;;
   bootstrap_stage_web.sh|bootstrap_stage_web_services.sh)        MODE=payload; BOX="$TGT_WEB_PUB" ;;
   inventory.sh|bootstrap_stage_app_code.sh)
       case "$TIER" in
