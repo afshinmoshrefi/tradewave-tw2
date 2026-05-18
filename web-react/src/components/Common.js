@@ -426,8 +426,6 @@ export const securities_groups_default_years =
     'ETFs': [10, 8],
     'LONDON EXCHANGE': [10, 9],
     'TORONTO STOCKS': [10, 9],
-    'KOREA EXCHANGE': [10, 9],
-    'KOREA KOSDAQ': [10, 8],    
 
     'CRYPTO CURRENCIES': [9, 7]
 
