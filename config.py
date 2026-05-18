@@ -440,9 +440,14 @@ level_access_hierarchy_premium = {
     '6': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16'],   # Institutional: everything
     '7': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16'],
 }
-# Backend opp-list filter — Ripple can browse only DOW + NASDAQ even though dropdown shows all.
+# Backend opp-list filter (also drives /login resource_disp + token lid).
+# LAUNCH DECISION (Afshin, 2026-05-18): level '1' (free Explorer) intentionally
+# gets ALL 17 markets - the tier data-paywall is deliberately open during
+# launch. Do NOT revert '1' to ['0','1'] without Afshin's say-so. Re-tightening
+# is deferred post-launch and must pair with the React default-security
+# fallback fix (see memory: tw2-launch-open-paywall-decision).
 level_access_hierarchy = {
-    '1': ['0','1'],
+    '1': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16'],
     '4': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16'],
     '5': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16'],
     '6': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16'],
