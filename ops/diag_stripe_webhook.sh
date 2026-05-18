@@ -41,7 +41,7 @@ sign_and_post () {  # $1=secret  $2=url  $3=label
   local sec="$1" url="$2" label="$3" t b sig code body
   [ -z "$sec" ] && { echo "[$label] skipped (empty secret)"; return; }
   t=$(date +%s)
-  b='{"id":"evt_diag_'"$t"'","type":"invoice.payment_succeeded","data":{"object":{}}}'
+  b='{"id":"evt_diag_'"$t"'","object":"event","api_version":"2026-04-22.dahlia","type":"invoice.payment_succeeded","data":{"object":{"id":"in_diag_'"$t"'","object":"invoice","customer":"cus_diag_none","subscription":"sub_diag_none"}}}'
   sig=$(printf '%s' "$t.$b" | openssl dgst -sha256 -hmac "$sec" | awk '{print $NF}')
   body=$(curl -s -k -m 15 -w $'\n%{http_code}' -X POST "$url" \
         -H "Host: $HOST" -H "Stripe-Signature: t=$t,v1=$sig" \
@@ -79,7 +79,14 @@ except Exception as e:
     print("IMPORT stripe FAILED:", type(e).__name__, "-", e); raise SystemExit(0)
 sec = getattr(config, "STRIPE_WEBHOOK_SECRET", "") or ""
 print("config secret sha256 =", hashlib.sha256(sec.encode()).hexdigest(), "len =", len(sec))
-body = '{"id":"evt_probe","type":"invoice.payment_succeeded","data":{"object":{}}}'
+# Mirror the running app: it sets stripe.api_key at startup; Event.construct_from
+# needs it. Without it, construct_event can AttributeError after a VALID signature.
+try:
+    stripe.api_key = getattr(config, "STRIPE_SECRET_KEY", "") or getattr(config, "STRIPE_API_KEY", "") or stripe.api_key
+    print("stripe.api_key set =", bool(stripe.api_key))
+except Exception as _e:
+    print("api_key set skipped:", _e)
+body = '{"id":"evt_probe","object":"event","api_version":"2026-04-22.dahlia","type":"invoice.payment_succeeded","data":{"object":{"id":"in_probe","object":"invoice","customer":"cus_probe_none","subscription":"sub_probe_none"}}}'
 t = int(time.time())
 mac = hmac.new(sec.encode("utf-8"), ("%d.%s" % (t, body)).encode("utf-8"), hashlib.sha256).hexdigest()
 hdr = "t=%d,v1=%s" % (t, mac)
