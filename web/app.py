@@ -1332,19 +1332,21 @@ def webhook_stripe():
             db_user = s.query(User).filter_by(email=cust_email).with_for_update().first()
 
         if not db_user:
-            # F2.8 - Don't silently 200 when we can't find the user. Stripe
-            # retries 5xx events for ~3 days with exponential backoff, which
-            # gives /stripe/success or a manual operator action time to create
-            # the user row. We keep the StripeEvent row recorded so an admin can
-            # trace the event, but we do NOT mark processed - return 500 to
-            # trigger retry.
+            # TW2 shares its Stripe account with TW1, so every TW1 customer's
+            # billing event is ALSO delivered to this endpoint and will never
+            # map to a TW2 user. The old behavior (return 5xx so Stripe retries
+            # for ~3 days to cover a new-signup race) turned that into a
+            # permanent retry storm and risked Stripe auto-disabling the
+            # endpoint. Instead: record the row with processing_error set and
+            # processed_at left NULL so it stays visible and replayable from
+            # /admin, then ACK 200 so Stripe stops retrying. Genuine new-
+            # subscriber races are covered by the idempotent /stripe/success
+            # reconcile and by later recurring subscription events.
             err_detail = (
                 f"No user found for stripe_customer_id={customer_id}, "
                 f"client_ref={client_ref}, email={cust_email}"
             )
             evrow.processing_error = err_detail
-            # Note: we leave processed_at NULL so the row is visible as
-            # in-flight in /admin until a later retry resolves it.
             s.commit()
             try:
                 write_audit(
@@ -1360,7 +1362,7 @@ def webhook_stripe():
                 )
             except Exception:
                 log.exception("write_audit for user_not_found failed")
-            return jsonify({"error": "user_not_found"}), 500
+            return jsonify({"received": True, "user_not_found": True}), 200
 
         # F2.9 - Backfill stripe_customer_id if it was missing - but refuse
         # to rebind a customer_id that already belongs to a different user row.
