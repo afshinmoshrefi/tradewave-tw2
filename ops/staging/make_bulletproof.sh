@@ -35,16 +35,20 @@ logrotate -d /etc/logrotate.d/tradewave >/dev/null 2>&1 && echo "logrotate confi
 $JOURNALD_CAP
 echo "journald capped: \$(grep ^SystemMaxUse /etc/systemd/journald.conf)"
 
-# Backup cron (nightly 03:30) + restore drill (weekly Sun 04:30) on flask crontab.
+# backup_db/uptime/soak run fine as flask. restore_drill needs root
+# (it does `sudo -u postgres psql` to drop/create a scratch DB — flask
+# can't sudo). So restore_drill goes in ROOT's crontab, the rest in flask's.
 CUR=\$(sudo -u flask crontab -l 2>/dev/null || true)
 {
   printf '%s\n' "\$CUR"
   echo '30 3 * * * /home/flask/ops/backup_db.sh'
-  echo '30 4 * * 0 /home/flask/ops/restore_drill.sh >> /var/log/tradewave/restore_drill.log 2>&1'
   echo '*/5 * * * * /home/flask/ops/uptime_check.sh'
   echo '*/30 * * * * /home/flask/ops/soak_monitor.sh'
-} | grep -vE '^\$' | sort -u | sudo -u flask crontab -
-echo "app crontab:"; sudo -u flask crontab -l | grep -E 'backup_db|restore_drill|uptime|soak'
+} | grep -vE '^\$' | grep -v restore_drill | sort -u | sudo -u flask crontab -
+RCUR=\$(crontab -l 2>/dev/null || true)
+{ printf '%s\n' "\$RCUR"; echo '30 4 * * 0 /home/flask/ops/restore_drill.sh >> /var/log/tradewave/restore_drill.log 2>&1'; } | grep -vE '^\$' | sort -u | crontab -
+echo "flask crontab:"; sudo -u flask crontab -l | grep -E 'backup_db|uptime|soak'
+echo "root crontab:";  crontab -l | grep -E 'restore_drill'
 REMOTE
 
 hdr "STAGE-APP: PROVE backup + restore work now (not hoped)"
@@ -52,8 +56,8 @@ ssh $S "root@$APP" '
   sudo -u flask /home/flask/ops/backup_db.sh && echo "backup ran"
   ls -la /var/backups/tradewave/ | tail -3
   tail -1 /var/log/tradewave/backup.log
-  echo "--- restore drill ---"
-  sudo -u flask /home/flask/ops/restore_drill.sh 2>&1 | tail -5
+  echo "--- restore drill (as root: needs sudo -u postgres) ---"
+  /home/flask/ops/restore_drill.sh 2>&1 | tail -5
 '
 
 # ---------------------------------------------------------------- stage-web

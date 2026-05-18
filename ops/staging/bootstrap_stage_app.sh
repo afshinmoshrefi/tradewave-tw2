@@ -61,7 +61,7 @@ fi
 hdr "4. directories"
 install -d -m 750 -o root  -g flask /etc/tradewave
 install -d -m 755 -o flask -g flask /var/log/tradewave
-install -d -m 750 -o root  -g flask /var/backups/tradewave
+install -d -m 750 -o flask -g flask /var/backups/tradewave  # flask-owned: backup_db.sh runs as flask
 install -d -m 755 -o flask -g flask /home/flask/data            # for the US-only data subset
 ls -ld /etc/tradewave /var/log/tradewave /var/backups/tradewave /home/flask/data
 
