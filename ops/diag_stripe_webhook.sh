@@ -37,35 +37,35 @@ if [ -z "$PSEC" ]; then echo "NOTE: running process has NO STRIPE_WEBHOOK_SECRET
 if [ "$ph" = "$fh" ] && [ -n "$PSEC" ]; then SAME=yes; else SAME=no; fi
 echo "same_secret=$SAME"
 
-sign_and_post () {  # $1=secret  $2=label
-  local sec="$1" label="$2" t b sig code body
+sign_and_post () {  # $1=secret  $2=url  $3=label
+  local sec="$1" url="$2" label="$3" t b sig code body
   [ -z "$sec" ] && { echo "[$label] skipped (empty secret)"; return; }
   t=$(date +%s)
   b='{"id":"evt_diag_'"$t"'","type":"invoice.payment_succeeded","data":{"object":{}}}'
   sig=$(printf '%s' "$t.$b" | openssl dgst -sha256 -hmac "$sec" | awk '{print $NF}')
-  body=$(curl -s -m 15 -w $'\n%{http_code}' -X POST "https://$HOST/webhooks/stripe" \
-        -H "Stripe-Signature: t=$t,v1=$sig" -H 'Content-Type: application/json' \
-        --data-binary "$b")
+  body=$(curl -s -k -m 15 -w $'\n%{http_code}' -X POST "$url" \
+        -H "Host: $HOST" -H "Stripe-Signature: t=$t,v1=$sig" \
+        -H 'Content-Type: application/json' --data-binary "$b")
   code=$(printf '%s' "$body" | tail -1)
   echo "[$label] HTTP $code  body=$(printf '%s' "$body" | head -1)"
 }
 
-hr "test A: sign with the secret the RUNNING APP uses (decisive)"
-sign_and_post "$PSEC" "proc-secret"
-hr "test B: sign with the secret in secrets.env"
-sign_and_post "$FSEC" "file-secret"
+hr "layer isolation - all signed with the secret the RUNNING APP uses"
+GUNI_PORT=$(ss -ltnp 2>/dev/null | grep -oE '127.0.0.1:(5500|8000|5000)' | head -1 | cut -d: -f2)
+GUNI_PORT="${GUNI_PORT:-5500}"
+echo "(detected gunicorn loopback port: $GUNI_PORT)"
+sign_and_post "$PSEC" "http://127.0.0.1:${GUNI_PORT}/webhooks/stripe" "A1 gunicorn-direct (no nginx/no CF)"
+sign_and_post "$PSEC" "http://127.0.0.1:80/webhooks/stripe"            "A2 local-nginx (no CF)"
+sign_and_post "$PSEC" "https://$HOST/webhooks/stripe"                  "A3 via Cloudflare tunnel"
+hr "control - secrets.env value over the tunnel"
+sign_and_post "$FSEC" "https://$HOST/webhooks/stripe"                  "B  file-secret via tunnel"
 
-hr "VERDICT"
-if [ "$SAME" = yes ]; then
-  echo "Secret is consistent (file == running process)."
-  echo "If test A/B = 200 -> webhook is GOOD."
-  echo "If test A/B = 400 -> secret is right but SIGNING FORMAT is wrong (code-side); send me this output."
-else
-  echo "MISMATCH: the running service is NOT using the secrets.env value."
-  echo "If test A (proc-secret) = 200 but test B (file-secret) = 400:"
-  echo "  -> signing math is fine; the live service is running a STALE/OTHER secret."
-  echo "  -> Real Stripe events (signed with the dashboard whsec you put in secrets.env)"
-  echo "     will FAIL until the service is restarted so it loads /etc/tradewave/secrets.env."
-  echo "  Likely cause: the $UNIT systemd unit doesn't load that file, OR it wasn't"
-  echo "  truly restarted. Next: check 'systemctl cat $UNIT' for EnvironmentFile=."
-fi
+hr "VERDICT (read against the A1/A2/A3 codes above)"
+echo "Secret is consistent (file == running process), same box => not secret, not clock."
+echo "  A1 gunicorn-direct = 200  -> signing+secret+app are CORRECT. The breakage is an"
+echo "     edge layer: if A2 also 400 it's nginx; if only A3 400 it's Cloudflare/tunnel"
+echo "     mangling the body or the Stripe-Signature header."
+echo "  A1 gunicorn-direct = 400  -> the app rejects a byte-perfect, correctly-signed"
+echo "     request with its own secret => something consumes/changes request.data before"
+echo "     the handler (a body-reading WSGI/before_request middleware), or stripe-lib"
+echo "     version scheme. That's a code-side fix; send me this whole output."
