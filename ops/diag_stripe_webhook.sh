@@ -60,7 +60,47 @@ sign_and_post "$PSEC" "https://$HOST/webhooks/stripe"                  "A3 via C
 hr "control - secrets.env value over the tunnel"
 sign_and_post "$FSEC" "https://$HOST/webhooks/stripe"                  "B  file-secret via tunnel"
 
+hr "test C: in-process construct_event (prod venv + its config + its stripe lib, NO http)"
+VPY=/home/flask/venv/bin/python
+[ -x "$VPY" ] || VPY=$(command -v python3)
+TMPC=$(mktemp /tmp/whprobe.XXXX.py)
+cat > "$TMPC" <<'PY'
+import sys, time, hmac, hashlib
+sys.path[:0] = ['/home/flask/web', '/home/flask']
+try:
+    import config
+    print("config.__file__ =", getattr(config, "__file__", "?"))
+except Exception as e:
+    print("IMPORT config FAILED:", type(e).__name__, "-", e); raise SystemExit(0)
+try:
+    import stripe
+    print("stripe version =", getattr(stripe, "VERSION", getattr(stripe, "_version", "?")))
+except Exception as e:
+    print("IMPORT stripe FAILED:", type(e).__name__, "-", e); raise SystemExit(0)
+sec = getattr(config, "STRIPE_WEBHOOK_SECRET", "") or ""
+print("config secret sha256 =", hashlib.sha256(sec.encode()).hexdigest(), "len =", len(sec))
+body = '{"id":"evt_probe","type":"invoice.payment_succeeded","data":{"object":{}}}'
+t = int(time.time())
+mac = hmac.new(sec.encode("utf-8"), ("%d.%s" % (t, body)).encode("utf-8"), hashlib.sha256).hexdigest()
+hdr = "t=%d,v1=%s" % (t, mac)
+try:
+    ev = stripe.Webhook.construct_event(body, hdr, sec)
+    et = ev.get("type") if isinstance(ev, dict) else getattr(ev, "type", None)
+    print("CONSTRUCT_EVENT: PASS  type=", et)
+except Exception as e:
+    print("CONSTRUCT_EVENT: FAIL ", type(e).__name__, "-", e)
+PY
+"$VPY" "$TMPC" 2>&1
+rm -f "$TMPC"
+
 hr "VERDICT (read against the A1/A2/A3 codes above)"
+echo "test C is the bisector:"
+echo "  C config secret sha256 must equal 7b66...cfcb (the proc/file hash). If it"
+echo "    DIFFERS -> config.py transforms the secret; that's the bug."
+echo "  C CONSTRUCT_EVENT PASS but A1 http=400 -> secret+lib+scheme are fine; the"
+echo "    bytes reaching the handler != what was sent (request.data not raw / proxy)."
+echo "  C CONSTRUCT_EVENT FAIL -> the printed exception IS the answer (stripe-lib"
+echo "    version scheme, header parse, or secret). Send me this whole output."
 echo "Secret is consistent (file == running process), same box => not secret, not clock."
 echo "  A1 gunicorn-direct = 200  -> signing+secret+app are CORRECT. The breakage is an"
 echo "     edge layer: if A2 also 400 it's nginx; if only A3 400 it's Cloudflare/tunnel"
