@@ -150,7 +150,9 @@
       {% else %}
       <a href="/pricing" class="secondary">Upgrade plan</a>
       {% endif %}
-      <a href="/logout" class="danger">Sign out</a>
+      <form method="POST" action="/logout" style="display:inline;margin:0;">
+        <button type="submit" class="danger">Sign out</button>
+      </form>
     </div>
   </div>
 </body>
