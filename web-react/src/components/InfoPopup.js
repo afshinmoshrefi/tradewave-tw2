@@ -485,14 +485,14 @@ Includes:
                             </div>
 
                             <div style={{ width: '100%', height: '70%', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                                <button className='button' style={{ fontSize: buttonFontSize, height: buttonH }} onClick={() => window.open('/terms--conditions', '_blank')}>Terms of Service</button>
-                                <button className='button' style={{ fontSize: buttonFontSize, height: buttonH }} onClick={() => window.open('/privacy-policy', '_blank')}>Privacy Policy</button>
-                                <button className='button' style={{ fontSize: buttonFontSize, height: buttonH }} onClick={() => window.open('/risk-disclosure', '_blank')}>Risk Disclosure</button>
+                                <button className='button' style={{ fontSize: buttonFontSize, height: buttonH }} onClick={() => window.open('/terms.html', '_blank')}>Terms of Service</button>
+                                <button className='button' style={{ fontSize: buttonFontSize, height: buttonH }} onClick={() => window.open('/privacy.html', '_blank')}>Privacy Policy</button>
+                                <button className='button' style={{ fontSize: buttonFontSize, height: buttonH }} onClick={() => window.open('/disclaimer.html', '_blank')}>Risk Disclosure</button>
                             </div>
 
                             {/* this div is only for smartphone portrait  */}
                             <div style={{ width: '70%', display: display_smartphonep, alignItems: 'center', justifyContent: 'flex-end' }}>
-                                <span style={{ color: 'black' }}> <a href='/#pricing'>register</a> or <a href='/member-login'>login</a></span>
+                                <span style={{ color: 'black' }}> <a href='/#pricing'>register</a> or <a href='/login'>login</a></span>
                             </div>
 
                             {/* notification when they don't click */}
@@ -515,7 +515,7 @@ Includes:
 
                                 {/* this div is not for smartphone portrait.  its for everything else  */}
                                 <div style={{ width: '34%', display: display_not_smartphonep, alignItems: 'center', justifyContent: 'flex-end' }}>
-                                    <span style={{ color: 'black' }}> <a href='/#pricing'>register</a> or <a href='/member-login'>login</a></span>
+                                    <span style={{ color: 'black' }}> <a href='/#pricing'>register</a> or <a href='/login'>login</a></span>
                                 </div>
 
                             </div>
@@ -552,7 +552,7 @@ Includes:
                                 {contentText}
                             </div>
                             <div style={{ width: '100%', height: '60%', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexDirection: 'column' }}>
-                                <button style={{ fontSize: buttonFontSize, height: buttonH }} className='button' onClick={() => window.open('/register/?lid=1', '_blank')}>Register</button>
+                                <button style={{ fontSize: buttonFontSize, height: buttonH }} className='button' onClick={() => window.open('/login', '_blank')}>Register</button>
                             </div>
                             <div style={{ width: '100%', height: '20%', backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }}>
 
@@ -594,7 +594,7 @@ Includes:
 
                             {(props.dialogProp['title'] === 'Portfolio Manager' || props.dialogProp['title'] === 'Settings') &&
                                 <p>
-                                    <span style={{ color: 'black' }}> <a href='/#pricing'>register</a> or <a href='/member-login'>login</a></span>
+                                    <span style={{ color: 'black' }}> <a href='/#pricing'>register</a> or <a href='/login'>login</a></span>
                                 </p>
                             }
                             <div style={{ width: '100%', height: '20%', backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }}>
