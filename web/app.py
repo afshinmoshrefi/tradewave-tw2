@@ -805,16 +805,19 @@ def _stripe_configured():
 
 
 def _refresh_price_cache():
-    """Pull all active prices + products and bucket them into (tier, period) slots.
+    """Bucket active Stripe prices into (tier, period) slots — metadata-only.
 
-    Resolution order per price:
-      1. product.metadata.tier + .period — recommended: set these in Stripe
-         dashboard for unambiguous mapping. Audit (2026-05-15) flagged the
-         substring-only path as fragile if a future product name happens to
-         contain "analyst" or "strategist".
-      2. Fallback: product.name case-insensitive substring + recurring.interval
-         match. Preserved for back-compat with the current Stripe product set.
-         Logs a warning so the dashboard misconfig is visible.
+    A price is used ONLY if its product carries all three metadata keys:
+      product_line == "eod", tier in {analyst,strategist}, period in {monthly,yearly}.
+
+    The legacy product-name-substring fallback was REMOVED (2026-05-19). The
+    shared Stripe account holds ~14 active legacy UMP per-member prices (no
+    metadata) that name-collided nondeterministically, plus the placeholder
+    test prices, and a separate "TradeWave RT" product line is coming.
+    Requiring explicit product_line=eod metadata makes resolution deterministic
+    and immune to legacy / RT / placeholder prices — they have no (or non-eod)
+    metadata and are simply ignored. Set tier/period/product_line on each EOD
+    product in the Stripe dashboard; nothing else is discoverable.
 
     Paginates so >100 active prices don't get silently truncated.
     """
@@ -828,25 +831,20 @@ def _refresh_price_cache():
             if not isinstance(prod, dict):
                 prod = prod.to_dict() if hasattr(prod, "to_dict") else dict(prod)
             metadata = prod.get("metadata") or {}
+            md_line = (metadata.get("product_line") or "").strip().lower()
             md_tier = (metadata.get("tier") or "").strip().lower()
             md_period = (metadata.get("period") or "").strip().lower()
-            if md_tier in valid_tiers and md_period in valid_periods:
-                _price_cache[(md_tier, md_period)] = p
-                continue
-            # Fallback path (legacy): substring match.
-            name = (prod.get("name") or "").lower()
-            recurring = p.recurring or {}
-            interval = recurring.get("interval") if isinstance(recurring, dict) else getattr(recurring, "interval", None)
-            matched = False
-            for (tier, period), (substr, want_interval) in TIER_PRODUCT_NAMES.items():
-                if substr in name and interval == want_interval:
-                    _price_cache[(tier, period)] = p
-                    log.info("price_cache: matched %s/%s by name substring (set metadata.tier/.period on product to remove fallback)", tier, period)
-                    matched = True
-                    break
-            if not matched and (("analyst" in name) or ("strategist" in name)):
-                log.warning("price_cache: product name has tier-like substring but didn't match — review: id=%s name=%r interval=%s",
-                            prod.get("id"), prod.get("name"), interval)
+            if md_line != "eod" or md_tier not in valid_tiers or md_period not in valid_periods:
+                continue  # legacy / RT / placeholder / unscoped price — ignore
+            slot = (md_tier, md_period)
+            existing = _price_cache.get(slot)
+            if existing is not None and getattr(existing, "id", None) != getattr(p, "id", None):
+                log.warning(
+                    "price_cache: >1 active EOD price for slot %s (%s, %s) — ambiguous; "
+                    "archive the extra in Stripe. Using last-seen.",
+                    slot, getattr(existing, "id", "?"), getattr(p, "id", "?"),
+                )
+            _price_cache[slot] = p
     except Exception:
         log.exception("Failed to refresh Stripe price cache")
 
