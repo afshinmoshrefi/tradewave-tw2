@@ -195,12 +195,18 @@
           btn.id = auth.id;
           btn.className = auth.className;
           btn.textContent = 'Log Out';
+          // Copy computed style from the original <a> so the new <button>
+          // visually matches the surrounding nav links exactly. `color: inherit`
+          // was not enough because the nav's CSS targets `<a>` only; a bare
+          // <button> falls back to the UA default (black) and stands out.
+          var orig = window.getComputedStyle(auth);
           btn.style.background = 'none';
           btn.style.border = '0';
           btn.style.padding = '0';
           btn.style.cursor = 'pointer';
-          btn.style.color = 'inherit';
-          btn.style.font = 'inherit';
+          btn.style.color = orig.color;
+          btn.style.font = orig.font;
+          btn.style.textDecoration = orig.textDecoration;
           form.appendChild(btn);
           auth.parentNode.replaceChild(form, auth);
         }
