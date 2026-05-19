@@ -370,7 +370,7 @@ Includes:
                 window.location.href = '/#pricing';
             }
             else {
-                window.location.href = '/my-account/?ihc_ap_menu=subscription';
+                window.location.href = '/pricing';
             }
 
         }
@@ -444,7 +444,7 @@ Includes:
     const upgradeToInstitutional = () => {
         const url = (loggedinUser === '0')
             ? '/#pricing'
-            : '/my-account/?ihc_ap_menu=subscription';
+            : '/pricing';
 
         window.open(url, '_blank', 'noopener,noreferrer');
 

@@ -537,7 +537,7 @@ const TableBox = ({
                     }}
                   >
                     <a
-                      href="/my-account/?ihc_ap_menu=subscription"
+                      href="/pricing"
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
