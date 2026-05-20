@@ -1516,7 +1516,7 @@ def _build_market_bar_html(current_slug=None, all_quotes=None):
 
 
 def _build_header_html():
-    return '''
+    return f'''
     <header>
         <div class="header-content">
             <a href="/" class="logo">
@@ -1525,7 +1525,7 @@ def _build_header_html():
             <div class="header-right">
                 <nav>
                     <a href="/">Home</a>
-                    <a href="https://tradewave.ai" target="_blank">TradeWave</a>
+                    <a href="{config.tw2_public_url.rstrip('/')}" target="_blank">TradeWave</a>
                 </nav>
             </div>
         </div>
@@ -1624,7 +1624,7 @@ def _build_footer_html():
     <footer>
         <div class="footer-content">
             <div>© {now.year} <a href="https://taradataresearch.com" target="_blank">Tara Data Research LLC</a>. All rights reserved.</div>
-            <div><a href="https://tradewave.ai" target="_blank">TradeWave</a></div>
+            <div><a href="{config.tw2_public_url.rstrip('/')}" target="_blank">TradeWave</a></div>
             <div>Updated {now.strftime('%b %d, %Y %H:%M UTC')}</div>
         </div>
     </footer>'''
@@ -1939,7 +1939,7 @@ def build_security_page(sec, quote, news, related, chart_urls, max_pe=0,
             </div>
         </div>
 
-        <p class="disclaimer">Seasonal patterns reflect historical tendencies and do not guarantee future results. All projections are based on past performance and should be used as one input among many in your investment decision-making process. Data provided by <a href="https://tradewave.ai" target="_blank">TradeWave.ai</a>.</p>
+        <p class="disclaimer">Seasonal patterns reflect historical tendencies and do not guarantee future results. All projections are based on past performance and should be used as one input among many in your investment decision-making process. Data provided by <a href="{config.tw2_public_url.rstrip('/')}" target="_blank">TradeWave.ai</a>.</p>
     </div>'''
 
     # ── Build basis comparison text ──

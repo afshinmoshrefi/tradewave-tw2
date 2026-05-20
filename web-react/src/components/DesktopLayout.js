@@ -95,7 +95,16 @@ const DesktopLayout = (props) => {
     const [settingsDragPos, setSettingsDragPos] = useState(null);
     const settingsDragRef = useRef({ active: false, offsetX: 0, offsetY: 0 });
 
-    const [priceChartType, SetPriceChartType] = useState(() => localStorage.getItem('priceChartType') || 'candlestick');
+    const [priceChartType, SetPriceChartType] = useState(() => {
+        // Button keys are 'line' / 'candle' / 'ohlc'. Older builds wrote 'candlestick'
+        // for the default which matches none of the buttons (settings shows no
+        // selection, chart falls through to OHLC). Migrate stale values + default
+        // to 'candle' so the price chart always has a known type.
+        const stored = localStorage.getItem('priceChartType');
+        if (stored === 'line' || stored === 'candle' || stored === 'ohlc') return stored;
+        localStorage.setItem('priceChartType', 'candle');
+        return 'candle';
+    });
 
     // Securities Groups inline state
     const [secGroupsTab, SetSecGroupsTab] = useState('groups'); // 'groups', 'published', 'admin'

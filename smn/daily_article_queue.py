@@ -35,7 +35,7 @@ import config
 # How many articles to queue each day.
 # The article_processor handles them sequentially; with 5–15 min per
 # article a count of 5 will publish throughout the morning naturally.
-ARTICLES_PER_DAY = 6
+ARTICLES_PER_DAY = 2
 
 # Only queue articles whose LLM score meets this minimum.
 # Scale: 1–10.  7+ = strong idea; 5–6 = decent; below 5 = weak.

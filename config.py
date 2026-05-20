@@ -117,6 +117,14 @@ x_profile_url = os.environ.get('TW2_X_PROFILE_URL', '')  # set in /etc/tradewave
 # domain_root = 'https://TradeWave.ai/'
 domain_root = os.environ.get('TW2_DOMAIN_ROOT', '')  # set in /etc/tradewave/secrets.env (per-env public root)
 
+# Public, browser-facing URL of the TW2 web app (the auth-bound /app/ host).
+# Derived from TW2_PUBLIC_HOST (e.g. 'tw2-dev.trxstat.com' on dev, 'tw2.trxstat.com' on prod).
+# Used by SMN generators to emit user-clickable links to TradeWave from articles, the
+# news home, and the security/market pages. Distinct from `domain_root` (the LAN-IP base
+# used for static-report canonical URLs) — see project memory tw2-domain-split.
+_tw2_public_host = os.environ.get('TW2_PUBLIC_HOST', '').strip().rstrip('/')
+tw2_public_url = f'https://{_tw2_public_host}/' if _tw2_public_host else 'https://tw2.trxstat.com/'
+
 active_days = 5 # number of look back days to find active opportunities for the active list
 
 alias_symbols = {'GSPC':'SPX','SPX':'GSPC'} # this is the change GSPC to SPX 10/20/2022

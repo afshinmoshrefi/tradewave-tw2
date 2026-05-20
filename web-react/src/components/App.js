@@ -397,6 +397,7 @@ const App = () => {
 
   const [publishedLists, SetPublishedLists] = useState([]);
   const [isAdmin, SetIsAdmin] = useState(false);
+  const [userRoles, SetUserRoles] = useState(window.tw2_user_roles || ['user']);
   const [securitiesPrefs, SetSecuritiesPrefs] = useState({ hidden_groups: [], enabled_published: [] });
   const [showSecuritiesGroupSettings, SetShowSecuritiesGroupSettings] = useState(false);
 
@@ -1251,6 +1252,7 @@ const App = () => {
     activeWatchlistFilter,
     publishedLists,
     isAdmin,
+    userRoles,
     securitiesPrefs,
     showSecuritiesGroupSettings,
     showVolume,
@@ -1757,6 +1759,9 @@ const App = () => {
       if (decoded['is_admin'] !== undefined)
         SetIsAdmin(decoded['is_admin']);
 
+      if (decoded['roles'] !== undefined)
+        SetUserRoles(decoded['roles']);
+
       if (decoded['upgrade_message']) {
         SetUpgradeMessage(decoded['upgrade_message']);
       }
@@ -2231,7 +2236,12 @@ const App = () => {
           else {
             SetOppTablePartialYears(-1) // -1 defaults the partial years to the first one on the list
           }
-          SetOpportunities([])
+          // Don't clear opportunities here: OppTable refetches whenever its
+          // resolved URL changes (selectedSecurity / partialYears / oppTableYears
+          // etc.). If the cookie already pointed at the pattern's market with
+          // matching partial-years, the URL is identical and OppTable.js:317
+          // dedupes the refetch; clearing here would leave the table stuck on
+          // "Loading..." because the dedupe skips the (legitimately needed) refetch.
 
 
           // if (rdd.isMobile && !rdd.isTablet && browserH < browserW) {

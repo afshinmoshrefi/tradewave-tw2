@@ -451,7 +451,7 @@ def _site_header_html():
             </a>
             <div class="smn-header-nav">
                 <a href="{home_href}">Home</a>
-                <a href="https://tradewave.ai" target="_blank">TradeWave</a>
+                <a href="{config.tw2_public_url}" target="_blank">TradeWave</a>
             </div>
         </div>
     </div>'''
@@ -543,7 +543,7 @@ def _site_footer_html():
                 &copy; {year} <a href="https://taradataresearch.com" target="_blank">Tara Data Research LLC</a>. All rights reserved.
             </div>
             <div class="smn-footer-links">
-                <a href="https://tradewave.ai" target="_blank">TradeWave</a>
+                <a href="{config.tw2_public_url}" target="_blank">TradeWave</a>
             </div>
         </div>
     </div>'''
@@ -602,6 +602,11 @@ def _strip_site_wrapper(html):
                     depth -= 1
                     if depth == 0:
                         end_of_top = i + 6
+                        # Also consume the trailing <!-- /smn-chrome --> sentinel
+                        # emitted by _inject_site_wrapper, if present.
+                        trailing = re.match(r'\s*<!--\s*/smn-chrome\s*-->', html[end_of_top:])
+                        if trailing:
+                            end_of_top += trailing.end()
                         # Remove from first marker through end of top chrome
                         html = html[:first] + html[end_of_top:]
                         break
@@ -630,12 +635,18 @@ def _inject_site_wrapper(html, symbol, title, force=False):
         html = html[:idx_head_close] + chrome_css + html[idx_head_close:]
 
     # 2) Build the wrapper HTML
+    # The trailing <!-- /smn-chrome --> sentinel is an explicit end-anchor for
+    # publish_article._TOP_CHROME_RE. Without it the stash regex's non-greedy
+    # .*?</div> matches the first inner </div> (closing smn-market-bar-content)
+    # instead of the outer chrome close, leaving the live-quote <script> exposed
+    # to bleach and rendered as raw text on the page.
     top_chrome = f'''{_SITE_WRAPPER_MARKER}
 <div class="smn-chrome">
 {_site_market_bar_html()}
 {_site_header_html()}
 {_site_breadcrumb_html(symbol, title or symbol)}
-</div>'''
+</div>
+<!-- /smn-chrome -->'''
 
     bottom_chrome = f'''<div class="smn-chrome">
 {_site_cta_html()}

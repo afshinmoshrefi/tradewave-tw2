@@ -101,7 +101,7 @@ _SITE_WRAPPER_MARKER = '<!-- smn-site-wrapper -->'
 # that we must NOT pass through bleach.
 _TOP_CHROME_RE = re.compile(
     re.escape(_SITE_WRAPPER_MARKER)
-    + r'\s*<div class="smn-chrome">.*?</div>',
+    + r'\s*<div class="smn-chrome">.*?</div>\s*<!--\s*/smn-chrome\s*-->',
     re.DOTALL,
 )
 _BOTTOM_CHROME_RE = re.compile(

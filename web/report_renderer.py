@@ -248,12 +248,31 @@ HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
 <meta property="og:image" content="{og_image}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="{canonical_url}">
-<link rel="stylesheet" href="/_static/report.css">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="shortcut icon" href="/favicon.png">
+<link rel="apple-touch-icon" href="/favicon.png">
+<link rel="stylesheet" href="/_static/report.css?v={css_version}">
 </head>
 <body>
 {header_partial}
+<section class="report-masthead">
+  <div class="report-masthead-inner">
+    <div class="report-eyebrow">{eyebrow}</div>
+    <h1 class="report-headline">
+      <span class="report-company">{company}</span>
+      <span class="report-ticker">{symbol}</span>
+      <span class="report-direction report-direction-{direction_class}">{direction_upper}</span>
+    </h1>
+    <div class="report-subtitle">{subtitle}</div>
+  </div>
+</section>
 <main class="container-blog-content">
-<h1>{post_title}</h1>
+<div class="report-stats-strip">
+  <div class="stat-card"><div class="stat-label">Sharpe</div><div class="stat-value">{sharpe_ratio}</div></div>
+  <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value">{percent_profitable}</div></div>
+  <div class="stat-card"><div class="stat-label">Avg Gain</div><div class="stat-value">{avg_profit}</div></div>
+  <div class="stat-card"><div class="stat-label">Days Held</div><div class="stat-value">{days_hold}</div></div>
+</div>
 {report_body}
 </main>
 {footer_partial}
@@ -262,12 +281,11 @@ HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
 
 
 HTML_TABLE_TEMPLATE = """
-<p class="report-date">Report Date: {report_date}</p>
-
 <p class="report-intro">
-  The TradeWave report for <span class="hl">{company} ({symbol})</span> highlights a trading opportunity between <span class="hl">{date1}</span> and <span class="hl">{date2}</span>. This comprehensive analysis examines the TradeWave patterns observed in <span class="hl">{symbol}</span>'s price movements during this period, supported by historical data and charts.
-  <br><a class="cta" href="{domain_root}{wave_viewer_path}?o={param}">Load on Wave Viewer</a>
+  Based on <span class="hl">{intro_years_phrase}</span>, TradeWave identified a recurring <span class="hl">{direction_word}</span> seasonal pattern in <span class="hl">{company} ({symbol})</span> between <span class="hl">{date_range_human}</span>. The charts and statistics below show the consistency, risk profile, and year-by-year performance of holding this trade across each historical cycle.
+  <br><a class="cta" href="/{wave_viewer_path}?o={param}">Load on Wave Viewer</a>
 </p>
+<p class="report-meta">Generated {report_date}</p>
 
 <details>
   <summary><h2 class="report-h2-info">{company} TradeWave Opportunity Key Information<span class="info-circle"><i>i</i></span></h2></summary>
@@ -312,6 +330,37 @@ HTML_TABLE_TEMPLATE = """
   <tr><td class="stat-td-left">Trend Short</td><td class="stat-td-right">{trend_short}</td></tr>
 </table>
 """
+
+
+def _intro_years_phrase(years):
+    """Reader-friendly phrase describing the data filter used in the report.
+
+    Used in the report's intro paragraph so a reader immediately understands
+    what historical sample the pattern is based on (e.g. "the last 10 midterm
+    election years" instead of opaque tokens like "pe2-10").
+
+    PE-cycle naming follows U.S. politics convention:
+      PE / PE0 = presidential election year     (e.g. 2024, 2020)
+      PE1      = post-election year             (e.g. 2025, 2021)
+      PE2      = midterm election year          (e.g. 2026, 2022)
+      PE3      = pre-election year              (e.g. 2027, 2023)
+    """
+    if years == 'odd':
+        return "the last odd-numbered years"
+    if years == 'even':
+        return "the last even-numbered years"
+    if years[:2] == 'pe':
+        # "pe2-10" -> cycle "2", count "10" ;  "pe" alone -> cycle "" count "10"
+        cycle = years[2:3] if len(years) > 2 and years[2:3].isdigit() else ''
+        count = years.split('-')[1] if '-' in years else '10'
+        if cycle == '1':
+            return f"the last {count} post-election years (the year following each U.S. presidential election)"
+        if cycle == '2':
+            return f"the last {count} midterm election years"
+        if cycle == '3':
+            return f"the last {count} pre-election years (the year before each U.S. presidential election)"
+        return f"the last {count} U.S. presidential election years"
+    return f"the last {years} consecutive years"
 
 
 def _years_caveat(years):
@@ -474,6 +523,9 @@ def render(report_dict, appserver_token, post_title, post_slug):
         'param'             : convert_param_base64(resource_id, symbol, date1, days_hold, years_updated),
         'domain_root'       : DOMAIN_ROOT,
         'wave_viewer_path'  : WAVE_VIEWER_PATH,
+        'intro_years_phrase': _intro_years_phrase(years),
+        'direction_word'    : opp_dir,  # 'long' or 'short' - reads naturally inline
+        'date_range_human'  : f"{datetime.datetime.strptime(date1, '%Y-%m-%d').strftime('%b')} {int(datetime.datetime.strptime(date1, '%Y-%m-%d').strftime('%d'))} and {datetime.datetime.strptime(date2, '%Y-%m-%d').strftime('%b')} {int(datetime.datetime.strptime(date2, '%Y-%m-%d').strftime('%d'))}",
     }
     html_table = HTML_TABLE_TEMPLATE.format(**table_vars)
 
@@ -488,9 +540,36 @@ def render(report_dict, appserver_token, post_title, post_slug):
     canonical_url = f"{DOMAIN_ROOT}{REPORT_URL_BASE.lstrip('/')}/{post_slug}/"
     excerpt = f"{years_updated}-Year Date Range Report for {company} ({symbol}) - {format_date(date1)} to {format_date(date2)}. Detailed charts and statistics."
 
+    # ── Structured title block (research-note style: eyebrow / headline / subtitle) ──
+    # eyebrow: report type label, uppercase. Distinguishes cons (10-YEAR) from
+    # PE-cycle (PE2 · 10-YEAR) and odd/even-year filtered patterns.
+    if years[:2] == 'pe':
+        pe_label = years.upper().split('-')[0]  # "PE2" from "pe2-10"
+        pe_years = years.split('-')[1] if '-' in years else '10'
+        eyebrow = f"{pe_label} · {pe_years}-YEAR TRADEWAVE PATTERN"
+    elif years in ('odd', 'even'):
+        eyebrow = f"{years.upper()}-YEAR TRADEWAVE PATTERN"
+    else:
+        eyebrow = f"{years}-YEAR TRADEWAVE PATTERN"
+    headline = f"{company} ({symbol})"
+    # Subtitle: human-readable date range, e.g. "May 20 – Jun 8, 2026"
+    d1 = datetime.datetime.strptime(date1, '%Y-%m-%d')
+    d2 = datetime.datetime.strptime(date2, '%Y-%m-%d')
+    if d1.year == d2.year:
+        subtitle = f"{d1.strftime('%b')} {d1.day} – {d2.strftime('%b')} {d2.day}, {d2.year}"
+    else:
+        subtitle = f"{d1.strftime('%b')} {d1.day}, {d1.year} – {d2.strftime('%b')} {d2.day}, {d2.year}"
+
     # Optional: header/footer partials
     header_partial = _read_partial('/home/flask/site/templates/_tw_header.html')
     footer_partial = _read_partial('/var/www/tradewave/_partials/tw_app_footer.html')
+
+    # Cache-buster from report.css mtime so a CSS edit invalidates browser
+    # cache immediately (nginx serves /_static/ with expires 1d).
+    try:
+        css_version = int(os.path.getmtime('/var/www/tradewave/_static/report.css'))
+    except OSError:
+        css_version = 0
 
     page_html = HTML_PAGE_TEMPLATE.format(
         post_title=post_title,
@@ -500,6 +579,18 @@ def render(report_dict, appserver_token, post_title, post_slug):
         header_partial=header_partial,
         report_body=html_table + chart_sections,
         footer_partial=footer_partial,
+        css_version=css_version,
+        eyebrow=eyebrow,
+        headline=headline,
+        subtitle=subtitle,
+        company=company,
+        symbol=symbol,
+        direction_class=opp_dir.lower(),
+        direction_upper=opp_dir.upper(),
+        sharpe_ratio=table_vars['sharpe_ratio'],
+        percent_profitable=table_vars['percent_profitable'],
+        avg_profit=table_vars['avg_profit'],
+        days_hold=days_hold,
     )
 
     # Write

@@ -6551,7 +6551,7 @@ def _get_header_html():
                     </button>
                 </form>
                 <nav>
-                    <a href="https://tradewave.ai" target="_blank">TradeWave</a>
+                    <a href="{config.tw2_public_url.rstrip('/')}" target="_blank">TradeWave</a>
                 </nav>
             </div>
         </div>
@@ -6610,7 +6610,7 @@ def _get_footer_html(displayed_count, total_count):
                 © {datetime.now().year} <a href="https://taradataresearch.com" target="_blank">Tara Data Research LLC</a>. All rights reserved.
             </div>
             <div class="footer-links">
-                <a href="https://tradewave.ai" target="_blank">TradeWave</a>
+                <a href="{config.tw2_public_url.rstrip('/')}" target="_blank">TradeWave</a>
             </div>
             <div class="footer-generated">
                 Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} • {count_text}

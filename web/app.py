@@ -641,7 +641,11 @@ def app_index():
     """
     u = get_current_user()
     if u is None:
-        return redirect(_get_authorization_url(state="/app/"))
+        # Preserve the full path (incl. ?o=BASE64 pattern param from static reports)
+        # so that after auth the user lands back on the wave viewer with their pattern
+        # intact. screen_hint="sign-up" prompts cold visitors to create a free account.
+        return_to = request.full_path.rstrip("?")
+        return redirect(_get_authorization_url(state=return_to, screen_hint="sign-up"))
 
     if not REACT_BUILD_INDEX.exists():
         return jsonify({"error": "React build/index.html not found", "path": str(REACT_BUILD_INDEX)}), 500
@@ -671,6 +675,7 @@ def app_index():
         f'window.tw2_user_email={_js_safe(u.email)};'
         f'window.tw2_user_tier={_js_safe(u.tier or "explorer")};'
         f'window.tw2_is_admin={"true" if is_admin_bool else "false"};'
+        f'window.tw2_user_roles={_js_safe(u.roles or ["user"])};'
         '</script>'
     )
     # Inject right before </head> (same hook the milestone-1 nginx sub_filter used)
