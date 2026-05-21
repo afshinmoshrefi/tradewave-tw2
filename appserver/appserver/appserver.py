@@ -144,8 +144,6 @@ redis_client3  = redis.Redis(host=config.webserver_ip,port=6379,db=3)
 
 ddir = config.ddir
 
-# useUMP = True # use login hierarchy of Ultimate Membership Pro - set to False when ump not activated or installed
-useUMP = config.useUMP
 # keystoreURL = 'http://localhost:7777'
 keystoreURL = config.keystoreURL
 
@@ -266,10 +264,11 @@ def is_leap_in_date_range(d1,d2):
     
     return False
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
-def get_user_levels(key2, wp_userid): #key2 is for wordpress ump api token
-    
-    if useUMP == False:
-        return get_all_levels(),[],get_all_levels()  # just return all possible levels when no UMP
+def get_user_levels(key2, wp_userid):
+    # TW2: WordPress UMP is gone and login() now gates access from the signed LTK,
+    # so this helper is no longer called. Kept as a safe no-op that returns all
+    # levels; the WordPress-plugin code below is unreachable (left for git history).
+    return get_all_levels(),[],get_all_levels()
 
     url = f'{config.wordpress_url}wp-content/plugins/indeed-membership-pro/apigate.php?ihch={key2}&action=get_user_levels&uid={wp_userid}'
     response = requests.get(url, timeout=10)
@@ -410,76 +409,53 @@ def login(wp_userid, user_level, country_code, zip, skey): # I had ip for no rea
     its_afshin = False
     tw2_ltk_claims = None
 
-    # TW2: when useUMP=False, the skey MUST be a valid LTK JWT issued by the
-    # web tier. ALL gating (admin status, user_level, identity) is sourced from
-    # the signed LTK claims - URL parameters are decorative and cannot grant access.
-    if not useUMP:
-        if not skey:
-            return jsonify({'message': 'authentication required'}), 401
-        try:
-            # TW2: verify aud + iss; F2 mints LTK with these claims at the web tier.
-            tw2_ltk_claims = jwt.decode(
-                skey, app.config['SECRET_KEY'],
-                algorithms=['HS256'],
-                audience='tw2-appserver',
-                issuer='tw2-web',
-            )
-        except jwt.ExpiredSignatureError:
-            return jsonify({'message': 'session expired'}), 401
-        except (jwt.InvalidAudienceError, jwt.InvalidIssuerError) as e:
-            logging.warning("login: LTK aud/iss check failed: %s ip=%s ua=%s",
-                            e, get_remote_address(), request.headers.get('User-Agent', '-'))
-            return jsonify({'message': 'invalid token'}), 401
-        except Exception as e:
-            logging.warning("login: invalid LTK: %s ip=%s ua=%s",
-                            e, get_remote_address(), request.headers.get('User-Agent', '-'))
-            return jsonify({'message': 'invalid token'}), 401
+    # TW2: the skey MUST be a valid LTK JWT issued by the web tier. ALL gating
+    # (admin status, user_level, identity) is sourced from the signed LTK claims -
+    # URL parameters are decorative and cannot grant access.
+    if not skey:
+        return jsonify({'message': 'authentication required'}), 401
+    try:
+        # verify aud + iss; the web tier mints the LTK with these claims.
+        tw2_ltk_claims = jwt.decode(
+            skey, app.config['SECRET_KEY'],
+            algorithms=['HS256'],
+            audience='tw2-appserver',
+            issuer='tw2-web',
+        )
+    except jwt.ExpiredSignatureError:
+        return jsonify({'message': 'session expired'}), 401
+    except (jwt.InvalidAudienceError, jwt.InvalidIssuerError) as e:
+        logging.warning("login: LTK aud/iss check failed: %s ip=%s ua=%s",
+                        e, get_remote_address(), request.headers.get('User-Agent', '-'))
+        return jsonify({'message': 'invalid token'}), 401
+    except Exception as e:
+        logging.warning("login: invalid LTK: %s ip=%s ua=%s",
+                        e, get_remote_address(), request.headers.get('User-Agent', '-'))
+        return jsonify({'message': 'invalid token'}), 401
 
-        # Cross-check URL wp_userid against LTK user_id - prevents identity spoofing
-        if str(tw2_ltk_claims.get('user_id')) != str(wp_userid):
-            logging.warning("login: identity mismatch URL=%s LTK=%s ip=%s ua=%s",
-                            wp_userid, tw2_ltk_claims.get('user_id'),
-                            get_remote_address(), request.headers.get('User-Agent', '-'))
-            return jsonify({'message': 'identity mismatch'}), 403
+    # Cross-check URL wp_userid against LTK user_id - prevents identity spoofing
+    if str(tw2_ltk_claims.get('user_id')) != str(wp_userid):
+        logging.warning("login: identity mismatch URL=%s LTK=%s ip=%s ua=%s",
+                        wp_userid, tw2_ltk_claims.get('user_id'),
+                        get_remote_address(), request.headers.get('User-Agent', '-'))
+        return jsonify({'message': 'identity mismatch'}), 403
 
-        # Source ALL gating from the LTK. URL user_level parameter is decorative.
-        user_level = str(tw2_ltk_claims.get('legacy_level') or '1')
-        its_afshin = bool(tw2_ltk_claims.get('is_admin', False))
+    # Source ALL gating from the LTK. URL user_level parameter is decorative.
+    user_level = str(tw2_ltk_claims.get('legacy_level') or '1')
+    its_afshin = bool(tw2_ltk_claims.get('is_admin', False))
 
     ipv4 = get_remote_address()  # gets the address from headers returned by cloudflare
     
     # logging.debug('inside login ipv4='+ipv4)
 
-    if useUMP == True:
-        response = requests.get(keystoreURL, timeout=10)
-        json = response.json()
-        key1 = json['key1']
-        key2 = json['key2']
-        if skey != key1:
-            # tried to login without the correct secret key - do NOT echo skey or key1
-            logging.warning("login: UMP key mismatch ip=%s ua=%s",
-                            get_remote_address(), request.headers.get('User-Agent', '-'))
-            return jsonify({'message': 'Invalid login attempt'}), 401
-        else:
-            # get user membership levels by querying wp
-            user_access_list,levels_free_list,levels_prem_list = get_user_levels(key2, wp_userid)
-
-            # all_level_list is old and levels_free_list,levels_prem_list are new 4/12/2022
-
-            # print('user_access_list=',user_access_list)
-            # print('levels_free_list=',levels_free_list)
-            # print('levels_prem_list=',levels_prem_list)
-
+    # TW2: gate by tier from the signed LTK. super_admin / service_account /
+    # Afshin email get all levels (admin path); everyone else gets the access list
+    # defined in config.level_access_hierarchy for their numeric user_level.
+    if its_afshin:
+        user_access_list,_,_ = get_all_levels()
     else:
-        # TW2: when useUMP=False, gate by tier from the signed LTK if present.
-        # super_admin / service_account / Afshin email get all levels (admin path).
-        # Everyone else gets the access list defined in config.level_access_hierarchy
-        # for their numeric user_level (mapped from tier_compat).
-        if its_afshin:
-            user_access_list,_,_ = get_all_levels()
-        else:
-            user_access_list = config.level_access_hierarchy.get(user_level, ['0'])
-        logging.debug(user_access_list)
+        user_access_list = config.level_access_hierarchy.get(user_level, ['0'])
+    logging.debug(user_access_list)
 
 
 
@@ -835,13 +811,6 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
 
     opp_redis  = redis_client.get(redis_key_opp)
     oppa_redis = redis_client.get(redis_key_oppa) # this is for active opportunites
-
-    ##############################################
-    # central data server interface 
-    if opp_redis == None or oppa_redis == None:
-        if config.central_data_consumer:
-            print('it has central data server')
-    ##############################################
 
 
     #######################

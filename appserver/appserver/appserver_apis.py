@@ -1,11 +1,10 @@
 #------------------------------------------------------------------------------------------------------------
-# Part 1 these are api calls for appserver.py to call another appserver.py action as a central data server
+# Part 1 these are api calls for appserver.py to call another appserver.py action over HTTP
 #------------------------------------------------------------------------------------------------------------
 # this program is are the remote api calling appserver apis from python.  these are the same apis used in the React app 5/8/2024
 # there are 10 flask functions that either call to read opportunities or csvs in the data folder of the appserver
-# when central_data_consumer is set to True in config.py - the appserver calls the apis in the central server instead of
-# trying to get the data locally.  for central server to work, the use_UMP should be set to False in the central server config.sys
-# the list of remote functions in this python file will call the central server and then info is placed in local redis.
+# these helpers call config.appserver_url. (The old "central data server" mode was a TW1
+# experiment never implemented in TW2; it and its config vars were removed 2026-05-21.)
 # the list of functions are:
 
 # OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, apply_filter='0',symbol='')
@@ -68,11 +67,8 @@ def get_keyprovider_token():
 #------------------------------------------------------------------------------------------------
 def login_appserver(keyprovider_token):
 
-    if config.central_data_consumer:
-        url = config.central_server_url+'/login/28/3/4/5/'+keyprovider_token
-    else:
-        url = config.appserver_url+'/login/28/3/4/5/'+keyprovider_token
-    
+    url = config.appserver_url+'/login/28/3/4/5/'+keyprovider_token
+
     print('logging in to appserver at:',url)
 
     api_result = requests.get(url)
@@ -103,10 +99,7 @@ def login_appserver(keyprovider_token):
 def get_remote_OppList4(keyprovider_token,resourceID, month, day, year1, year2,day_range,oppListExpanded, apply_filter='0',symbol=''):
     
     
-    appserver_url = config.appserver_url # this is the local appserver - 
-    # if this appserver is set to use central_server, then use the central data appserver
-    if config.central_data_consumer:
-        appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url # this is the local appserver
 
     urlX = f'{appserver_url}/OppList4/{resourceID}/{month}/{day}/{year1}/{year2}/{day_range}/{oppListExpanded}/{apply_filter}?token={keyprovider_token}'
     # urlP is for debug printing
@@ -120,7 +113,7 @@ def get_remote_OppList4(keyprovider_token,resourceID, month, day, year1, year2,d
 #---------------------------------------------------------------------------------------------------------------
 def get_remote_chart_data4(appserver_token,resourceID,opp_date,symbol,daysOut,years,cut_off_year=0):
     
-    appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url
 
     urlY = appserver_url+'/ChartData4/'+str(resourceID)+'/'+opp_date+'/'+symbol+'/'+daysOut+'/'+str(years)+'?token='+appserver_token
     result = requests.get(urlY)
@@ -129,7 +122,7 @@ def get_remote_chart_data4(appserver_token,resourceID,opp_date,symbol,daysOut,ye
     return api_result
 #---------------------------------------------------------------------------------------------------------------
 def get_remote_YearsMetaData2(appserver_token, resourceID, year, month, day):
-    appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url
 
     urlY = appserver_url+'/YearsMetaData2/'+str(resourceID)+'/'+str(year)+'/'+str(month)+'/'+str(day)+'?token='+appserver_token
     result = requests.get(urlY)
@@ -140,7 +133,7 @@ def get_remote_YearsMetaData2(appserver_token, resourceID, year, month, day):
 
 #------------------------------------------------------------------------------------------------
 def get_remote_History2(appserver_token,resourceID, symbol, d0, d1):
-    appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url
 
     urlY = appserver_url+'/ChartHistorical2/'+str(resourceID)+'/'+symbol+'/'+d0+'/'+d1+'?token='+appserver_token
 
@@ -153,7 +146,7 @@ def get_remote_History2(appserver_token,resourceID, symbol, d0, d1):
     return api_result
 #------------------------------------------------------------------------------------------------
 def get_remote_StockMetaData(appserver_token, resourceID, symbol):
-    appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url
 
     urlY = appserver_url+'/StockMetaData/'+str(resourceID)+'/'+symbol+'?token='+appserver_token
 
@@ -166,7 +159,7 @@ def get_remote_StockMetaData(appserver_token, resourceID, symbol):
     return api_result
 #------------------------------------------------------------------------------------------------
 def get_remote_ListSymbols(appserver_token,resourceID):
-    appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url
 
     urlY = appserver_url+'/GetListSymbols/'+str(resourceID)+'?token='+appserver_token
 
@@ -180,7 +173,7 @@ def get_remote_ListSymbols(appserver_token,resourceID):
 
 #------------------------------------------------------------------------------------------------
 def get_remote_StockLastPrice(appserver_token, resourceID, symbol):
-    appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url
 
     urlY = appserver_url+'/StockLastPrice/'+str(resourceID)+'/'+symbol+'?token='+appserver_token
 
@@ -194,7 +187,7 @@ def get_remote_StockLastPrice(appserver_token, resourceID, symbol):
 
 #------------------------------------------------------------------------------------------------
 def get_remote_StockPriceByDate(appserver_token, resourceID, symbol,date):
-    appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url
 
     urlY = appserver_url+'/getStockPriceByDate/'+str(resourceID)+'/'+symbol+'/'+date+'?token='+appserver_token
 
@@ -207,7 +200,7 @@ def get_remote_StockPriceByDate(appserver_token, resourceID, symbol,date):
     return api_result
 #------------------------------------------------------------------------------------------------
 def get_remote_consolidated_seasonal_chart2(appserver_token,resourceID,symbol,seasonal_years,chart_start_date):
-    appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url
 
     urlY = appserver_url+'/consolidated_seasonal_chart2/'+str(resourceID)+'/'+symbol+'/'+str(seasonal_years)+'/'+chart_start_date+'?token='+appserver_token
 
@@ -220,7 +213,7 @@ def get_remote_consolidated_seasonal_chart2(appserver_token,resourceID,symbol,se
     return api_result
 #------------------------------------------------------------------------------------------------
 def get_remote_security_price(resourceID,symbol,date):
-    appserver_url = config.central_server_url # only used when central_data_consumer is True
+    appserver_url = config.appserver_url
 
     urlY = appserver_url+'/consolidated_seasonal_chart2/'+str(resourceID)+'/'+symbol+'/'+str(seasonal_years)+'/'+chart_start_date+'?token='+appserver_token
 
