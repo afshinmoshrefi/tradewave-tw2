@@ -126,12 +126,18 @@ tw2_public_url = f'https://{_tw2_public_host}/' if _tw2_public_host else 'https:
 # can be removed from secrets.env.
 domain_root = tw2_public_url
 
-# Coarse environment label derived from the public host. The SAME React build is
-# compiled once on dev and copied to staging + prod (see ops/DEPLOY_STAGING.md),
-# so dev-only behaviour (e.g. verbose React console logging, some of which prints
-# the appserver JWT in request URLs) cannot be a build-time switch - it must be
-# gated at runtime. app.py injects this as window.tw2_env into the /app/ shell.
-if 'tw2-prod' in _tw2_public_host:
+# Coarse environment label, used to gate per-env behaviour at runtime (the same
+# React build ships to every env, so this can't be a build-time switch). app.py
+# injects it as window.tw2_env into the /app/ shell.
+#
+# Prefer an explicit TW2_ENV (set per box in secrets.env) so this survives a
+# hostname change like the eventual tradewave.ai prod cutover. Fall back to
+# inferring from the public host so an unset/typo'd box still degrades sensibly
+# (and so dev/local works with no extra config).
+_tw2_env_explicit = os.environ.get('TW2_ENV', '').strip().lower()
+if _tw2_env_explicit in ('dev', 'staging', 'prod'):
+    tw2_env = _tw2_env_explicit
+elif 'tw2-prod' in _tw2_public_host:
     tw2_env = 'prod'
 elif 'tw2-stage' in _tw2_public_host:
     tw2_env = 'staging'
