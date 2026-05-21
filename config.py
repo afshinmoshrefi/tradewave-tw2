@@ -92,38 +92,51 @@ appserver_ip = os.environ.get('TW2_APPSERVER_IP', '')  # set in /etc/tradewave/s
 webserver_ip = os.environ.get('TW2_WEBSERVER_IP', '')  # set in /etc/tradewave/secrets.env (redis host in webserver)
 articles_redis_db = 3
 ##########################################################################################################################
-# 5/19/2024
-# central server is used for distributing data and configration information in order to not have to
-# load csv and opp data on each appserver seperately.  when new opportunitiy data is generated it would
-# need to be loaded only centrally - this will be developed on the staging appserver using keyprovider as 
-# central server - the funcs to update are listed in appserver_central_funcs.txt
-#-----------------------------------------------------------------------------------------------------------------------------
-# when central_data_server is True then login userid becomes irrelevant.  it still need to be entered but any number will work
-# when central_data_server is False its an appserver that connects with wordpress UMP for login
-
-# if set to False, all logged-in users see all content
-useUMP = False  # TW2: unauthenticated dev mode
-#-----------------------------------------------------------------------------------------------------------------------------
-# central_server_url      = 'http://10.0.030:7776/' # this is the intranet IP for keyprovider
-central_server_url      = os.environ.get('TW2_CENTRAL_SERVER_URL', '')  # set in /etc/tradewave/secrets.env (keyprovider URL)
-central_data_consumer   = False   # when True this appserver consumes opportunities and csv data from the central server
-central_config_consumer = False # when True This appserver consumes data oriented configruation from the central server
+# NOTE (2026-05-21 cleanup): two TW1-era flags were removed from here as never-used
+# leftovers, along with their dead consumers in the appserver:
+#   - useUMP (WordPress Ultimate Membership Pro login mode): TW2 gates access via the
+#     signed LTK JWT in the appserver login(), so the UMP branches were dead code.
+#   - the "central data server" feature (central_server_url / central_data_consumer /
+#     central_config_consumer): never implemented in TW2.
 
 ml_scorer_url = os.environ.get('TW2_ML_SCORER_URL', '')  # set in /etc/tradewave/secrets.env (ML pattern scorer on keyprovider)
 x_profile_url = os.environ.get('TW2_X_PROFILE_URL', '')  # set in /etc/tradewave/secrets.env (X/Twitter profile per env)
 
 ##########################################################################################################################
 
-# domain_root = 'https://TradeWave.ai/'
-domain_root = os.environ.get('TW2_DOMAIN_ROOT', '')  # set in /etc/tradewave/secrets.env (per-env public root)
-
-# Public, browser-facing URL of the TW2 web app (the auth-bound /app/ host).
-# Derived from TW2_PUBLIC_HOST (e.g. 'tw2-dev.trxstat.com' on dev, 'tw2.trxstat.com' on prod).
-# Used by SMN generators to emit user-clickable links to TradeWave from articles, the
-# news home, and the security/market pages. Distinct from `domain_root` (the LAN-IP base
-# used for static-report canonical URLs) — see project memory tw2-domain-split.
+# === PUBLIC HOST (single source of truth) ===
+# Exactly one public, browser-facing root per environment, and it is always a
+# domain (never a LAN IP):
+#     dev    -> tw2-dev.trxstat.com
+#     stage  -> tw2-stage.trxstat.com
+#     prod   -> tw2-prod.trxstat.com
+# Set via TW2_PUBLIC_HOST in /etc/tradewave/secrets.env. This drives every
+# user-facing absolute URL: the /app/ auth + logout return_to, the home-page
+# canonical / OG / JSON-LD tags, email-newsletter links, and the article /
+# wave-viewer links.
 _tw2_public_host = os.environ.get('TW2_PUBLIC_HOST', '').strip().rstrip('/')
-tw2_public_url = f'https://{_tw2_public_host}/' if _tw2_public_host else 'https://tw2.trxstat.com/'
+tw2_public_url = f'https://{_tw2_public_host}/' if _tw2_public_host else 'https://tw2-dev.trxstat.com/'
+
+# domain_root is an ALIAS of tw2_public_url, retained for the ~30 existing call
+# sites that still reference it. It used to be a separate TW2_DOMAIN_ROOT env var
+# which on dev held a LAN IP (http://192.168.1.176/); that leaked the private host
+# into canonical / OG / email URLs and forced strip-out hacks in the page
+# generators. There is no LAN-IP requirement - every environment has a real domain
+# - so the two names now resolve to a single value. TW2_DOMAIN_ROOT is retired and
+# can be removed from secrets.env.
+domain_root = tw2_public_url
+
+# Coarse environment label derived from the public host. The SAME React build is
+# compiled once on dev and copied to staging + prod (see ops/DEPLOY_STAGING.md),
+# so dev-only behaviour (e.g. verbose React console logging, some of which prints
+# the appserver JWT in request URLs) cannot be a build-time switch - it must be
+# gated at runtime. app.py injects this as window.tw2_env into the /app/ shell.
+if 'tw2-prod' in _tw2_public_host:
+    tw2_env = 'prod'
+elif 'tw2-stage' in _tw2_public_host:
+    tw2_env = 'staging'
+else:
+    tw2_env = 'dev'  # tw2-dev + local/ad-hoc default
 
 active_days = 5 # number of look back days to find active opportunities for the active list
 
@@ -278,14 +291,16 @@ smn_from_name  = 'Seasonal Market News'
 smn_from_email = 'info@tradewave.ai'  # update to seasonalmarketnews.com address when available
 
 # SEO configuration
-# Set seo_enabled = True on production only. When False, no OG tags, JSON-LD,
-# Google Analytics, sitemap, or robots.txt are generated.
-seo_enabled = True
+# Production only: emits OG tags, JSON-LD, GA, sitemap, robots.txt AND pings
+# IndexNow (submits URLs to Bing/Yandex). Derived from tw2_env so dev + staging
+# are never indexable - the same code runs on every box, so this MUST key off the
+# runtime env, not be hardcoded.
+seo_enabled = (tw2_env == 'prod')
 
-# Google Analytics GA4 measurement ID.
-# Get yours at: https://analytics.google.com → Admin → Data Streams → Web → Measurement ID
-# Format: 'G-XXXXXXXXXX' (leave empty string to disable tracking)
-ga_measurement_id = ''
+# Google Analytics GA4 measurement ID ('G-XXXXXXXXXX'). Env-driven so only prod
+# (which sets TW2_GA_MEASUREMENT_ID in its secrets.env) tracks; empty default
+# leaves dev + staging untracked.
+ga_measurement_id = os.environ.get('TW2_GA_MEASUREMENT_ID', '')
 
 # IndexNow API key — notifies Bing, Yandex, Naver on every article publish.
 # This key must match the verification file at {news_root_folder}/{indexnow_key}.txt

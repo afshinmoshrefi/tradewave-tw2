@@ -1,4 +1,5 @@
 
+import './consoleGuard';  // MUST be first: gates console.log/debug/info per env
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './components/styles/App.css';

@@ -1868,11 +1868,11 @@
             });
         }
 
-        // Auth state: check WordPress login via PHP endpoint (with sessionStorage cache)
+        // Auth state: check Flask session via /api/me (with sessionStorage cache)
         (function() {
             function applyAuth(data) {
-                if (!data.logged_in) return;
-                var level = data.level || 'free';
+                if (!data || !data.authenticated) return;
+                var level = (data.user && data.user.tier) || 'explorer';
                 document.querySelectorAll('.nav-logged-out').forEach(function(el) { el.style.display = 'none'; });
                 document.querySelectorAll('.nav-logged-in').forEach(function(el) { el.style.display = ''; });
                 document.querySelectorAll('.pricing-signup-btn').forEach(function(el) {
@@ -1880,10 +1880,10 @@
                         el.setAttribute('href', el.getAttribute('data-strategist-href') || '/app/');
                         el.textContent = el.getAttribute('data-strategist-text') || 'Launch Wave Viewer';
                     } else if (level === 'analyst') {
-                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '/my-account/?ihc_ap_menu=subscription');
+                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ content.nav.upgrade_url }}');
                         el.textContent = el.getAttribute('data-analyst-text') || 'Upgrade to Strategist';
                     } else {
-                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '/my-account/?ihc_ap_menu=subscription');
+                        el.setAttribute('href', el.getAttribute('data-upgrade-url') || '{{ content.nav.upgrade_url }}');
                         el.textContent = el.getAttribute('data-free-text') || 'Upgrade';
                     }
                 });
@@ -1898,12 +1898,12 @@
                     }
                 }
             }
-            var cached = sessionStorage.getItem('tw_auth');
+            var cached = sessionStorage.getItem('tw_auth2');
             if (cached) { try { applyAuth(JSON.parse(cached)); } catch(e) {} }
-            fetch('/tw-auth-check.php', { credentials: 'same-origin' })
+            fetch('/api/me', { credentials: 'same-origin' })
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
-                    sessionStorage.setItem('tw_auth', JSON.stringify(data));
+                    sessionStorage.setItem('tw_auth2', JSON.stringify(data));
                     applyAuth(data);
                 })
                 .catch(function() {});

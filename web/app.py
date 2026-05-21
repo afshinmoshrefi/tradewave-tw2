@@ -532,16 +532,26 @@ def auth_callback():
 @app.route("/logout", methods=["POST"])
 @csrf.exempt
 def logout():
-    """Clear session cookie + redirect to WorkOS logout to clear their session too.
+    """Log out: revoke the WorkOS session server-side, clear our cookie, and
+    redirect SAME-ORIGIN.
 
-    F2.16 - also call user_management.revoke_session() so the access_token /
-    refresh_token are invalidated server-side at WorkOS. Without this, a leaked
-    sealed cookie could still talk to WorkOS until natural token expiry.
+    We deliberately do NOT redirect the browser to the WorkOS hosted-logout URL.
+    That is a cross-origin redirect, and the form that posts here is constrained
+    by the nginx `form-action` CSP directive ('self' + Stripe/WorkOS/AuthKit/
+    Mailerlite). The hosted-logout redirect chain trips that directive, so the
+    browser silently BLOCKED the first click while the cookie still got deleted -
+    which is why a second, cookieless click appeared to "work" (it skips the
+    WorkOS hop and does a plain same-origin redirect).
+
+    F2.16 - revoke_session() still invalidates the access/refresh tokens at WorkOS
+    server-side (no front-channel redirect needed), so a leaked sealed cookie
+    cannot keep talking to WorkOS. The only thing we forgo by not hitting the
+    hosted-logout URL is clearing AuthKit's own SSO cookie in the browser; the
+    session itself is dead, so this is an acceptable trade for a logout that works
+    on the first click. Relative "/" guarantees the redirect stays same-origin
+    (tw2-dev/stage/prod) regardless of proxy/Host quirks, satisfying form-action.
     """
     sealed = request.cookies.get(SESSION_COOKIE)
-    redirect_after = (config.domain_root.rstrip('/') + '/') if config.domain_root else "https://tw2.trxstat.com/"
-
-    workos_logout_url = redirect_after
     sid_for_revoke = None
     if sealed:
         try:
@@ -549,18 +559,17 @@ def logout():
                 session_data=sealed,
                 cookie_password=config.WORKOS_COOKIE_PASSWORD,
             )
-            workos_logout_url = sess.get_logout_url(return_to=redirect_after)
-            # Try to extract sid claim from the access token for explicit revoke.
+            # Pull the sid claim from the access token for the explicit revoke.
             try:
                 auth_result = sess.authenticate()
                 if getattr(auth_result, "authenticated", False):
                     sid_for_revoke = getattr(auth_result, "session_id", None)
             except Exception:
-                # Authenticate may fail on expired sessions; fine - get_logout_url
-                # already returned a URL.
+                # authenticate() can fail on an expired access token - fine, the
+                # cookie delete below still logs the user out locally.
                 pass
         except Exception as e:
-            log.warning("get_logout_url failed: %s; redirecting to %s anyway", e, redirect_after)
+            log.warning("logout: load_sealed_session failed: %s", e)
 
     # F2.16 - explicit server-side session revoke (best-effort)
     if sid_for_revoke:
@@ -569,7 +578,7 @@ def logout():
         except Exception as e:
             log.warning("revoke_session(sid=%s) failed: %s", sid_for_revoke, e)
 
-    resp = make_response(redirect(workos_logout_url))
+    resp = make_response(redirect("/"))
     resp.delete_cookie(SESSION_COOKIE, path="/")
     return resp
 
@@ -676,6 +685,7 @@ def app_index():
         f'window.tw2_user_tier={_js_safe(u.tier or "explorer")};'
         f'window.tw2_is_admin={"true" if is_admin_bool else "false"};'
         f'window.tw2_user_roles={_js_safe(u.roles or ["user"])};'
+        f'window.tw2_env={_js_safe(config.tw2_env)};'
         '</script>'
     )
     # Inject right before </head> (same hook the milestone-1 nginx sub_filter used)
@@ -1484,6 +1494,22 @@ class TW2AdminIndex(_AdminAuth, AdminIndexView):
         )
 
 
+def _roles_help_html():
+    """Render the canonical ROLES dict as help text shown under the roles
+    field in the user-edit form. Kept in a helper so it stays in sync with
+    models.ROLES — edit ROLES, not this function."""
+    from models import ROLES
+    from markupsafe import Markup, escape
+    rows = "".join(
+        f"<li><code>{escape(name)}</code> — {escape(desc)}</li>"
+        for name, desc in ROLES.items()
+    )
+    return Markup(
+        f"Valid role strings (JSON array, e.g. <code>[\"user\", \"newsroom_author\"]</code>):"
+        f"<ul style='margin:4px 0 0 18px;padding:0;'>{rows}</ul>"
+    )
+
+
 class UserAdmin(_AdminAuth, ModelView):
     column_list = ("email", "tier", "roles", "stripe_subscription_status", "email_verified", "last_login_at", "created_at")
     column_searchable_list = ("email", "workos_user_id", "stripe_customer_id")
@@ -1492,10 +1518,32 @@ class UserAdmin(_AdminAuth, ModelView):
     column_default_sort = ("created_at", True)
     page_size = 50
 
+    form_widget_args = {
+        "roles": {"description": _roles_help_html()},
+    }
+
     def on_model_change(self, form, model, is_created):
         from tier_compat import tier_to_legacy_level
+        from models import ROLES
+        from wtforms.validators import ValidationError
         if model.tier:
             model.legacy_wp_level = tier_to_legacy_level(model.tier)
+
+        # Validate roles against the canonical list. Reject unknown strings so
+        # a typo ("newsroomauthor") fails loudly instead of silently granting
+        # nothing. Accepts a JSON array; converts None/empty to default ["user"].
+        roles = model.roles
+        if roles is None or roles == []:
+            model.roles = ["user"]
+            roles = model.roles
+        if not isinstance(roles, list) or not all(isinstance(r, str) for r in roles):
+            raise ValidationError("roles must be a JSON array of strings, e.g. [\"user\"]")
+        unknown = [r for r in roles if r not in ROLES]
+        if unknown:
+            valid = ", ".join(sorted(ROLES.keys()))
+            raise ValidationError(
+                f"Unknown role(s): {unknown}. Valid roles are: {valid}."
+            )
 
     @action(
         "purge",

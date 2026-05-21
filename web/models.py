@@ -18,6 +18,21 @@ import config
 Base = declarative_base()
 
 
+# Canonical list of role strings that may appear in `users.roles`. The dict is
+# the single source of truth: the Flask-Admin user form renders this as help
+# text and rejects unknown role strings on save (web/app.py UserAdmin). When
+# you add or rename a role, edit ONLY this dict — the admin UI updates
+# automatically. The role names here must match the strings checked in code
+# (e.g. ReportsDashboard.js `userRoles.includes('newsroom_author')`, app.py
+# `'super_admin' in roles`).
+ROLES = {
+    "super_admin": "Full admin access — Flask-Admin tooling, user management, audit log.",
+    "user":        "Standard authenticated user. Default role for every account.",
+    "newsroom_author": "Can create, edit, and publish SMN articles from Portfolio Manager.",
+    "service_account": "Non-human internal service account; not for interactive sign-in.",
+}
+
+
 class User(Base):
     __tablename__ = "users"
     id                          = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
