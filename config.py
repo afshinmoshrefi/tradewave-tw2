@@ -256,7 +256,7 @@ num_opp_reports_allowed_by_level = { # total date-range reports a user can ever 
 }
 num_daily_opp_reports_allowed_by_level = { # per-day publish cap
     '0': 0,
-    '1': 1,
+    '1': 10,
     '4': 100,
     '5': 100,
     '6': 500,
