@@ -38,6 +38,8 @@ Health: `systemctl is-active <svc>`. Logs: `/var/log/tradewave/*.log` (rotated d
 > If you deploy something in a way that isn't written here, write it here. Do not
 > let the real process drift out of this doc.
 
+**Fast path (one command per env):** `bash ops/deploy.sh staging` → verify → `bash ops/deploy.sh prod`. The script runs everything below for one env (pre-flight, pull+restart web/app/SMN, React bundle, nginx) and aborts safely if `TW2_PUBLIC_HOST` is unset. Prereqs: commit+push, and `npm run build` if `web-react/` changed. The steps below are the reference the script implements (and for partial/manual deploys).
+
 **Promotion flow: dev → staging → prod**, one env at a time. Code is edited and
 tested on dev (`.176`), then promoted. The **React bundle is built ONCE on dev**
 (env-agnostic, runtime-gated by `window.tw2_env`) and the *same* bundle is copied
