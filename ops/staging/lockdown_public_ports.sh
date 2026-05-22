@@ -14,14 +14,17 @@
 # `allow from <web-vlan> to any port 80` on the app box BEFORE dropping
 # public 80, or cross-tier /appserver breaks.
 #
-# Staging defaults; run via run_prod.sh for prod (coordinates swapped).
+# For prod: run via  ops/staging/run.sh prod lockdown_public_ports.sh
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
-APP=199.244.48.157     # run_prod -> 138.128.240.115
-WEB=185.53.209.8       # run_prod -> 194.113.195.141
-WEB_VLAN=10.0.0.94     # run_prod -> 10.0.0.98
-SSH_PORT=4369
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+APP="$TGT_APP_PUB"
+WEB="$TGT_WEB_PUB"
+WEB_VLAN="$TGT_WEB_VLAN"
+SSH_PORT="$TGT_SSH_PORT"
 
 hdr "app box: preserve VLAN web->app:80, drop public 80/443"
 ssh -p "$SSH_PORT" "root@${APP}" "
@@ -42,7 +45,7 @@ ssh -p "$SSH_PORT" "root@${WEB}" "
 
 hdr "verify ingress still works via tunnels"
 sleep 2
-curl -sS -o /dev/null -w 'app-tunnel /healthz: %{http_code}\n' "https://tw2-stage-app.trxstat.com/healthz" || true
-curl -sS -o /dev/null -w 'web-tunnel /: %{http_code}\n'        "https://stage2.trxstat.com/" || true
-curl -sS -o /dev/null -w 'cross-tier /appserver/: %{http_code}\n' "https://stage2.trxstat.com/appserver/" || true
+curl -sS -o /dev/null -w 'app-tunnel /healthz: %{http_code}\n' "https://${TGT_APP_HOST}/healthz" || true
+curl -sS -o /dev/null -w 'web-tunnel /: %{http_code}\n'        "https://${TGT_WEB_HOST}/" || true
+curl -sS -o /dev/null -w 'cross-tier /appserver/: %{http_code}\n' "https://${TGT_WEB_HOST}/appserver/" || true
 echo "(all should be 200/30x; bare-IP :443 now refused)"

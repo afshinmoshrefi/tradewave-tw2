@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # TW2 staging APP-box code+venv bootstrap.
 # Run AFTER bootstrap_stage_app.sh and AFTER the deploy pubkey is on GitHub.
-# Usage:
-#   ssh root@199.244.48.157 -p 4369 'bash -s' < bootstrap_stage_app_code.sh
+# Usage (env-driven runner prepends the target coordinates):
+#   ops/staging/run.sh staging bootstrap_stage_app_code.sh app
+# For prod: run via  ops/staging/run.sh prod bootstrap_stage_app_code.sh app
 #
 # What this does (idempotent):
 #   1. Verify SSH-to-github works with the deploy key

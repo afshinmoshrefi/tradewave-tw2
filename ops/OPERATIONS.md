@@ -142,7 +142,16 @@ The hostname lives in SIX places; changing one is not enough, and most need a re
 
 ## Rebuild a box from scratch (ordered)
 
-Scripts in `ops/staging/`, all run from `.176`, all idempotent:
+Scripts in `ops/staging/`, all run from `.176`, all idempotent, all **env-driven**.
+Run each via the unified runner, which supplies per-env coordinates from `target.env`
+(staging) or `prod_target.env` (prod) — no hardcoded hosts/IPs:
+
+```
+ops/staging/run.sh staging <script.sh>          # build/rebuild staging
+ops/staging/run.sh prod    <script.sh>          # build/rebuild prod (placeholder tw2-prod.trxstat.com)
+ops/staging/run.sh prod    inventory.sh app     # tier-neutral payloads take a 3rd arg: app|web
+```
+(`run_prod.sh <script>` still works — it now just forwards to `run.sh prod`.) Order:
 
 1. `inventory.sh` — see what the bare VM has
 2. `bootstrap_stage_{app,web}.sh` — OS layer (packages, flask uid 1001, ufw, deploy key)

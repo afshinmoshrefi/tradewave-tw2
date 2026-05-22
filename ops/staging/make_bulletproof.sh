@@ -3,16 +3,20 @@
 # full cron set. Idempotent — re-running converges, never duplicates.
 # Run on .176 as root. THIS is the artifact prod cutover re-runs.
 #
-# stage-app (199.244.48.157): DB backups + restore drill + logrotate +
+# app box ($TGT_APP_PUB): DB backups + restore drill + logrotate +
 #   journald cap + health probes (it's the DB box).
-# stage-web (185.53.209.8): full content/email/quote cron set + system
+# web box ($TGT_WEB_PUB): full content/email/quote cron set + system
 #   health + logrotate + journald cap.
 
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
-APP=199.244.48.157
-WEB=185.53.209.8
-S="-p 4369"
+
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+APP="$TGT_APP_PUB"
+WEB="$TGT_WEB_PUB"
+S="-p $TGT_SSH_PORT"
 
 LOGROTATE='/var/log/tradewave/*.log {
   daily

@@ -6,16 +6,19 @@
 #   1. stage-app: stop+disable+remove blog-queue and article-processor units
 #   2. stage-web: create /var/www/smn/, install blog-queue + article-processor
 #      units, start them
-#   3. stage-web: nginx vhost for smn-stage.trxstat.com → /var/www/smn/
-#   4. stage-web: add smn-stage.trxstat.com to existing tw2-stage-web tunnel
+#   3. stage-web: nginx vhost for ${TGT_SMN_HOST} → /var/www/smn/
+#   4. stage-web: add ${TGT_SMN_HOST} to existing ${TGT_TUNNEL_WEB} tunnel
 #      ingress + DNS CNAME
 
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
-APP=199.244.48.157
-WEB=185.53.209.8
-SSH="-p 4369"
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+APP="$TGT_APP_PUB"
+WEB="$TGT_WEB_PUB"
+SSH="-p $TGT_SSH_PORT"
 
 hdr "1. stage-app: stop and remove SMN pipeline services"
 ssh $SSH "root@$APP" 'bash -s' <<'REMOTE'
@@ -84,14 +87,14 @@ systemctl --no-pager status tradewave-blog-queue tradewave-article-processor | h
 echo "stage-web SMN services running"
 REMOTE
 
-hdr "3. stage-web: nginx vhost for smn-stage.trxstat.com"
-ssh $SSH "root@$WEB" 'bash -s' <<'REMOTE'
+hdr "3. stage-web: nginx vhost for ${TGT_SMN_HOST}"
+ssh $SSH "root@$WEB" "SMN_HOST='$TGT_SMN_HOST' bash -s" <<'REMOTE'
 set -e
 cat >/etc/nginx/sites-available/smn-stage <<'NGINX'
 server {
     listen 80;
     listen [::]:80;
-    server_name smn-stage.trxstat.com;
+    server_name __SMN_HOST__;
 
     include /etc/nginx/snippets/security_headers.conf;
     include /etc/nginx/snippets/dotfile_deny.conf;
@@ -125,6 +128,7 @@ server {
     error_log  /var/log/nginx/smn-stage.error.log;
 }
 NGINX
+sed -i "s|__SMN_HOST__|$SMN_HOST|g" /etc/nginx/sites-available/smn-stage
 
 ln -sf /etc/nginx/sites-available/smn-stage /etc/nginx/sites-enabled/smn-stage
 nginx -t
@@ -132,22 +136,22 @@ systemctl reload nginx
 echo "stage-web nginx vhost added"
 REMOTE
 
-hdr "4. stage-web: add smn-stage.trxstat.com to tw2-stage-web tunnel"
-ssh $SSH "root@$WEB" 'bash -s' <<'REMOTE'
+hdr "4. stage-web: add ${TGT_SMN_HOST} to ${TGT_TUNNEL_WEB} tunnel"
+ssh $SSH "root@$WEB" "TUNNEL_WEB='$TGT_TUNNEL_WEB' WEB_HOST='$TGT_WEB_HOST' SMN_HOST='$TGT_SMN_HOST' bash -s" <<'REMOTE'
 set -e
 # Add DNS CNAME via the existing tunnel
-cloudflared tunnel route dns --overwrite-dns tw2-stage-web smn-stage.trxstat.com
+cloudflared tunnel route dns --overwrite-dns "$TUNNEL_WEB" "$SMN_HOST"
 
 # Extend config.yml ingress to include smn-stage hostname (idempotent rewrite)
-TUNNEL_ID=$(cloudflared tunnel list | awk '$2=="tw2-stage-web" {print $1}')
+TUNNEL_ID=$(cloudflared tunnel list | awk -v t="$TUNNEL_WEB" '$2==t {print $1}')
 cat >/etc/cloudflared/config.yml <<CFG
-tunnel: tw2-stage-web
+tunnel: $TUNNEL_WEB
 credentials-file: /root/.cloudflared/${TUNNEL_ID}.json
 
 ingress:
-  - hostname: stage2.trxstat.com
+  - hostname: $WEB_HOST
     service: http://localhost:80
-  - hostname: smn-stage.trxstat.com
+  - hostname: $SMN_HOST
     service: http://localhost:80
   - service: http_status:404
 CFG
@@ -158,7 +162,7 @@ REMOTE
 
 hdr "5. smoke"
 sleep 3
-curl -sS -o /dev/null -w 'external https://smn-stage.trxstat.com/: %{http_code}\n' https://smn-stage.trxstat.com/
+curl -sS -o /dev/null -w "external https://${TGT_SMN_HOST}/: %{http_code}\n" "https://${TGT_SMN_HOST}/"
 echo "(404 is fine — /var/www/smn/ is empty; pipeline will populate it)"
 
 echo

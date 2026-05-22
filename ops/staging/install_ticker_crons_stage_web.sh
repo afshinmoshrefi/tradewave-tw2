@@ -19,8 +19,12 @@
 # Run on .176 as root.
 
 set -euo pipefail
-WEB=185.53.209.8
-SSH="-p 4369"
+
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+WEB="$TGT_WEB_PUB"
+SSH="-p $TGT_SSH_PORT"
 
 ssh $SSH "root@$WEB" 'bash -s' <<'REMOTE'
 set -e
@@ -42,4 +46,4 @@ echo
 echo "=== ticker crons installed on stage-web ==="
 echo "EOD refresh: 23:36 daily.  Ticker regen: 02:00 + hourly 09-16."
 echo "First natural run tonight; to test now:"
-echo "  ssh root@${WEB} -p 4369 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask/data_updater && sudo -u flask -E /home/flask/venv/bin/python update_client2.py 2>&1 | tail -20'"
+echo "  ssh root@${WEB} -p ${TGT_SSH_PORT} 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask/data_updater && sudo -u flask -E /home/flask/venv/bin/python update_client2.py 2>&1 | tail -20'"

@@ -8,27 +8,30 @@
 #   - Regenerates per-pair secrets so dev tokens can't auth on staging:
 #       APPSERVER_JWT_SECRET, SERVICE_API_KEY, WORKOS_COOKIE_PASSWORD,
 #       and a fresh POSTGRES_PASSWORD for the tradewave role.
-#   - Overrides env-specific URL/IP vars for staging:
-#       TW2_DOMAIN_ROOT      = https://stage2.trxstat.com
-#       TW2_APPSERVER_URL    = https://tw2-stage-app.trxstat.com
-#       TW2_APPSERVER_IP     = 10.0.0.92
-#       TW2_WEBSERVER_IP     = 10.0.0.94
-#       TW2_PUBLIC_HOST      = stage2.trxstat.com
+#   - Overrides env-specific URL/IP vars per target (target.env / prod_target.env):
+#       TW2_DOMAIN_ROOT      = https://$TGT_WEB_HOST
+#       TW2_APPSERVER_URL    = https://$TGT_APP_HOST
+#       TW2_APPSERVER_IP     = $TGT_APP_VLAN
+#       TW2_WEBSERVER_IP     = $TGT_WEB_VLAN
+#       TW2_PUBLIC_HOST      = $TGT_WEB_HOST
 #       POSTGRES_DSN         = postgresql://tradewave:<pw>@127.0.0.1:5432/tradewave   (used by app box)
 #   - Leaves placeholders for what needs configuring in 3rd-party dashboards:
 #       STRIPE_WEBHOOK_SECRET   (create a new endpoint in Stripe dashboard for
-#                                https://tw2-stage-app.trxstat.com/api/stripe/webhook,
+#                                https://$TGT_APP_HOST/api/stripe/webhook,
 #                                paste its signing secret here)
 #       SMN_EMAIL_GROUP_ID      (Mailerlite group for SMN subscribers)
 #       DAILY_AI_PICK_GROUP_ID  (optional; falls back to SMN group)
 #
 # After this script:
 #   1. Review /tmp/staging_secrets.env once
-#   2. scp -P 4369 /tmp/staging_secrets.env root@199.244.48.157:/etc/tradewave/secrets.env
-#   3. ssh root@199.244.48.157 -p 4369 'chown root:flask /etc/tradewave/secrets.env && chmod 640 /etc/tradewave/secrets.env'
+#   2. scp -P $TGT_SSH_PORT /tmp/staging_secrets.env root@$TGT_APP_PUB:/etc/tradewave/secrets.env
+#   3. ssh root@$TGT_APP_PUB -p $TGT_SSH_PORT 'chown root:flask /etc/tradewave/secrets.env && chmod 640 /etc/tradewave/secrets.env'
 #   4. Save the printed POSTGRES password somewhere — bootstrap_stage_app_db.sh will use it.
 
 set -euo pipefail
+
+# Per-env target coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
 
 SRC=/etc/tradewave/secrets.env
 DST=/tmp/staging_secrets.env
@@ -67,22 +70,22 @@ STAGE_PG_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | cut -c1-32)
 umask 077
 {
 cat <<EOF
-# /etc/tradewave/secrets.env  -  TW2 STAGING  (tw2-stage-{web,app}.trxstat.com)
+# /etc/tradewave/secrets.env  -  TW2 target: ${TGT_WEB_HOST}
 # Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) on $(hostname) by make_staging_secrets.sh
 # Mode: 640 root:flask on each box. See bootstrap_stage_app.sh.
 
 # === Per-env public URLs ===
-TW2_DOMAIN_ROOT=https://stage2.trxstat.com
-TW2_APPSERVER_URL=https://tw2-stage-app.trxstat.com
-TW2_PUBLIC_HOST=stage2.trxstat.com
+TW2_DOMAIN_ROOT=https://${TGT_WEB_HOST}
+TW2_APPSERVER_URL=https://${TGT_APP_HOST}
+TW2_PUBLIC_HOST=${TGT_WEB_HOST}
 
 # === Per-env VLAN IPs (cross-tier traffic rides 10.0.0.0/24) ===
-TW2_APPSERVER_IP=10.0.0.92
-TW2_WEBSERVER_IP=10.0.0.94
+TW2_APPSERVER_IP=${TGT_APP_VLAN}
+TW2_WEBSERVER_IP=${TGT_WEB_VLAN}
 
 # === Per-env datastores ===
-# Postgres lives on the app box. Web reaches it via VLAN (10.0.0.92:5432).
-# When this file is dropped on the WEB box, change 127.0.0.1 to 10.0.0.92.
+# Postgres lives on the app box. Web reaches it via VLAN (${TGT_APP_VLAN}:5432).
+# When this file is dropped on the WEB box, change 127.0.0.1 to ${TGT_APP_VLAN}.
 POSTGRES_DSN=postgresql://tradewave:${STAGE_PG_PASSWORD}@127.0.0.1:5432/tradewave
 
 # === Pair-specific secrets (regenerated; do NOT reuse dev's) ===
@@ -113,7 +116,7 @@ TAVILY_API_KEY=$(get_dev TAVILY_API_KEY)
 SENTRY_DSN=$(get_dev SENTRY_DSN)
 
 # === WorkOS (shared test env across dev+staging) ===
-# REMINDER: add https://stage2.trxstat.com/auth/callback to the WorkOS
+# REMINDER: add https://${TGT_WEB_HOST}/auth/callback to the WorkOS
 # AuthKit redirect URIs in the WorkOS dashboard (Dev → Redirects).
 WORKOS_API_KEY=$(get_dev WORKOS_API_KEY)
 WORKOS_AUTHKIT_DOMAIN=$(get_dev WORKOS_AUTHKIT_DOMAIN)
@@ -121,7 +124,7 @@ WORKOS_CLIENT_ID=$(get_dev WORKOS_CLIENT_ID)
 
 # === Stripe (test mode shared with dev) ===
 # REMINDER: in Stripe dashboard → Developers → Webhooks, add a new endpoint
-# https://tw2-stage-app.trxstat.com/api/stripe/webhook (or /stripe/webhook),
+# https://${TGT_APP_HOST}/api/stripe/webhook (or /stripe/webhook),
 # subscribe to checkout.session.completed + customer.subscription.* events,
 # then paste its signing secret in STRIPE_WEBHOOK_SECRET below.
 STRIPE_PUBLISHABLE_KEY=$(get_dev STRIPE_PUBLISHABLE_KEY)
@@ -162,6 +165,16 @@ EOF
 
 chmod 600 "$DST"
 
+# Safety: this copied WorkOS + Stripe keys from THIS dev box (test mode / shared
+# "Staging" WorkOS env). Production must use its OWN WorkOS production env + LIVE
+# Stripe keys - warn loudly if the target looks like prod.
+case "${TGT_WEB_HOST}" in
+  *prod*|tradewave.ai)
+    echo "!!! WARNING: WORKOS_* and STRIPE_* were copied from dev (test mode). PROD needs" >&2
+    echo "    its own production WorkOS env + LIVE Stripe keys - replace them before serving." >&2
+    ;;
+esac
+
 echo "Wrote $DST ($(wc -l < "$DST") lines, mode 600)"
 echo
 echo "POSTGRES password is embedded in POSTGRES_DSN in $DST."
@@ -170,6 +183,6 @@ echo "If you need it on .176 for a manual check:  grep POSTGRES_DSN $DST | cut -
 echo
 echo "Next:"
 echo "  1. Inspect /tmp/staging_secrets.env (less /tmp/staging_secrets.env)"
-echo "  2. scp -P 4369 /tmp/staging_secrets.env root@199.244.48.157:/etc/tradewave/secrets.env"
-echo "  3. ssh root@199.244.48.157 -p 4369 'chown root:flask /etc/tradewave/secrets.env && chmod 640 /etc/tradewave/secrets.env'"
+echo "  2. scp -P ${TGT_SSH_PORT} /tmp/staging_secrets.env root@${TGT_APP_PUB}:/etc/tradewave/secrets.env"
+echo "  3. ssh root@${TGT_APP_PUB} -p ${TGT_SSH_PORT} 'chown root:flask /etc/tradewave/secrets.env && chmod 640 /etc/tradewave/secrets.env'"
 echo "  4. (Optional but recommended) shred -u /tmp/staging_secrets.env after scp"

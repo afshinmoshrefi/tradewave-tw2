@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Migrate SMN article content from TW1 prod web (10.0.0.40 on Kamatera VLAN)
-# to TW2 stage-web (10.0.0.94 on the same VLAN). Uses .176's existing
+# Migrate SMN article content from TW1 prod web ($TGT_TW1_PROD_VLAN on Kamatera VLAN)
+# to TW2 stage-web ($TGT_WEB_VLAN on the same VLAN). Uses .176's existing
 # /root/.ssh/id_rsa (already authorized on TW1 prod) by copying it briefly
 # to stage-web, running the rsync, then wiping it.
 #
@@ -11,14 +11,17 @@
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
 # ---------------------------- config ---------------------------------
-TW1_VLAN_IP="10.0.0.40"
+TW1_VLAN_IP="$TGT_TW1_PROD_VLAN"
 TW1_USER="root"
-TW1_PORT="4369"
+TW1_PORT="$TGT_SSH_PORT"
 TW1_SMN_DIR="/var/www/smn/"
 
-WEB_HOST="185.53.209.8"
-WEB_SSH_PORT="4369"
+WEB_HOST="$TGT_WEB_PUB"
+WEB_SSH_PORT="$TGT_SSH_PORT"
 WEB_SMN_DIR="/var/www/smn/"
 
 LOCAL_KEY="/root/.ssh/id_rsa"
@@ -75,5 +78,5 @@ ssh -p "$WEB_SSH_PORT" "root@${WEB_HOST}" "
 
 echo
 echo "=== SMN content migration complete ==="
-echo "Verify:  curl -sS https://smn-stage.trxstat.com/ | head"
+echo "Verify:  curl -sS https://${TGT_SMN_HOST}/ | head"
 echo "Key wiped from stage-web (trap on EXIT)."

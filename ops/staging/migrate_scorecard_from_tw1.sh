@@ -6,18 +6,21 @@
 #
 # Approach: same as migrate_smn_content_from_tw1 — copy .176's existing
 # /root/.ssh/id_rsa to stage-web briefly, run rsync over the Kamatera VLAN
-# (stage-web ↔ TW1 prod at 10.0.0.40), wipe the temp key on exit.
+# (stage-web ↔ TW1 prod at ${TGT_TW1_PROD_VLAN}), wipe the temp key on exit.
 
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
-TW1_VLAN_IP="10.0.0.40"
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+TW1_VLAN_IP="$TGT_TW1_PROD_VLAN"
 TW1_USER="root"
-TW1_PORT="4369"
+TW1_PORT="$TGT_SSH_PORT"
 TW1_SRC="/home/flask/blog/featured_history.json"
 
-WEB_HOST="185.53.209.8"
-WEB_SSH_PORT="4369"
+WEB_HOST="$TGT_WEB_PUB"
+WEB_SSH_PORT="$TGT_SSH_PORT"
 WEB_DST="/home/flask/site/data/featured_history.json"
 
 LOCAL_KEY="/root/.ssh/id_rsa"
@@ -57,5 +60,5 @@ ssh -p "$WEB_SSH_PORT" "root@${WEB_HOST}" "
 
 echo
 echo "=== scorecard migration complete ==="
-echo "Verify: https://stage2.trxstat.com/scorecard.html"
-echo "For prod cutover: change WEB_HOST/WEB_SSH_PORT to prod-web and re-run."
+echo "Verify: https://${TGT_WEB_HOST}/scorecard.html"
+echo "For prod: run via  ops/staging/run.sh prod migrate_scorecard_from_tw1.sh"

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # TW2 staging APP-box bootstrap (OS layer).
 # Idempotent — safe to re-run. Stops on first error.
-# Run from your laptop / dev box:
-#   ssh root@199.244.48.157 -p 4369 'bash -s' < bootstrap_stage_app.sh
+# Usage (env-driven runner prepends the target coordinates):
+#   ops/staging/run.sh staging bootstrap_stage_app.sh
+# For prod: run via  ops/staging/run.sh prod bootstrap_stage_app.sh
 #
 # What this does (system layer only — no app code, no secrets):
 #   1. apt: postgres, redis, python3-venv, nginx, chrony, certbot, ufw, etc.
@@ -10,9 +11,9 @@
 #   3. flask system user (uid 1001 to match dev .176)
 #   4. /etc/tradewave/, /var/log/tradewave/, /var/backups/tradewave/
 #   5. chrony makestep 1 -1 (snapshot-revert safety, per dev)
-#   6. Postgres role+db `tradewave`, listening on 127.0.0.1 + 10.0.0.92
-#   7. Redis on 127.0.0.1 + 10.0.0.92, protected-mode on
-#   8. UFW: 4369 ssh + 80/443 public; 5000/5432/6379 from 10.0.0.94 only
+#   6. Postgres role+db `tradewave`, listening on 127.0.0.1 + $TGT_APP_VLAN
+#   7. Redis on 127.0.0.1 + $TGT_APP_VLAN, protected-mode on
+#   8. UFW: $TGT_SSH_PORT ssh + 80/443 public; 5000/5432/6379 from $TGT_WEB_VLAN only
 #   9. flask deploy SSH key, printed at the end for GitHub
 #
 # Code + secrets + alembic + services are a SEPARATE second script.
@@ -20,9 +21,13 @@
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
-VLAN_APP=10.0.0.92
-VLAN_WEB=10.0.0.94
-SSH_PORT=4369
+# PAYLOAD: run via ops/staging/run.sh {staging|prod}, which prepends the target
+# coordinates (TGT_*). Fail clearly if invoked directly without them.
+: "${TGT_APP_VLAN:?run via ops/staging/run.sh, which prepends the target coordinates}"
+
+VLAN_APP="$TGT_APP_VLAN"
+VLAN_WEB="$TGT_WEB_VLAN"
+SSH_PORT="$TGT_SSH_PORT"
 
 hdr "1. apt packages"
 export DEBIAN_FRONTEND=noninteractive
@@ -119,10 +124,10 @@ ufw status numbered
 hdr "9. flask deploy key"
 sudo -u flask install -d -m 700 /home/flask/.ssh
 if [ ! -f /home/flask/.ssh/id_ed25519 ]; then
-    sudo -u flask ssh-keygen -t ed25519 -N '' -C "tw2-stage-app-flask" -f /home/flask/.ssh/id_ed25519
+    sudo -u flask ssh-keygen -t ed25519 -N '' -C "flask@${TGT_APP_HOST}" -f /home/flask/.ssh/id_ed25519
 fi
 sudo -u flask chmod 600 /home/flask/.ssh/id_ed25519
-echo "PUBLIC KEY (add to github.com/afshinmoshrefi/tradewave-tw2 → Settings → Deploy keys → Add deploy key, label 'tw2-stage-app', allow write access NO):"
+echo "PUBLIC KEY (add to github.com/afshinmoshrefi/tradewave-tw2 → Settings → Deploy keys → Add deploy key, label '${TGT_APP_HOST}', allow write access NO):"
 cat /home/flask/.ssh/id_ed25519.pub
 
 hdr "10. github known_hosts (pre-trust)"

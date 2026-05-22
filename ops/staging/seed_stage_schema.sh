@@ -14,14 +14,17 @@
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
 if [[ "$EUID" -ne 0 ]]; then
     echo "Run on .176 as root (needs sudo -u postgres pg_dump)." >&2
     exit 1
 fi
 
 LOCAL=/tmp/tw2_schema.sql
-STAGE_IP=199.244.48.157
-SSH_PORT=4369
+STAGE_IP="$TGT_APP_PUB"
+SSH_PORT="$TGT_SSH_PORT"
 
 hdr "1. pg_dump schema (DDL only)"
 sudo -u postgres pg_dump --schema-only --no-owner --no-privileges tradewave > "$LOCAL"

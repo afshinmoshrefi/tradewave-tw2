@@ -14,9 +14,12 @@
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
-APP_VLAN=10.0.0.92
-WEB_HOST=185.53.209.8
-SSH_PORT=4369
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+APP_VLAN="$TGT_APP_VLAN"
+WEB_HOST="$TGT_WEB_PUB"
+SSH_PORT="$TGT_SSH_PORT"
 LOCAL_KEY=/root/.ssh/id_rsa
 REMOTE_KEY=/root/.stagesync_key
 
@@ -54,7 +57,7 @@ ssh -p "$SSH_PORT" "root@${WEB_HOST}" '
 
 echo
 echo "=== csv/US lifted + ticker pages regenerated ==="
-echo "Verify: https://stage2.trxstat.com/patterns/"
+echo "Verify: https://${TGT_WEB_HOST}/patterns/"
 echo "Note: ETF/INDX tickers (SPY/QQQ/GLD/XLF...) still skip — no csv/ETF on staging."
 echo "Note: central stockta 403 (104.238.214.253:7771) means no trend score on"
 echo "      staging until those IPs are allowlisted there — non-blocking for render."

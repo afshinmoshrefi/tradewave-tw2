@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
 # TW2 staging WEB-box systemd + nginx (HTTP only).
 # Run after code + secrets + content lift are done.
-# Usage:
-#   ssh root@185.53.209.8 -p 4369 'bash -s' < bootstrap_stage_web_services.sh
+# Usage (env-driven runner prepends the target coordinates):
+#   ops/staging/run.sh {staging|prod} bootstrap_stage_web_services.sh
 #
 # What this does:
 #   1. systemd unit for tradewave-web (gunicorn :5500, 2 workers — RAM constraint)
 #   2. 3 nginx snippets (security_headers, dotfile_deny, tw2-proxy-headers)
-#   3. nginx vhost for stage2.trxstat.com:
+#   3. nginx vhost for ${TGT_WEB_HOST}:
 #        - Marketing site (static from /var/www/tradewave/)
 #        - /app/, /app/index.html → web tier (index injection); /app/static/* → React build
 #        - /api/, /auth/, /webhooks/, /admin/, /signup, /login, /logout, /account, /pricing,
 #          /stripe/, /healthz → web tier on 127.0.0.1:5500
-#        - /appserver/ → stage-app over VLAN (http://10.0.0.92:5000/), faster than going through
+#        - /appserver/ → stage-app over VLAN (http://${TGT_APP_VLAN}:5000/), faster than going through
 #          stage-app's cloudflared tunnel
 #        - default vhost returns 444 for bare-IP / wrong-Host probes
 #   4. Start tradewave-web, reload nginx, smoke
 
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
+
+# PAYLOAD: run via ops/staging/run.sh {staging|prod}, which prepends the target
+# coordinates (TGT_*). Fail clearly if invoked directly without them.
+: "${TGT_WEB_HOST:?run via ops/staging/run.sh - it prepends the target coordinates}"
 
 hdr "1. systemd unit"
 cat >/etc/systemd/system/tradewave-web.service <<'UNIT'
@@ -92,10 +96,10 @@ proxy_read_timeout 60s;
 proxy_connect_timeout 5s;
 SNIP
 
-hdr "3. nginx vhost stage2.trxstat.com"
+hdr "3. nginx vhost ${TGT_WEB_HOST}"
 rm -f /etc/nginx/sites-enabled/default
 
-cat >/etc/nginx/sites-available/tw2-stage-web <<'NGINX'
+cat >"/etc/nginx/sites-available/$TGT_WEB_NGINX_SITE" <<'NGINX'
 upstream tw2_web {
     server 127.0.0.1:5500;
     keepalive 16;
@@ -103,7 +107,7 @@ upstream tw2_web {
 
 # Cross-tier appserver upstream lives on the app box over VLAN.
 upstream tw2_appserver {
-    server 10.0.0.92:5000;
+    server __APP_VLAN__:5000;
     keepalive 16;
 }
 
@@ -118,7 +122,7 @@ server {
 server {
     listen 80;
     listen [::]:80;
-    server_name stage2.trxstat.com;
+    server_name __WEB_HOST__;
 
     include /etc/nginx/snippets/security_headers.conf;
     include /etc/nginx/snippets/dotfile_deny.conf;
@@ -193,7 +197,10 @@ server {
 }
 NGINX
 
-ln -sf /etc/nginx/sites-available/tw2-stage-web /etc/nginx/sites-enabled/tw2-stage-web
+# Fill the placeholders the quoted NGINX heredoc could not expand (nginx's own
+# $host/$uri must stay literal, so coordinates are substituted here).
+sed -i "s|__APP_VLAN__|$TGT_APP_VLAN|g; s|__WEB_HOST__|$TGT_WEB_HOST|g" "/etc/nginx/sites-available/$TGT_WEB_NGINX_SITE"
+ln -sf "/etc/nginx/sites-available/$TGT_WEB_NGINX_SITE" "/etc/nginx/sites-enabled/$TGT_WEB_NGINX_SITE"
 install -d -o www-data -g www-data /var/www/html
 
 hdr "4. daemon-reload + start"
@@ -209,14 +216,14 @@ systemctl --no-pager status nginx | head -6
 
 hdr "6. smoke"
 echo "[gunicorn direct]      $(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:5500/api/me)  (200/401 means web tier alive)"
-echo "[nginx marketing]      $(curl -sS -o /dev/null -w '%{http_code}' -H 'Host: stage2.trxstat.com' http://127.0.0.1/)"
-echo "[nginx /api/me]        $(curl -sS -o /dev/null -w '%{http_code}' -H 'Host: stage2.trxstat.com' http://127.0.0.1/api/me)"
-echo "[nginx /app/static/*]  $(curl -sS -o /dev/null -w '%{http_code}' -H 'Host: stage2.trxstat.com' 'http://127.0.0.1/app/static/css/main.css' 2>/dev/null || echo n/a)"
-echo "[nginx /appserver via VLAN] $(curl -sS -o /dev/null -w '%{http_code}' -H 'Host: stage2.trxstat.com' http://127.0.0.1/appserver/healthz 2>/dev/null || echo n/a)"
+echo "[nginx marketing]      $(curl -sS -o /dev/null -w '%{http_code}' -H "Host: $TGT_WEB_HOST" http://127.0.0.1/)"
+echo "[nginx /api/me]        $(curl -sS -o /dev/null -w '%{http_code}' -H "Host: $TGT_WEB_HOST" http://127.0.0.1/api/me)"
+echo "[nginx /app/static/*]  $(curl -sS -o /dev/null -w '%{http_code}' -H "Host: $TGT_WEB_HOST" 'http://127.0.0.1/app/static/css/main.css' 2>/dev/null || echo n/a)"
+echo "[nginx /appserver via VLAN] $(curl -sS -o /dev/null -w '%{http_code}' -H "Host: $TGT_WEB_HOST" http://127.0.0.1/appserver/healthz 2>/dev/null || echo n/a)"
 echo "[bare-IP]              $(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1/)  (444 expected)"
 
 ss -tlnp | grep -E ':5500|:80 ' || true
 
 echo
 echo "=== stage-web services + http nginx complete ==="
-echo "Next: bootstrap_stage_web_tunnel.sh — cloudflared tunnel for stage2.trxstat.com"
+echo "Next: bootstrap_stage_web_tunnel.sh — cloudflared tunnel for ${TGT_WEB_HOST}"

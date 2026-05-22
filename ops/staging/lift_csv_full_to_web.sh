@@ -7,16 +7,19 @@
 # Does NOT copy the app-side precompute (opportunities/ opp_by_symbol/) —
 # that stays app-only, served via the appserver API.
 #
-# Staging defaults; run via run_prod.sh for prod (coordinates swapped).
+# For prod: run via  ops/staging/run.sh prod lift_csv_full_to_web.sh
 # Run on .176 as root: temp-copies .176 /root/.ssh/id_rsa to the web box,
 # web box rsyncs from the app box over VLAN, key trap-wiped.
 
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
-APP_VLAN=10.0.0.92          # app box VLAN IP (run_prod -> 10.0.0.96)
-WEB_HOST=185.53.209.8       # web box public  (run_prod -> 194.113.195.141)
-SSH_PORT=4369
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+APP_VLAN="$TGT_APP_VLAN"    # app box VLAN IP
+WEB_HOST="$TGT_WEB_PUB"     # web box public
+SSH_PORT="$TGT_SSH_PORT"
 LOCAL_KEY=/root/.ssh/id_rsa
 REMOTE_KEY=/root/.csvsync_key
 

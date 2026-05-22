@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # TW2 staging APP-box DB bootstrap.
 # Run after bootstrap_stage_app_code.sh and after /etc/tradewave/secrets.env is in place.
-# Usage:
-#   ssh root@199.244.48.157 -p 4369 'bash -s' < bootstrap_stage_app_db.sh
+# Usage (via the env-driven runner, which prepends the target coordinates):
+#   ops/staging/run.sh {staging|prod} bootstrap_stage_app_db.sh
 #
 # What this does:
 #   1. Source /etc/tradewave/secrets.env (root reads it)

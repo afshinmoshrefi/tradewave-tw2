@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # TW2 staging VM read-only inventory.
-# Usage from your laptop / dev box:
-#   ssh root@185.53.209.8   -p 4369 'bash -s' < inventory.sh > inv_web.txt
-#   ssh root@199.244.48.157 -p 4369 'bash -s' < inventory.sh > inv_app.txt
+# Usage (env-driven runner prepends the target coordinates; pick the tier):
+#   ops/staging/run.sh staging inventory.sh web  > inv_web.txt
+#   ops/staging/run.sh staging inventory.sh app  > inv_app.txt
+# For prod: run via  ops/staging/run.sh prod inventory.sh {app|web}
 #
 # Read-only. No installs, no mutations.
 

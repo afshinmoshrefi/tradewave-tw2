@@ -12,14 +12,17 @@
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
-WEB=185.53.209.8
-SSH="-p 4369"
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+WEB="$TGT_WEB_PUB"
+SSH="-p $TGT_SSH_PORT"
 
 hdr "1. confirm ticker list + appserver reachability"
 ssh $SSH "root@$WEB" '
   set -a; . /etc/tradewave/secrets.env; set +a
   /home/flask/venv/bin/python -c "import json; print(\"tickers:\", len(json.load(open(\"/home/flask/site/ticker_pages/data/ticker_list_phase1.json\"))))"
-  curl -sS -o /dev/null -w "appserver via VLAN: %{http_code}\n" http://10.0.0.92:80/ || true
+  curl -sS -o /dev/null -w "appserver via VLAN: %{http_code}\n" http://${TGT_APP_VLAN}:80/ || true
 '
 
 hdr "2. generate"
@@ -38,6 +41,6 @@ ssh $SSH "root@$WEB" '
 
 echo
 echo "=== ticker pages generated ==="
-echo "Verify: https://stage2.trxstat.com/patterns/AAPL.html"
-echo "Index:  https://stage2.trxstat.com/patterns/"
-echo "For prod: re-run with WEB= pointed at prod-web."
+echo "Verify: https://${TGT_WEB_HOST}/patterns/AAPL.html"
+echo "Index:  https://${TGT_WEB_HOST}/patterns/"
+echo "For prod: run via  ops/staging/run.sh prod generate_ticker_pages_stage_web.sh"

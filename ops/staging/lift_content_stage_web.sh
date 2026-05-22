@@ -10,8 +10,11 @@
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
-STAGE_IP=185.53.209.8
-SSH_PORT=4369
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+STAGE_IP="$TGT_WEB_PUB"
+SSH_PORT="$TGT_SSH_PORT"
 SSH_OPTS="-p ${SSH_PORT}"
 
 hdr "0. precheck dest dirs on stage-web"

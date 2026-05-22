@@ -16,9 +16,12 @@
 set -euo pipefail
 hdr() { printf '\n=== %s ===\n' "$*"; }
 
-for entry in 199.244.48.157 185.53.209.8; do
+# Per-env coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
+. "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
+
+for entry in "$TGT_APP_PUB" "$TGT_WEB_PUB"; do
     hdr "wipe cert.pem on $entry"
-    ssh -p 4369 "root@${entry}" '
+    ssh -p "$TGT_SSH_PORT" "root@${entry}" '
         if [[ -f /root/.cloudflared/cert.pem ]]; then
             shred -u /root/.cloudflared/cert.pem
             echo "wiped"

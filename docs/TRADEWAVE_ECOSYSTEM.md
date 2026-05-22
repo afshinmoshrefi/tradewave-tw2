@@ -147,10 +147,12 @@ CAP_NET_BIND_SERVICE; **:5000 on dev**); Postgres (web connects over VLAN);
 redis; cloudflared; `/home/flask/data/` (US subset on staging, full on prod);
 DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh`.)
 
-> **DRIFT:** several bootstrap scripts + `make_staging_secrets.sh` still hardcode
-> `stage2.trxstat.com` and `TW2_DOMAIN_ROOT`; `bootstrap_stage_app_services.sh`
-> writes the SMN daemons on the app box though they actually run on web
-> (`migrate_smn_to_web.sh` moved them). The live staging host is `tw2-stage.trxstat.com`.
+> **Build tooling (env-driven since 2026-05-22):** the `ops/staging/*.sh` build
+> scripts read per-env coordinates from `target.env` (staging) / `prod_target.env`
+> (prod) via `ops/staging/run.sh {staging|prod} <script>` - no hardcoded hosts/IPs.
+> One quirk remains BY DESIGN: `bootstrap_stage_app_services.sh` writes the SMN
+> daemons on the app box, but `migrate_smn_to_web.sh` then relocates them to web -
+> so the rebuild ORDER matters (see ops/OPERATIONS.md). Live staging = `tw2-stage.trxstat.com`.
 
 ---
 
@@ -452,11 +454,13 @@ re-verification reclassified them. Only treat the REAL list as work.
   keyprovider login (not `login_api`), and has NO LLM and does not touch
   `featured_history` (it's a standalone appserver-driven page, distinct from the
   ML-scorer scorecard featured pick).
-- **B. Build-script hostname drift** - `make_staging_secrets.sh:75,77` (writes
-  retired `TW2_DOMAIN_ROOT` + `TW2_PUBLIC_HOST=stage2.trxstat.com`),
-  `bootstrap_stage_web_services.sh:121` (`server_name stage2.trxstat.com`),
-  `migrate_scorecard_from_tw1.sh:60` (echo). Only bites on a FRESH box rebuild
-  (live staging is already `tw2-stage`). Fix before building prod.
+- **B. Build-script hostname drift** - RESOLVED 2026-05-22. All 27 `ops/staging/*.sh`
+  build scripts are env-driven: coordinates come from `target.env` (staging) /
+  `prod_target.env` (prod) via the unified runner `ops/staging/run.sh {staging|prod}
+  <script>` (payloads get the env file prepended; orchestrators source it; quoted
+  config heredocs use a placeholder + sed). Verified: bash -n + shellcheck + a
+  zero-bare-coordinate grep across all scripts, plus per-env value simulations. The
+  old `run_prod.sh` sed-rewrite is gone (thin forwarder to `run.sh prod`).
 - **C. `expire_trials` cron NOT installed** by `make_bulletproof.sh` (verified
   absent) - trials won't auto-expire on staging/prod until the cron is added.
 - **D. Central-service URLs** - `make_staging_secrets.sh` copies dev's public
@@ -479,7 +483,9 @@ re-verification reclassified them. Only treat the REAL list as work.
 **VERIFY / STATUS (not code bugs):**
 - Stripe Checkout prices: confirm the 4 EOD prices carry correct launch pricing +
   `product_line=eod` metadata (live Stripe dashboard check).
-- TW2 prod boxes: build/verify pending.
+- TW2 prod: already deployed + ~95% verified at the placeholder `tw2-prod.trxstat.com`
+  (Afshin, 2026-05-22). Remaining ~5% overlaps gaps C/D + the prod-app service-account.
+  The `tradewave.ai` flip is the separate cutover session.
 
 ---
 
