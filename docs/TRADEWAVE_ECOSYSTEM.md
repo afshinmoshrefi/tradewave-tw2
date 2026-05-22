@@ -236,10 +236,11 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
 2. **`/login/api/<api_key>`** (`login_api`) - the SERVICE login. Hashes the key
    with `API_KEY_HMAC_SECRET`, looks up `users.api_key_hash`; **no match -> 403
    "invalid api_key"**. Used by server-side scripts (e.g. `home_opportunities.py`
-   via `SERVICE_API_KEY`). **Fails until a service-account row's `api_key_hash` is
-   backfilled via `web/db_admin.py`** (the plaintext `api_key` column was dropped;
-   only the hash is stored). This is why `home_opportunities`/`daily_ai_pick`
-   currently 403 on staging.
+   via `SERVICE_API_KEY`). Hash secret is `API_KEY_HMAC_SECRET`, falling back to
+   `APPSERVER_JWT_SECRET` when unset (web and app must agree on it). The row is
+   created/refreshed by `web/db_admin.py ensure-service-account` (run per env on the
+   app box; see §13.A); until then this 403s, which is why `home_opportunities` 403'd
+   on staging.
 - **Data endpoints** (all require `?token=`, `@check_for_token` enforces aud/iss):
   `OppList4`, `OppBySymbol`, `ChartData4`, `YearsMetaData2`, `ChartHistorical2`,
   `StockMetaData`, `getStockPriceByDate`, `consolidated_seasonal_chart2`,
@@ -438,9 +439,15 @@ re-verification reclassified them. Only treat the REAL list as work.
 **REAL (code/config-verified):**
 - **A. Service-account api_key not backfilled** -> `site/home_opportunities.py`
   (uses `SERVICE_API_KEY` -> `/login/api`) gets `invalid api_key` (no
-  `users.api_key_hash` row matches). Fix is MANUAL: `web/db_admin.py` is deprecated
-  (only prints instructions) - generate a key, `hash_api_key(key, API_KEY_HMAC_SECRET)`,
-  write the hash to a `service_account`-role `users.api_key_hash` row.
+  `users.api_key_hash` row matches). RESOLVED 2026-05-22: added an idempotent
+  `web/db_admin.py ensure-service-account` subcommand that upserts the
+  `service-account-internal@tradewave.ai` user (roles `["service_account"]`, tier
+  `strategist`, `legacy_wp_level=6`, `email_verified`, no `workos_user_id`) with
+  `api_key_hash = HMAC-SHA256(SERVICE_API_KEY, API_KEY_HMAC_SECRET or APPSERVER_JWT_SECRET)`
+  computed from the box's own secrets. Validated end-to-end on dev (login_api -> 200).
+  RUN per env ON THE APP BOX (where the appserver + its Postgres live, so the secret
+  matches): `sudo -u flask /home/flask/venv/bin/python /home/flask/web/db_admin.py
+  ensure-service-account`. Pending: run on stage-app, then prod-app at build.
   NOTE: `site/generate_daily_ai_pick.py` is a SEPARATE issue - it uses the legacy
   keyprovider login (not `login_api`), and has NO LLM and does not touch
   `featured_history` (it's a standalone appserver-driven page, distinct from the

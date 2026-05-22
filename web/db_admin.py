@@ -94,13 +94,63 @@ def cmd_hash_api_keys(args) -> int:
     return 2
 
 
+SERVICE_ACCOUNT_EMAIL = "service-account-internal@tradewave.ai"
+
+
+def cmd_ensure_service_account(args) -> int:
+    """Idempotently create/update the internal service-account user so server-side
+    callers (e.g. site/home_opportunities.py) can authenticate to the appserver via
+    GET /login/api/<SERVICE_API_KEY>.
+
+    Computes api_key_hash = HMAC-SHA256(SERVICE_API_KEY, API_KEY_HMAC_SECRET or
+    APPSERVER_JWT_SECRET) from THIS box's secrets, so it must run where secrets.env
+    matches the appserver that validates the login (run it on the app box). The
+    schema-only staging/prod seed does NOT copy this row, which is why login_api
+    returns 'invalid api_key' until this is run. Idempotent; safe to re-run.
+    """
+    api_key = os.environ.get('SERVICE_API_KEY') or getattr(tw2_config, 'SERVICE_API_KEY', '')
+    if not api_key:
+        sys.stderr.write("SERVICE_API_KEY is not set (env or config.py). Cannot proceed.\n")
+        return 2
+    api_key_hash = hash_api_key(api_key, _hmac_secret())
+
+    from models import User, Session  # lazy import (see module note above)
+    s = Session()
+    try:
+        u = s.query(User).filter_by(email=SERVICE_ACCOUNT_EMAIL).first()
+        created = u is None
+        if created:
+            u = User(email=SERVICE_ACCOUNT_EMAIL)
+            s.add(u)
+        u.roles = ["service_account"]
+        u.tier = "strategist"
+        u.legacy_wp_level = "6"
+        u.email_verified = True
+        u.api_key_hash = api_key_hash
+        s.commit()
+        print(f"service account {'CREATED' if created else 'updated'}: {SERVICE_ACCOUNT_EMAIL} "
+              f"(roles=['service_account'], tier=strategist, api_key_hash set: {len(api_key_hash)} hex chars)")
+        return 0
+    except Exception as e:
+        s.rollback()
+        sys.stderr.write(f"ensure-service-account failed: {e}\n")
+        return 1
+    finally:
+        s.close()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='cmd', required=True)
     sub.add_parser('hash-api-keys', help='Backfill api_key_hash from api_key.')
+    sub.add_parser('ensure-service-account',
+                   help='Idempotently create/update the internal service-account user with '
+                        'api_key_hash derived from SERVICE_API_KEY + the HMAC secret (run on the app box).')
     args = parser.parse_args()
     if args.cmd == 'hash-api-keys':
         return cmd_hash_api_keys(args)
+    if args.cmd == 'ensure-service-account':
+        return cmd_ensure_service_account(args)
     parser.error(f"unknown command: {args.cmd}")
     return 2
 

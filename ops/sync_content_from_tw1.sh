@@ -15,8 +15,9 @@
 # PREREQUISITE (verified on staging 2026-05-22): scorecard + tickers work as-is.
 # home_opportunities + daily_ai_pick need the target APPSERVER to accept the
 # generators' service login: home_opportunities uses SERVICE_API_KEY -> /login/api,
-# which requires the service-account api_key_hash backfilled in the appserver DB
-# (web/db_admin.py; SERVICE_API_KEY + API_KEY_HMAC_SECRET must match web<->app).
+# which requires the service-account row on the appserver DB. Create it per env on
+# the app box: sudo -u flask /home/flask/venv/bin/python web/db_admin.py ensure-service-account
+# (idempotent; hashes SERVICE_API_KEY with API_KEY_HMAC_SECRET or APPSERVER_JWT_SECRET).
 # daily_ai_pick uses the legacy keyprovider login. Until that auth is set up on the
 # target, those two log "invalid api_key" / login errors (the script continues; the
 # other generators still run).
