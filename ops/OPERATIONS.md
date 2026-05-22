@@ -9,7 +9,7 @@ If you're lost, start here. Everything below is reproducible from committed scri
 | Role | Public IP | VLAN | Hostname | SSH |
 |---|---|---|---|---|
 | dev (single box, all tiers) | 192.168.1.176 | — | tw2-dev.trxstat.com | local |
-| stage-web | 185.53.209.8 | 10.0.0.94 | stage2.trxstat.com | `ssh root@185.53.209.8 -p 4369` |
+| stage-web | 185.53.209.8 | 10.0.0.94 | tw2-stage.trxstat.com | `ssh root@185.53.209.8 -p 4369` |
 | stage-app | 199.244.48.157 | 10.0.0.92 | tw2-stage-app.trxstat.com | `ssh root@199.244.48.157 -p 4369` |
 | prod-web | 194.113.195.141 | 10.0.0.98 | tw2-prod.trxstat.com (→ tradewave.ai at cutover) | `ssh root@194.113.195.141 -p 4369` |
 | prod-app | 138.128.240.115 | 10.0.0.96 | tw2-prod-app.trxstat.com | `ssh root@138.128.240.115 -p 4369` |
@@ -20,7 +20,7 @@ If you're lost, start here. Everything below is reproducible from committed scri
 
 **stage-app** = APIs + data. gunicorn `appserver:app` on **:80** (no nginx; CAP_NET_BIND_SERVICE). Postgres, Redis (user data). cloudflared → `tw2-stage-app.trxstat.com`. Has `/home/flask/data/` (US subset, 12 GB). DB backups live here.
 
-**stage-web** = everything else. gunicorn `app:app` on :5500 behind nginx. cloudflared → `stage2.trxstat.com` + `smn-stage.trxstat.com`. Serves `/var/www/tradewave/` + `/var/www/smn/`. Runs SMN pipeline (blog-queue + article-processor systemd) + all content/email crons. Has `csv/US` for ticker/scorecard generators.
+**stage-web** = everything else. gunicorn `app:app` on :5500 behind nginx. cloudflared → `tw2-stage.trxstat.com` + `smn-stage.trxstat.com`. Serves `/var/www/tradewave/` + `/var/www/smn/`. Runs SMN pipeline (blog-queue + article-processor systemd) + all content/email crons. Has `csv/US` for ticker/scorecard generators.
 
 ## Services (systemd, both boxes auto-restart on failure)
 
@@ -66,14 +66,16 @@ The app derives `domain_root`/`tw2_public_url` from **`TW2_PUBLIC_HOST`**; if un
 ```
 ssh root@<box> -p 4369 "grep -E 'TW2_PUBLIC_HOST|TW2_ENV' /etc/tradewave/secrets.env; systemctl cat tradewave-web 2>/dev/null | grep TW2_PUBLIC_HOST"
 ```
-Expect: staging → `stage2`/`tw2-stage…`; prod → `TW2_PUBLIC_HOST=tw2-prod.trxstat.com` + `TW2_ENV=prod`. A systemd `override.conf` wins over `secrets.env`.
+Expect: staging → `tw2-stage.trxstat.com` (+ `TW2_ENV=staging`); prod → `TW2_PUBLIC_HOST=tw2-prod.trxstat.com` + `TW2_ENV=prod`. A systemd `override.conf` wins over `secrets.env`.
 
 ### 2. Server code — pull on BOTH boxes, restart by what changed
+
+Each pull is followed by `pip install -r requirements.txt` (a dependency that's in requirements.txt but not installed crash-loops the gunicorn workers into a 502 - this is what had staging broken).
 ```
 # WEB box   (stage 185.53.209.8 / prod 194.113.195.141):
-ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo systemctl restart tradewave-web && sudo systemctl is-active tradewave-web'
+ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-web && sudo systemctl is-active tradewave-web'
 # APP box   (stage 199.244.48.157 / prod 138.128.240.115):
-ssh root@<app> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
+ssh root@<app> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
 # SMN pipeline daemons run on the WEB box (Type=simple, load smn/ at startup) — bounce them too when smn/ daemon code changed (the pull above already updated the code):
 ssh root@<web> -p 4369 'sudo systemctl restart tradewave-blog-queue tradewave-article-processor && sudo systemctl is-active tradewave-blog-queue tradewave-article-processor'
 ```
@@ -112,7 +114,7 @@ Rollback: `mv build build.bad && mv build.prev build`.
   ⚠ `generate_home_page.py` still has hardcoded `CANONICAL_ROOT=tw2.trxstat.com` / `APPSERVER_URL=app1pp…` — make those env-driven before relying on a prod regen. (Otherwise it bakes the wrong host into the home page.)
 
 ### 4. Verify on the env's own hostname
-`stage2.trxstat.com` / `tw2-prod.trxstat.com`: login + logout (same-origin, works on first click), a report page renders, `/app/` loads with the console quiet (consoleGuard), `/api/me` returns the right tier. **Only then promote to the next env.**
+`tw2-stage.trxstat.com` / `tw2-prod.trxstat.com`: login + logout (same-origin, works on first click), a report page renders, `/app/` loads with the console quiet (consoleGuard), `/api/me` returns the right tier. **Only then promote to the next env.**
 
 ### Rollback
 `ssh root@<box> -p 4369 'sudo -u flask git -C /home/flask reset --hard <prev-sha> && systemctl restart <svc>'` (last resort; prefer fixing forward). React: swap `build.prev` back (above).
@@ -146,7 +148,7 @@ Full annotated playbook + every gotcha: memory `project_tw2_staging_deployment.m
 - **DB backups**: `ops/backup_db.sh` nightly 03:30 on stage-app → `/var/backups/tradewave/db_*.sql.gz`, 14-day prune. Restore verified weekly by `ops/restore_drill.sh`. **Restore test: `sudo -u flask /home/flask/ops/restore_drill.sh` on stage-app — must say PASS.**
 - **Logs**: logrotate daily ×14 + journald capped 500 M. Disk-fill (the #1 "breaks every few days") is contained.
 - **Crons**: full set on stage-web flask crontab (SMN pipeline, security pages, homepage, scorecard, quotes, daily AI pick, SMN emails daily+weekly, social). `expire_trials` 04:15. EOD refresh 23:36. Ticker regen 02:00 + hourly 09-16.
-- **Uptime/soak**: `uptime_check.sh` (every 5 min) + `soak_monitor.sh` (every 30 min) log to `/var/log/tradewave/`. **Notification gap: these only log. Proper fix = external uptime monitor (Cloudflare Health Checks or an external pinger hitting `https://stage2.trxstat.com/healthz`) — not a homegrown emailer. Set this up in the Cloudflare dashboard.**
+- **Uptime/soak**: `uptime_check.sh` (every 5 min) + `soak_monitor.sh` (every 30 min) log to `/var/log/tradewave/`. **Notification gap: these only log. Proper fix = external uptime monitor (Cloudflare Health Checks or an external pinger hitting `https://tw2-stage.trxstat.com/healthz`) — not a homegrown emailer. Set this up in the Cloudflare dashboard.**
 
 ## Security posture
 
