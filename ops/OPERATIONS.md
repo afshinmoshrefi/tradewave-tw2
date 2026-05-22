@@ -72,6 +72,8 @@ Expect: staging → `stage2`/`tw2-stage…`; prod → `TW2_PUBLIC_HOST=tw2-prod.
 ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo systemctl restart tradewave-web && sudo systemctl is-active tradewave-web'
 # APP box   (stage 199.244.48.157 / prod 138.128.240.115):
 ssh root@<app> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
+# SMN pipeline daemons run on the WEB box (Type=simple, load smn/ at startup) — bounce them too when smn/ daemon code changed (the pull above already updated the code):
+ssh root@<web> -p 4369 'sudo systemctl restart tradewave-blog-queue tradewave-article-processor && sudo systemctl is-active tradewave-blog-queue tradewave-article-processor'
 ```
 Restart matrix (which service to bounce after the pull):
 
