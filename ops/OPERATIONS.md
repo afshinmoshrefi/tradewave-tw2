@@ -121,6 +121,25 @@ Rollback (instant, no hash): `cd /home/flask/web-react && ln -sfn "$(readlink bu
 ### Rollback
 `ssh root@<box> -p 4369 'sudo -u flask git -C /home/flask reset --hard <prev-sha> && systemctl restart <svc>'` (last resort; prefer fixing forward). React: `cd /home/flask/web-react && ln -sfn "$(readlink build-previous)" build` (instant, above).
 
+## Deploy gotchas (learned 2026-05-22 - read before debugging a deploy)
+
+- **`/app/` returns 502 but `systemctl is-active tradewave-web` says `active`.** The gunicorn *master* holds port 5500 (so it looks "up"), but every *worker* is crash-looping on an import. Check `tail -30 /var/log/tradewave/web.error.log` for the traceback. **#1 cause: a dependency listed in requirements.txt but not installed in that box's venv** (this is the `flask_wtf` incident that kept staging "broken" for weeks). Fix: `sudo -u flask /home/flask/venv/bin/pip install -r /home/flask/requirements.txt && sudo systemctl restart tradewave-web`. The deploy now pip-installs every run so it can't recur. Tell-tale: the static marketing home still serves (nginx reads it off disk, no gunicorn), so **"home works but `/app/` 502s" points straight at the web workers.**
+
+- **`git pull` aborts: "Your local changes to the following files would be overwritten by merge: config.py".** The box's `config.py` drifted - almost always a prior *surgical* `git checkout origin/main -- config.py` left it modified vs the box's HEAD. Diagnose: `sudo -u flask git -C /home/flask status --short` (`M config.py` = real drift; `??` lines are just untracked files, harmless) and `git diff config.py`. `config.py` is **env-agnostic** - every per-env value comes from `secrets.env` - so a local edit is almost always stale and already superseded by the committed version. After confirming the diff is only that superseded change: `sudo -u flask git -C /home/flask checkout HEAD -- config.py && sudo -u flask git -C /home/flask pull --ff-only`. **Never blind-discard without reading the diff** (a hand-set value not in `secrets.env` would be lost). NOTE: "behind/old code" with a CLEAN tree is NOT drift - a plain `git pull` updates it.
+
+- **Run all git/build/file ops on a box as `sudo -u flask`.** Root-owned files in `/home/flask` (especially `.git/index`, `.git/refs`) break the next `sudo -u flask git pull`. If it happens: `chown -R flask:flask /home/flask`.
+
+## Renaming an environment's URL (e.g. stage2 -> tw2-stage)
+
+The hostname lives in SIX places; changing one is not enough, and most need a reload/restart. Skip any and you get a 404, a 502, or a WorkOS `redirect-uri-invalid`:
+
+1. **Cloudflare DNS** - rename the tunnel record (same tunnel target).
+2. **cloudflared ingress** (`/etc/cloudflared/config.yml`) - add the new hostname, then **`systemctl restart cloudflared`**. Editing the file alone does nothing - that is the 404 ("page not found").
+3. **nginx `server_name`** - then **`nginx -t && systemctl reload nginx`**.
+4. **`secrets.env`** - update BOTH `TW2_PUBLIC_HOST` and `TW2_AUTH_CALLBACK_URL`, then **`systemctl restart tradewave-web`**. The WorkOS redirect is read from `TW2_AUTH_CALLBACK_URL` ONCE at process start (`web/app.py` `REDIRECT_URI`), and it is a SEPARATE var from `TW2_PUBLIC_HOST` - updating only the public host leaves auth sending the old callback.
+5. **WorkOS** - add `https://<new-host>/auth/callback` to that env's redirect URIs.
+6. **Test in a fresh/incognito browser.** The browser caches the old auth redirect, so a stale tab keeps sending the old callback even after everything above is correct (this ate ~30 min on staging). Source of truth for what the app actually emits: `curl -sS -i https://<host>/login | grep -i location` - read the `redirect_uri=` in the 302.
+
 ## Rebuild a box from scratch (ordered)
 
 Scripts in `ops/staging/`, all run from `.176`, all idempotent:
