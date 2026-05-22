@@ -94,15 +94,17 @@ Restart matrix (which service to bounce after the pull):
 | `ops/nginx/` | reload nginx (step 3) |
 | `secrets.env` / systemd units (NOT in git) | edit box-side, then `systemctl daemon-reload` + restart affected svc |
 
-### 2b. React bundle (build/ is gitignored — rsync, NOT pull)
-nginx serves `/app/` straight from `/home/flask/web-react/build/`. Atomic swap, per web box (build once on dev, push the same bundle to stage-web then prod-web):
+### 2b. React bundle (build/ is gitignored - rsync to a release dir + symlink swap, NOT pull)
+`/home/flask/web-react/build` is a **symlink** to `releases/build-<commit>`; nginx serves `/app/` through it. Deploy = ship a new release dir named by the source commit hash, then repoint the symlink (keeps `build-previous` for instant rollback). Build once on dev, ship the same bundle to stage-web then prod-web:
 ```
-# from dev:
-rsync -az --delete -e 'ssh -p 4369' /home/flask/web-react/build/ root@<web>:/home/flask/web-react/build.incoming/
+# on dev:
+REL=$(git -C /home/flask rev-parse --short HEAD)
+rsync -az -e 'ssh -p 4369' /home/flask/web-react/build/ root@<web>:/home/flask/web-react/releases/build-$REL/
 # on <web>:
-cd /home/flask/web-react && rm -rf build.prev && mv build build.prev && mv build.incoming build && chown -R flask:flask build
+cd /home/flask/web-react && chown -R flask:flask releases/build-$REL && ln -sfn "$(readlink build)" build-previous && ln -sfn releases/build-$REL build && chown -h flask:flask build build-previous
 ```
-Rollback: `mv build build.bad && mv build.prev build`.
+Rollback (instant, no hash): `cd /home/flask/web-react && ln -sfn "$(readlink build-previous)" build`
+(One-time per box, already done on stage+prod: `mkdir -p releases && mv build releases/build-prev && ln -s releases/build-prev build`. `deploy.sh` runs ship+flip automatically. Full detail: memory `tw2-react-deploy-method`.)
 
 ### 3. Post-deploy (only if relevant)
 - **nginx** (CSP/headers in `ops/nginx/` changed): re-apply via `ops/staging/apply_audit_hardening.sh` (or copy the snippet into the site config), then `ssh root@<web> -p 4369 'nginx -t && systemctl reload nginx'` (a gunicorn restart does NOT pick up nginx config).
@@ -117,7 +119,7 @@ Rollback: `mv build build.bad && mv build.prev build`.
 `tw2-stage.trxstat.com` / `tw2-prod.trxstat.com`: login + logout (same-origin, works on first click), a report page renders, `/app/` loads with the console quiet (consoleGuard), `/api/me` returns the right tier. **Only then promote to the next env.**
 
 ### Rollback
-`ssh root@<box> -p 4369 'sudo -u flask git -C /home/flask reset --hard <prev-sha> && systemctl restart <svc>'` (last resort; prefer fixing forward). React: swap `build.prev` back (above).
+`ssh root@<box> -p 4369 'sudo -u flask git -C /home/flask reset --hard <prev-sha> && systemctl restart <svc>'` (last resort; prefer fixing forward). React: `cd /home/flask/web-react && ln -sfn "$(readlink build-previous)" build` (instant, above).
 
 ## Rebuild a box from scratch (ordered)
 

@@ -9,7 +9,7 @@
 #   1. pre-flight  — aborts if TW2_PUBLIC_HOST is unset (would break URLs)
 #   2. app tier    — git pull + pip install -r requirements.txt + restart tradewave-appserver
 #   3. web tier    — git pull + pip install -r requirements.txt + restart tradewave-web + the 2 SMN daemons
-#   4. React       — rsync build/ + atomic swap
+#   4. React       — rsync to releases/build-<hash> + repoint the 'build' symlink (build-previous = instant rollback)
 #   5. nginx       — refresh CSP snippet + reload
 # Full rationale: ops/OPERATIONS.md "Deploy a code change".
 set -euo pipefail
@@ -36,9 +36,13 @@ $SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u fla
 echo "==> [$ENV] web tier ($WEB): pull + sync venv + restart web + SMN daemons"
 $SSH "root@$WEB" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-web tradewave-blog-queue tradewave-article-processor && sudo systemctl is-active tradewave-web tradewave-blog-queue tradewave-article-processor'
 
-echo "==> [$ENV] React bundle -> $WEB (atomic swap)"
-rsync -az --delete -e "$SSH" "$BUILD/" "root@$WEB:/home/flask/web-react/build.incoming/"
-$SSH "root@$WEB" 'cd /home/flask/web-react && rm -rf build.prev && mv build build.prev && mv build.incoming build && chown -R flask:flask build'
+# React deploy = ship a release dir named by source commit, then repoint the `build` SYMLINK.
+# `build` is a symlink to releases/build-<hash>; build-previous holds the prior target for instant rollback.
+# (One-time per box, already done on stage+prod: mkdir -p releases && mv build releases/build-prev && ln -s releases/build-prev build)
+REL=$(git -C /home/flask rev-parse --short HEAD)
+echo "==> [$ENV] React bundle -> $WEB (release build-$REL; repoint build symlink; build-previous = rollback)"
+rsync -az -e "$SSH" "$BUILD/" "root@$WEB:/home/flask/web-react/releases/build-$REL/"
+$SSH "root@$WEB" "cd /home/flask/web-react && chown -R flask:flask releases/build-$REL && ln -sfn \"\$(readlink build)\" build-previous && ln -sfn releases/build-$REL build && chown -h flask:flask build build-previous"
 
 echo "==> [$ENV] nginx CSP snippet + reload"
 $SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo nginx -t && sudo systemctl reload nginx'
