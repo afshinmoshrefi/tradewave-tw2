@@ -461,8 +461,10 @@ re-verification reclassified them. Only treat the REAL list as work.
   config heredocs use a placeholder + sed). Verified: bash -n + shellcheck + a
   zero-bare-coordinate grep across all scripts, plus per-env value simulations. The
   old `run_prod.sh` sed-rewrite is gone (thin forwarder to `run.sh prod`).
-- **C. `expire_trials` cron NOT installed** by `make_bulletproof.sh` (verified
-  absent) - trials won't auto-expire on staging/prod until the cron is added.
+- **C. `expire_trials` cron** - RESOLVED 2026-05-22. `make_bulletproof.sh` now
+  installs the web-box daily cron (`15 4 * * *`, the schedule `web/expire_trials.py`
+  documents) so admin-granted trials auto-revert to explorer. Apply to a live box by
+  re-running `ops/staging/run.sh {staging|prod} make_bulletproof.sh` (idempotent).
 - **D. Central-service URLs** - `make_staging_secrets.sh` copies dev's public
   `104.238.214.253` service URLs, which 403 from inside the Kamatera VLAN. The data
   services (ML scorer, stockscore, realtime, EOD update, keystore) need the

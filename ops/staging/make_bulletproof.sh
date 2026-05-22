@@ -81,6 +81,8 @@ CUR=\$(sudo -u flask crontab -l 2>/dev/null || true)
   # system health
   echo "*/5 * * * * /home/flask/ops/uptime_check.sh"
   echo "*/30 * * * * /home/flask/ops/soak_monitor.sh"
+  # trial expiry — revert lapsed admin-granted trials to explorer (skips Stripe subs)
+  echo "15 4 * * * \$W /home/flask/venv/bin/python /home/flask/web/expire_trials.py \$L/expire_trials.log 2>&1"
   # SMN article pipeline
   echo "0 2 * * 1-5 \$W cd /home/flask/smn && /home/flask/venv/bin/python select_news_articles.py \$L/select_news.log 2>&1"
   echo "0 3 * * 1-5 \$W cd /home/flask/smn && /home/flask/venv/bin/python daily_article_queue.py \$L/daily_queue.log 2>&1"
