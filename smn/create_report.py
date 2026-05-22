@@ -47,6 +47,7 @@ import post_template
 
 sys.path.insert(0, '/home/flask')
 import config
+from tw_dateformat import format_date_range
 
 #------------------------------------------------------------------------------------------------
 def write_to_log (key,url,result):
@@ -359,19 +360,8 @@ def create_seasonals_chart(barLabel,labels,seaVals,date1,date2,opp_dir,filename,
 #------------------------------------------------------------------------------------------------
 # chat gpt wrote this to convert 2023-02-14 , 2023-06-11 to Feb14-Jun-11
 def format_daterange_text(date1, date2):
-    # Convert the dates to datetime objects
-    d1 = datetime.datetime.strptime(date1, '%Y-%m-%d')
-    d2 = datetime.datetime.strptime(date2, '%Y-%m-%d')
-    
-    # Get the month abbreviations and dates
-    month1 = d1.strftime("%b")
-    day1 = str(int(d1.strftime("%d")))
-    month2 = d2.strftime("%b")
-    day2 = str(int(d2.strftime("%d")))
-    
-    # Concatenate the month abbreviations and dates to form the final string
-    result = month1 + day1 + "-" + month2 + day2
-    return result
+    # Spaced en-dash range label (house convention) - see tw_dateformat.format_date_range.
+    return format_date_range(date1, date2)
 #------------------------------------------------------------------------------------------------
 # chat gpt wrote this
 # it produces formatted output like 3rd, 22nd, 21st, ... for readable date

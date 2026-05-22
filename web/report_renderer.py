@@ -35,6 +35,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, '/home/flask')
 import config
+from tw_dateformat import format_date_range
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Constants formerly in TW1 config - kept local to avoid polluting TW2 config.
@@ -61,9 +62,8 @@ def diff_between_dates(date2, date1):
 
 
 def format_daterange_text(date1, date2):
-    d1 = datetime.datetime.strptime(date1, '%Y-%m-%d')
-    d2 = datetime.datetime.strptime(date2, '%Y-%m-%d')
-    return f"{d1.strftime('%b')}{int(d1.strftime('%d'))}-{d2.strftime('%b')}{int(d2.strftime('%d'))}"
+    # Spaced en-dash range label (house convention) - see tw_dateformat.format_date_range.
+    return format_date_range(date1, date2)
 
 
 def format_date(date_string):
@@ -552,13 +552,8 @@ def render(report_dict, appserver_token, post_title, post_slug):
     else:
         eyebrow = f"{years}-YEAR TRADEWAVE PATTERN"
     headline = f"{company} ({symbol})"
-    # Subtitle: human-readable date range, e.g. "May 20 – Jun 8, 2026"
-    d1 = datetime.datetime.strptime(date1, '%Y-%m-%d')
-    d2 = datetime.datetime.strptime(date2, '%Y-%m-%d')
-    if d1.year == d2.year:
-        subtitle = f"{d1.strftime('%b')} {d1.day} – {d2.strftime('%b')} {d2.day}, {d2.year}"
-    else:
-        subtitle = f"{d1.strftime('%b')} {d1.day}, {d1.year} – {d2.strftime('%b')} {d2.day}, {d2.year}"
+    # Subtitle: human-readable date-range label, e.g. "May 20 - Jun 8, 2026" (en-dash via helper)
+    subtitle = format_date_range(date1, date2, with_year=True)
 
     # Optional: header/footer partials
     header_partial = _read_partial('/home/flask/site/templates/_tw_header.html')

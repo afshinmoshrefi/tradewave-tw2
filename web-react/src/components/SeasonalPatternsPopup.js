@@ -200,9 +200,9 @@ const SeasonalPatternsPopup = ({ onClose, iconRect }) => {
                     <div className="ts-section-title">Well-Known Seasonal Effects</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
                         {[
-                            { name: 'Sell in May, Go Away', months: 'Nov - Apr', color: accentGreen, desc: 'Markets historically perform better November through April. This pattern dates back centuries.' },
+                            { name: 'Sell in May, Go Away', months: 'Nov–Apr', color: accentGreen, desc: 'Markets historically perform better November through April. This pattern dates back centuries.' },
                             { name: 'January Effect', months: 'January', color: accentBlue, desc: 'Small-cap stocks tend to rise in January as investors reinvest after year-end tax-loss selling.' },
-                            { name: 'Santa Claus Rally', months: 'Late Dec - Early Jan', color: '#ef4444', desc: 'The last 5 trading days of December and first 2 of January are positive ~78% of the time since 1950.' },
+                            { name: 'Santa Claus Rally', months: 'Late Dec – Early Jan', color: '#ef4444', desc: 'The last 5 trading days of December and first 2 of January are positive ~78% of the time since 1950.' },
                             { name: 'Pre-Election Rally', months: 'Year 3 of Presidency', color: '#a78bfa', desc: 'The third year of a presidential term averages roughly double the returns of other years.' },
                         ].map((p, i) => (
                             <div key={i} style={{ ...cardStyle, marginBottom: 0, display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px' }}>
@@ -284,9 +284,9 @@ const SeasonalPatternsPopup = ({ onClose, iconRect }) => {
                         <div style={{ height: '16px' }} />
                         <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                             {[
-                                { range: '5-10 yrs', color: accentBlue, text: 'Recent behavior, strong relevance, smaller sample' },
-                                { range: '15-30 yrs', color: accentGreen, text: 'The sweet spot - balances recency with significance' },
-                                { range: '40-98 yrs', color: accentAmber, text: 'Deep structural patterns that survived multiple market regimes' },
+                                { range: '5–10 yrs', color: accentBlue, text: 'Recent behavior, strong relevance, smaller sample' },
+                                { range: '15–30 yrs', color: accentGreen, text: 'The sweet spot - balances recency with significance' },
+                                { range: '40–98 yrs', color: accentAmber, text: 'Deep structural patterns that survived multiple market regimes' },
                             ].map((r, i) => (
                                 <div key={i} style={{ flex: 1, borderLeft: `3px solid ${r.color}`, paddingLeft: '8px' }}>
                                     <div style={{ fontSize: '10px', fontWeight: 700, color: r.color }}>{r.range}</div>
