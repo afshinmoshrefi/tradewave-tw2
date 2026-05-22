@@ -4,13 +4,17 @@ If you're lost, start here. Everything below is reproducible from committed scri
 
 ## Boxes
 
-| Role | Public | VLAN | SSH |
-|---|---|---|---|
-| dev (single box, all tiers) | 192.168.1.176 | — | local |
-| stage-web | 185.53.209.8 | 10.0.0.94 | `ssh root@185.53.209.8 -p 4369` |
-| stage-app | 199.244.48.157 | 10.0.0.92 | `ssh root@199.244.48.157 -p 4369` |
+3 infrastructures (decision 2026-05-22: keep all three until ops are smooth, then maybe drop dev or staging). **Promotion flow: dev → staging → prod.** All hostnames are Cloudflare tunnels, not A records (do not convert to A — see memory `tw2-cloudflare-tunnels`).
 
-Prod = same shape, 2 CPU / 2 GB each, `tradewave.ai` web hostname. TW1 prod web is `10.0.0.40` (Kamatera VLAN).
+| Role | Public IP | VLAN | Hostname | SSH |
+|---|---|---|---|---|
+| dev (single box, all tiers) | 192.168.1.176 | — | tw2-dev.trxstat.com | local |
+| stage-web | 185.53.209.8 | 10.0.0.94 | stage2.trxstat.com | `ssh root@185.53.209.8 -p 4369` |
+| stage-app | 199.244.48.157 | 10.0.0.92 | tw2-stage-app.trxstat.com | `ssh root@199.244.48.157 -p 4369` |
+| prod-web | 194.113.195.141 | 10.0.0.98 | tw2-prod.trxstat.com (→ tradewave.ai at cutover) | `ssh root@194.113.195.141 -p 4369` |
+| prod-app | 138.128.240.115 | 10.0.0.96 | tw2-prod-app.trxstat.com | `ssh root@138.128.240.115 -p 4369` |
+
+2 CPU / 2 GB each. TW1 prod web is `10.0.0.40` (Kamatera VLAN). (Prod SSH user/port assumed same `root@…-p 4369` pattern as staging — adjust if your prod access differs.)
 
 ## What runs where
 
@@ -27,11 +31,87 @@ Health: `systemctl is-active <svc>`. Logs: `/var/log/tradewave/*.log` (rotated d
 
 ## Deploy a code change
 
+> **THIS SECTION IS THE SINGLE SOURCE OF TRUTH FOR DEPLOYMENT.** Any change that
+> alters how a deploy works — a new systemd service, a new build artifact, a new
+> env var that must be set on a box, a new cross-tier file, a new generator to
+> re-run, a changed restart target — **MUST be reflected here in the same commit**.
+> If you deploy something in a way that isn't written here, write it here. Do not
+> let the real process drift out of this doc.
+
+**Promotion flow: dev → staging → prod**, one env at a time. Code is edited and
+tested on dev (`.176`), then promoted. The **React bundle is built ONCE on dev**
+(env-agnostic, runtime-gated by `window.tw2_env`) and the *same* bundle is copied
+to stage-web then prod-web — never rebuilt per env.
+
+Each box holds the full repo at `/home/flask`, so the rule is simple:
+**`git pull` on every box of the target env, then restart only the service(s)
+whose code changed** (gunicorn does NOT auto-reload). Pulling everywhere is
+idempotent and avoids cross-tier "which box needs this file" puzzles.
+
+### 0. On dev (edit → test → commit → push)
 ```
-# on .176, after commit+push:
-ssh root@185.53.209.8 -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && systemctl restart tradewave-web'
-ssh root@199.244.48.157 -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && systemctl restart tradewave-appserver'
+sudo -u flask git -C /home/flask add <files>
+sudo -u flask git -C /home/flask commit -m "…"
+sudo -u flask git -C /home/flask push
+# if web-react/ changed, build the bundle (plain build — NOT CI=true, which fails on pre-existing lint warnings):
+sudo -u flask bash -lc 'cd /home/flask/web-react && npm run build'
+# restart the relevant dev service(s) to test locally before promoting
 ```
+All git/build/file ops on every box run as **`sudo -u flask`** (root ownership in `/home/flask` breaks `git pull` and the build — keep it flask:flask).
+
+### 1. Pre-flight on the target env (before restarting)
+The app derives `domain_root`/`tw2_public_url` from **`TW2_PUBLIC_HOST`**; if unset/wrong, all URLs fall back to `tw2-dev`. Check BOTH boxes of the target:
+```
+ssh root@<box> -p 4369 "grep -E 'TW2_PUBLIC_HOST|TW2_ENV' /etc/tradewave/secrets.env; systemctl cat tradewave-web 2>/dev/null | grep TW2_PUBLIC_HOST"
+```
+Expect: staging → `stage2`/`tw2-stage…`; prod → `TW2_PUBLIC_HOST=tw2-prod.trxstat.com` + `TW2_ENV=prod`. A systemd `override.conf` wins over `secrets.env`.
+
+### 2. Server code — pull on BOTH boxes, restart by what changed
+```
+# WEB box   (stage 185.53.209.8 / prod 194.113.195.141):
+ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && systemctl restart tradewave-web'
+# APP box   (stage 199.244.48.157 / prod 138.128.240.115):
+ssh root@<app> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && systemctl restart tradewave-appserver'
+```
+Restart matrix (which service to bounce after the pull):
+
+| Changed | Restart |
+|---|---|
+| `web/` (app.py, models.py) | `tradewave-web` (web box) |
+| `appserver/` | `tradewave-appserver` (app box) |
+| `web/report_renderer.py` | `tradewave-web` **and** `tradewave-appserver` (appserver invokes it via `dr_report_publish`) |
+| `smn/` used by the pipeline services | `tradewave-blog-queue` + `tradewave-article-processor` (web box) |
+| `smn/` cron-only scripts (generate_security_pages, rebuild_news_home, daily_article_queue, update_news_quotes …) | none — next cron run uses new code |
+| `config.py`, `tw_dateformat.py` (shared by all) | ALL: `tradewave-web`, `tradewave-appserver`, `tradewave-blog-queue`, `tradewave-article-processor` |
+| `site/generate_*`, `site/templates/` | none — re-run the generator (step 3) or wait for cron |
+| `web-react/` | none — rsync the bundle (step 2b) |
+| `ops/nginx/` | reload nginx (step 3) |
+| `secrets.env` / systemd units (NOT in git) | edit box-side, then `systemctl daemon-reload` + restart affected svc |
+
+### 2b. React bundle (build/ is gitignored — rsync, NOT pull)
+nginx serves `/app/` straight from `/home/flask/web-react/build/`. Atomic swap, per web box (build once on dev, push the same bundle to stage-web then prod-web):
+```
+# from dev:
+rsync -az --delete -e 'ssh -p 4369' /home/flask/web-react/build/ root@<web>:/home/flask/web-react/build.incoming/
+# on <web>:
+cd /home/flask/web-react && rm -rf build.prev && mv build build.prev && mv build.incoming build && chown -R flask:flask build
+```
+Rollback: `mv build build.bad && mv build.prev build`.
+
+### 3. Post-deploy (only if relevant)
+- **nginx** (CSP/headers in `ops/nginx/` changed): re-apply via `ops/staging/apply_audit_hardening.sh` (or copy the snippet into the site config), then `ssh root@<web> -p 4369 'nginx -t && systemctl reload nginx'` (a gunicorn restart does NOT pick up nginx config).
+- **Home page / static site** (`site/templates/` or `site/generate_*` changed): re-run on the web box —
+  ```
+  ssh root@<web> -p 4369
+  sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/site/generate_home_page.py'
+  ```
+  ⚠ `generate_home_page.py` still has hardcoded `CANONICAL_ROOT=tw2.trxstat.com` / `APPSERVER_URL=app1pp…` — make those env-driven before relying on a prod regen. (Otherwise it bakes the wrong host into the home page.)
+
+### 4. Verify on the env's own hostname
+`stage2.trxstat.com` / `tw2-prod.trxstat.com`: login + logout (same-origin, works on first click), a report page renders, `/app/` loads with the console quiet (consoleGuard), `/api/me` returns the right tier. **Only then promote to the next env.**
+
+### Rollback
+`ssh root@<box> -p 4369 'sudo -u flask git -C /home/flask reset --hard <prev-sha> && systemctl restart <svc>'` (last resort; prefer fixing forward). React: swap `build.prev` back (above).
 
 ## Rebuild a box from scratch (ordered)
 
