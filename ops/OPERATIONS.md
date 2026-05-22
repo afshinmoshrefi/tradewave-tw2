@@ -14,7 +14,7 @@ If you're lost, start here. Everything below is reproducible from committed scri
 | prod-web | 194.113.195.141 | 10.0.0.98 | tw2-prod.trxstat.com (→ tradewave.ai at cutover) | `ssh root@194.113.195.141 -p 4369` |
 | prod-app | 138.128.240.115 | 10.0.0.96 | tw2-prod-app.trxstat.com | `ssh root@138.128.240.115 -p 4369` |
 
-2 CPU / 2 GB each. TW1 prod web is `10.0.0.40` (Kamatera VLAN). (Prod SSH user/port assumed same `root@…-p 4369` pattern as staging — adjust if your prod access differs.)
+2 CPU / 2 GB each. TW1 prod web is `10.0.0.40` (Kamatera VLAN). Prod SSH is `root@<ip> -p 4369`, same pattern as staging (confirmed 2026-05-22).
 
 ## What runs where
 
@@ -69,9 +69,9 @@ Expect: staging → `stage2`/`tw2-stage…`; prod → `TW2_PUBLIC_HOST=tw2-prod.
 ### 2. Server code — pull on BOTH boxes, restart by what changed
 ```
 # WEB box   (stage 185.53.209.8 / prod 194.113.195.141):
-ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && systemctl restart tradewave-web'
+ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo systemctl restart tradewave-web && sudo systemctl is-active tradewave-web'
 # APP box   (stage 199.244.48.157 / prod 138.128.240.115):
-ssh root@<app> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && systemctl restart tradewave-appserver'
+ssh root@<app> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
 ```
 Restart matrix (which service to bounce after the pull):
 
