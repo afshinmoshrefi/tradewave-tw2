@@ -342,12 +342,15 @@ bulletproof). See `OPERATIONS.md`.
   product metadata (`product_line=eod`, `tier`, `period`) - NOT hardcoded;
   in-process cache, restart `tradewave-web` after a price change. 7-day trial in
   checkout; Stripe Billing Portal for cancel/manage.
-- **Legacy billing (pre-cutover blocker):** TW1's UMP created one Stripe price per
-  subscriber (~14+ no-metadata legacy prices, e.g. strategist-yearly $189). TW2's
-  active+metadata cache can't map them. **FREEZE: do not archive any price with an
-  active subscription.** A `{legacy_price_id: tier}` PIN MAP + a
-  "never downgrade on unrecognized price" guard are REQUIRED for cutover and
-  **do not yet exist in code** (OPEN).
+- **Legacy billing (handled by design, NOT a blocker):** TW1's UMP created one
+  Stripe price per subscriber (~14+ no-metadata legacy prices, e.g. strategist
+  $189/yr). TW2's active+metadata price cache can't map them - but it does not need
+  to: the webhook PRESERVES tier on an unmappable price (`new_tier=None` -> tier
+  unchanged, app.py:1409-1427), so founding members are never downgraded; they are
+  seeded at cutover (PROD_CUTOVER pre-seed). **FREEZE: never archive a price with an
+  active subscription.** An explicit `{legacy_price_id: tier}` map is optional
+  belt-and-suspenders, not a blocker. (Keep a regression test so the preserve-on-
+  unmappable behavior can't regress into a downgrade.)
 - **Tiers:** explorer/analyst/strategist (TIER_FEATURES). tier_compat:
   explorer->'1', analyst->'4'/'5', strategist->'6'/'7'.
 - **Cutover (TW1 -> tradewave.ai), per `ops/PROD_CUTOVER.md`:** Phase 1 (days
@@ -427,28 +430,49 @@ roadmap memories.)
 
 ---
 
-## 13. Known gaps / open items (verified 2026-05-22)
+## 13. Gaps / open items (RE-VERIFIED against code 2026-05-22)
 
-1. **Legacy Stripe price PIN MAP not in code** - hard pre-cutover blocker for
-   founding-member billing continuity. Need `{legacy_price_id: tier}` + a
-   "don't downgrade on unrecognized price" webhook guard.
-2. **Service-account `api_key_hash` not backfilled** on the appserver DB -> 
-   `home_opportunities`/`daily_ai_pick` get "invalid api_key". Fix via `web/db_admin.py`.
-3. **Stripe Checkout prices** - confirm the 4 EOD prices carry correct launch
-   pricing + `product_line=eod` metadata (a $2 placeholder was once found). Needs a
-   live Stripe dashboard check.
-4. **Script drift to `stage2.trxstat.com`** in `make_staging_secrets.sh`,
-   `bootstrap_stage_web_services.sh`, `migrate_scorecard_from_tw1.sh` echo - update
-   to `tw2-stage.trxstat.com` before reuse.
-5. **`generate_home_page.py` hardcoded URLs** (`CANONICAL_ROOT=tw2.trxstat.com`,
-   `APPSERVER_URL=app1pp`) - make env-driven before a prod home regen.
-6. **`expire_trials` cron** not installed by `make_bulletproof.sh`.
-7. **Central-service URLs** may 403 from staging/prod if set to the public IP
-   (use VLAN IPs).
-8. **OPEN question:** is TW2's `site/generate_daily_ai_pick.py` (-> `daily-ai-pick.html`)
-   an LLM-narrated page, and is it the same pick as the ML-scorer scorecard
-   featured pick, or a separate artifact?
-9. **TW2 prod boxes** not fully built/verified as of 2026-05-21 (task in progress).
+Several items first flagged here were inherited fears from older memories; a code
+re-verification reclassified them. Only treat the REAL list as work.
+
+**REAL (code/config-verified):**
+- **A. Service-account api_key not backfilled** -> `site/home_opportunities.py`
+  (uses `SERVICE_API_KEY` -> `/login/api`) gets `invalid api_key` (no
+  `users.api_key_hash` row matches). Fix is MANUAL: `web/db_admin.py` is deprecated
+  (only prints instructions) - generate a key, `hash_api_key(key, API_KEY_HMAC_SECRET)`,
+  write the hash to a `service_account`-role `users.api_key_hash` row.
+  NOTE: `site/generate_daily_ai_pick.py` is a SEPARATE issue - it uses the legacy
+  keyprovider login (not `login_api`), and has NO LLM and does not touch
+  `featured_history` (it's a standalone appserver-driven page, distinct from the
+  ML-scorer scorecard featured pick).
+- **B. Build-script hostname drift** - `make_staging_secrets.sh:75,77` (writes
+  retired `TW2_DOMAIN_ROOT` + `TW2_PUBLIC_HOST=stage2.trxstat.com`),
+  `bootstrap_stage_web_services.sh:121` (`server_name stage2.trxstat.com`),
+  `migrate_scorecard_from_tw1.sh:60` (echo). Only bites on a FRESH box rebuild
+  (live staging is already `tw2-stage`). Fix before building prod.
+- **C. `expire_trials` cron NOT installed** by `make_bulletproof.sh` (verified
+  absent) - trials won't auto-expire on staging/prod until the cron is added.
+- **D. Central-service URLs** - `make_staging_secrets.sh` copies dev's public
+  `104.238.214.253` service URLs, which 403 from inside the Kamatera VLAN. The data
+  services (ML scorer, stockscore, realtime, EOD update, keystore) need the
+  `10.0.0.x` VLAN addresses per env.
+
+**NON-ISSUES (re-verified - code already handles; were inherited fears):**
+- **Legacy Stripe "PIN-map"** - NOT a blocker. The webhook PRESERVES tier on an
+  unmappable (legacy, no-metadata) price (`new_tier=None` -> tier unchanged,
+  app.py:1409-1427); it never downgrades founding members. They are seeded at
+  cutover (PROD_CUTOVER pre-seed); FREEZE-price-cleanup still applies. Residual:
+  keep a regression test so a future change can't turn this into a downgrade.
+- **`generate_home_page.py` URLs** - NOT hardcoded: `CANONICAL_ROOT = config.domain_root`
+  (env-driven; only a cosmetic `tw2.trxstat.com` fallback if TW2_PUBLIC_HOST is
+  unset) and `APPSERVER_URL = config.appserver_url` (env-driven). The stale claim
+  was from a 2026-05-14 inventory / TW1's copy.
+- **Daily-AI-pick LLM** - resolved: no LLM anywhere in the pick (see A above).
+
+**VERIFY / STATUS (not code bugs):**
+- Stripe Checkout prices: confirm the 4 EOD prices carry correct launch pricing +
+  `product_line=eod` metadata (live Stripe dashboard check).
+- TW2 prod boxes: build/verify pending.
 
 ---
 
