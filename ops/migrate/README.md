@@ -30,6 +30,18 @@ different TW1 boxes (.151 dev co-locates them; prod does not).
 
 Copy `tw1_export.py` to BOTH TW1 boxes (web + appserver).
 
+## Run it via the ops runner (preferred - matches the `ops/staging` convention)
+
+These python scripts are wrapped by orchestrators you run the standard way:
+
+```
+sudo         /home/flask/ops/staging/run.sh prod migrate_users_from_tw1.sh   # Track A (users), DRY-RUN
+sudo APPLY=1 /home/flask/ops/staging/run.sh prod migrate_users_from_tw1.sh   # commit
+# migrate_redis_from_tw1.sh (Track B, saved data) - added next
+```
+
+First fill the `TGT_TW1_*` coordinates in `ops/staging/prod_target.env` (the `CONFIRM` placeholders). The orchestrator does the temp-key bridge to TW1, runs the export on TW1 web + the import on TW2 prod-web (live Stripe), and pulls `payer_report.txt` + `id_map.jsonl` back to `.176`. The per-box python commands below are what it wraps - run them by hand only for debugging.
+
 ## Safety properties
 - **Dry-run by default.** Steps 2 and 3 write nothing until you pass `--apply`.
 - **Read-only source.** Step 1 never writes to TW1.
