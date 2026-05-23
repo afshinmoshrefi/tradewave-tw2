@@ -43,6 +43,11 @@
 **Box:** TW1 dev = `192.168.1.151` (Ubuntu 20.04, Python 3.8). TW1 **prod** web =
 `10.0.0.40` (Kamatera VLAN), owns `tradewave.ai` until cutover. `.151` is
 read-only inspectable: `ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes root@192.168.1.151`.
+TW1 **prod is 2-tier**: the web box (`10.0.0.40`) holds WordPress/MySQL (the user
+list); a SEPARATE prod appserver holds the data engine + its Redis (the per-user
+saved data). `.151` dev co-locates everything, so don't model prod off it. Note:
+`.151`'s UMP level catalog + WP `siteurl` are STALE - trust `tier_compat.py` and
+TW1 staging/prod for real levels, not dev.
 
 ### 2.1 Serving model (WordPress bypassed)
 nginx port 80, root `/var/www/html/wordpress`, uses `try_files` to serve static
@@ -386,6 +391,7 @@ roadmap memories.)
 | Auth consumer + handshake | React + appserver `/login` | SAME React + SAME appserver `/login` |
 | Tiers | UMP levels 1/4-5/6-7 | explorer/analyst/strategist (tier_compat -> same levels) |
 | Data | `/home/flask/data/csv/` | `/home/flask/data/csv/` (same) |
+| User identity (= redis key) | WP integer user id (`wp_users.ID`) | Postgres uuid (`users.id`) - CHANGES at migration; users + saved redis data (`user_portfolios_*` / `user_reports_*` / `user_watchlists_*`) moved by an email-joined key-remap. Tooling: `ops/migrate/` (export users via the UMP api-gate + db2; import to Postgres; remap+load redis). |
 
 ---
 
