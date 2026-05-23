@@ -2,6 +2,18 @@
 
 If you're lost, start here. Everything below is reproducible from committed scripts in `ops/staging/`.
 
+## The 3 operations (don't confuse them)
+
+All run from dev (`.176`). An env = 2 boxes (web + app).
+
+| Operation | Command | Touches | When |
+|---|---|---|---|
+| **Deploy code** | `bash ops/deploy.sh {staging\|prod}` | both web+app in one command: pull, restart, ship React, reload nginx | every code update - the normal flow |
+| **Compile React** | `sudo -u flask bash -lc 'cd /home/flask/web-react && npm run build'` | nothing (builds the bundle on dev) | once before a deploy, ONLY if `web-react/src` changed |
+| **Build a box** | `ops/staging/run.sh {staging\|prod} <script>` | one script -> one box (or runs on dev + reaches out); run the ordered sequence under "Rebuild a box from scratch" | rare - new box / full rebuild from bare metal |
+
+To sync staging+prod with the latest code: (React build if `web-react/src` changed) -> `deploy.sh staging` -> verify -> `deploy.sh prod`. `run.sh` is NOT part of a routine deploy.
+
 ## Boxes
 
 3 infrastructures (decision 2026-05-22: keep all three until ops are smooth, then maybe drop dev or staging). **Promotion flow: dev → staging → prod.** All hostnames are Cloudflare tunnels, not A records (do not convert to A — see memory `tw2-cloudflare-tunnels`).
