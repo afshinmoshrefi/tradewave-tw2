@@ -2,33 +2,30 @@
 """
 TW1 -> TW2 migration, step 1: EXPORT from a TW1 box (READ-ONLY).
 
-Run this ON A TW1 BOX (staging first, then prod). It only issues SELECTs
-(MySQL) and SCAN/GET/TYPE (Redis) - it never writes to TW1.
-
-Two exports (the two migrations, source side):
   users  -> tw1_users.jsonl : one JSON object per WP user
                               (wp_user_id, email, registered_at, active_level_ids).
-                              Roster + email come from wp_users (MySQL); the LEVEL
-                              comes from UMP's api-gate - the authoritative source
-                              the appserver itself uses (get_user_memberships_ump),
-                              NOT a re-derived SQL query of wp_ihc_user_levels.
+                              EVERYTHING via UMP's api-gate (no MySQL, no wp-config) -
+                              the same apigate.php + keystore the appserver uses:
+                                list_levels        -> the level ids
+                                get_level_users    -> the user roster per level
+                                user_get_details   -> email
+                                get_user_levels    -> that user's non-expired levels
   redis  -> tw1_redis.jsonl : every user-scoped appserver db2 key + value
                               (portfolios / reports / watchlists).
 
-MySQL creds + table prefix are read from the box's own wp-config.php; the UMP
-api-gate key (key2) is fetched from the keyprovider and refreshed as it rotates.
-The SAME script runs unchanged on staging and prod - nothing hardcoded. No
+keystoreURL + wordpress_url default from the box's own config.py (override with
+flags). key2 is fetched from the keystore and refreshed as it rotates. Because
+`users` no longer touches MySQL, BOTH exports can run on the TW1 appserver. No
 credentials or row values are printed; only counts.
 
-Examples (one line each):
-  python3 tw1_export.py users --keystore-url http://localhost:7777 --wordpress-url http://localhost/ --out-dir ./out
-  python3 tw1_export.py redis --redis-db 2 --out-dir ./out
+Examples:
+  python3 tw1_export.py users --out-dir /tmp/mig                         # config-driven
+  python3 tw1_export.py users --wordpress-url https://tradewave.ai/ --out-dir /tmp/mig
+  python3 tw1_export.py redis --redis-db 2 --out-dir /tmp/mig
 """
 import argparse
 import json
 import os
-import re
-import subprocess
 import sys
 import time
 
@@ -42,75 +39,6 @@ USER_KEY_PATTERNS = [
 ]
 
 
-def _parse_wp_config(path):
-    with open(path, "r", errors="replace") as f:
-        txt = f.read()
-
-    def const(name):
-        m = re.search(
-            r"""define\(\s*['"]%s['"]\s*,\s*['"]([^'"]*)['"]""" % re.escape(name), txt
-        )
-        return m.group(1) if m else None
-
-    m = re.search(r"""\$table_prefix\s*=\s*['"]([^'"]+)['"]""", txt)
-    cfg = {
-        "name": const("DB_NAME"),
-        "user": const("DB_USER"),
-        "password": const("DB_PASSWORD"),
-        "host": const("DB_HOST") or "localhost",
-        "prefix": (m.group(1) if m else "wp_"),
-    }
-    missing = [k for k in ("name", "user", "password") if not cfg[k]]
-    if missing:
-        sys.exit("could not parse %s from %s" % (", ".join(missing), path))
-    return cfg
-
-
-def _mysql_args(cfg):
-    host, port, socket = cfg["host"], None, None
-    if host.startswith(":"):
-        rest = host[1:]
-        port, host = (rest, "localhost") if rest.isdigit() else (None, None)
-        if not port:
-            socket = rest
-    elif ":" in host:
-        host, _, p = host.partition(":")
-        port = p if p.isdigit() else None
-        socket = None if p.isdigit() else p
-    args = ["mysql", "-u", cfg["user"], "-N", "-B", "--raw",
-            "--default-character-set=utf8mb4"]
-    if socket:
-        args += ["--socket", socket]
-    else:
-        args += ["-h", host or "localhost"]
-        if port:
-            args += ["-P", port]
-    return args
-
-
-def _fetch_key2(keystore_url, timeout):
-    """The UMP api-gate key, exactly as the appserver's get_keys() obtains it."""
-    import requests
-    return requests.get(keystore_url, timeout=timeout).json()["key2"]
-
-
-def _ump_level_ids(wordpress_url, ihch, uid, timeout):
-    """Current (non-expired) level ids for a uid via UMP's apigate.php, hit
-    DIRECTLY. (The ?ihc_action=api-gate query form is shadowed by TW1's static-/
-    try_files and just returns home.html.) d['response'] is keyed by level id,
-    each carrying an is_expired flag - we keep the non-expired ones (UMP's own
-    expiry determination, not a re-derived SQL one)."""
-    import requests
-    base = wordpress_url if wordpress_url.endswith("/") else wordpress_url + "/"
-    url = ("%swp-content/plugins/indeed-membership-pro/apigate.php"
-           "?ihch=%s&action=get_user_levels&uid=%s" % (base, ihch, uid))
-    resp = requests.get(url, timeout=timeout).json().get("response") or {}
-    if not isinstance(resp, dict):
-        return []
-    return [str(lid) for lid, info in resp.items()
-            if not (isinstance(info, dict) and info.get("is_expired"))]
-
-
 def _tw1_config():
     """keystoreURL + wordpress_url from the box's OWN config.py - the same values
     the appserver/keyprovider use. No guessing: every TW1 box defines these."""
@@ -121,56 +49,93 @@ def _tw1_config():
     return getattr(config, "keystoreURL", None), getattr(config, "wordpress_url", None)
 
 
-def export_users(cfg, out_path, keystore_url, ihch_static, wordpress_url, timeout):
+def _fetch_key2(keystore_url, timeout):
+    """The UMP api-gate key2, exactly as the appserver's get_keys() obtains it."""
+    import requests
+    return requests.get(keystore_url, timeout=timeout).json()["key2"]
+
+
+def _ump(wordpress_url, ihch, action, params, timeout):
+    """Call UMP's apigate.php DIRECTLY (the ?ihc_action=api-gate query form is
+    shadowed by TW1's static-/ try_files). Returns the 'response' payload, or
+    raises if it's a string (e.g. 'Access Denied' = action not enabled in UMP)."""
+    import requests
+    base = wordpress_url if wordpress_url.endswith("/") else wordpress_url + "/"
+    qs = "".join("&%s=%s" % (k, v) for k, v in params.items())
+    url = ("%swp-content/plugins/indeed-membership-pro/apigate.php?ihch=%s&action=%s%s"
+           % (base, ihch, action, qs))
+    resp = requests.get(url, timeout=timeout).json().get("response")
+    if isinstance(resp, str):
+        raise RuntimeError("api '%s' -> %r (enable it in UMP -> Settings -> API)" % (action, resp))
+    return resp
+
+
+def export_users(out_path, keystore_url, ihch_static, wordpress_url, timeout):
     if not (keystore_url or ihch_static):
-        sys.exit("provide --keystore-url (preferred) or --ihch for the UMP api-gate key")
+        sys.exit("need a keystore (config.keystoreURL / --keystore-url) or --ihch")
 
-    # Roster + email ONLY from MySQL - no level logic here. UMP owns the level
-    # (fetched below); WordPress owns the email, and the api-gate is keyed by uid.
-    p = cfg["prefix"]
-    sql = (
-        "SELECT JSON_OBJECT("
-        "'wp_user_id', u.ID,"
-        "'email', LOWER(TRIM(u.user_email)),"
-        "'registered_at', DATE_FORMAT(u.user_registered, '%Y-%m-%dT%H:%i:%sZ')"
-        ") FROM {p}users u "
-        "WHERE u.user_email IS NOT NULL AND u.user_email <> '' "
-        "ORDER BY u.ID"
-    ).format(p=p)
-    env = dict(os.environ, MYSQL_PWD=cfg["password"])
-    proc = subprocess.run(_mysql_args(cfg) + ["-e", sql, cfg["name"]],
-                          env=env, capture_output=True, text=True)
-    if proc.returncode != 0:
-        sys.exit("mysql failed (rc=%d): %s" % (proc.returncode, proc.stderr.strip()[:500]))
-    roster = [json.loads(l) for l in proc.stdout.splitlines() if l.strip()]
+    state = {"k": ihch_static, "t": 0.0}
 
-    key2 = ihch_static or _fetch_key2(keystore_url, timeout)
-    key_ts = time.time()
+    def key2():
+        if ihch_static:
+            return ihch_static
+        if not state["k"] or time.time() - state["t"] > 30:   # key2 rotates ~per minute
+            state["k"], state["t"] = _fetch_key2(keystore_url, timeout), time.time()
+        return state["k"]
+
+    def call(action, params, _retry=True):
+        try:
+            return _ump(wordpress_url, key2(), action, params, timeout)
+        except Exception:
+            if _retry and not ihch_static:
+                state["t"] = 0.0          # force a key refresh in case it rotated
+                return call(action, params, _retry=False)
+            raise
+
+    # 1) the level ids
+    levels = call("list_levels", {})
+    level_ids = ([str(lvl.get("level_id")) for lvl in levels
+                  if isinstance(lvl, dict) and lvl.get("level_id") is not None]
+                 if isinstance(levels, list) else [])
+    if not level_ids:
+        sys.exit("list_levels returned nothing usable: %r" % (levels,))
+    print("levels: %s" % ",".join(level_ids), file=sys.stderr)
+
+    # 2) roster = union of users across every level
+    uids = set()
+    for lid in level_ids:
+        rows = call("get_level_users", {"lid": lid})
+        for it in (rows or []):
+            if isinstance(it, dict) and it.get("user_id") is not None:
+                uids.add(str(it["user_id"]))
+    print("roster: %d users" % len(uids), file=sys.stderr)
+
+    # 3) per user: email (user_get_details) + non-expired levels (get_user_levels)
     n = err = paid = 0
+    ordered = sorted(uids, key=lambda x: int(x) if x.isdigit() else 0)
     with open(out_path, "w") as out:
-        for i, row in enumerate(roster, 1):
-            if not ihch_static and time.time() - key_ts > 30:   # key2 rotates ~per minute
-                key2, key_ts = _fetch_key2(keystore_url, timeout), time.time()
-            uid = row["wp_user_id"]
+        for i, uid in enumerate(ordered, 1):
             try:
-                levels = _ump_level_ids(wordpress_url, key2, uid, timeout)
-            except Exception:
-                if not ihch_static:                              # maybe the key just rotated
-                    key2, key_ts = _fetch_key2(keystore_url, timeout), time.time()
-                try:
-                    levels = _ump_level_ids(wordpress_url, key2, uid, timeout)
-                except Exception as e:
-                    levels, err = None, err + 1
-                    print("  WARN uid=%s level fetch failed: %s" % (uid, str(e)[:120]),
-                          file=sys.stderr)
-            row["active_level_ids"] = levels
-            out.write(json.dumps(row) + "\n")
+                d = call("user_get_details", {"uid": uid})
+                lv = call("get_user_levels", {"uid": uid})
+            except Exception as e:
+                err += 1
+                print("  WARN uid=%s fetch failed: %s" % (uid, str(e)[:140]), file=sys.stderr)
+                continue
+            email = (d.get("user_email") or "").strip().lower() if isinstance(d, dict) else ""
+            registered = d.get("user_registered") if isinstance(d, dict) else None
+            active = ([str(k) for k, info in lv.items()
+                       if isinstance(info, dict) and not info.get("is_expired")]
+                      if isinstance(lv, dict) else [])
+            out.write(json.dumps({"wp_user_id": uid, "email": email,
+                                  "registered_at": registered,
+                                  "active_level_ids": active}) + "\n")
             n += 1
-            if levels and any(x != "1" for x in levels):
+            if any(x != "1" for x in active):
                 paid += 1
             if i % 50 == 0:
-                print("  ...%d/%d" % (i, len(roster)), file=sys.stderr)
-    print("users exported: %d  (UMP level-fetch errors: %d, non-'1' level: %d)  -> %s"
+                print("  ...%d/%d" % (i, len(ordered)), file=sys.stderr)
+    print("users exported: %d  (errors: %d, non-'1' level: %d)  -> %s"
           % (n, err, paid, out_path))
 
 
@@ -199,15 +164,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    su = sub.add_parser("users",
-                        help="export WP users (roster from MySQL, levels from UMP api-gate) -> tw1_users.jsonl")
-    su.add_argument("--wp-config", default="/var/www/html/wordpress/wp-config.php")
+    su = sub.add_parser("users", help="export WP users via the UMP api-gate -> tw1_users.jsonl")
     su.add_argument("--wordpress-url", default=None,
                     help="override; default = config.wordpress_url from the box's config.py")
     su.add_argument("--keystore-url", default=None,
                     help="override; default = config.keystoreURL from the box's config.py")
-    su.add_argument("--ihch",
-                    help="static UMP api-gate key (override; expires if the key rotates mid-run)")
+    su.add_argument("--ihch", help="static UMP api-gate key (override; expires if it rotates)")
     su.add_argument("--timeout", type=int, default=10)
     su.add_argument("--out-dir", default=".")
     sr = sub.add_parser("redis", help="export appserver db2 user data -> tw1_redis.jsonl")
@@ -223,15 +185,18 @@ def main():
             try:
                 cfg_ks, cfg_wp = _tw1_config()
             except Exception as e:
-                sys.exit("could not import the box's config.py for keystoreURL/wordpress_url "
-                         "(%s); pass --keystore-url and --wordpress-url" % e)
+                sys.exit("could not import config.py for keystoreURL/wordpress_url (%s); "
+                         "pass --keystore-url and --wordpress-url" % e)
             keystore = keystore or cfg_ks
             wpurl = wpurl or cfg_wp
-        if not keystore or not wpurl:
-            sys.exit("missing keystoreURL/wordpress_url (not in config.py, not passed)")
+        if not wpurl or not (keystore or a.ihch):
+            sys.exit("missing wordpress_url and/or keystore (not in config.py, not passed)")
         print("using keystoreURL=%s wordpress_url=%s" % (keystore, wpurl), file=sys.stderr)
-        export_users(_parse_wp_config(a.wp_config), os.path.join(a.out_dir, "tw1_users.jsonl"),
-                     keystore, a.ihch, wpurl, a.timeout)
+        try:
+            export_users(os.path.join(a.out_dir, "tw1_users.jsonl"),
+                         keystore, a.ihch, wpurl, a.timeout)
+        except RuntimeError as e:
+            sys.exit("export failed: %s" % e)
     else:
         export_redis(a.redis_host, a.redis_port, a.redis_db,
                      os.path.join(a.out_dir, "tw1_redis.jsonl"))
