@@ -37,9 +37,6 @@
 # 5/8/2024   modified flask limiter due to error and then warning - this maybe due to installing the latest flask-limiter here
 #            the chatGPT reference is this: https://chat.openai.com/share/0e66126d-de77-4609-b306-fac4afa7a378
 #            this was first created on keyprovider but it has to work on the other servers too before continuing
-# 6/3/2024   started working on adding central server but stopped before finish.  This needs to be done but is not essential
-#            each appserver works the same if the data is loaded locally but if there is central data server, the data doesn't
-#            need to be stored locally - central data server is the keyprovider server
 # 6/18/2024  3 functions are added for autotrading - also a standalone async service runs to service trade exits autotrade_async.py
 #            add_new_trades_to_live_trade_list
 #            publish_symbols

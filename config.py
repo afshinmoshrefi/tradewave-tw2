@@ -92,12 +92,10 @@ appserver_ip = os.environ.get('TW2_APPSERVER_IP', '')  # set in /etc/tradewave/s
 webserver_ip = os.environ.get('TW2_WEBSERVER_IP', '')  # set in /etc/tradewave/secrets.env (redis host in webserver)
 articles_redis_db = 3
 ##########################################################################################################################
-# NOTE (2026-05-21 cleanup): two TW1-era flags were removed from here as never-used
-# leftovers, along with their dead consumers in the appserver:
-#   - useUMP (WordPress Ultimate Membership Pro login mode): TW2 gates access via the
-#     signed LTK JWT in the appserver login(), so the UMP branches were dead code.
-#   - the "central data server" feature (central_server_url / central_data_consumer /
-#     central_config_consumer): never implemented in TW2.
+# NOTE (2026-05-21 cleanup): the useUMP flag (WordPress Ultimate Membership Pro login
+# mode) was removed here as a never-used leftover, along with its dead consumers in
+# the appserver - TW2 gates access via the signed LTK JWT in the appserver login(),
+# so the UMP branches were dead code.
 
 ml_scorer_url = os.environ.get('TW2_ML_SCORER_URL', '')  # set in /etc/tradewave/secrets.env (ML pattern scorer on keyprovider)
 x_profile_url = os.environ.get('TW2_X_PROFILE_URL', '')  # set in /etc/tradewave/secrets.env (X/Twitter profile per env)

@@ -465,10 +465,15 @@ re-verification reclassified them. Only treat the REAL list as work.
   installs the web-box daily cron (`15 4 * * *`, the schedule `web/expire_trials.py`
   documents) so admin-granted trials auto-revert to explorer. Apply to a live box by
   re-running `ops/staging/run.sh {staging|prod} make_bulletproof.sh` (idempotent).
-- **D. Central-service URLs** - `make_staging_secrets.sh` copies dev's public
-  `104.238.214.253` service URLs, which 403 from inside the Kamatera VLAN. The data
-  services (ML scorer, stockscore, realtime, EOD update, keystore) need the
-  `10.0.0.x` VLAN addresses per env.
+- **D. Central-server leftover** - RESOLVED 2026-05-23. `TW2_CENTRAL_SERVER_URL` was a
+  stray env var for the never-implemented "central data server" feature
+  (`central_server_url`/`central_data_consumer`/`central_config_consumer`; consumers
+  removed from config.py + appserver 2026-05-21). Removed from `make_staging_secrets.sh`
+  + dev secrets + the deploy doc. **The other data-tier services are REAL and stay:**
+  `ml_scorer` (FUNDAMENTAL - the daily-pick/scorecard engine; writes 4 opportunity-table
+  columns ml_score/win_prob/pred_return/pred_mfe), `stockscore`, `edgar`, `realtime`,
+  `update`, `logcollector`. They default to '' in config.py (= feature off, guarded) and
+  are reached at their configured URLs. Do NOT confuse these with the removed feature.
 
 **NON-ISSUES (re-verified - code already handles; were inherited fears):**
 - **Legacy Stripe "PIN-map"** - NOT a blocker. The webhook PRESERVES tier on an

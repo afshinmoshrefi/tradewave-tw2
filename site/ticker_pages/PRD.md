@@ -36,9 +36,9 @@ All data is already computed and accessible. No new infrastructure needed.
 |------|--------|----------------|
 | Symbol list + company names | `/home/flask/data/csv/US/` (3,543 CSVs) | `config.csv_folder` |
 | Historical price data | CSV files per ticker | `config.csv_folder` |
-| Active seasonal patterns | Appserver `/OppBySymbol/` | `config.central_server_url` |
-| Pattern statistics (ChartData4) | Appserver `/ChartData4/` | `config.central_server_url` |
-| Consolidated seasonal chart | Appserver `/consolidated_seasonal_chart2/` | `config.central_server_url` |
+| Active seasonal patterns | Appserver `/OppBySymbol/` | `config.appserver_url` |
+| Pattern statistics (ChartData4) | Appserver `/ChartData4/` | `config.appserver_url` |
+| Consolidated seasonal chart | Appserver `/consolidated_seasonal_chart2/` | `config.appserver_url` |
 | AI score, win probability | ML Scorer `/score` | `config.ml_scorer_url` |
 | Next earnings date | EDGAR service | `config.edgar_service_url` |
 | Current price + change | Realtime service `/prices/all` | `config.realtime_service_url` |

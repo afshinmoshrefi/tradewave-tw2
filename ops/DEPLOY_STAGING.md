@@ -240,7 +240,6 @@ Additional DB objects from `c0d92cd5de83_baseline_schema.py`: `schema_version` (
 | `WORDPRESS_APP_PASSWORD` | `''` | | APP (smn legacy) |
 | `TW2_APPSERVER_IP` | `''` | redis host in appserver | SHARED |
 | `TW2_WEBSERVER_IP` | `''` | redis host in webserver | SHARED |
-| `TW2_CENTRAL_SERVER_URL` | `''` | keyprovider URL | APP |
 | `TW2_ML_SCORER_URL` | `''` | ML pattern scorer | APP |
 | `TW2_X_PROFILE_URL` | `''` | X/Twitter profile per env | APP |
 | `TW2_DOMAIN_ROOT` | `''` | per-env public root | SHARED |
@@ -286,10 +285,10 @@ Keys present (values redacted in this report — they were observed):
 - TW2_WORDPRESS_USERNAME, WORDPRESS_APP_PASSWORD
 - MAILERLITE_TOKEN, MAILERLITE_API_KEY (empty), MAILERLITE_GROUP_ID (empty)
 - SENTRY_DSN (empty)
-- TW2_DOMAIN_ROOT, TW2_APPSERVER_IP, TW2_WEBSERVER_IP, TW2_APPSERVER_URL, TW2_CENTRAL_SERVER_URL, TW2_ML_SCORER_URL, TW2_EDGAR_SERVICE_URL, TW2_REALTIME_SERVICE_URL, TW2_UPDATE_SERVER, TW2_LOGCOLLECTOR_URL, TW2_STOCKSCORE_URL, TW2_MASTER_APPSERVER, TW2_BLOG_QUEUE_SERVER, TW2_WORDPRESS_URL, TW2_NEWS_WEBSITE_URL, TW2_SMN_FAVICON_URL, TW2_ARTICLE_FAVICON_URL, TW2_X_PROFILE_URL, TW2_KEYSTORE_URL
+- TW2_DOMAIN_ROOT, TW2_APPSERVER_IP, TW2_WEBSERVER_IP, TW2_APPSERVER_URL, TW2_ML_SCORER_URL, TW2_EDGAR_SERVICE_URL, TW2_REALTIME_SERVICE_URL, TW2_UPDATE_SERVER, TW2_LOGCOLLECTOR_URL, TW2_STOCKSCORE_URL, TW2_MASTER_APPSERVER, TW2_BLOG_QUEUE_SERVER, TW2_WORDPRESS_URL, TW2_NEWS_WEBSITE_URL, TW2_SMN_FAVICON_URL, TW2_ARTICLE_FAVICON_URL, TW2_X_PROFILE_URL, TW2_KEYSTORE_URL
 - INDEXNOW_KEY
 
-Current dev values include: `TW2_DOMAIN_ROOT=http://192.168.1.176/`, `TW2_APPSERVER_IP=192.168.68.151` (anomalous — this is a stale IP, not the staging VLAN), `TW2_WEBSERVER_IP=localhost`, `TW2_APPSERVER_URL=http://127.0.0.1:5000`, `TW2_CENTRAL_SERVER_URL=http://104.238.214.253:5000`, `TW2_BLOG_QUEUE_SERVER=http://localhost:7171/`, `TW2_WORDPRESS_URL=http://192.168.1.151/`, `TW2_NEWS_WEBSITE_URL=https://smn-dev.trxstat.com`, `TW2_KEYSTORE_URL=http://localhost:7777`. All Stripe + WorkOS keys are **test mode** (sk_test_, pk_test_, rapid-fish-71-**staging**.authkit.app, client_01KQNXQ43D9ASZC4E4JTB4Y2JV).
+Current dev values include: `TW2_DOMAIN_ROOT=http://192.168.1.176/`, `TW2_APPSERVER_IP=192.168.68.151` (anomalous — this is a stale IP, not the staging VLAN), `TW2_WEBSERVER_IP=localhost`, `TW2_APPSERVER_URL=http://127.0.0.1:5000`, `TW2_BLOG_QUEUE_SERVER=http://localhost:7171/`, `TW2_WORDPRESS_URL=http://192.168.1.151/`, `TW2_NEWS_WEBSITE_URL=https://smn-dev.trxstat.com`, `TW2_KEYSTORE_URL=http://localhost:7777`. All Stripe + WorkOS keys are **test mode** (sk_test_, pk_test_, rapid-fish-71-**staging**.authkit.app, client_01KQNXQ43D9ASZC4E4JTB4Y2JV).
 
 Per-env comments in config.py noting prod overrides: WORKOS_*, STRIPE_*, PUBLER_WORKSPACE_ID, PUBLER_X_ACCOUNT_ID, FACEBOOK_APP_ID, FACEBOOK_PAGE_ID, FACEBOOK_OPP_PAGES_JSON, TW2_WORDPRESS_USERNAME, all TW2_* URLs.
 
@@ -594,7 +593,6 @@ Additional log files in tree:
 - `appserver.wsgi`, `appserver_prod.sh`, `appserver_stage.sh` exist but the actual entrypoint used by the systemd unit is `appserver:app` (gunicorn module:variable form). The shell scripts are dev-only artifacts.
 - `data_updater/config.py` is a separate stale config file containing prod IPs. It is **shadowed by** the top-level `/home/flask/config.py` because `update_client2.py:20` does `sys.path.insert(0, '/home/flask'); import config` — so `data_updater/config.py` is never actually imported by tier-level code. Could be deleted, but safe to leave.
 - `config.py` has shared values that are app-only (autotrade strategies lines 128-143, ml_score_*, available_resources etc.) and web-only (TIER_FEATURES, MAILERLITE_*, ROLE_BYPASSES_TIER) mixed in the same file. Both tiers import the full module. This is fine but means changes to app-only constants ship to web and vice versa.
-- 5-line `central_data_consumer`/`central_config_consumer` flags (config.py:109-110) are both False — central-server mode is NOT active.
 - `config.useUMP = False` (config.py:105) — TW2 unauthenticated dev mode is the active path; appserver decode of `wp_userid`/`country_code`/`zip`/`skey` in the `/login/...` route is gated by `useUMP`.
 
 ---
