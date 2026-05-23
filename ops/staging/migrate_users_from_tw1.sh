@@ -31,12 +31,10 @@ hdr(){ printf '\n=== %s ===\n' "$*"; }
 APPLY="${APPLY:-0}"
 WEB="$TGT_WEB_PUB"; PORT="$TGT_SSH_PORT"
 TW1="$TGT_TW1_PROD_VLAN"                                  # TW1 prod WEB (WordPress/MySQL)
-KEYSTORE="${TGT_TW1_KEYSTORE_URL:?set TGT_TW1_KEYSTORE_URL in the env file}"
-WPHOST="${TGT_TW1_WP_HOST:?set TGT_TW1_WP_HOST (TW1 WP server_name) in the env file}"
-WPURL="${TGT_TW1_WP_URL:-http://localhost/}"
+TW1_PY="${TGT_TW1_PY:-python3}"                           # python on TW1 web with 'requests'
 WPCONF="${TGT_TW1_WP_CONFIG:-/var/www/html/wordpress/wp-config.php}"
-TW1_PY="${TGT_TW1_PY:-python3}"
 PRICE_MAP="${TGT_TW1_LEGACY_PRICE_MAP:-}"
+# keystoreURL + wordpress_url are read from TW1's own config.py by tw1_export.py - no coordinates needed.
 
 REPO=/home/flask
 EXPORT_PY="$REPO/ops/migrate/tw1_export.py"
@@ -67,7 +65,7 @@ SSHK="ssh -i $REMOTE_KEY -p $PORT -o StrictHostKeyChecking=accept-new"
 SCPK="scp -i $REMOTE_KEY -P $PORT -o StrictHostKeyChecking=accept-new"
 mkdir -p /tmp/mig
 \$SCPK /tmp/tw1_export.py root@${TW1}:/tmp/tw1_export.py
-\$SSHK root@${TW1} '$TW1_PY /tmp/tw1_export.py users --wp-config "$WPCONF" --keystore-url "$KEYSTORE" --wordpress-url "$WPURL" --host-header "$WPHOST" --out-dir /tmp/mig'
+\$SSHK root@${TW1} '$TW1_PY /tmp/tw1_export.py users --wp-config "$WPCONF" --out-dir /tmp/mig'
 \$SCPK root@${TW1}:/tmp/mig/tw1_users.jsonl /tmp/mig/tw1_users.jsonl
 \$SSHK root@${TW1} 'rm -f /tmp/tw1_export.py /tmp/mig/tw1_users.jsonl'
 rm -f /tmp/tw1_export.py

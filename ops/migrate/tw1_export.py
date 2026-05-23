@@ -94,20 +94,34 @@ def _fetch_key2(keystore_url, timeout):
     return requests.get(keystore_url, timeout=timeout).json()["key2"]
 
 
-def _ump_level_ids(wordpress_url, ihch, uid, timeout, host_header=None):
-    """Authoritative current level ids for a uid via UMP's api-gate - the same
-    call the appserver uses (get_user_memberships_ump). d['response'] is keyed by
-    the user's level ids; empty = admin / no membership -> []. host_header lets you
-    hit localhost while routing to the WP vhost (nginx routes by Host)."""
+def _ump_level_ids(wordpress_url, ihch, uid, timeout):
+    """Current (non-expired) level ids for a uid via UMP's apigate.php, hit
+    DIRECTLY. (The ?ihc_action=api-gate query form is shadowed by TW1's static-/
+    try_files and just returns home.html.) d['response'] is keyed by level id,
+    each carrying an is_expired flag - we keep the non-expired ones (UMP's own
+    expiry determination, not a re-derived SQL one)."""
     import requests
-    url = "%s/?ihc_action=api-gate&ihch=%s&action=get_user_levels&uid=%s" % (
-        wordpress_url.rstrip("/"), ihch, uid)
-    headers = {"Host": host_header} if host_header else None
-    d = requests.get(url, timeout=timeout, headers=headers).json()
-    return [str(k) for k in (d.get("response") or {}).keys()]
+    base = wordpress_url if wordpress_url.endswith("/") else wordpress_url + "/"
+    url = ("%swp-content/plugins/indeed-membership-pro/apigate.php"
+           "?ihch=%s&action=get_user_levels&uid=%s" % (base, ihch, uid))
+    resp = requests.get(url, timeout=timeout).json().get("response") or {}
+    if not isinstance(resp, dict):
+        return []
+    return [str(lid) for lid, info in resp.items()
+            if not (isinstance(info, dict) and info.get("is_expired"))]
 
 
-def export_users(cfg, out_path, keystore_url, ihch_static, wordpress_url, timeout, host_header):
+def _tw1_config():
+    """keystoreURL + wordpress_url from the box's OWN config.py - the same values
+    the appserver/keyprovider use. No guessing: every TW1 box defines these."""
+    for p in ("/home/flask", "/home/flask/appserver/appserver"):
+        if p not in sys.path:
+            sys.path.insert(0, p)
+    import config  # the local TW1 config.py
+    return getattr(config, "keystoreURL", None), getattr(config, "wordpress_url", None)
+
+
+def export_users(cfg, out_path, keystore_url, ihch_static, wordpress_url, timeout):
     if not (keystore_url or ihch_static):
         sys.exit("provide --keystore-url (preferred) or --ihch for the UMP api-gate key")
 
@@ -139,12 +153,12 @@ def export_users(cfg, out_path, keystore_url, ihch_static, wordpress_url, timeou
                 key2, key_ts = _fetch_key2(keystore_url, timeout), time.time()
             uid = row["wp_user_id"]
             try:
-                levels = _ump_level_ids(wordpress_url, key2, uid, timeout, host_header)
+                levels = _ump_level_ids(wordpress_url, key2, uid, timeout)
             except Exception:
                 if not ihch_static:                              # maybe the key just rotated
                     key2, key_ts = _fetch_key2(keystore_url, timeout), time.time()
                 try:
-                    levels = _ump_level_ids(wordpress_url, key2, uid, timeout, host_header)
+                    levels = _ump_level_ids(wordpress_url, key2, uid, timeout)
                 except Exception as e:
                     levels, err = None, err + 1
                     print("  WARN uid=%s level fetch failed: %s" % (uid, str(e)[:120]),
@@ -188,14 +202,12 @@ def main():
     su = sub.add_parser("users",
                         help="export WP users (roster from MySQL, levels from UMP api-gate) -> tw1_users.jsonl")
     su.add_argument("--wp-config", default="/var/www/html/wordpress/wp-config.php")
-    su.add_argument("--wordpress-url", default="http://localhost/",
-                    help="WP site root for the UMP api-gate (local on the TW1 web box)")
-    su.add_argument("--keystore-url",
-                    help="keyprovider URL returning {key1,key2}; key2 is the UMP api-gate key (preferred)")
+    su.add_argument("--wordpress-url", default=None,
+                    help="override; default = config.wordpress_url from the box's config.py")
+    su.add_argument("--keystore-url", default=None,
+                    help="override; default = config.keystoreURL from the box's config.py")
     su.add_argument("--ihch",
                     help="static UMP api-gate key (override; expires if the key rotates mid-run)")
-    su.add_argument("--host-header",
-                    help="Host header to send to --wordpress-url (route localhost -> the WP vhost)")
     su.add_argument("--timeout", type=int, default=10)
     su.add_argument("--out-dir", default=".")
     sr = sub.add_parser("redis", help="export appserver db2 user data -> tw1_redis.jsonl")
@@ -206,8 +218,20 @@ def main():
     a = ap.parse_args()
     os.makedirs(a.out_dir, exist_ok=True)
     if a.cmd == "users":
+        keystore, wpurl = a.keystore_url, a.wordpress_url
+        if not (keystore and wpurl):
+            try:
+                cfg_ks, cfg_wp = _tw1_config()
+            except Exception as e:
+                sys.exit("could not import the box's config.py for keystoreURL/wordpress_url "
+                         "(%s); pass --keystore-url and --wordpress-url" % e)
+            keystore = keystore or cfg_ks
+            wpurl = wpurl or cfg_wp
+        if not keystore or not wpurl:
+            sys.exit("missing keystoreURL/wordpress_url (not in config.py, not passed)")
+        print("using keystoreURL=%s wordpress_url=%s" % (keystore, wpurl), file=sys.stderr)
         export_users(_parse_wp_config(a.wp_config), os.path.join(a.out_dir, "tw1_users.jsonl"),
-                     a.keystore_url, a.ihch, a.wordpress_url, a.timeout, a.host_header)
+                     keystore, a.ihch, wpurl, a.timeout)
     else:
         export_redis(a.redis_host, a.redis_port, a.redis_db,
                      os.path.join(a.out_dir, "tw1_redis.jsonl"))
