@@ -43,7 +43,7 @@ from flask import (
     Flask, request, redirect, url_for, jsonify,
     make_response, render_template, abort, session as flask_session, g,
 )
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 
 # F2.5 - Defense in depth: cap any unbounded socket reads at 15s. Applies
@@ -285,7 +285,7 @@ def lazy_create_user(workos_user) -> User:
             return u
 
         # Race-safe: check by email too (in case workos_user_id wasn't backfilled)
-        u = s.query(User).filter_by(email=workos_user.email).first()
+        u = s.query(User).filter(func.lower(User.email) == (workos_user.email or "").lower()).first()
         if u is not None:
             u.workos_user_id = workos_user.id
             u.email_verified = bool(workos_user.email_verified)
@@ -326,7 +326,7 @@ def lazy_create_user(workos_user) -> User:
             if u is None:
                 # Extremely unlikely: race resolved against email constraint, not
                 # workos_user_id. Try by email.
-                u = s.query(User).filter_by(email=workos_user.email).first()
+                u = s.query(User).filter(func.lower(User.email) == (workos_user.email or "").lower()).first()
             if u is None:
                 # Should not happen. Re-raise so caller sees the 500.
                 raise
