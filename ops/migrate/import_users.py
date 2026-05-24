@@ -48,13 +48,22 @@ def _higher(a, b):
     return a if TIER_RANK.get(a, 0) >= TIER_RANK.get(b, 0) else b
 
 
+def _md(obj):
+    """A Stripe object's metadata as a plain dict (the SDK object's .get is
+    unreliable across versions; convert and use a real dict)."""
+    try:
+        return dict(obj["metadata"])
+    except Exception:
+        return {}
+
+
 def _stripe_tier_for_price(stripe, price_id, legacy_map):
     if price_id in legacy_map:
         return legacy_map[price_id], "legacy-pin"
     price = stripe.Price.retrieve(price_id, expand=["product"])
-    prod = price.get("product")
-    md = prod.get("metadata", {}) if isinstance(prod, dict) else {}
-    pm = price.get("metadata", {}) or {}
+    prod = price["product"]
+    md = {} if isinstance(prod, str) else _md(prod)
+    pm = _md(price)
     line = (md.get("product_line") or pm.get("product_line") or "").strip().lower()
     tier = (md.get("tier") or pm.get("tier") or "").strip().lower()
     if line == "eod" and tier in ("analyst", "strategist"):
@@ -65,12 +74,12 @@ def _stripe_tier_for_price(stripe, price_id, legacy_map):
 def _stripe_lookup(stripe, email, legacy_map):
     out = {"customer_id": None, "subscription_id": None, "status": None,
            "tier": None, "reason": "no-customer", "flags": []}
-    customers = stripe.Customer.list(email=email, limit=10).get("data", [])
+    customers = stripe.Customer.list(email=email, limit=10)["data"]
     if not customers:
         return out
     cands = []
     for c in customers:
-        for s in stripe.Subscription.list(customer=c["id"], status="all", limit=20).get("data", []):
+        for s in stripe.Subscription.list(customer=c["id"], status="all", limit=20)["data"]:
             if s["status"] in ("active", "trialing", "past_due"):
                 pid = s["items"]["data"][0]["price"]["id"]
                 tier, _ = _stripe_tier_for_price(stripe, pid, legacy_map)
