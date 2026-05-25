@@ -30,8 +30,12 @@ def _maybe_load_secrets_env(path: str = '/etc/tradewave/secrets.env') -> None:
     """Lightweight KEY=VALUE loader for ad-hoc CLI runs (no shell sourcing).
 
     The systemd units pull /etc/tradewave/secrets.env via EnvironmentFile,
-    but `sudo python db_admin.py …` strips the env. So we re-populate
-    here, without overwriting anything the parent shell already set."""
+    but `sudo python db_admin.py …` strips the env. So we re-populate here.
+    secrets.env is AUTHORITATIVE: it OVERRIDES any value inherited from the
+    parent shell. (A stray exported WORKOS_*/POSTGRES_DSN silently shadowing
+    secrets.env once made every migration script act on the WRONG WorkOS
+    environment - so secrets.env wins, and we warn on stderr if a shell value
+    differed.)"""
     if not os.path.isfile(path):
         return
     try:
@@ -45,7 +49,12 @@ def _maybe_load_secrets_env(path: str = '/etc/tradewave/secrets.env') -> None:
                 v = v.strip()
                 if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
                     v = v[1:-1]
-                os.environ.setdefault(k, v)
+                prior = os.environ.get(k)
+                if prior is not None and prior != v:
+                    sys.stderr.write(
+                        "WARN: /etc/tradewave/secrets.env overrides shell-set %s "
+                        "(the shell value points at a different env)\n" % k)
+                os.environ[k] = v
     except PermissionError:
         pass
 
