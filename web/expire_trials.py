@@ -21,6 +21,7 @@ sys.path.insert(0, "/home/flask/web")
 
 import config  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
+from email_utils import sync_mailerlite_level_group  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +40,7 @@ def main() -> int:
     now_utc = dt.datetime.now(dt.timezone.utc)
 
     expired = 0
+    expired_emails = []  # synced to the explorer Mailerlite group after commit
 
     # One transaction per row keeps the lock window small and prevents a
     # single slow audit-log insert from holding rows for the whole batch.
@@ -123,6 +125,12 @@ def main() -> int:
                 },
             )
             expired += 1
+            expired_emails.append(row.email)
+
+    # Mailerlite level-group sync (TW1/UMP parity) - move reverted users to the
+    # explorer group. After commit, best-effort; never raises.
+    for em in expired_emails:
+        sync_mailerlite_level_group(em, "explorer", None, new_user=False)
 
     log.info("expired %d user(s)", expired)
     return 0

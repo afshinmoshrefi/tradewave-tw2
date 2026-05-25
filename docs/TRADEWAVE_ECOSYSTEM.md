@@ -364,6 +364,21 @@ bulletproof). See `OPERATIONS.md`.
   prices can't leave a stuck-high tier unnoticed. Caught by a 5-agent billing audit.
 - **Tiers:** explorer/analyst/strategist (TIER_FEATURES). tier_compat:
   explorer->'1', analyst->'4'/'5', strategist->'6'/'7'.
+- **Mailerlite level-group sync (TW1/UMP parity, added 2026-05-25):** every account is
+  kept in EXACTLY the Mailerlite group matching its (tier, billing-period):
+  `explorer` / `analyst_monthly` / `analyst_yearly` / `strategist_monthly` / `strategist_yearly`
+  (IDs in `config.MAILERLITE_LEVEL_GROUPS`). `email_utils.sync_mailerlite_level_group()`
+  adds to the target group + removes from the other 4; it is wired into every tier-change
+  point: signup (`lazy_create_user` -> explorer, new_user fast path), `/stripe/success`,
+  the Stripe webhook (`subscription.created/updated` -> tier+period, fires on EVERY mappable
+  event so a same-tier monthly<->yearly switch still moves groups; `deleted` -> explorer),
+  `expire_trials.py` (-> explorer), and Flask-Admin `UserAdmin.after_model_change`. Best-effort
+  (never blocks signup/billing). Period isn't stored in Postgres -> the webhook/success have it
+  in scope; the reconcile derives it from the live Stripe price; a manual paid grant with no
+  derivable period is SKIPPED + logged for manual placement. Rules: only the 5 LEVEL groups are
+  ever touched (SMN/newsletter/webinar untouched); unsubscribed subscribers are never ADDED
+  (only removed from wrong groups - can't reactivate). One-time/idempotent reconcile:
+  `ops/migrate/reconcile_mailerlite.py` (dry-run default, `--apply`).
 - **Cutover (TW1 -> tradewave.ai), per `ops/PROD_CUTOVER.md`:** Phase 1 (days
   ahead): lower TTL to 60s, add `tradewave.ai` to prod tunnel ingress, WorkOS prod
   redirect URI, Stripe prod webhook, pre-seed `users` from a TW1 DB dump. Phase 2

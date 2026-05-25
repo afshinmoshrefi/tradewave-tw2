@@ -24,6 +24,7 @@ import config
 log = logging.getLogger("tw2.web.email_utils")
 
 MAILERLITE_API_URL = "https://connect.mailerlite.com/api/subscribers"
+MAILERLITE_BASE = "https://connect.mailerlite.com/api"
 
 
 def _is_placeholder(val: str) -> bool:
@@ -85,3 +86,117 @@ def mailerlite_subscribe(email: str, name: str = None) -> bool:
         email, resp.status_code, body_preview,
     )
     return False
+
+
+def _level_group_id(tier: str, period: str = None):
+    """Resolve the Mailerlite level-group id for a (tier, period). Returns the id
+    string, or None if it can't be mapped (caller should skip + log)."""
+    groups = getattr(config, 'MAILERLITE_LEVEL_GROUPS', {}) or {}
+    tier = (tier or '').strip().lower()
+    if tier in ('', 'explorer', 'canceled'):
+        return groups.get('explorer') or None
+    period = (period or '').strip().lower()
+    if period not in ('monthly', 'yearly'):
+        return None  # paid tier with no derivable period -> caller skips + logs
+    return groups.get(f"{tier}_{period}") or None
+
+
+def sync_mailerlite_level_group(email: str, tier: str, period: str = None,
+                                new_user: bool = False, dry_run: bool = False) -> str:
+    """Replicate TW1/UMP's level->group sync: ensure `email` sits in EXACTLY the
+    Mailerlite level group matching (tier, period) and is removed from the other
+    level groups. Source of truth = TW2 (caller passes the current tier/period).
+
+    Returns a short status string describing what happened (or, with dry_run=True,
+    what WOULD happen) - used by the reconcile script's preview. Never raises
+    (best-effort, like mailerlite_subscribe); the live hooks ignore the return.
+
+    Rules:
+      - Only the 5 configured LEVEL groups are ever touched; marketing/SMN groups
+        are never added or removed.
+      - Respects opt-out: an unsubscribed/bounced subscriber is NEVER added to a
+        group (adds can reactivate). We only REMOVE them from wrong level groups
+        (DELETE can't reactivate). A user not in Mailerlite who is known to have
+        unsubscribed is left alone.
+      - new_user=True (signup hot path): single POST to create/add in the target
+        group, skipping the read+reconcile round-trips to keep signup fast.
+    """
+    api_key = getattr(config, 'MAILERLITE_API_KEY', '')
+    if _is_placeholder(api_key):
+        return "skip:no-api-key"
+
+    target = _level_group_id(tier, period)
+    if not target:
+        log.warning("sync_mailerlite_level_group: no level group for tier=%s period=%s email=%s "
+                    "(skipping - place manually)", tier, period, email)
+        return "skip:no-mappable-group"
+
+    all_level_ids = {v for v in (getattr(config, 'MAILERLITE_LEVEL_GROUPS', {}) or {}).values() if v}
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Accept":        "application/json",
+        "Content-Type":  "application/json",
+    }
+    import urllib.parse as _ul
+
+    try:
+        if new_user:
+            if dry_run:
+                return f"would-create+add:{target}"
+            resp = requests.post(MAILERLITE_API_URL, json={"email": email, "groups": [target]},
+                                 headers=headers, timeout=3)
+            ok = 200 <= resp.status_code < 300
+            if not ok:
+                log.warning("sync(new) failed email=%s status=%s body=%s",
+                            email, resp.status_code, (resp.text or "")[:200])
+            return "created" if ok else f"error:{resp.status_code}"
+
+        # Existing user: read current state (one GET gives id, status, groups[])
+        r = requests.get(f"{MAILERLITE_BASE}/subscribers/{_ul.quote(email)}",
+                         headers=headers, timeout=6)
+        if r.status_code == 404:
+            if dry_run:
+                return f"would-create+add:{target}"
+            resp = requests.post(MAILERLITE_API_URL, json={"email": email, "groups": [target]},
+                                 headers=headers, timeout=3)
+            return "created" if 200 <= resp.status_code < 300 else f"error:{resp.status_code}"
+        if not (200 <= r.status_code < 300):
+            log.warning("sync GET failed email=%s status=%s", email, r.status_code)
+            return f"error:get-{r.status_code}"
+
+        data = (r.json() or {}).get("data") or {}
+        sub_id = data.get("id")
+        status = data.get("status")
+        cur_level = {g.get("id") for g in (data.get("groups") or [])} & all_level_ids
+        removes = cur_level - {target}
+
+        if status != "active":
+            # Unsubscribed/bounced/junk/unconfirmed: removals only, never add.
+            if dry_run:
+                return f"unsub({status}):would-remove{sorted(removes)}" if removes else f"unsub({status}):noop"
+            for gid in removes:
+                requests.delete(f"{MAILERLITE_BASE}/subscribers/{sub_id}/groups/{gid}",
+                                headers=headers, timeout=3)
+            return f"unsub({status}):removed{len(removes)}"
+
+        need_add = target not in cur_level
+        if dry_run:
+            if not need_add and not removes:
+                return "noop"
+            return f"would-add:{target if need_add else '-'} would-remove:{sorted(removes)}"
+
+        if need_add:
+            requests.post(f"{MAILERLITE_BASE}/subscribers/{sub_id}/groups/{target}",
+                          headers=headers, timeout=3)
+        for gid in removes:
+            requests.delete(f"{MAILERLITE_BASE}/subscribers/{sub_id}/groups/{gid}",
+                            headers=headers, timeout=3)
+        if not need_add and not removes:
+            return "noop"
+        return f"add:{1 if need_add else 0} remove:{len(removes)}"
+    except requests.RequestException as e:
+        log.warning("sync_mailerlite_level_group network error email=%s: %s", email, e)
+        return "error:network"
+    except Exception as e:
+        log.warning("sync_mailerlite_level_group unexpected error email=%s: %s", email, e)
+        return "error:exception"

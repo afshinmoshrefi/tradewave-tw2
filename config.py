@@ -607,3 +607,16 @@ SENTRY_DSN = os.environ.get('SENTRY_DSN', '')  # set in /etc/tradewave/secrets.e
 # email_utils.mailerlite_subscribe() returns False fast.
 MAILERLITE_API_KEY  = os.environ.get('MAILERLITE_API_KEY', '')  # set in /etc/tradewave/secrets.env
 MAILERLITE_GROUP_ID = os.environ.get('MAILERLITE_GROUP_ID', '')  # set in /etc/tradewave/secrets.env
+
+# Mailerlite LEVEL groups (one MailerLite account across envs, so these IDs are
+# stable identifiers, not per-env secrets - replicates TW1/UMP's "level -> group"
+# auto-sync). Keyed by tier for free, "tier_period" for paid. email_utils.
+# sync_mailerlite_level_group() keeps each subscriber in exactly their current
+# level group. If a value is '' the sync skips that slot. (IDs confirmed live 2026-05-25.)
+MAILERLITE_LEVEL_GROUPS = {
+    'explorer':           '97426012986410777',
+    'analyst_monthly':    '97426054440814482',
+    'analyst_yearly':     '97426062589298035',
+    'strategist_monthly': '97426069052720199',
+    'strategist_yearly':  '97426077579740921',
+}

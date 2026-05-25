@@ -92,7 +92,7 @@ except ImportError:
 
 from models import User, AuditLog, StripeEvent, CouponUsed, db_session, write_audit, Session as DBSession
 from tier_compat import tier_to_wp_user_levels, tier_to_legacy_level
-from email_utils import mailerlite_subscribe
+from email_utils import mailerlite_subscribe, sync_mailerlite_level_group
 
 # --- WorkOS ---
 from workos import WorkOSClient
@@ -348,6 +348,9 @@ def lazy_create_user(workos_user) -> User:
                 getattr(workos_user, "last_name", None),
             ])) or None
             mailerlite_subscribe(workos_user.email, name=display_name)
+            # New accounts start as explorer -> add to the explorer LEVEL group
+            # (TW1/UMP parity). new_user=True keeps this to a single fast call.
+            sync_mailerlite_level_group(workos_user.email, "explorer", None, new_user=True)
         except Exception as e:
             log.warning("mailerlite_subscribe raised for %s: %s", workos_user.email, e)
         return u
@@ -1061,6 +1064,7 @@ def stripe_success():
 
     # Resolve tier from price_id
     new_tier = None
+    ml_period = None  # billing period for the Mailerlite level-group sync
     sub_raw = sess_d.get("subscription")
     sub_d = sub_raw if isinstance(sub_raw, dict) else {}
     sub_id = sub_d.get("id") if sub_d else (sub_raw if isinstance(sub_raw, str) else None)
@@ -1072,9 +1076,10 @@ def stripe_success():
             price_d = (items_list[0] or {}).get("price") or {}
             price_id = price_d.get("id") if isinstance(price_d, dict) else None
             if price_id:
-                tier, _ = _tier_period_for_price(price_id)
+                tier, period = _tier_period_for_price(price_id)
                 if tier:
                     new_tier = tier
+                    ml_period = period
 
     customer_id = sess_d.get("customer")
     if customer_id and not isinstance(customer_id, str):
@@ -1140,6 +1145,10 @@ def stripe_success():
         write_audit(**audit_payload)
     if rebind_conflict_payload:
         write_audit(**rebind_conflict_payload)
+
+    # Mailerlite level-group sync (TW1/UMP parity) - best-effort, post-commit.
+    if new_tier:
+        sync_mailerlite_level_group(u.email, new_tier, ml_period, new_user=False)
 
     return redirect("/app/?upgraded=1")
 
@@ -1409,11 +1418,17 @@ def webhook_stripe():
         # Resolve new tier (None = no change)
         new_tier = None
         unmappable_price = False
+        # Mailerlite level-group sync target: "__skip__" means don't sync this event;
+        # otherwise it's the billing period (monthly/yearly, or None for explorer) to
+        # pair with the final tier. We sync on EVERY mappable subscription event - not
+        # only on a tier change - so a same-tier monthly<->yearly switch still moves groups.
+        ml_target_period = "__skip__"
         if event_type in ("customer.subscription.created", "customer.subscription.updated") and price_id:
-            tier, _ = _tier_period_for_price(price_id)
+            tier, period = _tier_period_for_price(price_id)
             if sub_status in ("active", "trialing", "past_due"):
                 if tier:
                     new_tier = tier
+                    ml_target_period = period
                 else:
                     # Legacy / no-metadata price on a LIVE subscription. We can't map it
                     # to a tier, so we deliberately do NOT touch the tier (never wrongly
@@ -1423,6 +1438,7 @@ def webhook_stripe():
                     unmappable_price = True
         if event_type == "customer.subscription.deleted":
             new_tier = "explorer"
+            ml_target_period = None
 
         old_tier = db_user.tier
         if sub_id:
@@ -1470,6 +1486,12 @@ def webhook_stripe():
                 details={"price_id": price_id, "stripe_sub_id": sub_id, "status": sub_status,
                          "tier_unchanged": final_tier, "stripe_event_id": event_id},
             )
+
+        # Mailerlite level-group sync (TW1/UMP parity) - best-effort, post-commit.
+        # Fires on every mappable subscription event (and on delete -> explorer), so a
+        # same-tier monthly<->yearly switch still moves the user's group. Idempotent.
+        if ml_target_period != "__skip__":
+            sync_mailerlite_level_group(db_user.email, final_tier, ml_target_period, new_user=False)
 
         return jsonify({"received": True, "tier": final_tier, "status": sub_status}), 200
 
@@ -1573,6 +1595,18 @@ class UserAdmin(_AdminAuth, ModelView):
             raise ValidationError(
                 f"Unknown role(s): {unknown}. Valid roles are: {valid}."
             )
+
+    def after_model_change(self, form, model, is_created):
+        # Mailerlite level-group sync (TW1/UMP parity) for manual admin tier edits.
+        # Period isn't known for a manual grant: explorer syncs to the explorer group;
+        # a manual analyst/strategist has no monthly/yearly, so the helper skips + logs
+        # it for manual placement (the reconcile picks up anyone with a real Stripe sub).
+        try:
+            if getattr(model, "email", None) and getattr(model, "tier", None):
+                sync_mailerlite_level_group(model.email, model.tier, None, new_user=False)
+        except Exception as e:
+            log.warning("admin after_model_change mailerlite sync failed for %s: %s",
+                        getattr(model, "email", "?"), e)
 
     @action(
         "purge",
