@@ -314,8 +314,20 @@ const OppTable = (props) => {
       // only a manual partial-years toggle (which clears opportunities in
       // App.js) forced the correct fetch. The URL ref also dedupes redundant
       // re-renders that don't change the query.
-      if (token.length > 0 && url !== lastOppUrlRef.current) {
-        lastOppUrlRef.current = url
+      //
+      // The dedup key folds in the active watchlist filter: a watchlist sits on
+      // top of a real securities group, so its OppList4 URL is identical to the
+      // bare group's. App.js loads the watchlist symbols asynchronously (null ->
+      // populated) AFTER selecting the list, and the symbol filter below only
+      // runs inside this fetch's .then. Without the wl signature in the key, the
+      // post-symbols refetch dedupes against the bare-group fetch and the filter
+      // never re-applies — leaving the whole group's rows showing unfiltered.
+      const wlSig = props.activeWatchlistFilter
+        ? `|wl=${props.activeWatchlistFilter.name}:${props.activeWatchlistFilter.symbols ? props.activeWatchlistFilter.symbols.size : 'pending'}`
+        : ''
+      const fetchKey = url + wlSig
+      if (token.length > 0 && fetchKey !== lastOppUrlRef.current) {
+        lastOppUrlRef.current = fetchKey
 
         fetch(url)
           .then(res => {
@@ -507,7 +519,8 @@ const OppTable = (props) => {
     oppListExpanded,
     props.showPEOpps,
     props.yearsMetaDataPE,
-    props.yearsMetaData
+    props.yearsMetaData,
+    props.activeWatchlistFilter
   ])
   // 10/27/2021 added dayofthemonth after replacing opplist2 with opplist3
   // 8/22/2021 added length of opportunities array which is better than other dependencies - could probably remove some of the others
