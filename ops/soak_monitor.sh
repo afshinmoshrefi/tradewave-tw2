@@ -27,5 +27,8 @@ fi
   fi
   echo "Disk:"
   df -h / | tail -1
+  echo "Resources:"
+  free -m | awk '/^Mem:/{print "  mem: total="$2" used="$3" avail="$7"MB"} /^Swap:/{print "  swap: used="$3"MB"}'
+  echo "  load (1/5/15): $(cut -d' ' -f1-3 /proc/loadavg)"
   echo ""
 } >> "$LOG"
