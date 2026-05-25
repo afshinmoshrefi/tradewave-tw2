@@ -40,9 +40,13 @@ grep -E '^TW2_(DOMAIN_ROOT|PUBLIC_HOST|AUTH_CALLBACK_URL)=' "$S"
 hdr "2. nginx server_name"
 VHOST=$(grep -rl 'server_name ' /etc/nginx/sites-available/ | xargs grep -l 'tw2_web\|/var/www/tradewave' | head -1)
 cp -a "$VHOST" "${VHOST}.precutover"
-# Replace the marketing vhost server_name (the one with the web upstream),
-# leave the 444 default_server block alone.
-sed -i "s|server_name [a-z0-9.-]*;|server_name ${NEW_HOST};|" "$VHOST"
+# Point the marketing vhost at the new public host, but KEEP tw2-prod.trxstat.com
+# (and add www) in the same server_name. Critical: the Stripe webhook endpoint is
+# https://tw2-prod.trxstat.com/webhooks/stripe - if we dropped that host the default
+# block (server_name _) would `return 444` it and billing events would silently stop.
+# Leave the 444 default_server block alone. (Idempotent: the multi-host server_name
+# no longer matches the single-host regex on a re-run, so this won't clobber itself.)
+sed -i "s|server_name [a-z0-9.-]*;|server_name ${NEW_HOST} www.${NEW_HOST} tw2-prod.trxstat.com;|" "$VHOST"
 grep -n 'server_name' "$VHOST"
 nginx -t
 
