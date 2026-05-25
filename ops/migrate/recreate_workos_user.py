@@ -38,7 +38,7 @@ def main():
 
     # 1) delete the existing (suspect) WorkOS user(s) for this email
     for u in um.list_users(email=em).data:
-        um.delete_user(user_id=u.id)
+        um.delete_user(u.id)
         print("deleted old WorkOS user %s" % u.id)
 
     # 2) create a fresh, clean WorkOS user
