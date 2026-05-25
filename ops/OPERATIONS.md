@@ -88,8 +88,9 @@ Each pull is followed by `pip install -r requirements.txt` (a dependency that's 
 ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-web && sudo systemctl is-active tradewave-web'
 # APP box   (stage 199.244.48.157 / prod 138.128.240.115):
 ssh root@<app> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
-# SMN pipeline daemons run on the WEB box (Type=simple, load smn/ at startup) — bounce them too when smn/ daemon code changed (the pull above already updated the code):
-ssh root@<web> -p 4369 'sudo systemctl restart tradewave-blog-queue tradewave-article-processor && sudo systemctl is-active tradewave-blog-queue tradewave-article-processor'
+# SMN pipeline daemons run on the WEB box (Type=simple, load smn/ at startup) — bounce them too when smn/ daemon code changed (the pull above already updated the code).
+# NOTE: these two units exist only on boxes provisioned for content generation (stage-web). Prod web is NOT provisioned with them pre-cutover, so deploy.sh restarts them only if `systemctl cat` finds them — a missing optional unit must not abort the deploy before the React/nginx steps.
+ssh root@<web> -p 4369 'for u in tradewave-blog-queue tradewave-article-processor; do systemctl cat "$u" >/dev/null 2>&1 && sudo systemctl restart "$u" && sudo systemctl is-active "$u" || echo "skip $u (not installed)"; done'
 ```
 Restart matrix (which service to bounce after the pull):
 

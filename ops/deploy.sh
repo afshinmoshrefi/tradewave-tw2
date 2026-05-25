@@ -34,7 +34,10 @@ echo "==> [$ENV] app tier ($APP): pull + sync venv + restart appserver"
 $SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
 
 echo "==> [$ENV] web tier ($WEB): pull + sync venv + restart web + SMN daemons"
-$SSH "root@$WEB" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-web tradewave-blog-queue tradewave-article-processor && sudo systemctl is-active tradewave-web tradewave-blog-queue tradewave-article-processor'
+# tradewave-web is on every web box; the SMN daemons are only on boxes provisioned
+# for content generation (not prod web pre-cutover). Restart web always, SMN if present,
+# so a missing optional unit doesn't abort the deploy before the React/nginx steps.
+$SSH "root@$WEB" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-web && for u in tradewave-blog-queue tradewave-article-processor; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u"; else echo "skip $u (not installed on this box)"; fi; done && sudo systemctl is-active tradewave-web'
 
 # React deploy = ship a release dir named by source commit, then repoint the `build` SYMLINK.
 # `build` is a symlink to releases/build-<hash>; build-previous holds the prior target for instant rollback.
