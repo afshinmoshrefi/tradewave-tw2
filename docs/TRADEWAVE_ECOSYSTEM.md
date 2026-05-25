@@ -358,7 +358,10 @@ bulletproof). See `OPERATIONS.md`.
   seeded at cutover (PROD_CUTOVER pre-seed). **FREEZE: never archive a price with an
   active subscription.** An explicit `{legacy_price_id: tier}` map is optional
   belt-and-suspenders, not a blocker. (Keep a regression test so the preserve-on-
-  unmappable behavior can't regress into a downgrade.)
+  unmappable behavior can't regress into a downgrade.) NOTE (2026-05-25): preserve is
+  no longer SILENT - an unmappable price on a LIVE sub now logs `log.error` + an
+  `unmappable_price` audit row (still ACKs 200), so a plan change between two legacy
+  prices can't leave a stuck-high tier unnoticed. Caught by a 5-agent billing audit.
 - **Tiers:** explorer/analyst/strategist (TIER_FEATURES). tier_compat:
   explorer->'1', analyst->'4'/'5', strategist->'6'/'7'.
 - **Cutover (TW1 -> tradewave.ai), per `ops/PROD_CUTOVER.md`:** Phase 1 (days

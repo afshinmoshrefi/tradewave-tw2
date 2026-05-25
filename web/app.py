@@ -1408,10 +1408,19 @@ def webhook_stripe():
 
         # Resolve new tier (None = no change)
         new_tier = None
+        unmappable_price = False
         if event_type in ("customer.subscription.created", "customer.subscription.updated") and price_id:
             tier, _ = _tier_period_for_price(price_id)
-            if tier and sub_status in ("active", "trialing", "past_due"):
-                new_tier = tier
+            if sub_status in ("active", "trialing", "past_due"):
+                if tier:
+                    new_tier = tier
+                else:
+                    # Legacy / no-metadata price on a LIVE subscription. We can't map it
+                    # to a tier, so we deliberately do NOT touch the tier (never wrongly
+                    # downgrade a grandfathered payer) - but we must NOT silently no-op
+                    # either: a plan change between two legacy prices would otherwise
+                    # leave the user stuck at the old tier with no signal. Alert below.
+                    unmappable_price = True
         if event_type == "customer.subscription.deleted":
             new_tier = "explorer"
 
@@ -1440,6 +1449,26 @@ def webhook_stripe():
                 action="tier_changed",
                 target_user_id=db_user.id,
                 details={"from": old_tier, "to": tier_changed_to, "stripe_event_id": event_id, "stripe_sub_id": sub_id},
+            )
+
+        if unmappable_price:
+            # A live subscription carries a price we can't map to a tier (legacy / no
+            # product metadata). Tier was intentionally left unchanged; surface it loudly
+            # so a stuck-high tier on a legacy plan-change can't slip by unnoticed. Fix =
+            # add product_line=eod/tier/period metadata to the Stripe product, or a
+            # legacy_price_map entry. Stripe still gets a 200 (no retry storm).
+            log.error(
+                "stripe_webhook: UNMAPPABLE active price - user=%s price=%s sub=%s status=%s "
+                "tier-left-as=%s. Add Stripe product metadata (product_line=eod,tier,period) "
+                "or a legacy_price_map entry; tier was NOT changed.",
+                db_user.id, price_id, sub_id, sub_status, final_tier,
+            )
+            write_audit(
+                actor_label=f"stripe_webhook:{event_type}",
+                action="unmappable_price",
+                target_user_id=db_user.id,
+                details={"price_id": price_id, "stripe_sub_id": sub_id, "status": sub_status,
+                         "tier_unchanged": final_tier, "stripe_event_id": event_id},
             )
 
         return jsonify({"received": True, "tier": final_tier, "status": sub_status}), 200
