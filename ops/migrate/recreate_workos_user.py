@@ -7,7 +7,7 @@ setup) and the hosted login rejects it even after a hosted password reset, while
 brand-new user works. Deletes the old WorkOS user, creates a clean one, relinks the
 Postgres row, and prints a hosted reset URL to set the password.
 
-  sudo -u flask -E /home/flask/venv/bin/python ops/migrate/recreate_workos_user.py --email afshinmoshrefi@hotmail.com
+  sudo -u flask /home/flask/venv/bin/python ops/migrate/recreate_workos_user.py --email afshinmoshrefi@hotmail.com
 """
 import argparse
 import sys

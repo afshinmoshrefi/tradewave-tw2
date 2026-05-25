@@ -10,7 +10,7 @@ fresh user ALSO can't sign in, the environment/application itself is bad (recrea
 It sets the password the same way we set the migrated user's (create_user + update_user),
 so it's an apples-to-apples test.
 
-  sudo -u flask -E /home/flask/venv/bin/python ops/migrate/freshuser_diag.py            # create + show creds
+  sudo -u flask /home/flask/venv/bin/python ops/migrate/freshuser_diag.py               # create + show creds
   ... --email someone+x@gmail.com --password 'Strong-Pass-1!'   # override defaults
   ... --delete                                                  # remove the test user afterward
 """

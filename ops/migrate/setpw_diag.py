@@ -10,7 +10,8 @@ set-password page entirely:
 This answers, definitively, "does email/password login work in prod?" without any
 hosted page or redirect involved. On any failure it prints the exact WorkOS error.
 
-  sudo -u flask -E /home/flask/venv/bin/python ops/migrate/setpw_diag.py --email someone@x.com
+  sudo -u flask /home/flask/venv/bin/python ops/migrate/setpw_diag.py --email someone@x.com
+  (no -E: secrets.env is authoritative; -E would let a stray shell WORKOS_* hijack the env)
   ... --password 'Custom-Pw-Here'     # override the default test password
 """
 import argparse

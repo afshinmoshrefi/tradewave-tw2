@@ -7,7 +7,7 @@ user that has a WorkOS identity (i.e. precreate_workos.py already ran), mint a
 one-time set-password link and write {email, tier, set_password_url, expires_at}
 to setpw_links.jsonl - the feed for the MailerLite "set your password" email.
 
-  sudo -u flask -E /home/flask/venv/bin/python make_setpw_links.py --out-dir /tmp/mig
+  sudo -u flask /home/flask/venv/bin/python make_setpw_links.py --out-dir /tmp/mig
   ... --email someone@x.com    # just one (the one-user test)
   ... --limit 5
 

@@ -12,8 +12,8 @@ email already exists in WorkOS it links instead of erroring. DRY-RUN by default 
 makes NO WorkOS writes until --apply (it only does read-only list_users to
 preview). Run ahead of cutover; links (the expiring part) are step 1C.
 
-  sudo -u flask -E /home/flask/venv/bin/python precreate_workos.py             # dry-run
-  sudo -u flask -E /home/flask/venv/bin/python precreate_workos.py --apply     # create + link
+  sudo -u flask /home/flask/venv/bin/python precreate_workos.py             # dry-run
+  sudo -u flask /home/flask/venv/bin/python precreate_workos.py --apply     # create + link
   ... --email someone@x.com    # just one (used by the one-user test)
   ... --limit 5                # first N candidates (small batch)
 """
@@ -45,6 +45,9 @@ def main():
         sys.exit("WORKOS_API_KEY / WORKOS_CLIENT_ID not set (run on a TW2 web box with secrets)")
     from workos import WorkOSClient
     wc = WorkOSClient(api_key=key, client_id=cid)
+    # Announce the env we're about to write 247 users into - eyeball this matches the
+    # client_id of the env your login actually uses before letting it run --apply.
+    print("WorkOS env in use: client_id=%s  (from secrets.env)" % cid, file=sys.stderr)
 
     from models import Session, User
     s = Session()
