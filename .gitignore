@@ -28,7 +28,10 @@ web-react/build/
 # Editor / OS
 .vscode/
 .idea/
-.claude/
+# .claude holds local Claude Code settings (ignored), but the shared, version-controlled
+# coding-standards skill must ship with the repo:
+.claude/*
+!.claude/skills/
 *.swp
 *.swo
 *.swn
