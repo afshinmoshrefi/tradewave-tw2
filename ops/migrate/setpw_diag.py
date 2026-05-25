@@ -73,14 +73,24 @@ def main():
         print("UPDATE FAILED -> %s: %s" % (type(e).__name__, str(e)[:400]))
         sys.exit(1)
 
-    # 2) prove email/password auth works in this environment
+    # 2) the correct password should authenticate
     try:
         wc.user_management.authenticate_with_password(email=a.email, password=a.password)
-        print("AUTH OK - email/password authentication WORKS in this WorkOS env")
+        print("AUTH OK  - correct password accepted")
     except Exception as e:
         print("AUTH FAILED -> %s: %s" % (type(e).__name__, str(e)[:400]))
-        print("  ^ THIS is the real blocker (e.g. email/password auth not enabled in the env)")
         sys.exit(2)
+
+    # 3) NEGATIVE CONTROL - a WRONG password MUST be rejected. If it is NOT,
+    #    authenticate_with_password is not really validating the password, and the
+    #    'AUTH OK' above is meaningless (the hosted login would be correctly rejecting).
+    try:
+        wc.user_management.authenticate_with_password(email=a.email, password=a.password + "_WRONG")
+        print("!!! NEGATIVE CONTROL FAILED: a WRONG password was ACCEPTED.")
+        print("    -> the API is NOT validating passwords; prior AUTH OK is meaningless.")
+    except Exception as e:
+        print("negative control OK: wrong password REJECTED (%s)" % type(e).__name__)
+        print("    -> the API genuinely validates, so the correct password really is set + valid here.")
 
 
 if __name__ == "__main__":
