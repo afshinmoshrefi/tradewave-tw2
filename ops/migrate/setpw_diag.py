@@ -54,15 +54,23 @@ def main():
         sys.exit("%s has no workos_user_id - run precreate_workos.py first" % a.email)
     print("user: uuid=%s  workos_user_id=%s  tier=%s" % (u.id, u.workos_user_id, u.tier))
 
-    # 1) set the password directly - no hosted page, no redirect
+    # show current WorkOS user state - email_verified is the prime suspect
+    try:
+        wu = wc.user_management.get_user(u.workos_user_id)
+        print("workos user BEFORE: email=%s  email_verified=%s" % (wu.email, wu.email_verified))
+    except Exception as e:
+        print("get_user warn: %s: %s" % (type(e).__name__, str(e)[:200]))
+
+    # 1) set the password directly AND mark the email verified (hosted login may require it)
     try:
         wc.user_management.update_user(
             id=u.workos_user_id,
             password=PasswordPlaintext(password=a.password),
+            email_verified=True,
         )
-        print("PASSWORD SET ok  (password = %s)" % a.password)
+        print("PASSWORD SET + email_verified=True ok  (password = %s)" % a.password)
     except Exception as e:
-        print("PASSWORD SET FAILED -> %s: %s" % (type(e).__name__, str(e)[:400]))
+        print("UPDATE FAILED -> %s: %s" % (type(e).__name__, str(e)[:400]))
         sys.exit(1)
 
     # 2) prove email/password auth works in this environment
