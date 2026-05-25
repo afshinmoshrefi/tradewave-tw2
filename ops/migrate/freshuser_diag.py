@@ -34,12 +34,23 @@ def main():
     ap.add_argument("--email", default="afshinmoshrefi+tw2freshtest@gmail.com")
     ap.add_argument("--password", default="Cobalt-River-Salmon-88!")
     ap.add_argument("--delete", action="store_true", help="delete the test user instead of creating")
+    ap.add_argument("--reset-link", action="store_true",
+                    help="print a hosted password-reset URL for --email (set the pw via AuthKit's own page)")
     a = ap.parse_args()
 
     from workos import WorkOSClient
     from workos.user_management._resource import PasswordPlaintext
     wc = WorkOSClient(api_key=config.WORKOS_API_KEY, client_id=config.WORKOS_CLIENT_ID)
     um = wc.user_management
+
+    if a.reset_link:
+        pr = um.reset_password(email=a.email)
+        print("HOSTED RESET URL for %s" % a.email)
+        print("Open this in a browser and set a NEW password ON THAT PAGE (it may 404 on the")
+        print("redirect afterward - ignore that; the password is set before the redirect):")
+        print("  %s" % pr.password_reset_url)
+        print("  (expires %s)" % pr.expires_at)
+        return
 
     existing = um.list_users(email=a.email).data
 
