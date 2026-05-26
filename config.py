@@ -605,7 +605,12 @@ SENTRY_DSN = os.environ.get('SENTRY_DSN', '')  # set in /etc/tradewave/secrets.e
 # Mailerlite list-add hook fires on new user creation in /home/flask/web/app.py
 # (lazy_create_user). Both keys must be set for the hook to fire; otherwise
 # email_utils.mailerlite_subscribe() returns False fast.
-MAILERLITE_API_KEY  = os.environ.get('MAILERLITE_API_KEY', '')  # set in /etc/tradewave/secrets.env
+# The connect-API credential. Historically only MAILERLITE_TOKEN was populated in
+# secrets.env (a long API token that works as a Bearer token against connect.mailerlite.com);
+# MAILERLITE_API_KEY was never set, so the signup list-add + level-group sync silently
+# no-op'd. Fall back to MAILERLITE_TOKEN so the existing credential is actually used. (Set a
+# dedicated MAILERLITE_API_KEY in secrets.env later if you want to rotate them independently.)
+MAILERLITE_API_KEY  = os.environ.get('MAILERLITE_API_KEY', '') or os.environ.get('MAILERLITE_TOKEN', '')  # set in /etc/tradewave/secrets.env
 MAILERLITE_GROUP_ID = os.environ.get('MAILERLITE_GROUP_ID', '')  # set in /etc/tradewave/secrets.env
 
 # Mailerlite LEVEL groups (one MailerLite account across envs, so these IDs are
