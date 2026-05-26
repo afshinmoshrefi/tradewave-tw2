@@ -49,7 +49,11 @@ def mailerlite_subscribe(email: str, name: str = None) -> bool:
         log.debug("mailerlite_subscribe skipped: MAILERLITE_API_KEY is placeholder/empty")
         return False
 
-    body = {"email": email}
+    # status=active mirrors TW1: a SaaS signup is a direct/single opt-in add, NOT a
+    # newsletter form signup - so it must NOT trigger MailerLite's double-opt-in
+    # confirmation email (that's reserved for the SMN form). Omitting status lets the
+    # account-level double-opt-in default kick in and email the user a "confirm" notice.
+    body = {"email": email, "status": "active"}
     if name:
         body["fields"] = {"name": name}
     if not _is_placeholder(group_id):
@@ -143,7 +147,9 @@ def sync_mailerlite_level_group(email: str, tier: str, period: str = None,
         if new_user:
             if dry_run:
                 return f"would-create+add:{target}"
-            resp = requests.post(MAILERLITE_API_URL, json={"email": email, "groups": [target]},
+            # status=active = direct add (TW1 SaaS-signup behavior), NO double-opt-in email.
+            resp = requests.post(MAILERLITE_API_URL,
+                                 json={"email": email, "status": "active", "groups": [target]},
                                  headers=headers, timeout=3)
             ok = 200 <= resp.status_code < 300
             if not ok:
@@ -157,7 +163,9 @@ def sync_mailerlite_level_group(email: str, tier: str, period: str = None,
         if r.status_code == 404:
             if dry_run:
                 return f"would-create+add:{target}"
-            resp = requests.post(MAILERLITE_API_URL, json={"email": email, "groups": [target]},
+            # status=active = direct add (TW1 SaaS-signup behavior), NO double-opt-in email.
+            resp = requests.post(MAILERLITE_API_URL,
+                                 json={"email": email, "status": "active", "groups": [target]},
                                  headers=headers, timeout=3)
             return "created" if 200 <= resp.status_code < 300 else f"error:{resp.status_code}"
         if not (200 <= r.status_code < 300):

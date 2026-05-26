@@ -379,6 +379,10 @@ bulletproof). See `OPERATIONS.md`.
   ever touched (SMN/newsletter/webinar untouched); unsubscribed subscribers are never ADDED
   (only removed from wrong groups - can't reactivate). One-time/idempotent reconcile:
   `ops/migrate/reconcile_mailerlite.py` (dry-run default, `--apply`).
+  IMPORTANT: every subscriber CREATE sends `status:"active"` so it's a direct/single-opt-in add
+  (TW1 SaaS-signup parity) and does NOT fire MailerLite's double-opt-in "confirm your subscription"
+  email. Omitting status lets the account default (double-opt-in is ON) email the user - which is
+  reserved for the SMN newsletter FORM, not app/SaaS adds.
 - **Cutover (TW1 -> tradewave.ai), per `ops/PROD_CUTOVER.md`:** Phase 1 (days
   ahead): lower TTL to 60s, add `tradewave.ai` to prod tunnel ingress, WorkOS prod
   redirect URI, Stripe prod webhook, pre-seed `users` from a TW1 DB dump. Phase 2
