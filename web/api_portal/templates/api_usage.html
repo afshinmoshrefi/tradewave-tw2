@@ -1,0 +1,61 @@
+{% extends "_base.html" %}
+{% set active_tab = 'usage' %}
+{% block title %}Usage - TradeWave API{% endblock %}
+{% block heading %}Usage{% endblock %}
+{% block subtitle %}Your API usage against the <span class="tier-pill">{{ tier_label }}</span> plan quota.{% endblock %}
+
+{% block content %}
+
+  {% if not redis_ok %}
+  <div class="flash warning">Live usage counters are temporarily unavailable. Historical totals below are still accurate.</div>
+  {% endif %}
+
+  <div class="card">
+    <h3>Today</h3>
+    <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:8px;">
+      <div class="value" style="font-size:24px;color:#fff;">{{ '{:,}'.format(total_today) }}
+        <span class="muted" style="font-size:15px;">/ {{ '{:,}'.format(per_day_limit) }} requests</span>
+      </div>
+      <div class="muted">{{ pct_day }}%</div>
+    </div>
+    <div class="bar-track"><div class="bar-fill" style="width: {{ pct_day }}%;"></div></div>
+    <div class="row" style="gap:32px;margin-top:18px;">
+      <div><div class="muted" style="font-size:12px;">Per-minute limit</div><div style="color:#fff;font-size:18px;">{{ '{:,}'.format(per_minute_limit) }}</div></div>
+      <div><div class="muted" style="font-size:12px;">Per-day limit</div><div style="color:#fff;font-size:18px;">{{ '{:,}'.format(per_day_limit) }}</div></div>
+      <div><div class="muted" style="font-size:12px;">Max results / call</div><div style="color:#fff;font-size:18px;">{{ '{:,}'.format(opp_limit) }}</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Today by endpoint</h3>
+    {% if endpoint_rows %}
+    <table>
+      <thead><tr><th>Endpoint</th><th style="text-align:right;">Requests</th></tr></thead>
+      <tbody>
+        {% for endpoint, count in endpoint_rows %}
+        <tr><td class="mono">{{ endpoint }}</td><td style="text-align:right;">{{ '{:,}'.format(count) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No requests recorded today.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Last 14 days</h3>
+    {% if history %}
+    <table>
+      <thead><tr><th>Day</th><th style="text-align:right;">Requests</th></tr></thead>
+      <tbody>
+        {% for row in history %}
+        <tr><td class="muted">{{ row.day }}</td><td style="text-align:right;">{{ '{:,}'.format(row.total) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No usage rolled up yet. Daily totals appear here after the usage rollup runs.</p>
+    {% endif %}
+  </div>
+
+{% endblock %}

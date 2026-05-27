@@ -1776,6 +1776,12 @@ admin.add_view(UserAdmin(User, ModelsSession, name="Users", category=None))
 admin.add_view(AuditLogAdmin(AuditLog, ModelsSession, name="Audit Log", category="System"))
 admin.add_view(StripeEventAdmin(StripeEvent, ModelsSession, name="Stripe Events", category="System"))
 
+# --- API customer console: self-serve keys / usage / billing / MCP connect (additive) ---
+import api_portal  # web/api_portal/ blueprint
+from api_portal.blueprint import set_user_loader as _console_set_user_loader
+_console_set_user_loader(get_current_user)  # reuse the web app's WorkOS session resolver
+app.register_blueprint(api_portal.bp, url_prefix="/account/api")
+
 
 # ============================================================
 # Boot

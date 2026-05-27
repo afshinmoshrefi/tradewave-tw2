@@ -1,0 +1,345 @@
+openapi: 3.1.0
+# TradeWave public data API - v1 CONTRACT (DRAFT, 2026-05-27)
+# Keystone artifact: the gateway implements this, docs render from it, the console
+# calls it, SDKs generate from it. Freeze before building the gateway.
+#
+# INVARIANTS baked in here (do not weaken without sign-off):
+#   - SIGNALS ONLY. No raw OHLCV / last price / price-by-date is ever returned.
+#     All returns are expressed as PERCENTAGES, never price levels (EOD posture).
+#   - ML fields (ml_score, win_prob, pred_return, pred_mfe) are Pro-tier only.
+#   - Market ids are the permanent resource keys '0'..'16' (stable IDs, never renumber).
+#   - 'years' / seasonal-window labels stay strings.
+# x-verify: field availability/shape to be confirmed against appserver OppList4/
+#   MLScoreBatch/featured_history before freeze (marked x-verify below).
+info:
+  title: TradeWave Data API
+  version: "1.0.0-draft"
+  description: >
+    Seasonal trading opportunities and ML win-probability signals for the 17
+    TradeWave markets, plus the tracked daily AI pick. Derived signals only -
+    no raw market data.
+servers:
+  - url: https://api-dev.trxstat.com/v1
+    description: dev
+  - url: https://api.tradewave.ai/v1
+    description: prod (post-cutover)
+security:
+  - ApiKeyAuth: []
+tags:
+  - name: markets
+  - name: opportunities
+  - name: scoring
+  - name: daily-pick
+paths:
+  /markets:
+    get:
+      tags: [markets]
+      summary: List the 17 markets and the caller's access scope
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  markets:
+                    type: array
+                    items: { $ref: "#/components/schemas/Market" }
+  /markets/{market_id}/symbols:
+    get:
+      tags: [markets]
+      parameters: [ { $ref: "#/components/parameters/MarketId" } ]
+      summary: List symbols in a market
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  symbols:
+                    type: array
+                    items: { $ref: "#/components/schemas/Symbol" }
+  /opportunities:
+    get:
+      tags: [opportunities]
+      summary: Ranked seasonal opportunities
+      description: >
+        The core product. Returns ranked seasonal trade setups for a market and
+        date window. ML fields are null unless the caller is Pro and the market
+        is ML-eligible (ids 0-4, 11).
+      parameters:
+        - { name: market, in: query, required: true, schema: { type: string }, description: "market id '0'..'16'" }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
+        - { name: min_win_rate, in: query, schema: { type: number, minimum: 0, maximum: 1 }, description: "filter on the REAL historical win_rate (share of profitable years), not the ML win_prob. Rows are enriched per symbol from ChartData4 'Percent Profitable', capped at the first 50 rows; rows past the cap (unknown win_rate) are excluded when this filter is set." }
+        - { name: limit, in: query, schema: { type: integer, default: 25 }, description: "tier-capped (free 3, dev 25, pro up to 5000)" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opportunities:
+                    type: array
+                    items: { $ref: "#/components/schemas/Opportunity" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /opportunities/{symbol}:
+    get:
+      tags: [opportunities]
+      parameters:
+        - { name: symbol, in: path, required: true, schema: { type: string } }
+        - { name: market, in: query, required: true, schema: { type: string } }
+      summary: Seasonal opportunities for one symbol
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opportunities:
+                    type: array
+                    items: { $ref: "#/components/schemas/Opportunity" }
+  /patterns/{market_id}/{symbol}:
+    get:
+      tags: [opportunities]
+      parameters:
+        - { $ref: "#/components/parameters/MarketId" }
+        - { name: symbol, in: path, required: true, schema: { type: string } }
+      summary: Seasonal pattern stats for a symbol (aggregate stats, no price series)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pattern" }
+  /seasonal-chart:
+    get:
+      tags: [opportunities]
+      summary: Seasonal trendchart data for a symbol (normalized 0-100 curve, no price series)
+      description: >
+        The seasonal 'trendchart' as DATA (points to plot, not an image), so callers can
+        chart it or agents can reason over the shape. Returns the appserver's
+        consolidated_seasonal_chart2 curve: a year-averaged, high/low-normalized 0-100
+        seasonal index, one point per day over the annual cycle, plus the publishable
+        percentage stats and the historical win_rate. The raw price series (the app's
+        'price' chart mode) is intentionally NOT exposed.
+      parameters:
+        - { name: market, in: query, required: true, schema: { type: string } }
+        - { name: symbol, in: query, required: true, schema: { type: string } }
+        - { name: entry_date, in: query, schema: { type: string, format: date } }
+        - { name: days_out, in: query, schema: { type: integer } }
+        - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
+        - { name: years, in: query, schema: { type: string }, description: "lookback window, stays a string" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SeasonalChart" }
+  /score:
+    post:
+      tags: [scoring]
+      summary: ML scores for opportunities (Pro)
+      description: >
+        Pro-tier only. Non-Pro callers receive 200 with a 'requires' upgrade
+        stub so MCP/agents can degrade gracefully. ML-eligible markets only (0-4, 11).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScoreRequest" }
+      responses:
+        "200":
+          description: OK (scores, or an upgrade stub for non-Pro)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      scores:
+                        type: array
+                        items: { $ref: "#/components/schemas/MLScore" }
+                  - { $ref: "#/components/schemas/UpgradeRequired" }
+  /daily-pick:
+    get:
+      tags: [daily-pick]
+      summary: Today's AI pick (the ML-selected featured opportunity)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DailyPick" }
+  /daily-pick/track-record:
+    get:
+      tags: [daily-pick]
+      summary: Historical track record of past daily picks (realized win/loss)
+      description: The verifiable, time-stamped performance record. Free-tier accessible (the marketing hook).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrackRecord" }
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      description: "Authorization: Bearer <api_key>. Key issued in the dashboard; verified via users.api_key_hash (HMAC)."
+  parameters:
+    MarketId:
+      name: market_id
+      in: path
+      required: true
+      schema: { type: string }
+      description: "permanent resource key '0'..'16'"
+  responses:
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit: { schema: { type: integer } }
+        X-RateLimit-Remaining: { schema: { type: integer } }
+        X-RateLimit-Reset: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Market:
+      type: object
+      properties:
+        id: { type: string, example: "2" }
+        name: { type: string, example: "S&P 500 STOCKS" }
+        ml_eligible: { type: boolean }
+        in_scope: { type: boolean, description: "is this market in the caller's tier scope" }
+    Symbol:
+      type: object
+      properties:
+        symbol: { type: string, example: "AAPL" }
+        name: { type: string, example: "Apple Inc" }
+    Opportunity:
+      type: object
+      description: A ranked seasonal trade setup. Returns are percentages, never prices.
+      properties:
+        symbol: { type: string }
+        market: { type: string }
+        direction: { type: string, enum: [long, short], description: "from LorS l/s" }
+        entry_date: { type: string, format: date }
+        days_out: { type: integer, description: "holding period in days (internal: daysOut)" }
+        sharpe_ratio: { type: number }
+        avg_profit_pct: { type: number }
+        median_profit_pct: { type: number }
+        win_rate: { type: number, nullable: true, description: "REAL historical win rate, 0..1: share of years the seasonal window finished profitable (any positive year; no threshold), from ChartData4 'Percent Profitable'. Distinct from ml.win_prob. May be null on the bulk list past the per-row enrichment cap." }
+        years: { type: string, description: "lookback window label, stays a string" }
+        ml: { $ref: "#/components/schemas/MLScore", description: "null unless Pro + ML-eligible market" }
+    ScoreRequest:
+      type: object
+      properties:
+        opportunities:
+          type: array
+          items:
+            type: object
+            required: [symbol, date, days_out, direction]
+            properties:
+              symbol: { type: string }
+              date: { type: string, format: date }
+              days_out: { type: integer }
+              direction: { type: string, enum: [long, short] }
+    MLScore:
+      type: object
+      description: Pro-tier ML output.
+      properties:
+        ml_score: { type: number }
+        win_prob: { type: number, description: "0..1" }
+        pred_return: { type: number, description: "predicted return %" }
+        pred_mfe: { type: number, description: "predicted max favorable excursion %" }
+    Pattern:
+      type: object
+      description: Aggregate seasonal-pattern statistics (ChartData4 stats block). No raw price series.
+      properties:
+        symbol: { type: string }
+        market: { type: string }
+        win_rate: { type: number, nullable: true, description: "REAL historical win rate, 0..1: share of profitable years (no threshold), from 'Percent Profitable'. Also present inside stats as percent_profitable." }
+        stats:
+          type: object
+          description: "Publishable percent-only subset of the ChartData4 stats; price/volume levels (52W high/low, SMA, avg volume) are excluded."
+    SeasonalChart:
+      type: object
+      description: >
+        The seasonal 'trendchart' as DATA: the appserver's consolidated_seasonal_chart2
+        curve. seasonal_curve is the smooth daily seasonal line - one point per day over
+        the ~365-day annual cycle starting at entry_date - where `index` is a 0-100
+        RELATIVE seasonal index (each year's close high/low-normalized to 0-100, then
+        AVERAGED across the lookback years). It is a relative SHAPE, not price levels and
+        not a percent return: prices cannot be reconstructed (the per-year high/low are
+        not exposed and the curve is year-averaged). No raw price series is returned.
+      properties:
+        symbol: { type: string }
+        market: { type: string }
+        direction: { type: string, enum: [long, short] }
+        entry_date: { type: string, format: date, description: "start of the annual cycle (chart_start_date)" }
+        days_out: { type: integer, nullable: true, description: "echoed for parity; does not change the full-cycle curve" }
+        years: { type: string, description: "lookback window label, stays a string" }
+        win_rate: { type: number, nullable: true, description: "REAL historical win rate, 0..1, from ChartData4 'Percent Profitable' (same as /patterns)." }
+        seasonal_curve:
+          type: array
+          description: the smooth seasonal line - year-averaged 0-100 normalized index, one point per calendar day of the cycle
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              index: { type: number, description: "0-100 relative seasonal index (high/low-normalized, averaged across years)" }
+        stats:
+          type: object
+          description: same publishable percent-only stat block as /patterns
+    DailyPick:
+      type: object
+      properties:
+        symbol: { type: string }
+        featured_date: { type: string, format: date }
+        direction: { type: string, enum: [long, short] }
+        days_out: { type: integer }
+        pattern_summary: { type: string }
+        ml: { $ref: "#/components/schemas/MLScore" }
+    TrackRecord:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            count: { type: integer }
+            win_count: { type: integer }
+            win_rate: { type: number }
+            avg_return_pct: { type: number }
+        picks:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol: { type: string }
+              featured_date: { type: string, format: date }
+              return_pct: { type: number }
+              result: { type: string, enum: [win, loss, open] }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+    UpgradeRequired:
+      type: object
+      properties:
+        requires: { type: string, example: "pro" }
+        message: { type: string }
+        upgrade_url: { type: string, format: uri }

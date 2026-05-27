@@ -1,0 +1,76 @@
+{% extends "_base.html" %}
+{% set active_tab = 'billing' %}
+{% block title %}Billing - TradeWave API{% endblock %}
+{% block heading %}Billing{% endblock %}
+{% block subtitle %}You are on the <span class="tier-pill">{{ current_label }}</span> API plan. Upgrade, downgrade, or manage payment below.{% endblock %}
+
+{% block content %}
+
+  {% if request.args.get('subscribed') %}
+  <div class="flash success">Thanks! Your subscription is being activated. Your new plan appears here once Stripe confirms payment.</div>
+  {% endif %}
+  {% if request.args.get('cancelled') %}
+  <div class="flash warning">Checkout cancelled. Your plan is unchanged.</div>
+  {% endif %}
+  {% if request.args.get('no_subscription') %}
+  <div class="flash warning">No billing account yet - subscribe to a paid plan first.</div>
+  {% endif %}
+  {% if not stripe_configured %}
+  <div class="flash warning">Billing is not yet configured in this environment (Stripe keys are placeholders). Plans are shown for reference.</div>
+  {% endif %}
+
+  {% if has_customer %}
+  <div class="card">
+    <div class="row" style="justify-content:space-between;">
+      <div>
+        <h3 style="margin-bottom:4px;">Manage subscription</h3>
+        <div class="muted">Change plan, update your card, download invoices, or cancel.</div>
+      </div>
+      <a href="{{ url_for('api_portal.billing_manage') }}" class="btn-secondary">Open billing portal</a>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="tiers-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+    {% for p in plans %}
+    <div class="card" style="margin-bottom:0;{% if p.is_current %}border-color:#6366f1;{% endif %}">
+      <div class="row" style="justify-content:space-between;align-items:baseline;">
+        <h3 style="color:#e5e7eb;text-transform:none;letter-spacing:0;font-size:18px;margin:0;">{{ p.label }}</h3>
+        {% if p.is_current %}<span class="badge-active">current</span>{% endif %}
+      </div>
+      <div style="font-size:30px;font-weight:800;margin:10px 0;">
+        {% if p.price_monthly == 0 %}Free{% else %}${{ p.price_monthly }}<span class="muted" style="font-size:15px;font-weight:500;">/mo</span>{% endif %}
+      </div>
+      <ul style="list-style:none;padding:0;margin:0 0 18px 0;font-size:13px;color:#d1d5db;line-height:1.9;">
+        <li>{{ p.markets }}</li>
+        <li>{% if p.ml_access %}ML scoring included{% else %}No ML scoring{% endif %}</li>
+        <li>{{ p.history|capitalize }} history</li>
+        <li>{{ '{:,}'.format(p.rate.per_day) }} requests/day</li>
+        <li>{{ '{:,}'.format(p.rate.per_minute) }} requests/min</li>
+        <li>Up to {{ '{:,}'.format(p.opp_limit) }} results/call</li>
+        <li>{{ p.max_keys }} API key{{ 's' if p.max_keys != 1 else '' }}</li>
+      </ul>
+      {% if p.is_current %}
+        <button class="btn-secondary" style="width:100%;" disabled>Current plan</button>
+      {% elif not p.purchasable %}
+        {# free tier - the default; reachable only by cancelling a paid plan in the portal #}
+        <button class="btn-secondary" style="width:100%;" disabled>Default plan</button>
+      {% elif has_customer %}
+        {# already a customer: plan switches (up or down) go through the Stripe portal so proration is handled #}
+        <a href="{{ url_for('api_portal.billing_manage') }}" class="btn-secondary" style="width:100%;">Switch in portal</a>
+      {% else %}
+        <form method="POST" action="{{ url_for('api_portal.billing_checkout') }}" style="margin:0;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="tier" value="{{ p.name }}">
+          <button type="submit" class="btn-primary" style="width:100%;" {% if not stripe_configured %}disabled{% endif %}>Subscribe</button>
+        </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <p class="muted" style="margin-top:18px;font-size:13px;">
+    Plan changes for existing subscribers are handled in the Stripe billing portal so proration and downgrades apply correctly.
+  </p>
+
+{% endblock %}

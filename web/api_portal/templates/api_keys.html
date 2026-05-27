@@ -1,0 +1,100 @@
+{% extends "_base.html" %}
+{% set active_tab = 'keys' %}
+{% block title %}API Keys - TradeWave API{% endblock %}
+{% block heading %}API Keys{% endblock %}
+{% block subtitle %}Create and manage keys for the TradeWave API. Authenticate requests with <code>Authorization: Bearer &lt;key&gt;</code>.{% endblock %}
+
+{% block content %}
+
+  {% if new_raw_key %}
+  <div class="card" style="border-color: rgba(52,211,153,0.4);">
+    <h3 style="color:#6ee7b7;">Your new API key</h3>
+    <p class="muted" style="margin-top:0;">Copy it now. For your security we store only a hash - this is the only time the full key is shown.</p>
+    <pre id="new-key"><button type="button" class="copybtn" data-copy-target="new-key-val">Copy</button><span id="new-key-val">{{ new_raw_key }}</span></pre>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;">
+      <div>
+        <h3 style="margin-bottom:4px;">Active keys</h3>
+        <div class="muted">{{ active_count }} of {{ max_keys }} used on the <span class="tier-pill">{{ tier_label }}</span> plan.</div>
+      </div>
+    </div>
+
+    {% if keys %}
+    <table style="margin-top:16px;">
+      <thead>
+        <tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last used</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for k in keys %}
+        <tr>
+          <td>{{ k.name }}</td>
+          <td><span class="mono">{{ k.prefix }}…</span></td>
+          <td class="muted">{{ k.created_at.strftime('%Y-%m-%d') if k.created_at else '-' }}</td>
+          <td class="muted">{{ k.last_used_at.strftime('%Y-%m-%d') if k.last_used_at else 'never' }}</td>
+          <td>
+            {% if k.revoked_at %}<span class="badge-revoked">revoked</span>
+            {% else %}<span class="badge-active">active</span>{% endif %}
+          </td>
+          <td>
+            {% if not k.revoked_at %}
+            <div class="row" style="justify-content:flex-end;gap:8px;">
+              <form method="POST" action="{{ url_for('api_portal.keys_rotate', key_id=k.id) }}" style="margin:0;"
+                    onsubmit="return confirm('Rotate this key? The current key stops working immediately and a new key is shown once.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-secondary">Rotate</button>
+              </form>
+              <form method="POST" action="{{ url_for('api_portal.keys_revoke', key_id=k.id) }}" style="margin:0;"
+                    onsubmit="return confirm('Revoke this key? Any client using it stops working immediately. This cannot be undone.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-danger">Revoke</button>
+              </form>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted" style="margin-top:16px;">No API keys yet. Create one below to start calling the API.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Create a new key</h3>
+    {% if at_limit %}
+    <p class="muted">You have reached your plan's limit of {{ max_keys }} active key(s). Revoke one, or
+      <a href="{{ url_for('api_portal.billing_index') }}" style="color:#a855f7;">upgrade your plan</a> for more.</p>
+    <button class="btn-primary" disabled>Create key</button>
+    {% else %}
+    <form method="POST" action="{{ url_for('api_portal.keys_create') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row" style="align-items:flex-end;">
+        <div style="flex:1;min-width:220px;">
+          <label class="muted" style="display:block;margin-bottom:6px;font-size:13px;">Key name (so you can tell them apart)</label>
+          <input type="text" name="name" placeholder="e.g. Production server" maxlength="100">
+        </div>
+        <button type="submit" class="btn-primary">Create key</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.copybtn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var el = document.getElementById(b.getAttribute('data-copy-target'));
+      if (!el) return;
+      navigator.clipboard.writeText(el.textContent).then(function () {
+        var t = b.textContent; b.textContent = 'Copied'; setTimeout(function () { b.textContent = t; }, 1500);
+      });
+    });
+  });
+</script>
+{% endblock %}

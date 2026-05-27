@@ -1,0 +1,86 @@
+{% extends "_base.html" %}
+{% set active_tab = 'mcp' %}
+{% block title %}MCP Connect - TradeWave API{% endblock %}
+{% block heading %}MCP Connect{% endblock %}
+{% block subtitle %}Use TradeWave seasonal-pattern tools directly inside Claude, ChatGPT, and Cursor over MCP.{% endblock %}
+
+{% block content %}
+
+  <div class="card">
+    <h3>Your MCP endpoint</h3>
+    <pre id="mcp-url"><button type="button" class="copybtn" data-copy-target="mcp-url-val">Copy</button><span id="mcp-url-val">{{ mcp_url }}</span></pre>
+    <p class="muted" style="font-size:13px;">
+      Authenticate with your own TradeWave API key (bring your own key).
+      {% if has_key %}Use any active key from the <a href="{{ url_for('api_portal.keys_index') }}" style="color:#a855f7;">API Keys</a> tab.{% else %}You have no API key yet - <a href="{{ url_for('api_portal.keys_index') }}" style="color:#a855f7;">create one first</a>, then paste it in the configs below.{% endif %}
+      Tool access follows your <span class="tier-pill">{{ tier_label }}</span> plan.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>Claude Desktop</h3>
+    <p class="muted" style="font-size:13px;margin-top:0;">
+      Open Settings - Developer - Edit Config (this opens <code>claude_desktop_config.json</code>), add the block below, then restart Claude Desktop. Replace <code>YOUR_API_KEY</code> with your key.
+    </p>
+    <pre id="cfg-claude"><button type="button" class="copybtn" data-copy-target="cfg-claude-val">Copy</button><span id="cfg-claude-val">{
+  "mcpServers": {
+    "tradewave": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "{{ mcp_url }}",
+        "--header",
+        "Authorization: Bearer YOUR_API_KEY"
+      ]
+    }
+  }
+}</span></pre>
+  </div>
+
+  <div class="card">
+    <h3>ChatGPT</h3>
+    <p class="muted" style="font-size:13px;margin-top:0;">
+      In ChatGPT (Settings - Connectors / a custom GPT with Actions), add a remote MCP connector with this URL and an Authorization header.
+    </p>
+    <table>
+      <tbody>
+        <tr><td class="muted" style="width:160px;">MCP server URL</td><td class="mono">{{ mcp_url }}</td></tr>
+        <tr><td class="muted">Auth type</td><td>HTTP header</td></tr>
+        <tr><td class="muted">Header name</td><td class="mono">Authorization</td></tr>
+        <tr><td class="muted">Header value</td><td class="mono">Bearer YOUR_API_KEY</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Cursor</h3>
+    <p class="muted" style="font-size:13px;margin-top:0;">
+      Add to <code>~/.cursor/mcp.json</code> (global) or <code>.cursor/mcp.json</code> in your project, then reload. Replace <code>YOUR_API_KEY</code> with your key.
+    </p>
+    <pre id="cfg-cursor"><button type="button" class="copybtn" data-copy-target="cfg-cursor-val">Copy</button><span id="cfg-cursor-val">{
+  "mcpServers": {
+    "tradewave": {
+      "url": "{{ mcp_url }}",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}</span></pre>
+  </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.copybtn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var el = document.getElementById(b.getAttribute('data-copy-target'));
+      if (!el) return;
+      navigator.clipboard.writeText(el.textContent).then(function () {
+        var t = b.textContent; b.textContent = 'Copied'; setTimeout(function () { b.textContent = t; }, 1500);
+      });
+    });
+  });
+</script>
+{% endblock %}

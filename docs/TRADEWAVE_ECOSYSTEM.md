@@ -290,6 +290,73 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
 
 ---
 
+## 7A. TW2 v2 - Public API gateway + MCP (built on dev 2026-05-27, pre-launch)
+
+The v2 public product (roadmap §9): sell the **derived** signals (seasonal
+opportunities, ML scores, the tracked daily pick) over a clean REST API + an MCP
+server for AI agents - **never raw market data**. Built + verified end-to-end on dev
+(.176); NOT on staging/prod yet (post-cutover, after the freeze).
+
+**Components (all NEW + additive; the appserver code is UNCHANGED):**
+- **Gateway** `apiserver/` (note: dir is `apiserver`, one letter off the `appserver`
+  data engine). gunicorn `apiserver.app:app`, dev `127.0.0.1:8088`, systemd
+  `tradewave-apiserver`, isolated venv `/home/flask/venv-api`. The public, paid front
+  door: authenticates customer API keys, enforces tier/scope/rate-limit, **strips raw
+  prices**, exposes ~9 curated `/v1` endpoints, and calls the existing appserver as a
+  service account (`/login/api`).
+- **MCP server** `mcpserver/` (named to not shadow the `mcp` SDK). FastMCP, dev SSE
+  `127.0.0.1:9090`, systemd `tradewave-mcp`. 9 tools, thin HTTP wrapper over the
+  gateway. BYOK: per-connection `Authorization: Bearer` for remote (sse), env
+  `TRADEWAVE_API_KEY` fallback for stdio (Claude Desktop). NO baked key for remote.
+- **Console** `web/api_portal/` blueprint, mounted in `web/app.py` at `/account/api`
+  (keys/usage/billing/MCP-connect). Reuses WorkOS session + Stripe + the `apiserver`
+  package. Customer self-serve only.
+- **Portal + docs**: static, brand-matched, nginx-served. Sources `site/api_marketing/`
+  + `site/api_docs/` (generators read `site/lib/portal_urls.py`).
+
+**Contract:** `api/openapi.yaml` (9 endpoints) + `api/MCP_TOOLS.md` (9 tools).
+
+**Data shapes (verified vs the appserver):** opportunities = OppList4/OppBySymbol;
+`win_rate` = ChartData4 stat `Percent Profitable` (share of profitable years, no
+threshold - matches the UI), enriched per-symbol (cap 50/list) + cached gateway-side
+(redis db4, 6h TTL); `min_win_rate` filters on it (NOT `ml.win_prob`). ML = MLScoreBatch
++ MLScorePending (two-phase), Pro-only + markets 0-4,11. `/seasonal-chart` =
+consolidated_seasonal_chart2 (365-day high/low-normalized, year-averaged 0-100 curve -
+a price-SAFE shape, no price field). Daily pick/track-record = `site/data/featured_history.json`.
+
+**Auth + data (app box):** customer keys in Postgres `api_keys` (HMAC-SHA256 via
+`API_KEY_HMAC_SECRET`); usage in `api_usage_daily` + redis db4. Schema
+`apiserver/schema.sql` (additive). Tiers/entitlements `apiserver/tiers.py`
+(free/dev/pro/business; ML = the Pro line; unified accounts inherit the API tier from
+the web tier via `WEB_TIER_TO_API`, optional `users.api_tier` for API-only subs). Stripe
+products `product_line=api` (test on dev).
+
+**URLs (env-driven):** `site/lib/portal_urls.py` reads `TW2_PUBLIC_HOST` /
+`TW2_API_PUBLIC_HOST` / `TW2_MCP_PUBLIC_HOST` (dev: `api-dev`/`mcp-dev`.trxstat.com; prod
+sets them to `api`/`mcp`.tradewave.ai). nginx vhost `sites-enabled/api-dev` (api-dev:
+`/api/` portal, `/docs/`, `/v1/` -> gateway; mcp-dev -> :9090) + cloudflared ingress on
+the `tw2` tunnel. GOTCHAS: tunnel->nginx is IPv6 so vhosts need `listen [::]:80`; CF
+caches dev HTML so the dev portal vhost sets `Cache-Control no-store`.
+
+**Architecture decisions:** the gateway is a SEPARATE process from the appserver
+(blast-radius + security - the appserver stays internal/loopback; only the curated
+gateway is public). ONE appserver serves both UI + API (Option A); the gateway's
+rate-limits bound API load, so a 2nd appserver instance (Option B) is DEFERRED until
+traffic competes (a no-code flip via `TW2_APPSERVER_URL`). On staging/prod, place the
+gateway+MCP on the app box (gateway->appserver localhost); the public `api-`/`mcp-`
+hostnames reach it via the web-box nginx over the VLAN or the app box's tunnel (finalize
+at deploy).
+
+**OPEN (pre-launch):** the systemd units / nginx vhost / cloudflared ingress are
+box-config NOT yet in `ops/` deploy tooling; deploy to staging->prod is post-cutover via
+ops/deploy.sh (add the new services to the restart matrix + a migration step + portal/docs
+static-gen + the vhosts); `users.api_tier` + a webhook write for API-only subs deferred
+(existing-tier users inherit fine); marketing copy is draft.
+(Source: `apiserver/`, `mcpserver/`, `web/api_portal/`, `site/lib/portal_urls.py`,
+`api/openapi.yaml`; built + verified on dev .176, 2026-05-27.)
+
+---
+
 ## 8. Deploy / ops / cron
 
 **Routine deploy = `bash ops/deploy.sh {staging|prod}`** from dev. Per env:
