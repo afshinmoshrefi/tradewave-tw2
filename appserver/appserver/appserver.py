@@ -3734,6 +3734,32 @@ def check_article_queue_publish_date(resource_id, symbol, date, days, years):
 # article toggle is for news articles and only toggled on by authorized people 
 # when toggle is on, then this route will check if news articles exists for each saved pattern and return it
 #---------------------------------------------------------------------------------------------------    
+def fetch_article_status(resource_id, symbol, date, days, years):
+    """Get a saved pattern's article status from the blog-queue box over HTTP
+    (config.blog_queue_server). That box's Redis db3 is local-only, so we ask its
+    /article_status endpoint rather than connecting to its Redis directly. Never
+    raises: on any failure returns an all-empty status so dr_report_list degrades
+    to 'no article info' instead of 500ing the whole report list."""
+    blank = {'article_exists': False, 'article_queued': False, 'article_publish_date': None,
+             'has_article': False, 'article_title': None, 'article_url': None,
+             'article_dek': None, 'article_published': None, 'article_tone': None,
+             'article_website_id': None}
+    base = (getattr(config, 'blog_queue_server', '') or '').rstrip('/')
+    if not base:
+        return blank
+    import urllib.parse as _ul
+    url = (f"{base}/article_status/{_ul.quote(str(resource_id))}/{_ul.quote(str(symbol))}/"
+           f"{_ul.quote(str(date))}/{_ul.quote(str(days))}/{_ul.quote(str(years))}")
+    try:
+        r = requests.get(url, timeout=2.5)
+        if r.status_code == 200:
+            d = r.json()
+            return {k: d.get(k, blank[k]) for k in blank}
+    except Exception as e:
+        print(f"fetch_article_status: {e}")
+    return blank
+
+
 @app.route('/dr_report_list/<int:portfolio_id>/<int:articleToggle>', methods=['GET'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
@@ -3779,20 +3805,12 @@ def dr_report_list(portfolio_id,articleToggle): # get the list of reports from r
         days  = o['days_hold']
         # Check if Redis article exists
         if articleToggle == 1:
-            tone = "neutral"
-            website_id = 0
-            years = o['years']
-            redis_key = f"{rID}_{sym.upper()}_{sdate}_{days}_{years}_{tone}_{website_id}"
-            try:
-                exists = redis_client3.exists(redis_key)
-            except Exception as e:
-                # don't let a db3 (article-status) outage break the whole report list -
-                # mirrors the guard on the second article block below
-                print(f"dr_report_list: redis_client3 unavailable, skipping article_exists ({e})")
-                exists = 0
-            o['article_exists'] = True if exists == 1 else False
-            # Check if article is queued for future publication
-            o['article_queued'], o['article_publish_date'] = check_article_queue_publish_date(rID, sym, sdate, days, years)
+            # article status now comes from the blog-queue box over HTTP (its db3 is
+            # local-only); fetch_article_status never raises, so the list never 500s.
+            art = fetch_article_status(rID, sym, sdate, days, o.get('lookback_years') or o.get('years'))
+            o['article_exists']       = art['article_exists']
+            o['article_queued']       = art['article_queued']
+            o['article_publish_date'] = art['article_publish_date']
         else:
             o['article_exists'] = False
             o['article_queued'] = False
@@ -3818,36 +3836,15 @@ def dr_report_list(portfolio_id,articleToggle): # get the list of reports from r
             o['price1'] = price1
             o['gain_loss'] = gain_loss
 
-        # -----------------  ARTICLE LOOKUP ADDED CONDITIONALLY -----------------
+        # -----------------  ARTICLE METADATA (from fetch_article_status above) -----------------
         if articleToggle == 1:
-            # be tolerant on how years is stored in the portfolio row
-            years = o.get("lookback_years") or o.get("years") 
-            # default: no article
-            o["has_article"] = False
-
-            if years:
-                redis_key_article = f"{rID}_{sym.upper()}_{sdate}_{days}_{years}_neutral_0"
-                try:
-                    # print(redis_key_article)
-                    raw = redis_client3.get(redis_key_article)
-                except Exception as e:
-                    # don't let Redis issues break this route
-                    print("article redis error:", e)
-                    raw = None
-
-                if raw:
-                    try:
-                        article_payload = json.loads(raw)
-                        entry = article_payload.get("entry", {})
-                        o["has_article"]       = True
-                        o["article_title"]     = entry.get("title")
-                        o["article_url"]       = entry.get("url")
-                        o["article_dek"]       = entry.get("dek")
-                        o["article_published"] = entry.get("published_date")
-                        o["article_tone"]      = article_payload.get("tone")
-                        o["article_website_id"] = article_payload.get("website_id")
-                    except Exception as e:
-                        print("article json decode error:", e)
+            o["has_article"]        = art.get("has_article", False)
+            o["article_title"]      = art.get("article_title")
+            o["article_url"]        = art.get("article_url")
+            o["article_dek"]        = art.get("article_dek")
+            o["article_published"]  = art.get("article_published")
+            o["article_tone"]       = art.get("article_tone")
+            o["article_website_id"] = art.get("article_website_id")
 
 
     return jsonify({'reports_list':reports_list_by_portfolio})
