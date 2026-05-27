@@ -3783,7 +3783,13 @@ def dr_report_list(portfolio_id,articleToggle): # get the list of reports from r
             website_id = 0
             years = o['years']
             redis_key = f"{rID}_{sym.upper()}_{sdate}_{days}_{years}_{tone}_{website_id}"
-            exists = redis_client3.exists(redis_key)
+            try:
+                exists = redis_client3.exists(redis_key)
+            except Exception as e:
+                # don't let a db3 (article-status) outage break the whole report list -
+                # mirrors the guard on the second article block below
+                print(f"dr_report_list: redis_client3 unavailable, skipping article_exists ({e})")
+                exists = 0
             o['article_exists'] = True if exists == 1 else False
             # Check if article is queued for future publication
             o['article_queued'], o['article_publish_date'] = check_article_queue_publish_date(rID, sym, sdate, days, years)
