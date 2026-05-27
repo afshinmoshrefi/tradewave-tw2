@@ -1569,7 +1569,11 @@ class UserAdmin(_AdminAuth, ModelView):
     column_default_sort = ("created_at", True)
     page_size = 50
 
-    form_widget_args = {
+    # NOTE: use form_args, NOT form_widget_args. form_widget_args kwargs are
+    # emitted as raw HTML attributes on the input (description="<ul>...">),
+    # which breaks out of the attribute and renders garbage. form_args sets the
+    # field's real `description`, which the form template renders as help text.
+    form_args = {
         "roles": {"description": _roles_help_html()},
     }
 
