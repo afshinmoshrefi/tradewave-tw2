@@ -88,6 +88,15 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   03:00 -> always-running `article_processor.py`). THIS pipeline DOES use LLMs:
   Grok (`grok-3-mini`/`grok-3`) for news extraction + research, OpenAI `gpt-5.1`
   for writing, Claude `claude-sonnet-4-6` for SEO titles, Stability SDXL for images.
+- **Info / legal pages** (`site/generate_text_pages.py`, authored - run MANUALLY,
+  no cron) -> `/var/www/tradewave/{terms,privacy,disclaimer,contact,learn,affiliate}.html`.
+  Static, zero backend; nginx serves clean URLs via the catch-all `try_files $uri $uri/ $uri.html`
+  (so `/affiliate` serves `affiliate.html`). `affiliate.html` = the invite-only
+  affiliate-program explainer (recruiting copy + a mailto apply CTA; program terms
+  - commission %, audience discount, payout cadence - are constants at the top of the
+  generator). NOTE: `ops/deploy.sh` does NOT emit these pages; after a deploy you must
+  run the generator on the box (`sudo -u flask /home/flask/venv/bin/python3
+  /home/flask/site/generate_text_pages.py`) for changes to appear.
 
 **THE DAILY AI PICK = SCORECARD (settles prior confusion, verified on .151):**
 - The "daily AI pick" shown on the home page and tracked in the scorecard is

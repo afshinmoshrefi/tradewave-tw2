@@ -22,6 +22,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
 from text_utils import no_em_dash  # noqa: E402
@@ -56,6 +57,23 @@ CONTACT_FILENAME = "contact.html"
 CONTACT_TITLE = "Contact"
 CONTACT_SUBTITLE = "Reach out - we read every email."
 CONTACT_EMAIL = "help@tradewave.ai"
+
+# --- Affiliate / partner program page (authored) ---------------------------
+AFFILIATE_FILENAME = "affiliate.html"
+AFFILIATE_TITLE = "Affiliate Program"
+AFFILIATE_SUBTITLE = (
+    "Earn recurring commission introducing your audience to seasonal-pattern "
+    "trading - and give them a deal worth sharing."
+)
+# Public-facing program terms. Once this page is live these are a commitment;
+# change them here (single source of truth) and re-run the generator.
+AFF_COMMISSION = "30%"                       # recurring commission to the partner
+AFF_COMMISSION_TERM = "for as long as your referral stays subscribed"
+AFF_AUDIENCE_DISCOUNT = "20%"                # discount the partner's audience gets
+AFF_AUDIENCE_DISCOUNT_TERM = "for their first year"
+AFF_PAYOUT_CADENCE = "monthly"
+PARTNER_EMAIL = "help@tradewave.ai"
+PARTNER_SUBJECT = "Affiliate Partner Application"
 
 # Year for the footer copyright + page-modified hint.
 YEAR = datetime.now().year
@@ -271,7 +289,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
   <title>{title} - TradeWave</title>
   <meta name="description" content="{subtitle}">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://tw2.trxstat.com/{title_to_filename(title)}">
+  <link rel="canonical" href="https://tradewave.ai/{title_to_filename(title)}">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
@@ -296,6 +314,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
     <a href="/app/">Wave Viewer</a>
     <a href="/learn.html">Learn</a>
     <a href="/contact.html">Contact</a>
+    <a href="/affiliate">Affiliates</a>
     <a href="/privacy.html">Privacy</a>
     <a href="/terms.html">Terms</a>
     <a href="/disclaimer.html">Disclaimer</a>
@@ -315,6 +334,7 @@ def title_to_filename(title: str) -> str:
         "Learn": "learn.html",
         "Financial Disclaimer": "disclaimer.html",
         "Contact": "contact.html",
+        "Affiliate Program": "affiliate.html",
     }.get(title, title.lower().replace(" ", "-") + ".html")
 
 
@@ -586,6 +606,125 @@ function twContactSubmit(e) {{
     }
 
 
+def build_affiliate() -> tuple[str, dict]:
+    # CSS kept as a plain (non-f) string so literal braces need no escaping.
+    css = """
+<style>
+  .aff-lead { font-size:18px; color:var(--text-dim); max-width:760px; margin:0 0 8px; }
+  .aff-cards, .aff-steps, .aff-terms { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:24px 0; }
+  .aff-card { background:linear-gradient(180deg, rgba(139,92,246,0.06), rgba(99,102,241,0.03)); border:1px solid rgba(139,92,246,0.18); border-radius:14px; padding:24px; }
+  .aff-card h3, .aff-step h3 { margin:0 0 8px; font-size:17px; color:#fff; }
+  .aff-card p, .aff-step p { margin:0; font-size:14px; color:var(--text-dim); line-height:1.65; }
+  .aff-step { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:24px; }
+  .aff-step .n { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; font-weight:700; margin-bottom:12px; }
+  .aff-terms .t { text-align:center; background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.25); border-radius:14px; padding:28px 16px; }
+  .aff-terms .big { display:block; font-size:30px; font-weight:800; background:linear-gradient(135deg,#6366f1,#a855f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:8px; }
+  .aff-terms .lbl { font-size:13px; color:var(--text-dim); line-height:1.5; }
+  .aff-faq .q { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:16px 20px; margin-bottom:10px; }
+  .aff-faq .q strong { display:block; color:#fff; margin-bottom:4px; font-size:15px; }
+  .aff-faq .q p { margin:0; font-size:14px; color:var(--text-dim); line-height:1.7; }
+  .aff-cta-wrap { text-align:center; margin:48px 0 8px; padding:36px 24px; background:linear-gradient(135deg, rgba(99,102,241,0.12), rgba(168,85,247,0.10)); border:1px solid rgba(139,92,246,0.25); border-radius:16px; }
+  .aff-cta-wrap h2 { margin:0 0 8px; }
+  .aff-cta-wrap > p { color:var(--text-dim); margin:0 0 20px; }
+  .aff-cta-wrap .aff-cta { display:inline-block; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; text-decoration:none; font-weight:700; font-size:16px; padding:14px 32px; border-radius:10px; transition:transform 140ms ease, box-shadow 140ms ease; }
+  .aff-cta-wrap .aff-cta:hover { transform:translateY(-1px); box-shadow:0 10px 28px rgba(139,92,246,0.3); }
+  .aff-cta-note { font-size:13px; color:var(--text-muted); margin:16px 0 0; }
+  @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms { grid-template-columns:1fr; } }
+</style>
+"""
+    mailto = f"mailto:{PARTNER_EMAIL}?subject={quote(PARTNER_SUBJECT)}"
+    body = css + f"""
+<p class="aff-lead">TradeWave helps traders find stocks that repeat the same seasonal patterns year after year, then scores each setup with a 62-feature AI model. If you teach, write about, or build a community around trading, our affiliate program lets you earn recurring income introducing your audience to a tool they will actually use - while handing them a real discount.</p>
+
+<h2>Why partners promote TradeWave</h2>
+<div class="aff-cards">
+  <div class="aff-card">
+    <h3>A product your audience keeps</h3>
+    <p>Seasonal patterns, AI scoring, and a daily pick that earn a place in a trader's routine. Referrals stick around - and your recurring commission with them.</p>
+  </div>
+  <div class="aff-card">
+    <h3>A real deal to offer</h3>
+    <p>Your code gives your audience {AFF_AUDIENCE_DISCOUNT} off {AFF_AUDIENCE_DISCOUNT_TERM}. You are not just selling them something - you are saving them money.</p>
+  </div>
+  <div class="aff-card">
+    <h3>Recurring, not one and done</h3>
+    <p>Earn {AFF_COMMISSION} commission {AFF_COMMISSION_TERM}. Build a base of referrals and your {AFF_PAYOUT_CADENCE} payout compounds.</p>
+  </div>
+</div>
+
+<h2>How it works</h2>
+<div class="aff-steps">
+  <div class="aff-step">
+    <span class="n">1</span>
+    <h3>Apply</h3>
+    <p>Tell us about your audience. We partner with a small, hand-picked group, so every partner gets personal attention.</p>
+  </div>
+  <div class="aff-step">
+    <span class="n">2</span>
+    <h3>Share your code</h3>
+    <p>You get a unique code. Drop it in a video, newsletter, course, or community - it works anywhere, even spoken aloud.</p>
+  </div>
+  <div class="aff-step">
+    <span class="n">3</span>
+    <h3>Earn {AFF_PAYOUT_CADENCE}</h3>
+    <p>When someone subscribes with your code, they save and you earn. We pay out {AFF_PAYOUT_CADENCE}.</p>
+  </div>
+</div>
+
+<h2>What you earn</h2>
+<div class="aff-terms">
+  <div class="t"><span class="big">{AFF_COMMISSION}</span><span class="lbl">recurring commission<br>{AFF_COMMISSION_TERM}</span></div>
+  <div class="t"><span class="big">{AFF_AUDIENCE_DISCOUNT} off</span><span class="lbl">for your audience<br>{AFF_AUDIENCE_DISCOUNT_TERM}</span></div>
+  <div class="t"><span class="big">{AFF_PAYOUT_CADENCE}</span><span class="lbl">payouts<br>by PayPal or Wise</span></div>
+</div>
+
+<h2>Who we partner with</h2>
+<p>The program is invite and application based. It is a strong fit if you reach traders through:</p>
+<ul>
+  <li>Trading coaching, mentorship, or courses</li>
+  <li>A YouTube channel, podcast, or newsletter about the markets</li>
+  <li>A trading community, Discord, or signals group</li>
+  <li>Educational content on seasonality, technical analysis, or stock research</li>
+</ul>
+
+<h2>Frequently asked</h2>
+<div class="aff-faq">
+  <div class="q">
+    <strong>How and when do I get paid?</strong>
+    <p>We total the revenue from your referrals each period and pay your {AFF_COMMISSION} commission {AFF_PAYOUT_CADENCE}, by PayPal or Wise.</p>
+  </div>
+  <div class="q">
+    <strong>How is a referral tracked?</strong>
+    <p>Your audience enters your code at checkout. The discount is their incentive to use it, and it ties the subscription to you.</p>
+  </div>
+  <div class="q">
+    <strong>Is there any cost to join?</strong>
+    <p>No. The program is free to join - you only ever earn.</p>
+  </div>
+  <div class="q">
+    <strong>Do I need a huge audience?</strong>
+    <p>No. We care more about how engaged and relevant your audience is than how big it is. Tell us about it when you apply.</p>
+  </div>
+</div>
+
+<div class="aff-cta-wrap">
+  <h2>Apply to partner with us</h2>
+  <p>Send us a note about you and your audience. We review every application personally.</p>
+  <a class="aff-cta" href="{mailto}">Apply now →</a>
+  <p class="aff-cta-note">Or email <a href="{mailto}">{PARTNER_EMAIL}</a> with the subject "{PARTNER_SUBJECT}".</p>
+</div>
+"""
+    html = render_page(AFFILIATE_TITLE, AFFILIATE_SUBTITLE, body, None)
+    return html, {
+        "src": "(authored in generator - single source of truth)",
+        "out": AFFILIATE_FILENAME,
+        "raw_size": 0,
+        "stripped_size": len(body),
+        "wrapped_size": len(html),
+        "last_updated": None,
+    }
+
+
 def build_disclaimer() -> tuple[str, dict]:
     body = """
 <p>TradeWave is a research and analysis platform. We are not a registered investment adviser, broker-dealer, or financial planner. Read this page in full before acting on anything you find on the site.</p>
@@ -666,6 +805,12 @@ def main() -> int:
     print(f"  building {CONTACT_FILENAME} (authored)...")
     html, info = build_contact()
     write_output(CONTACT_FILENAME, html)
+    summary.append(info)
+    print(f"    authored    -> wrapped {info['wrapped_size']:>7} bytes")
+
+    print(f"  building {AFFILIATE_FILENAME} (authored)...")
+    html, info = build_affiliate()
+    write_output(AFFILIATE_FILENAME, html)
     summary.append(info)
     print(f"    authored    -> wrapped {info['wrapped_size']:>7} bytes")
 
