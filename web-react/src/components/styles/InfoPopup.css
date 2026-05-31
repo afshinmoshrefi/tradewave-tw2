@@ -37,11 +37,22 @@
    border:1px solid black;
    z-index:200;
 
+   /* MOBILE FIX 2026-05-31: iOS/Android browser chrome (URL bar + bottom toolbar)
+      eats ~15-20% of 100vh, so a dialog sized 86vh + 14vh offset has its bottom
+      (checkbox + Continue button) hidden behind the toolbar. Cap to 90dvh
+      (dynamic viewport height = excludes browser chrome on modern browsers) and
+      make the dialog itself scrollable if content overflows. Fallback vh first
+      for old browsers; dvh second so modern browsers prefer it. */
+   max-height: 90vh;
+   max-height: 90dvh;
+   overflow-y: auto;
+   -webkit-overflow-scrolling: touch;
+
    -webkit-user-select: none;  /* Chrome all / Safari all */
    -moz-user-select: none;     /* Firefox all */
    -ms-user-select: none;      /* IE 10+ */
    user-select: none;          /* Likely future */
-   
+
  }
 
 
