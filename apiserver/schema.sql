@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS api_usage_daily (
     PRIMARY KEY (user_id, day, endpoint)
 );
 
--- Optional: an explicit API subscription tier per user, distinct from the web 'tier'.
--- The console/billing agent decides whether to use this column or derive from Stripe;
--- tiers.api_tier_from_user() already falls back to the web tier if absent.
--- ALTER TABLE users ADD COLUMN IF NOT EXISTS api_tier text;   -- enable at integration if wanted
+-- An explicit API subscription tier per user, distinct from the web 'tier'. When set
+-- (e.g. 'pro'), it WINS over the inherited web tier; when null, tiers.api_tier_from_user()
+-- falls back to WEB_TIER_TO_API[tier]. db.get_user_by_key_hash SELECTs this column, so the
+-- gateway/MCP/console all see the same resolved entitlement. Idempotent; the integrator runs it.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS api_tier text;

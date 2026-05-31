@@ -8,6 +8,7 @@ The gateway agent extends the mapped accessors below. Internal endpoint paths/pa
 exact response keys must be confirmed against appserver/appserver/appserver.py
 (marked x-verify) - e.g. OppList4, ChartData4, MLScoreBatch, getResourcesObj.
 """
+import concurrent.futures
 import datetime
 import json
 import logging
@@ -196,6 +197,46 @@ def list_markets():
     return out
 
 
+_resource_map = {"value": None, "exp": 0.0}
+_resource_lock = threading.Lock()
+
+
+def market_name_map():
+    """Cached {id: name} for the markets (getResourcesObj). 6h TTL - the catalog is static.
+    Used to stamp market.name on cards without re-fetching per row."""
+    with _resource_lock:
+        if _resource_map["value"] is not None and _resource_map["exp"] > time.time():
+            return _resource_map["value"]
+    m = {str(x["id"]): x["name"] for x in list_markets()}
+    with _resource_lock:
+        _resource_map.update(value=m, exp=time.time() + 6 * 3600)
+    return m
+
+
+def resolve_market_for_symbol(symbol, candidate_markets):
+    """Find which of candidate_markets lists `symbol`. Returns the single market id if it
+    appears in exactly one, a list of ids if several, or [] if none. Used by /v1/analyze to
+    resolve an omitted market. Parallelized over the candidate markets."""
+    sym = str(symbol).strip().upper()
+    found = []
+
+    def _has(m):
+        try:
+            syms = {str(s["symbol"]).upper() for s in list_symbols(m)}
+            return m if sym in syms else None
+        except Exception as e:  # noqa: BLE001
+            log.warning("resolve_market_for_symbol: market %s lookup failed: %s", m, e)
+            return None
+
+    if not candidate_markets:
+        return []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(candidate_markets))) as ex:
+        for r in ex.map(_has, candidate_markets):
+            if r is not None:
+                found.append(r)
+    return found
+
+
 def list_symbols(market):
     """Maps GetListSymbols -> [{symbol, name}]. Internal returns
     {'AllowedSymbols': {symbol: name}}."""
@@ -327,6 +368,37 @@ def opportunities_by_symbol(market, symbol, year1="10", year2="9", day_range="-"
     return out
 
 
+def opportunities_multi(markets, entry_date, year1="10", year2="9", direction=None,
+                        max_workers=8):
+    """Fan out opportunities() over several markets IN PARALLEL (independent cached GETs)
+    and return a flat list of Opportunity dicts (NO win_rate enrichment here - the caller
+    enriches AFTER ranking/slicing so we never fan out 50xN ChartData4 calls).
+
+    A single market's failure degrades to [] for that market (logged) - it must not abort
+    the whole scan (fail-soft on a per-market data gap)."""
+    results = []
+
+    def _one(m):
+        try:
+            return appserver_opportunities_safe(m, entry_date, year1, year2, direction)
+        except Exception as e:  # noqa: BLE001 - per-market isolation for the scan
+            log.warning("scan: market %s failed, skipped: %s", m, e)
+            return []
+
+    if not markets:
+        return results
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_workers, len(markets))) as ex:
+        for rows in ex.map(_one, markets):
+            results.extend(rows)
+    return results
+
+
+def appserver_opportunities_safe(market, entry_date, year1, year2, direction):
+    """opportunities() with no enrichment, isolated for the parallel scan."""
+    return opportunities(market, entry_date, year1=year1, year2=year2,
+                         direction=direction, enrich_win_rate=0)
+
+
 # --------------------------- patterns / chart data -------------------------
 
 def _chart_data(market, symbol, entry_date, days_out, years):
@@ -357,6 +429,24 @@ def pattern_stats(market, symbol, entry_date, days_out="30", years="10"):
         "win_rate": _win_rate_from_stats(stats),
         "stats": _publishable_stats(stats),
     }
+
+
+def chart_stats_and_years(market, symbol, entry_date, days_out, years):
+    """Return (stats, chart_entries) for ONE setup: the ChartData4 stats dict PLUS the raw
+    per-year entries [{year, pct, price}]. cards.py consumes the per-year entries (parsing
+    the NET pct only and DROPPING price) to build the per_year receipts. This is the single
+    accessor the flagship endpoints use to source receipts for a card.
+
+    A per-symbol downstream failure (data gap / transient appserver error) degrades to
+    ({}, []) and is logged - it must never abort a multi-row scan/analyze (fail-soft on a
+    genuine per-symbol gap; real gateway errors still surface)."""
+    try:
+        chart, stats = _chart_data(market, symbol, entry_date, days_out, years)
+    except requests.RequestException as e:
+        log.warning("chart_stats_and_years gap for %s/%s (days_out=%s): %s",
+                    market, symbol, days_out, e)
+        return {}, []
+    return stats, chart
 
 
 def _seasonal_curve(market, symbol, chart_start_date, years, opp_start_date=None):
@@ -571,6 +661,37 @@ def daily_pick():
             "pred_mfe": e.get("pred_mfe"),
         },
     }
+
+
+def daily_pick_raw():
+    """The most recent featured pick as a normalized Opportunity-shaped dict PLUS its stored
+    ML, so the gateway can build a full SignalCard. Returns None when there is no history.
+    Raw price fields (start_price/current_price/peak_price/end_price) are NEVER surfaced."""
+    history = _load_featured_history()
+    if not history:
+        return None
+    e = history[-1]
+    days = e.get("daysOut")
+    market = str(e.get("resource_id")) if e.get("resource_id") is not None else None
+    opp = {
+        "symbol": e.get("symbol"),
+        "market": market,
+        "direction": _dir_to_public(e.get("direction", "")),
+        "entry_date": e.get("date"),
+        "days_out": int(days) if days is not None else None,
+        "sharpe_ratio": _num(e.get("sharpe_ratio")),
+        "avg_profit_pct": _num(e.get("avg_profit")),
+        "median_profit_pct": _num(e.get("median_profit")),
+        "win_rate": None,                 # sourced from ChartData4 at card build
+        "years": str(e.get("years") or "10"),
+        "ml": {
+            "ml_score": e.get("ml_score"),
+            "win_prob": e.get("win_prob"),
+            "pred_return": e.get("pred_return"),
+            "pred_mfe": e.get("pred_mfe"),
+        },
+    }
+    return {"opp": opp, "featured_date": e.get("featured_date")}
 
 
 def track_record():

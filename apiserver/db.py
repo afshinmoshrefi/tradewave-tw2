@@ -21,13 +21,14 @@ def cursor(commit=False):
 
 
 def get_user_by_key_hash(key_hash):
-    """Return {user_id, email, tier, roles} for a live (non-revoked) key, else None.
-    Also bumps last_used_at. NOTE: selects only columns that exist in the current
-    users schema (tier, roles); api_tier inheritance is computed in tiers.py."""
+    """Return {user_id, email, tier, api_tier, roles} for a live (non-revoked) key, else None.
+    Also bumps last_used_at. api_tier is the explicit API subscription (null when the user
+    inherits from the web tier); tiers.api_tier_from_user() prefers it over the web tier.
+    Requires the users.api_tier column (schema.sql ADD COLUMN IF NOT EXISTS)."""
     with cursor(commit=True) as cur:
         cur.execute(
             """
-            SELECT u.id AS user_id, u.email, u.tier, u.roles, k.id AS key_id
+            SELECT u.id AS user_id, u.email, u.tier, u.api_tier, u.roles, k.id AS key_id
             FROM api_keys k JOIN users u ON u.id = k.user_id
             WHERE k.key_hash = %s AND k.revoked_at IS NULL
             """,

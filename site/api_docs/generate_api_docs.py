@@ -9,7 +9,7 @@ Writes 7 static HTML files into the same directory as this script:
 
   quickstart.html    - get a key + first call in 5 minutes
   authentication.html - Bearer auth, key creation/rotation, BYOK for MCP
-  api-reference.html  - all 9 endpoints, regenerated from openapi.yaml
+  api-reference.html  - all 11 endpoints, regenerated from openapi.yaml
   mcp-reference.html  - 8 tools + how to connect in Claude Desktop/ChatGPT/Cursor
   data-dictionary.html - every field + all 15 live markets defined in plain English
   rate-limits.html    - per-tier limits, headers, error shape, upgrade stub
@@ -561,7 +561,7 @@ opportunities.forEach(o =>
 <h2>Next steps</h2>
 <ul>
   <li><a href="authentication.html">Authentication</a> - key creation, rotation, BYOK for MCP.</li>
-  <li><a href="api-reference.html">API Reference</a> - all 9 endpoints with full parameter and schema details.</li>
+  <li><a href="api-reference.html">API Reference</a> - all 11 endpoints with full parameter and schema details.</li>
   <li><a href="mcp-reference.html">MCP Reference</a> - connect TradeWave directly to Claude, ChatGPT, or Cursor.</li>
   <li><a href="data-dictionary.html">Data Dictionary</a> - plain-English definitions of every field.</li>
 </ul>
@@ -756,14 +756,27 @@ EXAMPLE_RESPONSES: dict[str, str] = {
   ]
 }""",
     "GET /opportunities": """{
+  "entry_date": "2026-05-31",
+  "window_supported": false,
+  "evaluated_count": 50,
+  "enrichment_capped": true,
   "opportunities": [
     {
-      "symbol": "AAPL",   "market": "2",
+      "symbol": "DOV",    "market": "2",
       "direction": "long","entry_date": "2026-06-01",
-      "days_out": 22,     "sharpe_ratio": 1.84,
-      "avg_profit_pct": 3.12, "median_profit_pct": 2.88,
-      "win_rate": 0.78,   "years": "10",
+      "days_out": 246,    "sharpe_ratio": 3.31,
+      "avg_profit_pct": 18.49, "median_profit_pct": 18.4,
+      "win_rate": 1.0,    "years": "10",
       "ml": null
+    },
+    {
+      "symbol": "NDSN",   "market": "2",
+      "direction": "long","entry_date": "2026-05-31",
+      "days_out": 82,     "sharpe_ratio": 2.66,
+      "avg_profit_pct": 5.68, "median_profit_pct": 6.04,
+      "win_rate": 1.0,    "years": "10",
+      "ml": {"ml_score": 29.0, "win_prob": 0.6665,
+             "pred_return": 2.2999, "pred_mfe": 8.5967}
     }
   ]
 }""",
@@ -816,16 +829,152 @@ EXAMPLE_RESPONSES: dict[str, str] = {
     }
   ]
 }""",
+    "GET /scan": """{
+  "generated_at": "2026-05-31T18:30:13",
+  "window": "now",
+  "rank_by": "edge",
+  "count": 3,
+  "evaluated_count": 334,
+  "enrichment_capped": true,
+  "opportunities": [
+    {
+      "rank": 1,
+      "symbol": "DOV",
+      "market": {"id": "2", "name": "S&P 500 STOCKS"},
+      "direction": "long",
+      "signal": "BUY",
+      "setup": {"entry_date": "2026-06-01",
+                "entry_window": "2026-05-29 to 2026-06-04",
+                "hold_days": 246, "exit_date": "2027-02-02"},
+      "edge_score": 97,
+      "edge_basis": "win_rate 1.00 x sharpe 3.3 x 10y history",
+      "stats": {"historical_win_rate": 1.0, "sharpe_ratio": 3.31,
+                "avg_return_pct": 18.49, "median_return_pct": 18.4, "years": "10"},
+      "ml": null,
+      "receipts": {
+        "years_tested": 10, "wins": 10, "losses": 0,
+        "historical_win_rate": 1.0, "avg_return_pct": 18.49, "median_return_pct": 18.4,
+        "best_year": {"year": "2019", "return_pct": 25.8},
+        "worst_year": {"year": "2024", "return_pct": 12.17},
+        "per_year": [{"year": "2025", "return_pct": 18.41, "result": "win"}],
+        "curve_summary": null,
+        "source": "TradeWave seasonal model, 10y lookback", "as_of": "2026-05-31"
+      },
+      "next_step": {
+        "headline": "To act on this, here is a ready-to-place ticket:",
+        "order_ticket": {"side": "BUY", "symbol": "DOV", "type": "MARKET",
+                         "time_in_force": "DAY", "suggested_entry_date": "2026-06-01",
+                         "suggested_exit_date": "2027-02-02",
+                         "note": "Seasonal hold ~246 calendar days. Size to your own risk."},
+        "copy_text": "BUY DOV market, day order; plan exit ~2027-02-02 (246d seasonal hold).",
+        "set_reminder": {"type": "seasonal_entry", "fire_on": "2026-05-31",
+                         "message": "DOV seasonal window opens tomorrow."},
+        "framing": "TradeWave gives the edge and the timing; you place the trade at your own broker."
+      },
+      "headline": "DOV long - enter ~Jun 1, hold 246d. Won 10/10 years, avg +18.5%, Sharpe 3.3.",
+      "verdict": "Strong, consistent seasonal long.",
+      "disclaimer": "Educational seasonal + ML signal, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+      "tier_notes": "ML score shown (Pro)."
+    }
+  ]
+}""",
+    "GET /analyze/{symbol}": """{
+  "card": {
+    "rank": 1,
+    "symbol": "AAPL",
+    "market": {"id": "2", "name": "S&P 500 STOCKS"},
+    "direction": "long",
+    "signal": "BUY",
+    "setup": {"entry_date": "2026-06-25", "entry_window": "2026-06-22 to 2026-06-28",
+              "hold_days": 24, "exit_date": "2026-07-19"},
+    "edge_score": 91,
+    "edge_basis": "win_rate 1.00 x sharpe 3.4 x ml_win_prob 0.71 x 10y history",
+    "stats": {"historical_win_rate": 1.0, "sharpe_ratio": 3.42,
+              "avg_return_pct": 6.05, "median_return_pct": 6.01, "years": "10"},
+    "ml": {"ml_score": 59.5, "ml_win_prob": 0.7087,
+           "pred_return_pct": 1.3736, "pred_mfe_pct": 5.8771},
+    "receipts": {
+      "years_tested": 10, "wins": 10, "losses": 0,
+      "historical_win_rate": 1.0, "avg_return_pct": 6.05, "median_return_pct": 6.01,
+      "best_year": {"year": "2016", "return_pct": 8.51},
+      "worst_year": {"year": "2017", "return_pct": 3.57},
+      "per_year": [{"year": "2025", "return_pct": 5.42, "result": "win"}],
+      "curve_summary": {"shape": "builds through the window (peak ~day 363), rises overall",
+                        "peak_day": 363, "trough_day": 0},
+      "source": "TradeWave seasonal model, 10y lookback", "as_of": "2026-05-31"
+    },
+    "next_step": {
+      "headline": "To act on this, here is a ready-to-place ticket:",
+      "order_ticket": {"side": "BUY", "symbol": "AAPL", "type": "MARKET",
+                       "time_in_force": "DAY", "suggested_entry_date": "2026-06-25",
+                       "suggested_exit_date": "2026-07-19",
+                       "note": "Seasonal hold ~24 calendar days. Size to your own risk."},
+      "copy_text": "BUY AAPL market, day order; plan exit ~2026-07-19 (24d seasonal hold).",
+      "set_reminder": {"type": "seasonal_entry", "fire_on": "2026-06-24",
+                       "message": "AAPL seasonal window opens tomorrow."},
+      "framing": "TradeWave gives the edge and the timing; you place the trade at your own broker."
+    },
+    "headline": "AAPL long - enter ~Jun 25, hold 24d. Won 10/10 years, avg +6.0%, Sharpe 3.4.",
+    "verdict": "Strong, consistent seasonal long. Seasonal shape: builds through the window (peak ~day 363), rises overall.",
+    "disclaimer": "Educational seasonal + ML signal, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+    "tier_notes": "ML score shown (Pro)."
+  },
+  "other_setups": [
+    {"symbol": "AAPL", "direction": "long", "entry_date": "2026-06-24",
+     "hold_days": 28, "historical_win_rate": 1.0, "sharpe_ratio": 2.95,
+     "avg_return_pct": 6.5, "median_return_pct": 6.34, "years": "10"}
+  ],
+  "as_of": "2026-05-31"
+}""",
     "GET /daily-pick": """{
-  "symbol":          "NVDA",
-  "featured_date":   "2026-05-27",
-  "direction":       "long",
-  "days_out":        18,
-  "pattern_summary": "Strong June seasonal with 82% win rate over 10 years.",
-  "ml": {
-    "ml_score": 0.88, "win_prob": 0.84,
-    "pred_return": 4.1, "pred_mfe": 6.3
-  }
+  "card": {
+    "rank": 1,
+    "symbol": "NVDA",
+    "market": {"id": "2", "name": "S&P 500 STOCKS"},
+    "direction": "long",
+    "signal": "BUY",
+    "setup": {"entry_date": "2026-05-08", "entry_window": "2026-05-05 to 2026-05-11",
+              "hold_days": 30, "exit_date": "2026-06-07"},
+    "edge_score": 85,
+    "edge_basis": "win_rate 0.82 x sharpe 2.8 x ml_win_prob 0.85 x 11y history",
+    "stats": {"historical_win_rate": 0.82, "sharpe_ratio": 2.84,
+              "avg_return_pct": 23.79, "median_return_pct": 23.51, "years": "10"},
+    "ml": {"ml_score": 95.6, "ml_win_prob": 0.8452,
+           "pred_return_pct": 6.8239, "pred_mfe_pct": 14.4871},
+    "receipts": {
+      "years_tested": 11, "wins": 9, "losses": 2,
+      "historical_win_rate": 0.82, "avg_return_pct": 23.79, "median_return_pct": 23.51,
+      "best_year": {"year": "2017", "return_pct": 45.25},
+      "worst_year": {"year": "2019", "return_pct": -16.24},
+      "per_year": [{"year": "2019", "return_pct": -16.24, "result": "loss"}],
+      "curve_summary": {"shape": "builds through the window (peak ~day 364), rises overall",
+                        "peak_day": 364, "trough_day": 0},
+      "source": "TradeWave seasonal model, 10y lookback", "as_of": "2026-05-31",
+      "live_track_record": {"count": 10, "win_count": 7, "win_rate": 0.7,
+                            "avg_return_pct": 6.69,
+                            "note": "Live forward-tested record of past daily picks (made in advance, scored later)."}
+    },
+    "next_step": {
+      "headline": "To act on this, here is a ready-to-place ticket:",
+      "order_ticket": {"side": "BUY", "symbol": "NVDA", "type": "MARKET",
+                       "time_in_force": "DAY", "suggested_entry_date": "2026-05-08",
+                       "suggested_exit_date": "2026-06-07",
+                       "note": "Seasonal hold ~30 calendar days. Size to your own risk."},
+      "copy_text": "BUY NVDA market, day order; plan exit ~2026-06-07 (30d seasonal hold).",
+      "set_reminder": {"type": "seasonal_entry", "fire_on": "2026-05-07",
+                       "message": "NVDA seasonal window opens tomorrow."},
+      "framing": "TradeWave gives the edge and the timing; you place the trade at your own broker."
+    },
+    "headline": "NVDA long - enter ~May 8, hold 30d. Won 9/11 years, avg +23.8%, Sharpe 2.8.",
+    "verdict": "Strong, consistent seasonal long. Seasonal shape: builds through the window (peak ~day 364), rises overall.",
+    "disclaimer": "Educational seasonal + ML signal, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+    "tier_notes": "ML score shown (Pro)."
+  },
+  "featured_date": "2026-05-08",
+  "track_record": {"count": 10, "win_count": 7, "win_rate": 0.7,
+                   "avg_return_pct": 6.69,
+                   "note": "Live forward-tested record of past daily picks (made in advance, scored later)."},
+  "as_of": "2026-05-31"
 }""",
     "GET /daily-pick/track-record": """{
   "summary": {
@@ -1015,10 +1164,10 @@ def build_api_reference() -> str:
 """
     return page(
         title="API Reference",
-        description="Complete reference for all 9 TradeWave API v1 endpoints - parameters, schemas, and example responses.",
+        description="Complete reference for all 11 TradeWave API v1 endpoints - parameters, schemas, and example responses.",
         active_href="api-reference.html",
         hero_title="API Reference",
-        hero_sub="All 9 endpoints, generated from the OpenAPI contract.",
+        hero_sub="All 11 endpoints, generated from the OpenAPI contract.",
         body=body,
     )
 

@@ -19,13 +19,31 @@ log = logging.getLogger("apiserver.auth")
 _redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 
 
+class AuthMisconfigured(Exception):
+    """The HMAC secret is unset, so we cannot hash keys. Fail CLOSED (503) rather than
+    authenticate against an empty-secret hash. Mirrors appserver.py login_api (503)."""
+
+
+# Startup-time loud check: a box with no HMAC secret can never authenticate anyone, so
+# surface it the moment the module imports rather than only on the first request.
+if not settings.API_KEY_HMAC_SECRET:
+    log.error("API_KEY_HMAC_SECRET (or APPSERVER_JWT_SECRET) is unset; the gateway will "
+              "refuse all authenticated requests with 503 until it is configured.")
+
+
 def hash_key(raw_key):
     secret = (settings.API_KEY_HMAC_SECRET or "").encode()
     return hmac.new(secret, raw_key.encode(), hashlib.sha256).hexdigest()
 
 
 def resolve_customer(raw_key):
-    """raw API key -> {user_id, email, tier(api), entitlements} or None."""
+    """raw API key -> {user_id, email, tier(api), entitlements} or None.
+
+    Fail CLOSED: if the HMAC secret is unset we raise AuthMisconfigured (translated to a
+    503 by require_api_key) instead of hashing with an empty secret, which could otherwise
+    match a row stored under an empty-secret hash."""
+    if not settings.API_KEY_HMAC_SECRET:
+        raise AuthMisconfigured("API_KEY_HMAC_SECRET not configured")
     if not raw_key:
         return None
     row = db.get_user_by_key_hash(hash_key(raw_key))
@@ -50,10 +68,17 @@ def _extract_key():
 def require_api_key(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        cust = resolve_customer(_extract_key())
+        try:
+            cust = resolve_customer(_extract_key())
+        except AuthMisconfigured:
+            # Box is misconfigured (no HMAC secret). Fail closed: 503, never authenticate.
+            return jsonify({"error": {"code": "service_misconfigured",
+                                      "message": "service misconfigured"}}), 503
         if not cust:
             return jsonify({"error": {"code": "unauthorized",
                                       "message": "invalid or missing API key"}}), 401
+        # NOTE: record_usage runs only past this point, so 401/503/rate-limited calls are
+        # not metered - only authenticated, non-rate-limited requests count.
         ok, headers = check_rate_limit(cust)
         if not ok:
             resp = jsonify({"error": {"code": "rate_limited", "message": "rate limit exceeded"}})

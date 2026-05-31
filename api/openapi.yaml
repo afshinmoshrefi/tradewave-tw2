@@ -6,7 +6,12 @@ openapi: 3.1.0
 # INVARIANTS baked in here (do not weaken without sign-off):
 #   - SIGNALS ONLY. No raw OHLCV / last price / price-by-date is ever returned.
 #     All returns are expressed as PERCENTAGES, never price levels (EOD posture).
-#   - ML fields (ml_score, win_prob, pred_return, pred_mfe) are Pro-tier only.
+#     order_ticket carries NO price level (side/type/TIF/dates/note only).
+#   - ML fields are Pro-tier only. On the SignalCard the ml block is
+#     {ml_score, ml_win_prob, pred_return_pct, pred_mfe_pct}; ml_win_prob is the
+#     model's probability and is DISTINCT from historical_win_rate (share of
+#     profitable years). NEVER call both "win rate". The legacy /score + bulk
+#     /opportunities ml block keeps its older names (win_prob, pred_return, pred_mfe).
 #   - Market ids are the permanent resource keys '0'..'16' (stable IDs, never renumber).
 #   - 'years' / seasonal-window labels stay strings.
 # x-verify: field availability/shape to be confirmed against appserver OppList4/
@@ -26,11 +31,60 @@ servers:
 security:
   - ApiKeyAuth: []
 tags:
+  - name: signals
+    description: Flagship composed endpoints - ranked SignalCards (scan) and deep-dive (analyze). Prefer these over the low-level primitives.
   - name: markets
   - name: opportunities
   - name: scoring
   - name: daily-pick
 paths:
+  /scan:
+    get:
+      tags: [signals]
+      summary: Scan in-scope markets for the best seasonal setups (ranked SignalCards)
+      description: >
+        The flagship scanner (find_best_opportunities). Fans out over the caller's
+        in-scope markets, scores each candidate by edge_score, and returns ranked
+        SignalCards. ML fields populate inline for Pro callers on ML-eligible markets
+        (ids 0-4, 11); null otherwise with a tier nudge. win_rate enrichment is applied
+        AFTER ranking/slicing, so evaluated_count + enrichment_capped are surfaced and
+        the min_win_rate cap is never silently misleading.
+      parameters:
+        - { name: markets, in: query, schema: { type: string }, description: "csv of ids or names e.g. '2,11' or 'gold,energy'. Default = ALL in-scope markets." }
+        - { name: window, in: query, schema: { type: string, default: now }, description: "'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. 'now' = setups whose entry_date falls within the next ~10 trading days. Default 'now'." }
+        - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
+        - { name: min_win_rate, in: query, schema: { type: number, minimum: 0, maximum: 1 }, description: "filter on historical_win_rate (share of profitable years), NOT ml_win_prob. Rows past the enrichment cap are excluded when set." }
+        - { name: min_years, in: query, schema: { type: integer }, description: "trust filter - require years_tested >= N" }
+        - { name: rank_by, in: query, schema: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return], default: edge }, description: "ranking key; default edge (the blended edge_score)" }
+        - { name: limit, in: query, schema: { type: integer, default: 25 }, description: "tier-capped (free 3, dev 25, pro up to 5000)" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScanResponse" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /analyze/{symbol}:
+    get:
+      tags: [signals]
+      summary: Deep-dive one symbol into a single rich SignalCard + alternate setups
+      description: >
+        analyze_symbol - one symbol fused server-side into one best-setup SignalCard
+        plus the other candidate setups (compact) and receipts, from OppBySymbol +
+        ChartData4 stats + the consolidated seasonal curve (+ MLScore for Pro). Replaces
+        the multi-call stitch and guarantees win_rate consistency across the response.
+      parameters:
+        - { name: symbol, in: path, required: true, schema: { type: string } }
+        - { name: market, in: query, schema: { type: string }, description: "permanent resource key '0'..'16'. Optional - resolved if the symbol is unique." }
+        - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
+        - { name: days_out, in: query, schema: { type: integer }, description: "holding period in days (internal: daysOut)" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalyzeResponse" }
+        "429": { $ref: "#/components/responses/RateLimited" }
   /markets:
     get:
       tags: [markets]
@@ -65,15 +119,18 @@ paths:
   /opportunities:
     get:
       tags: [opportunities]
-      summary: Ranked seasonal opportunities
+      summary: Ranked seasonal opportunities (single entry-date primitive)
       description: >
-        The core product. Returns ranked seasonal trade setups for a market and
-        date window. ML fields are null unless the caller is Pro and the market
-        is ML-eligible (ids 0-4, 11).
+        The core primitive. Returns ranked seasonal trade setups for ONE market at a
+        single entry_date (echoed in the response). It does NOT widen across a date
+        window - /scan owns windows. 'from' is accepted; 'to' is accepted but does NOT
+        widen the search (window_supported is false). ML fields are null unless the
+        caller is Pro and the market is ML-eligible (ids 0-4, 11); the ml block here
+        keeps the legacy names {ml_score, win_prob, pred_return, pred_mfe}.
       parameters:
         - { name: market, in: query, required: true, schema: { type: string }, description: "market id '0'..'16'" }
-        - { name: from, in: query, schema: { type: string, format: date } }
-        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: from, in: query, schema: { type: string, format: date }, description: "entry_date to evaluate; defaults to today" }
+        - { name: to, in: query, schema: { type: string, format: date }, description: "ACCEPTED but ignored - does not widen the window (window_supported:false). Use /scan for windows." }
         - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
         - { name: min_win_rate, in: query, schema: { type: number, minimum: 0, maximum: 1 }, description: "filter on the REAL historical win_rate (share of profitable years), not the ML win_prob. Rows are enriched per symbol from ChartData4 'Percent Profitable', capped at the first 50 rows; rows past the cap (unknown win_rate) are excluded when this filter is set." }
         - { name: limit, in: query, schema: { type: integer, default: 25 }, description: "tier-capped (free 3, dev 25, pro up to 5000)" }
@@ -82,12 +139,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  opportunities:
-                    type: array
-                    items: { $ref: "#/components/schemas/Opportunity" }
+              schema: { $ref: "#/components/schemas/OpportunityList" }
         "429": { $ref: "#/components/responses/RateLimited" }
   /opportunities/{symbol}:
     get:
@@ -172,13 +224,18 @@ paths:
   /daily-pick:
     get:
       tags: [daily-pick]
-      summary: Today's AI pick (the ML-selected featured opportunity)
+      summary: Today's AI pick as a SignalCard, with its live track record
+      description: >
+        The ML-selected featured opportunity, returned as a full SignalCard. The card's
+        receipts ALSO carry live_track_record (the forward-tested record of past picks -
+        made in advance, scored later), the strongest receipt. featured_date is the date
+        the pick was made; track_record echoes the live record at the top level too.
       responses:
         "200":
           description: OK
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/DailyPick" }
+              schema: { $ref: "#/components/schemas/DailyPickResponse" }
   /daily-pick/track-record:
     get:
       tags: [daily-pick]
@@ -240,7 +297,196 @@ components:
         median_profit_pct: { type: number }
         win_rate: { type: number, nullable: true, description: "REAL historical win rate, 0..1: share of years the seasonal window finished profitable (any positive year; no threshold), from ChartData4 'Percent Profitable'. Distinct from ml.win_prob. May be null on the bulk list past the per-row enrichment cap." }
         years: { type: string, description: "lookback window label, stays a string" }
-        ml: { $ref: "#/components/schemas/MLScore", description: "null unless Pro + ML-eligible market" }
+        ml: { $ref: "#/components/schemas/MLScore", description: "null unless Pro + ML-eligible market. Legacy names (win_prob, pred_return, pred_mfe)." }
+    OpportunityList:
+      type: object
+      description: >
+        Single-entry-date ranked list. window_supported is false - this primitive does
+        not widen across a date window (use /scan). evaluated_count + enrichment_capped
+        report the per-row win_rate enrichment cap so the min_win_rate filter is never
+        silently misleading.
+      properties:
+        entry_date: { type: string, format: date, description: "the single entry_date evaluated (echoes 'from', defaults to today)" }
+        window_supported: { type: boolean, description: "always false here - 'to' does not widen the window; /scan owns windows" }
+        evaluated_count: { type: integer, description: "how many candidate rows were enriched with win_rate (the enrichment cap, e.g. 50)" }
+        enrichment_capped: { type: boolean, description: "true when more rows existed than were win_rate-enriched (rows past the cap have unknown win_rate)" }
+        opportunities:
+          type: array
+          items: { $ref: "#/components/schemas/Opportunity" }
+    SignalCard:
+      type: object
+      description: >
+        THE unit returned by /scan, /analyze/{symbol} and /daily-pick. Composed
+        server-side: structured fields for strong agents plus pre-composed headline +
+        verdict so weak agents render consistently. SIGNALS ONLY - all movement is
+        percentages; order_ticket carries NO price level.
+      properties:
+        rank: { type: integer, description: "pre-sorted by the endpoint; the agent never re-sorts" }
+        symbol: { type: string }
+        market: { $ref: "#/components/schemas/MarketRef" }
+        direction: { type: string, enum: [long, short] }
+        signal: { type: string, enum: [BUY, SELL, NO_SIGNAL], description: "NO_SIGNAL = low conviction (edge_score < 40 OR historical_win_rate < 0.55 OR years_tested < 5); next_step.order_ticket is omitted." }
+        setup: { $ref: "#/components/schemas/SignalSetup" }
+        edge_score: { type: integer, description: "0-100 blended ranking score: round(100 * clamp01(0.40*win_rate + 0.30*sharpe_n + 0.20*ml_n + 0.10*history_n)). Explainable; v1 default, tunable." }
+        edge_basis: { type: string, description: "human-readable dominant factors, e.g. 'win_rate 0.80 x sharpe 1.4 x 10y history'" }
+        stats: { $ref: "#/components/schemas/SignalStats" }
+        ml: { $ref: "#/components/schemas/SignalCardML", nullable: true, description: "null (not omitted) unless Pro + ML-eligible market (0-4,11); tier_notes carries the nudge" }
+        receipts: { $ref: "#/components/schemas/Receipts" }
+        next_step: { $ref: "#/components/schemas/NextStep" }
+        headline: { type: string, description: "gateway-composed one-line summary (mandatory). No em-dashes." }
+        verdict: { type: string, description: "gateway-composed plain-English read (mandatory)" }
+        disclaimer: { type: string, description: "exact regulatory disclaimer, present on every card" }
+        tier_notes: { type: string, description: "'ML score shown (Pro).' or the free-tier upgrade nudge" }
+    MarketRef:
+      type: object
+      properties:
+        id: { type: string, example: "11", description: "permanent resource key '0'..'16'" }
+        name: { type: string, example: "ETFs" }
+    SignalSetup:
+      type: object
+      description: The timing of the setup. Dates only - no price levels.
+      properties:
+        entry_date: { type: string, format: date }
+        entry_window: { type: string, description: "tolerance range (a few trading days), e.g. '2026-07-08 to 2026-07-15'" }
+        hold_days: { type: integer, description: "seasonal hold in calendar days" }
+        exit_date: { type: string, format: date }
+    SignalStats:
+      type: object
+      description: Headline percent-only stats. No price levels.
+      properties:
+        historical_win_rate: { type: number, description: "0..1, share of profitable years (Percent Profitable). DISTINCT from ml.ml_win_prob." }
+        sharpe_ratio: { type: number }
+        avg_return_pct: { type: number }
+        median_return_pct: { type: number }
+        years: { type: string, description: "lookback label, stays a string" }
+    SignalCardML:
+      type: object
+      description: >
+        Pro-tier ML output on the SignalCard. Note the names differ from the legacy
+        MLScore block: ml_win_prob (NOT win_prob), pred_return_pct, pred_mfe_pct.
+      properties:
+        ml_score: { type: number }
+        ml_win_prob: { type: number, description: "0..1 model probability. DISTINCT from historical_win_rate." }
+        pred_return_pct: { type: number, description: "predicted return %" }
+        pred_mfe_pct: { type: number, description: "predicted max favorable excursion %" }
+    Receipts:
+      type: object
+      description: >
+        The trust layer - always present on a BUY/SELL. Per-year historical evidence
+        built from ChartData4 returns + Percent Profitable. Returns are percentages.
+      properties:
+        years_tested: { type: integer }
+        wins: { type: integer }
+        losses: { type: integer }
+        historical_win_rate: { type: number, description: "0..1, share of profitable years (same value as stats.historical_win_rate)" }
+        avg_return_pct: { type: number }
+        median_return_pct: { type: number }
+        best_year: { $ref: "#/components/schemas/YearReturn" }
+        worst_year: { $ref: "#/components/schemas/YearReturn" }
+        per_year:
+          type: array
+          description: one row per lookback year (capped at the lookback length); never the 365-point curve
+          items:
+            type: object
+            properties:
+              year: { type: string }
+              return_pct: { type: number }
+              result: { type: string, enum: [win, loss], description: "win if return_pct > 0 (no threshold, matches the UI)" }
+        curve_summary:
+          type: object
+          nullable: true
+          description: "one-line shape derived from the normalized seasonal curve; null when the curve is unavailable"
+          properties:
+            shape: { type: string }
+            peak_day: { type: integer }
+            trough_day: { type: integer }
+        source: { type: string, example: "TradeWave seasonal model, 10y lookback" }
+        as_of: { type: string, format: date }
+        live_track_record:
+          allOf: [ { $ref: "#/components/schemas/TrackRecordSummary" } ]
+          nullable: true
+          description: "ONLY on the daily-pick card - the live forward-tested record of past picks (made in advance, scored later). Absent on /scan and /analyze cards."
+    YearReturn:
+      type: object
+      properties:
+        year: { type: string }
+        return_pct: { type: number }
+    TrackRecordSummary:
+      type: object
+      description: Live forward-tested record of past daily picks.
+      properties:
+        count: { type: integer }
+        win_count: { type: integer }
+        win_rate: { type: number, description: "0..1 realized win rate of past picks" }
+        avg_return_pct: { type: number }
+        note: { type: string }
+    NextStep:
+      type: object
+      description: >
+        The no-broker last mile. order_ticket is broker-agnostic and copyable and
+        carries NO price level (side/type/TIF/dates/note only). Omitted on NO_SIGNAL.
+      properties:
+        headline: { type: string }
+        order_ticket:
+          type: object
+          description: broker-agnostic ticket - NO price level, NO limit price in absolute terms
+          properties:
+            side: { type: string, enum: [BUY, SELL] }
+            symbol: { type: string }
+            type: { type: string, example: "MARKET" }
+            time_in_force: { type: string, example: "DAY" }
+            suggested_entry_date: { type: string, format: date }
+            suggested_exit_date: { type: string, format: date }
+            note: { type: string, description: "hold guidance + a 'size to your own risk' nudge. No price level." }
+        copy_text: { type: string, description: "one-line copyable ticket text" }
+        set_reminder:
+          type: object
+          properties:
+            type: { type: string, example: "seasonal_entry" }
+            fire_on: { type: string, format: date }
+            message: { type: string }
+        framing: { type: string, description: "'TradeWave gives the edge and the timing; you place the trade at your own broker.'" }
+    ScanResponse:
+      type: object
+      properties:
+        generated_at: { type: string, format: date-time }
+        window: { type: string, description: "the resolved window (e.g. 'now')" }
+        rank_by: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return] }
+        count: { type: integer, description: "number of cards returned" }
+        evaluated_count: { type: integer, description: "candidates considered before slicing/enrichment" }
+        enrichment_capped: { type: boolean, description: "true when win_rate enrichment hit its cap" }
+        opportunities:
+          type: array
+          items: { $ref: "#/components/schemas/SignalCard" }
+    AnalyzeResponse:
+      type: object
+      properties:
+        card: { $ref: "#/components/schemas/SignalCard", description: "the best setup as a full SignalCard" }
+        other_setups:
+          type: array
+          description: alternate candidate setups for the same symbol (compact - no card composition)
+          items: { $ref: "#/components/schemas/CompactSetup" }
+        as_of: { type: string, format: date }
+    CompactSetup:
+      type: object
+      description: A compact alternate setup (percent stats only, no card/receipts/ml).
+      properties:
+        symbol: { type: string }
+        direction: { type: string, enum: [long, short] }
+        entry_date: { type: string, format: date }
+        hold_days: { type: integer }
+        historical_win_rate: { type: number, description: "0..1, share of profitable years" }
+        sharpe_ratio: { type: number }
+        avg_return_pct: { type: number }
+        median_return_pct: { type: number }
+        years: { type: string }
+    DailyPickResponse:
+      type: object
+      properties:
+        card: { $ref: "#/components/schemas/SignalCard", description: "the pick as a full SignalCard; receipts.live_track_record carries the live record" }
+        featured_date: { type: string, format: date, description: "the date the pick was made" }
+        track_record: { $ref: "#/components/schemas/TrackRecordSummary", description: "the live forward-tested record (echoed at top level)" }
+        as_of: { type: string, format: date }
     ScoreRequest:
       type: object
       properties:
@@ -256,10 +502,12 @@ components:
               direction: { type: string, enum: [long, short] }
     MLScore:
       type: object
-      description: Pro-tier ML output.
+      description: >
+        Pro-tier ML output (legacy block used by /score and bulk /opportunities). The
+        SignalCard uses SignalCardML instead (ml_win_prob / pred_return_pct / pred_mfe_pct).
       properties:
         ml_score: { type: number }
-        win_prob: { type: number, description: "0..1" }
+        win_prob: { type: number, description: "0..1 model probability. DISTINCT from the historical win_rate. (SignalCard names this ml_win_prob.)" }
         pred_return: { type: number, description: "predicted return %" }
         pred_mfe: { type: number, description: "predicted max favorable excursion %" }
     Pattern:
