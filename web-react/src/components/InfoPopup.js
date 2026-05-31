@@ -35,7 +35,7 @@ const InfoPopup = (props) => {
         case 'terms-conditions':
             title = '';
 
-            if (rdd.isMobile && !rdd.isTablet && browserH > browserW) { display_not_smartphonep = 'none'; display_smartphonep = 'flex'; DialogW = '86%'; DialogH = '86%'; DialogT = '14%'; DialogL = '10%'; titleFontSize = '6vw'; contentFontSize = '3.8vw'; buttonFontSize = '4vw'; buttonH = '5vh'; logo_width = '65vw' }
+            if (rdd.isMobile && !rdd.isTablet && browserH > browserW) { display_not_smartphonep = 'none'; display_smartphonep = 'flex'; DialogW = '86%'; DialogH = '86%'; DialogT = '4%'; DialogL = '10%'; titleFontSize = '6vw'; contentFontSize = '3.8vw'; buttonFontSize = '4vw'; buttonH = '5vh'; logo_width = '65vw' }
             else if (rdd.isMobile && !rdd.isTablet && browserH < browserW) { DialogW = '70%'; DialogH = '76%'; DialogT = '24%'; DialogL = '15%'; titleFontSize = '2vw'; contentFontSize = '1.7vw'; buttonFontSize = '1.8vw'; buttonH = '6.0vh'; logo_width = '30vw'; line_height = '100%' }
             else if (rdd.isMobile && rdd.isTablet && browserH > browserW) { DialogW = '80%'; DialogH = '60%'; DialogT = '30%'; DialogL = '10%'; titleFontSize = '4.5vw'; contentFontSize = '2.3vw'; buttonFontSize = '3vw'; buttonH = '5vh'; logo_width = '36vw' }
             else if (rdd.isMobile && rdd.isTablet && browserH < browserW) { DialogW = '50%'; DialogH = '70%'; DialogT = '15%'; DialogL = '25%'; titleFontSize = '2vw'; contentFontSize = '1.2vw'; buttonFontSize = '2vw'; buttonH = '7vh'; logo_width = '22vw' }

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Learn - Platform Guides and Tutorials - TradeWave</title>
+  <meta name="description" content="Step-by-step guides to TradeWave: the Wave Viewer, Stats Table, Trend Chart, Portfolio Manager, and how to read a seasonal trading opportunity.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://tw2.trxstat.com/learn/">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="shortcut icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <meta property="og:site_name" content="TradeWave Learn">
+  <meta property="og:title" content="Learn - TradeWave">
+  <meta property="og:description" content="Step-by-step guides to TradeWave: how to read seasonal patterns, use the Wave Viewer, and build a portfolio.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://tw2.trxstat.com/learn/">
+  <meta property="og:image" content="https://tw2.trxstat.com/favicon.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@TradeWaveHQ">
+  <meta name="twitter:title" content="Learn - TradeWave">
+  <meta name="twitter:description" content="Step-by-step guides to TradeWave: how to read seasonal patterns, use the Wave Viewer, and build a portfolio.">
+  <meta name="twitter:image" content="https://tw2.trxstat.com/favicon.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "name": "TradeWave Learn",
+    "url": "https://tw2.trxstat.com/learn/",
+    "description": "Step-by-step guides to TradeWave: how to read seasonal patterns, use the Wave Viewer, and build a portfolio.",
+    "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tw2.trxstat.com/favicon.png"}},
+    "blogPost": [
+      {% for a in articles %}
+      {
+        "@type": "BlogPosting",
+        "headline": {{ a.title | tojson }},
+        "description": {{ a.summary | tojson }},
+        "datePublished": "{{ a.date_iso }}",
+        "url": "https://tw2.trxstat.com/learn/{{ a.slug }}.html",
+        "keywords": {{ (a.tags or []) | tojson }}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type": "ListItem", "position": 1, "name": "Home",     "item": "https://tw2.trxstat.com/"},
+      {"@type": "ListItem", "position": 2, "name": "Learn", "item": "https://tw2.trxstat.com/learn/"}
+    ]
+  }
+  </script>
+  <style>
+    :root {
+      --bg: #0f0a15;
+      --bg-alt: #15101e;
+      --text: #e5e7eb;
+      --text-dim: #9ca3af;
+      --text-muted: #6b7280;
+      --border: #1f2937;
+      --link: #a78bfa;
+      --link-hover: #c4b5fd;
+      --accent: #8b5cf6;
+    }
+    html, body { background: var(--bg); color: var(--text); margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Arial, sans-serif; font-size: 16px; line-height: 1.65; }
+    .learn-hero { background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(168,85,247,0.10) 100%); border-bottom: 1px solid var(--border); padding: 64px 24px 48px; text-align: center; }
+    .learn-hero h1 { margin: 0 0 12px; font-size: 44px; font-weight: 800; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .learn-hero p { margin: 0 auto; max-width: 720px; color: var(--text-dim); font-size: 18px; }
+    main.learn-grid { max-width: 1100px; margin: 0 auto; padding: 48px 24px 72px; }
+    .learn-grid-inner { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+    .learn-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 24px 24px 20px; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; display: flex; flex-direction: column; }
+    .learn-card:hover { transform: translateY(-2px); border-color: rgba(139,92,246,0.36); box-shadow: 0 12px 32px rgba(139,92,246,0.12); }
+    .learn-card h2 { margin: 0 0 10px; font-size: 19px; font-weight: 700; line-height: 1.35; }
+    .learn-card h2 a { color: var(--text); text-decoration: none; }
+    .learn-card h2 a:hover { color: var(--link); }
+    .learn-card .meta { font-size: 12px; color: var(--text-muted); margin: 0 0 12px; letter-spacing: 0.02em; text-transform: uppercase; }
+    .learn-card .summary { color: var(--text-dim); font-size: 14.5px; line-height: 1.65; margin: 0 0 16px; flex-grow: 1; }
+    .learn-card .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .learn-card .tag { font-size: 11px; padding: 3px 8px; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.22); border-radius: 999px; color: var(--text-dim); text-transform: lowercase; }
+    .learn-card .read-link { font-size: 13px; font-weight: 600; color: var(--link); text-decoration: none; align-self: flex-start; }
+    .learn-card .read-link:hover { color: var(--link-hover); }
+    .learn-card.featured { grid-column: 1 / -1; background: linear-gradient(180deg, rgba(139,92,246,0.06) 0%, rgba(99,102,241,0.03) 100%); border-color: rgba(139,92,246,0.25); padding: 32px; }
+    .learn-card.featured h2 { font-size: 26px; }
+    .learn-card.featured .summary { font-size: 16px; }
+    .learn-page-footer { border-top: 1px solid var(--border); background: var(--bg-alt); padding: 40px 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
+    .learn-page-footer nav { margin-bottom: 16px; }
+    .learn-page-footer nav a { color: var(--text-dim); text-decoration: none; margin: 0 12px; font-size: 14px; }
+    .learn-page-footer nav a:hover { color: #fff; }
+    @media (max-width: 720px) {
+      .learn-hero h1 { font-size: 32px; }
+      .learn-grid-inner { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+{{ tw_header | safe }}
+
+<section class="learn-hero">
+  <h1>Learn</h1>
+  <p>Step-by-step guides to TradeWave: the Wave Viewer, the Stats Table, the Trend Chart, the Portfolio Manager, and how to read a seasonal trading opportunity.</p>
+</section>
+
+<main class="learn-grid">
+  <div class="learn-grid-inner">
+    {% for a in articles %}
+    <article class="learn-card{{ ' featured' if a.featured else '' }}">
+      <h2><a href="/learn/{{ a.slug }}.html">{{ a.title }}</a></h2>
+      <div class="meta">{{ a.date_pretty }} - {{ a.reading_minutes }} min read</div>
+      {% if a.tags %}
+      <div class="tags">{% for t in a.tags %}<span class="tag">{{ t }}</span>{% endfor %}</div>
+      {% endif %}
+      <p class="summary">{{ a.summary }}</p>
+      <a class="read-link" href="/learn/{{ a.slug }}.html">Read article -&gt;</a>
+    </article>
+    {% endfor %}
+  </div>
+</main>
+
+<footer class="learn-page-footer">
+  <nav aria-label="Footer">
+    <a href="/">Home</a>
+    <a href="/app/">Wave Viewer</a>
+    <a href="/learn.html">Learn</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+    <a href="/disclaimer.html">Disclaimer</a>
+  </nav>
+  <p>&copy; {{ year }} Tara Data Research LLC. All rights reserved.</p>
+</footer>
+</body>
+</html>

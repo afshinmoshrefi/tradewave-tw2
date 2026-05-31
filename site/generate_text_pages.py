@@ -26,6 +26,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
 from text_utils import no_em_dash  # noqa: E402
 
+sys.path.insert(0, "/home/flask")
+import config  # noqa: E402  - per-env values (TURNSTILE_SITE_KEY) baked at gen time
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -507,39 +510,69 @@ def build_contact() -> tuple[str, dict]:
 </div>
 
 <h2>Or write to us directly</h2>
-<form class="contact-form" id="tw-contact-form" onsubmit="return twContactSubmit(event)">
+<form class="contact-form" id="tw-contact-form" novalidate>
   <div class="row">
     <div class="field">
       <label for="cf-name">Your name</label>
-      <input id="cf-name" name="name" type="text" required autocomplete="name">
+      <input id="cf-name" name="name" type="text" required autocomplete="name" maxlength="200">
     </div>
     <div class="field">
       <label for="cf-email">Your email</label>
-      <input id="cf-email" name="email" type="email" required autocomplete="email">
+      <input id="cf-email" name="email" type="email" required autocomplete="email" maxlength="320">
     </div>
   </div>
   <div class="field">
-    <label for="cf-subject">Topic</label>
-    <select id="cf-subject" name="subject">
-      <option>Bug report</option>
-      <option>Feature request</option>
-      <option>Billing question</option>
-      <option>Account access</option>
-      <option>Data accuracy</option>
-      <option>Institutional / API</option>
-      <option>Press inquiry</option>
-      <option>Other</option>
+    <label for="cf-topic">Topic</label>
+    <select id="cf-topic" name="topic">
+      <option value="bug">Bug report</option>
+      <option value="feature">Feature request</option>
+      <option value="billing">Billing question</option>
+      <option value="account">Account access</option>
+      <option value="data">Data accuracy</option>
+      <option value="institutional">Institutional / API</option>
+      <option value="press">Press inquiry</option>
+      <option value="other">Other</option>
     </select>
   </div>
   <div class="field">
     <label for="cf-message">Message</label>
-    <textarea id="cf-message" name="message" rows="6" required placeholder="Tell us what's on your mind…"></textarea>
+    <textarea id="cf-message" name="message" rows="6" required maxlength="8000" placeholder="Tell us what's on your mind..."></textarea>
   </div>
+
+  <!-- Honeypot: hidden, never filled by humans. Bots fill every input; if this
+       has a value the server silently treats the submit as success and drops it. -->
+  <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;">
+    <label for="cf-company">Company (leave blank)</label>
+    <input id="cf-company" name="company" type="text" tabindex="-1" autocomplete="off">
+  </div>
+
+  <div class="cf-turnstile" data-sitekey="{config.TURNSTILE_SITE_KEY}" data-callback="twTurnstileOk" data-error-callback="twTurnstileErr" style="margin: 8px 0 14px;"></div>
+
   <div class="submit-row">
-    <button type="submit">Send message</button>
-    <p class="form-note">Submitting opens your email client with this message pre-filled.</p>
+    <button type="submit" id="cf-submit">Send message</button>
+    <p class="form-note">Typical reply within one business day.</p>
   </div>
+  <div id="cf-status" class="cf-status" role="status" aria-live="polite"></div>
 </form>
+
+<style>
+  .cf-status {{ margin-top: 14px; font-size: 14px; min-height: 1.4em; }}
+  .cf-status.is-ok {{
+    color: #c4f0c8;
+    background: rgba(74, 222, 128, 0.08);
+    border: 1px solid rgba(74, 222, 128, 0.28);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }}
+  .cf-status.is-err {{
+    color: #fecaca;
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.28);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }}
+  .cf-status .ref {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }}
+</style>
 
 <div class="contact-faq">
   <h2>Frequently asked</h2>
@@ -561,18 +594,89 @@ def build_contact() -> tuple[str, dict]:
   </div>
 </div>
 
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <script>
-function twContactSubmit(e) {{
-  e.preventDefault();
-  var name = document.getElementById('cf-name').value.trim();
-  var email = document.getElementById('cf-email').value.trim();
-  var subject = document.getElementById('cf-subject').value;
-  var message = document.getElementById('cf-message').value.trim();
-  var body = 'From: ' + name + ' <' + email + '>\\n\\n' + message;
-  var url = 'mailto:{CONTACT_EMAIL}?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-  window.location.href = url;
-  return false;
-}}
+(function() {{
+  var form   = document.getElementById('tw-contact-form');
+  var status = document.getElementById('cf-status');
+  var submit = document.getElementById('cf-submit');
+  var token  = null;
+
+  // Turnstile callbacks - widget calls these once we have (or lose) a token.
+  window.twTurnstileOk  = function(t) {{ token = t; }};
+  window.twTurnstileErr = function() {{ token = null; }};
+
+  function showOk(publicId) {{
+    status.className = 'cf-status is-ok';
+    if (publicId) {{
+      status.innerHTML = 'Got it - your message landed. Reference: <span class="ref">' +
+                         publicId + '</span>. We have also emailed you a confirmation.';
+    }} else {{
+      status.textContent = 'Thanks - your message has been received.';
+    }}
+    form.querySelectorAll('input, select, textarea, button').forEach(function(el) {{ el.disabled = true; }});
+  }}
+
+  function showErr(msg) {{
+    status.className = 'cf-status is-err';
+    status.textContent = msg;
+    submit.disabled = false;
+    submit.textContent = 'Send message';
+  }}
+
+  var ERR_MESSAGES = {{
+    name_invalid:    'Please enter your name.',
+    email_invalid:   'Please enter a valid email address.',
+    topic_invalid:   'Please pick a topic.',
+    message_invalid: 'Please add a message (or shorten it if it is very long).',
+    captcha_failed:  'The verification check did not pass. Please reload the page and try again.',
+    server_error:    'Something went wrong on our end. Please try again in a moment, or email help@tradewave.ai directly.',
+  }};
+
+  form.addEventListener('submit', function(e) {{
+    e.preventDefault();
+    status.className = 'cf-status';
+    status.textContent = '';
+
+    if (!token) {{
+      showErr('One moment - waiting for the verification check to finish, then try again.');
+      return;
+    }}
+
+    submit.disabled = true;
+    submit.textContent = 'Sending...';
+
+    var payload = {{
+      name:    document.getElementById('cf-name').value.trim(),
+      email:   document.getElementById('cf-email').value.trim(),
+      topic:   document.getElementById('cf-topic').value,
+      message: document.getElementById('cf-message').value.trim(),
+      company: document.getElementById('cf-company').value,  // honeypot
+      turnstile_token: token,
+    }};
+
+    fetch('/api/contact', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify(payload),
+    }}).then(function(r) {{
+      return r.json().then(function(j) {{ return {{ status: r.status, body: j }}; }});
+    }}).then(function(res) {{
+      if (res.status >= 200 && res.status < 300 && res.body && res.body.ok) {{
+        showOk(res.body.public_id);
+      }} else {{
+        var code = (res.body && res.body.error) || 'server_error';
+        showErr(ERR_MESSAGES[code] || ERR_MESSAGES.server_error);
+        if (window.turnstile) {{ try {{ window.turnstile.reset(); }} catch (e) {{}} }}
+        token = null;
+      }}
+    }}).catch(function() {{
+      showErr(ERR_MESSAGES.server_error);
+      if (window.turnstile) {{ try {{ window.turnstile.reset(); }} catch (e) {{}} }}
+      token = null;
+    }});
+  }});
+}})();
 </script>
 """
     html = render_page(CONTACT_TITLE, CONTACT_SUBTITLE, body, None)
@@ -669,11 +773,9 @@ def main() -> int:
     summary.append(info)
     print(f"    authored    -> wrapped {info['wrapped_size']:>7} bytes")
 
-    print(f"  building {LEARN_FILENAME} (placeholder)...")
-    html, info = build_learn_placeholder()
-    write_output(LEARN_FILENAME, html)
-    summary.append(info)
-    print(f"    placeholder -> wrapped {info['wrapped_size']:>7} bytes")
+    # Learn placeholder removed 2026-05-31 - real content now generated by
+    # /home/flask/site/generate_learn.py (mirrors generate_insights.py).
+    # See /home/flask/site/content/learn/*.md for source.
 
     print()
     print("Done.")
