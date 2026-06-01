@@ -44,7 +44,7 @@ def assign_years_pyears(i):
     years  = 10  # this picks what opp table to scan
     pyears = 10   # 8 picks the long one
 
-    if i == 0 or i == 6 or i==7 or i == 11   : pyears = 9 # not enough results when returning 
+    if i == 0 or i == 6 or i==7 or i == 11 or i == 16   : pyears = 9 # not enough results when returning 
     if i == 9 or i==5                        : pyears = 8
     if i == 10              :  # this is bonds 
         years = 8
