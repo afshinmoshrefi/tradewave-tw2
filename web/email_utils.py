@@ -26,12 +26,69 @@ log = logging.getLogger("tw2.web.email_utils")
 MAILERLITE_API_URL = "https://connect.mailerlite.com/api/subscribers"
 MAILERLITE_BASE = "https://connect.mailerlite.com/api"
 
+RESEND_API_URL = "https://api.resend.com/emails"
+
 
 def _is_placeholder(val: str) -> bool:
     """Treat empty string or any value containing 'PLACEHOLDER' as unconfigured."""
     if not val:
         return True
     return 'PLACEHOLDER' in val
+
+
+def resend_send_email(to: str, subject: str, body_text: str,
+                      from_addr: str = None, reply_to: str = None) -> bool:
+    """Send a transactional email via Resend. Returns True on 2xx, False
+    otherwise. Never raises.
+
+    Skips silently (returns False) when RESEND_API_KEY is empty/placeholder -
+    e.g. on dev before Resend is wired. Caller can still rely on the database
+    row being written; the email is best-effort.
+    """
+    api_key = getattr(config, 'RESEND_API_KEY', '')
+    if _is_placeholder(api_key):
+        log.debug("resend_send_email skipped: RESEND_API_KEY is placeholder/empty")
+        return False
+
+    from_addr = from_addr or getattr(config, 'SUPPORT_EMAIL_FROM', '')
+    if not from_addr:
+        log.warning("resend_send_email: no from_addr; refusing to send")
+        return False
+
+    payload = {
+        "from":    from_addr,
+        "to":      [to] if isinstance(to, str) else list(to),
+        "subject": subject,
+        "text":    body_text,
+    }
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type":  "application/json",
+    }
+
+    try:
+        # 5s ceiling: caller is usually an HTTP handler (e.g. /api/contact);
+        # blocking a Flask worker longer than that risks the 30s gunicorn
+        # worker timeout cascading other requests. The DB row is the canonical
+        # record - a missed email can be resent manually.
+        resp = requests.post(RESEND_API_URL, json=payload, headers=headers, timeout=5)
+    except requests.RequestException as e:
+        log.warning("resend_send_email network error to=%s subject=%r: %s", to, subject, e)
+        return False
+    except Exception as e:
+        log.warning("resend_send_email unexpected error to=%s subject=%r: %s", to, subject, e)
+        return False
+
+    if 200 <= resp.status_code < 300:
+        log.info("resend_send_email ok to=%s subject=%r status=%s", to, subject, resp.status_code)
+        return True
+
+    log.warning("resend_send_email failed to=%s subject=%r status=%s body=%s",
+                to, subject, resp.status_code, (resp.text or "")[:300])
+    return False
 
 
 def mailerlite_subscribe(email: str, name: str = None) -> bool:

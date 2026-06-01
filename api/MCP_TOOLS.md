@@ -20,10 +20,16 @@ is a FastMCP `Context` and is stripped from the published input schema by FastMC
 
 **Safety contract (same as the API):** signals only - no raw OHLCV / last price /
 price-by-date. Returns are percentages, never price levels; the seasonal curve is a
-normalized 0-100 index, never a price. ML fields are Pro-only + ML-eligible-market
-(ids 0,1,2,3,4,11) and degrade gracefully (UpgradeRequired stub surfaced as a clear
-"Pro subscription required" message + `upgrade_url`, never an error). Weak setups come
-back as `NO_SIGNAL` rather than a manufactured trade.
+normalized 0-100 index, never a price. ML scores are available on every plan, metered
+daily (free Explorer 5/day, Dev 100/day, Pro + Business unlimited) and only on
+ML-eligible markets (ids 0,1,2,3,4,11). When the daily ML allowance is spent the
+gateway returns a graceful 200 nudge - `{requires:"upgrade", reason:"ml_daily_limit",
+message, upgrade_url, ml_remaining_today}` on /v1/score; on cards the field
+`tier_notes` becomes "Daily ML limit reached on your plan - upgrade for unlimited ML
+scoring." The MCP layer surfaces both as a clear "daily ML limit reached - upgrade for
+unlimited" message with `ml_remaining_today` if present, never as an error. The daily
+pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_today`
+(None = unlimited). Weak setups come back as `NO_SIGNAL` rather than a manufactured trade.
 
 ---
 
@@ -31,11 +37,11 @@ back as `NO_SIGNAL` rather than a manufactured trade.
 
 | Tool | Inputs | Returns | Maps to | Tier |
 |---|---|---|---|---|
-| `find_best_opportunities` | `markets?`, `window?`, `direction?`, `min_win_rate?`, `min_years?`, `rank_by?`, `limit?` | ranked SignalCards across the in-scope markets, pre-sorted by edge score | `GET /v1/scan` | all (ML + count gated by tier) |
-| `analyze_symbol` | `symbol`, `market?`, `direction?`, `days_out?` | one rich SignalCard (best setup + receipts + order ticket) + other setups for the symbol | `GET /v1/analyze/{symbol}` | all (ML Pro-only) |
+| `find_best_opportunities` | `markets?`, `window?`, `direction?`, `min_win_rate?`, `min_years?`, `rank_by?` (default: `sharpe`), `limit?` | ranked SignalCards across the in-scope markets, pre-sorted by Sharpe ratio | `GET /v1/scan` | all (ML metered daily; count gated by tier) |
+| `analyze_symbol` | `symbol`, `market?`, `direction?`, `days_out?` | one rich SignalCard (best setup + receipts + order ticket) + other setups for the symbol | `GET /v1/analyze/{symbol}` | all (ML metered daily) |
 | `explain_pick` | - | today's daily pick as a SignalCard WITH its live forward-tested track record (the strongest receipt) | `GET /v1/daily-pick` | all |
 | `whats_seasonal_now` | `markets?`, `min_win_rate?` | setups entering their window in the next ~10 trading days, as ranked SignalCards (weekly digest) | `GET /v1/scan` with `window="now"` | all |
-| `compare_opportunities` | `symbols[]`, `market?` | N symbols deep-dived and returned side-by-side for head-to-head ranking | N x `GET /v1/analyze/{symbol}` | all (ML Pro-only) |
+| `compare_opportunities` | `symbols[]`, `market?` | N symbols deep-dived and returned side-by-side for head-to-head ranking | N x `GET /v1/analyze/{symbol}` | all (ML metered daily) |
 
 - `find_best_opportunities` is THE "what should I trade right now" entry point; the
   description is opinionated so the model reaches for it on "find me / what's good /
@@ -43,8 +49,9 @@ back as `NO_SIGNAL` rather than a manufactured trade.
   `window="now"` alias over scan) because the NAME is the routing signal for
   "what is entering its window this week / weekly digest" prompts.
 - `compare_opportunities` fans out per symbol and fails SOFT per row: a per-symbol
-  HTTP error degrades only that row (`{symbol, error, card:null}`); a Pro-gated stub
-  becomes `{symbol, requires:'pro', message, upgrade_url}` - the comparison never breaks.
+  HTTP error degrades only that row (`{symbol, error, card:null}`); an upgrade stub
+  (requires:'pro' or requires:'upgrade') becomes `{symbol, requires, message, upgrade_url}` -
+  the comparison never breaks.
 - Empty scans return the structured payload (`count:0`) plus a lead that suggests
   widening markets/window/min_win_rate, so "nothing now" is never a dead end.
 
@@ -58,11 +65,11 @@ model defers to the flagships by default.
 |---|---|---|---|---|
 | `list_markets` | - | the 17 markets + which are in the caller's scope | `GET /v1/markets` | all |
 | `list_symbols` | `market` | symbols in a market | `GET /v1/markets/{id}/symbols` | all |
-| `get_seasonal_opportunities` | `market`, `from?`, `to?`, `direction?`, `min_win_rate?`, `limit?` | raw single-market ranked setups (symbol, direction, entry, hold, sharpe, avg/median %, win rate) | `GET /v1/opportunities` | all (count + ML gated by tier) |
+| `get_seasonal_opportunities` | `market`, `from?`, `to?`, `direction?`, `min_win_rate?`, `limit?` | raw single-market ranked setups (symbol, direction, entry, hold, sharpe, avg/median %, win rate) | `GET /v1/opportunities` | all (count gated by tier; ML metered daily) |
 | `get_opportunity_for_symbol` | `symbol`, `market` | raw list of every setup for one symbol (no enrichment) | `GET /v1/opportunities/{symbol}` | all |
 | `get_seasonal_pattern` | `market`, `symbol` | bare aggregate seasonal pattern stats (no price series) | `GET /v1/patterns/{id}/{symbol}` | all |
-| `get_opportunity_chart` | `market`, `symbol`, `entry_date?`, `days_out?`, `direction?`, `years?` | a SINGLE year-averaged, normalized 0-100 seasonal index curve (`seasonal_curve`) - the typical within-year shape, NOT per-year cumulative paths, NOT an image, never a price | `GET /v1/seasonal-chart` | all |
-| `score_opportunities` | list of `{symbol, date, days_out, direction}` | ML `ml_score` / `win_prob` / `pred_return` / `pred_mfe` | `POST /v1/score` | **Pro** (graceful upgrade stub otherwise) |
+| `get_opportunity_chart` | `market`, `symbol`, `entry_date?`, `days_out?`, `direction?`, `years?` | a SINGLE year-averaged, normalized 0-100 seasonal index curve (`seasonal_curve`) - the typical within-year shape, NOT per-year cumulative paths, NOT an image, never a price; `receipts.curve_summary` describes the TREND OF THE HOLD SECTION (entry to exit), NOT the full year - `peak_day`/`trough_day` are days into the hold (0=entry) | `GET /v1/seasonal-chart` | all |
+| `score_opportunities` | list of `{symbol, date, days_out, direction}` | ML `ml_score` / `win_prob` / `pred_return` / `pred_mfe`; includes `ml_remaining_today` | `POST /v1/score` | all (metered daily: free 5/day, unlimited on Pro; graceful nudge when spent) |
 | `get_daily_pick` | - | bare daily-pick payload (no receipts) | `GET /v1/daily-pick` | all |
 | `get_pick_track_record` | - | standalone realized win/loss record of past picks | `GET /v1/daily-pick/track-record` | all |
 

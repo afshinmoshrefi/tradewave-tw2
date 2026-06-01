@@ -202,7 +202,7 @@ def build_market_bar_data():
             "price": price_fmt,
             "change": chg_fmt,
             "direction": direction,
-            "url": "%s_static/markets/%s.html" % (DOMAIN_ROOT, t["slug"]),
+            "url": "%smarkets/%s.html" % (DOMAIN_ROOT, t["slug"]),
         })
     return items
 

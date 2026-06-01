@@ -531,7 +531,8 @@ def build_index() -> str:
         <h3>ML win-probability on seasonal patterns</h3>
         <p>A 62-feature model trained on millions of historical setups scores every
            seasonal opportunity with a win probability and predicted return before
-           market open. Pro+ tiers unlock this layer. No other seasonality API offers it.</p>
+           market open. Every tier includes ML signals (free starts at 5/day; Pro is unlimited).
+           No other seasonality API offers it.</p>
       </div>
       <div class="card diff-card">
         <div class="diff-icon">&#128200;</div>
@@ -610,7 +611,7 @@ def build_index() -> str:
           </tr>
         </thead>
         <tbody>
-          <tr><td class="feat-col">ML win-probability scoring</td><td class="tw-col">Pro+ ($199/mo)</td><td class="no-col">No</td><td class="no-col">No</td></tr>
+          <tr><td class="feat-col">ML win-probability scoring</td><td class="tw-col">All tiers (unlimited on Pro+)</td><td class="no-col">No</td><td class="no-col">No</td></tr>
           <tr><td class="feat-col">REST API access</td><td class="tw-col">Yes - all tiers</td><td class="no-col">No</td><td class="no-col">Terminal only</td></tr>
           <tr><td class="feat-col">MCP / AI agent integration</td><td class="tw-col">Yes - native</td><td class="no-col">No</td><td class="no-col">No</td></tr>
           <tr><td class="feat-col">Verified pick track record</td><td class="tw-col">Yes - forward-recorded</td><td class="no-col">Backtest only</td><td class="no-col">No</td></tr>
@@ -628,8 +629,8 @@ def build_index() -> str:
   <div class="container" style="text-align:center;">
     <h2 class="gradient-text-w" style="font-size:36px;font-weight:800;margin-bottom:16px;">Start building today</h2>
     <p style="color:var(--dim);font-size:17px;max-width:600px;margin:0 auto 32px;line-height:1.7;">
-      A free key gives you the Energy market, the daily pick, and the full track record.
-      Upgrade when you need all 15 markets or the ML scoring layer.
+      A free key gives you the Energy market, the daily pick, and 5 ML signals/day.
+      Upgrade to Dev for all 15 markets, or Pro for unlimited ML scoring.
     </p>
     <div class="hero-ctas">
       <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
@@ -685,9 +686,11 @@ def build_pricing() -> str:
         btn_text = "Get Started" if key == "free" else f"Start {t['name']}"
         btn_href = portal_urls.CONSOLE_URL
 
-        ml_line = ""
-        if t["ml_access"]:
-            ml_line = '<li class="ml-feat">ML win-probability scoring</li>'
+        ml_limit = t.get("ml_daily_limit")
+        if t["ml_access"] and ml_limit is None:
+            ml_line = '<li class="ml-feat">Unlimited ML win-probability signals</li>'
+        elif t["ml_access"]:
+            ml_line = f'<li class="ml-feat">ML win-probability signals ({ml_limit}/day)</li>'
         else:
             ml_line = '<li class="no">ML win-probability scoring</li>'
 
@@ -700,10 +703,10 @@ def build_pricing() -> str:
             note_html = f'<p class="p-note">Need more? <a href="{portal_urls.nav("contact.html")}" class="inline">Contact us</a> for Enterprise.</p>'
 
         taglines = {
-            "free": "Explore seasonal signals, no commitment.",
-            "dev": "Build and prototype with full market access.",
-            "pro": "The full ML edge for serious strategy work.",
-            "business": "High-volume production and team access.",
+            "free": "ML signals included (5/day) - no commitment.",
+            "dev": "Build and prototype with full market access (100 ML signals/day).",
+            "pro": "Unlimited ML win-probability scoring. The full edge.",
+            "business": "High-volume production and team access. Unlimited ML.",
         }
 
         return f"""<div class="p-card{hl}">
@@ -742,8 +745,8 @@ def build_pricing() -> str:
 <section class="page-hero" style="padding-bottom:40px;">
   <div class="container">
     <h1><span class="gradient-text-w">API &amp; MCP Pricing</span></h1>
-    <p class="sub">Start free. Add markets and ML when you need them.
-       All tiers include the daily pick and the verified track record.</p>
+    <p class="sub">Start free with ML signals included (5/day). All tiers include the daily pick
+       and the verified track record. Pro unlocks unlimited ML win-probability scoring.</p>
   </div>
 </section>
 
@@ -774,34 +777,35 @@ def build_pricing() -> str:
 <section class="section alt">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">The ML layer is the Pro headline</h2>
-      <p>Free and Dev tiers give you seasonal pattern data across all 15 markets.
-         Pro unlocks the score_opportunities tool - the 62-feature ML model that
-         assigns win probability and predicted return to each setup.</p>
+      <h2 class="gradient-text-w">Unlimited ML win-probability scoring is the Pro upsell</h2>
+      <p>Every plan includes ML signals - free starts at 5/day, Dev gets 100/day.
+         Pro and Business unlock unlimited ML calls via the score_opportunities endpoint,
+         the 62-feature model that assigns win probability and predicted return to each setup.</p>
     </div>
     <div class="grid-2" style="max-width:860px;margin:0 auto;">
       <div class="card">
-        <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:12px;">Free / Dev - Seasonal patterns</p>
-        <div class="code-block"><span class="cm"># Ranked seasonal setups, no ML</span>
+        <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:12px;">Free / Dev - ML included (metered)</p>
+        <div class="code-block"><span class="cm"># Ranked seasonal setups + ML on every tier</span>
 GET /v1/opportunities?market=0&amp;min_win_rate=0.60
-<span class="cm"># Returns: symbol, entry, hold, sharpe, win_rate, avg_return</span></div>
+<span class="cm"># Returns: symbol, entry, hold, sharpe, win_rate, avg_return</span>
+POST /v1/score  <span class="cm"># free=5/day, dev=100/day</span>
+<span class="cm"># Returns: ml_score, win_prob, pred_return, pred_mfe</span></div>
         <p style="font-size:13px;color:var(--dim);margin-top:14px;line-height:1.6;">
-          You get the historical seasonal tendency - which symbols historically move
-          in your direction during this window, and by how much.
+          Free gets a real taste of ML - 5 scored signals per day. Dev raises that to 100.
+          Both tiers get the same signal quality; the limit is what scales with the plan.
         </p>
       </div>
       <div class="card" style="border-color:var(--accent);box-shadow:0 0 40px rgba(99,102,241,.15);">
-        <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin-bottom:12px;">Pro+ - ML scoring on top</p>
-        <div class="code-block"><span class="cm"># Same setups, now ML-scored</span>
-POST /v1/score
-<span class="cm"># Returns: ml_score, win_prob, pred_return, pred_mfe</span>
+        <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin-bottom:12px;">Pro+ - Unlimited ML scoring</p>
+        <div class="code-block"><span class="cm"># No daily cap on ML calls</span>
+POST /v1/score  <span class="cm"># unlimited</span>
 <span class="kw">win_prob</span>: <span class="nu">0.81</span>
 <span class="kw">pred_return</span>: <span class="nu">+4.2%</span>
 <span class="kw">ml_score</span>: <span class="nu">87</span></div>
         <p style="font-size:13px;color:var(--dim);margin-top:14px;line-height:1.6;">
-          The ML layer re-ranks seasonal setups by forward win probability.
-          A 70% base seasonal win rate plus an 81% ML win_prob is a materially
-          different bet than a 70% base rate alone.
+          Pro removes the daily ML cap entirely. Run the scorer across every setup in
+          every market as often as you need. A 70% base seasonal win rate plus an 81%
+          ML win_prob is a materially different bet - and Pro gives you unlimited of those.
         </p>
       </div>
     </div>
@@ -899,8 +903,8 @@ document.querySelectorAll('[data-annual-note]').forEach(function(el) {{ el.style
 """
     return page_shell(
         "API & MCP Pricing",
-        "TradeWave API plans from Free to Business. Seasonal patterns on all tiers, "
-        "ML win-probability scoring on Pro and above. No Bloomberg required.",
+        "TradeWave API plans from Free to Business. ML win-probability signals on every tier "
+        "(free=5/day, dev=100/day, pro=unlimited). No Bloomberg required.",
         no_em_dash(body),
         active_nav="pricing",
     )
@@ -927,7 +931,7 @@ def build_mcp() -> str:
     <span class="chat-dot red"></span>
     <span class="chat-dot ylw"></span>
     <span class="chat-dot grn"></span>
-    <span class="chat-title">Claude - Pro plan (ML enabled)</span>
+    <span class="chat-title">Claude - Pro plan (unlimited ML)</span>
   </div>
   <div class="chat-body">
     {user("Find the strongest seasonal longs in energy with greater than 70% win probability, ranked by ML score.")}
@@ -1045,8 +1049,8 @@ at once. Want me to run the seasonal chart data for any of these to see the year
     <div class="section-head">
       <h2 class="gradient-text-w">Two lines to connect</h2>
       <p>Add the TradeWave server to your MCP host config. Your API key gates the
-         tier - the MCP server degrades gracefully for non-Pro callers (returns an
-         upgrade stub, never an error).</p>
+         tier - ML signals work on every tier (free gets 5/day, Pro is unlimited).
+         The server returns a clear quota message when the daily limit is reached, never a silent error.</p>
     </div>
     <div class="code-block" style="max-width:700px;margin:0 auto 32px;">
 <span class="cm">// claude_desktop_config.json</span>
@@ -1106,9 +1110,9 @@ at once. Want me to run the seasonal chart data for any of these to see the year
         <p style="font-size:13px;color:var(--dim);">Per-year percentage paths plus average path for a setup. Data only - agents format the output, no image download required.</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
-        <p class="tag tag-ml" style="margin-bottom:10px;">Pro only</p>
+        <p class="tag tag-ml" style="margin-bottom:10px;">All tiers (unlimited on Pro+)</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">score_opportunities</p>
-        <p style="font-size:13px;color:var(--dim);">ML win_prob, pred_return, pred_mfe, and ml_score for a list of setups. Non-Pro callers get an upgrade stub - never an error.</p>
+        <p style="font-size:13px;color:var(--dim);">ML win_prob, pred_return, pred_mfe, and ml_score for a list of setups. Free=5/day, Dev=100/day, Pro+ = unlimited. Returns a quota message when the daily limit is hit.</p>
       </div>
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
@@ -1205,8 +1209,9 @@ def build_use_cases() -> str:
           a terminal, running a screener, or paying $480/mo to Seasonax.
         </p>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:24px;">
-          The free tier gives you the Energy futures market, the daily pick, and the
-          full track record. The Dev tier adds all 15 markets for $39/mo.
+          The free tier gives you the Energy futures market, the daily pick, 5 ML win-probability
+          signals/day, and the full track record. The Dev tier adds all 15 markets and 100 ML signals/day
+          for $39/mo. Pro unlocks unlimited ML scoring.
         </p>
         <ul class="check-list">
           <li>No Bloomberg required - works from any browser or AI chat window</li>
@@ -1232,7 +1237,7 @@ def build_use_cases() -> str:
           </div>
           <div style="display:flex;gap:12px;align-items:flex-start;">
             <div style="width:28px;height:28px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">4</div>
-            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Upgrade to Pro to unlock ML scores when you want the deeper filter.</p>
+            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Free includes 5 ML signals/day. Upgrade to Pro for unlimited ML scoring when you need it.</p>
           </div>
         </div>
       </div>
@@ -1288,7 +1293,7 @@ score_resp = requests.<span class="fn">post</span>(
         <ul class="check-list">
           <li>REST API with JSON responses - no proprietary SDK required</li>
           <li>Signals only - no raw price licensing, no OHLCV compliance burden</li>
-          <li class="ml">ML win_prob and pred_return on Pro+ (6 ML-eligible markets)</li>
+          <li class="ml">ML win_prob and pred_return on every tier - free=5/day, dev=100/day, pro=unlimited (6 ML-eligible markets)</li>
           <li>Up to 1,000 results per call on Pro, 5,000 on Business</li>
           <li>300 req/min on Pro - compatible with intraday sweep workflows</li>
         </ul>
@@ -1334,7 +1339,7 @@ score_resp = requests.<span class="fn">post</span>(
           </div>
           <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:16px 20px;">
             <p style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">ML-scored watchlist</p>
-            <p style="font-size:13px;color:var(--dim);line-height:1.6;">User adds tickers to a watchlist, your app scores them nightly against upcoming seasonal windows. Pro+ feature flag.</p>
+            <p style="font-size:13px;color:var(--dim);line-height:1.6;">User adds tickers to a watchlist, your app scores them nightly against upcoming seasonal windows. Available on every tier (quota scales with plan; unlimited on Pro+).</p>
           </div>
           <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:16px 20px;">
             <p style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">AI analyst backed by TradeWave</p>

@@ -108,6 +108,7 @@ def billing_index():
             "price_monthly": t["price_monthly"],
             "markets": "1 market" if len(t["markets"]) == 1 else "All %d markets" % len(t["markets"]),
             "ml_access": t["ml_access"],
+            "ml_daily_limit": t.get("ml_daily_limit"),  # None = unlimited
             "history": t["history"],
             "opp_limit": t["opp_limit"],
             "rate": t["rate"],

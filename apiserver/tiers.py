@@ -4,6 +4,11 @@ read this. Merged into the billing/Stripe metadata at integration.
 
 Invariants: market scope uses the permanent resource keys '0'..'16'; ML-eligible markets
 are 0,1,2,3,4,11; returns are always percentages (raw prices never exposed).
+
+ML access model (2026-05-31): ML signals are available to EVERY tier, METERED PER DAY via
+`ml_daily_limit` (None = unlimited). Free Explorer gets a real taste (5/day) - the upsell
+is unlimited ML, not ML-vs-no-ML. The daily count is enforced in ml_quota.py (Redis db4).
+`ml_access` stays True on every tier and now just means "ML is offered at all" (it is).
 """
 
 ML_MARKETS = {"0", "1", "2", "3", "4", "11"}
@@ -14,25 +19,25 @@ ALL_MARKETS = [str(i) for i in range(0, 17) if i not in (14, 15)]
 API_TIERS = {
     "free": {
         "name": "Free", "price_monthly": 0,
-        "markets": ["2"], "ml_access": False, "history": "delayed",
+        "markets": ["2"], "ml_access": True, "history": "delayed", "ml_daily_limit": 5,
         "opp_limit": 3, "rate": {"per_minute": 10, "per_day": 100}, "max_keys": 1,
         "stripe_price_metadata": None,
     },
     "dev": {
         "name": "Dev", "price_monthly": 39,
-        "markets": ALL_MARKETS, "ml_access": False, "history": "full",
+        "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": 100,
         "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 5000}, "max_keys": 3,
         "stripe_price_metadata": {"product_line": "api", "tier": "dev"},
     },
     "pro": {
         "name": "Pro", "price_monthly": 199,
-        "markets": ALL_MARKETS, "ml_access": True, "history": "full",   # ML is the Pro paywall
+        "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,  # unlimited ML = the Pro upsell
         "opp_limit": 1000, "rate": {"per_minute": 300, "per_day": 50000}, "max_keys": 10,
         "stripe_price_metadata": {"product_line": "api", "tier": "pro"},
     },
     "business": {
         "name": "Business", "price_monthly": 599,
-        "markets": ALL_MARKETS, "ml_access": True, "history": "full",
+        "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,  # unlimited
         "opp_limit": 5000, "rate": {"per_minute": 1200, "per_day": 250000}, "max_keys": 50,
         "stripe_price_metadata": {"product_line": "api", "tier": "business"},
     },

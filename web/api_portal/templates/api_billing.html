@@ -43,7 +43,7 @@
       </div>
       <ul style="list-style:none;padding:0;margin:0 0 18px 0;font-size:13px;color:#d1d5db;line-height:1.9;">
         <li>{{ p.markets }}</li>
-        <li>{% if p.ml_access %}ML scoring included{% else %}No ML scoring{% endif %}</li>
+        <li>{% if p.ml_daily_limit is none and p.ml_access %}Unlimited ML signals{% elif p.ml_access %}ML signals ({{ p.ml_daily_limit }}/day){% else %}No ML scoring{% endif %}</li>
         <li>{{ p.history|capitalize }} history</li>
         <li>{{ '{:,}'.format(p.rate.per_day) }} requests/day</li>
         <li>{{ '{:,}'.format(p.rate.per_minute) }} requests/min</li>

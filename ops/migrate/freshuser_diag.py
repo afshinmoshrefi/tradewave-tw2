@@ -56,7 +56,7 @@ def main():
 
     if a.delete:
         for u in existing:
-            um.delete_user(user_id=u.id)
+            um.delete_user(u.id)
             print("deleted %s" % u.id)
         if not existing:
             print("no such user to delete")

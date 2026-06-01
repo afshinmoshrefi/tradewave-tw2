@@ -50,7 +50,10 @@ DEFAULT_RESOURCE_IDS = [2]  # S&P 500
 # OppList4 lookback / forward window — matches the comment block in
 # site/generate_home_page.py:225 (FEATURED_YEARS / FEATURED_MIN_PYEARS).
 YEARS_LOOKBACK = 10
-PYEARS = 2  # PE cycle pyears parameter
+# year2 (min profitable years) param for OppList4. The "_PE2" suffix in the
+# data path is the election-cycle phase (year%4), derived inside the appserver,
+# NOT this value. Matches blog_tools.assign_years_pyears defaults (10/10).
+PYEARS = 10
 
 # Two day_range buckets the homepage renders. Anything outside these is
 # dropped before the CSV is written.
@@ -281,7 +284,7 @@ def main() -> int:
                 time.sleep(REQUEST_DELAY_S)
                 rows = fetch_opp_list(
                     resource_id=resource_id,
-                    month=today.month,
+                    month=today.strftime("%B"),
                     day=today.day,
                     years=YEARS_LOOKBACK,
                     pyears=PYEARS,

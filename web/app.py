@@ -90,7 +90,10 @@ try:
 except ImportError:
     pass
 
-from models import User, AuditLog, StripeEvent, CouponUsed, db_session, write_audit, Session as DBSession
+from models import (
+    User, AuditLog, StripeEvent, CouponUsed, SupportTicket,
+    SUPPORT_TICKET_TOPICS, db_session, write_audit, Session as DBSession,
+)
 from tier_compat import tier_to_wp_user_levels, tier_to_legacy_level
 from email_utils import mailerlite_subscribe, sync_mailerlite_level_group
 
@@ -605,6 +608,145 @@ def api_me():
     })
     resp.headers["Cache-Control"] = "private, no-store"
     return resp
+
+
+# ============================================================
+# /api/contact - Tier-1 support form
+# ============================================================
+# Replaces the legacy mailto-only form. Anonymous endpoint; abuse-gated by
+# Cloudflare Turnstile + a hidden honeypot field. The DB row is canonical;
+# the two emails (notification + visitor confirmation) are best-effort. See
+# web/contact_form.py + email_utils.resend_send_email + migration
+# 7a5c3b9d12ef for the rest of the stack.
+_CONTACT_BODY_MAX = 8000      # 8KB - generous for "tell us what's on your mind"; bigger = abuse
+_CONTACT_NAME_MAX = 200
+_CONTACT_EMAIL_MAX = 320      # RFC 5321 max
+_CONTACT_RATE_LIMIT_PER_IP = 5   # tickets per IP_hash per hour before we mark as spam
+
+
+def _client_ip() -> str:
+    """Honour the X-Forwarded-For chain set by nginx. nginx sets X-Real-IP to
+    the immediate peer (the CF tunnel exit) which is the closest thing to a
+    client IP we have; CF-Connecting-IP is what Cloudflare actually populates."""
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip.strip()
+    xff = request.headers.get("X-Forwarded-For", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.headers.get("X-Real-IP") or request.remote_addr or ""
+
+
+@app.route("/api/contact", methods=["POST"])
+@csrf.exempt  # anonymous endpoint; abuse gate is Turnstile + honeypot, not CSRF
+def api_contact():
+    from contact_form import (
+        verify_turnstile, hash_ip, enrich_user_context,
+        format_notification_email, format_confirmation_email,
+    )
+    from email_utils import resend_send_email
+
+    data = request.get_json(silent=True) or {}
+
+    # Honeypot - a hidden field named "company" that humans never fill in. If
+    # set, silently return success so bots think they got through.
+    if (data.get("company") or "").strip():
+        log.info("api_contact honeypot tripped ip=%s", _client_ip())
+        return jsonify({"ok": True, "public_id": None, "note": "thanks"}), 200
+
+    name    = (data.get("name") or "").strip()
+    email   = (data.get("email") or "").strip().lower()
+    topic   = (data.get("topic") or "other").strip().lower()
+    body    = (data.get("message") or "").strip()
+    token   = (data.get("turnstile_token") or "").strip()
+
+    # Field validation - fail-fast on missing/oversize; specific 400 codes for
+    # the JS so it can show inline messages.
+    if not name or len(name) > _CONTACT_NAME_MAX:
+        return jsonify({"ok": False, "error": "name_invalid"}), 400
+    if not email or "@" not in email or len(email) > _CONTACT_EMAIL_MAX:
+        return jsonify({"ok": False, "error": "email_invalid"}), 400
+    if topic not in SUPPORT_TICKET_TOPICS:
+        return jsonify({"ok": False, "error": "topic_invalid"}), 400
+    if not body or len(body) > _CONTACT_BODY_MAX:
+        return jsonify({"ok": False, "error": "message_invalid"}), 400
+
+    ip = _client_ip()
+    if not verify_turnstile(token, remote_ip=ip):
+        return jsonify({"ok": False, "error": "captcha_failed"}), 400
+
+    ip_hashed = hash_ip(ip)
+    user = get_current_user()
+    enrichment = enrich_user_context(user)
+
+    # Per-IP soft rate limit: if this IP_hash has 5+ open tickets in the last
+    # hour, accept the row but mark it spam (still useful as a signal in the
+    # admin) and skip the email blast. Anonymous = abuse, so we throttle.
+    initial_status = "open"
+    if ip_hashed:
+        s = DBSession()
+        try:
+            recent = s.execute(
+                select(func.count(SupportTicket.id))
+                .where(SupportTicket.ip_hash == ip_hashed)
+                .where(SupportTicket.created_at > func.now() - timedelta(hours=1))
+            ).scalar() or 0
+            if recent >= _CONTACT_RATE_LIMIT_PER_IP:
+                initial_status = "spam"
+                log.warning("api_contact rate-limit tripped ip_hash=%s recent=%s email=%s",
+                            ip_hashed[:12], recent, email)
+        finally:
+            s.close()
+
+    s = DBSession()
+    try:
+        ticket = SupportTicket(
+            user_id=user.id if user is not None else None,
+            email=email,
+            name=name,
+            topic=topic,
+            body=body,
+            status=initial_status,
+            enrichment=enrichment or None,
+            user_agent=(request.headers.get("User-Agent") or "")[:500],
+            ip_hash=ip_hashed,
+        )
+        s.add(ticket)
+        s.commit()
+        s.refresh(ticket)  # pick up server-default ticket_number + computed public_id
+        ticket_public_id = ticket.public_id
+
+        if initial_status == "spam":
+            # Don't email anyone for spam. Visitor still gets a 200 so we don't
+            # signal the rate-limit to the bot.
+            return jsonify({"ok": True, "public_id": ticket_public_id}), 200
+
+        # Notification to support (Reply-To = customer so hitting Reply in
+        # the inbox responds directly to them).
+        n_subject, n_body = format_notification_email(ticket)
+        resend_send_email(
+            to=config.SUPPORT_EMAIL_TO,
+            subject=n_subject,
+            body_text=n_body,
+            reply_to=email,
+        )
+
+        # Confirmation to visitor.
+        c_subject, c_body = format_confirmation_email(ticket)
+        resend_send_email(
+            to=email,
+            subject=c_subject,
+            body_text=c_body,
+            reply_to=config.SUPPORT_EMAIL_TO,
+        )
+
+        return jsonify({"ok": True, "public_id": ticket_public_id}), 200
+    except Exception as e:
+        s.rollback()
+        log.exception("api_contact insert failed: %s", e)
+        return jsonify({"ok": False, "error": "server_error"}), 500
+    finally:
+        s.close()
 
 
 # ============================================================
@@ -1675,6 +1817,30 @@ class StripeEventAdmin(_AdminAuth, ModelView):
     page_size = 100
 
 
+class SupportTicketAdmin(_AdminAuth, ModelView):
+    # Tier-1 view: read + status edits only. Body/email/etc are immutable from
+    # the admin - the customer wrote them and the source of truth is the email
+    # thread. If/when we promote DB to source-of-truth (Tier 2), this view
+    # gains a reply form.
+    can_create = False
+    can_delete = False
+    can_edit = True
+    column_list = ("created_at", "public_id", "topic", "status", "name", "email")
+    column_default_sort = ("created_at", True)
+    column_searchable_list = ("public_id", "email", "name")
+    column_filters = ("status", "topic", "created_at")
+    # Edit form: status is the only field worth flipping (open -> resolved /
+    # spam). Everything else is read-only context.
+    form_columns = ("status", "resolved_at")
+    column_details_list = (
+        "public_id", "created_at", "topic", "status", "name", "email",
+        "body", "enrichment", "user_id", "ip_hash", "user_agent",
+        "resolved_at", "updated_at",
+    )
+    can_view_details = True
+    page_size = 100
+
+
 # ============================================================
 # Internal cross-tier endpoint: render a date-range report.
 # Called by appserver's /dr_report_publish so the static HTML
@@ -1775,6 +1941,7 @@ from models import Session as ModelsSession
 admin.add_view(UserAdmin(User, ModelsSession, name="Users", category=None))
 admin.add_view(AuditLogAdmin(AuditLog, ModelsSession, name="Audit Log", category="System"))
 admin.add_view(StripeEventAdmin(StripeEvent, ModelsSession, name="Stripe Events", category="System"))
+admin.add_view(SupportTicketAdmin(SupportTicket, ModelsSession, name="Support Tickets", category=None))
 
 # --- API customer console: self-serve keys / usage / billing / MCP connect (additive) ---
 import api_portal  # web/api_portal/ blueprint

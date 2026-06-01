@@ -5,7 +5,7 @@ Mirror of the schema defined in Postgres (see schema_version table).
 from datetime import datetime
 from sqlalchemy import (
     Column, Text, Boolean, TIMESTAMP, BigInteger, ForeignKey, Index,
-    CheckConstraint, create_engine, JSON,
+    CheckConstraint, create_engine, JSON, text as sa_text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
@@ -112,6 +112,61 @@ class CouponUsed(Base):
     stripe_coupon_id  = Column(Text, nullable=False)
     redeemed_at       = Column(TIMESTAMP(timezone=True), server_default=func.now())
     metadata_         = Column("metadata", JSONB)
+
+
+# Allowed values are mirrored in the DB as CHECK constraints (see migration
+# 7a5c3b9d12ef). The strings here ARE storage IDs - never rename, only add.
+# UI labels live in the form template; values stored never change.
+SUPPORT_TICKET_TOPICS = (
+    "bug", "feature", "billing", "account",
+    "data", "institutional", "press", "other",
+)
+SUPPORT_TICKET_STATUSES = ("open", "pending_customer", "resolved", "spam")
+
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+    id              = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    # Monotonic sequence-backed counter; the human-facing public_id is derived
+    # from this + year. Sequence lives in Postgres (support_tickets_number_seq).
+    ticket_number   = Column(BigInteger, nullable=False, unique=True,
+                             server_default=sa_text("nextval('support_tickets_number_seq')"))
+    # public_id is set by a BEFORE-INSERT trigger from ticket_number + the
+    # year of created_at, format TW-YYYY-NNNNN. Year reflects when the ticket
+    # was opened; numbers are globally monotonic, not per-year. The trigger
+    # (not a GENERATED column) because to_char(timestamptz, ...) is STABLE
+    # not IMMUTABLE in PG and so isn't legal in a generated expression.
+    # Trigger source lives in migration 7a5c3b9d12ef.
+    public_id       = Column(Text, unique=True, nullable=False)
+    user_id         = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    email           = Column(Text, nullable=False)
+    name            = Column(Text, nullable=False)
+    topic           = Column(Text, nullable=False)
+    body            = Column(Text, nullable=False)
+    status          = Column(Text, nullable=False, server_default=sa_text("'open'"))
+    # Snapshot of customer context (tier, stripe state, last_login) captured at
+    # submit time so the notification email - and any future audit - reflects
+    # what was true when the user wrote in, not what's true now.
+    enrichment      = Column(JSONB)
+    user_agent      = Column(Text)
+    ip_hash         = Column(Text)  # sha256(ip + per-env salt); NEVER store raw IP
+    created_at      = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at      = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    resolved_at     = Column(TIMESTAMP(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint(
+            "topic IN ('bug','feature','billing','account','data','institutional','press','other')",
+            name="support_tickets_topic_check",
+        ),
+        CheckConstraint(
+            "status IN ('open','pending_customer','resolved','spam')",
+            name="support_tickets_status_check",
+        ),
+        Index("ix_support_tickets_created_at", "created_at"),
+        Index("ix_support_tickets_status", "status"),
+        Index("ix_support_tickets_email", "email"),
+    )
 
 
 # Engine + session factory - used app-wide

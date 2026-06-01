@@ -820,22 +820,29 @@ EXAMPLE_RESPONSES: dict[str, str] = {
   "stats": {"avg_profit_pct": 3.12, "win_rate": 0.78}
 }""",
     "POST /score": """{
+  "granted": 1,
+  "ml_remaining_today": null,
   "scores": [
     {
-      "ml_score": 0.83,
-      "win_prob": 0.81,
-      "pred_return": 3.6,
-      "pred_mfe": 5.2
+      "symbol": "AAPL",
+      "date": "2026-06-01",
+      "direction": "long",
+      "days_out": 20,
+      "ml_score": 95.1,
+      "win_prob": 0.8452,
+      "pred_return": 4.0913,
+      "pred_mfe": 7.4427
     }
   ]
 }""",
     "GET /scan": """{
   "generated_at": "2026-05-31T18:30:13",
   "window": "now",
-  "rank_by": "edge",
+  "rank_by": "sharpe",
   "count": 3,
   "evaluated_count": 334,
   "enrichment_capped": true,
+  "ml_remaining_today": null,
   "opportunities": [
     {
       "rank": 1,
@@ -857,7 +864,9 @@ EXAMPLE_RESPONSES: dict[str, str] = {
         "best_year": {"year": "2019", "return_pct": 25.8},
         "worst_year": {"year": "2024", "return_pct": 12.17},
         "per_year": [{"year": "2025", "return_pct": 18.41, "result": "win"}],
-        "curve_summary": null,
+        "curve_summary": {"shape": "strengthens through the hold; seasonal index rising",
+                          "trend": "rising", "change_pts": 8.4,
+                          "peak_day": 240, "trough_day": 0},
         "source": "TradeWave seasonal model, 10y lookback", "as_of": "2026-05-31"
       },
       "next_step": {
@@ -899,8 +908,9 @@ EXAMPLE_RESPONSES: dict[str, str] = {
       "best_year": {"year": "2016", "return_pct": 8.51},
       "worst_year": {"year": "2017", "return_pct": 3.57},
       "per_year": [{"year": "2025", "return_pct": 5.42, "result": "win"}],
-      "curve_summary": {"shape": "builds through the window (peak ~day 363), rises overall",
-                        "peak_day": 363, "trough_day": 0},
+      "curve_summary": {"shape": "strengthens into the exit; seasonal index rising +13 pts over the hold",
+                        "trend": "rising", "change_pts": 13.1,
+                        "peak_day": 20, "trough_day": 0},
       "source": "TradeWave seasonal model, 10y lookback", "as_of": "2026-05-31"
     },
     "next_step": {
@@ -1130,7 +1140,7 @@ def build_api_reference() -> str:
 <p>All endpoints are under <code class="inline-code">{API_BASE}</code>. Every request requires <code class="inline-code">Authorization: Bearer &lt;key&gt;</code>.</p>
 
 <div class="callout">
-  <p><strong>Signals only.</strong> All returns are expressed as percentages. Raw OHLCV data and price levels are never returned. ML fields are Pro-tier only.</p>
+  <p><strong>Signals only.</strong> All returns are expressed as percentages. Raw OHLCV data and price levels are never returned. ML is available on every tier, metered per day (free 5/day, unlimited on Pro/Business).</p>
 </div>
 
 <div class="callout green">
@@ -1182,7 +1192,7 @@ def build_mcp_reference() -> str:
 <p>The TradeWave MCP server exposes 8 tools that let AI assistants (Claude, ChatGPT, Cursor) reason over seasonal trading signals directly. Auth is BYOK - your TradeWave API key gates the server; tier and entitlements flow from the key.</p>
 
 <div class="callout">
-  <p><strong>Signals only.</strong> The same contract as the REST API applies. No raw prices or OHLCV data is ever returned. ML tools are Pro-tier only and degrade gracefully (upgrade stub, never an error).</p>
+  <p><strong>Signals only.</strong> The same contract as the REST API applies. No raw prices or OHLCV data is ever returned. ML tools are available on every tier, metered per day (free 5/day, unlimited on Pro/Business). When the daily limit is reached the tool returns a graceful stub instead of an error.</p>
 </div>
 
 <h2>Tools</h2>
@@ -1263,10 +1273,10 @@ def build_mcp_reference() -> str:
 <div class="tool-card">
   <div class="tool-card-header">
     <span class="tool-name">score_opportunities</span>
-    <span class="tier-badge tier-pro">Pro</span>
+    <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Runs the ML model on a list of opportunities and returns <code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, and <code class="inline-code">pred_mfe</code> for each. Non-Pro callers receive a graceful upgrade stub - never an error.</p>
+    <p>Runs the ML model on a list of opportunities and returns <code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, and <code class="inline-code">pred_mfe</code> for each. Available on every tier, metered per day (free 5/day, Dev 100/day, Pro/Business unlimited). When the daily limit is reached the response includes a graceful stub instead of scoring - never an error.</p>
     <p><strong>Inputs:</strong> list of <code class="inline-code">{{symbol, date, days_out, direction}}</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">POST /v1/score</code></p>
   </div>
@@ -1335,9 +1345,10 @@ Header:     Authorization: Bearer &lt;your-api-key&gt;</code></pre>
 <h2>Tier behavior in MCP</h2>
 <p>The same tier rules from the REST API apply:</p>
 <ul>
-  <li>Free: S&amp;P 500 stocks only, 3 results per call.</li>
-  <li>Dev/Pro/Business: all 15 markets, higher result limits.</li>
-  <li><code class="inline-code">score_opportunities</code> returns a graceful <code class="inline-code">{{"requires":"pro"}}</code> stub for non-Pro callers - the agent can surface this to the user without crashing.</li>
+  <li>Free: S&amp;P 500 stocks only, 3 results per call, 5 ML calls/day.</li>
+  <li>Dev: all 15 markets, 100 ML calls/day.</li>
+  <li>Pro/Business: all 15 markets, unlimited ML calls.</li>
+  <li><code class="inline-code">score_opportunities</code> scores up to the daily allowance and returns <code class="inline-code">ml_remaining_today</code>. When the daily limit is already spent it returns a graceful <code class="inline-code">{{"requires":"upgrade","reason":"ml_daily_limit"}}</code> stub - the agent can surface this to the user without crashing.</li>
 </ul>
 """
     return page(
@@ -1418,8 +1429,8 @@ def build_data_dictionary() -> str:
   </tbody>
 </table>
 
-<h2>ML fields (Pro tier only)</h2>
-<p>ML fields are <code class="inline-code">null</code> for non-Pro callers or for markets that are not ML-eligible (ids 5-13, 16). ML-eligible markets are ids 0, 1, 2, 3, 4, and 11.</p>
+<h2>ML fields (all tiers, metered per day)</h2>
+<p>ML fields are available on every tier, metered per day: free 5/day, Dev 100/day, Pro/Business unlimited. ML fields are <code class="inline-code">null</code> when the daily limit is exhausted or the market is not ML-eligible (ids 5-13, 16). ML-eligible markets are ids 0, 1, 2, 3, 4, and 11.</p>
 <table>
   <thead>
     <tr><th>Field</th><th>Type</th><th>Definition</th></tr>
@@ -1642,13 +1653,16 @@ Content-Type:          application/json
   </tbody>
 </table>
 
-<h2>Upgrade stub (non-Pro ML calls)</h2>
-<p>Pro-only endpoints (<code class="inline-code">POST /v1/score</code> and ML fields in opportunities) return <strong>HTTP 200</strong> with an upgrade stub for non-Pro callers rather than an error. This lets MCP agents degrade gracefully.</p>
+<h2>ML daily limit stub</h2>
+<p>When the daily ML allowance is already fully spent, <code class="inline-code">POST /v1/score</code> returns <strong>HTTP 200</strong> with a limit stub rather than an error. This lets MCP agents degrade gracefully. The stub includes <code class="inline-code">ml_remaining_today: 0</code> so callers can check it without parsing the message.</p>
 <pre><code>{{
-  "requires":    "pro",
-  "message":     "ML scoring requires a Pro subscription.",
-  "upgrade_url": "{portal_urls.nav('/pricing')}"
+  "requires":          "upgrade",
+  "reason":            "ml_daily_limit",
+  "message":           "Daily ML limit reached. Upgrade for unlimited ML calls.",
+  "upgrade_url":       "{portal_urls.nav('/pricing')}",
+  "ml_remaining_today": 0
 }}</code></pre>
+<p>For MCP/agents, check for <code class="inline-code">"reason": "ml_daily_limit"</code> to distinguish a spent daily allowance from other upgrade prompts.</p>
 
 <h2>Error envelope</h2>
 <p>All error responses (4xx, 5xx) follow this shape:</p>
@@ -1663,7 +1677,7 @@ Content-Type:          application/json
 <ul>
   <li>Check <code class="inline-code">X-RateLimit-Remaining</code> proactively and back off before hitting zero.</li>
   <li>On 429, wait until <code class="inline-code">X-RateLimit-Reset</code> before retrying.</li>
-  <li>For MCP/agents, check for <code class="inline-code">"requires": "pro"</code> in the response before treating it as an error.</li>
+  <li>For MCP/agents, check for <code class="inline-code">"reason": "ml_daily_limit"</code> in the response to handle a spent daily ML allowance gracefully.</li>
   <li>On 500, retry with exponential backoff. If the error persists, contact <a href="{portal_urls.nav('/contact.html')}">support</a>.</li>
 </ul>
 """

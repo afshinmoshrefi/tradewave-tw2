@@ -100,6 +100,30 @@ articles_redis_db = 3
 ml_scorer_url = os.environ.get('TW2_ML_SCORER_URL', '')  # set in /etc/tradewave/secrets.env (ML pattern scorer on keyprovider)
 x_profile_url = os.environ.get('TW2_X_PROFILE_URL', '')  # set in /etc/tradewave/secrets.env (X/Twitter profile per env)
 
+# === CONTACT FORM / TIER-1 SUPPORT ===
+# Cloudflare Turnstile (captcha) - per-env site/secret pair. On dev, use the
+# Turnstile test keys (1x00000000000000000000AA + 1x0000000000000000000000000000000AA)
+# which always pass; on staging/prod use real keys from the CF Turnstile dashboard.
+TURNSTILE_SITE_KEY   = os.environ.get('TURNSTILE_SITE_KEY', '')    # public, embedded in /contact.html
+TURNSTILE_SECRET_KEY = os.environ.get('TURNSTILE_SECRET_KEY', '')  # server-side verify only
+
+# Resend (transactional email). Single account; per-env API key so dev tickets
+# don't blast out from the same key as prod. Empty/PLACEHOLDER => fail silently
+# in email_utils (the ticket still lands in Postgres).
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+
+# Where contact-form notifications land. SUPPORT_EMAIL_TO is the inbox we
+# read; SUPPORT_EMAIL_FROM is the verified sender on the Resend side (DKIM
+# must be configured on the FROM domain). FROM uses trxstat.com for now -
+# tradewave.ai swap is deferred until post-cutover so we don't touch the
+# tradewave.ai DNS while it's in the middle of the TW1 -> TW2 flip.
+SUPPORT_EMAIL_TO   = os.environ.get('SUPPORT_EMAIL_TO',   'help@tradewave.ai')
+SUPPORT_EMAIL_FROM = os.environ.get('SUPPORT_EMAIL_FROM', 'TradeWave Contact <notifications@trxstat.com>')
+
+# Salt for ip_hash on support_tickets. NEVER reuse across envs - rotating it
+# breaks lookup of historical ips, which is the whole point (no PII drift).
+SUPPORT_IP_HASH_SALT = os.environ.get('SUPPORT_IP_HASH_SALT', '')
+
 ##########################################################################################################################
 
 # === PUBLIC HOST (single source of truth) ===

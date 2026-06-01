@@ -4,15 +4,16 @@ match api/openapi.yaml. Every data route uses @require_api_key; ML + market scop
 from g.customer['entitlements'] / tiers.py.
 
 Safety posture (enforced here + in appserver_client): signals only - no raw OHLCV /
-last price / price-by-date is ever returned; all returns are percentages. ML fields are
-Pro-tier only and ML-eligible-market only (ids 0-4, 11). Fail-fast: real errors surface
-as the contract Error JSON via the app error handlers; only genuine data gaps fail soft.
+last price / price-by-date is ever returned; all returns are percentages. ML is offered on
+EVERY tier but METERED PER DAY (ml_quota.py; free 5/day, unlimited on Pro) and only on
+ML-eligible markets (ids 0-4, 11). Fail-fast: real errors surface as the contract Error
+JSON via the app error handlers; only genuine data gaps fail soft.
 """
 import datetime
 
 from flask import Blueprint, g, jsonify, request
 
-from . import appserver_client, cards, tiers
+from . import appserver_client, cards, ml_quota, tiers
 from .auth import require_api_key
 
 v1 = Blueprint("v1", __name__)
@@ -51,12 +52,6 @@ def _today():
 
 def _ml_eligible(market_id):
     return str(market_id) in tiers.ML_MARKETS
-
-
-def _ml_enabled_for_caller(market_id):
-    """The caller gets real ML only when their tier has ml_access AND the market is
-    ML-eligible. (The underlying service account always has appserver ML access.)"""
-    return bool(g.customer["entitlements"]["ml_access"]) and _ml_eligible(market_id)
 
 
 def _in_scope_markets():
@@ -187,19 +182,23 @@ def opportunities():
     effective_limit = min(req_limit, tier_cap)
     opps = opps[:effective_limit]
 
-    # Attach ML only for Pro + ML-eligible markets.
-    if opps and _ml_enabled_for_caller(market):
-        items = [
-            {"symbol": o["symbol"], "date": o["entry_date"],
-             "days_out": o["days_out"], "direction": o["direction"]}
-            for o in opps
-        ]
-        ml = appserver_client.ml_scores(market, items)
-        for o, score in zip(opps, ml):
-            o["ml"] = score
+    # Attach ML on ML-eligible markets, METERED by the daily allowance (free 5/day).
+    if opps and _ml_eligible(market):
+        granted = ml_quota.consume(g.customer, len(opps))
+        score_rows = opps[:granted]
+        if score_rows:
+            items = [
+                {"symbol": o["symbol"], "date": o["entry_date"],
+                 "days_out": o["days_out"], "direction": o["direction"]}
+                for o in score_rows
+            ]
+            ml = appserver_client.ml_scores(market, items)
+            for o, score in zip(score_rows, ml):
+                o["ml"] = score
 
     return jsonify({
         "opportunities": opps,
+        "ml_remaining_today": ml_quota.remaining(g.customer),
         "entry_date": entry_date,
         "window_supported": False,  # single-date endpoint; use /v1/scan for windows
         "evaluated_count": evaluated_count,
@@ -223,15 +222,18 @@ def opportunities_by_symbol(symbol):
     tier_cap = g.customer["entitlements"]["opp_limit"]
     opps = opps[:tier_cap]
 
-    if opps and _ml_enabled_for_caller(market):
-        items = [
-            {"symbol": o["symbol"], "date": o["entry_date"],
-             "days_out": o["days_out"], "direction": o["direction"]}
-            for o in opps
-        ]
-        ml = appserver_client.ml_scores(market, items)
-        for o, score in zip(opps, ml):
-            o["ml"] = score
+    if opps and _ml_eligible(market):
+        granted = ml_quota.consume(g.customer, len(opps))
+        score_rows = opps[:granted]
+        if score_rows:
+            items = [
+                {"symbol": o["symbol"], "date": o["entry_date"],
+                 "days_out": o["days_out"], "direction": o["direction"]}
+                for o in score_rows
+            ]
+            ml = appserver_client.ml_scores(market, items)
+            for o, score in zip(score_rows, ml):
+                o["ml"] = score
 
     return jsonify({"opportunities": opps})
 
@@ -241,7 +243,7 @@ def opportunities_by_symbol(symbol):
 # --------------------------------------------------------------------------- #
 
 def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank=None,
-                     tier_note_free=False, name_map=None):
+                     ml_state="na", name_map=None):
     """Source receipts (ChartData4 stats + per-year entries) for ONE opp and build its
     card. A per-symbol data gap degrades that row to a card with whatever stats exist
     (logged inside appserver_client) - it never aborts the request."""
@@ -256,7 +258,18 @@ def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank
     return cards.build_signal_card(
         opp, stats, chart_entries, market_name=market_name, ml=ml,
         ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=as_of,
-        rank=rank, tier_note_free=tier_note_free)
+        rank=rank, ml_state=ml_state)
+
+
+def _ml_state_for(opp, ml_available):
+    """Map an opp's ML outcome to a card ml_state for tier_notes.
+    'shown' if scored, 'quota' if eligible-but-out-of-daily-allowance, 'market' if the
+    market is not ML-eligible."""
+    if ml_available and opp.get("ml"):
+        return "shown"
+    if _ml_eligible(opp.get("market")):
+        return "quota"   # eligible market but we did not (could not) score it -> quota spent
+    return "market"
 
 
 _RANK_KEYS = {
@@ -294,9 +307,12 @@ def scan():
     direction = request.args.get("direction")
     min_win_rate = request.args.get("min_win_rate", type=float)
     min_years = request.args.get("min_years", type=int)
-    rank_by = (request.args.get("rank_by") or "edge").strip().lower()
+    # Default ranking = Sharpe descending, mirroring TradeWave's own daily-pick + SMN 'AI'
+    # selectors (filter on win metrics, then sort by Sharpe). edge_score stays available
+    # as a rank_by option and is shown on every card.
+    rank_by = (request.args.get("rank_by") or "sharpe").strip().lower()
     if rank_by not in _RANK_KEYS:
-        rank_by = "edge"
+        rank_by = "sharpe"
 
     tier_cap = g.customer["entitlements"]["opp_limit"]
     req_limit = request.args.get("limit", default=10, type=int)
@@ -319,14 +335,10 @@ def scan():
             in_window.append(o)
     evaluated_count = len(in_window)
 
-    # 3) preliminary edge_score for ranking using the cheap OppList4 fields (sharpe +
-    #    years; win_rate not yet sourced). This orders rows so we only enrich the top N.
-    for o in in_window:
-        prelim, _ = cards.compute_edge_score(
-            o.get("win_rate"), o.get("sharpe_ratio"),
-            int(o.get("years")) if str(o.get("years") or "").isdigit() else 0)
-        o["_edge_score"] = prelim
-    in_window.sort(key=_RANK_KEYS["edge"], reverse=True)
+    # 3) order by Sharpe (present on every OppList4 row, no enrichment needed) to choose
+    #    the head we enrich - this mirrors TradeWave's daily-pick / SMN 'AI' selection,
+    #    which gate on win metrics then rank by Sharpe.
+    in_window.sort(key=lambda o: o.get("sharpe_ratio") or 0, reverse=True)
 
     # 4) take a generous head for enrichment (cap), then enrich win_rate + ml on those.
     head = in_window[: max(effective_limit, min(_SCAN_ENRICH_CAP, len(in_window)))]
@@ -345,11 +357,14 @@ def scan():
     # min_years filter applied via receipts in the card build below (years_tested); we
     # approximate here with the lookback label, then re-check on the built card.
 
-    # 6) attach ML inline for Pro on eligible markets (grouped per market for batching).
+    # 6) attach ML inline, METERED by the daily allowance (free 5/day, unlimited Pro).
+    #    filtered is in Sharpe order, so we spend the allowance on the strongest setups;
+    #    eligible rows past the allowance keep ml=null with a 'quota' tier note.
+    eligible = [o for o in filtered if _ml_eligible(o["market"])]
+    granted = ml_quota.consume(g.customer, len(eligible)) if eligible else 0
     by_market = {}
-    for o in filtered:
-        if _ml_enabled_for_caller(o["market"]):
-            by_market.setdefault(o["market"], []).append(o)
+    for o in eligible[:granted]:
+        by_market.setdefault(o["market"], []).append(o)
     for mid, rows in by_market.items():
         items = [{"symbol": r["symbol"], "date": r["entry_date"],
                   "days_out": r["days_out"], "direction": r["direction"]} for r in rows]
@@ -360,14 +375,13 @@ def scan():
         except Exception:  # noqa: BLE001 - ML is best-effort enrichment, never fatal
             pass
 
-    # 7) build cards, then re-rank by the requested key (edge uses the FULL edge_score now).
+    # 7) build cards, then re-rank by the requested key (default Sharpe).
     built = []
     for o in filtered:
-        ml_available = _ml_enabled_for_caller(o["market"])
+        ml_available = bool(o.get("ml"))
         card = _enrich_and_card(
             o, ml_available=ml_available, as_of=_today(),
-            tier_note_free=(_ml_eligible(o["market"]) and not ml_available),
-            name_map=name_map)
+            ml_state=_ml_state_for(o, ml_available), name_map=name_map)
         if min_years is not None and card["receipts"]["years_tested"] < min_years:
             continue
         card["_sortkey"] = _scan_sortkey(card, rank_by)
@@ -386,6 +400,7 @@ def scan():
         "count": len(built),
         "evaluated_count": evaluated_count,
         "enrichment_capped": enrichment_capped,
+        "ml_remaining_today": ml_quota.remaining(g.customer),  # None = unlimited
         "opportunities": built,
     })
 
@@ -450,8 +465,9 @@ def analyze_symbol(symbol):
     opps.sort(key=lambda o: o["_edge"], reverse=True)
     best = opps[0]
 
-    ml_available = _ml_enabled_for_caller(market)
-    if ml_available:
+    # ML metered by the daily allowance (free 5/day, unlimited Pro); spend 1 on the best.
+    granted = ml_quota.consume(g.customer, 1) if _ml_eligible(market) else 0
+    if granted:
         try:
             ml = appserver_client.ml_scores(market, [{
                 "symbol": best["symbol"], "date": best["entry_date"],
@@ -459,6 +475,7 @@ def analyze_symbol(symbol):
             best["ml"] = ml[0] if ml else None
         except Exception:  # noqa: BLE001
             best["ml"] = None
+    ml_available = bool(best.get("ml"))
 
     seasonal_curve = None
     try:
@@ -469,8 +486,7 @@ def analyze_symbol(symbol):
 
     card = _enrich_and_card(
         best, ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=_today(),
-        rank=1, tier_note_free=(_ml_eligible(market) and not ml_available),
-        name_map=name_map)
+        rank=1, ml_state=_ml_state_for(best, ml_available), name_map=name_map)
 
     other = [cards.compact_setup(o) for o in opps[1:]]
     tier_cap = g.customer["entitlements"]["opp_limit"]
@@ -512,10 +528,6 @@ def seasonal_chart():
 @v1.post("/score")
 @require_api_key
 def score():
-    if not g.customer["entitlements"]["ml_access"]:
-        return jsonify({"requires": "pro", "message": "ML scores require the Pro tier",
-                        "upgrade_url": _UPGRADE_URL}), 200
-
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
         return _err("invalid_request", "JSON body with 'opportunities' is required", 400)
@@ -551,9 +563,21 @@ def score():
             "direction": it["direction"],
         })
 
-    ml = appserver_client.ml_scores(market, norm)
+    # ML is offered on every tier but METERED PER DAY (free 5/day, unlimited Pro). Grant
+    # up to the remaining allowance; score that many; the rest come back unscored with a
+    # quota note. A zero grant returns a graceful upgrade nudge (HTTP 200, not an error).
+    granted = ml_quota.consume(g.customer, len(norm))
+    if granted == 0:
+        lim = g.customer["entitlements"].get("ml_daily_limit")
+        return jsonify({
+            "requires": "upgrade", "reason": "ml_daily_limit",
+            "message": "Daily ML limit reached (%s/day on your plan). Upgrade for unlimited ML scoring." % lim,
+            "upgrade_url": _UPGRADE_URL, "ml_remaining_today": 0,
+        }), 200
+
+    ml = appserver_client.ml_scores(market, norm[:granted])
     scores = []
-    for it, score in zip(norm, ml):
+    for it, score in zip(norm[:granted], ml):
         row = {
             "symbol": it["symbol"],
             "date": it["date"],
@@ -567,7 +591,19 @@ def score():
             row.update({"ml_score": None, "win_prob": None,
                         "pred_return": None, "pred_mfe": None})
         scores.append(row)
-    return jsonify({"scores": scores})
+    # requested beyond today's allowance: unscored, with a quota note (no error).
+    for it in norm[granted:]:
+        scores.append({
+            "symbol": it["symbol"], "date": it["date"], "days_out": it["days_out"],
+            "direction": appserver_client._dir_to_public(it["direction"]),
+            "ml_score": None, "win_prob": None, "pred_return": None, "pred_mfe": None,
+            "note": "daily ML limit reached - upgrade for unlimited",
+        })
+    return jsonify({
+        "scores": scores,
+        "granted": granted,
+        "ml_remaining_today": ml_quota.remaining(g.customer),
+    })
 
 
 @v1.get("/daily-pick")
@@ -582,9 +618,12 @@ def daily_pick():
 
     opp = raw["opp"]
     market = opp.get("market")
-    # daily-pick is a published signal everyone can see; if the pick's market is out of
-    # the caller's tier scope, ML still gates normally but the card itself is shown.
-    ml_available = _ml_enabled_for_caller(market) if market else False
+    # The daily pick is the FREE teaser - a single published signal everyone sees - so its
+    # ML score is shown WITHOUT consuming the daily ML allowance (the pick already carries
+    # the ML the scorer selected it with). It is the hook, not a metered call.
+    ml_available = bool(market and _ml_eligible(market) and opp.get("ml"))
+    ml_state = ("shown" if ml_available
+                else ("market" if not (market and _ml_eligible(market)) else "na"))
 
     seasonal_curve = None
     if market and opp.get("entry_date"):
@@ -596,7 +635,7 @@ def daily_pick():
 
     card = _enrich_and_card(
         opp, ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=_today(),
-        rank=1, tier_note_free=(market and _ml_eligible(market) and not ml_available))
+        rank=1, ml_state=ml_state)
 
     # fold the LIVE track record into the card receipts - the differentiating proof.
     tr = appserver_client.track_record()

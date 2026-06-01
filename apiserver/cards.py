@@ -34,6 +34,14 @@ MIN_EDGE_SCORE = 40
 MIN_WIN_RATE = 0.55
 MIN_YEARS_TESTED = 5
 
+# tier_notes for the ML state of a card (ML is metered per day across all tiers now).
+_ML_NOTES = {
+    "shown": "ML score shown.",
+    "quota": "Daily ML limit reached on your plan - upgrade for unlimited ML scoring.",
+    "market": "ML not available for this market (ML covers US stocks, indices and ETFs).",
+    "na": "ML not available.",
+}
+
 # edge_score blend weights (spec section 3). Tunable - this is the ONE place.
 _W_WIN = 0.40
 _W_SHARPE = 0.30
@@ -142,29 +150,38 @@ def _best_worst(per_year):
             {"year": worst["year"], "return_pct": worst["return_pct"]})
 
 
-def curve_summary(seasonal_curve):
-    """Derive a compact {shape, peak_day, trough_day} from the 0-100 normalized seasonal
-    curve. NEVER ships the full 365-point curve inline (that stays at /v1/seasonal-chart).
-    `index` is a relative 0-100 seasonal index, not a price. Returns None if no curve."""
-    if not seasonal_curve:
+def curve_summary(section_curve):
+    """Describe the TREND OF THE SECTION - the slice of the normalized trend chart that
+    spans the trade's hold window (entry -> exit), NOT the whole annual cycle. The caller
+    passes the already-sliced section (build_signal_card slices the curve to hold_days,
+    because the appserver returns the curve starting at the entry date, so the first
+    hold_days points ARE the hold window). `index` is a relative 0-100 seasonal index,
+    never a price. Returns {shape, trend, change_pts, peak_day, trough_day} or None.
+
+    'change_pts' = index at exit minus index at entry (how much the seasonal index moves
+    across the hold). 'trend' rising / falling / flat. peak_day / trough_day are days
+    INTO THE HOLD (0 = entry), so 'peak ~day 14' means day 14 of the hold, not the year.
+    NEVER ships the full curve inline (that stays at the /v1/seasonal-chart primitive)."""
+    if not section_curve:
         return None
-    idxs = [c.get("index") for c in seasonal_curve if isinstance(c, dict) and c.get("index") is not None]
-    if not idxs:
+    idxs = [c.get("index") for c in section_curve if isinstance(c, dict) and c.get("index") is not None]
+    if len(idxs) < 2:
         return None
-    peak_day = max(range(len(idxs)), key=lambda i: idxs[i])
-    trough_day = min(range(len(idxs)), key=lambda i: idxs[i])
-    first, last = idxs[0], idxs[-1]
     n = len(idxs)
-    # shape words: where does the index rise/peak/fade relative to the window.
-    if peak_day <= n * 0.25:
-        when = "peaks early"
-    elif peak_day >= n * 0.75:
-        when = "builds through the window"
+    peak_day = max(range(n), key=lambda i: idxs[i])
+    trough_day = min(range(n), key=lambda i: idxs[i])
+    change_pts = round(idxs[-1] - idxs[0], 1)
+    trend = "rising" if change_pts > 2 else ("falling" if change_pts < -2 else "flat")
+    # where the index peaks WITHIN the hold (day 0 = entry).
+    if peak_day <= n * 0.34:
+        when = "peaks early in the hold"
+    elif peak_day >= n * 0.67:
+        when = "strengthens into the exit"
     else:
-        when = "peaks mid-window"
-    drift = "rises overall" if last > first else "fades overall"
-    shape = "%s (peak ~day %d), %s" % (when, peak_day, drift)
-    return {"shape": shape, "peak_day": peak_day, "trough_day": trough_day}
+        when = "peaks mid-hold"
+    shape = "%s; seasonal index %s %+0.0f pts over the hold" % (when, trend, change_pts)
+    return {"shape": shape, "trend": trend, "change_pts": change_pts,
+            "peak_day": peak_day, "trough_day": trough_day}
 
 
 # --------------------------------------------------------------------------- #
@@ -241,7 +258,7 @@ def _entry_window(entry_d, tol_days=3):
 
 def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
                       ml_available=False, seasonal_curve=None, as_of=None, rank=None,
-                      tier_note_free=False):
+                      ml_state="na"):
     """Build ONE SignalCard.
 
     opp:            an Opportunity dict from appserver_client (_opp_row_to_obj shape):
@@ -317,6 +334,14 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
     if entry_d and isinstance(hold_days, int):
         exit_d = entry_d + datetime.timedelta(days=hold_days)
 
+    # --- trend chart SECTION: the slice of the curve over the hold window. The appserver
+    # returns the curve starting at the entry date, so the first hold_days points are the
+    # entry -> exit section. curve_summary describes the TREND of that section, not the year.
+    section_curve = seasonal_curve
+    if seasonal_curve and isinstance(hold_days, int) and hold_days > 1:
+        section_curve = seasonal_curve[: hold_days + 1]
+    csum = curve_summary(section_curve)
+
     # --- NO_SIGNAL rule (spec section 4) ---
     weak = (edge_score < MIN_EDGE_SCORE
             or (historical_win_rate is None or historical_win_rate < MIN_WIN_RATE)
@@ -334,7 +359,7 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
         "best_year": best,
         "worst_year": worst,
         "per_year": per_year,
-        "curve_summary": curve_summary(seasonal_curve),
+        "curve_summary": csum,
         "source": "TradeWave seasonal model, %sy lookback" % years_str,
         "as_of": as_of,
     }
@@ -347,13 +372,8 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
     # --- next_step (omit order_ticket on NO_SIGNAL) ---
     next_step = _build_next_step(symbol, side, entry_d, exit_d, hold_days, signal)
 
-    # --- tier_notes ---
-    if ml_available:
-        tier_notes = "ML score shown (Pro)."
-    elif tier_note_free:
-        tier_notes = "ML signals are Pro-tier on ML-eligible markets (S&P, indices, ETFs). Upgrade to unlock."
-    else:
-        tier_notes = "ML not available for this market."
+    # --- tier_notes (ML is metered per day across all tiers; ml_state set by the route) ---
+    tier_notes = _ML_NOTES.get(ml_state, _ML_NOTES["na"])
 
     card = {
         "rank": rank,

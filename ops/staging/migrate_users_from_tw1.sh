@@ -61,11 +61,12 @@ hdr "2. export users ON TW1 web (roster=MySQL, levels=UMP api-gate); pull jsonl 
 # shellcheck disable=SC2087  # intentional: expand TGT_* on .176; prod-web-side vars are escaped \$
 ssh -p "$PORT" "root@${WEB}" "bash -s" <<EOF
 set -e
-SSHK="ssh -i $REMOTE_KEY -p $PORT -o StrictHostKeyChecking=accept-new"
+SSHK="ssh -n -i $REMOTE_KEY -p $PORT -o StrictHostKeyChecking=accept-new"
 SCPK="scp -i $REMOTE_KEY -P $PORT -o StrictHostKeyChecking=accept-new"
 mkdir -p /tmp/mig
+chmod 777 /tmp/mig   # flask user (the import) writes id_map.jsonl here too
 \$SCPK /tmp/tw1_export.py root@${TW1}:/tmp/tw1_export.py
-\$SSHK root@${TW1} '$TW1_PY /tmp/tw1_export.py users --wp-config "$WPCONF" --out-dir /tmp/mig'
+\$SSHK root@${TW1} '$TW1_PY /tmp/tw1_export.py users --out-dir /tmp/mig'
 \$SCPK root@${TW1}:/tmp/mig/tw1_users.jsonl /tmp/mig/tw1_users.jsonl
 \$SSHK root@${TW1} 'rm -f /tmp/tw1_export.py /tmp/mig/tw1_users.jsonl'
 rm -f /tmp/tw1_export.py

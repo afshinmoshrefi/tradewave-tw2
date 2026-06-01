@@ -135,14 +135,37 @@ def _post(path: str, body: Any) -> Any:
 
 
 def _format_upgrade(data: dict[str, Any]) -> str:
-    """Return a clear Pro-required message from an UpgradeRequired stub."""
-    msg = data.get("message", "This feature requires a Pro subscription.")
+    """Return a clear upgrade message from an UpgradeRequired or ml_daily_limit stub.
+
+    Handles two stub shapes:
+      {requires:"pro", ...}                     - feature requires Pro subscription
+      {requires:"upgrade", reason:"ml_daily_limit", ...}  - daily ML allowance spent
+    Both surface as a clear human message with an upgrade link, never as an error.
+    ml_remaining_today is shown when present (None = unlimited, 0 = limit reached).
+    """
+    reason = data.get("reason", "")
+    msg = data.get("message", "")
     url = data.get("upgrade_url", "https://tradewave.ai/upgrade")
-    return f"Pro subscription required - {msg}\nUpgrade at: {url}"
+    remaining = data.get("ml_remaining_today")
+
+    if reason == "ml_daily_limit" or data.get("requires") == "upgrade":
+        remaining_str = ""
+        if remaining is not None:
+            remaining_str = f" (ML calls remaining today: {remaining})"
+        if not msg:
+            msg = "You have reached your daily ML scoring limit. Upgrade for unlimited ML scoring."
+        return f"Daily ML limit reached on your plan - {msg}{remaining_str}\nUpgrade at: {url}"
+
+    if not msg:
+        msg = "This feature requires a Pro subscription."
+    return f"Upgrade required - {msg}\nUpgrade at: {url}"
 
 
 def _is_upgrade_stub(data: Any) -> bool:
-    return isinstance(data, dict) and data.get("requires") == "pro"
+    return isinstance(data, dict) and (
+        data.get("requires") == "pro"
+        or data.get("requires") == "upgrade"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -165,8 +188,12 @@ mcp = FastMCP(
         "  - explain_pick: today's AI daily pick WITH its live forward-tested track record.\n\n"
         "The other tools are low-level primitives - prefer the flagships unless you need one "
         "exact slice (e.g. the raw normalized seasonal curve to chart). The gateway is the one "
-        "source of truth: present its SignalCards, do not recompute or re-rank them. "
-        "Pro-tier features degrade gracefully with a clear upgrade message for non-Pro callers."
+        "source of truth: present its SignalCards, do not recompute or re-rank them.\n\n"
+        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
+        "When the daily ML allowance is spent the gateway returns a graceful nudge "
+        "(requires='upgrade', reason='ml_daily_limit') - surface this as "
+        "'daily ML limit reached - upgrade for unlimited' and include ml_remaining_today if "
+        "present. Never surface it as an error."
     ),
 )
 
@@ -209,14 +236,15 @@ def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
 @mcp.tool(
     description=(
         "THE flagship 'what should I trade right now' tool. Scan across markets, rank every "
-        "seasonal setup by a blended edge score, and return ready, evidence-backed SignalCards "
+        "seasonal setup by Sharpe ratio (mirroring TradeWave's own daily-pick selection: "
+        "filter then rank by Sharpe), and return ready, evidence-backed SignalCards "
         "(headline + verdict + receipts + a copyable order ticket). "
         "REACH FOR THIS FIRST whenever the user asks 'find me a trade', 'what's good right now', "
         "'anything seasonal in gold / energy / tech', 'best setups this month', or wants a ranked "
         "shortlist - it replaces stitching list_markets + get_seasonal_opportunities yourself. "
         "Scans the caller's in-scope markets by default; narrow with `markets`. Honest by design: "
         "weak setups come back as NO_SIGNAL rather than a manufactured trade. "
-        "Pro callers get ML win-probability folded into the ranking on eligible markets. "
+        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
         "Present the returned cards as-is; the gateway has already sorted them by rank."
     )
 )
@@ -237,7 +265,7 @@ def find_best_opportunities(
         direction: 'long' or 'short'. Optional - omit for both.
         min_win_rate: Minimum historical_win_rate 0..1 (share of profitable years), e.g. 0.65. Optional.
         min_years: Trust filter - require at least N years of tested history. Optional.
-        rank_by: 'edge' (default), 'win_rate', 'sharpe', 'ml', or 'avg_return'.
+        rank_by: Ranking method. Default 'sharpe' (mirrors TradeWave's daily-pick selection). Options: edge|win_rate|sharpe|ml|avg_return.
         limit: Max cards to return (tier-capped to the caller's opp_limit). Optional.
     """
     _bind_request_key(ctx)
@@ -286,7 +314,8 @@ def find_best_opportunities(
         "REACH FOR THIS whenever the user names a specific symbol - 'what about GLD', 'analyze "
         "AAPL's seasonality', 'is now a good time for SPY', 'does CL have an edge'. "
         "It replaces stitching get_opportunity_for_symbol + get_seasonal_pattern + the chart. "
-        "Pro callers get the ML win-probability on eligible markets (0-4, 11). "
+        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro), "
+        "on eligible markets (0-4, 11). "
         "If the symbol has no real seasonal edge it returns NO_SIGNAL with an honest verdict."
     )
 )
@@ -365,7 +394,8 @@ def explain_pick(ctx: Optional[Context] = None) -> str:
         "REACH FOR THIS on calendar-framed prompts: 'what's seasonal right now', 'anything "
         "opening this week', 'what should I be watching this week', the weekly digest. "
         "(It is a focused 'now'-window view of the scanner.) "
-        "Pro callers get ML inline on eligible markets; weak setups come back as NO_SIGNAL."
+        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
+        "Weak setups come back as NO_SIGNAL."
     )
 )
 def whats_seasonal_now(
@@ -412,7 +442,8 @@ def whats_seasonal_now(
         "'compare AAPL, MSFT and NVDA seasonally', 'which of these has the better setup'. "
         "Each card carries its own edge score, win rate, and receipts; present them as a "
         "comparison and call out which has the strongest, most consistent edge. "
-        "Pro callers get ML inline on eligible markets."
+        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro), "
+        "on eligible markets."
     )
 )
 def compare_opportunities(
@@ -513,7 +544,7 @@ def list_symbols(market: str, ctx: Context) -> str:
         "raw single-market opportunity list for one date window. "
         "Find seasonal trade setups for ONE market and date window, ranked by historical edge. "
         "Filters by direction (long/short), minimum win rate, and date range. "
-        "Pro callers get ML scores inline; free-tier results are still ranked by Sharpe ratio."
+        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro)."
     )
 )
 def get_seasonal_opportunities(
@@ -615,7 +646,12 @@ def get_seasonal_pattern(market: str, symbol: str, ctx: Context) -> str:
         "typical within-year shape - it is NOT per-year cumulative paths. "
         "Use when the user wants to see or reason over the shape of the seasonal pattern "
         "(where it rises, peaks, and fades through the year). "
-        "The index is a normalized relative shape, never a price."
+        "The index is a normalized relative shape, never a price. "
+        "The response may include receipts.curve_summary which describes the TREND OF THE "
+        "HOLD SECTION (entry to exit), NOT the full year. Fields: shape, trend "
+        "(rising|falling|flat), change_pts, peak_day, trough_day - where peak_day and "
+        "trough_day are days INTO THE HOLD (0 = entry day). Do not interpret these as "
+        "full-year peaks or troughs."
     )
 )
 def get_opportunity_chart(
@@ -651,17 +687,19 @@ def get_opportunity_chart(
 
 
 # ---------------------------------------------------------------------------
-# Tool: score_opportunities (Pro)
+# Tool: score_opportunities (metered, all tiers)
 # ---------------------------------------------------------------------------
 
 
 @mcp.tool(
     description=(
         "Low-level primitive. Prefer analyze_symbol / find_best_opportunities (they attach ML "
-        "inline for Pro callers on eligible markets) unless you need this exact slice: ML scoring "
+        "inline on eligible markets, metered per tier) unless you need this exact slice: ML scoring "
         "of an explicit hand-built list of setups. "
         "Score a list of seasonal opportunities with ML win-probability and predicted return. "
-        "Pro tier only - non-Pro callers receive a clear upgrade message, not an error. "
+        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
+        "When the daily ML allowance is spent the gateway returns a graceful nudge (never an error): "
+        "a 200 body with requires='upgrade', reason='ml_daily_limit', and ml_remaining_today. "
         "ML scoring is available for markets 0-4 and 11 only. "
         "Input: a list of {symbol, date, days_out, direction} dicts. "
         "Output: ml_score (0-100), win_prob (0-1), pred_return %, pred_mfe %."
