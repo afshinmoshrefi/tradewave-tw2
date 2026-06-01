@@ -272,8 +272,8 @@ def appserver_login():
         raise last
 
     try:
-        result = _get(APPSERVER_URL + '/login/16/7/4/5/6')
-        kp_token = result['message'].split(' ')[4]
+        result = _get(APPSERVER_URL + '/login/api/' + config.SERVICE_API_KEY)
+        return result.get('token')
 
         url = APPSERVER_URL + '/login/16/7/4/5/' + kp_token
         result = _get(url)
@@ -497,6 +497,8 @@ def select_featured_from_ml_scorer():
         'p_hit_mfe': pick.get('p_hit_mfe'),
         'tier': pick.get('tier'),
         'start_price': start_price,
+        'end_date': (datetime.strptime(target, '%Y-%m-%d') + timedelta(days=pick['daysOut'])).strftime('%Y-%m-%d'),
+        'status': 'open',
     }
 
     # Save to history
