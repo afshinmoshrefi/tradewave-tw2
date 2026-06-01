@@ -319,7 +319,7 @@ def get_resource_folder_from_token(token, resourceID):
 
     data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
 
-    resourceName = data['resource_disp'][int(resourceID)]
+    resourceName = available_resources.get(str(resourceID), '')  # by id, not resource_disp index (crypto id=16 sits at index 14)
 
     # print('......resourceName=',resourceName,data)
 
