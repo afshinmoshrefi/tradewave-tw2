@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 sys.path.insert(0, '/home/flask')
 sys.path.insert(0, '/home/flask/smn')
 import config
-import email_tools
+import email_tools_web as email_tools
 
 INPUT_HTML = "/var/www/tradewave/daily-ai-pick.html"
 LOCK_DIR = "/var/log/tradewave"
