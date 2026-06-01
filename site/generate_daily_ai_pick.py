@@ -71,8 +71,8 @@ def appserver_login():
         raise last
 
     try:
-        result = _get(APPSERVER_URL + '/login/16/7/4/5/6')
-        kp_token = result['message'].split(' ')[4]
+        result = _get(APPSERVER_URL + '/login/api/' + config.SERVICE_API_KEY)
+        return result.get('token')
         url = APPSERVER_URL + '/login/16/7/4/5/' + kp_token
         result = _get(url)
         if 'message' in result:
