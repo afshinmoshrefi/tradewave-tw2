@@ -98,6 +98,7 @@ CUR=\$(sudo -u flask crontab -l 2>/dev/null || true)
   echo "30 7 * * 1-5 \$W /home/flask/venv/bin/python /home/flask/site/send_daily_ai_pick.py \$L/daily_ai_pick.log 2>&1"
   echo "0 7 * * 1-5 \$W /home/flask/venv/bin/python /home/flask/smn/send_smn_emails.py \$L/smn_email_cron.log 2>&1"
   echo "0 9 * * 0 \$W /home/flask/venv/bin/python /home/flask/smn/send_smn_emails.py \$L/smn_email_cron.log 2>&1"
+  echo "0 6 * * 0-5 \$W /home/flask/venv/bin/python /home/flask/site/generate_daily_ai_pick.py \$L/daily_ai_pick_gen.log 2>&1"
   echo "10 6 * * 0-5 \$W /home/flask/venv/bin/python /home/flask/site/m_daily_ai_pick_social.py --send \$L/m_daily_ai_pick_social.log 2>&1"
 } | grep -vE '^\$' | sort -u | sudo -u flask crontab -
 echo "web crontab entry count: \$(sudo -u flask crontab -l | grep -vcE '^#|^\$')"
