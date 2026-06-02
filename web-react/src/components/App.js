@@ -1786,7 +1786,7 @@ const App = () => {
       tmp = [];
 
       for (var i = 0; i < decoded['resource_disp'].length; i++) {
-        tmp.push({ id: i, value: decoded['resource_disp'][i], label: decoded['resource_disp'][i] });
+        tmp.push({ id: (decoded['lid'] && decoded['lid'][i] != null) ? parseInt(decoded['lid'][i]) : i, value: decoded['resource_disp'][i], label: decoded['resource_disp'][i] });
       }
 
       // add more ... to the bottom of the list for non logged-in users
