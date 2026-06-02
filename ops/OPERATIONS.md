@@ -186,6 +186,82 @@ ops/staging/run.sh prod    inventory.sh app     # tier-neutral payloads take a 3
 
 Full annotated playbook + every gotcha: memory `project_tw2_staging_deployment.md`.
 
+## API/MCP deploy + restart
+
+The v2 public product (gateway + MCP + developer portal). Map: `docs/TRADEWAVE_ECOSYSTEM.md`
+§7A/§7B; contract: `api/SIGNALCARD_SPEC.md` + `api/openapi.yaml`; build-state: `api/BUILD_STATE.md`.
+**SIGNALS-ONLY** (no raw prices). These are NEW services additive to the appserver; they live on
+the **app box** (gateway -> appserver over localhost), public via `api-`/`mcp-`/`developers-`
+hostnames. All scripts are run BY the operator on the target box (never auto-run against
+staging/prod). Author them on dev; operator runs them.
+
+**Hosts per env** (drive `portal_urls.py` via `secrets.env`):
+
+| Env | API | MCP | Developer portal |
+|---|---|---|---|
+| dev | api-dev.trxstat.com | mcp-dev.trxstat.com | developers-dev.trxstat.com |
+| staging | api-stage.trxstat.com | mcp-stage.trxstat.com | developers-stage.trxstat.com |
+| prod | api.tradewave.ai | mcp.tradewave.ai | developers.tradewave.ai |
+
+Set `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST` (and the existing
+`TW2_PUBLIC_HOST`) in `/etc/tradewave/secrets.env` BEFORE running the scripts/generators.
+
+**Services (systemd, app box, auto-restart on failure):**
+
+| Unit | Command | Bind | Venv | Type |
+|---|---|---|---|---|
+| `tradewave-apiserver` | `gunicorn apiserver.app:app` (~4 sync workers) | `127.0.0.1:8088` | `/home/flask/venv-api` | notify |
+| `tradewave-mcpserver` | `python -m mcpserver.server --transport sse --port 9090` | `127.0.0.1:9090` | `/home/flask/venv-api` | simple |
+
+MCP env: `API_BASE_URL=http://127.0.0.1:8088/v1`, `TW2_MCP_PUBLIC_HOST=<host>`, and
+`TRADEWAVE_API_KEY` **UNSET** on the remote (SSE) transport (BYOK - clients send their own
+`Authorization: Bearer`). Logs: `/var/log/tradewave/`.
+
+**1. Build the services + edge (once per box / new box):**
+```
+sudo bash /home/flask/ops/bootstrap_api_services.sh
+```
+Idempotent + echoes each step: builds `/home/flask/venv-api` from `requirements-api.txt`,
+installs the two systemd units, adds the `ops/nginx` `api.`/`mcp.`/`developers.` server blocks,
+and adds the `api-`/`mcp-`/`developers-` ingress entries to `/etc/cloudflared/config.yml` BEFORE
+the `- service: http_status:404` catch-all. After it: `systemctl restart cloudflared` and
+`nginx -t && systemctl reload nginx` (the cloudflared edit alone does nothing - that is the 404).
+
+**2. Assemble the developer portal docroot:**
+```
+sudo bash /home/flask/ops/assemble_developer_portal.sh
+```
+Runs the generators (`site/api_marketing/generate.py`, `site/api_docs/generate_api_docs.py` +
+`generate_api_extras.py`, `site/api_learn/generate_learn_api.py`,
+`site/api_playground/generate_playground.py`) with `/home/flask/venv/bin/python`, then rsyncs into
+`/var/www/developers/` (`/`, `/docs`, `/learn`, `/playground`, `/.well-known/mcp.json`). Re-run any
+time copy/contract changes; re-run after an env-host change (the pages bake the hostnames). No
+service restart needed (nginx serves it off disk).
+
+**3. Restart matrix (after a code change):**
+
+| Changed | Restart |
+|---|---|
+| `apiserver/` (gateway) | `systemctl restart tradewave-apiserver` |
+| `mcpserver/` | `systemctl restart tradewave-mcpserver` |
+| `web/api_portal/` (console) | `systemctl restart tradewave-web` (it is a `web/app.py` blueprint) |
+| `site/api_*` generators/copy | re-run script 2 (no restart) |
+| `secrets.env` host/key change | restart the affected unit(s) above, then re-run script 2 |
+
+gunicorn does NOT auto-reload - always restart after a Python edit.
+
+**4. Health checks (on the app box):**
+```
+systemctl is-active tradewave-apiserver tradewave-mcpserver
+curl -sS http://127.0.0.1:8088/v1/markets -H "Authorization: Bearer $KEY" | head    # gateway, signals-only
+curl -sS -i http://127.0.0.1:9090/sse | head                                        # MCP SSE stream opens
+curl -sS -i https://<api-host>/v1/markets | head                                    # edge -> gateway via tunnel+nginx
+curl -sS    https://<developers-host>/.well-known/mcp.json | head                   # portal docroot served
+```
+Spot-check the gateway JSON for **no raw price fields** (the signals-only invariant). 502-but-active
+= a worker crash on a missing `venv-api` dep (same failure mode as the web tier; `pip install -r
+requirements-api.txt`).
+
 ## Reliability
 
 - **DB backups**: `ops/backup_db.sh` nightly 03:30 on stage-app → `/var/backups/tradewave/db_*.sql.gz`, 14-day prune. Restore verified weekly by `ops/restore_drill.sh`. **Restore test: `sudo -u flask /home/flask/ops/restore_drill.sh` on stage-app — must say PASS.**

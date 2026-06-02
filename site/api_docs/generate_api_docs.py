@@ -19,7 +19,7 @@ Re-run any time openapi.yaml changes to keep the API reference in sync.
 No external build step needed - pure stdlib (+ PyYAML, which is in venv-api).
 
 Usage:
-    /home/flask/venv-api/bin/python generate_api_docs.py
+    /home/flask/venv/bin/python generate_api_docs.py
     # or from the api_docs dir:
     python3 generate_api_docs.py
 """
@@ -38,6 +38,7 @@ import yaml
 # ---------------------------------------------------------------------------
 sys.path.insert(0, "/home/flask/site/lib")
 import portal_urls  # noqa: E402
+import portal_seo  # noqa: E402
 
 # Convenient aliases used throughout the generators
 API_BASE    = portal_urls.API_BASE      # e.g. https://api-dev.trxstat.com/v1
@@ -358,9 +359,15 @@ def sidebar_html(active: str) -> str:
   <h2>Developer Docs</h2>
   {links}
   <hr class="sidebar-divider">
+  <h2>Try &amp; build</h2>
+  <a href="{portal_urls.PLAYGROUND_URL}">API Playground</a>
+  <a href="{portal_urls.LEARN_URL}">Learning track</a>
+  <a href="{portal_urls.MCP_SETUP_URL}">MCP setup</a>
+  <hr class="sidebar-divider">
   <h2>API</h2>
   <a href="{API_BASE}">{api_host_label}</a>
-  <a href="api-reference.html#openapi">OpenAPI Spec</a>
+  <a href="openapi.yaml">OpenAPI spec (YAML)</a>
+  <a href="tradewave.postman_collection.json">Postman collection</a>
 </nav>"""
 
 
@@ -394,6 +401,7 @@ def page(title: str, description: str, active_href: str, hero_title: str,
   <title>{title} - TradeWave Developer Docs</title>
   <meta name="description" content="{description}">
   <meta name="robots" content="index, follow">
+  {portal_seo.head_tags(portal_urls.DOCS_URL + '/' + (active_href if active_href.endswith('.html') else 'quickstart.html'), title, description)}
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
@@ -804,20 +812,13 @@ EXAMPLE_RESPONSES: dict[str, str] = {
   "symbol": "AAPL",  "market": "2",
   "direction": "long","entry_date": "2026-06-01",
   "days_out": 22,    "years": "10",
-  "average_path": [
-    {"day": 0, "pct": 0.0},
-    {"day": 5, "pct": 1.1},
-    {"day": 22,"pct": 3.12}
+  "seasonal_curve": [
+    {"date": "2026-06-01", "index": 41.2},
+    {"date": "2026-06-02", "index": 42.8},
+    {"date": "2026-06-23", "index": 58.6}
   ],
-  "yearly_paths": [
-    {
-      "year": "2024",
-      "path": [{"day": 0,"pct": 0.0},{"day": 22,"pct": 4.5}],
-      "exit_pct": 4.5,
-      "result": "win"
-    }
-  ],
-  "stats": {"avg_profit_pct": 3.12, "win_rate": 0.78}
+  "stats": {"avg_profit_pct": 3.12, "win_rate": 0.78},
+  "win_rate": 0.78, "years": "10"
 }""",
     "POST /score": """{
   "granted": 1,
@@ -1229,7 +1230,7 @@ def build_mcp_reference() -> str:
   <div class="tool-card-body">
     <p>Find the best seasonal trade setups for a market and date window, ranked by historical edge. Use when the user asks what to trade, when to enter, or which symbols have a strong seasonal tendency.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">from</code>, <code class="inline-code">to</code>, <code class="inline-code">direction</code> (long | short), <code class="inline-code">min_win_rate</code> (0-1), <code class="inline-code">limit</code></p>
-    <p><strong>Returns:</strong> ranked list - symbol, direction, entry date, holding period, Sharpe ratio, avg/median return %, win rate. ML fields are null unless Pro + ML-eligible market.</p>
+    <p><strong>Returns:</strong> ranked list - symbol, direction, entry date, holding period, Sharpe ratio, avg/median return %, win rate. ML fields are available on every tier (metered per day) and are null only when your daily ML allowance is spent or the market is not ML-eligible (ids 0-4, 11).</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/opportunities</code></p>
   </div>
 </div>
@@ -1264,7 +1265,7 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Returns trend-chart DATA (not an image) for a seasonal setup - per-year cumulative % paths and the average path. Agents can reason over the shape. Raw prices are intentionally not exposed.</p>
+    <p>Returns trend-chart DATA (not an image) for a seasonal setup - a single year-averaged, normalized 0-100 seasonal index curve (<code class="inline-code">seasonal_curve</code>, one <code class="inline-code">{{date, index}}</code> point per day). It is the typical within-year shape, NOT per-year paths, and the index is never a price. Agents can reason over the shape. Raw prices are intentionally not exposed.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">symbol</code> (required), <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code>, <code class="inline-code">years</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/seasonal-chart</code></p>
   </div>
@@ -1495,19 +1496,14 @@ def build_data_dictionary() -> str:
   </thead>
   <tbody>
     <tr>
-      <td class="field-name">average_path</td>
+      <td class="field-name">seasonal_curve</td>
       <td class="field-type">array</td>
-      <td>The bold seasonal line - mean cumulative % from entry for each day offset across all historical years. day=0 is always pct=0 (entry). Each point is <code class="inline-code">{day, pct}</code>.</td>
+      <td>The single year-averaged, normalized 0-100 seasonal index curve - one <code class="inline-code">{date, index}</code> point per calendar day. <code class="inline-code">index</code> is a relative shape (0-100), NEVER a price, and the series cannot be used to reconstruct prices. This is the typical within-year shape, not per-year paths.</td>
     </tr>
     <tr>
-      <td class="field-name">yearly_paths</td>
+      <td class="field-name">per_year</td>
       <td class="field-type">array</td>
-      <td>Per-year cumulative % paths. Each entry is <code class="inline-code">{year, path, exit_pct, result}</code>. The raw price series is intentionally not included.</td>
-    </tr>
-    <tr>
-      <td class="field-name">exit_pct</td>
-      <td class="field-type">number</td>
-      <td>Final cumulative return at day=<strong>days_out</strong> for that year's instance.</td>
+      <td>On a SignalCard's <code class="inline-code">receipts</code>: one row per lookback year as <code class="inline-code">{year, return_pct, result}</code> - the % return that year and whether it was a win or loss. No price series.</td>
     </tr>
   </tbody>
 </table>
@@ -1712,7 +1708,7 @@ def build_changelog() -> str:
     <li>8 MCP tools wrapping the REST API - connect via Claude Desktop, ChatGPT, or Cursor.</li>
     <li>4 API tiers: Free, Dev ($39/mo), Pro ($199/mo), Business ($599/mo).</li>
     <li>Bearer token auth via <code class="inline-code">Authorization: Bearer &lt;key&gt;</code>. Keys issued in the dashboard.</li>
-    <li>ML fields (<code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, <code class="inline-code">pred_mfe</code>) gated to Pro tier and ML-eligible markets (ids 0-4, 11).</li>
+    <li>ML fields (<code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, <code class="inline-code">pred_mfe</code>) available on every tier, metered per day (free 5/day, Dev 100/day, Pro/Business unlimited), on ML-eligible markets (ids 0-4, 11).</li>
     <li>Graceful upgrade stubs for non-Pro ML calls - HTTP 200 with <code class="inline-code">{"requires":"pro"}</code>.</li>
     <li>15 active markets (ids 0-13, 16). Ids 14/15 reserved (Korea, removed).</li>
     <li>All returns are percentages. No raw OHLCV or price-level data is ever returned.</li>
@@ -1773,7 +1769,7 @@ def main() -> int:
 
     print()
     print("Done. Regenerate any time with:")
-    print("  /home/flask/venv-api/bin/python /home/flask/site/api_docs/generate_api_docs.py")
+    print("  /home/flask/venv/bin/python /home/flask/site/api_docs/generate_api_docs.py")
     return 0
 
 

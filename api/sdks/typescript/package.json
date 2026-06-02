@@ -1,0 +1,41 @@
+{
+  "name": "@tradewave/sdk",
+  "version": "0.1.0",
+  "description": "Official TradeWave Data API client - seasonal trading opportunities and ML win-probability signals. Signals only, no raw prices.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://tradewave.ai",
+  "keywords": [
+    "tradewave",
+    "seasonal",
+    "trading",
+    "signals",
+    "markets",
+    "sdk"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.11.0"
+  }
+}

@@ -52,3 +52,24 @@ STRIPE_WEBHOOK_SECRET = _get("STRIPE_WEBHOOK_SECRET")
 
 PUBLIC_HOST = _get("TW2_PUBLIC_HOST", "tw2-dev.trxstat.com")
 ENV = _get("TW2_ENV", "dev")
+
+
+# CORS: the public developer portal ("Try it" playground at developers.tradewave.ai) calls this
+# API from the browser. Auth is a bearer API key (never cookies), so echoing an allowlist of our
+# own portal origins is safe. Set API_CORS_ORIGINS to a comma-separated list, or "*" for any origin.
+def _default_cors_origins():
+    if ENV == "prod":
+        return ["https://developers.tradewave.ai", "https://tradewave.ai", "https://www.tradewave.ai"]
+    if ENV == "staging":
+        return ["https://developers-stage.trxstat.com", "https://tw2-stage.trxstat.com"]
+    return ["https://developers-dev.trxstat.com", "https://tw2-dev.trxstat.com",
+            "http://127.0.0.1:8090", "http://localhost:8090"]
+
+
+_cors_raw = (_get("API_CORS_ORIGINS", "") or "").strip()
+if _cors_raw == "*":
+    CORS_ORIGINS = ["*"]
+elif _cors_raw:
+    CORS_ORIGINS = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+else:
+    CORS_ORIGINS = _default_cors_origins()

@@ -1,0 +1,90 @@
+{
+ "hero_headline": "Built to be consumed by agents",
+ "hero_sub": "TradeWave is the edge an AI agent cannot compute on its own but can consume in one call: decision-ready seasonal and ML signals over a REST API and a hosted MCP server, signals only, with a public forward-tested track record your agent can audit before it trusts us.",
+ "sections": [
+  {
+   "heading": "Your agent can write a backtest. It cannot make it true.",
+   "body": [
+    "Let us concede the thing most pitches hide: a capable coding agent can write a seasonality backtest in minutes. The averaging is grade-school math, the calendar logic is a loop, and the agent will produce a green equity curve on the first try. That is exactly the problem. The math is easy. Being right is not. A backtest is only as honest as the four things underneath it, and those are where an agent that builds its own quietly fails.",
+    "TradeWave exists for the gap between a backtest that runs and a backtest that is true. We do not sell the math. We sell the data integrity, the methodology discipline, the trained model, and the one asset that cannot be faked after the fact - and we deliver all four as a finished signal, not a research project."
+   ],
+   "bullets": [
+    "Licensed, clean data across many markets. Decades of survivorship-bias-free, corporate-action-adjusted history. Free or scraped feeds yield a backtest that silently lies: delisted names vanish so only winners remain, and unadjusted splits and dividends turn a 2-for-1 into a fake -50% gap. The curve looks great and is wrong.",
+    "No look-ahead, no overfit. The traps that make a naive backtest confidently wrong - peeking at data the strategy could not have known in real time, and tuning a calendar window until it fits noise. We engineer these out. An agent improvising a backtest usually engineers them in.",
+    "A trained ML model you cannot reproduce. A 62-feature model trained on millions of historical setups. An agent cannot recreate it from a prompt; the training data, the labels, and the fit are the moat. We expose its output as a probability, never the prices it was trained on.",
+    "A real forward-tested record - the un-fakeable asset. An agent can backfill a backtest instantly. It cannot fabricate years of time-stamped results that were made in advance and scored later. Time only moves forward. In an agent world this matters MORE, not less: agents can synthesize every other claim, so the one thing that survives scrutiny is the record you published before you knew the outcome."
+   ]
+  },
+  {
+   "heading": "It is a daily scan of the whole universe, not a one-symbol check",
+   "body": [
+    "Point an agent at one ticker and it can tell you whether that ticker is seasonal. That is not the hard part. The hard part is the question you actually have every morning, across everything you could trade: which securities are at the START of a seasonal window today, and which are worth it.",
+    "TradeWave answers that daily. We scan the whole tradeable universe - hundreds of securities across 15 markets - surface only the ones entering their seasonal window now, and rank them by Sharpe ratio and the length of the pattern. That is a standing pipeline compiled over decades of licensed data and refreshed every day, not something an agent spins up on a whim. By the time an agent rebuilt the scan, the window it was looking for has moved."
+   ],
+   "bullets": [
+    "Cross-sectional, not one-symbol: which of everything you could trade is starting its window now, ranked - a question an agent cannot answer from a single prompt.",
+    "Ranked by Sharpe ratio and pattern length (the number of days in the move), so the shortlist is risk-adjusted and ordered, not a data dump.",
+    "Refreshed daily over the whole universe and decades of data - a compiled pipeline, not an ad-hoc computation an agent runs once and discards.",
+    "One call: GET /v1/scan (the find_best_opportunities tool) returns today's ranked list of securities entering their window, as SignalCards."
+   ]
+  },
+  {
+   "heading": "Decision-ready, not data to wrangle",
+   "body": [
+    "A trading agent has a finite context window and a token budget, and every token it spends rebuilding a data, methodology, and track-record problem is a token it is not spending on your actual strategy. Hand it raw rows and it has to fetch, clean, average, guess at adjustments, and reason its way to a verdict - slowly, expensively, and with real hallucination risk at every hop.",
+    "TradeWave returns a SignalCard: one self-describing object that already contains the answer. The agent reads a finished verdict and its receipts instead of deriving one. Less context consumed, fewer tokens burned, far less room to hallucinate a number that the data never supported."
+   ],
+   "bullets": [
+    "Pre-composed headline and verdict so even a weak agent renders a consistent, defensible answer, plus structured fields so a strong agent can still rank, filter, and compare.",
+    "Receipts inline: years tested, wins and losses, per-year returns, best and worst year, and a one-line curve shape - the evidence, attached, so the agent does not re-fetch it.",
+    "Two distinct numbers, separately named and never collapsed: historical_win_rate (the share of profitable years in the lookback) and ml_win_prob (the trained model's predicted probability). One is a frequency, one is a probability. Never both called win rate.",
+    "A broker-agnostic order ticket - side, type, time-in-force, entry and exit dates, no price level - so the last mile is a copy-paste, not another reasoning step.",
+    "Signals only: percentages and a normalized 0-100 seasonal index, never raw prices. The agent gets the edge and the timing and cannot leak a price series it should not have."
+   ]
+  },
+  {
+   "heading": "Do not trust us - check us",
+   "body": [
+    "A skeptical agent evaluating vendors should not take a marketing claim on faith, and we built for exactly that agent. The forward-tested track record is queryable, on the free tier, before any commitment. Your agent can pull the receipts and decide for itself whether the edge is real.",
+    "This is the difference between trust-me and verify. The record was published in advance and scored later, so there is nothing to retrofit. An agent can audit it in a single request and then make an informed recommendation to its user instead of an act of faith."
+   ],
+   "bullets": [
+    "GET /v1/daily-pick/track-record on the free tier returns the live, time-stamped record of past picks - count, realized win rate, and average return - made in advance and scored later.",
+    "The same record is published on the public scorecard, so a human reviewer and an evaluating agent see identical numbers.",
+    "Every SignalCard carries source and as-of stamps and an educational disclaimer; nothing is personalized advice and nothing is tailored to a portfolio - the same signal goes to everyone.",
+    "Net effect: an agent can verify the receipts before it recommends us, which is the only kind of credibility that survives in a world where everything else can be generated."
+   ]
+  },
+  {
+   "heading": "How an agent consumes TradeWave",
+   "body": [
+    "TradeWave is MCP-native, with a small set of opinionated flagship tools that each return a finished, evidence-backed answer rather than a slice of data to assemble. The model reaches for one flagship tool and gets a ranked set of SignalCards back; the low-level primitives stay available for the rare case where you need one exact slice.",
+    "Prefer chat-and-agent runtimes? Point them at the hosted MCP server. Building a backend service? The REST surface returns the same server-composed cards. One source of truth - the gateway composes every card; nothing is recomputed client-side."
+   ],
+   "bullets": [
+    "MCP at https://mcp.tradewave.ai - flagship tools: find_best_opportunities, analyze_symbol, explain_pick, whats_seasonal_now, compare_opportunities.",
+    "REST at https://api.tradewave.ai/v1 - GET /v1/scan, GET /v1/analyze/{symbol}, GET /v1/daily-pick, GET /v1/daily-pick/track-record, POST /v1/score.",
+    "Auth is one header: Authorization: Bearer tw_live_...",
+    "Free tier to evaluate end-to-end: 5 ML signals per day on S&P 500 stocks, plus the full forward-tested track record. Paid tiers open all 15 markets and lift the ML allowance.",
+    "Signals only, everywhere: percentages and a 0-100 seasonal index, never raw prices; the order ticket carries no price level. Weak setups come back as NO_SIGNAL, never a manufactured trade."
+   ]
+  },
+  {
+   "heading": "Integrate in five minutes with your coding agent",
+   "body": [
+    "The fastest path is to let your coding agent do the wiring. Point Claude Code or Cursor at the machine-readable spec and the llms.txt, hand it the prompt below, and it will scaffold a typed client against the flagship endpoints, wire the auth header, and respect the signals-only contract without you reading a line of docs.",
+    "Because the API is self-describing - OpenAPI plus llms.txt plus self-describing SignalCards - the agent has everything it needs to integrate correctly on the first pass."
+   ],
+   "bullets": [
+    "OpenAPI spec: https://developers.tradewave.ai/docs/openapi.yaml",
+    "Agent guide: https://developers.tradewave.ai/llms.txt",
+    "Get a free API key, paste the prompt below into your coding agent, and ship."
+   ]
+  }
+ ],
+ "paste_prompt": "Integrate the TradeWave signals API into this app. TradeWave provides decision-ready seasonal and ML trading signals - signals only (percentages and a normalized 0-100 seasonal index, never raw prices); do not expect or store any price levels.\n\nRead these first and follow them exactly:\n- OpenAPI spec: https://developers.tradewave.ai/docs/openapi.yaml\n- Agent guide (llms.txt): https://developers.tradewave.ai/llms.txt\n\nBase URL: https://api.tradewave.ai/v1\nAuth: send the header `Authorization: Bearer tw_live_...` on every request. Read the key from a TRADEWAVE_API_KEY environment variable; never hardcode it.\n\nBuild a small typed client wrapping these endpoints:\n- GET /v1/scan  -> ranked SignalCards across in-scope markets (the \"what should I trade now\" call)\n- GET /v1/analyze/{symbol}  -> one rich SignalCard for a symbol (best setup + receipts + order ticket)\n- GET /v1/daily-pick  -> today's pick as a SignalCard\n- GET /v1/daily-pick/track-record  -> the live forward-tested record of past picks (use this to display verifiable proof; it works on the free tier)\n- POST /v1/score  -> ML scores for a list of setups (metered daily; on the free tier 5/day, on ML-eligible markets only)\n\nContract requirements:\n- Treat the SignalCard as the unit of truth. Render `headline` and `verdict` as-is; do not recompute or re-rank cards client-side.\n- Keep these two fields strictly distinct and labeled separately: `historical_win_rate` (share of profitable years - a frequency) and `ml_win_prob` (the model's predicted probability). Never merge them or call both \"win rate\".\n- Handle NO_SIGNAL: when a card's signal is NO_SIGNAL there is no order ticket - show the verdict, do not invent a trade.\n- Handle graceful tier nudges: a 200 response with `requires: \"upgrade\"` (e.g. reason `ml_daily_limit`) is NOT an error - surface the message and `ml_remaining_today`, do not throw. Free-tier scope is S&P 500 stocks; out-of-scope markets return the same graceful upgrade nudge, not an error.\n- Surface the disclaimer on any card you display.\n- Use the order ticket (side, type, time_in_force, entry/exit dates) for any \"place trade\" affordance; it has no price level, so do not add one.\n\nDeliver: the client, types/models for SignalCard and TrackRecordSummary, a config check that fails fast if TRADEWAVE_API_KEY is unset, and one example call to GET /v1/scan that prints the top card's headline plus its historical_win_rate and ml_win_prob.",
+ "cta_label": "Read the quickstart",
+ "cta_target": "https://developers.tradewave.ai/docs/quickstart.html",
+ "issues_found": "Two corrections against the in-repo source of truth, plus one operator note.\n\n1) FACTUAL ERROR (fixed) - free-tier market scope. The draft claimed the free tier includes \"5 ML signals per day across 15 markets.\" The code says otherwise: apiserver/tiers.py sets the free tier to markets [\"2\"] (S&P 500 stocks only), opp_limit 3, ml_daily_limit 5; \"15 markets\" is ALL_MARKETS (ids 0-13 + 16, Korea 14/15 removed) and belongs to the PAID Dev/Pro/Business tiers. This is corroborated verbatim by site/api_docs/generate_api_docs.py:1349-1351 (\"Free: S&P 500 stocks only, 3 results per call, 5 ML calls/day\" vs \"Dev: all 15 markets\" / \"Pro/Business: all 15 markets\") and BUILD_STATE.md:54 (\"free->1mkt/dev->all\"). The PRODUCT FACTS brief's \"free tier includes 5 ML signals/day; 15 markets\" reads as two separate facts (free ML allowance; platform market count), not as \"15 markets on free.\" Corrected the hero/consume bullet and the paste-prompt to: free = 5 ML signals/day on S&P 500 stocks + full track record; paid tiers open all 15 markets. A skeptical agent reading /v1/markets or the tier table would have caught the original claim instantly.\n\n2) PRECISION (fixed) - the distinct-fields bullet called historical_win_rate and ml_win_prob \"two probabilities.\" Per SIGNALCARD_SPEC.md, historical_win_rate is the share of profitable years (a frequency/proportion, 0..1), not a probability; only ml_win_prob is a probability. Reworded to \"two distinct numbers ... one is a frequency, one is a probability\" so the copy itself does not blur the very distinction the hard rule protects.\n\nVERIFIED OK: signals-only invariant and the no-price order ticket (openapi.yaml:9,329,436-442; SIGNALCARD_SPEC.md); NO_SIGNAL omits the ticket (openapi.yaml:335); the forward-tested track-record endpoint GET /v1/daily-pick/track-record on the free tier (routes.py:727-730, openapi.yaml:245, \"made in advance, scored later\"); the daily pick's ML being free/unmetered teaser (routes.py:687, MCP_TOOLS.md:31); the five flagship MCP tools (MCP_TOOLS.md); the REST surface; the 62-feature model; ML-eligible markets 0-4,11; 5/day free ML allowance. No em-dashes (all ' - '). Surgical-honesty rule honored: the page concedes plainly that an agent CAN write a backtest in minutes and pivots only to the four precise things it cannot cheaply or reliably do, with the forward test as the one un-fakeable asset; no blanket \"AI can't analyze markets\" claim anywhere.\n\nOPERATOR NOTE: the live llms.txt and quickstart on dev still point at the -dev.trxstat.com hosts; the prompt and CTA use the production developers.tradewave.ai / api.tradewave.ai URLs from the brief, correct for a public agent-era page but they must resolve before publish.",
+ "changed": true
+}

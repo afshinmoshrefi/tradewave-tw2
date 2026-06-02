@@ -48,6 +48,12 @@ class User(Base):
     stripe_customer_id          = Column(Text, unique=True)
     stripe_subscription_id      = Column(Text)
     stripe_subscription_status  = Column(Text)
+    # Explicit developer-API subscription tier (dev/pro/business), SEPARATE from the web
+    # `tier`. NULL = inherit from the web tier (apiserver.tiers.api_tier_from_user:
+    # explorer->free, analyst->dev, strategist->pro). Written ONLY by the product_line=api
+    # Stripe path; never clobbers the web tier. DB column added additively by
+    # apiserver/schema.sql (ADD COLUMN IF NOT EXISTS api_tier).
+    api_tier                    = Column(Text)
     # api_key_hash: HMAC-SHA256(api_key, API_KEY_HMAC_SECRET). The ONLY
     # server-side material for service-account auth. The plaintext
     # api_key column was dropped in alembic 5a3c1e2f4d6b; if a caller
@@ -77,6 +83,7 @@ class User(Base):
             "last_name": self.last_name,
             "roles": self.roles or ["user"],
             "tier": self.tier,
+            "api_tier": self.api_tier,
             "stripe_subscription_status": self.stripe_subscription_status,
             "trial_ends_at": self.trial_ends_at.isoformat() if self.trial_ends_at else None,
         }

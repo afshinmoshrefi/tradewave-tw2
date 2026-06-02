@@ -1029,6 +1029,43 @@ def _tier_period_for_price(price_id):
     return (None, None)
 
 
+# --- Developer API product line (product_line == "api") -> users.api_tier -----------------
+# A SEPARATE Stripe subscription line from the web/EOD line: its prices carry product
+# metadata product_line=api + tier in {dev,pro,business} (see web/api_portal/
+# create_api_products.py). The webhook routes by the price's product_line and writes
+# users.api_tier (NEVER users.tier), so the two lines never clobber each other. Period is
+# irrelevant to the api tier (unlike eod, which needs it for the Mailerlite group sync), so
+# we key price id -> tier only.
+_api_price_tier = {}  # stripe price id -> api tier ('dev'|'pro'|'business')
+
+
+def _refresh_api_price_cache():
+    if not _stripe_configured():
+        return
+    valid = {"dev", "pro", "business"}
+    try:
+        for p in stripe.Price.list(active=True, limit=100, expand=["data.product"]).auto_paging_iter():
+            prod = p.product
+            if not isinstance(prod, dict):
+                prod = prod.to_dict() if hasattr(prod, "to_dict") else dict(prod)
+            md = prod.get("metadata") or {}
+            if (md.get("product_line") or "").strip().lower() != "api":
+                continue
+            tier = (md.get("tier") or "").strip().lower()
+            if tier in valid:
+                _api_price_tier[p.id] = tier
+    except Exception:
+        log.exception("Failed to refresh Stripe API price cache")
+
+
+def _api_tier_for_price(price_id):
+    """Return the API tier ('dev'|'pro'|'business') for a Stripe price id, or None if it is
+    not an API-line price."""
+    if not _api_price_tier:
+        _refresh_api_price_cache()
+    return _api_price_tier.get(price_id)
+
+
 # State-changing endpoint: POST only. The pricing template uses
 # <form method="post"> hidden-input forms to hit this route.
 @app.route("/api/stripe/create-checkout", methods=["POST"])
@@ -1557,41 +1594,72 @@ def webhook_stripe():
 
         evrow.user_id = db_user.id
 
-        # Resolve new tier (None = no change)
-        new_tier = None
+        # Resolve new tier (None = no change). TW2 runs TWO subscription product lines on the
+        # SAME (TW1-shared) Stripe account: the web/EOD line (product_line=eod -> users.tier)
+        # and the developer API line (product_line=api -> users.api_tier). Each subscription
+        # event carries ONE price, so we route by that price's product_line and only ever
+        # touch the matching column: cancelling the API sub must never downgrade the web tier,
+        # and vice versa.
+        new_tier = None            # web/EOD tier change (None = no change)
+        new_api_tier = None        # API-line tier change ("__free__" = revert to inherited)
+        api_event = False          # this event belongs to the developer-API product line
         unmappable_price = False
         # Mailerlite level-group sync target: "__skip__" means don't sync this event;
         # otherwise it's the billing period (monthly/yearly, or None for explorer) to
         # pair with the final tier. We sync on EVERY mappable subscription event - not
         # only on a tier change - so a same-tier monthly<->yearly switch still moves groups.
+        # API-line events never touch the web level groups (left as "__skip__").
         ml_target_period = "__skip__"
         if event_type in ("customer.subscription.created", "customer.subscription.updated") and price_id:
-            tier, period = _tier_period_for_price(price_id)
-            if sub_status in ("active", "trialing", "past_due"):
-                if tier:
-                    new_tier = tier
-                    ml_target_period = period
-                else:
-                    # Legacy / no-metadata price on a LIVE subscription. We can't map it
-                    # to a tier, so we deliberately do NOT touch the tier (never wrongly
-                    # downgrade a grandfathered payer) - but we must NOT silently no-op
-                    # either: a plan change between two legacy prices would otherwise
-                    # leave the user stuck at the old tier with no signal. Alert below.
-                    unmappable_price = True
+            api_tier_for_price = _api_tier_for_price(price_id)
+            if api_tier_for_price is not None:
+                api_event = True
+                if sub_status in ("active", "trialing", "past_due"):
+                    new_api_tier = api_tier_for_price
+            else:
+                tier, period = _tier_period_for_price(price_id)
+                if sub_status in ("active", "trialing", "past_due"):
+                    if tier:
+                        new_tier = tier
+                        ml_target_period = period
+                    else:
+                        # Legacy / no-metadata price on a LIVE subscription. We can't map it
+                        # to a tier, so we deliberately do NOT touch the tier (never wrongly
+                        # downgrade a grandfathered payer) - but we must NOT silently no-op
+                        # either: a plan change between two legacy prices would otherwise
+                        # leave the user stuck at the old tier with no signal. Alert below.
+                        unmappable_price = True
         if event_type == "customer.subscription.deleted":
-            new_tier = "explorer"
-            ml_target_period = None
+            # Route the cancellation to the right line by the deleted sub's price.
+            if price_id is not None and _api_tier_for_price(price_id) is not None:
+                api_event = True
+                new_api_tier = "__free__"   # cancelled API sub -> inherit from the web tier
+            else:
+                new_tier = "explorer"
+                ml_target_period = None
 
         old_tier = db_user.tier
-        if sub_id:
+        # Only the web/EOD line owns the shared stripe_subscription_id / _status fields; an
+        # API-line event must not clobber the web subscription's id (a user may hold both).
+        if sub_id and not api_event:
             db_user.stripe_subscription_id = sub_id
-        if sub_status:
+        if sub_status and not api_event:
             db_user.stripe_subscription_status = sub_status
         tier_changed_to = None
         if new_tier and new_tier != db_user.tier:
             db_user.tier = new_tier
             db_user.legacy_wp_level = tier_to_legacy_level(new_tier)
             tier_changed_to = new_tier
+        # API-line tier write (separate column; never clobbers the web tier).
+        old_api_tier = db_user.api_tier
+        api_tier_changed_to = None
+        if new_api_tier == "__free__":
+            if db_user.api_tier is not None:
+                db_user.api_tier = None     # cancelled -> inherit from the web tier again
+                api_tier_changed_to = "free"
+        elif new_api_tier and new_api_tier != db_user.api_tier:
+            db_user.api_tier = new_api_tier
+            api_tier_changed_to = new_api_tier
 
         # Commit our row mutations BEFORE calling write_audit. write_audit uses
         # the same scoped_session and closes its inner session, which expunges
@@ -1599,6 +1667,7 @@ def webhook_stripe():
         # (this is why processed_at was missing from subscription.* events).
         evrow.processed_at = datetime.now(timezone.utc)
         final_tier = db_user.tier
+        final_api_tier = db_user.api_tier
         s.commit()
 
         if tier_changed_to:
@@ -1607,6 +1676,15 @@ def webhook_stripe():
                 action="tier_changed",
                 target_user_id=db_user.id,
                 details={"from": old_tier, "to": tier_changed_to, "stripe_event_id": event_id, "stripe_sub_id": sub_id},
+            )
+
+        if api_tier_changed_to:
+            write_audit(
+                actor_label=f"stripe_webhook:{event_type}",
+                action="api_tier_changed",
+                target_user_id=db_user.id,
+                details={"from": old_api_tier, "to": api_tier_changed_to,
+                         "stripe_event_id": event_id, "stripe_sub_id": sub_id},
             )
 
         if unmappable_price:
@@ -1635,7 +1713,8 @@ def webhook_stripe():
         if ml_target_period != "__skip__":
             sync_mailerlite_level_group(db_user.email, final_tier, ml_target_period, new_user=False)
 
-        return jsonify({"received": True, "tier": final_tier, "status": sub_status}), 200
+        return jsonify({"received": True, "tier": final_tier, "api_tier": final_api_tier,
+                        "status": sub_status}), 200
 
     except Exception:
         # F2.2 - log full traceback, generic response. Stripe will retry on 500.

@@ -39,6 +39,7 @@ _ML_NOTES = {
     "shown": "ML score shown.",
     "quota": "Daily ML limit reached on your plan - upgrade for unlimited ML scoring.",
     "market": "ML not available for this market (ML covers US stocks, indices and ETFs).",
+    "unavailable": "ML score not available for this setup - the ML model covers shorter seasonal holds (up to about 90 days).",
     "na": "ML not available.",
 }
 
@@ -443,11 +444,10 @@ def _build_next_step(symbol, side, entry_d, exit_d, hold_days, signal):
     """The no-broker last mile. NO price level anywhere. Omits order_ticket on NO_SIGNAL."""
     framing = "TradeWave gives the edge and the timing; you place the trade at your own broker."
     if signal == "NO_SIGNAL":
+        # Spec: OMIT order_ticket/copy_text/set_reminder on NO_SIGNAL (nothing to act on) -
+        # the keys are absent, not present-but-null, so `'order_ticket' in next_step` is false.
         return {
             "headline": "Nothing to act on here right now.",
-            "order_ticket": None,
-            "copy_text": None,
-            "set_reminder": None,
             "framing": framing,
         }
     hold_note = ("Seasonal hold ~%d calendar days. Size to your own risk." % hold_days

@@ -410,6 +410,92 @@ static-gen + the vhosts); `users.api_tier` + a webhook write for API-only subs d
 
 ---
 
+## 7B. API + MCP services (the productized v2 surface, build-state map)
+
+> §7A is the design/decision narrative; this section is the **operational shape**
+> of the same product as built out on dev `.176` (branch `feature/api-mcp`). The
+> live control doc is `api/BUILD_STATE.md` (what is done/open per phase); the frozen
+> contract is `api/SIGNALCARD_SPEC.md` + `api/openapi.yaml` + `api/MCP_TOOLS.md`.
+> **It is SIGNALS-ONLY**: no raw OHLCV, last price, price-by-date, or price levels in
+> any public response - all movement is percentages, the seasonal curve is a 0-100
+> normalized index, never a price (the keystone invariant; see `api/SIGNALCARD_SPEC.md`).
+
+The product is four NEW, additive pieces; the appserver data engine is UNCHANGED and
+stays internal/loopback. All four bind loopback on every env - nginx + the `tw2`
+cloudflared tunnel front them.
+
+- **Gateway** - `apiserver/` (one letter off the `appserver` data engine, on purpose).
+  gunicorn `apiserver.app:app` on `127.0.0.1:8088`, ~4 sync workers, systemd
+  `tradewave-apiserver` (`Type=notify`), isolated venv `/home/flask/venv-api` (NOT
+  the appserver `venv`; `requirements-api.txt`). The public paid front door: validates
+  customer API keys, enforces tier/scope/rate-limit, **strips raw prices**, exposes the
+  curated `/v1` signals endpoints (markets, daily-pick, scan, analyze, score, ...), and
+  calls the appserver as a service account. Composes the `SignalCard` server-side
+  (`apiserver/cards.py`) so weak agents render consistently.
+- **MCP server** - `mcpserver/` (named to not shadow the `mcp` SDK). Run as
+  `python -m mcpserver.server --transport sse --host 127.0.0.1 --port 9090`, systemd
+  `tradewave-mcpserver` (`Type=simple`, NOT gunicorn). Thin HTTP wrapper over the gateway:
+  it reads `API_BASE_URL=http://127.0.0.1:8088/v1`, plus `TW2_MCP_PUBLIC_HOST` (the SDK's
+  DNS-rebinding allowlist). **BYOK** - each remote (SSE) client sends its own
+  `Authorization: Bearer <key>`; `TRADEWAVE_API_KEY` MUST be UNSET on the remote transport
+  (a baked env key is the stdio/Claude-Desktop fallback only).
+- **Customer console** - `web/api_portal/` blueprint mounted in `web/app.py` at
+  `/account/api` (GATED behind the WorkOS session): create/revoke keys, see usage, manage
+  the API subscription, and the MCP-connect helper. Reuses WorkOS + Stripe + the
+  `apiserver` package. `web/api_portal/create_api_products.py` seeds the Stripe products
+  (monthly + annual + Founder) under `product_line=api`.
+- **Public developer portal** - `developers.*`, a no-login STATIC docroot at
+  `/var/www/developers/` served by nginx (marketing landing + reference docs + learn +
+  interactive playground + MCP cookbook). It is assembled from the repo by the generators
+  (`site/api_marketing/`, `site/api_docs/`, `site/api_learn/`, `site/api_playground/`,
+  all reading `site/lib/portal_urls.py`) - see `ops/assemble_developer_portal.sh`.
+
+**Auth + data (app box):** customer keys in Postgres `api_keys` (HMAC-SHA256); daily usage
+counters in `api_usage_daily` + redis **db4** (the gateway's own logical DB, distinct from
+the appserver's user-data DBs); per-account API entitlement in `users.api_tier` (NULL =
+inherit from the web tier via `WEB_TIER_TO_API`; set = an API-only sub). Schema is additive
+(`apiserver/schema.sql` / the `api/` migration). Tiers/entitlements in `apiserver/tiers.py`
+(free/dev/pro/business; ML fields are Pro-tier + ML-eligible markets only).
+
+**URLs + edge (env-driven):** `site/lib/portal_urls.py` reads `TW2_PUBLIC_HOST`,
+`TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST`. Per env the
+public hostnames are: dev `api-dev` / `mcp-dev` / `developers-dev`.trxstat.com; staging
+`*-stage.trxstat.com`; prod `api.tradewave.ai` / `mcp.tradewave.ai` /
+`developers.tradewave.ai`. Each is a `tw2`-tunnel ingress entry (`-> http://localhost:80`)
+plus an nginx server block: `api.*` proxies `/v1/` to the gateway `:8088`; `mcp.*` proxies
+to the MCP server `:9090` (SSE-tuned: buffering off, long read timeout); `developers.*`
+serves the static docroot. Deploy tooling: `ops/bootstrap_api_services.sh` (venv-api +
+the two systemd units + nginx + cloudflared ingress) and `ops/assemble_developer_portal.sh`
+(run the generators + rsync into `/var/www/developers/`). Operator deploy/restart steps:
+`ops/OPERATIONS.md` "API/MCP deploy + restart"; go-live: `ops/PROD_CUTOVER.md` "API/MCP go-live".
+
+(Source: `apiserver/`, `mcpserver/`, `web/api_portal/`, `site/`, `ops/bootstrap_api_services.sh`,
+`ops/assemble_developer_portal.sh`, `api/BUILD_STATE.md`, `api/SIGNALCARD_SPEC.md`; dev .176.)
+
+### 7C. Tara (in-product chatbot) -> gateway CLIENT (data flow; Phase 1 built 2026-06-02)
+
+The wave-viewer assistant "Tara" (`appserver/appserver/chatbot.py`, Haiku 4.5) is now a
+CLIENT of the v1 gateway: it calls the flagship tools (scan / analyze / symbol-patterns /
+daily-pick) via Anthropic tool-use and narrates the gateway's own composed SignalCards, so
+its numbers match the API/MCP/daily-pick (one source of truth, signals-only, same disclaimer).
+NOT a product merge - Tara stays the login-gated UI helper; the public API/MCP is unchanged.
+Data flow: React `Chatbot.js` -> appserver `/chatbot/chat` (JWT-gated) -> `tara_gateway.py`
+tool loop -> gateway `:8088/v1` (loopback) -> appserver engine. Auth/metering (option A):
+Tara holds an internal **`chatbot` tier** key (`tiers.INTERNAL_TIERS`, `service:True`, kept OUT
+of the sold `API_TIERS`) and passes the web user id as **`X-TW-On-Behalf-Of`**; the gateway
+(`auth.py:_apply_on_behalf`) honors that header ONLY for `service:True` keys and swaps ONLY the
+metering principal to **`cb:<user_id>`** (regex-validated), so ML/rate/usage meter per web user
+on the chatbot's OWN quota, namespaced apart from that human's API ML bucket. Provisioned by
+`apiserver/provision_chatbot_key.py` (secrets `TARA_GATEWAY_KEY` + `TW2_GATEWAY_URL`, per-env -
+gateway is `:8088` dev, `:80` staging/prod). Falls back to the old no-tools chat when the
+gateway is unconfigured. Full spec + the proposed Phase 2 (chat drives the wave-viewer setters):
+`docs/TARA_GATEWAY_INTEGRATION.md`.
+
+(Source: `appserver/appserver/{chatbot,tara_gateway,AI_tools_appserver}.py`, `apiserver/{auth,tiers,
+provision_chatbot_key}.py`, `config.py`, `docs/TARA_GATEWAY_INTEGRATION.md`; dev .176.)
+
+---
+
 ## 8. Deploy / ops / cron
 
 **Routine deploy = `bash ops/deploy.sh {staging|prod}`** from dev. Per env:
@@ -575,6 +661,11 @@ roadmap memories.)
 14. **No secrets in chat** - box-to-box only; classification-only diagnostics.
 15. **Central-service `TW2_*_URL` must use VLAN `10.0.0.x`** from inside Kamatera
     (public IP gets 403'd by source-IP allowlist).
+16. **Gateway `service:True` delegation is INTERNAL-only** - the `X-TW-On-Behalf-Of`
+    metering-principal swap (`auth.py`) is honored ONLY for `service:True` tiers, which
+    live ONLY in `tiers.INTERNAL_TIERS` (never `API_TIERS`; a module assert enforces it).
+    A sold tier with `service:True` would let a paying key impersonate any user's metering.
+    Delegation swaps the metering id ONLY (`cb:<uid>`), never entitlements (no scope escalation).
 
 ---
 

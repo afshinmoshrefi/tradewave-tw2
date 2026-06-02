@@ -31,6 +31,18 @@
   </div>
   {% endif %}
 
+  {% if founder %}
+  <div class="card" style="border-color:rgba(245,158,11,.4);background:linear-gradient(90deg,rgba(245,158,11,.08),rgba(99,102,241,.05));">
+    <h3 style="color:#fbbf24;margin-bottom:4px;">Founder's plan - first 100 only</h3>
+    <div class="muted">Get Pro at <strong>${{ founder.effective_monthly }}/mo</strong> ({{ founder.percent_off }}% off) for 12 months, for your logo and a short testimonial. Enter code <code>{{ founder.code }}</code> on the Stripe checkout page when you subscribe to Pro.</div>
+  </div>
+  {% endif %}
+
+  <div class="row" style="justify-content:center;gap:0;margin:8px 0 18px;">
+    <button type="button" class="btn-secondary bill-cycle active" data-cycle="month" style="border-radius:8px 0 0 8px;">Monthly</button>
+    <button type="button" class="btn-secondary bill-cycle" data-cycle="year" style="border-radius:0 8px 8px 0;border-left:none;">Annual <span class="muted" style="font-weight:600;">- 2 months free</span></button>
+  </div>
+
   <div class="tiers-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
     {% for p in plans %}
     <div class="card" style="margin-bottom:0;{% if p.is_current %}border-color:#6366f1;{% endif %}">
@@ -38,9 +50,10 @@
         <h3 style="color:#e5e7eb;text-transform:none;letter-spacing:0;font-size:18px;margin:0;">{{ p.label }}</h3>
         {% if p.is_current %}<span class="badge-active">current</span>{% endif %}
       </div>
-      <div style="font-size:30px;font-weight:800;margin:10px 0;">
-        {% if p.price_monthly == 0 %}Free{% else %}${{ p.price_monthly }}<span class="muted" style="font-size:15px;font-weight:500;">/mo</span>{% endif %}
+      <div style="font-size:30px;font-weight:800;margin:10px 0 0;">
+        {% if p.price_monthly == 0 %}Free{% else %}<span class="price-amt" data-month="{{ p.price_monthly }}" data-year="{{ (p.price_annual / 12)|round|int }}">${{ p.price_monthly }}</span><span class="muted" style="font-size:15px;font-weight:500;">/mo</span>{% endif %}
       </div>
+      {% if p.price_monthly > 0 %}<div class="muted price-annual-note" data-annual="${{ p.price_annual }}/yr billed annually" style="font-size:12px;margin:2px 0 8px;display:none;">${{ p.price_annual }}/yr billed annually</div>{% else %}<div style="height:8px;"></div>{% endif %}
       <ul style="list-style:none;padding:0;margin:0 0 18px 0;font-size:13px;color:#d1d5db;line-height:1.9;">
         <li>{{ p.markets }}</li>
         <li>{% if p.ml_daily_limit is none and p.ml_access %}Unlimited ML signals{% elif p.ml_access %}ML signals ({{ p.ml_daily_limit }}/day){% else %}No ML scoring{% endif %}</li>
@@ -62,6 +75,7 @@
         <form method="POST" action="{{ url_for('api_portal.billing_checkout') }}" style="margin:0;">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="tier" value="{{ p.name }}">
+          <input type="hidden" name="interval" value="month" class="bill-interval">
           <button type="submit" class="btn-primary" style="width:100%;" {% if not stripe_configured %}disabled{% endif %}>Subscribe</button>
         </form>
       {% endif %}
@@ -72,5 +86,31 @@
   <p class="muted" style="margin-top:18px;font-size:13px;">
     Plan changes for existing subscribers are handled in the Stripe billing portal so proration and downgrades apply correctly.
   </p>
+
+  <script>
+  (function() {
+    var cycle = "month";
+    function apply() {
+      document.querySelectorAll(".price-amt").forEach(function(el) {
+        el.textContent = "$" + (cycle === "year" ? el.dataset.year : el.dataset.month);
+      });
+      document.querySelectorAll(".price-annual-note").forEach(function(el) {
+        el.style.display = cycle === "year" ? "block" : "none";
+      });
+      document.querySelectorAll(".bill-interval").forEach(function(el) { el.value = cycle; });
+      document.querySelectorAll(".bill-cycle").forEach(function(b) {
+        var on = b.dataset.cycle === cycle;
+        b.classList.toggle("active", on);
+        b.style.background = on ? "#6366f1" : "";
+        b.style.borderColor = on ? "#6366f1" : "";
+        b.style.color = on ? "#fff" : "";
+      });
+    }
+    document.querySelectorAll(".bill-cycle").forEach(function(b) {
+      b.addEventListener("click", function() { cycle = b.dataset.cycle; apply(); });
+    });
+    apply();
+  })();
+  </script>
 
 {% endblock %}

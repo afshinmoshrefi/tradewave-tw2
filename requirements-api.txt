@@ -1,0 +1,19 @@
+# TradeWave API gateway (apiserver) + MCP server (mcpserver) runtime deps.
+# Kept SEPARATE from the shared web venv (/home/flask/venv) per apiserver/README.md
+# (do NOT pip install these into /home/flask/venv).
+#
+# Bootstrap:
+#   python3 -m venv /home/flask/venv-api
+#   /home/flask/venv-api/bin/pip install -U pip
+#   /home/flask/venv-api/bin/pip install -r /home/flask/requirements-api.txt
+#
+# The customer console (web/api_portal/) runs INSIDE the web tier and uses the web
+# venv (it needs stripe + workos), so those are intentionally not listed here.
+
+flask>=3.0,<4
+gunicorn>=21
+psycopg2-binary>=2.9
+redis>=5.0
+requests>=2.31
+httpx>=0.27
+mcp>=1.2

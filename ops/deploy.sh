@@ -8,10 +8,15 @@
 # Does, in order, and stops on any error:
 #   1. pre-flight  — aborts if TW2_PUBLIC_HOST is unset (would break URLs)
 #   2. app tier    — git pull + pip install -r requirements.txt + restart tradewave-appserver
+#   2b.app tier    - sync venv-api + restart tradewave-apiserver + tradewave-mcpserver (if provisioned;
+#                    guarded so a non-API box does not abort; /healthz gate on the gateway)
 #   3. web tier    — git pull + pip install -r requirements.txt + restart tradewave-web + the 2 SMN daemons
 #   4. React       — rsync to releases/build-<hash> + repoint the 'build' symlink (build-previous = instant rollback)
 #   5. nginx       — refresh CSP snippet + reload
-# Full rationale: ops/OPERATIONS.md "Deploy a code change".
+#   6. dev portal  — re-run the portal generators + rsync into /var/www/developers (if provisioned)
+# Provision the API/MCP services + portal docroot ONCE per box with ops/bootstrap_api_services.sh
+# (services) and the nginx/cloudflared additions; thereafter every deploy keeps them current.
+# Full rationale: ops/OPERATIONS.md "Deploy a code change" + "API/MCP deploy + restart".
 set -euo pipefail
 
 case "${1:-}" in
@@ -33,6 +38,12 @@ done
 echo "==> [$ENV] app tier ($APP): pull + sync venv + restart appserver"
 $SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
 
+# API gateway + MCP server are co-located on the app box. New services: guard each so a box
+# not yet provisioned for the API (no venv-api / units) does NOT abort the deploy. Provision
+# with ops/bootstrap_api_services.sh first; thereafter every deploy syncs + restarts them.
+echo "==> [$ENV] app tier ($APP): API gateway + MCP server (if provisioned)"
+$SSH "root@$APP" 'if [ -d /home/flask/venv-api ]; then sudo -u flask /home/flask/venv-api/bin/pip install -q -r /home/flask/requirements-api.txt; else echo "skip venv-api sync (not provisioned)"; fi; for u in tradewave-apiserver tradewave-mcpserver; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u" && sudo systemctl is-active "$u"; else echo "skip $u (not installed on this box)"; fi; done; if systemctl cat tradewave-apiserver >/dev/null 2>&1; then curl -fsS http://127.0.0.1:8088/healthz >/dev/null && echo "apiserver /healthz OK" || { echo "ABORT: apiserver unhealthy after restart"; exit 1; }; fi'
+
 echo "==> [$ENV] web tier ($WEB): pull + sync venv + restart web + SMN daemons"
 # tradewave-web is on every web box; the SMN daemons are only on boxes provisioned
 # for content generation (not prod web pre-cutover). Restart web always, SMN if present,
@@ -49,5 +60,11 @@ $SSH "root@$WEB" "cd /home/flask/web-react && chown -R flask:flask releases/buil
 
 echo "==> [$ENV] nginx CSP snippet + reload"
 $SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo nginx -t && sudo systemctl reload nginx'
+
+# Public developer portal (developers.*) is a static docroot the WEB box serves. Re-run the
+# generators + rsync into /var/www/developers on each deploy, so docs/pricing/learning stay
+# current. Guarded: skip if the box is not provisioned for the portal yet.
+echo "==> [$ENV] web tier ($WEB): assemble developer portal (if provisioned)"
+$SSH "root@$WEB" 'if [ -x /home/flask/ops/assemble_developer_portal.sh ]; then sudo bash /home/flask/ops/assemble_developer_portal.sh || { echo "ABORT: developer portal assembly failed"; exit 1; }; else echo "skip developer portal (assemble script not present)"; fi'
 
 echo "==> [$ENV] DONE. Verify: https://$HOST"

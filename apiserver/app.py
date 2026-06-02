@@ -6,16 +6,40 @@ tunnel front it (api-dev.trxstat.com -> :80 -> nginx -> this).
 """
 import logging
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 from .routes import v1
+from .settings import CORS_ORIGINS
 
 logging.basicConfig(level=logging.INFO)
+
+
+def _cors_allow_origin(origin):
+    """Return the Origin to echo back, or None to omit CORS (same-origin / disallowed)."""
+    if not origin:
+        return None
+    if CORS_ORIGINS == ["*"]:
+        return origin            # safe: bearer-token auth, no cookies/credentials
+    return origin if origin in CORS_ORIGINS else None
 
 
 def create_app():
     app = Flask(__name__)
     app.register_blueprint(v1, url_prefix="/v1")
+
+    @app.after_request
+    def _add_cors(resp):
+        # The browser playground calls /v1 cross-origin. Flask's automatic OPTIONS response
+        # passes through here too, so preflight gets these headers (and needs no auth).
+        allow = _cors_allow_origin(request.headers.get("Origin"))
+        if allow:
+            resp.headers["Access-Control-Allow-Origin"] = allow
+            resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            resp.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+            resp.headers["Access-Control-Max-Age"] = "600"
+            existing_vary = resp.headers.get("Vary")
+            resp.headers["Vary"] = f"{existing_vary}, Origin" if existing_vary else "Origin"
+        return resp
 
     @app.get("/healthz")
     def healthz():

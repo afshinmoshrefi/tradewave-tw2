@@ -99,6 +99,42 @@ tunnel ingress + DNS after decommission.
 
 ---
 
+## API/MCP go-live (SEPARATE, post-cutover - not part of the domain flip)
+
+The v2 public product (gateway + MCP + developer portal) ships AFTER the domain cutover
+has soaked and the billing/auth freeze is lifted - it is additive to the appserver and does
+NOT touch the `tradewave.ai` flip. Full deploy/restart detail: `ops/OPERATIONS.md` "API/MCP
+deploy + restart"; map: `docs/TRADEWAVE_ECOSYSTEM.md` §7A/§7B; contract: `api/SIGNALCARD_SPEC.md`.
+**SIGNALS-ONLY** (no raw prices). Build prod against `tw2-prod.trxstat.com` first, soak, then add
+the public hostnames. Checklist:
+
+1. **Schema** - apply the additive `apiserver/schema.sql` migration to prod Postgres
+   (`api_keys`, `api_usage_daily`, `users.api_tier`). Verify all three exist; back up first.
+2. **Secrets** - set `TW2_API_PUBLIC_HOST=api.tradewave.ai`,
+   `TW2_MCP_PUBLIC_HOST=mcp.tradewave.ai`, `TW2_DEVELOPERS_PUBLIC_HOST=developers.tradewave.ai`
+   in `/etc/tradewave/secrets.env` on the relevant box(es).
+3. **venv-api + units** - run `ops/bootstrap_api_services.sh` on the app box (builds
+   `/home/flask/venv-api`, installs `tradewave-apiserver` :8088 + `tradewave-mcpserver` :9090,
+   nginx `api`/`mcp`/`developers` server blocks). Confirm `TRADEWAVE_API_KEY` is UNSET on the
+   MCP unit (BYOK). `systemctl enable --now tradewave-apiserver tradewave-mcpserver`.
+4. **Tunnels** - add the `api.` / `mcp.` / `developers.tradewave.ai` ingress entries (BEFORE
+   the 404 catch-all), add the three Cloudflare DNS tunnel records, `systemctl restart
+   cloudflared`, then `nginx -t && systemctl reload nginx`.
+5. **Stripe products** - run `web/api_portal/create_api_products.py` in **LIVE** mode (prod
+   uses live Stripe keys; do NOT seed live with test keys or vice versa). Create the prod API
+   webhook if the API tier write needs its own endpoint; verify with a test event.
+6. **Assemble the portal** - run `ops/assemble_developer_portal.sh` (generators + rsync to
+   `/var/www/developers/`); the pages bake the prod hostnames, so this must run AFTER step 2.
+7. **Smoke** (use a real key you create + revoke): `https://api.tradewave.ai/v1/markets`,
+   `https://mcp.tradewave.ai/sse` opens, `https://developers.tradewave.ai/` + `/docs` +
+   `/.well-known/mcp.json` serve; confirm responses are **signals-only (no raw price fields)**;
+   one paid API checkout end-to-end; `tail -f /var/log/tradewave/*.log` clean.
+
+Rollback is non-destructive: stop the two units + remove the three ingress/DNS records; the
+appserver and web tier are untouched.
+
+---
+
 ## What is scripted vs manual
 
 `ops/cutover_repoint.sh` does the **box-side** mechanics only (Phase 2 steps

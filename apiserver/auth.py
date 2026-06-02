@@ -7,6 +7,7 @@ and even then it logs rather than silently swallowing.
 import hashlib
 import hmac
 import logging
+import re
 import time
 from functools import wraps
 
@@ -14,6 +15,10 @@ import redis
 from flask import g, jsonify, request
 
 from . import db, settings, tiers
+
+# A delegated principal id (the web user_id the in-product chatbot is acting for). Kept
+# strict so it can only ever be a clean redis-key segment - never an injection vector.
+_ON_BEHALF_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 log = logging.getLogger("apiserver.auth")
 _redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
@@ -59,10 +64,12 @@ def resolve_customer(raw_key):
 
 
 def _extract_key():
+    # HEADER ONLY: never accept the key via query string (?api_key=) - it would leak the
+    # full tw_live_ key into nginx/gunicorn access logs, Referer headers, and browser history.
     auth = request.headers.get("Authorization", "")
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
-    return request.headers.get("X-API-Key") or request.args.get("api_key")
+    return request.headers.get("X-API-Key")
 
 
 def require_api_key(fn):
@@ -77,6 +84,7 @@ def require_api_key(fn):
         if not cust:
             return jsonify({"error": {"code": "unauthorized",
                                       "message": "invalid or missing API key"}}), 401
+        _apply_on_behalf(cust)
         # NOTE: record_usage runs only past this point, so 401/503/rate-limited calls are
         # not metered - only authenticated, non-rate-limited requests count.
         ok, headers = check_rate_limit(cust)
@@ -94,6 +102,21 @@ def require_api_key(fn):
             pass  # non-Response return (e.g. (dict, status)); blueprint normalizes it
         return resp
     return wrapper
+
+
+def _apply_on_behalf(cust):
+    """Privilege delegation, tightly scoped. ONLY a `service: True` tier (the in-product
+    chatbot principal - tiers.INTERNAL_TIERS['chatbot']) may act for a web user via the
+    X-TW-On-Behalf-Of header. We swap ONLY the metering principal (user_id) so rate-limit +
+    usage + ML quota key per END USER; entitlements (markets/limits) stay the service tier's,
+    so delegation can NEVER escalate scope. The principal is 'cb:'-namespaced so the chatbot's
+    per-user ML quota is SEPARATE from that same human's API ML bucket. A normal customer key
+    has no `service` flag, so this is a no-op for them - they can never spoof another user."""
+    if not (cust.get("entitlements") or {}).get("service"):
+        return
+    on_behalf = request.headers.get("X-TW-On-Behalf-Of", "").strip()
+    if on_behalf and _ON_BEHALF_RE.match(on_behalf):
+        cust["user_id"] = "cb:" + on_behalf
 
 
 def check_rate_limit(cust):

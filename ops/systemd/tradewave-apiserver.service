@@ -1,0 +1,26 @@
+[Unit]
+Description=TradeWave API gateway (gunicorn)
+After=network.target redis-server.service
+
+[Service]
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+Type=notify
+User=flask
+Group=flask
+WorkingDirectory=/home/flask
+EnvironmentFile=/etc/tradewave/secrets.env
+Environment=PYTHONPATH=/home/flask
+ExecStart=/home/flask/venv-api/bin/gunicorn --workers 4 --worker-class sync --timeout 120 \
+    --bind 127.0.0.1:8088 --access-logfile /var/log/tradewave/apiserver.access.log \
+    --error-logfile /var/log/tradewave/apiserver.error.log --capture-output apiserver.app:app
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

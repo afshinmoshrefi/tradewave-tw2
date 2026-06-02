@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO / "site" / "lib"))
 from apiserver.tiers import API_TIERS        # the one source of truth
 from text_utils import no_em_dash            # hard brand rule
 import portal_urls                           # env-resolved public URLs
+import portal_seo                            # SEO/social/llms helpers
 
 OUT_DIR = Path(__file__).parent / "out"
 HEADER_PARTIAL = REPO / "site" / "templates" / "_tw_header.html"
@@ -88,6 +89,7 @@ def footer_html() -> str:
       <a href="index.html">API Home</a>
       <a href="pricing.html">API Pricing</a>
       <a href="mcp.html">MCP Showcase</a>
+      <a href="for-ai-agents.html">For AI agents</a>
       <a href="use-cases.html">Use Cases</a>
       <a href="{portal_urls.nav('contact.html')}">Contact</a>
       <a href="{portal_urls.nav('privacy.html')}">Privacy</a>
@@ -201,6 +203,7 @@ body {
 /* 3-col grid */
 .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
 .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:28px; }
+.grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; }
 
 /* Checklist */
 .check-list { list-style:none; }
@@ -346,6 +349,18 @@ body {
 }
 .enterprise-strip h3 { font-size:20px; font-weight:700; margin-bottom:8px; }
 .enterprise-strip p { font-size:14px; color:var(--dim); max-width:500px; }
+.founder-strip {
+  max-width:900px; margin:32px auto 0; padding:28px 36px;
+  background:linear-gradient(90deg, rgba(245,158,11,.10), rgba(99,102,241,.06));
+  border:1px solid rgba(245,158,11,.35);
+  border-radius:16px; display:flex; align-items:center; justify-content:space-between; gap:28px;
+  flex-wrap:wrap;
+}
+.founder-strip h3 { font-size:19px; font-weight:700; margin-bottom:8px; color:#fbbf24; }
+.founder-strip p { font-size:14px; color:var(--dim); max-width:560px; }
+.founder-strip code { background:rgba(0,0,0,.35); padding:1px 7px; border-radius:5px; color:#fff; font-weight:700; }
+.bundle-note { max-width:900px; margin:18px auto 0; text-align:center; font-size:13px; color:var(--muted); }
+.bundle-note a { color:var(--accent); }
 
 /* Use-case cards */
 .uc-card { padding:36px 32px; }
@@ -388,12 +403,12 @@ body {
 .footer-legal { text-align:center; font-size:11px; color:var(--muted); max-width:800px; margin:0 auto; line-height:1.8; opacity:.6; }
 
 /* Responsive */
-@media (max-width:1024px) { .pricing-grid { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:1024px) { .pricing-grid { grid-template-columns:repeat(2,1fr); } .grid-4 { grid-template-columns:repeat(2,1fr); } }
 @media (max-width:768px) {
   .page-hero h1 { font-size:32px; }
   .page-hero .sub { font-size:16px; }
   .section-head h2 { font-size:28px; }
-  .grid-3, .grid-2 { grid-template-columns:1fr; }
+  .grid-3, .grid-2, .grid-4 { grid-template-columns:1fr; }
   .pricing-grid { grid-template-columns:1fr; max-width:420px; margin:0 auto; }
   .enterprise-strip { flex-direction:column; text-align:center; padding:24px; }
   .hero-ctas { flex-direction:column; align-items:center; }
@@ -439,13 +454,21 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "") ->
     api_nav_snippet = """
       <a href="index.html">API</a>
       <a href="pricing.html">API Pricing</a>
-      <a href="mcp.html">MCP</a>"""
+      <a href="mcp.html">MCP</a>
+      <a href="for-ai-agents.html">For AI agents</a>"""
     # Insert after the rewritten Research link so ordering is logical.
     header = header.replace(
         f'<a href="{portal_urls.nav("research.html")}">Research</a>',
         f'<a href="{portal_urls.nav("research.html")}">Research</a>' + api_nav_snippet,
     )
 
+    # active_nav is "", "pricing", "mcp", "use-cases" -> map to the output filename.
+    _page = (active_nav + ".html") if (active_nav and active_nav != "index") else "index.html"
+    _canonical = portal_urls.PORTAL_URL + ("/" if _page == "index.html" else "/" + _page)
+    _seo = portal_seo.head_tags(
+        _canonical, title, description,
+        jsonld=portal_seo.api_jsonld() if _page == "index.html" else None,
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -453,7 +476,8 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "") ->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{title} - TradeWave</title>
   <meta name="description" content="{description}">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="index, follow">
+  {_seo}
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
@@ -497,22 +521,20 @@ def build_index() -> str:
     body = f"""
 <section class="page-hero">
   <div class="container">
-    <div class="tag tag-ml" style="margin-bottom:20px;">Now Available - API + MCP</div>
+    <div class="tag tag-ml" style="margin-bottom:20px;">API + MCP - Now Available</div>
     <h1>
-      <span class="gradient-text-w">TradeWave API &amp; MCP</span><br>
-      <span style="font-size:.62em;color:var(--dim);font-weight:600;">Seasonal + ML trading signals for your apps and AI agents</span>
+      <span class="gradient-text-w">The edge layer for AI traders</span>
     </h1>
     <p class="sub">
-      The same ML win-probability engine that powers the TradeWave scorecard is
-      now accessible as a REST API and a native MCP server. Your code and your
-      AI assistants can query ranked seasonal setups, score them with the ML model,
-      and verify the pick track record - all without exposing raw price data.
+      Provider-neutral seasonal and ML signals that work with any broker and any AI agent -
+      we do not take your trades, we show you our receipts. Every pick is time-stamped in
+      advance and forward-tested, so the track record is something nobody can fake.
     </p>
     <div class="hero-ctas">
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
-      <a href="mcp.html" class="btn btn-secondary">Connect to Claude</a>
+      <a href="{portal_urls.DOCS_URL}/quickstart.html" class="btn btn-primary">Read the docs</a>
+      <a href="{portal_urls.PLAYGROUND_URL}" class="btn btn-secondary">Try it live</a>
     </div>
-    <p class="hero-note">Free tier available - no credit card required</p>
+    <p class="hero-note">Works with Liquid (Co-Invest) and any broker. Free tier available - no credit card required.</p>
   </div>
 </section>
 
@@ -520,10 +542,12 @@ def build_index() -> str:
 <section class="section alt">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">Not another data feed</h2>
-      <p>TradeWave exposes derived signals only - no raw OHLCV, no last-price lookups.
-         Every endpoint returns interpreted output: seasonal tendency, ML probability, or
-         a verified track-record entry. That is the edge.</p>
+      <h2 class="gradient-text-w">We do not take your trades. We show you our receipts.</h2>
+      <p>Data is a commodity and execution needs capital and a license. The scarce, defensible layer
+         is the one in between - the reason to place the trade. Each signal ships with a broker-agnostic
+         order ticket (side, symbol, and dates, no price level) that drops into any broker or execution
+         app, including Liquid (Co-Invest). We are paid for the signal, not your order flow, which is why
+         a NO_SIGNAL day is honest from us in a way it never is from an app that earns per trade.</p>
     </div>
     <div class="grid-3">
       <div class="card diff-card">
@@ -550,6 +574,106 @@ def build_index() -> str:
            seasonal longs in energy, rank by ML score, and compare to the live
            track record - no glue code required.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Where TradeWave sits (edge-layer positioning) -->
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <h2 class="gradient-text-w">Where TradeWave sits</h2>
+      <p>We are the layer above the trade, not another place to make it. Use TradeWave for the reason
+         and timing to trade, then hand the ticket to whatever you already execute with - Liquid
+         (Co-Invest) or any broker.</p>
+    </div>
+    <div class="grid-3">
+      <div class="card diff-card">
+        <h3>Raw data feeds</h3>
+        <p>Prices, quotes, and history sold by the call. A commodity in a race to zero - they hand you
+           numbers but no edge and no timing, so the decision is still entirely on you.</p>
+      </div>
+      <div class="card diff-card">
+        <h3>Execution apps and brokers</h3>
+        <p>The last mile that places the order and clears the trade. Most never publish a forward-tested
+           track record, and a venue that earns per trade is structurally conflicted, so "sit this one
+           out" is not something they are built to tell you.</p>
+      </div>
+      <div class="card diff-card" style="border-color:var(--accent);">
+        <h3>TradeWave - the edge layer</h3>
+        <p>The reason and the timing to trade, as a SignalCard with verifiable, time-stamped,
+           forward-tested receipts and an honest NO_SIGNAL when nothing is worth trading. We feed both
+           of the other two: percentages and a 0-100 seasonal index in, a broker-agnostic ticket out.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Agent-era thesis: consume, do not compute -->
+<section class="section alt">
+  <div class="container">
+    <div class="section-head">
+      <h2 class="gradient-text-w">Your agent can write a backtest. It cannot make it true.</h2>
+      <p>Consume the edge, do not recompute it. A capable agent can scaffold a seasonality backtest in
+         minutes - we concede that plainly. What it cannot conjure on its own is the data, the discipline,
+         the trained model, and the forward-tested receipts that decide whether the backtest is true or
+         just confidently wrong. That gap is what we sell, as decision-ready signals it can read in one
+         call instead of a data-plus-methodology-plus-track-record problem it would rebuild badly.</p>
+    </div>
+    <div class="grid-4">
+      <div class="card diff-card">
+        <h3>Licensed, clean market data</h3>
+        <p>Decades of survivorship-bias-free, corporate-action-adjusted history across 15 markets. Free or
+           scraped data makes a backtest that silently lies: delisted names vanish from the sample, and
+           splits and dividends go unadjusted. An agent cannot cheaply license its way around this.</p>
+      </div>
+      <div class="card diff-card">
+        <h3>Look-ahead and overfitting, avoided</h3>
+        <p>The traps that make a naive backtest confidently wrong - leaking future information into past
+           decisions, and tuning until the curve fits noise. We build with point-in-time data and out-of-sample
+           discipline so the historical_win_rate (share of profitable years) is earned, not curve-fit.</p>
+      </div>
+      <div class="card diff-card">
+        <h3>The trained ML model</h3>
+        <p>A 62-feature model trained on millions of historical setups returns an ml_win_prob (the model's
+           probability of profit) for each opportunity, distinct from the historical_win_rate. An agent can
+           train a model, but not reproduce this one without our licensed data and our years of labeled setups.</p>
+      </div>
+      <div class="card diff-card" style="border-color:var(--accent);">
+        <h3>Forward-tested receipts</h3>
+        <p>An agent can backfill a backtest instantly. It cannot fabricate years of time-stamped, made-in-advance,
+           scored-later results, because time only moves forward. Every daily pick is recorded before the open,
+           then graded later - the one asset that stays un-fakeable in a world where agents can fake the rest.</p>
+      </div>
+    </div>
+    <div class="grid-2" style="max-width:920px;margin:40px auto 0;">
+      <div class="card diff-card">
+        <h3>Spend tokens on strategy, not rebuilding data</h3>
+        <p>Self-describing SignalCards - headline, verdict, receipts, and a broker-agnostic order ticket -
+           arrive decision-ready, so the agent does not burn context reasoning over raw numbers. Percentages
+           and a 0-100 seasonal index in, a ticket out. Less context spent, lower hallucination risk, budget
+           left for your strategy.</p>
+      </div>
+      <div class="card diff-card">
+        <h3>Verifiable, not trust-me</h3>
+        <p>An evaluating agent can audit the record before it recommends us. The forward-tested track record
+           is queryable on the free tier at
+           <code style="font-size:12px;color:var(--accent);">/v1/daily-pick/track-record</code>
+           and on the public scorecard. Do not trust us - check us, then decide.</p>
+      </div>
+    </div>
+    <div class="card" style="max-width:920px;margin:24px auto 0;border-color:var(--accent);">
+      <h3 style="color:#fff;">And it is a daily scan, not a one-symbol check</h3>
+      <p style="color:var(--dim);line-height:1.7;margin:6px 0 0;">Point an agent at one ticker and it can
+        tell you whether that ticker is seasonal. The harder question - which of the hundreds of securities
+        you could trade are at the START of a seasonal window today, and which are worth it - is a daily,
+        universe-wide scan compiled over decades of licensed data and ranked by Sharpe ratio and pattern
+        length. That is a standing pipeline, not a prompt: by the time an agent rebuilt it, the window has
+        moved. One call returns today's ranked list -
+        <code style="font-size:12px;color:var(--accent);">GET /v1/scan</code>.</p>
+    </div>
+    <div style="text-align:center;margin-top:32px;">
+      <a href="for-ai-agents.html" class="btn btn-primary">For AI agents - why consume, not compute</a>
     </div>
   </div>
 </section>
@@ -655,16 +779,14 @@ def build_index() -> str:
 def build_pricing() -> str:
     tiers = API_TIERS  # from the single source of truth
 
-    # Annual = 20% off (2 months free).
-    def annual_price(monthly: int) -> str:
-        if monthly == 0:
-            return "$0"
-        return f"${int(monthly * 0.8)}"
+    # Annual = price_annual (10x monthly = pay for 10 months, get 12 = 2 months free, ~17% off).
+    def annual_permo(t: dict) -> int:
+        return 0 if t["price_monthly"] == 0 else round(t["price_annual"] / 12)
 
-    def annual_savings(monthly: int) -> str:
-        if monthly == 0:
+    def annual_savings(t: dict) -> str:
+        if t["price_monthly"] == 0:
             return ""
-        saved = monthly * 12 - int(monthly * 0.8) * 12
+        saved = t["price_monthly"] * 12 - t["price_annual"]
         return f"Save ${saved}/yr"
 
     def rate_label(r: dict) -> str:
@@ -678,9 +800,11 @@ def build_pricing() -> str:
     def card_html(key: str, t: dict, is_highlight: bool) -> str:
         hl = ' highlight' if is_highlight else ''
         price_display = f"${t['price_monthly']}" if t['price_monthly'] > 0 else "$0"
-        ann = annual_price(t['price_monthly'])
-        save = annual_savings(t['price_monthly'])
+        ann_permo = annual_permo(t)
+        ann = f"${ann_permo}"
+        save = annual_savings(t)
         save_span = f' <span class="save-badge">{save}</span>' if save else ''
+        annual_total = t.get('price_annual', 0)
 
         btn_class = "btn-primary" if is_highlight else "btn-secondary"
         btn_text = "Get Started" if key == "free" else f"Start {t['name']}"
@@ -713,11 +837,11 @@ def build_pricing() -> str:
   <p class="p-name">{t['name']}</p>
   <p class="p-tagline">{taglines.get(key, '')}</p>
   <div>
-    <span class="p-price" data-monthly="{t['price_monthly']}" data-annual="{int(t['price_monthly']*0.8)}">{price_display}</span>
+    <span class="p-price" data-monthly="{t['price_monthly']}" data-annual="{ann_permo}">{price_display}</span>
     <span class="p-price-unit">/mo</span>
   </div>
-  <p class="p-annual-note" data-annual-note="{ann}/mo billed annually{save_span}">
-    {ann}/mo billed annually{save_span}
+  <p class="p-annual-note" data-annual-note="{ann}/mo billed annually (${annual_total}/yr){save_span}">
+    {ann}/mo billed annually (${annual_total}/yr){save_span}
   </p>
   <ul class="p-features">
     <li>{market_scope(t)}</li>
@@ -754,21 +878,50 @@ def build_pricing() -> str:
   <div class="container">
     <div class="billing-toggle">
       <button class="billing-btn active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
-      <button class="billing-btn" id="btn-annual" onclick="setBilling('annual')">Annual <span class="save-badge">Save 20%</span></button>
+      <button class="billing-btn" id="btn-annual" onclick="setBilling('annual')">Annual <span class="save-badge">2 months free</span></button>
     </div>
 
     <div class="pricing-grid">
       {cards_html}
     </div>
 
-    <div class="enterprise-strip">
+    <div class="founder-strip">
       <div>
-        <h3>Enterprise</h3>
-        <p>Custom rate limits, dedicated infrastructure, white-label options, SLAs,
-           and team SSO. Used by quant funds and fintech platforms that need more
-           than the Business tier provides.</p>
+        <h3>Founder's plan - first 100 only</h3>
+        <p>Get <strong>Pro at $99/mo</strong> (50% off) for your first 12 months, in exchange for
+           your logo and a short tracked-record testimonial. Use code <code>FOUNDER</code> at
+           checkout. When the first 100 seats are gone, this is gone.</p>
       </div>
-      <a href="{portal_urls.nav('contact.html')}" class="btn btn-secondary" style="white-space:nowrap;">Contact Sales</a>
+      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary" style="white-space:nowrap;">Claim a founder seat</a>
+    </div>
+
+    <p class="bundle-note">Already subscribe to TradeWave? Your plan already includes API access -
+       <strong>Analyst includes the Dev tier</strong> and <strong>Strategist includes Pro</strong>,
+       at no extra cost. Just <a href="{portal_urls.CONSOLE_URL}">create a key</a>.</p>
+
+    <div class="section-head" style="margin-top:64px;">
+      <h2 class="gradient-text-w">Built for teams and enterprises</h2>
+      <p>Bring the edge layer into your org with the controls a security and procurement team expects -
+         centralized multi-seat key management, audit logs, an SLA, commercial signal-redistribution
+         rights, and enterprise single sign-on on Business and Enterprise plans.</p>
+    </div>
+    <div class="card" style="max-width:880px;margin:0 auto;">
+      <p style="color:var(--dim);line-height:1.7;">When you put a verifiable, conflict-free signal feed
+        in front of a whole desk, the questions stop being about alpha and start being about governance.
+        TradeWave runs on identity powered by WorkOS, gives admins centralized control of seats, keys, and
+        billing, and writes an audit trail of who pulled which signal and when. To be clear about scope:
+        single sign-on and directory sync govern who can reach the human console - your API calls stay
+        key-based on every plan, so a developer or service authenticates with a scoped API key, not your IdP.</p>
+      <ul style="color:var(--dim);line-height:1.8;margin:14px 0 0;padding-left:20px;">
+        <li><strong>Single sign-on and directory sync</strong> - SAML or OIDC plus SCIM provisioning through your identity provider (Okta, Azure AD, Google Workspace) to govern console access. Available on Business and Enterprise; talk to us to enable.</li>
+        <li><strong>Multi-seat key management and centralized billing</strong> - issue, rotate, scope, and revoke API keys per developer or service from one admin view, on one invoice.</li>
+        <li><strong>Audit logs</strong> - a time-stamped record of key usage and signal access, exportable for your own compliance and review.</li>
+        <li><strong>A service-level agreement</strong> - uptime and support commitments so the signal feed can sit in a production trading workflow.</li>
+        <li><strong>Commercial signal-redistribution rights</strong> - license TradeWave signals into your own product or feed, as percentage movement and the 0-100 seasonal index only, never raw prices.</li>
+      </ul>
+      <div style="text-align:center;margin-top:22px;">
+        <a href="{portal_urls.nav('contact.html')}" class="btn btn-primary">Contact sales</a>
+      </div>
     </div>
   </div>
 </section>
@@ -988,8 +1141,8 @@ outcome measured at end of hold period):<br><br>
     <tr><td>May 13</td><td>RB1</td><td>Long</td><td>19d</td><td class="hi">Win</td><td class="hi">+4.7%</td></tr>
   </tbody>
 </table><br>
-<strong>8 of the last 10 resolved picks closed as wins (80%)</strong> - consistent with the historical
-ML win rate. These outcomes were all locked in before market open, so there is no
+<strong>8 of the last 10 resolved picks closed as wins (80%)</strong> - in line with the model's
+predicted win probability. These outcomes were all locked in before market open, so there is no
 look-ahead bias. The full record is available at <code>/v1/daily-pick/track-record</code>.""")}
   </div>
 </div>"""
@@ -1039,6 +1192,35 @@ at once. Want me to run the seasonal chart data for any of these to see the year
     <div class="hero-ctas">
       <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
       <a href="{portal_urls.DOCS_URL}" class="btn btn-secondary">MCP Setup Docs</a>
+    </div>
+  </div>
+</section>
+
+<!-- TradeWave + Liquid recipe (GTM hero feature) -->
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <h2 class="gradient-text-w">Recipe: TradeWave + your broker (works with Liquid and any app)</h2>
+      <p>Ask for the edge, get a broker-agnostic ticket, place it anywhere. We do not take your
+         trades - we show you our receipts.</p>
+    </div>
+    <div class="card" style="max-width:840px;margin:0 auto;">
+      <p style="color:var(--dim);line-height:1.7;margin-bottom:4px;">Ask TradeWave through MCP for the
+        best seasonal setup and its ML win probability. You get back a SignalCard with the receipts and
+        a broker-agnostic order ticket - a side, a symbol, and the dates, with no price level for us to
+        game. Hand that ticket to whatever you already trade with: an in-chat execution app like Liquid
+        (Co-Invest), your broker's SDK, or a manual confirmation. TradeWave finds the edge and the
+        timing; you place the trade. Because we never earn per trade, a NO_SIGNAL day is just as honest
+        as a buy.</p>
+      <div style="margin:18px 0;padding:14px 18px;border-left:3px solid var(--accent);background:rgba(99,102,241,.07);border-radius:8px;color:var(--dim);font-style:italic;">"Using TradeWave, find the best seasonal long entering its window in the next two weeks across my markets, show me the win rate and ML probability, and give me the order ticket."</div>
+      <ol style="color:var(--dim);line-height:1.85;padding-left:20px;margin:0;">
+        <li><strong>Find</strong> - call find_best_opportunities to scan your in-scope markets and rank the strongest setups.</li>
+        <li><strong>Read</strong> - off the top SignalCard, take the edge, the year-by-year receipts, and the optional ML win-probability block (distinct from the historical win rate), plus the order ticket in next_step.</li>
+        <li><strong>Place it anywhere</strong> - the MARKET/DAY ticket carries no price level, so it maps cleanly onto Liquid, any broker SDK, or a manual confirmation.</li>
+      </ol>
+      <div style="text-align:center;margin-top:22px;">
+        <a href="{portal_urls.LEARN_URL}/recipe-tradewave-plus-broker.html" class="btn btn-primary">See the full recipe</a>
+      </div>
     </div>
   </div>
 </section>
@@ -1351,6 +1533,25 @@ score_resp = requests.<span class="fn">post</span>(
   </div>
 </section>
 
+<!-- Teams and enterprises band -->
+<section class="section">
+  <div class="container" style="max-width:900px;">
+    <div class="section-head">
+      <h2 class="gradient-text-w">And one for whole desks: teams and enterprises</h2>
+      <p>Quant funds and fintech platforms put the edge layer in front of a team. You get enterprise
+         single sign-on (SAML or OIDC) and SCIM directory sync through your identity provider for the
+         console, multi-seat key management on one invoice, audit logs, an SLA, and commercial
+         signal-redistribution rights (percentages and the 0-100 index only). Single sign-on governs the
+         console login; your API calls stay key-based on every plan. Powered by WorkOS, available on
+         Business and Enterprise.</p>
+    </div>
+    <div style="text-align:center;">
+      <a href="{portal_urls.nav('contact.html')}" class="btn btn-primary">Contact sales</a>
+      <a href="pricing.html" class="btn btn-ghost" style="margin-left:12px;">See Business plan</a>
+    </div>
+  </div>
+</section>
+
 <!-- CTA -->
 <section class="section alt">
   <div class="container" style="text-align:center;">
@@ -1378,6 +1579,79 @@ score_resp = requests.<span class="fn">post</span>(
     )
 
 
+def build_agents() -> str:
+    """The 'For AI agents' page (agent-era positioning). Copy authored + honesty-critiqued,
+    stored in for_agents_copy.json so the long agent-facing copy stays out of the code."""
+    import json as _json
+    from pathlib import Path as _Path
+    copy = _json.loads((_Path(__file__).parent / "for_agents_copy.json").read_text(encoding="utf-8"))
+
+    def esc(t):
+        return (t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    secs = []
+    for i, s in enumerate(copy.get("sections", [])):
+        alt = " alt" if i % 2 == 0 else ""
+        paras = "\n".join(
+            f'      <p style="color:var(--dim);line-height:1.7;max-width:840px;margin:0 auto 14px;">{esc(p)}</p>'
+            for p in s.get("body", []))
+        bullets = ""
+        if s.get("bullets"):
+            items = "\n".join(f"        <li>{esc(b)}</li>" for b in s["bullets"])
+            bullets = (f'      <ul style="color:var(--dim);line-height:1.8;max-width:840px;'
+                       f'margin:8px auto 0;padding-left:20px;">\n{items}\n      </ul>')
+        prompt_block = ""
+        if "integrate" in s["heading"].lower():
+            prompt_block = (
+                '      <div style="max-width:840px;margin:18px auto 0;">'
+                '<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.04em;">'
+                'PASTE INTO CLAUDE CODE OR CURSOR</div>'
+                '<pre style="background:#0d0a14;border:1px solid rgba(255,255,255,.12);border-radius:10px;'
+                'padding:16px 18px;overflow:auto;font-size:12.5px;line-height:1.55;color:#d1d5db;white-space:pre-wrap;">'
+                f'<code>{esc(copy.get("paste_prompt", ""))}</code></pre></div>')
+        secs.append(f"""
+<section class="section{alt}">
+  <div class="container">
+    <div class="section-head"><h2 class="gradient-text-w">{esc(s['heading'])}</h2></div>
+{paras}
+{bullets}
+{prompt_block}
+  </div>
+</section>""")
+
+    body = f"""
+<section class="page-hero">
+  <div class="container">
+    <div class="tag tag-ml" style="margin-bottom:20px;">For AI agents</div>
+    <h1><span class="gradient-text-w">{esc(copy.get('hero_headline', 'Built to be consumed by agents'))}</span></h1>
+    <p class="sub">{esc(copy.get('hero_sub', ''))}</p>
+    <div class="hero-ctas">
+      <a href="{portal_urls.DOCS_URL}/quickstart.html" class="btn btn-primary">Read the quickstart</a>
+      <a href="{portal_urls.MCP_SETUP_URL}" class="btn btn-secondary">Connect via MCP</a>
+    </div>
+    <p class="hero-note">Free tier to evaluate end to end - the forward-tested track record is open to audit.</p>
+  </div>
+</section>
+{''.join(secs)}
+<section class="section">
+  <div class="container" style="text-align:center;">
+    <h2 class="gradient-text-w" style="font-size:34px;font-weight:800;margin-bottom:16px;">Consume the edge, do not recompute it</h2>
+    <div class="hero-ctas">
+      <a href="{portal_urls.DOCS_URL}/quickstart.html" class="btn btn-primary">Read the quickstart</a>
+      <a href="{portal_urls.LEARN_URL}/build-dont-rebuild.html" class="btn btn-secondary">Why not just compute it</a>
+    </div>
+  </div>
+</section>
+"""
+    return page_shell(
+        "For AI Agents - the edge your agent cannot compute but can consume",
+        "TradeWave is built to be consumed by AI agents: decision-ready seasonal and ML signals over "
+        "REST and MCP, signals only, with a forward-tested track record your agent can audit.",
+        no_em_dash(body),
+        active_nav="for-ai-agents",
+    )
+
+
 # ===========================================================================
 # Main
 # ===========================================================================
@@ -1386,10 +1660,11 @@ def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     pages = [
-        ("index.html",     build_index,     "Landing / hero"),
-        ("pricing.html",   build_pricing,   "Pricing"),
-        ("mcp.html",       build_mcp,       "MCP showcase"),
-        ("use-cases.html", build_use_cases, "Use cases"),
+        ("index.html",        build_index,     "Landing / hero"),
+        ("pricing.html",      build_pricing,   "Pricing"),
+        ("mcp.html",          build_mcp,       "MCP showcase"),
+        ("for-ai-agents.html", build_agents,   "For AI agents"),
+        ("use-cases.html",    build_use_cases, "Use cases"),
     ]
 
     for filename, builder, label in pages:

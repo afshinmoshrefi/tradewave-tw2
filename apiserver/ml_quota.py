@@ -67,3 +67,22 @@ def consume(cust, n):
     except redis.RedisError as e:
         log.warning("ml_quota consume failed for %s: %s", cust.get("user_id"), e)
         return n  # fail open - never block on a counter outage
+
+
+def refund(cust, n):
+    """Give back `n` previously-consumed ML scorings (floor 0). Used when allowance was
+    RESERVED for a row up front but the model returned no score for it (e.g. a hold longer
+    than the model covers), so a metered customer is only ever charged for ML scores
+    actually delivered. No-op for unlimited tiers or n <= 0; fails open on a Redis outage."""
+    if n <= 0 or _limit(cust) is None:
+        return
+    k = _key(cust["user_id"])
+    try:
+        used = int(_redis.get(k) or 0)
+        new = max(0, used - n)
+        if new:
+            _redis.set(k, new, ex=_TTL)
+        else:
+            _redis.delete(k)
+    except redis.RedisError as e:
+        log.warning("ml_quota refund failed for %s: %s", cust.get("user_id"), e)

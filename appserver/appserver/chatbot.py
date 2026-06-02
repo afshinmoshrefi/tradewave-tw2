@@ -20,6 +20,9 @@ from tradewave_api_calls_cb import (
     get_opp_list, get_years_pyears_from_resource_id,
     create_opportunity_url
 )
+# Phase 1: Tara calls the v1 gateway as a client (one source of truth). Falls back to the
+# plain no-tools chat when the gateway is not configured. See docs/TARA_GATEWAY_INTEGRATION.md.
+from tara_gateway import run_chat_with_tools, TARA_TOOLS_ENABLED
 
 
 # -----------------------------------------------------------------
@@ -98,6 +101,18 @@ def check_for_token(func):
 # -----------------------------------------------------------------
 CACHE_TTL     = '5m'   # '1h' not yet enabled - see chatbot_readme.txt
 CHATBOT_MODEL = CLAUDE_HAIKU_45
+
+# Prepended to the system prompt when the gateway tools are live, so the model fetches real
+# data instead of inventing numbers. Constant => stays cacheable across turns.
+TOOL_INSTRUCTION = (
+    "You can call live TradeWave tools (find_best_opportunities, analyze_symbol, "
+    "get_symbol_patterns, explain_pick) that query the real TradeWave engine. When the user "
+    "asks about opportunities, a symbol's seasonality, the daily pick, or anything needing "
+    "current numbers, CALL THE RIGHT TOOL and base your answer ONLY on its result - never "
+    "invent setups, win rates, Sharpe ratios, or returns. The user is in the wave-viewer; "
+    "prefer the symbol/market already loaded in your context when relevant. Keep answers "
+    "concise and plain-English. All figures are percentages, never price levels."
+)
 
 # Initialize Blueprint
 chatbot_bp = Blueprint("chatbot", __name__)
@@ -753,6 +768,8 @@ def chat():
 
     try:
         system_prompt = build_system_prompt(wave_viewer, opportunities, opp_table_length)
+        if TARA_TOOLS_ENABLED:
+            system_prompt = TOOL_INSTRUCTION + "\n\n" + system_prompt
 
         # Detect onboarding / teach-me intent and inject high-priority instruction
         msg_lower = user_message.lower()
@@ -781,7 +798,11 @@ def chat():
             messages.append({"role": role, "content": h.get("content", "")})
         messages.append({"role": "user", "content": user_message})
 
-        bot_reply = send_claude_messages(messages, model=CHATBOT_MODEL, system=system_prompt, cache_system=True, cache_ttl=CACHE_TTL)
+        if TARA_TOOLS_ENABLED:
+            # Tara fetches live data via the gateway tools and narrates the result.
+            bot_reply = run_chat_with_tools(messages, system_prompt, user_id, CHATBOT_MODEL, CACHE_TTL)
+        else:
+            bot_reply = send_claude_messages(messages, model=CHATBOT_MODEL, system=system_prompt, cache_system=True, cache_ttl=CACHE_TTL)
 
         log_question(user_id, user_message, bot_reply, wave_viewer)
 

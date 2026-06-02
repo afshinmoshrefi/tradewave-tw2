@@ -76,8 +76,10 @@ def _bearer_from_request(ctx: Optional[Context]) -> Optional[str]:
         return None
     try:
         request = ctx.request_context.request
-    except (LookupError, AttributeError):
-        # No active request context (e.g. stdio) - nothing to extract.
+    except (LookupError, AttributeError, ValueError):
+        # No active request context (e.g. stdio, or a direct in-process call) - the SDK
+        # raises ValueError("Context is not available outside of a request"); treat all of
+        # these as "no HTTP request" and fall back to the env key.
         return None
     if request is None:
         return None
@@ -254,6 +256,14 @@ def find_best_opportunities(
     direction: Optional[str] = None,
     min_win_rate: Optional[float] = None,
     min_years: Optional[int] = None,
+    min_days: Optional[int] = None,
+    max_days: Optional[int] = None,
+    min_avg_return: Optional[float] = None,
+    min_median_return: Optional[float] = None,
+    min_sharpe: Optional[float] = None,
+    pe_cycle: Optional[str] = None,
+    years: Optional[int] = None,
+    min_winning_years: Optional[int] = None,
     rank_by: Optional[str] = None,
     limit: Optional[int] = None,
     ctx: Optional[Context] = None,
@@ -261,10 +271,18 @@ def find_best_opportunities(
     """
     Args:
         markets: CSV of market ids or names to scan, e.g. '2,11' or 'gold,energy'. Optional - omit to scan ALL in-scope markets.
+        pe_cycle: Presidential election cycle mode for the opportunity table: 'consecutive' (default, consecutive years) or 'pe' (the current presidential-cycle position only). Optional.
+        years: Lookback - how many years to scan for patterns (5-98, data-dependent; default 10). In PE mode this is the number of PE-position occurrences. Optional.
+        min_winning_years: Of those `years`, the minimum number of WINNING years required for a pattern to be listed (default 9). years=10 & min_winning_years=9 is the classic '10-9' (>=90% of years won); '17-15' is years=17 & min_winning_years=15. Optional.
         window: Entry-date window: 'now' (default - setups entering in the next ~10 trading days), 'next_2_weeks', 'next_month', or a 'YYYY-MM-DD..YYYY-MM-DD' range.
         direction: 'long' or 'short'. Optional - omit for both.
         min_win_rate: Minimum historical_win_rate 0..1 (share of profitable years), e.g. 0.65. Optional.
         min_years: Trust filter - require at least N years of tested history. Optional.
+        min_days: Minimum pattern length (holding period) in calendar days, e.g. 10. Optional.
+        max_days: Maximum pattern length (holding period) in calendar days, e.g. 90. Optional. Use min_days+max_days for a day RANGE like 10-90.
+        min_avg_return: Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%). Optional.
+        min_median_return: Minimum median seasonal profit in PERCENT. Optional.
+        min_sharpe: Minimum Sharpe ratio, e.g. 1.5. Optional.
         rank_by: Ranking method. Default 'sharpe' (mirrors TradeWave's daily-pick selection). Options: edge|win_rate|sharpe|ml|avg_return.
         limit: Max cards to return (tier-capped to the caller's opp_limit). Optional.
     """
@@ -280,6 +298,22 @@ def find_best_opportunities(
         params["min_win_rate"] = min_win_rate
     if min_years is not None:
         params["min_years"] = min_years
+    if min_days is not None:
+        params["min_days"] = min_days
+    if max_days is not None:
+        params["max_days"] = max_days
+    if min_avg_return is not None:
+        params["min_avg_return"] = min_avg_return
+    if min_median_return is not None:
+        params["min_median_return"] = min_median_return
+    if min_sharpe is not None:
+        params["min_sharpe"] = min_sharpe
+    if pe_cycle is not None:
+        params["pe_cycle"] = pe_cycle
+    if years is not None:
+        params["years"] = years
+    if min_winning_years is not None:
+        params["min_winning_years"] = min_winning_years
     if rank_by is not None:
         params["rank_by"] = rank_by
     if limit is not None:
@@ -324,6 +358,11 @@ def analyze_symbol(
     market: Optional[str] = None,
     direction: Optional[str] = None,
     days_out: Optional[int] = None,
+    entry_date: Optional[str] = None,
+    pe_cycle: Optional[str] = None,
+    years: Optional[int] = None,
+    period: Optional[str] = None,
+    reverse: Optional[bool] = None,
     ctx: Optional[Context] = None,
 ) -> str:
     """
@@ -331,7 +370,18 @@ def analyze_symbol(
         symbol: Ticker symbol, e.g. 'GLD', 'AAPL', 'CL'. Required.
         market: Market id ('0'..'16'). Optional - the gateway resolves it when the symbol is unique.
         direction: 'long' or 'short'. Optional - omit to let the best setup decide.
-        days_out: Preferred holding period in calendar days, to bias setup selection. Optional.
+        days_out: Preferred holding period in calendar days. With entry_date, PINS the exact window;
+            without it, biases setup selection. Optional.
+        entry_date: 'YYYY-MM-DD'. PIN analysis to THIS exact opportunity (the "click this one /
+            deep-dive THIS setup" flow) instead of auto-picking the best. Optional.
+        pe_cycle: 'consecutive' (default) or 'pe' - score the setup over presidential-election-cycle
+            years (same phase as the entry year) instead of consecutive years. Optional.
+        years: Lookback length 1-99 (default 10) - how many years of history to score against. Optional.
+        period: A wave-viewer date-range preset to pin the window: a month ('jan'..'dec'), quarter
+            ('q1'..'q4'), season ('spring','summer','fall','winter'), or 'ytd'/'year_end'/'buy_hold'.
+            Optional - overrides entry_date/days_out when set.
+        reverse: Invert the period to "all of the year EXCEPT that window" (the reverse-date-range
+            toggle). Optional.
     """
     _bind_request_key(ctx)
     params: dict[str, Any] = {}
@@ -341,6 +391,16 @@ def analyze_symbol(
         params["direction"] = direction
     if days_out is not None:
         params["days_out"] = days_out
+    if entry_date is not None:
+        params["entry_date"] = entry_date
+    if pe_cycle is not None:
+        params["pe_cycle"] = pe_cycle
+    if years is not None:
+        params["years"] = years
+    if period is not None:
+        params["period"] = period
+    if reverse is not None:
+        params["reverse"] = str(reverse).lower()
     data = _get(f"/analyze/{symbol}", params)
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
@@ -553,16 +613,32 @@ def get_seasonal_opportunities(
     to_date: Optional[str] = None,
     direction: Optional[str] = None,
     min_win_rate: Optional[float] = None,
+    min_days: Optional[int] = None,
+    max_days: Optional[int] = None,
+    min_avg_return: Optional[float] = None,
+    min_median_return: Optional[float] = None,
+    min_sharpe: Optional[float] = None,
+    pe_cycle: Optional[str] = None,
+    years: Optional[int] = None,
+    min_winning_years: Optional[int] = None,
     limit: Optional[int] = None,
     ctx: Optional[Context] = None,
 ) -> str:
     """
     Args:
         market: Market id (permanent key '0'..'16'). Required.
+        pe_cycle: Presidential election cycle mode: 'consecutive' (default) or 'pe' (the current cycle position). Optional.
+        years: Lookback - years to scan for patterns (5-98, default 10; PE-position occurrences in pe mode). Optional.
+        min_winning_years: Of those years, the minimum number of WINNING years to list a pattern (default 9). e.g. 10/9. Optional.
         from_date: Start of entry-date window, ISO 8601 (YYYY-MM-DD). Optional.
         to_date: End of entry-date window, ISO 8601 (YYYY-MM-DD). Optional.
         direction: 'long' or 'short'. Optional - omit for both.
         min_win_rate: Minimum historical win rate 0..1, e.g. 0.65. Optional.
+        min_days: Minimum pattern length (holding period) in calendar days, e.g. 10. Optional.
+        max_days: Maximum pattern length (holding period) in calendar days, e.g. 90. Optional. Use min_days+max_days for a day RANGE like 10-90.
+        min_avg_return: Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%). Optional.
+        min_median_return: Minimum median seasonal profit in PERCENT. Optional.
+        min_sharpe: Minimum Sharpe ratio, e.g. 1.5. Optional.
         limit: Max results to return (tier-capped: free=3, dev=25, pro up to 5000). Optional.
     """
     _bind_request_key(ctx)
@@ -575,6 +651,22 @@ def get_seasonal_opportunities(
         params["direction"] = direction
     if min_win_rate is not None:
         params["min_win_rate"] = min_win_rate
+    if min_days is not None:
+        params["min_days"] = min_days
+    if max_days is not None:
+        params["max_days"] = max_days
+    if min_avg_return is not None:
+        params["min_avg_return"] = min_avg_return
+    if min_median_return is not None:
+        params["min_median_return"] = min_median_return
+    if min_sharpe is not None:
+        params["min_sharpe"] = min_sharpe
+    if pe_cycle is not None:
+        params["pe_cycle"] = pe_cycle
+    if years is not None:
+        params["years"] = years
+    if min_winning_years is not None:
+        params["min_winning_years"] = min_winning_years
     if limit is not None:
         params["limit"] = limit
     data = _get("/opportunities", params)
@@ -588,21 +680,76 @@ def get_seasonal_opportunities(
 
 @mcp.tool(
     description=(
-        "Low-level primitive. Prefer analyze_symbol (which fuses setups + receipts + ML into a "
-        "single evidence-backed SignalCard) unless you need this exact slice: the raw list of "
-        "every setup for one symbol with no enrichment. "
-        "Get all seasonal trade setups for a single symbol in a market. "
-        "Returns ranked setups (entry date, direction, hold period, win rate, avg return)."
+        "The symbol's TOP SEASONAL PATTERNS across the year, ranked by Sharpe ratio - the same list "
+        "the wave viewer shows in its pattern dropdown, for one symbol. Each pattern: entry date, "
+        "direction, hold period (days), Sharpe, avg/median return %, historical win rate. Filter by "
+        "pattern length (min_days/max_days) and pe_cycle ('consecutive' default, or 'pe' for the "
+        "current presidential-cycle position). (Alias of get_symbol_patterns.)"
     )
 )
-def get_opportunity_for_symbol(symbol: str, market: str, ctx: Context) -> str:
+def get_opportunity_for_symbol(symbol: str, market: str, pe_cycle: Optional[str] = None,
+                               years: Optional[int] = None, min_winning_years: Optional[int] = None,
+                               min_days: Optional[int] = None, max_days: Optional[int] = None,
+                               min_sharpe: Optional[float] = None,
+                               ctx: Optional[Context] = None) -> str:
     """
     Args:
         symbol: Ticker symbol, e.g. 'AAPL', 'GC', 'SPY'. Case-sensitive as in the market.
         market: Market id containing the symbol (use list_markets or list_symbols to find it).
+        pe_cycle: 'consecutive' (default) or 'pe' (current presidential-cycle position). Optional.
+        min_days: Minimum pattern length in days. Optional.
+        max_days: Maximum pattern length in days (use with min_days for a range). Optional.
+        min_sharpe: Minimum Sharpe ratio. Optional.
     """
     _bind_request_key(ctx)
-    data = _get(f"/opportunities/{symbol}", params={"market": market})
+    params: dict[str, Any] = {"market": market}
+    for _k, _v in (("pe_cycle", pe_cycle), ("years", years), ("min_winning_years", min_winning_years),
+                   ("min_days", min_days), ("max_days", max_days), ("min_sharpe", min_sharpe)):
+        if _v is not None:
+            params[_k] = _v
+    data = _get(f"/opportunities/{symbol}", params=params)
+    return json.dumps(data, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Tool: get_symbol_patterns (the wave-viewer pattern-dropdown list, named clearly)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    description=(
+        "A security's TOP SEASONAL PATTERNS throughout the year, ranked by Sharpe ratio - the list "
+        "the wave viewer shows in its pattern dropdown. Reach for this when the user asks 'what are "
+        "the best seasonal patterns for SYMBOL' or 'show me SYMBOL's patterns'. Each pattern is an "
+        "entry window with direction, hold length (days), Sharpe, avg/median seasonal return %, and "
+        "historical win rate. Filters: pattern length (min_days/max_days, e.g. 10-90), avg profit "
+        "(min_avg_return, percent), Sharpe floor (min_sharpe), and pe_cycle ('consecutive' default, "
+        "or 'pe' for the current presidential-cycle position)."
+    )
+)
+def get_symbol_patterns(symbol: str, market: str, pe_cycle: Optional[str] = None,
+                        years: Optional[int] = None, min_winning_years: Optional[int] = None,
+                        min_days: Optional[int] = None, max_days: Optional[int] = None,
+                        min_avg_return: Optional[float] = None, min_sharpe: Optional[float] = None,
+                        ctx: Optional[Context] = None) -> str:
+    """
+    Args:
+        symbol: Ticker symbol, e.g. 'DOV', 'GLD'.
+        market: Market id containing the symbol.
+        pe_cycle: 'consecutive' (default) or 'pe' (current presidential-cycle position). Optional.
+        min_days: Minimum pattern length in days. Optional.
+        max_days: Maximum pattern length in days (use with min_days for a range). Optional.
+        min_avg_return: Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%). Optional.
+        min_sharpe: Minimum Sharpe ratio. Optional.
+    """
+    _bind_request_key(ctx)
+    params: dict[str, Any] = {"market": market}
+    for _k, _v in (("pe_cycle", pe_cycle), ("years", years), ("min_winning_years", min_winning_years),
+                   ("min_days", min_days), ("max_days", max_days),
+                   ("min_avg_return", min_avg_return), ("min_sharpe", min_sharpe)):
+        if _v is not None:
+            params[_k] = _v
+    data = _get(f"/securities/{symbol}/patterns", params=params)
     return json.dumps(data, indent=2)
 
 
@@ -621,14 +768,32 @@ def get_opportunity_for_symbol(symbol: str, market: str, ctx: Context) -> str:
         "Returns stats only - no raw price series."
     )
 )
-def get_seasonal_pattern(market: str, symbol: str, ctx: Context) -> str:
+def get_seasonal_pattern(market: str, symbol: str, pe_cycle: Optional[str] = None,
+                         years: Optional[int] = None, period: Optional[str] = None,
+                         reverse: Optional[bool] = None, ctx: Optional[Context] = None) -> str:
     """
     Args:
         market: Market id containing the symbol.
         symbol: Ticker symbol.
+        pe_cycle: Presidential cycle filter: 'consecutive' (default), 'pe' (current cycle position), or
+            a specific position 'pe0' | 'pe1' | 'pe2' | 'pe3'. Optional.
+        years: Lookback count (number of years, or number of cycle occurrences when pe_cycle is set). Optional.
+        period: Date-range PRESET: month 'jan'..'dec', quarter 'q1'..'q4', season 'spring'|'summer'|'fall'|
+            'winter', 'ytd', 'year_end', or 'buy_hold'. Optional.
+        reverse: If true, use the COMPLEMENT of the window (e.g. period='mar' + reverse=true = all year
+            except March). A full-year (buy_hold) range cannot be reversed. Optional.
     """
     _bind_request_key(ctx)
-    data = _get(f"/patterns/{market}/{symbol}")
+    params: dict[str, Any] = {}
+    if pe_cycle is not None:
+        params["pe_cycle"] = pe_cycle
+    if years is not None:
+        params["years"] = years
+    if period is not None:
+        params["period"] = period
+    if reverse:
+        params["reverse"] = "true"
+    data = _get(f"/patterns/{market}/{symbol}", params=params or None)
     return json.dumps(data, indent=2)
 
 
@@ -661,6 +826,9 @@ def get_opportunity_chart(
     days_out: Optional[int] = None,
     direction: Optional[str] = None,
     years: Optional[str] = None,
+    pe_cycle: Optional[str] = None,
+    period: Optional[str] = None,
+    reverse: Optional[bool] = None,
     ctx: Optional[Context] = None,
 ) -> str:
     """
@@ -671,6 +839,13 @@ def get_opportunity_chart(
         days_out: Holding period in calendar days. Optional.
         direction: 'long' or 'short'. Optional.
         years: Lookback window label (stays a string, e.g. '10', '20'). Optional.
+        pe_cycle: Presidential cycle filter for the curve: 'consecutive' (default), 'pe' (current cycle
+            position), or a specific position 'pe0' | 'pe1' | 'pe2' | 'pe3'. Optional.
+        period: Date-range PRESET (overrides entry_date/days_out): a month 'jan'..'dec', a quarter
+            'q1'..'q4', a season 'spring'|'summer'|'fall'|'winter', 'ytd' (year to date), 'year_end'
+            (today to year end), or 'buy_hold' (Jan 1 to Jan 1, full year). Optional.
+        reverse: If true, use the COMPLEMENT of the window - everything except it (e.g. period='mar' +
+            reverse=true = all year except March). A full-year (buy_hold) range cannot be reversed. Optional.
     """
     _bind_request_key(ctx)
     params: dict[str, Any] = {"market": market, "symbol": symbol}
@@ -682,6 +857,12 @@ def get_opportunity_chart(
         params["direction"] = direction
     if years is not None:
         params["years"] = years
+    if pe_cycle is not None:
+        params["pe_cycle"] = pe_cycle
+    if period is not None:
+        params["period"] = period
+    if reverse:
+        params["reverse"] = "true"
     data = _get("/seasonal-chart", params)
     return json.dumps(data, indent=2)
 

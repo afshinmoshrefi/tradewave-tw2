@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tradewave"
+version = "0.1.0"
+description = "Official Python SDK for the TradeWave Data API - seasonal trading opportunities and ML win-probability signals (derived signals only, no raw prices)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Proprietary" }
+authors = [{ name = "TradeWave" }]
+keywords = ["tradewave", "seasonal", "trading", "signals", "markets", "api"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = ["requests>=2.25"]
+
+[project.urls]
+Homepage = "https://tradewave.ai"
+Documentation = "https://developers.tradewave.ai"
+API = "https://api.tradewave.ai/v1"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tradewave*"]
+
+[tool.setuptools.package-data]
+tradewave = ["py.typed"]

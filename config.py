@@ -20,6 +20,13 @@ SERVICE_API_KEY = os.environ.get('SERVICE_API_KEY', '')  # set in /etc/tradewave
 # === APPSERVER (TW2) ===
 APPSERVER_JWT_SECRET = os.environ.get('APPSERVER_JWT_SECRET', '')  # set in /etc/tradewave/secrets.env
 
+# === TARA -> API GATEWAY (TW2) ===
+# The in-product assistant (Tara) calls the v1 API gateway as a client (see
+# docs/TARA_GATEWAY_INTEGRATION.md). PER-ENV base URL (dev :8088, staging/prod the gateway's
+# own host) + the chatbot-tier service key (api_keys row, tier 'chatbot'). Both from secrets.env.
+TARA_GATEWAY_URL = os.environ.get('TW2_GATEWAY_URL', '')  # e.g. http://127.0.0.1:8088/v1 (dev); set in /etc/tradewave/secrets.env
+TARA_GATEWAY_KEY = os.environ.get('TARA_GATEWAY_KEY', '')  # chatbot service key; set in /etc/tradewave/secrets.env
+
 # HMAC secret for users.api_key_hash lookup. The appserver and the
 # db_admin backfill MUST agree, or every login_api will 403. If
 # API_KEY_HMAC_SECRET is unset (transition default), fall back to

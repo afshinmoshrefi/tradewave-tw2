@@ -1,0 +1,35 @@
+[Unit]
+Description=TradeWave MCP server (SSE, thin wrapper over the v1 gateway)
+After=network.target redis-server.service tradewave-apiserver.service
+# The MCP server proxies every tool call to the gateway, so bring it up after it.
+Wants=tradewave-apiserver.service
+
+[Service]
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# Not gunicorn: this is the plain FastMCP SSE process, so Type=simple (no sd_notify).
+Type=simple
+User=flask
+Group=flask
+WorkingDirectory=/home/flask
+EnvironmentFile=/etc/tradewave/secrets.env
+Environment=PYTHONPATH=/home/flask
+# Point the wrapper at the local gateway. TW2_MCP_PUBLIC_HOST (the public hostname used
+# for the SDK DNS-rebinding allowlist) comes from the EnvironmentFile per env.
+Environment=API_BASE_URL=http://127.0.0.1:8088/v1
+# BYOK: do NOT set TRADEWAVE_API_KEY here. On the remote SSE transport each client sends
+# its own Authorization: Bearer <key> per connection; a baked-in key would only act as a
+# shared fallback and break the multi-customer BYOK model. Leave it UNSET.
+ExecStart=/home/flask/venv-api/bin/python -m mcpserver.server --transport sse --host 127.0.0.1 --port 9090
+StandardOutput=append:/var/log/tradewave/mcpserver.log
+StandardError=append:/var/log/tradewave/mcpserver.log
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

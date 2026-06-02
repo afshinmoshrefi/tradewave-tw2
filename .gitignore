@@ -111,6 +111,14 @@ smn/
 venv-api/
 site/api_marketing/out/
 site/api_docs/*.html
+site/api_learn/out/
+site/api_playground/out/
+# Python SDK build artifacts (source lives in api/sdks/python/tradewave/)
+api/sdks/python/build/
+api/sdks/python/dist/
+api/sdks/python/*.egg-info/
+# Generated operator guide (regenerated from python-docx; do not version the binary)
+TradeWave_API_MCP_Operator_Guide.docx
 __pycache__/
 *.pyc
 *.bak.*

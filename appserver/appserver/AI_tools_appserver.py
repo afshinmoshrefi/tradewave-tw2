@@ -29,15 +29,21 @@ class AnthropicAPIError(Exception):
 
 def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
                          max_tokens=4096, temperature=0.0, timeout=(15, 300),
-                         cache_system=False, cache_ttl='5m'):
+                         cache_system=False, cache_ttl='5m', tools=None, return_raw=False):
     """
     Send a multi-turn conversation to Claude.
-    `messages` is a list of {'role': 'user'|'assistant', 'content': str} dicts.
+    `messages` is a list of {'role': 'user'|'assistant', 'content': str|blocks} dicts.
     The system prompt (if any) goes in the separate `system` parameter.
     Set cache_system=True to enable Anthropic prompt caching on the system prompt.
       cache_ttl='5m' - $1.25/MTok write, resets on every hit (good for active users)
       cache_ttl='1h' - $2.00/MTok write, survives 1hr inactivity (good for sporadic use)
     Cache hits are $0.10/MTok regardless of TTL - 10x cheaper than base input.
+
+    `tools` (optional): a list of Anthropic tool schemas. When set, the model may emit
+    tool_use blocks; the caller MUST run the tool loop and so MUST pass return_raw=True to
+    receive the FULL response dict (stop_reason + content blocks) rather than just text.
+    `return_raw=True`: return the full response.json() instead of content[0].text. Required
+    whenever `tools` is used (content[0] may be a tool_use block, not text).
     """
     headers = {
         'x-api-key':         ANTHROPIC_API_KEY,
@@ -59,9 +65,14 @@ def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
             payload['system'] = system
     if temperature != 0.0:
         payload['temperature'] = temperature
+    if tools:
+        payload['tools'] = tools
 
     resp = requests.post(ANTHROPIC_API_URL, headers=headers,
                          json=payload, timeout=timeout)
     if resp.status_code != 200:
         raise AnthropicAPIError(f'HTTP {resp.status_code}: {resp.text}')
-    return resp.json()['content'][0]['text']
+    data = resp.json()
+    if return_raw:
+        return data
+    return data['content'][0]['text']

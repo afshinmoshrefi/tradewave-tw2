@@ -76,20 +76,24 @@ def _refresh_price_cache():
         tier = (md.get("tier") or "").strip().lower()
         if tier not in valid:
             continue
-        existing = _price_cache.get(tier)
+        rec = p.recurring.to_dict() if getattr(p, "recurring", None) else {}
+        interval = rec.get("interval") or "month"   # 'month' | 'year'
+        key = (tier, interval)
+        existing = _price_cache.get(key)
         if existing is not None and getattr(existing, "id", None) != getattr(p, "id", None):
             log.warning(
-                "api price_cache: >1 active price for tier %s (%s, %s) - ambiguous; "
+                "api price_cache: >1 active %s price for tier %s (%s, %s) - ambiguous; "
                 "archive the extra in Stripe. Using last-seen.",
-                tier, getattr(existing, "id", "?"), getattr(p, "id", "?"),
+                interval, tier, getattr(existing, "id", "?"), getattr(p, "id", "?"),
             )
-        _price_cache[tier] = p
+        _price_cache[key] = p
 
 
-def _price_for_tier(tier_name):
+def _price_for_tier(tier_name, interval="month"):
     if not _price_cache:
         _refresh_price_cache()
-    return _price_cache.get(tier_name)
+    # Fall back to monthly if an annual price was never created for this tier.
+    return _price_cache.get((tier_name, interval)) or _price_cache.get((tier_name, "month"))
 
 
 @bp.route("/billing")
@@ -106,6 +110,7 @@ def billing_index():
             "name": name,
             "label": t["name"],
             "price_monthly": t["price_monthly"],
+            "price_annual": t.get("price_annual", t["price_monthly"] * 10),
             "markets": "1 market" if len(t["markets"]) == 1 else "All %d markets" % len(t["markets"]),
             "ml_access": t["ml_access"],
             "ml_daily_limit": t.get("ml_daily_limit"),  # None = unlimited
@@ -125,6 +130,7 @@ def billing_index():
         current_label=api_entitlements_for(u)["name"],
         has_customer=bool(getattr(u, "stripe_customer_id", None)),
         stripe_configured=_stripe_configured(),
+        founder=api_tiers.FOUNDER,
     )
 
 
@@ -148,12 +154,20 @@ def billing_checkout():
     if tier not in PURCHASABLE_TIERS:
         return jsonify({"error": "bad_tier", "message": "tier must be one of %s" % PURCHASABLE_TIERS}), 400
 
-    price = _price_for_tier(tier)
+    interval = (request.form.get("interval") or "month").strip().lower()
+    if interval in ("annual", "yearly", "year"):
+        interval = "year"
+    elif interval in ("monthly", "month"):
+        interval = "month"
+    else:
+        return jsonify({"error": "bad_interval", "message": "interval must be month or year"}), 400
+
+    price = _price_for_tier(tier, interval)
     if not price:
         return jsonify({
             "error": "price_not_found",
-            "message": "No active Stripe price with metadata product_line=api, tier=%s. "
-                       "Run web/api_portal/create_api_products.py (TEST mode) first." % tier,
+            "message": "No active Stripe price with metadata product_line=api, tier=%s (%s). "
+                       "Run web/api_portal/create_api_products.py (TEST mode) first." % (tier, interval),
         }), 400
 
     u = get_current_user()
@@ -183,6 +197,7 @@ def billing_checkout():
                 "tw2_user_id": str(u.id),
                 "product_line": "api",
                 "tier": tier,
+                "interval": interval,
             },
         },
     )

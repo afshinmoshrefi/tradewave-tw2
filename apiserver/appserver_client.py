@@ -15,12 +15,21 @@ import logging
 import os
 import threading
 import time
+from urllib.parse import quote
 
 import requests
 
 from . import settings
 
 log = logging.getLogger("apiserver.appserver_client")
+
+
+def _seg(value):
+    """URL-encode a single value so it can NEVER act as a path separator or traversal in an
+    internal appserver path. A request param like '10/../../whoami' becomes one literal,
+    percent-encoded segment (%2F...) instead of injecting extra path segments riding the
+    service token. Apply to EVERY interpolated value in an internal path f-string."""
+    return quote(str(value), safe="")
 _token = {"value": None, "exp": 0.0}
 _lock = threading.Lock()
 
@@ -240,7 +249,7 @@ def resolve_market_for_symbol(symbol, candidate_markets):
 def list_symbols(market):
     """Maps GetListSymbols -> [{symbol, name}]. Internal returns
     {'AllowedSymbols': {symbol: name}}."""
-    data = get(f"/GetListSymbols/{market}")
+    data = get(f"/GetListSymbols/{_seg(market)}")
     allowed = data.get("AllowedSymbols", {}) if isinstance(data, dict) else {}
     if not isinstance(allowed, dict):
         return []
@@ -307,7 +316,7 @@ def _win_rate_for_opp(obj):
 
 
 def opportunities(market, entry_date, year1="10", year2="9", day_range="-",
-                  opp_list_expanded="0", direction=None, enrich_win_rate=0):
+                  opp_list_expanded="0", direction=None, enrich_win_rate=0, mode="consecutive"):
     """Ranked seasonal opportunities for a market on an entry date, via OppList4.
 
     OppList4 is keyed to a single entry date (month name + day), not a from/to range,
@@ -324,8 +333,12 @@ def opportunities(market, entry_date, year1="10", year2="9", day_range="-",
     dt = datetime.datetime.strptime(entry_date, "%Y-%m-%d")
     month_name = dt.strftime("%B")
     day_num = str(dt.day)
-    path = f"/OppList4/{market}/{month_name}/{day_num}/{year1}/{year2}/{day_range}/{opp_list_expanded}/0"
-    data = get(path)
+    path = (f"/OppList4/{_seg(market)}/{_seg(month_name)}/{_seg(day_num)}/{_seg(year1)}"
+            f"/{_seg(year2)}/{_seg(day_range)}/{_seg(opp_list_expanded)}/0")
+    # mode='pe' loads the presidential-election-cycle dataset (the current cycle position);
+    # 'consecutive' (default) is the standard consecutive-years dataset.
+    params = {"mode": mode} if mode and mode != "consecutive" else None
+    data = get(path, params=params)
     rows = data.get("OppList", []) if isinstance(data, dict) else []
     # appserver sentinel: OppList can be a string like '-1:<path>' when the opp file
     # is missing. Treat any non-list as "no opportunities" (fail-soft on data gaps,
@@ -348,12 +361,15 @@ def opportunities(market, entry_date, year1="10", year2="9", day_range="-",
 
 
 def opportunities_by_symbol(market, symbol, year1="10", year2="9", day_range="-",
-                            top_pct=10, enrich_win_rate=True):
-    """Seasonal opportunities for one symbol, via OppBySymbol. Same row shape as
-    OppList4. This is a single symbol, so by default every row's REAL historical
-    win_rate is sourced from ChartData4 ('Percent Profitable')."""
-    path = f"/OppBySymbol/{market}/{symbol}/{year1}/{year2}/{day_range}/{int(top_pct)}"
-    data = get(path)
+                            top_pct=10, enrich_win_rate=True, mode="consecutive"):
+    """Seasonal opportunities for one symbol, via OppBySymbol - the symbol's seasonal
+    patterns across the year, sorted by Sharpe (the wave-viewer pattern dropdown data).
+    Same row shape as OppList4. By default every row's REAL historical win_rate is sourced
+    from ChartData4 ('Percent Profitable'). mode='pe' uses the presidential-cycle dataset."""
+    path = (f"/OppBySymbol/{_seg(market)}/{_seg(symbol)}/{_seg(year1)}/{_seg(year2)}"
+            f"/{_seg(day_range)}/{int(top_pct)}")
+    params = {"mode": mode} if mode and mode != "consecutive" else None
+    data = get(path, params=params)
     rows = data.get("OppBySymbol", []) if isinstance(data, dict) else []
     if not isinstance(rows, list):
         return []
@@ -369,7 +385,7 @@ def opportunities_by_symbol(market, symbol, year1="10", year2="9", day_range="-"
 
 
 def opportunities_multi(markets, entry_date, year1="10", year2="9", direction=None,
-                        max_workers=8):
+                        max_workers=8, mode="consecutive"):
     """Fan out opportunities() over several markets IN PARALLEL (independent cached GETs)
     and return a flat list of Opportunity dicts (NO win_rate enrichment here - the caller
     enriches AFTER ranking/slicing so we never fan out 50xN ChartData4 calls).
@@ -380,7 +396,7 @@ def opportunities_multi(markets, entry_date, year1="10", year2="9", direction=No
 
     def _one(m):
         try:
-            return appserver_opportunities_safe(m, entry_date, year1, year2, direction)
+            return appserver_opportunities_safe(m, entry_date, year1, year2, direction, mode)
         except Exception as e:  # noqa: BLE001 - per-market isolation for the scan
             log.warning("scan: market %s failed, skipped: %s", m, e)
             return []
@@ -393,17 +409,17 @@ def opportunities_multi(markets, entry_date, year1="10", year2="9", direction=No
     return results
 
 
-def appserver_opportunities_safe(market, entry_date, year1, year2, direction):
+def appserver_opportunities_safe(market, entry_date, year1, year2, direction, mode="consecutive"):
     """opportunities() with no enrichment, isolated for the parallel scan."""
     return opportunities(market, entry_date, year1=year1, year2=year2,
-                         direction=direction, enrich_win_rate=0)
+                         direction=direction, enrich_win_rate=0, mode=mode)
 
 
 # --------------------------- patterns / chart data -------------------------
 
 def _chart_data(market, symbol, entry_date, days_out, years):
     """Raw ChartData4 fetch. Returns (chart_entries, stats). years stays a string."""
-    path = f"/ChartData4/{market}/{entry_date}/{symbol}/{days_out}/{years}"
+    path = f"/ChartData4/{_seg(market)}/{_seg(entry_date)}/{_seg(symbol)}/{_seg(days_out)}/{_seg(years)}"
     data = get(path)
     if not isinstance(data, dict):
         return [], {}
@@ -458,7 +474,8 @@ def _seasonal_curve(market, symbol, chart_start_date, years, opp_start_date=None
     reconstructed (the per-year high/low are not exposed and it is averaged), so it is
     price-safe. Returns a list of {date, index}. years/opp_start stay strings."""
     opp_start = opp_start_date or chart_start_date
-    path = f"/consolidated_seasonal_chart2/{market}/{symbol}/{years}/{chart_start_date}/{opp_start}"
+    path = (f"/consolidated_seasonal_chart2/{_seg(market)}/{_seg(symbol)}/{_seg(years)}"
+            f"/{_seg(chart_start_date)}/{_seg(opp_start)}")
     data = get(path)
     rows = data.get("cons_seas_chart", []) if isinstance(data, dict) else []
     # appserver returns [] on a data gap (not enough years / symbol not traded).
@@ -542,7 +559,7 @@ def ml_scores(market, items):
 
     scores = {}  # ui_key 'SYMBOL|daysOut|dir' -> {ml_score, win_prob, pred_return, pred_mfe}
 
-    batch = post(f"/MLScoreBatch/{market}", {"opportunities": norm})
+    batch = post(f"/MLScoreBatch/{_seg(market)}", {"opportunities": norm})
     scores.update(batch.get("scores", {}) or {})
     pending = batch.get("pending", []) or []
 
@@ -552,7 +569,7 @@ def ml_scores(market, items):
     max_rounds = max(2, (len(norm) // 5) + 2)
     while pending and rounds < max_rounds:
         rounds += 1
-        resp = post(f"/MLScorePending/{market}", {"pending": pending})
+        resp = post(f"/MLScorePending/{_seg(market)}", {"pending": pending})
         scores.update(resp.get("scores", {}) or {})
         new_pending = resp.get("still_pending", []) or []
         if len(new_pending) >= len(pending):

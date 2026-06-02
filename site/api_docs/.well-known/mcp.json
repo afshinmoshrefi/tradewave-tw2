@@ -1,0 +1,80 @@
+{
+  "name": "TradeWave",
+  "description": "Seasonal-edge and ML trading signals for AI agents. Signals only (percentages and a normalized 0-100 seasonal index, never raw prices); broker-agnostic. Includes a public, forward-tested daily-pick track record.",
+  "version": "1.0.0",
+  "documentation": "https://developers-dev.trxstat.com/docs",
+  "mcp": {
+    "url": "https://mcp-dev.trxstat.com",
+    "transport": [
+      "streamable-http",
+      "sse"
+    ],
+    "authentication": {
+      "type": "bearer",
+      "description": "Send your TradeWave API key (tw_live_...) as Authorization: Bearer <key>.",
+      "instructions_url": "https://developers-dev.trxstat.com/docs/mcp-reference.html",
+      "token_url": "https://tw2-dev.trxstat.com/account/api/keys"
+    }
+  },
+  "tools": [
+    {
+      "name": "find_best_opportunities",
+      "description": "Scan the markets in your scope and return the best seasonal setups as ranked SignalCards."
+    },
+    {
+      "name": "analyze_symbol",
+      "description": "Deep-dive one symbol into a rich SignalCard (best setup, receipts, order ticket) plus its other setups; pin a specific opportunity by entry_date or a date-range preset."
+    },
+    {
+      "name": "explain_pick",
+      "description": "Today's daily pick as a SignalCard, with its live forward-tested track record as proof."
+    },
+    {
+      "name": "whats_seasonal_now",
+      "description": "Setups entering their seasonal window in the next ~10 trading days (a weekly digest)."
+    },
+    {
+      "name": "compare_opportunities",
+      "description": "Deep-dive several symbols and return them side by side for a head-to-head."
+    },
+    {
+      "name": "list_markets",
+      "description": "The markets in your scope and which support ML."
+    },
+    {
+      "name": "list_symbols",
+      "description": "The symbols in a market."
+    },
+    {
+      "name": "get_seasonal_opportunities",
+      "description": "Raw single-market ranked seasonal setups."
+    },
+    {
+      "name": "get_opportunity_for_symbol",
+      "description": "Every raw seasonal setup for one symbol."
+    },
+    {
+      "name": "get_seasonal_pattern",
+      "description": "Bare aggregate seasonal pattern stats for a symbol (no price series)."
+    },
+    {
+      "name": "get_opportunity_chart",
+      "description": "A single year-averaged, normalized 0-100 seasonal index curve (never a price)."
+    },
+    {
+      "name": "score_opportunities",
+      "description": "ML score a list of setups (ml_score, win_prob, predicted return)."
+    },
+    {
+      "name": "get_daily_pick",
+      "description": "The bare daily-pick payload."
+    },
+    {
+      "name": "get_pick_track_record",
+      "description": "The realized win/loss record of past daily picks."
+    }
+  ],
+  "contact": {
+    "homepage": "https://tw2-dev.trxstat.com"
+  }
+}

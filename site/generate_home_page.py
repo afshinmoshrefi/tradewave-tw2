@@ -21,6 +21,7 @@ import sys
 sys.path.insert(0, '/home/flask')
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent / 'lib'))
 import config
+import portal_urls  # per-env developer-portal URL for the footer link
 
 from daily_pattern_picks import get_daily_picks
 from blog_tools import get_company_name, convert_param_base64
@@ -132,6 +133,9 @@ LOGIN_URL = "/login"
 LOGOUT_URL = "/logout"
 DASHBOARD_URL = "/account"
 UPGRADE_URL = "/pricing"
+# The public developer portal (API + MCP + docs), env-resolved (dev -> developers-dev,
+# prod -> developers.tradewave.ai). Surfaced in the footer so users + search engines find it.
+DEVELOPERS_URL = portal_urls.PORTAL_URL
 
 # =============================================================================
 # PRICING URLs - Set these to your actual signup pages for each plan
@@ -890,6 +894,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # -- Featured Pattern --
         "featured_pattern": featured_data,
         "scorecard_url": "%sscorecard.html" % DOMAIN_ROOT,
+        "developers_url": DEVELOPERS_URL,
         "scorecard_stats": compute_homepage_scorecard_stats(),
         "recent_picks": [e['symbol'] for e in reversed(load_featured_history())][:3],
         "market_bar": market_bar_items or [],
