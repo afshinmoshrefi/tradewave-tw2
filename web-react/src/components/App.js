@@ -1314,6 +1314,7 @@ const App = () => {
     SetYearsMetaDataPE,
     SetShowPEOpps,
     SetPEOppsChecked,
+    SetPEselected,   // wave-viewer per-security PE selector (chat update_view actuation)
 
     SetResourceObj,  //4/12/2022 - this is all resources object obtained by calling getResourcesObj API
     SetUserFreeResources,

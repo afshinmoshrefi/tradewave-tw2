@@ -102,16 +102,23 @@ def check_for_token(func):
 CACHE_TTL     = '5m'   # '1h' not yet enabled - see chatbot_readme.txt
 CHATBOT_MODEL = CLAUDE_HAIKU_45
 
-# Prepended to the system prompt when the gateway tools are live, so the model fetches real
-# data instead of inventing numbers. Constant => stays cacheable across turns.
+# Appended to the system prompt (recency: it must win over the base 'tell the user where to
+# click' persona) when the gateway tools are live. Constant => stays cacheable across turns.
 TOOL_INSTRUCTION = (
-    "You can call live TradeWave tools (find_best_opportunities, analyze_symbol, "
-    "get_symbol_patterns, explain_pick) that query the real TradeWave engine. When the user "
-    "asks about opportunities, a symbol's seasonality, the daily pick, or anything needing "
-    "current numbers, CALL THE RIGHT TOOL and base your answer ONLY on its result - never "
-    "invent setups, win rates, Sharpe ratios, or returns. The user is in the wave-viewer; "
-    "prefer the symbol/market already loaded in your context when relevant. Keep answers "
-    "concise and plain-English. All figures are percentages, never price levels."
+    "=== LIVE TOOLS (these OVERRIDE any earlier instruction about telling the user where to click) ===\n"
+    "You have live tools that query the real TradeWave engine - find_best_opportunities, "
+    "analyze_symbol, get_symbol_patterns, explain_pick - AND update_view, which lets YOU drive the "
+    "wave-viewer directly. Rules:\n"
+    "1) For anything needing current numbers (opportunities, a symbol's seasonality, the daily pick), "
+    "CALL the right read tool and answer ONLY from its result - never invent setups, win rates, "
+    "Sharpe ratios, or returns.\n"
+    "2) When the user asks to LOAD / SHOW / OPEN / PULL UP a symbol or setup, or to CHANGE the years "
+    "or PE cycle, you MUST call update_view and do it yourself. Do NOT tell them to use a dropdown, "
+    "selectbox, or to click a row - you CAN drive the view for them. After update_view, say in one "
+    "short line what you changed.\n"
+    "3) For a date-range preset (a month/quarter/season), first call analyze_symbol with period= to "
+    "get the resolved entry_date + days_out, then pass those to update_view.\n"
+    "All figures are percentages, never price levels. Keep answers concise and plain-English."
 )
 
 # Initialize Blueprint
@@ -769,7 +776,7 @@ def chat():
     try:
         system_prompt = build_system_prompt(wave_viewer, opportunities, opp_table_length)
         if TARA_TOOLS_ENABLED:
-            system_prompt = TOOL_INSTRUCTION + "\n\n" + system_prompt
+            system_prompt = system_prompt + "\n\n" + TOOL_INSTRUCTION
 
         # Detect onboarding / teach-me intent and inject high-priority instruction
         msg_lower = user_message.lower()
@@ -798,18 +805,20 @@ def chat():
             messages.append({"role": role, "content": h.get("content", "")})
         messages.append({"role": "user", "content": user_message})
 
+        actions = []
         if TARA_TOOLS_ENABLED:
-            # Tara fetches live data via the gateway tools and narrates the result.
-            bot_reply = run_chat_with_tools(messages, system_prompt, user_id, CHATBOT_MODEL, CACHE_TTL)
+            # Tara fetches live data via the gateway tools and narrates the result; `actions`
+            # carries any wave-viewer changes the model requested (Phase 2) for the client to apply.
+            bot_reply, actions = run_chat_with_tools(messages, system_prompt, user_id, CHATBOT_MODEL, CACHE_TTL)
         else:
             bot_reply = send_claude_messages(messages, model=CHATBOT_MODEL, system=system_prompt, cache_system=True, cache_ttl=CACHE_TTL)
 
         log_question(user_id, user_message, bot_reply, wave_viewer)
 
-        return jsonify({"reply": bot_reply})
+        return jsonify({"reply": bot_reply, "actions": actions})
 
     except Exception as e:
-        return jsonify({"reply": f"Error: {str(e)}"})
+        return jsonify({"reply": f"Error: {str(e)}", "actions": []})  # consistent envelope on every path
 
 
 

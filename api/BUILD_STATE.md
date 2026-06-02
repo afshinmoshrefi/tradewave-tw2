@@ -361,4 +361,24 @@ on-behalf header did NOT delegate (no cb: key). ADVERSARIAL REVIEW (13 agents, 4
 (no escalation, no spoof, key never leaks, signals-only intact, loop terminates); fixed 1 real HIGH (tool-result
 JSON was raw-sliced -> malformed on big payloads; now _bounded_json caps lists/heavy fields to valid JSON, tested
 80k->1.4k valid), 1 MEDIUM (gateway read timeout 60->20s, fail-fast), 1 hardening (sold-tier service:True assert).
-0 em-dashes. PHASE 2 (UI-actuation: chat drives the wave-viewer setters) still PROPOSED in the spec.
+0 em-dashes. (Phase 2 below.)
+
+## Phase 16 - Tara UI-actuation: chat DRIVES the wave-viewer (Tara Phase 2) 2026-06-02
+Tara can now operate the wave-viewer, not just narrate it - the fix for the "too many controls for a
+newcomer" problem (ask in plain English; Tara drives the knobs). New `update_view` tool in tara_gateway.py:
+the model passes a concrete ViewSpec (symbol/market/entry_date/days_out/years/pe_cycle); run_chat_with_tools
+now returns (text, actions); an update_view call is validated server-side by `_validate_view_spec` (allowlist +
+range-check, invalid fields dropped) and queued as `{type:'set_view', spec}` - it NEVER hits the gateway
+(no quota). chat() returns `{reply, actions}` (additive; old bundles ignore it via Array.isArray guard).
+Frontend: `Chatbot.js applyViewSpec` re-validates each field (defense in depth) then calls the React setters,
+mirroring loadOppWV; a fresh load (clear opportunities/consolidated/reportsDash + SetSymbol) only on a symbol
+CHANGE, else knobs apply in place. `SetPEselected` added to `App.js chartSetProps` (wave-viewer PE selector).
+TOOL_INSTRUCTION APPENDED (recency) + forceful: "you MUST call update_view ... do NOT tell them to click" -
+the first attempt failed because the base 'guide-the-user-to-click' persona won; appending fixed it. For a
+date-range preset the model resolves it via analyze_symbol(period=) -> concrete entry_date+days_out, so the
+frontend needs no period math. React bundle rebuilt (nginx serves /app/ from web-react/build on dev).
+VERIFIED LIVE: "load NVDA 20y"->action {market:'1',symbol:'NVDA',years:20}; "lookback 15"->{years:15};
+"PE+2"->{pe_cycle:'pe2'}. ADVERSARIAL REVIEW (3 lenses): validation correct BOTH ends, strict set_view-only
+allowlist, no eval, bool-as-int hardened, loop capped, no quota burn, backward-compat - all confirmed; fixed
+1 MEDIUM (exception path now also returns actions:[] for envelope consistency). 0 em-dashes introduced.
+Blast radius of actuation = which chart/knobs the user sees (no code exec, no data beyond signals-only, no auth/billing).

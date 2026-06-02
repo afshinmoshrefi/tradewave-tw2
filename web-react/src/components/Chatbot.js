@@ -229,6 +229,12 @@ function Chatbot(props) {
             }
           }
         }
+        // Phase 2: apply any wave-viewer actions Tara requested (load a symbol/setup, change knobs)
+        if (Array.isArray(data.actions)) {
+          for (const action of data.actions) {
+            if (action && action.type === 'set_view' && action.spec) applyViewSpec(action.spec);
+          }
+        }
         // Keep history in plain text (strip HTML tags for history context)
         const plainReply = reply.replace(/<[^>]*>/g, '');
         setHistory([...updatedHistory, { role: 'assistant', content: plainReply }]);
@@ -261,6 +267,42 @@ function Chatbot(props) {
     let resource_group = resourceObj[parseInt(rid)];
     props.SetReportsDashVisible(false);
     props.SetSelectedSecurity(resource_group);
+  };
+
+  //--------------------------------------------------------------------------------------------------------
+  // Phase 2: apply a validated ViewSpec from Tara (update_view) to DRIVE the wave-viewer. The
+  // server already allowlists + range-checks the spec; we re-check each field here (defense in
+  // depth) before touching state. Loading a symbol mirrors loadOppWV (clear stale state first).
+  const applyViewSpec = (spec) => {
+    if (!spec || typeof spec !== 'object') return;
+    if (spec.market != null && resourceObj && resourceObj[parseInt(spec.market)]) {
+      props.SetSelectedSecurity(resourceObj[parseInt(spec.market)]);
+    }
+    // Only a CHANGE of symbol is a fresh load (clear stale chart/report state); when the model
+    // re-asserts the already-loaded symbol alongside a knob change, leave the chart in place.
+    if (typeof spec.symbol === 'string' && /^[A-Za-z0-9.\-]{1,15}$/.test(spec.symbol)) {
+      const sym = spec.symbol.toUpperCase();
+      if (sym !== (props.symbol || '').toUpperCase()) {
+        props.SetOpportunities([]);
+        props.SetConsolidatedSeasonalData([]);
+        props.SetReportsDashVisible(false);
+        props.SetMonthsAndQtrs('Months & Qtrs');
+        props.SetSymbol(sym);
+      }
+    }
+    if (typeof spec.entry_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(spec.entry_date)) {
+      props.SetStartDate(spec.entry_date);
+      props.SetTrendChartStartDate(incrementDate(spec.entry_date, -trend_chart_left_gap_days));
+    }
+    if (Number.isInteger(spec.days_out) && spec.days_out >= 1 && spec.days_out <= 366) {
+      props.SetDaysOut(spec.days_out);
+    }
+    if (Number.isInteger(spec.years) && spec.years >= 1 && spec.years <= 99) {
+      props.SetSeasonalYears(String(spec.years));
+    }
+    if (typeof spec.pe_cycle === 'string' && ['cons', 'pe0', 'pe1', 'pe2', 'pe3'].includes(spec.pe_cycle)) {
+      if (props.SetPEselected) props.SetPEselected(spec.pe_cycle);
+    }
   };
 
   //--------------------------------------------------------------------------------------------------------

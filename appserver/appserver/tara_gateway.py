@@ -13,8 +13,10 @@ Fail-soft: a gateway hiccup returns an {'error': ...} dict the model can narrate
 it must never raise into the chat handler. When the gateway is not configured (no URL/key),
 TARA_TOOLS_ENABLED is False and chatbot.py falls back to the plain no-tools chat.
 """
+import datetime
 import json
 import logging
+import re
 import sys
 from urllib.parse import quote
 
@@ -117,6 +119,29 @@ TOOLS = [
         ),
         "input_schema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "update_view",
+        "description": (
+            "DRIVE THE WAVE-VIEWER: load a symbol/setup or change a knob so the user actually "
+            "SEES it on screen, instead of telling them where to click. Call this when the user "
+            "says show me / load / pull up / open / change the years / switch to the PE cycle. "
+            "Pass concrete fields. To show a date-range PRESET (a month/quarter/season), FIRST "
+            "call analyze_symbol with period= to get the resolved entry_date + days_out, THEN "
+            "pass those here. Usually pair this with a read tool so you can also narrate the setup."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "market": {"type": "string", "description": "resource id '0'..'16' of the security's market"},
+                "symbol": {"type": "string"},
+                "entry_date": {"type": "string", "description": "YYYY-MM-DD"},
+                "days_out": {"type": "integer", "description": "1-366"},
+                "years": {"type": "integer", "description": "lookback 1-99"},
+                "pe_cycle": {"type": "string", "enum": ["consecutive", "pe0", "pe1", "pe2", "pe3"],
+                             "description": "wave-viewer cycle selector; consecutive = normal years"},
+            },
+        },
+    },
 ]
 
 # tool name -> (gateway path template, allowed query params). {symbol} is URL-encoded.
@@ -211,34 +236,88 @@ def _bounded_json(out):
                        "note": "narrow the request (fewer markets, a specific symbol, or a tighter filter)"})
 
 
+# ---- update_view: validate the model's requested wave-viewer ViewSpec (Phase 2 actuation) ----
+# Allowlist + range-check every field server-side before it can become a client action. The
+# client re-validates too (defense in depth). Only these fields can ever drive the UI.
+_VS_SYMBOL_RE = re.compile(r"^[A-Za-z0-9.\-]{1,15}$")
+_VS_MARKETS = {str(i) for i in range(17) if i not in (14, 15)}   # 14/15 (Korea) removed; never renumber
+_VS_PE = {"consecutive": "cons", "cons": "cons", "pe0": "pe0", "pe1": "pe1", "pe2": "pe2", "pe3": "pe3"}
+
+
+def _validate_view_spec(spec):
+    """Return a cleaned ViewSpec containing ONLY valid, in-range fields (drops the rest).
+    A field that fails validation is silently omitted so a partial/garbled spec still applies
+    the good parts. Returns {} if nothing is valid (the loop then reports ok:false to the model)."""
+    if not isinstance(spec, dict):
+        return {}
+    out = {}
+    sym = spec.get("symbol")
+    if isinstance(sym, str) and _VS_SYMBOL_RE.match(sym):
+        out["symbol"] = sym.upper()
+    mk = spec.get("market")
+    if mk is not None and str(mk) in _VS_MARKETS:
+        out["market"] = str(mk)
+    ed = spec.get("entry_date")
+    if isinstance(ed, str):
+        try:
+            datetime.datetime.strptime(ed, "%Y-%m-%d")
+            out["entry_date"] = ed
+        except ValueError:
+            pass
+    do = spec.get("days_out")
+    if isinstance(do, int) and not isinstance(do, bool) and 1 <= do <= 366:
+        out["days_out"] = do
+    yr = spec.get("years")
+    if isinstance(yr, int) and not isinstance(yr, bool) and 1 <= yr <= 99:
+        out["years"] = yr
+    pe = spec.get("pe_cycle")
+    if isinstance(pe, str) and pe.lower() in _VS_PE:
+        out["pe_cycle"] = _VS_PE[pe.lower()]
+    return out
+
+
 def _text_of(blocks):
     return "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
 
 
 def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m"):
     """Run the Tara chat with gateway tool-use. `messages` ends with the user turn. Returns
-    the final assistant TEXT. The model may call gateway tools; we execute them as `user_id`
-    and feed results back until it answers (capped at _MAX_TOOL_ROUNDS)."""
+    (final_text, actions): the assistant TEXT plus any UI actions the model requested (Phase 2,
+    e.g. [{'type':'set_view','spec':{...}}]). Read tools (scan/analyze/...) are executed as
+    `user_id` against the gateway; update_view is validated server-side and queued as an action
+    for the client to apply. Capped at _MAX_TOOL_ROUNDS."""
     convo = list(messages)
+    actions = []
     for _ in range(_MAX_TOOL_ROUNDS):
         resp = send_claude_messages(convo, model=model, system=system,
                                     cache_system=True, cache_ttl=cache_ttl,
                                     tools=TOOLS, return_raw=True)
         blocks = resp.get("content", []) or []
         if resp.get("stop_reason") != "tool_use":
-            return _text_of(blocks)
+            return _text_of(blocks), actions
         # echo the assistant's tool_use turn back verbatim, then answer each tool call
         convo.append({"role": "assistant", "content": blocks})
         results = []
         for b in blocks:
-            if b.get("type") == "tool_use":
-                out = run_tool(b.get("name"), b.get("input"), user_id)
-                results.append({
-                    "type": "tool_result",
-                    "tool_use_id": b.get("id"),
-                    "content": _bounded_json(out),
-                })
+            if b.get("type") != "tool_use":
+                continue
+            name, inp = b.get("name"), (b.get("input") or {})
+            if name == "update_view":                       # client-side UI action, not a gateway call
+                cleaned = _validate_view_spec(inp)
+                if cleaned:
+                    actions.append({"type": "set_view", "spec": cleaned})
+                    out = {"ok": True, "applied": cleaned}
+                else:
+                    out = {"ok": False, "error": "no valid view fields to apply"}
+            else:
+                out = run_tool(name, inp, user_id)
+            results.append({
+                "type": "tool_result",
+                "tool_use_id": b.get("id"),
+                "content": _bounded_json(out),
+            })
         convo.append({"role": "user", "content": results})
     # Out of tool rounds - force a final text answer with no further tool calls.
-    return send_claude_messages(convo, model=model, system=system,
-                                cache_system=True, cache_ttl=cache_ttl)
+    final = send_claude_messages(convo, model=model, system=system,
+                                 cache_system=True, cache_ttl=cache_ttl)
+    return final, actions

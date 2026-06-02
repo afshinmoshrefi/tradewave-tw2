@@ -1,8 +1,22 @@
 # Tara on the Gateway - integration spec
 
-Status: PHASE 1 BUILT + verified live on dev 2026-06-02 (read-client). PHASE 2 (UI-actuation)
-still PROPOSED. Owner decision on the auth/metering principal (section 7): RESOLVED = option A
-(internal chatbot service key + per-web-user 'cb:'-namespaced quota).
+Status: PHASE 1 (read-client) + PHASE 2 (UI-actuation) BOTH BUILT + verified on dev 2026-06-02.
+Owner decision on the auth/metering principal (section 7): RESOLVED = option A (internal chatbot
+service key + per-web-user 'cb:'-namespaced quota).
+
+Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. The tool loop
+(`tara_gateway.py run_chat_with_tools`) now returns (text, actions); an update_view call is
+validated server-side (`_validate_view_spec`: allowlist + range-check symbol/market/entry_date/
+days_out/years/pe_cycle, dropping invalid fields) and queued as `{type:'set_view', spec}` -
+it never hits the gateway. `chat()` returns `{reply, actions}` (additive; old bundles ignore it).
+`Chatbot.js applyViewSpec` re-validates each field then calls the React setters (mirrors
+`loadOppWV`; a fresh load only on a symbol CHANGE), and `SetPEselected` was added to
+`App.js chartSetProps`. The TOOL_INSTRUCTION is appended (recency) and forcefully tells the model
+to drive the view rather than tell the user where to click. Verified live: "load NVDA, 20 years"
+-> action `{market:'1',symbol:'NVDA',years:20}`; "change lookback to 15" -> `years:15`; "switch
+to PE+2" -> `pe_cycle:'pe2'`. React bundle rebuilt (served from web-react/build on dev). Blast
+radius of the actuation = which chart/knobs the user sees (no code exec, no data beyond the
+signals-only gateway, no auth/billing).
 
 Phase 1 as built (dev .176): a `chatbot` INTERNAL_TIER (tiers.py, service:True, not in the sold
 catalog) + an X-TW-On-Behalf-Of delegation in the gateway (auth.py, service-tier-only, principal
