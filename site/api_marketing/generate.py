@@ -17,6 +17,7 @@ No em-dashes anywhere (brand rule). No raw price data exposed (API contract).
 
 from __future__ import annotations
 
+import re
 import sys
 import os
 from pathlib import Path
@@ -449,17 +450,26 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "") ->
     for old, new in _main_nav_rewrites:
         header = header.replace(old, new)
 
-    # Inject API-specific nav items by appending them into the header's nav-links.
-    # We do a targeted string insert so we don't need to fork the header partial.
-    api_nav_snippet = """
-      <a href="index.html">API</a>
-      <a href="pricing.html">API Pricing</a>
-      <a href="mcp.html">MCP</a>
-      <a href="for-ai-agents.html">For AI agents</a>"""
-    # Insert after the rewritten Research link so ordering is logical.
-    header = header.replace(
-        f'<a href="{portal_urls.nav("research.html")}">Research</a>',
-        f'<a href="{portal_urls.nav("research.html")}">Research</a>' + api_nav_snippet,
+    # DEVELOPER PORTAL nav: the shared site header carries the full CONSUMER menu (Wave Viewer,
+    # Tickers, Scorecard, Insights, Research, News) which crowds the API/MCP pages and does not
+    # serve a developer audience. Replace the whole nav-link list with a focused developer nav -
+    # the shared partial (and the consumer site) are untouched; the logo still links back to the
+    # main site, and the auth/CTA ids (tw-auth-link/tw-cta-link) are preserved for the JS hooks.
+    _dev_nav = (
+        '<div class="tw-nav-links" id="tw-nav-links">\n'
+        '      <a href="index.html">API</a>\n'
+        f'      <a href="{portal_urls.DOCS_URL}/quickstart.html">Docs</a>\n'
+        '      <a href="pricing.html">Pricing</a>\n'
+        '      <a href="mcp.html">MCP</a>\n'
+        '      <a href="for-ai-agents.html">For AI agents</a>\n'
+        f'      <a href="{portal_urls.LEARN_URL}/">Learn</a>\n'
+        f'      <a href="{portal_urls.LOGIN_URL}" id="tw-auth-link">Log In</a>\n'
+        f'      <a href="{portal_urls.nav("account/api/keys")}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>\n'
+        '    </div>'
+    )
+    header = re.sub(
+        r'<div class="tw-nav-links" id="tw-nav-links">.*?</div>',
+        lambda _m: _dev_nav, header, count=1, flags=re.DOTALL,
     )
 
     # active_nav is "", "pricing", "mcp", "use-cases" -> map to the output filename.

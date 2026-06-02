@@ -26,6 +26,7 @@ Usage:
 
 from __future__ import annotations
 
+import re
 import sys
 import textwrap
 from datetime import datetime
@@ -75,7 +76,34 @@ from tiers import API_TIERS  # noqa: E402
 # ---------------------------------------------------------------------------
 
 def load_header() -> str:
-    return HEADER_PARTIAL.read_text(encoding="utf-8")
+    """The shared site header, slimmed to a DEVELOPER-PORTAL nav. The raw partial carries the full
+    CONSUMER menu (Wave Viewer, Tickers, Scorecard, Insights, Research, News) with root-relative
+    URLs that resolve to the WRONG host when served from the dev-portal domain - so for docs/learn/
+    playground we both drop the consumer crowd and use ABSOLUTE dev-portal URLs (these pages live
+    under /docs, /learn, /playground, so relative links would be wrong). The shared partial and the
+    consumer site are untouched. Mirrors api_marketing.generate.page_shell."""
+    header = HEADER_PARTIAL.read_text(encoding="utf-8")
+    for old, new in (
+        ('href="/"',        f'href="{portal_urls.MAIN_URL}"'),
+        ('href="/login"',   f'href="{portal_urls.LOGIN_URL}"'),
+    ):
+        header = header.replace(old, new)
+    dev_nav = (
+        '<div class="tw-nav-links" id="tw-nav-links">\n'
+        f'      <a href="{portal_urls.PORTAL_URL}/">API</a>\n'
+        f'      <a href="{portal_urls.DOCS_URL}/quickstart.html">Docs</a>\n'
+        f'      <a href="{portal_urls.PORTAL_URL}/pricing.html">Pricing</a>\n'
+        f'      <a href="{portal_urls.PORTAL_URL}/mcp.html">MCP</a>\n'
+        f'      <a href="{portal_urls.PORTAL_URL}/for-ai-agents.html">For AI agents</a>\n'
+        f'      <a href="{portal_urls.LEARN_URL}/">Learn</a>\n'
+        f'      <a href="{portal_urls.LOGIN_URL}" id="tw-auth-link">Log In</a>\n'
+        f'      <a href="{portal_urls.nav("account/api/keys")}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>\n'
+        '    </div>'
+    )
+    return re.sub(
+        r'<div class="tw-nav-links" id="tw-nav-links">.*?</div>',
+        lambda _m: dev_nav, header, count=1, flags=re.DOTALL,
+    )
 
 
 # CSS shared across all doc pages - brand-consistent with the site
