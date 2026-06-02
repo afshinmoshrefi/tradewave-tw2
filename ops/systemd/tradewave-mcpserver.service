@@ -17,15 +17,21 @@ Type=simple
 User=flask
 Group=flask
 WorkingDirectory=/home/flask
+# Defaults below are placed BEFORE EnvironmentFile so secrets.env can override them per box.
+# Co-located launch topology: MCP binds loopback and proxies the LOCAL gateway. To split the
+# gateway onto its own box, KEEP MCP on that same box as the gateway so API_BASE_URL stays
+# loopback; only set TW2_MCP_HOST to the box's reachable IP if nginx fronts MCP cross-box.
+# TW2_MCP_PUBLIC_HOST (the SDK DNS-rebinding allowlist host) also comes from secrets.env per env.
+# See ops/SPLIT_GATEWAY_TO_OWN_BOX.md.
+Environment=API_BASE_URL=http://127.0.0.1:8088/v1
+Environment=TW2_MCP_HOST=127.0.0.1
+Environment=TW2_MCP_PORT=9090
 EnvironmentFile=/etc/tradewave/secrets.env
 Environment=PYTHONPATH=/home/flask
-# Point the wrapper at the local gateway. TW2_MCP_PUBLIC_HOST (the public hostname used
-# for the SDK DNS-rebinding allowlist) comes from the EnvironmentFile per env.
-Environment=API_BASE_URL=http://127.0.0.1:8088/v1
 # BYOK: do NOT set TRADEWAVE_API_KEY here. On the remote SSE transport each client sends
 # its own Authorization: Bearer <key> per connection; a baked-in key would only act as a
 # shared fallback and break the multi-customer BYOK model. Leave it UNSET.
-ExecStart=/home/flask/venv-api/bin/python -m mcpserver.server --transport sse --host 127.0.0.1 --port 9090
+ExecStart=/home/flask/venv-api/bin/python -m mcpserver.server --transport sse --host ${TW2_MCP_HOST} --port ${TW2_MCP_PORT}
 StandardOutput=append:/var/log/tradewave/mcpserver.log
 StandardError=append:/var/log/tradewave/mcpserver.log
 Restart=on-failure

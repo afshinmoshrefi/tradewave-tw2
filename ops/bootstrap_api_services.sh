@@ -9,7 +9,10 @@
 # is additive (CREATE TABLE IF NOT EXISTS ...), and systemd enable --now is a no-op
 # when already running. It echoes every step.
 #
-# This script handles ONLY the two loopback services (gateway :8088, mcp :9090).
+# This script handles ONLY the two services (gateway :8088, mcp :9090). Their bind/host
+# default to loopback (co-located on the app box) but read from secrets.env
+# (TW2_APISERVER_BIND, TW2_MCP_HOST/PORT) - so the SAME units + this SAME script also stand
+# the gateway up on its OWN dedicated box later. Runbook: ops/SPLIT_GATEWAY_TO_OWN_BOX.md.
 # The public ingress is OUT OF SCOPE here and is reminded about at the end:
 #   - nginx vhosts:  ops/nginx/tradewave-developer-portal.conf
 #   - cloudflared:   add api-* / mcp-* / developers-* to /etc/cloudflared/config.yml

@@ -398,7 +398,12 @@ rate-limits bound API load, so a 2nd appserver instance (Option B) is DEFERRED u
 traffic competes (a no-code flip via `TW2_APPSERVER_URL`). On staging/prod, place the
 gateway+MCP on the app box (gateway->appserver localhost); the public `api-`/`mcp-`
 hostnames reach it via the web-box nginx over the VLAN or the app box's tunnel (finalize
-at deploy).
+at deploy). The gateway is **stateless** (state = Postgres + redis db4 + the appserver, all
+over the network), so splitting it onto its OWN box later is a config flip, not a rewrite:
+the unit files now read the bind/host from env (`TW2_APISERVER_BIND`, `TW2_MCP_HOST/PORT`;
+defaults = loopback, so co-located behavior is unchanged), and everything else
+(`TW2_APPSERVER_URL`, `REDIS_HOST`, Tara's `TW2_GATEWAY_URL`) was already per-env. Step-by-step:
+`ops/SPLIT_GATEWAY_TO_OWN_BOX.md`.
 
 **OPEN (pre-launch):** the systemd units / nginx vhost / cloudflared ingress are
 box-config NOT yet in `ops/` deploy tooling; deploy to staging->prod is post-cutover via

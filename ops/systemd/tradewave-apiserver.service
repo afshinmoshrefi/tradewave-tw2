@@ -14,10 +14,15 @@ Type=notify
 User=flask
 Group=flask
 WorkingDirectory=/home/flask
+# Bind defaults to loopback (gateway co-located on the app box = the launch topology). To run
+# the gateway on its OWN box later, set TW2_APISERVER_BIND in secrets.env to the box's reachable
+# VLAN address (e.g. 10.0.0.x:8088). This default is placed BEFORE EnvironmentFile so a value in
+# secrets.env overrides it. See ops/SPLIT_GATEWAY_TO_OWN_BOX.md.
+Environment=TW2_APISERVER_BIND=127.0.0.1:8088
 EnvironmentFile=/etc/tradewave/secrets.env
 Environment=PYTHONPATH=/home/flask
 ExecStart=/home/flask/venv-api/bin/gunicorn --workers 4 --worker-class sync --timeout 120 \
-    --bind 127.0.0.1:8088 --access-logfile /var/log/tradewave/apiserver.access.log \
+    --bind ${TW2_APISERVER_BIND} --access-logfile /var/log/tradewave/apiserver.access.log \
     --error-logfile /var/log/tradewave/apiserver.error.log --capture-output apiserver.app:app
 Restart=on-failure
 RestartSec=3
