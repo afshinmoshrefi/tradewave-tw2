@@ -62,13 +62,18 @@ const FilteringPopup = ({ onClose, iconRect }) => {
         { filter: 'twr', example: 'twr>2', desc: 'TradeWave Ratio above 2' },
         { filter: 'twa', example: 'twa>7', desc: 'TradeWave Average above 7' },
         { filter: 'tl', example: 'tl>70', desc: 'Trend Long score above 70 (current momentum)' },
-        { filter: 'price', example: 'price>50', desc: 'Stock price above $50 or below $200' },
+        { filter: 'price', example: 'price>50', desc: 'Stock price above $50 (or price<200 for below)' },
+        { filter: 'ml', example: 'ml>70', desc: 'AI Score (0-100) above 70 (also: ais)' },
+        { filter: 'win', example: 'win>60', desc: 'AI win probability above 60% (also: wp)' },
+        { filter: 'predr', example: 'predr>5', desc: 'AI predicted return above 5%' },
+        { filter: 'pmfe', example: 'pmfe>8', desc: 'AI predicted max upside above 8%' },
         { filter: 'text', example: 'AAPL', desc: 'Only show patterns for that ticker symbol' },
     ]
 
     const combos = [
         { name: 'Conservative Trader', filter: '20-60;sr>1.5;avgp>3', desc: 'Medium-term patterns with high consistency and decent returns', color: accentGreen },
         { name: 'Momentum Seeker', filter: '10-30;tl>70;sr>1', desc: 'Short-term patterns where current price trend is strong', color: accentBlue },
+        { name: 'AI Conviction', filter: '10-90;ml>70;win>60', desc: 'Patterns the AI model scores highly with a strong win probability', color: accentBlue },
         { name: 'Value Hunter', filter: '60-200;avgp>8;price<100', desc: 'Longer-term patterns in lower-priced stocks with high average returns', color: accentAmber },
     ]
 

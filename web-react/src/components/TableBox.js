@@ -168,6 +168,36 @@ const TableBox = ({
           const threshold = parseFloat(match[2])
           tmp = tmp.filter(item => item.price != null && (op === '>' ? item.price >= threshold : item.price <= threshold))
         }
+        // AI Score (AIS) filter, 0-100: e.g., "ML>70" or "AIS>70" (also supports <). Rows with
+        // no ML score (not yet scored / patterns > 90 days) are excluded, like TL/price.
+        else if (/^(?:ml|ais)\s*([><])\s*(\d+(\.\d+)?)/i.test(segment)) {
+          const match = segment.match(/^(?:ml|ais)\s*([><])\s*(\d+(\.\d+)?)/i)
+          const op = match[1]
+          const threshold = parseFloat(match[2])
+          tmp = tmp.filter(item => item.ml_score != null && (op === '>' ? item.ml_score >= threshold : item.ml_score <= threshold))
+        }
+        // Win Probability (Win%) filter, percent: e.g., "WIN>60" or "WP>60". Stored 0-1, displayed
+        // x100, so the threshold is compared against win_prob*100 to match the displayed value.
+        else if (/^(?:win|wp)\s*([><])\s*(\d+(\.\d+)?)/i.test(segment)) {
+          const match = segment.match(/^(?:win|wp)\s*([><])\s*(\d+(\.\d+)?)/i)
+          const op = match[1]
+          const threshold = parseFloat(match[2])
+          tmp = tmp.filter(item => item.win_prob != null && (op === '>' ? item.win_prob * 100 >= threshold : item.win_prob * 100 <= threshold))
+        }
+        // Predicted Return (PredR) filter, percent: e.g., "PREDR>5"
+        else if (/^predr\s*([><])\s*(\d+(\.\d+)?)/i.test(segment)) {
+          const match = segment.match(/^predr\s*([><])\s*(\d+(\.\d+)?)/i)
+          const op = match[1]
+          const threshold = parseFloat(match[2])
+          tmp = tmp.filter(item => item.pred_return != null && (op === '>' ? item.pred_return >= threshold : item.pred_return <= threshold))
+        }
+        // Predicted Max Favorable Excursion (PMFE) filter, percent: e.g., "PMFE>8"
+        else if (/^pmfe\s*([><])\s*(\d+(\.\d+)?)/i.test(segment)) {
+          const match = segment.match(/^pmfe\s*([><])\s*(\d+(\.\d+)?)/i)
+          const op = match[1]
+          const threshold = parseFloat(match[2])
+          tmp = tmp.filter(item => item.pred_mfe != null && (op === '>' ? item.pred_mfe >= threshold : item.pred_mfe <= threshold))
+        }
         // Default text search across all columns
         else {
           tmp = tmp.filter(item =>
