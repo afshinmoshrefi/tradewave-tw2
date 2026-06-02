@@ -544,7 +544,7 @@ def build_index() -> str:
       <a href="{portal_urls.DOCS_URL}/quickstart.html" class="btn btn-primary">Read the docs</a>
       <a href="{portal_urls.PLAYGROUND_URL}" class="btn btn-secondary">Try it live</a>
     </div>
-    <p class="hero-note">Works with Liquid (Co-Invest) and any broker. Free tier available - no credit card required.</p>
+    <p class="hero-note">Works with any broker or in-chat execution app. Free tier available - no credit card required.</p>
   </div>
 </section>
 
@@ -556,7 +556,7 @@ def build_index() -> str:
       <p>Data is a commodity and execution needs capital and a license. The scarce, defensible layer
          is the one in between - the reason to place the trade. Each signal ships with a broker-agnostic
          order ticket (side, symbol, and dates, no price level) that drops into any broker or execution
-         app, including Liquid (Co-Invest). We are paid for the signal, not your order flow, which is why
+         app you already use. We are paid for the signal, not your order flow, which is why
          a NO_SIGNAL day is honest from us in a way it never is from an app that earns per trade.</p>
     </div>
     <div class="grid-3">
@@ -594,8 +594,8 @@ def build_index() -> str:
     <div class="section-head">
       <h2 class="gradient-text-w">Where TradeWave sits</h2>
       <p>We are the layer above the trade, not another place to make it. Use TradeWave for the reason
-         and timing to trade, then hand the ticket to whatever you already execute with - Liquid
-         (Co-Invest) or any broker.</p>
+         and timing to trade, then hand the ticket to whatever you already execute with - any
+         in-chat execution app or broker.</p>
     </div>
     <div class="grid-3">
       <div class="card diff-card">
@@ -1206,11 +1206,11 @@ at once. Want me to run the seasonal chart data for any of these to see the year
   </div>
 </section>
 
-<!-- TradeWave + Liquid recipe (GTM hero feature) -->
+<!-- TradeWave + your broker recipe (GTM hero feature) -->
 <section class="section">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">Recipe: TradeWave + your broker (works with Liquid and any app)</h2>
+      <h2 class="gradient-text-w">Recipe: TradeWave + your broker (works with any execution app)</h2>
       <p>Ask for the edge, get a broker-agnostic ticket, place it anywhere. We do not take your
          trades - we show you our receipts.</p>
     </div>
@@ -1218,15 +1218,15 @@ at once. Want me to run the seasonal chart data for any of these to see the year
       <p style="color:var(--dim);line-height:1.7;margin-bottom:4px;">Ask TradeWave through MCP for the
         best seasonal setup and its ML win probability. You get back a SignalCard with the receipts and
         a broker-agnostic order ticket - a side, a symbol, and the dates, with no price level for us to
-        game. Hand that ticket to whatever you already trade with: an in-chat execution app like Liquid
-        (Co-Invest), your broker's SDK, or a manual confirmation. TradeWave finds the edge and the
+        game. Hand that ticket to whatever you already trade with: an in-chat execution app,
+        your broker's SDK, or a manual confirmation. TradeWave finds the edge and the
         timing; you place the trade. Because we never earn per trade, a NO_SIGNAL day is just as honest
         as a buy.</p>
       <div style="margin:18px 0;padding:14px 18px;border-left:3px solid var(--accent);background:rgba(99,102,241,.07);border-radius:8px;color:var(--dim);font-style:italic;">"Using TradeWave, find the best seasonal long entering its window in the next two weeks across my markets, show me the win rate and ML probability, and give me the order ticket."</div>
       <ol style="color:var(--dim);line-height:1.85;padding-left:20px;margin:0;">
         <li><strong>Find</strong> - call find_best_opportunities to scan your in-scope markets and rank the strongest setups.</li>
         <li><strong>Read</strong> - off the top SignalCard, take the edge, the year-by-year receipts, and the optional ML win-probability block (distinct from the historical win rate), plus the order ticket in next_step.</li>
-        <li><strong>Place it anywhere</strong> - the MARKET/DAY ticket carries no price level, so it maps cleanly onto Liquid, any broker SDK, or a manual confirmation.</li>
+        <li><strong>Place it anywhere</strong> - the MARKET/DAY ticket carries no price level, so it maps cleanly onto any in-chat execution app, broker SDK, or a manual confirmation.</li>
       </ol>
       <div style="text-align:center;margin-top:22px;">
         <a href="{portal_urls.LEARN_URL}/recipe-tradewave-plus-broker.html" class="btn btn-primary">See the full recipe</a>

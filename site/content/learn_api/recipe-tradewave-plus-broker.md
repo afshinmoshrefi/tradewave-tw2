@@ -1,5 +1,5 @@
 ---
-title: "Recipe: TradeWave + your broker (works with Liquid and any execution app)"
+title: "Recipe: TradeWave + your broker (works with any execution app)"
 slug: "recipe-tradewave-plus-broker"
 description: "A cookbook flow: ask TradeWave for the best seasonal setup, then place the broker-agnostic order ticket at any broker. We never take your trades."
 order: 8
@@ -10,7 +10,7 @@ read_minutes: 8
 
 Ask TradeWave for the best seasonal setup and its ML win probability, then hand the broker-agnostic `order_ticket` to whatever execution app you already use. TradeWave finds the edge and the timing; you place the trade anywhere. We never take your trades, so there is no conflict of interest, and the ticket never carries a price level for us to game.
 
-This works with any broker. We mention Liquid (Co-Invest) below as one example of an in-chat execution app you can hand the ticket to, but nothing in this flow is provider-specific. A `MARKET`/`DAY` ticket with a side, a symbol, and dates is universal.
+This works with any broker. Nothing in this flow is provider-specific - hand the ticket to any in-chat execution app, your broker's SDK, or a manual confirmation step. A `MARKET`/`DAY` ticket with a side, a symbol, and dates is universal.
 
 Everything below is illustrative. Live responses carry a `disclaimer` and are educational, not personalized advice.
 
@@ -110,7 +110,7 @@ Use `set_reminder` to fire a calendar or push reminder on the entry date, and `c
 
 ## Step 4: Execute at your broker
 
-Now hand the ticket to your execution app. Below, a small Python helper pulls the top setup and turns the ticket into a generic order payload. Swap `place_order` for your broker's SDK, an in-chat app like Liquid (Co-Invest), or a manual confirmation step - the input is identical.
+Now hand the ticket to your execution app. Below, a small Python helper pulls the top setup and turns the ticket into a generic order payload. Swap `place_order` for your broker's SDK, any in-chat execution app, or a manual confirmation step - the input is identical.
 
 ```python
 import os, requests
@@ -148,7 +148,7 @@ if card:
     print("Win rate:", card["stats"]["historical_win_rate"],
           "| ML win prob:", (card["ml"] or {}).get("ml_win_prob"))
     order = to_order(ticket)
-    # place_order(order)   # <- your broker / execution app / Liquid here
+    # place_order(order)   # <- your broker / execution app here
     print("Ready to send:", order)
 else:
     print("No setup cleared the bar - nothing to trade today.")
