@@ -153,7 +153,15 @@ app.register_blueprint(chatbot_bp, url_prefix="/chatbot")
 
 # places the client ip in the right place when using cloudflare
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
-CORS(app)  # added for cross scripting support
+# CORS: lock to an allowlist when APPSERVER_CORS_ORIGINS (comma-separated) is set in secrets.env;
+# otherwise keep the permissive default (unchanged behavior) so no live call breaks. Auth is a
+# per-request JWT (not cookies), so the wildcard is not credential-readable, but operators SHOULD
+# set the allowlist per env (the React origin(s)) to close the hole. '*' = explicit permissive.
+_cors_origins = os.environ.get('APPSERVER_CORS_ORIGINS', '').strip()
+if _cors_origins and _cors_origins != '*':
+    CORS(app, origins=[o.strip() for o in _cors_origins.split(',') if o.strip()])
+else:
+    CORS(app)  # added for cross scripting support
 
 
 limiter = Limiter( 
@@ -187,6 +195,12 @@ noLoginContent = config.noLoginContent
 #############################################################
 # static secret key only used by flask session
 app.config['SECRET_KEY'] = config.APPSERVER_JWT_SECRET  # TW2: shared with web tier for LTK signing
+# Session-cookie hardening. HttpOnly (no JS access) + SameSite=Lax (the browser default, so no
+# behavior change) are always safe; Secure is HTTPS-only, so gate it to staging/prod (on dev http
+# it would stop the cookie being sent). Auth itself is per-request JWT, not the session cookie.
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('TW2_ENV', '').strip().lower() in ('staging', 'prod')
 #############################################################
 available_resources = config.available_resources
 available_resources_path = config.available_resources_path
@@ -319,7 +333,16 @@ def get_resource_folder_from_token(token, resourceID):
 
     data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
 
-    resourceName = data['resource_disp'][int(resourceID)]
+    # Bounds-guard the index: a non-numeric or out-of-range resourceID must fail clearly
+    # (a ValueError), never an IndexError/500 that could leak a stack trace.
+    rd = data.get('resource_disp') or []
+    try:
+        idx = int(resourceID)
+    except (ValueError, TypeError):
+        raise ValueError('resourceID must be numeric: %r' % (resourceID,))
+    if idx < 0 or idx >= len(rd):
+        raise ValueError('resourceID out of range: %r' % (resourceID,))
+    resourceName = rd[idx]
 
     # print('......resourceName=',resourceName,data)
 

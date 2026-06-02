@@ -116,6 +116,26 @@ echo '    (on staging/prod use the matching Host: developers-stage.trxstat.com /
 curl -sI http://127.0.0.1/ -H 'Host: developers-dev.trxstat.com' || \
   echo "  (curl failed - nginx/tunnel may not be wired for this host yet; the docroot is still built)"
 
+# Guard: a stale LOWER-env hostname must never ship to a higher env. On staging/prod, fail the
+# build if the generated docroot still contains dev (or, on prod, dev/stage) hostnames - this
+# catches a generator run with the wrong secrets.env before it goes live.
+ENV="${TW2_ENV:-dev}"
+if [ "$ENV" = "prod" ]; then
+  BADPAT='developers-dev|api-dev|mcp-dev|tw2-dev|developers-stage|api-stage|mcp-stage|tw2-stage|-dev\.trxstat|-stage\.trxstat'
+elif [ "$ENV" = "staging" ]; then
+  BADPAT='developers-dev|api-dev|mcp-dev|tw2-dev|-dev\.trxstat'
+else
+  BADPAT=''
+fi
+if [ -n "$BADPAT" ]; then
+  hdr "guard: no stale lower-env hostnames in the $ENV docroot"
+  if grep -rlE "$BADPAT" "$DOCROOT" 2>/dev/null; then
+    echo "FAIL: stale lower-env hostnames found in $DOCROOT (files above). Regenerate with the $ENV secrets.env hosts before deploying."
+    exit 1
+  fi
+  echo "  OK: no stale dev/stage hostnames in the $ENV docroot"
+fi
+
 echo
 echo "=== developer portal assembled at $DOCROOT ==="
 echo "    root:       $(ls -1 "$DOCROOT"/*.html 2>/dev/null | xargs -r -n1 basename | tr '\n' ' ')"

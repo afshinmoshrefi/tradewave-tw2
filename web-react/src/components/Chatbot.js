@@ -17,6 +17,27 @@ import DaysOutPopup from './DaysOutPopup';
 import YearsRangePopup from './YearsRangePopup';
 import FilteringPopup from './FilteringPopup';
 import AIScoresPopup from './AIScoresPopup';
+
+//--------------------------------------------------------------------------------------------------------
+// The bot reply is model-generated HTML rendered via dangerouslySetInnerHTML; with Tara now
+// tool-driven and fed user-influenceable context, a crafted prompt could try to emit active
+// markup. Strip the XSS vectors (script/style/iframe blocks, inline on* handlers, javascript:/
+// data: URLs) while keeping the legit formatting vocabulary (b/br/i/a[data-action]/span).
+// NOTE: this is a strong mitigation for constrained model output; DOMPurify is the gold-standard
+// upgrade if the dependency is added later.
+const sanitizeBotHtml = (html) => {
+  if (typeof html !== 'string') return '';
+  let s = html;
+  s = s.replace(/<\s*(script|style|iframe|object|embed|svg|math|link|meta)[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  s = s.replace(/<\s*\/?\s*(script|style|iframe|object|embed|svg|math|link|meta)\b[^>]*>/gi, '');
+  s = s.replace(/\son\w+\s*=\s*"[^"]*"/gi, '');
+  s = s.replace(/\son\w+\s*=\s*'[^']*'/gi, '');
+  s = s.replace(/\son\w+\s*=\s*[^\s>]+/gi, '');
+  s = s.replace(/(href|src)\s*=\s*"\s*(?:javascript|data|vbscript):[^"]*"/gi, '$1="#"');
+  s = s.replace(/(href|src)\s*=\s*'\s*(?:javascript|data|vbscript):[^']*'/gi, "$1='#'");
+  return s;
+};
+
 //--------------------------------------------------------------------------------------------------------
 function Chatbot(props) {
   const { token, resourceObj } = useContext(UserContext);
@@ -377,7 +398,7 @@ function Chatbot(props) {
             <strong style={{ color: msg.role === 'user' ? userLabelColor : botLabelColor }}>
               {msg.role === 'user' ? 'You' : 'Tara'}:
             </strong>
-            <div dangerouslySetInnerHTML={{ __html: msg.text }} />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeBotHtml(msg.text) }} />
           </div>
         ))}
         {isLoading && (

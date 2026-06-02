@@ -3,10 +3,13 @@
 # Kept separate from /home/flask/blog/AI_tools.py because appserver and webserver
 # run on different machines in staging/production - no shared filesystem.
 
+import logging
 import requests
 import sys
 sys.path.insert(0, '/home/flask')
 import config
+
+log = logging.getLogger("AI_tools_appserver")
 
 # ------------------------------------------------------------------
 # Anthropic (Claude) model IDs
@@ -71,7 +74,10 @@ def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
     resp = requests.post(ANTHROPIC_API_URL, headers=headers,
                          json=payload, timeout=timeout)
     if resp.status_code != 200:
-        raise AnthropicAPIError(f'HTTP {resp.status_code}: {resp.text}')
+        # Log the provider's body server-side only; never surface it (it can carry request
+        # echoes / rate-limit detail). Callers raise/return a generic message.
+        log.warning("Anthropic API %s: %s", resp.status_code, resp.text[:500])
+        raise AnthropicAPIError(f'HTTP {resp.status_code}')
     data = resp.json()
     if return_raw:
         return data

@@ -118,6 +118,13 @@ def _headers() -> dict[str, str]:
     return h
 
 
+def _seg(value: Any) -> str:
+    """URL-encode a value used as a PATH segment (symbol/market), so a symbol with a '.', '/',
+    space, or other special char can't corrupt the path or inject extra segments."""
+    from urllib.parse import quote
+    return quote(str(value), safe="")
+
+
 def _get(path: str, params: dict[str, Any] | None = None) -> Any:
     """Synchronous GET against the gateway. Returns parsed JSON."""
     url = f"{API_BASE_URL}{path}"
@@ -401,7 +408,7 @@ def analyze_symbol(
         params["period"] = period
     if reverse is not None:
         params["reverse"] = str(reverse).lower()
-    data = _get(f"/analyze/{symbol}", params)
+    data = _get(f"/analyze/{_seg(symbol)}", params)
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
     sym = symbol.upper()
@@ -523,7 +530,7 @@ def compare_opportunities(
         if market is not None:
             params["market"] = market
         try:
-            data = _get(f"/analyze/{sym}", params)
+            data = _get(f"/analyze/{_seg(sym)}", params)
         except httpx.HTTPStatusError as exc:
             # Fail-soft per symbol: degrade that row, never break the comparison.
             results.append({"symbol": sym, "error": f"HTTP {exc.response.status_code}", "card": None})
@@ -588,7 +595,7 @@ def list_symbols(market: str, ctx: Context) -> str:
         market: Market id, e.g. '0', '2', '11'. Use list_markets to find valid ids.
     """
     _bind_request_key(ctx)
-    data = _get(f"/markets/{market}/symbols")
+    data = _get(f"/markets/{_seg(market)}/symbols")
     return json.dumps(data, indent=2)
 
 
@@ -707,7 +714,7 @@ def get_opportunity_for_symbol(symbol: str, market: str, pe_cycle: Optional[str]
                    ("min_days", min_days), ("max_days", max_days), ("min_sharpe", min_sharpe)):
         if _v is not None:
             params[_k] = _v
-    data = _get(f"/opportunities/{symbol}", params=params)
+    data = _get(f"/opportunities/{_seg(symbol)}", params=params)
     return json.dumps(data, indent=2)
 
 
@@ -749,7 +756,7 @@ def get_symbol_patterns(symbol: str, market: str, pe_cycle: Optional[str] = None
                    ("min_avg_return", min_avg_return), ("min_sharpe", min_sharpe)):
         if _v is not None:
             params[_k] = _v
-    data = _get(f"/securities/{symbol}/patterns", params=params)
+    data = _get(f"/securities/{_seg(symbol)}/patterns", params=params)
     return json.dumps(data, indent=2)
 
 
@@ -793,7 +800,7 @@ def get_seasonal_pattern(market: str, symbol: str, pe_cycle: Optional[str] = Non
         params["period"] = period
     if reverse:
         params["reverse"] = "true"
-    data = _get(f"/patterns/{market}/{symbol}", params=params or None)
+    data = _get(f"/patterns/{_seg(market)}/{_seg(symbol)}", params=params or None)
     return json.dumps(data, indent=2)
 
 

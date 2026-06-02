@@ -17,6 +17,7 @@ from pathlib import Path
 from datetime import datetime, date, timedelta
 from typing import Optional, List, Dict
 from jinja2 import Environment, FileSystemLoader
+import os
 import sys
 sys.path.insert(0, '/home/flask')
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent / 'lib'))
@@ -121,8 +122,10 @@ OPPORTUNITIES_PER_TAB = 10
 # Show opportunities table on the page (set to False to hide)
 SHOW_OPPORTUNITIES = True
 
-# Enable SEO tags (robots, canonical, structured data) - disable for dev/staging
-ENABLE_SEO = False
+# Enable SEO tags (robots, canonical, structured data) - PROD ONLY. Dev + staging stay noindex
+# (staging is a gate; we never want it or dev indexed). Env-driven so the prod build flips it on
+# automatically instead of relying on a manual edit before launch.
+ENABLE_SEO = os.environ.get('TW2_ENV', '').strip().lower() == 'prod'
 
 # =============================================================================
 # SIGNUP & AUTH URLs

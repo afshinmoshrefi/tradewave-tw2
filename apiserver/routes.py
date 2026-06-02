@@ -889,10 +889,14 @@ def score():
         if missing:
             return _err("invalid_request",
                         "opportunity missing required fields: %s" % ", ".join(missing), 400)
+        try:
+            days_out_i = int(it["days_out"])
+        except (ValueError, TypeError):
+            return _err("invalid_request", "days_out must be a number", 400)
         norm.append({
             "symbol": it["symbol"],
             "date": it["date"],
-            "days_out": int(it["days_out"]),
+            "days_out": days_out_i,
             "direction": it["direction"],
         })
 

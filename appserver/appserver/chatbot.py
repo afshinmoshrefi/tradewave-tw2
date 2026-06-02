@@ -818,7 +818,9 @@ def chat():
         return jsonify({"reply": bot_reply, "actions": actions})
 
     except Exception as e:
-        return jsonify({"reply": f"Error: {str(e)}", "actions": []})  # consistent envelope on every path
+        logging.exception("chatbot.chat failed for user_id=%s", user_id)  # detail server-side only
+        return jsonify({"reply": "Sorry, something went wrong on my end. Please try again.",
+                        "actions": []})  # generic message; consistent envelope on every path
 
 
 
