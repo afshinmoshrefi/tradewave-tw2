@@ -1586,6 +1586,63 @@
         </script>
     </section>
 
+    <script id="tw-ref-code-link">
+    // Affiliate referral capture. If the page URL carries ?code=ANNE (or
+    // ?via=ANNE), remember it in a first-party cookie (tw_ref, 60 days) so the
+    // partner who referred you is credited even if you sign up first and
+    // subscribe later. FIRST-TOUCH: an existing referral cookie is never
+    // overwritten. The code is also stamped onto this page's checkout forms.
+    // The Stripe coupon stays the source of truth; this just carries the code.
+    (function(){
+        try {
+            var RE = /^[A-Za-z0-9_-]{2,64}$/;
+            function getCookie(n){
+                var m = document.cookie.match('(?:^|; )' + n + '=([^;]*)');
+                return m ? decodeURIComponent(m[1]) : '';
+            }
+            var params = new URLSearchParams(window.location.search);
+            var fromUrl = (params.get('code') || params.get('via') || '').trim();
+            var existing = getCookie('tw_ref');
+            var code = '';
+            if (existing && RE.test(existing)) {
+                code = existing;                  // first-touch: keep the first referrer
+            } else if (fromUrl && RE.test(fromUrl)) {
+                code = fromUrl;
+                var sec = (location.protocol === 'https:') ? '; secure' : '';
+                document.cookie = 'tw_ref=' + encodeURIComponent(code) +
+                    '; max-age=' + (60*24*60*60) + '; path=/; samesite=lax' + sec;
+            }
+            if (!code) return;
+            function addParam(url){
+                if (!url || url.indexOf('/api/stripe/create-checkout') === -1) return url;
+                if (/[?&]code=/.test(url)) return url;
+                return url + (url.indexOf('?') === -1 ? '?' : '&') + 'code=' + encodeURIComponent(code);
+            }
+            function stamp(){
+                document.querySelectorAll('form[action*="/api/stripe/create-checkout"]').forEach(function(f){
+                    if (!f.querySelector('input[name="code"]')) {
+                        var i = document.createElement('input');
+                        i.type = 'hidden'; i.name = 'code'; i.value = code;
+                        f.appendChild(i);
+                    }
+                });
+                document.querySelectorAll('a[href*="/api/stripe/create-checkout"]').forEach(function(a){
+                    a.setAttribute('href', addParam(a.getAttribute('href')));
+                });
+                document.querySelectorAll('[data-monthly-href],[data-yearly-href],[data-monthly-url],[data-yearly-url]').forEach(function(el){
+                    ['data-monthly-href','data-yearly-href','data-monthly-url','data-yearly-url'].forEach(function(attr){
+                        var v = el.getAttribute(attr);
+                        if (v) el.setAttribute(attr, addParam(v));
+                    });
+                });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', stamp);
+            } else { stamp(); }
+        } catch (e) { /* never break the page over a referral code */ }
+    })();
+    </script>
+
     <!-- 9. Product Demo -->
     <section class="product-demo bg-primary scroll-fade">
         <div class="container">

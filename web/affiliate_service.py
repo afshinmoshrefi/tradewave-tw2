@@ -1,0 +1,357 @@
+"""Affiliate program - Stripe glue + commission engine (manual promo-code model).
+
+Two jobs, both pure-Stripe (NO webhook / billing-path changes - this is a
+downstream reader/writer of Stripe only):
+
+  1. provision_stripe_objects(aff): create the affiliate's Stripe coupon
+     (percent_off = discount_pct, repeating 12 months = "X% off the first year")
+     plus a matching promotion code (the shareable string). One coupon + one
+     code per affiliate (1:1:1) so every discounted sale maps to exactly one
+     affiliate via the coupon id.
+
+  2. compute_month(session, year, month): read Stripe for that calendar month,
+     attribute each paid invoice to an affiliate by the coupon applied, and sum
+     commission = (amount_paid - tax) * commission_pct, honoring the affiliate's
+     commission_model and a self-referral guard. upsert_month() persists the
+     result into the affiliate_payouts ledger, idempotent on
+     (affiliate_id, period_start, currency) so a re-run never double-counts and
+     never overwrites a row already marked paid.
+
+On dev STRIPE_SECRET_KEY is a Stripe TEST-mode key, so provisioning creates
+disposable test coupons.
+"""
+from __future__ import annotations
+
+import calendar
+import datetime as dt
+import logging
+import re
+from decimal import Decimal, ROUND_HALF_UP
+
+import sys
+sys.path.insert(0, "/home/flask")
+sys.path.insert(0, "/home/flask/web")
+
+import stripe  # noqa: E402
+import config  # noqa: E402
+
+log = logging.getLogger(__name__)
+
+stripe.api_key = config.STRIPE_SECRET_KEY
+
+# Canonical code charset (uppercase). normalize_code() uppercases first.
+CODE_RE = re.compile(r"^[A-Z0-9_-]{2,64}$")
+DISCOUNT_DURATION_MONTHS = 12  # "X% off the first year"
+_CENTS = Decimal("0.01")
+
+
+class AffiliateError(Exception):
+    """Raised on bad input or any Stripe failure so callers can abort cleanly."""
+
+
+def normalize_code(code: str) -> str:
+    return (code or "").strip().upper()
+
+
+def validate_code(code: str) -> None:
+    """Validate the CANONICAL (already-normalized) code. Callers normalize first."""
+    if not CODE_RE.match(code or ""):
+        raise AffiliateError(
+            "code must be 2-64 chars of A-Z, 0-9, '_' or '-' "
+            "(e.g. ANNE or COACH-BOB)"
+        )
+
+
+def _pct_to_float(pct) -> float:
+    # numeric(5,2) -> Stripe percent_off float (Decimal('20.00') -> 20.0)
+    return float(Decimal(str(pct)))
+
+
+# ---------------------------------------------------------------------------
+# 1) Provisioning
+# ---------------------------------------------------------------------------
+
+def provision_stripe_objects(aff) -> tuple[str, str]:
+    """Create the Stripe coupon + promotion code for a freshly-added affiliate.
+
+    Returns (coupon_id, promotion_code_id). Idempotent: if the affiliate already
+    carries both ids they are returned unchanged. Raises AffiliateError on any
+    Stripe failure so the caller can abort the DB insert (we never persist an
+    affiliate without its Stripe objects). On promo-code failure the just-created
+    coupon is best-effort deleted so we don't leak an orphan.
+    """
+    if aff.stripe_coupon_id and aff.stripe_promotion_code_id:
+        return aff.stripe_coupon_id, aff.stripe_promotion_code_id
+
+    code = normalize_code(aff.code)
+    validate_code(code)
+    percent_off = _pct_to_float(aff.discount_pct)
+    if not (0 < percent_off <= 100):
+        raise AffiliateError("discount_pct must be > 0 and <= 100")
+
+    try:
+        coupon = stripe.Coupon.create(
+            percent_off=percent_off,
+            duration="repeating",
+            duration_in_months=DISCOUNT_DURATION_MONTHS,
+            # Stripe caps coupon `name` at 40 chars; keep it short. The
+            # discount lives in percent_off and the code in metadata + the
+            # promotion code, so a truncated label here is purely cosmetic.
+            name=f"Affiliate {code}"[:40],
+            metadata={"tw2_affiliate_code": code, "tw2_purpose": "affiliate"},
+        )
+    except Exception as e:
+        raise AffiliateError(f"Stripe coupon create failed: {e}") from e
+
+    try:
+        # Stripe SDK 15.x: the coupon is nested under `promotion`, not a
+        # top-level `coupon` param (older API). type must be "coupon".
+        promo = stripe.PromotionCode.create(
+            code=code,
+            promotion={"type": "coupon", "coupon": coupon.id},
+            metadata={"tw2_affiliate_code": code, "tw2_purpose": "affiliate"},
+        )
+    except Exception as e:
+        try:
+            stripe.Coupon.delete(coupon.id)
+        except Exception:
+            log.warning("orphan coupon %s left after promo-code failure", coupon.id)
+        raise AffiliateError(f"Stripe promotion code create failed: {e}") from e
+
+    return coupon.id, promo.id
+
+
+# ---------------------------------------------------------------------------
+# 2) Commission engine
+# ---------------------------------------------------------------------------
+
+def _month_window(year: int, month: int):
+    """Return (start_dt, end_dt, period_start_date, period_end_date) for a UTC
+    calendar month, half-open [start, end)."""
+    start = dt.datetime(year, month, 1, tzinfo=dt.timezone.utc)
+    if month == 12:
+        end = dt.datetime(year + 1, 1, 1, tzinfo=dt.timezone.utc)
+    else:
+        end = dt.datetime(year, month + 1, 1, tzinfo=dt.timezone.utc)
+    last_day = calendar.monthrange(year, month)[1]
+    return start, end, dt.date(year, month, 1), dt.date(year, month, last_day)
+
+
+def _invoice_coupon_ids(inv: dict) -> list[str]:
+    """All Stripe coupon ids applied to an invoice. Handles both the legacy
+    single `discount` and the newer `discounts` list (each a Discount object
+    with an inline `coupon`)."""
+    ids: list[str] = []
+    single = inv.get("discount")
+    if isinstance(single, dict):
+        cp = single.get("coupon") or {}
+        if isinstance(cp, dict) and cp.get("id"):
+            ids.append(cp["id"])
+    for d in (inv.get("discounts") or []):
+        if isinstance(d, dict):
+            cp = d.get("coupon") or {}
+            if isinstance(cp, dict) and cp.get("id"):
+                ids.append(cp["id"])
+    return ids
+
+
+def _invoice_tax_cents(inv: dict) -> int:
+    """Total tax on the invoice, in cents. Stripe SDK 15.x / API 2025-03-31+
+    carries tax in `total_taxes` (list of {amount}); older APIs used the
+    top-level `tax` or `total_tax_amounts`. Check all three so we work across
+    versions (the live SDK only emits total_taxes - missing it silently
+    zeroed tax and overpaid commission on every taxed sale)."""
+    tax = inv.get("tax")
+    if tax is None:
+        items = (inv.get("total_taxes")
+                 or inv.get("total_tax_amounts")
+                 or [])
+        tax = sum((t.get("amount") or 0) for t in items)
+    return int(tax or 0)
+
+
+def _earliest_paid_invoice_dt(customer_id: str, coupon_id: str | None = None):
+    """Datetime of the customer's earliest paid (amount_paid>0) invoice, or None.
+    If coupon_id is given, only invoices that carried THAT coupon count - so
+    first_payment / duration_12mo anchor on the affiliate-attributed purchase,
+    not on some unrelated earlier invoice in the customer's Stripe history
+    (which would wrongly skip / window-out the affiliate's real invoices)."""
+    try:
+        earliest = None
+        listing = stripe.Invoice.list(customer=customer_id, status="paid",
+                                       limit=100, expand=["data.discounts"])
+        for inv in listing.auto_paging_iter():
+            invd = inv.to_dict() if hasattr(inv, "to_dict") else dict(inv)
+            if (invd.get("amount_paid") or 0) <= 0:
+                continue
+            if coupon_id and coupon_id not in _invoice_coupon_ids(invd):
+                continue
+            d = dt.datetime.fromtimestamp(invd.get("created") or 0, tz=dt.timezone.utc)
+            if earliest is None or d < earliest:
+                earliest = d
+        return earliest
+    except Exception as e:
+        log.warning("earliest-paid-invoice lookup failed for %s: %s", customer_id, e)
+        return None
+
+
+def compute_month(session, year: int, month: int) -> list[dict]:
+    """Load active affiliates, then compute per-affiliate commission for the
+    month from Stripe. Does NOT write anything. See _compute()."""
+    from models import Affiliate
+    affiliates = (session.query(Affiliate)
+                  .filter(Affiliate.status != "terminated").all())
+    return _compute(affiliates, year, month)
+
+
+def _compute(affiliates, year: int, month: int) -> list[dict]:
+    """Pure core (testable): given a list of affiliate objects, read Stripe paid
+    invoices for the month and return per-(affiliate, currency) totals.
+
+    Each result dict: affiliate_id, code, name, payout_email, currency,
+    gross_revenue (Decimal), commission_amount (Decimal), period_start/end
+    (date), detail (list of per-invoice lines). Sorted by commission desc.
+    """
+    start, end, period_start, period_end = _month_window(year, month)
+
+    by_coupon = {a.stripe_coupon_id: a for a in affiliates if a.stripe_coupon_id}
+    if not by_coupon:
+        return []
+
+    acc: dict = {}
+    first_paid_cache: dict = {}
+
+    listing = stripe.Invoice.list(
+        status="paid",
+        created={"gte": int(start.timestamp()), "lt": int(end.timestamp())},
+        limit=100,
+        expand=["data.discounts"],
+    )
+    for inv in listing.auto_paging_iter():
+        invd = inv.to_dict() if hasattr(inv, "to_dict") else dict(inv)
+
+        aff = None
+        for cid in _invoice_coupon_ids(invd):
+            if cid in by_coupon:
+                aff = by_coupon[cid]
+                break
+        if aff is None:
+            continue
+
+        # self-referral guard: an affiliate can't earn commission on themselves.
+        cust_email = (invd.get("customer_email") or "").strip().lower()
+        aff_email = (getattr(aff, "email", None) or "").strip().lower()
+        if aff_email and cust_email and cust_email == aff_email:
+            log.info("affiliate %s: skipping self-referral invoice %s",
+                     aff.code, invd.get("id"))
+            continue
+
+        amount_paid = int(invd.get("amount_paid") or 0)
+        tax_cents = _invoice_tax_cents(invd)
+        basis_cents = max(0, amount_paid - tax_cents)
+        if basis_cents <= 0:
+            continue
+
+        model = getattr(aff, "commission_model", None) or "recurring"
+        if model in ("first_payment", "duration_12mo"):
+            cust = invd.get("customer")
+            # anchor on this affiliate's coupon, keyed per (customer, coupon)
+            ckey = (cust, aff.stripe_coupon_id)
+            if cust and ckey not in first_paid_cache:
+                first_paid_cache[ckey] = _earliest_paid_invoice_dt(cust, aff.stripe_coupon_id)
+            first_dt = first_paid_cache.get(ckey)
+            inv_dt = dt.datetime.fromtimestamp(invd.get("created") or 0,
+                                               tz=dt.timezone.utc)
+            if model == "first_payment":
+                # Only the customer's earliest paid invoice qualifies.
+                if first_dt is None or abs((inv_dt - first_dt).total_seconds()) > 3600:
+                    continue
+            elif model == "duration_12mo":
+                if first_dt is not None and inv_dt > first_dt + dt.timedelta(days=365):
+                    continue
+
+        currency = (invd.get("currency") or "usd").lower()
+        rate = Decimal(str(aff.commission_pct)) / Decimal(100)
+        basis = (Decimal(basis_cents) / Decimal(100))
+        commission = (basis * rate).quantize(_CENTS, rounding=ROUND_HALF_UP)
+
+        key = (str(aff.id), currency)
+        entry = acc.get(key)
+        if entry is None:
+            entry = {
+                "affiliate_id": str(aff.id),
+                "code": aff.code,
+                "name": aff.name,
+                "payout_email": getattr(aff, "payout_email", None),
+                "currency": currency,
+                "gross_revenue": Decimal("0.00"),
+                "commission_amount": Decimal("0.00"),
+                "period_start": period_start,
+                "period_end": period_end,
+                "detail": [],
+            }
+            acc[key] = entry
+        entry["gross_revenue"] += basis
+        entry["commission_amount"] += commission
+        entry["detail"].append({
+            "invoice": invd.get("id"),
+            "customer": invd.get("customer"),
+            "amount_paid_cents": amount_paid,
+            "tax_cents": tax_cents,
+            "basis": str(basis),
+            "rate_pct": str(aff.commission_pct),
+            "commission": str(commission),
+            "created": invd.get("created"),
+        })
+
+    out = []
+    for entry in acc.values():
+        entry["gross_revenue"] = entry["gross_revenue"].quantize(_CENTS)
+        out.append(entry)
+    out.sort(key=lambda e: e["commission_amount"], reverse=True)
+    return out
+
+
+def upsert_month(session, year: int, month: int) -> list:
+    """Compute the month and INSERT pending ledger rows, idempotent on the
+    (affiliate_id, period_start, currency) unique key. Existing rows are left
+    untouched (so a row already marked paid/void or hand-adjusted is never
+    overwritten). Returns the AffiliatePayout rows for the period."""
+    from models import AffiliatePayout
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    rows = compute_month(session, year, month)
+    tbl = AffiliatePayout.__table__
+    now = dt.datetime.now(dt.timezone.utc)
+    for r in rows:
+        stmt = pg_insert(tbl).values(
+            affiliate_id=r["affiliate_id"],
+            period_start=r["period_start"],
+            period_end=r["period_end"],
+            currency=r["currency"],
+            gross_revenue=r["gross_revenue"],
+            commission_amount=r["commission_amount"],
+            status="pending",
+            detail={"lines": r["detail"]},
+        ).on_conflict_do_update(
+            # Refresh a still-PENDING row with the latest numbers so re-running a
+            # month picks up late-settling invoices instead of silently keeping
+            # the first (under-counted) result. Rows the operator has marked
+            # paid or void are FROZEN (the WHERE guard leaves them untouched).
+            constraint="uq_affiliate_payout_period",
+            set_={
+                "gross_revenue": r["gross_revenue"],
+                "commission_amount": r["commission_amount"],
+                "detail": {"lines": r["detail"]},
+                "computed_at": now,
+            },
+            where=(tbl.c.status == "pending"),
+        )
+        session.execute(stmt)
+    session.commit()
+
+    period_start = dt.date(year, month, 1)
+    return (session.query(AffiliatePayout)
+            .filter(AffiliatePayout.period_start == period_start)
+            .order_by(AffiliatePayout.commission_amount.desc())
+            .all())

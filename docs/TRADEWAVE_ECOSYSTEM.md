@@ -97,6 +97,54 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   generator). NOTE: `ops/deploy.sh` does NOT emit these pages; after a deploy you must
   run the generator on the box (`sudo -u flask /home/flask/venv/bin/python3
   /home/flask/site/generate_text_pages.py`) for changes to appear.
+- **Affiliate program (manual, in-house - NO Rewardful/Tolt yet).** For the
+  first ~10 hand-picked partners we run the program on Stripe's own primitives
+  instead of paying for a SaaS. Backed by `web/affiliate_service.py` +
+  `web/models.py` (`Affiliate`, `AffiliatePayout`) + migration `af1c0de2b3a4` +
+  the Flask-Admin **Affiliates** category (`AffiliateAdmin`,
+  `AffiliatePayoutAdmin`, `AffiliatePayoutComputeView` in `web/app.py`).
+  Model = **1 Stripe coupon + 1 promotion code per affiliate (1:1:1)** so every
+  discounted sale traces to exactly one partner by coupon id. Admin "Add
+  affiliate" creates the Stripe coupon (`percent_off`, repeating 12mo = "X% off
+  first year") + promo code automatically - no Stripe dashboard. Commission is
+  computed **downstream** from Stripe (`compute_month`): per paid invoice in a
+  month, basis = `amount_paid - tax`, commission = basis x `commission_pct`,
+  honoring `commission_model` (recurring [default, lifetime] / first_payment /
+  duration_12mo) and a self-referral guard. "Compute / What I owe" previews live
+  and commits into the `affiliate_payouts` ledger, **idempotent** on
+  `(affiliate_id, period_start, currency)`; operator marks rows paid + adds the
+  PayPal/Wise txn id. Optional monthly cron: `web/affiliate_report.py`. This is
+  a **pure downstream reader of Stripe** - it touches NO webhook/billing path,
+  so it's safe to build/run during stabilization. Clean upgrade path: the codes
+  + Stripe history map straight into Rewardful/Tolt later (coupon attribution).
+  `code` + `discount_pct` are IMMUTABLE once the coupon exists (Stripe coupons
+  can't be edited). On dev, `STRIPE_SECRET_KEY` is a TEST key, so provisioning
+  creates disposable test coupons.
+- **Standalone promo coupons (Coupons tab)** - plain marketing discount codes
+  with NO affiliate / commission / payout. `web/promo_service.py` + `web/models.py`
+  (`PromoCoupon`) + migration `b2c0fee1d3a5` + the top-level Flask-Admin **Coupons**
+  view (`PromoCouponAdmin`). One Stripe coupon + one promotion code per row,
+  created on save. Supports percent-off, fixed-amount-off (needs currency),
+  free/100% (`percent_off=100`), and limits (`max_redemptions` + `expires_at` on
+  the promotion code). code/discount/limits are IMMUTABLE once created; editing
+  only touches name/notes/status, and archiving flips the Stripe promotion code's
+  `active` flag. Distinct from affiliate coupons (which add commission tracking on
+  top of the same primitives). Pure Stripe writes - no webhook/billing changes.
+- **Affiliate referral link + cookie**: `/?code=ANNE` (or `?via=`) on the home page
+  (`site/templates/index-dark-blue.html`) (1) stamps the code onto this page's
+  checkout forms and (2) stores a first-party `tw_ref` cookie (60-day, first-touch,
+  SameSite=Lax) so attribution survives navigation + the WorkOS signup round-trip.
+  `web/app.py:stripe_create_checkout` resolves the code from the URL param, the form
+  field, OR the `tw_ref` cookie (`_resolve_affiliate_promo`, active affiliates only)
+  and PRE-APPLIES the affiliate's promotion code via `discounts=[...]` (falls back to
+  manual entry if Stripe rejects it). The Stripe coupon stays the attribution source
+  of truth. Disclosed in the Privacy Policy (`PRIVACY_COOKIE_NOTE` in
+  `site/generate_text_pages.py`); first-party only, no third-party/ad trackers.
+  KNOWN GAP (pre-existing, not affiliate-specific): a logged-out user who clicks a
+  POST "Subscribe" is bounced to WorkOS and returns via GET to the POST-only
+  `/api/stripe/create-checkout` -> 405; the cookie preserves attribution once they
+  reach a successful (logged-in) checkout, but the bare logged-out-checkout 405 needs
+  its own fix (GET checkout variant or session-stashed intent).
 
 **THE DAILY AI PICK = SCORECARD (settles prior confusion, verified on .151):**
 - The "daily AI pick" shown on the home page and tracked in the scorecard is

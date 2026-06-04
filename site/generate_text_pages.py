@@ -115,6 +115,20 @@ def strip_wp_markup(raw: str) -> str:
 # whenever the content of Terms / Privacy / Disclaimer changes.
 LEGAL_LAST_UPDATED = "January 15, 2026"
 
+# Appended to the Privacy Policy only (see build_legal_page). Discloses the
+# first-party referral cookie (tw_ref) the affiliate program sets. Factual +
+# minimal: no third-party / advertising trackers, so no consent banner needed.
+PRIVACY_COOKIE_NOTE = """
+<h2>Cookies and referral tracking</h2>
+<p>TradeWave uses a small number of first-party cookies that are essential to running
+the service, such as keeping you signed in. If you arrive through a partner or affiliate
+link, we also store a single first-party cookie named <code>tw_ref</code> that remembers
+only that partner's referral code, so the partner who introduced you is credited if you
+subscribe. It stores nothing but that code, expires after 60 days, and is never shared
+with third parties. We do not use third-party advertising or cross-site tracking cookies.
+You can clear these cookies at any time in your browser settings.</p>
+"""
+
 
 def tw_rebrand(s: str) -> str:
     """Rewrite TW1-era references (TradeSeasonals, old company name and
@@ -366,6 +380,9 @@ def build_legal_page(out_name: str, title: str, src_id: str, subtitle: str) -> t
     # a single canonical date below so all three legal pages stay in sync.
     stripped = LAST_UPDATED_RE.sub("", stripped, count=1)
     last_updated = LEGAL_LAST_UPDATED
+    # Disclose the first-party referral cookie on the privacy page only.
+    if out_name == "privacy.html":
+        stripped = stripped + PRIVACY_COOKIE_NOTE
     html = render_page(title, subtitle, stripped, last_updated)
     return html, {
         "src": str(src),

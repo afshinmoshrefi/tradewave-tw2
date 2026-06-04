@@ -118,7 +118,7 @@ except Exception as _stripe_http_err:
     print(log_msg, file=sys.stderr)
 
 # --- Flask-Admin ---
-from flask_admin import Admin, AdminIndexView, expose
+from flask_admin import Admin, AdminIndexView, BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.actions import action
 from flask import flash
@@ -1066,6 +1066,29 @@ def _api_tier_for_price(price_id):
     return _api_price_tier.get(price_id)
 
 
+def _resolve_affiliate_promo(raw):
+    """Resolve an affiliate referral code (e.g. from ?code=ANNE / ?via=ANNE, or
+    a hidden checkout-form field) to an ACTIVE affiliate's Stripe promotion-code
+    id, or None. Unknown / paused / terminated / malformed codes return None so
+    checkout proceeds normally (manual promo entry). No cookie - the code must
+    be present on the checkout request itself."""
+    if not raw:
+        return None
+    import affiliate_service as afs
+    code = afs.normalize_code(raw)
+    if not afs.CODE_RE.match(code):
+        return None
+    s = DBSession()
+    try:
+        from models import Affiliate
+        aff = (s.query(Affiliate)
+               .filter(Affiliate.code == code, Affiliate.status == "active")
+               .first())
+        return aff.stripe_promotion_code_id if aff else None
+    finally:
+        s.close()
+
+
 # State-changing endpoint: POST only. The pricing template uses
 # <form method="post"> hidden-input forms to hit this route.
 @app.route("/api/stripe/create-checkout", methods=["POST"])
@@ -1119,24 +1142,51 @@ def stripe_create_checkout():
             finally:
                 s.close()
 
+    # Affiliate referral code: from a direct link (?code=ANNE / ?via=ANNE), a
+    # hidden checkout-form field, or the first-party `tw_ref` cookie set on the
+    # affiliate's landing page (so attribution survives navigation + the signup
+    # round-trip). If it resolves to an active affiliate we PRE-APPLY their
+    # Stripe promotion code, so the discount shows already applied AND the sale
+    # is attributed. Pre-applying via `discounts` is mutually exclusive with
+    # allow_promotion_codes.
+    promo_code_id = _resolve_affiliate_promo(
+        request.values.get("code") or request.values.get("via")
+        or request.cookies.get("tw_ref"))
+
     try:
         kwargs = dict(
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
             success_url=success_url,
             cancel_url=cancel_url,
-            allow_promotion_codes=True,
             client_reference_id=str(u.id),
             subscription_data={
                 "trial_period_days": 7,
                 "metadata": {"tw2_user_id": str(u.id), "tw2_tier_target": tier},
             },
         )
+        if promo_code_id:
+            kwargs["discounts"] = [{"promotion_code": promo_code_id}]
+        else:
+            kwargs["allow_promotion_codes"] = True
         if valid_customer_id:
             kwargs["customer"] = valid_customer_id
         else:
             kwargs["customer_email"] = u.email
-        session_obj = stripe.checkout.Session.create(**kwargs)
+        try:
+            session_obj = stripe.checkout.Session.create(**kwargs)
+        except Exception:
+            # A pre-applied promo code Stripe rejects (expired / inactive /
+            # min-amount / already-redeemed) must NOT break checkout: retry
+            # once, letting the customer enter a code manually instead.
+            if promo_code_id:
+                log.warning("checkout: pre-applied promo %s rejected; retrying "
+                            "with manual entry", promo_code_id)
+                kwargs.pop("discounts", None)
+                kwargs["allow_promotion_codes"] = True
+                session_obj = stripe.checkout.Session.create(**kwargs)
+            else:
+                raise
         return redirect(session_obj.url, code=303)
     except Exception:
         # F2.2 - log the full traceback, return generic message
@@ -1921,6 +1971,417 @@ class SupportTicketAdmin(_AdminAuth, ModelView):
 
 
 # ============================================================
+# Affiliate program admin (Affiliates tab)
+# In-house, manual promo-code model: one Stripe coupon + one promotion code per
+# affiliate; commission is computed downstream from Stripe (no webhook/billing
+# changes). See web/affiliate_service.py + migration af1c0de2b3a4.
+# ============================================================
+
+class AffiliateAdmin(_AdminAuth, ModelView):
+    column_list = ("code", "name", "discount_pct", "commission_pct",
+                   "commission_model", "status", "stripe_coupon_id", "created_at")
+    column_searchable_list = ("code", "name", "email", "payout_email")
+    column_filters = ("status", "commission_model")
+    form_columns = ("name", "email", "code", "discount_pct", "commission_pct",
+                    "commission_model", "payout_method", "payout_email",
+                    "status", "notes")
+    column_default_sort = ("created_at", True)
+    page_size = 50
+    form_choices = {
+        "commission_model": [
+            ("recurring", "Recurring (lifetime)"),
+            ("duration_12mo", "First 12 months"),
+            ("first_payment", "First payment only"),
+        ],
+        "payout_method": [("paypal", "PayPal"), ("wise", "Wise")],
+        "status": [("active", "Active"), ("paused", "Paused"),
+                   ("terminated", "Terminated")],
+    }
+    form_args = {
+        "code": {"description": "The promo code the affiliate shares (A-Z, 0-9, _ or -). "
+                                "Becomes the Stripe promotion code. IMMUTABLE after creation."},
+        "discount_pct": {"description": "Audience discount, e.g. 20 = 20% off the first 12 months. "
+                                        "IMMUTABLE after creation (Stripe coupons can't be edited)."},
+        "commission_pct": {"description": "What the affiliate keeps, e.g. 30 = 30%. Editable later."},
+    }
+
+    def create_form(self, obj=None):
+        form = super().create_form(obj)
+        if form.discount_pct.data is None:
+            form.discount_pct.data = config.AFFILIATE_DEFAULT_DISCOUNT_PCT
+        if form.commission_pct.data is None:
+            form.commission_pct.data = config.AFFILIATE_DEFAULT_COMMISSION_PCT
+        if not form.commission_model.data:
+            form.commission_model.data = "recurring"
+        return form
+
+    def on_model_change(self, form, model, is_created):
+        from wtforms.validators import ValidationError
+        from sqlalchemy import inspect as sa_inspect
+        import affiliate_service as afs
+
+        # normalize + validate the code
+        model.code = afs.normalize_code(model.code)
+        try:
+            afs.validate_code(model.code)
+        except afs.AffiliateError as e:
+            raise ValidationError(str(e))
+
+        if not model.commission_model:
+            model.commission_model = "recurring"
+        if not model.status:
+            model.status = "active"
+
+        if is_created:
+            from sqlalchemy.exc import IntegrityError
+            # Claim the code via the real UNIQUE constraint by flushing the row
+            # (coupon id still NULL) BEFORE creating any Stripe objects: a
+            # duplicate/raced code fails here and aborts, so we never leave an
+            # orphan Stripe coupon for a row we can't save.
+            #
+            # Do NOT pre-SELECT for the duplicate: Flask-Admin has already added
+            # `model` to the session, so any query autoflushes it and the SELECT
+            # "finds itself" -> every create would falsely report "already
+            # exists". The flush + IntegrityError below is the correct guard.
+            try:
+                self.session.flush()
+            except IntegrityError:
+                self.session.rollback()
+                raise ValidationError(f"An affiliate with code {model.code} already exists.")
+            # create the Stripe coupon + promo code; abort the insert on failure
+            try:
+                coupon_id, promo_id = afs.provision_stripe_objects(model)
+            except afs.AffiliateError as e:
+                raise ValidationError(str(e))
+            model.stripe_coupon_id = coupon_id
+            model.stripe_promotion_code_id = promo_id
+            write_audit(actor_label="admin", action="affiliate_created",
+                        details={"code": model.code, "coupon": coupon_id,
+                                 "discount_pct": str(model.discount_pct),
+                                 "commission_pct": str(model.commission_pct)})
+        else:
+            # code + discount_pct are immutable once the Stripe coupon exists
+            st = sa_inspect(model)
+            for field in ("code", "discount_pct"):
+                hist = getattr(st.attrs, field).history
+                if hist.has_changes() and hist.deleted:
+                    raise ValidationError(
+                        f"{field} can't be changed after the Stripe coupon is created. "
+                        f"Terminate this affiliate and create a new one instead.")
+
+
+class AffiliatePayoutAdmin(_AdminAuth, ModelView):
+    # Rows are created by the compute step, not by hand. You edit only the
+    # amount (e.g. to net a refund), the status, the paid date, and the txn id.
+    can_create = False
+    can_delete = False
+    can_edit = True
+    column_list = ("affiliate", "period_start", "period_end", "currency",
+                   "gross_revenue", "commission_amount", "status", "paid_at",
+                   "external_ref")
+    column_default_sort = ("period_start", True)
+    column_filters = ("status", "currency", "period_start")
+    form_columns = ("commission_amount", "status", "paid_at", "external_ref")
+    form_choices = {"status": [("pending", "Pending"), ("paid", "Paid"),
+                               ("void", "Void")]}
+    can_view_details = True
+    column_details_list = ("affiliate", "period_start", "period_end", "currency",
+                           "gross_revenue", "commission_amount", "status",
+                           "computed_at", "paid_at", "external_ref", "detail")
+    page_size = 100
+
+    def on_model_change(self, form, model, is_created):
+        # auto-stamp paid_at when flipped to paid without an explicit date
+        if model.status == "paid" and not model.paid_at:
+            from datetime import datetime, timezone
+            model.paid_at = datetime.now(timezone.utc)
+
+
+_AFFILIATE_COMPUTE_TMPL = """
+<!doctype html><html><head><meta charset="utf-8"><title>Affiliate payouts</title>
+<style>
+ body{font-family:system-ui,-apple-system,sans-serif;max-width:920px;margin:32px auto;padding:0 16px;color:#111}
+ h1{font-size:22px} table{border-collapse:collapse;width:100%;margin-top:16px}
+ th,td{border:1px solid #ddd;padding:8px 10px;text-align:left;font-size:14px}
+ th{background:#f5f5f7} td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+ .bar{margin:16px 0;padding:12px;border-radius:8px}
+ .ok{background:#e7f6ec;color:#0a7d28} .err{background:#fdeaea;color:#b00020}
+ input[type=number]{width:80px;padding:4px}
+ .btn{background:#6366f1;color:#fff;border:0;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600}
+ .muted{color:#666;font-size:13px} a{color:#5b4bdb}
+</style></head><body>
+<p><a href="/admin">&larr; Admin</a> &middot; <a href="/admin/affiliatepayout/">Payout ledger</a></p>
+<h1>Affiliate commission - what I owe</h1>
+{% if committed %}<div class="bar ok">Committed {{ '%04d-%02d'|format(y, m) }} to the payout ledger (idempotent - existing rows untouched).</div>{% endif %}
+{% if error %}<div class="bar err">Error: {{ error }}</div>{% endif %}
+<form method="get">
+  <label>Year <input type="number" name="year" value="{{ y }}"></label>
+  <label>Month <input type="number" name="month" value="{{ m }}" min="1" max="12"></label>
+  <button class="btn" type="submit">Preview</button>
+</form>
+<p class="muted">Reads Stripe live for the month and attributes each discounted sale to its affiliate by the coupon used. Commission = (amount paid &minus; tax) &times; the affiliate's rate. Refunds are not auto-deducted - adjust the amount in the ledger before marking it paid.</p>
+{% if preview %}
+<table>
+ <tr><th>Code</th><th>Affiliate</th><th>Cur</th><th class="num">Revenue</th><th class="num">Commission owed</th><th>Pay to</th></tr>
+ {% for r in preview %}
+ <tr><td><b>{{ r.code }}</b></td><td>{{ r.name }}</td><td>{{ r.currency|upper }}</td>
+     <td class="num">{{ '%.2f'|format(r.gross_revenue) }}</td>
+     <td class="num"><b>{{ '%.2f'|format(r.commission_amount) }}</b></td>
+     <td>{{ r.payout_email or '' }}</td></tr>
+ {% endfor %}
+ {% for ccy, amt in totals %}
+ <tr><th colspan="4" class="num">Total ({{ ccy|upper }})</th><th class="num">{{ '%.2f'|format(amt) }}</th><th></th></tr>
+ {% endfor %}
+</table>
+<form method="post" style="margin-top:16px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="year" value="{{ y }}"><input type="hidden" name="month" value="{{ m }}">
+  <input type="hidden" name="action" value="commit">
+  <button class="btn" type="submit">Commit {{ '%04d-%02d'|format(y, m) }} to ledger &rarr;</button>
+</form>
+{% else %}
+<p class="muted">No affiliate sales found for {{ '%04d-%02d'|format(y, m) }}.</p>
+{% endif %}
+</body></html>
+"""
+
+
+class AffiliatePayoutComputeView(_AdminAuth, BaseView):
+    """Month picker: previews 'what I owe' live from Stripe, with a button to
+    commit the numbers into the payout ledger (idempotent)."""
+
+    @expose("/", methods=["GET", "POST"])
+    def index(self):
+        from flask import render_template_string, request as _rq
+        from datetime import date
+        from decimal import Decimal as _D
+        import affiliate_service as afs
+        from models import Session as _S
+
+        today = date.today()
+        dflt_y, dflt_m = (today.year - 1, 12) if today.month == 1 else (today.year, today.month - 1)
+        try:
+            y = int(_rq.values.get("year", dflt_y))
+            m = int(_rq.values.get("month", dflt_m))
+            date(y, m, 1)
+        except (ValueError, TypeError):
+            y, m = dflt_y, dflt_m
+
+        committed = False
+        error = None
+        preview = []
+        s = _S()
+        try:
+            if _rq.method == "POST" and _rq.form.get("action") == "commit":
+                afs.upsert_month(s, y, m)
+                committed = True
+            preview = afs.compute_month(s, y, m)
+        except Exception as e:
+            error = str(e)
+            log.exception("affiliate compute failed for %04d-%02d", y, m)
+        finally:
+            s.close()
+
+        # Never sum across currencies - one total per currency.
+        totals = {}
+        for r in preview:
+            totals[r["currency"]] = totals.get(r["currency"], _D("0")) + r["commission_amount"]
+        return render_template_string(
+            _AFFILIATE_COMPUTE_TMPL, y=y, m=m, preview=preview,
+            committed=committed, error=error, totals=sorted(totals.items()))
+
+
+_AFFILIATE_GUIDE_TMPL = """
+<!doctype html><html><head><meta charset="utf-8"><title>Affiliates - how it works</title>
+<style>
+ body{font-family:system-ui,-apple-system,sans-serif;max-width:860px;margin:32px auto;padding:0 16px;color:#111;line-height:1.6}
+ h1{font-size:24px;margin-bottom:4px} h2{font-size:17px;margin:26px 0 6px;color:#3a32a8}
+ a{color:#5b4bdb} code{background:#f0f0f4;padding:1px 6px;border-radius:4px;font-size:13px}
+ .step{background:#f7f7fb;border:1px solid #e6e6ef;border-radius:10px;padding:14px 18px;margin:10px 0}
+ .step b{color:#000} ol{padding-left:20px} li{margin:5px 0}
+ .pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:20px;margin-right:6px}
+ .mode-test{background:#e7f6ec;color:#0a7d28} .mode-live{background:#fdeaea;color:#b00020}
+ .note{font-size:13px;color:#555;background:#fffbe6;border:1px solid #f0e6b0;border-radius:8px;padding:10px 14px;margin:14px 0}
+ nav a{margin-right:14px}
+</style></head><body>
+<nav><a href="/admin">&larr; Admin</a><a href="/admin/affiliate/">Affiliates</a><a href="/admin/affiliatepayout/">Payout ledger</a><a href="/admin/affiliate_compute/">Compute / what I owe</a></nav>
+<h1>Affiliate program - how it works</h1>
+<p>An in-house affiliate program built on Stripe's own coupons. <b>Each affiliate gets one Stripe coupon + one promo code, created automatically</b> when you add them here - no Stripe dashboard, no Rewardful.</p>
+<p>Current mode: {% if livemode %}<span class="pill mode-live">LIVE - real money</span>{% else %}<span class="pill mode-test">TEST / sandbox - safe to experiment</span>{% endif %}</p>
+
+<h2>1. Add an affiliate</h2>
+<div class="step"><b>Affiliates &rarr; Create.</b> Fill in name, payout email, the audience <b>discount %</b> (default 20), the affiliate's <b>commission %</b> (default 30, what they keep), and the <b>commission model</b>. On Save, we create their Stripe coupon (X% off, repeating 12 months = "first year") and a promotion code equal to the <code>code</code> you chose. That code is what they share.</div>
+
+<h2>2. What the affiliate shares (both ways credit them)</h2>
+<div class="step">
+  <b>Their code</b> - the audience types <code>THEIRCODE</code> at checkout to get the discount, and
+  <b>A direct link</b> - <code>https://{{ public_host }}/?code=THEIRCODE</code>. Clicking it pre-applies the discount at checkout (no typing needed), so it works even when the code is just spoken on a podcast. (<code>?via=THEIRCODE</code> also works.)
+</div>
+
+<h2>3. What you can and can't change later</h2>
+<div class="step">
+  <b>Immutable</b> after creation: the <code>code</code> and the <b>discount %</b> (Stripe coupons can't be edited). To change either, set the affiliate to <b>terminated</b> and create a new one.<br>
+  <b>Editable</b> anytime: commission %, payout method/email, notes, and status.
+</div>
+
+<h2>4. Statuses</h2>
+<ol>
+  <li><b>active</b> - earns commission; their link pre-applies the discount.</li>
+  <li><b>paused</b> - you still get paid on their existing referrals, but their link stops auto-applying for new visitors. Use to wind someone down gently.</li>
+  <li><b>terminated</b> - excluded from future payouts and their link no longer applies. Use instead of deleting (history is preserved).</li>
+</ol>
+
+<h2>5. Paying affiliates each month</h2>
+<ol>
+  <li><b>Affiliates &rarr; Compute / what I owe.</b> Pick the month and hit <b>Preview</b> - it reads Stripe live and shows revenue + commission owed per affiliate.</li>
+  <li>Hit <b>Commit to ledger</b> to save those numbers.</li>
+  <li><b>Affiliates &rarr; Payout Ledger.</b> For each row: pay the person by PayPal/Wise, then set <b>status = Paid</b> and paste the transaction id into <b>external_ref</b>.</li>
+</ol>
+<div class="note"><b>Good to know:</b> commission is computed on revenue <i>after</i> the discount and <i>after</i> tax. Re-running a month <b>refreshes still-pending rows</b> with the latest numbers (good for late-settling payments); rows you've marked <b>Paid</b> or <b>Void</b> are frozen. <b>Refunds are not auto-deducted</b> - if a referral refunds, edit that pending row's commission amount down before you mark it paid.</div>
+
+<h2>6. Test vs live</h2>
+<div class="step">On the dev box this is Stripe <b>test mode</b> - create affiliates, generate codes, and run payouts freely; nothing is real. On production the same actions create <b>real</b> coupons and apply <b>real</b> discounts.</div>
+</body></html>
+"""
+
+
+class AffiliateGuideView(_AdminAuth, BaseView):
+    """Static 'how to use the affiliate program' page for the admin."""
+
+    @expose("/")
+    def index(self):
+        from flask import render_template_string
+        import os as _os
+        public_host = _os.environ.get("TW2_PUBLIC_HOST", request.host)
+        livemode = "live" in (config.STRIPE_SECRET_KEY or "").split("_")[1:2]
+        return render_template_string(
+            _AFFILIATE_GUIDE_TMPL, public_host=public_host, livemode=livemode)
+
+
+# ============================================================
+# Standalone promo coupons (Coupons tab) - plain discount codes, NO affiliate /
+# commission / payout. Each row = one Stripe coupon + one promotion code,
+# created on save. See web/promo_service.py + migration b2c0fee1d3a5.
+# ============================================================
+
+class PromoCouponAdmin(_AdminAuth, ModelView):
+    column_list = ("code", "discount_type", "percent_off", "amount_off_cents",
+                   "currency", "duration", "status", "expires_at",
+                   "max_redemptions", "created_at")
+    column_searchable_list = ("code", "name", "notes")
+    column_filters = ("status", "discount_type", "duration")
+    form_columns = ("code", "name", "discount_type", "percent_off",
+                    "amount_off_cents", "currency", "duration",
+                    "duration_in_months", "max_redemptions", "expires_at",
+                    "status", "notes")
+    column_default_sort = ("created_at", True)
+    page_size = 50
+    form_choices = {
+        "discount_type": [("percent", "Percent off (e.g. 20 = 20%)"),
+                          ("amount", "Fixed amount off (needs currency)")],
+        "duration": [("once", "Once (first invoice only)"),
+                     ("repeating", "Repeating (N months)"),
+                     ("forever", "Forever (every invoice)")],
+        "status": [("active", "Active"), ("archived", "Archived (code disabled)")],
+    }
+    form_args = {
+        "code": {"description": "The code customers type / you share (A-Z, 0-9, _ or -). IMMUTABLE after creation."},
+        "percent_off": {"description": "PERCENT coupons: 1-100. Use 100 for a free/comp code. Leave blank for amount coupons."},
+        "amount_off_cents": {"description": "AMOUNT coupons: discount in CENTS (1000 = $10). Leave blank for percent coupons."},
+        "currency": {"description": "Required for amount coupons, e.g. usd."},
+        "duration_in_months": {"description": "Required when duration = repeating."},
+        "max_redemptions": {"description": "Optional: total times the code can be redeemed (e.g. 50)."},
+        "expires_at": {"description": "Optional: when the code stops working. Must be in the future."},
+    }
+
+    def on_model_change(self, form, model, is_created):
+        from wtforms.validators import ValidationError
+        from sqlalchemy import inspect as sa_inspect
+        from sqlalchemy.exc import IntegrityError
+        import datetime as _dt
+        import promo_service as ps
+
+        model.code = ps.normalize_code(model.code)
+        if not model.status:
+            model.status = "active"
+        if model.currency:
+            model.currency = model.currency.strip().lower()
+        # The admin form yields a NAIVE datetime; store it UTC-aware so the
+        # Stripe expiry timestamp is correct and edit-time comparisons are sane.
+        if model.expires_at is not None and model.expires_at.tzinfo is None:
+            model.expires_at = model.expires_at.replace(tzinfo=_dt.timezone.utc)
+
+        if is_created:
+            try:
+                ps.validate_promo(model)
+            except ps.PromoError as e:
+                raise ValidationError(str(e))
+            # claim the code via the unique constraint BEFORE creating Stripe
+            # objects (do NOT pre-SELECT: the row is already in the session and
+            # a query would autoflush + find itself).
+            try:
+                self.session.flush()
+            except IntegrityError as e:
+                self.session.rollback()
+                orig = str(getattr(e, "orig", e))
+                if "promo_coupons_code" in orig:   # the unique-code constraint
+                    raise ValidationError(f"A coupon with code {model.code} already exists.")
+                raise ValidationError(f"Could not save coupon: {orig}")
+            try:
+                coupon_id, promo_id = ps.provision_promo_coupon(model)
+            except ps.PromoError as e:
+                raise ValidationError(str(e))
+            model.stripe_coupon_id = coupon_id
+            model.stripe_promotion_code_id = promo_id
+            model._tw_sync_stripe_active = False
+            write_audit(actor_label="admin", action="promo_coupon_created",
+                        details={"code": model.code, "coupon": coupon_id,
+                                 "discount_type": model.discount_type})
+        else:
+            # Only name / notes / status are editable. Compare INSTANTS (not raw
+            # values) so a tz-aware<->naive datetime at the same moment isn't
+            # seen as a change; restore the persisted value when unchanged so
+            # populate_obj can't drift it on the UPDATE.
+            st = sa_inspect(model)
+
+            def _norm(v):
+                if isinstance(v, _dt.datetime) and v.tzinfo is None:
+                    return v.replace(tzinfo=_dt.timezone.utc)
+                return v
+
+            for field in ("code", "discount_type", "percent_off", "amount_off_cents",
+                          "currency", "duration", "duration_in_months",
+                          "max_redemptions", "expires_at"):
+                h = getattr(st.attrs, field).history
+                if not h.has_changes():
+                    continue
+                old = h.deleted[0] if h.deleted else None
+                new = h.added[0] if h.added else None
+                if _norm(old) != _norm(new):
+                    raise ValidationError(
+                        f"{field} can't be changed after creation (Stripe coupons are fixed). "
+                        f"Archive this coupon and create a new one instead.")
+                if h.deleted:   # same instant/value: keep persisted, don't drift
+                    setattr(model, field, old)
+            # The Stripe active<->archived flip happens in after_model_change
+            # (post-commit), so a commit failure can't disable the Stripe code
+            # while the DB still shows it active.
+            model._tw_sync_stripe_active = st.attrs.status.history.has_changes()
+
+    def after_model_change(self, form, model, is_created):
+        # Reflect a committed status change onto the Stripe promotion code AFTER
+        # the DB commit (DB is the source of truth). Best-effort: log on failure.
+        if is_created or not getattr(model, "_tw_sync_stripe_active", False):
+            return
+        import promo_service as ps
+        try:
+            ps.set_promo_active(model, model.status == "active")
+        except Exception as e:
+            log.warning("promo coupon %s: Stripe active-flag sync failed (%s); "
+                        "DB says %s", getattr(model, "code", "?"), e, model.status)
+
+
+# ============================================================
 # Internal cross-tier endpoint: render a date-range report.
 # Called by appserver's /dr_report_publish so the static HTML
 # is written on the web tier (where /var/www/tradewave/ lives)
@@ -2021,6 +2482,17 @@ admin.add_view(UserAdmin(User, ModelsSession, name="Users", category=None))
 admin.add_view(AuditLogAdmin(AuditLog, ModelsSession, name="Audit Log", category="System"))
 admin.add_view(StripeEventAdmin(StripeEvent, ModelsSession, name="Stripe Events", category="System"))
 admin.add_view(SupportTicketAdmin(SupportTicket, ModelsSession, name="Support Tickets", category=None))
+
+# --- Affiliate program (manual promo-code model) ---
+from models import Affiliate, AffiliatePayout
+admin.add_view(AffiliateGuideView(name="How it works", endpoint="affiliate_guide", category="Affiliates"))
+admin.add_view(AffiliateAdmin(Affiliate, ModelsSession, name="Affiliates", category="Affiliates"))
+admin.add_view(AffiliatePayoutAdmin(AffiliatePayout, ModelsSession, name="Payout Ledger", category="Affiliates"))
+admin.add_view(AffiliatePayoutComputeView(name="Compute / What I owe", endpoint="affiliate_compute", category="Affiliates"))
+
+# --- Standalone promo coupons (no affiliate / commission) ---
+from models import PromoCoupon
+admin.add_view(PromoCouponAdmin(PromoCoupon, ModelsSession, name="Coupons", category=None))
 
 # --- API customer console: self-serve keys / usage / billing / MCP connect (additive) ---
 import api_portal  # web/api_portal/ blueprint

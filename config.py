@@ -33,6 +33,13 @@ TARA_GATEWAY_KEY = os.environ.get('TARA_GATEWAY_KEY', '')  # chatbot service key
 # APPSERVER_JWT_SECRET (same shared-secret model the JWT path uses).
 API_KEY_HMAC_SECRET = os.environ.get('API_KEY_HMAC_SECRET', '') or APPSERVER_JWT_SECRET
 
+# === AFFILIATE PROGRAM (TW2) ===
+# Form-prefill defaults for the Flask-Admin Affiliates tab (env-agnostic; NOT
+# secrets). These mirror the public/advertised terms on the /affiliate page;
+# each affiliate's actual discount/commission is still set per-row in admin.
+AFFILIATE_DEFAULT_DISCOUNT_PCT = 20
+AFFILIATE_DEFAULT_COMMISSION_PCT = 30
+
 # === STRIPE (TW2) ===
 # Get test keys from Stripe dashboard → Developers → API keys (toggle test mode)
 # Get from Stripe dashboard → Webhooks → Add endpoint (won't work until cloudflared tunnel is set up)

@@ -4,8 +4,9 @@ Mirror of the schema defined in Postgres (see schema_version table).
 """
 from datetime import datetime
 from sqlalchemy import (
-    Column, Text, Boolean, TIMESTAMP, BigInteger, ForeignKey, Index,
-    CheckConstraint, create_engine, JSON, text as sa_text,
+    Column, Text, Boolean, TIMESTAMP, BigInteger, Integer, ForeignKey, Index,
+    CheckConstraint, UniqueConstraint, Date, Numeric, create_engine, JSON,
+    text as sa_text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
@@ -174,6 +175,123 @@ class SupportTicket(Base):
         Index("ix_support_tickets_status", "status"),
         Index("ix_support_tickets_email", "email"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Affiliate program (manual promo-code model). See web/affiliate_service.py and
+# the AffiliateAdmin / AffiliatePayoutAdmin Flask-Admin views in web/app.py.
+# The CHECK values below are STORAGE IDs, mirrored in migration af1c0de2b3a4 -
+# never rename, only add.
+# ---------------------------------------------------------------------------
+COMMISSION_MODELS = ("recurring", "first_payment", "duration_12mo")
+AFFILIATE_STATUSES = ("active", "paused", "terminated")
+PAYOUT_STATUSES = ("pending", "paid", "void")
+
+
+class Affiliate(Base):
+    __tablename__ = "affiliates"
+    id            = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    # code: the Stripe promotion-code string the affiliate shares (uppercase
+    # canonical). IMMUTABLE once stripe_coupon_id is set - Stripe coupons can't
+    # be edited; the AffiliateAdmin enforces this.
+    code          = Column(Text, nullable=False, unique=True)
+    name          = Column(Text, nullable=False)
+    email         = Column(Text)  # affiliate's own email (also self-referral guard)
+    payout_method = Column(Text)  # 'paypal' | 'wise'
+    payout_email  = Column(Text)
+    discount_pct  = Column(Numeric(5, 2), nullable=False)   # audience discount, 20.00 = 20%
+    commission_pct = Column(Numeric(5, 2), nullable=False)  # affiliate keeps, 30.00 = 30%
+    commission_model = Column(Text, nullable=False, server_default=sa_text("'recurring'"))
+    stripe_coupon_id = Column(Text, unique=True)
+    stripe_promotion_code_id = Column(Text)
+    status        = Column(Text, nullable=False, server_default=sa_text("'active'"))
+    notes         = Column(Text)
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(r"code ~ '^[A-Z0-9_-]{2,64}$'", name="affiliates_code_charset_check"),
+        CheckConstraint(
+            "commission_model IN ('recurring','first_payment','duration_12mo')",
+            name="affiliates_commission_model_check"),
+        CheckConstraint("status IN ('active','paused','terminated')", name="affiliates_status_check"),
+        CheckConstraint("discount_pct >= 0 AND discount_pct <= 100", name="affiliates_discount_pct_check"),
+        CheckConstraint("commission_pct >= 0 AND commission_pct <= 100", name="affiliates_commission_pct_check"),
+    )
+
+    def __str__(self):
+        return f"{self.code} ({self.name})"
+
+
+class AffiliatePayout(Base):
+    __tablename__ = "affiliate_payouts"
+    id            = Column(BigInteger, primary_key=True)
+    affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="RESTRICT"), nullable=False)
+    period_start  = Column(Date, nullable=False)
+    period_end    = Column(Date, nullable=False)
+    currency      = Column(Text, nullable=False, server_default=sa_text("'usd'"))
+    gross_revenue = Column(Numeric(12, 2), nullable=False, server_default=sa_text("0"))
+    commission_amount = Column(Numeric(12, 2), nullable=False, server_default=sa_text("0"))
+    status        = Column(Text, nullable=False, server_default=sa_text("'pending'"))
+    computed_at   = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    paid_at       = Column(TIMESTAMP(timezone=True))
+    external_ref  = Column(Text)  # PayPal/Wise transaction id once paid
+    detail        = Column(JSONB)  # {"lines": [...per-invoice...]}
+    affiliate     = relationship("Affiliate")
+
+    __table_args__ = (
+        CheckConstraint("status IN ('pending','paid','void')", name="affiliate_payouts_status_check"),
+        UniqueConstraint("affiliate_id", "period_start", "currency", name="uq_affiliate_payout_period"),
+        Index("ix_affiliate_payouts_status", "status"),
+    )
+
+    def __str__(self):
+        return f"{self.affiliate_id} {self.period_start} {self.commission_amount} {self.currency}"
+
+
+# ---------------------------------------------------------------------------
+# Standalone promo coupons (marketing discount codes, NO affiliate/commission).
+# See web/promo_service.py + the PromoCouponAdmin Flask-Admin view. CHECK values
+# mirror migration b2c0fee1d3a5 - never rename, only add.
+# ---------------------------------------------------------------------------
+PROMO_DISCOUNT_TYPES = ("percent", "amount")
+PROMO_DURATIONS = ("once", "repeating", "forever")
+PROMO_STATUSES = ("active", "archived")
+
+
+class PromoCoupon(Base):
+    __tablename__ = "promo_coupons"
+    id            = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    code          = Column(Text, nullable=False, unique=True)   # the promo code string (uppercase); immutable once created
+    name          = Column(Text)                                # internal label
+    discount_type = Column(Text, nullable=False)                # 'percent' | 'amount'
+    percent_off   = Column(Numeric(5, 2))                       # for percent (100 = free/comp)
+    amount_off_cents = Column(Integer)                          # for amount
+    currency      = Column(Text)                                # required for amount
+    duration      = Column(Text, nullable=False, server_default=sa_text("'once'"))  # once|repeating|forever
+    duration_in_months = Column(Integer)                        # for repeating
+    max_redemptions = Column(Integer)                           # optional total cap (on the promo code)
+    expires_at    = Column(TIMESTAMP(timezone=True))            # optional expiry (on the promo code)
+    stripe_coupon_id = Column(Text, unique=True)
+    stripe_promotion_code_id = Column(Text)
+    status        = Column(Text, nullable=False, server_default=sa_text("'active'"))  # active|archived
+    notes         = Column(Text)
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(r"code ~ '^[A-Z0-9_-]{2,64}$'", name="promo_coupons_code_charset_check"),
+        CheckConstraint("discount_type IN ('percent','amount')", name="promo_coupons_discount_type_check"),
+        CheckConstraint("duration IN ('once','repeating','forever')", name="promo_coupons_duration_check"),
+        CheckConstraint("status IN ('active','archived')", name="promo_coupons_status_check"),
+    )
+
+    def __str__(self):
+        if self.discount_type == "amount":
+            disc = f"{(self.amount_off_cents or 0)/100:.2f} {(self.currency or '').upper()} off"
+        else:
+            disc = f"{self.percent_off}% off"
+        return f"{self.code} ({disc})"
 
 
 # Engine + session factory - used app-wide
