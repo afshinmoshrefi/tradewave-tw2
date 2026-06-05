@@ -45,6 +45,20 @@ _DEFAULT_BASE_URL = "http://127.0.0.1:8088/v1"
 API_BASE_URL: str = os.environ.get("API_BASE_URL", _DEFAULT_BASE_URL).rstrip("/")
 TRADEWAVE_API_KEY: str = os.environ.get("TRADEWAVE_API_KEY", "")
 
+import logging
+
+log = logging.getLogger("mcpserver")
+
+# --- WorkOS OAuth (consumer connect via ChatGPT/Claude) - docs/MCP_OAUTH_INTEGRATION.md ---
+# This MCP server is an OAuth 2.1 RESOURCE server. WorkOS AuthKit (WORKOS_AUTHKIT_DOMAIN, already
+# set per-env for the web tier) is the authorization server. We validate its JWTs and, for an OAuth
+# principal, call the gateway AS that user (mcp service key + X-TW-Principal-WorkOS). OAuth turns ON
+# only when fully configured; otherwise the server stays BYOK-only (dev/stdio/dev-tools).
+WORKOS_AUTHKIT_DOMAIN: str = (os.environ.get("WORKOS_AUTHKIT_DOMAIN", "") or "").rstrip("/")
+MCP_PUBLIC_URL: str = (os.environ.get("TW2_MCP_PUBLIC_URL", "") or "").rstrip("/")  # canonical resource / token audience
+MCP_GATEWAY_KEY: str = os.environ.get("MCP_GATEWAY_KEY", "")
+OAUTH_ENABLED: bool = bool(WORKOS_AUTHKIT_DOMAIN and MCP_PUBLIC_URL and MCP_GATEWAY_KEY)
+
 # ---------------------------------------------------------------------------
 # Per-connection auth (BYOK)
 # ---------------------------------------------------------------------------
@@ -62,7 +76,60 @@ TRADEWAVE_API_KEY: str = os.environ.get("TRADEWAVE_API_KEY", "")
 
 from contextvars import ContextVar
 
-_request_api_key: ContextVar[Optional[str]] = ContextVar("_request_api_key", default=None)
+# The resolved principal for this call: {"mode":"oauth","sub":<workos_sub>} (consumer apps via
+# WorkOS), {"mode":"byok","key":<tw_ key>} (dev tools), or None.
+_request_principal: ContextVar[Optional[dict]] = ContextVar("_request_principal", default=None)
+
+
+if OAUTH_ENABLED:
+    import jwt as _jwt
+    from mcp.server.auth.provider import AccessToken, TokenVerifier
+
+    class WorkOSTokenVerifier(TokenVerifier):
+        """Resource-server token validation. Accepts BOTH a WorkOS OAuth JWT (consumer apps:
+        verified against the AuthKit JWKS, audience-bound to our MCP URL, exp-checked) and a tw_
+        API key (dev tools / BYOK: format-accepted here, the gateway is the source of truth and
+        validates it on the actual call) - so the two coexist behind the SDK auth gate."""
+
+        def __init__(self) -> None:
+            # RFC 8414 discovery: prefer the AS metadata's real issuer + jwks_uri; fall back to the
+            # documented WorkOS endpoints. Done once at startup.
+            self._issuer = WORKOS_AUTHKIT_DOMAIN
+            jwks_uri = WORKOS_AUTHKIT_DOMAIN + "/oauth2/jwks"
+            try:
+                meta = httpx.get(WORKOS_AUTHKIT_DOMAIN + "/.well-known/oauth-authorization-server",
+                                 timeout=5).json()
+                self._issuer = meta.get("issuer") or self._issuer
+                jwks_uri = meta.get("jwks_uri") or jwks_uri
+            except Exception as e:  # noqa: BLE001 - best-effort discovery
+                log.warning("MCP OAuth: AS metadata discovery failed (%s); using defaults", e)
+            self._jwks = _jwt.PyJWKClient(jwks_uri)
+            log.info("MCP OAuth ENABLED: issuer=%s audience=%s", self._issuer, MCP_PUBLIC_URL)
+
+        async def verify_token(self, token: str):
+            if not token:
+                return None
+            if token.startswith("tw_"):          # BYOK / dev tools - gateway validates the key
+                return AccessToken(token=token, client_id="byok", scopes=[], expires_at=None,
+                                   resource=MCP_PUBLIC_URL, subject="byok",
+                                   claims={"mode": "byok", "key": token})
+            try:                                  # WorkOS OAuth JWT - verify sig + aud + exp strictly
+                key = self._jwks.get_signing_key_from_jwt(token).key
+                claims = _jwt.decode(token, key, algorithms=["RS256"], audience=MCP_PUBLIC_URL,
+                                     issuer=self._issuer, options={"require": ["exp", "sub"]})
+            except Exception as e:                # noqa: BLE001 - any failure => unauthenticated
+                log.warning("MCP OAuth: token verification failed: %s", e)
+                return None
+            sub = claims.get("sub")
+            if not sub:
+                return None
+            scope = claims.get("scope", "")
+            exp = claims.get("exp")
+            return AccessToken(token=token, client_id=claims.get("client_id", ""),
+                               scopes=scope.split() if isinstance(scope, str) else [],
+                               expires_at=int(exp) if exp is not None else None,
+                               resource=MCP_PUBLIC_URL, subject=sub,
+                               claims={"mode": "oauth", "workos_sub": sub})
 
 
 def _bearer_from_request(ctx: Optional[Context]) -> Optional[str]:
@@ -96,13 +163,26 @@ def _bearer_from_request(ctx: Optional[Context]) -> Optional[str]:
 
 
 def _bind_request_key(ctx: Optional[Context]) -> None:
-    """Resolve and bind this call's API key into the ContextVar.
-
-    Each tool calls this once at entry. Resolution order:
-      per-connection Bearer header (remote) -> env TRADEWAVE_API_KEY (stdio)
-      -> None (no auth; gateway 401, correct BYOK behavior).
-    """
-    _request_api_key.set(_bearer_from_request(ctx) or (TRADEWAVE_API_KEY or None))
+    """Resolve this call's principal into the ContextVar. With OAuth ON, read the token the SDK
+    already validated (get_access_token) and route by its mode; otherwise fall back to the BYOK
+    header / env key. Each tool calls this once at entry."""
+    if OAUTH_ENABLED:
+        at = None
+        try:
+            from mcp.server.auth.middleware.auth_context import get_access_token
+            at = get_access_token()
+        except Exception:
+            at = None
+        claims = (at.claims if at is not None else None) or {}
+        if claims.get("mode") == "oauth" and claims.get("workos_sub"):
+            _request_principal.set({"mode": "oauth", "sub": claims["workos_sub"]})
+        elif claims.get("mode") == "byok" and claims.get("key"):
+            _request_principal.set({"mode": "byok", "key": claims["key"]})
+        else:
+            _request_principal.set(None)
+        return
+    key = _bearer_from_request(ctx) or (TRADEWAVE_API_KEY or None)
+    _request_principal.set({"mode": "byok", "key": key} if key else None)
 
 
 # ---------------------------------------------------------------------------
@@ -111,10 +191,15 @@ def _bind_request_key(ctx: Optional[Context]) -> None:
 
 
 def _headers() -> dict[str, str]:
+    """Auth headers for the gateway call. OAuth principal -> the mcp service key + the WorkOS
+    subject (the gateway resolves it to the user's real tier); BYOK -> the user's own key."""
     h: dict[str, str] = {"Accept": "application/json"}
-    key = _request_api_key.get()
-    if key:
-        h["Authorization"] = f"Bearer {key}"
+    p = _request_principal.get() or {}
+    if p.get("mode") == "oauth" and p.get("sub"):
+        h["Authorization"] = f"Bearer {MCP_GATEWAY_KEY}"
+        h["X-TW-Principal-WorkOS"] = p["sub"]
+    elif p.get("mode") == "byok" and p.get("key"):
+        h["Authorization"] = f"Bearer {p['key']}"
     return h
 
 
@@ -181,8 +266,17 @@ def _is_upgrade_stub(data: Any) -> bool:
 # FastMCP server
 # ---------------------------------------------------------------------------
 
+_auth_kwargs: dict[str, Any] = {}
+if OAUTH_ENABLED:
+    from mcp.server.auth.settings import AuthSettings
+    _auth_kwargs = {
+        "token_verifier": WorkOSTokenVerifier(),
+        "auth": AuthSettings(issuer_url=WORKOS_AUTHKIT_DOMAIN, resource_server_url=MCP_PUBLIC_URL),
+    }
+
 mcp = FastMCP(
     name="TradeWave",
+    **_auth_kwargs,
     instructions=(
         "TradeWave is the user's seasonal-edge analyst. It finds, ranks, and explains "
         "derived seasonal trade setups (backed by ML win-probability scores) across 17 global "
