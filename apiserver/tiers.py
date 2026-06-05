@@ -64,6 +64,17 @@ INTERNAL_TIERS = {
         "opp_limit": 25, "rate": {"per_minute": 30, "per_day": 600}, "max_keys": 1,
         "stripe_price_metadata": None, "service": True,
     },
+    # The MCP server's principal for the consumer OAuth flow (ChatGPT/Claude -> WorkOS login).
+    # `workos_principal: True` lets it pass X-TW-Principal-WorkOS:<workos_sub>; the gateway then
+    # resolves that to the user's REAL api tier (not this tier) - see auth._apply_on_behalf and
+    # docs/MCP_OAUTH_INTEGRATION.md. These own entitlements are only a fallback for a direct
+    # mcp-key call with no principal header (should not happen in normal use).
+    "mcp": {
+        "name": "MCP", "price_monthly": 0, "price_annual": 0,
+        "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": 5,
+        "opp_limit": 25, "rate": {"per_minute": 60, "per_day": 2000}, "max_keys": 1,
+        "stripe_price_metadata": None, "service": True, "workos_principal": True,
+    },
 }
 
 # The Founder's plan: first 100 customers get Pro at $99/mo (50% off) for 12 months, in

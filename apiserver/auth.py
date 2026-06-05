@@ -19,6 +19,9 @@ from . import db, settings, tiers
 # A delegated principal id (the web user_id the in-product chatbot is acting for). Kept
 # strict so it can only ever be a clean redis-key segment - never an injection vector.
 _ON_BEHALF_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+# A WorkOS user id (the OAuth token subject), e.g. "user_01H...". Strict so it can only ever be a
+# clean DB lookup value, never an injection vector.
+_WORKOS_SUB_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 
 log = logging.getLogger("apiserver.auth")
 _redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
@@ -84,7 +87,9 @@ def require_api_key(fn):
         if not cust:
             return jsonify({"error": {"code": "unauthorized",
                                       "message": "invalid or missing API key"}}), 401
-        _apply_on_behalf(cust)
+        deleg_err = _apply_on_behalf(cust)
+        if deleg_err is not None:
+            return deleg_err
         # NOTE: record_usage runs only past this point, so 401/503/rate-limited calls are
         # not metered - only authenticated, non-rate-limited requests count.
         ok, headers = check_rate_limit(cust)
@@ -105,18 +110,40 @@ def require_api_key(fn):
 
 
 def _apply_on_behalf(cust):
-    """Privilege delegation, tightly scoped. ONLY a `service: True` tier (the in-product
-    chatbot principal - tiers.INTERNAL_TIERS['chatbot']) may act for a web user via the
-    X-TW-On-Behalf-Of header. We swap ONLY the metering principal (user_id) so rate-limit +
-    usage + ML quota key per END USER; entitlements (markets/limits) stay the service tier's,
-    so delegation can NEVER escalate scope. The principal is 'cb:'-namespaced so the chatbot's
-    per-user ML quota is SEPARATE from that same human's API ML bucket. A normal customer key
-    has no `service` flag, so this is a no-op for them - they can never spoof another user."""
-    if not (cust.get("entitlements") or {}).get("service"):
-        return
+    """Privilege delegation, tightly scoped to `service: True` internal tiers. Returns None on
+    success, or a Flask (json, status) response to ABORT (e.g. an MCP principal whose WorkOS user
+    is unknown - we reject rather than fall back to the service tier). A normal customer key has no
+    `service` flag, so both branches are a no-op for them - they can never spoof another user.
+
+    (A) MCP OAuth (tier flag `workos_principal`): the MCP server has already validated a WorkOS JWT;
+        it passes X-TW-Principal-WorkOS:<workos_sub>. We resolve that to the user's row and apply
+        their REAL api tier + real user_id (so a logged-in researcher gets exactly their own
+        free/dev/pro entitlements + per-user metering). Unknown sub -> 401.
+    (B) Chatbot (Tara): X-TW-On-Behalf-Of:<web_user_id> swaps ONLY the metering principal to
+        'cb:<id>' and KEEPS the chatbot tier (separate per-user ML bucket; never escalates scope)."""
+    ent = cust.get("entitlements") or {}
+    if not ent.get("service"):
+        return None
+    # (A) MCP OAuth principal -> the user's REAL tier.
+    if ent.get("workos_principal"):
+        sub = request.headers.get("X-TW-Principal-WorkOS", "").strip()
+        if sub:
+            if not _WORKOS_SUB_RE.match(sub):
+                return jsonify({"error": {"code": "unauthorized", "message": "invalid principal"}}), 401
+            row = db.get_user_by_workos_id(sub)
+            if not row:
+                return jsonify({"error": {"code": "unauthorized", "message": "unknown user"}}), 401
+            api_tier = tiers.api_tier_from_user(row)
+            cust["user_id"] = str(row["user_id"])
+            cust["email"] = row["email"]
+            cust["tier"] = api_tier
+            cust["entitlements"] = tiers.tier_for(api_tier)   # the researcher's REAL tier
+            return None
+    # (B) Chatbot on-behalf (cb:-namespaced; keeps the chatbot tier).
     on_behalf = request.headers.get("X-TW-On-Behalf-Of", "").strip()
     if on_behalf and _ON_BEHALF_RE.match(on_behalf):
         cust["user_id"] = "cb:" + on_behalf
+    return None
 
 
 def check_rate_limit(cust):

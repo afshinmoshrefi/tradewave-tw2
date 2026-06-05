@@ -20,6 +20,21 @@ def cursor(commit=False):
         conn.close()
 
 
+def get_user_by_workos_id(workos_user_id):
+    """Return {user_id, email, tier, api_tier, roles} for a user by their WorkOS id, else None.
+    Used by the MCP OAuth flow: a WorkOS-authenticated researcher maps to their existing TradeWave
+    user (and thus their real api tier) via the users.workos_user_id column. No api_keys row needed."""
+    with cursor() as cur:
+        cur.execute(
+            """
+            SELECT id AS user_id, email, tier, api_tier, roles
+            FROM users WHERE workos_user_id = %s
+            """,
+            (workos_user_id,),
+        )
+        return cur.fetchone()
+
+
 def get_user_by_key_hash(key_hash):
     """Return {user_id, email, tier, api_tier, roles} for a live (non-revoked) key, else None.
     Also bumps last_used_at. api_tier is the explicit API subscription (null when the user
