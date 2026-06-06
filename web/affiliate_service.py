@@ -186,6 +186,19 @@ def _invoice_tax_cents(inv: dict) -> int:
     return int(tax or 0)
 
 
+def _invoice_refunded_cents(invd) -> int:
+    """Post-payment refunds on the invoice, issued as credit notes after it was
+    paid (Stripe's recommended way to refund an invoiced subscription charge).
+    Subtracted from the commission basis. NOTE: direct charge refunds / disputes
+    NOT issued as a credit note are not reflected here and still need manual
+    netting at payout review."""
+    v = invd.get("post_payment_credit_notes_amount")
+    try:
+        return max(0, int(v or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _earliest_paid_invoice(customer_id: str, coupon_id: str | None = None):
     """(datetime, invoice_id) of the customer's earliest paid (amount_paid>0)
     invoice, or (None, None). If coupon_id is given, only invoices that carried
@@ -306,7 +319,10 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
 
         amount_paid = int(invd.get("amount_paid") or 0)
         tax_cents = _invoice_tax_cents(invd)
-        basis_cents = max(0, amount_paid - tax_cents)
+        refunded_cents = _invoice_refunded_cents(invd)
+        # Commission basis = what Company actually kept: paid, less tax, less
+        # post-payment refunds (credit notes). Matches the agreement's Net Revenue.
+        basis_cents = max(0, amount_paid - tax_cents - refunded_cents)
         if basis_cents <= 0:
             continue
 
@@ -360,6 +376,7 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
             "customer": invd.get("customer"),
             "amount_paid_cents": amount_paid,
             "tax_cents": tax_cents,
+            "refunded_cents": refunded_cents,
             "basis": str(basis),
             "rate_pct": str(aff.commission_pct),
             "commission": str(commission),
@@ -381,9 +398,10 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
 
 def upsert_month(session, year: int, month: int) -> list:
     """Compute the month and INSERT pending ledger rows, idempotent on the
-    (affiliate_id, period_start, currency) unique key. Existing rows are left
-    untouched (so a row already marked paid/void or hand-adjusted is never
-    overwritten). Returns the AffiliatePayout rows for the period."""
+    (affiliate_id, period_start, currency) unique key. A still-PENDING, UNLOCKED
+    row is refreshed with the latest numbers (so a re-run picks up late-settling
+    invoices); rows that are paid, void, or LOCKED (hand-adjusted, e.g. a netted
+    refund) are frozen. Returns the AffiliatePayout rows for the period."""
     from models import AffiliatePayout
     from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -401,10 +419,11 @@ def upsert_month(session, year: int, month: int) -> list:
             status="pending",
             detail={"lines": r["detail"]},
         ).on_conflict_do_update(
-            # Refresh a still-PENDING row with the latest numbers so re-running a
-            # month picks up late-settling invoices instead of silently keeping
-            # the first (under-counted) result. Rows the operator has marked
-            # paid or void are FROZEN (the WHERE guard leaves them untouched).
+            # Refresh a still-PENDING, UNLOCKED row with the latest numbers so a
+            # re-run picks up late-settling invoices instead of keeping the first
+            # (under-counted) result. Rows marked paid/void, OR locked (the
+            # operator hand-adjusted them, e.g. netted a refund), are FROZEN -
+            # the WHERE guard leaves them untouched.
             constraint="uq_affiliate_payout_period",
             set_={
                 "gross_revenue": r["gross_revenue"],
@@ -412,7 +431,7 @@ def upsert_month(session, year: int, month: int) -> list:
                 "detail": {"lines": r["detail"]},
                 "computed_at": now,
             },
-            where=(tbl.c.status == "pending"),
+            where=((tbl.c.status == "pending") & (tbl.c.locked.is_(False))),
         )
         session.execute(stmt)
     session.commit()

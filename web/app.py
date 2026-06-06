@@ -2185,7 +2185,16 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         if not model.commission_model:
             model.commission_model = "recurring"
         if not model.status:
-            model.status = "active"
+            model.status = "paused"
+        # Activation gate (active <=> signed), enforced on EDITS. Creation forces
+        # 'paused' below regardless; the signing route flips paused->active
+        # programmatically once the agreement is signed.
+        if (not is_created and model.status == "active"
+                and not getattr(model, "agreement_signed_at", None)):
+            raise ValidationError(
+                "Can't set an affiliate to 'active' before they've signed the "
+                "agreement. Send them the signing link - status flips to active "
+                "automatically on signing.")
 
         if is_created:
             from sqlalchemy.exc import IntegrityError
@@ -2279,24 +2288,31 @@ class AffiliatePayoutAdmin(_AdminAuth, ModelView):
     can_delete = False
     can_edit = True
     column_list = ("affiliate", "period_start", "period_end", "currency",
-                   "gross_revenue", "commission_amount", "status", "paid_at",
-                   "external_ref")
+                   "gross_revenue", "commission_amount", "status", "locked",
+                   "paid_at", "external_ref")
     column_default_sort = ("period_start", True)
-    column_filters = ("status", "currency", "period_start")
+    column_filters = ("status", "currency", "period_start", "locked")
     form_columns = ("commission_amount", "status", "paid_at", "external_ref")
     form_choices = {"status": [("pending", "Pending"), ("paid", "Paid"),
                                ("void", "Void")]}
     can_view_details = True
     column_details_list = ("affiliate", "period_start", "period_end", "currency",
-                           "gross_revenue", "commission_amount", "status",
+                           "gross_revenue", "commission_amount", "status", "locked",
                            "computed_at", "paid_at", "external_ref", "detail")
     page_size = 100
 
     def on_model_change(self, form, model, is_created):
+        from sqlalchemy import inspect as sa_inspect
         # auto-stamp paid_at when flipped to paid without an explicit date
         if model.status == "paid" and not model.paid_at:
             from datetime import datetime, timezone
             model.paid_at = datetime.now(timezone.utc)
+        # Lock a hand-edited commission so a later compute/upsert re-run can't
+        # clobber the adjustment (e.g. a netted refund); upsert_month refreshes
+        # only pending rows that are NOT locked.
+        if sa_inspect(model).attrs.commission_amount.history.has_changes() \
+                and sa_inspect(model).attrs.commission_amount.history.deleted:
+            model.locked = True
 
 
 _AFFILIATE_COMPUTE_TMPL = """

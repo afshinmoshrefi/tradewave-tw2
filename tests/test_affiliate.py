@@ -235,6 +235,24 @@ def test_first_payment_model(monkeypatch):
     assert rows[0]["detail"][0]["invoice"] == "in_first"
 
 
+def test_full_refund_via_credit_note_nets_to_zero(monkeypatch):
+    """A fully-refunded invoice (post-payment credit note) yields no commission."""
+    inv = _inv(amount_paid=8000)
+    inv["post_payment_credit_notes_amount"] = 8000        # whole charge refunded
+    _patch_month_invoices(monkeypatch, [inv])
+    assert afs._compute([_aff()], 2026, 5) == []
+
+
+def test_partial_refund_netted_from_basis(monkeypatch):
+    """Half-refunded invoice -> commission on the retained half only."""
+    inv = _inv(amount_paid=8000)
+    inv["post_payment_credit_notes_amount"] = 4000        # half refunded
+    _patch_month_invoices(monkeypatch, [inv])
+    rows = afs._compute([_aff()], 2026, 5)
+    assert len(rows) == 1
+    assert rows[0]["commission_amount"] == Decimal("12.00")   # 30% of $40 kept
+
+
 def test_recurring_attributed_via_referral_after_coupon_expires(monkeypatch):
     """The persisted-referral fix: a month-13 invoice no longer carries the
     12-month discount coupon, but the referral maps its subscription -> affiliate,

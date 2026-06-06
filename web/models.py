@@ -204,7 +204,10 @@ class Affiliate(Base):
     commission_model = Column(Text, nullable=False, server_default=sa_text("'recurring'"))
     stripe_coupon_id = Column(Text, unique=True)
     stripe_promotion_code_id = Column(Text)
-    status        = Column(Text, nullable=False, server_default=sa_text("'active'"))
+    # Default 'paused' (not 'active'): an affiliate is active only once signed
+    # (the activation gate). AffiliateAdmin forces paused on create; signing flips
+    # paused->active. A non-admin/raw insert therefore can't be active-and-unsigned.
+    status        = Column(Text, nullable=False, server_default=sa_text("'paused'"))
     notes         = Column(Text)
     # --- affiliate agreement e-signature (in-house clickwrap; see
     # web/affiliate_agreement.py + the /affiliate/sign/<token> route). An
@@ -246,6 +249,10 @@ class AffiliatePayout(Base):
     gross_revenue = Column(Numeric(12, 2), nullable=False, server_default=sa_text("0"))
     commission_amount = Column(Numeric(12, 2), nullable=False, server_default=sa_text("0"))
     status        = Column(Text, nullable=False, server_default=sa_text("'pending'"))
+    # locked: set true when an operator hand-edits a pending row's commission
+    # (e.g. nets a refund). upsert_month skips locked rows so re-compute can't
+    # clobber the adjustment.
+    locked        = Column(Boolean, nullable=False, server_default=sa_text("false"))
     computed_at   = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     paid_at       = Column(TIMESTAMP(timezone=True))
     external_ref  = Column(Text)  # PayPal/Wise transaction id once paid
