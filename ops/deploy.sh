@@ -10,9 +10,9 @@
 #   2. app tier    — git pull + pip install -r requirements.txt + restart tradewave-appserver
 #   2b.app tier    - sync venv-api + restart tradewave-apiserver + tradewave-mcpserver (if provisioned;
 #                    guarded so a non-API box does not abort; /healthz gate on the gateway)
-#   3. web tier    — git pull + pip install -r requirements.txt + restart tradewave-web + the 2 SMN daemons
+#   3. web tier    — git pull + pip install + alembic upgrade head + restart tradewave-web + the 2 SMN daemons
 #   4. React       — rsync to releases/build-<hash> + repoint the 'build' symlink (build-previous = instant rollback)
-#   5. nginx       — refresh CSP snippet + reload
+#   5. nginx       — refresh site config (incl. /affiliate/sign route) + CSP snippet + reload
 #   6. dev portal  — re-run the portal generators + rsync into /var/www/developers (if provisioned)
 # Provision the API/MCP services + portal docroot ONCE per box with ops/bootstrap_api_services.sh
 # (services) and the nginx/cloudflared additions; thereafter every deploy keeps them current.
@@ -44,11 +44,14 @@ $SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u fla
 echo "==> [$ENV] app tier ($APP): API gateway + MCP server (if provisioned)"
 $SSH "root@$APP" 'if [ -d /home/flask/venv-api ]; then sudo -u flask /home/flask/venv-api/bin/pip install -q -r /home/flask/requirements-api.txt; else echo "skip venv-api sync (not provisioned)"; fi; for u in tradewave-apiserver tradewave-mcpserver; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u" && sudo systemctl is-active "$u"; else echo "skip $u (not installed on this box)"; fi; done; if systemctl cat tradewave-apiserver >/dev/null 2>&1; then curl -fsS http://127.0.0.1:8088/healthz >/dev/null && echo "apiserver /healthz OK" || { echo "ABORT: apiserver unhealthy after restart"; exit 1; }; fi'
 
-echo "==> [$ENV] web tier ($WEB): pull + sync venv + restart web + SMN daemons"
+echo "==> [$ENV] web tier ($WEB): pull + sync venv + DB migrate + restart web + SMN daemons"
 # tradewave-web is on every web box; the SMN daemons are only on boxes provisioned
 # for content generation (not prod web pre-cutover). Restart web always, SMN if present,
 # so a missing optional unit doesn't abort the deploy before the React/nginx steps.
-$SSH "root@$WEB" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-web && for u in tradewave-blog-queue tradewave-article-processor; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u"; else echo "skip $u (not installed on this box)"; fi; done && sudo systemctl is-active tradewave-web'
+# DB migrate (alembic upgrade head) runs BEFORE the web restart and is fail-closed:
+# a failed/needed migration aborts the deploy instead of starting the app against a
+# schema it doesn't expect. Idempotent (only unapplied revisions run).
+$SSH "root@$WEB" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo -u flask bash /home/flask/ops/migrate.sh && sudo systemctl restart tradewave-web && for u in tradewave-blog-queue tradewave-article-processor; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u"; else echo "skip $u (not installed on this box)"; fi; done && sudo systemctl is-active tradewave-web'
 
 # React deploy = ship a release dir named by source commit, then repoint the `build` SYMLINK.
 # `build` is a symlink to releases/build-<hash>; build-previous holds the prior target for instant rollback.
@@ -58,8 +61,12 @@ echo "==> [$ENV] React bundle -> $WEB (release build-$REL; repoint build symlink
 rsync -az -e "$SSH" "$BUILD/" "root@$WEB:/home/flask/web-react/releases/build-$REL/"
 $SSH "root@$WEB" "cd /home/flask/web-react && chown -R flask:flask releases/build-$REL && ln -sfn \"\$(readlink build)\" build-previous && ln -sfn releases/build-$REL build && chown -h flask:flask build build-previous"
 
-echo "==> [$ENV] nginx CSP snippet + reload"
-$SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo nginx -t && sudo systemctl reload nginx'
+echo "==> [$ENV] nginx site config + CSP snippet + reload"
+# Ship the tracked site config (env-agnostic: server_name _, default_server) so
+# route rules like /affiliate/sign/ reach prod - without this the route falls
+# through to the static catch-all and 404s, leaving affiliates stuck paused. The
+# CSP snippet copy is unchanged. nginx -t gates the reload (fail-closed).
+$SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo cp /home/flask/ops/nginx/sites-available/tradewave /etc/nginx/sites-enabled/tradewave && sudo nginx -t && sudo systemctl reload nginx'
 
 # Public developer portal (developers.*) is a static docroot the WEB box serves. Re-run the
 # generators + rsync into /var/www/developers on each deploy, so docs/pricing/learning stay

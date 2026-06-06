@@ -135,6 +135,36 @@ appserver and web tier are untouched.
 
 ---
 
+## Affiliate program go-live (post-cutover; additive)
+
+The affiliate program (Flask-Admin Affiliates/Coupons, magic-link agreement signing,
+downstream commission ledger) ships AFTER cutover soak. `deploy.sh` now handles the
+moving parts automatically — it copies the tracked nginx site config (incl. the
+`/affiliate/sign/` route proxy) and runs `alembic upgrade head` on the web box BEFORE
+the web restart. Remaining manual checks:
+
+1. **Migrations applied** — confirm the affiliate tables exist on prod Postgres:
+   `affiliates`, `affiliate_payouts`, `promo_coupons`, `affiliate_referrals`, plus the
+   `agreement_*` columns on `affiliates`. If a deploy aborted on alembic, reconcile the
+   prod `alembic_version` so it reflects what's actually applied — do NOT hand-stamp
+   past a genuinely-pending migration.
+2. **nginx route reachable** — `curl -sI https://<host>/affiliate/sign/x` must return
+   **410** (route reached, bad token), NOT **404** (means the site config didn't ship —
+   every signing link would be dead and affiliates stuck `paused`).
+3. **Email** — set `RESEND_API_KEY` (live, send-scoped) and
+   `SUPPORT_EMAIL_FROM='TradeWave <help@tradewave.ai>'` in prod `secrets.env`
+   (`tradewave.ai` is already verified in Resend, account-wide). Send a Resend test to
+   confirm delivery before enrolling anyone.
+4. **Payout compute** — the monthly ledger runs from the Flask-Admin "Compute / What I
+   owe" button (primary) and/or the optional `affiliate_report.py` cron; confirm
+   whichever you rely on is in place. Watch logs for "discounted invoice(s) with NO
+   active-affiliate attribution" (unattributed referrals needing review).
+5. **First affiliate = go-live** — creating the first prod affiliate provisions a REAL
+   (live-mode) Stripe coupon + promo code. Create one, sign via the magic link, confirm
+   `paused`→`active` and the confirmation email lands, before announcing the program.
+
+---
+
 ## What is scripted vs manual
 
 `ops/cutover_repoint.sh` does the **box-side** mechanics only (Phase 2 steps
