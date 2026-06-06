@@ -1523,7 +1523,7 @@
                     <div class="pricing-roi-anchor">{{ tier.roi_anchor }}</div>
                     {% endif %}
                     {% if tier.checkout_tier %}
-                    <form method="post" action="/api/stripe/create-checkout" class="pricing-cta-form">
+                    <form method="get" action="/api/stripe/create-checkout" class="pricing-cta-form">
                         <input type="hidden" name="tier" value="{{ tier.checkout_tier }}">
                         <input type="hidden" name="period" class="pricing-cta-period"
                                value="{% if content.pricing.default_billing == 'monthly' %}monthly{% else %}yearly{% endif %}">

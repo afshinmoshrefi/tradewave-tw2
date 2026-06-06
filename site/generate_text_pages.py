@@ -782,13 +782,13 @@ def build_affiliate() -> tuple[str, dict]:
   </div>
   <div class="aff-step">
     <span class="n">2</span>
-    <h3>Share your code</h3>
-    <p>You get a unique code. Drop it in a video, newsletter, course, or community - it works anywhere, even spoken aloud.</p>
+    <h3>Share your link or code</h3>
+    <p>You get a unique referral link and a matching code. Share the link and the discount applies itself the moment your audience arrives - or they can type your code at checkout. Both work anywhere: a video, newsletter, course, or community, even spoken aloud.</p>
   </div>
   <div class="aff-step">
     <span class="n">3</span>
     <h3>Earn {AFF_PAYOUT_CADENCE}</h3>
-    <p>When someone subscribes with your code, they save and you earn. We pay out {AFF_PAYOUT_CADENCE}.</p>
+    <p>When someone subscribes through your link or code, they save and you earn - {AFF_COMMISSION} commission {AFF_COMMISSION_TERM}. We pay out {AFF_PAYOUT_CADENCE}.</p>
   </div>
 </div>
 
@@ -812,15 +812,19 @@ def build_affiliate() -> tuple[str, dict]:
 <div class="aff-faq">
   <div class="q">
     <strong>How and when do I get paid?</strong>
-    <p>We total the revenue from your referrals each period and pay your {AFF_COMMISSION} commission {AFF_PAYOUT_CADENCE}, by PayPal or Wise.</p>
+    <p>After each month closes and payments clear, we total what your active referrals actually paid and send your {AFF_COMMISSION} commission {AFF_PAYOUT_CADENCE} by PayPal or Wise. Commission is {AFF_COMMISSION} of the subscription revenue your referrals pay us - after their discount and excluding sales tax - and it keeps coming {AFF_COMMISSION_TERM}.</p>
   </div>
   <div class="q">
     <strong>How is a referral tracked?</strong>
-    <p>Your audience enters your code at checkout. The discount is their incentive to use it, and it ties the subscription to you.</p>
+    <p>Two ways, whichever is easier for your audience. When someone clicks your referral link, the discount is applied automatically and they stay credited to you for 60 days - so even if they come back later to subscribe, the referral still counts. Or they can simply enter your code at checkout. Either way the discount ties their subscription to you for as long as they stay subscribed.</p>
   </div>
   <div class="q">
     <strong>Is there any cost to join?</strong>
     <p>No. The program is free to join - you only ever earn.</p>
+  </div>
+  <div class="q">
+    <strong>Can I use my own code?</strong>
+    <p>Your link and code are for your audience - your own subscription is not eligible for commission. Beyond that, share them however works for you.</p>
   </div>
   <div class="q">
     <strong>Do I need a huge audience?</strong>

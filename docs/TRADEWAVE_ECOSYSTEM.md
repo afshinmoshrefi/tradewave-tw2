@@ -140,11 +140,13 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   manual entry if Stripe rejects it). The Stripe coupon stays the attribution source
   of truth. Disclosed in the Privacy Policy (`PRIVACY_COOKIE_NOTE` in
   `site/generate_text_pages.py`); first-party only, no third-party/ad trackers.
-  KNOWN GAP (pre-existing, not affiliate-specific): a logged-out user who clicks a
-  POST "Subscribe" is bounced to WorkOS and returns via GET to the POST-only
-  `/api/stripe/create-checkout` -> 405; the cookie preserves attribution once they
-  reach a successful (logged-in) checkout, but the bare logged-out-checkout 405 needs
-  its own fix (GET checkout variant or session-stashed intent).
+  Logged-out signup->subscribe: `/api/stripe/create-checkout` accepts **GET as well
+  as POST** and the pricing CTAs submit as **GET**, so tier/period/code ride in the
+  query string. A logged-out visitor who clicks Subscribe is bounced to WorkOS
+  sign-up by `require_login` (which preserves `state=full_path`, incl. the query),
+  and `auth_callback` replays that URL (GET) after sign-up -> they land on Stripe
+  Checkout with the discount applied, instead of the old 405 (POST-only route + GET
+  redirect after auth). Creating a Checkout Session is non-destructive, so GET is safe.
 
 **THE DAILY AI PICK = SCORECARD (settles prior confusion, verified on .151):**
 - The "daily AI pick" shown on the home page and tracked in the scorecard is

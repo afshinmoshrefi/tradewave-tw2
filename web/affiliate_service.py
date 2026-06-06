@@ -137,21 +137,37 @@ def _month_window(year: int, month: int):
     return start, end, dt.date(year, month, 1), dt.date(year, month, last_day)
 
 
+def _coupon_id_from_discount(d) -> str | None:
+    """Pull the coupon id out of a Stripe Discount object, across API shapes:
+      - current (SDK 15.x / API 2025+): d['source'] = {'type':'coupon','coupon': <id>}
+      - older:                          d['coupon'] = {'id': <id>}  or a bare id string
+    """
+    if not isinstance(d, dict):
+        return None
+    src = d.get("source")
+    if isinstance(src, dict) and src.get("type") == "coupon":
+        c = src.get("coupon")
+        return c.get("id") if isinstance(c, dict) else c
+    c = d.get("coupon")
+    if isinstance(c, dict):
+        return c.get("id")
+    return c if isinstance(c, str) else None
+
+
 def _invoice_coupon_ids(inv: dict) -> list[str]:
-    """All Stripe coupon ids applied to an invoice. Handles both the legacy
-    single `discount` and the newer `discounts` list (each a Discount object
-    with an inline `coupon`)."""
+    """All Stripe coupon ids applied to an invoice. Reads the `discounts` list
+    (each a Discount object) plus the legacy single `discount`. NOTE: the coupon
+    now lives at discount.source.coupon, NOT discount.coupon - the old path
+    silently returned nothing and broke attribution. Unexpanded discount-id
+    strings are skipped (compute_month expands data.discounts)."""
     ids: list[str] = []
-    single = inv.get("discount")
-    if isinstance(single, dict):
-        cp = single.get("coupon") or {}
-        if isinstance(cp, dict) and cp.get("id"):
-            ids.append(cp["id"])
+    single = _coupon_id_from_discount(inv.get("discount"))
+    if single:
+        ids.append(single)
     for d in (inv.get("discounts") or []):
-        if isinstance(d, dict):
-            cp = d.get("coupon") or {}
-            if isinstance(cp, dict) and cp.get("id"):
-                ids.append(cp["id"])
+        cid = _coupon_id_from_discount(d)
+        if cid:
+            ids.append(cid)
     return ids
 
 
@@ -283,6 +299,8 @@ def _compute(affiliates, year: int, month: int) -> list[dict]:
                 "code": aff.code,
                 "name": aff.name,
                 "payout_email": getattr(aff, "payout_email", None),
+                "payout_method": getattr(aff, "payout_method", None),
+                "notes": getattr(aff, "notes", None),
                 "currency": currency,
                 "gross_revenue": Decimal("0.00"),
                 "commission_amount": Decimal("0.00"),

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>TradeWave Affiliate Program Agreement</title>
+<style>
+  :root { --ink:#1f2a44; --dim:#555; --line:#e3e6ee; --accent:#6b46e5; --ok:#137a47; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#f4f5f9; color:var(--ink);
+         font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+  .wrap { max-width:820px; margin:0 auto; padding:32px 20px 80px; }
+  .doc { background:#fff; border:1px solid var(--line); border-radius:14px;
+         padding:40px 44px; box-shadow:0 1px 3px rgba(20,30,60,.06); }
+  h1 { font-size:26px; margin:0 0 4px; }
+  .sub { color:var(--dim); margin:0 0 24px; }
+  .agreement h2 { font-size:18px; margin:28px 0 8px; color:var(--ink); }
+  .agreement h3 { font-size:15px; margin:18px 0 6px; }
+  .agreement p, .agreement li { color:#222; }
+  .agreement code { background:#f0f1f6; padding:1px 5px; border-radius:4px; font-size:13px; }
+  .agreement table { border-collapse:collapse; margin:12px 0; width:100%; }
+  .agreement th, .agreement td { border:1px solid var(--line); padding:8px 10px; text-align:left; font-size:14px; }
+  hr { border:0; border-top:1px solid var(--line); margin:24px 0; }
+  .exhibit { margin:28px 0; }
+  .exhibit table { border-collapse:collapse; width:100%; }
+  .exhibit th { text-align:left; width:38%; padding:8px 12px; background:#faf9ff;
+                border:1px solid var(--line); font-weight:600; vertical-align:top; }
+  .exhibit td { padding:8px 12px; border:1px solid var(--line); }
+  .signbox { margin-top:32px; padding:24px; border:1px solid var(--line);
+             border-radius:12px; background:#faf9ff; }
+  .signbox label { display:block; font-weight:600; margin:0 0 6px; }
+  .signbox input[type=text] { width:100%; max-width:420px; padding:10px 12px;
+             border:1px solid #cfd3e0; border-radius:8px; font-size:16px; }
+  .agree-row { margin:18px 0; display:flex; gap:10px; align-items:flex-start; }
+  .agree-row input { margin-top:4px; transform:scale(1.2); }
+  .btn { display:inline-block; background:var(--accent); color:#fff; border:0;
+         border-radius:9px; padding:13px 28px; font-size:16px; font-weight:700;
+         cursor:pointer; }
+  .btn:hover { filter:brightness(1.07); }
+  .err { background:#fdecea; border:1px solid #f3a; color:#9b1c1c;
+         border-radius:8px; padding:12px 14px; margin:0 0 20px; }
+  .signed-banner { background:#e6f6ed; border:1px solid #9ad6b4; color:var(--ok);
+         border-radius:10px; padding:16px 18px; margin:0 0 24px; font-weight:600; }
+  .meta { color:var(--dim); font-size:13px; margin-top:6px; font-weight:400; }
+  .print { background:none; border:1px solid #cfd3e0; color:var(--ink);
+         border-radius:8px; padding:9px 16px; cursor:pointer; font-size:14px; }
+  .foot { text-align:center; color:#9aa; font-size:12px; margin-top:28px; }
+  @media print { body{background:#fff;} .doc{border:0;box-shadow:none;padding:0;}
+                 .signbox,.print{display:none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="doc">
+    <h1>TradeWave Affiliate Program Agreement</h1>
+    <p class="sub">Tara Data Research LLC (d/b/a TradeWave)</p>
+
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+    {% if signed %}
+      <div class="signed-banner">
+        ✓ Signed by {{ ex.name_signed }} on {{ signed_at_display }}
+        <div class="meta">Agreement version {{ version }}. A copy has been emailed to you.</div>
+      </div>
+      <button class="print" onclick="window.print()">Print / save as PDF</button>
+    {% endif %}
+
+    <div class="agreement">
+      {{ agreement_html|safe }}
+    </div>
+
+    <div class="exhibit">
+      <h2>Exhibit A — Your Terms</h2>
+      <table>
+        <tr><th>Affiliate</th><td>{{ ex.name }}</td></tr>
+        <tr><th>Contact email</th><td>{{ ex.email }}</td></tr>
+        <tr><th>Referral Code</th><td><code>{{ ex.code }}</code></td></tr>
+        <tr><th>Referral Link</th><td><code>{{ ex.referral_link }}</code></td></tr>
+        <tr><th>Audience Discount</th><td>{{ ex.discount_pct }}% off for the customer's first 12 months</td></tr>
+        <tr><th>Commission Rate</th><td>{{ ex.commission_pct }}% of Net Revenue</td></tr>
+        <tr><th>Commission Model</th><td>{{ ex.model_label }}</td></tr>
+        <tr><th>Payout</th><td>{{ ex.payout_method }}{% if ex.payout_email %} — {{ ex.payout_email }}{% endif %}</td></tr>
+      </table>
+    </div>
+
+    {% if not signed %}
+      <form class="signbox" method="POST" action="{{ action_url }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="signed_name">Type your full legal name to sign</label>
+        <input type="text" id="signed_name" name="signed_name"
+               value="{{ ex.name }}" autocomplete="name" required>
+        <div class="agree-row">
+          <input type="checkbox" id="agree" name="agree" value="yes" required>
+          <label for="agree" style="font-weight:400;">
+            I have read and agree to the TradeWave Affiliate Program Agreement and
+            its Exhibit A above. I understand this is a legally binding electronic
+            signature.
+          </label>
+        </div>
+        <button class="btn" type="submit">Sign &amp; Accept</button>
+      </form>
+    {% endif %}
+
+    <div class="foot">© {{ year }} Tara Data Research LLC · This is a private signing link.</div>
+  </div>
+</div>
+</body>
+</html>

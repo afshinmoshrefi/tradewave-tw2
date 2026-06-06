@@ -40,7 +40,9 @@ def _inv(coupon="cpn_anne", amount_paid=8000, tax=0, customer="cus_1",
         # NOT the old top-level `tax` / `total_tax_amounts`.
         "total_taxes": ([{"amount": tax}] if tax else []),
         "customer": customer, "customer_email": email, "created": created,
-        "discounts": ([{"coupon": {"id": coupon}}] if coupon else []),
+        # Real SDK-15 shape: the coupon id is under discount.source.coupon.
+        "discounts": ([{"id": "di_x", "promotion_code": "promo_x",
+                        "source": {"type": "coupon", "coupon": coupon}}] if coupon else []),
     }
 
 
@@ -84,9 +86,15 @@ def test_month_window():
     assert pe_dec == dt.date(2026, 12, 31)
 
 
-def test_invoice_coupon_ids_both_shapes():
-    assert afs._invoice_coupon_ids({"discounts": [{"coupon": {"id": "c1"}}]}) == ["c1"]
-    assert afs._invoice_coupon_ids({"discount": {"coupon": {"id": "c2"}}}) == ["c2"]
+def test_invoice_coupon_ids_shapes():
+    # current SDK-15 shape: discount.source.coupon
+    assert afs._invoice_coupon_ids(
+        {"discounts": [{"source": {"type": "coupon", "coupon": "c1"}}]}) == ["c1"]
+    # legacy shapes still supported
+    assert afs._invoice_coupon_ids({"discounts": [{"coupon": {"id": "c2"}}]}) == ["c2"]
+    assert afs._invoice_coupon_ids({"discount": {"coupon": {"id": "c3"}}}) == ["c3"]
+    # unexpanded id string / empty -> nothing
+    assert afs._invoice_coupon_ids({"discounts": ["di_x"]}) == []
     assert afs._invoice_coupon_ids({}) == []
 
 

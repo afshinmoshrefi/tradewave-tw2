@@ -206,6 +206,19 @@ class Affiliate(Base):
     stripe_promotion_code_id = Column(Text)
     status        = Column(Text, nullable=False, server_default=sa_text("'active'"))
     notes         = Column(Text)
+    # --- affiliate agreement e-signature (in-house clickwrap; see
+    # web/affiliate_agreement.py + the /affiliate/sign/<token> route). An
+    # affiliate is created 'paused' and only flips to 'active' once signed, so
+    # the referral code can't be used before they've agreed (_resolve_affiliate_promo
+    # requires status == 'active'). agreement_token_version is bumped to
+    # invalidate an already-issued signing link ("regenerate" admin action).
+    agreement_version           = Column(Text)
+    agreement_signed_name       = Column(Text)
+    agreement_signed_at         = Column(TIMESTAMP(timezone=True))
+    agreement_signed_ip         = Column(Text)
+    agreement_signed_user_agent = Column(Text)
+    agreement_snapshot          = Column(Text)   # immutable copy of the exact terms signed
+    agreement_token_version     = Column(Integer, nullable=False, server_default=sa_text("0"))
     created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

@@ -1091,13 +1091,20 @@ def _resolve_affiliate_promo(raw):
 
 # State-changing endpoint: POST only. The pricing template uses
 # <form method="post"> hidden-input forms to hit this route.
-@app.route("/api/stripe/create-checkout", methods=["POST"])
+@app.route("/api/stripe/create-checkout", methods=["GET", "POST"])
 @csrf.exempt
 @require_login
 def stripe_create_checkout():
     """Initiate Stripe Checkout for the requested tier+period.
-    Required params: tier=analyst|strategist, period=monthly|yearly
-    Accepted via form data (POST).
+    Params: tier=analyst|strategist, period=monthly|yearly (+ optional code=).
+
+    Accepts GET as well as POST: a logged-OUT visitor who clicks Subscribe is
+    bounced through WorkOS sign-up by require_login, which preserves only the
+    request URL (state=full_path) - not a POST body. So the pricing CTAs submit
+    as GET (params in the query string), and after sign-up auth_callback
+    redirects (GET) back here with tier/period/code intact, instead of 405-ing
+    on a POST-only route. Creating a Checkout Session is non-destructive (no
+    charge until the user pays on Stripe's page), so GET is safe here.
     """
     if not _stripe_configured():
         return jsonify({
@@ -1105,16 +1112,20 @@ def stripe_create_checkout():
             "message": "Stripe keys / price IDs are placeholders. Edit /home/flask/config.py and restart the web tier.",
         }), 503
 
-    # Pull tier/period from form (POST).
-    tier   = (request.form.get("tier")   or "").lower()
-    period = (request.form.get("period") or "").lower()
+    # Pull tier/period from query OR form (request.values covers both).
+    tier   = (request.values.get("tier")   or "").lower()
+    period = (request.values.get("period") or "").lower()
     price_id = _price_id_for(tier, period)
     if not price_id:
         return jsonify({
             "error": "price_not_found",
-            "message": f"No Stripe price found for tier={tier!r} period={period!r}. "
-                       f"Expected a product whose name contains {TIER_PRODUCT_NAMES.get((tier,period), ('?','?'))[0]!r} "
-                       f"with a recurring interval of {TIER_PRODUCT_NAMES.get((tier,period), ('?','?'))[1]!r}.",
+            "message": f"No active Stripe price for tier={tier!r} period={period!r}. "
+                       f"Prices resolve by PRODUCT METADATA, not name: the Stripe product "
+                       f"needs product_line=eod, tier={tier!r}, period={period!r}. "
+                       f"(Conventionally named like "
+                       f"{TIER_PRODUCT_NAMES.get((tier,period), ('?','?'))[0]!r}/"
+                       f"{TIER_PRODUCT_NAMES.get((tier,period), ('?','?'))[1]!r}, "
+                       f"but the name is NOT used for matching.)",
         }), 400
 
     u = get_current_user()
@@ -1385,6 +1396,79 @@ def stripe_success():
 @app.route("/stripe/cancel")
 def stripe_cancel():
     return redirect("/pricing?cancelled=1")
+
+
+# ============================================================
+# Affiliate agreement e-signature (public, login-free magic link)
+# The <token> identifies the affiliate (itsdangerous-signed); CSRF still
+# protects the POST. Signing flips a 'paused' affiliate to 'active'. See
+# web/affiliate_agreement.py.
+# ============================================================
+_SIGN_INVALID_HTML = """<!doctype html><html><head><meta charset="utf-8">
+<meta name="robots" content="noindex"><title>Link not valid</title></head>
+<body style="font-family:system-ui;max-width:560px;margin:80px auto;padding:0 20px;color:#1f2a44">
+<h1 style="font-size:22px">This signing link isn't valid</h1>
+<p style="color:#555">It may have expired or been replaced with a newer one.
+Please contact <a href="mailto:help@tradewave.ai">help@tradewave.ai</a> for a fresh link.</p>
+</body></html>"""
+
+
+@app.route("/affiliate/sign/<token>", methods=["GET", "POST"])
+def affiliate_sign(token):
+    from flask import render_template_string
+    import affiliate_agreement as agr
+    from models import Affiliate, Session as _S
+
+    data = agr.verify_sign_token(token)
+    if not data:
+        return render_template_string(_SIGN_INVALID_HTML), 410
+
+    s = _S()
+    error = None
+    try:
+        aff = s.query(Affiliate).filter(Affiliate.id == data["aid"]).first()
+        if aff is None or int(data["tv"]) != int(aff.agreement_token_version or 0):
+            return render_template_string(_SIGN_INVALID_HTML), 410
+
+        already = aff.agreement_signed_at is not None
+        if request.method == "POST" and not already:
+            if request.form.get("agree") != "yes":
+                error = "Please tick the box to confirm you agree before signing."
+            else:
+                try:
+                    agr.record_signature(
+                        aff, request.form.get("signed_name"),
+                        _client_ip(), request.headers.get("User-Agent"))
+                    s.commit()
+                    already = True
+                    write_audit(actor_label="affiliate",
+                                action="affiliate_agreement_signed",
+                                details={"code": aff.code,
+                                         "name": aff.agreement_signed_name,
+                                         "version": aff.agreement_version})
+                    agr.email_signed_copy(aff)
+                except agr.AlreadySigned:
+                    s.rollback()
+                    already = True
+                except agr.AgreementError as e:
+                    s.rollback()
+                    error = str(e)
+
+        ex = agr.exhibit(aff)
+        ex["name_signed"] = aff.agreement_signed_name or ex["name"]
+        signed_at_display = (aff.agreement_signed_at.strftime("%B %d, %Y").replace(" 0", " ")
+                             if aff.agreement_signed_at else "")
+        return render_template(
+            "affiliate_sign.html",
+            agreement_html=agr.agreement_body_html(),
+            ex=ex, signed=already, error=error,
+            signed_at_display=signed_at_display,
+            version=aff.agreement_version or agr.AGREEMENT_VERSION,
+            action_url=request.path,
+            year=datetime.now(timezone.utc).year,
+        )
+    finally:
+        s.close()
 
 
 @app.route("/account/manage-subscription")
@@ -1979,9 +2063,23 @@ class SupportTicketAdmin(_AdminAuth, ModelView):
 
 class AffiliateAdmin(_AdminAuth, ModelView):
     column_list = ("code", "name", "discount_pct", "commission_pct",
-                   "commission_model", "status", "stripe_coupon_id", "created_at")
+                   "commission_model", "status", "agreement_signed_at",
+                   "stripe_coupon_id", "created_at")
     column_searchable_list = ("code", "name", "email", "payout_email")
     column_filters = ("status", "commission_model")
+    column_labels = {"agreement_signed_at": "Agreement"}
+    column_formatters = {
+        "agreement_signed_at": lambda v, c, m, n: (
+            "✓ Signed %s" % m.agreement_signed_at.strftime("%Y-%m-%d")
+            if m.agreement_signed_at else "— Awaiting signature"),
+    }
+    can_view_details = True
+    column_details_list = ("code", "name", "email", "status",
+                           "discount_pct", "commission_pct", "commission_model",
+                           "payout_method", "payout_email", "stripe_coupon_id",
+                           "agreement_version", "agreement_signed_name",
+                           "agreement_signed_at", "agreement_signed_ip",
+                           "notes", "created_at")
     form_columns = ("name", "email", "code", "discount_pct", "commission_pct",
                     "commission_model", "payout_method", "payout_email",
                     "status", "notes")
@@ -2019,6 +2117,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         from wtforms.validators import ValidationError
         from sqlalchemy import inspect as sa_inspect
         import affiliate_service as afs
+        import affiliate_agreement as agr
 
         # normalize + validate the code
         model.code = afs.normalize_code(model.code)
@@ -2055,6 +2154,12 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                 raise ValidationError(str(e))
             model.stripe_coupon_id = coupon_id
             model.stripe_promotion_code_id = promo_id
+            # Gate: created paused (awaiting signature). The code stays inert
+            # (_resolve_affiliate_promo requires status=='active') until the
+            # affiliate signs the agreement, which flips them to 'active'.
+            model.status = "paused"
+            model.agreement_version = agr.AGREEMENT_VERSION
+            model.agreement_token_version = 0
             write_audit(actor_label="admin", action="affiliate_created",
                         details={"code": model.code, "coupon": coupon_id,
                                  "discount_pct": str(model.discount_pct),
@@ -2068,6 +2173,36 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                     raise ValidationError(
                         f"{field} can't be changed after the Stripe coupon is created. "
                         f"Terminate this affiliate and create a new one instead.")
+
+    def after_model_change(self, form, model, is_created):
+        # Copy-link default: surface the signing link right after creation so
+        # the operator can paste it into their welcome note to the affiliate.
+        if is_created:
+            import affiliate_agreement as agr
+            flash('Affiliate "%s" created and PAUSED until signed. Copy this '
+                  "signing link and send it to them: %s"
+                  % (model.code, agr.signing_url(model)), "success")
+
+    @action("show_signing_link", "Show signing link",
+            "Show the agreement signing link for the selected affiliate(s)?")
+    def action_show_signing_link(self, ids):
+        import affiliate_agreement as agr
+        for a in self.session.query(self.model).filter(self.model.id.in_(ids)).all():
+            state = ("already signed %s" % a.agreement_signed_at.strftime("%Y-%m-%d")
+                     if a.agreement_signed_at else "awaiting signature")
+            flash("%s (%s): %s" % (a.code, state, agr.signing_url(a)), "info")
+
+    @action("regenerate_signing_link", "Regenerate signing link (invalidate old)",
+            "Regenerate the signing link for the selected affiliate(s)? Any link "
+            "you already sent will stop working.")
+    def action_regenerate_signing_link(self, ids):
+        import affiliate_agreement as agr
+        affs = self.session.query(self.model).filter(self.model.id.in_(ids)).all()
+        for a in affs:
+            a.agreement_token_version = (a.agreement_token_version or 0) + 1
+        self.session.commit()
+        for a in affs:
+            flash("%s: new signing link %s" % (a.code, agr.signing_url(a)), "info")
 
 
 class AffiliatePayoutAdmin(_AdminAuth, ModelView):
@@ -2122,15 +2257,16 @@ _AFFILIATE_COMPUTE_TMPL = """
 <p class="muted">Reads Stripe live for the month and attributes each discounted sale to its affiliate by the coupon used. Commission = (amount paid &minus; tax) &times; the affiliate's rate. Refunds are not auto-deducted - adjust the amount in the ledger before marking it paid.</p>
 {% if preview %}
 <table>
- <tr><th>Code</th><th>Affiliate</th><th>Cur</th><th class="num">Revenue</th><th class="num">Commission owed</th><th>Pay to</th></tr>
+ <tr><th>Code</th><th>Affiliate</th><th>Cur</th><th class="num">Revenue</th><th class="num">Commission owed</th><th>Via</th><th>Pay to</th></tr>
  {% for r in preview %}
  <tr><td><b>{{ r.code }}</b></td><td>{{ r.name }}</td><td>{{ r.currency|upper }}</td>
      <td class="num">{{ '%.2f'|format(r.gross_revenue) }}</td>
      <td class="num"><b>{{ '%.2f'|format(r.commission_amount) }}</b></td>
-     <td>{{ r.payout_email or '' }}</td></tr>
+     <td>{{ (r.payout_method or '?')|upper }}</td>
+     <td>{{ r.payout_email or '(no payout email set)' }}{% if r.notes %} <span style="color:#888;font-size:12px">— {{ r.notes }}</span>{% endif %}</td></tr>
  {% endfor %}
  {% for ccy, amt in totals %}
- <tr><th colspan="4" class="num">Total ({{ ccy|upper }})</th><th class="num">{{ '%.2f'|format(amt) }}</th><th></th></tr>
+ <tr><th colspan="4" class="num">Total ({{ ccy|upper }})</th><th class="num">{{ '%.2f'|format(amt) }}</th><th></th><th></th></tr>
  {% endfor %}
 </table>
 <form method="post" style="margin-top:16px">
@@ -2237,6 +2373,7 @@ _AFFILIATE_GUIDE_TMPL = """
   <li>Hit <b>Commit to ledger</b> to save those numbers.</li>
   <li><b>Affiliates &rarr; Payout Ledger.</b> For each row: pay the person by PayPal/Wise, then set <b>status = Paid</b> and paste the transaction id into <b>external_ref</b>.</li>
 </ol>
+<div class="step"><b>How the payout itself works:</b> TradeWave does not move money - it tells you <i>who</i> to pay and <i>how much</i>. The affiliate gives you their PayPal or Wise email when they apply, and you set <b>payout method</b> + <b>payout email</b> on their record. Each month you send the owed amount yourself in PayPal or Wise, then mark the row paid. The "What I owe" table shows the method + email per affiliate so you know which app to open. Use <b>PayPal</b> for US / simple payees and <b>Wise</b> for international ones (better exchange rates); an email works for both - to pay a Wise recipient straight to their bank, put the bank details in that affiliate's <b>Notes</b>.</div>
 <div class="note"><b>Good to know:</b> commission is computed on revenue <i>after</i> the discount and <i>after</i> tax. Re-running a month <b>refreshes still-pending rows</b> with the latest numbers (good for late-settling payments); rows you've marked <b>Paid</b> or <b>Void</b> are frozen. <b>Refunds are not auto-deducted</b> - if a referral refunds, edit that pending row's commission amount down before you mark it paid.</div>
 
 <h2>6. Test vs live</h2>
