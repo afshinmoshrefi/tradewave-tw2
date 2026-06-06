@@ -127,12 +127,12 @@ TURNSTILE_SECRET_KEY = os.environ.get('TURNSTILE_SECRET_KEY', '')  # server-side
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 
 # Where contact-form notifications land. SUPPORT_EMAIL_TO is the inbox we
-# read; SUPPORT_EMAIL_FROM is the verified sender on the Resend side (DKIM
-# must be configured on the FROM domain). FROM uses trxstat.com for now -
-# tradewave.ai swap is deferred until post-cutover so we don't touch the
-# tradewave.ai DNS while it's in the middle of the TW1 -> TW2 flip.
+# read; SUPPORT_EMAIL_FROM is the verified sender on the Resend side (DKIM/SPF
+# configured on the FROM domain). tradewave.ai is now verified in Resend, so we
+# send as help@tradewave.ai (the old notifications@trxstat.com default pointed at
+# an UNVERIFIED domain -> Resend would reject it). Override per-env in secrets.env.
 SUPPORT_EMAIL_TO   = os.environ.get('SUPPORT_EMAIL_TO',   'help@tradewave.ai')
-SUPPORT_EMAIL_FROM = os.environ.get('SUPPORT_EMAIL_FROM', 'TradeWave Contact <notifications@trxstat.com>')
+SUPPORT_EMAIL_FROM = os.environ.get('SUPPORT_EMAIL_FROM', 'TradeWave <help@tradewave.ai>')
 
 # Salt for ip_hash on support_tickets. NEVER reuse across envs - rotating it
 # breaks lookup of historical ips, which is the whole point (no PII drift).
