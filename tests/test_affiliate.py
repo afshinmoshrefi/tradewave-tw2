@@ -235,6 +235,27 @@ def test_first_payment_model(monkeypatch):
     assert rows[0]["detail"][0]["invoice"] == "in_first"
 
 
+def test_first_payment_dedupes_near_simultaneous_invoices(monkeypatch):
+    """Regression: two paid invoices on the SAME coupon minutes apart
+    (proration / true-up) must pay first_payment ONCE - the earliest invoice by
+    identity - not twice. The old +/-1h window double-counted them ($48)."""
+    t0 = int(dt.datetime(2026, 5, 15, 10, 0, tzinfo=dt.timezone.utc).timestamp())
+    t1 = int(dt.datetime(2026, 5, 15, 10, 30, tzinfo=dt.timezone.utc).timestamp())
+    early = _inv(iid="in_early", created=t0, customer="cus_1")
+    later = _inv(iid="in_later", created=t1, customer="cus_1")
+
+    def _list(**kw):
+        # both the month listing and the per-customer history return both
+        return _FakeList([early, later])
+
+    monkeypatch.setattr(stripe.Invoice, "list", _list)
+    rows = afs._compute([_aff(commission_model="first_payment")], 2026, 5)
+    assert len(rows) == 1
+    assert rows[0]["commission_amount"] == Decimal("24.00")   # ONE invoice, not $48
+    assert len(rows[0]["detail"]) == 1
+    assert rows[0]["detail"][0]["invoice"] == "in_early"
+
+
 def test_first_payment_ignores_unrelated_earlier_invoice(monkeypatch):
     """Regression for the anchor bug: a customer's earlier invoice under a
     DIFFERENT coupon must not anchor first_payment, or the affiliate's real

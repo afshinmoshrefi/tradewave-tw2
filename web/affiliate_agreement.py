@@ -64,8 +64,11 @@ class AlreadySigned(AgreementError):
 # --- token signing ----------------------------------------------------------
 
 def _serializer():
-    return URLSafeTimedSerializer(config.WORKOS_COOKIE_PASSWORD or "dev-insecure",
-                                  salt=_SIGN_SALT)
+    secret = config.WORKOS_COOKIE_PASSWORD
+    if not secret:
+        # Fail closed: never sign with a guessable fallback key (token forgery).
+        raise AgreementError("signing secret (WORKOS_COOKIE_PASSWORD) is not configured")
+    return URLSafeTimedSerializer(secret, salt=_SIGN_SALT)
 
 
 def make_sign_token(affiliate_id, token_version) -> str:

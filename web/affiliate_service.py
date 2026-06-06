@@ -186,14 +186,17 @@ def _invoice_tax_cents(inv: dict) -> int:
     return int(tax or 0)
 
 
-def _earliest_paid_invoice_dt(customer_id: str, coupon_id: str | None = None):
-    """Datetime of the customer's earliest paid (amount_paid>0) invoice, or None.
-    If coupon_id is given, only invoices that carried THAT coupon count - so
-    first_payment / duration_12mo anchor on the affiliate-attributed purchase,
-    not on some unrelated earlier invoice in the customer's Stripe history
-    (which would wrongly skip / window-out the affiliate's real invoices)."""
+def _earliest_paid_invoice(customer_id: str, coupon_id: str | None = None):
+    """(datetime, invoice_id) of the customer's earliest paid (amount_paid>0)
+    invoice, or (None, None). If coupon_id is given, only invoices that carried
+    THAT coupon count - so first_payment / duration_12mo anchor on the
+    affiliate-attributed purchase, not on some unrelated earlier invoice.
+    Returns the invoice id too so first_payment qualifies by IDENTITY (one
+    invoice) rather than a time window - a window double-counts proration /
+    true-up invoices Stripe mints minutes apart."""
     try:
-        earliest = None
+        earliest_dt = None
+        earliest_id = None
         listing = stripe.Invoice.list(customer=customer_id, status="paid",
                                        limit=100, expand=["data.discounts"])
         for inv in listing.auto_paging_iter():
@@ -203,20 +206,24 @@ def _earliest_paid_invoice_dt(customer_id: str, coupon_id: str | None = None):
             if coupon_id and coupon_id not in _invoice_coupon_ids(invd):
                 continue
             d = dt.datetime.fromtimestamp(invd.get("created") or 0, tz=dt.timezone.utc)
-            if earliest is None or d < earliest:
-                earliest = d
-        return earliest
+            if earliest_dt is None or d < earliest_dt:
+                earliest_dt = d
+                earliest_id = invd.get("id")
+        return earliest_dt, earliest_id
     except Exception as e:
         log.warning("earliest-paid-invoice lookup failed for %s: %s", customer_id, e)
-        return None
+        return None, None
 
 
 def compute_month(session, year: int, month: int) -> list[dict]:
     """Load active affiliates, then compute per-affiliate commission for the
     month from Stripe. Does NOT write anything. See _compute()."""
     from models import Affiliate
+    # Pay ACTIVE affiliates only. 'paused' (incl. awaiting-signature) and
+    # 'terminated' do not accrue commission - the activation gate covers accrual,
+    # not just pre-application of the discount.
     affiliates = (session.query(Affiliate)
-                  .filter(Affiliate.status != "terminated").all())
+                  .filter(Affiliate.status == "active").all())
     return _compute(affiliates, year, month)
 
 
@@ -274,15 +281,17 @@ def _compute(affiliates, year: int, month: int) -> list[dict]:
             # anchor on this affiliate's coupon, keyed per (customer, coupon)
             ckey = (cust, aff.stripe_coupon_id)
             if cust and ckey not in first_paid_cache:
-                first_paid_cache[ckey] = _earliest_paid_invoice_dt(cust, aff.stripe_coupon_id)
-            first_dt = first_paid_cache.get(ckey)
-            inv_dt = dt.datetime.fromtimestamp(invd.get("created") or 0,
-                                               tz=dt.timezone.utc)
+                first_paid_cache[ckey] = _earliest_paid_invoice(cust, aff.stripe_coupon_id)
+            first_dt, first_id = first_paid_cache.get(ckey, (None, None))
             if model == "first_payment":
-                # Only the customer's earliest paid invoice qualifies.
-                if first_dt is None or abs((inv_dt - first_dt).total_seconds()) > 3600:
+                # Qualify by invoice IDENTITY, not a time window: only the single
+                # earliest coupon-attributed invoice earns, so proration/true-up
+                # invoices minted minutes apart don't double-pay the commission.
+                if not first_id or invd.get("id") != first_id:
                     continue
             elif model == "duration_12mo":
+                inv_dt = dt.datetime.fromtimestamp(invd.get("created") or 0,
+                                                   tz=dt.timezone.utc)
                 if first_dt is not None and inv_dt > first_dt + dt.timedelta(days=365):
                     continue
 

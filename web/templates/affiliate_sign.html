@@ -70,6 +70,7 @@
       {{ agreement_html|safe }}
     </div>
 
+    {% if not signed %}
     <div class="exhibit">
       <h2>Exhibit A — Your Terms</h2>
       <table>
@@ -83,6 +84,7 @@
         <tr><th>Payout</th><td>{{ ex.payout_method }}{% if ex.payout_email %} — {{ ex.payout_email }}{% endif %}</td></tr>
       </table>
     </div>
+    {% endif %}{# when signed, the frozen snapshot above already contains Exhibit A #}
 
     {% if not signed %}
       <form class="signbox" method="POST" action="{{ action_url }}">

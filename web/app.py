@@ -1447,6 +1447,13 @@ def affiliate_sign(token):
                                 details={"code": aff.code,
                                          "name": aff.agreement_signed_name,
                                          "version": aff.agreement_version})
+                    # Signing flipped paused->active: make the promo code
+                    # redeemable now (it was deactivated while paused).
+                    try:
+                        import promo_service as ps
+                        ps.set_promo_active(aff, True)
+                    except Exception:
+                        log.warning("could not reactivate promo for %s after signing", aff.code)
                     agr.email_signed_copy(aff)
                 except agr.AlreadySigned:
                     s.rollback()
@@ -1461,7 +1468,10 @@ def affiliate_sign(token):
                              if aff.agreement_signed_at else "")
         return render_template(
             "affiliate_sign.html",
-            agreement_html=agr.agreement_body_html(),
+            # Once signed, show the FROZEN snapshot (the exact terms as signed),
+            # not a live re-render of the current .md.
+            agreement_html=(aff.agreement_snapshot if (already and aff.agreement_snapshot)
+                            else agr.agreement_body_html()),
             ex=ex, signed=already, error=error,
             signed_at_display=signed_at_display,
             version=aff.agreement_version or agr.AGREEMENT_VERSION,
@@ -2178,6 +2188,17 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                         f"Terminate this affiliate and create a new one instead.")
 
     def after_model_change(self, form, model, is_created):
+        # Keep the Stripe promotion code's redeemability in lockstep with status:
+        # redeemable ONLY while active (i.e. signed). paused/terminated ->
+        # deactivate the promo code (existing referred customers keep their
+        # discount; only NEW redemptions stop - the coupon is never deleted).
+        # This also gates a freshly-created (paused) affiliate's code until they
+        # sign; the signing route reactivates it.
+        import promo_service as ps
+        try:
+            ps.set_promo_active(model, model.status == "active")
+        except Exception as e:
+            flash("Saved, but syncing the Stripe promo code state failed: %s" % e, "warning")
         # Copy-link default: surface the signing link right after creation so
         # the operator can paste it into their welcome note to the affiliate.
         if is_created:
