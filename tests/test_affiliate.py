@@ -235,6 +235,33 @@ def test_first_payment_model(monkeypatch):
     assert rows[0]["detail"][0]["invoice"] == "in_first"
 
 
+def test_recurring_attributed_via_referral_after_coupon_expires(monkeypatch):
+    """The persisted-referral fix: a month-13 invoice no longer carries the
+    12-month discount coupon, but the referral maps its subscription -> affiliate,
+    so a 'recurring' (lifetime) affiliate keeps earning. Without the referral map
+    the same invoice is un-attributable and pays nothing."""
+    aff = _aff(commission_model="recurring")
+    inv = _inv(coupon=None, iid="in_m13")          # coupon has fallen off the invoice
+    inv["subscription"] = "sub_anne"
+    _patch_month_invoices(monkeypatch, [inv])
+    # no referral, no coupon -> nothing to attribute to
+    assert afs._compute([aff], 2026, 5) == []
+    # with the persisted referral -> still attributed and paid (30% of $80)
+    rows = afs._compute([aff], 2026, 5, {"sub_anne": aff.id})
+    assert len(rows) == 1
+    assert rows[0]["commission_amount"] == Decimal("24.00")
+
+
+def test_unattributed_discounted_invoice_is_skipped(monkeypatch):
+    """A discounted invoice whose coupon belongs to no active affiliate (and has
+    no referral) is skipped - never paid to the wrong party - and surfaced via a
+    warning log rather than silently dropped."""
+    inv = _inv(coupon="cpn_stranger", iid="in_x")
+    _patch_month_invoices(monkeypatch, [inv])
+    rows = afs._compute([_aff()], 2026, 5)         # _aff coupon is cpn_anne
+    assert rows == []
+
+
 def test_first_payment_dedupes_near_simultaneous_invoices(monkeypatch):
     """Regression: two paid invoices on the SAME coupon minutes apart
     (proration / true-up) must pay first_payment ONCE - the earliest invoice by

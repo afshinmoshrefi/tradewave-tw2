@@ -262,6 +262,33 @@ class AffiliatePayout(Base):
         return f"{self.affiliate_id} {self.period_start} {self.commission_amount} {self.currency}"
 
 
+class AffiliateReferral(Base):
+    """Persisted customer/subscription -> affiliate attribution, written from the
+    subscription webhook when a referred checkout completes (the affiliate id is
+    carried in the Stripe subscription metadata, stamped at checkout). Commission
+    attribution joins to THIS table first - the coupon is only corroboration - so
+    a recurring affiliate keeps earning after the 12-month discount coupon falls
+    off the invoice, and coupon expiry/deletion can't orphan referral history."""
+    __tablename__ = "affiliate_referrals"
+    id            = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="RESTRICT"), nullable=False)
+    stripe_customer_id     = Column(Text)
+    stripe_subscription_id = Column(Text, nullable=False, unique=True)  # one referral per subscription
+    referral_code = Column(Text)   # snapshot of the code used at checkout
+    source        = Column(Text, nullable=False, server_default=sa_text("'checkout'"))
+    attributed_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    affiliate     = relationship("Affiliate")
+
+    __table_args__ = (
+        Index("ix_affiliate_referrals_customer", "stripe_customer_id"),
+        Index("ix_affiliate_referrals_affiliate", "affiliate_id"),
+    )
+
+    def __str__(self):
+        return f"{self.stripe_subscription_id} -> {self.affiliate_id}"
+
+
 # ---------------------------------------------------------------------------
 # Standalone promo coupons (marketing discount codes, NO affiliate/commission).
 # See web/promo_service.py + the PromoCouponAdmin Flask-Admin view. CHECK values

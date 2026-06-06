@@ -215,21 +215,43 @@ def _earliest_paid_invoice(customer_id: str, coupon_id: str | None = None):
         return None, None
 
 
+def _invoice_subscription_id(invd):
+    """The subscription id an invoice belongs to, across SDK shapes."""
+    sub = invd.get("subscription")
+    if isinstance(sub, str):
+        return sub
+    if isinstance(sub, dict):
+        return sub.get("id")
+    parent = invd.get("parent") or {}
+    sd = parent.get("subscription_details") or invd.get("subscription_details") or {}
+    val = sd.get("subscription")
+    if isinstance(val, dict):
+        return val.get("id")
+    return val or None
+
+
 def compute_month(session, year: int, month: int) -> list[dict]:
-    """Load active affiliates, then compute per-affiliate commission for the
-    month from Stripe. Does NOT write anything. See _compute()."""
-    from models import Affiliate
+    """Load active affiliates + persisted referrals, then compute per-affiliate
+    commission for the month from Stripe. Does NOT write anything. See _compute()."""
+    from models import Affiliate, AffiliateReferral
     # Pay ACTIVE affiliates only. 'paused' (incl. awaiting-signature) and
     # 'terminated' do not accrue commission - the activation gate covers accrual,
     # not just pre-application of the discount.
     affiliates = (session.query(Affiliate)
                   .filter(Affiliate.status == "active").all())
-    return _compute(affiliates, year, month)
+    referrals_by_sub = {r.stripe_subscription_id: str(r.affiliate_id)
+                        for r in session.query(AffiliateReferral).all()}
+    return _compute(affiliates, year, month, referrals_by_sub)
 
 
-def _compute(affiliates, year: int, month: int) -> list[dict]:
+def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[dict]:
     """Pure core (testable): given a list of affiliate objects, read Stripe paid
     invoices for the month and return per-(affiliate, currency) totals.
+
+    referrals_by_sub: optional {stripe_subscription_id: affiliate_id} map (the
+    PERSISTED attribution). When a referral matches it takes precedence over the
+    coupon, so commission keeps flowing after the 12-month discount coupon leaves
+    the invoice. The coupon is the fallback / corroborating signal.
 
     Each result dict: affiliate_id, code, name, payout_email, currency,
     gross_revenue (Decimal), commission_amount (Decimal), period_start/end
@@ -237,12 +259,15 @@ def _compute(affiliates, year: int, month: int) -> list[dict]:
     """
     start, end, period_start, period_end = _month_window(year, month)
 
+    referrals_by_sub = referrals_by_sub or {}
+    by_id = {str(a.id): a for a in affiliates}
     by_coupon = {a.stripe_coupon_id: a for a in affiliates if a.stripe_coupon_id}
-    if not by_coupon:
+    if not by_id:
         return []
 
     acc: dict = {}
     first_paid_cache: dict = {}
+    unattributed: list = []
 
     listing = stripe.Invoice.list(
         status="paid",
@@ -253,12 +278,22 @@ def _compute(affiliates, year: int, month: int) -> list[dict]:
     for inv in listing.auto_paging_iter():
         invd = inv.to_dict() if hasattr(inv, "to_dict") else dict(inv)
 
+        # Attribution: 1) persisted referral (subscription -> affiliate) wins;
+        # 2) else the affiliate coupon on the invoice (fallback / corroboration).
         aff = None
-        for cid in _invoice_coupon_ids(invd):
-            if cid in by_coupon:
-                aff = by_coupon[cid]
-                break
+        sub_id = _invoice_subscription_id(invd)
+        if sub_id and sub_id in referrals_by_sub:
+            aff = by_id.get(referrals_by_sub[sub_id])
         if aff is None:
+            for cid in _invoice_coupon_ids(invd):
+                if cid in by_coupon:
+                    aff = by_coupon[cid]
+                    break
+        if aff is None:
+            # A discounted invoice we can't attribute to a known ACTIVE affiliate
+            # -> surface it rather than silently dropping money.
+            if _invoice_coupon_ids(invd):
+                unattributed.append(invd.get("id"))
             continue
 
         # self-referral guard: an affiliate can't earn commission on themselves.
@@ -330,6 +365,11 @@ def _compute(affiliates, year: int, month: int) -> list[dict]:
             "commission": str(commission),
             "created": invd.get("created"),
         })
+
+    if unattributed:
+        log.warning("compute %04d-%02d: %d discounted invoice(s) with NO active-affiliate "
+                    "attribution (neither referral nor coupon) - unpaid, needs review: %s",
+                    year, month, len(unattributed), unattributed[:25])
 
     out = []
     for entry in acc.values():

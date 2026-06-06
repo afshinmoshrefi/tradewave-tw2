@@ -1068,26 +1068,56 @@ def _api_tier_for_price(price_id):
 
 
 def _resolve_affiliate_promo(raw):
-    """Resolve an affiliate referral code (e.g. from ?code=ANNE / ?via=ANNE, or
-    a hidden checkout-form field) to an ACTIVE affiliate's Stripe promotion-code
-    id, or None. Unknown / paused / terminated / malformed codes return None so
-    checkout proceeds normally (manual promo entry). No cookie - the code must
-    be present on the checkout request itself."""
+    """Resolve an affiliate referral code (?code=ANNE / ?via=ANNE / tw_ref cookie)
+    to (promotion_code_id, affiliate_id, code) for an ACTIVE affiliate, or
+    (None, None, None). Unknown / paused / terminated / malformed codes return the
+    empty tuple so checkout proceeds normally (manual promo entry)."""
     if not raw:
-        return None
+        return None, None, None
     import affiliate_service as afs
     code = afs.normalize_code(raw)
     if not afs.CODE_RE.match(code):
-        return None
+        return None, None, None
     s = DBSession()
     try:
         from models import Affiliate
         aff = (s.query(Affiliate)
                .filter(Affiliate.code == code, Affiliate.status == "active")
                .first())
-        return aff.stripe_promotion_code_id if aff else None
+        if not aff:
+            return None, None, None
+        return aff.stripe_promotion_code_id, str(aff.id), aff.code
     finally:
         s.close()
+
+
+def _record_affiliate_referral(session, sub_id, customer_id, metadata):
+    """Persist the customer/subscription -> affiliate link from subscription
+    metadata (stamped onto subscription_data at checkout). Idempotent (ON CONFLICT
+    DO NOTHING on the subscription id). No-op unless metadata carries a valid
+    tw2_affiliate_id. Never raises - a referral-write failure must not break the
+    webhook (the discount/commission still works off the coupon as a fallback)."""
+    aff_id = (metadata or {}).get("tw2_affiliate_id")
+    if not (sub_id and aff_id):
+        return
+    import uuid as _uuid
+    try:
+        _uuid.UUID(str(aff_id))
+    except (ValueError, TypeError):
+        return
+    try:
+        from models import AffiliateReferral
+        from sqlalchemy.dialects.postgresql import insert as _pg_insert
+        stmt = _pg_insert(AffiliateReferral.__table__).values(
+            affiliate_id=aff_id,
+            stripe_customer_id=customer_id,
+            stripe_subscription_id=sub_id,
+            referral_code=(metadata or {}).get("tw2_affiliate_code"),
+            source="checkout",
+        ).on_conflict_do_nothing(index_elements=["stripe_subscription_id"])
+        session.execute(stmt)
+    except Exception:
+        log.exception("failed to record affiliate referral for subscription %s", sub_id)
 
 
 # State-changing endpoint: POST only. The pricing template uses
@@ -1161,9 +1191,18 @@ def stripe_create_checkout():
     # Stripe promotion code, so the discount shows already applied AND the sale
     # is attributed. Pre-applying via `discounts` is mutually exclusive with
     # allow_promotion_codes.
-    promo_code_id = _resolve_affiliate_promo(
+    promo_code_id, affiliate_id, affiliate_code = _resolve_affiliate_promo(
         request.values.get("code") or request.values.get("via")
         or request.cookies.get("tw_ref"))
+
+    # Stamp the affiliate onto the subscription metadata: this is the DURABLE
+    # attribution carrier - it rides on the Stripe subscription for its whole
+    # life, surviving the 12-month discount coupon. The subscription webhook
+    # reads it to write the affiliate_referrals row.
+    sub_metadata = {"tw2_user_id": str(u.id), "tw2_tier_target": tier}
+    if affiliate_id:
+        sub_metadata["tw2_affiliate_id"] = affiliate_id
+        sub_metadata["tw2_affiliate_code"] = affiliate_code
 
     try:
         kwargs = dict(
@@ -1174,7 +1213,7 @@ def stripe_create_checkout():
             client_reference_id=str(u.id),
             subscription_data={
                 "trial_period_days": 7,
-                "metadata": {"tw2_user_id": str(u.id), "tw2_tier_target": tier},
+                "metadata": sub_metadata,
             },
         )
         if promo_code_id:
@@ -1644,6 +1683,10 @@ def webhook_stripe():
                 price_id = price_obj.get("id")
             sub_metadata = data_obj.get("metadata") or {}
             client_ref = sub_metadata.get("tw2_user_id")
+            if event_type == "customer.subscription.created":
+                # Persist the affiliate referral (durable attribution) on the
+                # first subscription event, from the metadata stamped at checkout.
+                _record_affiliate_referral(s, sub_id, customer_id, sub_metadata)
 
         elif event_type == "invoice.payment_failed":
             customer_id = data_obj.get("customer")
