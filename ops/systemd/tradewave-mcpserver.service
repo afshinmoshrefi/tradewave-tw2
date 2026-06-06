@@ -26,12 +26,15 @@ WorkingDirectory=/home/flask
 Environment=API_BASE_URL=http://127.0.0.1:8088/v1
 Environment=TW2_MCP_HOST=127.0.0.1
 Environment=TW2_MCP_PORT=9090
+# Transport: streamable-http is the current MCP standard (what ChatGPT/Claude default to); SSE is
+# the legacy transport. Default here, overridable via secrets.env. Endpoint path = /mcp.
+Environment=TW2_MCP_TRANSPORT=streamable-http
 EnvironmentFile=/etc/tradewave/secrets.env
 Environment=PYTHONPATH=/home/flask
-# BYOK: do NOT set TRADEWAVE_API_KEY here. On the remote SSE transport each client sends
-# its own Authorization: Bearer <key> per connection; a baked-in key would only act as a
-# shared fallback and break the multi-customer BYOK model. Leave it UNSET.
-ExecStart=/home/flask/venv-api/bin/python -m mcpserver.server --transport sse --host ${TW2_MCP_HOST} --port ${TW2_MCP_PORT}
+# BYOK: do NOT set TRADEWAVE_API_KEY here. On a remote transport each client sends its own
+# Authorization: Bearer <key> (or a WorkOS OAuth token) per connection; a baked-in key would only
+# act as a shared fallback and break the multi-customer model. Leave it UNSET.
+ExecStart=/home/flask/venv-api/bin/python -m mcpserver.server --transport ${TW2_MCP_TRANSPORT} --host ${TW2_MCP_HOST} --port ${TW2_MCP_PORT}
 StandardOutput=append:/var/log/tradewave/mcpserver.log
 StandardError=append:/var/log/tradewave/mcpserver.log
 Restart=on-failure

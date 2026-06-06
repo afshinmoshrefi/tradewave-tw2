@@ -115,7 +115,11 @@ if OAUTH_ENABLED:
                                    claims={"mode": "byok", "key": token})
             try:                                  # WorkOS OAuth JWT - verify sig + aud + exp strictly
                 key = self._jwks.get_signing_key_from_jwt(token).key
-                claims = _jwt.decode(token, key, algorithms=["RS256"], audience=MCP_PUBLIC_URL,
+                # Accept the audience with or without a trailing slash: the SDK advertises the
+                # resource as "<url>/" while the WorkOS resource indicator is often registered as
+                # "<url>" - tolerate both so a slash can't silently break the connect.
+                aud = [MCP_PUBLIC_URL, MCP_PUBLIC_URL + "/"]
+                claims = _jwt.decode(token, key, algorithms=["RS256"], audience=aud,
                                      issuer=self._issuer, options={"require": ["exp", "sub"]})
             except Exception as e:                # noqa: BLE001 - any failure => unauthenticated
                 log.warning("MCP OAuth: token verification failed: %s", e)
