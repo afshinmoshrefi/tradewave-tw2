@@ -103,6 +103,15 @@ def test_record_signature_rejects_terminated():
 
 # --- presentation -----------------------------------------------------------
 
+def test_snapshot_escapes_malicious_signed_name():
+    """Stored-XSS guard: an affiliate-typed name with markup is html-escaped in the
+    snapshot (which is rendered with |safe to the admin / inline in email)."""
+    aff = _aff()
+    agr.record_signature(aff, "<script>alert(1)</script>", "1.1.1.1", "ua")
+    assert "<script>alert(1)</script>" not in aff.agreement_snapshot
+    assert "&lt;script&gt;" in aff.agreement_snapshot
+
+
 def test_body_html_single_sourced_and_trimmed():
     html = agr.agreement_body_html()
     assert "<h" in html                       # rendered markdown headings

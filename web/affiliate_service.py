@@ -298,10 +298,13 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
         if sub_id and sub_id in referrals_by_sub:
             aff = by_id.get(referrals_by_sub[sub_id])
         if aff is None:
-            for cid in _invoice_coupon_ids(invd):
-                if cid in by_coupon:
-                    aff = by_coupon[cid]
-                    break
+            matches = [by_coupon[cid] for cid in _invoice_coupon_ids(invd) if cid in by_coupon]
+            if matches:
+                aff = matches[0]
+                if len({m.stripe_coupon_id for m in matches}) > 1:
+                    log.warning("invoice %s carries %d affiliate coupons; attributing "
+                                "to the first (%s) - needs review", invd.get("id"),
+                                len(matches), aff.code)
         if aff is None:
             # A discounted invoice we can't attribute to a known ACTIVE affiliate
             # -> surface it rather than silently dropping money.
@@ -349,7 +352,9 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
         currency = (invd.get("currency") or "usd").lower()
         rate = Decimal(str(aff.commission_pct)) / Decimal(100)
         basis = (Decimal(basis_cents) / Decimal(100))
-        commission = (basis * rate).quantize(_CENTS, rounding=ROUND_HALF_UP)
+        commission_raw = basis * rate                        # unrounded; the per-(affiliate,
+        commission = commission_raw.quantize(_CENTS, rounding=ROUND_HALF_UP)  # currency) TOTAL is
+        #                                                      rounded once at the end (no per-line drift).
 
         key = (str(aff.id), currency)
         entry = acc.get(key)
@@ -370,7 +375,7 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
             }
             acc[key] = entry
         entry["gross_revenue"] += basis
-        entry["commission_amount"] += commission
+        entry["commission_amount"] += commission_raw   # accumulate UNROUNDED; quantized once below
         entry["detail"].append({
             "invoice": invd.get("id"),
             "customer": invd.get("customer"),
@@ -390,7 +395,9 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
 
     out = []
     for entry in acc.values():
+        # Quantize the TOTALS once (avoids per-invoice rounding drift).
         entry["gross_revenue"] = entry["gross_revenue"].quantize(_CENTS)
+        entry["commission_amount"] = entry["commission_amount"].quantize(_CENTS, rounding=ROUND_HALF_UP)
         out.append(entry)
     out.sort(key=lambda e: e["commission_amount"], reverse=True)
     return out

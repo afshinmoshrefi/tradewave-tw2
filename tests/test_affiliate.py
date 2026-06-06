@@ -235,6 +235,18 @@ def test_first_payment_model(monkeypatch):
     assert rows[0]["detail"][0]["invoice"] == "in_first"
 
 
+def test_commission_rounds_on_aggregate_not_per_line(monkeypatch):
+    """Commission is summed unrounded and quantized ONCE per (affiliate, currency).
+    Two $0.01 invoices: per-line rounding would drop both to $0.00 ($0.00 total);
+    aggregate rounding gives 0.003+0.003=0.006 -> $0.01."""
+    aff = _aff(commission_model="recurring")
+    i1 = _inv(iid="a", amount_paid=1, customer="cus_1")     # $0.01 basis
+    i2 = _inv(iid="b", amount_paid=1, customer="cus_2")     # distinct customer; both count
+    _patch_month_invoices(monkeypatch, [i1, i2])
+    rows = afs._compute([aff], 2026, 5)
+    assert rows[0]["commission_amount"] == Decimal("0.01")
+
+
 def test_full_refund_via_credit_note_nets_to_zero(monkeypatch):
     """A fully-refunded invoice (post-payment credit note) yields no commission."""
     inv = _inv(amount_paid=8000)
