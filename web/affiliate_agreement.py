@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from decimal import Decimal
+import html
 
 sys.path.insert(0, "/home/flask")
 import config  # noqa: E402
@@ -153,9 +154,10 @@ def build_snapshot(affiliate) -> str:
     agreed to."""
     ex = exhibit(affiliate)
     signed_at = affiliate.agreement_signed_at
+    e = lambda x: html.escape(str(x if x is not None else ""))  # escape all interpolated values
     rows = "".join(
-        f"<tr><th style='text-align:left;padding:4px 12px 4px 0'>{k}</th>"
-        f"<td style='padding:4px 0'>{v}</td></tr>"
+        f"<tr><th style='text-align:left;padding:4px 12px 4px 0'>{e(k)}</th>"
+        f"<td style='padding:4px 0'>{e(v)}</td></tr>"
         for k, v in [
             ("Affiliate", ex["name"]), ("Contact email", ex["email"]),
             ("Referral Code", ex["code"]), ("Referral Link", ex["referral_link"]),
@@ -165,14 +167,14 @@ def build_snapshot(affiliate) -> str:
             ("Payout", f"{ex['payout_method']} — {ex['payout_email']}"),
         ])
     return (
-        f"<!-- TradeWave Affiliate Program Agreement v{affiliate.agreement_version} -->\n"
+        f"<!-- TradeWave Affiliate Program Agreement v{e(affiliate.agreement_version)} -->\n"
         f"{agreement_body_html()}\n"
         f"<h2>Exhibit A — Affiliate-Specific Terms</h2>\n<table>{rows}</table>\n"
         f"<h2>Acceptance</h2>\n<p>Electronically signed by "
-        f"<strong>{affiliate.agreement_signed_name}</strong> on "
-        f"{signed_at.isoformat() if signed_at else ''} "
-        f"(IP {affiliate.agreement_signed_ip}). Agreement version "
-        f"{affiliate.agreement_version}.</p>"
+        f"<strong>{e(affiliate.agreement_signed_name)}</strong> on "
+        f"{e(signed_at.isoformat() if signed_at else '')} "
+        f"(IP {e(affiliate.agreement_signed_ip)}). Agreement version "
+        f"{e(affiliate.agreement_version)}.</p>"
     )
 
 

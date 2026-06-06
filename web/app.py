@@ -43,6 +43,7 @@ from flask import (
     Flask, request, redirect, url_for, jsonify,
     make_response, render_template, abort, session as flask_session, g,
 )
+from markupsafe import Markup
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 
@@ -2070,7 +2071,9 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     column_labels = {"agreement_signed_at": "Agreement"}
     column_formatters = {
         "agreement_signed_at": lambda v, c, m, n: (
-            "✓ Signed %s" % m.agreement_signed_at.strftime("%Y-%m-%d")
+            Markup('<a href="%s">✓ Signed %s</a>' % (
+                url_for("affiliate_signed.index", id=str(m.id)),
+                m.agreement_signed_at.strftime("%Y-%m-%d")))
             if m.agreement_signed_at else "— Awaiting signature"),
     }
     can_view_details = True
@@ -2395,6 +2398,67 @@ class AffiliateGuideView(_AdminAuth, BaseView):
             _AFFILIATE_GUIDE_TMPL, public_host=public_host, livemode=livemode)
 
 
+_SIGNED_VIEW_TMPL = """
+<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<title>Signed agreement{% if aff %} - {{ aff.code }}{% endif %}</title>
+<style>
+ body{font:14px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2a44;background:#f4f5f9;margin:0;}
+ .wrap{max-width:820px;margin:0 auto;padding:24px 20px 60px;}
+ .bar{background:#fff;border:1px solid #e3e6ee;border-radius:10px;padding:14px 18px;margin-bottom:16px;
+      display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+ .bar .meta{font-size:13px;color:#555;}
+ .bar button{font-size:13px;border:1px solid #cfd3e0;background:#fff;color:#1f2a44;border-radius:7px;padding:7px 12px;cursor:pointer;}
+ .doc{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px 36px;}
+ .doc table{border-collapse:collapse;margin:10px 0;} .doc th,.doc td{border:1px solid #e3e6ee;padding:6px 10px;text-align:left;}
+ .none{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px;color:#555;}
+ @media print{body{background:#fff;}.bar{display:none;}.doc{border:0;padding:0;}}
+</style></head><body><div class="wrap">
+{% if not found %}
+  <div class="none">Affiliate not found.</div>
+{% elif not snapshot %}
+  <div class="none"><strong>{{ aff.code }}</strong> has no signed agreement on file
+  (not signed yet, or signed before snapshots were recorded).</div>
+{% else %}
+  <div class="bar">
+    <div class="meta"><strong>{{ aff.code }}</strong> &middot; signed by
+      {{ aff.agreement_signed_name }} on {{ aff.agreement_signed_at }} &middot;
+      IP {{ aff.agreement_signed_ip }} &middot; version {{ aff.agreement_version }}</div>
+    <button onclick="window.print()">Print / save PDF</button>
+  </div>
+  <div class="doc">{{ snapshot|safe }}</div>
+{% endif %}
+</div></body></html>
+"""
+
+
+class AffiliateSignedView(_AdminAuth, BaseView):
+    """Super-admin view of the immutable signed-agreement snapshot for one
+    affiliate (the exact terms + Exhibit A + signature captured at signing).
+    Reached via the per-row link in the Affiliates list, not the nav."""
+
+    def is_visible(self):
+        return False  # hidden from the nav; opened via the Affiliates "✓ Signed" link
+
+    @expose("/")
+    def index(self):
+        from flask import render_template_string, request as _rq
+        import uuid as _uuid
+        from models import Session as _S, Affiliate as _Aff
+        aid = _rq.args.get("id", "")
+        try:
+            _uuid.UUID(aid)
+        except (ValueError, TypeError, AttributeError):
+            return render_template_string(_SIGNED_VIEW_TMPL, found=False, aff=None, snapshot="")
+        s = _S()
+        try:
+            aff = s.query(_Aff).filter(_Aff.id == aid).first()
+            return render_template_string(
+                _SIGNED_VIEW_TMPL, found=aff is not None, aff=aff,
+                snapshot=(aff.agreement_snapshot if aff else "") or "")
+        finally:
+            s.close()
+
+
 # ============================================================
 # Standalone promo coupons (Coupons tab) - plain discount codes, NO affiliate /
 # commission / payout. Each row = one Stripe coupon + one promotion code,
@@ -2626,6 +2690,7 @@ admin.add_view(AffiliateGuideView(name="How it works", endpoint="affiliate_guide
 admin.add_view(AffiliateAdmin(Affiliate, ModelsSession, name="Affiliates", category="Affiliates"))
 admin.add_view(AffiliatePayoutAdmin(AffiliatePayout, ModelsSession, name="Payout Ledger", category="Affiliates"))
 admin.add_view(AffiliatePayoutComputeView(name="Compute / What I owe", endpoint="affiliate_compute", category="Affiliates"))
+admin.add_view(AffiliateSignedView(name="Signed agreement", endpoint="affiliate_signed", category="Affiliates"))
 
 # --- Standalone promo coupons (no affiliate / commission) ---
 from models import PromoCoupon
