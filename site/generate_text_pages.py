@@ -778,7 +778,7 @@ def build_affiliate() -> tuple[str, dict]:
   <div class="aff-step">
     <span class="n">1</span>
     <h3>Apply</h3>
-    <p>Tell us about your audience. We partner with a small, hand-picked group, so every partner gets personal attention.</p>
+    <p>Tell us about your audience. We partner with a small, hand-picked group, so every partner gets personal attention. Approved partners sign a short affiliate agreement (we send a private link) before going live.</p>
   </div>
   <div class="aff-step">
     <span class="n">2</span>
@@ -812,7 +812,7 @@ def build_affiliate() -> tuple[str, dict]:
 <div class="aff-faq">
   <div class="q">
     <strong>How and when do I get paid?</strong>
-    <p>After each month closes and payments clear, we total what your active referrals actually paid and send your {AFF_COMMISSION} commission {AFF_PAYOUT_CADENCE} by PayPal or Wise. Commission is {AFF_COMMISSION} of the subscription revenue your referrals pay us - after their discount and excluding sales tax - and it keeps coming {AFF_COMMISSION_TERM}.</p>
+    <p>After each month closes and payments clear, we total what your active referrals actually paid and send your {AFF_COMMISSION} commission {AFF_PAYOUT_CADENCE} by PayPal or Wise. Commission is {AFF_COMMISSION} of the subscription revenue your referrals pay us - after their discount, excluding sales tax, and net of any refunds - and it keeps coming {AFF_COMMISSION_TERM}.</p>
   </div>
   <div class="q">
     <strong>How is a referral tracked?</strong>
