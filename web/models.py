@@ -196,7 +196,7 @@ class Affiliate(Base):
     # be edited; the AffiliateAdmin enforces this.
     code          = Column(Text, nullable=False, unique=True)
     name          = Column(Text, nullable=False)
-    email         = Column(Text)  # affiliate's own email (also self-referral guard)
+    email         = Column(Text, nullable=False)  # required - also the self-referral guard
     payout_method = Column(Text)  # 'paypal' | 'wise'
     payout_email  = Column(Text)
     discount_pct  = Column(Numeric(5, 2), nullable=False)   # audience discount, 20.00 = 20%

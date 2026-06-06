@@ -94,10 +94,11 @@ def test_record_signature_rejects_blank_name():
     assert aff.status == "paused"
 
 
-def test_record_signature_does_not_reactivate_terminated():
+def test_record_signature_rejects_terminated():
     aff = _aff(status="terminated")
-    agr.record_signature(aff, "Anne", "1.1.1.1", "ua")
-    assert aff.status == "terminated"                   # only 'paused' is flipped
+    with pytest.raises(agr.AgreementError):
+        agr.record_signature(aff, "Anne", "1.1.1.1", "ua")
+    assert aff.agreement_signed_at is None              # terminated -> can't sign
 
 
 # --- presentation -----------------------------------------------------------

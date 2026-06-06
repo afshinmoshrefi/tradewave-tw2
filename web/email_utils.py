@@ -37,9 +37,13 @@ def _is_placeholder(val: str) -> bool:
 
 
 def resend_send_email(to: str, subject: str, body_text: str,
-                      from_addr: str = None, reply_to: str = None) -> bool:
+                      from_addr: str = None, reply_to: str = None,
+                      html: str = None) -> bool:
     """Send a transactional email via Resend. Returns True on 2xx, False
     otherwise. Never raises.
+
+    Pass `html` to send a multipart text+HTML email (e.g. to deliver the signed
+    agreement snapshot inline); plain `body_text` stays the fallback.
 
     Skips silently (returns False) when RESEND_API_KEY is empty/placeholder -
     e.g. on dev before Resend is wired. Caller can still rely on the database
@@ -61,6 +65,8 @@ def resend_send_email(to: str, subject: str, body_text: str,
         "subject": subject,
         "text":    body_text,
     }
+    if html:
+        payload["html"] = html
     if reply_to:
         payload["reply_to"] = reply_to
 

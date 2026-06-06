@@ -1485,7 +1485,9 @@ def affiliate_sign(token):
                                 action="affiliate_agreement_signed",
                                 details={"code": aff.code,
                                          "name": aff.agreement_signed_name,
-                                         "version": aff.agreement_version})
+                                         "version": aff.agreement_version,
+                                         "consent": "electronic-records-accepted",
+                                         "ip": aff.agreement_signed_ip})
                     # Signing flipped paused->active: make the promo code
                     # redeemable now (it was deactivated while paused).
                     try:
@@ -2195,6 +2197,15 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                 "Can't set an affiliate to 'active' before they've signed the "
                 "agreement. Send them the signing link - status flips to active "
                 "automatically on signing.")
+
+        # Terminating an affiliate invalidates their signing magic link (bump the
+        # token version so any link already issued now 410s) - a stale link must
+        # not let a terminated partner execute a binding signature.
+        if not is_created:
+            sh = sa_inspect(model).attrs.status.history
+            if (model.status == "terminated" and sh.has_changes() and sh.deleted
+                    and sh.deleted[0] != "terminated"):
+                model.agreement_token_version = (model.agreement_token_version or 0) + 1
 
         if is_created:
             from sqlalchemy.exc import IntegrityError

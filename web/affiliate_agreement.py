@@ -189,6 +189,9 @@ def record_signature(affiliate, signed_name, ip, user_agent):
     signed. Flips a 'paused' affiliate to 'active'."""
     if affiliate.agreement_signed_at is not None:
         raise AlreadySigned("This agreement has already been signed.")
+    if getattr(affiliate, "status", None) == "terminated":
+        raise AgreementError("This affiliate has been terminated; the agreement "
+                             "can no longer be signed.")
     name = (signed_name or "").strip()
     if len(name) < 2:
         raise AgreementError("Please type your full legal name to sign.")
@@ -204,31 +207,50 @@ def record_signature(affiliate, signed_name, ip, user_agent):
 
 
 def email_signed_copy(affiliate) -> bool:
-    """Best-effort: email the executed-agreement confirmation to the affiliate
-    + the support inbox. Returns True if Resend accepted it. Never raises."""
+    """Best-effort: email the executed agreement to the affiliate (with the FROZEN
+    snapshot inline, so they hold the actual signed document) and a notification to
+    the support inbox - as TWO separate sends, so neither recipient sees the
+    other's address. Returns True if the affiliate copy was accepted. Never raises."""
     try:
         from email_utils import resend_send_email
     except Exception:
         return False
-    recipients = [a for a in [affiliate.email, getattr(config, "SUPPORT_EMAIL_TO", "")] if a]
-    if not recipients:
-        return False
     signed_at = affiliate.agreement_signed_at
-    body = (
+    summary = (
         f"The TradeWave Affiliate Program Agreement has been signed.\n\n"
         f"Affiliate : {affiliate.name}\n"
         f"Code      : {affiliate.code}\n"
         f"Signed by : {affiliate.agreement_signed_name}\n"
         f"Date      : {signed_at.isoformat() if signed_at else ''}\n"
-        f"Version   : {affiliate.agreement_version}\n\n"
-        f"View your signed agreement any time:\n{signing_url(affiliate)}\n\n"
-        f"Your referral link:\n{referral_link(affiliate)}\n"
+        f"Version   : {affiliate.agreement_version}\n"
     )
-    try:
-        return bool(resend_send_email(
-            to=recipients,
-            subject=f"TradeWave Affiliate Agreement — signed by {affiliate.agreement_signed_name}",
-            body_text=body,
-        ))
-    except Exception:
-        return False
+    sent = False
+    # 1) the affiliate: their executed copy (snapshot inline) + their links.
+    if affiliate.email:
+        body = (summary +
+                f"\nView your signed agreement any time:\n{signing_url(affiliate)}\n"
+                f"\nYour referral link:\n{referral_link(affiliate)}\n")
+        html = None
+        if affiliate.agreement_snapshot:
+            html = (f"<p>Your TradeWave Affiliate Program Agreement, electronically "
+                    f"signed {signed_at.isoformat() if signed_at else ''}. A copy is "
+                    f"below for your records.</p><hr>{affiliate.agreement_snapshot}")
+        try:
+            sent = bool(resend_send_email(
+                to=affiliate.email,
+                subject="Your signed TradeWave Affiliate Agreement",
+                body_text=body, html=html))
+        except Exception:
+            pass
+    # 2) support inbox: a notification (the full doc lives in Flask-Admin).
+    support_to = getattr(config, "SUPPORT_EMAIL_TO", "")
+    if support_to:
+        try:
+            resend_send_email(
+                to=support_to,
+                subject=f"Affiliate agreement signed: {affiliate.code}",
+                body_text=summary + f"\nView the signed snapshot in Flask-Admin "
+                                     f"(Affiliates -> {affiliate.code}).\n")
+        except Exception:
+            pass
+    return sent
