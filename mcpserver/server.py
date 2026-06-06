@@ -1122,4 +1122,10 @@ if __name__ == "__main__":
             allowed_origins=[f"https://{_pub}", f"http://127.0.0.1:{args.port}"],
         )
 
+    if args.transport == "streamable-http":
+        # Serve the MCP endpoint at the ROOT so the bare connector URL works (ChatGPT/Claude POST to
+        # whatever URL the user enters; entering the host with no path means they POST "/"). The
+        # /.well-known/oauth-* discovery routes are more specific and still resolve.
+        mcp.settings.streamable_http_path = "/"
+
     mcp.run(transport=args.transport)
