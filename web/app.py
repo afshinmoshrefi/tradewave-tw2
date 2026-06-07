@@ -2436,32 +2436,53 @@ _AFFILIATE_GUIDE_TMPL = """
 </style></head><body>
 <nav><a href="/admin">&larr; Admin</a><a href="/admin/affiliate/">Affiliates</a><a href="/admin/affiliatepayout/">Payout ledger</a><a href="/admin/affiliate_compute/">Compute / what I owe</a></nav>
 <h1>Affiliate program - how it works</h1>
-<p>An in-house affiliate program built on Stripe's own coupons. <b>Each affiliate gets one Stripe coupon + one promo code, created automatically</b> when you add them here - no Stripe dashboard, no Rewardful.</p>
+<p>An in-house affiliate program built on Stripe's own coupons. <b>Each affiliate gets one Stripe coupon + one promo code, created automatically</b> when you add them here - no Stripe dashboard, no Rewardful. Every new affiliate starts <b>paused</b>, and their code stays inert until they <b>e-sign the affiliate agreement</b> (step 2).</p>
 <p>Current mode: {% if livemode %}<span class="pill mode-live">LIVE - real money</span>{% else %}<span class="pill mode-test">TEST / sandbox - safe to experiment</span>{% endif %}</p>
 
-<h2>1. Add an affiliate</h2>
-<div class="step"><b>Affiliates &rarr; Create.</b> Fill in name, payout email, the audience <b>discount %</b> (default 20), the affiliate's <b>commission %</b> (default 30, what they keep), and the <b>commission model</b>. On Save, we create their Stripe coupon (X% off, repeating 12 months = "first year") and a promotion code equal to the <code>code</code> you chose. That code is what they share.</div>
+<h2>1. Add the affiliate</h2>
+<div class="step"><b>Affiliates &rarr; Create.</b> Fill in:
+  <ul>
+    <li><b>name</b> and <b>email</b> - email is required; the signed agreement copy is emailed there.</li>
+    <li><b>code</b> - the promo code they share (A-Z, 0-9, _ or -). <b>Immutable</b> after creation.</li>
+    <li><b>discount %</b> (default 20) - the audience discount, e.g. 20% off the customer's first 12 months. <b>Immutable</b> after creation.</li>
+    <li><b>commission %</b> (default 30) - what the affiliate keeps. Editable later.</li>
+    <li><b>commission model</b> - Recurring (lifetime), First 12 months, or First payment only (how long they earn).</li>
+    <li><b>payout method</b> (PayPal / Wise) + <b>payout email</b>, and optional <b>notes</b>.</li>
+  </ul>
+  On <b>Save</b> we create their Stripe coupon (X% off, repeating 12 months) and a promotion code equal to <code>code</code> - but the affiliate is created <b>PAUSED and the promo code is inactive</b>. A green banner shows their <b>signing link</b>; copy it for step 2. (The <code>status</code> field is ignored on create - everyone starts paused until signed.)
+</div>
 
-<h2>2. What the affiliate shares (both ways credit them)</h2>
+<h2>2. Get them to sign the agreement</h2>
+<div class="step">The code does <b>not</b> work until the affiliate signs. To send the link:
+  <ol>
+    <li>Copy the signing link from the green banner after Save, <b>or</b> tick the affiliate in the list &rarr; <b>With selected &rarr; Show signing link</b> (it appears in a flash message).</li>
+    <li>Send that link to the affiliate. It's a <b>magic link</b> - no login required. It opens the agreement plus an <b>Exhibit A</b> with their exact terms (code, referral link, discount, commission, payout).</li>
+    <li>They type their full legal name, tick the agree box, and click <b>Sign &amp; Accept</b>.</li>
+  </ol>
+  On signing, the affiliate flips to <b>active</b>, their promo code is <b>activated</b>, and two emails go out: the signed copy to the affiliate, and a notification to <code>help@tradewave.ai</code>. To read the signed contract any time, click the <b>&check; Signed</b> link in the <b>Agreement</b> column of the Affiliates list.
+</div>
+<div class="note"><b>About the link:</b> it <b>expires after 30 days</b>. Need a fresh one? <b>With selected &rarr; Regenerate signing link</b> - but that <b>invalidates</b> any link you already sent. You can't flip an affiliate to <b>active</b> by hand before they've signed; send the link and it happens automatically. Signing is one-shot - to re-issue terms, terminate and create a new affiliate.</div>
+
+<h2>3. What the affiliate shares (both ways credit them)</h2>
 <div class="step">
   <b>Their code</b> - the audience types <code>THEIRCODE</code> at checkout to get the discount, and
-  <b>A direct link</b> - <code>https://{{ public_host }}/?code=THEIRCODE</code>. Clicking it pre-applies the discount at checkout (no typing needed), so it works even when the code is just spoken on a podcast. (<code>?via=THEIRCODE</code> also works.)
+  <b>a direct link</b> - <code>https://{{ public_host }}/?code=THEIRCODE</code>. Clicking it pre-applies the discount at checkout (no typing needed), so it works even when the code is just spoken on a podcast. (<code>?via=THEIRCODE</code> also works.) Both only apply once the affiliate is <b>active</b> (signed).
 </div>
 
-<h2>3. What you can and can't change later</h2>
+<h2>4. What you can and can't change later</h2>
 <div class="step">
   <b>Immutable</b> after creation: the <code>code</code> and the <b>discount %</b> (Stripe coupons can't be edited). To change either, set the affiliate to <b>terminated</b> and create a new one.<br>
-  <b>Editable</b> anytime: commission %, payout method/email, notes, and status.
+  <b>Editable</b> anytime: commission %, payout method/email, and notes. <b>Status</b>: you can pause or terminate at will, but you <b>can't set active by hand</b> without a signature - it flips automatically on signing.
 </div>
 
-<h2>4. Statuses</h2>
+<h2>5. Statuses</h2>
 <ol>
-  <li><b>active</b> - earns commission; their link pre-applies the discount.</li>
-  <li><b>paused</b> - you still get paid on their existing referrals, but their link stops auto-applying for new visitors. Use to wind someone down gently.</li>
-  <li><b>terminated</b> - excluded from future payouts and their link no longer applies. Use instead of deleting (history is preserved).</li>
+  <li><b>paused</b> - the starting state for every new affiliate (<i>awaiting signature</i>), and also what you set to wind someone down. Their code does not apply for new visitors; you still get paid on their existing referrals.</li>
+  <li><b>active</b> - signed; earns commission and their link/code pre-applies the discount. Reached only by signing.</li>
+  <li><b>terminated</b> - excluded from future payouts, code no longer applies, and their signing link is invalidated. Use instead of deleting (history is preserved).</li>
 </ol>
 
-<h2>5. Paying affiliates each month</h2>
+<h2>6. Paying affiliates each month</h2>
 <ol>
   <li><b>Affiliates &rarr; Compute / what I owe.</b> Pick the month and hit <b>Preview</b> - it reads Stripe live and shows revenue + commission owed per affiliate.</li>
   <li>Hit <b>Commit to ledger</b> to save those numbers.</li>
@@ -2470,7 +2491,7 @@ _AFFILIATE_GUIDE_TMPL = """
 <div class="step"><b>How the payout itself works:</b> TradeWave does not move money - it tells you <i>who</i> to pay and <i>how much</i>. The affiliate gives you their PayPal or Wise email when they apply, and you set <b>payout method</b> + <b>payout email</b> on their record. Each month you send the owed amount yourself in PayPal or Wise, then mark the row paid. The "What I owe" table shows the method + email per affiliate so you know which app to open. Use <b>PayPal</b> for US / simple payees and <b>Wise</b> for international ones (better exchange rates); an email works for both - to pay a Wise recipient straight to their bank, put the bank details in that affiliate's <b>Notes</b>.</div>
 <div class="note"><b>Good to know:</b> commission is computed on revenue <i>after</i> the discount and <i>after</i> tax. Re-running a month <b>refreshes still-pending rows</b> with the latest numbers (good for late-settling payments); rows you've marked <b>Paid</b> or <b>Void</b> are frozen. <b>Refunds are not auto-deducted</b> - if a referral refunds, edit that pending row's commission amount down before you mark it paid.</div>
 
-<h2>6. Test vs live</h2>
+<h2>7. Test vs live</h2>
 <div class="step">On the dev box this is Stripe <b>test mode</b> - create affiliates, generate codes, and run payouts freely; nothing is real. On production the same actions create <b>real</b> coupons and apply <b>real</b> discounts.</div>
 </body></html>
 """
