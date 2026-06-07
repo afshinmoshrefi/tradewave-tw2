@@ -2526,13 +2526,13 @@ _AFFILIATE_GUIDE_TMPL = """
 <h2>2. Get them to sign the agreement</h2>
 <div class="step">The code does <b>not</b> work until the affiliate signs. To send the link:
   <ol>
-    <li>Copy the signing link from the green banner after Save, <b>or</b> tick the affiliate in the list &rarr; <b>With selected &rarr; Show signing link</b> (it appears in a flash message).</li>
-    <li>Send that link to the affiliate. It's a <b>magic link</b> - no login required. It opens the agreement plus an <b>Exhibit A</b> with their exact terms (code, referral link, discount, commission, payout).</li>
+    <li>Click the <b>signing icon</b> on the affiliate's row (the document icon; hover shows "Signing link / signed agreement"). For an unsigned affiliate it opens their link with a <b>Copy link</b> button and a one-click <b>Email link to &lt;their address&gt;</b> button that sends it straight to them. (The green banner right after Save shows the same link, and <b>With selected &rarr; Show signing link</b> / <b>Email signing link to affiliate</b> handle several at once.)</li>
+    <li>The affiliate opens it - a <b>magic link</b>, no login required. It shows the agreement plus an <b>Exhibit A</b> with their exact terms (code, referral link, discount, commission, payout).</li>
     <li>They type their full legal name, tick the agree box, and click <b>Sign &amp; Accept</b>.</li>
   </ol>
-  On signing, the affiliate flips to <b>active</b>, their promo code is <b>activated</b>, and two emails go out: the signed copy to the affiliate, and a notification to <code>help@tradewave.ai</code>. To read the signed contract any time, click the <b>&check; Signed</b> link in the <b>Agreement</b> column of the Affiliates list.
+  On signing, the affiliate flips to <b>active</b>, their promo code is <b>activated</b>, and two emails go out: the signed copy to the affiliate, and a notification to <code>help@tradewave.ai</code>. To read the signed contract any time, click the <b>&check; Signed</b> link in the <b>Agreement</b> column (or the same signing icon on the row, which shows the signed agreement once signed).
 </div>
-<div class="note"><b>About the link:</b> it <b>expires after 30 days</b>. Need a fresh one? <b>With selected &rarr; Regenerate signing link</b> - but that <b>invalidates</b> any link you already sent. You can't flip an affiliate to <b>active</b> by hand before they've signed; send the link and it happens automatically. Signing is one-shot - to re-issue terms, terminate and create a new affiliate.</div>
+<div class="note"><b>About the link:</b> it <b>expires after 30 days</b>. Need a fresh one? <b>With selected &rarr; Regenerate signing link</b> - but that <b>invalidates</b> any link you already sent. You can't flip an affiliate to <b>active</b> by hand before they've signed; send the link and it happens automatically. To change an already-signed affiliate's terms and have them re-sign, use <b>Change terms</b> (step 4) - not terminate.</div>
 
 <h2>3. What the affiliate shares (both ways credit them)</h2>
 <div class="step">
@@ -2542,16 +2542,18 @@ _AFFILIATE_GUIDE_TMPL = """
 
 <h2>4. What you can and can't change later</h2>
 <div class="step">
-  <b>Immutable</b> after creation: the <code>code</code> and the <b>discount %</b> (Stripe coupons can't be edited). To change either, set the affiliate to <b>terminated</b> and create a new one.<br>
-  <b>Editable</b> anytime: commission %, payout method/email, and notes. <b>Status</b>: you can pause or terminate at will, but you <b>can't set active by hand</b> without a signature - it flips automatically on signing.
+  <b>Editable</b> anytime via <b>Edit</b>: commission %, payout method/email, and notes. <b>Status</b>: you can pause or terminate at will, but you <b>can't set active by hand</b> without a signature - it flips automatically on signing.<br>
+  <b>The <code>code</code> is immutable</b> (it is the Stripe promotion code) - to change the code, terminate and create a new affiliate.<br>
+  <b>To change the discount % or renegotiate (e.g. 20/30 &rarr; 15/35):</b> use the <b>Change terms</b> icon on the row - <b>do not terminate</b> (that would cut off their commission on existing customers). It mints a <b>new coupon</b> at the new discount for <b>new</b> referrals, updates commission, and sends the affiliate back to <b>paused</b> to <b>re-sign</b> the new terms (send them the fresh signing link; their code and commission resume on re-signature). <b>Existing customers keep the discount they signed up with</b> - it lives on their Stripe subscription and is never touched. A commission-only change skips the re-sign.
 </div>
 
 <h2>5. Statuses</h2>
 <ol>
   <li><b>paused</b> - the starting state for every new affiliate (<i>awaiting signature</i>), and also what you set to wind someone down. Their code does not apply for new visitors; you still get paid on their existing referrals.</li>
   <li><b>active</b> - signed; earns commission and their link/code pre-applies the discount. Reached only by signing.</li>
-  <li><b>terminated</b> - excluded from future payouts, code no longer applies, and their signing link is invalidated. Use instead of deleting (history is preserved).</li>
+  <li><b>terminated</b> - excluded from future payouts, code no longer applies, and their signing link is invalidated. Use this to wind down or end an affiliate with history (the record is kept).</li>
 </ol>
+<div class="note"><b>Deleting:</b> the trash icon hard-deletes an affiliate <b>only when they have no customers</b> (no referrals or payouts) - handy for clearing a test row or a mistaken entry, and it also removes their Stripe coupon/code. Once they have customers, delete is blocked - <b>terminate</b> instead, which keeps the record.</div>
 
 <h2>6. Paying affiliates each month</h2>
 <ol>
