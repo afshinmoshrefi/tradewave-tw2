@@ -2788,10 +2788,17 @@ from models import PromoCoupon
 admin.add_view(PromoCouponAdmin(PromoCoupon, ModelsSession, name="Coupons", category=None))
 
 # --- API customer console: self-serve keys / usage / billing / MCP connect (additive) ---
-import api_portal  # web/api_portal/ blueprint
-from api_portal.blueprint import set_user_loader as _console_set_user_loader
-_console_set_user_loader(get_current_user)  # reuse the web app's WorkOS session resolver
-app.register_blueprint(api_portal.bp, url_prefix="/account/api")
+# Gated so the API/MCP product ships DARK on prod: the console registers only when
+# TW2_API_CONSOLE_ENABLED is set (dev/staging). Unset (prod default) => /account/api
+# is not exposed. The API gateway + MCP server are separate, unprovisioned on prod.
+if config.API_CONSOLE_ENABLED:
+    import api_portal  # web/api_portal/ blueprint
+    from api_portal.blueprint import set_user_loader as _console_set_user_loader
+    _console_set_user_loader(get_current_user)  # reuse the web app's WorkOS session resolver
+    app.register_blueprint(api_portal.bp, url_prefix="/account/api")
+    log.info("API console enabled at /account/api")
+else:
+    log.info("API console disabled (set TW2_API_CONSOLE_ENABLED to enable /account/api)")
 
 
 # ============================================================

@@ -33,6 +33,12 @@ TARA_GATEWAY_KEY = os.environ.get('TARA_GATEWAY_KEY', '')  # chatbot service key
 # APPSERVER_JWT_SECRET (same shared-secret model the JWT path uses).
 API_KEY_HMAC_SECRET = os.environ.get('API_KEY_HMAC_SECRET', '') or APPSERVER_JWT_SECRET
 
+# Gate for the in-web API/MCP customer console (/account/api). The API/MCP product
+# ships "dark" on prod: the console only registers when TW2_API_CONSOLE_ENABLED is
+# truthy (set on dev/staging). Unset (prod default) => /account/api is not exposed.
+# The API gateway + MCP server are separate services, not provisioned on prod.
+API_CONSOLE_ENABLED = os.environ.get('TW2_API_CONSOLE_ENABLED', '').strip().lower() in ('1', 'true', 'yes')
+
 # === AFFILIATE PROGRAM (TW2) ===
 # Form-prefill defaults for the Flask-Admin Affiliates tab (env-agnostic; NOT
 # secrets). These mirror the public/advertised terms on the /affiliate page;
