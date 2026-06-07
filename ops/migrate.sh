@@ -9,6 +9,11 @@
 # affiliate column would otherwise 500 every referred checkout + admin view).
 set -euo pipefail
 
+# Run from the repo root: alembic (1.18+) probes for ./pyproject.toml in the CWD,
+# and when invoked over SSH the CWD is /root (not readable by the flask user) ->
+# PermissionError. cd to a flask-readable dir we control before running alembic.
+cd /home/flask
+
 if [ ! -r /etc/tradewave/secrets.env ]; then
   echo "migrate.sh: cannot read /etc/tradewave/secrets.env (need POSTGRES_DSN)" >&2
   exit 1
