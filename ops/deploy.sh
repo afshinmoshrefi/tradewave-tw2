@@ -78,10 +78,15 @@ echo "==> [$ENV] nginx CSP snippet + reload"
 # nginx -t gates the reload (fail-closed).
 $SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo nginx -t && sudo systemctl reload nginx'
 
-# Public developer portal (developers.*) is a static docroot the WEB box serves. Re-run the
-# generators + rsync into /var/www/developers on each deploy, so docs/pricing/learning stay
-# current. Guarded: skip if the box is not provisioned for the portal yet.
-echo "==> [$ENV] web tier ($WEB): assemble developer portal (if provisioned)"
-$SSH "root@$WEB" 'if [ -x /home/flask/ops/assemble_developer_portal.sh ]; then sudo bash /home/flask/ops/assemble_developer_portal.sh || { echo "ABORT: developer portal assembly failed"; exit 1; }; else echo "skip developer portal (assemble script not present)"; fi'
+# Public developer portal (developers.*) is the API product's marketing/docs site.
+# It ships "dark" on PROD (the API/MCP product is not launched there), so DON'T build
+# it on prod. On staging/dev it assembles as before (for testing). Guarded: skip if the
+# box isn't provisioned for the portal.
+if [ "$ENV" = "prod" ]; then
+  echo "==> [$ENV] web tier ($WEB): SKIP developer portal (API/MCP dark on prod)"
+else
+  echo "==> [$ENV] web tier ($WEB): assemble developer portal (if provisioned)"
+  $SSH "root@$WEB" 'if [ -x /home/flask/ops/assemble_developer_portal.sh ]; then sudo bash /home/flask/ops/assemble_developer_portal.sh || { echo "ABORT: developer portal assembly failed"; exit 1; }; else echo "skip developer portal (assemble script not present)"; fi'
+fi
 
 echo "==> [$ENV] DONE. Verify: https://$HOST"
