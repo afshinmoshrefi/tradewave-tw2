@@ -2329,6 +2329,33 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         rest = [a for a in actions if not isinstance(a, DeleteRowAction)]
         return rest + dels
 
+    def on_model_delete(self, model):
+        # Hard delete is allowed ONLY for affiliates with no customers (no
+        # referral/payout history) - for clearing test rows or a mistaken entry
+        # before they've gone live. If they have history, block it (the DB FK
+        # also RESTRICTs this) and steer to Terminated, which keeps the record.
+        # The history check runs BEFORE any Stripe call, so a blocked delete
+        # never half-tears-down Stripe.
+        from models import AffiliateReferral, AffiliatePayout
+        has_customers = (
+            self.session.query(AffiliateReferral)
+                .filter(AffiliateReferral.affiliate_id == model.id).first() is not None
+            or self.session.query(AffiliatePayout)
+                .filter(AffiliatePayout.affiliate_id == model.id).first() is not None)
+        if has_customers:
+            raise Exception(
+                "%s has referred customers / payout history - delete is blocked to "
+                "preserve records. Set status to 'Terminated' instead (it disables "
+                "their code and keeps the record)." % model.code)
+        # No customers: deactivate the promo + delete the coupon so we never leave
+        # a live, unattributable discount code behind in Stripe.
+        import affiliate_service as afs
+        try:
+            afs.teardown_stripe_objects(model)
+        except Exception as e:
+            flash("Removed %s, but Stripe cleanup had an issue (%s) - check the "
+                  "coupon/promo in the Stripe dashboard." % (model.code, e), "warning")
+
 
 class AffiliatePayoutAdmin(_AdminAuth, ModelView):
     # Rows are created by the compute step, not by hand. You edit only the

@@ -121,6 +121,32 @@ def provision_stripe_objects(aff) -> tuple[str, str]:
     return coupon.id, promo.id
 
 
+def teardown_stripe_objects(aff) -> None:
+    """Best-effort cleanup when an affiliate with NO referral/payout history is
+    hard-deleted: deactivate the promotion code so it can't be redeemed, and
+    delete the coupon so nothing dangles in Stripe. Promotion codes can't be
+    deleted via the API (only deactivated); coupons can. An already-gone object
+    counts as success; raises AffiliateError only on a real failure so the caller
+    can warn (the row delete still proceeds)."""
+    errs = []
+    pid = getattr(aff, "stripe_promotion_code_id", None)
+    if pid:
+        try:
+            stripe.PromotionCode.modify(pid, active=False)
+        except Exception as e:
+            if getattr(e, "code", "") != "resource_missing":
+                errs.append(f"promo {pid}: {e}")
+    cid = getattr(aff, "stripe_coupon_id", None)
+    if cid:
+        try:
+            stripe.Coupon.delete(cid)
+        except Exception as e:
+            if getattr(e, "code", "") != "resource_missing":
+                errs.append(f"coupon {cid}: {e}")
+    if errs:
+        raise AffiliateError("; ".join(errs))
+
+
 # ---------------------------------------------------------------------------
 # 2) Commission engine
 # ---------------------------------------------------------------------------
