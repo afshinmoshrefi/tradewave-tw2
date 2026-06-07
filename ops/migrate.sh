@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# migrate.sh — apply DB migrations to this box's Postgres (alembic upgrade head).
+# migrate.sh — bring this box's Postgres to the schema the code expects.
 #
-# Run as the flask user (deploy.sh does: `sudo -u flask bash ops/migrate.sh`).
-# Sources /etc/tradewave/secrets.env for POSTGRES_DSN (the migrations/env.py reads
-# it from the process env). Idempotent — only unapplied revisions run — and
-# fail-closed (set -e): a migration failure aborts the deploy BEFORE the web tier
-# restarts, so the app never starts against a schema it doesn't expect (a missing
-# affiliate column would otherwise 500 every referred checkout + admin view).
+#   1. alembic upgrade head            — versioned migrations (web/models.py).
+#   2. apiserver/schema.sql            — ADDITIVE (CREATE TABLE/COLUMN IF NOT EXISTS):
+#      api_keys, api_usage_daily, and users.api_tier. The WEB tier's User model
+#      references users.api_tier, so this must run even when the API/MCP product is
+#      "dark" (no services/routes) — otherwise every User query (login, checkout,
+#      /healthz) 500s. Idempotent; touches no existing data.
+#
+# Run as the flask user (deploy.sh: `sudo -u flask bash ops/migrate.sh`). Fail-closed
+# (set -e): a failure aborts the deploy BEFORE the web tier restarts, so the app
+# never starts against a schema it doesn't expect. cd to the repo root first:
+# alembic 1.18 probes ./pyproject.toml in the CWD, which over SSH is /root (not
+# readable by flask) -> PermissionError.
 set -euo pipefail
-
-# Run from the repo root: alembic (1.18+) probes for ./pyproject.toml in the CWD,
-# and when invoked over SSH the CWD is /root (not readable by the flask user) ->
-# PermissionError. cd to a flask-readable dir we control before running alembic.
 cd /home/flask
 
 if [ ! -r /etc/tradewave/secrets.env ]; then
@@ -23,4 +25,20 @@ set -a
 set +a
 
 echo "migrate.sh: alembic upgrade head ..."
-exec /home/flask/venv/bin/alembic -c /home/flask/web/alembic.ini upgrade head
+/home/flask/venv/bin/alembic -c /home/flask/web/alembic.ini upgrade head
+
+echo "migrate.sh: applying additive apiserver/schema.sql (users.api_tier + api tables) ..."
+/home/flask/venv/bin/python - <<'PY'
+import sys
+sys.path.insert(0, "/home/flask")
+import config
+from sqlalchemy import create_engine
+sql = open("/home/flask/apiserver/schema.sql").read()
+eng = create_engine(config.POSTGRES_DSN)
+with eng.begin() as c:
+    c.exec_driver_sql(sql)
+eng.dispose()
+print("apiserver/schema.sql applied")
+PY
+
+echo "migrate.sh: done"

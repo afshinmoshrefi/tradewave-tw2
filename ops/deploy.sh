@@ -13,7 +13,7 @@
 #   3. web tier    — git pull + pip install + alembic upgrade head + restart tradewave-web + the 2 SMN daemons
 #   3b.static pages— regenerate authored pages (/affiliate, privacy, terms, …) into /var/www/tradewave
 #   4. React       — rsync to releases/build-<hash> + repoint the 'build' symlink (build-previous = instant rollback)
-#   5. nginx       — refresh site config (incl. /affiliate/sign route) + CSP snippet + reload
+#   5. nginx       — refresh CSP snippet + reload (per-box site config managed on the box)
 #   6. dev portal  — re-run the portal generators + rsync into /var/www/developers (if provisioned)
 # Provision the API/MCP services + portal docroot ONCE per box with ops/bootstrap_api_services.sh
 # (services) and the nginx/cloudflared additions; thereafter every deploy keeps them current.
@@ -69,12 +69,14 @@ echo "==> [$ENV] React bundle -> $WEB (release build-$REL; repoint build symlink
 rsync -az -e "$SSH" "$BUILD/" "root@$WEB:/home/flask/web-react/releases/build-$REL/"
 $SSH "root@$WEB" "cd /home/flask/web-react && chown -R flask:flask releases/build-$REL && ln -sfn \"\$(readlink build)\" build-previous && ln -sfn releases/build-$REL build && chown -h flask:flask build build-previous"
 
-echo "==> [$ENV] nginx site config + CSP snippet + reload"
-# Ship the tracked site config (env-agnostic: server_name _, default_server) so
-# route rules like /affiliate/sign/ reach prod - without this the route falls
-# through to the static catch-all and 404s, leaving affiliates stuck paused. The
-# CSP snippet copy is unchanged. nginx -t gates the reload (fail-closed).
-$SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo cp /home/flask/ops/nginx/sites-available/tradewave /etc/nginx/sites-enabled/tradewave && sudo nginx -t && sudo systemctl reload nginx'
+echo "==> [$ENV] nginx CSP snippet + reload"
+# The per-box site config (/etc/nginx/sites-enabled/tw2-<env>-web) is managed ON
+# the box (server_name, etc.) and is NOT shipped from the repo: copying the repo's
+# 'tradewave' config alongside it duplicates 'upstream tw2_web' and breaks nginx.
+# Route rules like /affiliate/sign/ are added to that per-box file ONCE (see
+# PROD_CUTOVER affiliate checklist). Deploy only refreshes the shared CSP snippet;
+# nginx -t gates the reload (fail-closed).
+$SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo nginx -t && sudo systemctl reload nginx'
 
 # Public developer portal (developers.*) is a static docroot the WEB box serves. Re-run the
 # generators + rsync into /var/www/developers on each deploy, so docs/pricing/learning stay

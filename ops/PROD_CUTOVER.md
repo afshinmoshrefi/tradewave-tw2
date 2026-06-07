@@ -138,19 +138,23 @@ appserver and web tier are untouched.
 ## Affiliate program go-live (post-cutover; additive)
 
 The affiliate program (Flask-Admin Affiliates/Coupons, magic-link agreement signing,
-downstream commission ledger) ships AFTER cutover soak. `deploy.sh` now handles the
-moving parts automatically — it copies the tracked nginx site config (incl. the
-`/affiliate/sign/` route proxy) and runs `alembic upgrade head` on the web box BEFORE
-the web restart. Remaining manual checks:
+downstream commission ledger) ships AFTER cutover soak. `deploy.sh` runs `ops/migrate.sh`
+on the web box BEFORE the web restart, which applies `alembic upgrade head` AND the
+additive `apiserver/schema.sql` (the web `User` model needs `users.api_tier`). Manual
+steps/checks:
 
 1. **Migrations applied** — confirm the affiliate tables exist on prod Postgres:
    `affiliates`, `affiliate_payouts`, `promo_coupons`, `affiliate_referrals`, plus the
-   `agreement_*` columns on `affiliates`. If a deploy aborted on alembic, reconcile the
-   prod `alembic_version` so it reflects what's actually applied — do NOT hand-stamp
-   past a genuinely-pending migration.
-2. **nginx route reachable** — `curl -sI https://<host>/affiliate/sign/x` must return
-   **410** (route reached, bad token), NOT **404** (means the site config didn't ship —
-   every signing link would be dead and affiliates stuck `paused`).
+   `agreement_*` columns on `affiliates` (migrate runs these). If a deploy aborted on
+   alembic, reconcile the prod `alembic_version` so it reflects what's actually applied
+   — do NOT hand-stamp past a genuinely-pending migration.
+2. **nginx `/affiliate/sign` rule — PER-BOX, ONE-TIME** (deploy does NOT ship the site
+   config; it's managed per box). Add to `/etc/nginx/sites-enabled/tw2-prod-web` after
+   the `location /stripe/` line:
+   `location /affiliate/sign/ { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }`
+   then `nginx -t && systemctl reload nginx`. Verify:
+   `curl -sI https://<host>/affiliate/sign/x` → **410** (route reached), NOT **404**
+   (rule missing → every signing link dead, affiliates stuck `paused`).
 3. **Email** — set `RESEND_API_KEY` (live, send-scoped) and
    `SUPPORT_EMAIL_FROM='TradeWave <help@tradewave.ai>'` in prod `secrets.env`
    (`tradewave.ai` is already verified in Resend, account-wide). Send a Resend test to
