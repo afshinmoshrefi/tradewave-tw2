@@ -2557,7 +2557,9 @@ _SIGNED_VIEW_TMPL = """
  .bar{background:#fff;border:1px solid #e3e6ee;border-radius:10px;padding:14px 18px;margin-bottom:16px;
       display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
  .bar .meta{font-size:13px;color:#555;}
- .bar button, .doc button{font-size:13px;border:1px solid #cfd3e0;background:#fff;color:#1f2a44;border-radius:7px;padding:8px 12px;cursor:pointer;}
+ .bar button, .doc button{font-size:13px;font-weight:600;border:1px solid #4338ca;background:#4f46e5;color:#fff;border-radius:7px;padding:8px 16px;cursor:pointer;box-shadow:0 1px 2px rgba(31,42,68,0.15);}
+ .bar button:hover, .doc button:hover{background:#4338ca;}
+ .bar button:active, .doc button:active{transform:translateY(1px);}
  .doc{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px 36px;}
  .doc table{border-collapse:collapse;margin:10px 0;} .doc th,.doc td{border:1px solid #e3e6ee;padding:6px 10px;text-align:left;}
  .none{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px;color:#555;}
