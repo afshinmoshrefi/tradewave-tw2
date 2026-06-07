@@ -2141,6 +2141,12 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             title="Signing link / signed agreement",
             id_arg="id",
         ),
+        EndpointLinkRowAction(
+            "fa fa-exchange glyphicon glyphicon-refresh",
+            "affiliate_change_terms.index",
+            title="Change terms (new coupon + re-sign)",
+            id_arg="id",
+        ),
     ]
     can_view_details = True
     column_details_list = ("code", "name", "email", "status",
@@ -2733,6 +2739,219 @@ class AffiliateSignedView(_AdminAuth, BaseView):
             s.close()
 
 
+_CHANGE_TERMS_TMPL = """
+<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<title>Change terms{% if aff %} - {{ aff.code }}{% endif %}</title>
+<style>
+ body{font:14px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2a44;background:#f4f5f9;margin:0;}
+ .wrap{max-width:640px;margin:0 auto;padding:24px 20px 60px;}
+ .doc{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:28px 32px;}
+ .doc h2{margin-top:0;}
+ .none{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px;color:#555;}
+ .flash{border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;border:1px solid #e3e6ee;}
+ .flash-success{background:#e7f6ec;color:#0a7d28;border-color:#bfe6cb;}
+ .flash-warning{background:#fffbe6;color:#8a6d00;border-color:#f0e6b0;}
+ .flash-error,.flash-danger{background:#fdeaea;color:#b00020;border-color:#f3c6c6;}
+ .flash-info{background:#eef2ff;color:#3a32a8;border-color:#cfd6f5;}
+ label{display:block;margin:14px 0 0;font-size:13px;font-weight:600;color:#3a3a55;}
+ input[type=number]{width:140px;margin-top:4px;padding:8px 10px;border:1px solid #cfd3e0;border-radius:7px;font-size:14px;}
+ .note{font-size:13px;color:#555;background:#f7f7fb;border:1px solid #e6e6ef;border-radius:8px;padding:12px 14px;margin:14px 0;}
+ button{margin-top:20px;font-size:14px;font-weight:600;border:1px solid #4338ca;background:#4f46e5;color:#fff;border-radius:7px;padding:10px 18px;cursor:pointer;box-shadow:0 1px 2px rgba(31,42,68,.15);}
+ button:hover{background:#4338ca;}
+ a{color:#5b4bdb;}
+</style></head><body><div class="wrap">
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% if msgs %}{% for cat, m in msgs %}<div class="flash flash-{{ cat }}">{{ m }}</div>{% endfor %}{% endif %}
+{% endwith %}
+{% if not found %}
+  <div class="none">Affiliate not found.</div>
+{% elif not eligible %}
+  <div class="none"><strong>{{ aff.code }}</strong> ({{ aff.status }}) - changing terms applies to a
+  signed, <strong>active</strong> affiliate.{% if not aff.agreement_signed_at %} This affiliate hasn't signed yet,
+  so just edit them directly, or delete + recreate with the right terms.{% else %} Reactivate them first if you want to change terms.{% endif %}
+  <p><a href="{{ url_for('affiliate.index_view') }}">&larr; Back to affiliates</a></p></div>
+{% else %}
+  <div class="doc">
+    <h2>Change terms - {{ aff.code }}</h2>
+    <p>Current: <strong>{{ cur_discount }}% discount</strong> / <strong>{{ cur_commission }}% commission</strong>
+       &middot; {{ ref_count }} existing referred customer(s).</p>
+    <div class="note">This mints a <strong>new coupon</strong> for <strong>new</strong> referrals at the new
+      discount and re-points their code to it. <strong>Existing customers keep their current discount</strong>
+      (it lives on their Stripe subscription) and you keep owing the affiliate commission on them. The
+      affiliate must <strong>re-sign</strong> the new terms, so they go to <em>paused</em> until they do
+      (their code and commission resume on re-signature). The new commission rate applies to all of their
+      referrals going forward.</div>
+    <form method="post" action="{{ url_for('affiliate_change_terms.apply') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="id" value="{{ aff.id }}">
+      <label>New discount % (audience)
+        <input type="number" step="0.01" min="1" max="100" name="discount_pct" value="{{ cur_discount }}" required></label>
+      <label>New commission % (affiliate keeps)
+        <input type="number" step="0.01" min="0" max="100" name="commission_pct" value="{{ cur_commission }}" required></label>
+      <button type="submit">Apply new terms &amp; require re-sign</button>
+    </form>
+  </div>
+{% endif %}
+</div></body></html>
+"""
+
+
+class AffiliateChangeTermsView(_AdminAuth, BaseView):
+    """Change an established (signed) affiliate's terms without breaking their
+    existing customers: mint a new coupon for new referrals at the new discount,
+    update commission, and require the affiliate to re-sign the new Exhibit A.
+    Reached via the per-row 'change terms' icon, not the nav."""
+
+    def is_visible(self):
+        return False
+
+    @expose("/")
+    def index(self):
+        from flask import render_template_string, request as _rq
+        import uuid as _uuid
+        from models import Session as _S, Affiliate as _Aff, AffiliateReferral as _Ref
+        import affiliate_agreement as _agr
+        aid = _rq.args.get("id", "")
+        try:
+            _uuid.UUID(aid)
+        except (ValueError, TypeError, AttributeError):
+            return render_template_string(_CHANGE_TERMS_TMPL, found=False, aff=None, eligible=False)
+        s = _S()
+        try:
+            aff = s.query(_Aff).filter(_Aff.id == aid).first()
+            if aff is None:
+                return render_template_string(_CHANGE_TERMS_TMPL, found=False, aff=None, eligible=False)
+            eligible = aff.agreement_signed_at is not None and aff.status == "active"
+            ref_count = s.query(_Ref).filter(_Ref.affiliate_id == aff.id).count()
+            return render_template_string(
+                _CHANGE_TERMS_TMPL, found=True, aff=aff, eligible=eligible,
+                cur_discount=_agr._fmt_pct(aff.discount_pct),
+                cur_commission=_agr._fmt_pct(aff.commission_pct), ref_count=ref_count)
+        finally:
+            s.close()
+
+    @expose("/apply", methods=["POST"])
+    def apply(self):
+        from flask import request as _rq, redirect, url_for as _url_for, flash
+        import uuid as _uuid
+        from decimal import Decimal, InvalidOperation
+        from models import Session as _S, Affiliate as _Aff
+        import affiliate_service as _afs
+        import affiliate_agreement as _agr
+        import promo_service as _ps
+        aid = _rq.form.get("id", "")
+        try:
+            _uuid.UUID(aid)
+        except (ValueError, TypeError, AttributeError):
+            flash("Invalid affiliate id.", "error")
+            return redirect(_url_for("affiliate.index_view"))
+        try:
+            new_d = Decimal((_rq.form.get("discount_pct") or "").strip())
+            new_c = Decimal((_rq.form.get("commission_pct") or "").strip())
+        except (InvalidOperation, ValueError):
+            flash("Enter valid numbers for discount and commission.", "error")
+            return redirect(_url_for("affiliate_change_terms.index", id=aid))
+        if not (0 < new_d <= 100) or not (0 <= new_c <= 100):
+            flash("Discount must be 1-100 and commission 0-100.", "error")
+            return redirect(_url_for("affiliate_change_terms.index", id=aid))
+        s = _S()
+        # Stripe state captured so a DB failure AFTER the swap can be compensated.
+        new_coupon = new_promo = old_pid = None
+        reissued = False
+        try:
+            # Row lock serialises concurrent / double submits (idempotency).
+            aff = s.query(_Aff).filter(_Aff.id == aid).with_for_update().first()
+            if aff is None:
+                flash("Affiliate not found.", "error")
+                return redirect(_url_for("affiliate.index_view"))
+            # Only START a change from a live, signed, ACTIVE affiliate. A paused
+            # (incl. mid-re-sign) one is ineligible -> blocks re-processing.
+            if aff.agreement_signed_at is None or aff.status != "active":
+                flash("Terms can only be changed for a signed, ACTIVE affiliate "
+                      "(this one is %s). Reactivate them first if needed." % aff.status, "error")
+                return redirect(_url_for("affiliate_change_terms.index", id=aid))
+
+            code = aff.code
+            discount_changed = Decimal(str(aff.discount_pct)) != new_d
+            commission_changed = Decimal(str(aff.commission_pct)) != new_c
+
+            # ---- Commission-only change: light path, no coupon swap / re-sign ----
+            # (mirrors the Edit form, which lets commission_pct change in place.)
+            if not discount_changed:
+                if not commission_changed:
+                    flash("No change - discount and commission are unchanged.", "info")
+                    return redirect(_url_for("affiliate_change_terms.index", id=aid))
+                aff.commission_pct = new_c
+                s.commit()
+                write_audit(actor_label="admin", action="affiliate_commission_changed",
+                            details={"code": code, "commission_pct": str(new_c)})
+                flash("Commission for %s updated to %s%% (no re-signature needed; "
+                      "applies to the next month you compute)."
+                      % (code, _agr._fmt_pct(new_c)), "success")
+                return redirect(_url_for("affiliate_change_terms.index", id=aid))
+
+            # ---- Discount change: new coupon + re-sign ----
+            old_pid = aff.stripe_promotion_code_id
+            # reissue_coupon is the irreversible coupon/promo swap; it rolls back
+            # its OWN partial failures (AffiliateError below). After it succeeds,
+            # any later failure - the set_promo_active Stripe call OR the DB
+            # commit - triggers revert_reissue in the except path to restore the
+            # old code, so the affiliate is never left holding a dead one.
+            new_coupon, new_promo = _afs.reissue_coupon(aff, new_d)
+            reissued = True
+            aff.discount_pct = new_d
+            aff.stripe_coupon_id = new_coupon
+            aff.stripe_promotion_code_id = new_promo
+            aff.commission_pct = new_c
+            # Require re-signature of the new Exhibit A.
+            aff.agreement_signed_name = None
+            aff.agreement_signed_at = None
+            aff.agreement_signed_ip = None
+            aff.agreement_signed_user_agent = None
+            aff.agreement_snapshot = None
+            aff.agreement_version = _agr.AGREEMENT_VERSION
+            aff.agreement_token_version = (aff.agreement_token_version or 0) + 1
+            aff.status = "paused"
+            # Paused pending re-sign -> the NEW promo must be inert. A failure here
+            # raises PromoError -> caught below -> full DB + Stripe rollback (so we
+            # never commit a paused row whose code is still redeemable).
+            _ps.set_promo_active(aff, False)
+            s.commit()
+            # Audit AFTER commit (write_audit uses the same scoped_session and
+            # closes it; calling it earlier would tear down the live transaction).
+            write_audit(actor_label="admin", action="affiliate_terms_changed",
+                        details={"code": code, "discount_pct": str(new_d),
+                                 "commission_pct": str(new_c)})
+            flash('Terms updated for %s to %s%% / %s%%. The affiliate is now PAUSED '
+                  "pending re-signature - send them the new signing link below."
+                  % (code, _agr._fmt_pct(new_d), _agr._fmt_pct(new_c)), "success")
+            return redirect(_url_for("affiliate_signed.index", id=aid))
+        except _afs.AffiliateError as e:
+            # reissue_coupon failed atomically (its own rollback already ran).
+            s.rollback()
+            flash("Could not re-issue the discount coupon: %s" % e, "error")
+            return redirect(_url_for("affiliate_change_terms.index", id=aid))
+        except Exception as e:
+            s.rollback()
+            if reissued:
+                # DB step failed AFTER Stripe was swapped: restore the old code so
+                # the affiliate isn't left with a dead one, and remove the new objects.
+                try:
+                    _afs.revert_reissue(old_pid, new_coupon, new_promo)
+                    flash("Failed to change terms (%s); restored the previous "
+                          "coupon/code." % e, "error")
+                except Exception as e2:
+                    flash("Failed to change terms (%s) AND the Stripe rollback hit an "
+                          "issue (%s). Reconcile in Stripe: promo %s should be ACTIVE; "
+                          "coupon %s / promo %s should be removed."
+                          % (e, e2, old_pid, new_coupon, new_promo), "error")
+            else:
+                flash("Failed to change terms: %s" % e, "error")
+            return redirect(_url_for("affiliate_change_terms.index", id=aid))
+        finally:
+            s.close()
+
+
 # ============================================================
 # Standalone promo coupons (Coupons tab) - plain discount codes, NO affiliate /
 # commission / payout. Each row = one Stripe coupon + one promotion code,
@@ -2965,6 +3184,7 @@ admin.add_view(AffiliateAdmin(Affiliate, ModelsSession, name="Affiliates", categ
 admin.add_view(AffiliatePayoutAdmin(AffiliatePayout, ModelsSession, name="Payout Ledger", category="Affiliates"))
 admin.add_view(AffiliatePayoutComputeView(name="Compute / What I owe", endpoint="affiliate_compute", category="Affiliates"))
 admin.add_view(AffiliateSignedView(name="Signed agreement", endpoint="affiliate_signed", category="Affiliates"))
+admin.add_view(AffiliateChangeTermsView(name="Change terms", endpoint="affiliate_change_terms", category="Affiliates"))
 
 # --- Standalone promo coupons (no affiliate / commission) ---
 from models import PromoCoupon

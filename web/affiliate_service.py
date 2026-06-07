@@ -147,6 +147,108 @@ def teardown_stripe_objects(aff) -> None:
         raise AffiliateError("; ".join(errs))
 
 
+def reissue_coupon(aff, new_discount_pct) -> tuple[str, str]:
+    """Mint a NEW coupon at new_discount_pct and re-point the affiliate's promo
+    code (SAME code string) to it, so NEW referrals get the new discount while
+    EXISTING customers keep theirs (their subscriptions still carry the OLD
+    coupon, which we never touch/delete). Returns (new_coupon_id, new_promo_id).
+
+    Safe against partial failure: if the new promo code can't be created, the old
+    promo is re-activated and the just-minted coupon is deleted, so the affiliate
+    is never left without a working code. The NEW promo is created active; the
+    caller is responsible for its final active state (e.g. deactivate while the
+    affiliate is paused pending re-signature)."""
+    code = normalize_code(aff.code)
+    pct = _pct_to_float(new_discount_pct)
+    if not (0 < pct <= 100):
+        raise AffiliateError("discount_pct must be > 0 and <= 100")
+    old_pid = getattr(aff, "stripe_promotion_code_id", None)
+
+    try:
+        coupon = stripe.Coupon.create(
+            percent_off=pct,
+            duration="repeating",
+            duration_in_months=DISCOUNT_DURATION_MONTHS,
+            name=f"Affiliate {code}"[:40],
+            metadata={"tw2_affiliate_code": code, "tw2_purpose": "affiliate"},
+        )
+    except Exception as e:
+        raise AffiliateError(f"Stripe coupon create failed: {e}") from e
+
+    # Free up the code string: Stripe enforces uniqueness among ACTIVE promotion
+    # codes, so the old one must be deactivated before we re-create with the same
+    # code on the new coupon.
+    if old_pid:
+        try:
+            stripe.PromotionCode.modify(old_pid, active=False)
+        except Exception as e:
+            try:
+                stripe.Coupon.delete(coupon.id)
+            except Exception:
+                log.warning("orphan coupon %s after old-promo deactivate failed", coupon.id)
+            raise AffiliateError(f"Could not deactivate the old promo code: {e}") from e
+    else:
+        # No tracked promo id: defensively deactivate any stray ACTIVE promo that
+        # already holds this code string, so the create below doesn't hit Stripe's
+        # active-code uniqueness rule.
+        try:
+            for pc in stripe.PromotionCode.list(code=code, active=True, limit=100).auto_paging_iter():
+                try:
+                    stripe.PromotionCode.modify(pc.id, active=False)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    try:
+        promo = stripe.PromotionCode.create(
+            code=code,
+            promotion={"type": "coupon", "coupon": coupon.id},
+            metadata={"tw2_affiliate_code": code, "tw2_purpose": "affiliate"},
+        )
+    except Exception as e:
+        # Roll back so the affiliate keeps a working code: re-activate the old
+        # promo and remove the new coupon we just made.
+        if old_pid:
+            try:
+                stripe.PromotionCode.modify(old_pid, active=True)
+            except Exception:
+                log.warning("could not re-activate old promo %s during rollback", old_pid)
+        try:
+            stripe.Coupon.delete(coupon.id)
+        except Exception:
+            log.warning("orphan coupon %s after new-promo create failed", coupon.id)
+        raise AffiliateError(f"Stripe promotion code create failed: {e}") from e
+
+    return coupon.id, promo.id
+
+
+def revert_reissue(old_promo_id, new_coupon_id, new_promo_id) -> None:
+    """Compensating undo for a reissue_coupon swap when the DB transaction that
+    was supposed to record it fails: restore the affiliate's PRE-change code by
+    re-activating the old promo, and remove the just-minted new coupon/promo so
+    nothing dangles. Best-effort per step; raises AffiliateError if any step
+    errors so the caller can surface ids for manual reconciliation."""
+    errs = []
+    if old_promo_id:
+        try:
+            stripe.PromotionCode.modify(old_promo_id, active=True)
+        except Exception as e:
+            errs.append(f"reactivate old promo {old_promo_id}: {e}")
+    if new_promo_id:
+        try:
+            stripe.PromotionCode.modify(new_promo_id, active=False)
+        except Exception as e:
+            errs.append(f"deactivate new promo {new_promo_id}: {e}")
+    if new_coupon_id:
+        try:
+            stripe.Coupon.delete(new_coupon_id)
+        except Exception as e:
+            errs.append(f"delete new coupon {new_coupon_id}: {e}")
+    if errs:
+        raise AffiliateError("; ".join(errs))
+
+
 # ---------------------------------------------------------------------------
 # 2) Commission engine
 # ---------------------------------------------------------------------------
@@ -225,11 +327,14 @@ def _invoice_refunded_cents(invd) -> int:
         return 0
 
 
-def _earliest_paid_invoice(customer_id: str, coupon_id: str | None = None):
+def _earliest_paid_invoice(customer_id: str, coupon_id: str | None = None,
+                           subscription_id: str | None = None):
     """(datetime, invoice_id) of the customer's earliest paid (amount_paid>0)
-    invoice, or (None, None). If coupon_id is given, only invoices that carried
-    THAT coupon count - so first_payment / duration_12mo anchor on the
-    affiliate-attributed purchase, not on some unrelated earlier invoice.
+    invoice, or (None, None). If subscription_id is given, only invoices for THAT
+    subscription count (coupon-independent, so the anchor survives a later
+    discount/coupon swap on the affiliate). Else if coupon_id is given, only
+    invoices that carried THAT coupon count - so first_payment / duration_12mo
+    anchor on the affiliate-attributed purchase, not on some unrelated earlier invoice.
     Returns the invoice id too so first_payment qualifies by IDENTITY (one
     invoice) rather than a time window - a window double-counts proration /
     true-up invoices Stripe mints minutes apart."""
@@ -242,7 +347,10 @@ def _earliest_paid_invoice(customer_id: str, coupon_id: str | None = None):
             invd = inv.to_dict() if hasattr(inv, "to_dict") else dict(inv)
             if (invd.get("amount_paid") or 0) <= 0:
                 continue
-            if coupon_id and coupon_id not in _invoice_coupon_ids(invd):
+            if subscription_id:
+                if _invoice_subscription_id(invd) != subscription_id:
+                    continue
+            elif coupon_id and coupon_id not in _invoice_coupon_ids(invd):
                 continue
             d = dt.datetime.fromtimestamp(invd.get("created") or 0, tz=dt.timezone.utc)
             if earliest_dt is None or d < earliest_dt:
@@ -358,11 +466,21 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
         model = getattr(aff, "commission_model", None) or "recurring"
         if model in ("first_payment", "duration_12mo"):
             cust = invd.get("customer")
-            # anchor on this affiliate's coupon, keyed per (customer, coupon)
-            ckey = (cust, aff.stripe_coupon_id)
-            if cust and ckey not in first_paid_cache:
-                first_paid_cache[ckey] = _earliest_paid_invoice(cust, aff.stripe_coupon_id)
-            first_dt, first_id = first_paid_cache.get(ckey, (None, None))
+            # Anchor the window on the SUBSCRIPTION's first paid invoice whenever
+            # the sub id is known (coupon-independent, so it survives a later
+            # discount/coupon swap via Change-terms - whether the hit is a
+            # persisted referral or a coupon-only match). Fall back to the coupon
+            # anchor only when the subscription id is unknown.
+            if sub_id:
+                akey = ("sub", sub_id)
+                if cust and akey not in first_paid_cache:
+                    first_paid_cache[akey] = _earliest_paid_invoice(cust, subscription_id=sub_id)
+                first_dt, first_id = first_paid_cache.get(akey, (None, None))
+            else:
+                ckey = ("coupon", cust, aff.stripe_coupon_id)
+                if cust and ckey not in first_paid_cache:
+                    first_paid_cache[ckey] = _earliest_paid_invoice(cust, coupon_id=aff.stripe_coupon_id)
+                first_dt, first_id = first_paid_cache.get(ckey, (None, None))
             if model == "first_payment":
                 # Qualify by invoice IDENTITY, not a time window: only the single
                 # earliest coupon-attributed invoice earns, so proration/true-up
