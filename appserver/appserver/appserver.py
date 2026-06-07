@@ -333,16 +333,7 @@ def get_resource_folder_from_token(token, resourceID):
 
     data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
 
-    # Bounds-guard the index: a non-numeric or out-of-range resourceID must fail clearly
-    # (a ValueError), never an IndexError/500 that could leak a stack trace.
-    rd = data.get('resource_disp') or []
-    try:
-        idx = int(resourceID)
-    except (ValueError, TypeError):
-        raise ValueError('resourceID must be numeric: %r' % (resourceID,))
-    if idx < 0 or idx >= len(rd):
-        raise ValueError('resourceID out of range: %r' % (resourceID,))
-    resourceName = rd[idx]
+    resourceName = available_resources.get(str(resourceID), '')  # by id, not resource_disp index (crypto id=16 sits at index 14)
 
     # print('......resourceName=',resourceName,data)
 
