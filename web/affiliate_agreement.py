@@ -254,3 +254,42 @@ def email_signed_copy(affiliate) -> bool:
         except Exception:
             pass
     return sent
+
+
+def email_signing_link(affiliate) -> bool:
+    """Best-effort: email the affiliate the private link to review and e-sign the
+    agreement. Returns True if Resend accepted it. Never raises. Does NOT modify
+    or commit the affiliate."""
+    if not getattr(affiliate, "email", None):
+        return False
+    try:
+        from email_utils import resend_send_email
+    except Exception:
+        return False
+    from html import escape as _esc
+    url = signing_url(affiliate)
+    first = (affiliate.name or "").strip().split(" ")[0] or "there"
+    body_text = (
+        f"Hi {first},\n\n"
+        f"Welcome to the TradeWave affiliate program. Please review and sign your "
+        f"affiliate agreement here (no login needed):\n\n{url}\n\n"
+        f"The link is private to you and expires in 30 days. Once you sign, your "
+        f"referral code activates and we email you a copy for your records.\n\n"
+        f"Thanks,\nThe TradeWave team\n"
+    )
+    html_body = (
+        f"<p>Hi {_esc(first)},</p>"
+        f"<p>Welcome to the TradeWave affiliate program. Please review and sign your "
+        f"affiliate agreement (no login needed):</p>"
+        f'<p><a href="{_esc(url)}">Review &amp; sign your agreement &rarr;</a></p>'
+        f"<p>The link is private to you and expires in 30 days. Once you sign, your "
+        f"referral code activates and we email you a copy for your records.</p>"
+        f"<p>Thanks,<br>The TradeWave team</p>"
+    )
+    try:
+        return bool(resend_send_email(
+            to=affiliate.email,
+            subject="Sign your TradeWave Affiliate Agreement",
+            body_text=body_text, html=html_body))
+    except Exception:
+        return False

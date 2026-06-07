@@ -122,7 +122,7 @@ except Exception as _stripe_http_err:
 from flask_admin import Admin, AdminIndexView, BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.actions import action
-from flask_admin.model.template import EndpointLinkRowAction
+from flask_admin.model.template import DeleteRowAction, EndpointLinkRowAction
 from flask import flash
 
 
@@ -2302,6 +2302,33 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         for a in affs:
             flash("%s: new signing link %s" % (a.code, agr.signing_url(a)), "info")
 
+    @action("email_signing_link", "Email signing link to affiliate",
+            "Email the agreement signing link to the selected affiliate(s)?")
+    def action_email_signing_link(self, ids):
+        import affiliate_agreement as agr
+        skipped = 0
+        for a in self.session.query(self.model).filter(self.model.id.in_(ids)).all():
+            if a.agreement_signed_at is not None or not a.email:
+                skipped += 1
+                continue
+            if agr.email_signing_link(a):
+                flash("Signing link emailed to %s (%s)." % (a.email, a.code), "success")
+            else:
+                flash("Could not email %s (%s) - copy the link and send it manually."
+                      % (a.code, a.email), "warning")
+        if skipped:
+            flash("%d affiliate(s) skipped (already signed or no email on file)."
+                  % skipped, "info")
+
+    def get_list_row_actions(self):
+        # Keep Delete as the LAST row icon, after our custom signing-link /
+        # signed-agreement icon. Flask-Admin appends column_extra_row_actions
+        # after Delete by default; move Delete back to the end.
+        actions = super().get_list_row_actions()
+        dels = [a for a in actions if isinstance(a, DeleteRowAction)]
+        rest = [a for a in actions if not isinstance(a, DeleteRowAction)]
+        return rest + dels
+
 
 class AffiliatePayoutAdmin(_AdminAuth, ModelView):
     # Rows are created by the compute step, not by hand. You edit only the
@@ -2534,8 +2561,16 @@ _SIGNED_VIEW_TMPL = """
  .doc{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px 36px;}
  .doc table{border-collapse:collapse;margin:10px 0;} .doc th,.doc td{border:1px solid #e3e6ee;padding:6px 10px;text-align:left;}
  .none{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px;color:#555;}
+ .flash{border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;border:1px solid #e3e6ee;}
+ .flash-success{background:#e7f6ec;color:#0a7d28;border-color:#bfe6cb;}
+ .flash-warning{background:#fffbe6;color:#8a6d00;border-color:#f0e6b0;}
+ .flash-error,.flash-danger{background:#fdeaea;color:#b00020;border-color:#f3c6c6;}
+ .flash-info{background:#eef2ff;color:#3a32a8;border-color:#cfd6f5;}
  @media print{body{background:#fff;}.bar{display:none;}.doc{border:0;padding:0;}}
 </style></head><body><div class="wrap">
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% if msgs %}{% for cat, m in msgs %}<div class="flash flash-{{ cat }}">{{ m }}</div>{% endfor %}{% endif %}
+{% endwith %}
 {% if not found %}
   <div class="none">Affiliate not found.</div>
 {% elif not signed %}
@@ -2553,7 +2588,18 @@ _SIGNED_VIEW_TMPL = """
              style="flex:1;min-width:280px;padding:8px 10px;border:1px solid #cfd3e0;border-radius:7px;font-size:13px;color:#1f2a44;">
       <button onclick="copySignLink(this)">Copy link</button>
     </div>
-    <p style="margin-top:14px;"><a href="{{ signing_url }}" target="_blank" rel="noopener">Open the signing page &rarr;</a></p>
+    <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      {% if aff.email %}
+      <form method="post" action="{{ url_for('affiliate_signed.send') }}" style="margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="id" value="{{ aff.id }}">
+        <button type="submit">Email link to {{ aff.email }}</button>
+      </form>
+      {% else %}
+      <span style="color:#b00020;font-size:13px;">No contact email on file - add one on the affiliate record to enable emailing.</span>
+      {% endif %}
+      <a href="{{ signing_url }}" target="_blank" rel="noopener">Open the signing page &rarr;</a>
+    </div>
     {% else %}
     <p style="color:#b00020;">Could not generate a signing link (the signing secret is unset).</p>
     {% endif %}
@@ -2620,6 +2666,40 @@ class AffiliateSignedView(_AdminAuth, BaseView):
                 _SIGNED_VIEW_TMPL, found=aff is not None, aff=aff, signed=signed,
                 snapshot=(aff.agreement_snapshot if aff else "") or "",
                 signing_url=signing_url)
+        finally:
+            s.close()
+
+    @expose("/send", methods=["POST"])
+    def send(self):
+        """Email the signing link to the affiliate (button on the unsigned page /
+        the list bulk action both route here in spirit). Sends nothing if already
+        signed or no email on file. Best-effort via Resend."""
+        from flask import request as _rq, redirect, url_for as _url_for, flash
+        import uuid as _uuid
+        from models import Session as _S, Affiliate as _Aff
+        import affiliate_agreement as _agr
+        aid = _rq.form.get("id", "")
+        try:
+            _uuid.UUID(aid)
+        except (ValueError, TypeError, AttributeError):
+            flash("Invalid affiliate id.", "error")
+            return redirect(_url_for("affiliate_signed.index", id=aid))
+        s = _S()
+        try:
+            aff = s.query(_Aff).filter(_Aff.id == aid).first()
+            if aff is None:
+                flash("Affiliate not found.", "error")
+            elif aff.agreement_signed_at is not None:
+                flash("%s has already signed; no link sent." % aff.code, "warning")
+            elif not aff.email:
+                flash("%s has no contact email on file; can't email the link."
+                      % aff.code, "error")
+            elif _agr.email_signing_link(aff):
+                flash("Signing link emailed to %s." % aff.email, "success")
+            else:
+                flash("Could not send the email (check RESEND_API_KEY). Copy the "
+                      "link and send it manually.", "warning")
+            return redirect(_url_for("affiliate_signed.index", id=aid))
         finally:
             s.close()
 
