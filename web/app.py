@@ -122,6 +122,7 @@ except Exception as _stripe_http_err:
 from flask_admin import Admin, AdminIndexView, BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.actions import action
+from flask_admin.model.template import EndpointLinkRowAction
 from flask import flash
 
 
@@ -2131,6 +2132,16 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                 m.agreement_signed_at.strftime("%Y-%m-%d")))
             if m.agreement_signed_at else "— Awaiting signature"),
     }
+    # 4th per-row icon (next to view/edit/delete): opens the affiliate's signing
+    # link when unsigned, or the stored signed agreement once signed.
+    column_extra_row_actions = [
+        EndpointLinkRowAction(
+            "fa fa-file-text glyphicon glyphicon-file",
+            "affiliate_signed.index",
+            title="Signing link / signed agreement",
+            id_arg="id",
+        ),
+    ]
     can_view_details = True
     column_details_list = ("code", "name", "email", "status",
                            "discount_pct", "commission_pct", "commission_model",
@@ -2519,7 +2530,7 @@ _SIGNED_VIEW_TMPL = """
  .bar{background:#fff;border:1px solid #e3e6ee;border-radius:10px;padding:14px 18px;margin-bottom:16px;
       display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
  .bar .meta{font-size:13px;color:#555;}
- .bar button{font-size:13px;border:1px solid #cfd3e0;background:#fff;color:#1f2a44;border-radius:7px;padding:7px 12px;cursor:pointer;}
+ .bar button, .doc button{font-size:13px;border:1px solid #cfd3e0;background:#fff;color:#1f2a44;border-radius:7px;padding:8px 12px;cursor:pointer;}
  .doc{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px 36px;}
  .doc table{border-collapse:collapse;margin:10px 0;} .doc th,.doc td{border:1px solid #e3e6ee;padding:6px 10px;text-align:left;}
  .none{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px;color:#555;}
@@ -2527,9 +2538,39 @@ _SIGNED_VIEW_TMPL = """
 </style></head><body><div class="wrap">
 {% if not found %}
   <div class="none">Affiliate not found.</div>
+{% elif not signed %}
+  <div class="bar">
+    <div class="meta"><strong>{{ aff.code }}</strong> &middot; awaiting signature
+      &middot; status {{ aff.status }}</div>
+  </div>
+  <div class="doc">
+    <h2 style="margin-top:0;">Signing link</h2>
+    <p>Send this private link to the affiliate to review and sign the agreement.
+       No login is needed, and it expires 30 days after it was issued.</p>
+    {% if signing_url %}
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input id="signlink" type="text" readonly value="{{ signing_url }}" onclick="this.select()"
+             style="flex:1;min-width:280px;padding:8px 10px;border:1px solid #cfd3e0;border-radius:7px;font-size:13px;color:#1f2a44;">
+      <button onclick="copySignLink(this)">Copy link</button>
+    </div>
+    <p style="margin-top:14px;"><a href="{{ signing_url }}" target="_blank" rel="noopener">Open the signing page &rarr;</a></p>
+    {% else %}
+    <p style="color:#b00020;">Could not generate a signing link (the signing secret is unset).</p>
+    {% endif %}
+  </div>
+  <script>
+    function copySignLink(btn){
+      var i=document.getElementById('signlink'); if(!i){return;}
+      i.select(); i.setSelectionRange(0, 99999);
+      var done=function(){var t=btn.textContent; btn.textContent='Copied'; setTimeout(function(){btn.textContent=t;}, 1200);};
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(i.value).then(done, function(){try{document.execCommand('copy'); done();}catch(e){}});
+      }else{try{document.execCommand('copy'); done();}catch(e){}}
+    }
+  </script>
 {% elif not snapshot %}
-  <div class="none"><strong>{{ aff.code }}</strong> has no signed agreement on file
-  (not signed yet, or signed before snapshots were recorded).</div>
+  <div class="none"><strong>{{ aff.code }}</strong> signed on {{ aff.agreement_signed_at }},
+  but no snapshot is on file (signed before snapshots were recorded).</div>
 {% else %}
   <div class="bar">
     <div class="meta"><strong>{{ aff.code }}</strong> &middot; signed by
@@ -2556,17 +2597,29 @@ class AffiliateSignedView(_AdminAuth, BaseView):
         from flask import render_template_string, request as _rq
         import uuid as _uuid
         from models import Session as _S, Affiliate as _Aff
+        import affiliate_agreement as _agr
         aid = _rq.args.get("id", "")
         try:
             _uuid.UUID(aid)
         except (ValueError, TypeError, AttributeError):
-            return render_template_string(_SIGNED_VIEW_TMPL, found=False, aff=None, snapshot="")
+            return render_template_string(_SIGNED_VIEW_TMPL, found=False, aff=None,
+                                          signed=False, snapshot="", signing_url="")
         s = _S()
         try:
             aff = s.query(_Aff).filter(_Aff.id == aid).first()
+            signed = bool(aff and aff.agreement_signed_at)
+            # Unsigned: surface the signing link so the operator can copy/send it
+            # (fails closed to "" if the signing secret is unset).
+            signing_url = ""
+            if aff is not None and not signed:
+                try:
+                    signing_url = _agr.signing_url(aff)
+                except Exception:
+                    signing_url = ""
             return render_template_string(
-                _SIGNED_VIEW_TMPL, found=aff is not None, aff=aff,
-                snapshot=(aff.agreement_snapshot if aff else "") or "")
+                _SIGNED_VIEW_TMPL, found=aff is not None, aff=aff, signed=signed,
+                snapshot=(aff.agreement_snapshot if aff else "") or "",
+                signing_url=signing_url)
         finally:
             s.close()
 
