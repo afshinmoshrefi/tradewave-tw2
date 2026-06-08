@@ -31,6 +31,7 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -54,6 +55,90 @@ INSTRUMENTS = [
     {"symbol": "NG",   "exchange": "COMM", "slug": "natural-gas", "appserver_symbol": "NG"},
     {"symbol": "GC",   "exchange": "COMM", "slug": "gold",        "appserver_symbol": "GC"},
 ]
+
+
+# Fields published into /assets/quotes.json (the single source of truth the
+# pages read client-side).
+_QUOTE_FIELDS = ("close", "change", "change_p", "open", "high", "low",
+                 "previousClose", "volume", "timestamp")
+
+# Tag injected before </body> on every page so the bar + hero read quotes.json.
+_SCRIPT_TAG = '<script src="/assets/market-quotes.js" defer></script>'
+
+# Client updater: on load, fetch /assets/quotes.json and overwrite the market
+# bar (every page) + the hero quote (on /markets/<slug>.html) with the SAME
+# live values, so the home top bar and the securities pages can never disagree.
+_MARKET_QUOTES_JS = r"""/* TradeWave live market quotes - written by site/refresh_market_quotes.py.
+   One source of truth (/assets/quotes.json) so the home top bar matches every
+   /markets quote page exactly, regardless of when each page's HTML was baked. */
+(function () {
+  var SLUG2SYM = {sp500:'GSPC', dow:'DJI', nasdaq:'IXIC', vix:'VIX',
+                  'crude-oil':'CL', 'natural-gas':'NG', gold:'GC'};
+  function fmtPrice(v) {
+    v = parseFloat(v); if (isNaN(v)) return null;
+    var a = Math.abs(v);
+    if (a >= 1000) return v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    if (a >= 10) return v.toFixed(2);
+    return v.toFixed(4);
+  }
+  function pct(cp) {
+    cp = parseFloat(cp); if (isNaN(cp)) return null;
+    var s = cp >= 0 ? '+' : '';
+    return [s + cp.toFixed(2) + '%', cp >= 0 ? 'up' : 'down'];
+  }
+  function heroChg(c, cp) {
+    c = parseFloat(c); cp = parseFloat(cp); if (isNaN(cp)) return null;
+    var s = cp >= 0 ? '+' : '', d = cp >= 0 ? 'up' : 'down';
+    if (!isNaN(c)) return [s + c.toFixed(2) + ' (' + s + cp.toFixed(2) + '%)', d];
+    return [s + cp.toFixed(2) + '%', d];
+  }
+  function apply(q) {
+    if (!q) return;
+    var items = document.querySelectorAll('a.market-item');
+    for (var i = 0; i < items.length; i++) {
+      var a = items[i];
+      var m = (a.getAttribute('href') || '').match(/\/markets\/([^.\/]+)\.html/);
+      if (!m) continue;
+      var d = q[SLUG2SYM[m[1]]]; if (!d || d.close == null) continue;
+      var ps = a.querySelector('.market-price'); var p = fmtPrice(d.close);
+      if (ps && p) ps.textContent = p;
+      var pc = pct(d.change_p); var cs = a.querySelector('.market-change');
+      if (cs && pc) { cs.textContent = pc[0]; cs.className = 'market-change ' + pc[1]; }
+      if (pc) { var cur = /\bcurrent\b/.test(a.className) ? ' current' : ''; a.className = 'market-item ' + pc[1] + cur; }
+    }
+    var pm = document.querySelector('.price-main');
+    var path = (location.pathname || '').match(/\/markets\/([^.\/]+)\.html/);
+    if (pm && path) {
+      var d = q[SLUG2SYM[path[1]]];
+      if (d && d.close != null) {
+        var p = fmtPrice(d.close); if (p) pm.textContent = p;
+        var hc = heroChg(d.change, d.change_p); var ce = document.querySelector('.price-change');
+        if (ce && hc) { ce.textContent = hc[0]; ce.className = 'price-change ' + hc[1]; }
+        var map = {Open: 'open', High: 'high', Low: 'low', 'Prev Close': 'previousClose'};
+        var labels = document.querySelectorAll('.quote-detail-label');
+        for (var j = 0; j < labels.length; j++) {
+          var lab = (labels[j].textContent || '').trim(); var val = labels[j].nextElementSibling;
+          if (!val) continue;
+          if (map[lab] != null) { var fv = fmtPrice(d[map[lab]]); if (fv) val.textContent = fv; }
+          else if (lab === 'Volume' && d.volume != null) {
+            var vv = parseFloat(d.volume);
+            if (!isNaN(vv)) val.textContent = vv.toLocaleString('en-US', {maximumFractionDigits: 0});
+          }
+        }
+      }
+    }
+  }
+  function load() {
+    try {
+      fetch('/assets/quotes.json?_=' + Math.floor(Date.now() / 30000), {cache: 'no-store'})
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(apply).catch(function () {});
+    } catch (e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
+  else load();
+})();
+"""
 
 
 def _fmt_price(val):
@@ -174,6 +259,15 @@ def _refresh_hero(html, inst, q):
     return html
 
 
+def _ensure_script_tag(html):
+    """Inject the market-quotes.js tag before </body> if not already present."""
+    if "market-quotes.js" in html:
+        return html
+    if "</body>" in html:
+        return html.replace("</body>", "    " + _SCRIPT_TAG + "\n</body>", 1)
+    return html + "\n" + _SCRIPT_TAG + "\n"
+
+
 def _write_atomic(path, text):
     d = os.path.dirname(path)
     fd, tmp = tempfile.mkstemp(dir=d, prefix=".rmq.")
@@ -182,6 +276,28 @@ def _write_atomic(path, text):
         f.write(text)
     os.replace(tmp, path)
     os.chmod(path, 0o644)
+
+
+def _write_assets(root, quotes):
+    """Write /assets/quotes.json (source of truth) + /assets/market-quotes.js."""
+    assets = os.path.join(root, "assets")
+    os.makedirs(assets, exist_ok=True)
+    payload = {}
+    for inst in INSTRUMENTS:
+        q = quotes.get(inst["symbol"])
+        if not q:
+            continue
+        payload[inst["symbol"]] = {k: q.get(k) for k in _QUOTE_FIELDS}
+    _write_atomic(os.path.join(assets, "quotes.json"),
+                  json.dumps(payload, separators=(",", ":")))
+    js_path = os.path.join(assets, "market-quotes.js")
+    # Only rewrite the JS if it changed (it is effectively static).
+    existing = None
+    if os.path.exists(js_path):
+        with open(js_path, encoding="utf-8") as f:
+            existing = f.read()
+    if existing != _MARKET_QUOTES_JS:
+        _write_atomic(js_path, _MARKET_QUOTES_JS)
 
 
 def main():
@@ -201,6 +317,9 @@ def main():
         print("refresh_market_quotes: no quotes fetched; leaving files unchanged.")
         return 1
 
+    if not args.dry_run:
+        _write_assets(root, quotes)
+
     targets = [(os.path.join(root, "home.html"), None)]
     for inst in INSTRUMENTS:
         targets.append((os.path.join(root, "markets", "%s.html" % inst["slug"]), inst))
@@ -214,6 +333,7 @@ def main():
         html = _refresh_bar(orig, quotes)
         if inst is not None and inst["symbol"] in quotes:
             html = _refresh_hero(html, inst, quotes[inst["symbol"]])
+        html = _ensure_script_tag(html)
         if html != orig:
             changed += 1
             if args.dry_run:
