@@ -97,6 +97,26 @@ def validate(market_id, year1, year2, path, display_name=None):
     return None
 
 
+def market_summary(market_id):
+    """Compact per-market pattern-detection summary for list_markets, so an agent can answer
+    coverage/band questions ('does Wilshire support per-symbol patterns? what win-rate floor?')
+    from data instead of a trial-and-error call."""
+    scan = _floor_map(market_id, "scan")
+    out = {
+        "scan_detection": bool(scan),                                # find_best_opportunities/get_seasonal_opportunities
+        "by_symbol_detection": path_supported(market_id, "symbol"),  # get_symbol_patterns (5 markets only)
+    }
+    if scan:
+        y1s = sorted(int(k) for k in scan)
+        out["lookback_years_range"] = [y1s[0], y1s[-1]]
+        ref = 20 if 20 in y1s else y1s[-1]   # an illustrative band so the win-rate floor is visible
+        fl = scan.get(str(ref))
+        if fl is not None:
+            out["example_band"] = ("%d-year lookback: min_winning_years %d-%d (~%d%%+ winners)"
+                                   % (ref, fl, ref, round(100.0 * fl / ref)))
+    return out
+
+
 def out_of_band_markets(market_ids, year1, year2, path):
     """For the MULTI-market scan: which of these markets is the (year1, year2) combo out of band
     for (so they contributed nothing)? Returns a list of market ids. The scan stays lenient (it

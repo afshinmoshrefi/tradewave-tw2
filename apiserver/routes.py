@@ -173,6 +173,9 @@ def markets():
             "name": m["name"],
             "ml_eligible": m["id"] in tiers.ML_MARKETS,
             "in_scope": m["id"] in scope,
+            # which seasonal pattern-detection paths exist for this market + an example win-rate
+            # band, so an agent can answer coverage/band questions without a trial call.
+            "pattern_detection": market_bands.market_summary(m["id"]),
         })
     return jsonify({"markets": out})
 

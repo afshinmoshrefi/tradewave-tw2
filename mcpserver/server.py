@@ -754,7 +754,10 @@ def compare_opportunities(
         "access scope. "
         "Use when the user asks which markets are available, what markets TradeWave covers, "
         "or which markets they have access to. Returns market ids (the stable keys used "
-        "in all other tools), names, ML eligibility, and in-scope flag."
+        "in all other tools), names, ML eligibility, in-scope flag, and each market's "
+        "pattern_detection coverage (scan vs per-symbol) with an example win-rate band - so you can "
+        "answer 'which markets support per-symbol patterns?' or 'what lookback/min_winning_years is "
+        "valid for this market?' from data."
     )
 )
 def list_markets(ctx: Context) -> str:
@@ -826,18 +829,36 @@ _TRADEWAVE_GUIDE = (
     "  - track_record.win_rate: the LIVE, forward-tested record of past daily picks (out-of-sample - the real proof).\n\n"
     "edge_score (0-100): a blend of historical_win_rate, Sharpe, years of history, and the ML score - one number to rank by.\n\n"
     "How to act on a card: respect the entry WINDOW (entering late or after it closes loses the edge). "
-    "NO_SIGNAL means TradeWave found NO statistical edge - a genuine 'no edge' finding, not weak support. "
+    "NO_SIGNAL means TradeWave found NO statistical edge - a genuine 'no edge' finding, not weak support.\n\n"
+    "THE SEASONAL ANALYSIS KNOBS (what they mean + how to choose them):\n"
+    "  - Two modes: DETECTION (find patterns: find_best_opportunities / get_seasonal_opportunities / "
+    "get_symbol_patterns) vs ANALYSIS (score one setup: analyze_symbol / get_opportunity_chart). The "
+    "`years` knob is constrained on DETECTION (see below) and free (1-99, scored on the fly) on ANALYSIS.\n"
+    "  - years (lookback) + min_winning_years (of those years, the minimum that won) = the WIN-RATE "
+    "FLOOR (year2/year1). Patterns only exist INSIDE a per-market band, so min_winning_years is not "
+    "free: e.g. at a 20-year lookback S&P 500 allows 17-20 (~85%+), Wilshire 18-20 (~90%), FOREX "
+    "Liquid 14-20 (~70%). A combo below the floor (e.g. 20-9 = 45%) is impossible and is rejected with "
+    "the valid range. You rarely set it: omit it and it DEFAULTS to ~90% of years (years=20 -> 20-18).\n"
+    "  - min_days / max_days = the pattern's HOLDING-PERIOD length in days (use both for a range, e.g. "
+    "10-90). pe_cycle = consecutive (default) vs presidential-cycle. direction = long|short.\n"
+    "  - Coverage: 15 active markets; per-SYMBOL patterns (get_symbol_patterns) exist for DOW 30, "
+    "NASDAQ 100, S&P 500, Futures & Commodities, FOREX Liquid only - for other markets use "
+    "find_best_opportunities. ML scores cover US stocks + ETFs (ids 0-4, 11). Call list_markets for "
+    "each market's scope and pattern coverage.\n\n"
     "Nothing here is personalized investment advice."
 )
 
 
 @mcp.tool(
     description=(
-        "How TradeWave works + how to research with it. REACH FOR THIS on 'what is this / how do I "
-        "read these cards / how do the win rates differ / how should I use TradeWave', or before "
-        "relying on a card. Returns the research method (edge -> extend with your own tools -> "
-        "synthesize), the glossary (the three distinct win rates, edge_score, the Trend Chart), what "
-        "TradeWave can and cannot tell you, and how to act on a SignalCard."
+        "How TradeWave works + how to research with it, AND what its seasonal analysis variables mean. "
+        "REACH FOR THIS on 'what is this / how do I read these cards / how do the win rates differ / "
+        "what does min_winning_years (or years / lookback / the win-rate band) mean / how do I pick a "
+        "lookback / which markets have what', or before relying on a card. Returns the research method "
+        "(edge -> extend with your own tools -> synthesize), the glossary (the three distinct win "
+        "rates, edge_score, the Trend Chart), the SEASONAL KNOBS (lookback years + min_winning_years "
+        "and the per-market win-rate band, day-range, market coverage), what TradeWave can and cannot "
+        "tell you, and how to act on a SignalCard."
     )
 )
 def describe_tradewave(ctx: Optional[Context] = None) -> str:
