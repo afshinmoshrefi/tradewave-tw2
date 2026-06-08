@@ -10,7 +10,9 @@ read_minutes: 8
 
 The Model Context Protocol (MCP) is an open standard that lets an AI assistant call external tools through a single connection. Instead of pasting JSON into a chat or writing glue code, you point the assistant at a server, and it discovers the available tools and calls them on your behalf. Ask in plain English, and the agent decides which tool to run.
 
-TradeWave runs an MCP server at `https://mcp.tradewave.ai`. It exposes the exact same derived signals as the REST API - the server composes the `SignalCard` for you, so your agent gets percentages, a normalized seasonal index, an honest edge score, and a public track record. It never gets raw prices or OHLCV bars. Every response still carries its `disclaimer`: outputs are educational, not personalized advice.
+TradeWave runs a hosted MCP server at `https://mcp.tradewave.ai/mcp`. It exposes the exact same derived signals as the REST API - the server composes the `SignalCard` for you, so your agent gets percentages, a normalized seasonal index, an honest edge score, and a public track record. It never gets raw prices or OHLCV bars. Every response still carries its `disclaimer`: outputs are educational, not personalized advice.
+
+TradeWave is a research partner, not an oracle. It supplies a seasonal plus 62-feature-ML statistical edge and the timing, and it is deliberately blind to fundamentals, valuation, news, catalysts, macro and rates, analyst views, earnings dates, and the live price. That is by design: it pairs with your assistant's own web, news, and reasoning tools. TradeWave brings the seasonal/ML edge, the agent extends it with fundamentals, news, and macro, and the two synthesize one view. Every card carries a research hand-off, and the `describe_tradewave` tool lets the agent self-document the method before it leans on a number.
 
 Authentication is BYOK (bring your own key). Your MCP client sends the same bearer token you use for REST:
 
@@ -22,7 +24,7 @@ Get a key at https://tradewave.ai/account/api/keys. Treat it like a password and
 
 ## The flagship tools
 
-The server publishes five high-level tools that map to the richest API calls, plus nine lower-level primitives (markets, symbols, opportunities, patterns, seasonal chart, score, and so on) for agents that want to compose their own workflow.
+The server publishes 16 tools: 5 flagship tools that map to the richest API calls, plus 11 lower-level primitives for agents that want to compose their own workflow. The flagship five lead the menu: `find_best_opportunities`, `analyze_symbol`, `explain_pick`, `whats_seasonal_now`, and `compare_opportunities`. Behind them sit the 11 primitives: `list_markets`, `whoami`, `describe_tradewave`, `list_symbols`, `get_seasonal_opportunities`, `get_symbol_patterns`, `get_seasonal_pattern`, `get_opportunity_chart`, `score_opportunities`, `get_daily_pick`, and `get_pick_track_record`. Two are worth calling out: `whoami` reports your tier and remaining ML allowance, and `describe_tradewave` self-documents the seasonal/ML method so the agent can explain what the numbers mean before it uses them.
 
 | Tool | What it does | Maps to |
 | --- | --- | --- |
@@ -51,7 +53,7 @@ Add a `tradewave` entry under `mcpServers`:
       "args": [
         "-y",
         "mcp-remote",
-        "https://mcp.tradewave.ai",
+        "https://mcp.tradewave.ai/mcp",
         "--header",
         "Authorization: Bearer tw_live_xxx"
       ]
@@ -74,7 +76,7 @@ Cursor reads MCP servers from `~/.cursor/mcp.json` (or a project-local `.cursor/
       "args": [
         "-y",
         "mcp-remote",
-        "https://mcp.tradewave.ai",
+        "https://mcp.tradewave.ai/mcp",
         "--header",
         "Authorization: Bearer tw_live_xxx"
       ]
@@ -89,7 +91,7 @@ Reload the window. Cursor's agent can now call `find_best_opportunities` and fri
 
 ChatGPT connects to remote MCP servers over HTTP directly, so there is no `npx` bridge. In the connector settings, add a custom MCP connector pointing at the server URL and supply the auth header:
 
-- Server URL: `https://mcp.tradewave.ai`
+- Server URL: `https://mcp.tradewave.ai/mcp`
 - Header: `Authorization: Bearer tw_live_xxx`
 
 Once the connector is enabled, the TradeWave tools are available to the model in that conversation. Because authentication is header-based BYOK, the key stays in your connector config and never goes into the chat.
@@ -108,10 +110,11 @@ A useful habit: ask the agent to surface the two probabilities by name so you do
 
 | Field | Meaning | Range |
 | --- | --- | --- |
-| `historical_win_rate` | Share of past years that were profitable | 0..1 |
-| `ml_win_prob` | The ML model's predicted probability for this setup | 0..1 |
+| `historical_win_rate` | Seasonal in-sample share of past years that were profitable | 0..1 |
+| `ml_win_prob` | The 62-feature ML model's predicted probability for this setup | 0..1 |
+| `track_record.win_rate` | The live, forward-tested hit rate of the published daily picks | 0..1 |
 
-One is the historical record; the other is a forward-looking prediction. They answer different questions, so never let your agent blend them into a single "win rate."
+These are three different numbers. One is the seasonal historical record, one is a forward-looking per-instance ML prediction, and one is the live forward-tested result of real published picks. They answer different questions, so never let your agent blend them into a single "win rate."
 
 ## What the agent gets back
 
@@ -121,7 +124,7 @@ Here is a trimmed result from `find_best_opportunities`, illustrative only - you
 {
   "rank": 1,
   "symbol": "XLE",
-  "market": { "id": 3, "name": "ETFs" },
+  "market": { "id": 11, "name": "ETFs" },
   "direction": "long",
   "signal": "BUY",
   "setup": {

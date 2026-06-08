@@ -44,26 +44,26 @@ LEGAL_DISCLAIMER = (
     "not guarantee future results."
 )
 
-# Market names for the 15 active keys (14/15 removed = Korea).
+# Market names for the 15 active keys (ids 14/15 do not exist).
 MARKET_NAMES = {
-    "0": "S&P 500",
-    "1": "NASDAQ 100",
-    "2": "Energy (Futures)",
-    "3": "Metals (Futures)",
-    "4": "Agriculture (Futures)",
-    "5": "Forex",
-    "6": "European Equities",
-    "7": "Asia-Pacific Equities",
-    "8": "Emerging Markets",
-    "9": "US Small/Mid Cap",
-    "10": "Fixed Income / Rates",
-    "11": "US Sector ETFs",
-    "12": "Canadian Equities",
-    "13": "Australian Equities",
-    "16": "Crypto",
+    "0": "DOW 30 STOCKS",
+    "1": "NASDAQ 100 STOCKS",
+    "2": "S&P 500 STOCKS",
+    "3": "RUSSELL 1000 STOCKS",
+    "4": "WILSHIRE 5000",
+    "5": "INDICES COMMON",
+    "6": "INDICES ALL",
+    "7": "FUTURES & COMMODITIES",
+    "8": "FOREX ALL",
+    "9": "FOREX LIQUID",
+    "10": "GOVERNMENT BONDS",
+    "11": "ETFs",
+    "12": "LONDON EXCHANGE",
+    "13": "TORONTO STOCKS",
+    "16": "CRYPTO CURRENCIES",
 }
 
-FREE_MARKET_NAME = MARKET_NAMES.get("2", "Energy (Futures)")  # free tier = market 2 only
+FREE_MARKET_NAME = MARKET_NAMES.get("2", "S&P 500 STOCKS")  # free tier = market 2 only (S&P 500 stocks)
 
 
 # ---------------------------------------------------------------------------
@@ -579,10 +579,11 @@ def build_index() -> str:
       <div class="card diff-card">
         <div class="diff-icon">&#129302;</div>
         <h3>Agent-native via MCP</h3>
-        <p>The TradeWave MCP server connects in two lines of config to Claude, Cursor,
+        <p>The TradeWave MCP server is a hosted HTTP endpoint that connects in two lines of config to Claude, Cursor,
            or any MCP-compatible host. Ask your AI assistant to find the strongest
-           seasonal longs in energy, rank by ML score, and compare to the live
-           track record - no glue code required.</p>
+           seasonal longs in S&P 500 stocks, rank by ML score, and compare to the live
+           track record - no glue code required. TradeWave supplies the seasonal and ML edge
+           plus the timing; your assistant pairs it with its own fundamentals, news, and macro tools.</p>
       </div>
     </div>
   </div>
@@ -763,7 +764,7 @@ def build_index() -> str:
   <div class="container" style="text-align:center;">
     <h2 class="gradient-text-w" style="font-size:36px;font-weight:800;margin-bottom:16px;">Start building today</h2>
     <p style="color:var(--dim);font-size:17px;max-width:600px;margin:0 auto 32px;line-height:1.7;">
-      A free key gives you the Energy market, the daily pick, and 5 ML signals/day.
+      A free key gives you the S&P 500 stocks market, the daily pick, and 5 ML signals/day.
       Upgrade to Dev for all 15 markets, or Pro for unlimited ML scoring.
     </p>
     <div class="hero-ctas">
@@ -999,10 +1000,10 @@ POST /v1/score  <span class="cm"># unlimited</span>
           <span style="font-size:20px;color:var(--muted);">+</span>
         </summary>
         <p style="padding:0 0 18px;font-size:14px;color:var(--dim);line-height:1.7;">
-          TradeWave covers 15 active markets: S&amp;P 500, NASDAQ 100, Energy futures,
-          Metals, Agriculture, Forex, European and Asia-Pacific equities, Emerging Markets,
-          US Small/Mid Cap, Fixed Income, US Sector ETFs, Canadian equities, Australian
-          equities, and Crypto. The Free tier includes Energy (futures) only.
+          TradeWave covers 15 active markets: Dow 30, NASDAQ 100, S&amp;P 500, and Russell 1000
+          stocks, the Wilshire 5000, indices, futures and commodities, Forex (all and liquid),
+          government bonds, ETFs, the London exchange, Toronto stocks, and crypto currencies.
+          The Free tier includes S&amp;P 500 stocks only.
         </p>
       </details>
       <details style="border-bottom:1px solid var(--border);padding:0;">
@@ -1088,7 +1089,7 @@ def build_mcp() -> str:
     def agent(text: str) -> str:
         return f'<div class="chat-label">Claude (via TradeWave MCP)</div><div class="bubble agent">{text}</div>'
 
-    # Conversation 1: seasonal longs in energy, ML-ranked.
+    # Conversation 1: seasonal longs in S&P 500 stocks, ML-ranked.
     conv1 = f"""<div class="chat-window">
   <div class="chat-bar">
     <span class="chat-dot red"></span>
@@ -1097,24 +1098,25 @@ def build_mcp() -> str:
     <span class="chat-title">Claude - Pro plan (unlimited ML)</span>
   </div>
   <div class="chat-body">
-    {user("Find the strongest seasonal longs in energy with greater than 70% win probability, ranked by ML score.")}
+    {user("Find the strongest seasonal longs in S&P 500 stocks with greater than 70% win probability, ranked by ML score.")}
     {tool("tradewave.get_seasonal_opportunities(market='2', direction='long', min_win_rate=0.70)")}
     {tool("tradewave.score_opportunities([list of 14 setups])")}
-    {agent("""I found <strong>14 seasonal long setups</strong> in the Energy market with base win rates above 70%.
+    {agent("""I found <strong>14 seasonal long setups</strong> in the S&P 500 stocks market with historical win rates above 70%.
 After running them through the ML scorer here are the top 5, ranked by ML score:<br><br>
 <table class="bubble-table">
-  <thead><tr><th>Symbol</th><th>Entry</th><th>Hold</th><th>Base WR</th><th>ML Win Prob</th><th>ML Score</th><th>Pred Return</th></tr></thead>
+  <thead><tr><th>Symbol</th><th>Entry</th><th>Hold</th><th>Hist WR</th><th>ML Win Prob</th><th>ML Score</th><th>Pred Return</th></tr></thead>
   <tbody>
-    <tr><td>CL1</td><td>Jun 12</td><td>18d</td><td>74%</td><td class="hi">84%</td><td class="acc">91</td><td class="hi">+5.1%</td></tr>
-    <tr><td>HO1</td><td>Jun 14</td><td>22d</td><td>71%</td><td class="hi">81%</td><td class="acc">88</td><td class="hi">+4.3%</td></tr>
-    <tr><td>NG1</td><td>Jun 18</td><td>15d</td><td>76%</td><td class="hi">79%</td><td class="acc">84</td><td class="hi">+3.8%</td></tr>
-    <tr><td>RB1</td><td>Jun 10</td><td>20d</td><td>70%</td><td class="hi">77%</td><td class="acc">80</td><td class="hi">+3.2%</td></tr>
-    <tr><td>BZ1</td><td>Jun 15</td><td>17d</td><td>73%</td><td class="hi">76%</td><td class="acc">77</td><td class="hi">+2.9%</td></tr>
+    <tr><td>AAPL</td><td>Jun 12</td><td>18d</td><td>74%</td><td class="hi">84%</td><td class="acc">91</td><td class="hi">+5.1%</td></tr>
+    <tr><td>MSFT</td><td>Jun 14</td><td>22d</td><td>71%</td><td class="hi">81%</td><td class="acc">88</td><td class="hi">+4.3%</td></tr>
+    <tr><td>NVDA</td><td>Jun 18</td><td>15d</td><td>76%</td><td class="hi">79%</td><td class="acc">84</td><td class="hi">+3.8%</td></tr>
+    <tr><td>JPM</td><td>Jun 10</td><td>20d</td><td>70%</td><td class="hi">77%</td><td class="acc">80</td><td class="hi">+3.2%</td></tr>
+    <tr><td>HD</td><td>Jun 15</td><td>17d</td><td>73%</td><td class="hi">76%</td><td class="acc">77</td><td class="hi">+2.9%</td></tr>
   </tbody>
 </table><br>
-<strong>CL1 (WTI crude) entering Jun 12</strong> has the strongest ML conviction - an 84% win probability
-vs. a 74% base seasonal rate, holding 18 days. The ML model is lifting all five setups
-meaningfully above their seasonal base. Want the chart data for any of these?""")}
+<strong>AAPL entering Jun 12</strong> has the strongest ML conviction - an 84% ML win probability
+vs. a 74% historical seasonal win rate, holding 18 days. The ML model is lifting all five setups
+meaningfully above their seasonal base. This is a seasonal and ML read only - pair it with your own
+check on fundamentals, earnings dates, and news before you act. Want the Trend Chart data for any of these?""")}
   </div>
 </div>"""
 
@@ -1140,15 +1142,15 @@ outcome measured at end of hold period):<br><br>
   <thead><tr><th>Date</th><th>Symbol</th><th>Direction</th><th>Hold</th><th>Result</th><th>Return</th></tr></thead>
   <tbody>
     <tr><td>May 26</td><td>CVX</td><td>Long</td><td>18d</td><td class="hi">Win</td><td class="hi">+4.1%</td></tr>
-    <tr><td>May 23</td><td>SLB</td><td>Long</td><td>20d</td><td class="hi">Win</td><td class="hi">+2.8%</td></tr>
-    <tr><td>May 22</td><td>HAL</td><td>Long</td><td>15d</td><td style="color:var(--danger)">Loss</td><td style="color:var(--danger)">-1.2%</td></tr>
+    <tr><td>May 23</td><td>UNH</td><td>Long</td><td>20d</td><td class="hi">Win</td><td class="hi">+2.8%</td></tr>
+    <tr><td>May 22</td><td>CAT</td><td>Long</td><td>15d</td><td style="color:var(--danger)">Loss</td><td style="color:var(--danger)">-1.2%</td></tr>
     <tr><td>May 21</td><td>XOM</td><td>Long</td><td>21d</td><td class="hi">Win</td><td class="hi">+3.6%</td></tr>
-    <tr><td>May 20</td><td>CL1</td><td>Long</td><td>18d</td><td class="hi">Win</td><td class="hi">+5.2%</td></tr>
-    <tr><td>May 19</td><td>PSX</td><td>Long</td><td>22d</td><td class="hi">Win</td><td class="hi">+1.9%</td></tr>
-    <tr><td>May 16</td><td>MPC</td><td>Long</td><td>17d</td><td style="color:var(--danger)">Loss</td><td style="color:var(--danger)">-0.8%</td></tr>
-    <tr><td>May 15</td><td>VLO</td><td>Long</td><td>20d</td><td class="hi">Win</td><td class="hi">+2.5%</td></tr>
-    <tr><td>May 14</td><td>HO1</td><td>Long</td><td>15d</td><td class="hi">Win</td><td class="hi">+3.3%</td></tr>
-    <tr><td>May 13</td><td>RB1</td><td>Long</td><td>19d</td><td class="hi">Win</td><td class="hi">+4.7%</td></tr>
+    <tr><td>May 20</td><td>AAPL</td><td>Long</td><td>18d</td><td class="hi">Win</td><td class="hi">+5.2%</td></tr>
+    <tr><td>May 19</td><td>PG</td><td>Long</td><td>22d</td><td class="hi">Win</td><td class="hi">+1.9%</td></tr>
+    <tr><td>May 16</td><td>HD</td><td>Long</td><td>17d</td><td style="color:var(--danger)">Loss</td><td style="color:var(--danger)">-0.8%</td></tr>
+    <tr><td>May 15</td><td>JPM</td><td>Long</td><td>20d</td><td class="hi">Win</td><td class="hi">+2.5%</td></tr>
+    <tr><td>May 14</td><td>MSFT</td><td>Long</td><td>15d</td><td class="hi">Win</td><td class="hi">+3.3%</td></tr>
+    <tr><td>May 13</td><td>KO</td><td>Long</td><td>19d</td><td class="hi">Win</td><td class="hi">+4.7%</td></tr>
   </tbody>
 </table><br>
 <strong>8 of the last 10 resolved picks closed as wins (80%)</strong> - in line with the model's
@@ -1185,7 +1187,8 @@ then selected one per sector sub-group to avoid overlap. Here is a 6-position po
 </table><br>
 <strong>No two positions overlap by more than 2 days.</strong> All six have ML win probabilities above your 70% threshold.
 The positions are staggered across July, August, and September, so you are never holding more than two
-at once. Want me to run the seasonal chart data for any of these to see the year-by-year path?""")}
+at once. This is a seasonal and ML read only - I would pair each with a fundamentals and macro check before sizing.
+Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any of these?""")}
   </div>
 </div>"""
 
@@ -1195,9 +1198,9 @@ at once. Want me to run the seasonal chart data for any of these to see the year
     <div class="tag tag-ml" style="margin-bottom:20px;">MCP Server</div>
     <h1><span class="gradient-text-w">TradeWave in your AI assistant</span></h1>
     <p class="sub">
-      Connect the TradeWave MCP server to Claude, Cursor, or any MCP-compatible
-      host. Your assistant gets access to 9 purpose-built trading tools and starts
-      answering questions like these - no glue code, no API key juggling.
+      Connect the TradeWave MCP server to Claude, Cursor, ChatGPT, or any MCP-compatible
+      host. Your assistant gets access to 16 purpose-built trading tools (5 flagship plus
+      11 primitives) and starts answering questions like these - no glue code, no API key juggling.
     </p>
     <div class="hero-ctas">
       <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
@@ -1240,23 +1243,26 @@ at once. Want me to run the seasonal chart data for any of these to see the year
   <div class="container">
     <div class="section-head">
       <h2 class="gradient-text-w">Two lines to connect</h2>
-      <p>Add the TradeWave server to your MCP host config. Your API key gates the
+      <p>TradeWave's MCP is a hosted HTTP server at <code style="font-size:13px;color:var(--accent);">https://mcp.tradewave.ai/mcp</code>.
+         Point your host at it with a Bearer API key. The key gates the
          tier - ML signals work on every tier (free gets 5/day, Pro is unlimited).
          The server returns a clear quota message when the daily limit is reached, never a silent error.</p>
     </div>
-    <div class="code-block" style="max-width:700px;margin:0 auto 32px;">
-<span class="cm">// claude_desktop_config.json</span>
+    <div class="code-block" style="max-width:700px;margin:0 auto 16px;">
+<span class="cm">// claude_desktop_config.json - Claude Desktop / Cursor (stdio bridge to the hosted server)</span>
 {{
   <span class="kw">"mcpServers"</span>: {{
     <span class="kw">"tradewave"</span>: {{
       <span class="kw">"command"</span>: <span class="st">"npx"</span>,
-      <span class="kw">"args"</span>: [<span class="st">"@tradewave/mcp-server"</span>],
-      <span class="kw">"env"</span>: {{ <span class="kw">"TRADEWAVE_API_KEY"</span>: <span class="st">"tw_your_key_here"</span> }}
+      <span class="kw">"args"</span>: [<span class="st">"-y"</span>, <span class="st">"mcp-remote"</span>, <span class="st">"https://mcp.tradewave.ai/mcp"</span>, <span class="st">"--header"</span>, <span class="st">"Authorization: Bearer ${{TRADEWAVE_API_KEY}}"</span>]
     }}
   }}
 }}</div>
     <p style="text-align:center;font-size:14px;color:var(--dim);">
-      Also works with Cursor, Windsurf, and any host that supports the MCP protocol.
+      Claude Desktop and Cursor are stdio-only, so they bridge to the hosted server with the
+      <code style="font-size:12px;color:var(--accent);">mcp-remote</code> npx shim shown above. ChatGPT and other
+      HTTP-native MCP clients point straight at <code style="font-size:12px;color:var(--accent);">https://mcp.tradewave.ai/mcp</code>
+      with a Bearer API key. There is no npm package to install.
       <a href="{portal_urls.DOCS_URL}" class="inline">Full setup guide</a>.
     </p>
   </div>
@@ -1266,15 +1272,56 @@ at once. Want me to run the seasonal chart data for any of these to see the year
 <section class="section">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">9 trading tools, purpose-built for agents</h2>
-      <p>Each tool is described so the model knows exactly when to call it. Agents do not
-         need to know the API - they just get asked questions and the right tool fires.</p>
+      <h2 class="gradient-text-w">16 trading tools, purpose-built for agents</h2>
+      <p>Five flagship tools cover the decisions; eleven primitives give an agent full control.
+         Each is described so the model knows exactly when to call it - agents do not
+         need to know the API, they just get asked questions and the right tool fires. Tools use
+         progressive disclosure: a one-line decision by default, the full receipts and Trend Chart data on request.</p>
     </div>
+    <h3 style="font-size:15px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">5 flagship tools</h3>
+    <div class="grid-3" style="gap:16px;margin-bottom:32px;">
+      <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
+        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">find_best_opportunities</p>
+        <p style="font-size:13px;color:var(--dim);">Scan the caller's in-scope markets and return the strongest ranked seasonal setups as decision-ready SignalCards, each with a research hand-off.</p>
+      </div>
+      <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
+        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">analyze_symbol</p>
+        <p style="font-size:13px;color:var(--dim);">Deep dive on one symbol: its seasonal windows, the historical win rate, and the ML read, with the Trend Chart available on request.</p>
+      </div>
+      <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
+        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">explain_pick</p>
+        <p style="font-size:13px;color:var(--dim);">Unpack why a setup or the daily pick scores the way it does - the seasonal edge, the ML factors, and the receipts behind it.</p>
+      </div>
+      <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
+        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">whats_seasonal_now</p>
+        <p style="font-size:13px;color:var(--dim);">What is entering its seasonal window today across the caller's markets - the daily, universe-wide scan in one call.</p>
+      </div>
+      <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
+        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">compare_opportunities</p>
+        <p style="font-size:13px;color:var(--dim);">Put two or more setups side by side on historical win rate, ML win probability, predicted return, and Sharpe to pick the better bet.</p>
+      </div>
+    </div>
+    <h3 style="font-size:15px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">11 primitives</h3>
     <div class="grid-3" style="gap:16px;">
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">list_markets</p>
         <p style="font-size:13px;color:var(--dim);">Returns the 15 active markets and which are in the caller's tier scope.</p>
+      </div>
+      <div class="card" style="padding:20px 24px;">
+        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">whoami</p>
+        <p style="font-size:13px;color:var(--dim);">Reports the caller's tier, market scope, and remaining daily ML quota so an agent can plan its calls.</p>
+      </div>
+      <div class="card" style="padding:20px 24px;">
+        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">describe_tradewave</p>
+        <p style="font-size:13px;color:var(--dim);">Self-documents the method: a seasonal plus 62-feature ML edge only, blind to fundamentals, news, and live price - built to pair with the agent's own tools.</p>
       </div>
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
@@ -1288,8 +1335,8 @@ at once. Want me to run the seasonal chart data for any of these to see the year
       </div>
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_opportunity_for_symbol</p>
-        <p style="font-size:13px;color:var(--dim);">Deep dive into seasonal setups for one specific symbol across all available windows.</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_symbol_patterns</p>
+        <p style="font-size:13px;color:var(--dim);">All seasonal patterns for one specific symbol across its available windows - direction, entry, hold, win rate, Sharpe.</p>
       </div>
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
@@ -1299,7 +1346,7 @@ at once. Want me to run the seasonal chart data for any of these to see the year
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_opportunity_chart</p>
-        <p style="font-size:13px;color:var(--dim);">Per-year percentage paths plus average path for a setup. Data only - agents format the output, no image download required.</p>
+        <p style="font-size:13px;color:var(--dim);">The Trend Chart data for a setup: a single year-averaged, normalized 0-100 seasonal index curve (the typical within-year shape), not prices. Data only - agents format the output.</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">All tiers (unlimited on Pro+)</p>
@@ -1330,7 +1377,7 @@ at once. Want me to run the seasonal chart data for any of these to see the year
     </div>
 
     <h3 style="font-size:18px;font-weight:700;color:var(--dim);margin-bottom:16px;text-align:center;">
-      Example 1 - Scan energy for ML-ranked longs
+      Example 1 - Scan S&P 500 stocks for ML-ranked longs
     </h3>
     {conv1}
 
@@ -1364,7 +1411,7 @@ at once. Want me to run the seasonal chart data for any of these to see the year
     return page_shell(
         "TradeWave MCP - Use TradeWave in Claude, Cursor, and ChatGPT",
         "Connect the TradeWave MCP server to your AI assistant in two lines. "
-        "9 purpose-built trading tools for seasonal analysis and ML-scored signals.",
+        "16 purpose-built trading tools (5 flagship plus 11 primitives) for seasonal analysis and ML-scored signals.",
         no_em_dash(body),
         active_nav="mcp",
     )
@@ -1396,12 +1443,13 @@ def build_use_cases() -> str:
           The AI assistant that knows when to trade
         </h2>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:20px;">
-          Ask Claude or any MCP-compatible assistant "what should I look at in energy this week"
+          Ask Claude or any MCP-compatible assistant "what S&P 500 stocks should I look at this week"
           and get a ranked list of seasonal longs with ML win probabilities - without opening
-          a terminal, running a screener, or paying $480/mo to Seasonax.
+          a terminal, running a screener, or paying $480/mo to Seasonax. TradeWave gives the
+          seasonal and ML edge; the assistant pairs it with its own news and fundamentals.
         </p>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:24px;">
-          The free tier gives you the Energy futures market, the daily pick, 5 ML win-probability
+          The free tier gives you the S&P 500 stocks market, the daily pick, 5 ML win-probability
           signals/day, and the full track record. The Dev tier adds all 15 markets and 100 ML signals/day
           for $39/mo. Pro unlocks unlimited ML scoring.
         </p>
@@ -1446,11 +1494,11 @@ def build_use_cases() -> str:
         <div class="code-block">
 <span class="kw">import</span> requests
 
-<span class="cm"># Get ML-scored energy setups entering this week</span>
+<span class="cm"># Get ML-scored S&P 500 stock setups entering this week</span>
 resp = requests.<span class="fn">get</span>(
     <span class="st">"{portal_urls.API_BASE}/opportunities"</span>,
     params={{
-        <span class="st">"market"</span>: <span class="st">"2"</span>,        <span class="cm"># energy</span>
+        <span class="st">"market"</span>: <span class="st">"2"</span>,        <span class="cm"># S&P 500 stocks (free tier)</span>
         <span class="st">"direction"</span>: <span class="st">"long"</span>,
         <span class="st">"min_win_rate"</span>: <span class="nu">0.65</span>,
         <span class="st">"limit"</span>: <span class="nu">20</span>
@@ -1477,10 +1525,12 @@ score_resp = requests.<span class="fn">post</span>(
           database to maintain, no ETL, no price-data licensing headache.
         </p>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:24px;">
-          TradeWave covers 15 markets: US large cap, small/mid cap, sector ETFs,
-          energy and commodity futures, Forex, international equities, fixed income,
-          and crypto. The ML model currently scores six of those markets at the
-          symbol level.
+          TradeWave covers 15 markets: Dow 30, NASDAQ 100, S&P 500, and Russell 1000 stocks,
+          the Wilshire 5000, indices, futures and commodities, Forex, government bonds, ETFs,
+          the London exchange, Toronto stocks, and crypto. The ML model currently scores six of
+          those markets at the symbol level (the four US stock universes, the Wilshire 5000, and ETFs).
+          The seasonal and ML read is a statistical edge only - pair it with your own fundamentals,
+          news, and macro analysis.
         </p>
         <ul class="check-list">
           <li>REST API with JSON responses - no proprietary SDK required</li>

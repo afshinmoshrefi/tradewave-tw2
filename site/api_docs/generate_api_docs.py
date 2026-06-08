@@ -3,14 +3,14 @@
 TradeWave API developer-docs generator.
 
 Reads  /home/flask/api/openapi.yaml   (the frozen REST contract)
-Reads  /home/flask/api/MCP_TOOLS.md   (8 MCP tools)
+Reads  /home/flask/api/MCP_TOOLS.md   (16 MCP tools - 5 flagship + 11 primitives)
 Reads  /home/flask/apiserver/tiers.py (tier limits - imported directly)
 Writes 7 static HTML files into the same directory as this script:
 
   quickstart.html    - get a key + first call in 5 minutes
   authentication.html - Bearer auth, key creation/rotation, BYOK for MCP
   api-reference.html  - all 11 endpoints, regenerated from openapi.yaml
-  mcp-reference.html  - 8 tools + how to connect in Claude Desktop/ChatGPT/Cursor
+  mcp-reference.html  - 16 tools (5 flagship + 11 primitives) + how to connect in Claude Desktop/ChatGPT/Cursor
   data-dictionary.html - every field + all 15 live markets defined in plain English
   rate-limits.html    - per-tier limits, headers, error shape, upgrade stub
   changelog.html      - v1 release notes
@@ -659,11 +659,14 @@ def build_authentication() -> str:
 </div>
 
 <h2>BYOK for MCP (Bring Your Own Key)</h2>
-<p>The TradeWave MCP server uses the same API keys. There is no separate credential system. When you configure an MCP client (Claude Desktop, ChatGPT, Cursor), you pass your TradeWave API key as the <code class="inline-code">TRADEWAVE_API_KEY</code> environment variable. The MCP server forwards it as a Bearer token on every API call.</p>
+<p>The TradeWave MCP server uses the same API keys. There is no separate credential system. TradeWave's MCP is a hosted HTTP server at <code class="inline-code">https://mcp.tradewave.ai/mcp</code>. HTTP-native clients (ChatGPT and others) point straight at that URL and send your TradeWave API key as a Bearer token. Stdio-only clients (Claude Desktop, Cursor) bridge to it with the <code class="inline-code">mcp-remote</code> npx shim, passing the key in the <code class="inline-code">Authorization</code> header.</p>
 
-<pre><code># Example: passing your key to the MCP server via env var
-TRADEWAVE_API_KEY=tw_live_abc123... \\
-  npx @tradewave/mcp-server</code></pre>
+<pre><code># HTTP-native client: send the key as a Bearer token
+Authorization: Bearer tw_live_abc123...
+
+# Stdio client (Claude Desktop / Cursor): bridge with the mcp-remote shim
+npx -y mcp-remote https://mcp.tradewave.ai/mcp \\
+  --header "Authorization: Bearer tw_live_abc123..."</code></pre>
 
 <p>Tier and entitlements (market scope, ML access, rate limits) are read directly from the key - no additional configuration is needed. See <a href="mcp-reference.html">MCP Reference</a> for full connection instructions.</p>
 
@@ -780,9 +783,9 @@ METHOD_COLORS = {"get": "method-get", "post": "method-post"}
 EXAMPLE_RESPONSES: dict[str, str] = {
     "GET /markets": """{
   "markets": [
-    {"id": "0",  "name": "S&P 500 ETFs",      "ml_eligible": true,  "in_scope": true},
+    {"id": "0",  "name": "DOW 30 STOCKS",      "ml_eligible": true,  "in_scope": true},
     {"id": "2",  "name": "S&P 500 STOCKS",     "ml_eligible": true,  "in_scope": true},
-    {"id": "16", "name": "Cryptocurrency",      "ml_eligible": false, "in_scope": true}
+    {"id": "16", "name": "CRYPTO CURRENCIES",   "ml_eligible": false, "in_scope": true}
   ]
 }""",
     "GET /markets/{market_id}/symbols": """{
@@ -1218,13 +1221,81 @@ def build_api_reference() -> str:
 def build_mcp_reference() -> str:
     body = f"""
 <h1>MCP Reference</h1>
-<p>The TradeWave MCP server exposes 8 tools that let AI assistants (Claude, ChatGPT, Cursor) reason over seasonal trading signals directly. Auth is BYOK - your TradeWave API key gates the server; tier and entitlements flow from the key.</p>
+<p>The TradeWave MCP server exposes 16 tools (5 flagship + 11 primitives) that let AI assistants (Claude, ChatGPT, Cursor) reason over seasonal trading signals directly. Auth is BYOK - your TradeWave API key gates the server; tier and entitlements flow from the key.</p>
+
+<div class="callout">
+  <p><strong>A research partner, not a black box.</strong> TradeWave supplies a seasonal + 62-feature-ML statistical edge and the timing only. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
+</div>
 
 <div class="callout">
   <p><strong>Signals only.</strong> The same contract as the REST API applies. No raw prices or OHLCV data is ever returned. ML tools are available on every tier, metered per day (free 5/day, unlimited on Pro/Business). When the daily limit is reached the tool returns a graceful stub instead of an error.</p>
 </div>
 
-<h2>Tools</h2>
+<h2>Flagship tools</h2>
+<p>Start here. These five do the synthesis for you - rank, explain, and compare seasonal setups in one call.</p>
+
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">find_best_opportunities</span>
+    <span class="tier-badge tier-all">All tiers</span>
+  </div>
+  <div class="tool-card-body">
+    <p>The workhorse. Scans a market (or the user's watchlist) and returns the strongest seasonal setups right now as ranked decision cards - headline, signal, edge score, entry window, and a research hand-off. Use when the user asks what to trade or when to enter.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">market</code>, <code class="inline-code">window</code> (e.g. "now"), <code class="inline-code">direction</code> (long | short), <code class="inline-code">rank_by</code>, <code class="inline-code">limit</code></p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/scan</code></p>
+  </div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">analyze_symbol</span>
+    <span class="tier-badge tier-all">All tiers</span>
+  </div>
+  <div class="tool-card-body">
+    <p>Deep-dives one named ticker - the best current seasonal setup plus alternative setups, full receipts, and a ready-to-place ticket. Use when the user asks about a specific symbol.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code></p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code></p>
+  </div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">explain_pick</span>
+    <span class="tier-badge tier-all">All tiers</span>
+  </div>
+  <div class="tool-card-body">
+    <p>Returns the full receipts behind a setup - years tested, per-year win/loss history, best/worst year, the Trend Chart summary, and the seasonal + ML basis. Use when the user asks "why?" or wants to see the evidence behind a card.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code>, <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code></p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (receipts)</p>
+  </div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">whats_seasonal_now</span>
+    <span class="tier-badge tier-all">All tiers</span>
+  </div>
+  <div class="tool-card-body">
+    <p>The zero-input starting point. Returns what is seasonally in play right now across the caller's in-scope markets - a fast "what should I be looking at today" overview.</p>
+    <p><strong>Inputs:</strong> none (optional <code class="inline-code">market</code>, <code class="inline-code">limit</code>)</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/scan</code></p>
+  </div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">compare_opportunities</span>
+    <span class="tier-badge tier-all">All tiers</span>
+  </div>
+  <div class="tool-card-body">
+    <p>Puts two or more setups side by side on the same yardstick - edge score, win rate, Sharpe, avg/median return, ML basis - so the assistant can reason about which is stronger. Use when the user is choosing between candidates.</p>
+    <p><strong>Inputs:</strong> list of <code class="inline-code">{{symbol, market, entry_date, days_out, direction}}</code></p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (per item)</p>
+  </div>
+</div>
+
+<h2>Primitive tools</h2>
+<p>Lower-level building blocks for clients that want to compose their own flow.</p>
 
 <div class="tool-card">
   <div class="tool-card-header">
@@ -1235,6 +1306,30 @@ def build_mcp_reference() -> str:
     <p>Returns the 15 active TradeWave markets and which are within the caller's tier scope. Use this to discover what markets are available before fetching opportunities.</p>
     <p><strong>Inputs:</strong> none</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/markets</code></p>
+  </div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">whoami</span>
+    <span class="tier-badge tier-all">All tiers</span>
+  </div>
+  <div class="tool-card-body">
+    <p>Reports the caller's identity and entitlements as resolved from the API key - tier, in-scope markets, ML allowance, and remaining quota. Use to check what the current key can do before making scoped calls.</p>
+    <p><strong>Inputs:</strong> none</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/markets</code> (entitlements)</p>
+  </div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">describe_tradewave</span>
+    <span class="tier-badge tier-all">All tiers</span>
+  </div>
+  <div class="tool-card-body">
+    <p>Self-documents the method: what TradeWave measures (seasonal + 62-feature ML), what it is blind to (fundamentals, news, macro, live price), and how the assistant should pair it with its own research tools. Call this once so the model frames TradeWave correctly as a research partner.</p>
+    <p><strong>Inputs:</strong> none</p>
+    <p><strong>Maps to:</strong> static method description</p>
   </div>
 </div>
 
@@ -1265,11 +1360,11 @@ def build_mcp_reference() -> str:
 
 <div class="tool-card">
   <div class="tool-card-header">
-    <span class="tool-name">get_opportunity_for_symbol</span>
+    <span class="tool-name">get_symbol_patterns</span>
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Fetches seasonal setups for a specific symbol. Use when the user asks about a named ticker.</p>
+    <p>Fetches the seasonal setups for a specific symbol. Use when you want the raw per-symbol opportunity rows rather than a synthesized card.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code> (required)</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/opportunities/{{symbol}}</code></p>
   </div>
@@ -1293,7 +1388,7 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Returns trend-chart DATA (not an image) for a seasonal setup - a single year-averaged, normalized 0-100 seasonal index curve (<code class="inline-code">seasonal_curve</code>, one <code class="inline-code">{{date, index}}</code> point per day). It is the typical within-year shape, NOT per-year paths, and the index is never a price. Agents can reason over the shape. Raw prices are intentionally not exposed.</p>
+    <p>Returns The Trend Chart DATA (not an image) for a seasonal setup - a single year-averaged, normalized 0-100 seasonal index curve (<code class="inline-code">seasonal_curve</code>, one <code class="inline-code">{{date, index}}</code> point per day). It is the typical within-year shape (where it rises, peaks, fades), NOT per-year cumulative price paths, and the index is never a price. Agents can reason over the shape. Raw prices are intentionally not exposed.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">symbol</code> (required), <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code>, <code class="inline-code">years</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/seasonal-chart</code></p>
   </div>
@@ -1329,7 +1424,7 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Returns the verifiable, time-stamped win/loss record of all past daily picks. Use this to show the AI's historical performance to the user.</p>
+    <p>Returns the verifiable, time-stamped win/loss record of all past daily picks - this is the live, forward-tested <code class="inline-code">track_record.win_rate</code>, distinct from the seasonal <code class="inline-code">historical_win_rate</code> and the per-instance <code class="inline-code">ml_win_prob</code>. Use this to show the AI's historical performance to the user.</p>
     <p><strong>Inputs:</strong> none</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/daily-pick/track-record</code></p>
   </div>
@@ -1337,13 +1432,19 @@ def build_mcp_reference() -> str:
 
 <h2>Connecting to MCP clients</h2>
 
+<p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">https://mcp.tradewave.ai/mcp</code>. HTTP-native clients (ChatGPT and others) point straight at that URL with a Bearer API key. Stdio-only clients (Claude Desktop, Cursor) bridge to it with the <code class="inline-code">mcp-remote</code> npx shim. There is no npm package to install.</p>
+
 <h3>Claude Desktop</h3>
-<p>Add the following block to your <code class="inline-code">claude_desktop_config.json</code> (usually at <code class="inline-code">~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS):</p>
+<p>Claude Desktop is a stdio-only client, so it bridges to the hosted server with the <code class="inline-code">mcp-remote</code> shim. Add the following block to your <code class="inline-code">claude_desktop_config.json</code> (usually at <code class="inline-code">~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS):</p>
 <pre><code>{{
   "mcpServers": {{
     "tradewave": {{
       "command": "npx",
-      "args": ["-y", "@tradewave/mcp-server"],
+      "args": [
+        "-y", "mcp-remote",
+        "https://mcp.tradewave.ai/mcp",
+        "--header", "Authorization: Bearer ${{TRADEWAVE_API_KEY}}"
+      ],
       "env": {{
         "TRADEWAVE_API_KEY": "tw_live_&lt;your-key&gt;"
       }}
@@ -1352,19 +1453,23 @@ def build_mcp_reference() -> str:
 }}</code></pre>
 <p>Restart Claude Desktop. The TradeWave tools appear in the tools panel automatically.</p>
 
-<h3>ChatGPT (GPT Actions / Plugin)</h3>
-<p>Use the remote MCP endpoint:</p>
-<pre><code>Server URL: {MCP_URL}
-Auth type:  API Key
+<h3>ChatGPT (HTTP-native MCP)</h3>
+<p>ChatGPT speaks MCP over HTTP, so point it straight at the hosted endpoint with a Bearer API key - no shim needed:</p>
+<pre><code>Server URL: https://mcp.tradewave.ai/mcp
+Auth type:  API Key (Bearer)
 Header:     Authorization: Bearer &lt;your-api-key&gt;</code></pre>
-<p>In the GPT builder, paste the server URL and select <strong>API Key</strong> as the auth method. TradeWave's OpenAPI spec is served at <code class="inline-code">{MCP_URL}/openapi.json</code>.</p>
+<p>In the connector / GPT builder, paste the server URL and select <strong>API Key</strong> as the auth method, supplying your TradeWave key as the Bearer token.</p>
 
 <h3>Cursor</h3>
-<p>In <strong>Cursor Settings &rarr; Features &rarr; MCP Servers</strong>, add:</p>
+<p>Cursor is also a stdio client, so it uses the same <code class="inline-code">mcp-remote</code> shim. In <strong>Cursor Settings &rarr; Features &rarr; MCP Servers</strong>, add:</p>
 <pre><code>{{
   "tradewave": {{
     "command": "npx",
-    "args": ["-y", "@tradewave/mcp-server"],
+    "args": [
+      "-y", "mcp-remote",
+      "https://mcp.tradewave.ai/mcp",
+      "--header", "Authorization: Bearer ${{TRADEWAVE_API_KEY}}"
+    ],
     "env": {{
       "TRADEWAVE_API_KEY": "tw_live_&lt;your-key&gt;"
     }}
@@ -1382,10 +1487,10 @@ Header:     Authorization: Bearer &lt;your-api-key&gt;</code></pre>
 """
     return page(
         title="MCP Reference",
-        description="TradeWave MCP server - 8 tools for AI assistants, plus connection instructions for Claude Desktop, ChatGPT, and Cursor.",
+        description="TradeWave MCP server - 16 tools (5 flagship + 11 primitives) for AI assistants, plus connection instructions for Claude Desktop, ChatGPT, and Cursor.",
         active_href="mcp-reference.html",
         hero_title="MCP Reference",
-        hero_sub="8 tools for AI assistants - connect in Claude Desktop, ChatGPT, or Cursor.",
+        hero_sub="16 tools for AI assistants (5 flagship + 11 primitives) - connect in Claude Desktop, ChatGPT, or Cursor.",
         body=body,
     )
 
@@ -1544,23 +1649,23 @@ def build_data_dictionary() -> str:
     <tr><th>ID</th><th>Market</th><th>ML eligible</th><th>Notes</th></tr>
   </thead>
   <tbody>
-    <tr><td>0</td><td>S&amp;P 500 ETFs</td><td class="check">Yes</td><td></td></tr>
-    <tr><td>1</td><td>S&amp;P 500 Sector ETFs</td><td class="check">Yes</td><td></td></tr>
-    <tr><td>2</td><td>S&amp;P 500 Stocks</td><td class="check">Yes</td><td>Free tier access</td></tr>
-    <tr><td>3</td><td>Nasdaq 100 ETFs</td><td class="check">Yes</td><td></td></tr>
-    <tr><td>4</td><td>Nasdaq 100 Stocks</td><td class="check">Yes</td><td></td></tr>
-    <tr><td>5</td><td>Russell 2000</td><td class="cross">No</td><td></td></tr>
-    <tr><td>6</td><td>Dow Jones Stocks</td><td class="cross">No</td><td></td></tr>
-    <tr><td>7</td><td>Futures</td><td class="cross">No</td><td></td></tr>
-    <tr><td>8</td><td>Forex</td><td class="cross">No</td><td></td></tr>
-    <tr><td>9</td><td>TSX (Canada)</td><td class="cross">No</td><td></td></tr>
-    <tr><td>10</td><td>UK Stocks</td><td class="cross">No</td><td></td></tr>
-    <tr><td>11</td><td>European Stocks</td><td class="check">Yes</td><td></td></tr>
-    <tr><td>12</td><td>Japan Stocks</td><td class="cross">No</td><td></td></tr>
-    <tr><td>13</td><td>Australia Stocks</td><td class="cross">No</td><td></td></tr>
+    <tr><td>0</td><td>DOW 30 STOCKS</td><td class="check">Yes</td><td></td></tr>
+    <tr><td>1</td><td>NASDAQ 100 STOCKS</td><td class="check">Yes</td><td></td></tr>
+    <tr><td>2</td><td>S&amp;P 500 STOCKS</td><td class="check">Yes</td><td>Free tier access</td></tr>
+    <tr><td>3</td><td>RUSSELL 1000 STOCKS</td><td class="check">Yes</td><td></td></tr>
+    <tr><td>4</td><td>WILSHIRE 5000</td><td class="check">Yes</td><td></td></tr>
+    <tr><td>5</td><td>INDICES COMMON</td><td class="cross">No</td><td></td></tr>
+    <tr><td>6</td><td>INDICES ALL</td><td class="cross">No</td><td></td></tr>
+    <tr><td>7</td><td>FUTURES &amp; COMMODITIES</td><td class="cross">No</td><td></td></tr>
+    <tr><td>8</td><td>FOREX ALL</td><td class="cross">No</td><td></td></tr>
+    <tr><td>9</td><td>FOREX LIQUID</td><td class="cross">No</td><td></td></tr>
+    <tr><td>10</td><td>GOVERNMENT BONDS</td><td class="cross">No</td><td></td></tr>
+    <tr><td>11</td><td>ETFs</td><td class="check">Yes</td><td></td></tr>
+    <tr><td>12</td><td>LONDON EXCHANGE</td><td class="cross">No</td><td></td></tr>
+    <tr><td>13</td><td>TORONTO STOCKS</td><td class="cross">No</td><td></td></tr>
     <tr><td>14</td><td colspan="3"><em>Removed (Korea) - id reserved, never reused</em></td></tr>
     <tr><td>15</td><td colspan="3"><em>Removed (Korea) - id reserved, never reused</em></td></tr>
-    <tr><td>16</td><td>Cryptocurrency</td><td class="cross">No</td><td></td></tr>
+    <tr><td>16</td><td>CRYPTO CURRENCIES</td><td class="cross">No</td><td></td></tr>
   </tbody>
 </table>
 </div>
@@ -1733,7 +1838,7 @@ def build_changelog() -> str:
   <p><strong>Initial public release.</strong></p>
   <ul>
     <li>9 REST endpoints: markets, symbols, opportunities (list + by-symbol), patterns, seasonal-chart, score (Pro), daily-pick, track-record.</li>
-    <li>8 MCP tools wrapping the REST API - connect via Claude Desktop, ChatGPT, or Cursor.</li>
+    <li>16 MCP tools (5 flagship + 11 primitives) wrapping the REST API - connect via Claude Desktop, ChatGPT, or Cursor.</li>
     <li>4 API tiers: Free, Dev ($39/mo), Pro ($199/mo), Business ($599/mo).</li>
     <li>Bearer token auth via <code class="inline-code">Authorization: Bearer &lt;key&gt;</code>. Keys issued in the dashboard.</li>
     <li>ML fields (<code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, <code class="inline-code">pred_mfe</code>) available on every tier, metered per day (free 5/day, Dev 100/day, Pro/Business unlimited), on ML-eligible markets (ids 0-4, 11).</li>

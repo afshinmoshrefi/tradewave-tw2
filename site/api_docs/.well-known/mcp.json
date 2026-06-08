@@ -42,6 +42,14 @@
       "description": "The markets in your scope and which support ML."
     },
     {
+      "name": "whoami",
+      "description": "The caller's identity and entitlements from the API key - tier, in-scope markets, ML allowance, remaining quota."
+    },
+    {
+      "name": "describe_tradewave",
+      "description": "Self-documents the method: the seasonal + 62-feature-ML edge, what TradeWave is blind to (fundamentals, news, macro, live price), and how to pair it with the assistant's own research."
+    },
+    {
       "name": "list_symbols",
       "description": "The symbols in a market."
     },
@@ -50,7 +58,7 @@
       "description": "Raw single-market ranked seasonal setups."
     },
     {
-      "name": "get_opportunity_for_symbol",
+      "name": "get_symbol_patterns",
       "description": "Every raw seasonal setup for one symbol."
     },
     {
@@ -59,7 +67,7 @@
     },
     {
       "name": "get_opportunity_chart",
-      "description": "A single year-averaged, normalized 0-100 seasonal index curve (never a price)."
+      "description": "The Trend Chart data: a single year-averaged, normalized 0-100 seasonal index curve (the typical within-year shape, never a price)."
     },
     {
       "name": "score_opportunities",

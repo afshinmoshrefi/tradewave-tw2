@@ -36,8 +36,8 @@
    ],
    "bullets": [
     "Pre-composed headline and verdict so even a weak agent renders a consistent, defensible answer, plus structured fields so a strong agent can still rank, filter, and compare.",
-    "Receipts inline: years tested, wins and losses, per-year returns, best and worst year, and a one-line curve shape - the evidence, attached, so the agent does not re-fetch it.",
-    "Two distinct numbers, separately named and never collapsed: historical_win_rate (the share of profitable years in the lookback) and ml_win_prob (the trained model's predicted probability). One is a frequency, one is a probability. Never both called win rate.",
+    "Receipts inline: years tested, wins and losses, per-year returns, best and worst year, and The Trend Chart shape - a single year-averaged, normalized 0-100 seasonal index curve showing where the typical year rises, peaks, and fades (not per-year price paths, never a price) - so the evidence is attached and the agent does not re-fetch it.",
+    "Three distinct numbers, separately named and never collapsed: historical_win_rate (the seasonal share of profitable years in the lookback - a frequency), ml_win_prob (the 62-feature model's per-instance predicted probability), and track_record.win_rate (the live, forward-tested share of winning daily picks). Never collapse them into one win rate.",
     "A broker-agnostic order ticket - side, type, time-in-force, entry and exit dates, no price level - so the last mile is a copy-paste, not another reasoning step.",
     "Signals only: percentages and a normalized 0-100 seasonal index, never raw prices. The agent gets the edge and the timing and cannot leak a price series it should not have."
    ]
@@ -58,15 +58,17 @@
   {
    "heading": "How an agent consumes TradeWave",
    "body": [
-    "TradeWave is MCP-native, with a small set of opinionated flagship tools that each return a finished, evidence-backed answer rather than a slice of data to assemble. The model reaches for one flagship tool and gets a ranked set of SignalCards back; the low-level primitives stay available for the rare case where you need one exact slice.",
+    "TradeWave is MCP-native: 16 tools - 5 opinionated flagship tools that each return a finished, evidence-backed answer, plus 11 low-level primitives for the rare case where you need one exact slice. The model reaches for one flagship tool and gets a ranked set of SignalCards back; the primitives stay available underneath. Tools use progressive disclosure - a one-line DECISION by default, with the full receipts and the Trend Chart data on request.",
+    "TradeWave is a research partner, not the whole answer. It supplies a seasonal plus 62-feature-ML statistical edge and the timing only; it is blind to fundamentals, valuation, news, catalysts, macro and rates, analyst views, earnings dates, and the live price. It is built to PAIR with the assistant's own web, news, and reasoning tools - TradeWave brings the seasonal/ML edge, the assistant extends it with fundamentals and news and macro, and the two synthesize one view. Every card carries a research hand-off, and the describe_tradewave tool self-documents the method.",
     "Prefer chat-and-agent runtimes? Point them at the hosted MCP server. Building a backend service? The REST surface returns the same server-composed cards. One source of truth - the gateway composes every card; nothing is recomputed client-side."
    ],
    "bullets": [
-    "MCP at https://mcp.tradewave.ai - flagship tools: find_best_opportunities, analyze_symbol, explain_pick, whats_seasonal_now, compare_opportunities.",
+    "Hosted MCP server at https://mcp.tradewave.ai/mcp (HTTP, no npm package). Flagship (5): find_best_opportunities, analyze_symbol, explain_pick, whats_seasonal_now, compare_opportunities. Primitives (11): list_markets, whoami, describe_tradewave, list_symbols, get_seasonal_opportunities, get_symbol_patterns, get_seasonal_pattern, get_opportunity_chart, score_opportunities, get_daily_pick, get_pick_track_record.",
+    "Connect HTTP-native clients (ChatGPT and others) straight at the URL with a Bearer API key. For stdio-only clients (Claude Desktop, Cursor) bridge with the mcp-remote npx shim: command npx, args [-y, mcp-remote, https://mcp.tradewave.ai/mcp, --header, 'Authorization: Bearer ${TRADEWAVE_API_KEY}'].",
     "REST at https://api.tradewave.ai/v1 - GET /v1/scan, GET /v1/analyze/{symbol}, GET /v1/daily-pick, GET /v1/daily-pick/track-record, POST /v1/score.",
     "Auth is one header: Authorization: Bearer tw_live_...",
     "Free tier to evaluate end-to-end: 5 ML signals per day on S&P 500 stocks, plus the full forward-tested track record. Paid tiers open all 15 markets and lift the ML allowance.",
-    "Signals only, everywhere: percentages and a 0-100 seasonal index, never raw prices; the order ticket carries no price level. Weak setups come back as NO_SIGNAL, never a manufactured trade."
+    "Signals only, everywhere: percentages and a 0-100 seasonal index (the Trend Chart), never raw prices; the order ticket carries no price level. Weak setups come back as NO_SIGNAL, never a manufactured trade."
    ]
   },
   {

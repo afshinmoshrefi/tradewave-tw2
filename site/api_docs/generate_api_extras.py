@@ -52,19 +52,24 @@ _SCORE_BODY = {
     ]
 }
 
-# The MCP tool surface (kept in lockstep with api/MCP_TOOLS.md + mcpserver/server.py).
+# The MCP tool surface (kept in lockstep with api/MCP_TOOLS.md + mcpserver/server.py):
+# 16 tools = 5 flagship + 11 primitives. Flagship are listed first.
 _MCP_TOOLS = [
+    # Flagship (5)
     ("find_best_opportunities", "Scan the markets in your scope and return the best seasonal setups as ranked SignalCards."),
     ("analyze_symbol", "Deep-dive one symbol into a rich SignalCard (best setup, receipts, order ticket) plus its other setups; pin a specific opportunity by entry_date or a date-range preset."),
     ("explain_pick", "Today's daily pick as a SignalCard, with its live forward-tested track record as proof."),
     ("whats_seasonal_now", "Setups entering their seasonal window in the next ~10 trading days (a weekly digest)."),
     ("compare_opportunities", "Deep-dive several symbols and return them side by side for a head-to-head."),
+    # Primitives (11)
     ("list_markets", "The markets in your scope and which support ML."),
+    ("whoami", "The caller's identity and entitlements from the API key - tier, in-scope markets, ML allowance, remaining quota."),
+    ("describe_tradewave", "Self-documents the method: the seasonal + 62-feature-ML edge, what TradeWave is blind to (fundamentals, news, macro, live price), and how to pair it with the assistant's own research."),
     ("list_symbols", "The symbols in a market."),
     ("get_seasonal_opportunities", "Raw single-market ranked seasonal setups."),
-    ("get_opportunity_for_symbol", "Every raw seasonal setup for one symbol."),
+    ("get_symbol_patterns", "Every raw seasonal setup for one symbol."),
     ("get_seasonal_pattern", "Bare aggregate seasonal pattern stats for a symbol (no price series)."),
-    ("get_opportunity_chart", "A single year-averaged, normalized 0-100 seasonal index curve (never a price)."),
+    ("get_opportunity_chart", "The Trend Chart data: a single year-averaged, normalized 0-100 seasonal index curve (the typical within-year shape, never a price)."),
     ("score_opportunities", "ML score a list of setups (ml_score, win_prob, predicted return)."),
     ("get_daily_pick", "The bare daily-pick payload."),
     ("get_pick_track_record", "The realized win/loss record of past daily picks."),
