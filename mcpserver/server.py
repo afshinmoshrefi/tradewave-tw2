@@ -312,7 +312,7 @@ def _lead(text: str, data: Any) -> str:
     (json.dumps). The lead is a single human sentence for the model to open with;
     it never replaces or reshapes the structured payload.
     """
-    return f"{text}\n\n{json.dumps(data, indent=2)}"
+    return f"{text}\n\n{json.dumps(data, separators=(',', ':'))}"
 
 
 def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
@@ -532,7 +532,10 @@ def analyze_symbol(
         "REACH FOR THIS when the user asks for 'today's pick', 'the trade of the day', 'what is "
         "the AI recommending', or wants to see proof the signals work before trusting them. "
         "Present the pick alongside its receipts (count of past picks, realized win rate, avg "
-        "return) as forward-tested evidence."
+        "return) as forward-tested evidence. Two DISTINCT win rates appear: the card's "
+        "historical_win_rate is the SEASONAL history (share of past years the window was "
+        "profitable); track_record.win_rate is the LIVE, out-of-sample record of past daily "
+        "picks. They are not the same number - don't conflate them."
     )
 )
 def explain_pick(ctx: Optional[Context] = None) -> str:
@@ -541,7 +544,10 @@ def explain_pick(ctx: Optional[Context] = None) -> str:
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
     return _lead(
-        "Here is today's TradeWave daily pick, with its live forward-tested track record as proof:",
+        "Here is today's TradeWave daily pick with its live forward-tested track record. "
+        "Note the two distinct win rates: the card's historical_win_rate is the SEASONAL "
+        "history (share of past years the window was profitable); track_record.win_rate is "
+        "the LIVE, out-of-sample record of past daily picks. Don't conflate them.",
         data,
     )
 
@@ -669,7 +675,44 @@ def compare_opportunities(
 def list_markets(ctx: Context) -> str:
     _bind_request_key(ctx)
     data = _get("/markets")
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
+
+
+# ---------------------------------------------------------------------------
+# Tool: whoami
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    description=(
+        "Who am I / what can I do here. Returns the caller's plan tier, how many ML scorings "
+        "they have left today (null = unlimited), the markets in their scope, and a few example "
+        "prompts. REACH FOR THIS FIRST on 'what can you do', 'what plan am I on', 'how many ML "
+        "calls do I have left', or to decide which markets are worth scanning before calling "
+        "find_best_opportunities."
+    )
+)
+def whoami(ctx: Optional[Context] = None) -> str:
+    _bind_request_key(ctx)
+    data = _get("/me")
+    if _is_upgrade_stub(data):
+        return _format_upgrade(data)
+    tier = data.get("tier_name") or data.get("tier") or "your"
+    rem = data.get("ml_remaining_today")
+    ml_txt = "unlimited ML scorings/day" if rem is None else f"{rem} ML scoring(s) left today"
+    in_scope = data.get("markets_in_scope") or []
+    names = ", ".join(m.get("name", m.get("id")) for m in in_scope[:8])
+    payload = dict(data)
+    payload["example_prompts"] = [
+        "Find me the best seasonal trades right now",
+        "Analyze GLD's seasonality",
+        "What's today's AI daily pick and its track record?",
+    ]
+    return _lead(
+        f"You are on the {tier} plan with {ml_txt}. In-scope markets: {names}. "
+        "Try one of the example prompts below:",
+        payload,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -694,7 +737,7 @@ def list_symbols(market: str, ctx: Context) -> str:
     """
     _bind_request_key(ctx)
     data = _get(f"/markets/{_seg(market)}/symbols")
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
 
 
 # ---------------------------------------------------------------------------
@@ -775,7 +818,7 @@ def get_seasonal_opportunities(
     if limit is not None:
         params["limit"] = limit
     data = _get("/opportunities", params)
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
 
 
 # ---------------------------------------------------------------------------
@@ -813,7 +856,7 @@ def get_opportunity_for_symbol(symbol: str, market: str, pe_cycle: Optional[str]
         if _v is not None:
             params[_k] = _v
     data = _get(f"/opportunities/{_seg(symbol)}", params=params)
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
 
 
 # ---------------------------------------------------------------------------
@@ -855,7 +898,7 @@ def get_symbol_patterns(symbol: str, market: str, pe_cycle: Optional[str] = None
         if _v is not None:
             params[_k] = _v
     data = _get(f"/securities/{_seg(symbol)}/patterns", params=params)
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
 
 
 # ---------------------------------------------------------------------------
@@ -899,7 +942,7 @@ def get_seasonal_pattern(market: str, symbol: str, pe_cycle: Optional[str] = Non
     if reverse:
         params["reverse"] = "true"
     data = _get(f"/patterns/{_seg(market)}/{_seg(symbol)}", params=params or None)
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
 
 
 # ---------------------------------------------------------------------------
@@ -969,7 +1012,7 @@ def get_opportunity_chart(
     if reverse:
         params["reverse"] = "true"
     data = _get("/seasonal-chart", params)
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
 
 
 # ---------------------------------------------------------------------------
@@ -1007,7 +1050,7 @@ def score_opportunities(
     data = _post("/score", {"opportunities": opportunities})
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
 
 
 # ---------------------------------------------------------------------------
@@ -1028,7 +1071,7 @@ def score_opportunities(
 def get_daily_pick(ctx: Context) -> str:
     _bind_request_key(ctx)
     data = _get("/daily-pick")
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
 
 
 # ---------------------------------------------------------------------------
@@ -1050,7 +1093,7 @@ def get_daily_pick(ctx: Context) -> str:
 def get_pick_track_record(ctx: Context) -> str:
     _bind_request_key(ctx)
     data = _get("/daily-pick/track-record")
-    return json.dumps(data, indent=2)
+    return json.dumps(data, separators=(',', ':'))
 
 
 # ---------------------------------------------------------------------------

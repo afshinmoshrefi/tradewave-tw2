@@ -150,6 +150,28 @@ def markets():
     return jsonify({"markets": out})
 
 
+@v1.get("/me")
+@require_api_key
+def me():
+    """Identity + capabilities for the caller's key: plan tier, ML allowance left
+    today, and in-scope markets. Powers the MCP `whoami` tool. Reads only - does
+    NOT consume ML allowance. Under MCP OAuth, g.customer is already the end
+    user's tier, so this reflects them, not the MCP service principal."""
+    ent = g.customer["entitlements"]
+    scope = set(ent["markets"])
+    in_scope = [{"id": m["id"], "name": m["name"], "ml_eligible": m["id"] in tiers.ML_MARKETS}
+                for m in appserver_client.list_markets() if m["id"] in scope]
+    return jsonify({
+        "tier": g.customer["tier"],
+        "tier_name": ent.get("name"),
+        "ml_remaining_today": ml_quota.remaining(g.customer),  # None = unlimited
+        "ml_daily_limit": ent.get("ml_daily_limit"),
+        "opp_limit": ent.get("opp_limit"),
+        "rate": ent.get("rate"),
+        "markets_in_scope": in_scope,
+    })
+
+
 @v1.get("/markets/<market_id>/symbols")
 @require_api_key
 def symbols(market_id):
