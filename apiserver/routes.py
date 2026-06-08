@@ -9,6 +9,7 @@ EVERY tier but METERED PER DAY (ml_quota.py; free 5/day, unlimited on Pro) and o
 ML-eligible markets (ids 0-4, 11). Fail-fast: real errors surface as the contract Error
 JSON via the app error handlers; only genuine data gaps fail soft.
 """
+import concurrent.futures
 import datetime
 import logging
 import re
@@ -639,10 +640,14 @@ def scan():
     head = head[:_SCAN_ENRICH_CAP]
     enrichment_capped = len(in_window) > len(head)
 
-    # enrich win_rate (+ receipts happen at card build) on the head rows.
-    for o in head:
+    # enrich win_rate (+ receipts happen at card build) on the head rows - in parallel
+    # (each row is an independent appserver round-trip). max_workers=4 keeps the shared
+    # hourly appserver bucket from spiking; _win_rate_for_opp is fail-soft + g-free.
+    def _enrich_wr(o):
         if o.get("win_rate") is None:
             o["win_rate"] = appserver_client._win_rate_for_opp(o)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
+        list(_ex.map(_enrich_wr, head))
 
     # 5) trust filters (after win_rate is real).
     filtered = head
@@ -680,17 +685,30 @@ def scan():
                 delivered += 1
     ml_quota.refund(g.customer, granted - delivered)
 
-    # 7) build cards, then re-rank by the requested key (default Sharpe).
-    built = []
-    for o in filtered:
+    # 7) build cards (in parallel: each fetches its seasonal curve + builds receipts),
+    #    then re-rank by the requested key (default Sharpe). max_workers=4 bounds the
+    #    shared appserver bucket; ex.map preserves order so the re-sort below is stable.
+    #    The card-build helpers are g-free (pure on the opp + appserver data).
+    _as_of = _today()
+    def _build_card(o):
         ml_available = bool(o.get("ml"))
-        card = _enrich_and_card(
-            o, ml_available=ml_available, as_of=_today(),
+        seasonal_curve = None
+        try:
+            seasonal_curve = appserver_client._seasonal_curve(
+                o["market"], o["symbol"], o["entry_date"], o.get("years") or "10")
+        except Exception:  # noqa: BLE001 - curve_summary is optional, never fatal
+            seasonal_curve = None
+        return _enrich_and_card(
+            o, ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=_as_of,
             ml_state=_ml_state_for(o, ml_available), name_map=name_map)
-        if min_years is not None and card["receipts"]["years_tested"] < min_years:
-            continue
-        card["_sortkey"] = _scan_sortkey(card, rank_by)
-        built.append(card)
+
+    built = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
+        for card in _ex.map(_build_card, filtered):
+            if min_years is not None and card["receipts"]["years_tested"] < min_years:
+                continue
+            card["_sortkey"] = _scan_sortkey(card, rank_by)
+            built.append(card)
 
     built.sort(key=lambda c: c["_sortkey"], reverse=True)
     built = built[:effective_limit]
@@ -797,9 +815,17 @@ def analyze_symbol(symbol):
             opps = [best] + opps
     else:
         if not opps:
-            return _err("not_found",
-                        "no seasonal setups for '%s' in market '%s'%s"
-                        % (symbol, market, (" (%s)" % direction) if direction else ""), 404)
+            # OppBySymbol has no per-symbol file for some markets (e.g. ETFs/crypto) even when
+            # the cross-market scanner (OppList4) ranks the symbol. Fall back to today's market
+            # scan kept to this symbol, so 'find a trade -> tell me more about #1' stays coherent.
+            scan_rows = appserver_client.opportunities(
+                market, _today(), year1=str(years_n), direction=direction or None,
+                enrich_win_rate=5, mode=_opp_mode(pe_cycle))
+            opps = [o for o in scan_rows if o.get("symbol") == symbol]
+            if not opps:
+                return _err("not_found",
+                            "no seasonal setups for '%s' in market '%s'%s"
+                            % (symbol, market, (" (%s)" % direction) if direction else ""), 404)
         # pick the best setup by preliminary edge_score (win_rate already enriched by
         # opportunities_by_symbol), build the rich card with receipts + seasonal curve.
         for o in opps:
