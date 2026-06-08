@@ -28,6 +28,11 @@ _UPGRADE_URL = "https://tw2-dev.trxstat.com/account/api"
 # scan never fans out ChartData4 50xN. Bounded by the appserver_client per-row cap.
 _SCAN_ENRICH_CAP = appserver_client.MAX_WIN_RATE_ENRICH
 
+# Default scan scope when the caller passes no `markets`: the liquid equities core
+# (DOW 30 / NASDAQ 100 / S&P 500 / ETFs). A no-markets scan over ALL ~15 markets is
+# the timeout path; callers can still pass `markets=` to scan anything in their scope.
+_DEFAULT_SCAN_MARKETS = ("0", "1", "2", "11")
+
 # trading-day approximations for window resolution. "now" = entry within ~10 trading days.
 _WINDOW_TRADING_DAYS = {"now": 10, "next_2_weeks": 14, "next_month": 31}
 
@@ -93,7 +98,10 @@ def _parse_markets_param(raw, name_map):
     in-scope ids. Unknown/out-of-scope tokens are dropped. Default = ALL in-scope."""
     scope = set(_in_scope_markets())
     if not raw:
-        return [m for m in _in_scope_markets()]
+        # Default to the liquid core (intersected with the caller's scope) to keep the
+        # no-markets scan fast; fall back to full scope if none of the core is in scope.
+        core = [m for m in _DEFAULT_SCAN_MARKETS if m in scope]
+        return core or [m for m in _in_scope_markets()]
     name_to_id = {str(v).strip().lower(): str(k) for k, v in name_map.items()}
     out = []
     for tok in raw.split(","):
@@ -685,22 +693,18 @@ def scan():
                 delivered += 1
     ml_quota.refund(g.customer, granted - delivered)
 
-    # 7) build cards (in parallel: each fetches its seasonal curve + builds receipts),
-    #    then re-rank by the requested key (default Sharpe). max_workers=4 bounds the
-    #    shared appserver bucket; ex.map preserves order so the re-sort below is stable.
-    #    The card-build helpers are g-free (pure on the opp + appserver data).
+    # 7) build cards WITHOUT the seasonal curve first (parallel) - curve_summary is only
+    #    needed on the cards we actually RETURN, so we fetch it for the ranked top-N below
+    #    (avoids a curve round-trip for every candidate that gets ranked out). max_workers=4
+    #    bounds the shared appserver bucket; the card-build helpers are g-free.
     _as_of = _today()
     def _build_card(o):
         ml_available = bool(o.get("ml"))
-        seasonal_curve = None
-        try:
-            seasonal_curve = appserver_client._seasonal_curve(
-                o["market"], o["symbol"], o["entry_date"], o.get("years") or "10")
-        except Exception:  # noqa: BLE001 - curve_summary is optional, never fatal
-            seasonal_curve = None
-        return _enrich_and_card(
-            o, ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=_as_of,
+        card = _enrich_and_card(
+            o, ml_available=ml_available, as_of=_as_of,
             ml_state=_ml_state_for(o, ml_available), name_map=name_map)
+        card["_opp"] = o
+        return card
 
     built = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
@@ -712,13 +716,34 @@ def scan():
 
     built.sort(key=lambda c: c["_sortkey"], reverse=True)
     built = built[:effective_limit]
+
+    # curve_summary for the RETURNED cards only (parallel): the richest narratable line,
+    # without paying a curve fetch for cards that ranked out. Mirrors build_signal_card's
+    # hold-window slice (the curve starts at entry; the first days_out points are the section).
+    def _add_curve(card):
+        o = card["_opp"]
+        try:
+            curve = appserver_client._seasonal_curve(
+                o["market"], o["symbol"], o["entry_date"], o.get("years") or "10")
+        except Exception:  # noqa: BLE001 - curve_summary is optional, never fatal
+            return
+        if not curve:
+            return
+        hold = o.get("days_out")
+        section = curve[: hold + 1] if isinstance(hold, int) and hold > 1 else curve
+        card["receipts"]["curve_summary"] = cards.curve_summary(section)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
+        list(_ex.map(_add_curve, built))
+
     for i, c in enumerate(built, 1):
         c["rank"] = i
         c.pop("_sortkey", None)
+        c.pop("_opp", None)
 
     return jsonify({
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "window": window_label,
+        "markets_scanned": market_ids,
         "rank_by": rank_by,
         "count": len(built),
         "evaluated_count": evaluated_count,
