@@ -305,14 +305,42 @@ mcp = FastMCP(
 )
 
 
+def _extract_disclaimer(obj: Any) -> Optional[str]:
+    """Recursively pop every identical 'disclaimer' field out of the payload and
+    return the first one, so the MCP transport carries the regulator disclaimer
+    ONCE in the envelope instead of repeating it verbatim on every card (a large
+    token saving on multi-card scans). The gateway HTTP contract is unchanged - it
+    still stamps each card (cards.DISCLAIMER); this de-dupe is MCP-transport only."""
+    found = None
+    if isinstance(obj, dict):
+        d = obj.pop("disclaimer", None)
+        if isinstance(d, str) and d:
+            found = d
+        for v in obj.values():
+            r = _extract_disclaimer(v)   # ALWAYS recurse so every nested copy is popped
+            if r is not None and found is None:
+                found = r
+    elif isinstance(obj, list):
+        for v in obj:
+            r = _extract_disclaimer(v)
+            if r is not None and found is None:
+                found = r
+    return found
+
+
 def _lead(text: str, data: Any) -> str:
     """Prepend a one-line conversational lead to the gateway's structured JSON.
 
     The gateway's SignalCard JSON is the source of truth and is returned verbatim
-    (json.dumps). The lead is a single human sentence for the model to open with;
-    it never replaces or reshapes the structured payload.
+    (json.dumps), except the repeated per-card 'disclaimer' is hoisted to a single
+    envelope line (see _extract_disclaimer). The lead is a single human sentence
+    for the model to open with; it never reshapes the structured payload.
     """
-    return f"{text}\n\n{json.dumps(data, separators=(',', ':'))}"
+    disclaimer = _extract_disclaimer(data)
+    out = f"{text}\n\n{json.dumps(data, separators=(',', ':'))}"
+    if disclaimer:
+        out += f"\n\nDisclaimer: {disclaimer}"
+    return out
 
 
 def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
@@ -452,7 +480,7 @@ def find_best_opportunities(
         "the symbol's other setups, fused server-side so the win rate is consistent everywhere. "
         "REACH FOR THIS whenever the user names a specific symbol - 'what about GLD', 'analyze "
         "AAPL's seasonality', 'is now a good time for SPY', 'does CL have an edge'. "
-        "It replaces stitching get_opportunity_for_symbol + get_seasonal_pattern + the chart. "
+        "It replaces stitching get_symbol_patterns + get_seasonal_pattern + the chart. "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro), "
         "on eligible markets (0-4, 11). "
         "If the symbol has no real seasonal edge it returns NO_SIGNAL with an honest verdict."
@@ -818,44 +846,6 @@ def get_seasonal_opportunities(
     if limit is not None:
         params["limit"] = limit
     data = _get("/opportunities", params)
-    return json.dumps(data, separators=(',', ':'))
-
-
-# ---------------------------------------------------------------------------
-# Tool: get_opportunity_for_symbol
-# ---------------------------------------------------------------------------
-
-
-@mcp.tool(
-    description=(
-        "The symbol's TOP SEASONAL PATTERNS across the year, ranked by Sharpe ratio - the same list "
-        "the wave viewer shows in its pattern dropdown, for one symbol. Each pattern: entry date, "
-        "direction, hold period (days), Sharpe, avg/median return %, historical win rate. Filter by "
-        "pattern length (min_days/max_days) and pe_cycle ('consecutive' default, or 'pe' for the "
-        "current presidential-cycle position). (Alias of get_symbol_patterns.)"
-    )
-)
-def get_opportunity_for_symbol(symbol: str, market: str, pe_cycle: Optional[str] = None,
-                               years: Optional[int] = None, min_winning_years: Optional[int] = None,
-                               min_days: Optional[int] = None, max_days: Optional[int] = None,
-                               min_sharpe: Optional[float] = None,
-                               ctx: Optional[Context] = None) -> str:
-    """
-    Args:
-        symbol: Ticker symbol, e.g. 'AAPL', 'GC', 'SPY'. Case-sensitive as in the market.
-        market: Market id containing the symbol (use list_markets or list_symbols to find it).
-        pe_cycle: 'consecutive' (default) or 'pe' (current presidential-cycle position). Optional.
-        min_days: Minimum pattern length in days. Optional.
-        max_days: Maximum pattern length in days (use with min_days for a range). Optional.
-        min_sharpe: Minimum Sharpe ratio. Optional.
-    """
-    _bind_request_key(ctx)
-    params: dict[str, Any] = {"market": market}
-    for _k, _v in (("pe_cycle", pe_cycle), ("years", years), ("min_winning_years", min_winning_years),
-                   ("min_days", min_days), ("max_days", max_days), ("min_sharpe", min_sharpe)):
-        if _v is not None:
-            params[_k] = _v
-    data = _get(f"/opportunities/{_seg(symbol)}", params=params)
     return json.dumps(data, separators=(',', ':'))
 
 
