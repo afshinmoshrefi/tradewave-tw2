@@ -64,7 +64,7 @@ paths:
         - { name: min_sharpe, in: query, schema: { type: number }, description: "minimum Sharpe ratio, e.g. 1.5; matches stats.sharpe_ratio" }
         - { name: pe_cycle, in: query, schema: { type: string, enum: [consecutive, pe], default: consecutive }, description: "presidential election cycle mode: 'consecutive' (default, consecutive years) or 'pe' (the current presidential-cycle position only)" }
         - { name: years, in: query, schema: { type: integer, default: 10 }, description: "pattern LOOKBACK: how many years (5-98, data-dependent) to scan for patterns. In pe mode this is the number of PE-position occurrences." }
-        - { name: min_winning_years, in: query, schema: { type: integer, default: 9 }, description: "of those `years`, the minimum number of WINNING years for a pattern to be listed. years=10 & min_winning_years=9 = the classic '10-9' (>=90% of years won)." }
+        - { name: min_winning_years, in: query, schema: { type: integer }, description: "of those `years`, the minimum WINNING years for a pattern to be listed (the win-rate floor; year2). DEFAULTS to ~90% of `years` (so years=20 -> a valid 20-18). Must lie in the market's DETECTION BAND, which is market-specific (~75-90%+ winners; e.g. S&P 500 ~85%, Wilshire ~90%, FOREX Liquid ~70% at a 20-year lookback). Multi-market scan: out-of-band markets are reported in lookback_note (not errored)." }
         - { name: rank_by, in: query, schema: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return], default: sharpe }, description: "ranking key; default sharpe (Sharpe ratio)" }
         - { name: limit, in: query, schema: { type: integer, default: 25 }, description: "tier-capped (free 3, dev 25, pro up to 5000)" }
       responses:
@@ -160,7 +160,7 @@ paths:
         - { name: min_sharpe, in: query, schema: { type: number }, description: "minimum Sharpe ratio, e.g. 1.5" }
         - { name: pe_cycle, in: query, schema: { type: string, enum: [consecutive, pe], default: consecutive }, description: "presidential election cycle mode: 'consecutive' (default) or 'pe' (the current cycle position)" }
         - { name: years, in: query, schema: { type: integer, default: 10 }, description: "pattern lookback in years (5-98, data-dependent)" }
-        - { name: min_winning_years, in: query, schema: { type: integer, default: 9 }, description: "of those `years`, the minimum winning years required to list a pattern (e.g. 10/9)" }
+        - { name: min_winning_years, in: query, schema: { type: integer }, description: "of those `years`, the minimum WINNING years (the win-rate floor; year2). DEFAULTS to ~90% of `years`. Single market: validated against that market's DETECTION BAND (~75-90%+, market-specific); an out-of-band value (e.g. 20-9) returns 400 with the valid range." }
         - { name: limit, in: query, schema: { type: integer, default: 25 }, description: "tier-capped (free 3, dev 25, pro up to 5000)" }
       responses:
         "200":
@@ -181,7 +181,7 @@ paths:
         - { name: max_days, in: query, schema: { type: integer }, description: "maximum pattern length in days" }
         - { name: min_sharpe, in: query, schema: { type: number }, description: "minimum Sharpe ratio" }
         - { name: years, in: query, schema: { type: integer, default: 10 }, description: "pattern lookback in years (5-98)" }
-        - { name: min_winning_years, in: query, schema: { type: integer, default: 9 }, description: "minimum winning years to list a pattern (e.g. 10/9)" }
+        - { name: min_winning_years, in: query, schema: { type: integer }, description: "minimum WINNING years (the win-rate floor; year2). DEFAULTS to ~90% of `years`; validated against the market's DETECTION BAND (~75-90%+, market-specific). Per-symbol patterns exist for market ids 0,1,2,7,9 only; other markets return 400." }
       responses:
         "200":
           description: OK
@@ -207,7 +207,7 @@ paths:
         - { name: min_avg_return, in: query, schema: { type: number }, description: "minimum average seasonal profit, PERCENT" }
         - { name: min_sharpe, in: query, schema: { type: number } }
         - { name: years, in: query, schema: { type: integer, default: 10 }, description: "pattern lookback in years (5-98)" }
-        - { name: min_winning_years, in: query, schema: { type: integer, default: 9 }, description: "minimum winning years to list a pattern (e.g. 10/9)" }
+        - { name: min_winning_years, in: query, schema: { type: integer }, description: "minimum WINNING years (the win-rate floor; year2). DEFAULTS to ~90% of `years`; validated against the market's DETECTION BAND (~75-90%+, market-specific). Per-symbol patterns exist for market ids 0,1,2,7,9 only; other markets return 400." }
       responses:
         "200":
           description: OK

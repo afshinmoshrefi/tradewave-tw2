@@ -442,7 +442,7 @@ def find_best_opportunities(
         markets: CSV of market ids or names to scan, e.g. '2,11' or 'gold,energy'. Optional - omit to scan ALL in-scope markets.
         pe_cycle: Presidential election cycle mode for the opportunity table: 'consecutive' (default, consecutive years) or 'pe' (the current presidential-cycle position only). Optional.
         years: Lookback - how many years to scan for patterns (5-98, data-dependent; default 10). In PE mode this is the number of PE-position occurrences. Optional.
-        min_winning_years: Of those `years`, the minimum number of WINNING years required for a pattern to be listed (default 9). years=10 & min_winning_years=9 is the classic '10-9' (>=90% of years won); '17-15' is years=17 & min_winning_years=15. Optional.
+        min_winning_years: Of those `years`, the minimum that must be WINNERS - i.e. the win-rate floor (year2). DEFAULTS to ~90% of `years` (so a bare years=20 gives a valid 20-18; you rarely need to set it). It must stay inside the market's DETECTION BAND: TradeWave only detects patterns that won a market-specific share of years (about 75-90%+, e.g. S&P 500 ~85%, Wilshire ~90%, FOREX Liquid ~70% at a 20-year lookback). An out-of-band value like 20-9 is REJECTED with the valid range - never lower it below the floor. This is a multi-market scan, so if a value is out of band for some scanned markets the response includes a lookback_note naming them. Optional.
         window: Entry-date window: 'now' (default - setups entering in the next ~10 trading days), 'next_2_weeks', 'next_month', or a 'YYYY-MM-DD..YYYY-MM-DD' range.
         direction: 'long' or 'short'. Optional - omit for both.
         min_win_rate: Minimum historical_win_rate 0..1 (share of profitable years), e.g. 0.65. Optional.
@@ -906,7 +906,7 @@ def get_seasonal_opportunities(
         market: Market id (permanent key '0'..'16'). Required.
         pe_cycle: Presidential election cycle mode: 'consecutive' (default) or 'pe' (the current cycle position). Optional.
         years: Lookback - years to scan for patterns (5-98, default 10; PE-position occurrences in pe mode). Optional.
-        min_winning_years: Of those years, the minimum number of WINNING years to list a pattern (default 9). e.g. 10/9. Optional.
+        min_winning_years: Of those years, the minimum that must be WINNERS - the win-rate floor (year2). DEFAULTS to ~90% of years (so years=20 gives a valid 20-18). This is a SINGLE-market call, so it is validated against that market's DETECTION BAND (about 75-90%+, market-specific); an out-of-band value (e.g. 20-9) returns a clear error with the valid range. Optional.
         from_date: Start of entry-date window, ISO 8601 (YYYY-MM-DD). Optional.
         to_date: End of entry-date window, ISO 8601 (YYYY-MM-DD). Optional.
         direction: 'long' or 'short'. Optional - omit for both.
@@ -963,7 +963,12 @@ def get_seasonal_opportunities(
         "entry window with direction, hold length (days), Sharpe, avg/median seasonal return %, and "
         "historical win rate. Filters: pattern length (min_days/max_days, e.g. 10-90), avg profit "
         "(min_avg_return, percent), Sharpe floor (min_sharpe), and pe_cycle ('consecutive' default, "
-        "or 'pe' for the current presidential-cycle position)."
+        "or 'pe' for the current presidential-cycle position). "
+        "COVERAGE: the per-symbol pattern grid exists for DOW 30, NASDAQ 100, S&P 500, Futures & "
+        "Commodities, and FOREX Liquid only (market ids 0,1,2,7,9); for any other market this returns "
+        "a clear error - use find_best_opportunities to scan those markets instead. The lookback knobs "
+        "years / min_winning_years follow the same per-market detection band as find_best_opportunities "
+        "(min_winning_years defaults to ~90% of years and must stay within the band)."
     )
 )
 def get_symbol_patterns(symbol: str, market: str, pe_cycle: Optional[str] = None,
@@ -974,8 +979,10 @@ def get_symbol_patterns(symbol: str, market: str, pe_cycle: Optional[str] = None
     """
     Args:
         symbol: Ticker symbol, e.g. 'DOV', 'GLD'.
-        market: Market id containing the symbol.
+        market: Market id containing the symbol. Per-symbol patterns exist for ids 0,1,2,7,9 only (other markets return a clear error).
         pe_cycle: 'consecutive' (default) or 'pe' (current presidential-cycle position). Optional.
+        years: Lookback years for pattern detection (default 10). Optional.
+        min_winning_years: Of those years, the minimum WINNERS - the win-rate floor (year2). Defaults to ~90% of years; must stay within this market's detection band (an out-of-band value returns a clear error with the valid range). Optional.
         min_days: Minimum pattern length in days. Optional.
         max_days: Maximum pattern length in days (use with min_days for a range). Optional.
         min_avg_return: Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%). Optional.

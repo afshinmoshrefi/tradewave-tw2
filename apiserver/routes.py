@@ -16,7 +16,7 @@ import re
 
 from flask import Blueprint, g, jsonify, request
 
-from . import appserver_client, cards, ml_quota, tiers
+from . import appserver_client, cards, market_bands, ml_quota, tiers
 from .auth import require_api_key
 
 log = logging.getLogger("apiserver.routes")
@@ -267,22 +267,44 @@ def _opp_mode(pe_cycle):
     return "pe" if pe_cycle and pe_cycle != "consecutive" else "consecutive"
 
 
-def _lookback_args():
+def _lookback_args(market=None, path="scan", *, pe_mode=False, name_map=None):
     """The two pattern-DETECTION knobs the engine exposes (OppList4/OppBySymbol year1/year2):
       - years (year1): the LOOKBACK - how many years to scan for patterns (5-98, data-dependent).
         In PE mode this is the number of PE-position occurrences (e.g. the last 10 PE+2 years).
       - min_winning_years (year2): of those, the minimum number of WINNING years required for a
         pattern to be listed. e.g. years=10 & min_winning_years=9 is the classic '10-9' (>=90% of
         years won); '17-15' is years=17 & min_winning_years=15. Detection floors around 80%+.
-    Defaults 10 / 9 (the prior hardcoded behavior, so existing callers are unchanged). Returns
-    (year1_str, year2_str). Raises ValueError on a bad value. NOTE: the engine serves only the
-    pre-computed (year1, year2) datasets; an unavailable combo returns no opportunities (fail-soft)."""
+    The engine serves only the per-market PRE-COMPUTED (year1, year2) datasets - it detects
+    patterns inside a market-specific WIN-RATE BAND (year2/year1 floor; e.g. S&P 500 ~80-85%,
+    Wilshire ~90%, FOREX Liquid ~70% at a 20-year lookback). So min_winning_years is NOT free:
+    it must lie in [market_floor(year1), year1]. This function:
+      - defaults min_winning_years to ~90% of years (clamped into the band) when omitted, so a
+        bare years=20 yields a valid 20-18, NOT the old fixed 9 (which was out of band for any
+        year1>~11 and silently returned nothing);
+      - for a SINGLE market (market given), strictly validates the combo against that market's
+        band and raises ValueError with the valid range if out of band (or if the symbol path is
+        not available for that market);
+      - for the multi-market scan (market=None) stays lenient (the band differs per market; the
+        scan route annotates out-of-band markets instead);
+      - skips the band check for PE mode (pe_mode=True), whose grid differs (year1 = #cycle
+        occurrences); only the sanity bounds apply there.
+    path is 'scan' (OppList4/Monthly_Opp grid, all markets) or 'symbol' (OppBySymbol grid, 5
+    markets only). Returns (year1_str, year2_str). Raises ValueError on a bad/out-of-band value."""
     years = request.args.get("years", default=10, type=int)
-    mwy = request.args.get("min_winning_years", default=9, type=int)
+    mwy_raw = request.args.get("min_winning_years", type=int)  # None when omitted
     if years is None or not (1 <= years <= 99):
         raise ValueError("years (lookback) must be an integer between 1 and 99")
-    if mwy is None or not (0 <= mwy <= years):
-        raise ValueError("min_winning_years must be an integer between 0 and years")
+    if mwy_raw is None:
+        mwy = market_bands.default_year2(years, market_id=market, path=path)
+    else:
+        mwy = mwy_raw
+        if not (0 <= mwy <= years):
+            raise ValueError("min_winning_years must be an integer between 0 and years")
+    if market is not None and not pe_mode:
+        nm = name_map or appserver_client.market_name_map()
+        err = market_bands.validate(market, years, mwy, path, display_name=nm.get(str(market)))
+        if err:
+            raise ValueError(err)
     return str(years), str(mwy)
 
 
@@ -424,7 +446,8 @@ def opportunities():
 
     try:
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # consecutive | pe (current cycle)
-        year1, year2 = _lookback_args()                      # lookback / min winning years
+        year1, year2 = _lookback_args(market=market, path="scan",
+                                      pe_mode=_opp_mode(pe_cycle) != "consecutive")
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
 
@@ -499,7 +522,8 @@ def _symbol_patterns_response(symbol):
         return scope_err
     try:
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # OppBySymbol mode: consecutive | pe
-        year1, year2 = _lookback_args()                      # lookback / min winning years
+        year1, year2 = _lookback_args(market=market, path="symbol",
+                                      pe_mode=_opp_mode(pe_cycle) != "consecutive")
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
 
@@ -628,7 +652,10 @@ def scan():
         rank_by = "sharpe"
     try:
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # consecutive | pe (current cycle)
-        year1, year2 = _lookback_args()                      # lookback / min winning years
+        # multi-market scan: lenient (market=None) - the band differs per market, so we default
+        # min_winning_years to ~90% and annotate any out-of-band markets below rather than error.
+        year1, year2 = _lookback_args(market=None, path="scan",
+                                      pe_mode=_opp_mode(pe_cycle) != "consecutive")
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
 
@@ -767,12 +794,15 @@ def scan():
     view = _view_arg()
     opportunities = [cards.project_card(c, view) for c in built]
 
-    return jsonify({
+    # never silent: if the (year1, year2) combo is out of band for some scanned markets, those
+    # markets contributed nothing - tell the caller rather than returning a quietly short list.
+    payload = {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "window": window_label,
         "markets_scanned": market_ids,
         "rank_by": rank_by,
         "view": view,
+        "lookback": {"years": int(year1), "min_winning_years": int(year2)},
         "count": len(built),
         "evaluated_count": evaluated_count,
         "enrichment_capped": enrichment_capped,
@@ -781,7 +811,15 @@ def scan():
         # envelope-level disclaimer: guarantees it survives a 'table' projection (rows are
         # compact and carry no per-card disclaimer) for both API and MCP consumers.
         "disclaimer": cards.DISCLAIMER,
-    })
+    }
+    oob = market_bands.out_of_band_markets(market_ids, year1, year2, "scan")
+    if oob:
+        names = appserver_client.market_name_map()
+        payload["lookback_note"] = (
+            "min_winning_years=%s is outside the detection band for %s at a %s-year lookback, "
+            "so those markets returned nothing. Raise min_winning_years (toward %s) to include them."
+            % (year2, ", ".join(names.get(m, m) for m in oob), year1, year1))
+    return jsonify(payload)
 
 
 def _scan_sortkey(card, rank_by):
