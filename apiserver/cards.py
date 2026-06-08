@@ -91,7 +91,7 @@ def _net_pct(pct_str):
 # per-year receipts from ChartData4 entries                                   #
 # --------------------------------------------------------------------------- #
 
-def per_year_returns(chart_entries, lookback=None):
+def per_year_returns(chart_entries, lookback=None, direction="long"):
     """Build the per-year receipt rows from raw ChartData4 entries.
 
     Each entry is {'year': 2024, 'pct': 'net,mfe,mae', 'price': '...'}. We use ONLY the
@@ -102,7 +102,8 @@ def per_year_returns(chart_entries, lookback=None):
     partial) is kept, so per_year stays consistent with the appserver's own Percent
     Profitable / Num Winners counts (which include it).
 
-    win = net% > 0 (no threshold - matches the UI's 'Percent Profitable'). The list is
+    win = the TRADE's net% > 0 (sign-flipped for shorts, since a short profits when the
+    underlying falls); no threshold - matches the UI's direction-aware 'Percent Profitable'. The list is
     bounded at lookback + 1 (the historical years plus the at-most-one current partial) so
     it never runs away but never silently drops a real scored year. wins/losses/years_tested
     are derived from THESE rows so the card is internally consistent.
@@ -127,10 +128,15 @@ def per_year_returns(chart_entries, lookback=None):
         is_zero_stub = all(_num(x) == 0.0 for x in parts) if parts else False
         if is_zero_stub:
             continue
+        # The receipt is the TRADE's return: a short profits when the underlying
+        # falls, so flip the sign for shorts before deciding win/loss. This keeps
+        # per_year / wins / losses / best / worst consistent with the direction-aware
+        # historical_win_rate + avg_profit the appserver reports.
+        pnl = -net if direction == "short" else net
         rows.append({
             "year": str(e.get("year")),
-            "return_pct": round(net, 2),
-            "result": "win" if net > 0 else "loss",
+            "return_pct": round(pnl, 2),
+            "result": "win" if pnl > 0 else "loss",
         })
     # bound at lookback + 1 (history + the at-most-one current partial); drop the OLDEST
     # beyond that so the most recent years are kept. This only trims runaway lists; the
@@ -302,7 +308,7 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
     # wins/losses/years_tested are derived from per_year so the receipts are internally
     # consistent (the headline 'won X/Y years' always matches the per_year rows). The
     # authoritative historical_win_rate stays the appserver's Percent Profitable above.
-    per_year, wins, losses = per_year_returns(chart_entries, lookback=years_str)
+    per_year, wins, losses = per_year_returns(chart_entries, lookback=years_str, direction=direction)
     years_tested = len(per_year)
 
     # win rate fallback from counts only if Percent Profitable was missing entirely.
