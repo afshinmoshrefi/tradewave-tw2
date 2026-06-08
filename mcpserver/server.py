@@ -300,7 +300,18 @@ mcp = FastMCP(
         "When the daily ML allowance is spent the gateway returns a graceful nudge "
         "(requires='upgrade', reason='ml_daily_limit') - surface this as "
         "'daily ML limit reached - upgrade for unlimited' and include ml_remaining_today if "
-        "present. Never surface it as an error."
+        "present. Never surface it as an error.\n\n"
+        "RESEARCH METHOD - you are more than a TradeWave reader. TradeWave gives the SEASONAL + ML "
+        "statistical edge; it is BLIND to fundamentals, news, macro, valuation, and upcoming "
+        "earnings. The high-value workflow: (1) EDGE - get TradeWave's seasonal/ML read; (2) EXTEND "
+        "- use YOUR OWN tools (web/news/fundamentals/macro) to check whether the current story "
+        "SUPPORTS or THREATENS that seasonal thesis (search; never assume or fabricate a catalyst); "
+        "(3) loop back to TradeWave for more when it changes the answer (detail receipts, peer "
+        "comparison, the live track record); (4) SYNTHESIZE one view, keeping explicit which facts "
+        "are TradeWave's data vs your own research. Three DISTINCT win rates appear and must NEVER "
+        "be conflated: historical_win_rate (seasonal, in-sample), ml_win_prob (the ML model, "
+        "per-instance), track_record.win_rate (LIVE, forward-tested). Call describe_tradewave for "
+        "the full method + glossary."
     ),
 )
 
@@ -765,6 +776,50 @@ def whoami(ctx: Optional[Context] = None) -> str:
         "Try one of the example prompts below:",
         payload,
     )
+
+
+# ---------------------------------------------------------------------------
+# Tool: describe_tradewave (the self-describing / how-to-research guide)
+# ---------------------------------------------------------------------------
+
+_TRADEWAVE_GUIDE = (
+    "HOW TRADEWAVE WORKS + HOW TO RESEARCH WITH IT\n\n"
+    "What it is: TradeWave finds recurring SEASONAL price patterns (calendar windows that have paid "
+    "off across many years) and scores each with a 62-feature ML model. Every result is a SignalCard: "
+    "a headline + verdict, the entry/hold window, win rates, an ML probability, an edge_score, and "
+    "year-by-year receipts. The daily AI pick also carries a LIVE forward-tested track record. "
+    "Signals-only: TradeWave never returns raw prices - moves are percentages and the seasonal curve "
+    "(its user-facing name is 'The Trend Chart') is a 0-100 normalized index.\n\n"
+    "What it does NOT see: fundamentals, valuation, news, catalysts, macro/rates, analyst views, "
+    "upcoming earnings, or the live price. Treat a card as a statistical PRIOR, not a complete view.\n\n"
+    "HOW TO RESEARCH WITH IT (the method): (1) EDGE - get the seasonal/ML read from TradeWave; "
+    "(2) EXTEND - use your OWN tools to check whether news / fundamentals / macro SUPPORT or THREATEN "
+    "that thesis (search for them; do not assume or invent a catalyst); (3) ASK TRADEWAVE FOR MORE "
+    "when it would change the answer (detail receipts + the Trend Chart, compare peers, the live "
+    "track record); (4) SYNTHESIZE one view and keep explicit which facts are TradeWave's data vs "
+    "your own research.\n\n"
+    "The THREE win rates (NEVER conflate them):\n"
+    "  - historical_win_rate: share of past YEARS the seasonal window was profitable (in-sample seasonal history).\n"
+    "  - ml_win_prob: the 62-feature ML model's probability THIS instance works (per-instance, not history).\n"
+    "  - track_record.win_rate: the LIVE, forward-tested record of past daily picks (out-of-sample - the real proof).\n\n"
+    "edge_score (0-100): a blend of historical_win_rate, Sharpe, years of history, and the ML score - one number to rank by.\n\n"
+    "How to act on a card: respect the entry WINDOW (entering late or after it closes loses the edge). "
+    "NO_SIGNAL means TradeWave found NO statistical edge - a genuine 'no edge' finding, not weak support. "
+    "Nothing here is personalized investment advice."
+)
+
+
+@mcp.tool(
+    description=(
+        "How TradeWave works + how to research with it. REACH FOR THIS on 'what is this / how do I "
+        "read these cards / how do the win rates differ / how should I use TradeWave', or before "
+        "relying on a card. Returns the research method (edge -> extend with your own tools -> "
+        "synthesize), the glossary (the three distinct win rates, edge_score, the Trend Chart), what "
+        "TradeWave can and cannot tell you, and how to act on a SignalCard."
+    )
+)
+def describe_tradewave(ctx: Optional[Context] = None) -> str:
+    return _TRADEWAVE_GUIDE
 
 
 # ---------------------------------------------------------------------------

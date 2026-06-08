@@ -775,6 +775,7 @@ def analyze_symbol(symbol):
     rich SignalCard (the best setup) + compact other_setups[]."""
     name_map = appserver_client.market_name_map()
     market = request.args.get("market")
+    resolution_note = None
 
     if not market:
         # resolve the market if the symbol is unique across the caller's in-scope markets.
@@ -784,10 +785,20 @@ def analyze_symbol(symbol):
                         "symbol '%s' not found in any of your in-scope markets - pass ?market=<id>"
                         % symbol, 404)
         if len(candidates) > 1:
-            return _err("invalid_request",
-                        "symbol '%s' exists in multiple markets %s - specify ?market=<id>"
-                        % (symbol, ",".join(sorted(candidates))), 400)
-        market = candidates[0]
+            # A bare ticker is the most common entry path - resolve to the primary US listing
+            # (S&P 500 -> DOW 30 -> NASDAQ 100) and note the alternatives, rather than hard-erroring.
+            # Strict disambiguation is opt-in via ?strict=1.
+            if request.args.get("strict", "").strip().lower() in ("1", "true", "yes"):
+                return _err("invalid_request",
+                            "symbol '%s' exists in multiple markets %s - specify ?market=<id>"
+                            % (symbol, ",".join(sorted(candidates))), 400)
+            market = next((m for m in ("2", "0", "1") if m in candidates), sorted(candidates)[0])
+            others = ", ".join("%s (%s)" % (name_map.get(c, c), c)
+                               for c in sorted(candidates) if c != market)
+            resolution_note = ("Using %s on %s. It also trades in: %s - pass ?market=<id> to pick another."
+                               % (symbol.upper(), name_map.get(market, market), others))
+        else:
+            market = candidates[0]
 
     scope_err = _require_scope(market)
     if scope_err:
@@ -891,6 +902,8 @@ def analyze_symbol(symbol):
     card = _enrich_and_card(
         best, ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=_today(),
         rank=1, ml_state=_ml_state_for(best, ml_available), name_map=name_map)
+    if resolution_note:
+        card["note"] = resolution_note
 
     other = [cards.compact_setup(o) for o in opps[1:]]
     tier_cap = g.customer["entitlements"]["opp_limit"]
