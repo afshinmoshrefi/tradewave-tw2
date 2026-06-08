@@ -1,0 +1,199 @@
+"""SignalCard builder + projection + charting math (apiserver/cards.py).
+
+Hermetic: synthetic appserver-shaped inputs, no DB/redis/appserver. Covers the A-D
+additions (extend_research, setup.timing, alignment, extended stats, per_year_bars,
+view projection) plus the invariants: signals-only (no price), the edge_score blend,
+NO_SIGNAL, direction-aware receipts, and the short-direction MFE/MAE sign.
+"""
+import pytest
+
+from apiserver import cards
+
+pytestmark = pytest.mark.unit
+
+AS_OF = "2026-06-08"
+
+# 9 winning years + 1 losing + a zero-stub current year (must be excluded).
+_LONG_ENTRIES = (
+    [{"year": y, "pct": "%.2f,%.2f,-1.00" % (4.0, 6.0)} for y in range(2015, 2024)]
+    + [{"year": 2024, "pct": "-3.00,2.00,-5.00"}]            # the one losing year
+    + [{"year": 2025, "pct": "0,0,0"}]                         # zero stub -> excluded
+)
+
+_STATS = {
+    "Percent Profitable": "90%", "Sharpe Ratio": "1.5", "Avg Profit - All": "5%",
+    "Median Profit": "3%", "Std Dev": "3.40%", "Annualized Return": "4%",
+    "Cumulative Return": "50%", "Sharpe Ratio2": "1.80",
+}
+
+
+def _opp(direction="long", win_rate=0.9):
+    return {"symbol": "TEST", "market": "2", "direction": direction,
+            "entry_date": "2026-07-01", "days_out": 21, "years": "10",
+            "win_rate": win_rate, "avg_profit_pct": 5.0, "sharpe_ratio": 1.5}
+
+
+def _build(direction="long", win_rate=0.9, **kw):
+    return cards.build_signal_card(_opp(direction, win_rate), _STATS, list(_LONG_ENTRIES),
+                                   market_name="S&P 500 STOCKS", as_of=AS_OF, rank=1,
+                                   ml_state="market", **kw)
+
+
+# --- card shape + the new A-D fields --------------------------------------------
+
+def test_card_has_all_expected_blocks():
+    c = _build()
+    for k in ("rank", "symbol", "market", "direction", "signal", "setup", "edge_score",
+              "stats", "alignment", "receipts", "extend_research", "next_step",
+              "headline", "verdict", "disclaimer", "tier_notes"):
+        assert k in c, "missing %s" % k
+    assert c["disclaimer"] == cards.DISCLAIMER
+    assert c["signal"] == "BUY"
+
+
+def test_setup_timing_is_computed():
+    c = _build()
+    assert c["setup"]["timing"] == {"days_to_entry": 23, "status": "window opens in 23 days"}
+
+
+def test_extended_stats_present_and_parsed():
+    s = _build()["stats"]
+    assert s["sharpe_ratio_mfe"] == 1.8
+    assert s["std_dev_pct"] == 3.4
+    assert s["annualized_return_pct"] == 4.0
+    assert s["cumulative_return_pct"] == 50.0
+
+
+def test_extend_research_block():
+    er = _build()["extend_research"]
+    assert set(er) == {"tradewave_provides", "blind_to", "suggested_checks", "loop_back", "synthesis_rule"}
+    assert "upcoming earnings" in er["blind_to"]
+    assert any("earnings" in chk.lower() for chk in er["suggested_checks"])
+
+
+def test_alignment_seasonal_only_without_ml():
+    assert _build()["alignment"]["verdict"] == "seasonal_only"
+
+
+def test_alignment_divergent_when_ml_disagrees():
+    c = cards.build_signal_card(_opp(), _STATS, list(_LONG_ENTRIES), market_name="S&P 500",
+                                ml={"win_prob": 0.40, "ml_score": 30}, ml_available=True,
+                                as_of=AS_OF, ml_state="shown")
+    assert c["alignment"]["verdict"] == "divergent"          # seasonal strong (0.9), ml weak (0.4)
+
+
+def test_no_em_dashes_in_composed_text():
+    c = _build()
+    assert "—" not in c["headline"] and "—" not in c["verdict"]
+
+
+# --- NO_SIGNAL --------------------------------------------------------------------
+
+def test_no_signal_when_win_rate_below_floor():
+    c = _build(win_rate=0.30)
+    assert c["signal"] == "NO_SIGNAL"
+    assert "order_ticket" not in c["next_step"]               # omitted on NO_SIGNAL
+
+
+def test_buy_signal_carries_order_ticket_without_price():
+    nx = _build()["next_step"]
+    assert "order_ticket" in nx
+    ot = nx["order_ticket"]
+    assert ot["type"] == "MARKET"
+    assert "price" not in ot and "limit" not in ot and "limit_price" not in ot
+
+
+# --- signals-only invariant -------------------------------------------------------
+
+def test_no_raw_price_anywhere_on_the_card():
+    import json
+    blob = json.dumps(_build(include_chart=True,
+                             seasonal_curve=[{"date": "2026-07-01", "index": 40.0},
+                                             {"date": "2026-07-02", "index": 41.0}]))
+    # the card never emits a price/ohlcv/last-price field
+    for banned in ('"price"', '"open"', '"high"', '"low"', '"close"', '"last_price"', '"limit_price"'):
+        assert banned not in blob
+
+
+# --- edge_score blend -------------------------------------------------------------
+
+def test_edge_score_blend_is_deterministic():
+    score, basis = cards.compute_edge_score(0.9, 1.5, 10, ml_win_prob=None, ml_available=False)
+    # 0.40*0.9 + 0.30*0.5 + 0.20*0.9 + 0.10*(10/15) = 0.7567 -> 76
+    assert score == 76
+    assert "win_rate 0.90" in basis and "10y history" in basis
+
+
+# --- direction-aware per-year bars (charting) ------------------------------------
+
+def test_per_year_bars_long():
+    bars = cards.per_year_bars([{"year": 2016, "pct": "11.86,12.71,-1.80"},
+                                {"year": 2025, "pct": "0,0,0"}], "long")
+    assert len(bars) == 1                                     # zero-stub excluded
+    assert bars[0] == {"year": "2016", "net_pct": 11.86, "mfe_pct": 12.71,
+                       "mae_pct": -1.8, "result": "win"}
+
+
+def test_per_year_bars_short_flips_net_and_swaps_excursions():
+    bars = cards.per_year_bars([{"year": 2016, "pct": "11.86,12.71,-1.80"}], "short")
+    b = bars[0]
+    assert b["net_pct"] == -11.86                             # short loses when the stock rose
+    assert b["mfe_pct"] == 1.8                                # favorable = -mae_long
+    assert b["mae_pct"] == -12.71                             # adverse  = -mfe_long
+    assert b["result"] == "loss"
+
+
+def test_short_aggregate_stats_are_not_double_flipped():
+    # the appserver's aggregate stats arrive already trade-relative; cards must NOT re-flip.
+    s = _build(direction="short")["stats"]
+    assert s["annualized_return_pct"] == 4.0
+    assert s["cumulative_return_pct"] == 50.0
+
+
+def test_excursions_parsing():
+    assert cards._excursions("-1.09,5.03,-5.83") == (-1.09, 5.03, -5.83)
+    assert cards._excursions("5.0") == (5.0, None, None)
+    assert cards._excursions(None) == (None, None, None)
+
+
+def test_include_chart_attaches_curve_and_bars():
+    c = _build(include_chart=True,
+               seasonal_curve=[{"date": "2026-07-01", "index": 40.0},
+                               {"date": "2026-07-02", "index": 41.0}])
+    assert "chart" in c
+    assert len(c["chart"]["trend_chart"]) == 2
+    assert c["chart"]["trend_chart"][0] == {"date": "2026-07-01", "index": 40.0}
+    assert len(c["chart"]["per_year_bars"]) == 10            # 10 completed years, stub excluded
+
+
+# --- progressive disclosure / view projection ------------------------------------
+
+def test_project_full_is_identical_passthrough():
+    c = _build()
+    assert cards.project_card(c, "full") == c
+
+
+def test_project_decision_trims_but_keeps_decision_essentials():
+    c = _build()
+    d = cards.project_card(c, "decision")
+    assert "per_year" not in d["receipts"]                    # heavy array dropped
+    assert set(d["stats"]) == {"historical_win_rate", "sharpe_ratio", "avg_return_pct", "years"}
+    assert "edge_basis" not in d                              # detail dropped
+    assert d["disclaimer"] == cards.DISCLAIMER                # compliance kept
+    assert "extend_research" in d and "alignment" in d        # decision-relevant kept
+    assert d["setup"]["timing"] is not None
+
+
+def test_project_table_is_a_compact_row():
+    row = cards.project_card(_build(), "table")
+    assert set(row) == {"rank", "symbol", "market", "direction", "signal", "entry_date",
+                        "hold_days", "edge_score", "historical_win_rate", "ml_win_prob",
+                        "sharpe_ratio", "headline"}
+    assert row["symbol"] == "TEST" and row["market"] == "S&P 500 STOCKS"
+
+
+def test_project_decision_keeps_explicit_chart():
+    c = _build(include_chart=True,
+               seasonal_curve=[{"date": "2026-07-01", "index": 40.0}])
+    d = cards.project_card(c, "decision")
+    assert "chart" in d                                       # explicit include survives the trim
