@@ -328,16 +328,37 @@ def _extract_disclaimer(obj: Any) -> Optional[str]:
     return found
 
 
-def _lead(text: str, data: Any) -> str:
+# Epistemic research hand-off, appended after CARD-BEARING responses only (never on
+# primitives like whoami/list_markets). TradeWave's polished verdict otherwise reads as a
+# "finished answer" = the strongest "stop here" signal; this converts it into "now go
+# confirm this with your own tools," and blocks the two default failure modes - the model
+# fabricating a catalyst, or laundering a NO_SIGNAL coin-flip into "mild support."
+_HANDOFF = (
+    "Research hand-off: this is a SEASONAL + ML statistical edge ONLY. TradeWave is BLIND to "
+    "fundamentals, news, macro, valuation, and upcoming earnings/events. Before treating it as a "
+    "complete view, use your OWN tools to check whether current news, macro, or recent price action "
+    "SUPPORT or THREATEN this seasonal thesis - search for them; do NOT assume a catalyst exists and "
+    "do NOT invent one. If TradeWave reports NO_SIGNAL / no edge, report that as a genuine 'no edge' "
+    "finding (computed independently of any news), not as mild support. Then synthesize, keeping "
+    "explicit which facts are TradeWave's data vs your own research; if you can't verify it, say so."
+)
+
+
+def _lead(text: str, data: Any, handoff: bool = False) -> str:
     """Prepend a one-line conversational lead to the gateway's structured JSON.
 
     The gateway's SignalCard JSON is the source of truth and is returned verbatim
     (json.dumps), except the repeated per-card 'disclaimer' is hoisted to a single
     envelope line (see _extract_disclaimer). The lead is a single human sentence
     for the model to open with; it never reshapes the structured payload.
+
+    handoff=True (card-bearing flagships only) appends the epistemic research hand-off
+    after the payload, so the model extends the research instead of stopping at the card.
     """
     disclaimer = _extract_disclaimer(data)
     out = f"{text}\n\n{json.dumps(data, separators=(',', ':'))}"
+    if handoff:
+        out += f"\n\n{_HANDOFF}"
     if disclaimer:
         out += f"\n\nDisclaimer: {disclaimer}"
     return out
@@ -355,7 +376,7 @@ def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
         count = data.get("count")
         if count == 0 or (count is None and not data.get("opportunities")):
             return _lead(empty_msg, data)
-    return _lead(found_msg(data) if callable(found_msg) else found_msg, data)
+    return _lead(found_msg(data) if callable(found_msg) else found_msg, data, handoff=True)
 
 
 # ===========================================================================
@@ -543,8 +564,9 @@ def analyze_symbol(
         return _lead(
             f"{sym} has no high-conviction seasonal edge right now - here is the honest read:",
             data,
+            handoff=True,
         )
-    return _lead(f"Here is the full seasonal deep-dive on {sym}:", data)
+    return _lead(f"Here is the full seasonal deep-dive on {sym}:", data, handoff=True)
 
 
 # ---------------------------------------------------------------------------
@@ -577,6 +599,7 @@ def explain_pick(ctx: Optional[Context] = None) -> str:
         "history (share of past years the window was profitable); track_record.win_rate is "
         "the LIVE, out-of-sample record of past daily picks. Don't conflate them.",
         data,
+        handoff=True,
     )
 
 
@@ -678,6 +701,7 @@ def compare_opportunities(
         f"Side-by-side seasonal comparison of {len(symbols)} symbol(s) - compare edge score, "
         "win rate, and the receipts on each card:",
         payload,
+        handoff=True,
     )
 
 
