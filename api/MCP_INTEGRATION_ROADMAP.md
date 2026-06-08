@@ -28,12 +28,15 @@ operator's complaint: *"tons of information, more than a researcher needs, then 
   entry path is broken. Resolve to the primary US listing (S&P→DOW→NASDAQ) + `card.note`; never
   hard-error a bare ticker (keep strict mode opt-in). S-effort, zero compliance/token dependency,
   every other feature is moot if the front door breaks on the most-typed ticker on earth.
-- **DO NOT BUILD (as scoped):** `scan_my_portfolio` / `analyze_my_book`. It requires the gateway to
-  **forge a per-user web-tier token** (privilege-bearing), ingests the highest-risk data (share counts,
-  cost basis, computed P&L — far beyond "strip `price1`"), and "STRONG TAKE on a name you hold N shares
-  of" is the clearest personalized-advice/solicitation exposure in the plan. Ship `scan_my_watchlist`
-  (clean bare symbols, low risk) as the wedge; shelve the portfolio variant behind legal review + a real
-  act-as threat model.
+- **ELIMINATED (product decision 2026-06-08 — educational-only policy):** `scan_my_portfolio` /
+  `analyze_my_book`. NOT a "later, after legal review" item — it is removed from the plan. Reading a
+  user's actual holdings (share counts, cost basis, computed P&L) and emitting a verdict on a name they
+  hold IS personalized investment advice by its substance — the "educational, not advice" disclaimer can
+  only describe impersonal output, it cannot relabel conduct that is personalized. The integration stays
+  EDUCATIONAL-ONLY (impersonal; the same signal goes to everyone). `scan_my_watchlist` remains a candidate
+  wedge because a watchlist is bare symbols (impersonal — legally fine); its blocker is the act-as token
+  SECURITY work, not legal. Any future feature that reads holdings or attaches a directive to a held
+  position is OUT unless an attorney signs off first.
 
 ---
 
@@ -135,8 +138,8 @@ mode. The fix is mostly **response shaping + a `view` parameter**, plus targeted
    (sensitive):* the gateway must mint a web-tier-equivalent token for the resolved user id (the
    appserver derives `userid` from the JWT `'user'` claim) — a **privilege-bearing act-as capability**
    needing audience scoping, short TTL, read-only claim, a `can_act_as` check, audit logging, and
-   cross-user isolation tests. NOT "pure plumbing." `scan_my_portfolio` is a SEPARATE, later, legally
-   reviewed item (carries `num_shares`/cost-basis/`gain_loss` → whitelist symbols out, never blacklist).
+   cross-user isolation tests. NOT "pure plumbing." `scan_my_portfolio` is ELIMINATED (see above) — a
+   watchlist is bare symbols (impersonal/educational); reading actual holdings is not, so it is out.
 2. **Earnings / event-risk flag in window.** `earnings_in_window` + `next_earnings_est`. #1 invalidator
    of a seasonal stat; RIA/PM unblocker. *Caveat (corrected):* `get_earnings_dates` is EDGAR filing
    dates + a **projected estimate**, with coverage gaps (futures/crypto/many ETFs) — ship as *estimated*
@@ -144,9 +147,11 @@ mode. The fix is mostly **response shaping + a `view` parameter**, plus targeted
    is the effort.
 3. **Bare-ticker resolve-and-note** (the DO-FIRST above).
 4. **`card.call` go/no-go layer.** Collapses six competing confidence numbers into one categorical
-   verdict (derive from edge_score + ml_win_prob + live-track agreement). **Compliance: needs legal
-   sign-off** before it leads every card; soften the label to "STRONG SIGNAL" (not "STRONG TAKE/BUY") —
-   a directive verb + order ticket + (for portfolio) holdings = personalized-advice line.
+   verdict (derive from edge_score + ml_win_prob + live-track agreement). **Educational-only constraint:**
+   the label must DESCRIBE the data ("STRONG SIGNAL" — the signal is strong), never DIRECT the user
+   ("STRONG TAKE/BUY" — you should act). A directive label is the personalized-advice line; a descriptive
+   one stays educational. Attorney sign-off before it leads every card. (Today there is NO `call` field;
+   the existing `verdict` is already descriptive, e.g. "Strong, consistent seasonal long" — compliant.)
 5. **Window radar (`setup.timing`).** Human-terms timing ("opens in 2 days, closes in 5"). Pure date math.
 6. **Calibration receipts** on the live track record: per-row `original_ml_win_prob`,
    `edge_score_at_call`, `realized_mfe_pct` + `calibration_buckets` ("picks called >80% won 8/10"). The
@@ -274,9 +279,25 @@ path (entitlement-aware tool descriptions, "try it on SPY", friendly link-your-a
 
 ## COMPLIANCE LANDMINES (do not skip)
 
-- **`card.call` verdict framing** — directive verb + order ticket + (portfolio) holdings = personalized
-  investment advice / solicitation. Legal sign-off before it leads; "STRONG SIGNAL" not "STRONG TAKE".
-- **Portfolio data** — whitelist symbols OUT; never expose `num_shares`/cost-basis/`gain_loss`/P&L.
-- **Forged per-user token** — audit log every act-as, scope audience + TTL + read-only, isolation-test
-  WorkOS-sub→user-id (a resolution bug = serving user A's data to user B).
-- **Disclaimer** — exact regulatory string, once, verbatim, never paraphrased.
+**STANDING POLICY (2026-06-08): EDUCATIONAL-ONLY.** The MCP/API surface publishes IMPERSONAL market
+information — the same seasonal/ML signal goes to every caller, never tailored to an individual's
+holdings or situation (this is what keeps it inside the publisher's exclusion / Lowe v. SEC, not
+investment advice). The label follows the conduct: the "educational, not advice" disclaimer is only
+true while the output is impersonal. Two rules follow:
+  1. **Never read or advise on a user's actual holdings.** No `num_shares` / cost basis / `gain_loss` /
+     P&L, ever. `scan_my_portfolio` / `analyze_my_book` are ELIMINATED. Any feature that ingests holdings
+     or attaches a directive to a position the user holds requires attorney sign-off before design.
+  2. **Describe the data, don't direct the person.** Labels/verdicts state the strength of the signal
+     ("STRONG SIGNAL", "Strong, consistent seasonal long"), never "you should buy/sell". The order_ticket
+     stays an impersonal template (no price level; "size to your own risk", "place at your own broker").
+
+- **`card.call` verdict framing** — keep descriptive ("STRONG SIGNAL"), never directive ("STRONG TAKE/BUY");
+  attorney sign-off before it leads. A directive verb + order ticket + held position = the advice line.
+- **Forged per-user token (only ever for impersonal data like a watchlist)** — audit log every act-as,
+  scope audience + TTL + read-only, isolation-test WorkOS-sub→user-id (a resolution bug = serving user A's
+  data to user B). Never use it to reach holdings.
+- **Disclaimer** — exact regulatory string, once, verbatim, never paraphrased; on every SIGNAL-bearing
+  response (not just SignalCards): `/scan`, `/analyze`, `/daily-pick`, AND the primitives that return a
+  win rate / ML probability / return / track record (`/opportunities`(+`/<symbol>`), `/patterns`,
+  `/seasonal-chart`, `/score`, `/daily-pick/track-record`). Pure catalog/account (`/markets`, `/me`,
+  `/symbols`) are exempt. Verified by an adversarial educational-only audit 2026-06-08.

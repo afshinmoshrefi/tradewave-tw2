@@ -480,6 +480,9 @@ def opportunities():
         "window_supported": False,  # single-date endpoint; use /v1/scan for windows
         "evaluated_count": evaluated_count,
         "enrichment_capped": enrichment_capped,
+        # educational-only: any signal-bearing response (win rates / ML / returns) carries the
+        # exact disclaimer, not just the composed SignalCard endpoints.
+        "disclaimer": cards.DISCLAIMER,
     })
 
 
@@ -522,7 +525,8 @@ def _symbol_patterns_response(symbol):
             for o, score in zip(score_rows, ml):
                 o["ml"] = score
 
-    return jsonify({"opportunities": opps, "ml_remaining_today": ml_quota.remaining(g.customer)})
+    return jsonify({"opportunities": opps, "ml_remaining_today": ml_quota.remaining(g.customer),
+                    "disclaimer": cards.DISCLAIMER})
 
 
 @v1.get("/opportunities/<symbol>")
@@ -954,7 +958,10 @@ def pattern(market_id, symbol):
         entry_date, days_out, yrs = _chart_window_and_years(symbol)
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
-    return jsonify(appserver_client.pattern_stats(market_id, symbol, entry_date, days_out, yrs))
+    data = appserver_client.pattern_stats(market_id, symbol, entry_date, days_out, yrs)
+    if isinstance(data, dict):
+        data["disclaimer"] = cards.DISCLAIMER  # educational-only: win-rate/stats payload
+    return jsonify(data)
 
 
 @v1.get("/seasonal-chart")
@@ -972,8 +979,11 @@ def seasonal_chart():
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
     direction = request.args.get("direction")
-    return jsonify(appserver_client.seasonal_chart(
-        market, symbol, entry_date, days_out, yrs, direction=direction))
+    data = appserver_client.seasonal_chart(
+        market, symbol, entry_date, days_out, yrs, direction=direction)
+    if isinstance(data, dict):
+        data["disclaimer"] = cards.DISCLAIMER  # educational-only: Trend Chart + win-rate payload
+    return jsonify(data)
 
 
 @v1.post("/score")
@@ -1058,6 +1068,8 @@ def score():
         "scores": scores,
         "granted": granted,
         "ml_remaining_today": ml_quota.remaining(g.customer),
+        # educational-only: ML scores (win_prob / pred_return) are signal-bearing.
+        "disclaimer": cards.DISCLAIMER,
     })
 
 
@@ -1122,4 +1134,8 @@ def daily_pick():
 @v1.get("/daily-pick/track-record")
 @require_api_key
 def track_record():
-    return jsonify(appserver_client.track_record())
+    data = appserver_client.track_record()
+    if isinstance(data, dict):
+        # educational-only: performance claims must carry the disclaimer ("past performance...").
+        data["disclaimer"] = cards.DISCLAIMER
+    return jsonify(data)
