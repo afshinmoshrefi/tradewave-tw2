@@ -122,7 +122,7 @@
               "key": "min_winning_years",
               "value": "",
               "disabled": true,
-              "description": "of those `years`, the minimum number of WINNING years for a pattern to be listed. years=10 & min_winning_years=9 = the classic '10-9' (>=90% of years won)."
+              "description": "of those `years`, the minimum WINNING years for a pattern to be listed (the win-rate floor; year2). DEFAULTS to ~90% of `years` (so years=20 -> a valid 20-18). "
             },
             {
               "key": "rank_by",
@@ -135,6 +135,12 @@
               "value": "10",
               "disabled": false,
               "description": "tier-capped (free 3, dev 25, pro up to 5000)"
+            },
+            {
+              "key": "view",
+              "value": "",
+              "disabled": true,
+              "description": "response verbosity (progressive disclosure). 'full' (default) = complete cards; 'decision' = the lean read (drops receipts.per_year + the detail stats, keeps ve"
             }
           ]
         },
@@ -208,6 +214,18 @@
               "value": "",
               "disabled": true,
               "description": "invert the period to all-of-year-except-that-window."
+            },
+            {
+              "key": "view",
+              "value": "",
+              "disabled": true,
+              "description": "response verbosity (progressive disclosure). 'full' (default) = the complete card; 'decision' = the lean read; 'table' = a single compact row. The MCP layer req"
+            },
+            {
+              "key": "include",
+              "value": "",
+              "disabled": true,
+              "description": "include=chart attaches a `chart` block to the card - the Trend Chart curve + per-year bars (chart DATA, not an image) - in one call."
             }
           ]
         },
@@ -233,7 +251,7 @@
             "markets"
           ]
         },
-        "description": "List the 17 markets and the caller's access scope"
+        "description": "List the 15 active markets (ids 0-13, 16) and the caller's access scope + pattern coverage"
       }
     },
     {
@@ -355,7 +373,7 @@
               "key": "min_winning_years",
               "value": "",
               "disabled": true,
-              "description": "of those `years`, the minimum winning years required to list a pattern (e.g. 10/9)"
+              "description": "of those `years`, the minimum WINNING years (the win-rate floor; year2). DEFAULTS to ~90% of `years`. Single market: validated against that market's DETECTION B"
             },
             {
               "key": "limit",
@@ -428,7 +446,7 @@
               "key": "min_winning_years",
               "value": "",
               "disabled": true,
-              "description": "minimum winning years to list a pattern (e.g. 10/9)"
+              "description": "minimum WINNING years (the win-rate floor; year2). DEFAULTS to ~90% of `years`; validated against the market's DETECTION BAND (~75-90%+, market-specific). Per-s"
             }
           ]
         },
@@ -502,7 +520,7 @@
               "key": "min_winning_years",
               "value": "",
               "disabled": true,
-              "description": "minimum winning years to list a pattern (e.g. 10/9)"
+              "description": "minimum WINNING years (the win-rate floor; year2). DEFAULTS to ~90% of `years`; validated against the market's DETECTION BAND (~75-90%+, market-specific). Per-s"
             }
           ]
         },
@@ -695,6 +713,20 @@
           ],
           "path": [
             "daily-pick"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "",
+              "disabled": true,
+              "description": "response verbosity (progressive disclosure): 'full' (default), 'decision' (lean), or 'table'."
+            },
+            {
+              "key": "include",
+              "value": "",
+              "disabled": true,
+              "description": "include=chart attaches a `chart` block (Trend Chart curve + per-year bars) to the pick card."
+            }
           ]
         },
         "description": "Today's AI pick as a SignalCard, with its live track record"

@@ -67,6 +67,7 @@ paths:
         - { name: min_winning_years, in: query, schema: { type: integer }, description: "of those `years`, the minimum WINNING years for a pattern to be listed (the win-rate floor; year2). DEFAULTS to ~90% of `years` (so years=20 -> a valid 20-18). Must lie in the market's DETECTION BAND, which is market-specific (~75-90%+ winners; e.g. S&P 500 ~85%, Wilshire ~90%, FOREX Liquid ~70% at a 20-year lookback). Multi-market scan: out-of-band markets are reported in lookback_note (not errored)." }
         - { name: rank_by, in: query, schema: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return], default: sharpe }, description: "ranking key; default sharpe (Sharpe ratio)" }
         - { name: limit, in: query, schema: { type: integer, default: 25 }, description: "tier-capped (free 3, dev 25, pro up to 5000)" }
+        - { name: view, in: query, schema: { type: string, enum: [full, decision, table], default: full }, description: "response verbosity (progressive disclosure). 'full' (default) = complete cards; 'decision' = the lean read (drops receipts.per_year + the detail stats, keeps verdict/timing/edge/extend_research); 'table' = one compact row per setup. The MCP layer requests 'decision' by default." }
       responses:
         "200":
           description: OK
@@ -97,6 +98,8 @@ paths:
         - { name: years, in: query, schema: { type: integer, minimum: 1, maximum: 99 }, description: "lookback length (default 10)." }
         - { name: period, in: query, schema: { type: string, enum: [jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec, q1, q2, q3, q4, spring, summer, fall, winter, ytd, year_end, buy_hold] }, description: "wave-viewer date-range preset; overrides entry_date/days_out." }
         - { name: reverse, in: query, schema: { type: boolean }, description: "invert the period to all-of-year-except-that-window." }
+        - { name: view, in: query, schema: { type: string, enum: [full, decision, table], default: full }, description: "response verbosity (progressive disclosure). 'full' (default) = the complete card; 'decision' = the lean read; 'table' = a single compact row. The MCP layer requests 'decision' by default." }
+        - { name: include, in: query, schema: { type: string, enum: [chart] }, description: "include=chart attaches a `chart` block to the card - the Trend Chart curve + per-year bars (chart DATA, not an image) - in one call." }
       responses:
         "200":
           description: OK
@@ -107,7 +110,7 @@ paths:
   /markets:
     get:
       tags: [markets]
-      summary: List the 17 markets and the caller's access scope
+      summary: List the 15 active markets (ids 0-13, 16) and the caller's access scope + pattern coverage
       responses:
         "200":
           description: OK
@@ -301,6 +304,9 @@ paths:
         receipts ALSO carry live_track_record (the forward-tested record of past picks -
         made in advance, scored later), the strongest receipt. featured_date is the date
         the pick was made; track_record echoes the live record at the top level too.
+      parameters:
+        - { name: view, in: query, schema: { type: string, enum: [full, decision, table], default: full }, description: "response verbosity (progressive disclosure): 'full' (default), 'decision' (lean), or 'table'." }
+        - { name: include, in: query, schema: { type: string, enum: [chart] }, description: "include=chart attaches a `chart` block (Trend Chart curve + per-year bars) to the pick card." }
       responses:
         "200":
           description: OK
@@ -349,6 +355,7 @@ components:
         name: { type: string, example: "S&P 500 STOCKS" }
         ml_eligible: { type: boolean }
         in_scope: { type: boolean, description: "is this market in the caller's tier scope" }
+        pattern_detection: { $ref: "#/components/schemas/PatternDetection", description: "which seasonal pattern-detection paths exist for this market + an example win-rate band" }
     Symbol:
       type: object
       properties:
@@ -385,6 +392,7 @@ components:
         opportunities:
           type: array
           items: { $ref: "#/components/schemas/Opportunity" }
+        disclaimer: { type: string, description: "exact regulatory disclaimer (this is a signal-bearing response)" }
     SignalCard:
       type: object
       description: >
@@ -407,8 +415,12 @@ components:
         next_step: { $ref: "#/components/schemas/NextStep" }
         headline: { type: string, description: "gateway-composed one-line summary (mandatory). No em-dashes." }
         verdict: { type: string, description: "gateway-composed plain-English read (mandatory)" }
+        alignment: { $ref: "#/components/schemas/SignalAlignment", description: "whether the per-instance ML view agrees with the in-sample seasonal win rate (a cross-check, not a 4th win rate)" }
+        extend_research: { $ref: "#/components/schemas/ExtendResearch", description: "structured research hand-off: what TradeWave is blind to + what to check with your own tools. Retained in the lean 'decision' view." }
+        chart: { $ref: "#/components/schemas/CardChart", description: "present ONLY when the request set include=chart - the Trend Chart curve + per-year bars, inline (chart DATA, never an image)." }
         disclaimer: { type: string, description: "exact regulatory disclaimer, present on every card" }
         tier_notes: { type: string, description: "'ML score shown (Pro).' or the free-tier upgrade nudge" }
+        note: { type: string, description: "optional - e.g. a bare-ticker resolution note when a symbol existed in multiple markets and was resolved to the primary US listing" }
     MarketRef:
       type: object
       properties:
@@ -422,14 +434,19 @@ components:
         entry_window: { type: string, description: "tolerance range (a few trading days), e.g. '2026-07-08 to 2026-07-15'" }
         hold_days: { type: integer, description: "seasonal hold in calendar days" }
         exit_date: { type: string, format: date }
+        timing: { $ref: "#/components/schemas/SeasonalTiming", nullable: true, description: "where the entry window sits relative to today (days_to_entry + a plain-language status); null when there is no entry date" }
     SignalStats:
       type: object
       description: Headline percent-only stats. No price levels.
       properties:
         historical_win_rate: { type: number, description: "0..1, share of profitable years (Percent Profitable). DISTINCT from ml.ml_win_prob." }
         sharpe_ratio: { type: number }
+        sharpe_ratio_mfe: { type: number, nullable: true, description: "MFE-based Sharpe (appserver 'Sharpe Ratio2'); arrives already trade-relative for shorts" }
         avg_return_pct: { type: number }
         median_return_pct: { type: number }
+        std_dev_pct: { type: number, nullable: true, description: "dispersion of the yearly returns, PERCENT (sign-agnostic)" }
+        annualized_return_pct: { type: number, nullable: true, description: "annualized return, PERCENT (already trade-relative for shorts)" }
+        cumulative_return_pct: { type: number, nullable: true, description: "cumulative return over the lookback, PERCENT (already trade-relative for shorts)" }
         years: { type: string, description: "lookback label, stays a string" }
     SignalCardML:
       type: object
@@ -521,27 +538,94 @@ components:
             fire_on: { type: string, format: date }
             message: { type: string }
         framing: { type: string, description: "'TradeWave gives the edge and the timing; you place the trade at your own broker.'" }
+    SeasonalTiming:
+      type: object
+      description: Where the entry window sits relative to today. Calendar days, no price.
+      properties:
+        days_to_entry: { type: integer, description: "calendar days from today to the entry date; negative once the window has opened" }
+        status: { type: string, description: "plain-language read, e.g. 'window opens in 12 days' | 'in the entry window now' | 'window has passed for this cycle'" }
+    SignalAlignment:
+      type: object
+      description: Does the per-instance ML view agree with the in-sample seasonal win rate? A cross-check, never a 4th win rate.
+      properties:
+        verdict: { type: string, enum: [seasonal_only, aligned, aligned_weak, divergent, mixed], description: "'seasonal_only' when no ML score is present to cross-check" }
+        note: { type: string }
+    ExtendResearch:
+      type: object
+      description: >
+        The structured research hand-off carried on every card. TradeWave supplies a seasonal + ML
+        statistical edge and the timing; the assistant is told, in machine-readable form, to extend it
+        with its OWN news / fundamentals / macro tools and synthesize. No price, no advice.
+      properties:
+        tradewave_provides: { type: string }
+        blind_to: { type: array, items: { type: string }, description: "what TradeWave cannot see (fundamentals, news, catalysts, macro, earnings, live price, ...)" }
+        suggested_checks: { type: array, items: { type: string }, description: "concrete things to verify with your own tools, incl. an earnings-in-window nudge" }
+        loop_back: { type: string, description: "which TradeWave tools to call again if your findings change the picture" }
+        synthesis_rule: { type: string, description: "keep explicit which facts are TradeWave's vs your own; do not invent a catalyst" }
+    PerYearBar:
+      type: object
+      description: One year's trade return with its favorable/adverse excursion band. All PERCENTAGES, never prices. Direction-aware.
+      properties:
+        year: { type: string }
+        net_pct: { type: number, description: "the trade's net return that year (sign-flipped for shorts)" }
+        mfe_pct: { type: number, nullable: true, description: "max FAVORABLE excursion, >= 0 (trade-relative)" }
+        mae_pct: { type: number, nullable: true, description: "max ADVERSE excursion, <= 0 (trade-relative)" }
+        result: { type: string, enum: [win, loss] }
+    CardChart:
+      type: object
+      description: >
+        Inline chart DATA (present only when include=chart): everything needed to draw the Trend Chart
+        and the per-year bar panel client-side. Percentages + a 0-100 index only - never a price.
+      properties:
+        trend_chart:
+          type: array
+          description: the Trend Chart - year-averaged 0-100 normalized seasonal index, one point per day (entry-anchored)
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              index: { type: number, description: "0-100 relative seasonal index" }
+        per_year_bars:
+          type: array
+          items: { $ref: "#/components/schemas/PerYearBar" }
+        note: { type: string }
+    PatternDetection:
+      type: object
+      description: Which seasonal pattern-detection paths exist for a market + an illustrative win-rate band.
+      properties:
+        scan_detection: { type: boolean, description: "scan/opportunity detection (find_best_opportunities) available - true for all 15 markets" }
+        by_symbol_detection: { type: boolean, description: "per-symbol pattern detection (get_symbol_patterns) available - true ONLY for market ids 0,1,2,7,9" }
+        lookback_years_range: { type: array, items: { type: integer }, description: "[min, max] lookback (year1) available for the scan path" }
+        example_band: { type: string, description: "an illustrative win-rate band, e.g. '20-year lookback: min_winning_years 18-20 (~90%+ winners)'" }
     ScanResponse:
       type: object
       properties:
         generated_at: { type: string, format: date-time }
         window: { type: string, description: "the resolved window (e.g. 'now')" }
+        markets_scanned: { type: array, items: { type: string }, description: "the market ids actually scanned" }
         rank_by: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return] }
+        view: { type: string, enum: [full, decision, table], description: "the verbosity applied (echoes the request)" }
+        lookback: { type: object, description: "the resolved detection knobs (year1, year2)", properties: { years: { type: integer }, min_winning_years: { type: integer } } }
         count: { type: integer, description: "number of cards returned" }
         evaluated_count: { type: integer, description: "candidates considered before slicing/enrichment" }
         enrichment_capped: { type: boolean, description: "true when win_rate enrichment hit its cap" }
         ml_remaining_today: { type: integer, nullable: true, description: "ML calls remaining today for this key (null = unlimited; 0 = daily limit reached). Free 5/day, Dev 100/day, Pro/Business unlimited." }
         opportunities:
           type: array
+          description: "ranked SignalCards. Under view='decision' each card is trimmed (no receipts.per_year or detail stats); under view='table' each item is a COMPACT ROW (symbol, direction, entry_date, hold_days, edge_score, win rates, headline) rather than a full SignalCard."
           items: { $ref: "#/components/schemas/SignalCard" }
+        lookback_note: { type: string, description: "present only when the (year1, year2) combo is out of band for some scanned markets - it names them (they contributed nothing). Raise min_winning_years to include them." }
+        disclaimer: { type: string, description: "exact regulatory disclaimer (envelope level; guarantees it survives a 'table' projection)" }
     AnalyzeResponse:
       type: object
       properties:
-        card: { $ref: "#/components/schemas/SignalCard", description: "the best setup as a full SignalCard" }
+        card: { $ref: "#/components/schemas/SignalCard", description: "the best setup as a SignalCard (trimmed under view='decision'; a compact row under view='table'). May carry a `note` when a bare ticker was resolved to a primary listing." }
         other_setups:
           type: array
           description: alternate candidate setups for the same symbol (compact - no card composition)
           items: { $ref: "#/components/schemas/CompactSetup" }
+        view: { type: string, enum: [full, decision, table], description: "the verbosity applied (echoes the request)" }
+        disclaimer: { type: string, description: "exact regulatory disclaimer (envelope level)" }
         as_of: { type: string, format: date }
     CompactSetup:
       type: object
@@ -559,9 +643,11 @@ components:
     DailyPickResponse:
       type: object
       properties:
-        card: { $ref: "#/components/schemas/SignalCard", description: "the pick as a full SignalCard; receipts.live_track_record carries the live record" }
+        card: { $ref: "#/components/schemas/SignalCard", description: "the pick as a SignalCard (trimmed under view='decision'); receipts.live_track_record carries the live record" }
         featured_date: { type: string, format: date, description: "the date the pick was made" }
         track_record: { $ref: "#/components/schemas/TrackRecordSummary", description: "the live forward-tested record (echoed at top level)" }
+        view: { type: string, enum: [full, decision, table], description: "the verbosity applied (echoes the request)" }
+        disclaimer: { type: string, description: "exact regulatory disclaimer (envelope level)" }
         as_of: { type: string, format: date }
     ScoreRequest:
       type: object
@@ -597,6 +683,7 @@ components:
         stats:
           type: object
           description: "Publishable percent-only subset of the ChartData4 stats; price/volume levels (52W high/low, SMA, avg volume) are excluded."
+        disclaimer: { type: string, description: "exact regulatory disclaimer (this is a signal-bearing response)" }
     SeasonalChart:
       type: object
       description: >
@@ -626,6 +713,11 @@ components:
         stats:
           type: object
           description: same publishable percent-only stat block as /patterns
+        per_year_bars:
+          type: array
+          description: "per-year bars for the Trend Chart - each completed year's trade return plus its favorable/adverse excursion band, returned alongside the curve (one-call curve+bars). Direction-aware, percentages only."
+          items: { $ref: "#/components/schemas/PerYearBar" }
+        disclaimer: { type: string, description: "exact regulatory disclaimer (this is a signal-bearing response)" }
     DailyPick:
       type: object
       properties:
@@ -654,6 +746,7 @@ components:
               featured_date: { type: string, format: date }
               return_pct: { type: number }
               result: { type: string, enum: [win, loss, open] }
+        disclaimer: { type: string, description: "exact regulatory disclaimer (performance record - 'past performance is not indicative...')" }
     Error:
       type: object
       properties:
@@ -681,6 +774,7 @@ components:
                   note: { type: string, description: "present only on unscored items beyond the daily allowance" }
         granted: { type: integer, description: "number of items that were actually scored" }
         ml_remaining_today: { type: integer, nullable: true, description: "ML calls remaining today after this batch (null = unlimited)" }
+        disclaimer: { type: string, description: "exact regulatory disclaimer (ML scores are signal-bearing)" }
     MLDailyLimitReached:
       type: object
       description: >
