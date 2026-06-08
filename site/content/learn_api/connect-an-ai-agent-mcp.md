@@ -12,7 +12,13 @@ The Model Context Protocol (MCP) is an open standard that lets an AI assistant c
 
 TradeWave runs a hosted MCP server at `https://mcp.tradewave.ai/mcp`. It exposes the exact same derived signals as the REST API - the server composes the `SignalCard` for you, so your agent gets percentages, a normalized seasonal index, an honest edge score, and a public track record. It never gets raw prices or OHLCV bars. Every response still carries its `disclaimer`: outputs are educational, not personalized advice.
 
-TradeWave is a research partner, not an oracle. It supplies a seasonal plus 62-feature-ML statistical edge and the timing, and it is deliberately blind to fundamentals, valuation, news, catalysts, macro and rates, analyst views, earnings dates, and the live price. That is by design: it pairs with your assistant's own web, news, and reasoning tools. TradeWave brings the seasonal/ML edge, the agent extends it with fundamentals, news, and macro, and the two synthesize one view. Every card carries a research hand-off, and the `describe_tradewave` tool lets the agent self-document the method before it leans on a number.
+TradeWave is a research partner, not an oracle. It supplies a seasonal plus 62-feature-ML statistical edge and the timing, and it is deliberately blind to fundamentals, valuation, news, catalysts, macro and rates, analyst views, earnings dates, and the live price. That is by design: it pairs with your assistant's own web, news, and reasoning tools. TradeWave brings the seasonal/ML edge, the agent extends it with fundamentals, news, and macro, and the two synthesize one view.
+
+The intended loop is explicit, and it is worth wiring into your agent's instructions:
+
+1. Call `describe_tradewave` first. It self-documents the seasonal/ML method, ships a "SEASONAL ANALYSIS KNOBS" glossary, and lists per-market coverage, so the agent knows what every field means and which markets support which calls before it leans on a number.
+2. Pull a card. Every `SignalCard` carries an `extend_research` block that names, in the card itself, exactly what TradeWave is blind to (fundamentals, news, macro, earnings, the live price) and what to verify with your own tools.
+3. Loop back. Take the seasonal and ML edge plus the timing from the card, then use your web, news, and earnings tools to check the things the card told you it cannot see, and synthesize one view. The card hands the research off to you on purpose; it does not pretend to be the whole answer.
 
 Authentication is BYOK (bring your own key). Your MCP client sends the same bearer token you use for REST:
 
@@ -35,6 +41,31 @@ The server publishes 16 tools: 5 flagship tools that map to the richest API call
 | `compare_opportunities` | Put two or more setups side by side on edge, win rate, and ML | composed |
 
 Each returns the same `SignalCard` shape: `signal` (`BUY`, `SELL`, or `NO_SIGNAL`), `edge_score`, `stats`, an optional `ml` block, and the `receipts` audit trail. When the best available setup is weak, the tool returns `NO_SIGNAL` and no order ticket on purpose. That conflict-free honesty is the point.
+
+## Progressive disclosure: decide cheap, then pull the receipts
+
+Every flagship tool takes a `view` knob, so you spend tokens only where the decision needs them.
+
+| `view` | What you get | Use it for |
+| --- | --- | --- |
+| `decision` | The verdict and the few numbers a decision turns on - the **default over MCP** | The lean read; a scan that should not flood the context window |
+| `table` | Compact one-line rows, one per setup | A shortlist you want to skim, rank, or compare |
+| `full` | The complete card: years tested, wins and losses, per-year returns, best and worst year, and the Trend Chart curve | The one card you are about to act on |
+
+The pattern in practice is two calls: scan lean, then go deep on the winner.
+
+```
+find_best_opportunities(markets=["2"])              # view=decision by default - a short, cheap read
+analyze_symbol("XLE", view=full, include_chart=true) # the full receipts, with the Trend Chart inline
+```
+
+`analyze_symbol` with `include_chart=true` (the REST equivalent is `include=chart`) returns the Trend Chart curve and the per-year bars in the same response, so you do not make a second call to `get_opportunity_chart` just to see the shape. The raw REST API defaults to `view=full`; MCP defaults to `view=decision` because an agent reading a card wants the verdict first.
+
+## The lookback band
+
+Pattern detection takes two knobs: `years` (the lookback - how far back to scan) and `min_winning_years` (the win-rate floor - how many of those years had to be profitable). `min_winning_years` defaults to about 90% of `years`, and it must stay inside the market's band. So `years=20` gives a valid `20-18`, while an out-of-band combo like `20-9` is rejected with the valid range named back to you (for example, "min_winning_years must be between 17 and 20"). The floor is market-specific: S&P 500 sits near 85% at a 20-year lookback, Wilshire near 90%, FOREX Liquid near 70%.
+
+Per-symbol pattern detection (`get_symbol_patterns`) exists for five markets only - ids 0, 1, 2, 7, 9 (DOW 30, NASDAQ 100, S&P 500, Futures & Commodities, FOREX Liquid). For any other market the per-symbol tool returns a clear error; reach for `find_best_opportunities` to scan that market instead. `list_markets` reports each market's pattern-detection coverage and an example band, so the agent can check before it calls.
 
 ## Set up Claude Desktop
 
@@ -106,7 +137,7 @@ MCP tools work best when you ask the question you actually have and let the agen
 - "What is seasonal across my markets today, long only?" - `whats_seasonal_now` filtered to `direction=long`.
 - "Compare the energy and tech setups - which has the stronger win rate and ML view?" - `compare_opportunities`.
 
-A useful habit: ask the agent to surface the two probabilities by name so you do not conflate them.
+A useful habit: ask the agent to surface these three numbers by name so you do not conflate them. They are not interchangeable - one is a frequency, one is a probability, and one is a live forward-tested result.
 
 | Field | Meaning | Range |
 | --- | --- | --- |
@@ -165,4 +196,6 @@ ML behaves the same as on REST. The model covers US stocks, indices, and ETFs an
 
 ## Where to go next
 
-Your agent now has the same flagship calls as the REST API: discovery via `find_best_opportunities`, deep dives via `analyze_symbol`, and the receipts-backed `explain_pick`. Point it at a market, ask the question you actually have, and let it bring back the signal. Every response is educational and carries a disclaimer; it is not personalized advice.
+Your agent now has the same flagship calls as the REST API: discovery via `find_best_opportunities`, deep dives via `analyze_symbol`, and the receipts-backed `explain_pick`. Point it at a market, ask the question you actually have, scan lean with `view=decision`, then go `view=full` on the card you act on. Let `describe_tradewave` teach the method first, and let each card's `extend_research` block tell you what to verify with your own tools.
+
+One posture to keep front of mind: TradeWave is educational only. The signals are impersonal and identical for everyone, the platform never reads or advises on your holdings, and every signal-bearing response carries the same educational disclaimer. It is an edge and a timing input, not personalized advice.

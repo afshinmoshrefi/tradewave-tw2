@@ -17,7 +17,9 @@ to them; the deploy step publishes them under developers.tradewave.ai/docs/. Run
 Signals-only safety note: these artifacts only describe the public /v1 surface (which is
 signals-only); they expose no raw-price endpoints.
 """
+import ast
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -26,6 +28,7 @@ import yaml
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent                       # /home/flask
 OPENAPI_YAML = REPO / "api" / "openapi.yaml"
+MCP_SERVER_PY = REPO / "mcpserver" / "server.py"
 sys.path.insert(0, str(REPO / "site" / "lib"))
 import portal_urls  # noqa: E402
 
@@ -52,28 +55,120 @@ _SCORE_BODY = {
     ]
 }
 
-# The MCP tool surface (kept in lockstep with api/MCP_TOOLS.md + mcpserver/server.py):
-# 16 tools = 5 flagship + 11 primitives. Flagship are listed first.
-_MCP_TOOLS = [
-    # Flagship (5)
-    ("find_best_opportunities", "Scan the markets in your scope and return the best seasonal setups as ranked SignalCards."),
-    ("analyze_symbol", "Deep-dive one symbol into a rich SignalCard (best setup, receipts, order ticket) plus its other setups; pin a specific opportunity by entry_date or a date-range preset."),
-    ("explain_pick", "Today's daily pick as a SignalCard, with its live forward-tested track record as proof."),
-    ("whats_seasonal_now", "Setups entering their seasonal window in the next ~10 trading days (a weekly digest)."),
-    ("compare_opportunities", "Deep-dive several symbols and return them side by side for a head-to-head."),
-    # Primitives (11)
-    ("list_markets", "The markets in your scope and which support ML."),
-    ("whoami", "The caller's identity and entitlements from the API key - tier, in-scope markets, ML allowance, remaining quota."),
-    ("describe_tradewave", "Self-documents the method: the seasonal + 62-feature-ML edge, what TradeWave is blind to (fundamentals, news, macro, live price), and how to pair it with the assistant's own research."),
-    ("list_symbols", "The symbols in a market."),
-    ("get_seasonal_opportunities", "Raw single-market ranked seasonal setups."),
-    ("get_symbol_patterns", "Every raw seasonal setup for one symbol."),
-    ("get_seasonal_pattern", "Bare aggregate seasonal pattern stats for a symbol (no price series)."),
-    ("get_opportunity_chart", "The Trend Chart data: a single year-averaged, normalized 0-100 seasonal index curve (the typical within-year shape, never a price)."),
-    ("score_opportunities", "ML score a list of setups (ml_score, win_prob, predicted return)."),
-    ("get_daily_pick", "The bare daily-pick payload."),
-    ("get_pick_track_record", "The realized win/loss record of past daily picks."),
-]
+# The MCP tool surface is NOT hand-maintained here: it is DERIVED, at generation time, by
+# statically parsing the one source of truth (mcpserver/server.py) with Python's ast module.
+# We never import server.py (it pulls in fastmcp + the full server runtime); we read it as text
+# and walk the AST, so this generator stays a pure, dependency-light build step. For every
+# @mcp.tool-decorated function we take the def name and its description= kwarg (an implicitly
+# concatenated string literal). Source order is preserved (server.py defines the 5 flagships
+# first, then the 11 primitives), so the manifest cannot drift from the live tool surface.
+
+# Sentence terminators followed by whitespace + the start of a new sentence. We require the next
+# char to be an uppercase letter / quote / digit so we do not break on the decimal point in
+# "0-100", "5%", "v2.1", a mid-sentence "i.e."/"e.g.", or a '?'/'!' that sits inside a quoted
+# phrase like 'show me SYMBOL's patterns' (there the terminator is followed by a closing quote,
+# not a new sentence).
+_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\"'‘“])")
+# Phrases that mark a sentence as carrying a current capability we want the discovery manifest to
+# reflect even if it falls past the lead sentences (progressive-disclosure view, the per-market
+# detection band, the extend_research hand-off, one-call charting, per-symbol coverage).
+_CAPABILITY_HINTS = (
+    "view=", "decision view", "view='", "extend_research", "include_chart", "trend chart",
+    "detection band", "win-rate band", "per-symbol", "per-year", "ids 0,1,2,7,9",
+)
+
+
+def _str_from_kwarg(node: ast.AST) -> str | None:
+    """Evaluate a description= value that is a (possibly implicitly concatenated) string literal.
+    Returns the joined string, or None if the value is not a pure constant string expression."""
+    try:
+        value = ast.literal_eval(node)
+    except (ValueError, SyntaxError):
+        return None
+    return value if isinstance(value, str) else None
+
+
+def _split_sentences(text: str) -> list[str]:
+    return [s for s in _SENTENCE_RE.split(text) if s.strip()]
+
+
+def _trim_description(desc: str, head_max: int = 300, total_max: int = 480) -> str:
+    """Trim a long tool description to a discovery-manifest length while keeping it CURRENT.
+
+    Strategy: keep the first 1-2 sentences as the lead (up to head_max chars), then, if a later
+    sentence advertises a current capability (progressive-disclosure view, the detection band, the
+    extend_research hand-off, one-call charting, per-symbol coverage) that the lead omits, append
+    that single capability sentence so the manifest still reflects it - capped at total_max chars.
+    """
+    desc = " ".join(desc.split())
+    sentences = _split_sentences(desc)
+    if not sentences:
+        return desc[:total_max].rstrip()
+
+    def _pack(items: list[str], budget: int) -> tuple[str, int]:
+        """Join WHOLE sentences (never a partial) until adding the next would exceed budget;
+        always take at least the first. Returns (text, number_of_sentences_consumed)."""
+        out = items[0]
+        used = 1
+        for s in items[1:]:
+            if len(out) + 1 + len(s) > budget:
+                break
+            out += " " + s
+            used += 1
+        return out, used
+
+    # Lead: the first 1-2 whole sentences (up to head_max).
+    head, consumed = _pack(sentences, head_max)
+
+    head_lower = head.lower()
+    # If the lead already advertises a current capability, the trimmed lead is enough.
+    if not any(h in head_lower for h in _CAPABILITY_HINTS):
+        for s in sentences[consumed:]:
+            if any(h in s.lower() for h in _CAPABILITY_HINTS):
+                if len(head) + 1 + len(s) <= total_max:
+                    head = head + " " + s
+                else:
+                    # The capability sentence is the priority: keep it whole and shrink the lead
+                    # to whole sentences only (never a dangling partial), within the remaining room.
+                    room = total_max - len(s) - 1
+                    if room >= len(sentences[0]):
+                        lead, _ = _pack(sentences[:consumed], room)
+                        head = lead + " " + s
+                    else:
+                        head = s  # lead won't fit cleanly; lead with the capability sentence
+                break
+    return head.strip()
+
+
+def _derive_mcp_tools() -> list[tuple[str, str]]:
+    """Statically parse mcpserver/server.py and return [(tool_name, trimmed_description), ...] in
+    source order, one entry per @mcp.tool(...)-decorated function. Raises if server.py is missing
+    so the build fails loudly rather than silently emitting a stale/empty manifest."""
+    source = MCP_SERVER_PY.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(MCP_SERVER_PY))
+    tools: list[tuple[str, str]] = []
+    # Iterate top-level statements to guarantee source order (the tools are module-level defs).
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for dec in node.decorator_list:
+            # Match @mcp.tool(...) -> a Call whose func is an attribute access ending in '.tool'.
+            if not (isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute)
+                    and dec.func.attr == "tool"):
+                continue
+            desc = None
+            for kw in dec.keywords:
+                if kw.arg == "description":
+                    desc = _str_from_kwarg(kw.value)
+                    break
+            if desc:
+                tools.append((node.name, _trim_description(desc)))
+            break  # one @mcp.tool per function
+    return tools
+
+
+# Derived once at import; 16 tools = 5 flagship + 11 primitives, in server.py source order.
+_MCP_TOOLS = _derive_mcp_tools()
 
 
 def _load_spec():

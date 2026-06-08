@@ -19,67 +19,67 @@
   "tools": [
     {
       "name": "find_best_opportunities",
-      "description": "Scan the markets in your scope and return the best seasonal setups as ranked SignalCards."
+      "description": "THE flagship 'what should I trade right now' tool. Scan across markets, rank every seasonal setup by Sharpe ratio (mirroring TradeWave's own daily-pick selection: filter then rank by Sharpe), and return ready, evidence-backed SignalCards (headline + verdict + receipts + a copyable order ticket). Progressive disclosure: each card defaults to the lean DECISION view (signal + verdict + timing + edge + the extend_research hand-off)."
     },
     {
       "name": "analyze_symbol",
-      "description": "Deep-dive one symbol into a rich SignalCard (best setup, receipts, order ticket) plus its other setups; pin a specific opportunity by entry_date or a date-range preset."
+      "description": "The bundled deep-dive on ONE ticker - one call, the full evidence-backed answer. Returns a single rich SignalCard (best setup + verdict + receipts + order ticket) plus the symbol's other setups, fused server-side so the win rate is consistent everywhere. The card carries an extend_research block telling you exactly how to extend it with your OWN news / fundamentals / earnings tools."
     },
     {
       "name": "explain_pick",
-      "description": "Today's daily pick as a SignalCard, with its live forward-tested track record as proof."
+      "description": "Today's AI daily pick presented as a full SignalCard WITH its live, forward-tested track record - the strongest proof TradeWave can offer (the pick is made in advance, then scored later, so the record is real out-of-sample performance, not a backtest)."
     },
     {
       "name": "whats_seasonal_now",
-      "description": "Setups entering their seasonal window in the next ~10 trading days (a weekly digest)."
+      "description": "The 'what is entering its seasonal window THIS WEEK' tool - the weekly digest. A focused scan of setups whose entry date falls within the next ~10 trading days, returned as ranked SignalCards. Cards default to the lean DECISION view; pass view='table' for a compact ranked list or view='full' for receipts."
     },
     {
       "name": "compare_opportunities",
-      "description": "Deep-dive several symbols and return them side by side for a head-to-head."
+      "description": "Compare several tickers side-by-side as seasonal trades. Runs a full deep-dive on each symbol and returns their SignalCards together so they can be ranked head-to-head."
     },
     {
       "name": "list_markets",
-      "description": "The markets in your scope and which support ML."
+      "description": "Low-level primitive. Prefer find_best_opportunities / analyze_symbol unless you need this exact slice (the market catalog itself). Returns market ids (the stable keys used in all other tools), names, ML eligibility, in-scope flag, and each market's pattern_detection coverage (scan vs per-symbol) with an example win-rate band - so you can answer 'which markets support per-symbol patterns?' or 'what lookback/min_winning_years is valid for this market?' from data."
     },
     {
       "name": "whoami",
-      "description": "The caller's identity and entitlements from the API key - tier, in-scope markets, ML allowance, remaining quota."
+      "description": "Who am I / what can I do here. Returns the caller's plan tier, how many ML scorings they have left today (null = unlimited), the markets in their scope, and a few example prompts."
     },
     {
       "name": "describe_tradewave",
-      "description": "Self-documents the method: the seasonal + 62-feature-ML edge, what TradeWave is blind to (fundamentals, news, macro, live price), and how to pair it with the assistant's own research."
+      "description": "How TradeWave works + how to research with it, AND what its seasonal analysis variables mean. REACH FOR THIS on 'what is this / how do I read these cards / how do the win rates differ / what does min_winning_years (or years / lookback / the win-rate band) mean / how do I pick a lookback / which markets have what', or before relying on a card."
     },
     {
       "name": "list_symbols",
-      "description": "The symbols in a market."
+      "description": "Low-level primitive. Prefer find_best_opportunities / analyze_symbol unless you need this exact slice (the symbol roster of one market). List the tradeable symbols in a specific market. Use when the user asks what stocks, futures, or ETFs are in a market, or to discover valid symbols."
     },
     {
       "name": "get_seasonal_opportunities",
-      "description": "Raw single-market ranked seasonal setups."
+      "description": "Low-level primitive. Prefer find_best_opportunities (which scans across markets, scores by edge, and returns ready SignalCards) unless you need this exact slice: the raw single-market opportunity list for one date window."
     },
     {
       "name": "get_symbol_patterns",
-      "description": "Every raw seasonal setup for one symbol."
+      "description": "A security's TOP SEASONAL PATTERNS throughout the year, ranked by Sharpe ratio - the list the wave viewer shows in its pattern dropdown. COVERAGE: the per-symbol pattern grid exists for DOW 30, NASDAQ 100, S&P 500, Futures & Commodities, and FOREX Liquid only (market ids 0,1,2,7,9); for any other market this returns a clear error - use find_best_opportunities to scan those markets instead."
     },
     {
       "name": "get_seasonal_pattern",
-      "description": "Bare aggregate seasonal pattern stats for a symbol (no price series)."
+      "description": "Low-level primitive. Prefer analyze_symbol (it already bundles these stats with the setup, receipts, and ML into one SignalCard) unless you need this exact slice: the bare aggregate stats with nothing else."
     },
     {
       "name": "get_opportunity_chart",
-      "description": "The Trend Chart data: a single year-averaged, normalized 0-100 seasonal index curve (the typical within-year shape, never a price)."
+      "description": "Low-level primitive. Get the Trend Chart DATA for a symbol as numbers (not an image), in ONE call: a SINGLE year-averaged, normalized 0-100 seasonal index curve (`seasonal_curve`) showing the typical within-year shape - it is NOT per-year cumulative paths - PLUS `per_year_bars` (each completed year's trade return with its favorable (mfe) / adverse (mae) excursion band, direction-aware, all percentages)."
     },
     {
       "name": "score_opportunities",
-      "description": "ML score a list of setups (ml_score, win_prob, predicted return)."
+      "description": "Low-level primitive. Prefer analyze_symbol / find_best_opportunities (they attach ML inline on eligible markets, metered per tier) unless you need this exact slice: ML scoring of an explicit hand-built list of setups."
     },
     {
       "name": "get_daily_pick",
-      "description": "The bare daily-pick payload."
+      "description": "Low-level primitive. Prefer explain_pick (it returns the same pick as a full SignalCard WITH its live forward-tested track record - the strongest proof) unless you need this exact slice: the bare daily-pick payload with no receipts."
     },
     {
       "name": "get_pick_track_record",
-      "description": "The realized win/loss record of past daily picks."
+      "description": "Low-level primitive. Prefer explain_pick (it bundles today's pick WITH this record) unless you need this exact slice: the standalone full history of past picks. Get the realized win/loss track record of all past TradeWave daily picks."
     }
   ],
   "contact": {
