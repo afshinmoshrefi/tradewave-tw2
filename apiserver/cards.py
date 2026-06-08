@@ -87,6 +87,21 @@ def _net_pct(pct_str):
     return _num(s)
 
 
+def _excursions(pct_str):
+    """ChartData4 per-year `pct` is 'net,mfe,mae' - three PERCENTAGES, never prices.
+    Parse all three. By the appserver's (long-relative) convention: net is the trade's
+    net % move, mfe (max favorable excursion) is the highest the move reached and is >= 0,
+    mae (max adverse excursion) is the lowest it reached and is <= 0. Returns
+    (net, mfe, mae) floats with None for any missing/blank field. No price is ever read."""
+    if pct_str is None:
+        return None, None, None
+    parts = [p.strip() for p in str(pct_str).split(",")]
+    net = _num(parts[0]) if len(parts) >= 1 else None
+    mfe = _num(parts[1]) if len(parts) >= 2 else None
+    mae = _num(parts[2]) if len(parts) >= 3 else None
+    return net, mfe, mae
+
+
 # --------------------------------------------------------------------------- #
 # per-year receipts from ChartData4 entries                                   #
 # --------------------------------------------------------------------------- #
@@ -146,6 +161,46 @@ def per_year_returns(chart_entries, lookback=None, direction="long"):
     wins = sum(1 for r in rows if r["result"] == "win")
     losses = sum(1 for r in rows if r["result"] == "loss")
     return rows, wins, losses
+
+
+def per_year_bars(chart_entries, direction="long"):
+    """Per-year bars for the Trend Chart visualization: each completed year's TRADE return
+    PLUS its favorable / adverse excursion band, all as PERCENTAGES (never prices). Built
+    from the same ChartData4 entries as per_year_returns, with the unscored in-progress
+    current year (all-zero stub) excluded identically so bars and receipts stay consistent.
+
+    Direction-aware, mirroring per_year_returns: a SHORT profits when the underlying falls,
+    so net is sign-flipped AND the excursions swap and flip (a short's favorable excursion is
+    the long's adverse move, and vice versa): trade_mfe = -mae_long, trade_mae = -mfe_long.
+    The result is always trade-relative: net_pct > 0 = a winning year, mfe_pct >= 0 (best the
+    trade ran in its favor), mae_pct <= 0 (worst it ran against). Returns a chronological
+    list of {year, net_pct, mfe_pct, mae_pct, result}."""
+    bars = []
+    if not isinstance(chart_entries, list):
+        return bars
+    for e in chart_entries:
+        if not isinstance(e, dict):
+            continue
+        net, mfe, mae = _excursions(e.get("pct"))
+        if net is None:
+            continue
+        parts = str(e.get("pct", "")).split(",")
+        if parts and all(_num(x) == 0.0 for x in parts):
+            continue  # unscored in-progress current year - not a completed bar
+        if direction == "short":
+            t_net = -net
+            t_mfe = (-mae) if mae is not None else None
+            t_mae = (-mfe) if mfe is not None else None
+        else:
+            t_net, t_mfe, t_mae = net, mfe, mae
+        bars.append({
+            "year": str(e.get("year")),
+            "net_pct": round(t_net, 2),
+            "mfe_pct": round(t_mfe, 2) if t_mfe is not None else None,
+            "mae_pct": round(t_mae, 2) if t_mae is not None else None,
+            "result": "win" if t_net > 0 else "loss",
+        })
+    return bars
 
 
 def _best_worst(per_year):
@@ -259,13 +314,93 @@ def _entry_window(entry_d, tol_days=3):
     return "%s to %s" % (_fmt(lo), _fmt(hi))
 
 
+def _timing(entry_d, exit_d, as_of_str):
+    """Where the trade window sits relative to as_of (today by default) so the agent can
+    judge urgency without doing date math. days_to_entry < 0 means the window already
+    opened; status is a plain-language read. Calendar days, no price."""
+    if not entry_d:
+        return None
+    today = _parse_date(as_of_str) or datetime.date.today()
+    d2e = (entry_d - today).days
+    if d2e > 1:
+        status = "window opens in %d days" % d2e
+    elif d2e == 1:
+        status = "window opens tomorrow"
+    elif d2e == 0:
+        status = "window opens today"
+    elif exit_d and today <= exit_d:
+        status = "in the entry window now"
+    else:
+        status = "window has passed for this cycle"
+    return {"days_to_entry": d2e, "status": status}
+
+
+def _signal_alignment(historical_win_rate, ml_win_prob, ml_available):
+    """Does the per-instance ML view AGREE with the in-sample seasonal win rate? A quick
+    'do both point the same way' read. Only a cross-check when an ML score is present
+    (Pro / ML-eligible market); otherwise it is seasonal-only. NEVER conflates the two
+    distinct win-rate fields - it compares them."""
+    if not (ml_available and ml_win_prob is not None and historical_win_rate is not None):
+        return {"verdict": "seasonal_only",
+                "note": "Seasonal edge only - no ML score on this setup to cross-check."}
+    hi, lo = 0.60, 0.50
+    s_strong, m_strong = historical_win_rate >= hi, ml_win_prob >= hi
+    if s_strong and m_strong:
+        return {"verdict": "aligned",
+                "note": "ML confirms the seasonal edge (both above 60%)."}
+    if historical_win_rate < lo and ml_win_prob < lo:
+        return {"verdict": "aligned_weak",
+                "note": "ML and seasonal agree this looks weak (both below 50%)."}
+    if s_strong and ml_win_prob < lo:
+        return {"verdict": "divergent",
+                "note": "Seasonal is strong but ML is cautious - treat as lower conviction."}
+    if m_strong and historical_win_rate < lo:
+        return {"verdict": "divergent",
+                "note": "ML is constructive but the seasonal record is thin - lower conviction."}
+    return {"verdict": "mixed", "note": "ML and seasonal are only partly aligned."}
+
+
+def _extend_research(symbol, direction, entry_d, exit_d, hold_days):
+    """The structured research hand-off carried on every card. TradeWave supplies a SEASONAL
+    + ML statistical edge and the timing; the assistant is told, in machine-readable form, to
+    extend it with its OWN news / fundamentals / macro tools and synthesize. The actionable
+    twin of the MCP envelope hand-off, specialized to THIS setup. No price, no advice."""
+    if entry_d and exit_d:
+        win = "%s to %s" % (_fmt(entry_d), _fmt(exit_d))
+    elif entry_d and isinstance(hold_days, int):
+        win = "%s for ~%dd" % (_fmt(entry_d), hold_days)
+    else:
+        win = None
+    earnings_check = ("Does an earnings report fall inside the %s window? TradeWave does not "
+                      "track earnings - check your own calendar." % (win if win else "trade"))
+    return {
+        "tradewave_provides": ("A seasonal + 62-feature-ML statistical edge and the timing "
+                               "for %s (%s)." % (symbol, direction)),
+        "blind_to": ["fundamentals", "valuation", "news", "catalysts", "macro/rates",
+                     "analyst views", "upcoming earnings", "live price"],
+        "suggested_checks": [
+            earnings_check,
+            "Any scheduled catalyst (product, FDA, guidance, macro print) during the hold?",
+            "Recent news or price action that would invalidate a %s bias on %s?" % (direction, symbol),
+            "Is the sector / macro backdrop consistent with a %s here?" % direction,
+            "What do current fundamentals or valuation say versus this purely seasonal read?",
+        ],
+        "loop_back": ("If your findings change the picture, call analyze_symbol again with a "
+                      "tighter window, compare_opportunities to rank peers, or "
+                      "get_pick_track_record for the live forward-tested record."),
+        "synthesis_rule": ("Keep explicit which facts are TradeWave's (this card) versus your "
+                           "own research. Do NOT invent a catalyst to justify the seasonal edge; "
+                           "if there is none, the edge stands on the statistics alone."),
+    }
+
+
 # --------------------------------------------------------------------------- #
 # the card builder                                                             #
 # --------------------------------------------------------------------------- #
 
 def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
                       ml_available=False, seasonal_curve=None, as_of=None, rank=None,
-                      ml_state="na"):
+                      ml_state="na", include_chart=False):
     """Build ONE SignalCard.
 
     opp:            an Opportunity dict from appserver_client (_opp_row_to_obj shape):
@@ -301,6 +436,24 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
     median_return = opp.get("median_profit_pct")
     if median_return is None and isinstance(stats, dict):
         median_return = _num(stats.get("Median Profit"))
+
+    # --- extended stats (un-stripped): dispersion + annualized/cumulative return + the
+    # MFE-based Sharpe, all PERCENTAGES / ratios (signals-safe; no price or level). IMPORTANT
+    # direction note: unlike the per-year `pct` entries (which the appserver emits LONG-relative,
+    # so per_year_returns / per_year_bars sign-flip them for shorts), these AGGREGATE stats are
+    # computed by the appserver from a direction-adjusted array (it flips pctArray for shorts
+    # BEFORE deriving Annualized/Cumulative Return and Sharpe Ratio2). They therefore arrive
+    # ALREADY TRADE-RELATIVE (profit-signed) - re-flipping here would be a double-flip. std_dev is
+    # a dispersion and is sign-invariant. So: take all four as-is. ---
+    _stats = stats if isinstance(stats, dict) else {}
+    std_dev = _num(_stats.get("Std Dev"))
+    annualized = _num(_stats.get("Annualized Return"))
+    cumulative = _num(_stats.get("Cumulative Return"))
+    sharpe_mfe = _num(_stats.get("Sharpe Ratio2"))
+    std_dev_pct = round(std_dev, 2) if std_dev is not None else None
+    annualized_pct = round(annualized, 2) if annualized is not None else None
+    cumulative_pct = round(cumulative, 2) if cumulative is not None else None
+    sharpe_mfe = round(sharpe_mfe, 2) if sharpe_mfe is not None else None
 
     years_str = str(opp.get("years") or "10")
 
@@ -393,24 +546,43 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
             "entry_window": _entry_window(entry_d),
             "hold_days": hold_days,
             "exit_date": _fmt(exit_d),
+            "timing": _timing(entry_d, exit_d, as_of),
         },
         "edge_score": edge_score,
         "edge_basis": edge_basis,
         "stats": {
             "historical_win_rate": historical_win_rate,
             "sharpe_ratio": _round(sharpe, 2),
+            "sharpe_ratio_mfe": sharpe_mfe,
             "avg_return_pct": _round(avg_return),
             "median_return_pct": _round(median_return),
+            "std_dev_pct": std_dev_pct,
+            "annualized_return_pct": annualized_pct,
+            "cumulative_return_pct": cumulative_pct,
             "years": years_str,
         },
         "ml": ml_block,
+        "alignment": _signal_alignment(historical_win_rate, ml_win_prob, ml_available),
         "receipts": receipts,
+        "extend_research": _extend_research(symbol, direction, entry_d, exit_d, hold_days),
         "next_step": next_step,
         "headline": headline,
         "verdict": verdict,
         "disclaimer": DISCLAIMER,
         "tier_notes": tier_notes,
     }
+    # --- optional inline chart DATA (include=chart): the Trend Chart curve + per-year bars in
+    # one payload so the client can draw without a second round-trip. All percentages / a 0-100
+    # index - never a price. ---
+    if include_chart:
+        card["chart"] = {
+            "trend_chart": [{"date": p.get("date"), "index": p.get("index")}
+                            for p in (seasonal_curve or []) if isinstance(p, dict)],
+            "per_year_bars": per_year_bars(chart_entries, direction),
+            "note": ("trend_chart is the normalized 0-100 seasonal index (one point per day, "
+                     "entry-anchored); per_year_bars are each year's trade return with its "
+                     "favorable (mfe) / adverse (mae) excursion band. Percentages, never prices."),
+        }
     return card
 
 
@@ -499,4 +671,69 @@ def compact_setup(opp):
         "avg_return_pct": _round(opp.get("avg_profit_pct")),
         "median_return_pct": _round(opp.get("median_profit_pct")),
         "years": str(opp.get("years") or "10"),
+    }
+
+
+# --------------------------------------------------------------------------- #
+# progressive disclosure - view projection (the fix for "too much info")      #
+# --------------------------------------------------------------------------- #
+
+# The lean 'decision' view keeps the read + the next move and DROPS the heavy detail (the
+# per_year[] array, the full chart, the extended stats). The agent re-requests view='full'
+# when it actually needs the receipts.
+_DECISION_RECEIPT_KEYS = ("years_tested", "wins", "losses", "historical_win_rate",
+                          "avg_return_pct", "best_year", "worst_year", "curve_summary",
+                          "live_track_record", "source", "as_of")
+_DECISION_STAT_KEYS = ("historical_win_rate", "sharpe_ratio", "avg_return_pct", "years")
+
+
+def project_card(card, view="full"):
+    """Shape a built card for the requested verbosity (progressive disclosure):
+      'full'     - everything (the default for the raw API; backward-compatible).
+      'decision' - the lean read: signal + verdict + setup/timing + edge + ml + alignment +
+                   the research hand-off + next_step, with the heavy arrays (receipts.per_year,
+                   chart, detail stats) trimmed. The agent re-requests 'full' for receipts.
+      'table'    - a single flat row (for compact multi-card list rendering).
+    Disclaimer handling: 'full' and 'decision' keep the exact per-card `disclaimer` (spec: every
+    card carries it). 'table' omits it from the compact row for brevity - the endpoints add a
+    response-level `disclaimer`, and the MCP envelope hoists exactly one, so it is never dropped
+    from a response."""
+    if not isinstance(card, dict):
+        return card
+    if view == "table":
+        return _card_row(card)
+    if view != "decision":
+        return card  # 'full' (and any unknown value) -> untouched
+    out = dict(card)
+    # NB: a `chart` block is only ever present when the caller explicitly asked include=chart,
+    # so it is preserved across views (they opted into that payload). edge_basis is detail.
+    out.pop("edge_basis", None)
+    stats = card.get("stats")
+    if isinstance(stats, dict):
+        out["stats"] = {k: stats[k] for k in _DECISION_STAT_KEYS if k in stats}
+    rec = card.get("receipts")
+    if isinstance(rec, dict):
+        out["receipts"] = {k: rec[k] for k in _DECISION_RECEIPT_KEYS if k in rec}
+    return out
+
+
+def _card_row(card):
+    """A compact one-line row for view='table' - the decision essentials only."""
+    stats = card.get("stats") or {}
+    ml = card.get("ml") or {}
+    setup = card.get("setup") or {}
+    market = card.get("market") or {}
+    return {
+        "rank": card.get("rank"),
+        "symbol": card.get("symbol"),
+        "market": market.get("name") or market.get("id"),
+        "direction": card.get("direction"),
+        "signal": card.get("signal"),
+        "entry_date": setup.get("entry_date"),
+        "hold_days": setup.get("hold_days"),
+        "edge_score": card.get("edge_score"),
+        "historical_win_rate": stats.get("historical_win_rate"),
+        "ml_win_prob": ml.get("ml_win_prob"),
+        "sharpe_ratio": stats.get("sharpe_ratio"),
+        "headline": card.get("headline"),
     }

@@ -59,6 +59,24 @@ def _today():
     return datetime.date.today().isoformat()
 
 
+_VALID_VIEWS = ("full", "decision", "table")
+
+
+def _view_arg(default="full"):
+    """Progressive-disclosure verbosity: ?view=full|decision|table. 'full' is the API
+    default (backward-compatible); the MCP layer asks for 'decision' so the assistant gets
+    the lean read by default. An unknown value falls back to the default (never an error)."""
+    v = (request.args.get("view") or "").strip().lower()
+    return v if v in _VALID_VIEWS else default
+
+
+def _wants_chart():
+    """?include=chart (comma-list tolerated) -> attach the Trend Chart curve + per-year bars
+    inline on the card (one call instead of a second /seasonal-chart round-trip)."""
+    raw = (request.args.get("include") or "").lower()
+    return "chart" in [p.strip() for p in raw.split(",")]
+
+
 _SYMBOL_RE = re.compile(r"^[A-Za-z0-9.\-]{1,15}$")
 
 
@@ -525,7 +543,7 @@ def symbol_patterns(symbol):
 # --------------------------------------------------------------------------- #
 
 def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank=None,
-                     ml_state="na", name_map=None):
+                     ml_state="na", name_map=None, include_chart=False):
     """Source receipts (ChartData4 stats + per-year entries) for ONE opp and build its
     card. A per-symbol data gap degrades that row to a card with whatever stats exist
     (logged inside appserver_client) - it never aborts the request."""
@@ -540,7 +558,7 @@ def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank
     return cards.build_signal_card(
         opp, stats, chart_entries, market_name=market_name, ml=ml,
         ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=as_of,
-        rank=rank, ml_state=ml_state)
+        rank=rank, ml_state=ml_state, include_chart=include_chart)
 
 
 def _ml_state_for(opp, ml_available):
@@ -740,16 +758,25 @@ def scan():
         c.pop("_sortkey", None)
         c.pop("_opp", None)
 
+    # progressive disclosure: shape each card to the requested verbosity (default lean view
+    # comes from the MCP layer; the raw API defaults to 'full' / backward-compatible).
+    view = _view_arg()
+    opportunities = [cards.project_card(c, view) for c in built]
+
     return jsonify({
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "window": window_label,
         "markets_scanned": market_ids,
         "rank_by": rank_by,
+        "view": view,
         "count": len(built),
         "evaluated_count": evaluated_count,
         "enrichment_capped": enrichment_capped,
         "ml_remaining_today": ml_quota.remaining(g.customer),  # None = unlimited
-        "opportunities": built,
+        "opportunities": opportunities,
+        # envelope-level disclaimer: guarantees it survives a 'table' projection (rows are
+        # compact and carry no per-card disclaimer) for both API and MCP consumers.
+        "disclaimer": cards.DISCLAIMER,
     })
 
 
@@ -899,17 +926,22 @@ def analyze_symbol(symbol):
     except Exception:  # noqa: BLE001 - curve_summary is optional, never fatal
         seasonal_curve = None
 
+    include_chart = _wants_chart()
     card = _enrich_and_card(
         best, ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=_today(),
-        rank=1, ml_state=_ml_state_for(best, ml_available), name_map=name_map)
+        rank=1, ml_state=_ml_state_for(best, ml_available), name_map=name_map,
+        include_chart=include_chart)
     if resolution_note:
         card["note"] = resolution_note
+    view = _view_arg()
+    card = cards.project_card(card, view)
 
     other = [cards.compact_setup(o) for o in opps[1:]]
     tier_cap = g.customer["entitlements"]["opp_limit"]
     other = other[: max(0, tier_cap - 1)]
 
-    return jsonify({"card": card, "other_setups": other, "as_of": _today()})
+    return jsonify({"card": card, "other_setups": other, "view": view,
+                    "disclaimer": cards.DISCLAIMER, "as_of": _today()})
 
 
 @v1.get("/patterns/<market_id>/<symbol>")
@@ -1058,7 +1090,7 @@ def daily_pick():
 
     card = _enrich_and_card(
         opp, ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=_today(),
-        rank=1, ml_state=ml_state)
+        rank=1, ml_state=ml_state, include_chart=_wants_chart())
 
     # fold the LIVE track record into the card receipts - the differentiating proof.
     tr = appserver_client.track_record()
@@ -1073,10 +1105,16 @@ def daily_pick():
     if isinstance(card, dict):
         card.setdefault("receipts", {})["live_track_record"] = live_record
 
+    # project AFTER folding the live record (the decision view keeps live_track_record).
+    view = _view_arg()
+    card = cards.project_card(card, view)
+
     return jsonify({
         "card": card,
         "featured_date": raw.get("featured_date"),
         "track_record": live_record,
+        "view": view,
+        "disclaimer": cards.DISCLAIMER,
         "as_of": _today(),
     })
 

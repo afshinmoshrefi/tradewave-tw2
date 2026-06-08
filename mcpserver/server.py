@@ -412,7 +412,10 @@ def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
         "Scans the caller's in-scope markets by default; narrow with `markets`. Honest by design: "
         "weak setups come back as NO_SIGNAL rather than a manufactured trade. "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
-        "Present the returned cards as-is; the gateway has already sorted them by rank."
+        "Present the returned cards as-is; the gateway has already sorted them by rank. "
+        "Progressive disclosure: each card defaults to the lean DECISION view (signal + verdict + "
+        "timing + edge + the extend_research hand-off). Pass view='table' for a compact ranked "
+        "list, or view='full' when you need the per-year receipts and detail stats."
     )
 )
 def find_best_opportunities(
@@ -431,6 +434,7 @@ def find_best_opportunities(
     min_winning_years: Optional[int] = None,
     rank_by: Optional[str] = None,
     limit: Optional[int] = None,
+    view: Optional[str] = None,
     ctx: Optional[Context] = None,
 ) -> str:
     """
@@ -450,9 +454,10 @@ def find_best_opportunities(
         min_sharpe: Minimum Sharpe ratio, e.g. 1.5. Optional.
         rank_by: Ranking method. Default 'sharpe' (mirrors TradeWave's daily-pick selection). Options: edge|win_rate|sharpe|ml|avg_return.
         limit: Max cards to return (tier-capped to the caller's opp_limit). Optional.
+        view: Verbosity. 'decision' (default) = the lean read per card; 'table' = a compact ranked row per setup; 'full' = the complete card incl. per-year receipts and detail stats. Optional.
     """
     _bind_request_key(ctx)
-    params: dict[str, Any] = {}
+    params: dict[str, Any] = {"view": view or "decision"}
     if markets is not None:
         params["markets"] = markets
     if window is not None:
@@ -515,7 +520,11 @@ def find_best_opportunities(
         "It replaces stitching get_symbol_patterns + get_seasonal_pattern + the chart. "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro), "
         "on eligible markets (0-4, 11). "
-        "If the symbol has no real seasonal edge it returns NO_SIGNAL with an honest verdict."
+        "If the symbol has no real seasonal edge it returns NO_SIGNAL with an honest verdict. "
+        "The card carries an extend_research block telling you exactly how to extend it with your "
+        "OWN news / fundamentals / earnings tools. Defaults to the lean DECISION view; pass "
+        "view='full' for the per-year receipts, or include_chart=true to also get the Trend Chart "
+        "curve + per-year bars inline (chart DATA you draw; never an image)."
     )
 )
 def analyze_symbol(
@@ -528,6 +537,8 @@ def analyze_symbol(
     years: Optional[int] = None,
     period: Optional[str] = None,
     reverse: Optional[bool] = None,
+    view: Optional[str] = None,
+    include_chart: Optional[bool] = None,
     ctx: Optional[Context] = None,
 ) -> str:
     """
@@ -547,9 +558,13 @@ def analyze_symbol(
             Optional - overrides entry_date/days_out when set.
         reverse: Invert the period to "all of the year EXCEPT that window" (the reverse-date-range
             toggle). Optional.
+        view: Verbosity. 'decision' (default) = the lean read; 'full' = the complete card incl. per-year receipts and detail stats; 'table' = a single compact row. Optional.
+        include_chart: If true, attach the Trend Chart curve (0-100 seasonal index) + per-year bars (each year's return with its favorable/adverse excursion band) inline as chart DATA. Optional.
     """
     _bind_request_key(ctx)
-    params: dict[str, Any] = {}
+    params: dict[str, Any] = {"view": view or "decision"}
+    if include_chart:
+        params["include"] = "chart"
     if market is not None:
         params["market"] = market
     if direction is not None:
@@ -628,21 +643,24 @@ def explain_pick(ctx: Optional[Context] = None) -> str:
         "opening this week', 'what should I be watching this week', the weekly digest. "
         "(It is a focused 'now'-window view of the scanner.) "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
-        "Weak setups come back as NO_SIGNAL."
+        "Weak setups come back as NO_SIGNAL. Cards default to the lean DECISION view; pass "
+        "view='table' for a compact ranked list or view='full' for receipts."
     )
 )
 def whats_seasonal_now(
     markets: Optional[str] = None,
     min_win_rate: Optional[float] = None,
+    view: Optional[str] = None,
     ctx: Optional[Context] = None,
 ) -> str:
     """
     Args:
         markets: CSV of market ids or names to scan, e.g. '2,11' or 'gold,energy'. Optional - omit to scan ALL in-scope markets.
         min_win_rate: Minimum historical_win_rate 0..1 (share of profitable years). Optional.
+        view: Verbosity. 'decision' (default) = lean read; 'table' = compact ranked rows; 'full' = full cards. Optional.
     """
     _bind_request_key(ctx)
-    params: dict[str, Any] = {"window": "now"}
+    params: dict[str, Any] = {"window": "now", "view": view or "decision"}
     if markets is not None:
         params["markets"] = markets
     if min_win_rate is not None:
@@ -682,17 +700,19 @@ def whats_seasonal_now(
 def compare_opportunities(
     symbols: list[str],
     market: Optional[str] = None,
+    view: Optional[str] = None,
     ctx: Optional[Context] = None,
 ) -> str:
     """
     Args:
         symbols: List of ticker symbols to compare, e.g. ['GLD', 'SLV', 'GDX']. Required, 2 or more.
         market: Market id ('0'..'16') applied to every symbol. Optional - omit to let the gateway resolve each.
+        view: Verbosity per card. 'decision' (default) = lean read for an easy head-to-head; 'full' = full receipts on each. Optional.
     """
     _bind_request_key(ctx)
     results: list[dict[str, Any]] = []
     for sym in symbols:
-        params: dict[str, Any] = {}
+        params: dict[str, Any] = {"view": view or "decision"}
         if market is not None:
             params["market"] = market
         try:
@@ -729,7 +749,9 @@ def compare_opportunities(
     description=(
         "Low-level primitive. Prefer find_best_opportunities / analyze_symbol unless you need "
         "this exact slice (the market catalog itself). "
-        "List all 17 TradeWave markets and the caller's access scope. "
+        "List all active TradeWave markets (15 markets - US stock universes, indices, futures, "
+        "forex, bonds, ETFs, international and crypto - with ids spanning 0-16) and the caller's "
+        "access scope. "
         "Use when the user asks which markets are available, what markets TradeWave covers, "
         "or which markets they have access to. Returns market ids (the stable keys used "
         "in all other tools), names, ML eligibility, and in-scope flag."
@@ -1023,9 +1045,12 @@ def get_seasonal_pattern(market: str, symbol: str, pe_cycle: Optional[str] = Non
     description=(
         "Low-level primitive. Prefer find_best_opportunities / analyze_symbol unless you need "
         "this exact slice: the raw seasonal curve to chart or to reason over its shape. "
-        "Get the seasonal curve DATA for a symbol as numbers (not an image): a SINGLE "
+        "Get the Trend Chart DATA for a symbol as numbers (not an image), in ONE call: a SINGLE "
         "year-averaged, normalized 0-100 seasonal index curve (`seasonal_curve`) showing the "
-        "typical within-year shape - it is NOT per-year cumulative paths. "
+        "typical within-year shape - it is NOT per-year cumulative paths - PLUS `per_year_bars` "
+        "(each completed year's trade return with its favorable (mfe) / adverse (mae) excursion "
+        "band, direction-aware, all percentages). Together they are everything needed to draw the "
+        "Trend Chart and the per-year bar panel client-side. "
         "Use when the user wants to see or reason over the shape of the seasonal pattern "
         "(where it rises, peaks, and fades through the year). "
         "The index is a normalized relative shape, never a price. "

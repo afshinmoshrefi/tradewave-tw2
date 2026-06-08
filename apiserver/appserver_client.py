@@ -530,6 +530,11 @@ def seasonal_chart(market, symbol, entry_date, days_out, years, direction=None):
         out["direction"] = _dir_to_public(direction)
     elif isinstance(stats, dict) and stats.get("Trade Dir"):
         out["direction"] = _dir_to_public(stats.get("Trade Dir"))
+    # one-call curve + bars: attach the per-year bars (each year's trade return with its
+    # favorable/adverse excursion band, direction-aware) from the ChartData4 entries we
+    # already fetched, so a chart can be drawn without a second round-trip. Percentages only.
+    from . import cards as _cards  # local import: cards is dependency-free, no import cycle
+    out["per_year_bars"] = _cards.per_year_bars(_chart, out.get("direction") or "long")
     return out
 
 
