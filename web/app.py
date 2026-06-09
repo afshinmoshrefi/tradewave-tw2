@@ -1068,11 +1068,15 @@ def _api_tier_for_price(price_id):
     return _api_price_tier.get(price_id)
 
 
-def _resolve_affiliate_promo(raw):
+def _resolve_affiliate_promo(raw, period=None):
     """Resolve an affiliate referral code (?code=ANNE / ?via=ANNE / tw_ref cookie)
-    to (promotion_code_id, affiliate_id, code) for an ACTIVE affiliate, or
-    (None, None, None). Unknown / paused / terminated / malformed codes return the
-    empty tuple so checkout proceeds normally (manual promo entry)."""
+    to (discount_spec, affiliate_id, code) for an ACTIVE affiliate, or
+    (None, None, None). `discount_spec` is the dict to pass in Stripe Checkout's
+    `discounts=[...]`: a flat affiliate yields {"promotion_code": <id>}; an
+    interval-split affiliate on an interval that carries an override coupon yields
+    {"coupon": <override_coupon_id>} (chosen by `period`), otherwise the flat
+    promo. Unknown / paused / terminated / malformed codes return the empty tuple
+    so checkout proceeds normally (manual promo entry)."""
     if not raw:
         return None, None, None
     import affiliate_service as afs
@@ -1087,7 +1091,16 @@ def _resolve_affiliate_promo(raw):
                .first())
         if not aff:
             return None, None, None
-        return aff.stripe_promotion_code_id, str(aff.id), aff.code
+        interval = afs._norm_interval(period)
+        override = (aff.stripe_coupon_id_monthly if interval == "month"
+                    else aff.stripe_coupon_id_annual if interval == "year" else None)
+        if override:
+            spec = {"coupon": override}
+        elif aff.stripe_promotion_code_id:
+            spec = {"promotion_code": aff.stripe_promotion_code_id}
+        else:
+            spec = None
+        return spec, str(aff.id), aff.code
     finally:
         s.close()
 
@@ -1192,9 +1205,9 @@ def stripe_create_checkout():
     # Stripe promotion code, so the discount shows already applied AND the sale
     # is attributed. Pre-applying via `discounts` is mutually exclusive with
     # allow_promotion_codes.
-    promo_code_id, affiliate_id, affiliate_code = _resolve_affiliate_promo(
+    discount_spec, affiliate_id, affiliate_code = _resolve_affiliate_promo(
         request.values.get("code") or request.values.get("via")
-        or request.cookies.get("tw_ref"))
+        or request.cookies.get("tw_ref"), period)
 
     # Stamp the affiliate onto the subscription metadata: this is the DURABLE
     # attribution carrier - it rides on the Stripe subscription for its whole
@@ -1217,8 +1230,8 @@ def stripe_create_checkout():
                 "metadata": sub_metadata,
             },
         )
-        if promo_code_id:
-            kwargs["discounts"] = [{"promotion_code": promo_code_id}]
+        if discount_spec:
+            kwargs["discounts"] = [discount_spec]
         else:
             kwargs["allow_promotion_codes"] = True
         if valid_customer_id:
@@ -1231,9 +1244,9 @@ def stripe_create_checkout():
             # A pre-applied promo code Stripe rejects (expired / inactive /
             # min-amount / already-redeemed) must NOT break checkout: retry
             # once, letting the customer enter a code manually instead.
-            if promo_code_id:
-                log.warning("checkout: pre-applied promo %s rejected; retrying "
-                            "with manual entry", promo_code_id)
+            if discount_spec:
+                log.warning("checkout: pre-applied affiliate discount %r rejected; "
+                            "retrying with manual entry", discount_spec)
                 kwargs.pop("discounts", None)
                 kwargs["allow_promotion_codes"] = True
                 session_obj = stripe.checkout.Session.create(**kwargs)
@@ -2150,12 +2163,18 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     ]
     can_view_details = True
     column_details_list = ("code", "name", "email", "status",
-                           "discount_pct", "commission_pct", "commission_model",
+                           "discount_pct", "commission_pct",
+                           "discount_pct_monthly", "discount_pct_annual",
+                           "commission_pct_monthly", "commission_pct_annual",
+                           "commission_model",
                            "payout_method", "payout_email", "stripe_coupon_id",
+                           "stripe_coupon_id_monthly", "stripe_coupon_id_annual",
                            "agreement_version", "agreement_signed_name",
                            "agreement_signed_at", "agreement_signed_ip",
                            "notes", "created_at")
     form_columns = ("name", "email", "code", "discount_pct", "commission_pct",
+                    "discount_pct_monthly", "commission_pct_monthly",
+                    "discount_pct_annual", "commission_pct_annual",
                     "commission_model", "payout_method", "payout_email",
                     "status", "notes")
     column_default_sort = ("created_at", True)
@@ -2173,9 +2192,19 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     form_args = {
         "code": {"description": "The promo code the affiliate shares (A-Z, 0-9, _ or -). "
                                 "Becomes the Stripe promotion code. IMMUTABLE after creation."},
-        "discount_pct": {"description": "Audience discount, e.g. 20 = 20% off the first 12 months. "
-                                        "IMMUTABLE after creation (Stripe coupons can't be edited)."},
-        "commission_pct": {"description": "What the affiliate keeps, e.g. 30 = 30%. Editable later."},
+        "discount_pct": {"description": "Default audience discount, e.g. 20 = 20% off the first 12 months. "
+                                        "Used for both intervals UNLESS a per-interval override below is set, "
+                                        "and backs the manually-typed promo code. IMMUTABLE after creation."},
+        "commission_pct": {"description": "Default commission the affiliate keeps, e.g. 30 = 30%. Used for both "
+                                          "intervals unless overridden below. Editable later."},
+        "discount_pct_monthly": {"description": "OPTIONAL interval-split: discount on MONTHLY plans (e.g. 15). "
+                                                "Leave blank to use the default. IMMUTABLE after creation."},
+        "commission_pct_monthly": {"description": "OPTIONAL interval-split: commission on MONTHLY plans (e.g. 35). "
+                                                  "Leave blank to use the default. Editable later."},
+        "discount_pct_annual": {"description": "OPTIONAL interval-split: discount on ANNUAL plans (e.g. 20). "
+                                               "Leave blank to use the default. IMMUTABLE after creation."},
+        "commission_pct_annual": {"description": "OPTIONAL interval-split: commission on ANNUAL plans (e.g. 30). "
+                                                 "Leave blank to use the default. Editable later."},
     }
 
     def create_form(self, obj=None):
@@ -2247,6 +2276,13 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                 raise ValidationError(str(e))
             model.stripe_coupon_id = coupon_id
             model.stripe_promotion_code_id = promo_id
+            # Interval-split: mint an override coupon for any interval whose
+            # discount differs from the default (applied by id at checkout; the
+            # flat promo above still backs manual entry at the default rate).
+            try:
+                afs.provision_interval_overrides(model)
+            except afs.AffiliateError as e:
+                raise ValidationError(str(e))
             # Gate: created paused (awaiting signature). The code stays inert
             # (_resolve_affiliate_promo requires status=='active') until the
             # affiliate signs the agreement, which flips them to 'active'.
@@ -2258,14 +2294,17 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                                  "discount_pct": str(model.discount_pct),
                                  "commission_pct": str(model.commission_pct)})
         else:
-            # code + discount_pct are immutable once the Stripe coupon exists
+            # code + every discount % are immutable once their Stripe coupon
+            # exists (Stripe coupons can't be edited). Commission %s stay editable.
             st = sa_inspect(model)
-            for field in ("code", "discount_pct"):
+            for field in ("code", "discount_pct",
+                          "discount_pct_monthly", "discount_pct_annual"):
                 hist = getattr(st.attrs, field).history
                 if hist.has_changes() and hist.deleted:
                     raise ValidationError(
                         f"{field} can't be changed after the Stripe coupon is created. "
-                        f"Terminate this affiliate and create a new one instead.")
+                        f"Use 'Change terms' (new coupon + re-sign), or terminate and "
+                        f"create a new affiliate.")
 
     def after_model_change(self, form, model, is_created):
         # Keep the Stripe promotion code's redeemability in lockstep with status:

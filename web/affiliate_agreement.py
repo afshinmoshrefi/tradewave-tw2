@@ -135,8 +135,17 @@ def agreement_body_html() -> str:
 
 
 def exhibit(affiliate) -> dict:
-    """Per-affiliate Exhibit A values for the signing template / snapshot."""
-    return {
+    """Per-affiliate Exhibit A values for the signing template / snapshot.
+
+    For an interval-split affiliate (different discount/commission for monthly vs
+    annual plans) `is_split` is True and `monthly`/`annual` carry the effective
+    per-interval terms; flat affiliates use the single discount_pct/commission_pct."""
+    import affiliate_service as afs
+    split = (affiliate.discount_pct_monthly is not None
+             or affiliate.discount_pct_annual is not None
+             or affiliate.commission_pct_monthly is not None
+             or affiliate.commission_pct_annual is not None)
+    ex = {
         "name": affiliate.name or "",
         "email": affiliate.email or "",
         "code": affiliate.code,
@@ -147,7 +156,18 @@ def exhibit(affiliate) -> dict:
             affiliate.commission_model, affiliate.commission_model or ""),
         "payout_method": (affiliate.payout_method or "").upper(),
         "payout_email": affiliate.payout_email or "",
+        "is_split": split,
     }
+    if split:
+        ex["monthly"] = {
+            "discount_pct": _fmt_pct(afs.effective_discount_pct(affiliate, "month")),
+            "commission_pct": _fmt_pct(afs.effective_commission_pct(affiliate, "month")),
+        }
+        ex["annual"] = {
+            "discount_pct": _fmt_pct(afs.effective_discount_pct(affiliate, "year")),
+            "commission_pct": _fmt_pct(afs.effective_commission_pct(affiliate, "year")),
+        }
+    return ex
 
 
 def build_snapshot(affiliate) -> str:
@@ -158,14 +178,25 @@ def build_snapshot(affiliate) -> str:
     ex = exhibit(affiliate)
     signed_at = affiliate.agreement_signed_at
     e = lambda x: html.escape(str(x if x is not None else ""))  # escape all interpolated values
+    if ex.get("is_split"):
+        term_rows = [
+            ("Monthly plans — Audience Discount", f"{ex['monthly']['discount_pct']}% off (first 12 months)"),
+            ("Monthly plans — Commission Rate", f"{ex['monthly']['commission_pct']}% of Net Revenue"),
+            ("Annual plans — Audience Discount", f"{ex['annual']['discount_pct']}% off (first year)"),
+            ("Annual plans — Commission Rate", f"{ex['annual']['commission_pct']}% of Net Revenue"),
+        ]
+    else:
+        term_rows = [
+            ("Audience Discount", f"{ex['discount_pct']}% off for the first 12 months"),
+            ("Commission Rate", f"{ex['commission_pct']}% of Net Revenue"),
+        ]
     rows = "".join(
         f"<tr><th style='text-align:left;padding:4px 12px 4px 0'>{e(k)}</th>"
         f"<td style='padding:4px 0'>{e(v)}</td></tr>"
         for k, v in [
             ("Affiliate", ex["name"]), ("Contact email", ex["email"]),
             ("Referral Code", ex["code"]), ("Referral Link", ex["referral_link"]),
-            ("Audience Discount", f"{ex['discount_pct']}% off for the first 12 months"),
-            ("Commission Rate", f"{ex['commission_pct']}% of Net Revenue"),
+        ] + term_rows + [
             ("Commission Model", ex["model_label"]),
             ("Payout", f"{ex['payout_method']} — {ex['payout_email']}"),
         ])

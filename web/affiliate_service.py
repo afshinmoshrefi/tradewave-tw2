@@ -68,6 +68,62 @@ def _pct_to_float(pct) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Interval-split helpers (per-billing-interval discount/commission overrides)
+# ---------------------------------------------------------------------------
+# A "split" affiliate carries an override for the monthly and/or annual billing
+# interval; the flat discount_pct/commission_pct stay the DEFAULT/fallback (and
+# back the manually-typed promo code). Stripe `recurring.interval` is "month" /
+# "year"; checkout `period` is "monthly" / "yearly". Everything normalizes here.
+
+def _norm_interval(x):
+    """'month' | 'year' | None, from a Stripe interval OR a checkout period."""
+    x = (x or "").strip().lower()
+    if x in ("month", "monthly", "mo", "m"):
+        return "month"
+    if x in ("year", "yearly", "annual", "annually", "yr", "y"):
+        return "year"
+    return None
+
+
+def is_interval_split(aff) -> bool:
+    """True if the affiliate carries any per-interval discount override."""
+    return (getattr(aff, "discount_pct_monthly", None) is not None
+            or getattr(aff, "discount_pct_annual", None) is not None)
+
+
+def effective_discount_pct(aff, interval):
+    """Discount % for a billing interval: per-interval override, else flat default."""
+    iv = _norm_interval(interval)
+    if iv == "month" and getattr(aff, "discount_pct_monthly", None) is not None:
+        return aff.discount_pct_monthly
+    if iv == "year" and getattr(aff, "discount_pct_annual", None) is not None:
+        return aff.discount_pct_annual
+    return aff.discount_pct
+
+
+def effective_commission_pct(aff, interval):
+    """Commission % for a billing interval: per-interval override, else flat default."""
+    iv = _norm_interval(interval)
+    if iv == "month" and getattr(aff, "commission_pct_monthly", None) is not None:
+        return aff.commission_pct_monthly
+    if iv == "year" and getattr(aff, "commission_pct_annual", None) is not None:
+        return aff.commission_pct_annual
+    return aff.commission_pct
+
+
+def effective_coupon_id(aff, interval):
+    """Stripe coupon id to apply for a billing interval: the per-interval override
+    coupon if one was minted (that interval's discount differs from flat), else
+    the flat coupon."""
+    iv = _norm_interval(interval)
+    if iv == "month" and getattr(aff, "stripe_coupon_id_monthly", None):
+        return aff.stripe_coupon_id_monthly
+    if iv == "year" and getattr(aff, "stripe_coupon_id_annual", None):
+        return aff.stripe_coupon_id_annual
+    return aff.stripe_coupon_id
+
+
+# ---------------------------------------------------------------------------
 # 1) Provisioning
 # ---------------------------------------------------------------------------
 
@@ -121,6 +177,49 @@ def provision_stripe_objects(aff) -> tuple[str, str]:
     return coupon.id, promo.id
 
 
+def provision_interval_overrides(aff) -> None:
+    """Mint an override coupon for each billing interval whose discount differs
+    from the flat default, and store its id on the affiliate. No-op for a flat
+    affiliate. Idempotent: skips an interval that already has a coupon id, or
+    whose override equals the flat discount (the flat coupon serves it). Override
+    coupons carry NO promotion code -- they're applied by id server-side at
+    checkout; the flat promo code still covers manual code entry at the default
+    rate. Monthly overrides repeat 12 months ("first year"); annual overrides are
+    `once` (a yearly plan bills once a year, so the first invoice IS the year).
+    Raises AffiliateError on a Stripe failure (caller aborts the save)."""
+    flat = _pct_to_float(aff.discount_pct)
+    code = normalize_code(aff.code)
+    plan = [
+        ("month", getattr(aff, "discount_pct_monthly", None), "stripe_coupon_id_monthly", "repeating"),
+        ("year",  getattr(aff, "discount_pct_annual", None),  "stripe_coupon_id_annual",  "once"),
+    ]
+    for interval, ov, field, duration in plan:
+        if ov is None or getattr(aff, field, None):
+            continue
+        pct = _pct_to_float(ov)
+        if not (0 < pct <= 100):
+            raise AffiliateError(f"{interval} discount must be > 0 and <= 100")
+        if pct == flat:
+            continue  # same as default -> the flat coupon already serves this interval
+        kwargs = dict(
+            percent_off=pct,
+            name=f"Affiliate {code} {interval[:2]}"[:40],
+            metadata={"tw2_affiliate_code": code, "tw2_purpose": "affiliate",
+                      "tw2_interval": interval},
+        )
+        if duration == "repeating":
+            kwargs["duration"] = "repeating"
+            kwargs["duration_in_months"] = DISCOUNT_DURATION_MONTHS
+        else:
+            kwargs["duration"] = "once"
+        try:
+            coupon = stripe.Coupon.create(**kwargs)
+        except Exception as e:
+            raise AffiliateError(
+                f"Stripe override coupon ({interval}) create failed: {e}") from e
+        setattr(aff, field, coupon.id)
+
+
 def teardown_stripe_objects(aff) -> None:
     """Best-effort cleanup when an affiliate with NO referral/payout history is
     hard-deleted: deactivate the promotion code so it can't be redeemed, and
@@ -136,13 +235,14 @@ def teardown_stripe_objects(aff) -> None:
         except Exception as e:
             if getattr(e, "code", "") != "resource_missing":
                 errs.append(f"promo {pid}: {e}")
-    cid = getattr(aff, "stripe_coupon_id", None)
-    if cid:
-        try:
-            stripe.Coupon.delete(cid)
-        except Exception as e:
-            if getattr(e, "code", "") != "resource_missing":
-                errs.append(f"coupon {cid}: {e}")
+    for attr in ("stripe_coupon_id", "stripe_coupon_id_monthly", "stripe_coupon_id_annual"):
+        cid = getattr(aff, attr, None)
+        if cid:
+            try:
+                stripe.Coupon.delete(cid)
+            except Exception as e:
+                if getattr(e, "code", "") != "resource_missing":
+                    errs.append(f"coupon {cid}: {e}")
     if errs:
         raise AffiliateError("; ".join(errs))
 
@@ -377,6 +477,24 @@ def _invoice_subscription_id(invd):
     return val or None
 
 
+def _invoice_interval(invd):
+    """'month' | 'year' | None for the invoice's recurring line. Read straight
+    off the invoice line items (no extra Stripe call); used to pick the affiliate's
+    per-interval commission rate."""
+    lines = (invd.get("lines") or {}).get("data") or []
+    for ln in lines:
+        price = ln.get("price") or {}
+        rec = price.get("recurring") or {}
+        iv = _norm_interval(rec.get("interval"))
+        if iv:
+            return iv
+        plan = ln.get("plan") or {}            # older SDK shape
+        iv = _norm_interval(plan.get("interval"))
+        if iv:
+            return iv
+    return None
+
+
 def compute_month(session, year: int, month: int) -> list[dict]:
     """Load active affiliates + persisted referrals, then compute per-affiliate
     commission for the month from Stripe. Does NOT write anything. See _compute()."""
@@ -494,7 +612,11 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
                     continue
 
         currency = (invd.get("currency") or "usd").lower()
-        rate = Decimal(str(aff.commission_pct)) / Decimal(100)
+        # Interval-split affiliates earn a different rate on monthly vs annual
+        # invoices; flat affiliates fall back to commission_pct for both.
+        interval = _invoice_interval(invd)
+        comm_pct = effective_commission_pct(aff, interval)
+        rate = Decimal(str(comm_pct)) / Decimal(100)
         basis = (Decimal(basis_cents) / Decimal(100))
         commission_raw = basis * rate                        # unrounded; the per-(affiliate,
         commission = commission_raw.quantize(_CENTS, rounding=ROUND_HALF_UP)  # currency) TOTAL is
@@ -527,7 +649,8 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
             "tax_cents": tax_cents,
             "refunded_cents": refunded_cents,
             "basis": str(basis),
-            "rate_pct": str(aff.commission_pct),
+            "interval": interval,
+            "rate_pct": str(comm_pct),
             "commission": str(commission),
             "created": invd.get("created"),
         })
