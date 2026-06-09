@@ -112,8 +112,9 @@ def _in_scope_markets():
 
 
 def _parse_markets_param(raw, name_map):
-    """Resolve the `markets` csv (ids like '2,11' OR names like 'gold,energy') to a list of
-    in-scope ids. Unknown/out-of-scope tokens are dropped. Default = ALL in-scope."""
+    """Resolve the `markets` csv (ids like '2,11' OR EXACT list_markets names like
+    'S&P 500 STOCKS,ETFs') to a list of in-scope ids. Token names must match a market name
+    exactly (case-insensitive); unknown/out-of-scope tokens are dropped. Default = ALL in-scope."""
     scope = set(_in_scope_markets())
     if not raw:
         # Default to the liquid core (intersected with the caller's scope) to keep the

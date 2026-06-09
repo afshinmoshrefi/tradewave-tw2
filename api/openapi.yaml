@@ -21,8 +21,8 @@ info:
   title: TradeWave Data API
   version: "1.0.0"
   description: >
-    Seasonal trading opportunities and ML win-probability signals for the 17
-    TradeWave markets, plus the tracked daily AI pick. Derived signals only -
+    Seasonal trading opportunities and ML win-probability signals for TradeWave's
+    15 active markets, plus the tracked daily AI pick. Derived signals only -
     no raw market data.
 servers:
   - url: https://api-dev.trxstat.com/v1
@@ -52,7 +52,7 @@ paths:
         win_rate enrichment is applied AFTER ranking/slicing, so evaluated_count +
         enrichment_capped are surfaced and the min_win_rate cap is never silently misleading.
       parameters:
-        - { name: markets, in: query, schema: { type: string }, description: "csv of ids or names e.g. '2,11' or 'gold,energy'. Default = ALL in-scope markets." }
+        - { name: markets, in: query, schema: { type: string }, description: "csv of ids or EXACT list_markets names, e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are dropped. Default = ALL in-scope markets." }
         - { name: window, in: query, schema: { type: string, default: now }, description: "'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. 'now' = setups whose entry_date falls within the next ~10 trading days. Default 'now'." }
         - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
         - { name: min_win_rate, in: query, schema: { type: number, minimum: 0, maximum: 1 }, description: "filter on historical_win_rate (share of profitable years), NOT ml_win_prob. Rows past the enrichment cap are excluded when set." }

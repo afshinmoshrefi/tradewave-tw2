@@ -283,8 +283,8 @@ mcp = FastMCP(
     **_auth_kwargs,
     instructions=(
         "TradeWave is the user's seasonal-edge analyst. It finds, ranks, and explains "
-        "derived seasonal trade setups (backed by ML win-probability scores) across 17 global "
-        "markets. All returns are percentages - no raw prices are ever exposed.\n\n"
+        "derived seasonal trade setups (backed by ML win-probability scores) across TradeWave's "
+        "15 active markets. All returns are percentages - no raw prices are ever exposed.\n\n"
         "REACH FOR THE FLAGSHIP TOOLS FIRST - they return ready, evidence-backed answers as "
         "structured SignalCards (headline + verdict + receipts + a ready-to-place order ticket):\n"
         "  - find_best_opportunities: 'what should I trade', 'find me something', 'anything "
@@ -439,7 +439,7 @@ def find_best_opportunities(
 ) -> str:
     """
     Args:
-        markets: CSV of market ids or names to scan, e.g. '2,11' or 'gold,energy'. Optional - omit to scan ALL in-scope markets.
+        markets: CSV of market ids or EXACT list_markets names to scan, e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Optional - omit to scan ALL in-scope markets.
         pe_cycle: Presidential election cycle mode for the opportunity table: 'consecutive' (default, consecutive years) or 'pe' (the current presidential-cycle position only). Optional.
         years: Lookback - how many years to scan for patterns (5-98, data-dependent; default 10). In PE mode this is the number of PE-position occurrences. Optional.
         min_winning_years: Of those `years`, the minimum that must be WINNERS - i.e. the win-rate floor (year2). DEFAULTS to ~90% of `years` (so a bare years=20 gives a valid 20-18; you rarely need to set it). It must stay inside the market's DETECTION BAND: TradeWave only detects patterns that won a market-specific share of years (about 75-90%+, e.g. S&P 500 ~85%, Wilshire ~90%, FOREX Liquid ~70% at a 20-year lookback). An out-of-band value like 20-9 is REJECTED with the valid range - never lower it below the floor. This is a multi-market scan, so if a value is out of band for some scanned markets the response includes a lookback_note naming them. Optional.
@@ -655,7 +655,7 @@ def whats_seasonal_now(
 ) -> str:
     """
     Args:
-        markets: CSV of market ids or names to scan, e.g. '2,11' or 'gold,energy'. Optional - omit to scan ALL in-scope markets.
+        markets: CSV of market ids or EXACT list_markets names to scan, e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Optional - omit to scan ALL in-scope markets.
         min_win_rate: Minimum historical_win_rate 0..1 (share of profitable years). Optional.
         view: Verbosity. 'decision' (default) = lean read; 'table' = compact ranked rows; 'full' = full cards. Optional.
     """

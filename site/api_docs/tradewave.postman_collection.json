@@ -50,7 +50,7 @@
               "key": "markets",
               "value": "2,11",
               "disabled": false,
-              "description": "csv of ids or names e.g. '2,11' or 'gold,energy'. Default = ALL in-scope markets."
+              "description": "csv of ids or EXACT list_markets names, e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are dropped. Default = ALL in-scope markets."
             },
             {
               "key": "window",

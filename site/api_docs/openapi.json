@@ -3,7 +3,7 @@
   "info": {
     "title": "TradeWave Data API",
     "version": "1.0.0",
-    "description": "Seasonal trading opportunities and ML win-probability signals for the 17 TradeWave markets, plus the tracked daily AI pick. Derived signals only - no raw market data.\n"
+    "description": "Seasonal trading opportunities and ML win-probability signals for TradeWave's 15 active markets, plus the tracked daily AI pick. Derived signals only - no raw market data.\n"
   },
   "servers": [
     {
@@ -53,7 +53,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "csv of ids or names e.g. '2,11' or 'gold,energy'. Default = ALL in-scope markets."
+            "description": "csv of ids or EXACT list_markets names, e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are dropped. Default = ALL in-scope markets."
           },
           {
             "name": "window",
