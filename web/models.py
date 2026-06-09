@@ -201,19 +201,17 @@ class Affiliate(Base):
     payout_email  = Column(Text)
     discount_pct  = Column(Numeric(5, 2), nullable=False)   # audience discount, 20.00 = 20% (DEFAULT/fallback)
     commission_pct = Column(Numeric(5, 2), nullable=False)  # affiliate keeps, 30.00 = 30% (DEFAULT/fallback)
-    # --- interval-split overrides (per-billing-interval discount/commission).
-    # When set, override the flat default above for that interval; NULL => use
-    # the flat default. A "split" affiliate is a flat affiliate (flat = its
-    # default, conventionally the ANNUAL terms) PLUS an override coupon for the
-    # cheaper interval. Discounts are immutable post-create (coupon-tied);
-    # commissions are editable. See affiliate_service.effective_discount_pct /
-    # effective_commission_pct / effective_coupon_id / provision_interval_overrides.
-    discount_pct_monthly     = Column(Numeric(5, 2))   # monthly discount override
-    discount_pct_annual      = Column(Numeric(5, 2))   # annual  discount override
-    commission_pct_monthly   = Column(Numeric(5, 2))   # monthly commission override
-    commission_pct_annual    = Column(Numeric(5, 2))   # annual  commission override
-    stripe_coupon_id_monthly = Column(Text)            # override coupon, applied by id at checkout
-    stripe_coupon_id_annual  = Column(Text)
+    # --- interval-split: the form presents two pairs, Monthly + Annual. The flat
+    # discount_pct/commission_pct above ARE the ANNUAL terms (the default, and
+    # what backs the promo code); the *_monthly columns are the optional MONTHLY
+    # override (NULL => monthly is the same as annual). A "split" affiliate just
+    # carries a monthly override + its own coupon. Discounts are immutable
+    # post-create (coupon-tied); commissions are editable. See affiliate_service
+    # .effective_discount_pct / effective_commission_pct / effective_coupon_id /
+    # provision_interval_overrides.
+    discount_pct_monthly     = Column(Numeric(5, 2))   # monthly discount override (NULL = same as annual)
+    commission_pct_monthly   = Column(Numeric(5, 2))   # monthly commission override (NULL = same as annual)
+    stripe_coupon_id_monthly = Column(Text)            # monthly override coupon, applied by id at checkout
     commission_model = Column(Text, nullable=False, server_default=sa_text("'recurring'"))
     stripe_coupon_id = Column(Text, unique=True)
     stripe_promotion_code_id = Column(Text)
@@ -247,9 +245,7 @@ class Affiliate(Base):
         CheckConstraint("discount_pct >= 0 AND discount_pct <= 100", name="affiliates_discount_pct_check"),
         CheckConstraint("commission_pct >= 0 AND commission_pct <= 100", name="affiliates_commission_pct_check"),
         CheckConstraint("discount_pct_monthly IS NULL OR (discount_pct_monthly >= 0 AND discount_pct_monthly <= 100)", name="affiliates_discount_pct_monthly_check"),
-        CheckConstraint("discount_pct_annual IS NULL OR (discount_pct_annual >= 0 AND discount_pct_annual <= 100)", name="affiliates_discount_pct_annual_check"),
         CheckConstraint("commission_pct_monthly IS NULL OR (commission_pct_monthly >= 0 AND commission_pct_monthly <= 100)", name="affiliates_commission_pct_monthly_check"),
-        CheckConstraint("commission_pct_annual IS NULL OR (commission_pct_annual >= 0 AND commission_pct_annual <= 100)", name="affiliates_commission_pct_annual_check"),
     )
 
     def __str__(self):

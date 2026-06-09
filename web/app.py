@@ -1091,9 +1091,10 @@ def _resolve_affiliate_promo(raw, period=None):
                .first())
         if not aff:
             return None, None, None
-        interval = afs._norm_interval(period)
-        override = (aff.stripe_coupon_id_monthly if interval == "month"
-                    else aff.stripe_coupon_id_annual if interval == "year" else None)
+        # Monthly plans use the monthly override coupon when one exists; annual
+        # (and everything else) uses the flat promo code (the annual/default rate).
+        override = (aff.stripe_coupon_id_monthly
+                    if afs._norm_interval(period) == "month" else None)
         if override:
             spec = {"coupon": override}
         elif aff.stripe_promotion_code_id:
@@ -2137,7 +2138,14 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                    "stripe_coupon_id", "created_at")
     column_searchable_list = ("code", "name", "email", "payout_email")
     column_filters = ("status", "commission_model")
-    column_labels = {"agreement_signed_at": "Agreement"}
+    column_labels = {
+        "agreement_signed_at": "Agreement",
+        "discount_pct": "Annual discount %",
+        "commission_pct": "Annual commission %",
+        "discount_pct_monthly": "Monthly discount %",
+        "commission_pct_monthly": "Monthly commission %",
+        "stripe_coupon_id_monthly": "Monthly coupon",
+    }
     column_formatters = {
         "agreement_signed_at": lambda v, c, m, n: (
             Markup('<a href="%s">✓ Signed %s</a>' % (
@@ -2164,17 +2172,18 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     can_view_details = True
     column_details_list = ("code", "name", "email", "status",
                            "discount_pct", "commission_pct",
-                           "discount_pct_monthly", "discount_pct_annual",
-                           "commission_pct_monthly", "commission_pct_annual",
+                           "discount_pct_monthly", "commission_pct_monthly",
                            "commission_model",
                            "payout_method", "payout_email", "stripe_coupon_id",
-                           "stripe_coupon_id_monthly", "stripe_coupon_id_annual",
+                           "stripe_coupon_id_monthly",
                            "agreement_version", "agreement_signed_name",
                            "agreement_signed_at", "agreement_signed_ip",
                            "notes", "created_at")
-    form_columns = ("name", "email", "code", "discount_pct", "commission_pct",
+    # Two pairs: Annual (discount_pct/commission_pct = the default + promo backing)
+    # and the optional Monthly override. Leave Monthly blank for one flat rate.
+    form_columns = ("name", "email", "code",
+                    "discount_pct", "commission_pct",
                     "discount_pct_monthly", "commission_pct_monthly",
-                    "discount_pct_annual", "commission_pct_annual",
                     "commission_model", "payout_method", "payout_email",
                     "status", "notes")
     column_default_sort = ("created_at", True)
@@ -2192,19 +2201,15 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     form_args = {
         "code": {"description": "The promo code the affiliate shares (A-Z, 0-9, _ or -). "
                                 "Becomes the Stripe promotion code. IMMUTABLE after creation."},
-        "discount_pct": {"description": "Default audience discount, e.g. 20 = 20% off the first 12 months. "
-                                        "Used for both intervals UNLESS a per-interval override below is set, "
-                                        "and backs the manually-typed promo code. IMMUTABLE after creation."},
-        "commission_pct": {"description": "Default commission the affiliate keeps, e.g. 30 = 30%. Used for both "
-                                          "intervals unless overridden below. Editable later."},
-        "discount_pct_monthly": {"description": "OPTIONAL interval-split: discount on MONTHLY plans (e.g. 15). "
-                                                "Leave blank to use the default. IMMUTABLE after creation."},
-        "commission_pct_monthly": {"description": "OPTIONAL interval-split: commission on MONTHLY plans (e.g. 35). "
-                                                  "Leave blank to use the default. Editable later."},
-        "discount_pct_annual": {"description": "OPTIONAL interval-split: discount on ANNUAL plans (e.g. 20). "
-                                               "Leave blank to use the default. IMMUTABLE after creation."},
-        "commission_pct_annual": {"description": "OPTIONAL interval-split: commission on ANNUAL plans (e.g. 30). "
-                                                 "Leave blank to use the default. Editable later."},
+        "discount_pct": {"description": "Annual-plan audience discount, e.g. 20 = 20% off. Also applies to "
+                                        "monthly plans unless you set a Monthly discount below, and backs the "
+                                        "manually-typed promo code. IMMUTABLE after creation."},
+        "commission_pct": {"description": "Annual-plan commission the affiliate keeps, e.g. 30 = 30%. Also applies "
+                                          "to monthly plans unless overridden below. Editable later."},
+        "discount_pct_monthly": {"description": "OPTIONAL - monthly-plan discount, only if it differs from annual "
+                                                "(e.g. 15). Leave blank to match the annual rate. IMMUTABLE after creation."},
+        "commission_pct_monthly": {"description": "OPTIONAL - monthly-plan commission, only if it differs from annual "
+                                                  "(e.g. 35). Leave blank to match the annual rate. Editable later."},
     }
 
     def create_form(self, obj=None):
@@ -2297,8 +2302,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             # code + every discount % are immutable once their Stripe coupon
             # exists (Stripe coupons can't be edited). Commission %s stay editable.
             st = sa_inspect(model)
-            for field in ("code", "discount_pct",
-                          "discount_pct_monthly", "discount_pct_annual"):
+            for field in ("code", "discount_pct", "discount_pct_monthly"):
                 hist = getattr(st.attrs, field).history
                 if hist.has_changes() and hist.deleted:
                     raise ValidationError(
@@ -2554,23 +2558,22 @@ _AFFILIATE_GUIDE_TMPL = """
   <ul>
     <li><b>name</b> and <b>email</b> - email is required; the signed agreement copy is emailed there.</li>
     <li><b>code</b> - the promo code they share (A-Z, 0-9, _ or -). <b>Immutable</b> after creation.</li>
-    <li><b>discount %</b> (default 20) - the audience discount, e.g. 20% off the customer's first 12 months. <b>Immutable</b> after creation.</li>
-    <li><b>commission %</b> (default 30) - what the affiliate keeps. Editable later.</li>
-    <li><b>discount/commission monthly</b> &amp; <b>discount/commission annual</b> (optional) - leave blank for one flat rate, or fill in to give <b>different terms on monthly vs annual</b> plans. See <b>section 1a</b> below.</li>
+    <li><b>Annual discount %</b> (default 20) &amp; <b>Annual commission %</b> (default 30) - the standard rate: what an annual-plan customer saves and what the affiliate keeps. This rate also applies to <b>monthly</b> plans unless you set a Monthly override below. Discount is <b>immutable</b> after creation; commission is editable.</li>
+    <li><b>Monthly discount %</b> &amp; <b>Monthly commission %</b> (optional) - <b>only</b> fill these if monthly plans get <b>different</b> terms than annual; leave blank to match the annual rate. See <b>section 1a</b> below.</li>
     <li><b>commission model</b> - Recurring (lifetime), First 12 months, or First payment only (how long they earn).</li>
     <li><b>payout method</b> (PayPal / Wise) + <b>payout email</b>, and optional <b>notes</b>.</li>
   </ul>
-  On <b>Save</b> we create their Stripe coupon (X% off, repeating 12 months) and a promotion code equal to <code>code</code> - plus <b>an extra coupon for each per-interval discount override</b> you set (monthly = repeating 12 months, annual = once). The affiliate is created <b>PAUSED and the promo code is inactive</b>. A green banner shows their <b>signing link</b>; copy it for step 2. (The <code>status</code> field is ignored on create - everyone starts paused until signed.)
+  On <b>Save</b> we create their Stripe coupon (annual % off) and a promotion code equal to <code>code</code> - plus a separate <b>monthly coupon</b> if you set a different Monthly discount. The affiliate is created <b>PAUSED and the promo code is inactive</b>. A green banner shows their <b>signing link</b>; copy it for step 2. (The <code>status</code> field is ignored on create - everyone starts paused until signed.)
 </div>
 
 <h2>1a. Optional: different terms for monthly vs annual <span style="font-weight:normal">(interval-split)</span></h2>
 <div class="step">
-  <b>What it is.</b> Normally an affiliate has one discount and one commission. You can instead give an affiliate <b>different terms depending on whether the customer buys a MONTHLY or an ANNUAL plan</b> - for example a bigger commission on monthly and a bigger discount on annual. It is per-affiliate and optional: <b>leave the monthly/annual fields blank for a normal flat affiliate.</b>
+  <b>What it is.</b> Normally an affiliate has one discount and one commission. You can instead give them <b>different terms depending on whether the customer buys a MONTHLY or an ANNUAL plan</b> - for example a bigger commission on monthly and a bigger discount on annual. It is per-affiliate and optional.
   <ul>
-    <li><b>How to set it.</b> Put your <b>default</b> terms in the flat <b>discount %</b>/<b>commission %</b> (usually the annual terms), then fill the <b>monthly</b> and/or <b>annual</b> override fields for the interval(s) that differ.</li>
-    <li><b>Worked example - Anne-Marie.</b> Flat <b>20% off / 30% commission</b> (her annual terms) + <b>monthly override 15% off / 35% commission</b>. Result: a <b>monthly</b> subscriber gets 15% off and Anne-Marie earns 35%; an <b>annual</b> subscriber gets 20% off and she earns 30%.</li>
-    <li><b>How it behaves.</b> The right discount is applied automatically when the customer arrives through the affiliate's <b>referral link</b> (<code>/?code=THEIRCODE</code>); a manually typed code gives the default rate. Each month, commission is computed per invoice at that plan's rate.</li>
-    <li><b>What's editable.</b> The override <b>commissions</b> are editable later; the override <b>discounts</b> are <b>immutable</b> (each is its own Stripe coupon). To change a split affiliate's per-interval discount, <b>terminate &amp; recreate</b> (Change terms only updates the flat coupon for now).</li>
+    <li><b>How to set it.</b> The <b>Annual discount %</b>/<b>Annual commission %</b> are the standard rate. To make monthly different, also fill <b>Monthly discount %</b>/<b>Monthly commission %</b>. Leave the Monthly fields <b>blank</b> for one flat rate (monthly then matches annual).</li>
+    <li><b>Worked example - Anne-Marie.</b> Annual <b>20% off / 30% commission</b> + Monthly <b>15% off / 35% commission</b>. Result: a <b>monthly</b> subscriber gets 15% off and Anne-Marie earns 35%; an <b>annual</b> subscriber gets 20% off and she earns 30%.</li>
+    <li><b>How it behaves.</b> The right discount is applied automatically when the customer arrives through the affiliate's <b>referral link</b> (<code>/?code=THEIRCODE</code>); a manually typed code gives the annual rate. Each month, commission is computed per invoice at that plan's rate.</li>
+    <li><b>What's editable.</b> The <b>commissions</b> (annual + monthly) are editable later; the <b>discounts</b> are <b>immutable</b> (each is tied to a Stripe coupon). To change a split affiliate's monthly discount, <b>terminate &amp; recreate</b> (Change terms only updates the annual coupon for now).</li>
   </ul>
 </div>
 
@@ -2593,10 +2596,10 @@ _AFFILIATE_GUIDE_TMPL = """
 
 <h2>4. What you can and can't change later</h2>
 <div class="step">
-  <b>Editable</b> anytime via <b>Edit</b>: commission % (including the per-interval <b>commission monthly/annual</b> overrides), payout method/email, and notes. <b>Status</b>: you can pause or terminate at will, but you <b>can't set active by hand</b> without a signature - it flips automatically on signing.<br>
-  <b>The discount %s are immutable</b> (each is tied to a Stripe coupon) - the flat <b>discount %</b> and the per-interval <b>discount monthly/annual</b> overrides can't be edited after creation.<br>
+  <b>Editable</b> anytime via <b>Edit</b>: the <b>Annual</b> and <b>Monthly commission %</b>, payout method/email, and notes. <b>Status</b>: you can pause or terminate at will, but you <b>can't set active by hand</b> without a signature - it flips automatically on signing.<br>
+  <b>The discount %s are immutable</b> (each is tied to a Stripe coupon) - neither the <b>Annual</b> nor the <b>Monthly discount %</b> can be edited after creation.<br>
   <b>The <code>code</code> is immutable</b> (it is the Stripe promotion code) - to change the code, terminate and create a new affiliate.<br>
-  <b>To change the discount % or renegotiate (e.g. 20/30 &rarr; 15/35):</b> use the <b>Change terms</b> icon on the row - <b>do not terminate</b> (that would cut off their commission on existing customers). It mints a <b>new coupon</b> at the new discount for <b>new</b> referrals, updates commission, and sends the affiliate back to <b>paused</b> to <b>re-sign</b> the new terms (send them the fresh signing link; their code and commission resume on re-signature). <b>Existing customers keep the discount they signed up with</b> - it lives on their Stripe subscription and is never touched. A commission-only change skips the re-sign. <i>(Note: for an <b>interval-split</b> affiliate, Change terms currently reissues only the flat coupon, not the per-interval override coupons - to change a split affiliate's per-interval discount, terminate and recreate for now.)</i>
+  <b>To change the discount % or renegotiate (e.g. 20/30 &rarr; 15/35):</b> use the <b>Change terms</b> icon on the row - <b>do not terminate</b> (that would cut off their commission on existing customers). It mints a <b>new coupon</b> at the new discount for <b>new</b> referrals, updates commission, and sends the affiliate back to <b>paused</b> to <b>re-sign</b> the new terms (send them the fresh signing link; their code and commission resume on re-signature). <b>Existing customers keep the discount they signed up with</b> - it lives on their Stripe subscription and is never touched. A commission-only change skips the re-sign. <i>(Note: for an <b>interval-split</b> affiliate, Change terms currently reissues only the annual coupon, not the monthly override coupon - to change a split affiliate's monthly discount, terminate and recreate for now.)</i>
 </div>
 
 <h2>5. Statuses</h2>

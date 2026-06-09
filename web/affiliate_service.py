@@ -68,12 +68,14 @@ def _pct_to_float(pct) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Interval-split helpers (per-billing-interval discount/commission overrides)
+# Interval-split helpers (different terms for monthly vs annual plans)
 # ---------------------------------------------------------------------------
-# A "split" affiliate carries an override for the monthly and/or annual billing
-# interval; the flat discount_pct/commission_pct stay the DEFAULT/fallback (and
-# back the manually-typed promo code). Stripe `recurring.interval` is "month" /
-# "year"; checkout `period` is "monthly" / "yearly". Everything normalizes here.
+# The form presents two pairs, Monthly + Annual. The flat discount_pct /
+# commission_pct ARE the ANNUAL terms (the default, and what backs the manually-
+# typed promo code); the *_monthly columns are the optional MONTHLY override
+# (NULL => monthly is the same as annual). Stripe `recurring.interval` is
+# "month"/"year"; checkout `period` is "monthly"/"yearly". Everything normalizes
+# here, so "year" always resolves to the flat default.
 
 def _norm_interval(x):
     """'month' | 'year' | None, from a Stripe interval OR a checkout period."""
@@ -86,40 +88,32 @@ def _norm_interval(x):
 
 
 def is_interval_split(aff) -> bool:
-    """True if the affiliate carries any per-interval discount override."""
+    """True if the affiliate carries a monthly override (monthly terms differ from annual)."""
     return (getattr(aff, "discount_pct_monthly", None) is not None
-            or getattr(aff, "discount_pct_annual", None) is not None)
+            or getattr(aff, "commission_pct_monthly", None) is not None)
 
 
 def effective_discount_pct(aff, interval):
-    """Discount % for a billing interval: per-interval override, else flat default."""
-    iv = _norm_interval(interval)
-    if iv == "month" and getattr(aff, "discount_pct_monthly", None) is not None:
+    """Discount % for a billing interval: the monthly override on monthly plans,
+    else the flat (annual) default."""
+    if _norm_interval(interval) == "month" and getattr(aff, "discount_pct_monthly", None) is not None:
         return aff.discount_pct_monthly
-    if iv == "year" and getattr(aff, "discount_pct_annual", None) is not None:
-        return aff.discount_pct_annual
     return aff.discount_pct
 
 
 def effective_commission_pct(aff, interval):
-    """Commission % for a billing interval: per-interval override, else flat default."""
-    iv = _norm_interval(interval)
-    if iv == "month" and getattr(aff, "commission_pct_monthly", None) is not None:
+    """Commission % for a billing interval: the monthly override on monthly plans,
+    else the flat (annual) default."""
+    if _norm_interval(interval) == "month" and getattr(aff, "commission_pct_monthly", None) is not None:
         return aff.commission_pct_monthly
-    if iv == "year" and getattr(aff, "commission_pct_annual", None) is not None:
-        return aff.commission_pct_annual
     return aff.commission_pct
 
 
 def effective_coupon_id(aff, interval):
-    """Stripe coupon id to apply for a billing interval: the per-interval override
-    coupon if one was minted (that interval's discount differs from flat), else
-    the flat coupon."""
-    iv = _norm_interval(interval)
-    if iv == "month" and getattr(aff, "stripe_coupon_id_monthly", None):
+    """Stripe coupon id for a billing interval: the monthly override coupon (if one
+    was minted because monthly's discount differs), else the flat (annual) coupon."""
+    if _norm_interval(interval) == "month" and getattr(aff, "stripe_coupon_id_monthly", None):
         return aff.stripe_coupon_id_monthly
-    if iv == "year" and getattr(aff, "stripe_coupon_id_annual", None):
-        return aff.stripe_coupon_id_annual
     return aff.stripe_coupon_id
 
 
@@ -178,46 +172,35 @@ def provision_stripe_objects(aff) -> tuple[str, str]:
 
 
 def provision_interval_overrides(aff) -> None:
-    """Mint an override coupon for each billing interval whose discount differs
-    from the flat default, and store its id on the affiliate. No-op for a flat
-    affiliate. Idempotent: skips an interval that already has a coupon id, or
-    whose override equals the flat discount (the flat coupon serves it). Override
-    coupons carry NO promotion code -- they're applied by id server-side at
-    checkout; the flat promo code still covers manual code entry at the default
-    rate. Monthly overrides repeat 12 months ("first year"); annual overrides are
-    `once` (a yearly plan bills once a year, so the first invoice IS the year).
-    Raises AffiliateError on a Stripe failure (caller aborts the save)."""
-    flat = _pct_to_float(aff.discount_pct)
+    """Mint the MONTHLY override coupon when the affiliate's monthly discount
+    differs from the annual (flat) discount, and store its id. No-op for a flat
+    affiliate (no monthly override, or monthly == annual -> the flat coupon
+    already serves monthly). Idempotent (skips if the coupon id is already set).
+    The override coupon carries NO promotion code -- it's applied by id at
+    checkout; the flat promo still covers manual entry at the annual rate. Repeats
+    12 months ("first year"). Raises AffiliateError on a Stripe failure."""
+    ov = getattr(aff, "discount_pct_monthly", None)
+    if ov is None or getattr(aff, "stripe_coupon_id_monthly", None):
+        return
+    annual = _pct_to_float(aff.discount_pct)
+    pct = _pct_to_float(ov)
+    if not (0 < pct <= 100):
+        raise AffiliateError("monthly discount must be > 0 and <= 100")
+    if pct == annual:
+        return  # same as annual -> the flat coupon already serves monthly
     code = normalize_code(aff.code)
-    plan = [
-        ("month", getattr(aff, "discount_pct_monthly", None), "stripe_coupon_id_monthly", "repeating"),
-        ("year",  getattr(aff, "discount_pct_annual", None),  "stripe_coupon_id_annual",  "once"),
-    ]
-    for interval, ov, field, duration in plan:
-        if ov is None or getattr(aff, field, None):
-            continue
-        pct = _pct_to_float(ov)
-        if not (0 < pct <= 100):
-            raise AffiliateError(f"{interval} discount must be > 0 and <= 100")
-        if pct == flat:
-            continue  # same as default -> the flat coupon already serves this interval
-        kwargs = dict(
+    try:
+        coupon = stripe.Coupon.create(
             percent_off=pct,
-            name=f"Affiliate {code} {interval[:2]}"[:40],
+            duration="repeating",
+            duration_in_months=DISCOUNT_DURATION_MONTHS,
+            name=f"Affiliate {code} mo"[:40],
             metadata={"tw2_affiliate_code": code, "tw2_purpose": "affiliate",
-                      "tw2_interval": interval},
+                      "tw2_interval": "month"},
         )
-        if duration == "repeating":
-            kwargs["duration"] = "repeating"
-            kwargs["duration_in_months"] = DISCOUNT_DURATION_MONTHS
-        else:
-            kwargs["duration"] = "once"
-        try:
-            coupon = stripe.Coupon.create(**kwargs)
-        except Exception as e:
-            raise AffiliateError(
-                f"Stripe override coupon ({interval}) create failed: {e}") from e
-        setattr(aff, field, coupon.id)
+    except Exception as e:
+        raise AffiliateError(f"Stripe monthly override coupon create failed: {e}") from e
+    aff.stripe_coupon_id_monthly = coupon.id
 
 
 def teardown_stripe_objects(aff) -> None:
@@ -235,7 +218,7 @@ def teardown_stripe_objects(aff) -> None:
         except Exception as e:
             if getattr(e, "code", "") != "resource_missing":
                 errs.append(f"promo {pid}: {e}")
-    for attr in ("stripe_coupon_id", "stripe_coupon_id_monthly", "stripe_coupon_id_annual"):
+    for attr in ("stripe_coupon_id", "stripe_coupon_id_monthly"):
         cid = getattr(aff, attr, None)
         if cid:
             try:

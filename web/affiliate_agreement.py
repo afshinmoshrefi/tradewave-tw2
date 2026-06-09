@@ -142,9 +142,7 @@ def exhibit(affiliate) -> dict:
     per-interval terms; flat affiliates use the single discount_pct/commission_pct."""
     import affiliate_service as afs
     split = (affiliate.discount_pct_monthly is not None
-             or affiliate.discount_pct_annual is not None
-             or affiliate.commission_pct_monthly is not None
-             or affiliate.commission_pct_annual is not None)
+             or affiliate.commission_pct_monthly is not None)
     ex = {
         "name": affiliate.name or "",
         "email": affiliate.email or "",
