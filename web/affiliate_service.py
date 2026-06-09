@@ -612,6 +612,7 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
                 "affiliate_id": str(aff.id),
                 "code": aff.code,
                 "name": aff.name,
+                "email": getattr(aff, "email", None),
                 "payout_email": getattr(aff, "payout_email", None),
                 "payout_method": getattr(aff, "payout_method", None),
                 "notes": getattr(aff, "notes", None),
