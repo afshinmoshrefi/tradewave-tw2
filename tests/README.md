@@ -23,6 +23,29 @@ cd /home/flask && make test-unit     # unit-only
 cd /home/flask && make test-db       # DB-only
 ```
 
+## API + MCP gateway tests (no DB)
+
+The public API gateway (`apiserver/`) and the MCP server (`mcpserver/`) are covered by
+hermetic tests (auth, redis, and the appserver are all mocked - no Postgres needed):
+
+- `test_market_bands.py` - the per-market pattern-detection win-rate band.
+- `test_cards.py` - the SignalCard builder, charting math, view projection, NO_SIGNAL.
+- `test_apiserver_endpoints.py` - route wiring (band 400, disclaimer coverage, view, include=chart).
+- `test_consistency.py` - cross-surface drift guards (manifest/guide/spec vs the live tools).
+
+These import `apiserver`, so run them under the gateway venv (`venv`, which has flask+pytest):
+
+```bash
+cd /home/flask && /home/flask/venv/bin/python -m pytest tests/ -m unit
+```
+
+`test_mcpserver.py` needs `fastmcp`, which lives in `venv-api` (not `venv`). It self-skips
+under `venv` (via `importorskip`); run it explicitly under `venv-api`:
+
+```bash
+cd /home/flask && /home/flask/venv-api/bin/python -m pytest tests/test_mcpserver.py
+```
+
 ## Test DB setup (one-time)
 
 The DB-backed tests connect to `tradewave_test` on the same Postgres

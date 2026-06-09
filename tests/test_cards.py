@@ -197,3 +197,45 @@ def test_project_decision_keeps_explicit_chart():
                seasonal_curve=[{"date": "2026-07-01", "index": 40.0}])
     d = cards.project_card(c, "decision")
     assert "chart" in d                                       # explicit include survives the trim
+
+
+# --- NO_SIGNAL: each of the three trip conditions ---------------------------------
+
+def _build_custom(win_rate, sharpe, n_entries):
+    """Build a card with a controllable win_rate, sharpe, and number of completed years."""
+    entries = [{"year": 2000 + i, "pct": "2.00,3.00,-1.00"} for i in range(n_entries)]
+    opp = {"symbol": "TST", "market": "2", "direction": "long", "entry_date": "2026-07-01",
+           "days_out": 21, "years": str(max(n_entries, 1)), "win_rate": win_rate,
+           "avg_profit_pct": 2.0, "sharpe_ratio": sharpe}
+    return cards.build_signal_card(opp, dict(_STATS), entries, market_name="S&P 500",
+                                   as_of=AS_OF, ml_state="market")
+
+
+def test_no_signal_via_low_edge_score():
+    # win_rate 0.55 (not below the win-rate floor) + years 5 (not below) but a weak blend -> edge < 40.
+    c = _build_custom(win_rate=0.55, sharpe=0.0, n_entries=5)
+    assert c["edge_score"] < cards.MIN_EDGE_SCORE
+    assert c["signal"] == "NO_SIGNAL"
+
+
+def test_no_signal_via_too_few_years():
+    # strong win_rate + sharpe, but only 4 completed years (< MIN_YEARS_TESTED) -> NO_SIGNAL.
+    c = _build_custom(win_rate=0.95, sharpe=2.5, n_entries=4)
+    assert c["receipts"]["years_tested"] == 4
+    assert c["signal"] == "NO_SIGNAL"
+
+
+def test_strong_inputs_do_signal():
+    c = _build_custom(win_rate=0.9, sharpe=1.5, n_entries=10)
+    assert c["signal"] == "BUY"
+
+
+# --- ml_state -> tier_notes mapping ----------------------------------------------
+
+@pytest.mark.parametrize("state", list(cards._ML_NOTES))
+def test_ml_state_sets_tier_notes(state):
+    opp = {"symbol": "TST", "market": "2", "direction": "long", "entry_date": "2026-07-01",
+           "days_out": 21, "years": "10", "win_rate": 0.9, "avg_profit_pct": 5.0, "sharpe_ratio": 1.5}
+    c = cards.build_signal_card(opp, dict(_STATS), list(_LONG_ENTRIES), market_name="S&P 500",
+                                as_of=AS_OF, ml_state=state)
+    assert c["tier_notes"] == cards._ML_NOTES[state]

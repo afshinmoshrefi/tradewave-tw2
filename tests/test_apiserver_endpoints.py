@@ -133,3 +133,144 @@ def test_markets_has_no_disclaimer_but_has_pattern_detection(client, monkeypatch
     assert "disclaimer" not in body               # catalog endpoint - no signal, no disclaimer
     m2 = next(m for m in body["markets"] if m["id"] == "2")
     assert m2["pattern_detection"]["by_symbol_detection"] is True
+
+
+# ============================ card-building endpoint tests ============================
+# These mock the appserver card-build chain so a real SignalCard flows through the route.
+
+_STATS = {"Percent Profitable": "90%", "Sharpe Ratio": "1.5", "Avg Profit - All": "5%",
+          "Median Profit": "3%", "Std Dev": "3.40%", "Annualized Return": "4%",
+          "Cumulative Return": "50%", "Sharpe Ratio2": "1.80"}
+_ENTRIES = ([{"year": 2015 + i, "pct": "4.00,6.00,-1.00"} for i in range(9)]
+            + [{"year": 2024, "pct": "-3.00,2.00,-5.00"}])
+
+
+def _opp(win_rate=0.9, symbol="AAPL", market="2", direction="long", entry="2026-07-01"):
+    return {"symbol": symbol, "market": market, "direction": direction, "entry_date": entry,
+            "days_out": 21, "sharpe_ratio": 1.5, "avg_profit_pct": 5.0,
+            "median_profit_pct": 3.0, "win_rate": win_rate, "years": "10"}
+
+
+def _mock_card_chain(monkeypatch, multi=None, by_symbol=None, curve=None):
+    from apiserver import appserver_client as ac
+    monkeypatch.setattr(ac, "market_name_map",
+                        lambda: {"2": "S&P 500 STOCKS", "4": "WILSHIRE 5000", "0": "DOW 30 STOCKS",
+                                 "7": "FUTURES & COMMODITIES", "11": "ETFs"})
+    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *a, **k: (dict(_STATS), list(_ENTRIES)))
+    monkeypatch.setattr(ac, "_seasonal_curve", lambda *a, **k: list(curve or []))
+    monkeypatch.setattr(ac, "_win_rate_for_opp", lambda o: 0.9)
+    if multi is not None:
+        monkeypatch.setattr(ac, "opportunities_multi", lambda *a, **k: list(multi))
+    if by_symbol is not None:
+        monkeypatch.setattr(ac, "opportunities_by_symbol", lambda *a, **k: list(by_symbol))
+
+
+_WIN = "window=2026-06-01..2026-12-31"   # an explicit range that contains the opp entry_date
+
+
+def test_scan_card_carries_extend_research_and_timing(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[_opp()])
+    r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    assert r.status_code == 200
+    card = r.get_json()["opportunities"][0]
+    assert "extend_research" in card and card["setup"]["timing"] is not None
+    assert card["signal"] == "BUY"
+
+
+def test_scan_no_signal_card_omits_order_ticket(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)])
+    r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    card = r.get_json()["opportunities"][0]
+    assert card["signal"] == "NO_SIGNAL"
+    assert "order_ticket" not in card["next_step"]
+
+
+def test_scan_lookback_note_for_out_of_band_markets(client, monkeypatch):
+    # years=20, min_winning_years=16: out of band for S&P(floor 17) AND Wilshire(floor 18).
+    _mock_card_chain(monkeypatch, multi=[])
+    r = client.get(f"/v1/scan?markets=2,4&years=20&min_winning_years=16&{_WIN}", headers=_hdr())
+    assert r.status_code == 200
+    note = r.get_json().get("lookback_note")
+    assert note and "S&P 500 STOCKS" in note and "WILSHIRE 5000" in note
+
+
+def test_scan_pe_position_mode_rejected(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[])
+    r = client.get("/v1/scan?pe_cycle=pe2", headers=_hdr())
+    assert r.status_code == 400
+
+
+def test_analyze_carries_disclaimer_and_extend_research(client, monkeypatch):
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()])
+    r = client.get("/v1/analyze/AAPL?market=2", headers=_hdr())
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["disclaimer"] and body["view"] == "full"
+    assert "extend_research" in body["card"]
+
+
+def test_analyze_include_chart_attaches_inline(client, monkeypatch):
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()],
+                     curve=[{"date": "2026-07-01", "index": 40.0}, {"date": "2026-07-02", "index": 41.0}])
+    r = client.get("/v1/analyze/AAPL?market=2&include=chart", headers=_hdr())
+    card = r.get_json()["card"]
+    assert "chart" in card
+    assert card["chart"]["trend_chart"] and card["chart"]["per_year_bars"]
+
+
+def test_analyze_bare_ticker_resolves_to_primary_listing(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    _mock_card_chain(monkeypatch, by_symbol=[_opp(symbol="IBM")])
+    monkeypatch.setattr(ac, "resolve_market_for_symbol", lambda sym, scope: ["0", "2"])
+    r = client.get("/v1/analyze/IBM", headers=_hdr())          # no ?market
+    assert r.status_code == 200
+    note = r.get_json()["card"]["note"]
+    assert "also trades in" in note and "DOW 30" in note
+
+
+def test_analyze_strict_ambiguous_is_400(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    _mock_card_chain(monkeypatch)
+    monkeypatch.setattr(ac, "resolve_market_for_symbol", lambda sym, scope: ["0", "2"])
+    r = client.get("/v1/analyze/IBM?strict=1", headers=_hdr())
+    assert r.status_code == 400
+
+
+def test_score_requires_json_body(client):
+    r = client.post("/v1/score", headers=_hdr())
+    assert r.status_code == 400
+
+
+def test_score_rejects_non_ml_market(client, monkeypatch):
+    _mock_card_chain(monkeypatch)
+    r = client.post("/v1/score", json={"market": "7",
+                    "opportunities": [{"symbol": "CL", "date": "2026-07-01", "days_out": 21, "direction": "long"}]},
+                    headers=_hdr())
+    assert r.status_code == 403
+
+
+def test_score_success_carries_disclaimer(client, monkeypatch):
+    from apiserver import appserver_client as ac, ml_quota
+    monkeypatch.setattr(ml_quota, "consume", lambda cust, n=1: n)     # grant the batch
+    monkeypatch.setattr(ac, "ml_scores",
+                        lambda market, items: [{"ml_score": 80, "win_prob": 0.8,
+                                                "pred_return": 5.0, "pred_mfe": 7.0} for _ in items])
+    r = client.post("/v1/score", json={"market": "2",
+                    "opportunities": [{"symbol": "AAPL", "date": "2026-07-01", "days_out": 21, "direction": "long"}]},
+                    headers=_hdr())
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["disclaimer"] and body["granted"] == 1
+
+
+def test_daily_pick_carries_disclaimer(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    _mock_card_chain(monkeypatch)
+    monkeypatch.setattr(ac, "daily_pick_raw",
+                        lambda: {"opp": _opp(), "featured_date": "2026-06-08"})
+    monkeypatch.setattr(ac, "track_record",
+                        lambda: {"summary": {"count": 10, "win_count": 7, "win_rate": 0.7, "avg_return_pct": 3.0}})
+    r = client.get("/v1/daily-pick", headers=_hdr())
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["disclaimer"] and body["card"]["extend_research"]
