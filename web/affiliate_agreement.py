@@ -141,8 +141,19 @@ def exhibit(affiliate) -> dict:
     annual plans) `is_split` is True and `monthly`/`annual` carry the effective
     per-interval terms; flat affiliates use the single discount_pct/commission_pct."""
     import affiliate_service as afs
-    split = (affiliate.discount_pct_monthly is not None
-             or affiliate.commission_pct_monthly is not None)
+    from decimal import Decimal
+
+    def _ne(a, b):
+        try:
+            return Decimal(str(a)) != Decimal(str(b))
+        except Exception:
+            return a != b
+
+    # Only present the two-tier (monthly vs annual) breakdown when monthly ACTUALLY
+    # differs from annual on discount or commission. If a Monthly value was entered
+    # but equals Annual, the agreement / email stay single-rate (as if flat).
+    split = (_ne(afs.effective_discount_pct(affiliate, "month"), affiliate.discount_pct)
+             or _ne(afs.effective_commission_pct(affiliate, "month"), affiliate.commission_pct))
     ex = {
         "name": affiliate.name or "",
         "email": affiliate.email or "",
