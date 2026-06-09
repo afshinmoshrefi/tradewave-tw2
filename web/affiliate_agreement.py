@@ -97,6 +97,11 @@ def referral_link(affiliate) -> str:
     return f"{_base()}/?code={affiliate.code}"
 
 
+def join_link(affiliate) -> str:
+    """The co-branded landing page the affiliate can send their audience to."""
+    return f"{_base()}/join/{affiliate.code}"
+
+
 def signing_url(affiliate) -> str:
     token = make_sign_token(affiliate.id, getattr(affiliate, "agreement_token_version", 0))
     return f"{_base()}/affiliate/sign/{token}"
@@ -269,7 +274,10 @@ def email_signed_copy(affiliate) -> bool:
     if affiliate.email:
         body = (summary +
                 f"\nView your signed agreement any time:\n{signing_url(affiliate)}\n"
-                f"\nYour referral link:\n{referral_link(affiliate)}\n")
+                f"\nShare either of these with your audience (both apply your discount "
+                f"and credit you):\n"
+                f"  - Your referral link: {referral_link(affiliate)}\n"
+                f"  - Your landing page:  {join_link(affiliate)}\n")
         html = None
         if affiliate.agreement_snapshot:
             html = (f"<p>Your TradeWave Affiliate Program Agreement, electronically "
@@ -308,6 +316,8 @@ def email_signing_link(affiliate) -> bool:
         return False
     from html import escape as _esc
     url = signing_url(affiliate)
+    ref = referral_link(affiliate)
+    join = join_link(affiliate)
     first = (affiliate.name or "").strip().split(" ")[0] or "there"
     body_text = (
         f"Hi {first},\n\n"
@@ -315,6 +325,11 @@ def email_signing_link(affiliate) -> bool:
         f"affiliate agreement here (no login needed):\n\n{url}\n\n"
         f"The link is private to you and expires in 30 days. Once you sign, your "
         f"referral code activates and we email you a copy for your records.\n\n"
+        f"Then you can share either of these with your audience (both apply your "
+        f"discount and credit you automatically):\n"
+        f"  - Your referral link:  {ref}\n"
+        f"  - Your landing page:   {join}  (a ready-made page describing TradeWave "
+        f"and your discount)\n\n"
         f"Thanks,\nThe TradeWave team\n"
     )
     html_body = (
@@ -324,6 +339,13 @@ def email_signing_link(affiliate) -> bool:
         f'<p><a href="{_esc(url)}">Review &amp; sign your agreement &rarr;</a></p>'
         f"<p>The link is private to you and expires in 30 days. Once you sign, your "
         f"referral code activates and we email you a copy for your records.</p>"
+        f"<p>Then share either of these with your audience &mdash; both apply your "
+        f"discount and credit you automatically:</p>"
+        f"<ul>"
+        f'<li>Your referral link: <a href="{_esc(ref)}">{_esc(ref)}</a></li>'
+        f'<li>Your landing page: <a href="{_esc(join)}">{_esc(join)}</a> '
+        f"(a ready-made page describing TradeWave and your discount)</li>"
+        f"</ul>"
         f"<p>Thanks,<br>The TradeWave team</p>"
     )
     try:

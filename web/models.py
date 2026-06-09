@@ -212,6 +212,9 @@ class Affiliate(Base):
     discount_pct_monthly     = Column(Numeric(5, 2))   # monthly discount override (NULL = same as annual)
     commission_pct_monthly   = Column(Numeric(5, 2))   # monthly commission override (NULL = same as annual)
     stripe_coupon_id_monthly = Column(Text)            # monthly override coupon, applied by id at checkout
+    # --- co-branded landing page (/join/<code>): operator-entered, optional.
+    page_display_name = Column(Text)   # name shown on the page (personal or business); falls back to `name`
+    page_logo         = Column(Text)   # stored filename under /assets/affiliate-logos/ (uploaded in admin)
     commission_model = Column(Text, nullable=False, server_default=sa_text("'recurring'"))
     stripe_coupon_id = Column(Text, unique=True)
     stripe_promotion_code_id = Column(Text)

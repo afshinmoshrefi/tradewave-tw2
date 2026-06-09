@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Your TradeWave discount — recommended by {{ display_name }}</title>
+  <style>
+    :root{
+      --bg:#0b0a12; --panel:#15121f; --panel2:#1c1830; --line:#2a2440;
+      --text:#ececf4; --muted:#a39fb8; --brand:#8b5cf6; --brand2:#22d3ee;
+      --up:#34d399;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;
+      background:radial-gradient(1200px 600px at 50% -10%,#211a3a 0%,var(--bg) 55%);color:var(--text);line-height:1.55}
+    .wrap{max-width:760px;margin:0 auto;padding:40px 20px 64px}
+    .rec{display:flex;align-items:center;gap:14px;justify-content:center;margin-bottom:22px;flex-wrap:wrap}
+    .rec img{max-height:56px;max-width:180px;border-radius:10px;background:#fff;padding:6px}
+    .rec .by{font-size:14px;color:var(--muted)}
+    .rec .by b{color:var(--text)}
+    h1{font-size:34px;line-height:1.15;text-align:center;margin:8px 0 10px;letter-spacing:-.5px}
+    h1 .grad{background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+    .sub{text-align:center;color:var(--muted);font-size:17px;max-width:560px;margin:0 auto 28px}
+    .offer{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+      border-radius:18px;padding:28px;text-align:center;margin:0 auto 14px}
+    .offer .big{font-size:52px;font-weight:800;line-height:1;background:linear-gradient(90deg,var(--brand),var(--brand2));
+      -webkit-background-clip:text;background-clip:text;color:transparent}
+    .offer .lbl{color:var(--muted);margin-top:8px;font-size:15px}
+    .tiers{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+    .tier{flex:1;min-width:200px;background:linear-gradient(180deg,var(--panel2),var(--panel));
+      border:1px solid var(--line);border-radius:16px;padding:22px;text-align:center;position:relative}
+    .tier.best{border-color:var(--brand)}
+    .tier .badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--brand);
+      color:#fff;font-size:11px;font-weight:700;letter-spacing:.4px;padding:3px 10px;border-radius:999px;text-transform:uppercase}
+    .tier .plan{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.6px}
+    .tier .big{font-size:40px;font-weight:800;line-height:1.05;margin-top:6px}
+    .tier .off{color:var(--up);font-weight:700}
+    .cta{display:block;width:100%;max-width:360px;margin:22px auto 8px;text-align:center;
+      background:linear-gradient(90deg,var(--brand),#6d49e8);color:#fff;font-weight:700;font-size:18px;
+      padding:16px 22px;border-radius:14px;text-decoration:none;box-shadow:0 10px 30px rgba(124,58,237,.35)}
+    .cta:hover{filter:brightness(1.07)}
+    .fine{text-align:center;color:var(--muted);font-size:13px;margin-top:6px}
+    .pitch{margin:36px auto 0;max-width:620px}
+    .pitch h2{font-size:20px;text-align:center;margin-bottom:14px}
+    .pitch p{color:var(--muted)}
+    ul.benefits{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:12px}
+    ul.benefits li{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+    ul.benefits li b{color:var(--text)}
+    .foot{margin-top:40px;border-top:1px solid var(--line);padding-top:20px;color:#6b6880;font-size:12px;text-align:center}
+    .foot a{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="rec">
+      {% if logo_url %}<img src="{{ logo_url }}" alt="{{ display_name }}">{% endif %}
+      <span class="by">Recommended by <b>{{ display_name }}</b></span>
+    </div>
+
+    <h1>Spot the patterns the market <span class="grad">repeats every year</span></h1>
+    <p class="sub">{{ display_name }} uses TradeWave to find stocks that follow the same seasonal moves year after year — and got you an exclusive discount to try it.</p>
+
+    {% if two_tier %}
+      <div class="tiers">
+        <div class="tier">
+          <div class="plan">Monthly</div>
+          <div class="big">{{ monthly_discount }}% <span class="off">off</span></div>
+          <div class="lbl">your first year</div>
+        </div>
+        <div class="tier best">
+          <span class="badge">Best value</span>
+          <div class="plan">Annual</div>
+          <div class="big">{{ annual_discount }}% <span class="off">off</span></div>
+          <div class="lbl">biggest saving</div>
+        </div>
+      </div>
+    {% else %}
+      <div class="offer">
+        <div class="big">{{ discount }}% OFF</div>
+        <div class="lbl">your TradeWave subscription, exclusively through {{ display_name }}</div>
+      </div>
+    {% endif %}
+
+    <a class="cta" href="{{ cta_url }}">Claim your discount &rarr;</a>
+    <p class="fine">Discount applied automatically at checkout. Cancel anytime.</p>
+
+    <div class="pitch">
+      <h2>What you get with TradeWave</h2>
+      <p>TradeWave studies decades of price history to surface stocks, indexes and commodities that tend to repeat the same move at the same time each year, then scores every setup with an AI model — so you spend less time hunting and more time deciding.</p>
+      <ul class="benefits">
+        <li><b>Seasonal patterns, ranked.</b> See which instruments have the strongest, most consistent seasonal edge right now.</li>
+        <li><b>AI-scored setups.</b> A 62-feature model rates each pattern so you can focus on the highest-conviction ones.</li>
+        <li><b>A daily AI pick.</b> One fresh, data-backed idea every market day.</li>
+        <li><b>Built for your routine.</b> Watchlists, charts and projections that fit how you already trade.</li>
+      </ul>
+    </div>
+
+    <div class="foot">
+      <p>TradeWave provides educational, data-driven research on historical seasonal patterns. It is not financial advice or a recommendation to buy or sell any security. Past performance does not guarantee future results; trading involves risk of loss.</p>
+      <p><a href="/">tradewave.ai</a></p>
+    </div>
+  </div>
+</body>
+</html>

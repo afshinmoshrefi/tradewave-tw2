@@ -73,6 +73,8 @@ server {
     # tier; without this it falls through to the static catch-all and 404s. The
     # static /affiliate recruiting page is unaffected (it matches location /).
     location /affiliate/sign/ { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    # /join/<code> = the affiliate co-branded landing page (dynamic, web tier).
+    location /join/         { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
 
     # ============================================================
     # React SaaS at /app  — index.html via web tier (real auth);

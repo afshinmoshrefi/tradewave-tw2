@@ -123,6 +123,26 @@ from flask_admin import Admin, AdminIndexView, BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.actions import action
 from flask_admin.model.template import DeleteRowAction, EndpointLinkRowAction
+from flask_admin.form import FileUploadField
+
+# Co-branded affiliate landing-page logo uploads (admin-only). Served as a static
+# file from /assets/affiliate-logos/ under the marketing web root.
+AFFILIATE_LOGO_DIR = os.path.join(config.web_root_dir.rstrip("/"), "assets", "affiliate-logos")
+AFFILIATE_LOGO_URLPATH = "/assets/affiliate-logos"
+try:  # ensure the upload target exists wherever the web tier runs (best-effort)
+    os.makedirs(AFFILIATE_LOGO_DIR, exist_ok=True)
+except OSError:
+    pass
+
+
+def _affiliate_logo_namegen(obj, file_data):
+    """Unique, collision-free filename for an uploaded logo (avoids depending on
+    the not-yet-normalized code during form population)."""
+    import uuid
+    ext = os.path.splitext(file_data.filename or "")[1].lower()
+    if ext not in (".png", ".jpg", ".jpeg", ".webp"):
+        ext = ".png"
+    return "%s%s" % (uuid.uuid4().hex, ext)
 from flask import flash
 
 
@@ -1454,6 +1474,55 @@ def stripe_cancel():
 
 
 # ============================================================
+# Affiliate co-branded landing page: /join/<code> (public, noindex)
+# A ready-made page the affiliate sends their audience to: a short TradeWave
+# pitch + their specific discount + a Subscribe CTA that sets the tw_ref cookie
+# (so the discount applies + the sale is credited to them). Active affiliates
+# only; anything else falls through to the homepage.
+# ============================================================
+@app.route("/join/<code>")
+def affiliate_join(code):
+    import affiliate_service as afs
+    import affiliate_agreement as agr
+    from decimal import Decimal
+    norm = afs.normalize_code(code)
+    if not afs.CODE_RE.match(norm):
+        return redirect("/", code=302)
+    s = DBSession()
+    try:
+        from models import Affiliate
+        aff = (s.query(Affiliate)
+               .filter(Affiliate.code == norm, Affiliate.status == "active")
+               .first())
+        if not aff:
+            return redirect("/", code=302)
+        m_disc = afs.effective_discount_pct(aff, "month")
+        a_disc = aff.discount_pct
+        try:
+            two_tier = Decimal(str(m_disc)) != Decimal(str(a_disc))
+        except Exception:
+            two_tier = m_disc != a_disc
+        ctx = dict(
+            code=aff.code,
+            display_name=(aff.page_display_name or aff.name or "a TradeWave partner").strip(),
+            logo_url=(AFFILIATE_LOGO_URLPATH + "/" + aff.page_logo) if aff.page_logo else None,
+            two_tier=two_tier,
+            monthly_discount=agr._fmt_pct(m_disc),
+            annual_discount=agr._fmt_pct(a_disc),
+            discount=agr._fmt_pct(a_disc),   # single-offer case: monthly == annual
+            cta_url="/pricing?code=%s" % aff.code,
+        )
+    finally:
+        s.close()
+    resp = make_response(render_template("affiliate_landing.html", **ctx))
+    # First-touch attribution cookie (60 days), same key the homepage + checkout use.
+    resp.set_cookie("tw_ref", ctx["code"], max_age=60 * 60 * 24 * 60,
+                    samesite="Lax", secure=request.is_secure, path="/")
+    resp.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return resp
+
+
+# ============================================================
 # Affiliate agreement e-signature (public, login-free magic link)
 # The <token> identifies the affiliate (itsdangerous-signed); CSRF still
 # protects the POST. Signing flips a 'paused' affiliate to 'active'. See
@@ -2145,6 +2214,8 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         "discount_pct_monthly": "Monthly discount %",
         "commission_pct_monthly": "Monthly commission %",
         "stripe_coupon_id_monthly": "Monthly coupon",
+        "page_display_name": "Page name",
+        "page_logo": "Page logo",
     }
     column_formatters = {
         "agreement_signed_at": lambda v, c, m, n: (
@@ -2176,6 +2247,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                            "commission_model",
                            "payout_method", "payout_email", "stripe_coupon_id",
                            "stripe_coupon_id_monthly",
+                           "page_display_name", "page_logo",
                            "agreement_version", "agreement_signed_name",
                            "agreement_signed_at", "agreement_signed_ip",
                            "notes", "created_at")
@@ -2185,7 +2257,18 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                     "discount_pct", "commission_pct",
                     "discount_pct_monthly", "commission_pct_monthly",
                     "commission_model", "payout_method", "payout_email",
+                    "page_display_name", "page_logo",
                     "status", "notes")
+    form_extra_fields = {
+        "page_logo": FileUploadField(
+            "Page logo (optional)",
+            base_path=AFFILIATE_LOGO_DIR,
+            allowed_extensions=("png", "jpg", "jpeg", "webp"),
+            namegen=_affiliate_logo_namegen,
+            description="Optional logo shown on the affiliate's /join/<code> page. "
+                        "PNG/JPG/WEBP. Leave empty to keep the current one.",
+        ),
+    }
     column_default_sort = ("created_at", True)
     page_size = 50
     form_choices = {
@@ -2210,6 +2293,9 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                                                 "(e.g. 15). Leave blank to match the annual rate. IMMUTABLE after creation."},
         "commission_pct_monthly": {"description": "OPTIONAL - monthly-plan commission, only if it differs from annual "
                                                   "(e.g. 35). Leave blank to match the annual rate. Editable later."},
+        "page_display_name": {"description": "OPTIONAL - the name shown on their co-branded landing page "
+                                             "(tradewave.ai/join/<code>): their personal OR business name. "
+                                             "Leave blank to use the affiliate's name."},
     }
 
     def create_form(self, obj=None):
