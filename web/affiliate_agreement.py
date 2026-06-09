@@ -24,6 +24,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from decimal import Decimal
 import html
+import re
 
 sys.path.insert(0, "/home/flask")
 import config  # noqa: E402
@@ -109,6 +110,15 @@ def signing_url(affiliate) -> str:
 
 # --- presentation ------------------------------------------------------------
 
+_EM_DASH_RE = re.compile(r"[ \t]*—[ \t]*")
+
+
+def _no_em_dash(s: str) -> str:
+    """Project rule: no em dashes in customer content. Defensive backstop so an
+    em dash (e.g. from the source agreement .md) can never reach the signed doc."""
+    return _EM_DASH_RE.sub(" - ", s)
+
+
 def _fmt_pct(value) -> str:
     """20.00 -> '20', 15.50 -> '15.5'."""
     if value is None:
@@ -134,8 +144,8 @@ def agreement_body_html() -> str:
     cut = body.find("## Acceptance")
     if cut != -1:
         body = body[:cut].rstrip().rstrip("-").rstrip()  # also trims the trailing --- rule
-    _BODY_HTML_CACHE = markdown.markdown(
-        body, extensions=["tables", "sane_lists", "fenced_code"])
+    _BODY_HTML_CACHE = _no_em_dash(markdown.markdown(
+        body, extensions=["tables", "sane_lists", "fenced_code"]))
     return _BODY_HTML_CACHE
 
 
@@ -194,10 +204,10 @@ def build_snapshot(affiliate) -> str:
     e = lambda x: html.escape(str(x if x is not None else ""))  # escape all interpolated values
     if ex.get("is_split"):
         term_rows = [
-            ("Monthly plans — Audience Discount", f"{ex['monthly']['discount_pct']}% off (first 12 months)"),
-            ("Monthly plans — Commission Rate", f"{ex['monthly']['commission_pct']}% of Net Revenue"),
-            ("Annual plans — Audience Discount", f"{ex['annual']['discount_pct']}% off (first year)"),
-            ("Annual plans — Commission Rate", f"{ex['annual']['commission_pct']}% of Net Revenue"),
+            ("Monthly plans - Audience Discount", f"{ex['monthly']['discount_pct']}% off (first 12 months)"),
+            ("Monthly plans - Commission Rate", f"{ex['monthly']['commission_pct']}% of Net Revenue"),
+            ("Annual plans - Audience Discount", f"{ex['annual']['discount_pct']}% off (first year)"),
+            ("Annual plans - Commission Rate", f"{ex['annual']['commission_pct']}% of Net Revenue"),
         ]
     else:
         term_rows = [
@@ -212,18 +222,19 @@ def build_snapshot(affiliate) -> str:
             ("Referral Code", ex["code"]), ("Referral Link", ex["referral_link"]),
         ] + term_rows + [
             ("Commission Model", ex["model_label"]),
-            ("Payout", f"{ex['payout_method']} — {ex['payout_email']}"),
+            ("Payout", f"{ex['payout_method']} - {ex['payout_email']}"),
         ])
-    return (
+    snap = (
         f"<!-- TradeWave Affiliate Program Agreement v{e(affiliate.agreement_version)} -->\n"
         f"{agreement_body_html()}\n"
-        f"<h2>Exhibit A — Affiliate-Specific Terms</h2>\n<table>{rows}</table>\n"
+        f"<h2>Exhibit A - Affiliate-Specific Terms</h2>\n<table>{rows}</table>\n"
         f"<h2>Acceptance</h2>\n<p>Electronically signed by "
         f"<strong>{e(affiliate.agreement_signed_name)}</strong> on "
         f"{e(signed_at.isoformat() if signed_at else '')} "
         f"(IP {e(affiliate.agreement_signed_ip)}). Agreement version "
         f"{e(affiliate.agreement_version)}.</p>"
     )
+    return _no_em_dash(snap)
 
 
 # --- the testable core -------------------------------------------------------
@@ -339,7 +350,7 @@ def email_signing_link(affiliate) -> bool:
         f'<p><a href="{_esc(url)}">Review &amp; sign your agreement &rarr;</a></p>'
         f"<p>The link is private to you and expires in 30 days. Once you sign, your "
         f"referral code activates and we email you a copy for your records.</p>"
-        f"<p>Then share either of these with your audience &mdash; both apply your "
+        f"<p>Then share either of these with your audience - both apply your "
         f"discount and credit you automatically:</p>"
         f"<ul>"
         f'<li>Your referral link: <a href="{_esc(ref)}">{_esc(ref)}</a></li>'

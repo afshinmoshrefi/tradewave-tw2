@@ -2222,7 +2222,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             Markup('<a href="%s">✓ Signed %s</a>' % (
                 url_for("affiliate_signed.index", id=str(m.id)),
                 m.agreement_signed_at.strftime("%Y-%m-%d")))
-            if m.agreement_signed_at else "— Awaiting signature"),
+            if m.agreement_signed_at else "Awaiting signature"),
     }
     # 4th per-row icon (next to view/edit/delete): opens the affiliate's signing
     # link when unsigned, or the stored signed agreement once signed.
@@ -2557,7 +2557,7 @@ _AFFILIATE_COMPUTE_TMPL = """
      <td class="num">{{ '%.2f'|format(r.gross_revenue) }}</td>
      <td class="num"><b>{{ '%.2f'|format(r.commission_amount) }}</b></td>
      <td>{{ (r.payout_method or '?')|upper }}</td>
-     <td>{{ r.payout_email or '(no payout email set)' }}{% if r.notes %} <span style="color:#888;font-size:12px">— {{ r.notes }}</span>{% endif %}</td></tr>
+     <td>{{ r.payout_email or '(no payout email set)' }}{% if r.notes %} <span style="color:#888;font-size:12px">- {{ r.notes }}</span>{% endif %}</td></tr>
  {% endfor %}
  {% for ccy, amt in totals %}
  <tr><th colspan="4" class="num">Total ({{ ccy|upper }})</th><th class="num">{{ '%.2f'|format(amt) }}</th><th></th><th></th></tr>

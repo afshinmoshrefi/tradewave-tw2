@@ -72,23 +72,23 @@
 
     {% if not signed %}
     <div class="exhibit">
-      <h2>Exhibit A — Your Terms</h2>
+      <h2>Exhibit A - Your Terms</h2>
       <table>
         <tr><th>Affiliate</th><td>{{ ex.name }}</td></tr>
         <tr><th>Contact email</th><td>{{ ex.email }}</td></tr>
         <tr><th>Referral Code</th><td><code>{{ ex.code }}</code></td></tr>
         <tr><th>Referral Link</th><td><code>{{ ex.referral_link }}</code></td></tr>
         {% if ex.is_split %}
-        <tr><th>Monthly plans — Audience Discount</th><td>{{ ex.monthly.discount_pct }}% off (customer's first 12 months)</td></tr>
-        <tr><th>Monthly plans — Commission Rate</th><td>{{ ex.monthly.commission_pct }}% of Net Revenue</td></tr>
-        <tr><th>Annual plans — Audience Discount</th><td>{{ ex.annual.discount_pct }}% off (customer's first year)</td></tr>
-        <tr><th>Annual plans — Commission Rate</th><td>{{ ex.annual.commission_pct }}% of Net Revenue</td></tr>
+        <tr><th>Monthly plans - Audience Discount</th><td>{{ ex.monthly.discount_pct }}% off (customer's first 12 months)</td></tr>
+        <tr><th>Monthly plans - Commission Rate</th><td>{{ ex.monthly.commission_pct }}% of Net Revenue</td></tr>
+        <tr><th>Annual plans - Audience Discount</th><td>{{ ex.annual.discount_pct }}% off (customer's first year)</td></tr>
+        <tr><th>Annual plans - Commission Rate</th><td>{{ ex.annual.commission_pct }}% of Net Revenue</td></tr>
         {% else %}
         <tr><th>Audience Discount</th><td>{{ ex.discount_pct }}% off for the customer's first 12 months</td></tr>
         <tr><th>Commission Rate</th><td>{{ ex.commission_pct }}% of Net Revenue</td></tr>
         {% endif %}
         <tr><th>Commission Model</th><td>{{ ex.model_label }}</td></tr>
-        <tr><th>Payout</th><td>{{ ex.payout_method }}{% if ex.payout_email %} — {{ ex.payout_email }}{% endif %}</td></tr>
+        <tr><th>Payout</th><td>{{ ex.payout_method }}{% if ex.payout_email %} - {{ ex.payout_email }}{% endif %}</td></tr>
       </table>
     </div>
     {% endif %}{# when signed, the frozen snapshot above already contains Exhibit A #}
