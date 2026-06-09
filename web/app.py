@@ -2556,10 +2556,22 @@ _AFFILIATE_GUIDE_TMPL = """
     <li><b>code</b> - the promo code they share (A-Z, 0-9, _ or -). <b>Immutable</b> after creation.</li>
     <li><b>discount %</b> (default 20) - the audience discount, e.g. 20% off the customer's first 12 months. <b>Immutable</b> after creation.</li>
     <li><b>commission %</b> (default 30) - what the affiliate keeps. Editable later.</li>
+    <li><b>discount/commission monthly</b> &amp; <b>discount/commission annual</b> (optional) - leave blank for one flat rate, or fill in to give <b>different terms on monthly vs annual</b> plans. See <b>section 1a</b> below.</li>
     <li><b>commission model</b> - Recurring (lifetime), First 12 months, or First payment only (how long they earn).</li>
     <li><b>payout method</b> (PayPal / Wise) + <b>payout email</b>, and optional <b>notes</b>.</li>
   </ul>
-  On <b>Save</b> we create their Stripe coupon (X% off, repeating 12 months) and a promotion code equal to <code>code</code> - but the affiliate is created <b>PAUSED and the promo code is inactive</b>. A green banner shows their <b>signing link</b>; copy it for step 2. (The <code>status</code> field is ignored on create - everyone starts paused until signed.)
+  On <b>Save</b> we create their Stripe coupon (X% off, repeating 12 months) and a promotion code equal to <code>code</code> - plus <b>an extra coupon for each per-interval discount override</b> you set (monthly = repeating 12 months, annual = once). The affiliate is created <b>PAUSED and the promo code is inactive</b>. A green banner shows their <b>signing link</b>; copy it for step 2. (The <code>status</code> field is ignored on create - everyone starts paused until signed.)
+</div>
+
+<h2>1a. Optional: different terms for monthly vs annual <span style="font-weight:normal">(interval-split)</span></h2>
+<div class="step">
+  <b>What it is.</b> Normally an affiliate has one discount and one commission. You can instead give an affiliate <b>different terms depending on whether the customer buys a MONTHLY or an ANNUAL plan</b> - for example a bigger commission on monthly and a bigger discount on annual. It is per-affiliate and optional: <b>leave the monthly/annual fields blank for a normal flat affiliate.</b>
+  <ul>
+    <li><b>How to set it.</b> Put your <b>default</b> terms in the flat <b>discount %</b>/<b>commission %</b> (usually the annual terms), then fill the <b>monthly</b> and/or <b>annual</b> override fields for the interval(s) that differ.</li>
+    <li><b>Worked example - Anne-Marie.</b> Flat <b>20% off / 30% commission</b> (her annual terms) + <b>monthly override 15% off / 35% commission</b>. Result: a <b>monthly</b> subscriber gets 15% off and Anne-Marie earns 35%; an <b>annual</b> subscriber gets 20% off and she earns 30%.</li>
+    <li><b>How it behaves.</b> The right discount is applied automatically when the customer arrives through the affiliate's <b>referral link</b> (<code>/?code=THEIRCODE</code>); a manually typed code gives the default rate. Each month, commission is computed per invoice at that plan's rate.</li>
+    <li><b>What's editable.</b> The override <b>commissions</b> are editable later; the override <b>discounts</b> are <b>immutable</b> (each is its own Stripe coupon). To change a split affiliate's per-interval discount, <b>terminate &amp; recreate</b> (Change terms only updates the flat coupon for now).</li>
+  </ul>
 </div>
 
 <h2>2. Get them to sign the agreement</h2>
@@ -2581,9 +2593,10 @@ _AFFILIATE_GUIDE_TMPL = """
 
 <h2>4. What you can and can't change later</h2>
 <div class="step">
-  <b>Editable</b> anytime via <b>Edit</b>: commission %, payout method/email, and notes. <b>Status</b>: you can pause or terminate at will, but you <b>can't set active by hand</b> without a signature - it flips automatically on signing.<br>
+  <b>Editable</b> anytime via <b>Edit</b>: commission % (including the per-interval <b>commission monthly/annual</b> overrides), payout method/email, and notes. <b>Status</b>: you can pause or terminate at will, but you <b>can't set active by hand</b> without a signature - it flips automatically on signing.<br>
+  <b>The discount %s are immutable</b> (each is tied to a Stripe coupon) - the flat <b>discount %</b> and the per-interval <b>discount monthly/annual</b> overrides can't be edited after creation.<br>
   <b>The <code>code</code> is immutable</b> (it is the Stripe promotion code) - to change the code, terminate and create a new affiliate.<br>
-  <b>To change the discount % or renegotiate (e.g. 20/30 &rarr; 15/35):</b> use the <b>Change terms</b> icon on the row - <b>do not terminate</b> (that would cut off their commission on existing customers). It mints a <b>new coupon</b> at the new discount for <b>new</b> referrals, updates commission, and sends the affiliate back to <b>paused</b> to <b>re-sign</b> the new terms (send them the fresh signing link; their code and commission resume on re-signature). <b>Existing customers keep the discount they signed up with</b> - it lives on their Stripe subscription and is never touched. A commission-only change skips the re-sign.
+  <b>To change the discount % or renegotiate (e.g. 20/30 &rarr; 15/35):</b> use the <b>Change terms</b> icon on the row - <b>do not terminate</b> (that would cut off their commission on existing customers). It mints a <b>new coupon</b> at the new discount for <b>new</b> referrals, updates commission, and sends the affiliate back to <b>paused</b> to <b>re-sign</b> the new terms (send them the fresh signing link; their code and commission resume on re-signature). <b>Existing customers keep the discount they signed up with</b> - it lives on their Stripe subscription and is never touched. A commission-only change skips the re-sign. <i>(Note: for an <b>interval-split</b> affiliate, Change terms currently reissues only the flat coupon, not the per-interval override coupons - to change a split affiliate's per-interval discount, terminate and recreate for now.)</i>
 </div>
 
 <h2>5. Statuses</h2>
