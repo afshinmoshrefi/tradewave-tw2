@@ -100,7 +100,7 @@ from email_utils import mailerlite_subscribe, sync_mailerlite_level_group
 
 # --- WorkOS ---
 from workos import WorkOSClient
-from workos.session import seal_session_from_auth_response
+from workos.session import seal_session_from_auth_response, unseal_data
 from workos._errors import BadRequestError as WorkOSBadRequestError
 
 # --- Stripe ---
@@ -243,17 +243,47 @@ def _read_sealed_session():
 
         reason = getattr(result, "reason", None)
         log.info("Session authenticate=False reason=%s; attempting refresh", reason)
+        # The WorkOS SDK 6.2.0 `sess.refresh()` is broken for our setup: it asks the
+        # API to seal the new session (session.seal_session=True) and then reads
+        # auth_response["sealed_session"], which is absent in the response -> it
+        # always fails with reason="'sealed_session'" (a swallowed KeyError). So we
+        # refresh the way LOGIN works (which seals LOCALLY): exchange the refresh
+        # token for fresh tokens, then seal with seal_session_from_auth_response
+        # (mirrors auth_callback). Any failure falls back to None,None (re-login) -
+        # i.e. never worse than the old behavior; the win is sessions now persist.
         try:
-            refresh_result = sess.refresh()
-            if getattr(refresh_result, "authenticated", False):
-                new_sealed = getattr(refresh_result, "sealed_session", None)
-                if new_sealed:
+            sdata = unseal_data(sealed, config.WORKOS_COOKIE_PASSWORD)
+            refresh_token = sdata.get("refresh_token")
+            if refresh_token:
+                rt = workos_client.user_management.authenticate_with_refresh_token(
+                    refresh_token=refresh_token)
+                user_dict = rt.user.to_dict() if hasattr(rt.user, "to_dict") else dict(rt.user)
+                imp_dict = None
+                if getattr(rt, "impersonator", None) is not None:
+                    imp_dict = (rt.impersonator.to_dict() if hasattr(rt.impersonator, "to_dict")
+                                else dict(rt.impersonator))
+                new_sealed = seal_session_from_auth_response(
+                    access_token=rt.access_token,
+                    refresh_token=rt.refresh_token,
+                    user=user_dict,
+                    impersonator=imp_dict,
+                    cookie_password=config.WORKOS_COOKIE_PASSWORD,
+                )
+                # Re-load + authenticate the freshly sealed session so callers get
+                # the same result type as the normal path, and we only persist a
+                # cookie that actually authenticates.
+                new_sess = workos_client.user_management.load_sealed_session(
+                    session_data=new_sealed, cookie_password=config.WORKOS_COOKIE_PASSWORD)
+                result2 = new_sess.authenticate()
+                if getattr(result2, "authenticated", False):
                     g._pending_session_cookie = new_sealed
-                    log.info("Session refresh succeeded; new cookie staged")
-                    return refresh_result, new_sealed
-                log.warning("Session refresh authenticated but no sealed_session attr returned")
-                return refresh_result, sealed
-            log.info("Session refresh failed: reason=%s", getattr(refresh_result, "reason", None))
+                    log.info("Session refresh (manual local-seal) succeeded; new cookie staged")
+                    return result2, new_sealed
+                log.info("Session refresh re-auth not authenticated: reason=%s",
+                         getattr(result2, "reason", None))
+        except WorkOSBadRequestError as e:
+            # refresh token expired/invalid -> genuine session end, re-login
+            log.info("Session refresh invalid grant (re-login needed): %s", e)
         except Exception as re:
             log.info("Session refresh raised: %s", re)
         return None, None
