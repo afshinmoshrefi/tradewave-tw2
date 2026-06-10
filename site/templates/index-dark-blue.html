@@ -1146,6 +1146,7 @@
 
         html { scroll-behavior: smooth; }
     </style>
+{{ content.ga_head_snippet|safe }}
 </head>
 <body>
     <!-- Market Bar -->
@@ -1308,7 +1309,10 @@
         <div class="container">
             <div class="email-capture-inner">
                 <p class="email-capture-text">Get tomorrow's AI pick before market open. No account required.</p>
-                <form class="email-capture-form" action="https://assets.mailerlite.com/jsonp/871495/forms/131498498498498077/subscribe" method="post" target="_blank">
+                <!-- JS intercepts this submit (fetch + inline message); the action
+                     stays as a no-JS fallback full-page post. -->
+                <form class="email-capture-form" action="https://assets.mailerlite.com/jsonp/489451/forms/146340885183858176/subscribe" method="post">
+                    <input type="hidden" name="groups[]" value="182221521780999195">
                     <input type="email" name="fields[email]" placeholder="Your email" required class="email-capture-input">
                     <button type="submit" class="btn btn-primary email-capture-btn">Send It to Me</button>
                 </form>
@@ -2140,11 +2144,57 @@
             });
         })();
 
-        // Mark visitor as subscribed when they submit any MailerLite free-pick form on this page.
+        // Email capture: intercept every MailerLite free-pick form on this page and
+        // submit via fetch with an inline success/error message. Without JS the
+        // form's action still works as a full-page fallback post.
         document.addEventListener('submit', function(e) {
             var form = e.target;
-            if (form && form.action && form.action.indexOf('assets.mailerlite.com') !== -1) {
-                try { localStorage.setItem('tw_free_pick_subscribed', '1'); } catch (err) {}
+            if (!form || !form.action || form.action.indexOf('assets.mailerlite.com') === -1) return;
+            e.preventDefault();
+            var emailInput = form.querySelector('input[type="email"]');
+            var btn = form.querySelector('button[type="submit"]');
+            var status = form.parentNode.querySelector('.email-capture-status');
+            if (!status) {
+                status = document.createElement('p');
+                status.className = 'email-capture-status';
+                status.style.cssText = 'display:none;margin:10px 0 0;font-size:14px;';
+                form.parentNode.insertBefore(status, form.nextSibling);
+            }
+            if (btn) btn.disabled = true;
+            var fd = new FormData();
+            fd.append('fields[email]', emailInput ? emailInput.value.trim() : '');
+            fd.append('groups[]', '182221521780999195');
+            fd.append('ml-submit', '1');
+            fd.append('anticsrf', 'true');
+            fetch(form.action, { method: 'POST', body: fd, mode: 'no-cors' })
+                .then(function() {
+                    form.style.display = 'none';
+                    status.style.color = '#10b981';
+                    status.textContent = "You're in! Check your inbox to confirm; tomorrow's pick arrives before market open.";
+                    status.style.display = 'block';
+                    try { localStorage.setItem('tw_free_pick_subscribed', '1'); } catch (err) {}
+                    if (typeof gtag === 'function') gtag('event', 'email_capture_submit');
+                })
+                .catch(function() {
+                    if (btn) btn.disabled = false;
+                    status.style.color = '#ef4444';
+                    status.textContent = 'Something went wrong. Please try again.';
+                    status.style.display = 'block';
+                });
+        }, true);
+
+        // GA4: lightweight primary-CTA click tracking (no-op when GA is absent).
+        document.addEventListener('click', function(e) {
+            if (typeof gtag !== 'function') return;
+            var a = e.target && e.target.closest ? e.target.closest('a') : null;
+            if (!a) return;
+            var href = a.getAttribute('href') || '';
+            if (href.indexOf('/signup') === 0 || href.indexOf('/app/') === 0 ||
+                href.indexOf('/pricing') === 0 || href.indexOf('/api/stripe/create-checkout') === 0) {
+                gtag('event', 'cta_click', {
+                    link_url: href,
+                    link_text: (a.textContent || '').trim().slice(0, 80)
+                });
             }
         }, true);
 
@@ -2167,7 +2217,8 @@
                     '<div style="font-size:13px;color:#6366f1;font-weight:700;letter-spacing:.08em;margin-bottom:12px;">BEFORE YOU GO</div>' +
                     '<h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:10px;">Get Tomorrow\'s AI Pick<br>Before Market Open</h2>' +
                     '<p style="color:#9ca3af;font-size:14px;margin-bottom:24px;">78-86% win rate. 8 years tested. Delivered free, every morning.</p>' +
-                    '<form action="https://assets.mailerlite.com/jsonp/871495/forms/131498498498498077/subscribe" method="post" target="_blank">' +
+                    '<form action="https://assets.mailerlite.com/jsonp/489451/forms/146340885183858176/subscribe" method="post">' +
+                    '<input type="hidden" name="groups[]" value="182221521780999195">' +
                     '<input type="email" name="fields[email]" placeholder="your@email.com" required style="width:100%;padding:12px 16px;background:#111936;border:1px solid #374151;border-radius:8px;color:#fff;font-size:15px;margin-bottom:12px;box-sizing:border-box;">' +
                     '<button type="submit" style="width:100%;padding:13px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:15px;cursor:pointer;">Send Me the Free Pick</button>' +
                     '</form>' +

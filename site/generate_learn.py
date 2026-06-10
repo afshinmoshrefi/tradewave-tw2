@@ -37,6 +37,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 sys.path.insert(0, '/home/flask/site/lib')
 from text_utils import no_em_dash  # noqa: E402
+from ga_snippet import ga_head_snippet  # noqa: E402
 
 # --------------------------------------------------------------------------- 
 # Paths
@@ -256,6 +257,7 @@ def main() -> int:
             related=related,
             tw_header=tw_header,
             year=YEAR,
+            ga_head_snippet=ga_head_snippet(),
         )
         html = no_em_dash(html)
         out = OUTPUT_DIR / f'{art["slug"]}.html'
@@ -267,6 +269,7 @@ def main() -> int:
         articles=articles,
         tw_header=tw_header,
         year=YEAR,
+        ga_head_snippet=ga_head_snippet(),
     )
     html = no_em_dash(html)
     (OUTPUT_DIR / 'index.html').write_text(html, encoding='utf-8')

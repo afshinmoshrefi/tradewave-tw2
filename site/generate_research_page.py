@@ -12,7 +12,9 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 import sys
 sys.path.insert(0, '/home/flask')
+sys.path.insert(0, '/home/flask/site/lib')
 import config
+from ga_snippet import ga_head_snippet
 
 # =============================================================================
 # CONFIGURATION
@@ -60,6 +62,7 @@ def main():
         enable_seo=False,
         canonical_url="https://tradewave.ai/research.html",
         favicon=config.tw_favicon,
+        ga_head_snippet=ga_head_snippet(),
         signup_url=SIGNUP_URL,
         login_url=LOGIN_URL,
         logout_url=LOGOUT_URL,

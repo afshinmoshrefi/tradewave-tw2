@@ -26,6 +26,7 @@ from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
 from text_utils import no_em_dash  # noqa: E402
+from ga_snippet import ga_head_snippet  # noqa: E402
 
 sys.path.insert(0, "/home/flask")
 import config  # noqa: E402  - per-env values (TURNSTILE_SITE_KEY) baked at gen time
@@ -310,6 +311,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
+  {ga_head_snippet()}
   <style>{PAGE_CSS}</style>
 </head>
 <body>

@@ -18,6 +18,7 @@ sys.path.insert(0, '/home/flask')
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent / 'lib'))
 import config
 from blog_tools import convert_param_base64
+from ga_snippet import ga_head_snippet
 
 # =============================================================================
 # CONFIGURATION
@@ -537,6 +538,8 @@ def generate_scorecard_html(stats, open_positions, closed_positions):
         'x_profile_url': X_PROFILE_URL,
         'favicon': config.tw_favicon,
         'daily_ai_pick_group_id': '182221521780999195',
+        # GA4 <head> snippet ('' when TW2_GA_MEASUREMENT_ID is unset, e.g. dev).
+        'ga_head_snippet': ga_head_snippet(),
     }
 
     return template.render(content=content)

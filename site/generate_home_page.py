@@ -7,12 +7,14 @@ Usage:
     python generate_home_page.py
 """
 
+import argparse
 import csv
 import json
 import requests
 import base64
 import shutil
 import time
+import traceback
 from pathlib import Path
 from datetime import datetime, date, timedelta
 from typing import Optional, List, Dict
@@ -27,62 +29,91 @@ import portal_urls  # per-env developer-portal URL for the footer link
 from daily_pattern_picks import get_daily_picks
 from blog_tools import get_company_name, convert_param_base64
 from get_price_eod import get_quote_details
+from ga_snippet import ga_head_snippet
 
-# Stripe price lookup (TW2: prices come from Stripe live by product name)
-# Matches product names containing "analyst" or "strategist" + monthly/yearly interval.
+# Stripe price lookup (TW2: prices come live from Stripe via PRODUCT METADATA,
+# exactly like web/app.py _refresh_price_cache: a price is used ONLY if its
+# product carries product_line == "eod", tier in {analyst,strategist}, and
+# period in {monthly,yearly}. Name-substring matching was REMOVED - the shared
+# Stripe account holds legacy UMP / placeholder / RT prices that name-collide.
 # Returns: {tier}_monthly, {tier}_yearly (per-month equiv), {tier}_yearly_daily, {tier}_yearly_savings
+#
+# A wrong price on the homepage is worse than a stale page, so if the Stripe
+# fetch fails (or any of the 4 tier/period slots is missing) the generator
+# refuses to publish fallback prices unless --allow-price-fallback was passed.
+ALLOW_PRICE_FALLBACK = False  # set by main() from --allow-price-fallback
+
+def _price_fallback_or_die(reason, fallback):
+    """LOUD stderr warning; exit nonzero unless --allow-price-fallback."""
+    print("=" * 70, file=sys.stderr)
+    print("   ERROR: Stripe price lookup unusable: %s" % reason, file=sys.stderr)
+    if not ALLOW_PRICE_FALLBACK:
+        print("   REFUSING to publish hardcoded fallback prices (a stale page "
+              "beats a wrong-price page).", file=sys.stderr)
+        print("   Re-run with --allow-price-fallback to override.", file=sys.stderr)
+        print("=" * 70, file=sys.stderr)
+        sys.exit(1)
+    print("   --allow-price-fallback passed: publishing hardcoded fallback "
+          "prices (verify they are still current!).", file=sys.stderr)
+    print("=" * 70, file=sys.stderr)
+    return fallback
+
 def _stripe_prices():
     fallback = {
-        'analyst_monthly':            '$58',
-        'analyst_yearly':             '$41',
-        'analyst_yearly_daily':       '$1.34/day',
-        'analyst_yearly_savings':     'Save 30%',
-        'strategist_monthly':         '$199',
-        'strategist_yearly':          '$131',
-        'strategist_yearly_daily':    '$4.31/day',
+        'analyst_monthly':            '$47',
+        'analyst_yearly':             '$37',
+        'analyst_yearly_daily':       '$1.22/day',
+        'analyst_yearly_savings':     'Save 21%',
+        'strategist_monthly':         '$149',
+        'strategist_yearly':          '$99',
+        'strategist_yearly_daily':    '$3.25/day',
         'strategist_yearly_savings':  'Save 34%',
         'max_yearly_savings':         'Save up to 34%',
     }
-    if 'PLACEHOLDER' in (config.STRIPE_SECRET_KEY or ''):
-        return fallback
+    if not config.STRIPE_SECRET_KEY or 'PLACEHOLDER' in config.STRIPE_SECRET_KEY:
+        return _price_fallback_or_die('STRIPE_SECRET_KEY missing or placeholder', fallback)
     try:
         import stripe
         stripe.api_key = config.STRIPE_SECRET_KEY
-        prices = stripe.Price.list(active=True, limit=100, expand=["data.product"])
+        valid_tiers = ('analyst', 'strategist')
+        valid_periods = ('monthly', 'yearly')
         cents_by_key = {}
-        for p in prices.data:
+        for p in stripe.Price.list(active=True, limit=100, expand=["data.product"]).auto_paging_iter():
             prod = p.product
             if not isinstance(prod, dict):
                 prod = prod.to_dict() if hasattr(prod, "to_dict") else dict(prod)
-            name = (prod.get('name') or '').lower()
-            recurring = p.recurring or {}
-            interval = recurring.get('interval') if isinstance(recurring, dict) else getattr(recurring, 'interval', None)
-            cents = p.unit_amount or 0
-            tier = 'analyst' if 'analyst' in name else 'strategist' if 'strategist' in name else None
-            if not tier or interval not in ('month', 'year'):
-                continue
-            cents_by_key[(tier, interval)] = cents
+            metadata = prod.get('metadata') or {}
+            md_line = (metadata.get('product_line') or '').strip().lower()
+            md_tier = (metadata.get('tier') or '').strip().lower()
+            md_period = (metadata.get('period') or '').strip().lower()
+            if md_line != 'eod' or md_tier not in valid_tiers or md_period not in valid_periods:
+                continue  # legacy / RT / placeholder / unscoped price - ignore
+            cents_by_key[(md_tier, md_period)] = p.unit_amount or 0
+
+        missing = [(t, per) for t in valid_tiers for per in valid_periods
+                   if not cents_by_key.get((t, per))]
+        if missing:
+            return _price_fallback_or_die(
+                'missing EOD price slots %s (need product metadata '
+                'product_line=eod + tier + period on each)' % missing, fallback)
 
         out = dict(fallback)
         savings_pcts = []
-        for tier in ('analyst', 'strategist'):
-            mo = cents_by_key.get((tier, 'month'))
-            yr = cents_by_key.get((tier, 'year'))
-            if mo:
-                out[f'{tier}_monthly'] = f"${mo // 100}"
-            if yr:
-                out[f'{tier}_yearly']       = f"${round(yr / 100 / 12)}"
-                out[f'{tier}_yearly_daily'] = f"${yr / 100 / 365:.2f}/day"
-            if mo and yr:
-                pct = round((mo * 12 - yr) / (mo * 12) * 100)
-                out[f'{tier}_yearly_savings'] = f"Save {pct}%"
-                savings_pcts.append(pct)
-        if savings_pcts:
-            out['max_yearly_savings'] = f"Save up to {max(savings_pcts)}%"
+        for tier in valid_tiers:
+            mo = cents_by_key[(tier, 'monthly')]
+            yr = cents_by_key[(tier, 'yearly')]
+            out[f'{tier}_monthly'] = f"${mo // 100}"
+            out[f'{tier}_yearly']       = f"${round(yr / 100 / 12)}"
+            out[f'{tier}_yearly_daily'] = f"${yr / 100 / 365:.2f}/day"
+            pct = round((mo * 12 - yr) / (mo * 12) * 100)
+            out[f'{tier}_yearly_savings'] = f"Save {pct}%"
+            savings_pcts.append(pct)
+        out['max_yearly_savings'] = f"Save up to {max(savings_pcts)}%"
         return out
+    except SystemExit:
+        raise
     except Exception as e:
-        print(f"   WARN Stripe price lookup failed ({e}); using fallback prices")
-        return fallback
+        return _price_fallback_or_die('Stripe API call failed (%s)' % e, fallback)
 
 # =============================================================================
 # CONFIGURATION - Edit these settings
@@ -623,6 +654,29 @@ def load_opportunities_from_csv(csv_path):
 
     return opportunities
 
+
+def drop_closed_windows(opportunities, today=None):
+    """STALE GUARD: drop opportunities whose trade window has already closed
+    (start_date + days before today). The CSV is refreshed manually, so without
+    this the 'Top Patterns' section renders months-old windows under urgency copy."""
+    today = today or date.today()
+    current = []
+    for opp in opportunities:
+        try:
+            start = datetime.strptime(opp["start_date"], "%Y-%m-%d").date()
+        except ValueError:
+            print("   WARN stale-table guard: dropping %s (bad start_date %r)"
+                  % (opp.get("symbol"), opp.get("start_date")), file=sys.stderr)
+            continue
+        if start + timedelta(days=opp["days"]) >= today:
+            current.append(opp)
+    dropped = len(opportunities) - len(current)
+    if dropped:
+        print("   WARN stale-table guard: dropped %d row(s) whose trade window "
+              "already closed (CSV: %s)." % (dropped, OPPORTUNITIES_CSV),
+              file=sys.stderr)
+    return current
+
 # =============================================================================
 # STOCKSCORE API
 # =============================================================================
@@ -800,7 +854,8 @@ def _hero_headline(history):
     return "78% of our AI picks won. Over 8 years."
 
 
-def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=None):
+def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=None,
+                  show_opportunities=SHOW_OPPORTUNITIES):
     """Generate HTML from template and data."""
 
     jinja_env = Environment(
@@ -823,8 +878,10 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
     # CONTENT DICT
     # =========================================================================
     content = {
-        "show_opportunities": SHOW_OPPORTUNITIES,
+        "show_opportunities": show_opportunities,
         "enable_seo": ENABLE_SEO,
+        # GA4 <head> snippet ('' when TW2_GA_MEASUREMENT_ID is unset, e.g. dev).
+        "ga_head_snippet": ga_head_snippet(),
         # Absolute URL for canonical, og:url, and JSON-LD - independent of host.
         "canonical_url": CANONICAL_ROOT,
 
@@ -1067,6 +1124,15 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 # =============================================================================
 
 def main():
+    global ALLOW_PRICE_FALLBACK
+    parser = argparse.ArgumentParser(description="TradeWave homepage generator")
+    parser.add_argument('--allow-price-fallback', action='store_true',
+                        help="Publish the hardcoded fallback prices if the Stripe lookup "
+                             "fails (default: refuse and exit nonzero - a stale page "
+                             "beats a wrong-price page).")
+    args = parser.parse_args()
+    ALLOW_PRICE_FALLBACK = args.allow_price_fallback
+
     print("TradeWave Homepage Generator")
     print("   CSV: %s" % OPPORTUNITIES_CSV)
     print("   Output: %s/%s" % (OUTPUT_DIR, OUTPUT_FILENAME))
@@ -1084,6 +1150,17 @@ def main():
     if not opportunities:
         print("   No opportunities loaded. Exiting.")
         return
+
+    # 1b. Stale-table guard: never render closed trade windows under urgency
+    # copy. If fewer than 3 current rows remain, omit the whole section.
+    opportunities = drop_closed_windows(opportunities)
+    show_opportunities = SHOW_OPPORTUNITIES
+    if len(opportunities) < 3:
+        print("   WARN stale-table guard: only %d current opportunity row(s) "
+              "remain (<3); omitting the Top Patterns section. Refresh %s "
+              "(site/home_opportunities.py)." % (len(opportunities), OPPORTUNITIES_CSV),
+              file=sys.stderr)
+        show_opportunities = False
 
     # 2. Enrich with live stockscore data
     opportunities = enrich_with_stockscore(opportunities)
@@ -1184,14 +1261,20 @@ def main():
                 "days_remaining": max(days_remaining, 0),
                 "published_time": "6:30 AM ET",
             }
-        except Exception as e:
-            print("   WARNING: Featured SVG generation failed: %s" % e)
+        except Exception:
+            # NEVER fail silently: the featured-pick card is the page's main
+            # proof asset. Log the full traceback to stderr, then degrade to
+            # bare stats (a missing card beats a missing homepage).
+            print("   ERROR: featured-pick card failed to render; "
+                  "homepage degrades to bare stats. Traceback:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
             featured_data = None
 
     # 5. Generate HTML
     print("   Generating HTML...")
     html = generate_html(opportunities_by_tab, featured_data=featured_data,
-                         market_bar_items=market_bar_items)
+                         market_bar_items=market_bar_items,
+                         show_opportunities=show_opportunities)
 
     # 6. Save to output file
     output_dir = Path(OUTPUT_DIR)

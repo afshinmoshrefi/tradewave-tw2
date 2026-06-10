@@ -74,7 +74,7 @@ page_data = {
             "avg_return": 5.2,
             "sharpe": 1.45,
             "mode": "cons",  # or "pe"
-            "wave_viewer_url": "/wave-viewer?o=...",
+            "wave_viewer_url": "/app/?o=...",
         }
     ],
 

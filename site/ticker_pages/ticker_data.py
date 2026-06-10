@@ -41,7 +41,10 @@ EDGAR_SERVICE_URL = config.edgar_service_url
 REALTIME_URL = config.realtime_service_url
 STOCKSCORE_URL = config.stockscore_url
 
-WAVE_VIEWER_BASE = 'https://tradewave.ai/wave-viewer?o='
+# TW2 wave-viewer deep link: the React app lives at /app/ (relative so the
+# link works on dev/staging/prod alike). The TW1 WordPress /wave-viewer page
+# does not exist on TW2.
+WAVE_VIEWER_BASE = '/app/?o='
 
 # US equity resource IDs in descending specificity. When looking up a symbol
 # for OppBySymbol/company name we try these in order and take the first hit.
@@ -250,7 +253,9 @@ def fetch_opp_by_symbol(session, symbol, mode='cons'):
             + datetime.timedelta(days=days)
         ).strftime('%Y-%m-%d')
 
-        years_str = '%s-%s' % (year1, year2) if api_mode == 'consecutive' else 'PE%d' % (datetime.date.today().year % 4)
+        # React ?o= contract (App.js): consecutive = the bare count ('10'), PE = 'pe2-10'.
+        # '10-10' only renders via an appserver fallthrough - encode the bare count.
+        years_str = str(year1) if api_mode == 'consecutive' else 'PE%d' % (datetime.date.today().year % 4)
         wv_param = _convert_param_base64(resource_id, symbol.upper(), start_date, str(days), years_str)
 
         active.append({

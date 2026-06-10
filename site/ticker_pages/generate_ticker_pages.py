@@ -39,6 +39,10 @@ from ticker_data import (
 )
 from generate_og_images import generate_all_og_images
 
+# Shared static-site helpers.
+sys.path.insert(0, '/home/flask/site/lib')
+from ga_snippet import ga_head_snippet
+
 # -------------------------------------------------------------------
 # Paths and URLs (hardcoded per project conventions, no env vars).
 # -------------------------------------------------------------------
@@ -59,10 +63,12 @@ DEFAULT_OUTPUT_DIR = os.path.join(WEB_ROOT_DIR, 'patterns') + os.sep
 # actually get written on this dev box.
 PUBLIC_URL_BASE = 'https://tradewave.ai/patterns/'
 
-# Signup / upgrade URLs, same pattern as /home/flask/blog/generate_home_page.py.
-DOMAIN_ROOT = config.domain_root
-SIGNUP_URL = '%sregister/?lid=1' % DOMAIN_ROOT
-UPGRADE_URL = '%smy-account/?ihc_ap_menu=subscription' % DOMAIN_ROOT
+# Signup / upgrade URLs: TW2 Flask routes, relative so they work on any host
+# (same convention as /home/flask/site/generate_home_page.py). The old TW1
+# WordPress routes (register/?lid=1, my-account/?ihc_ap_menu=...) do not exist
+# on TW2.
+SIGNUP_URL = '/signup'
+UPGRADE_URL = '/pricing'
 
 
 # -------------------------------------------------------------------
@@ -285,6 +291,7 @@ def render_ticker_page(env, data, ticker_meta, sector_map, current_year, generat
         generated_at=generated_at,
         meta_description=build_meta_description(data),
         favicon=config.tw_favicon,
+        ga_head_snippet=ga_head_snippet(),
     )
 
 
@@ -315,6 +322,7 @@ def render_hub_page(env, hub_entries, current_year, generated_at):
         signup_url=SIGNUP_URL,
         upgrade_url=UPGRADE_URL,
         favicon=config.tw_favicon,
+        ga_head_snippet=ga_head_snippet(),
     )
 
 

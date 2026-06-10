@@ -30,6 +30,7 @@ import requests
 
 from get_price_eod import get_quote_details
 from text_utils import no_em_dash
+from ga_snippet import ga_head_snippet
 
 # Reuse the SMN generator (heavy lifting: build_security_page, _build_*_html,
 # SECURITY_PAGES list, _fmt_price, _fmt_change, etc.)
@@ -235,6 +236,11 @@ def main():
                                 f'"{DOMAIN_ROOT.rstrip("/")}/"')
             html = html.replace(f'"{stale}"',
                                 f'"{DOMAIN_ROOT.rstrip("/")}"')
+
+        # GA4 snippet (the SMN-built head has none; '' when the id is unset).
+        ga = ga_head_snippet()
+        if ga and '</head>' in html:
+            html = html.replace('</head>', ga + '\n</head>', 1)
 
         # Defensive em-dash sweep before write (project rule: no U+2014).
         html = no_em_dash(html)

@@ -72,10 +72,13 @@ EARN_COLOR     = "#e040e0"     # magenta for earnings badges
 EARN_EST_COLOR = "#e8a838"     # orange for estimated earnings
 
 # ============================================================
-# AUTHENTICATION  (same pattern as create_report.py)
+# AUTHENTICATION  (same pattern as ticker_pages/ticker_data.py)
 # ============================================================
 
 def get_keyprovider_token():
+    """TW1 fallback only. The TW2 appserver answers this URL with
+    {'message': 'invalid token'} (2 words), so the split below raises
+    IndexError there - never call this when SERVICE_API_KEY is set."""
     url = config.appserver_url + '/login/2/3/4/5/6'
     result = requests.get(url).json()
     return result['message'].split(' ')[4]
@@ -94,6 +97,17 @@ def login_appserver(keyprovider_token):
 
 
 def get_appserver_token():
+    # TW2 path: single-step service-account API key login.
+    if getattr(config, 'SERVICE_API_KEY', None):
+        url = config.appserver_url + '/login/api/' + config.SERVICE_API_KEY
+        result = requests.get(url, timeout=45).json()
+        token = result.get('token')
+        if not token:
+            print('svg_wave_chart appserver login failed: %s'
+                  % result.get('message', 'no token'), file=sys.stderr)
+            return None
+        return token
+    # TW1 fallback: 2-step keyprovider handshake.
     kp = get_keyprovider_token()
     return login_appserver(kp)
 

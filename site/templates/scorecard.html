@@ -329,6 +329,7 @@
             .sc-cta { flex-direction: column; text-align: center; }
         }
     </style>
+{{ content.ga_head_snippet|safe }}
 </head>
 <body>
     {% include "_tw_header.html" %}
@@ -545,7 +546,7 @@
         fd.append('ml-submit', '1');
         fd.append('anticsrf', 'true');
         fd.append('groups[]', '{{ content.daily_ai_pick_group_id }}');
-        fetch('https://assets.mailerlite.com/jsonp/489451/forms/173861813170996648/subscribe',
+        fetch('https://assets.mailerlite.com/jsonp/489451/forms/146340885183858176/subscribe',
             { method: 'POST', body: fd, mode: 'no-cors' })
         .then(function() {
             form.style.display = 'none';

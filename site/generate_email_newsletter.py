@@ -222,7 +222,7 @@ def demo_dfe():
             'tn_file': f'tn-{sym}-{today}.png',
             # Use a 1x1 transparent PNG data URI so the email previews even with no image server:
             'tn_url': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-            'load_url': f'{config.domain_root or "https://example.com/"}tradewave-viewer?demo={sym}',
+            'load_url': f'{config.domain_root or "https://example.com/"}app/?demo={sym}',
             'top10_page_url': f'{config.domain_root or "https://example.com/"}top10/{i}',
         })
     return pd.DataFrame(rows)
@@ -480,7 +480,7 @@ def content_footer(_desktop_or_smartphone):
     <tr><td align="center"><table cellpadding="0" cellspacing="0" border="0" style="background-color:lightgray" >
         <tr>
             <td width="720px" height="100px" align="center" style="background-color:lightgray;padding: 10px; border-bottom:1px solid black;margin:10px;">
-                <a href='{domain}tradewave-viewer?set=on' style='font-size:1.5rem'> Update your email preferences or unsubscribe </a>
+                <a href='{domain}account' style='font-size:1.5rem'> Update your email preferences or unsubscribe </a>
             </td>
         </tr>
     </table></td></tr>
