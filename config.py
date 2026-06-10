@@ -232,10 +232,11 @@ admin_userids = ['1', '16', '22']  # users who can create/manage published secur
 #   'list'  - only the user IDs in ml_score_userids see them (start here for limited rollout)
 #   'level' - any user whose level is in ml_score_access_levels sees them (for broader rollout)
 #
-# Mirrors prod: mode='level', levels=['6','7'] (Strategist — TW2 maps strategist→'6').
+# All logged-in tiers see ML columns: Explorer(1) + Analyst(4/5) + Strategist(6/7).
+# (Was Strategist-only ['6','7']; opened to everyone 2026-06-10.)
 ml_score_access_mode = 'level'
 ml_score_userids = ['1', '16', '22']        # specific user IDs with ML score access (used only when mode='list')
-ml_score_access_levels = ['6', '7']         # Strategist (Institutional in legacy)
+ml_score_access_levels = ['1', '4', '5', '6', '7']   # Explorer + Analyst + Strategist (all logged-in tiers)
 ml_score_resource_ids = ['0', '1', '2', '3', '4', '11']  # US stocks + ETFs only
 
 home_stocks_json = "/home/flask/blog/home_stocks.json"  # this is for home page creation
