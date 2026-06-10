@@ -63,10 +63,19 @@ class TestStripeSuccessBinding:
 
     def test_payment_status_paid_required(self):
         """Mirror the second guard - payment_status != 'paid' must redirect
-        away rather than write the upgrade."""
-        for bad in ("unpaid", "no_payment_required", None, "open"):
-            assert bad != "paid"
-        assert "paid" == "paid"
+        away rather than write the upgrade. Exception (2026-06-10): a
+        'no_payment_required' TRIAL session is accepted, but only after
+        _trial_session_subscription_ok() verifies the subscription server-side
+        as trialing/active (covered in tests/test_web_funnel_fixes.py)."""
+        def gate_allows(payment_status, trial_ok):
+            is_trial = payment_status == "no_payment_required" and trial_ok
+            return not (payment_status != "paid" and not is_trial)
+
+        assert gate_allows("paid", trial_ok=False)
+        assert gate_allows("no_payment_required", trial_ok=True)
+        assert not gate_allows("no_payment_required", trial_ok=False)
+        for bad in ("unpaid", None, "open"):
+            assert not gate_allows(bad, trial_ok=True)
 
 
 # ---------------------------------------------------------------------

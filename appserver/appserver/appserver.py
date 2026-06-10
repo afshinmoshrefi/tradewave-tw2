@@ -527,7 +527,9 @@ def login(wp_userid, user_level, country_code, zip, skey): # I had ip for no rea
         'num_reports_allowed'   :num_allowed_reports, # its set above so that afshin can get more
         'num_reports_created':get_num_reports(wp_userid),
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=config.session_expiration_hours),
-        'upgrade_message' : config.upgrade_message,
+        # Per-level nudge (post-reverse-trial Explorer '1' gets the upgrade
+        # message); other levels fall back to the global upgrade_message.
+        'upgrade_message' : getattr(config, 'upgrade_message_by_level', {}).get(user_level, config.upgrade_message),
         'promotion_message' : config.promotion_message,
         'promotion_coupon_code' : config.promotion_coupon_code,
         'promotion_back_color' : config.promotion_back_color,

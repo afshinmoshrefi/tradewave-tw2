@@ -231,9 +231,12 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
   config.py:137-145. Drives `seo_enabled = (tw2_env=='prod')` (config.py:304).
 - Key dicts: `available_resources`/`_path`/`exchange_mapping` (17 markets,
   keys `'0'..'13','16'`); `level_access_hierarchy` (backend market filter -
-  **all levels currently get all 17 markets, open-paywall launch decision**);
-  `num_*_allowed_by_level`; `TIER_FEATURES` (explorer/analyst/strategist matrix +
-  pricing); `ROLE_BYPASSES_TIER={super_admin,staff_admin,service_account}`.
+  **level '1' free Explorer = DJ30 only since 2026-06-10; new signups get a
+  7-day full-access REVERSE TRIAL first - see §11.1**); `num_*_allowed_by_level`
+  ('1' watchlist entries = 0, aligned to TIER_FEATURES); `upgrade_message_by_level`
+  (per-level nudge, '1' = post-trial upgrade message); `TIER_FEATURES`
+  (explorer/analyst/strategist matrix + pricing);
+  `ROLE_BYPASSES_TIER={super_admin,staff_admin,service_account}`.
 - secrets.env vars (NAMES only): WorkOS (`WORKOS_CLIENT_ID/API_KEY/COOKIE_PASSWORD/AUTHKIT_DOMAIN`,
   `TW2_AUTH_CALLBACK_URL`), Stripe (`STRIPE_PUBLISHABLE_KEY/SECRET_KEY/WEBHOOK_SECRET`),
   `POSTGRES_DSN`, inter-service (`SERVICE_API_KEY`, `APPSERVER_JWT_SECRET`,
@@ -273,13 +276,21 @@ Flask-rendered (static from `/var/www/tradewave/`).
   7-day); `lazy_create_user()` upserts the Postgres `users` row (matches by
   `workos_user_id` then email; auto-grants `super_admin` to the owner email).
   `REDIRECT_URI` = `TW2_AUTH_CALLBACK_URL` (read ONCE at process start, app.py:157).
-- **LTK** (`generate_ltk()`, app.py:616): HS256 JWT signed with
+- **LTK** (`generate_ltk()`, web/app.py): HS256 JWT signed with
   `APPSERVER_JWT_SECRET`, `aud="tw2-appserver"`, `iss="tw2-web"`, 8h, carrying
   `user_id, tier, legacy_level, roles, is_admin`. Injected as `window.ltk`; the
-  React app exchanges it at the appserver `/login`.
+  React app exchanges it at the appserver `/login`. The `tier`/`legacy_level`
+  claims come from `effective_tier(user)`: an explorer inside their 7-day
+  REVERSE TRIAL (`users.reverse_trial_ends_at` in the future) mints Strategist
+  claims; `users.tier` itself is never mutated, so trial expiry is implicit at
+  the next mint (no cron). Billing/admin paths keep reading `user.tier` raw.
 - **`app_index()`** serves `web-react/build/index.html` with injected globals:
-  `window.current_user_id`, `current_user_level` (legacy numeric via tier_compat),
-  `ltk`, `tw2_user_email/tier/is_admin/user_roles`, `tw2_env`.
+  `window.current_user_id`, `current_user_level` (legacy numeric via tier_compat,
+  from the EFFECTIVE tier), `ltk`, `tw2_user_email/tier/is_admin/user_roles`
+  (`tw2_user_tier` = effective tier), `tw2_env`, and `tw2_trial_ends_at` (ISO
+  end of an ACTIVE reverse trial, '' otherwise). `/api/me` likewise returns
+  `effective_tier` + `trial_ends_at` (additive) and derives
+  `wp_user_levels`/`legacy_wp_level` from the effective tier.
 - **Admin:** Flask-Admin gated on `super_admin` role; `UserAdmin` validates
   `roles` against `models.ROLES`. **Roles single source of truth = `models.py:ROLES`**
   = `{super_admin, user, newsroom_author, service_account}`.
@@ -365,9 +376,15 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   `StockMetaData`, `getStockPriceByDate`, `consolidated_seasonal_chart2`,
   `StockScoreBatch`, `MLScoreBatch`/`MLScorePending`, etc. Short Redis TTLs (~51s);
   historical price-by-date cached 11.5 days.
-- **Gating:** `level_access_hierarchy` by numeric level; OppList4 caps results
-  (anon 3, free '1' 5, paid premium up to 5000). ML scoring restricted to levels
-  6/7 and resource IDs 0-4,11.
+- **Gating:** `level_access_hierarchy` by numeric level - level '1' (free
+  Explorer) = DJ30 only (`['0']`) since 2026-06-10; reverse-trial users carry
+  level-'6' LTK claims so they see everything until the trial lapses. OppList4
+  caps results (anon 3, free '1' 5, paid premium up to 5000). ML opp-table
+  columns open to all logged-in tiers (c3d66c3); Explorer simply sees them
+  DJ30-scoped. The post-trial upgrade nudge is per-level:
+  `config.upgrade_message_by_level['1']` rides the `/login` JWT's
+  `upgrade_message` claim (other levels fall back to the global
+  `upgrade_message`, currently '').
 (Source: `appserver/appserver/appserver.py`, `web/app.py:616`, `config.py`.)
 
 ---
@@ -689,9 +706,17 @@ roadmap memories.)
 
 ## 11. Invariants / landmines (do NOT break)
 
-1. **Open paywall:** `level_access_hierarchy['1']` = all 17 markets (launch
-   decision). Do NOT revert without Afshin + fixing the React default-security
-   fallback first.
+1. **Reverse-trial freemium gate (decided by owner 2026-06-10, supersedes the
+   2026-05-18 open-paywall launch decision):** new free signups get the FULL
+   Strategist experience for 7 days (`users.reverse_trial_ends_at`, set in
+   `lazy_create_user`; existing explorers via `ops/grant_reverse_trial.py`),
+   then fall back to a genuinely limited Explorer -
+   `level_access_hierarchy['1']` = DJ30 only (`['0']`). NO tier mutation: the
+   elevation happens at token-mint time (`web/app.py effective_tier`), so
+   expiry is implicit and needs NO cron (`expire_trials.py` is the separate
+   admin-granted-trial sweep and never touches reverse trials). The paired
+   React default-security fallback (App.js falls back to the first accessible
+   security) is what makes a DJ30-only list safe - do not remove it.
 2. **Resource keys are permanent:** keys `'0'..'16'` are stable IDs (Korea 14/15
    removed leaving a hole; crypto stays 16). Never renumber - persisted data keys off them.
 3. **Stripe webhook ACK 200** for foreign/unmatched customers (shared account).

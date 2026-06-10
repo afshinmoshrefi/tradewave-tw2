@@ -367,6 +367,12 @@ def lazy_create_user(workos_user) -> User:
             roles=first_role,
             tier="explorer",
             legacy_wp_level=tier_to_legacy_level("explorer"),
+            # REVERSE TRIAL: every brand-new signup gets the full Strategist
+            # experience for 7 days. tier stays 'explorer' - the elevation
+            # happens at token-mint time via effective_tier(), so expiry is
+            # implicit (no cron, no tier mutation). CREATE path only; the
+            # match/update paths above never touch this.
+            reverse_trial_ends_at=datetime.now(timezone.utc) + timedelta(days=7),
         )
         s.add(u)
         try:
@@ -652,11 +658,18 @@ def api_me():
         resp = jsonify({"authenticated": False})
         resp.headers["Cache-Control"] = "private, no-store"
         return resp, 200
+    # Access fields derive from the EFFECTIVE tier (reverse-trial elevation);
+    # user.tier inside to_dict() stays the raw billing tier. trial_ends_at =
+    # ISO end of an ACTIVE reverse trial, else None (additive; distinct from
+    # user.trial_ends_at, the admin-granted paid trial).
+    eff_tier = effective_tier(u)
     resp = jsonify({
         "authenticated": True,
         "user": u.to_dict(),
-        "wp_user_levels": tier_to_wp_user_levels(u.tier or "explorer"),
-        "legacy_wp_level": tier_to_legacy_level(u.tier or "explorer"),
+        "effective_tier": eff_tier,
+        "trial_ends_at": reverse_trial_ends_at_iso(u) or None,
+        "wp_user_levels": tier_to_wp_user_levels(eff_tier),
+        "legacy_wp_level": tier_to_legacy_level(eff_tier),
     })
     resp.headers["Cache-Control"] = "private, no-store"
     return resp
@@ -810,6 +823,37 @@ REACT_BUILD_INDEX = Path("/home/flask/web-react/build/index.html")
 TW_HEADER_TEMPLATE = Path("/home/flask/site/templates/_tw_header.html")
 
 
+def effective_tier(user) -> str:
+    """Tier used for ACCESS decisions (LTK claims, /app/ window globals,
+    /api/me) - NOT for billing.
+
+    REVERSE TRIAL: an 'explorer' whose reverse_trial_ends_at is in the future
+    is elevated to 'strategist' here, at token-mint time. users.tier is never
+    mutated, so expiry is implicit (the next mint after the deadline falls
+    back to explorer - no cron; web/expire_trials.py sweeps only the separate
+    admin-granted trial_ends_at column). Paid/billing paths (Stripe webhook,
+    /stripe/success, admin) must keep reading user.tier raw.
+    """
+    tier = user.tier or "explorer"
+    if (
+        tier == "explorer"
+        and user.reverse_trial_ends_at is not None
+        and user.reverse_trial_ends_at > datetime.now(timezone.utc)
+    ):
+        return "strategist"
+    return tier
+
+
+def reverse_trial_ends_at_iso(user) -> str:
+    """ISO-8601 end of the user's ACTIVE reverse trial, or '' when no
+    elevation is in effect (no trial, expired, or a paid tier). Non-empty
+    means effective_tier() is currently returning 'strategist' for an
+    explorer row - the front end can show a countdown off it."""
+    if effective_tier(user) != (user.tier or "explorer"):
+        return user.reverse_trial_ends_at.isoformat()
+    return ""
+
+
 def generate_ltk(user) -> str:
     """Sign a short-lived JWT containing the user's identity claims.
     The appserver verifies this with config.APPSERVER_JWT_SECRET when
@@ -819,14 +863,19 @@ def generate_ltk(user) -> str:
     minted by other services that might share the same secret. Appserver
     enforces `audience="tw2-appserver"` and `issuer="tw2-web"` at all 16
     jwt.decode() call sites in appserver.py (F3 closed).
+
+    tier/legacy_level come from effective_tier(): an explorer in their 7-day
+    reverse trial mints Strategist claims; the 8h LTK lifetime bounds how
+    long after expiry an already-minted token keeps the elevated access.
     """
+    eff_tier = effective_tier(user)
     return jwt.encode(
         {
             "user_id": str(user.id),
             "workos_user_id": user.workos_user_id,
             "email": user.email,
-            "tier": user.tier or "explorer",
-            "legacy_level": tier_to_legacy_level(user.tier or "explorer"),
+            "tier": eff_tier,
+            "legacy_level": tier_to_legacy_level(eff_tier),
             "roles": user.roles or ["user"],
             "is_admin": "super_admin" in (user.roles or []),
             "aud": "tw2-appserver",
@@ -859,7 +908,10 @@ def app_index():
     html = REACT_BUILD_INDEX.read_text()
     ltk = generate_ltk(u)
     user_id = str(u.id)
-    user_level = tier_to_legacy_level(u.tier or "explorer")
+    # Access globals reflect the EFFECTIVE tier (reverse-trial elevation);
+    # billing/admin code keeps reading users.tier raw.
+    eff_tier = effective_tier(u)
+    user_level = tier_to_legacy_level(eff_tier)
     # F2.14 - JSON-escape every value that is interpolated into the inline
     # <script>. The previous f-string approach would break if u.email or
     # any other field contained a `"`, `</script>`, line terminator, or null
@@ -879,10 +931,12 @@ def app_index():
         f'window.current_user_level={_js_safe(user_level)};'
         f'window.ltk={_js_safe(ltk)};'
         f'window.tw2_user_email={_js_safe(u.email)};'
-        f'window.tw2_user_tier={_js_safe(u.tier or "explorer")};'
+        f'window.tw2_user_tier={_js_safe(eff_tier)};'
         f'window.tw2_is_admin={"true" if is_admin_bool else "false"};'
         f'window.tw2_user_roles={_js_safe(u.roles or ["user"])};'
         f'window.tw2_env={_js_safe(config.tw2_env)};'
+        # ISO end of an ACTIVE reverse trial, '' otherwise (additive global).
+        f'window.tw2_trial_ends_at={_js_safe(reverse_trial_ends_at_iso(u))};'
         '</script>'
     )
     # Inject right before </head> (same hook the milestone-1 nginx sub_filter used)
@@ -988,7 +1042,31 @@ def account():
 
 @app.route("/pricing")
 def pricing():
-    # Send users to the rich pricing section on the home page (single source of truth)
+    # Send users to the rich pricing section on the home page (single source
+    # of truth). An affiliate referral code on the link (?code=ANNE / ?via=ANNE)
+    # must survive the hop: validate it like /join/<code> does, set the same
+    # first-touch tw_ref cookie, and carry the code through the redirect so the
+    # home-page JS sees it too. Unknown / inactive codes redirect as before.
+    raw = request.args.get("code") or request.args.get("via")
+    if raw:
+        import affiliate_service as afs
+        norm = afs.normalize_code(raw)
+        if afs.CODE_RE.match(norm):
+            s = DBSession()
+            try:
+                from models import Affiliate
+                aff = (s.query(Affiliate)
+                       .filter(Affiliate.code == norm, Affiliate.status == "active")
+                       .first())
+                if aff:
+                    resp = make_response(redirect("/?code=%s#pricing" % aff.code, code=302))
+                    # First-touch attribution cookie (60 days), same key the
+                    # /join/<code> landing page + checkout use.
+                    resp.set_cookie("tw_ref", aff.code, max_age=60 * 60 * 24 * 60,
+                                    samesite="Lax", secure=request.is_secure, path="/")
+                    return resp
+            finally:
+                s.close()
     return redirect("/#pricing", code=302)
 
 
@@ -1185,6 +1263,33 @@ def _record_affiliate_referral(session, sub_id, customer_id, metadata):
         log.exception("failed to record affiliate referral for subscription %s", sub_id)
 
 
+def _existing_eod_subscription(customer_id):
+    """Return (subscription_id, item_id, status) for the customer's first
+    active-or-trialing EOD-line Stripe subscription (an item whose price
+    resolves through the eod price cache), or (None, None, None). A Stripe
+    lookup failure logs and returns the empty tuple: this pre-check guards
+    against double-subscribing, it must never block a fresh checkout."""
+    try:
+        # past_due included: the webhook keeps the paid tier through dunning, so
+        # route those customers to the portal (fix the card) instead of a 2nd sub.
+        for sub_status in ("active", "trialing", "past_due"):
+            for sub in stripe.Subscription.list(
+                    customer=customer_id, status=sub_status, limit=100).auto_paging_iter():
+                sub_d = sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
+                items_d = sub_d.get("items") or {}
+                items_list = items_d.get("data", []) if isinstance(items_d, dict) else []
+                for item in items_list:
+                    item_d = item if isinstance(item, dict) else (
+                        item.to_dict() if hasattr(item, "to_dict") else dict(item))
+                    price_d = item_d.get("price") or {}
+                    price_id = price_d.get("id") if isinstance(price_d, dict) else None
+                    if price_id and _tier_period_for_price(price_id)[0]:
+                        return sub_d.get("id"), item_d.get("id"), sub_d.get("status")
+    except Exception:
+        log.exception("existing-subscription lookup failed for customer %s", customer_id)
+    return None, None, None
+
+
 # State-changing endpoint: POST only. The pricing template uses
 # <form method="post"> hidden-input forms to hit this route.
 @app.route("/api/stripe/create-checkout", methods=["GET", "POST"])
@@ -1249,6 +1354,44 @@ def stripe_create_checkout():
             finally:
                 s.close()
 
+    # An already-subscribed user must NOT get a second subscription (Stripe
+    # happily creates one per Checkout session, each with its own 7-day
+    # trial). If this customer already carries an active or trialing EOD-line
+    # subscription, send them to the Billing Portal to change plan instead -
+    # ideally straight into the update-confirm flow for the requested price,
+    # else the plain portal /account/manage-subscription opens.
+    if valid_customer_id:
+        existing_sub_id, existing_item_id, existing_sub_status = \
+            _existing_eod_subscription(valid_customer_id)
+        if existing_sub_id:
+            log.info(
+                "create-checkout: user %s already has %s eod subscription %s; "
+                "redirecting to billing portal instead of a second checkout",
+                u.id, existing_sub_status, existing_sub_id,
+            )
+            try:
+                session_obj = stripe.billing_portal.Session.create(
+                    customer=valid_customer_id,
+                    return_url=f"https://{public_host}/account",
+                    flow_data={
+                        "type": "subscription_update_confirm",
+                        "subscription_update_confirm": {
+                            "subscription": existing_sub_id,
+                            "items": [{"id": existing_item_id,
+                                       "price": price_id, "quantity": 1}],
+                        },
+                    },
+                )
+                return redirect(session_obj.url, code=303)
+            except Exception:
+                # The update-confirm flow needs the portal configuration to
+                # allow switching to this price (and rejects a no-op switch to
+                # the current price). Fall back to the plain portal session,
+                # same as /account/manage-subscription.
+                log.warning("create-checkout: portal update-confirm flow failed for "
+                            "user %s; falling back to plain portal", u.id, exc_info=True)
+                return manage_subscription()
+
     # Affiliate referral code: from a direct link (?code=ANNE / ?via=ANNE), a
     # hidden checkout-form field, or the first-party `tw_ref` cookie set on the
     # affiliate's landing page (so attribution survives navigation + the signup
@@ -1308,6 +1451,26 @@ def stripe_create_checkout():
         # F2.2 - log the full traceback, return generic message
         log.exception("stripe checkout creation failed")
         return jsonify({"error": "stripe_error"}), 500
+
+
+def _trial_session_subscription_ok(sess_d):
+    """A 7-day-trial Checkout session completes with payment_status ==
+    'no_payment_required' (nothing is due until the trial ends), so 'paid'
+    never arrives on that path. Before accepting one, verify SERVER-SIDE with
+    Stripe that the session's subscription really exists and is 'trialing'
+    (or already 'active') - the redirect alone proves nothing (the SEC-C1
+    unpaid-session reasoning is unchanged)."""
+    sub_raw = sess_d.get("subscription")
+    sub_id = (sub_raw.get("id") if isinstance(sub_raw, dict)
+              else (sub_raw if isinstance(sub_raw, str) else None))
+    if not sub_id:
+        return False
+    try:
+        sub = stripe.Subscription.retrieve(sub_id)
+    except Exception:
+        log.exception("stripe_success: Subscription.retrieve failed for %s", sub_id)
+        return False
+    return getattr(sub, "status", None) in ("trialing", "active")
 
 
 @app.route("/stripe/success")
@@ -1398,9 +1561,13 @@ def stripe_success():
     # sessions can be retrieved before payment lands (e.g. user closes the tab
     # mid-flow); writing the tier change off an unpaid session would let any
     # user upgrade for free by hitting /stripe/success with their own
-    # half-completed session_id.
+    # half-completed session_id. The ONE acceptable non-'paid' state is a
+    # 7-day-trial session ('no_payment_required'), and only after the
+    # subscription's trialing/active status is verified server-side.
     payment_status = sess_d.get("payment_status")
-    if payment_status != "paid":
+    is_trial = (payment_status == "no_payment_required"
+                and _trial_session_subscription_ok(sess_d))
+    if payment_status != "paid" and not is_trial:
         log.warning(
             "stripe_success: refusing unpaid session user_id=%s session=%s status=%s",
             expected_user_id, session_id, payment_status,
@@ -1495,7 +1662,7 @@ def stripe_success():
     if new_tier:
         sync_mailerlite_level_group(u.email, new_tier, ml_period, new_user=False)
 
-    return redirect("/app/?upgraded=1")
+    return redirect("/app/?welcome=trial" if is_trial else "/app/?upgraded=1")
 
 
 @app.route("/stripe/cancel")

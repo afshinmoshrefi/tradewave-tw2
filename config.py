@@ -64,6 +64,14 @@ The 100-Year Prophecy explains the exact seasonal patterns powering TradeWave—
 and you can read it before it’s released.
 '''
 upgrade_message = ''
+# Per-LEVEL override of upgrade_message, keyed by the numeric legacy level the
+# appserver login() gates on. Falls back to the global upgrade_message above
+# for levels not listed, so paid levels stay clean. Level '1' = post-reverse-
+# trial Explorer (DJ30 only since 2026-06-10); reverse-trial users mint
+# level-'6' claims, so they never see this while the trial is active.
+upgrade_message_by_level = {
+    '1': 'Your full-access trial has ended - you are on the free Explorer plan (DJ30). Upgrade to unlock all 17 markets.',
+}
 # promotion message is shown below the upgrade_message - it could be a coupon code or a discount message 0 - blank will remove it
 promotion_message = '🎉 Get 60% OFF Tidal Subscription - first 100 subscribers' 
 promotion_message = ''
@@ -315,7 +323,7 @@ num_portfolios_allowed_by_level = { # main default counts as 1; non-registered g
 }
 num_watchlists_allowed_by_level = {
     '0': 0,
-    '1': 1,
+    '1': 0,  # aligned to TIER_FEATURES['explorer'] watchlists_max (2026-06-10 reverse-trial close)
     '4': 10,
     '5': 10,
     '6': 50,
@@ -323,7 +331,7 @@ num_watchlists_allowed_by_level = {
 }
 num_watchlist_items_allowed_by_level = {
     '0': 0,
-    '1': 10,
+    '1': 0,  # aligned to TIER_FEATURES['explorer'] watchlist_symbols_max (2026-06-10 reverse-trial close)
     '4': 50,
     '5': 50,
     '6': 100,
@@ -507,13 +515,16 @@ level_access_hierarchy_premium = {
     '7': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
 }
 # Backend opp-list filter (also drives /login resource_disp + token lid).
-# LAUNCH DECISION (Afshin, 2026-05-18): level '1' (free Explorer) intentionally
-# gets ALL 17 markets - the tier data-paywall is deliberately open during
-# launch. Do NOT revert '1' to ['0','1'] without Afshin's say-so. Re-tightening
-# is deferred post-launch and must pair with the React default-security
-# fallback fix (see memory: tw2-launch-open-paywall-decision).
+# REVERSE-TRIAL DECISION (Afshin, 2026-06-10, supersedes the 2026-05-18 launch
+# open-paywall): level '1' (free Explorer) is DJ30 only ('0'). New signups get
+# the full Strategist experience for 7 days via the reverse trial (web/app.py
+# effective_tier mints level-'6' claims while users.reverse_trial_ends_at is in
+# the future), then fall back here. Paired with the React default-security
+# fallback fix (App.js falls back to the first accessible security when the
+# hard-coded/cookied selection is not in resource_disp), so a DJ30-only list
+# no longer blanks the opp table.
 level_access_hierarchy = {
-    '1': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
+    '1': ['0'],
     '4': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
     '5': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
     '6': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],

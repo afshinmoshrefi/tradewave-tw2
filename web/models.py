@@ -61,6 +61,14 @@ class User(Base):
     # loses their key, issue a fresh one and overwrite this hash.
     api_key_hash                = Column(Text)
     trial_ends_at               = Column(TIMESTAMP(timezone=True))
+    # reverse_trial_ends_at: end of the 7-day REVERSE TRIAL (full Strategist
+    # experience for new free signups). DISTINCT from trial_ends_at above
+    # (admin-granted paid trials, swept by web/expire_trials.py): the reverse
+    # trial never mutates tier - the row stays 'explorer' and the elevation
+    # happens at token-mint time (web/app.py effective_tier), so expiry is
+    # implicit and needs no cron. Set on the lazy_create_user CREATE path
+    # and by ops/grant_reverse_trial.py for existing explorers.
+    reverse_trial_ends_at       = Column(TIMESTAMP(timezone=True))
     created_at                  = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at                  = Column(TIMESTAMP(timezone=True), server_default=func.now())
     last_login_at               = Column(TIMESTAMP(timezone=True))
@@ -87,6 +95,7 @@ class User(Base):
             "api_tier": self.api_tier,
             "stripe_subscription_status": self.stripe_subscription_status,
             "trial_ends_at": self.trial_ends_at.isoformat() if self.trial_ends_at else None,
+            "reverse_trial_ends_at": self.reverse_trial_ends_at.isoformat() if self.reverse_trial_ends_at else None,
         }
 
 

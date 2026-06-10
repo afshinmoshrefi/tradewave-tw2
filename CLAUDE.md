@@ -32,8 +32,10 @@ replace WP/UMP, keeping the React app and the appserver `/login` handshake.
   `sudo -u flask` (root-owned `.git` breaks the next pull).
 - Billing/data invariants: Stripe webhook must ACK 200 for foreign customers;
   FREEZE legacy Stripe price cleanup; resource keys `'0'..'16'` are permanent IDs;
-  open-paywall level `'1'` = all 17 markets (do not revert); roles live ONLY in
-  `web/models.py:ROLES`.
+  reverse-trial gate (owner decision 2026-06-10): new signups get 7d full
+  Strategist access (`users.reverse_trial_ends_at` + `effective_tier()` at
+  token mint, tier never mutated), then level `'1'` Explorer = DJ30 only;
+  roles live ONLY in `web/models.py:ROLES`.
 - All TW2 hosts are Cloudflare tunnels - never convert prod to an A record.
 - gunicorn does not auto-reload (restart after Python edits); deploy must
   `pip install -r requirements.txt`. React = one env-agnostic bundle, symlink-swap deploy.

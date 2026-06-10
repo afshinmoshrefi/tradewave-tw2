@@ -112,16 +112,36 @@ class TestAuthenticatedHappyPath:
 # ---------------------------------------------------------------------
 
 class TestRefreshSuccess:
-    def test_refresh_stages_new_cookie(self, app_module, patched_workos):
+    """The b9c784d repair replaced the broken SDK `sess.refresh()` with a
+    manual flow: unseal the cookie locally -> exchange the refresh token ->
+    seal LOCALLY -> re-load + re-authenticate the new blob. These tests mock
+    that flow (the old sess.refresh() is never called)."""
+
+    def _wire_manual_refresh(self, app_module, patched_workos, monkeypatch,
+                             stale_sess, new_blob="new_sealed_blob"):
+        monkeypatch.setattr(app_module, "unseal_data",
+                            lambda sealed, pw: {"refresh_token": "rt_old"})
+        rt = MagicMock(name="rt", access_token="at_new",
+                       refresh_token="rt_new", impersonator=None)
+        rt.user.to_dict.return_value = {"id": "user_abc", "email": "a@b.com"}
+        patched_workos.authenticate_with_refresh_token.return_value = rt
+        monkeypatch.setattr(app_module, "seal_session_from_auth_response",
+                            lambda **kw: new_blob)
+        new_sess = MagicMock(name="new_sess")
+        # First load -> the stale session; second load -> the re-sealed one.
+        patched_workos.load_sealed_session.side_effect = [stale_sess, new_sess]
+        return new_sess
+
+    def test_refresh_stages_new_cookie(self, app_module, patched_workos, monkeypatch):
         sess = MagicMock(name="sess")
-        # First call: not authenticated
+        # First authenticate: not authenticated -> triggers the manual refresh.
         sess.authenticate.return_value = MagicMock(
             authenticated=False, reason="access_token_expired",
         )
-        # Refresh: authenticated, with a new sealed_session blob
-        refreshed = MagicMock(authenticated=True, sealed_session="new_sealed_blob")
-        sess.refresh.return_value = refreshed
-        patched_workos.load_sealed_session.return_value = sess
+        new_sess = self._wire_manual_refresh(app_module, patched_workos,
+                                             monkeypatch, sess)
+        refreshed = MagicMock(authenticated=True)
+        new_sess.authenticate.return_value = refreshed
 
         from flask import g
         with app_module.app.test_request_context("/", headers={
@@ -134,24 +154,45 @@ class TestRefreshSuccess:
 
         assert r is refreshed
         assert sealed == "new_sealed_blob"
-        sess.refresh.assert_called_once()
+        patched_workos.authenticate_with_refresh_token.assert_called_once_with(
+            refresh_token="rt_old")
+        # The broken SDK refresh must NOT be used.
+        sess.refresh.assert_not_called()
 
-    def test_refresh_authenticated_but_no_sealed(self, app_module, patched_workos):
-        """Edge case: refresh says authenticated but didn't return a new
-        sealed_session blob. We still return the refreshed result, but
-        keep using the original cookie."""
+    def test_refresh_reauth_fails_returns_none(self, app_module, patched_workos,
+                                               monkeypatch):
+        """Edge case: the re-sealed session does not re-authenticate. No
+        cookie may be staged and the caller gets (None, None) (re-login)."""
         sess = MagicMock(name="sess")
         sess.authenticate.return_value = MagicMock(authenticated=False, reason="x")
-        refreshed = MagicMock(authenticated=True, sealed_session=None)
-        sess.refresh.return_value = refreshed
+        new_sess = self._wire_manual_refresh(app_module, patched_workos,
+                                             monkeypatch, sess)
+        new_sess.authenticate.return_value = MagicMock(
+            authenticated=False, reason="still_bad")
+
+        from flask import g
+        with app_module.app.test_request_context("/", headers={
+            "Cookie": f"{app_module.SESSION_COOKIE}=stale",
+        }):
+            result = app_module._read_sealed_session()
+            assert getattr(g, "_pending_session_cookie", None) is None
+        assert result == (None, None)
+
+    def test_refresh_without_refresh_token_returns_none(self, app_module,
+                                                        patched_workos,
+                                                        monkeypatch):
+        """Edge case: the unsealed cookie carries no refresh_token - nothing
+        to exchange, so the session ends (None, None)."""
+        sess = MagicMock(name="sess")
+        sess.authenticate.return_value = MagicMock(authenticated=False, reason="x")
         patched_workos.load_sealed_session.return_value = sess
+        monkeypatch.setattr(app_module, "unseal_data", lambda sealed, pw: {})
 
         with app_module.app.test_request_context("/", headers={
             "Cookie": f"{app_module.SESSION_COOKIE}=stale",
         }):
-            r, sealed = app_module._read_sealed_session()
-        assert r is refreshed
-        assert sealed == "stale"
+            assert app_module._read_sealed_session() == (None, None)
+        patched_workos.authenticate_with_refresh_token.assert_not_called()
 
 
 # ---------------------------------------------------------------------

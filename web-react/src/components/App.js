@@ -1810,6 +1810,16 @@ const App = () => {
       }
       else {
 
+        // Default-security fallback: the hard-coded startingSecurityName (or a
+        // stale selectedSecurity cookie from a higher-access session, e.g. a
+        // lapsed reverse trial) may not be in this user's resource_disp list.
+        // A missing name used to resolve to id=-1 and the OppTable silently
+        // skipped its OppList4 fetch (the Explorer blank-table bug) - fall
+        // back to the first accessible security instead.
+        if (tmp.length > 0 && !tmp.some(item => item.value === tmp_selected_security)) {
+          tmp_selected_security = tmp[0].value;
+        }
+
         // for every person that is logged-in show terms popup once and save it in a cookie so it won't show again
         let ta = getCookie('terms_accepted')
 
