@@ -15,6 +15,19 @@ package (P1), then conversion architecture (P2). SEO/growth (P3) comes after Jun
 
 ## P0 - BROKEN PLUMBING (revenue-losing bugs; ALL before June 16)
 
+> **STATUS 2026-06-10: P0 SHIPPED on dev + pushed (commits 07fa31d, aef1437) - every item below
+> except analytics *activation* and the prod attribution test. ALSO SHIPPED: the reverse-trial
+> freemium gate (7d full Strategist for new signups, Explorer=DJ30 after; effective_tier at token
+> mint; ops/grant_reverse_trial.py for the existing free base; migration d4e5f6a7b8c9).
+> Verified by independent agent + 2 adversarial reviewers; suite 235 passed.
+> OPERATOR REMAINING: (1) decide/confirm LIVE Stripe eod prices ($47/$149 launch vs $58/$199 post -
+> the page now always shows live truth; align dev TEST products too); (2) reactivate + rename
+> MailerLite form 146340885183858176 (marked inactive, accepts posts today); (3) confirm the Stripe
+> Billing Portal allows plan switches (subscription_update); (4) create GA4 property + set
+> TW2_GA_MEASUREMENT_ID in staging/prod secrets.env (snippet bakes on next regen); (5) deploy
+> staging->prod, regen static pages on prod, check /var/log/tradewave/home_opportunities.log
+> freshness; (6) the end-to-end affiliate attribution test on prod.
+
 - [ ] **Email capture posts to a nonexistent MailerLite form.** Home strip + exit popup POST to account
   `871495` / form `131498498498077...` (placeholder-looking); the connected account is `489451`, real
   home form `146340885183858176`. Files: `site/templates/index-dark-blue.html:1311,2170`,
