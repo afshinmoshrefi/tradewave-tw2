@@ -212,9 +212,12 @@ class Affiliate(Base):
     discount_pct_monthly     = Column(Numeric(5, 2))   # monthly discount override (NULL = same as annual)
     commission_pct_monthly   = Column(Numeric(5, 2))   # monthly commission override (NULL = same as annual)
     stripe_coupon_id_monthly = Column(Text)            # monthly override coupon, applied by id at checkout
-    # --- co-branded landing page (/join/<code>): operator-entered, optional.
+    # --- co-branded landing page (/join/<code>): operator-entered, all optional.
     page_display_name = Column(Text)   # name shown on the page (personal or business); falls back to `name`
-    page_logo         = Column(Text)   # stored filename under /assets/affiliate-logos/ (uploaded in admin)
+    page_logo         = Column(Text)   # stored filename under /assets/affiliate-logos/ (brand mark; rounded chip)
+    page_photo        = Column(Text)   # stored filename under /assets/affiliate-logos/ (headshot; circular avatar)
+    page_note         = Column(Text)   # short first-person note to their audience (<=280, plain text)
+    page_signoff      = Column(Text)   # attribution line under the note, e.g. "Sarah, your options coach" (<=60)
     commission_model = Column(Text, nullable=False, server_default=sa_text("'recurring'"))
     stripe_coupon_id = Column(Text, unique=True)
     stripe_promotion_code_id = Column(Text)
@@ -249,6 +252,8 @@ class Affiliate(Base):
         CheckConstraint("commission_pct >= 0 AND commission_pct <= 100", name="affiliates_commission_pct_check"),
         CheckConstraint("discount_pct_monthly IS NULL OR (discount_pct_monthly >= 0 AND discount_pct_monthly <= 100)", name="affiliates_discount_pct_monthly_check"),
         CheckConstraint("commission_pct_monthly IS NULL OR (commission_pct_monthly >= 0 AND commission_pct_monthly <= 100)", name="affiliates_commission_pct_monthly_check"),
+        CheckConstraint("page_note IS NULL OR char_length(page_note) <= 280", name="affiliates_page_note_len_check"),
+        CheckConstraint("page_signoff IS NULL OR char_length(page_signoff) <= 60", name="affiliates_page_signoff_len_check"),
     )
 
     def __str__(self):

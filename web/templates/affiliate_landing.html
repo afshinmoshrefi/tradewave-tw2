@@ -16,9 +16,17 @@
       background:radial-gradient(1200px 600px at 50% -10%,#211a3a 0%,var(--bg) 55%);color:var(--text);line-height:1.55}
     .wrap{max-width:760px;margin:0 auto;padding:40px 20px 64px}
     .rec{display:flex;align-items:center;gap:14px;justify-content:center;margin-bottom:22px;flex-wrap:wrap}
-    .rec img{max-height:56px;max-width:180px;border-radius:10px;background:#fff;padding:6px}
-    .rec .by{font-size:14px;color:var(--muted)}
+    .rec .avatar{width:60px;height:60px;border-radius:50%;object-fit:cover;background:#fff;
+      border:2px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.25);flex:none}
+    .rec .brand{max-height:42px;max-width:140px;border-radius:9px;background:#fff;padding:6px;flex:none}
+    .rec .by{font-size:15px;color:var(--muted)}
     .rec .by b{color:var(--text)}
+    .note{max-width:580px;margin:0 auto 26px;background:var(--panel);border:1px solid var(--line);
+      border-left:3px solid var(--brand);border-radius:14px;padding:18px 22px;text-align:left}
+    .note p{margin:0;color:var(--text);font-size:16px;line-height:1.55}
+    .note cite{display:block;margin-top:12px;text-align:right;font-style:normal;
+      font-size:13.5px;color:var(--muted)}
+    .note cite b{color:var(--text)}
     h1{font-size:34px;line-height:1.15;text-align:center;margin:8px 0 10px;letter-spacing:-.5px}
     h1 .grad{background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
     .sub{text-align:center;color:var(--muted);font-size:17px;max-width:560px;margin:0 auto 28px}
@@ -54,9 +62,17 @@
 <body>
   <div class="wrap">
     <div class="rec">
-      {% if logo_url %}<img src="{{ logo_url }}" alt="{{ display_name }}">{% endif %}
+      {% if photo_url %}<img class="avatar" src="{{ photo_url }}" alt="{{ display_name }}">{% endif %}
       <span class="by">Recommended by <b>{{ display_name }}</b></span>
+      {% if logo_url %}<img class="brand" src="{{ logo_url }}" alt="">{% endif %}
     </div>
+
+    {% if page_note %}
+    <blockquote class="note">
+      <p>{{ page_note }}</p>
+      <cite><b>{{ page_signoff or display_name }}</b></cite>
+    </blockquote>
+    {% endif %}
 
     <h1>Spot the patterns the market <span class="grad">repeats every year</span></h1>
     <p class="sub">{{ display_name }} uses TradeWave to find stocks that follow the same seasonal moves year after year - and got you an exclusive discount to try it.</p>

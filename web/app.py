@@ -1536,6 +1536,9 @@ def affiliate_join(code):
             code=aff.code,
             display_name=(aff.page_display_name or aff.name or "a TradeWave partner").strip(),
             logo_url=(AFFILIATE_LOGO_URLPATH + "/" + aff.page_logo) if aff.page_logo else None,
+            photo_url=(AFFILIATE_LOGO_URLPATH + "/" + aff.page_photo) if aff.page_photo else None,
+            page_note=(aff.page_note or "").strip() or None,
+            page_signoff=(aff.page_signoff or "").strip() or None,
             two_tier=two_tier,
             monthly_discount=agr._fmt_pct(m_disc),
             annual_discount=agr._fmt_pct(a_disc),
@@ -2246,6 +2249,9 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         "stripe_coupon_id_monthly": "Monthly coupon",
         "page_display_name": "Page name",
         "page_logo": "Page logo",
+        "page_photo": "Page headshot",
+        "page_note": "Page note",
+        "page_signoff": "Page sign-off",
     }
     column_formatters = {
         "agreement_signed_at": lambda v, c, m, n: (
@@ -2277,7 +2283,8 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                            "commission_model",
                            "payout_method", "payout_email", "stripe_coupon_id",
                            "stripe_coupon_id_monthly",
-                           "page_display_name", "page_logo",
+                           "page_display_name", "page_logo", "page_photo",
+                           "page_note", "page_signoff",
                            "agreement_version", "agreement_signed_name",
                            "agreement_signed_at", "agreement_signed_ip",
                            "notes", "created_at")
@@ -2287,7 +2294,8 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                     "discount_pct", "commission_pct",
                     "discount_pct_monthly", "commission_pct_monthly",
                     "commission_model", "payout_method", "payout_email",
-                    "page_display_name", "page_logo",
+                    "page_display_name", "page_logo", "page_photo",
+                    "page_note", "page_signoff",
                     "status", "notes")
     form_extra_fields = {
         "page_logo": FileUploadField(
@@ -2295,8 +2303,16 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             base_path=AFFILIATE_LOGO_DIR,
             allowed_extensions=("png", "jpg", "jpeg", "webp"),
             namegen=_affiliate_logo_namegen,
-            description="Optional logo shown on the affiliate's /join/<code> page. "
+            description="Optional BRAND logo for the /join/<code> page (shown as a rounded chip). "
                         "PNG/JPG/WEBP. Leave empty to keep the current one.",
+        ),
+        "page_photo": FileUploadField(
+            "Page headshot (optional)",
+            base_path=AFFILIATE_LOGO_DIR,
+            allowed_extensions=("png", "jpg", "jpeg", "webp"),
+            namegen=_affiliate_logo_namegen,
+            description="Optional HEADSHOT of the affiliate for the /join/<code> page (shown as a "
+                        "circular avatar). A square image looks best. PNG/JPG/WEBP. Leave empty to keep the current one.",
         ),
     }
     column_default_sort = ("created_at", True)
@@ -2326,6 +2342,12 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         "page_display_name": {"description": "OPTIONAL - the name shown on their co-branded landing page "
                                              "(tradewave.ai/join/<code>): their personal OR business name. "
                                              "Leave blank to use the affiliate's name."},
+        "page_note": {"description": "OPTIONAL - a short personal note (max 280 chars) from the affiliate to "
+                                     "THEIR audience, shown in their voice on tradewave.ai/join/<code>. PLAIN TEXT, "
+                                     "public - you (operator) read + approve it before saving. Educational only: "
+                                     "NO performance promises, guarantees, return/price/win-rate claims, or links."},
+        "page_signoff": {"description": "OPTIONAL - the attribution under the note, e.g. 'Sarah, your options coach' "
+                                        "(max 60 chars). The affiliate's OWN name/title only. Blank falls back to the Page name."},
     }
 
     def create_form(self, obj=None):
@@ -2355,6 +2377,26 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             model.commission_model = "recurring"
         if not model.status:
             model.status = "paused"
+
+        # Landing-page note / sign-off: public, affiliate-authored PLAIN TEXT.
+        # Strip; treat blank/whitespace as NULL; reject markup + links (defense in
+        # depth on top of Jinja autoescape); cap length (DB CHECK backstops it).
+        for field, cap in (("page_note", 280), ("page_signoff", 60)):
+            val = getattr(model, field, None)
+            if val is None:
+                continue
+            val = " ".join(val.split())  # collapse whitespace/newlines
+            if not val:
+                setattr(model, field, None)
+                continue
+            if len(val) > cap:
+                raise ValidationError("%s must be %d characters or fewer." % (field, cap))
+            low = val.lower()
+            if "<" in val or ">" in val or "http://" in low or "https://" in low or "www." in low:
+                raise ValidationError(
+                    "%s must be plain text - no HTML tags (< >) or links allowed." % field)
+            setattr(model, field, val)
+
         # Activation gate (active <=> signed), enforced on EDITS. Creation forces
         # 'paused' below regardless; the signing route flips paused->active
         # programmatically once the agreement is signed.
