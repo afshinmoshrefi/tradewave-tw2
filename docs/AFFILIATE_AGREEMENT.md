@@ -156,10 +156,20 @@ You and Company are **independent contractors**. Nothing in this Agreement creat
 
 11.1 **Term.** This Agreement begins on the Effective Date and continues until terminated.
 
-11.2 **Termination.** Either party may terminate this Agreement at any time, with or without cause, on written notice (email is sufficient). Company may suspend or terminate **immediately** for your breach of Section 7, fraud, or any conduct that, in Company's reasonable judgment, harms Company or its customers.
+11.2 **Termination.** Either party may terminate this Agreement at any time, with or without cause, on written notice (email is sufficient). Company may suspend or terminate this Agreement **immediately** for Cause. "**Cause**" means any of the following, and Company will identify the specific Cause relied upon in its termination or suspension notice:
+
+  - (a) **Misrepresentation.** You make a false, misleading, or deceptive statement about TradeWave - its features, pricing, data, or results - or any prohibited performance or income claim (Sections 7.1-7.2), or you present TradeWave as investment advice or remove or contradict its disclaimers (Sections 7.4, 7.9).
+  - (b) **Fraud or Invalid Referrals.** You commit fraud or generate Invalid Referrals, including self-referrals, fake or incentivized signups, or cookie-stuffing (Sections 3.4, 7.7).
+  - (c) **Unlawful or deceptive marketing.** You violate marketing or disclosure law in promoting TradeWave, including omitting required FTC affiliate disclosures, posting fabricated endorsements, sending spam in violation of CAN-SPAM or the TCPA, or violating privacy law (Sections 7.3, 7.5), or you promote TradeWave on or alongside objectionable content (Section 7.8).
+  - (d) **Brand abuse or impersonation.** You misuse Company's trademarks, bid on its brand terms, register confusingly similar names or handles, or hold yourself out as Company, its employee, or an "official" channel (Sections 7.6, 8).
+  - (e) **Sanctions or anti-bribery breach.** You breach Section 7.10.
+  - (f) **Audit refusal.** You fail to cooperate with a compliance or records request under Section 7.11 within ten (10) days of the request.
+  - (g) **Uncured material breach.** You materially breach any other provision of this Agreement and fail to cure that breach within ten (10) days after written notice describing it.
+  - (h) **Material harm.** Conduct not listed above that causes, or is reasonably likely to cause, material harm to Company, its customers, or its reputation, as described in Company's notice.
 
 11.3 **Effect of termination.**
-  - **For Cause.** Any termination or suspension by Company under Section 11.2 (breach, fraud, Invalid Referrals, or conduct harmful to Company or its customers) is For Cause: all unpaid and future Commissions are **forfeited**, and Company may reverse affected paid Commissions under Section 4.5.
+
+  - **For Cause.** Any termination or suspension by Company for a Cause defined in Section 11.2 is For Cause: all unpaid and future Commissions are **forfeited**, and Company may reverse affected paid Commissions under Section 4.5.
   - **For Convenience.** Any other termination (including by you, or by Company without cause) is For Convenience: no new referrals are credited after the termination date, but Commissions on your **existing, active Referred Customers continue** to accrue and be paid at your locked Commission Rate under the applicable Commission Model, as if this Agreement remained in effect for those subscriptions, until each such subscription ends — subject only to Section 11.4.
   - **Survival.** Sections 4.3–4.5, 5.6–5.7, 6, 8.2, 9, 10, 11.3–11.4, and 12–15 survive termination.
 

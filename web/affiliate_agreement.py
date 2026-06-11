@@ -34,7 +34,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired 
 
 # Bump when the terms change materially so signatures record which version was
 # shown. Keep in step with docs/AFFILIATE_AGREEMENT.md.
-AGREEMENT_VERSION = "2026-06-06"
+AGREEMENT_VERSION = "2026-06-11"
 
 # itsdangerous salt namespaces this use of the app secret away from Flask's own
 # session cookie signing (which uses the same WORKOS_COOKIE_PASSWORD).
