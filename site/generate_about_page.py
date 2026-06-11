@@ -220,8 +220,8 @@ def build_html():
           All seasonal pattern data is computed in-house from end-of-day price history,
           covering up to 98 years of lookback for major indices. AI scoring uses a
           62-feature gradient-boosted model evaluated on 8 years of out-of-sample data.
-          See <a href="/research.html">the research page</a> for the full methodology and
-          references.
+          See the full <a href="/methodology">methodology</a> and the
+          <a href="/research.html">research page</a> for references.
         </p>
       </section>
 
@@ -229,6 +229,7 @@ def build_html():
 
     <div class="about-foot">
       &copy; {year} Tara Data Research LLC &middot;
+      <a href="/methodology">Methodology</a> &middot;
       <a href="/research.html">Research</a> &middot;
       <a href="/patterns/">Tickers</a> &middot;
       <a href="/app/">Wave Viewer</a>
