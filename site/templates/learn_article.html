@@ -6,7 +6,7 @@
   <title>{{ article.title }} - TradeWave Learn</title>
   <meta name="description" content="{{ article.summary }}">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://tw2.trxstat.com/learn/{{ article.slug }}.html">
+  <link rel="canonical" href="https://tradewave.ai/learn/{{ article.slug }}.html">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
@@ -14,7 +14,7 @@
   <meta property="og:title" content="{{ article.title }}">
   <meta property="og:description" content="{{ article.summary }}">
   <meta property="og:type" content="article">
-  <meta property="og:url" content="https://tw2.trxstat.com/learn/{{ article.slug }}.html">
+  <meta property="og:url" content="https://tradewave.ai/learn/{{ article.slug }}.html">
   <meta property="og:image" content="{{ article.og_image_url }}">
   <meta property="og:image:alt" content="{{ article.title }}">
   <meta property="article:published_time" content="{{ article.date_iso }}">
@@ -37,14 +37,14 @@
     "description": {{ article.summary | tojson }},
     "datePublished": "{{ article.date_iso }}",
     "dateModified": "{{ article.date_iso }}",
-    "author": {"@type": "Organization", "name": "{{ article.author }}", "url": "https://tw2.trxstat.com/"},
-    "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tw2.trxstat.com/favicon.png"}},
+    "author": {"@type": "Organization", "name": "{{ article.author }}", "url": "https://tradewave.ai/"},
+    "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tradewave.ai/favicon.png"}},
     "image": {{ article.og_image_url | tojson }},
     "keywords": {{ (article.tags or []) | tojson }},
     "wordCount": {{ article.word_count or 0 }},
     "articleSection": "Finance and Investing",
-    "mainEntityOfPage": {"@type": "WebPage", "@id": "https://tw2.trxstat.com/learn/{{ article.slug }}.html"},
-    "isPartOf": {"@type": "Blog", "name": "TradeWave Learn", "url": "https://tw2.trxstat.com/learn/"}
+    "mainEntityOfPage": {"@type": "WebPage", "@id": "https://tradewave.ai/learn/{{ article.slug }}.html"},
+    "isPartOf": {"@type": "Blog", "name": "TradeWave Learn", "url": "https://tradewave.ai/learn/"}
   }
   </script>
   <script type="application/ld+json">
@@ -52,9 +52,9 @@
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "Home",     "item": "https://tw2.trxstat.com/"},
-      {"@type": "ListItem", "position": 2, "name": "Learn", "item": "https://tw2.trxstat.com/learn/"},
-      {"@type": "ListItem", "position": 3, "name": {{ article.title | tojson }}, "item": "https://tw2.trxstat.com/learn/{{ article.slug }}.html"}
+      {"@type": "ListItem", "position": 1, "name": "Home",     "item": "https://tradewave.ai/"},
+      {"@type": "ListItem", "position": 2, "name": "Learn", "item": "https://tradewave.ai/learn/"},
+      {"@type": "ListItem", "position": 3, "name": {{ article.title | tojson }}, "item": "https://tradewave.ai/learn/{{ article.slug }}.html"}
     ]
   }
   </script>

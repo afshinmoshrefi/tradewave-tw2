@@ -6,7 +6,7 @@
   <title>Learn - Platform Guides and Tutorials - TradeWave</title>
   <meta name="description" content="Step-by-step guides to TradeWave: the Wave Viewer, Stats Table, Trend Chart, Portfolio Manager, and how to read a seasonal trading opportunity.">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://tw2.trxstat.com/learn/">
+  <link rel="canonical" href="https://tradewave.ai/learn/">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
@@ -14,21 +14,21 @@
   <meta property="og:title" content="Learn - TradeWave">
   <meta property="og:description" content="Step-by-step guides to TradeWave: how to read seasonal patterns, use the Wave Viewer, and build a portfolio.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://tw2.trxstat.com/learn/">
-  <meta property="og:image" content="https://tw2.trxstat.com/favicon.png">
+  <meta property="og:url" content="https://tradewave.ai/learn/">
+  <meta property="og:image" content="https://tradewave.ai/favicon.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@TradeWaveHQ">
   <meta name="twitter:title" content="Learn - TradeWave">
   <meta name="twitter:description" content="Step-by-step guides to TradeWave: how to read seasonal patterns, use the Wave Viewer, and build a portfolio.">
-  <meta name="twitter:image" content="https://tw2.trxstat.com/favicon.png">
+  <meta name="twitter:image" content="https://tradewave.ai/favicon.png">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "Blog",
     "name": "TradeWave Learn",
-    "url": "https://tw2.trxstat.com/learn/",
+    "url": "https://tradewave.ai/learn/",
     "description": "Step-by-step guides to TradeWave: how to read seasonal patterns, use the Wave Viewer, and build a portfolio.",
-    "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tw2.trxstat.com/favicon.png"}},
+    "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tradewave.ai/favicon.png"}},
     "blogPost": [
       {% for a in articles %}
       {
@@ -36,7 +36,7 @@
         "headline": {{ a.title | tojson }},
         "description": {{ a.summary | tojson }},
         "datePublished": "{{ a.date_iso }}",
-        "url": "https://tw2.trxstat.com/learn/{{ a.slug }}.html",
+        "url": "https://tradewave.ai/learn/{{ a.slug }}.html",
         "keywords": {{ (a.tags or []) | tojson }}
       }{% if not loop.last %},{% endif %}
       {% endfor %}
@@ -48,8 +48,8 @@
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "Home",     "item": "https://tw2.trxstat.com/"},
-      {"@type": "ListItem", "position": 2, "name": "Learn", "item": "https://tw2.trxstat.com/learn/"}
+      {"@type": "ListItem", "position": 1, "name": "Home",     "item": "https://tradewave.ai/"},
+      {"@type": "ListItem", "position": 2, "name": "Learn", "item": "https://tradewave.ai/learn/"}
     ]
   }
   </script>
