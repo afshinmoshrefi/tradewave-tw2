@@ -20,7 +20,7 @@ chat-drives-the-viewer is live in the production UI per the owner.)
 **PAGE-WIDE RULES:** one CTA everywhere: "Start free - 7 days of everything" + "No credit
 card required." beside it. No win rates, return figures, or performance promises anywhere.
 No popups, no exit-intent, no tab-title scripts, no sticky bars, no counters, no user-count
-copy. Product screenshots argue; copy stays short. No em dashes (" - "). Screenshots must
+copy. Product screenshots argue; copy stays short. No em dashes (" - "). Display headlines (hero, section H2s) are TITLE CASE (AP style: capitalize words of 4+ letters and all major words; a/an/the/of/to/in/on stay lowercase) and carry NO terminal period. Screenshots must
 contain no aggregate win totals or cherry-picked standout numbers; model scores render as
 ordinal rank badges or unitless bars, never as probability percentages legible in frame.
 
@@ -30,14 +30,14 @@ ordinal rank badges or unitless bars, never as probability percentages legible i
 Layout: calm full-width; headline + subhead left-weighted or centered, one CTA, large
 screenshot below; three quiet text chips under the CTA. No motion.
 
-- **Headline:** Seasonal market research that shows its work.
+- **Headline:** Seasonal Market Research That Shows Its Work
 - **Subhead:** TradeWave computes deterministic seasonal statistics from up to a century of
   end-of-day data, and a machine-learning model ranks what it finds. Ask for any of it in
   plain language - on the platform[, or inside ChatGPT and Claude]{MCP_LIVE}. The daily pick
   goes on the public record before the outcome is known - losses included.
 - **CTA:** Start free - 7 days of everything
 - **Microcopy:** No credit card required. After the week, a free plan that stays useful.
-- **Chips:** 15 markets | Histories up to a century | [Works inside ChatGPT and Claude]{MCP_LIVE}
+- **Chips:** 15 Markets | Histories Up to a Century | [Works Inside ChatGPT and Claude]{MCP_LIVE}
 - **Visual:** one large wave-viewer screenshot in clean browser chrome: a major US index
   seasonal pattern with the longest available history loaded, seasonal wave overlaid on
   price, top of the per-year results table visible beneath - winning AND losing years
@@ -48,7 +48,7 @@ screenshot below; three quiet text chips under the CTA. No motion.
 Layout: full-width thin typographic band at the seam under the hero - three numbered
 clauses set like contract lines; minimal height.
 
-> 01 Deterministic by design.  02 Receipts on every pattern.  03 Logged before the outcome.
+> 01 Deterministic by Design.  02 Receipts on Every Pattern.  03 Logged Before the Outcome.
 
 ## 2. THE RECEIPTS (the deterministic engine)
 Layout: centered text block above a full-bleed wave-viewer screenshot; magnified inset of
@@ -56,7 +56,7 @@ the per-year table bottom-right; three thin callout labels (per-year results / d
 PE overlay).
 
 - **Eyebrow:** You've noticed it for years.
-- **Headline:** Underneath every AI answer: up to a century of receipts.
+- **Headline:** Underneath Every AI Answer: Up to a Century of Receipts
 - **Body:** The same calendar window, the same behavior, year after year - most serious
   traders carry a private list of these hunches, while the evidence stayed folklore:
   almanac pages, screenshots, other people's conviction. TradeWave was built to test them:
@@ -75,7 +75,7 @@ Layout: two-column; copy left, opportunities-table screenshot right (scores as r
 or unitless bars - no percentages in frame).
 
 - **Eyebrow:** AI layer one - rank it
-- **Headline:** Machine learning with one honest job: ranking.
+- **Headline:** Machine Learning With One Honest Job: Ranking
 - **Body:** One scan sweeps all 15 markets. A separate gradient-boosted model reads 62
   features of every qualifying setup and produces a ranking used for exactly one thing:
   ordering the list. It does not promise outcomes. The statistics stay deterministic - the
@@ -88,7 +88,7 @@ Layout: centered copy above a full-width split screenshot: wave-viewer left, Tar
 docked right showing one real two-message exchange that visibly moved the chart.
 
 - **Eyebrow:** AI layer two - talk to it
-- **Headline:** Ask the chart. Watch it answer.
+- **Headline:** Ask the Chart. Watch It Answer
 - **Body:** Tara is how you question the platform. Ask why a setup ranks where it does, and
   the answer cites that pattern's own table: the years, the consistency, the risk. Ask to
   see something else, and the wave-viewer changes in front of you. Tara is an interface to
@@ -100,7 +100,7 @@ Layout: two-column; real ChatGPT-window screenshot left (connector enabled, a sc
 answered), copy right with a developer-portal inset card; full-width CTA band beneath.
 
 - **Eyebrow:** AI layer three - take it with you  [Badge: New]
-- **Headline:** TradeWave works inside ChatGPT and Claude.
+- **Headline:** TradeWave Works Inside ChatGPT and Claude
 - **Body:** Add TradeWave to ChatGPT, Claude, or any MCP-capable assistant and sign in with
   your TradeWave account. Then just ask: scans, pattern analysis, plain language - the same
   engine and the same receipts, inside the tools you already use. Building your own stack?
@@ -113,7 +113,7 @@ screenshot (calendar event / CSV in a spreadsheet / report / deep-linked chart);
 on mobile.
 
 - **Eyebrow:** Built for a desk, not a demo
-- **Headline:** A Tuesday with TradeWave.
+- **Headline:** A Tuesday With TradeWave
 - **Timeline:**
   - 8:50 - Your calendar pings: a pattern window on your watchlist opens Thursday.
   - 9:15 - You export the stats table to CSV and drop it into your own model.
@@ -128,7 +128,7 @@ row plainly visible, methodology page right); text links + founder provenance ca
 band below.
 
 - **Eyebrow:** Accountability
-- **Headline:** We do not ask for trust. We publish the ledger.
+- **Headline:** We Do Not Ask for Trust. We Publish the Ledger
 - **Body:** The methodology is public: what we compute, how, and what it cannot tell you -
   read it before you trust a single number. The model's daily pick is written to a public
   forward ledger before the outcome is known, and it stays there: losses included, nothing
@@ -143,7 +143,7 @@ band below.
 Layout: three restrained quote cards (serif quote, full name, role, market focus). Never
 placeholders, never founder-as-testimonial, no star ratings, no logo wall.
 
-- **Headline:** On the record, like everything else here.
+- **Headline:** On the Record, Like Everything Else Here
 - **Framing line:** Early users - independent traders, advisors, and quants - on rigor,
   depth, and where TradeWave fits in their day.
 - **Editorial law:** performance quotes are rejected; quotes speak to rigor, depth, workflow.
@@ -155,7 +155,7 @@ feature checklists per tier: markets, CSV export, calendar alerts, portfolios, r
 Tara, [API and MCP access]{MCP_LIVE}.
 
 - **Ribbon:** Every signup starts with 7 days of the full platform.
-- **Headline:** Start with everything. Pay only if it earns its place on your desk.
+- **Headline:** Start With Everything. Pay Only If It Earns Its Place on Your Desk
 - **Body:** Create a free account and get everything for 7 days: every market, every
   metric, the model and Tara included{MCP_LIVE: -> "every market, every metric, every AI
   layer"}. After the week, stay on Explorer free for as long as you like, or go Analyst at
@@ -171,13 +171,13 @@ Layout: living-research card row (auto-fed: 3 latest Seasonal Market News articl
 Insights explainer, real dates visible), then a calm full-width closing band with one
 centered CTA, then the complete disclaimer footer.
 
-- **Living strip headline:** What the engine sees this week.
+- **Living strip headline:** What the Engine Sees This Week
 - **Body:** Seasonal Market News covers what the engine sees in current markets. The
   Insights library teaches the method - how the statistics are built, and what up to a
   century of data can and cannot justify. Real articles, real dates, free to read: what the
   platform is thinking, before you ever create an account.
 - **Link:** Browse the library
-- **Closing band headline:** Bring your hunches.
+- **Closing band headline:** Bring Your Hunches
 - **Closing body:** Test the calendar windows you've carried for years against up to a
   century of receipts - in the platform, with Tara beside the chart[, or inside ChatGPT and
   Claude]{MCP_LIVE}. Seven days of everything, free. A free plan that keeps working after.
