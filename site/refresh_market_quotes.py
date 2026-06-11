@@ -26,8 +26,18 @@ needs site/lib/get_price_eod, so it deploys and runs on any box).
 Quotes come from get_quote_details (local realtime price service first, then
 EODHD fallback) -- the same source the bakers use.
 
+Session awareness (mirrors TW1 blog/update_news_quotes.py on the SMN box):
+outside regular trading hours the cash indices don't move, so during the
+'futures' session (pre-market, after-hours, Sunday evening) the three equity
+indices are swapped to their futures proxies (GSPC->ES, DJI->YM, IXIC->NQ)
+and flagged with an indigo "F" superscript; when the futures market is fully
+closed (Sat, Fri 5pm - Sun 6pm ET) the script exits without touching files.
+If a futures quote is unavailable (EODHD serves no live YM/Dow data) that
+index keeps its cash quote -- last close, no F -- instead of going blank.
+
 Usage:
     python refresh_market_quotes.py [--root /var/www/tradewave] [--dry-run]
+                                    [--session {auto,market,futures}]
 """
 
 import argparse
@@ -56,14 +66,60 @@ INSTRUMENTS = [
     {"symbol": "GC",   "exchange": "COMM", "slug": "gold",        "appserver_symbol": "GC"},
 ]
 
+# Futures proxy shown for each cash index outside regular trading hours.
+# (YM/Dow has no live data on the current EODHD plan; kept here so it lights
+# up automatically if the plan ever serves it -- until then DJI falls back to
+# its cash quote.)
+FUTURES_MAP = {
+    "GSPC": {"symbol": "ES", "exchange": "COMM"},
+    "DJI":  {"symbol": "YM", "exchange": "COMM"},
+    "IXIC": {"symbol": "NQ", "exchange": "COMM"},
+}
+
+_F_SUP_BAR = "<sup style='font-size:9px;color:#6366f1;margin-left:1px'>F</sup>"
+_F_SUP_HERO = "<sup style='font-size:12px;color:#6366f1;margin-left:2px'>F</sup>"
+_F_PRICE_STYLE = ' style="color:#818cf8"'
+
+
+def _get_session():
+    """Return 'market', 'futures', or 'closed' (US/Eastern; mirrors SMN).
+
+    market:  Mon-Fri 9:30 AM - 4:00 PM ET
+    futures: Mon-Thu 4:00 PM - next 9:30 AM, Fri 4:00-5:00 PM, Sun 6:00 PM on
+    closed:  Fri 5:00 PM - Sun 6:00 PM, all day Saturday
+    """
+    try:
+        from zoneinfo import ZoneInfo
+        et = datetime.now(ZoneInfo("America/New_York"))
+    except Exception:
+        from datetime import timedelta
+        et = datetime.now(timezone(timedelta(hours=-4)))
+    wd = et.weekday()  # Mon=0 .. Sun=6
+    t = et.hour * 60 + et.minute
+
+    market_open, market_close = 9 * 60 + 30, 16 * 60
+    if wd == 5:
+        return "closed"
+    if wd == 6:
+        return "futures" if t >= 18 * 60 else "closed"
+    if market_open <= t < market_close:
+        return "market"
+    if t >= market_close:
+        if wd == 4:  # Friday: CME closes 5 PM
+            return "futures" if t < 17 * 60 else "closed"
+        return "futures"
+    return "futures"  # weekday pre-market
+
 
 # Fields published into /assets/quotes.json (the single source of truth the
-# pages read client-side).
+# pages read client-side). A per-symbol "futures": true is added when the
+# entry holds a futures-proxy quote.
 _QUOTE_FIELDS = ("close", "change", "change_p", "open", "high", "low",
                  "previousClose", "volume", "timestamp")
 
 # Tag injected before </body> on every page so the bar + hero read quotes.json.
-_SCRIPT_TAG = '<script src="/assets/market-quotes.js" defer></script>'
+# The ?v= busts Cloudflare's static-asset cache when the JS changes.
+_SCRIPT_TAG = '<script src="/assets/market-quotes.js?v=2" defer></script>'
 
 # Client updater: on load, fetch /assets/quotes.json and overwrite the market
 # bar (every page) + the hero quote (on /markets/<slug>.html) with the SAME
@@ -92,6 +148,8 @@ _MARKET_QUOTES_JS = r"""/* TradeWave live market quotes - written by site/refres
     if (!isNaN(c)) return [s + c.toFixed(2) + ' (' + s + cp.toFixed(2) + '%)', d];
     return [s + cp.toFixed(2) + '%', d];
   }
+  var SUP_BAR = "<sup style='font-size:9px;color:#6366f1;margin-left:1px'>F</sup>";
+  var SUP_HERO = "<sup style='font-size:12px;color:#6366f1;margin-left:2px'>F</sup>";
   function apply(q) {
     if (!q) return;
     var items = document.querySelectorAll('a.market-item');
@@ -101,7 +159,10 @@ _MARKET_QUOTES_JS = r"""/* TradeWave live market quotes - written by site/refres
       if (!m) continue;
       var d = q[SLUG2SYM[m[1]]]; if (!d || d.close == null) continue;
       var ps = a.querySelector('.market-price'); var p = fmtPrice(d.close);
-      if (ps && p) ps.textContent = p;
+      if (ps && p) {
+        if (d.futures) { ps.innerHTML = p + SUP_BAR; ps.style.color = '#818cf8'; }
+        else { ps.textContent = p; ps.style.color = ''; }
+      }
       var pc = pct(d.change_p); var cs = a.querySelector('.market-change');
       if (cs && pc) { cs.textContent = pc[0]; cs.className = 'market-change ' + pc[1]; }
       if (pc) { var cur = /\bcurrent\b/.test(a.className) ? ' current' : ''; a.className = 'market-item ' + pc[1] + cur; }
@@ -111,7 +172,8 @@ _MARKET_QUOTES_JS = r"""/* TradeWave live market quotes - written by site/refres
     if (pm && path) {
       var d = q[SLUG2SYM[path[1]]];
       if (d && d.close != null) {
-        var p = fmtPrice(d.close); if (p) pm.textContent = p;
+        var p = fmtPrice(d.close);
+        if (p) { if (d.futures) pm.innerHTML = p + SUP_HERO; else pm.textContent = p; }
         var hc = heroChg(d.change, d.change_p); var ce = document.querySelector('.price-change');
         if (ce && hc) { ce.textContent = hc[0]; ce.className = 'price-change ' + hc[1]; }
         var map = {Open: 'open', High: 'high', Low: 'low', 'Prev Close': 'previousClose'};
@@ -179,20 +241,23 @@ def _to_float(val):
         return None
 
 
-def _update_bar_item(html, slug, price_str, chg_str, direction):
+def _update_bar_item(html, slug, price_str, chg_str, direction, futures=False):
     """Update one market-bar <a> item (price + change text + up/down classes), keyed by slug."""
     anchor = re.compile(
         r'(<a\b[^>]*href=["\']/markets/' + re.escape(slug) + r'\.html["\'][^>]*>)(.*?)(</a>)',
         re.DOTALL)
+    price_span = '<span class="market-price"%s>%s%s</span>' % (
+        _F_PRICE_STYLE if futures else "", price_str, _F_SUP_BAR if futures else "")
 
     def repl(m):
         open_tag, inner, close = m.group(1), m.group(2), m.group(3)
         # Direction class on the anchor (preserve a trailing " current" marker).
         open_tag = re.sub(r'(class=["\']market-item )(up|down|flat)\b',
                           lambda mm: mm.group(1) + direction, open_tag)
-        # Price span.
-        inner = re.sub(r'(<span class=["\']market-price["\']>)[^<]*(</span>)',
-                       lambda mm: mm.group(1) + price_str + mm.group(2), inner)
+        # Price span: rewrite whole span (a prior futures pass may have left a
+        # style attr + <sup>F</sup> inside; the first </span> is its own close).
+        inner = re.sub(r'<span class=["\']market-price["\'][^>]*>.*?</span>',
+                       lambda mm: price_span, inner, count=1, flags=re.DOTALL)
         # Change span (normalize to double quotes; harmless if it already used them).
         inner = re.sub(r'<span class=["\']market-change [^"\']*["\']>[^<]*</span>',
                        '<span class="market-change %s">%s</span>' % (direction, chg_str),
@@ -211,7 +276,8 @@ def _refresh_bar(html, quotes):
         if close is None:
             continue
         chg_str, direction = _bar_change(_to_float(q.get("change_p")))
-        html = _update_bar_item(html, inst["slug"], _fmt_price(close), chg_str, direction)
+        html = _update_bar_item(html, inst["slug"], _fmt_price(close), chg_str, direction,
+                                futures=bool(q.get("futures")))
     return html
 
 
@@ -225,8 +291,10 @@ def _refresh_hero(html, inst, q):
         return html
     chg_str, direction = _hero_change(_to_float(q.get("change")), _to_float(q.get("change_p")))
 
-    html = re.sub(r'(<span class="price-main">)[^<]*(</span>)',
-                  lambda m: m.group(1) + _fmt_price(close) + m.group(2), html)
+    hero_price = _fmt_price(close) + (_F_SUP_HERO if q.get("futures") else "")
+    html = re.sub(r'<span class="price-main">.*?</span>',
+                  lambda m: '<span class="price-main">' + hero_price + '</span>',
+                  html, count=1, flags=re.DOTALL)
     html = re.sub(r"<span class=['\"]price-change [^'\"]*['\"]>[^<]*</span>",
                   "<span class='price-change %s'>%s</span>" % (direction, chg_str), html)
 
@@ -260,9 +328,12 @@ def _refresh_hero(html, inst, q):
 
 
 def _ensure_script_tag(html):
-    """Inject the market-quotes.js tag before </body> if not already present."""
-    if "market-quotes.js" in html:
+    """Inject the market-quotes.js tag before </body>, upgrading old versions."""
+    if _SCRIPT_TAG in html:
         return html
+    if "market-quotes.js" in html:
+        return re.sub(r'<script src="/assets/market-quotes\.js[^"]*" defer></script>',
+                      _SCRIPT_TAG, html, count=1)
     if "</body>" in html:
         return html.replace("</body>", "    " + _SCRIPT_TAG + "\n</body>", 1)
     return html + "\n" + _SCRIPT_TAG + "\n"
@@ -287,7 +358,10 @@ def _write_assets(root, quotes):
         q = quotes.get(inst["symbol"])
         if not q:
             continue
-        payload[inst["symbol"]] = {k: q.get(k) for k in _QUOTE_FIELDS}
+        entry = {k: q.get(k) for k in _QUOTE_FIELDS}
+        if q.get("futures"):
+            entry["futures"] = True
+        payload[inst["symbol"]] = entry
     _write_atomic(os.path.join(assets, "quotes.json"),
                   json.dumps(payload, separators=(",", ":")))
     js_path = os.path.join(assets, "market-quotes.js")
@@ -305,8 +379,16 @@ def main():
     ap.add_argument("--root", default=config.web_root_dir,
                     help="web root holding home.html + markets/ (default: config.web_root_dir)")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--session", choices=("auto", "market", "futures"), default="auto",
+                    help="override session detection (testing); auto exits when closed")
     args = ap.parse_args()
     root = args.root.rstrip("/")
+
+    session = _get_session() if args.session == "auto" else args.session
+    if session == "closed":
+        # Futures market fully closed (weekend): nothing moves, leave the
+        # last-written values alone rather than re-stamping them.
+        return 0
 
     quotes = {}
     for inst in INSTRUMENTS:
@@ -316,6 +398,18 @@ def main():
     if not quotes:
         print("refresh_market_quotes: no quotes fetched; leaving files unchanged.")
         return 1
+
+    # Outside regular hours, swap each cash index for its futures proxy so the
+    # site shows what's actually moving (SMN parity). Missing futures quote
+    # (e.g. YM) -> keep the cash quote, unflagged.
+    if session == "futures":
+        for idx_sym, fmap in FUTURES_MAP.items():
+            if idx_sym not in quotes:
+                continue
+            fq = get_quote_details(fmap["symbol"], fmap["exchange"])
+            if fq and _to_float(fq.get("close")) is not None:
+                fq["futures"] = True
+                quotes[idx_sym] = fq
 
     if not args.dry_run:
         _write_assets(root, quotes)
@@ -342,10 +436,11 @@ def main():
                 _write_atomic(path, html)
 
     summary = ", ".join(
-        "%s=%s" % (i["symbol"], _fmt_price(_to_float(quotes[i["symbol"]]["close"])))
+        "%s=%s%s" % (i["symbol"], _fmt_price(_to_float(quotes[i["symbol"]]["close"])),
+                     "[F]" if quotes[i["symbol"]].get("futures") else "")
         for i in INSTRUMENTS if i["symbol"] in quotes)
-    print("refresh_market_quotes: %s%d file(s) updated under %s | %s" % (
-        "(dry-run) " if args.dry_run else "", changed, root, summary))
+    print("refresh_market_quotes: %s[%s] %d file(s) updated under %s | %s" % (
+        "(dry-run) " if args.dry_run else "", session, changed, root, summary))
     return 0
 
 
