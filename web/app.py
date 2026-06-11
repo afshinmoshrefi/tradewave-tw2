@@ -122,7 +122,8 @@ except Exception as _stripe_http_err:
 from flask_admin import Admin, AdminIndexView, BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.actions import action
-from flask_admin.model.template import DeleteRowAction, EndpointLinkRowAction
+from flask_admin.model.template import (BaseListRowAction, DeleteRowAction,
+                                         EndpointLinkRowAction)
 from flask_admin.form import FileUploadField
 
 # Co-branded affiliate landing-page logo uploads (admin-only). Served as a static
@@ -2401,6 +2402,26 @@ class SupportTicketAdmin(_AdminAuth, ModelView):
 # changes). See web/affiliate_service.py + migration af1c0de2b3a4.
 # ============================================================
 
+class _AffiliateJoinPageRowAction(BaseListRowAction):
+    """Per-row icon opening the affiliate's public co-branded landing page
+    (/join/<CODE>) in a new tab. Rendered only for ACTIVE affiliates: the
+    public route redirects paused/terminated codes to the homepage, so the
+    icon would be a dead link for them."""
+
+    def __init__(self):
+        super().__init__(title="Open landing page")
+        self.icon_class = "fa fa-external-link glyphicon glyphicon-new-window"
+
+    def render(self, context, row_id, row):
+        if getattr(row, "status", None) != "active" or not row.code:
+            return ""
+        # code charset is DB-CHECKed to ^[A-Z0-9_-]{2,64}$ — URL/HTML safe.
+        return Markup(
+            '<a class="icon" href="/join/%s" target="_blank" rel="noopener" '
+            'title="Open landing page /join/%s"><span class="%s"></span></a>'
+            % (row.code, row.code, self.icon_class))
+
+
 class AffiliateAdmin(_AdminAuth, ModelView):
     column_list = ("code", "name", "discount_pct", "commission_pct",
                    "commission_model", "status", "agreement_signed_at",
@@ -2442,6 +2463,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             title="Change terms (new coupon + re-sign)",
             id_arg="id",
         ),
+        _AffiliateJoinPageRowAction(),
     ]
     can_view_details = True
     column_details_list = ("code", "name", "email", "status",
