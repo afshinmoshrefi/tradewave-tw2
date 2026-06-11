@@ -78,6 +78,7 @@ def _stripe_prices():
         valid_tiers = ('analyst', 'strategist')
         valid_periods = ('monthly', 'yearly')
         cents_by_key = {}
+        ids_by_key = {}
         for p in stripe.Price.list(active=True, limit=100, expand=["data.product"]).auto_paging_iter():
             prod = p.product
             if not isinstance(prod, dict):
@@ -88,6 +89,7 @@ def _stripe_prices():
             md_period = (metadata.get('period') or '').strip().lower()
             if md_line != 'eod' or md_tier not in valid_tiers or md_period not in valid_periods:
                 continue  # legacy / RT / placeholder / unscoped price - ignore
+            ids_by_key.setdefault((md_tier, md_period), []).append(p.id)
             cents_by_key[(md_tier, md_period)] = p.unit_amount or 0
 
         missing = [(t, per) for t in valid_tiers for per in valid_periods
@@ -97,11 +99,28 @@ def _stripe_prices():
                 'missing EOD price slots %s (need product metadata '
                 'product_line=eod + tier + period on each)' % missing, fallback)
 
+        # A slot with >1 active price is ambiguous: which one wins is
+        # pagination-order luck, and the displayed price could diverge from
+        # what checkout charges. Refuse to publish until the extras are
+        # archived in Stripe.
+        dupes = {k: v for k, v in ids_by_key.items() if len(v) > 1}
+        if dupes:
+            return _price_fallback_or_die(
+                'AMBIGUOUS price slots %s - more than one ACTIVE Stripe price '
+                'matches the same product metadata; archive the extras in '
+                'Stripe so display cannot diverge from checkout' % dupes, fallback)
+
         out = dict(fallback)
         savings_pcts = []
         for tier in valid_tiers:
             mo = cents_by_key[(tier, 'monthly')]
             yr = cents_by_key[(tier, 'yearly')]
+            raw_pct = (mo * 12 - yr) / (mo * 12) * 100
+            if not (1000 <= mo <= 100000) or not (0 <= raw_pct <= 70):
+                return _price_fallback_or_die(
+                    '%s prices implausible (monthly $%.0f, yearly $%.0f = %.0f%% '
+                    'savings); check the eod-tagged prices in Stripe' % (
+                        tier, mo / 100, yr / 100, raw_pct), fallback)
             out[f'{tier}_monthly'] = f"${mo // 100}"
             out[f'{tier}_yearly']       = f"${round(yr / 100 / 12)}"
             out[f'{tier}_yearly_daily'] = f"${yr / 100 / 365:.2f}/day"
