@@ -11,178 +11,263 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=STIX+Two+Text:wght@600;700&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg:#0b0a12; --bg2:#0e0c17; --panel:#15121f; --line:#262136; --line2:#2e2842;
+      --bg:#0b0a12; --bg2:#0e0c17; --panel:#16121f; --panel2:#1a1528;
+      --line:#262136; --line2:#322a4a;
       --text:#ececf4; --muted:#a39fb8; --faint:#6b6880;
-      --accent:#8b5cf6;            /* CTA + links ONLY */
-      --up:#34d399; --down:#f87171;/* data ONLY */
+      --accent:#8b5cf6; --accent2:#a78bfa;
+      --up:#34d399; --down:#f87171;
       --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       --disp:'STIX Two Text', 'Times New Roman', serif;
       --mono:ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
     }
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
-      font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+    body{margin:0;color:var(--text);font-family:var(--sans);font-size:17px;line-height:1.6;
+      -webkit-font-smoothing:antialiased;
+      background:
+        radial-gradient(1000px 520px at 72% -10%, rgba(139,92,246,.17), transparent 62%),
+        radial-gradient(760px 420px at 8% 4%, rgba(34,211,238,.06), transparent 55%),
+        var(--bg)}
     .display{font-family:var(--disp);letter-spacing:-.005em}
-    a{color:var(--accent);text-decoration:none}
+    a{color:var(--accent2);text-decoration:none}
     a:hover{text-decoration:underline}
-    .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+    .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
     .num{font-variant-numeric:tabular-nums}
 
-    nav{border-bottom:1px solid var(--line)}
-    nav .wrap{display:flex;align-items:center;justify-content:space-between;height:62px}
-    .logo{font-weight:600;font-size:18px;color:var(--text);letter-spacing:-.02em}
-    .navlinks{display:flex;gap:26px;align-items:center;font-size:14.5px}
+    nav{border-bottom:1px solid rgba(255,255,255,.06);backdrop-filter:blur(6px)}
+    nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+    .logo{font-weight:600;font-size:18.5px;color:var(--text);letter-spacing:-.02em}
+    .navlinks{display:flex;gap:24px;align-items:center;font-size:14.5px}
     .navlinks a{color:var(--muted)}
     .navlinks a:hover{color:var(--text);text-decoration:none}
-    .btn{display:inline-block;background:var(--accent);color:#fff;font-weight:600;
-      font-family:var(--sans);border-radius:8px;padding:13px 22px;font-size:15.5px;
-      border:none;cursor:pointer}
-    .btn:hover{filter:brightness(1.08);text-decoration:none}
-    .btn.small{padding:9px 16px;font-size:14px}
+    .btn{display:inline-block;background:linear-gradient(135deg,#8b5cf6,#6d49e8);color:#fff;
+      font-weight:600;font-family:var(--sans);border-radius:10px;padding:14px 26px;
+      font-size:15.5px;border:none;cursor:pointer;
+      box-shadow:0 10px 28px rgba(124,58,237,.30), inset 0 1px 0 rgba(255,255,255,.18);
+      transition:transform .12s ease, box-shadow .12s ease}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 14px 34px rgba(124,58,237,.4),
+      inset 0 1px 0 rgba(255,255,255,.18);text-decoration:none;filter:brightness(1.04)}
+    .btn.small{padding:9px 18px;font-size:14px;border-radius:8px}
     .micro{color:var(--faint);font-size:13.5px}
 
-    .hero{padding:104px 0 0;text-align:center}
-    h1{font-size:clamp(38px,5.4vw,58px);line-height:1.07;margin:0 auto 22px;max-width:18ch;font-weight:700}
-    .sub{color:var(--muted);font-size:18.5px;line-height:1.65;max-width:680px;margin:0 auto 34px}
+    .hero{padding:108px 0 0;text-align:center;position:relative}
+    h1{font-size:clamp(40px,5.6vw,62px);line-height:1.06;margin:0 auto 24px;max-width:18ch;font-weight:700}
+    .sub{color:var(--muted);font-size:18.5px;line-height:1.66;max-width:690px;margin:0 auto 36px}
     .sub b{color:var(--text);font-weight:500}
     .ctarow{margin-bottom:14px}
-    .hero .micro{margin:0 0 30px}
-    .chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:64px}
-    .chip{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--muted)}
+    .hero .micro{margin:0 0 34px}
+    .chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:60px}
+    .chip{border:1px solid var(--line2);background:rgba(139,92,246,.06);border-radius:999px;
+      padding:6px 15px;font-size:13px;color:var(--muted)}
 
-    .shot{border:1px solid var(--line2);border-radius:10px;background:var(--bg2);overflow:hidden;
-      box-shadow:0 1px 0 rgba(255,255,255,.03) inset}
-    .shot-bar{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line)}
-    .shot-bar i{width:9px;height:9px;border-radius:50%;background:var(--line2)}
-    .shot-body{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;
-      background:repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(255,255,255,.012) 28px, rgba(255,255,255,.012) 56px)}
-    .shot-body.tall{aspect-ratio:21/9}
-    .ph{color:var(--faint);font-size:13px;font-family:var(--mono);text-align:center;
-      border:1px dashed var(--line2);border-radius:8px;padding:14px 20px;max-width:78%}
-    .cap{color:var(--faint);font-size:13px;text-align:center;margin:14px 0 0}
+    .shot{border:1px solid var(--line2);border-radius:14px;overflow:hidden;
+      background:linear-gradient(180deg,#141020,#100d19);
+      box-shadow:0 40px 110px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.02),
+        inset 0 1px 0 rgba(255,255,255,.05)}
+    .shot-bar{display:flex;gap:6px;align-items:center;padding:11px 16px;
+      border-bottom:1px solid var(--line);background:rgba(255,255,255,.015)}
+    .shot-bar i{width:10px;height:10px;border-radius:50%;background:#2a2440}
+    .shot-bar i:nth-child(1){background:#473a66}
+    .shot-bar .url{margin-left:12px;font-family:var(--mono);font-size:11.5px;color:var(--faint);
+      background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 10px}
+    .shot img{width:100%;display:block}
+    .cap{color:var(--faint);font-size:13px;text-align:center;margin:16px 0 0}
+    .glowwrap{position:relative}
+    .glowwrap::before{content:'';position:absolute;inset:-40px -60px;z-index:-1;
+      background:radial-gradient(60% 70% at 50% 40%, rgba(139,92,246,.14), transparent 70%)}
 
-    .rules{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2)}
-    .rules .wrap{display:flex;justify-content:space-between;gap:24px;padding-top:26px;padding-bottom:26px}
+    .rules{border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(139,92,246,.05), rgba(139,92,246,.015))}
+    .rules .wrap{display:flex;justify-content:space-between;gap:24px;padding-top:28px;padding-bottom:28px}
     .rule{display:flex;gap:14px;align-items:baseline}
-    .rule .no{font-family:var(--mono);font-size:12.5px;color:var(--faint);letter-spacing:.08em}
-    .rule .clause{font-size:18px;font-weight:600;color:var(--text);font-family:var(--disp)}
+    .rule .no{font-family:var(--mono);font-size:12.5px;color:var(--accent2);letter-spacing:.08em}
+    .rule .clause{font-size:18.5px;font-weight:600;color:var(--text);font-family:var(--disp)}
 
-    section.block{padding:128px 0 0}
-    .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
+    section.block{padding:132px 0 0}
+    .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent2);
       text-align:center;margin:0 0 16px;font-weight:600}
-    h2{font-size:clamp(30px,3.6vw,42px);line-height:1.12;margin:0 auto 26px;max-width:24ch;
+    h2{font-size:clamp(30px,3.7vw,44px);line-height:1.12;margin:0 auto 26px;max-width:24ch;
       text-align:center;font-weight:700}
-    .body{color:var(--muted);max-width:720px;margin:0 auto 48px}
+    .body{color:var(--muted);max-width:720px;margin:0 auto 52px}
     .body b{color:var(--text);font-weight:500}
 
-    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:54px;align-items:center}
     .two-col .body{margin:0;max-width:none}
     .two-col h2{text-align:left;margin-left:0}
     .two-col .eyebrow{text-align:left}
-    .badge-new{display:inline-block;background:var(--accent);color:#fff;font-size:10.5px;
-      font-weight:700;letter-spacing:.08em;border-radius:4px;padding:2px 7px;margin-left:8px;vertical-align:2px}
+    .badge-new{display:inline-block;background:linear-gradient(135deg,#8b5cf6,#6d49e8);color:#fff;
+      font-size:10.5px;font-weight:700;letter-spacing:.08em;border-radius:5px;padding:2px 8px;
+      margin-left:8px;vertical-align:2px}
+
+    /* ---- in-frame UI recreations (sample-data) ---- */
+    .ui{padding:18px;font-family:var(--mono);font-size:13px}
+    .sample{position:absolute;right:12px;bottom:10px;font-family:var(--mono);font-size:10px;
+      color:var(--faint);letter-spacing:.06em;text-transform:uppercase;opacity:.8}
+    .scan-t{width:100%;border-collapse:collapse}
+    .scan-t th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);
+      font-weight:500;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+    .scan-t td{padding:10px;border-bottom:1px solid rgba(255,255,255,.045);color:var(--text);text-align:left}
+    .scan-t tr.pick td{background:rgba(139,92,246,.08)}
+    .rank{display:inline-flex;width:24px;height:24px;border-radius:7px;align-items:center;
+      justify-content:center;background:var(--panel2);border:1px solid var(--line2);
+      color:var(--accent2);font-weight:600;font-size:12px}
+    .bar{display:inline-block;height:7px;border-radius:4px;background:linear-gradient(90deg,#8b5cf6,#22d3ee);vertical-align:middle}
+    .pick-flag{font-size:10px;color:var(--accent2);border:1px solid var(--line2);border-radius:4px;
+      padding:1px 6px;margin-left:8px;letter-spacing:.05em}
+    .sym{font-weight:600}
+    .dim{color:var(--faint)}
+
+    .chatwrap{display:grid;grid-template-columns:1.25fr 1fr;min-height:330px}
+    .chatchart{border-right:1px solid var(--line);position:relative;overflow:hidden}
+    .chatchart img{width:140%;max-width:none;margin:-30px 0 0 -8%}
+    .chat{display:flex;flex-direction:column;gap:12px;padding:18px;font-family:var(--sans);font-size:13.5px}
+    .bub{max-width:88%;padding:11px 14px;border-radius:12px;line-height:1.5}
+    .bub.user{align-self:flex-end;background:linear-gradient(135deg,#6d49e8,#8b5cf6);color:#fff;border-bottom-right-radius:4px}
+    .bub.tara{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-bottom-left-radius:4px}
+    .bub .num{font-family:var(--mono);font-size:12.5px}
+    .chat .who{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+    .chat-input{margin-top:auto;border:1px solid var(--line2);border-radius:10px;color:var(--faint);
+      padding:10px 14px;font-size:13px;background:var(--bg)}
+
+    .gptwin .gpt-head{display:flex;align-items:center;gap:10px;padding:12px 16px;
+      border-bottom:1px solid var(--line);font-family:var(--sans);font-size:13px;color:var(--muted)}
+    .gpt-dot{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#19c37d,#0fa47f)}
+    .gpt-chip{margin-left:auto;font-size:11px;font-family:var(--mono);color:var(--accent2);
+      border:1px solid var(--line2);border-radius:999px;padding:3px 10px}
+    .gpt-body{padding:18px;display:flex;flex-direction:column;gap:12px;font-family:var(--sans);font-size:13.5px}
+    .gpt-q{align-self:flex-end;background:#2a2440;border-radius:12px 12px 4px 12px;padding:10px 14px;max-width:85%}
+    .gpt-a{align-self:flex-start;background:var(--bg);border:1px solid var(--line);
+      border-radius:12px 12px 12px 4px;padding:12px 14px;max-width:92%;color:var(--muted);line-height:1.55}
+    .gpt-a .row{display:flex;justify-content:space-between;gap:14px;padding:6px 0;
+      border-bottom:1px solid rgba(255,255,255,.05);font-family:var(--mono);font-size:12.5px;color:var(--text)}
+    .gpt-a .row:last-child{border-bottom:none}
 
     .fig{position:relative;margin-bottom:8px}
-    .inset{position:absolute;right:28px;bottom:-34px;width:min(420px,82%);
-      background:var(--panel);border:1px solid var(--line2);border-radius:10px;
-      padding:16px 18px 12px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+    .inset{position:absolute;right:28px;bottom:-34px;width:min(430px,82%);
+      background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);
+      border-radius:12px;padding:16px 18px 12px;
+      box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05)}
     .inset h4{margin:0 0 10px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
       color:var(--faint);font-weight:600;display:flex;justify-content:space-between}
     .inset h4 em{font-style:normal;color:var(--faint);font-weight:400;letter-spacing:0;text-transform:none}
-    table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13.5px}
-    th{font-weight:500;color:var(--faint);text-align:right;padding:4px 0;border-bottom:1px solid var(--line);
+    .yr{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13.5px}
+    .yr th{font-weight:500;color:var(--faint);text-align:right;padding:4px 0;border-bottom:1px solid var(--line);
       font-size:11.5px;letter-spacing:.06em;text-transform:uppercase}
-    th:first-child{text-align:left}
-    td{text-align:right;padding:5px 0;color:var(--text);border-bottom:1px solid rgba(255,255,255,.04)}
-    td:first-child{text-align:left;color:var(--muted)}
-    tr:last-child td{border-bottom:none}
+    .yr th:first-child{text-align:left}
+    .yr td{text-align:right;padding:5px 0;color:var(--text);border-bottom:1px solid rgba(255,255,255,.04)}
+    .yr td:first-child{text-align:left;color:var(--muted)}
+    .yr tr:last-child td{border-bottom:none}
     td.up{color:var(--up)} td.down{color:var(--down)}
-    .figcap{margin-top:62px}
+    .figcap{margin-top:64px}
 
-    .shot-tag{position:absolute;top:46px;left:14px;background:var(--panel);border:1px solid var(--line2);
-      color:var(--muted);font-size:12px;font-family:var(--mono);border-radius:6px;padding:5px 10px}
-
-    .cta-band{margin-top:72px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-      background:var(--bg2);text-align:center;padding:34px 24px}
-    .cta-band .micro{margin:10px 0 0}
+    .cta-band{margin-top:80px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(139,92,246,.06), rgba(139,92,246,.02));
+      text-align:center;padding:38px 24px}
+    .cta-band .micro{margin:12px 0 0}
 
     .timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:8px}
-    .stop{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
-    .stop .t{font-family:var(--mono);font-size:13px;color:var(--faint);margin-bottom:8px}
-    .stop p{margin:0 0 14px;font-size:15px;color:var(--text);line-height:1.5}
-    .thumb{border:1px dashed var(--line2);border-radius:7px;color:var(--faint);
-      font-family:var(--mono);font-size:11px;text-align:center;padding:14px 8px}
-    .closing-line{text-align:center;color:var(--muted);margin-top:30px;font-size:16px}
+    .stop{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+      border-radius:12px;padding:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+    .stop .t{font-family:var(--mono);font-size:13px;color:var(--accent2);margin-bottom:8px}
+    .stop p{margin:0 0 14px;font-size:14.5px;color:var(--text);line-height:1.5;min-height:66px}
+    .mini{border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:10px;
+      font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.5}
+    .mini .mhead{color:var(--accent2);font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+    .mini .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px}
+    .mini .grid span{background:rgba(255,255,255,.04);border-radius:2px;padding:1px 4px;font-size:9.5px;overflow:hidden;white-space:nowrap}
+    .mini .lines span{display:block;height:5px;border-radius:3px;background:rgba(255,255,255,.07);margin:5px 0}
+    .mini .lines span:nth-child(2){width:82%} .mini .lines span:nth-child(3){width:64%}
+    .closing-line{text-align:center;color:var(--muted);margin-top:32px;font-size:16px}
 
     .panels{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-    .ledger-links{text-align:center;margin:30px 0 0;font-size:15.5px}
+    .ledg{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
+    .ledg th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);
+      font-weight:500;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+    .ledg td{padding:8px;border-bottom:1px solid rgba(255,255,255,.045);text-align:left;color:var(--text)}
+    .ledg .stamp{color:var(--faint);font-size:11px}
+    .doc{padding:18px;font-family:var(--sans)}
+    .doc h6{font-family:var(--disp);font-size:17px;margin:0 0 10px;color:var(--text)}
+    .doc p{font-size:12.5px;color:var(--muted);margin:0 0 8px;line-height:1.55}
+    .doc .toc{font-family:var(--mono);font-size:11.5px;color:var(--faint);line-height:1.9}
+    .ledger-links{text-align:center;margin:32px 0 0;font-size:15.5px}
     .ledger-links span{color:var(--faint);margin:0 14px}
-    .prov{max-width:560px;margin:40px auto 0;background:var(--panel);border:1px solid var(--line);
-      border-radius:12px;padding:24px 28px;text-align:center}
-    .prov q{font-family:var(--disp);font-size:20px;color:var(--text)}
+    .prov{max-width:580px;margin:44px auto 0;background:linear-gradient(180deg,var(--panel2),var(--panel));
+      border:1px solid var(--line2);border-radius:14px;padding:26px 30px;text-align:center;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+    .prov q{font-family:var(--disp);font-size:21px;color:var(--text)}
     .prov .who{color:var(--faint);font-size:13.5px;margin-top:10px}
 
     .quotes{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-    .quote{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
+    .quote{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+      border-radius:14px;padding:24px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
     .quote q{font-family:var(--disp);font-size:16.5px;color:var(--text);line-height:1.55}
     .quote .who{color:var(--faint);font-size:13px;margin-top:14px}
-    .gate-note{text-align:center;color:var(--faint);font-size:13px;border:1px dashed var(--line2);
+    .gate-note{text-align:center;color:var(--faint);font-size:12.5px;border:1px dashed var(--line2);
       border-radius:8px;padding:10px;max-width:560px;margin:26px auto 0;font-family:var(--mono)}
 
     .ribbon{text-align:center;color:var(--text);font-size:15px;border:1px solid var(--line2);
-      background:var(--bg2);border-radius:999px;max-width:430px;margin:0 auto 40px;padding:9px 18px}
-    .toggle-ui{display:flex;justify-content:center;gap:0;margin-bottom:34px}
-    .toggle-ui span{border:1px solid var(--line2);padding:7px 18px;font-size:13.5px;color:var(--muted);cursor:default}
-    .toggle-ui span:first-child{border-radius:8px 0 0 8px}
-    .toggle-ui span:last-child{border-radius:0 8px 8px 0;border-left:none}
-    .toggle-ui .on{background:var(--panel);color:var(--text)}
-    .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:start}
-    .tier{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:26px}
-    .tier.mid{border-color:var(--line2);background:linear-gradient(180deg,#191527,var(--panel))}
-    .tier h3{font-family:var(--disp);font-size:21px;margin:0 0 4px;font-weight:700}
-    .tier .price{font-size:32px;font-weight:600;margin:10px 0 2px}
+      background:linear-gradient(180deg, rgba(139,92,246,.10), rgba(139,92,246,.03));
+      border-radius:999px;max-width:440px;margin:0 auto 42px;padding:10px 18px}
+    .toggle-ui{display:flex;justify-content:center;gap:0;margin-bottom:36px}
+    .toggle-ui span{border:1px solid var(--line2);padding:8px 20px;font-size:13.5px;color:var(--muted);cursor:default}
+    .toggle-ui span:first-child{border-radius:9px 0 0 9px}
+    .toggle-ui span:last-child{border-radius:0 9px 9px 0;border-left:none}
+    .toggle-ui .on{background:var(--panel2);color:var(--text)}
+    .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:start}
+    .tier{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+      border-radius:16px;padding:28px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+    .tier.mid{border-color:rgba(139,92,246,.45);position:relative;
+      box-shadow:0 24px 70px rgba(124,58,237,.16), inset 0 1px 0 rgba(255,255,255,.06)}
+    .tier.mid::before{content:'MOST POPULAR';position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+      background:linear-gradient(135deg,#8b5cf6,#6d49e8);color:#fff;font-size:10px;font-weight:700;
+      letter-spacing:.08em;border-radius:999px;padding:4px 12px}
+    .tier h3{font-family:var(--disp);font-size:22px;margin:0 0 4px;font-weight:700}
+    .tier .price{font-size:34px;font-weight:600;margin:10px 0 2px}
     .tier .price small{font-size:14px;color:var(--faint);font-weight:400}
     .tier .alt{color:var(--faint);font-size:13px;margin-bottom:18px}
-    .tier ul{list-style:none;padding:0;margin:0 0 22px}
-    .tier li{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:14.5px;color:var(--muted)}
+    .tier ul{list-style:none;padding:0;margin:0 0 24px}
+    .tier li{padding:7.5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14.5px;color:var(--muted)}
     .tier li b{color:var(--text);font-weight:500}
     .tier li:last-child{border-bottom:none}
     .tier .btn{width:100%;text-align:center}
-    .tier .micro{text-align:center;margin-top:8px}
-    .kicker{text-align:center;color:var(--muted);margin-top:34px;font-size:15.5px}
+    .tier .micro{text-align:center;margin-top:9px}
+    .kicker{text-align:center;color:var(--muted);margin-top:36px;font-size:15.5px}
 
     .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-    .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
-    .card .src{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
+    .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+      border-radius:12px;padding:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+    .card .src{font-family:var(--mono);font-size:10.5px;color:var(--accent2);letter-spacing:.06em;text-transform:uppercase}
     .card h5{font-family:var(--disp);font-size:16px;margin:8px 0 10px;line-height:1.35;font-weight:600;color:var(--text)}
     .card .date{font-family:var(--mono);font-size:12px;color:var(--faint)}
-    .liblink{text-align:center;margin-top:26px}
+    .liblink{text-align:center;margin-top:28px}
 
-    .close-band{margin-top:128px;border-top:1px solid var(--line);background:var(--bg2);
-      text-align:center;padding:88px 24px}
+    .close-band{margin-top:132px;border-top:1px solid var(--line);text-align:center;padding:96px 24px 100px;
+      background:
+        radial-gradient(700px 380px at 50% 0%, rgba(139,92,246,.13), transparent 65%),
+        var(--bg2)}
     .close-band h2{margin-bottom:18px}
-    .close-band .body{text-align:center;margin-bottom:34px}
+    .close-band .body{text-align:center;margin-bottom:36px}
 
-    footer{border-top:1px solid var(--line);padding:44px 0 60px;color:var(--faint);font-size:13px}
+    footer{border-top:1px solid var(--line);padding:46px 0 62px;color:var(--faint);font-size:13px}
     footer .links{margin-bottom:18px;text-align:center}
     footer .links a{color:var(--muted);margin:0 10px}
     footer p{max-width:820px;margin:0 auto 10px;text-align:center;line-height:1.6}
 
-    .preview-note{border-top:1px solid var(--line);padding:26px 0;
-      color:var(--faint);font-size:13px;text-align:center;font-family:var(--mono)}
+    .preview-note{border-top:1px solid var(--line);padding:26px 0;color:var(--faint);
+      font-size:12.5px;text-align:center;font-family:var(--mono)}
     .flag-note{display:inline-block;border:1px dashed var(--line2);border-radius:6px;
       color:var(--faint);font-family:var(--mono);font-size:11px;padding:3px 8px;margin-left:10px;vertical-align:middle}
 
-    @media (max-width:860px){
-      .two-col,.panels,.quotes,.tiers{grid-template-columns:1fr}
+    @media (max-width:880px){
+      .two-col,.panels,.quotes,.tiers,.chatwrap{grid-template-columns:1fr}
       .timeline{grid-template-columns:1fr 1fr}
       .cards{grid-template-columns:1fr 1fr}
       .rules .wrap{flex-direction:column;gap:14px}
       .inset{position:static;width:100%;margin-top:16px;box-shadow:none}
       .figcap{margin-top:16px}
-      section.block{padding:88px 0 0}
+      section.block{padding:90px 0 0}
       .hero{padding:64px 0 0}
       .two-col h2,.two-col .eyebrow{text-align:center}
+      .chatchart{display:none}
     }
   </style>
 </head>
@@ -215,22 +300,18 @@
         <span class="chip">Histories Up to a Century</span>
         <span class="chip">Works Inside ChatGPT and Claude</span>
       </div>
-      <figure style="margin:0">
+      <figure class="glowwrap" style="margin:0">
         <div class="shot">
-          <div class="shot-bar"><i></i><i></i><i></i></div>
-          <div class="shot-body">
-            <div class="ph">SCREENSHOT: the wave-viewer - a major US index seasonal pattern,
-              longest history loaded, seasonal wave over price,<br>top of the per-year results
-              table visible beneath the chart</div>
-          </div>
+          <div class="shot-bar"><i></i><i></i><i></i><span class="url">tradewave.ai/app</span></div>
+          <img src="/featured_chart.svg" alt="The TradeWave wave-viewer: the engine's current featured seasonal pattern">
         </div>
-        <figcaption class="cap">The wave-viewer. End-of-day data, deterministic statistics.</figcaption>
+        <figcaption class="cap">Live output: the engine's current featured pattern. End-of-day data, deterministic statistics.</figcaption>
       </figure>
     </div>
   </header>
 
   <!-- ================= 1. THE THREE RULES ================= -->
-  <section class="rules" style="margin-top:84px">
+  <section class="rules" style="margin-top:88px">
     <div class="wrap">
       <span class="rule"><span class="no">01</span><span class="clause">Deterministic by Design.</span></span>
       <span class="rule"><span class="no">02</span><span class="clause">Receipts on Every Pattern.</span></span>
@@ -254,17 +335,14 @@
         PE-cycle overlays. The same inputs always produce the same answer - no black box, no
         hand-picked backtest window. Every exact view carries a deep link, so the pattern you
         found is the pattern a colleague opens.</p>
-      <figure class="fig" style="margin:0">
+      <figure class="fig glowwrap" style="margin:0">
         <div class="shot">
-          <div class="shot-bar"><i></i><i></i><i></i></div>
-          <div class="shot-body">
-            <div class="ph">SCREENSHOT: full-bleed wave-viewer - long-history index pattern
-              with the complete per-year results table</div>
-          </div>
+          <div class="shot-bar"><i></i><i></i><i></i><span class="url">tradewave.ai/app/?o=...</span></div>
+          <img src="/featured_chart.svg" alt="Wave-viewer pattern with per-year results">
         </div>
         <aside class="inset">
           <h4>Per-Year Results <em>sample data, for layout</em></h4>
-          <table class="num">
+          <table class="yr num">
             <tr><th>Year</th><th>Window</th><th>Return</th><th>MFE</th><th>MAE</th></tr>
             <tr><td>2025</td><td>Jun 12 - Jul 24</td><td class="up">+4.8%</td><td class="up">+6.1%</td><td class="down">-1.2%</td></tr>
             <tr><td>2024</td><td>Jun 12 - Jul 24</td><td class="up">+3.1%</td><td class="up">+4.4%</td><td class="down">-0.9%</td></tr>
@@ -294,15 +372,22 @@
           ranking plus rules selects a single pick, and it is logged in public before the
           outcome is known, losses included.</p>
       </div>
-      <figure class="fig" style="margin:0">
+      <figure class="fig" style="margin:0;position:relative">
         <div class="shot">
-          <div class="shot-bar"><i></i><i></i><i></i></div>
-          <div class="shot-body">
-            <div class="ph">SCREENSHOT: the scan table, sorted by model rank -
-              rank badges visible, no percentages in frame</div>
+          <div class="shot-bar"><i></i><i></i><i></i><span class="url">tradewave.ai/app - scan</span></div>
+          <div class="ui">
+            <table class="scan-t num">
+              <tr><th>Rank</th><th>Symbol</th><th>Window</th><th>Days</th><th>Model</th></tr>
+              <tr class="pick"><td><span class="rank">1</span></td><td><span class="sym">INTU</span><span class="pick-flag">TODAY'S PICK</span></td><td class="dim">Jun 16 - Jul 28</td><td>29</td><td><span class="bar" style="width:84px"></span></td></tr>
+              <tr><td><span class="rank">2</span></td><td><span class="sym">KO</span></td><td class="dim">Jun 18 - Aug 01</td><td>31</td><td><span class="bar" style="width:76px"></span></td></tr>
+              <tr><td><span class="rank">3</span></td><td><span class="sym">MSFT</span></td><td class="dim">Jun 17 - Jul 22</td><td>24</td><td><span class="bar" style="width:71px"></span></td></tr>
+              <tr><td><span class="rank">4</span></td><td><span class="sym">CL=F</span></td><td class="dim">Jun 20 - Jul 30</td><td>27</td><td><span class="bar" style="width:64px"></span></td></tr>
+              <tr><td><span class="rank">5</span></td><td><span class="sym">EWJ</span></td><td class="dim">Jun 19 - Jul 24</td><td>25</td><td><span class="bar" style="width:58px"></span></td></tr>
+              <tr><td><span class="rank">6</span></td><td><span class="sym">SAP.DE</span></td><td class="dim">Jun 23 - Aug 04</td><td>30</td><td><span class="bar" style="width:51px"></span></td></tr>
+            </table>
           </div>
         </div>
-        <span class="shot-tag">Today's pick - logged to the public ledger</span>
+        <span class="sample">sample data, for layout</span>
       </figure>
     </div>
   </section>
@@ -317,14 +402,23 @@
         consistency, the risk. Ask to see something else, and <b>the wave-viewer changes in front
         of you</b>. Tara is an interface to the same statistics, not another opinion - the
         evidence lands on screen, not in adjectives.</p>
-      <figure style="margin:0">
+      <figure class="glowwrap" style="margin:0;position:relative">
         <div class="shot">
-          <div class="shot-bar"><i></i><i></i><i></i></div>
-          <div class="shot-body tall">
-            <div class="ph">SCREENSHOT: split view - wave-viewer left, Tara chat docked right,
-              one real two-message exchange that visibly moved the chart</div>
+          <div class="shot-bar"><i></i><i></i><i></i><span class="url">tradewave.ai/app - Tara</span></div>
+          <div class="chatwrap">
+            <div class="chatchart"><img src="/featured_chart.svg" alt=""></div>
+            <div class="chat">
+              <span class="who">You</span>
+              <div class="bub user">Show me the strongest July window on a Dow stock</div>
+              <span class="who">Tara</span>
+              <div class="bub tara">Loaded it on the chart. This window has closed higher in
+                <span class="num">12 of the last 14</span> years; the weakest year drew down
+                <span class="num">-3.1%</span> inside the window. Want the full per-year table?</div>
+              <div class="chat-input">Ask about any pattern, market, or year...</div>
+            </div>
           </div>
         </div>
+        <span class="sample">sample exchange, for layout</span>
         <figcaption class="cap">The chart just changed.</figcaption>
       </figure>
     </div>
@@ -333,14 +427,21 @@
   <!-- ================= 5. INSIDE CHATGPT AND CLAUDE ================= -->
   <section class="block">
     <div class="wrap two-col">
-      <figure class="fig" style="margin:0;order:0">
-        <div class="shot">
-          <div class="shot-bar"><i></i><i></i><i></i></div>
-          <div class="shot-body">
-            <div class="ph">SCREENSHOT: a real ChatGPT window, TradeWave connector enabled -
-              user asks for a scan, the answer cites pattern receipts</div>
+      <figure class="fig" style="margin:0;position:relative">
+        <div class="shot gptwin">
+          <div class="gpt-head"><span class="gpt-dot"></span> ChatGPT
+            <span class="gpt-chip">TradeWave connected</span></div>
+          <div class="gpt-body">
+            <div class="gpt-q">Scan US large caps for seasonal windows opening in the next two weeks</div>
+            <div class="gpt-a">Using TradeWave. Three windows open within two weeks - ranked by the model,
+              receipts attached:
+              <div class="row"><span>INTU</span><span>Jun 16 - Jul 28</span><span>29 days</span></div>
+              <div class="row"><span>KO</span><span>Jun 18 - Aug 01</span><span>31 days</span></div>
+              <div class="row"><span>MSFT</span><span>Jun 17 - Jul 22</span><span>24 days</span></div>
+              Each links to its full per-year history. Want any opened in the wave-viewer?</div>
           </div>
         </div>
+        <span class="sample">sample exchange, for layout</span>
       </figure>
       <div>
         <p class="eyebrow">AI Layer Three - Take It With You <span class="badge-new">NEW</span>
@@ -360,23 +461,29 @@
   </section>
 
   <!-- ================= 6. A TUESDAY WITH TRADEWAVE ================= -->
-  <section class="block" style="padding-top:96px">
+  <section class="block" style="padding-top:100px">
     <div class="wrap">
       <p class="eyebrow">Built for a Desk, Not a Demo</p>
       <h2 class="display">A Tuesday With TradeWave</h2>
       <div class="timeline">
         <div class="stop"><div class="t num">8:50</div>
           <p>Your calendar pings: a pattern window on your watchlist opens Thursday.</p>
-          <div class="thumb">thumb: Google Calendar event</div></div>
+          <div class="mini"><div class="mhead">Google Calendar</div>
+            KO seasonal window opens<br><span class="dim">Thu Jun 18 - TradeWave</span></div></div>
         <div class="stop"><div class="t num">9:15</div>
           <p>You export the stats table to CSV and drop it into your own model.</p>
-          <div class="thumb">thumb: CSV in a spreadsheet</div></div>
+          <div class="mini"><div class="mhead">patterns.csv</div>
+            <div class="grid"><span>year</span><span>return</span><span>mfe</span>
+            <span>2025</span><span>+4.8</span><span>+6.1</span>
+            <span>2024</span><span>+3.1</span><span>+4.4</span></div></div></div>
         <div class="stop"><div class="t num">11:00</div>
           <p>A date-range research report across your portfolio, generated on demand.</p>
-          <div class="thumb">thumb: report page</div></div>
+          <div class="mini"><div class="mhead">Research Report</div>
+            <div class="lines"><span></span><span></span><span></span></div></div></div>
         <div class="stop"><div class="t num">2:40</div>
-          <p>You send a teammate a deep link that opens the exact pattern, years, and settings you see.</p>
-          <div class="thumb">thumb: deep-linked chart</div></div>
+          <p>You send a teammate a deep link that opens the exact pattern and settings you see.</p>
+          <div class="mini"><div class="mhead">Deep Link</div>
+            tradewave.ai/app/?o=MEw8S08…<br><span class="dim">opens the exact view</span></div></div>
       </div>
       <p class="closing-line">Nothing here required remembering to check a dashboard.</p>
     </div>
@@ -394,14 +501,35 @@
         no performance promises, just instruments you can check. We would rather be audited
         than believed.</p>
       <div class="panels">
-        <figure style="margin:0">
-          <div class="shot"><div class="shot-bar"><i></i><i></i><i></i></div>
-            <div class="shot-body"><div class="ph">SCREENSHOT: the scorecard ledger -
-              dated entries, a loss row plainly visible</div></div></div>
+        <figure style="margin:0;position:relative">
+          <div class="shot">
+            <div class="shot-bar"><i></i><i></i><i></i><span class="url">tradewave.ai/scorecard</span></div>
+            <div class="ui">
+              <table class="ledg num">
+                <tr><th>Logged</th><th>Pick</th><th>Window</th><th>Outcome</th></tr>
+                <tr><td class="stamp">Jun 10, 06:58 ET</td><td class="sym">INTU</td><td class="dim">Jun 16 - Jul 28</td><td class="dim">open</td></tr>
+                <tr><td class="stamp">May 08, 06:57 ET</td><td class="sym">AVGO</td><td class="dim">May 12 - Jun 18</td><td class="up">win</td></tr>
+                <tr><td class="stamp">May 07, 06:59 ET</td><td class="sym">NOW</td><td class="dim">May 09 - Jun 12</td><td class="up">win</td></tr>
+                <tr><td class="stamp">May 06, 06:58 ET</td><td class="sym">COP</td><td class="dim">May 08 - Jun 10</td><td class="down">loss</td></tr>
+                <tr><td class="stamp">May 05, 06:57 ET</td><td class="sym">NVDA</td><td class="dim">May 07 - Jun 06</td><td class="up">win</td></tr>
+              </table>
+            </div>
+          </div>
+          <span class="sample">layout mock - live page is the source</span>
         </figure>
         <figure style="margin:0">
-          <div class="shot"><div class="shot-bar"><i></i><i></i><i></i></div>
-            <div class="shot-body"><div class="ph">SCREENSHOT: the methodology page</div></div></div>
+          <div class="shot">
+            <div class="shot-bar"><i></i><i></i><i></i><span class="url">tradewave.ai/methodology</span></div>
+            <div class="doc">
+              <h6>Methodology</h6>
+              <p>How TradeWave computes seasonal patterns, how the ML layer scores them, and how
+                to read every number we publish.</p>
+              <div class="toc">1. What TradeWave does<br>2. Data sources and universe<br>
+                3. How a seasonal pattern is defined<br>4. The statistics we display<br>
+                5. The machine-learning layer<br>6. How we guard against curve fitting<br>
+                7. How to read a pattern like a professional</div>
+            </div>
+          </div>
         </figure>
       </div>
       <p class="ledger-links">
@@ -419,7 +547,7 @@
   </section>
 
   <!-- ================= 8. ON THE RECORD (gated) ================= -->
-  <section class="block" style="padding-top:96px">
+  <section class="block" style="padding-top:100px">
     <div class="wrap">
       <h2 class="display">On the Record, Like Everything Else Here</h2>
       <p class="body" style="text-align:center">Early users - independent traders, advisors, and
@@ -496,7 +624,7 @@
   </section>
 
   <!-- ================= 10. THE CLOSE ================= -->
-  <section class="block" style="padding-top:96px">
+  <section class="block" style="padding-top:100px">
     <div class="wrap">
       <h2 class="display" style="font-size:clamp(24px,2.6vw,30px)">What the Engine Sees This Week</h2>
       <p class="body" style="text-align:center">Seasonal Market News covers what the engine sees
@@ -543,9 +671,9 @@
   </footer>
 
   <div class="preview-note">
-    PREVIEW - full page, all 10 sections. Copy final. Typeface: STIX Two Text (chosen).
-    Pending: 10 screenshots, 2+ real testimonial quotes (section ships hidden), live-Stripe
-    prices + final feature matrix at build, MCP_LIVE flag wiring.
+    PREVIEW v3 - full page, real engine chart in hero, designed UI recreations (sample-data
+    labeled) in every frame. Remaining for build: real app screenshots where preferred,
+    2+ testimonial quotes, live-Stripe prices + final feature matrix, MCP_LIVE flag wiring.
   </div>
 
 </body>
