@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="en" class="type-news">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>TradeWave - home v2 preview (hero + sections 1-2)</title>
+  <title>TradeWave - Home v2 Preview (Full Page)</title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,600;6..72,700&family=Spectral:wght@600;700&family=STIX+Two+Text:wght@600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=STIX+Two+Text:wght@600;700&display=swap" rel="stylesheet">
   <style>
     :root{
       --bg:#0b0a12; --bg2:#0e0c17; --panel:#15121f; --line:#262136; --line2:#2e2842;
@@ -16,29 +16,21 @@
       --accent:#8b5cf6;            /* CTA + links ONLY */
       --up:#34d399; --down:#f87171;/* data ONLY */
       --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-      --disp:'Newsreader', Georgia, serif;
+      --disp:'STIX Two Text', 'Times New Roman', serif;
       --mono:ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
     }
     *{box-sizing:border-box}
-    html{scroll-behavior:auto}
     body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
       font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
-    .display{font-family:var(--disp);letter-spacing:-.01em}
-    .type-news     {--disp:'Newsreader', Georgia, serif}
-    .type-spectral {--disp:'Spectral', Georgia, serif}
-    .type-stix     {--disp:'STIX Two Text', 'Times New Roman', serif}
-    .type-fraunces {--disp:'Fraunces', Georgia, serif}
-    .type-inter    {--disp:var(--sans)}
-    .type-inter .display{letter-spacing:-.025em}
+    .display{font-family:var(--disp);letter-spacing:-.005em}
     a{color:var(--accent);text-decoration:none}
     a:hover{text-decoration:underline}
     .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
     .num{font-variant-numeric:tabular-nums}
 
-    /* ---------- nav (minimal for preview) ---------- */
     nav{border-bottom:1px solid var(--line)}
     nav .wrap{display:flex;align-items:center;justify-content:space-between;height:62px}
-    .logo{font-family:var(--sans);font-weight:600;font-size:18px;color:var(--text);letter-spacing:-.02em}
+    .logo{font-weight:600;font-size:18px;color:var(--text);letter-spacing:-.02em}
     .navlinks{display:flex;gap:26px;align-items:center;font-size:14.5px}
     .navlinks a{color:var(--muted)}
     .navlinks a:hover{color:var(--text);text-decoration:none}
@@ -47,49 +39,49 @@
       border:none;cursor:pointer}
     .btn:hover{filter:brightness(1.08);text-decoration:none}
     .btn.small{padding:9px 16px;font-size:14px}
+    .micro{color:var(--faint);font-size:13.5px}
 
-    /* ---------- hero ---------- */
     .hero{padding:104px 0 0;text-align:center}
-    h1{font-size:clamp(38px,5.4vw,58px);line-height:1.07;margin:0 auto 22px;max-width:17ch;font-weight:700}
+    h1{font-size:clamp(38px,5.4vw,58px);line-height:1.07;margin:0 auto 22px;max-width:18ch;font-weight:700}
     .sub{color:var(--muted);font-size:18.5px;line-height:1.65;max-width:680px;margin:0 auto 34px}
     .sub b{color:var(--text);font-weight:500}
     .ctarow{margin-bottom:14px}
-    .micro{color:var(--faint);font-size:13.5px;margin:0 0 30px}
+    .hero .micro{margin:0 0 30px}
     .chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:64px}
-    .chip{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;
-      color:var(--muted);background:transparent}
+    .chip{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--muted)}
 
-    /* ---------- screenshot frame ---------- */
     .shot{border:1px solid var(--line2);border-radius:10px;background:var(--bg2);overflow:hidden;
       box-shadow:0 1px 0 rgba(255,255,255,.03) inset}
     .shot-bar{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line)}
     .shot-bar i{width:9px;height:9px;border-radius:50%;background:var(--line2)}
     .shot-body{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;
-      background:
-        repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(255,255,255,.012) 28px, rgba(255,255,255,.012) 56px)}
+      background:repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(255,255,255,.012) 28px, rgba(255,255,255,.012) 56px)}
+    .shot-body.tall{aspect-ratio:21/9}
     .ph{color:var(--faint);font-size:13px;font-family:var(--mono);text-align:center;
-      border:1px dashed var(--line2);border-radius:8px;padding:14px 20px;max-width:75%}
+      border:1px dashed var(--line2);border-radius:8px;padding:14px 20px;max-width:78%}
     .cap{color:var(--faint);font-size:13px;text-align:center;margin:14px 0 0}
 
-    /* ---------- rules strip ---------- */
-    .rules{border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-      background:var(--bg2)}
+    .rules{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2)}
     .rules .wrap{display:flex;justify-content:space-between;gap:24px;padding-top:26px;padding-bottom:26px}
     .rule{display:flex;gap:14px;align-items:baseline}
     .rule .no{font-family:var(--mono);font-size:12.5px;color:var(--faint);letter-spacing:.08em}
-    .rule .clause{font-size:18px;font-weight:600;color:var(--text)}
-    .rule .clause{font-family:var(--disp)}
+    .rule .clause{font-size:18px;font-weight:600;color:var(--text);font-family:var(--disp)}
 
-    /* ---------- sections ---------- */
     section.block{padding:128px 0 0}
     .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
       text-align:center;margin:0 0 16px;font-weight:600}
-    h2{font-size:clamp(30px,3.6vw,42px);line-height:1.12;margin:0 auto 26px;max-width:22ch;
+    h2{font-size:clamp(30px,3.6vw,42px);line-height:1.12;margin:0 auto 26px;max-width:24ch;
       text-align:center;font-weight:700}
-    .body{color:var(--muted);max-width:720px;margin:0 auto 48px;text-align:left}
+    .body{color:var(--muted);max-width:720px;margin:0 auto 48px}
     .body b{color:var(--text);font-weight:500}
 
-    /* ---------- receipts figure: shot + inset table ---------- */
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+    .two-col .body{margin:0;max-width:none}
+    .two-col h2{text-align:left;margin-left:0}
+    .two-col .eyebrow{text-align:left}
+    .badge-new{display:inline-block;background:var(--accent);color:#fff;font-size:10.5px;
+      font-weight:700;letter-spacing:.08em;border-radius:4px;padding:2px 7px;margin-left:8px;vertical-align:2px}
+
     .fig{position:relative;margin-bottom:8px}
     .inset{position:absolute;right:28px;bottom:-34px;width:min(420px,82%);
       background:var(--panel);border:1px solid var(--line2);border-radius:10px;
@@ -107,22 +99,90 @@
     td.up{color:var(--up)} td.down{color:var(--down)}
     .figcap{margin-top:62px}
 
-    /* ---------- preview toggle + note ---------- */
-    .toggle{position:fixed;bottom:18px;right:18px;z-index:50;display:flex;align-items:center;gap:8px;
-      background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:7px 8px 7px 14px;
-      font-size:13px;color:var(--muted);box-shadow:0 8px 30px rgba(0,0,0,.45)}
-    .toggle button{background:var(--bg2);border:1px solid var(--line2);color:var(--text);
-      border-radius:999px;padding:5px 12px;font-size:12.5px;cursor:pointer;font-family:var(--sans)}
-    .toggle button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-    .preview-note{border-top:1px solid var(--line);margin-top:140px;padding:26px 0 60px;
-      color:var(--faint);font-size:13px;text-align:center}
+    .shot-tag{position:absolute;top:46px;left:14px;background:var(--panel);border:1px solid var(--line2);
+      color:var(--muted);font-size:12px;font-family:var(--mono);border-radius:6px;padding:5px 10px}
 
-    @media (max-width:760px){
+    .cta-band{margin-top:72px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+      background:var(--bg2);text-align:center;padding:34px 24px}
+    .cta-band .micro{margin:10px 0 0}
+
+    .timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:8px}
+    .stop{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+    .stop .t{font-family:var(--mono);font-size:13px;color:var(--faint);margin-bottom:8px}
+    .stop p{margin:0 0 14px;font-size:15px;color:var(--text);line-height:1.5}
+    .thumb{border:1px dashed var(--line2);border-radius:7px;color:var(--faint);
+      font-family:var(--mono);font-size:11px;text-align:center;padding:14px 8px}
+    .closing-line{text-align:center;color:var(--muted);margin-top:30px;font-size:16px}
+
+    .panels{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+    .ledger-links{text-align:center;margin:30px 0 0;font-size:15.5px}
+    .ledger-links span{color:var(--faint);margin:0 14px}
+    .prov{max-width:560px;margin:40px auto 0;background:var(--panel);border:1px solid var(--line);
+      border-radius:12px;padding:24px 28px;text-align:center}
+    .prov q{font-family:var(--disp);font-size:20px;color:var(--text)}
+    .prov .who{color:var(--faint);font-size:13.5px;margin-top:10px}
+
+    .quotes{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+    .quote{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
+    .quote q{font-family:var(--disp);font-size:16.5px;color:var(--text);line-height:1.55}
+    .quote .who{color:var(--faint);font-size:13px;margin-top:14px}
+    .gate-note{text-align:center;color:var(--faint);font-size:13px;border:1px dashed var(--line2);
+      border-radius:8px;padding:10px;max-width:560px;margin:26px auto 0;font-family:var(--mono)}
+
+    .ribbon{text-align:center;color:var(--text);font-size:15px;border:1px solid var(--line2);
+      background:var(--bg2);border-radius:999px;max-width:430px;margin:0 auto 40px;padding:9px 18px}
+    .toggle-ui{display:flex;justify-content:center;gap:0;margin-bottom:34px}
+    .toggle-ui span{border:1px solid var(--line2);padding:7px 18px;font-size:13.5px;color:var(--muted);cursor:default}
+    .toggle-ui span:first-child{border-radius:8px 0 0 8px}
+    .toggle-ui span:last-child{border-radius:0 8px 8px 0;border-left:none}
+    .toggle-ui .on{background:var(--panel);color:var(--text)}
+    .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:start}
+    .tier{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:26px}
+    .tier.mid{border-color:var(--line2);background:linear-gradient(180deg,#191527,var(--panel))}
+    .tier h3{font-family:var(--disp);font-size:21px;margin:0 0 4px;font-weight:700}
+    .tier .price{font-size:32px;font-weight:600;margin:10px 0 2px}
+    .tier .price small{font-size:14px;color:var(--faint);font-weight:400}
+    .tier .alt{color:var(--faint);font-size:13px;margin-bottom:18px}
+    .tier ul{list-style:none;padding:0;margin:0 0 22px}
+    .tier li{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:14.5px;color:var(--muted)}
+    .tier li b{color:var(--text);font-weight:500}
+    .tier li:last-child{border-bottom:none}
+    .tier .btn{width:100%;text-align:center}
+    .tier .micro{text-align:center;margin-top:8px}
+    .kicker{text-align:center;color:var(--muted);margin-top:34px;font-size:15.5px}
+
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+    .card .src{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
+    .card h5{font-family:var(--disp);font-size:16px;margin:8px 0 10px;line-height:1.35;font-weight:600;color:var(--text)}
+    .card .date{font-family:var(--mono);font-size:12px;color:var(--faint)}
+    .liblink{text-align:center;margin-top:26px}
+
+    .close-band{margin-top:128px;border-top:1px solid var(--line);background:var(--bg2);
+      text-align:center;padding:88px 24px}
+    .close-band h2{margin-bottom:18px}
+    .close-band .body{text-align:center;margin-bottom:34px}
+
+    footer{border-top:1px solid var(--line);padding:44px 0 60px;color:var(--faint);font-size:13px}
+    footer .links{margin-bottom:18px;text-align:center}
+    footer .links a{color:var(--muted);margin:0 10px}
+    footer p{max-width:820px;margin:0 auto 10px;text-align:center;line-height:1.6}
+
+    .preview-note{border-top:1px solid var(--line);padding:26px 0;
+      color:var(--faint);font-size:13px;text-align:center;font-family:var(--mono)}
+    .flag-note{display:inline-block;border:1px dashed var(--line2);border-radius:6px;
+      color:var(--faint);font-family:var(--mono);font-size:11px;padding:3px 8px;margin-left:10px;vertical-align:middle}
+
+    @media (max-width:860px){
+      .two-col,.panels,.quotes,.tiers{grid-template-columns:1fr}
+      .timeline{grid-template-columns:1fr 1fr}
+      .cards{grid-template-columns:1fr 1fr}
       .rules .wrap{flex-direction:column;gap:14px}
       .inset{position:static;width:100%;margin-top:16px;box-shadow:none}
       .figcap{margin-top:16px}
       section.block{padding:88px 0 0}
       .hero{padding:64px 0 0}
+      .two-col h2,.two-col .eyebrow{text-align:center}
     }
   </style>
 </head>
@@ -133,7 +193,7 @@
       <span class="logo">TradeWave</span>
       <span class="navlinks">
         <a href="#">Wave Viewer</a><a href="#">Tickers</a><a href="#">Scorecard</a>
-        <a href="#">Insights</a><a href="#">Methodology</a><a href="#">Pricing</a>
+        <a href="#">Insights</a><a href="/methodology">Methodology</a><a href="#pricing">Pricing</a>
         <a href="#">Log in</a>
         <a class="btn small" href="#">Start free</a>
       </span>
@@ -155,7 +215,6 @@
         <span class="chip">Histories Up to a Century</span>
         <span class="chip">Works Inside ChatGPT and Claude</span>
       </div>
-
       <figure style="margin:0">
         <div class="shot">
           <div class="shot-bar"><i></i><i></i><i></i></div>
@@ -173,9 +232,9 @@
   <!-- ================= 1. THE THREE RULES ================= -->
   <section class="rules" style="margin-top:84px">
     <div class="wrap">
-      <span class="rule"><span class="no">01</span><span class="clause display">Deterministic by Design.</span></span>
-      <span class="rule"><span class="no">02</span><span class="clause display">Receipts on Every Pattern.</span></span>
-      <span class="rule"><span class="no">03</span><span class="clause display">Logged Before the Outcome.</span></span>
+      <span class="rule"><span class="no">01</span><span class="clause">Deterministic by Design.</span></span>
+      <span class="rule"><span class="no">02</span><span class="clause">Receipts on Every Pattern.</span></span>
+      <span class="rule"><span class="no">03</span><span class="clause">Logged Before the Outcome.</span></span>
     </div>
   </section>
 
@@ -195,7 +254,6 @@
         PE-cycle overlays. The same inputs always produce the same answer - no black box, no
         hand-picked backtest window. Every exact view carries a deep link, so the pattern you
         found is the pattern a colleague opens.</p>
-
       <figure class="fig" style="margin:0">
         <div class="shot">
           <div class="shot-bar"><i></i><i></i><i></i></div>
@@ -205,7 +263,7 @@
           </div>
         </div>
         <aside class="inset">
-          <h4>Per-year results <em>sample data, for layout</em></h4>
+          <h4>Per-Year Results <em>sample data, for layout</em></h4>
           <table class="num">
             <tr><th>Year</th><th>Window</th><th>Return</th><th>MFE</th><th>MAE</th></tr>
             <tr><td>2025</td><td>Jun 12 - Jul 24</td><td class="up">+4.8%</td><td class="up">+6.1%</td><td class="down">-1.2%</td></tr>
@@ -223,28 +281,272 @@
     </div>
   </section>
 
-  <div class="preview-note wrap">
-    PREVIEW - hero + sections 1-2 of 10. Copy is final; screenshots pending.
-    Toggle the headline typeface bottom-right. Sections 3-10 follow the same system:
-    semantic color only, tabular numerals, no motion, no icons.
+  <!-- ================= 3. RANKED BY THE MODEL ================= -->
+  <section class="block">
+    <div class="wrap two-col">
+      <div>
+        <p class="eyebrow">AI Layer One - Rank It</p>
+        <h2 class="display">Machine Learning With One Honest Job: Ranking</h2>
+        <p class="body">One scan sweeps all 15 markets. A separate gradient-boosted model reads
+          62 features of every qualifying setup and produces a ranking used for exactly one
+          thing: <b>ordering the list</b>. It does not promise outcomes. The statistics stay
+          deterministic - the model only decides what you look at first. Once a day, that
+          ranking plus rules selects a single pick, and it is logged in public before the
+          outcome is known, losses included.</p>
+      </div>
+      <figure class="fig" style="margin:0">
+        <div class="shot">
+          <div class="shot-bar"><i></i><i></i><i></i></div>
+          <div class="shot-body">
+            <div class="ph">SCREENSHOT: the scan table, sorted by model rank -
+              rank badges visible, no percentages in frame</div>
+          </div>
+        </div>
+        <span class="shot-tag">Today's pick - logged to the public ledger</span>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= 4. ASK THE CHART (TARA) ================= -->
+  <section class="block">
+    <div class="wrap">
+      <p class="eyebrow">AI Layer Two - Talk to It</p>
+      <h2 class="display">Ask the Chart. Watch It Answer</h2>
+      <p class="body" style="text-align:center">Tara is how you question the platform. Ask why a
+        setup ranks where it does, and the answer cites that pattern's own table: the years, the
+        consistency, the risk. Ask to see something else, and <b>the wave-viewer changes in front
+        of you</b>. Tara is an interface to the same statistics, not another opinion - the
+        evidence lands on screen, not in adjectives.</p>
+      <figure style="margin:0">
+        <div class="shot">
+          <div class="shot-bar"><i></i><i></i><i></i></div>
+          <div class="shot-body tall">
+            <div class="ph">SCREENSHOT: split view - wave-viewer left, Tara chat docked right,
+              one real two-message exchange that visibly moved the chart</div>
+          </div>
+        </div>
+        <figcaption class="cap">The chart just changed.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= 5. INSIDE CHATGPT AND CLAUDE ================= -->
+  <section class="block">
+    <div class="wrap two-col">
+      <figure class="fig" style="margin:0;order:0">
+        <div class="shot">
+          <div class="shot-bar"><i></i><i></i><i></i></div>
+          <div class="shot-body">
+            <div class="ph">SCREENSHOT: a real ChatGPT window, TradeWave connector enabled -
+              user asks for a scan, the answer cites pattern receipts</div>
+          </div>
+        </div>
+      </figure>
+      <div>
+        <p class="eyebrow">AI Layer Three - Take It With You <span class="badge-new">NEW</span>
+          <span class="flag-note">ships behind MCP_LIVE flag</span></p>
+        <h2 class="display">TradeWave Works Inside ChatGPT and Claude</h2>
+        <p class="body">Add TradeWave to ChatGPT, Claude, or any MCP-capable assistant and sign
+          in with your TradeWave account. Then just ask: scans, pattern analysis, plain
+          language - <b>the same engine and the same receipts, inside the tools you already
+          use</b>. Building your own stack? A signals-only REST API comes with a developer
+          portal, SDKs, and full documentation.</p>
+      </div>
+    </div>
+    <div class="cta-band">
+      <a class="btn" href="#">Start free - 7 days of everything</a>
+      <p class="micro">No credit card required.</p>
+    </div>
+  </section>
+
+  <!-- ================= 6. A TUESDAY WITH TRADEWAVE ================= -->
+  <section class="block" style="padding-top:96px">
+    <div class="wrap">
+      <p class="eyebrow">Built for a Desk, Not a Demo</p>
+      <h2 class="display">A Tuesday With TradeWave</h2>
+      <div class="timeline">
+        <div class="stop"><div class="t num">8:50</div>
+          <p>Your calendar pings: a pattern window on your watchlist opens Thursday.</p>
+          <div class="thumb">thumb: Google Calendar event</div></div>
+        <div class="stop"><div class="t num">9:15</div>
+          <p>You export the stats table to CSV and drop it into your own model.</p>
+          <div class="thumb">thumb: CSV in a spreadsheet</div></div>
+        <div class="stop"><div class="t num">11:00</div>
+          <p>A date-range research report across your portfolio, generated on demand.</p>
+          <div class="thumb">thumb: report page</div></div>
+        <div class="stop"><div class="t num">2:40</div>
+          <p>You send a teammate a deep link that opens the exact pattern, years, and settings you see.</p>
+          <div class="thumb">thumb: deep-linked chart</div></div>
+      </div>
+      <p class="closing-line">Nothing here required remembering to check a dashboard.</p>
+    </div>
+  </section>
+
+  <!-- ================= 7. THE LEDGER ================= -->
+  <section class="block">
+    <div class="wrap">
+      <p class="eyebrow">Accountability</p>
+      <h2 class="display">We Do Not Ask for Trust. We Publish the Ledger</h2>
+      <p class="body" style="text-align:center">The methodology is public: what we compute, how,
+        and what it cannot tell you - read it before you trust a single number. The model's
+        daily pick is written to a public forward ledger before the outcome is known, and it
+        stays there: <b>losses included, nothing removed</b>. TradeWave is a research platform -
+        no performance promises, just instruments you can check. We would rather be audited
+        than believed.</p>
+      <div class="panels">
+        <figure style="margin:0">
+          <div class="shot"><div class="shot-bar"><i></i><i></i><i></i></div>
+            <div class="shot-body"><div class="ph">SCREENSHOT: the scorecard ledger -
+              dated entries, a loss row plainly visible</div></div></div>
+        </figure>
+        <figure style="margin:0">
+          <div class="shot"><div class="shot-bar"><i></i><i></i><i></i></div>
+            <div class="shot-body"><div class="ph">SCREENSHOT: the methodology page</div></div></div>
+        </figure>
+      </div>
+      <p class="ledger-links">
+        <a href="/methodology">Read the methodology</a><span>|</span><a href="/scorecard">Inspect the ledger</a>
+      </p>
+      <div class="prov">
+        <q>I built the instrument I could not buy.</q>
+        <p class="who">Afshin Moshrefi - founder, Tara Data Research LLC - author of The 100-Year Pattern (2026)</p>
+      </div>
+    </div>
+    <div class="cta-band">
+      <a class="btn" href="#">Start free - 7 days of everything</a>
+      <p class="micro">No credit card required.</p>
+    </div>
+  </section>
+
+  <!-- ================= 8. ON THE RECORD (gated) ================= -->
+  <section class="block" style="padding-top:96px">
+    <div class="wrap">
+      <h2 class="display">On the Record, Like Everything Else Here</h2>
+      <p class="body" style="text-align:center">Early users - independent traders, advisors, and
+        quants - on rigor, depth, and where TradeWave fits in their day.</p>
+      <div class="quotes">
+        <div class="quote"><q>[Real named quote 1]</q><p class="who">Full Name - role - markets</p></div>
+        <div class="quote"><q>[Real named quote 2]</q><p class="who">Full Name - role - markets</p></div>
+        <div class="quote"><q>[Real named quote 3]</q><p class="who">Full Name - role - markets</p></div>
+      </div>
+      <p class="gate-note">SECTION SHIPS HIDDEN until 2+ real named quotes are signed off.
+        Editorial law: no performance quotes, no star ratings, no logo walls, no counters.</p>
+    </div>
+  </section>
+
+  <!-- ================= 9. PRICING ================= -->
+  <section class="block" id="pricing">
+    <div class="wrap">
+      <p class="ribbon">Every signup starts with 7 days of the full platform.</p>
+      <h2 class="display">Start With Everything. Pay Only If It Earns Its Place on Your Desk</h2>
+      <p class="body" style="text-align:center">Create a free account and get everything for 7
+        days: every market, every metric, the model and Tara included. After the week, stay on
+        Explorer free for as long as you like, or upgrade. Paid plans carry a 7-day trial.
+        Cancel anytime.</p>
+      <div class="toggle-ui"><span>Monthly</span><span class="on">Yearly (save up to 34%)</span></div>
+      <div class="tiers num">
+        <div class="tier">
+          <h3>Explorer</h3>
+          <div class="price">$0</div>
+          <p class="alt">free forever</p>
+          <ul>
+            <li><b>DJ30</b> market</li>
+            <li><b>5</b> top patterns per market</li>
+            <li><b>1</b> portfolio, 5 tracked patterns</li>
+            <li>Daily pick + public ledger</li>
+            <li>Community support</li>
+          </ul>
+          <a class="btn" href="#">Start free - 7 days of everything</a>
+          <p class="micro">No credit card required.</p>
+        </div>
+        <div class="tier mid">
+          <h3>Analyst</h3>
+          <div class="price">$37<small>/mo billed yearly</small></div>
+          <p class="alt">or $47 month to month</p>
+          <ul>
+            <li><b>8 markets</b> incl. all US stocks + ETFs</li>
+            <li><b>100</b> top patterns per market</li>
+            <li>ML ranking + custom start dates</li>
+            <li>CSV export + calendar alerts</li>
+            <li><b>25</b> portfolios, <b>5</b> watchlists</li>
+            <li>Email support + weekly Q&amp;A</li>
+          </ul>
+          <a class="btn" href="#">Start free - 7 days of everything</a>
+          <p class="micro">No credit card required.</p>
+        </div>
+        <div class="tier">
+          <h3>Strategist</h3>
+          <div class="price">$99<small>/mo billed yearly</small></div>
+          <p class="alt">or $149 month to month</p>
+          <ul>
+            <li><b>All 15 markets</b></li>
+            <li><b>500</b> top patterns per market</li>
+            <li>ML ranking + auto PE-cycle filters</li>
+            <li>CSV export + calendar alerts</li>
+            <li><b>100</b> portfolios, <b>50</b> watchlists</li>
+            <li>Weekly live session + premium support</li>
+          </ul>
+          <a class="btn" href="#">Start free - 7 days of everything</a>
+          <p class="micro">No credit card required.</p>
+        </div>
+      </div>
+      <p class="kicker">Every tier runs the same engine and the same receipts, starting at $0.</p>
+      <p class="cap" style="margin-top:10px">Prices render from live Stripe at build time; feature matrix final at build.</p>
+    </div>
+  </section>
+
+  <!-- ================= 10. THE CLOSE ================= -->
+  <section class="block" style="padding-top:96px">
+    <div class="wrap">
+      <h2 class="display" style="font-size:clamp(24px,2.6vw,30px)">What the Engine Sees This Week</h2>
+      <p class="body" style="text-align:center">Seasonal Market News covers what the engine sees
+        in current markets. The Insights library teaches the method - how the statistics are
+        built, and what up to a century of data can and cannot justify. Real articles, real
+        dates, free to read: what the platform is thinking, before you ever create an account.</p>
+      <div class="cards">
+        <div class="card"><span class="src">Seasonal Market News</span>
+          <h5>[Latest article title - auto-fed]</h5><span class="date">[date]</span></div>
+        <div class="card"><span class="src">Seasonal Market News</span>
+          <h5>[Latest article title - auto-fed]</h5><span class="date">[date]</span></div>
+        <div class="card"><span class="src">Seasonal Market News</span>
+          <h5>[Latest article title - auto-fed]</h5><span class="date">[date]</span></div>
+        <div class="card"><span class="src">Insights</span>
+          <h5>[Method explainer title - auto-fed]</h5><span class="date">[date]</span></div>
+      </div>
+      <p class="liblink"><a href="#">Browse the library</a></p>
+    </div>
+    <div class="close-band">
+      <h2 class="display">Bring Your Hunches</h2>
+      <p class="body">Test the calendar windows you've carried for years against up to a century
+        of receipts - in the platform, with Tara beside the chart, or inside ChatGPT and Claude.
+        Seven days of everything, free. A free plan that keeps working after.</p>
+      <a class="btn" href="#">Start free - 7 days of everything</a>
+      <p class="micro" style="margin-top:12px">No credit card required.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="links">
+        <a href="/methodology">Methodology</a><a href="/scorecard">Scorecard</a>
+        <a href="#">Insights</a><a href="#">Seasonal Market News</a><a href="#pricing">Pricing</a>
+        <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a>
+        <a href="/disclaimer">Disclaimer</a>
+      </div>
+      <p>TradeWave is an educational research platform operated by Tara Data Research LLC.
+        Nothing on this site is investment, financial, or trading advice, or a recommendation to
+        buy or sell any security or instrument. Seasonal statistics describe historical behavior;
+        historical behavior does not guarantee future results. All trading and investing involves
+        risk, including the possible loss of principal.</p>
+      <p>TradeWave - Tara Data Research LLC</p>
+    </div>
+  </footer>
+
+  <div class="preview-note">
+    PREVIEW - full page, all 10 sections. Copy final. Typeface: STIX Two Text (chosen).
+    Pending: 10 screenshots, 2+ real testimonial quotes (section ships hidden), live-Stripe
+    prices + final feature matrix at build, MCP_LIVE flag wiring.
   </div>
 
-  <div class="toggle">
-    <span>Headlines:</span>
-    <button data-t="news" class="on" onclick="setType('news')">Newsreader</button>
-    <button data-t="spectral" onclick="setType('spectral')">Spectral</button>
-    <button data-t="stix" onclick="setType('stix')">STIX Two</button>
-    <button data-t="fraunces" onclick="setType('fraunces')">Fraunces</button>
-    <button data-t="inter" onclick="setType('inter')">Inter (sans)</button>
-  </div>
-
-  <script>
-    function setType(t){
-      document.documentElement.className = 'type-' + t;
-      document.querySelectorAll('.toggle button').forEach(function(b){
-        b.className = b.getAttribute('data-t') === t ? 'on' : '';
-      });
-    }
-  </script>
 </body>
 </html>
