@@ -3027,17 +3027,25 @@ _SIGNED_VIEW_TMPL = """
              style="flex:1;min-width:280px;padding:8px 10px;border:1px solid #cfd3e0;border-radius:7px;font-size:13px;color:#1f2a44;">
       <button onclick="copySignLink(this)">Copy link</button>
     </div>
-    <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div style="margin-top:14px;">
       {% if aff.email %}
       <form method="post" action="{{ url_for('affiliate_signed.send') }}" style="margin:0;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="id" value="{{ aff.id }}">
-        <button type="submit">Email link to {{ aff.email }}</button>
+        <textarea name="note" rows="3" maxlength="2000"
+                  placeholder="Optional personal note shown at the top of the email - e.g. 'Hi {{ (aff.name or '').split(' ')[0] }}, here is the updated agreement for your review.'"
+                  style="width:100%;max-width:640px;display:block;padding:8px 10px;border:1px solid #cfd3e0;border-radius:7px;font-size:13px;color:#1f2a44;margin-bottom:8px;"></textarea>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button type="submit">Email link to {{ aff.email }}</button>
+          <a href="{{ signing_url }}" target="_blank" rel="noopener">Open the signing page &rarr;</a>
+        </div>
       </form>
       {% else %}
-      <span style="color:#b00020;font-size:13px;">No contact email on file - add one on the affiliate record to enable emailing.</span>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <span style="color:#b00020;font-size:13px;">No contact email on file - add one on the affiliate record to enable emailing.</span>
+        <a href="{{ signing_url }}" target="_blank" rel="noopener">Open the signing page &rarr;</a>
+      </div>
       {% endif %}
-      <a href="{{ signing_url }}" target="_blank" rel="noopener">Open the signing page &rarr;</a>
     </div>
     {% else %}
     <p style="color:#b00020;">Could not generate a signing link (the signing secret is unset).</p>
@@ -3133,7 +3141,8 @@ class AffiliateSignedView(_AdminAuth, BaseView):
             elif not aff.email:
                 flash("%s has no contact email on file; can't email the link."
                       % aff.code, "error")
-            elif _agr.email_signing_link(aff):
+            elif _agr.email_signing_link(
+                    aff, note=(_rq.form.get("note") or "").strip()[:2000] or None):
                 flash("Signing link emailed to %s." % aff.email, "success")
             else:
                 flash("Could not send the email (check RESEND_API_KEY). Copy the "

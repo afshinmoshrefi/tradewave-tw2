@@ -315,10 +315,14 @@ def email_signed_copy(affiliate) -> bool:
     return sent
 
 
-def email_signing_link(affiliate) -> bool:
+def email_signing_link(affiliate, note=None) -> bool:
     """Best-effort: email the affiliate the private link to review and e-sign the
     agreement. Returns True if Resend accepted it. Never raises. Does NOT modify
-    or commit the affiliate."""
+    or commit the affiliate.
+
+    note: optional operator-written personal message ("Hi Michael, here is the
+    updated agreement for your review") shown at the top of the email, above the
+    standard copy. Plain text; HTML-escaped, newlines preserved."""
     if not getattr(affiliate, "email", None):
         return False
     try:
@@ -330,7 +334,13 @@ def email_signing_link(affiliate) -> bool:
     ref = referral_link(affiliate)
     join = join_link(affiliate)
     first = (affiliate.name or "").strip().split(" ")[0] or "there"
-    body_text = (
+    note = (note or "").strip()[:2000]
+    note_text = f"{note}\n\n----\n\n" if note else ""
+    note_html = (
+        '<p style="white-space:pre-line;border-left:3px solid #6366f1;'
+        'padding:8px 14px;background:#f5f6ff;border-radius:6px;color:#1f2a44;">'
+        f"{_esc(note)}</p>" if note else "")
+    body_text = note_text + (
         f"Hi {first},\n\n"
         f"Welcome to the TradeWave affiliate program. Please review and sign your "
         f"affiliate agreement here (no login needed):\n\n{url}\n\n"
@@ -343,7 +353,7 @@ def email_signing_link(affiliate) -> bool:
         f"and your discount)\n\n"
         f"Thanks,\nThe TradeWave team\n"
     )
-    html_body = (
+    html_body = note_html + (
         f"<p>Hi {_esc(first)},</p>"
         f"<p>Welcome to the TradeWave affiliate program. Please review and sign your "
         f"affiliate agreement (no login needed):</p>"
