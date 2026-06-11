@@ -89,7 +89,7 @@ A skeptical trader (or a regulator, or an affiliate's audience) sees the top fir
   "every trading day" promise. Restart the daily pipeline (appserver service-auth blocker) + cron
   `generate_daily_ai_pick.py`/`send_daily_ai_pick.py`, or state "logged since March 2026; daily
   publishing resumes <date>".
-- [ ] **One source for marketing numbers** (`brand_stats.py`): 17 markets (page says 15), 98 years (page
+- [ ] **One source for marketing numbers** (`brand_stats.py`): 15 ACTIVE markets (ids 0-13,16; the audit had it backwards - the page was right), 98 years (page
   says 100/98/"nearly a century"), real user count (page says 250+, truth ~222 - say "200+"), picks
   logged N. Every generator imports it.
 - [ ] **Remove the engagement-hack stack**: the 1.5s tab-title flasher ("Free daily AI pick waiting...")
@@ -111,7 +111,7 @@ A skeptical trader (or a regulator, or an affiliate's audience) sees the top fir
   MailerLite automations exist but are OFF. Enable + add a day-5 pre-charge notice. Add "Card
   required. No charge for 7 days. Cancel in one click." at every trial button.
 - [ ] **Fix the freemium gate** (free->paid pressure is structurally weak): open paywall gives Explorer
-  all 17 markets AND ML (config.py:237/515) while the pricing page sells exactly those; the in-app
+  all 15 markets AND ML (config.py:237/515) while the pricing page sells exactly those; the in-app
   upgrade banner is disabled (`config.upgrade_message=''`). Decide the gate consciously. STRONG
   pattern from category research: **reverse trial** (new signups get 7 days of full Strategist, then
   auto-downgrade to Explorer; benchmarks 15-30% free->paid) + make locked features VISIBLE (blurred ML

@@ -907,7 +907,7 @@ def build_methodology() -> tuple[str, dict]:
 <p>TradeWave is a quantitative engine that analyzes decades of market history to find recurring seasonal patterns and measure their risk and return. This page explains how the patterns are computed, what the machine-learning layer does and does not do, which statistics we display, and the limitations you should keep in mind. Every number TradeWave publishes can be traced back to the rules on this page.</p>
 
 <h2>1. What TradeWave does</h2>
-<p>TradeWave ingests long-term daily price data for stocks, indices, exchange-traded funds, futures, currencies, and crypto across 17 markets. The engine scans these histories for recurring calendar-based windows where price has shown a consistent tendency to move higher or lower.</p>
+<p>TradeWave ingests long-term daily price data for stocks, indices, exchange-traded funds, futures, currencies, and crypto across 15 markets. The engine scans these histories for recurring calendar-based windows where price has shown a consistent tendency to move higher or lower.</p>
 <p>Seasonal pattern statistics in TradeWave are fully rules-based. Given an instrument, a start date, a window length, and a lookback period, the result is deterministic: anyone with the same data and the same rules gets the same numbers. There is no curve fitting or discretionary manual adjustment in the pattern calculations. (Machine learning is used in a separate, clearly labeled scoring layer, described in section 5.)</p>
 <p><strong>Key principle: calculation is separated from narrative.</strong> The engine produces historical statistics from hard market data. Any written commentary that references those results is created afterwards, from the numbers.</p>
 

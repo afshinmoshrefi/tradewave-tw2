@@ -40,7 +40,7 @@ I use to do it." Formerly at Investopedia = the credibility line in every bio me
 **Proof points he can use (all public and verifiable - never invent numbers):**
 - The daily pick has a **published, forward-tested track record** at tradewave.ai/scorecard -
   every pick is logged the day it is made and tracked to its outcome, wins and losses alike.
-- Patterns are computed from **decades of historical data across 17 markets** (US, Europe,
+- Patterns are computed from **decades of historical data across 15 markets** (US, Europe,
   Asia, futures, FX, crypto), not backfit anecdotes.
 - Every pattern shows its receipts: per-year results, win rate, Sharpe ratio, and an ML
   win-probability score, so the reader judges the evidence themselves.
@@ -125,7 +125,7 @@ I use to do it." Formerly at Investopedia = the credibility line in every bio me
 - "What does it cost?" -> Free Explorer tier to look around; Analyst from $29.60/mo and
   Strategist from $79.20/mo (first year, with the reader discount, billed annually).
   7-day trial on paid tiers.
-- "What markets?" -> 17 markets: US and international stocks, futures, FX, crypto.
+- "What markets?" -> 15 markets: US and international stocks, futures, FX, crypto.
 - **Disclosure (must appear with every post/email):** "I am a TradeWave affiliate and earn
   a commission on subscriptions through my link."
 

@@ -11,7 +11,7 @@ Mapping (matches Stripe product names + price ordering):
                    for indices/futures/forex/bonds/foreign/crypto.
                    Stripe: $58/mo or $488/yr.
   TW2 Strategist = legacy levels 6 (yearly) / 7 (monthly) - top paid tier.
-                   Premium = all 17 markets; ML scoring; max limits.
+                   Premium = all 15 markets; ML scoring; max limits.
                    Stripe: $199/mo or $1574/yr.
 
 Strategist > Analyst > Explorer by access and by price.

@@ -70,7 +70,7 @@ upgrade_message = ''
 # trial Explorer (DJ30 only since 2026-06-10); reverse-trial users mint
 # level-'6' claims, so they never see this while the trial is active.
 upgrade_message_by_level = {
-    '1': 'Your full-access trial has ended - you are on the free Explorer plan (DJ30). Upgrade to unlock all 17 markets.',
+    '1': 'Your full-access trial has ended - you are on the free Explorer plan (DJ30). Upgrade to unlock all 15 markets.',
 }
 # promotion message is shown below the upgrade_message - it could be a coupon code or a discount message 0 - blank will remove it
 promotion_message = '🎉 Get 60% OFF Tidal Subscription - first 100 subscribers' 
@@ -501,7 +501,7 @@ exchange_mapping={ # exchange mapping is used for EOD downloads - left is folder
 # Frontend dropdown = (free ∪ premium); they are disjoint per level by design.
 
 level_access_hierarchy_free_registered = {
-    '1': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],   # Ripple sees all 17, all date-locked
+    '1': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],   # Ripple sees all 15, all date-locked
     '4': ['5','6','7','8','9','10','12','13','16'],                            # PRO: indices/futures/forex/bonds/foreign/crypto are date-locked
     '5': ['5','6','7','8','9','10','12','13','16'],
     '6': [],                                                                              # Institutional: no free markets — all premium

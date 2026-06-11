@@ -229,7 +229,7 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
   ALIAS of `tw2_public_url` (config.py:117-127). `TW2_DOMAIN_ROOT` is **retired**.
 - `TW2_ENV` (explicit) or hostname inference -> `tw2_env` (`dev|staging|prod`),
   config.py:137-145. Drives `seo_enabled = (tw2_env=='prod')` (config.py:304).
-- Key dicts: `available_resources`/`_path`/`exchange_mapping` (17 markets,
+- Key dicts: `available_resources`/`_path`/`exchange_mapping` (15 active markets,
   keys `'0'..'13','16'`); `level_access_hierarchy` (backend market filter -
   **level '1' free Explorer = DJ30 only since 2026-06-10; new signups get a
   7-day full-access REVERSE TRIAL first - see §11.1**); `num_*_allowed_by_level`
