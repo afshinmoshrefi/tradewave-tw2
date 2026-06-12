@@ -96,6 +96,19 @@ def _price_for_tier(tier_name, interval="month"):
     return _price_cache.get((tier_name, interval)) or _price_cache.get((tier_name, "month"))
 
 
+@bp.route("")
+@bp.route("/")
+def index():
+    """Console landing. /account/api (no tab) is the exact URL the gateway
+    publishes as upgrade_url in every quota/scope nudge (apiserver/routes.py
+    _UPGRADE_URL), so it must always resolve. Land it on the billing tab -
+    the plans + upgrade page is what every published nudge is selling.
+    No require_login here: billing_index already bounces anonymous visitors
+    to /login, and a bare redirect leaks nothing.
+    """
+    return redirect(url_for("api_portal.billing_index"))
+
+
 @bp.route("/billing")
 @require_login
 def billing_index():

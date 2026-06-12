@@ -14,6 +14,8 @@ from datetime import date, timedelta
 
 import redis
 
+from flask import render_template
+
 from apiserver import settings, db
 from .blueprint import bp, require_login, get_current_user, api_entitlements_for, api_tier_name_for
 
