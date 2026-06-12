@@ -13,6 +13,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import threading
 import time
 from urllib.parse import quote
@@ -22,6 +23,83 @@ import requests
 from . import settings
 
 log = logging.getLogger("apiserver.appserver_client")
+
+# Timeouts sit just under gunicorn's 120s worker timeout so a slow appserver surfaces as a
+# clean RequestException (degraded card / structured 503) instead of a killed worker.
+GET_TIMEOUT = 110
+POST_TIMEOUT = 110
+
+# 429 retry policy: the appserver rate limiter throttles the SHARED service identity, so a
+# 429 is transient pressure on the shared bucket - retryable - and is NEVER a data gap.
+_RETRY_ATTEMPTS = 3            # 1 try + up to 2 retries
+_RETRY_BACKOFF = (1.0, 3.0)    # fallback sleeps when no usable Retry-After header
+_RETRY_MAX_SLEEP = 10.0        # bound any Retry-After so a fan-out can't stall the worker
+_STORM_SECONDS = 30.0
+# Storm breaker: once a call exhausts its 429 retries, suppress retry sleeps for
+# _STORM_SECONDS so a multi-row fan-out (scan receipts) fails fast + degrades honestly
+# instead of stacking sleeps past the gunicorn timeout. Any healthy response resets it.
+_rl_state = {"until": 0.0}
+
+_JWT_RE = re.compile(r"eyJ[A-Za-z0-9_=-]+\.[A-Za-z0-9_=-]+\.?[A-Za-z0-9_=-]*")
+
+
+def _scrub(text):
+    """Strip credential material from any string headed for a log line or exception
+    message: the service JWT travels as ?token=..., the service api key sits in the
+    /login path, and requests embeds the full URL in its exception text. Prefixes only,
+    never a full token."""
+    s = str(text)
+    s = re.sub(r"token=[^&\s'\"]+", "token=***", s)
+    s = _JWT_RE.sub("eyJ***", s)
+    key = settings.SERVICE_API_KEY
+    if key:
+        s = s.replace(str(key), "***")
+    return s
+
+
+def _retry_sleep_seconds(resp, attempt):
+    """Honor a numeric Retry-After when present, else a small backoff - always bounded."""
+    try:
+        wait = float((resp.headers or {}).get("Retry-After"))
+    except (TypeError, ValueError):
+        wait = _RETRY_BACKOFF[min(attempt, len(_RETRY_BACKOFF) - 1)]
+    return max(0.5, min(wait, _RETRY_MAX_SLEEP))
+
+
+def _request(method, url, **kwargs):
+    """One appserver HTTP call with bounded 429 retries and credential-scrubbed errors.
+
+    A 429 is retried (Retry-After-aware, bounded) because it is shared-bucket rate-limit
+    pressure, DISTINCT from a data gap; every other error stays fail-fast. When retries
+    are exhausted the storm breaker makes subsequent calls single-attempt for a short
+    window so bulk fan-outs degrade fast instead of sleeping past the worker timeout.
+    Every raised RequestException has token/key material scrubbed from its message."""
+    attempts = 1 if time.time() < _rl_state["until"] else _RETRY_ATTEMPTS
+    try:
+        for attempt in range(attempts):
+            r = requests.request(method, url, **kwargs)
+            if r.status_code == 429 and attempt < attempts - 1:
+                wait = _retry_sleep_seconds(r, attempt)
+                log.warning("appserver 429 (attempt %d/%d), retrying in %.1fs: %s",
+                            attempt + 1, attempts, wait, _scrub(url))
+                time.sleep(wait)
+                continue
+            if r.status_code == 429:
+                _rl_state["until"] = time.time() + _STORM_SECONDS
+            else:
+                _rl_state["until"] = 0.0
+            r.raise_for_status()
+            return r.json()
+    except requests.RequestException as e:
+        try:
+            scrubbed = type(e)(_scrub(e), request=getattr(e, "request", None),
+                               response=getattr(e, "response", None))
+        except TypeError:
+            # Exotic subclass init (e.g. JSONDecodeError): re-raise the ORIGINAL
+            # RequestException (a bare raise here would re-raise the TypeError and
+            # defeat every fail-soft handler upstream). Its message has no URL/token.
+            raise e from None
+        raise scrubbed from None
 
 
 def _seg(value):
@@ -39,9 +117,7 @@ def _get_token():
         if _token["value"] and _token["exp"] > time.time() + 60:
             return _token["value"]
         url = f"{settings.APPSERVER_URL}/login/api/{settings.SERVICE_API_KEY}"
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        data = r.json()
+        data = _request("GET", url, timeout=10)
         tok = data.get("token") or data.get("session_token")  # x-verify exact key
         if not tok:
             raise RuntimeError("appserver /login/api returned no token")
@@ -52,17 +128,15 @@ def _get_token():
 def get(path, params=None):
     params = dict(params or {})
     params["token"] = _get_token()
-    r = requests.get(f"{settings.APPSERVER_URL}{path}", params=params, timeout=30)
-    r.raise_for_status()
-    return r.json()
+    return _request("GET", f"{settings.APPSERVER_URL}{path}", params=params,
+                    timeout=GET_TIMEOUT)
 
 
 def post(path, json_body, params=None):
     params = dict(params or {})
     params["token"] = _get_token()
-    r = requests.post(f"{settings.APPSERVER_URL}{path}", params=params, json=json_body, timeout=40)
-    r.raise_for_status()
-    return r.json()
+    return _request("POST", f"{settings.APPSERVER_URL}{path}", params=params,
+                    json=json_body, timeout=POST_TIMEOUT)
 
 
 # ---------------------------------------------------------------------------
@@ -453,15 +527,18 @@ def chart_stats_and_years(market, symbol, entry_date, days_out, years):
     the NET pct only and DROPPING price) to build the per_year receipts. This is the single
     accessor the flagship endpoints use to source receipts for a card.
 
-    A per-symbol downstream failure (data gap / transient appserver error) degrades to
-    ({}, []) and is logged - it must never abort a multi-row scan/analyze (fail-soft on a
-    genuine per-symbol gap; real gateway errors still surface)."""
+    Two DISTINCT degraded outcomes (never conflated):
+      - a genuine per-symbol DATA GAP ('Not Enough Data' etc.) comes back from the
+        appserver as a 200 and maps to ({}, []) inside _chart_data - real absence;
+      - a FAILED fetch (429 after retries / timeout / upstream error) returns (None, None)
+        so the caller stamps the card receipts_unavailable instead of rendering a
+        confident no-edge from missing data. Either way a multi-row scan never aborts."""
     try:
         chart, stats = _chart_data(market, symbol, entry_date, days_out, years)
     except requests.RequestException as e:
-        log.warning("chart_stats_and_years gap for %s/%s (days_out=%s): %s",
+        log.warning("chart_stats_and_years FETCH FAILED for %s/%s (days_out=%s): %s",
                     market, symbol, days_out, e)
-        return {}, []
+        return None, None
     return stats, chart
 
 

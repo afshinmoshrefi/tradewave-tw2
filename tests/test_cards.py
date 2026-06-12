@@ -179,8 +179,12 @@ def test_project_decision_trims_but_keeps_decision_essentials():
     assert "per_year" not in d["receipts"]                    # heavy array dropped
     assert set(d["stats"]) == {"historical_win_rate", "sharpe_ratio", "avg_return_pct", "years"}
     assert "edge_basis" not in d                              # detail dropped
+    # token trim (2026-06-12 review): extend_research is per-card fixed-cost text; the MCP
+    # envelope hand-off carries the same methodology once, so 'decision' drops it.
+    assert "extend_research" not in d
+    assert "extend_research" in cards.project_card(c, "full")  # full keeps it
     assert d["disclaimer"] == cards.DISCLAIMER                # compliance kept
-    assert "extend_research" in d and "alignment" in d        # decision-relevant kept
+    assert "alignment" in d                                   # decision-relevant kept
     assert d["setup"]["timing"] is not None
 
 
@@ -228,6 +232,50 @@ def test_no_signal_via_too_few_years():
 def test_strong_inputs_do_signal():
     c = _build_custom(win_rate=0.9, sharpe=1.5, n_entries=10)
     assert c["signal"] == "BUY"
+
+
+# --- receipts_unavailable: an outage is NEVER evidence of absence ------------------
+# (2026-06-12 prod-429 review: under upstream starvation the gateway used to render a
+# confident NO_SIGNAL / "under 5 years of history" from receipts that simply failed to load.)
+
+def _build_unavailable(win_rate):
+    return cards.build_signal_card(_opp(win_rate=win_rate), {}, [],
+                                   market_name="S&P 500 STOCKS", as_of=AS_OF,
+                                   ml_state="market", receipts_unavailable=True)
+
+
+def test_receipts_unavailable_keeps_opplist_signal_and_says_unavailable():
+    c = _build_unavailable(win_rate=0.9)
+    assert c["receipts"]["receipts_unavailable"] is True
+    assert c["receipts"]["note"]
+    assert c["receipts"]["years_tested"] is None              # unknown, not zero
+    assert c["signal"] == "BUY"                               # OppList stats stand
+    assert "unavailable" in c["verdict"].lower()
+    blob = c["headline"] + " " + c["verdict"]
+    assert "under 5 years" not in blob                        # never the absence lie
+    assert "Won 0/0" not in blob
+
+
+def test_receipts_unavailable_unknown_win_rate_is_not_weak():
+    c = _build_unavailable(win_rate=None)
+    assert c["signal"] == "BUY"                               # unknown != weak on an outage
+    assert "unavailable" in c["verdict"].lower()
+
+
+def test_receipts_unavailable_loaded_weak_win_rate_still_no_signal():
+    # a win rate that DID load and is weak stays an honest NO_SIGNAL (true reason only).
+    c = _build_unavailable(win_rate=0.30)
+    assert c["signal"] == "NO_SIGNAL"
+    assert "win rate below 55%" in c["verdict"]
+    assert "under 5 years" not in c["verdict"]
+
+
+def test_receipts_unavailable_survives_decision_and_table_projection():
+    c = _build_unavailable(win_rate=0.9)
+    d = cards.project_card(c, "decision")
+    assert d["receipts"]["receipts_unavailable"] is True and d["receipts"]["note"]
+    row = cards.project_card(c, "table")
+    assert row["receipts_unavailable"] is True
 
 
 # --- ml_state -> tier_notes mapping ----------------------------------------------

@@ -274,3 +274,221 @@ def test_daily_pick_carries_disclaimer(client, monkeypatch):
     assert r.status_code == 200
     body = r.get_json()
     assert body["disclaimer"] and body["card"]["extend_research"]
+
+
+# ==================== honesty + robustness (2026-06-12 prod-429 review) ====================
+
+import requests as _requests
+
+
+def _http_error(status):
+    resp = _requests.Response()
+    resp.status_code = status
+    return _requests.HTTPError("%d error" % status, response=resp)
+
+
+# --- receipts_unavailable flows through the scan route -----------------------------
+
+def test_scan_failed_receipts_never_render_false_no_signal(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    _mock_card_chain(monkeypatch, multi=[_opp()])
+    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *a, **k: (None, None))  # fetch FAILED
+    r = client.get(f"/v1/scan?{_WIN}&markets=2&view=full", headers=_hdr())
+    assert r.status_code == 200
+    body = r.get_json()
+    card = body["opportunities"][0]
+    assert card["receipts"]["receipts_unavailable"] is True
+    assert card["signal"] == "BUY"                  # the OppList-stats signal is KEPT
+    assert "unavailable" in card["verdict"].lower()
+    assert "unavailable" in body["summary"].lower() # degraded enrichment named in the lead
+
+
+# --- structured 503 on the chart endpoints ------------------------------------------
+
+def test_patterns_upstream_429_is_structured_503(client, monkeypatch):
+    def _boom(*a, **k):
+        raise _http_error(429)
+    _patch_appsrv(monkeypatch, pattern_stats=_boom)
+    r = client.get("/v1/patterns/2/AAPL", headers=_hdr())
+    assert r.status_code == 503
+    msg = r.get_json()["error"]["message"]
+    assert "chart data temporarily unavailable - retry shortly" in msg
+
+
+def test_seasonal_chart_upstream_timeout_is_structured_503(client, monkeypatch):
+    def _boom(*a, **k):
+        raise _requests.ConnectTimeout("timed out")
+    _patch_appsrv(monkeypatch, seasonal_chart=_boom)
+    r = client.get("/v1/seasonal-chart?market=2&symbol=AAPL", headers=_hdr())
+    assert r.status_code == 503
+    assert r.get_json()["error"]["code"] == "upstream_unavailable"
+
+
+# --- market forgiveness + unknown-vs-out-of-scope distinction -----------------------
+
+def test_opportunities_accepts_exact_name_case_insensitive(client, monkeypatch):
+    _patch_appsrv(monkeypatch, opportunities=lambda *a, **k: [])
+    r = client.get("/v1/opportunities?market=s%26p+500+stocks", headers=_hdr())
+    assert r.status_code == 200
+
+
+def test_analyze_market_alias_resolves(client, monkeypatch):
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()])
+    r = client.get("/v1/analyze/AAPL?market=sp500", headers=_hdr())
+    assert r.status_code == 200
+    assert r.get_json()["card"]["market"]["id"] == "2"
+
+
+def test_analyze_unknown_market_is_400_not_upsell(client, monkeypatch):
+    _mock_card_chain(monkeypatch)
+    r = client.get("/v1/analyze/AAPL?market=narnia", headers=_hdr())
+    assert r.status_code == 400
+    msg = r.get_json()["error"]["message"]
+    assert "unknown market" in msg and "upgrade" not in msg.lower()
+
+
+def test_scan_unknown_market_is_400_not_upsell(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[])
+    r = client.get("/v1/scan?markets=atlantis", headers=_hdr())
+    assert r.status_code == 400
+    msg = r.get_json()["error"]["message"]
+    assert "unknown market" in msg and "upgrade" not in msg.lower()
+
+
+def test_scan_out_of_scope_catalog_market_is_honest_403(client, monkeypatch):
+    from apiserver import auth
+    free = dict(_CUSTOMER, tier="free", entitlements=tiers.tier_for("free"))
+    monkeypatch.setattr(auth, "resolve_customer", lambda key: dict(free))
+    _mock_card_chain(monkeypatch, multi=[])
+    r = client.get("/v1/scan?markets=ETFs", headers=_hdr())   # real market, free scope is ['2']
+    assert r.status_code == 403
+    body = r.get_json()["error"]
+    assert "scope" in body["message"] and body["upgrade_url"]
+
+
+# --- scan honesty trio ---------------------------------------------------------------
+
+def test_scan_min_win_rate_percent_autonormalizes_with_note(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[_opp()])
+    r = client.get(f"/v1/scan?{_WIN}&markets=2&min_win_rate=90", headers=_hdr())
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["count"] == 1                       # 0.9 passes the normalized 0.90
+    assert "normalized" in body["min_win_rate_note"]
+    assert "normalized" in body["summary"]
+
+
+def test_scan_min_win_rate_over_100_is_400_with_guidance(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[])
+    r = client.get("/v1/scan?min_win_rate=150", headers=_hdr())
+    assert r.status_code == 400
+    assert "0.9" in r.get_json()["error"]["message"]
+
+
+def test_scan_all_no_signal_lead_is_honest(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)])
+    r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    body = r.get_json()
+    assert body["summary"].startswith("Evaluated 1 candidate - 0 have a high-conviction edge")
+    assert "Found" not in body["summary"]
+
+
+# --- scan dedupe ----------------------------------------------------------------------
+
+def test_scan_dedupes_cross_market_duplicates(client, monkeypatch):
+    # the same (symbol, direction, entry_date, hold_days) listed by 3 markets (the live
+    # MSFT x3 case) must collapse to ONE ranked row, preferring the primary listing.
+    rows = [_opp(market="0"), _opp(market="1"), _opp(market="2")]
+    _mock_card_chain(monkeypatch, multi=rows)
+    r = client.get(f"/v1/scan?{_WIN}&markets=0,1,2", headers=_hdr())
+    body = r.get_json()
+    assert body["evaluated_count"] == 1 and body["count"] == 1
+    assert body["opportunities"][0]["market"]["id"] == "2"
+
+
+def test_scan_keeps_distinct_setups(client, monkeypatch):
+    rows = [_opp(market="2"), _opp(market="2", direction="short")]
+    _mock_card_chain(monkeypatch, multi=rows)
+    r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    assert r.get_json()["evaluated_count"] == 2
+
+
+# --- free-tier wall visible ------------------------------------------------------------
+
+def test_scan_plan_cap_is_visible_with_upgrade_url(client, monkeypatch):
+    from apiserver import auth
+    free = dict(_CUSTOMER, tier="free", entitlements=tiers.tier_for("free"))
+    monkeypatch.setattr(auth, "resolve_customer", lambda key: dict(free))
+    rows = [_opp(symbol="S%02d" % i) for i in range(6)]
+    _mock_card_chain(monkeypatch, multi=rows)
+    r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    body = r.get_json()
+    assert body["capped_by_plan"] is True
+    assert body["shown_of_evaluated"] == "3 of 6"   # free opp_limit = 3
+    assert body["upgrade_url"]
+    assert "capped by your plan" in body["summary"]
+
+
+def test_scan_uncapped_envelope_is_clean(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[_opp()])
+    body = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr()).get_json()
+    assert body["capped_by_plan"] is False
+    assert "upgrade_url" not in body
+
+
+def test_me_carries_upgrade_url(client, monkeypatch):
+    _patch_appsrv(monkeypatch, list_markets=lambda: [])
+    r = client.get("/v1/me", headers=_hdr())
+    assert r.status_code == 200
+    assert r.get_json()["upgrade_url"]
+
+
+# --- token-bomb trim ---------------------------------------------------------------------
+
+def test_decision_view_omits_extend_research(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[_opp()])
+    r = client.get(f"/v1/scan?{_WIN}&markets=2&view=decision", headers=_hdr())
+    card = r.get_json()["opportunities"][0]
+    assert "extend_research" not in card
+    assert card["verdict"] and card["signal"] == "BUY"
+
+
+def test_full_view_keeps_extend_research(client, monkeypatch):
+    _mock_card_chain(monkeypatch, multi=[_opp()])
+    r = client.get(f"/v1/scan?{_WIN}&markets=2&view=full", headers=_hdr())
+    assert "extend_research" in r.get_json()["opportunities"][0]
+
+
+def test_symbols_prefix_and_limit_paging(client, monkeypatch):
+    _patch_appsrv(monkeypatch,
+                  list_symbols=lambda m: [{"symbol": s, "name": s}
+                                          for s in ("AAPL", "AAL", "MSFT")])
+    r = client.get("/v1/markets/2/symbols?prefix=aa&limit=1", headers=_hdr())
+    body = r.get_json()
+    assert body["total"] == 3 and body["matched"] == 2 and body["count"] == 1
+    assert body["symbols"][0]["symbol"] == "AAPL"
+    assert "note" in body                            # truncation is explicit
+
+
+# --- daily-pick staleness guard -----------------------------------------------------------
+
+def _mock_daily_pick(monkeypatch, featured_date):
+    from apiserver import appserver_client as ac
+    _mock_card_chain(monkeypatch)
+    monkeypatch.setattr(ac, "daily_pick_raw",
+                        lambda: {"opp": _opp(), "featured_date": featured_date})
+    monkeypatch.setattr(ac, "track_record", lambda: {"summary": {"count": 1}})
+
+
+def test_daily_pick_stale_note_when_old(client, monkeypatch):
+    _mock_daily_pick(monkeypatch, "2026-01-05")
+    body = client.get("/v1/daily-pick", headers=_hdr()).get_json()
+    assert "2026-01-05" in body["stale_note"]
+    assert body["as_of"]
+
+
+def test_daily_pick_fresh_has_no_stale_note(client, monkeypatch):
+    from apiserver import routes
+    _mock_daily_pick(monkeypatch, routes._last_trading_day().isoformat())
+    body = client.get("/v1/daily-pick", headers=_hdr()).get_json()
+    assert "stale_note" not in body

@@ -34,6 +34,15 @@ MIN_EDGE_SCORE = 40
 MIN_WIN_RATE = 0.55
 MIN_YEARS_TESTED = 5
 
+# Stamped on a card whose receipts FAILED to load (429/timeout/upstream error - an outage,
+# not a data gap). The card keeps the OppList-level stats and must never read as a
+# confident "no edge" manufactured from missing data.
+RECEIPTS_UNAVAILABLE_NOTE = (
+    "Per-year receipts could not be loaded right now (upstream data temporarily "
+    "unavailable - retry shortly). This is an outage, not a data gap: the setup stats "
+    "from the opportunity scan are shown unverified."
+)
+
 # tier_notes for the ML state of a card (ML is metered per day across all tiers now).
 _ML_NOTES = {
     "shown": "ML score shown.",
@@ -400,7 +409,7 @@ def _extend_research(symbol, direction, entry_d, exit_d, hold_days):
 
 def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
                       ml_available=False, seasonal_curve=None, as_of=None, rank=None,
-                      ml_state="na", include_chart=False):
+                      ml_state="na", include_chart=False, receipts_unavailable=False):
     """Build ONE SignalCard.
 
     opp:            an Opportunity dict from appserver_client (_opp_row_to_obj shape):
@@ -414,6 +423,10 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
     seasonal_curve: optional [{date, index}] for curve_summary (NOT shipped inline).
     as_of:          ISO date string the data is stamped as-of (defaults to today).
     rank:           pre-sorted rank int (the endpoint sets it; the agent never sorts).
+    receipts_unavailable: True when the ChartData4 receipts FETCH FAILED (429/timeout/
+                    error - not a data gap). The card is stamped receipts_unavailable,
+                    keeps the OppList-level stats/signal, and its verdict degrades to
+                    "data temporarily unavailable" - NEVER to a confident no-edge.
     """
     as_of = as_of or datetime.date.today().isoformat()
     symbol = opp.get("symbol")
@@ -461,12 +474,20 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
     # wins/losses/years_tested are derived from per_year so the receipts are internally
     # consistent (the headline 'won X/Y years' always matches the per_year rows). The
     # authoritative historical_win_rate stays the appserver's Percent Profitable above.
-    per_year, wins, losses = per_year_returns(chart_entries, lookback=years_str, direction=direction)
-    years_tested = len(per_year)
-
-    # win rate fallback from counts only if Percent Profitable was missing entirely.
-    if historical_win_rate is None and (wins + losses) > 0:
-        historical_win_rate = round(wins / (wins + losses), 4)
+    if receipts_unavailable:
+        per_year, wins, losses = [], 0, 0
+        years_tested = None
+        # ranking proxy: the requested lookback (detection already required most of those
+        # years to win) - the receipts that would prove it just could not be fetched.
+        years_for_edge = int(years_str) if years_str.isdigit() else 0
+    else:
+        per_year, wins, losses = per_year_returns(chart_entries, lookback=years_str,
+                                                  direction=direction)
+        years_tested = len(per_year)
+        years_for_edge = years_tested
+        # win rate fallback from counts only if Percent Profitable was missing entirely.
+        if historical_win_rate is None and (wins + losses) > 0:
+            historical_win_rate = round(wins / (wins + losses), 4)
 
     best, worst = _best_worst(per_year)
 
@@ -484,7 +505,7 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
 
     # --- edge score (the one blend) ---
     edge_score, edge_basis = compute_edge_score(
-        historical_win_rate, sharpe, years_tested,
+        historical_win_rate, sharpe, years_for_edge,
         ml_win_prob=ml_win_prob, ml_available=ml_available)
 
     # --- setup dates ---
@@ -503,31 +524,52 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
     csum = curve_summary(section_curve)
 
     # --- NO_SIGNAL rule (spec section 4) ---
-    weak = (edge_score < MIN_EDGE_SCORE
-            or (historical_win_rate is None or historical_win_rate < MIN_WIN_RATE)
-            or years_tested < MIN_YEARS_TESTED)
+    if receipts_unavailable:
+        # Receipts FAILED to load - an outage is never evidence of absence. Only a LOADED
+        # weak win rate may down-rate the setup; an unknown one keeps the OppList-detected
+        # signal with an explicit unavailability note instead of a manufactured NO_SIGNAL.
+        weak = historical_win_rate is not None and historical_win_rate < MIN_WIN_RATE
+    else:
+        weak = (edge_score < MIN_EDGE_SCORE
+                or (historical_win_rate is None or historical_win_rate < MIN_WIN_RATE)
+                or years_tested < MIN_YEARS_TESTED)
     signal = "NO_SIGNAL" if weak else side
 
     # --- receipts (always present; the trust layer) ---
-    receipts = {
-        "years_tested": years_tested,
-        "wins": wins,
-        "losses": losses,
-        "historical_win_rate": historical_win_rate,
-        "avg_return_pct": _round(avg_return),
-        "median_return_pct": _round(median_return),
-        "best_year": best,
-        "worst_year": worst,
-        "per_year": per_year,
-        "curve_summary": csum,
-        "source": "TradeWave seasonal model, %sy lookback" % years_str,
-        "as_of": as_of,
-    }
+    if receipts_unavailable:
+        receipts = {
+            "receipts_unavailable": True,
+            "note": RECEIPTS_UNAVAILABLE_NOTE,
+            "years_tested": None,
+            "historical_win_rate": historical_win_rate,
+            "avg_return_pct": _round(avg_return),
+            "median_return_pct": _round(median_return),
+            "per_year": [],
+            "curve_summary": csum,
+            "source": "TradeWave seasonal model, %sy lookback" % years_str,
+            "as_of": as_of,
+        }
+    else:
+        receipts = {
+            "years_tested": years_tested,
+            "wins": wins,
+            "losses": losses,
+            "historical_win_rate": historical_win_rate,
+            "avg_return_pct": _round(avg_return),
+            "median_return_pct": _round(median_return),
+            "best_year": best,
+            "worst_year": worst,
+            "per_year": per_year,
+            "curve_summary": csum,
+            "source": "TradeWave seasonal model, %sy lookback" % years_str,
+            "as_of": as_of,
+        }
 
     # --- headline + verdict (gateway-composed, mandatory) ---
     headline, verdict = _compose_text(
         symbol, direction, entry_d, hold_days, wins, losses, years_tested,
-        avg_return, sharpe, historical_win_rate, signal, receipts["curve_summary"])
+        avg_return, sharpe, historical_win_rate, signal, receipts["curve_summary"],
+        receipts_unavailable=receipts_unavailable)
 
     # --- next_step (omit order_ticket on NO_SIGNAL) ---
     next_step = _build_next_step(symbol, side, entry_d, exit_d, hold_days, signal)
@@ -587,14 +629,21 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
 
 
 def _compose_text(symbol, direction, entry_d, hold_days, wins, losses, years_tested,
-                  avg_return, sharpe, win_rate, signal, csum):
-    """Build headline + verdict. No em-dashes (use ' - ')."""
+                  avg_return, sharpe, win_rate, signal, csum, receipts_unavailable=False):
+    """Build headline + verdict. No em-dashes (use ' - ').
+
+    receipts_unavailable: the per-year receipts FAILED to load (outage, not a data gap).
+    NO_SIGNAL can then only mean a LOADED weak win rate, so the absence-derived reasons
+    ('under 5 years of history') are never claimed, and a non-weak verdict degrades to
+    'data temporarily unavailable' instead of asserting a verified record."""
     if signal == "NO_SIGNAL":
         headline = "%s %s - no high-conviction seasonal edge right now." % (symbol, direction)
         reasons = []
-        if win_rate is None or win_rate < MIN_WIN_RATE:
+        if win_rate is not None and win_rate < MIN_WIN_RATE:
             reasons.append("win rate below 55%")
-        if years_tested < MIN_YEARS_TESTED:
+        elif win_rate is None and not receipts_unavailable:
+            reasons.append("win rate below 55%")
+        if not receipts_unavailable and (years_tested or 0) < MIN_YEARS_TESTED:
             reasons.append("under 5 years of history")
         why = "; ".join(reasons) if reasons else "the blended edge is too low to act on"
         verdict = "Low conviction - %s. No setup worth placing here." % why
@@ -609,6 +658,12 @@ def _compose_text(symbol, direction, entry_d, hold_days, wins, losses, years_tes
     hold_txt = ("hold %dd" % hold_days) if isinstance(hold_days, int) else ""
     headline = "%s %s - enter ~%s%s. %s" % (
         symbol, direction, when, (", " + hold_txt) if hold_txt else "", tail)
+    if receipts_unavailable:
+        verdict = ("Receipts temporarily unavailable - the per-year record could not be "
+                   "loaded right now (upstream rate limit/outage), so this setup is "
+                   "unverified. The scan-level stats stand; retry shortly for the full "
+                   "receipts.")
+        return headline.strip(), verdict
     # verdict: a one-line read.
     strength = "Strong" if (win_rate or 0) >= 0.75 else "Solid"
     shape_note = ""
@@ -681,9 +736,9 @@ def compact_setup(opp):
 # The lean 'decision' view keeps the read + the next move and DROPS the heavy detail (the
 # per_year[] array, the full chart, the extended stats). The agent re-requests view='full'
 # when it actually needs the receipts.
-_DECISION_RECEIPT_KEYS = ("years_tested", "wins", "losses", "historical_win_rate",
-                          "avg_return_pct", "best_year", "worst_year", "curve_summary",
-                          "live_track_record", "source", "as_of")
+_DECISION_RECEIPT_KEYS = ("receipts_unavailable", "note", "years_tested", "wins", "losses",
+                          "historical_win_rate", "avg_return_pct", "best_year", "worst_year",
+                          "curve_summary", "live_track_record", "source", "as_of")
 _DECISION_STAT_KEYS = ("historical_win_rate", "sharpe_ratio", "avg_return_pct", "years")
 
 
@@ -708,6 +763,10 @@ def project_card(card, view="full"):
     # NB: a `chart` block is only ever present when the caller explicitly asked include=chart,
     # so it is preserved across views (they opted into that payload). edge_basis is detail.
     out.pop("edge_basis", None)
+    # Token trim: the per-card extend_research block is the largest fixed-cost text on a
+    # multi-card scan and is identical methodology per card; the MCP envelope hand-off
+    # already carries it once per response. 'full' keeps it.
+    out.pop("extend_research", None)
     stats = card.get("stats")
     if isinstance(stats, dict):
         out["stats"] = {k: stats[k] for k in _DECISION_STAT_KEYS if k in stats}
@@ -723,7 +782,7 @@ def _card_row(card):
     ml = card.get("ml") or {}
     setup = card.get("setup") or {}
     market = card.get("market") or {}
-    return {
+    row = {
         "rank": card.get("rank"),
         "symbol": card.get("symbol"),
         "market": market.get("name") or market.get("id"),
@@ -737,3 +796,8 @@ def _card_row(card):
         "sharpe_ratio": stats.get("sharpe_ratio"),
         "headline": card.get("headline"),
     }
+    # the honesty flag survives the compact projection - a row built on a failed receipts
+    # fetch must never read as a verified one.
+    if (card.get("receipts") or {}).get("receipts_unavailable"):
+        row["receipts_unavailable"] = True
+    return row

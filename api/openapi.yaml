@@ -67,7 +67,7 @@ paths:
         - { name: min_winning_years, in: query, schema: { type: integer }, description: "of those `years`, the minimum WINNING years for a pattern to be listed (the win-rate floor; year2). DEFAULTS to ~90% of `years` (so years=20 -> a valid 20-18). Must lie in the market's DETECTION BAND, which is market-specific (~75-90%+ winners; e.g. S&P 500 ~85%, Wilshire ~90%, FOREX Liquid ~70% at a 20-year lookback). Multi-market scan: out-of-band markets are reported in lookback_note (not errored)." }
         - { name: rank_by, in: query, schema: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return], default: sharpe }, description: "ranking key; default sharpe (Sharpe ratio)" }
         - { name: limit, in: query, schema: { type: integer, default: 25 }, description: "tier-capped (free 3, dev 25, pro up to 5000)" }
-        - { name: view, in: query, schema: { type: string, enum: [full, decision, table], default: full }, description: "response verbosity (progressive disclosure). 'full' (default) = complete cards; 'decision' = the lean read (drops receipts.per_year + the detail stats, keeps verdict/timing/edge/extend_research); 'table' = one compact row per setup. The MCP layer requests 'decision' by default." }
+        - { name: view, in: query, schema: { type: string, enum: [full, decision, table], default: full }, description: "response verbosity (progressive disclosure). 'full' (default) = complete cards; 'decision' = the lean read (drops receipts.per_year, the detail stats, and the per-card extend_research block - the response envelope carries the research hand-off once; keeps verdict/timing/edge); 'table' = one compact row per setup. The MCP layer requests 'decision' by default." }
       responses:
         "200":
           description: OK
@@ -416,7 +416,7 @@ components:
         headline: { type: string, description: "gateway-composed one-line summary (mandatory). No em-dashes." }
         verdict: { type: string, description: "gateway-composed plain-English read (mandatory)" }
         alignment: { $ref: "#/components/schemas/SignalAlignment", description: "whether the per-instance ML view agrees with the in-sample seasonal win rate (a cross-check, not a 4th win rate)" }
-        extend_research: { $ref: "#/components/schemas/ExtendResearch", description: "structured research hand-off: what TradeWave is blind to + what to check with your own tools. Retained in the lean 'decision' view." }
+        extend_research: { $ref: "#/components/schemas/ExtendResearch", description: "structured research hand-off: what TradeWave is blind to + what to check with your own tools. Present in the 'full' view; the 'decision' view omits it per card (the envelope-level hand-off carries the methodology once per response)." }
         chart: { $ref: "#/components/schemas/CardChart", description: "present ONLY when the request set include=chart - the Trend Chart curve + per-year bars, inline (chart DATA, never an image)." }
         disclaimer: { type: string, description: "exact regulatory disclaimer, present on every card" }
         tier_notes: { type: string, description: "'ML score shown (Pro).' or the free-tier upgrade nudge" }

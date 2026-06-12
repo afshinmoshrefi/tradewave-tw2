@@ -19,7 +19,7 @@ MANIFEST = json.loads((REPO / "site" / "api_docs" / ".well-known" / "mcp.json").
 OPENAPI = (REPO / "api" / "openapi.yaml").read_text()
 
 _FLAGSHIP = ["find_best_opportunities", "analyze_symbol", "explain_pick",
-             "whats_seasonal_now", "compare_opportunities"]
+             "morning_briefing", "whats_seasonal_now", "compare_opportunities"]
 _PRIMITIVES = ["list_markets", "whoami", "describe_tradewave", "list_symbols",
                "get_seasonal_opportunities", "get_symbol_patterns", "get_seasonal_pattern",
                "get_opportunity_chart", "score_opportunities", "get_daily_pick",
@@ -41,15 +41,15 @@ def _server_tool_names():
     return names
 
 
-# --- the tool surface is exactly the 16, everywhere ------------------------------
+# --- the tool surface is exactly the 17, everywhere ------------------------------
 
-def test_server_defines_exactly_the_16_tools_flagship_first():
+def test_server_defines_exactly_the_17_tools_flagship_first():
     assert _server_tool_names() == _EXPECTED_TOOLS
 
 
 def test_manifest_matches_the_live_tool_surface():
     manifest_names = [t["name"] for t in MANIFEST["tools"]]
-    assert manifest_names == _EXPECTED_TOOLS          # 16, flagship-first, derived from server.py
+    assert manifest_names == _EXPECTED_TOOLS          # 17, flagship-first, derived from server.py
 
 
 def test_no_phantom_tool_anywhere():

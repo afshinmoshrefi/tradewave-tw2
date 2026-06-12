@@ -7,9 +7,9 @@ REST mirror: the model reaches for a small set of FLAGSHIP tools that each retur
 ready, evidence-backed answer, and falls back to the low-level primitives only when
 it needs one exact slice.
 
-**Inventory: 16 tools - 5 flagship + 11 primitives.** Flagship:
-`find_best_opportunities`, `analyze_symbol`, `explain_pick`, `whats_seasonal_now`,
-`compare_opportunities`. Primitives: `list_markets`, `whoami`, `describe_tradewave`,
+**Inventory: 17 tools - 6 flagship + 11 primitives.** Flagship:
+`find_best_opportunities`, `analyze_symbol`, `explain_pick`, `morning_briefing`,
+`whats_seasonal_now`, `compare_opportunities`. Primitives: `list_markets`, `whoami`, `describe_tradewave`,
 `list_symbols`, `get_seasonal_opportunities`, `get_symbol_patterns`,
 `get_seasonal_pattern`, `get_opportunity_chart`, `score_opportunities`,
 `get_daily_pick`, `get_pick_track_record`. (There is NO `get_opportunity_for_symbol`;
@@ -55,6 +55,7 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
 | `find_best_opportunities` | `markets?`, `window?`, `direction?`, `min_win_rate?`, `min_years?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_median_return?`, `min_sharpe?`, `pe_cycle?`, `years?`, `min_winning_years?`, `rank_by?` (default: `sharpe`), `limit?`, `view?` (full\|decision\|table; default `decision`) | ranked SignalCards across the in-scope markets, pre-sorted by Sharpe ratio. `min_days`/`max_days` filter pattern length (e.g. 10-90 days); `min_avg_return`/`min_median_return` are PERCENT (5 = 5%); `min_sharpe` is the Sharpe floor. `years`/`min_winning_years` obey the per-market lookback BAND (see below) | `GET /v1/scan` | all (ML metered daily; count gated by tier) |
 | `analyze_symbol` | `symbol`, `market?`, `direction?`, `days_out?`, `entry_date?`, `pe_cycle?`, `years?`, `period?`, `reverse?`, `view?` (full\|decision\|table; default `decision`), `include_chart?` | one rich SignalCard (best setup + receipts + order ticket) + other setups for the symbol. PIN a specific setup with `entry_date` (+`days_out`) or a `period`/`reverse` preset (the "click this exact opportunity / change the date range" flow) instead of the auto-picked best; `pe_cycle`/`years` are the wave-viewer lookback knobs. `include_chart=true` (-> `include=chart`) attaches the Trend Chart curve + per-year bars inline (one-call charting, chart DATA never an image) | `GET /v1/analyze/{symbol}` | all (ML metered daily) |
 | `explain_pick` | - | today's daily pick as a SignalCard WITH its live forward-tested track record (the strongest receipt) | `GET /v1/daily-pick` | all |
+| `morning_briefing` | - | the one-call MORNING BRIEFING: today's pick (decision view), the live track-record summary with the last 5 outcomes, and the top setups entering their window now; sections fail-soft (a degraded briefing beats no briefing) | `GET /v1/daily-pick` + `GET /v1/daily-pick/track-record` + `GET /v1/scan` (composed, parallel) | all |
 | `whats_seasonal_now` | `markets?`, `min_win_rate?`, `view?` (full\|decision\|table; default `decision`) | setups entering their window in the next ~10 trading days, as ranked SignalCards (weekly digest) | `GET /v1/scan` with `window="now"` | all |
 | `compare_opportunities` | `symbols[]`, `market?`, `view?` (full\|decision\|table; default `decision`) | N symbols deep-dived and returned side-by-side for head-to-head ranking | N x `GET /v1/analyze/{symbol}` | all (ML metered daily) |
 
@@ -77,7 +78,7 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
   takes `include_chart=true`, forwarded as `include=chart`, to fold the Trend Chart curve
   (0-100 seasonal index) + per-year bars into the same call.
 - **Research hand-off + disclaimer on every card-bearing response.** Card-bearing flagships
-  (`find_best_opportunities`, `analyze_symbol`, `explain_pick`, `whats_seasonal_now`,
+  (`find_best_opportunities`, `analyze_symbol`, `explain_pick`, `whats_seasonal_now`, `morning_briefing`,
   `compare_opportunities`) append an `extend_research` hand-off after the payload
   (`handoff=True`): it states TradeWave is BLIND to fundamentals/news/macro/valuation/
   earnings, tells the model to verify the seasonal thesis with its OWN tools (and never to

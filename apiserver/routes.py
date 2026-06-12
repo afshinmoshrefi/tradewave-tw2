@@ -12,8 +12,10 @@ JSON via the app error handlers; only genuine data gaps fail soft.
 import concurrent.futures
 import datetime
 import logging
+import os
 import re
 
+import requests
 from flask import Blueprint, g, jsonify, request
 
 from . import appserver_client, cards, market_bands, ml_quota, tiers
@@ -22,7 +24,9 @@ from .auth import require_api_key
 log = logging.getLogger("apiserver.routes")
 v1 = Blueprint("v1", __name__)
 
-_UPGRADE_URL = "https://tw2-dev.trxstat.com/account/api"
+# Per-env console URL (TW2_PUBLIC_HOST drives every public link); the dev host is
+# only the unset-env fallback so customer-visible messages never leak it on prod.
+_UPGRADE_URL = "https://%s/account/api" % os.environ.get("TW2_PUBLIC_HOST", "tw2-dev.trxstat.com")
 
 # how many ranked rows we enrich (win_rate + receipts + ml) AFTER ranking/slicing, so the
 # scan never fans out ChartData4 50xN. Bounded by the appserver_client per-row cap.
@@ -43,15 +47,22 @@ def _err(code, message, status):
 
 def _require_scope(market_id):
     """Return an (error_response, status) tuple if the market is out of the caller's
-    tier scope, else None. The permanent resource keys '0'..'16' are the scope unit."""
+    tier scope, else None. The permanent resource keys '0'..'16' are the scope unit.
+    This 403 is the ONE legitimate upgrade nudge for markets - it fires only for a
+    RESOLVED catalog market outside the plan (a typo/unknown market is a 400 upstream
+    in _market_arg, never an upsell)."""
     scope = set(g.customer["entitlements"]["markets"])
     if str(market_id) not in scope:
-        return _err(
-            "forbidden",
-            "market '%s' is not in your plan's scope - upgrade for full market access"
-            % market_id,
-            403,
-        )
+        try:
+            name = appserver_client.market_name_map().get(str(market_id))
+        except Exception:  # noqa: BLE001 - the label is cosmetic; scope is still enforced
+            name = None
+        label = ("%s (%s)" % (name, market_id)) if name else "'%s'" % market_id
+        return jsonify({"error": {
+            "code": "forbidden",
+            "message": "market %s is not in your plan's scope - upgrade for full market access" % label,
+            "upgrade_url": _UPGRADE_URL,
+        }}), 403
     return None
 
 
@@ -111,29 +122,114 @@ def _in_scope_markets():
     return list(g.customer["entitlements"]["markets"])
 
 
+def _squash(s):
+    """Lowercase + strip every non-alphanumeric, for forgiving name/alias matching
+    ('S&P 500' / 'sp 500' / 'SP-500' all squash to 'sp500')."""
+    return re.sub(r"[^a-z0-9]+", "", str(s).lower())
+
+
+# Common shorthands for the catalog names (resolution is otherwise id / exact name /
+# unambiguous fragment). Values are the PERMANENT resource keys '0'..'16'. Aliases exist
+# mainly where a fragment would be ambiguous (forex/indices) or idiomatic (sp500, crypto).
+_MARKET_ALIASES = {
+    "sp500": "2", "spx": "2", "sandp500": "2", "sandp": "2",
+    "dow": "0", "dow30": "0", "djia": "0", "dowjones": "0",
+    "nasdaq": "1", "nasdaq100": "1", "ndx": "1",
+    "russell": "3", "russell1000": "3",
+    "wilshire": "4", "wilshire5000": "4",
+    "etf": "11",
+    "crypto": "16", "cryptos": "16", "cryptocurrency": "16", "cryptocurrencies": "16",
+    "bonds": "10", "govbonds": "10", "governmentbonds": "10", "treasuries": "10",
+    "europe": "12", "london": "12", "lse": "12", "uk": "12",
+    "toronto": "13", "canada": "13", "tsx": "13",
+    "futures": "7", "commodities": "7",
+    "forex": "8", "fx": "8", "currencies": "8",
+    "indices": "6", "indexes": "6",
+}
+
+
+def _resolve_market_token(tok, name_map):
+    """One market token -> catalog id. Accepts the id itself, the exact name
+    (case-insensitive), a known alias, or an unambiguous name fragment ('crypto').
+    Returns the id string or None (unknown/ambiguous). Resolution NEVER consults the
+    caller's scope - scope is checked separately (_require_scope) so an out-of-scope
+    market reads as a true upgrade, never as a typo."""
+    t = str(tok).strip()
+    if not t:
+        return None
+    if t in name_map:                       # permanent resource key
+        return t
+    low = t.lower()
+    for mid, name in name_map.items():
+        if str(name).strip().lower() == low:
+            return str(mid)
+    sq = _squash(t)
+    if not sq:
+        return None
+    if sq in _MARKET_ALIASES and _MARKET_ALIASES[sq] in name_map:
+        return _MARKET_ALIASES[sq]
+    sq_names = {str(mid): _squash(name) for mid, name in name_map.items()}
+    exact = [mid for mid, sname in sq_names.items() if sname == sq]
+    if len(exact) == 1:
+        return exact[0]
+    frags = [mid for mid, sname in sq_names.items() if sq in sname]
+    if len(frags) == 1:
+        return frags[0]
+    return None
+
+
+def _market_arg(raw):
+    """Resolve a single market request value forgivingly (id / exact name / alias /
+    unambiguous fragment, case-insensitive). Returns (market_id, None) on success or
+    (None, error_response). Unknown -> a 400 with guidance, kept DISTINCT from the
+    out-of-scope 403 (_require_scope, applied after) so a paying user passing a real
+    catalog name never sees a false 'upgrade for market access'. If the catalog itself
+    is unreachable, falls back to the raw value (pre-resolution behavior) rather than
+    failing the request."""
+    if raw is None or str(raw).strip() == "":
+        return None, _err("invalid_request", "query param 'market' is required", 400)
+    try:
+        name_map = appserver_client.market_name_map()
+    except requests.RequestException as e:
+        log.warning("market catalog unavailable for resolution; using raw value: %s", e)
+        return str(raw).strip(), None
+    mid = _resolve_market_token(raw, name_map)
+    if mid is None:
+        return None, _err(
+            "invalid_request",
+            "unknown market '%s' - pass a market id or a name from /v1/markets "
+            "(e.g. '2' or 'S&P 500 STOCKS')" % raw, 400)
+    return mid, None
+
+
 def _parse_markets_param(raw, name_map):
-    """Resolve the `markets` csv (ids like '2,11' OR EXACT list_markets names like
-    'S&P 500 STOCKS,ETFs') to a list of in-scope ids. Token names must match a market name
-    exactly (case-insensitive); unknown/out-of-scope tokens are dropped. Default = ALL in-scope."""
+    """Resolve the `markets` csv to in-scope ids. Each token may be a market id ('2'),
+    an exact catalog name (case-insensitive: 'S&P 500 STOCKS'), a common alias ('sp500',
+    'crypto', 'europe'), or an unambiguous name fragment. Returns
+    (ids, unknown_tokens, out_of_scope_labels) so the caller can distinguish a typo
+    (-> 400) from a real market outside the plan (-> the honest upgrade 403) instead of
+    silently dropping either. Default (raw empty) = the liquid core within scope."""
     scope = set(_in_scope_markets())
     if not raw:
         # Default to the liquid core (intersected with the caller's scope) to keep the
         # no-markets scan fast; fall back to full scope if none of the core is in scope.
         core = [m for m in _DEFAULT_SCAN_MARKETS if m in scope]
-        return core or [m for m in _in_scope_markets()]
-    name_to_id = {str(v).strip().lower(): str(k) for k, v in name_map.items()}
-    out = []
+        return (core or [m for m in _in_scope_markets()]), [], []
+    out, unknown, out_of_scope = [], [], []
     for tok in raw.split(","):
         t = tok.strip()
         if not t:
             continue
-        if t in scope:
-            out.append(t)
-        elif t.lower() in name_to_id and name_to_id[t.lower()] in scope:
-            out.append(name_to_id[t.lower()])
+        mid = _resolve_market_token(t, name_map)
+        if mid is None:
+            unknown.append(t)
+        elif mid not in scope:
+            out_of_scope.append("%s (%s)" % (name_map.get(mid, mid), mid))
+        else:
+            out.append(mid)
     # dedupe, preserve order
     seen = set()
-    return [m for m in out if not (m in seen or seen.add(m))]
+    return [m for m in out if not (m in seen or seen.add(m))], unknown, out_of_scope
 
 
 def _resolve_window(window):
@@ -161,6 +257,72 @@ def _resolve_window(window):
     # ~7 calendar days per 5 trading days
     cal = int(round(days * 7 / 5)) if w == "now" else days
     return today, today + datetime.timedelta(days=cal), w
+
+
+def _min_win_rate_arg():
+    """min_win_rate is a 0..1 FRACTION (share of profitable years). Humans habitually
+    pass a percent (90); silently matching nothing would be a confident lie, so values
+    in (1, 100] auto-normalize (90 -> 0.9) with an explanatory note, and anything > 100
+    raises ValueError (-> 400). Returns (value_or_None, note_or_None)."""
+    raw = request.args.get("min_win_rate", type=float)
+    if raw is None:
+        return None, None
+    if raw > 100:
+        raise ValueError("min_win_rate is a 0..1 fraction (90%% = 0.9); got %g" % raw)
+    if raw > 1:
+        return raw / 100.0, ("min_win_rate=%g was interpreted as a percent and "
+                             "normalized to %g (the parameter is a 0..1 fraction)."
+                             % (raw, raw / 100.0))
+    return raw, None
+
+
+# Primary-listing preference for scan dedupe ties (mirrors analyze's bare-ticker
+# resolution order: S&P 500 -> DOW 30 -> NASDAQ 100).
+_PRIMARY_MARKET_ORDER = {"2": 0, "0": 1, "1": 2}
+
+
+# Markets whose SHARED TICKER means the SAME instrument (the US equity index
+# memberships + the ETF list). Outside this group, equal tickers are frequently
+# DIFFERENT instruments (CL = Colgate in S&P 500 but Crude Oil in futures), so
+# the dedupe key keeps the market id and never merges them.
+_SAME_INSTRUMENT_MARKETS = {"0", "1", "2", "3", "4", "11"}
+
+
+def _dedupe_scan_rows(rows):
+    """Collapse the SAME setup listed by several markets (e.g. MSFT in DOW 30 + NASDAQ
+    100 + S&P 500) to ONE row, keyed (symbol, direction, entry_date, days_out) WITHIN
+    the US-equity cross-listing group only - a live top-8 once carried MSFT x3.
+    Preference: the ML-eligible market's row first (keeps ML enrichment possible),
+    then the primary US listing order, then the higher Sharpe. First-appearance
+    order is preserved (the scan re-sorts by Sharpe right after)."""
+    def _pref(o):
+        m = str(o.get("market"))
+        return (0 if _ml_eligible(m) else 1,
+                _PRIMARY_MARKET_ORDER.get(m, 9),
+                -(o.get("sharpe_ratio") or 0))
+
+    best, order = {}, []
+    for o in rows:
+        m = str(o.get("market"))
+        group = "us-equity" if m in _SAME_INSTRUMENT_MARKETS else m
+        k = (group, o.get("symbol"), o.get("direction"), o.get("entry_date"), o.get("days_out"))
+        cur = best.get(k)
+        if cur is None:
+            best[k] = o
+            order.append(k)
+        elif _pref(o) < _pref(cur):
+            best[k] = o
+    return [best[k] for k in order]
+
+
+def _last_trading_day(today=None):
+    """The most recent weekday (Mon-Fri). A naive approximation (market holidays are not
+    modeled), used ONLY for the daily-pick staleness note - which is phrased as a soft
+    'may not have been generated', never a hard claim."""
+    d = today or datetime.date.today()
+    while d.weekday() >= 5:
+        d -= datetime.timedelta(days=1)
+    return d
 
 
 @v1.get("/markets")
@@ -200,16 +362,36 @@ def me():
         "opp_limit": ent.get("opp_limit"),
         "rate": ent.get("rate"),
         "markets_in_scope": in_scope,
+        "upgrade_url": _UPGRADE_URL,
     })
 
 
 @v1.get("/markets/<market_id>/symbols")
 @require_api_key
 def symbols(market_id):
+    """Symbols for one market. A full market is large (S&P 500 alone is ~150KB), so the
+    list pages: `prefix` filters by ticker prefix (case-insensitive) and `limit` caps the
+    rows returned; `total`/`matched`/`count` make any truncation explicit, never silent."""
+    market_id, m_err = _market_arg(market_id)
+    if m_err:
+        return m_err
     scope_err = _require_scope(market_id)
     if scope_err:
         return scope_err
-    return jsonify({"symbols": appserver_client.list_symbols(market_id)})
+    syms = appserver_client.list_symbols(market_id)
+    total = len(syms)
+    prefix = (request.args.get("prefix") or "").strip().upper()
+    if prefix:
+        syms = [s for s in syms if str(s.get("symbol", "")).upper().startswith(prefix)]
+    matched = len(syms)
+    limit = request.args.get("limit", type=int)
+    if limit is not None and limit >= 0:
+        syms = syms[:limit]
+    out = {"symbols": syms, "count": len(syms), "matched": matched, "total": total}
+    if len(syms) < matched:
+        out["note"] = ("showing %d of %d matching symbols - raise 'limit' or narrow "
+                       "'prefix' for the rest" % (len(syms), matched))
+    return jsonify(out)
 
 
 def _column_filters_from_args():
@@ -422,9 +604,9 @@ def _chart_years(pe_cycle, count):
 @v1.get("/opportunities")
 @require_api_key
 def opportunities():
-    market = request.args.get("market")
-    if not market:
-        return _err("invalid_request", "query param 'market' is required", 400)
+    market, m_err = _market_arg(request.args.get("market"))
+    if m_err:
+        return m_err
     scope_err = _require_scope(market)
     if scope_err:
         return scope_err
@@ -445,10 +627,10 @@ def opportunities():
     # to that cap and drop rows we could not enrich (an unknown rate must NOT pass a
     # minimum filter). Without min_win_rate we still enrich up to the cap so win_rate is
     # populated, but we never drop rows.
-    min_win_rate = request.args.get("min_win_rate", type=float)
     enrich_n = appserver_client.MAX_WIN_RATE_ENRICH
 
     try:
+        min_win_rate, mwr_note = _min_win_rate_arg()
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # consecutive | pe (current cycle)
         year1, year2 = _lookback_args(market=market, path="scan",
                                       pe_mode=_opp_mode(pe_cycle) != "consecutive")
@@ -500,7 +682,7 @@ def opportunities():
             for o, score in zip(score_rows, ml):
                 o["ml"] = score
 
-    return jsonify({
+    payload = {
         "opportunities": opps,
         "ml_remaining_today": ml_quota.remaining(g.customer),
         "entry_date": entry_date,
@@ -510,7 +692,10 @@ def opportunities():
         # educational-only: any signal-bearing response (win rates / ML / returns) carries the
         # exact disclaimer, not just the composed SignalCard endpoints.
         "disclaimer": cards.DISCLAIMER,
-    })
+    }
+    if mwr_note:
+        payload["min_win_rate_note"] = mwr_note
+    return jsonify(payload)
 
 
 def _symbol_patterns_response(symbol):
@@ -518,9 +703,9 @@ def _symbol_patterns_response(symbol):
     data behind the wave-viewer pattern dropdown). Shared by /v1/opportunities/<symbol> and the
     clearer alias /v1/securities/<symbol>/patterns. Supports pe_cycle=consecutive|pe and the
     numeric column filters (min_days/max_days/min_avg_return/min_median_return/min_sharpe)."""
-    market = request.args.get("market")
-    if not market:
-        return _err("invalid_request", "query param 'market' is required", 400)
+    market, m_err = _market_arg(request.args.get("market"))
+    if m_err:
+        return m_err
     scope_err = _require_scope(market)
     if scope_err:
         return scope_err
@@ -577,12 +762,18 @@ def symbol_patterns(symbol):
 def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank=None,
                      ml_state="na", name_map=None, include_chart=False):
     """Source receipts (ChartData4 stats + per-year entries) for ONE opp and build its
-    card. A per-symbol data gap degrades that row to a card with whatever stats exist
-    (logged inside appserver_client) - it never aborts the request."""
+    card. Two distinct degraded paths, never conflated: a genuine per-symbol DATA GAP
+    yields empty stats/entries and the card reflects the thin record; a FAILED fetch
+    (429 after retries / timeout / upstream error, surfaced as (None, None)) stamps the
+    card receipts_unavailable so it degrades to 'data temporarily unavailable' instead
+    of a confident no-edge. Neither aborts the request."""
     stats, chart_entries = appserver_client.chart_stats_and_years(
         opp["market"], opp["symbol"], opp["entry_date"], opp.get("days_out"), opp.get("years"))
-    # win_rate from the same stats (so historical_win_rate is consistent everywhere)
-    if opp.get("win_rate") is None:
+    receipts_unavailable = stats is None and chart_entries is None
+    if receipts_unavailable:
+        stats, chart_entries = {}, []
+    elif opp.get("win_rate") is None:
+        # win_rate from the same stats (so historical_win_rate is consistent everywhere)
         opp["win_rate"] = appserver_client._win_rate_from_stats(stats)
     name_map = name_map or appserver_client.market_name_map()
     market_name = name_map.get(str(opp["market"]), str(opp["market"]))
@@ -590,7 +781,8 @@ def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank
     return cards.build_signal_card(
         opp, stats, chart_entries, market_name=market_name, ml=ml,
         ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=as_of,
-        rank=rank, ml_state=ml_state, include_chart=include_chart)
+        rank=rank, ml_state=ml_state, include_chart=include_chart,
+        receipts_unavailable=receipts_unavailable)
 
 
 def _ml_state_for(opp, ml_available):
@@ -632,11 +824,31 @@ def scan():
     surviving rows (win_rate + receipts + Pro ML) so we never fan out ChartData4 NxM."""
     name_map = appserver_client.market_name_map()
     markets_param = request.args.get("markets")
-    market_ids = _parse_markets_param(markets_param, name_map)
+    market_ids, unknown_toks, out_of_scope = _parse_markets_param(markets_param, name_map)
     if not market_ids:
+        # Distinct failures: a real catalog market outside the plan is the honest upgrade
+        # 403; a typo/unknown token is a 400 with guidance - NEVER an upsell.
+        if out_of_scope:
+            return jsonify({"error": {
+                "code": "forbidden",
+                "message": "market(s) %s are not in your plan's scope - upgrade for full "
+                           "market access" % ", ".join(out_of_scope),
+                "upgrade_url": _UPGRADE_URL,
+            }}), 403
+        if unknown_toks:
+            return _err("invalid_request",
+                        "unknown market(s): %s - pass ids or names from /v1/markets "
+                        "(e.g. '2' or 'S&P 500 STOCKS')" % ", ".join(unknown_toks), 400)
         return _err("invalid_request",
                     "no in-scope markets resolved from 'markets' - check ids/names and your plan scope",
                     400)
+    notes = []
+    if out_of_scope:
+        notes.append("out-of-scope market(s) skipped: %s - upgrade for access: %s"
+                     % (", ".join(out_of_scope), _UPGRADE_URL))
+    if unknown_toks:
+        notes.append("unknown market token(s) ignored: %s" % ", ".join(unknown_toks))
+    markets_note = "; ".join(notes) or None
 
     win = _resolve_window(request.args.get("window"))
     if win is None:
@@ -646,7 +858,6 @@ def scan():
     entry_lo, entry_hi, window_label = win
 
     direction = request.args.get("direction")
-    min_win_rate = request.args.get("min_win_rate", type=float)
     min_years = request.args.get("min_years", type=int)
     # Default ranking = Sharpe descending, mirroring TradeWave's own daily-pick + SMN 'AI'
     # selectors (filter on win metrics, then sort by Sharpe). edge_score stays available
@@ -655,6 +866,7 @@ def scan():
     if rank_by not in _RANK_KEYS:
         rank_by = "sharpe"
     try:
+        min_win_rate, mwr_note = _min_win_rate_arg()
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # consecutive | pe (current cycle)
         # multi-market scan: lenient (market=None) - the band differs per market, so we default
         # min_winning_years to ~90% and annotate any out-of-band markets below rather than error.
@@ -689,6 +901,10 @@ def scan():
     #     with avg profit >= 5% is min_days=10&max_days=90&min_avg_return=5.
     keep = _column_filters_from_args()
     in_window = [o for o in in_window if keep(o)]
+
+    # 2c) dedupe BEFORE rank/cap: the same setup listed by several markets must not eat
+    #     multiple ranked slots (a live top-8 once carried MSFT x3).
+    in_window = _dedupe_scan_rows(in_window)
     evaluated_count = len(in_window)
 
     # 3) order by Sharpe (present on every OppList4 row, no enrichment needed) to choose
@@ -762,13 +978,20 @@ def scan():
     built = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
         for card in _ex.map(_build_card, filtered):
-            if min_years is not None and card["receipts"]["years_tested"] < min_years:
+            # years_tested is None on a receipts_unavailable card: an unverifiable record
+            # is kept (with its explicit flag), never silently dropped by a trust filter.
+            yt = card["receipts"].get("years_tested")
+            if min_years is not None and yt is not None and yt < min_years:
                 continue
             card["_sortkey"] = _scan_sortkey(card, rank_by)
             built.append(card)
 
     built.sort(key=lambda c: c["_sortkey"], reverse=True)
+    pre_cap_count = len(built)
     built = built[:effective_limit]
+    # the FREE-TIER WALL, made visible: true only when the PLAN cap (not the caller's own
+    # limit) was the binding constraint on how many ranked cards came back.
+    capped_by_plan = (pre_cap_count > effective_limit and tier_cap < req_limit)
 
     # curve_summary for the RETURNED cards only (parallel): the richest narratable line,
     # without paying a curve fetch for cards that ranked out. Mirrors build_signal_card's
@@ -793,6 +1016,40 @@ def scan():
         c.pop("_sortkey", None)
         c.pop("_opp", None)
 
+    # --- the honest one-line lead (computed on the FULL cards, before projection) ---
+    # Scan honesty: an all-NO_SIGNAL page must never read as "Found N setups"; a degraded
+    # enrichment (rate-limited win-rate/receipts fetches) must say so; a plan-capped list
+    # must show the wall (mirroring the ML-nudge pattern) instead of a quietly short list.
+    shown = len(built)
+    high_conviction = sum(1 for c in built if c.get("signal") != "NO_SIGNAL")
+    degraded_rows = sum(
+        1 for c in built
+        if (c.get("receipts") or {}).get("receipts_unavailable")
+        or (c.get("stats") or {}).get("historical_win_rate") is None)
+    cand = "candidate" if evaluated_count == 1 else "candidates"
+    if shown == 0:
+        summary = ("Evaluated %d %s - none matched the filters. Try widening the "
+                   "window or markets, or relaxing the filters." % (evaluated_count, cand))
+    elif high_conviction == 0:
+        summary = ("Evaluated %d %s - 0 have a high-conviction edge right now; the "
+                   "%d shown are NO_SIGNAL (listed for transparency, nothing to act on)."
+                   % (evaluated_count, cand, shown))
+    else:
+        summary = ("Evaluated %d %s - showing %d ranked seasonal setups, %d with a "
+                   "high-conviction signal." % (evaluated_count, cand, shown, high_conviction))
+    if degraded_rows:
+        summary += (" Win-rate data unavailable for %d row(s) (upstream rate limit/outage) - "
+                    "those rows are shown unverified; retry shortly." % degraded_rows)
+    if enrichment_capped:
+        summary += (" Only the top %d candidates (by Sharpe) were fully evaluated "
+                    "(enrichment cap)." % len(head))
+    if mwr_note:
+        summary += " " + mwr_note
+    if capped_by_plan:
+        # last, so the bare URL cleanly terminates the summary string.
+        summary += (" Results are capped by your plan: showing %d of %d evaluated - "
+                    "upgrade for the full ranked list: %s" % (shown, evaluated_count, _UPGRADE_URL))
+
     # progressive disclosure: shape each card to the requested verbosity (default lean view
     # comes from the MCP layer; the raw API defaults to 'full' / backward-compatible).
     view = _view_arg()
@@ -802,6 +1059,7 @@ def scan():
     # markets contributed nothing - tell the caller rather than returning a quietly short list.
     payload = {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "summary": summary,
         "window": window_label,
         "markets_scanned": market_ids,
         "rank_by": rank_by,
@@ -810,12 +1068,20 @@ def scan():
         "count": len(built),
         "evaluated_count": evaluated_count,
         "enrichment_capped": enrichment_capped,
+        "capped_by_plan": capped_by_plan,
+        "shown_of_evaluated": "%d of %d" % (shown, evaluated_count),
         "ml_remaining_today": ml_quota.remaining(g.customer),  # None = unlimited
         "opportunities": opportunities,
         # envelope-level disclaimer: guarantees it survives a 'table' projection (rows are
         # compact and carry no per-card disclaimer) for both API and MCP consumers.
         "disclaimer": cards.DISCLAIMER,
     }
+    if capped_by_plan:
+        payload["upgrade_url"] = _UPGRADE_URL
+    if mwr_note:
+        payload["min_win_rate_note"] = mwr_note
+    if markets_note:
+        payload["markets_note"] = markets_note
     oob = market_bands.out_of_band_markets(market_ids, year1, year2, "scan")
     if oob:
         names = appserver_client.market_name_map()
@@ -850,7 +1116,14 @@ def analyze_symbol(symbol):
     market = request.args.get("market")
     resolution_note = None
 
-    if not market:
+    if market:
+        # forgiving resolution (id / exact name / alias / fragment, case-insensitive):
+        # 'S&P 500 STOCKS' or 'sp500' must work, and an unknown value is a 400 - a paying
+        # user must never see a false 'upgrade for market access' for a name/typo.
+        market, m_err = _market_arg(market)
+        if m_err:
+            return m_err
+    else:
         # resolve the market if the symbol is unique across the caller's in-scope markets.
         candidates = appserver_client.resolve_market_for_symbol(symbol, _in_scope_markets())
         if not candidates:
@@ -993,6 +1266,9 @@ def analyze_symbol(symbol):
 @v1.get("/patterns/<market_id>/<symbol>")
 @require_api_key
 def pattern(market_id, symbol):
+    market_id, m_err = _market_arg(market_id)
+    if m_err:
+        return m_err
     scope_err = _require_scope(market_id)
     if scope_err:
         return scope_err
@@ -1000,7 +1276,14 @@ def pattern(market_id, symbol):
         entry_date, days_out, yrs = _chart_window_and_years(symbol)
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
-    data = appserver_client.pattern_stats(market_id, symbol, entry_date, days_out, yrs)
+    try:
+        data = appserver_client.pattern_stats(market_id, symbol, entry_date, days_out, yrs)
+    except requests.RequestException as e:
+        # upstream 429 (after the client's bounded retries) / timeout / error: a structured,
+        # retryable 503 - never an opaque 500 (and never presented as a data gap).
+        log.warning("patterns upstream unavailable for %s/%s: %s", market_id, symbol, e)
+        return _err("upstream_unavailable",
+                    "chart data temporarily unavailable - retry shortly", 503)
     if isinstance(data, dict):
         data["disclaimer"] = cards.DISCLAIMER  # educational-only: win-rate/stats payload
     return jsonify(data)
@@ -1013,6 +1296,9 @@ def seasonal_chart():
     symbol = request.args.get("symbol")
     if not market or not symbol:
         return _err("invalid_request", "query params 'market' and 'symbol' are required", 400)
+    market, m_err = _market_arg(market)
+    if m_err:
+        return m_err
     scope_err = _require_scope(market)
     if scope_err:
         return scope_err
@@ -1021,8 +1307,15 @@ def seasonal_chart():
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
     direction = request.args.get("direction")
-    data = appserver_client.seasonal_chart(
-        market, symbol, entry_date, days_out, yrs, direction=direction)
+    try:
+        data = appserver_client.seasonal_chart(
+            market, symbol, entry_date, days_out, yrs, direction=direction)
+    except requests.RequestException as e:
+        # upstream 429 (after the client's bounded retries) / timeout / error: a structured,
+        # retryable 503 - never an opaque 500 (and never presented as a data gap).
+        log.warning("seasonal-chart upstream unavailable for %s/%s: %s", market, symbol, e)
+        return _err("upstream_unavailable",
+                    "chart data temporarily unavailable - retry shortly", 503)
     if isinstance(data, dict):
         data["disclaimer"] = cards.DISCLAIMER  # educational-only: Trend Chart + win-rate payload
     return jsonify(data)
@@ -1041,7 +1334,9 @@ def score():
     # ML-eligible markets only (0-4, 11). The score request items are not market-tagged
     # in the contract, so the market is taken from the 'market' query/body param and
     # must be ML-eligible. Default to S&P 500 ('2'), an ML-eligible market.
-    market = request.args.get("market") or body.get("market") or "2"
+    market, m_err = _market_arg(request.args.get("market") or body.get("market") or "2")
+    if m_err:
+        return m_err
     if not _ml_eligible(market):
         return _err("forbidden",
                     "market '%s' is not ML-eligible (ML markets: %s)"
@@ -1163,14 +1458,30 @@ def daily_pick():
     view = _view_arg()
     card = cards.project_card(card, view)
 
-    return jsonify({
+    # STALENESS GUARD: featured_history is written by the daily generator; if it has not
+    # run for the most recent trading day, say so explicitly instead of presenting an old
+    # pick silently as today's. Naive weekday check - holidays read as a soft 'may'.
+    featured = raw.get("featured_date")
+    featured_d = cards._parse_date(featured)
+    expected = _last_trading_day()
+    stale_note = None
+    if featured_d is None or featured_d < expected:
+        stale_note = ("This pick was featured on %s, NOT today (%s): no newer pick has "
+                      "been generated for the most recent trading day (%s). Present it as "
+                      "the %s pick - the latest available - not as today's."
+                      % (featured, _today(), expected.isoformat(), featured))
+
+    payload = {
         "card": card,
-        "featured_date": raw.get("featured_date"),
+        "featured_date": featured,
         "track_record": live_record,
         "view": view,
         "disclaimer": cards.DISCLAIMER,
         "as_of": _today(),
-    })
+    }
+    if stale_note:
+        payload["stale_note"] = stale_note
+    return jsonify(payload)
 
 
 @v1.get("/daily-pick/track-record")
