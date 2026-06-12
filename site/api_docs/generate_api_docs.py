@@ -408,7 +408,7 @@ def footer_html() -> str:
     <a href="{portal_urls.nav('/app/')}">Wave Viewer</a>
     <a href="{portal_urls.nav('/contact.html')}">Contact</a>
     <a href="{portal_urls.nav('/privacy.html')}">Privacy</a>
-    <a href="{portal_urls.nav('/terms.html')}">Terms</a>
+    <a href="{portal_urls.dev('api-terms.html')}">API Terms</a>
     <a href="{portal_urls.nav('/disclaimer.html')}">Disclaimer</a>
   </nav>
   <p>&copy; {YEAR} Tara Data Research LLC. All rights reserved.</p>
@@ -522,7 +522,8 @@ req = urllib.request.Request(
 with urllib.request.urlopen(req) as r:
     pick = json.loads(r.read())
 
-print(pick["symbol"], pick["direction"], pick["days_out"], "days")</code></pre>
+card = pick["card"]  # the SignalCard lives under "card"
+print(card["symbol"], card["direction"], card["setup"]["hold_days"], "day hold")</code></pre>
   </div>
   <div class="code-tab-pane">
 <pre><code>const KEY = "&lt;your-api-key&gt;";
@@ -530,10 +531,38 @@ print(pick["symbol"], pick["direction"], pick["days_out"], "days")</code></pre>
 const res = await fetch("{API_BASE}/daily-pick", {{
   headers: {{ Authorization: `Bearer ${{KEY}}` }},
 }});
-const pick = await res.json();
-console.log(pick.symbol, pick.direction, pick.days_out + " days");</code></pre>
+const {{ card }} = await res.json();  // the SignalCard lives under "card"
+console.log(card.symbol, card.direction, card.setup.hold_days + " day hold");</code></pre>
   </div>
 </div>
+
+<h3>Example response (trimmed)</h3>
+<p>The pick arrives as a SignalCard under the top-level <code class="inline-code">card</code> key,
+next to a <code class="inline-code">track_record</code> summary of past picks:</p>
+<pre class="response-ex"><code>{{
+  "as_of": "2026-06-12",
+  "featured_date": "2026-06-12",
+  "card": {{
+    "symbol": "INTU",
+    "direction": "long",
+    "signal": "BUY",
+    "setup": {{
+      "entry_date": "2026-06-10",
+      "entry_window": "2026-06-07 to 2026-06-13",
+      "hold_days": 28,
+      "exit_date": "2026-07-08"
+    }},
+    "edge_score": 73,
+    "stats": {{ "historical_win_rate": 0.9, "sharpe_ratio": 1.4,
+              "avg_return_pct": 7.04, "years": "10" }},
+    "ml": {{ "ml_score": 95.3, "ml_win_prob": 0.8452, "pred_return_pct": 4.823 }},
+    "headline": "INTU long - enter ~Jun 10, hold 28d. Won 9/10 years, avg +7.0%, Sharpe 1.4.",
+    "receipts": {{ "...": "per-year history, best/worst year, live track record" }},
+    "next_step": {{ "order_ticket": {{ "side": "BUY", "symbol": "INTU", "type": "MARKET",
+                                   "time_in_force": "DAY" }} }}
+  }},
+  "track_record": {{ "count": 11, "win_count": 6, "win_rate": 0.6, "avg_return_pct": 6.14 }}
+}}</code></pre>
 
 <h3>List top seasonal opportunities (S&amp;P 500, market id "2")</h3>
 <div class="code-tabs">
@@ -1930,6 +1959,27 @@ def main() -> int:
         out = OUTPUT_DIR / fname
         out.write_text(html, encoding="utf-8")
         print(f"{len(html):,} bytes -> {out}")
+
+    # Doc-CI: execute every published quickstart snippet against the live gateway so a
+    # documented call that would crash for a customer FAILS the generation (review
+    # requirement, 2026-06-12 - the old quickstart shipped pick["symbol"] for a response
+    # whose card lives under "card"). The checker resolves an API key from the env
+    # (TW_DOCCHECK_KEY / TRADEWAVE_API_KEY / TW_DOCCHECK_KEYS_FILE); exit 2 means "no key
+    # configured" and only warns, so a box without a test key can still regenerate.
+    import subprocess
+    print()
+    print("Doc-CI: running the published quickstart snippets ...", flush=True)
+    proc = subprocess.run([sys.executable, str(HERE / "check_quickstart_snippets.py")])
+    if proc.returncode == 2:
+        print("WARNING: doc-CI SKIPPED - no API key in env (set TW_DOCCHECK_KEY to enable). "
+              "The quickstart snippets were NOT executed against the gateway.")
+    elif proc.returncode == 3:
+        print("WARNING: doc-CI INCONCLUSIVE - the test key's day quota is exhausted. "
+              "The quickstart snippets were NOT verified against the gateway today.")
+    elif proc.returncode != 0:
+        print("ERROR: a published quickstart snippet FAILED against the live gateway - "
+              "fix the snippet (or the API) before publishing.", file=sys.stderr)
+        return 1
 
     print()
     print("Done. Regenerate any time with:")

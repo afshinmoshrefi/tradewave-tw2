@@ -94,7 +94,13 @@ def require_api_key(fn):
         # not metered - only authenticated, non-rate-limited requests count.
         ok, headers = check_rate_limit(cust)
         if not ok:
-            resp = jsonify({"error": {"code": "rate_limited", "message": "rate limit exceeded"}})
+            # 429 honesty: name WHICH window tripped (minute vs day) in both the headers
+            # (X-RateLimit-Scope) and the error body, so an SDK auto-retry on a day-capped
+            # key is never futile - Retry-After is already the real wait for that window.
+            scope = headers.get("X-RateLimit-Scope", "minute")
+            resp = jsonify({"error": {"code": "rate_limited",
+                                      "message": "rate limit exceeded (%s window)" % scope,
+                                      "scope": scope}})
             resp.headers.update(headers)
             return resp, 429
         g.customer = cust
@@ -147,6 +153,11 @@ def _apply_on_behalf(cust):
 
 
 def check_rate_limit(cust):
+    """(allowed, headers). On a block the headers are scoped to the window that actually
+    tripped: the DAY cap gets day-window Limit/Remaining/Reset + a Retry-After to the next
+    UTC midnight (the day buckets are keyed on epoch days, i.e. UTC), the minute cap gets
+    a Retry-After to the next minute boundary - plus X-RateLimit-Scope: minute|day so an
+    SDK can tell a short wait from 'come back tomorrow'."""
     rate = cust["entitlements"]["rate"]
     now = int(time.time())
     min_key = f"rl:min:{cust['user_id']}:{now // 60}"
@@ -155,13 +166,32 @@ def check_rate_limit(cust):
     pipe.incr(min_key); pipe.expire(min_key, 60)
     pipe.incr(day_key); pipe.expire(day_key, 86400)
     minute_count, _, day_count, _ = pipe.execute()
+    minute_reset = (now // 60 + 1) * 60
+    day_reset = (now // 86400 + 1) * 86400          # next UTC midnight
     headers = {
         "X-RateLimit-Limit": str(rate["per_minute"]),
         "X-RateLimit-Remaining": str(max(0, rate["per_minute"] - int(minute_count))),
-        "X-RateLimit-Reset": str((now // 60 + 1) * 60),
+        "X-RateLimit-Reset": str(minute_reset),
     }
-    allowed = int(minute_count) <= rate["per_minute"] and int(day_count) <= rate["per_day"]
-    return allowed, headers
+    day_capped = int(day_count) > rate["per_day"]
+    minute_capped = int(minute_count) > rate["per_minute"]
+    if day_capped:
+        # The DAY cap is the binding one (whether or not the minute also tripped): a
+        # minute-window reset would invite a futile auto-retry, so the headers tell the
+        # honest story - blocked until the day bucket rolls over at UTC midnight.
+        headers.update({
+            "X-RateLimit-Scope": "day",
+            "X-RateLimit-Limit": str(rate["per_day"]),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": str(day_reset),
+            "Retry-After": str(max(1, day_reset - now)),
+        })
+    elif minute_capped:
+        headers.update({
+            "X-RateLimit-Scope": "minute",
+            "Retry-After": str(max(1, minute_reset - now)),
+        })
+    return not (minute_capped or day_capped), headers
 
 
 def record_usage(cust, endpoint):

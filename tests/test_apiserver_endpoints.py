@@ -492,3 +492,174 @@ def test_daily_pick_fresh_has_no_stale_note(client, monkeypatch):
     _mock_daily_pick(monkeypatch, routes._last_trading_day().isoformat())
     body = client.get("/v1/daily-pick", headers=_hdr()).get_json()
     assert "stale_note" not in body
+
+
+# ==================== gateway contract fixes (2026-06-12 verified review) ====================
+
+# --- 429 honesty: Retry-After + the minute|day window discriminator -----------------
+
+class _FakeRatePipe:
+    """Stands in for the redis pipeline in check_rate_limit: returns fixed counters."""
+    def __init__(self, minute, day):
+        self._res = [minute, True, day, True]
+
+    def incr(self, *a):
+        return self
+
+    def expire(self, *a):
+        return self
+
+    def execute(self):
+        return self._res
+
+
+class _FakeRateRedis:
+    def __init__(self, minute, day):
+        self.minute, self.day = minute, day
+
+    def pipeline(self):
+        return _FakeRatePipe(self.minute, self.day)
+
+
+def _rate_limited_client(app, monkeypatch, minute, day):
+    """Authenticated client whose redis rate counters read (minute, day) - the REAL
+    check_rate_limit runs (unlike the main fixture, which mocks it away)."""
+    from apiserver import auth, ml_quota
+    monkeypatch.setattr(auth, "resolve_customer", lambda key: dict(_CUSTOMER))
+    monkeypatch.setattr(auth, "record_usage", lambda *a, **k: None)
+    monkeypatch.setattr(auth, "_redis", _FakeRateRedis(minute, day))
+    monkeypatch.setattr(ml_quota, "remaining", lambda cust: None)
+    return app.test_client()
+
+
+def test_429_minute_cap_has_retry_after_and_minute_scope(app, monkeypatch):
+    rate = _ENT["rate"]                                   # dev: 60/min, 5000/day
+    c = _rate_limited_client(app, monkeypatch, minute=rate["per_minute"] + 1, day=10)
+    r = c.get("/v1/me", headers=_hdr())
+    assert r.status_code == 429
+    assert r.headers["X-RateLimit-Scope"] == "minute"
+    assert 1 <= int(r.headers["Retry-After"]) <= 60       # seconds to the minute boundary
+    body = r.get_json()["error"]
+    assert body["code"] == "rate_limited" and body["scope"] == "minute"
+
+
+def test_429_day_cap_has_day_scope_and_day_window_headers(app, monkeypatch):
+    rate = _ENT["rate"]
+    c = _rate_limited_client(app, monkeypatch, minute=1, day=rate["per_day"] + 1)
+    r = c.get("/v1/me", headers=_hdr())
+    assert r.status_code == 429
+    assert r.headers["X-RateLimit-Scope"] == "day"
+    assert 1 <= int(r.headers["Retry-After"]) <= 86400    # seconds to the next UTC midnight
+    # the headers describe the DAY window (never the futile-auto-retry minute window)
+    assert int(r.headers["X-RateLimit-Limit"]) == rate["per_day"]
+    assert r.headers["X-RateLimit-Remaining"] == "0"
+    import time as _time
+    assert int(r.headers["X-RateLimit-Reset"]) == (int(_time.time()) // 86400 + 1) * 86400
+    assert r.get_json()["error"]["scope"] == "day"
+
+
+def test_within_limits_has_no_retry_after(app, monkeypatch):
+    c = _rate_limited_client(app, monkeypatch, minute=1, day=1)
+    from apiserver import appserver_client as ac
+    monkeypatch.setattr(ac, "list_markets", lambda: [])
+    r = c.get("/v1/me", headers=_hdr())
+    assert r.status_code == 200
+    assert "Retry-After" not in r.headers and "X-RateLimit-Scope" not in r.headers
+    assert r.headers["X-RateLimit-Limit"] == str(_ENT["rate"]["per_minute"])
+
+
+# --- direction validation: a 400 naming the valid values, never a silent empty 200 --
+
+@pytest.mark.parametrize("path", [
+    "/v1/scan?direction=sideways",
+    "/v1/opportunities?market=2&direction=sideways",
+    "/v1/analyze/AAPL?market=2&direction=sideways",
+    "/v1/seasonal-chart?market=2&symbol=AAPL&direction=sideways",
+])
+def test_invalid_direction_is_400_naming_valid_values(client, monkeypatch, path):
+    _mock_card_chain(monkeypatch, multi=[], by_symbol=[_opp()])
+    r = client.get(path, headers=_hdr())
+    assert r.status_code == 400
+    msg = r.get_json()["error"]["message"]
+    assert "long" in msg and "short" in msg and "sideways" in msg
+
+
+def test_direction_short_codes_and_case_accepted(client, monkeypatch):
+    _patch_appsrv(monkeypatch, opportunities=lambda *a, **k: [])
+    for d in ("S", "l", "LONG", "Short"):
+        r = client.get("/v1/opportunities?market=2&direction=%s" % d, headers=_hdr())
+        assert r.status_code == 200, d
+
+
+def test_score_item_invalid_direction_is_400(client, monkeypatch):
+    _mock_card_chain(monkeypatch)
+    r = client.post("/v1/score", json={"market": "2", "opportunities": [
+        {"symbol": "AAPL", "date": "2026-07-01", "days_out": 21, "direction": "sideways"}]},
+        headers=_hdr())
+    assert r.status_code == 400
+    msg = r.get_json()["error"]["message"]
+    assert "long" in msg and "short" in msg
+
+
+def test_score_normalizes_l_s_directions(client, monkeypatch):
+    from apiserver import appserver_client as ac, ml_quota
+    monkeypatch.setattr(ml_quota, "consume", lambda cust, n=1: n)
+    monkeypatch.setattr(ac, "ml_scores",
+                        lambda market, items: [{"ml_score": 80, "win_prob": 0.8,
+                                                "pred_return": 5.0, "pred_mfe": 7.0} for _ in items])
+    _mock_card_chain(monkeypatch)
+    r = client.post("/v1/score", json={"market": "2", "opportunities": [
+        {"symbol": "AAPL", "date": "2026-07-01", "days_out": 21, "direction": "S"}]},
+        headers=_hdr())
+    assert r.status_code == 200
+    assert r.get_json()["scores"][0]["direction"] == "short"
+
+
+# --- uniform JSON error envelope on framework errors (405 etc.) ---------------------
+
+def test_post_to_get_route_is_json_405_with_allow(client):
+    r = client.post("/v1/scan", headers=_hdr())
+    assert r.status_code == 405
+    body = r.get_json()
+    assert body["error"]["code"] == "method_not_allowed" and body["error"]["message"]
+    assert "GET" in r.headers["Allow"]
+
+
+def test_get_on_score_is_json_405(client):
+    r = client.get("/v1/score", headers=_hdr())
+    assert r.status_code == 405
+    assert r.get_json()["error"]["code"] == "method_not_allowed"
+    assert "POST" in r.headers["Allow"]
+
+
+def test_404_envelope_unchanged(client):
+    r = client.get("/v1/no-such-endpoint", headers=_hdr())
+    assert r.status_code == 404
+    assert r.get_json()["error"]["code"] == "not_found"
+
+
+# --- /score batch cap ----------------------------------------------------------------
+
+def test_score_batch_over_cap_is_400_naming_cap(client, monkeypatch):
+    from apiserver import routes
+    items = [{"symbol": "AAPL", "date": "2026-07-01", "days_out": 21, "direction": "long"}
+             for _ in range(routes._SCORE_BATCH_CAP + 1)]
+    r = client.post("/v1/score", json={"market": "2", "opportunities": items}, headers=_hdr())
+    assert r.status_code == 400
+    msg = r.get_json()["error"]["message"]
+    assert str(routes._SCORE_BATCH_CAP) in msg and str(len(items)) in msg
+
+
+def test_score_batch_at_cap_passes(client, monkeypatch):
+    from apiserver import appserver_client as ac, ml_quota
+    monkeypatch.setattr(ml_quota, "consume", lambda cust, n=1: n)
+    monkeypatch.setattr(ac, "ml_scores",
+                        lambda market, items: [{"ml_score": 80, "win_prob": 0.8,
+                                                "pred_return": 5.0, "pred_mfe": 7.0} for _ in items])
+    _mock_card_chain(monkeypatch)
+    from apiserver import routes
+    items = [{"symbol": "AAPL", "date": "2026-07-01", "days_out": 21, "direction": "long"}
+             for _ in range(routes._SCORE_BATCH_CAP)]
+    r = client.post("/v1/score", json={"market": "2", "opportunities": items}, headers=_hdr())
+    assert r.status_code == 200
+    assert r.get_json()["granted"] == routes._SCORE_BATCH_CAP

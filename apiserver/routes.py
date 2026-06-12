@@ -40,6 +40,10 @@ _DEFAULT_SCAN_MARKETS = ("0", "1", "2", "11")
 # trading-day approximations for window resolution. "now" = entry within ~10 trading days.
 _WINDOW_TRADING_DAYS = {"now": 10, "next_2_weeks": 14, "next_month": 31}
 
+# POST /v1/score batch cap: each item is an appserver ML round-trip, and a few-hundred-item
+# cold batch outlives the edge timeout - so over-cap requests get a clear 400 naming the cap.
+_SCORE_BATCH_CAP = 100
+
 
 def _err(code, message, status):
     return jsonify({"error": {"code": code, "message": message}}), status
@@ -89,6 +93,22 @@ def _wants_chart():
 
 
 _SYMBOL_RE = re.compile(r"^[A-Za-z0-9.\-]{1,15}$")
+
+# Contract enum (long|short) plus the appserver's raw l/s codes, case-insensitive.
+_VALID_DIRECTIONS = {"long": "long", "l": "long", "short": "short", "s": "short"}
+
+
+def _direction_arg(raw):
+    """Validate + normalize a direction value to the contract enum (long|short).
+    None/blank -> None (no filter). An unknown value (e.g. 'sideways') raises ValueError
+    naming the valid values - a silent empty 200 would be a wrong-answer failure."""
+    if raw is None or str(raw).strip() == "":
+        return None
+    d = str(raw).strip().lower()
+    if d not in _VALID_DIRECTIONS:
+        raise ValueError("invalid direction '%s' - valid values: long, short (or the "
+                         "short forms l, s), case-insensitive" % raw)
+    return _VALID_DIRECTIONS[d]
 
 
 def _clean_chart_args(entry_date, days_out, years, symbol=None):
@@ -617,7 +637,6 @@ def opportunities():
     # windowed scanning. 'to' is accepted but NOT used to widen the query here; the
     # response sets window_supported=false so callers are never silently misled.
     entry_date = request.args.get("from") or _today()
-    direction = request.args.get("direction")  # long|short, optional
 
     # min_win_rate filters on the REAL historical win rate (share of profitable years,
     # from ChartData4 'Percent Profitable') - NOT the ML win_prob. The OppList4 feed
@@ -630,6 +649,7 @@ def opportunities():
     enrich_n = appserver_client.MAX_WIN_RATE_ENRICH
 
     try:
+        direction = _direction_arg(request.args.get("direction"))  # long|short, optional
         min_win_rate, mwr_note = _min_win_rate_arg()
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # consecutive | pe (current cycle)
         year1, year2 = _lookback_args(market=market, path="scan",
@@ -857,7 +877,6 @@ def scan():
                     400)
     entry_lo, entry_hi, window_label = win
 
-    direction = request.args.get("direction")
     min_years = request.args.get("min_years", type=int)
     # Default ranking = Sharpe descending, mirroring TradeWave's own daily-pick + SMN 'AI'
     # selectors (filter on win metrics, then sort by Sharpe). edge_score stays available
@@ -866,6 +885,7 @@ def scan():
     if rank_by not in _RANK_KEYS:
         rank_by = "sharpe"
     try:
+        direction = _direction_arg(request.args.get("direction"))
         min_win_rate, mwr_note = _min_win_rate_arg()
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # consecutive | pe (current cycle)
         # multi-market scan: lenient (market=None) - the band differs per market, so we default
@@ -1150,8 +1170,8 @@ def analyze_symbol(symbol):
     if scope_err:
         return scope_err
 
-    direction = request.args.get("direction")
     try:
+        direction = _direction_arg(request.args.get("direction"))
         pe_cycle = _resolve_pe_cycle(allow_positions=False)        # consecutive | pe (wave-viewer knob)
         years_n = request.args.get("years", default=10, type=int)  # lookback knob
         if years_n is None or not (1 <= years_n <= 99):
@@ -1303,10 +1323,10 @@ def seasonal_chart():
     if scope_err:
         return scope_err
     try:
+        direction = _direction_arg(request.args.get("direction"))
         entry_date, days_out, yrs = _chart_window_and_years(symbol)
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
-    direction = request.args.get("direction")
     try:
         data = appserver_client.seasonal_chart(
             market, symbol, entry_date, days_out, yrs, direction=direction)
@@ -1330,6 +1350,13 @@ def score():
     items = body.get("opportunities")
     if not isinstance(items, list) or not items:
         return _err("invalid_request", "'opportunities' must be a non-empty array", 400)
+    if len(items) > _SCORE_BATCH_CAP:
+        # A few-hundred-item cold batch outlives the edge timeout; cap it with a clear
+        # 400 that NAMES the cap instead of letting the request die mid-flight.
+        return _err("invalid_request",
+                    "'opportunities' is capped at %d items per request (got %d) - split "
+                    "the batch into chunks of at most %d"
+                    % (_SCORE_BATCH_CAP, len(items), _SCORE_BATCH_CAP), 400)
 
     # ML-eligible markets only (0-4, 11). The score request items are not market-tagged
     # in the contract, so the market is taken from the 'market' query/body param and
@@ -1358,11 +1385,15 @@ def score():
             days_out_i = int(it["days_out"])
         except (ValueError, TypeError):
             return _err("invalid_request", "days_out must be a number", 400)
+        try:
+            direction = _direction_arg(it["direction"])
+        except ValueError as e:
+            return _err("invalid_request", str(e), 400)
         norm.append({
             "symbol": it["symbol"],
             "date": it["date"],
             "days_out": days_out_i,
-            "direction": it["direction"],
+            "direction": direction,
         })
 
     # ML is offered on every tier but METERED PER DAY (free 5/day, unlimited Pro). Grant

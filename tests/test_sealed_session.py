@@ -43,6 +43,19 @@ def request_ctx(app_module):
         yield
 
 
+@pytest.fixture(autouse=True)
+def isolated_session_memo(app_module, monkeypatch):
+    """The single-flight refresh memo (86dbc2d) lives in LIVE dev redis (db 5),
+    keyed on sha256(sealed cookie) with a 90s TTL. These tests reuse constant
+    cookie values ('stale_sealed_token'), so a previous run's memoized successor
+    would short-circuit the refresh and flake the call-count assertions (and the
+    tests would write into the live memo). Neutralize it: no memo hit, the lock
+    is always ours, writes are dropped."""
+    monkeypatch.setattr(app_module, "_sess_memo_get", lambda sealed: None)
+    monkeypatch.setattr(app_module, "_sess_memo_lock", lambda sealed: True)
+    monkeypatch.setattr(app_module, "_sess_memo_put", lambda sealed, new_sealed: None)
+
+
 @pytest.fixture
 def patched_workos(app_module, monkeypatch):
     """Replace app.workos_client.user_management with a MagicMock for the

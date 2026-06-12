@@ -20,6 +20,11 @@ ALL_MARKETS = [str(i) for i in range(0, 17) if i not in (14, 15)]
 # price_annual is the single source of truth (create_api_products.py + the pricing page read it).
 
 # rate = (per_minute, per_day); opp_limit = max results per /opportunities call.
+#
+# `history` is RESERVED / NOT IMPLEMENTED (verified 2026-06-12): no code path consumes
+# it - free keys receive the same live signals as paid tiers. It is kept only as a
+# placeholder for a possible future delayed-data free tier. Do NOT market it: the
+# pricing page deliberately carries no data-freshness bullet until enforcement exists.
 API_TIERS = {
     "free": {
         "name": "Free", "price_monthly": 0, "price_annual": 0,

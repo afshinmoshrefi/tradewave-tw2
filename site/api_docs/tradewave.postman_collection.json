@@ -255,6 +255,28 @@
       }
     },
     {
+      "name": "GET /me",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/me",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "me"
+          ]
+        },
+        "description": "Identity + capabilities for the caller's key (plan, quotas, market scope)"
+      }
+    },
+    {
       "name": "GET /markets/{market_id}/symbols",
       "request": {
         "method": "GET",
@@ -265,7 +287,7 @@
           }
         ],
         "url": {
-          "raw": "{{base_url}}/markets/2/symbols",
+          "raw": "{{base_url}}/markets/2/symbols?limit=10",
           "host": [
             "{{base_url}}"
           ],
@@ -273,9 +295,23 @@
             "markets",
             "2",
             "symbols"
+          ],
+          "query": [
+            {
+              "key": "prefix",
+              "value": "",
+              "disabled": true,
+              "description": "ticker prefix filter, case-insensitive (e.g. 'AA' matches AAPL, AAL)"
+            },
+            {
+              "key": "limit",
+              "value": "10",
+              "disabled": false,
+              "description": "max rows returned (after the prefix filter); omitted = all matching rows"
+            }
           ]
         },
-        "description": "List symbols in a market"
+        "description": "List symbols in a market (pageable)"
       }
     },
     {

@@ -44,6 +44,10 @@ def collect_urls():
             continue
         for html in sorted(out_dir.glob("*.html")):
             name = html.name
+            # noindex pages (e.g. the draft API terms pending counsel review) must not
+            # be advertised in the sitemap - that would contradict their robots meta.
+            if 'name="robots" content="noindex' in html.read_text(encoding="utf-8"):
+                continue
             if name == "index.html":
                 loc = PORTAL + "/" + sub                  # canonical dir URL
             else:

@@ -406,17 +406,58 @@
         }
       }
     },
+    "/me": {
+      "get": {
+        "tags": [
+          "markets"
+        ],
+        "summary": "Identity + capabilities for the caller's key (plan, quotas, market scope)",
+        "description": "Who am I and what can I do: the key's API tier, remaining ML allowance today, rate limits, opportunity cap, and the in-scope markets (with ml_eligible per market). Powers the MCP `whoami` tool. Read-only - never consumes ML allowance. Under MCP OAuth this reflects the END USER's real tier, not the service principal.\n",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
     "/markets/{market_id}/symbols": {
       "get": {
         "tags": [
           "markets"
         ],
+        "summary": "List symbols in a market (pageable)",
+        "description": "A full market is large (S&P 500 alone is ~150KB), so the list pages: `prefix` filters by ticker prefix (case-insensitive) and `limit` caps the rows returned. total/matched/count make any truncation explicit, never silent (a `note` names how many matching rows were cut).\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/MarketId"
+          },
+          {
+            "name": "prefix",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "ticker prefix filter, case-insensitive (e.g. 'AA' matches AAPL, AAL)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "max rows returned (after the prefix filter); omitted = all matching rows"
           }
         ],
-        "summary": "List symbols in a market",
         "responses": {
           "200": {
             "description": "OK",
@@ -430,6 +471,22 @@
                       "items": {
                         "$ref": "#/components/schemas/Symbol"
                       }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "rows returned (after prefix + limit)"
+                    },
+                    "matched": {
+                      "type": "integer",
+                      "description": "rows matching the prefix filter (before limit)"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "total symbols in the market"
+                    },
+                    "note": {
+                      "type": "string",
+                      "description": "present only when limit truncated the matches - names how many of how many are shown"
                     }
                   }
                 }
@@ -1166,12 +1223,29 @@
     },
     "responses": {
       "RateLimited": {
-        "description": "Rate limit exceeded",
+        "description": "Rate limit exceeded. X-RateLimit-Scope (mirrored as error.scope in the body) names WHICH window tripped: 'minute' (a short wait; Retry-After counts to the next minute boundary) or 'day' (the daily cap; Retry-After counts to the next UTC midnight and the X-RateLimit-* headers describe the DAY window). Auto-retry is only sensible for scope 'minute'.\n",
         "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer"
+            },
+            "description": "seconds until the tripped window resets"
+          },
+          "X-RateLimit-Scope": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "minute",
+                "day"
+              ]
+            },
+            "description": "which rate window tripped"
+          },
           "X-RateLimit-Limit": {
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "the tripped window's limit (per-minute, or per-day when scope=day)"
           },
           "X-RateLimit-Remaining": {
             "schema": {
@@ -1181,13 +1255,14 @@
           "X-RateLimit-Reset": {
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "epoch seconds when the tripped window resets"
           }
         },
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Error"
+              "$ref": "#/components/schemas/RateLimitError"
             }
           }
         }
@@ -1877,6 +1952,10 @@
             "type": "string",
             "format": "date-time"
           },
+          "summary": {
+            "type": "string",
+            "description": "the honest one-line lead: how many candidates were evaluated, how many shown, how many carry a high-conviction signal - plus any degradation (upstream win-rate outage), enrichment cap, normalization note, or plan cap"
+          },
           "window": {
             "type": "string",
             "description": "the resolved window (e.g. 'now')"
@@ -1930,6 +2009,20 @@
           "enrichment_capped": {
             "type": "boolean",
             "description": "true when win_rate enrichment hit its cap"
+          },
+          "capped_by_plan": {
+            "type": "boolean",
+            "description": "true when the PLAN's opp_limit (not the caller's own limit) was the binding constraint on how many ranked cards came back - the free-tier wall, made visible"
+          },
+          "shown_of_evaluated": {
+            "type": "string",
+            "example": "3 of 6",
+            "description": "'shown of evaluated' as a display string"
+          },
+          "upgrade_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "present only when capped_by_plan is true"
           },
           "ml_remaining_today": {
             "type": "integer",
@@ -2065,6 +2158,8 @@
         "properties": {
           "opportunities": {
             "type": "array",
+            "maxItems": 100,
+            "description": "capped at 100 items per request (a larger batch returns 400 naming the cap - split into chunks)",
             "items": {
               "type": "object",
               "required": [
@@ -2294,17 +2389,116 @@
       },
       "Error": {
         "type": "object",
+        "description": "The uniform error envelope - EVERY non-2xx response uses it, including framework errors (e.g. 405 -> code 'method_not_allowed' with an Allow header naming the valid methods; 404 -> 'not_found'). Never an HTML error page from the gateway (the fronting proxy also maps its own 502/504 to this envelope on a best-effort basis).\n",
         "properties": {
           "error": {
             "type": "object",
             "properties": {
               "code": {
-                "type": "string"
+                "type": "string",
+                "description": "machine-readable, e.g. invalid_request | unauthorized | forbidden | not_found | method_not_allowed | rate_limited | upstream_unavailable | internal"
               },
               "message": {
                 "type": "string"
               }
             }
+          }
+        }
+      },
+      "RateLimitError": {
+        "type": "object",
+        "description": "The 429 body - the uniform Error envelope plus scope (which window tripped).",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "rate_limited"
+              },
+              "message": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "minute",
+                  "day"
+                ],
+                "description": "which rate window tripped (mirrors the X-RateLimit-Scope header). 'day' means blocked until the next UTC midnight - do not auto-retry."
+              }
+            }
+          }
+        }
+      },
+      "Me": {
+        "type": "object",
+        "description": "Identity + capabilities for the caller's key (GET /me). Read-only.",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "free",
+              "dev",
+              "pro",
+              "business"
+            ],
+            "description": "the key's API tier"
+          },
+          "tier_name": {
+            "type": "string",
+            "example": "Explorer (API)"
+          },
+          "ml_remaining_today": {
+            "type": "integer",
+            "nullable": true,
+            "description": "ML calls remaining today (null = unlimited)"
+          },
+          "ml_daily_limit": {
+            "type": "integer",
+            "nullable": true,
+            "description": "the plan's daily ML allowance (null = unlimited)"
+          },
+          "opp_limit": {
+            "type": "integer",
+            "description": "max results per opportunities/scan call on this plan"
+          },
+          "rate": {
+            "type": "object",
+            "description": "the plan's rate limits",
+            "properties": {
+              "per_minute": {
+                "type": "integer"
+              },
+              "per_day": {
+                "type": "integer"
+              }
+            }
+          },
+          "markets_in_scope": {
+            "type": "array",
+            "description": "the markets this key can query, each with its ML eligibility",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "example": "2",
+                  "description": "permanent resource key '0'..'16'"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "S&P 500 STOCKS"
+                },
+                "ml_eligible": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "upgrade_url": {
+            "type": "string",
+            "format": "uri"
           }
         }
       },

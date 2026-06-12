@@ -7,6 +7,7 @@ tunnel front it (api-dev.trxstat.com -> :80 -> nginx -> this).
 import logging
 
 from flask import Flask, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 from .routes import v1
 from .settings import CORS_ORIGINS
@@ -52,6 +53,19 @@ def create_app():
     @app.errorhandler(500)
     def server_error(e):
         return jsonify({"error": {"code": "internal", "message": "internal error"}}), 500
+
+    @app.errorhandler(HTTPException)
+    def http_exception(e):
+        # Uniform error envelope for EVERY other HTTP error (405, 400 from routing, 413,
+        # ...). Without this, e.g. POST /v1/scan returned Flask's HTML 405 page - the one
+        # break in an otherwise all-JSON contract. The specific 404/500 handlers above
+        # still win (Flask prefers the most specific handler).
+        code = (e.name or "error").lower().replace(" ", "_")   # 405 -> method_not_allowed
+        resp = jsonify({"error": {"code": code, "message": e.description}})
+        resp.status_code = e.code or 500
+        if getattr(e, "valid_methods", None):                  # 405 carries Allow
+            resp.headers["Allow"] = ", ".join(sorted(e.valid_methods))
+        return resp
 
     return app
 
