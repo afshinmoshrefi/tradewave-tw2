@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { UserContext } from './UserContext'
 import { appserverURL, themeColors } from './Common'
+import { twFetch } from './twFetch'
 import './styles/InfoPopup.css'
 import './styles/Portfolios.css'
 import { GrClose } from "react-icons/gr";
@@ -226,7 +227,7 @@ const PortfolioSettings = (props) => {
         let url = `${asURL}/add_user_portfolio_name/${newText.trim()}?token=${token}`
 
 
-        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -298,7 +299,7 @@ const PortfolioSettings = (props) => {
         let asURL = appserverURL();
         let url = `${asURL}/dr_report_list/${id}/0?token=${token}`
 
-        fetch(url)
+        twFetch(url)
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -359,7 +360,7 @@ const PortfolioSettings = (props) => {
 
         // console.log('url=', url)
 
-        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status); // throw an error if the response status is not OK
@@ -416,7 +417,7 @@ const PortfolioSettings = (props) => {
         let asURL = appserverURL()
         let url = `${asURL}/del_user_portfolio_name/${delname}?token=${token}`
 
-        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(response.status)

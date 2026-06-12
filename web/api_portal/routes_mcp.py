@@ -1,6 +1,11 @@
-"""MCP connect page: the MCP endpoint URL + copy-paste BYOK setup for Claude
-Desktop, ChatGPT, and Cursor. The customer pastes their OWN API key (bring your
-own key) into the client config; we never send keys to the client here.
+"""MCP connect page: the MCP endpoint URL + per-client setup. Consumer apps
+(ChatGPT, Claude.ai) connect via OAuth - paste the server URL, click Connect,
+sign in with your TradeWave account; no API key involved. Dev tools (Claude
+Desktop, Cursor) use BYOK - the customer pastes their OWN API key into the
+client config; we never send keys to the client here.
+
+The canonical connector URL is the BARE host (no /mcp path; the server also
+aliases /mcp, but published copy uses the bare URL).
 
 MCP host is per-env (CLAUDE.md: read the live value, don't hardcode). Override
 with TW2_MCP_PUBLIC_HOST; otherwise derive from config.tw2_env
@@ -33,7 +38,7 @@ def _mcp_host():
 def mcp_index():
     u = get_current_user()
     mcp_host = _mcp_host()
-    mcp_url = "https://%s/mcp" % mcp_host
+    mcp_url = "https://%s" % mcp_host
 
     # Does the user already have a live key? Drives the copy "your key" hint.
     has_key = keystore.count_active_keys(u.id) > 0

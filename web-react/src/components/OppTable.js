@@ -27,6 +27,7 @@ import { BsFillCircleFill } from "react-icons/bs"
 import { BsChatDotsFill, BsChatDots } from "react-icons/bs";
 import CheckBox from './CheckBox'
 import { themeColors, setCookie } from './Common'
+import { twFetch } from './twFetch'
 
 const OppTable = (props) => {
   const tc = themeColors(props.UITheme)
@@ -49,6 +50,9 @@ const OppTable = (props) => {
   const [oppListExpanded, SetOppListExpanded] = useState(0) //implementing expand contract button next to opp filter
 
   const [initialMessage, SetInitialMessage] = useState('Loading ...')
+
+  const [oppLoadFailed, SetOppLoadFailed] = useState(false)  // OppList4 failed after twFetch retries - show manual Retry
+  const [oppRetryNonce, SetOppRetryNonce] = useState(0)      // bumped by the Retry button to re-run the fetch effect
 
   const [numLongs, SetNumLongs] = useState(0);     // used to show longs vs shorts breakdown on the opp table
   const [numShorts, SetNumShorts] = useState(0);   // used to show longs vs shorts breakdown on the opp table
@@ -123,7 +127,7 @@ const OppTable = (props) => {
         props.SetShowSR2(true);
       }
 
-      fetch(url) //meta 
+      twFetch(url) //meta
         .then(res => {
           // console.log('meta res=', res.status)
           const contentType = res.headers.get("content-type");
@@ -328,24 +332,31 @@ const OppTable = (props) => {
       const fetchKey = url + wlSig
       if (token.length > 0 && fetchKey !== lastOppUrlRef.current) {
         lastOppUrlRef.current = fetchKey
+        SetOppLoadFailed(false)
 
-        fetch(url)
+        twFetch(url, { onRetry: () => SetInitialMessage('Data temporarily unavailable - retrying ...') })
           .then(res => {
             const contentType = res.headers.get("content-type");
 
             if (contentType && contentType.indexOf("application/json") !== -1) {
               return res.json();
             }
-            else if (res.status === 429) { // too many requests
+            else if (res.status === 429) { // too many requests (twFetch already retried with backoff)
               // let trigger = res.headers.get("trigger");
               // props.SetDialogType('info-box'); //429
               props.SetDialogType('rate-limit'); //429
               // props.SetDialogProp({ title: 'Too Many Requests', contentText: ratelimitMessage(trigger, loggedinUser), button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
               props.SetInfoBoxVisible(true)
+              SetInitialMessage('* Data temporarily unavailable')
+              SetOppLoadFailed(true)
+              lastOppUrlRef.current = '' // allow a refetch of the same params
             }
             else {
               // console.log('opptable fetch url = ', url)
               console.log('response status opptable fetch = ', res.status)
+              SetInitialMessage('* Data temporarily unavailable')
+              SetOppLoadFailed(true)
+              lastOppUrlRef.current = ''
             }
           })
           .then((opps) => {
@@ -502,6 +513,9 @@ const OppTable = (props) => {
           })
           .catch(err => {
             console.log('OppList4 fetch error:', err.message)
+            SetInitialMessage('* Data temporarily unavailable')
+            SetOppLoadFailed(true)
+            lastOppUrlRef.current = ''
           })
       }
     }
@@ -520,7 +534,8 @@ const OppTable = (props) => {
     props.showPEOpps,
     props.yearsMetaDataPE,
     props.yearsMetaData,
-    props.activeWatchlistFilter
+    props.activeWatchlistFilter,
+    oppRetryNonce
   ])
   // 10/27/2021 added dayofthemonth after replacing opplist2 with opplist3
   // 8/22/2021 added length of opportunities array which is better than other dependencies - could probably remove some of the others
@@ -529,7 +544,9 @@ const OppTable = (props) => {
   //-------------------------------------------------------------------------------------------------------
   useEffect(() => {
     // only act after a fetch has completed (opportunities array is populated or message says no data)
-    if (props.opportunities.length === 0 && initialMessage === 'Loading ...') return; // still loading
+    if (props.opportunities.length === 0 && (initialMessage === 'Loading ...' || initialMessage.startsWith('Data temporarily unavailable'))) return; // still loading/retrying
+
+    if (oppLoadFailed) return; // load failed, not "no results" - don't step down partial years
 
     if (userChangedPYearsRef.current) {
       userChangedPYearsRef.current = false; // reset for next context change
@@ -571,7 +588,7 @@ const OppTable = (props) => {
     const controller = new AbortController()
     SetStockScoresLoading(true)
 
-    fetch(url, {
+    twFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbols }),
@@ -646,7 +663,7 @@ const OppTable = (props) => {
     SetMLPending(new Set())
 
     // Phase 1: batch request - get cached scores + pending list
-    fetch(`${asURL}/MLScoreBatch/${id}?token=${token}`, {
+    twFetch(`${asURL}/MLScoreBatch/${id}?token=${token}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ opportunities: opps }),
@@ -676,7 +693,7 @@ const OppTable = (props) => {
         const pollPending = () => {
           if (cancelled || fetchId !== mlFetchIdRef.current) return
 
-          fetch(`${asURL}/MLScorePending/${id}?token=${token}`, {
+          twFetch(`${asURL}/MLScorePending/${id}?token=${token}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pending: pendingList }),
@@ -1490,7 +1507,18 @@ const OppTable = (props) => {
                 shortDates={props.shortDates}
               />
             )
-            : initialMessage
+            : <span>
+                {initialMessage}
+                {oppLoadFailed &&
+                  <button
+                    onClick={() => {
+                      SetOppLoadFailed(false)
+                      SetInitialMessage('Loading ...')
+                      SetOppRetryNonce(n => n + 1)
+                    }}
+                    style={{ marginLeft: '8px', cursor: 'pointer' }}
+                  >Retry</button>}
+              </span>
         }
       </div>
       {/* create a visual div below to show a nice box below the above div - inside the div say : to see all opportunities create a free account */}

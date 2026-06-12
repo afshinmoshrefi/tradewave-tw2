@@ -42,7 +42,7 @@ app.register_blueprint(api_portal.bp, url_prefix="/account/api")
 | POST   | `/billing/checkout`          | Stripe Checkout (mode=subscription)    |
 | GET    | `/billing/success`           | Post-checkout return (no tier write)   |
 | GET    | `/billing/manage`            | Stripe Billing Portal redirect         |
-| GET    | `/mcp`                       | MCP URL + Claude/ChatGPT/Cursor setup  |
+| GET    | `/mcp`                       | MCP URL + ChatGPT/Claude.ai (OAuth) + Claude Desktop/Cursor (BYOK) setup |
 
 POST routes carry `{{ csrf_token() }}` (the web app's global Flask-WTF
 `CSRFProtect` validates them; nothing here is csrf-exempt).
@@ -102,8 +102,12 @@ options for the parent at integration:
 - MCP host is per-env: override with `TW2_MCP_PUBLIC_HOST`, else derived from
   `config.tw2_env` (dev->`mcp-dev.trxstat.com`, staging->`mcp-stage.trxstat.com`,
   prod->`mcp.trxstat.com`). Dev default = `mcp-dev.trxstat.com`.
-- Page shows the MCP URL + copy-paste BYOK configs for Claude Desktop, ChatGPT,
-  and Cursor (customer pastes their own API key).
+- The published connector URL is the BARE host (no `/mcp` path; the server also
+  aliases `/mcp`).
+- Page shows the MCP URL + per-client setup: ChatGPT and Claude.ai connect via
+  OAuth (paste the URL, Connect, sign in with the TradeWave account - no API
+  key); Claude Desktop and Cursor get copy-paste BYOK configs (customer pastes
+  their own API key).
 
 ## Validate (web venv)
 ```

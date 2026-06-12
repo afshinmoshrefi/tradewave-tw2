@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useContext, useMemo } from 'react'
 import LineChart from './LineChart'
 import { datePaddingDays, getTodayDate } from './Common'
 import { appserverURL } from './Common'
+import { twFetch } from './twFetch'
 // import './styles/SeasonalBarChart.css'
 import './styles/StockLineChart.css'
 import { UserContext } from './UserContext'
@@ -297,7 +298,7 @@ const StockLineChart = (props) => {
         // if (token && token.length > 0) {
         // # if (token  is added due to occational crash caused race condition
         if (token && token.length > 0 && props.lineChartYear !== 0) {
-            fetch(url)
+            twFetch(url)
                 .then(res => {
                     const contentType = res.headers.get("content-type");
 

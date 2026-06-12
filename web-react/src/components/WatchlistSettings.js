@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState, useRef } from 'react'
 import { UserContext } from './UserContext'
 import { appserverURL, themeColors } from './Common'
 import { getSelectedIDFromSecuritiesList2 } from './Common'
+import { twFetch } from './twFetch'
 import './styles/InfoPopup.css'
 import { GrClose } from "react-icons/gr"
 import SelectBox from './SelectBox'
@@ -211,7 +212,7 @@ const WatchlistSettings = (props) => {
 
     const fetchItems = (name) => {
         let asURL = appserverURL()
-        fetch(`${asURL}/get_user_watchlist_items/${name}?token=${token}`)
+        twFetch(`${asURL}/get_user_watchlist_items/${name}?token=${token}`)
             .then(res => res.json())
             .then(data => {
                 if (data['watchlist_items'] && Array.isArray(data['watchlist_items'])) {
@@ -263,7 +264,7 @@ const WatchlistSettings = (props) => {
         let mergedMatch = Object.values(mergedGroups).find(g => g.label === selResourceGroup)
         let resourceId = mergedMatch ? mergedMatch.resourceId : getSelectedIDFromSecuritiesList2(props.securityTypeList, selResourceGroup)
         let asURL = appserverURL()
-        fetch(`${asURL}/add_user_watchlist_name/${newText.trim()}/${resourceId}/${selResourceGroup}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(`${asURL}/add_user_watchlist_name/${newText.trim()}/${resourceId}/${selResourceGroup}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => res.json())
             .then(data => {
                 if (data['watchlist_names_list'] === 'limit_reached') {
@@ -326,7 +327,7 @@ const WatchlistSettings = (props) => {
         let oldName = selWatchlist
         let newName = newText.trim()
         let asURL = appserverURL()
-        fetch(`${asURL}/edit_user_watchlist_name/${oldName}/${newName}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(`${asURL}/edit_user_watchlist_name/${oldName}/${newName}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => res.json())
             .then(data => {
                 props.SetWatchlists(data['watchlist_names_list'])
@@ -356,7 +357,7 @@ const WatchlistSettings = (props) => {
         SetMessage('')
         let delName = selWatchlist
         let asURL = appserverURL()
-        fetch(`${asURL}/del_user_watchlist_name/${delName}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(`${asURL}/del_user_watchlist_name/${delName}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => res.json())
             .then(data => {
                 props.SetWatchlists(data['watchlist_names_list'])
@@ -385,7 +386,7 @@ const WatchlistSettings = (props) => {
         if (selWatchlist === '') return
 
         let asURL = appserverURL()
-        fetch(`${asURL}/set_default_watchlist/${selWatchlist}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(`${asURL}/set_default_watchlist/${selWatchlist}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => res.json())
             .then(data => {
                 props.SetWatchlists(data['watchlist_names_list'])
@@ -402,7 +403,7 @@ const WatchlistSettings = (props) => {
         if (selWatchlist === '') return
         const current = isAddToSecurities()
         let asURL = appserverURL()
-        fetch(`${asURL}/set_watchlist_add_to_securities/${selWatchlist}/${!current}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(`${asURL}/set_watchlist_add_to_securities/${selWatchlist}/${!current}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => res.json())
             .then(data => {
                 props.SetWatchlists(data['watchlist_names_list'])
@@ -476,12 +477,12 @@ const WatchlistSettings = (props) => {
         let asURL = appserverURL()
         SetMessage('Validating...')
         SetMsgColor(tc.text)
-        fetch(`${asURL}/NameFromTicker/${resourceId}/${sym}?token=${token}`)
+        twFetch(`${asURL}/NameFromTicker/${resourceId}/${sym}?token=${token}`)
             .then(res => res.json())
             .then(g => {
                 if (g['name'] && g['name'] !== '') {
                     // symbol is valid - add it
-                    fetch(`${asURL}/add_user_watchlist_item/${selWatchlist}/${sym}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                    twFetch(`${asURL}/add_user_watchlist_item/${selWatchlist}/${sym}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
                         .then(res => res.json())
                         .then(data => {
                             if (data['watchlist_items'] === 'duplicate') {
@@ -593,7 +594,7 @@ const WatchlistSettings = (props) => {
         SetMsgColor(tc.text)
         let asURL = appserverURL()
         let encoded = window.btoa(symbols.join(','))
-        fetch(`${asURL}/detect_symbols_group/${encoded}?token=${token}`)
+        twFetch(`${asURL}/detect_symbols_group/${encoded}?token=${token}`)
             .then(res => res.json())
             .then(data => {
                 if (data['error'] === 'no_symbols') {
@@ -652,7 +653,7 @@ const WatchlistSettings = (props) => {
         let asURL = appserverURL()
 
         // step 1: create watchlist with detected resource group
-        fetch(`${asURL}/add_user_watchlist_name/${name}/${resourceId}/${resourceName}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(`${asURL}/add_user_watchlist_name/${name}/${resourceId}/${resourceName}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => res.json())
             .then(data => {
                 if (data['watchlist_names_list'] === 'limit_reached') {
@@ -677,7 +678,7 @@ const WatchlistSettings = (props) => {
 
                 // step 2: bulk add symbols
                 let encoded = window.btoa(validSymbols.join(','))
-                fetch(`${asURL}/bulk_add_watchlist_items/${name}/${encoded}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                twFetch(`${asURL}/bulk_add_watchlist_items/${name}/${encoded}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
                     .then(res => res.json())
                     .then(bulkData => {
                         SetCsvResult(bulkData)
@@ -701,7 +702,7 @@ const WatchlistSettings = (props) => {
     //-------------------------------------------------------------------------------------------------------------------------------------
     const handleDeleteSymbol = (sym) => {
         let asURL = appserverURL()
-        fetch(`${asURL}/del_user_watchlist_item/${selWatchlist}/${sym}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        twFetch(`${asURL}/del_user_watchlist_item/${selWatchlist}/${sym}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => res.json())
             .then(data => {
                 SetWatchlistItems(data['watchlist_items'])

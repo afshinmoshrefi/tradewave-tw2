@@ -28,6 +28,7 @@ import { userAccessToSelectedSecurity } from './Common'
 
 import { getCookie, setCookie } from './Common'
 import { lsGet, lsSet, lsRemove, clearUserStorage } from './Common'
+import { twFetch, registerTwFetchAuth } from './twFetch'
 import ErrorBoundary from './ErrorBoundary'
 import jwt_decode from 'jwt-decode'
 //-------------------- swiper -----------------------------
@@ -968,7 +969,7 @@ const App = () => {
 
         // fetch watchlist items and update filter with symbols - triggers re-filter via opportunities refetch
         let asURL = appserverURL()
-        fetch(`${asURL}/get_user_watchlist_items/${wlName}?token=${token}`)
+        twFetch(`${asURL}/get_user_watchlist_items/${wlName}?token=${token}`)
           .then(res => res.json())
           .then(data => {
             SetActiveWatchlistFilter(prev => ({
@@ -1514,6 +1515,102 @@ const App = () => {
   }, [])
 
   //-------------------------------------------------------------------------------
+  // login handshake helpers - used by the login useEffect below AND by the
+  // twFetch 401 re-login so a long-lived tab can self-heal at token expiry
+  //-------------------------------------------------------------------------------
+  const detectDevice = () => {
+    let deviceType = '!';
+    let deviceOS = '!';
+    if (rdd.isDesktop) {
+      deviceType = 'D'
+      if (rdd.isMacOs) deviceOS = 'M';
+      else if (rdd.isWindows) deviceOS = 'W';
+      else if (rdd.osName === 'Linux') deviceOS = 'L'
+      else deviceOS = rdd.osName
+    }
+    if (rdd.isTablet) {
+      deviceType = 'T';
+      if (rdd.isAndroid) deviceOS = 'A';
+      else if (rdd.isIOS) deviceOS = 'I';
+      else if (rdd.osName === 'Linux') deviceOS = 'L'
+      else deviceOS = rdd.osName
+    }
+    if (!rdd.isTablet && rdd.isMobile) { //smartphone
+      deviceType = 'S';
+      if (rdd.isAndroid) deviceOS = 'A';
+      else if (rdd.isIOS) deviceOS = 'I';
+      else if (rdd.osName === 'Linux') deviceOS = 'L';
+      else if (rdd.isWindows) deviceOS = 'W';
+    }
+    return [deviceType, deviceOS];
+  };
+
+  const effectiveUserLevel = () => {
+    let lvl = window.current_user_level;
+
+    //#######################################################################  need fixing ##########
+    if (!lvl) lvl = '6'  // passing the user_level from the React to appserver here during login
+
+    var numbers = lvl.split(",").map(Number); // convert array of strings to array of numbers
+    var largestNumber = Math.max(...numbers); // find largest number in the array
+    lvl = largestNumber.toString();
+
+    if (window.current_user_level === '2,1,4,') lvl = '6' // this is a weird one - for admin I have to fix it in worpdress where userlevel is passed
+
+    // settig user level for debug when free ripple user
+    if (debug) lvl = testUserLevel; // this is for testing Free Ripple level only
+    //#######################################################################
+
+    return lvl;
+  };
+
+  // Re-derive the /login handshake URL from the page credentials (window
+  // globals re-minted by Flask on every /app/ load, legacy 'apsl' cookie
+  // fallback). Returns null when no credentials are present.
+  const buildLoginUrl = () => {
+    let cookie = null;
+    if (window.current_user_id && window.ltk) cookie = `${window.current_user_id},${window.ltk}`;
+    else cookie = getCookie('apsl');
+    if (cookie === null) return null;
+
+    let userid = cookie.split(',')[0];
+    let loginToken = cookie.split(',')[1];
+    if (debug) userid = testUserID;
+    if (debug) loginToken = process.env.REACT_APP_DEBUG_LOGIN_TOKEN;
+
+    const [deviceType, deviceOS] = detectDevice();
+    return `${appserverURL()}/login/${userid}/${effectiveUserLevel()}/${deviceType}/${deviceOS}/${loginToken}`;
+  };
+
+  //-------------------------------------------------------------------------------
+  // twFetch auth wiring: on a 401 from a data endpoint the wrapper re-runs the
+  // login handshake once and replays the request with the fresh token; if the
+  // handshake fails too (LTK expired), show the Session Expired overlay.
+  //-------------------------------------------------------------------------------
+  useEffect(() => {
+    registerTwFetchAuth({
+      relogin: () => {
+        const url = buildLoginUrl();
+        if (!url) return Promise.resolve(null);
+        // twFetch (skipAuthRetry) so a transient 429/5xx during the ONE re-login
+        // attempt retries with backoff instead of falsely latching sessionDead.
+        return twFetch(url, { skipAuthRetry: true })
+          .then((res) => {
+            const contentType = res.headers.get("content-type");
+            if (!res.ok || !contentType || contentType.indexOf("application/json") === -1) return null;
+            return res.json().then((t) => (t && t['token']) ? t['token'] : null);
+          })
+          .then((newToken) => {
+            if (newToken) SetToken(newToken); // effects refetch with the new token
+            return newToken;
+          })
+          .catch(() => null);
+      },
+      onSessionExpired: () => SetSessionExpired(true),
+    });
+  }, [])
+
+  //-------------------------------------------------------------------------------
   // start login useeffect - login
   //-------------------------------------------------------------------------------
   useEffect(() => {
@@ -1645,48 +1742,8 @@ const App = () => {
     if (!token || token.length === 0) {  // 5/9/2025 - dev stopped working - I think the above line was the reason.  changed it to this
       let asURL = appserverURL()
 
-      let deviceType = '!';
-      let deviceOS = '!';
-      if (rdd.isDesktop) {
-        deviceType = 'D'
-        if (rdd.isMacOs) deviceOS = 'M';
-        else if (rdd.isWindows) deviceOS = 'W';
-        else if (rdd.osName === 'Linux') deviceOS = 'L'
-        else deviceOS = rdd.osName
-      }
-      if (rdd.isTablet) {
-        deviceType = 'T';
-        if (rdd.isAndroid) deviceOS = 'A';
-        else if (rdd.isIOS) deviceOS = 'I';
-        else if (rdd.osName === 'Linux') deviceOS = 'L'
-        else deviceOS = rdd.osName
-      }
-      if (!rdd.isTablet && rdd.isMobile) { //smartphone
-        deviceType = 'S';
-        if (rdd.isAndroid) deviceOS = 'A';
-        else if (rdd.isIOS) deviceOS = 'I';
-        else if (rdd.osName === 'Linux') deviceOS = 'L';
-        else if (rdd.isWindows) deviceOS = 'W';
-      }
-
-      tmp = window.current_user_level;
-
-      //#######################################################################  need fixing ##########
-      if (tmp === '') tmp = '6'  // passing the user_level from the React to appserver here during login
-
-      var numbers = tmp.split(",").map(Number); // convert array of strings to array of numbers
-      var largestNumber = Math.max(...numbers); // find largest number in the array
-      tmp = largestNumber.toString();
-
-      if (window.current_user_level === '2,1,4,') tmp = '6' // this is a weird one - for admin I have to fix it in worpdress where userlevel is passed 
-
-
-      // settig user level for debug when free ripple user 
-      if (debug) tmp = testUserLevel; // this is for testing Free Ripple level only 
-
-      //#######################################################################
-
-
+      const [deviceType, deviceOS] = detectDevice();
+      tmp = effectiveUserLevel();
 
       let url = `${asURL}/login/${userid}/${tmp}/${deviceType}/${deviceOS}/${loginToken}`
 
@@ -1696,8 +1753,9 @@ const App = () => {
       console.log('.') ; // I think this helps make login work for non logged in with trxstat.com - it was crashing for some reason
 
       var stat = ''
-      // login to appserver
-      fetch(url)
+      // login to appserver - twFetch retries transient 429/5xx with backoff;
+      // skipAuthRetry because a 401 here means the LTK itself is dead
+      twFetch(url, { skipAuthRetry: true })
         .then(res => {
 
           const contentType = res.headers.get("content-type");
@@ -1848,7 +1906,7 @@ const App = () => {
   useEffect(() => {
     if (token && token.length > 0) {
       let asURL = appserverURL()
-      fetch(`${asURL}/chatbot/chatbot_access?token=${token}`)
+      twFetch(`${asURL}/chatbot/chatbot_access?token=${token}`)
         .then(res => res.json())
         .then(data => {
           const allowed = data.allowed === true;
@@ -1942,7 +2000,7 @@ const App = () => {
   useEffect(() => {
     if (token && token.length > 0 && loggedinUser !== '0') {
       let asURL = appserverURL()
-      fetch(`${asURL}/get_user_watchlist_names?token=${token}`)
+      twFetch(`${asURL}/get_user_watchlist_names?token=${token}`)
         .then(res => res.json())
         .then(data => {
           if (data['watchlist_names_list'] && Array.isArray(data['watchlist_names_list'])) {
@@ -1951,7 +2009,7 @@ const App = () => {
             if (defWL) {
               SetDefaultWatchlistName(defWL.name)
               SetDefaultWatchlistResourceId(defWL.resourceId)
-              fetch(`${asURL}/get_user_watchlist_items/${defWL.name}?token=${token}`)
+              twFetch(`${asURL}/get_user_watchlist_items/${defWL.name}?token=${token}`)
                 .then(res2 => res2.json())
                 .then(data2 => {
                   if (data2['watchlist_items'] && Array.isArray(data2['watchlist_items'])) {
@@ -1970,7 +2028,7 @@ const App = () => {
   useEffect(() => {
     if (token && token.length > 0 && loggedinUser !== '0') {
       let asURL = appserverURL()
-      fetch(`${asURL}/get_published_lists?token=${token}`)
+      twFetch(`${asURL}/get_published_lists?token=${token}`)
         .then(res => res.json())
         .then(data => {
           if (data['published_lists']) SetPublishedLists(data['published_lists'])
@@ -1978,7 +2036,7 @@ const App = () => {
         })
         .catch(err => console.log('fetch published lists error:', err.message))
 
-      fetch(`${asURL}/get_securities_prefs?token=${token}`)
+      twFetch(`${asURL}/get_securities_prefs?token=${token}`)
         .then(res => res.json())
         .then(data => {
           if (data['securities_prefs']) SetSecuritiesPrefs(data['securities_prefs'])
@@ -2018,7 +2076,7 @@ const App = () => {
     let url = `${asURL}/getResourcesObj?token=${token}`
 
     if (token && token.length > 0) {
-      fetch(url)
+      twFetch(url)
         .then((res) => {
           return res.json();
         })
@@ -2086,7 +2144,12 @@ const App = () => {
           SetSecurityTypeList2(tmp)
         })
         .catch(err => {
+          // without the resources list the whole app is blank - surface it
+          // (twFetch already retried transient failures with backoff)
           console.log('getResourcesObj error=', err.message)
+          SetDialogType('info-box');
+          SetDialogProp({ title: 'Data Temporarily Unavailable', contentText: 'The securities list could not be loaded. Please refresh the browser to try again.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+          SetInfoBoxVisible(true)
         })
 
 
@@ -2385,7 +2448,7 @@ const App = () => {
       let asURL = appserverURL()
       let url = `${asURL}/NameFromTicker/${id}/${symbol}?token=${token}`
 
-      fetch(url)
+      twFetch(url)
         .then((res) => {
           return res.json();
         })

@@ -10,6 +10,7 @@ import { monthsAndQtrs, maxDaysOut, minDaysOut, customYearsDesc } from './Common
 import { redirectBackFromSeasonals } from './Common'
 import { appserverURL } from './Common'
 import { getTodayDate } from './Common'
+import { twFetch } from './twFetch'
 import { UserContext } from './UserContext'
 import { BsFillCaretUpFill, BsFillCaretDownFill, BsQuestionCircle, BsPlus } from "react-icons/bs";
 import { BiLineChart } from "react-icons/bi";
@@ -175,7 +176,7 @@ const SeasonalBarChart = (props) => {
     const asURL = appserverURL()
     const url = `${asURL}/StockMetaData/${marketId}/${props.symbol}?token=${token}`
 
-    fetch(url, { signal: controller.signal })
+    twFetch(url, { signal: controller.signal })
       .then(res => {
         const contentType = res.headers.get("content-type")
         if (contentType && contentType.indexOf("application/json") !== -1) return res.json()
@@ -286,7 +287,7 @@ const SeasonalBarChart = (props) => {
     url += `?token=${token}`
 
 
-    fetch(url, { signal: controller.signal })
+    twFetch(url, { signal: controller.signal })
       .then(res => {
         const contentType = res.headers.get("content-type")
         if (contentType && contentType.indexOf("application/json") !== -1) return res.json()
@@ -297,7 +298,11 @@ const SeasonalBarChart = (props) => {
           return undefined
         }
 
+        // transient failure already retried by twFetch - surface instead of a blank chart
         console.log('ChartData4 response status = ', res.status)
+        props.SetDialogType('info-box')
+        props.SetDialogProp({ title: 'Data Temporarily Unavailable', contentText: 'The chart data could not be loaded. Please try again in a moment - reselect the pattern or refresh the browser.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+        props.SetInfoBoxVisible(true)
         return undefined
       })
       .then(t => {
@@ -338,7 +343,11 @@ const SeasonalBarChart = (props) => {
       })
       .catch(err => {
         if (err?.name === 'AbortError') return
+        // network failure after twFetch retries - surface instead of a blank chart
         console.log('ChartData4 fetch error:', err?.message || err)
+        props.SetDialogType('info-box')
+        props.SetDialogProp({ title: 'Data Temporarily Unavailable', contentText: 'The chart data could not be loaded. Please try again in a moment - reselect the pattern or refresh the browser.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+        props.SetInfoBoxVisible(true)
       })
 
     return () => controller.abort()
@@ -385,7 +394,7 @@ const SeasonalBarChart = (props) => {
       `${asURL}/ChartData4/${compareMarketId}/${startDate}/${compareSymbol}/${days_out_processed}/${sy}` +
       `?token=${token}`;
 
-    fetch(url, { signal: controller.signal })
+    twFetch(url, { signal: controller.signal })
       .then(res => {
         const contentType = res.headers.get("content-type");
 
@@ -463,7 +472,7 @@ const SeasonalBarChart = (props) => {
     let sy = props.seasonalYears; if (props.PEselected !== 'cons') sy = `${props.PEselected}-${props.seasonalYears}`
     const url = `${asURL}/ChartData4/${marketId}/${date_0}/${props.symbol}/${days_out_processed}/${sy}?token=${token}`
 
-    fetch(url, { signal: controller.signal })
+    twFetch(url, { signal: controller.signal })
       .then(res => {
         const contentType = res.headers.get("content-type")
         if (contentType && contentType.indexOf("application/json") !== -1) return res.json()
@@ -534,7 +543,7 @@ const SeasonalBarChart = (props) => {
 
     // console.log('ttttttttttttttttttttttttrendchart triggered with props. opp_start_date=',opp_start_date)
 
-    fetch(url, { signal: controller.signal })
+    twFetch(url, { signal: controller.signal })
       .then(res => {
         const contentType = res.headers.get("content-type")
         if (contentType && contentType.indexOf("application/json") !== -1) return res.json()
@@ -592,7 +601,7 @@ const SeasonalBarChart = (props) => {
     const url = `${asURL}/OppBySymbol/${marketId}/${props.symbol}/${props.seasonalYears}/${props.seasonalYears}/-/100?token=${token}&mode=${mode}`
     console.log('OppBySymbol url:', url)
 
-    fetch(url, { signal: controller.signal })
+    twFetch(url, { signal: controller.signal })
       .then(res => {
         if (res.ok && res.headers.get('content-type')?.includes('application/json')) return res.json()
         return undefined
@@ -658,7 +667,7 @@ const SeasonalBarChart = (props) => {
     setWatchlistDropdownOpen(false)
     let asURL = appserverURL()
     let id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity)
-    fetch(`${asURL}/NameFromTicker/${id}/${sym}?token=${token}`)
+    twFetch(`${asURL}/NameFromTicker/${id}/${sym}?token=${token}`)
       .then(res => res.json())
       .then(g => {
         if (g['name'] !== '') {
@@ -732,7 +741,7 @@ const SeasonalBarChart = (props) => {
         let id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity);
         let url = `${asURL}/NameFromTicker/${id}/${event.target.value}?token=${token}`
 
-        fetch(url)
+        twFetch(url)
           .then((res) => {
             return res.json();
           })
@@ -826,7 +835,7 @@ const SeasonalBarChart = (props) => {
         let id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity);
         let url = `${asURL}/NameFromTicker/${id}/${event.target.value}?token=${token}`
 
-        fetch(url)
+        twFetch(url)
           .then((res) => {
             return res.json();
           })
@@ -1521,7 +1530,7 @@ const SeasonalBarChart = (props) => {
 
           // console.log('add report url in seasonalbarchart',url)
 
-          fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+          twFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then((response) => {
               // console.log('response=',response)
               if (!response.ok) {
