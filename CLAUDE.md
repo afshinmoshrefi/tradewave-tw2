@@ -39,6 +39,9 @@ replace WP/UMP, keeping the React app and the appserver `/login` handshake.
 - All TW2 hosts are Cloudflare tunnels - never convert prod to an A record.
 - gunicorn does not auto-reload (restart after Python edits); deploy must
   `pip install -r requirements.txt`. React = one env-agnostic bundle, symlink-swap deploy.
+  Build React ONLY via `npm run build` (it carries PUBLIC_URL=/app/) - never raw
+  `react-scripts build` (2026-06-12: a raw build emitted root-relative asset paths
+  and blanked the app; .env.production now pins PUBLIC_URL as a backstop).
 - Appserver port is PER-ENV: `:5000` on dev ONLY, `:80` on staging/prod (CAP_NET_BIND_SERVICE).
   NEVER assume 5000 off dev. Local checks on staging/prod hit `http://127.0.0.1/...` (port 80).
   When unsure, read the live port off the box (`ss -tlnp`, the unit's `--bind`) - don't recall it.

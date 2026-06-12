@@ -405,7 +405,11 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
 
 ## 7. TW2 React app (`web-react/`, served at `/app/`)
 
-- CRA + react-scripts 5, React 17, `PUBLIC_URL=/app/`. Built ONCE on dev, same
+- CRA + react-scripts 5, React 17, `PUBLIC_URL=/app/`. **Build ONLY with
+  `npm run build`** (the npm script supplies PUBLIC_URL=/app/; a raw
+  `react-scripts build` used to emit root-relative /static/ asset paths and
+  blank the app - .env.production now pins PUBLIC_URL as a backstop,
+  2026-06-12). Built ONCE on dev, same
   bundle to all envs (env-agnostic). `build/` is gitignored.
 - Consumes injected `window.*` globals; `window.current_user_id`+`window.ltk` ->
   combined login token; calls the appserver via the same-origin `/appserver/`
