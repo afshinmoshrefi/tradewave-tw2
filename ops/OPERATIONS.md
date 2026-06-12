@@ -210,7 +210,7 @@ Set `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST` (
 
 | Unit | Command | Bind | Venv | Type |
 |---|---|---|---|---|
-| `tradewave-apiserver` | `gunicorn apiserver.app:app` (~4 sync workers) | `127.0.0.1:8088` | `/home/flask/venv-api` | notify |
+| `tradewave-apiserver` | `gunicorn apiserver.app:app` (4 gthread workers x 12 threads) | `127.0.0.1:8088` | `/home/flask/venv-api` | notify |
 | `tradewave-mcpserver` | `python -m mcpserver.server --transport sse --port 9090` | `127.0.0.1:9090` | `/home/flask/venv-api` | simple |
 
 MCP env: `API_BASE_URL=http://127.0.0.1:8088/v1`, `TW2_MCP_PUBLIC_HOST=<host>`, and

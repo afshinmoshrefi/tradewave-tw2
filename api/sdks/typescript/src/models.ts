@@ -45,6 +45,25 @@ export interface MarketRef {
 }
 
 /**
+ * Response envelope for GET /me - identity + capabilities for the caller's key.
+ * ml_remaining_today / ml_daily_limit are null when unlimited.
+ */
+export interface Me {
+  tier?: string;
+  tier_name?: string;
+  /** ML calls remaining today (null = unlimited; 0 = daily limit reached). */
+  ml_remaining_today?: number | null;
+  ml_daily_limit?: number | null;
+  /** Max rows per call on the plan. */
+  opp_limit?: number;
+  /** The plan's rate limits (per_minute / per_day). */
+  rate?: { per_minute?: number; per_day?: number; [key: string]: unknown };
+  markets_in_scope?: Market[];
+  upgrade_url?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Legacy ML block (used by POST /score and bulk GET /opportunities).
  * Note the legacy names: win_prob, pred_return, pred_mfe.
  * win_prob is the model probability and is DISTINCT from historical win_rate.
@@ -248,11 +267,19 @@ export interface SignalCard {
 /** Response envelope for GET /scan. */
 export interface ScanResult {
   generated_at?: string;
+  /** The server's plain-English honesty line: what was evaluated/shown, any degradation. */
+  summary?: string;
   window?: string;
   rank_by?: RankBy;
   count?: number;
   evaluated_count?: number;
   enrichment_capped?: boolean;
+  /** True when the list was cut short by the plan's row cap, not by the filters. */
+  capped_by_plan?: boolean;
+  /** "N of M" - rows shown of candidates evaluated. */
+  shown_of_evaluated?: string;
+  /** Present only when capped_by_plan - where to lift the cap. */
+  upgrade_url?: string;
   ml_remaining_today?: number | null;
   opportunities?: SignalCard[];
   [key: string]: unknown;

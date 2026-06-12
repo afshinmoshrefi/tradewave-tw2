@@ -16,7 +16,7 @@ Quickstart::
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .client import Client
 from .errors import (
@@ -35,6 +35,7 @@ from .models import (
     DailyPickResult,
     Market,
     MarketRef,
+    Me,
     MLDailyLimit,
     MLScore,
     NextStep,
@@ -79,6 +80,7 @@ __all__ = [
     "DailyPickResult",
     "Market",
     "MarketRef",
+    "Me",
     "MLDailyLimit",
     "MLScore",
     "NextStep",

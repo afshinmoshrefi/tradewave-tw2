@@ -13,7 +13,7 @@
 
 import { errorForStatus, RateLimitError, TradeWaveError } from './errors.js';
 
-export const SDK_VERSION = '0.1.0';
+export const SDK_VERSION = '0.1.1';
 export const DEFAULT_BASE_URL = 'https://api.tradewave.ai/v1';
 const USER_AGENT = `tradewave-typescript/${SDK_VERSION}`;
 
@@ -186,7 +186,13 @@ export class HttpClient {
         errObj?.message ?? `TradeWave API error ${response.status} on ${path}`;
       const retryAfter = parseRetryAfter(response.headers.get('Retry-After'));
 
-      const retryable = response.status === 429 || response.status >= 500;
+      // A Retry-After beyond the in-process cap (a DAY-window 429 advertises
+      // up to 86400s to the next UTC midnight) is not worth sleeping on -
+      // throw immediately; the error carries retryAfter so callers can schedule.
+      const RETRY_AFTER_SLEEP_CAP_MS = 30_000;
+      const retryable =
+        (response.status === 429 || response.status >= 500) &&
+        !(retryAfter !== undefined && retryAfter > RETRY_AFTER_SLEEP_CAP_MS);
       if (retryable && attempt < this.maxRetries) {
         // Honor Retry-After when present, else backoff with jitter.
         const waitMs =

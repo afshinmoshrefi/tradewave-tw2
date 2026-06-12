@@ -23,6 +23,7 @@ import type {
   DailyPickResult,
   Direction,
   Market,
+  Me,
   OpportunityList,
   Opportunity,
   Pattern,
@@ -39,7 +40,10 @@ import type {
 export interface TradeWaveOptions {
   /** API key like 'tw_live_...'. Falls back to process.env.TRADEWAVE_API_KEY. */
   apiKey?: string;
-  /** Override the base URL. Default https://api.tradewave.ai/v1 */
+  /**
+   * Override the base URL. When omitted, falls back to process.env.TRADEWAVE_API_URL
+   * (then TRADEWAVE_BASE_URL), else the default https://api.tradewave.ai/v1
+   */
   baseUrl?: string;
   /** Per-request timeout in milliseconds. Default 30000. */
   timeoutMs?: number;
@@ -50,7 +54,7 @@ export interface TradeWaveOptions {
 }
 
 export interface ScanParams {
-  /** csv of ids or names e.g. '2,11' or 'gold,energy'. Default = all in-scope markets. */
+  /** csv of ids or aliases e.g. '2,11' or 'sp500,etf'. Default = all in-scope markets. */
   markets?: string;
   /** 'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. Default 'now'. */
   window?: string;
@@ -108,6 +112,15 @@ function resolveApiKey(passed?: string): string {
   );
 }
 
+function resolveBaseUrl(passed?: string): string {
+  if (passed) return passed;
+  const env =
+    typeof process !== 'undefined' && process.env
+      ? process.env.TRADEWAVE_API_URL ?? process.env.TRADEWAVE_BASE_URL
+      : undefined;
+  return env ?? DEFAULT_BASE_URL;
+}
+
 export class TradeWave {
   private readonly http: HttpClient;
   /** The resolved base URL in use. */
@@ -115,7 +128,7 @@ export class TradeWave {
 
   constructor(options: TradeWaveOptions = {}) {
     const apiKey = resolveApiKey(options.apiKey);
-    this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+    this.baseUrl = resolveBaseUrl(options.baseUrl);
     this.http = new HttpClient({
       apiKey,
       baseUrl: this.baseUrl,
@@ -163,6 +176,18 @@ export class TradeWave {
     return res.data;
   }
 
+  // ---- Identity -------------------------------------------------------------
+
+  /**
+   * Identity + capabilities for your API key: plan tier, ML allowance left today
+   * (null = unlimited), row cap, rate limits, and in-scope markets. Reads only -
+   * never consumes ML allowance.
+   */
+  async me(): Promise<Me> {
+    const res = await this.http.request<Me>('/me');
+    return res.data;
+  }
+
   // ---- Markets ------------------------------------------------------------
 
   /** List the 17 markets and the caller's access scope. */
@@ -171,10 +196,20 @@ export class TradeWave {
     return res.data.markets ?? [];
   }
 
-  /** List symbols in a market (permanent resource key '0'..'16'). */
-  async listSymbols(market: string): Promise<Symbol[]> {
+  /**
+   * List symbols in a market (permanent resource key '0'..'16').
+   *
+   * A full market is large (the S&P 500 list alone is ~150KB), so the endpoint
+   * pages: `prefix` filters by ticker prefix (case-insensitive) and `limit`
+   * caps the rows returned. Use raw() for the total/matched truncation counters.
+   */
+  async listSymbols(
+    market: string,
+    params: { prefix?: string; limit?: number } = {},
+  ): Promise<Symbol[]> {
     const res = await this.http.request<{ symbols?: Symbol[] }>(
       `/markets/${encodeURIComponent(market)}/symbols`,
+      { query: { prefix: params.prefix, limit: params.limit } },
     );
     return res.data.symbols ?? [];
   }

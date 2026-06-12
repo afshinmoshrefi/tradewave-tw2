@@ -12,6 +12,7 @@ Only ``requests`` is used - no other third-party dependency.
 
 from __future__ import annotations
 
+import os
 import random
 import time
 from typing import Any, Dict, Mapping, Optional
@@ -28,11 +29,30 @@ from .errors import (
 )
 
 DEFAULT_BASE_URL = "https://api.tradewave.ai/v1"
+# Env vars that override the default base URL (checked in this order) when no
+# explicit base_url is passed - handy for pointing a script at dev/staging
+# without touching code.
+_ENV_BASE_URL_VARS = ("TRADEWAVE_API_URL", "TRADEWAVE_BASE_URL")
 DEFAULT_TIMEOUT = 30.0
 DEFAULT_MAX_RETRIES = 3
 _BACKOFF_BASE = 0.5  # seconds; doubled each attempt
 _BACKOFF_CAP = 30.0  # never sleep longer than this between retries
 _USER_AGENT = f"tradewave-python/{__version__}"
+
+
+def resolve_base_url(passed: Optional[str] = None) -> str:
+    """Resolve the API base URL.
+
+    Precedence: an explicit argument, then the ``TRADEWAVE_API_URL`` and
+    ``TRADEWAVE_BASE_URL`` environment variables, then :data:`DEFAULT_BASE_URL`.
+    """
+    if passed:
+        return passed
+    for var in _ENV_BASE_URL_VARS:
+        value = os.environ.get(var)
+        if value:
+            return value
+    return DEFAULT_BASE_URL
 
 
 def _parse_retry_after(value: Optional[str]) -> Optional[float]:
@@ -54,13 +74,13 @@ class HTTPClient:
         self,
         api_key: str,
         *,
-        base_url: str = DEFAULT_BASE_URL,
+        base_url: Optional[str] = None,
         timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
         session: Optional[requests.Session] = None,
         user_agent: Optional[str] = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
+        self.base_url = resolve_base_url(base_url).rstrip("/")
         self.timeout = timeout
         self.max_retries = max(0, int(max_retries))
         self._owns_session = session is None
@@ -141,9 +161,14 @@ class HTTPClient:
             if 200 <= resp.status_code < 300:
                 return self._parse_json(resp)
 
-            # Decide whether to retry.
+            # Decide whether to retry. A Retry-After beyond the in-process cap
+            # (e.g. a DAY-window 429 advertises up to 86400s to the next UTC
+            # midnight) is NOT worth sleeping on - raise immediately and let
+            # the caller schedule; the error carries retry_after + the window.
             retry_after = _parse_retry_after(resp.headers.get("Retry-After"))
             retryable = resp.status_code == 429 or 500 <= resp.status_code < 600
+            if retry_after is not None and retry_after > _BACKOFF_CAP:
+                retryable = False
             if retryable and attempt < self.max_retries:
                 self._sleep_backoff(attempt, retry_after)
                 attempt += 1

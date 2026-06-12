@@ -39,6 +39,7 @@ from .models import (
     AnalyzeResult,
     DailyPickResult,
     Market,
+    Me,
     MLDailyLimit,
     Opportunity,
     OpportunityList,
@@ -59,8 +60,10 @@ class Client:
     Args:
         api_key: Your TradeWave API key (``tw_live_...``). Falls back to the
             ``TRADEWAVE_API_KEY`` environment variable when omitted.
-        base_url: Override the API base URL (default
-            ``https://api.tradewave.ai/v1``).
+        base_url: Override the API base URL. When omitted, the
+            ``TRADEWAVE_API_URL`` (then ``TRADEWAVE_BASE_URL``) environment
+            variable is honored, else the default
+            ``https://api.tradewave.ai/v1``.
         timeout: Per-request timeout in seconds (default 30).
         max_retries: Automatic retries on 429/5xx with exponential backoff and
             jitter (default 3). 4xx other than 429 are never retried.
@@ -75,7 +78,7 @@ class Client:
         self,
         api_key: Optional[str] = None,
         *,
-        base_url: str = DEFAULT_BASE_URL,
+        base_url: Optional[str] = None,
         timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
         session: Optional[requests.Session] = None,
@@ -119,6 +122,21 @@ class Client:
     def _post(self, path: str, json: Any) -> Any:
         return self._http.request("POST", path, json=json)
 
+    # -- identity ------------------------------------------------------------
+
+    def me(self, *, raw: bool = False) -> Union[Me, dict]:
+        """Identity + capabilities for your API key.
+
+        Returns the plan tier, the ML allowance left today
+        (``ml_remaining_today``, ``None`` = unlimited), the per-call row cap
+        (``opp_limit``), the rate limits, and the markets in scope. Reads only -
+        never consumes ML allowance.
+
+        Maps to ``GET /me``.
+        """
+        data = self._get("/me")
+        return data if raw else Me.from_dict(data)
+
     # -- markets -----------------------------------------------------------
 
     def list_markets(self, *, raw: bool = False) -> Union[List[Market], dict]:
@@ -133,16 +151,30 @@ class Client:
         return [Market.from_dict(m) for m in (items or [])]
 
     def list_symbols(
-        self, market: str, *, raw: bool = False
+        self,
+        market: str,
+        *,
+        prefix: Optional[str] = None,
+        limit: Optional[int] = None,
+        raw: bool = False,
     ) -> Union[List[Symbol], dict]:
         """List the symbols in a market.
 
+        A full market is large (the S&P 500 list alone is ~150KB), so the
+        endpoint pages: ``prefix`` filters by ticker prefix (case-insensitive)
+        and ``limit`` caps the rows returned. Pass ``raw=True`` to see the
+        ``total`` / ``matched`` / ``count`` truncation counters.
+
         Args:
             market: Permanent resource key ``'0'..'16'``.
+            prefix: Ticker-prefix filter, e.g. ``'AA'`` (case-insensitive).
+            limit: Cap the rows returned.
 
         Maps to ``GET /markets/{id}/symbols``.
         """
-        data = self._get(f"/markets/{market}/symbols")
+        data = self._get(
+            f"/markets/{market}/symbols", {"prefix": prefix, "limit": limit}
+        )
         if raw:
             return data
         items = data.get("symbols") if isinstance(data, dict) else None
@@ -230,7 +262,7 @@ class Client:
         (``None`` = unlimited).
 
         Args:
-            markets: CSV of ids or names, e.g. ``'2,11'`` or ``'gold,energy'``.
+            markets: CSV of ids or aliases, e.g. ``'2,11'`` or ``'sp500,etf'``.
                 Default = ALL in-scope markets.
             window: ``'now'`` (default) | ``'next_2_weeks'`` | ``'next_month'``
                 | a ``'from..to'`` range. ``'now'`` = setups whose entry date is

@@ -89,6 +89,43 @@ class MarketRef:
         return cls(id=d.get("id"), name=d.get("name"), raw=d)
 
 
+@dataclass
+class Me:
+    """The /me response - identity + capabilities for the caller's API key.
+
+    ``ml_remaining_today`` and ``ml_daily_limit`` are ``None`` when unlimited.
+    ``rate`` is the plan's rate-limit block (``per_minute`` / ``per_day``),
+    kept as a raw dict so new keys flow through without a model bump.
+    """
+
+    tier: Optional[str] = None
+    tier_name: Optional[str] = None
+    ml_remaining_today: Optional[int] = None
+    ml_daily_limit: Optional[int] = None
+    opp_limit: Optional[int] = None
+    rate: Dict[str, Any] = field(default_factory=dict)
+    markets_in_scope: List[Market] = field(default_factory=list)
+    upgrade_url: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict, repr=False)
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "Me":
+        d = _as_dict(data)
+        return cls(
+            tier=d.get("tier"),
+            tier_name=d.get("tier_name"),
+            ml_remaining_today=d.get("ml_remaining_today"),
+            ml_daily_limit=d.get("ml_daily_limit"),
+            opp_limit=d.get("opp_limit"),
+            rate=_as_dict(d.get("rate")),
+            markets_in_scope=[
+                Market.from_dict(m) for m in _as_list(d.get("markets_in_scope"))
+            ],
+            upgrade_url=d.get("upgrade_url"),
+            raw=d,
+        )
+
+
 # ---------------------------------------------------------------------------
 # ML blocks (two shapes: legacy MLScore vs SignalCardML)
 # ---------------------------------------------------------------------------
@@ -568,14 +605,25 @@ class SignalCard:
 
 @dataclass
 class ScanResult:
-    """The /scan response - ranked SignalCards plus enrichment metadata."""
+    """The /scan response - ranked SignalCards plus enrichment metadata.
+
+    ``summary`` is the server's plain-English honesty line (what was evaluated,
+    what was shown, any degradation). ``capped_by_plan`` is true when the list
+    was cut short by the plan's row cap rather than by the filters;
+    ``shown_of_evaluated`` ("N of M") and ``upgrade_url`` (present only when
+    capped) carry the wall context.
+    """
 
     generated_at: Optional[str] = None
+    summary: Optional[str] = None
     window: Optional[str] = None
     rank_by: Optional[str] = None
     count: Optional[int] = None
     evaluated_count: Optional[int] = None
     enrichment_capped: Optional[bool] = None
+    capped_by_plan: Optional[bool] = None
+    shown_of_evaluated: Optional[str] = None
+    upgrade_url: Optional[str] = None
     ml_remaining_today: Optional[int] = None
     opportunities: List[SignalCard] = field(default_factory=list)
     raw: Dict[str, Any] = field(default_factory=dict, repr=False)
@@ -590,11 +638,15 @@ class ScanResult:
         ]
         return cls(
             generated_at=d.get("generated_at"),
+            summary=d.get("summary"),
             window=d.get("window"),
             rank_by=d.get("rank_by"),
             count=d.get("count"),
             evaluated_count=d.get("evaluated_count"),
             enrichment_capped=d.get("enrichment_capped"),
+            capped_by_plan=d.get("capped_by_plan"),
+            shown_of_evaluated=d.get("shown_of_evaluated"),
+            upgrade_url=d.get("upgrade_url"),
             ml_remaining_today=d.get("ml_remaining_today"),
             opportunities=cards,
             raw=d,

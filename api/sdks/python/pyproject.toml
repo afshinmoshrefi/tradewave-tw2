@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tradewave"
-version = "0.1.0"
+version = "0.1.1"
 description = "Official Python SDK for the TradeWave Data API - seasonal trading opportunities and ML win-probability signals (derived signals only, no raw prices)."
 readme = "README.md"
 requires-python = ">=3.9"

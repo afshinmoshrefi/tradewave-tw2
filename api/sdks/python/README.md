@@ -105,8 +105,9 @@ for p in record.picks:
 
 | Method | Endpoint |
 |---|---|
+| `me()` | `GET /me` |
 | `list_markets()` | `GET /markets` |
-| `list_symbols(market)` | `GET /markets/{id}/symbols` |
+| `list_symbols(market, prefix=, limit=)` | `GET /markets/{id}/symbols` |
 | `opportunities(market, from_=, direction=, min_win_rate=, limit=)` | `GET /opportunities` |
 | `opportunities_for_symbol(symbol, market=)` | `GET /opportunities/{symbol}` |
 | `scan(markets=, window=, direction=, min_win_rate=, min_years=, rank_by=, limit=)` | `GET /scan` |
@@ -119,6 +120,14 @@ for p in record.picks:
 
 The `/opportunities` `from` parameter is a Python reserved word, so the SDK kwarg is
 `from_` (it is sent on the wire as `from`).
+
+`me()` returns your key's identity and capabilities - plan tier, ML allowance left today
+(`ml_remaining_today`, `None` = unlimited), row cap, rate limits, and in-scope markets:
+
+```python
+who = tw.me()
+print(who.tier, who.ml_remaining_today, [m.id for m in who.markets_in_scope])
+```
 
 ## win_rate vs ml_win_prob (read this once)
 
@@ -212,6 +221,14 @@ Client(
     timeout=30,                                   # seconds
     max_retries=3,                                # 429/5xx backoff
 )
+```
+
+When `base_url` is omitted, the `TRADEWAVE_API_URL` (then `TRADEWAVE_BASE_URL`)
+environment variable overrides the default - point a script at dev/staging without
+touching code:
+
+```
+export TRADEWAVE_API_URL=https://api-dev.trxstat.com/v1
 ```
 
 Use it as a context manager (`with Client(...) as tw:`) so the underlying

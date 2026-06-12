@@ -39,6 +39,7 @@ export type {
   YearResult,
   PickResult,
   Market,
+  Me,
   Symbol,
   MarketRef,
   MLScore,

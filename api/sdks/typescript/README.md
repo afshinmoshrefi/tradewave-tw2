@@ -48,6 +48,14 @@ const tw = new TradeWave({
 });
 ```
 
+When `baseUrl` is omitted, the `TRADEWAVE_API_URL` (then `TRADEWAVE_BASE_URL`)
+environment variable overrides the default - point a script at dev/staging without
+touching code:
+
+```bash
+export TRADEWAVE_API_URL=https://api-dev.trxstat.com/v1
+```
+
 ## Flagship endpoints
 
 ```ts
@@ -81,8 +89,9 @@ console.log(record.summary, record.picks?.length);
 ## Primitives
 
 ```ts
+await tw.me();                                   // your key: tier, ML allowance, scope
 await tw.listMarkets();                          // the 17 markets + your scope
-await tw.listSymbols('2');                       // symbols in a market
+await tw.listSymbols('2', { prefix: 'AA', limit: 50 }); // symbols in a market (paged)
 await tw.opportunities({ market: '2', minWinRate: 0.6 });
 await tw.opportunitiesForSymbol('AAPL', '2');
 await tw.pattern('2', 'AAPL');                   // aggregate seasonal stats

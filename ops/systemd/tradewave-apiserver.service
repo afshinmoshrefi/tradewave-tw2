@@ -21,7 +21,10 @@ WorkingDirectory=/home/flask
 Environment=TW2_APISERVER_BIND=127.0.0.1:8088
 EnvironmentFile=/etc/tradewave/secrets.env
 Environment=PYTHONPATH=/home/flask
-ExecStart=/home/flask/venv-api/bin/gunicorn --workers 4 --worker-class sync --timeout 120 \
+# gthread (4 workers x 12 threads = 48 concurrent requests): the gateway is I/O-bound
+# (it waits on the appserver), so sync workers serialize the box to 4 in-flight requests
+# and one busy tenant's scan storm queues everyone else's 60ms /v1/me into the 30s range.
+ExecStart=/home/flask/venv-api/bin/gunicorn --workers 4 --worker-class gthread --threads 12 --timeout 120 --keep-alive 75 \
     --bind ${TW2_APISERVER_BIND} --access-logfile /var/log/tradewave/apiserver.access.log \
     --error-logfile /var/log/tradewave/apiserver.error.log --capture-output apiserver.app:app
 Restart=on-failure
