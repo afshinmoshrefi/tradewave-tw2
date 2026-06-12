@@ -521,7 +521,8 @@ stays internal/loopback. All four bind loopback on every env - nginx + the `tw2`
 cloudflared tunnel front them.
 
 - **Gateway** - `apiserver/` (one letter off the `appserver` data engine, on purpose).
-  gunicorn `apiserver.app:app` on `127.0.0.1:8088`, ~4 sync workers, systemd
+  gunicorn `apiserver.app:app` on `127.0.0.1:8088`, 4 gthread workers x 12 threads
+  (the gateway is appserver-I/O-bound; sync workers capped it at 4 in-flight requests), systemd
   `tradewave-apiserver` (`Type=notify`), isolated venv `/home/flask/venv-api` (NOT
   the appserver `venv`; `requirements-api.txt`). The public paid front door: validates
   customer API keys, enforces tier/scope/rate-limit, **strips raw prices**, exposes the
