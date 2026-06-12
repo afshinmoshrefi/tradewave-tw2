@@ -536,16 +536,25 @@ non_loggedin_levels = ['0','1','2','3','4','5','6','7','8','9','10','11','12','1
 
 
 #############################################################################
-## rate-limit for each API 
-rate_limit_login           = ['200/second','5000/minute' ,'500/hour' ,'5000/day']
-rate_limit_opp             = ['500/second','1500/minute','1000/hour','20000/day']
-rate_limit_chartData4      = ['500/second','1500/minute','1000/hour','20000/day']
-rate_limit_YearsMetaData   = ['500/second','1500/minute','1000/hour','20000/day']
-rate_limit_ChartHistorical = ['500/second','1500/minute','1000/hour','20000/day']
-rate_limit_stockscore      = ['500/second','1500/minute','1000/hour','20000/day']
-rate_limit_general         = ['500/second','1500/minute','1000/hour','20000/day']
+## rate-limit for each API - windows are [per-second, per-minute, per-hour, per-day]
+## Since 2026-06 the appserver limiter keys data endpoints PER-USER (token user
+## id; see appserver.py tw_rate_limit_key) - IP keying behind the Cloudflare
+## tunnel + the web-box nginx proxy collapsed everyone onto 1-2 IPs (chronic
+## prod 429s). Absolute counts MUST ascend second < minute < hour < day: the old
+## 1500/minute > 1000/hour inversion made the tiny hour cap the real limit.
+## Data-limit sizing: one React page load fires a parallel burst per endpoint
+## family; a power user hard-refreshing 3-4 full loads/minute must never 429.
+## rate_limit_login stays IP-keyed (anonymous path) and in prod that bucket is
+## SHARED by all users - sized for the whole user base (see appserver.py note).
+rate_limit_login           = ['50/second' ,'300/minute' ,'3000/hour','20000/day']
+rate_limit_opp             = ['100/second','600/minute' ,'6000/hour','40000/day']
+rate_limit_chartData4      = ['100/second','600/minute' ,'6000/hour','40000/day']
+rate_limit_YearsMetaData   = ['100/second','600/minute' ,'6000/hour','40000/day']
+rate_limit_ChartHistorical = ['100/second','600/minute' ,'6000/hour','40000/day']
+rate_limit_stockscore      = ['100/second','600/minute' ,'6000/hour','40000/day']
+rate_limit_general         = ['100/second','600/minute' ,'6000/hour','40000/day']
 rate_limit_spbd            = ['100/second','2000/minute','5000/hour','50000/day']
-rate_limit_mlscore         = ['500/second','1500/minute','1000/hour','20000/day']
+rate_limit_mlscore         = ['100/second','600/minute' ,'6000/hour','40000/day']
 
 
 

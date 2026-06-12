@@ -385,6 +385,20 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   `config.upgrade_message_by_level['1']` rides the `/login` JWT's
   `upgrade_message` claim (other levels fall back to the global
   `upgrade_message`, currently '').
+- **Rate limiting is IDENTITY-KEYED (2026-06-12, "this world" redesign):**
+  `tw_rate_limit_key()` keys data-endpoint limits on the `?token=` JWT's user id
+  (`user:<id>`), EXEMPTS `is_service_account` tokens via a limiter request_filter
+  (gateway + generators must never starve), and falls back to the PRE-ProxyFix
+  socket peer for anonymous traffic (X-Forwarded-For is caller-controlled on the
+  VLAN - never a limiter key). WHY: in TW2's topology every browser arrives via
+  the tunnel/nginx proxy as 1-2 shared IPs - the old `get_remote_address` keying
+  bucketed the whole userbase together (chronic prod 429s, the "intermittent
+  no-data, refresh fixes it" bug; gateway scans rendered throttles as FALSE
+  NO_SIGNAL). Caps in `config.py` `rate_limit_*` (~538) were also un-inverted
+  (hourly > per-minute now). 429s log key CLASS + endpoint. `/login` stays
+  IP-keyed (anonymous path) and is sized for the whole base sharing one bucket.
+  The React app pairs this with `web-react/src/components/twFetch.js` (retry +
+  backoff + single-flight 401 re-login + visible retrying states).
 (Source: `appserver/appserver/appserver.py`, `web/app.py:616`, `config.py`.)
 
 ---
@@ -422,19 +436,25 @@ server for AI agents - **never raw market data**. Built + verified end-to-end on
   data engine). gunicorn `apiserver.app:app`, dev `127.0.0.1:8088`, systemd
   `tradewave-apiserver`, isolated venv `/home/flask/venv-api`. The public, paid front
   door: authenticates customer API keys, enforces tier/scope/rate-limit, **strips raw
-  prices**, exposes ~9 curated `/v1` endpoints, and calls the existing appserver as a
+  prices**, exposes ~12 curated `/v1` endpoints, and calls the existing appserver as a
   service account (`/login/api`).
-- **MCP server** `mcpserver/` (named to not shadow the `mcp` SDK). FastMCP, dev SSE
-  `127.0.0.1:9090`, systemd `tradewave-mcp`. 9 tools, thin HTTP wrapper over the
-  gateway. BYOK: per-connection `Authorization: Bearer` for remote (sse), env
-  `TRADEWAVE_API_KEY` fallback for stdio (Claude Desktop). NO baked key for remote.
+- **MCP server** `mcpserver/` (named to not shadow the `mcp` SDK). FastMCP,
+  streamable-http mounted at the ROOT (the BARE host is the canonical published
+  connector URL; `/mcp` is kept as an alias), dev `127.0.0.1:9090`, systemd
+  `tradewave-mcpserver`. 17 tools (6 flagship + 11 primitives), thin HTTP wrapper
+  over the gateway. Auth, two modes: consumer apps (ChatGPT, Claude.ai) connect via
+  OAuth - paste the URL, sign in with the TradeWave account (WorkOS AuthKit AS, RFC
+  9728 discovery; see `docs/MCP_OAUTH_INTEGRATION.md`); dev tools are BYOK -
+  per-connection `Authorization: Bearer <key>`, env `TRADEWAVE_API_KEY` fallback for
+  stdio (Claude Desktop). NO baked key for remote.
 - **Console** `web/api_portal/` blueprint, mounted in `web/app.py` at `/account/api`
   (keys/usage/billing/MCP-connect). Reuses WorkOS session + Stripe + the `apiserver`
   package. Customer self-serve only.
 - **Portal + docs**: static, brand-matched, nginx-served. Sources `site/api_marketing/`
   + `site/api_docs/` (generators read `site/lib/portal_urls.py`).
 
-**Contract:** `api/openapi.yaml` (9 endpoints) + `api/MCP_TOOLS.md` (9 tools).
+**Contract:** `api/openapi.yaml` (12 endpoints) + `api/MCP_TOOLS.md` (17 tools - 6
+flagship + 11 primitives).
 
 **Data shapes (verified vs the appserver):** opportunities = OppList4/OppBySymbol;
 `win_rate` = ChartData4 stat `Percent Profitable` (share of profitable years, no
@@ -505,12 +525,16 @@ cloudflared tunnel front them.
   calls the appserver as a service account. Composes the `SignalCard` server-side
   (`apiserver/cards.py`) so weak agents render consistently.
 - **MCP server** - `mcpserver/` (named to not shadow the `mcp` SDK). Run as
-  `python -m mcpserver.server --transport sse --host 127.0.0.1 --port 9090`, systemd
-  `tradewave-mcpserver` (`Type=simple`, NOT gunicorn). Thin HTTP wrapper over the gateway:
-  it reads `API_BASE_URL=http://127.0.0.1:8088/v1`, plus `TW2_MCP_PUBLIC_HOST` (the SDK's
-  DNS-rebinding allowlist). **BYOK** - each remote (SSE) client sends its own
-  `Authorization: Bearer <key>`; `TRADEWAVE_API_KEY` MUST be UNSET on the remote transport
-  (a baked env key is the stdio/Claude-Desktop fallback only).
+  `python -m mcpserver.server --transport streamable-http --host 127.0.0.1 --port 9090`
+  (the unit reads `TW2_MCP_TRANSPORT`/`TW2_MCP_HOST`/`TW2_MCP_PORT`), systemd
+  `tradewave-mcpserver` (`Type=simple`, NOT gunicorn). Mounted at the ROOT so the BARE
+  public URL is the canonical connector address (`/mcp` aliased). Thin HTTP wrapper over
+  the gateway: it reads `API_BASE_URL=http://127.0.0.1:8088/v1`, plus
+  `TW2_MCP_PUBLIC_HOST` (the SDK's DNS-rebinding allowlist). Auth: **OAuth** for consumer
+  apps (ChatGPT/Claude.ai sign in with the TradeWave account; WorkOS AuthKit, see
+  `docs/MCP_OAUTH_INTEGRATION.md`) and **BYOK** for dev tools - each remote client sends
+  its own `Authorization: Bearer <key>`; `TRADEWAVE_API_KEY` MUST be UNSET on the remote
+  transport (a baked env key is the stdio/Claude-Desktop fallback only).
 - **Customer console** - `web/api_portal/` blueprint mounted in `web/app.py` at
   `/account/api` (GATED behind the WorkOS session): create/revoke keys, see usage, manage
   the API subscription, and the MCP-connect helper. Reuses WorkOS + Stripe + the

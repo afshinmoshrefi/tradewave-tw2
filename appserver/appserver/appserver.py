@@ -47,7 +47,7 @@
 ###############################################################
 
 
-from flask import Flask, jsonify, request, session, make_response,Blueprint
+from flask import Flask, jsonify, request, session, make_response,Blueprint, g
 from flask_cors import CORS
 from flask_limiter import Limiter, HEADERS
 from flask_limiter.util import get_remote_address
@@ -164,12 +164,82 @@ else:
     CORS(app)  # added for cross scripting support
 
 
-limiter = Limiter( 
-    key_func=get_remote_address,
+# ---------------------------------------------------------------------------
+# Identity-first rate limiting (2026-06). Behind the Cloudflare tunnel and the
+# web-box nginx /appserver/ proxy, get_remote_address() collapses ALL human and
+# service traffic onto 1-2 shared addresses (tunnel ingress 127.0.0.1 + the web
+# box VLAN IP), so IP-keyed limits treated the whole user base as one client -
+# the source of the chronic prod 429s. Key on WHO is asking instead:
+#   user:<id> - request carries a valid signed session token (per-user bucket)
+#   svc:<id>  - service-account token (exempted via request_filter below)
+#   ip:<addr> - anonymous / invalid token (the old behavior, the honest fallback)
+# ---------------------------------------------------------------------------
+def _request_token_claims():
+    """Decode the request's ?token= JWT ONCE per request and cache the claims on
+    flask.g - the limiter key function runs on every limited request, so this
+    must stay cheap (one HMAC verify, no DB). Same decode contract as
+    check_for_token (aud/iss pinned). Returns the claims dict, or None when the
+    token is missing/invalid/expired (those requests rate-limit as anonymous)."""
+    if '_tw_token_claims' in g:
+        return g._tw_token_claims
+    claims = None
+    token = request.args.get('token')
+    if token:
+        try:
+            claims = jwt.decode(
+                token, app.config['SECRET_KEY'],
+                algorithms=['HS256'],
+                audience='tw2-appserver',
+                issuer='tw2-web',
+            )
+        except jwt.InvalidTokenError:
+            claims = None
+    g._tw_token_claims = claims
+    return claims
+
+
+def tw_rate_limit_key():
+    """flask-limiter key_func - replaces get_remote_address (see block comment
+    above). Never returns token material, only the key class + a user id / IP."""
+    claims = _request_token_claims()
+    if claims is not None:
+        uid = str(claims.get('user', '') or '')
+        if claims.get('is_service_account'):
+            return f'svc:{uid}'
+        # user id '0' is the not-logged-in pseudo-user, NOT an identity - keep it
+        # IP-keyed so all anonymous viewers don't share a single 'user:0' bucket.
+        if uid and uid != '0':
+            return f'user:{uid}'
+    # Key on the PRE-ProxyFix socket peer: ProxyFix(x_for=1) rewrites remote_addr
+    # from X-Forwarded-For, which a VLAN/direct caller controls - trusting it here
+    # would allow a chosen-key limiter bypass. The raw peer cannot be forged.
+    _orig = request.environ.get('werkzeug.proxy_fix.orig', {}).get('REMOTE_ADDR')
+    return f'ip:{_orig or get_remote_address()}'
+
+
+limiter = Limiter(
+    key_func=tw_rate_limit_key,
     storage_uri="redis://localhost:6379/0",  # Use Redis as storage backend
     headers_enabled=True
     )
 limiter.init_app(app)
+
+
+@limiter.request_filter
+def _service_account_rate_limit_exempt():
+    """EXEMPT service-account tokens from the data rate limits entirely.
+    Chosen over per-route exempt_when because the limits are stacked 4-deep on
+    ~10 routes (40+ decorator edits, easy to miss one) and over a dedicated
+    very-high 'svc' bucket because the generators (scorecard / ticker pages /
+    blog) regenerate the whole static site = thousands of calls in minutes -
+    ANY finite cap eventually false-positives and silently ships stale content.
+    Safe: the is_service_account claim only exists in tokens THIS server mints
+    after a DB-verified API-key login (/login/api), HS256-signed - unforgeable
+    without the shared secret. The /login endpoints carry no ?token=, so this
+    filter never weakens the login / api-key brute-force limits."""
+    claims = _request_token_claims()
+    return bool(claims and claims.get('is_service_account'))
+
 
 # error handler for rate-limit : this handler adds the trigger header to show which rate-limit triggered the 429
 
@@ -185,6 +255,13 @@ def ratelimit_handler(e):
     response.headers["trigger"] = trigger
     # this line allows all custom headers to be exposed
     response.headers['Access-Control-Expose-Headers'] = '*'
+
+    # 429s must never be silent again (prod starved users for weeks unnoticed).
+    # Log the key CLASS + key (user id or IP - NEVER token material), endpoint
+    # and the limit string that tripped.
+    limit_key = tw_rate_limit_key()
+    logging.warning("429 rate-limit hit: class=%s key=%s endpoint=%s limit=%s",
+                    limit_key.split(':', 1)[0], limit_key, request.endpoint, trigger)
 
     return response
 
@@ -404,6 +481,16 @@ def get_num_reports(wp_userid):
 
 #--------------------------------------------------------------------------------------------------------------------------
 
+# Rate-limit note (2026-06): /login is the ANONYMOUS path - no ?token= session
+# token exists yet, so tw_rate_limit_key falls back to IP, which is correct here.
+# CAVEAT for the prod proxy topology: cloudflared tunnel ingress + the web-box
+# nginx /appserver/ proxy present 1-2 shared remote addresses, so these login
+# limits are effectively GLOBAL across all users, not per-client. We deliberately
+# do NOT key on X-Forwarded-For / CF-Connecting-IP instead: the appserver is also
+# reachable directly over the VLAN, where those headers are caller-controlled
+# (spoofing one = a chosen-key limiter bypass). Mitigation: rate_limit_login in
+# config.py is sized for the WHOLE user base sharing one bucket, and /login/api
+# keeps its own tight 10/minute api-key brute-force guard.
 @app.route('/login/<string:wp_userid>/<string:user_level>/<string:country_code>/<string:zip>/<string:skey>', methods=['GET'])
 @limiter.limit(config.rate_limit_login[0])
 @limiter.limit(config.rate_limit_login[1])
