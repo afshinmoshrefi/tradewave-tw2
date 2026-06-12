@@ -205,6 +205,60 @@ def _get_authorization_url(provider="authkit", state=None, screen_hint=None):
 # Session helpers
 # ============================================================
 
+# --- Single-flight refresh memo (WorkOS refresh tokens are SINGLE-USE) -------
+# A page load fires several parallel requests carrying the SAME stale cookie.
+# Without coordination each one consumes the rotation chain independently and
+# the browser keeps whichever Set-Cookie lands last - frequently one whose
+# refresh token a sibling already burned -> the next request fails again ->
+# visible login bouncing. The memo collapses all holders of one stale cookie
+# onto ONE WorkOS rotation: first request refreshes and publishes the new
+# sealed cookie under sha256(old cookie) for 90s; the rest reuse it. Redis on
+# localhost (web box), db 5, fail-OPEN everywhere: any redis problem simply
+# reverts to the uncoordinated behavior.
+_SESS_MEMO_DB = 5
+_SESS_MEMO_TTL = 90
+_sess_memo_redis = None
+
+
+def _sess_memo():
+    global _sess_memo_redis
+    if _sess_memo_redis is None:
+        import redis as _redis
+        _sess_memo_redis = _redis.Redis(
+            host="127.0.0.1", port=6379, db=_SESS_MEMO_DB,
+            socket_timeout=0.25, socket_connect_timeout=0.25,
+            decode_responses=True)
+    return _sess_memo_redis
+
+
+def _sess_memo_key(sealed: str) -> str:
+    import hashlib
+    return "tw2:sess_refresh:" + hashlib.sha256(sealed.encode()).hexdigest()
+
+
+def _sess_memo_get(sealed: str):
+    try:
+        return _sess_memo().get(_sess_memo_key(sealed))
+    except Exception:
+        return None
+
+
+def _sess_memo_put(sealed: str, new_sealed: str) -> None:
+    try:
+        _sess_memo().set(_sess_memo_key(sealed), new_sealed, ex=_SESS_MEMO_TTL)
+    except Exception:
+        pass
+
+
+def _sess_memo_lock(sealed: str) -> bool:
+    """True if WE should perform the refresh (lock acquired or redis down)."""
+    try:
+        return bool(_sess_memo().set(_sess_memo_key(sealed) + ":lock", "1",
+                                     nx=True, ex=10))
+    except Exception:
+        return True
+
+
 @app.after_request
 def _persist_refreshed_session(response):
     """If _read_sealed_session refreshed the session, write the new sealed cookie."""
@@ -252,6 +306,38 @@ def _read_sealed_session():
         # token for fresh tokens, then seal with seal_session_from_auth_response
         # (mirrors auth_callback). Any failure falls back to None,None (re-login) -
         # i.e. never worse than the old behavior; the win is sessions now persist.
+        # Single-flight: a sibling request may already have rotated this exact
+        # stale cookie - reuse its published successor instead of burning the
+        # (single-use) refresh token chain again.
+        def _try_memoized():
+            memo = _sess_memo_get(sealed)
+            if not memo:
+                return None
+            try:
+                m_sess = workos_client.user_management.load_sealed_session(
+                    session_data=memo, cookie_password=config.WORKOS_COOKIE_PASSWORD)
+                m_result = m_sess.authenticate()
+                if getattr(m_result, "authenticated", False):
+                    g._pending_session_cookie = memo
+                    log.info("Session refresh reused memoized cookie (single-flight)")
+                    return m_result, memo
+            except Exception:
+                pass
+            return None
+
+        hit = _try_memoized()
+        if hit:
+            return hit
+        if not _sess_memo_lock(sealed):
+            # Another request holds the refresh lock - give it a moment, then
+            # reuse its result; fall through to our own refresh as last resort.
+            import time as _t
+            for _ in range(3):
+                _t.sleep(0.15)
+                hit = _try_memoized()
+                if hit:
+                    return hit
+
         try:
             sdata = unseal_data(sealed, config.WORKOS_COOKIE_PASSWORD)
             refresh_token = sdata.get("refresh_token")
@@ -278,12 +364,18 @@ def _read_sealed_session():
                 result2 = new_sess.authenticate()
                 if getattr(result2, "authenticated", False):
                     g._pending_session_cookie = new_sealed
+                    _sess_memo_put(sealed, new_sealed)  # publish for parallel holders
                     log.info("Session refresh (manual local-seal) succeeded; new cookie staged")
                     return result2, new_sealed
                 log.info("Session refresh re-auth not authenticated: reason=%s",
                          getattr(result2, "reason", None))
         except WorkOSBadRequestError as e:
-            # refresh token expired/invalid -> genuine session end, re-login
+            # Invalid grant: EITHER a genuine session end OR a sibling request
+            # consumed this rotation a moment ago - check the memo once more
+            # before declaring the session dead.
+            hit = _try_memoized()
+            if hit:
+                return hit
             log.info("Session refresh invalid grant (re-login needed): %s", e)
         except Exception as re:
             log.info("Session refresh raised: %s", re)
