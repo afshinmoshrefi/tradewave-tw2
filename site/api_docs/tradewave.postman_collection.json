@@ -140,7 +140,7 @@
               "key": "view",
               "value": "",
               "disabled": true,
-              "description": "response verbosity (progressive disclosure). 'full' (default) = complete cards; 'decision' = the lean read (drops receipts.per_year + the detail stats, keeps ve"
+              "description": "response verbosity (progressive disclosure). 'full' (default) = complete cards; 'decision' = the lean read (drops receipts.per_year, the detail stats, and the p"
             }
           ]
         },

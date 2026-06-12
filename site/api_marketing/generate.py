@@ -579,8 +579,9 @@ def build_index() -> str:
       <div class="card diff-card">
         <div class="diff-icon">&#129302;</div>
         <h3>Agent-native via MCP</h3>
-        <p>The TradeWave MCP server is a hosted HTTP endpoint that connects in two lines of config to Claude, Cursor,
-           or any MCP-compatible host. Ask your AI assistant to find the strongest
+        <p>The TradeWave MCP server is a hosted HTTP endpoint: sign in from ChatGPT or Claude.ai with your
+           TradeWave account, or connect Claude Desktop, Cursor, or any MCP-compatible host with an
+           API key. Ask your AI assistant to find the strongest
            seasonal longs in S&P 500 stocks, rank by ML score, and compare to the live
            track record - no glue code required. TradeWave supplies the seasonal and ML edge
            plus the timing; your assistant pairs it with its own fundamentals, news, and macro tools.</p>
@@ -1198,8 +1199,8 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
     <div class="tag tag-ml" style="margin-bottom:20px;">MCP Server</div>
     <h1><span class="gradient-text-w">TradeWave in your AI assistant</span></h1>
     <p class="sub">
-      Connect the TradeWave MCP server to Claude, Cursor, ChatGPT, or any MCP-compatible
-      host. Your assistant gets access to 16 purpose-built trading tools (5 flagship plus
+      Connect the TradeWave MCP server to ChatGPT, Claude, Cursor, or any MCP-compatible
+      host. Your assistant gets access to 17 purpose-built trading tools (6 flagship plus
       11 primitives) and starts answering questions like these - no glue code, no API key juggling.
     </p>
     <div class="hero-ctas">
@@ -1242,27 +1243,28 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
 <section class="section alt">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">Two lines to connect</h2>
-      <p>TradeWave's MCP is a hosted HTTP server at <code style="font-size:13px;color:var(--accent);">https://mcp.tradewave.ai/mcp</code>.
-         Point your host at it with a Bearer API key. The key gates the
-         tier - ML signals work on every tier (free gets 5/day, Pro is unlimited).
-         The server returns a clear quota message when the daily limit is reached, never a silent error.</p>
+      <h2 class="gradient-text-w">Paste the URL, sign in, ask</h2>
+      <p>TradeWave's MCP is a hosted HTTP server at <code style="font-size:13px;color:var(--accent);">{portal_urls.MCP_URL}</code>.
+         In ChatGPT or Claude.ai, paste that URL into Settings - Connectors, click Connect, and
+         sign in with your TradeWave account - no API key needed. Your plan follows the account
+         you sign in with: ML signals work on every tier (free gets 5/day, Pro is unlimited),
+         and the server returns a clear quota message when the daily limit is reached, never a silent error.</p>
     </div>
     <div class="code-block" style="max-width:700px;margin:0 auto 16px;">
-<span class="cm">// claude_desktop_config.json - Claude Desktop / Cursor (stdio bridge to the hosted server)</span>
+<span class="cm">// claude_desktop_config.json - Claude Desktop / Cursor (dev tools: bring your own API key)</span>
 {{
   <span class="kw">"mcpServers"</span>: {{
     <span class="kw">"tradewave"</span>: {{
       <span class="kw">"command"</span>: <span class="st">"npx"</span>,
-      <span class="kw">"args"</span>: [<span class="st">"-y"</span>, <span class="st">"mcp-remote"</span>, <span class="st">"https://mcp.tradewave.ai/mcp"</span>, <span class="st">"--header"</span>, <span class="st">"Authorization: Bearer ${{TRADEWAVE_API_KEY}}"</span>]
+      <span class="kw">"args"</span>: [<span class="st">"-y"</span>, <span class="st">"mcp-remote"</span>, <span class="st">"{portal_urls.MCP_URL}"</span>, <span class="st">"--header"</span>, <span class="st">"Authorization: Bearer ${{TRADEWAVE_API_KEY}}"</span>]
     }}
   }}
 }}</div>
     <p style="text-align:center;font-size:14px;color:var(--dim);">
-      Claude Desktop and Cursor are stdio-only, so they bridge to the hosted server with the
-      <code style="font-size:12px;color:var(--accent);">mcp-remote</code> npx shim shown above. ChatGPT and other
-      HTTP-native MCP clients point straight at <code style="font-size:12px;color:var(--accent);">https://mcp.tradewave.ai/mcp</code>
-      with a Bearer API key. There is no npm package to install.
+      Dev tools keep bring-your-own-key auth: Claude Desktop and Cursor are stdio-only, so they
+      bridge to the hosted server with the
+      <code style="font-size:12px;color:var(--accent);">mcp-remote</code> npx shim shown above,
+      passing a Bearer API key. There is no npm package to install.
       <a href="{portal_urls.DOCS_URL}" class="inline">Full setup guide</a>.
     </p>
   </div>
@@ -1272,13 +1274,13 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
 <section class="section">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">16 trading tools, purpose-built for agents</h2>
-      <p>Five flagship tools cover the decisions; eleven primitives give an agent full control.
+      <h2 class="gradient-text-w">17 trading tools, purpose-built for agents</h2>
+      <p>Six flagship tools cover the decisions; eleven primitives give an agent full control.
          Each is described so the model knows exactly when to call it - agents do not
          need to know the API, they just get asked questions and the right tool fires. Tools use
          progressive disclosure: a one-line decision by default, the full receipts and Trend Chart data on request.</p>
     </div>
-    <h3 style="font-size:15px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">5 flagship tools</h3>
+    <h3 style="font-size:15px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">6 flagship tools</h3>
     <div class="grid-3" style="gap:16px;margin-bottom:32px;">
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
@@ -1294,6 +1296,11 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">explain_pick</p>
         <p style="font-size:13px;color:var(--dim);">Unpack why a setup or the daily pick scores the way it does - the seasonal edge, the ML factors, and the receipts behind it.</p>
+      </div>
+      <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
+        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">morning_briefing</p>
+        <p style="font-size:13px;color:var(--dim);">The one-call start of the day: today's pick, the live track record with the last five outcomes, and the top setups entering their window now - say "good morning" and it fires.</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
@@ -1397,8 +1404,9 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
   <div class="container" style="text-align:center;">
     <h2 class="gradient-text-w" style="font-size:36px;font-weight:800;margin-bottom:16px;">Ready to connect?</h2>
     <p style="color:var(--dim);font-size:17px;max-width:600px;margin:0 auto 32px;line-height:1.7;">
-      Get a free API key, add two lines to your MCP config, and ask your first
-      question in under 5 minutes.
+      Paste the server URL into ChatGPT or Claude.ai and sign in with your TradeWave
+      account, or drop a free API key into Claude Desktop or Cursor, and ask your
+      first question in under 5 minutes.
     </p>
     <div class="hero-ctas">
       <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
@@ -1410,8 +1418,8 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
 """
     return page_shell(
         "TradeWave MCP - Use TradeWave in Claude, Cursor, and ChatGPT",
-        "Connect the TradeWave MCP server to your AI assistant in two lines. "
-        "16 purpose-built trading tools (5 flagship plus 11 primitives) for seasonal analysis and ML-scored signals.",
+        "Add TradeWave to ChatGPT or Claude and sign in with your TradeWave account, or drop an API key into Claude Desktop or Cursor. "
+        "17 purpose-built trading tools (6 flagship plus 11 primitives) for seasonal analysis and ML-scored signals.",
         no_em_dash(body),
         active_nav="mcp",
     )
@@ -1457,7 +1465,7 @@ def build_use_cases() -> str:
           <li>No Bloomberg required - works from any browser or AI chat window</li>
           <li>Daily pick delivered before market open with ML confidence score</li>
           <li>Forward-recorded track record you can audit yourself</li>
-          <li>Connect to Claude in under 5 minutes via the MCP server</li>
+          <li>Connect ChatGPT or Claude in under 5 minutes - just sign in, no API key</li>
         </ul>
       </div>
       <div class="card" style="padding:32px;">
@@ -1465,11 +1473,11 @@ def build_use_cases() -> str:
         <div style="display:flex;flex-direction:column;gap:12px;">
           <div style="display:flex;gap:12px;align-items:flex-start;">
             <div style="width:28px;height:28px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">1</div>
-            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Get a free API key from the console (no credit card).</p>
+            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Create a free TradeWave account (no credit card).</p>
           </div>
           <div style="display:flex;gap:12px;align-items:flex-start;">
             <div style="width:28px;height:28px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">2</div>
-            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Add the TradeWave MCP server to Claude Desktop in two lines.</p>
+            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Paste the MCP server URL into ChatGPT or Claude.ai and sign in (dev tools like Claude Desktop and Cursor use an API key instead).</p>
           </div>
           <div style="display:flex;gap:12px;align-items:flex-start;">
             <div style="width:28px;height:28px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">3</div>
@@ -1644,7 +1652,15 @@ def build_agents() -> str:
     stored in for_agents_copy.json so the long agent-facing copy stays out of the code."""
     import json as _json
     from pathlib import Path as _Path
-    copy = _json.loads((_Path(__file__).parent / "for_agents_copy.json").read_text(encoding="utf-8"))
+    raw = (_Path(__file__).parent / "for_agents_copy.json").read_text(encoding="utf-8")
+    # The authored copy carries the prod URLs; rewrite to the env-driven hosts
+    # (same idiom as portal_seo.build_llms) so dev/staging/prod each emit their own.
+    raw = (raw
+           .replace("https://api.tradewave.ai/v1", portal_urls.API_BASE)
+           .replace("https://mcp.tradewave.ai", portal_urls.MCP_URL)
+           .replace("https://developers.tradewave.ai", portal_urls.PORTAL_URL)
+           .replace("https://tradewave.ai/account/api/keys", portal_urls.CONSOLE_URL))
+    copy = _json.loads(raw)
 
     def esc(t):
         return (t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

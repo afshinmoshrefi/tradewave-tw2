@@ -165,6 +165,6 @@ curl "https://api.tradewave.ai/v1/scan?markets=0,3&window=next_month&rank_by=sha
   -H "Authorization: Bearer tw_live_xxx"
 ```
 
-Building an AI agent instead? The same signals are available over MCP at https://mcp.tradewave.ai (bring your own key in the `Authorization` header), with tools like `find_best_opportunities`, `analyze_symbol`, and `explain_pick`.
+Building an AI agent instead? The same signals are available over MCP at https://mcp.tradewave.ai (sign in with your TradeWave account from ChatGPT or Claude.ai, or bring your own key in the `Authorization` header from dev tools), with tools like `find_best_opportunities`, `analyze_symbol`, and `explain_pick`.
 
 Every response is educational and carries a disclaimer; it is not personalized advice. Now go read your first card.

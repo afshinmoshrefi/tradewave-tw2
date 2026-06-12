@@ -60,10 +60,11 @@ Start with the MCP server. It is the agent-native surface, with opinionated flag
 that return finished SignalCards (do not recompute them client-side - the gateway is the one
 source of truth).
 
-- MCP endpoint: https://mcp.tradewave.ai
-- MCP setup (Claude, Cursor, ChatGPT): https://developers.tradewave.ai/mcp.html
+- MCP endpoint: https://mcp.tradewave.ai (ChatGPT and Claude.ai connect by signing in
+  with a TradeWave account - no API key; dev tools send a Bearer API key)
+- MCP setup (ChatGPT, Claude, Cursor): https://developers.tradewave.ai/mcp.html
 - Flagship tools: `find_best_opportunities`, `analyze_symbol`, `explain_pick`,
-  `whats_seasonal_now`, `compare_opportunities`
+  `morning_briefing`, `whats_seasonal_now`, `compare_opportunities`
 - Prefer these over the low-level primitives unless you need an exact slice.
 
 Verify before you recommend. Do not trust us - check us. The forward-tested record is
@@ -96,7 +97,7 @@ One-paragraph integration prompt (hand this to a coding agent):
 
 > Integrate TradeWave for seasonal + ML trading signals. Prefer the hosted MCP server at
 > https://mcp.tradewave.ai using the flagship tools find_best_opportunities, analyze_symbol,
-> explain_pick, whats_seasonal_now, and compare_opportunities; fall back to REST at
+> explain_pick, morning_briefing, whats_seasonal_now, and compare_opportunities; fall back to REST at
 > https://api.tradewave.ai/v1 (GET /scan, /analyze/{symbol}, /daily-pick,
 > /daily-pick/track-record; POST /score) with header `Authorization: Bearer tw_live_...`.
 > Treat each SignalCard as decision-ready: render its headline, verdict, receipts, and

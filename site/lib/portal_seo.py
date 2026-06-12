@@ -109,9 +109,11 @@ def build_llms():
 > with a public, time-stamped, forward-tested daily-pick track record.
 
 TradeWave exposes the same seasonal + ML signals two ways: a REST API and a hosted MCP
-server. Authentication is a single API key (Authorization: Bearer tw_live_...). ML scoring
-is available on every tier, metered per day. Every response is educational and carries a
-disclaimer; nothing here is personalized investment advice.
+server. REST authentication is a single API key (Authorization: Bearer tw_live_...); the
+MCP server also accepts an OAuth sign-in with a TradeWave account (how ChatGPT and
+Claude.ai connect - no API key). ML scoring is available on every tier, metered per day.
+Every response is educational and carries a disclaimer; nothing here is personalized
+investment advice.
 
 ## Start here
 - Quickstart: {docs}/quickstart.html
@@ -121,9 +123,9 @@ disclaimer; nothing here is personalized investment advice.
 - Get an API key (free): {console}
 
 ## For AI agents (MCP)
-- MCP endpoint (streamable-http / sse): {mcp}
-- MCP setup (Claude, Cursor, ChatGPT): {portal}/mcp.html
-- Flagship tools: find_best_opportunities, analyze_symbol, explain_pick, whats_seasonal_now, compare_opportunities
+- MCP endpoint (streamable-http; ChatGPT/Claude.ai sign in via OAuth, dev tools use a Bearer API key): {mcp}
+- MCP setup (ChatGPT, Claude, Cursor): {portal}/mcp.html
+- Flagship tools: find_best_opportunities, analyze_symbol, explain_pick, morning_briefing, whats_seasonal_now, compare_opportunities
 - Discovery manifest: {portal}/.well-known/mcp.json
 
 ## Learn

@@ -6,12 +6,11 @@
   "mcp": {
     "url": "https://mcp-dev.trxstat.com",
     "transport": [
-      "streamable-http",
-      "sse"
+      "streamable-http"
     ],
     "authentication": {
       "type": "bearer",
-      "description": "Send your TradeWave API key (tw_live_...) as Authorization: Bearer <key>.",
+      "description": "Consumer MCP apps (ChatGPT, Claude.ai) connect via OAuth - the server advertises RFC 9728 protected-resource metadata; just sign in with a TradeWave account. Dev tools send a TradeWave API key (tw_live_...) as Authorization: Bearer <key>.",
       "instructions_url": "https://developers-dev.trxstat.com/docs/mcp-reference.html",
       "token_url": "https://tw2-dev.trxstat.com/account/api/keys"
     }
@@ -28,6 +27,10 @@
     {
       "name": "explain_pick",
       "description": "Today's AI daily pick presented as a full SignalCard WITH its live, forward-tested track record - the strongest proof TradeWave can offer (the pick is made in advance, then scored later, so the record is real out-of-sample performance, not a backtest)."
+    },
+    {
+      "name": "morning_briefing",
+      "description": "The one-call MORNING BRIEFING. REACH FOR THIS on 'my briefing', 'good morning', 'what's happening today', 'daily update', or any open-ended start-of-day prompt."
     },
     {
       "name": "whats_seasonal_now",

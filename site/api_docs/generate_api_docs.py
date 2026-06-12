@@ -3,14 +3,14 @@
 TradeWave API developer-docs generator.
 
 Reads  /home/flask/api/openapi.yaml   (the frozen REST contract)
-Reads  /home/flask/api/MCP_TOOLS.md   (16 MCP tools - 5 flagship + 11 primitives)
+Reads  /home/flask/api/MCP_TOOLS.md   (17 MCP tools - 6 flagship + 11 primitives)
 Reads  /home/flask/apiserver/tiers.py (tier limits - imported directly)
 Writes 7 static HTML files into the same directory as this script:
 
   quickstart.html    - get a key + first call in 5 minutes
   authentication.html - Bearer auth, key creation/rotation, BYOK for MCP
   api-reference.html  - all 11 endpoints, regenerated from openapi.yaml
-  mcp-reference.html  - 16 tools (5 flagship + 11 primitives) + how to connect in Claude Desktop/ChatGPT/Cursor
+  mcp-reference.html  - 17 tools (6 flagship + 11 primitives) + how to connect in ChatGPT/Claude.ai (OAuth) and Claude Desktop/Cursor (BYOK)
   data-dictionary.html - every field + all 15 live markets defined in plain English
   rate-limits.html    - per-tier limits, headers, error shape, upgrade stub
   changelog.html      - v1 release notes
@@ -596,9 +596,9 @@ opportunities.forEach(o =>
 
 <h2>Next steps</h2>
 <ul>
-  <li><a href="authentication.html">Authentication</a> - key creation, rotation, BYOK for MCP.</li>
+  <li><a href="authentication.html">Authentication</a> - key creation, rotation, and MCP sign-in or BYOK.</li>
   <li><a href="api-reference.html">API Reference</a> - all 11 endpoints with full parameter and schema details.</li>
-  <li><a href="mcp-reference.html">MCP Reference</a> - connect TradeWave directly to Claude, ChatGPT, or Cursor.</li>
+  <li><a href="mcp-reference.html">MCP Reference</a> - connect TradeWave directly to ChatGPT, Claude, or Cursor.</li>
   <li><a href="data-dictionary.html">Data Dictionary</a> - plain-English definitions of every field.</li>
 </ul>
 """
@@ -658,17 +658,18 @@ def build_authentication() -> str:
 </table>
 </div>
 
-<h2>BYOK for MCP (Bring Your Own Key)</h2>
-<p>The TradeWave MCP server uses the same API keys. There is no separate credential system. TradeWave's MCP is a hosted HTTP server at <code class="inline-code">https://mcp.tradewave.ai/mcp</code>. HTTP-native clients (ChatGPT and others) point straight at that URL and send your TradeWave API key as a Bearer token. Stdio-only clients (Claude Desktop, Cursor) bridge to it with the <code class="inline-code">mcp-remote</code> npx shim, passing the key in the <code class="inline-code">Authorization</code> header.</p>
+<h2>MCP authentication: sign in or bring your own key</h2>
+<p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">{MCP_URL}</code>. It accepts two credentials:</p>
+<ul>
+  <li><strong>Consumer apps (ChatGPT, Claude.ai) - OAuth.</strong> Paste the server URL into the app's connector settings, click Connect, and sign in with your TradeWave account. No API key is involved; your plan follows the account you sign in with.</li>
+  <li><strong>Dev tools (Claude Desktop, Cursor) - BYOK.</strong> The MCP server accepts the same API keys as the REST API; there is no separate credential system. Stdio-only clients bridge to the hosted server with the <code class="inline-code">mcp-remote</code> npx shim, passing the key in the <code class="inline-code">Authorization</code> header.</li>
+</ul>
 
-<pre><code># HTTP-native client: send the key as a Bearer token
-Authorization: Bearer tw_live_abc123...
-
-# Stdio client (Claude Desktop / Cursor): bridge with the mcp-remote shim
-npx -y mcp-remote https://mcp.tradewave.ai/mcp \\
+<pre><code># Dev tool (Claude Desktop / Cursor): bridge with the mcp-remote shim
+npx -y mcp-remote {MCP_URL} \\
   --header "Authorization: Bearer tw_live_abc123..."</code></pre>
 
-<p>Tier and entitlements (market scope, ML access, rate limits) are read directly from the key - no additional configuration is needed. See <a href="mcp-reference.html">MCP Reference</a> for full connection instructions.</p>
+<p>Tier and entitlements (market scope, ML access, rate limits) are read directly from the signed-in account or the key - no additional configuration is needed. See <a href="mcp-reference.html">MCP Reference</a> for full connection instructions.</p>
 
 <h2>Error responses</h2>
 <p>Authentication errors return standard HTTP status codes:</p>
@@ -695,10 +696,10 @@ npx -y mcp-remote https://mcp.tradewave.ai/mcp \\
 """
     return page(
         title="Authentication",
-        description="How TradeWave API key authentication works - Bearer tokens, key rotation, and BYOK for MCP.",
+        description="How TradeWave authentication works - Bearer API keys for REST, and MCP via TradeWave-account sign-in (ChatGPT, Claude.ai) or BYOK (dev tools).",
         active_href="authentication.html",
         hero_title="Authentication",
-        hero_sub="Bearer tokens, key management, and BYOK for MCP.",
+        hero_sub="Bearer tokens, key management, and MCP sign-in or BYOK.",
         body=body,
     )
 
@@ -1221,7 +1222,7 @@ def build_api_reference() -> str:
 def build_mcp_reference() -> str:
     body = f"""
 <h1>MCP Reference</h1>
-<p>The TradeWave MCP server exposes 16 tools (5 flagship + 11 primitives) that let AI assistants (Claude, ChatGPT, Cursor) reason over seasonal trading signals directly. Auth is BYOK - your TradeWave API key gates the server; tier and entitlements flow from the key.</p>
+<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) that let AI assistants (ChatGPT, Claude, Cursor) reason over seasonal trading signals directly. Consumer apps (ChatGPT, Claude.ai) connect via OAuth - paste the server URL and sign in with your TradeWave account, no API key needed. Dev tools (Claude Desktop, Cursor) bring your own API key. Either way, tier and entitlements flow from the signed-in account or the key.</p>
 
 <div class="callout">
   <p><strong>A research partner, not a black box.</strong> TradeWave supplies a seasonal + 62-feature-ML statistical edge and the timing only. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
@@ -1232,7 +1233,7 @@ def build_mcp_reference() -> str:
 </div>
 
 <h2>Flagship tools</h2>
-<p>Start here. These five do the synthesis for you - rank, explain, and compare seasonal setups in one call.</p>
+<p>Start here. These six do the synthesis for you - rank, explain, brief, and compare seasonal setups in one call.</p>
 
 <div class="tool-card">
   <div class="tool-card-header">
@@ -1267,6 +1268,18 @@ def build_mcp_reference() -> str:
     <p>Returns the full receipts behind a setup - years tested, per-year win/loss history, best/worst year, the Trend Chart summary, and the seasonal + ML basis. Use when the user asks "why?" or wants to see the evidence behind a card.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code>, <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (receipts)</p>
+  </div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">morning_briefing</span>
+    <span class="tier-badge tier-all">All tiers</span>
+  </div>
+  <div class="tool-card-body">
+    <p>The one-call morning briefing: today's daily pick (decision view), the live forward-tested track-record summary with the last five outcomes, and the top setups entering their seasonal window now. Use on "good morning", "my briefing", or any open-ended start-of-day prompt. Sections degrade gracefully - a partial briefing beats no briefing.</p>
+    <p><strong>Inputs:</strong> none</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/daily-pick</code> + <code class="inline-code">GET /v1/daily-pick/track-record</code> + <code class="inline-code">GET /v1/scan</code> (composed, fetched in parallel)</p>
   </div>
 </div>
 
@@ -1432,17 +1445,29 @@ def build_mcp_reference() -> str:
 
 <h2>Connecting to MCP clients</h2>
 
-<p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">https://mcp.tradewave.ai/mcp</code>. HTTP-native clients (ChatGPT and others) point straight at that URL with a Bearer API key. Stdio-only clients (Claude Desktop, Cursor) bridge to it with the <code class="inline-code">mcp-remote</code> npx shim. There is no npm package to install.</p>
+<p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">{MCP_URL}</code>. Consumer apps (ChatGPT, Claude.ai) connect via OAuth: paste the server URL, click Connect, and sign in with your TradeWave account - no API key needed. Stdio-only dev tools (Claude Desktop, Cursor) bridge to it with the <code class="inline-code">mcp-remote</code> npx shim and a Bearer API key. There is no npm package to install.</p>
 
-<h3>Claude Desktop</h3>
-<p>Claude Desktop is a stdio-only client, so it bridges to the hosted server with the <code class="inline-code">mcp-remote</code> shim. Add the following block to your <code class="inline-code">claude_desktop_config.json</code> (usually at <code class="inline-code">~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS):</p>
+<h3>ChatGPT</h3>
+<p>In ChatGPT, open <strong>Settings &rarr; Connectors</strong> (enable Developer mode under Advanced if you have not already), choose <strong>Create</strong>, and paste the server URL:</p>
+<pre><code>Server URL: {MCP_URL}
+Auth:       OAuth - sign in with your TradeWave account</code></pre>
+<p>ChatGPT discovers the sign-in flow from the server automatically. Click <strong>Connect</strong>, log in with your TradeWave account, and approve. Your plan follows the account you sign in with.</p>
+
+<h3>Claude.ai</h3>
+<p>In Claude.ai, open <strong>Settings &rarr; Connectors</strong>, choose <strong>Add custom connector</strong>, and paste the server URL:</p>
+<pre><code>Server URL: {MCP_URL}
+Auth:       OAuth - sign in with your TradeWave account</code></pre>
+<p>Click <strong>Connect</strong> and sign in with your TradeWave account when prompted. No API key needed.</p>
+
+<h3>Claude Desktop (BYOK)</h3>
+<p>Claude Desktop is a stdio-only client, so it bridges to the hosted server with the <code class="inline-code">mcp-remote</code> shim and your own API key. Add the following block to your <code class="inline-code">claude_desktop_config.json</code> (usually at <code class="inline-code">~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS):</p>
 <pre><code>{{
   "mcpServers": {{
     "tradewave": {{
       "command": "npx",
       "args": [
         "-y", "mcp-remote",
-        "https://mcp.tradewave.ai/mcp",
+        "{MCP_URL}",
         "--header", "Authorization: Bearer ${{TRADEWAVE_API_KEY}}"
       ],
       "env": {{
@@ -1453,21 +1478,14 @@ def build_mcp_reference() -> str:
 }}</code></pre>
 <p>Restart Claude Desktop. The TradeWave tools appear in the tools panel automatically.</p>
 
-<h3>ChatGPT (HTTP-native MCP)</h3>
-<p>ChatGPT speaks MCP over HTTP, so point it straight at the hosted endpoint with a Bearer API key - no shim needed:</p>
-<pre><code>Server URL: https://mcp.tradewave.ai/mcp
-Auth type:  API Key (Bearer)
-Header:     Authorization: Bearer &lt;your-api-key&gt;</code></pre>
-<p>In the connector / GPT builder, paste the server URL and select <strong>API Key</strong> as the auth method, supplying your TradeWave key as the Bearer token.</p>
-
-<h3>Cursor</h3>
-<p>Cursor is also a stdio client, so it uses the same <code class="inline-code">mcp-remote</code> shim. In <strong>Cursor Settings &rarr; Features &rarr; MCP Servers</strong>, add:</p>
+<h3>Cursor (BYOK)</h3>
+<p>Cursor is also a stdio client, so it uses the same <code class="inline-code">mcp-remote</code> shim with your own API key. In <strong>Cursor Settings &rarr; Features &rarr; MCP Servers</strong>, add:</p>
 <pre><code>{{
   "tradewave": {{
     "command": "npx",
     "args": [
       "-y", "mcp-remote",
-      "https://mcp.tradewave.ai/mcp",
+      "{MCP_URL}",
       "--header", "Authorization: Bearer ${{TRADEWAVE_API_KEY}}"
     ],
     "env": {{
@@ -1487,10 +1505,10 @@ Header:     Authorization: Bearer &lt;your-api-key&gt;</code></pre>
 """
     return page(
         title="MCP Reference",
-        description="TradeWave MCP server - 16 tools (5 flagship + 11 primitives) for AI assistants, plus connection instructions for Claude Desktop, ChatGPT, and Cursor.",
+        description="TradeWave MCP server - 17 tools (6 flagship + 11 primitives) for AI assistants, plus connection instructions for ChatGPT, Claude.ai, Claude Desktop, and Cursor.",
         active_href="mcp-reference.html",
         hero_title="MCP Reference",
-        hero_sub="16 tools for AI assistants (5 flagship + 11 primitives) - connect in Claude Desktop, ChatGPT, or Cursor.",
+        hero_sub="17 tools for AI assistants (6 flagship + 11 primitives) - sign in from ChatGPT or Claude.ai, or connect Claude Desktop and Cursor with a key.",
         body=body,
     )
 
@@ -1831,9 +1849,22 @@ def build_changelog() -> str:
 
 <div class="changelog-entry">
   <div class="changelog-version">
+    <span class="version-badge">v1.1.0</span>
+    <span class="version-date">2026-06-12</span>
+    <span class="version-status">Current</span>
+  </div>
+  <p><strong>OAuth sign-in for consumer MCP apps + the morning briefing.</strong></p>
+  <ul>
+    <li>ChatGPT and Claude.ai now connect via OAuth: paste the server URL, click Connect, and sign in with your TradeWave account - no API key needed. Dev tools (Claude Desktop, Cursor) keep BYOK Bearer-key auth.</li>
+    <li>New flagship MCP tool <code class="inline-code">morning_briefing</code> - today's pick, the live track-record summary, and the top setups entering their window, in one call. The tool surface is now 17 tools (6 flagship + 11 primitives).</li>
+    <li>The canonical MCP connector URL is the bare host (the legacy <code class="inline-code">/mcp</code> path is still served as an alias).</li>
+  </ul>
+</div>
+
+<div class="changelog-entry">
+  <div class="changelog-version">
     <span class="version-badge">v1.0.0</span>
     <span class="version-date">2026-05-27</span>
-    <span class="version-status">Current</span>
   </div>
   <p><strong>Initial public release.</strong></p>
   <ul>

@@ -1,7 +1,7 @@
 ---
 title: "Connect an AI agent with MCP"
 slug: "connect-an-ai-agent-mcp"
-description: "Wire Claude Desktop, Cursor, or ChatGPT to the TradeWave MCP server with BYOK auth and let your agent pull seasonal signals."
+description: "Connect ChatGPT or Claude.ai to the TradeWave MCP server with a simple sign-in, or wire Claude Desktop and Cursor with your own API key, and let your agent pull seasonal signals."
 order: 5
 read_minutes: 8
 ---
@@ -10,7 +10,7 @@ read_minutes: 8
 
 The Model Context Protocol (MCP) is an open standard that lets an AI assistant call external tools through a single connection. Instead of pasting JSON into a chat or writing glue code, you point the assistant at a server, and it discovers the available tools and calls them on your behalf. Ask in plain English, and the agent decides which tool to run.
 
-TradeWave runs a hosted MCP server at `https://mcp.tradewave.ai/mcp`. It exposes the exact same derived signals as the REST API - the server composes the `SignalCard` for you, so your agent gets percentages, a normalized seasonal index, an honest edge score, and a public track record. It never gets raw prices or OHLCV bars. Every response still carries its `disclaimer`: outputs are educational, not personalized advice.
+TradeWave runs a hosted MCP server at `https://mcp.tradewave.ai`. It exposes the exact same derived signals as the REST API - the server composes the `SignalCard` for you, so your agent gets percentages, a normalized seasonal index, an honest edge score, and a public track record. It never gets raw prices or OHLCV bars. Every response still carries its `disclaimer`: outputs are educational, not personalized advice.
 
 TradeWave is a research partner, not an oracle. It supplies a seasonal plus 62-feature-ML statistical edge and the timing, and it is deliberately blind to fundamentals, valuation, news, catalysts, macro and rates, analyst views, earnings dates, and the live price. That is by design: it pairs with your assistant's own web, news, and reasoning tools. TradeWave brings the seasonal/ML edge, the agent extends it with fundamentals, news, and macro, and the two synthesize one view.
 
@@ -20,27 +20,31 @@ The intended loop is explicit, and it is worth wiring into your agent's instruct
 2. Pull a card. Every `SignalCard` carries an `extend_research` block that names, in the card itself, exactly what TradeWave is blind to (fundamentals, news, macro, earnings, the live price) and what to verify with your own tools.
 3. Loop back. Take the seasonal and ML edge plus the timing from the card, then use your web, news, and earnings tools to check the things the card told you it cannot see, and synthesize one view. The card hands the research off to you on purpose; it does not pretend to be the whole answer.
 
-Authentication is BYOK (bring your own key). Your MCP client sends the same bearer token you use for REST:
+Authentication depends on the client:
+
+- **Consumer apps (ChatGPT, Claude.ai) - sign in, no API key.** Paste the server URL into the app's connector settings, click Connect, and log in with your TradeWave account. The OAuth flow is discovered automatically, and your plan follows the account you sign in with.
+- **Dev tools (Claude Desktop, Cursor) - BYOK (bring your own key).** The client sends the same bearer token you use for REST:
 
 ```
 Authorization: Bearer tw_live_xxx
 ```
 
-Get a key at https://tradewave.ai/account/api/keys. Treat it like a password and keep it out of shared configs you might commit.
+For the BYOK path, get a key at https://tradewave.ai/account/api/keys. Treat it like a password and keep it out of shared configs you might commit.
 
 ## The flagship tools
 
-The server publishes 16 tools: 5 flagship tools that map to the richest API calls, plus 11 lower-level primitives for agents that want to compose their own workflow. The flagship five lead the menu: `find_best_opportunities`, `analyze_symbol`, `explain_pick`, `whats_seasonal_now`, and `compare_opportunities`. Behind them sit the 11 primitives: `list_markets`, `whoami`, `describe_tradewave`, `list_symbols`, `get_seasonal_opportunities`, `get_symbol_patterns`, `get_seasonal_pattern`, `get_opportunity_chart`, `score_opportunities`, `get_daily_pick`, and `get_pick_track_record`. Two are worth calling out: `whoami` reports your tier and remaining ML allowance, and `describe_tradewave` self-documents the seasonal/ML method so the agent can explain what the numbers mean before it uses them.
+The server publishes 17 tools: 6 flagship tools that map to the richest API calls, plus 11 lower-level primitives for agents that want to compose their own workflow. The flagship six lead the menu: `find_best_opportunities`, `analyze_symbol`, `explain_pick`, `morning_briefing`, `whats_seasonal_now`, and `compare_opportunities`. Behind them sit the 11 primitives: `list_markets`, `whoami`, `describe_tradewave`, `list_symbols`, `get_seasonal_opportunities`, `get_symbol_patterns`, `get_seasonal_pattern`, `get_opportunity_chart`, `score_opportunities`, `get_daily_pick`, and `get_pick_track_record`. Two are worth calling out: `whoami` reports your tier and remaining ML allowance, and `describe_tradewave` self-documents the seasonal/ML method so the agent can explain what the numbers mean before it uses them.
 
 | Tool | What it does | Maps to |
 | --- | --- | --- |
 | `find_best_opportunities` | Sweep markets over a window, filter and rank, return ranked SignalCards | `GET /scan` |
 | `analyze_symbol` | One rich SignalCard for a named symbol, plus `other_setups` | `GET /analyze/{symbol}` |
 | `explain_pick` | Walk through today's daily pick and its forward-tested receipts | `GET /daily-pick` |
+| `morning_briefing` | The one-call start of the day: today's pick, the live track record, and the top setups entering their window | `GET /daily-pick` + `GET /daily-pick/track-record` + `GET /scan` (composed) |
 | `whats_seasonal_now` | What is lining up right now across your in-scope markets | `GET /scan?window=now` |
 | `compare_opportunities` | Put two or more setups side by side on edge, win rate, and ML | composed |
 
-Each returns the same `SignalCard` shape: `signal` (`BUY`, `SELL`, or `NO_SIGNAL`), `edge_score`, `stats`, an optional `ml` block, and the `receipts` audit trail. When the best available setup is weak, the tool returns `NO_SIGNAL` and no order ticket on purpose. That conflict-free honesty is the point.
+The card-bearing tools all return the same `SignalCard` shape: `signal` (`BUY`, `SELL`, or `NO_SIGNAL`), `edge_score`, `stats`, an optional `ml` block, and the `receipts` audit trail. When the best available setup is weak, the tool returns `NO_SIGNAL` and no order ticket on purpose. That conflict-free honesty is the point.
 
 ## Progressive disclosure: decide cheap, then pull the receipts
 
@@ -67,9 +71,27 @@ Pattern detection takes two knobs: `years` (the lookback - how far back to scan)
 
 Per-symbol pattern detection (`get_symbol_patterns`) exists for five markets only - ids 0, 1, 2, 7, 9 (DOW 30, NASDAQ 100, S&P 500, Futures & Commodities, FOREX Liquid). For any other market the per-symbol tool returns a clear error; reach for `find_best_opportunities` to scan that market instead. `list_markets` reports each market's pattern-detection coverage and an example band, so the agent can check before it calls.
 
-## Set up Claude Desktop
+## Set up ChatGPT
 
-Claude Desktop speaks MCP over stdio, so you bridge to the hosted HTTP server with `mcp-remote`. Open your config file:
+ChatGPT connects to remote MCP servers over HTTP directly, and it signs you in - there is no `npx` bridge and no API key. In ChatGPT, open Settings, then Connectors (enable Developer mode under Advanced if you have not already), choose Create, and paste the server URL:
+
+- Server URL: `https://mcp.tradewave.ai`
+- Auth: OAuth - sign in with your TradeWave account
+
+ChatGPT discovers the sign-in flow from the server automatically. Click Connect, log in with your TradeWave account, and approve. Once the connector is enabled, the TradeWave tools are available to the model in that conversation, and your plan follows the account you signed in with.
+
+## Set up Claude.ai
+
+Claude.ai works the same way: paste the server URL, click Connect, sign in. In Claude.ai, open Settings, then Connectors, choose Add custom connector, and paste the server URL:
+
+- Server URL: `https://mcp.tradewave.ai`
+- Auth: OAuth - sign in with your TradeWave account
+
+Click Connect and log in with your TradeWave account when prompted. No API key needed - the tools appear in the conversation's tools menu once connected.
+
+## Set up Claude Desktop (BYOK)
+
+Claude Desktop speaks MCP over stdio, so you bridge to the hosted HTTP server with `mcp-remote` and your own API key. Open your config file:
 
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -84,7 +106,7 @@ Add a `tradewave` entry under `mcpServers`:
       "args": [
         "-y",
         "mcp-remote",
-        "https://mcp.tradewave.ai/mcp",
+        "https://mcp.tradewave.ai",
         "--header",
         "Authorization: Bearer tw_live_xxx"
       ]
@@ -95,7 +117,7 @@ Add a `tradewave` entry under `mcpServers`:
 
 Restart Claude Desktop. The TradeWave tools appear in the tools menu, and you can start asking questions in the next section.
 
-## Set up Cursor
+## Set up Cursor (BYOK)
 
 Cursor reads MCP servers from `~/.cursor/mcp.json` (or a project-local `.cursor/mcp.json`). The shape is the same:
 
@@ -107,7 +129,7 @@ Cursor reads MCP servers from `~/.cursor/mcp.json` (or a project-local `.cursor/
       "args": [
         "-y",
         "mcp-remote",
-        "https://mcp.tradewave.ai/mcp",
+        "https://mcp.tradewave.ai",
         "--header",
         "Authorization: Bearer tw_live_xxx"
       ]
@@ -118,19 +140,11 @@ Cursor reads MCP servers from `~/.cursor/mcp.json` (or a project-local `.cursor/
 
 Reload the window. Cursor's agent can now call `find_best_opportunities` and friends while you work.
 
-## Set up ChatGPT
-
-ChatGPT connects to remote MCP servers over HTTP directly, so there is no `npx` bridge. In the connector settings, add a custom MCP connector pointing at the server URL and supply the auth header:
-
-- Server URL: `https://mcp.tradewave.ai/mcp`
-- Header: `Authorization: Bearer tw_live_xxx`
-
-Once the connector is enabled, the TradeWave tools are available to the model in that conversation. Because authentication is header-based BYOK, the key stays in your connector config and never goes into the chat.
-
 ## What a good prompt looks like
 
 MCP tools work best when you ask the question you actually have and let the agent pick the tool. Some prompts that route cleanly:
 
+- "Good morning - what's my briefing?" - `morning_briefing` returns today's pick, the live track record, and what is entering its window, in one call.
 - "Find the best seasonal setups I can trade this week." - the agent calls `find_best_opportunities` with `window=next_2_weeks` and ranks them.
 - "Is there a seasonal edge in XLE right now? Show me the receipts." - this hits `analyze_symbol`, then reads the `receipts` block.
 - "Explain today's daily pick like I am new to seasonality." - `explain_pick` returns the SignalCard and its forward-tested track record.

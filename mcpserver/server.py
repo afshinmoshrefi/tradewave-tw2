@@ -28,12 +28,19 @@ Run (SSE, remote, NO baked-in key - each client sends its own Bearer token):
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
+import contextvars
+import datetime
+import functools
+import hashlib
 import json
 import os
 import sys
-from typing import Any, Optional
+import time
+from typing import Annotated, Any, Optional
 
 import httpx
+from pydantic import Field
 from mcp.server.fastmcp import Context, FastMCP
 
 # ---------------------------------------------------------------------------
@@ -81,6 +88,38 @@ from contextvars import ContextVar
 _request_principal: ContextVar[Optional[dict]] = ContextVar("_request_principal", default=None)
 
 
+# --- connect-time BYOK key validation (used by the auth gate below) -----------------
+# Verdicts are cached briefly by key HASH (never the raw key) so the per-request auth
+# gate stays cheap; the gateway remains the source of truth on every actual tool call.
+_BYOK_CHECK_TTL = 60.0                                   # seconds
+_BYOK_CACHE_MAX = 1024                                   # crude bound; cleared when exceeded
+_byok_cache: dict[str, tuple[float, bool]] = {}          # sha256(key) -> (expires, valid)
+
+
+async def _byok_key_valid(key: str) -> bool:
+    """Cheap connect-time check of a tw_ key against the gateway's /me.
+
+    200 -> valid, 401/403 -> invalid (both cached for _BYOK_CHECK_TTL). Anything else
+    (gateway down, 5xx, 429) FAILS OPEN uncached: a gateway hiccup must not sever every
+    existing connection, and the per-call gateway auth still rejects a bad key."""
+    h = hashlib.sha256(key.encode()).hexdigest()
+    now = time.monotonic()
+    cached = _byok_cache.get(h)
+    if cached and cached[0] > now:
+        return cached[1]
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(f"{API_BASE_URL}/me",
+                                    headers={"Authorization": f"Bearer {key}"})
+    except httpx.HTTPError:
+        return True
+    if resp.status_code == 200 or resp.status_code in (401, 403):
+        if len(_byok_cache) > _BYOK_CACHE_MAX:
+            _byok_cache.clear()
+        _byok_cache[h] = (now + _BYOK_CHECK_TTL, resp.status_code == 200)
+    return resp.status_code not in (401, 403)
+
+
 if OAUTH_ENABLED:
     import jwt as _jwt
     from mcp.server.auth.provider import AccessToken, TokenVerifier
@@ -109,7 +148,13 @@ if OAUTH_ENABLED:
         async def verify_token(self, token: str):
             if not token:
                 return None
-            if token.startswith("tw_"):          # BYOK / dev tools - gateway validates the key
+            if token.startswith("tw_"):          # BYOK / dev tools - validate at CONNECT (below)
+                if not await _byok_key_valid(token):
+                    # A garbage tw_ key must fail the CONNECT, exactly like a bad OAuth
+                    # login - not surface later as a confusing per-tool 401.
+                    log.info("MCP BYOK: connect rejected, gateway did not accept key hash %s...",
+                             hashlib.sha256(token.encode()).hexdigest()[:12])
+                    return None
                 return AccessToken(token=token, client_id="byok", scopes=[], expires_at=None,
                                    resource=MCP_PUBLIC_URL, subject="byok",
                                    claims={"mode": "byok", "key": token})
@@ -214,22 +259,100 @@ def _seg(value: Any) -> str:
     return quote(str(value), safe="")
 
 
+# Large cold scans can legitimately run >60s (the gateway caches, so a retry returns fast);
+# the old 30s starved them mid-compute and surfaced as a raw httpx exception.
+_GATEWAY_TIMEOUT = 110
+
+_TIMEOUT_RESULT = (
+    "This large scan is still computing on the gateway - retry in a moment; the result "
+    "will be cached and come back quickly."
+)
+_UNREACHABLE_RESULT = "The TradeWave gateway is temporarily unreachable. Try again in a moment."
+
+
+class GatewayError(Exception):
+    """A user-presentable gateway failure. `message` is returned VERBATIM as the tool
+    result (via _tool_errors) - never a raw httpx string, which would leak the internal
+    gateway URL to the model."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+def _friendly_http_error(exc: httpx.HTTPStatusError) -> str:
+    """The gateway's own {error:{message}} text when present; a friendly generic line
+    otherwise. Never the raw httpx repr (it embeds the internal gateway URL)."""
+    code = None
+    msg = None
+    try:
+        err = exc.response.json().get("error") or {}
+        code = err.get("code")
+        msg = err.get("message")
+    except Exception:  # noqa: BLE001 - non-JSON body / unexpected shape
+        pass
+    if isinstance(msg, str) and msg.strip():
+        msg = msg.strip()
+        if code == "rate_limited":
+            msg += " - wait a few seconds and retry; results are cached."
+        return msg
+    return (f"The TradeWave gateway returned an error (HTTP {exc.response.status_code}). "
+            "Try again in a moment.")
+
+
+def _request(method: str, path: str, *, params: dict[str, Any] | None = None,
+             body: Any = None) -> Any:
+    """One gateway round-trip. Every failure mode becomes a GatewayError whose message is
+    safe to hand to the model as the tool result (see _tool_errors)."""
+    url = f"{API_BASE_URL}{path}"
+    try:
+        with httpx.Client(timeout=_GATEWAY_TIMEOUT) as client:
+            if method == "GET":
+                resp = client.get(url, params=params, headers=_headers())
+            else:
+                resp = client.post(url, json=body,
+                                   headers={**_headers(), "Content-Type": "application/json"})
+        resp.raise_for_status()
+    except httpx.TimeoutException:
+        raise GatewayError(_TIMEOUT_RESULT) from None
+    except httpx.HTTPStatusError as exc:
+        raise GatewayError(_friendly_http_error(exc)) from None
+    except httpx.HTTPError:
+        raise GatewayError(_UNREACHABLE_RESULT) from None
+    return resp.json()
+
+
 def _get(path: str, params: dict[str, Any] | None = None) -> Any:
     """Synchronous GET against the gateway. Returns parsed JSON."""
-    url = f"{API_BASE_URL}{path}"
-    with httpx.Client(timeout=30) as client:
-        resp = client.get(url, params={k: v for k, v in (params or {}).items() if v is not None}, headers=_headers())
-    resp.raise_for_status()
-    return resp.json()
+    return _request("GET", path,
+                    params={k: v for k, v in (params or {}).items() if v is not None})
 
 
 def _post(path: str, body: Any) -> Any:
     """Synchronous POST against the gateway. Returns parsed JSON."""
-    url = f"{API_BASE_URL}{path}"
-    with httpx.Client(timeout=30) as client:
-        resp = client.post(url, json=body, headers={**_headers(), "Content-Type": "application/json"})
-    resp.raise_for_status()
-    return resp.json()
+    return _request("POST", path, body=body)
+
+
+def _tool_errors(fn):
+    """Tool decorator (applied INSIDE @mcp.tool): converts a GatewayError into the tool
+    RESULT text, so the model always sees the gateway's own friendly message instead of a
+    raised exception. functools.wraps keeps the original signature visible to FastMCP's
+    schema builder (inspect.signature follows __wrapped__)."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except GatewayError as e:
+            return e.message
+    return wrapper
+
+
+def _csv(value: list[str] | str | None) -> Optional[str]:
+    """Accept a list OR a CSV string for multi-value params (models naturally send lists);
+    the gateway speaks CSV."""
+    if isinstance(value, list):
+        return ",".join(str(v) for v in value)
+    return value
 
 
 def _format_upgrade(data: dict[str, Any]) -> str:
@@ -418,48 +541,61 @@ def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
         "list, or view='full' when you need the per-year receipts and detail stats."
     )
 )
+@_tool_errors
 def find_best_opportunities(
-    markets: Optional[str] = None,
-    window: Optional[str] = None,
-    direction: Optional[str] = None,
-    min_win_rate: Optional[float] = None,
-    min_years: Optional[int] = None,
-    min_days: Optional[int] = None,
-    max_days: Optional[int] = None,
-    min_avg_return: Optional[float] = None,
-    min_median_return: Optional[float] = None,
-    min_sharpe: Optional[float] = None,
-    pe_cycle: Optional[str] = None,
-    years: Optional[int] = None,
-    min_winning_years: Optional[int] = None,
-    rank_by: Optional[str] = None,
-    limit: Optional[int] = None,
-    view: Optional[str] = None,
+    markets: Annotated[Optional[list[str] | str], Field(description=(
+        "Market ids or EXACT list_markets names to scan - a list (['2','11']) or CSV "
+        "('2,11' / 'S&P 500 STOCKS,ETFs'). Omit to scan ALL in-scope markets."))] = None,
+    window: Annotated[Optional[str], Field(description=(
+        "Entry-date window: 'now' (default - setups entering in the next ~10 trading days), "
+        "'next_2_weeks', 'next_month', or a 'YYYY-MM-DD..YYYY-MM-DD' range."))] = None,
+    direction: Annotated[Optional[str], Field(description=(
+        "'long' or 'short'. Omit for both."))] = None,
+    min_win_rate: Annotated[Optional[float], Field(description=(
+        "Minimum historical_win_rate 0..1 (share of profitable years), e.g. 0.65."))] = None,
+    min_years: Annotated[Optional[int], Field(description=(
+        "Trust filter - require at least N years of tested history."))] = None,
+    min_days: Annotated[Optional[int], Field(description=(
+        "Minimum pattern length (holding period) in calendar days, e.g. 10."))] = None,
+    max_days: Annotated[Optional[int], Field(description=(
+        "Maximum pattern length (holding period) in calendar days, e.g. 90. Use "
+        "min_days+max_days for a day RANGE like 10-90."))] = None,
+    min_avg_return: Annotated[Optional[float], Field(description=(
+        "Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%)."))] = None,
+    min_median_return: Annotated[Optional[float], Field(description=(
+        "Minimum median seasonal profit in PERCENT."))] = None,
+    min_sharpe: Annotated[Optional[float], Field(description=(
+        "Minimum Sharpe ratio, e.g. 1.5."))] = None,
+    pe_cycle: Annotated[Optional[str], Field(description=(
+        "Presidential election cycle mode: 'consecutive' (default, consecutive years) or "
+        "'pe' (the current presidential-cycle position only)."))] = None,
+    years: Annotated[Optional[int], Field(description=(
+        "Lookback - how many years to scan for patterns (5-98, data-dependent; default 10). "
+        "In PE mode this is the number of PE-position occurrences."))] = None,
+    min_winning_years: Annotated[Optional[int], Field(description=(
+        "Of those `years`, the minimum that must be WINNERS - i.e. the win-rate floor "
+        "(year2). DEFAULTS to ~90% of `years` (so a bare years=20 gives a valid 20-18; you "
+        "rarely need to set it). It must stay inside the market's DETECTION BAND: TradeWave "
+        "only detects patterns that won a market-specific share of years (about 75-90%+, "
+        "e.g. S&P 500 ~85%, Wilshire ~90%, FOREX Liquid ~70% at a 20-year lookback). An "
+        "out-of-band value like 20-9 is REJECTED with the valid range - never lower it "
+        "below the floor. This is a multi-market scan, so if a value is out of band for "
+        "some scanned markets the response includes a lookback_note naming them."))] = None,
+    rank_by: Annotated[Optional[str], Field(description=(
+        "Ranking method. Default 'sharpe' (mirrors TradeWave's daily-pick selection). "
+        "Options: edge|win_rate|sharpe|ml|avg_return."))] = None,
+    limit: Annotated[Optional[int], Field(description=(
+        "Max cards to return (tier-capped to the caller's opp_limit)."))] = None,
+    view: Annotated[Optional[str], Field(description=(
+        "Verbosity. 'decision' (default) = the lean read per card; 'table' = a compact "
+        "ranked row per setup; 'full' = the complete card incl. per-year receipts and "
+        "detail stats."))] = None,
     ctx: Optional[Context] = None,
 ) -> str:
-    """
-    Args:
-        markets: CSV of market ids or EXACT list_markets names to scan, e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Optional - omit to scan ALL in-scope markets.
-        pe_cycle: Presidential election cycle mode for the opportunity table: 'consecutive' (default, consecutive years) or 'pe' (the current presidential-cycle position only). Optional.
-        years: Lookback - how many years to scan for patterns (5-98, data-dependent; default 10). In PE mode this is the number of PE-position occurrences. Optional.
-        min_winning_years: Of those `years`, the minimum that must be WINNERS - i.e. the win-rate floor (year2). DEFAULTS to ~90% of `years` (so a bare years=20 gives a valid 20-18; you rarely need to set it). It must stay inside the market's DETECTION BAND: TradeWave only detects patterns that won a market-specific share of years (about 75-90%+, e.g. S&P 500 ~85%, Wilshire ~90%, FOREX Liquid ~70% at a 20-year lookback). An out-of-band value like 20-9 is REJECTED with the valid range - never lower it below the floor. This is a multi-market scan, so if a value is out of band for some scanned markets the response includes a lookback_note naming them. Optional.
-        window: Entry-date window: 'now' (default - setups entering in the next ~10 trading days), 'next_2_weeks', 'next_month', or a 'YYYY-MM-DD..YYYY-MM-DD' range.
-        direction: 'long' or 'short'. Optional - omit for both.
-        min_win_rate: Minimum historical_win_rate 0..1 (share of profitable years), e.g. 0.65. Optional.
-        min_years: Trust filter - require at least N years of tested history. Optional.
-        min_days: Minimum pattern length (holding period) in calendar days, e.g. 10. Optional.
-        max_days: Maximum pattern length (holding period) in calendar days, e.g. 90. Optional. Use min_days+max_days for a day RANGE like 10-90.
-        min_avg_return: Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%). Optional.
-        min_median_return: Minimum median seasonal profit in PERCENT. Optional.
-        min_sharpe: Minimum Sharpe ratio, e.g. 1.5. Optional.
-        rank_by: Ranking method. Default 'sharpe' (mirrors TradeWave's daily-pick selection). Options: edge|win_rate|sharpe|ml|avg_return.
-        limit: Max cards to return (tier-capped to the caller's opp_limit). Optional.
-        view: Verbosity. 'decision' (default) = the lean read per card; 'table' = a compact ranked row per setup; 'full' = the complete card incl. per-year receipts and detail stats. Optional.
-    """
     _bind_request_key(ctx)
     params: dict[str, Any] = {"view": view or "decision"}
     if markets is not None:
-        params["markets"] = markets
+        params["markets"] = _csv(markets)
     if window is not None:
         params["window"] = window
     if direction is not None:
@@ -527,40 +663,43 @@ def find_best_opportunities(
         "curve + per-year bars inline (chart DATA you draw; never an image)."
     )
 )
+@_tool_errors
 def analyze_symbol(
-    symbol: str,
-    market: Optional[str] = None,
-    direction: Optional[str] = None,
-    days_out: Optional[int] = None,
-    entry_date: Optional[str] = None,
-    pe_cycle: Optional[str] = None,
-    years: Optional[int] = None,
-    period: Optional[str] = None,
-    reverse: Optional[bool] = None,
-    view: Optional[str] = None,
-    include_chart: Optional[bool] = None,
+    symbol: Annotated[str, Field(description=(
+        "Ticker symbol, e.g. 'GLD', 'AAPL', 'CL'. Required."))],
+    market: Annotated[Optional[str], Field(description=(
+        "Market id ('0'..'16'). Optional - the gateway resolves it when the symbol is "
+        "unique."))] = None,
+    direction: Annotated[Optional[str], Field(description=(
+        "'long' or 'short'. Omit to let the best setup decide."))] = None,
+    days_out: Annotated[Optional[int], Field(description=(
+        "Preferred holding period in calendar days. With entry_date, PINS the exact "
+        "window; without it, biases setup selection."))] = None,
+    entry_date: Annotated[Optional[str], Field(description=(
+        "'YYYY-MM-DD'. PIN analysis to THIS exact opportunity (the 'click this one / "
+        "deep-dive THIS setup' flow) instead of auto-picking the best."))] = None,
+    pe_cycle: Annotated[Optional[str], Field(description=(
+        "'consecutive' (default) or 'pe' - score the setup over presidential-election-"
+        "cycle years (same phase as the entry year) instead of consecutive years."))] = None,
+    years: Annotated[Optional[int], Field(description=(
+        "Lookback length 1-99 (default 10) - how many years of history to score "
+        "against."))] = None,
+    period: Annotated[Optional[str], Field(description=(
+        "A wave-viewer date-range preset to pin the window: a month ('jan'..'dec'), "
+        "quarter ('q1'..'q4'), season ('spring','summer','fall','winter'), or "
+        "'ytd'/'year_end'/'buy_hold'. Overrides entry_date/days_out when set."))] = None,
+    reverse: Annotated[Optional[bool], Field(description=(
+        "Invert the period to 'all of the year EXCEPT that window' (the reverse-date-"
+        "range toggle)."))] = None,
+    view: Annotated[Optional[str], Field(description=(
+        "Verbosity. 'decision' (default) = the lean read; 'full' = the complete card "
+        "incl. per-year receipts and detail stats; 'table' = a single compact row."))] = None,
+    include_chart: Annotated[Optional[bool], Field(description=(
+        "If true, attach the Trend Chart curve (0-100 seasonal index) + per-year bars "
+        "(each year's return with its favorable/adverse excursion band) inline as chart "
+        "DATA."))] = None,
     ctx: Optional[Context] = None,
 ) -> str:
-    """
-    Args:
-        symbol: Ticker symbol, e.g. 'GLD', 'AAPL', 'CL'. Required.
-        market: Market id ('0'..'16'). Optional - the gateway resolves it when the symbol is unique.
-        direction: 'long' or 'short'. Optional - omit to let the best setup decide.
-        days_out: Preferred holding period in calendar days. With entry_date, PINS the exact window;
-            without it, biases setup selection. Optional.
-        entry_date: 'YYYY-MM-DD'. PIN analysis to THIS exact opportunity (the "click this one /
-            deep-dive THIS setup" flow) instead of auto-picking the best. Optional.
-        pe_cycle: 'consecutive' (default) or 'pe' - score the setup over presidential-election-cycle
-            years (same phase as the entry year) instead of consecutive years. Optional.
-        years: Lookback length 1-99 (default 10) - how many years of history to score against. Optional.
-        period: A wave-viewer date-range preset to pin the window: a month ('jan'..'dec'), quarter
-            ('q1'..'q4'), season ('spring','summer','fall','winter'), or 'ytd'/'year_end'/'buy_hold'.
-            Optional - overrides entry_date/days_out when set.
-        reverse: Invert the period to "all of the year EXCEPT that window" (the reverse-date-range
-            toggle). Optional.
-        view: Verbosity. 'decision' (default) = the lean read; 'full' = the complete card incl. per-year receipts and detail stats; 'table' = a single compact row. Optional.
-        include_chart: If true, attach the Trend Chart curve (0-100 seasonal index) + per-year bars (each year's return with its favorable/adverse excursion band) inline as chart DATA. Optional.
-    """
     _bind_request_key(ctx)
     params: dict[str, Any] = {"view": view or "decision"}
     if include_chart:
@@ -614,6 +753,7 @@ def analyze_symbol(
         "picks. They are not the same number - don't conflate them."
     )
 )
+@_tool_errors
 def explain_pick(ctx: Optional[Context] = None) -> str:
     _bind_request_key(ctx)
     data = _get("/daily-pick")
@@ -625,6 +765,86 @@ def explain_pick(ctx: Optional[Context] = None) -> str:
         "history (share of past years the window was profitable); track_record.win_rate is "
         "the LIVE, out-of-sample record of past daily picks. Don't conflate them.",
         data,
+        handoff=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Flagship: morning_briefing
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    description=(
+        "The one-call MORNING BRIEFING. REACH FOR THIS on 'my briefing', 'good morning', "
+        "'what's happening today', 'daily update', or any open-ended start-of-day prompt. "
+        "Returns one compact payload: todays_pick (today's AI daily pick as a SignalCard with "
+        "its live forward-tested track record), track_record_summary (counts + the last 5 pick "
+        "outcomes, losses included - the honest record), this_week (the top 5 distinct-symbol "
+        "setups entering their seasonal window now, as compact ranked rows), and as_of. "
+        "Composed server-side from the same gateway endpoints as explain_pick + "
+        "whats_seasonal_now, so it is always consistent with them. Present the pick first, "
+        "then the record, then what's opening this week."
+    )
+)
+@_tool_errors
+def morning_briefing(ctx: Optional[Context] = None) -> str:
+    _bind_request_key(ctx)
+    calls = {
+        "pick": ("/daily-pick", {"view": "decision"}),
+        "record": ("/daily-pick/track-record", None),
+        "scan": ("/scan", {"window": "now", "view": "table", "limit": 10}),
+    }
+    results: dict[str, Any] = {}
+    # The three gateway calls are independent - fetch them in parallel. copy_context()
+    # carries _request_principal (a ContextVar does not cross threads by itself).
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {name: pool.submit(contextvars.copy_context().run, _get, path, params)
+                   for name, (path, params) in calls.items()}
+        for name, fut in futures.items():
+            try:
+                results[name] = fut.result()
+            except GatewayError as e:
+                # Fail-soft per section: a degraded briefing beats no briefing.
+                results[name] = {"unavailable": e.message}
+
+    pick = results["pick"]
+    todays_pick = pick.get("card", pick) if isinstance(pick, dict) else pick
+
+    record = results["record"]
+    if isinstance(record, dict) and isinstance(record.get("summary"), dict):
+        picks = record.get("picks") or []
+        # last 5 outcomes, chronological, losses included - never curate the record.
+        track_record_summary = {**record["summary"], "last_5": picks[-5:]}
+    else:
+        track_record_summary = record   # upgrade stub / unavailable note, passed through honestly
+
+    scan = results["scan"]
+    if isinstance(scan, dict) and isinstance(scan.get("opportunities"), list):
+        rows, seen = [], set()
+        for row in scan["opportunities"]:
+            sym = row.get("symbol") if isinstance(row, dict) else None
+            if sym in seen:
+                continue
+            seen.add(sym)
+            rows.append(row)
+            if len(rows) == 5:
+                break
+        this_week = rows
+    else:
+        this_week = scan
+
+    payload = {
+        "todays_pick": todays_pick,
+        "track_record_summary": track_record_summary,
+        "this_week": this_week,
+        "as_of": (pick.get("as_of") if isinstance(pick, dict) else None)
+                 or datetime.date.today().isoformat(),
+    }
+    return _lead(
+        "Your TradeWave morning briefing - today's AI pick (with its live track record), "
+        "the recent pick outcomes, and what's entering its seasonal window this week:",
+        payload,
         handoff=True,
     )
 
@@ -647,22 +867,22 @@ def explain_pick(ctx: Optional[Context] = None) -> str:
         "view='table' for a compact ranked list or view='full' for receipts."
     )
 )
+@_tool_errors
 def whats_seasonal_now(
-    markets: Optional[str] = None,
-    min_win_rate: Optional[float] = None,
-    view: Optional[str] = None,
+    markets: Annotated[Optional[list[str] | str], Field(description=(
+        "Market ids or EXACT list_markets names to scan - a list (['2','11']) or CSV "
+        "('2,11' / 'S&P 500 STOCKS,ETFs'). Omit to scan ALL in-scope markets."))] = None,
+    min_win_rate: Annotated[Optional[float], Field(description=(
+        "Minimum historical_win_rate 0..1 (share of profitable years)."))] = None,
+    view: Annotated[Optional[str], Field(description=(
+        "Verbosity. 'decision' (default) = lean read; 'table' = compact ranked rows; "
+        "'full' = full cards."))] = None,
     ctx: Optional[Context] = None,
 ) -> str:
-    """
-    Args:
-        markets: CSV of market ids or EXACT list_markets names to scan, e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Optional - omit to scan ALL in-scope markets.
-        min_win_rate: Minimum historical_win_rate 0..1 (share of profitable years). Optional.
-        view: Verbosity. 'decision' (default) = lean read; 'table' = compact ranked rows; 'full' = full cards. Optional.
-    """
     _bind_request_key(ctx)
     params: dict[str, Any] = {"window": "now", "view": view or "decision"}
     if markets is not None:
-        params["markets"] = markets
+        params["markets"] = _csv(markets)
     if min_win_rate is not None:
         params["min_win_rate"] = min_win_rate
     data = _get("/scan", params)
@@ -697,18 +917,19 @@ def whats_seasonal_now(
         "on eligible markets."
     )
 )
+@_tool_errors
 def compare_opportunities(
-    symbols: list[str],
-    market: Optional[str] = None,
-    view: Optional[str] = None,
+    symbols: Annotated[list[str], Field(description=(
+        "List of ticker symbols to compare, e.g. ['GLD', 'SLV', 'GDX']. Required, 2 or "
+        "more."))],
+    market: Annotated[Optional[str], Field(description=(
+        "Market id ('0'..'16') applied to every symbol. Omit to let the gateway resolve "
+        "each."))] = None,
+    view: Annotated[Optional[str], Field(description=(
+        "Verbosity per card. 'decision' (default) = lean read for an easy head-to-head; "
+        "'full' = full receipts on each."))] = None,
     ctx: Optional[Context] = None,
 ) -> str:
-    """
-    Args:
-        symbols: List of ticker symbols to compare, e.g. ['GLD', 'SLV', 'GDX']. Required, 2 or more.
-        market: Market id ('0'..'16') applied to every symbol. Optional - omit to let the gateway resolve each.
-        view: Verbosity per card. 'decision' (default) = lean read for an easy head-to-head; 'full' = full receipts on each. Optional.
-    """
     _bind_request_key(ctx)
     results: list[dict[str, Any]] = []
     for sym in symbols:
@@ -717,9 +938,9 @@ def compare_opportunities(
             params["market"] = market
         try:
             data = _get(f"/analyze/{_seg(sym)}", params)
-        except httpx.HTTPStatusError as exc:
+        except GatewayError as e:
             # Fail-soft per symbol: degrade that row, never break the comparison.
-            results.append({"symbol": sym, "error": f"HTTP {exc.response.status_code}", "card": None})
+            results.append({"symbol": sym, "error": e.message, "card": None})
             continue
         if _is_upgrade_stub(data):
             # A Pro-gated field surfaced as a stub - keep the comparison going, note it.
@@ -760,6 +981,7 @@ def compare_opportunities(
         "valid for this market?' from data."
     )
 )
+@_tool_errors
 def list_markets(ctx: Context) -> str:
     _bind_request_key(ctx)
     data = _get("/markets")
@@ -771,6 +993,16 @@ def list_markets(ctx: Context) -> str:
 # ---------------------------------------------------------------------------
 
 
+# Tier-aware analyze example for whoami: (market_id, symbol) in preference order
+# (ML-eligible markets first so the example shows ML). Every symbol is verified to exist
+# in that market's roster, so the example NEVER errors for the caller's scope.
+_ANALYZE_EXAMPLES: list[tuple[str, str]] = [
+    ("11", "GLD"), ("2", "AAPL"), ("0", "AAPL"), ("1", "AAPL"), ("3", "AAPL"),
+    ("4", "AAPL"), ("7", "BZ"), ("9", "EURUSD"), ("8", "EURUSD"), ("5", "SPX"),
+    ("6", "SPX"), ("10", "US10Y"), ("16", "BTC-USD"),
+]
+
+
 @mcp.tool(
     description=(
         "Who am I / what can I do here. Returns the caller's plan tier, how many ML scorings "
@@ -780,6 +1012,7 @@ def list_markets(ctx: Context) -> str:
         "find_best_opportunities."
     )
 )
+@_tool_errors
 def whoami(ctx: Optional[Context] = None) -> str:
     _bind_request_key(ctx)
     data = _get("/me")
@@ -791,11 +1024,19 @@ def whoami(ctx: Optional[Context] = None) -> str:
     in_scope = data.get("markets_in_scope") or []
     names = ", ".join(m.get("name", m.get("id")) for m in in_scope[:8])
     payload = dict(data)
-    payload["example_prompts"] = [
+    # Build the analyze example from the caller's OWN scope - a free user must get an
+    # example that works on their plan, not one that errors (e.g. GLD on an S&P-only scope).
+    scope_ids = {str(m.get("id")) for m in in_scope}
+    analyze_example = next(
+        (f"Analyze {sym}'s seasonality" for mid, sym in _ANALYZE_EXAMPLES if mid in scope_ids),
+        None,
+    )
+    payload["example_prompts"] = [p for p in (
         "Find me the best seasonal trades right now",
-        "Analyze GLD's seasonality",
+        analyze_example,
         "What's today's AI daily pick and its track record?",
-    ]
+        "Give me my morning briefing",
+    ) if p]
     return _lead(
         f"You are on the {tier} plan with {ml_txt}. In-scope markets: {names}. "
         "Try one of the example prompts below:",
@@ -880,11 +1121,12 @@ def describe_tradewave(ctx: Optional[Context] = None) -> str:
         "Pass the market id from list_markets (e.g. '2' for S&P 500 stocks)."
     )
 )
-def list_symbols(market: str, ctx: Context) -> str:
-    """
-    Args:
-        market: Market id, e.g. '0', '2', '11'. Use list_markets to find valid ids.
-    """
+@_tool_errors
+def list_symbols(
+    market: Annotated[str, Field(description=(
+        "Market id, e.g. '0', '2', '11'. Use list_markets to find valid ids."))],
+    ctx: Context,
+) -> str:
     _bind_request_key(ctx)
     data = _get(f"/markets/{_seg(market)}/symbols")
     return json.dumps(data, separators=(',', ':'))
@@ -905,40 +1147,45 @@ def list_symbols(market: str, ctx: Context) -> str:
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro)."
     )
 )
+@_tool_errors
 def get_seasonal_opportunities(
-    market: str,
-    from_date: Optional[str] = None,
-    to_date: Optional[str] = None,
-    direction: Optional[str] = None,
-    min_win_rate: Optional[float] = None,
-    min_days: Optional[int] = None,
-    max_days: Optional[int] = None,
-    min_avg_return: Optional[float] = None,
-    min_median_return: Optional[float] = None,
-    min_sharpe: Optional[float] = None,
-    pe_cycle: Optional[str] = None,
-    years: Optional[int] = None,
-    min_winning_years: Optional[int] = None,
-    limit: Optional[int] = None,
+    market: Annotated[str, Field(description=(
+        "Market id (permanent key '0'..'16'). Required."))],
+    from_date: Annotated[Optional[str], Field(description=(
+        "Start of entry-date window, ISO 8601 (YYYY-MM-DD)."))] = None,
+    to_date: Annotated[Optional[str], Field(description=(
+        "End of entry-date window, ISO 8601 (YYYY-MM-DD)."))] = None,
+    direction: Annotated[Optional[str], Field(description=(
+        "'long' or 'short'. Omit for both."))] = None,
+    min_win_rate: Annotated[Optional[float], Field(description=(
+        "Minimum historical win rate 0..1, e.g. 0.65."))] = None,
+    min_days: Annotated[Optional[int], Field(description=(
+        "Minimum pattern length (holding period) in calendar days, e.g. 10."))] = None,
+    max_days: Annotated[Optional[int], Field(description=(
+        "Maximum pattern length (holding period) in calendar days, e.g. 90. Use "
+        "min_days+max_days for a day RANGE like 10-90."))] = None,
+    min_avg_return: Annotated[Optional[float], Field(description=(
+        "Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%)."))] = None,
+    min_median_return: Annotated[Optional[float], Field(description=(
+        "Minimum median seasonal profit in PERCENT."))] = None,
+    min_sharpe: Annotated[Optional[float], Field(description=(
+        "Minimum Sharpe ratio, e.g. 1.5."))] = None,
+    pe_cycle: Annotated[Optional[str], Field(description=(
+        "Presidential election cycle mode: 'consecutive' (default) or 'pe' (the current "
+        "cycle position)."))] = None,
+    years: Annotated[Optional[int], Field(description=(
+        "Lookback - years to scan for patterns (5-98, default 10; PE-position occurrences "
+        "in pe mode)."))] = None,
+    min_winning_years: Annotated[Optional[int], Field(description=(
+        "Of those years, the minimum that must be WINNERS - the win-rate floor (year2). "
+        "DEFAULTS to ~90% of years (so years=20 gives a valid 20-18). This is a SINGLE-"
+        "market call, so it is validated against that market's DETECTION BAND (about "
+        "75-90%+, market-specific); an out-of-band value (e.g. 20-9) returns a clear error "
+        "with the valid range."))] = None,
+    limit: Annotated[Optional[int], Field(description=(
+        "Max results to return (tier-capped: free=3, dev=25, pro up to 5000)."))] = None,
     ctx: Optional[Context] = None,
 ) -> str:
-    """
-    Args:
-        market: Market id (permanent key '0'..'16'). Required.
-        pe_cycle: Presidential election cycle mode: 'consecutive' (default) or 'pe' (the current cycle position). Optional.
-        years: Lookback - years to scan for patterns (5-98, default 10; PE-position occurrences in pe mode). Optional.
-        min_winning_years: Of those years, the minimum that must be WINNERS - the win-rate floor (year2). DEFAULTS to ~90% of years (so years=20 gives a valid 20-18). This is a SINGLE-market call, so it is validated against that market's DETECTION BAND (about 75-90%+, market-specific); an out-of-band value (e.g. 20-9) returns a clear error with the valid range. Optional.
-        from_date: Start of entry-date window, ISO 8601 (YYYY-MM-DD). Optional.
-        to_date: End of entry-date window, ISO 8601 (YYYY-MM-DD). Optional.
-        direction: 'long' or 'short'. Optional - omit for both.
-        min_win_rate: Minimum historical win rate 0..1, e.g. 0.65. Optional.
-        min_days: Minimum pattern length (holding period) in calendar days, e.g. 10. Optional.
-        max_days: Maximum pattern length (holding period) in calendar days, e.g. 90. Optional. Use min_days+max_days for a day RANGE like 10-90.
-        min_avg_return: Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%). Optional.
-        min_median_return: Minimum median seasonal profit in PERCENT. Optional.
-        min_sharpe: Minimum Sharpe ratio, e.g. 1.5. Optional.
-        limit: Max results to return (tier-capped: free=3, dev=25, pro up to 5000). Optional.
-    """
     _bind_request_key(ctx)
     params: dict[str, Any] = {"market": market}
     if from_date is not None:
@@ -992,23 +1239,31 @@ def get_seasonal_opportunities(
         "(min_winning_years defaults to ~90% of years and must stay within the band)."
     )
 )
-def get_symbol_patterns(symbol: str, market: str, pe_cycle: Optional[str] = None,
-                        years: Optional[int] = None, min_winning_years: Optional[int] = None,
-                        min_days: Optional[int] = None, max_days: Optional[int] = None,
-                        min_avg_return: Optional[float] = None, min_sharpe: Optional[float] = None,
-                        ctx: Optional[Context] = None) -> str:
-    """
-    Args:
-        symbol: Ticker symbol, e.g. 'DOV', 'GLD'.
-        market: Market id containing the symbol. Per-symbol patterns exist for ids 0,1,2,7,9 only (other markets return a clear error).
-        pe_cycle: 'consecutive' (default) or 'pe' (current presidential-cycle position). Optional.
-        years: Lookback years for pattern detection (default 10). Optional.
-        min_winning_years: Of those years, the minimum WINNERS - the win-rate floor (year2). Defaults to ~90% of years; must stay within this market's detection band (an out-of-band value returns a clear error with the valid range). Optional.
-        min_days: Minimum pattern length in days. Optional.
-        max_days: Maximum pattern length in days (use with min_days for a range). Optional.
-        min_avg_return: Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%). Optional.
-        min_sharpe: Minimum Sharpe ratio. Optional.
-    """
+@_tool_errors
+def get_symbol_patterns(
+    symbol: Annotated[str, Field(description=(
+        "Ticker symbol, e.g. 'DOV', 'GLD'."))],
+    market: Annotated[str, Field(description=(
+        "Market id containing the symbol. Per-symbol patterns exist for ids 0,1,2,7,9 "
+        "only (other markets return a clear error)."))],
+    pe_cycle: Annotated[Optional[str], Field(description=(
+        "'consecutive' (default) or 'pe' (current presidential-cycle position)."))] = None,
+    years: Annotated[Optional[int], Field(description=(
+        "Lookback years for pattern detection (default 10)."))] = None,
+    min_winning_years: Annotated[Optional[int], Field(description=(
+        "Of those years, the minimum WINNERS - the win-rate floor (year2). Defaults to "
+        "~90% of years; must stay within this market's detection band (an out-of-band "
+        "value returns a clear error with the valid range)."))] = None,
+    min_days: Annotated[Optional[int], Field(description=(
+        "Minimum pattern length in days."))] = None,
+    max_days: Annotated[Optional[int], Field(description=(
+        "Maximum pattern length in days (use with min_days for a range)."))] = None,
+    min_avg_return: Annotated[Optional[float], Field(description=(
+        "Minimum average seasonal profit in PERCENT (e.g. 5 means >= 5%)."))] = None,
+    min_sharpe: Annotated[Optional[float], Field(description=(
+        "Minimum Sharpe ratio."))] = None,
+    ctx: Optional[Context] = None,
+) -> str:
     _bind_request_key(ctx)
     params: dict[str, Any] = {"market": market}
     for _k, _v in (("pe_cycle", pe_cycle), ("years", years), ("min_winning_years", min_winning_years),
@@ -1035,21 +1290,26 @@ def get_symbol_patterns(symbol: str, market: str, pe_cycle: Optional[str] = None
         "Returns stats only - no raw price series."
     )
 )
-def get_seasonal_pattern(market: str, symbol: str, pe_cycle: Optional[str] = None,
-                         years: Optional[int] = None, period: Optional[str] = None,
-                         reverse: Optional[bool] = None, ctx: Optional[Context] = None) -> str:
-    """
-    Args:
-        market: Market id containing the symbol.
-        symbol: Ticker symbol.
-        pe_cycle: Presidential cycle filter: 'consecutive' (default), 'pe' (current cycle position), or
-            a specific position 'pe0' | 'pe1' | 'pe2' | 'pe3'. Optional.
-        years: Lookback count (number of years, or number of cycle occurrences when pe_cycle is set). Optional.
-        period: Date-range PRESET: month 'jan'..'dec', quarter 'q1'..'q4', season 'spring'|'summer'|'fall'|
-            'winter', 'ytd', 'year_end', or 'buy_hold'. Optional.
-        reverse: If true, use the COMPLEMENT of the window (e.g. period='mar' + reverse=true = all year
-            except March). A full-year (buy_hold) range cannot be reversed. Optional.
-    """
+@_tool_errors
+def get_seasonal_pattern(
+    market: Annotated[str, Field(description=(
+        "Market id containing the symbol."))],
+    symbol: Annotated[str, Field(description=(
+        "Ticker symbol."))],
+    pe_cycle: Annotated[Optional[str], Field(description=(
+        "Presidential cycle filter: 'consecutive' (default), 'pe' (current cycle "
+        "position), or a specific position 'pe0' | 'pe1' | 'pe2' | 'pe3'."))] = None,
+    years: Annotated[Optional[int], Field(description=(
+        "Lookback count (number of years, or number of cycle occurrences when pe_cycle "
+        "is set)."))] = None,
+    period: Annotated[Optional[str], Field(description=(
+        "Date-range PRESET: month 'jan'..'dec', quarter 'q1'..'q4', season "
+        "'spring'|'summer'|'fall'|'winter', 'ytd', 'year_end', or 'buy_hold'."))] = None,
+    reverse: Annotated[Optional[bool], Field(description=(
+        "If true, use the COMPLEMENT of the window (e.g. period='mar' + reverse=true = "
+        "all year except March). A full-year (buy_hold) range cannot be reversed."))] = None,
+    ctx: Optional[Context] = None,
+) -> str:
     _bind_request_key(ctx)
     params: dict[str, Any] = {}
     if pe_cycle is not None:
@@ -1089,34 +1349,34 @@ def get_seasonal_pattern(market: str, symbol: str, pe_cycle: Optional[str] = Non
         "full-year peaks or troughs."
     )
 )
+@_tool_errors
 def get_opportunity_chart(
-    market: str,
-    symbol: str,
-    entry_date: Optional[str] = None,
-    days_out: Optional[int] = None,
-    direction: Optional[str] = None,
-    years: Optional[str] = None,
-    pe_cycle: Optional[str] = None,
-    period: Optional[str] = None,
-    reverse: Optional[bool] = None,
+    market: Annotated[str, Field(description=(
+        "Market id."))],
+    symbol: Annotated[str, Field(description=(
+        "Ticker symbol."))],
+    entry_date: Annotated[Optional[str], Field(description=(
+        "Entry date for the setup, ISO 8601 (YYYY-MM-DD)."))] = None,
+    days_out: Annotated[Optional[int], Field(description=(
+        "Holding period in calendar days."))] = None,
+    direction: Annotated[Optional[str], Field(description=(
+        "'long' or 'short'."))] = None,
+    years: Annotated[Optional[str], Field(description=(
+        "Lookback window label (stays a string, e.g. '10', '20')."))] = None,
+    pe_cycle: Annotated[Optional[str], Field(description=(
+        "Presidential cycle filter for the curve: 'consecutive' (default), 'pe' (current "
+        "cycle position), or a specific position 'pe0' | 'pe1' | 'pe2' | 'pe3'."))] = None,
+    period: Annotated[Optional[str], Field(description=(
+        "Date-range PRESET (overrides entry_date/days_out): a month 'jan'..'dec', a "
+        "quarter 'q1'..'q4', a season 'spring'|'summer'|'fall'|'winter', 'ytd' (year to "
+        "date), 'year_end' (today to year end), or 'buy_hold' (Jan 1 to Jan 1, full "
+        "year)."))] = None,
+    reverse: Annotated[Optional[bool], Field(description=(
+        "If true, use the COMPLEMENT of the window - everything except it (e.g. "
+        "period='mar' + reverse=true = all year except March). A full-year (buy_hold) "
+        "range cannot be reversed."))] = None,
     ctx: Optional[Context] = None,
 ) -> str:
-    """
-    Args:
-        market: Market id.
-        symbol: Ticker symbol.
-        entry_date: Entry date for the setup, ISO 8601 (YYYY-MM-DD). Optional.
-        days_out: Holding period in calendar days. Optional.
-        direction: 'long' or 'short'. Optional.
-        years: Lookback window label (stays a string, e.g. '10', '20'). Optional.
-        pe_cycle: Presidential cycle filter for the curve: 'consecutive' (default), 'pe' (current cycle
-            position), or a specific position 'pe0' | 'pe1' | 'pe2' | 'pe3'. Optional.
-        period: Date-range PRESET (overrides entry_date/days_out): a month 'jan'..'dec', a quarter
-            'q1'..'q4', a season 'spring'|'summer'|'fall'|'winter', 'ytd' (year to date), 'year_end'
-            (today to year end), or 'buy_hold' (Jan 1 to Jan 1, full year). Optional.
-        reverse: If true, use the COMPLEMENT of the window - everything except it (e.g. period='mar' +
-            reverse=true = all year except March). A full-year (buy_hold) range cannot be reversed. Optional.
-    """
     _bind_request_key(ctx)
     params: dict[str, Any] = {"market": market, "symbol": symbol}
     if entry_date is not None:
@@ -1156,18 +1416,14 @@ def get_opportunity_chart(
         "Output: ml_score (0-100), win_prob (0-1), pred_return %, pred_mfe %."
     )
 )
+@_tool_errors
 def score_opportunities(
-    opportunities: list[dict[str, Any]],
+    opportunities: Annotated[list[dict[str, Any]], Field(description=(
+        "List of opportunity dicts, each with keys: symbol (str, ticker symbol), date "
+        "(str, entry date YYYY-MM-DD), days_out (int, holding period in days), direction "
+        "(str, 'long' or 'short')."))],
     ctx: Context,
 ) -> str:
-    """
-    Args:
-        opportunities: List of opportunity dicts, each with keys:
-            - symbol (str): ticker symbol
-            - date (str): entry date YYYY-MM-DD
-            - days_out (int): holding period in days
-            - direction (str): 'long' or 'short'
-    """
     _bind_request_key(ctx)
     data = _post("/score", {"opportunities": opportunities})
     if _is_upgrade_stub(data):
@@ -1190,6 +1446,7 @@ def score_opportunities(
         "Includes symbol, direction, holding period, pattern summary, and ML scores."
     )
 )
+@_tool_errors
 def get_daily_pick(ctx: Context) -> str:
     _bind_request_key(ctx)
     data = _get("/daily-pick")
@@ -1212,6 +1469,7 @@ def get_daily_pick(ctx: Context) -> str:
         "avg return). This is the verifiable performance record - free-tier accessible."
     )
 )
+@_tool_errors
 def get_pick_track_record(ctx: Context) -> str:
     _bind_request_key(ctx)
     data = _get("/daily-pick/track-record")
@@ -1293,4 +1551,27 @@ if __name__ == "__main__":
         # /.well-known/oauth-* discovery routes are more specific and still resolve.
         mcp.settings.streamable_http_path = "/"
 
-    mcp.run(transport=args.transport)
+        class _McpPathAlias:
+            """ASGI wrapper: serve the legacy /mcp path identically to the root endpoint,
+            FOREVER - published setup instructions point clients at POST /mcp and must
+            keep working. Rewrites only the exact /mcp (and /mcp/) path; everything else
+            (root, /.well-known/oauth-*) passes through untouched."""
+
+            def __init__(self, app):
+                self.app = app
+
+            async def __call__(self, scope, receive, send):
+                if scope.get("type") == "http" and scope.get("path") in ("/mcp", "/mcp/"):
+                    scope = dict(scope)
+                    scope["path"] = "/"
+                    scope["raw_path"] = b"/"
+                await self.app(scope, receive, send)
+
+        # Mirrors FastMCP.run_streamable_http_async, with the alias wrapper in front
+        # (the SDK offers no hook to mount the same session app at a second path).
+        import uvicorn
+        uvicorn.run(_McpPathAlias(mcp.streamable_http_app()),
+                    host=mcp.settings.host, port=mcp.settings.port,
+                    log_level=mcp.settings.log_level.lower())
+    else:
+        mcp.run(transport=args.transport)

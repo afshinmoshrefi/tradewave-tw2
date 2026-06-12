@@ -200,7 +200,7 @@
               ],
               "default": "full"
             },
-            "description": "response verbosity (progressive disclosure). 'full' (default) = complete cards; 'decision' = the lean read (drops receipts.per_year + the detail stats, keeps verdict/timing/edge/extend_research); 'table' = one compact row per setup. The MCP layer requests 'decision' by default."
+            "description": "response verbosity (progressive disclosure). 'full' (default) = complete cards; 'decision' = the lean read (drops receipts.per_year, the detail stats, and the per-card extend_research block - the response envelope carries the research hand-off once; keeps verdict/timing/edge); 'table' = one compact row per setup. The MCP layer requests 'decision' by default."
           }
         ],
         "responses": {
@@ -1388,7 +1388,7 @@
           },
           "extend_research": {
             "$ref": "#/components/schemas/ExtendResearch",
-            "description": "structured research hand-off: what TradeWave is blind to + what to check with your own tools. Retained in the lean 'decision' view."
+            "description": "structured research hand-off: what TradeWave is blind to + what to check with your own tools. Present in the 'full' view; the 'decision' view omits it per card (the envelope-level hand-off carries the methodology once per response)."
           },
           "chart": {
             "$ref": "#/components/schemas/CardChart",

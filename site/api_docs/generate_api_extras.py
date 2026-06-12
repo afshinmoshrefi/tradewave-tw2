@@ -60,7 +60,7 @@ _SCORE_BODY = {
 # We never import server.py (it pulls in fastmcp + the full server runtime); we read it as text
 # and walk the AST, so this generator stays a pure, dependency-light build step. For every
 # @mcp.tool-decorated function we take the def name and its description= kwarg (an implicitly
-# concatenated string literal). Source order is preserved (server.py defines the 5 flagships
+# concatenated string literal). Source order is preserved (server.py defines the 6 flagships
 # first, then the 11 primitives), so the manifest cannot drift from the live tool surface.
 
 # Sentence terminators followed by whitespace + the start of a new sentence. We require the next
@@ -167,7 +167,7 @@ def _derive_mcp_tools() -> list[tuple[str, str]]:
     return tools
 
 
-# Derived once at import; 16 tools = 5 flagship + 11 primitives, in server.py source order.
+# Derived once at import; 17 tools = 6 flagship + 11 primitives, in server.py source order.
 _MCP_TOOLS = _derive_mcp_tools()
 
 
@@ -260,10 +260,13 @@ def build_well_known_mcp() -> str:
         "documentation": DOCS_URL,
         "mcp": {
             "url": MCP_URL,
-            "transport": ["streamable-http", "sse"],
+            "transport": ["streamable-http"],
             "authentication": {
                 "type": "bearer",
-                "description": "Send your TradeWave API key (tw_live_...) as Authorization: Bearer <key>.",
+                "description": ("Consumer MCP apps (ChatGPT, Claude.ai) connect via OAuth - the server "
+                                "advertises RFC 9728 protected-resource metadata; just sign in with a "
+                                "TradeWave account. Dev tools send a TradeWave API key (tw_live_...) "
+                                "as Authorization: Bearer <key>."),
                 "instructions_url": f"{DOCS_URL}/mcp-reference.html",
                 "token_url": CONSOLE_URL,
             },
