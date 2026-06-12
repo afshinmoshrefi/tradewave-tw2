@@ -16,7 +16,7 @@ Everything TradeWave returns is a **derived signal**. You get percentages, a nor
 
 Create a key from your account console:
 
-- Visit https://tradewave.ai/account/api/keys
+- Visit {{CONSOLE_URL}}
 - Generate a key. It looks like `tw_live_xxx`.
 - Treat it like a password. Keep it server-side and out of source control.
 
@@ -26,7 +26,7 @@ Every request to the API authenticates with a bearer token:
 Authorization: Bearer tw_live_xxx
 ```
 
-The base URL for all v1 endpoints is `https://api.tradewave.ai/v1`.
+The base URL for all v1 endpoints is `{{API_BASE}}`.
 
 ## Step 2 - Call GET /daily-pick
 
@@ -35,7 +35,7 @@ The daily pick is the friendliest first call because it takes no arguments and i
 Here is the same request in three flavors. Pick yours.
 
 ```bash
-curl https://api.tradewave.ai/v1/daily-pick \
+curl {{API_BASE}}/daily-pick \
   -H "Authorization: Bearer tw_live_xxx"
 ```
 
@@ -43,78 +43,83 @@ curl https://api.tradewave.ai/v1/daily-pick \
 import requests
 
 resp = requests.get(
-    "https://api.tradewave.ai/v1/daily-pick",
+    "{{API_BASE}}/daily-pick",
     headers={"Authorization": "Bearer tw_live_xxx"},
     timeout=15,
 )
 resp.raise_for_status()
-pick = resp.json()
-print(pick["headline"])
-print(pick["verdict"])
+card = resp.json()["card"]   # the SignalCard lives under "card"
+print(card["headline"])
+print(card["verdict"])
 ```
 
 ```javascript
-const resp = await fetch("https://api.tradewave.ai/v1/daily-pick", {
+const resp = await fetch("{{API_BASE}}/daily-pick", {
   headers: { Authorization: "Bearer tw_live_xxx" },
 });
-const pick = await resp.json();
-console.log(pick.headline);
-console.log(pick.verdict);
+const { card } = await resp.json();  // the SignalCard lives under "card"
+console.log(card.headline);
+console.log(card.verdict);
 ```
 
 ## Step 3 - Read the response
 
-A trimmed `SignalCard` looks like this (illustrative - your live values will differ):
+The endpoint returns a small envelope: today's `SignalCard` under the top-level `card` key, next to a `track_record` summary of how the previously published picks actually did. A trimmed response looks like this (illustrative - your live values will differ):
 
 ```json
 {
-  "rank": 1,
-  "symbol": "XLE",
-  "market": { "id": 3, "name": "ETFs" },
-  "direction": "long",
-  "signal": "BUY",
-  "setup": {
-    "entry_date": "2026-06-05",
-    "entry_window": "2026-06-03..2026-06-08",
-    "hold_days": 21,
-    "exit_date": "2026-06-26"
+  "as_of": "2026-06-02",
+  "featured_date": "2026-06-02",
+  "card": {
+    "rank": 1,
+    "symbol": "XLE",
+    "market": { "id": "11", "name": "ETFs" },
+    "direction": "long",
+    "signal": "BUY",
+    "setup": {
+      "entry_date": "2026-06-05",
+      "entry_window": "2026-06-03 to 2026-06-08",
+      "hold_days": 21,
+      "exit_date": "2026-06-26"
+    },
+    "edge_score": 78,
+    "edge_basis": "win_rate + sharpe + ml + sample depth",
+    "stats": {
+      "historical_win_rate": 0.81,
+      "sharpe_ratio": 1.9,
+      "avg_return_pct": 3.4,
+      "median_return_pct": 3.1,
+      "years": "16"
+    },
+    "ml": {
+      "ml_score": 72,
+      "ml_win_prob": 0.69,
+      "pred_return_pct": 2.8,
+      "pred_mfe_pct": 4.5
+    },
+    "receipts": {
+      "years_tested": 16,
+      "wins": 13,
+      "losses": 3,
+      "historical_win_rate": 0.81,
+      "avg_return_pct": 3.4,
+      "median_return_pct": 3.1,
+      "best_year": { "year": "2016", "return_pct": 9.2 },
+      "worst_year": { "year": "2020", "return_pct": -4.1 },
+      "per_year": [
+        { "year": "2024", "return_pct": 4.0, "result": "win" },
+        { "year": "2023", "return_pct": -1.2, "result": "loss" }
+      ],
+      "curve_summary": "rising into late June",
+      "source": "forward-tested daily pick",
+      "as_of": "2026-06-02"
+    },
+    "headline": "Energy ETF has risen in 13 of the last 16 Junes",
+    "verdict": "Strong seasonal long with confirming ML.",
+    "disclaimer": "Educational, not personalized advice.",
+    "tier_notes": ""
   },
-  "edge_score": 78,
-  "edge_basis": "win_rate + sharpe + ml + sample depth",
-  "stats": {
-    "historical_win_rate": 0.81,
-    "sharpe_ratio": 1.9,
-    "avg_return_pct": 3.4,
-    "median_return_pct": 3.1,
-    "years": 16
-  },
-  "ml": {
-    "ml_score": 72,
-    "ml_win_prob": 0.69,
-    "pred_return_pct": 2.8,
-    "pred_mfe_pct": 4.5
-  },
-  "receipts": {
-    "years_tested": 16,
-    "wins": 13,
-    "losses": 3,
-    "historical_win_rate": 0.81,
-    "avg_return_pct": 3.4,
-    "median_return_pct": 3.1,
-    "best_year": { "year": 2016, "return_pct": 9.2 },
-    "worst_year": { "year": 2020, "return_pct": -4.1 },
-    "per_year": [
-      { "year": 2024, "return_pct": 4.0, "result": "win" },
-      { "year": 2023, "return_pct": -1.2, "result": "loss" }
-    ],
-    "curve_summary": "rising into late June",
-    "source": "forward-tested daily pick",
-    "as_of": "2026-06-02"
-  },
-  "headline": "Energy ETF has risen in 13 of the last 16 Junes",
-  "verdict": "Strong seasonal long with confirming ML.",
-  "disclaimer": "Educational, not personalized advice.",
-  "tier_notes": ""
+  "track_record": { "count": 11, "win_count": 6, "win_rate": 0.6, "avg_return_pct": 6.1 }
 }
 ```
 
@@ -141,13 +146,13 @@ In the example above, the pattern won in 13 of 16 years (`historical_win_rate` =
 The `receipts` block is your audit trail. It is a public, time-stamped, forward-tested record: how many years were tested, the win and loss counts, best and worst years, and a per-year breakdown. Because the daily pick is tracked forward in public over time, you can verify the edge instead of taking it on faith. Pull the full history any time:
 
 ```bash
-curl https://api.tradewave.ai/v1/daily-pick/track-record \
+curl {{API_BASE}}/daily-pick/track-record \
   -H "Authorization: Bearer tw_live_xxx"
 ```
 
 ### About `ml` and `null`
 
-The `ml` object can be `null`. The ML model covers US stocks, indices, and ETFs, and only shorter seasonal holds (up to about 90 days). For longer holds you will see `ml: null` and a `tier_notes` explaining why. The daily pick's ML is always provided free, but elsewhere ML is metered per day - free accounts get a small daily allowance, while Pro and Business are unlimited. See https://tradewave.ai/pricing for current tiers.
+The `ml` object can be `null`. The ML model covers US stocks, indices, and ETFs, and only shorter seasonal holds (up to about 90 days). For longer holds you will see `ml: null` and a `tier_notes` explaining why. The daily pick's ML is always provided free, but elsewhere ML is metered per day - free accounts get a small daily allowance, while Pro and Business are unlimited. See {{PRICING_URL}} for current tiers.
 
 ### Place the trade yourself
 
@@ -161,10 +166,10 @@ The daily pick is one signal. The real power shows up when you go looking:
 - **`GET /analyze/{symbol}`** - one rich `SignalCard` for a symbol you already have in mind, plus `other_setups` you may have missed.
 
 ```bash
-curl "https://api.tradewave.ai/v1/scan?markets=0,3&window=next_month&rank_by=sharpe&limit=5" \
+curl "{{API_BASE}}/scan?markets=0,3&window=next_month&rank_by=sharpe&limit=5" \
   -H "Authorization: Bearer tw_live_xxx"
 ```
 
-Building an AI agent instead? The same signals are available over MCP at https://mcp.tradewave.ai (sign in with your TradeWave account from ChatGPT or Claude.ai, or bring your own key in the `Authorization` header from dev tools), with tools like `find_best_opportunities`, `analyze_symbol`, and `explain_pick`.
+Building an AI agent instead? The same signals are available over MCP at {{MCP_URL}} (sign in with your TradeWave account from ChatGPT or Claude.ai, or bring your own key in the `Authorization` header from dev tools), with tools like `find_best_opportunities`, `analyze_symbol`, and `explain_pick`.
 
 Every response is educational and carries a disclaimer; it is not personalized advice. Now go read your first card.

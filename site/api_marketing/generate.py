@@ -94,7 +94,7 @@ def footer_html() -> str:
       <a href="use-cases.html">Use Cases</a>
       <a href="{portal_urls.nav('contact.html')}">Contact</a>
       <a href="{portal_urls.nav('privacy.html')}">Privacy</a>
-      <a href="{portal_urls.nav('terms.html')}">Terms</a>
+      <a href="api-terms.html">API Terms</a>
       <a href="{portal_urls.nav('disclaimer.html')}">Disclaimer</a>
     </nav>
     <p class="footer-copy">&copy; {YEAR} Tara Data Research LLC. All rights reserved.</p>
@@ -429,7 +429,8 @@ a.inline:hover { text-decoration:underline; }
 """
 
 
-def page_shell(title: str, description: str, body: str, active_nav: str = "") -> str:
+def page_shell(title: str, description: str, body: str, active_nav: str = "",
+               robots: str = "index, follow") -> str:
     """Wrap body in the full TW2-branded page shell."""
     header = load_header()
     foot = footer_html()
@@ -486,7 +487,7 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "") ->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{title} - TradeWave</title>
   <meta name="description" content="{description}">
-  <meta name="robots" content="index, follow">
+  <meta name="robots" content="{robots}">
   {_seo}
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" type="image/png" href="/favicon.png">
@@ -830,7 +831,11 @@ def build_pricing() -> str:
         else:
             ml_line = '<li class="no">ML win-probability scoring</li>'
 
-        history_label = "Full history" if t["history"] == "full" else "Delayed data (30-day lag)"
+        # NOTE: deliberately NO data-freshness/"history" bullet. tiers.py carries a
+        # `history` field ("delayed"/"full") but NO code path consumes it - free keys
+        # receive the same live signals as paid (verified 2026-06-12), so selling
+        # "Delayed data (30-day lag)" was a false claim. The Free card is anchored on
+        # the caps that ARE enforced: 1 market, 3 results/call, 5 ML signals/day.
 
         note_html = ""
         if key == "free":
@@ -858,7 +863,6 @@ def build_pricing() -> str:
   <ul class="p-features">
     <li>{market_scope(t)}</li>
     {ml_line}
-    <li>{history_label}</li>
     <li>Up to {t['opp_limit']:,} results per call</li>
     <li>{rate_label(t['rate'])}</li>
     <li>Up to {t['max_keys']} API key{'s' if t['max_keys'] > 1 else ''}</li>
@@ -929,7 +933,7 @@ def build_pricing() -> str:
         <li><strong>Multi-seat key management and centralized billing</strong> - issue, rotate, scope, and revoke API keys per developer or service from one admin view, on one invoice.</li>
         <li><strong>Audit logs</strong> - a time-stamped record of key usage and signal access, exportable for your own compliance and review.</li>
         <li><strong>A service-level agreement</strong> - uptime and support commitments so the signal feed can sit in a production trading workflow.</li>
-        <li><strong>Commercial signal-redistribution rights</strong> - license TradeWave signals into your own product or feed, as percentage movement and the 0-100 seasonal index only, never raw prices.</li>
+        <li><strong>Commercial signal-redistribution rights</strong> - license TradeWave signals into your own product or feed, as percentage movement and the 0-100 seasonal index only, never raw prices. Granted by written agreement on Business and Enterprise - the boundaries live in the <a href="api-terms.html" class="inline">API Terms</a>.</li>
       </ul>
       <div style="text-align:center;margin-top:22px;">
         <a href="{portal_urls.nav('contact.html')}" class="btn btn-primary">Contact sales</a>
@@ -1016,6 +1020,19 @@ POST /v1/score  <span class="cm"># unlimited</span>
           No. By design the API exposes signals only - seasonal pattern statistics,
           win rates, percentage returns, and ML scores. No OHLCV data, no last-price
           endpoints. This keeps the output interpretable and keeps licensing clean.
+        </p>
+      </details>
+      <details style="border-bottom:1px solid var(--border);padding:0;">
+        <summary style="padding:18px 0;font-size:15px;font-weight:600;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;color:var(--text);">
+          What am I allowed to do with the signals?
+          <span style="font-size:20px;color:var(--muted);">+</span>
+        </summary>
+        <p style="padding:0 0 18px;font-size:14px;color:var(--dim);line-height:1.7;">
+          Every plan (Free, Dev, Pro) lets you use signals in, and display them within, your own
+          application, research, and team, with attribution to TradeWave. Bulk redistribution and
+          resale of raw API responses are reserved: redistribution of derived values (percentages
+          and the 0-100 seasonal index) is available on Business by written agreement. Full
+          boundaries are in the <a href="api-terms.html" class="inline">API Terms</a>.
         </p>
       </details>
       <details style="border-bottom:1px solid var(--border);padding:0;">
@@ -1514,13 +1531,16 @@ resp = requests.<span class="fn">get</span>(
     headers={{<span class="st">"X-API-Key"</span>: api_key}}
 )
 
-<span class="cm"># Score them with ML (Pro tier)</span>
+<span class="cm"># Score them with ML (metered on Free/Dev, unlimited on Pro+)</span>
+setups = [{{<span class="st">"symbol"</span>: o[<span class="st">"symbol"</span>], <span class="st">"date"</span>: o[<span class="st">"entry_date"</span>],
+           <span class="st">"days_out"</span>: o[<span class="st">"days_out"</span>], <span class="st">"direction"</span>: o[<span class="st">"direction"</span>]}}
+          <span class="kw">for</span> o <span class="kw">in</span> resp.json()[<span class="st">"opportunities"</span>]]
 score_resp = requests.<span class="fn">post</span>(
     <span class="st">"{portal_urls.API_BASE}/score"</span>,
-    json={{<span class="st">"setups"</span>: resp.json()[<span class="st">"results"</span>]}},
+    json={{<span class="st">"market"</span>: <span class="st">"2"</span>, <span class="st">"opportunities"</span>: setups}},
     headers={{<span class="st">"X-API-Key"</span>: api_key}}
 )
-<span class="cm"># Returns: ml_score, win_prob, pred_return, pred_mfe</span></div>
+<span class="cm"># Returns: ml_score, win_prob, pred_return, pred_mfe per setup</span></div>
       </div>
       <div>
         <span class="who">Quants, RIAs, and small funds</span>
@@ -1579,6 +1599,12 @@ score_resp = requests.<span class="fn">post</span>(
           <li>Outputs are percentage returns - safe to display without price context</li>
           <li>Dev tier at $39/mo for prototyping; no commitment to full plan</li>
         </ul>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-top:16px;">
+          Scope note: every tier includes displaying signals within your own app or team, with
+          attribution. Redistributing or reselling signals onward (your own feed or data product)
+          is a Business-tier right granted by written agreement - the boundaries are in the
+          <a href="api-terms.html" class="inline">API Terms</a>.
+        </p>
       </div>
       <div class="card" style="padding:32px;">
         <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:16px;">What you ship to users</p>
@@ -1609,7 +1635,8 @@ score_resp = requests.<span class="fn">post</span>(
       <p>Quant funds and fintech platforms put the edge layer in front of a team. You get enterprise
          single sign-on (SAML or OIDC) and SCIM directory sync through your identity provider for the
          console, multi-seat key management on one invoice, audit logs, an SLA, and commercial
-         signal-redistribution rights (percentages and the 0-100 index only). Single sign-on governs the
+         signal-redistribution rights (percentages and the 0-100 index only, by written agreement -
+         see the <a href="api-terms.html" class="inline">API Terms</a>). Single sign-on governs the
          console login; your API calls stay key-based on every plan. Powered by WorkOS, available on
          Business and Enterprise.</p>
     </div>
@@ -1729,6 +1756,167 @@ def build_agents() -> str:
 
 
 # ===========================================================================
+# PAGE 6 - API Terms of Service (DRAFT - pending counsel review)
+# ===========================================================================
+
+def build_api_terms() -> str:
+    """The API/MCP product terms. The consumer-site terms (terms.html) ban data mining
+    and commercial use, which would prohibit the API product itself - so API contexts
+    link HERE instead. DRAFT until counsel signs off; the banner says so explicitly.
+
+    The per-tier boundary this page draws (the launch-blocker fix):
+      Free / Dev / Pro  = DISPLAY of signals inside your own application or team,
+                          with attribution; no bulk redistribution, no resale of
+                          raw API responses.
+      Business          = redistribution only by separate written agreement
+                          (percentages and the 0-100 seasonal index only).
+    """
+    effective = datetime.now().strftime("%B %d, %Y")
+    body = f"""
+<section class="page-hero" style="padding-bottom:24px;">
+  <div class="container">
+    <h1><span class="gradient-text-w">TradeWave API Terms of Service</span></h1>
+    <p class="sub">The terms that govern the TradeWave Data API and the TradeWave MCP server.
+       They apply to API keys, MCP connections, and everything returned by the
+       <code style="font-size:14px;color:var(--accent);">/v1</code> endpoints.</p>
+  </div>
+</section>
+
+<section class="section" style="padding-top:12px;">
+  <div class="container" style="max-width:860px;">
+
+    <div style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.45);border-radius:12px;
+                padding:18px 24px;margin-bottom:36px;">
+      <p style="font-size:14px;color:#fbbf24;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;">
+        Draft - pending counsel review</p>
+      <p style="font-size:14px;color:var(--dim);line-height:1.7;">
+        This page is a working draft published for transparency while the TradeWave API is in its
+        launch window. It states the intended terms and has not yet been reviewed by counsel.
+        Until a reviewed version replaces it, treat it as the operative statement of what each
+        plan permits. Questions: <a href="{portal_urls.nav('contact.html')}" class="inline">contact us</a>.
+        Draft last updated {effective}.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:28px;">
+      <h3 style="margin-bottom:10px;">1. What these terms cover</h3>
+      <p style="font-size:14px;color:var(--dim);line-height:1.8;">
+        These API Terms govern your use of the TradeWave Data API, the TradeWave MCP server, API keys,
+        and the data they return (together, the "API"). They are separate from the
+        <a href="{portal_urls.nav('terms.html')}" class="inline">consumer website terms</a>, which govern
+        the TradeWave web application for human visitors. Where the consumer terms restrict automated
+        access, data mining, or commercial use of the website, those restrictions do not apply to use of
+        the API under a valid API plan - programmatic access is exactly what the API is sold for, within
+        the boundaries below. By creating an API key or connecting over MCP you accept these terms.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:28px;">
+      <h3 style="margin-bottom:10px;">2. What each plan permits: display vs. redistribution</h3>
+      <p style="font-size:14px;color:var(--dim);line-height:1.8;margin-bottom:14px;">
+        Every plan licenses you to <strong>use and display</strong> TradeWave signals. What scales with
+        the plan is the audience and the right to pass signals onward:</p>
+      <ul style="color:var(--dim);line-height:1.85;padding-left:20px;font-size:14px;">
+        <li style="margin-bottom:10px;"><strong>Free, Dev, and Pro</strong> - you may use signals in, and
+          display them within, your own application, research, and team, including showing derived values
+          (headlines, win rates, percentage returns, edge scores, ML probabilities) to the users of an app
+          you operate, with attribution to TradeWave (a "Powered by TradeWave" notice or a link to
+          tradewave-provided pages near the displayed signals). You may NOT bulk-redistribute signals,
+          resell or relicense raw API responses, expose the API itself (or a thin proxy of it) as your own
+          data product, or use the API to build or train a competing signals dataset or feed.</li>
+        <li style="margin-bottom:10px;"><strong>Business</strong> - everything above, plus commercial
+          signal-redistribution rights <strong>by separate written agreement only</strong>. Redistribution
+          covers licensing TradeWave signals into your own product or downstream feed, and is limited to
+          derived values: percentage movement and the 0-100 seasonal index. Raw API responses and the
+          underlying historical series are never redistributable. Contact sales to put the written
+          agreement in place; the plan alone does not grant redistribution.</li>
+        <li><strong>Enterprise</strong> - custom scope by written agreement.</li>
+      </ul>
+      <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-top:12px;">
+        Plan caps (markets, results per call, ML signals per day, rate limits, key counts) are listed on
+        the <a href="pricing.html" class="inline">pricing page</a> and enforced by the gateway.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:28px;">
+      <h3 style="margin-bottom:10px;">3. Signals only - no raw market data</h3>
+      <p style="font-size:14px;color:var(--dim);line-height:1.8;">
+        By design the API returns derived signals: seasonal statistics, win rates, percentage returns,
+        Sharpe ratios, the normalized 0-100 seasonal index, and ML scores. It never returns raw prices,
+        quotes, or OHLCV bars. You agree not to attempt to reconstruct raw price series from API outputs,
+        and not to present API outputs as a market-data feed. This is what keeps the product cleanly
+        licensable for you as well as for us.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:28px;">
+      <h3 style="margin-bottom:10px;">4. Educational signals, not investment advice</h3>
+      <p style="font-size:14px;color:var(--dim);line-height:1.8;">
+        TradeWave is a research platform, not a brokerage and not an investment adviser. Every signal is
+        statistical, historical, and educational; none of it is personalized investment advice or a
+        recommendation to buy or sell. Responses carry a <code style="font-size:12px;">disclaimer</code>
+        field - if you display signals to your users you must preserve that educational framing and must
+        not present TradeWave outputs as personalized advice, your own advice, or a guarantee of results.
+        Past performance does not guarantee future results. You are responsible for your own compliance
+        obligations (and your users') in the jurisdictions where you operate.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:28px;">
+      <h3 style="margin-bottom:10px;">5. Keys and credentials</h3>
+      <ul style="color:var(--dim);line-height:1.85;padding-left:20px;font-size:14px;">
+        <li>API keys are issued per account and are confidential. Do not publish, share, sell, or embed
+            them in client-side code.</li>
+        <li>You are responsible for all usage under your keys. Rotate a key immediately if you suspect
+            exposure (the console has one-click rotation).</li>
+        <li>One account per customer; do not create accounts or keys to evade tier caps or metering.</li>
+      </ul>
+    </div>
+
+    <div class="card" style="margin-bottom:28px;">
+      <h3 style="margin-bottom:10px;">6. Rate limits, metering, and abuse</h3>
+      <p style="font-size:14px;color:var(--dim);line-height:1.8;">
+        Plans carry per-minute and per-day rate limits and a per-day ML metering allowance; the API
+        answers over-limit requests with HTTP 429 and a Retry-After header, and exhausted ML quota with a
+        clear in-band message. You agree to respect these signals and not to circumvent limits by
+        rotating keys, accounts, or IP addresses. Automated access at or under your plan's limits is
+        normal and expected - that is the product. Access patterns intended to scrape the catalog beyond
+        plan scope, degrade the service, or probe its security are prohibited.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:28px;">
+      <h3 style="margin-bottom:10px;">7. Suspension and termination</h3>
+      <p style="font-size:14px;color:var(--dim);line-height:1.8;">
+        We may suspend or revoke keys that violate these terms, with notice where practical. You can stop
+        using the API and cancel the subscription at any time; upgrades take effect immediately and
+        downgrades at the next billing cycle. Sections 2 (redistribution boundaries), 3 (signals only),
+        and 4 (no advice) survive termination with respect to data you obtained while subscribed.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:28px;">
+      <h3 style="margin-bottom:10px;">8. Service, changes, and contact</h3>
+      <p style="font-size:14px;color:var(--dim);line-height:1.8;">
+        The API is provided as-is; uptime and support commitments (SLA) exist only on plans that include
+        them in writing. We version the API and announce breaking changes in the
+        <a href="{portal_urls.DOCS_URL}/changelog.html" class="inline">changelog</a>. We may update these
+        terms; material changes will be announced on this page and, for paid plans, by email. Questions
+        about what your plan permits: <a href="{portal_urls.nav('contact.html')}" class="inline">contact us</a>.</p>
+    </div>
+
+    <p style="font-size:12px;color:var(--muted);line-height:1.7;">
+      Related: <a href="{portal_urls.nav('privacy.html')}" class="inline">Privacy</a> -
+      <a href="{portal_urls.nav('disclaimer.html')}" class="inline">Disclaimer</a> -
+      <a href="{portal_urls.nav('terms.html')}" class="inline">Consumer website terms</a> (govern the web
+      app, not the API) - <a href="pricing.html" class="inline">API pricing</a>.</p>
+  </div>
+</section>
+"""
+    return page_shell(
+        "API Terms of Service (Draft)",
+        "The terms that govern the TradeWave Data API and MCP server: per-tier display and "
+        "redistribution boundaries, the signals-only principle, and the educational no-advice posture.",
+        no_em_dash(body),
+        active_nav="api-terms",
+        robots="noindex, follow",  # draft pending counsel review - do not index until final
+    )
+
+
+# ===========================================================================
 # Main
 # ===========================================================================
 
@@ -1741,6 +1929,7 @@ def main() -> None:
         ("mcp.html",          build_mcp,       "MCP showcase"),
         ("for-ai-agents.html", build_agents,   "For AI agents"),
         ("use-cases.html",    build_use_cases, "Use cases"),
+        ("api-terms.html",    build_api_terms, "API terms (draft)"),
     ]
 
     for filename, builder, label in pages:

@@ -10,7 +10,7 @@ read_minutes: 8
 
 The Model Context Protocol (MCP) is an open standard that lets an AI assistant call external tools through a single connection. Instead of pasting JSON into a chat or writing glue code, you point the assistant at a server, and it discovers the available tools and calls them on your behalf. Ask in plain English, and the agent decides which tool to run.
 
-TradeWave runs a hosted MCP server at `https://mcp.tradewave.ai`. It exposes the exact same derived signals as the REST API - the server composes the `SignalCard` for you, so your agent gets percentages, a normalized seasonal index, an honest edge score, and a public track record. It never gets raw prices or OHLCV bars. Every response still carries its `disclaimer`: outputs are educational, not personalized advice.
+TradeWave runs a hosted MCP server at `{{MCP_URL}}`. It exposes the exact same derived signals as the REST API - the server composes the `SignalCard` for you, so your agent gets percentages, a normalized seasonal index, an honest edge score, and a public track record. It never gets raw prices or OHLCV bars. Every response still carries its `disclaimer`: outputs are educational, not personalized advice.
 
 TradeWave is a research partner, not an oracle. It supplies a seasonal plus 62-feature-ML statistical edge and the timing, and it is deliberately blind to fundamentals, valuation, news, catalysts, macro and rates, analyst views, earnings dates, and the live price. That is by design: it pairs with your assistant's own web, news, and reasoning tools. TradeWave brings the seasonal/ML edge, the agent extends it with fundamentals, news, and macro, and the two synthesize one view.
 
@@ -29,7 +29,7 @@ Authentication depends on the client:
 Authorization: Bearer tw_live_xxx
 ```
 
-For the BYOK path, get a key at https://tradewave.ai/account/api/keys. Treat it like a password and keep it out of shared configs you might commit.
+For the BYOK path, get a key at {{CONSOLE_URL}}. Treat it like a password and keep it out of shared configs you might commit.
 
 ## The flagship tools
 
@@ -75,7 +75,7 @@ Per-symbol pattern detection (`get_symbol_patterns`) exists for five markets onl
 
 ChatGPT connects to remote MCP servers over HTTP directly, and it signs you in - there is no `npx` bridge and no API key. In ChatGPT, open Settings, then Connectors (enable Developer mode under Advanced if you have not already), choose Create, and paste the server URL:
 
-- Server URL: `https://mcp.tradewave.ai`
+- Server URL: `{{MCP_URL}}`
 - Auth: OAuth - sign in with your TradeWave account
 
 ChatGPT discovers the sign-in flow from the server automatically. Click Connect, log in with your TradeWave account, and approve. Once the connector is enabled, the TradeWave tools are available to the model in that conversation, and your plan follows the account you signed in with.
@@ -84,7 +84,7 @@ ChatGPT discovers the sign-in flow from the server automatically. Click Connect,
 
 Claude.ai works the same way: paste the server URL, click Connect, sign in. In Claude.ai, open Settings, then Connectors, choose Add custom connector, and paste the server URL:
 
-- Server URL: `https://mcp.tradewave.ai`
+- Server URL: `{{MCP_URL}}`
 - Auth: OAuth - sign in with your TradeWave account
 
 Click Connect and log in with your TradeWave account when prompted. No API key needed - the tools appear in the conversation's tools menu once connected.
@@ -106,7 +106,7 @@ Add a `tradewave` entry under `mcpServers`:
       "args": [
         "-y",
         "mcp-remote",
-        "https://mcp.tradewave.ai",
+        "{{MCP_URL}}",
         "--header",
         "Authorization: Bearer tw_live_xxx"
       ]
@@ -129,7 +129,7 @@ Cursor reads MCP servers from `~/.cursor/mcp.json` (or a project-local `.cursor/
       "args": [
         "-y",
         "mcp-remote",
-        "https://mcp.tradewave.ai",
+        "{{MCP_URL}}",
         "--header",
         "Authorization: Bearer tw_live_xxx"
       ]
@@ -169,7 +169,7 @@ Here is a trimmed result from `find_best_opportunities`, illustrative only - you
 {
   "rank": 1,
   "symbol": "XLE",
-  "market": { "id": 11, "name": "ETFs" },
+  "market": { "id": "11", "name": "ETFs" },
   "direction": "long",
   "signal": "BUY",
   "setup": {
@@ -184,7 +184,7 @@ Here is a trimmed result from `find_best_opportunities`, illustrative only - you
     "sharpe_ratio": 1.9,
     "avg_return_pct": 3.4,
     "median_return_pct": 3.1,
-    "years": 16
+    "years": "16"
   },
   "ml": { "ml_score": 72, "ml_win_prob": 0.69, "pred_return_pct": 2.8, "pred_mfe_pct": 4.5 },
   "next_step": {
@@ -206,7 +206,7 @@ Notice the `order_ticket` carries `side`, `symbol`, `type`, `time_in_force`, and
 
 ## ML and metering over MCP
 
-ML behaves the same as on REST. The model covers US stocks, indices, and ETFs and only shorter seasonal holds (up to about 90 days); longer holds come back with `ml: null`. ML is offered on every tier but metered per day - free accounts get a small daily allowance, while Pro and Business are unlimited. When you run out, the tool still returns a normal result (never an error) with a gentle upgrade nudge and `ml_remaining_today`. The daily pick's ML is always free. See https://tradewave.ai/pricing for current tiers.
+ML behaves the same as on REST. The model covers US stocks, indices, and ETFs and only shorter seasonal holds (up to about 90 days); longer holds come back with `ml: null`. ML is offered on every tier but metered per day - free accounts get a small daily allowance, while Pro and Business are unlimited. When you run out, the tool still returns a normal result (never an error) with a gentle upgrade nudge and `ml_remaining_today`. The daily pick's ML is always free. See {{PRICING_URL}} for current tiers.
 
 ## Where to go next
 

@@ -28,7 +28,7 @@ Here is a realistic (illustrative) card for a **long US equity** setup. Values a
 {
   "rank": 1,
   "symbol": "AAPL",
-  "market": { "id": 0, "name": "US Stocks" },
+  "market": { "id": "0", "name": "DOW 30 STOCKS" },
   "direction": "long",
   "signal": "BUY",
   "setup": {
@@ -44,7 +44,7 @@ Here is a realistic (illustrative) card for a **long US equity** setup. Values a
     "sharpe_ratio": 1.6,
     "avg_return_pct": 3.4,
     "median_return_pct": 3.1,
-    "years": 15
+    "years": "15"
   },
   "ml": {
     "ml_score": 72,
@@ -144,7 +144,7 @@ edge_score = round(100 * clamp01(
 > `ml_win_prob` is a forward prediction - the model's estimated probability for this trade.
 > One looks backward and is countable; the other looks forward and is a model output.
 
-ML is available on every tier but **metered per day** (the free tier gets a small daily ML allowance; Pro and Business are unlimited; the daily pick's ML is always free). It covers US stocks, indices, and ETFs, and only **shorter seasonal holds** (up to about 90 days). For longer holds, `ml` is `null` and `tier_notes` explains: *"ML score not available for this setup - the ML model covers shorter seasonal holds (up to about 90 days)."* If you run out of allowance, the response still returns HTTP 200 with a gentle upgrade nudge and an `ml_remaining_today` count - never an error. See the [pricing page](https://tradewave.ai/pricing) and your console for current limits.
+ML is available on every tier but **metered per day** (the free tier gets a small daily ML allowance; Pro and Business are unlimited; the daily pick's ML is always free). It covers US stocks, indices, and ETFs, and only **shorter seasonal holds** (up to about 90 days). For longer holds, `ml` is `null` and `tier_notes` explains: *"ML score not available for this setup - the ML model covers shorter seasonal holds (up to about 90 days)."* If you run out of allowance, the response still returns HTTP 200 with a gentle upgrade nudge and an `ml_remaining_today` count - never an error. See the [API pricing page]({{PRICING_URL}}) and your console for current limits.
 
 ### receipts: the trust layer
 
@@ -175,4 +175,4 @@ To read a SignalCard well:
 4. Compare `historical_win_rate` (measured) against `ml_win_prob` (predicted); treat them as two different signals.
 5. Use `setup` and `next_step.order_ticket` for timing, then size and place the trade yourself.
 
-Everything here is illustrative and educational, not personalized advice. Grab a key at [tradewave.ai/account/api/keys](https://tradewave.ai/account/api/keys) and pull a live card from `GET /daily-pick` to see a real SignalCard, receipts and all.
+Everything here is illustrative and educational, not personalized advice. Grab a key at [your account console]({{CONSOLE_URL}}) and pull a live card from `GET /daily-pick` to see a real SignalCard, receipts and all.

@@ -72,14 +72,14 @@ That ranked daily list is one API call:
 
 ```bash
 # Today's securities entering a seasonal window, ranked - across your in-scope markets
-curl "https://api.tradewave.ai/v1/scan?window=now&rank_by=sharpe" \
+curl "{{API_BASE}}/scan?window=now&rank_by=sharpe" \
   -H "Authorization: Bearer $TRADEWAVE_API_KEY"
 ```
 
 ```python
 import os, requests
 r = requests.get(
-    "https://api.tradewave.ai/v1/scan",
+    "{{API_BASE}}/scan",
     params={"window": "now", "rank_by": "sharpe"},
     headers={"Authorization": f"Bearer {os.environ['TRADEWAVE_API_KEY']}"},
 )
@@ -95,7 +95,7 @@ for card in r.json()["opportunities"][:5]:
 Here is the trade. Instead of spending your agent's budget rebuilding a broken version of all four, consume the finished signal in a few lines.
 
 ```bash
-curl -s https://api.tradewave.ai/v1/daily-pick \
+curl -s {{API_BASE}}/daily-pick \
   -H "Authorization: Bearer tw_live_..."
 ```
 
@@ -104,7 +104,7 @@ You get back a self-describing `SignalCard` - signals only, percentages and a no
 ```python
 import requests
 
-BASE = "https://api.tradewave.ai/v1"
+BASE = "{{API_BASE}}"
 HEADERS = {"Authorization": "Bearer tw_live_..."}
 
 card = requests.get(f"{BASE}/daily-pick", headers=HEADERS, timeout=30).json()
@@ -114,14 +114,14 @@ print(f"  ml win prob (model forward):      {card['ml']['ml_win_prob']:.0%}")
 print("  order ticket:", card["next_step"]["order_ticket"])  # price-free: side + dates
 ```
 
-The card carries its own receipts, a verdict, and a broker-agnostic order ticket with no price level - so your agent reasons about *your* strategy, not about rebuilding a data pipeline. Prefer MCP? The same signal is one tool call: `whats_seasonal_now`, `find_best_opportunities`, `analyze_symbol`, `explain_pick`, or `compare_opportunities` against `https://mcp.tradewave.ai`.
+The card carries its own receipts, a verdict, and a broker-agnostic order ticket with no price level - so your agent reasons about *your* strategy, not about rebuilding a data pipeline. Prefer MCP? The same signal is one tool call: `whats_seasonal_now`, `find_best_opportunities`, `analyze_symbol`, `explain_pick`, or `compare_opportunities` against `{{MCP_URL}}`.
 
 ## Do not trust us - check us
 
 Because Reason 4 is the whole pitch, it is queryable on the **free tier** so an evaluating agent can audit before it recommends anything.
 
 ```bash
-curl -s https://api.tradewave.ai/v1/daily-pick/track-record \
+curl -s {{API_BASE}}/daily-pick/track-record \
   -H "Authorization: Bearer tw_live_..."
 ```
 
@@ -133,4 +133,4 @@ The economics close the case. If your agent ingests raw data and reasons over it
 
 So build the part that is yours - sizing, risk, portfolio fit, execution at your broker - and consume the part that is ours. Your agent's budget is finite. Spend it on your strategy, not on rebuilding (badly) our data, our model, and the one thing it can never rebuild at all: years of forward-tested receipts.
 
-Start with the OpenAPI spec at [developers.tradewave.ai/docs/openapi.yaml](https://developers.tradewave.ai/docs/openapi.yaml) and the agent map at [developers.tradewave.ai/llms.txt](https://developers.tradewave.ai/llms.txt). The free tier includes 5 ML signals per day across 15 markets. Everything here is educational and carries a `disclaimer`; it is not personalized investment advice.
+Start with the [OpenAPI spec]({{DOCS_URL}}/openapi.yaml) and the agent map at [llms.txt]({{PORTAL_URL}}/llms.txt). The free tier includes 5 ML signals per day across 15 markets. Everything here is educational and carries a `disclaimer`; it is not personalized investment advice.

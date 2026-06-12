@@ -44,7 +44,7 @@ This scans US equities and indices for the next month, keeps only setups with a 
 import os
 import requests
 
-BASE = "https://api.tradewave.ai/v1"
+BASE = "{{API_BASE}}"
 HEADERS = {"Authorization": f"Bearer {os.environ['TW_API_KEY']}"}
 
 def scan(markets, window="next_month", **params):
@@ -67,7 +67,7 @@ data = scan(
     limit=15,
 )
 
-cards = data["results"]
+cards = data["opportunities"]
 print(f"evaluated {data['evaluated_count']} setups, returning {len(cards)}")
 if data.get("enrichment_capped"):
     print("note: ML enrichment was capped for this scan")
@@ -102,11 +102,11 @@ A screener that always hands you 15 trades is lying to you. `/scan` does not. Wh
 {
   "rank": 1,
   "symbol": "EXMPL",
-  "market": {"id": 0, "name": "US Stocks"},
+  "market": {"id": "0", "name": "DOW 30 STOCKS"},
   "direction": "long",
   "signal": "NO_SIGNAL",
   "edge_score": 33,
-  "stats": {"historical_win_rate": 0.52, "sharpe_ratio": 0.4, "years": 6},
+  "stats": {"historical_win_rate": 0.52, "sharpe_ratio": 0.4, "years": "6"},
   "ml": null,
   "headline": "No strong seasonal edge here right now.",
   "verdict": "Skip - the seasonal edge is too thin to act on.",
@@ -121,14 +121,14 @@ If your whole scan comes back as `NO_SIGNAL` cards, that is the engine telling y
 For a quick check from a shell or a cron job, the same scan in `curl`:
 
 ```bash
-curl -s "https://api.tradewave.ai/v1/scan?markets=0,1,2,3,4&window=next_month&direction=long&min_win_rate=0.65&min_years=10&rank_by=sharpe&limit=15" \
+curl -s "{{API_BASE}}/scan?markets=0,1,2,3,4&window=next_month&direction=long&min_win_rate=0.65&min_years=10&rank_by=sharpe&limit=15" \
   -H "Authorization: Bearer $TW_API_KEY" \
-  | jq '.results[] | select(.signal != "NO_SIGNAL")
+  | jq '.opportunities[] | select(.signal != "NO_SIGNAL")
         | {rank, symbol, dir: .direction, win: .stats.historical_win_rate, headline}'
 ```
 
-Get a key at [tradewave.ai/account/api/keys](https://tradewave.ai/account/api/keys). Tier scope (which markets are in_scope) and ML metering shape live on the [pricing page](https://tradewave.ai/pricing) and your console - check there rather than hardcoding counts, since they can change.
+Get a key at [your account console]({{CONSOLE_URL}}). Tier scope (which markets are in_scope) and ML metering shape live on the [API pricing page]({{PRICING_URL}}) and your console - check there rather than hardcoding counts, since they can change.
 
 ## Where to go next
 
-Once a `/scan` card looks interesting, drill in with `GET /analyze/{symbol}` for one rich `SignalCard` plus `other_setups`, or pull the forward-tested receipts behind `GET /daily-pick`. The screener finds candidates; the analyze and daily-pick endpoints give you the full per-year track record to decide. Building an agent instead? The same ranking is one MCP call to `find_best_opportunities` at [mcp.tradewave.ai](https://mcp.tradewave.ai).
+Once a `/scan` card looks interesting, drill in with `GET /analyze/{symbol}` for one rich `SignalCard` plus `other_setups`, or pull the forward-tested receipts behind `GET /daily-pick`. The screener finds candidates; the analyze and daily-pick endpoints give you the full per-year track record to decide. Building an agent instead? The same ranking is one MCP call to `find_best_opportunities` at [the MCP endpoint]({{MCP_URL}}).

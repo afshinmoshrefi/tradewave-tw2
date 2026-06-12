@@ -18,7 +18,7 @@ A robust TradeWave client has to respect three independent budgets. They are eas
 
 The headline distinction: rate and quota limits are transport-level guards that say "slow down" or "come back tomorrow," while the ML allowance is a **product** limit that degrades gracefully instead of failing. Your seasonal signal still arrives even when your ML budget is gone. Everything below is illustrative; live responses carry a `disclaimer` and are educational, not personalized advice.
 
-We do not hardcode the exact per-minute, per-day, or ML-allowance numbers here, because they vary by tier and can change. Read them off the [pricing page](https://tradewave.ai/pricing) and your [console](https://tradewave.ai/account/api/keys). Qualitatively: free accounts get a small daily ML allowance, while Pro and Business are unlimited.
+We do not hardcode the exact per-minute, per-day, or ML-allowance numbers here, because they vary by tier and can change. Read them off the [API pricing page]({{PRICING_URL}}) and your [console]({{CONSOLE_URL}}). Qualitatively: free accounts get a small daily ML allowance, while Pro and Business are unlimited.
 
 ## The X-RateLimit headers
 
@@ -43,7 +43,7 @@ When you do hit a 429, the response adds a `Retry-After` header (in seconds). Ho
 Separate from rate limits, the discovery endpoints cap how many results one call returns via the `limit` query parameter (often called `opp_limit` internally). On `GET /scan` and `GET /opportunities`, ask for what you will actually use:
 
 ```bash
-curl "https://api.tradewave.ai/v1/scan?markets=0,3&window=next_month&rank_by=sharpe&limit=10" \
+curl "{{API_BASE}}/scan?markets=0,3&window=next_month&rank_by=sharpe&limit=10" \
   -H "Authorization: Bearer tw_live_xxx"
 ```
 
@@ -57,7 +57,7 @@ This is the trap that breaks naive clients. When a free-tier caller runs out of 
 {
   "symbol": "AAPL",
   "signal": "BUY",
-  "stats": { "historical_win_rate": 0.74, "sharpe_ratio": 1.8, "years": 17 },
+  "stats": { "historical_win_rate": 0.74, "sharpe_ratio": 1.8, "years": "17" },
   "ml": null,
   "ml_remaining_today": 0,
   "tier_notes": "Daily ML allowance reached - seasonal signal shown. Upgrade for unlimited ML."
@@ -75,7 +75,7 @@ import random
 import time
 import requests
 
-BASE = "https://api.tradewave.ai/v1"
+BASE = "{{API_BASE}}"
 HEADERS = {"Authorization": "Bearer tw_live_xxx"}
 
 
@@ -128,7 +128,7 @@ def render(card):
 
 data = get("/scan", {"markets": "0,3", "window": "next_month",
                      "rank_by": "sharpe", "limit": 10})
-for card in data["results"]:
+for card in data["opportunities"]:
     render(card)
 ```
 
@@ -136,7 +136,7 @@ The key idea: a 429 is recoverable (wait, then retry), a 5xx is transient (back 
 
 ## Key management: create, rotate, revoke
 
-Your API keys live in the [console](https://tradewave.ai/account/api/keys). Treat them like passwords:
+Your API keys live in the [console]({{CONSOLE_URL}}). Treat them like passwords:
 
 - **Create** a key per environment or per service, so you can see usage and limits attributed cleanly. Keys look like `tw_live_xxx`.
 - **Rotate** on a schedule and before any suspected exposure. Generate the new key, deploy it, confirm traffic has moved, then revoke the old one - that overlap means **zero downtime**.
@@ -150,4 +150,4 @@ Keep keys server-side and out of source control, logs, and client bundles. Rate 
 - [Using the ML win-probability model](/learn/ml-win-probability) - the full `ml` block, metering, and the 90-day horizon.
 - [Cross-market screener](/learn/cross-market-screener) - drive `GET /scan` with `rank_by` and `limit`.
 
-Building an AI agent? The same signals - and the same per-key limits and graceful ML metering - apply over MCP at https://mcp.tradewave.ai (sign in with your TradeWave account from ChatGPT or Claude.ai, or bring your own key in the `Authorization` header from dev tools), with tools like `find_best_opportunities` and `analyze_symbol`. We show the edge and the timing; you place the trade at any broker. Every response is educational and carries a disclaimer, not personalized advice.
+Building an AI agent? The same signals - and the same per-key limits and graceful ML metering - apply over MCP at {{MCP_URL}} (sign in with your TradeWave account from ChatGPT or Claude.ai, or bring your own key in the `Authorization` header from dev tools), with tools like `find_best_opportunities` and `analyze_symbol`. We show the edge and the timing; you place the trade at any broker. Every response is educational and carries a disclaimer, not personalized advice.

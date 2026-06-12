@@ -9,6 +9,7 @@ Also builds a learning index (index.html) of article cards.
 Output: site/api_learn/out/  (the deploy step publishes it at developers.tradewave.ai/learn/).
 Run:  ./venv/bin/python site/api_learn/generate_learn_api.py
 """
+import re
 import sys
 from pathlib import Path
 
@@ -32,6 +33,41 @@ LEARN_URL = portal_urls.LEARN_URL
 API_BASE = portal_urls.API_BASE
 MCP_SETUP_URL = portal_urls.MCP_SETUP_URL
 CONSOLE_URL = portal_urls.CONSOLE_URL
+
+# ---------------------------------------------------------------------------
+# URL templating: lessons are authored env-agnostic with {{TOKEN}} placeholders
+# (a 2026-06-12 review found 8 of 9 lessons hardcoding api.tradewave.ai /
+# mcp.tradewave.ai plus a dead tradewave.ai keys link, so the dev/staging output
+# pointed every reader at prod). The generator substitutes them from portal_urls
+# so each environment emits its own hosts, and FAILS the build (fail-fast) on a
+# hardcoded tradewave.ai URL or an unknown/unsubstituted token.
+# ---------------------------------------------------------------------------
+URL_TOKENS = {
+    "{{API_BASE}}": API_BASE,                       # https://<api-host>/v1
+    "{{MCP_URL}}": portal_urls.MCP_URL,             # the MCP endpoint itself
+    "{{MCP_SETUP_URL}}": MCP_SETUP_URL,             # the human MCP setup guide
+    "{{CONSOLE_URL}}": CONSOLE_URL,                 # account console (API keys)
+    "{{DOCS_URL}}": DOCS_URL,                       # developer docs root
+    "{{LEARN_URL}}": LEARN_URL,                     # this learning track
+    "{{PORTAL_URL}}": portal_urls.PORTAL_URL,       # developer portal root
+    "{{PRICING_URL}}": portal_urls.dev("pricing.html"),  # API pricing page
+}
+
+_LEFTOVER_TOKEN = re.compile(r"\{\{[A-Z_]+\}\}")
+
+
+def substitute_urls(text: str, source: str) -> str:
+    if "tradewave.ai" in text:
+        raise SystemExit(
+            f"{source}: hardcoded tradewave.ai URL in lesson source - "
+            "use the {{TOKEN}} placeholders (see URL_TOKENS) so every env "
+            "emits its own hosts")
+    for token, value in URL_TOKENS.items():
+        text = text.replace(token, value)
+    leftover = sorted(set(_LEFTOVER_TOKEN.findall(text)))
+    if leftover:
+        raise SystemExit(f"{source}: unknown URL token(s) {leftover} - add to URL_TOKENS or fix the typo")
+    return text
 
 # The small code-tab switcher script (identical behavior to the docs pages).
 _TAB_SCRIPT = """
@@ -89,6 +125,7 @@ def load_articles() -> list:
             continue
         _, fm, body = text.split("---", 2)
         meta = yaml.safe_load(fm) or {}
+        body = substitute_urls(body, p.name)
         meta["body_html"] = render_markdown(body.strip())
         meta.setdefault("slug", p.stem)
         meta.setdefault("title", p.stem)

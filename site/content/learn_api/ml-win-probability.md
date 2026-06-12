@@ -69,59 +69,56 @@ ML scoring is **metered per day**:
 - **Pro / Business** get unlimited ML scoring.
 - The **daily pick's** ML is **always free** and never counts against your allowance, so `GET /daily-pick` is a great way to see a live `ml` block without spending budget.
 
-Exact numbers live on the [pricing page](https://tradewave.ai/pricing) and in your [console](https://tradewave.ai/account/api/keys) - we do not hardcode them here because they can change.
+Exact numbers live on the [API pricing page]({{PRICING_URL}}) and in your [console]({{CONSOLE_URL}}) - we do not hardcode them here because they can change.
 
 When a free-tier caller runs out of allowance, the gateway does **not** error. It returns **HTTP 200** with the seasonal signal intact, `ml: null`, an `ml_remaining_today` counter, and a gentle upgrade nudge in `tier_notes`. Your code should treat "out of ML budget" exactly like "ML not eligible": fall back to the seasonal stats and move on.
 
 ## Scoring setups in bulk with POST /score
 
-To attach ML scores to a batch of candidate setups, post them to `/score`:
+To attach ML scores to a batch of candidate setups, post them to `/score`. Two contract details to get right:
+
+- One **market per call**: pass it as a top-level `market` (body or query parameter, default `"2"`, S&P 500 stocks). It must be one of the ML-eligible markets. Each opportunity needs only `symbol`, `date`, `days_out`, and `direction`.
+- The response is a flat `scores` array, **not** SignalCards: each row echoes your setup and adds `ml_score`, `win_prob`, `pred_return`, and `pred_mfe` (the bare-score spellings, unlike the `ml` block on a card). Rows the model cannot score - or that land beyond your daily allowance - come back with those fields `null` plus a `note`.
 
 ```python
 import requests
 
-BASE = "https://api.tradewave.ai/v1"
+BASE = "{{API_BASE}}"
 HEADERS = {"Authorization": "Bearer tw_live_xxx"}
 
 payload = {
+    "market": "2",   # one ML-eligible market per call (resource ids are strings)
     "opportunities": [
-        {"symbol": "AAPL", "date": "2026-07-15", "days_out": 30,
-         "direction": "long", "market": 1},
-        {"symbol": "SPY",  "date": "2026-07-15", "days_out": 45,
-         "direction": "long", "market": 3},
-        # A longer hold - expect ml: null on this one.
-        {"symbol": "XLE",  "date": "2026-07-15", "days_out": 120,
-         "direction": "long", "market": 11},
-    ]
+        {"symbol": "AAPL", "date": "2026-07-15", "days_out": 30, "direction": "long"},
+        {"symbol": "MSFT", "date": "2026-07-15", "days_out": 45, "direction": "long"},
+        # A longer hold - expect null ML fields on this one (the model covers ~10-90 days).
+        {"symbol": "XOM",  "date": "2026-07-15", "days_out": 120, "direction": "long"},
+    ],
 }
 
 resp = requests.post(f"{BASE}/score", headers=HEADERS, json=payload, timeout=30)
 resp.raise_for_status()
 data = resp.json()
 
-for card in data["opportunities"]:
-    sym = card["symbol"]
-    hist = card["stats"]["historical_win_rate"]          # share of profitable years
-    ml = card.get("ml")
-
-    if ml is None:
-        # Eligibility, horizon, or out-of-allowance - all land here. Not an error.
-        note = card.get("tier_notes", "ML not available for this setup.")
-        remaining = card.get("ml_remaining_today")
-        suffix = f" (ml_remaining_today={remaining})" if remaining is not None else ""
-        print(f"{sym}: seasonal hist_win_rate={hist:.0%}; ML n/a - {note}{suffix}")
+print(f"granted: {data['granted']}  ml_remaining_today: {data['ml_remaining_today']}")
+for row in data["scores"]:
+    sym = row["symbol"]
+    if row["win_prob"] is None:
+        # Horizon, coverage, or out-of-allowance - all land here. Not an error.
+        note = row.get("note", "ML not available for this setup.")
+        print(f"{sym}: ML n/a - {note}")
     else:
-        # ml_win_prob is the MODEL's predicted probability, distinct from hist.
+        # win_prob is the MODEL's predicted probability - distinct from the
+        # historical_win_rate you read off a SignalCard.
         print(
-            f"{sym}: hist_win_rate={hist:.0%}  "
-            f"ml_win_prob={ml['ml_win_prob']:.0%}  "
-            f"ml_score={ml['ml_score']}  "
-            f"pred_return={ml['pred_return_pct']:+.1f}%  "
-            f"pred_mfe={ml['pred_mfe_pct']:+.1f}%"
+            f"{sym}: win_prob={row['win_prob']:.0%}  "
+            f"ml_score={row['ml_score']}  "
+            f"pred_return={row['pred_return']:+.1f}%  "
+            f"pred_mfe={row['pred_mfe']:+.1f}%"
         )
 ```
 
-The single `ml is None` branch covers all three "no ML" cases - ineligible market, hold longer than ~90 days, and exhausted daily allowance - because the gateway never raises for any of them. That is the whole point: a 200 with a neutral note keeps your screener running.
+The single `win_prob is None` branch covers all the "no ML" cases - a hold outside the model's ~10-90 day horizon, a setup the model cannot cover, and an exhausted daily allowance - because the gateway never raises for any of them. Even a fully spent allowance returns HTTP 200 with a quota message rather than an error. That is the whole point: a 200 with a neutral note keeps your screener running.
 
 ## A reusable rule for your UI
 

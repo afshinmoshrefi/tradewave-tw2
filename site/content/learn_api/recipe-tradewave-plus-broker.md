@@ -26,12 +26,12 @@ Everything below is illustrative. Live responses carry a `disclaimer` and are ed
 Sweep your in-scope markets over a forward window and let the engine rank what surfaces. Filter on `historical_win_rate` (the share of profitable years) so weak setups never reach you.
 
 ```bash
-curl -s "https://api.tradewave.ai/v1/scan?markets=0,1,2,3,4&window=next_2_weeks&direction=long&min_win_rate=0.65&min_years=10&rank_by=sharpe&limit=5" \
+curl -s "{{API_BASE}}/scan?markets=0,1,2,3,4&window=next_2_weeks&direction=long&min_win_rate=0.65&min_years=10&rank_by=sharpe&limit=5" \
   -H "Authorization: Bearer $TW_API_KEY" \
-  | jq '.results[0]'
+  | jq '.opportunities[0]'
 ```
 
-Get a key at [tradewave.ai/account/api/keys](https://tradewave.ai/account/api/keys). Which markets are `in_scope` and your ML allowance live on the [pricing page](https://tradewave.ai/pricing) and in your console - read them there rather than hardcoding, since they can change.
+Get a key at [your account console]({{CONSOLE_URL}}). Which markets are `in_scope` and your ML allowance live on the [API pricing page]({{PRICING_URL}}) and in your console - read them there rather than hardcoding, since they can change.
 
 ## Step 2: Read the SignalCard
 
@@ -41,7 +41,7 @@ The top result is a `SignalCard`. Here is a trimmed, illustrative one - your liv
 {
   "rank": 1,
   "symbol": "XLE",
-  "market": { "id": 3, "name": "ETFs" },
+  "market": { "id": "11", "name": "ETFs" },
   "direction": "long",
   "signal": "BUY",
   "setup": {
@@ -56,7 +56,7 @@ The top result is a `SignalCard`. Here is a trimmed, illustrative one - your liv
     "sharpe_ratio": 1.9,
     "avg_return_pct": 3.4,
     "median_return_pct": 3.1,
-    "years": 16
+    "years": "16"
   },
   "ml": { "ml_score": 72, "ml_win_prob": 0.69, "pred_return_pct": 2.8, "pred_mfe_pct": 4.5 },
   "next_step": {
@@ -115,7 +115,7 @@ Now hand the ticket to your execution app. Below, a small Python helper pulls th
 ```python
 import os, requests
 
-BASE = "https://api.tradewave.ai/v1"
+BASE = "{{API_BASE}}"
 HEADERS = {"Authorization": f"Bearer {os.environ['TW_API_KEY']}"}
 
 def best_setup(markets, window="next_2_weeks"):
@@ -126,7 +126,7 @@ def best_setup(markets, window="next_2_weeks"):
         "rank_by": "sharpe", "limit": 5,
     })
     r.raise_for_status()
-    for card in r.json()["results"]:
+    for card in r.json()["opportunities"]:
         if card["signal"] != "NO_SIGNAL":
             return card
     return None
@@ -154,7 +154,7 @@ else:
     print("No setup cleared the bar - nothing to trade today.")
 ```
 
-If you are driving an AI agent instead of writing code, the same flow is one MCP call. Ask `find_best_opportunities` (or `whats_seasonal_now`) at [mcp.tradewave.ai](https://mcp.tradewave.ai), read the `order_ticket` off the returned card, and let the agent hand it to whatever execution tool it is also connected to. The agent never needs a price level because the ticket does not carry one.
+If you are driving an AI agent instead of writing code, the same flow is one MCP call. Ask `find_best_opportunities` (or `whats_seasonal_now`) at [the MCP endpoint]({{MCP_URL}}), read the `order_ticket` off the returned card, and let the agent hand it to whatever execution tool it is also connected to. The agent never needs a price level because the ticket does not carry one.
 
 ## A note on ML and metering
 
@@ -168,6 +168,6 @@ The reason the recipe has exactly one handoff and no order routing is the moat: 
 
 - Drill into a single name with `GET /analyze/{symbol}` for one rich `SignalCard` plus `other_setups`.
 - Audit the live record with `GET /daily-pick` and `GET /daily-pick/track-record`.
-- Wire an agent end to end with the [MCP guide](https://mcp.tradewave.ai).
+- Wire an agent end to end with the [MCP guide]({{MCP_SETUP_URL}}).
 
 Every response is educational and carries a `disclaimer`; it is not personalized advice.

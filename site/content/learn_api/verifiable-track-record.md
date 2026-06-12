@@ -32,65 +32,64 @@ Because step 1 always precedes step 3 in wall-clock time, the ledger is self-aud
 The daily pick endpoint returns today's `SignalCard` *and* the live track record of every pick that came before it, in one response.
 
 ```bash
-curl -s https://api.tradewave.ai/v1/daily-pick \
+curl -s {{API_BASE}}/daily-pick \
   -H "Authorization: Bearer tw_live_xxx"
 ```
 
-The pick itself is a normal `SignalCard` - percentages and a normalized 0-100 seasonal index, never a price. The `receipts` block carries the per-year history behind the setup, and a `live_track_record` block summarizes how the *published* picks have actually performed since they were committed.
+The pick itself is a normal `SignalCard` under the top-level `card` key - percentages and a normalized 0-100 seasonal index, never a price. The card's `receipts` block carries the per-year history behind the setup, and the top-level `track_record` block summarizes how the *published* picks have actually performed since they were committed.
 
 ```json
 {
-  "rank": 1,
-  "symbol": "EXMPL",
-  "market": { "id": 0, "name": "US Stocks" },
-  "direction": "long",
-  "signal": "BUY",
-  "setup": {
-    "entry_date": "2026-06-03",
-    "entry_window": "2026-06-03..2026-06-05",
-    "hold_days": 18,
-    "exit_date": "2026-06-21"
+  "as_of": "2026-06-02",
+  "featured_date": "2026-06-02",
+  "card": {
+    "rank": 1,
+    "symbol": "EXMPL",
+    "market": { "id": "0", "name": "DOW 30 STOCKS" },
+    "direction": "long",
+    "signal": "BUY",
+    "setup": {
+      "entry_date": "2026-06-03",
+      "entry_window": "2026-06-03 to 2026-06-05",
+      "hold_days": 18,
+      "exit_date": "2026-06-21"
+    },
+    "edge_score": 71,
+    "stats": {
+      "historical_win_rate": 0.81,
+      "sharpe_ratio": 1.6,
+      "avg_return_pct": 3.4,
+      "median_return_pct": 3.1,
+      "years": "16"
+    },
+    "ml": { "ml_score": 68, "ml_win_prob": 0.66, "pred_return_pct": 2.9, "pred_mfe_pct": 4.7 },
+    "receipts": { "...": "per-year history, best/worst year, curve summary" },
+    "disclaimer": "Educational, not personalized advice.",
+    "tier_notes": null
   },
-  "edge_score": 71,
-  "stats": {
-    "historical_win_rate": 0.81,
-    "sharpe_ratio": 1.6,
-    "avg_return_pct": 3.4,
-    "median_return_pct": 3.1,
-    "years": 16
-  },
-  "ml": { "ml_score": 68, "ml_win_prob": 0.66, "pred_return_pct": 2.9, "pred_mfe_pct": 4.7 },
-  "live_track_record": {
-    "picks_published": 214,
-    "picks_closed": 198,
-    "realized_win_rate": 0.62,
-    "avg_realized_return_pct": 1.9,
-    "since": "2025-09-15",
-    "as_of": "2026-06-02",
-    "recent": [
-      { "date": "2026-05-28", "symbol": "AAA", "direction": "long",  "result": "win",  "return_pct": 2.6 },
-      { "date": "2026-05-21", "symbol": "BBB", "direction": "short", "result": "loss", "return_pct": -1.1 },
-      { "date": "2026-05-14", "symbol": "CCC", "direction": "long",  "result": "win",  "return_pct": 4.0 }
-    ]
-  },
-  "disclaimer": "Educational, not personalized advice.",
-  "tier_notes": null
+  "track_record": {
+    "count": 198,
+    "win_count": 123,
+    "win_rate": 0.62,
+    "avg_return_pct": 1.9,
+    "note": "Live forward-tested record of past daily picks (made in advance, scored later)."
+  }
 }
 ```
 
 Two numbers carry different meanings, and they are deliberately *not* the same field:
 
-- `stats.historical_win_rate` is the **share of profitable years** in the seasonal backtest for this symbol and window (here, `0.81` = profitable in 81% of the years tested).
-- `live_track_record.realized_win_rate` is the **forward-tested** win rate of the picks TradeWave actually published (here, `0.62`).
+- `card.stats.historical_win_rate` is the **share of profitable years** in the seasonal backtest for this symbol and window (here, `0.81` = profitable in 81% of the years tested).
+- `track_record.win_rate` is the **forward-tested** win rate of the picks TradeWave actually published (here, `0.62`).
 
 The forward number is almost always more sober than the backtest, and that gap is healthy - it is what an honest, unfaked ledger looks like. The daily pick's ML score is always free, on every tier.
 
 ## GET /daily-pick/track-record
 
-When you want the full ledger rather than today's card, call the dedicated endpoint. It returns the summary plus the complete list of closed picks.
+When you want the full ledger rather than today's card, call the dedicated endpoint. It returns a `summary` block plus `picks`, the complete list of published picks (closed ones carry `result` "win" or "loss"; picks still inside their hold window are "open").
 
 ```bash
-curl -s https://api.tradewave.ai/v1/daily-pick/track-record \
+curl -s {{API_BASE}}/daily-pick/track-record \
   -H "Authorization: Bearer tw_live_xxx"
 ```
 
@@ -103,44 +102,45 @@ A short script fetches the ledger, prints the realized win rate, and lists the m
 ```python
 import requests
 
-BASE = "https://api.tradewave.ai/v1"
+BASE = "{{API_BASE}}"
 HEADERS = {"Authorization": "Bearer tw_live_xxx"}
 
 resp = requests.get(f"{BASE}/daily-pick/track-record", headers=HEADERS, timeout=30)
 resp.raise_for_status()
 tr = resp.json()
 
-closed = tr["picks_closed"]
-print(f"Live track record since {tr['since']} (as of {tr['as_of']})")
-print(f"  published: {tr['picks_published']}   closed: {closed}")
-print(f"  realized win rate: {tr['realized_win_rate']:.0%}")
-print(f"  avg realized return: {tr['avg_realized_return_pct']:+.1f}%\n")
+s = tr["summary"]
+print(f"Live track record: {s['count']} picks published")
+print(f"  headline win rate: {s['win_rate']:.0%}  ({s['win_count']} wins)")
+print(f"  avg realized return: {s['avg_return_pct']:+.1f}%\n")
 
 # Recompute the win rate from the raw ledger to verify the headline.
-results = tr["results"]            # full list of closed picks
-wins = sum(1 for r in results if r["result"] == "win")
-print(f"  recomputed win rate: {wins / len(results):.0%}  ({wins}/{len(results)})\n")
+# Some picks are still inside their hold window (result "open") - the
+# headline win rate is computed over CLOSED picks only, so do the same.
+picks = tr["picks"]
+closed = [p for p in picks if p["result"] in ("win", "loss")]
+wins = sum(1 for p in closed if p["result"] == "win")
+print(f"  recomputed win rate: {wins / len(closed):.0%}  ({wins}/{len(closed)})\n")
 
-print("Most recent closed picks:")
-for r in results[:8]:
-    flag = "WIN " if r["result"] == "win" else "loss"
-    print(f"  {r['date']}  {r['symbol']:<6} {r['direction']:<5} {flag} {r['return_pct']:+.1f}%")
+print("Most recent picks:")
+for p in picks[:8]:
+    flag = {"win": "WIN ", "loss": "loss"}.get(p["result"], "open")
+    print(f"  {p['featured_date']}  {p['symbol']:<6} {flag} {p['return_pct']:+.1f}%")
 ```
 
 Sample output:
 
 ```text
-Live track record since 2025-09-15 (as of 2026-06-02)
-  published: 214   closed: 198
-  realized win rate: 62%
-  avg realized return: +1.9%
+Live track record: 11 picks published
+  headline win rate: 60%  (6 wins)
+  avg realized return: +6.1%
 
-  recomputed win rate: 62%  (123/198)
+  recomputed win rate: 60%  (6/10)
 
-Most recent closed picks:
-  2026-05-28  AAA    long  WIN  +2.6%
-  2026-05-21  BBB    short loss -1.1%
-  2026-05-14  CCC    long  WIN  +4.0%
+Most recent picks:
+  2026-03-17  NEM    WIN  +8.3%
+  2026-03-10  CVX    loss -1.1%
+  2026-03-03  MSFT   WIN  +4.0%
 ```
 
 The fact that the recomputed number matches the headline is the entire pitch. You did not have to trust the summary - you reproduced it.
@@ -159,6 +159,6 @@ Because we are paid for access to the signal and never for your trading volume, 
 
 - Read the daily pick end to end with [Your first TradeWave API call](/learn/first-api-call).
 - Understand the two win-rate fields in [What is a seasonal edge](/learn/what-is-a-seasonal-edge).
-- Get a key at [tradewave.ai/account/api/keys](https://tradewave.ai/account/api/keys) and compare tiers on the [pricing page](https://tradewave.ai/pricing).
+- Get a key at [your account console]({{CONSOLE_URL}}) and compare tiers on the [API pricing page]({{PRICING_URL}}).
 
 All outputs are educational and carry a `disclaimer`; they are not personalized investment advice.
