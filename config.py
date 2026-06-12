@@ -70,7 +70,10 @@ upgrade_message = ''
 # trial Explorer (DJ30 only since 2026-06-10); reverse-trial users mint
 # level-'6' claims, so they never see this while the trial is active.
 upgrade_message_by_level = {
-    '1': 'Your full-access trial has ended - you are on the free Explorer plan (DJ30). Upgrade to unlock all 15 markets.',
+    # State-agnostic on purpose: existing free accounts never had a reverse trial
+# (reverse_trial_ends_at NULL), so 'your trial has ended' would be false for
+# them. One truthful line covers both the post-trial and never-trialed cases.
+    '1': 'You are on the free Explorer plan (DJ30). Upgrade to unlock all 15 markets.',
 }
 # promotion message is shown below the upgrade_message - it could be a coupon code or a discount message 0 - blank will remove it
 promotion_message = '🎉 Get 60% OFF Tidal Subscription - first 100 subscribers' 

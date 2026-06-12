@@ -928,6 +928,16 @@ def effective_tier(user) -> str:
     /stripe/success, admin) must keep reading user.tier raw.
     """
     tier = user.tier or "explorer"
+    # ROLE BYPASS (config.ROLE_BYPASSES_TIER): admins and service principals
+    # always get the full platform view regardless of their billing tier -
+    # the founder must never hit his own paywall. Access-only; billing reads
+    # user.tier raw, same as the reverse trial below.
+    try:
+        roles = set(user.roles or [])
+    except TypeError:
+        roles = set()
+    if roles & config.ROLE_BYPASSES_TIER:
+        return "strategist"
     if (
         tier == "explorer"
         and user.reverse_trial_ends_at is not None
