@@ -19,6 +19,9 @@ sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent / 'lib'))
 import config
 from blog_tools import convert_param_base64
 from ga_snippet import ga_head_snippet
+from pick_stats import (  # shared win definition
+    compute_win_rate, compute_target_hit_rate, is_resolved, is_win, reached_target,
+)
 
 # =============================================================================
 # CONFIGURATION
@@ -380,57 +383,36 @@ def enrich_positions(history, token):
 def compute_stats(history):
     """Compute aggregate stats for the stat boxes.
 
-    Open positions where peak_return >= pred_return count as closed wins
-    because the AI prediction was proven correct.
+    Win counting uses the shared, defensible definition in pick_stats so the
+    scorecard and the homepage strip can never diverge: a pick is RESOLVED only
+    once CLOSED, and a win is a positive realized close return (actual_return),
+    never the intraday peak. This is the conservative number, not the inflated
+    peak-based one.
     """
-    # Classify: closed entries + open entries that already hit target
-    closed = []
-    for e in history:
-        if e.get('status') == 'closed' and e.get('actual_return') is not None:
-            closed.append(e)
-        elif (e.get('status') == 'open'
-              and e.get('peak_return') is not None
-              and e.get('pred_return') is not None
-              and e['peak_return'] >= e['pred_return']):
-            closed.append(e)
+    resolved = [e for e in history if is_resolved(e)]
 
     total_picks = len(history)
-    still_open = total_picks - len(closed)
+    still_open = total_picks - len(resolved)
 
-    wins = []
-    returns = []
-    for e in closed:
-        if e.get('status') == 'closed' and e.get('actual_return') is not None:
-            peak = e.get('peak_return') or 0
-            pred = e.get('pred_return') or 0
-            if peak >= pred and pred > 0:
-                # Hit target during window: realize at max(actual, predicted)
-                ret = max(e['actual_return'], pred)
-            else:
-                ret = e['actual_return']
-            returns.append(ret)
-            if ret > 0:
-                wins.append(e)
-        else:
-            # Open but hit target: realize at pred_return
-            wins.append(e)
-            returns.append(e['pred_return'])
+    # TWO separate, labeled metrics - never blended into one number:
+    #   win_rate        = held a profit to the window close (the seasonal stat)
+    #   target_hit_rate = reached the predicted target during the window (the
+    #                     opportunity stat). Same denominator (resolved picks).
+    win_rate, wins_n, _resolved_n = compute_win_rate(history)
+    target_hit_rate, hits_n, _ = compute_target_hit_rate(history)
 
-    win_rate = (len(wins) / len(closed) * 100) if closed else 0
-    avg_return = sorted(returns)[len(returns) // 2] if returns else 0
+    # Median realized close return across resolved picks.
+    returns = sorted(e['actual_return'] for e in resolved)
+    avg_return = returns[len(returns) // 2] if returns else 0
 
-    # Current streak (consecutive wins from most recent, using same logic)
+    # Current streak (consecutive resolved wins from most recent backwards).
     streak = 0
     streak_type = 'W'
-    sorted_closed = sorted(closed, key=lambda x: x['featured_date'], reverse=True)
-    if sorted_closed:
-        def is_win(e):
-            if e.get('status') == 'closed':
-                return e.get('win', False)
-            return True  # hit target = win
-        first_win = is_win(sorted_closed[0])
+    sorted_resolved = sorted(resolved, key=lambda x: x['featured_date'], reverse=True)
+    if sorted_resolved:
+        first_win = is_win(sorted_resolved[0])
         streak_type = 'W' if first_win else 'L'
-        for e in sorted_closed:
+        for e in sorted_resolved:
             if is_win(e) == first_win:
                 streak += 1
             else:
@@ -438,10 +420,13 @@ def compute_stats(history):
 
     return {
         'total_picks': total_picks,
-        'win_rate': round(win_rate, 1),
+        'win_rate': round(win_rate, 1),            # held to close (seasonal)
+        'win_count': wins_n,
+        'target_hit_rate': round(target_hit_rate, 1),  # reached target in window
+        'target_hit_count': hits_n,
         'avg_return': round(avg_return, 1),
         'current_streak': '%d%s' % (streak, streak_type) if streak else '--',
-        'closed_count': len(closed),
+        'closed_count': len(resolved),
         'open_count': still_open,
     }
 
@@ -473,42 +458,30 @@ def build_positions(history):
         else:
             row['success'] = 'pending'
 
-        # Open positions that already hit target move to closed table as wins
-        hit_target = (entry.get('status') == 'open'
-                      and entry.get('peak_return') is not None
-                      and entry.get('pred_return') is not None
-                      and entry['peak_return'] >= entry['pred_return'])
-
-        if entry.get('status') == 'open' and not hit_target:
+        # Resolution matches the shared win definition: a pick is in-flight
+        # until it CLOSES. We do NOT promote a still-open pick into the closed
+        # table just because its intraday peak touched the predicted target -
+        # that would let the table show more wins than the headline win rate.
+        if not is_resolved(entry):
             row['current_return'] = '%.1f' % entry.get('current_return', 0) if entry.get('current_return') is not None else '--'
             row['current_return_num'] = entry.get('current_return', 0)
             row['peak_return'] = '%.1f' % entry.get('peak_return', 0) if entry.get('peak_return') is not None else '--'
             row['peak_return_num'] = entry.get('peak_return', 0)
             row['price_source'] = entry.get('price_source', 'close')
             open_positions.append(row)
-        elif hit_target:
-            row['actual_return'] = '%.1f' % entry.get('pred_return', 0)
-            row['actual_return_num'] = entry.get('pred_return', 0)
-            row['peak_return'] = '%.1f' % entry.get('peak_return', 0)
-            row['peak_return_num'] = entry.get('peak_return', 0)
-            row['win'] = True
-            row['wl'] = 'Target Hit'
-            closed_positions.append(row)
-        elif entry.get('status') == 'closed':
-            # If peak hit target, realize at max(actual, predicted)
+        else:
+            # Closed: realize at the actual close return (no peak inflation).
             actual = entry.get('actual_return', 0)
             peak = entry.get('peak_return')
-            pred = entry.get('pred_return', 0)
-            if peak is not None and pred and peak >= pred:
-                realized = max(actual, pred)
-            else:
-                realized = actual
-            row['actual_return'] = '%.1f' % realized if realized is not None else '--'
-            row['actual_return_num'] = realized
+            row['actual_return'] = '%.1f' % actual if actual is not None else '--'
+            row['actual_return_num'] = actual
             row['peak_return'] = '%.1f' % peak if peak is not None else '--'
             row['peak_return_num'] = peak or 0
-            row['win'] = realized > 0
-            row['wl'] = 'W' if realized > 0 else 'L'
+            row['win'] = is_win(entry)
+            row['wl'] = 'W' if is_win(entry) else 'L'
+            # Second truth, shown separately: did the move reach target in the
+            # window even if it faded by the close? (never overwrites actual_return)
+            row['reached_target'] = reached_target(entry)
             closed_positions.append(row)
 
     # Sort: open by date ascending, closed by date descending (newest first)
