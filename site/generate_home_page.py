@@ -30,6 +30,9 @@ from daily_pattern_picks import get_daily_picks
 from blog_tools import get_company_name, convert_param_base64
 from get_price_eod import get_quote_details
 from ga_snippet import ga_head_snippet
+from pick_stats import (
+    compute_win_rate, compute_target_hit_rate, is_resolved, is_win,
+)  # shared win definition (homepage + scorecard must never diverge)
 
 # Stripe price lookup (TW2: prices come live from Stripe via PRODUCT METADATA,
 # exactly like web/app.py _refresh_price_cache: a price is used ONLY if its
@@ -176,6 +179,13 @@ SHOW_OPPORTUNITIES = True
 # (staging is a gate; we never want it or dev indexed). Env-driven so the prod build flips it on
 # automatically instead of relying on a manual edit before launch.
 ENABLE_SEO = os.environ.get('TW2_ENV', '').strip().lower() == 'prod'
+
+# Gate every "inside ChatGPT and Claude" / MCP claim on this flag. The redesign
+# marks that section "Preview - gates on MCP_LIVE"; until the consumer MCP+OAuth
+# front door is actually live we must NOT render the hero "New" pill, the
+# connect/MCP section, or the "Inside ChatGPT and Claude" chip as live. Env-driven
+# (TW2_MCP_LIVE=1) so it flips on without a code edit once MCP ships.
+MCP_LIVE = os.environ.get('TW2_MCP_LIVE', '').strip().lower() in ('1', 'true', 'yes')
 
 # =============================================================================
 # SIGNUP & AUTH URLs
@@ -806,54 +816,84 @@ def group_by_day_range(opportunities, limit_per_tab=10):
 # =============================================================================
 
 def compute_homepage_scorecard_stats():
-    """Compute scorecard stats for homepage display.
+    """Compute scorecard stats for the homepage ledger scoreboard.
 
-    Counts a pick as a win if:
-    - closed with win=True, OR
-    - open but peak_return >= pred_return (already hit predicted target)
+    Mirrors generate_scorecard.compute_scorecard_stats() field-for-field so the
+    homepage two-metric scoreboard ("We Publish the Ledger") and the public
+    /scorecard can NEVER diverge. Two separate, labeled metrics over the SAME
+    denominator (resolved picks), never blended into one number:
+      win_rate        = held a profit to the window close (the seasonal stat)
+      target_hit_rate = reached the predicted target during the window (the
+                        opportunity stat)
+    Win counting uses the shared, defensible definition in pick_stats: a pick is
+    resolved only once CLOSED, and a win is a positive realized close return
+    (actual_return), never the intraday peak.
     """
     history = load_featured_history()
+    resolved = [e for e in history if is_resolved(e)]
     total_picks = len(history)
+    still_open = total_picks - len(resolved)
 
-    # Count wins: closed wins + open positions that already hit target
-    resolved = []
-    for e in history:
-        if e.get('status') == 'closed':
-            resolved.append(e.get('win', False))
-        elif e.get('status') == 'open':
-            peak = e.get('peak_return', 0) or 0
-            pred = e.get('pred_return', 0) or 0
-            if peak >= pred and pred > 0:
-                resolved.append(True)
+    win_rate, wins_n, _resolved_n = compute_win_rate(history)
+    target_hit_rate, hits_n, _ = compute_target_hit_rate(history)
 
-    wins = sum(1 for w in resolved if w)
-    win_rate = round((wins / len(resolved)) * 100) if resolved else 0
+    # Median realized close return across resolved picks (claim-free magnitude).
+    returns = sorted(e['actual_return'] for e in resolved)
+    avg_return = returns[len(returns) // 2] if returns else 0
 
-    # Count consecutive winning picks (from most recent backwards)
-    consecutive_wins = 0
-    for entry in reversed(history):
-        if entry.get('status') == 'closed' and entry.get('win'):
-            consecutive_wins += 1
-        elif entry.get('status') == 'open':
-            peak = entry.get('peak_return', 0) or 0
-            pred = entry.get('pred_return', 0) or 0
-            if peak >= pred and pred > 0:
-                consecutive_wins += 1
-            # Skip open positions that haven't hit target yet
-        elif entry.get('status') == 'closed' and not entry.get('win'):
-            break
-
-    # Avg peak return across all picks with peak data
-    all_with_peaks = [e for e in history if e.get('peak_return') or e.get('actual_return')]
-    peak_returns = [e.get('peak_return', e.get('actual_return', 0)) for e in all_with_peaks]
-    avg_peak_return = (sum(peak_returns) / len(peak_returns)) if peak_returns else 0
+    # Current streak (consecutive resolved wins from most recent backwards),
+    # rendered as a 'NW'/'NL' string for the ledger scoreboard.
+    streak = 0
+    streak_type = 'W'
+    sorted_resolved = sorted(resolved, key=lambda x: x['featured_date'], reverse=True)
+    if sorted_resolved:
+        first_win = is_win(sorted_resolved[0])
+        streak_type = 'W' if first_win else 'L'
+        for e in sorted_resolved:
+            if is_win(e) == first_win:
+                streak += 1
+            else:
+                break
 
     return {
         'total_picks': total_picks,
-        'win_rate': win_rate,
-        'consecutive_wins': consecutive_wins,
-        'avg_peak_return': round(avg_peak_return, 1),
+        'win_rate': round(win_rate, 1),                 # held to close (seasonal)
+        'win_count': wins_n,
+        'target_hit_rate': round(target_hit_rate, 1),   # reached target in window
+        'target_hit_count': hits_n,
+        'avg_return': round(avg_return, 1),
+        'current_streak': '%d%s' % (streak, streak_type) if streak else '--',
+        'closed_count': len(resolved),
+        'open_count': still_open,
     }
+
+
+def build_ledger_rows(limit=5):
+    """Build the forward-ledger preview rows for the 'We Publish the Ledger'
+    section (newest first). Each row: {symbol, direction 'L'/'S',
+    logged_date 'MM-DD', result 'win'/'loss'/'pending'}.
+
+    Drives the redesign's scoretbl directly from featured_history.json using the
+    shared is_resolved/is_win definitions, so the visible rows always agree with
+    the headline win_rate. Replaces the hardcoded NOW/FTNT/NVDA/AMD/COP mock.
+    """
+    history = load_featured_history()
+    rows = []
+    for entry in reversed(history):
+        if is_resolved(entry):
+            result = 'win' if is_win(entry) else 'loss'
+        else:
+            result = 'pending'
+        logged = entry.get('featured_date', '')
+        rows.append({
+            'symbol': entry.get('symbol', ''),
+            'direction': 'L' if entry.get('direction') == 'l' else 'S',
+            'logged_date': logged[5:] if len(logged) >= 10 else logged,  # MM-DD
+            'result': result,
+        })
+        if len(rows) >= limit:
+            break
+    return rows
 
 
 def _hero_headline(history):
@@ -870,7 +910,7 @@ def _hero_headline(history):
             if entry['direction'] == 's':
                 return "$%s dropped %.1f%% in %d days." % (symbol, peak, days)
             return "$%s rose +%.1f%% in %d days." % (symbol, peak, days)
-    return "78% of our AI picks won. Over 8 years."
+    return "One free seasonal stock pick, every morning before the open."
 
 
 def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=None,
@@ -906,11 +946,13 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 
         # -- Meta --
         "meta": {
-            "title": "TradeWave - AI-Scored Seasonal Stock Patterns | 78-86% Win Rate",
+            "title": "TradeWave - The Invisible Evidence Behind High-Probability Trades",
             "description": (
-                "TradeWave scores seasonal stock patterns with a 62-feature AI model "
-                "trained on 34.7 million data points. 78-86% win rates across 8 years "
-                "of out-of-sample testing. Zero losing years."
+                "TradeWave's deterministic seasonal engine maps recurring "
+                "calendar patterns across 15 markets on histories up to a "
+                "century deep, then an AI model ranks them. Every daily pick is "
+                "logged to a public ledger before the outcome is known - losses "
+                "included. See it free, and audit the record yourself."
             ),
             "keywords": (
                 "seasonal trading, stock market patterns, AI trading signals, "
@@ -933,20 +975,30 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             "upgrade_url": UPGRADE_URL,
         },
 
-        # -- Hero (dynamic from best proven pick in history) --
+        # -- Hero --
+        # The redesign uses a FIXED brand thesis headline (approved copy), not
+        # the old dynamic best-pick line. headline is the approved static line;
+        # the dynamic _hero_headline() is retained as headline_dynamic in case a
+        # future variant wants it, but the template binds the static headline.
         "hero": {
-            "headline": _hero_headline(load_featured_history()),
-            "headline2": "Our AI called it before market open.",
-            "headline3": "See today's pick free.",
+            "headline": "The Invisible Evidence Behind High-Probability Trades",
+            "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
-                "Every morning before market open, TradeWave's AI scores 475+ stocks "
-                "and delivers only the highest-probability seasonal trades. "
-                "78-86% AI win rate. Zero losing years across 8 years of live testing."
+                "Every security leaves evidence of its performance throughout "
+                "its history that most people can't see. For example, when a "
+                "security rises in a window 19 out of the last 20 years, "
+                "TradeWave pinpoints the behavior, while the AI score calibrates "
+                "the historical probability, giving the analyst evidence that's "
+                "hidden from 99% of traders."
             ),
-            "cta_primary": "Get Today's Free Pick",
+            # The "New" MCP pill above the headline (links to #connect). Rendered
+            # only when content.mcp_live is True (gated, see MCP_LIVE).
+            "pill_text": "Now inside ChatGPT and Claude, free on every plan",
+            "pill_url": "#connect",
+            "cta_primary": "Start Free - 7 Days of Everything",
             "cta_primary_url": SIGNUP_URL,
-            "cta_secondary": "Watch How It Works",
-            "cta_secondary_url": "#testimonials",
+            "cta_micro": "No credit card required. After the week, a free plan that stays useful.",
+            "ask_placeholder": "What's seasonal in US tech in the next two weeks?",
             # Logged-in CTA variants
             "cta_analyst_url":     PRICING_ANALYST_MONTHLY_URL,
             "cta_strategist_url":  PRICING_STRATEGIST_MONTHLY_URL,
@@ -975,10 +1027,18 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # -- Featured Pattern --
         "featured_pattern": featured_data,
         "scorecard_url": "%sscorecard.html" % DOMAIN_ROOT,
+        "methodology_url": "%smethodology" % DOMAIN_ROOT,
         "developers_url": DEVELOPERS_URL,
         "scorecard_stats": compute_homepage_scorecard_stats(),
+        # Forward-ledger preview rows (newest first) for the "We Publish the
+        # Ledger" scoretbl - real picks, not the NOW/FTNT/NVDA mock.
+        "ledger_rows": build_ledger_rows(limit=5),
         "recent_picks": [e['symbol'] for e in reversed(load_featured_history())][:3],
         "market_bar": market_bar_items or [],
+
+        # Gate every MCP / "inside ChatGPT and Claude" claim (hero pill, connect
+        # section, chips) until the consumer MCP+OAuth front door is live.
+        "mcp_live": MCP_LIVE,
 
         # -- Opportunities Table --
         "opportunities": {
@@ -997,9 +1057,11 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # TW2: prices come from Stripe via lookup_keys, not hardcoded.
         # See _stripe_prices() above; falls back to defaults if Stripe unreachable.
         "pricing": (lambda _p=_stripe_prices(): {
-            "headline": "Simple Pricing for Serious Traders",
+            "headline": "Start With Everything. Pay Only If It Earns Its Place on Your Desk",
             "subheadline": (
-                "Start free, upgrade when you're ready."
+                "Every signup starts with 7 days of the full platform, then a "
+                "free plan that stays useful. Same engine, same receipts, "
+                "starting at $0."
             ),
             "default_billing": "yearly",
             "max_yearly_savings": _p['max_yearly_savings'],
@@ -1134,6 +1196,108 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             "favicon": config.tw_favicon,
             "og_image": "/static/images/og-image.jpg",
         },
+
+        # =====================================================================
+        # REDESIGN STATIC BRAND COPY ("The Ledger" direction). These are
+        # marketing copy blocks, not live data - kept here (not hardcoded in the
+        # template) so copy edits stay in one place and the template is pure
+        # structure. Every approved headline/subhead lives verbatim below.
+        # =====================================================================
+
+        # Three-rules band under the hero.
+        "three_rules": [
+            {"num": "01", "text": "Deterministic by Design"},
+            {"num": "02", "text": "Receipts on Every Pattern"},
+            {"num": "03", "text": "Logged Before the Outcome"},
+        ],
+
+        # "Whoever's Asking, It Bends to You" - three desks (static marketing).
+        "desks": {
+            "eyebrow": "One Platform, Three Desks",
+            "headline": "Whoever's Asking, It Bends to You",
+            "sub": (
+                "The engine does not care whether you are a fund running a "
+                "thousand backtests or a trader testing one hunch you have "
+                "carried for years. You ask at your own altitude; it answers at "
+                "the same depth."
+            ),
+            "note": (
+                "Not different products - the same engine, the same receipts, "
+                "and the same century of evidence, priced to the job in front "
+                "of you."
+            ),
+            "cards": [
+                {
+                    "audience": "Independent and Active Traders",
+                    "question": "\"What's seasonal in tech right now?\"",
+                    "blurb": (
+                        "Ask in plain language and get ranked windows with the "
+                        "full per-year history under each. Seven days of "
+                        "everything, then a free plan that stays useful. The "
+                        "daily public-record pick is yours every day at no cost."
+                    ),
+                    "cta_text": "See the retail view",
+                    "cta_url": "#pricing",
+                },
+                {
+                    "audience": "Professionals, Quants and RIAs",
+                    "question": ("\"Strongest 30 to 60 day windows across all 15 "
+                                 "markets, ranked by Sharpe.\""),
+                    "blurb": (
+                        "Full lookback, PE-cycle and date-range knobs, CSV into "
+                        "your own model, on-demand research reports, and deep "
+                        "links that hand a colleague the exact pattern, years, "
+                        "and settings you see. Built for a desk, not a demo."
+                    ),
+                    "cta_text": "See Strategist",
+                    "cta_url": "#pricing",
+                },
+                {
+                    "audience": "Funds and Enterprise",
+                    "question": "\"Pull the ranked signals into our own code.\"",
+                    "blurb": (
+                        "License the historical signal file and the trained "
+                        "model for internal backtests over a compiled, "
+                        "multi-decade dataset. A signals-only REST API, "
+                        "multi-seat keys, SSO and audit. Your agent can write a "
+                        "backtest; it cannot make it true."
+                    ),
+                    "cta_text": "Talk to us",
+                    "cta_url": CONTACT_URL,
+                },
+            ],
+        },
+
+        # "A Tuesday With TradeWave" timeline (static marketing).
+        "tuesday_steps": [
+            {"ts": "8:50", "text": ("Your calendar pings: a pattern window on "
+                                    "your watchlist opens Thursday.")},
+            {"ts": "9:15", "text": ("You export the stats table to CSV and drop "
+                                    "it into your own model.")},
+            {"ts": "11:00", "text": ("A date-range research report across your "
+                                     "portfolio, generated on demand.")},
+            {"ts": "2:40", "text": ("You send a teammate a deep link that opens "
+                                    "the exact pattern, years, and settings you "
+                                    "see.")},
+        ],
+
+        # Enterprise "Desk" pricing strip under the pricing grid. Static/manual:
+        # there is NO Desk tier in Stripe eod metadata (_stripe_prices only
+        # returns analyst/strategist), so this is brand copy, not a live binding.
+        "desk_pricing": {
+            "name": "Desk",
+            "price": "From $4,800/yr",
+            "detail": "signal file + model + API + multi-seat + SSO",
+            "cta_text": "Talk to us",
+            "cta_url": CONTACT_URL,
+        },
+
+        # "Real Articles, Real Dates" feed. There is NO SMN/Insights feed wired
+        # into the generator today, so this stays None and the section is hidden
+        # rather than rendering fabricated dates. When a real feed loader is
+        # added, populate [{date, title, url}] and the section appears.
+        "recent_articles": None,
+        "articles_library_url": "/insights/",
     }
 
     return template.render(content=content)
