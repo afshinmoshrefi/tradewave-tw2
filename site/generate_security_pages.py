@@ -75,17 +75,66 @@ PAGE_DATA_FILE = SMN_MARKETS_DIR / "_page_data.json"
 TW_MARKETS_DIR = Path(config.web_root_dir) / "markets"
 TW_CHARTS_DIR = TW_MARKETS_DIR / "charts"
 
-# Canonical TradeWave domain — driven by config.domain_root (TW2_DOMAIN_ROOT).
+# Canonical TradeWave domain - driven by config.domain_root (TW2_DOMAIN_ROOT).
 # Falls back to https://tw2.trxstat.com/ if unset (ad-hoc dev runs).
 DOMAIN_ROOT = (config.domain_root.rstrip('/') + '/') if config.domain_root else "https://tw2.trxstat.com/"
 
 
 # =============================================================================
-# DARK MARKET BAR - LINKS POINT TO /markets/ (NOT /_static/markets/)
+# NAVY MARKET BAR - PIXEL-IDENTICAL TO THE HOME PAGE
 # =============================================================================
+# The home page market bar (/var/www/tradewave/home.html) is the approved
+# design. Index pages MUST match it in structure AND look. The home bar uses
+# navy palette tokens; the index-page theme has no such tokens, so the CSS
+# below is SELF-CONTAINED with LITERAL colors equal to the resolved home
+# tokens:
+#   --bg #0B1220  --panel #0F1A2E  --line rgba(255,255,255,.09)
+#   --ink #EAF0F8 (symbol)  --muted #9FB0C8 (item/price)
+#   --win #3FB68B (up)  --loss #E5687F (down)
+# It is appended as the LAST rules in the page <style> so it overrides the
+# old blue var-based .market-bar rules (and their mobile media query) by
+# source order, theme-independent. The home bar also uses 'JetBrains Mono';
+# we add that font link so the bar is pixel-identical (see main()).
+
+# Short labels exactly as the home bar renders them.
+_MARKET_BAR_SHORT_LABELS = {
+    "S&P 500": "S&P 500",
+    "Dow Jones Industrial Average": "DOW",
+    "NASDAQ Composite": "NASDAQ",
+    "CBOE Volatility Index": "VIX",
+    "Crude Oil (WTI)": "CRUDE",
+    "Natural Gas": "NAT GAS",
+    "Gold": "GOLD",
+}
+
+
+def _navy_market_bar_css():
+    """Self-contained navy .market-bar CSS, literal colors = resolved home
+    tokens, identical paddings/fonts/gap/scroll behavior to the home bar.
+    Emitted last in the <style> so it wins over the old blue rules."""
+    return """
+        /* Unified market bar - pixel-identical to the home page (literal navy
+           colors; self-contained so it is independent of the page theme). */
+        .market-bar{background:#0F1A2E;border-top:none;border-bottom:1px solid rgba(255,255,255,.09);padding:8px 0;overflow-x:auto;scrollbar-width:none}
+        .market-bar::-webkit-scrollbar{display:none}
+        .market-bar-content{display:flex;gap:22px;align-items:center;padding:0 24px;width:max-content;min-width:100%;max-width:none;margin:0 auto;justify-content:center}
+        .market-item{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:.78rem;white-space:nowrap;color:#9FB0C8;text-decoration:none;padding:0;border-top:none;border-bottom:none;border-image:none}
+        .market-item.up,.market-item.down{border-image:none}
+        .market-item .market-symbol{color:#EAF0F8;font-weight:700}
+        .market-item .market-price{color:#9FB0C8;font-weight:700}
+        .market-item .market-change{font-weight:700}
+        .market-item .market-change.up{color:#3FB68B}
+        .market-item .market-change.down{color:#E5687F}
+"""
+
 
 def _dark_market_bar_html(current_slug=None, all_quotes=None):
-    """Market bar with links pointing to TW marketing-site dark pages."""
+    """Market bar matching the home page EXACTLY: same classes, same per-ticker
+    <a href="/markets/<slug>.html"> with market-symbol / market-price /
+    market-change up|down, same ticker set + order (the SECURITY_PAGES order:
+    S&P 500 / DOW / NASDAQ / VIX / CRUDE / NAT GAS / GOLD). The /markets/<slug>
+    href is what the live refresher (refresh_market_quotes.py) keys on, so each
+    item live-syncs to the same /assets/quotes.json values as the home bar."""
     items_html = ""
     for sec in gsp.SECURITY_PAGES:
         quote = (all_quotes or {}).get(sec["symbol"]) or get_quote_details(sec["symbol"], sec["exchange"])
@@ -107,22 +156,20 @@ def _dark_market_bar_html(current_slug=None, all_quotes=None):
         else:
             price_fmt = ""
             chg_fmt = ""
-            direction = "flat"
+            direction = "down"
 
-        short_labels = {"Dow Jones Industrial Average": "DOW", "NASDAQ Composite": "NASDAQ",
-                        "CBOE Volatility Index": "VIX", "Crude Oil (WTI)": "CRUDE",
-                        "Natural Gas": "NAT GAS"}
-        short_label = short_labels.get(sec["label"], sec["label"])
-        is_current = sec["slug"] == current_slug
-        active_cls = " current" if is_current else ""
+        short_label = _MARKET_BAR_SHORT_LABELS.get(sec["label"], sec["label"])
 
-        # Marketing-site path: /markets/<slug>.html
+        # Marketing-site path: /markets/<slug>.html - the refresher keys on this.
         href = f'/markets/{sec["slug"]}.html'
+        price_span = f'<span class="market-price">{price_fmt}</span>' if price_fmt else ''
+        chg_span = (f'<span class="market-change {direction}">{chg_fmt}</span>'
+                    if chg_fmt else '')
         items_html += f'''
-            <a href="{href}" class="market-item {direction}{active_cls}">
+            <a href="{href}" class="market-item">
                 <span class="market-symbol">{short_label}</span>
-                {f'<span class="market-price">{price_fmt}</span>' if price_fmt else ''}
-                {"<span class='market-change " + direction + "'>" + chg_fmt + "</span>" if chg_fmt else ""}
+                {price_span}
+                {chg_span}
             </a>'''
 
     return f'''
@@ -178,11 +225,23 @@ def main():
     original_footer = gsp._build_footer_html
     original_market_bar = gsp._build_market_bar_html
 
+    # The page <style> is `_build_base_css() + _build_page_css()`. Append the
+    # self-contained navy market-bar CSS to the END of _build_page_css() so it
+    # is the LAST market-bar CSS in the document - this overrides BOTH the old
+    # blue var-based rules in base CSS AND the mobile @media .market-bar-content
+    # override at the tail of page CSS (the home bar has no mobile override, so
+    # ours must win at every width). Result: pixel-identical, theme-independent.
+    original_page_css = gsp._build_page_css
+
+    def _page_css_navy():
+        return original_page_css() + "\n" + _navy_market_bar_css()
+
     gsp._build_base_css = tw._dark_base_css
+    gsp._build_page_css = _page_css_navy
     gsp._build_header_html = tw._dark_header_html
     gsp._build_cta_html = tw._dark_cta_html
     gsp._build_footer_html = tw._dark_footer_html
-    gsp._build_market_bar_html = _dark_market_bar_html  # local: marketing-site links
+    gsp._build_market_bar_html = _dark_market_bar_html  # local: navy bar, marketing-site links
 
     # Patch site URL references
     original_site_url = gsp.SITE_URL
@@ -218,6 +277,16 @@ def main():
             price_history={},
         )
 
+        # Load 'JetBrains Mono' so the unified navy market bar uses the SAME
+        # font as the home page bar (pixel-identical). The base head only
+        # requests Inter + IBM Plex Mono; add JetBrains Mono once, before the
+        # existing Google Fonts stylesheet link.
+        if 'JetBrains+Mono' not in html and 'fonts.googleapis.com/css2' in html:
+            html = html.replace(
+                '<link href="https://fonts.googleapis.com/css2',
+                '<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">\n    <link href="https://fonts.googleapis.com/css2',
+                1)
+
         # Replace SMN favicon with TW favicon
         html = html.replace(config.smn_favicon, config.tw_favicon)
 
@@ -252,6 +321,7 @@ def main():
 
     # Restore originals
     gsp._build_base_css = original_base_css
+    gsp._build_page_css = original_page_css
     gsp._build_header_html = original_header
     gsp._build_cta_html = original_cta
     gsp._build_footer_html = original_footer
