@@ -29,21 +29,26 @@ ENV="$1"; SSH="ssh -p 4369"; BUILD=/home/flask/web-react/build
 
 [ -d "$BUILD/static" ] || { echo "ERROR: $BUILD missing — run 'npm run build' on dev first."; exit 1; }
 
-echo "==> [$ENV] pre-flight: TW2_PUBLIC_HOST == $HOST on BOTH boxes (web + app)?"
-# Presence isn't enough - a wrong value (e.g. app box left at stage2.trxstat.com) bakes a
-# dead host into the portal's main-site links and into any app-box-generated page. Both
-# boxes must resolve to the customer-facing host; the portal's own host comes from the
-# separate TW2_DEVELOPERS_PUBLIC_HOST var, so this does not collide with it.
-for box in "$WEB" "$APP"; do
+echo "==> [$ENV] pre-flight: TW2_PUBLIC_HOST correct (web strict; app strict only when the portal is live)?"
+# The WEB box bakes every public page, so it MUST equal the customer host. The APP box's
+# TW2_PUBLIC_HOST only feeds the developer-portal back-links, which are assembled on
+# staging/dev but ship DARK on prod - so enforce host==$HOST on the app box only when NOT
+# prod. (Prod's app box legitimately carries the internal tw2-prod.trxstat.com placeholder;
+# forcing it to tradewave.ai is only needed if/when API/MCP launches on prod.) Catches the
+# staging app-box stage2.trxstat.com drift without blocking a normal prod ship.
+check_host() {  # check_host <box> <strict>
+  local box="$1" strict="$2" val
   val=$($SSH "root@$box" "grep -m1 '^TW2_PUBLIC_HOST=' /etc/tradewave/secrets.env 2>/dev/null | cut -d= -f2-")
-  if [ -z "$val" ]; then
-    echo "ABORT: TW2_PUBLIC_HOST not set on $box (expected $HOST). Set it in /etc/tradewave/secrets.env, or pages fall back to tw2-dev."; exit 1
-  elif [ "$val" != "$HOST" ]; then
+  [ -n "$val" ] || { echo "ABORT: TW2_PUBLIC_HOST not set on $box. Set it in /etc/tradewave/secrets.env."; exit 1; }
+  if [ "$strict" = 1 ] && [ "$val" != "$HOST" ]; then
     echo "ABORT: TW2_PUBLIC_HOST=$val on $box, but [$ENV] expects $HOST."
-    echo "       Fix /etc/tradewave/secrets.env on that box (set TW2_PUBLIC_HOST=$HOST and TW2_DOMAIN_ROOT=https://$HOST), then re-run."; exit 1
+    echo "       Fix /etc/tradewave/secrets.env there (TW2_PUBLIC_HOST=$HOST + TW2_DOMAIN_ROOT=https://$HOST), then re-run."; exit 1
   fi
-done
-echo "    OK - both boxes resolve to $HOST"
+  echo "    $box -> TW2_PUBLIC_HOST=$val"
+}
+check_host "$WEB" 1
+[ "$ENV" = prod ] && check_host "$APP" 0 || check_host "$APP" 1
+echo "    OK - web box resolves to $HOST"
 
 echo "==> [$ENV] app tier ($APP): pull + sync venv + restart appserver"
 $SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
