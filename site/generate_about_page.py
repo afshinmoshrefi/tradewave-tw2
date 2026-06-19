@@ -28,7 +28,7 @@ OUTPUT_DIR = config.web_root_dir
 OUTPUT_FILENAME = 'about.html'
 HEADER_PARTIAL = '/home/flask/site/templates/_tw_header.html'
 
-CANONICAL = 'https://tradewave.ai/about.html'
+CANONICAL = config.domain_root + 'about.html'
 
 
 def build_html():
@@ -47,7 +47,7 @@ def build_html():
         },
         "sameAs": [
             "https://moshrefi.com/",
-            "https://tradewave.ai/",
+            config.domain_root,
             "https://seasonalmarketnews.com/",
             "https://100yearprophecy.com/",
         ],
@@ -161,7 +161,7 @@ def build_html():
     <article class="about-body">
       <p>
         Afshin Moshrefi is the founder-engineer and quantitative researcher behind
-        <a href="https://tradewave.ai/">TradeWave.ai</a> and
+        <a href="{config.domain_root}">TradeWave.ai</a> and
         <a href="https://seasonalmarketnews.com/">Seasonal Market News</a>, operated under
         <a href="https://taradataresearch.com/">Tara Data Research LLC</a>.
         TradeWave is a research platform that surfaces historically consistent seasonal
@@ -209,7 +209,7 @@ def build_html():
 
       <h2>Products</h2>
       <ul>
-        <li><a href="https://tradewave.ai/">TradeWave.ai</a> - AI-scored seasonal pattern research for US stocks, ETFs, indices, futures, forex, and bonds.</li>
+        <li><a href="{config.domain_root}">TradeWave.ai</a> - AI-scored seasonal pattern research for US stocks, ETFs, indices, futures, forex, and bonds.</li>
         <li><a href="https://seasonalmarketnews.com/">Seasonal Market News</a> - Institutional-style market news grounded in measurable seasonal history.</li>
         <li><a href="https://taradataresearch.com/">Tara Data Research LLC</a> - Parent company for all research and product work.</li>
       </ul>

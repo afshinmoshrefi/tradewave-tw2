@@ -448,7 +448,7 @@ def content_header(desktop_or_smartphone, flags):
             <td width="520px" height="100px" align="left" style='vertical-align:middle;background-color:transparent'>
                 <div>Daily Top 10 Email </div>
                 <div>Tara Data Research LLC</div>
-                <div><a style='color:black;font-weight:bold;font-size:1.1rem' href='https://tradewave.ai'>TradeWave.AI</a></div>
+                <div><a style='color:black;font-weight:bold;font-size:1.1rem' href='{domain.rstrip('/')}'>TradeWave.AI</a></div>
             </td>
         </tr>
         <tr>

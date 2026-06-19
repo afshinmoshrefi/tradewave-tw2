@@ -116,7 +116,7 @@ def strip_wp_markup(raw: str) -> str:
     s = NBSP_RUN_RE.sub("", s)
     # Rewrite legacy contact link to TW2's home so we don't ship dangling URLs.
     s = s.replace("https://tradeseasonals/contact", "/contact.html")
-    s = s.replace("https://tradeseasonals.com", "https://tradewave.ai")
+    s = s.replace("https://tradeseasonals.com", config.domain_root.rstrip('/'))
     return s.strip()
 
 
@@ -315,7 +315,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
   <title>{title} - TradeWave</title>
   <meta name="description" content="{subtitle}">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://tradewave.ai/{title_to_filename(title)}">
+  <link rel="canonical" href="{config.domain_root}{title_to_filename(title)}">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">

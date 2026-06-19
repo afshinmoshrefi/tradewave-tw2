@@ -29,12 +29,21 @@ ENV="$1"; SSH="ssh -p 4369"; BUILD=/home/flask/web-react/build
 
 [ -d "$BUILD/static" ] || { echo "ERROR: $BUILD missing — run 'npm run build' on dev first."; exit 1; }
 
-echo "==> [$ENV] pre-flight: TW2_PUBLIC_HOST set on both boxes?"
+echo "==> [$ENV] pre-flight: TW2_PUBLIC_HOST == $HOST on BOTH boxes (web + app)?"
+# Presence isn't enough - a wrong value (e.g. app box left at stage2.trxstat.com) bakes a
+# dead host into the portal's main-site links and into any app-box-generated page. Both
+# boxes must resolve to the customer-facing host; the portal's own host comes from the
+# separate TW2_DEVELOPERS_PUBLIC_HOST var, so this does not collide with it.
 for box in "$WEB" "$APP"; do
-  $SSH "root@$box" "grep -q '^TW2_PUBLIC_HOST=' /etc/tradewave/secrets.env \
-      || systemctl show tradewave-web tradewave-appserver -p Environment 2>/dev/null | grep -q TW2_PUBLIC_HOST" \
-    || { echo "ABORT: TW2_PUBLIC_HOST not set on $box (expected $HOST). Set it in /etc/tradewave/secrets.env first, or the site falls back to tw2-dev."; exit 1; }
+  val=$($SSH "root@$box" "grep -m1 '^TW2_PUBLIC_HOST=' /etc/tradewave/secrets.env 2>/dev/null | cut -d= -f2-")
+  if [ -z "$val" ]; then
+    echo "ABORT: TW2_PUBLIC_HOST not set on $box (expected $HOST). Set it in /etc/tradewave/secrets.env, or pages fall back to tw2-dev."; exit 1
+  elif [ "$val" != "$HOST" ]; then
+    echo "ABORT: TW2_PUBLIC_HOST=$val on $box, but [$ENV] expects $HOST."
+    echo "       Fix /etc/tradewave/secrets.env on that box (set TW2_PUBLIC_HOST=$HOST and TW2_DOMAIN_ROOT=https://$HOST), then re-run."; exit 1
+  fi
 done
+echo "    OK - both boxes resolve to $HOST"
 
 echo "==> [$ENV] app tier ($APP): pull + sync venv + restart appserver"
 $SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
@@ -54,12 +63,15 @@ echo "==> [$ENV] web tier ($WEB): pull + sync venv + DB migrate + restart web + 
 # schema it doesn't expect. Idempotent (only unapplied revisions run).
 $SSH "root@$WEB" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo -u flask bash /home/flask/ops/migrate.sh && sudo systemctl restart tradewave-web && for u in tradewave-blog-queue tradewave-article-processor; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u"; else echo "skip $u (not installed on this box)"; fi; done && sudo systemctl is-active tradewave-web'
 
-echo "==> [$ENV] web tier ($WEB): regenerate authored static pages (/affiliate, privacy, terms, ...)"
-# generate_text_pages.py renders the authored pages (incl. /affiliate) into
-# /var/www/tradewave. deploy doesn't otherwise emit static pages, so without this
-# a copy change in the generator never reaches the served site (and /affiliate
-# 404s on a fresh box). Guarded + fail-closed like the portal step.
-$SSH "root@$WEB" 'if [ -f /home/flask/site/generate_text_pages.py ]; then sudo -u flask /home/flask/venv/bin/python /home/flask/site/generate_text_pages.py >/dev/null && echo "static pages regenerated" || { echo "ABORT: static page generation failed"; exit 1; }; else echo "skip static pages (generator not present)"; fi'
+echo "==> [$ENV] web tier ($WEB): regenerate ALL static pages (home, scorecard, insights, learn, research, about, daily-pick, ticker, text, markets)"
+# regen_site.sh runs EVERY main-site generator with secrets.env sourced, so each page
+# bakes the correct per-env host (never the tw2-dev fallback). This closes the historical
+# deploy gap: stock deploy only ran generate_text_pages and home/scorecard/insights/etc.
+# waited for the next cron tick, so a code/content change never reached the served site on
+# deploy (this is why "the home page looked the same" after a deploy). Runs as flask (output
+# stays flask-owned, mirroring the cron pattern: set -a; . secrets.env; set +a; python ...).
+# Fail-closed: any generator failure aborts the deploy.
+$SSH "root@$WEB" 'if [ -x /home/flask/ops/regen_site.sh ]; then sudo -u flask bash /home/flask/ops/regen_site.sh || { echo "ABORT: site regeneration failed (see /tmp/regen_*.log on the web box)"; exit 1; }; else echo "ABORT: /home/flask/ops/regen_site.sh missing on the web box"; exit 1; fi'
 
 # React deploy = ship a release dir named by source commit, then repoint the `build` SYMLINK.
 # `build` is a symlink to releases/build-<hash>; build-previous holds the prior target for instant rollback.
@@ -85,8 +97,23 @@ $SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /
 if [ "$ENV" = "prod" ]; then
   echo "==> [$ENV] web tier ($WEB): SKIP developer portal (API/MCP dark on prod)"
 else
-  echo "==> [$ENV] web tier ($WEB): assemble developer portal (if provisioned)"
-  $SSH "root@$WEB" 'if [ -x /home/flask/ops/assemble_developer_portal.sh ]; then sudo bash /home/flask/ops/assemble_developer_portal.sh || { echo "ABORT: developer portal assembly failed"; exit 1; }; else echo "skip developer portal (assemble script not present)"; fi'
+  echo "==> [$ENV] app tier ($APP): assemble developer portal (portal vhost + /var/www/developers live on the APP box, not WEB)"
+  $SSH "root@$APP" 'if [ -x /home/flask/ops/assemble_developer_portal.sh ]; then sudo bash /home/flask/ops/assemble_developer_portal.sh || { echo "ABORT: developer portal assembly failed"; exit 1; }; else echo "skip developer portal (assemble script not present)"; fi'
 fi
 
-echo "==> [$ENV] DONE. Verify: https://$HOST"
+echo "==> [$ENV] code+pages deployed. Running post-deploy verification..."
+# verify_deploy.sh runs FROM this (dev) box, SSHing to WEB/APP. It fails LOUD on broken
+# routes, wrong-host leaks, and undeployed features - turning a silent-bad deploy into a
+# visible one. Non-fatal-but-loud: the deploy already applied; a nonzero verify means the
+# site is live-but-not-clean, so fix + re-run regen before announcing.
+if [ -x /home/flask/ops/verify_deploy.sh ]; then
+  if bash /home/flask/ops/verify_deploy.sh "$ENV"; then
+    echo "==> [$ENV] DONE + VERIFIED CLEAN. Live: https://$HOST"
+  else
+    echo "!!! [$ENV] DEPLOYED, but verify_deploy reported BLOCKER(S) above."
+    echo "!!! The site is live but NOT clean - review, fix, re-run 'bash ops/regen_site.sh' on the box, then 'bash ops/verify_deploy.sh $ENV'."
+    exit 1
+  fi
+else
+  echo "==> [$ENV] DONE. (verify_deploy.sh missing - skipped verification.) Live: https://$HOST"
+fi

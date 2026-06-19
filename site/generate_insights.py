@@ -30,7 +30,9 @@ import markdown as md
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+sys.path.insert(0, '/home/flask')
 sys.path.insert(0, '/home/flask/site/lib')
+import config  # noqa: E402  # per-env public root (config.domain_root)
 from text_utils import no_em_dash  # noqa: E402
 from ga_snippet import ga_head_snippet  # noqa: E402
 
@@ -133,12 +135,12 @@ def load_articles() -> List[Dict[str, Any]]:
             png_candidate = _re.sub(r'\.svg$', '.png', chart_path)
             png_disk = Path('/var/www/tradewave') / png_candidate.lstrip('/')
             chosen = png_candidate if png_disk.exists() else chart_path
-            meta['og_image_url'] = 'https://tw2.trxstat.com' + chosen
+            meta['og_image_url'] = config.domain_root.rstrip('/') + chosen
         elif meta.get('hero'):
-            meta['og_image_url'] = ('https://tw2.trxstat.com' + meta['hero']
+            meta['og_image_url'] = (config.domain_root.rstrip('/') + meta['hero']
                                     if meta['hero'].startswith('/') else meta['hero'])
         else:
-            meta['og_image_url'] = 'https://tw2.trxstat.com/favicon.png'
+            meta['og_image_url'] = config.domain_root.rstrip('/') + '/favicon.png'
         arts.append(meta)
     arts.sort(key=lambda a: a['date_iso'], reverse=True)
     return arts
@@ -182,9 +184,9 @@ def update_sitemap(articles: List[Dict[str, Any]]) -> None:
         return
 
     needed: List[str] = []
-    needed.append('  <url>\n    <loc>https://tw2.trxstat.com/insights/</loc>\n    <lastmod>{}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>'.format(datetime.now().strftime('%Y-%m-%d')))
+    needed.append('  <url>\n    <loc>{root}insights/</loc>\n    <lastmod>{date}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>'.format(root=config.domain_root, date=datetime.now().strftime('%Y-%m-%d')))
     for a in articles:
-        needed.append('  <url>\n    <loc>https://tw2.trxstat.com/insights/{slug}.html</loc>\n    <lastmod>{date}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>'.format(slug=a['slug'], date=a['date_iso']))
+        needed.append('  <url>\n    <loc>{root}insights/{slug}.html</loc>\n    <lastmod>{date}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>'.format(root=config.domain_root, slug=a['slug'], date=a['date_iso']))
 
     additions = ''
     for block in needed:

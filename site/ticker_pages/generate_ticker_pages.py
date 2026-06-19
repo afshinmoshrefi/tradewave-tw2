@@ -58,10 +58,12 @@ SECTOR_MAP_JSON = '/home/flask/site/ticker_pages/data/sector_map.json'
 WEB_ROOT_DIR = config.web_root_dir  # TW2: /var/www/tradewave/
 DEFAULT_OUTPUT_DIR = os.path.join(WEB_ROOT_DIR, 'patterns') + os.sep
 
-# Production-facing URL base for the sitemap. Per PRD section 6.5 this is
-# always the canonical tradewave.ai domain, regardless of where the files
-# actually get written on this dev box.
-PUBLIC_URL_BASE = 'https://tradewave.ai/patterns/'
+# Public-facing URL base for the sitemap. Derived from config.domain_root
+# (TW2_PUBLIC_HOST env var) so the bake is correct in every env: on PROD
+# config.domain_root == https://tradewave.ai/ (preserving the canonical
+# domain), while staging/dev get their own host. domain_root already ends
+# with a trailing slash.
+PUBLIC_URL_BASE = config.domain_root + 'patterns/'
 
 # Signup / upgrade URLs: TW2 Flask routes, relative so they work on any host
 # (same convention as /home/flask/site/generate_home_page.py). The old TW1
@@ -334,7 +336,7 @@ def write_sitemap(output_dir, rendered_symbols, today_iso):
     ]
     # Hub page first, higher priority.
     lines.append('  <url>')
-    lines.append('    <loc>https://tradewave.ai/patterns/</loc>')
+    lines.append('    <loc>%s</loc>' % PUBLIC_URL_BASE)
     lines.append('    <lastmod>%s</lastmod>' % today_iso)
     lines.append('  </url>')
     for sym in rendered_symbols:

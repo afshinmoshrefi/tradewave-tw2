@@ -60,7 +60,7 @@ def main():
 
     html = template.render(
         enable_seo=False,
-        canonical_url="https://tradewave.ai/research.html",
+        canonical_url=DOMAIN_ROOT + "research.html",
         favicon=config.tw_favicon,
         ga_head_snippet=ga_head_snippet(),
         signup_url=SIGNUP_URL,
