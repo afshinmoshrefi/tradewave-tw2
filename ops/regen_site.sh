@@ -45,12 +45,15 @@ run scorecard "$SITE"               "$PY" generate_scorecard.py     # needs apps
 run dailypick "$SITE"               "$PY" generate_daily_ai_pick.py # needs appserver
 run home      "$SITE"               "$PY" generate_home_page.py     # needs appserver + live Stripe (refuses on bad price = intended)
 
-# Market/index pages need the SMN tree (code) + SMN output data on THIS box.
-if [ -d /home/flask/smn ] && [ -f /var/www/smn/markets/_page_data.json ]; then
+# Market/index pages are SMN-COUPLED: generate_security_pages.py imports
+# generate_tw_security_pages, which lives in the SMN tree (/home/flask/smn). On a box
+# without SMN it cannot run - the market pages are produced by the SMN pipeline where
+# SMN lives and rsync'd into /var/www/tradewave/markets|_static/markets. Skip cleanly here.
+if [ -d /home/flask/smn ] && [ -f /home/flask/smn/generate_tw_security_pages.py ]; then
   run markets "$SITE" "$PY" generate_security_pages.py
 else
-  echo "  SKIP  markets - SMN not present on this box (need /home/flask/smn + /var/www/smn/markets/_page_data.json)."
-  echo "        Regenerate market pages where SMN lives and rsync /var/www/tradewave/markets/ here, OR provision SMN on this box."
+  echo "  SKIP  markets - SMN tree (/home/flask/smn) not on this box."
+  echo "        Market pages come from the SMN content pipeline + rsync, not from a bare web box."
 fi
 
 echo "== regen_site done: $fails generator failure(s) =="
