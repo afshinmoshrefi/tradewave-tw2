@@ -472,8 +472,11 @@ const App = () => {
   const [chatbotEnabled, SetChatbotEnabled] = useState(false);
   const [chatbotIconBlink, SetChatbotIconBlink] = useState(false);
   const [chatbotPendingTip, SetChatbotPendingTip] = useState(null);
+  const [chatbotPrefill, SetChatbotPrefill] = useState(null); // home-page "ask Tara" question to auto-send (desktop)
+  const [askMobileNote, SetAskMobileNote] = useState(false);  // mobile note when home asks Tara but no chat UI exists
   const chatbotTipTimerRef = useRef(null);
   const queryStringLoadedRef = useRef(false);
+  const askHandledRef = useRef(false);  // one-shot guard for home-page ?ask= deep-link
   const arrivedViaPatternLink = useRef(window.location.search.length > 0 && window.location.search !== '?set=on');
   const historyInitialized = useRef(false);  // true after first URL is written
   const isPopstateNav = useRef(false);       // true when navigating via back/forward
@@ -1243,6 +1246,7 @@ const App = () => {
     chatbotEnabled,
     chatbotIconBlink,
     chatbotPendingTip,
+    chatbotPrefill,
     refreshKey,
     showArticlePublish,
     PEselected,
@@ -1390,6 +1394,7 @@ const App = () => {
     SetShowChatbot,
     SetChatbotIconBlink,
     SetChatbotPendingTip,
+    SetChatbotPrefill,
     onChatbotIconClick: () => { SetChatbotIconBlink(false); },
     SetRefreshKey,
     SetShowArticlePublish,
@@ -2204,6 +2209,32 @@ const App = () => {
   useEffect(() => {
     // <a target='_blank' href='{domain_root}seasonals?fg={financial_group_id}&s={symbol}&d={date1}&dh={days_hold}&y={history_years}'>Seasonal Viewer</a>
 
+    // Home-page "ask Tara" deep link: ?ask=<plain url-encoded question>. The home page
+    // uses encodeURIComponent (NOT base64, unlike ?o=), so URLSearchParams.get('ask')
+    // already returns decoded plain text. Handled before the queryStringLoadedRef guard
+    // and the pattern logic - it needs no token/resourceObj/opportunities (the chat itself
+    // has the token). One-shot via askHandledRef; scrubbed from the URL so a refresh/back/
+    // bookmark won't re-ask.
+    if (!askHandledRef.current) {
+      const askParams = new URLSearchParams(window.location.search);
+      const ask = askParams.get('ask');
+      if (ask && ask.trim()) {
+        askHandledRef.current = true;
+        // scrub only the ?ask= param, preserving any others (e.g. ?o=) so a refresh won't re-ask
+        askParams.delete('ask');
+        const remaining = askParams.toString();
+        window.history.replaceState({}, '', window.location.pathname + (remaining ? '?' + remaining : ''));
+        if (!rdd.isMobile) {
+          // desktop: open Tara and hand the question to the Chatbot to auto-send
+          SetShowChatbot(true);
+          SetChatbotPrefill(ask.trim());
+        } else {
+          // mobile: no chat UI exists - show a brief graceful note instead
+          SetAskMobileNote(true);
+        }
+      }
+    }
+
     if (queryStringLoadedRef.current) return; // pattern already loaded from querystring, don't re-apply
 
     let queryString = window.location.search;
@@ -2524,6 +2555,24 @@ const App = () => {
   return (
 
     <>
+      {askMobileNote && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100000,
+          backgroundColor: '#1e1e2e', color: '#e0e0e0',
+          borderBottom: '1px solid rgba(255,255,255,0.12)',
+          fontFamily: 'system-ui, sans-serif', fontSize: '14px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 16px', gap: '12px', lineHeight: 1.4,
+        }}>
+          <span>Tara chat is available on desktop - open this on a larger screen to chat.</span>
+          <button onClick={() => SetAskMobileNote(false)} aria-label="Dismiss" style={{
+            backgroundColor: 'transparent', color: '#93b5f6', border: 'none',
+            fontSize: '20px', lineHeight: 1, cursor: 'pointer', padding: '0 4px', flexShrink: 0,
+          }}>
+            &times;
+          </button>
+        </div>
+      )}
       {sessionExpired && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999,

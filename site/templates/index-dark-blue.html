@@ -185,10 +185,11 @@ section{padding:84px 0;border-top:1px solid var(--line)}
 .cta-row{margin:30px 0 6px}
 .askbar{max-width:660px;margin:26px auto 0;display:flex;align-items:center;gap:10px;background:var(--panel);
   border:1px solid var(--line2);border-radius:12px;padding:7px 7px 7px 18px;text-align:left}
-.askbar .q{flex:1;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.92rem;overflow:hidden;white-space:nowrap}
-.askbar .q b{color:var(--accent);margin-right:8px}
+.askbar .qp{color:var(--accent);font-weight:700;font-family:'JetBrains Mono',monospace;flex:none}
+.askbar .q{flex:1;min-width:0;color:#EAF0F8;font-family:'JetBrains Mono',monospace;font-size:.92rem;background:transparent;border:none;outline:none;padding:0}
+.askbar .q::placeholder{color:var(--muted);opacity:1}
 .askbar .ask{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(124,92,255,.4);
-  border-radius:8px;padding:9px 16px;font-weight:600;font-size:.9rem}
+  border-radius:8px;padding:9px 16px;font-weight:600;font-size:.9rem;font-family:inherit;cursor:pointer;flex:none}
 .chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
 .chip{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);border:1px solid var(--line);
   border-radius:999px;padding:7px 14px;background:rgba(255,255,255,.02)}
@@ -369,10 +370,11 @@ footer .links a{color:var(--muted)}
   <div class="cta-row"><a href="{{ content.hero.cta_primary_url }}" class="btn">{{ content.hero.cta_primary }}</a></div>
   <div class="micro">{{ content.hero.cta_micro }}</div>
 
-  <div class="askbar">
-    <span class="q"><b>&gt;</b>{{ content.hero.ask_placeholder }}</span>
-    <a class="ask" href="{{ content.hero.cta_primary_url }}">Ask</a>
-  </div>
+  <form class="askbar" id="tw-askbar" action="/signup" method="get" autocomplete="off">
+    <b class="qp">&gt;</b>
+    <input class="q" id="tw-ask-input" type="text" maxlength="280" placeholder="{{ content.hero.ask_placeholder }}" aria-label="Ask Tara a market question">
+    <button class="ask" id="tw-ask-btn" type="submit">Ask</button>
+  </form>
 
   <!-- wave-viewer mock - faithful two-zone (top: opp table + MFE/MAE bars; bottom: swipeable, Trend Chart lead).
        Signals-only marketing frame: no price column, no aggregate Win%/cumulative-return, no price axis.
@@ -840,6 +842,35 @@ footer .links a{color:var(--muted)}
         .then(function(r){ return r.json(); })
         .then(function(data){ sessionStorage.setItem('tw_auth2', JSON.stringify(data)); applyAuth(data); })
         .catch(function(){});
+})();
+
+// Home "Ask Tara": the .askbar is a real input. On submit, route the typed question
+// to the wave-viewer's Tara chat via /app/?ask=<question>. Logged-out visitors go
+// through signup first (the question rides in ?next and is asked after login). Reuses
+// the /api/me result cached as tw_auth2 by the nav auth-swap above (cold cache -> probe).
+(function(){
+    var form = document.getElementById('tw-askbar');
+    var input = document.getElementById('tw-ask-input');
+    if (!form || !input) return;
+    function route(authed, q){
+        var dest = '/app/?ask=' + encodeURIComponent(q);
+        var url = authed ? dest : ('/signup?next=' + encodeURIComponent(dest));
+        if (typeof gtag === 'function') gtag('event', 'cta_click', { link_url: url, link_text: 'ask_tara' });
+        window.location.href = url;
+    }
+    form.addEventListener('submit', function(e){
+        e.preventDefault();
+        var q = (input.value || input.placeholder || '').trim();
+        if (!q) return;
+        var cached = null;
+        try { cached = JSON.parse(sessionStorage.getItem('tw_auth2') || 'null'); } catch(err){}
+        if (cached) { route(!!cached.authenticated, q); return; }
+        input.disabled = true;
+        fetch('/api/me', { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){ try { sessionStorage.setItem('tw_auth2', JSON.stringify(d)); } catch(e2){} route(!!(d && d.authenticated), q); })
+            .catch(function(){ route(false, q); });
+    });
 })();
 
 // Email capture: intercept every MailerLite free-pick form on this page and

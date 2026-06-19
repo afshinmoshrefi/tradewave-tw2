@@ -77,6 +77,22 @@ function Chatbot(props) {
     setMessages(intro);
   }, []);
 
+  // Home-page "ask Tara" prefill: when App passes props.chatbotPrefill (from the ?ask=
+  // deep link), echo it into the input and auto-send it ONCE so the user bubble appears
+  // under the greeting. Gated on token so the POST in handleSend has its auth; fired once
+  // via prefillFiredRef, then cleared in App so it can't re-fire.
+  const prefillFiredRef = useRef(false);
+  useEffect(() => {
+    if (prefillFiredRef.current) return;
+    const q = props.chatbotPrefill;
+    if (q && typeof q === 'string' && q.trim() && token && token.length > 0) {
+      prefillFiredRef.current = true;
+      setUserInput(q);              // visible echo in the input
+      handleSend(q, { fromHome: true });
+      if (props.SetChatbotPrefill) props.SetChatbotPrefill(null); // clear so it can't re-fire
+    }
+  }, [props.chatbotPrefill, token]);  // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-scroll chatbox to bottom when new messages arrive
   useEffect(() => {
     if (chatboxRef.current) {
@@ -142,10 +158,12 @@ function Chatbot(props) {
   };
 
   //--------------------------------------------------------------------------------------------------------
-  const handleSend = () => {
-    if (!userInput.trim() || isLoading) return;
+  const handleSend = (textArg, opts = {}) => {
+    // textArg lets a caller (e.g. the home-page prefill) pass the message explicitly;
+    // normal typing calls handleSend() with no args and uses the userInput state.
+    const text = (typeof textArg === 'string' ? textArg : userInput);
+    if (!text.trim() || isLoading) return;
 
-    const text = userInput;
     setUserInput('');
 
     // Clear command
@@ -172,7 +190,10 @@ function Chatbot(props) {
       'opportunity table', 'opp table', 'days out', 'holding period',
       'years', 'data depth', 'lookback', 'getting started', 'tour',
       'filtering', 'filter syntax', 'how to filter'];
-    if (!props.symbol && !knowledgeKeywords.some(kw => lowerText.includes(kw))) {
+    // Home-originated questions (opts.fromHome) bypass this cold-start gate: a /app opened
+    // from the home page has no pattern loaded, but Tara's tool loop (find_best_opportunities)
+    // can answer market-wide questions without one. Normal typed questions keep the gate.
+    if (!opts.fromHome && !props.symbol && !knowledgeKeywords.some(kw => lowerText.includes(kw))) {
       displayMessage('bot', 'Click an opportunity in the table above to load it in the Wave Viewer, then I can help you analyze it. You can also ask me to teach you how to use TradeWave.');
       return;
     }
