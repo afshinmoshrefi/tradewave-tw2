@@ -42,17 +42,23 @@
     max-width: none !important;
   }
 
-  /* Logo: 30px, weight 800, purple gradient text - matches home page exactly */
+  /* Logo: 30px, weight 800, two-color (Trade light + Wave purple) - matches home page */
   #main-header.tw-header .tw-logo {
     font-size: 30px !important;
     font-weight: 800 !important;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
+    color: #EAF0F8 !important;
+    background: none !important;
+    -webkit-text-fill-color: #EAF0F8 !important;
+    -webkit-background-clip: border-box !important;
+    background-clip: border-box !important;
     text-decoration: none !important;
     line-height: 1 !important;
     padding: 0 !important;
+  }
+  #main-header.tw-header .tw-logo b {
+    color: #7C5CFF !important;
+    -webkit-text-fill-color: #7C5CFF !important;
+    font-weight: 800 !important;
   }
 
   #main-header.tw-header .tw-nav-links {
@@ -158,19 +164,16 @@
 
 <header id="main-header" class="tw-header">
   <div class="tw-container">
-    <a href="/" class="tw-logo">TradeWave</a>
+    <a href="/" class="tw-logo">Trade<b>Wave</b></a>
     <button class="tw-hamburger" id="tw-hamburger-btn" aria-label="Menu" onclick="document.getElementById('tw-nav-links').classList.toggle('open');this.classList.toggle('open')">
       <span></span><span></span><span></span>
     </button>
     <div class="tw-nav-links" id="tw-nav-links">
       <a href="/app/">Wave Viewer</a>
-      <a href="/patterns/">Tickers</a>
-      <a href="/scorecard.html">Scorecard</a>
-      <a href="/insights/">Insights</a>
-      <a href="/research.html">Research</a>
       <a href="/learn/">Learn</a>
       <a href="https://seasonalmarketnews.com/">News</a>
-      <a href="/login" id="tw-auth-link">Log In</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/login" id="tw-auth-link">Sign In</a>
       <a href="/pricing" id="tw-cta-link" class="tw-btn-primary">Start Free Trial</a>
     </div>
   </div>
