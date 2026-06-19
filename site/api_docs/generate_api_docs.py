@@ -9,7 +9,7 @@ Writes 7 static HTML files into the same directory as this script:
 
   quickstart.html    - get a key + first call in 5 minutes
   authentication.html - Bearer auth, key creation/rotation, BYOK for MCP
-  api-reference.html  - all 11 endpoints, regenerated from openapi.yaml
+  api-reference.html  - all 13 endpoints, regenerated from openapi.yaml
   mcp-reference.html  - 17 tools (6 flagship + 11 primitives) + how to connect in ChatGPT/Claude.ai (OAuth) and Claude Desktop/Cursor (BYOK)
   data-dictionary.html - every field + all 15 live markets defined in plain English
   rate-limits.html    - per-tier limits, headers, error shape, upgrade stub
@@ -375,6 +375,19 @@ NAV_LINKS = [
     ("Changelog",        "changelog.html"),
 ]
 
+# One-line description per doc section, keyed by the same href as NAV_LINKS so the
+# landing/hub index stays in sync with the nav (add a doc page to NAV_LINKS and give
+# it a line here; the index picks it up automatically). Brand rule: no em-dashes.
+NAV_DESCRIPTIONS = {
+    "quickstart.html":      "Get a key and make your first call in under 5 minutes.",
+    "authentication.html":  "Bearer API keys for REST, plus MCP sign-in or BYOK.",
+    "api-reference.html":   "Every REST endpoint, with full parameters and response schemas.",
+    "mcp-reference.html":   "All 17 MCP tools and how to connect ChatGPT, Claude, or Cursor.",
+    "data-dictionary.html": "Plain-English definitions of every field and all live markets.",
+    "rate-limits.html":     "Per-tier limits, rate-limit headers, and the error response shape.",
+    "changelog.html":       "Version history and the API stability contract.",
+}
+
 
 def sidebar_html(active: str) -> str:
     links = "\n".join(
@@ -421,6 +434,14 @@ def page(title: str, description: str, active_href: str, hero_title: str,
     header = load_header()
     sb = sidebar_html(active_href)
     ft = footer_html()
+    # Canonical URL: real doc pages use their own filename; the landing index canonicalises
+    # to the docs/ directory root (its served URL), and anything else falls back to quickstart.
+    if active_href == "index.html":
+        canonical = portal_urls.DOCS_URL + "/"
+    elif active_href.endswith(".html"):
+        canonical = portal_urls.DOCS_URL + "/" + active_href
+    else:
+        canonical = portal_urls.DOCS_URL + "/quickstart.html"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -429,7 +450,7 @@ def page(title: str, description: str, active_href: str, hero_title: str,
   <title>{title} - TradeWave Developer Docs</title>
   <meta name="description" content="{description}">
   <meta name="robots" content="index, follow">
-  {portal_seo.head_tags(portal_urls.DOCS_URL + '/' + (active_href if active_href.endswith('.html') else 'quickstart.html'), title, description)}
+  {portal_seo.head_tags(canonical, title, description)}
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
@@ -626,7 +647,7 @@ opportunities.forEach(o =>
 <h2>Next steps</h2>
 <ul>
   <li><a href="authentication.html">Authentication</a> - key creation, rotation, and MCP sign-in or BYOK.</li>
-  <li><a href="api-reference.html">API Reference</a> - all 11 endpoints with full parameter and schema details.</li>
+  <li><a href="api-reference.html">API Reference</a> - all 13 endpoints with full parameter and schema details.</li>
   <li><a href="mcp-reference.html">MCP Reference</a> - connect TradeWave directly to ChatGPT, Claude, or Cursor.</li>
   <li><a href="data-dictionary.html">Data Dictionary</a> - plain-English definitions of every field.</li>
 </ul>
@@ -945,7 +966,7 @@ EXAMPLE_RESPONSES: dict[str, str] = {
       "headline": "DOV long - enter ~Jun 1, hold 246d. Won 10/10 years, avg +18.5%, Sharpe 3.3.",
       "verdict": "Strong, consistent seasonal long.",
       "disclaimer": "Educational seasonal + ML signal, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
-      "tier_notes": "ML score shown (Pro)."
+      "tier_notes": "ML score shown."
     }
   ]
 }""",
@@ -989,7 +1010,7 @@ EXAMPLE_RESPONSES: dict[str, str] = {
     "headline": "AAPL long - enter ~Jun 25, hold 24d. Won 10/10 years, avg +6.0%, Sharpe 3.4.",
     "verdict": "Strong, consistent seasonal long. Seasonal shape: builds through the window (peak ~day 363), rises overall.",
     "disclaimer": "Educational seasonal + ML signal, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
-    "tier_notes": "ML score shown (Pro)."
+    "tier_notes": "ML score shown."
   },
   "other_setups": [
     {"symbol": "AAPL", "direction": "long", "entry_date": "2026-06-24",
@@ -1040,7 +1061,7 @@ EXAMPLE_RESPONSES: dict[str, str] = {
     "headline": "NVDA long - enter ~May 8, hold 30d. Won 9/11 years, avg +23.8%, Sharpe 2.8.",
     "verdict": "Strong, consistent seasonal long. Seasonal shape: builds through the window (peak ~day 364), rises overall.",
     "disclaimer": "Educational seasonal + ML signal, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
-    "tier_notes": "ML score shown (Pro)."
+    "tier_notes": "ML score shown."
   },
   "featured_date": "2026-05-08",
   "track_record": {"count": 10, "win_count": 7, "win_rate": 0.7,
@@ -1081,7 +1102,10 @@ def build_api_reference() -> str:
             tags = operation.get("tags", [])
             key = f"{method.upper()} {path}"
             example = EXAMPLE_RESPONSES.get(key, "")
-            is_pro = "scoring" in tags
+            # Every v1 endpoint is available on EVERY tier - ML (incl. /score) is offered on
+            # all tiers, metered per day (free 5/day, unlimited on Pro/Business), never gated
+            # to a tier. So no endpoint carries a "Pro" badge.
+            is_pro = False
 
             # Determine request body schema ref
             req_body = operation.get("requestBody", {})
@@ -1236,10 +1260,10 @@ def build_api_reference() -> str:
 """
     return page(
         title="API Reference",
-        description="Complete reference for all 11 TradeWave API v1 endpoints - parameters, schemas, and example responses.",
+        description="Complete reference for all 13 TradeWave API v1 endpoints - parameters, schemas, and example responses.",
         active_href="api-reference.html",
         hero_title="API Reference",
-        hero_sub="All 11 endpoints, generated from the OpenAPI contract.",
+        hero_sub="All 13 endpoints, generated from the OpenAPI contract.",
         body=body,
     )
 
@@ -1820,12 +1844,13 @@ Content-Type:          application/json
     <tr><th>HTTP status</th><th>code</th><th>Meaning</th></tr>
   </thead>
   <tbody>
-    <tr><td>400</td><td><code class="inline-code">bad_request</code></td><td>Missing or invalid parameter (see message for details)</td></tr>
+    <tr><td>400</td><td><code class="inline-code">invalid_request</code></td><td>Missing or invalid parameter, including an unknown <strong>market</strong> id/name (see message for details)</td></tr>
     <tr><td>401</td><td><code class="inline-code">unauthorized</code></td><td>Missing or invalid API key</td></tr>
-    <tr><td>403</td><td><code class="inline-code">forbidden</code></td><td>Valid key but the resource requires a higher tier</td></tr>
-    <tr><td>404</td><td><code class="inline-code">not_found</code></td><td>Unknown market id or symbol</td></tr>
-    <tr><td>429</td><td><code class="inline-code">rate_limited</code></td><td>Too many requests - check X-RateLimit-Reset</td></tr>
-    <tr><td>500</td><td><code class="inline-code">internal_error</code></td><td>Unexpected server error - try again; report if persistent</td></tr>
+    <tr><td>403</td><td><code class="inline-code">forbidden</code></td><td>Valid key, but the market is outside your plan's scope (upgrade) or not ML-eligible for /score</td></tr>
+    <tr><td>404</td><td><code class="inline-code">not_found</code></td><td>Unknown <strong>symbol</strong> (no seasonal data), or an unknown endpoint. An unknown market is a 400, not a 404.</td></tr>
+    <tr><td>429</td><td><code class="inline-code">rate_limited</code></td><td>Too many requests - check X-RateLimit-Reset and the scope (minute|day)</td></tr>
+    <tr><td>503</td><td><code class="inline-code">upstream_unavailable</code></td><td>Chart/seasonal data temporarily unavailable (upstream rate limit/outage) - retry shortly</td></tr>
+    <tr><td>500</td><td><code class="inline-code">internal</code></td><td>Unexpected server error - try again; report if persistent</td></tr>
   </tbody>
 </table>
 
@@ -1834,8 +1859,8 @@ Content-Type:          application/json
 <pre><code>{{
   "requires":          "upgrade",
   "reason":            "ml_daily_limit",
-  "message":           "Daily ML limit reached. Upgrade for unlimited ML calls.",
-  "upgrade_url":       "{portal_urls.nav('/pricing')}",
+  "message":           "Daily ML limit reached (5/day on your plan). Upgrade for unlimited ML scoring.",
+  "upgrade_url":       "{CONSOLE_URL}",
   "ml_remaining_today": 0
 }}</code></pre>
 <p>For MCP/agents, check for <code class="inline-code">"reason": "ml_daily_limit"</code> to distinguish a spent daily allowance from other upgrade prompts.</p>
@@ -1859,7 +1884,7 @@ Content-Type:          application/json
 """
     return page(
         title="Rate Limits & Errors",
-        description="TradeWave API rate limits by tier, X-RateLimit headers, error codes, and the Pro upgrade stub.",
+        description="TradeWave API rate limits by tier, X-RateLimit headers, error codes, and the ML daily-limit upgrade stub.",
         active_href="rate-limits.html",
         hero_title="Rate Limits &amp; Errors",
         hero_sub="Per-tier limits, retry headers, error codes, and the upgrade stub.",
@@ -1897,12 +1922,12 @@ def build_changelog() -> str:
   </div>
   <p><strong>Initial public release.</strong></p>
   <ul>
-    <li>9 REST endpoints: markets, symbols, opportunities (list + by-symbol), patterns, seasonal-chart, score (Pro), daily-pick, track-record.</li>
+    <li>9 REST endpoints: markets, symbols, opportunities (list + by-symbol), patterns, seasonal-chart, score, daily-pick, track-record.</li>
     <li>16 MCP tools (5 flagship + 11 primitives) wrapping the REST API - connect via Claude Desktop, ChatGPT, or Cursor.</li>
     <li>4 API tiers: Free, Dev ($39/mo), Pro ($199/mo), Business ($599/mo).</li>
     <li>Bearer token auth via <code class="inline-code">Authorization: Bearer &lt;key&gt;</code>. Keys issued in the dashboard.</li>
     <li>ML fields (<code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, <code class="inline-code">pred_mfe</code>) available on every tier, metered per day (free 5/day, Dev 100/day, Pro/Business unlimited), on ML-eligible markets (ids 0-4, 11).</li>
-    <li>Graceful upgrade stubs for non-Pro ML calls - HTTP 200 with <code class="inline-code">{"requires":"pro"}</code>.</li>
+    <li>Graceful upgrade stub when the daily ML allowance is spent - HTTP 200 with <code class="inline-code">{"requires":"upgrade","reason":"ml_daily_limit"}</code>.</li>
     <li>15 active markets (ids 0-13, 16). Ids 14/15 reserved (Korea, removed).</li>
     <li>All returns are percentages. No raw OHLCV or price-level data is ever returned.</li>
     <li><code class="inline-code">years</code> field remains a string throughout the API (stable label, not an integer).</li>
@@ -1926,10 +1951,103 @@ def build_changelog() -> str:
 
 
 # ---------------------------------------------------------------------------
+# 0. Docs landing / hub (index.html) - driven off NAV_LINKS + NAV_DESCRIPTIONS
+# ---------------------------------------------------------------------------
+
+def build_index() -> str:
+    # Quickstart is the prominent primary call-to-action (natural entry point).
+    primary_label, primary_href = NAV_LINKS[0]
+    primary_desc = NAV_DESCRIPTIONS.get(primary_href, "")
+
+    # The remaining doc sections as a card grid, in NAV_LINKS order (skip Quickstart,
+    # already featured above). Stays in sync automatically with the nav list.
+    cards = []
+    for label, href in NAV_LINKS[1:]:
+        desc = NAV_DESCRIPTIONS.get(href, "")
+        cards.append(
+            f'''  <a class="hub-card" href="{href}">
+    <span class="hub-card-title">{label}</span>
+    <span class="hub-card-desc">{desc}</span>
+    <span class="hub-card-arrow">Read &rarr;</span>
+  </a>'''
+        )
+    cards_html = "\n".join(cards)
+
+    extra_head = """<style>
+.hub-cta{display:flex;flex-wrap:wrap;align-items:center;gap:16px 20px;
+  border-radius:14px;padding:24px 26px;margin:8px 0 36px;
+  border:1px solid rgba(99,102,241,0.35);
+  background:linear-gradient(135deg,rgba(99,102,241,0.16) 0%,rgba(168,85,247,0.10) 100%);}
+.hub-cta-text{flex:1;min-width:240px;}
+.hub-cta-text strong{display:block;font-size:19px;color:#fff;margin-bottom:4px;}
+.hub-cta-text span{color:var(--text-dim);font-size:15px;}
+.hub-cta a.tw-btn-primary,.hub-cta .hub-cta-btn{
+  display:inline-block;padding:11px 22px;border-radius:10px;font-weight:700;
+  font-size:15px;color:#fff;background:var(--grad);white-space:nowrap;text-decoration:none;}
+.hub-cta .hub-cta-btn:hover{filter:brightness(1.08);text-decoration:none;}
+.hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:18px;margin:16px 0 8px;}
+.hub-card{display:flex;flex-direction:column;gap:6px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:14px;padding:20px 22px;text-decoration:none;transition:all 0.15s;}
+.hub-card:hover{border-color:var(--accent);background:rgba(99,102,241,0.06);
+  text-decoration:none;transform:translateY(-2px);}
+.hub-card-title{font-size:17px;font-weight:700;color:#fff;}
+.hub-card-desc{font-size:14px;color:var(--text-dim);line-height:1.55;flex:1;}
+.hub-card-arrow{font-size:13px;font-weight:600;color:var(--link);margin-top:6px;}
+.hub-card:hover .hub-card-arrow{color:var(--link-hover);}
+</style>"""
+
+    body = f"""
+<h1>Developer Docs</h1>
+<p>Everything you need to build on the TradeWave Data API and MCP server - the same
+seasonal edge and ML scores that power the app, delivered as clean JSON and as
+agent-ready MCP tools.</p>
+
+<div class="hub-cta">
+  <div class="hub-cta-text">
+    <strong>New here? Start with the {primary_label}.</strong>
+    <span>{primary_desc}</span>
+  </div>
+  <a class="hub-cta-btn" href="{primary_href}">Start the {primary_label} &rarr;</a>
+</div>
+
+<h2>Browse the docs</h2>
+<div class="hub-grid">
+{cards_html}
+</div>
+
+<h2>Try &amp; build</h2>
+<ul>
+  <li><a href="{portal_urls.PLAYGROUND_URL}">API Playground</a> - run live calls against your key in the browser.</li>
+  <li><a href="{portal_urls.LEARN_URL}">Learning track</a> - guided lessons from first call to a working integration.</li>
+  <li><a href="{portal_urls.MCP_SETUP_URL}">MCP setup</a> - connect TradeWave to ChatGPT, Claude, or Cursor.</li>
+  <li><a href="openapi.yaml">OpenAPI spec (YAML)</a> and <a href="tradewave.postman_collection.json">Postman collection</a> - import the full contract.</li>
+</ul>
+
+<div class="callout">
+  <p><strong>Free tier included.</strong> Create an account and get a free API key instantly - no credit card required. <a href="{portal_urls.nav('account/api/keys')}">Get an API key</a> and follow the <a href="{primary_href}">{primary_label}</a>.</p>
+</div>
+"""
+    return page(
+        title="Developer Docs",
+        description="TradeWave Data API and MCP developer documentation - quickstart, "
+                    "authentication, REST API reference, MCP tools, data dictionary, "
+                    "rate limits, and changelog.",
+        active_href="index.html",
+        hero_title="Developer Docs",
+        hero_sub="Build on the TradeWave Data API and MCP server. Start with the Quickstart.",
+        body=body,
+        extra_head=extra_head,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 PAGES = [
+    ("index.html",            build_index),
     ("quickstart.html",       build_quickstart),
     ("authentication.html",   build_authentication),
     ("api-reference.html",    build_api_reference),
