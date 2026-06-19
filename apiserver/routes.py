@@ -70,6 +70,27 @@ def _require_scope(market_id):
     return None
 
 
+def _demo_guard_symbol(symbol):
+    """If the caller is the PUBLIC demo token, restrict to the allowlisted symbols.
+    Returns a 403 Flask response to ABORT, or None to proceed. A normal key has no
+    'demo' entitlement, so this is a no-op for paying users."""
+    ent = g.customer["entitlements"]
+    if ent.get("demo"):
+        allow = ent.get("demo_symbols", [])
+        if str(symbol).upper() not in [s.upper() for s in allow]:
+            return jsonify({"error": {"code": "demo_restricted",
+                "message": "the public demo token works only for %s - create a free key at /account/api for any symbol" % ", ".join(allow)}}), 403
+    return None
+
+
+def _demo_block_enumeration():
+    """Block symbol-enumeration / bulk endpoints for the demo token (anti-scraping)."""
+    if g.customer["entitlements"].get("demo"):
+        return jsonify({"error": {"code": "demo_restricted",
+            "message": "symbol enumeration is not available on the demo token - create a free key at /account/api"}}), 403
+    return None
+
+
 def _today():
     return datetime.date.today().isoformat()
 
@@ -392,6 +413,9 @@ def symbols(market_id):
     """Symbols for one market. A full market is large (S&P 500 alone is ~150KB), so the
     list pages: `prefix` filters by ticker prefix (case-insensitive) and `limit` caps the
     rows returned; `total`/`matched`/`count` make any truncation explicit, never silent."""
+    r = _demo_block_enumeration()  # full symbol list = the scraping vector - block the demo token
+    if r:
+        return r
     market_id, m_err = _market_arg(market_id)
     if m_err:
         return m_err
@@ -688,7 +712,10 @@ def opportunities():
     effective_limit = min(req_limit, tier_cap)
     opps = opps[:effective_limit]
 
-    # Attach ML on ML-eligible markets, METERED by the daily allowance (free 5/day).
+    # Attach ML on ML-eligible markets, METERED by the daily allowance (free 5/day). We
+    # RESERVE allowance for the rows we try, then REFUND any the model could not score (or
+    # an upstream ML blip) so a metered customer is only ever charged for scores delivered;
+    # ML is best-effort enrichment here and never fails the request.
     if opps and _ml_eligible(market):
         granted = ml_quota.consume(g.customer, len(opps))
         score_rows = opps[:granted]
@@ -698,9 +725,17 @@ def opportunities():
                  "days_out": o["days_out"], "direction": o["direction"]}
                 for o in score_rows
             ]
-            ml = appserver_client.ml_scores(market, items)
+            try:
+                ml = appserver_client.ml_scores(market, items)
+            except Exception as e:  # noqa: BLE001 - ML is best-effort enrichment, never fatal
+                log.warning("opportunities ML scoring failed for market %s: %s", market, e)
+                ml = []
+            delivered = 0
             for o, score in zip(score_rows, ml):
-                o["ml"] = score
+                if score:
+                    o["ml"] = score
+                    delivered += 1
+            ml_quota.refund(g.customer, granted - delivered)
 
     payload = {
         "opportunities": opps,
@@ -723,7 +758,15 @@ def _symbol_patterns_response(symbol):
     data behind the wave-viewer pattern dropdown). Shared by /v1/opportunities/<symbol> and the
     clearer alias /v1/securities/<symbol>/patterns. Supports pe_cycle=consecutive|pe and the
     numeric column filters (min_days/max_days/min_avg_return/min_median_return/min_sharpe)."""
-    market, m_err = _market_arg(request.args.get("market"))
+    raw_market = request.args.get("market")
+    if not raw_market:
+        # Single-market shortcut: a caller with exactly one in-scope market (demo + free
+        # tiers) needs no ?market, so /securities/AAPL/patterns works bare. Multi-market
+        # callers still get the explicit 'market is required' 400 (the symbol is ambiguous).
+        scoped = _in_scope_markets()
+        if len(scoped) == 1:
+            raw_market = scoped[0]
+    market, m_err = _market_arg(raw_market)
     if m_err:
         return m_err
     scope_err = _require_scope(market)
@@ -754,9 +797,20 @@ def _symbol_patterns_response(symbol):
                  "days_out": o["days_out"], "direction": o["direction"]}
                 for o in score_rows
             ]
-            ml = appserver_client.ml_scores(market, items)
+            # ML is best-effort: refund any reserved allowance the model did not deliver
+            # (unscored row or an upstream blip) so a metered caller is only charged for
+            # scores actually returned; never fail the request on an ML outage.
+            try:
+                ml = appserver_client.ml_scores(market, items)
+            except Exception as e:  # noqa: BLE001 - ML is best-effort enrichment, never fatal
+                log.warning("symbol-patterns ML scoring failed for market %s: %s", market, e)
+                ml = []
+            delivered = 0
             for o, score in zip(score_rows, ml):
-                o["ml"] = score
+                if score:
+                    o["ml"] = score
+                    delivered += 1
+            ml_quota.refund(g.customer, granted - delivered)
 
     return jsonify({"opportunities": opps, "ml_remaining_today": ml_quota.remaining(g.customer),
                     "disclaimer": cards.DISCLAIMER})
@@ -765,6 +819,9 @@ def _symbol_patterns_response(symbol):
 @v1.get("/opportunities/<symbol>")
 @require_api_key
 def opportunities_by_symbol(symbol):
+    r = _demo_guard_symbol(symbol)
+    if r:
+        return r
     return _symbol_patterns_response(symbol)
 
 
@@ -772,6 +829,9 @@ def opportunities_by_symbol(symbol):
 @require_api_key
 def symbol_patterns(symbol):
     """Clearly-named alias for the symbol's year-long ranked seasonal patterns (same data)."""
+    r = _demo_guard_symbol(symbol)
+    if r:
+        return r
     return _symbol_patterns_response(symbol)
 
 
@@ -1132,6 +1192,9 @@ def _scan_sortkey(card, rank_by):
 def analyze_symbol(symbol):
     """analyze_symbol: fuse OppBySymbol + ChartData4 + seasonal curve (+ Pro ML) into ONE
     rich SignalCard (the best setup) + compact other_setups[]."""
+    r = _demo_guard_symbol(symbol)
+    if r:
+        return r
     name_map = appserver_client.market_name_map()
     market = request.args.get("market")
     resolution_note = None
@@ -1144,8 +1207,15 @@ def analyze_symbol(symbol):
         if m_err:
             return m_err
     else:
-        # resolve the market if the symbol is unique across the caller's in-scope markets.
-        candidates = appserver_client.resolve_market_for_symbol(symbol, _in_scope_markets())
+        # Single-market shortcut: if the caller has exactly one in-scope market (demo + free
+        # tiers), use it directly and skip resolve_market_for_symbol (that helper calls
+        # GetListSymbols, which currently 500s) - so /analyze/AAPL works with no ?market.
+        scoped = _in_scope_markets()
+        if len(scoped) == 1:
+            market = scoped[0]
+            candidates = scoped
+        else:
+            candidates = appserver_client.resolve_market_for_symbol(symbol, scoped)
         if not candidates:
             return _err("not_found",
                         "symbol '%s' not found in any of your in-scope markets - pass ?market=<id>"
@@ -1286,6 +1356,9 @@ def analyze_symbol(symbol):
 @v1.get("/patterns/<market_id>/<symbol>")
 @require_api_key
 def pattern(market_id, symbol):
+    r = _demo_guard_symbol(symbol)
+    if r:
+        return r
     market_id, m_err = _market_arg(market_id)
     if m_err:
         return m_err
@@ -1316,6 +1389,9 @@ def seasonal_chart():
     symbol = request.args.get("symbol")
     if not market or not symbol:
         return _err("invalid_request", "query params 'market' and 'symbol' are required", 400)
+    r = _demo_guard_symbol(symbol)
+    if r:
+        return r
     market, m_err = _market_arg(market)
     if m_err:
         return m_err
@@ -1344,6 +1420,9 @@ def seasonal_chart():
 @v1.post("/score")
 @require_api_key
 def score():
+    r = _demo_block_enumeration()  # batch scoring is an enumeration vector - block the demo token
+    if r:
+        return r
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
         return _err("invalid_request", "JSON body with 'opportunities' is required", 400)
@@ -1408,9 +1487,18 @@ def score():
             "upgrade_url": _UPGRADE_URL, "ml_remaining_today": 0,
         }), 200
 
-    ml = appserver_client.ml_scores(market, norm[:granted])
+    # ML is best-effort: an upstream blip must REFUND the reserved allowance and degrade
+    # soft (rows come back unscored), never 500 and never silently drop reserved rows.
+    try:
+        ml = appserver_client.ml_scores(market, norm[:granted])
+    except Exception as e:  # noqa: BLE001 - ML enrichment, never fatal
+        log.warning("score ML scoring failed for market %s: %s", market, e)
+        ml = []
     scores = []
-    for it, score in zip(norm[:granted], ml):
+    delivered = 0
+    attempted = norm[:granted]
+    for i, it in enumerate(attempted):
+        score = ml[i] if i < len(ml) else None
         row = {
             "symbol": it["symbol"],
             "date": it["date"],
@@ -1419,11 +1507,15 @@ def score():
         }
         if score:
             row.update(score)
+            delivered += 1
         else:
-            # appserver could not score it (e.g. days_out outside the 10-90 range)
+            # appserver could not score it (e.g. days_out outside the 10-90 range) or an
+            # upstream ML blip - the reserved allowance for this row is refunded below.
             row.update({"ml_score": None, "win_prob": None,
                         "pred_return": None, "pred_mfe": None})
         scores.append(row)
+    # only ever charge for ML scores actually delivered.
+    ml_quota.refund(g.customer, granted - delivered)
     # requested beyond today's allowance: unscored, with a quota note (no error).
     for it in norm[granted:]:
         scores.append({
@@ -1434,7 +1526,7 @@ def score():
         })
     return jsonify({
         "scores": scores,
-        "granted": granted,
+        "granted": delivered,
         "ml_remaining_today": ml_quota.remaining(g.customer),
         # educational-only: ML scores (win_prob / pred_return) are signal-bearing.
         "disclaimer": cards.DISCLAIMER,

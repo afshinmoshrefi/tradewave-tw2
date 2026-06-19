@@ -50,10 +50,14 @@ def resolve_customer(raw_key):
     Fail CLOSED: if the HMAC secret is unset we raise AuthMisconfigured (translated to a
     503 by require_api_key) instead of hashing with an empty secret, which could otherwise
     match a row stored under an empty-secret hash."""
-    if not settings.API_KEY_HMAC_SECRET:
-        raise AuthMisconfigured("API_KEY_HMAC_SECRET not configured")
     if not raw_key:
         return None
+    if raw_key == settings.DEMO_API_KEY:
+        # public demo principal: no HMAC, no DB row. Shared metering bucket ("demo").
+        return {"user_id": "demo", "email": "demo@tradewave.ai",
+                "tier": "demo", "entitlements": tiers.tier_for("demo")}
+    if not settings.API_KEY_HMAC_SECRET:
+        raise AuthMisconfigured("API_KEY_HMAC_SECRET not configured")
     row = db.get_user_by_key_hash(hash_key(raw_key))
     if not row:
         return None
@@ -72,7 +76,16 @@ def _extract_key():
     auth = request.headers.get("Authorization", "")
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
-    return request.headers.get("X-API-Key")
+    hdr = request.headers.get("X-API-Key")
+    if hdr:
+        return hdr
+    # ONLY the public demo token may ride the query string (so the docs can use clickable
+    # browser links). A real tw_live_ key here is ignored - it must stay in the header, or
+    # it would leak into nginx/gunicorn access logs, Referer headers, and browser history.
+    qk = request.args.get("api_key") or request.args.get("api_token")
+    if qk and qk == settings.DEMO_API_KEY:
+        return qk
+    return None
 
 
 def require_api_key(fn):

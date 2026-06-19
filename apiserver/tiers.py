@@ -80,6 +80,18 @@ INTERNAL_TIERS = {
         "opp_limit": 25, "rate": {"per_minute": 60, "per_day": 2000}, "max_keys": 1,
         "stripe_price_metadata": None, "service": True, "workos_principal": True,
     },
+    # The PUBLIC demo principal (token printed in the docs, NOT a secret). Safe only because of
+    # the `demo_symbols` allowlist + blocked symbol-enumeration/bulk endpoints in routes.py - so a
+    # zero-signup tryer can explore a handful of tickers but can never scrape the dataset. Has NO
+    # `service` flag, so it can never delegate the metering principal to another user.
+    "demo": {
+        "name": "Demo", "price_monthly": 0, "price_annual": 0,
+        "markets": ["2"], "ml_access": True, "history": "delayed", "ml_daily_limit": 25,
+        "opp_limit": 5, "rate": {"per_minute": 30, "per_day": 1000}, "max_keys": 0,
+        "stripe_price_metadata": None,
+        "demo": True,
+        "demo_symbols": ["AAPL", "MSFT", "NVDA", "AMZN", "TSLA"],
+    },
 }
 
 # The Founder's plan: first 100 customers get Pro at $99/mo (50% off) for 12 months, in

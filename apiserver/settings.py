@@ -41,6 +41,10 @@ APPSERVER_URL = _get("TW2_APPSERVER_URL") or _get("APPSERVER_URL") or "http://12
 # Service-account key for the appserver /login/api handshake (same one home_opportunities.py uses).
 SERVICE_API_KEY = _get("SERVICE_API_KEY")
 
+# PUBLIC demo token (printed in the docs - NOT a secret). Safe via the 'demo' tier symbol
+# allowlist + blocked enumeration in routes.py. Override per-box with TW2_DEMO_API_KEY.
+DEMO_API_KEY = _get("TW2_DEMO_API_KEY") or "tw_demo_explore"
+
 # Redis for rate-limit counters + usage. db4 keeps us off the appserver's db0(cache)/db2(state)/db3(news).
 REDIS_HOST = _get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(_get("REDIS_PORT", "6379"))
