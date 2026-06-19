@@ -73,8 +73,14 @@ echo "$home" | grep -q  'Trade<b>Wave</b>'                   && ok "home: 2-colo
 echo "$home" | grep -qiE '>Wave Viewer<|>Start Free Trial<'  && ok "home: unified nav"            || warn "home: nav markers not found"
 if echo "$home" | grep -qE 'gtag\(|googletagmanager|G-[A-Z0-9]{6,}'; then ok "home: GA4 loader present"; else
   [ "$ENV" = prod ] && bad "home: GA4 loader MISSING (analytics dead on prod)" || warn "home: no GA4 loader (may be prod-gated; confirm it lights on prod)"; fi
-sc=$($SSH "root@$WEB" "curl -s -H 'Host: $HOST' http://127.0.0.1/scorecard.html" 2>/dev/null)
-echo "$sc" | grep -qiE 'held.to.close|reached.target' && ok "scorecard: two-metric present" || bad "scorecard: two-metric MISSING (still the old blended metric)"
+# Read the generated file on disk, NOT via nginx: open_file_cache can briefly serve the
+# pre-regen scorecard right after a deploy, false-flagging an otherwise-correct page. This
+# check is about generated CONTENT (did the two-metric render), so the file is the source of truth.
+if $SSH "root@$WEB" "grep -qiE 'held.to.close|reached.target' /var/www/tradewave/scorecard.html 2>/dev/null"; then
+  ok "scorecard: two-metric present"
+else
+  bad "scorecard: two-metric MISSING (still the old blended metric)"
+fi
 
 echo "======  verify_deploy [$ENV]:  $fails FAIL, $warns WARN  ======"
 [ "$fails" = 0 ] && echo "RESULT: CLEAN" || echo "RESULT: $fails BLOCKER(S) - do not ship"
