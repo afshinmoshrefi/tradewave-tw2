@@ -496,32 +496,81 @@ document.addEventListener('DOMContentLoaded', function() {{
 # ---------------------------------------------------------------------------
 
 def build_quickstart() -> str:
+    # The public demo token is a CONSTANT, identical on every environment, and is NOT a
+    # secret - it is the whole point of "try before signup". It is scoped server-side to
+    # the S&P 500 (market=2) and the 5 tickers AAPL, MSFT, NVDA, AMZN and TSLA; any other
+    # symbol or market returns 403, and symbol enumeration is blocked. UNIQUELY, the demo
+    # token (and only the demo token) is also accepted in the query string as
+    # ?api_key=tw_demo_explore, which lets these docs ship CLICKABLE browser links. Real
+    # tw_live_ keys must always travel in the Authorization header. The api_key= query link
+    # uses the templated public host so it renders the right host per environment.
+    DEMO = "tw_demo_explore"
+    demo_scan_link = f"{API_BASE}/scan?market=2&amp;limit=5&amp;api_key={DEMO}"
+    demo_analyze_link = f"{API_BASE}/analyze/AAPL?market=2&amp;api_key={DEMO}"
+
     body = f"""
 <h1>Quickstart</h1>
-<p>Get your API key and make your first call in under 5 minutes.</p>
+<p>Make a real, authenticated call to the TradeWave API in the next 30 seconds - no signup, no key, no credit card. A public demo token is built into the examples below. Run one, see live seasonal signals come back, then grab a free key to unlock every symbol and market.</p>
 
-<div class="callout green">
-  <p><strong>Free tier included.</strong> Create an account and get a free API key instantly - no credit card required. The free tier gives you S&amp;P 500 stocks with a limit of 3 results per call.</p>
+<div class="callout">
+  <p><strong>Public demo token: <code class="inline-code">{DEMO}</code></strong> - paste it as-is. It is a constant, not a secret. It is limited to the S&amp;P 500 (<code class="inline-code">market=2</code>) and the 5 tickers <strong>AAPL, MSFT, NVDA, AMZN, TSLA</strong>. A free key (below) unlocks any symbol and any market.</p>
 </div>
 
-<h2>Step 1 - Create an account and get a key</h2>
-<ol>
-  <li>Sign up or log in at <a href="{CONSOLE_URL}">Account &rarr; API Keys</a>.</li>
-  <li>Navigate to <strong>Account &rarr; API Keys</strong> in the dashboard.</li>
-  <li>Click <strong>Create Key</strong>. Copy the key immediately - it is shown only once.</li>
-</ol>
+<h2>1. Try it now - no signup</h2>
 
-<p>Keys look like <code class="inline-code">tw_live_abc123...</code>. Keep them secret - treat them like passwords.</p>
+<p>The base URL for every call is <code class="inline-code">{API_BASE}</code>. Pass the token in the
+<code class="inline-code">Authorization</code> header. Check what the demo token can see with
+<code class="inline-code">/me</code>:</p>
 
-<h2>Step 2 - Make your first call</h2>
+<div class="code-tabs">
+  <div class="code-tab-bar">
+    <button class="code-tab-btn active">curl</button>
+    <button class="code-tab-btn">Python</button>
+  </div>
+  <div class="code-tab-pane active">
+<pre><code>curl {API_BASE}/me \\
+  -H "Authorization: Bearer {DEMO}"</code></pre>
+  </div>
+  <div class="code-tab-pane">
+<pre><code>import urllib.request, json
 
-<p>The base URL for all API calls is:</p>
-<pre><code>{API_BASE}</code></pre>
+req = urllib.request.Request(
+    "{API_BASE}/me",
+    headers={{"Authorization": "Bearer {DEMO}"}},
+)
+with urllib.request.urlopen(req) as r:
+    me = json.loads(r.read())
 
-<p>Every request needs the key in the <code class="inline-code">Authorization</code> header:</p>
-<pre><code>Authorization: Bearer &lt;your-api-key&gt;</code></pre>
+print(me["tier_name"], "- markets:",
+      [m["name"] for m in me["markets_in_scope"]])</code></pre>
+  </div>
+</div>
 
-<h3>Get today's daily AI pick</h3>
+<p>Real response:</p>
+<pre class="response-ex"><code>{{
+  "tier": "demo",
+  "tier_name": "Demo",
+  "markets_in_scope": [
+    {{ "id": "2", "name": "S&P 500 STOCKS", "ml_eligible": true }}
+  ],
+  "opp_limit": 5,
+  "rate": {{ "per_minute": 30, "per_day": 1000 }},
+  "upgrade_url": "{portal_urls.nav('account/api')}"
+}}</code></pre>
+
+<div class="callout green">
+  <p><strong>Or just click this link.</strong> The demo token is the only token accepted in the
+  URL (real <code class="inline-code">tw_live_</code> keys stay in the header), so you can open a live
+  call right in your browser:</p>
+  <p style="margin-top:10px;"><a href="{demo_scan_link}" target="_blank" rel="noopener">{API_BASE}/scan?market=2&amp;limit=5&amp;api_key={DEMO}</a></p>
+</div>
+
+<h2>2. Scan the top seasonal signals</h2>
+
+<p><code class="inline-code">/scan</code> ranks the strongest current setups for a market.
+The demo token scans the full S&amp;P 500 and returns the top <code class="inline-code">limit</code>
+ranked signals:</p>
+
 <div class="code-tabs">
   <div class="code-tab-bar">
     <button class="code-tab-btn active">curl</button>
@@ -529,135 +578,212 @@ def build_quickstart() -> str:
     <button class="code-tab-btn">JavaScript</button>
   </div>
   <div class="code-tab-pane active">
-<pre><code>curl {API_BASE}/daily-pick \\
+<pre><code>curl "{API_BASE}/scan?market=2&amp;limit=5" \\
+  -H "Authorization: Bearer {DEMO}"</code></pre>
+  </div>
+  <div class="code-tab-pane">
+<pre><code>import urllib.request, json
+
+req = urllib.request.Request(
+    "{API_BASE}/scan?market=2&limit=5",
+    headers={{"Authorization": "Bearer {DEMO}"}},
+)
+with urllib.request.urlopen(req) as r:
+    data = json.loads(r.read())
+
+for o in data["opportunities"]:
+    print(o["rank"], o["symbol"], o["direction"],
+          "edge", o["edge_score"], "-", o["headline"])</code></pre>
+  </div>
+  <div class="code-tab-pane">
+<pre><code>const res = await fetch(
+  "{API_BASE}/scan?market=2&limit=5",
+  {{ headers: {{ Authorization: "Bearer {DEMO}" }} }}
+);
+const {{ opportunities }} = await res.json();
+opportunities.forEach(o =>
+  console.log(o.rank, o.symbol, o.direction, "edge", o.edge_score)
+);</code></pre>
+  </div>
+</div>
+
+<p>Real response (top setup shown; arrays trimmed for the docs):</p>
+<pre class="response-ex"><code>{{
+  "count": 2,
+  "evaluated_count": 351,
+  "shown_of_evaluated": "2 of 351",
+  "rank_by": "sharpe",
+  "markets_scanned": ["2"],
+  "opportunities": [
+    {{
+      "rank": 1,
+      "symbol": "MCO",
+      "market": {{ "id": "2", "name": "S&P 500 STOCKS" }},
+      "direction": "long",
+      "signal": "BUY",
+      "edge_score": 97,
+      "edge_basis": "win_rate 1.00 x sharpe 3.7 x 10y history",
+      "headline": "MCO long - enter ~Jun 19, hold 29d. Won 10/10 years, avg +5.7%, Sharpe 3.7.",
+      "setup": {{
+        "entry_date": "2026-06-19",
+        "entry_window": "2026-06-16 to 2026-06-22",
+        "exit_date": "2026-07-18",
+        "hold_days": 29
+      }},
+      "stats": {{
+        "historical_win_rate": 1.0, "avg_return_pct": 5.66,
+        "median_return_pct": 5.92, "sharpe_ratio": 3.7, "years": "10"
+      }},
+      "ml": null,
+      "next_step": {{
+        "order_ticket": {{ "side": "BUY", "symbol": "MCO", "type": "MARKET",
+                           "time_in_force": "DAY", "suggested_exit_date": "2026-07-18" }}
+      }},
+      "receipts": {{ "...": "per-year wins/losses, best/worst year, seasonal curve summary" }}
+    }}
+  ]
+}}</code></pre>
+
+<div class="callout yellow">
+  <p>The scan above is the live, full-list S&amp;P 500 scan, so it surfaces names beyond the
+  5 demo tickers. The per-symbol calls below are where the demo allowlist applies: deep dives
+  work for AAPL, MSFT, NVDA, AMZN and TSLA only. <strong>A free key removes both limits</strong> -
+  any symbol, any market.</p>
+</div>
+
+<h2>3. Deep-dive one symbol</h2>
+
+<p><code class="inline-code">/analyze/&lt;symbol&gt;</code> returns the full signal card for one ticker -
+the best current setup plus its full per-year history and a few alternative windows. With the
+demo token, use one of the 5 allowlisted tickers:</p>
+
+<div class="code-tabs">
+  <div class="code-tab-bar">
+    <button class="code-tab-btn active">curl</button>
+    <button class="code-tab-btn">Python</button>
+  </div>
+  <div class="code-tab-pane active">
+<pre><code>curl "{API_BASE}/analyze/AAPL?market=2" \\
+  -H "Authorization: Bearer {DEMO}"</code></pre>
+  </div>
+  <div class="code-tab-pane">
+<pre><code>import urllib.request, json
+
+req = urllib.request.Request(
+    "{API_BASE}/analyze/AAPL?market=2",
+    headers={{"Authorization": "Bearer {DEMO}"}},
+)
+with urllib.request.urlopen(req) as r:
+    data = json.loads(r.read())
+
+card = data["card"]
+print(card["headline"])
+print("edge", card["edge_score"], "win rate",
+      card["stats"]["historical_win_rate"])</code></pre>
+  </div>
+</div>
+
+<p>Or open it in the browser: <a href="{demo_analyze_link}" target="_blank" rel="noopener">{API_BASE}/analyze/AAPL?market=2&amp;api_key={DEMO}</a></p>
+
+<p>Real response (the card, trimmed):</p>
+<pre class="response-ex"><code>{{
+  "as_of": "2026-06-19",
+  "card": {{
+    "symbol": "AAPL",
+    "market": {{ "id": "2", "name": "S&P 500 STOCKS" }},
+    "direction": "long",
+    "signal": "BUY",
+    "edge_score": 97,
+    "headline": "AAPL long - enter ~Jun 25, hold 24d. Won 10/10 years, avg +6.0%, Sharpe 3.4.",
+    "setup": {{
+      "entry_date": "2026-06-25",
+      "entry_window": "2026-06-22 to 2026-06-28",
+      "exit_date": "2026-07-19",
+      "hold_days": 24
+    }},
+    "stats": {{
+      "historical_win_rate": 1.0, "avg_return_pct": 6.05,
+      "median_return_pct": 6.01, "sharpe_ratio": 3.42, "years": "10"
+    }},
+    "ml": null,
+    "verdict": "Strong, consistent seasonal long.",
+    "receipts": {{ "wins": 10, "losses": 0, "per_year": [ "...10 years..." ] }}
+  }},
+  "other_setups": [
+    {{ "entry_date": "2026-06-24", "hold_days": 28, "avg_return_pct": 6.5, "sharpe_ratio": 2.95 }}
+  ]
+}}</code></pre>
+
+<h2>4. Get your own key (free)</h2>
+
+<div class="callout green">
+  <p><strong>The free tier is real.</strong> Create an account and get one API key instantly -
+  no credit card. It returns the same live seasonal signals as the demo, but across <strong>any
+  symbol and any supported market</strong>, not just the 5 demo tickers.</p>
+</div>
+
+<ol>
+  <li>Open the API console at <a href="{portal_urls.nav('account/api')}">{portal_urls.MAIN_HOST}/account/api</a> and sign in (or create a free account).</li>
+  <li>Click <strong>Create Key</strong>. Copy it immediately - the secret is shown only once.</li>
+  <li>Keys look like <code class="inline-code">tw_live_abc123...</code>. Keep them secret and send them in the <code class="inline-code">Authorization</code> header, never in the URL.</li>
+</ol>
+
+<h2>5. Use your key</h2>
+
+<p>Same calls, now with your own key and any symbol or market you like:</p>
+
+<div class="code-tabs">
+  <div class="code-tab-bar">
+    <button class="code-tab-btn active">curl</button>
+    <button class="code-tab-btn">Python</button>
+    <button class="code-tab-btn">JavaScript</button>
+  </div>
+  <div class="code-tab-pane active">
+<pre><code># your key, your symbol, any market
+curl "{API_BASE}/analyze/AAPL?market=2" \\
   -H "Authorization: Bearer &lt;your-api-key&gt;"</code></pre>
   </div>
   <div class="code-tab-pane">
 <pre><code>import urllib.request, json
 
-KEY = "&lt;your-api-key&gt;"
+KEY = "&lt;your-api-key&gt;"  # tw_live_...
 req = urllib.request.Request(
-    "{API_BASE}/daily-pick",
-    headers={{"Authorization": f"Bearer {{KEY}}"}},
-)
-with urllib.request.urlopen(req) as r:
-    pick = json.loads(r.read())
-
-card = pick["card"]  # the SignalCard lives under "card"
-print(card["symbol"], card["direction"], card["setup"]["hold_days"], "day hold")</code></pre>
-  </div>
-  <div class="code-tab-pane">
-<pre><code>const KEY = "&lt;your-api-key&gt;";
-
-const res = await fetch("{API_BASE}/daily-pick", {{
-  headers: {{ Authorization: `Bearer ${{KEY}}` }},
-}});
-const {{ card }} = await res.json();  // the SignalCard lives under "card"
-console.log(card.symbol, card.direction, card.setup.hold_days + " day hold");</code></pre>
-  </div>
-</div>
-
-<h3>Example response (trimmed)</h3>
-<p>The pick arrives as a SignalCard under the top-level <code class="inline-code">card</code> key,
-next to a <code class="inline-code">track_record</code> summary of past picks:</p>
-<pre class="response-ex"><code>{{
-  "as_of": "2026-06-12",
-  "featured_date": "2026-06-12",
-  "card": {{
-    "symbol": "INTU",
-    "direction": "long",
-    "signal": "BUY",
-    "setup": {{
-      "entry_date": "2026-06-10",
-      "entry_window": "2026-06-07 to 2026-06-13",
-      "hold_days": 28,
-      "exit_date": "2026-07-08"
-    }},
-    "edge_score": 73,
-    "stats": {{ "historical_win_rate": 0.9, "sharpe_ratio": 1.4,
-              "avg_return_pct": 7.04, "years": "10" }},
-    "ml": {{ "ml_score": 95.3, "ml_win_prob": 0.8452, "pred_return_pct": 4.823 }},
-    "headline": "INTU long - enter ~Jun 10, hold 28d. Won 9/10 years, avg +7.0%, Sharpe 1.4.",
-    "receipts": {{ "...": "per-year history, best/worst year, live track record" }},
-    "next_step": {{ "order_ticket": {{ "side": "BUY", "symbol": "INTU", "type": "MARKET",
-                                   "time_in_force": "DAY" }} }}
-  }},
-  "track_record": {{ "count": 11, "win_count": 6, "win_rate": 0.6, "avg_return_pct": 6.14 }}
-}}</code></pre>
-
-<h3>List top seasonal opportunities (S&amp;P 500, market id "2")</h3>
-<div class="code-tabs">
-  <div class="code-tab-bar">
-    <button class="code-tab-btn active">curl</button>
-    <button class="code-tab-btn">Python</button>
-    <button class="code-tab-btn">JavaScript</button>
-  </div>
-  <div class="code-tab-pane active">
-<pre><code>curl "{API_BASE}/opportunities?market=2&amp;limit=5" \\
-  -H "Authorization: Bearer &lt;your-api-key&gt;"</code></pre>
-  </div>
-  <div class="code-tab-pane">
-<pre><code>import urllib.request, json, urllib.parse
-
-KEY = "&lt;your-api-key&gt;"
-params = urllib.parse.urlencode({{"market": "2", "limit": 5}})
-req = urllib.request.Request(
-    f"{API_BASE}/opportunities?{{params}}",
+    "{API_BASE}/scan?market=2&limit=5",
     headers={{"Authorization": f"Bearer {{KEY}}"}},
 )
 with urllib.request.urlopen(req) as r:
     data = json.loads(r.read())
 
-for opp in data["opportunities"]:
-    print(opp["symbol"], opp["direction"], f"{{opp['avg_profit_pct']:.1f}}%")</code></pre>
+for o in data["opportunities"]:
+    print(o["rank"], o["symbol"], o["edge_score"])</code></pre>
   </div>
   <div class="code-tab-pane">
-<pre><code>const KEY = "&lt;your-api-key&gt;";
+<pre><code>const KEY = "&lt;your-api-key&gt;";  // tw_live_...
 
 const res = await fetch(
-  "{API_BASE}/opportunities?market=2&limit=5",
+  "{API_BASE}/scan?market=2&limit=5",
   {{ headers: {{ Authorization: `Bearer ${{KEY}}` }} }}
 );
 const {{ opportunities }} = await res.json();
-opportunities.forEach(o =>
-  console.log(o.symbol, o.direction, o.avg_profit_pct.toFixed(1) + "%")
-);</code></pre>
+opportunities.forEach(o => console.log(o.rank, o.symbol, o.edge_score));</code></pre>
   </div>
 </div>
 
-<h3>Example response</h3>
-<pre class="response-ex"><code>{{
-  "opportunities": [
-    {{
-      "symbol":           "AAPL",
-      "market":           "2",
-      "direction":        "long",
-      "entry_date":       "2026-06-01",
-      "days_out":         22,
-      "sharpe_ratio":     1.84,
-      "avg_profit_pct":   3.12,
-      "median_profit_pct":2.88,
-      "win_rate":         0.78,
-      "years":            "10",
-      "ml":               null
-    }}
-  ]
-}}</code></pre>
-
 <h2>Next steps</h2>
 <ul>
+  <li><a href="api-reference.html">API Reference</a> - every endpoint with full parameters and response schemas.</li>
+  <li><a href="{portal_urls.PLAYGROUND_URL}">Playground</a> - run live calls against your key right in the browser.</li>
+  <li><a href="{portal_urls.MCP_SETUP_URL}">MCP setup</a> - connect TradeWave to ChatGPT, Claude, or Cursor.</li>
   <li><a href="authentication.html">Authentication</a> - key creation, rotation, and MCP sign-in or BYOK.</li>
-  <li><a href="api-reference.html">API Reference</a> - all 13 endpoints with full parameter and schema details.</li>
-  <li><a href="mcp-reference.html">MCP Reference</a> - connect TradeWave directly to ChatGPT, Claude, or Cursor.</li>
   <li><a href="data-dictionary.html">Data Dictionary</a> - plain-English definitions of every field.</li>
 </ul>
 """
     return page(
         title="Quickstart",
-        description="Get a TradeWave API key and make your first call in 5 minutes.",
+        description="Make a real TradeWave API call in 30 seconds with the public demo token - no signup - then get a free key.",
         active_href="quickstart.html",
         hero_title="Quickstart",
-        hero_sub="Get a key and make your first call in under 5 minutes.",
+        hero_sub="Make a real API call in 30 seconds - no signup. A public demo token is built in.",
         body=body,
     )
 
