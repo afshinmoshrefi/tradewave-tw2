@@ -34,16 +34,27 @@ run() {  # run <label> <workdir> <cmd...>
   fi
 }
 
-# Order: cheap authored pages first, data-dependent ones after.
+# Full DATA-compute-then-RENDER sequence. Order matters where a render reads data that an
+# earlier step writes (verified against the code + the flask crontab):
+#  - insights_charts emits the embedded /insights/charts/*.svg assets BEFORE insights renders them.
+#  - home_opportunities (DATA) refreshes data/home_opportunities.csv BEFORE the home render reads it
+#    (else the home "Top Patterns" bar shows a stale CSV, and its <3-fresh-row guard can blank it).
+#  - home is the SOLE writer of the new featured-pick row in data/featured_history.json, so it MUST
+#    run BEFORE scorecard, which reads that row then recomputes outcomes live and saves them back.
+#    (Running scorecard before home renders it against the PREVIOUS pick - the bug this order fixes.)
+# Cheap authored pages first; appserver/Stripe/ML-scorer-dependent ones after (appserver is
+# restarted by deploy.sh before regen). Each step is fail-soft (run() logs + counts, never aborts).
+run insightschart "$SITE"           "$PY" generate_insights_charts.py  # embedded insights SVG/PNG assets (before insights)
 run textpages "$SITE"               "$PY" generate_text_pages.py
 run about     "$SITE"               "$PY" generate_about_page.py
 run research  "$SITE"               "$PY" generate_research_page.py
 run insights  "$SITE"               "$PY" generate_insights.py
 run learn     "$SITE"               "$PY" generate_learn.py
-run ticker    "$SITE/ticker_pages"  "$PY" generate_ticker_pages.py
-run scorecard "$SITE"               "$PY" generate_scorecard.py     # needs appserver
-run dailypick "$SITE"               "$PY" generate_daily_ai_pick.py # needs appserver
-run home      "$SITE"               "$PY" generate_home_page.py     # needs appserver + live Stripe (refuses on bad price = intended)
+run ticker    "$SITE/ticker_pages"  "$PY" generate_ticker_pages.py     # appserver; also emits the OG share images
+run home_opp  "$SITE"               "$PY" home_opportunities.py         # DATA: refresh Top Patterns CSV (appserver; fail-closed, atomic os.replace)
+run home      "$SITE"               "$PY" generate_home_page.py         # appserver + ML scorer + live Stripe; SOLE writer of the new featured-pick row
+run scorecard "$SITE"               "$PY" generate_scorecard.py         # appserver; reads the fresh pick row + recomputes outcomes live (MUST be after home)
+run dailypick "$SITE"               "$PY" generate_daily_ai_pick.py     # appserver; self-contained (no on-disk store)
 
 # Market/index pages are SMN-COUPLED: generate_security_pages.py imports
 # generate_tw_security_pages, which lives in the SMN tree (/home/flask/smn). On a box
@@ -55,6 +66,11 @@ else
   echo "  SKIP  markets - SMN tree (/home/flask/smn) not on this box."
   echo "        Market pages come from the SMN content pipeline + rsync, not from a bare web box."
 fi
+
+# LAST: re-inject live prices into the just-built home.html + markets/*.html price spans and write
+# assets/quotes.json + market-quotes.js (the single source the client JS polls). Must run after
+# home + markets are (re)built; no-ops on any file not present, so it is safe on a bare box.
+run quotes    "$SITE"               "$PY" refresh_market_quotes.py
 
 echo "== regen_site done: $fails generator failure(s) =="
 exit "$fails"
