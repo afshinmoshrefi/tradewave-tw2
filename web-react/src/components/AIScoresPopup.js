@@ -44,7 +44,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
     }
 
     const columns = [
-        { col: 'AIS', full: 'AI Score', desc: 'A composite quality score from 0 to 100. Higher means the AI sees stronger conditions supporting this pattern right now. Think of it as an overall confidence rating that combines multiple signals into one number.', color: '#3b82f6' },
+        { col: 'AIS', full: 'AI Score', desc: 'A composite quality score from 0 to 100. Higher means the AI sees stronger conditions supporting this pattern right now. Think of it as an overall confidence rating that combines multiple inputs into one number.', color: '#3b82f6' },
         { col: 'Win%', full: 'AI Win Probability', desc: 'The AI-calibrated probability that this pattern will be profitable. Unlike the historical win rate (which only counts past years), this factors in current market conditions to give a more realistic estimate.', color: '#22c55e' },
         { col: 'PredR', full: 'Predicted Return', desc: 'The AI-estimated average return for this pattern given current conditions. This adjusts the historical average profit by considering what the market environment looks like today.', color: '#a78bfa' },
         { col: 'PMFE', full: 'Predicted MFE', desc: 'The AI-estimated maximum favorable excursion, the best expected intra-trade peak before the pattern exit date. Useful for setting profit targets or deciding when to take early profits.', color: '#f59e0b' },
@@ -53,7 +53,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
     const scores = [
         { range: '80 - 100', label: 'Very strong AI confidence in the pattern', color: '#22c55e' },
         { range: '60 - 79', label: 'Solid conditions supporting the historical pattern', color: '#4ade80' },
-        { range: '40 - 59', label: 'Moderate - mixed signals from current data', color: '#f59e0b' },
+        { range: '40 - 59', label: 'Moderate - mixed readings from current data', color: '#f59e0b' },
         { range: '20 - 39', label: 'Weak - current conditions do not favor this pattern', color: '#fb923c' },
         { range: '0 - 19', label: 'Very weak - conditions conflict with the historical pattern', color: '#ef4444' },
     ]
@@ -152,7 +152,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         <li style={{ marginBottom: '6px' }}>
                             <strong>Pair with historical stats.</strong> A pattern with a high Sharpe Ratio
                             and a high AI Score means both history and current conditions agree. That is the
-                            strongest signal.
+                            strongest confirmation.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
                             <strong>Compare Win% to historical win rate.</strong> If the historical percent

@@ -3,7 +3,7 @@
   "info": {
     "title": "TradeWave Data API",
     "version": "1.0.0",
-    "description": "Seasonal trading opportunities and ML win-probability signals for TradeWave's 15 active markets, plus the tracked daily AI pick. Derived signals only - no raw market data.\n"
+    "description": "Seasonal trading opportunities and ML win-probability scores for TradeWave's 15 active markets, plus the tracked daily AI pick. Derived seasonal patterns only - no raw market data.\n"
   },
   "servers": [
     {
@@ -22,8 +22,8 @@
   ],
   "tags": [
     {
-      "name": "signals",
-      "description": "Flagship composed endpoints - ranked SignalCards (scan) and deep-dive (analyze). Prefer these over the low-level primitives."
+      "name": "patterns",
+      "description": "Flagship composed endpoints - ranked seasonal-pattern cards (scan) and deep-dive (analyze). Prefer these over the low-level primitives."
     },
     {
       "name": "markets"
@@ -42,10 +42,10 @@
     "/scan": {
       "get": {
         "tags": [
-          "signals"
+          "patterns"
         ],
-        "summary": "Scan in-scope markets for the best seasonal setups (ranked SignalCards)",
-        "description": "The flagship scanner (find_best_opportunities). Fans out over the caller's in-scope markets, scores each candidate by edge_score, and returns ranked SignalCards. ML fields populate inline on ML-eligible markets (ids 0-4, 11) up to the caller's daily ML allowance (free 5/day, unlimited on Pro/Business); ml_remaining_today reflects how many ML calls remain today (null = unlimited). win_rate enrichment is applied AFTER ranking/slicing, so evaluated_count + enrichment_capped are surfaced and the min_win_rate cap is never silently misleading.\n",
+        "summary": "Scan in-scope markets for the best seasonal setups (ranked PatternCards)",
+        "description": "The flagship scanner (find_best_opportunities). Fans out over the caller's in-scope markets, scores each candidate by edge_score, and returns ranked PatternCards. ML fields populate inline on ML-eligible markets (ids 0-4, 11) up to the caller's daily ML allowance (free 5/day, unlimited on Pro/Business); ml_remaining_today reflects how many ML calls remain today (null = unlimited). win_rate enrichment is applied AFTER ranking/slicing, so evaluated_count + enrichment_capped are surfaced and the min_win_rate cap is never silently misleading.\n",
         "parameters": [
           {
             "name": "markets",
@@ -53,7 +53,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "csv of ids or EXACT list_markets names, e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are dropped. Default = ALL in-scope markets."
+            "description": "csv of ids, list_markets names, or common aliases ('sp500', 'crypto', 'europe'), e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are reported in markets_note; out-of-scope markets are skipped with an upgrade note. Default (omitted) = a liquid equities core (DOW 30, NASDAQ 100, S&P 500, ETFs) intersected with your scope, NOT every in-scope market - pass markets explicitly to scan others."
           },
           {
             "name": "window",
@@ -62,7 +62,7 @@
               "type": "string",
               "default": "now"
             },
-            "description": "'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. 'now' = setups whose entry_date falls within the next ~10 trading days. Default 'now'."
+            "description": "'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. The underlying primitive (OppList4) is keyed to a SINGLE entry date, so the scan evaluates opportunities AS OF the window's start date and then keeps only setups whose entry_date falls inside the window - it does not re-scan every date in the range. 'now' starts today (~10 trading days wide). Default 'now'."
           },
           {
             "name": "direction",
@@ -186,7 +186,7 @@
               "type": "integer",
               "default": 25
             },
-            "description": "tier-capped (free 3, dev 25, pro up to 5000)"
+            "description": "tier-capped (free 3, dev 100, pro 1000, business 5000)"
           },
           {
             "name": "view",
@@ -223,10 +223,10 @@
     "/analyze/{symbol}": {
       "get": {
         "tags": [
-          "signals"
+          "patterns"
         ],
-        "summary": "Deep-dive one symbol into a single rich SignalCard + alternate setups",
-        "description": "analyze_symbol - one symbol fused server-side into one best-setup SignalCard plus the other candidate setups (compact) and receipts, from OppBySymbol + ChartData4 stats + the consolidated seasonal curve (+ MLScore for Pro). Replaces the multi-call stitch and guarantees win_rate consistency across the response. Pin a SPECIFIC setup with entry_date (+days_out) or a period/reverse preset - the \"click this exact opportunity / change the date range\" flow - to deep-dive THAT window instead of the auto-picked best; pe_cycle + years are the same wave-viewer knobs as on /seasonal-chart.\n",
+        "summary": "Deep-dive one symbol into a single rich PatternCard + alternate setups",
+        "description": "analyze_symbol - one symbol fused server-side into one best-setup PatternCard plus the other candidate setups (compact) and receipts, from OppBySymbol + ChartData4 stats + the consolidated seasonal curve (+ MLScore, metered per day on every tier). Replaces the multi-call stitch and guarantees win_rate consistency across the response. Pin a SPECIFIC setup with entry_date (+days_out) or a period/reverse preset - the \"click this exact opportunity / change the date range\" flow - to deep-dive THAT window instead of the auto-picked best; pe_cycle + years are the same wave-viewer knobs as on /seasonal-chart.\n",
         "parameters": [
           {
             "name": "symbol",
@@ -629,7 +629,7 @@
               "type": "integer",
               "default": 25
             },
-            "description": "tier-capped (free 3, dev 25, pro up to 5000)"
+            "description": "tier-capped (free 3, dev 100, pro 1000, business 5000)"
           }
         ],
         "responses": {
@@ -1137,8 +1137,8 @@
         "tags": [
           "daily-pick"
         ],
-        "summary": "Today's AI pick as a SignalCard, with its live track record",
-        "description": "The ML-selected featured opportunity, returned as a full SignalCard. The card's receipts ALSO carry live_track_record (the forward-tested record of past picks - made in advance, scored later), the strongest receipt. featured_date is the date the pick was made; track_record echoes the live record at the top level too.\n",
+        "summary": "Today's AI pick as a PatternCard, with its live track record",
+        "description": "The ML-selected featured opportunity, returned as a full PatternCard. The card's receipts ALSO carry live_track_record (the forward-tested record of past picks - made in advance, scored later), the strongest receipt. featured_date is the date the pick was made; track_record echoes the live record at the top level too.\n",
         "parameters": [
           {
             "name": "view",
@@ -1390,13 +1390,13 @@
           },
           "disclaimer": {
             "type": "string",
-            "description": "exact regulatory disclaimer (this is a signal-bearing response)"
+            "description": "exact regulatory disclaimer (this is a pattern-bearing response)"
           }
         }
       },
-      "SignalCard": {
+      "PatternCard": {
         "type": "object",
-        "description": "THE unit returned by /scan, /analyze/{symbol} and /daily-pick. Composed server-side: structured fields for strong agents plus pre-composed headline + verdict so weak agents render consistently. SIGNALS ONLY - all movement is percentages; order_ticket carries NO price level.\n",
+        "description": "THE unit returned by /scan, /analyze/{symbol} and /daily-pick. Composed server-side: structured fields for strong agents plus pre-composed headline + verdict so weak agents render consistently. DERIVED SEASONAL PATTERNS ONLY - all movement is percentages; order_ticket carries NO price level.\n",
         "properties": {
           "rank": {
             "type": "integer",
@@ -1415,17 +1415,17 @@
               "short"
             ]
           },
-          "signal": {
+          "bias": {
             "type": "string",
             "enum": [
-              "BUY",
-              "SELL",
-              "NO_SIGNAL"
+              "bullish",
+              "bearish",
+              "neutral"
             ],
-            "description": "NO_SIGNAL = low conviction (edge_score < 40 OR historical_win_rate < 0.55 OR years_tested < 5); next_step.order_ticket is omitted."
+            "description": "neutral = low conviction (edge_score < 40 OR historical_win_rate < 0.55 OR years_tested < 5); next_step.order_ticket is omitted."
           },
           "setup": {
-            "$ref": "#/components/schemas/SignalSetup"
+            "$ref": "#/components/schemas/PatternSetup"
           },
           "edge_score": {
             "type": "integer",
@@ -1436,10 +1436,10 @@
             "description": "human-readable dominant factors, e.g. 'win_rate 0.80 x sharpe 1.4 x 10y history'"
           },
           "stats": {
-            "$ref": "#/components/schemas/SignalStats"
+            "$ref": "#/components/schemas/PatternStats"
           },
           "ml": {
-            "$ref": "#/components/schemas/SignalCardML",
+            "$ref": "#/components/schemas/PatternCardML",
             "nullable": true,
             "description": "null when ML-eligible market (0-4,11) quota is exhausted or market is not ML-eligible; populated up to the daily allowance (free 5/day, unlimited Pro/Business); tier_notes carries context"
           },
@@ -1458,7 +1458,7 @@
             "description": "gateway-composed plain-English read (mandatory)"
           },
           "alignment": {
-            "$ref": "#/components/schemas/SignalAlignment",
+            "$ref": "#/components/schemas/PatternAlignment",
             "description": "whether the per-instance ML view agrees with the in-sample seasonal win rate (a cross-check, not a 4th win rate)"
           },
           "extend_research": {
@@ -1475,7 +1475,7 @@
           },
           "tier_notes": {
             "type": "string",
-            "description": "'ML score shown (Pro).' or the free-tier upgrade nudge"
+            "description": "'ML score shown.' or the upgrade nudge when the daily ML allowance is spent"
           },
           "note": {
             "type": "string",
@@ -1497,7 +1497,7 @@
           }
         }
       },
-      "SignalSetup": {
+      "PatternSetup": {
         "type": "object",
         "description": "The timing of the setup. Dates only - no price levels.",
         "properties": {
@@ -1524,7 +1524,7 @@
           }
         }
       },
-      "SignalStats": {
+      "PatternStats": {
         "type": "object",
         "description": "Headline percent-only stats. No price levels.",
         "properties": {
@@ -1567,9 +1567,9 @@
           }
         }
       },
-      "SignalCardML": {
+      "PatternCardML": {
         "type": "object",
-        "description": "ML output on the SignalCard (all tiers, metered per day - free 5/day, unlimited on Pro/Business). Note the names differ from the legacy MLScore block: ml_win_prob (NOT win_prob), pred_return_pct, pred_mfe_pct.\n",
+        "description": "ML output on the PatternCard (all tiers, metered per day - free 5/day, unlimited on Pro/Business). Note the names differ from the legacy MLScore block: ml_win_prob (NOT win_prob), pred_return_pct, pred_mfe_pct.\n",
         "properties": {
           "ml_score": {
             "type": "number"
@@ -1590,7 +1590,7 @@
       },
       "Receipts": {
         "type": "object",
-        "description": "The trust layer - always present on a BUY/SELL. Per-year historical evidence built from ChartData4 returns + Percent Profitable. Returns are percentages.\n",
+        "description": "The trust layer - always present on a bullish/bearish read. Per-year historical evidence built from ChartData4 returns + Percent Profitable. Returns are percentages.\n",
         "properties": {
           "years_tested": {
             "type": "integer"
@@ -1726,7 +1726,7 @@
       },
       "NextStep": {
         "type": "object",
-        "description": "The no-broker last mile. order_ticket is broker-agnostic and copyable and carries NO price level (side/type/TIF/dates/note only). Omitted on NO_SIGNAL.\n",
+        "description": "The no-broker last mile. order_ticket is broker-agnostic and copyable and carries NO price level (side/type/TIF/dates/note only). Omitted on neutral.\n",
         "properties": {
           "headline": {
             "type": "string"
@@ -1807,7 +1807,7 @@
           }
         }
       },
-      "SignalAlignment": {
+      "PatternAlignment": {
         "type": "object",
         "description": "Does the per-instance ML view agree with the in-sample seasonal win rate? A cross-check, never a 4th win rate.",
         "properties": {
@@ -1954,7 +1954,7 @@
           },
           "summary": {
             "type": "string",
-            "description": "the honest one-line lead: how many candidates were evaluated, how many shown, how many carry a high-conviction signal - plus any degradation (upstream win-rate outage), enrichment cap, normalization note, or plan cap"
+            "description": "the honest one-line lead: how many candidates were evaluated, how many shown, how many carry a high-conviction seasonal pattern - plus any degradation (upstream win-rate outage), enrichment cap, normalization note, or plan cap"
           },
           "window": {
             "type": "string",
@@ -2031,9 +2031,9 @@
           },
           "opportunities": {
             "type": "array",
-            "description": "ranked SignalCards. Under view='decision' each card is trimmed (no receipts.per_year or detail stats); under view='table' each item is a COMPACT ROW (symbol, direction, entry_date, hold_days, edge_score, win rates, headline) rather than a full SignalCard.",
+            "description": "ranked PatternCards. Under view='decision' each card is trimmed (no receipts.per_year or detail stats); under view='table' each item is a COMPACT ROW (symbol, direction, entry_date, hold_days, edge_score, win rates, headline) rather than a full PatternCard.",
             "items": {
-              "$ref": "#/components/schemas/SignalCard"
+              "$ref": "#/components/schemas/PatternCard"
             }
           },
           "lookback_note": {
@@ -2050,8 +2050,8 @@
         "type": "object",
         "properties": {
           "card": {
-            "$ref": "#/components/schemas/SignalCard",
-            "description": "the best setup as a SignalCard (trimmed under view='decision'; a compact row under view='table'). May carry a `note` when a bare ticker was resolved to a primary listing."
+            "$ref": "#/components/schemas/PatternCard",
+            "description": "the best setup as a PatternCard (trimmed under view='decision'; a compact row under view='table'). May carry a `note` when a bare ticker was resolved to a primary listing."
           },
           "other_setups": {
             "type": "array",
@@ -2122,8 +2122,8 @@
         "type": "object",
         "properties": {
           "card": {
-            "$ref": "#/components/schemas/SignalCard",
-            "description": "the pick as a SignalCard (trimmed under view='decision'); receipts.live_track_record carries the live record"
+            "$ref": "#/components/schemas/PatternCard",
+            "description": "the pick as a PatternCard (trimmed under view='decision'); receipts.live_track_record carries the live record"
           },
           "featured_date": {
             "type": "string",
@@ -2193,14 +2193,14 @@
       },
       "MLScore": {
         "type": "object",
-        "description": "ML output block used by /score and bulk /opportunities (legacy field names). Available to all tiers, metered per day (free 5/day, unlimited Pro/Business). The SignalCard uses SignalCardML instead (ml_win_prob / pred_return_pct / pred_mfe_pct).\n",
+        "description": "ML output block used by /score and bulk /opportunities (legacy field names). Available to all tiers, metered per day (free 5/day, unlimited Pro/Business). The PatternCard uses PatternCardML instead (ml_win_prob / pred_return_pct / pred_mfe_pct).\n",
         "properties": {
           "ml_score": {
             "type": "number"
           },
           "win_prob": {
             "type": "number",
-            "description": "0..1 model probability. DISTINCT from the historical win_rate. (SignalCard names this ml_win_prob.)"
+            "description": "0..1 model probability. DISTINCT from the historical win_rate. (PatternCard names this ml_win_prob.)"
           },
           "pred_return": {
             "type": "number",
@@ -2233,7 +2233,7 @@
           },
           "disclaimer": {
             "type": "string",
-            "description": "exact regulatory disclaimer (this is a signal-bearing response)"
+            "description": "exact regulatory disclaimer (this is a pattern-bearing response)"
           }
         }
       },
@@ -2303,7 +2303,7 @@
           },
           "disclaimer": {
             "type": "string",
-            "description": "exact regulatory disclaimer (this is a signal-bearing response)"
+            "description": "exact regulatory disclaimer (this is a pattern-bearing response)"
           }
         }
       },
@@ -2536,7 +2536,7 @@
           },
           "disclaimer": {
             "type": "string",
-            "description": "exact regulatory disclaimer (ML scores are signal-bearing)"
+            "description": "exact regulatory disclaimer (ML scores are pattern-bearing)"
           }
         }
       },

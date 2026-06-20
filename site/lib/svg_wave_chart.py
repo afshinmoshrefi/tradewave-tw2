@@ -33,43 +33,66 @@ BOT_H       = 318      # bottom chart area (below title bar)
 PANEL_W     = SVG_W - 2 * MARGIN
 
 # Plot area margins inside each chart panel
+# Wider right margin gives room for the directly-labeled SMA / projection
+# line end-points; taller top margin adds editorial headroom.
 CHART_LEFT  = 60
-CHART_RIGHT = 20
-CHART_TOP   = 10
+CHART_RIGHT = 70
+CHART_TOP   = 22
 CHART_BOT   = 35
 
 # Volume sub-panel takes bottom 18% of candle chart area
 VOL_RATIO   = 0.18
 
 # ============================================================
-# COLORS  (React DarkTheme from Common.js)
+# COLORS  (premium 3-role system: one violet accent + muted up/down + neutrals)
 # ============================================================
+#
+# Design intent (per the design diagnostic): premium research charts read as
+# "art" by SUBTRACTION - one analytical accent (brand violet), muted price
+# up/down, and three tiers of neutral text. No navy title bar, no second
+# green, no magenta/orange. The data is the highest-contrast thing in frame.
 
 PAGE_BG        = "rgb(15,10,21)"
 CHART_BG       = "rgb(25,22,35)"
-TITLE_BAR_BG   = "rgb(30,50,80)"
-GRID_COLOR     = "rgb(50,47,62)"
-TEXT_COLOR      = "rgb(180,180,190)"
-TEXT_PRIMARY    = "rgb(220,220,225)"
-TEXT_HIGHLIGHT  = "rgb(100,220,140)"   # green accent for title text
+TITLE_BAR_BG   = CHART_BG               # no colored title block (was navy rgb(30,50,80))
 
-BAR_GREEN      = "rgb(0,140,0)"
-BAR_RED        = "rgb(200,0,0)"
-BAR_MFE        = "rgb(100,220,100)"
+# Neutral text tiers (no colored text anywhere)
+TEXT_PRIMARY    = "#e4e4ea"            # titles, symbol, current price
+TEXT_SECONDARY  = "#b4b4c0"            # axis tick numbers
+TEXT_TERTIARY   = "#86838f"            # date ticks, annotations, watermark
+TEXT_COLOR      = TEXT_SECONDARY       # back-compat default = SECONDARY tier
+TEXT_HIGHLIGHT  = TEXT_PRIMARY         # titles now use the neutral PRIMARY tier
 
-CANDLE_UP      = "#26a69a"
-CANDLE_DOWN    = "#ef5350"
-WICK_COLOR     = "rgba(220,220,220,0.85)"
+# The single analytical accent = brand violet
+ACCENT_VIOLET   = "#8b5cf6"            # brand violet (projection, title tick)
+ACCENT_VIOLET_3 = "#a78bfa"            # violet-300 (SMA line)
 
-SMA_COLOR      = "#c850c8"
-PROJ_COLOR     = "#e8a838"
+# Gridlines + baseline
+GRID_COLOR     = "rgba(255,255,255,0.05)"   # hairline gridlines
+GRID_DASH      = "1,4"                       # dotted gridlines
+BASELINE_COLOR = "#5a5766"                   # deliberate zero/baseline anchor
+
+# Price up/down - muted, not saturated
+BAR_GREEN      = "#3f9e84"             # muted teal-green (was rgb(0,140,0))
+BAR_RED        = "#d36a68"             # muted coral (was rgb(200,0,0))
+BAR_MFE        = "rgba(63,158,132,0.5)"   # translucent up-color (was 2nd green)
+BAR_OPACITY    = 0.9                   # price bar fill opacity
+
+CANDLE_UP      = "#3f9e84"            # muted teal-green (was #26a69a)
+CANDLE_DOWN    = "#d36a68"            # muted coral (was #ef5350)
+WICK_COLOR     = "rgba(180,180,190,0.7)"
+
+SMA_COLOR      = ACCENT_VIOLET_3      # violet-300 (was magenta #c850c8)
+PROJ_COLOR     = ACCENT_VIOLET        # brand violet (was orange #e8a838)
 PROJ_DASH      = "8,4"
 
-VOL_UP_COLOR   = "rgba(38,166,154,0.35)"
-VOL_DOWN_COLOR = "rgba(239,83,80,0.35)"
+# Volume bars: very faint neutral (was teal/red tints)
+VOL_UP_COLOR   = "rgba(255,255,255,0.05)"
+VOL_DOWN_COLOR = "rgba(255,255,255,0.05)"
 
-EARN_COLOR     = "#e040e0"     # magenta for earnings badges
-EARN_EST_COLOR = "#e8a838"     # orange for estimated earnings
+# Earnings / estimate markers: neutral grey (was magenta + orange)
+EARN_COLOR     = "#8a8794"            # neutral grey for earnings markers
+EARN_EST_COLOR = "#8a8794"            # same grey; estimate uses a dashed tick
 
 # ============================================================
 # AUTHENTICATION  (same pattern as ticker_pages/ticker_data.py)
@@ -294,99 +317,62 @@ def svg_text(x, y, text, fill=TEXT_COLOR, font_size=11, anchor="middle",
 
 def render_top_title_bar(symbol, start_date, days_out, years_str,
                          bar_x, bar_y, bar_w, bar_h):
-    """Top title bar: centered pattern summary + right-side params."""
-    elements = []
-    elements.append(svg_rect(bar_x, bar_y, bar_w, bar_h, TITLE_BAR_BG, rx=8))
+    """Top panel header: left-aligned neutral title with a single violet tick.
 
-    cy = bar_y + bar_h / 2 + 4
-    cx = bar_x + bar_w / 2       # horizontal center
+    No colored title block, no legend swatches, no right-side param stack.
+    Reads as an editorial figure caption: "TAP - 14-day window - 10yr".
+    Timeframe shown as plain tertiary text, no box.
+    """
+    elements = []
 
     years_label, mode_label = format_years_label(years_str)
     start_mmdd = start_date[5:]
     end_mmdd = compute_end_date(start_date, days_out)
     num_years = years_label.split()[0]
 
-    # Centered pattern summary: "10-Year  TAP  03-03 to 03-16    ■ MFE"
-    # Build as one centered group offset from center
-    full_text = f"{num_years}-Year   {symbol}   {start_mmdd} to {end_mmdd}"
-    text_w = len(full_text) * 6.8  # approximate width
-    x = cx - text_w / 2 - 30      # shift left a bit to make room for MFE legend
+    # Baseline for the header text (top-left of the panel)
+    cy = bar_y + bar_h / 2 + 5
+    tx = bar_x + CHART_LEFT      # align with the plot's left edge
 
-    elements.append(svg_text(x, cy, f"{num_years}-Year", TEXT_HIGHLIGHT, 14, "start", "bold"))
-    x += len(f"{num_years}-Year") * 8 + 12
-    elements.append(svg_text(x, cy, symbol, TEXT_PRIMARY, 15, "start", "bold"))
-    x += len(symbol) * 9.5 + 12
-    elements.append(svg_text(x, cy, f"{start_mmdd} to {end_mmdd}",
-                             TEXT_HIGHLIGHT, 14, "start"))
-    x += len(f"{start_mmdd} to {end_mmdd}") * 7.5 + 20
+    # Single 3px violet vertical tick immediately left of the title
+    tick_h = 14
+    elements.append(svg_rect(tx - 12, cy - tick_h + 2, 3, tick_h, ACCENT_VIOLET))
 
-    # MFE legend
-    elements.append(svg_rect(x, cy - 8, 10, 10, BAR_MFE))
-    elements.append(svg_text(x + 15, cy, "MFE", TEXT_PRIMARY, 12, "start"))
+    # Left-aligned neutral title: "TAP - 14-day window - 10yr"
+    title = f"{symbol} - {days_out}-day window - {num_years}yr"
+    elements.append(svg_text(tx, cy, title, TEXT_PRIMARY, 14, "start", "600"))
 
-    # Right side: "10 PE+2 Years | 14 Day Pattern" separated by vertical bar
-    rx = bar_x + bar_w - 20
-    params = [f"{num_years} {mode_label}", f"{days_out} Day Pattern"]
-    for i, p in enumerate(reversed(params)):
-        elements.append(svg_text(rx, cy, p, TEXT_COLOR, 12, "end"))
-        rx -= len(p) * 6 + 20
-        if i < len(params) - 1:
-            elements.append(svg_line(rx + 8, bar_y + 7, rx + 8, bar_y + bar_h - 7,
-                                     GRID_COLOR, 1))
+    # Right end: plain tertiary annotation (date range + pattern), no box
+    rx = bar_x + bar_w - CHART_RIGHT
+    annot = f"{start_mmdd} to {end_mmdd}   -   {num_years} {mode_label}"
+    elements.append(svg_text(rx, cy, annot, TEXT_TERTIARY, 11, "end", "500"))
 
     return '\n  '.join(elements)
 
 
 def render_bottom_title_bar(company_name, bar_x, bar_y, bar_w, bar_h):
-    """Bottom title bar: centered company name + pills + right-side legend."""
+    """Bottom panel header: left-aligned company name with a single violet tick.
+
+    No colored title block, no row of timeframe pills, no legend swatches.
+    The SMA and projection lines are labeled directly at their right-hand
+    end-points in the candle renderer, so no legend is needed here.
+    Timeframe shown as plain tertiary text ("Daily, 1-Year"), no box.
+    """
     elements = []
-    elements.append(svg_rect(bar_x, bar_y, bar_w, bar_h, TITLE_BAR_BG, rx=8))
 
-    cy = bar_y + bar_h / 2 + 4
-    cx = bar_x + bar_w / 2
+    cy = bar_y + bar_h / 2 + 5
+    tx = bar_x + CHART_LEFT      # align with the plot's left edge
 
-    # --- Centered: company name + "Current Price Chart" + pills ---
-    # Estimate total width of the centered group
-    name_w = len(company_name) * 7.8
-    cpc_w = len("Current Price Chart") * 7.2
-    pills_data = [("3M", False), ("6M", False), ("1Y", True), ("2Y", False),
-                  ("D", False), ("E", False), ("Proj", False)]
-    pills_w = sum(len(p[0]) * 8 + 14 for p in pills_data)
-    total_group_w = name_w + 10 + cpc_w + 16 + pills_w
-    x = cx - total_group_w / 2
+    # Single 3px violet vertical tick immediately left of the title
+    tick_h = 14
+    elements.append(svg_rect(tx - 12, cy - tick_h + 2, 3, tick_h, ACCENT_VIOLET))
 
-    # Company name
-    elements.append(svg_text(x, cy, company_name, TEXT_HIGHLIGHT, 13, "start", "bold"))
-    x += name_w + 10
+    # Left-aligned neutral company name (PRIMARY tier)
+    elements.append(svg_text(tx, cy, company_name, TEXT_PRIMARY, 13, "start", "600"))
 
-    # "Current Price Chart"
-    elements.append(svg_text(x, cy, "Current Price Chart", TEXT_PRIMARY, 13, "start"))
-    x += cpc_w + 16
-
-    # Timeframe pills
-    for label, active in pills_data[:-1]:  # all except Proj
-        pw = len(label) * 8 + 10
-        ph = 16
-        fill = "rgba(100,220,140,0.2)" if active else "rgba(255,255,255,0.08)"
-        text_fill = TEXT_HIGHLIGHT if active else TEXT_COLOR
-        elements.append(svg_rect(x, cy - 11, pw, ph, fill, rx=3))
-        elements.append(svg_text(x + pw / 2, cy, label, text_fill, 11))
-        x += pw + 4
-
-    # Proj pill (orange)
-    pw = 32
-    elements.append(svg_rect(x, cy - 11, pw, 16, "rgba(232,168,56,0.2)", rx=3))
-    elements.append(svg_text(x + pw / 2, cy, "Proj", PROJ_COLOR, 11))
-
-    # --- Right side legend: SMA + Projection lines ---
-    rx = bar_x + bar_w - 20
-    elements.append(svg_text(rx, cy, "Seasonal Projection", TEXT_COLOR, 11, "end"))
-    rx -= 135
-    elements.append(svg_line(rx, cy - 3, rx + 20, cy - 3, PROJ_COLOR, 2, PROJ_DASH))
-    rx -= 20
-    elements.append(svg_text(rx, cy, "50 SMA", TEXT_COLOR, 11, "end"))
-    rx -= 52
-    elements.append(svg_line(rx, cy - 3, rx + 20, cy - 3, SMA_COLOR, 2))
+    # Right end: plain tertiary timeframe, no box
+    rx = bar_x + bar_w - CHART_RIGHT
+    elements.append(svg_text(rx, cy, "Daily, 1-Year", TEXT_TERTIARY, 11, "end", "500"))
 
     return '\n  '.join(elements)
 
@@ -451,17 +437,17 @@ def render_bar_chart(bar_data, panel_x, panel_y, panel_w, panel_h):
     if y_min > 0:
         y_min = 0
 
-    # Gridlines and Y-axis labels
-    ticks = _nice_ticks(y_min, y_max, 5)
+    # Gridlines and Y-axis labels (3-4 dotted hairlines max)
+    ticks = _nice_ticks(y_min, y_max, 4)
     for t in ticks:
         yy = scale_y(t, y_min, y_max, px_top, px_bottom)
-        elements.append(svg_line(px_left, yy, px_right, yy, GRID_COLOR, 0.5))
+        elements.append(svg_line(px_left, yy, px_right, yy, GRID_COLOR, 0.5, GRID_DASH))
         label = f"{t:.0f}%" if t == int(t) else f"{t:.1f}%"
-        elements.append(svg_text(px_left - 6, yy + 4, label, TEXT_COLOR, 11, "end"))
+        elements.append(svg_text(px_left - 6, yy + 4, label, TEXT_SECONDARY, 11, "end"))
 
-    # Zero line
+    # Zero line - deliberate heavier baseline anchor
     y_zero = scale_y(0, y_min, y_max, px_top, px_bottom)
-    elements.append(svg_line(px_left, y_zero, px_right, y_zero, "rgb(70,67,82)", 0.8))
+    elements.append(svg_line(px_left, y_zero, px_right, y_zero, BASELINE_COLOR, 1.0))
 
     # Bars
     bar_spacing = plot_w / n
@@ -478,7 +464,8 @@ def render_bar_chart(bar_data, panel_x, panel_y, panel_w, panel_h):
         bar_h   = abs(y_close - y_zero)
         if bar_h < 0.5:
             bar_h = 0.5
-        elements.append(svg_rect(cx - bar_width / 2, bar_top, bar_width, bar_h, bar_color))
+        elements.append(svg_rect(cx - bar_width / 2, bar_top, bar_width, bar_h,
+                                 bar_color, opacity=BAR_OPACITY))
 
         # MFE overlay (favorable excursion above close)
         if close_pct >= 0 and mfe_pct > close_pct:
@@ -498,7 +485,7 @@ def render_bar_chart(bar_data, panel_x, panel_y, panel_w, panel_h):
     for i, (year, _, _) in enumerate(parsed):
         if i % step == 0:
             cx = px_left + i * bar_spacing + bar_spacing / 2
-            elements.append(svg_text(cx, px_bottom + 16, str(year), TEXT_COLOR, 11))
+            elements.append(svg_text(cx, px_bottom + 16, str(year), TEXT_TERTIARY, 11))
 
     return '\n  '.join(elements)
 
@@ -550,18 +537,18 @@ def render_candle_chart(ohlc_data, sma_values, projection_points,
     volumes = [float(row[5]) if len(row) > 5 else 0 for row in ohlc_data]
     vol_max = max(volumes) if volumes else 1
 
-    # --- Gridlines and Y-axis price labels ---
-    ticks = _nice_ticks(price_min, price_max, 5)
+    # --- Gridlines and Y-axis price labels (3-4 dotted hairlines max) ---
+    ticks = _nice_ticks(price_min, price_max, 4)
     for t in ticks:
         yy = scale_y(t, price_min, price_max, px_top, price_bot)
-        elements.append(svg_line(px_left, yy, px_right, yy, GRID_COLOR, 0.5))
+        elements.append(svg_line(px_left, yy, px_right, yy, GRID_COLOR, 0.5, GRID_DASH))
         if t >= 1000:
             label = f"{t:,.0f}"
         elif t >= 10:
             label = f"{t:.1f}"
         else:
             label = f"{t:.2f}"
-        elements.append(svg_text(px_left - 6, yy + 4, label, TEXT_COLOR, 11, "end"))
+        elements.append(svg_text(px_left - 6, yy + 4, label, TEXT_SECONDARY, 11, "end"))
 
     # --- Volume bars ---
     candle_width = max(1, (px_right - px_left) / total_x * 0.65)
@@ -601,7 +588,7 @@ def render_candle_chart(ohlc_data, sma_values, projection_points,
         elements.append(svg_rect(cx - candle_width / 2, body_top,
                                  candle_width, body_h, color))
 
-    # --- 50 SMA line ---
+    # --- 50 SMA line (directly labeled at its right end-point) ---
     sma_points = []
     for i, val in enumerate(sma_values):
         if val is not None:
@@ -610,8 +597,11 @@ def render_candle_chart(ohlc_data, sma_values, projection_points,
             sma_points.append((sx, sy))
     if sma_points:
         elements.append(svg_polyline(sma_points, SMA_COLOR, 1.5))
+        # Direct end-point label in the line's own color (violet-300)
+        lx, ly = sma_points[-1]
+        elements.append(svg_text(lx + 5, ly + 3, "50 SMA", SMA_COLOR, 10, "start", "500"))
 
-    # --- Projection line ---
+    # --- Projection line (directly labeled at its right end-point) ---
     if projection_points and n_candles > 0:
         last_close = float(ohlc_data[-1][4])
         last_x = scale_x(n_candles - 1, total_x, px_left, px_right)
@@ -623,21 +613,27 @@ def render_candle_chart(ohlc_data, sma_values, projection_points,
             py = scale_y(pprice, price_min, price_max, px_top, price_bot)
             proj_pts.append((px, py))
         elements.append(svg_polyline(proj_pts, PROJ_COLOR, 2, dash=PROJ_DASH))
+        # Direct end-point label in the line's own color (brand violet)
+        ex_lbl, ey_lbl = proj_pts[-1]
+        elements.append(svg_text(ex_lbl + 5, ey_lbl + 3, "Seasonal Projection",
+                                 PROJ_COLOR, 10, "start", "500"))
 
-    # --- Earnings markers (vertical line + magenta "E" badge) ---
+    # --- Earnings markers (neutral grey tick + outline "E" badge) ---
+    # Badge = no fill, 1px grey stroke, letter in the dim tertiary tier.
     for ed in (earnings_dates or []):
         edate = ed.get('date', '')[:10]
         idx = date_to_idx.get(edate)
         if idx is not None:
             ex = scale_x(idx, total_x, px_left, px_right)
-            # Dashed vertical line full chart height
+            # Solid grey vertical tick (reported earnings)
             elements.append(svg_line(ex, px_top + 16, ex, px_bottom,
-                                     EARN_COLOR, 0.8, "4,3"))
-            # Badge at top of chart
-            elements.append(svg_rect(ex - 8, px_top - 2, 16, 16, EARN_COLOR, rx=3))
-            elements.append(svg_text(ex, px_top + 11, "E", "white", 10, "middle", "bold"))
+                                     EARN_COLOR, 0.8))
+            # Outline badge at top of chart
+            elements.append(svg_rect(ex - 8, px_top - 2, 16, 16, "none", rx=0,
+                                     stroke=EARN_COLOR, stroke_width=1))
+            elements.append(svg_text(ex, px_top + 11, "E", TEXT_TERTIARY, 10, "middle", "500"))
 
-    # Estimated next earnings (vertical line + "Est" badge)
+    # Estimated next earnings (dashed grey tick distinguishes it + "Est" badge)
     if next_earnings_est:
         est_date = next_earnings_est[:10]
         idx = date_to_idx.get(est_date)
@@ -645,8 +641,9 @@ def render_candle_chart(ohlc_data, sma_values, projection_points,
             ex = scale_x(idx, total_x, px_left, px_right)
             elements.append(svg_line(ex, px_top + 16, ex, px_bottom,
                                      EARN_EST_COLOR, 0.8, "4,3"))
-            elements.append(svg_rect(ex - 12, px_top - 2, 24, 16, EARN_EST_COLOR, rx=3))
-            elements.append(svg_text(ex, px_top + 11, "Est", "white", 9, "middle", "bold"))
+            elements.append(svg_rect(ex - 12, px_top - 2, 24, 16, "none", rx=0,
+                                     stroke=EARN_EST_COLOR, stroke_width=1))
+            elements.append(svg_text(ex, px_top + 11, "Est", TEXT_TERTIARY, 9, "middle", "500"))
         else:
             # Est date is in projection zone
             est_dt = datetime.datetime.strptime(est_date, "%Y-%m-%d").date()
@@ -658,10 +655,10 @@ def render_candle_chart(ohlc_data, sma_values, projection_points,
                     ex = scale_x(n_candles + proj_idx, total_x, px_left, px_right)
                     elements.append(svg_line(ex, px_top + 16, ex, px_bottom,
                                              EARN_EST_COLOR, 0.8, "4,3"))
-                    elements.append(svg_rect(ex - 12, px_top - 2, 24, 16,
-                                             EARN_EST_COLOR, rx=3))
-                    elements.append(svg_text(ex, px_top + 11, "Est", "white", 9,
-                                             "middle", "bold"))
+                    elements.append(svg_rect(ex - 12, px_top - 2, 24, 16, "none", rx=0,
+                                             stroke=EARN_EST_COLOR, stroke_width=1))
+                    elements.append(svg_text(ex, px_top + 11, "Est", TEXT_TERTIARY, 9,
+                                             "middle", "500"))
 
     # --- X-axis date labels ---
     all_dates = [row[0] for row in ohlc_data]
@@ -671,7 +668,7 @@ def render_candle_chart(ohlc_data, sma_values, projection_points,
     for i in range(0, len(all_dates), step):
         cx = scale_x(i, total_x, px_left, px_right)
         label = all_dates[i][5:]
-        elements.append(svg_text(cx, px_bottom + 16, label, TEXT_COLOR, 11))
+        elements.append(svg_text(cx, px_bottom + 16, label, TEXT_TERTIARY, 11))
 
     return '\n  '.join(elements)
 
@@ -701,6 +698,9 @@ def generate_wave_chart_svg(resource_id, symbol, start_date, days_out, years,
 
     if not company_name:
         company_name = symbol
+
+    # Year count for the watermark method line (e.g. "10")
+    years_count = format_years_label(years)[0].split()[0]
 
     # 2. OHLC candle data (extra lookback for SMA warmup)
     today = datetime.date.today()
@@ -750,16 +750,28 @@ def generate_wave_chart_svg(resource_id, symbol, start_date, days_out, years,
                                      earnings_dates, next_earnings_est,
                                      bcp_x, bcp_y, PANEL_W, BOT_H)
 
+    # Watermark: tradewave.ai + FT-style method line, tertiary tier
+    wm_x = bcp_x + PANEL_W - CHART_RIGHT
+    wm_y = bcp_y + BOT_H - 8
+    watermark = (
+        f'<text x="{wm_x:.1f}" y="{wm_y:.1f}" fill="{TEXT_TERTIARY}" font-size="9" '
+        f'text-anchor="end" font-weight="500" letter-spacing="0.08em" '
+        f'opacity="0.7">tradewave.ai   -   Seasonal pattern, {years_count}y</text>'
+    )
+
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SVG_W} {SVG_H}"
      preserveAspectRatio="xMidYMid meet"
-     style="background:{PAGE_BG}; border-radius:14px;">
+     style="background:{PAGE_BG}; border-radius:8px;">
   <defs>
     <style>
-      text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
+      text {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'lnum' 1; }}
     </style>
   </defs>
 
-  <!-- Top title bar -->
+  <!-- Outer frame (rx=8) -->
+  {svg_rect(MARGIN, MARGIN, PANEL_W, SVG_H - 2 * MARGIN, PAGE_BG, rx=8)}
+
+  <!-- Top panel header -->
   {top_title}
 
   <!-- Top chart background -->
@@ -768,7 +780,7 @@ def generate_wave_chart_svg(resource_id, symbol, start_date, days_out, years,
   <!-- Seasonal bar chart -->
   {bar_svg}
 
-  <!-- Bottom title bar -->
+  <!-- Bottom panel header -->
   {bot_title}
 
   <!-- Bottom chart background -->
@@ -777,8 +789,8 @@ def generate_wave_chart_svg(resource_id, symbol, start_date, days_out, years,
   <!-- Candlestick chart -->
   {candle_svg}
 
-  <!-- TradeWave.AI watermark -->
-  {svg_text(bcp_x + PANEL_W - 10, bcp_y + BOT_H - 8, "TradeWave.AI", TEXT_COLOR, 10, "end")}
+  <!-- Watermark + method line -->
+  {watermark}
 
 </svg>'''
 

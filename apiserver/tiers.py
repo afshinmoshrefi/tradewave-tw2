@@ -5,7 +5,7 @@ read this. Merged into the billing/Stripe metadata at integration.
 Invariants: market scope uses the permanent resource keys '0'..'16'; ML-eligible markets
 are 0,1,2,3,4,11; returns are always percentages (raw prices never exposed).
 
-ML access model (2026-05-31): ML signals are available to EVERY tier, METERED PER DAY via
+ML access model (2026-05-31): ML scores are available to EVERY tier, METERED PER DAY via
 `ml_daily_limit` (None = unlimited). Free Explorer gets a real taste (5/day) - the upsell
 is unlimited ML, not ML-vs-no-ML. The daily count is enforced in ml_quota.py (Redis db4).
 `ml_access` stays True on every tier and now just means "ML is offered at all" (it is).
@@ -22,7 +22,7 @@ ALL_MARKETS = [str(i) for i in range(0, 17) if i not in (14, 15)]
 # rate = (per_minute, per_day); opp_limit = max results per /opportunities call.
 #
 # `history` is RESERVED / NOT IMPLEMENTED (verified 2026-06-12): no code path consumes
-# it - free keys receive the same live signals as paid tiers. It is kept only as a
+# it - free keys receive the same live seasonal patterns as paid tiers. It is kept only as a
 # placeholder for a possible future delayed-data free tier. Do NOT market it: the
 # pricing page deliberately carries no data-freshness bullet until enforcement exists.
 API_TIERS = {

@@ -233,7 +233,8 @@ def render_html(df, opp_date):
         )
     rows_html = '\n'.join(rows) if rows else (
         "<tr><td colspan='11' style='text-align:center;padding:32px;color:#9ca3af'>"
-        "No picks above filter for " + opp_date + ".</td></tr>"
+        "No pattern cleared our quality bar for " + opp_date + ". "
+        "We would rather show you nothing than show you noise - check back before tomorrow's open.</td></tr>"
     )
 
     nice_date = datetime.datetime.strptime(opp_date, '%Y-%m-%d').strftime('%B %-d, %Y')
@@ -244,8 +245,8 @@ def render_html(df, opp_date):
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daily AI Pick - Top 10 Patterns for {NICE_DATE} | TradeWave</title>
-  <meta name="description" content="TradeWave top 10 AI-scored seasonal patterns for {NICE_DATE}, ranked by Sharpe Ratio across 16 markets.">
+  <title>Daily Pick - The Top 10 Seasonal Patterns for {NICE_DATE} | TradeWave</title>
+  <meta name="description" content="The 10 strongest repeating seasonal patterns we detected for {NICE_DATE}, ranked by Sharpe and scored by our ML model, across every market we track. Free, every morning. A research read, not a recommendation - you pick the window and judge the odds.">
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="{FAVICON}">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -304,9 +305,15 @@ def render_html(df, opp_date):
     body = '''
   <div class="container">
     <div class="pick-hero">
-      <h1>Daily AI Pick</h1>
-      <p>Top 10 patterns for {NICE_DATE}, ranked by Sharpe Ratio across all markets.</p>
+      <h1>Today's Top 10 Seasonal Patterns</h1>
+      <p>The ten strongest repeating seasonal patterns we detected for {NICE_DATE}, ranked by Sharpe and scored by our ML model, across every market we track. Free, every morning before the open.</p>
+      <p style="max-width:760px;margin:18px auto 0;color:var(--text-secondary);font-size:15px;">
+        These are patterns, not predictions. Each row is a window where a symbol has tended to move the same way around this date across its history. We show the odds, not advice - you choose the lookback and judge the result yourself in the Wave Viewer. <a href="/research.html" style="color:var(--accent);text-decoration:none;">See how we detect them.</a>
+      </p>
     </div>
+    <p style="max-width:980px;margin:8px auto 0;color:var(--text-muted);font-size:13px;text-align:center;">
+      <strong style="color:var(--text-secondary);">How to read a row:</strong> Dir is the direction the pattern leaned (long up, short down). Entry and Exit mark the historical window; Hold is its length. Lookback is how many years of history stand behind it. Sharpe rewards steady moves over lucky ones, and Avg Profit is the mean move across those years - the historical average, not a forecast. Open any symbol to audit every year yourself.
+    </p>
     <table class="pick-table">
       <thead>
         <tr>
@@ -319,13 +326,23 @@ def render_html(df, opp_date):
 {ROWS}
       </tbody>
     </table>
+    <div style="max-width:760px;margin:8px auto 0;text-align:center;padding:28px 24px;
+      background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;">
+      <p style="color:var(--text-primary);font-size:18px;font-weight:700;margin-bottom:8px;">This is the free slice. The full board is wider.</p>
+      <p style="color:var(--text-secondary);font-size:15px;margin-bottom:18px;">
+        These ten are today's best across every market. Open a free account to choose your own lookback - 1 to 99 years, by calendar or election cycle - and read each pattern's full year-by-year record: win rate, average return, and risk band. The ML win probability comes with full access, free for your first 7 days. The same numbers we publish to the public ledger. We would rather be audited than believed.
+      </p>
+      <a href="/signup" style="display:inline-block;background:var(--accent);color:#fff;
+        font-weight:700;font-size:15px;text-decoration:none;padding:12px 24px;border-radius:10px;">Open a Free Account</a>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:12px;">No credit card. Keep a free plan that stays useful, or try full access for 7 days.</p>
+    </div>
     <div class="pick-foot">
       &copy; {YEAR} Tara Data Research LLC &middot;
       <a href="/research.html">Research</a> &middot;
       <a href="/patterns/">Tickers</a> &middot;
       <a href="/app/">Wave Viewer</a>
       <p style="margin-top:14px;">TradeWave is a research platform. It is not a brokerage and does not execute trades.
-      All data is historical and for informational and educational purposes only.</p>
+      All data is historical and for informational and educational purposes only. Nothing here is a recommendation to buy or sell any security.</p>
     </div>
   </div>
 </body>

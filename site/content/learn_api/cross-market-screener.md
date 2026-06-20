@@ -1,16 +1,23 @@
 ---
 title: "Build a cross-market seasonal screener with /scan"
 slug: "cross-market-screener"
-description: "Use the flagship GET /scan endpoint to rank seasonal opportunities across every market in your scope, with honest NO_SIGNAL filtering."
+description: "Use the flagship GET /scan endpoint to rank seasonal opportunities across every market in your scope, with honest neutral-bias filtering."
 order: 3
 read_minutes: 8
 ---
 
 ## Why /scan is the endpoint you actually want
 
-Most TradeWave integrations start by reaching for `/opportunities`, the single-date primitive. That works, but it answers a narrow question: "what is seasonal for this one symbol on this one date?" When you are building a screener, you want the opposite - cast a wide net across many markets and a forward window, then let the engine rank what surfaces.
+Most TradeWave integrations start by reaching for `/opportunities`, the single-date primitive. That works, but it answers a narrow question: "what seasonal pattern is active for this one symbol on this one date?" When you are building a screener, you want the opposite - cast a wide net across many markets and a forward window, then let the engine rank what surfaces.
 
-That is what `GET /scan` does. It is the HTTP face of `find_best_opportunities`, the same flagship tool exposed to AI agents over MCP. You hand it a set of markets and a time window; it evaluates the seasonal setups inside that window, scores each one, and returns a ranked list of `SignalCard` objects. Every card is a derived signal - percentages and a normalized seasonal index, never a raw price or an OHLCV bar.
+That is what `GET /scan` does. It is the HTTP face of `find_best_opportunities`, the same flagship tool exposed to AI agents over MCP. You hand it a set of markets and a time window; it scores every seasonal pattern that falls inside that window and returns them ranked. Each result is a detected seasonal pattern expressed as percentages and a normalized seasonal index, never a raw price or an OHLCV bar.
+
+Want to run a call before you read any further? The public demo token `tw_demo_explore` works on a small read-only slice of markets, no signup:
+
+```bash
+curl -s "{{API_BASE}}/scan?window=next_month&limit=5" \
+  -H "Authorization: Bearer tw_demo_explore" | jq '.opportunities[0]'
+```
 
 Everything below is illustrative. Live responses carry a disclaimer and are educational, not personalized advice.
 
@@ -33,8 +40,8 @@ GET /scan?markets=&window=&direction=&min_win_rate=&min_years=&rank_by=&limit=
 A few things to internalize:
 
 - `historical_win_rate` is the share of profitable years (0..1). It is NOT `ml_win_prob`, which is the ML model's predicted probability for a setup. Two distinct numbers, never interchanged.
-- `window=now` finds setups whose entry window is open right now. The date-range form is for backtest-style "what is seasonal between these two dates" scans.
-- `rank_by=sharpe` is the default because risk-adjusted return is usually what you want to sort a screener by. Switch to `edge` to rank by the blended `edge_score`, or `ml` to surface the model's top picks.
+- `window=now` finds patterns whose entry window is open right now. The date-range form is for backtest-style "what seasonal patterns fire between these two dates" scans.
+- `rank_by=sharpe` is the default because risk-adjusted return is usually what you want to sort a screener by. Switch to `edge` to rank by the blended `edge_score`, or `ml` to surface the model's top-scored patterns.
 
 ## A Python screener
 
@@ -74,7 +81,7 @@ if data.get("enrichment_capped"):
 
 print(f"\n{'#':<3}{'SYMBOL':<8}{'DIR':<6}{'WIN%':<7}{'YRS':<5}HEADLINE")
 for c in cards:
-    if c["signal"] == "NO_SIGNAL":
+    if c["bias"] == "neutral":
         continue
     s = c["stats"]
     print(
@@ -83,7 +90,7 @@ for c in cards:
     )
 ```
 
-`min_win_rate` and `min_years` are enforced server-side, so the cards you get back already clear those floors. Re-checking them client-side (as the loop does by skipping `NO_SIGNAL`) is belt-and-suspenders, not duplication.
+`min_win_rate` and `min_years` are enforced server-side, so the cards you get back already clear those floors. Re-checking them client-side (as the loop does by skipping `neutral` cards) is belt-and-suspenders, not duplication.
 
 ## Reading the envelope: evaluated_count and enrichment_capped
 
@@ -94,9 +101,9 @@ The top-level response carries two fields worth understanding:
 
 ML also only covers US stocks, indices, and ETFs (market ids 0, 1, 2, 3, 4, 11) and only shorter seasonal holds (up to about 90 days). Longer holds return `ml: null` with a `tier_notes` explaining the model covers shorter holds. So a `null` `ml` block can mean "out of budget," "not an ML-eligible market," or "hold too long" - all three are normal.
 
-## Honest ranking: NO_SIGNAL is a feature
+## Honest ranking: a neutral bias is a feature
 
-A screener that always hands you 15 trades is lying to you. `/scan` does not. When a candidate is the best available but still weak, the card comes back with `signal: "NO_SIGNAL"` and no `order_ticket`. Specifically, a setup is `NO_SIGNAL` when `edge_score < 40`, or `historical_win_rate < 0.55`, or `years_tested < 5`.
+A screener that always hands you 15 trades is lying to you. `/scan` does not. When a candidate ranks at the top but is still weak, the card comes back with `bias: "neutral"` and no `order_ticket`. Concretely, a pattern is flagged `neutral` when `edge_score < 40`, or `historical_win_rate < 0.55`, or `years_tested < 5`. Treat that as the floor: build your UI to render a card without an `order_ticket` rather than assume one is always present.
 
 ```json
 {
@@ -104,7 +111,7 @@ A screener that always hands you 15 trades is lying to you. `/scan` does not. Wh
   "symbol": "EXMPL",
   "market": {"id": "0", "name": "DOW 30 STOCKS"},
   "direction": "long",
-  "signal": "NO_SIGNAL",
+  "bias": "neutral",
   "edge_score": 33,
   "stats": {"historical_win_rate": 0.52, "sharpe_ratio": 0.4, "years": "6"},
   "ml": null,
@@ -114,7 +121,7 @@ A screener that always hands you 15 trades is lying to you. `/scan` does not. Wh
 }
 ```
 
-If your whole scan comes back as `NO_SIGNAL` cards, that is the engine telling you nothing in that window clears the bar. Conflict-free honesty like this is the point of the product: we show the edge and the timing, you place the trade at any broker, and we never pretend an edge exists when it does not.
+If your whole scan comes back as `neutral` cards, that is the engine telling you nothing in that window clears the bar. The API gives you the edge and the timing; what you do with it (and where you trade) is yours. It will not manufacture an edge that the history does not support, so handle the empty case in your code instead of treating it as a fault.
 
 ## The curl version
 
@@ -123,12 +130,12 @@ For a quick check from a shell or a cron job, the same scan in `curl`:
 ```bash
 curl -s "{{API_BASE}}/scan?markets=0,1,2,3,4&window=next_month&direction=long&min_win_rate=0.65&min_years=10&rank_by=sharpe&limit=15" \
   -H "Authorization: Bearer $TW_API_KEY" \
-  | jq '.opportunities[] | select(.signal != "NO_SIGNAL")
+  | jq '.opportunities[] | select(.bias != "neutral")
         | {rank, symbol, dir: .direction, win: .stats.historical_win_rate, headline}'
 ```
 
-Get a key at [your account console]({{CONSOLE_URL}}). Tier scope (which markets are in_scope) and ML metering shape live on the [API pricing page]({{PRICING_URL}}) and your console - check there rather than hardcoding counts, since they can change.
+Swap `$TW_API_KEY` for `tw_demo_explore` to try this without a key first. When you are ready for your full scope, get a key at [your account console]({{CONSOLE_URL}}). Tier scope (which markets are in_scope) and ML metering shape live on the [API pricing page]({{PRICING_URL}}) and your console - check there rather than hardcoding counts, since they can change.
 
 ## Where to go next
 
-Once a `/scan` card looks interesting, drill in with `GET /analyze/{symbol}` for one rich `SignalCard` plus `other_setups`, or pull the forward-tested receipts behind `GET /daily-pick`. The screener finds candidates; the analyze and daily-pick endpoints give you the full per-year track record to decide. Building an agent instead? The same ranking is one MCP call to `find_best_opportunities` at [the MCP endpoint]({{MCP_URL}}).
+Once a `/scan` card looks interesting, drill in with `GET /analyze/{symbol}` for one rich `PatternCard` plus `other_setups`, or pull the forward-tested receipts behind `GET /daily-pick`. The screener finds candidates; the analyze and daily-pick endpoints give you the full per-year track record to decide. Building an agent instead? The same ranking is one MCP call to `find_best_opportunities` at [the MCP endpoint]({{MCP_URL}}).

@@ -14,8 +14,8 @@ to them; the deploy step publishes them under developers.tradewave.ai/docs/. Run
 
   ./venv/bin/python site/api_docs/generate_api_extras.py
 
-Signals-only safety note: these artifacts only describe the public /v1 surface (which is
-signals-only); they expose no raw-price endpoints.
+Seasonal-patterns-only safety note: these artifacts only describe the public /v1 surface (which is
+seasonal-patterns-only); they expose no raw-price endpoints.
 """
 import ast
 import json
@@ -48,7 +48,7 @@ _PARAM_EXAMPLES = {
 # Path-param example values (substituted into the URL path).
 _PATH_EXAMPLES = {"symbol": "DOV", "market_id": "2"}
 
-# The /score POST body example (signals-only inputs; the response carries the ML block).
+# The /score POST body example (seasonal-pattern inputs only; the response carries the ML block).
 _SCORE_BODY = {
     "opportunities": [
         {"symbol": "DOV", "date": "2026-06-02", "days_out": 30, "direction": "long", "market": "2"}
@@ -235,7 +235,7 @@ def build_postman(spec: dict) -> str:
     collection = {
         "info": {
             "name": "TradeWave Data API (v1)",
-            "description": ("Seasonal-edge + ML trading signals. Signals only - no raw prices. "
+            "description": ("Seasonal-edge + ML-scored seasonal patterns. Seasonal patterns only - no raw prices. "
                             f"Set the collection variable api_key to your tw_live_ key (get one at {CONSOLE_URL}). "
                             f"Docs: {DOCS_URL}"),
             "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -253,7 +253,7 @@ def build_postman(spec: dict) -> str:
 def build_well_known_mcp() -> str:
     manifest = {
         "name": "TradeWave",
-        "description": ("Seasonal-edge and ML trading signals for AI agents. Signals only "
+        "description": ("Seasonal-edge and ML-scored seasonal patterns for AI agents. Seasonal patterns only "
                         "(percentages and a normalized 0-100 seasonal index, never raw prices); "
                         "broker-agnostic. Includes a public, forward-tested daily-pick track record."),
         "version": "1.0.0",

@@ -1,6 +1,6 @@
 {
   "name": "TradeWave",
-  "description": "Seasonal-edge and ML trading signals for AI agents. Signals only (percentages and a normalized 0-100 seasonal index, never raw prices); broker-agnostic. Includes a public, forward-tested daily-pick track record.",
+  "description": "Seasonal-edge and ML-scored seasonal patterns for AI agents. Seasonal patterns only (percentages and a normalized 0-100 seasonal index, never raw prices); broker-agnostic. Includes a public, forward-tested daily-pick track record.",
   "version": "1.0.0",
   "documentation": "https://developers-dev.trxstat.com/docs",
   "mcp": {
@@ -18,15 +18,15 @@
   "tools": [
     {
       "name": "find_best_opportunities",
-      "description": "THE flagship 'what should I trade right now' tool. Scan across markets, rank every seasonal setup by Sharpe ratio (mirroring TradeWave's own daily-pick selection: filter then rank by Sharpe), and return ready, evidence-backed SignalCards (headline + verdict + receipts + a copyable order ticket). Progressive disclosure: each card defaults to the lean DECISION view (signal + verdict + timing + edge + the extend_research hand-off)."
+      "description": "THE flagship 'what should I trade right now' tool. Scan across markets, rank every seasonal setup by Sharpe ratio (mirroring TradeWave's own daily-pick selection: filter then rank by Sharpe), and return ready, evidence-backed Pattern Cards (headline + verdict + receipts + a copyable order ticket). Progressive disclosure: each card defaults to the lean DECISION view (verdict + timing + edge + the extend_research hand-off)."
     },
     {
       "name": "analyze_symbol",
-      "description": "The bundled deep-dive on ONE ticker - one call, the full evidence-backed answer. Returns a single rich SignalCard (best setup + verdict + receipts + order ticket) plus the symbol's other setups, fused server-side so the win rate is consistent everywhere. The card carries an extend_research block telling you exactly how to extend it with your OWN news / fundamentals / earnings tools."
+      "description": "The bundled deep-dive on ONE ticker - one call, the full evidence-backed answer. Returns a single rich Pattern Card (best setup + verdict + receipts + order ticket) plus the symbol's other setups, fused server-side so the win rate is consistent everywhere. The card carries an extend_research block telling you exactly how to extend it with your OWN news / fundamentals / earnings tools."
     },
     {
       "name": "explain_pick",
-      "description": "Today's AI daily pick presented as a full SignalCard WITH its live, forward-tested track record - the strongest proof TradeWave can offer (the pick is made in advance, then scored later, so the record is real out-of-sample performance, not a backtest)."
+      "description": "Today's AI daily pick presented as a full Pattern Card WITH its live, forward-tested track record - the strongest proof TradeWave can offer (the pick is made in advance, then scored later, so the record is real out-of-sample performance, not a backtest)."
     },
     {
       "name": "morning_briefing",
@@ -34,11 +34,11 @@
     },
     {
       "name": "whats_seasonal_now",
-      "description": "The 'what is entering its seasonal window THIS WEEK' tool - the weekly digest. A focused scan of setups whose entry date falls within the next ~10 trading days, returned as ranked SignalCards. Cards default to the lean DECISION view; pass view='table' for a compact ranked list or view='full' for receipts."
+      "description": "The 'what is entering its seasonal window THIS WEEK' tool - the weekly digest. A focused scan of setups whose entry date falls within the next ~10 trading days, returned as ranked Pattern Cards. Cards default to the lean DECISION view; pass view='table' for a compact ranked list or view='full' for receipts."
     },
     {
       "name": "compare_opportunities",
-      "description": "Compare several tickers side-by-side as seasonal trades. Runs a full deep-dive on each symbol and returns their SignalCards together so they can be ranked head-to-head."
+      "description": "Compare several tickers side-by-side as seasonal trades. Runs a full deep-dive on each symbol and returns their Pattern Cards together so they can be ranked head-to-head."
     },
     {
       "name": "list_markets",
@@ -58,7 +58,7 @@
     },
     {
       "name": "get_seasonal_opportunities",
-      "description": "Low-level primitive. Prefer find_best_opportunities (which scans across markets, scores by edge, and returns ready SignalCards) unless you need this exact slice: the raw single-market opportunity list for one date window."
+      "description": "Low-level primitive. Prefer find_best_opportunities (which scans across markets, scores by edge, and returns ready Pattern Cards) unless you need this exact slice: the raw single-market opportunity list for ONE entry date."
     },
     {
       "name": "get_symbol_patterns",
@@ -66,7 +66,7 @@
     },
     {
       "name": "get_seasonal_pattern",
-      "description": "Low-level primitive. Prefer analyze_symbol (it already bundles these stats with the setup, receipts, and ML into one SignalCard) unless you need this exact slice: the bare aggregate stats with nothing else."
+      "description": "Low-level primitive. Prefer analyze_symbol (it already bundles these stats with the setup, receipts, and ML into one Pattern Card) unless you need this exact slice: the bare aggregate stats with nothing else."
     },
     {
       "name": "get_opportunity_chart",
@@ -78,7 +78,7 @@
     },
     {
       "name": "get_daily_pick",
-      "description": "Low-level primitive. Prefer explain_pick (it returns the same pick as a full SignalCard WITH its live forward-tested track record - the strongest proof) unless you need this exact slice: the bare daily-pick payload with no receipts."
+      "description": "Low-level primitive. Prefer explain_pick (it returns the same pick as a full Pattern Card WITH its live forward-tested track record - the strongest proof) unless you need this exact slice: the bare daily-pick payload with no receipts."
     },
     {
       "name": "get_pick_track_record",

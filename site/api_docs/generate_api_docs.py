@@ -510,7 +510,7 @@ def build_quickstart() -> str:
 
     body = f"""
 <h1>Quickstart</h1>
-<p>Make a real, authenticated call to the TradeWave API in the next 30 seconds - no signup, no key, no credit card. A public demo token is built into the examples below. Run one, see live seasonal signals come back, then grab a free key to unlock every symbol and market.</p>
+<p>Make a real, authenticated call to the TradeWave API in the next 30 seconds - no signup, no key, no credit card. A public demo token is built into the examples below. Run one, see live detected seasonal patterns come back, then grab a free key to unlock every symbol and market.</p>
 
 <div class="callout">
   <p><strong>Public demo token: <code class="inline-code">{DEMO}</code></strong> - paste it as-is. It is a constant, not a secret. It is limited to the S&amp;P 500 (<code class="inline-code">market=2</code>) and the 5 tickers <strong>AAPL, MSFT, NVDA, AMZN, TSLA</strong>. A free key (below) unlocks any symbol and any market.</p>
@@ -565,11 +565,11 @@ print(me["tier_name"], "- markets:",
   <p style="margin-top:10px;"><a href="{demo_scan_link}" target="_blank" rel="noopener">{API_BASE}/scan?market=2&amp;limit=5&amp;api_key={DEMO}</a></p>
 </div>
 
-<h2>2. Scan the top seasonal signals</h2>
+<h2>2. Scan the top seasonal patterns</h2>
 
 <p><code class="inline-code">/scan</code> ranks the strongest current setups for a market.
 The demo token scans the full S&amp;P 500 and returns the top <code class="inline-code">limit</code>
-ranked signals:</p>
+ranked seasonal patterns:</p>
 
 <div class="code-tabs">
   <div class="code-tab-bar">
@@ -620,7 +620,7 @@ opportunities.forEach(o =>
       "symbol": "MCO",
       "market": {{ "id": "2", "name": "S&P 500 STOCKS" }},
       "direction": "long",
-      "signal": "BUY",
+      "bias": "bullish",
       "edge_score": 97,
       "edge_basis": "win_rate 1.00 x sharpe 3.7 x 10y history",
       "headline": "MCO long - enter ~Jun 19, hold 29d. Won 10/10 years, avg +5.7%, Sharpe 3.7.",
@@ -653,7 +653,7 @@ opportunities.forEach(o =>
 
 <h2>3. Deep-dive one symbol</h2>
 
-<p><code class="inline-code">/analyze/&lt;symbol&gt;</code> returns the full signal card for one ticker -
+<p><code class="inline-code">/analyze/&lt;symbol&gt;</code> returns the full Pattern Card for one ticker -
 the best current setup plus its full per-year history and a few alternative windows. With the
 demo token, use one of the 5 allowlisted tickers:</p>
 
@@ -692,7 +692,7 @@ print("edge", card["edge_score"], "win rate",
     "symbol": "AAPL",
     "market": {{ "id": "2", "name": "S&P 500 STOCKS" }},
     "direction": "long",
-    "signal": "BUY",
+    "bias": "bullish",
     "edge_score": 97,
     "headline": "AAPL long - enter ~Jun 25, hold 24d. Won 10/10 years, avg +6.0%, Sharpe 3.4.",
     "setup": {{
@@ -718,7 +718,7 @@ print("edge", card["edge_score"], "win rate",
 
 <div class="callout green">
   <p><strong>The free tier is real.</strong> Create an account and get one API key instantly -
-  no credit card. It returns the same live seasonal signals as the demo, but across <strong>any
+  no credit card. It returns the same live detected seasonal patterns as the demo, but across <strong>any
   symbol and any supported market</strong>, not just the 5 demo tickers.</p>
 </div>
 
@@ -1058,7 +1058,7 @@ EXAMPLE_RESPONSES: dict[str, str] = {
       "symbol": "DOV",
       "market": {"id": "2", "name": "S&P 500 STOCKS"},
       "direction": "long",
-      "signal": "BUY",
+      "bias": "bullish",
       "setup": {"entry_date": "2026-06-01",
                 "entry_window": "2026-05-29 to 2026-06-04",
                 "hold_days": 246, "exit_date": "2027-02-02"},
@@ -1091,7 +1091,7 @@ EXAMPLE_RESPONSES: dict[str, str] = {
       },
       "headline": "DOV long - enter ~Jun 1, hold 246d. Won 10/10 years, avg +18.5%, Sharpe 3.3.",
       "verdict": "Strong, consistent seasonal long.",
-      "disclaimer": "Educational seasonal + ML signal, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+      "disclaimer": "Educational seasonal pattern + ML research, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
       "tier_notes": "ML score shown."
     }
   ]
@@ -1102,7 +1102,7 @@ EXAMPLE_RESPONSES: dict[str, str] = {
     "symbol": "AAPL",
     "market": {"id": "2", "name": "S&P 500 STOCKS"},
     "direction": "long",
-    "signal": "BUY",
+    "bias": "bullish",
     "setup": {"entry_date": "2026-06-25", "entry_window": "2026-06-22 to 2026-06-28",
               "hold_days": 24, "exit_date": "2026-07-19"},
     "edge_score": 91,
@@ -1135,7 +1135,7 @@ EXAMPLE_RESPONSES: dict[str, str] = {
     },
     "headline": "AAPL long - enter ~Jun 25, hold 24d. Won 10/10 years, avg +6.0%, Sharpe 3.4.",
     "verdict": "Strong, consistent seasonal long. Seasonal shape: builds through the window (peak ~day 363), rises overall.",
-    "disclaimer": "Educational seasonal + ML signal, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+    "disclaimer": "Educational seasonal pattern + ML research, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
     "tier_notes": "ML score shown."
   },
   "other_setups": [
@@ -1151,7 +1151,7 @@ EXAMPLE_RESPONSES: dict[str, str] = {
     "symbol": "NVDA",
     "market": {"id": "2", "name": "S&P 500 STOCKS"},
     "direction": "long",
-    "signal": "BUY",
+    "bias": "bullish",
     "setup": {"entry_date": "2026-05-08", "entry_window": "2026-05-05 to 2026-05-11",
               "hold_days": 30, "exit_date": "2026-06-07"},
     "edge_score": 85,
@@ -1186,7 +1186,7 @@ EXAMPLE_RESPONSES: dict[str, str] = {
     },
     "headline": "NVDA long - enter ~May 8, hold 30d. Won 9/11 years, avg +23.8%, Sharpe 2.8.",
     "verdict": "Strong, consistent seasonal long. Seasonal shape: builds through the window (peak ~day 364), rises overall.",
-    "disclaimer": "Educational seasonal + ML signal, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+    "disclaimer": "Educational seasonal pattern + ML research, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
     "tier_notes": "ML score shown."
   },
   "featured_date": "2026-05-08",
@@ -1352,7 +1352,7 @@ def build_api_reference() -> str:
 <p>All endpoints are under <code class="inline-code">{API_BASE}</code>. Every request requires <code class="inline-code">Authorization: Bearer &lt;key&gt;</code>.</p>
 
 <div class="callout">
-  <p><strong>Signals only.</strong> All returns are expressed as percentages. Raw OHLCV data and price levels are never returned. ML is available on every tier, metered per day (free 5/day, unlimited on Pro/Business).</p>
+  <p><strong>Seasonal patterns only.</strong> All returns are expressed as percentages. Raw OHLCV data and price levels are never returned. ML is available on every tier, metered per day (free 5/day, unlimited on Pro/Business).</p>
 </div>
 
 <div class="callout green">
@@ -1401,14 +1401,14 @@ def build_api_reference() -> str:
 def build_mcp_reference() -> str:
     body = f"""
 <h1>MCP Reference</h1>
-<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) that let AI assistants (ChatGPT, Claude, Cursor) reason over seasonal trading signals directly. Consumer apps (ChatGPT, Claude.ai) connect via OAuth - paste the server URL and sign in with your TradeWave account, no API key needed. Dev tools (Claude Desktop, Cursor) bring your own API key. Either way, tier and entitlements flow from the signed-in account or the key.</p>
+<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) that let AI assistants (ChatGPT, Claude, Cursor) reason over detected seasonal patterns directly. Consumer apps (ChatGPT, Claude.ai) connect via OAuth - paste the server URL and sign in with your TradeWave account, no API key needed. Dev tools (Claude Desktop, Cursor) bring your own API key. Either way, tier and entitlements flow from the signed-in account or the key.</p>
 
 <div class="callout">
   <p><strong>A research partner, not a black box.</strong> TradeWave supplies a seasonal + 62-feature-ML statistical edge and the timing only. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
 </div>
 
 <div class="callout">
-  <p><strong>Signals only.</strong> The same contract as the REST API applies. No raw prices or OHLCV data is ever returned. ML tools are available on every tier, metered per day (free 5/day, unlimited on Pro/Business). When the daily limit is reached the tool returns a graceful stub instead of an error.</p>
+  <p><strong>Seasonal patterns only.</strong> The same contract as the REST API applies. No raw prices or OHLCV data is ever returned. ML tools are available on every tier, metered per day (free 5/day, unlimited on Pro/Business). When the daily limit is reached the tool returns a graceful stub instead of an error.</p>
 </div>
 
 <h2>Flagship tools</h2>
@@ -1420,7 +1420,7 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>The workhorse. Scans a market (or the user's watchlist) and returns the strongest seasonal setups right now as ranked decision cards - headline, signal, edge score, entry window, and a research hand-off. Use when the user asks what to trade or when to enter.</p>
+    <p>The workhorse. Scans a market (or the user's watchlist) and returns the strongest seasonal setups right now as ranked decision cards - headline, direction, edge score, entry window, and a research hand-off. Use when the user asks what to trade or when to enter.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">market</code>, <code class="inline-code">window</code> (e.g. "now"), <code class="inline-code">direction</code> (long | short), <code class="inline-code">rank_by</code>, <code class="inline-code">limit</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/scan</code></p>
   </div>
@@ -1720,7 +1720,7 @@ def build_data_dictionary() -> str:
     <tr>
       <td class="field-name">direction</td>
       <td class="field-type">string</td>
-      <td><strong>long</strong> - the seasonal pattern historically rises over the holding period. <strong>short</strong> - it historically falls. This is a historically derived signal, not a recommendation.</td>
+      <td><strong>long</strong> - the seasonal pattern historically rises over the holding period. <strong>short</strong> - it historically falls. This is a historically derived seasonal pattern, not a recommendation.</td>
     </tr>
     <tr>
       <td class="field-name">entry_date</td>
@@ -1833,7 +1833,7 @@ def build_data_dictionary() -> str:
     <tr>
       <td class="field-name">per_year</td>
       <td class="field-type">array</td>
-      <td>On a SignalCard's <code class="inline-code">receipts</code>: one row per lookback year as <code class="inline-code">{year, return_pct, result}</code> - the % return that year and whether it was a win or loss. No price series.</td>
+      <td>On a Pattern Card's <code class="inline-code">receipts</code>: one row per lookback year as <code class="inline-code">{year, return_pct, result}</code> - the % return that year and whether it was a win or loss. No price series.</td>
     </tr>
   </tbody>
 </table>

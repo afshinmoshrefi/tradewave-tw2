@@ -6,7 +6,7 @@
   non-visual plumbing added in <head> (GA/meta/canonical/OG/JSON-LD/robots) and
   before </body> (affiliate tw_ref cookie, MailerLite capture, nav auth-swap,
   pricing toggle). The <style> block and every <section>'s HTML structure are
-  byte-identical to the preview. No em-dashes; signals-only.
+  byte-identical to the preview. No em-dashes; patterns-only.
 -->
 <html lang="en">
 <head>
@@ -364,7 +364,7 @@ footer .links a{color:var(--muted)}
 
 <!-- HERO -->
 <section class="hero"><div class="wrap">
-  <a href="#connect" class="hero-pill"><span class="tag">New</span>Now inside ChatGPT and Claude, free on every plan<span class="arr">&rarr;</span></a>
+  {% if content.mcp_live %}<a href="#connect" class="hero-pill"><span class="tag">New</span>Now inside ChatGPT and Claude, free on every plan<span class="arr">&rarr;</span></a>{% endif %}
   <h1>{{ content.hero.headline }}</h1>
   <p class="section-sub">{{ content.hero.subheadline }}</p>
   <div class="cta-row"><a href="{{ content.hero.cta_primary_url }}" class="btn">{{ content.hero.cta_primary }}</a></div>
@@ -377,7 +377,7 @@ footer .links a{color:var(--muted)}
   </form>
 
   <!-- wave-viewer mock - faithful two-zone (top: opp table + MFE/MAE bars; bottom: swipeable, Trend Chart lead).
-       Signals-only marketing frame: no price column, no aggregate Win%/cumulative-return, no price axis.
+       Patterns-only marketing frame: no price column, no aggregate Win%/cumulative-return, no price axis.
        The LEFT scan table is bound to the live ranked opportunities (content.opportunities);
        the chart/trend art is illustrative. -->
   {% set default_tab = content.opportunities.tabs[content.opportunities.default_tab] %}
@@ -395,7 +395,7 @@ footer .links a{color:var(--muted)}
           <div class="ask2"><span>&gt; ask Tara about any pattern...</span></div>
         </div>
         <div class="chart">
-          <div class="ch"><span>{% if lead %}{{ lead.symbol }} &middot; {{ lead.start_date_formatted }} to {{ lead.end_date_formatted }}{% else %}Per-year history{% endif %}</span><span>MFE / MAE per year</span></div>
+          <div class="ch"><span>{% if lead %}{{ lead.symbol }} &middot; {{ lead.start_date_formatted }} to {{ lead.end_date_formatted }}{% else %}Per-year history{% endif %}</span><span>Each year's high and low</span></div>
           <div class="mae">
             <div class="yr"><div class="u"><i style="height:64%"></i></div><div class="d"><i style="height:40%"></i></div></div>
             <div class="yr"><div class="u"><i style="height:82%"></i></div><div class="d"><i style="height:26%"></i></div></div>
@@ -416,7 +416,7 @@ footer .links a{color:var(--muted)}
           <div class="mae-x"><span>2011</span><span>2015</span><span>2019</span><span>2023</span><span>2025</span></div>
         </div>
       <div class="btm">
-        <div class="bh"><span>15 Year Trend Chart{% if lead %} &middot; {{ lead.company_name }}{% endif %}</span>
+        <div class="bh"><span>Trend Chart Over the Lookback You Set{% if lead %} &middot; {{ lead.company_name }}{% endif %}</span>
           <span class="swipe"><b>&bull; Trend Chart</b><i>&bull; Stats</i><i>&bull; Price + Projection</i></span></div>
         <div class="trend">
           <div class="band" style="left:55%"></div>
@@ -429,34 +429,35 @@ footer .links a{color:var(--muted)}
       </div>
     </div>
   </div>
-  <div class="caption">The Wave-Viewer. End-of-Day Data, Deterministic Statistics</div>
+  <div class="caption">The Wave-Viewer. Same inputs, same numbers, every time. No black box, no hand-picked window.</div>
   <div class="chips">
     <span class="chip">15 Markets</span>
-    <span class="chip">Histories Up to a Century</span>
+    <span class="chip">Lookback You Set: 1-99 Years</span>
+    <span class="chip">Calendar or Election Cycle</span>
     <span class="chip">One Public Ledger</span>
-    <span class="chip flag">Inside ChatGPT and Claude</span>
+    {% if content.mcp_live %}<span class="chip flag">Inside ChatGPT and Claude</span>{% endif %}
   </div>
 </div></section>
 
 <!-- THREE RULES -->
 <div class="rules">
-  <div><b>01</b>Deterministic by Design</div>
-  <div><b>02</b>Receipts on Every Pattern</div>
-  <div><b>03</b>Logged Before the Outcome</div>
+  <div><b>01</b>Deterministic - Same Inputs, Same Numbers</div>
+  <div><b>02</b>Every Pattern Shows Its Full Per-Year Record</div>
+  <div><b>03</b>Every Pick Logged Before the Outcome</div>
 </div>
 
 <!-- THREE DESKS -->
 <section><div class="wrap">
   <div class="eyebrow">One Platform, Three Desks</div>
   <h2>Whoever's Asking, It Bends to You</h2>
-  <p class="section-sub">The engine does not care whether you are a fund running a thousand backtests or a trader testing one hunch you have carried for years. You ask at your own altitude; it answers at the same depth.</p>
+  <p class="section-sub">Same engine for a fund running a thousand backtests and a trader testing one calendar window. You set the markets, the lookback, and the cycle; it returns the ranked patterns with every year's record underneath.</p>
   <div class="cols3">
     <div class="card">
       <div class="thumb"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:55%"></i></div>
-      <h3>Independent and Active Traders</h3>
+      <h3>New and Independent Traders</h3>
       <div class="qq">"What's seasonal in tech right now?"</div>
-      <p>Ask in plain language and get ranked windows with the full per-year history under each. Seven days of everything, then a free plan that stays useful. The daily public-record pick is yours every day at no cost.</p>
-      <a class="lnk" href="#pricing">See the retail view -&gt;</a>
+      <p>Ask a plain-English question and get the patterns that fit, each with its full year-by-year record so you can see how often it has worked. Seven days of everything, then a free plan that stays useful. One free pick lands every day at no cost.</p>
+      <a class="lnk" href="#pricing">See plans for you -&gt;</a>
     </div>
     <div class="card">
       <div class="thumb"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:55%"></i></div>
@@ -468,23 +469,23 @@ footer .links a{color:var(--muted)}
     <div class="card">
       <div class="thumb"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:55%"></i></div>
       <h3>Funds and Enterprise</h3>
-      <div class="qq">"Pull the ranked signals into our own code."</div>
-      <p>License the historical signal file and the trained model for internal backtests over a compiled, multi-decade dataset. A signals-only REST API, multi-seat keys, SSO and audit. Your agent can write a backtest; it cannot make it true.</p>
+      <div class="qq">"Pull the ranked seasonal patterns into our own code."</div>
+      <p>License the historical seasonal-pattern file and the trained model for internal backtests over a compiled, multi-decade dataset. A seasonal-pattern REST API, multi-seat keys, SSO and audit. Your agent can write a backtest; it cannot make it true.</p>
       <a class="lnk" href="#pricing">Talk to us -&gt;</a>
     </div>
   </div>
-  <div class="desk-note">Not different products - the same engine, the same receipts, and the same century of evidence, priced to the job in front of you.</div>
+  <div class="desk-note">Not different products - the same engine, the same receipts, and the same multi-decade record, priced to the job in front of you.</div>
 </div></section>
 
 <!-- RECEIPTS -->
 <section><div class="wrap">
   <div class="eyebrow">You've noticed it for years</div>
-  <h2>Underneath Every AI Answer: Up to a Century of Receipts</h2>
+  <h2>Open Any Pattern and Every Historical Year Is on the Table - Wins and Losses Both</h2>
   <div class="two" style="margin-top:30px">
     <div class="copy">
       <p class="muted">The same calendar window, the same behavior, year after year - most serious traders carry a private list of these hunches, while the evidence stayed folklore. TradeWave was built to test them with statistics, not stories.</p>
-      <p class="muted">A deterministic engine computes seasonal patterns from end-of-day data across 15 markets - US and global equities, indices, ETFs, futures and commodities, currencies, government bonds, and crypto - on histories that reach back as far as a century.</p>
-      <p class="muted">Open any pattern and its complete record is on the table: every historical year's individual result, win consistency, average return, Sharpe, the TradeWave Ratio, the MFE/MAE risk band, and PE-cycle overlays. The same inputs always produce the same answer - no black box, no hand-picked window. Every exact view carries a deep link.</p>
+      <p class="muted">A deterministic engine computes seasonal patterns from end-of-day data across 15 markets - US and global equities, indices, ETFs, futures and commodities, currencies, government bonds, and crypto - on histories reaching back up to 99 years.</p>
+      <p class="muted">Open any pattern and its complete record is on the table: every historical year's individual result, win consistency, average return, Sharpe, the TradeWave Ratio (our return-per-unit-of-risk score), the MFE/MAE risk band (how far it ran up and down each year), and PE-cycle overlays. The same inputs always produce the same answer - no black box, no hand-picked window. Every exact view carries a deep link.</p>
     </div>
     <div class="panelshot">
       <div class="opp">
@@ -495,7 +496,7 @@ footer .links a{color:var(--muted)}
         <div class="row"><span>2020</span><span>L</span><span class="res-w mono">win</span></div>
         <div class="row"><span>2026</span><span>L</span><span class="res-w mono">win</span></div>
       </div>
-      <div class="caption" style="text-align:left;margin-top:12px">Up to a Century of Seasonality, Measured to the Day - wins and losses both on the table</div>
+      <div class="caption" style="text-align:left;margin-top:12px">Up to 99 Years of Seasonality, Measured to the Day - wins and losses both on the table</div>
     </div>
   </div>
 </div></section>
@@ -507,7 +508,7 @@ footer .links a{color:var(--muted)}
     <div class="copy">
       <h2>Machine Learning With One Honest Job: Ranking</h2>
       <p class="muted" style="margin-top:16px">One scan sweeps all 15 markets and surfaces the setups entering their seasonal window now. A separate gradient-boosted model reads 62 features of every qualifying setup and produces a ranking used for exactly one thing: ordering the list.</p>
-      <p class="muted">It does not promise outcomes. The statistics stay deterministic - the model only decides what you look at first. A no-signal result is a real finding, not weak support. Once a day, that ranking plus rules selects a single pick, and it is logged in public before the outcome is known, losses included.</p>
+      <p class="muted">It does not promise outcomes. The statistics stay deterministic - the model only decides what you look at first. A no-pattern result is a real finding, not weak support. Once a day, that ranking plus rules selects a single pick, and it is logged in public before the outcome is known, losses included.</p>
     </div>
     <div class="panelshot">
       <span class="tag">Today's pick - logged to the public ledger</span>
@@ -551,7 +552,7 @@ footer .links a{color:var(--muted)}
           <div class="ask2"><span>&gt; ask anything...</span></div>
         </div>
         <div class="chart">
-          <div class="ch"><span>15 Year &middot; April window</span><span>MFE / MAE per year</span></div>
+          <div class="ch"><span>15 Year &middot; April window</span><span>Each year's high and low</span></div>
           <div class="mae">
             <div class="yr"><div class="u"><i style="height:70%"></i></div><div class="d"><i style="height:34%"></i></div></div>
             <div class="yr"><div class="u"><i style="height:50%"></i></div><div class="d"><i style="height:58%"></i></div></div>
@@ -572,7 +573,7 @@ footer .links a{color:var(--muted)}
           <div class="mae-x"><span>2011</span><span>2015</span><span>2019</span><span>2023</span><span>2025</span></div>
         </div>
       <div class="btm">
-        <div class="bh"><span>15 Year Trend Chart &middot; April window</span>
+        <div class="bh"><span>Trend Chart &middot; 15 Year &middot; April window</span>
           <span class="swipe"><b>&bull; Trend Chart</b><i>&bull; Stats</i><i>&bull; Price + Projection</i></span></div>
         <div class="trend">
           <div class="band" style="left:23%"></div>
@@ -587,25 +588,27 @@ footer .links a{color:var(--muted)}
   </div>
 </div></section>
 
-<!-- MCP (visible - the "inside ChatGPT and Claude" section, ungated) -->
+<!-- MCP (the "inside ChatGPT and Claude" section, gated to content.mcp_live) -->
+{% if content.mcp_live %}
 <section><div class="wrap">
   <div class="eyebrow">AI layer three - take it with you <span class="newbadge">New</span></div>
   <div class="two">
     <div class="panelshot">
       <div class="bub a" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">ChatGPT &middot; TradeWave connector enabled</div>
       <div class="bub u">Scan US tech for windows opening this month.</div>
-      <div class="bub a">3 setups entering their seasonal window. Movement shown as % and a 0 to 100 index, signals only - no price levels.</div>
+      <div class="bub a">3 setups entering their seasonal window. Movement shown as % and a 0 to 100 index, seasonal patterns only - no price levels.</div>
     </div>
     <div class="copy">
-      <h2 id="connect">TradeWave Works Inside ChatGPT and Claude</h2>
-      <p class="muted" style="margin-top:14px">Add TradeWave to ChatGPT, Claude, or any MCP-capable assistant and sign in with your account. Then just ask: scans, pattern analysis, plain language - the same engine and the same receipts, inside the tools you already use.</p>
-      <p class="muted">Building your own stack? A signals-only REST API comes with a developer portal, Python and TypeScript SDKs, an interactive playground, and full documentation. Your agent can write a backtest. It cannot make it true.</p>
-      <a class="btn" href="{{ content.hero.cta_primary_url }}">Start Free - 7 Days of Everything</a>
+      <h2 id="connect">A Pattern API for Your Stack - and It Works Inside ChatGPT and Claude</h2>
+      <p class="muted" style="margin-top:14px">A documented REST API delivers the same deterministic seasonal patterns and rankings to your code: Python and TypeScript SDKs, an interactive playground, multi-seat keys, SSO and audit. Your agent can write a backtest. It cannot make it true.</p>
+      <p class="muted">Or add TradeWave to ChatGPT, Claude, or any MCP-capable assistant and sign in with your account. Then just ask: scans, pattern analysis, plain language - the same engine and the same receipts, inside the tools you already use.</p>
+      <a class="btn" href="{{ content.hero.cta_primary_url }}">Start Free - Full Access for 7 Days</a>
       <a class="lnk" href="{{ content.developers_url }}" style="margin-left:16px">Open the developer portal -&gt;</a>
       <div class="micro">No credit card required.</div>
     </div>
   </div>
 </div></section>
+{% endif %}
 
 <!-- A TUESDAY -->
 <section><div class="wrap">
@@ -641,7 +644,7 @@ footer .links a{color:var(--muted)}
     </div>
     <div class="panelshot">
       <div class="caption" style="text-align:left;margin-bottom:8px">/methodology - what we compute, how, and its limits</div>
-      <p class="muted" style="font-size:.92rem">Deterministic seasonal statistics from end-of-day data. The model ranks; it does not predict outcomes. Every figure on the platform traces to a per-year table you can open. Anyone can audit the live record, even an AI agent.</p>
+      <p class="muted" style="font-size:.92rem">Deterministic seasonal statistics from end-of-day data across 15 markets, over any 1 to 99 year lookback, calendar or election cycle. Two separate published metrics, never blended: held-to-close win rate and target-hit rate, both over the same set of resolved picks. The model only ranks; it predicts nothing. Every figure traces to a per-year table you can open, and anyone, including an AI agent, can audit the live record.</p>
       <p class="faint" style="font-size:.85rem">Not investment advice, and past results never guarantee future ones. We don't ask you to take the claim on faith - the evidence and the record are public, so you can check every number yourself.</p>
     </div>
   </div>
@@ -702,8 +705,8 @@ footer .links a{color:var(--muted)}
     {% else %}
     <div class="na"><div class="d">2026-06-15</div><p>Seasonal Market News: what the engine sees in current US tech.</p></div>
     <div class="na"><div class="d">2026-06-13</div><p>The June window in energy, read against the PE cycle.</p></div>
-    <div class="na"><div class="d">2026-06-11</div><p>Why a no-signal week is still a finding.</p></div>
-    <div class="na"><div class="d">Insights</div><p>How the statistics are built - and what a century of data cannot justify.</p></div>
+    <div class="na"><div class="d">2026-06-11</div><p>Why a no-pattern week is still a finding.</p></div>
+    <div class="na"><div class="d">Insights</div><p>How the statistics are built - and what decades of data cannot justify.</p></div>
     {% endif %}
   </div>
   <div style="margin-top:18px"><a class="lnk" href="{{ content.articles_library_url }}">Browse the library -&gt;</a></div>
@@ -711,8 +714,8 @@ footer .links a{color:var(--muted)}
 
 <div class="close"><div class="wrap">
   <h2>Bring Your Hunches</h2>
-  <p class="section-sub" style="margin:0 auto 22px;text-align:center">Test the calendar windows you've carried for years against up to a century of receipts - in the platform, with Tara beside the chart. Seven days of everything, free. A free plan that keeps working after.</p>
-  <a class="btn" href="{{ content.hero.cta_primary_url }}">Start Free - 7 Days of Everything</a>
+  <p class="section-sub" style="margin:0 auto 22px;text-align:center">Test the calendar windows you've carried for years against up to 99 years of receipts - in the platform, with Tara beside the chart. Seven days of everything, free. A free plan that keeps working after.</p>
+  <a class="btn" href="{{ content.hero.cta_primary_url }}">Start Free - Full Access for 7 Days</a>
   <div class="micro">No credit card required.</div>
 </div></div>
 

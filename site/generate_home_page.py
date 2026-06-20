@@ -946,16 +946,19 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 
         # -- Meta --
         "meta": {
-            "title": "TradeWave - The Invisible Evidence Behind High-Probability Trades",
+            "title": "TradeWave - Seasonal Stock Pattern Research, Audited in Public",
             "description": (
-                "TradeWave's deterministic seasonal engine maps recurring "
-                "calendar patterns across 15 markets on histories up to a "
-                "century deep, then an AI model ranks them. Every daily pick is "
-                "logged to a public ledger before the outcome is known - losses "
-                "included. See it free, and audit the record yourself."
+                "TradeWave detects recurring seasonal patterns from end-of-day "
+                "data across 15 markets, over a lookback you choose: 1 to 99 "
+                "years, calendar or election cycle. The engine is deterministic, "
+                "same inputs and same numbers, and the model only ranks, it "
+                "predicts nothing. Every daily pick is logged to a public ledger "
+                "before the outcome, losses included. "
+                + ("REST API and MCP included. " if MCP_LIVE else "REST API included. ")
+                + "Research, not advice."
             ),
             "keywords": (
-                "seasonal trading, stock market patterns, AI trading signals, "
+                "seasonal trading, stock market patterns, seasonal pattern research, "
                 "quantitative trading, pattern scoring, machine learning stocks, "
                 "wave viewer, election cycle trading, S&P 500 patterns, market history"
             ),
@@ -981,24 +984,22 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # the dynamic _hero_headline() is retained as headline_dynamic in case a
         # future variant wants it, but the template binds the static headline.
         "hero": {
-            "headline": "The Invisible Evidence Behind High-Probability Trades",
+            "headline": "See Which Stocks Repeat the Same Seasonal Move, and How Often It Has Held Up",
             "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
-                "Every security leaves evidence of its performance throughout "
-                "its history that most people can't see. For example, when a "
-                "security rises in a window 19 out of the last 20 years, "
-                "TradeWave pinpoints the behavior, while the AI score calibrates "
-                "the historical probability, giving the analyst evidence that's "
-                "hidden from 99% of traders."
+                "Pick any stock and any lookback, 1 to 99 years, calendar or "
+                "election cycle, and see every time it has repeated a seasonal "
+                "move. You set the window. You see every year. You judge the "
+                "evidence for yourself."
             ),
             # The "New" MCP pill above the headline (links to #connect). Rendered
             # only when content.mcp_live is True (gated, see MCP_LIVE).
             "pill_text": "Now inside ChatGPT and Claude, free on every plan",
             "pill_url": "#connect",
-            "cta_primary": "Start Free - 7 Days of Everything",
+            "cta_primary": "Start Free - Full Access for 7 Days",
             "cta_primary_url": SIGNUP_URL,
-            "cta_micro": "No credit card required. After the week, a free plan that stays useful.",
-            "ask_placeholder": "What's seasonal in US tech in the next two weeks?",
+            "cta_micro": "No credit card. After 7 days, keep a free plan that stays useful.",
+            "ask_placeholder": "Which tech stocks tend to rise this time of year?",
             # Logged-in CTA variants
             "cta_analyst_url":     PRICING_ANALYST_MONTHLY_URL,
             "cta_strategist_url":  PRICING_STRATEGIST_MONTHLY_URL,
@@ -1042,8 +1043,8 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 
         # -- Opportunities Table --
         "opportunities": {
-            "headline": "This Week's Top Patterns, Click Any Row to See the Proof",
-            "context": "Every opportunity links to its historical proof. Click any row to see the full data behind it.",
+            "headline": "This Week's Top Seasonal Patterns - Open Any Row for the Full Per-Year Record",
+            "context": "Each row opens its complete year-by-year history: win rate, average return, Sharpe, risk band, and AI rank.",
             "tabs": opportunities_by_tab,
             "default_tab": default_tab,
             "total_count": total_opps,
@@ -1057,7 +1058,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # TW2: prices come from Stripe via lookup_keys, not hardcoded.
         # See _stripe_prices() above; falls back to defaults if Stripe unreachable.
         "pricing": (lambda _p=_stripe_prices(): {
-            "headline": "Start With Everything. Pay Only If It Earns Its Place on Your Desk",
+            "headline": "Start With Full Access. Keep a Free Plan, or Upgrade When It Pays for Itself",
             "subheadline": (
                 "Every signup starts with 7 days of the full platform, then a "
                 "free plan that stays useful. Same engine, same receipts, "
@@ -1206,9 +1207,9 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 
         # Three-rules band under the hero.
         "three_rules": [
-            {"num": "01", "text": "Deterministic by Design"},
-            {"num": "02", "text": "Receipts on Every Pattern"},
-            {"num": "03", "text": "Logged Before the Outcome"},
+            {"num": "01", "text": "Deterministic - Same Inputs, Same Numbers"},
+            {"num": "02", "text": "Every Pattern Shows Its Full Per-Year Record"},
+            {"num": "03", "text": "Every Pick Logged Before the Outcome"},
         ],
 
         # "Whoever's Asking, It Bends to You" - three desks (static marketing).
@@ -1216,27 +1217,28 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             "eyebrow": "One Platform, Three Desks",
             "headline": "Whoever's Asking, It Bends to You",
             "sub": (
-                "The engine does not care whether you are a fund running a "
-                "thousand backtests or a trader testing one hunch you have "
-                "carried for years. You ask at your own altitude; it answers at "
-                "the same depth."
+                "Same engine for a fund running a thousand backtests and a "
+                "trader testing one calendar window. You set the markets, the "
+                "lookback, and the cycle; it returns the ranked patterns with "
+                "every year's record underneath."
             ),
             "note": (
                 "Not different products - the same engine, the same receipts, "
-                "and the same century of evidence, priced to the job in front "
+                "and the same multi-decade record, priced to the job in front "
                 "of you."
             ),
             "cards": [
                 {
-                    "audience": "Independent and Active Traders",
+                    "audience": "New and Independent Traders",
                     "question": "\"What's seasonal in tech right now?\"",
                     "blurb": (
-                        "Ask in plain language and get ranked windows with the "
-                        "full per-year history under each. Seven days of "
-                        "everything, then a free plan that stays useful. The "
-                        "daily public-record pick is yours every day at no cost."
+                        "Ask a plain-English question and get the patterns that "
+                        "fit, each with its full year-by-year record so you can "
+                        "see how often it has worked. Seven days of everything, "
+                        "then a free plan that stays useful. One free pick lands "
+                        "every day at no cost."
                     ),
-                    "cta_text": "See the retail view",
+                    "cta_text": "See plans for you",
                     "cta_url": "#pricing",
                 },
                 {
@@ -1254,13 +1256,13 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                 },
                 {
                     "audience": "Funds and Enterprise",
-                    "question": "\"Pull the ranked signals into our own code.\"",
+                    "question": "\"Pull the ranked seasonal patterns into our own code.\"",
                     "blurb": (
-                        "License the historical signal file and the trained "
-                        "model for internal backtests over a compiled, "
-                        "multi-decade dataset. A signals-only REST API, "
-                        "multi-seat keys, SSO and audit. Your agent can write a "
-                        "backtest; it cannot make it true."
+                        "License the historical seasonal-pattern dataset and the "
+                        "trained ranking model for internal backtests over a "
+                        "compiled, multi-decade history. A pattern REST API with "
+                        "SDKs, multi-seat keys, SSO and audit logs. Your agent "
+                        "can write a backtest; it cannot make it true."
                     ),
                     "cta_text": "Talk to us",
                     "cta_url": CONTACT_URL,
@@ -1287,7 +1289,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         "desk_pricing": {
             "name": "Desk",
             "price": "From $4,800/yr",
-            "detail": "signal file + model + API + multi-seat + SSO",
+            "detail": "pattern dataset + ranking model + REST API + multi-seat + SSO + audit",
             "cta_text": "Talk to us",
             "cta_url": CONTACT_URL,
         },

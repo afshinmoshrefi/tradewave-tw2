@@ -1,12 +1,12 @@
-"""SignalCard builder - the ONE source of truth for the flagship card object.
+"""PatternCard builder - the ONE source of truth for the flagship card object.
 
-Implements api/SIGNALCARD_SPEC.md sections 1-5. The gateway endpoints (/v1/scan,
+Implements api/PATTERNCARD_SPEC.md sections 1-5. The gateway endpoints (/v1/scan,
 /v1/analyze/<symbol>, /v1/daily-pick) all build their cards HERE so headline/verdict/
 edge_score/receipts are composed identically and exactly once.
 
 Hard invariants enforced here (mirrors the spec):
-- SIGNALS ONLY. No raw OHLCV / last price / price level / limit price is ever placed
-  on a card. All movement is percentages; the seasonal curve is a 0-100 index.
+- DERIVED SEASONAL PATTERNS ONLY. No raw OHLCV / last price / price level / limit price is
+  ever placed on a card. All movement is percentages; the seasonal curve is a 0-100 index.
 - `historical_win_rate` (share of profitable years) and `ml_win_prob` (the ML model's
   predicted probability, Pro-only) are DISTINCT named fields - never both "win rate".
 - `years` and window labels stay STRINGS. Market ids are the permanent keys '0'..'16'.
@@ -25,11 +25,11 @@ log = logging.getLogger("apiserver.cards")
 
 # The exact, regulator-facing disclaimer. Baked onto every card (spec section, DISCLAIMER).
 DISCLAIMER = (
-    "Educational seasonal + ML signal, not personalized investment advice and not a "
+    "Educational seasonal pattern + ML research, not personalized investment advice and not a "
     "recommendation to buy or sell. Past performance is not indicative of future results."
 )
 
-# NO_SIGNAL / low-conviction thresholds (spec section 4).
+# neutral / low-conviction thresholds (spec section 4).
 MIN_EDGE_SCORE = 40
 MIN_WIN_RATE = 0.55
 MIN_YEARS_TESTED = 5
@@ -224,7 +224,7 @@ def _best_worst(per_year):
 def curve_summary(section_curve):
     """Describe the TREND OF THE SECTION - the slice of the normalized trend chart that
     spans the trade's hold window (entry -> exit), NOT the whole annual cycle. The caller
-    passes the already-sliced section (build_signal_card slices the curve to hold_days,
+    passes the already-sliced section (build_pattern_card slices the curve to hold_days,
     because the appserver returns the curve starting at the entry date, so the first
     hold_days points ARE the hold window). `index` is a relative 0-100 seasonal index,
     never a price. Returns {shape, trend, change_pts, peak_day, trough_day} or None.
@@ -344,7 +344,7 @@ def _timing(entry_d, exit_d, as_of_str):
     return {"days_to_entry": d2e, "status": status}
 
 
-def _signal_alignment(historical_win_rate, ml_win_prob, ml_available):
+def _pattern_alignment(historical_win_rate, ml_win_prob, ml_available):
     """Does the per-instance ML view AGREE with the in-sample seasonal win rate? A quick
     'do both point the same way' read. Only a cross-check when an ML score is present
     (Pro / ML-eligible market); otherwise it is seasonal-only. NEVER conflates the two
@@ -407,10 +407,10 @@ def _extend_research(symbol, direction, entry_d, exit_d, hold_days):
 # the card builder                                                             #
 # --------------------------------------------------------------------------- #
 
-def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
+def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
                       ml_available=False, seasonal_curve=None, as_of=None, rank=None,
                       ml_state="na", include_chart=False, receipts_unavailable=False):
-    """Build ONE SignalCard.
+    """Build ONE PatternCard.
 
     opp:            an Opportunity dict from appserver_client (_opp_row_to_obj shape):
                     symbol, market, direction, entry_date, days_out, sharpe_ratio,
@@ -425,7 +425,7 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
     rank:           pre-sorted rank int (the endpoint sets it; the agent never sorts).
     receipts_unavailable: True when the ChartData4 receipts FETCH FAILED (429/timeout/
                     error - not a data gap). The card is stamped receipts_unavailable,
-                    keeps the OppList-level stats/signal, and its verdict degrades to
+                    keeps the OppList-level stats and detected pattern, and its verdict degrades to
                     "data temporarily unavailable" - NEVER to a confident no-edge.
     """
     as_of = as_of or datetime.date.today().isoformat()
@@ -451,7 +451,7 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
         median_return = _num(stats.get("Median Profit"))
 
     # --- extended stats (un-stripped): dispersion + annualized/cumulative return + the
-    # MFE-based Sharpe, all PERCENTAGES / ratios (signals-safe; no price or level). IMPORTANT
+    # MFE-based Sharpe, all PERCENTAGES / ratios (pattern-safe; no price or level). IMPORTANT
     # direction note: unlike the per-year `pct` entries (which the appserver emits LONG-relative,
     # so per_year_returns / per_year_bars sign-flip them for shorts), these AGGREGATE stats are
     # computed by the appserver from a direction-adjusted array (it flips pctArray for shorts
@@ -523,17 +523,17 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
         section_curve = seasonal_curve[: hold_days + 1]
     csum = curve_summary(section_curve)
 
-    # --- NO_SIGNAL rule (spec section 4) ---
+    # --- neutral rule (spec section 4) ---
     if receipts_unavailable:
         # Receipts FAILED to load - an outage is never evidence of absence. Only a LOADED
         # weak win rate may down-rate the setup; an unknown one keeps the OppList-detected
-        # signal with an explicit unavailability note instead of a manufactured NO_SIGNAL.
+        # pattern with an explicit unavailability note instead of a manufactured neutral.
         weak = historical_win_rate is not None and historical_win_rate < MIN_WIN_RATE
     else:
         weak = (edge_score < MIN_EDGE_SCORE
                 or (historical_win_rate is None or historical_win_rate < MIN_WIN_RATE)
                 or years_tested < MIN_YEARS_TESTED)
-    signal = "NO_SIGNAL" if weak else side
+    bias = "neutral" if weak else ("bullish" if direction == "long" else "bearish")
 
     # --- receipts (always present; the trust layer) ---
     if receipts_unavailable:
@@ -568,11 +568,11 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
     # --- headline + verdict (gateway-composed, mandatory) ---
     headline, verdict = _compose_text(
         symbol, direction, entry_d, hold_days, wins, losses, years_tested,
-        avg_return, sharpe, historical_win_rate, signal, receipts["curve_summary"],
+        avg_return, sharpe, historical_win_rate, bias, receipts["curve_summary"],
         receipts_unavailable=receipts_unavailable)
 
-    # --- next_step (omit order_ticket on NO_SIGNAL) ---
-    next_step = _build_next_step(symbol, side, entry_d, exit_d, hold_days, signal)
+    # --- next_step (omit order_ticket on neutral) ---
+    next_step = _build_next_step(symbol, side, entry_d, exit_d, hold_days, bias)
 
     # --- tier_notes (ML is metered per day across all tiers; ml_state set by the route) ---
     tier_notes = _ML_NOTES.get(ml_state, _ML_NOTES["na"])
@@ -582,7 +582,7 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
         "symbol": symbol,
         "market": {"id": str(opp.get("market")), "name": market_name},
         "direction": direction,
-        "signal": signal,
+        "bias": bias,
         "setup": {
             "entry_date": _fmt(entry_d),
             "entry_window": _entry_window(entry_d),
@@ -604,7 +604,7 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
             "years": years_str,
         },
         "ml": ml_block,
-        "alignment": _signal_alignment(historical_win_rate, ml_win_prob, ml_available),
+        "alignment": _pattern_alignment(historical_win_rate, ml_win_prob, ml_available),
         "receipts": receipts,
         "extend_research": _extend_research(symbol, direction, entry_d, exit_d, hold_days),
         "next_step": next_step,
@@ -629,14 +629,14 @@ def build_signal_card(opp, stats, chart_entries, *, market_name, ml=None,
 
 
 def _compose_text(symbol, direction, entry_d, hold_days, wins, losses, years_tested,
-                  avg_return, sharpe, win_rate, signal, csum, receipts_unavailable=False):
+                  avg_return, sharpe, win_rate, bias, csum, receipts_unavailable=False):
     """Build headline + verdict. No em-dashes (use ' - ').
 
     receipts_unavailable: the per-year receipts FAILED to load (outage, not a data gap).
-    NO_SIGNAL can then only mean a LOADED weak win rate, so the absence-derived reasons
+    neutral can then only mean a LOADED weak win rate, so the absence-derived reasons
     ('under 5 years of history') are never claimed, and a non-weak verdict degrades to
     'data temporarily unavailable' instead of asserting a verified record."""
-    if signal == "NO_SIGNAL":
+    if bias == "neutral":
         headline = "%s %s - no high-conviction seasonal edge right now." % (symbol, direction)
         reasons = []
         if win_rate is not None and win_rate < MIN_WIN_RATE:
@@ -673,11 +673,11 @@ def _compose_text(symbol, direction, entry_d, hold_days, wins, losses, years_tes
     return headline.strip(), verdict.strip()
 
 
-def _build_next_step(symbol, side, entry_d, exit_d, hold_days, signal):
-    """The no-broker last mile. NO price level anywhere. Omits order_ticket on NO_SIGNAL."""
+def _build_next_step(symbol, side, entry_d, exit_d, hold_days, bias):
+    """The no-broker last mile. NO price level anywhere. Omits order_ticket on neutral."""
     framing = "TradeWave gives the edge and the timing; you place the trade at your own broker."
-    if signal == "NO_SIGNAL":
-        # Spec: OMIT order_ticket/copy_text/set_reminder on NO_SIGNAL (nothing to act on) -
+    if bias == "neutral":
+        # Spec: OMIT order_ticket/copy_text/set_reminder on neutral (nothing to act on) -
         # the keys are absent, not present-but-null, so `'order_ticket' in next_step` is false.
         return {
             "headline": "Nothing to act on here right now.",
@@ -688,7 +688,7 @@ def _build_next_step(symbol, side, entry_d, exit_d, hold_days, signal):
     order_ticket = {
         "side": side,
         "symbol": symbol,
-        "type": "MARKET",            # no limit / price level - signals-only invariant
+        "type": "MARKET",            # no limit / price level - seasonal-pattern-only invariant
         "time_in_force": "DAY",
         "suggested_entry_date": _fmt(entry_d),
         "suggested_exit_date": _fmt(exit_d),
@@ -745,7 +745,7 @@ _DECISION_STAT_KEYS = ("historical_win_rate", "sharpe_ratio", "avg_return_pct", 
 def project_card(card, view="full"):
     """Shape a built card for the requested verbosity (progressive disclosure):
       'full'     - everything (the default for the raw API; backward-compatible).
-      'decision' - the lean read: signal + verdict + setup/timing + edge + ml + alignment +
+      'decision' - the lean read: bias + verdict + setup/timing + edge + ml + alignment +
                    the research hand-off + next_step, with the heavy arrays (receipts.per_year,
                    chart, detail stats) trimmed. The agent re-requests 'full' for receipts.
       'table'    - a single flat row (for compact multi-card list rendering).
@@ -787,7 +787,7 @@ def _card_row(card):
         "symbol": card.get("symbol"),
         "market": market.get("name") or market.get("id"),
         "direction": card.get("direction"),
-        "signal": card.get("signal"),
+        "bias": card.get("bias"),
         "entry_date": setup.get("entry_date"),
         "hold_days": setup.get("hold_days"),
         "edge_score": card.get("edge_score"),

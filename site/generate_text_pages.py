@@ -60,8 +60,9 @@ DISCLAIMER_SUBTITLE = "What TradeWave is, what it isn't, and how to read what we
 METHODOLOGY_FILENAME = "methodology.html"
 METHODOLOGY_TITLE = "Methodology"
 METHODOLOGY_SUBTITLE = (
-    "How TradeWave computes seasonal patterns, how the ML layer scores them, "
-    "and how to read every number we publish."
+    "How TradeWave detects seasonal patterns over a lookback you choose - "
+    "1 to 99 years, calendar or election cycle - how the ML layer ranks them, "
+    "and how to audit every number we publish."
 )
 METHODOLOGY_LAST_UPDATED = "June 11, 2026"
 
@@ -904,10 +905,10 @@ def build_methodology() -> tuple[str, dict]:
     scoring layer, the curve-fitting defenses, and the forward track record.
     Single source of truth is THIS function; SMN links here over time."""
     body = """
-<p>TradeWave is a quantitative engine that analyzes decades of market history to find recurring seasonal patterns and measure their risk and return. This page explains how the patterns are computed, what the machine-learning layer does and does not do, which statistics we display, and the limitations you should keep in mind. Every number TradeWave publishes can be traced back to the rules on this page.</p>
+<p>TradeWave is a research engine that analyzes decades of market history to find recurring seasonal patterns - the way an instrument has tended to move at the same time of year, or across the four-year presidential election cycle - and to measure their risk and return. You choose how far back it looks, from 1 to 99 years, and you judge the pattern yourself. We would rather be audited than believed, so every number TradeWave publishes traces back to the rules on this page. This page explains how the patterns are computed, what the machine-learning layer does and does not do, which statistics we display, and the limitations you should keep in mind, in enough detail to survive due diligence and reproduce on your own.</p>
 
 <h2>1. What TradeWave does</h2>
-<p>TradeWave ingests long-term daily price data for stocks, indices, exchange-traded funds, futures, currencies, and crypto across 15 markets. The engine scans these histories for recurring calendar-based windows where price has shown a consistent tendency to move higher or lower.</p>
+<p>TradeWave ingests long-term daily price data for stocks, indices, exchange-traded funds, futures, currencies, and crypto across 15 markets. The engine scans these histories for recurring windows where price has shown a consistent tendency to move higher or lower - measured either on the calendar (the same dates each year) or across the four-year presidential election cycle (the same point in the cycle each term). You set how far back to look, from 1 to 99 years; the major indices carry up to roughly a century of actual price history.</p>
 <p>Seasonal pattern statistics in TradeWave are fully rules-based. Given an instrument, a start date, a window length, and a lookback period, the result is deterministic: anyone with the same data and the same rules gets the same numbers. There is no curve fitting or discretionary manual adjustment in the pattern calculations. (Machine learning is used in a separate, clearly labeled scoring layer, described in section 5.)</p>
 <p><strong>Key principle: calculation is separated from narrative.</strong> The engine produces historical statistics from hard market data. Any written commentary that references those results is created afterwards, from the numbers.</p>
 
@@ -916,19 +917,19 @@ def build_methodology() -> tuple[str, dict]:
 <p>Price histories are adjusted for splits, reverse splits, and cash dividends where applicable, so historical returns reflect actual investor experience. Before any pattern is calculated the engine corrects pricing anomalies that conflict with exchange data, aligns trading calendars across holidays and closures, and excludes instruments with insufficient history for the requested lookback.</p>
 
 <h2>3. How a seasonal pattern is defined</h2>
-<p>Every TradeWave pattern is defined by four parameters: the instrument, the pattern start date, the window length in trading days, and the lookback period in years. For each year in the lookback, the engine simulates entering at the official daily close on the start date and exiting at the close after the specified number of trading days. Long patterns treat rising prices as gains; short patterns invert the return series so that downward moves count as positive returns.</p>
+<p>Every TradeWave pattern is defined by four parameters you control: the instrument, the pattern start date, the window length in trading days, and the lookback - 1 to 99 years on the calendar, or aligned to the presidential election cycle. Change any one and the statistics recompute in front of you; there is no fixed, hidden window. For each year in the lookback, the engine simulates entering at the official daily close on the start date and exiting at the close after the specified number of trading days. Long patterns treat rising prices as gains; short patterns invert the return series so that downward moves count as positive returns.</p>
 
 <h2>4. The statistics we display</h2>
 <p><strong>Percent Profitable</strong> - the percentage of lookback years that finished with a positive return in the pattern's direction. Always read it together with the number of years: 12 of 15 is evidence, 3 of 4 is an anecdote.</p>
 <p><strong>Average Profit</strong> - the average return of the winning years only.</p>
 <p><strong>Average Profit (All)</strong> - the average net return across all years, including the losers. This is the number closest to "what the pattern actually earned per year."</p>
-<p><strong>Sharpe Ratio</strong> - a risk-adjusted measure based on the mean and standard deviation of the yearly returns.</p>
+<p><strong>Sharpe Ratio</strong> - a risk-adjusted measure: the average yearly return divided by how much those yearly returns scatter around it. Higher means the pattern paid more steadily, not just more.</p>
 <p><strong>TradeWave Ratio (TWR)</strong> - a proprietary metric reflecting how far price typically travels in the trade direction within the window, incorporating both the final return and the maximum favorable excursion.</p>
-<p><strong>Maximum Favorable Excursion (MFE)</strong> and <strong>Maximum Adverse Excursion (MAE)</strong> - the best intraperiod gain and the worst intraperiod drawdown inside the window, year by year. A pattern can finish positive in every year and still produce uncomfortable drawdowns along the way; MAE is where you see that.</p>
+<p><strong>Maximum Favorable Excursion (MFE)</strong> and <strong>Maximum Adverse Excursion (MAE)</strong> - the best gain and the worst loss reached at any point inside the window, year by year, before it closed. A pattern can finish positive in every year and still produce uncomfortable drawdowns along the way; MAE is where you see that.</p>
 
 <h2>5. The machine-learning layer (what it is, and what it is not)</h2>
 <p>On top of the deterministic pattern statistics, TradeWave runs a separate machine-learning model whose only job is <strong>ranking</strong>: of the patterns whose windows are opening now, which have the strongest combination of characteristics that historically preceded a winning year?</p>
-<p>The model is a gradient-boosted ensemble using 62 features per candidate, trained on roughly 34.7 million data points of historical pattern outcomes and evaluated on 8 years of out-of-sample data, meaning years the model never saw during training. Its output is a win-probability score between 0 and 1. Win rates vary by score band; the daily pick selection draws from the highest bands.</p>
+<p>The model is a gradient-boosted ensemble, a method that combines many small decision rules into one ranking, using 62 features per candidate, trained on roughly 34.7 million data points of historical pattern outcomes and validated walk-forward on 8 years of out-of-sample data - years the model never saw during training, scored as if it were predicting them in real time. Its output is a win-probability score between 0 and 1. Win rates vary by score band; the daily pick selection draws from the highest bands.</p>
 <p>Three things the score is not: it is not a price target, it is not a guarantee, and it is not a substitute for the underlying statistics. The score ranks; the per-year receipts remain the evidence. The model is retrained periodically and its feature set is versioned, so a score shown today reflects the current model generation.</p>
 
 <h2>6. How we guard against curve fitting</h2>
@@ -949,7 +950,7 @@ def build_methodology() -> tuple[str, dict]:
 <p>Seasonal patterns summarize historical behavior, not guaranteed outcomes. Extreme outlier years can affect averages. Market structure changes over multi-decade periods. Drawdowns inside the window can be significant even in years that finish as wins. TradeWave outputs are informational and educational; they are not investment advice. See the full <a href="/disclaimer">disclaimer</a>.</p>
 
 <h2>10. Who builds this</h2>
-<p>TradeWave is built by Afshin Moshrefi, founder of Tara Data Research LLC and author of <em>The 100-Year Pattern</em> (2026), after four years of engineering the data pipeline, the pattern engine, and the scoring model described above. Questions about the methodology are welcome at <a href="/contact">contact</a>.</p>
+<p>TradeWave is built by Afshin Moshrefi, founder of Tara Data Research LLC, the research shop behind Seasonal Market News, and author of <em>The 100-Year Pattern</em> (2026), after four years of engineering the data pipeline, the pattern engine, and the scoring model described above. Questions about the methodology are welcome at <a href="/contact">contact</a>.</p>
 
 <p><a href="/">&larr; Back to home</a></p>
 """

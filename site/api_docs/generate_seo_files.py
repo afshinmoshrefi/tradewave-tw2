@@ -86,9 +86,9 @@ def build_og_image(path: Path):
         return ImageFont.load_default()
 
     d.text((80, 150), "TradeWave Developers", font=_font(72), fill=(255, 255, 255))
-    d.text((80, 260), "Seasonal + ML trading signals", font=_font(40, bold=False), fill=(180, 170, 200))
+    d.text((80, 260), "Seasonal patterns + ML scoring", font=_font(40, bold=False), fill=(180, 170, 200))
     d.text((80, 320), "REST API and MCP server for AI agents", font=_font(40, bold=False), fill=(180, 170, 200))
-    d.text((80, 470), "Signals only. Works with any broker. A public, forward-tested track record.",
+    d.text((80, 470), "Seasonal patterns only. Works with any broker. A public, forward-tested track record.",
            font=_font(28, bold=False), fill=(130, 120, 150))
     d.text((80, 540), PORTAL.replace("https://", ""), font=_font(30), fill=(129, 140, 248))
     img.save(path, "PNG")

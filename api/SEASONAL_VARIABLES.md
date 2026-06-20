@@ -111,7 +111,7 @@ Enforced in `apiserver/market_bands.py` (+ the manifest `apiserver/market_bands.
 
 ---
 
-## 3. The result variables (what a SignalCard reports)
+## 3. The result variables (what a PatternCard reports)
 
 ### The THREE win rates - NEVER conflate them
 - **`historical_win_rate`** - share of past YEARS the seasonal window was profitable (in-sample
@@ -124,7 +124,7 @@ Enforced in `apiserver/market_bands.py` (+ the manifest `apiserver/market_bands.
 ### Other fields
 - **`edge_score`** (0-100) - a documented blend (0.40 win_rate + 0.30 Sharpe + 0.20 ML + 0.10
   history). One number to rank by. See cards.compute_edge_score.
-- **`signal`** - BUY | SELL | NO_SIGNAL. NO_SIGNAL = a genuine "no statistical edge" finding, not
+- **`bias`** - bullish | bearish | neutral. neutral = a genuine "no statistical edge" finding, not
   weak support.
 - **`setup.timing`** - days_to_entry + plain-language status (window opens in N days / in window now
   / passed).
@@ -139,7 +139,7 @@ Enforced in `apiserver/market_bands.py` (+ the manifest `apiserver/market_bands.
   never a price. `curve_summary` describes the trend of the entry->exit hold section.
 - **`alignment`** - does the per-instance ML agree with the in-sample seasonal win rate.
 - **`extend_research`** - the per-card research hand-off (what TradeWave is blind to + what to check
-  with your own tools). Every signal-bearing response carries the exact educational `disclaimer`.
+  with your own tools). Every pattern-bearing response carries the exact educational `disclaimer`.
 
 ---
 
@@ -157,7 +157,7 @@ Enforced in `apiserver/market_bands.py` (+ the manifest `apiserver/market_bands.
 
 - Every detection/analysis tool defaults to a lean `view=decision` over MCP (full receipts a
   `view=full` away; `view=table` for compact rows). The raw API defaults to `view=full`.
-- The integration is EDUCATIONAL-ONLY: impersonal signals, the same for every caller; it never reads
+- The integration is EDUCATIONAL-ONLY: impersonal patterns, the same for every caller; it never reads
   or advises on a user's holdings. See MCP_INTEGRATION_ROADMAP.md COMPLIANCE LANDMINES.
 
 ---
@@ -169,5 +169,5 @@ Enforced in `apiserver/market_bands.py` (+ the manifest `apiserver/market_bands.
 (the bands move with the data), then commit the manifest. The gateway loads it at startup; if it is
 missing the gateway degrades to lenient (no band validation), with the appserver as the backstop.
 
-Related: SIGNALCARD_SPEC.md (the card contract), MCP_TOOLS.md (the tool surface),
+Related: PATTERNCARD_SPEC.md (the card contract), MCP_TOOLS.md (the tool surface),
 MCP_INTEGRATION_ROADMAP.md (the integration plan + compliance).

@@ -219,7 +219,7 @@ Start with lesson 1, or jump straight to <a href="first-api-call.html">your firs
 
 <h2>What you will be able to do</h2>
 <ul>
-  <li>Read a <strong>SignalCard</strong> and trust it (receipts, per-year results, NO_SIGNAL honesty).</li>
+  <li>Read a <strong>Pattern Card</strong> and trust it (receipts, per-year results, <code class="inline-code">neutral</code> honesty).</li>
   <li>Scan every market you can trade and rank the best seasonal setups with one call.</li>
   <li>Use the <strong>ML win-probability</strong> model, and handle its coverage gracefully.</li>
   <li>Connect Claude, Cursor, or ChatGPT to TradeWave over MCP.</li>
@@ -228,9 +228,9 @@ Start with lesson 1, or jump straight to <a href="first-api-call.html">your firs
 """
     return shell(
         title="Learn the TradeWave API",
-        description="A hands-on developer track for the TradeWave seasonal-edge + ML signals API and MCP server.",
+        description="A hands-on developer track for the TradeWave seasonal-edge + ML-scored seasonal pattern API and MCP server.",
         hero_title="Learn the TradeWave API",
-        hero_sub="Concepts and how-to guides, with runnable code, for the seasonal-edge + ML signals platform.",
+        hero_sub="Concepts and how-to guides, with runnable code, for the seasonal-edge + ML-scored seasonal pattern platform.",
         sidebar_html=sidebar("", articles),
         body=body,
     )

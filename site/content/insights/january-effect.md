@@ -10,9 +10,11 @@ featured: false
 related: ["halloween-effect", "post-earnings-drift", "reading-patterns-without-fooling-yourself"]
 ---
 
-The January effect has the unusual distinction of being one of the best-understood anomalies in financial economics. Unlike the Halloween effect, where the mechanism remains genuinely contested, the January effect's main driver was identified almost as soon as the pattern was documented: tax-loss harvesting. People sell their losers in December for tax purposes, prices of beaten-up small stocks get pushed below their fundamental value, and a rebound in January cleans up the dislocation. The story is so clean that "obvious" is often the right word.
+Most market anomalies are a mystery wrapped in an argument: people agree the pattern exists but fight for decades about why. The January effect is the rare exception. We know exactly why it happened, and we have known almost since the day it was documented. The driver is tax-loss harvesting: people dump their losers in December to book the tax write-off, beaten-up small stocks get pushed below fair value, and a rebound in early January cleans up the mess. The story is so clean that "obvious" is usually the right word.
 
-What makes the January effect interesting now is not whether it existed (it did, definitively) or why (we know). The interesting question is whether it survived its own discovery. The classic argument from McLean and Pontiff (2016) is that academic publication should compress anomalies because once they are known, smart money trades them away. The January effect is a useful test case. It was identified in 1976. It got fifty years of follow-up. What happened?
+So the interesting question was never whether the effect was real or why. It was something stranger: what happens to a pattern once everyone knows about it?
+
+The classic argument from McLean and Pontiff (2016) is that academic publication should compress anomalies: once they are known, smart money trades them away. The January effect is the perfect test case. It was identified in 1976. It got fifty years of follow-up. So what happened to it?
 
 The answer is partial decay, not full elimination. The effect has clearly weakened in U.S. large-caps. It persists in microcaps. And the reason it has not vanished entirely tells you something interesting about the limits of arbitrage when the underlying cause is a real economic constraint rather than a behavioral mistake.
 
@@ -20,7 +22,7 @@ The answer is partial decay, not full elimination. The effect has clearly weaken
 
 Michael Rozeff and William Kinney's 1976 paper in the *Journal of Financial Economics* was the cleanest possible test of the saying that "January is different." They took the equal-weighted NYSE index from 1904 through 1974 and just compared January monthly returns to the average of all other months. The numbers were stark. January's mean monthly return was 3.48%. The average across the other eleven months was 0.42% (Rozeff and Kinney 1976).
 
-That is roughly an 8x ratio between January and the typical month. The pattern was statistically significant in every sub-period the authors tested, with the single exception of 1929-1940, when the entire decade was dominated by Depression-era volatility that overwhelmed any seasonal signal.
+That is roughly an 8x ratio between January and the typical month. The pattern was statistically significant in every sub-period the authors tested, with the single exception of 1929-1940, when the entire decade was dominated by Depression-era volatility that overwhelmed any seasonal pattern.
 
 A few things to note about the methodology. They used the equal-weighted index, which gives equal weight to small and large stocks alike. This matters because, as later work showed, the effect is concentrated in small caps. On a value-weighted index (where Apple counts more than a $300 million microcap), the January gap is real but much smaller. Rozeff and Kinney did not yet know they were measuring a small-cap phenomenon, but the equal-weighting choice meant they captured it cleanly.
 
@@ -83,7 +85,7 @@ The reasons it is still useful as an overlay:
 
 What you should not do is build a strategy whose entire thesis is "buy the small-cap losers in late December, sell after the first week of January." That trade has been picked over for fifty years. The residual edge is unlikely to survive your specific costs.
 
-<div class="article-tw-callout"><strong>Test it yourself.</strong> If you want to verify these patterns on your own ticker list, a tool like TradeWave's Wave Viewer (/app/) lets you toggle between consecutive years and PE-cycle filters on any symbol with at least 5 years of data. Other tools work too; the point is to validate before you commit capital.</div>
+<div class="article-tw-callout"><strong>Test it yourself.</strong> The whole point of a structural anomaly is that you can check whether it still shows up in your own data. TradeWave's Wave Viewer (/app/) lets you run any symbol over a lookback you choose - anywhere from 1 to 99 years - and watch how a January tilt holds up decade by decade, with an ML score and an auditable record of every year that went into it. Other tools work too; the discipline is the same: verify before you commit capital.</div>
 
 ## Practical takeaway
 

@@ -1,6 +1,6 @@
 """Per-customer DAILY ML-scoring allowance.
 
-TradeWave gives ML signals to EVERY tier, but metered per day: free Explorer gets a
+TradeWave gives ML scores to EVERY tier, but metered per day: free Explorer gets a
 small taste (5/day), Dev more, Pro/Business unlimited. The limit lives in
 tiers.API_TIERS[tier]['ml_daily_limit'] (None = unlimited). This module is the one place
 that counts + consumes the daily allowance, in Redis db4 (the gateway's own db, same as

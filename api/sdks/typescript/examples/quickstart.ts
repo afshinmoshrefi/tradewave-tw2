@@ -21,7 +21,7 @@ async function main(): Promise<void> {
   const tw = new TradeWave({ apiKey: process.env.TRADEWAVE_API_KEY });
 
   try {
-    // 1. The daily AI pick as a SignalCard, with its live track record.
+    // 1. The daily AI pick as a PatternCard, with its live track record.
     const pick = await tw.dailyPick();
     console.log('Daily pick:', pick.card?.headline);
     console.log('Verdict:', pick.card?.verdict);
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
     console.log(`\nScan found ${scan.count} setups (window=${scan.window}):`);
     for (const card of scan.opportunities ?? []) {
       console.log(
-        `  #${card.rank} ${card.symbol} ${card.signal} - ` +
+        `  #${card.rank} ${card.symbol} ${card.bias} - ` +
           `edge ${card.edge_score}, win ${card.stats?.historical_win_rate}`,
       );
     }

@@ -393,8 +393,8 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   VLAN - never a limiter key). WHY: in TW2's topology every browser arrives via
   the tunnel/nginx proxy as 1-2 shared IPs - the old `get_remote_address` keying
   bucketed the whole userbase together (chronic prod 429s, the "intermittent
-  no-data, refresh fixes it" bug; gateway scans rendered throttles as FALSE
-  NO_SIGNAL). Caps in `config.py` `rate_limit_*` (~538) were also un-inverted
+  no-data, refresh fixes it" bug; gateway scans rendered throttles as a FALSE
+  neutral). Caps in `config.py` `rate_limit_*` (~538) were also un-inverted
   (hourly > per-minute now). 429s log key CLASS + endpoint. `/login` stays
   IP-keyed (anonymous path) and is sized for the whole base sharing one bucket.
   The React app pairs this with `web-react/src/components/twFetch.js` (retry +
@@ -430,7 +430,7 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
 
 ## 7A. TW2 v2 - Public API gateway + MCP (built on dev 2026-05-27, pre-launch)
 
-The v2 public product (roadmap §9): sell the **derived** signals (seasonal
+The v2 public product (roadmap §9): sell the **derived** patterns (seasonal
 opportunities, ML scores, the tracked daily pick) over a clean REST API + an MCP
 server for AI agents - **never raw market data**. Built + verified end-to-end on dev
 (.176); NOT on staging/prod yet (post-cutover, after the freeze).
@@ -511,10 +511,10 @@ static-gen + the vhosts); `users.api_tier` + a webhook write for API-only subs d
 > §7A is the design/decision narrative; this section is the **operational shape**
 > of the same product as built out on dev `.176` (branch `feature/api-mcp`). The
 > live control doc is `api/BUILD_STATE.md` (what is done/open per phase); the frozen
-> contract is `api/SIGNALCARD_SPEC.md` + `api/openapi.yaml` + `api/MCP_TOOLS.md`.
-> **It is SIGNALS-ONLY**: no raw OHLCV, last price, price-by-date, or price levels in
+> contract is `api/PATTERNCARD_SPEC.md` + `api/openapi.yaml` + `api/MCP_TOOLS.md`.
+> **It is DERIVED-DATA-ONLY**: no raw OHLCV, last price, price-by-date, or price levels in
 > any public response - all movement is percentages, the seasonal curve is a 0-100
-> normalized index, never a price (the keystone invariant; see `api/SIGNALCARD_SPEC.md`).
+> normalized index, never a price (the keystone invariant; see `api/PATTERNCARD_SPEC.md`).
 
 The product is four NEW, additive pieces; the appserver data engine is UNCHANGED and
 stays internal/loopback. All four bind loopback on every env - nginx + the `tw2`
@@ -526,8 +526,8 @@ cloudflared tunnel front them.
   `tradewave-apiserver` (`Type=notify`), isolated venv `/home/flask/venv-api` (NOT
   the appserver `venv`; `requirements-api.txt`). The public paid front door: validates
   customer API keys, enforces tier/scope/rate-limit, **strips raw prices**, exposes the
-  curated `/v1` signals endpoints (markets, daily-pick, scan, analyze, score, ...), and
-  calls the appserver as a service account. Composes the `SignalCard` server-side
+  curated `/v1` derived-data endpoints (markets, daily-pick, scan, analyze, score, ...), and
+  calls the appserver as a service account. Composes the `PatternCard` server-side
   (`apiserver/cards.py`) so weak agents render consistently.
 - **MCP server** - `mcpserver/` (named to not shadow the `mcp` SDK). Run as
   `python -m mcpserver.server --transport streamable-http --host 127.0.0.1 --port 9090`
@@ -571,14 +571,14 @@ the two systemd units + nginx + cloudflared ingress) and `ops/assemble_developer
 `ops/OPERATIONS.md` "API/MCP deploy + restart"; go-live: `ops/PROD_CUTOVER.md` "API/MCP go-live".
 
 (Source: `apiserver/`, `mcpserver/`, `web/api_portal/`, `site/`, `ops/bootstrap_api_services.sh`,
-`ops/assemble_developer_portal.sh`, `api/BUILD_STATE.md`, `api/SIGNALCARD_SPEC.md`; dev .176.)
+`ops/assemble_developer_portal.sh`, `api/BUILD_STATE.md`, `api/PATTERNCARD_SPEC.md`; dev .176.)
 
 ### 7C. Tara (in-product chatbot) -> gateway CLIENT (data flow; Phase 1 built 2026-06-02)
 
 The wave-viewer assistant "Tara" (`appserver/appserver/chatbot.py`, Haiku 4.5) is now a
 CLIENT of the v1 gateway: it calls the flagship tools (scan / analyze / symbol-patterns /
-daily-pick) via Anthropic tool-use and narrates the gateway's own composed SignalCards, so
-its numbers match the API/MCP/daily-pick (one source of truth, signals-only, same disclaimer).
+daily-pick) via Anthropic tool-use and narrates the gateway's own composed PatternCards, so
+its numbers match the API/MCP/daily-pick (one source of truth, derived-data only, same disclaimer).
 NOT a product merge - Tara stays the login-gated UI helper; the public API/MCP is unchanged.
 Data flow: React `Chatbot.js` -> appserver `/chatbot/chat` (JWT-gated) -> `tara_gateway.py`
 tool loop -> gateway `:8088/v1` (loopback) -> appserver engine. Auth/metering (option A):

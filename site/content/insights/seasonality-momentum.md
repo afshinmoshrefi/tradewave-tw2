@@ -1,7 +1,7 @@
 ---
 title: "Combining Seasonality and Momentum: A Hybrid Edge with Academic Pedigree"
 slug: seasonality-momentum
-summary: "Heston and Sadka's 2008 paper found that stocks with high returns in a given calendar month tend to outperform again in the same month for years afterward. The combined seasonal-plus-momentum signal is stronger than either alone."
+summary: "Heston and Sadka's 2008 paper found that stocks with high returns in a given calendar month tend to outperform again in the same month for years afterward. The combined seasonal-plus-momentum pattern is stronger than either alone."
 date: 2026-05-08
 author: TradeWave Research
 reading_minutes: 9
@@ -10,7 +10,7 @@ featured: false
 related: ["sector-seasonality", "machine-learning-in-finance", "post-earnings-drift"]
 ---
 
-Two of the most thoroughly studied effects in equity markets are momentum (recent winners keep winning) and seasonality (calendar-tied return patterns). Each, on its own, is a significant body of literature with thousands of citations. Combined, they produce a signal that has survived 15-plus years of out-of-sample replication and global cross-checks. This article walks through the parent factors, the hybrid signal that emerges from combining them, and the implementation realities for anyone trying to deploy it.
+A stock that ran hot every March for the last twenty Marches is not a coincidence you can dismiss. That is the uncomfortable claim at the heart of cross-sectional seasonality, and it has held up across two decades of replication. Pair it with momentum - the well-worn fact that recent winners keep winning - and you get a hybrid pattern that is sturdier than either piece alone. Each parent factor is its own mountain of literature with thousands of citations; together they have survived 15-plus years of out-of-sample testing and global cross-checks. This article walks through both parents, the combined pattern that emerges, and the gap between the published numbers and what you can actually capture.
 
 ## The two parent factors
 
@@ -24,7 +24,7 @@ The Heston and Sadka methodology is direct. For each stock and each calendar mon
 
 The result, on U.S. data from 1965 through 2002: the top-decile portfolio outperformed the bottom-decile portfolio by approximately 0.93% per month in the same calendar month, and the effect persisted out 5, 10, and even 20 years. A stock that had historically performed well in March kept performing well in March, on average, for two decades.
 
-Three things make this finding striking. First, the effect is in the cross-section. It is not "January is good for stocks"; it is "stocks that are historically good in January tend to be good this January." The general calendar-anomaly literature does not explain it because no single month drives the result. Second, the effect compounds across years: a stock that is a "March winner" in its history continues to be a March winner in subsequent Marches, and the pattern is replicated for every other month of the year. Third, the effect survives standard factor controls (size, value, momentum, industry).
+Three things make this finding striking. First, it lives in the cross-section. The claim is not "January is good for stocks"; it is "stocks that are historically good in January tend to be good this January." The old calendar-anomaly literature cannot explain it, because no single month drives the result. Second, it compounds across years: a stock that is a March winner in its history keeps winning in subsequent Marches, and the same holds for every other month. Third, it survives standard factor controls (size, value, momentum, industry).
 
 ## Why does this happen?
 
@@ -38,7 +38,7 @@ The third is behavioural. Institutions rebalance on calendars: year-end window d
 
 Heston and Sadka are careful to note that the data alone cannot distinguish among these explanations, and the most likely answer is that all three contribute in different proportions across different stocks.
 
-<figure><img src="/insights/charts/seasonality-momentum-combo.svg" alt="Seasonality + momentum combined returns"><figcaption>Cumulative excess return for seasonal-only, momentum-only, and combined signals (illustrative). Combination Sharpe in published studies tends to exceed either standalone Sharpe.</figcaption></figure>
+<figure><img src="/insights/charts/seasonality-momentum-combo.svg" alt="Seasonality + momentum combined returns"><figcaption>Cumulative excess return for seasonal-only, momentum-only, and combined patterns (illustrative). Combination Sharpe in published studies tends to exceed either standalone Sharpe.</figcaption></figure>
 
 ## Replications and extensions
 
@@ -52,11 +52,11 @@ These replications matter because the multiple-testing critique (Harvey, Liu, an
 
 ## Why combining seasonality with momentum helps
 
-Both factors have weaknesses. Momentum has crash risk: when the market regime shifts, recent winners lose hard. Daniel and Moskowitz (2016) "Momentum Crashes" document that momentum drawdowns in 1932, 2001, and 2009 reached 60% to 80% peak-to-trough as the leadership rotated. Seasonality, on the other hand, has weak short-horizon predictive power on its own; the monthly signal-to-noise ratio is low, and standalone seasonal portfolios produce modest Sharpe ratios.
+Both factors have weaknesses. Momentum has crash risk: when the market regime shifts, recent winners lose hard. Daniel and Moskowitz (2016) "Momentum Crashes" document that momentum drawdowns in 1932, 2001, and 2009 reached 60% to 80% peak-to-trough as the leadership rotated. Seasonality, on the other hand, has weak short-horizon predictive power on its own; the monthly information-to-noise ratio is low, and standalone seasonal portfolios produce modest Sharpe ratios.
 
-The combination addresses both weaknesses. Used together, the seasonal signal acts as a regime filter for momentum: rather than buying every momentum winner, buy only those that also have a positive same-month seasonal pattern. Conversely, the momentum overlay sharpens the seasonal signal: rather than buying every stock with a strong same-month history, buy only those that are currently in a positive momentum regime.
+The combination addresses both weaknesses. Used together, the seasonal pattern acts as a regime filter for momentum: rather than buying every momentum winner, buy only those that also have a positive same-month seasonal pattern. Conversely, the momentum overlay sharpens the seasonal pattern: rather than buying every stock with a strong same-month history, buy only those that are currently in a positive momentum regime.
 
-Several published studies have shown that the combination outperforms either standalone signal on Sharpe, including in the Keloharju et al. work and various practitioner replications. The intuition: the two signals capture distinct sources of predictability (current trend versus historical calendar pattern), so their combination has more information than either alone.
+Several published studies show the combination beating either standalone pattern on Sharpe, including the Keloharju et al. work and various practitioner replications. The intuition is simple: the two patterns capture distinct sources of predictability - current trend versus historical calendar tendency - so together they carry more information than either alone.
 
 ## A practical implementation outline
 
@@ -72,7 +72,7 @@ Fourth, intersect. Take the top quintile or decile by momentum, then within that
 
 Fifth, control transaction costs. Monthly rebalancing in a long-only structure is expensive at retail; layer in turnover thresholds (only trade names that move across rank tiers, not every name every month) and you cut costs significantly.
 
-<div class="article-tw-callout"><strong>Doing the same-month rank.</strong> The Heston and Sadka methodology requires looking at how a stock has performed historically in a specific calendar month. Tools that show per-year bars for a given date range (TradeWave's Wave Viewer at /app/, or any seasonal-pattern viewer) make this measurement direct rather than spreadsheet-tedious.</div>
+<div class="article-tw-callout"><strong>Doing the same-month rank.</strong> The Heston-Sadka step that takes work is measuring how a stock has actually behaved in a given calendar month, year after year. This is what TradeWave is built to detect: pick a lookback you trust (anywhere from 1 to 99 years, calendar or election cycle), and the Wave Viewer at /app/ surfaces the repeating seasonal pattern with a per-year breakdown and an ML score - so you read the hit-rate and the misses yourself rather than rebuilding it in a spreadsheet. The same-month tendency it shows is exactly the input this strategy ranks on.</div>
 
 ## The academic-versus-implementation gap
 
@@ -82,7 +82,7 @@ Three further implementation considerations matter.
 
 Capacity is real. The Heston-Sadka effect is partially driven by smaller and less-liquid names; a strategy that scales to billions of dollars cannot trade those names without moving prices. The retail investor's advantage here is that capacity is not their problem. Picking 20 to 50 names within a $1 million account is well below any realistic capacity ceiling.
 
-Regime breaks matter. 2020 was an unusually destructive year for many factor strategies, including momentum, because the market regime change happened too fast for trailing signals to adjust. Seasonality is a slower signal and may have suffered less, but the combination strategy still drew down materially in the COVID quarter. Any backtest that includes 2020 should be looked at with sensitivity analysis applied; any backtest that excludes 2020 is hiding a real risk.
+Regime breaks matter. 2020 was an unusually destructive year for many factor strategies, including momentum, because the market regime change happened too fast for trailing patterns to adjust. Seasonality is a slower pattern and may have suffered less, but the combination strategy still drew down materially in the COVID quarter. Any backtest that includes 2020 should be looked at with sensitivity analysis applied; any backtest that excludes 2020 is hiding a real risk.
 
 Sample-period sensitivity matters. The Heston-Sadka original sample was 1965-2002. The 2008-2026 period has had two major regime shifts (the GFC, COVID) and the rise of passive flows, which may be changing the way institutional rebalancing affects individual stocks. Using a 20-year same-month window today means weighting the 2005-2025 era heavily, which may or may not be a good representation of the next decade.
 
@@ -94,6 +94,6 @@ For a retail investor, the realistic path is one of two:
 - Accept the lower-Sharpe, lower-turnover version of the strategy (rank quarterly rather than monthly, hold longer, focus on a manageable number of names) and treat the result as one component of a diversified factor allocation.
 - Or use the seasonality framework as a filter for an existing momentum or growth process, rather than as a standalone strategy.
 
-What is not realistic is treating the published Sharpe ratios as achievable returns. Gross-of-cost research papers describe the effect; net-of-cost reality is roughly half the headline number after taxes and slippage. The signal is real; the implementation is the hard part.
+What is not realistic is treating the published Sharpe ratios as achievable returns. Gross-of-cost papers describe the effect; net-of-cost reality is roughly half the headline number after taxes and slippage. And remember what kind of edge this is: a tendency with a hit-rate, not a guarantee. The pattern is real; reading it honestly and implementing it cheaply is the hard part.
 
 Combined with the broader cross-sectional asset-pricing literature (the Fama-French 5-factor model, the Hou-Xue-Zhang q-factor model, the recent ML-augmented work in Gu, Kelly, and Xiu 2020 covered in our companion article), the seasonality-momentum combination sits in a coherent picture: equity returns have multiple, partly orthogonal sources of predictability, and a portfolio that combines them prudently can earn meaningful risk-adjusted excess return without making any single-factor bet.

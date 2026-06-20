@@ -1,7 +1,7 @@
 """tradewave - official Python SDK for the TradeWave Data API (v1).
 
-Seasonal trading opportunities and ML win-probability signals for the 17
-TradeWave markets, plus the tracked daily AI pick. Derived signals only - no raw
+Seasonal trading opportunities and ML win-probability scores for the 15
+TradeWave markets, plus the tracked daily AI pick. Derived data only - no raw
 market data.
 
 Quickstart::
@@ -43,6 +43,10 @@ from .models import (
     OpportunityList,
     OrderTicket,
     Pattern,
+    PatternCard,
+    PatternCardML,
+    PatternSetup,
+    PatternStats,
     PerYearRow,
     Receipts,
     ScanResult,
@@ -50,10 +54,6 @@ from .models import (
     SeasonalChart,
     SeasonalPoint,
     SetReminder,
-    SignalCard,
-    SignalCardML,
-    SignalSetup,
-    SignalStats,
     Symbol,
     TrackRecord,
     TrackRecordPick,
@@ -88,6 +88,10 @@ __all__ = [
     "OpportunityList",
     "OrderTicket",
     "Pattern",
+    "PatternCard",
+    "PatternCardML",
+    "PatternSetup",
+    "PatternStats",
     "PerYearRow",
     "Receipts",
     "ScanResult",
@@ -95,10 +99,6 @@ __all__ = [
     "SeasonalChart",
     "SeasonalPoint",
     "SetReminder",
-    "SignalCard",
-    "SignalCardML",
-    "SignalSetup",
-    "SignalStats",
     "Symbol",
     "TrackRecord",
     "TrackRecordPick",

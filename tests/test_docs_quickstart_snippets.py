@@ -2,7 +2,7 @@
 
 The 2026-06-12 docs review found the live quickstart crashed on copy-paste:
 generate_api_docs.py emitted pick["symbol"] / pick.days_out for a /daily-pick
-response whose SignalCard lives under "card" (hold days at card.setup.hold_days).
+response whose PatternCard lives under "card" (hold days at card.setup.hold_days).
 site/api_docs/check_quickstart_snippets.py now extracts every code-tab snippet
 from the generated quickstart.html and EXECUTES it (curl + Python + JavaScript)
 against the gateway; generate_api_docs.py fails the build when one errors.

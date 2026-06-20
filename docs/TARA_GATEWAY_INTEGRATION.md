@@ -16,7 +16,7 @@ to drive the view rather than tell the user where to click. Verified live: "load
 -> action `{market:'1',symbol:'NVDA',years:20}`; "change lookback to 15" -> `years:15`; "switch
 to PE+2" -> `pe_cycle:'pe2'`. React bundle rebuilt (served from web-react/build on dev). Blast
 radius of the actuation = which chart/knobs the user sees (no code exec, no data beyond the
-signals-only gateway, no auth/billing).
+derived-data-only gateway, no auth/billing).
 
 Phase 1 as built (dev .176): a `chatbot` INTERNAL_TIER (tiers.py, service:True, not in the sold
 catalog) + an X-TW-On-Behalf-Of delegation in the gateway (auth.py, service-tier-only, principal
@@ -27,9 +27,9 @@ send_claude_messages (AI_tools_appserver.py). Service key minted by apiserver/pr
 disclaimer; find_best_opportunities narrated real UNH/WMT/AXP cards and metered ML under
 mlq:cb:<user>; a normal customer key + on-behalf header did NOT delegate (no cb: key created).
 
-Passed a 13-agent adversarial review (auth-delegation / tool-loop-injection / signals-secrets /
+Passed a 13-agent adversarial review (auth-delegation / tool-loop-injection / derived-data-secrets /
 robustness lenses). Security core CLEAN: delegation cannot escalate scope, a normal key cannot
-spoof, the service key never leaks, signals-only is inherited (Tara goes THROUGH the gateway),
+spoof, the service key never leaks, derived-data-only is inherited (Tara goes THROUGH the gateway),
 the loop terminates. Fixes landed: HIGH - tool results were raw-sliced to 6000 chars (malformed
 JSON on big scans); now `_bounded_json` caps lists + drops heavy card fields to valid JSON (tested
 80k->1.4k valid). MEDIUM - gateway read timeout 60s->20s (fail-fast). Hardening - a `tiers.py`
@@ -49,14 +49,14 @@ This spec makes Tara a **client of the same gateway** the public API + MCP serve
 
 - **Phase 1 - read-client (narrate).** Tara gains tool-use: it calls the gateway's
   flagship tools (`/v1/scan`, `/v1/analyze`, `/v1/daily-pick`, ...) mid-conversation,
-  gets back the SAME server-composed SignalCards, and narrates them. Backend-only.
+  gets back the SAME server-composed PatternCards, and narrates them. Backend-only.
 - **Phase 2 - UI-actuation (drive the view).** Tara returns structured actions that the
   React app applies to its own wave-viewer state - load a pattern, set the years slider,
   flip consecutive<->PE, apply a filter, change the date range - so the user never has to
   find the control. Frontend + backend.
 
 This is a **wiring** relationship, not a product merge. Tara stays the on-site, login-
-gated UI helper; the public API/MCP stays signals-only for developers. Tara never becomes
+gated UI helper; the public API/MCP stays derived-data-only for developers. Tara never becomes
 a sellable API SKU (the MCP server already IS the developer chatbot). See
 `api/BUILD_STATE.md` and `docs/TRADEWAVE_ECOSYSTEM.md` for the product line.
 
@@ -154,7 +154,7 @@ Changes:
    request to the gateway and feed the result back until the model returns text.
 3. **Gateway client** - a thin internal client (mirror `mcpserver`'s `_get`) that calls
    `API_BASE_URL` (`http://127.0.0.1:8088/v1` on dev; per-env) with the service principal
-   from section 7. Reuses the gateway's card composition + signals-only rails verbatim (one
+   from section 7. Reuses the gateway's card composition + derived-data-only rails verbatim (one
    source of truth).
 4. **System prompt** (`build_system_prompt`) - add a short "you can call these tools to fetch
    live TradeWave data; never invent numbers, always ground answers in a tool result" block.

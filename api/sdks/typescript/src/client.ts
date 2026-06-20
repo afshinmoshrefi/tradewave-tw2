@@ -9,7 +9,7 @@
  *
  * The apiKey falls back to process.env.TRADEWAVE_API_KEY when not passed.
  *
- * SAFETY: signals only - the API returns percentages and a normalized seasonal index,
+ * SAFETY: derived data only - the API returns percentages and a normalized seasonal index,
  * never raw prices. The daily-ML-limit nudge on score() is returned as data (check
  * isMLDailyLimitReached), never thrown.
  */
@@ -141,7 +141,7 @@ export class TradeWave {
   // ---- Flagship endpoints -------------------------------------------------
 
   /**
-   * FLAGSHIP. Scan in-scope markets for the best seasonal setups (ranked SignalCards).
+   * FLAGSHIP. Scan in-scope markets for the best seasonal setups (ranked PatternCards).
    * Prefer this over the low-level primitives.
    */
   async scan(params: ScanParams = {}): Promise<ScanResult> {
@@ -160,7 +160,7 @@ export class TradeWave {
   }
 
   /**
-   * FLAGSHIP. Deep-dive one symbol into a single rich SignalCard plus alternate setups.
+   * FLAGSHIP. Deep-dive one symbol into a single rich PatternCard plus alternate setups.
    */
   async analyze(symbol: string, params: AnalyzeParams = {}): Promise<AnalyzeResult> {
     const res = await this.http.request<AnalyzeResult>(
@@ -190,7 +190,7 @@ export class TradeWave {
 
   // ---- Markets ------------------------------------------------------------
 
-  /** List the 17 markets and the caller's access scope. */
+  /** List the 15 markets and the caller's access scope. */
   async listMarkets(): Promise<Market[]> {
     const res = await this.http.request<{ markets?: Market[] }>('/markets');
     return res.data.markets ?? [];
@@ -288,7 +288,7 @@ export class TradeWave {
 
   // ---- Daily pick ---------------------------------------------------------
 
-  /** Today's AI pick as a SignalCard, with its live track record. */
+  /** Today's AI pick as a PatternCard, with its live track record. */
   async dailyPick(): Promise<DailyPickResult> {
     const res = await this.http.request<DailyPickResult>('/daily-pick');
     return res.data;

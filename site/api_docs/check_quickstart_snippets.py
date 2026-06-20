@@ -2,7 +2,7 @@
 """Doc-CI: execute every published quickstart code snippet against the live gateway.
 
 The 2026-06-12 docs review found the shipped quickstart crashed on copy-paste
-(pick["symbol"] for a /daily-pick response whose SignalCard lives under "card").
+(pick["symbol"] for a /daily-pick response whose Pattern Card lives under "card").
 This checker makes that class of bug impossible to publish again: it parses the
 GENERATED quickstart.html, extracts each code-tab snippet (curl / Python /
 JavaScript), substitutes the placeholder key and the published API base, RUNS the

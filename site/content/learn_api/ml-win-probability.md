@@ -1,18 +1,25 @@
 ---
 title: "Using the ML win-probability model"
 slug: "ml-win-probability"
-description: "Read the ml block on a TradeWave SignalCard, tell ml_win_prob apart from historical_win_rate, and handle metering and the 90-day horizon gracefully."
+description: "Read the ml block on a TradeWave Pattern Card, tell ml_win_prob apart from historical_win_rate, and handle metering and the 90-day horizon gracefully."
 order: 4
 read_minutes: 8
 ---
 
 ## What the ML model adds
 
-Every TradeWave `SignalCard` starts with a **seasonal** read: across many past years, how often did this symbol move the right way in this window, and by how much? That is the `stats` and `receipts` part of the card, and it stands entirely on its own.
+Every TradeWave Pattern Card opens with a **seasonal** read: across many past years, how often did this symbol move the right way in this window, and by how much? That is the `stats` and `receipts` part of the card, and it stands entirely on its own.
 
-The machine-learning model is a **second opinion layered on top**. When it has something useful to say, the card carries an `ml` block. The model looks at the current setup and predicts how this particular instance is likely to play out, rather than just averaging the past. Think of seasonal as "what usually happens around now" and ML as "given the present conditions, here is my probability and magnitude estimate for this one."
+The machine-learning model is a **second opinion layered on top**. When it has something useful to say, the card carries an `ml` block. Instead of averaging the past, the model looks at the current setup and predicts how this particular instance is likely to play out. Seasonal answers "what usually happens around now"; ML answers "given today's conditions, here is my probability and magnitude estimate for this one." Building a screener? You can rank candidates by the seasonal read alone, then let ML break ties on the setups it covers.
 
-The honest part: **ML is a complement, not a guarantee, and it is not on every setup.** Plenty of valid seasonal opportunities return `ml: null`. That is by design, and reading the `null` correctly is most of the work. Everything below is illustrative - live responses carry a `disclaimer` and are educational, not personalized advice.
+One honest caveat up front: **ML is a complement, not a guarantee, and it is not on every setup.** Plenty of valid seasonal patterns come back with `ml: null`, by design - and reading that `null` correctly is most of the integration work. Want to see a real `ml` block in two seconds before you write any code? The public demo token works against the daily pick, whose ML is always free:
+
+```bash
+curl "{{API_BASE}}/daily-pick" \
+  -H "Authorization: Bearer tw_demo_explore"
+```
+
+Everything below is illustrative - live responses carry a `disclaimer` and are educational, not personalized advice.
 
 ## The ml block, field by field
 
@@ -49,7 +56,7 @@ They will often disagree, and that is informative. A setup can have a strong `hi
 
 ML is offered on **every tier**, but it is not offered on every setup. Two coverage rules decide whether you see an `ml` block or `ml: null`:
 
-1. **ML-eligible markets only.** The model currently covers **US stocks, indices, and ETFs** - market ids `0, 1, 2, 3, 4, 11`. You can also read this off `GET /markets`: each market carries an `ml_eligible` flag. Other markets (futures, FX, crypto, etc.) return seasonal signals normally but no `ml`.
+1. **ML-eligible markets only.** The model currently covers **US stocks, indices, and ETFs** - market ids `0, 1, 2, 3, 4, 11`. You can also read this off `GET /markets`: each market carries an `ml_eligible` flag. Other markets (futures, FX, crypto, etc.) return detected seasonal patterns normally but no `ml`.
 2. **Shorter seasonal holds only - up to about 90 days.** The model is trained for shorter horizons. Setups with longer holds return `ml: null` with a neutral note.
 
 When a longer hold trips the horizon limit, the card stays fully valid - you just get `ml: null` plus a `tier_notes` string:
@@ -71,14 +78,14 @@ ML scoring is **metered per day**:
 
 Exact numbers live on the [API pricing page]({{PRICING_URL}}) and in your [console]({{CONSOLE_URL}}) - we do not hardcode them here because they can change.
 
-When a free-tier caller runs out of allowance, the gateway does **not** error. It returns **HTTP 200** with the seasonal signal intact, `ml: null`, an `ml_remaining_today` counter, and a gentle upgrade nudge in `tier_notes`. Your code should treat "out of ML budget" exactly like "ML not eligible": fall back to the seasonal stats and move on.
+When a free-tier caller runs out of allowance, the gateway does **not** error. It returns **HTTP 200** with the detected seasonal pattern intact, `ml: null`, an `ml_remaining_today` counter, and an upgrade nudge in `tier_notes`. Treat "out of ML budget" exactly like "ML not eligible": fall back to the seasonal stats and move on.
 
 ## Scoring setups in bulk with POST /score
 
 To attach ML scores to a batch of candidate setups, post them to `/score`. Two contract details to get right:
 
 - One **market per call**: pass it as a top-level `market` (body or query parameter, default `"2"`, S&P 500 stocks). It must be one of the ML-eligible markets. Each opportunity needs only `symbol`, `date`, `days_out`, and `direction`.
-- The response is a flat `scores` array, **not** SignalCards: each row echoes your setup and adds `ml_score`, `win_prob`, `pred_return`, and `pred_mfe` (the bare-score spellings, unlike the `ml` block on a card). Rows the model cannot score - or that land beyond your daily allowance - come back with those fields `null` plus a `note`.
+- The response is a flat `scores` array, **not** Pattern Cards: each row echoes your setup and adds `ml_score`, `win_prob`, `pred_return`, and `pred_mfe` (the bare-score spellings, unlike the `ml` block on a card). Rows the model cannot score - or that land beyond your daily allowance - come back with those fields `null` plus a `note`.
 
 ```python
 import requests
@@ -109,7 +116,7 @@ for row in data["scores"]:
         print(f"{sym}: ML n/a - {note}")
     else:
         # win_prob is the MODEL's predicted probability - distinct from the
-        # historical_win_rate you read off a SignalCard.
+        # historical_win_rate you read off a Pattern Card.
         print(
             f"{sym}: win_prob={row['win_prob']:.0%}  "
             f"ml_score={row['ml_score']}  "
@@ -118,7 +125,7 @@ for row in data["scores"]:
         )
 ```
 
-The single `win_prob is None` branch covers all the "no ML" cases - a hold outside the model's ~10-90 day horizon, a setup the model cannot cover, and an exhausted daily allowance - because the gateway never raises for any of them. Even a fully spent allowance returns HTTP 200 with a quota message rather than an error. That is the whole point: a 200 with a neutral note keeps your screener running.
+That single `win_prob is None` branch covers every "no ML" case - a hold outside the model's ~10-90 day horizon, a market the model does not cover, and an exhausted daily allowance - because the gateway never raises for any of them. A 200 with a neutral `note` keeps your screener running no matter which one you hit. (No live key yet? Inspect a real `ml` block first via `GET /daily-pick` with `tw_demo_explore`, then bring a `tw_live_xxx` key here to score in bulk.)
 
 ## A reusable rule for your UI
 
@@ -126,10 +133,10 @@ Boil the above down to one decision when you render a card:
 
 - If `ml` is present, **show both** `historical_win_rate` and `ml_win_prob` with distinct labels, plus `pred_return_pct` and `pred_mfe_pct` as percentages.
 - If `ml` is `null`, **show the seasonal stats alone** and surface `tier_notes` verbatim so the user knows why - eligibility, horizon, or budget.
-- Never block a signal just because `ml` is missing. The seasonal edge, its `receipts`, and the broker-neutral `order_ticket` (side, symbol, dates - no price level) are the product. ML sharpens it when it can.
+- Never block a seasonal pattern just because `ml` is missing. The seasonal edge, its `receipts`, and the broker-neutral `order_ticket` (side, symbol, dates - no price level) are the product. ML sharpens it when it can.
 
 ## Where to go next
 
-- Read [What is a seasonal edge](/learn/what-is-a-seasonal-edge) for the full `SignalCard` anatomy, including `receipts` and the order ticket.
+- Read [What is a seasonal edge](/learn/what-is-a-seasonal-edge) for the full Pattern Card anatomy, including `receipts` and the order ticket.
 - Use [/scan](/learn/cross-market-screener) to surface candidates, then feed the winners to `/score` for ML.
 - For a live `ml` block that costs nothing, call `GET /daily-pick` - its ML is always free and it ships with a public, time-stamped, forward-tested track record.

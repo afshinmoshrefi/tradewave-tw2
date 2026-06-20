@@ -31,16 +31,16 @@ const TrendScorePopup = ({ onClose }) => {
         ['MACD Value', 'Is MACD above or below zero?'],
         ['EMA5 vs WMA13', 'Is the fast average leading the slower one?'],
         ['Parabolic SAR', 'Is the SAR indicator below price (bullish) or above?'],
-        ['RSI (14)', 'Relative Strength Index \u2014 above 50 scores higher'],
+        ['RSI (14)', 'Relative Strength Index - above 50 scores higher'],
         ['ADX Trend Strength', 'How strong is the trend, confirmed by price direction'],
     ]
 
     const ranges = [
-        ['80\u2013100', 'Very strong uptrend', '#16a34a'],
-        ['60\u201379', 'Solid uptrend in place', '#22c55e'],
-        ['40\u201359', 'Neutral \u2014 no clear direction', '#9ca3af'],
-        ['20\u201339', 'Weak, trending down', '#f59e0b'],
-        ['0\u201319', 'Strong downtrend', '#ef4444'],
+        ['80-100', 'Very strong uptrend', '#16a34a'],
+        ['60-79', 'Solid uptrend in place', '#22c55e'],
+        ['40-59', 'Neutral - no clear direction', '#9ca3af'],
+        ['20-39', 'Weak, trending down', '#f59e0b'],
+        ['0-19', 'Strong downtrend', '#ef4444'],
     ]
 
     return (
@@ -94,7 +94,7 @@ const TrendScorePopup = ({ onClose }) => {
                         How It's Calculated
                     </div>
                     <p>
-                        The score is the sum of 10 components, each worth <strong>0&ndash;10 points</strong>, for a total of 0&ndash;100:
+                        The score is the sum of 10 components, each worth <strong>0 - 10 points</strong>, for a total of 0 - 100:
                     </p>
 
                     <table className="ts-formula-table">

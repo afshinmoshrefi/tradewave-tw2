@@ -15,7 +15,7 @@ The scarce, paid, defensible layer is *the reason to place a trade* = alpha. Tha
 nearly empty in equities (only Chart Library is MCP-native; crypto signal players don't
 overlap our seasonal-equities/futures/forex turf).
 
-**Posture: hybrid, ~80% stand-alone signals / 20% "feeds execution" as DISTRIBUTION only.**
+**Posture: hybrid, ~80% stand-alone patterns / 20% "feeds execution" as DISTRIBUTION only.**
 Feeding brokers is a discovery channel, never a dependency (their per-trade incentive
 opposes ours; platform/clone risk). Be the Switzerland of trading alpha.
 
@@ -28,7 +28,7 @@ no execution/data player can fake, and we have no conflict of interest (we don't
 trade, so "nothing worth trading today" is credible from us). Make it the hero + free
 front door.
 
-**Why signals-only is focused, not thin:** rich in-chat experience (bundled analysis +
+**Why patterns-only is focused, not thin:** rich in-chat experience (bundled analysis +
 receipts + a clean broker-agnostic handoff) + the conflict-free, provider-neutral story.
 Thin products don't publish their win/loss ledger.
 
@@ -51,7 +51,7 @@ with a tiered tool surface: 2 opinionated flagships over the 9 primitives.
   + /patterns + /seasonal-chart + (Pro) /score server-side. Kills the current 4-tool
   stitch and the win_rate-appears-in-3-places inconsistency.
 
-### The SignalCard (P0) - the output unit
+### The PatternCard (P0) - the output unit
 Structured object with a pre-composed `headline` + `verdict` + inline `receipts`, returned
 by the flagships. Fields: rank, symbol, market, direction, setup{entry_window, hold_days,
 exit_date}, edge_score + edge_basis, stats{historical_win_rate, sharpe, avg/median_return},
@@ -62,7 +62,7 @@ disclaimer.
   `ml_win_prob` - never both called "win rate" (current footgun; flagged by 2 reviewers).
 - `per_year[]` is the killer receipt ("won 8/10 years; red only in 2022 -4.1%, 2021").
 - entry_WINDOW not a single magic day (seasonal entries have tolerance).
-- NO_SIGNAL / low-conviction state (conflict-free; more credible from us than a broker).
+- neutral bias / low-conviction state (conflict-free; more credible from us than a broker).
 
 ### The no-broker last mile (P1)
 `next_step` on every card: a copyable, broker-agnostic order TICKET (side/symbol/type/TIF/
@@ -115,7 +115,7 @@ as data.
 | Free / Explorer | $0 | - | No | 3-4 rotating markets + the PUBLIC track record; ~500 calls/day; instant/keyless |
 | Dev | $39 | $390 | No | All 17 markets + full record; ~5k/day |
 | Pro | $199 | $1,990 | **Yes** | ML win-probability = the paywall |
-| Business | $599 + metered overage | $5,990 + overage | Yes | + commercial signal-redistribution rights (signals/%s only), multi-key, SLA |
+| Business | $599 + metered overage | $5,990 + overage | Yes | + commercial pattern-redistribution rights (patterns/%s only), multi-key, SLA |
 | Founder's (first 100, 12mo) | $99 (Pro 50% off) | - | Yes | Logos + tracked-record testimonials |
 
 Changes vs current: ADD annual, founder deal, metered Business overage. Free tier must EXPOSE
@@ -148,17 +148,17 @@ win-prob, then execute on Co-Invest) - ride Liquid's momentum, prove the provide
 ## 6. Business model + risks
 
 **Expansion priority:** (d) tie a Dev key to the tradewave.ai sub NOW (nearly free) -> (a) B2B
-signal LICENSING within 6mo (highest ceiling; the scale path past single-operator seat-selling;
-keep it signals/%s-only to stay inside the EODHD no-raw invariant) -> (b) execution-platform
+pattern LICENSING within 6mo (highest ceiling; the scale path past single-operator seat-selling;
+keep it patterns/%s-only to stay inside the EODHD no-raw invariant) -> (b) execution-platform
 integration/co-marketing opportunistically (a flat licensed feed, not a trade rev-share) ->
 (c) white-label for advisors DEFERRED (multi-tenant load + the advice-personalization line).
 
-**Risks:** (1) signals-only thinness - countered by receipts + provider-neutral framing + the
+**Risks:** (1) patterns-only thinness - countered by receipts + provider-neutral framing + the
 Liquid recipe; (2) EODHD derived-only - every B2B/white-label feed must also be %s-only, no
 reconstructable series; (3) single-operator scale - favor flat tiers + annual prepay, automate
 the funnel, SLA only for Business; (4) the ADVICE line - stay inside the publisher exclusion
-(Lowe v. SEC): keep signals IMPERSONAL (never "given MY portfolio..."), bona fide, regular;
-disclaim everywhere; describe MCP tools as "seasonal + ML signal lookup," NOT "what should I
+(Lowe v. SEC): keep patterns IMPERSONAL (never "given MY portfolio..."), bona fide, regular;
+disclaim everywhere; describe MCP tools as "seasonal + ML pattern lookup," NOT "what should I
 buy" / "advice" (the model's phrasing to the user is downstream of the tool description). Get a
 securities lawyer to bless the ToS before any B2B license.
 
@@ -168,8 +168,8 @@ securities lawyer to bless the ToS before any B2B license.
 
 P0a - the 5 correctness bugs (sec 3). Small, ship first.
 P0b - the cross-market scan endpoint + `find_best_opportunities` + `analyze_symbol` + the
-       SignalCard output shape + win_rate/ml relabel. This is what makes it a flagship.
-P0c - NO_SIGNAL state + the `next_step` ticket/reminder + reword primitives to defer.
+       PatternCard output shape + win_rate/ml relabel. This is what makes it a flagship.
+P0c - neutral bias state + the `next_step` ticket/reminder + reword primitives to defer.
 P1  - explain_pick, whats_seasonal_now, annual + founder pricing, Dev-key-in-consumer-sub,
        .well-known/mcp.json, disclaimer/ToS.
 Then GTM phases 2-3 (directories, content engine).

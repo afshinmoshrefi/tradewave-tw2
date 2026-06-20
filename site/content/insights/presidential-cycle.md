@@ -10,9 +10,9 @@ featured: false
 related: ["halloween-effect", "reading-patterns-without-fooling-yourself", "backtesting-pitfalls"]
 ---
 
-Open any practitioner-facing market almanac and you will find a chart that looks too clean to ignore. Plot the average S&P 500 calendar-year return by the four positions of the U.S. presidential cycle, and year three jumps off the page. Hirsch's Stock Trader's Almanac, the original source most retail commentary cites, puts the year-three average in the neighborhood of 14%, with the other three years bunched between roughly 3% and 8%. The pattern is real in the historical record. What it means, and what you can do with it, is where careful investors and folklore part ways.
+"Buy the third year." It is one of the oldest rules of thumb on Wall Street, and the chart behind it looks too clean to ignore. Plot the average S&P 500 calendar-year return by the four positions of the U.S. presidential cycle and year three leaps off the page. Hirsch's Stock Trader's Almanac, the source most retail commentary traces back to, puts the year-three average near 14%, with the other three years bunched between roughly 3% and 8%. The pattern is real in the historical record. What it means, and what you can actually do with it, is where careful investors and folklore part ways.
 
-The term-cycle pattern has a plausible mechanism, a measurable signature in equity data going back to 1928, and a body of academic research that takes it seriously enough to argue about. It also has one feature that should keep any honest analyst awake at night: a sample size of roughly 24 four-year cycles. That is enough data to report an average. It is not enough data to be confident the average will hold for the next cycle, especially after multiple-testing correction.
+The term-cycle pattern has a plausible mechanism, a measurable footprint in equity data back to 1928, and a body of academic research that takes it seriously enough to argue about. It also has one feature that should keep any honest analyst awake at night: a sample of roughly 24 four-year cycles. That is enough to report an average. It is not enough to trust that the average will hold next time, especially once you correct for how many calendar patterns get tested.
 
 ## The pattern, in numbers
 
@@ -57,11 +57,11 @@ This matters for how you think about the result. The Halloween effect is a Bouma
 
 ## What history actually says about year three
 
-If you set aside the average and look at year three case by case, you get a more useful picture for thinking about position-sizing. Of the post-war year-three cases, the modal outcome is a positive year, often a strongly positive one. Negative years happen, and when they happen they tend to be tied to identifiable macro shocks rather than to the cycle itself: the 1987 crash, the 2007 prelude to the credit crisis. Those two episodes are exactly the kind of low-probability, high-impact events that confound calendar-based pattern-trading.
+If you set aside the average and look at year three case by case, you get a more useful picture for thinking about position-sizing. Of the post-war year-three cases, the modal outcome is a positive year, often a strongly positive one. Negative years happen, and when they do they tend to be tied to identifiable macro shocks rather than to the cycle itself: the 1987 crash, the 2007 prelude to the credit crisis. Those are exactly the kind of low-probability, high-impact events that no calendar pattern can anticipate.
 
 The midterm-low-to-pre-election-high "sweet spot" trade is another version of the same observation. The traditional formulation is that equities tend to be weak through the second year of a term and strong from the second-year low into the third year. The pattern shows up in averages, but the second-year low is identified ex post, and getting the timing right requires more than the calendar.
 
-<div class="article-tw-callout"><strong>Verify on your own data.</strong> A platform like TradeWave's Wave Viewer (/app/) lets you filter to specific cycle phases or look at specific year ranges, which is the right way to confirm whether a published anomaly still holds in your time period and your universe.</div>
+<div class="article-tw-callout"><strong>Verify on your own data.</strong> TradeWave's Wave Viewer (/app/) measures repeating seasonal patterns over the election cycle, not just the calendar, across a lookback you choose (1-99 years), so you can see year three on its own terms and read the hit rate and spread, not just the headline mean. Each pattern carries an ML score and an auditable record, which is the right way to confirm whether a published anomaly still holds in your period and your universe.</div>
 
 ## The data-mining caveat
 
@@ -73,9 +73,9 @@ The presidential cycle has the partial advantage of a plausible mechanism, which
 
 Treat the presidential cycle as one input among several, not as a standalone trading rule. The pattern is real in the historical record and has a coherent if unverified political-economic mechanism. The statistical power is weak. The variance within year three is large enough that an average return of 14% can include double-digit gains and double-digit losses in roughly the same decade.
 
-If you find the pattern intriguing, the right way to use it is as a regime overlay rather than a position. A rough rule of thumb: in year three, lean toward higher equity exposure than your baseline if other signals (valuation, momentum, monetary policy) agree, and consider trimming if they disagree. Do not lever up purely on the calendar. The 1987 and 2007 cases are not anomalies to be explained away, they are evidence about how much you should be willing to bet on a pattern with 24 data points.
+If you find the pattern intriguing, the right way to use it is as a regime overlay rather than a position. A rough rule of thumb: in year three, lean toward higher equity exposure than your baseline if other indicators (valuation, momentum, monetary policy) agree, and consider trimming if they disagree. Do not lever up purely on the calendar. The 1987 and 2007 cases are not anomalies to be explained away, they are evidence about how much you should be willing to bet on a pattern with 24 data points.
 
-The midterm-low-to-pre-election-high sweet spot is more interesting as a research question than as a strategy. The historical pattern exists. The execution problem is identifying the midterm low in real time, which the calendar alone does not solve. Combine with confirming signals (breadth, credit spreads, sentiment), and the trade becomes more disciplined than calendar-driven. Use the cycle as a hypothesis to test, not as a directive to obey.
+The midterm-low-to-pre-election-high sweet spot is more interesting as a research question than as a strategy. The historical pattern exists. The execution problem is identifying the midterm low in real time, which the calendar alone does not solve. Combine with confirming indicators (breadth, credit spreads, sentiment), and the trade becomes more disciplined than calendar-driven. Use the cycle as a hypothesis to test, not as a directive to obey.
 
 ## References
 

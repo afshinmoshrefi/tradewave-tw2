@@ -1,9 +1,9 @@
-"""SignalCard builder + projection + charting math (apiserver/cards.py).
+"""PatternCard builder + projection + charting math (apiserver/cards.py).
 
 Hermetic: synthetic appserver-shaped inputs, no DB/redis/appserver. Covers the A-D
 additions (extend_research, setup.timing, alignment, extended stats, per_year_bars,
-view projection) plus the invariants: signals-only (no price), the edge_score blend,
-NO_SIGNAL, direction-aware receipts, and the short-direction MFE/MAE sign.
+view projection) plus the invariants: derived-data only (no price), the edge_score blend,
+neutral, direction-aware receipts, and the short-direction MFE/MAE sign.
 """
 import pytest
 
@@ -34,7 +34,7 @@ def _opp(direction="long", win_rate=0.9):
 
 
 def _build(direction="long", win_rate=0.9, **kw):
-    return cards.build_signal_card(_opp(direction, win_rate), _STATS, list(_LONG_ENTRIES),
+    return cards.build_pattern_card(_opp(direction, win_rate), _STATS, list(_LONG_ENTRIES),
                                    market_name="S&P 500 STOCKS", as_of=AS_OF, rank=1,
                                    ml_state="market", **kw)
 
@@ -43,12 +43,12 @@ def _build(direction="long", win_rate=0.9, **kw):
 
 def test_card_has_all_expected_blocks():
     c = _build()
-    for k in ("rank", "symbol", "market", "direction", "signal", "setup", "edge_score",
+    for k in ("rank", "symbol", "market", "direction", "bias", "setup", "edge_score",
               "stats", "alignment", "receipts", "extend_research", "next_step",
               "headline", "verdict", "disclaimer", "tier_notes"):
         assert k in c, "missing %s" % k
     assert c["disclaimer"] == cards.DISCLAIMER
-    assert c["signal"] == "BUY"
+    assert c["bias"] == "bullish"
 
 
 def test_setup_timing_is_computed():
@@ -76,7 +76,7 @@ def test_alignment_seasonal_only_without_ml():
 
 
 def test_alignment_divergent_when_ml_disagrees():
-    c = cards.build_signal_card(_opp(), _STATS, list(_LONG_ENTRIES), market_name="S&P 500",
+    c = cards.build_pattern_card(_opp(), _STATS, list(_LONG_ENTRIES), market_name="S&P 500",
                                 ml={"win_prob": 0.40, "ml_score": 30}, ml_available=True,
                                 as_of=AS_OF, ml_state="shown")
     assert c["alignment"]["verdict"] == "divergent"          # seasonal strong (0.9), ml weak (0.4)
@@ -87,12 +87,12 @@ def test_no_em_dashes_in_composed_text():
     assert "—" not in c["headline"] and "—" not in c["verdict"]
 
 
-# --- NO_SIGNAL --------------------------------------------------------------------
+# --- neutral --------------------------------------------------------------------
 
 def test_no_signal_when_win_rate_below_floor():
     c = _build(win_rate=0.30)
-    assert c["signal"] == "NO_SIGNAL"
-    assert "order_ticket" not in c["next_step"]               # omitted on NO_SIGNAL
+    assert c["bias"] == "neutral"
+    assert "order_ticket" not in c["next_step"]               # omitted on neutral
 
 
 def test_buy_signal_carries_order_ticket_without_price():
@@ -103,7 +103,7 @@ def test_buy_signal_carries_order_ticket_without_price():
     assert "price" not in ot and "limit" not in ot and "limit_price" not in ot
 
 
-# --- signals-only invariant -------------------------------------------------------
+# --- derived-data only invariant -------------------------------------------------------
 
 def test_no_raw_price_anywhere_on_the_card():
     import json
@@ -190,7 +190,7 @@ def test_project_decision_trims_but_keeps_decision_essentials():
 
 def test_project_table_is_a_compact_row():
     row = cards.project_card(_build(), "table")
-    assert set(row) == {"rank", "symbol", "market", "direction", "signal", "entry_date",
+    assert set(row) == {"rank", "symbol", "market", "direction", "bias", "entry_date",
                         "hold_days", "edge_score", "historical_win_rate", "ml_win_prob",
                         "sharpe_ratio", "headline"}
     assert row["symbol"] == "TEST" and row["market"] == "S&P 500 STOCKS"
@@ -203,7 +203,7 @@ def test_project_decision_keeps_explicit_chart():
     assert "chart" in d                                       # explicit include survives the trim
 
 
-# --- NO_SIGNAL: each of the three trip conditions ---------------------------------
+# --- neutral: each of the three trip conditions ---------------------------------
 
 def _build_custom(win_rate, sharpe, n_entries):
     """Build a card with a controllable win_rate, sharpe, and number of completed years."""
@@ -211,7 +211,7 @@ def _build_custom(win_rate, sharpe, n_entries):
     opp = {"symbol": "TST", "market": "2", "direction": "long", "entry_date": "2026-07-01",
            "days_out": 21, "years": str(max(n_entries, 1)), "win_rate": win_rate,
            "avg_profit_pct": 2.0, "sharpe_ratio": sharpe}
-    return cards.build_signal_card(opp, dict(_STATS), entries, market_name="S&P 500",
+    return cards.build_pattern_card(opp, dict(_STATS), entries, market_name="S&P 500",
                                    as_of=AS_OF, ml_state="market")
 
 
@@ -219,27 +219,27 @@ def test_no_signal_via_low_edge_score():
     # win_rate 0.55 (not below the win-rate floor) + years 5 (not below) but a weak blend -> edge < 40.
     c = _build_custom(win_rate=0.55, sharpe=0.0, n_entries=5)
     assert c["edge_score"] < cards.MIN_EDGE_SCORE
-    assert c["signal"] == "NO_SIGNAL"
+    assert c["bias"] == "neutral"
 
 
 def test_no_signal_via_too_few_years():
-    # strong win_rate + sharpe, but only 4 completed years (< MIN_YEARS_TESTED) -> NO_SIGNAL.
+    # strong win_rate + sharpe, but only 4 completed years (< MIN_YEARS_TESTED) -> neutral.
     c = _build_custom(win_rate=0.95, sharpe=2.5, n_entries=4)
     assert c["receipts"]["years_tested"] == 4
-    assert c["signal"] == "NO_SIGNAL"
+    assert c["bias"] == "neutral"
 
 
 def test_strong_inputs_do_signal():
     c = _build_custom(win_rate=0.9, sharpe=1.5, n_entries=10)
-    assert c["signal"] == "BUY"
+    assert c["bias"] == "bullish"
 
 
 # --- receipts_unavailable: an outage is NEVER evidence of absence ------------------
 # (2026-06-12 prod-429 review: under upstream starvation the gateway used to render a
-# confident NO_SIGNAL / "under 5 years of history" from receipts that simply failed to load.)
+# confident neutral / "under 5 years of history" from receipts that simply failed to load.)
 
 def _build_unavailable(win_rate):
-    return cards.build_signal_card(_opp(win_rate=win_rate), {}, [],
+    return cards.build_pattern_card(_opp(win_rate=win_rate), {}, [],
                                    market_name="S&P 500 STOCKS", as_of=AS_OF,
                                    ml_state="market", receipts_unavailable=True)
 
@@ -249,7 +249,7 @@ def test_receipts_unavailable_keeps_opplist_signal_and_says_unavailable():
     assert c["receipts"]["receipts_unavailable"] is True
     assert c["receipts"]["note"]
     assert c["receipts"]["years_tested"] is None              # unknown, not zero
-    assert c["signal"] == "BUY"                               # OppList stats stand
+    assert c["bias"] == "bullish"                               # OppList stats stand
     assert "unavailable" in c["verdict"].lower()
     blob = c["headline"] + " " + c["verdict"]
     assert "under 5 years" not in blob                        # never the absence lie
@@ -258,14 +258,14 @@ def test_receipts_unavailable_keeps_opplist_signal_and_says_unavailable():
 
 def test_receipts_unavailable_unknown_win_rate_is_not_weak():
     c = _build_unavailable(win_rate=None)
-    assert c["signal"] == "BUY"                               # unknown != weak on an outage
+    assert c["bias"] == "bullish"                               # unknown != weak on an outage
     assert "unavailable" in c["verdict"].lower()
 
 
 def test_receipts_unavailable_loaded_weak_win_rate_still_no_signal():
-    # a win rate that DID load and is weak stays an honest NO_SIGNAL (true reason only).
+    # a win rate that DID load and is weak stays an honest neutral (true reason only).
     c = _build_unavailable(win_rate=0.30)
-    assert c["signal"] == "NO_SIGNAL"
+    assert c["bias"] == "neutral"
     assert "win rate below 55%" in c["verdict"]
     assert "under 5 years" not in c["verdict"]
 
@@ -284,6 +284,6 @@ def test_receipts_unavailable_survives_decision_and_table_projection():
 def test_ml_state_sets_tier_notes(state):
     opp = {"symbol": "TST", "market": "2", "direction": "long", "entry_date": "2026-07-01",
            "days_out": 21, "years": "10", "win_rate": 0.9, "avg_profit_pct": 5.0, "sharpe_ratio": 1.5}
-    c = cards.build_signal_card(opp, dict(_STATS), list(_LONG_ENTRIES), market_name="S&P 500",
+    c = cards.build_pattern_card(opp, dict(_STATS), list(_LONG_ENTRIES), market_name="S&P 500",
                                 as_of=AS_OF, ml_state=state)
     assert c["tier_notes"] == cards._ML_NOTES[state]

@@ -2619,8 +2619,8 @@ const App = () => {
               Free account. No credit card. Takes 30 seconds.
             </div>
             <div style={{ fontSize: '15px', opacity: 0.75, marginBottom: '28px', lineHeight: 1.7, textAlign: 'left' }}>
-              <div style={{ marginBottom: '8px' }}>TradeWave scans {new Date().getFullYear() - 1928} years of market history to surface seasonal edges before they start. Sign up and get:</div>
-              <div style={{ paddingLeft: '8px' }}>&#10003; Top 5 ranked opportunities delivered daily</div>
+              <div style={{ marginBottom: '8px' }}>TradeWave scans {new Date().getFullYear() - 1928} years of market history to surface seasonal patterns for you to judge. Sign up and get:</div>
+              <div style={{ paddingLeft: '8px' }}>&#10003; Top 5 ranked patterns delivered daily</div>
               <div style={{ paddingLeft: '8px' }}>&#10003; Stocks, ETFs, futures, forex, crypto, and more</div>
               <div style={{ paddingLeft: '8px' }}>&#10003; AI assistant to explain patterns and suggest strategies</div>
               <div style={{ paddingLeft: '8px' }}>&#10003; Portfolio manager to track your seasonal trades</div>
@@ -2661,7 +2661,7 @@ const App = () => {
             </div>
             <div style={{ fontSize: '15px', opacity: 0.75, marginBottom: '28px', lineHeight: 1.7, textAlign: 'left' }}>
               <div style={{ marginBottom: '8px' }}>Sign up and you'll get:</div>
-              <div style={{ paddingLeft: '8px' }}>&#10003; This pattern, plus the top 5 opportunities every day</div>
+              <div style={{ paddingLeft: '8px' }}>&#10003; This pattern, plus the top 5 ranked patterns every day</div>
               <div style={{ paddingLeft: '8px' }}>&#10003; 10,000+ securities across {new Date().getFullYear() - 1928} years of data</div>
               <div style={{ paddingLeft: '8px' }}>&#10003; AI assistant to explain patterns and suggest strategies</div>
               <div style={{ paddingLeft: '8px' }}>&#10003; Portfolio tracking to monitor your trades</div>

@@ -29,7 +29,7 @@ The public API gateway (`apiserver/`) and the MCP server (`mcpserver/`) are cove
 hermetic tests (auth, redis, and the appserver are all mocked - no Postgres needed):
 
 - `test_market_bands.py` - the per-market pattern-detection win-rate band.
-- `test_cards.py` - the SignalCard builder, charting math, view projection, NO_SIGNAL.
+- `test_cards.py` - the PatternCard builder, charting math, view projection, neutral.
 - `test_apiserver_endpoints.py` - route wiring (band 400, disclaimer coverage, view, include=chart).
 - `test_consistency.py` - cross-surface drift guards (manifest/guide/spec vs the live tools).
 

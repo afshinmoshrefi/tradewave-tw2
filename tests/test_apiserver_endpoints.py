@@ -1,6 +1,6 @@
 """Gateway endpoint wiring (apiserver routes) - the integration layer over the unit-tested
 functions. Auth + redis + the appserver are mocked, so these exercise ONLY the route plumbing:
-the educational-only disclaimer on every signal-bearing response, the per-market band 400, the
+the educational-only disclaimer on every pattern-bearing response, the per-market band 400, the
 ~90% default, and the view param. Runs under /home/flask/venv (has flask+pytest+apiserver).
 """
 import pytest
@@ -71,7 +71,7 @@ def test_default_min_winning_years_scales_and_passes(client, monkeypatch):
     _patch_appsrv(monkeypatch, opportunities=lambda *a, **k: [])
     r = client.get("/v1/opportunities?market=2&years=20", headers=_hdr())
     assert r.status_code == 200
-    assert r.get_json()["disclaimer"]             # signal-bearing -> carries the disclaimer
+    assert r.get_json()["disclaimer"]             # pattern-bearing -> carries the disclaimer
 
 
 def test_symbol_path_unsupported_market_is_400(client, monkeypatch):
@@ -81,7 +81,7 @@ def test_symbol_path_unsupported_market_is_400(client, monkeypatch):
     assert "find_best_opportunities" in r.get_json()["error"]["message"]
 
 
-# --- educational-only: the disclaimer on every signal-bearing response ------------
+# --- educational-only: the disclaimer on every pattern-bearing response ------------
 
 def test_scan_carries_disclaimer_and_echoes_view(client, monkeypatch):
     _patch_appsrv(monkeypatch, opportunities_multi=lambda *a, **k: [])
@@ -136,7 +136,7 @@ def test_markets_has_no_disclaimer_but_has_pattern_detection(client, monkeypatch
 
 
 # ============================ card-building endpoint tests ============================
-# These mock the appserver card-build chain so a real SignalCard flows through the route.
+# These mock the appserver card-build chain so a real PatternCard flows through the route.
 
 _STATS = {"Percent Profitable": "90%", "Sharpe Ratio": "1.5", "Avg Profit - All": "5%",
           "Median Profit": "3%", "Std Dev": "3.40%", "Annualized Return": "4%",
@@ -174,14 +174,14 @@ def test_scan_card_carries_extend_research_and_timing(client, monkeypatch):
     assert r.status_code == 200
     card = r.get_json()["opportunities"][0]
     assert "extend_research" in card and card["setup"]["timing"] is not None
-    assert card["signal"] == "BUY"
+    assert card["bias"] == "bullish"
 
 
 def test_scan_no_signal_card_omits_order_ticket(client, monkeypatch):
     _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)])
     r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
     card = r.get_json()["opportunities"][0]
-    assert card["signal"] == "NO_SIGNAL"
+    assert card["bias"] == "neutral"
     assert "order_ticket" not in card["next_step"]
 
 
@@ -298,7 +298,7 @@ def test_scan_failed_receipts_never_render_false_no_signal(client, monkeypatch):
     body = r.get_json()
     card = body["opportunities"][0]
     assert card["receipts"]["receipts_unavailable"] is True
-    assert card["signal"] == "BUY"                  # the OppList-stats signal is KEPT
+    assert card["bias"] == "bullish"                  # the OppList-stats signal is KEPT
     assert "unavailable" in card["verdict"].lower()
     assert "unavailable" in body["summary"].lower() # degraded enrichment named in the lead
 
@@ -450,7 +450,7 @@ def test_decision_view_omits_extend_research(client, monkeypatch):
     r = client.get(f"/v1/scan?{_WIN}&markets=2&view=decision", headers=_hdr())
     card = r.get_json()["opportunities"][0]
     assert "extend_research" not in card
-    assert card["verdict"] and card["signal"] == "BUY"
+    assert card["verdict"] and card["bias"] == "bullish"
 
 
 def test_full_view_keeps_extend_research(client, monkeypatch):

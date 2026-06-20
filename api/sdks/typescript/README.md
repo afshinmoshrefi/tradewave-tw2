@@ -2,8 +2,8 @@
 
 Official TypeScript / JavaScript client for the **TradeWave Data API v1**.
 
-Seasonal trading opportunities and ML win-probability signals for the 17 TradeWave
-markets, plus the tracked daily AI pick. **Signals only** - the API never returns raw
+Seasonal trading opportunities and ML win-probability scores for the 15 TradeWave
+markets, plus the tracked daily AI pick. **Derived data only** - the API never returns raw
 prices; all movement is expressed as percentages and the seasonal curve is a normalized
 0-100 index.
 
@@ -26,14 +26,14 @@ import { TradeWave } from '@tradewave/sdk';
 // apiKey falls back to process.env.TRADEWAVE_API_KEY when omitted.
 const tw = new TradeWave({ apiKey: 'tw_live_...' });
 
-// Today's AI pick as a SignalCard, with its live track record.
+// Today's AI pick as a PatternCard, with its live track record.
 const pick = await tw.dailyPick();
 console.log(pick.card?.headline, '-', pick.card?.verdict);
 
 // Flagship scan - best seasonal setups entering their window now.
 const scan = await tw.scan({ window: 'now', minWinRate: 0.6, limit: 5 });
 for (const card of scan.opportunities ?? []) {
-  console.log(`#${card.rank} ${card.symbol} ${card.signal} (edge ${card.edge_score})`);
+  console.log(`#${card.rank} ${card.symbol} ${card.bias} (edge ${card.edge_score})`);
 }
 ```
 
@@ -59,7 +59,7 @@ export TRADEWAVE_API_URL=https://api-dev.trxstat.com/v1
 ## Flagship endpoints
 
 ```ts
-// scan() - ranked SignalCards across your in-scope markets (default rank by sharpe).
+// scan() - ranked PatternCards across your in-scope markets (default rank by sharpe).
 const scan = await tw.scan({
   markets: '2,11',        // csv of ids or names; default = all in-scope
   window: 'now',          // 'now' | 'next_2_weeks' | 'next_month' | 'from..to'
@@ -70,7 +70,7 @@ const scan = await tw.scan({
   limit: 10,
 });
 
-// analyze() - one symbol fused into one rich SignalCard + alternate setups.
+// analyze() - one symbol fused into one rich PatternCard + alternate setups.
 const analysis = await tw.analyze('GLD', { market: '11', direction: 'long' });
 console.log(analysis.card?.receipts?.per_year);
 ```
@@ -90,7 +90,7 @@ console.log(record.summary, record.picks?.length);
 
 ```ts
 await tw.me();                                   // your key: tier, ML allowance, scope
-await tw.listMarkets();                          // the 17 markets + your scope
+await tw.listMarkets();                          // the 15 markets + your scope
 await tw.listSymbols('2', { prefix: 'AA', limit: 50 }); // symbols in a market (paged)
 await tw.opportunities({ market: '2', minWinRate: 0.6 });
 await tw.opportunitiesForSymbol('AAPL', '2');
@@ -118,7 +118,7 @@ if (isMLDailyLimitReached(result)) {
 }
 ```
 
-On SignalCards the same situation shows up as `card.ml === null` with a `card.tier_notes`
+On PatternCards the same situation shows up as `card.ml === null` with a `card.tier_notes`
 nudge - also data, never an error.
 
 ## Error handling
@@ -169,7 +169,7 @@ npm run build   # runs tsc -> dist/
 
 ## Safety and brand
 
-Signals only - no raw OHLCV / last price / price-by-date. Returns are percentages, never
+Derived data only - no raw OHLCV / last price / price-by-date. Returns are percentages, never
 price levels. `order_ticket` carries no price level (side / type / TIF / dates / note
 only). The `historical_win_rate` (share of profitable years) and `ml_win_prob` (the ML
 model's probability) are distinct fields - never conflate them.

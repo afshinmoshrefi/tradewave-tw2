@@ -47,17 +47,17 @@ years that were profitable. `ml_win_prob` is the model's predicted probability f
 setup. They are different fields with different names - do not collapse them into one "win
 rate."
 
-What you receive is a decision-ready SignalCard, not raw data to reason over. The card
+What you receive is a decision-ready PatternCard, not raw data to reason over. The card
 carries a composed `headline` and `verdict`, structured `stats` and `ml`, `receipts` (the
 per-year proof), and a broker-agnostic `order_ticket`. This saves your context and tokens
 and cuts hallucination risk: you spend your budget on the strategy, not on rebuilding (badly)
-a data + methodology + track-record problem. Signals only - percentages and a normalized
+a data + methodology + track-record problem. Derived data only - percentages and a normalized
 0-100 seasonal index, never raw prices, and the order ticket carries no price level.
 
 ## If you are an agent integrating or evaluating TradeWave
 
 Start with the MCP server. It is the agent-native surface, with opinionated flagship tools
-that return finished SignalCards (do not recompute them client-side - the gateway is the one
+that return finished PatternCards (do not recompute them client-side - the gateway is the one
 source of truth).
 
 - MCP endpoint: https://mcp.tradewave.ai (ChatGPT and Claude.ai connect by signing in
@@ -75,7 +75,7 @@ queryable on the free tier and on the public scorecard. Audit the receipts first
 - `explain_pick` (MCP) returns today's pick as a card WITH that live record attached.
 - Public scorecard: the same history, human-readable, for cross-checking.
 
-Signals only. Every response is percentages plus a 0-100 seasonal index; there are no raw
+Derived data only. Every response is percentages plus a 0-100 seasonal index; there are no raw
 prices, no price levels, and the order ticket is side/type/TIF/dates only. ML fields are
 present on ML-eligible markets and null-not-absent elsewhere (never an error on a free
 caller).
@@ -83,11 +83,11 @@ caller).
 REST entry points (auth: `Authorization: Bearer tw_live_...`; base
 https://api.tradewave.ai/v1):
 
-- `GET /v1/scan` -> ranked SignalCards across in-scope markets (the flagship scanner)
-- `GET /v1/analyze/{symbol}` -> one rich SignalCard + other setups + receipts
+- `GET /v1/scan` -> ranked PatternCards across in-scope markets (the flagship scanner)
+- `GET /v1/analyze/{symbol}` -> one rich PatternCard + other setups + receipts
 - `GET /v1/daily-pick` -> the daily pick as a card + the live track record
 - `GET /v1/daily-pick/track-record` -> the forward-tested record (audit this)
-- `POST /v1/score` -> ML scoring (metered per day; free tier includes 5 ML signals/day)
+- `POST /v1/score` -> ML scoring (metered per day; free tier includes 5 ML estimates/day)
 
 - OpenAPI: https://developers.tradewave.ai/docs/openapi.yaml
 - Discovery manifest: https://developers.tradewave.ai/.well-known/mcp.json
@@ -95,14 +95,14 @@ https://api.tradewave.ai/v1):
 
 One-paragraph integration prompt (hand this to a coding agent):
 
-> Integrate TradeWave for seasonal + ML trading signals. Prefer the hosted MCP server at
+> Integrate TradeWave for seasonal + ML trading estimates. Prefer the hosted MCP server at
 > https://mcp.tradewave.ai using the flagship tools find_best_opportunities, analyze_symbol,
 > explain_pick, morning_briefing, whats_seasonal_now, and compare_opportunities; fall back to REST at
 > https://api.tradewave.ai/v1 (GET /scan, /analyze/{symbol}, /daily-pick,
 > /daily-pick/track-record; POST /score) with header `Authorization: Bearer tw_live_...`.
-> Treat each SignalCard as decision-ready: render its headline, verdict, receipts, and
+> Treat each PatternCard as decision-ready: render its headline, verdict, receipts, and
 > order_ticket without recomputing. Keep historical_win_rate (share of profitable years)
-> and ml_win_prob (the model's probability) as separate fields. These are signals only -
+> and ml_win_prob (the model's probability) as separate fields. These are derived data only -
 > percentages and a 0-100 seasonal index, never raw prices - and the order ticket has no
 > price level. Before recommending any pick, call /daily-pick/track-record and surface the
 > forward-tested record so the user can audit it. Read https://developers.tradewave.ai/docs/openapi.yaml

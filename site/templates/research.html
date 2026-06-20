@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research - TradeWave AI</title>
-    <meta name="description" content="The academic research behind seasonal stock patterns, and how TradeWave's AI model validates and extends decades of peer-reviewed findings.">
+    <title>How It Works - TradeWave Research</title>
+    <meta name="description" content="How TradeWave detects repeating seasonal patterns over a lookback you choose (1 to 99 years, calendar or election cycle), the peer-reviewed evidence behind the method, and the auditable ML scoring you can check yourself.">
 
     {% if enable_seo %}
     <meta name="robots" content="index, follow">
@@ -15,8 +15,8 @@
 
     <meta property="og:type" content="article">
     <meta property="og:site_name" content="TradeWave">
-    <meta property="og:title" content="Research - TradeWave AI">
-    <meta property="og:description" content="The academic research behind seasonal stock patterns, and how TradeWave's AI model validates and extends decades of peer-reviewed findings.">
+    <meta property="og:title" content="How It Works - TradeWave Research">
+    <meta property="og:description" content="How TradeWave detects repeating seasonal patterns over a lookback you choose (1 to 99 years, calendar or election cycle), the peer-reviewed evidence behind the method, and the auditable ML scoring you can check yourself.">
     <meta property="og:url" content="{{ canonical_url }}">
 
     <link rel="icon" type="image/png" href="{{ favicon }}">
@@ -302,8 +302,8 @@
     <!-- Header -->
     <section class="page-header">
         <div class="content-container">
-            <h1>Research</h1>
-            <p>The academic evidence behind seasonal stock patterns, and how TradeWave's AI model validates and extends decades of peer-reviewed research.</p>
+            <h1>How TradeWave Works</h1>
+            <p>TradeWave detects repeating seasonal patterns over a lookback you choose - 1 to 99 years, by calendar or by election cycle - then scores each one with a machine-learning model. The method is deterministic: same inputs, same output, every time. This page shows exactly how it works, the peer-reviewed evidence behind it, and the public record you can audit. We would rather be audited than believed.</p>
         </div>
     </section>
 
@@ -312,6 +312,7 @@
         <div class="content-container">
             <h2>Seasonal Patterns Are Real. The Evidence Spans Centuries.</h2>
             <p>Seasonal and calendar effects in stock returns are among the most studied anomalies in financial economics. Peer-reviewed research across top-tier journals has consistently documented their existence, persistence, and economic significance.</p>
+            <p style="font-size: 16px; color: var(--text-primary); padding: 16px 20px; background: var(--success-dark); border-left: 3px solid var(--accent-green); border-radius: 8px;"><strong>What this means for your trading:</strong> some stocks tend to rise or fall around the same time every year, and that tendency is consistent enough to study and trade. TradeWave finds those repeating windows for you and tells you how often each one has paid off. The journal references below are the receipts. If you want the proof before the payoff, read on. If you just want to use it, <a href="#run-the-numbers" style="color: var(--accent-green); font-weight: 700;">jump straight to the patterns</a>.</p>
 
             <h3>Stock-Level Seasonal Patterns</h3>
 
@@ -363,45 +364,43 @@
                 <div class="citation-finding">The third year of any presidential term produces significantly higher returns, averaging 17.2% versus 4-8% in other years. This pattern has held across multiple decades of data.</div>
             </div>
 
-            <p>TradeWave incorporates both consecutive-year seasonal patterns and presidential election cycle (PE+X) analysis, allowing users to examine patterns through either lens or compare them side by side.</p>
+            <h3>You Pick the Window. You Judge the Result.</h3>
+            <p>The findings above describe the effect. TradeWave hands you the controls. You choose the lookback - anywhere from 1 to 99 years - and the lens: consecutive calendar years, or the four-year presidential election cycle (PE+X), which lines up each year against the same point in the political term. Widen the window for a long, stable read; tighten it to weight recent behavior. Switch lenses to see whether a pattern holds by the calendar, by the cycle, or both. The computation is deterministic, so the same window always returns the same numbers - nothing is hidden, and nothing changes between visits.</p>
+            <p style="text-align: center; margin-top: 32px;"><a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="{{ wave_viewer_url }}" data-strategist-text="Launch Wave Viewer">Pick a Window and See the Patterns</a></p>
         </div>
     </section>
 
     <!-- Section 2: ML + Anomalies -->
     <section class="research-section" style="border-top: 1px solid var(--border);">
         <div class="content-container">
-            <h2>Machine Learning Improves Anomaly-Based Signals</h2>
-            <p>Recent research from leading institutions confirms that machine learning models significantly outperform traditional approaches when applied to stock market anomalies, including seasonal patterns.</p>
+            <h2>Machine Learning Sharpens the Patterns</h2>
+            <p>Knowing a pattern exists is one thing. Knowing which patterns are worth acting on right now is another. Recent research from leading institutions confirms that machine-learning models read these patterns far better than traditional methods - they spot when conditions favor a pattern and when they do not.</p>
 
             <div class="citation">
                 <div class="citation-authors">Gu, S., Kelly, B. &amp; Xiu, D. (2020)</div>
                 <div class="citation-title">Empirical Asset Pricing via Machine Learning</div>
                 <div class="citation-journal">The Review of Financial Studies, 33(5), 2223-2273 - Chicago Booth / AQR Capital Management</div>
-                <div class="citation-finding">Machine learning methods (neural networks, gradient-boosted trees) significantly outperform linear models in predicting cross-sectional stock returns. Nonlinear ML captures interaction effects between anomaly signals that linear models miss entirely.</div>
+                <div class="citation-finding">Machine learning methods (neural networks, gradient-boosted trees) significantly outperform linear models in predicting cross-sectional stock returns. Nonlinear ML captures interaction effects between anomaly indicators that linear models miss entirely.</div>
             </div>
 
             <div class="citation">
                 <div class="citation-authors">Azevedo, V. &amp; Hoegner, C. (2023)</div>
                 <div class="citation-title">Enhancing Stock Market Anomalies with Machine Learning</div>
                 <div class="citation-journal">Review of Quantitative Finance and Accounting, 61, 195-230</div>
-                <div class="citation-finding">ML models applied to 299 stock anomalies show that anomaly signals retain predictive power and that machine learning significantly improves portfolio returns versus using raw anomaly signals alone.</div>
+                <div class="citation-finding">ML models applied to 299 stock anomalies show that anomaly indicators retain predictive power and that machine learning significantly improves portfolio returns versus using raw anomaly indicators alone.</div>
             </div>
 
-            <p>This is the core insight behind TradeWave's AI layer: seasonal patterns provide the base signal, and machine learning identifies which patterns are most likely to work under current market conditions. The combination is more powerful than either approach alone.</p>
+            <p>This is the core idea behind TradeWave's ML layer. The seasonal pattern is the raw history. The model then weighs today's conditions - trend, volatility, the calendar, where the stock sits in its range - to estimate the chance each pattern works out from here. History tells you what usually happens; the model tells you how the odds look this time.</p>
         </div>
     </section>
 
     <!-- Section 3: TradeWave Model -->
     <section class="research-section" style="border-top: 1px solid var(--border);">
         <div class="content-container">
-            <h2>The TradeWave AI Model</h2>
-            <p>TradeWave's pattern scoring model is a 3-model ensemble (LightGBM + XGBoost + CatBoost) that predicts both actual return and maximum favorable excursion for every seasonal pattern opportunity.</p>
+            <h2>The TradeWave Scoring Model</h2>
+            <p>TradeWave scores every seasonal pattern with a three-model ensemble (LightGBM + XGBoost + CatBoost). For each one it estimates the likely return and the maximum favorable excursion, or MFE - in plain terms, the best paper gain the trade typically reaches before the window closes, which is what tells you where a sensible profit target sits.</p>
 
             <div class="model-stat-grid">
-                <div class="model-stat">
-                    <div class="model-stat-value">34.7M</div>
-                    <div class="model-stat-label">Training Samples</div>
-                </div>
                 <div class="model-stat">
                     <div class="model-stat-value">62</div>
                     <div class="model-stat-label">Pattern Features</div>
@@ -411,18 +410,15 @@
                     <div class="model-stat-label">Years of Data</div>
                 </div>
                 <div class="model-stat">
-                    <div class="model-stat-value">475</div>
-                    <div class="model-stat-label">S&amp;P 500 Stocks</div>
+                    <div class="model-stat-value">503</div>
+                    <div class="model-stat-label">S&amp;P 500 Stocks Scored</div>
                 </div>
                 <div class="model-stat">
-                    <div class="model-stat-value">8</div>
-                    <div class="model-stat-label">Out-of-Sample Years</div>
-                </div>
-                <div class="model-stat">
-                    <div class="model-stat-value">0</div>
-                    <div class="model-stat-label">Losing Years</div>
+                    <div class="model-stat-value">3</div>
+                    <div class="model-stat-label">Model Ensemble</div>
                 </div>
             </div>
+            <p style="font-size: 14px; color: var(--text-muted); text-align: center; margin-top: -8px;">In plain terms: the model reads each pattern through 62 measurements, learns from 26 years of market history, and rescores all 503 stocks in the S&amp;P 500 every day.</p>
 
             <h3>Feature Groups</h3>
             <p>The model evaluates each pattern using 62 features across six categories:</p>
@@ -434,7 +430,7 @@
             <strong>Interactions</strong> - cross-feature combinations that capture non-linear relationships</p>
 
             <h3>Why an Ensemble?</h3>
-            <p>No single model dominates across all market regimes. The 3-model ensemble provides stability that any individual model cannot.</p>
+            <p>No single model dominates across all market regimes, so we run three and blend them for stability.</p>
 
             <div class="track-table-wrap">
                 <table class="ensemble-table">
@@ -459,38 +455,12 @@
                     </tbody>
                 </table>
             </div>
-            <p style="font-size: 14px; color: var(--text-muted); text-align: center;">AUC scores by model and year. In 2019, LightGBM produced a null model (0.490). XGBoost and CatBoost rescued the ensemble. No single model is consistently best.</p>
+            <p style="font-size: 14px; color: var(--text-muted); text-align: center;">AUC scores by model and year. AUC measures how well the model ranks winners above losers: 0.50 is a coin flip, 1.00 is perfect, so 0.62 means a real but modest edge. In 2019, LightGBM produced a null model (0.490). XGBoost and CatBoost rescued the ensemble. No single model is consistently best.</p>
 
             <h3>Validation: Walk-Forward Testing</h3>
-            <p>The model is validated using expanding-window walk-forward testing: train on all data up to year Y, then score year Y+1 using only information available at the time. No future data is ever used. No data leakage.</p>
+            <p>The model is validated using expanding-window walk-forward testing: train on all data up to year Y, then score year Y+1 using only information available at the time. No future data is ever used. No data leakage. The AUC scores above are reported on each year's held-out data under this protocol.</p>
 
-            <div class="track-table-wrap">
-                <table class="track-table">
-                    <thead>
-                        <tr>
-                            <th>Year</th>
-                            <th>Baseline Win Rate</th>
-                            <th>AI Win Rate (Top 30%)</th>
-                            <th>Win Rate Lift</th>
-                            <th>Sharpe Lift</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td class="year-col">2018</td><td class="base-wr">71.7%</td><td class="ai-wr">77.8%</td><td>+6.1</td><td class="lift-col">+43%</td></tr>
-                        <tr><td class="year-col">2019</td><td class="base-wr">64.2%</td><td class="ai-wr">77.8%</td><td>+13.6</td><td class="lift-col">+113%</td></tr>
-                        <tr><td class="year-col">2020</td><td class="base-wr">62.4%</td><td class="ai-wr">78.2%</td><td>+15.8</td><td class="lift-col">+291%</td></tr>
-                        <tr><td class="year-col">2021</td><td class="base-wr">68.9%</td><td class="ai-wr">78.8%</td><td>+9.9</td><td class="lift-col">+63%</td></tr>
-                        <tr><td class="year-col">2022</td><td class="base-wr">81.6%</td><td class="ai-wr">86.0%</td><td>+4.4</td><td class="lift-col">+32%</td></tr>
-                        <tr><td class="year-col">2023</td><td class="base-wr">65.0%</td><td class="ai-wr">79.7%</td><td>+14.7</td><td class="lift-col">+121%</td></tr>
-                        <tr><td class="year-col">2024</td><td class="base-wr">65.9%</td><td class="ai-wr">77.8%</td><td>+11.9</td><td class="lift-col">+85%</td></tr>
-                        <tr><td class="year-col">2025</td><td class="base-wr">61.5%</td><td class="ai-wr">78.1%</td><td>+16.6</td><td class="lift-col">+220%</td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <p>The model adds the most value in the hardest markets. When baseline win rates are low (2020: 62.4%, 2025: 61.5%), the AI lifts win rates by 15-17 points. When the market is already easy (2022: 81.6% baseline), the model adds only 4 points. This is the right behavior: the gatekeeper matters most when conditions are worst.</p>
-
-            <p><strong>The AI win rate at the top-30% threshold has never dropped below 77.8%.</strong> That is the floor across 8 diverse years spanning COVID (2020), a bear market (2022), and rate hiking cycles.</p>
+            <p>Walk-forward testing is about process integrity, not a headline number: it proves the model only ever uses information that existed at the time, the same way it runs in production. But a backtest is our claim, not your proof. So we put the live record in the open - every daily pick is published before the market opens and kept on a public scorecard, wins and losses alike. You do not have to take the numbers on faith. You can audit them.</p>
         </div>
     </section>
 
@@ -498,13 +468,13 @@
     <section class="research-section" style="border-top: 1px solid var(--border);">
         <div class="content-container">
             <h2>What the Model Is Not</h2>
-            <p>Transparency about limitations is as important as performance claims. The TradeWave AI model is a legitimate edge, not a crystal ball.</p>
+            <p>Being honest about the limits matters as much as any performance number. This is a real edge, not a crystal ball - here is exactly where it stops.</p>
 
-            <p><strong>It is a weak classifier with a strong filter.</strong> The model's average AUC of 0.62 is above random (0.50) but below the "strong" threshold (0.70+). It works because seasonal patterns already have inherent edge, and filtering to the top 30% amplifies a small signal across massive sample sizes.</p>
+            <p><strong>It is a weak classifier with a strong filter.</strong> The model's average AUC of 0.62 is above random (0.50) but below the "strong" threshold (0.70+). It works because seasonal patterns already have inherent edge, and filtering to the top 30% amplifies a small edge across massive sample sizes.</p>
 
-            <p><strong>Predicted returns are ranking signals, not price targets.</strong> The model's predicted return is useful for sorting opportunities but should not be treated as a precise forecast. Probability of hitting the exact predicted return ranges from 54-61%.</p>
+            <p><strong>Predicted returns are ranking indications, not price targets.</strong> The model's predicted return is useful for sorting opportunities but should not be treated as a precise forecast. Probability of hitting the exact predicted return ranges from 54-61%.</p>
 
-            <p><strong>Individual trades can still lose.</strong> Even at 78-86% win rates, 14-22% of trades lose. Risk management, position sizing, and diversification remain essential.</p>
+            <p><strong>Individual trades can still lose.</strong> No filter eliminates losing trades, and a meaningful share of patterns close lower than their entry. Risk management, position sizing, and diversification remain essential.</p>
 
             <p><strong>The model does not operate in panic regimes.</strong> Samples with VIX above 35 were removed from training. The model has no data for true market panic conditions and should not be relied upon during them.</p>
         </div>
@@ -513,17 +483,21 @@
     <!-- Section 5: Institutional -->
     <section class="research-section" style="border-top: 1px solid var(--border);">
         <div class="content-container">
-            <h2>Institutional Access</h2>
-            <p>The TradeWave AI model is currently being used to drive a proprietary trading strategy. Pattern data and AI predictions are available via API for institutional clients, quantitative researchers, and fintech platforms.</p>
+            <h2>Institutional and Programmatic Access</h2>
+            <p>The same model already drives a proprietary trading strategy. Pattern data and model scores are available to institutional desks, quantitative researchers, and fintech platforms - over the same auditable record described on this page, not a separate marketing feed.</p>
+            <p><strong>Universe.</strong> Full S&amp;P 500 coverage, all 503 constituents scored, with the broader large-cap indices (Dow 30, Nasdaq 100, Russell 1000) available on the same schema.<br>
+            <strong>History.</strong> 26 years of end-of-day price history feed the patterns, with up to a 99-year lookback exposed per query by calendar or presidential election cycle.<br>
+            <strong>Freshness.</strong> EOD data lands and the full universe is rescored on each US market close, so the scores you pull are the scores the live scorecard publishes - same numbers, same day.<br>
+            <strong>Delivery.</strong> A clean REST API returns patterns, scores, and MFE for any ticker or screen. TradeWave also speaks MCP, so the same patterns and scores pull directly inside ChatGPT or Claude with no glue code.</p>
             <p><a href="{{ contact_url }}" class="btn btn-secondary">Contact Us for Institutional Inquiries</a></p>
         </div>
     </section>
 
     <!-- CTA -->
-    <section class="research-cta">
+    <section class="research-cta" id="run-the-numbers">
         <div class="content-container">
-            <h2>See the AI in Action</h2>
-            <p>Every opportunity in TradeWave is scored with the model described on this page. Start your free trial and explore the data yourself.</p>
+            <h2>Run the Numbers Yourself</h2>
+            <p>Every pattern in TradeWave is scored by the model described on this page. Pick your window, set your lens, and check the data yourself.</p>
             <a href="{{ signup_url }}" class="btn btn-primary pricing-signup-btn" data-upgrade-url="{{ upgrade_url }}" data-strategist-href="{{ wave_viewer_url }}" data-strategist-text="Launch Wave Viewer">Start Your Free 7-Day Trial</a>
         </div>
     </section>

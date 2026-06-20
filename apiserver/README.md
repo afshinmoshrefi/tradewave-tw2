@@ -1,6 +1,6 @@
 # TradeWave API gateway + MCP - build notes (dev)
 
-Isolated, additive service. Public product = derived signals only (no raw prices).
+Isolated, additive service. Public product = derived seasonal patterns only (no raw prices).
 
 ## Layout
 - `apiserver/` - the Flask gateway (this dir). Foundation files are done; `routes.py`

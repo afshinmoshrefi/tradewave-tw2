@@ -3,7 +3,7 @@
 
 A logged-in developer pastes their tw_live_ key, picks an endpoint, fills params, and runs a
 LIVE call against the public API (api.tradewave.ai/v1) straight from the browser. The page
-renders the SignalCard response and shows the exact curl / Python / JavaScript for the request.
+renders the PatternCard response and shows the exact curl / Python / JavaScript for the request.
 BYOK: the key stays in the browser (optional localStorage), sent only as Authorization: Bearer.
 
 Output: site/api_playground/out/index.html  (deployed at developers.tradewave.ai/playground/).
@@ -53,8 +53,8 @@ PLAYGROUND_CSS = """
 .sc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
 .sc-sym{font-size:18px;font-weight:800;color:#fff;}
 .sc-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;}
-.sc-badge.buy{background:#0e3b2e;color:#34d399;} .sc-badge.sell{background:#3b1414;color:#f87171;}
-.sc-badge.no_signal{background:#2a2a33;color:#9ca3af;}
+.sc-badge.bullish{background:#0e3b2e;color:#34d399;} .sc-badge.bearish{background:#3b1414;color:#f87171;}
+.sc-badge.neutral{background:#2a2a33;color:#9ca3af;}
 .sc-headline{margin:8px 0 4px;color:#e5e7eb;font-size:14px;font-weight:600;}
 .sc-verdict{color:var(--text-dim);font-size:13px;margin:0 0 12px;}
 .sc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin:10px 0;}
@@ -77,7 +77,7 @@ PLAYGROUND_CSS = """
 # Each: method, path (with {param}), params [{name,in,placeholder,default,hint}], returns_cards
 ENDPOINTS_JS = """
 const ENDPOINTS = {
-  "daily-pick": { method:"GET", path:"/daily-pick", label:"Daily pick (a SignalCard + track record)", cards:true, params:[] },
+  "daily-pick": { method:"GET", path:"/daily-pick", label:"Daily pick (a PatternCard + track record)", cards:true, params:[] },
   "scan": { method:"GET", path:"/scan", label:"Scan - find best opportunities (flagship)", cards:true, params:[
     {name:"markets", in:"query", ph:"2,11 or gold,etfs", hint:"csv of ids or names; blank = all in scope"},
     {name:"window", in:"query", ph:"now", def:"now", hint:"now | next_2_weeks | next_month | YYYY-MM-DD..YYYY-MM-DD"},
@@ -192,7 +192,7 @@ function esc(v){
 
 function renderCard(c){
   if(!c || typeof c!=="object") return "";
-  const sig = esc((c.signal||"").toLowerCase());
+  const sig = esc((c.bias||"").toLowerCase());
   const s = c.stats||{}, r = c.receipts||{}, ml = c.ml;
   let years = "";
   (r.per_year||[]).slice(0,15).forEach(y => { years += `<span class="sc-yr ${esc(y.result)}">${esc(y.year)} ${fmtPct(y.return_pct)}</span>`; });
@@ -203,7 +203,7 @@ function renderCard(c){
   if(t){ ticket = `<div class="sc-ticket"><strong>Order ticket:</strong> <code>${esc(t.side)} ${esc(t.symbol)} ${esc(t.type)} ${esc(t.time_in_force)}</code>, enter ~${esc(t.suggested_entry_date||'-')}, exit ~${esc(t.suggested_exit_date||'-')}. ${esc(t.note||'')}</div>`; }
   return `<div class="sc">
     <div class="sc-head"><div><span class="sc-sym">${esc(c.symbol||'?')}</span> <span style="color:var(--text-muted);font-size:12px">${esc((c.market||{}).name||'')} &middot; ${esc(c.direction||'')}</span></div>
-      <span class="sc-badge ${sig}">${esc(c.signal||'')}</span></div>
+      <span class="sc-badge ${sig}">${esc(c.bias||'')}</span></div>
     <div class="sc-headline">${esc(c.headline||'')}</div>
     <div class="sc-verdict">${esc(c.verdict||'')}</div>
     <div class="sc-stats">
@@ -229,7 +229,7 @@ function renderResult(ep, data){
   }
   let html = "";
   if(cards.length){ html += cards.map(renderCard).join(""); }
-  else if(ep.cards){ html += `<div class="pg-empty">No cards returned (the API may have responded with NO_SIGNAL or an empty scan). See the raw response below.</div>`; }
+  else if(ep.cards){ html += `<div class="pg-empty">No cards returned (the API may have responded with a neutral bias or an empty scan). See the raw response below.</div>`; }
   html += `<details class="pg-raw" ${cards.length?'':'open'}><summary>Raw JSON response</summary><pre><code>${JSON.stringify(data,null,2).replace(/</g,'&lt;')}</code></pre></details>`;
   return html;
 }
@@ -310,7 +310,7 @@ BODY_HTML = """
     <div class="pg-panel">
       <h3>Response</h3>
       <div id="reqline" style="margin-bottom:14px"></div>
-      <div id="output"><div class="pg-empty">Pick an endpoint and hit <strong>Send request</strong> to see a live SignalCard.</div></div>
+      <div id="output"><div class="pg-empty">Pick an endpoint and hit <strong>Send request</strong> to see a live PatternCard.</div></div>
     </div>
   </div>
 

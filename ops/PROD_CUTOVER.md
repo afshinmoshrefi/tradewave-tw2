@@ -104,31 +104,66 @@ tunnel ingress + DNS after decommission.
 The v2 public product (gateway + MCP + developer portal) ships AFTER the domain cutover
 has soaked and the billing/auth freeze is lifted - it is additive to the appserver and does
 NOT touch the `tradewave.ai` flip. Full deploy/restart detail: `ops/OPERATIONS.md` "API/MCP
-deploy + restart"; map: `docs/TRADEWAVE_ECOSYSTEM.md` §7A/§7B; contract: `api/SIGNALCARD_SPEC.md`.
+deploy + restart"; map: `docs/TRADEWAVE_ECOSYSTEM.md` §7A/§7B; contract: `api/PATTERNCARD_SPEC.md`.
 **SIGNALS-ONLY** (no raw prices). Build prod against `tw2-prod.trxstat.com` first, soak, then add
 the public hostnames. Checklist:
 
 1. **Schema** - apply the additive `apiserver/schema.sql` migration to prod Postgres
    (`api_keys`, `api_usage_daily`, `users.api_tier`). Verify all three exist; back up first.
-2. **Secrets** - set `TW2_API_PUBLIC_HOST=api.tradewave.ai`,
-   `TW2_MCP_PUBLIC_HOST=mcp.tradewave.ai`, `TW2_DEVELOPERS_PUBLIC_HOST=developers.tradewave.ai`
-   in `/etc/tradewave/secrets.env` on the relevant box(es).
-3. **venv-api + units** - run `ops/bootstrap_api_services.sh` on the app box (builds
-   `/home/flask/venv-api`, installs `tradewave-apiserver` :8088 + `tradewave-mcpserver` :9090,
-   nginx `api`/`mcp`/`developers` server blocks). Confirm `TRADEWAVE_API_KEY` is UNSET on the
-   MCP unit (BYOK). `systemctl enable --now tradewave-apiserver tradewave-mcpserver`.
+2. **Secrets** - set the public hostnames + the env/console/OAuth gates in
+   `/etc/tradewave/secrets.env` on the relevant box(es):
+   - **Public hosts** - `TW2_API_PUBLIC_HOST=api.tradewave.ai`,
+     `TW2_MCP_PUBLIC_HOST=mcp.tradewave.ai`,
+     `TW2_DEVELOPERS_PUBLIC_HOST=developers.tradewave.ai` (drive `portal_urls.py` +
+     the MCP SDK DNS-rebinding allowlist).
+   - **`TW2_ENV=prod`** (WEB box) - drives the CORS allowlist and the portal
+     stale-host guard. Without it those default to the dev/staging posture.
+   - **`TW2_API_CONSOLE_ENABLED=1`** (WEB box) - the API customer console blueprint
+     registers ONLY when this is truthy (`web/app.py:3712`, `if config.API_CONSOLE_ENABLED`).
+     Unset (the prod default that ships the product dark) => `/account/api` 404s and
+     every "Get API Key" CTA breaks. After setting it, `systemctl restart tradewave-web`.
+   - **MCP OAuth (the "sign in, no API key" consumer flow)** - all three of
+     `TW2_MCP_PUBLIC_URL` (canonical resource / token audience, e.g.
+     `https://mcp.tradewave.ai`), `MCP_GATEWAY_KEY`, and `WORKOS_AUTHKIT_DOMAIN`
+     (prod AuthKit). OAuth turns on only when all three are present
+     (`mcpserver/server.py` `OAUTH_ENABLED`); with any one missing the server stays
+     BYOK-only and the ChatGPT/Claude no-key connect flow is dead.
+3. **venv-api + units** - run `ops/bootstrap_api_services.sh` on the app box. It builds
+   `/home/flask/venv-api`, applies the additive schema, and installs + `enable --now`s the
+   two LOOPBACK units `tradewave-apiserver` :8088 + `tradewave-mcpserver` :9090. It does NOT
+   wire the edge - nginx and cloudflared are the SEPARATE manual step below. Confirm
+   `TRADEWAVE_API_KEY` is UNSET on the MCP unit (BYOK). The MCP unit serves
+   **streamable-http at `/`** (alias `/mcp`), NOT SSE at `/sse`.
 4. **Tunnels** - add the `api.` / `mcp.` / `developers.tradewave.ai` ingress entries (BEFORE
    the 404 catch-all), add the three Cloudflare DNS tunnel records, `systemctl restart
    cloudflared`, then `nginx -t && systemctl reload nginx`.
-5. **Stripe products** - run `web/api_portal/create_api_products.py` in **LIVE** mode (prod
-   uses live Stripe keys; do NOT seed live with test keys or vice versa). Create the prod API
-   webhook if the API tier write needs its own endpoint; verify with a test event.
+5. **Stripe products** - seed the API products in **LIVE** Stripe. Run exactly (from `/home/flask`):
+   ```
+   STRIPE_SECRET_KEY=sk_live_... TW2_CONFIRM_LIVE_SEED=1 ./venv/bin/python web/api_portal/create_api_products.py --live
+   ```
+   Both `--live` AND `TW2_CONFIRM_LIVE_SEED=1` are required to touch live Stripe; without them
+   the script refuses a live key and stays TEST-only. It idempotently seeds the 3 API products
+   (Dev/Pro/Business) + monthly/annual prices + the FOUNDER coupon, all stamped `product_line=api`
+   metadata, in LIVE
+   Stripe (re-running makes no duplicates). Do NOT seed live with test keys or vice versa. Create
+   the prod API webhook if the API tier write needs its own endpoint; verify with a test event.
 6. **Assemble the portal** - run `ops/assemble_developer_portal.sh` (generators + rsync to
    `/var/www/developers/`); the pages bake the prod hostnames, so this must run AFTER step 2.
-7. **Smoke** (use a real key you create + revoke): `https://api.tradewave.ai/v1/markets`,
-   `https://mcp.tradewave.ai/sse` opens, `https://developers.tradewave.ai/` + `/docs` +
-   `/.well-known/mcp.json` serve; confirm responses are **signals-only (no raw price fields)**;
-   one paid API checkout end-to-end; `tail -f /var/log/tradewave/*.log` clean.
+7. **Smoke** (use a real key you create + revoke): `https://api.tradewave.ai/v1/markets`;
+   the MCP server answers an `initialize` handshake at the ROOT (streamable-http, alias `/mcp`)
+   - NOT SSE at `/sse`:
+   ```
+   curl -sS https://mcp.tradewave.ai/ \
+     -H 'Content-Type: application/json' \
+     -H 'Accept: application/json, text/event-stream' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"cutover-smoke","version":"1"}}}'
+   ```
+   (expect a JSON-RPC `result` with `serverInfo` / `capabilities`; `/mcp` is an accepted alias);
+   `https://developers.tradewave.ai/` + `/docs` + `/.well-known/mcp.json` serve;
+   the API console loads behind login: `https://tradewave.ai/account/api` and
+   `https://tradewave.ai/account/api/keys` return 200 (NOT 404 - a 404 means
+   `TW2_API_CONSOLE_ENABLED` is unset, step 2); confirm responses are **signals-only (no raw
+   price fields)**; one paid API checkout end-to-end; `tail -f /var/log/tradewave/*.log` clean.
 
 Rollback is non-destructive: stop the two units + remove the three ingress/DNS records; the
 appserver and web tier are untouched.

@@ -1,7 +1,7 @@
 ---
 title: "Connect an AI agent with MCP"
 slug: "connect-an-ai-agent-mcp"
-description: "Connect ChatGPT or Claude.ai to the TradeWave MCP server with a simple sign-in, or wire Claude Desktop and Cursor with your own API key, and let your agent pull seasonal signals."
+description: "Connect ChatGPT or Claude.ai to the TradeWave MCP server with a simple sign-in, or wire Claude Desktop and Cursor with your own API key, and let your agent pull detected seasonal patterns."
 order: 5
 read_minutes: 8
 ---
@@ -10,14 +10,14 @@ read_minutes: 8
 
 The Model Context Protocol (MCP) is an open standard that lets an AI assistant call external tools through a single connection. Instead of pasting JSON into a chat or writing glue code, you point the assistant at a server, and it discovers the available tools and calls them on your behalf. Ask in plain English, and the agent decides which tool to run.
 
-TradeWave runs a hosted MCP server at `{{MCP_URL}}`. It exposes the exact same derived signals as the REST API - the server composes the `SignalCard` for you, so your agent gets percentages, a normalized seasonal index, an honest edge score, and a public track record. It never gets raw prices or OHLCV bars. Every response still carries its `disclaimer`: outputs are educational, not personalized advice.
+TradeWave runs a hosted MCP server at `{{MCP_URL}}`. It exposes the exact same detected seasonal patterns as the REST API - the server composes a Pattern Card for you, so your agent gets the win-rate percentages, a normalized seasonal index, an honest edge score, an ML view, and a public track record. It never gets raw prices or OHLCV bars. Every response still carries its `disclaimer`: outputs are educational, not personalized advice.
 
-TradeWave is a research partner, not an oracle. It supplies a seasonal plus 62-feature-ML statistical edge and the timing, and it is deliberately blind to fundamentals, valuation, news, catalysts, macro and rates, analyst views, earnings dates, and the live price. That is by design: it pairs with your assistant's own web, news, and reasoning tools. TradeWave brings the seasonal/ML edge, the agent extends it with fundamentals, news, and macro, and the two synthesize one view.
+Think of TradeWave as a research partner with one job. It supplies a seasonal-plus-62-feature-ML statistical edge and the timing, and it is deliberately blind to fundamentals, valuation, news, catalysts, macro and rates, analyst views, earnings dates, and the live price. That is by design: it pairs with your assistant's own web, news, and reasoning tools. TradeWave brings the seasonal and ML edge, the agent extends it with fundamentals, news, and macro, and the two synthesize one view.
 
 The intended loop is explicit, and it is worth wiring into your agent's instructions:
 
-1. Call `describe_tradewave` first. It self-documents the seasonal/ML method, ships a "SEASONAL ANALYSIS KNOBS" glossary, and lists per-market coverage, so the agent knows what every field means and which markets support which calls before it leans on a number.
-2. Pull a card. Every `SignalCard` carries an `extend_research` block that names, in the card itself, exactly what TradeWave is blind to (fundamentals, news, macro, earnings, the live price) and what to verify with your own tools.
+1. Call `describe_tradewave` first. It self-documents the seasonal and ML method, ships a "SEASONAL ANALYSIS KNOBS" glossary, and lists per-market coverage, so the agent knows what every field means and which markets support which calls before it leans on a number.
+2. Pull a card. Every Pattern Card carries an `extend_research` block that names, in the card itself, exactly what TradeWave cannot see (fundamentals, news, macro, earnings, the live price) and what to verify with your own tools.
 3. Loop back. Take the seasonal and ML edge plus the timing from the card, then use your web, news, and earnings tools to check the things the card told you it cannot see, and synthesize one view. The card hands the research off to you on purpose; it does not pretend to be the whole answer.
 
 Authentication depends on the client:
@@ -29,22 +29,22 @@ Authentication depends on the client:
 Authorization: Bearer tw_live_xxx
 ```
 
-For the BYOK path, get a key at {{CONSOLE_URL}}. Treat it like a password and keep it out of shared configs you might commit.
+For the BYOK path, get a key at {{CONSOLE_URL}}. Treat it like a password and keep it out of shared configs you might commit. Want to wire up a client and see a real card before you sign up? Drop in the public demo token `tw_demo_explore` instead of your own key - it returns live Explorer-tier cards so your first call works immediately.
 
 ## The flagship tools
 
-The server publishes 17 tools: 6 flagship tools that map to the richest API calls, plus 11 lower-level primitives for agents that want to compose their own workflow. The flagship six lead the menu: `find_best_opportunities`, `analyze_symbol`, `explain_pick`, `morning_briefing`, `whats_seasonal_now`, and `compare_opportunities`. Behind them sit the 11 primitives: `list_markets`, `whoami`, `describe_tradewave`, `list_symbols`, `get_seasonal_opportunities`, `get_symbol_patterns`, `get_seasonal_pattern`, `get_opportunity_chart`, `score_opportunities`, `get_daily_pick`, and `get_pick_track_record`. Two are worth calling out: `whoami` reports your tier and remaining ML allowance, and `describe_tradewave` self-documents the seasonal/ML method so the agent can explain what the numbers mean before it uses them.
+The server publishes 17 tools: 6 flagship tools that map to the richest API calls, plus 11 lower-level primitives for agents that want to compose their own workflow. The flagship six lead the menu: `find_best_opportunities`, `analyze_symbol`, `explain_pick`, `morning_briefing`, `whats_seasonal_now`, and `compare_opportunities`. Behind them sit the 11 primitives: `list_markets`, `whoami`, `describe_tradewave`, `list_symbols`, `get_seasonal_opportunities`, `get_symbol_patterns`, `get_seasonal_pattern`, `get_opportunity_chart`, `score_opportunities`, `get_daily_pick`, and `get_pick_track_record`. Two are worth calling out: `whoami` reports your tier and remaining ML allowance, and `describe_tradewave` self-documents the seasonal and ML method so the agent can explain what the numbers mean before it uses them.
 
 | Tool | What it does | Maps to |
 | --- | --- | --- |
-| `find_best_opportunities` | Sweep markets over a window, filter and rank, return ranked SignalCards | `GET /scan` |
-| `analyze_symbol` | One rich SignalCard for a named symbol, plus `other_setups` | `GET /analyze/{symbol}` |
+| `find_best_opportunities` | Sweep markets over a window, filter and rank, return ranked Pattern Cards | `GET /scan` |
+| `analyze_symbol` | One rich Pattern Card for a named symbol, plus `other_setups` | `GET /analyze/{symbol}` |
 | `explain_pick` | Walk through today's daily pick and its forward-tested receipts | `GET /daily-pick` |
 | `morning_briefing` | The one-call start of the day: today's pick, the live track record, and the top setups entering their window | `GET /daily-pick` + `GET /daily-pick/track-record` + `GET /scan` (composed) |
 | `whats_seasonal_now` | What is lining up right now across your in-scope markets | `GET /scan?window=now` |
 | `compare_opportunities` | Put two or more setups side by side on edge, win rate, and ML | composed |
 
-The card-bearing tools all return the same `SignalCard` shape: `signal` (`BUY`, `SELL`, or `NO_SIGNAL`), `edge_score`, `stats`, an optional `ml` block, and the `receipts` audit trail. When the best available setup is weak, the tool returns `NO_SIGNAL` and no order ticket on purpose. That conflict-free honesty is the point.
+The card-bearing tools all return the same Pattern Card shape: a `bias` field (`bullish`, `bearish`, or `neutral`), `edge_score`, `stats`, an optional `ml` block, and the `receipts` audit trail. When the best available setup is weak, the tool returns a `neutral` bias and no order ticket on purpose. That conflict-free honesty is the point.
 
 ## Progressive disclosure: decide cheap, then pull the receipts
 
@@ -147,7 +147,7 @@ MCP tools work best when you ask the question you actually have and let the agen
 - "Good morning - what's my briefing?" - `morning_briefing` returns today's pick, the live track record, and what is entering its window, in one call.
 - "Find the best seasonal setups I can trade this week." - the agent calls `find_best_opportunities` with `window=next_2_weeks` and ranks them.
 - "Is there a seasonal edge in XLE right now? Show me the receipts." - this hits `analyze_symbol`, then reads the `receipts` block.
-- "Explain today's daily pick like I am new to seasonality." - `explain_pick` returns the SignalCard and its forward-tested track record.
+- "Explain today's daily pick like I am new to seasonality." - `explain_pick` returns the Pattern Card and its forward-tested track record.
 - "What is seasonal across my markets today, long only?" - `whats_seasonal_now` filtered to `direction=long`.
 - "Compare the energy and tech setups - which has the stronger win rate and ML view?" - `compare_opportunities`.
 
@@ -171,7 +171,7 @@ Here is a trimmed result from `find_best_opportunities`, illustrative only - you
   "symbol": "XLE",
   "market": { "id": "11", "name": "ETFs" },
   "direction": "long",
-  "signal": "BUY",
+  "bias": "bullish",
   "setup": {
     "entry_date": "2026-06-05",
     "entry_window": "2026-06-03..2026-06-08",
@@ -212,4 +212,4 @@ ML behaves the same as on REST. The model covers US stocks, indices, and ETFs an
 
 Your agent now has the same flagship calls as the REST API: discovery via `find_best_opportunities`, deep dives via `analyze_symbol`, and the receipts-backed `explain_pick`. Point it at a market, ask the question you actually have, scan lean with `view=decision`, then go `view=full` on the card you act on. Let `describe_tradewave` teach the method first, and let each card's `extend_research` block tell you what to verify with your own tools.
 
-One posture to keep front of mind: TradeWave is educational only. The signals are impersonal and identical for everyone, the platform never reads or advises on your holdings, and every signal-bearing response carries the same educational disclaimer. It is an edge and a timing input, not personalized advice.
+One posture to keep front of mind: TradeWave is educational only. The seasonal patterns are impersonal and identical for everyone, the platform never reads or advises on your holdings, and every pattern-bearing response carries the same educational disclaimer. It is an edge and a timing input, not personalized advice.

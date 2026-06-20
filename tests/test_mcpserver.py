@@ -55,7 +55,7 @@ def test_view_override_is_forwarded(captured):
 def test_analyze_defaults_decision_and_include_chart(monkeypatch):
     box = {}
     monkeypatch.setattr(server, "_get", lambda path, params=None: box.update(
-        path=path, params=dict(params or {})) or {"card": {"signal": "BUY"}})
+        path=path, params=dict(params or {})) or {"card": {"bias": "bullish"}})
     server.analyze_symbol(symbol="AAPL", include_chart=True, ctx=None)
     assert box["path"] == "/analyze/AAPL"
     assert box["params"]["view"] == "decision"
@@ -91,14 +91,15 @@ def test_lead_without_handoff_omits_it():
 # --- upgrade-stub handling (graceful, never an error) -------------------------------
 
 def test_is_upgrade_stub():
-    assert server._is_upgrade_stub({"requires": "pro"})
+    # The gateway's ONLY upgrade stub is the ML daily-limit one (requires="upgrade",
+    # reason="ml_daily_limit"). There is no requires="pro" shape - ML is metered on every
+    # tier, not Pro-gated - so that must NOT be treated as a stub.
     assert server._is_upgrade_stub({"requires": "upgrade", "reason": "ml_daily_limit"})
+    assert not server._is_upgrade_stub({"requires": "pro"})
     assert not server._is_upgrade_stub({"count": 0})
 
 
 def test_format_upgrade_messages():
-    pro = server._format_upgrade({"requires": "pro", "upgrade_url": "https://x/up"})
-    assert "Upgrade required" in pro and "https://x/up" in pro
     ml = server._format_upgrade({"requires": "upgrade", "reason": "ml_daily_limit",
                                  "ml_remaining_today": 0})
     assert "Daily ML limit reached" in ml
@@ -198,7 +199,7 @@ def test_whoami_example_prefers_etfs_when_in_scope(monkeypatch):
 def test_morning_briefing_composes_three_sections(monkeypatch):
     def fake_get(path, params=None):
         if path == "/daily-pick":
-            return {"card": {"symbol": "AAPL", "signal": "BUY", "disclaimer": "D"},
+            return {"card": {"symbol": "AAPL", "bias": "bullish", "disclaimer": "D"},
                     "as_of": "2026-06-12", "disclaimer": "D"}
         if path == "/daily-pick/track-record":
             return {"summary": {"count": 40, "win_count": 28, "win_rate": 0.7,

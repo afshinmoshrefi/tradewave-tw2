@@ -1,7 +1,7 @@
 # TradeWave API + MCP - BUILD STATE (working control doc)
 
 Live state of the "finish the API + MCP product" build. Update as phases complete.
-Companion to: `api/STRATEGY_REVIEW_2026-05.md` (why), `api/SIGNALCARD_SPEC.md` (contract),
+Companion to: `api/STRATEGY_REVIEW_2026-05.md` (why), `api/PATTERNCARD_SPEC.md` (contract),
 `api/openapi.yaml` + `api/MCP_TOOLS.md` (frozen surface). Started 2026-06-02 on dev .176,
 branch `feature/api-mcp`.
 
@@ -24,13 +24,13 @@ branch `feature/api-mcp`.
 5. **Where:** all dev work on .176 `/home/flask`, branch `feature/api-mcp`. NOTHING touches
    staging/prod directly - author the operator's deploy steps (hard rule).
 
-## Invariants (never violate - from SIGNALCARD_SPEC + CLAUDE.md)
-- SIGNALS ONLY: no raw OHLCV / last price / price-by-date / price levels in any public response;
+## Invariants (never violate - from PATTERNCARD_SPEC + CLAUDE.md)
+- PATTERNS ONLY: no raw OHLCV / last price / price-by-date / price levels in any public response;
   all movement as percentages; seasonal curve is a 0-100 normalized index, never a price.
 - `historical_win_rate` != `ml_win_prob` (distinct fields, never both "win rate").
 - `years` + window labels stay STRINGS; market ids are permanent '0'..'16'.
 - No em-dashes in user-facing copy (use ' - '); date RANGES use en-dash via tw_dateformat.
-- Exact disclaimer on every SignalCard. Fail-fast on real errors; fail-soft only per-symbol gaps.
+- Exact disclaimer on every PatternCard. Fail-fast on real errors; fail-soft only per-symbol gaps.
 
 ## Dev-box facts (verified 2026-06-02)
 - secrets.env has POSTGRES_DSN, APPSERVER_JWT_SECRET (= HMAC fallback; no explicit
@@ -44,7 +44,7 @@ branch `feature/api-mcp`.
 
 ## Phase checklist
 - [x] **0 Foundation:** branch reconciled; venv-api built; schema applied; gateway smoked
-      end-to-end (markets/daily-pick/scan/analyze/score all 200, signals-only verified, no
+      end-to-end (markets/daily-pick/scan/analyze/score all 200, patterns-only verified, no
       price leak). Gateway runs: `nohup venv-api/bin/gunicorn -w 2 -b 127.0.0.1:8088 --pid
       /tmp/tw_api.pid apiserver.app:app`. Smoke key in /tmp/tw_smoke_key (pro tier).
       FIXED a flagship ML bug (see below). MCP smoke still TODO.
@@ -64,7 +64,7 @@ branch `feature/api-mcp`.
         - EXTRAS: site/api_docs/generate_api_extras.py -> openapi.yaml + openapi.json +
           tradewave.postman_collection.json + .well-known/mcp.json. Linked from docs + playground.
         - PLAYGROUND: site/api_playground/generate_playground.py -> out/index.html. Live "Try it"
-          console (BYOK localStorage, endpoint registry, SignalCard renderer, per-request
+          console (BYOK localStorage, endpoint registry, PatternCard renderer, per-request
           curl/Python/JS). Calls API_BASE; needs the api-* tunnel live (P5) for real sends.
         - GATEWAY CORS added (apiserver/settings.py CORS_ORIGINS + app.py after_request):
           env-driven allowlist (developers/main hosts per env; API_CORS_ORIGINS or "*"); preflight
@@ -124,9 +124,9 @@ branch `feature/api-mcp`.
         ingress additions; ECOSYSTEM/OPERATIONS/PROD_CUTOVER sections.
       TODO after workflow: review artifacts; validate (nginx -t, systemd-analyze verify) on dev;
         optionally install+start the units on dev to replace the nohup gateway; confirm assemble script.
-- [x] **6 Validate + adversarial review:** COMPLETE. 5-dimension adversarial workflow (signals-only,
+- [x] **6 Validate + adversarial review:** COMPLETE. 5-dimension adversarial workflow (patterns-only,
       security, contract, brand, regression) with LIVE gateway probing.
-      HEADLINE: signals-only PASSED with decisive proof (gateway strips every raw price the upstream
+      HEADLINE: patterns-only PASSED with decisive proof (gateway strips every raw price the upstream
       ChartData4 carries - per_year price, 52W H/L, SMA, volume all dropped; curve is 0-100 index).
       FIXED + RE-VERIFIED LIVE:
         - HIGH path-injection on the appserver bridge: appserver_client._seg() URL-encodes every
@@ -140,7 +140,7 @@ branch `feature/api-mcp`.
         - MED "historical ML win rate" wording in marketing mcp -> "model's predicted win probability".
         - MED portal generator venv footer venv-api -> venv (the one with markdown/yaml/jinja).
         - LOW data-dictionary phantom yearly_paths/exit_pct -> real seasonal_curve {date,index} + per_year.
-        - LOW NO_SIGNAL next_step now OMITS order_ticket/copy_text/set_reminder (was null). Verified live.
+        - LOW neutral-bias next_step now OMITS order_ticket/copy_text/set_reminder (was null). Verified live.
         - polish: openapi version 1.0.0-draft -> 1.0.0.
       ACCEPTED/NOTED (not blocking): curve_summary is null on /scan cards (cost trade-off; populated on
         /analyze + /daily-pick); pre-existing em-dashes in OLD ops/*.sh comments (NEW surface = 0);
@@ -195,12 +195,12 @@ branch `feature/api-mcp`.
     receipts" + provider-neutral subhead; CTAs now Read the docs / Try it live; hero note "Works with
     Liquid (Co-Invest) and any broker".
   - Differentiation section-head -> the provider-neutral thesis (broker-agnostic ticket, conflict-free,
-    NO_SIGNAL honesty). NEW "Where TradeWave sits" 3-category section (data feeds / execution apps /
+    neutral-bias honesty). NEW "Where TradeWave sits" 3-category section (data feeds / execution apps /
     edge layer) - complementary-not-competing, Liquid named positively.
   - MCP page: NEW GTM hero "Recipe: TradeWave + your broker (works with Liquid and any app)" card with
     the 3-step flow + example agent prompt, links to /learn/recipe-tradewave-plus-broker.html.
   - Pricing: Enterprise strip -> full "Built for teams and enterprises" block: WorkOS SSO (SAML/OIDC) +
-    SCIM, multi-seat keys, audit, SLA, commercial signal-redistribution rights, Contact sales.
+    SCIM, multi-seat keys, audit, SLA, commercial pattern-redistribution rights, Contact sales.
   - Use-cases: teams/enterprise band before the final CTA.
 - WorkOS/SSO HONESTLY SCOPED (per operator decision): SSO/SCIM governs the CONSOLE login only; API
   calls stay key-based on every plan; it is a Business/Enterprise "contact sales" capability (powered
@@ -231,7 +231,7 @@ only the four precise things; never a blanket "AI cant"). All verified clean.
   (time only moves forward), and they are VERIFIABLE (free-tier /v1/daily-pick/track-record + public
   scorecard) so an evaluating agent can audit before recommending. "Do not trust us - check us."
 - Verified live: for-ai-agents.html + build-dont-rebuild.html + llms.txt all 200; 0 em-dashes whole
-  portal; no blanket "AI cant"; 4 files concede agents CAN backtest; signals-only held; sitemap 23 urls.
+  portal; no blanket "AI cant"; 4 files concede agents CAN backtest; patterns-only held; sitemap 23 urls.
 
 ## Phase 9b - "The daily scan is a pipeline, not a prompt" differentiator (operator insight)
 Added a DISTINCT class of moat (operation/scale, not just data quality): TradeWave runs a daily,
@@ -242,7 +242,7 @@ daily universe-wide seasonal-entry scanner over a compiled multi-decade licensed
 (standing pipeline refreshed daily; by the time it rebuilt it, the window moved). Woven into 4 surfaces
 honestly (each CONCEDES one-symbol analysis is easy): for-ai-agents.html (new section), landing callout,
 learn lesson 9 (new "## And the real job is a daily scan" section + runnable /v1/scan code), and
-llms.txt (point 5). Verified: 0 em-dashes, no "agent cant scan" overclaim, signals-only, live 200.
+llms.txt (point 5). Verified: 0 em-dashes, no "agent cant scan" overclaim, patterns-only, live 200.
 
 ## Phase 10 - Column filters on opportunities/scan (operator request, the UI filter parity) 2026-06-02
 Added the numeric column filters the UI opportunity table offers, to BOTH /v1/scan (find_best_opportunities)
@@ -328,7 +328,7 @@ Closed the table->wave-viewer drill: /v1/analyze (+ MCP analyze_symbol) auto-pic
 way to load THE setup the user clicked on the opportunity table. Now analyze accepts the wave-viewer knobs:
   - entry_date (YYYY-MM-DD) [+ days_out]: PIN to that exact opportunity. Matches a detected setup by
     entry_date (prefers same days_out); if none matches, analyzes the exact window directly (stats sourced
-    from ChartData4 via build_signal_card's opp->stats fallback, so an arbitrary window still renders a full card).
+    from ChartData4 via build_pattern_card's opp->stats fallback, so an arbitrary window still renders a full card).
   - pe_cycle (consecutive|pe) + years (1-99): the lookback/cycle knobs (same as /seasonal-chart). Drives
     OppBySymbol mode + the receipts/curve lookback (best['years']=_chart_years).
   - period + reverse: the Phase-13 date-range presets, here too (override entry_date/days_out).
@@ -345,7 +345,7 @@ mcp.json description, docs/openapi.json/postman regenerated, 0 em-dashes, both s
 ## Phase 15 - Tara (in-product chatbot) becomes a CLIENT of the gateway, read-client 2026-06-02
 The shipped wave-viewer assistant "Tara" (appserver/appserver/chatbot.py, Haiku 4.5) could only reason over
 the on-screen context; it never called the v1 gateway. Phase 1 of docs/TARA_GATEWAY_INTEGRATION.md gives Tara
-tool-use so it FETCHES + narrates the gateway's own composed SignalCards - one source of truth, signals-only,
+tool-use so it FETCHES + narrates the gateway's own composed PatternCards - one source of truth, patterns-only,
 same disclaimer as the API/MCP/daily-pick. NOT a product merge (the public API/MCP is unchanged; Tara stays the
 login-gated UI helper). Metering = option A: an internal 'chatbot' tier (tiers.INTERNAL_TIERS, service:True, kept
 OUT of the sold API_TIERS) + an X-TW-On-Behalf-Of delegation in the gateway (auth.py, honored ONLY for service:True
@@ -358,7 +358,7 @@ bounded tool loop), chatbot.py (chat() runs the tool loop when TARA_TOOLS_ENABLE
 VERIFIED LIVE (dev): explain_pick->real NVDA card (91% 10/11y, +23.8%, SR 2.8) + disclaimer; find_best_opportunities
 ->real UNH/WMT/AXP + all-markets scan->BPS-PA/DOV/RBC...; ML metered mlq:cb:<user>=10; a NORMAL customer key +
 on-behalf header did NOT delegate (no cb: key). ADVERSARIAL REVIEW (13 agents, 4 lenses): security core CLEAN
-(no escalation, no spoof, key never leaks, signals-only intact, loop terminates); fixed 1 real HIGH (tool-result
+(no escalation, no spoof, key never leaks, patterns-only intact, loop terminates); fixed 1 real HIGH (tool-result
 JSON was raw-sliced -> malformed on big payloads; now _bounded_json caps lists/heavy fields to valid JSON, tested
 80k->1.4k valid), 1 MEDIUM (gateway read timeout 60->20s, fail-fast), 1 hardening (sold-tier service:True assert).
 0 em-dashes. (Phase 2 below.)
@@ -381,4 +381,4 @@ VERIFIED LIVE: "load NVDA 20y"->action {market:'1',symbol:'NVDA',years:20}; "loo
 "PE+2"->{pe_cycle:'pe2'}. ADVERSARIAL REVIEW (3 lenses): validation correct BOTH ends, strict set_view-only
 allowlist, no eval, bool-as-int hardened, loop capped, no quota burn, backward-compat - all confirmed; fixed
 1 MEDIUM (exception path now also returns actions:[] for envelope consistency). 0 em-dashes introduced.
-Blast radius of actuation = which chart/knobs the user sees (no code exec, no data beyond signals-only, no auth/billing).
+Blast radius of actuation = which chart/knobs the user sees (no code exec, no data beyond patterns-only, no auth/billing).

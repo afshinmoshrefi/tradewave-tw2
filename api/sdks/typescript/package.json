@@ -1,7 +1,7 @@
 {
   "name": "@tradewave/sdk",
   "version": "0.1.1",
-  "description": "Official TradeWave Data API client - seasonal trading opportunities and ML win-probability signals. Signals only, no raw prices.",
+  "description": "Official TradeWave Data API client - seasonal trading opportunities and ML win-probability scores. Derived data only, no raw prices.",
   "type": "module",
   "license": "MIT",
   "homepage": "https://tradewave.ai",
@@ -9,7 +9,7 @@
     "tradewave",
     "seasonal",
     "trading",
-    "signals",
+    "patterns",
     "markets",
     "sdk"
   ],

@@ -4,8 +4,8 @@ Run:
     export TRADEWAVE_API_KEY=tw_live_...
     python quickstart.py
 
-Shows the daily pick, a 'now' scan, and a single-symbol deep dive. Signals only -
-all movement is percentages, never prices.
+Shows the daily pick, a 'now' scan, and a single-symbol deep dive. Derived data
+only - all movement is percentages, never prices.
 """
 
 from tradewave import Client, MLDailyLimit
@@ -14,7 +14,7 @@ from tradewave import Client, MLDailyLimit
 def main() -> None:
     # api_key is read from TRADEWAVE_API_KEY when omitted.
     with Client() as tw:
-        # 1) Today's AI pick (a full SignalCard + its live track record).
+        # 1) Today's AI pick (a full PatternCard + its live track record).
         pick = tw.daily_pick()
         if pick.card:
             print("DAILY PICK:", pick.card.headline)
@@ -32,7 +32,7 @@ def main() -> None:
         for card in scan:  # ScanResult iterates its ranked cards directly
             wr = card.stats.historical_win_rate if card.stats else None
             print(f"  #{card.rank} {card.symbol} {card.direction} "
-                  f"edge={card.edge_score} win_rate={wr} -> {card.signal}")
+                  f"edge={card.edge_score} win_rate={wr} -> {card.bias}")
 
         # 3) Deep-dive one symbol.
         print("\nDEEP DIVE on GLD:")

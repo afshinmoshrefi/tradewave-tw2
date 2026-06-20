@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "TradeWave Data API (v1)",
-    "description": "Seasonal-edge + ML trading signals. Signals only - no raw prices. Set the collection variable api_key to your tw_live_ key (get one at https://tw2-dev.trxstat.com/account/api/keys). Docs: https://developers-dev.trxstat.com/docs",
+    "description": "Seasonal-edge + ML-scored seasonal patterns. Seasonal patterns only - no raw prices. Set the collection variable api_key to your tw_live_ key (get one at https://tw2-dev.trxstat.com/account/api/keys). Docs: https://developers-dev.trxstat.com/docs",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -50,13 +50,13 @@
               "key": "markets",
               "value": "2,11",
               "disabled": false,
-              "description": "csv of ids or EXACT list_markets names, e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are dropped. Default = ALL in-scope markets."
+              "description": "csv of ids, list_markets names, or common aliases ('sp500', 'crypto', 'europe'), e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are reported in markets_no"
             },
             {
               "key": "window",
               "value": "now",
               "disabled": false,
-              "description": "'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. 'now' = setups whose entry_date falls within the next ~10 trading days. Default 'now'."
+              "description": "'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. The underlying primitive (OppList4) is keyed to a SINGLE entry date, so the scan evaluates opportuni"
             },
             {
               "key": "direction",
@@ -134,7 +134,7 @@
               "key": "limit",
               "value": "10",
               "disabled": false,
-              "description": "tier-capped (free 3, dev 25, pro up to 5000)"
+              "description": "tier-capped (free 3, dev 100, pro 1000, business 5000)"
             },
             {
               "key": "view",
@@ -144,7 +144,7 @@
             }
           ]
         },
-        "description": "Scan in-scope markets for the best seasonal setups (ranked SignalCards)"
+        "description": "Scan in-scope markets for the best seasonal setups (ranked PatternCards)"
       }
     },
     {
@@ -229,7 +229,7 @@
             }
           ]
         },
-        "description": "Deep-dive one symbol into a single rich SignalCard + alternate setups"
+        "description": "Deep-dive one symbol into a single rich PatternCard + alternate setups"
       }
     },
     {
@@ -415,7 +415,7 @@
               "key": "limit",
               "value": "10",
               "disabled": false,
-              "description": "tier-capped (free 3, dev 25, pro up to 5000)"
+              "description": "tier-capped (free 3, dev 100, pro 1000, business 5000)"
             }
           ]
         },
@@ -765,7 +765,7 @@
             }
           ]
         },
-        "description": "Today's AI pick as a SignalCard, with its live track record"
+        "description": "Today's AI pick as a PatternCard, with its live track record"
       }
     },
     {

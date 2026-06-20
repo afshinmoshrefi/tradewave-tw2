@@ -10,7 +10,7 @@ featured: false
 related: ["backtesting-pitfalls", "halloween-effect", "reading-patterns-without-fooling-yourself"]
 ---
 
-There is no cleaner case study in financial economics than the day-of-week effect. A pattern that was statistically robust for thirty years, supported by multiple independent studies, with several plausible mechanisms and a proper academic literature behind it, has now functionally disappeared from major U.S. equity indices. The story is worth understanding because it tells you something important about how markets adapt and how confident you should be in any anomaly that is currently being arbitraged.
+For thirty years, Monday was the worst day to own U.S. stocks. The pattern was robust, replicated across independent studies, backed by plausible mechanisms and a serious academic literature. Then it vanished. Today the Monday effect is gone from the major U.S. indices, and its disappearance is the cleanest case study in markets of how an anomaly dies. It is worth understanding not for nostalgia but for a question you face with every pattern you trade: how confident should you be in an edge that other people can also see?
 
 ## What French actually found
 
@@ -57,21 +57,21 @@ It is also worth being honest about a fourth possibility, which Connolly raised 
 
 ## What modern data actually shows
 
-For 2010 to the present, the standard tests on S&P 500 daily returns return non-significant day-of-week coefficients in most specifications. Mean Monday returns are slightly positive in some windows and slightly negative in others, but the differences across days of the week are within the noise band of daily return volatility. The Monday-Friday gap that anchored French's 1980 paper is not in the modern data in any actionable form.
+For 2010 to the present, standard tests on S&P 500 daily returns produce non-significant day-of-week coefficients in most specifications. Mean Monday returns run slightly positive in some windows and slightly negative in others, but the spread across days of the week sits inside the noise band of daily volatility. The Monday-Friday gap that anchored French's 1980 paper is not in the modern data in any form you could trade.
 
 This is not a U.S.-only story. Day-of-week effects have been documented and partially decayed in many other developed markets. Some emerging markets retain larger and more variable day-of-week patterns, consistent with the arbitrage hypothesis: where institutional capital is thinner and trading frictions are higher, anomalies can persist longer. As those markets mature, the patterns tend to weaken.
 
-<div class="article-tw-callout"><strong>Verify on your own data.</strong> A platform like TradeWave's Wave Viewer (/app/) lets you filter to specific cycle phases or look at specific year ranges, which is the right way to confirm whether a published anomaly still holds in your time period and your universe.</div>
+<div class="article-tw-callout"><strong>Test it before you trust it.</strong> This is exactly the check TradeWave is built for. Set the lookback to the recent decade instead of the full history, and the Monday pattern that anchored a famous paper simply does not show up at an actionable hit-rate. Run the same window on the pattern you actually care about. If an effect only survives when you include the 1980s, you have found a museum piece, not an edge - and the auditable record shows you why.</div>
 
 ## The lesson
 
-Calendar anomalies are not eternal. The day-of-week story is the cleanest historical example of an anomaly that satisfied every reasonable test for being real (multiple independent samples, consistent direction, plausible mechanism, decades of supporting data) and then went away once enough capital paid attention to it. McLean and Pontiff (2016), in their well-known study Does Academic Research Destroy Stock Return Predictability?, show that this is not a one-off: predictive signals systematically weaken after publication, by roughly a third on average and more in highly liquid markets.
+Calendar anomalies are not eternal. The day-of-week story is the cleanest historical example of an anomaly that satisfied every reasonable test for being real (multiple independent samples, consistent direction, plausible mechanism, decades of supporting data) and then went away once enough capital paid attention to it. McLean and Pontiff (2016), in their well-known study Does Academic Research Destroy Stock Return Predictability?, show that this is not a one-off: predictive patterns systematically weaken after publication, by roughly a third on average and more in highly liquid markets.
 
 This has two practical implications.
 
 The first is methodological humility about any current anomaly. If you are looking at a pattern in 2026 data that holds back to 2010, you should ask whether it has the durability of a 30-year regularity or whether it is closer to a 16-year regularity that may be on the decay curve. The Monday effect was robust for thirty years before it disappeared in fifteen. Anything you find now should be treated with the assumption that, if it works, smart capital is already trading it.
 
-The second is about how to read the literature. A paper from 1980 documenting a regularity in 1953-1977 data is not a recommendation for 2026 trading. It is a historical observation. The right way to read French (1980) is as a window into how a pattern can exist, why it might have existed, and what eventually happened to it. The same paper read as a trading signal would have lost you money for the past two decades.
+The second is about how to read the literature. A paper from 1980 documenting a regularity in 1953-1977 data is not a recommendation for 2026 trading. It is a historical observation. The right way to read French (1980) is as a window into how a pattern can exist, why it might have existed, and what eventually happened to it. The same paper read as a trading setup would have lost you money for the past two decades.
 
 ## Practical takeaway
 

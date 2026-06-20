@@ -56,8 +56,7 @@
       {% if p.price_monthly > 0 %}<div class="muted price-annual-note" data-annual="${{ p.price_annual }}/yr billed annually" style="font-size:12px;margin:2px 0 8px;display:none;">${{ p.price_annual }}/yr billed annually</div>{% else %}<div style="height:8px;"></div>{% endif %}
       <ul style="list-style:none;padding:0;margin:0 0 18px 0;font-size:13px;color:#d1d5db;line-height:1.9;">
         <li>{{ p.markets }}</li>
-        <li>{% if p.ml_daily_limit is none and p.ml_access %}Unlimited ML signals{% elif p.ml_access %}ML signals ({{ p.ml_daily_limit }}/day){% else %}No ML scoring{% endif %}</li>
-        <li>{{ p.history|capitalize }} history</li>
+        <li>{% if p.ml_daily_limit is none and p.ml_access %}Unlimited ML scores{% elif p.ml_access %}ML scores ({{ p.ml_daily_limit }}/day){% else %}No ML scoring{% endif %}</li>
         <li>{{ '{:,}'.format(p.rate.per_day) }} requests/day</li>
         <li>{{ '{:,}'.format(p.rate.per_minute) }} requests/min</li>
         <li>Up to {{ '{:,}'.format(p.opp_limit) }} results/call</li>

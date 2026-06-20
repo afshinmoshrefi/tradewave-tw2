@@ -6,7 +6,7 @@ an adversarial completeness/compliance pass (corrections folded in). Authored 20
 
 Source workflows: `tradewave-mcp-research` (personas + UX + novelty), `tradewave-mcp-charting`.
 Key files: `mcpserver/server.py` (15 `@mcp.tool` decorators — recount before any keep/cut math),
-`apiserver/cards.py` (`build_signal_card`), `apiserver/appserver_client.py` (`_PUBLIC_STAT_FIELDS`
+`apiserver/cards.py` (`build_pattern_card`), `apiserver/appserver_client.py` (`_PUBLIC_STAT_FIELDS`
 ~83-102; single service `_token`), `apiserver/auth.py` (`_apply_on_behalf` → WorkOS sub → `users.id`),
 `apiserver/routes.py`, `api/MCP_TOOLS.md` (doc/code drift), `site/data/featured_history.json`.
 
@@ -33,7 +33,7 @@ operator's complaint: *"tons of information, more than a researcher needs, then 
   user's actual holdings (share counts, cost basis, computed P&L) and emitting a verdict on a name they
   hold IS personalized investment advice by its substance — the "educational, not advice" disclaimer can
   only describe impersonal output, it cannot relabel conduct that is personalized. The integration stays
-  EDUCATIONAL-ONLY (impersonal; the same signal goes to everyone). `scan_my_watchlist` remains a candidate
+  EDUCATIONAL-ONLY (impersonal; the same pattern goes to everyone). `scan_my_watchlist` remains a candidate
   wedge because a watchlist is bare symbols (impersonal — legally fine); its blocker is the act-as token
   SECURITY work, not legal. Any future feature that reads holdings or attaches a directive to a held
   position is OUT unless an attorney signs off first.
@@ -54,7 +54,7 @@ but **never states what TradeWave is BLIND to**, so extending is left to chance.
 under thin framing (both real, both worst-case for a trading tool):
 - **Fabrication (ChatGPT):** invents a catalyst ("OPEC+ cuts, Mideast tensions") to complete a confident
   card — no web search made.
-- **Confirmation laundering (reverse flow):** recasts a TradeWave **NO_SIGNAL coin-flip** as "mild support"
+- **Confirmation laundering (reverse flow):** recasts a TradeWave **neutral-bias coin-flip** as "mild support"
   when the user's framing wants a yes.
 
 **The fix is FRAMING, not data (~100 tokens, mostly static strings, Phase-1):**
@@ -65,13 +65,13 @@ under thin framing (both real, both worst-case for a trading tool):
    gap a seasonal model can *compute* — dates like FOMC/earnings in the hold — but never *weigh*), and
    **`handoff`**: "statistical seasonal edge ONLY — don't invent a catalyst; use your own tools to test the
    above, then synthesize; if you can't verify, say so."
-2. **A shared `signals_only` epistemic line** hoisted to the envelope once (reuse the `_extract_disclaimer`
+2. **A shared `patterns_only` epistemic line** hoisted to the envelope once (reuse the `_extract_disclaimer`
    de-dup plumbing) — distinct from the *regulatory* disclaimer.
 3. **Instruction layer at 3 altitudes:** server `instructions` doctrine (the method:
    **EDGE → EXTEND → CONFIRM-or-CHALLENGE → SYNTHESIZE-with-PROVENANCE**); a one-line suffix on each flagship
    tool description (re-read every time the tool is picked — highest hit rate); and a point-of-decision
    `_HANDOFF` line appended *after* the verdict in `_lead`/`_present_cards`/`explain_pick` **and the
-   NO_SIGNAL lead** — this converts the verdict from a stop-signal into a "now go confirm this" prompt.
+   neutral-bias lead** — this converts the verdict from a stop-signal into a "now go confirm this" prompt.
 4. **`how_to_research()` / `describe_tradewave()`** deep-dive tool carrying the full method + provenance
    template + the three-win-rate glossary (pull, not push).
 
@@ -91,7 +91,7 @@ edge; never collapse the three win rates; re-assert the disclaimer on the *synth
 sizing/"place the trade".
 
 **MINIMUM VIABLE SHIP (one PR, hours):** the `_HANDOFF` constant appended after the verdict on the four
-leads (`_lead`, `_present_cards`, `explain_pick`, **NO_SIGNAL** at server.py ~331/346/574/543). That alone
+leads (`_lead`, `_present_cards`, `explain_pick`, **neutral bias** at server.py ~331/346/574/543). That alone
 turns Transcript-2 fabrication into a real web search and Transcript-4 laundering into an honest "no edge."
 The `extend_research` block + per-tool suffixes + `how_to_research()` are the fast-follow that make it robust.
 This is simultaneously the wedge AND the single largest correctness/compliance liability — highest
@@ -148,7 +148,7 @@ mode. The fix is mostly **response shaping + a `view` parameter**, plus targeted
 3. **Bare-ticker resolve-and-note** (the DO-FIRST above).
 4. **`card.call` go/no-go layer.** Collapses six competing confidence numbers into one categorical
    verdict (derive from edge_score + ml_win_prob + live-track agreement). **Educational-only constraint:**
-   the label must DESCRIBE the data ("STRONG SIGNAL" — the signal is strong), never DIRECT the user
+   the label must DESCRIBE the data ("STRONG PATTERN" - the pattern is strong), never DIRECT the user
    ("STRONG TAKE/BUY" — you should act). A directive label is the personalized-advice line; a descriptive
    one stays educational. Attorney sign-off before it leads every card. (Today there is NO `call` field;
    the existing `verdict` is already descriptive, e.g. "Strong, consistent seasonal long" — compliant.)
@@ -181,12 +181,12 @@ mode. The fix is mostly **response shaping + a `view` parameter**, plus targeted
 
 ## 3. SELF-DESCRIBING / EDUCATIONAL LAYER
 
-This research style is novel (no one has seen a seasonal SignalCard in chat), so the real adoption
+This research style is novel (no one has seen a seasonal PatternCard in chat), so the real adoption
 blocker is "what am I looking at?" — pull, not push:
 1. **`describe_tradewave()` / glossary tool (BUILD).** One call: what seasonal patterns are; the **three
    distinct win rates disambiguated** (`historical_win_rate` = % of profitable *years*, in-sample;
    `ml_win_prob` = the 62-feature model; live `track_record.win_rate` = forward-tested out-of-sample);
-   the `edge_score` formula; the 0-100 seasonal index (shown as **The Trend Chart**); the signals-only constraint (why no prices); how to act on
+   the `edge_score` formula; the 0-100 seasonal index (shown as **The Trend Chart**); the patterns-only constraint (why no prices); how to act on
    a card. Conflating the three win rates is THE key misread for every persona.
 2. **Inline `methodology` block on deep-dive cards only** (not every card): entry selection, lookback,
    trading-day calendar, ml model version, feature_count, small-sample caution keyed to `years_tested`.
@@ -215,10 +215,10 @@ denominator on scans ("top of 127 evaluated") + a multiple-testing caveat.
 
 **MCP — how a chat user draws a TradeWave chart → return clean SERIES DATA as JSON, one call, the
 client draws it.** Only modality both clients render today (Claude → inline artifact; ChatGPT →
-code-interpreter PNG) AND unconditionally signals-only. A signed **`chart_url` deep-link** rides in the
+code-interpreter PNG) AND unconditionally patterns-only. A signed **`chart_url` deep-link** rides in the
 same payload as universal fallback. Server-rendered images = **later, guarded, Claude-first** (ChatGPT's
 MCP image rendering is inconsistent; and TradeWave's existing `svg_wave_chart` builds a price/candle
-panel = signals-only violation — a new curve/bars-only renderer is required).
+panel = patterns-only violation — a new curve/bars-only renderer is required).
 
 **The one load-bearing task:** the **Trend Chart** (the seasonal index curve) is already fully drawable
 (`/v1/seasonal-chart` ships all 365 `{date,index}` + window + stats), but per-year **bars are crippled** — `cards.py` (`_net_pct`)
@@ -227,7 +227,7 @@ return curve+bars+window+stats+link in one call via `get_opportunity_chart(inclu
 
 **API chart contract:** render-agnostic envelope — `series[]` + `axes` + `annotations[]`
 (band_x hold window, vline entry/exit/earnings, hline midline, point peak/trough, projection index-only)
-+ `meta` + `stats`; explicit `units` enum; `chart.signals_only:true`. A small `/v1/charts/{seasonal,bars,
++ `meta` + `stats`; explicit `units` enum; `chart.patterns_only:true`. A small `/v1/charts/{seasonal,bars,
 monthly}/{symbol}?include=...&format=data|png|svg` family; keep `/v1/seasonal-chart` as alias. Optional
 guarded `format=png|svg` reusing `report_renderer` (already price-free PNG) + candle-stripped svg panels.
 
@@ -280,24 +280,24 @@ path (entitlement-aware tool descriptions, "try it on SPY", friendly link-your-a
 ## COMPLIANCE LANDMINES (do not skip)
 
 **STANDING POLICY (2026-06-08): EDUCATIONAL-ONLY.** The MCP/API surface publishes IMPERSONAL market
-information — the same seasonal/ML signal goes to every caller, never tailored to an individual's
+information — the same seasonal/ML pattern goes to every caller, never tailored to an individual's
 holdings or situation (this is what keeps it inside the publisher's exclusion / Lowe v. SEC, not
 investment advice). The label follows the conduct: the "educational, not advice" disclaimer is only
 true while the output is impersonal. Two rules follow:
   1. **Never read or advise on a user's actual holdings.** No `num_shares` / cost basis / `gain_loss` /
      P&L, ever. `scan_my_portfolio` / `analyze_my_book` are ELIMINATED. Any feature that ingests holdings
      or attaches a directive to a position the user holds requires attorney sign-off before design.
-  2. **Describe the data, don't direct the person.** Labels/verdicts state the strength of the signal
-     ("STRONG SIGNAL", "Strong, consistent seasonal long"), never "you should buy/sell". The order_ticket
+  2. **Describe the data, don't direct the person.** Labels/verdicts state the strength of the pattern
+     ("STRONG PATTERN", "Strong, consistent seasonal long"), never "you should buy/sell". The order_ticket
      stays an impersonal template (no price level; "size to your own risk", "place at your own broker").
 
-- **`card.call` verdict framing** — keep descriptive ("STRONG SIGNAL"), never directive ("STRONG TAKE/BUY");
+- **`card.call` verdict framing** — keep descriptive ("STRONG PATTERN"), never directive ("STRONG TAKE/BUY");
   attorney sign-off before it leads. A directive verb + order ticket + held position = the advice line.
 - **Forged per-user token (only ever for impersonal data like a watchlist)** — audit log every act-as,
   scope audience + TTL + read-only, isolation-test WorkOS-sub→user-id (a resolution bug = serving user A's
   data to user B). Never use it to reach holdings.
-- **Disclaimer** — exact regulatory string, once, verbatim, never paraphrased; on every SIGNAL-bearing
-  response (not just SignalCards): `/scan`, `/analyze`, `/daily-pick`, AND the primitives that return a
+- **Disclaimer** — exact regulatory string, once, verbatim, never paraphrased; on every PATTERN-bearing
+  response (not just PatternCards): `/scan`, `/analyze`, `/daily-pick`, AND the primitives that return a
   win rate / ML probability / return / track record (`/opportunities`(+`/<symbol>`), `/patterns`,
   `/seasonal-chart`, `/score`, `/daily-pick/track-record`). Pure catalog/account (`/markets`, `/me`,
   `/symbols`) are exempt. Verified by an adversarial educational-only audit 2026-06-08.

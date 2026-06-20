@@ -1,10 +1,10 @@
 /**
  * Typed models for the TradeWave Data API v1.
  *
- * These mirror api/openapi.yaml components + api/SIGNALCARD_SPEC.md. They are exported
+ * These mirror api/openapi.yaml components + api/PATTERNCARD_SPEC.md. They are exported
  * interfaces (not classes); the client returns plain parsed JSON typed against them.
  *
- * SAFETY: signals only. The API never returns raw prices - there are no price fields
+ * SAFETY: derived data only. The API never returns raw prices - there are no price fields
  * here. All movement is expressed as percentages (fields ending in _pct) or as the
  * 0-100 normalized seasonal index.
  *
@@ -14,7 +14,7 @@
  */
 
 export type Direction = 'long' | 'short';
-export type Signal = 'BUY' | 'SELL' | 'NO_SIGNAL';
+export type Bias = 'bullish' | 'bearish' | 'neutral';
 export type RankBy = 'edge' | 'win_rate' | 'sharpe' | 'ml' | 'avg_return';
 export type TrendDirection = 'rising' | 'falling' | 'flat';
 export type YearResult = 'win' | 'loss';
@@ -37,7 +37,7 @@ export interface Symbol {
   [key: string]: unknown;
 }
 
-/** Compact market reference embedded in a SignalCard. */
+/** Compact market reference embedded in a PatternCard. */
 export interface MarketRef {
   id: string;
   name: string;
@@ -79,11 +79,11 @@ export interface MLScore {
 }
 
 /**
- * SignalCard ML block (used on cards from /scan, /analyze, /daily-pick).
+ * PatternCard ML block (used on cards from /scan, /analyze, /daily-pick).
  * Names DIFFER from the legacy MLScore: ml_win_prob, pred_return_pct, pred_mfe_pct.
  * ml_win_prob is the model probability and is DISTINCT from historical_win_rate.
  */
-export interface SignalCardML {
+export interface PatternCardML {
   ml_score?: number;
   ml_win_prob?: number;
   pred_return_pct?: number;
@@ -124,7 +124,7 @@ export interface OpportunityList {
 }
 
 /** Setup timing. Dates only - no price levels. */
-export interface SignalSetup {
+export interface PatternSetup {
   entry_date?: string;
   entry_window?: string;
   hold_days?: number;
@@ -132,8 +132,8 @@ export interface SignalSetup {
   [key: string]: unknown;
 }
 
-/** Headline percent-only stats on a SignalCard. No price levels. */
-export interface SignalStats {
+/** Headline percent-only stats on a PatternCard. No price levels. */
+export interface PatternStats {
   /** 0..1, share of profitable years. DISTINCT from ml.ml_win_prob. */
   historical_win_rate?: number;
   sharpe_ratio?: number;
@@ -223,7 +223,7 @@ export interface SetReminder {
   [key: string]: unknown;
 }
 
-/** The no-broker last mile. Omitted (order_ticket undefined) on NO_SIGNAL. */
+/** The no-broker last mile. Omitted (order_ticket undefined) on a neutral bias. */
 export interface NextStep {
   headline?: string;
   order_ticket?: OrderTicket;
@@ -235,22 +235,22 @@ export interface NextStep {
 
 /**
  * THE unit returned by /scan, /analyze/{symbol} and /daily-pick.
- * SIGNALS ONLY - all movement is percentages; order_ticket carries no price level.
+ * DERIVED PATTERNS ONLY - all movement is percentages; order_ticket carries no price level.
  */
-export interface SignalCard {
+export interface PatternCard {
   rank?: number;
   symbol?: string;
   market?: MarketRef;
   direction?: Direction;
-  /** BUY | SELL | NO_SIGNAL. NO_SIGNAL = low conviction; next_step.order_ticket omitted. */
-  signal?: Signal;
-  setup?: SignalSetup;
+  /** bullish | bearish | neutral. neutral = low conviction; next_step.order_ticket omitted. */
+  bias?: Bias;
+  setup?: PatternSetup;
   /** 0-100 blended ranking score. Explainable. */
   edge_score?: number;
   edge_basis?: string;
-  stats?: SignalStats;
+  stats?: PatternStats;
   /** null when ML quota is exhausted or the market is not ML-eligible. */
-  ml?: SignalCardML | null;
+  ml?: PatternCardML | null;
   receipts?: Receipts;
   next_step?: NextStep;
   /** Gateway-composed one-line summary. */
@@ -281,7 +281,7 @@ export interface ScanResult {
   /** Present only when capped_by_plan - where to lift the cap. */
   upgrade_url?: string;
   ml_remaining_today?: number | null;
-  opportunities?: SignalCard[];
+  opportunities?: PatternCard[];
   [key: string]: unknown;
 }
 
@@ -301,7 +301,7 @@ export interface CompactSetup {
 
 /** Response envelope for GET /analyze/{symbol}. */
 export interface AnalyzeResult {
-  card?: SignalCard;
+  card?: PatternCard;
   other_setups?: CompactSetup[];
   as_of?: string;
   [key: string]: unknown;
@@ -309,7 +309,7 @@ export interface AnalyzeResult {
 
 /** Response envelope for GET /daily-pick. */
 export interface DailyPickResult {
-  card?: SignalCard;
+  card?: PatternCard;
   featured_date?: string;
   track_record?: TrackRecordSummary;
   as_of?: string;

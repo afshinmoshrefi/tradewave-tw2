@@ -11,7 +11,7 @@ bring-your-own-key (BYOK) and resolved PER CALL:
      local server with their own key).
   3. Otherwise no auth is sent (the gateway returns 401 - correct BYOK).
 
-No data logic lives here; the gateway enforces all tier/signal rules.
+No data logic lives here; the gateway enforces all tier/access rules.
 
 Transport:
   - stdio  (default, for Claude Desktop / local CLI)
@@ -356,37 +356,31 @@ def _csv(value: list[str] | str | None) -> Optional[str]:
 
 
 def _format_upgrade(data: dict[str, Any]) -> str:
-    """Return a clear upgrade message from an UpgradeRequired or ml_daily_limit stub.
+    """Return a clear upgrade message from the gateway's ML daily-limit stub.
 
-    Handles two stub shapes:
-      {requires:"pro", ...}                     - feature requires Pro subscription
-      {requires:"upgrade", reason:"ml_daily_limit", ...}  - daily ML allowance spent
-    Both surface as a clear human message with an upgrade link, never as an error.
-    ml_remaining_today is shown when present (None = unlimited, 0 = limit reached).
+    The gateway emits ONE upgrade-stub shape (POST /v1/score, when the daily ML allowance
+    is spent): {requires:"upgrade", reason:"ml_daily_limit", message, upgrade_url,
+    ml_remaining_today:0}. ML is offered on EVERY tier, metered per day - there is no
+    feature that "requires Pro". The stub surfaces as a clear human message with an
+    upgrade link, never as an error. ml_remaining_today is shown when present
+    (None = unlimited, 0 = limit reached).
     """
-    reason = data.get("reason", "")
     msg = data.get("message", "")
     url = data.get("upgrade_url", "https://tradewave.ai/upgrade")
     remaining = data.get("ml_remaining_today")
 
-    if reason == "ml_daily_limit" or data.get("requires") == "upgrade":
-        remaining_str = ""
-        if remaining is not None:
-            remaining_str = f" (ML calls remaining today: {remaining})"
-        if not msg:
-            msg = "You have reached your daily ML scoring limit. Upgrade for unlimited ML scoring."
-        return f"Daily ML limit reached on your plan - {msg}{remaining_str}\nUpgrade at: {url}"
-
+    remaining_str = ""
+    if remaining is not None:
+        remaining_str = f" (ML calls remaining today: {remaining})"
     if not msg:
-        msg = "This feature requires a Pro subscription."
-    return f"Upgrade required - {msg}\nUpgrade at: {url}"
+        msg = "You have reached your daily ML scoring limit. Upgrade for unlimited ML scoring."
+    return f"Daily ML limit reached on your plan - {msg}{remaining_str}\nUpgrade at: {url}"
 
 
 def _is_upgrade_stub(data: Any) -> bool:
-    return isinstance(data, dict) and (
-        data.get("requires") == "pro"
-        or data.get("requires") == "upgrade"
-    )
+    # The only upgrade stub the gateway returns is the ML daily-limit one (requires:"upgrade",
+    # reason:"ml_daily_limit"); there is no requires:"pro" shape - ML is metered, not gated.
+    return isinstance(data, dict) and data.get("requires") == "upgrade"
 
 
 # ---------------------------------------------------------------------------
@@ -406,10 +400,10 @@ mcp = FastMCP(
     **_auth_kwargs,
     instructions=(
         "TradeWave is the user's seasonal-edge analyst. It finds, ranks, and explains "
-        "derived seasonal trade setups (backed by ML win-probability scores) across TradeWave's "
+        "detected seasonal patterns (backed by ML win-probability scores) across TradeWave's "
         "15 active markets. All returns are percentages - no raw prices are ever exposed.\n\n"
         "REACH FOR THE FLAGSHIP TOOLS FIRST - they return ready, evidence-backed answers as "
-        "structured SignalCards (headline + verdict + receipts + a ready-to-place order ticket):\n"
+        "structured Pattern Cards (headline + verdict + receipts + a ready-to-place order ticket):\n"
         "  - find_best_opportunities: 'what should I trade', 'find me something', 'anything "
         "seasonal in gold/energy', a ranked scan across markets.\n"
         "  - whats_seasonal_now: 'what is entering its window this week', the weekly digest.\n"
@@ -418,7 +412,7 @@ mcp = FastMCP(
         "  - explain_pick: today's AI daily pick WITH its live forward-tested track record.\n\n"
         "The other tools are low-level primitives - prefer the flagships unless you need one "
         "exact slice (e.g. the raw normalized seasonal curve to chart). The gateway is the one "
-        "source of truth: present its SignalCards, do not recompute or re-rank them.\n\n"
+        "source of truth: present its Pattern Cards, do not recompute or re-rank them.\n\n"
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
         "When the daily ML allowance is spent the gateway returns a graceful nudge "
         "(requires='upgrade', reason='ml_daily_limit') - surface this as "
@@ -466,13 +460,13 @@ def _extract_disclaimer(obj: Any) -> Optional[str]:
 # primitives like whoami/list_markets). TradeWave's polished verdict otherwise reads as a
 # "finished answer" = the strongest "stop here" signal; this converts it into "now go
 # confirm this with your own tools," and blocks the two default failure modes - the model
-# fabricating a catalyst, or laundering a NO_SIGNAL coin-flip into "mild support."
+# fabricating a catalyst, or laundering a neutral coin-flip into "mild support."
 _HANDOFF = (
     "Research hand-off: this is a SEASONAL + ML statistical edge ONLY. TradeWave is BLIND to "
     "fundamentals, news, macro, valuation, and upcoming earnings/events. Before treating it as a "
     "complete view, use your OWN tools to check whether current news, macro, or recent price action "
     "SUPPORT or THREATEN this seasonal thesis - search for them; do NOT assume a catalyst exists and "
-    "do NOT invent one. If TradeWave reports NO_SIGNAL / no edge, report that as a genuine 'no edge' "
+    "do NOT invent one. If TradeWave reports neutral / no edge, report that as a genuine 'no edge' "
     "finding (computed independently of any news), not as mild support. Then synthesize, keeping "
     "explicit which facts are TradeWave's data vs your own research; if you can't verify it, say so."
 )
@@ -481,7 +475,7 @@ _HANDOFF = (
 def _lead(text: str, data: Any, handoff: bool = False) -> str:
     """Prepend a one-line conversational lead to the gateway's structured JSON.
 
-    The gateway's SignalCard JSON is the source of truth and is returned verbatim
+    The gateway's Pattern Card JSON is the source of truth and is returned verbatim
     (json.dumps), except the repeated per-card 'disclaimer' is hoisted to a single
     envelope line (see _extract_disclaimer). The lead is a single human sentence
     for the model to open with; it never reshapes the structured payload.
@@ -499,7 +493,7 @@ def _lead(text: str, data: Any, handoff: bool = False) -> str:
 
 
 def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
-    """Pass through a SignalCard list/payload, gracefully handling Pro stubs + empties.
+    """Pass through a Pattern Card list/payload, gracefully handling Pro stubs + empties.
 
     - UpgradeRequired stub -> clear Pro-required message + upgrade_url (never an error).
     - Otherwise prepend a one-line lead and forward the structured JSON unchanged.
@@ -515,7 +509,7 @@ def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
 
 # ===========================================================================
 # FLAGSHIP TOOLS - reach for these first. Each forwards the gateway's
-# SignalCards (the one source of truth) with a short conversational lead.
+# Pattern Cards (the one source of truth) with a short conversational lead.
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
@@ -527,16 +521,16 @@ def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
     description=(
         "THE flagship 'what should I trade right now' tool. Scan across markets, rank every "
         "seasonal setup by Sharpe ratio (mirroring TradeWave's own daily-pick selection: "
-        "filter then rank by Sharpe), and return ready, evidence-backed SignalCards "
+        "filter then rank by Sharpe), and return ready, evidence-backed Pattern Cards "
         "(headline + verdict + receipts + a copyable order ticket). "
         "REACH FOR THIS FIRST whenever the user asks 'find me a trade', 'what's good right now', "
         "'anything seasonal in gold / energy / tech', 'best setups this month', or wants a ranked "
         "shortlist - it replaces stitching list_markets + get_seasonal_opportunities yourself. "
         "Scans the caller's in-scope markets by default; narrow with `markets`. Honest by design: "
-        "weak setups come back as NO_SIGNAL rather than a manufactured trade. "
+        "weak setups come back as neutral rather than a manufactured trade. "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
         "Present the returned cards as-is; the gateway has already sorted them by rank. "
-        "Progressive disclosure: each card defaults to the lean DECISION view (signal + verdict + "
+        "Progressive disclosure: each card defaults to the lean DECISION view (verdict + "
         "timing + edge + the extend_research hand-off). Pass view='table' for a compact ranked "
         "list, or view='full' when you need the per-year receipts and detail stats."
     )
@@ -544,11 +538,16 @@ def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
 @_tool_errors
 def find_best_opportunities(
     markets: Annotated[Optional[list[str] | str], Field(description=(
-        "Market ids or EXACT list_markets names to scan - a list (['2','11']) or CSV "
-        "('2,11' / 'S&P 500 STOCKS,ETFs'). Omit to scan ALL in-scope markets."))] = None,
+        "Market ids, list_markets names, or common aliases ('sp500','crypto','europe') to "
+        "scan - a list (['2','11']) or CSV ('2,11' / 'S&P 500 STOCKS,ETFs'). Omit to scan a "
+        "LIQUID EQUITIES CORE (DOW 30, NASDAQ 100, S&P 500, ETFs) intersected with your "
+        "scope, NOT every in-scope market - pass markets explicitly to scan others."))] = None,
     window: Annotated[Optional[str], Field(description=(
-        "Entry-date window: 'now' (default - setups entering in the next ~10 trading days), "
-        "'next_2_weeks', 'next_month', or a 'YYYY-MM-DD..YYYY-MM-DD' range."))] = None,
+        "Entry-date window: 'now' (default), 'next_2_weeks', 'next_month', or a "
+        "'YYYY-MM-DD..YYYY-MM-DD' range. The scan evaluates opportunities AS OF the window's "
+        "START date (the underlying primitive is keyed to one entry date) and keeps only "
+        "setups whose entry_date falls inside the window - it does not re-scan every date in "
+        "the range. 'now' starts today (~10 trading days wide)."))] = None,
     direction: Annotated[Optional[str], Field(description=(
         "'long' or 'short'. Omit for both."))] = None,
     min_win_rate: Annotated[Optional[float], Field(description=(
@@ -649,14 +648,14 @@ def find_best_opportunities(
 @mcp.tool(
     description=(
         "The bundled deep-dive on ONE ticker - one call, the full evidence-backed answer. "
-        "Returns a single rich SignalCard (best setup + verdict + receipts + order ticket) plus "
+        "Returns a single rich Pattern Card (best setup + verdict + receipts + order ticket) plus "
         "the symbol's other setups, fused server-side so the win rate is consistent everywhere. "
         "REACH FOR THIS whenever the user names a specific symbol - 'what about GLD', 'analyze "
         "AAPL's seasonality', 'is now a good time for SPY', 'does CL have an edge'. "
         "It replaces stitching get_symbol_patterns + get_seasonal_pattern + the chart. "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro), "
         "on eligible markets (0-4, 11). "
-        "If the symbol has no real seasonal edge it returns NO_SIGNAL with an honest verdict. "
+        "If the symbol has no real seasonal edge it returns neutral with an honest verdict. "
         "The card carries an extend_research block telling you exactly how to extend it with your "
         "OWN news / fundamentals / earnings tools. Defaults to the lean DECISION view; pass "
         "view='full' for the per-year receipts, or include_chart=true to also get the Trend Chart "
@@ -725,7 +724,7 @@ def analyze_symbol(
         return _format_upgrade(data)
     sym = symbol.upper()
     card = data.get("card") if isinstance(data, dict) else None
-    if isinstance(card, dict) and card.get("signal") == "NO_SIGNAL":
+    if isinstance(card, dict) and card.get("bias") == "neutral":
         return _lead(
             f"{sym} has no high-conviction seasonal edge right now - here is the honest read:",
             data,
@@ -741,11 +740,11 @@ def analyze_symbol(
 
 @mcp.tool(
     description=(
-        "Today's AI daily pick presented as a full SignalCard WITH its live, forward-tested "
+        "Today's AI daily pick presented as a full Pattern Card WITH its live, forward-tested "
         "track record - the strongest proof TradeWave can offer (the pick is made in advance, "
         "then scored later, so the record is real out-of-sample performance, not a backtest). "
         "REACH FOR THIS when the user asks for 'today's pick', 'the trade of the day', 'what is "
-        "the AI recommending', or wants to see proof the signals work before trusting them. "
+        "the AI recommending', or wants to see proof the seasonal patterns work before trusting them. "
         "Present the pick alongside its receipts (count of past picks, realized win rate, avg "
         "return) as forward-tested evidence. Two DISTINCT win rates appear: the card's "
         "historical_win_rate is the SEASONAL history (share of past years the window was "
@@ -778,7 +777,7 @@ def explain_pick(ctx: Optional[Context] = None) -> str:
     description=(
         "The one-call MORNING BRIEFING. REACH FOR THIS on 'my briefing', 'good morning', "
         "'what's happening today', 'daily update', or any open-ended start-of-day prompt. "
-        "Returns one compact payload: todays_pick (today's AI daily pick as a SignalCard with "
+        "Returns one compact payload: todays_pick (today's AI daily pick as a Pattern Card with "
         "its live forward-tested track record), track_record_summary (counts + the last 5 pick "
         "outcomes, losses included - the honest record), this_week (the top 5 distinct-symbol "
         "setups entering their seasonal window now, as compact ranked rows), and as_of. "
@@ -858,20 +857,22 @@ def morning_briefing(ctx: Optional[Context] = None) -> str:
     description=(
         "The 'what is entering its seasonal window THIS WEEK' tool - the weekly digest. "
         "A focused scan of setups whose entry date falls within the next ~10 trading days, "
-        "returned as ranked SignalCards. "
+        "returned as ranked Pattern Cards. "
         "REACH FOR THIS on calendar-framed prompts: 'what's seasonal right now', 'anything "
         "opening this week', 'what should I be watching this week', the weekly digest. "
         "(It is a focused 'now'-window view of the scanner.) "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
-        "Weak setups come back as NO_SIGNAL. Cards default to the lean DECISION view; pass "
+        "Weak setups come back as neutral. Cards default to the lean DECISION view; pass "
         "view='table' for a compact ranked list or view='full' for receipts."
     )
 )
 @_tool_errors
 def whats_seasonal_now(
     markets: Annotated[Optional[list[str] | str], Field(description=(
-        "Market ids or EXACT list_markets names to scan - a list (['2','11']) or CSV "
-        "('2,11' / 'S&P 500 STOCKS,ETFs'). Omit to scan ALL in-scope markets."))] = None,
+        "Market ids, list_markets names, or common aliases ('sp500','crypto','europe') to "
+        "scan - a list (['2','11']) or CSV ('2,11' / 'S&P 500 STOCKS,ETFs'). Omit to scan a "
+        "liquid equities core (DOW 30, NASDAQ 100, S&P 500, ETFs) intersected with your "
+        "scope, NOT every in-scope market - pass markets explicitly to scan others."))] = None,
     min_win_rate: Annotated[Optional[float], Field(description=(
         "Minimum historical_win_rate 0..1 (share of profitable years)."))] = None,
     view: Annotated[Optional[str], Field(description=(
@@ -908,7 +909,7 @@ def whats_seasonal_now(
 @mcp.tool(
     description=(
         "Compare several tickers side-by-side as seasonal trades. Runs a full deep-dive on each "
-        "symbol and returns their SignalCards together so they can be ranked head-to-head. "
+        "symbol and returns their Pattern Cards together so they can be ranked head-to-head. "
         "REACH FOR THIS whenever the user names two or more symbols to weigh - 'GLD vs SLV', "
         "'compare AAPL, MSFT and NVDA seasonally', 'which of these has the better setup'. "
         "Each card carries its own edge score, win rate, and receipts; present them as a "
@@ -943,8 +944,8 @@ def compare_opportunities(
             results.append({"symbol": sym, "error": e.message, "card": None})
             continue
         if _is_upgrade_stub(data):
-            # A Pro-gated field surfaced as a stub - keep the comparison going, note it.
-            results.append({"symbol": sym, "requires": "pro",
+            # The ML daily-limit stub surfaced - keep the comparison going, note it.
+            results.append({"symbol": sym, "requires": "upgrade", "reason": data.get("reason"),
                             "message": data.get("message"), "upgrade_url": data.get("upgrade_url")})
             continue
         results.append({"symbol": sym, **(data if isinstance(data, dict) else {"data": data})})
@@ -1051,10 +1052,10 @@ def whoami(ctx: Optional[Context] = None) -> str:
 _TRADEWAVE_GUIDE = (
     "HOW TRADEWAVE WORKS + HOW TO RESEARCH WITH IT\n\n"
     "What it is: TradeWave finds recurring SEASONAL price patterns (calendar windows that have paid "
-    "off across many years) and scores each with a 62-feature ML model. Every result is a SignalCard: "
+    "off across many years) and scores each with a 62-feature ML model. Every result is a Pattern Card: "
     "a headline + verdict, the entry/hold window, win rates, an ML probability, an edge_score, and "
     "year-by-year receipts. The daily AI pick also carries a LIVE forward-tested track record. "
-    "Signals-only: TradeWave never returns raw prices - moves are percentages and the seasonal curve "
+    "Seasonal patterns only: TradeWave never returns raw prices - moves are percentages and the seasonal curve "
     "(its user-facing name is 'The Trend Chart') is a 0-100 normalized index.\n\n"
     "What it does NOT see: fundamentals, valuation, news, catalysts, macro/rates, analyst views, "
     "upcoming earnings, or the live price. Treat a card as a statistical PRIOR, not a complete view.\n\n"
@@ -1070,7 +1071,7 @@ _TRADEWAVE_GUIDE = (
     "  - track_record.win_rate: the LIVE, forward-tested record of past daily picks (out-of-sample - the real proof).\n\n"
     "edge_score (0-100): a blend of historical_win_rate, Sharpe, years of history, and the ML score - one number to rank by.\n\n"
     "How to act on a card: respect the entry WINDOW (entering late or after it closes loses the edge). "
-    "NO_SIGNAL means TradeWave found NO statistical edge - a genuine 'no edge' finding, not weak support.\n\n"
+    "neutral means TradeWave found NO statistical edge - a genuine 'no edge' finding, not weak support.\n\n"
     "THE SEASONAL ANALYSIS KNOBS (what they mean + how to choose them):\n"
     "  - Two modes: DETECTION (find patterns: find_best_opportunities / get_seasonal_opportunities / "
     "get_symbol_patterns) vs ANALYSIS (score one setup: analyze_symbol / get_opportunity_chart). The "
@@ -1099,7 +1100,7 @@ _TRADEWAVE_GUIDE = (
         "(edge -> extend with your own tools -> synthesize), the glossary (the three distinct win "
         "rates, edge_score, the Trend Chart), the SEASONAL KNOBS (lookback years + min_winning_years "
         "and the per-market win-rate band, day-range, market coverage), what TradeWave can and cannot "
-        "tell you, and how to act on a SignalCard."
+        "tell you, and how to act on a Pattern Card."
     )
 )
 def describe_tradewave(ctx: Optional[Context] = None) -> str:
@@ -1140,10 +1141,11 @@ def list_symbols(
 @mcp.tool(
     description=(
         "Low-level primitive. Prefer find_best_opportunities (which scans across markets, "
-        "scores by edge, and returns ready SignalCards) unless you need this exact slice: the "
-        "raw single-market opportunity list for one date window. "
-        "Find seasonal trade setups for ONE market and date window, ranked by historical edge. "
-        "Filters by direction (long/short), minimum win rate, and date range. "
+        "scores by edge, and returns ready Pattern Cards) unless you need this exact slice: the "
+        "raw single-market opportunity list for ONE entry date. "
+        "Find seasonal trade setups for ONE market at a single entry_date, ranked by historical "
+        "edge. This primitive is single-date - it does NOT widen across a date window (use "
+        "find_best_opportunities for windows). Filters by direction (long/short) and minimum win rate. "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro)."
     )
 )
@@ -1152,9 +1154,10 @@ def get_seasonal_opportunities(
     market: Annotated[str, Field(description=(
         "Market id (permanent key '0'..'16'). Required."))],
     from_date: Annotated[Optional[str], Field(description=(
-        "Start of entry-date window, ISO 8601 (YYYY-MM-DD)."))] = None,
+        "The single entry_date to evaluate, ISO 8601 (YYYY-MM-DD). Defaults to today."))] = None,
     to_date: Annotated[Optional[str], Field(description=(
-        "End of entry-date window, ISO 8601 (YYYY-MM-DD)."))] = None,
+        "Accepted but IGNORED - this primitive does not widen across a date window "
+        "(window_supported is false). Use find_best_opportunities for a date window."))] = None,
     direction: Annotated[Optional[str], Field(description=(
         "'long' or 'short'. Omit for both."))] = None,
     min_win_rate: Annotated[Optional[float], Field(description=(
@@ -1183,7 +1186,7 @@ def get_seasonal_opportunities(
         "75-90%+, market-specific); an out-of-band value (e.g. 20-9) returns a clear error "
         "with the valid range."))] = None,
     limit: Annotated[Optional[int], Field(description=(
-        "Max results to return (tier-capped: free=3, dev=25, pro up to 5000)."))] = None,
+        "Max results to return (tier-capped: free=3, dev=100, pro=1000, business=5000)."))] = None,
     ctx: Optional[Context] = None,
 ) -> str:
     _bind_request_key(ctx)
@@ -1283,7 +1286,7 @@ def get_symbol_patterns(
 @mcp.tool(
     description=(
         "Low-level primitive. Prefer analyze_symbol (it already bundles these stats with the "
-        "setup, receipts, and ML into one SignalCard) unless you need this exact slice: the bare "
+        "setup, receipts, and ML into one Pattern Card) unless you need this exact slice: the bare "
         "aggregate stats with nothing else. "
         "Get aggregate seasonal pattern statistics for a symbol - Sharpe ratio, win rate, "
         "average and median return, and other summary stats. "
@@ -1438,7 +1441,7 @@ def score_opportunities(
 
 @mcp.tool(
     description=(
-        "Low-level primitive. Prefer explain_pick (it returns the same pick as a full SignalCard "
+        "Low-level primitive. Prefer explain_pick (it returns the same pick as a full Pattern Card "
         "WITH its live forward-tested track record - the strongest proof) unless you need this "
         "exact slice: the bare daily-pick payload with no receipts. "
         "Get today's AI-selected daily pick - the single ML-ranked seasonal opportunity "
@@ -1464,7 +1467,7 @@ def get_daily_pick(ctx: Context) -> str:
         "unless you need this exact slice: the standalone full history of past picks. "
         "Get the realized win/loss track record of all past TradeWave daily picks. "
         "Use when the user wants the full per-pick performance history, or to verify the "
-        "historical accuracy before trusting the signals. Returns the full history with "
+        "historical accuracy before trusting the seasonal patterns. Returns the full history with "
         "per-pick return %, result (win/loss/open), and summary stats (count, win rate, "
         "avg return). This is the verifiable performance record - free-tier accessible."
     )

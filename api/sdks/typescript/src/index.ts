@@ -1,8 +1,8 @@
 /**
  * @tradewave/sdk - the official TypeScript client for the TradeWave Data API v1.
  *
- * Seasonal trading opportunities and ML win-probability signals for the 17 TradeWave
- * markets, plus the tracked daily AI pick. Signals only - no raw prices.
+ * Seasonal trading patterns and ML win-probability estimates for the 15 TradeWave
+ * markets, plus the tracked daily AI pick. Derived data only - no raw prices.
  *
  *   import { TradeWave } from '@tradewave/sdk';
  *   const tw = new TradeWave({ apiKey: 'tw_live_...' });
@@ -33,7 +33,7 @@ export { isMLDailyLimitReached } from './models.js';
 
 export type {
   Direction,
-  Signal,
+  Bias,
   RankBy,
   TrendDirection,
   YearResult,
@@ -43,11 +43,11 @@ export type {
   Symbol,
   MarketRef,
   MLScore,
-  SignalCardML,
+  PatternCardML,
   Opportunity,
   OpportunityList,
-  SignalSetup,
-  SignalStats,
+  PatternSetup,
+  PatternStats,
   YearReturn,
   PerYearReturn,
   CurveSummary,
@@ -56,7 +56,7 @@ export type {
   OrderTicket,
   SetReminder,
   NextStep,
-  SignalCard,
+  PatternCard,
   ScanResult,
   CompactSetup,
   AnalyzeResult,

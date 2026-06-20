@@ -8,34 +8,36 @@ read_minutes: 8
 
 ## The recipe in one sentence
 
-Ask TradeWave for the best seasonal setup and its ML win probability, then hand the broker-agnostic `order_ticket` to whatever execution app you already use. TradeWave finds the edge and the timing; you place the trade anywhere. We never take your trades, so there is no conflict of interest, and the ticket never carries a price level for us to game.
+Ask TradeWave which seasonal pattern is strongest right now, read its ML win probability, then hand the broker-agnostic `order_ticket` to whatever execution app you already use. TradeWave finds the edge and the timing; you place the trade anywhere. We never route your orders, so there is nothing for us to game and no conflict of interest baked into the ticket.
 
-This works with any broker. Nothing in this flow is provider-specific - hand the ticket to any in-chat execution app, your broker's SDK, or a manual confirmation step. A `MARKET`/`DAY` ticket with a side, a symbol, and dates is universal.
+This works with any broker. Nothing in the flow is provider-specific - hand the ticket to an in-chat execution app, your broker's SDK, or a manual confirmation step. A `MARKET`/`DAY` ticket with a side, a symbol, and dates is universal.
 
 Everything below is illustrative. Live responses carry a `disclaimer` and are educational, not personalized advice.
 
+Want to run the first call before you sign up? Swap `$TW_API_KEY` for the public demo token `tw_demo_explore`. It is rate-limited and read-only, but every request in this recipe works with it.
+
 ## The four steps
 
-1. **Find** the best setup - `find_best_opportunities` over REST (`GET /scan`) or MCP.
-2. **Read** the `SignalCard`: the edge, the receipts, and the optional ML block.
+1. **Find** the strongest seasonal pattern - `find_best_opportunities` over REST (`GET /scan`) or MCP.
+2. **Read** the card: the edge, the year-by-year receipts, and the optional ML block.
 3. **Stage** the handoff - the `next_step.order_ticket` and `next_step.set_reminder`.
 4. **Execute** at your broker. You place the trade; TradeWave is done at step 3.
 
-## Step 1: Find the setup
+## Step 1: Find the pattern
 
-Sweep your in-scope markets over a forward window and let the engine rank what surfaces. Filter on `historical_win_rate` (the share of profitable years) so weak setups never reach you.
+Sweep your in-scope markets over a forward window and let the engine rank what surfaces. Filter on `historical_win_rate` (the share of profitable years) so weak patterns never reach you, and `rank_by=sharpe` to put the steadiest edge first.
 
 ```bash
 curl -s "{{API_BASE}}/scan?markets=0,1,2,3,4&window=next_2_weeks&direction=long&min_win_rate=0.65&min_years=10&rank_by=sharpe&limit=5" \
-  -H "Authorization: Bearer $TW_API_KEY" \
+  -H "Authorization: Bearer tw_demo_explore" \
   | jq '.opportunities[0]'
 ```
 
-Get a key at [your account console]({{CONSOLE_URL}}). Which markets are `in_scope` and your ML allowance live on the [API pricing page]({{PRICING_URL}}) and in your console - read them there rather than hardcoding, since they can change.
+That runs as-is with the demo token. For your own scopes and your full ML allowance, get a key at [your account console]({{CONSOLE_URL}}) and swap in `Bearer $TW_API_KEY`. Which markets are `in_scope` and how much ML you get per day live on the [API pricing page]({{PRICING_URL}}) and in your console - read them there rather than hardcoding, since they can change.
 
-## Step 2: Read the SignalCard
+## Step 2: Read the card
 
-The top result is a `SignalCard`. Here is a trimmed, illustrative one - your live values will differ:
+The top result is a `PatternCard`. Here is a trimmed, illustrative one - your live values will differ:
 
 ```json
 {
@@ -43,7 +45,7 @@ The top result is a `SignalCard`. Here is a trimmed, illustrative one - your liv
   "symbol": "XLE",
   "market": { "id": "11", "name": "ETFs" },
   "direction": "long",
-  "signal": "BUY",
+  "bias": "bullish",
   "setup": {
     "entry_date": "2026-06-05",
     "entry_window": "2026-06-03..2026-06-08",
@@ -89,9 +91,9 @@ Two distinct numbers do the persuading, and you should never collapse them into 
 | `historical_win_rate` | Share of past years that were profitable | 0..1 |
 | `ml_win_prob` | The ML model's predicted probability for this setup | 0..1 |
 
-One is the historical record; the other is a forward-looking prediction. All movement is in percentages (`avg_return_pct`, `pred_return_pct`); there is never a price or an OHLCV bar in the card. If you want the year-by-year proof, read the `receipts` block, or pull the forward-tested record behind `GET /daily-pick/track-record`.
+One is the historical record; the other is a forward-looking prediction. All movement is in percentages (`avg_return_pct`, `pred_return_pct`); there is never a price or an OHLCV bar in the card. For the year-by-year proof, read the `receipts` block, or pull the forward-tested record behind `GET /daily-pick/track-record`.
 
-If the best available setup is weak, the card comes back with `signal: "NO_SIGNAL"` and no `order_ticket` - by design, when `edge_score < 40`, `historical_win_rate < 0.55`, or `years_tested < 5`. A recipe that always produces a trade would be lying to you. This one stops cooking when there is nothing worth eating.
+When nothing clears the bar, the card comes back with `bias: "neutral"` and no `order_ticket` - by design, whenever `edge_score < 40`, `historical_win_rate < 0.55`, or `years_tested < 5`. A recipe that always produces a trade would be lying to you. This one stops cooking when there is nothing worth eating.
 
 ## Step 3: Stage the handoff
 
@@ -127,7 +129,7 @@ def best_setup(markets, window="next_2_weeks"):
     })
     r.raise_for_status()
     for card in r.json()["opportunities"]:
-        if card["signal"] != "NO_SIGNAL":
+        if card["bias"] != "neutral":
             return card
     return None
 
@@ -166,7 +168,7 @@ The reason the recipe has exactly one handoff and no order routing is the moat: 
 
 ## Where to go next
 
-- Drill into a single name with `GET /analyze/{symbol}` for one rich `SignalCard` plus `other_setups`.
+- Drill into a single name with `GET /analyze/{symbol}` for one rich `PatternCard` plus `other_setups`.
 - Audit the live record with `GET /daily-pick` and `GET /daily-pick/track-record`.
 - Wire an agent end to end with the [MCP guide]({{MCP_SETUP_URL}}).
 

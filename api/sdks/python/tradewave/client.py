@@ -140,7 +140,7 @@ class Client:
     # -- markets -----------------------------------------------------------
 
     def list_markets(self, *, raw: bool = False) -> Union[List[Market], dict]:
-        """List the 17 markets and the caller's access scope.
+        """List the 15 markets and the caller's access scope.
 
         Maps to ``GET /markets``.
         """
@@ -256,7 +256,7 @@ class Client:
     ) -> Union[ScanResult, dict]:
         """FLAGSHIP. Scan in-scope markets for the best seasonal setups.
 
-        Returns ranked :class:`~tradewave.models.SignalCard` objects. ML fields
+        Returns ranked :class:`~tradewave.models.PatternCard` objects. ML fields
         populate inline on ML-eligible markets up to the caller's daily ML
         allowance; ``ml_remaining_today`` on the result reflects what remains
         (``None`` = unlimited).
@@ -300,7 +300,7 @@ class Client:
         days_out: Optional[int] = None,
         raw: bool = False,
     ) -> Union[AnalyzeResult, dict]:
-        """FLAGSHIP. Deep-dive one symbol into one rich SignalCard + alternates.
+        """FLAGSHIP. Deep-dive one symbol into one rich PatternCard + alternates.
 
         Args:
             symbol: The symbol to analyze.
@@ -411,7 +411,7 @@ class Client:
     # -- daily pick --------------------------------------------------------
 
     def daily_pick(self, *, raw: bool = False) -> Union[DailyPickResult, dict]:
-        """Today's AI pick as a SignalCard, with its live track record.
+        """Today's AI pick as a PatternCard, with its live track record.
 
         The card's ``receipts.live_track_record`` carries the forward-tested
         record of past picks; ``track_record`` echoes it at the top level.

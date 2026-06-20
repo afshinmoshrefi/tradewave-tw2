@@ -2,7 +2,7 @@
 
 Logs in once as a service account via /login/api/<SERVICE_API_KEY>, caches the session
 token, then calls the data endpoints. Maps internal responses to the public v1 contract
-and DROPS any raw price fields (signals-only / EOD posture).
+and DROPS any raw price fields (seasonal-patterns-only / EOD posture).
 
 The gateway agent extends the mapped accessors below. Internal endpoint paths/params and
 exact response keys must be confirmed against appserver/appserver/appserver.py
@@ -141,7 +141,7 @@ def post(path, json_body, params=None):
 
 # ---------------------------------------------------------------------------
 # Shape helpers - map the appserver's internal shapes to the v1 contract and
-# DROP every raw price field on the way out (signals-only / EOD posture).
+# DROP every raw price field on the way out (seasonal-patterns-only / EOD posture).
 # ---------------------------------------------------------------------------
 
 # OppList4 / OppBySymbol return a list of lists in this fixed column order
@@ -764,7 +764,7 @@ def daily_pick():
 
 def daily_pick_raw():
     """The most recent featured pick as a normalized Opportunity-shaped dict PLUS its stored
-    ML, so the gateway can build a full SignalCard. Returns None when there is no history.
+    ML, so the gateway can build a full PatternCard. Returns None when there is no history.
     Raw price fields (start_price/current_price/peak_price/end_price) are NEVER surfaced."""
     history = _load_featured_history()
     if not history:

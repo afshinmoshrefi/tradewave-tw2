@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradeWave AI Track Record</title>
+    <title>The TradeWave Ledger - Public Track Record</title>
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" type="image/png" href="{{ content.favicon }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -344,8 +344,8 @@
     <!-- Header -->
     <div class="container">
         <div class="sc-header">
-            <h1>TradeWave AI Track Record</h1>
-            <p>Every pick selected by AI pattern scoring, published before market open</p>
+            <h1>The TradeWave Ledger</h1>
+            <p>Every daily pick logged in public before the market opens - the seasonal pattern, the win probability, the target. Then the outcome, wins and losses alike. We would rather be audited than believed.</p>
         </div>
 
         <!-- Stat Boxes -->
@@ -367,23 +367,30 @@
             <div class="stat-box">
                 <div class="stat-value">{{ content.stats.avg_return }}%</div>
                 <div class="stat-label">Median Return</div>
+                <div class="stat-sublabel">Across all closed picks, winners and losers</div>
             </div>
             <div class="stat-box">
                 <div class="stat-value">{{ content.stats.current_streak }}</div>
                 <div class="stat-label">Current Streak</div>
+                <div class="stat-sublabel">Consecutive wins (or losses) most recently</div>
             </div>
         </div>
 
+        <!-- Two-metric framing -->
+        <p class="trust-line" style="margin-bottom: 12px;">
+            Two win numbers, shown side by side and never blended into one flattering average. <strong style="color: var(--text-secondary);">Held-to-close</strong> is the strict one - the pattern still had to be in profit when its window closed. <strong style="color: var(--text-secondary);">Reached-target</strong> is the looser one - the move hit the predicted target at some point, even if it faded by the close. The honest read sits between the two.
+        </p>
+
         <!-- Trust Line -->
         <p class="trust-line">
-            Every pick was published on <a href="{{ content.x_profile_url }}" target="_blank" rel="noopener">X (@TradeWave)</a> before market open. Verify any call.
+            Every pick was published on <a href="{{ content.x_profile_url }}" target="_blank" rel="noopener">X (@TradeWave)</a> before the market opened, timestamp and all - check any call against the tape. Educational research, not investment advice.
             How these numbers are computed: <a href="/methodology">methodology</a>.
         </p>
 
         <!-- Open Positions -->
-        <h2 class="section-title">Open Positions</h2>
-        <p class="section-subtitle">Active picks where the seasonal window has not yet closed.</p>
-        <p class="disclaimer-line">Positions are scored on a 19-30 day window. Current return reflects mid-pattern performance, not final results.</p>
+        <h2 class="section-title">Open - Still In the Window</h2>
+        <p class="section-subtitle">Picks whose seasonal window has not closed yet. These count for nothing in the win rate above until they resolve - nothing gets promoted to a "win" early.</p>
+        <p class="disclaimer-line">Windows run roughly 19 to 30 days. Current return is a mid-pattern snapshot, not a result. The peak shows the best paper gain reached so far.</p>
 
         {% if content.open_positions %}
         <div class="sc-table-wrap">
@@ -448,8 +455,8 @@
         {% endif %}
 
         <!-- Closed Positions -->
-        <h2 class="section-title">Closed Positions</h2>
-        <p class="section-subtitle">Completed seasonal windows with actual results.</p>
+        <h2 class="section-title">Closed - The Receipts</h2>
+        <p class="section-subtitle">Resolved windows, scored at the actual close - no peak-cherry-picking. Every row, win (W) or loss (L), is in the win rate above. Click any pick to open the exact pattern it was scored on.</p>
 
         {% if content.closed_positions %}
         <div class="sc-table-wrap">
@@ -511,14 +518,14 @@
             </table>
         </div>
         {% else %}
-        <div class="empty-state">No closed positions yet. Check back once the first seasonal window closes.</div>
+        <div class="empty-state">No closed picks yet. The first row lands here the moment the earliest seasonal window resolves - win or loss, it gets logged.</div>
         {% endif %}
 
         <!-- Bottom CTA -->
         <div class="sc-cta">
             <a href="{{ content.domain_root }}" class="btn btn-primary">See today's full seasonal analysis</a>
             <div class="email-signup">
-                <p>Get the daily AI pick before market open</p>
+                <p>Get tomorrow's pick before the market opens - logged here either way</p>
                 <form id="scSignupForm" onsubmit="return false;">
                     <div class="signup-row">
                         <input type="email" id="scSignupEmail" class="signup-email" placeholder="Enter your email" required autocomplete="email">

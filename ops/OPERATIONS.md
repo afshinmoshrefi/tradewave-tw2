@@ -1,4 +1,4 @@
-# TW2 Operations — the one map
+# TW2 Operations - the one map
 
 If you're lost, start here. Everything below is reproducible from committed scripts in `ops/staging/`.
 
@@ -189,7 +189,7 @@ Full annotated playbook + every gotcha: memory `project_tw2_staging_deployment.m
 ## API/MCP deploy + restart
 
 The v2 public product (gateway + MCP + developer portal). Map: `docs/TRADEWAVE_ECOSYSTEM.md`
-§7A/§7B; contract: `api/SIGNALCARD_SPEC.md` + `api/openapi.yaml`; build-state: `api/BUILD_STATE.md`.
+§7A/§7B; contract: `api/PATTERNCARD_SPEC.md` + `api/openapi.yaml`; build-state: `api/BUILD_STATE.md`.
 **SIGNALS-ONLY** (no raw prices). These are NEW services additive to the appserver; they live on
 the **app box** (gateway -> appserver over localhost), public via `api-`/`mcp-`/`developers-`
 hostnames. All scripts are run BY the operator on the target box (never auto-run against
@@ -211,21 +211,30 @@ Set `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST` (
 | Unit | Command | Bind | Venv | Type |
 |---|---|---|---|---|
 | `tradewave-apiserver` | `gunicorn apiserver.app:app` (4 gthread workers x 12 threads) | `127.0.0.1:8088` | `/home/flask/venv-api` | notify |
-| `tradewave-mcpserver` | `python -m mcpserver.server --transport sse --port 9090` | `127.0.0.1:9090` | `/home/flask/venv-api` | simple |
+| `tradewave-mcpserver` | `python -m mcpserver.server --transport streamable-http --port 9090` | `127.0.0.1:9090` | `/home/flask/venv-api` | simple |
 
 MCP env: `API_BASE_URL=http://127.0.0.1:8088/v1`, `TW2_MCP_PUBLIC_HOST=<host>`, and
-`TRADEWAVE_API_KEY` **UNSET** on the remote (SSE) transport (BYOK - clients send their own
-`Authorization: Bearer`). Logs: `/var/log/tradewave/`.
+`TRADEWAVE_API_KEY` **UNSET** on the remote transport (BYOK - clients send their own
+`Authorization: Bearer`). The unit defaults `TW2_MCP_TRANSPORT=streamable-http`; the server
+serves the MCP endpoint at the ROOT path `/` with `/mcp` as a permanent alias (NOT SSE at
+`/sse`). Logs: `/var/log/tradewave/`.
 
-**1. Build the services + edge (once per box / new box):**
+**1. Build the loopback services (once per box / new box); then wire the edge manually:**
 ```
 sudo bash /home/flask/ops/bootstrap_api_services.sh
 ```
-Idempotent + echoes each step: builds `/home/flask/venv-api` from `requirements-api.txt`,
-installs the two systemd units, adds the `ops/nginx` `api.`/`mcp.`/`developers.` server blocks,
-and adds the `api-`/`mcp-`/`developers-` ingress entries to `/etc/cloudflared/config.yml` BEFORE
-the `- service: http_status:404` catch-all. After it: `systemctl restart cloudflared` and
-`nginx -t && systemctl reload nginx` (the cloudflared edit alone does nothing - that is the 404).
+Idempotent + echoes each step. It does ONLY the loopback layer: builds `/home/flask/venv-api`
+from `requirements-api.txt`, applies the additive `apiserver/schema.sql`, and installs +
+`enable --now`s the two systemd units (gateway :8088, mcp :9090). It does NOT wire the edge -
+it only echoes a reminder that nginx + cloudflared are separate. The edge is two manual steps
+done per box (cross-ref PROD_CUTOVER "API/MCP go-live" Step 4):
+- **nginx vhost** - install `ops/nginx/tradewave-developer-portal.conf` (the `api.`/`mcp.`/
+  `developers.` server blocks) into `sites-available`, symlink into `sites-enabled`, then
+  `nginx -t && systemctl reload nginx`.
+- **cloudflared ingress** - add the `api-`/`mcp-`/`developers-` (prod: bare `api.`/`mcp.`/
+  `developers.tradewave.ai`) ingress entries to `/etc/cloudflared/config.yml` BEFORE the
+  `- service: http_status:404` catch-all, then `systemctl restart cloudflared` (the cloudflared
+  edit alone does nothing - that is the 404).
 
 **2. Assemble the developer portal docroot:**
 ```
@@ -254,7 +263,10 @@ gunicorn does NOT auto-reload - always restart after a Python edit.
 ```
 systemctl is-active tradewave-apiserver tradewave-mcpserver
 curl -sS http://127.0.0.1:8088/v1/markets -H "Authorization: Bearer $KEY" | head    # gateway, signals-only
-curl -sS -i http://127.0.0.1:9090/sse | head                                        # MCP SSE stream opens
+# MCP: streamable-http at the ROOT (alias /mcp), NOT SSE at /sse. Answer an initialize handshake:
+curl -sS http://127.0.0.1:9090/ -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}' | head
 curl -sS -i https://<api-host>/v1/markets | head                                    # edge -> gateway via tunnel+nginx
 curl -sS    https://<developers-host>/.well-known/mcp.json | head                   # portal docroot served
 ```

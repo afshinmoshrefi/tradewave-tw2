@@ -10,11 +10,11 @@ featured: false
 related: ["machine-learning-in-finance", "backtesting-pitfalls", "seasonality-momentum"]
 ---
 
-In an efficient market, news is supposed to be fully reflected in prices the moment it is public. A company reports earnings; the market digests the surprise; the stock jumps or drops; trading resumes. That is the textbook story.
+In an efficient market, news hits prices instantly. A company reports earnings, the market digests the surprise, the stock jumps or drops, and trading moves on. That is the textbook story, and it is wrong.
 
-The actual data tells a different story. Stocks that beat earnings expectations keep drifting higher for roughly sixty trading days after the announcement. Stocks that miss keep drifting lower over the same window. The drift is large enough to be economically meaningful, predictable enough to trade, and stubborn enough that it has survived more than fifty years of academic scrutiny without being arbitraged away.
+The data says the adjustment leaks out for weeks. Stocks that beat expectations keep drifting higher for roughly sixty trading days after the announcement. Stocks that miss keep drifting lower over the same window. The drift is large enough to be economically meaningful, predictable enough to trade, and stubborn enough that it has survived more than fifty years of academic scrutiny without being arbitraged away. It is one of the most reliable repeating patterns in equities, and almost nobody who reads about it can capture it cleanly. This article explains both halves of that sentence.
 
-This article walks through where the anomaly came from, why it should not exist according to the efficient-market hypothesis, why it does anyway, and what the practical limits of trading it look like.
+Below: where the anomaly came from, why the efficient-market hypothesis says it should not exist, why it does anyway, and what actually stops you from trading it.
 
 ## Where the puzzle starts: Ball and Brown, 1968
 
@@ -22,7 +22,7 @@ The original observation is owed to Ray Ball and Philip Brown, in a paper titled
 
 This was a puzzle for the efficient-market view, but it took time to register. Foster, Olsen and Shevlin replicated the result in 1984 in The Accounting Review, using a larger sample and cleaner methodology. Their findings reinforced the original Ball-Brown observation and added precision: the drift was strongest for stocks at the extreme tails of the earnings-surprise distribution.
 
-What both papers needed was a clean way to measure surprise. The convention that emerged was Standardized Unexpected Earnings, or SUE: the difference between actual earnings and consensus analyst expectations, divided by the standard deviation of recent earnings forecasts. SUE turns "earnings surprise" into a score that can be ranked across thousands of stocks.
+What both papers needed was a clean way to measure surprise. The convention that emerged was Standardized Unexpected Earnings, or SUE: actual earnings minus what analysts expected, divided by how noisy those forecasts had recently been. Dividing by the noise matters - a one-cent beat is trivial for a steady utility and enormous for a company whose estimates swing wildly. SUE turns a raw surprise into a score you can rank across thousands of stocks.
 
 ## The canonical study: Bernard and Thomas, 1989
 
@@ -63,7 +63,7 @@ These explanations are not mutually exclusive. The honest summary is that PEAD p
 
 ## Modern updates
 
-The post-2000 literature has refined the picture without overturning it. Chordia, Goyal, Sadka and Shivakumar (2009), in "Liquidity and the Post-Earnings-Announcement Drift" in Financial Analysts Journal, examined whether the effect survives realistic transaction costs. Their finding: the drift is real and tradeable in liquid stocks, but the spread is smaller in mid- and small-caps where the underlying anomaly is strongest. Trading costs eat much of the apparent advantage in the names where the signal is most powerful.
+The post-2000 literature has refined the picture without overturning it. Chordia, Goyal, Sadka and Shivakumar (2009), in "Liquidity and the Post-Earnings-Announcement Drift" in Financial Analysts Journal, examined whether the effect survives realistic transaction costs. Their finding: the drift is real and tradeable in liquid stocks, but the spread is smaller in mid- and small-caps where the underlying anomaly is strongest. Trading costs eat much of the apparent advantage in the names where the pattern is most powerful.
 
 Hung, Li and Wang (2015) and other transaction-cost-aware studies confirm this. PEAD survives in net-of-cost form for institutional investors with good execution. For retail investors paying retail spreads, the picture is closer to "marginal."
 
@@ -75,7 +75,7 @@ Anyone reading this and thinking they will go open a brokerage account and start
 
 The first issue is data. SUE requires consensus analyst estimates. These come from IBES, FactSet, or Refinitiv, and an institutional license costs from low five figures up to seven figures depending on how broadly you want it. Free alternatives like Yahoo Finance consensus estimates exist but are noisy, sometimes stale, and missing for the smaller names where the effect is largest.
 
-The second issue is the holding period. Sixty trading days is roughly three calendar months. Over that span, the stock will see other news flow: macro shocks, sector rotations, idiosyncratic events. The PEAD signal is a directional bias, not a guarantee. You will see plenty of trades where a positive-surprise stock ends the sixty days lower because the market sold off. Position sizing and risk management have to absorb that.
+The second issue is the holding period. Sixty trading days is roughly three calendar months. Over that span, the stock will see other news flow: macro shocks, sector rotations, idiosyncratic events. The PEAD pattern is a directional bias, not a guarantee. You will see plenty of trades where a positive-surprise stock ends the sixty days lower because the market sold off. Position sizing and risk management have to absorb that.
 
 The third issue is the negative tail. Bottom-decile PEAD names are companies that just missed earnings. They are sometimes companies that just did very badly. Holding short positions in companies that are visibly deteriorating means you will eventually short something on its way to a binary event - a buyout that gaps the stock up, an activist letter, a guidance pre-announcement. The negative side of the trade has more tail risk than the long side, and that asymmetry has to be in the risk model.
 
@@ -85,7 +85,9 @@ The fourth issue is universe selection. The literature is very clear that PEAD i
 
 For most readers, PEAD is more interesting as a lens on market efficiency than as a strategy to deploy directly. It is one of the cleanest examples of a predictable pattern that the efficient-market hypothesis says should not exist, that practitioners have known about for decades, and that survives anyway. The reasons it survives - data costs, slow human updating, asymmetric short-sale constraints, real liquidity risk - are themselves a useful summary of why financial markets are efficient enough to be hard but not efficient enough to be uninteresting.
 
-For long-only investors, the takeaway is small but real. If you are already deciding which stocks in a universe to overweight, recent earnings beats are a defensible tilt. The signal is roughly orthogonal to value and weakly correlated with momentum, so it adds something. It is not a reason to build a PEAD-only fund.
+For long-only investors, the takeaway is small but real. If you are already deciding which stocks in a universe to overweight, recent earnings beats are a defensible tilt. The pattern is roughly orthogonal to value and weakly correlated with momentum, so it adds something. It is not a reason to build a PEAD-only fund.
+
+PEAD is also a clean illustration of how we think about every pattern at TradeWave. A repeating tendency is only worth acting on once you have seen it hold across a long enough lookback, with the hit-rate and the misses visible rather than cherry-picked. That is exactly what the platform does for calendar and election-cycle seasonality: detect the pattern over a window you choose, anywhere from 1 to 99 years, attach an ML score, and keep the record auditable so you can judge the edge for yourself. The drift in this article is a different kind of pattern, but the discipline is the same one - measure the tendency honestly, then decide.
 
 For anyone running quantitative strategies, PEAD is a good test case for the general principle that anomalies surviving fifty years of attention probably have structural reasons for surviving. The question to ask is not "why hasn't this been arbitraged?" but "what specifically prevents arbitrage in this case, and is that constraint binding for me?" The honest answer is usually that someone is bearing a real cost - data, illiquidity, short-borrow, tail risk - that the published return number ignores.
 

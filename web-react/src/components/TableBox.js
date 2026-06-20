@@ -280,19 +280,19 @@ const TableBox = ({
     visibleColumns.forEach(k => {
       if (k === 'daysOut') {
         tmpDict['daysOut'] = daysout_title
-        tmpDict_tt['daysOut'] = 'Number of calendar days to hold the security for the opportunity. Click to sort by Days-Hold'
+        tmpDict_tt['daysOut'] = 'Number of calendar days the seasonal pattern is held, from entry to exit. Click to sort by Days-Hold'
       } else if (k === 'date') {
         tmpDict['date'] = 'Date'
-        tmpDict_tt['date'] = 'Start date of the seasonal opportunity'
+        tmpDict_tt['date'] = 'Start date of the seasonal pattern'
       } else if (k === 'symbol') {
         tmpDict['symbol'] = 'Ticker'
-        tmpDict_tt['symbol'] = 'Ticker symbol for the opportunity. Click to sort by Ticker symbol'
+        tmpDict_tt['symbol'] = 'Ticker symbol for the pattern. Click to sort by Ticker symbol'
       } else if (k === 'lOrS') {
         tmpDict['lOrS'] = 'DIR'
-        tmpDict_tt['lOrS'] = 'Direction of the opportunity (Long/Short). Click to sort by direction'
+        tmpDict_tt['lOrS'] = 'Direction of the pattern (Long/Short). Click to sort by direction'
       } else if (k === 'sharpe_ratio') {
         tmpDict['sharpe_ratio'] = 'SR'
-        tmpDict_tt['sharpe_ratio'] = 'The Sharpe Ratio helps qualify the quality of the opportunity. Click to sort by Sharpe Ratio'
+        tmpDict_tt['sharpe_ratio'] = 'The Sharpe Ratio gauges the quality of the pattern - its average return relative to year-to-year variability. Click to sort by Sharpe Ratio'
       } else if (k === 'median_profit') {
         tmpDict['median_profit'] = 'MP'
         tmpDict_tt['median_profit'] = 'The Median Profit indicates the middle value of strategy profits.'
@@ -313,10 +313,10 @@ const TableBox = ({
         tmpDict_tt['price'] = 'Current real-time price. Green = up today, Red = down today. Hover for % change. Click to sort.'
       } else if (k === 'ml_score') {
         tmpDict['ml_score'] = 'AIS'
-        tmpDict_tt['ml_score'] = 'AI Score (0-100) - percentile rank of the AI ensemble prediction. Higher is a stronger signal. Patterns longer than 90 days are not scored. Click to sort.'
+        tmpDict_tt['ml_score'] = 'AI Score (0-100) - the AI models rank how well current conditions support this pattern. Higher is a stronger reading. Patterns longer than 90 days are not scored. Click to sort.'
       } else if (k === 'win_prob') {
         tmpDict['win_prob'] = 'Win%'
-        tmpDict_tt['win_prob'] = 'Win Probability - calibrated AI estimate of P(actual return > 0). Patterns longer than 90 days are not scored. Click to sort.'
+        tmpDict_tt['win_prob'] = 'Win Probability - calibrated AI estimate of the chance the pattern ends profitable (return above zero). Patterns longer than 90 days are not scored. Click to sort.'
       } else if (k === 'pred_return') {
         tmpDict['pred_return'] = 'PredR'
         tmpDict_tt['pred_return'] = 'Predicted Return (%) - AI ensemble predicted close-to-close return. Patterns longer than 90 days are not scored. Click to sort.'

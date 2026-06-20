@@ -161,7 +161,7 @@ const SharpeRatioPopup = ({ onClose, iconRect }) => {
                     <p>
                         Look for patterns where the TWR is notably higher than the Sharpe Ratio. That gap tells you
                         the pattern has a habit of making a strong move in your favor before pulling back, which is a
-                        signal that a shorter holding period might capture more consistent profits.
+                        sign that a shorter holding period might capture more consistent profits.
                     </p>
 
                     <div className="ts-footer-note">

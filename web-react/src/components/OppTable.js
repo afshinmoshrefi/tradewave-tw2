@@ -362,7 +362,7 @@ const OppTable = (props) => {
           .then((opps) => {
             if (opps !== undefined) {
               if (opps['OppList'].length === 0 || opps['OppList'].includes('-1')) {
-                SetInitialMessage('* No Opportunities data for current selection');
+                SetInitialMessage('* No seasonal patterns found for the current selection');
               }
               else SetInitialMessage('Loading ...')
 
@@ -560,7 +560,7 @@ const OppTable = (props) => {
     if (isNaN(currentPY) || currentPY <= 0) return;
 
     if (currentPY <= 1) {
-      SetInitialMessage(`No results for ${props.oppTablePartialYears} of ${props.oppTableYears} years - adjust the historical years and your filter to get back opportunities`);
+      SetInitialMessage(`No patterns matched ${props.oppTablePartialYears} of ${props.oppTableYears} years - adjust the historical years and your filter to see patterns again`);
       return;
     }
 

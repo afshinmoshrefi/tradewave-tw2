@@ -70,9 +70,9 @@ def api_jsonld():
         "@context": "https://schema.org",
         "@type": "WebAPI",
         "name": "TradeWave Data API",
-        "description": ("Seasonal-edge and ML trading signals as a REST API and MCP server. "
-                        "Signals only (percentages and a normalized 0-100 index, never raw prices), "
-                        "broker-agnostic, with a public forward-tested track record."),
+        "description": ("Seasonal-pattern and ML research as a REST API and MCP server. "
+                        "Derived values only (percentages and a normalized 0-100 seasonal index, never "
+                        "raw prices), broker-agnostic, with a public forward-tested track record."),
         "url": DOCS,
         "documentation": DOCS,
         "provider": _ORG_JSONLD,
@@ -104,11 +104,11 @@ def build_llms():
     Fitting for an MCP product: it tells an agent exactly how to use TradeWave."""
     base = """# TradeWave Developers
 
-> Seasonal-edge and ML trading signals for developers and AI agents. Signals only
+> Seasonal-pattern and ML research for developers and AI agents. Derived values only
 > (percentages and a normalized 0-100 seasonal index, never raw prices); broker-agnostic;
 > with a public, time-stamped, forward-tested daily-pick track record.
 
-TradeWave exposes the same seasonal + ML signals two ways: a REST API and a hosted MCP
+TradeWave exposes the same seasonal + ML research two ways: a REST API and a hosted MCP
 server. REST authentication is a single API key (Authorization: Bearer tw_live_...); the
 MCP server also accepts an OAuth sign-in with a TradeWave account (how ChatGPT and
 Claude.ai connect - no API key). ML scoring is available on every tier, metered per day.
@@ -129,7 +129,7 @@ investment advice.
 - Discovery manifest: {portal}/.well-known/mcp.json
 
 ## Learn
-- What is a seasonal edge / reading a SignalCard: {learn}/what-is-a-seasonal-edge.html
+- What is a seasonal edge / reading a Pattern Card: {learn}/what-is-a-seasonal-edge.html
 - Build a cross-market screener: {learn}/cross-market-screener.html
 - Using the ML win-probability model: {learn}/ml-win-probability.html
 - The verifiable track record: {learn}/verifiable-track-record.html

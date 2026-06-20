@@ -3,8 +3,8 @@
 match api/openapi.yaml. Every data route uses @require_api_key; ML + market scope come
 from g.customer['entitlements'] / tiers.py.
 
-Safety posture (enforced here + in appserver_client): signals only - no raw OHLCV /
-last price / price-by-date is ever returned; all returns are percentages. ML is offered on
+Safety posture (enforced here + in appserver_client): derived seasonal patterns only - no
+raw OHLCV / last price / price-by-date is ever returned; all returns are percentages. ML is offered on
 EVERY tier but METERED PER DAY (ml_quota.py; free 5/day, unlimited on Pro) and only on
 ML-eligible markets (ids 0-4, 11). Fail-fast: real errors surface as the contract Error
 JSON via the app error handlers; only genuine data gaps fail soft.
@@ -744,8 +744,8 @@ def opportunities():
         "window_supported": False,  # single-date endpoint; use /v1/scan for windows
         "evaluated_count": evaluated_count,
         "enrichment_capped": enrichment_capped,
-        # educational-only: any signal-bearing response (win rates / ML / returns) carries the
-        # exact disclaimer, not just the composed SignalCard endpoints.
+        # educational-only: any pattern-bearing response (win rates / ML / returns) carries the
+        # exact disclaimer, not just the composed PatternCard endpoints.
         "disclaimer": cards.DISCLAIMER,
     }
     if mwr_note:
@@ -836,7 +836,7 @@ def symbol_patterns(symbol):
 
 
 # --------------------------------------------------------------------------- #
-# FLAGSHIP endpoints: build SignalCards via cards.py (one source of truth)     #
+# FLAGSHIP endpoints: build PatternCards via cards.py (one source of truth)     #
 # --------------------------------------------------------------------------- #
 
 def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank=None,
@@ -858,7 +858,7 @@ def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank
     name_map = name_map or appserver_client.market_name_map()
     market_name = name_map.get(str(opp["market"]), str(opp["market"]))
     ml = opp.get("ml")
-    return cards.build_signal_card(
+    return cards.build_pattern_card(
         opp, stats, chart_entries, market_name=market_name, ml=ml,
         ml_available=ml_available, seasonal_curve=seasonal_curve, as_of=as_of,
         rank=rank, ml_state=ml_state, include_chart=include_chart,
@@ -897,7 +897,7 @@ _RANK_KEYS = {
 @v1.get("/scan")
 @require_api_key
 def scan():
-    """find_best_opportunities: cross-market ranked seasonal scan -> SignalCard[].
+    """find_best_opportunities: cross-market ranked seasonal scan -> PatternCard[].
 
     Fans out OppList4 over the caller's in-scope markets IN PARALLEL, resolves the window
     to entry dates, ranks (default by edge_score), tier-caps, then enriches ONLY the
@@ -1074,7 +1074,7 @@ def scan():
     capped_by_plan = (pre_cap_count > effective_limit and tier_cap < req_limit)
 
     # curve_summary for the RETURNED cards only (parallel): the richest narratable line,
-    # without paying a curve fetch for cards that ranked out. Mirrors build_signal_card's
+    # without paying a curve fetch for cards that ranked out. Mirrors build_pattern_card's
     # hold-window slice (the curve starts at entry; the first days_out points are the section).
     def _add_curve(card):
         o = card["_opp"]
@@ -1097,11 +1097,11 @@ def scan():
         c.pop("_opp", None)
 
     # --- the honest one-line lead (computed on the FULL cards, before projection) ---
-    # Scan honesty: an all-NO_SIGNAL page must never read as "Found N setups"; a degraded
+    # Scan honesty: an all-neutral page must never read as "Found N setups"; a degraded
     # enrichment (rate-limited win-rate/receipts fetches) must say so; a plan-capped list
     # must show the wall (mirroring the ML-nudge pattern) instead of a quietly short list.
     shown = len(built)
-    high_conviction = sum(1 for c in built if c.get("signal") != "NO_SIGNAL")
+    high_conviction = sum(1 for c in built if c.get("bias") != "neutral")
     degraded_rows = sum(
         1 for c in built
         if (c.get("receipts") or {}).get("receipts_unavailable")
@@ -1112,11 +1112,11 @@ def scan():
                    "window or markets, or relaxing the filters." % (evaluated_count, cand))
     elif high_conviction == 0:
         summary = ("Evaluated %d %s - 0 have a high-conviction edge right now; the "
-                   "%d shown are NO_SIGNAL (listed for transparency, nothing to act on)."
+                   "%d shown are neutral (listed for transparency, nothing to act on)."
                    % (evaluated_count, cand, shown))
     else:
         summary = ("Evaluated %d %s - showing %d ranked seasonal setups, %d with a "
-                   "high-conviction signal." % (evaluated_count, cand, shown, high_conviction))
+                   "high-conviction seasonal pattern." % (evaluated_count, cand, shown, high_conviction))
     if degraded_rows:
         summary += (" Win-rate data unavailable for %d row(s) (upstream rate limit/outage) - "
                     "those rows are shown unverified; retry shortly." % degraded_rows)
@@ -1191,7 +1191,7 @@ def _scan_sortkey(card, rank_by):
 @require_api_key
 def analyze_symbol(symbol):
     """analyze_symbol: fuse OppBySymbol + ChartData4 + seasonal curve (+ Pro ML) into ONE
-    rich SignalCard (the best setup) + compact other_setups[]."""
+    rich PatternCard (the best setup) + compact other_setups[]."""
     r = _demo_guard_symbol(symbol)
     if r:
         return r
@@ -1528,7 +1528,7 @@ def score():
         "scores": scores,
         "granted": delivered,
         "ml_remaining_today": ml_quota.remaining(g.customer),
-        # educational-only: ML scores (win_prob / pred_return) are signal-bearing.
+        # educational-only: ML scores (win_prob / pred_return) are pattern-bearing.
         "disclaimer": cards.DISCLAIMER,
     })
 
@@ -1536,7 +1536,7 @@ def score():
 @v1.get("/daily-pick")
 @require_api_key
 def daily_pick():
-    """The daily AI pick as a full SignalCard + the LIVE forward-tested track record
+    """The daily AI pick as a full PatternCard + the LIVE forward-tested track record
     (the strongest receipt: made in advance, scored later). The pick's own seasonal
     receipts come from ChartData4; the live record comes from featured_history."""
     raw = appserver_client.daily_pick_raw()
@@ -1545,7 +1545,7 @@ def daily_pick():
 
     opp = raw["opp"]
     market = opp.get("market")
-    # The daily pick is the FREE teaser - a single published signal everyone sees - so its
+    # The daily pick is the FREE teaser - a single published seasonal pattern everyone sees - so its
     # ML score is shown WITHOUT consuming the daily ML allowance (the pick already carries
     # the ML the scorer selected it with). It is the hook, not a metered call.
     ml_available = bool(market and _ml_eligible(market) and opp.get("ml"))

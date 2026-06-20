@@ -7,13 +7,14 @@ parsed JSON is preserved on every model as ``.raw`` so power users are never
 blocked by a model lag - if the SDK has not yet modeled a field, read it
 straight off ``.raw``.
 
-SAFETY: TradeWave is a signals-only API. There are no price fields here by
-design - all monetary movement is expressed as percentages, and the seasonal
-curve ``index`` is a 0-100 normalized relative shape, never a price.
+SAFETY: TradeWave is a derived-data API that returns detected seasonal
+patterns. There are no price fields here by design - all monetary movement is
+expressed as percentages, and the seasonal curve ``index`` is a 0-100
+normalized relative shape, never a price.
 
 Field-name footgun (documented in the API contract):
   - ``historical_win_rate`` = share of profitable years (the seasonal record).
-  - ``ml_win_prob`` (on SignalCardML) / ``win_prob`` (on the legacy MLScore) =
+  - ``ml_win_prob`` (on PatternCardML) / ``win_prob`` (on the legacy MLScore) =
     the ML model's predicted probability.
 These are DISTINCT and are intentionally never both called "win rate".
 """
@@ -41,7 +42,7 @@ def _as_list(value: Any) -> List[Any]:
 
 @dataclass
 class Market:
-    """One of the 17 TradeWave markets and the caller's access scope."""
+    """One of the 15 TradeWave markets and the caller's access scope."""
 
     id: Optional[str] = None
     name: Optional[str] = None
@@ -77,7 +78,7 @@ class Symbol:
 
 @dataclass
 class MarketRef:
-    """A compact market reference embedded on a SignalCard."""
+    """A compact market reference embedded on a PatternCard."""
 
     id: Optional[str] = None
     name: Optional[str] = None
@@ -127,7 +128,7 @@ class Me:
 
 
 # ---------------------------------------------------------------------------
-# ML blocks (two shapes: legacy MLScore vs SignalCardML)
+# ML blocks (two shapes: legacy MLScore vs PatternCardML)
 # ---------------------------------------------------------------------------
 
 
@@ -136,7 +137,7 @@ class MLScore:
     """Legacy ML block used by /score and bulk /opportunities.
 
     Field names here are the LEGACY names (``win_prob``, ``pred_return``,
-    ``pred_mfe``). The SignalCard uses :class:`SignalCardML`, whose names differ
+    ``pred_mfe``). The PatternCard uses :class:`PatternCardML`, whose names differ
     (``ml_win_prob``, ``pred_return_pct``, ``pred_mfe_pct``).
 
     ``note`` is present only on /score items that were left unscored because the
@@ -164,8 +165,8 @@ class MLScore:
 
 
 @dataclass
-class SignalCardML:
-    """ML block as it appears on a SignalCard.
+class PatternCardML:
+    """ML block as it appears on a PatternCard.
 
     Note ``ml_win_prob`` (the model's predicted probability) is DISTINCT from
     the card's ``stats.historical_win_rate`` (share of profitable years).
@@ -178,7 +179,7 @@ class SignalCardML:
     raw: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
-    def from_dict(cls, data: Any) -> Optional["SignalCardML"]:
+    def from_dict(cls, data: Any) -> Optional["PatternCardML"]:
         if not isinstance(data, dict):
             return None
         d = _as_dict(data)
@@ -273,12 +274,12 @@ class OpportunityList:
 
 
 # ---------------------------------------------------------------------------
-# SignalCard and its sub-objects
+# PatternCard and its sub-objects
 # ---------------------------------------------------------------------------
 
 
 @dataclass
-class SignalSetup:
+class PatternSetup:
     """Timing of a setup. Dates only - no price levels."""
 
     entry_date: Optional[str] = None
@@ -288,7 +289,7 @@ class SignalSetup:
     raw: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
-    def from_dict(cls, data: Any) -> "SignalSetup":
+    def from_dict(cls, data: Any) -> "PatternSetup":
         d = _as_dict(data)
         return cls(
             entry_date=d.get("entry_date"),
@@ -300,8 +301,8 @@ class SignalSetup:
 
 
 @dataclass
-class SignalStats:
-    """Headline percent-only stats on a SignalCard. No price levels."""
+class PatternStats:
+    """Headline percent-only stats on a PatternCard. No price levels."""
 
     historical_win_rate: Optional[float] = None
     sharpe_ratio: Optional[float] = None
@@ -311,7 +312,7 @@ class SignalStats:
     raw: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
-    def from_dict(cls, data: Any) -> "SignalStats":
+    def from_dict(cls, data: Any) -> "PatternStats":
         d = _as_dict(data)
         return cls(
             historical_win_rate=d.get("historical_win_rate"),
@@ -513,7 +514,7 @@ class SetReminder:
 
 @dataclass
 class NextStep:
-    """The no-broker last mile. ``order_ticket`` is omitted on NO_SIGNAL."""
+    """The no-broker last mile. ``order_ticket`` is omitted on a neutral bias."""
 
     headline: Optional[str] = None
     order_ticket: Optional[OrderTicket] = None
@@ -538,27 +539,27 @@ class NextStep:
 
 
 @dataclass
-class SignalCard:
+class PatternCard:
     """THE unit returned by /scan, /analyze/{symbol} and /daily-pick.
 
-    SIGNALS ONLY - all movement is percentages; ``next_step.order_ticket``
+    DERIVED DATA ONLY - all movement is percentages; ``next_step.order_ticket``
     carries no price level. ``ml`` is ``None`` (not absent) when the
     ML-eligible-market quota is exhausted or the market is not ML-eligible;
-    ``tier_notes`` carries the context in that case. ``signal`` is one of
-    ``BUY`` / ``SELL`` / ``NO_SIGNAL`` (NO_SIGNAL = low conviction; no order
-    ticket).
+    ``tier_notes`` carries the context in that case. ``bias`` is the directional
+    read on the detected seasonal pattern - one of ``bullish`` / ``bearish`` /
+    ``neutral`` (neutral = low conviction; no order ticket).
     """
 
     rank: Optional[int] = None
     symbol: Optional[str] = None
     market: Optional[MarketRef] = None
     direction: Optional[str] = None
-    signal: Optional[str] = None
-    setup: Optional[SignalSetup] = None
+    bias: Optional[str] = None
+    setup: Optional[PatternSetup] = None
     edge_score: Optional[int] = None
     edge_basis: Optional[str] = None
-    stats: Optional[SignalStats] = None
-    ml: Optional[SignalCardML] = None
+    stats: Optional[PatternStats] = None
+    ml: Optional[PatternCardML] = None
     receipts: Optional[Receipts] = None
     next_step: Optional[NextStep] = None
     headline: Optional[str] = None
@@ -568,7 +569,7 @@ class SignalCard:
     raw: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
-    def from_dict(cls, data: Any) -> Optional["SignalCard"]:
+    def from_dict(cls, data: Any) -> Optional["PatternCard"]:
         if not isinstance(data, dict):
             return None
         d = _as_dict(data)
@@ -577,12 +578,12 @@ class SignalCard:
             symbol=d.get("symbol"),
             market=MarketRef.from_dict(d.get("market")),
             direction=d.get("direction"),
-            signal=d.get("signal"),
-            setup=SignalSetup.from_dict(d.get("setup")),
+            bias=d.get("bias"),
+            setup=PatternSetup.from_dict(d.get("setup")),
             edge_score=d.get("edge_score"),
             edge_basis=d.get("edge_basis"),
-            stats=SignalStats.from_dict(d.get("stats")),
-            ml=SignalCardML.from_dict(d.get("ml")),
+            stats=PatternStats.from_dict(d.get("stats")),
+            ml=PatternCardML.from_dict(d.get("ml")),
             receipts=Receipts.from_dict(d.get("receipts")),
             next_step=NextStep.from_dict(d.get("next_step")),
             headline=d.get("headline"),
@@ -594,8 +595,8 @@ class SignalCard:
 
     @property
     def is_actionable(self) -> bool:
-        """True when the card carries an actionable BUY/SELL (not NO_SIGNAL)."""
-        return self.signal in ("BUY", "SELL")
+        """True when the card carries an actionable bullish/bearish bias (not neutral)."""
+        return self.bias in ("bullish", "bearish")
 
 
 # ---------------------------------------------------------------------------
@@ -605,7 +606,7 @@ class SignalCard:
 
 @dataclass
 class ScanResult:
-    """The /scan response - ranked SignalCards plus enrichment metadata.
+    """The /scan response - ranked PatternCards plus enrichment metadata.
 
     ``summary`` is the server's plain-English honesty line (what was evaluated,
     what was shown, any degradation). ``capped_by_plan`` is true when the list
@@ -625,7 +626,7 @@ class ScanResult:
     shown_of_evaluated: Optional[str] = None
     upgrade_url: Optional[str] = None
     ml_remaining_today: Optional[int] = None
-    opportunities: List[SignalCard] = field(default_factory=list)
+    opportunities: List[PatternCard] = field(default_factory=list)
     raw: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
@@ -633,7 +634,7 @@ class ScanResult:
         d = _as_dict(data)
         cards = [
             c
-            for c in (SignalCard.from_dict(o) for o in _as_list(d.get("opportunities")))
+            for c in (PatternCard.from_dict(o) for o in _as_list(d.get("opportunities")))
             if c is not None
         ]
         return cls(
@@ -653,7 +654,7 @@ class ScanResult:
         )
 
     def __iter__(self):
-        """Iterate the ranked SignalCards directly."""
+        """Iterate the ranked PatternCards directly."""
         return iter(self.opportunities)
 
     def __len__(self) -> int:
@@ -696,7 +697,7 @@ class CompactSetup:
 class AnalyzeResult:
     """The /analyze/{symbol} response - one rich card plus alternate setups."""
 
-    card: Optional[SignalCard] = None
+    card: Optional[PatternCard] = None
     other_setups: List[CompactSetup] = field(default_factory=list)
     as_of: Optional[str] = None
     raw: Dict[str, Any] = field(default_factory=dict, repr=False)
@@ -705,7 +706,7 @@ class AnalyzeResult:
     def from_dict(cls, data: Any) -> "AnalyzeResult":
         d = _as_dict(data)
         return cls(
-            card=SignalCard.from_dict(d.get("card")),
+            card=PatternCard.from_dict(d.get("card")),
             other_setups=[
                 CompactSetup.from_dict(s) for s in _as_list(d.get("other_setups"))
             ],
@@ -882,9 +883,9 @@ class MLDailyLimit:
 
 @dataclass
 class DailyPickResult:
-    """The /daily-pick response - the pick as a SignalCard plus its record."""
+    """The /daily-pick response - the pick as a PatternCard plus its record."""
 
-    card: Optional[SignalCard] = None
+    card: Optional[PatternCard] = None
     featured_date: Optional[str] = None
     track_record: Optional[TrackRecordSummary] = None
     as_of: Optional[str] = None
@@ -894,7 +895,7 @@ class DailyPickResult:
     def from_dict(cls, data: Any) -> "DailyPickResult":
         d = _as_dict(data)
         return cls(
-            card=SignalCard.from_dict(d.get("card")),
+            card=PatternCard.from_dict(d.get("card")),
             featured_date=d.get("featured_date"),
             track_record=TrackRecordSummary.from_dict(d.get("track_record")),
             as_of=d.get("as_of"),

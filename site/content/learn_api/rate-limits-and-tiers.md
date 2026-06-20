@@ -8,7 +8,7 @@ read_minutes: 8
 
 ## Three limits, three behaviors
 
-A robust TradeWave client has to respect three independent budgets. They are easy to confuse, so separate them up front - each one fails differently, and that difference is the whole point:
+Most clients break on rate limits not because backoff is hard, but because they treat three different budgets as one. A robust TradeWave client respects three independent limits, and each one fails differently. That difference is the whole point - get it wrong and you either hammer a 429 into a ban or silently drop data on a perfectly good 200:
 
 | Limit | Scope | What happens at the edge |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ A robust TradeWave client has to respect three independent budgets. They are eas
 | **Per-day request quota** | Requests per key per day | A real **HTTP 429** once exhausted. Resets daily. |
 | **Daily ML allowance** | ML scorings per key per day | Never an error. **HTTP 200** with `ml: null` and an upgrade nudge. |
 
-The headline distinction: rate and quota limits are transport-level guards that say "slow down" or "come back tomorrow," while the ML allowance is a **product** limit that degrades gracefully instead of failing. Your seasonal signal still arrives even when your ML budget is gone. Everything below is illustrative; live responses carry a `disclaimer` and are educational, not personalized advice.
+The headline distinction: rate and quota limits are transport-level guards that say "slow down" or "come back tomorrow," while the ML allowance is a **product** limit that degrades gracefully instead of failing. Your detected seasonal pattern still arrives even when your ML budget is gone. Everything below is illustrative; live responses carry a `disclaimer` and are educational, not personalized advice.
 
 We do not hardcode the exact per-minute, per-day, or ML-allowance numbers here, because they vary by tier and can change. Read them off the [API pricing page]({{PRICING_URL}}) and your [console]({{CONSOLE_URL}}). Qualitatively: free accounts get a small daily ML allowance, while Pro and Business are unlimited.
 
@@ -40,31 +40,35 @@ When you do hit a 429, the response adds a `Retry-After` header (in seconds). Ho
 
 ## opp_limit: the per-call result cap
 
-Separate from rate limits, the discovery endpoints cap how many results one call returns via the `limit` query parameter (often called `opp_limit` internally). On `GET /scan` and `GET /opportunities`, ask for what you will actually use:
+Separate from rate limits, the discovery endpoints cap how many results one call returns via the `limit` query parameter (often called `opp_limit` internally). On `GET /scan` and `GET /opportunities`, ask for what you will actually use. You can run this exact call with no signup using the public demo token `tw_demo_explore`:
 
 ```bash
 curl "{{API_BASE}}/scan?markets=0,3&window=next_month&rank_by=sharpe&limit=10" \
-  -H "Authorization: Bearer tw_live_xxx"
+  -H "Authorization: Bearer tw_demo_explore"
 ```
+
+Swap in your own `tw_live_xxx` key from the [console]({{CONSOLE_URL}}) when you are ready - the demo token is throttled and shares a small ML allowance, which makes it a handy way to watch the metering below kick in.
 
 Pulling `limit=10` strong setups beats pulling hundreds you will never read. Smaller responses are faster, and since each call counts once against your per-minute and per-day budgets regardless of `limit`, asking for the right page size is free efficiency. Rank with `rank_by` (`edge`, `win_rate`, `sharpe`, `ml`, or `avg_return`) so the best results land at the top of your capped page.
 
 ## The ML upgrade nudge is a 200, not a 429
 
-This is the trap that breaks naive clients. When a free-tier caller runs out of daily ML allowance, the gateway does **not** return 429 and does **not** raise. It returns a normal **HTTP 200** with the seasonal signal fully intact, `ml: null`, an `ml_remaining_today` counter, and a gentle upgrade message in `tier_notes`:
+This is the trap that breaks naive clients. When a free-tier caller runs out of daily ML allowance, the gateway does **not** return 429 and does **not** raise. It returns a normal **HTTP 200** with the detected seasonal pattern fully intact, `ml: null`, an `ml_remaining_today` counter, and a gentle upgrade message in `tier_notes`:
 
 ```json
 {
   "symbol": "AAPL",
-  "signal": "BUY",
+  "bias": "bullish",
   "stats": { "historical_win_rate": 0.74, "sharpe_ratio": 1.8, "years": "17" },
   "ml": null,
   "ml_remaining_today": 0,
-  "tier_notes": "Daily ML allowance reached - seasonal signal shown. Upgrade for unlimited ML."
+  "tier_notes": "Daily ML allowance reached - seasonal pattern shown. Upgrade for unlimited ML."
 }
 ```
 
-Treat "out of ML budget" exactly like "ML not eligible for this setup": fall back to the seasonal `stats` and keep going. The same `ml is None` branch also covers ML-ineligible markets and holds longer than about 90 days, where you instead see `tier_notes: "ML score not available for this setup - the ML model covers shorter seasonal holds (up to about 90 days)."` Remember the two distinct probabilities: `historical_win_rate` is the share of profitable years, while `ml_win_prob` is the model's predicted probability - never collapse them into one "win rate." And `GET /daily-pick` always returns a free ML block that never touches your allowance, so it is the cheapest way to keep an ML read in your pipeline.
+Treat "out of ML budget" exactly like "ML not eligible for this setup": fall back to the seasonal `stats` and keep going. The same `ml is None` branch also covers ML-ineligible markets and holds longer than about 90 days, where you instead see `tier_notes: "ML score not available for this setup - the ML model covers shorter seasonal holds (up to about 90 days)."`
+
+Two things worth pinning down. First, keep the probabilities distinct: `historical_win_rate` is the share of past years the seasonal pattern finished profitable, while `ml_win_prob` is the model's forward prediction - never collapse them into one "win rate." Second, `GET /daily-pick` always returns a free ML block that never touches your allowance, so it is the cheapest way to keep an ML read flowing through your pipeline.
 
 ## A robust Python client
 
@@ -146,8 +150,8 @@ Keep keys server-side and out of source control, logs, and client bundles. Rate 
 
 ## Where to go next
 
-- [Your first TradeWave API call](/learn/first-api-call) - get a key and read a `SignalCard`.
+- [Your first TradeWave API call](/learn/first-api-call) - get a key and read a `PatternCard`.
 - [Using the ML win-probability model](/learn/ml-win-probability) - the full `ml` block, metering, and the 90-day horizon.
 - [Cross-market screener](/learn/cross-market-screener) - drive `GET /scan` with `rank_by` and `limit`.
 
-Building an AI agent? The same signals - and the same per-key limits and graceful ML metering - apply over MCP at {{MCP_URL}} (sign in with your TradeWave account from ChatGPT or Claude.ai, or bring your own key in the `Authorization` header from dev tools), with tools like `find_best_opportunities` and `analyze_symbol`. We show the edge and the timing; you place the trade at any broker. Every response is educational and carries a disclaimer, not personalized advice.
+Building an AI agent? The same seasonal patterns - and the same per-key limits and graceful ML metering - apply over MCP at {{MCP_URL}} (sign in with your TradeWave account from ChatGPT or Claude.ai, or bring your own key in the `Authorization` header from dev tools), with tools like `find_best_opportunities` and `analyze_symbol`. We show the edge and the timing; you place the trade at any broker. Every response is educational and carries a disclaimer, not personalized advice.

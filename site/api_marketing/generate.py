@@ -511,41 +511,36 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "",
 # ===========================================================================
 
 def build_index() -> str:
-    # Illustrative track-record rows (framed as such, not stated as fact).
-    track_rows = [
-        ("2020", "63%", "78%", "+15pp", "52"),
-        ("2021", "67%", "82%", "+15pp", "61"),
-        ("2022", "61%", "76%", "+15pp", "48"),
-        ("2023", "65%", "80%", "+15pp", "57"),
-        ("2024", "66%", "81%", "+15pp", "60"),
-        ("2025 YTD", "68%", "83%", "+15pp", "31"),
-    ]
-    rows_html = "\n".join(
-        f'<tr><td class="td-year">{r[0]}</td>'
-        f'<td class="td-base">{r[1]}</td>'
-        f'<td class="td-win">{r[2]}</td>'
-        f'<td class="td-lift">{r[3]}</td>'
-        f'<td class="td-n">{r[4]}</td></tr>'
-        for r in track_rows
-    )
-
     body = f"""
 <section class="page-hero">
   <div class="container">
-    <div class="tag tag-ml" style="margin-bottom:20px;">API + MCP - Now Available</div>
+    <div class="tag tag-ml" style="margin-bottom:20px;">REST + MCP - Now Available</div>
     <h1>
-      <span class="gradient-text-w">The edge layer for AI traders</span>
+      <span class="gradient-text-w">Seasonal patterns and ML scores for US markets, in one API call</span>
     </h1>
     <p class="sub">
-      Provider-neutral seasonal and ML signals that work with any broker and any AI agent -
-      we do not take your trades, we show you our receipts. Every pick is time-stamped in
-      advance and forward-tested, so the track record is something nobody can fake.
+      Query 1-99 years of seasonal history - by calendar or election cycle - with an ML win-probability
+      on every setup, over REST or straight from ChatGPT and Claude via MCP. Try it in ~30 seconds below
+      with a live demo call, then build, embed, or ship on it.
     </p>
-    <div class="hero-ctas">
-      <a href="{portal_urls.DOCS_URL}/quickstart.html" class="btn btn-primary">Read the docs</a>
-      <a href="{portal_urls.PLAYGROUND_URL}" class="btn btn-secondary">Try it live</a>
+
+    <div class="code-block" style="max-width:680px;margin:0 auto 28px;text-align:left;">
+<span class="cm"># Real authenticated call - no signup, no key, paste and run</span>
+<span class="kw">curl</span> {portal_urls.API_BASE}/scan?market=2&amp;limit=5 \\
+  -H <span class="st">"Authorization: Bearer tw_demo_explore"</span>
     </div>
-    <p class="hero-note">Works with any broker or in-chat execution app. Free tier available - no credit card required.</p>
+    <p class="hero-note" style="margin-bottom:24px;">
+      <code style="color:var(--accent);">tw_demo_explore</code> is a public demo token - it is a constant,
+      not a secret, so paste it as-is. Returns today's ranked seasonal patterns for AAPL, MSFT, NVDA, AMZN
+      and TSLA. A free key unlocks every symbol.
+    </p>
+
+    <div class="hero-ctas">
+      <a href="{portal_urls.DOCS_URL}/quickstart.html" class="btn btn-primary">Run it in 30 seconds</a>
+      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-secondary">Get a free key</a>
+      <a href="mcp.html" class="btn btn-ghost">Connect it to Claude</a>
+    </div>
+    <p class="hero-note">No credit card. Free, then Dev $39, Pro $199, Business $599 (redistribution to your users under license), and Enterprise with volume licensing, an SLA, and a signed agreement - <a href="{portal_urls.nav('contact.html')}" style="color:var(--accent);">talk to sales</a>.</p>
   </div>
 </section>
 
@@ -553,12 +548,12 @@ def build_index() -> str:
 <section class="section alt">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">We do not take your trades. We show you our receipts.</h2>
-      <p>Data is a commodity and execution needs capital and a license. The scarce, defensible layer
-         is the one in between - the reason to place the trade. Each signal ships with a broker-agnostic
-         order ticket (side, symbol, and dates, no price level) that drops into any broker or execution
-         app you already use. We are paid for the signal, not your order flow, which is why
-         a NO_SIGNAL day is honest from us in a way it never is from an app that earns per trade.</p>
+      <h2 class="gradient-text-w">Derived research, not a data firehose</h2>
+      <p>Raw market data is a commodity; execution needs capital and a license. The scarce, defensible
+         layer is the one in between - the quantified reason a setup is worth a look. Each detected seasonal
+         pattern ships as percentages, a 0-100 seasonal index and an ML win-probability, with the dates
+         that bound the window - never raw OHLCV. Because we return derived values, not exchange-licensed
+         quotes, there are no exchange agreements, per-terminal fees, or market-data audits on your side.</p>
     </div>
     <div class="grid-3">
       <div class="card diff-card">
@@ -566,7 +561,7 @@ def build_index() -> str:
         <h3>ML win-probability on seasonal patterns</h3>
         <p>A 62-feature model trained on millions of historical setups scores every
            seasonal opportunity with a win probability and predicted return before
-           market open. Every tier includes ML signals (free starts at 5/day; Pro is unlimited).
+           market open. Every tier includes ML scores (free starts at 5/day; Pro is unlimited).
            No other seasonality API offers it.</p>
       </div>
       <div class="card diff-card">
@@ -597,8 +592,8 @@ def build_index() -> str:
     <div class="section-head">
       <h2 class="gradient-text-w">Where TradeWave sits</h2>
       <p>We are the layer above the trade, not another place to make it. Use TradeWave for the reason
-         and timing to trade, then hand the ticket to whatever you already execute with - any
-         in-chat execution app or broker.</p>
+         and the timing, then render it in your own app, route it to your agent, or hand the ticket to
+         whatever you already execute with - any in-chat execution app or broker.</p>
     </div>
     <div class="grid-3">
       <div class="card diff-card">
@@ -613,79 +608,26 @@ def build_index() -> str:
            out" is not something they are built to tell you.</p>
       </div>
       <div class="card diff-card" style="border-color:var(--accent);">
-        <h3>TradeWave - the edge layer</h3>
-        <p>The reason and the timing to trade, as a SignalCard with verifiable, time-stamped,
-           forward-tested receipts and an honest NO_SIGNAL when nothing is worth trading. We feed both
-           of the other two: percentages and a 0-100 seasonal index in, a broker-agnostic ticket out.</p>
+        <h3>TradeWave - the research layer</h3>
+        <p>The quantified reason and the timing, as a Pattern Card with verifiable, time-stamped,
+           forward-tested receipts - and an honest empty result when nothing scores. We sit between the
+           other two: derived values out (percentages and a 0-100 seasonal index), no raw prices in your
+           response.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Agent-era thesis: consume, do not compute -->
+<!-- Agent-era thesis teaser: consume, do not compute -->
 <section class="section alt">
   <div class="container">
     <div class="section-head">
       <h2 class="gradient-text-w">Your agent can write a backtest. It cannot make it true.</h2>
-      <p>Consume the edge, do not recompute it. A capable agent can scaffold a seasonality backtest in
-         minutes - we concede that plainly. What it cannot conjure on its own is the data, the discipline,
-         the trained model, and the forward-tested receipts that decide whether the backtest is true or
-         just confidently wrong. That gap is what we sell, as decision-ready signals it can read in one
-         call instead of a data-plus-methodology-plus-track-record problem it would rebuild badly.</p>
+      <p>A capable agent can scaffold a seasonality backtest in minutes. What it cannot conjure is the
+         licensed data, the trained model, and the forward-tested receipts that decide whether the backtest
+         is true or just confidently wrong. Consume that edge in one call instead of rebuilding it badly.</p>
     </div>
-    <div class="grid-4">
-      <div class="card diff-card">
-        <h3>Licensed, clean market data</h3>
-        <p>Decades of survivorship-bias-free, corporate-action-adjusted history across 15 markets. Free or
-           scraped data makes a backtest that silently lies: delisted names vanish from the sample, and
-           splits and dividends go unadjusted. An agent cannot cheaply license its way around this.</p>
-      </div>
-      <div class="card diff-card">
-        <h3>Look-ahead and overfitting, avoided</h3>
-        <p>The traps that make a naive backtest confidently wrong - leaking future information into past
-           decisions, and tuning until the curve fits noise. We build with point-in-time data and out-of-sample
-           discipline so the historical_win_rate (share of profitable years) is earned, not curve-fit.</p>
-      </div>
-      <div class="card diff-card">
-        <h3>The trained ML model</h3>
-        <p>A 62-feature model trained on millions of historical setups returns an ml_win_prob (the model's
-           probability of profit) for each opportunity, distinct from the historical_win_rate. An agent can
-           train a model, but not reproduce this one without our licensed data and our years of labeled setups.</p>
-      </div>
-      <div class="card diff-card" style="border-color:var(--accent);">
-        <h3>Forward-tested receipts</h3>
-        <p>An agent can backfill a backtest instantly. It cannot fabricate years of time-stamped, made-in-advance,
-           scored-later results, because time only moves forward. Every daily pick is recorded before the open,
-           then graded later - the one asset that stays un-fakeable in a world where agents can fake the rest.</p>
-      </div>
-    </div>
-    <div class="grid-2" style="max-width:920px;margin:40px auto 0;">
-      <div class="card diff-card">
-        <h3>Spend tokens on strategy, not rebuilding data</h3>
-        <p>Self-describing SignalCards - headline, verdict, receipts, and a broker-agnostic order ticket -
-           arrive decision-ready, so the agent does not burn context reasoning over raw numbers. Percentages
-           and a 0-100 seasonal index in, a ticket out. Less context spent, lower hallucination risk, budget
-           left for your strategy.</p>
-      </div>
-      <div class="card diff-card">
-        <h3>Verifiable, not trust-me</h3>
-        <p>An evaluating agent can audit the record before it recommends us. The forward-tested track record
-           is queryable on the free tier at
-           <code style="font-size:12px;color:var(--accent);">/v1/daily-pick/track-record</code>
-           and on the public scorecard. Do not trust us - check us, then decide.</p>
-      </div>
-    </div>
-    <div class="card" style="max-width:920px;margin:24px auto 0;border-color:var(--accent);">
-      <h3 style="color:#fff;">And it is a daily scan, not a one-symbol check</h3>
-      <p style="color:var(--dim);line-height:1.7;margin:6px 0 0;">Point an agent at one ticker and it can
-        tell you whether that ticker is seasonal. The harder question - which of the hundreds of securities
-        you could trade are at the START of a seasonal window today, and which are worth it - is a daily,
-        universe-wide scan compiled over decades of licensed data and ranked by Sharpe ratio and pattern
-        length. That is a standing pipeline, not a prompt: by the time an agent rebuilt it, the window has
-        moved. One call returns today's ranked list -
-        <code style="font-size:12px;color:var(--accent);">GET /v1/scan</code>.</p>
-    </div>
-    <div style="text-align:center;margin-top:32px;">
+    <div style="text-align:center;margin-top:28px;">
       <a href="for-ai-agents.html" class="btn btn-primary">For AI agents - why consume, not compute</a>
     </div>
   </div>
@@ -695,10 +637,10 @@ def build_index() -> str:
 <section class="section">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">Daily-pick track record</h2>
-      <p>The ML-selected daily pick has been publicly recorded every market day.
-         These illustrative figures show the kind of lift the ML layer delivers
-         over base seasonal win rates - verify the actual record live via the API.</p>
+      <h2 class="gradient-text-w">Audited, not believed</h2>
+      <p>We do not show you a curve to admire. Every daily pick is logged before the outcome,
+         then scored against what actually happened - a forward record you can audit call by call,
+         not a backtest fit after the fact. Read the live record instead of taking our word for it.</p>
     </div>
 
     <div class="track-table-wrap">
@@ -713,18 +655,26 @@ def build_index() -> str:
           </tr>
         </thead>
         <tbody>
-          {rows_html}
+          <tr>
+            <td class="td-year">Example</td>
+            <td class="td-base">64%</td>
+            <td class="td-win">79%</td>
+            <td class="td-lift">+15pp</td>
+            <td class="td-n">57</td>
+          </tr>
         </tbody>
       </table>
     </div>
     <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:16px;">
-      Illustrative figures. Actual realized results available via
-      <code style="font-size:11px;">/v1/daily-pick/track-record</code>.
-      Past performance does not guarantee future results.
+      One example row, shown only to explain how the ML layer is meant to lift the base seasonal
+      win rate - it is a concept, not a result. The real numbers are public and call-by-call: pull
+      the realized record from <code style="font-size:11px;">/v1/daily-pick/track-record</code> on
+      the free tier, or read the same record on the public scorecard. Past performance does not
+      guarantee future results.
     </p>
     <div style="text-align:center;margin-top:28px;">
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">See the Live Record</a>
-      <a href="{portal_urls.nav('scorecard.html')}" class="btn btn-ghost" style="margin-left:12px;">View Scorecard</a>
+      <a href="{portal_urls.nav('scorecard.html')}" class="btn btn-primary">See the Public Record</a>
+      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-ghost" style="margin-left:12px;">Pull It via the API</a>
     </div>
   </div>
 </section>
@@ -752,7 +702,7 @@ def build_index() -> str:
           <tr><td class="feat-col">REST API access</td><td class="tw-col">Yes - all tiers</td><td class="no-col">No</td><td class="no-col">Terminal only</td></tr>
           <tr><td class="feat-col">MCP / AI agent integration</td><td class="tw-col">Yes - native</td><td class="no-col">No</td><td class="no-col">No</td></tr>
           <tr><td class="feat-col">Verified pick track record</td><td class="tw-col">Yes - forward-recorded</td><td class="no-col">Backtest only</td><td class="no-col">No</td></tr>
-          <tr><td class="feat-col">Signals only (no raw prices)</td><td class="tw-col">Yes - by design</td><td class="no-col">Mixed</td><td class="no-col">Raw data</td></tr>
+          <tr><td class="feat-col">Redistributable to your own users</td><td class="tw-col">Yes - by design</td><td class="no-col">Mixed</td><td class="no-col">Raw data</td></tr>
           <tr><td class="feat-col">Starting price</td><td class="tw-col">Free</td><td>~$480/mo</td><td>~$24,000/yr</td></tr>
           <tr><td class="feat-col">No Bloomberg required</td><td class="tw-col">Yes</td><td class="no-col">No (integration)</td><td>Bloomberg IS the product</td></tr>
         </tbody>
@@ -764,21 +714,20 @@ def build_index() -> str:
 <!-- CTAs -->
 <section class="section">
   <div class="container" style="text-align:center;">
-    <h2 class="gradient-text-w" style="font-size:36px;font-weight:800;margin-bottom:16px;">Start building today</h2>
-    <p style="color:var(--dim);font-size:17px;max-width:600px;margin:0 auto 32px;line-height:1.7;">
-      A free key gives you the S&P 500 stocks market, the daily pick, and 5 ML signals/day.
-      Upgrade to Dev for all 15 markets, or Pro for unlimited ML scoring.
+    <h2 class="gradient-text-w" style="font-size:36px;font-weight:800;margin-bottom:16px;">Try, build, ship</h2>
+    <p style="color:var(--dim);font-size:17px;max-width:640px;margin:0 auto 32px;line-height:1.7;">
+      Start free, scale when it earns its place. The full ladder is on the pricing page.
     </p>
     <div class="hero-ctas">
       <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
       <a href="pricing.html" class="btn btn-secondary">See All Plans</a>
-      <a href="mcp.html" class="btn btn-ghost">MCP Setup Guide</a>
+      <a href="{portal_urls.nav('contact.html')}" class="btn btn-ghost">Contact Sales</a>
     </div>
   </div>
 </section>
 """
     return page_shell(
-        "TradeWave API & MCP - Seasonal + ML Trading Signals",
+        "TradeWave API & MCP - Seasonal Patterns + ML Research",
         "REST API and MCP server for seasonal pattern analysis with ML win-probability scoring. "
         "Connect to Claude, Cursor, or any AI agent in minutes.",
         no_em_dash(body),
@@ -825,17 +774,17 @@ def build_pricing() -> str:
 
         ml_limit = t.get("ml_daily_limit")
         if t["ml_access"] and ml_limit is None:
-            ml_line = '<li class="ml-feat">Unlimited ML win-probability signals</li>'
+            ml_line = '<li class="ml-feat">Unlimited ML win-probability scores</li>'
         elif t["ml_access"]:
-            ml_line = f'<li class="ml-feat">ML win-probability signals ({ml_limit}/day)</li>'
+            ml_line = f'<li class="ml-feat">ML win-probability scores ({ml_limit}/day)</li>'
         else:
             ml_line = '<li class="no">ML win-probability scoring</li>'
 
         # NOTE: deliberately NO data-freshness/"history" bullet. tiers.py carries a
         # `history` field ("delayed"/"full") but NO code path consumes it - free keys
-        # receive the same live signals as paid (verified 2026-06-12), so selling
+        # receive the same live seasonal patterns as paid (verified 2026-06-12), so selling
         # "Delayed data (30-day lag)" was a false claim. The Free card is anchored on
-        # the caps that ARE enforced: 1 market, 3 results/call, 5 ML signals/day.
+        # the caps that ARE enforced: 1 market, 3 results/call, 5 ML scores/day.
 
         note_html = ""
         if key == "free":
@@ -844,9 +793,9 @@ def build_pricing() -> str:
             note_html = f'<p class="p-note">Need more? <a href="{portal_urls.nav("contact.html")}" class="inline">Contact us</a> for Enterprise.</p>'
 
         taglines = {
-            "free": "ML signals included (5/day) - no commitment.",
-            "dev": "Build and prototype with full market access (100 ML signals/day).",
-            "pro": "Unlimited ML win-probability scoring. The full edge.",
+            "free": "ML scores included (5/day) - no commitment.",
+            "dev": "Build and prototype with full market access (100 ML scores/day).",
+            "pro": "Unlimited ML win-probability scoring across every market.",
             "business": "High-volume production and team access. Unlimited ML.",
         }
 
@@ -885,8 +834,10 @@ def build_pricing() -> str:
 <section class="page-hero" style="padding-bottom:40px;">
   <div class="container">
     <h1><span class="gradient-text-w">API &amp; MCP Pricing</span></h1>
-    <p class="sub">Start free with ML signals included (5/day). All tiers include the daily pick
-       and the verified track record. Pro unlocks unlimited ML win-probability scoring.</p>
+    <p class="sub">A seasonal-pattern research API over REST and MCP. Free tier includes ML scores (5/day),
+       the daily pick, and the verified track record. Dev opens all 15 markets; Pro removes the ML cap;
+       Business adds redistribution rights and team controls.</p>
+    <p class="hero-note" style="margin-top:14px;">No signup to try it: <code style="color:var(--accent);">tw_demo_explore</code> is a public demo token - a real authenticated call in about 30 seconds, no key, no card.</p>
   </div>
 </section>
 
@@ -918,22 +869,22 @@ def build_pricing() -> str:
     <div class="section-head" style="margin-top:64px;">
       <h2 class="gradient-text-w">Built for teams and enterprises</h2>
       <p>Bring the edge layer into your org with the controls a security and procurement team expects -
-         centralized multi-seat key management, audit logs, an SLA, commercial signal-redistribution
-         rights, and enterprise single sign-on on Business and Enterprise plans.</p>
+         centralized multi-seat key management, audit logs, an SLA, commercial seasonal-pattern
+         redistribution rights, and enterprise single sign-on on Business and Enterprise plans.</p>
     </div>
     <div class="card" style="max-width:880px;margin:0 auto;">
-      <p style="color:var(--dim);line-height:1.7;">When you put a verifiable, conflict-free signal feed
+      <p style="color:var(--dim);line-height:1.7;">When you put a verifiable, conflict-free seasonal-pattern feed
         in front of a whole desk, the questions stop being about alpha and start being about governance.
         TradeWave runs on identity powered by WorkOS, gives admins centralized control of seats, keys, and
-        billing, and writes an audit trail of who pulled which signal and when. To be clear about scope:
+        billing, and writes an audit trail of who pulled which seasonal pattern and when. To be clear about scope:
         single sign-on and directory sync govern who can reach the human console - your API calls stay
         key-based on every plan, so a developer or service authenticates with a scoped API key, not your IdP.</p>
       <ul style="color:var(--dim);line-height:1.8;margin:14px 0 0;padding-left:20px;">
         <li><strong>Single sign-on and directory sync</strong> - SAML or OIDC plus SCIM provisioning through your identity provider (Okta, Azure AD, Google Workspace) to govern console access. Available on Business and Enterprise; talk to us to enable.</li>
         <li><strong>Multi-seat key management and centralized billing</strong> - issue, rotate, scope, and revoke API keys per developer or service from one admin view, on one invoice.</li>
-        <li><strong>Audit logs</strong> - a time-stamped record of key usage and signal access, exportable for your own compliance and review.</li>
-        <li><strong>A service-level agreement</strong> - uptime and support commitments so the signal feed can sit in a production trading workflow.</li>
-        <li><strong>Commercial signal-redistribution rights</strong> - license TradeWave signals into your own product or feed, as percentage movement and the 0-100 seasonal index only, never raw prices. Granted by written agreement on Business and Enterprise - the boundaries live in the <a href="api-terms.html" class="inline">API Terms</a>.</li>
+        <li><strong>Audit logs</strong> - a time-stamped record of key usage and seasonal-pattern access, exportable for your own compliance and review.</li>
+        <li><strong>A service-level agreement</strong> - uptime and support commitments so the seasonal-pattern feed can sit in a production trading workflow.</li>
+        <li><strong>Commercial seasonal-pattern redistribution rights</strong> - license TradeWave seasonal patterns into your own product or feed, as percentage movement and the 0-100 seasonal index only, never raw prices. Granted by written agreement on Business and Enterprise - the boundaries live in the <a href="api-terms.html" class="inline">API Terms</a>.</li>
       </ul>
       <div style="text-align:center;margin-top:22px;">
         <a href="{portal_urls.nav('contact.html')}" class="btn btn-primary">Contact sales</a>
@@ -947,7 +898,7 @@ def build_pricing() -> str:
   <div class="container">
     <div class="section-head">
       <h2 class="gradient-text-w">Unlimited ML win-probability scoring is the Pro upsell</h2>
-      <p>Every plan includes ML signals - free starts at 5/day, Dev gets 100/day.
+      <p>Every plan includes ML scores - free starts at 5/day, Dev gets 100/day.
          Pro and Business unlock unlimited ML calls via the score_opportunities endpoint,
          the 62-feature model that assigns win probability and predicted return to each setup.</p>
     </div>
@@ -960,8 +911,8 @@ GET /v1/opportunities?market=0&amp;min_win_rate=0.60
 POST /v1/score  <span class="cm"># free=5/day, dev=100/day</span>
 <span class="cm"># Returns: ml_score, win_prob, pred_return, pred_mfe</span></div>
         <p style="font-size:13px;color:var(--dim);margin-top:14px;line-height:1.6;">
-          Free gets a real taste of ML - 5 scored signals per day. Dev raises that to 100.
-          Both tiers get the same signal quality; the limit is what scales with the plan.
+          Free gets a real taste of ML - 5 scored seasonal patterns per day. Dev raises that to 100.
+          Both tiers get the same pattern quality; the limit is what scales with the plan.
         </p>
       </div>
       <div class="card" style="border-color:var(--accent);box-shadow:0 0 40px rgba(99,102,241,.15);">
@@ -973,8 +924,9 @@ POST /v1/score  <span class="cm"># unlimited</span>
 <span class="kw">ml_score</span>: <span class="nu">87</span></div>
         <p style="font-size:13px;color:var(--dim);margin-top:14px;line-height:1.6;">
           Pro removes the daily ML cap entirely. Run the scorer across every setup in
-          every market as often as you need. A 70% base seasonal win rate plus an 81%
-          ML win_prob is a materially different bet - and Pro gives you unlimited of those.
+          every market as often as you need - score a whole universe, not a sample. These are
+          historical, forward-tested probabilities, not predictions; Pro just lets you compute
+          them without limit.
         </p>
       </div>
     </div>
@@ -1017,22 +969,22 @@ POST /v1/score  <span class="cm"># unlimited</span>
           <span style="font-size:20px;color:var(--muted);">+</span>
         </summary>
         <p style="padding:0 0 18px;font-size:14px;color:var(--dim);line-height:1.7;">
-          No. By design the API exposes signals only - seasonal pattern statistics,
+          No. By design the API exposes seasonal patterns only - seasonal pattern statistics,
           win rates, percentage returns, and ML scores. No OHLCV data, no last-price
           endpoints. This keeps the output interpretable and keeps licensing clean.
         </p>
       </details>
       <details style="border-bottom:1px solid var(--border);padding:0;">
         <summary style="padding:18px 0;font-size:15px;font-weight:600;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;color:var(--text);">
-          What am I allowed to do with the signals?
+          What am I allowed to do with the seasonal patterns?
           <span style="font-size:20px;color:var(--muted);">+</span>
         </summary>
         <p style="padding:0 0 18px;font-size:14px;color:var(--dim);line-height:1.7;">
-          Every plan (Free, Dev, Pro) lets you use signals in, and display them within, your own
-          application, research, and team, with attribution to TradeWave. Bulk redistribution and
-          resale of raw API responses are reserved: redistribution of derived values (percentages
-          and the 0-100 seasonal index) is available on Business by written agreement. Full
-          boundaries are in the <a href="api-terms.html" class="inline">API Terms</a>.
+          Free, Dev, and Pro are internal-use plans: use seasonal patterns in, and display them within, your own
+          application, research, and team, with attribution to TradeWave. Redistribution and resale to anyone
+          outside your org are reserved for Business and Enterprise, where you can license the derived values
+          (percentage movement and the 0-100 seasonal index, never raw prices) into your own product or feed
+          by written agreement. Full boundaries are in the <a href="api-terms.html" class="inline">API Terms</a>.
         </p>
       </details>
       <details style="border-bottom:1px solid var(--border);padding:0;">
@@ -1085,8 +1037,9 @@ document.querySelectorAll('[data-annual-note]').forEach(function(el) {{ el.style
 """
     return page_shell(
         "API & MCP Pricing",
-        "TradeWave API plans from Free to Business. ML win-probability signals on every tier "
-        "(free=5/day, dev=100/day, pro=unlimited). No Bloomberg required.",
+        "TradeWave API plans from Free to Business. ML win-probability scores on every tier "
+        "(free=5/day, dev=100/day, pro=unlimited). Derived seasonal patterns only - cleanly "
+        "licensable, no raw OHLCV.",
         no_em_dash(body),
         active_nav="pricing",
     )
@@ -1214,58 +1167,32 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
 <section class="page-hero">
   <div class="container">
     <div class="tag tag-ml" style="margin-bottom:20px;">MCP Server</div>
-    <h1><span class="gradient-text-w">TradeWave in your AI assistant</span></h1>
+    <h1><span class="gradient-text-w">Ask ChatGPT and Claude for ranked seasonal patterns</span></h1>
     <p class="sub">
-      Connect the TradeWave MCP server to ChatGPT, Claude, Cursor, or any MCP-compatible
-      host. Your assistant gets access to 17 purpose-built trading tools (6 flagship plus
-      11 primitives) and starts answering questions like these - no glue code, no API key juggling.
+      Connect the TradeWave MCP server and your AI assistant answers in plain language:
+      "the strongest seasonal longs in US stocks right now, ML-ranked" comes back as a table
+      of real setups with win rates, ML probabilities, and a forward track record you can audit.
+      Paste one URL, sign in with your TradeWave account, ask. No glue code, no API key juggling.
     </p>
     <div class="hero-ctas">
       <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
       <a href="{portal_urls.DOCS_URL}" class="btn btn-secondary">MCP Setup Docs</a>
     </div>
-  </div>
-</section>
-
-<!-- TradeWave + your broker recipe (GTM hero feature) -->
-<section class="section">
-  <div class="container">
-    <div class="section-head">
-      <h2 class="gradient-text-w">Recipe: TradeWave + your broker (works with any execution app)</h2>
-      <p>Ask for the edge, get a broker-agnostic ticket, place it anywhere. We do not take your
-         trades - we show you our receipts.</p>
-    </div>
-    <div class="card" style="max-width:840px;margin:0 auto;">
-      <p style="color:var(--dim);line-height:1.7;margin-bottom:4px;">Ask TradeWave through MCP for the
-        best seasonal setup and its ML win probability. You get back a SignalCard with the receipts and
-        a broker-agnostic order ticket - a side, a symbol, and the dates, with no price level for us to
-        game. Hand that ticket to whatever you already trade with: an in-chat execution app,
-        your broker's SDK, or a manual confirmation. TradeWave finds the edge and the
-        timing; you place the trade. Because we never earn per trade, a NO_SIGNAL day is just as honest
-        as a buy.</p>
-      <div style="margin:18px 0;padding:14px 18px;border-left:3px solid var(--accent);background:rgba(99,102,241,.07);border-radius:8px;color:var(--dim);font-style:italic;">"Using TradeWave, find the best seasonal long entering its window in the next two weeks across my markets, show me the win rate and ML probability, and give me the order ticket."</div>
-      <ol style="color:var(--dim);line-height:1.85;padding-left:20px;margin:0;">
-        <li><strong>Find</strong> - call find_best_opportunities to scan your in-scope markets and rank the strongest setups.</li>
-        <li><strong>Read</strong> - off the top SignalCard, take the edge, the year-by-year receipts, and the optional ML win-probability block (distinct from the historical win rate), plus the order ticket in next_step.</li>
-        <li><strong>Place it anywhere</strong> - the MARKET/DAY ticket carries no price level, so it maps cleanly onto any in-chat execution app, broker SDK, or a manual confirmation.</li>
-      </ol>
-      <div style="text-align:center;margin-top:22px;">
-        <a href="{portal_urls.LEARN_URL}/recipe-tradewave-plus-broker.html" class="btn btn-primary">See the full recipe</a>
-      </div>
-    </div>
+    <p style="font-size:13px;color:var(--dim);margin-top:16px;">17 purpose-built tools, 6 flagship plus 11 primitives. Try it with the public demo token <code style="font-size:12px;color:var(--accent);">tw_demo_explore</code> - a real call in about 30 seconds, no signup.</p>
   </div>
 </section>
 
 <!-- Setup strip -->
-<section class="section alt">
+<section class="section">
   <div class="container">
     <div class="section-head">
       <h2 class="gradient-text-w">Paste the URL, sign in, ask</h2>
       <p>TradeWave's MCP is a hosted HTTP server at <code style="font-size:13px;color:var(--accent);">{portal_urls.MCP_URL}</code>.
          In ChatGPT or Claude.ai, paste that URL into Settings - Connectors, click Connect, and
-         sign in with your TradeWave account - no API key needed. Your plan follows the account
-         you sign in with: ML signals work on every tier (free gets 5/day, Pro is unlimited),
-         and the server returns a clear quota message when the daily limit is reached, never a silent error.</p>
+         sign in with your TradeWave account - no API key needed. Bring-your-own-login means metering
+         follows the account you sign in with, not a shared key: ML scores work on every tier (free gets
+         5/day, Pro is unlimited), and when the daily limit is reached the server returns a clear quota
+         message, never a silent error.</p>
     </div>
     <div class="code-block" style="max-width:700px;margin:0 auto 16px;">
 <span class="cm">// claude_desktop_config.json - Claude Desktop / Cursor (dev tools: bring your own API key)</span>
@@ -1287,6 +1214,33 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
   </div>
 </section>
 
+<!-- TradeWave + your broker recipe (GTM hero feature) -->
+<section class="section alt">
+  <div class="container">
+    <div class="section-head">
+      <h2 class="gradient-text-w">Recipe: from chat question to placeable order ticket</h2>
+      <p>Ask for the edge, get a broker-agnostic ticket, place it anywhere. We do not take your
+         trades - we show you our receipts.</p>
+    </div>
+    <div class="card" style="max-width:840px;margin:0 auto;">
+      <p style="color:var(--dim);line-height:1.7;margin-bottom:4px;">Ask TradeWave through MCP for the
+        best seasonal setup and its ML win probability. You get back a Pattern Card with the receipts and
+        a broker-agnostic order ticket: a side, a symbol, and the dates, with no price level for us to
+        game. Hand it to whatever you already trade with. We find the edge and the timing; you place
+        the trade. Because we never earn per trade, a no-pattern day is as honest as a buy.</p>
+      <div style="margin:18px 0;padding:14px 18px;border-left:3px solid var(--accent);background:rgba(99,102,241,.07);border-radius:8px;color:var(--dim);font-style:italic;">"Using TradeWave, find the best seasonal long entering its window in the next two weeks across my markets, show me the win rate and ML probability, and give me the order ticket."</div>
+      <ol style="color:var(--dim);line-height:1.85;padding-left:20px;margin:0;">
+        <li><strong>Find</strong> - call find_best_opportunities to scan your in-scope markets and rank the strongest setups.</li>
+        <li><strong>Read</strong> - off the top Pattern Card, take the edge, the year-by-year receipts, and the optional ML win-probability block (distinct from the historical win rate), plus the order ticket in next_step.</li>
+        <li><strong>Place it anywhere</strong> - the MARKET/DAY ticket carries no price level, so it maps cleanly onto any in-chat execution app, broker SDK, or a manual confirmation.</li>
+      </ol>
+      <div style="text-align:center;margin-top:22px;">
+        <a href="{portal_urls.LEARN_URL}/recipe-tradewave-plus-broker.html" class="btn btn-primary">See the full recipe</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Tool reference -->
 <section class="section">
   <div class="container">
@@ -1302,7 +1256,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">find_best_opportunities</p>
-        <p style="font-size:13px;color:var(--dim);">Scan the caller's in-scope markets and return the strongest ranked seasonal setups as decision-ready SignalCards, each with a research hand-off.</p>
+        <p style="font-size:13px;color:var(--dim);">Scan the caller's in-scope markets and return the strongest ranked seasonal setups as decision-ready Pattern Cards, each with a research hand-off.</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
@@ -1380,13 +1334,48 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_daily_pick</p>
-        <p style="font-size:13px;color:var(--dim);">Today's ML-selected featured pick with full metadata. Available to all tiers as a credibility signal.</p>
+        <p style="font-size:13px;color:var(--dim);">Today's ML-selected featured pick with full metadata. Available to all tiers as a credibility proof point.</p>
       </div>
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_pick_track_record</p>
         <p style="font-size:13px;color:var(--dim);">Full forward-recorded win/loss history of past picks. The hook - not a backtest, a forward ledger you can audit.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- For data buyers and institutions -->
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <h2 class="gradient-text-w">For data buyers and institutions</h2>
+      <p>The same server, read through a licensing lens. The API returns derived values only:
+         percentages, a 0-100 seasonal index, and ML probabilities, never raw OHLCV. That keeps it
+         outside the exchange real-time market-data redistribution regime, so it is cleanly licensable
+         with no exchange agreements, no per-terminal fees, and no market-data audits on your side.</p>
+    </div>
+    <div class="grid-3" style="gap:16px;margin-bottom:24px;">
+      <div class="card" style="padding:22px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.10);">
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Licensing superpower</p>
+        <p style="font-size:13px;color:var(--dim);line-height:1.7;">Because derived values, not exchange-licensed prices, cross the wire, the feed is cleanly licensable. The boundaries live in the <a href="api-terms.html" class="inline">API Terms</a>.</p>
+      </div>
+      <div class="card" style="padding:22px 24px;">
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Redistribution under license</p>
+        <p style="font-size:13px;color:var(--dim);line-height:1.7;">Internal and personal use on Free, Dev, and Pro. Redistribute the derived values to your own end users under a written license at <strong>Business</strong>. Custom white-label, multi-tenant, and downstream-feed scope at <strong>Enterprise</strong>.</p>
+      </div>
+      <div class="card" style="padding:22px 24px;">
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Data integrity</p>
+        <p style="font-size:13px;color:var(--dim);line-height:1.7;">Deterministic, the same inputs return the same numbers. An auditable public record, every pick logged before the outcome. End-of-day data across the US-market universe.</p>
+      </div>
+    </div>
+    <div class="card" style="max-width:920px;margin:0 auto;padding:20px 26px;border-left:3px solid var(--accent);background:rgba(99,102,241,.06);">
+      <p style="font-size:14px;color:var(--dim);line-height:1.75;margin:0;">
+        <strong style="color:var(--text);">Enterprise, by contact sales.</strong> Custom volume, a contractual SLA with uptime and
+        service credits, SSO and SCIM with audit logs, an MSA and DPA with security review, invoicing with PO and net-30,
+        and dedicated support. SLA and SSO are available on Business and Enterprise. There is no self-serve SLA;
+        <a href="{portal_urls.nav('contact.html')}" class="inline">talk to sales</a> to scope the agreement.
+      </p>
     </div>
   </div>
 </section>
@@ -1423,7 +1412,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
     <p style="color:var(--dim);font-size:17px;max-width:600px;margin:0 auto 32px;line-height:1.7;">
       Paste the server URL into ChatGPT or Claude.ai and sign in with your TradeWave
       account, or drop a free API key into Claude Desktop or Cursor, and ask your
-      first question in under 5 minutes.
+      first question in under 5 minutes. <a href="pricing.html" class="inline">See pricing</a>.
     </p>
     <div class="hero-ctas">
       <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
@@ -1436,7 +1425,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
     return page_shell(
         "TradeWave MCP - Use TradeWave in Claude, Cursor, and ChatGPT",
         "Add TradeWave to ChatGPT or Claude and sign in with your TradeWave account, or drop an API key into Claude Desktop or Cursor. "
-        "17 purpose-built trading tools (6 flagship plus 11 primitives) for seasonal analysis and ML-scored signals.",
+        "17 purpose-built trading tools (6 flagship plus 11 primitives) for seasonal analysis and ML-scored seasonal patterns.",
         no_em_dash(body),
         active_nav="mcp",
     )
@@ -1452,8 +1441,9 @@ def build_use_cases() -> str:
   <div class="container">
     <h1><span class="gradient-text-w">Who uses the TradeWave API</span></h1>
     <p class="sub">
-      Seasonal ML signals inside your code, your models, or your AI assistant.
-      Three audiences, three different ways they extract the edge.
+      Concrete things people build on the API and MCP server - a personal scanner, an ML score
+      layer in a backtest, a seasonal tab in a fintech product. Three audiences, mapped to the tier
+      that unlocks each one.
     </p>
   </div>
 </section>
@@ -1463,26 +1453,28 @@ def build_use_cases() -> str:
   <div class="container">
     <div class="grid-2" style="gap:40px;align-items:center;max-width:1000px;margin:0 auto;">
       <div>
-        <span class="who">Retail and prosumer traders</span>
+        <span class="who">Indie devs and prosumer quants</span>
         <h2 style="font-size:30px;font-weight:800;margin-bottom:16px;" class="gradient-text-w">
-          The AI assistant that knows when to trade
+          Build a seasonal scanner without building the data stack
         </h2>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:20px;">
-          Ask Claude or any MCP-compatible assistant "what S&P 500 stocks should I look at this week"
-          and get a ranked list of seasonal longs with ML win probabilities - without opening
-          a terminal, running a screener, or paying $480/mo to Seasonax. TradeWave gives the
-          seasonal and ML edge; the assistant pairs it with its own news and fundamentals.
+          Wire the MCP server into Claude or ChatGPT and you have a working scanner in one afternoon:
+          ask "rank the strongest seasonal longs in S&P 500 stocks this week by ML win probability"
+          and get a ranked table back, no terminal, no Seasonax seat. Or skip the chat and hit
+          <code style="font-size:13px;color:var(--accent);">/opportunities</code> from a cron job to
+          email yourself the same list every morning. TradeWave supplies the seasonal and ML edge;
+          you - or the assistant - pair it with news and fundamentals.
         </p>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:24px;">
-          The free tier gives you the S&P 500 stocks market, the daily pick, 5 ML win-probability
-          signals/day, and the full track record. The Dev tier adds all 15 markets and 100 ML signals/day
-          for $39/mo. Pro unlocks unlimited ML scoring.
+          Free covers the build: S&P 500 stocks, the daily pick, 5 ML win-probability scores/day,
+          and the full track record - enough to ship a personal tool end to end. Dev ($39/mo) opens
+          all 15 markets and 100 ML scores/day; Pro lifts the ML cap entirely.
         </p>
         <ul class="check-list">
-          <li>No Bloomberg required - works from any browser or AI chat window</li>
-          <li>Daily pick delivered before market open with ML confidence score</li>
-          <li>Forward-recorded track record you can audit yourself</li>
-          <li>Connect ChatGPT or Claude in under 5 minutes - just sign in, no API key</li>
+          <li>Two surfaces, one account: REST for code, MCP for the chat window</li>
+          <li>Daily pick before the open with an ML win-probability score</li>
+          <li>Forward-recorded track record you can pull and audit yourself</li>
+          <li>Connect ChatGPT or Claude in under 5 minutes - sign in, no API key to manage</li>
         </ul>
       </div>
       <div class="card" style="padding:32px;">
@@ -1502,7 +1494,7 @@ def build_use_cases() -> str:
           </div>
           <div style="display:flex;gap:12px;align-items:flex-start;">
             <div style="width:28px;height:28px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">4</div>
-            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Free includes 5 ML signals/day. Upgrade to Pro for unlimited ML scoring when you need it.</p>
+            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Free includes 5 ML scores/day. Upgrade to Pro for unlimited ML scoring when you need it.</p>
           </div>
         </div>
       </div>
@@ -1545,7 +1537,7 @@ score_resp = requests.<span class="fn">post</span>(
       <div>
         <span class="who">Quants, RIAs, and small funds</span>
         <h2 style="font-size:30px;font-weight:800;margin-bottom:16px;" class="gradient-text-w">
-          A programmatic ML signal layer, not another data subscription
+          A programmatic ML score layer, not another data subscription
         </h2>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:20px;">
           The API delivers ranked seasonal setups and ML scores in JSON. Pipe them into
@@ -1561,8 +1553,9 @@ score_resp = requests.<span class="fn">post</span>(
           news, and macro analysis.
         </p>
         <ul class="check-list">
+          <li>Drop ranked setups straight into a backtest input or a weekly research-note generator</li>
           <li>REST API with JSON responses - no proprietary SDK required</li>
-          <li>Signals only - no raw price licensing, no OHLCV compliance burden</li>
+          <li>Seasonal patterns only - no raw price licensing, no OHLCV compliance burden</li>
           <li class="ml">ML win_prob and pred_return on every tier - free=5/day, dev=100/day, pro=unlimited (6 ML-eligible markets)</li>
           <li>Up to 1,000 results per call on Pro, 5,000 on Business</li>
           <li>300 req/min on Pro - compatible with intraday sweep workflows</li>
@@ -1582,7 +1575,7 @@ score_resp = requests.<span class="fn">post</span>(
           Ship a seasonal-analysis feature in a day, not a quarter
         </h2>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:20px;">
-          Embedding seasonal signals in your app used to mean building a data pipeline,
+          Embedding seasonal patterns in your app used to mean building a data pipeline,
           licensing historical prices, training your own model, and maintaining all of it.
           With the TradeWave API you call one endpoint and get a ranked, scored, and
           explained output your users can act on.
@@ -1594,17 +1587,11 @@ score_resp = requests.<span class="fn">post</span>(
         </p>
         <ul class="check-list">
           <li>No raw price data means no exchange license to negotiate</li>
-          <li>MCP-ready: surface TradeWave signals inside any AI-native product</li>
+          <li>MCP-ready: surface TradeWave seasonal patterns inside any AI-native product</li>
           <li>Multiple API keys per account - one per tenant or environment</li>
           <li>Outputs are percentage returns - safe to display without price context</li>
           <li>Dev tier at $39/mo for prototyping; no commitment to full plan</li>
         </ul>
-        <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-top:16px;">
-          Scope note: every tier includes displaying signals within your own app or team, with
-          attribution. Redistributing or reselling signals onward (your own feed or data product)
-          is a Business-tier right granted by written agreement - the boundaries are in the
-          <a href="api-terms.html" class="inline">API Terms</a>.
-        </p>
       </div>
       <div class="card" style="padding:32px;">
         <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:16px;">What you ship to users</p>
@@ -1618,10 +1605,50 @@ score_resp = requests.<span class="fn">post</span>(
             <p style="font-size:13px;color:var(--dim);line-height:1.6;">User adds tickers to a watchlist, your app scores them nightly against upcoming seasonal windows. Available on every tier (quota scales with plan; unlimited on Pro+).</p>
           </div>
           <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:16px 20px;">
-            <p style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">AI analyst backed by TradeWave</p>
-            <p style="font-size:13px;color:var(--dim);line-height:1.6;">Connect the MCP server to your product's AI layer. Users ask questions, TradeWave tools answer them transparently.</p>
+            <p style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">In-app seasonal tab + agent tool</p>
+            <p style="font-size:13px;color:var(--dim);line-height:1.6;">Render a "Seasonal outlook" tab on any symbol page from one call, or expose TradeWave as a tool to your product's AI assistant so users can ask for it in chat. Same data, two surfaces.</p>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Institution / data-buyer band -->
+<section class="section alt">
+  <div class="container" style="max-width:1000px;">
+    <div class="section-head">
+      <span class="who">Institutions and data buyers</span>
+      <h2 class="gradient-text-w">A seasonal-pattern feed you can actually license</h2>
+      <p>The thing a data desk checks first: can we use this without dragging an exchange agreement
+         behind it. The API returns derived values only - percentage returns, a 0-100 seasonal index,
+         and ML win probabilities, never raw OHLCV - so it sits outside the real-time market-data
+         redistribution regime. That means no exchange agreements, no per-terminal fees, and no
+         market-data audits on your side to license it.</p>
+    </div>
+    <div class="grid-2" style="gap:24px;align-items:start;margin-bottom:28px;">
+      <div class="card" style="padding:28px;">
+        <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:14px;">Redistribution scales with the tier</p>
+        <ul class="check-list" style="margin:0;">
+          <li>Free, Dev, and Pro: internal and personal use - your team, your code, your research</li>
+          <li>Business: redistribute the derived seasonal values to your own end users under a written license</li>
+          <li>Enterprise: custom white-label, multi-tenant, or a downstream feed, by agreement</li>
+        </ul>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-top:14px;">
+          The exact boundaries live in the <a href="api-terms.html" class="inline">API Terms</a>.
+        </p>
+      </div>
+      <div class="card" style="padding:28px;">
+        <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:14px;">A number you can stand behind</p>
+        <ul class="check-list" style="margin:0;">
+          <li>Deterministic: the same inputs return the same numbers, every call</li>
+          <li>An auditable public record - every pick is logged before the outcome is known</li>
+          <li>End-of-day data across the US-market universe, no intraday guesswork</li>
+        </ul>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-top:14px;">
+          SSO/SCIM, audit logs, and a contractual SLA are available on Business and Enterprise -
+          talk to sales to scope them.
+        </p>
       </div>
     </div>
   </div>
@@ -1632,13 +1659,10 @@ score_resp = requests.<span class="fn">post</span>(
   <div class="container" style="max-width:900px;">
     <div class="section-head">
       <h2 class="gradient-text-w">And one for whole desks: teams and enterprises</h2>
-      <p>Quant funds and fintech platforms put the edge layer in front of a team. You get enterprise
-         single sign-on (SAML or OIDC) and SCIM directory sync through your identity provider for the
-         console, multi-seat key management on one invoice, audit logs, an SLA, and commercial
-         signal-redistribution rights (percentages and the 0-100 index only, by written agreement -
-         see the <a href="api-terms.html" class="inline">API Terms</a>). Single sign-on governs the
-         console login; your API calls stay key-based on every plan. Powered by WorkOS, available on
-         Business and Enterprise.</p>
+      <p>Quant funds and fintech platforms put the edge layer in front of a team: enterprise single
+         sign-on (SAML or OIDC) and SCIM directory sync through your identity provider for the console,
+         and multi-seat key management on one invoice. Single sign-on governs the console login; your
+         API calls stay key-based on every plan. Powered by WorkOS, available on Business and Enterprise.</p>
     </div>
     <div style="text-align:center;">
       <a href="{portal_urls.nav('contact.html')}" class="btn btn-primary">Contact sales</a>
@@ -1666,9 +1690,10 @@ score_resp = requests.<span class="fn">post</span>(
 </section>
 """
     return page_shell(
-        "TradeWave API Use Cases - Traders, Quants, Fintech Builders",
-        "Who uses the TradeWave API and MCP server: retail traders using AI assistants, "
-        "quants adding ML signals to their models, and fintech builders shipping seasonal-analysis features.",
+        "TradeWave API Use Cases - Devs, Quants, Fintech Builders",
+        "What people build on the TradeWave API and MCP server: indie devs shipping a seasonal "
+        "scanner, quants adding an ML score layer to a backtest, and fintech builders embedding a "
+        "seasonal tab. Each mapped to the tier that unlocks it.",
         no_em_dash(body),
         active_nav="use-cases",
     )
@@ -1712,6 +1737,11 @@ def build_agents() -> str:
                 '<pre style="background:#0d0a14;border:1px solid rgba(255,255,255,.12);border-radius:10px;'
                 'padding:16px 18px;overflow:auto;font-size:12.5px;line-height:1.55;color:#d1d5db;white-space:pre-wrap;">'
                 f'<code>{esc(copy.get("paste_prompt", ""))}</code></pre></div>')
+        cta_block = ""
+        if "institution" in s["heading"].lower():
+            cta_block = (
+                '      <div style="max-width:840px;margin:18px auto 0;">'
+                '<a href="mailto:hello@tradewave.ai" class="btn btn-secondary">Talk to sales</a></div>')
         secs.append(f"""
 <section class="section{alt}">
   <div class="container">
@@ -1719,6 +1749,7 @@ def build_agents() -> str:
 {paras}
 {bullets}
 {prompt_block}
+{cta_block}
   </div>
 </section>""")
 
@@ -1732,7 +1763,7 @@ def build_agents() -> str:
       <a href="{portal_urls.DOCS_URL}/quickstart.html" class="btn btn-primary">Read the quickstart</a>
       <a href="{portal_urls.MCP_SETUP_URL}" class="btn btn-secondary">Connect via MCP</a>
     </div>
-    <p class="hero-note">Free tier to evaluate end to end - the forward-tested track record is open to audit.</p>
+    <p class="hero-note">No signup to try it: <code style="color:var(--accent);">tw_demo_explore</code> is a public demo token - a real call in about 30 seconds. The forward-tested track record is open to audit on the free tier.</p>
   </div>
 </section>
 {''.join(secs)}
@@ -1748,8 +1779,8 @@ def build_agents() -> str:
 """
     return page_shell(
         "For AI Agents - the edge your agent cannot compute but can consume",
-        "TradeWave is built to be consumed by AI agents: decision-ready seasonal and ML signals over "
-        "REST and MCP, signals only, with a forward-tested track record your agent can audit.",
+        "TradeWave is built to be consumed by AI agents: decision-ready seasonal patterns scored by ML over "
+        "REST and MCP, seasonal patterns only, with a forward-tested track record your agent can audit.",
         no_em_dash(body),
         active_nav="for-ai-agents",
     )
@@ -1765,7 +1796,7 @@ def build_api_terms() -> str:
     link HERE instead. DRAFT until counsel signs off; the banner says so explicitly.
 
     The per-tier boundary this page draws (the launch-blocker fix):
-      Free / Dev / Pro  = DISPLAY of signals inside your own application or team,
+      Free / Dev / Pro  = DISPLAY of seasonal patterns inside your own application or team,
                           with attribution; no bulk redistribution, no resale of
                           raw API responses.
       Business          = redistribution only by separate written agreement
@@ -1812,33 +1843,33 @@ def build_api_terms() -> str:
     <div class="card" style="margin-bottom:28px;">
       <h3 style="margin-bottom:10px;">2. What each plan permits: display vs. redistribution</h3>
       <p style="font-size:14px;color:var(--dim);line-height:1.8;margin-bottom:14px;">
-        Every plan licenses you to <strong>use and display</strong> TradeWave signals. What scales with
-        the plan is the audience and the right to pass signals onward:</p>
+        Every plan licenses you to <strong>use and display</strong> TradeWave seasonal patterns. What scales with
+        the plan is the audience and the right to pass seasonal patterns onward:</p>
       <ul style="color:var(--dim);line-height:1.85;padding-left:20px;font-size:14px;">
-        <li style="margin-bottom:10px;"><strong>Free, Dev, and Pro</strong> - you may use signals in, and
+        <li style="margin-bottom:10px;"><strong>Free, Dev, and Pro</strong> - you may use seasonal patterns in, and
           display them within, your own application, research, and team, including showing derived values
           (headlines, win rates, percentage returns, edge scores, ML probabilities) to the users of an app
           you operate, with attribution to TradeWave (a "Powered by TradeWave" notice or a link to
-          tradewave-provided pages near the displayed signals). You may NOT bulk-redistribute signals,
+          tradewave-provided pages near the displayed seasonal patterns). You may NOT bulk-redistribute seasonal patterns,
           resell or relicense raw API responses, expose the API itself (or a thin proxy of it) as your own
-          data product, or use the API to build or train a competing signals dataset or feed.</li>
+          data product, or use the API to build or train a competing seasonal-pattern dataset or feed.</li>
         <li style="margin-bottom:10px;"><strong>Business</strong> - everything above, plus commercial
-          signal-redistribution rights <strong>by separate written agreement only</strong>. Redistribution
-          covers licensing TradeWave signals into your own product or downstream feed, and is limited to
+          seasonal-pattern redistribution rights <strong>by separate written agreement only</strong>. Redistribution
+          covers licensing TradeWave seasonal patterns into your own product or downstream feed, and is limited to
           derived values: percentage movement and the 0-100 seasonal index. Raw API responses and the
           underlying historical series are never redistributable. Contact sales to put the written
           agreement in place; the plan alone does not grant redistribution.</li>
         <li><strong>Enterprise</strong> - custom scope by written agreement.</li>
       </ul>
       <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-top:12px;">
-        Plan caps (markets, results per call, ML signals per day, rate limits, key counts) are listed on
+        Plan caps (markets, results per call, ML scores per day, rate limits, key counts) are listed on
         the <a href="pricing.html" class="inline">pricing page</a> and enforced by the gateway.</p>
     </div>
 
     <div class="card" style="margin-bottom:28px;">
-      <h3 style="margin-bottom:10px;">3. Signals only - no raw market data</h3>
+      <h3 style="margin-bottom:10px;">3. Seasonal patterns only - no raw market data</h3>
       <p style="font-size:14px;color:var(--dim);line-height:1.8;">
-        By design the API returns derived signals: seasonal statistics, win rates, percentage returns,
+        By design the API returns derived seasonal patterns: seasonal statistics, win rates, percentage returns,
         Sharpe ratios, the normalized 0-100 seasonal index, and ML scores. It never returns raw prices,
         quotes, or OHLCV bars. You agree not to attempt to reconstruct raw price series from API outputs,
         and not to present API outputs as a market-data feed. This is what keeps the product cleanly
@@ -1846,12 +1877,12 @@ def build_api_terms() -> str:
     </div>
 
     <div class="card" style="margin-bottom:28px;">
-      <h3 style="margin-bottom:10px;">4. Educational signals, not investment advice</h3>
+      <h3 style="margin-bottom:10px;">4. Educational seasonal patterns, not investment advice</h3>
       <p style="font-size:14px;color:var(--dim);line-height:1.8;">
-        TradeWave is a research platform, not a brokerage and not an investment adviser. Every signal is
+        TradeWave is a research platform, not a brokerage and not an investment adviser. Every seasonal pattern is
         statistical, historical, and educational; none of it is personalized investment advice or a
         recommendation to buy or sell. Responses carry a <code style="font-size:12px;">disclaimer</code>
-        field - if you display signals to your users you must preserve that educational framing and must
+        field - if you display seasonal patterns to your users you must preserve that educational framing and must
         not present TradeWave outputs as personalized advice, your own advice, or a guarantee of results.
         Past performance does not guarantee future results. You are responsible for your own compliance
         obligations (and your users') in the jurisdictions where you operate.</p>
@@ -1873,7 +1904,7 @@ def build_api_terms() -> str:
       <p style="font-size:14px;color:var(--dim);line-height:1.8;">
         Plans carry per-minute and per-day rate limits and a per-day ML metering allowance; the API
         answers over-limit requests with HTTP 429 and a Retry-After header, and exhausted ML quota with a
-        clear in-band message. You agree to respect these signals and not to circumvent limits by
+        clear in-band message. You agree to respect these limit responses and not to circumvent limits by
         rotating keys, accounts, or IP addresses. Automated access at or under your plan's limits is
         normal and expected - that is the product. Access patterns intended to scrape the catalog beyond
         plan scope, degrade the service, or probe its security are prohibited.</p>
@@ -1884,7 +1915,7 @@ def build_api_terms() -> str:
       <p style="font-size:14px;color:var(--dim);line-height:1.8;">
         We may suspend or revoke keys that violate these terms, with notice where practical. You can stop
         using the API and cancel the subscription at any time; upgrades take effect immediately and
-        downgrades at the next billing cycle. Sections 2 (redistribution boundaries), 3 (signals only),
+        downgrades at the next billing cycle. Sections 2 (redistribution boundaries), 3 (seasonal patterns only),
         and 4 (no advice) survive termination with respect to data you obtained while subscribed.</p>
     </div>
 
@@ -1909,7 +1940,7 @@ def build_api_terms() -> str:
     return page_shell(
         "API Terms of Service (Draft)",
         "The terms that govern the TradeWave Data API and MCP server: per-tier display and "
-        "redistribution boundaries, the signals-only principle, and the educational no-advice posture.",
+        "redistribution boundaries, the seasonal-patterns-only principle, and the educational no-advice posture.",
         no_em_dash(body),
         active_nav="api-terms",
         robots="noindex, follow",  # draft pending counsel review - do not index until final

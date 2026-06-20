@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Idempotently create the 4 TradeWave API products + monthly prices in Stripe
-TEST mode, with metadata product_line=api + tier so the console's billing code
-(and the web app's webhook) can resolve them deterministically.
+"""Idempotently create the TradeWave API products + monthly/annual prices in
+Stripe (Dev/Pro/Business), with metadata product_line=api + tier so the
+console's billing code (and the web app's webhook) can resolve them
+deterministically.
 
   DO NOT RUN THIS DURING THE CONSOLE BUILD. The parent runs it ONCE at
   integration with a confirmed Stripe TEST key:
@@ -9,9 +10,21 @@ TEST mode, with metadata product_line=api + tier so the console's billing code
       cd /home/flask
       STRIPE_SECRET_KEY=sk_test_... ./venv/bin/python web/api_portal/create_api_products.py
 
+  LIVE cutover (guarded). To seed the SAME catalog into LIVE Stripe, pass the
+  --live flag AND set TW2_CONFIRM_LIVE_SEED=1. Both are required; either one
+  alone refuses. (If run on a TTY you will also be asked to type 'yes'.)
+
+      cd /home/flask
+      TW2_CONFIRM_LIVE_SEED=1 STRIPE_SECRET_KEY=sk_live_... \\
+          ./venv/bin/python web/api_portal/create_api_products.py --live
+
 Safety:
-  - Refuses to run unless STRIPE_SECRET_KEY starts with 'sk_test_'. A live key
-    (sk_live_) aborts immediately - this script must never touch live Stripe.
+  - Default (no --live): refuses to run unless STRIPE_SECRET_KEY starts with
+    'sk_test_'. A live key (sk_live_) aborts immediately.
+  - With --live: permits an 'sk_live_' key ONLY if env TW2_CONFIRM_LIVE_SEED=1
+    is also set (and, on a TTY, a typed 'yes'). A loud banner names exactly what
+    will be created before proceeding.
+  - Any key that is neither 'sk_test_' nor 'sk_live_' is always refused.
   - Idempotent: it looks up existing products by (product_line=api, tier)
     metadata and reuses them; it looks up an existing active monthly price on
     that product and reuses it. Re-running makes no duplicates.
@@ -19,6 +32,7 @@ Safety:
 Source of truth for the tiers/prices is apiserver.tiers.API_TIERS (the same
 dict the console + gateway read). The free tier has no Stripe product.
 """
+import os
 import sys
 
 # Make the apiserver package + config importable from any CWD.
@@ -34,15 +48,100 @@ PRODUCT_LINE = "api"
 PAID_TIERS = ["dev", "pro", "business"]
 
 
-def _require_test_key():
+def _live_banner():
+    """Loud multi-line banner naming exactly what the LIVE seed will create.
+
+    Pulls dollar amounts + Founder terms from API_TIERS / FOUNDER so the banner
+    can never drift from the source of truth.
+    """
+    lines = [
+        "",
+        "!!! ====================================================================== !!!",
+        "!!!  LIVE STRIPE SEED - this will create REAL, BILLABLE objects in LIVE     !!!",
+        "!!!  Stripe. This is NOT test mode. Read carefully before confirming.       !!!",
+        "!!! ====================================================================== !!!",
+        "",
+        "  Products + prices to ensure (idempotent - reused if already present):",
+    ]
+    for tier in PAID_TIERS:
+        spec = api_tiers.API_TIERS[tier]
+        lines.append(
+            "    - TradeWave API - %-8s  $%d/mo  +  $%d/yr"
+            % (spec["name"], spec["price_monthly"], spec["price_annual"])
+        )
+    f = api_tiers.FOUNDER
+    lines += [
+        "",
+        "  Plus the FOUNDER discount on the Pro product:",
+        "    - Coupon %s  (%d%% off Pro, repeating %dmo, max %d redemptions)"
+        % (FOUNDER_COUPON_ID, f["percent_off"], f["duration_months"], f["max_redemptions"]),
+        "    - Promotion code '%s'  (-> ~$%d/mo effective on Pro)"
+        % (f["code"], f["effective_monthly"]),
+        "",
+        "!!! ====================================================================== !!!",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _require_seed_key():
+    """Gate the Stripe key based on --live.
+
+    Returns the validated key, or sys.exit()s with a clear message.
+
+      - WITHOUT --live: only an 'sk_test_' key is permitted (unchanged behavior).
+      - WITH --live: only an 'sk_live_' key is permitted, AND only if
+        TW2_CONFIRM_LIVE_SEED=1 is set (plus a typed 'yes' on a TTY). A loud
+        banner is printed before proceeding.
+      - Any key that is neither 'sk_test_' nor 'sk_live_' is always refused.
+    """
+    live = "--live" in sys.argv[1:]
     key = config.STRIPE_SECRET_KEY or ""
-    if not key.startswith("sk_test_"):
+
+    # A bad/unknown key shape is always refused, in either mode.
+    if not (key.startswith("sk_test_") or key.startswith("sk_live_")):
         sys.exit(
-            "REFUSING TO RUN: STRIPE_SECRET_KEY is not a TEST key (expected "
-            "'sk_test_...'). This script must only run against Stripe TEST mode.\n"
+            "REFUSING TO RUN: STRIPE_SECRET_KEY is not a recognizable Stripe "
+            "secret key (expected 'sk_test_...' or, with --live, 'sk_live_...').\n"
             "Re-run as: STRIPE_SECRET_KEY=sk_test_... ./venv/bin/python "
             "web/api_portal/create_api_products.py"
         )
+
+    if not live:
+        # Default path: TEST only. A live key aborts immediately.
+        if not key.startswith("sk_test_"):
+            sys.exit(
+                "REFUSING TO RUN: STRIPE_SECRET_KEY is a LIVE key but --live was "
+                "not passed. This script defaults to Stripe TEST mode only.\n"
+                "For a TEST seed: STRIPE_SECRET_KEY=sk_test_... ./venv/bin/python "
+                "web/api_portal/create_api_products.py\n"
+                "For a LIVE seed (guarded): set TW2_CONFIRM_LIVE_SEED=1 and pass --live."
+            )
+        return key
+
+    # --live path: LIVE only, double-gated.
+    if not key.startswith("sk_live_"):
+        sys.exit(
+            "REFUSING TO RUN: --live was passed but STRIPE_SECRET_KEY is not a "
+            "LIVE key (expected 'sk_live_...'). Drop --live for a TEST seed."
+        )
+    if os.environ.get("TW2_CONFIRM_LIVE_SEED") != "1":
+        sys.exit(
+            "REFUSING TO RUN: --live requires the environment variable "
+            "TW2_CONFIRM_LIVE_SEED=1 to be set as an explicit confirmation.\n"
+            "Re-run as: TW2_CONFIRM_LIVE_SEED=1 STRIPE_SECRET_KEY=sk_live_... "
+            "./venv/bin/python web/api_portal/create_api_products.py --live"
+        )
+
+    print(_live_banner())
+    # On an interactive terminal, additionally require a typed confirmation.
+    if sys.stdin.isatty():
+        try:
+            answer = input("Type 'yes' to seed the above into LIVE Stripe: ").strip()
+        except EOFError:
+            answer = ""
+        if answer != "yes":
+            sys.exit("Aborted: live seed not confirmed ('yes' not typed).")
     return key
 
 
@@ -126,11 +225,12 @@ def _ensure_founder(stripe, pro_product_id):
 
 
 def main():
-    _require_test_key()
+    key = _require_seed_key()
+    mode = "LIVE" if key.startswith("sk_live_") else "TEST"
     import stripe
     stripe.api_key = config.STRIPE_SECRET_KEY
 
-    print("Stripe TEST mode confirmed. Ensuring API products/prices exist...\n")
+    print("Stripe %s mode confirmed. Ensuring API products/prices exist...\n" % mode)
     products = {}
     for tier in PAID_TIERS:
         spec = api_tiers.API_TIERS[tier]

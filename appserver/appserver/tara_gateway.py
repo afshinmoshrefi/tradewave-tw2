@@ -1,8 +1,8 @@
 """Tara -> v1 API gateway client (Phase 1: read-client).
 
 The in-product assistant ("Tara", chatbot.py) calls the SAME public v1 gateway the API +
-MCP server use, so the numbers it narrates are the gateway's server-composed SignalCards -
-one source of truth, signals-only, same disclaimer. See docs/TARA_GATEWAY_INTEGRATION.md.
+MCP server use, so the numbers it narrates are the gateway's server-composed PatternCards -
+one source of truth, derived-data only, same disclaimer. See docs/TARA_GATEWAY_INTEGRATION.md.
 
 Auth (metering option A): Tara authenticates with the internal 'chatbot' service key
 (config.TARA_GATEWAY_KEY) and passes the END USER's web id as X-TW-On-Behalf-Of, so the
@@ -47,7 +47,7 @@ TOOLS = [
         "description": (
             "Scan the markets for the best seasonal setups right now, ranked by Sharpe. Use "
             "this for 'what should I trade', 'anything good in <market>', 'best setups this "
-            "month'. Returns ready SignalCards (entry/hold, win rate, Sharpe, avg return %)."
+            "month'. Returns ready PatternCards (entry/hold, win rate, Sharpe, avg return %)."
         ),
         "input_schema": {
             "type": "object",
@@ -69,7 +69,7 @@ TOOLS = [
     {
         "name": "analyze_symbol",
         "description": (
-            "Deep-dive ONE symbol into a rich SignalCard (best setup + receipts + order "
+            "Deep-dive ONE symbol into a rich PatternCard (best setup + receipts + order "
             "ticket) plus its other setups. Pin a specific setup with entry_date (+days_out) "
             "or a period preset; pe_cycle/years are the lookback knobs. Use for 'analyze GLD', "
             "'is AAPL seasonal now', 'explain this pattern over 20 years'."
@@ -113,7 +113,7 @@ TOOLS = [
     {
         "name": "explain_pick",
         "description": (
-            "Today's AI daily pick as a full SignalCard WITH its live forward-tested track "
+            "Today's AI daily pick as a full PatternCard WITH its live forward-tested track "
             "record (made in advance, scored later - real out-of-sample proof, not a backtest). "
             "Use for 'today's pick', 'what is the AI recommending', 'does this actually work'."
         ),

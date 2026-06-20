@@ -15,6 +15,14 @@
   {% endif %}
 
   <div class="card">
+    <h3>Get started</h3>
+    <p class="muted" style="margin-top:0;">The REST base URL is <code>https://api.tradewave.ai/v1</code>. Authenticate every request with <code>Authorization: Bearer &lt;key&gt;</code>. Try listing your markets:</p>
+    <pre id="quickstart"><button type="button" class="copybtn" data-copy-target="quickstart-val">Copy</button><span id="quickstart-val">curl https://api.tradewave.ai/v1/markets \
+  -H "Authorization: Bearer YOUR_API_KEY"</span></pre>
+    <p class="muted" style="margin-bottom:0;">Full endpoint reference and examples are in the <a href="https://developers.tradewave.ai" style="color:#a855f7;">developer docs</a>.</p>
+  </div>
+
+  <div class="card">
     <div class="row" style="justify-content:space-between;">
       <div>
         <h3 style="margin-bottom:4px;">Active keys</h3>
@@ -59,7 +67,7 @@
       </tbody>
     </table>
     {% else %}
-    <p class="muted" style="margin-top:16px;">No API keys yet. Create one below to start calling the API.</p>
+    <p class="muted" style="margin-top:16px;">No API keys yet. Create one below, then use it with the base URL and example call shown under Get started.</p>
     {% endif %}
   </div>
 

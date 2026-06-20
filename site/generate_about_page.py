@@ -164,24 +164,32 @@ def build_html():
         <a href="{config.domain_root}">TradeWave.ai</a> and
         <a href="https://seasonalmarketnews.com/">Seasonal Market News</a>, operated under
         <a href="https://taradataresearch.com/">Tara Data Research LLC</a>.
-        TradeWave is a research platform that surfaces historically consistent seasonal
-        market patterns across US stocks, ETFs, indices, futures, forex, and government
-        bonds, scored with a 62-feature AI model trained on 34.7 million data points.
+        TradeWave is a research platform that detects repeating seasonal patterns in the
+        market - the way a stock or index has tended to move at the same time of year, or
+        across the four-year election cycle. You choose how far back to look, from 1 to 99
+        years - the major indices carry up to 98 years of actual price history - and judge
+        the pattern for yourself. It covers US stocks, ETFs, indices,
+        futures, forex, and government bonds, and adds an AI win-probability score from a
+        62-feature model trained on 34.7 million data points. You can reach it on the web
+        or ask for it inside ChatGPT and Claude.
       </p>
 
       <h2>What does TradeWave research?</h2>
       <p class="direct-answer">
-        Multi-decade seasonal patterns, regime behavior, and presidential
-        election-cycle context. Every pattern is defined, measured, and tested across time.
-        The goal is reproducible, evidence-first analysis rather than narrative-driven
-        commentary.
+        Repeating seasonal patterns, how those patterns behave in different market
+        conditions, and where the four-year presidential election cycle fits in. Every
+        pattern is defined, measured, and tested over the exact lookback window you pick.
+        The point is evidence you can check, not narrative you have to take on faith.
       </p>
 
       <h2>Why is this different from traditional market analysis?</h2>
       <p class="direct-answer">
-        The approach is engineer-led rather than finance-industry-led. Every claim is
-        defined, measured, and auditable. Patterns must be reproducible across years.
-        Vague narratives and untestable forecasts are excluded by design.
+        It is built like an open ledger: every number traces back to the price history it
+        came from, and you set the window and read the result yourself. We would rather be
+        audited than believed, so vague forecasts you cannot test are left out by design.
+        For an active trader, that means a seasonal pattern you can size with conviction
+        because you checked it; for an institution, a research input that survives compliance
+        and due diligence because every figure is reproducible.
       </p>
 
       <h2>Background</h2>
@@ -195,7 +203,7 @@ def build_html():
         <li>At Verizon, authored 16 invention disclosures, including work related to video communication over conventional telephony infrastructure.</li>
         <li>Began focused machine learning work in 2013 and completed formal training by 2017.</li>
         <li>Worked as an AI researcher in medical coding, developing production ML systems for real-world use.</li>
-        <li>TradeWave began as a personal research project and evolved into a platform after the results proved unusually consistent and repeatable across time.</li>
+        <li>TradeWave began as a personal research project and became a platform once the patterns proved consistent and repeatable across time.</li>
       </ul>
 
       <h2>Published Work</h2>
@@ -209,7 +217,7 @@ def build_html():
 
       <h2>Products</h2>
       <ul>
-        <li><a href="{config.domain_root}">TradeWave.ai</a> - AI-scored seasonal pattern research for US stocks, ETFs, indices, futures, forex, and bonds.</li>
+        <li><a href="{config.domain_root}">TradeWave.ai</a> - AI-scored seasonal pattern research for US stocks, ETFs, indices, futures, forex, and bonds, with a 1 to 99 year lookback you control and access inside ChatGPT and Claude.</li>
         <li><a href="https://seasonalmarketnews.com/">Seasonal Market News</a> - Institutional-style market news grounded in measurable seasonal history.</li>
         <li><a href="https://taradataresearch.com/">Tara Data Research LLC</a> - Parent company for all research and product work.</li>
       </ul>
@@ -217,11 +225,14 @@ def build_html():
       <section class="methodology-note">
         <h2>About the data behind TradeWave</h2>
         <p>
-          All seasonal pattern data is computed in-house from end-of-day price history,
-          covering up to 98 years of lookback for major indices. AI scoring uses a
-          62-feature gradient-boosted model evaluated on 8 years of out-of-sample data.
-          See the full <a href="/methodology">methodology</a> and the
-          <a href="/research.html">research page</a> for references.
+          Every seasonal pattern is computed in-house from end-of-day price history,
+          with up to 98 years of data available for the major indices. The win-probability
+          score comes from a 62-feature gradient-boosted model - many small decision trees
+          stacked into one - tested on 8 years of data it never saw in training, so the
+          results reflect performance on unseen years rather than a fit to the past. Nothing
+          here is investment advice; it is research you are meant to verify. See the full
+          <a href="/methodology">methodology</a> and the
+          <a href="/research.html">research page</a> for the details.
         </p>
       </section>
 

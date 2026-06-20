@@ -1,10 +1,10 @@
 # tradewave - Python SDK for the TradeWave Data API
 
 Official Python client for the [TradeWave Data API](https://developers.tradewave.ai) (v1):
-seasonal trading opportunities and ML win-probability signals for the 17 TradeWave
+seasonal trading opportunities and ML win-probability scores for the 15 TradeWave
 markets, plus the tracked daily AI pick.
 
-**Signals only.** The API never returns raw prices or OHLCV. All monetary movement is
+**Derived data only.** The API never returns raw prices or OHLCV. All monetary movement is
 expressed as percentages, and the seasonal curve is a 0-100 normalized relative shape -
 never a price. There are no price fields in this SDK by design.
 
@@ -28,7 +28,7 @@ with Client(api_key="tw_live_...") as tw:
 
     scan = tw.scan(window="now", min_win_rate=0.6)
     for card in scan:                       # iterate ranked cards directly
-        print(card.rank, card.symbol, card.edge_score, card.signal)
+        print(card.rank, card.symbol, card.edge_score, card.bias)
 ```
 
 Set the key once in your environment and `Client()` needs no arguments:
@@ -47,7 +47,7 @@ tw = Client()          # reads TRADEWAVE_API_KEY
 ### `scan` - find the best seasonal setups
 
 The flagship scanner. Fans out over your in-scope markets, ranks by `edge_score`, and
-returns ranked `SignalCard`s.
+returns ranked `PatternCard`s.
 
 ```python
 scan = tw.scan(
@@ -63,13 +63,13 @@ print(scan.window, scan.count, "of", scan.evaluated_count, "evaluated")
 for card in scan:
     s = card.stats
     print(f"#{card.rank} {card.symbol} {card.direction} "
-          f"edge={card.edge_score} win_rate={s.historical_win_rate} -> {card.signal}")
+          f"edge={card.edge_score} win_rate={s.historical_win_rate} -> {card.bias}")
     if card.is_actionable and card.next_step:
         print("   ", card.next_step.copy_text)
 ```
 
 `window="now"` returns setups whose entry date is within the next ~10 trading days.
-Weak setups come back with `signal == "NO_SIGNAL"` and no order ticket - the API never
+Weak setups come back with `bias == "neutral"` and no order ticket - the API never
 manufactures a trade.
 
 ### `analyze` - deep-dive one symbol
@@ -135,7 +135,7 @@ These are two DISTINCT fields and are intentionally never both called "win rate"
 
 - `stats.historical_win_rate` (and `Opportunity.win_rate`) - the share of past years the
   seasonal window finished profitable. The seasonal record.
-- `ml.ml_win_prob` on a `SignalCard` (or `ml.win_prob` on the legacy `MLScore`) - the ML
+- `ml.ml_win_prob` on a `PatternCard` (or `ml.win_prob` on the legacy `MLScore`) - the ML
   model's predicted probability for this specific setup.
 
 ## ML scoring and the graceful daily limit
@@ -241,5 +241,5 @@ Use it as a context manager (`with Client(...) as tw:`) so the underlying
 
 ## Disclaimer
 
-Educational seasonal + ML signal, not personalized investment advice and not a
+Educational seasonal pattern + ML score, not personalized investment advice and not a
 recommendation to buy or sell. Past performance is not indicative of future results.

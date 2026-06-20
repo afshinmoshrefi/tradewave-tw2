@@ -1,7 +1,7 @@
 ---
 title: "Machine Learning in Finance: What Actually Works (and What's Mostly Hype)"
 slug: "machine-learning-in-finance"
-summary: "Tree-based models can extract real signal from financial data that linear factors miss. Deep nets help less than the marketing implies. Here's the honest map of the territory."
+summary: "Tree-based models can extract real predictive information from financial data that linear factors miss. Deep nets help less than the marketing implies. Here's the honest map of the territory."
 date: "2026-05-08"
 author: "TradeWave Research"
 reading_minutes: 11
@@ -10,9 +10,9 @@ featured: true
 related: ["backtesting-pitfalls", "post-earnings-drift", "reading-patterns-without-fooling-yourself"]
 ---
 
-The pitch is irresistible. A field with mountains of historical data, billions of dollars at stake, and a cottage industry of researchers searching for patterns that beat the market. Why would machine learning, which crushed image recognition and large-language modeling, not also crush finance? The honest answer is that ML does help in finance, but in narrower ways than the marketing implies. Tree ensembles and shrinkage methods extract real signal that linear factor models miss. Deep neural networks add a smaller marginal improvement than their reputation suggests. And the popular fantasy of "feed prices into an LSTM, get rich" has been tested thousands of times by serious people and almost never holds up out of sample.
+Mountains of historical data. Billions of dollars at stake. An army of researchers hunting for patterns that beat the market. If machine learning crushed image recognition and language, why wouldn't it crush finance too? The honest answer: ML does help in finance, just in narrower ways than the marketing implies. Tree ensembles and shrinkage methods extract real predictive information that linear factor models miss. Deep neural networks add a smaller marginal improvement than their reputation suggests. And the popular fantasy of "feed prices into an LSTM, get rich" has been tested thousands of times by serious people and almost never survives out of sample.
 
-The anchor paper for what actually works is Gu, Kelly and Xiu (2020), "Empirical Asset Pricing via Machine Learning", published in the Review of Financial Studies. They run a horse race across linear regression, regularized linear methods, random forests, gradient-boosted trees, and several flavours of neural network, predicting monthly returns for individual US stocks using around 94 firm-level characteristics over roughly 60 years of data. Their headline result: tree-based and neural-net methods roughly double the out-of-sample R-squared versus OLS. The level is still small (out-of-sample monthly R-squared on the order of 0.4%), but multiplied across thousands of stocks it translates into economically meaningful long-short portfolio Sharpe ratios well above naive benchmarks.
+The anchor paper for what actually works is Gu, Kelly and Xiu (2020), "Empirical Asset Pricing via Machine Learning", published in the Review of Financial Studies. They run a horse race across linear regression, regularized linear methods, random forests, gradient-boosted trees, and several flavours of neural network, predicting monthly returns for individual US stocks using around 94 firm-level characteristics over roughly 60 years of data. Their headline result: tree-based and neural-net methods roughly double the out-of-sample R-squared versus OLS. The level is still tiny in absolute terms (monthly R-squared on the order of 0.4%), but compounded across thousands of stocks it translates into economically meaningful long-short portfolio Sharpe ratios, well above naive benchmarks.
 
 That paper is the cleanest existing evidence on the question of whether ML earns its keep in cross-sectional return prediction. Almost everything else in the practitioner literature can be evaluated against its findings.
 
@@ -20,11 +20,11 @@ That paper is the cleanest existing evidence on the question of whether ML earns
 
 Random forests and gradient-boosted trees (XGBoost, LightGBM, CatBoost) are the workhorses of practical financial ML. They handle non-linearities and feature interactions natively, they tolerate noisy data, they do not require careful feature scaling, and they expose interpretability tools (SHAP values, partial dependence plots) that satisfy risk committees. In the Gu, Kelly, Xiu horse race, gradient-boosted regression trees deliver the largest out-of-sample R-squared improvement over OLS among all methods tested. Random forests are close behind.
 
-The intuition for why trees work: factor data is full of conditional relationships. Value works in some regimes but not others. Momentum interacts with volatility. Small-cap effects depend on liquidity conditions. A linear model is forced to assume these relationships are additive and constant. A tree ensemble can carve up the feature space, learn that "high momentum and low volatility together" is a different signal than either ingredient alone, and apply different rules in different parts of the feature distribution.
+The intuition for why trees work: factor data is full of conditional relationships. Value works in some regimes but not others. Momentum interacts with volatility. Small-cap effects depend on liquidity conditions. A linear model is forced to assume these relationships are additive and constant. A tree ensemble can carve up the feature space, learn that "high momentum and low volatility together" is a different pattern than either ingredient alone, and apply different rules in different parts of the feature distribution.
 
 ## What works: regularized linear models
 
-When the feature space is high-dimensional (the so-called "factor zoo" of 300-plus published characteristics), ordinary least squares overfits violently. Lasso (L1 regularization) and Elastic Net (L1 plus L2) impose shrinkage that keeps only the features that actually carry signal in-sample, with strong out-of-sample stability. Bryzgalova, Pelger and Zhu (2023), "Forest through the Trees", uses tree-based methods specifically to prune the factor zoo, identifying the small subset of characteristics that survives serious testing. The intersection of tree-based ML and shrinkage methods is now standard in serious quant shops.
+When the feature space is high-dimensional (the so-called "factor zoo" of 300-plus published characteristics), ordinary least squares overfits violently. Lasso (L1 regularization) and Elastic Net (L1 plus L2) impose shrinkage that keeps only the features that actually carry predictive information in-sample, with strong out-of-sample stability. Bryzgalova, Pelger and Zhu (2023), "Forest through the Trees", uses tree-based methods specifically to prune the factor zoo, identifying the small subset of characteristics that survives serious testing. The intersection of tree-based ML and shrinkage methods is now standard in serious quant shops.
 
 The honest framing: shrinkage methods do not discover new alpha. They do efficient variable selection in environments where the analyst has many candidate predictors and limited data. That is exactly the situation in equity factor research.
 
@@ -34,7 +34,7 @@ Neural networks help in cross-sectional return prediction, but the marginal gain
 
 The case for neural nets in finance is strongest where the input is high-dimensional and structured: text from filings, alternative data with hierarchical structure, or asset images (charts, order-book snapshots) where convolutional layers add value. For tabular factor data, trees are usually the better default. The literature is consistent on this point even as the marketing departments insist otherwise.
 
-<figure><img src="/insights/charts/ml-alpha-vs-factors.svg" alt="Out-of-sample R-squared by ML model class"><figcaption>Out-of-sample monthly R-squared by model class predicting individual stock returns, after Gu, Kelly and Xiu (2020). Tree-based and neural-net methods clearly beat linear baselines, but absolute predictive power remains modest in absolute terms.</figcaption></figure>
+<figure><img src="/insights/charts/ml-alpha-vs-factors.svg" alt="Out-of-sample R-squared by ML model class"><figcaption>Out-of-sample monthly R-squared by model class predicting individual stock returns, after Gu, Kelly and Xiu (2020). Tree-based and neural-net methods clearly beat linear baselines, but absolute predictive power remains modest.</figcaption></figure>
 
 ## What's mostly hype
 
@@ -46,7 +46,7 @@ First, the social-media "I trained an LSTM on Tesla and it predicts prices" demo
 
 Second, GAN and synthetic-data approaches that augment financial training sets are still research-stage. The fundamental challenge is that synthetic data carries the assumptions of its generator; if the generator could not predict regime breaks, neither can the augmented dataset.
 
-Third, "alternative data" claims should be evaluated on the same criteria as any other signal. Satellite parking-lot imagery, credit-card transaction feeds, web-scraped sentiment: some of these contain real signal, some do not, and most of them have been arbitraged thin by the time retail platforms package them. The question to ask is the same as for any factor: how many independent samples did your test rely on, what was the out-of-sample t-statistic, and how does the alpha decay with assets-under-management?
+Third, "alternative data" claims should be evaluated on the same criteria as any other factor. Satellite parking-lot imagery, credit-card transaction feeds, web-scraped sentiment: some of these contain real predictive information, some do not, and most of them have been arbitraged thin by the time retail platforms package them. The question to ask is the same as for any factor: how many independent samples did your test rely on, what was the out-of-sample t-statistic, and how does the alpha decay with assets-under-management?
 
 ## Why ML helps in finance
 
@@ -58,13 +58,13 @@ The Gu, Kelly, Xiu paper makes this concrete. Their feature set has 94 firm-leve
 
 Four structural problems limit how much ML can help, and these are the reasons "ML in finance" looks more like a useful tool than a revolutionary breakthrough.
 
-**Signal-to-noise ratio.** Asset prices are dominated by news and noise; the predictable component is small. Compare to image recognition, where every pixel carries strong signal about the object. In finance, even a great model leaves most of the variance unexplained.
+**Information-to-noise ratio.** Asset prices are dominated by news and noise; the predictable component is small. Compare to image recognition, where every pixel carries strong information about the object. In finance, even a great model leaves most of the variance unexplained.
 
 **Non-stationarity.** Markets adapt. A predictive pattern that works gets arbitraged away. McLean and Pontiff (2016) document a 58% post-publication decay in average anomaly returns. The data-generating process is changing, sometimes because researchers are observing it.
 
 **Sample size.** A century of monthly equity data is 1,200 observations. By the standards of deep learning on text or images, this is tiny. The risk of overfitting in any high-capacity model is correspondingly large, and the literature on backtest overfitting (Bailey et al., 2014; Lopez de Prado, 2018) applies in spades.
 
-**Transaction costs and capacity.** Every signal has a capacity beyond which it ceases to work, because the trades required to harvest it move the market. Most ML strategies are evaluated on paper returns that ignore the slippage and impact that real-world execution would impose. A model with strong paper alpha can be break-even after costs, especially in less-liquid corners of the market.
+**Transaction costs and capacity.** Every edge has a capacity beyond which it ceases to work, because the trades required to harvest it move the market. Most ML strategies are evaluated on paper returns that ignore the slippage and impact that real-world execution would impose. A model with strong paper alpha can be break-even after costs, especially in less-liquid corners of the market.
 
 ## What separates working ML strategies from broken ones
 
@@ -81,3 +81,5 @@ Regime awareness matters because a model trained on 2009 to 2019 saw a uniquely 
 ML is a real tool, especially when you have many cross-sectional features and want to capture non-linear interactions among them. Tree ensembles and regularized linear methods are the workhorses, and they earn their keep against linear baselines in studies as careful as Gu, Kelly and Xiu (2020). Deep neural networks add modest incremental value on tabular factor data and meaningful value on unstructured inputs (text, alternative data) where their architectural priors fit the problem.
 
 The fantasies to discard are "feed prices to an LSTM, get rich" and "GANs will generate the data needed to train AGI for trading". The disciplines to keep are out-of-sample testing, multiple-testing awareness, transaction-cost modelling, and regime-aware validation. The model is the smaller part of the work. The honest validation framework around it is the larger part, and it is what separates ML in finance that compounds capital from ML in finance that produces conference talks.
+
+This is the spirit behind the ML score TradeWave attaches to a detected seasonal pattern. The score is not a promise that the pattern repeats; it is a learned read on how cleanly the effect has behaved across the lookback you choose - 1 to 99 years, calendar or election-cycle - sitting next to the raw hit-rate and the full auditable record so you can judge the tendency yourself. A number you cannot inspect is marketing. A number you can trace back to the years that produced it is research.

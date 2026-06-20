@@ -1,4 +1,4 @@
-# TradeWave SignalCard + Flagship Endpoints - BUILD SPEC (v1.1, 2026-05-31)
+# TradeWave PatternCard + Flagship Endpoints - BUILD SPEC (v1.1, 2026-05-31)
 
 KEYSTONE CONTRACT for the "make it powerful" build. The gateway implements this; the MCP
 tools present it. Built against the 4-agent review (api/STRATEGY_REVIEW_2026-05.md).
@@ -8,7 +8,7 @@ report needed deviations back). Update api/openapi.yaml + api/MCP_TOOLS.md in lo
 integration.
 
 ## Hard invariants (carry over - never violate)
-- SIGNALS ONLY. No raw OHLCV / last price / price-by-date / price levels anywhere. All
+- PATTERNS ONLY. No raw OHLCV / last price / price-by-date / price levels anywhere. All
   monetary movement is expressed as PERCENTAGES. The seasonal curve `index` is a 0-100
   normalized relative shape, never a price.
 - `historical_win_rate` (share of profitable years, from ChartData4 'Percent Profitable',
@@ -18,18 +18,18 @@ integration.
   others, with a tier nudge. Never error on a free caller.
 - `years` and seasonal-window labels stay STRINGS. Market ids are the permanent keys '0'..'16'.
 - IMPERSONAL + disclaimed (regulatory, publisher exclusion). Every card carries `disclaimer`.
-  Outputs are uniform per market (same signal to everyone); never tailored to a user's
+  Outputs are uniform per market (same pattern to everyone); never tailored to a user's
   portfolio. The exact disclaimer string is below.
 - Fail-fast on real errors (contract Error JSON); fail-soft ONLY on genuine per-symbol data
   gaps (degrade that row, log, never 500 the list).
 
-## DISCLAIMER (exact string - bake into every SignalCard `disclaimer` field)
-"Educational seasonal + ML signal, not personalized investment advice and not a recommendation
+## DISCLAIMER (exact string - bake into every PatternCard `disclaimer` field)
+"Educational seasonal pattern + ML research, not personalized investment advice and not a recommendation
 to buy or sell. Past performance is not indicative of future results."
 
 ---
 
-## 1. The SignalCard object (THE unit; built once, server-side, in apiserver/cards.py)
+## 1. The PatternCard object (THE unit; built once, server-side, in apiserver/cards.py)
 
 Returned by /v1/scan, /v1/analyze/{symbol}, and /v1/daily-pick. The gateway pre-composes
 `headline` + `verdict` so weak agents render consistently; it also ships structured fields so
@@ -41,7 +41,7 @@ strong agents can rank/compare/explain.
   "symbol": "GLD",
   "market": { "id": "11", "name": "ETFs" },
   "direction": "long",                        // long | short
-  "signal": "BUY",                            // BUY | SELL | NO_SIGNAL  (NO_SIGNAL => low conviction; see sec 4)
+  "bias": "bullish",                          // bullish | bearish | neutral  (neutral => low conviction; see sec 4)
   "setup": {
     "entry_date": "2026-07-12",
     "entry_window": "2026-07-08 to 2026-07-15",   // tolerance, not a single magic day (+/- a few trading days)
@@ -63,7 +63,7 @@ strong agents can rank/compare/explain.
     "pred_return_pct": 5.4,
     "pred_mfe_pct": 8.1
   },
-  "receipts": {                               // sec 2 - the trust layer; ALWAYS present on a BUY/SELL
+  "receipts": {                               // sec 2 - the trust layer; ALWAYS present on a bullish/bearish bias
     "years_tested": 10,
     "wins": 8,
     "losses": 2,
@@ -90,7 +90,7 @@ strong agents can rank/compare/explain.
   },
   "headline": "GLD long - enter ~Jul 12, hold 18d. Won 8/10 years, avg +6.2%, Sharpe 1.4.",
   "verdict": "Strong, consistent seasonal long. Edge concentrated in the first 2 weeks.",
-  "disclaimer": "Educational seasonal + ML signal, not personalized investment advice ...",
+  "disclaimer": "Educational seasonal pattern + ML research, not personalized investment advice ...",
   "tier_notes": "ML score shown (Pro)."      // or the free-tier upgrade nudge
 }
 ```
@@ -123,16 +123,16 @@ Set `edge_basis` to the dominant factors in words. This formula is a v1 default 
 DOCUMENTED in the response/docs so it is explainable; it is tunable later (do not hardcode in
 multiple places - one function in cards.py).
 
-## 4. NO_SIGNAL / low conviction
+## 4. neutral bias / low conviction
 When the best available setup is weak (edge_score < 40 OR historical_win_rate < 0.55 OR
-years_tested < 5), return `signal: "NO_SIGNAL"` with a short `verdict` explaining why ("no
+years_tested < 5), return `bias: "neutral"` with a short `verdict` explaining why ("no
 high-conviction seasonal edge here right now") and OMIT next_step.order_ticket (nothing to
 act on). This conflict-free honesty is a differentiator - never manufacture a setup.
 
 ## 5. New gateway endpoints
 
 ### GET /v1/scan  -> find_best_opportunities (the flagship scanner)
-Scan across the caller's in-scope markets, rank by edge_score, return SignalCards.
+Scan across the caller's in-scope markets, rank by edge_score, return PatternCards.
 Query params:
 - markets   (optional, csv of ids or names e.g. "2,11" or "gold,energy"; default = ALL in-scope)
 - window    (optional: "now" | "next_2_weeks" | "next_month" | a from..to; default "now")
@@ -143,21 +143,21 @@ Query params:
 - rank_by   (optional: edge|win_rate|sharpe|ml|avg_return; default edge)
 - limit     (optional; tier-capped to opp_limit)
 Response: { generated_at, window, rank_by, count, evaluated_count, enrichment_capped(bool),
-            opportunities: SignalCard[] }
+            opportunities: PatternCard[] }
 Implementation: fan out over /v1/opportunities per in-scope market (reuse appserver_client.
 opportunities), resolve window->entry dates, enrich+score+rank, attach ML inline for Pro on
-eligible markets, build SignalCards. PARALLELIZE the per-market fan-out (ThreadPoolExecutor);
+eligible markets, build PatternCards. PARALLELIZE the per-market fan-out (ThreadPoolExecutor);
 enrich win_rate AFTER ranking/slicing so we never fan out 50xN. Surface evaluated_count +
 enrichment_capped so the min_win_rate cap is never silently misleading (P0 bug fix).
 
 ### GET /v1/analyze/{symbol}  -> analyze_symbol (the bundled deep-dive)
-One symbol -> one rich SignalCard (best setup) + other setups + receipts + (Pro) ml, fused
+One symbol -> one rich PatternCard (best setup) + other setups + receipts + (Pro) ml, fused
 server-side from /OppBySymbol + ChartData4 stats + consolidated_seasonal_chart2 (+ MLScore).
 Query: market (optional - resolve if unique), direction (optional), days_out (optional).
-Response: { card: SignalCard, other_setups: [ {compact setup+stats} ], as_of }
+Response: { card: PatternCard, other_setups: [ {compact setup+stats} ], as_of }
 Kills the 4-tool stitch and guarantees win_rate consistency.
 
-### /v1/daily-pick (enhance existing) -> return a SignalCard + the live track-record receipts.
+### /v1/daily-pick (enhance existing) -> return a PatternCard + the live track-record receipts.
 
 ## 6. Flagship MCP tools (mcpserver/server.py) - present the gateway cards
 - find_best_opportunities(markets?, window?, direction?, min_win_rate?, min_years?, rank_by?, limit?) -> /v1/scan
@@ -169,7 +169,7 @@ Reword the 9 existing primitives' descriptions to DEFER: "Low-level primitive. P
 find_best_opportunities / analyze_symbol unless you need this exact slice."
 FIX the get_opportunity_chart description bug: it returns ONE year-averaged normalized 0-100
 curve (`seasonal_curve`), NOT per-year paths. Make the description match.
-Tools return the gateway's SignalCards (structured) + may add a short conversational lead; do
+Tools return the gateway's PatternCards (structured) + may add a short conversational lead; do
 NOT recompute cards client-side (one source of truth = the gateway).
 
 ## 7. P0 correctness fixes (fold in)
