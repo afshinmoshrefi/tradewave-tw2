@@ -111,6 +111,10 @@ smn/
 venv-api/
 site/api_marketing/out/
 site/api_docs/*.html
+site/api_docs/openapi.yaml
+site/api_docs/openapi.json
+site/api_docs/tradewave.postman_collection.json
+site/api_docs/.well-known/
 site/api_learn/out/
 site/api_playground/out/
 # Python SDK build artifacts (source lives in api/sdks/python/tradewave/)
