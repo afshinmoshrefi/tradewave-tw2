@@ -212,6 +212,28 @@ def _slim(item):
     return {k: v for k, v in item.items() if k not in _HEAVY_CARD_KEYS}
 
 
+def _mini(item):
+    """Tiniest usable shape of a card/row - enough to NAME and rank a result. Used as the
+    last-resort trim so the model ALWAYS gets real named entries to answer with, never a
+    content-free 'too large' (which makes it bail to manual click-instructions). Handles both
+    a flat table-row and a nested card (stats/setup may be top-level or nested)."""
+    if not isinstance(item, dict):
+        return item
+    st = item.get("stats") if isinstance(item.get("stats"), dict) else item
+    setup = item.get("setup") if isinstance(item.get("setup"), dict) else item
+    out = {}
+    for k in ("rank", "symbol", "direction", "bias", "headline"):
+        if item.get(k) is not None:
+            out[k] = item[k]
+    for k in ("historical_win_rate", "sharpe_ratio", "avg_return_pct", "years"):
+        if st.get(k) is not None:
+            out[k] = st[k]
+    for k in ("entry_date", "hold_days"):
+        if setup.get(k) is not None:
+            out[k] = setup[k]
+    return out
+
+
 def _bounded_json(out):
     """Serialize a tool result to VALID JSON within _TOOL_RESULT_CAP."""
     s = json.dumps(out)
@@ -232,8 +254,21 @@ def _bounded_json(out):
         s = json.dumps(t)
         if len(s) <= _TOOL_RESULT_CAP:
             return s
+        # STILL too large: keep the TOP entries in a MINIMAL shape so the model can always
+        # NAME and rank real results and tell the user "more are in the table", instead of a
+        # content-free 'too large' that makes it fall back to manual click-instructions.
+        for k in _LIST_KEYS:
+            v = out.get(k)
+            if isinstance(v, list) and v:
+                for n in (_LIST_CAP, 5, 3):
+                    mini = {k: [_mini(it) for it in v[:n]],
+                            "_truncated": ("showing the top %d of %d - more are in the "
+                                           "opportunity table" % (min(n, len(v)), len(v)))}
+                    s = json.dumps(mini)
+                    if len(s) <= _TOOL_RESULT_CAP:
+                        return s
     return json.dumps({"error": "result too large to include in full",
-                       "note": "narrow the request (fewer markets, a specific symbol, or a tighter filter)"})
+                       "note": "narrow the request to one market or a specific symbol"})
 
 
 # ---- update_view: validate the model's requested wave-viewer ViewSpec (Phase 2 actuation) ----

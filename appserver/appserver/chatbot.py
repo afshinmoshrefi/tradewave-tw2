@@ -118,6 +118,13 @@ TOOL_INSTRUCTION = (
     "short line what you changed.\n"
     "3) For a date-range preset (a month/quarter/season), first call analyze_symbol with period= to "
     "get the resolved entry_date + days_out, then pass those to update_view.\n"
+    "4) SCREENING / 'which <group> stocks ...' questions (e.g. 'which tech stocks tend to rise this time "
+    "of year', 'best energy names now', 'top crypto setups'): MAP the sector/group to its market id "
+    "(tech / technology = NASDAQ 100 = market 1; see the Securities Groups list above), call "
+    "find_best_opportunities(markets=<id>, window='now'), and ANSWER by NAMING the TOP few results "
+    "(about 3-5) with one stat each (win rate or avg return, plus the entry window). Then add ONE short "
+    "line that more are in the opportunity table. NEVER answer a 'which stocks' question with steps to "
+    "select a group, type a filter, or sort the table - you have the tool, so give the actual names.\n"
     "All figures are percentages, never price levels. Keep answers concise and plain-English."
 )
 
@@ -592,6 +599,12 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None):
         "  Slide 1: Trend Chart. Current price line chart with the seasonal window highlighted. Below it shows summary stats: SR, Avg Gain, % Profitable, Cumulative Return, Buy-and-Hold.",
         "  Slide 2: Wave Stats. Six panels: Wave Detail (symbol, direction, date range, days), Wave Stats (avg gain two numbers: winners-only and overall, avg loss, median, std dev), Wave Profit Loss (num winners, num losers, cumulative return, S&P 500 full-year comparison), Wave Info (% profitable, SR, trend long, trend short), Cumulative Return Chart (2-line chart vs S&P 500), General (sample size and type, last price).",
         "  Slide 3: Price Chart. Shows current price chart by default. When user clicks a year bar in the Gain-Loss Bar Chart, automatically switches to the historical price chart for that year with entry/exit arrows and a shaded trade window.",
+        "",
+        "<b>Securities Groups (markets) - map a sector or group name to its market id when scanning:</b>",
+        "- Technology / tech stocks -> NASDAQ 100 (market 1). Blue chips / mega caps -> DOW 30 (market 0). Broad large-cap US -> S&P 500 (market 2). Broader US (small + mid cap) -> Russell 1000 (market 3) or Wilshire 5000 (market 4).",
+        "- ETFs -> market 11. Indices -> market 5 (common) or 6 (all). Futures / commodities (oil, gold, natural gas, grains) -> market 7. Forex / currencies -> market 8 (all) or 9 (liquid). Government bonds -> market 10. Crypto -> market 16. UK / London -> market 12. Canada / Toronto -> market 13.",
+        "Sectors inside a broad index (energy, financials, healthcare, etc.): scan the closest stock market (usually S&P 500 = market 2, or NASDAQ 100 = market 1 for tech/growth) and name the matching tickers from the results.",
+        "Scope note: a user's plan may only include some markets - if a scan returns an upgrade nudge for an out-of-scope market, say so briefly and offer what IS in scope; never invent results.",
     ]
 
     # Detect if the loaded pattern is the named "100-Year Pattern"
