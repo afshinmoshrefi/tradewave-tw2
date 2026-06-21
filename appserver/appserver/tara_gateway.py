@@ -234,6 +234,46 @@ def _mini(item):
     return out
 
 
+# Tara (the in-app BRIEF assistant) receives the SAME gateway PatternCards as the public
+# API/MCP research consumers, but she must narrate a one-line headline, not the research
+# scaffolding (extend_research / suggested_checks / receipts / ml / alignment / median+stddev).
+# Strip those heavy fields from every read-tool result she gets so the model surfaces the
+# pre-composed `headline` + symbol instead of reciting checklists. (Tara-peak loop 2026-06-21)
+_BRIEF_DROP = ("extend_research", "receipts", "next_step", "edge_basis", "edge_score",
+               "alignment", "verdict", "ml", "tier_notes", "rank", "disclaimer", "bias",
+               "blind_to", "suggested_checks", "synthesis_rule", "loop_back")
+_BRIEF_STATS = ("historical_win_rate", "sharpe_ratio", "avg_return_pct", "years")
+_BRIEF_SETUP = ("entry_date", "exit_date", "hold_days", "entry_window")
+
+
+def _brief_card(c):
+    if not isinstance(c, dict):
+        return c
+    out = {k: v for k, v in c.items() if k not in _BRIEF_DROP}
+    if isinstance(out.get("stats"), dict):
+        out["stats"] = {k: v for k, v in out["stats"].items() if k in _BRIEF_STATS}
+    if isinstance(out.get("setup"), dict):
+        out["setup"] = {k: v for k, v in out["setup"].items() if k in _BRIEF_SETUP}
+    return out
+
+
+def _briefify(out):
+    """Reduce a gateway read-tool result to the BRIEF shape Tara should narrate: keep
+    symbol + headline + slim setup + key stats; drop the research-agent scaffolding and the
+    bulky forward-record/view blobs. Tara is the brief in-app assistant, NOT the research API."""
+    if not isinstance(out, dict):
+        return out
+    t = {k: v for k, v in out.items() if k not in ("track_record", "view", "as_of", "featured_date")}
+    if isinstance(t.get("card"), dict):
+        t["card"] = _brief_card(t["card"])
+    if "symbol" in t and "headline" in t:          # the result itself IS a card
+        t = _brief_card(t)
+    for k in _LIST_KEYS:                            # list of cards/rows (scan / patterns / other_setups)
+        if isinstance(t.get(k), list):
+            t[k] = [_brief_card(it) for it in t[k]]
+    return t
+
+
 def _bounded_json(out):
     """Serialize a tool result to VALID JSON within _TOOL_RESULT_CAP."""
     s = json.dumps(out)
@@ -345,7 +385,7 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m"):
                 else:
                     out = {"ok": False, "error": "no valid view fields to apply"}
             else:
-                out = run_tool(name, inp, user_id)
+                out = _briefify(run_tool(name, inp, user_id))
             results.append({
                 "type": "tool_result",
                 "tool_use_id": b.get("id"),
