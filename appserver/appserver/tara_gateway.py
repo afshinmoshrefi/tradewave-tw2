@@ -355,6 +355,70 @@ def _text_of(blocks):
     return "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
 
 
+def _index_cards(out, cards):
+    """Stash every {symbol, headline, stats} card from a briefified read-tool result so the
+    load-announcement guard can name the loaded pick deterministically (the model is unreliable)."""
+    if not isinstance(out, dict):
+        return
+    def stash(c):
+        if isinstance(c, dict) and c.get("symbol"):
+            cards[str(c["symbol"]).upper()] = c
+    if out.get("symbol"):
+        stash(out)
+    if isinstance(out.get("card"), dict):
+        stash(out["card"])
+    for k in _LIST_KEYS:
+        if isinstance(out.get(k), list):
+            for it in out[k]:
+                stash(it)
+
+
+def _announce_line(sym, card):
+    """Compose a compliant one-line load announcement: symbol + lookback + the key historical
+    stat. Past-record framing only ('won X of the last N years') - never a forward claim."""
+    st = card.get("stats") if isinstance(card.get("stats"), dict) else card
+    yrs = st.get("years") or card.get("years")
+    wr = st.get("historical_win_rate")
+    avg = st.get("avg_return_pct")
+    direction = (card.get("direction") or "").strip()
+    try:
+        n = int(float(yrs)) if yrs is not None else None
+    except (TypeError, ValueError):
+        n = None
+    parts = []
+    if isinstance(wr, (int, float)) and not isinstance(wr, bool):
+        parts.append(("won %d of the last %d years" % (round(wr * n), n)) if n
+                     else ("%d%% historical win rate" % round(wr * 100)))
+    if isinstance(avg, (int, float)) and not isinstance(avg, bool):
+        parts.append("avg %+.1f%%" % avg)
+    stat = ", ".join(parts) if parts else (card.get("headline") or "the pattern")
+    based = (" based on the last %d years" % n) if n else ""
+    dirtxt = (" " + direction) if direction else ""
+    return "<b>%s</b>%s%s: %s. Loaded on the chart." % (sym, dirtxt, based, stat)
+
+
+def _ensure_load_named(text, actions, cards):
+    """If a set_view loaded a symbol whose card we captured and the reply does NOT name that symbol,
+    PREPEND a compliant announcement (symbol + lookback + stat) - guarantees the loaded pick is
+    named even when the model returns a bare 'Loaded on the chart'."""
+    text = text or ""
+    syms = [a.get("spec", {}).get("symbol") for a in actions
+            if a.get("type") == "set_view" and isinstance(a.get("spec"), dict) and a["spec"].get("symbol")]
+    if not syms:
+        return text
+    sym = str(syms[-1]).upper()
+    if sym in text.upper():
+        return text
+    card = cards.get(sym)
+    if not card:
+        return text
+    line = _announce_line(sym, card)
+    if text.strip():
+        # the model wrote its own confirmation; drop our trailing "Loaded on the chart." to avoid a double
+        return line.replace(" Loaded on the chart.", "") + "<br><br>" + text
+    return line
+
+
 def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m"):
     """Run the Tara chat with gateway tool-use. `messages` ends with the user turn. Returns
     (final_text, actions): the assistant TEXT plus any UI actions the model requested (Phase 2,
@@ -363,13 +427,16 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m"):
     for the client to apply. Capped at _MAX_TOOL_ROUNDS."""
     convo = list(messages)
     actions = []
+    cards = {}            # symbol -> briefified card, for the deterministic load-announcement guard
+    final_text = None
     for _ in range(_MAX_TOOL_ROUNDS):
         resp = send_claude_messages(convo, model=model, system=system,
                                     cache_system=True, cache_ttl=cache_ttl,
                                     tools=TOOLS, return_raw=True)
         blocks = resp.get("content", []) or []
         if resp.get("stop_reason") != "tool_use":
-            return _text_of(blocks), actions
+            final_text = _text_of(blocks)
+            break
         # echo the assistant's tool_use turn back verbatim, then answer each tool call
         convo.append({"role": "assistant", "content": blocks})
         results = []
@@ -386,13 +453,18 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m"):
                     out = {"ok": False, "error": "no valid view fields to apply"}
             else:
                 out = _briefify(run_tool(name, inp, user_id))
+                _index_cards(out, cards)
             results.append({
                 "type": "tool_result",
                 "tool_use_id": b.get("id"),
                 "content": _bounded_json(out),
             })
         convo.append({"role": "user", "content": results})
-    # Out of tool rounds - force a final text answer with no further tool calls.
-    final = send_claude_messages(convo, model=model, system=system,
-                                 cache_system=True, cache_ttl=cache_ttl)
-    return final, actions
+    # If we broke out with the model's final text, use it; else force a final no-tool answer.
+    if final_text is None:
+        final_text = send_claude_messages(convo, model=model, system=system,
+                                          cache_system=True, cache_ttl=cache_ttl)
+    # Deterministic guard: guarantee the loaded pick is NAMED (symbol + lookback + stat), since
+    # Haiku-4.5 intermittently returns a bare 'Loaded on the chart' with no symbol.
+    final_text = _ensure_load_named(final_text, actions, cards)
+    return final_text, actions

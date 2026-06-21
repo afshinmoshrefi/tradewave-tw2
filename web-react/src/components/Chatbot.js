@@ -69,7 +69,7 @@ function Chatbot(props) {
 
   // Intro message on first open, include pending tip if one exists
   useEffect(() => {
-    const intro = [{ role: 'bot', text: "Hi, I'm <b>Tara</b>, your TradeWave AI assistant. Click any row in the table to load a pattern, or type <b>teach me</b> to get started." }];
+    const intro = [{ role: 'bot', text: "Hi, I'm <b>Tara</b>. Ask me for today's best setups, any stock's seasonal pattern, or a concept like <b>what is a Sharpe ratio</b> - I'll pull it up on the chart and explain it." }];
     if (props.chatbotPendingTip) {
       intro.push({ role: 'bot', text: props.chatbotPendingTip });
       if (props.SetChatbotPendingTip) props.SetChatbotPendingTip(null);
@@ -175,28 +175,14 @@ function Chatbot(props) {
 
     displayMessage('user', text);
 
-    // If no pattern is loaded, allow knowledge/onboarding questions through to the server
-    // but block generic questions that need a loaded pattern
-    const lowerText = text.toLowerCase();
-    const knowledgeKeywords = ['teach', 'learn', 'how do i', 'how does', 'what is', 'what are',
-      'help me', 'new here', "i'm new", 'i am new', 'getting started', 'where do i start',
-      'how to use', 'walk me', 'show me how', 'explain', '100-year', '100 year',
-      'pe cycle', 'presidential', 'sharpe', 'watchlist', 'portfolio', 'subscription',
-      'pricing', 'tier', 'news', 'dark mode', 'light mode', 'filter', 'expand',
-      'trend score', 'trend long', 'trend short', 'twr', 'tradewave ratio',
-      'seasonal', 'seasonality', 'trend chart', 'projection',
-      'bar chart', 'year by year', 'mfe', 'mae', 'excursion', 'drawdown',
-      'twr', 'tradewave ratio', 'pe cycle', 'election', 'midterm',
-      'opportunity table', 'opp table', 'days out', 'holding period',
-      'years', 'data depth', 'lookback', 'getting started', 'tour',
-      'filtering', 'filter syntax', 'how to filter'];
-    // Home-originated questions (opts.fromHome) bypass this cold-start gate: a /app opened
-    // from the home page has no pattern loaded, but Tara's tool loop (find_best_opportunities)
-    // can answer market-wide questions without one. Normal typed questions keep the gate.
-    if (!opts.fromHome && !props.symbol && !knowledgeKeywords.some(kw => lowerText.includes(kw))) {
-      displayMessage('bot', 'Click an opportunity in the table above to load it in the Wave Viewer, then I can help you analyze it. You can also ask me to teach you how to use TradeWave.');
-      return;
-    }
+    // Cold-start gate REMOVED 2026-06-21: it predated Tara's tool loop and was
+    // intercepting market-wide / scan / pick questions ("what's the best tech
+    // setup today?") with a client-side "Click an opportunity in the table"
+    // block before they ever reached the server. The server now answers those
+    // cold (find_best_opportunities + a blank-message guard), so every non-empty
+    // message goes straight through - the server decides whether to load, list,
+    // or answer, and it never tells the user to click a row. (opts.fromHome kept
+    // for the home-page prefill path.)
 
     // Add user message to history
     const updatedHistory = [...history, { role: 'user', content: text }];

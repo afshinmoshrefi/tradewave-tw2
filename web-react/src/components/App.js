@@ -566,6 +566,13 @@ const App = () => {
 
   const saveOppYearsForGroup = (groupName, y1, y2, peMode = false) => {
     const cookieKey = peMode ? 'oppYearsPerGroupPE' : 'oppYearsPerGroup';
+    // Clamp min-profitable-years (y2) to the lookback window (y1). The Years
+    // dropdown handler saves [newYears, currentPartialYears], so lowering Years
+    // below a previously-set partial-years would otherwise persist an invalid
+    // pair (e.g. [15,18]) for which no Monthly_Opp_<month>_<y1>_<y2> dataset
+    // exists — the appserver then returns its -1 sentinel and the opp table
+    // shows "Data temporarily unavailable".
+    if (Number.isFinite(y1) && Number.isFinite(y2) && y2 > y1) y2 = y1;
     let saved = {};
     try { saved = JSON.parse(getCookie(cookieKey) || '{}'); } catch (e) { }
     saved[groupName] = [y1, y2];
@@ -1936,7 +1943,7 @@ const App = () => {
   //   tip 2: 1 day after chatbot closes
   //   tip 3: 4 days after chatbot closes, then done
   const TARA_TIPS = [
-    "Hi, I'm <b>Tara</b>, your TradeWave AI assistant! I can explain charts, teach you seasonal trading concepts, and help you find opportunities. Click any row in the table and ask me about it, or type <b>teach me</b> to get started.",
+    "Hi, I'm <b>Tara</b>! Ask me for today's best setups, a stock's seasonal pattern, or a concept - I'll pull it up on the chart and explain it. Try <b>what's the best setup today?</b>",
     "<b>Tip:</b> You can ask me to explain anything you see - try asking <b>what is a sharpe ratio?</b> or <b>explain this pattern</b> after loading a ticker.",
     "<b>Tip:</b> Type <b>compare</b> to learn how to compare a pattern against a benchmark, or ask me <b>what are the best opportunities today?</b>",
     "<b>Tip:</b> You can filter opportunities with powerful commands in the search box - try <b>SR>2</b> or <b>AP>10</b>. Ask me <b>how do I filter?</b> to learn more."

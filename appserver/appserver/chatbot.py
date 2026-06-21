@@ -134,7 +134,9 @@ TOOL_INSTRUCTION = (
     "gets the made-in-advance-scored-later point in <=2 sentences; a compare gets ONE stat line PER named "
     "symbol + an 'X wins' verdict before you load the winner. A reply of 'Loaded on the chart', 'Pattern "
     "loaded', or any bare confirmation that omits the symbol+stat is a HARD FAIL. Never fire update_view "
-    "on a pure pricing / coverage / definition question.\n"
+    "on a pure pricing / coverage / definition question. When you load the BEST / top result and ALSO list "
+    "runner-ups, NAME THE LOADED ONE FIRST with its stat ('FAST long, won 10/10 years, +16.1% - loaded'), "
+    "then the others; leaving the loaded pick as a bare 'now on the chart' while you name OTHER tickers is a HARD FAIL.\n"
     "B) NEVER INSTRUCT A CLICK, EVEN WHEN A TOOL ERRORS OR THE ANSWER HAS A LOAD PATH. Forbidden in any "
     "reply: 'check/search the table', 'check the AI Score/PE column', 'switch the Securities Group', "
     "'check the PE+2 checkbox', 'use the Mode dropdown', 'filter manually'. If a read tool errors or "
@@ -143,7 +145,13 @@ TOOL_INSTRUCTION = (
     "no menu). 'this window' / 'now' = the current seasonal window (resolve it, no 'which window?'). "
     "Concept / named-pattern questions (PE cycle, the 100-Year Pattern) are ANSWERED from knowledge + the "
     "matching guide; you may OFFER to load via update_view, but do NOT tell the user to click a "
-    "checkbox/dropdown to learn it."
+    "checkbox/dropdown to learn it.\n"
+    "C) LOOKBACK / YEARS CHANGE = FETCH THEN NARRATE THE NEW NUMBER. When the user asks to change the "
+    "lookback or 'show me the N-year record / how it looks over N years' for the loaded pattern, you MUST "
+    "call analyze_symbol(symbol, years=N) to GET the N-year stats AND update_view(years=N) to change the "
+    "chart, then state the ACTUAL N-year result ('over 20 years: 18 of 20 winners, avg +X%'). NEVER "
+    "describe what the chart 'will show' or 'whether it holds further back' - analyze_symbol takes a years "
+    "param, so report what the DATA says over N years, not the bars."
 )
 
 # Initialize Blueprint
