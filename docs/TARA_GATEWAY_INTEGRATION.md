@@ -18,6 +18,17 @@ to PE+2" -> `pe_cycle:'pe2'`. React bundle rebuilt (served from web-react/build 
 radius of the actuation = which chart/knobs the user sees (no code exec, no data beyond the
 derived-data-only gateway, no auth/billing).
 
+Screening fix (2026-06-21): a "which <group> stocks" answer must match the on-screen opp table, but
+the table (`OppList4`) and the gateway `/scan` are DIFFERENT data paths that pick different setups per
+symbol (verified live: scan = FAST/TXN/CDNS...; the real NASDAQ table = AAPL/AMZN/CHTR... - AAPL is #1
+in the table but ABSENT from /scan at any years/window; /scan is structurally near-term-only). So Tara
+now SCREENS FROM OppList4, not /scan: `Chatbot.js` sends `opp_table_market` (+`_market_name`) and
+`opp_table_years`; `tara_gateway.run_chat_with_tools` intercepts `find_best_opportunities` -> same
+market as the table: answer from the passed rows (`_rows_to_scan_cards`+`_filter_table_rows`);
+different market: fetch that market's OppList4 LOOPBACK (`_opplist4_rows`, via `config.appserver_url`
+using the user's LTK) + auto-append `set_view{market}` so the table follows. Win-rate/winning-years/
+years/pe_cycle filters or a loopback failure fall back to the gateway scan.
+
 Phase 1 as built (dev .176): a `chatbot` INTERNAL_TIER (tiers.py, service:True, not in the sold
 catalog) + an X-TW-On-Behalf-Of delegation in the gateway (auth.py, service-tier-only, principal
 'cb:'-namespaced + regex-validated) + a gateway client/tool-loop (appserver/appserver/tara_gateway.py)

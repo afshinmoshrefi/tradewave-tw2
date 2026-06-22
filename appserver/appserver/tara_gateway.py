@@ -52,7 +52,7 @@ TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "markets": {"type": "string", "description": "comma list of market names or ids '0'..'16'; omit for all in scope"},
+                "markets": {"type": "string", "description": "for a 'which <group> stocks' screen pass the SINGLE market id of that group (tech=1, dow=0, ...); comma list of names/ids '0'..'16' for a multi-market scan; omit for all in scope"},
                 "window": {"type": "string", "description": "'now' | 'next_2_weeks' | 'next_month' | 'YYYY-MM-DD..YYYY-MM-DD'"},
                 "direction": {"type": "string", "enum": ["long", "short"]},
                 "min_win_rate": {"type": "number", "description": "0..1"},
@@ -355,14 +355,17 @@ def _text_of(blocks):
     return "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
 
 
-def _index_cards(out, cards):
+def _index_cards(out, cards, card_list):
     """Stash every {symbol, headline, stats} card from a briefified read-tool result so the
-    load-announcement guard can name the loaded pick deterministically (the model is unreliable)."""
+    load-announcement guard can name the loaded pick deterministically (the model is unreliable).
+    `cards` is symbol->latest card; `card_list` keeps EVERY card so the guard can match the loaded
+    setup by entry_date (a same-symbol earlier card must not leak its win rate)."""
     if not isinstance(out, dict):
         return
     def stash(c):
         if isinstance(c, dict) and c.get("symbol"):
             cards[str(c["symbol"]).upper()] = c
+            card_list.append(c)
     if out.get("symbol"):
         stash(out)
     if isinstance(out.get("card"), dict):
@@ -373,44 +376,136 @@ def _index_cards(out, cards):
                 stash(it)
 
 
-def _announce_line(sym, card):
-    """Compose a compliant one-line load announcement: symbol + lookback + the key historical
-    stat. Past-record framing only ('won X of the last N years') - never a forward claim."""
+# The card HEADLINE ('AAPL long - ... Won 4/10 years, avg +2.0%, ...') is derived from the per-year
+# rows and is the AUTHORITATIVE record - correct even when stats.historical_win_rate is the known-
+# buggy value (it has come back as the LOSS fraction). Parse win count + avg from the headline.
+_HL_WIN_RE   = re.compile(r'won\s*(\d+)\s*/\s*(\d+)', re.I)
+_HL_AVG_RE   = re.compile(r'avg\s*([+-]?\d+(?:\.\d+)?)\s*%', re.I)
+_RPL_WIN_RE  = re.compile(r'(\d+)\s*(?:of|/)\s*(?:the\s*last\s*)?(\d+)\s*year', re.I)  # context-anchored (a conflict)
+_RPL_FRAC_RE = re.compile(r'(\d+)\s*(?:of(?:\s*the\s*last)?|/)\s*(\d+)', re.I)         # lenient (counts as present)
+_RPL_PCT_RE  = re.compile(r'(\d{1,3})\s*%\s*win', re.I)
+
+
+def _card_headline_stats(card):
+    """Authoritative (wins, years, avg_or_None) for a card. Prefers the HEADLINE win token
+    ('Won 4/10 years') - exact and chart-consistent - and falls back to the stats fields
+    (historical_win_rate x years) for a card whose headline carries no record (e.g. a weak
+    'no high-conviction edge' card). Returns None only when neither is available."""
+    if not isinstance(card, dict):
+        return None
+    h = card.get("headline")
+    if isinstance(h, str):
+        mw = _HL_WIN_RE.search(h)
+        if mw:
+            ma = _HL_AVG_RE.search(h)
+            return int(mw.group(1)), int(mw.group(2)), (float(ma.group(1)) if ma else None)
     st = card.get("stats") if isinstance(card.get("stats"), dict) else card
-    yrs = st.get("years") or card.get("years")
     wr = st.get("historical_win_rate")
-    avg = st.get("avg_return_pct")
-    direction = (card.get("direction") or "").strip()
+    yrs = st.get("years") or card.get("years")
     try:
-        n = int(float(yrs)) if yrs is not None else None
+        n = int(float(yrs))
     except (TypeError, ValueError):
-        n = None
+        return None
+    if n > 0 and isinstance(wr, (int, float)) and not isinstance(wr, bool):
+        avg = st.get("avg_return_pct")
+        return round(wr * n), n, (avg if isinstance(avg, (int, float)) and not isinstance(avg, bool) else None)
+    return None
+
+
+def _card_entry_date(c):
+    s = c.get("setup") if isinstance(c, dict) and isinstance(c.get("setup"), dict) else c
+    return s.get("entry_date") if isinstance(s, dict) else None
+
+
+def _announce_line(sym, card):
+    """Compose a compliant one-line load announcement for the LOADED setup: symbol + lookback + the
+    key historical stat, from the card HEADLINE (authoritative), falling back to the stats fields.
+    Past-record framing only ('won X of the last N years') - never a forward claim."""
+    hs = _card_headline_stats(card)
+    st = card.get("stats") if isinstance(card.get("stats"), dict) else card
+    direction = (card.get("direction") or "").strip()
     parts = []
-    if isinstance(wr, (int, float)) and not isinstance(wr, bool):
-        parts.append(("won %d of the last %d years" % (round(wr * n), n)) if n
-                     else ("%d%% historical win rate" % round(wr * 100)))
-    if isinstance(avg, (int, float)) and not isinstance(avg, bool):
-        parts.append("avg %+.1f%%" % avg)
+    n = None
+    if hs:
+        wins, n, avg = hs
+        parts.append("won %d of the last %d years" % (wins, n))
+        if avg is not None:
+            parts.append("avg %+.1f%%" % avg)
+    else:
+        yrs = st.get("years") or card.get("years")
+        try:
+            n = int(float(yrs)) if yrs is not None else None
+        except (TypeError, ValueError):
+            n = None
+        wr = st.get("historical_win_rate")
+        avg = st.get("avg_return_pct")
+        if isinstance(wr, (int, float)) and not isinstance(wr, bool):
+            parts.append(("won %d of the last %d years" % (round(wr * n), n)) if n
+                         else ("%d%% historical win rate" % round(wr * 100)))
+        if isinstance(avg, (int, float)) and not isinstance(avg, bool):
+            parts.append("avg %+.1f%%" % avg)
     stat = ", ".join(parts) if parts else (card.get("headline") or "the pattern")
     based = (" based on the last %d years" % n) if n else ""
     dirtxt = (" " + direction) if direction else ""
     return "<b>%s</b>%s%s: %s. Loaded on the chart." % (sym, dirtxt, based, stat)
 
 
-def _ensure_load_named(text, actions, cards):
-    """If a set_view loaded a symbol whose card we captured and the reply does NOT name that symbol,
-    PREPEND a compliant announcement (symbol + lookback + stat) - guarantees the loaded pick is
-    named even when the model returns a bare 'Loaded on the chart'."""
+def _stat_conflicts(text, wins, yrs):
+    """True when the reply asserts a win rate that CONTRADICTS the loaded setup's real record and
+    never states the correct one (a stale/fabricated stat, e.g. 'won 10 of 10' for a 4/10 setup).
+    The correct record in ANY form (lenient) suppresses the flag, so a comparison that also cites
+    other symbols' rates is left alone; only context-anchored ('... years' / '...% win') wrong claims
+    count as conflicts, so dates/ratios don't false-trigger."""
     text = text or ""
-    syms = [a.get("spec", {}).get("symbol") for a in actions
-            if a.get("type") == "set_view" and isinstance(a.get("spec"), dict) and a["spec"].get("symbol")]
-    if not syms:
+    # PRESENT (lenient): the correct record stated anywhere -> trust the reply, never clobber.
+    for m in _RPL_FRAC_RE.finditer(text):
+        if (int(m.group(1)), int(m.group(2))) == (wins, yrs):
+            return False
+    for m in _RPL_PCT_RE.finditer(text):
+        if yrs and round(int(m.group(1)) / 100.0 * yrs) == wins:
+            return False
+    # CONFLICT (context-anchored): a win-rate claim that is NOT the correct record.
+    for m in _RPL_WIN_RE.finditer(text):
+        a, b = int(m.group(1)), int(m.group(2))
+        if (b == yrs and a != wins) or a == b:   # same lookback / different count, or a perfect 'N of N' claim
+            return True
+    for m in _RPL_PCT_RE.finditer(text):
+        if yrs and round(int(m.group(1)) / 100.0 * yrs) != wins:
+            return True
+    return False
+
+
+def _ensure_load_named(text, actions, cards, card_list):
+    """Guarantee the loaded pick is announced with ITS OWN correct record. Fixes two failures:
+    (1) a bare confirmation with no symbol; (2) the right symbol but a STALE/FABRICATED win rate
+    carried from an earlier setup (loads the September window but says 'won 10 of 10' from the June
+    setup). The card is matched to the loaded setup by entry_date, and the HEADLINE is authoritative."""
+    text = text or ""
+    loaded = [a.get("spec", {}) for a in actions
+              if a.get("type") == "set_view" and isinstance(a.get("spec"), dict) and a["spec"].get("symbol")]
+    if not loaded:
         return text
-    sym = str(syms[-1]).upper()
-    if sym in text.upper():
-        return text
-    card = cards.get(sym)
+    spec = loaded[-1]
+    sym = str(spec.get("symbol")).upper()
+    entry = spec.get("entry_date")
+    # Match the card to the LOADED setup (by entry_date) so an earlier same-symbol card can't leak
+    # its stats; fall back to the latest card seen for the symbol.
+    card = None
+    if entry:
+        for c in card_list:
+            if str(c.get("symbol", "")).upper() == sym and _card_entry_date(c) == entry:
+                card = c
+    if card is None:
+        card = cards.get(sym)
     if not card:
+        return text
+    hs = _card_headline_stats(card)
+    if hs and _stat_conflicts(text, hs[0], hs[1]):
+        # the reply states a win rate that is NOT this loaded setup's record -> replace with truth
+        fixed = _announce_line(sym, card)
+        dm = re.search(r'<i>.*?</i>', text, re.S)          # preserve a disclaimer if the model added one
+        return fixed + ("<br><br>" + dm.group(0) if dm else "")
+    if sym in text.upper():
         return text
     line = _announce_line(sym, card)
     if text.strip():
@@ -419,15 +514,189 @@ def _ensure_load_named(text, actions, cards):
     return line
 
 
-def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m"):
+# --- screening interception: keep Tara's "which <group> stocks" answer == the on-screen table ---
+# The wave-viewer opportunity table and the gateway /scan are DIFFERENT data paths (the table uses
+# its own OppList4 lookback/expand params; /scan uses a fixed entry window + its own dedup), so a
+# scan can name different tickers than the rows the user is actually looking at - and broadening the
+# scan window does NOT fix it (verified: now/2w/month return the same rows). So when the model scans
+# the SAME market the table is already on, we answer from the passed table rows instead (a guaranteed
+# match); when it scans a DIFFERENT market, we auto-switch the table to that market so the screen
+# follows the names Tara gives. This keys off the model's own find_best_opportunities call, so no
+# fragile intent-detection is needed.
+def _single_market_id(markets_param):
+    """Resolve a find_best_opportunities `markets` arg to ONE market id ('0'..'16'), or None when it
+    is empty / multi-market / not a bare id. Only a single, unambiguous market can be matched against
+    the opp table or auto-switched (the prompt tells the model to pass the id for a group screen)."""
+    if markets_param in (None, ""):
+        return None
+    parts = [p.strip() for p in str(markets_param).split(",") if p.strip()]
+    if len(parts) != 1:
+        return None
+    return parts[0] if parts[0] in _VS_MARKETS else None
+
+
+# Filters a find_best_opportunities call can carry that the opp-table rows CAN satisfy themselves
+# (so we can still answer from the on-screen rows). Anything else - a win-rate / winning-years floor
+# (the rows carry no win rate) or a years / pe_cycle change (a different lookback => different data) -
+# means the rows can't answer it, so we fall back to the real gateway scan.
+_TABLE_BLOCKING_FILTERS = {"min_win_rate", "min_winning_years", "years", "pe_cycle"}
+
+
+def _filter_table_rows(rows, inp):
+    """Apply the row-satisfiable filters of a find_best_opportunities call (direction / min_sharpe /
+    min_avg_return / min_days / max_days, then limit) to the opp-table rows. Order is preserved (the
+    table is already sorted best-first by Sharpe)."""
+    direction = (inp.get("direction") or "").strip().lower()
+
+    def keep(r):
+        if not isinstance(r, dict):
+            return False
+        if direction in ("long", "short"):
+            d = "short" if str(r.get("direction", "")).upper() in ("S", "SHORT") else "long"
+            if d != direction:
+                return False
+        sr, av, dy = r.get("sharpe_ratio"), r.get("avg_profit"), r.get("days_out")
+        if inp.get("min_sharpe") is not None and (sr is None or sr < inp["min_sharpe"]):
+            return False
+        if inp.get("min_avg_return") is not None and (av is None or av < inp["min_avg_return"]):
+            return False
+        if inp.get("min_days") is not None and (dy is None or dy < inp["min_days"]):
+            return False
+        if inp.get("max_days") is not None and (dy is None or dy > inp["max_days"]):
+            return False
+        return True
+
+    out = [r for r in rows if keep(r)]
+    lim = inp.get("limit")
+    if isinstance(lim, int) and not isinstance(lim, bool) and lim > 0:
+        out = out[:lim]
+    return out
+
+
+def _rows_to_scan_cards(rows, market_id):
+    """Render the passed opportunity-table rows (date/symbol/days_out/direction/avg_profit/
+    sharpe_ratio - see Chatbot.js buildOppTableContext) as a scan-style result so the model narrates
+    the EXACT on-screen rows. Order is preserved (the table is already sorted best-first by Sharpe)."""
+    cards = []
+    for r in rows[:15]:
+        if not isinstance(r, dict):
+            continue
+        d = str(r.get("direction", "")).upper()
+        direction = "short" if d in ("S", "SHORT") else "long"
+        stats = {}
+        if r.get("avg_profit") is not None:
+            stats["avg_return_pct"] = r["avg_profit"]
+        if r.get("sharpe_ratio") is not None:
+            stats["sharpe_ratio"] = r["sharpe_ratio"]
+        setup = {}
+        if r.get("date"):
+            setup["entry_date"] = r["date"]
+        if r.get("days_out") is not None:
+            setup["hold_days"] = r["days_out"]
+        cards.append({"symbol": r.get("symbol"), "direction": direction,
+                      "stats": stats, "setup": setup})
+    return {"market": market_id, "source": "opportunity_table",
+            "note": ("These ARE the rows currently shown in the user's opportunity table for this "
+                     "group, sorted best-first by Sharpe. Name the top few from here; do NOT scan again."),
+            "cards": cards}
+
+
+# The gateway /scan and the wave-viewer opp table (OppList4) are DIFFERENT data paths that pick
+# DIFFERENT setups per symbol (verified live: scan top = FAST/TXN/CDNS..., the real NASDAQ table top
+# = AAPL/AMZN/CHTR... - AAPL is #1 in the table but absent from the scan at any years/window). Tara
+# must SCREEN from OppList4, the same path the table uses, or her list won't match the screen. She
+# calls it loopback as the logged-in user (their LTK carries the level + geo claims OppList4 needs).
+def _opplist4_to_rows(ol):
+    """Map raw OppList4 rows [date, symbol, days, dir, sharpe, avg, ...] to the dict shape
+    _filter_table_rows / _rows_to_scan_cards use - mirroring Chatbot.js buildOppTableContext
+    (days_out = raw + 1, avg rounded to 0.1)."""
+    out = []
+    for row in ol or []:
+        if not isinstance(row, list) or len(row) < 6:
+            continue
+        try:
+            days = int(float(row[2])) + 1
+        except (TypeError, ValueError):
+            days = None
+        try:
+            sr = round(float(row[4]), 2)
+        except (TypeError, ValueError):
+            sr = None
+        try:
+            av = round(float(row[5]) * 10) / 10
+        except (TypeError, ValueError):
+            av = None
+        out.append({"date": row[0], "symbol": row[1], "days_out": days,
+                    "direction": row[3], "avg_profit": av, "sharpe_ratio": sr})
+    return out
+
+
+def _opplist4_rows(market_id, token, years):
+    """Fetch a market's opportunity-TABLE rows (OppList4, the data path the wave-viewer table uses)
+    as the logged-in user, for a cross-market 'which <group> stocks' screen. Returns the row dicts or
+    None on any failure (caller falls back to the gateway scan). Uses the per-env appserver URL +
+    the user's own token; never raises into the chat loop."""
+    base = (config.appserver_url or "").rstrip("/")
+    if not base or not token:
+        return None
+    try:
+        y = int(years)
+    except (TypeError, ValueError):
+        y = 0
+    if y <= 0:
+        y = 12                                    # React opp-table default lookback
+    today = datetime.datetime.now()
+    url = "%s/OppList4/%s/%s/%s/%s/%s/-/0/0" % (base, market_id, today.strftime("%B"), today.day, y, y)
+    try:
+        r = requests.get(url, params={"token": token, "mode": "consecutive"}, timeout=(5, 20))
+    except requests.RequestException as e:
+        log.warning("tara OppList4 loopback market=%s failed: %s", market_id, e)
+        return None
+    if r.status_code != 200:
+        log.warning("tara OppList4 loopback market=%s -> %s", market_id, r.status_code)
+        return None
+    try:
+        ol = r.json().get("OppList")
+    except ValueError:
+        return None
+    return _opplist4_to_rows(ol) if isinstance(ol, list) else None
+
+
+def _append_market_switch(actions, target):
+    """Queue a market-only set_view (switch the opp table to `target`) unless one is already queued."""
+    if not any(a.get("type") == "set_view" and a.get("spec", {}).get("market") == target for a in actions):
+        actions.append({"type": "set_view", "spec": {"market": target}})
+
+
+# Haiku often glues a closing call-to-action onto the last list item with just a space ("...29 days
+# Want me to pull one up?") - and a bare space/newline does not render as a line break in the chat
+# HTML. Guarantee the CTA lands on its own line: insert <br><br> before a recognized trailing CTA
+# when it is not already break-separated. Anchored to end-of-string + a small phrase set => safe.
+_TRAILING_CTA = re.compile(
+    r'([^\s>])[ \t\n]+((?:Want me to|Want to|Want a|Should I|Say the word|Let me know)\b[^<>]*[.?!])\s*$',
+    re.IGNORECASE,
+)
+
+
+def _break_before_cta(text):
+    return _TRAILING_CTA.sub(r'\1<br><br>\2', text or '')
+
+
+def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
+                        opp_table=None, opp_table_market=None, user_token=None, opp_table_years=None):
     """Run the Tara chat with gateway tool-use. `messages` ends with the user turn. Returns
     (final_text, actions): the assistant TEXT plus any UI actions the model requested (Phase 2,
     e.g. [{'type':'set_view','spec':{...}}]). Read tools (scan/analyze/...) are executed as
     `user_id` against the gateway; update_view is validated server-side and queued as an action
-    for the client to apply. Capped at _MAX_TOOL_ROUNDS."""
+    for the client to apply. For a 'which <group> stocks' screen, `opp_table` (the on-screen rows) +
+    `opp_table_market` answer from the table when it is already on that group, else `user_token` +
+    `opp_table_years` fetch that group's table (OppList4) loopback + auto-switch markets. Capped at
+    _MAX_TOOL_ROUNDS."""
     convo = list(messages)
     actions = []
-    cards = {}            # symbol -> briefified card, for the deterministic load-announcement guard
+    cards = {}            # symbol -> latest briefified card, for the deterministic load-announcement guard
+    card_list = []        # every card seen this turn, so the guard can match the loaded setup by entry_date
+    table_market = str(opp_table_market) if opp_table_market not in (None, "") else None
     final_text = None
     for _ in range(_MAX_TOOL_ROUNDS):
         resp = send_claude_messages(convo, model=model, system=system,
@@ -451,9 +720,30 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m"):
                     out = {"ok": True, "applied": cleaned}
                 else:
                     out = {"ok": False, "error": "no valid view fields to apply"}
+            elif name == "find_best_opportunities":
+                # Screen from OppList4 (the opp-table data path) so the answer == the on-screen table;
+                # /scan is a different path that names different tickers (see _opplist4_rows note).
+                target = _single_market_id(inp.get("markets"))
+                blocking = bool(set(inp.keys()) & _TABLE_BLOCKING_FILTERS)
+                screen_rows = None
+                if target is not None and not blocking:
+                    if table_market == target and opp_table:
+                        screen_rows = _filter_table_rows(opp_table, inp)   # exact on-screen rows
+                    else:
+                        fetched = _opplist4_rows(target, user_token, opp_table_years)
+                        screen_rows = _filter_table_rows(fetched, inp) if fetched else None
+                        if table_market != target:        # switch the table so the screen follows the names
+                            _append_market_switch(actions, target)
+                if screen_rows:
+                    out = _rows_to_scan_cards(screen_rows, target)
+                else:
+                    out = _briefify(run_tool(name, inp, user_id))      # multi-market / blocking-filter / loopback-failed
+                    if target is not None and table_market != target:
+                        _append_market_switch(actions, target)
+                _index_cards(out, cards, card_list)
             else:
                 out = _briefify(run_tool(name, inp, user_id))
-                _index_cards(out, cards)
+                _index_cards(out, cards, card_list)
             results.append({
                 "type": "tool_result",
                 "tool_use_id": b.get("id"),
@@ -466,5 +756,6 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m"):
                                           cache_system=True, cache_ttl=cache_ttl)
     # Deterministic guard: guarantee the loaded pick is NAMED (symbol + lookback + stat), since
     # Haiku-4.5 intermittently returns a bare 'Loaded on the chart' with no symbol.
-    final_text = _ensure_load_named(final_text, actions, cards)
+    final_text = _ensure_load_named(final_text, actions, cards, card_list)
+    final_text = _break_before_cta(final_text)   # closing CTA never runs onto the last list line
     return final_text, actions

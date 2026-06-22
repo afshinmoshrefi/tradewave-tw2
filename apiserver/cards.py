@@ -472,8 +472,9 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
 
     # --- per-year receipts (from ChartData4 entries; net only, price dropped) ---
     # wins/losses/years_tested are derived from per_year so the receipts are internally
-    # consistent (the headline 'won X/Y years' always matches the per_year rows). The
-    # authoritative historical_win_rate stays the appserver's Percent Profitable above.
+    # consistent (the headline 'won X/Y years' always matches the per_year rows), and
+    # historical_win_rate is derived from those SAME counts below (chart-consistent), not the
+    # appserver's aggregate Percent Profitable (which has disagreed with the year-by-year rows).
     if receipts_unavailable:
         per_year, wins, losses = [], 0, 0
         years_tested = None
@@ -485,8 +486,13 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
                                                   direction=direction)
         years_tested = len(per_year)
         years_for_edge = years_tested
-        # win rate fallback from counts only if Percent Profitable was missing entirely.
-        if historical_win_rate is None and (wins + losses) > 0:
+        # historical_win_rate MUST match the per-year rows - the SAME data the bar chart and the
+        # headline 'Won X/Y years' (= wins/(wins+losses), line ~655) show. The appserver's aggregate
+        # win_rate / Percent Profitable has come back DISAGREEING with the year-by-year rows (e.g.
+        # 0.6 for a 4/10 setup), yielding a card whose win rate the chart contradicts. Derive it from
+        # the counts here, the chart-consistent source. (The appserver value survives only as the
+        # receipts_unavailable fallback above, when the per-year rows could not be fetched.)
+        if (wins + losses) > 0:
             historical_win_rate = round(wins / (wins + losses), 4)
 
     best, worst = _best_worst(per_year)

@@ -592,8 +592,37 @@ gateway is `:8088` dev, `:80` staging/prod). Falls back to the old no-tools chat
 gateway is unconfigured. Full spec + the proposed Phase 2 (chat drives the wave-viewer setters):
 `docs/TARA_GATEWAY_INTEGRATION.md`.
 
-(Source: `appserver/appserver/{chatbot,tara_gateway,AI_tools_appserver}.py`, `apiserver/{auth,tiers,
-provision_chatbot_key}.py`, `config.py`, `docs/TARA_GATEWAY_INTEGRATION.md`; dev .176.)
+**Screening answers must match the on-screen opportunity table - Tara screens from OppList4, NOT
+/scan (fix 2026-06-21).** The wave-viewer opp table (`OppList4`) and the gateway `/scan` are
+DIFFERENT data paths that pick DIFFERENT setups per symbol (verified live: scan top = FAST/TXN/CDNS...;
+the real NASDAQ table = AAPL/AMZN/CHTR... with AAPL #1 but ABSENT from /scan at any years/window -
+/scan is structurally near-term-only). So a "which <group> stocks" answer built from /scan never
+matches the table. Fix: `Chatbot.js` sends `opp_table_market` (+`_market_name`) and `opp_table_years`;
+`tara_gateway.run_chat_with_tools` INTERCEPTS the model's `find_best_opportunities` call and answers
+from OppList4 - if the table is already on the asked market, from the passed rows (`_rows_to_scan_cards`
++ `_filter_table_rows`); else it fetches that market's OppList4 LOOPBACK (`_opplist4_rows`, via
+`config.appserver_url`, as the logged-in user - their LTK carries the level+geo claims OppList4 needs)
+AND queues a `set_view {market}` so the table follows the names. Win-rate/winning-years/years/pe_cycle
+filters (rows can't satisfy) or a loopback failure fall back to the gateway scan. NOTE: cross-market
+loopback uses `opp_table_years` (default 12); a market whose valid lookback differs returns empty ->
+/scan fallback.
+
+**Stat-truth: a loaded setup's win rate must match its OWN per-year record (fix 2026-06-21).** Two
+compounding bugs let Tara claim "won 10 of 10 years" for an AAPL September window that really lost 6
+of 10: (a) the gateway card's `stats.historical_win_rate` was sourced from the appserver's aggregate
+Percent Profitable, which DISAGREED with the per-year rows (returned 0.6 = the loss fraction for a
+4/10 setup) - now derived from the per-year counts in `cards.py` (= wins/(wins+losses), the same
+source as the headline 'Won X/Y' and the bar chart); (b) Tara's deterministic announce-guard
+(`tara_gateway._ensure_load_named`) reused a STALE same-symbol card and read the buggy win_rate - now
+it matches the card to the loaded setup by `entry_date`, takes the win count from the card HEADLINE
+(authoritative), and REPLACES any reply whose win rate contradicts the loaded setup (a prompt rule -
+"stats are per-setup, never carried over" - backs it up). GROUND-TRUTH EVAL: `appserver/appserver/
+tara_truth_eval.py` runs Tara (single + multi-turn) and asserts every stated win-rate/avg/rank equals
+the real per-year data (the gateway card / OppList4 table) - deterministic, with a self-test proving
+it flags the original fabrication. This catches the class the old LLM-rubric, single-turn eval missed.
+
+(Source: `appserver/appserver/{chatbot,tara_gateway,AI_tools_appserver}.py`, `web-react/src/components/Chatbot.js`,
+`apiserver/{auth,tiers,provision_chatbot_key}.py`, `config.py`, `docs/TARA_GATEWAY_INTEGRATION.md`; dev .176.)
 
 ---
 

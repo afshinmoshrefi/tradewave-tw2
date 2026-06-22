@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { UserContext } from './UserContext';
-import { appserverURL, trend_chart_left_gap_days, incrementDate, themeColors } from './Common';
+import { appserverURL, trend_chart_left_gap_days, incrementDate, themeColors, getSelectedIDFromSecuritiesList2 } from './Common';
 import TrendScorePopup from './TrendScorePopup';
 import SharpeRatioPopup from './SharpeRatioPopup';
 import SeasonalPatternsPopup from './SeasonalPatternsPopup';
@@ -187,12 +187,24 @@ function Chatbot(props) {
     // Add user message to history
     const updatedHistory = [...history, { role: 'user', content: text }];
 
+    // Which market/group the opportunity table is CURRENTLY showing. Tara needs this to know
+    // whether the table already matches the group the user is asking about ("which tech
+    // stocks ..."): if it does, she answers FROM the passed rows (an exact match to what's on
+    // screen); if not, she fires update_view(market) to switch the table to that group. Without
+    // it she ran an independent, divergent scan whose names didn't match the visible table.
+    const oppMarketName = props.selectedSecurity || '';
+    const oppMarketIdRaw = getSelectedIDFromSecuritiesList2(props.securityTypeList || [], oppMarketName);
+    const oppMarketId = (oppMarketIdRaw !== -1 && oppMarketIdRaw !== '-1') ? String(oppMarketIdRaw) : '';
+
     const postData = {
       message: text,
       history: updatedHistory.slice(-20), // send last 20 turns max
       wave_viewer: buildWaveViewerContext(),
       opportunities: buildOppTableContext(),
       opp_table_length: props.oppTableLength,
+      opp_table_market: oppMarketId,
+      opp_table_market_name: oppMarketName,
+      opp_table_years: props.oppTableYears,
       token: token,
     };
 
