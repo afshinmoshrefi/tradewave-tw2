@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TradeWave home - real-UI preview v2</title>
+<!--
+  PREVIEW v2 (not the live page). Direction for replacing the CSS mock with the REAL UI, using
+  Afshin's own left/right half-crops (legible, coherent) in a narrative that mirrors using the
+  product: SEE THE EVIDENCE (hero) -> ASK -> IT SHOWS ITS WORK -> THE DEPTH.
+  Reuses the live palette/fonts/copy + the .frame component from index-dark-blue.html.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0B1220;--panel:#0F1A2E;--panel2:#13203a;--ink:#EAF0F8;--muted:#9FB0C8;--faint:#6B7A93;
+  --line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.14);--accent:#7C5CFF;--accent-soft:rgba(124,92,255,.14);--win:#3FB68B;--loss:#E5687F;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:17px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;background-image:radial-gradient(1200px 600px at 50% -10%,rgba(124,92,255,.10),transparent 60%);}
+h1,h2,h3{line-height:1.12;letter-spacing:-.01em;font-weight:700;margin:0}
+h1{font-size:clamp(2.1rem,5vw,3.6rem);font-weight:800}
+h2{font-size:clamp(1.6rem,3.4vw,2.4rem)}
+p{margin:0 0 1rem}
+a{color:var(--accent);text-decoration:none}
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.muted{color:var(--muted)}
+section{padding:80px 0;border-top:1px solid var(--line)}
+.section-sub{color:var(--muted);max-width:760px;font-size:1.05rem}
+.pv{background:#1b1330;border-bottom:1px solid var(--line2);color:#cbb8ff;font-family:'JetBrains Mono',monospace;font-size:.72rem;text-align:center;padding:8px 12px}
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(11,18,32,.72);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:28px;height:64px}
+.brand{font-weight:800;letter-spacing:-.02em;font-size:30px}.brand b{color:var(--accent)}
+.nav nav{margin-left:auto;display:flex;gap:26px;align-items:center}
+.nav nav a{color:var(--muted);font-size:.94rem;font-weight:500}
+.btn{display:inline-block;background:var(--accent);color:#fff;font-weight:600;padding:13px 22px;border-radius:10px;border:1px solid transparent;font-size:.98rem;box-shadow:0 8px 30px rgba(124,92,255,.28)}
+.btn.ghost{background:transparent;border-color:var(--line2);color:var(--ink);box-shadow:none;font-weight:500;padding:9px 16px}
+.micro{color:var(--faint);font-size:.85rem;margin-top:12px}
+.hero{text-align:center;padding:74px 0 36px;border-top:none}
+.hero h1{max-width:16ch;margin:0 auto}.hero .section-sub{margin:22px auto 0;text-align:center}
+.cta-row{margin:30px 0 6px}
+.hero-pill{display:inline-flex;align-items:center;gap:9px;margin-bottom:22px;padding:5px 14px 5px 5px;border:1px solid var(--line2);border-radius:999px;background:var(--accent-soft);color:var(--ink);font-size:.85rem;font-weight:500}
+.hero-pill .tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:3px 9px}
+.askbar{max-width:660px;margin:26px auto 0;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:7px 7px 7px 18px;text-align:left}
+.askbar .qp{color:var(--accent);font-weight:700;font-family:'JetBrains Mono',monospace}.askbar .q{flex:1;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.92rem}
+.askbar .ask{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(124,92,255,.4);border-radius:8px;padding:9px 16px;font-weight:600;font-size:.9rem}
+/* browser frame */
+.frame{border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:var(--panel);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.frame .bar{display:flex;align-items:center;gap:7px;padding:11px 14px;background:#0c1526;border-bottom:1px solid var(--line)}
+.frame .dot{width:11px;height:11px;border-radius:50%;background:#2a3550}
+.frame .url{margin-left:14px;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--faint)}
+.frame img{width:100%;display:block}
+.hero .frame{max-width:1040px;margin:34px auto 0}
+.caption{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);text-align:center;margin-top:16px}
+/* bands */
+.band{display:grid;grid-template-columns:.92fr 1.08fr;gap:56px;align-items:center;max-width:1140px;margin:0 auto}
+.band.rev .copy{order:2}
+.band .frame.portrait{max-width:420px;margin:0 auto}
+.band h2{margin-bottom:14px}.band p{color:var(--muted);font-size:1.04rem}
+.wideblock{text-align:center}.wideblock .frame{max-width:1080px;margin:26px auto 0}.wideblock .section-sub{margin:0 auto;text-align:center}
+@media(max-width:860px){.band{grid-template-columns:1fr;gap:26px}.band.rev .copy{order:0}.band .frame.portrait{max-width:520px}}
+.endcta{text-align:center}
+</style>
+</head>
+<body>
+<div class="pv">PREVIEW v2 - real UI (your left/right half-crops), narrative = see the evidence then ask then it shows its work then the depth. Not the live page; the chat crops still show pre-fix text.</div>
+
+<header class="nav"><div class="wrap">
+  <div class="brand">Trade<b>Wave</b></div>
+  <nav><a href="#">Wave Viewer</a><a href="#">Learn</a><a href="#">News</a><a href="#">Pricing</a><a href="#" class="btn ghost">Log in</a><a href="#" class="btn">Start Free</a></nav>
+</div></header>
+
+<!-- HERO: the evidence (FAST year-by-year + price with seasonal projection) -->
+<section class="hero"><div class="wrap">
+  <span class="hero-pill"><span class="tag">New</span>Now inside ChatGPT and Claude, free on every plan</span>
+  <h1>The Invisible Evidence Behind High-Probability Trades</h1>
+  <p class="section-sub">A price chart shows you a stock's past, not the seasonal moves repeating inside it. TradeWave reads decades of history to surface those patterns - a stock up in the same window 19 of the last 20 years - evidence hidden from 99% of traders, with an AI score that weighs recent data and the full history to calibrate the odds it repeats this year.</p>
+  <div class="cta-row"><a href="#" class="btn">Start Free - Full Access for 7 Days</a></div>
+  <div class="micro">No credit card. After 7 days, keep a free plan that stays useful.</div>
+  <form class="askbar" onsubmit="return false"><b class="qp">&gt;</b><span class="q">Which tech stocks tend to rise this time of year?</span><button class="ask">Ask</button></form>
+  <div class="frame" style="max-width:540px">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - Tara</span></div>
+    <img src="./ask.png" alt="Tara answers from the live ranked table, naming the top tech setups">
+  </div>
+  <div class="caption">You ask in plain English. Tara answers from the live ranked table - named setups, each with its own record.</div>
+</div></section>
+
+<!-- EVIDENCE (the right side - shown AFTER the ask/answer) -->
+<section><div class="wrap wideblock">
+  <div class="eyebrow">The evidence</div>
+  <h2 style="max-width:24ch;margin:0 auto 14px">Open Any Pick and See the Same Window, Every Year</h2>
+  <p class="section-sub">Green = profit, red = loss, a decade deep - plus where price tends to travel next, projected from the seasonal path. No black box, no hand-picked window.</p>
+  <div class="frame">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - 10-Year FAST</span></div>
+    <img src="./evidence_hero.png" alt="FAST 10-year seasonal record and price chart with this year's projection">
+  </div>
+</div></section>
+
+<!-- SHOWS ITS WORK -->
+<section><div class="wrap"><div class="band rev">
+  <div class="frame portrait">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app</span></div>
+    <img src="./shows_work.png" alt="Tara explaining why a setup ranks where it does and its 20-year record">
+  </div>
+  <div class="copy">
+    <div class="eyebrow">Shows its work</div>
+    <h2>Question Any Pick, See the Receipts</h2>
+    <p>Ask why a setup ranks where it does, or how it held over twenty years. Tara answers from that pattern's own record - the wins, the losses, the volatility - never a black-box opinion.</p>
+  </div>
+</div></div></section>
+
+<!-- DEPTH -->
+<section><div class="wrap wideblock">
+  <div class="eyebrow">Decades of depth</div>
+  <h2 style="max-width:22ch;margin:0 auto 14px">The Record, Not a Backtest Hunch</h2>
+  <p class="section-sub">Ten years, twenty years back - see every single year the pattern won or lost, and where price tends to travel next. The evidence is the product.</p>
+  <div class="frame">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - 20-Year AAPL</span></div>
+    <img src="./depth.png" alt="AAPL 20-year seasonal record and price chart with projection">
+  </div>
+</div></section>
+
+<!-- CLOSE -->
+<section><div class="wrap endcta">
+  <h2 style="max-width:24ch;margin:0 auto 18px">See the Evidence on Your Own Watchlist</h2>
+  <a href="#" class="btn">Start Free - Full Access for 7 Days</a>
+  <div class="micro">No credit card. After 7 days, keep a free plan that stays useful.</div>
+</div></section>
+</body>
+</html>

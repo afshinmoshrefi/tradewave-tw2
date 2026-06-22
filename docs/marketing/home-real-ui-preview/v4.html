@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<!--
+  TradeWave home v4 - SHORT build. Points early, pricing loud and mid-page.
+  Reuses the v3 design system VERBATIM (dark-navy + purple-neon). Hero locked.
+  Sections: nav, hero, the evidence, Tara, pricing, bring your hunches, footer.
+  Writing rules: no em-dashes (use " - "), AP Title Case headlines (no terminal
+  period), body sentence case, no competitor names, no invented stats, no
+  hardcoded prices (TODO slots), AI ranks/calibrates odds only (never predicts).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeWave - The Invisible Evidence Behind High-Probability Trades</title>
+<meta name="description" content="Seasonal market research that shows its work. TradeWave reads decades of history to surface repeating seasonal patterns, with the full per-year record and an AI score that calibrates the odds.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital@1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B1220; --panel:#0F1A2E; --panel2:#13203a; --ink:#EAF0F8; --muted:#9FB0C8;
+  --faint:#6B7A93; --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.14);
+  --accent:#7C5CFF; --accent-soft:rgba(124,92,255,.14); --win:#3FB68B; --loss:#E5687F; --grey:#5A6A82;
+  --s4:40px; --s5:64px; --s6:96px; --s7:112px; --maxw-narrow:760px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
+  font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(1100px 560px at 50% -8%, rgba(124,92,255,.12), transparent 60%),
+    radial-gradient(1400px 900px at 50% 120%, rgba(124,92,255,.05), transparent 55%),
+    radial-gradient(120% 120% at 50% 0%, transparent 60%, rgba(0,0,0,.45) 100%);
+  background-attachment:fixed;}
+h1,h2,h3{line-height:1.12;letter-spacing:-.01em;font-weight:700;margin:0}
+h1{font-size:clamp(2.1rem,5vw,3.6rem);font-weight:800}
+h2{font-size:clamp(1.6rem,3.4vw,2.5rem)}
+p{margin:0 0 1rem}
+a{color:var(--accent);text-decoration:none}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+.narrow{max-width:780px;margin-left:auto;margin-right:auto}
+.muted{color:var(--muted)}
+.faint{color:var(--faint)}
+section{padding:var(--s7) 0;border-top:1px solid var(--line)}
+@media(max-width:880px){section{padding:20px 0}
+  section[style*="padding-top:160px"],section[style*="padding-top:160px;padding-bottom:160px"]{padding-top:44px !important;padding-bottom:44px !important}
+  .close{padding:44px 0 !important}
+  .beat{margin-bottom:32px}
+  .beats{margin-top:28px}
+  .pq{margin:4px 0 28px}
+  .beat .bcrop img{aspect-ratio:auto !important}
+  /* cap the big landscape exhibits on mobile so they do not eat whole screens */
+  .frame-wrap.landscape .frame img,.frame-wrap.wide .frame img{aspect-ratio:auto !important}
+  .frame-wrap{margin-top:24px}
+  .frame-wrap.portrait{max-width:300px}
+  .frame-wrap.portrait .frame img{aspect-ratio:auto !important}
+  .hero{padding-top:28px}
+  .founder p{font-size:.96rem}
+}
+.section-sub{color:var(--muted);max-width:760px;font-size:1.05rem}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.eyebrow::before{content:"";width:22px;height:1px;background:var(--accent);opacity:.6}
+.eyebrow .n{color:var(--faint)}
+/* nav */
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(11,18,32,.55);border-bottom:1px solid transparent;transition:background .2s ease,border-color .2s ease}
+.nav.scrolled{background:rgba(11,18,32,.80);border-bottom-color:var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:28px;height:64px}
+.brand{font-weight:800;letter-spacing:-.02em;font-size:30px}
+.brand b{color:var(--accent)}
+.nav nav{margin-left:auto;display:flex;gap:26px;align-items:center}
+.nav nav a.lk{color:var(--muted);font-size:.94rem;font-weight:500}
+.nav nav a.lk:hover{color:var(--ink)}
+.btn{display:inline-block;background:var(--accent);color:#fff;font-weight:600;padding:13px 22px;border-radius:10px;
+  border:1px solid transparent;font-size:.98rem;transition:transform .12s ease,box-shadow .12s ease;box-shadow:0 8px 30px rgba(124,92,255,.28);cursor:pointer}
+.btn:hover{transform:translateY(-1px);box-shadow:0 12px 36px rgba(124,92,255,.4)}
+.btn.ghost{background:transparent;border-color:var(--line2);color:var(--ink);box-shadow:none;font-weight:500;padding:11px 18px}
+.btn.ghost:hover{border-color:var(--accent);box-shadow:none}
+.nav .btn.nav-cta{padding:9px 18px;font-size:.92rem;white-space:nowrap}
+.nav:not(.scrolled) .btn.nav-cta{background:transparent;border-color:var(--line2);color:var(--ink);box-shadow:none}
+.nav .btn.ghost{padding:9px 16px;font-size:.92rem;white-space:nowrap}
+.nav nav a.lk{white-space:nowrap}
+/* mobile nav */
+.navtoggle{display:none;margin-left:auto;width:44px;height:40px;border:1px solid var(--line2);border-radius:10px;background:transparent;cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:4px}
+.navtoggle i{display:block;width:18px;height:2px;background:var(--ink);border-radius:2px;transition:transform .2s ease,opacity .2s ease}
+.nav.open .navtoggle i:nth-child(1){transform:translateY(6px) rotate(45deg)}
+.nav.open .navtoggle i:nth-child(2){opacity:0}
+.nav.open .navtoggle i:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+.micro{color:var(--faint);font-size:.85rem;margin-top:12px}
+.lnk{font-weight:600;font-size:.9rem}
+/* hero */
+.hero{text-align:center;padding:56px 0 0;border-top:none}
+.hero h1{max-width:16ch;margin:0 auto}
+.hero .section-sub{margin:22px auto 0;text-align:center}
+.cta-row{margin:30px 0 6px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.askbar{max-width:660px;margin:30px auto 0;display:flex;align-items:center;gap:10px;background:var(--panel);
+  border:1px solid var(--line2);border-radius:12px;padding:7px 7px 7px 18px;text-align:left;transition:border-color .15s ease,box-shadow .15s ease}
+.askbar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft),0 12px 40px rgba(124,92,255,.18)}
+.askbar .qp{color:var(--accent);font-weight:700;font-family:'JetBrains Mono',monospace;flex:none}
+.askbar .q{flex:1;min-width:0;color:#EAF0F8;font-family:'JetBrains Mono',monospace;font-size:.92rem;background:transparent;border:none;outline:none;padding:0}
+.askbar .q::placeholder{color:var(--muted);opacity:1}
+.askbar .ask{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(124,92,255,.4);
+  border-radius:8px;padding:9px 16px;font-weight:600;font-size:.9rem;font-family:inherit;cursor:pointer;flex:none}
+.chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+.chip{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);border:1px solid var(--line);
+  border-radius:999px;padding:7px 14px;background:rgba(255,255,255,.02)}
+.chip.flag{opacity:.7;border-style:dashed}
+.caption{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);text-align:center;margin-top:16px;line-height:1.5}
+.hero-pill{display:inline-flex;align-items:center;gap:9px;margin-bottom:22px;padding:5px 14px 5px 5px;border:1px solid var(--line2);border-radius:999px;background:var(--accent-soft);color:var(--ink);font-size:.85rem;font-weight:500;transition:border-color .12s ease}
+.hero-pill:hover{border-color:var(--accent)}
+.hero-pill .tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:3px 9px}
+.hero-pill .arr{color:var(--accent);font-weight:700}
+/* artifact frame */
+.frame{margin:0;border:1px solid var(--line2);border-radius:16px;overflow:hidden;background:var(--panel)}
+.frame .bar{display:flex;align-items:center;gap:7px;padding:11px 14px;background:#0c1526;border-bottom:1px solid var(--line)}
+.dot{width:11px;height:11px;border-radius:50%;background:#33425c}
+.frame .url{margin-left:14px;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--faint)}
+.frame img{width:100%;height:auto;display:block}
+.frame-wrap.landscape .frame img,.frame-wrap.wide .frame img{aspect-ratio:auto}
+.frame-wrap.portrait .frame img{aspect-ratio:auto}
+.frame-wrap{position:relative;isolation:isolate;margin:34px auto 0}
+.frame-wrap::before{content:"";position:absolute;inset:-8% -6% -12% -6%;z-index:-1;
+  background:radial-gradient(60% 55% at 50% 38%, rgba(124,92,255,.20), transparent 70%);
+  filter:blur(40px);opacity:.8;pointer-events:none}
+.frame.frame--artifact{border:1px solid rgba(124,92,255,.18);
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 40px 100px -25px rgba(0,0,0,.7), 0 8px 40px rgba(124,92,255,.10)}
+.frame-wrap.dim::before{opacity:.55}
+.frame-wrap.sober::before{background:radial-gradient(60% 55% at 50% 45%, rgba(229,104,127,.14), transparent 70%);opacity:.85}
+.frame-wrap.portrait{max-width:520px}
+.frame-wrap.landscape{max-width:1080px}
+.frame-wrap.wide{max-width:1120px}
+/* connector chat (neutral assistant look, not terminal) */
+.connector{background:var(--panel)}
+.cbub{font-family:Inter,system-ui,sans-serif;font-size:.92rem;line-height:1.5;border-radius:12px;padding:12px 14px 13px;margin-bottom:12px;position:relative}
+.cbub:last-child{margin-bottom:0}
+.cbub .who{display:block;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-bottom:5px;color:var(--faint)}
+.cbub.user{background:rgba(255,255,255,.035);border:1px solid var(--line);color:var(--ink);margin-left:32px}
+.cbub.asst{background:rgba(124,92,255,.08);border:1px solid rgba(124,92,255,.22);color:var(--ink);margin-right:16px}
+.cbub.asst .who{color:var(--accent)}
+.cbub.asst b{font-weight:700}
+/* three rules band */
+.rules{display:grid;grid-template-columns:repeat(3,1fr);background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.rules div{padding:26px 30px;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;font-size:1rem;color:var(--ink)}
+.rules div+div{border-left:1px solid var(--line)}
+.rules b{color:var(--accent);margin-right:12px;font-weight:600}
+/* two-col */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:46px;align-items:center}
+.two.rev .copy{order:2}
+.band{display:grid;grid-template-columns:.92fr 1.08fr;gap:56px;align-items:center}
+.band.rev .copy{order:2}
+.panelshot{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--line2);border-radius:14px;padding:16px;box-shadow:0 24px 60px rgba(0,0,0,.4),0 1px 0 rgba(255,255,255,.04) inset}
+.opp .row{display:grid;grid-template-columns:1fr 46px 70px;gap:8px;align-items:center;font-family:'JetBrains Mono',monospace;
+  font-size:.78rem;padding:9px 4px;border-top:1px solid var(--line)}
+.opp .row.h{color:var(--faint);border-top:none}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:3px 8px;display:inline-block;margin-bottom:10px}
+.badge{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:0 7px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.pull{font-family:'JetBrains Mono',monospace;color:var(--muted);border-left:2px solid var(--accent);padding-left:14px;font-size:.92rem;margin:18px 0}
+/* mae bars (live redraw demo) */
+.mae{display:flex;gap:4px;height:152px;position:relative;align-items:flex-end;padding:0 2px}
+.mae .yr{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.mae .yr .u{display:flex;align-items:flex-end;flex:1}
+.mae .yr .u i{width:100%;border-radius:2px;background:var(--win);opacity:.92;transition:height .5s cubic-bezier(.2,.7,.2,1)}
+.mae .yr.loss .u i{background:var(--loss);opacity:.82}
+.mae-x{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--faint);margin-top:9px}
+.maewrap{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:20px 22px;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.cmd{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--accent);margin-bottom:14px}
+.cmd::before{content:"> ";color:var(--faint)}
+/* beats / thread rail */
+.beats{position:relative;margin-top:48px;padding-left:8px}
+.beats::before{content:"";position:absolute;left:14px;top:8px;bottom:8px;width:1px;background:var(--line2)}
+.beat{padding-left:40px;position:relative;margin-bottom:64px}
+.beat::before{content:"";position:absolute;left:9px;top:6px;width:11px;height:11px;border-radius:50%;background:var(--panel);border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(124,92,255,.14)}
+.beat .be{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.beat .bgrid{display:grid;grid-template-columns:.92fr 1fr;gap:40px;align-items:center}
+.beat.rev .bgrid .art{order:2}
+.beat .bcrop{border:1px solid rgba(124,92,255,.18);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px -25px rgba(0,0,0,.7)}
+.beat .bcrop img{width:100%;display:block}
+.beat .bcap{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:14px}
+.beat h3{font-size:1.25rem;margin-bottom:10px}
+.beat p{color:var(--muted);font-size:.96rem;margin:0}
+.beat.full{padding-left:40px}
+.beat.full .bigredraw{border:1px solid rgba(124,92,255,.28);border-radius:14px;padding:22px;background:linear-gradient(180deg,rgba(124,92,255,.06),transparent 50%),var(--panel);box-shadow:0 30px 80px -30px rgba(0,0,0,.7)}
+.pq{text-align:center;margin:8px 0 56px;display:flex;align-items:center;gap:22px;justify-content:center}
+.pq .rl{flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line2))}
+.pq .rl.r{background:linear-gradient(90deg,var(--line2),transparent)}
+.pq q{font-family:Newsreader,Georgia,serif;font-style:italic;font-size:clamp(1.3rem,2.6vw,1.9rem);color:var(--ink);max-width:30ch}
+.trustline{text-align:center;color:var(--faint);font-size:.9rem;max-width:760px;margin:8px auto 0}
+/* vs grid */
+.vs{display:grid;grid-template-columns:.8fr 1fr 1fr;border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-top:40px;max-width:980px;margin-left:auto;margin-right:auto}
+.vs>div{padding:18px 22px;border-top:1px solid var(--line);font-size:.92rem}
+.vs .head{border-top:none;font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase}
+.vs .head.old{color:var(--faint)}
+.vs .head.new{color:var(--accent)}
+.vs .rowlabel{font-weight:600;color:var(--ink)}
+.vs .old{color:var(--muted);border-left:1px solid var(--line)}
+.vs .new{color:var(--ink);border-left:1px solid var(--line);background:rgba(124,92,255,.05)}
+.vs .corner{border-top:none}
+.vs-close{text-align:center;color:var(--faint);margin-top:24px;font-size:.95rem}
+/* cards / desks */
+.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;transition:transform .18s ease,border-color .18s ease;box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+.card:hover{border-color:var(--line2);transform:translateY(-2px)}
+.card.mid{border-color:rgba(124,92,255,.22)}
+.card .thumb{height:64px;border-radius:8px;background:linear-gradient(120deg,#13203a,#0c1526);border:1px solid var(--line);
+  display:flex;align-items:flex-end;gap:3px;padding:8px;margin-bottom:16px}
+.card .thumb i{flex:1;background:var(--accent);opacity:.45;border-radius:1px}
+.card h3{font-size:1.05rem;margin-bottom:12px}
+.card .qq{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--ink);background:rgba(255,255,255,.03);
+  border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.card p{font-size:.92rem;color:var(--muted)}
+.card .lnk{font-size:.85rem;font-weight:600}
+.desk-note{text-align:center;color:var(--faint);margin-top:22px;font-size:.95rem}
+/* ledger */
+.ledger{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px}
+.scoretbl{font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.scoretbl .r{display:grid;grid-template-columns:1fr 90px 70px;gap:8px;padding:9px 2px;border-top:1px solid var(--line)}
+.scoretbl .r.h{color:var(--faint);border-top:none}
+.res-w{color:var(--win)} .res-l{color:var(--loss)}
+.ledger-aside{text-align:center;font-family:Newsreader,Georgia,serif;font-style:italic;font-size:1.2rem;color:var(--muted);max-width:46ch;margin:0 auto 22px}
+.prov{display:flex;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:24px;max-width:680px;margin-left:auto;margin-right:auto}
+.prov .av{width:54px;height:54px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,#2a3a5c,#0c1526);border:1px solid var(--line2);display:grid;place-items:center;font-family:Inter,sans-serif;font-weight:700;font-size:1.05rem;color:var(--muted);letter-spacing:.02em}
+.prov q{font-family:Newsreader,Georgia,serif;font-style:italic;font-size:1.05rem;color:var(--ink);display:block;margin-bottom:6px}
+.prov .by{font-size:.82rem;color:var(--faint)}
+/* pricing */
+.ribbon{text-align:center;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--muted);background:var(--accent-soft);
+  border:1px solid rgba(124,92,255,.3);border-radius:999px;padding:8px 18px;display:inline-block;margin:0 auto 22px}
+.toggle{display:flex;gap:0;justify-content:center;margin:0 auto 26px;width:fit-content;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+.toggle button{padding:9px 18px;font-size:.85rem;font-family:'JetBrains Mono',monospace;color:var(--muted);cursor:pointer;background:transparent;border:none}
+.toggle button.on{background:var(--accent);color:#fff}
+.plans{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}@media(max-width:1080px){.plans{grid-template-columns:repeat(2,1fr)}}
+.plan{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+.plan.hot{border-color:rgba(124,92,255,.55);box-shadow:0 16px 50px rgba(124,92,255,.15)}
+.plan .pn{font-weight:700;font-size:1.05rem;margin-bottom:4px}
+.plan .tag2{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--accent);letter-spacing:.1em;text-transform:uppercase}
+.plan .pr{font-size:1.7rem;font-weight:700;margin:14px 0 4px;color:var(--ink);font-family:'JetBrains Mono',monospace;min-height:36px}
+.plan .pr:empty::before{content:attr(data-fallback);font-size:1.7rem;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+/* value-statement price slot while real numbers are pending (deliberate, not a placeholder) */
+.plan .pr.soon{font-size:.92rem;font-weight:600;letter-spacing:.01em;color:var(--accent);line-height:1.3;display:flex;align-items:flex-end}
+.plan .pr .per{font-size:.8rem;font-weight:500;color:var(--faint)}
+.plan .bill{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.04em;color:var(--faint);min-height:16px;margin-bottom:6px}
+.plan p.dif{font-size:.9rem;color:var(--muted);margin:12px 0 20px;min-height:96px}
+.plan{display:flex;flex-direction:column}.plan .btn{width:100%;text-align:center;margin-top:auto}.billtoggle{display:inline-flex;background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:4px;margin:22px auto 0;gap:4px}.billtoggle button{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;color:var(--muted);background:transparent;border:none;border-radius:999px;padding:8px 20px;cursor:pointer}.billtoggle button.on{background:var(--accent);color:#fff}
+.desk-strip{margin-top:18px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;
+  padding:16px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.84rem;color:var(--muted)}
+.desk-strip b{color:var(--ink)}
+.kicker{text-align:center;color:var(--faint);margin-top:16px;font-size:.9rem}
+/* pricing band - loud, impossible-to-miss mid-page section */
+.priceband{position:relative;background:linear-gradient(180deg,rgba(124,92,255,.10),rgba(124,92,255,.02) 60%,transparent),var(--panel);
+  border-top:1px solid rgba(124,92,255,.30);border-bottom:1px solid rgba(124,92,255,.30)}
+.priceband::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(820px 380px at 50% -5%,rgba(124,92,255,.18),transparent 60%)}
+.priceband .wrap{position:relative;z-index:1}
+.priceband h2{font-size:clamp(1.9rem,4.2vw,3rem)}
+.plan .feat{list-style:none;margin:14px 0 20px;padding:0;font-size:.9rem;color:var(--muted)}
+.plan .feat li{position:relative;padding-left:22px;margin-bottom:9px;line-height:1.45}
+.plan .feat li::before{content:"";position:absolute;left:0;top:7px;width:12px;height:12px;border-radius:3px;
+  background:var(--accent-soft);border:1px solid rgba(124,92,255,.5)}
+.plan .feat li b{color:var(--ink);font-weight:600}
+/* founder */
+.founder{text-align:center;max-width:680px;margin:0 auto}
+.rule-fade{height:1px;width:120px;margin:0 auto 30px;background:linear-gradient(90deg,transparent,var(--line2),transparent)}
+.founder .fq{font-family:Newsreader,Georgia,serif;font-style:italic;font-size:clamp(1.6rem,3vw,2.2rem);color:var(--ink);margin:0 0 22px}
+.founder p{color:var(--muted)}
+.founder .by{font-size:.85rem;color:var(--faint);margin-top:16px;display:flex;align-items:center;gap:12px;justify-content:center}
+.founder .av{width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#2a3a5c,#0c1526);border:1px solid var(--line2);display:grid;place-items:center;font-family:Inter,sans-serif;font-weight:700;font-size:.82rem;color:var(--muted)}
+/* close */
+.close{text-align:center;padding:140px 0;position:relative;overflow:hidden}
+.close::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(700px 360px at 50% 30%,rgba(124,92,255,.12),transparent 65%)}
+.close h2{max-width:18ch;margin:0 auto 16px}
+.newbadge{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;background:var(--accent);color:#fff;border-radius:5px;padding:3px 8px;vertical-align:middle;margin-left:8px}
+/* footer */
+footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);font-size:.84rem;background:rgba(0,0,0,.25)}
+.foot-motif{text-align:center;color:var(--faint);font-size:.92rem;margin-bottom:36px}
+.foot-cols{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr;gap:24px;margin-bottom:32px}
+.foot-cols h4{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 14px;font-weight:600}
+.foot-cols a{display:block;color:var(--muted);font-size:.88rem;margin-bottom:9px}
+.foot-cols a:hover{color:var(--ink)}
+.foot-cols .brand{font-size:24px}
+.foot-note{border-top:1px solid var(--line);padding-top:24px;color:var(--muted);font-size:.86rem;margin-bottom:18px}
+.foot-legal{color:var(--faint);font-size:.8rem;line-height:1.6}
+/* legend swatches */
+.legend{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--muted);margin-top:8px}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+.sw.w{background:var(--win)} .sw.l{background:var(--loss)}
+/* annotations */
+.annoholder{position:relative}
+.anno{position:absolute;z-index:3;font-family:'JetBrains Mono',monospace}
+.anno-chip{background:rgba(11,18,32,.92);backdrop-filter:blur(6px);border:1px solid var(--line2);border-radius:9px;
+  padding:7px 11px;font-size:.72rem;line-height:1.35;color:var(--ink);max-width:230px;box-shadow:0 10px 30px rgba(0,0,0,.45);display:flex;gap:8px;align-items:flex-start}
+.anno-pin{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:.62rem;font-weight:700;color:#fff;flex:none;
+  background:var(--accent);box-shadow:0 0 0 4px rgba(124,92,255,.18)}
+.anno-pin.loss{background:var(--loss);box-shadow:0 0 0 4px rgba(229,104,127,.18)}
+@media(max-width:860px){.anno{display:none}}
+/* reveal motion */
+@media(prefers-reduced-motion:no-preference){
+  .reveal{opacity:0;transform:translateY(12px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}.reveal.d5{transition-delay:.40s}
+  @keyframes bloom{0%,100%{opacity:.85}50%{opacity:1}}
+  .heroblossom{animation:bloom 7s ease-in-out infinite}
+}
+@media(max-width:880px){
+  .rules,.cols3,.two,.ledger,.band,.beat .bgrid{grid-template-columns:1fr}
+  /* ledger screenshot is a supporting artifact on mobile - cap it so it does not eat a screen */
+  /* on mobile the scoretbl panel carries the ledger proof - the screenshot shows on desktop where the 2-col layout has room */
+  #ledger .frame-wrap.portrait{display:none}
+  .ledger{gap:18px}
+  /* tighten the desk cards on mobile - they stack, so trim the per-card chrome */
+  .cols3{gap:10px;margin-top:20px}
+  .card{padding:15px 18px}
+  .card h3{margin-bottom:8px}
+  .card .qq{padding:8px 10px;margin-bottom:9px}
+  .card p{margin-bottom:11px}
+  .desk-note{margin-top:14px}
+  .panelshot{padding:14px}
+  /* compact the stacked pricing cards on mobile - spacing only, tiers/prices/CTAs untouched */
+  .plan{padding:18px 20px}
+  .plan .feat{margin:10px 0 14px}
+  .plan .feat li{margin-bottom:6px}
+  .plan .pr{margin:9px 0 4px}
+  .plans{gap:12px}
+  .rules div{padding:18px 24px;font-size:.92rem}
+  .foot-cols{grid-template-columns:1fr 1fr;gap:18px 24px}
+  .foot-cols>div:first-child{grid-column:1 / -1}
+  .two.rev .copy,.band.rev .copy,.beat.rev .bgrid .art{order:0}
+  .rules div+div{border-left:none;border-top:1px solid var(--line)}
+  .plans{grid-template-columns:1fr}
+  .vs{grid-template-columns:1fr}.vs .rowlabel{font-weight:700;padding-bottom:4px}
+  .vs .old{opacity:.85;border-left:none;padding-top:6px;padding-bottom:6px}
+  .vs .new{border-left:none;padding-top:6px}
+  .vs .old::before{content:"The Old Way";display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+  .vs .new::before{content:"The TradeWave Way";display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  .vs .head,.vs .corner{display:none}
+  .navtoggle{display:flex}
+  .nav nav{position:fixed;top:64px;left:0;right:0;margin:0;flex-direction:column;align-items:stretch;gap:0;
+    background:#0b1220;backdrop-filter:blur(14px);border-bottom:1px solid var(--line);box-shadow:0 24px 60px rgba(0,0,0,.6);
+    padding:8px 24px 20px;transform:translateY(-12px);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+  .nav.open nav{transform:none;opacity:1;pointer-events:auto}
+  .nav nav a.lk{display:block;padding:13px 2px;border-bottom:1px solid var(--line);font-size:1rem;color:var(--ink)}
+  .nav nav .btn.ghost{margin-top:14px;text-align:center;padding:12px 16px;font-size:1rem}
+  .nav nav .btn.nav-cta{margin-top:10px;text-align:center;padding:13px 16px;font-size:1rem}
+  .nav:not(.scrolled) .btn.nav-cta{background:var(--accent);color:#fff;border-color:transparent}
+  .beats::before{display:none}
+  .beat{padding-left:0}.beat::before{display:none}.beat.full{padding-left:0}
+}
+/* mobile sticky CTA - keeps the primary action one tap away through the scroll */
+.stickycta{display:none}
+@media(max-width:880px){
+  .stickycta{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    gap:10px;align-items:center;justify-content:space-between;background:rgba(11,18,32,.92);backdrop-filter:blur(12px);
+    border-top:1px solid var(--line2);transform:translateY(120%);transition:transform .25s ease}
+  .stickycta.show{transform:none}
+  .stickycta .lbl{font-size:.8rem;color:var(--muted);line-height:1.2}
+  .stickycta .lbl b{color:var(--ink);display:block;font-size:.92rem}
+  .stickycta .btn{padding:11px 16px;font-size:.9rem;white-space:nowrap}
+  body{padding-bottom:0}
+}
+/* free seasonal report - band + modal */
+.fr{position:relative;overflow:hidden;background:var(--panel)}
+.fr::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(680px 300px at 50% 0,rgba(124,92,255,.10),transparent 60%)}
+.fr .wrap{position:relative;z-index:1}
+.frcard{max-width:520px;margin:30px auto 0;background:var(--bg);border:1px solid var(--line2);border-radius:16px;padding:9px 9px 9px 16px;display:flex;align-items:center;gap:9px;cursor:pointer;text-align:left;width:100%;transition:border-color .15s ease,box-shadow .15s ease,transform .12s ease}
+.frcard:hover{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft),0 16px 50px rgba(124,92,255,.16);transform:translateY(-1px)}
+.frcard .tk{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--ink);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;padding:7px 11px;flex:none}
+.frcard .plus{color:var(--faint);font-family:'JetBrains Mono',monospace;flex:none}
+.frcard .em{flex:1;min-width:0;color:var(--faint);font-family:'JetBrains Mono',monospace;font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.frcard .go{flex:none;background:var(--accent);color:#fff;border-radius:10px;padding:10px 16px;font-weight:600;font-size:.88rem;box-shadow:0 8px 30px rgba(124,92,255,.28)}
+@media(max-width:520px){.frcard{flex-wrap:wrap}.frcard .em{flex-basis:100%;order:5}.frcard .go{flex-basis:100%;text-align:center;order:6;margin-top:4px}}
+.lm-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,18,32,.72);backdrop-filter:blur(8px)}
+.lm-overlay.open{display:flex}
+.lm{position:relative;width:100%;max-width:520px;max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:16px;box-shadow:0 40px 100px -25px rgba(0,0,0,.75);background-image:linear-gradient(180deg,rgba(124,92,255,.12),transparent 140px)}
+.lm-x{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--muted);font-size:1.2rem;cursor:pointer;line-height:1;z-index:2}
+.lm-x:hover{color:var(--ink);border-color:var(--accent)}
+.lm-body{padding:30px 28px 26px}
+.lm h3{font-size:1.45rem}
+.lm-sub{color:var(--muted);font-size:.95rem;margin:10px 0 22px}
+.lm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:520px){.lm-grid{grid-template-columns:1fr}}
+.lm-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+.lm-field input{width:100%;height:46px;background:var(--bg);border:1px solid var(--line2);border-radius:10px;color:var(--ink);padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:.95rem;outline:none;transition:border-color .12s ease,box-shadow .12s ease}
+.lm-field input::placeholder{color:var(--faint)}
+.lm-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.lm-tk input{text-transform:uppercase}
+.lm-field.invalid input{border-color:rgba(229,104,127,.6)}
+.lm-field.valid input{border-color:rgba(63,182,139,.5)}
+.lm-help{font-size:.78rem;color:var(--faint);margin-top:8px}
+.lm-email{margin-top:16px}
+.lm-email input{text-transform:none;font-family:Inter,system-ui,sans-serif}
+.lm-btn{width:100%;margin-top:18px;font-size:1rem;padding:14px}
+.lm-reassure{text-align:center;font-size:.8rem;color:var(--faint);margin-top:10px}
+.lm-comp{font-size:.72rem;color:var(--faint);line-height:1.5;border-top:1px solid var(--line);padding-top:14px;margin-top:18px}
+.lm-err{color:var(--loss);font-size:.84rem;margin-top:10px}
+.lm-err:empty{display:none}
+.lm-hp{position:absolute!important;left:-9999px;width:1px;height:1px;opacity:0}
+.lm-loading,.lm-done{display:none;text-align:center;padding:18px 6px}
+.lm.state-loading .lm-form,.lm.state-done .lm-form{display:none}
+.lm.state-loading .lm-loading{display:block}
+.lm.state-done .lm-done{display:block}
+.lm-spin{width:34px;height:34px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--accent);margin:8px auto 18px;animation:lmspin .8s linear infinite}
+@keyframes lmspin{to{transform:rotate(360deg)}}
+.lm-mark{width:60px;height:60px;border-radius:50%;background:rgba(63,182,139,.12);border:1px solid rgba(63,182,139,.45);color:var(--win);display:grid;place-items:center;font-size:1.7rem;margin:0 auto 18px}
+.lm-chip{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--accent);background:var(--accent-soft);border:1px solid rgba(124,92,255,.3);border-radius:999px;padding:6px 14px;margin:14px 0}
+.lm-up{border-top:1px solid var(--line);margin-top:20px;padding-top:18px;color:var(--muted);font-size:.9rem}
+.lm-dismiss{display:inline-block;margin-top:16px;color:var(--faint);font-size:.85rem;cursor:pointer}
+.lm-dismiss:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav" id="nav"><div class="wrap">
+  <span class="brand">Trade<b>Wave</b></span>
+  <button class="navtoggle" id="navtoggle" aria-label="Open menu" aria-expanded="false"><i></i><i></i><i></i></button>
+  <nav id="navmenu">
+    <a class="lk" href="/app/">Wave Viewer</a>
+    <a class="lk" href="#tara">Tara</a>
+    <a class="lk" href="#pricing">Pricing</a>
+    <a class="lk" href="https://seasonalmarketnews.com/">News</a>
+    <a href="/login" class="btn ghost">Sign In</a>
+    <a href="/signup" class="btn nav-cta">Start Free</a>
+  </nav>
+</div></header>
+
+<!-- 01 / HERO (LOCKED - copied verbatim from v3) -->
+<section class="hero"><div class="wrap">
+  <a href="#tara" class="hero-pill reveal"><span class="tag">New</span>Ask Tara in plain English - now inside ChatGPT and Claude<span class="arr">&rarr;</span></a>
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">01</span> / Seasonal Research That Shows Its Work</div>
+  <h1 class="reveal d1">The Invisible Evidence Behind High-Probability Trades</h1>
+  <p class="section-sub reveal d2">A price chart shows a stock's past, not the seasonal moves repeating inside it - say, a window it has closed up in <span class="mono">19</span> of the last <span class="mono">20</span> years. TradeWave reads decades of history to surface those patterns, then an AI score weighs the full record to calibrate the historical odds they repeat.</p>
+  <div class="micro reveal d2" style="margin-top:14px;color:var(--faint)">Historical seasonal research, not a recommendation. Every figure opens to its per-year record.</div>
+  <form class="askbar reveal d3" action="/signup" method="get" autocomplete="off">
+    <b class="qp">&gt;</b>
+    <input class="q" name="q" type="text" maxlength="280" placeholder="Which tech stocks tend to rise this time of year?" aria-label="Ask Tara a market question">
+    <button class="ask" type="submit">See the Evidence &rarr;</button>
+  </form>
+
+  <div class="cta-row reveal d3">
+    <a href="/signup" class="btn" style="font-size:1.08rem;padding:16px 32px">Start Free - Full Access for 7 Days</a>
+  </div>
+  <div class="micro reveal d3">No credit card. Full platform for 7 days, then a free plan that never expires. <a href="#free-report" class="lnk" data-lm-open style="color:var(--muted)">Or see the seasonal record on a stock you own - free, no account &rarr;</a></div>
+</div></section>
+
+<!-- 02 / THE EVIDENCE (the point, early - first thing after the hero) -->
+<section><div class="wrap">
+  <div class="eyebrow reveal"><span class="n">02</span> / The Evidence</div>
+  <h2 class="reveal">Read the Whole Track Record at a Glance</h2>
+  <p class="section-sub reveal d1" style="margin-top:14px;color:var(--ink);font-weight:600">Open any pick and the same seasonal window is drawn across the lookback you set - ten years, twenty, or every year on record - one bar per year, counted the same way.</p>
+  <p class="section-sub reveal d1" style="margin-top:8px">Each bar pairs the move in your favor that year with the heat it put you through first - the favorable run in green, the drawdown in pink, both shown for every year, none trimmed. A pattern that won <span class="mono">13</span> of <span class="mono">20</span> reads very differently from one that won <span class="mono">19</span> of <span class="mono">20</span>. Underneath, the dashed gold line is the seasonal projection - where price has tended to travel across this window in past years, mapped onto the current one. A historical tendency, not a forecast.</p>
+  <div class="legend reveal d1"><span class="sw w"></span> Favorable run (MFE) - how far it ran in your favor &nbsp;&nbsp; <span class="sw l"></span> Drawdown (MAE) - how far against you first</div>
+  <div class="frame-wrap landscape reveal d2" style="max-width:1080px">
+    <div class="frame frame--artifact">
+      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - 10-Year FAST</span></div>
+      <img src="./evidence_hero.png" alt="10-Year FAST per-year bars, each pairing the favorable run with the drawdown, above the Fastenal price chart with this year's dashed seasonal projection" loading="eager" decoding="sync" width="1338" height="850">
+    </div>
+  </div>
+  <div class="caption">Ten years of FAST here - set the lookback to twenty, or every year on record. The run it gave you, the drawdown it cost you first, all of it left in.<br>A separate model only orders the list and calibrates the historical odds - it never predicts the outcome. SR = seasonal strength (risk-adjusted), Win% = years the window closed net positive, both computed deterministically. <a href="/methodology" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
+</div></section>
+
+<!-- 03 / YOUR STOCKS (PRIMARY free-report capture - right after the evidence beat) -->
+<section id="free-report-top" class="fr"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">03</span> / Your Stocks</div>
+  <h2 class="reveal">Now Run That Same Chart on the Stocks You Own</h2>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">You just saw how a window reads when it has closed up <span class="mono">19</span> of <span class="mono">20</span> years. Name up to three stocks you actually hold or watch and we will email you the same per-year record for each - over the next ~30, ~90, and ~120 days, across the last <span class="mono">10</span> years and every past election year, wins and losses both. No account, no card. Just the receipts on your own stocks, in your inbox in about a minute.</p>
+  <button type="button" class="frcard reveal d1" data-lm-open aria-label="Open the free seasonal report form">
+    <span class="tk">AAPL</span><span class="tk">MSFT</span><span class="plus">+</span>
+    <span class="em">you@email.com</span>
+    <span class="go">Email Me My Free Report</span>
+  </button>
+  <div class="micro reveal d1">Free forever. No account, no credit card, no obligation. One required, two optional - your report lands in your inbox in about a minute.</div>
+  <div class="reveal d1" style="font-size:.72rem;color:var(--faint);margin-top:16px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.5">Historical seasonal research for educational purposes, not a recommendation or personalized advice. Past results never guarantee future ones.</div>
+</div></section>
+
+<!-- 04 / THE LEDGER (accountability + founder provenance) -->
+<section id="ledger"><div class="wrap">
+  <div class="ledger-aside reveal">Seasonality sounds like astrology until you see twenty years of receipts.</div>
+  <div style="text-align:center">
+    <div class="eyebrow reveal" style="justify-content:center"><span class="n">04</span> / Accountability</div>
+    <h2 class="reveal">We Do Not Ask for Trust. We Publish the Ledger</h2>
+    <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600">Every pick is logged in public before the outcome - losses included, nothing removed - and it stays there for good. We would rather be audited than believed.</p>
+  </div>
+  <div class="ledger reveal d1">
+    <div class="frame-wrap portrait reveal" style="max-width:380px;margin-top:0">
+      <div class="frame frame--artifact">
+        <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - explain</span></div>
+        <img src="./shows_work.png" alt="The scorecard and explain view showing a pick's full per-year record beside its outcome" loading="lazy" decoding="async" width="575" height="850">
+      </div>
+    </div>
+    <div class="panelshot" style="box-shadow:0 24px 60px rgba(0,0,0,.4),inset 0 1px 0 rgba(63,182,139,.12)">
+      <div class="caption" style="text-align:left;margin-bottom:8px">/scorecard - illustrative sample of the live ledger</div>
+      <div class="faint mono" style="font-size:.7rem;letter-spacing:.06em;margin-bottom:10px">Each rate is measured over every resolved pick, beside a same-window buy-and-hold baseline, as of a stated date.</div>
+      <div class="scoretbl">
+        <div class="r h"><span>METRIC (resolved picks)</span><span>BASELINE</span><span>RATE</span></div>
+        <div class="r"><span>Held to close</span><span class="mono faint">vs baseline</span><span class="mono res-w">live</span></div>
+        <div class="r"><span>Reached target</span><span class="mono faint">vs baseline</span><span class="mono res-w">live</span></div>
+        <div class="r h" style="border-top:1px solid var(--line)"><span>RESOLVED PICK</span><span>LOGGED</span><span>OUTCOME</span></div>
+        <div class="r"><span>Long setup</span><span class="mono faint">before result</span><span class="res-w mono">win</span></div>
+        <div class="r"><span>Long setup</span><span class="mono faint">before result</span><span class="res-l mono">loss</span></div>
+      </div>
+      <div class="faint" style="font-size:.78rem;margin-top:12px">Illustrative sample of the live ledger - the real rates, the resolved-pick count, and the as-of date are published in full. Past results never guarantee future ones. Surfaces the evidence - never personalized advice, never a predicted outcome.</div>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:22px" class="reveal"><a href="/scorecard" class="lnk">Inspect the ledger &rarr;</a> &nbsp;&nbsp; <a href="/methodology" class="lnk">Read the methodology &rarr;</a></div>
+  <div class="prov reveal">
+    <div class="av">AM</div>
+    <div><q>Every number on this page traces back to a per-year table you can open and an audit log you can read.</q><span class="by">Afshin Moshrefi, founder, Tara Data Research LLC</span></div>
+  </div>
+</div></section>
+
+<!-- 05 / TARA - THE LEARNING CURVE, GONE -->
+<section id="tara"><div class="wrap">
+  <div class="two">
+    <div class="copy reveal">
+      <div class="eyebrow"><span class="n">05</span> / The Learning Curve, Gone</div>
+      <h2>Ask in Plain English. Skip the Manual</h2>
+      <p style="margin-top:16px;color:var(--ink);font-weight:600">Seasonal research is powerful and hard to master. Tara collapses that learning curve to near zero.</p>
+      <p class="muted">Ask for the best setups, why one ranks above another, or a stock's <span class="mono">20</span>-year record, and Tara answers from the same statistics and drives the charts for you - no manual, no syntax, real research in your first minute.</p>
+      <div class="micro" style="margin-top:18px">Tara reads the same deterministic statistics on the chart. It surfaces and explains the evidence - it never gives personalized advice or predicts an outcome. <a href="/app/" class="lnk" style="color:var(--muted)">Launch the live demo &rarr;</a></div>
+    </div>
+    <div class="frame-wrap portrait reveal d1" style="max-width:420px;margin-top:0">
+      <div class="frame frame--artifact">
+        <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - Tara</span></div>
+        <img src="./ask.png" alt="Tara answering a plain-English question with a named, ranked shortlist of tech stocks beside the live opportunity table" loading="lazy" decoding="async" width="575" height="849">
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- 06 / PRICING (LOUD, mid-page, impossible to miss) -->
+<section id="pricing" class="priceband"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">06</span> / Pricing</div>
+  <h2 class="reveal">Start Free. Upgrade When You Are Ready</h2>
+  <p class="kicker reveal d1" style="margin-top:14px">Every signup starts with 7 days of the full platform, then a free plan that never expires. Same engine and same public record on every tier - no card to start, cancel anytime.</p>
+  <div class="billtoggle reveal d1"><button type="button" data-period="monthly" class="on">Monthly</button><button type="button" data-period="yearly">Yearly</button></div>
+  <div class="plans" style="text-align:left;margin-top:22px">
+    <div class="plan reveal d1">
+      <div class="pn">Explorer</div><div class="tag2">For getting started</div>
+      <div class="pr" data-m="Free" data-y="Free">Free</div>
+      <div class="bill">no card, ever</div>
+      <ul class="feat">
+        <li><b>One free pick</b> every day</li>
+        <li>Plain-English questions to <b>Tara</b></li>
+        <li>The full <b>per-year record</b> on your starting market</li>
+      </ul>
+      <a class="btn ghost" href="/signup">Start Free</a>
+    </div>
+    <div class="plan reveal d2">
+      <div class="pn">Navigator</div><div class="tag2">For the focused hunt</div>
+      <div class="pr" data-m="$19" data-y="$15">$19<span class="per">/mo</span></div>
+      <div class="bill" data-m="billed monthly" data-y="$180 billed yearly">billed monthly</div>
+      <ul class="feat">
+        <li>Hunt across <b><span class="mono">3</span> core markets</b> - Dow, Nasdaq, S&amp;P 500</li>
+        <li><b>AI score on all three</b>, start date unlocked</li>
+        <li>The full <b>per-year record</b> on every pattern</li>
+      </ul>
+      <a class="btn ghost" href="/signup">Start Free - 7 Days</a>
+    </div>
+    <div class="plan reveal d3">
+      <div class="pn">Analyst</div><div class="tag2">For active traders</div>
+      <div class="pr" data-m="$47" data-y="$33">$47<span class="per">/mo</span></div>
+      <div class="bill" data-m="billed monthly" data-y="$399 billed yearly">billed monthly</div>
+      <ul class="feat">
+        <li><b>US stocks, indices and ETFs</b> - the full ranked scan</li>
+        <li>Set <b>any start date and lookback</b> you want</li>
+        <li><b>Manual PE-cycle</b> (election-year) filtering</li>
+        <li><b>Seasonal Market News</b> and <span class="mono">5</span> watchlists</li>
+      </ul>
+      <a class="btn ghost" href="/signup">Start Free - 7 Days</a>
+    </div>
+    <div class="plan hot reveal d3">
+      <div class="pn">Strategist <span class="tag2" style="color:#fff;background:var(--accent);border-radius:5px;padding:2px 7px;letter-spacing:.08em">Most chosen</span></div><div class="tag2">For desks &amp; pros</div>
+      <div class="pr" data-m="$129" data-y="$99">$129<span class="per">/mo</span></div>
+      <div class="bill" data-m="billed monthly" data-y="$1,188 billed yearly">billed monthly</div>
+      <ul class="feat">
+        <li>Everything in Analyst, plus <b>all <span class="mono">15</span> markets</b> - futures, forex, bonds, global, crypto</li>
+        <li><b>Automatic election-cycle (PE) discovery</b>, not just manual</li>
+        <li><b>CSV export</b>, on-demand research reports and deep links</li>
+        <li><span class="mono">50</span> watchlists and <b>premium support</b></li>
+      </ul>
+      <a class="btn" href="/signup">Start Free - 7 Days</a>
+    </div>
+  </div>
+  <div class="kicker reveal" style="margin-top:20px">The same deterministic engine and public record inside ChatGPT, Claude, or any MCP assistant - plus a documented REST API with Python and TypeScript SDKs, multi-seat keys, SSO and audit. Funds and enterprise can license the pattern file, the model, and the API. <a href="mailto:hello@tradewave.ai?subject=Funds%20%26%20Enterprise" class="lnk">Talk to us &rarr;</a></div>
+</div></section>
+
+<!-- 07 / WHO IT'S FOR / THREE DESKS -->
+<section id="desks"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">07</span> / Who It's For</div>
+  <h2 class="reveal">Whoever's Asking, It Bends to You</h2>
+  <p class="section-sub reveal d1" style="margin:12px auto 0;text-align:center">Same engine for a fund running a thousand backtests and a trader testing one window.</p>
+  <div class="cols3" style="text-align:left">
+    <div class="card reveal d1">
+      <h3>New and Independent Traders</h3>
+      <div class="qq">"What's seasonal in tech right now?"</div>
+      <p>Just ask Tara, get a named ranked answer, no manual. Real research in your first minute, on the same statistics the pros read.</p>
+      <a class="lnk" href="#pricing">Start free &rarr;</a>
+    </div>
+    <div class="card mid reveal d2">
+      <h3>Professionals, Quants and RIAs</h3>
+      <div class="qq">"Strongest 30 to 60 day windows across all markets, ranked by Sharpe"</div>
+      <p>Built for a desk, not a demo: the full per-year record, manual PE-cycle filtering, and CSV. Auditable down to the year, so you can defend every call.</p>
+      <a class="lnk" href="#pricing">See Analyst / Strategist &rarr;</a>
+    </div>
+    <div class="card reveal d3">
+      <h3>Funds and Enterprise</h3>
+      <div class="qq">"Your agent can write a backtest; it cannot make it true"</div>
+      <p>License the pattern file, the model, and the REST API. The same deterministic engine and public record in your own stack, with multi-seat keys, SSO and audit.</p>
+      <a class="lnk" href="mailto:hello@tradewave.ai?subject=Funds%20%26%20Enterprise">Talk to us &rarr;</a>
+    </div>
+  </div>
+  <div class="desk-note reveal">Not different products - the same engine, the same receipts, priced to the job in front of you.</div>
+</div></section>
+
+<!-- 08 / YOUR STOCKS (slim late re-offer of the free report) -->
+<section id="free-report-band" class="fr"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">08</span> / Before You Go</div>
+  <h2 class="reveal">Take the Seasonals With You, Free</h2>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">Name up to three stocks you hold and we will email you each one's full per-year seasonal record - the last <span class="mono">10</span> years and every past election year, no account needed.</p>
+  <button type="button" class="frcard reveal d1" data-lm-open aria-label="Open the free seasonal report form">
+    <span class="tk">AAPL</span><span class="tk">MSFT</span><span class="plus">+</span>
+    <span class="em">you@email.com</span>
+    <span class="go">Email Me My Free Report</span>
+  </button>
+  <div class="micro reveal d1">Free forever. No credit card, no signup, no obligation. Just your report, in your inbox in about a minute.</div>
+  <div class="reveal d1" style="font-size:.72rem;color:var(--faint);margin-top:16px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.5">Historical seasonal research for educational purposes, not a recommendation or personalized advice. Past results never guarantee future ones.</div>
+</div></section>
+
+<!-- 09 / BRING YOUR HUNCHES (CLOSE) -->
+<div class="close"><div class="wrap">
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">09</span> / Bring Your Hunches</div>
+  <h2 class="reveal">Bring a Hunch. Leave With the Receipts</h2>
+  <p class="section-sub reveal d1" style="margin:0 auto 22px;text-align:center">Bring a ticker, a calendar window, a gut feel you have carried for years. TradeWave shows you the seasonal evidence for it or against it, every year of it, with Tara beside the chart.</p>
+  <div class="cta-row reveal">
+    <a href="/signup" class="btn" style="font-size:1.08rem;padding:16px 32px">Start Free - Full Access for 7 Days</a>
+  </div>
+  <div class="micro reveal">No credit card. Full platform for 7 days, then a free plan that never expires. &nbsp;<a href="/app/" class="lnk" style="color:var(--muted)">Launch the live demo &rarr;</a></div>
+</div></div>
+
+<!-- MOBILE STICKY CTA -->
+<div class="stickycta" id="stickycta">
+  <span class="lbl"><b>Start free</b>Full platform, 7 days, no card</span>
+  <a href="/signup" class="btn">Start Free &rarr;</a>
+</div>
+
+<!-- FOOTER -->
+<footer><div class="wrap">
+  <div class="foot-motif">Most tools hand you an opinion. TradeWave hands you the receipts.</div>
+  <div class="foot-cols">
+    <div>
+      <span class="brand">Trade<b>Wave</b></span>
+      <p class="faint" style="font-size:.82rem;margin-top:12px">Seasonal market research that shows its work.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <a href="/app/">Wave Viewer</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#tara">Tara</a>
+      <a href="https://seasonalmarketnews.com/">News</a>
+      <a href="/scorecard">Scorecard</a>
+      <a href="/methodology">Methodology</a>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <a href="/about">About</a>
+      <a href="mailto:hello@tradewave.ai">Contact</a>
+    </div>
+    <div>
+      <h4>Developers</h4>
+      <a href="/developers">API &amp; MCP</a>
+      <a href="/developers">Developer Portal</a>
+      <a href="/developers">SDKs</a>
+    </div>
+    <div>
+      <h4>Legal</h4>
+      <a href="/terms.html">Terms</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/disclaimer.html">Disclaimer</a>
+    </div>
+  </div>
+  <div class="foot-note">TradeWave is available inside ChatGPT, Claude, and any MCP-capable assistant. Sign in with your account and ask in plain English - the same deterministic engine and the same public record, wherever you work.</div>
+  <p class="foot-legal">TradeWave is an educational research platform. Tara Data Research LLC is not a registered investment adviser or broker-dealer, and nothing on this page is a recommendation, solicitation, or offer to buy or sell any security. It does not execute trades and does not provide personalized investment advice. All data is historical and for informational and educational purposes only. Past results never guarantee future ones. The seasonal statistics are deterministic and the AI model is used only to rank; it does not predict outcomes.</p>
+  <p class="foot-legal" style="margin-top:14px">&copy; 2026 Tara Data Research LLC. All rights reserved.</p>
+</div></footer>
+
+<script>
+(function(){
+  // nav scroll state
+  var nav = document.getElementById('nav');
+  function onScroll(){ if(window.scrollY > 8){ nav.classList.add('scrolled'); } else { nav.classList.remove('scrolled'); } }
+  window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
+
+  // mobile nav toggle
+  var navToggle = document.getElementById('navtoggle');
+  if(navToggle){
+    navToggle.addEventListener('click', function(){
+      var open = nav.classList.toggle('open');
+      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.querySelectorAll('#navmenu a').forEach(function(a){
+      a.addEventListener('click', function(){ nav.classList.remove('open'); navToggle.setAttribute('aria-expanded','false'); });
+    });
+  }
+
+  // mobile sticky CTA: appears after the hero, hides over the final close CTA
+  var sticky = document.getElementById('stickycta');
+  var closeEl = document.querySelector('.close');
+  function onSticky(){
+    if(!sticky) return;
+    var past = window.scrollY > (window.innerHeight * 0.9);
+    var nearEnd = closeEl && closeEl.getBoundingClientRect().top < window.innerHeight;
+    if(past && !nearEnd){ sticky.classList.add('show'); } else { sticky.classList.remove('show'); }
+  }
+  window.addEventListener('scroll', onSticky, {passive:true}); onSticky();
+
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // reveal on scroll
+  var revs = document.querySelectorAll('.reveal');
+  if(reduce){ revs.forEach(function(el){ el.classList.add('in'); }); }
+  else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, {threshold:0.12, rootMargin:'0px 0px -8% 0px'});
+    revs.forEach(function(el){ io.observe(el); });
+    // hero reveals fire on load (above fold)
+    window.addEventListener('load', function(){
+      document.querySelectorAll('.hero .reveal').forEach(function(el){ el.classList.add('in'); });
+    });
+    setTimeout(function(){ document.querySelectorAll('.hero .reveal').forEach(function(el){ el.classList.add('in'); }); }, 60);
+  }
+})();
+</script>
+<script>document.querySelectorAll(".billtoggle button").forEach(function(btn){btn.addEventListener("click",function(){var per=btn.getAttribute("data-period");document.querySelectorAll(".billtoggle button").forEach(function(b){b.classList.toggle("on",b===btn)});document.querySelectorAll(".plan").forEach(function(p){var pr=p.querySelector(".pr");if(pr){var v=per==="yearly"?pr.dataset.y:pr.dataset.m;if(v)pr.innerHTML=(v==="Free")?"Free":v+'<span class="per">/mo</span>';}var bill=p.querySelector(".bill[data-m]");if(bill)bill.textContent=per==="yearly"?bill.dataset.y:bill.dataset.m;});});});</script>
+
+<!-- FREE SEASONAL REPORT - MODAL -->
+<div class="lm-overlay" id="lmOverlay" role="dialog" aria-modal="true" aria-labelledby="lmTitle">
+  <div class="lm state-form" id="lm">
+    <button class="lm-x" id="lmClose" type="button" aria-label="Close">&times;</button>
+    <div class="lm-body">
+      <!-- (b) FORM -->
+      <div class="lm-form">
+        <div class="eyebrow">Free / Seasonal Report</div>
+        <h3 id="lmTitle">Your Stocks, Their Seasonal Track Record</h3>
+        <p class="lm-sub">One required ticker, two optional, one email. You get each stock's full per-year seasonal record - the last <span class="mono">10</span> years and every past election year - over the next ~30, ~90, and ~120 days, in about a minute. The historical record only, every year of it, none trimmed.</p>
+        <form id="lmForm" autocomplete="off" novalidate>
+          <div class="lm-grid">
+            <div class="lm-field lm-tk"><label>Ticker 1</label><input name="t1" maxlength="8" placeholder="AAPL" aria-label="Ticker 1"></div>
+            <div class="lm-field lm-tk"><label>Ticker 2 - optional</label><input name="t2" maxlength="8" placeholder="MSFT" aria-label="Ticker 2, optional"></div>
+            <div class="lm-field lm-tk"><label>Ticker 3 - optional</label><input name="t3" maxlength="8" placeholder="NVDA" aria-label="Ticker 3, optional"></div>
+          </div>
+          <div class="lm-help">US stocks, indices and ETFs. One per box - the first one is all you need.</div>
+          <div class="lm-field lm-email"><label>Where should we send it</label><input name="email" type="email" placeholder="you@email.com" aria-label="Your email"></div>
+          <div class="lm-help">One report. We will not sell your address or flood your inbox.</div>
+          <input class="lm-hp" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <div class="lm-err" id="lmErr" role="alert"></div>
+          <button class="btn lm-btn" type="submit">Email Me My Free Report &rarr;</button>
+          <div class="lm-reassure">No account, no credit card, about a minute.</div>
+          <div class="lm-comp">Historical seasonal research for educational purposes - not investment advice, a recommendation, or an offer to buy or sell any security. Figures are the historical record only; past results never guarantee future ones. We email you the report and occasional product updates; unsubscribe anytime.</div>
+        </form>
+      </div>
+      <!-- (c) SUBMITTING -->
+      <div class="lm-loading">
+        <div class="lm-spin"></div>
+        <div class="mono" style="color:var(--accent);font-size:.9rem">One moment</div>
+        <p class="muted" style="margin:8px 0 0">Checking your tickers and sending your confirmation link.</p>
+      </div>
+      <!-- (d) CONFIRMATION -->
+      <div class="lm-done">
+        <div class="lm-mark">&#10003;</div>
+        <h3>Check Your Inbox to Confirm</h3>
+        <p class="muted" id="lmDoneBody" style="margin:10px 0 0">We just sent a confirmation link to your inbox. Click it and your full report is on its way - usually within a couple of minutes.</p>
+        <div class="lm-chip" id="lmDoneChip">Confirmation sent to your inbox</div>
+        <p class="faint" style="font-size:.82rem;margin:0">Do not see it soon? Check spam or promotions and mark it "not spam" so the next one lands straight in.</p>
+        <div class="lm-up">Want these patterns live - change the window, stretch the lookback, and ask Tara in plain English? Your account starts with 7 days of the full platform, no card.
+          <div style="margin-top:14px"><a class="btn ghost" href="/signup">Start Free - Full Access for 7 Days</a></div>
+          <div class="micro" style="margin-top:10px">No credit card. Then a free plan that never expires.</div>
+        </div>
+        <div class="lm-comp" style="margin-top:14px">Historical seasonal research, not advice or a recommendation. Past results never guarantee future ones.</div>
+        <span class="lm-dismiss" id="lmDismiss" role="button" tabindex="0">Done</span>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var ov=document.getElementById('lmOverlay'), lm=document.getElementById('lm'),
+      form=document.getElementById('lmForm'), err=document.getElementById('lmErr'), prevFocus=null,
+      // PREVIEW-ONLY demo (active on the /home-ui-preview/ path or file://): simulate a successful
+      // send so all states are walkable. Strip this branch when porting into the served home template.
+      LM_DEMO=location.protocol==='file:'||/(^|\.)(localhost|127\.0\.0\.1)$/.test(location.hostname)||/home-ui-preview/.test(location.pathname);
+  function openLM(){ prevFocus=document.activeElement; ov.classList.add('open'); lm.className='lm state-form'; document.body.style.overflow='hidden';
+    if(location.hash!=='#free-report'){ history.replaceState(null,'','#free-report'); }
+    var f=form.querySelector('input[name=t1]'); if(f){ setTimeout(function(){ f.focus(); }, 40); } }
+  function closeLM(){ ov.classList.remove('open'); document.body.style.overflow='';
+    if(location.hash==='#free-report'){ history.replaceState(null,'',location.pathname+location.search); }
+    if(prevFocus && prevFocus.focus){ try{ prevFocus.focus(); }catch(e){} } }
+  document.querySelectorAll('[data-lm-open]').forEach(function(el){ el.addEventListener('click',function(e){ e.preventDefault(); openLM(); }); });
+  document.getElementById('lmClose').addEventListener('click', closeLM);
+  document.getElementById('lmDismiss').addEventListener('click', closeLM);
+  ov.addEventListener('click', function(e){ if(e.target===ov){ closeLM(); } });
+  document.getElementById('lmDismiss').addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); closeLM(); } });
+  document.addEventListener('keydown', function(e){
+    if(!ov.classList.contains('open')){ return; }
+    if(e.key==='Escape'){ closeLM(); return; }
+    if(e.key==='Tab'){
+      var f=Array.prototype.filter.call(lm.querySelectorAll('button,[href],input,[tabindex]:not([tabindex="-1"])'), function(el){ return el.offsetParent!==null; });
+      if(!f.length){ return; }
+      var first=f[0], last=f[f.length-1];
+      if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+    }
+  });
+  if(location.hash==='#free-report'){ openLM(); }
+  function flag(input,msg){ input.parentNode.classList.add('invalid'); err.textContent=msg; input.focus(); }
+  form.addEventListener('submit', function(e){
+    e.preventDefault(); err.textContent='';
+    form.querySelectorAll('.lm-field').forEach(function(f){ f.classList.remove('invalid','valid'); });
+    if(form.company.value){ lm.className='lm state-done'; return; } // honeypot
+    var ins=[form.t1,form.t2,form.t3];
+    var seen={}, clean=[];
+    ins.forEach(function(i){ var v=i.value.trim().toUpperCase(); if(v && !seen[v]){ seen[v]=1; clean.push(v); i.parentNode.classList.add('valid'); } });
+    var email=form.email.value.trim();
+    if(!clean.length){ flag(form.t1,'Add at least one ticker so we have something to run.'); return; }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ flag(form.email,'Enter a valid email so we can send your report.'); return; }
+    lm.className='lm state-loading';
+    function done(){
+      document.getElementById('lmDoneBody').textContent='We just sent a confirmation link to '+email+'. Click it and your full report on '+clean.join(', ')+' is on its way - usually within a couple of minutes.';
+      document.getElementById('lmDoneChip').textContent='Confirmation sent to '+email;
+      lm.className='lm state-done'; lm.scrollTop=0;
+    }
+    function fail(){ lm.className='lm state-form';
+      err.textContent='Something on our end hiccuped and the report did not go out. Try once more, or email support@tradewave.ai and we will run it by hand.'; }
+    var GEN='Something on our end hiccuped and the report did not go out. Try once more, or email support@tradewave.ai and we will run it by hand.';
+    fetch('/api/lead-report',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({tickers:clean,email:email,company:'',source:'home_free_report'})})
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(b){ return {ok:r.ok,body:b}; }); })
+      .then(function(res){
+        if(res.ok && res.body.ok){ done(); return; }
+        if(LM_DEMO){ setTimeout(done, 950); return; }
+        lm.className='lm state-form';
+        var er=res.body.error;
+        if(er==='email_invalid'){ flag(form.email,'Enter a valid email so we can send your report.'); }
+        else if(er==='tickers_invalid'){ flag(form.t1,'Add at least one ticker so we have something to run.'); }
+        else if(er==='no_coverage'){ var nc=(res.body.not_covered||[]).join(', ');
+          flag(form.t1, nc ? ('We do not see '+nc+' in our 15 markets yet - try a US stock, index, or ETF.') : 'We do not cover those yet - try a US stock, index, or ETF.'); }
+        else { err.textContent=GEN; }
+      })
+      .catch(function(){ if(LM_DEMO){ setTimeout(done, 950); } else { lm.className='lm state-form'; err.textContent=GEN; } });
+  });
+})();
+</script>
+</body>
+</html>

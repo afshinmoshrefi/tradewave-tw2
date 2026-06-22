@@ -186,6 +186,58 @@ class SupportTicket(Base):
     )
 
 
+class EmailLead(Base):
+    """Top-of-funnel email capture - the free personalized seasonal report
+    (web/seasonal_report.py + the /api/lead-report route). The DB row is the
+    canonical record (CAN-SPAM consent proof); the emailed report is best-effort
+    and built/sent in a background thread. NO public_id / sequence / trigger -
+    this is a lightweight lead, not a ticketed support case.
+    """
+    __tablename__ = "email_leads"
+    id          = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    # NULL for anonymous (funnel) captures; set for logged-in users so their quota is
+    # counted by account (IP-proof) and scales with tier. SET NULL keeps leads on delete.
+    user_id     = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    email       = Column(Text, nullable=False)
+    # uppercased symbols the visitor asked about (stable storage = a JSON list, mirrors enrichment).
+    tickers     = Column(JSONB)
+    source      = Column(Text)   # stable storage-ID string, e.g. 'home_free_report'
+    # DOUBLE OPT-IN lifecycle: pending_confirm = confirm email sent, awaiting the click;
+    # sent = report emailed after confirm; failed = build/send error; spam = rate-limited;
+    # expired = confirm link aged out (7d) unclicked.
+    status        = Column(Text, nullable=False, server_default=sa_text("'pending_confirm'"))
+    confirm_token = Column(Text, unique=True)        # opaque URL-safe token in the confirm link
+    confirmed_at  = Column(TIMESTAMP(timezone=True))  # set when the user clicks the confirm link
+    # snapshot captured at send: {covered:[...], not_covered:[...], as_of:'YYYY-MM-DD'}.
+    detail      = Column(JSONB)
+    user_agent  = Column(Text)
+    ip_hash     = Column(Text)   # sha256(ip + per-env salt); NEVER store raw IP
+    created_at  = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    sent_at     = Column(TIMESTAMP(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending_confirm','sent','failed','spam','expired')",
+            name="email_leads_status_check",
+        ),
+        Index("ix_email_leads_created_at", "created_at"),
+        Index("ix_email_leads_email", "email"),
+        Index("ix_email_leads_user_id", "user_id"),
+    )
+
+
+class EmailOptout(Base):
+    """Suppression list - the SINGLE source of truth for unsubscribes across BOTH
+    Resend (the report sends) and MailerLite. Any send to a suppressed email is
+    skipped. Populated by the /unsubscribe endpoint (the in-email link + the Gmail
+    one-click POST) and by the MailerLite unsubscribe webhook, so an opt-out from
+    either system stops both."""
+    __tablename__ = "email_optouts"
+    email           = Column(Text, primary_key=True)   # lowercased
+    unsubscribed_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    source          = Column(Text)   # 'link' | 'one_click' | 'mailerlite_webhook'
+
+
 # ---------------------------------------------------------------------------
 # Affiliate program (manual promo-code model). See web/affiliate_service.py and
 # the AffiliateAdmin / AffiliatePayoutAdmin Flask-Admin views in web/app.py.

@@ -907,6 +907,400 @@ def api_contact():
         s.close()
 
 
+# ------------------------------------------------------------
+# /api/lead-report - free personalized seasonal report (lead magnet)
+# Mirrors the /api/contact stack (honeypot + per-IP rate limit + DB-canonical +
+# best-effort email) but the report is BUILT + SENT in a background thread so
+# the worker returns immediately. Historical record only - no forward claims.
+# ------------------------------------------------------------
+# Free seasonal-report quota by tier: (day, week). 'anon' = the top-of-funnel cap for
+# not-logged-in visitors; logged-in subscribers get the same feature with more room (an
+# upgrade lever). Anonymous is counted by ip_hash; logged-in by user_id (IP-proof).
+# Keyed by effective_tier(); tune freely.
+LEAD_REPORT_QUOTAS = {
+    "anon":       {"day": 2,  "week": 5},
+    "explorer":   {"day": 5,  "week": 15},
+    "navigator":  {"day": 10, "week": 30},
+    "analyst":    {"day": 20, "week": 60},
+    "strategist": {"day": 50, "week": 150},
+}
+
+
+# --- unsubscribe: signed token + the shared suppression list (Resend + MailerLite) ---
+def _unsub_secret():
+    # no source-visible fallback: an empty key would let anyone forge unsub tokens.
+    sec = getattr(config, "API_KEY_HMAC_SECRET", "") or ""
+    if not sec:
+        raise RuntimeError("API_KEY_HMAC_SECRET is empty; refusing to mint/verify unsub tokens")
+    return sec.encode("utf-8")
+
+
+def make_unsub_token(email):
+    import hmac, hashlib, base64
+    e = (email or "").strip().lower()
+    sig = hmac.new(_unsub_secret(), e.encode("utf-8"), hashlib.sha256).digest()[:18]
+    b = lambda raw: base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+    return b(e.encode("utf-8")) + "." + b(sig)
+
+
+def verify_unsub_token(token):
+    import hmac, hashlib, base64
+    try:
+        e_b64, sig_b64 = (token or "").split(".", 1)
+        pad = lambda s: s + "=" * (-len(s) % 4)
+        email = base64.urlsafe_b64decode(pad(e_b64)).decode("utf-8").strip().lower()
+        sig = base64.urlsafe_b64decode(pad(sig_b64))
+        expected = hmac.new(_unsub_secret(), email.encode("utf-8"), hashlib.sha256).digest()[:18]
+        if hmac.compare_digest(sig, expected):
+            return email
+    except Exception:
+        pass
+    return None
+
+
+def _unsub_url(email):
+    base = (getattr(config, "tw2_public_url", "") or "").rstrip("/")
+    return "%s/unsubscribe?token=%s" % (base, make_unsub_token(email))
+
+
+def _is_suppressed(email):
+    from models import EmailOptout
+    s = DBSession()
+    try:
+        return s.get(EmailOptout, (email or "").strip().lower()) is not None
+    except Exception as e:
+        # fail CLOSED: on a DB error treat as suppressed. A missed marketing email is
+        # harmless; mailing a real opt-out is a CAN-SPAM violation. (Only the report
+        # worker calls this, so a transient blip just defers that one send.)
+        log.warning("suppression check failed for %s (failing closed): %s", email, e)
+        return True
+    finally:
+        s.close()
+
+
+def _suppress(email, source):
+    from models import EmailOptout
+    from sqlalchemy.dialects.postgresql import insert as _pg_insert
+    e = (email or "").strip().lower()
+    if not e:
+        return
+    s = DBSession()
+    try:
+        # race-free idempotent upsert (concurrent link GET + Gmail POST + dup webhooks)
+        s.execute(_pg_insert(EmailOptout).values(email=e, source=source)
+                  .on_conflict_do_nothing(index_elements=["email"]))
+        s.commit()
+    except Exception as ex:
+        s.rollback(); log.warning("suppress failed for %s: %s", e, ex)
+    finally:
+        s.close()
+
+
+def _update_lead(lead_id, status, detail=None, sent=False):
+    """Best-effort status/detail update on an EmailLead row (called from the
+    background worker thread)."""
+    import uuid as _uuid
+    from models import EmailLead
+    s = DBSession()
+    try:
+        lead = s.get(EmailLead, _uuid.UUID(str(lead_id)))
+        if not lead:
+            return
+        lead.status = status
+        if detail is not None:
+            lead.detail = detail
+        if sent:
+            lead.sent_at = func.now()
+        s.commit()
+    except Exception as e:
+        s.rollback()
+        log.warning("update_lead failed lead=%s: %s", lead_id, e)
+    finally:
+        s.close()
+
+
+@app.route("/api/lead-report", methods=["POST"])
+@csrf.exempt  # anonymous lead capture; abuse gate is honeypot + per-IP rate limit, not CSRF
+def api_lead_report():
+    import re as _re
+    import threading
+    from contact_form import hash_ip
+    from models import EmailLead
+
+    data = request.get_json(silent=True) or {}
+
+    # Honeypot: hidden 'company' field humans never fill in -> fake-200 for bots.
+    if (data.get("company") or "").strip():
+        log.info("api_lead_report honeypot tripped ip=%s", _client_ip())
+        return jsonify({"ok": True}), 200
+
+    email  = (data.get("email") or "").strip().lower()
+    raw    = data.get("tickers") or []
+    if isinstance(raw, str):
+        raw = [raw]
+    source = (data.get("source") or "home_free_report").strip()[:60]
+
+    # Normalize: uppercase, ticker-safe chars only, dedupe, cap at 3.
+    seen, tickers = set(), []
+    for t in raw:
+        sym = _re.sub(r"[^A-Z0-9.\-]", "", (t or "").strip().upper())
+        if sym and sym not in seen:
+            seen.add(sym); tickers.append(sym)
+        if len(tickers) == 3:
+            break
+
+    if not email or "@" not in email or len(email) > 320:
+        return jsonify({"ok": False, "error": "email_invalid"}), 400
+    if not tickers:
+        return jsonify({"ok": False, "error": "tickers_invalid"}), 400
+
+    ip        = _client_ip()
+    ip_hashed = hash_ip(ip)
+    ua        = (request.headers.get("User-Agent") or "")[:500]
+    user      = get_current_user()
+    tier      = effective_tier(user) if user is not None else "anon"
+    quota     = LEAD_REPORT_QUOTAS.get(tier, LEAD_REPORT_QUOTAS["anon"])
+
+    # Tiered day + week quota -> over EITHER window = store as spam (still a signal),
+    # no email. Logged-in users are counted by user_id (IP-proof, scales with tier);
+    # anonymous by ip_hash. 'spam' rows do not count toward the quota.
+    status = "requested"
+    s = DBSession()
+    try:
+        base = select(func.count(EmailLead.id)).where(EmailLead.status != "spam")
+        if user is not None:
+            base = base.where(EmailLead.user_id == user.id)
+        elif ip_hashed:
+            base = base.where(EmailLead.ip_hash == ip_hashed)
+        else:
+            base = None
+        if base is not None:
+            day_n  = s.execute(base.where(EmailLead.created_at > func.now() - timedelta(days=1))).scalar() or 0
+            week_n = s.execute(base.where(EmailLead.created_at > func.now() - timedelta(days=7))).scalar() or 0
+            if day_n >= quota["day"] or week_n >= quota["week"]:
+                status = "spam"
+                log.warning("api_lead_report quota hit tier=%s id=%s day=%s/%s week=%s/%s",
+                            tier, (str(user.id) if user is not None else (ip_hashed or "")[:12]),
+                            day_n, quota["day"], week_n, quota["week"])
+    finally:
+        s.close()
+
+    # Spam path: store the row (still a useful signal) and return 200 so the
+    # rate limit stays invisible to the bot. No coverage call, no email.
+    if status == "spam":
+        s = DBSession()
+        try:
+            s.add(EmailLead(email=email, tickers=tickers, source=source,
+                            status="spam", user_agent=ua, ip_hash=ip_hashed,
+                            user_id=(user.id if user is not None else None)))
+            s.commit()
+        except Exception as e:
+            s.rollback(); log.warning("api_lead_report spam insert failed: %s", e)
+        finally:
+            s.close()
+        return jsonify({"ok": True}), 200
+
+    # Resolve coverage synchronously (cheap) so we never promise an email we
+    # cannot build. All-uncovered -> 400 the modal surfaces inline.
+    import seasonal_report
+    try:
+        cov = seasonal_report.resolve_coverage(tickers)
+    except Exception as e:
+        log.exception("api_lead_report coverage resolve failed: %s", e)
+        return jsonify({"ok": False, "error": "server_error"}), 500
+    if not cov["covered"]:
+        return jsonify({"ok": False, "error": "no_coverage",
+                        "not_covered": cov["not_covered"]}), 400
+
+    # DOUBLE OPT-IN: store pending_confirm + a one-time token and email a LIGHTWEIGHT
+    # confirmation link. The heavy per-ticker report is built + sent ONLY after the user
+    # clicks that link (api_lead_report_confirm). This neutralizes email-bombing - an
+    # unrequested address just receives one ignorable confirm email, never a report.
+    import secrets as _secrets
+    confirm_token = _secrets.token_urlsafe(32)
+    s = DBSession()
+    try:
+        lead = EmailLead(email=email, tickers=tickers, source=source,
+                         status="pending_confirm", confirm_token=confirm_token,
+                         user_agent=ua, ip_hash=ip_hashed,
+                         user_id=(user.id if user is not None else None))
+        s.add(lead); s.commit()
+    except Exception as e:
+        s.rollback()
+        log.exception("api_lead_report insert failed: %s", e)
+        return jsonify({"ok": False, "error": "server_error"}), 500
+    finally:
+        s.close()
+
+    sender = getattr(config, "LEAD_EMAIL_FROM", "") or getattr(config, "SUPPORT_EMAIL_FROM", "")
+    base = (getattr(config, "tw2_public_url", "") or "").rstrip("/")
+    confirm_url = "%s/api/lead-report/confirm?token=%s" % (base, confirm_token)
+
+    def _send_confirm(email, confirm_url, tickers, sender):
+        try:
+            from email_utils import resend_send_email
+            if not sender:
+                log.error("api_lead_report: no sender configured for the confirmation email")
+                return
+            subj, text, html = seasonal_report.render_confirm_email(confirm_url, tickers)
+            resend_send_email(to=email, subject=subj, body_text=text, html=html,
+                              from_addr=sender, reply_to="hello@tradewave.ai")
+        except Exception as e:
+            log.exception("api_lead_report confirm-email send failed: %s", e)
+
+    threading.Thread(target=_send_confirm, args=(email, confirm_url, tickers, sender),
+                     daemon=True).start()
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/api/lead-report/confirm", methods=["GET"])
+@csrf.exempt  # clicked from an email; idempotent read of a one-time token, not a form post
+def api_lead_report_confirm():
+    import threading
+    from datetime import datetime, timezone, timedelta as _td
+    from models import EmailLead
+    import seasonal_report
+
+    token = (request.args.get("token") or "").strip()
+    if not token:
+        return seasonal_report.render_confirm_landing("invalid"), 400
+
+    s = DBSession()
+    lead_id = email = None
+    tickers = []
+    try:
+        lead = s.execute(
+            select(EmailLead).where(EmailLead.confirm_token == token)
+        ).scalar_one_or_none()
+        if lead is None:
+            return seasonal_report.render_confirm_landing("invalid"), 404
+        if lead.confirmed_at is not None or lead.status == "sent":
+            return seasonal_report.render_confirm_landing("used"), 200
+        if lead.created_at and (datetime.now(timezone.utc) - lead.created_at) > _td(days=7):
+            lead.status = "expired"; s.commit()
+            return seasonal_report.render_confirm_landing("expired"), 200
+        lead.confirmed_at = func.now()
+        s.commit()
+        lead_id = str(lead.id); email = lead.email; tickers = list(lead.tickers or [])
+    except Exception as e:
+        s.rollback()
+        log.exception("api_lead_report_confirm failed: %s", e)
+        return seasonal_report.render_confirm_landing("invalid"), 500
+    finally:
+        s.close()
+
+    sender = getattr(config, "LEAD_EMAIL_FROM", "") or getattr(config, "SUPPORT_EMAIL_FROM", "")
+
+    # Now (and only now) build + send the full report, off the request path.
+    def _worker(lead_id, tickers, email):
+        try:
+            from email_utils import resend_send_email, mailerlite_subscribe
+            if _is_suppressed(email):
+                _update_lead(lead_id, "failed", {"error": "suppressed"})
+                return
+            rep = seasonal_report.build_report_data(tickers)
+            if not rep["tickers"]:
+                _update_lead(lead_id, "failed", {"not_covered": rep["not_covered"]})
+                return
+            if not sender:
+                log.error("api_lead_report_confirm: no sender configured")
+                _update_lead(lead_id, "failed", {"error": "no_sender"})
+                return
+            unsub = _unsub_url(email)
+            html = seasonal_report.render_email_html(rep, unsubscribe_url=unsub)
+            text = seasonal_report.render_email_text(rep, unsubscribe_url=unsub)
+            subj = "Your Seasonal Report: " + ", ".join(t["symbol"] for t in rep["tickers"])
+            ok = resend_send_email(to=email, subject=subj, body_text=text, html=html,
+                                   from_addr=sender, reply_to="hello@tradewave.ai",
+                                   headers={"List-Unsubscribe": "<%s>" % unsub,
+                                            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"})
+            if not _is_suppressed(email):   # never re-activate a MailerLite unsubscribe
+                try:
+                    mailerlite_subscribe(email)
+                except Exception:
+                    pass
+            _update_lead(lead_id, "sent" if ok else "failed",
+                         {"covered": [t["symbol"] for t in rep["tickers"]],
+                          "not_covered": rep["not_covered"], "as_of": rep["as_of"].isoformat()},
+                         sent=ok)
+        except Exception as e:
+            log.exception("api_lead_report_confirm worker failed lead=%s: %s", lead_id, e)
+            _update_lead(lead_id, "failed", {"error": str(e)[:200]})
+
+    threading.Thread(target=_worker, args=(lead_id, tickers, email), daemon=True).start()
+    return seasonal_report.render_confirm_landing("ok"), 200
+
+
+@app.route("/unsubscribe", methods=["GET", "POST"])
+@csrf.exempt  # clicked from an email + the Gmail one-click POST; the signed token IS the auth
+def unsubscribe():
+    import seasonal_report
+    token = (request.args.get("token") or request.form.get("token") or "").strip()
+    email = verify_unsub_token(token) if token else None
+    if not email:
+        if request.method == "POST":
+            return ("", 400)
+        return seasonal_report.render_unsub_landing("invalid"), 400
+    _suppress(email, "one_click" if request.method == "POST" else "link")
+
+    def _propagate(em):
+        try:
+            from email_utils import mailerlite_unsubscribe
+            mailerlite_unsubscribe(em)   # propagate the opt-out to MailerLite too
+        except Exception as e:
+            log.warning("mailerlite_unsubscribe call failed for %s: %s", em, e)
+
+    if request.method == "POST":
+        # Gmail one-click prober has a short timeout: suppress locally, ACK fast, sync async.
+        import threading
+        threading.Thread(target=_propagate, args=(email,), daemon=True).start()
+        return ("", 200)
+    _propagate(email)
+    return seasonal_report.render_unsub_landing("ok"), 200
+
+
+@app.route("/webhooks/mailerlite", methods=["POST"])
+@csrf.exempt  # external webhook; authenticated by a shared secret, fail-closed off dev
+def mailerlite_webhook():
+    import hmac as _hmac
+    # AuthN: require MAILERLITE_WEBHOOK_SECRET, sent as the X-Webhook-Secret header (preferred,
+    # stays out of access logs) or a ?secret= query param, constant-time compared. If it is
+    # UNSET, fail CLOSED on any non-dev env (open only on dev). TODO(hardening): switch to
+    # MailerLite's documented request signature over the raw body once confirmed (O2).
+    want = getattr(config, "MAILERLITE_WEBHOOK_SECRET", "") or ""
+    env = (getattr(config, "tw2_env", "") or "dev")
+    got = request.headers.get("X-Webhook-Secret") or request.args.get("secret") or ""
+    if want:
+        if not _hmac.compare_digest(got, want):
+            return ("", 403)
+    elif env != "dev":
+        log.error("mailerlite_webhook: MAILERLITE_WEBHOOK_SECRET unset on %s; rejecting", env)
+        return ("", 403)
+    # cap the body so a public endpoint can't be used for a memory / DB-write DoS
+    if (request.content_length or 0) > 256 * 1024:
+        return ("", 413)
+    data = request.get_json(silent=True) or {}
+    events = data.get("events")
+    if not isinstance(events, list):
+        events = [data]
+    n = 0
+    for ev in events[:1000]:
+        if not isinstance(ev, dict):
+            continue
+        etype = (ev.get("type") or ev.get("event") or "")
+        # suppress on unsubscribe, spam complaint, OR hard bounce so Resend stops mailing too
+        # (a MailerLite complaint that doesn't reach the Resend side risks the Gmail/Yahoo
+        # <0.3% complaint threshold). Confirm the exact event names for the account (O2).
+        if etype.endswith((".unsubscribe", ".unsubscribed", ".spam_complaint", ".bounced")):
+            sub = ev.get("subscriber") or ev.get("data") or {}
+            em = (sub.get("email") if isinstance(sub, dict) else None) or ev.get("email")
+            if em and "@" in em and len(em) <= 320:
+                _suppress(em, "mailerlite_webhook"); n += 1
+    if n:
+        log.info("mailerlite_webhook: suppressed %d email(s)", n)
+    return jsonify({"ok": True}), 200
+
+
 # ============================================================
 # /app/ - React shell with REAL session globals injected
 # (replaces the milestone-1 nginx sub_filter stub)
@@ -1900,6 +2294,9 @@ def affiliate_sign(token):
             # not a live re-render of the current .md.
             agreement_html=(aff.agreement_snapshot if (already and aff.agreement_snapshot)
                             else agr.agreement_body_html()),
+            # Live-rendered Exhibit B for the UNSIGNED view; once signed the frozen
+            # snapshot above already contains it, so the template ignores this.
+            addendum_html=agr.addendum_html(aff),
             ex=ex, signed=already, error=error,
             signed_at_display=signed_at_display,
             version=aff.agreement_version or agr.AGREEMENT_VERSION,

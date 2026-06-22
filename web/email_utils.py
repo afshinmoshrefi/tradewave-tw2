@@ -38,7 +38,7 @@ def _is_placeholder(val: str) -> bool:
 
 def resend_send_email(to: str, subject: str, body_text: str,
                       from_addr: str = None, reply_to: str = None,
-                      html: str = None) -> bool:
+                      html: str = None, headers: dict = None) -> bool:
     """Send a transactional email via Resend. Returns True on 2xx, False
     otherwise. Never raises.
 
@@ -69,6 +69,10 @@ def resend_send_email(to: str, subject: str, body_text: str,
         payload["html"] = html
     if reply_to:
         payload["reply_to"] = reply_to
+    if headers:
+        # custom MIME headers (e.g. List-Unsubscribe / List-Unsubscribe-Post for
+        # one-click unsubscribe required by Gmail/Yahoo bulk-sender rules).
+        payload["headers"] = headers
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -152,6 +156,34 @@ def mailerlite_subscribe(email: str, name: str = None) -> bool:
         "mailerlite_subscribe failed: email=%s status=%s body=%s",
         email, resp.status_code, body_preview,
     )
+    return False
+
+
+def mailerlite_unsubscribe(email: str) -> bool:
+    """Set a MailerLite subscriber to 'unsubscribed' (upsert by email). Best-effort,
+    never raises; skips when MAILERLITE_API_KEY is empty/placeholder. Called from the
+    /unsubscribe endpoint so an opt-out in our system also stops MailerLite sends."""
+    api_key = getattr(config, 'MAILERLITE_API_KEY', '')
+    if _is_placeholder(api_key):
+        log.debug("mailerlite_unsubscribe skipped: MAILERLITE_API_KEY placeholder/empty")
+        return False
+    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json",
+               "Content-Type": "application/json"}
+    try:
+        resp = requests.post(MAILERLITE_API_URL,
+                             json={"email": email, "status": "unsubscribed"},
+                             headers=headers, timeout=3)
+    except requests.RequestException as e:
+        log.warning("mailerlite_unsubscribe network error for %s: %s", email, e)
+        return False
+    except Exception as e:
+        log.warning("mailerlite_unsubscribe unexpected error for %s: %s", email, e)
+        return False
+    if 200 <= resp.status_code < 300:
+        log.info("mailerlite_unsubscribe ok: email=%s status=%s", email, resp.status_code)
+        return True
+    log.warning("mailerlite_unsubscribe failed: email=%s status=%s body=%s",
+                email, resp.status_code, (resp.text or "")[:200])
     return False
 
 

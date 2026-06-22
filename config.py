@@ -680,6 +680,11 @@ SENTRY_DSN = os.environ.get('SENTRY_DSN', '')  # set in /etc/tradewave/secrets.e
 # dedicated MAILERLITE_API_KEY in secrets.env later if you want to rotate them independently.)
 MAILERLITE_API_KEY  = os.environ.get('MAILERLITE_API_KEY', '') or os.environ.get('MAILERLITE_TOKEN', '')  # set in /etc/tradewave/secrets.env
 MAILERLITE_GROUP_ID = os.environ.get('MAILERLITE_GROUP_ID', '')  # set in /etc/tradewave/secrets.env
+# Shared secret that authenticates the MailerLite unsubscribe/complaint/bounce webhook
+# (web/app.py:mailerlite_webhook). REQUIRED on staging/prod - the endpoint fails CLOSED
+# there when this is empty. Send it as the X-Webhook-Secret header or a ?secret= query
+# param on the configured MailerLite webhook URL. set in /etc/tradewave/secrets.env
+MAILERLITE_WEBHOOK_SECRET = os.environ.get('MAILERLITE_WEBHOOK_SECRET', '')
 
 # Mailerlite LEVEL groups (one MailerLite account across envs, so these IDs are
 # stable identifiers, not per-env secrets - replicates TW1/UMP's "level -> group"
