@@ -1422,10 +1422,14 @@ def main():
                 company_name=featured['company_name'],
                 output_path=svg_path,
             )
-            # Copy SVG to output dir
+            # Copy SVG into _static (it is referenced at /_static/featured_chart.svg).
+            # Must be the _static SUBDIR, not the docroot root - else nginx serves a
+            # stale _static/featured_chart.svg and the homepage's featured chart goes
+            # weeks old while the fresh copy sits unused at the root.
             output_dir = Path(OUTPUT_DIR)
-            output_dir.mkdir(parents=True, exist_ok=True)
-            dest_svg = output_dir / "featured_chart.svg"
+            static_out = output_dir / "_static"
+            static_out.mkdir(parents=True, exist_ok=True)
+            dest_svg = static_out / "featured_chart.svg"
             shutil.copy2(svg_path, str(dest_svg))
             print("   Featured SVG copied to %s" % dest_svg)
 
@@ -1502,6 +1506,20 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / OUTPUT_FILENAME
     output_path.write_text(html)
+
+    # Copy the home page's embedded image assets into _static so the /_static/*.png
+    # references resolve. The redesign embeds screenshots that have no other copy step
+    # (deploy.sh and regen_site do not sync site/static), so they 404 without this.
+    src_static = Path(__file__).resolve().parent / "static"
+    static_out = output_dir / "_static"
+    static_out.mkdir(parents=True, exist_ok=True)
+    for asset in ("evidence_hero.png", "shows_work.png", "ask.png"):
+        src = src_static / asset
+        if src.exists():
+            shutil.copy2(str(src), str(static_out / asset))
+            print("   Home asset copied to %s" % (static_out / asset))
+        else:
+            print("   WARN: home asset missing (page will 404 it): %s" % src)
 
     print("   Generated: %s" % output_path)
     print("   Size: %d bytes" % len(html))
