@@ -4,10 +4,12 @@ The single source of truth for unsubscribes. Any send to a suppressed email is
 skipped. Populated by /unsubscribe (in-email link + Gmail one-click POST) and the
 MailerLite unsubscribe webhook, so an opt-out from either system stops both.
 
-Chained off b8e3d1a6c4f2 (the current head) to keep a linear history.
+Chained off e5f6a7b8c9d0 (email_leads). NOTE: was originally chained off b8e3d1a6c4f2 on dev,
+but that is a PARALLEL session's uncommitted affiliate migration NOT on main - re-pointed to
+e5f6a7b8c9d0 so the chain is valid on staging/prod (dev DB already past both, harmless there).
 
 Revision ID: f6a7b8c9d0e1
-Revises: b8e3d1a6c4f2
+Revises: e5f6a7b8c9d0
 Create Date: 2026-06-22
 """
 from alembic import op
@@ -15,7 +17,7 @@ import sqlalchemy as sa
 
 
 revision = 'f6a7b8c9d0e1'
-down_revision = 'b8e3d1a6c4f2'
+down_revision = 'e5f6a7b8c9d0'
 branch_labels = None
 depends_on = None
 
