@@ -243,11 +243,14 @@ admin_userids = ['1', '16', '22']  # users who can create/manage published secur
 #   'list'  - only the user IDs in ml_score_userids see them (start here for limited rollout)
 #   'level' - any user whose level is in ml_score_access_levels sees them (for broader rollout)
 #
-# All logged-in tiers see ML columns: Explorer(1) + Analyst(4/5) + Strategist(6/7).
-# (Was Strategist-only ['6','7']; opened to everyone 2026-06-10.)
+# AI/ML score = a PAID/trial payoff (the free-report funnel's upgrade hook): free Explorer(1) does NOT
+# see it; Analyst(4/5) + Strategist(6/7) do, and the 7-day reverse-trial sees it via level '6'.
+# (History: Strategist-only ['6','7'] -> opened to everyone incl Explorer 2026-06-10 -> Explorer
+# REMOVED again 2026-06-23 per owner decision so "see the AI score" is the upgrade payoff. Takes effect
+# on appserver restart. Keep docs/TRADEWAVE_ECOSYSTEM.md tier/ML notes in sync.)
 ml_score_access_mode = 'level'
 ml_score_userids = ['1', '16', '22']        # specific user IDs with ML score access (used only when mode='list')
-ml_score_access_levels = ['1', '4', '5', '6', '7']   # Explorer + Analyst + Strategist (all logged-in tiers)
+ml_score_access_levels = ['4', '5', '6', '7']   # Analyst + Strategist (+ reverse-trial via '6'); NOT Explorer
 ml_score_resource_ids = ['0', '1', '2', '3', '4', '11']  # US stocks + ETFs only
 
 home_stocks_json = "/home/flask/blog/home_stocks.json"  # this is for home page creation

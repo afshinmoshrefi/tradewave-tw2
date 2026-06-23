@@ -63,22 +63,26 @@ def _price_fallback_or_die(reason, fallback):
 
 def _stripe_prices():
     fallback = {
+        'navigator_monthly':          '$19',
+        'navigator_yearly':           '$13',
+        'navigator_yearly_daily':     '$0.44/day',
+        'navigator_yearly_savings':   'Save 30%',
         'analyst_monthly':            '$47',
-        'analyst_yearly':             '$37',
-        'analyst_yearly_daily':       '$1.22/day',
-        'analyst_yearly_savings':     'Save 21%',
-        'strategist_monthly':         '$149',
+        'analyst_yearly':             '$33',
+        'analyst_yearly_daily':       '$1.09/day',
+        'analyst_yearly_savings':     'Save 29%',
+        'strategist_monthly':         '$129',
         'strategist_yearly':          '$99',
         'strategist_yearly_daily':    '$3.25/day',
-        'strategist_yearly_savings':  'Save 34%',
-        'max_yearly_savings':         'Save up to 34%',
+        'strategist_yearly_savings':  'Save 23%',
+        'max_yearly_savings':         'Save up to 30%',
     }
     if not config.STRIPE_SECRET_KEY or 'PLACEHOLDER' in config.STRIPE_SECRET_KEY:
         return _price_fallback_or_die('STRIPE_SECRET_KEY missing or placeholder', fallback)
     try:
         import stripe
         stripe.api_key = config.STRIPE_SECRET_KEY
-        valid_tiers = ('analyst', 'strategist')
+        valid_tiers = ('navigator', 'analyst', 'strategist')
         valid_periods = ('monthly', 'yearly')
         cents_by_key = {}
         ids_by_key = {}
@@ -205,6 +209,8 @@ DEVELOPERS_URL = portal_urls.PORTAL_URL
 # =============================================================================
 
 PRICING_EXPLORER_URL = "/signup"
+PRICING_NAVIGATOR_MONTHLY_URL = "/api/stripe/create-checkout?tier=navigator&period=monthly"
+PRICING_NAVIGATOR_YEARLY_URL = "/api/stripe/create-checkout?tier=navigator&period=yearly"
 PRICING_ANALYST_MONTHLY_URL = "/api/stripe/create-checkout?tier=analyst&period=monthly"
 PRICING_ANALYST_YEARLY_URL = "/api/stripe/create-checkout?tier=analyst&period=yearly"
 PRICING_STRATEGIST_MONTHLY_URL = "/api/stripe/create-checkout?tier=strategist&period=monthly"
@@ -946,7 +952,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 
         # -- Meta --
         "meta": {
-            "title": "TradeWave - Seasonal Stock Pattern Research, Audited in Public",
+            "title": "TradeWave - The Invisible Evidence Behind High-Probability Trades",
             "description": (
                 "TradeWave detects recurring seasonal patterns from end-of-day "
                 "data across 15 markets, over a lookback you choose: 1 to 99 "
@@ -984,13 +990,15 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # the dynamic _hero_headline() is retained as headline_dynamic in case a
         # future variant wants it, but the template binds the static headline.
         "hero": {
-            "headline": "See Which Stocks Repeat the Same Seasonal Move, and How Often It Has Held Up",
+            "headline": "The Invisible Evidence Behind High-Probability Trades",
             "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
-                "Pick any stock and any lookback, 1 to 99 years, calendar or "
-                "election cycle, and see every time it has repeated a seasonal "
-                "move. You set the window. You see every year. You judge the "
-                "evidence for yourself."
+                "A price chart shows you a stock's past, not the seasonal moves "
+                "repeating inside it. TradeWave reads decades of history to surface "
+                "those patterns - a stock up in the same window 19 of the last 20 "
+                "years - evidence hidden from 99% of traders, with an AI score that "
+                "weighs recent data and the full history to calibrate the odds it "
+                "repeats this year."
             ),
             # The "New" MCP pill above the headline (links to #connect). Rendered
             # only when content.mcp_live is True (gated, see MCP_LIVE).
@@ -1092,6 +1100,34 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "after_launch_price": "",
                 },
                 {
+                    "name": "Navigator",
+                    "monthly_price": _p['navigator_monthly'],
+                    "monthly_period": "/mo",
+                    "monthly_original": "",
+                    "yearly_price": _p['navigator_yearly'],
+                    "yearly_period": "/mo, billed yearly",
+                    "yearly_original": "",
+                    "description": "Hunt seasonal patterns across the three big U.S. indices, with AI scoring",
+                    "trial_badge": "",
+                    "features": [
+                        "AI scoring on Dow, NASDAQ, and S&P 500",
+                        "Browse any start date, not just today",
+                        "Top 50 patterns per market",
+                        "3 portfolios, track up to 25 opportunities",
+                        "1 watchlist, up to 25 symbols",
+                        "Election-cycle filter on the opportunity table",
+                        "~upgrade:Upgrade to Analyst for all U.S. stocks plus ETFs",
+                    ],
+                    "cta": "Get Navigator",
+                    "monthly_url": PRICING_NAVIGATOR_MONTHLY_URL,
+                    "yearly_url": PRICING_NAVIGATOR_YEARLY_URL,
+                    "checkout_tier": "navigator",
+                    "highlighted": False,
+                    "after_launch_price": "",
+                    "yearly_daily": _p['navigator_yearly_daily'],
+                    "yearly_savings": _p['navigator_yearly_savings'],
+                },
+                {
                     "name": "Analyst",
                     "monthly_price": _p['analyst_monthly'],
                     "monthly_period": "/mo",
@@ -1102,7 +1138,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "description": "Deep seasonal insights across all U.S. stocks and ETFs with AI scoring",
                     "trial_badge": "",
                     "features": [
-                        "AI Pattern Analyst with scoring and predictions",
+                        "AI Pattern Analyst with scoring",
                         "All U.S. stocks + ETFs, custom start dates",
                         "25 portfolios, track up to 100 opportunities",
                         "5 watchlists, up to 50 symbols each",

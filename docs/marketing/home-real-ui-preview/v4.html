@@ -239,7 +239,7 @@ section{padding:var(--s7) 0;border-top:1px solid var(--line)}
 .plan .pr .per{font-size:.8rem;font-weight:500;color:var(--faint)}
 .plan .bill{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.04em;color:var(--faint);min-height:16px;margin-bottom:6px}
 .plan p.dif{font-size:.9rem;color:var(--muted);margin:12px 0 20px;min-height:96px}
-.plan{display:flex;flex-direction:column}.plan .btn{width:100%;text-align:center;margin-top:auto}.billtoggle{display:inline-flex;background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:4px;margin:22px auto 0;gap:4px}.billtoggle button{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;color:var(--muted);background:transparent;border:none;border-radius:999px;padding:8px 20px;cursor:pointer}.billtoggle button.on{background:var(--accent);color:#fff}
+.plan{display:flex;flex-direction:column}.plan .btn{width:100%;text-align:center;margin-top:auto;padding:13px 18px}.billtoggle{display:inline-flex;background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:4px;margin:22px auto 0;gap:4px}.billtoggle button{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;color:var(--muted);background:transparent;border:none;border-radius:999px;padding:8px 20px;cursor:pointer}.billtoggle button.on{background:var(--accent);color:#fff}
 .desk-strip{margin-top:18px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;
   padding:16px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.84rem;color:var(--muted)}
 .desk-strip b{color:var(--ink)}
@@ -460,7 +460,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 <section id="free-report-top" class="fr"><div class="wrap" style="text-align:center">
   <div class="eyebrow reveal" style="justify-content:center"><span class="n">03</span> / Your Stocks</div>
   <h2 class="reveal">Now Run That Same Chart on the Stocks You Own</h2>
-  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">You just saw how a window reads when it has closed up <span class="mono">19</span> of <span class="mono">20</span> years. Name up to three stocks you actually hold or watch and we will email you the same per-year record for each - over the next ~30, ~90, and ~120 days, across the last <span class="mono">10</span> years and every past election year, wins and losses both. No account, no card. Just the receipts on your own stocks, in your inbox in about a minute.</p>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">You just saw how a window reads when it has closed up <span class="mono">19</span> of <span class="mono">20</span> years. Name up to three stocks you actually hold or watch and we will email you the same per-year record for each - over the next ~30, ~60, and ~90 days, across the last <span class="mono">10</span> years and every past election year, wins and losses both. No account, no card. Just the receipts on your own stocks, in your inbox in about a minute.</p>
   <button type="button" class="frcard reveal d1" data-lm-open aria-label="Open the free seasonal report form">
     <span class="tk">AAPL</span><span class="tk">MSFT</span><span class="plus">+</span>
     <span class="em">you@email.com</span>
@@ -740,7 +740,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
       <div class="lm-form">
         <div class="eyebrow">Free / Seasonal Report</div>
         <h3 id="lmTitle">Your Stocks, Their Seasonal Track Record</h3>
-        <p class="lm-sub">One required ticker, two optional, one email. You get each stock's full per-year seasonal record - the last <span class="mono">10</span> years and every past election year - over the next ~30, ~90, and ~120 days, in about a minute. The historical record only, every year of it, none trimmed.</p>
+        <p class="lm-sub">One required ticker, two optional, one email. You get each stock's full per-year seasonal record - the last <span class="mono">10</span> years and every past election year - over the next ~30, ~60, and ~90 days, in about a minute. The historical record only, every year of it, none trimmed.</p>
         <form id="lmForm" autocomplete="off" novalidate>
           <div class="lm-grid">
             <div class="lm-field lm-tk"><label>Ticker 1</label><input name="t1" maxlength="8" placeholder="AAPL" aria-label="Ticker 1"></div>
@@ -789,6 +789,9 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
       LM_DEMO=location.protocol==='file:'||/(^|\.)(localhost|127\.0\.0\.1)$/.test(location.hostname)||/home-ui-preview/.test(location.pathname);
   function openLM(){ prevFocus=document.activeElement; ov.classList.add('open'); lm.className='lm state-form'; document.body.style.overflow='hidden';
     if(location.hash!=='#free-report'){ history.replaceState(null,'','#free-report'); }
+    try{ var L=JSON.parse(localStorage.getItem('tw_lead')||'{}');   // pre-fill a return visitor
+      if(L.tickers){ ['t1','t2','t3'].forEach(function(n,i){ if(form[n] && !form[n].value && L.tickers[i]){ form[n].value=L.tickers[i]; } }); }
+    }catch(e){}
     var f=form.querySelector('input[name=t1]'); if(f){ setTimeout(function(){ f.focus(); }, 40); } }
   function closeLM(){ ov.classList.remove('open'); document.body.style.overflow='';
     if(location.hash==='#free-report'){ history.replaceState(null,'',location.pathname+location.search); }
@@ -821,6 +824,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
     var email=form.email.value.trim();
     if(!clean.length){ flag(form.t1,'Add at least one ticker so we have something to run.'); return; }
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ flag(form.email,'Enter a valid email so we can send your report.'); return; }
+    try{ localStorage.setItem('tw_lead', JSON.stringify({tickers:clean})); }catch(e){}  // remember tickers (NOT email) for a return visit - shared-device safe
     lm.className='lm state-loading';
     function done(){
       document.getElementById('lmDoneBody').textContent='We just sent a confirmation link to '+email+'. Click it and your full report on '+clean.join(', ')+' is on its way - usually within a couple of minutes.';

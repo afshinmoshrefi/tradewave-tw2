@@ -2,7 +2,7 @@
 Free personalized seasonal report (lead magnet).
 
 Given up to 3 tickers, fetch each one's seasonal record from the appserver
-(ChartData4 = the literal fixed-window engine) over the next ~30, ~90 and ~120
+(ChartData4 = the literal fixed-window engine) over the next ~30, ~60 and ~90
 days, computed two ways: the last 10 completed years, and the last 10 midterm
 (PE-phase-2) election years. Render a LIGHT, table-based HTML email + plain-text
 part (light = the email convention; the website + confirm landing stay dark).
@@ -22,6 +22,7 @@ import os
 import logging
 import datetime
 import html as _html
+from urllib.parse import quote
 import requests
 
 log = logging.getLogger("tw2.seasonal_report")
@@ -38,14 +39,19 @@ LINE = "#E4E8F0"
 SANS = "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 MONO = "'JetBrains Mono','SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace"
 
-HORIZONS = (30, 90, 120)
+HORIZONS = (30, 60, 90)   # fixed windows shown in the report. 120d dropped 2026-06-23 (noisiest far
+                          # window, weakened the near-term framing); 60 keeps three near-term horizons.
+                          # NOTE: NO fixed window is "scored" - the product's AI score is per DETECTED
+                          # pattern (one per stock), not per window. Don't chase a window->score map.
 SMALL_SAMPLE = 7   # < this many years in a series -> label it honestly
 # stocks first (gateway primary-listing preference: S&P 500 -> DOW -> NASDAQ),
 # then ETF / index / other markets; Korea (14,15) is dropped.
 MARKET_ORDER = [2, 0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16]
 
-SIGNUP_URL = ("https://tradewave.ai/signup?utm_source=lead_report"
-              "&utm_medium=email&utm_campaign=seasonal_report")
+_UTM = "utm_source=lead_report&utm_medium=email&utm_campaign=seasonal_report"
+SIGNUP_URL  = "https://tradewave.ai/signup?" + _UTM
+APP_URL     = "https://tradewave.ai/app/?" + _UTM          # existing user, has score access -> open it
+UPGRADE_URL = "https://tradewave.ai/pricing?" + _UTM       # free user -> unlock the score (confirm route)
 
 # fallback display names; production wires _company_name() to the securities list
 _NAMES = {
@@ -394,6 +400,52 @@ def _cta_button(label, url):
         % (url, ACCENT, SANS, lbl, ACCENT, ACCENT, url, SANS, lbl))
 
 
+# The CTA adapts to the recipient's account (resolved by email in the route):
+#  signup   = no account -> start the 7-day trial.
+#  open_app = existing user WITH score access (paid or active reverse-trial) -> just open it.
+#  upgrade  = free Explorer (no score) -> unlock it.
+# Copy is compliance-clean: the score is per-stock (singular), present-tense ("how strong now"),
+# explicitly "never predicts the outcome" - no forward/"this year" claim.
+def _cta_band(mode, signup_url):
+    modes = {
+        "signup": ("Signal or Noise",
+            "The Receipts Show What Happened. The Score Shows How Strong the Pattern Is Now",
+            "Above is the historical record - what your stocks have actually done. What it cannot tell you "
+            "is how strong this setup looks against its own history right now - signal or noise. TradeWave's "
+            "AI score weighs the full history against the current setup to calibrate exactly that, and it "
+            "never predicts the outcome. See the calibrated score on your stocks, free for 7 days, no card, "
+            "then ask Tara which looks strongest right now.",
+            "See the Calibrated Score on My Stocks - Free for 7 Days", signup_url,
+            "No credit card. Full platform for 7 days, then a free plan that never expires."),
+        "open_app": ("You Already Have This",
+            "Your Plan Includes the Calibrated Score - Open These in Your App",
+            "You have a TradeWave account, so the AI calibration on these patterns is already yours. Open "
+            "them live, change the window, stretch the lookback, and ask Tara which of your stocks looks "
+            "strongest right now.",
+            "Open in TradeWave", APP_URL,
+            "Signed in already? This opens straight to your stocks."),
+        "upgrade": ("Signal or Noise",
+            "You Have the Receipts. Unlock the Calibrated Score on Your Stocks",
+            "Your free plan shows the historical record above. The AI calibration - how strong each pattern "
+            "looks now against its own history, signal or noise - is on Navigator and up, and it never "
+            "predicts the outcome. Unlock it and ask Tara which of your stocks looks strongest right now.",
+            "Unlock the Calibrated Score", UPGRADE_URL,
+            "Cancel anytime."),
+    }
+    eyebrow, headline, body, btn, url, micro = modes.get(mode, modes["signup"])
+    return (
+        '<div style="font-family:%s;font-size:11px;letter-spacing:1.8px;text-transform:uppercase;'
+        'color:%s;margin-bottom:10px">%s</div>'
+        '<div style="font-family:%s;font-size:22px;font-weight:800;color:%s;line-height:1.25;'
+        'margin-bottom:12px">%s</div>'
+        '<div style="font-family:%s;font-size:14px;color:%s;line-height:1.6;margin-bottom:22px">%s</div>'
+        '%s'
+        '<div style="font-family:%s;font-size:12px;color:%s;margin-top:14px">%s</div>'
+        % (MONO, ACCENT, _html.escape(eyebrow), SANS, INK, _html.escape(headline),
+           SANS, MUTED, _html.escape(body), _cta_button(btn, url), SANS, FAINT, _html.escape(micro))
+    )
+
+
 _EMAIL_STYLE = (
     "@media only screen and (max-width:600px){"
     ".container{width:100%%!important;max-width:100%%!important}"
@@ -403,9 +455,13 @@ _EMAIL_STYLE = (
 
 
 def render_email_html(data, unsubscribe_url="{{ unsubscribe_url }}",
-                      mailing_address="1 Washington Mall #1129, Boston, MA 02108"):
+                      mailing_address="1 Washington Mall #1129, Boston, MA 02108",
+                      cta_mode="signup"):
     syms = [t["symbol"] for t in data["tickers"]]
     sym_list = ", ".join(syms) if syms else "your stocks"
+    # carry their tickers into signup so the FIRST post-signup screen can deliver the
+    # promised payoff (their calibrated scores) instead of dumping them in a blank app.
+    signup_url = SIGNUP_URL + (("&tickers=" + quote(",".join(syms), safe="")) if syms else "")
     cards = "".join(_ticker_card(t, data["as_of_label"]) for t in data["tickers"])
     notcov = ""
     if data.get("not_covered"):
@@ -447,11 +503,7 @@ def render_email_html(data, unsubscribe_url="{{ unsubscribe_url }}",
 <tr><td style="padding:8px 24px" bgcolor="{BG}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">{howto}</table></td></tr>
 
 <tr><td bgcolor="{BG}" style="background:{BG};padding:34px 24px 30px;border-top:1px solid {LINE}" align="center">
-<div style="font-family:{MONO};font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:{ACCENT};margin-bottom:10px">See It Move</div>
-<div style="font-family:{SANS};font-size:22px;font-weight:800;color:{INK};line-height:1.25;margin-bottom:12px">This Is the Static Version, the Live One Talks Back</div>
-<div style="font-family:{SANS};font-size:14px;color:{MUTED};line-height:1.6;margin-bottom:22px">Open any of these stocks in TradeWave and the full per-year chart redraws live - stretch the lookback to twenty years or every year on record, see the historical seasonal path drawn over this year's calendar, and ask Tara, in plain English, why one window beats another. Every account starts with 7 days of the full platform - every one of the 15 markets, every metric, the model, and Tara.</div>
-{cta}
-<div style="font-family:{SANS};font-size:12px;color:{FAINT};margin-top:14px">No credit card. Full platform for 7 days, then a free plan that never expires.</div>
+{cta_block}
 </td></tr>
 
 <tr><td bgcolor="{BG}" style="background:{BG};padding:0 24px 24px" align="center">
@@ -469,12 +521,13 @@ def render_email_html(data, unsubscribe_url="{{ unsubscribe_url }}",
         SANS=SANS, MONO=MONO, style=_EMAIL_STYLE, pre=preheader,
         syms=_html.escape(sym_list), asof=data["as_of_label"], notcov=notcov,
         cards=cards, howto=_how_to_read(),
-        cta=_cta_button("Start Free - Full Access for 7 Days", SIGNUP_URL),
+        cta_block=_cta_band(cta_mode, signup_url),
         disc=_DISCLAIMER, unsub=unsubscribe_url, addr=mailing_address)
 
 
 def render_email_text(data, unsubscribe_url="{{ unsubscribe_url }}",
-                      mailing_address="1 Washington Mall #1129, Boston, MA 02108"):
+                      mailing_address="1 Washington Mall #1129, Boston, MA 02108",
+                      cta_mode="signup"):
     lines = ["TradeWave - Your Seasonal Report", "As of %s" % data["as_of_label"], ""]
     lines.append("Historical seasonal record for the symbols you entered. Educational "
                  "research only, not advice. Past results never guarantee future ones.")
@@ -491,7 +544,13 @@ def render_email_text(data, unsubscribe_url="{{ unsubscribe_url }}",
     if data["not_covered"]:
         lines.append("Not in our 15 markets yet: %s" % ", ".join(data["not_covered"]))
         lines.append("")
-    lines.append("See it live - start free, full access for 7 days, no card: %s" % SIGNUP_URL)
+    _syms = [t["symbol"] for t in data["tickers"]]
+    _su = SIGNUP_URL + (("&tickers=" + quote(",".join(_syms), safe="")) if _syms else "")
+    lines.append({
+        "open_app": "You already have a TradeWave account - open these in your app: %s" % APP_URL,
+        "upgrade":  "Unlock the AI calibration on your stocks (Navigator and up): %s" % UPGRADE_URL,
+    }.get(cta_mode,
+          "See the calibrated score on your stocks - full access free for 7 days, no card: %s" % _su))
     lines.append("")
     lines.append(_DISCLAIMER)
     lines.append("")

@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <!--
-  TradeWave home - "The Ledger" redesign. This template is the approved standalone
-  preview (/var/www/tradewave/home-redesign-preview.html) with ONLY the data spans
-  templatized (hero scan, ledger scoreboard + rows, pricing, real-articles) and
-  non-visual plumbing added in <head> (GA/meta/canonical/OG/JSON-LD/robots) and
-  before </body> (affiliate tw_ref cookie, MailerLite capture, nav auth-swap,
-  pricing toggle). The <style> block and every <section>'s HTML structure are
-  byte-identical to the preview. No em-dashes; patterns-only.
+  TradeWave home - v4 design ported into the live generator. v4's approved design +
+  funnel (free seasonal report band + modal -> /api/lead-report), with ALL live
+  plumbing preserved: SEO/OG/JSON-LD/GA + per-env robots gate, live market bar,
+  nav /api/me auth-swap, ask-bar -> /app/?ask=, affiliate tw_ref capture, Stripe-
+  injected pricing loop, live ledger data, MCP claims gated on content.mcp_live.
+  Screenshots served from /_static/. No em-dashes (use ' - '); patterns-only.
 -->
 <html lang="en">
 <head>
@@ -72,10 +71,7 @@
     "name": "TradeWave",
     "url": "{{ content.canonical_url }}",
     "description": "{{ content.meta.description }}",
-    "publisher": {
-        "@type": "Organization",
-        "name": "TradeWave"
-    }
+    "publisher": { "@type": "Organization", "name": "TradeWave" }
 }
 </script>
 
@@ -98,7 +94,7 @@
             "name": "What does the machine learning model do?",
             "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "A gradient-boosted model reads 62 features of every qualifying setup and produces a ranking used for exactly one thing: ordering the list. The seasonal statistics stay deterministic; the model only decides what you look at first. It does not predict outcomes."
+                "text": "A gradient-boosted model reads features of every qualifying setup and produces a ranking used for exactly one thing: ordering the list. The seasonal statistics stay deterministic; the model only decides what you look at first. It does not predict outcomes."
             }
         },
         {
@@ -114,8 +110,7 @@
 </script>
 
 {% if content.enable_seo %}
-<!-- Structured Data: SoftwareApplication (only when SEO enabled - needs live
-     prices to be accurate; suppressed on dev). -->
+<!-- Structured Data: SoftwareApplication (SEO-only - needs live prices to be accurate). -->
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -147,12 +142,17 @@
   --bg:#0B1220; --panel:#0F1A2E; --panel2:#13203a; --ink:#EAF0F8; --muted:#9FB0C8;
   --faint:#6B7A93; --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.14);
   --accent:#7C5CFF; --accent-soft:rgba(124,92,255,.14); --win:#3FB68B; --loss:#E5687F; --grey:#5A6A82;
+  --s4:40px; --s5:64px; --s6:96px; --s7:112px; --maxw-narrow:760px;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
   font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
-  background-image:radial-gradient(1200px 600px at 50% -10%,rgba(124,92,255,.10),transparent 60%);}
+  background-image:
+    radial-gradient(1100px 560px at 50% -8%, rgba(124,92,255,.12), transparent 60%),
+    radial-gradient(1400px 900px at 50% 120%, rgba(124,92,255,.05), transparent 55%),
+    radial-gradient(120% 120% at 50% 0%, transparent 60%, rgba(0,0,0,.45) 100%);
+  background-attachment:fixed;}
 h1,h2,h3{line-height:1.12;letter-spacing:-.01em;font-weight:700;margin:0}
 h1{font-size:clamp(2.1rem,5vw,3.6rem);font-weight:800}
 h2{font-size:clamp(1.6rem,3.4vw,2.5rem)}
@@ -160,182 +160,265 @@ p{margin:0 0 1rem}
 a{color:var(--accent);text-decoration:none}
 .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
 .wrap{max-width:1140px;margin:0 auto;padding:0 24px}
-.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.narrow{max-width:780px;margin-left:auto;margin-right:auto}
 .muted{color:var(--muted)}
 .faint{color:var(--faint)}
-section{padding:84px 0;border-top:1px solid var(--line)}
+section{padding:var(--s7) 0;border-top:1px solid var(--line)}
+@media(max-width:880px){section{padding:20px 0}
+  .close{padding:44px 0 !important}
+  .frame-wrap.landscape .frame img,.frame-wrap.wide .frame img{aspect-ratio:auto !important}
+  .frame-wrap{margin-top:24px}
+  .frame-wrap.portrait{max-width:300px}
+  .frame-wrap.portrait .frame img{aspect-ratio:auto !important}
+  .hero{padding-top:28px}
+}
 .section-sub{color:var(--muted);max-width:760px;font-size:1.05rem}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.eyebrow::before{content:"";width:22px;height:1px;background:var(--accent);opacity:.6}
+.eyebrow .n{color:var(--faint)}
 /* nav */
-.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(11,18,32,.72);border-bottom:1px solid var(--line)}
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(11,18,32,.55);border-bottom:1px solid transparent;transition:background .2s ease,border-color .2s ease}
+.nav.scrolled{background:rgba(11,18,32,.80);border-bottom-color:var(--line)}
 .nav .wrap{display:flex;align-items:center;gap:28px;height:64px}
 .brand{font-weight:800;letter-spacing:-.02em;font-size:30px}
 .brand b{color:var(--accent)}
 .nav nav{margin-left:auto;display:flex;gap:26px;align-items:center}
-.nav nav a{color:var(--muted);font-size:.94rem;font-weight:500}
-.nav nav a:hover{color:var(--ink)}
+.nav nav a.lk{color:var(--muted);font-size:.94rem;font-weight:500}
+.nav nav a.lk:hover{color:var(--ink)}
 .btn{display:inline-block;background:var(--accent);color:#fff;font-weight:600;padding:13px 22px;border-radius:10px;
-  border:1px solid transparent;font-size:.98rem;transition:transform .12s ease,box-shadow .12s ease;box-shadow:0 8px 30px rgba(124,92,255,.28)}
+  border:1px solid transparent;font-size:.98rem;transition:transform .12s ease,box-shadow .12s ease;box-shadow:0 8px 30px rgba(124,92,255,.28);cursor:pointer}
 .btn:hover{transform:translateY(-1px);box-shadow:0 12px 36px rgba(124,92,255,.4)}
-.btn.ghost{background:transparent;border-color:var(--line2);color:var(--ink);box-shadow:none;font-weight:500;padding:9px 16px}
+.btn.ghost{background:transparent;border-color:var(--line2);color:var(--ink);box-shadow:none;font-weight:500;padding:11px 18px}
+.btn.ghost:hover{border-color:var(--accent);box-shadow:none}
+.nav .btn.nav-cta{padding:9px 18px;font-size:.92rem;white-space:nowrap}
+.nav:not(.scrolled) .btn.nav-cta{background:transparent;border-color:var(--line2);color:var(--ink);box-shadow:none}
+.nav .btn.ghost{padding:9px 16px;font-size:.92rem;white-space:nowrap}
+.nav nav a.lk{white-space:nowrap}
+.navtoggle{display:none;margin-left:auto;width:44px;height:40px;border:1px solid var(--line2);border-radius:10px;background:transparent;cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:4px}
+.navtoggle i{display:block;width:18px;height:2px;background:var(--ink);border-radius:2px;transition:transform .2s ease,opacity .2s ease}
+.nav.open .navtoggle i:nth-child(1){transform:translateY(6px) rotate(45deg)}
+.nav.open .navtoggle i:nth-child(2){opacity:0}
+.nav.open .navtoggle i:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
 .micro{color:var(--faint);font-size:.85rem;margin-top:12px}
+.lnk{font-weight:600;font-size:.9rem}
 /* hero */
-.hero{text-align:center;padding:74px 0 40px;border-top:none}
+.hero{text-align:center;padding:56px 0 0;border-top:none}
 .hero h1{max-width:16ch;margin:0 auto}
 .hero .section-sub{margin:22px auto 0;text-align:center}
-.cta-row{margin:30px 0 6px}
-.askbar{max-width:660px;margin:26px auto 0;display:flex;align-items:center;gap:10px;background:var(--panel);
-  border:1px solid var(--line2);border-radius:12px;padding:7px 7px 7px 18px;text-align:left}
+.cta-row{margin:30px 0 6px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.askbar{max-width:660px;margin:30px auto 0;display:flex;align-items:center;gap:10px;background:var(--panel);
+  border:1px solid var(--line2);border-radius:12px;padding:7px 7px 7px 18px;text-align:left;transition:border-color .15s ease,box-shadow .15s ease}
+.askbar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft),0 12px 40px rgba(124,92,255,.18)}
 .askbar .qp{color:var(--accent);font-weight:700;font-family:'JetBrains Mono',monospace;flex:none}
 .askbar .q{flex:1;min-width:0;color:#EAF0F8;font-family:'JetBrains Mono',monospace;font-size:.92rem;background:transparent;border:none;outline:none;padding:0}
 .askbar .q::placeholder{color:var(--muted);opacity:1}
 .askbar .ask{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(124,92,255,.4);
   border-radius:8px;padding:9px 16px;font-weight:600;font-size:.9rem;font-family:inherit;cursor:pointer;flex:none}
-.chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+.chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px}
 .chip{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);border:1px solid var(--line);
   border-radius:999px;padding:7px 14px;background:rgba(255,255,255,.02)}
-.chip.flag{opacity:.6;border-style:dashed}
-.caption{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);text-align:center;margin-top:16px}
-/* browser frame + wave-viewer mock */
-.frame{max-width:980px;margin:34px auto 0;border:1px solid var(--line2);border-radius:14px;overflow:hidden;
-  background:var(--panel);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.chip.flag{opacity:.7;border-style:dashed}
+.caption{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);text-align:center;margin-top:16px;line-height:1.5}
+.hero-pill{display:inline-flex;align-items:center;gap:9px;margin-bottom:22px;padding:5px 14px 5px 5px;border:1px solid var(--line2);border-radius:999px;background:var(--accent-soft);color:var(--ink);font-size:.85rem;font-weight:500;transition:border-color .12s ease}
+.hero-pill:hover{border-color:var(--accent)}
+.hero-pill .tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:3px 9px}
+.hero-pill .arr{color:var(--accent);font-weight:700}
+/* artifact frame */
+.frame{margin:0;border:1px solid var(--line2);border-radius:16px;overflow:hidden;background:var(--panel)}
 .frame .bar{display:flex;align-items:center;gap:7px;padding:11px 14px;background:#0c1526;border-bottom:1px solid var(--line)}
 .dot{width:11px;height:11px;border-radius:50%;background:#33425c}
 .frame .url{margin-left:14px;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--faint)}
-.badge{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:0 7px;font-weight:600}
-/* faithful two-zone wave-viewer: top = opp table + MFE/MAE bars; bottom = swipeable (Trend Chart lead) */
-.wv{display:grid;grid-template-columns:290px 1fr;grid-template-rows:auto auto}
-.wv .opp2{grid-column:1;grid-row:1 / span 2;border-right:1px solid var(--line);padding:13px;display:flex;flex-direction:column}
-.wv .opp2 .hd{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:9px}
-.wv .opp2 .r{display:grid;grid-template-columns:50px 1fr 30px 42px 34px 20px;gap:5px;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--muted);padding:6px 2px;border-top:1px solid var(--line)}
-.wv .opp2 .r.h{color:var(--faint);border-top:none}
-.wv .opp2 .r.sel{background:rgba(124,92,255,.12);border-radius:5px;color:var(--ink)}
-.wv .ask2{margin-top:auto;display:flex;align-items:center;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
-.wv .ask2 span{color:var(--faint);font-family:'JetBrains Mono',monospace;font-size:.66rem}
-.wv .chart{grid-column:2;grid-row:1;padding:13px 15px;border-bottom:1px solid var(--line)}
-.wv .chart .ch{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;gap:8px}
-.mae{display:flex;gap:3px;height:152px;position:relative}
-.mae::before{content:"";position:absolute;left:0;right:0;top:60%;border-top:1px dashed var(--line2);z-index:1}
-.mae .yr{flex:1;display:flex;flex-direction:column;position:relative;z-index:2}
-.mae .yr .u{height:60%;display:flex;align-items:flex-end}
-.mae .yr .d{height:40%;display:flex;align-items:flex-start}
-.mae .yr .u i{width:100%;background:var(--win);border-radius:2px 2px 0 0;opacity:.92}
-.mae .yr .d i{width:100%;background:var(--loss);border-radius:0 0 2px 2px;opacity:.8}
-.mae-x{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--faint);margin-top:7px}
-.wv .btm{grid-column:2;grid-row:2;padding:13px 15px;background:#0a1322}
-.wv .btm .bh{display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--muted);margin-bottom:11px;flex-wrap:wrap}
-.swipe{display:flex;gap:13px;font-size:.58rem;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
-.swipe b{color:var(--accent);font-weight:600}
-.swipe i{font-style:normal}
-.trend{position:relative}
-.trend svg{width:100%;height:92px;display:block}
-.trend .band{position:absolute;top:0;height:92px;width:15%;background:rgba(124,92,255,.11);border-left:1px solid rgba(124,92,255,.4);border-right:1px solid rgba(124,92,255,.4)}
-.trend .mx{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--faint);margin-top:6px}
-.tara{padding:2px 0}
-.bub{font-size:.74rem;border-radius:9px;padding:8px 10px;margin-bottom:8px;line-height:1.45}
-.bub.u{background:rgba(124,92,255,.12);color:var(--ink)}
-.bub.a{background:rgba(255,255,255,.04);color:var(--muted)}
-/* three rules band */
-.rules{display:grid;grid-template-columns:repeat(3,1fr);background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.rules div{padding:26px 30px;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;font-size:1rem;color:var(--ink)}
-.rules div+div{border-left:1px solid var(--line)}
-.rules b{color:var(--accent);margin-right:12px;font-weight:600}
-/* desks */
+.frame img{width:100%;height:auto;display:block}
+.frame-wrap.landscape .frame img,.frame-wrap.wide .frame img{aspect-ratio:auto}
+.frame-wrap.portrait .frame img{aspect-ratio:auto}
+.frame-wrap{position:relative;isolation:isolate;margin:34px auto 0}
+.frame-wrap::before{content:"";position:absolute;inset:-8% -6% -12% -6%;z-index:-1;
+  background:radial-gradient(60% 55% at 50% 38%, rgba(124,92,255,.20), transparent 70%);
+  filter:blur(40px);opacity:.8;pointer-events:none}
+.frame.frame--artifact{border:1px solid rgba(124,92,255,.18);
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 40px 100px -25px rgba(0,0,0,.7), 0 8px 40px rgba(124,92,255,.10)}
+.frame-wrap.portrait{max-width:520px}
+.frame-wrap.landscape{max-width:1080px}
+.frame-wrap.wide{max-width:1120px}
+/* two-col / band */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:46px;align-items:center}
+.two.rev .copy{order:2}
+.panelshot{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--line2);border-radius:14px;padding:16px;box-shadow:0 24px 60px rgba(0,0,0,.4),0 1px 0 rgba(255,255,255,.04) inset}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:3px 8px;display:inline-block;margin-bottom:10px}
+.badge{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:0 7px;font-weight:600;font-family:'JetBrains Mono',monospace}
+/* cards / desks */
 .cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
-.card .thumb{height:64px;border-radius:8px;background:linear-gradient(120deg,#13203a,#0c1526);border:1px solid var(--line);
-  display:flex;align-items:flex-end;gap:3px;padding:8px;margin-bottom:16px}
-.card .thumb i{flex:1;background:var(--accent);opacity:.5;border-radius:1px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;transition:transform .18s ease,border-color .18s ease;box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+.card:hover{border-color:var(--line2);transform:translateY(-2px)}
+.card.mid{border-color:rgba(124,92,255,.22)}
 .card h3{font-size:1.05rem;margin-bottom:12px}
 .card .qq{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--ink);background:rgba(255,255,255,.03);
   border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
 .card p{font-size:.92rem;color:var(--muted)}
 .card .lnk{font-size:.85rem;font-weight:600}
 .desk-note{text-align:center;color:var(--faint);margin-top:22px;font-size:.95rem}
-/* two-col */
-.two{display:grid;grid-template-columns:1fr 1fr;gap:46px;align-items:center}
-.two.rev .copy{order:2}
-.panelshot{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:16px;box-shadow:0 24px 60px rgba(0,0,0,.4)}
-.opp .row{display:grid;grid-template-columns:1fr 46px 70px;gap:8px;align-items:center;font-family:'JetBrains Mono',monospace;
-  font-size:.78rem;padding:9px 4px;border-top:1px solid var(--line)}
-.opp .row.h{color:var(--faint);border-top:none}
-.tag{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:3px 8px;display:inline-block;margin-bottom:10px}
-.bars i{display:inline-block;width:7px;border-radius:1px;background:var(--accent);opacity:.55;margin-right:2px}
-/* timeline */
-.timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:30px}
-.tl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
-.tl .ts{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:.85rem;margin-bottom:10px}
-.tl .mock{height:56px;border-radius:7px;background:linear-gradient(120deg,#13203a,#0c1526);border:1px solid var(--line);margin-bottom:12px}
-.tl p{font-size:.86rem;color:var(--muted);margin:0}
 /* ledger */
 .ledger{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px}
 .scoretbl{font-family:'JetBrains Mono',monospace;font-size:.8rem}
 .scoretbl .r{display:grid;grid-template-columns:1fr 90px 70px;gap:8px;padding:9px 2px;border-top:1px solid var(--line)}
 .scoretbl .r.h{color:var(--faint);border-top:none}
 .res-w{color:var(--win)} .res-l{color:var(--loss)}
+.ledger-aside{text-align:center;font-family:Newsreader,Georgia,serif;font-style:italic;font-size:1.2rem;color:var(--muted);max-width:46ch;margin:0 auto 22px}
 .prov{display:flex;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:24px;max-width:680px;margin-left:auto;margin-right:auto}
-.prov img{width:54px;height:54px;border-radius:50%;object-fit:cover;border:1px solid var(--line2)}
+.prov .av{width:54px;height:54px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,#2a3a5c,#0c1526);border:1px solid var(--line2);display:grid;place-items:center;font-family:Inter,sans-serif;font-weight:700;font-size:1.05rem;color:var(--muted);letter-spacing:.02em}
 .prov q{font-family:Newsreader,Georgia,serif;font-style:italic;font-size:1.05rem;color:var(--ink);display:block;margin-bottom:6px}
 .prov .by{font-size:.82rem;color:var(--faint)}
 /* pricing */
 .ribbon{text-align:center;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--muted);background:var(--accent-soft);
   border:1px solid rgba(124,92,255,.3);border-radius:999px;padding:8px 18px;display:inline-block;margin:0 auto 22px}
-.toggle{display:flex;gap:0;justify-content:center;margin:0 auto 26px;width:fit-content;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
-.toggle span{padding:9px 18px;font-size:.85rem;font-family:'JetBrains Mono',monospace;color:var(--muted);cursor:default}
-.toggle span.on{background:var(--accent);color:#fff}
-.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.plan{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px}
+.plans{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}@media(max-width:1080px){.plans{grid-template-columns:repeat(2,1fr)}}
+.plan{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
 .plan.hot{border-color:rgba(124,92,255,.55);box-shadow:0 16px 50px rgba(124,92,255,.15)}
 .plan .pn{font-weight:700;font-size:1.05rem;margin-bottom:4px}
 .plan .tag2{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--accent);letter-spacing:.1em;text-transform:uppercase}
-.plan .pr{font-size:1.9rem;font-weight:800;margin:12px 0 2px}
-.plan .pr small{font-size:.85rem;color:var(--faint);font-weight:500}
-.plan .yr{font-size:.82rem;color:var(--muted);margin-bottom:16px}
-.plan ul{list-style:none;padding:0;margin:0 0 20px;font-size:.86rem;color:var(--muted)}
-.plan li{padding:7px 0;border-top:1px solid var(--line)}
-.plan .btn{width:100%;text-align:center}
-.desk-strip{margin-top:18px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;
-  padding:16px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.84rem;color:var(--muted)}
-.desk-strip b{color:var(--ink)}
+.plan .pr{font-size:1.7rem;font-weight:700;margin:14px 0 4px;color:var(--ink);font-family:'JetBrains Mono',monospace;min-height:36px}
+.plan .pr .per{font-size:.8rem;font-weight:500;color:var(--faint)}
+.plan .bill{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.04em;color:var(--faint);min-height:16px;margin-bottom:6px}
+.plan{display:flex;flex-direction:column}
+.plan form{margin-top:auto;display:flex}
+.plan .btn{display:block;width:100%;text-align:center;margin-top:auto;padding:13px 18px;font-family:inherit;line-height:1.25}
+.plan form .btn{margin-top:0}
+.billtoggle{display:inline-flex;background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:4px;margin:22px auto 0;gap:4px}
+.billtoggle button{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;color:var(--muted);background:transparent;border:none;border-radius:999px;padding:8px 20px;cursor:pointer}
+.billtoggle button.on{background:var(--accent);color:#fff}
 .kicker{text-align:center;color:var(--faint);margin-top:16px;font-size:.9rem}
-/* living research + close */
-.news{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:26px}
-.na{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
-.na .d{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--accent);margin-bottom:8px}
-.na p{font-size:.86rem;color:var(--ink);margin:0}
-.close{text-align:center;padding:90px 0}
+.priceband{position:relative;background:linear-gradient(180deg,rgba(124,92,255,.10),rgba(124,92,255,.02) 60%,transparent),var(--panel);
+  border-top:1px solid rgba(124,92,255,.30);border-bottom:1px solid rgba(124,92,255,.30)}
+.priceband::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(820px 380px at 50% -5%,rgba(124,92,255,.18),transparent 60%)}
+.priceband .wrap{position:relative;z-index:1}
+.priceband h2{font-size:clamp(1.9rem,4.2vw,3rem)}
+.plan .feat{list-style:none;margin:14px 0 20px;padding:0;font-size:.9rem;color:var(--muted)}
+.plan .feat li{position:relative;padding-left:22px;margin-bottom:9px;line-height:1.45}
+.plan .feat li::before{content:"";position:absolute;left:0;top:7px;width:12px;height:12px;border-radius:3px;
+  background:var(--accent-soft);border:1px solid rgba(124,92,255,.5)}
+.plan .feat li b{color:var(--ink);font-weight:600}
+/* close */
+.close{text-align:center;padding:140px 0;position:relative;overflow:hidden}
+.close::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(700px 360px at 50% 30%,rgba(124,92,255,.12),transparent 65%)}
 .close h2{max-width:18ch;margin:0 auto 16px}
-.gated{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);border:1px dashed var(--line2);border-radius:6px;padding:3px 9px;margin-left:10px;vertical-align:middle}
 .newbadge{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;background:var(--accent);color:#fff;border-radius:5px;padding:3px 8px;vertical-align:middle;margin-left:8px}
 /* footer */
-footer{border-top:1px solid var(--line);padding:48px 0 64px;color:var(--faint);font-size:.84rem}
-footer .links{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px}
-footer .links a{color:var(--muted)}
-@media(max-width:880px){
-  .wv{grid-template-columns:1fr}.wv .opp2,.wv .chart,.wv .btm{grid-column:1}.wv .opp2{grid-row:auto;border-right:none;border-bottom:1px solid var(--line)}
-  .rules,.cols3,.two,.timeline,.ledger,.plans,.news{grid-template-columns:1fr}
-  .two.rev .copy{order:0}.rules div+div{border-left:none;border-top:1px solid var(--line)}
-  .nav nav{display:none}
+footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);font-size:.84rem;background:rgba(0,0,0,.25)}
+.foot-motif{text-align:center;color:var(--faint);font-size:.92rem;margin-bottom:36px}
+.foot-cols{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr;gap:24px;margin-bottom:32px}
+.foot-cols h4{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 14px;font-weight:600}
+.foot-cols a{display:block;color:var(--muted);font-size:.88rem;margin-bottom:9px}
+.foot-cols a:hover{color:var(--ink)}
+.foot-cols .brand{font-size:24px}
+.foot-note{border-top:1px solid var(--line);padding-top:24px;color:var(--muted);font-size:.86rem;margin-bottom:18px}
+.foot-legal{color:var(--faint);font-size:.8rem;line-height:1.6}
+/* legend swatches */
+.legend{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--muted);margin-top:8px}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+.sw.w{background:var(--win)} .sw.l{background:var(--loss)}
+/* reveal motion */
+@media(prefers-reduced-motion:no-preference){
+  .reveal{opacity:0;transform:translateY(12px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}.reveal.d5{transition-delay:.40s}
 }
-  .hero-pill{display:inline-flex;align-items:center;gap:9px;margin-bottom:22px;padding:5px 14px 5px 5px;border:1px solid var(--line2);border-radius:999px;background:var(--accent-soft);color:var(--ink);font-size:.85rem;font-weight:500;transition:border-color .12s ease}
-  .hero-pill:hover{border-color:var(--accent)}
-  .hero-pill .tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:3px 9px}
-  .hero-pill .arr{color:var(--accent);font-weight:700}
-/* live indices / market banner - thin strip above the nav, palette tokens only.
-   Cannot affect the rest of the layout (fixed height, own border, scoped class). */
-  .market-bar{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 0;overflow-x:auto;scrollbar-width:none}
-  .market-bar::-webkit-scrollbar{display:none}
-  .market-bar-content{display:flex;gap:22px;align-items:center;padding:0 24px;width:max-content;min-width:100%;justify-content:center}
-  .market-item{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:.78rem;white-space:nowrap;color:var(--muted)}
-  .market-item .market-symbol{color:var(--ink);font-weight:700}
-  .market-item .market-change.up{color:var(--win)}
-  .market-item .market-change.down{color:var(--loss)}
+@media(max-width:880px){
+  .two,.cols3,.ledger{grid-template-columns:1fr}
+  #ledger .frame-wrap.portrait{display:none}
+  .cols3{gap:10px;margin-top:20px}
+  .card{padding:15px 18px}
+  .panelshot{padding:14px}
+  .plan{padding:18px 20px}
+  .plan .feat{margin:10px 0 14px}
+  .plan .feat li{margin-bottom:6px}
+  .plans{grid-template-columns:1fr;gap:12px}
+  .foot-cols{grid-template-columns:1fr 1fr;gap:18px 24px}
+  .foot-cols>div:first-child{grid-column:1 / -1}
+  .two.rev .copy{order:0}
+  .navtoggle{display:flex}
+  .nav nav{position:fixed;top:64px;left:0;right:0;margin:0;flex-direction:column;align-items:stretch;gap:0;
+    background:#0b1220;backdrop-filter:blur(14px);border-bottom:1px solid var(--line);box-shadow:0 24px 60px rgba(0,0,0,.6);
+    padding:8px 24px 20px;transform:translateY(-12px);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+  .nav.open nav{transform:none;opacity:1;pointer-events:auto}
+  .nav nav a.lk{display:block;padding:13px 2px;border-bottom:1px solid var(--line);font-size:1rem;color:var(--ink)}
+  .nav nav .btn.ghost{margin-top:14px;text-align:center;padding:12px 16px;font-size:1rem}
+  .nav nav .btn.nav-cta{margin-top:10px;text-align:center;padding:13px 16px;font-size:1rem}
+  .nav:not(.scrolled) .btn.nav-cta{background:var(--accent);color:#fff;border-color:transparent}
+}
+/* mobile sticky CTA */
+.stickycta{display:none}
+@media(max-width:880px){
+  .stickycta{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    gap:10px;align-items:center;justify-content:space-between;background:rgba(11,18,32,.92);backdrop-filter:blur(12px);
+    border-top:1px solid var(--line2);transform:translateY(120%);transition:transform .25s ease}
+  .stickycta.show{transform:none}
+  .stickycta .lbl{font-size:.8rem;color:var(--muted);line-height:1.2}
+  .stickycta .lbl b{color:var(--ink);display:block;font-size:.92rem}
+  .stickycta .btn{padding:11px 16px;font-size:.9rem;white-space:nowrap}
+}
+/* free seasonal report - band + modal */
+.fr{position:relative;overflow:hidden;background:var(--panel)}
+.fr::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(680px 300px at 50% 0,rgba(124,92,255,.10),transparent 60%)}
+.fr .wrap{position:relative;z-index:1}
+.frcard{max-width:520px;margin:30px auto 0;background:var(--bg);border:1px solid var(--line2);border-radius:16px;padding:9px 9px 9px 16px;display:flex;align-items:center;gap:9px;cursor:pointer;text-align:left;width:100%;transition:border-color .15s ease,box-shadow .15s ease,transform .12s ease}
+.frcard:hover{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft),0 16px 50px rgba(124,92,255,.16);transform:translateY(-1px)}
+.frcard .tk{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--ink);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;padding:7px 11px;flex:none}
+.frcard .plus{color:var(--faint);font-family:'JetBrains Mono',monospace;flex:none}
+.frcard .em{flex:1;min-width:0;color:var(--faint);font-family:'JetBrains Mono',monospace;font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.frcard .go{flex:none;background:var(--accent);color:#fff;border-radius:10px;padding:10px 16px;font-weight:600;font-size:.88rem;box-shadow:0 8px 30px rgba(124,92,255,.28)}
+@media(max-width:520px){.frcard{flex-wrap:wrap}.frcard .em{flex-basis:100%;order:5}.frcard .go{flex-basis:100%;text-align:center;order:6;margin-top:4px}}
+.lm-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,18,32,.72);backdrop-filter:blur(8px)}
+.lm-overlay.open{display:flex}
+.lm{position:relative;width:100%;max-width:520px;max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:16px;box-shadow:0 40px 100px -25px rgba(0,0,0,.75);background-image:linear-gradient(180deg,rgba(124,92,255,.12),transparent 140px)}
+.lm-x{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--muted);font-size:1.2rem;cursor:pointer;line-height:1;z-index:2}
+.lm-x:hover{color:var(--ink);border-color:var(--accent)}
+.lm-body{padding:30px 28px 26px}
+.lm h3{font-size:1.45rem}
+.lm-sub{color:var(--muted);font-size:.95rem;margin:10px 0 22px}
+.lm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:520px){.lm-grid{grid-template-columns:1fr}}
+.lm-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+.lm-field input{width:100%;height:46px;background:var(--bg);border:1px solid var(--line2);border-radius:10px;color:var(--ink);padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:.95rem;outline:none;transition:border-color .12s ease,box-shadow .12s ease}
+.lm-field input::placeholder{color:var(--faint)}
+.lm-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.lm-tk input{text-transform:uppercase}
+.lm-field.invalid input{border-color:rgba(229,104,127,.6)}
+.lm-field.valid input{border-color:rgba(63,182,139,.5)}
+.lm-help{font-size:.78rem;color:var(--faint);margin-top:8px}
+.lm-email{margin-top:16px}
+.lm-email input{text-transform:none;font-family:Inter,system-ui,sans-serif}
+.lm-btn{width:100%;margin-top:18px;font-size:1rem;padding:14px}
+.lm-reassure{text-align:center;font-size:.8rem;color:var(--faint);margin-top:10px}
+.lm-comp{font-size:.72rem;color:var(--faint);line-height:1.5;border-top:1px solid var(--line);padding-top:14px;margin-top:18px}
+.lm-err{color:var(--loss);font-size:.84rem;margin-top:10px}
+.lm-err:empty{display:none}
+.lm-hp{position:absolute!important;left:-9999px;width:1px;height:1px;opacity:0}
+.lm-loading,.lm-done{display:none;text-align:center;padding:18px 6px}
+.lm.state-loading .lm-form,.lm.state-done .lm-form{display:none}
+.lm.state-loading .lm-loading{display:block}
+.lm.state-done .lm-done{display:block}
+.lm-spin{width:34px;height:34px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--accent);margin:8px auto 18px;animation:lmspin .8s linear infinite}
+@keyframes lmspin{to{transform:rotate(360deg)}}
+.lm-mark{width:60px;height:60px;border-radius:50%;background:rgba(63,182,139,.12);border:1px solid rgba(63,182,139,.45);color:var(--win);display:grid;place-items:center;font-size:1.7rem;margin:0 auto 18px}
+.lm-chip{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--accent);background:var(--accent-soft);border:1px solid rgba(124,92,255,.3);border-radius:999px;padding:6px 14px;margin:14px 0}
+.lm-up{border-top:1px solid var(--line);margin-top:20px;padding-top:18px;color:var(--muted);font-size:.9rem}
+.lm-dismiss{display:inline-block;margin-top:16px;color:var(--faint);font-size:.85rem;cursor:pointer}
+.lm-dismiss:hover{color:var(--ink)}
+/* live market bar */
+.market-bar{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 0;overflow-x:auto;scrollbar-width:none}
+.market-bar::-webkit-scrollbar{display:none}
+.market-bar-content{display:flex;gap:22px;align-items:center;padding:0 24px;width:max-content;min-width:100%;justify-content:center}
+.market-item{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:.78rem;white-space:nowrap;color:var(--muted)}
+.market-item .market-symbol{color:var(--ink);font-weight:700}
+.market-item .market-change.up{color:var(--win)}
+.market-item .market-change.down{color:var(--loss)}
 </style>
 {{ content.ga_head_snippet|safe }}
 </head>
 <body>
 
-<!-- LIVE INDICES / MARKET BANNER (bound to content.market_bar; refreshed by
-     /assets/market-quotes.js). Thin strip above the nav, navy palette tokens. -->
+<!-- LIVE MARKET BAR (content.market_bar; refreshed by /assets/market-quotes.js) -->
 {% if content.market_bar %}
 <div class="market-bar">
   <div class="market-bar-content">
@@ -350,286 +433,84 @@ footer .links a{color:var(--muted)}
 </div>
 {% endif %}
 
-<header class="nav"><div class="wrap">
+<!-- NAV -->
+<header class="nav" id="nav"><div class="wrap">
   <span class="brand">Trade<b>Wave</b></span>
-  <nav>
-    <a href="/app/">Wave Viewer</a>
-    <a href="/learn/">Learn</a>
-    <a href="https://seasonalmarketnews.com/">News</a>
-    <a href="#pricing">Pricing</a>
+  <button class="navtoggle" id="navtoggle" aria-label="Open menu" aria-expanded="false"><i></i><i></i><i></i></button>
+  <nav id="navmenu">
+    <a class="lk" href="/app/">Wave Viewer</a>
+    <a class="lk" href="#tara">Tara</a>
+    <a class="lk" href="#pricing">Pricing</a>
+    <a class="lk" href="https://seasonalmarketnews.com/">News</a>
     <a href="{{ content.nav.login_url }}" id="tw-auth-link" class="btn ghost">Sign In</a>
-    <a href="/pricing" class="btn">Start Free Trial</a>
+    <a href="{{ content.hero.cta_primary_url }}" class="btn nav-cta">Start Free</a>
   </nav>
 </div></header>
 
-<!-- HERO -->
+<!-- 01 / HERO (LOCKED h1 + subtext) -->
 <section class="hero"><div class="wrap">
-  {% if content.mcp_live %}<a href="#connect" class="hero-pill"><span class="tag">New</span>Now inside ChatGPT and Claude, free on every plan<span class="arr">&rarr;</span></a>{% endif %}
-  <h1>{{ content.hero.headline }}</h1>
-  <p class="section-sub">{{ content.hero.subheadline }}</p>
-  <div class="cta-row"><a href="{{ content.hero.cta_primary_url }}" class="btn">{{ content.hero.cta_primary }}</a></div>
-  <div class="micro">{{ content.hero.cta_micro }}</div>
-
-  <form class="askbar" id="tw-askbar" action="/signup" method="get" autocomplete="off">
+  {% if content.mcp_live %}<a href="#tara" class="hero-pill reveal"><span class="tag">New</span>Ask Tara in plain English - now inside ChatGPT and Claude<span class="arr">&rarr;</span></a>{% endif %}
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">01</span> / Seasonal Research That Shows Its Work</div>
+  <h1 class="reveal d1">The Invisible Evidence Behind High-Probability Trades</h1>
+  <p class="section-sub reveal d2">A price chart shows a stock's past, not the seasonal moves repeating inside it - say, a window it has closed up in <span class="mono">19</span> of the last <span class="mono">20</span> years. TradeWave reads decades of history to surface those patterns, then an AI score weighs the full record to calibrate the historical odds they repeat.</p>
+  <div class="micro reveal d2" style="margin-top:14px;color:var(--faint)">Historical seasonal research, not a recommendation. Every figure opens to its per-year record.</div>
+  <form class="askbar reveal d3" id="tw-askbar" action="/signup" method="get" autocomplete="off">
     <b class="qp">&gt;</b>
-    <input class="q" id="tw-ask-input" type="text" maxlength="280" placeholder="{{ content.hero.ask_placeholder }}" aria-label="Ask Tara a market question">
-    <button class="ask" id="tw-ask-btn" type="submit">Ask</button>
+    <input class="q" id="tw-ask-input" name="q" type="text" maxlength="280" placeholder="{{ content.hero.ask_placeholder }}" aria-label="Ask Tara a market question">
+    <button class="ask" id="tw-ask-btn" type="submit">See the Evidence &rarr;</button>
   </form>
+  <div class="cta-row reveal d3">
+    <a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.08rem;padding:16px 32px">Start Free - Full Access for 7 Days</a>
+  </div>
+  <div class="micro reveal d3">No credit card. Full platform for 7 days, then a free plan that never expires. <a href="#free-report-top" class="lnk" data-lm-open style="color:var(--muted)">Or see the seasonal record on a stock you own - free, no account &rarr;</a></div>
+</div></section>
 
-  <!-- wave-viewer mock - faithful two-zone (top: opp table + MFE/MAE bars; bottom: swipeable, Trend Chart lead).
-       Patterns-only marketing frame: no price column, no aggregate Win%/cumulative-return, no price axis.
-       The LEFT scan table is bound to the live ranked opportunities (content.opportunities);
-       the chart/trend art is illustrative. -->
-  {% set default_tab = content.opportunities.tabs[content.opportunities.default_tab] %}
-  {% set hero_rows = default_tab.opportunities[:5] if default_tab else [] %}
-  {% set lead = hero_rows[1] if hero_rows|length > 1 else (hero_rows[0] if hero_rows else None) %}
-  <div class="frame">
-    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app</span></div>
-    <div class="wv">
-        <div class="opp2">
-          <div class="hd">Top Patterns &middot; Active</div>
-          <div class="r h"><span>DATE</span><span>TICKER</span><span>DAY</span><span>DIR</span><span>SR</span><span>#</span></div>
-          {% for opp in hero_rows %}
-          <div class="r {% if loop.index == 2 %}sel{% endif %}"><span>{{ opp.start_date_formatted }}</span><span>{{ opp.symbol }}</span><span>{{ opp.days }}</span><span>{{ opp.direction }}</span><span>{{ "%.2f"|format(opp.sharpe_ratio) }}</span><span class="badge">{{ loop.index }}</span></div>
-          {% endfor %}
-          <div class="ask2"><span>&gt; ask Tara about any pattern...</span></div>
-        </div>
-        <div class="chart">
-          <div class="ch"><span>{% if lead %}{{ lead.symbol }} &middot; {{ lead.start_date_formatted }} to {{ lead.end_date_formatted }}{% else %}Per-year history{% endif %}</span><span>Each year's high and low</span></div>
-          <div class="mae">
-            <div class="yr"><div class="u"><i style="height:64%"></i></div><div class="d"><i style="height:40%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:82%"></i></div><div class="d"><i style="height:26%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:60%"></i></div><div class="d"><i style="height:46%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:40%"></i></div><div class="d"><i style="height:72%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:75%"></i></div><div class="d"><i style="height:30%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:88%"></i></div><div class="d"><i style="height:22%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:55%"></i></div><div class="d"><i style="height:54%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:36%"></i></div><div class="d"><i style="height:80%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:80%"></i></div><div class="d"><i style="height:28%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:92%"></i></div><div class="d"><i style="height:22%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:68%"></i></div><div class="d"><i style="height:42%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:48%"></i></div><div class="d"><i style="height:64%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:85%"></i></div><div class="d"><i style="height:26%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:72%"></i></div><div class="d"><i style="height:34%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:78%"></i></div><div class="d"><i style="height:30%"></i></div></div>
-          </div>
-          <div class="mae-x"><span>2011</span><span>2015</span><span>2019</span><span>2023</span><span>2025</span></div>
-        </div>
-      <div class="btm">
-        <div class="bh"><span>Trend Chart Over the Lookback You Set{% if lead %} &middot; {{ lead.company_name }}{% endif %}</span>
-          <span class="swipe"><b>&bull; Trend Chart</b><i>&bull; Stats</i><i>&bull; Price + Projection</i></span></div>
-        <div class="trend">
-          <div class="band" style="left:55%"></div>
-          <svg viewBox="0 0 600 92" preserveAspectRatio="none">
-            <path d="M0,78 C60,74 110,70 170,62 C230,54 280,60 330,46 C380,32 430,36 480,24 C520,18 560,14 600,12 L600,92 L0,92 Z" fill="rgba(124,92,255,.08)" stroke="none"/>
-            <path d="M0,78 C60,74 110,70 170,62 C230,54 280,60 330,46 C380,32 430,36 480,24 C520,18 560,14 600,12" fill="none" stroke="#7C5CFF" stroke-width="2"/>
-          </svg>
-          <div class="mx"><span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Sep</span><span>Nov</span></div>
-        </div>
+<!-- 02 / THE EVIDENCE -->
+<section><div class="wrap">
+  <div class="eyebrow reveal"><span class="n">02</span> / The Evidence</div>
+  <h2 class="reveal">Read the Whole Track Record at a Glance</h2>
+  <p class="section-sub reveal d1" style="margin-top:14px;color:var(--ink);font-weight:600">Open any pick and the same seasonal window is drawn across the lookback you set - ten years, twenty, or every year on record - one bar per year, counted the same way.</p>
+  <p class="section-sub reveal d1" style="margin-top:8px">Each bar pairs the move in your favor that year with the heat it put you through first - the favorable run in green, the drawdown in pink, both shown for every year, none trimmed. A pattern that won <span class="mono">13</span> of <span class="mono">20</span> reads very differently from one that won <span class="mono">19</span> of <span class="mono">20</span>. Underneath, the dashed gold line is the seasonal projection - where price has tended to travel across this window in past years, mapped onto the current one. A historical tendency, not a forecast.</p>
+  <div class="legend reveal d1"><span class="sw w"></span> Favorable run (MFE) - how far it ran in your favor &nbsp;&nbsp; <span class="sw l"></span> Drawdown (MAE) - how far against you first</div>
+  <div class="frame-wrap landscape reveal d2" style="max-width:1080px">
+    <div class="frame frame--artifact">
+      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - 10-Year FAST</span></div>
+      <img src="/_static/evidence_hero.png" alt="10-Year FAST per-year bars, each pairing the favorable run with the drawdown, above the Fastenal price chart with this year's dashed seasonal projection" loading="eager" decoding="sync" width="1338" height="850">
+    </div>
+  </div>
+  <div class="caption">Ten years of FAST here - set the lookback to twenty, or every year on record. The run it gave you, the drawdown it cost you first, all of it left in.<br>A separate model only orders the list and calibrates the historical odds - it never predicts the outcome. SR = seasonal strength (risk-adjusted), Win% = years the window closed net positive, both computed deterministically. <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
+</div></section>
+
+<!-- 03 / YOUR STOCKS (PRIMARY free-report capture) -->
+<section id="free-report-top" class="fr"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">03</span> / Your Stocks</div>
+  <h2 class="reveal">Now Run That Same Chart on the Stocks You Own</h2>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">You just saw how a window reads when it has closed up <span class="mono">19</span> of <span class="mono">20</span> years. Name up to three stocks you actually hold or watch and we will email you the same per-year record for each - over the next ~30, ~60, and ~90 days, across the last <span class="mono">10</span> years and every past election year, wins and losses both. No account, no card. Just the receipts on your own stocks, in your inbox in about a minute.</p>
+  <button type="button" class="frcard reveal d1" data-lm-open aria-label="Open the free seasonal report form">
+    <span class="tk">AAPL</span><span class="tk">MSFT</span><span class="plus">+</span>
+    <span class="em">you@email.com</span>
+    <span class="go">Email Me My Free Report</span>
+  </button>
+  <div class="micro reveal d1">Free forever. No account, no credit card, no obligation. One required, two optional - your report lands in your inbox in about a minute.</div>
+  <div class="reveal d1" style="font-size:.72rem;color:var(--faint);margin-top:16px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.5">Historical seasonal research for educational purposes, not a recommendation or personalized advice. Past results never guarantee future ones.</div>
+</div></section>
+
+<!-- 04 / THE LEDGER -->
+<section id="ledger"><div class="wrap">
+  <div class="ledger-aside reveal">Seasonality sounds like astrology until you see twenty years of receipts.</div>
+  <div style="text-align:center">
+    <div class="eyebrow reveal" style="justify-content:center"><span class="n">04</span> / Accountability</div>
+    <h2 class="reveal">We Do Not Ask for Trust. We Publish the Ledger</h2>
+    <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600">Every pick is logged in public before the outcome - losses included, nothing removed - and it stays there for good. We would rather be audited than believed.</p>
+  </div>
+  <div class="ledger reveal d1">
+    <div class="frame-wrap portrait reveal" style="max-width:380px;margin-top:0">
+      <div class="frame frame--artifact">
+        <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - explain</span></div>
+        <img src="/_static/shows_work.png" alt="The scorecard and explain view showing a pick's full per-year record beside its outcome" loading="lazy" decoding="async" width="575" height="850">
       </div>
     </div>
-  </div>
-  <div class="caption">The Wave-Viewer. Same inputs, same numbers, every time. No black box, no hand-picked window.</div>
-  <div class="chips">
-    <span class="chip">15 Markets</span>
-    <span class="chip">Lookback You Set: 1-99 Years</span>
-    <span class="chip">Calendar or Election Cycle</span>
-    <span class="chip">One Public Ledger</span>
-    {% if content.mcp_live %}<span class="chip flag">Inside ChatGPT and Claude</span>{% endif %}
-  </div>
-</div></section>
-
-<!-- THREE RULES -->
-<div class="rules">
-  <div><b>01</b>Deterministic - Same Inputs, Same Numbers</div>
-  <div><b>02</b>Every Pattern Shows Its Full Per-Year Record</div>
-  <div><b>03</b>Every Pick Logged Before the Outcome</div>
-</div>
-
-<!-- THREE DESKS -->
-<section><div class="wrap">
-  <div class="eyebrow">One Platform, Three Desks</div>
-  <h2>Whoever's Asking, It Bends to You</h2>
-  <p class="section-sub">Same engine for a fund running a thousand backtests and a trader testing one calendar window. You set the markets, the lookback, and the cycle; it returns the ranked patterns with every year's record underneath.</p>
-  <div class="cols3">
-    <div class="card">
-      <div class="thumb"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:55%"></i></div>
-      <h3>New and Independent Traders</h3>
-      <div class="qq">"What's seasonal in tech right now?"</div>
-      <p>Ask a plain-English question and get the patterns that fit, each with its full year-by-year record so you can see how often it has worked. Seven days of everything, then a free plan that stays useful. One free pick lands every day at no cost.</p>
-      <a class="lnk" href="#pricing">See plans for you -&gt;</a>
-    </div>
-    <div class="card">
-      <div class="thumb"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:55%"></i></div>
-      <h3>Professionals, Quants and RIAs</h3>
-      <div class="qq">"Strongest 30 to 60 day windows across all 15 markets, ranked by Sharpe."</div>
-      <p>Full lookback, PE-cycle and date-range knobs, CSV into your own model, on-demand research reports, and deep links that hand a colleague the exact pattern, years, and settings you see. Built for a desk, not a demo.</p>
-      <a class="lnk" href="#pricing">See Strategist -&gt;</a>
-    </div>
-    <div class="card">
-      <div class="thumb"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:55%"></i></div>
-      <h3>Funds and Enterprise</h3>
-      <div class="qq">"Pull the ranked seasonal patterns into our own code."</div>
-      <p>License the historical seasonal-pattern file and the trained model for internal backtests over a compiled, multi-decade dataset. A seasonal-pattern REST API, multi-seat keys, SSO and audit. Your agent can write a backtest; it cannot make it true.</p>
-      <a class="lnk" href="#pricing">Talk to us -&gt;</a>
-    </div>
-  </div>
-  <div class="desk-note">Not different products - the same engine, the same receipts, and the same multi-decade record, priced to the job in front of you.</div>
-</div></section>
-
-<!-- RECEIPTS -->
-<section><div class="wrap">
-  <div class="eyebrow">You've noticed it for years</div>
-  <h2>Open Any Pattern and Every Historical Year Is on the Table - Wins and Losses Both</h2>
-  <div class="two" style="margin-top:30px">
-    <div class="copy">
-      <p class="muted">The same calendar window, the same behavior, year after year - most serious traders carry a private list of these hunches, while the evidence stayed folklore. TradeWave was built to test them with statistics, not stories.</p>
-      <p class="muted">A deterministic engine computes seasonal patterns from end-of-day data across 15 markets - US and global equities, indices, ETFs, futures and commodities, currencies, government bonds, and crypto - on histories reaching back up to 99 years.</p>
-      <p class="muted">Open any pattern and its complete record is on the table: every historical year's individual result, win consistency, average return, Sharpe, the TradeWave Ratio (our return-per-unit-of-risk score), the MFE/MAE risk band (how far it ran up and down each year), and PE-cycle overlays. The same inputs always produce the same answer - no black box, no hand-picked window. Every exact view carries a deep link.</p>
-    </div>
-    <div class="panelshot">
-      <div class="opp">
-        <div class="row h"><span>YEAR</span><span>DIR</span><span>RESULT</span></div>
-        <div class="row"><span>2002</span><span>L</span><span class="res-w mono">win</span></div>
-        <div class="row"><span>2009</span><span>L</span><span class="res-w mono">win</span></div>
-        <div class="row"><span>2014</span><span>L</span><span class="res-l mono">loss</span></div>
-        <div class="row"><span>2020</span><span>L</span><span class="res-w mono">win</span></div>
-        <div class="row"><span>2026</span><span>L</span><span class="res-w mono">win</span></div>
-      </div>
-      <div class="caption" style="text-align:left;margin-top:12px">Up to 99 Years of Seasonality, Measured to the Day - wins and losses both on the table</div>
-    </div>
-  </div>
-</div></section>
-
-<!-- ML RANKING -->
-<section><div class="wrap">
-  <div class="eyebrow">AI layer one - rank it</div>
-  <div class="two">
-    <div class="copy">
-      <h2>Machine Learning With One Honest Job: Ranking</h2>
-      <p class="muted" style="margin-top:16px">One scan sweeps all 15 markets and surfaces the setups entering their seasonal window now. A separate gradient-boosted model reads 62 features of every qualifying setup and produces a ranking used for exactly one thing: ordering the list.</p>
-      <p class="muted">It does not promise outcomes. The statistics stay deterministic - the model only decides what you look at first. A no-pattern result is a real finding, not weak support. Once a day, that ranking plus rules selects a single pick, and it is logged in public before the outcome is known, losses included.</p>
-    </div>
-    <div class="panelshot">
-      <span class="tag">Today's pick - logged to the public ledger</span>
-      <div class="opp">
-        <div class="row h"><span>SETUP</span><span>DIR</span><span>RANK</span></div>
-        {% set ml_rows = default_tab.opportunities[:4] if default_tab else [] %}
-        {% if content.featured_pattern and content.featured_pattern.show %}
-        <div class="row"><span>{{ content.featured_pattern.symbol }} &middot; {{ content.featured_pattern.company_name }}</span><span>{% if content.featured_pattern.direction == 'Long' %}L{% else %}S{% endif %}</span><span class="badge">#1</span></div>
-        {% endif %}
-        {% set ml_rank = namespace(n=1 if (content.featured_pattern and content.featured_pattern.show) else 0) %}
-        {% for opp in ml_rows %}
-          {% if not (content.featured_pattern and content.featured_pattern.show and opp.symbol == content.featured_pattern.symbol) %}
-          {% set ml_rank.n = ml_rank.n + 1 %}
-          {% if ml_rank.n <= 3 %}
-          <div class="row"><span>{{ opp.symbol }} &middot; {{ opp.company_name }}</span><span>{% if opp.direction|lower == 'long' %}L{% else %}S{% endif %}</span><span class="badge">#{{ ml_rank.n }}</span></div>
-          {% endif %}
-          {% endif %}
-        {% endfor %}
-      </div>
-      <div class="caption" style="text-align:left;margin-top:10px">rank badges and unitless bars only - no probability shown</div>
-    </div>
-  </div>
-</div></section>
-
-<!-- ASK THE CHART -->
-<section><div class="wrap">
-  <div class="eyebrow">AI layer two - talk to it</div>
-  <h2>Ask the Chart. Watch It Answer</h2>
-  <p class="section-sub" style="margin-top:14px">Tara is how you question the platform out loud. Ask why a setup ranks where it does, and the answer cites that pattern's own table: the years, the consistency, the risk. Ask to see something else, and the wave-viewer changes in front of you. Tara is an interface to the same statistics, not another opinion.</p>
-  <div class="frame" style="margin-top:28px">
-    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - Tara just changed the chart</span></div>
-    <div class="wv">
-        <div class="opp2">
-          <div class="hd">Tara</div>
-          <div class="tara">
-            <div class="bub u">Why does this setup rank here?</div>
-            <div class="bub a">It cleared its window in 13 of 15 years - here is the per-year table and the risk band.</div>
-            <div class="bub u">Show me an April window instead.</div>
-            <div class="bub a">Done - the chart just changed.</div>
-          </div>
-          <div class="ask2"><span>&gt; ask anything...</span></div>
-        </div>
-        <div class="chart">
-          <div class="ch"><span>15 Year &middot; April window</span><span>Each year's high and low</span></div>
-          <div class="mae">
-            <div class="yr"><div class="u"><i style="height:70%"></i></div><div class="d"><i style="height:34%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:50%"></i></div><div class="d"><i style="height:58%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:86%"></i></div><div class="d"><i style="height:24%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:44%"></i></div><div class="d"><i style="height:66%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:78%"></i></div><div class="d"><i style="height:30%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:62%"></i></div><div class="d"><i style="height:46%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:90%"></i></div><div class="d"><i style="height:22%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:56%"></i></div><div class="d"><i style="height:52%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:74%"></i></div><div class="d"><i style="height:36%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:40%"></i></div><div class="d"><i style="height:70%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:82%"></i></div><div class="d"><i style="height:28%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:66%"></i></div><div class="d"><i style="height:44%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:58%"></i></div><div class="d"><i style="height:50%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:80%"></i></div><div class="d"><i style="height:30%"></i></div></div>
-            <div class="yr"><div class="u"><i style="height:72%"></i></div><div class="d"><i style="height:38%"></i></div></div>
-          </div>
-          <div class="mae-x"><span>2011</span><span>2015</span><span>2019</span><span>2023</span><span>2025</span></div>
-        </div>
-      <div class="btm">
-        <div class="bh"><span>Trend Chart &middot; 15 Year &middot; April window</span>
-          <span class="swipe"><b>&bull; Trend Chart</b><i>&bull; Stats</i><i>&bull; Price + Projection</i></span></div>
-        <div class="trend">
-          <div class="band" style="left:23%"></div>
-          <svg viewBox="0 0 600 92" preserveAspectRatio="none">
-            <path d="M0,52 C70,56 130,64 200,50 C270,36 330,24 400,30 C470,38 520,56 560,48 L600,44 L600,92 L0,92 Z" fill="rgba(124,92,255,.08)" stroke="none"/>
-            <path d="M0,52 C70,56 130,64 200,50 C270,36 330,24 400,30 C470,38 520,56 560,48 L600,44" fill="none" stroke="#7C5CFF" stroke-width="2"/>
-          </svg>
-          <div class="mx"><span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Sep</span><span>Nov</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div></section>
-
-<!-- MCP (the "inside ChatGPT and Claude" section, gated to content.mcp_live) -->
-{% if content.mcp_live %}
-<section><div class="wrap">
-  <div class="eyebrow">AI layer three - take it with you <span class="newbadge">New</span></div>
-  <div class="two">
-    <div class="panelshot">
-      <div class="bub a" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">ChatGPT &middot; TradeWave connector enabled</div>
-      <div class="bub u">Scan US tech for windows opening this month.</div>
-      <div class="bub a">3 setups entering their seasonal window. Movement shown as % and a 0 to 100 index, seasonal patterns only - no price levels.</div>
-    </div>
-    <div class="copy">
-      <h2 id="connect">A Pattern API for Your Stack - and It Works Inside ChatGPT and Claude</h2>
-      <p class="muted" style="margin-top:14px">A documented REST API delivers the same deterministic seasonal patterns and rankings to your code: Python and TypeScript SDKs, an interactive playground, multi-seat keys, SSO and audit. Your agent can write a backtest. It cannot make it true.</p>
-      <p class="muted">Or add TradeWave to ChatGPT, Claude, or any MCP-capable assistant and sign in with your account. Then just ask: scans, pattern analysis, plain language - the same engine and the same receipts, inside the tools you already use.</p>
-      <a class="btn" href="{{ content.hero.cta_primary_url }}">Start Free - Full Access for 7 Days</a>
-      <a class="lnk" href="{{ content.developers_url }}" style="margin-left:16px">Open the developer portal -&gt;</a>
-      <div class="micro">No credit card required.</div>
-    </div>
-  </div>
-</div></section>
-{% endif %}
-
-<!-- A TUESDAY -->
-<section><div class="wrap">
-  <div class="eyebrow">Built for a desk, not a demo</div>
-  <h2>A Tuesday With TradeWave</h2>
-  <div class="timeline">
-    <div class="tl"><div class="ts">8:50</div><div class="mock"></div><p>Your calendar pings: a pattern window on your watchlist opens Thursday.</p></div>
-    <div class="tl"><div class="ts">9:15</div><div class="mock"></div><p>You export the stats table to CSV and drop it into your own model.</p></div>
-    <div class="tl"><div class="ts">11:00</div><div class="mock"></div><p>A date-range research report across your portfolio, generated on demand.</p></div>
-    <div class="tl"><div class="ts">2:40</div><div class="mock"></div><p>You send a teammate a deep link that opens the exact pattern, years, and settings you see.</p></div>
-  </div>
-  <div class="desk-note">Nothing here required remembering to check a dashboard.</div>
-</div></section>
-
-<!-- LEDGER -->
-<section><div class="wrap">
-  <div class="eyebrow">Accountability</div>
-  <h2>We Do Not Ask for Trust. We Publish the Ledger</h2>
-  <p class="section-sub" style="margin-top:14px">We led with a claim. Here is the record that backs it. The methodology is public - what we compute, how, and what it cannot tell you. Every daily pick is written to a public forward ledger before the outcome is known, and it stays there: losses included, nothing removed. We would rather be audited than believed.</p>
-  <div class="ledger">
-    <div class="panelshot">
+    <div class="panelshot" style="box-shadow:0 24px 60px rgba(0,0,0,.4),inset 0 1px 0 rgba(63,182,139,.12)">
       <div class="caption" style="text-align:left;margin-bottom:8px">/scorecard - the public forward ledger</div>
       <div class="scoretbl">
         <div class="r h"><span>PICK</span><span>LOGGED</span><span>RESULT</span></div>
@@ -641,118 +522,186 @@ footer .links a{color:var(--muted)}
         <div class="r"><span>{{ row.symbol }} &middot; {{ row.direction }}</span><span>{{ row.logged_date }}</span><span class="{% if row.result == 'win' %}res-w{% elif row.result == 'loss' %}res-l{% else %}faint{% endif %}">{{ row.result }}</span></div>
         {% endfor %}
       </div>
-    </div>
-    <div class="panelshot">
-      <div class="caption" style="text-align:left;margin-bottom:8px">/methodology - what we compute, how, and its limits</div>
-      <p class="muted" style="font-size:.92rem">Deterministic seasonal statistics from end-of-day data across 15 markets, over any 1 to 99 year lookback, calendar or election cycle. Two separate published metrics, never blended: held-to-close win rate and target-hit rate, both over the same set of resolved picks. The model only ranks; it predicts nothing. Every figure traces to a per-year table you can open, and anyone, including an AI agent, can audit the live record.</p>
-      <p class="faint" style="font-size:.85rem">Not investment advice, and past results never guarantee future ones. We don't ask you to take the claim on faith - the evidence and the record are public, so you can check every number yourself.</p>
+      <div class="faint" style="font-size:.78rem;margin-top:12px">The real rates, the resolved-pick count, and the as-of date are published in full. Past results never guarantee future ones. Surfaces the evidence - never personalized advice, never a predicted outcome.</div>
     </div>
   </div>
-  <div style="text-align:center;margin-top:20px"><a href="{{ content.methodology_url }}" class="lnk">Read the methodology -&gt;</a> &nbsp;&nbsp; <a href="{{ content.scorecard_url }}" class="lnk">Inspect the ledger -&gt;</a></div>
-  <div class="prov">
-    <img src="{{ content.founder.photo }}" alt="{{ content.founder.name }}">
-    <div><q>I built the instrument I could not buy.</q><span class="by">{{ content.founder.name }}, founder, Tara Data Research LLC - author of {{ content.founder.book_title }} (2026)</span></div>
+  <div style="text-align:center;margin-top:22px" class="reveal"><a href="{{ content.scorecard_url }}" class="lnk">Inspect the ledger &rarr;</a> &nbsp;&nbsp; <a href="{{ content.methodology_url }}" class="lnk">Read the methodology &rarr;</a></div>
+  <div class="prov reveal">
+    <div class="av">AM</div>
+    <div><q>Every number on this page traces back to a per-year table you can open and an audit log you can read.</q><span class="by">{{ content.founder.name }}, founder, Tara Data Research LLC</span></div>
   </div>
 </div></section>
 
-<!-- PRICING -->
-<section id="pricing"><div class="wrap" style="text-align:center">
-  <span class="ribbon">Every signup starts with 7 days of the full platform</span>
-  <h2>{{ content.pricing.headline }}</h2>
-  <div class="toggle" style="margin-top:24px">
+<!-- 05 / TARA -->
+<section id="tara"><div class="wrap">
+  <div class="two">
+    <div class="copy reveal">
+      <div class="eyebrow"><span class="n">05</span> / The Learning Curve, Gone</div>
+      <h2>Ask in Plain English. Skip the Manual</h2>
+      <p style="margin-top:16px;color:var(--ink);font-weight:600">Seasonal research is powerful and hard to master. Tara collapses that learning curve to near zero.</p>
+      <p class="muted">Ask for the best setups, why one ranks above another, or a stock's <span class="mono">20</span>-year record, and Tara answers from the same statistics and drives the charts for you - no manual, no syntax, real research in your first minute.</p>
+      <div class="micro" style="margin-top:18px">Tara reads the same deterministic statistics on the chart. It surfaces and explains the evidence - it never gives personalized advice or predicts an outcome. <a href="/app/" class="lnk" style="color:var(--muted)">Launch the live demo &rarr;</a></div>
+    </div>
+    <div class="frame-wrap portrait reveal d1" style="max-width:420px;margin-top:0">
+      <div class="frame frame--artifact">
+        <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - Tara</span></div>
+        <img src="/_static/ask.png" alt="Tara answering a plain-English question with a named, ranked shortlist of tech stocks beside the live opportunity table" loading="lazy" decoding="async" width="575" height="849">
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- 06 / PRICING (Stripe-injected loop, v4 look) -->
+<section id="pricing" class="priceband"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">06</span> / Pricing</div>
+  <h2 class="reveal">{{ content.pricing.headline }}</h2>
+  <p class="kicker reveal d1" style="margin-top:14px">Every signup starts with 7 days of the full platform, then a free plan that never expires. Same engine and same public record on every tier - no card to start, cancel anytime.</p>
+  <div class="billtoggle reveal d1">
     <button type="button" class="pricing-toggle-btn {% if content.pricing.default_billing == 'monthly' %}on{% endif %}" data-billing="monthly">Monthly</button>
     <button type="button" class="pricing-toggle-btn {% if content.pricing.default_billing == 'yearly' %}on{% endif %}" data-billing="yearly">Yearly</button>
   </div>
-  <div class="plans" style="text-align:left">
+  {% set taglines = {'Explorer':'For getting started','Navigator':'For the focused hunt','Analyst':'For active traders','Strategist':'For desks & pros'} %}
+  <div class="plans" style="text-align:left;margin-top:22px">
     {% for tier in content.pricing.tiers %}
-    <div class="plan {% if tier.highlighted %}hot{% endif %}">
-      <div class="pn">{{ tier.name }}</div><div class="tag2">{% if tier.highlighted %}Marketed tier{% elif tier.monthly_price == 'Free' %}Free{% else %}&nbsp;{% endif %}</div>
-      <div class="pr"><span class="pricing-price" data-monthly-price="{{ tier.monthly_price }}" data-yearly-price="{{ tier.yearly_price }}">{% if content.pricing.default_billing == 'monthly' %}{{ tier.monthly_price }}{% else %}{{ tier.yearly_price }}{% endif %}</span><!--
-      --><small class="pricing-period" data-monthly-period="{{ tier.monthly_period }}" data-yearly-period="{{ tier.yearly_period }}">{% if content.pricing.default_billing == 'monthly' %}{{ tier.monthly_period }}{% else %}{{ tier.yearly_period }}{% endif %}</small></div>
-      <div class="yr">{% if tier.monthly_price == 'Free' %}free for as long as you like{% else %}<span class="pricing-altprice" data-monthly-alt="or {{ tier.yearly_price }}/mo billed yearly" data-yearly-alt="or {{ tier.monthly_price }}/mo">{% if content.pricing.default_billing == 'monthly' %}or {{ tier.yearly_price }}/mo billed yearly{% else %}or {{ tier.monthly_price }}/mo{% endif %}</span>{% endif %}</div>
-      <ul>
+    <div class="plan {% if tier.highlighted %}hot{% endif %} reveal d1">
+      <div class="pn">{{ tier.name }}{% if tier.highlighted %} <span class="tag2" style="color:#fff;background:var(--accent);border-radius:5px;padding:2px 7px;letter-spacing:.08em">Most chosen</span>{% endif %}</div>
+      <div class="tag2">{{ taglines.get(tier.name, '') }}</div>
+      <div class="pr"><span class="pricing-price" data-monthly-price="{{ tier.monthly_price }}" data-yearly-price="{{ tier.yearly_price }}">{% if content.pricing.default_billing == 'monthly' %}{{ tier.monthly_price }}{% else %}{{ tier.yearly_price }}{% endif %}</span>{% if tier.monthly_price != 'Free' %}<span class="per pricing-period" data-monthly-period="{{ tier.monthly_period }}" data-yearly-period="{{ tier.yearly_period }}">{% if content.pricing.default_billing == 'monthly' %}{{ tier.monthly_period }}{% else %}{{ tier.yearly_period }}{% endif %}</span>{% endif %}</div>
+      <div class="bill">{% if tier.monthly_price == 'Free' %}no card, ever{% else %}<span class="pricing-altprice" data-monthly-alt="or {{ tier.yearly_price }}/mo billed yearly" data-yearly-alt="or {{ tier.monthly_price }}/mo billed monthly">{% if content.pricing.default_billing == 'monthly' %}or {{ tier.yearly_price }}/mo billed yearly{% else %}or {{ tier.monthly_price }}/mo billed monthly{% endif %}</span>{% endif %}</div>
+      <ul class="feat">
         {% for feature in tier.features %}
           {% if feature == '' or feature == '~' %}{% elif feature.startswith('!') %}<li>{{ feature[1:] }}</li>{% elif feature.startswith('~upgrade:') %}<li>{{ feature[9:] }}</li>{% else %}<li>{{ feature }}</li>{% endif %}
         {% endfor %}
       </ul>
       {% if tier.checkout_tier %}
-      <form method="get" action="/api/stripe/create-checkout" style="margin:0">
+      <form method="get" action="/api/stripe/create-checkout" style="margin:0;margin-top:auto">
         <input type="hidden" name="tier" value="{{ tier.checkout_tier }}">
         <input type="hidden" name="period" class="pricing-cta-period" value="{% if content.pricing.default_billing == 'monthly' %}monthly{% else %}yearly{% endif %}">
-        <button type="submit" class="btn pricing-signup-btn cta" data-upgrade-url="{{ content.nav.upgrade_url }}" data-strategist-href="{{ content.hero.cta_wave_viewer_url }}" data-strategist-text="Launch Wave Viewer">Start Free</button>
+        <button type="submit" class="btn {% if not tier.highlighted %}ghost{% endif %} pricing-signup-btn cta" data-upgrade-url="{{ content.nav.upgrade_url }}" data-strategist-href="{{ content.hero.cta_wave_viewer_url }}" data-strategist-text="Launch Wave Viewer">Start Free - 7 Days</button>
       </form>
       {% else %}
-      <a href="{% if content.pricing.default_billing == 'monthly' %}{{ tier.monthly_url }}{% else %}{{ tier.yearly_url }}{% endif %}" class="btn pricing-signup-btn cta" data-monthly-url="{{ tier.monthly_url }}" data-yearly-url="{{ tier.yearly_url }}" data-monthly-href="{{ tier.monthly_url }}" data-yearly-href="{{ tier.yearly_url }}" data-upgrade-url="{{ content.nav.upgrade_url }}" data-strategist-href="{{ content.hero.cta_wave_viewer_url }}" data-strategist-text="Launch Wave Viewer">Start Free</a>
+      <a href="{% if content.pricing.default_billing == 'monthly' %}{{ tier.monthly_url }}{% else %}{{ tier.yearly_url }}{% endif %}" class="btn {% if not tier.highlighted %}ghost{% endif %} pricing-signup-btn cta" data-monthly-url="{{ tier.monthly_url }}" data-yearly-url="{{ tier.yearly_url }}" data-monthly-href="{{ tier.monthly_url }}" data-yearly-href="{{ tier.yearly_url }}" data-upgrade-url="{{ content.nav.upgrade_url }}" data-strategist-href="{{ content.hero.cta_wave_viewer_url }}" data-strategist-text="Launch Wave Viewer">Start Free</a>
       {% endif %}
     </div>
     {% endfor %}
   </div>
-  {% if content.desk_pricing %}
-  <div class="desk-strip"><b>{{ content.desk_pricing.name }}</b> &nbsp;{{ content.desk_pricing.price }} &nbsp;-&nbsp; {{ content.desk_pricing.detail }} &nbsp;-&nbsp; <a href="{{ content.desk_pricing.cta_url }}">{{ content.desk_pricing.cta_text }} -&gt;</a></div>
-  {% endif %}
-  <div class="kicker">Every tier runs the same engine and the same receipts, starting at $0. Paid plans carry a 7-day trial. Cancel anytime.</div>
+  <div class="kicker reveal" style="margin-top:20px">{% if content.mcp_live %}The same deterministic engine and public record inside ChatGPT, Claude, or any MCP assistant - plus a {% else %}A {% endif %}documented REST API with Python and TypeScript SDKs, multi-seat keys, SSO and audit. Funds and enterprise can license the pattern file, the model, and the API. <a href="mailto:hello@tradewave.ai?subject=Funds%20%26%20Enterprise" class="lnk">Talk to us &rarr;</a></div>
 </div></section>
 
-<!-- LIVING RESEARCH + CLOSE -->
-<section><div class="wrap">
-  <div class="eyebrow">What the engine sees this week</div>
-  <h2>Real Articles, Real Dates - Before You Ever Create an Account</h2>
-  <div class="news">
-    {% if content.recent_articles %}
-    {% for art in content.recent_articles %}
-    <a class="na" href="{{ art.url }}"><div class="d">{{ art.date }}</div><p>{{ art.title }}</p></a>
-    {% endfor %}
-    {% else %}
-    <div class="na"><div class="d">2026-06-15</div><p>Seasonal Market News: what the engine sees in current US tech.</p></div>
-    <div class="na"><div class="d">2026-06-13</div><p>The June window in energy, read against the PE cycle.</p></div>
-    <div class="na"><div class="d">2026-06-11</div><p>Why a no-pattern week is still a finding.</p></div>
-    <div class="na"><div class="d">Insights</div><p>How the statistics are built - and what decades of data cannot justify.</p></div>
-    {% endif %}
+<!-- 07 / WHO IT'S FOR -->
+<section id="desks"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">07</span> / Who It's For</div>
+  <h2 class="reveal">Whoever's Asking, It Bends to You</h2>
+  <p class="section-sub reveal d1" style="margin:12px auto 0;text-align:center">Same engine for a fund running a thousand backtests and a trader testing one window.</p>
+  <div class="cols3" style="text-align:left">
+    <div class="card reveal d1">
+      <h3>New and Independent Traders</h3>
+      <div class="qq">"What's seasonal in tech right now?"</div>
+      <p>Just ask Tara, get a named ranked answer, no manual. Real research in your first minute, on the same statistics the pros read.</p>
+      <a class="lnk" href="#pricing">Start free &rarr;</a>
+    </div>
+    <div class="card mid reveal d2">
+      <h3>Professionals, Quants and RIAs</h3>
+      <div class="qq">"Strongest 30 to 60 day windows across all markets, ranked by Sharpe"</div>
+      <p>Built for a desk, not a demo: the full per-year record, manual PE-cycle filtering, and CSV. Auditable down to the year, so you can defend every call.</p>
+      <a class="lnk" href="#pricing">See Analyst / Strategist &rarr;</a>
+    </div>
+    <div class="card reveal d3">
+      <h3>Funds and Enterprise</h3>
+      <div class="qq">"Your agent can write a backtest; it cannot make it true"</div>
+      <p>License the pattern file, the model, and the REST API. The same deterministic engine and public record in your own stack, with multi-seat keys, SSO and audit.</p>
+      <a class="lnk" href="mailto:hello@tradewave.ai?subject=Funds%20%26%20Enterprise">Talk to us &rarr;</a>
+    </div>
   </div>
-  <div style="margin-top:18px"><a class="lnk" href="{{ content.articles_library_url }}">Browse the library -&gt;</a></div>
+  <div class="desk-note reveal">Not different products - the same engine, the same receipts, priced to the job in front of you.</div>
 </div></section>
 
+<!-- 08 / YOUR STOCKS (slim late re-offer) -->
+<section id="free-report-band" class="fr"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">08</span> / Before You Go</div>
+  <h2 class="reveal">Take the Seasonals With You, Free</h2>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">Name up to three stocks you hold and we will email you each one's full per-year seasonal record - the last <span class="mono">10</span> years and every past election year, no account needed.</p>
+  <button type="button" class="frcard reveal d1" data-lm-open aria-label="Open the free seasonal report form">
+    <span class="tk">AAPL</span><span class="tk">MSFT</span><span class="plus">+</span>
+    <span class="em">you@email.com</span>
+    <span class="go">Email Me My Free Report</span>
+  </button>
+  <div class="micro reveal d1">Free forever. No credit card, no signup, no obligation. Just your report, in your inbox in about a minute.</div>
+  <div class="reveal d1" style="font-size:.72rem;color:var(--faint);margin-top:16px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.5">Historical seasonal research for educational purposes, not a recommendation or personalized advice. Past results never guarantee future ones.</div>
+</div></section>
+
+<!-- 09 / BRING YOUR HUNCHES (CLOSE) -->
 <div class="close"><div class="wrap">
-  <h2>Bring Your Hunches</h2>
-  <p class="section-sub" style="margin:0 auto 22px;text-align:center">Test the calendar windows you've carried for years against up to 99 years of receipts - in the platform, with Tara beside the chart. Seven days of everything, free. A free plan that keeps working after.</p>
-  <a class="btn" href="{{ content.hero.cta_primary_url }}">Start Free - Full Access for 7 Days</a>
-  <div class="micro">No credit card required.</div>
+  <div class="eyebrow reveal" style="justify-content:center"><span class="n">09</span> / Bring Your Hunches</div>
+  <h2 class="reveal">Bring a Hunch. Leave With the Receipts</h2>
+  <p class="section-sub reveal d1" style="margin:0 auto 22px;text-align:center">Bring a ticker, a calendar window, a gut feel you have carried for years. TradeWave shows you the seasonal evidence for it or against it, every year of it, with Tara beside the chart.</p>
+  <div class="cta-row reveal">
+    <a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.08rem;padding:16px 32px">Start Free - Full Access for 7 Days</a>
+  </div>
+  <div class="micro reveal">No credit card. Full platform for 7 days, then a free plan that never expires. &nbsp;<a href="/app/" class="lnk" style="color:var(--muted)">Launch the live demo &rarr;</a></div>
 </div></div>
 
+<!-- MOBILE STICKY CTA -->
+<div class="stickycta" id="stickycta">
+  <span class="lbl"><b>Start free</b>Full platform, 7 days, no card</span>
+  <a href="{{ content.hero.cta_primary_url }}" class="btn">Start Free &rarr;</a>
+</div>
+
+<!-- FOOTER -->
 <footer><div class="wrap">
-  <div class="links">
-    <a href="{{ content.methodology_url }}">Methodology</a><a href="{{ content.scorecard_url }}">Scorecard</a><a href="/insights/">Insights</a><a href="https://seasonalmarketnews.com/">Seasonal Market News</a>
-    <a href="{{ content.developers_url }}">Developers (API &amp; MCP)</a><a href="#pricing">Pricing</a><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a><a href="{{ content.contact_url }}">Contact</a><a href="/disclaimer.html">Disclaimer</a>
+  <div class="foot-motif">Most tools hand you an opinion. TradeWave hands you the receipts.</div>
+  <div class="foot-cols">
+    <div>
+      <span class="brand">Trade<b>Wave</b></span>
+      <p class="faint" style="font-size:.82rem;margin-top:12px">Seasonal market research that shows its work.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <a href="/app/">Wave Viewer</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#tara">Tara</a>
+      <a href="https://seasonalmarketnews.com/">News</a>
+      <a href="{{ content.scorecard_url }}">Scorecard</a>
+      <a href="{{ content.methodology_url }}">Methodology</a>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <a href="/about">About</a>
+      <a href="{{ content.contact_url }}">Contact</a>
+    </div>
+    <div>
+      <h4>Developers</h4>
+      <a href="{{ content.developers_url }}">API &amp; MCP</a>
+      <a href="{{ content.developers_url }}">Developer Portal</a>
+      <a href="{{ content.developers_url }}">SDKs</a>
+    </div>
+    <div>
+      <h4>Legal</h4>
+      <a href="/terms.html">Terms</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/disclaimer.html">Disclaimer</a>
+    </div>
   </div>
-  <p>{{ content.footer.legal.disclaimer }}</p>
-  <p style="margin-top:14px">&copy; {{ content.footer.legal.copyright }}</p>
+  {% if content.mcp_live %}<div class="foot-note">TradeWave is available inside ChatGPT, Claude, and any MCP-capable assistant. Sign in with your account and ask in plain English - the same deterministic engine and the same public record, wherever you work.</div>{% endif %}
+  <p class="foot-legal">{{ content.footer.legal.disclaimer }}</p>
+  <p class="foot-legal" style="margin-top:14px">&copy; {{ content.footer.legal.copyright }}</p>
 </div></footer>
 
 <!-- =================== AFFILIATE REFERRAL CAPTURE (no visual effect) =================== -->
 <script id="tw-ref-code-link">
-// Affiliate referral capture. If the page URL carries ?code=ANNE (or ?via=ANNE),
-// remember it in a first-party cookie (tw_ref, 60 days) so the partner who
-// referred you is credited even if you sign up first and subscribe later.
-// FIRST-TOUCH: an existing referral cookie is never overwritten. The code is
-// also stamped onto this page's checkout forms.
 (function(){
     try {
         var RE = /^[A-Za-z0-9_-]{2,64}$/;
-        function getCookie(n){
-            var m = document.cookie.match('(?:^|; )' + n + '=([^;]*)');
-            return m ? decodeURIComponent(m[1]) : '';
-        }
+        function getCookie(n){ var m = document.cookie.match('(?:^|; )' + n + '=([^;]*)'); return m ? decodeURIComponent(m[1]) : ''; }
         var params = new URLSearchParams(window.location.search);
         var fromUrl = (params.get('code') || params.get('via') || '').trim();
         var existing = getCookie('tw_ref');
         var code = '';
-        if (existing && RE.test(existing)) {
-            code = existing;                  // first-touch: keep the first referrer
-        } else if (fromUrl && RE.test(fromUrl)) {
+        if (existing && RE.test(existing)) { code = existing; }
+        else if (fromUrl && RE.test(fromUrl)) {
             code = fromUrl;
             var sec = (location.protocol === 'https:') ? '; secure' : '';
-            document.cookie = 'tw_ref=' + encodeURIComponent(code) +
-                '; max-age=' + (60*24*60*60) + '; path=/; samesite=lax' + sec;
+            document.cookie = 'tw_ref=' + encodeURIComponent(code) + '; max-age=' + (60*24*60*60) + '; path=/; samesite=lax' + sec;
         }
         if (!code) return;
         function addParam(url){
@@ -763,63 +712,38 @@ footer .links a{color:var(--muted)}
         function stamp(){
             document.querySelectorAll('form[action*="/api/stripe/create-checkout"]').forEach(function(f){
                 if (!f.querySelector('input[name="code"]')) {
-                    var i = document.createElement('input');
-                    i.type = 'hidden'; i.name = 'code'; i.value = code;
-                    f.appendChild(i);
+                    var i = document.createElement('input'); i.type = 'hidden'; i.name = 'code'; i.value = code; f.appendChild(i);
                 }
             });
-            document.querySelectorAll('a[href*="/api/stripe/create-checkout"]').forEach(function(a){
-                a.setAttribute('href', addParam(a.getAttribute('href')));
-            });
+            document.querySelectorAll('a[href*="/api/stripe/create-checkout"]').forEach(function(a){ a.setAttribute('href', addParam(a.getAttribute('href'))); });
             document.querySelectorAll('[data-monthly-href],[data-yearly-href],[data-monthly-url],[data-yearly-url]').forEach(function(el){
                 ['data-monthly-href','data-yearly-href','data-monthly-url','data-yearly-url'].forEach(function(attr){
-                    var v = el.getAttribute(attr);
-                    if (v) el.setAttribute(attr, addParam(v));
+                    var v = el.getAttribute(attr); if (v) el.setAttribute(attr, addParam(v));
                 });
             });
         }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', stamp);
-        } else { stamp(); }
+        if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', stamp); } else { stamp(); }
     } catch (e) { /* never break the page over a referral code */ }
 })();
 </script>
 
 <script>
-// Pricing monthly/yearly toggle: switches displayed price/period, the checkout
-// form's hidden period field, and the non-checkout tier hrefs.
+// Pricing monthly/yearly toggle.
 (function(){
     var toggleBtns = document.querySelectorAll('.pricing-toggle-btn');
     if (!toggleBtns.length) return;
     function applyBilling(billing){
-        toggleBtns.forEach(function(b){
-            if (b.getAttribute('data-billing') === billing) b.classList.add('on');
-            else b.classList.remove('on');
-        });
-        document.querySelectorAll('.pricing-price').forEach(function(el){
-            var p = el.getAttribute('data-' + billing + '-price'); if (p) el.textContent = p;
-        });
-        document.querySelectorAll('.pricing-period').forEach(function(el){
-            var p = el.getAttribute('data-' + billing + '-period'); if (p !== null) el.textContent = p;
-        });
-        document.querySelectorAll('.pricing-altprice').forEach(function(el){
-            var p = el.getAttribute('data-' + billing + '-alt'); if (p) el.textContent = p;
-        });
+        toggleBtns.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-billing') === billing); });
+        document.querySelectorAll('.pricing-price').forEach(function(el){ var p = el.getAttribute('data-' + billing + '-price'); if (p) el.textContent = p; });
+        document.querySelectorAll('.pricing-period').forEach(function(el){ var p = el.getAttribute('data-' + billing + '-period'); if (p !== null) el.textContent = p; });
+        document.querySelectorAll('.pricing-altprice').forEach(function(el){ var p = el.getAttribute('data-' + billing + '-alt'); if (p) el.textContent = p; });
         document.querySelectorAll('.pricing-cta-period').forEach(function(el){ el.value = billing; });
-        document.querySelectorAll('a.cta').forEach(function(el){
-            var href = el.getAttribute('data-' + billing + '-href') || el.getAttribute('data-' + billing + '-url');
-            if (href) el.setAttribute('href', href);
-        });
+        document.querySelectorAll('a.cta').forEach(function(el){ var href = el.getAttribute('data-' + billing + '-href') || el.getAttribute('data-' + billing + '-url'); if (href) el.setAttribute('href', href); });
     }
-    toggleBtns.forEach(function(btn){
-        btn.addEventListener('click', function(){ applyBilling(this.getAttribute('data-billing')); });
-    });
+    toggleBtns.forEach(function(btn){ btn.addEventListener('click', function(){ applyBilling(this.getAttribute('data-billing')); }); });
 })();
 
-// Nav auth-swap: /api/me. Mirrors the old template - flips the static "Sign In"
-// link to "Account" when logged in, and rewrites every .pricing-signup-btn by
-// tier. Does NOT alter the nav's static markup or CSS (only the link's href/text
-// when authenticated), so the layout is identical for a logged-out visitor.
+// Nav auth-swap: /api/me -> flip Sign In to Account, rewrite pricing CTAs by tier.
 (function(){
     function applyAuth(data){
         if (!data || !data.authenticated) return;
@@ -827,15 +751,27 @@ footer .links a{color:var(--muted)}
         var auth = document.getElementById('tw-auth-link');
         if (auth) { auth.setAttribute('href', '/account'); auth.textContent = 'Account'; }
         document.querySelectorAll('.pricing-signup-btn').forEach(function(el){
+            var dest, text;
             if (level === 'strategist') {
-                el.setAttribute('href', el.getAttribute('data-strategist-href') || '/app/');
-                el.textContent = el.getAttribute('data-strategist-text') || 'Launch Wave Viewer';
+                dest = el.getAttribute('data-strategist-href') || '/app/';
+                text = el.getAttribute('data-strategist-text') || 'Launch Wave Viewer';
             } else if (level === 'analyst') {
-                el.setAttribute('href', el.getAttribute('data-upgrade-url') || '/pricing');
-                el.textContent = 'Upgrade to Strategist';
+                dest = el.getAttribute('data-upgrade-url') || '/pricing'; text = 'Upgrade to Strategist';
             } else {
-                el.setAttribute('href', el.getAttribute('data-upgrade-url') || '/pricing');
-                el.textContent = 'Upgrade';
+                dest = el.getAttribute('data-upgrade-url') || '/pricing'; text = 'Upgrade';
+            }
+            el.textContent = text;
+            if (el.tagName === 'A') {
+                el.setAttribute('href', dest);
+            } else {
+                // <button type=submit> inside a Stripe checkout form: href is a no-op, so intercept the
+                // click and navigate - else a logged-in user is relabeled but still submits checkout.
+                el._authDest = dest;
+                el.setAttribute('type', 'button');
+                if (!el._authBound) {
+                    el._authBound = true;
+                    el.addEventListener('click', function(ev){ ev.preventDefault(); if (el._authDest) window.location.href = el._authDest; });
+                }
             }
         });
     }
@@ -847,10 +783,7 @@ footer .links a{color:var(--muted)}
         .catch(function(){});
 })();
 
-// Home "Ask Tara": the .askbar is a real input. On submit, route the typed question
-// to the wave-viewer's Tara chat via /app/?ask=<question>. Logged-out visitors go
-// through signup first (the question rides in ?next and is asked after login). Reuses
-// the /api/me result cached as tw_auth2 by the nav auth-swap above (cold cache -> probe).
+// Home "Ask Tara": route the typed question to /app/?ask= (signup first when logged out).
 (function(){
     var form = document.getElementById('tw-askbar');
     var input = document.getElementById('tw-ask-input');
@@ -876,9 +809,7 @@ footer .links a{color:var(--muted)}
     });
 })();
 
-// Email capture: intercept every MailerLite free-pick form on this page and
-// submit via fetch with an inline success/error message. Without JS the form's
-// action still works as a full-page fallback post.
+// Email capture: intercept any MailerLite form on this page (fallback full-page post without JS).
 document.addEventListener('submit', function(e){
     var form = e.target;
     if (!form || !form.action || form.action.indexOf('assets.mailerlite.com') === -1) return;
@@ -887,32 +818,23 @@ document.addEventListener('submit', function(e){
     var btn = form.querySelector('button[type="submit"]');
     var status = form.parentNode.querySelector('.email-status');
     if (!status) {
-        status = document.createElement('p');
-        status.className = 'email-status';
+        status = document.createElement('p'); status.className = 'email-status';
         status.style.cssText = 'margin:10px 0 0;font-size:14px;text-align:center;width:100%';
         form.parentNode.insertBefore(status, form.nextSibling);
     }
     if (btn) btn.disabled = true;
     var fd = new FormData();
     fd.append('fields[email]', emailInput ? emailInput.value.trim() : '');
-    fd.append('groups[]', '182221521780999195');
-    fd.append('ml-submit', '1');
-    fd.append('anticsrf', 'true');
+    fd.append('groups[]', '182221521780999195'); fd.append('ml-submit', '1'); fd.append('anticsrf', 'true');
     fetch(form.action, { method: 'POST', body: fd, mode: 'no-cors' })
         .then(function(){
-            form.style.display = 'none';
-            status.style.color = '#3FB68B';
+            form.style.display = 'none'; status.style.color = '#3FB68B';
             status.textContent = "You're in! Check your inbox to confirm; tomorrow's pick arrives before market open.";
             status.style.display = 'block';
             try { localStorage.setItem('tw_free_pick_subscribed', '1'); } catch (err) {}
             if (typeof gtag === 'function') gtag('event', 'email_capture_submit');
         })
-        .catch(function(){
-            if (btn) btn.disabled = false;
-            status.style.color = '#E5687F';
-            status.textContent = 'Something went wrong. Please try again.';
-            status.style.display = 'block';
-        });
+        .catch(function(){ if (btn) btn.disabled = false; status.style.color = '#E5687F'; status.textContent = 'Something went wrong. Please try again.'; status.style.display = 'block'; });
 }, true);
 
 // GA4: lightweight primary-CTA click tracking (no-op when GA is absent).
@@ -921,14 +843,154 @@ document.addEventListener('click', function(e){
     var a = e.target && e.target.closest ? e.target.closest('a') : null;
     if (!a) return;
     var href = a.getAttribute('href') || '';
-    if (href.indexOf('/signup') === 0 || href.indexOf('/app/') === 0 ||
-        href.indexOf('/pricing') === 0 || href.indexOf('/api/stripe/create-checkout') === 0) {
+    if (href.indexOf('/signup') === 0 || href.indexOf('/app/') === 0 || href.indexOf('/pricing') === 0 || href.indexOf('/api/stripe/create-checkout') === 0) {
         gtag('event', 'cta_click', { link_url: href, link_text: (a.textContent || '').trim().slice(0, 80) });
     }
 }, true);
+
+// nav scroll state + mobile toggle + sticky CTA + reveal-on-scroll
+(function(){
+  var nav = document.getElementById('nav');
+  function onScroll(){ if(window.scrollY > 8){ nav.classList.add('scrolled'); } else { nav.classList.remove('scrolled'); } }
+  window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
+  var navToggle = document.getElementById('navtoggle');
+  if(navToggle){
+    navToggle.addEventListener('click', function(){ var open = nav.classList.toggle('open'); navToggle.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+    document.querySelectorAll('#navmenu a').forEach(function(a){ a.addEventListener('click', function(){ nav.classList.remove('open'); navToggle.setAttribute('aria-expanded','false'); }); });
+  }
+  var sticky = document.getElementById('stickycta');
+  var closeEl = document.querySelector('.close');
+  function onSticky(){
+    if(!sticky) return;
+    var past = window.scrollY > (window.innerHeight * 0.9);
+    var nearEnd = closeEl && closeEl.getBoundingClientRect().top < window.innerHeight;
+    if(past && !nearEnd){ sticky.classList.add('show'); } else { sticky.classList.remove('show'); }
+  }
+  window.addEventListener('scroll', onSticky, {passive:true}); onSticky();
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var revs = document.querySelectorAll('.reveal');
+  if(reduce){ revs.forEach(function(el){ el.classList.add('in'); }); }
+  else {
+    var io = new IntersectionObserver(function(entries){ entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, {threshold:0.12, rootMargin:'0px 0px 0px 0px'});
+    revs.forEach(function(el){ io.observe(el); });
+    window.addEventListener('load', function(){ document.querySelectorAll('.hero .reveal').forEach(function(el){ el.classList.add('in'); }); });
+    setTimeout(function(){ document.querySelectorAll('.hero .reveal').forEach(function(el){ el.classList.add('in'); }); }, 60);
+  }
+})();
 </script>
-<!-- Live market quotes: single source of truth (/assets/quotes.json) so the top
-     bar matches the /markets quote pages exactly. See site/refresh_market_quotes.py -->
+
+<!-- FREE SEASONAL REPORT - MODAL (posts to /api/lead-report; no demo branch) -->
+<div class="lm-overlay" id="lmOverlay" role="dialog" aria-modal="true" aria-labelledby="lmTitle">
+  <div class="lm state-form" id="lm">
+    <button class="lm-x" id="lmClose" type="button" aria-label="Close">&times;</button>
+    <div class="lm-body">
+      <div class="lm-form">
+        <div class="eyebrow">Free / Seasonal Report</div>
+        <h3 id="lmTitle">Your Stocks, Their Seasonal Track Record</h3>
+        <p class="lm-sub">One required ticker, two optional, one email. You get each stock's full per-year seasonal record - the last <span class="mono">10</span> years and every past election year - over the next ~30, ~60, and ~90 days, in about a minute. The historical record only, every year of it, none trimmed.</p>
+        <form id="lmForm" autocomplete="off" novalidate>
+          <div class="lm-grid">
+            <div class="lm-field lm-tk"><label>Ticker 1</label><input name="t1" maxlength="8" placeholder="AAPL" aria-label="Ticker 1"></div>
+            <div class="lm-field lm-tk"><label>Ticker 2 - optional</label><input name="t2" maxlength="8" placeholder="MSFT" aria-label="Ticker 2, optional"></div>
+            <div class="lm-field lm-tk"><label>Ticker 3 - optional</label><input name="t3" maxlength="8" placeholder="NVDA" aria-label="Ticker 3, optional"></div>
+          </div>
+          <div class="lm-help">US stocks, indices and ETFs. One per box - the first one is all you need.</div>
+          <div class="lm-field lm-email"><label>Where should we send it</label><input name="email" type="email" placeholder="you@email.com" aria-label="Your email"></div>
+          <div class="lm-help">One report. We will not sell your address or flood your inbox.</div>
+          <input class="lm-hp" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <div class="lm-err" id="lmErr" role="alert"></div>
+          <button class="btn lm-btn" type="submit">Email Me My Free Report &rarr;</button>
+          <div class="lm-reassure">No account, no credit card, about a minute.</div>
+          <div class="lm-comp">Historical seasonal research for educational purposes - not investment advice, a recommendation, or an offer to buy or sell any security. Figures are the historical record only; past results never guarantee future ones. We email you the report and occasional product updates; unsubscribe anytime.</div>
+        </form>
+      </div>
+      <div class="lm-loading">
+        <div class="lm-spin"></div>
+        <div class="mono" style="color:var(--accent);font-size:.9rem">One moment</div>
+        <p class="muted" style="margin:8px 0 0">Checking your tickers and sending your confirmation link.</p>
+      </div>
+      <div class="lm-done">
+        <div class="lm-mark">&#10003;</div>
+        <h3>Check Your Inbox to Confirm</h3>
+        <p class="muted" id="lmDoneBody" style="margin:10px 0 0">We just sent a confirmation link to your inbox. Click it and your full report is on its way - usually within a couple of minutes.</p>
+        <div class="lm-chip" id="lmDoneChip">Confirmation sent to your inbox</div>
+        <p class="faint" style="font-size:.82rem;margin:0">Do not see it soon? Check spam or promotions and mark it "not spam" so the next one lands straight in.</p>
+        <div class="lm-up">Want these patterns live - change the window, stretch the lookback, and ask Tara in plain English? Your account starts with 7 days of the full platform, no card.
+          <div style="margin-top:14px"><a class="btn ghost" href="{{ content.hero.cta_primary_url }}">Start Free - Full Access for 7 Days</a></div>
+          <div class="micro" style="margin-top:10px">No credit card. Then a free plan that never expires.</div>
+        </div>
+        <div class="lm-comp" style="margin-top:14px">Historical seasonal research, not advice or a recommendation. Past results never guarantee future ones.</div>
+        <span class="lm-dismiss" id="lmDismiss" role="button" tabindex="0">Done</span>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var ov=document.getElementById('lmOverlay'), lm=document.getElementById('lm'),
+      form=document.getElementById('lmForm'), err=document.getElementById('lmErr'), prevFocus=null;
+  function openLM(){ prevFocus=document.activeElement; ov.classList.add('open'); lm.className='lm state-form'; document.body.style.overflow='hidden';
+    if(location.hash!=='#free-report'){ history.replaceState(null,'','#free-report'); }
+    try{ var L=JSON.parse(localStorage.getItem('tw_lead')||'{}');
+      if(L.tickers){ ['t1','t2','t3'].forEach(function(n,i){ if(form[n] && !form[n].value && L.tickers[i]){ form[n].value=L.tickers[i]; } }); }
+    }catch(e){}
+    var f=form.querySelector('input[name=t1]'); if(f){ setTimeout(function(){ f.focus(); }, 40); } }
+  function closeLM(){ ov.classList.remove('open'); document.body.style.overflow='';
+    if(location.hash==='#free-report'){ history.replaceState(null,'',location.pathname+location.search); }
+    if(prevFocus && prevFocus.focus){ try{ prevFocus.focus(); }catch(e){} } }
+  document.querySelectorAll('[data-lm-open]').forEach(function(el){ el.addEventListener('click',function(e){ e.preventDefault(); openLM(); }); });
+  document.getElementById('lmClose').addEventListener('click', closeLM);
+  document.getElementById('lmDismiss').addEventListener('click', closeLM);
+  ov.addEventListener('click', function(e){ if(e.target===ov){ closeLM(); } });
+  document.getElementById('lmDismiss').addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); closeLM(); } });
+  document.addEventListener('keydown', function(e){
+    if(!ov.classList.contains('open')){ return; }
+    if(e.key==='Escape'){ closeLM(); return; }
+    if(e.key==='Tab'){
+      var f=Array.prototype.filter.call(lm.querySelectorAll('button,[href],input,[tabindex]:not([tabindex="-1"])'), function(el){ return el.offsetParent!==null; });
+      if(!f.length){ return; }
+      var first=f[0], last=f[f.length-1];
+      if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+    }
+  });
+  if(location.hash==='#free-report'){ openLM(); }
+  function flag(input,msg){ input.parentNode.classList.add('invalid'); err.textContent=msg; input.focus(); }
+  form.addEventListener('submit', function(e){
+    e.preventDefault(); err.textContent='';
+    form.querySelectorAll('.lm-field').forEach(function(f){ f.classList.remove('invalid','valid'); });
+    if(form.company.value){ lm.className='lm state-done'; return; } // honeypot
+    var ins=[form.t1,form.t2,form.t3];
+    var seen={}, clean=[];
+    ins.forEach(function(i){ var v=i.value.trim().toUpperCase(); if(v && !seen[v]){ seen[v]=1; clean.push(v); i.parentNode.classList.add('valid'); } });
+    var email=form.email.value.trim();
+    if(!clean.length){ flag(form.t1,'Add at least one ticker so we have something to run.'); return; }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ flag(form.email,'Enter a valid email so we can send your report.'); return; }
+    try{ localStorage.setItem('tw_lead', JSON.stringify({tickers:clean})); }catch(e){}
+    lm.className='lm state-loading';
+    function done(){
+      document.getElementById('lmDoneBody').textContent='We just sent a confirmation link to '+email+'. Click it and your full report on '+clean.join(', ')+' is on its way - usually within a couple of minutes.';
+      document.getElementById('lmDoneChip').textContent='Confirmation sent to '+email;
+      lm.className='lm state-done'; lm.scrollTop=0;
+    }
+    var GEN='Something on our end hiccuped and the report did not go out. Try once more, or email support@tradewave.ai and we will run it by hand.';
+    fetch('/api/lead-report',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({tickers:clean,email:email,company:'',source:'home_free_report'})})
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(b){ return {ok:r.ok,body:b}; }); })
+      .then(function(res){
+        if(res.ok && res.body.ok){ done(); return; }
+        lm.className='lm state-form';
+        var er=res.body.error;
+        if(er==='email_invalid'){ flag(form.email,'Enter a valid email so we can send your report.'); }
+        else if(er==='tickers_invalid'){ flag(form.t1,'Add at least one ticker so we have something to run.'); }
+        else if(er==='no_coverage'){ var nc=(res.body.not_covered||[]).join(', ');
+          flag(form.t1, nc ? ('We do not see '+nc+' in our 15 markets yet - try a US stock, index, or ETF.') : 'We do not cover those yet - try a US stock, index, or ETF.'); }
+        else { err.textContent=GEN; }
+      })
+      .catch(function(){ lm.className='lm state-form'; err.textContent=GEN; });
+  });
+})();
+</script>
 <script src="/assets/market-quotes.js" defer></script>
 
 </body>

@@ -996,6 +996,71 @@ def _suppress(email, source):
         s.close()
 
 
+def leads_tickers_for_email(email, max_tickers=15):
+    """Union of tickers this email has asked about across ALL its (non-spam) report
+    requests, newest-first + deduped. The activation bridge calls this at signup to
+    pre-load 'their stocks' as a starter watchlist - richer than the last report's
+    tickers alone (someone who ran the report 3 times gets all of them)."""
+    from models import EmailLead
+    e = (email or "").strip().lower()
+    if not e:
+        return []
+    s = DBSession()
+    try:
+        rows = s.execute(
+            select(EmailLead.tickers).where(EmailLead.email == e)
+            # status != 'spam' intentionally INCLUDES pending_confirm/expired - we want ALL of
+            # this person's stocks; safe because callers run it only for the signed-in/verified email.
+            .where(EmailLead.status != "spam")
+            .order_by(EmailLead.created_at.desc())
+        ).all()
+    except Exception as ex:
+        log.warning("leads_tickers_for_email failed for %s: %s", e, ex)
+        return []
+    finally:
+        s.close()
+    seen, out = set(), []
+    for (tk,) in rows:
+        for t in (tk or []):
+            u = (t or "").strip().upper()
+            if u and u not in seen:
+                seen.add(u); out.append(u)
+                if len(out) >= max_tickers:
+                    return out
+    return out
+
+
+def account_cta_mode(email):
+    """Report-email CTA mode for the recipient, looked up by email (privacy-safe - their own
+    address). 'signup' = no account; 'open_app' = existing user WITH score access (paid tier or
+    an active reverse-trial, per effective_tier); 'upgrade' = free Explorer (no AI score yet).
+    So a paying subscriber isn't pitched a trial, and a trial-used free user gets an upgrade,
+    not a 'start free' they can't take."""
+    from models import User
+    e = (email or "").strip().lower()
+    if not e:
+        return "signup"
+    s = DBSession()
+    try:
+        u = s.execute(select(User).where(func.lower(User.email) == e)).scalar_one_or_none()
+        if u is None:
+            return "signup"
+        try:
+            tier = effective_tier(u)
+        except Exception:
+            tier = (getattr(u, "tier", None) or "explorer")
+        # open_app ONLY for tiers that actually have the AI-score view right now (effective_tier
+        # elevates an active reverse-trial to 'strategist'). Everything else - explorer (past or
+        # without the 7-day trial), 'canceled' (lapsed), unknown - gets 'upgrade', so we never
+        # imply access a free/lapsed account does not have, and never re-pitch a used-up trial.
+        return "open_app" if tier in ("navigator", "analyst", "strategist") else "upgrade"
+    except Exception as ex:
+        log.warning("account_cta_mode failed for %s: %s", e, ex)
+        return "signup"
+    finally:
+        s.close()
+
+
 def _update_lead(lead_id, status, detail=None, sent=False):
     """Best-effort status/detail update on an EmailLead row (called from the
     background worker thread)."""
@@ -1207,8 +1272,9 @@ def api_lead_report_confirm():
                 _update_lead(lead_id, "failed", {"error": "no_sender"})
                 return
             unsub = _unsub_url(email)
-            html = seasonal_report.render_email_html(rep, unsubscribe_url=unsub)
-            text = seasonal_report.render_email_text(rep, unsubscribe_url=unsub)
+            cta_mode = account_cta_mode(email)   # adapt the CTA if they already have an account
+            html = seasonal_report.render_email_html(rep, unsubscribe_url=unsub, cta_mode=cta_mode)
+            text = seasonal_report.render_email_text(rep, unsubscribe_url=unsub, cta_mode=cta_mode)
             subj = "Your Seasonal Report: " + ", ".join(t["symbol"] for t in rep["tickers"])
             ok = resend_send_email(to=email, subject=subj, body_text=text, html=html,
                                    from_addr=sender, reply_to="hello@tradewave.ai",
