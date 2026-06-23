@@ -24,11 +24,11 @@ info:
     Seasonal trading opportunities and ML win-probability scores for TradeWave's
     15 active markets, plus the tracked daily AI pick. Derived seasonal patterns only -
     no raw market data.
+# servers is intentionally RELATIVE here (host-agnostic - no baked host). The published
+# artifacts (openapi.json/.yaml under developers.*/docs) get the absolute per-env API base
+# injected from config by site/api_docs/generate_api_extras.py (portal_urls.API_BASE).
 servers:
-  - url: https://api-dev.trxstat.com/v1
-    description: dev
-  - url: https://api.tradewave.ai/v1
-    description: prod (post-cutover)
+  - url: /v1
 security:
   - ApiKeyAuth: []
 tags:

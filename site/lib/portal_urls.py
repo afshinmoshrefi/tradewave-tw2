@@ -33,9 +33,31 @@ def _load_secrets_env(path="/etc/tradewave/secrets.env"):
 _load_secrets_env()
 
 
-def _host(name, default):
-    h = (os.environ.get(name) or default).strip()
-    return h.replace("https://", "").replace("http://", "").rstrip("/")
+def _norm(h):
+    return h.strip().replace("https://", "").replace("http://", "").rstrip("/")
+
+
+# Is this an ad-hoc DEV context? ONLY then may a *-dev.trxstat.com default stand in for an
+# unset host. On staging/prod (TW2_PUBLIC_HOST is a non-dev host) a missing TW2_*_PUBLIC_HOST
+# is a CONFIG ERROR and we fail loudly - never silently bake a dev host into a published
+# artifact (exactly how api-dev leaked into a prod-bound openapi.json). Per the config.py
+# invariant: per-env values come from secrets.env; hosts are never hardcoded.
+_MAIN_RAW = _norm(os.environ.get("TW2_PUBLIC_HOST", ""))
+_IS_DEV = (not _MAIN_RAW) or ("-dev." in _MAIN_RAW) or _MAIN_RAW.startswith("tw2-dev")
+
+
+def _host(name, dev_default):
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        if _IS_DEV:
+            raw = dev_default
+        else:
+            raise RuntimeError(
+                f"portal_urls: {name} is not set, but TW2_PUBLIC_HOST={_MAIN_RAW!r} is a "
+                f"non-dev host. Set {name} in /etc/tradewave/secrets.env (per-env public host). "
+                f"Refusing to fall back to '{dev_default}' and leak a dev host into a published page."
+            )
+    return _norm(raw)
 
 
 MAIN_HOST = _host("TW2_PUBLIC_HOST", "tw2-dev.trxstat.com")              # main app + consumer marketing

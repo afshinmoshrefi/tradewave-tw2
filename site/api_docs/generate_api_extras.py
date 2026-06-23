@@ -281,9 +281,14 @@ def main():
     spec = _load_spec()
     print("TradeWave API extras generator")
     print(f"  spec: {OPENAPI_YAML}\n")
-    # 1) raw spec (yaml verbatim + json)
-    _write(HERE / "openapi.yaml", OPENAPI_YAML.read_text(encoding="utf-8"))
+    # The spec's `servers` is the ONE place a host could be baked into a published artifact.
+    # Drive it from config (portal_urls.API_BASE -> per-env, fail-fast if unset) so the source
+    # YAML's host never leaks into the emitted openapi.json/.yaml. BOTH outputs are written
+    # from this CONFIG-CORRECTED spec, not the verbatim source text.
+    spec["servers"] = [{"url": API_BASE, "description": "TradeWave Data API (v1)"}]
+    # 1) spec (json + yaml), both from the corrected spec
     _write(HERE / "openapi.json", json.dumps(spec, indent=2))
+    _write(HERE / "openapi.yaml", yaml.safe_dump(spec, sort_keys=False, allow_unicode=True))
     # 2) Postman collection
     _write(HERE / "tradewave.postman_collection.json", build_postman(spec))
     # 3) MCP discovery manifest
