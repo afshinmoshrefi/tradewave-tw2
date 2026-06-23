@@ -6,7 +6,8 @@
 #   bash ops/deploy.sh prod        # then check https://tw2-prod.trxstat.com
 #
 # Does, in order, and stops on any error:
-#   1. pre-flight  — aborts if TW2_PUBLIC_HOST is unset (would break URLs)
+#   1. pre-flight  — aborts if TW2_PUBLIC_HOST is unset (would break URLs), or (staging) if
+#                    TW2_API/DEVELOPERS/MCP_PUBLIC_HOST are missing or a dev host (portal leak)
 #   2. app tier    — git pull + pip install -r requirements.txt + restart tradewave-appserver
 #   2b.app tier    - sync venv-api + restart tradewave-apiserver + tradewave-mcpserver (if provisioned;
 #                    guarded so a non-API box does not abort; /healthz gate on the gateway)
@@ -21,8 +22,10 @@
 set -euo pipefail
 
 case "${1:-}" in
-  staging) WEB=185.53.209.8;    APP=199.244.48.157;  HOST=tw2-stage.trxstat.com ;;
-  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tw2-prod.trxstat.com ;;
+  staging) WEB=185.53.209.8;    APP=199.244.48.157;  HOST=tw2-stage.trxstat.com
+           APIHOST=api-stage.trxstat.com; DEVHOST=developers-stage.trxstat.com; MCPHOST=mcp-stage.trxstat.com ;;
+  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tw2-prod.trxstat.com
+           APIHOST=api.tradewave.ai;      DEVHOST=developers.tradewave.ai;      MCPHOST=mcp.tradewave.ai ;;
   *) echo "usage: $0 {staging|prod}"; exit 2 ;;
 esac
 ENV="$1"; SSH="ssh -p 4369"; BUILD=/home/flask/web-react/build
@@ -49,6 +52,36 @@ check_host() {  # check_host <box> <strict>
 check_host "$WEB" 1
 [ "$ENV" = prod ] && check_host "$APP" 0 || check_host "$APP" 1
 echo "    OK - web box resolves to $HOST"
+
+echo "==> [$ENV] pre-flight: developer-portal hosts are config-driven (no dev-host leak)?"
+# The portal bakes TW2_API/DEVELOPERS/MCP_PUBLIC_HOST into PUBLISHED artifacts (openapi.json
+# `servers`, docs back-links, MCP setup). portal_urls now REFUSES to fall back to a dev host,
+# so catch a missing/dev value HERE - before any tier deploys - and say exactly what to set.
+check_portal_host() {  # check_portal_host <key> <recommended-value-for-this-env>
+  local key="$1" want="$2" val
+  val=$($SSH "root@$APP" "grep -m1 '^$key=' /etc/tradewave/secrets.env 2>/dev/null | cut -d= -f2-")
+  if [ -z "$val" ]; then
+    echo "ABORT: $key is not set on the APP box ($APP)."
+    echo "       The developer portal would fail to assemble (portal_urls refuses a dev fallback)."
+    echo "       Add to /etc/tradewave/secrets.env on $APP:   $key=$want"
+    exit 1
+  fi
+  case "$val" in
+    *-dev.*|*tw2-dev*|*127.0.0.1*|*10.0.0.*|*192.168.*)
+      echo "ABORT: $key=$val on the APP box ($APP) is a DEV/internal host."
+      echo "       It would leak into the published portal (openapi.json, docs, MCP manifest)."
+      echo "       Set the [$ENV] host in /etc/tradewave/secrets.env on $APP:   $key=$want"
+      exit 1 ;;
+  esac
+  echo "    $APP -> $key=$val"
+}
+if [ "$ENV" = prod ]; then
+  echo "    skipped - API/MCP ship DARK on prod (enable this check when the prod portal launches)"
+else
+  check_portal_host TW2_API_PUBLIC_HOST        "$APIHOST"
+  check_portal_host TW2_DEVELOPERS_PUBLIC_HOST "$DEVHOST"
+  check_portal_host TW2_MCP_PUBLIC_HOST        "$MCPHOST"
+fi
 
 echo "==> [$ENV] app tier ($APP): pull + sync venv + restart appserver"
 $SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
