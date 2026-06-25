@@ -64,9 +64,9 @@ def _price_fallback_or_die(reason, fallback):
 def _stripe_prices():
     fallback = {
         'navigator_monthly':          '$19',
-        'navigator_yearly':           '$13',
-        'navigator_yearly_daily':     '$0.44/day',
-        'navigator_yearly_savings':   'Save 30%',
+        'navigator_yearly':           '$14',
+        'navigator_yearly_daily':     '$0.46/day',
+        'navigator_yearly_savings':   'Save 26%',
         'analyst_monthly':            '$47',
         'analyst_yearly':             '$33',
         'analyst_yearly_daily':       '$1.09/day',
@@ -75,7 +75,7 @@ def _stripe_prices():
         'strategist_yearly':          '$99',
         'strategist_yearly_daily':    '$3.25/day',
         'strategist_yearly_savings':  'Save 23%',
-        'max_yearly_savings':         'Save up to 30%',
+        'max_yearly_savings':         'Save up to 29%',
     }
     if not config.STRIPE_SECRET_KEY or 'PLACEHOLDER' in config.STRIPE_SECRET_KEY:
         return _price_fallback_or_die('STRIPE_SECRET_KEY missing or placeholder', fallback)

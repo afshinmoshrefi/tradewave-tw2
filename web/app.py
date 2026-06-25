@@ -1639,6 +1639,8 @@ def pricing():
 
 # Map (tier, period) → Stripe Product name (case-insensitive match)
 TIER_PRODUCT_NAMES = {
+    ("navigator",  "monthly"): ("navigator",  "month"),
+    ("navigator",  "yearly"):  ("navigator",  "year"),
     ("analyst",    "monthly"): ("analyst",    "month"),
     ("analyst",    "yearly"):  ("analyst",    "year"),
     ("strategist", "monthly"): ("strategist", "month"),
@@ -1661,7 +1663,7 @@ def _refresh_price_cache():
     """Bucket active Stripe prices into (tier, period) slots — metadata-only.
 
     A price is used ONLY if its product carries all three metadata keys:
-      product_line == "eod", tier in {analyst,strategist}, period in {monthly,yearly}.
+      product_line == "eod", tier in {navigator,analyst,strategist}, period in {monthly,yearly}.
 
     The legacy product-name-substring fallback was REMOVED (2026-05-19). The
     shared Stripe account holds ~14 active legacy UMP per-member prices (no
@@ -1676,7 +1678,7 @@ def _refresh_price_cache():
     """
     if not _stripe_configured():
         return
-    valid_tiers = {"analyst", "strategist"}
+    valid_tiers = {"navigator", "analyst", "strategist"}
     valid_periods = {"monthly", "yearly"}
     try:
         for p in stripe.Price.list(active=True, limit=100, expand=["data.product"]).auto_paging_iter():
@@ -1860,7 +1862,7 @@ def _existing_eod_subscription(customer_id):
 @require_login
 def stripe_create_checkout():
     """Initiate Stripe Checkout for the requested tier+period.
-    Params: tier=analyst|strategist, period=monthly|yearly (+ optional code=).
+    Params: tier=navigator|analyst|strategist, period=monthly|yearly (+ optional code=).
 
     Accepts GET as well as POST: a logged-OUT visitor who clicks Subscribe is
     bounced through WorkOS sign-up by require_login, which preserves only the

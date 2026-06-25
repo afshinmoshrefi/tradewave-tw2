@@ -6,7 +6,9 @@ a numeric WP/UMP level ID. TW2 uses named tiers.
 
 Mapping (matches Stripe product names + price ordering):
   TW2 Explorer   = legacy level 1 (Ripple, free).
-  TW2 Analyst    = legacy levels 4 (yearly) / 5 (monthly) - entry paid tier.
+  TW2 Navigator  = legacy level 2 - entry paid tier (Dow + NASDAQ + S&P 500;
+                   markets 0,1,2 date-unlocked, the rest date-locked teasers).
+  TW2 Analyst    = legacy levels 4 (yearly) / 5 (monthly) - mid paid tier.
                    Premium = US stocks + ETFs (6 markets); date-locked
                    for indices/futures/forex/bonds/foreign/crypto.
                    Stripe: $58/mo or $488/yr.
@@ -24,7 +26,8 @@ window.current_user_level → wpUserLevels.
 # get the same access dicts; the distinction matters only for Stripe billing.
 TIER_TO_LEGACY_LEVEL = {
     'explorer':   '1',
-    'analyst':    '4',  # entry paid (was PRO yearly; '5' for monthly - same access)
+    'navigator':  '2',  # entry paid - Dow + NASDAQ + S&P 500 (sits between Explorer and Analyst)
+    'analyst':    '4',  # mid paid (was PRO yearly; '5' for monthly - same access)
     'strategist': '6',  # top paid (was Institutional yearly; '7' for monthly)
 }
 
@@ -40,6 +43,7 @@ def tier_to_legacy_level(tier: str) -> str:
 # Inverse - for migration / Stripe-event handling.
 LEGACY_LEVEL_TO_TIER = {
     '1': 'explorer',
+    '2': 'navigator',
     '4': 'analyst',
     '5': 'analyst',
     '6': 'strategist',
@@ -49,7 +53,7 @@ LEGACY_LEVEL_TO_TIER = {
 
 def legacy_levels_to_tier(level_ids) -> str:
     """Given a list of UMP level IDs, return the highest TW2 tier they imply."""
-    rank = {'explorer': 0, 'analyst': 1, 'strategist': 2}
+    rank = {'explorer': 0, 'navigator': 1, 'analyst': 2, 'strategist': 3}
     best = 'explorer'
     for lid in level_ids:
         t = LEGACY_LEVEL_TO_TIER.get(str(lid), 'explorer')

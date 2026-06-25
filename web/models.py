@@ -74,10 +74,11 @@ class User(Base):
     last_login_at               = Column(TIMESTAMP(timezone=True))
 
     __table_args__ = (
-        # Mirrors the DB-side constraint added in migration 1940d1f63473.
+        # Mirrors the DB-side constraint added in migration 1940d1f63473 and
+        # widened to include 'navigator' in migration a1f4d2c9e7b3.
         # Keep this in sync with the migration's CHECK definition.
         CheckConstraint(
-            "tier IN ('explorer','analyst','strategist','canceled')",
+            "tier IN ('explorer','navigator','analyst','strategist','canceled')",
             name="users_tier_check",
         ),
     )

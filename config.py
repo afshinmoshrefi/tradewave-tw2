@@ -306,6 +306,7 @@ num_opps_per_portfolio = 4 # this is the maximum opportunites that can be added 
 num_opp_reports_allowed_by_level = { # total date-range reports a user can ever publish
     '0': 0,
     '1': 5,
+    '2': 25,   # Navigator
     '4': 100,
     '5': 100,
     '6': 500,
@@ -314,6 +315,7 @@ num_opp_reports_allowed_by_level = { # total date-range reports a user can ever 
 num_daily_opp_reports_allowed_by_level = { # per-day publish cap
     '0': 0,
     '1': 10,
+    '2': 25,   # Navigator
     '4': 100,
     '5': 100,
     '6': 500,
@@ -322,6 +324,7 @@ num_daily_opp_reports_allowed_by_level = { # per-day publish cap
 num_portfolios_allowed_by_level = { # main default counts as 1; non-registered get 0
     '0': 0,
     '1': 1,
+    '2': 3,   # Navigator
     '4': 25,
     '5': 25,
     '6': 100,
@@ -330,6 +333,7 @@ num_portfolios_allowed_by_level = { # main default counts as 1; non-registered g
 num_watchlists_allowed_by_level = {
     '0': 0,
     '1': 0,  # aligned to TIER_FEATURES['explorer'] watchlists_max (2026-06-10 reverse-trial close)
+    '2': 1,   # Navigator
     '4': 10,
     '5': 10,
     '6': 50,
@@ -338,6 +342,7 @@ num_watchlists_allowed_by_level = {
 num_watchlist_items_allowed_by_level = {
     '0': 0,
     '1': 0,  # aligned to TIER_FEATURES['explorer'] watchlist_symbols_max (2026-06-10 reverse-trial close)
+    '2': 25,   # Navigator
     '4': 50,
     '5': 50,
     '6': 100,
@@ -507,6 +512,7 @@ exchange_mapping={ # exchange mapping is used for EOD downloads - left is folder
 # Frontend dropdown = (free ∪ premium); they are disjoint per level by design.
 
 level_access_hierarchy_free_registered = {
+    '2': ['3','4','5','6','7','8','9','10','11','12','13','16'],   # Navigator: Dow/NASDAQ/S&P are premium; the rest visible but date-locked (upgrade teaser)
     '1': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],   # Ripple sees all 15, all date-locked
     '4': ['5','6','7','8','9','10','12','13','16'],                            # PRO: indices/futures/forex/bonds/foreign/crypto are date-locked
     '5': ['5','6','7','8','9','10','12','13','16'],
@@ -514,6 +520,7 @@ level_access_hierarchy_free_registered = {
     '7': [],
 }
 level_access_hierarchy_premium = {
+    '2': ['0','1','2'],   # Navigator: Dow + NASDAQ + S&P 500, full features (date-unlocked)
     '1': [],                                                                              # Ripple: no premium
     '4': ['0','1','2','3','4','11'],                                                     # PRO: US stocks (DOW/NASDAQ/S&P/Russell/Wilshire) + ETFs
     '5': ['0','1','2','3','4','11'],
@@ -530,6 +537,7 @@ level_access_hierarchy_premium = {
 # hard-coded/cookied selection is not in resource_disp), so a DJ30-only list
 # no longer blanks the opp table.
 level_access_hierarchy = {
+    '2': ['0','1','2'],   # Navigator: backend opp data for Dow + NASDAQ + S&P 500 only
     '1': ['0'],
     '4': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
     '5': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
@@ -622,10 +630,32 @@ TIER_FEATURES = {
         'webinar_access':             False,
         'support_channel':            'community',
     },
+    # NOTE: TIER_FEATURES is reference/documentation only (no runtime readers as of
+    # 2026-06-24); live gating runs through the legacy-level dicts above + tier_compat.
+    'navigator': {
+        'name':                       'Navigator',
+        'monthly_price_launch':       19,
+        'yearly_price_launch':        14,
+        'monthly_price_post':         19,
+        'resources_allowed':          [0,1,2],   # Dow 30 + NASDAQ 100 + S&P 500 (each a Sharpe-ranked lens)
+        'top_patterns_per_market':    50,
+        'change_start_date':          True,
+        'pe_cycle_overlay_only':      False,
+        'pe_cycle_filter_manual':     True,
+        'pe_cycle_filter_auto':       False,
+        'ml_scoring':                 True,
+        'portfolios_max':             3,
+        'tracked_opportunities_max':  25,
+        'watchlists_max':             1,
+        'watchlist_symbols_max':      25,
+        'smn_articles':               False,
+        'webinar_access':             False,
+        'support_channel':            'community',
+    },
     'analyst': {
         'name':                       'Analyst',
         'monthly_price_launch':       47,
-        'yearly_price_launch':        37,
+        'yearly_price_launch':        33,
         'monthly_price_post':         58,
         'resources_allowed':          [0,1,2,3,4,5,6,11],
         'top_patterns_per_market':    100,
@@ -644,7 +674,7 @@ TIER_FEATURES = {
     },
     'strategist': {
         'name':                       'Strategist',
-        'monthly_price_launch':       149,
+        'monthly_price_launch':       129,
         'yearly_price_launch':        99,
         'monthly_price_post':         199,
         'resources_allowed':          'all',

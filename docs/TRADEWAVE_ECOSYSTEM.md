@@ -707,8 +707,11 @@ bulletproof). See `OPERATIONS.md`.
   no longer SILENT - an unmappable price on a LIVE sub now logs `log.error` + an
   `unmappable_price` audit row (still ACKs 200), so a plan change between two legacy
   prices can't leave a stuck-high tier unnoticed. Caught by a 5-agent billing audit.
-- **Tiers:** explorer/analyst/strategist (TIER_FEATURES). tier_compat:
-  explorer->'1', analyst->'4'/'5', strategist->'6'/'7'.
+- **Tiers:** explorer/navigator/analyst/strategist (TIER_FEATURES). tier_compat:
+  explorer->'1', navigator->'2', analyst->'4'/'5', strategist->'6'/'7'. Navigator
+  ($19/mo, $168/yr; added 2026-06-25) = entry paid tier, Dow+NASDAQ+S&P (ids 0,1,2,
+  date-unlocked; the rest date-locked teasers), legacy level '2'. users.tier CHECK +
+  the legacy_wp_level sync trigger were widened for it in migration a1f4d2c9e7b3.
 - **Mailerlite level-group sync (TW1/UMP parity, added 2026-05-25):** every account is
   kept in EXACTLY the Mailerlite group matching its (tier, billing-period):
   `explorer` / `analyst_monthly` / `analyst_yearly` / `strategist_monthly` / `strategist_yearly`
@@ -756,7 +759,7 @@ roadmap memories.)
 | React source / build | `wp-content/.../seasonals/{src,build}`, `PUBLIC_URL=/wp-content/...` | `/home/flask/web-react/{src,build}`, `PUBLIC_URL=/app/` |
 | Auth producer | WP + UMP + keyprovider (headcheese) | WorkOS + Stripe + Postgres + `web/app.py` (mints LTK) |
 | Auth consumer + handshake | React + appserver `/login` | SAME React + SAME appserver `/login` |
-| Tiers | UMP levels 1/4-5/6-7 | explorer/analyst/strategist (tier_compat -> same levels) |
+| Tiers | UMP levels 1/4-5/6-7 | explorer/navigator/analyst/strategist (tier_compat -> levels 1/2/4-5/6-7) |
 | Data | `/home/flask/data/csv/` | `/home/flask/data/csv/` (same) |
 | User identity (= redis key) | WP integer user id (`wp_users.ID`) | Postgres uuid (`users.id`) - CHANGES at migration; users + saved redis data (`user_portfolios_*` / `user_reports_*` / `user_watchlists_*`) moved by an email-joined key-remap. Tooling: `ops/migrate/` (export users via the UMP api-gate + db2; import to Postgres; remap+load redis). |
 
