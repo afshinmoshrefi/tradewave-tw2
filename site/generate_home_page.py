@@ -1438,7 +1438,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             "favicon": config.tw_favicon,
             # Absolute URL to a REAL file - /static/images/* does not exist on
             # any box (og:image 404'd; trust-audit critical).
-            "og_image": "%s_static/evidence_hero.png" % CANONICAL_ROOT,
+            "og_image": "%s_static/evidence_hero.webp" % CANONICAL_ROOT,
         },
 
         # =====================================================================
@@ -1668,13 +1668,13 @@ def main():
     output_path = output_dir / OUTPUT_FILENAME
     output_path.write_text(html)
 
-    # Copy the home page's embedded image assets into _static so the /_static/*.png
+    # Copy the home page's embedded image assets into _static so the /_static/*.webp
     # references resolve. The redesign embeds screenshots that have no other copy step
     # (deploy.sh and regen_site do not sync site/static), so they 404 without this.
     src_static = Path(__file__).resolve().parent / "static"
     static_out = output_dir / "_static"
     static_out.mkdir(parents=True, exist_ok=True)
-    for asset in ("evidence_hero.webp", "shows_work.png", "ask.png"):
+    for asset in ("evidence_hero.webp", "shows_work.webp", "ask.webp"):
         src = src_static / asset
         if src.exists():
             shutil.copy2(str(src), str(static_out / asset))
