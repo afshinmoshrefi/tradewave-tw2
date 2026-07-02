@@ -64,18 +64,18 @@ def _price_fallback_or_die(reason, fallback):
 def _stripe_prices():
     fallback = {
         'navigator_monthly':          '$19',
-        'navigator_yearly':           '$14',
-        'navigator_yearly_daily':     '$0.46/day',
-        'navigator_yearly_savings':   'Save 26%',
+        'navigator_yearly':           '$13.25',
+        'navigator_yearly_daily':     '$0.44/day',
+        'navigator_yearly_savings':   'Save 30%',
         'analyst_monthly':            '$47',
-        'analyst_yearly':             '$33',
+        'analyst_yearly':             '$33.25',
         'analyst_yearly_daily':       '$1.09/day',
         'analyst_yearly_savings':     'Save 29%',
         'strategist_monthly':         '$129',
         'strategist_yearly':          '$99',
         'strategist_yearly_daily':    '$3.25/day',
         'strategist_yearly_savings':  'Save 23%',
-        'max_yearly_savings':         'Save up to 29%',
+        'max_yearly_savings':         'Save up to 30%',
     }
     if not config.STRIPE_SECRET_KEY or 'PLACEHOLDER' in config.STRIPE_SECRET_KEY:
         return _price_fallback_or_die('STRIPE_SECRET_KEY missing or placeholder', fallback)
@@ -129,7 +129,9 @@ def _stripe_prices():
                     'savings); check the eod-tagged prices in Stripe' % (
                         tier, mo / 100, yr / 100, raw_pct), fallback)
             out[f'{tier}_monthly'] = f"${mo // 100}"
-            out[f'{tier}_yearly']       = f"${round(yr / 100 / 12)}"
+            # Exact per-month figure - rounding $33.25 to "$33" would imply a
+            # $396/yr charge when Stripe bills $399 (trust-audit critical).
+            out[f'{tier}_yearly']       = ('$%.2f' % (yr / 100 / 12)).rstrip('0').rstrip('.')
             out[f'{tier}_yearly_daily'] = f"${yr / 100 / 365:.2f}/day"
             pct = round((mo * 12 - yr) / (mo * 12) * 100)
             out[f'{tier}_yearly_savings'] = f"Save {pct}%"
@@ -952,7 +954,9 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 
         # -- Meta --
         "meta": {
-            "title": "TradeWave - The Invisible Evidence Behind High-Probability Trades",
+            # Kept in sync with hero.headline (the tab title / og:title must
+            # never advertise a headline the page no longer says).
+            "title": "TradeWave - Some Market Moves Repeat, We Counted Which Ones",
             "description": (
                 "TradeWave detects recurring seasonal patterns from end-of-day "
                 "data across 15 markets, over a lookback you choose: 1 to 99 "
@@ -970,13 +974,8 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             ),
         },
 
-        # -- Nav (simplified: logo + CTA only) --
+        # -- Nav (template hardcodes the link row; only these URLs are bound) --
         "nav": {
-            "links": [
-                {"text": "Wave Viewer", "url": "/app/"},
-                {"text": "Tickers", "url": "/patterns/"},
-                {"text": "Research", "url": "/_static/research.html"},
-            ],
             "signup_url": SIGNUP_URL,
             "login_url": LOGIN_URL,
             "logout_url": LOGOUT_URL,
@@ -985,29 +984,74 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         },
 
         # -- Hero --
-        # The redesign uses a FIXED brand thesis headline (approved copy), not
-        # the old dynamic best-pick line. headline is the approved static line;
-        # the dynamic _hero_headline() is retained as headline_dynamic in case a
-        # future variant wants it, but the template binds the static headline.
+        # HERO TOURNAMENT WINNER (2026-07-01 conversion loop) - shipped verbatim.
+        # The template binds h1 -> hero.headline and the single subhead ->
+        # hero.subheadline (the old hardcoded-h1 template violation is fixed).
+        # The dynamic _hero_headline() stays available as headline_dynamic for a
+        # future variant; the template binds the static winner.
+        #
+        # Scored A/B runner-ups (composite /10) - swap-ready alternates:
+        #   (7.34) H1:  "See the Evidence Before You Take the Trade"
+        #          Sub: "Every AI-calibrated score opens to its per-year record
+        #                across up to a century of market data - the exact dates,
+        #                the size of each move, the years it failed. You decide
+        #                what to do with it; TradeWave logs its daily pick in
+        #                public before the outcome."
+        #   (7.34) H1:  "Research You Can Audit Back to 1928"
+        #          Sub: "Patterns ranked and scored by AI across 15 markets, with
+        #                every figure opening to its per-year record. TradeWave's
+        #                daily pick is posted before the outcome, and the losses
+        #                stay up."
+        #   (7.24) H1:  "History Finds the Pattern, the AI Grades It Down"
+        #          Sub: "TradeWave finds moves that repeated across 15 markets and
+        #                up to 98 years of data, then a machine-learning model
+        #                calibrates each score down, never up. The daily pick goes
+        #                on a public ledger before the outcome, losses included."
         "hero": {
-            "headline": "The Invisible Evidence Behind High-Probability Trades",
+            "eyebrow": "Seasonal Research That Shows Its Work",
+            "headline": "Some Market Moves Repeat - We Counted Which Ones",
             "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
-                "A price chart shows you a stock's past, not the seasonal moves "
-                "repeating inside it. TradeWave reads decades of history to surface "
-                "those patterns - a stock up in the same window 19 of the last 20 "
-                "years - evidence hidden from 99% of traders, with an AI score that "
-                "weighs recent data and the full history to calibrate the odds it "
-                "repeats this year."
+                "TradeWave gives you the exact dates and repeat counts, AI-ranked "
+                "and scored, from 15 markets and up to a century of data. The "
+                "daily pick is logged before the outcome, and losses stay on the "
+                "public record."
             ),
-            # The "New" MCP pill above the headline (links to #connect). Rendered
-            # only when content.mcp_live is True (gated, see MCP_LIVE).
-            "pill_text": "Now inside ChatGPT and Claude, free on every plan",
-            "pill_url": "#connect",
+            # The "New" MCP pill above the headline (links to #tara). Rendered
+            # only when content.mcp_live is True (gated, see MCP_LIVE). No
+            # "in plain English" phrasing (June-30 directive: many visitors
+            # are not native English speakers) and no per-plan entitlement
+            # claim here - the pill introduces Tara, nothing more.
+            "pill_text": "Meet Tara, TradeWave's AI agent - now inside ChatGPT and Claude",
+            "pill_url": "#tara",
             "cta_primary": "Start Free - Full Access for 7 Days",
             "cta_primary_url": SIGNUP_URL,
-            "cta_micro": "No credit card. After 7 days, keep a free plan that stays useful.",
-            "ask_placeholder": "Which tech stocks tend to rise this time of year?",
+            # FREE-path reassurance (June-30 directive). The free signup is
+            # genuinely card-free; never reuse this line on a paid path.
+            "cta_micro": "Getting started is free. No credit card required.",
+            # Lead-in to the hero's quiet free-report card (the card is styled
+            # subordinate to the primary CTA; capture stays strong in 03/08).
+            "report_lead": (
+                "Prefer to start smaller? Get the free seasonal report on "
+                "stocks you own - no account needed:"
+            ),
+            # The ONE compact hero disclaimer micro-line.
+            "disclaimer": (
+                "Historical research for educational purposes, not advice or "
+                "a recommendation."
+            ),
+            # Above-the-fold trust strip labels. The counts come live from
+            # content.scorecard_stats at render time - never hardcode a number
+            # here; the template hides numeric segments until data exists.
+            "trust_strip": {
+                "logged_label": "picks on the public ledger",
+                "held_label": "held a profit to the close",
+                # De-duped 2026-07-02: the subheadline directly above already
+                # says "logged before the outcome ... losses stay on the public
+                # record" - never repeat it two lines later.
+                "note": "The full record is public.",
+                "link_text": "Inspect the ledger",
+            },
             # Logged-in CTA variants
             "cta_analyst_url":     PRICING_ANALYST_MONTHLY_URL,
             "cta_strategist_url":  PRICING_STRATEGIST_MONTHLY_URL,
@@ -1015,7 +1059,154 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             "cta_webinars_url":    "%swebinars" % DOMAIN_ROOT,
         },
 
-        # -- Anne-Marie Video --
+        # -- Tara (section 02 - the beginner hook, moved directly after the
+        #    hero per the June-30 owner+Michael meeting). Frame: "You're in
+        #    complete control" - answers AI distrust head-on (you ask, you set
+        #    the parameters, Tara assists; she never replaces you and never
+        #    tells you what to do). "Ask in plain English" phrasing dropped
+        #    site-wide (many visitors are not native English speakers) -
+        #    replaced by "in your own words".
+        #    Headline decision (2026-07-01): "Let Tara Do the Rest" beat
+        #    "Let AI Do the Rest" for a cold visitor - the generic "let AI do
+        #    it" both triggers the AI-hype scam-prior and contradicts the
+        #    control frame, while the named agent is introduced in the very
+        #    next line, closing the "who is Tara?" gap immediately.
+        "tara": {
+            "eyebrow": "You're in Complete Control",
+            "headline": "Tell TradeWave What You Want to See. Let Tara Do the Rest",
+            # First mention on the page (the hero pill renders only when
+            # MCP is live) - so this line must introduce her.
+            "intro": (
+                "TradeWave's AI agent Tara reads the data and produces the "
+                "analysis for you."
+            ),
+            "ask_placeholder": "Which tech stocks tend to rise this time of year?",
+            "ask_button": "See the Evidence",
+            "control_points": [
+                {"lead": "You ask.",
+                 "text": "Any market, any question, in your own words."},
+                {"lead": "You set the parameters.",
+                 "text": ("Markets, date window, lookback, election cycle - "
+                          "the analysis runs on your choices.")},
+                {"lead": "Tara assists.",
+                 "text": ("She runs the numbers, ranks the setups, and drives "
+                          "the charts. She never replaces your judgment, and "
+                          "she never tells you what to do.")},
+            ],
+            "micro": (
+                "Tara reads the same deterministic statistics you see on the "
+                "chart and explains the evidence - never personalized advice, "
+                "never a prediction."
+            ),
+            # Truthful CTA - there is no public demo (/app/ is a signup wall
+            # when logged out; 2026-07-01 audit item 3), so invite the real
+            # action: the free signup, whose 7-day full access includes Tara.
+            "micro_link_text": "Start free and ask her yourself",
+        },
+
+        # -- FAQ (section 08 - objection handling, 2026-07-01 audit item 5).
+        #    The template renders BOTH the visible accordion and the FAQPage
+        #    JSON-LD in <head> from this one list (content.faq.entries), so
+        #    schema and page can never diverge. Claim rules: tier limits/entitlements are FROZEN (never
+        #    restate them here); "no card" is asserted ONLY on the free path
+        #    (locked decision 4); the model calibrates DOWN, never predicts.
+        "faq": {
+            "eyebrow": "FAQ",
+            "headline": "Fair Questions, Straight Answers",
+            # Key is "entries", NOT "items" - content.faq.items in Jinja
+            # resolves to the dict method and breaks the loop.
+            "entries": [
+                {
+                    "q": "Is this a signal service? Does it tell me what to buy?",
+                    "a": ("No. TradeWave shows you the evidence - the exact "
+                          "dates a move repeated, how often, how big it ran, "
+                          "and the years it failed - and you decide what to do "
+                          "with it. It never sends trade alerts and never gives "
+                          "personalized advice. Even the one daily pick we "
+                          "publish is research, logged to the public ledger "
+                          "before the outcome is known."),
+                },
+                {
+                    "q": "This sounds too good to be true. Where's the catch?",
+                    "a": ("The catch is that seasonality is evidence, not "
+                          "certainty - and we show you exactly that. Every "
+                          "pattern opens to its full per-year record, failing "
+                          "years included. The daily pick goes on a public "
+                          "ledger before the outcome, and the losses stay up. "
+                          "And the machine-learning model only calibrates a "
+                          "pattern's probability down, never up - it ranks "
+                          "what history supports; it never predicts. You do "
+                          "not have to take our word for any of it."),
+                    "link_text": "Inspect the ledger",
+                    "link_url": "%sscorecard.html" % DOMAIN_ROOT,
+                },
+                {
+                    "q": "What data is this built on?",
+                    "a": ("End-of-day price history across 15 markets - US "
+                          "stocks and ETFs, the major indices, futures, forex, "
+                          "bonds, foreign indices, and crypto - reaching back "
+                          "as far as a century. You choose the lookback, 1 to "
+                          "99 years, calendar or election cycle, and the "
+                          "engine is deterministic: the same inputs return the "
+                          "same numbers, every time."),
+                },
+                {
+                    "q": "Can I cancel? What happens after the trial?",
+                    "a": ("Yes, in one click, anytime. Signing up starts 7 "
+                          "days of the full platform; when that ends you keep "
+                          "a free plan that never expires. Cancel a paid plan "
+                          "and you simply drop back to the free plan - your "
+                          "account stays."),
+                },
+                {
+                    "q": "Is my card charged?",
+                    "a": ("Starting free takes no card at all, so there is "
+                          "nothing to charge. Paid-tier trials run 7 days free "
+                          "and do take a card at checkout - cancel anytime "
+                          "during the trial in one click and you pay nothing."),
+                },
+            ],
+        },
+
+        # -- Close (section 11) micro under the final CTA. The old "Launch the
+        #    live demo" link promised a demo that does not exist - it points to
+        #    the public scorecard instead (template binds content.scorecard_url).
+        "close": {
+            "micro": ("No credit card. Full platform for 7 days, then a free "
+                      "plan that never expires."),
+            "link_text": "Or inspect the public scorecard first",
+        },
+
+        # -- Lead modal (free seasonal report) post-success upsell line. Only
+        #    the rewritten line is bound so far; the rest of the modal predates
+        #    the content-dict convention.
+        "lead_modal": {
+            "upsell": ("Want these patterns live - change the window, stretch "
+                       "the lookback, and ask Tara about them? Your account "
+                       "starts with 7 days of the full platform, no card."),
+        },
+
+        # -- Proof (section 06 "What Traders Say") - the two cleared third-party
+        #    endorsements (locked owner decision 2): video + quote for Anne-Marie
+        #    Baiynd and Erin West, rendered between the ledger and pricing. Both
+        #    are TradeWave affiliates, so the template renders the quiet
+        #    material-connection disclosure right under the cards. The videos
+        #    are 50MB+ self-hosted MP4s - click-to-play only, never autoplay.
+        "proof": {
+            "eyebrow": "What Traders Say",
+            "headline": "From Traders Who Do This for a Living",
+            "sub": (
+                "Anne-Marie Baiynd and Erin West trade for a living and teach "
+                "traders to do the same. Here is where TradeWave sits in their "
+                "process - on camera, in their own words."
+            ),
+            "disclosure": (
+                "Disclosure: Anne-Marie and Erin are TradeWave affiliates and "
+                "may earn a commission when someone subscribes through them."
+            ),
+        },
+
+        # -- Anne-Marie Video (rendered in the proof section) --
         "video": {
             "src": ANNEMARIE_VIDEO_URL,
             "quote": "I don't go into any trade without looking at it on TradeWave first",
@@ -1024,7 +1215,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             "credential": "Bestselling Author & Market Strategist",
         },
 
-        # -- Erin Video --
+        # -- Erin Video (rendered in the proof section) --
         "video2": {
             "src": ERIN_VIDEO_URL,
             "quote": "TradeWave has directed me to a few trades that were really lovely, five-figure trades",
@@ -1049,28 +1240,20 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # section, chips) until the consumer MCP+OAuth front door is live.
         "mcp_live": MCP_LIVE,
 
-        # -- Opportunities Table --
-        "opportunities": {
-            "headline": "This Week's Top Seasonal Patterns - Open Any Row for the Full Per-Year Record",
-            "context": "Each row opens its complete year-by-year history: win rate, average return, Sharpe, risk band, and AI rank.",
-            "tabs": opportunities_by_tab,
-            "default_tab": default_tab,
-            "total_count": total_opps,
-            "signup_prompt": "Create a free account to see more patterns across all markets.",
-            "signup_url": SIGNUP_URL,
-            "show_election_compare": True,
-            "election_compare_label": "Compare election cycle",
-        },
-
         # -- Pricing --
         # TW2: prices come from Stripe via lookup_keys, not hardcoded.
         # See _stripe_prices() above; falls back to defaults if Stripe unreachable.
         "pricing": (lambda _p=_stripe_prices(): {
             "headline": "Start With Full Access. Keep a Free Plan, or Upgrade When It Pays for Itself",
+            # Rendered as the kicker under the pricing headline. Locked decision
+            # 4 (2026-07-01): the "no card" promise is scoped to the FREE start
+            # only - paid-tier trials collect a card at Stripe checkout, so this
+            # line says so instead of implying "no card" everywhere.
             "subheadline": (
-                "Every signup starts with 7 days of the full platform, then a "
-                "free plan that stays useful. Same engine, same receipts, "
-                "starting at $0."
+                "Signing up is free - 7 days of the full platform, no card "
+                "required, then a free plan that never expires. Paid-tier "
+                "trials also run 7 days free; those take a card at checkout "
+                "and cancel in one click."
             ),
             "default_billing": "yearly",
             "max_yearly_savings": _p['max_yearly_savings'],
@@ -1087,13 +1270,17 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "trial_badge": "",
                     "features": [
                         "See today's top 5 seasonal patterns",
+                        "10 years of seasonal history",
                         "Track up to 5 opportunities in 1 portfolio",
                         "Real-time prices and Trend Score",
                         "Earnings date estimates (EDGAR)",
                         "Election-cycle overlay on loaded patterns",
                         "~upgrade:Upgrade to unlock AI scoring, all markets, and more",
                     ],
-                    "cta": "Sign Up Free",
+                    # Free start = the ONLY genuinely card-free path (locked
+                    # decision 4); the micro-line may say "no card" here ONLY.
+                    "cta": "Get the Free Plan",
+                    "cta_micro": "No card required - free forever.",
                     "monthly_url": PRICING_EXPLORER_URL,
                     "yearly_url": PRICING_EXPLORER_URL,
                     "highlighted": False,
@@ -1107,18 +1294,21 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "yearly_price": _p['navigator_yearly'],
                     "yearly_period": "/mo, billed yearly",
                     "yearly_original": "",
-                    "description": "Hunt seasonal patterns across the three big U.S. indices, with AI scoring",
+                    "description": "Hunt seasonal patterns across the three big U.S. indices, with any start date",
                     "trial_badge": "",
                     "features": [
-                        "AI scoring on Dow, NASDAQ, and S&P 500",
+                        "Dow, NASDAQ 100, and S&P 500 - fully date-unlocked",
                         "Browse any start date, not just today",
-                        "Top 50 patterns per market",
+                        "15 years of seasonal history",
                         "3 portfolios, track up to 25 opportunities",
                         "1 watchlist, up to 25 symbols",
                         "Election-cycle filter on the opportunity table",
-                        "~upgrade:Upgrade to Analyst for all U.S. stocks plus ETFs",
+                        "~upgrade:Upgrade to Analyst for AI scoring and all U.S. stocks plus ETFs",
                     ],
-                    "cta": "Get Navigator",
+                    # Paid trial: honest label (locked decision 4) - Stripe
+                    # collects a card at checkout, so never say "no card" here.
+                    "cta": "Try Free for 7 Days",
+                    "cta_micro": "Card required at checkout. Cancel anytime in one click.",
                     "monthly_url": PRICING_NAVIGATOR_MONTHLY_URL,
                     "yearly_url": PRICING_NAVIGATOR_YEARLY_URL,
                     "checkout_tier": "navigator",
@@ -1140,13 +1330,19 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "features": [
                         "AI Pattern Analyst with scoring",
                         "All U.S. stocks + ETFs, custom start dates",
+                        # 63 = the data provider's deepest per-stock history (the
+                        # oldest listed names, e.g. BA/IBM); most stocks are shorter,
+                        # so this is a "where data is available" ceiling, never a
+                        # per-stock promise. Re-check if the data provider changes.
+                        "Full seasonal history - up to 63 years where data is available",
                         "25 portfolios, track up to 100 opportunities",
-                        "5 watchlists, up to 50 symbols each",
+                        "10 watchlists, up to 50 symbols each",
                         "Seasonal Market News articles",
                         "LIVE weekly Q&A webinar",
                         "Email Support",
                     ],
-                    "cta": "Try Analyst Free for 7 Days",
+                    "cta": "Try Free for 7 Days",
+                    "cta_micro": "Card required at checkout. Cancel anytime in one click.",
                     "monthly_url": PRICING_ANALYST_MONTHLY_URL,
                     "yearly_url": PRICING_ANALYST_YEARLY_URL,
                     "checkout_tier": "analyst",
@@ -1163,20 +1359,23 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "yearly_price": _p['strategist_yearly'],
                     "yearly_period": "/mo, billed yearly",
                     "yearly_original": "",
-                    "description": "Everything in Analyst plus election-cycle discovery, all 15 markets, and premium support",
+                    "description": "Everything in Analyst plus all 15 markets - futures, forex, bonds, foreign indices and crypto - and premium support",
                     "trial_badge": "7 days free, full access",
-                    "card_testimonial": "TradeWave has directed me to a few trades that were really lovely, five-figure trades. -- Erin West, Trading Coach",
+                    # ROI anchor - rendered in the Strategist card right under
+                    # the features (Erin's full quote + video now live in the
+                    # proof section, so the old card_testimonial was deleted).
                     "roi_anchor": "One winning trade on a $10k position pays for a year of Strategist.",
                     "features": [
                         "Everything in Analyst, plus:",
-                        "Spot 4-year cycle setups on any pattern",
+                        "Futures, forex, bonds, foreign indices, and crypto",
                         "All 15 markets with full access",
-                        "100 portfolios, track up to 500 opportunities",
-                        "50 watchlists, up to 500 symbols each",
+                        "100 portfolios; publish up to 500 date-range reports",
+                        "50 watchlists, up to 100 symbols each",
                         "Weekly strategy Zoom call",
                         "Premium Support",
                     ],
-                    "cta": "Try Full Access Free for 7 Days",
+                    "cta": "Try Free for 7 Days",
+                    "cta_micro": "Card required at checkout. Cancel anytime in one click.",
                     "monthly_url": PRICING_STRATEGIST_MONTHLY_URL,
                     "yearly_url": PRICING_STRATEGIST_YEARLY_URL,
                     "checkout_tier": "strategist",
@@ -1213,6 +1412,13 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 
         # -- Footer (minimal) --
         "footer": {
+            # Rendered only when content.mcp_live is True (gated on MCP_LIVE).
+            "mcp_note": (
+                "TradeWave is available inside ChatGPT, Claude, and any "
+                "MCP-capable assistant. Sign in with your account and ask "
+                "your questions there - the same deterministic engine and "
+                "the same public record, wherever you work."
+            ),
             "legal": {
                 "copyright": "%d Tara Data Research LLC. All rights reserved." % datetime.now().year,
                 "disclaimer": (
@@ -1229,9 +1435,10 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         },
 
         "assets": {
-            "logo": "/static/images/logo.png",
             "favicon": config.tw_favicon,
-            "og_image": "/static/images/og-image.jpg",
+            # Absolute URL to a REAL file - /static/images/* does not exist on
+            # any box (og:image 404'd; trust-audit critical).
+            "og_image": "%s_static/evidence_hero.png" % CANONICAL_ROOT,
         },
 
         # =====================================================================
@@ -1241,93 +1448,47 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # structure. Every approved headline/subhead lives verbatim below.
         # =====================================================================
 
-        # Three-rules band under the hero.
-        "three_rules": [
-            {"num": "01", "text": "Deterministic - Same Inputs, Same Numbers"},
-            {"num": "02", "text": "Every Pattern Shows Its Full Per-Year Record"},
-            {"num": "03", "text": "Every Pick Logged Before the Outcome"},
-        ],
-
-        # "Whoever's Asking, It Bends to You" - three desks (static marketing).
+        # -- Who It's For (section 09) - WIRED 2026-07-02: the template used to
+        #    hardcode this section while a stale, different version sat dead
+        #    here (zombie copy). This dict now IS the rendered copy; the
+        #    template binds it. Questions render inside quote marks in the
+        #    template - store them unquoted. Note de-duped: the sub already
+        #    says "Same engine", so the note must not repeat it.
         "desks": {
-            "eyebrow": "One Platform, Three Desks",
+            "eyebrow": "Who It's For",
             "headline": "Whoever's Asking, It Bends to You",
-            "sub": (
-                "Same engine for a fund running a thousand backtests and a "
-                "trader testing one calendar window. You set the markets, the "
-                "lookback, and the cycle; it returns the ranked patterns with "
-                "every year's record underneath."
-            ),
-            "note": (
-                "Not different products - the same engine, the same receipts, "
-                "and the same multi-decade record, priced to the job in front "
-                "of you."
-            ),
+            "sub": ("Same engine for a fund running a thousand backtests and "
+                    "a trader testing one window."),
+            "note": ("Not different products - the same evidence, priced to "
+                     "the job in front of you."),
             "cards": [
                 {
                     "audience": "New and Independent Traders",
-                    "question": "\"What's seasonal in tech right now?\"",
-                    "blurb": (
-                        "Ask a plain-English question and get the patterns that "
-                        "fit, each with its full year-by-year record so you can "
-                        "see how often it has worked. Seven days of everything, "
-                        "then a free plan that stays useful. One free pick lands "
-                        "every day at no cost."
-                    ),
-                    "cta_text": "See plans for you",
+                    "question": "What's seasonal in tech right now?",
+                    "blurb": ("Ask Tara, get a named ranked answer. Real "
+                              "research in your first minute."),
+                    "cta_text": "Start free",
                     "cta_url": "#pricing",
                 },
                 {
                     "audience": "Professionals, Quants and RIAs",
-                    "question": ("\"Strongest 30 to 60 day windows across all 15 "
-                                 "markets, ranked by Sharpe.\""),
-                    "blurb": (
-                        "Full lookback, PE-cycle and date-range knobs, CSV into "
-                        "your own model, on-demand research reports, and deep "
-                        "links that hand a colleague the exact pattern, years, "
-                        "and settings you see. Built for a desk, not a demo."
-                    ),
-                    "cta_text": "See Strategist",
+                    "question": ("Strongest 30 to 60 day windows across all "
+                                 "markets, ranked by Sharpe"),
+                    "blurb": ("The full per-year record, PE-cycle filtering, "
+                              "and CSV - auditable down to the year."),
+                    "cta_text": "See Analyst / Strategist",
                     "cta_url": "#pricing",
                 },
                 {
                     "audience": "Funds and Enterprise",
-                    "question": "\"Pull the ranked seasonal patterns into our own code.\"",
-                    "blurb": (
-                        "License the historical seasonal-pattern dataset and the "
-                        "trained ranking model for internal backtests over a "
-                        "compiled, multi-decade history. A pattern REST API with "
-                        "SDKs, multi-seat keys, SSO and audit logs. Your agent "
-                        "can write a backtest; it cannot make it true."
-                    ),
+                    "question": ("Your agent can write a backtest; it cannot "
+                                 "make it true"),
+                    "blurb": ("License the pattern file, the model, and the "
+                              "REST API - your stack, multi-seat, SSO, audit."),
                     "cta_text": "Talk to us",
-                    "cta_url": CONTACT_URL,
+                    "cta_url": "mailto:hello@tradewave.ai?subject=Funds%20%26%20Enterprise",
                 },
             ],
-        },
-
-        # "A Tuesday With TradeWave" timeline (static marketing).
-        "tuesday_steps": [
-            {"ts": "8:50", "text": ("Your calendar pings: a pattern window on "
-                                    "your watchlist opens Thursday.")},
-            {"ts": "9:15", "text": ("You export the stats table to CSV and drop "
-                                    "it into your own model.")},
-            {"ts": "11:00", "text": ("A date-range research report across your "
-                                     "portfolio, generated on demand.")},
-            {"ts": "2:40", "text": ("You send a teammate a deep link that opens "
-                                    "the exact pattern, years, and settings you "
-                                    "see.")},
-        ],
-
-        # Enterprise "Desk" pricing strip under the pricing grid. Static/manual:
-        # there is NO Desk tier in Stripe eod metadata (_stripe_prices only
-        # returns analyst/strategist), so this is brand copy, not a live binding.
-        "desk_pricing": {
-            "name": "Desk",
-            "price": "From $4,800/yr",
-            "detail": "pattern dataset + ranking model + REST API + multi-seat + SSO + audit",
-            "cta_text": "Talk to us",
-            "cta_url": CONTACT_URL,
         },
 
         # "Real Articles, Real Dates" feed. There is NO SMN/Insights feed wired
@@ -1513,7 +1674,7 @@ def main():
     src_static = Path(__file__).resolve().parent / "static"
     static_out = output_dir / "_static"
     static_out.mkdir(parents=True, exist_ok=True)
-    for asset in ("evidence_hero.png", "shows_work.png", "ask.png"):
+    for asset in ("evidence_hero.webp", "shows_work.png", "ask.png"):
         src = src_static / asset
         if src.exists():
             shutil.copy2(str(src), str(static_out / asset))
