@@ -684,6 +684,21 @@ inherit from the web tier via `WEB_TIER_TO_API`; set = an API-only sub). Schema 
 (`apiserver/schema.sql` / the `api/` migration). Tiers/entitlements in `apiserver/tiers.py`
 (free/dev/pro/business; ML fields are Pro-tier + ML-eligible markets only).
 
+**Pricing-visibility gate (2026-07-04):** `apiserver/tiers.py:API_PRICING_LIVE` (env
+`TW2_API_PRICING_LIVE`, truthy strings `1`/`true`/`yes`) is a DISPLAY-only flag, separate
+from the tiers/quotas themselves (which are always live/enforced). While unset (owner has
+not finalized paid-tier $), the marketing generator (`site/api_marketing/generate.py`),
+the docs generator (`site/api_docs/generate_api_docs.py`), and the console billing page
+(`web/api_portal/routes_billing.py` + `templates/api_billing.html`) all import it and
+suppress paid-tier dollar amounts: marketing pricing cards show "Coming Soon" + a
+talk-to-sales CTA (Free card + the monthly/annual toggle + the Founder's-plan strip -
+which quotes a derived Pro discount - are hidden with it), docs show "See pricing page",
+and the console billing page hides upgrade cards/checkout for tiers the user is NOT
+already on (their own current plan - even if paid, e.g. a bundled Analyst->Dev - still
+renders normally, since that is real state, not marketing). Checkout/Stripe code paths are
+untouched. Regenerate after flipping: `ops/assemble_developer_portal.sh` (or the individual
+generators) picks up the new value from the env at generation time.
+
 **URLs + edge (env-driven):** `site/lib/portal_urls.py` reads `TW2_PUBLIC_HOST`,
 `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST`. Per env the
 public hostnames are: dev `api-dev` / `mcp-dev` / `developers-dev`.trxstat.com; staging

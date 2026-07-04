@@ -144,6 +144,11 @@ def billing_index():
         has_customer=bool(getattr(u, "stripe_customer_id", None)),
         stripe_configured=_stripe_configured(),
         founder=api_tiers.FOUNDER,
+        # Pricing-visibility gate (apiserver.tiers.API_PRICING_LIVE): the owner has not
+        # finalized paid-tier pricing, so the template hides dollar amounts / upgrade
+        # cards for tiers the user is not already on. Display-only - entitlements,
+        # checkout, and the billing portal are untouched.
+        pricing_live=api_tiers.API_PRICING_LIVE,
     )
 
 

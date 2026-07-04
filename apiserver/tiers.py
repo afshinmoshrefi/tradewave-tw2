@@ -11,9 +11,16 @@ is unlimited ML, not ML-vs-no-ML. The daily count is enforced in ml_quota.py (Re
 `ml_access` stays True on every tier and now just means "ML is offered at all" (it is).
 """
 
+import os
+
 ML_MARKETS = {"0", "1", "2", "3", "4", "11"}
 # 14/15 were removed (Korea); keep the hole, never renumber.
 ALL_MARKETS = [str(i) for i in range(0, 17) if i not in (14, 15)]
+
+# Pricing display gate - paid-tier dollar amounts render only when this is set; the
+# tiers/quotas themselves are always live. THE single source; the portal marketing
+# site, the developer docs, and the console billing page all import it from here.
+API_PRICING_LIVE = os.environ.get('TW2_API_PRICING_LIVE', '').strip().lower() in ('1', 'true', 'yes')
 
 # Annual billing = 10x the monthly price (pay for 10 months, get 12 = "2 months free",
 # ~17% off). Stripe holds a separate yearly price per product; checkout picks the interval.

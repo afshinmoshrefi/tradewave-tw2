@@ -28,7 +28,7 @@ REPO = Path(__file__).resolve().parent.parent.parent  # /home/flask
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "site" / "lib"))
 
-from apiserver.tiers import API_TIERS        # the one source of truth
+from apiserver.tiers import API_TIERS, API_PRICING_LIVE  # the one source of truth
 from text_utils import no_em_dash            # hard brand rule
 import portal_urls                           # env-resolved public URLs
 import portal_seo                            # SEO/social/llms helpers
@@ -511,6 +511,18 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "",
 # ===========================================================================
 
 def build_index() -> str:
+    if API_PRICING_LIVE:
+        pricing_hero_note = (
+            f'No credit card. Free, then Dev $39, Pro $199, Business $599 (redistribution to your users '
+            f'under license), and Enterprise with volume licensing, an SLA, and a signed agreement - '
+            f'<a href="{portal_urls.nav("contact.html")}" style="color:var(--accent);">talk to sales</a>.'
+        )
+    else:
+        pricing_hero_note = (
+            f'No credit card. The Free tier is open now - paid plans (Dev, Pro, Business, and Enterprise '
+            f'with volume licensing, an SLA, and a signed agreement) launch soon - '
+            f'<a href="{portal_urls.nav("contact.html")}" style="color:var(--accent);">talk to sales</a>.'
+        )
     body = f"""
 <section class="page-hero">
   <div class="container">
@@ -540,7 +552,7 @@ def build_index() -> str:
       <a href="{portal_urls.CONSOLE_URL}" class="btn btn-secondary">Get a free key</a>
       <a href="mcp.html" class="btn btn-ghost">Connect it to Claude</a>
     </div>
-    <p class="hero-note">No credit card. Free, then Dev $39, Pro $199, Business $599 (redistribution to your users under license), and Enterprise with volume licensing, an SLA, and a signed agreement - <a href="{portal_urls.nav('contact.html')}" style="color:var(--accent);">talk to sales</a>.</p>
+    <p class="hero-note">{pricing_hero_note}</p>
   </div>
 </section>
 
@@ -763,16 +775,35 @@ def build_pricing() -> str:
 
     def card_html(key: str, t: dict, is_highlight: bool) -> str:
         hl = ' highlight' if is_highlight else ''
-        price_display = f"${t['price_monthly']}" if t['price_monthly'] > 0 else "$0"
+        # Pricing-visibility gate (apiserver.tiers.API_PRICING_LIVE): the owner has not
+        # finalized paid-tier pricing yet, so paid cards show "Coming Soon" with no dollar
+        # figure and route their CTA to sales instead of signup, until the flag flips.
+        price_hidden = key != "free" and not API_PRICING_LIVE
         ann_permo = annual_permo(t)
         ann = f"${ann_permo}"
         save = annual_savings(t)
         save_span = f' <span class="save-badge">{save}</span>' if save else ''
         annual_total = t.get('price_annual', 0)
 
+        if price_hidden:
+            price_html = '<span class="p-price">Coming Soon</span>'
+            annual_note_html = ""
+        else:
+            price_display = f"${t['price_monthly']}" if t['price_monthly'] > 0 else "$0"
+            price_html = (f'<span class="p-price" data-monthly="{t["price_monthly"]}" '
+                          f'data-annual="{ann_permo}">{price_display}</span>\n'
+                          f'    <span class="p-price-unit">/mo</span>')
+            annual_note_html = (f'<p class="p-annual-note" data-annual-note="{ann}/mo billed annually '
+                                f'(${annual_total}/yr){save_span}">\n'
+                                f'    {ann}/mo billed annually (${annual_total}/yr){save_span}\n  </p>')
+
         btn_class = "btn-primary" if is_highlight else "btn-secondary"
-        btn_text = "Get Started" if key == "free" else f"Start {t['name']}"
-        btn_href = portal_urls.CONSOLE_URL
+        if price_hidden:
+            btn_text = "Talk to Sales"
+            btn_href = portal_urls.nav("contact.html")
+        else:
+            btn_text = "Get Started" if key == "free" else f"Start {t['name']}"
+            btn_href = portal_urls.CONSOLE_URL
 
         ml_limit = t.get("ml_daily_limit")
         if t["ml_access"] and ml_limit is None:
@@ -805,12 +836,9 @@ def build_pricing() -> str:
   <p class="p-name">{t['name']}</p>
   <p class="p-tagline">{taglines.get(key, '')}</p>
   <div>
-    <span class="p-price" data-monthly="{t['price_monthly']}" data-annual="{ann_permo}">{price_display}</span>
-    <span class="p-price-unit">/mo</span>
+    {price_html}
   </div>
-  <p class="p-annual-note" data-annual-note="{ann}/mo billed annually (${annual_total}/yr){save_span}">
-    {ann}/mo billed annually (${annual_total}/yr){save_span}
-  </p>
+  {annual_note_html}
   <ul class="p-features">
     <li>{market_scope(t)}</li>
     {ml_line}
@@ -831,6 +859,33 @@ def build_pricing() -> str:
         card_html("business", tiers["business"], False),
     ])
 
+    # The Founder's plan is a 50%-off discount on Pro's list price - with Pro not yet
+    # priced there is nothing to discount, so hold the strip until pricing goes live.
+    founder_strip_html = ""
+    if API_PRICING_LIVE:
+        founder_strip_html = f"""<div class="founder-strip">
+      <div>
+        <h3>Founder's plan - first 100 only</h3>
+        <p>Get <strong>Pro at $99/mo</strong> (50% off) for your first 12 months, in exchange for
+           your logo and a short tracked-record testimonial. Use code <code>FOUNDER</code> at
+           checkout. When the first 100 seats are gone, this is gone.</p>
+      </div>
+      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary" style="white-space:nowrap;">Claim a founder seat</a>
+    </div>"""
+
+    # The monthly/annual toggle only ever switches a price display - with paid pricing not
+    # yet live there is nothing for it to switch (paid cards show "Coming Soon"; Free is
+    # $0 either way), so swap it for a single muted note instead of an inert control.
+    if API_PRICING_LIVE:
+        billing_toggle_html = """<div class="billing-toggle">
+      <button class="billing-btn active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
+      <button class="billing-btn" id="btn-annual" onclick="setBilling('annual')">Annual <span class="save-badge">2 months free</span></button>
+    </div>"""
+    else:
+        billing_toggle_html = ('<p class="p-note" style="text-align:center;margin-bottom:24px;">'
+                                'Paid plans launch soon. The Free tier and bring-your-own-key access '
+                                'are open now.</p>')
+
     body = f"""
 <section class="page-hero" style="padding-bottom:40px;">
   <div class="container">
@@ -844,24 +899,13 @@ def build_pricing() -> str:
 
 <section class="section" style="padding-top:20px;">
   <div class="container">
-    <div class="billing-toggle">
-      <button class="billing-btn active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
-      <button class="billing-btn" id="btn-annual" onclick="setBilling('annual')">Annual <span class="save-badge">2 months free</span></button>
-    </div>
+    {billing_toggle_html}
 
     <div class="pricing-grid">
       {cards_html}
     </div>
 
-    <div class="founder-strip">
-      <div>
-        <h3>Founder's plan - first 100 only</h3>
-        <p>Get <strong>Pro at $99/mo</strong> (50% off) for your first 12 months, in exchange for
-           your logo and a short tracked-record testimonial. Use code <code>FOUNDER</code> at
-           checkout. When the first 100 seats are gone, this is gone.</p>
-      </div>
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary" style="white-space:nowrap;">Claim a founder seat</a>
-    </div>
+    {founder_strip_html}
 
     <p class="bundle-note">Already subscribe to TradeWave? Your plan already includes API access -
        <strong>Analyst includes the Dev tier</strong> and <strong>Strategist includes Pro</strong>,
@@ -1442,6 +1486,10 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
 # ===========================================================================
 
 def build_use_cases() -> str:
+    dev_opens_note = "Dev ($39/mo) opens" if API_PRICING_LIVE else "Dev opens"
+    dev_prototyping_note = ("Dev tier at $39/mo for prototyping; no commitment to full plan"
+                             if API_PRICING_LIVE else
+                             "Dev tier for prototyping; no commitment to full plan")
     body = f"""
 <section class="page-hero">
   <div class="container">
@@ -1473,7 +1521,7 @@ def build_use_cases() -> str:
         </p>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:24px;">
           Free covers the build: S&P 500 stocks, the daily pick, 5 ML win-probability scores/day,
-          and the full track record - enough to ship a personal tool end to end. Dev ($39/mo) opens
+          and the full track record - enough to ship a personal tool end to end. {dev_opens_note}
           all 15 markets and 100 ML scores/day; Pro lifts the ML cap entirely.
         </p>
         <ul class="check-list">
@@ -1597,7 +1645,7 @@ score_resp = requests.<span class="fn">post</span>(
           <li>MCP-ready: surface TradeWave seasonal patterns inside any AI-native product</li>
           <li>Multiple API keys per account - one per tenant or environment</li>
           <li>Outputs are percentage returns - safe to display without price context</li>
-          <li>Dev tier at $39/mo for prototyping; no commitment to full plan</li>
+          <li>{dev_prototyping_note}</li>
         </ul>
       </div>
       <div class="card" style="padding:32px;">

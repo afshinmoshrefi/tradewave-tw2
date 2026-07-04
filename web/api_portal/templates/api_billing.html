@@ -31,20 +31,26 @@
   </div>
   {% endif %}
 
-  {% if founder %}
+  {% if founder and pricing_live %}
   <div class="card" style="border-color:rgba(245,158,11,.4);background:linear-gradient(90deg,rgba(245,158,11,.08),rgba(99,102,241,.05));">
     <h3 style="color:#fbbf24;margin-bottom:4px;">Founder's plan - first 100 only</h3>
     <div class="muted">Get Pro at <strong>${{ founder.effective_monthly }}/mo</strong> ({{ founder.percent_off }}% off) for 12 months, for your logo and a short testimonial. Enter code <code>{{ founder.code }}</code> on the Stripe checkout page when you subscribe to Pro.</div>
   </div>
   {% endif %}
 
+  {% if pricing_live %}
   <div class="row" style="justify-content:center;gap:0;margin:8px 0 18px;">
     <button type="button" class="btn-secondary bill-cycle active" data-cycle="month" style="border-radius:8px 0 0 8px;">Monthly</button>
     <button type="button" class="btn-secondary bill-cycle" data-cycle="year" style="border-radius:0 8px 8px 0;border-left:none;">Annual <span class="muted" style="font-weight:600;">- 2 months free</span></button>
   </div>
+  {% endif %}
 
   <div class="tiers-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
     {% for p in plans %}
+    {# When pricing is not yet live, only the Free tier and the user's own current
+       plan (whatever it is - e.g. a bundled Dev/Pro from a web sub) render; the
+       other paid tiers collapse to the note below instead of an upgrade card. #}
+    {% if pricing_live or not p.purchasable or p.is_current %}
     <div class="card" style="margin-bottom:0;{% if p.is_current %}border-color:#6366f1;{% endif %}">
       <div class="row" style="justify-content:space-between;align-items:baseline;">
         <h3 style="color:#e5e7eb;text-transform:none;letter-spacing:0;font-size:18px;margin:0;">{{ p.label }}</h3>
@@ -79,13 +85,19 @@
         </form>
       {% endif %}
     </div>
+    {% endif %}
     {% endfor %}
   </div>
+
+  {% if not pricing_live %}
+  <p class="muted" style="text-align:center;margin:8px 0 18px;">Paid plans launch soon - you are on the {{ current_label }} tier.</p>
+  {% endif %}
 
   <p class="muted" style="margin-top:18px;font-size:13px;">
     Plan changes for existing subscribers are handled in the Stripe billing portal so proration and downgrades apply correctly.
   </p>
 
+  {% if pricing_live %}
   <script>
   (function() {
     var cycle = "month";
@@ -111,5 +123,6 @@
     apply();
   })();
   </script>
+  {% endif %}
 
 {% endblock %}

@@ -69,7 +69,7 @@ def load_openapi() -> dict:
 
 # Tier data is in tiers.py - import it directly so we stay in sync.
 sys.path.insert(0, str(REPO_ROOT / "apiserver"))
-from tiers import API_TIERS  # noqa: E402
+from tiers import API_TIERS, API_PRICING_LIVE  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Shared layout helpers
@@ -1894,7 +1894,12 @@ def build_rate_limits() -> str:
         pm = t["rate"]["per_minute"]
         pd = t["rate"]["per_day"]
         opp = t["opp_limit"]
-        price = f"${t['price_monthly']}/mo" if t["price_monthly"] else "Free"
+        if not t["price_monthly"]:
+            price = "Free"
+        elif API_PRICING_LIVE:
+            price = f"${t['price_monthly']}/mo"
+        else:
+            price = "See pricing page"
         ml = '<span class="check">Yes</span>' if t["ml_access"] else '<span class="cross">No</span>'
         tier_rows.append(
             f"<tr><td class='tier-name'>{t['name']}</td>"
@@ -2023,6 +2028,11 @@ Content-Type:          application/json
 # ---------------------------------------------------------------------------
 
 def build_changelog() -> str:
+    api_tiers_line = (
+        "4 API tiers: Free, Dev ($39/mo), Pro ($199/mo), Business ($599/mo)."
+        if API_PRICING_LIVE else
+        "4 API tiers: Free, Dev, Pro, Business - see the pricing page."
+    )
     body = """
 <h1>Changelog</h1>
 <p>Version history for the TradeWave Data API and MCP server. Breaking changes are always version-bumped.</p>
@@ -2050,7 +2060,7 @@ def build_changelog() -> str:
   <ul>
     <li>9 REST endpoints: markets, symbols, opportunities (list + by-symbol), patterns, seasonal-chart, score, daily-pick, track-record.</li>
     <li>16 MCP tools (5 flagship + 11 primitives) wrapping the REST API - connect via Claude Desktop, ChatGPT, or Cursor.</li>
-    <li>4 API tiers: Free, Dev ($39/mo), Pro ($199/mo), Business ($599/mo).</li>
+    <li>{api_tiers_line}</li>
     <li>Bearer token auth via <code class="inline-code">Authorization: Bearer &lt;key&gt;</code>. Keys issued in the dashboard.</li>
     <li>ML fields (<code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, <code class="inline-code">pred_mfe</code>) available on every tier, metered per day (free 5/day, Dev 100/day, Pro/Business unlimited), on ML-eligible markets (ids 0-4, 11).</li>
     <li>Graceful upgrade stub when the daily ML allowance is spent - HTTP 200 with <code class="inline-code">{"requires":"upgrade","reason":"ml_daily_limit"}</code>.</li>
@@ -2066,6 +2076,7 @@ def build_changelog() -> str:
   <p><strong>API stability contract.</strong> v1 endpoints, field names, and the market id mapping are stable. Breaking changes (renamed or removed fields, behavior changes) will be released as v2 with a deprecation notice. Additive changes (new fields, new endpoints) may be made to v1 without notice.</p>
 </div>
 """
+    body = body.replace("{api_tiers_line}", api_tiers_line)
     return page(
         title="Changelog",
         description="TradeWave API v1 release history and stability contract.",
