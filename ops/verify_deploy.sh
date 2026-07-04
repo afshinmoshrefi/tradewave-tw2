@@ -71,10 +71,13 @@ echo "-- design + feature markers --"
 # pre-regen page right after a deploy and false-WARN the design markers (bit us
 # on the 2026-07-04 staging deploy) - same reasoning as the scorecard check below.
 home=$($SSH "root@$WEB" "cat /var/www/tradewave/home.html 2>/dev/null")
-echo "$home" | grep -qiE 'whoever|the receipts|tuesday'      && ok "home: Ledger design present" || bad "home: Ledger markers missing"
-echo "$home" | grep -q  'Trade<b>Wave</b>'                   && ok "home: 2-color logo"           || warn "home: 2-color logo markup not found"
-echo "$home" | grep -qiE '>Wave Viewer<|>Start Free Trial<'  && ok "home: unified nav"            || warn "home: nav markers not found"
-if echo "$home" | grep -qE 'gtag\(|googletagmanager|G-[A-Z0-9]{6,}'; then ok "home: GA4 loader present"; else
+# NOTE: grep -c (not -q) - under `set -o pipefail`, grep -q exits on first match,
+# SIGPIPEs the echo, and the pipeline reports failure EXACTLY when the marker IS
+# present. -c consumes the whole input; exit status still reflects any-match.
+echo "$home" | grep -ciE 'whoever|the receipts|tuesday'     >/dev/null && ok "home: Ledger design present" || bad "home: Ledger markers missing"
+echo "$home" | grep -c  'Trade<b>Wave</b>'                  >/dev/null && ok "home: 2-color logo"           || warn "home: 2-color logo markup not found"
+echo "$home" | grep -ciE '>Wave Viewer<|>Start Free Trial<' >/dev/null && ok "home: unified nav"            || warn "home: nav markers not found"
+if echo "$home" | grep -cE 'gtag\(|googletagmanager|G-[A-Z0-9]{6,}' >/dev/null; then ok "home: GA4 loader present"; else
   [ "$ENV" = prod ] && bad "home: GA4 loader MISSING (analytics dead on prod)" || warn "home: no GA4 loader (may be prod-gated; confirm it lights on prod)"; fi
 # Read the generated file on disk, NOT via nginx: open_file_cache can briefly serve the
 # pre-regen scorecard right after a deploy, false-flagging an otherwise-correct page. This
