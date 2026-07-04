@@ -504,6 +504,37 @@ def build_positions(history):
     return open_positions, closed_positions
 
 
+def group_closed_by_month(closed_positions, expand_newest=2):
+    """Group the (newest-first) closed rows into per-month sections for the
+    collapsible ledger: the closed list grows forever, so each month renders
+    as a <details> block whose summary line is that month's own results
+    (picks, W-L, win rate, median close return). Newest expand_newest months
+    ship open; ALL rows stay in the page (the ledger must remain auditable -
+    grouping is presentation, never truncation)."""
+    months = []
+    by_key = {}
+    for pos in closed_positions:  # already newest-first, so months come out newest-first
+        key = pos['featured_date'][:7]
+        if key not in by_key:
+            label = datetime.strptime(key, '%Y-%m').strftime('%B %Y')
+            by_key[key] = {'key': key, 'label': label, 'positions': []}
+            months.append(by_key[key])
+        by_key[key]['positions'].append(pos)
+    for i, m in enumerate(months):
+        rows = m['positions']
+        wins = sum(1 for r in rows if r['win'])
+        returns = sorted(r['actual_return_num'] for r in rows
+                         if r.get('actual_return_num') is not None)
+        median = returns[len(returns) // 2] if returns else 0
+        m['count'] = len(rows)
+        m['wins'] = wins
+        m['losses'] = len(rows) - wins
+        m['win_rate'] = round(wins / len(rows) * 100) if rows else 0
+        m['median_return'] = round(median, 1)
+        m['open'] = i < expand_newest
+    return months
+
+
 # =============================================================================
 # HTML GENERATION
 # =============================================================================
@@ -520,6 +551,7 @@ def generate_scorecard_html(stats, open_positions, closed_positions):
         'stats': stats,
         'open_positions': open_positions,
         'closed_positions': closed_positions,
+        'closed_months': group_closed_by_month(closed_positions),
         'domain_root': DOMAIN_ROOT,
         'x_profile_url': X_PROFILE_URL,
         'favicon': config.tw_favicon,
