@@ -554,7 +554,7 @@ appserver.py:2594 `getHistory2` / :2839 `consolidated_seasonal_chart2` / :2644
 
 ---
 
-## 7A. TW2 v2 - Public API gateway + MCP (built on dev 2026-05-27, pre-launch)
+## 7A. TW2 v2 - Public API gateway + MCP (LIVE ON PROD since 2026-07-04)
 
 The v2 public product (roadmap §9): sell the **derived** patterns (seasonal
 opportunities, ML scores, the tracked daily pick) over a clean REST API + an MCP
@@ -622,11 +622,19 @@ defaults = loopback, so co-located behavior is unchanged), and everything else
 (`TW2_APPSERVER_URL`, `REDIS_HOST`, Tara's `TW2_GATEWAY_URL`) was already per-env. Step-by-step:
 `ops/SPLIT_GATEWAY_TO_OWN_BOX.md`.
 
-**OPEN (pre-launch):** the systemd units / nginx vhost / cloudflared ingress are
-box-config NOT yet in `ops/` deploy tooling; deploy to staging->prod is post-cutover via
-ops/deploy.sh (add the new services to the restart matrix + a migration step + portal/docs
-static-gen + the vhosts); `users.api_tier` + a webhook write for API-only subs deferred
-(existing-tier users inherit fine); marketing copy is draft.
+**LAUNCHED ON PROD 2026-07-04** (dark-ship retired): prod-app runs venv-api +
+`tradewave-apiserver` (:8088) + `tradewave-mcpserver` (:9090, streamable-http, OAuth
+via prod AuthKit `https://committed-orbit-04.authkit.app` - the value MUST carry the
+https:// scheme or the JWKS client crash-loops) behind nginx :8080 (per-env
+`server_name` swap of ops/nginx/tradewave-developer-portal.conf; the REPO conf says
+`listen 80` but installed copies use :8080 - the appserver owns :80 on app boxes) and
+cloudflared ingress for api./mcp./developers.tradewave.ai. deploy.sh deploys+verifies
+the full stack on every env (verify_deploy prod PORTAL=1). Paid API pricing display is
+GATED OFF via `TW2_API_PRICING_LIVE` (unset = "Coming Soon"; owner sets prices later).
+GOTCHA: `cloudflared tunnel route dns` on either prod box lands in the trxstat.com
+zone (certs do not cover tradewave.ai) - the 3 public DNS records are dashboard-only.
+Still open: `users.api_tier` webhook write for API-only subs (existing-tier users
+inherit fine).
 (Source: `apiserver/`, `mcpserver/`, `web/api_portal/`, `site/lib/portal_urls.py`,
 `api/openapi.yaml`; built + verified on dev .176, 2026-05-27.)
 
