@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<!--
+  TradeWave home redesign PROTOTYPE - direction "The Ledger" (with grafts from The Open Engine + Ask Anything).
+  Built from /tmp/redesign_recommendation.md (11-agent design workflow, all 3 judges picked this 9/9/9).
+  This is a VISUAL prototype to react to. Wave-viewer / screenshots are CSS+SVG mocks (the spec requires
+  fresh signals-only captures before any real use). Prices shown are the launch values; in production they
+  render from live Stripe metadata (product_line=eod). No em-dashes; signals-only; no performance claims.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>TradeWave - Seasonal Market Research That Shows Its Work</title>
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital@1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B1220; --panel:#0F1A2E; --panel2:#13203a; --ink:#EAF0F8; --muted:#9FB0C8;
+  --faint:#6B7A93; --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.14);
+  --accent:#7C5CFF; --accent-soft:rgba(124,92,255,.14); --win:#3FB68B; --loss:#E5687F; --grey:#5A6A82;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
+  font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(1200px 600px at 50% -10%,rgba(124,92,255,.10),transparent 60%);}
+h1,h2,h3{line-height:1.12;letter-spacing:-.01em;font-weight:700;margin:0}
+h1{font-size:clamp(2.1rem,5vw,3.6rem);font-weight:800}
+h2{font-size:clamp(1.6rem,3.4vw,2.5rem)}
+p{margin:0 0 1rem}
+a{color:var(--accent);text-decoration:none}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.muted{color:var(--muted)}
+.faint{color:var(--faint)}
+section{padding:84px 0;border-top:1px solid var(--line)}
+.section-sub{color:var(--muted);max-width:760px;font-size:1.05rem}
+/* nav */
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(11,18,32,.72);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:28px;height:64px}
+.brand{font-weight:800;letter-spacing:-.02em;font-size:1.18rem}
+.brand b{color:var(--accent)}
+.nav nav{margin-left:auto;display:flex;gap:26px;align-items:center}
+.nav nav a{color:var(--muted);font-size:.94rem;font-weight:500}
+.nav nav a:hover{color:var(--ink)}
+.btn{display:inline-block;background:var(--accent);color:#fff;font-weight:600;padding:13px 22px;border-radius:10px;
+  border:1px solid transparent;font-size:.98rem;transition:transform .12s ease,box-shadow .12s ease;box-shadow:0 8px 30px rgba(124,92,255,.28)}
+.btn:hover{transform:translateY(-1px);box-shadow:0 12px 36px rgba(124,92,255,.4)}
+.btn.ghost{background:transparent;border-color:var(--line2);color:var(--ink);box-shadow:none;font-weight:500;padding:9px 16px}
+.micro{color:var(--faint);font-size:.85rem;margin-top:12px}
+/* hero */
+.hero{text-align:center;padding:74px 0 40px;border-top:none}
+.hero h1{max-width:16ch;margin:0 auto}
+.hero .section-sub{margin:22px auto 0;text-align:center}
+.cta-row{margin:30px 0 6px}
+.askbar{max-width:660px;margin:26px auto 0;display:flex;align-items:center;gap:10px;background:var(--panel);
+  border:1px solid var(--line2);border-radius:12px;padding:7px 7px 7px 18px;text-align:left}
+.askbar .q{flex:1;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.92rem;overflow:hidden;white-space:nowrap}
+.askbar .q b{color:var(--accent);margin-right:8px}
+.askbar .ask{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(124,92,255,.4);
+  border-radius:8px;padding:9px 16px;font-weight:600;font-size:.9rem}
+.chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+.chip{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);border:1px solid var(--line);
+  border-radius:999px;padding:7px 14px;background:rgba(255,255,255,.02)}
+.chip.flag{opacity:.6;border-style:dashed}
+.caption{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);text-align:center;margin-top:16px}
+/* browser frame + wave-viewer mock */
+.frame{max-width:980px;margin:34px auto 0;border:1px solid var(--line2);border-radius:14px;overflow:hidden;
+  background:var(--panel);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.frame .bar{display:flex;align-items:center;gap:7px;padding:11px 14px;background:#0c1526;border-bottom:1px solid var(--line)}
+.dot{width:11px;height:11px;border-radius:50%;background:#33425c}
+.frame .url{margin-left:14px;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--faint)}
+.badge{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:0 7px;font-weight:600}
+/* faithful two-zone wave-viewer: top = opp table + MFE/MAE bars; bottom = swipeable (Trend Chart lead) */
+.wv{display:grid;grid-template-columns:290px 1fr;grid-template-rows:auto auto}
+.wv .opp2{grid-column:1;grid-row:1 / span 2;border-right:1px solid var(--line);padding:13px;display:flex;flex-direction:column}
+.wv .opp2 .hd{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:9px}
+.wv .opp2 .r{display:grid;grid-template-columns:50px 1fr 30px 42px 34px 20px;gap:5px;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--muted);padding:6px 2px;border-top:1px solid var(--line)}
+.wv .opp2 .r.h{color:var(--faint);border-top:none}
+.wv .opp2 .r.sel{background:rgba(124,92,255,.12);border-radius:5px;color:var(--ink)}
+.wv .ask2{margin-top:auto;display:flex;align-items:center;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.wv .ask2 span{color:var(--faint);font-family:'JetBrains Mono',monospace;font-size:.66rem}
+.wv .chart{grid-column:2;grid-row:1;padding:13px 15px;border-bottom:1px solid var(--line)}
+.wv .chart .ch{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;gap:8px}
+.mae{display:flex;gap:3px;height:152px;position:relative}
+.mae::before{content:"";position:absolute;left:0;right:0;top:60%;border-top:1px dashed var(--line2);z-index:1}
+.mae .yr{flex:1;display:flex;flex-direction:column;position:relative;z-index:2}
+.mae .yr .u{height:60%;display:flex;align-items:flex-end}
+.mae .yr .d{height:40%;display:flex;align-items:flex-start}
+.mae .yr .u i{width:100%;background:var(--win);border-radius:2px 2px 0 0;opacity:.92}
+.mae .yr .d i{width:100%;background:var(--loss);border-radius:0 0 2px 2px;opacity:.8}
+.mae-x{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--faint);margin-top:7px}
+.wv .btm{grid-column:2;grid-row:2;padding:13px 15px;background:#0a1322}
+.wv .btm .bh{display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--muted);margin-bottom:11px;flex-wrap:wrap}
+.swipe{display:flex;gap:13px;font-size:.58rem;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+.swipe b{color:var(--accent);font-weight:600}
+.swipe i{font-style:normal}
+.trend{position:relative}
+.trend svg{width:100%;height:92px;display:block}
+.trend .band{position:absolute;top:0;height:92px;width:15%;background:rgba(124,92,255,.11);border-left:1px solid rgba(124,92,255,.4);border-right:1px solid rgba(124,92,255,.4)}
+.trend .mx{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--faint);margin-top:6px}
+.tara{padding:2px 0}
+.bub{font-size:.74rem;border-radius:9px;padding:8px 10px;margin-bottom:8px;line-height:1.45}
+.bub.u{background:rgba(124,92,255,.12);color:var(--ink)}
+.bub.a{background:rgba(255,255,255,.04);color:var(--muted)}
+/* three rules band */
+.rules{display:grid;grid-template-columns:repeat(3,1fr);background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.rules div{padding:26px 30px;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;font-size:1rem;color:var(--ink)}
+.rules div+div{border-left:1px solid var(--line)}
+.rules b{color:var(--accent);margin-right:12px;font-weight:600}
+/* desks */
+.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+.card .thumb{height:64px;border-radius:8px;background:linear-gradient(120deg,#13203a,#0c1526);border:1px solid var(--line);
+  display:flex;align-items:flex-end;gap:3px;padding:8px;margin-bottom:16px}
+.card .thumb i{flex:1;background:var(--accent);opacity:.5;border-radius:1px}
+.card h3{font-size:1.05rem;margin-bottom:12px}
+.card .qq{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--ink);background:rgba(255,255,255,.03);
+  border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.card p{font-size:.92rem;color:var(--muted)}
+.card .lnk{font-size:.85rem;font-weight:600}
+.desk-note{text-align:center;color:var(--faint);margin-top:22px;font-size:.95rem}
+/* two-col */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:46px;align-items:center}
+.two.rev .copy{order:2}
+.panelshot{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:16px;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.opp .row{display:grid;grid-template-columns:1fr 46px 70px;gap:8px;align-items:center;font-family:'JetBrains Mono',monospace;
+  font-size:.78rem;padding:9px 4px;border-top:1px solid var(--line)}
+.opp .row.h{color:var(--faint);border-top:none}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:3px 8px;display:inline-block;margin-bottom:10px}
+.bars i{display:inline-block;width:7px;border-radius:1px;background:var(--accent);opacity:.55;margin-right:2px}
+/* timeline */
+.timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:30px}
+.tl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.tl .ts{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:.85rem;margin-bottom:10px}
+.tl .mock{height:56px;border-radius:7px;background:linear-gradient(120deg,#13203a,#0c1526);border:1px solid var(--line);margin-bottom:12px}
+.tl p{font-size:.86rem;color:var(--muted);margin:0}
+/* ledger */
+.ledger{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px}
+.scoretbl{font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.scoretbl .r{display:grid;grid-template-columns:1fr 90px 70px;gap:8px;padding:9px 2px;border-top:1px solid var(--line)}
+.scoretbl .r.h{color:var(--faint);border-top:none}
+.res-w{color:var(--win)} .res-l{color:var(--loss)}
+.prov{display:flex;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:24px;max-width:680px;margin-left:auto;margin-right:auto}
+.prov img{width:54px;height:54px;border-radius:50%;object-fit:cover;border:1px solid var(--line2)}
+.prov q{font-family:Newsreader,Georgia,serif;font-style:italic;font-size:1.05rem;color:var(--ink);display:block;margin-bottom:6px}
+.prov .by{font-size:.82rem;color:var(--faint)}
+/* pricing */
+.ribbon{text-align:center;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--muted);background:var(--accent-soft);
+  border:1px solid rgba(124,92,255,.3);border-radius:999px;padding:8px 18px;display:inline-block;margin:0 auto 22px}
+.toggle{display:flex;gap:0;justify-content:center;margin:0 auto 26px;width:fit-content;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+.toggle span{padding:9px 18px;font-size:.85rem;font-family:'JetBrains Mono',monospace;color:var(--muted);cursor:default}
+.toggle span.on{background:var(--accent);color:#fff}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.plan{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px}
+.plan.hot{border-color:rgba(124,92,255,.55);box-shadow:0 16px 50px rgba(124,92,255,.15)}
+.plan .pn{font-weight:700;font-size:1.05rem;margin-bottom:4px}
+.plan .tag2{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--accent);letter-spacing:.1em;text-transform:uppercase}
+.plan .pr{font-size:1.9rem;font-weight:800;margin:12px 0 2px}
+.plan .pr small{font-size:.85rem;color:var(--faint);font-weight:500}
+.plan .yr{font-size:.82rem;color:var(--muted);margin-bottom:16px}
+.plan ul{list-style:none;padding:0;margin:0 0 20px;font-size:.86rem;color:var(--muted)}
+.plan li{padding:7px 0;border-top:1px solid var(--line)}
+.plan .btn{width:100%;text-align:center}
+.desk-strip{margin-top:18px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;
+  padding:16px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.84rem;color:var(--muted)}
+.desk-strip b{color:var(--ink)}
+.kicker{text-align:center;color:var(--faint);margin-top:16px;font-size:.9rem}
+/* living research + close */
+.news{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:26px}
+.na{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.na .d{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--accent);margin-bottom:8px}
+.na p{font-size:.86rem;color:var(--ink);margin:0}
+.close{text-align:center;padding:90px 0}
+.close h2{max-width:18ch;margin:0 auto 16px}
+.gated{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);border:1px dashed var(--line2);border-radius:6px;padding:3px 9px;margin-left:10px;vertical-align:middle}
+.newbadge{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;background:var(--accent);color:#fff;border-radius:5px;padding:3px 8px;vertical-align:middle;margin-left:8px}
+/* footer */
+footer{border-top:1px solid var(--line);padding:48px 0 64px;color:var(--faint);font-size:.84rem}
+footer .links{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px}
+footer .links a{color:var(--muted)}
+@media(max-width:880px){
+  .wv{grid-template-columns:1fr}.wv .opp2,.wv .chart,.wv .btm{grid-column:1}.wv .opp2{grid-row:auto;border-right:none;border-bottom:1px solid var(--line)}
+  .rules,.cols3,.two,.timeline,.ledger,.plans,.news{grid-template-columns:1fr}
+  .two.rev .copy{order:0}.rules div+div{border-left:none;border-top:1px solid var(--line)}
+  .nav nav{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="nav"><div class="wrap">
+  <span class="brand">Trade<b>Wave</b></span>
+  <nav>
+    <a href="/app/">Wave Viewer</a>
+    <a href="#">Seasonal News</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#" class="btn ghost">Sign In</a>
+  </nav>
+</div></header>
+
+<!-- HERO -->
+<section class="hero"><div class="wrap">
+  <h1>The Invisible Evidence Behind High-Probability Trades</h1>
+  <p class="section-sub">TradeWave discovers and presents the evidence hidden in a century of end-of-day data across 15 markets - surfaced in plain language, and posted to a public record before the outcome.</p>
+  <div class="cta-row"><a href="#pricing" class="btn">Start Free - 7 Days of Everything</a></div>
+  <div class="micro">No credit card required. After the week, a free plan that stays useful.</div>
+
+  <div class="askbar">
+    <span class="q"><b>&gt;</b>What's seasonal in US tech in the next two weeks?</span>
+    <span class="ask">Ask</span>
+  </div>
+
+  <!-- wave-viewer mock - faithful two-zone (top: opp table + MFE/MAE bars; bottom: swipeable, Trend Chart lead).
+       Signals-only marketing frame: no price column, no aggregate Win%/cumulative-return, no price axis. -->
+  <div class="frame">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app</span></div>
+    <div class="wv">
+        <div class="opp2">
+          <div class="hd">S&amp;P 500 Stocks &middot; Active</div>
+          <div class="r h"><span>DATE</span><span>TICKER</span><span>DAY</span><span>DIR</span><span>SR</span><span>#</span></div>
+          <div class="r"><span>06-16</span><span>MSI</span><span>262</span><span>Long</span><span>1.71</span><span class="badge">1</span></div>
+          <div class="r sel"><span>06-16</span><span>SPGI</span><span>38</span><span>Long</span><span>1.67</span><span class="badge">2</span></div>
+          <div class="r"><span>06-16</span><span>GOOG</span><span>29</span><span>Long</span><span>1.63</span><span class="badge">3</span></div>
+          <div class="r"><span>06-16</span><span>GOOGL</span><span>29</span><span>Long</span><span>1.63</span><span>4</span></div>
+          <div class="r"><span>06-16</span><span>CB</span><span>197</span><span>Long</span><span>1.59</span><span>5</span></div>
+          <div class="ask2"><span>&gt; ask Tara about any pattern...</span></div>
+        </div>
+        <div class="chart">
+          <div class="ch"><span>15 Year &middot; SPGI &middot; 06-16 to 07-22</span><span>MFE / MAE per year</span></div>
+          <div class="mae">
+            <div class="yr"><div class="u"><i style="height:64%"></i></div><div class="d"><i style="height:40%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:82%"></i></div><div class="d"><i style="height:26%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:60%"></i></div><div class="d"><i style="height:46%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:40%"></i></div><div class="d"><i style="height:72%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:75%"></i></div><div class="d"><i style="height:30%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:88%"></i></div><div class="d"><i style="height:22%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:55%"></i></div><div class="d"><i style="height:54%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:36%"></i></div><div class="d"><i style="height:80%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:80%"></i></div><div class="d"><i style="height:28%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:92%"></i></div><div class="d"><i style="height:22%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:68%"></i></div><div class="d"><i style="height:42%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:48%"></i></div><div class="d"><i style="height:64%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:85%"></i></div><div class="d"><i style="height:26%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:72%"></i></div><div class="d"><i style="height:34%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:78%"></i></div><div class="d"><i style="height:30%"></i></div></div>
+          </div>
+          <div class="mae-x"><span>2011</span><span>2015</span><span>2019</span><span>2023</span><span>2025</span></div>
+        </div>
+      <div class="btm">
+        <div class="bh"><span>15 Year Trend Chart &middot; S&amp;P Global Inc</span>
+          <span class="swipe"><b>&bull; Trend Chart</b><i>&bull; Stats</i><i>&bull; Price + Projection</i></span></div>
+        <div class="trend">
+          <div class="band" style="left:55%"></div>
+          <svg viewBox="0 0 600 92" preserveAspectRatio="none">
+            <path d="M0,78 C60,74 110,70 170,62 C230,54 280,60 330,46 C380,32 430,36 480,24 C520,18 560,14 600,12 L600,92 L0,92 Z" fill="rgba(124,92,255,.08)" stroke="none"/>
+            <path d="M0,78 C60,74 110,70 170,62 C230,54 280,60 330,46 C380,32 430,36 480,24 C520,18 560,14 600,12" fill="none" stroke="#7C5CFF" stroke-width="2"/>
+          </svg>
+          <div class="mx"><span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Sep</span><span>Nov</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="caption">The Wave-Viewer. End-of-Day Data, Deterministic Statistics</div>
+  <div class="chips">
+    <span class="chip">15 Markets</span>
+    <span class="chip">Histories Up to a Century</span>
+    <span class="chip">One Public Ledger</span>
+    <span class="chip flag">Inside ChatGPT and Claude</span>
+  </div>
+</div></section>
+
+<!-- THREE RULES -->
+<div class="rules">
+  <div><b>01</b>Deterministic by Design</div>
+  <div><b>02</b>Receipts on Every Pattern</div>
+  <div><b>03</b>Logged Before the Outcome</div>
+</div>
+
+<!-- THREE DESKS -->
+<section><div class="wrap">
+  <div class="eyebrow">One Platform, Three Desks</div>
+  <h2>Whoever's Asking, It Bends to You</h2>
+  <p class="section-sub">The engine does not care whether you are a fund running a thousand backtests or a trader testing one hunch you have carried for years. You ask at your own altitude; it answers at the same depth.</p>
+  <div class="cols3">
+    <div class="card">
+      <div class="thumb"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:55%"></i></div>
+      <h3>Independent and Active Traders</h3>
+      <div class="qq">"What's seasonal in tech right now?"</div>
+      <p>Ask in plain language and get ranked windows with the full per-year history under each. Seven days of everything, then a free plan that stays useful. The daily public-record pick is yours every day at no cost.</p>
+      <a class="lnk" href="#pricing">See the retail view -&gt;</a>
+    </div>
+    <div class="card">
+      <div class="thumb"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:55%"></i></div>
+      <h3>Professionals, Quants and RIAs</h3>
+      <div class="qq">"Strongest 30 to 60 day windows across all 15 markets, ranked by Sharpe."</div>
+      <p>Full lookback, PE-cycle and date-range knobs, CSV into your own model, on-demand research reports, and deep links that hand a colleague the exact pattern, years, and settings you see. Built for a desk, not a demo.</p>
+      <a class="lnk" href="#pricing">See Strategist -&gt;</a>
+    </div>
+    <div class="card">
+      <div class="thumb"><i style="height:50%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:55%"></i></div>
+      <h3>Funds and Enterprise</h3>
+      <div class="qq">"Pull the ranked signals into our own code."</div>
+      <p>License the historical signal file and the trained model for internal backtests over a compiled, multi-decade dataset. A signals-only REST API, multi-seat keys, SSO and audit. Your agent can write a backtest; it cannot make it true.</p>
+      <a class="lnk" href="#pricing">Talk to us -&gt;</a>
+    </div>
+  </div>
+  <div class="desk-note">Not different products - the same engine, the same receipts, and the same century of evidence, priced to the job in front of you.</div>
+</div></section>
+
+<!-- RECEIPTS -->
+<section><div class="wrap">
+  <div class="eyebrow">You've noticed it for years</div>
+  <h2>Underneath Every AI Answer: Up to a Century of Receipts</h2>
+  <div class="two" style="margin-top:30px">
+    <div class="copy">
+      <p class="muted">The same calendar window, the same behavior, year after year - most serious traders carry a private list of these hunches, while the evidence stayed folklore. TradeWave was built to test them with statistics, not stories.</p>
+      <p class="muted">A deterministic engine computes seasonal patterns from end-of-day data across 15 markets - US and global equities, indices, ETFs, futures and commodities, currencies, government bonds, and crypto - on histories that reach back as far as a century.</p>
+      <p class="muted">Open any pattern and its complete record is on the table: every historical year's individual result, win consistency, average return, Sharpe, the TradeWave Ratio, the MFE/MAE risk band, and PE-cycle overlays. The same inputs always produce the same answer - no black box, no hand-picked window. Every exact view carries a deep link.</p>
+    </div>
+    <div class="panelshot">
+      <div class="opp">
+        <div class="row h"><span>YEAR</span><span>DIR</span><span>RESULT</span></div>
+        <div class="row"><span>2002</span><span>L</span><span class="res-w mono">win</span></div>
+        <div class="row"><span>2009</span><span>L</span><span class="res-w mono">win</span></div>
+        <div class="row"><span>2014</span><span>L</span><span class="res-l mono">loss</span></div>
+        <div class="row"><span>2020</span><span>L</span><span class="res-w mono">win</span></div>
+        <div class="row"><span>2026</span><span>L</span><span class="res-w mono">win</span></div>
+      </div>
+      <div class="caption" style="text-align:left;margin-top:12px">Up to a Century of Seasonality, Measured to the Day - wins and losses both on the table</div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ML RANKING -->
+<section><div class="wrap">
+  <div class="eyebrow">AI layer one - rank it</div>
+  <div class="two">
+    <div class="copy">
+      <h2>Machine Learning With One Honest Job: Ranking</h2>
+      <p class="muted" style="margin-top:16px">One scan sweeps all 15 markets and surfaces the setups entering their seasonal window now. A separate gradient-boosted model reads 62 features of every qualifying setup and produces a ranking used for exactly one thing: ordering the list.</p>
+      <p class="muted">It does not promise outcomes. The statistics stay deterministic - the model only decides what you look at first. A no-signal result is a real finding, not weak support. Once a day, that ranking plus rules selects a single pick, and it is logged in public before the outcome is known, losses included.</p>
+    </div>
+    <div class="panelshot">
+      <span class="tag">Today's pick - logged to the public ledger</span>
+      <div class="opp">
+        <div class="row h"><span>SETUP</span><span>DIR</span><span>RANK</span></div>
+        <div class="row"><span>NEM &middot; US stock</span><span>L</span><span class="badge">#1</span></div>
+        <div class="row"><span>XLE &middot; ETF</span><span>L</span><span class="badge">#2</span></div>
+        <div class="row"><span>ES=F &middot; future</span><span>S</span><span class="badge">#3</span></div>
+        <div class="row"><span>BMW &middot; global eq</span><span>L</span><span class="bars"><i style="height:9px"></i><i style="height:13px"></i><i style="height:7px"></i></span></div>
+      </div>
+      <div class="caption" style="text-align:left;margin-top:10px">rank badges and unitless bars only - no probability shown</div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ASK THE CHART -->
+<section><div class="wrap">
+  <div class="eyebrow">AI layer two - talk to it</div>
+  <h2>Ask the Chart. Watch It Answer</h2>
+  <p class="section-sub" style="margin-top:14px">Tara is how you question the platform out loud. Ask why a setup ranks where it does, and the answer cites that pattern's own table: the years, the consistency, the risk. Ask to see something else, and the wave-viewer changes in front of you. Tara is an interface to the same statistics, not another opinion.</p>
+  <div class="frame" style="margin-top:28px">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - Tara just changed the chart</span></div>
+    <div class="wv">
+        <div class="opp2">
+          <div class="hd">Tara</div>
+          <div class="tara">
+            <div class="bub u">Why does SPGI rank here?</div>
+            <div class="bub a">It cleared its 06-16 window in 13 of 15 years - here is the per-year table and the risk band.</div>
+            <div class="bub u">Show me an April window instead.</div>
+            <div class="bub a">Done - the chart just changed.</div>
+          </div>
+          <div class="ask2"><span>&gt; ask anything...</span></div>
+        </div>
+        <div class="chart">
+          <div class="ch"><span>15 Year &middot; April window</span><span>MFE / MAE per year</span></div>
+          <div class="mae">
+            <div class="yr"><div class="u"><i style="height:70%"></i></div><div class="d"><i style="height:34%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:50%"></i></div><div class="d"><i style="height:58%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:86%"></i></div><div class="d"><i style="height:24%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:44%"></i></div><div class="d"><i style="height:66%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:78%"></i></div><div class="d"><i style="height:30%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:62%"></i></div><div class="d"><i style="height:46%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:90%"></i></div><div class="d"><i style="height:22%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:56%"></i></div><div class="d"><i style="height:52%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:74%"></i></div><div class="d"><i style="height:36%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:40%"></i></div><div class="d"><i style="height:70%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:82%"></i></div><div class="d"><i style="height:28%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:66%"></i></div><div class="d"><i style="height:44%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:58%"></i></div><div class="d"><i style="height:50%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:80%"></i></div><div class="d"><i style="height:30%"></i></div></div>
+            <div class="yr"><div class="u"><i style="height:72%"></i></div><div class="d"><i style="height:38%"></i></div></div>
+          </div>
+          <div class="mae-x"><span>2011</span><span>2015</span><span>2019</span><span>2023</span><span>2025</span></div>
+        </div>
+      <div class="btm">
+        <div class="bh"><span>15 Year Trend Chart &middot; April window</span>
+          <span class="swipe"><b>&bull; Trend Chart</b><i>&bull; Stats</i><i>&bull; Price + Projection</i></span></div>
+        <div class="trend">
+          <div class="band" style="left:23%"></div>
+          <svg viewBox="0 0 600 92" preserveAspectRatio="none">
+            <path d="M0,52 C70,56 130,64 200,50 C270,36 330,24 400,30 C470,38 520,56 560,48 L600,44 L600,92 L0,92 Z" fill="rgba(124,92,255,.08)" stroke="none"/>
+            <path d="M0,52 C70,56 130,64 200,50 C270,36 330,24 400,30 C470,38 520,56 560,48 L600,44" fill="none" stroke="#7C5CFF" stroke-width="2"/>
+          </svg>
+          <div class="mx"><span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Sep</span><span>Nov</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- MCP (gated preview) -->
+<section><div class="wrap">
+  <div class="eyebrow">AI layer three - take it with you <span class="newbadge">New</span> <span class="gated">Preview - gates on MCP_LIVE</span></div>
+  <div class="two">
+    <div class="panelshot">
+      <div class="bub a" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">ChatGPT &middot; TradeWave connector enabled</div>
+      <div class="bub u">Scan US tech for windows opening this month.</div>
+      <div class="bub a">3 setups entering their seasonal window. Movement shown as % and a 0 to 100 index, signals only - no price levels.</div>
+    </div>
+    <div class="copy">
+      <h2>TradeWave Works Inside ChatGPT and Claude</h2>
+      <p class="muted" style="margin-top:14px">Add TradeWave to ChatGPT, Claude, or any MCP-capable assistant and sign in with your account. Then just ask: scans, pattern analysis, plain language - the same engine and the same receipts, inside the tools you already use.</p>
+      <p class="muted">Building your own stack? A signals-only REST API comes with a developer portal, Python and TypeScript SDKs, an interactive playground, and full documentation. Your agent can write a backtest. It cannot make it true.</p>
+      <a class="btn" href="#pricing">Start Free - 7 Days of Everything</a>
+      <div class="micro">No credit card required.</div>
+    </div>
+  </div>
+</div></section>
+
+<!-- A TUESDAY -->
+<section><div class="wrap">
+  <div class="eyebrow">Built for a desk, not a demo</div>
+  <h2>A Tuesday With TradeWave</h2>
+  <div class="timeline">
+    <div class="tl"><div class="ts">8:50</div><div class="mock"></div><p>Your calendar pings: a pattern window on your watchlist opens Thursday.</p></div>
+    <div class="tl"><div class="ts">9:15</div><div class="mock"></div><p>You export the stats table to CSV and drop it into your own model.</p></div>
+    <div class="tl"><div class="ts">11:00</div><div class="mock"></div><p>A date-range research report across your portfolio, generated on demand.</p></div>
+    <div class="tl"><div class="ts">2:40</div><div class="mock"></div><p>You send a teammate a deep link that opens the exact pattern, years, and settings you see.</p></div>
+  </div>
+  <div class="desk-note">Nothing here required remembering to check a dashboard.</div>
+</div></section>
+
+<!-- LEDGER -->
+<section><div class="wrap">
+  <div class="eyebrow">Accountability</div>
+  <h2>We Do Not Ask for Trust. We Publish the Ledger</h2>
+  <p class="section-sub" style="margin-top:14px">We led with a claim. Here is the record that backs it. The methodology is public - what we compute, how, and what it cannot tell you. Every daily pick is written to a public forward ledger before the outcome is known, and it stays there: losses included, nothing removed. We would rather be audited than believed.</p>
+  <div class="ledger">
+    <div class="panelshot">
+      <div class="caption" style="text-align:left;margin-bottom:8px">/scorecard - the public forward ledger</div>
+      <div class="scoretbl">
+        <div class="r h"><span>PICK</span><span>LOGGED</span><span>RESULT</span></div>
+        <div class="r"><span>NOW &middot; L</span><span>06-09</span><span class="res-w">win</span></div>
+        <div class="r"><span>FTNT &middot; L</span><span>06-06</span><span class="res-w">win</span></div>
+        <div class="r"><span>NVDA &middot; L</span><span>06-04</span><span class="res-l">loss</span></div>
+        <div class="r"><span>AMD &middot; L</span><span>06-02</span><span class="res-w">win</span></div>
+        <div class="r"><span>COP &middot; S</span><span>05-29</span><span class="res-l">loss</span></div>
+      </div>
+    </div>
+    <div class="panelshot">
+      <div class="caption" style="text-align:left;margin-bottom:8px">/methodology - what we compute, how, and its limits</div>
+      <p class="muted" style="font-size:.92rem">Deterministic seasonal statistics from end-of-day data. The model ranks; it does not predict outcomes. Every figure on the platform traces to a per-year table you can open. Anyone can audit the live record, even an AI agent.</p>
+      <p class="faint" style="font-size:.85rem">Not investment advice, and past results never guarantee future ones. We don't ask you to take the claim on faith - the evidence and the record are public, so you can check every number yourself.</p>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:20px"><a href="#" class="lnk">Read the methodology -&gt;</a> &nbsp;&nbsp; <a href="#" class="lnk">Inspect the ledger -&gt;</a></div>
+  <div class="prov">
+    <img src="/_static/afshin-profile-pic.jpg" alt="Afshin Moshrefi">
+    <div><q>I built the instrument I could not buy.</q><span class="by">Afshin Moshrefi, founder, Tara Data Research LLC - author of The 100-Year Pattern (2026)</span></div>
+  </div>
+</div></section>
+
+<!-- PRICING -->
+<section id="pricing"><div class="wrap" style="text-align:center">
+  <span class="ribbon">Every signup starts with 7 days of the full platform</span>
+  <h2>Start With Everything. Pay Only If It Earns Its Place on Your Desk</h2>
+  <div class="toggle" style="margin-top:24px"><span>Monthly</span><span class="on">Yearly</span></div>
+  <div class="plans" style="text-align:left">
+    <div class="plan">
+      <div class="pn">Explorer</div><div class="tag2">Free</div>
+      <div class="pr">$0</div><div class="yr">free for as long as you like</div>
+      <ul><li>DJ30 market</li><li>Top patterns</li><li>1 portfolio</li><li>Daily pick + public ledger</li><li>Community support</li></ul>
+      <a class="btn" href="#">Start Free</a>
+    </div>
+    <div class="plan">
+      <div class="pn">Analyst</div><div class="tag2">&nbsp;</div>
+      <div class="pr">$37<small>/mo billed yearly</small></div><div class="yr">or $47/mo</div>
+      <ul><li>US stocks + ETFs</li><li>More patterns</li><li>ML ranking + custom start dates</li><li>CSV + calendar alerts</li><li>Portfolios + watchlists</li><li>Email support</li></ul>
+      <a class="btn" href="#">Start Free</a>
+    </div>
+    <div class="plan hot">
+      <div class="pn">Strategist</div><div class="tag2">Marketed tier</div>
+      <div class="pr">$99<small>/mo billed yearly</small></div><div class="yr">or $149/mo</div>
+      <ul><li>All 15 markets</li><li>Most patterns</li><li>ML ranking + PE-cycle filters</li><li>CSV + alerts + on-demand reports</li><li>Deep links + Tara</li><li>Premium support</li></ul>
+      <a class="btn" href="#">Start Free</a>
+    </div>
+  </div>
+  <div class="desk-strip"><b>Desk</b> &nbsp;From $4,800/yr &nbsp;-&nbsp; signal file + model + API + multi-seat + SSO &nbsp;-&nbsp; <a href="#">Talk to us -&gt;</a></div>
+  <div class="kicker">Every tier runs the same engine and the same receipts, starting at $0. Paid plans carry a 7-day trial. Cancel anytime.</div>
+</div></section>
+
+<!-- LIVING RESEARCH + CLOSE -->
+<section><div class="wrap">
+  <div class="eyebrow">What the engine sees this week</div>
+  <h2>Real Articles, Real Dates - Before You Ever Create an Account</h2>
+  <div class="news">
+    <div class="na"><div class="d">2026-06-15</div><p>Seasonal Market News: what the engine sees in current US tech.</p></div>
+    <div class="na"><div class="d">2026-06-13</div><p>The June window in energy, read against the PE cycle.</p></div>
+    <div class="na"><div class="d">2026-06-11</div><p>Why a no-signal week is still a finding.</p></div>
+    <div class="na"><div class="d">Insights</div><p>How the statistics are built - and what a century of data cannot justify.</p></div>
+  </div>
+  <div style="margin-top:18px"><a class="lnk" href="#">Browse the library -&gt;</a></div>
+</div></section>
+
+<div class="close"><div class="wrap">
+  <h2>Bring Your Hunches</h2>
+  <p class="section-sub" style="margin:0 auto 22px;text-align:center">Test the calendar windows you've carried for years against up to a century of receipts - in the platform, with Tara beside the chart. Seven days of everything, free. A free plan that keeps working after.</p>
+  <a class="btn" href="#">Start Free - 7 Days of Everything</a>
+  <div class="micro">No credit card required.</div>
+</div></div>
+
+<footer><div class="wrap">
+  <div class="links">
+    <a href="#">Methodology</a><a href="#">Scorecard</a><a href="#">Insights</a><a href="#">Seasonal Market News</a>
+    <a href="#pricing">Pricing</a><a href="#">Terms</a><a href="#">Privacy</a><a href="#">Contact</a><a href="#">Disclaimer</a>
+  </div>
+  <p>TradeWave is an educational research platform operated by Tara Data Research LLC. Nothing on this site is investment, financial, or trading advice, or a recommendation to buy or sell any security or instrument. Seasonal statistics describe historical behavior; historical behavior does not guarantee future results. All trading and investing involves risk, including the possible loss of principal.</p>
+</div></footer>
+
+</body>
+</html>

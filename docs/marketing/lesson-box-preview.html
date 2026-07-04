@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LessonBox - Quant Instrument (final spec preview)</title>
+<style>
+  /* =================================================================
+     LessonBox final design preview - "The Instrument"
+     Static preview of THREE states + the collapsed lightbulb, rendered
+     in the new direction with the FINAL onboarding copy.
+     Everything here is portable to React inline styles (see notes at
+     the bottom of LessonBox.js port). No web fonts, no JS deps.
+     ================================================================= */
+
+  :root {
+    /* ---- layered surfaces (cool near-black, top-lit) ---- */
+    --app:        #0E0B14;   /* app glass behind the panel */
+    --panel:      #15111E;   /* panel base / deepest glass */
+    --panelTop:   #1F1A2C;   /* raised plate top (header sheen high) */
+    --plate:      #1A1626;   /* raised plate (header/footer body) */
+    --well:       #120E1A;   /* recessed inset wells (try-it, rows) */
+
+    /* ---- 4 real text tiers ---- */
+    --text:       #F2EFF8;   /* primary prose */
+    --textDim:    #B8B2C8;   /* lead / secondary */
+    --textLabel:  #8A8399;   /* labels, where-am-i */
+    --textFaint:  #635D74;   /* decorative meta, utility links, counters */
+    --accentText: #C9B8FF;   /* desaturated violet for accent COPY (legible) */
+
+    /* ---- accent: violet status-light + cyan power-on only ---- */
+    --violet:       #A78BFA;   /* core (existing rgb(167,139,250)) */
+    --violetBright: #C4B2FF;   /* active dot / focus */
+    --violetDeep:   #7C5CE0;   /* gradient floor / pressed */
+    --cyan:         #6EE7F0;   /* WELCOME hero seam ONLY (single horizon of light) */
+    --ink:          #14101F;   /* text on the violet fill */
+
+    /* ---- borders: two-tone machined edge, always 1px ---- */
+    --hair:    rgba(255,255,255,0.06);   /* ambient hairline */
+    --edge:    rgba(167,139,250,0.22);   /* violet machined edge */
+    --divider: rgba(167,139,250,0.12);   /* internal dividers */
+    --grid:    rgba(167,139,250,0.05);   /* graph-paper grid (barely there) */
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background:
+      radial-gradient(80% 60% at 20% 0%, #171024, var(--app) 60%),
+      var(--app);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 40px 24px 72px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ----- preview scaffolding only (NOT part of the component) ----- */
+  .pv-head { max-width: 1200px; margin: 0 auto 30px; }
+  .pv-head h1 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px;
+  }
+  .pv-head p { color: var(--textDim); font-size: 13.5px; line-height: 1.5; margin: 0; max-width: 760px; }
+  .pv-mono { font-family: var(--mono, 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace); }
+  .pv-grid {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 40px 36px; align-items: start; justify-items: center;
+  }
+  .pv-cell { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
+  .pv-label {
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--textFaint);
+  }
+  .pv-label b { color: var(--accentText); font-weight: 600; }
+
+  /* =================================================================
+     THE PANEL (this is the component surface)
+     ================================================================= */
+  .lb {
+    position: relative;
+    width: 360px; max-width: 94vw;
+    display: flex; flex-direction: column; overflow: hidden;
+    color: var(--text);
+    background: linear-gradient(180deg, #1E1830 0%, #15111E 60%, #130F1B 100%);
+    border: 1px solid var(--edge);
+    border-radius: 16px;
+    /* multi-stop machined bloom: violet ring + violet bloom + black depth + inset top-light */
+    box-shadow:
+      0 0 0 1px rgba(167,139,250,0.10),
+      0 28px 80px -12px rgba(124,92,224,0.45),
+      0 14px 40px rgba(0,0,0,0.70),
+      inset 0 1px 0 rgba(255,255,255,0.07);
+    animation: twLbRise 320ms cubic-bezier(0.16,0.84,0.44,1);
+  }
+
+  /* Mesh overlay: pools light into the top corners (Vercel/Arc touch).
+     FIRST child, absolute, pointer-events none. */
+  .lb-mesh {
+    position: absolute; inset: 0; pointer-events: none; border-radius: 16px;
+    mix-blend-mode: screen; opacity: 0.9;
+    background:
+      radial-gradient(120% 80% at 15% 0%, rgba(167,139,250,0.14), transparent 55%),
+      radial-gradient(100% 70% at 100% 0%, rgba(110,231,240,0.06), transparent 50%);
+  }
+  .lb-stack { position: relative; display: flex; flex-direction: column; min-height: 0; }
+
+  /* ---------- header (drag handle) ---------- */
+  .lb-hd {
+    display: flex; align-items: center; gap: 8px; cursor: grab; user-select: none;
+    background: linear-gradient(180deg, var(--panelTop), var(--plate));
+    border-bottom: 1px solid var(--divider);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    padding: 11px 14px;
+  }
+  /* header glyph chip = the lightbulb seated as an app icon, not an emoji */
+  .lb-hd-chip {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(167,139,250,0.12); border: 1px solid var(--edge);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .lb-hd-title {
+    flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--textDim);
+  }
+  .lb-link {
+    background: none; border: none; cursor: pointer; padding: 0;
+    color: var(--textLabel);
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    transition: color 90ms ease;
+  }
+  .lb-link:hover { color: var(--text); }
+  .lb-x {
+    flex-shrink: 0; width: 26px; height: 26px; border-radius: 7px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(167,139,250,0.14); border: 1px solid var(--edge);
+    color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; padding: 0;
+    transition: background 90ms ease;
+  }
+  .lb-x:hover { background: rgba(167,139,250,0.30); }
+
+  /* ---------- progress rail + where-am-i (NON-scrolling) ---------- */
+  .lb-prog { padding: 13px 16px 6px; }
+  .lb-rail { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .seg { height: 4px; border-radius: 4px; transition: width 220ms cubic-bezier(0.16,0.84,0.44,1); }
+  .seg.future   { width: 8px;  background: rgba(167,139,250,0.22); }
+  .seg.done     { width: 8px;  background: rgba(167,139,250,0.60); }
+  .seg.active   { width: 26px; background: linear-gradient(90deg, var(--violet), var(--violetBright));
+                  box-shadow: 0 0 8px rgba(167,139,250,0.55); }
+  .lb-count {
+    margin-left: auto;
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 10px; letter-spacing: 0.04em; color: var(--textFaint);
+  }
+  .lb-where {
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: 0.02em; color: var(--textLabel);
+  }
+
+  /* ---------- copy body (scrolls) ---------- */
+  .lb-body {
+    position: relative;
+    padding: 8px 18px 16px; overflow-y: auto;
+    /* graph-paper grid lives ONLY here, behind the prose */
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 22px 22px;
+    animation: twLbFade 200ms ease-out;
+  }
+  .lb-eyebrow {
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--violet); opacity: 0.9; margin-bottom: 8px;
+  }
+  .lb-title {
+    margin: 0 0 8px; font-size: 17px; font-weight: 700; line-height: 1.22;
+    letter-spacing: -0.012em; color: var(--text);
+  }
+  .lb-lead { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--textDim); }
+
+  /* teaching bullets: vertical accent TICK (scale tick), not a round dot */
+  .lb-bullets { display: flex; flex-direction: column; gap: 11px; margin-top: 2px; }
+  .lb-bul { display: flex; gap: 11px; align-items: flex-start; }
+  .lb-tick {
+    flex-shrink: 0; width: 2px; height: 13px; margin-top: 3px; border-radius: 1px;
+    background: linear-gradient(180deg, var(--violetBright), var(--violet));
+    box-shadow: 0 0 6px rgba(167,139,250,0.45);
+  }
+  .lb-bul span:last-child { font-size: 13px; line-height: 1.5; color: var(--text); }
+
+  /* ---------- try-it well: recessed panel + keycap step chips ---------- */
+  .lb-tryit {
+    margin-top: 4px; padding: 14px 14px 15px; border-radius: 12px;
+    background: var(--well);
+    border: 1px solid var(--edge);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .lb-tryit-eye {
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--violet); margin-bottom: 10px;
+  }
+  .lb-steps { display: flex; flex-direction: column; gap: 10px; }
+  .lb-step { display: flex; gap: 11px; align-items: flex-start; }
+  .lb-keycap {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.30);
+    color: var(--accentText);
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .lb-step span:last-child { font-size: 12.5px; line-height: 1.45; color: var(--text); }
+
+  /* ---------- footer ---------- */
+  .lb-ft {
+    border-top: 1px solid var(--divider);
+    background: linear-gradient(180deg, var(--panelTop), var(--plate));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    padding: 11px 14px;
+  }
+  .lb-ft-row { display: flex; align-items: center; gap: 8px; }
+  .lb-grow { flex: 1; }
+  .lb-back {
+    background: transparent; border: 1px solid var(--hair); color: var(--textDim);
+    border-radius: 8px; padding: 7px 16px; font-size: 12.5px; font-weight: 600;
+    letter-spacing: 0.01em; cursor: pointer; font-family: inherit;
+    transition: border-color 120ms ease, color 120ms ease;
+  }
+  .lb-back:hover { border-color: var(--edge); color: var(--text); }
+  .lb-next {
+    background: linear-gradient(135deg, var(--violet), var(--violetDeep));
+    color: var(--ink); border: none; border-radius: 8px;
+    padding: 7px 18px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.01em;
+    cursor: pointer; white-space: nowrap; font-family: inherit;
+    box-shadow: 0 2px 12px rgba(124,92,224,0.40);
+    transition: filter 120ms ease, transform 120ms ease;
+  }
+  .lb-next:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .lb-util { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
+  .lb-util .lb-link { color: var(--textFaint); }
+  .lb-util .lb-link:hover { color: var(--textLabel); }
+
+  /* =================================================================
+     WELCOME HERO branch (Day 1 / Screen 1 ONLY) - an arrival moment.
+     Adds: cyan "power-on" status chip + lit seam, oversized title on a
+     soft bloom, and 3 stat-tiles in wells with mono indices + diamond.
+     ================================================================= */
+  .lb-hero .lb-body { background-image: none; } /* hero suppresses graph paper */
+
+  .lb-seam {
+    height: 2px; margin: 0 0 14px; border-radius: 2px; opacity: 0.75;
+    background: linear-gradient(90deg, transparent, var(--violet) 35%, var(--cyan) 65%, transparent);
+  }
+  .lb-status {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.30);
+    margin-bottom: 12px;
+  }
+  .lb-status .led {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--violetBright); box-shadow: 0 0 8px var(--violetBright);
+    animation: twLbLed 2.4s ease-in-out infinite;
+  }
+  .lb-status .txt {
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accentText);
+  }
+  .lb-hero-titlewrap {
+    background: radial-gradient(80% 120% at 50% 0%, rgba(167,139,250,0.22), transparent 60%);
+    padding: 6px 8px 10px; margin: -6px -8px 8px; border-radius: 12px;
+  }
+  .lb-hero-title {
+    margin: 0 0 8px; font-size: 22px; font-weight: 700; line-height: 1.14;
+    letter-spacing: -0.02em; color: var(--text);
+  }
+  .lb-hero-lead { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--textDim); }
+
+  /* welcome bullets become mono stat-tiles in wells */
+  .lb-tiles { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .lb-tile {
+    position: relative; display: flex; align-items: center; gap: 12px;
+    padding: 11px 13px 11px 14px; border-radius: 10px;
+    background: var(--well); border: 1px solid var(--edge);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    overflow: hidden;
+  }
+  .lb-tile::before { /* left accent bar - the "register" */
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+    background: linear-gradient(180deg, var(--violetBright), var(--violet));
+  }
+  .lb-tile .idx {
+    flex-shrink: 0; width: 18px; text-align: right;
+    font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: var(--textFaint);
+    font-variant-numeric: tabular-nums;
+  }
+  .lb-tile .body { font-size: 13px; line-height: 1.4; color: var(--text); }
+
+  /* =================================================================
+     COLLAPSED: the lightbulb (milled disc)
+     ================================================================= */
+  .lb-bulb-cell { align-items: center; }
+  .lb-bulb-stage {
+    position: relative; width: 360px; max-width: 94vw; height: 150px;
+    border-radius: 16px;
+    background:
+      radial-gradient(120% 120% at 90% 90%, rgba(124,92,224,0.10), transparent 60%),
+      var(--app);
+    border: 1px dashed rgba(255,255,255,0.06);
+    display: flex; align-items: flex-end; justify-content: flex-end; padding: 18px;
+  }
+  .lb-bulb-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .lb-hint {
+    max-width: 190px; background: var(--plate); color: var(--text);
+    border: 1px solid var(--edge); border-radius: 10px; padding: 9px 12px;
+    font-size: 12.5px; line-height: 1.4; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .lb-bulb {
+    width: 46px; height: 46px; border-radius: 50%; cursor: pointer; border: 1px solid var(--edge);
+    background: radial-gradient(circle at 35% 30%, var(--violetBright), var(--violetDeep));
+    color: var(--ink); font-size: 22px; line-height: 46px; text-align: center; padding: 0;
+    box-shadow:
+      0 0 24px rgba(167,139,250,0.50),
+      0 10px 30px rgba(0,0,0,0.55),
+      inset 0 1px 0 rgba(255,255,255,0.25);
+    animation: twLbBreathe 3.2s ease-in-out infinite;
+  }
+
+  /* ---------- keyframes ---------- */
+  @keyframes twLbRise { from { opacity: 0; transform: translateY(12px) scale(0.985); } to { opacity: 1; transform: none; } }
+  @keyframes twLbFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes twLbLed  { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+  @keyframes twLbBreathe {
+    0%,100% { box-shadow: 0 0 20px rgba(167,139,250,0.40), 0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.25); }
+    50%     { box-shadow: 0 0 30px rgba(167,139,250,0.60), 0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.25); }
+  }
+  /* Accessibility: a teaching surface that auto-opens daily must respect this. */
+  @media (prefers-reduced-motion: reduce) {
+    .lb, .lb-body, .lb-bulb, .lb-status .led, .seg { animation: none !important; transition: none !important; }
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 24px 12px 56px; }
+    .lb, .lb-bulb-stage { width: min(340px, 92vw); }
+  }
+</style>
+</head>
+<body>
+
+  <div class="pv-head">
+    <h1>LessonBox - "The Instrument"</h1>
+    <p>
+      Final direction: a small, machined research instrument. Mono on every label / number /
+      eyebrow, sans on every prose line - that split is the core "serious tool" signal. Layered
+      cool-near-black surfaces, two-tone 1px machined borders, a soft violet bloom, a barely-there
+      graph-paper grid behind the copy, and one disciplined violet accent used like a status light.
+      Cyan appears in exactly one place: the Day-1 power-on. Below are the three live states plus the
+      collapsed lightbulb, rendered in the final copy.
+    </p>
+  </div>
+
+  <div class="pv-grid">
+
+    <!-- =========================================================
+         STATE 1: WELCOME HERO  (Day 1 / Screen 1) - the arrival
+         ========================================================= -->
+    <div class="pv-cell">
+      <div class="pv-label">State 1 &mdash; <b>Welcome hero</b> &mdash; Day 1 / Screen 1</div>
+      <div class="lb lb-hero">
+        <div class="lb-mesh"></div>
+        <div class="lb-stack">
+
+          <div class="lb-hd">
+            <span class="lb-hd-chip"><span aria-hidden="true">&#128161;</span></span>
+            <span class="lb-hd-title">Day 1 // Lesson</span>
+            <button class="lb-link" type="button">Lessons</button>
+            <button class="lb-x" type="button" aria-label="Close">&times;</button>
+          </div>
+
+          <div class="lb-prog">
+            <div class="lb-rail">
+              <span class="seg active"></span>
+              <span class="seg future"></span>
+              <span class="seg future"></span>
+              <span class="lb-count">01/03</span>
+            </div>
+            <div class="lb-where">Day 1 of 7 // new lesson today</div>
+          </div>
+
+          <div class="lb-body">
+            <div class="lb-seam"></div>
+            <div class="lb-status">
+              <span class="led"></span>
+              <span class="txt">Trial Active &middot; Day 1 of 7</span>
+            </div>
+            <div class="lb-hero-titlewrap">
+              <h3 class="lb-hero-title">Welcome to TradeWave</h3>
+              <p class="lb-hero-lead">You made it. Honestly, glad you're here. Most traders spend a whole career guessing what a stock tends to do this time of year. You're about to just look it up.</p>
+            </div>
+            <div class="lb-tiles">
+              <div class="lb-tile"><span class="idx">01</span><span class="body">Almost a hundred years of history, on call.</span></div>
+              <div class="lb-tile"><span class="idx">02</span><span class="body">Not a tip service. The receipts.</span></div>
+              <div class="lb-tile"><span class="idx">03</span><span class="body">Give me seven days and I'll show you how to read it.</span></div>
+            </div>
+          </div>
+
+          <div class="lb-ft">
+            <div class="lb-ft-row">
+              <span class="lb-grow"></span>
+              <button class="lb-next" type="button">Next</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         STATE 2: TEACHING SCREEN  (bullets) - Day 3 / Screen 2
+         ========================================================= -->
+    <div class="pv-cell">
+      <div class="pv-label">State 2 &mdash; <b>Teaching screen</b> &mdash; Day 3 / Screen 2</div>
+      <div class="lb">
+        <div class="lb-mesh"></div>
+        <div class="lb-stack">
+
+          <div class="lb-hd">
+            <span class="lb-hd-chip"><span aria-hidden="true">&#128161;</span></span>
+            <span class="lb-hd-title">Day 3 // Lesson</span>
+            <button class="lb-link" type="button">Lessons</button>
+            <button class="lb-x" type="button" aria-label="Close">&times;</button>
+          </div>
+
+          <div class="lb-prog">
+            <div class="lb-rail">
+              <span class="seg done"></span>
+              <span class="seg active"></span>
+              <span class="seg future"></span>
+              <span class="lb-count">02/03</span>
+            </div>
+            <div class="lb-where">Day 3 // picking up where you left off</div>
+          </div>
+
+          <div class="lb-body">
+            <div class="lb-eyebrow">See the Whole Track Record</div>
+            <h3 class="lb-title">Green Is Up, Red Is Down</h3>
+            <p class="lb-lead">It's a scoreboard, and we don't fudge it. Green years went up, red years went down, and we leave the red right where it is.</p>
+            <div class="lb-bullets">
+              <div class="lb-bul"><span class="lb-tick"></span><span>Count the green. Count the red. Both belong to the record.</span></div>
+              <div class="lb-bul"><span class="lb-tick"></span><span>Seeing the losses is how you trust the wins.</span></div>
+            </div>
+          </div>
+
+          <div class="lb-ft">
+            <div class="lb-ft-row">
+              <button class="lb-back" type="button">Back</button>
+              <span class="lb-grow"></span>
+              <button class="lb-next" type="button">Next</button>
+            </div>
+            <div class="lb-util">
+              <button class="lb-link" type="button">Start day over</button>
+              <span class="lb-grow"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         STATE 3: TRY-IT SCREEN  (numbered steps) - Day 1 / Screen 3
+         ========================================================= -->
+    <div class="pv-cell">
+      <div class="pv-label">State 3 &mdash; <b>Try-it screen</b> &mdash; Day 1 / Screen 3</div>
+      <div class="lb">
+        <div class="lb-mesh"></div>
+        <div class="lb-stack">
+
+          <div class="lb-hd">
+            <span class="lb-hd-chip"><span aria-hidden="true">&#128161;</span></span>
+            <span class="lb-hd-title">Day 1 // Lesson</span>
+            <button class="lb-link" type="button">Lessons</button>
+            <button class="lb-x" type="button" aria-label="Close">&times;</button>
+          </div>
+
+          <div class="lb-prog">
+            <div class="lb-rail">
+              <span class="seg done"></span>
+              <span class="seg done"></span>
+              <span class="seg active"></span>
+              <span class="lb-count">03/03</span>
+            </div>
+            <div class="lb-where">Day 1 // all caught up. Day 2 is ready tomorrow</div>
+          </div>
+
+          <div class="lb-body">
+            <div class="lb-eyebrow">Welcome - Glad You're Here</div>
+            <h3 class="lb-title">Open the Opportunity Table</h3>
+            <p class="lb-lead">Let's find it together.</p>
+            <div class="lb-tryit">
+              <div class="lb-tryit-eye">// Try It Now</div>
+              <div class="lb-steps">
+                <div class="lb-step"><span class="lb-keycap">1</span><span>Spot the table sitting above the chat.</span></div>
+                <div class="lb-step"><span class="lb-keycap">2</span><span>Pick the Dow - 30 big US names, a friendly start.</span></div>
+                <div class="lb-step"><span class="lb-keycap">3</span><span>Read down the list. Strongest opportunity is on top.</span></div>
+                <div class="lb-step"><span class="lb-keycap">4</span><span>Nothing there? Switch to the S&amp;P 500.</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lb-ft">
+            <div class="lb-ft-row">
+              <button class="lb-back" type="button">Back</button>
+              <span class="lb-grow"></span>
+              <button class="lb-next" type="button">Done for Today</button>
+            </div>
+            <div class="lb-util">
+              <button class="lb-link" type="button">Start day over</button>
+              <span class="lb-grow"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         COLLAPSED: the lightbulb (+ first-close hint bubble)
+         ========================================================= -->
+    <div class="pv-cell lb-bulb-cell">
+      <div class="pv-label">Collapsed &mdash; <b>the lightbulb</b> &mdash; resumes where you left off</div>
+      <div class="lb-bulb-stage">
+        <div class="lb-bulb-wrap">
+          <div class="lb-hint">Your lessons live here. Tap the lightbulb any time.</div>
+          <button class="lb-bulb" type="button" aria-label="Open your lessons"><span aria-hidden="true">&#128161;</span></button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

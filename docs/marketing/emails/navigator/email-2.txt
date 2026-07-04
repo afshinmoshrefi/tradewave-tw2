@@ -1,0 +1,34 @@
+Subject: What Your $19 Actually Buys
+Preview: Two more markets, the top 50 patterns each, any start date, and the election-cycle filter. Here is how to use them.
+Send day: 2
+
+NAVIGATOR
+
+What Your $19 Actually Buys
+
+Navigator is a small plan with a sharp purpose. It is worth being precise about what you are paying for, so you can judge whether you are getting it. There are two big unlocks and one smaller one.
+
+1. THREE MARKETS, DATE-UNLOCKED
+More markets: Explorer showed only today's top Dow patterns. Navigator opens the NASDAQ 100 and the S&P 500 alongside the Dow 30, and ranks the top 50 patterns in each - a list you can browse, not just today's snapshot.
+The full record: every pattern keeps its losing years on screen. A pattern that won 19 of the last 20 years and one with messy, mixed history look different at a glance - you see the truth, not a sales pitch.
+
+2. ANY START DATE YOU WANT
+A pattern is a symbol, a start day, and a hold length. Explorer locked you to today's date - a today-only wall. Navigator lets you move the start date anywhere and re-read the record - hunt for the exact entry where the historical edge was strongest, not just the one that lands on today.
+
+3. A SMALLER UNLOCK: THE ELECTION-CYCLE FILTER
+Explorer only gets the election-cycle overlay on a single loaded pattern. Navigator adds the filter on the opportunity table itself, so you can narrow the whole ranking to the current cycle year. We cover how to read that in a couple of days.
+
+TRY IT NOW:
+Pick a NASDAQ 100 or S&P 500 symbol, slide the start date off today, and watch the year-by-year record update. That single move is the difference between free and Navigator.
+
+> Browse a custom start date:
+https://tradewave.ai/app/
+
+AND WHEN FREE WAS ENOUGH
+If after a few days you notice you never leave the Dow and never move the start date, that is real signal: Explorer already did that for free. There is no shame in going back, and we will not make it hard. We would rather lose the $19 than have you pay for reach you do not use.
+
+The right time to be on Navigator is when those unlocks - three markets, custom start dates, the table-wide cycle filter - have become part of how you actually work.
+
+---
+TradeWave - probability, not prediction.
+You are on the Navigator plan ($19/mo, $14/mo billed yearly). Manage your plan: https://tradewave.ai/account

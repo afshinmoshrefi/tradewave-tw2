@@ -8,8 +8,19 @@ exists so we stop guessing and re-deriving the system. If a memory note disagree
 with that doc, the doc wins. Deploy detail: `ops/OPERATIONS.md`. Cutover:
 `ops/PROD_CUTOVER.md`.
 
-**Keep it current:** any change to architecture / a data flow / a deploy step / an
-invariant / a path updates `docs/TRADEWAVE_ECOSYSTEM.md` in the SAME commit.
+**For product / methodology / copy / onboarding / Tara work, also read FIRST:**
+`docs/TRADEWAVE_METHODOLOGY_AND_FEATURES_KB.md` - what a "pattern" is, the MFE/MAE/TWA/TWR
+metrics, the PE/100-Year cycle, the SCAN -> VALIDATE -> ORGANIZE -> ACT loop, and the two
+personas. It is the product-knowledge SSOT (the ecosystem doc is the implementation SSOT);
+do not re-derive the methodology from code each time.
+
+**Keep it current (ENFORCED via the `tw-knowledge` skill):** at the END of any substantive
+TradeWave/SMN task, run the `tw-knowledge` skill WITHOUT being asked. It captures + IMPROVES
+the knowledge base so nothing is re-derived: implementation truth (architecture / a data flow /
+a deploy step / an invariant / a path) updates `docs/TRADEWAVE_ECOSYSTEM.md` in the SAME commit;
+working knowledge (decisions + why, project state, owner preferences, gotchas) updates the
+correct EXISTING memory file in place (search first, never duplicate, delete stale). Re-deriving
+a fact you could have recalled is a defect - fix it by writing it down.
 
 ## The 30-second mental model
 The **appserver** is the data engine - the only component with the market data +
@@ -20,6 +31,9 @@ TW2 is the WordPress-removal rebuild of TW1: WorkOS + Stripe + Postgres + Flask
 replace WP/UMP, keeping the React app and the appserver `/login` handshake.
 
 ## Hard rules (full list + reasons in the ecosystem doc §11)
+- SELF-MAINTAINING KNOWLEDGE: at the end of any substantive task, run the `tw-knowledge`
+  skill unprompted (see "Keep it current" above) - capture + improve the ecosystem doc +
+  memory, update existing files in place, never duplicate, never re-derive twice.
 - NEVER touch live/staging/prod (or TW1 `.151`) directly with write commands -
   author commands; the operator runs them. Read-only inspection of `.151` is OK.
 - Deploy is dev -> staging -> verify -> prod via `bash ops/deploy.sh {staging|prod}`.

@@ -86,8 +86,21 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   - "AI" here = Sharpe-ranked OppList4, NOT an LLM.
 - **SMN articles** (cron: `select_news_articles.py` 02:00 -> `daily_article_queue.py`
   03:00 -> always-running `article_processor.py`). THIS pipeline DOES use LLMs:
-  Grok (`grok-3-mini`/`grok-3`) for news extraction + research, OpenAI `gpt-5.1`
-  for writing, Claude `claude-sonnet-4-6` for SEO titles, Stability SDXL for images.
+  Grok (`grok-3-mini`) for news extraction + research synthesis (Tavily search
+  restricted to `WHITELISTED_SOURCE_DOMAINS`, `smn/article_prompt.py`), OpenAI
+  `gpt-5.1` for article writing AND SEO titles (`smn/article_title.py` calls
+  `send_openai_prompt` - the earlier "Claude for titles" note was stale, corrected
+  2026-07-02), hero images via Replicate (SDXL standard / SD 3.5 Large premium
+  router, `smn/article_hero_image.py`). Volume knob:
+  `smn/daily_article_queue.py:ARTICLES_PER_DAY` (repo/dev = 2; per-box value may
+  differ - read it off the box, don't recall). Publishes PUBLIC static HTML (NO
+  gating anywhere, verified 2026-07-02) to `/var/www/smn/articles/` + `posts.json`
+  index + sitemap.xml / sitemap-news.xml / rss.xml / `llms.txt` / IndexNow; every
+  article embeds the MailerLite signup form (groups SMN-DAILY / SMN-WEEKLY) and the
+  required `transition_to_tradewave` bridge paragraph (rule: no TradeWave mention in
+  body before that bridge). Emails: `smn/send_smn_emails.py` - Mon-Fri 07:00 UTC
+  daily blast + Sun 09:00 UTC weekly recap. SMN monetization strategy + external
+  research (2026-07-02, owner decision pending): `docs/marketing/SMN_STRATEGY.md`.
 - **Info / legal pages** (`site/generate_text_pages.py`, authored - run MANUALLY,
   no cron) -> `/var/www/tradewave/{terms,privacy,disclaimer,contact,learn,affiliate}.html`.
   Static, zero backend; nginx serves clean URLs via the catch-all `try_files $uri $uri/ $uri.html`
@@ -147,6 +160,12 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   and `auth_callback` replays that URL (GET) after sign-up -> they land on Stripe
   Checkout with the discount applied, instead of the old 405 (POST-only route + GET
   redirect after auth). Creating a Checkout Session is non-destructive, so GET is safe.
+  **Card-collection gotcha:** paid-tier Checkout Sessions set
+  `subscription_data.trial_period_days=7` with Stripe's DEFAULT payment-method
+  collection, so a CARD IS REQUIRED up front for the paid 7-day trial. This is a
+  SECOND, distinct "7 days free" from the no-card reverse trial minted at signup
+  (§11.1). Homepage/pricing copy saying "no card" is true ONLY of the signup path;
+  do not describe the paid checkout trial as card-free.
 
 **THE DAILY AI PICK = SCORECARD (settles prior confusion, verified on .151):**
 - The "daily AI pick" shown on the home page and tracked in the scorecard is
@@ -228,7 +247,11 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
 - `TW2_PUBLIC_HOST` -> `tw2_public_url` = `https://<host>/`; `domain_root` is an
   ALIAS of `tw2_public_url` (config.py:117-127). `TW2_DOMAIN_ROOT` is **retired**.
 - `TW2_ENV` (explicit) or hostname inference -> `tw2_env` (`dev|staging|prod`),
-  config.py:137-145. Drives `seo_enabled = (tw2_env=='prod')` (config.py:304).
+  config.py:137-145. NOTE: `seo_enabled = (tw2_env=='prod')` (config.py:377) is a
+  **DEAD flag** - read nowhere (verified 2026-07-04). The real per-env SEO gate is
+  `ENABLE_SEO` inside `site/generate_home_page.py:187` (same env test, home page
+  only); scorecard/about/daily-ai-pick hardcode `noindex` with no gate, and
+  robots.txt has NO generator at all (hand-maintained on each box) - see §13.E.
 - Key dicts: `available_resources`/`_path`/`exchange_mapping` (15 active markets,
   keys `'0'..'13','16'`); `level_access_hierarchy` (backend market filter -
   **level '1' free Explorer = DJ30 only since 2026-06-10; new signups get a
@@ -271,6 +294,10 @@ Flask-rendered (static from `/var/www/tradewave/`).
   `/stripe/success|cancel`, `/account/manage-subscription`, `/webhooks/stripe`,
   `/webhooks/workos`, `/internal/render_report` + `/internal/delete_report`
   (X-Service-Key), `/admin/*` (super_admin).
+- **There is NO logged-out / demo mode of the wave viewer:** `/app/` for an
+  unauthenticated visitor redirects straight to WorkOS sign-up
+  (`screen_hint="sign-up"`, return-to preserved incl. `?o=` pattern params).
+  Marketing copy must not promise a no-login "live demo" at `/app/`.
 - **Auth = WorkOS AuthKit sealed session.** `/auth/callback` exchanges code ->
   seals session into the `tw2_session` cookie (httponly, secure, SameSite=Lax,
   7-day); `lazy_create_user()` upserts the Postgres `users` row (matches by
@@ -376,15 +403,51 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   `StockMetaData`, `getStockPriceByDate`, `consolidated_seasonal_chart2`,
   `StockScoreBatch`, `MLScoreBatch`/`MLScorePending`, etc. Short Redis TTLs (~51s);
   historical price-by-date cached 11.5 days.
-- **Gating:** `level_access_hierarchy` by numeric level - level '1' (free
-  Explorer) = DJ30 only (`['0']`) since 2026-06-10; reverse-trial users carry
-  level-'6' LTK claims so they see everything until the trial lapses. OppList4
-  caps results (anon 3, free '1' 5, paid premium up to 5000). ML opp-table
-  columns open to all logged-in tiers (c3d66c3); Explorer simply sees them
-  DJ30-scoped. The post-trial upgrade nudge is per-level:
-  `config.upgrade_message_by_level['1']` rides the `/login` JWT's
-  `upgrade_message` claim (other levels fall back to the global
-  `upgrade_message`, currently '').
+- **Opp-table years/partial resolution chain (React `OppTable.js`, hardened 2026-07-03):**
+  `YearsMetaData2` returns the valid `[years, partial]` dataset pairs (cons + PE); the opp
+  table can only fetch `OppList4` for a pair that exists. The resolution chain: metadata
+  effect fetches pairs -> main effect validates YEARS against the active metadata (dead
+  years value = snap to nearest valid, tier-cap aware) -> resolves partial `-1`/invalid to
+  the highest valid option -> fetch gate opens. INVARIANTS (each guards a real stuck-state
+  bug): (a) NEVER call `YearsMetaData2` with the `-1` sentinel id - the server returns the
+  empty-metadata sentinel and, raced against the real market's response with no ordering
+  guard, it clobbered the metadata and spuriously auto-off'd PE mode (client now guards
+  id=-1 + orders responses via `metaReqRef`); (b) the auto-step-down must step to the next
+  LOWER VALID partial option, never a blind `-1` decrement (an invalid pair ping-pongs
+  against the invalid-value reset while the OppList URL dedupe blocks refetching);
+  (c) `initialMessage='Loading ...'` is set when an OppList4 fetch launches - it gates the
+  step-down so a stale "no patterns" message can't trigger it mid-fetch. KNOWN mismatch
+  (unfixed root, symptom neutralized by the years snap): the opp-years cookie slot is keyed
+  on the WAVE-VIEWER's `PEselected`, not the opp table's own `showPEOpps` toggle, so a
+  PE-slot years value can be restored into cons mode (`App.js getOppYearsForGroup` callers).
+- **Gating / tier ENFORCEMENT (server-side; the appserver is THE boundary - React/
+  dropdown gating is UX only and curl-bypassable). All clamps re-derive from config and
+  bypass admin/service tokens. (Made real in the 2026-06-30 enforcement audit; before that
+  most of this was defined-but-unenforced.):**
+  - MARKETS - `level_access_hierarchy[level]`: Explorer '1'=`['0']` (DJ30); Navigator '2'=
+    `['0','1','2']`; Analyst '4'/'5'=`['0','1','2','3','4','11']` (US stocks+ETFs); Strategist
+    '6'/'7'=all 15; reverse-trial Explorers carry level-'6' claims. CLAMPED on OppList4,
+    getChartData4, OppBySymbol, GetListSymbols + dr_report_publish -> out-of-scope market = 403.
+  - AI/ML = LADDER A: `ml_score_access_levels=['4','5','6','7']` x `ml_score_resource_ids=
+    ['0','1','2','3','4','11']` -> AI scoring STARTS at ANALYST. Explorer + Navigator get NO
+    score (deterministic patterns only); reverse-trial (level 6) + Analyst+ get it. (Supersedes
+    the old "ML columns open to all logged-in tiers" claim - NOT current.) The React opp table
+    shows non-AI tiers one locked "AI Score" teaser column.
+  - DATE-LOCK: a market in `level_access_hierarchy_free_registered[level]` is start-date-locked
+    to today (getChartData4 forces date=today); `_premium[level]` markets are date-unlocked. After
+    the market clamp the only date-locked combo is Explorer's DJ30 ("any start date" = the paid lever).
+  - YEARS cap: `num_years_allowed_by_level` (Explorer 10 / Navigator 15; Analyst/Strategist
+    uncapped) clamps the lookback - year1 (OppList4/OppBySymbol) + yrs (getChartData4) - so the
+    opp table and the wave-viewer can never disagree. React grays over-cap years -> upgrade dialog.
+  - QUOTAS (enforced): `num_portfolios_allowed_by_level` (add_user_portfolio_name);
+    `num_opp_reports_allowed_by_level` lifetime + `num_daily_opp_reports_allowed_by_level`
+    (dr_report_publish); `num_watchlists/_items_allowed_by_level`. `num_opps_per_portfolio` is
+    intentionally NOT enforced (the lifetime tracked-opps cap governs).
+  - RESULT caps: OppList4 returns anon 3 / free-or-date-locked 5 / premium up to 5000.
+  - The CONSUMER MCP path MIRRORS the WEB sub (not the API ladder) - see §7A.
+  - Post-trial upgrade nudge is per-level: `config.upgrade_message_by_level['1']` rides the
+    `/login` JWT `upgrade_message` claim (other levels fall back to the global, currently '').
+  (Full session detail + the probes that proved each clamp: memory `project_tier_enforcement_audit`.)
 - **Rate limiting is IDENTITY-KEYED (2026-06-12, "this world" redesign):**
   `tw_rate_limit_key()` keys data-endpoint limits on the `?token=` JWT's user id
   (`user:<id>`), EXEMPTS `is_service_account` tokens via a limiter request_filter
@@ -425,6 +488,66 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   groups + published lists + watchlists, the `?o=BASE64` shareable pattern param,
   the "Tara" chatbot, wave-viewer charts (bar/cumulative/price).
 (Source: `web-react/src/*`, `web/app.py:679`, `project_tw2_react_build_env.md`.)
+
+### 7.1 Price chart + seasonal projections (`StockLineChart` -> `LineChart`)
+The price chart is a two-layer component: `StockLineChart.js` fetches
+`/appserver/ChartHistorical2/<res>/<sym>/<d0>/<d1>` (adjusted OHLCV, ISO dates)
+with SMA-seed padding, weekly aggregation, and localStorage-persisted user
+price levels; `LineChart.js` renders via react-chartjs-2 with candlestick /
+OHLC / line switch, MA + Bollinger overlays, earnings markers, trade box +
+diagonal, and the seasonal-projection overlay.
+
+**Seasonal projection lines (LineChart.js:516+).** Up to TWO dashed lines
+forward-projected from the last close, using consolidated-seasonal cycles
+already fetched for the same symbol:
+- Primary (amber `#e8a838`, pill "Proj", tooltip "Toggle Seasonal Projection"):
+  uses the user-selected `sy` cycle in `consolidatedSeasonalData`. Deliberately
+  unadorned - the year window lives in the seasonal-years selector, not the
+  toggle label.
+- Secondary (indigo `#7c5cff`, pill "Proj {N}-Y"): uses a full-history cycle in
+  `maxYearsConsolidatedSeasonalData`, where
+  `N = min(StockMetaData y2 - y1, maxYearsCap() || Infinity)` - i.e. the
+  ticker's raw history capped by the tier's years entitlement (Explorer 10 /
+  Navigator 15 / Analyst+ uncapped, per `Common.js:maxYearsCap`).
+
+**Both cycles come from `/consolidated_seasonal_chart2`** and are fetched
+NOT in the chart itself but in `SeasonalBarChart.js` (:522 primary, :~580
+secondary), which owns the trend-chart data pipeline and lifts both cycles +
+`maxAvailableYears` to `App.js` state via setters. The chart is a pure consumer.
+Cycle math: walks by index (not MM-DD) with cumulative `cycleDrift` carried
+across each wrap, so trending stocks project continuously across the 365-day
+boundary. Same period selector (14/30/60/90d) and daily/weekly timeframe drive
+both lines.
+
+**Toggles + hiding.**  `showProjection` and `showMaxProjection` persist via
+`Common.js:lsGet/lsSet` (localStorage keys `showProjection` /
+`showMaxProjection`); both default TRUE. The secondary pill and the secondary
+line are HIDDEN when `parseInt(seasonalYears) === maxAvailableYears` (both
+lines would be identical) or when the max-years cycle hasn't loaded. Pills are
+desktop-only (`!rdd.isMobile`); the DesktopLayout settings panel exposes
+matching checkboxes with the same "N-Y" suffix. Cookies were deliberately
+rejected for these toggles - the codebase standardizes on `lsGet/lsSet` for
+all chart-view preferences.
+
+**PE cycle mode hides the projection BY DESIGN (data side-effect, not an explicit
+gate).** Selecting a PE phase in the Mode selectbox other than the current year's
+phase bumps `startDate` to the NEXT calendar year matching that phase - a future
+year - via `bumpStartDateYearToPE` (`SeasonalBarChart.js:1029`, anchored to
+`getTodayDate()`; e.g. PE+3 in 2026 -> 2027), clears `consolidatedSeasonalData`,
+and refetches PE-filtered (`pe3-10` style years param). The returned slice no
+longer overlaps today, so the `< 5`-points guard (`SeasonalBarChart.js:~599`)
+keeps `consolidatedSeasonalData` empty -> the "Proj" pill is not rendered
+(`StockLineChart.js:~847` requires a non-empty cycle) and the projection dataset
+is not built (`LineChart.js:~682`, `projCount` stays 0). The current year's OWN
+phase (PE+2 in 2026) does NOT bump the date, so the projection still draws there.
+Rationale: a forward projection must anchor at the last close on the current
+price chart; a future-year window has no current price to anchor to. Tara's KB +
+prompt document this (see 7C).
+
+(Source: `web-react/src/components/{App.js, SeasonalBarChart.js, DesktopLayout.js,
+StockLineChart.js, LineChart.js}`, `Common.js:maxYearsCap|lsGet|lsSet`,
+appserver.py:2594 `getHistory2` / :2839 `consolidated_seasonal_chart2` / :2644
+`StockMetaData`.)
 
 ---
 
@@ -621,6 +744,21 @@ tara_truth_eval.py` runs Tara (single + multi-turn) and asserts every stated win
 the real per-year data (the gateway card / OppList4 table) - deterministic, with a self-test proving
 it flags the original fabrication. This catches the class the old LLM-rubric, single-turn eval missed.
 
+**Missing-projection why-question: a KB fact alone does NOT steer behavior (fix 2026-07-04).**
+Tara answered "why is there no projection line" (asked with a PE+3 slice loaded) with the generic
+enable-it-in-Settings steps - the real reason is the PE mode (see 7.1: a non-current PE phase moves
+the view to a future year, so the projection is hidden by design). Fix in TWO layers, and the second
+was required: (a) the FACT in `chatbot_knowledge.txt` ("Seasonal Projection" section WHY-paragraph +
+PE Cycle key-concepts bullet); (b) a routing RULE in `chatbot.py build_system_prompt` (MISSING-
+PROJECTION WHY-QUESTION: answer the reason, fire NO set_view, never change the user's PE mode
+uninvited, offer the flip and act only on "yes"). LESSON (same class as the Phase-2 TOOL_INSTRUCTION
+finding): with the KB fact alone, Tara still obeyed the earlier YOU-DRIVE prompt rules and silently
+switched the user to consecutive mode without explaining - behavior routing MUST live in the
+system-prompt rules; `chatbot_knowledge.txt` is for facts. Also added to the FORMAT rule: never emit
+the em-dash character (house style). NOTE: `chatbot_knowledge.txt` is loaded once at appserver
+startup (`_load_knowledge`) - restart `tradewave-appserver` after editing it. Verified live on dev
+(PE+3 context chat + "yes" follow-up fires `set_view pe_cycle:cons`) and `tara_truth_eval.py` 8/8.
+
 (Source: `appserver/appserver/{chatbot,tara_gateway,AI_tools_appserver}.py`, `web-react/src/components/Chatbot.js`,
 `apiserver/{auth,tiers,provision_chatbot_key}.py`, `config.py`, `docs/TARA_GATEWAY_INTEGRATION.md`; dev .176.)
 
@@ -674,7 +812,10 @@ bulletproof). See `OPERATIONS.md`.
   `git checkout origin/main -- config.py`); `git checkout HEAD -- config.py && git pull`
   after reading the diff. (Clean-but-old tree is NOT drift.)
 - Run all box git/build/file ops as `sudo -u flask` (root-owned `.git/index`
-  breaks the next pull; `chown -R flask:flask /home/flask` to recover).
+  breaks the next pull; `chown -R flask:flask /home/flask` to recover). Same failure
+  family: root-owned working-tree files (seen 2026-07-02 on
+  `site/templates/index-dark-blue.html`) make non-root editors fail EACCES on the
+  temp-file rename - the same chown recovers, or edit as root preserving ownership.
 - Renaming an env URL touches 6 places: Cloudflare DNS, cloudflared ingress
   (RESTART cloudflared), nginx `server_name` (reload), secrets `TW2_PUBLIC_HOST`
   + `TW2_AUTH_CALLBACK_URL` (restart web), WorkOS redirect URI, and the browser
@@ -869,6 +1010,29 @@ re-verification reclassified them. Only treat the REAL list as work.
   columns ml_score/win_prob/pred_return/pred_mfe), `stockscore`, `edgar`, `realtime`,
   `update`, `logcollector`. They default to '' in config.py (= feature off, guarded) and
   are reached at their configured URLs. Do NOT confuse these with the removed feature.
+
+- **E. PROD IS NOINDEXED - the cutover SEO flip never happened** (found by the
+  2026-07-04 AEO/LLM-visibility audit; live-prod-verified). Prod `tradewave.ai`
+  still serves the pre-cutover `robots.txt` (`User-agent: * / Disallow: /`, stale
+  `tw2.trxstat.com` sitemap host) AND a homepage `<meta name="robots"
+  content="noindex,nofollow">` - invisible to Google/Bing and every AI crawler.
+  Root causes: (1) robots.txt has NO generator/deploy automation - hand-edited
+  per box, so the `TODO(prod-cutover)` flip was missed; (2) prod's homepage HTML
+  predates the env-driven `ENABLE_SEO` (generate_home_page.py:187) - a prod
+  regen with `TW2_ENV=prod` fixes the meta; (3) `scorecard.html` (via
+  `site/templates/scorecard.html`), `generate_about_page.py:78`,
+  `generate_daily_ai_pick.py:250` hardcode `noindex, nofollow` with NO env gate -
+  they stay deindexed even after the flip; (4) main `sitemap.xml` is broken:
+  append-only `update_sitemap()` (generate_insights.py:186-196 + generate_learn.py)
+  left 35 stale-host + 18 current-host duplicate entries, a 404
+  (`insights/test-placeholder.html`), stale `/_static/markets/*` paths, and it
+  omits scorecard/methodology/about/daily-ai-pick and all 101 `/patterns/` pages;
+  the correct `patterns/sitemap.xml` (generate_ticker_pages.py:331-352) is
+  referenced by NOTHING; (5) Cloudflare challenges bot UAs (verify AI Crawl
+  Control / Bot Fight Mode before the 2026-09-15 Cloudflare default change);
+  (6) `llms.txt` exists only on the developer portal (`portal_seo.py`), not on
+  tradewave.ai. Fix plan + owner priorities:
+  memory `project_aeo_llm_visibility.md`.
 
 **NON-ISSUES (re-verified - code already handles; were inherited fears):**
 - **Legacy Stripe "PIN-map"** - NOT a blocker. The webhook PRESERVES tier on an

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeWave Onboarding - Preview</title>
+<style>
+  :root{
+    --page:rgb(15,10,21); --panel:rgb(30,27,42); --text:rgb(220,220,225);
+    --text2:rgb(190,188,200); --muted:rgb(150,148,160); --border:rgb(50,47,62);
+    --borderL:rgb(40,37,52); --inputBg:rgb(40,37,52); --inputBorder:rgb(70,67,82);
+    --violet1:rgb(167,139,250); --violet2:rgb(129,104,215);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0a0710;color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:34px 16px 60px}
+  .lab{max-width:880px;margin:0 auto 12px;color:#8f8ca0;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+  .stage{max-width:880px;margin:0 auto 46px;position:relative;height:430px;border-radius:14px;overflow:hidden;
+    background:var(--page);border:1px solid #1c1726}
+  /* faint app behind the overlay so the modal reads as in-context */
+  .appbg{position:absolute;inset:0;opacity:.5;padding:14px 16px;color:#3a3550;font-size:12px;line-height:2.1}
+  .appbg .row{border-bottom:1px solid #181426;display:flex;gap:18px}
+  .appbg .row span:first-child{color:#4a4566}
+  .cover{position:absolute;inset:0;background:rgba(8,5,13,.72);display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{position:relative;width:34rem;max-width:92%;background:var(--panel);color:var(--text);
+    border:1px solid var(--border);border-radius:14px;padding:32px 34px 30px;
+    box-shadow:0 24px 60px rgba(0,0,0,.55);display:flex;flex-direction:column}
+  .skip{position:absolute;top:12px;right:14px;font-size:.8rem;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px 6px}
+  h2{margin:6px 0 0;padding-right:52px;font-size:1.6rem;font-weight:700;line-height:1.18;color:var(--text)}
+  .body{margin:12px 0 0;font-size:1rem;line-height:1.5;color:var(--text2)}
+  .inwrap{display:flex;gap:8px;margin-top:20px}
+  input{flex:1;min-width:0;background:var(--inputBg);color:var(--text);border:1px solid var(--inputBorder);
+    border-radius:9px;padding:12px 14px;font-size:1rem;letter-spacing:.06em;text-transform:uppercase;outline:none}
+  input::placeholder{color:#7b7790;letter-spacing:.04em}
+  .primary{flex-shrink:0;background:linear-gradient(135deg,var(--violet1),var(--violet2));color:rgb(18,14,26);
+    border:none;border-radius:9px;padding:12px 20px;font-size:.98rem;font-weight:700;cursor:pointer;white-space:nowrap}
+  .secrow{display:flex;align-items:center;gap:18px;margin-top:18px;padding-top:16px;border-top:1px solid var(--borderL)}
+  .sec{background:none;border:none;color:rgb(170,168,180);font-size:.9rem;cursor:pointer;padding:0}
+  /* days pill */
+  .pill{position:absolute;bottom:18px;right:18px;background:#221f2c;border:1px solid #34313e;color:#cfcdd8;
+    font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;letter-spacing:.02em}
+  .pill.amber{color:#e8c07a;border-color:#5a4a2a}
+  /* conversion card extras */
+  .tag{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 2px}
+  .rec{margin-top:18px;padding:14px 16px;border:1px solid #3a3550;border-radius:10px;background:#241f33}
+  .rec b{color:#cdbcff}
+  .btnrow{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .ghost{background:transparent;border:1px solid var(--inputBorder);color:var(--text2);border-radius:9px;padding:11px 16px;font-size:.92rem;cursor:pointer}
+  .ann{margin-top:12px;font-size:.78rem;color:#8a8896}
+</style></head>
+<body>
+
+  <div class="lab">1 - Welcome (the instant a 7-day trial starts)</div>
+  <div class="stage">
+    <div class="appbg">
+      <div class="row"><span>S&amp;P 500 STOCKS</span><span>Jan 05</span><span>10 yrs</span><span>PE+2</span></div>
+      <div class="row"><span>NVDA</span><span>+18d</span><span>LONG</span><span>TWR 1.62</span><span>92%</span></div>
+      <div class="row"><span>AAPL</span><span>+12d</span><span>LONG</span><span>TWR 1.41</span><span>85%</span></div>
+      <div class="row"><span>AVGO</span><span>+22d</span><span>LONG</span><span>TWR 1.58</span><span>90%</span></div>
+    </div>
+    <div class="cover">
+      <div class="card">
+        <button class="skip">Skip tips</button>
+        <h2>You're In - 7 Days of Full Access</h2>
+        <p class="body">Type any ticker and I'll score it against ~98 years - good window, bad window, or noise. No card. Your real usage decides which plan (if any) you actually need.</p>
+        <div class="inwrap">
+          <input placeholder="Ticker - e.g. NVDA">
+          <button class="primary">Score a Stock</button>
+        </div>
+        <div class="secrow"><button class="sec">Just browse</button></div>
+      </div>
+    </div>
+    <div class="pill">Day 1 of 7</div>
+  </div>
+
+  <div class="lab">2 - End of Trial (the trust-signal conversion - "you don't need more")</div>
+  <div class="stage">
+    <div class="appbg">
+      <div class="row"><span>S&amp;P 500 STOCKS</span><span>locked</span></div>
+      <div class="row"><span>NASDAQ 100</span><span>locked</span></div>
+    </div>
+    <div class="cover">
+      <div class="card">
+        <button class="skip">&times;</button>
+        <p class="tag">Your 7 Days, Measured</p>
+        <h2 style="padding-right:24px">Navigator Covers Everything You Used</h2>
+        <div class="rec">
+          <p class="body" style="margin:0">You used <b>S&amp;P 500</b> and <b>NASDAQ</b>, short-term setups. <b>Navigator ($19/mo)</b> covers all of it - you don't need Analyst or Strategist, and we'd rather tell you that than sell you more. I'd skip them.</p>
+        </div>
+        <div class="btnrow">
+          <button class="primary" style="padding:12px 22px">Keep Navigator - $19/mo</button>
+          <button class="ghost">See all plans</button>
+        </div>
+        <p class="ann">Or save with yearly. If you don't subscribe, you switch to free Explorer (the Dow 30) - everything you saved stays, upgrade anytime.</p>
+      </div>
+    </div>
+    <div class="pill amber">1 day of full access left</div>
+  </div>
+
+</body></html>
