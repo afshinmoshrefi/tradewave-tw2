@@ -65,6 +65,16 @@ if [ -d /home/flask/smn ] && [ -f /home/flask/smn/generate_tw_security_pages.py 
 else
   echo "  SKIP  markets - SMN tree (/home/flask/smn) not on this box."
   echo "        Market pages come from the SMN content pipeline + rsync, not from a bare web box."
+  # Those rsynced copies were BUILT on the SMN/dev box and can carry ITS absolute
+  # hosts (staging 2026-07-04: 6x tw2-dev links per page -> host-leak FAILs).
+  # Rebase any known lower-env host in them to THIS box's public hosts. Idempotent;
+  # no-ops when the pages are already clean (e.g. prod's current copies).
+  if ls /var/www/tradewave/markets/*.html >/dev/null 2>&1; then
+    NEWS_HOST=$(echo "${TW2_NEWS_WEBSITE_URL:-}" | sed -E 's|https?://||; s|/$||')
+    sed -i "s|tw2-dev\.trxstat\.com|$TW2_PUBLIC_HOST|g; s|tw2-stage\.trxstat\.com|$TW2_PUBLIC_HOST|g" /var/www/tradewave/markets/*.html
+    [ -n "$NEWS_HOST" ] && sed -i "s|smn-dev\.trxstat\.com|$NEWS_HOST|g; s|smn-stage\.trxstat\.com|$NEWS_HOST|g" /var/www/tradewave/markets/*.html
+    echo "  OK    markets-rebase - absolute hosts rebased to $TW2_PUBLIC_HOST"
+  fi
 fi
 
 # Re-inject live prices into the just-built home.html + markets/*.html price spans and write

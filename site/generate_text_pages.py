@@ -3,12 +3,12 @@
 TradeWave 2 - text-page generator (F4).
 
 Lifts 3 legacy WP pages out of /home/afshin/wp-pages/ and emits TW2-branded
-static HTML at /var/www/tradewave/{disclaimer.html, privacy.html, learn.html}.
+static HTML at /var/www/tradewave/{disclaimer.html, privacy.html, ...}.
 
 - Strips Divi shortcodes ([et_pb_*] / [/et_pb_*]) and WP block comments.
 - Wraps the resulting prose in a TW2 base layout (header partial + <main> +
   footer with Privacy/Disclaimer/Learn nav).
-- learn.html is a placeholder; the actual Learn pages are authored elsewhere.
+- the old learn.html placeholder is RETIRED (build_learn_placeholder is uncalled); the live Learn section is /learn/ (generate_learn.py). generate_seo_files.py prunes the stale file.
 
 Idempotent: re-running overwrites the output files with fresh content.
 
@@ -340,7 +340,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
   <nav aria-label="Footer">
     <a href="/">Home</a>
     <a href="/app/">Wave Viewer</a>
-    <a href="/learn.html">Learn</a>
+    <a href="/learn/">Learn</a>
     <a href="/contact.html">Contact</a>
     <a href="/affiliate">Affiliates</a>
     <a href="/privacy.html">Privacy</a>

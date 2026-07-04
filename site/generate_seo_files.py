@@ -270,13 +270,15 @@ def _prune_legacy_static():
     if legacy_dir.is_dir():
         shutil.rmtree(legacy_dir, ignore_errors=True)
         print('pruned legacy %s' % legacy_dir)
-    legacy_research = WEB_ROOT / '_static' / 'research.html'
-    if legacy_research.is_file():
-        try:
-            legacy_research.unlink()
-            print('pruned legacy %s' % legacy_research)
-        except OSError as e:
-            print('  prune failed for %s: %s' % (legacy_research, e), file=sys.stderr)
+    # learn.html: the pre-June placeholder, superseded by the /learn/ section
+    # (generate_learn.py); its builder is uncalled and footers now link /learn/.
+    for legacy_file in (WEB_ROOT / '_static' / 'research.html', WEB_ROOT / 'learn.html'):
+        if legacy_file.is_file():
+            try:
+                legacy_file.unlink()
+                print('pruned legacy %s' % legacy_file)
+            except OSError as e:
+                print('  prune failed for %s: %s' % (legacy_file, e), file=sys.stderr)
 
 
 def main():
