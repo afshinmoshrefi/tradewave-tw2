@@ -67,7 +67,10 @@ if [ "$PORTAL" = 1 ]; then
 fi
 
 echo "-- design + feature markers --"
-home=$($SSH "root@$WEB" "curl -s -H 'Host: $HOST' http://127.0.0.1/" 2>/dev/null)
+# Read home.html from DISK, not via nginx: open_file_cache can briefly serve the
+# pre-regen page right after a deploy and false-WARN the design markers (bit us
+# on the 2026-07-04 staging deploy) - same reasoning as the scorecard check below.
+home=$($SSH "root@$WEB" "cat /var/www/tradewave/home.html 2>/dev/null")
 echo "$home" | grep -qiE 'whoever|the receipts|tuesday'      && ok "home: Ledger design present" || bad "home: Ledger markers missing"
 echo "$home" | grep -q  'Trade<b>Wave</b>'                   && ok "home: 2-color logo"           || warn "home: 2-color logo markup not found"
 echo "$home" | grep -qiE '>Wave Viewer<|>Start Free Trial<'  && ok "home: unified nav"            || warn "home: nav markers not found"
