@@ -64,9 +64,9 @@ def _price_fallback_or_die(reason, fallback):
 def _stripe_prices():
     fallback = {
         'navigator_monthly':          '$19',
-        'navigator_yearly':           '$13.25',
-        'navigator_yearly_daily':     '$0.44/day',
-        'navigator_yearly_savings':   'Save 30%',
+        'navigator_yearly':           '$14',
+        'navigator_yearly_daily':     '$0.46/day',
+        'navigator_yearly_savings':   'Save 26%',
         'analyst_monthly':            '$47',
         'analyst_yearly':             '$33.25',
         'analyst_yearly_daily':       '$1.09/day',
@@ -876,7 +876,7 @@ def compute_homepage_scorecard_stats():
     }
 
 
-def build_ledger_rows(limit=5):
+def build_ledger_rows(limit=5, min_resolved=3):
     """Build the forward-ledger preview rows for the 'We Publish the Ledger'
     section (newest first). Each row: {symbol, direction 'L'/'S',
     logged_date 'MM-DD', result 'win'/'loss'/'pending'}.
@@ -884,10 +884,32 @@ def build_ledger_rows(limit=5):
     Drives the redesign's scoretbl directly from featured_history.json using the
     shared is_resolved/is_win definitions, so the visible rows always agree with
     the headline win_rate. Replaces the hardcoded NOW/FTNT/NVDA/AMD/COP mock.
+
+    Guarantees at least min_resolved settled rows (when the history has them):
+    picks run 22-30 days, so the newest 5 entries are routinely ALL still open,
+    and an all-pending strip reads as "no track record" in the one section whose
+    job is proof. The oldest pending slots give way to the newest resolved picks;
+    rows stay real entries, newest first.
     """
     history = load_featured_history()
+    newest_first = list(reversed(history))
+
+    picked = newest_first[:limit]
+    have_resolved = sum(1 for e in picked if is_resolved(e))
+    want_resolved = min(min_resolved, sum(1 for e in newest_first if is_resolved(e)))
+    if have_resolved < want_resolved:
+        backfill = [e for e in newest_first[limit:] if is_resolved(e)]
+        for _ in range(want_resolved - have_resolved):
+            # drop the OLDEST pending row still shown, pull in the next resolved
+            oldest_pending = next((e for e in reversed(picked) if not is_resolved(e)), None)
+            if oldest_pending is None or not backfill:
+                break
+            picked.remove(oldest_pending)
+            picked.append(backfill.pop(0))
+        picked.sort(key=lambda e: e.get('featured_date', ''), reverse=True)
+
     rows = []
-    for entry in reversed(history):
+    for entry in picked:
         if is_resolved(entry):
             result = 'win' if is_win(entry) else 'loss'
         else:
@@ -899,8 +921,6 @@ def build_ledger_rows(limit=5):
             'logged_date': logged[5:] if len(logged) >= 10 else logged,  # MM-DD
             'result': result,
         })
-        if len(rows) >= limit:
-            break
     return rows
 
 
@@ -956,7 +976,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         "meta": {
             # Kept in sync with hero.headline (the tab title / og:title must
             # never advertise a headline the page no longer says).
-            "title": "TradeWave - Some Market Moves Repeat, We Counted Which Ones",
+            "title": "TradeWave - Reveal Seasonal Tendencies With The Highest Probability of Repeating",
             "description": (
                 "TradeWave detects recurring seasonal patterns from end-of-day "
                 "data across 15 markets, over a lookback you choose: 1 to 99 "
@@ -1009,13 +1029,12 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         #                on a public ledger before the outcome, losses included."
         "hero": {
             "eyebrow": "Seasonal Research That Shows Its Work",
-            "headline": "Some Market Moves Repeat - We Counted Which Ones",
+            "headline": "Reveal Seasonal Tendencies With The Highest Probability of Repeating",
             "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
-                "TradeWave gives you the exact dates and repeat counts, AI-ranked "
-                "and scored, from 15 markets and up to a century of data. The "
-                "daily pick is logged before the outcome, and losses stay on the "
-                "public record."
+                "AI-powered rankings and scores across 98 years of data, ready "
+                "for you to leverage across thousands of stocks, ETFs, as well "
+                "as your own portfolio."
             ),
             # The "New" MCP pill above the headline (links to #tara). Rendered
             # only when content.mcp_live is True (gated, see MCP_LIVE). No
@@ -1024,11 +1043,18 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # claim here - the pill introduces Tara, nothing more.
             "pill_text": "Meet Tara, TradeWave's AI agent - now inside ChatGPT and Claude",
             "pill_url": "#tara",
-            "cta_primary": "Start Free - Full Access for 7 Days",
+            # Calendar-reminders pill: previewed 2026-07-04, owner REJECTED it for
+            # the hero (feature announcements stay out of the hero region; the
+            # calendar band + pricing bullets carry the feature). Text '' = hidden.
+            # The template slot remains: it renders only while the Tara/MCP pill
+            # is dark, should a future announcement ever need it.
+            "pill_calendar_text": "",
+            "pill_calendar_url": "#calendar-reminders",
+            "cta_primary": "Start For Free - No Credit Card Required",
             "cta_primary_url": SIGNUP_URL,
             # FREE-path reassurance (June-30 directive). The free signup is
             # genuinely card-free; never reuse this line on a paid path.
-            "cta_micro": "Getting started is free. No credit card required.",
+            "cta_micro": "Full Access for 7 Days",
             # Lead-in to the hero's quiet free-report card (the card is styled
             # subordinate to the primary CTA; capture stays strong in 03/08).
             "report_lead": (
@@ -1272,6 +1298,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                         "See today's top 5 seasonal patterns",
                         "10 years of seasonal history",
                         "Track up to 5 opportunities in 1 portfolio",
+                        "One-click Google Calendar reminders",
                         "Real-time prices and Trend Score",
                         "Earnings date estimates (EDGAR)",
                         "Election-cycle overlay on loaded patterns",
@@ -1301,6 +1328,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                         "Browse any start date, not just today",
                         "15 years of seasonal history",
                         "3 portfolios, track up to 25 opportunities",
+                        "One-click Google Calendar reminders",
                         "1 watchlist, up to 25 symbols",
                         "Election-cycle filter on the opportunity table",
                         "~upgrade:Upgrade to Analyst for AI scoring and all U.S. stocks plus ETFs",
@@ -1336,6 +1364,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                         # per-stock promise. Re-check if the data provider changes.
                         "Full seasonal history - up to 63 years where data is available",
                         "25 portfolios, track up to 100 opportunities",
+                        "One-click Google Calendar reminders",
                         "10 watchlists, up to 50 symbols each",
                         "Seasonal Market News articles",
                         "LIVE weekly Q&A webinar",
@@ -1497,6 +1526,15 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # added, populate [{date, title, url}] and the section appears.
         "recent_articles": None,
         "articles_library_url": "/insights/",
+    }
+
+    # Per-asset cache-buster (source-file mtime): nginx serves /_static/ with a
+    # 1-day browser cache, so a swapped screenshot would not show for returning
+    # visitors without a changed URL. Only changes when the asset actually does.
+    _asset_dir = Path(__file__).resolve().parent / "static"
+    content["asset_v"] = {
+        a: int((_asset_dir / a).stat().st_mtime) if (_asset_dir / a).exists() else 0
+        for a in ("evidence_hero.webp", "shows_work.webp", "ask.webp")
     }
 
     return template.render(content=content)

@@ -126,3 +126,8 @@ TradeWave_API_MCP_Operator_Guide.docx
 __pycache__/
 *.pyc
 *.bak.*
+
+# Session scratch / previews / editor backups (never ship)
+.pdftmp/
+archive/
+*.bak-*

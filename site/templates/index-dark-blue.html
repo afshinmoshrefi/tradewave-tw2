@@ -475,7 +475,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 
 <!-- 01 / HERO (copy bound via content.hero - tournament winner; scored runner-ups documented in the generator) -->
 <section class="hero"><div class="wrap">
-  {% if content.mcp_live %}<a href="{{ content.hero.pill_url }}" class="hero-pill reveal"><span class="tag">New</span>{{ content.hero.pill_text }}<span class="arr">&rarr;</span></a>{% endif %}
+  {% if content.mcp_live %}<a href="{{ content.hero.pill_url }}" class="hero-pill reveal"><span class="tag">New</span>{{ content.hero.pill_text }}<span class="arr">&rarr;</span></a>{% elif content.hero.pill_calendar_text %}<a href="{{ content.hero.pill_calendar_url }}" class="hero-pill reveal"><span class="tag">New</span>{{ content.hero.pill_calendar_text }}<span class="arr">&rarr;</span></a>{% endif %}
   <div class="eyebrow reveal" style="justify-content:center"><span class="n">01</span> / {{ content.hero.eyebrow }}</div>
   <h1 class="reveal d1">{{ content.hero.headline }}</h1>
   <p class="section-sub reveal d1" style="max-width:680px">{{ content.hero.subheadline }}</p>
@@ -535,7 +535,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
     <div class="frame-wrap portrait reveal d1" style="max-width:420px;margin-top:0">
       <div class="frame frame--artifact">
         <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - Tara</span></div>
-        <img src="/_static/ask.webp" alt="Tara answering a market question with a named, ranked shortlist of tech stocks beside the live opportunity table" loading="lazy" decoding="async" width="575" height="849">
+        <img src="/_static/ask.webp?v={{ content.asset_v['ask.webp'] }}" alt="Tara answering a market question with a named, ranked shortlist of tech stocks beside the live opportunity table" loading="lazy" decoding="async" width="575" height="849">
       </div>
     </div>
   </div>
@@ -550,7 +550,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
   <div class="frame-wrap landscape reveal d2" style="max-width:1080px">
     <div class="frame frame--artifact">
       <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - 20-Year TJX</span></div>
-      <img src="/_static/evidence_hero.webp" alt="20-Year TJX per-year bars, each pairing the favorable run with the drawdown, above the TJX price chart with this year's dashed seasonal projection" loading="lazy" decoding="async" width="1339" height="849">
+      <img src="/_static/evidence_hero.webp?v={{ content.asset_v['evidence_hero.webp'] }}" alt="20-Year TJX per-year bars, each pairing the favorable run with the drawdown, above the TJX price chart with this year's dashed seasonal projection - with the one-click Notify me calendar-reminder button in the toolbar" loading="lazy" decoding="async" width="1286" height="849">
     </div>
   </div>
   <div class="caption">20 years of TJX. The model only ranks and calibrates the odds - it never predicts. <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
@@ -585,7 +585,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
     <div class="frame-wrap portrait reveal" style="max-width:380px;margin-top:0">
       <div class="frame frame--artifact">
         <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - explain</span></div>
-        <img src="/_static/shows_work.webp" alt="The scorecard and explain view showing a pick's full per-year record beside its outcome" loading="lazy" decoding="async" width="575" height="850">
+        <img src="/_static/shows_work.webp?v={{ content.asset_v['shows_work.webp'] }}" alt="The scorecard and explain view showing a pick's full per-year record beside its outcome" loading="lazy" decoding="async" width="575" height="850">
       </div>
     </div>
     <div class="panelshot" style="box-shadow:0 24px 60px rgba(0,0,0,.4),inset 0 1px 0 rgba(63,182,139,.12)">
@@ -608,6 +608,36 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
     <div class="av">AM</div>
     <div><q>Every number on this page traces back to a per-year table you can open and an audit log you can read.</q><span class="by">{{ content.founder.name }}, founder, Tara Data Research LLC</span></div>
   </div>
+</div></section>
+
+<!-- CALENDAR REMINDERS band (unnumbered, like the CTA/free-report bands, so the
+     section numbering stays intact). One-click notify bell: the visual is the
+     real button -> the real Google Calendar event it creates. Keep the mock
+     event content in sync with googleCalendarEvents.js if the copy there
+     changes. Google Calendar only for now - do NOT generalize to "your
+     calendar" until the .ics (Apple/Outlook) path ships. -->
+<section id="calendar-reminders"><div class="wrap" style="text-align:center">
+  <h2 class="reveal">Never Watch the Calendar Again</h2>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center;max-width:640px">A seasonal window opens on a specific date - miss it, and the pattern doesn't wait. One click in the Wave Viewer puts the open and the close on your Google Calendar, evidence attached, reminder set for the morning it begins.</p>
+  <div class="reveal d1" style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:26px">
+    <div style="text-align:center">
+      <span style="display:inline-flex;align-items:center;background:#7C5CFF;color:#fff;border-radius:999px;padding:8px 18px;font-weight:600;font-size:.95rem;box-shadow:0 6px 24px rgba(124,92,255,.35)"><svg width="13" height="13" viewBox="0 0 16 16" fill="#fff" style="margin-right:7px" aria-hidden="true"><path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2m.995-14.901a1 1 0 1 0-1.99 0A5 5 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7a5 5 0 0 0-4.005-4.901"/></svg>Notify me</span>
+      <div class="faint" style="font-size:.75rem;margin-top:8px">one click in the viewer</div>
+    </div>
+    <div class="faint" style="font-size:1.6rem" aria-hidden="true">&rarr;</div>
+    <div class="panelshot" style="max-width:430px;text-align:left;padding:18px 20px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="width:12px;height:12px;border-radius:3px;background:#7C5CFF;margin-top:5px;flex:0 0 auto"></span>
+        <div>
+          <div style="font-weight:700;color:var(--ink);font-size:.95rem;line-height:1.35">TJX Long &mdash; TradeWave Seasonal Start (Oct 12 &ndash; Nov 24)</div>
+          <div class="faint" style="font-size:.8rem;margin-top:3px">Monday, October 12 &middot; 8:00 AM</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,.08);margin:12px 0"></div>
+      <div style="font-size:.85rem;color:var(--muted);line-height:1.6"><b style="color:var(--ink)">Seasonal pattern window opens today.</b><br>Full per-year record and shareable report linked inside.<br>Reminders: email 24 h before &middot; popup at 8:00 AM</div>
+    </div>
+  </div>
+  <div class="micro reveal d1" style="margin-top:18px">Included with every plan, even Free. Both the start and the end date land on your calendar - change times or reminders anytime.</div>
 </div></section>
 
 <!-- 06 / WHAT TRADERS SAY (third-party proof: content.video + content.video2, both
