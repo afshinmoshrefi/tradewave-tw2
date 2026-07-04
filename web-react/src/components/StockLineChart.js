@@ -869,6 +869,31 @@ const StockLineChart = (props) => {
                                 </Tippy>
                             }
 
+                            {showCurrentLineChart && !rdd.isMobile && props.maxYearsConsolidatedSeasonalData && props.maxYearsConsolidatedSeasonalData.length > 0 && props.maxAvailableYears > 0 && parseInt(props.seasonalYears, 10) !== props.maxAvailableYears &&
+                                <Tippy placement={'top'} content={
+                                    <div theme="tw">Toggle Seasonal Projection (full {props.maxAvailableYears}-year history)</div>
+                                }>
+                                    <span
+                                        onClick={() => props.SetShowMaxProjection(!props.showMaxProjection)}
+                                        style={{
+                                            marginLeft: '6px',
+                                            padding: '1px 8px',
+                                            fontSize: linechartDescFontSize,
+                                            color: props.showMaxProjection ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                                            backgroundColor: props.showMaxProjection ? '#7c5cff' : 'rgba(255,255,255,0.10)',
+                                            border: props.showMaxProjection ? '1px solid #7c5cff' : '1px solid rgba(255,255,255,0.25)',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap',
+                                            fontWeight: props.showMaxProjection ? '600' : '400',
+                                            transition: 'all 0.15s',
+                                        }}
+                                    >
+                                        Proj {props.maxAvailableYears}-Y
+                                    </span>
+                                </Tippy>
+                            }
+
                             {!showCurrentLineChart && !rdd.isMobile &&
                                 <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
                                     <div theme="tw">
@@ -961,7 +986,7 @@ const StockLineChart = (props) => {
 
             <div className="linechart" style={{ ...linechartStyle, position: 'relative' }}>
                 {lineChartData.length > 0
-                    ? <LineChart showCurrentLineChart={showCurrentLineChart} statDisplay={statDisplay} SetStatDisplay={SetStatDisplay} lineChartData={effectiveLineChartData} smaSeedData={effectiveSmaSeedData} barChartLongOrShort={props.barChartLongOrShort} tradeDate0={props.tradeDate0} tradeDate1={props.tradeDate1} activeTrade={props.tradeActive} saveStatDisplay={saveStatDisplay} statBoxCoordinates={props.statBoxCoordinates} SetStatBoxCoordinates={props.SetStatBoxCoordinates} UITheme={props.UITheme} showWatermark={props.showWatermark} priceChartType={props.priceChartType} showVolume={props.showVolume} maConfig={props.maConfig} bbConfig={props.bbConfig} priceLevels={priceLevels} SetPriceLevels={SetPriceLevels} selectedLevelId={selectedLevelId} SetSelectedLevelId={SetSelectedLevelId} drawingMode={drawingMode} SetDrawingMode={SetDrawingMode} showProjection={props.showProjection} projectionPeriod={props.projectionPeriod} consolidatedSeasonalData={props.consolidatedSeasonalData} priceChartTimeframe={props.priceChartTimeframe} showEarnings={props.showEarnings} tradeDetailData={props.tradeDetailData} />
+                    ? <LineChart showCurrentLineChart={showCurrentLineChart} statDisplay={statDisplay} SetStatDisplay={SetStatDisplay} lineChartData={effectiveLineChartData} smaSeedData={effectiveSmaSeedData} barChartLongOrShort={props.barChartLongOrShort} tradeDate0={props.tradeDate0} tradeDate1={props.tradeDate1} activeTrade={props.tradeActive} saveStatDisplay={saveStatDisplay} statBoxCoordinates={props.statBoxCoordinates} SetStatBoxCoordinates={props.SetStatBoxCoordinates} UITheme={props.UITheme} showWatermark={props.showWatermark} priceChartType={props.priceChartType} showVolume={props.showVolume} maConfig={props.maConfig} bbConfig={props.bbConfig} priceLevels={priceLevels} SetPriceLevels={SetPriceLevels} selectedLevelId={selectedLevelId} SetSelectedLevelId={SetSelectedLevelId} drawingMode={drawingMode} SetDrawingMode={SetDrawingMode} showProjection={props.showProjection} projectionPeriod={props.projectionPeriod} consolidatedSeasonalData={props.consolidatedSeasonalData} showMaxProjection={props.showMaxProjection} maxYearsConsolidatedSeasonalData={props.maxYearsConsolidatedSeasonalData} maxAvailableYears={props.maxAvailableYears} priceChartTimeframe={props.priceChartTimeframe} showEarnings={props.showEarnings} tradeDetailData={props.tradeDetailData} />
                     : <div className='barchart-background'><span style={{ fontSize: svFont, color: tc.watermark }} >{lineChartMsg}</span></div>
                 }
                 {props.lineChartYear === 0 && lineChartData.length > 0 &&

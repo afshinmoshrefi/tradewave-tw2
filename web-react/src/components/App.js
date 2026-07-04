@@ -10,6 +10,11 @@
 import React, { useState, useLayoutEffect, useEffect, useMemo, useRef } from "react"
 import { getTodayDate, monthsOptionsList, DarkBGColor, LightBGColor } from './Common'
 import * as rdd from 'react-device-detect';
+import LessonBox from './LessonBox'
+import SubscriptionWelcomeModal, { decideSubscriptionWelcome, markSubscriptionWelcomed } from './SubscriptionWelcomeModal'
+import DaysRemainingPill from './DaysRemainingPill'
+import TrialConversionCard from './TrialConversionCard'
+import { getOnboardingDay, getTrialState, logEvent, hasWelcomed, setWelcomed, hasConversionShown, setConversionShown, isOnboardingArcActive } from './onboarding'
 import DesktopLayout from './DesktopLayout'
 import MobileLayoutP from './MobileLayoutP'
 import MobileLayoutL from './MobileLayoutL'
@@ -24,6 +29,7 @@ import { debug } from './Common';
 import { appserverURL, securities_groups_default_years, default_years_pe, securities_groups_default_years_pe } from './Common'
 import { getSelectedIDFromSecuritiesList2 } from './Common'
 import { trend_chart_left_gap_days } from './Common'
+import { maxYearsCap } from './Common'
 import { userAccessToSelectedSecurity } from './Common'
 
 import { getCookie, setCookie } from './Common'
@@ -92,6 +98,11 @@ const App = () => {
   const [seasonalBarChartData, SetSeasonalBarChartData] = useState([])
   const [tradeDetailData, SetTradeDetailData] = useState([])
   const [consolidatedSeasonalData, SetConsolidatedSeasonalData] = useState([])
+  // Second projection line uses the full history the user is entitled to (min of
+  // ticker's available years and the tier cap). Kept separate from consolidatedSeasonalData
+  // so the primary "Proj Ny" line stays anchored to the user's chosen `sy`.
+  const [maxYearsConsolidatedSeasonalData, SetMaxYearsConsolidatedSeasonalData] = useState([])
+  const [maxAvailableYears, SetMaxAvailableYears] = useState(0)
   const [janDecDateRange, SetJanDecDateRange] = useState(false);
 
   const [startDate, SetStartDate] = useState(getTodayDate());
@@ -327,6 +338,15 @@ const App = () => {
     lsSet('showProjection', val);
   };
 
+  const [showMaxProjection, SetShowMaxProjection] = useState(() => {
+    const saved = lsGet('showMaxProjection');
+    return saved === null ? true : !!saved;
+  });
+  const handleSetShowMaxProjection = (val) => {
+    SetShowMaxProjection(val);
+    lsSet('showMaxProjection', val);
+  };
+
   const [projectionPeriod, SetProjectionPeriod] = useState(() => {
     const saved = lsGet('projectionPeriod');
     return saved || '90';
@@ -489,6 +509,12 @@ const App = () => {
   const [refreshKey, SetRefreshKey] = useState(0);
 
   const [showArticlePublish, SetShowArticlePublish] = useState(false);
+
+  // Onboarding (new-user trial experience)
+  const [convCard, setConvCard] = useState(null); // null=hidden | {nonConverter:bool}
+  const [subWelcome, setSubWelcome] = useState(null); // {tier, event} for the subscription welcome modal | null
+  const [askBanner, setAskBanner] = useState(false); // homepage "ask Tara" arrival banner
+  const prevSecurityRef = useRef(null); // skip the default market in onboarding telemetry
 
   const [PEselected, SetPEselected] = useState('cons');
 
@@ -755,6 +781,52 @@ const App = () => {
       SetOpportunities([]) //clear opportunties table becaues there will be a new fetch
   }
   //---------------------------------------------------------------
+  // switchMarket: the plain market-switch cascade, extracted verbatim from
+  // selectboxChanged's securityTypeList 'else' branch so it can be reused
+  // programmatically (cross-market symbol auto-switch). marketDisplayName is
+  // the securities-group DISPLAY NAME (what selectedSecurity holds and
+  // getSelectedIDFromSecuritiesList2 matches on). Does NOT gate access -
+  // callers must switch only to an ENTITLED market.
+  //---------------------------------------------------------------
+  const switchMarket = (marketDisplayName) => {
+    SetShowActiveOpps(false);
+    const [y1, y2] = getOppYearsForGroup(marketDisplayName, PEselected !== 'cons');
+    const sameGroup = marketDisplayName === selectedSecurity;
+    SetSelectedSecurity(marketDisplayName);
+    SetActiveWatchlistFilter(null);
+    let retArray = userAccessToSelectedSecurity(securityTypeList2, marketDisplayName);
+    SetOppTableYears(-1);
+    SetOppTablePartialYears(-1);
+    if (!sameGroup) {
+      SetYearsMetaData([]);
+      SetYearsMetaDataPE([]);
+    }
+    SetOppTableYears(-1);
+    SetConsolidatedSeasonalData([]);
+    SetSymbol('');
+    if (retArray[0] === 'F') { // free market -> opp table pinned to today
+      var today = new Date();
+      SetOppTableMonth(monthsOptionsList[today.getMonth()]['value']);
+      dayOfMonthList(monthsOptionsList[today.getMonth()]['value']);
+      SetDayOfTheMonth(String(today.getDate()));
+    }
+    SetOppTableYears(y1.toString());
+    SetOppTablePartialYears(y2.toString());
+    SetSeasonalYears(y1.toString());
+    setCookie('selectedSecurity', marketDisplayName, 300);
+    SetLastPrice(['', 0]);
+    SetSymbol('');
+    SetSeasonalBarChartData([]);
+    SetLineChartYear(0);
+    if (window.location.search.length > 0) {
+      window.history.replaceState(null, '', window.location.pathname);
+      queryStringLoadedRef.current = true;
+      historyInitialized.current = false;
+    }
+    SetOpportunities([]); // clear opp table; a new fetch follows for the new market
+  };
+
+  //---------------------------------------------------------------
   // this serves oppTable selectboxes
   //---------------------------------------------------------------
   const selectboxChanged = (event) => {
@@ -808,14 +880,16 @@ const App = () => {
     }
     else if (event.target.id === 'years') {
 
-
-      //  if (retArray[0] === 'F') {
-      //   SetDialogType('free-register')
-      //   SetInfoBoxVisible(true);
-      //   return;
-      // }
-
-
+      // Years cap: an Explorer (10) / Navigator (15) picking deeper history gets an explaining
+      // upgrade nudge instead of a silent server clamp. The option is also grayed in the dropdown;
+      // this handler is what turns the click into the dialog (a disabled option couldn't).
+      const _yrCap = maxYearsCap()
+      if (_yrCap != null && parseInt(event.target.value, 10) > _yrCap) {
+        SetDialogProp({ title: 'See More History', contentText: `Your plan shows ${_yrCap} years of history. Upgrade to Analyst or Strategist for the full record - decades of seasonal evidence behind every pattern.`, button1Text: 'See Plans', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+        SetDialogType('info-box')
+        SetInfoBoxVisible(true)
+        return
+      }
 
       SetOppTableYears(event.target.value)
       saveOppYearsForGroup(selectedSecurity, parseInt(event.target.value), parseInt(oppTablePartialYears), PEselected !== 'cons')
@@ -872,7 +946,28 @@ const App = () => {
 
     else if (event.target.id === 'securityTypeList') {
 
-
+      // Locked-market intercept (mirror of the years-cap nudge above): a locked
+      // option is grayed in the dropdown; clicking it opens an upgrade dialog
+      // instead of selecting it. Must run FIRST, before any SetSelectedSecurity.
+      const _picked = securityTypeListCombined.find(o => o.value === event.target.value);
+      if (_picked && _picked.locked) {
+        // reverse-lookup the REAL resource id from the display name to pick the
+        // message (the locked option's own id is a synthetic 90000+ sentinel,
+        // so resolve against resourceObj which is the true id->name map).
+        let _mktId = -1;
+        for (const [rid, rname] of Object.entries(resourceObj || {})) {
+          if (rname === event.target.value) { _mktId = parseInt(rid, 10); break; }
+        }
+        let _msg = 'Upgrade to see this market. It is on a higher plan.';
+        if ([7, 8, 9, 16].includes(_mktId)) _msg = 'Upgrade to see futures, forex, and crypto. They are Strategist markets.';
+        else if ([5, 6, 10, 12, 13].includes(_mktId)) _msg = 'Upgrade to see indices, foreign markets, and bonds. They are Strategist markets.';
+        else if ([3, 4, 11].includes(_mktId)) _msg = 'Upgrade to see Russell 1000, Wilshire 5000, and ETFs. They are Analyst markets.';
+        else if ([1, 2].includes(_mktId)) _msg = 'Upgrade to see NASDAQ 100 and the S&P 500. They are Navigator markets.';
+        SetDialogProp({ title: 'Unlock This Market', contentText: _msg, button1Text: 'See Plans', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' });
+        SetDialogType('info-box');
+        SetInfoBoxVisible(true);
+        return;
+      }
 
       // show message to non-loggedin users to register to get more data
       if (event.target.value.includes('More..')) {
@@ -881,7 +976,7 @@ const App = () => {
       }
 
       // ignore separator click
-      else if (event.target.value === '_sep_' || event.target.value === '_sep_pl_') {
+      else if (event.target.value === '_sep_' || event.target.value === '_sep_pl_' || event.target.value === '_sep_locked_') {
         return;
       }
 
@@ -1003,75 +1098,9 @@ const App = () => {
           return;
         }
 
-        SetShowActiveOpps(false); // 5/2/2024
-
-        // console.log('setSelectedSecurity=', event.target.value);
-        // console.log('..................', securities_groups_default_years);
-
-        // y1 and y2 are default number of years set in common for this securities group 11/19/2022
-
-
-        // check if key exist first:
-
-        const [y1, y2] = getOppYearsForGroup(event.target.value, PEselected !== 'cons');
-
-
-
-
-
-        // console.log('y1,y2=',y1,y2)
-        // console.log('sssssssssssssssssselect box changed setting selectedSecurity to ', event.target.value)
-        const sameGroup = event.target.value === selectedSecurity;
-        SetSelectedSecurity(event.target.value)
-        SetActiveWatchlistFilter(null) // clear watchlist filter when switching to regular group
-        let retArray = userAccessToSelectedSecurity(securityTypeList2, event.target.value)
-
-        SetOppTableYears(-1)        // force reset of the selected year
-        SetOppTablePartialYears(-1) // force reset of partial years
-        if (!sameGroup) {
-          SetYearsMetaData([])
-          SetYearsMetaDataPE([])
-        }
-        SetOppTableYears(-1) // -1 forces initializing #years when new security type is selected/loaded
-        SetConsolidatedSeasonalData([])
-        SetSymbol('')
-
-
-        // if selected security is Free, change the oppTable date to today
-
-        if (retArray[0] === 'F') {
-          var today = new Date();
-
-          // var isLeapDay = today.getMonth() === 1 && today.getDate() === 29;
-
-          SetOppTableMonth(monthsOptionsList[today.getMonth()]['value'])
-          dayOfMonthList(monthsOptionsList[today.getMonth()]['value'])  // 4/30/2022 - this is to create day of the month selectbox for opptable
-          SetDayOfTheMonth(String(today.getDate()))
-        }
-
-
-        SetOppTableYears(y1.toString())
-        SetOppTablePartialYears(y2.toString())
-        // Wave-viewer years follows the same cookie->override->default model.
-        // Previously nothing set seasonalYears on a market switch; the only
-        // thing touching it was the SeasonalBarChart max-years clamp, which
-        // collapsed it to ~4 under a PE filter (the reported bug).
-        SetSeasonalYears(y1.toString())
-
-
-        setCookie('selectedSecurity', event.target.value, 300)
-
-        SetLastPrice(['', 0])
-        SetSymbol('')
-        SetSeasonalBarChartData([])
-        SetLineChartYear(0)
-
-        // Clear querystring so stale pattern URL doesn't snap back to the old group
-        if (window.location.search.length > 0) {
-          window.history.replaceState(null, '', window.location.pathname);
-          queryStringLoadedRef.current = true;
-          historyInitialized.current = false;
-        }
+        // Cascade extracted to switchMarket() so cross-market symbol auto-switch
+        // can reuse the exact same path (auto-switch === manual market select).
+        switchMarket(event.target.value);
 
       }
 
@@ -1133,8 +1162,29 @@ const App = () => {
       }
     }
 
+    // Locked markets: every available resource (resourceObj is the full id->name
+    // map) whose display NAME is not already an entitled row gets a grayed,
+    // locked option. Clicking one opens an upgrade dialog (selectboxChanged
+    // intercepts before any SetSelectedSecurity). value MUST be the display name
+    // so selecting a real market still resolves. For Strategist nothing is
+    // locked, so this appends nothing (no separator either).
+    const entitledNames = new Set(securityTypeList.map(item => item.value));
+    const lockedEntries = Object.values(resourceObj || {})
+      .filter(name => !entitledNames.has(name))
+      .map((name, i) => ({
+        id: 90000 + i,
+        value: name,
+        label: name + ' 🔒',
+        type: 'P',
+        locked: true
+      }));
+
+    if (lockedEntries.length > 0) {
+      base.push({ id: 89999, value: '_sep_locked_', label: 'Locked Markets', type: 'SEP' }, ...lockedEntries);
+    }
+
     return base;
-  }, [securityTypeList, watchlists, publishedLists, securitiesPrefs]);
+  }, [securityTypeList, watchlists, publishedLists, securitiesPrefs, resourceObj]);
 
   // dropdown shows watchlist name when active, otherwise the real group name
   const selectedSecurityDisplay = activeWatchlistFilter
@@ -1190,6 +1240,9 @@ const App = () => {
     exportImage, // 5/24/2022
     lastPrice, // 6/21/2022
     consolidatedSeasonalData, //7/17/2022
+    maxYearsConsolidatedSeasonalData,
+    maxAvailableYears,
+    showMaxProjection,
     janDecDateRange, // 8/6/2022
     oppTableLength, // 8/28/2022
     videosBoxVisible, // 9/14/2022
@@ -1280,6 +1333,7 @@ const App = () => {
   }
 
   const chartSetProps = {
+    switchMarket,
     SetStartDate,
     SetSymbol,
     SetCompany,
@@ -1339,6 +1393,9 @@ const App = () => {
     SetExportImage, // 5/24/2022 - true of false to signal exporting the visible div as jpg or png
     SetLastPrice, // 6/21/2022
     SetConsolidatedSeasonalData, //7/17/2022
+    SetMaxYearsConsolidatedSeasonalData,
+    SetMaxAvailableYears,
+    SetShowMaxProjection: handleSetShowMaxProjection,
     SetJanDecDateRange, //8/6/2022
     SetOppTableLength, // 8/28/2022
     SetVideosBoxVisible, // 9/14/2022
@@ -1967,6 +2024,7 @@ const App = () => {
   const prevShowChatbotRef = useRef(null);
   useEffect(() => {
     if (!chatbotEnabled) return;
+    if (isOnboardingArcActive()) return; // onboarding daily cards own the launcher during the arc
     const tipIndex = parseInt(lsGet('tw_tara_tip_index') || '0', 10);
 
     if (showChatbot && prevShowChatbotRef.current === false) {
@@ -1992,6 +2050,7 @@ const App = () => {
   // On initial load (chatbot closed), schedule tip 0 or resume pending tip
   useEffect(() => {
     if (!chatbotEnabled || showChatbot) return;
+    if (isOnboardingArcActive()) return; // onboarding daily cards own the launcher during the arc
     const tipIndex = parseInt(lsGet('tw_tara_tip_index') || '0', 10);
     if (tipIndex >= TARA_TIPS.length) return;
     if (tipIndex === 0) {
@@ -2007,6 +2066,66 @@ const App = () => {
     }
     return () => { if (chatbotTipTimerRef.current) clearTimeout(chatbotTipTimerRef.current); };
   }, [chatbotEnabled])
+
+  // Onboarding: seed the day counter on first login. The LessonBox is the welcome
+  // now (it self-opens on day 1), so we just mark "welcomed" here to keep the
+  // conversion-card gate (which requires hasWelcomed) firing. Homepage-Tara (?ask=)
+  // arrivals also get the arrival banner.
+  useEffect(() => {
+    if (loggedinUser === '0' || !token || token.length === 0) return;
+    getOnboardingDay(); // seeds tw_onboard_started_at on first login
+    setWelcomed();      // LessonBox replaces the welcome modal; keep the conversion-card gate alive
+    const hasAsk = new URLSearchParams(window.location.search).get('ask');
+    if (hasAsk) setAskBanner(true);
+  }, [loggedinUser, token])
+
+  // Subscription welcome dialog: the user's first screen after a subscribe / upgrade /
+  // downgrade. Decides tier + event from the window globals (stage 1 = new-signup only,
+  // until the tw2_user_tier_actual server global ships). Defensive: never throws.
+  useEffect(() => {
+    if (loggedinUser === '0' || !token) return;
+    try {
+      const d = decideSubscriptionWelcome();
+      if (d && d.show) setSubWelcome({ tier: d.tier, event: d.event });
+      else markSubscriptionWelcomed(); // silently record the current tier so a later change is detected (no spurious welcome for existing users)
+    } catch (e) { /* noop */ }
+  }, [loggedinUser, token])
+
+  // Onboarding telemetry: log every market the USER navigates to (drives the trust-signal
+  // rec). Skip the first/default programmatic selection (login defaults to S&P 500) so we
+  // never count a market the user did not choose - that would up-sell off zero engagement.
+  useEffect(() => {
+    if (loggedinUser === '0' || !selectedSecurity) return;
+    if (prevSecurityRef.current === null) { prevSecurityRef.current = selectedSecurity; return; }
+    if (prevSecurityRef.current === selectedSecurity) return;
+    prevSecurityRef.current = selectedSecurity;
+    const id = getSelectedIDFromSecuritiesList2(securityTypeList, selectedSecurity);
+    if (id != null && id !== -1) logEvent('market_opened', { market_id: String(id), market: selectedSecurity });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSecurity])
+
+  // (The old "one methodology card/day via the Tara launcher" effect was removed:
+  // LessonBox is now the single teaching surface for the 7-day arc. The generic
+  // post-arc Tara tips above still resume after day 7 via isOnboardingArcActive.)
+
+  // Conversion card: day-7 (converter) or lapsed-to-Explorer (non-converter). Show-once PER USER.
+  useEffect(() => {
+    if (loggedinUser === '0' || !token) return;
+    if (hasConversionShown()) return;
+    const ts = getTrialState();
+    if (ts.onTrial && getOnboardingDay() >= 7) { setConvCard({ nonConverter: false }); setConversionShown(); return; }
+    // Lapsed-to-Explorer ONLY if they ACTUALLY had a trial - never tell a never-trialed
+    // Explorer "your full access wrapped up".
+    if (!ts.onTrial && window.tw2_user_tier === 'explorer' && window.tw2_trial_ever && hasWelcomed()) {
+      setConvCard({ nonConverter: true }); setConversionShown();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loggedinUser, token])
+
+  // NOTE: exit-intent / after-N-scans early conversion was removed for v1 - a
+  // mouseleave-to-top listener false-fires constantly (cursor drifting to the
+  // tabs). It needs real engagement-gating (N scans + dwell) before it returns.
+  // The conversion card now fires ONLY on day 7 or a lapsed-to-Explorer trial.
 
   // fetch watchlist names and default watchlist items on login
   useEffect(() => {
@@ -2562,6 +2681,40 @@ const App = () => {
   return (
 
     <>
+      {loggedinUser !== '0' && (() => {
+        const _ts = getTrialState();
+        // Live date-range label of the loaded pattern (matches the bar-chart header),
+        // for the Day-3 lesson. Empty when nothing is loaded -> the lesson auto-loads row 1.
+        const _lessonRange = symbol
+          ? `${seasonalYears}-Year ${symbol} ${String(startDate).substring(5, 10)} to ${incrementDate(startDate, (parseInt(daysOut, 10) || 1) - 1).substring(5, 10)}`
+          : '';
+        return (
+          <>
+            {subWelcome && !infoBoxVisible && (
+              <SubscriptionWelcomeModal UITheme={UITheme} rdd={rdd} tier={subWelcome.tier} subscriptionEvent={subWelcome.event}
+                onClose={() => { try { markSubscriptionWelcomed(); } catch (e) { /* noop */ } setSubWelcome(null); }} />
+            )}
+            <LessonBox UITheme={UITheme} rdd={rdd} hidden={infoBoxVisible || !!subWelcome} dateRangeLabel={_lessonRange} onHighlightChatbot={(on) => SetChatbotIconBlink(on)} onOpenChatbot={() => { if (chatbotEnabled) { SetChatbotIconBlink(false); SetShowChatbot(true); } }} />
+            {_ts.onTrial && _ts.daysRemaining != null && (
+              <div style={{ position: 'fixed', bottom: '86px', right: '18px', zIndex: 9000 }}>
+                <DaysRemainingPill UITheme={UITheme} daysRemaining={_ts.daysRemaining} totalDays={7}
+                  onClick={() => { SetShowChatbot(true); SetChatbotPrefill('Show me my usage so far and which plan actually fits - including if free Explorer is enough.'); }} />
+              </div>
+            )}
+            {convCard && !infoBoxVisible && (
+              <TrialConversionCard UITheme={UITheme} rdd={rdd} nonConverter={convCard.nonConverter}
+                onClose={() => setConvCard(null)}
+                onPick={(t) => { setConvCard(null); const yr = String(t).endsWith(':yearly'); const tt = String(t).replace(':yearly', ''); window.location.href = `/api/stripe/create-checkout?tier=${tt}&period=${yr ? 'yearly' : 'monthly'}`; }} />
+            )}
+            {askBanner && _ts.onTrial && (
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9500, background: 'linear-gradient(90deg, rgb(40,33,60), rgb(30,27,42))', color: 'rgb(220,220,225)', borderBottom: '1px solid rgb(60,55,80)', padding: '8px 34px 8px 16px', fontSize: '13px', textAlign: 'center', letterSpacing: '.01em' }}>
+                You're In - 7 Days of Full Access. Here's the Evidence You Asked For.
+                <button onClick={() => setAskBanner(false)} style={{ position: 'absolute', right: '12px', top: '5px', background: 'none', border: 'none', color: 'rgb(150,148,160)', cursor: 'pointer', fontSize: '15px' }}>&times;</button>
+              </div>
+            )}
+          </>
+        );
+      })()}
       {askMobileNote && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100000,
@@ -2690,7 +2843,7 @@ const App = () => {
           </div>
         </div>
       )}
-      <UserContext.Provider value={{ selectedSecurityType, resourceObj, debug, wpUserLevels, seasonalAppDivH, seasonalAppDivH2, browserH, browserW, rdd, token, globalTextSize, checkboxZoom, tableTextSize, tableTitleTextSize, infoTextSize, loggedinUser, UITheme }} >
+      <UserContext.Provider value={{ selectedSecurityType, resourceObj, debug, wpUserLevels, seasonalAppDivH, seasonalAppDivH2, browserH, browserW, rdd, token, globalTextSize, checkboxZoom, tableTextSize, tableTitleTextSize, infoTextSize, loggedinUser, UITheme, SetDialogType, SetDialogProp, SetInfoBoxVisible }} >
         {/* had to add test !rdd.isMobile only for safari on ipad */}
         {/*
             Nested ErrorBoundary wraps each layout root so a crash in DesktopLayout

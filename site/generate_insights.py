@@ -176,27 +176,12 @@ def pick_related(article: Dict[str, Any], all_articles: List[Dict[str, Any]]) ->
 # ---------------------------------------------------------------------------
 
 def update_sitemap(articles: List[Dict[str, Any]]) -> None:
-    """Make sure /insights/ + every article slug has a sitemap entry. Idempotent."""
-    if not SITEMAP_PATH.exists():
-        return
-    existing = SITEMAP_PATH.read_text(encoding='utf-8')
-    if '</urlset>' not in existing:
-        return
-
-    needed: List[str] = []
-    needed.append('  <url>\n    <loc>{root}insights/</loc>\n    <lastmod>{date}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>'.format(root=config.domain_root, date=datetime.now().strftime('%Y-%m-%d')))
-    for a in articles:
-        needed.append('  <url>\n    <loc>{root}insights/{slug}.html</loc>\n    <lastmod>{date}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>'.format(root=config.domain_root, slug=a['slug'], date=a['date_iso']))
-
-    additions = ''
-    for block in needed:
-        url_loc = block.split('<loc>')[1].split('</loc>')[0]
-        if url_loc not in existing:
-            additions += '\n' + block
-
-    if additions:
-        new = existing.replace('</urlset>', additions + '\n</urlset>')
-        SITEMAP_PATH.write_text(new, encoding='utf-8')
+    """No-op. sitemap.xml now has exactly ONE writer: site/generate_seo_files.py, which
+    rebuilds it from disk on every run (scans insights/*.html itself). This append-only
+    version used to grow duplicate/stale-host entries every run instead of reflecting
+    what is actually on disk - kept here (rather than deleted) so the call site below
+    doesn't need touching. Left unused: articles, SITEMAP_PATH."""
+    return
 
 
 # ---------------------------------------------------------------------------

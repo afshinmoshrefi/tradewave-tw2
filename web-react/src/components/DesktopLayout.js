@@ -42,6 +42,7 @@ import SwiperCore, { Pagination, Navigation, Virtual } from 'swiper/core';
 import { getCookie, setCookie, appserverURL } from './Common';
 import { LiaToggleOffSolid, LiaToggleOnSolid } from "react-icons/lia";
 import { DarkBGColor, LightBGColor, themeColors } from './Common'
+import { tierHasAI } from './Common'
 import { BsPlus, BsTrash3 } from "react-icons/bs";
 import { GrEdit } from "react-icons/gr";
 import Tippy from '@tippyjs/react'
@@ -115,12 +116,35 @@ const DesktopLayout = (props) => {
     const [newListSymbols, SetNewListSymbols] = useState('');
     const [editingList, SetEditingList] = useState(null);
     const [editSymbols, SetEditSymbols] = useState('');
+    const [lbPulse, setLbPulse] = useState(false);    // toolbar lightbulb attention pulse (fires every time the LessonBox closes)
+    const [lbCallout, setLbCallout] = useState(false);
+    const [lbPos, setLbPos] = useState(null);         // {left, top} of the anchored reopen callout (sits just below the bulb)
+    const bulbRef = useRef(null);
+    const lbTimers = useRef([]);
 
     const { seasonalAppDivH, seasonalAppDivH2, rdd, loggedinUser, wpUserLevels, token } = useContext(UserContext);
     const tc = themeColors(props.UITheme);
 
     const toggle_width = '2.2vw';
     const settingsSize = 18;
+
+    // When the LessonBox closes, draw the eye to the reopen lightbulb in this toolbar.
+    useEffect(() => {
+        const onClosed = () => {
+            setLbPulse(true);
+            lbTimers.current.push(setTimeout(() => setLbPulse(false), 6500));
+            try {
+                const r = bulbRef.current && bulbRef.current.getBoundingClientRect();
+                if (r && r.width) {
+                    setLbPos({ left: Math.max(8, Math.round(r.left - 4)), top: Math.round(r.bottom + 8) });
+                    setLbCallout(true);
+                    lbTimers.current.push(setTimeout(() => setLbCallout(false), 7000));
+                }
+            } catch (e) { /* noop */ }
+        };
+        window.addEventListener('tw-lessonbox-closed', onClosed);
+        return () => { window.removeEventListener('tw-lessonbox-closed', onClosed); lbTimers.current.forEach(clearTimeout); };
+    }, []);
 
     // const showChatbot = true;
 
@@ -462,6 +486,17 @@ const DesktopLayout = (props) => {
 
     return (
         <div ref={appContainerRef} style={appContainerStyle}>
+            {/* Anchored reopen callout - sits just BELOW the toolbar lightbulb on close (never covers it). */}
+            {lbCallout && lbPos &&
+                <div
+                    onClick={() => { setLbCallout(false); setLbPulse(false); window.dispatchEvent(new CustomEvent('tw-lessonbox-open')); }}
+                    title="Reopen your lessons"
+                    style={{ position: 'fixed', top: lbPos.top + 'px', left: lbPos.left + 'px', zIndex: 100000, maxWidth: '250px', cursor: 'pointer', background: 'linear-gradient(180deg,#1F1A2C,#1A1626)', color: '#F2EFF8', border: '1px solid rgba(167,139,250,0.4)', borderRadius: '10px', padding: '10px 13px', fontSize: '12.5px', lineHeight: 1.45, boxShadow: '0 12px 34px rgba(0,0,0,0.6)' }}
+                >
+                    <div style={{ color: '#C4B2FF', fontWeight: 700, marginBottom: '2px' }}>&#8593; Your lessons live here</div>
+                    Click the lightbulb above - or click this - to reopen them.
+                </div>
+            }
             {coverOpp && <div className='opp-cover'></div>}
             {coverBottomCharts && <div className='bottom-chart-cover'></div>}
             {coverTopCharts && <div className='top-chart-cover'></div>}
@@ -515,6 +550,19 @@ const DesktopLayout = (props) => {
                                 props.tooltipSW
                                     ? <img src={"data:image/png;base64, " + toggle_on_64} alt="" style={{ width: toggle_width, flexShrink: 0 }} onClick={handleTooltipSW} />
                                     : <img src={"data:image/png;base64, " + toggle_off_64} alt="" style={{ width: toggle_width, flexShrink: 0 }} onClick={handleTooltipSW} />
+                            }
+                            {/* Lessons lightbulb - reopens the onboarding LessonBox (it docks here on desktop
+                                instead of a bottom bulb so it never covers the charts). */}
+                            {loggedinUser !== '0' &&
+                                <Tippy content="Open your lessons" placement="bottom">
+                                    <div
+                                        style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: '8px', cursor: 'pointer' }}
+                                        onClick={(e) => { e.stopPropagation(); setLbPulse(false); window.dispatchEvent(new CustomEvent('tw-lessonbox-open')); }}
+                                    >
+                                        <style>{'@keyframes twTbBulb{0%{transform:scale(1);filter:drop-shadow(0 0 4px rgba(167,139,250,0.6))}50%{transform:scale(1.3);filter:drop-shadow(0 0 14px rgba(167,139,250,1))}100%{transform:scale(1);filter:drop-shadow(0 0 4px rgba(167,139,250,0.6))}}'}</style>
+                                        <span ref={bulbRef} role="img" aria-label="Open your lessons" style={{ fontSize: '1.1vw', lineHeight: 1, display: 'inline-block', filter: 'drop-shadow(0 0 5px rgba(167,139,250,0.85))', animation: lbPulse ? 'twTbBulb 1.3s ease-in-out 5' : 'none' }}>&#128161;</span>
+                                    </div>
+                                </Tippy>
                             }
                             <div style={{ paddingLeft: '4px', display: "flex", alignItems: "center", flexShrink: 0, backgroundColor: 'transparent' }} onClick={handle_Settings_clicks}>
                                 {(false && (props.loggedinUser === '1' || props.loggedinUser === '22' || props.loggedinUser === '16' || props.loggedinUser === '190')) &&
@@ -1037,6 +1085,17 @@ const DesktopLayout = (props) => {
                                                     <option value="90">3 Months</option>
                                                 </select>
                                             </div>
+                                            {props.maxAvailableYears > 0 && parseInt(props.seasonalYears, 10) !== props.maxAvailableYears && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                                                    <CheckBox
+                                                        label={`Show Projection (${props.maxAvailableYears}-Y)`}
+                                                        cbChanged={() => props.SetShowMaxProjection(!props.showMaxProjection)}
+                                                        checked={props.showMaxProjection}
+                                                        textSide="right"
+                                                        textColor={tc.text}
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -1061,6 +1120,7 @@ const DesktopLayout = (props) => {
                                     };
                                     const order = props.columnOrder || Object.keys(COL_META);
                                     const AI_COLS = ['ml_score', 'win_prob', 'pred_return', 'pred_mfe'];
+                                    const _settingsHasAI = tierHasAI(wpUserLevels);  // false -> mark AI cols locked
                                     const canSwap = (a, b) => {
                                         if (a < 0 || b < 0 || a >= order.length || b >= order.length) return false;
                                         return AI_COLS.includes(order[a]) === AI_COLS.includes(order[b]);
@@ -1117,7 +1177,7 @@ const DesktopLayout = (props) => {
                                                         textColor={tc.text}
                                                         disabled={col.required}
                                                     />
-                                                    <span style={{ fontSize: '10px', color: tc.text, opacity: 0.5 }}>{col.desc}</span>
+                                                    <span style={{ fontSize: '10px', color: tc.text, opacity: 0.5 }}>{col.desc}{(!_settingsHasAI && AI_COLS.includes(key)) ? ' 🔒' : ''}</span>
                                                 </div>
                                                 );
                                             })}

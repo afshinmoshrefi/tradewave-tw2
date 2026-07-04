@@ -194,6 +194,51 @@ def test_whoami_example_prefers_etfs_when_in_scope(monkeypatch):
     assert "Analyze GLD's seasonality" in out
 
 
+# --- teaser_state: the structural in-chat disclosure rides /me into whoami ------------
+
+def _me_with_teaser(teaser_state):
+    """A minimal /me payload carrying a teaser_state contract (what the gateway emits)."""
+    p = _me_payload(["2"])
+    p["teaser_state"] = teaser_state
+    return p
+
+
+def test_whoami_steady_payer_no_teaser_disclosure(monkeypatch):
+    # A steady payer's /me carries the inactive teaser contract; whoami must NOT add the
+    # teaser disclosure sentence.
+    inactive = {"active": False, "kind": None, "ends_at": None, "post_teaser_scope": None}
+    monkeypatch.setattr(server, "_get", lambda path, params=None: _me_with_teaser(inactive))
+    out = server.whoami(ctx=None)
+    import json as _json
+    body = _json.loads(out.split("\n\n")[1])
+    assert body["teaser_state"] == inactive          # shape rides through verbatim
+    assert "In-chat teaser active" not in out
+
+
+def test_whoami_explorer_trial_teaser_disclosed(monkeypatch):
+    ts = {"active": True, "kind": "explorer_trial",
+          "ends_at": "2026-07-05T00:00:00+00:00", "post_teaser_scope": "explorer"}
+    monkeypatch.setattr(server, "_get", lambda path, params=None: _me_with_teaser(ts))
+    out = server.whoami(ctx=None)
+    import json as _json
+    body = _json.loads(out.split("\n\n")[1])
+    assert body["teaser_state"]["kind"] == "explorer_trial"
+    assert body["teaser_state"]["post_teaser_scope"] == "explorer"
+    assert "In-chat teaser active until 2026-07-05T00:00:00+00:00" in out
+    assert "reverts to explorer scope after" in out
+
+
+def test_whoami_navigator_firstconnect_teaser_disclosed(monkeypatch):
+    ts = {"active": True, "kind": "navigator_firstconnect",
+          "ends_at": "2026-07-05T00:00:00+00:00", "post_teaser_scope": "navigator"}
+    monkeypatch.setattr(server, "_get", lambda path, params=None: _me_with_teaser(ts))
+    out = server.whoami(ctx=None)
+    import json as _json
+    body = _json.loads(out.split("\n\n")[1])
+    assert body["teaser_state"]["kind"] == "navigator_firstconnect"
+    assert "reverts to navigator scope after" in out
+
+
 # --- morning_briefing: one-call composition ------------------------------------------
 
 def test_morning_briefing_composes_three_sections(monkeypatch):

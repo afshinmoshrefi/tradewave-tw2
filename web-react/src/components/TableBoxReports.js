@@ -42,7 +42,7 @@ function zfill(str, width) {
 }
 
 // clickedRowIndex is for when tablebox is refershed to keep the selected row intact if -1 no row has been selected
-const TableBoxReports = ({ table_data, handlerRowClicked, getCurValue, handlerKeyDown, rowIndexDRclicked, clickedRowIndex, SetRowIndexDRclicked, filterText, handlerLoadClicked, handlerDelClicked, handlerLinkClicked, handlerCreateCalendarEvent, tooltipSW, SetOppTableLength, securityTypeList, handleBlur, selectedPortfolioID, showDiv, setShowDiv, handlerStatusClicked, icon_status_size, selectedPortfolioName, newsToggle, PublishArticle }) => {
+const TableBoxReports = ({ table_data, handlerRowClicked, getCurValue, handlerKeyDown, rowIndexDRclicked, clickedRowIndex, SetRowIndexDRclicked, filterText, handlerLoadClicked, handlerDelClicked, handlerLinkClicked, handlerRefreshClicked, handlerCreateCalendarEvent, tooltipSW, SetOppTableLength, securityTypeList, handleBlur, selectedPortfolioID, showDiv, setShowDiv, handlerStatusClicked, icon_status_size, selectedPortfolioName, newsToggle, PublishArticle }) => {
 
 
     // console.log('sssssssssssssssssssssssssssssssssssssss', selectedPortfolioName, selectedPortfolioName[0])
@@ -375,7 +375,7 @@ const TableBoxReports = ({ table_data, handlerRowClicked, getCurValue, handlerKe
                     else if (k === 'slug') {
                         tmpDict['slug'] = 'Link';
                         if (newsToggle === false) {
-                            tmpDict_tt['slug'] = 'Click the link to view the Web Report for this Date-Range-Opportunity.  If the web page for the Date-Range-Report is unavailable, it has been deleted by the server because of number of days since the report was generated.  To recreate the web report, click the Refresh icon to the right of the link icon'
+                            tmpDict_tt['slug'] = 'Click the link to view the Web Report for this Date-Range-Opportunity.  If the web page for the Date-Range-Report is unavailable, it has been automatically deleted by the server 30 days after the opportunity end date.  To recreate the web report, click the Refresh icon to the right of the link icon'
                         }
                         else {
                             tmpDict_tt['slug'] = 'Click for News Article Management'
@@ -707,7 +707,10 @@ const TableBoxReports = ({ table_data, handlerRowClicked, getCurValue, handlerKe
                                                             )
                                                             : selectedPortfolioName[0] === '&'
                                                                 ? <BiSolidReport size={icon_report_size} style={{ fill: selectedPortfolioName[0] === '&' && userlist_auto.includes(loggedinUser) ? tc.text : "lightgray", verticalAlign: "middle" }} onClick={(event) => handlerLinkClicked(indexR, event)} />
-                                                                : <HiDocumentReport size={icon_report_size} style={{ fill: iconFillColor, verticalAlign: "middle" }} onClick={(event) => handlerLinkClicked(indexR, event)} />
+                                                                : <>
+                                                                    <HiDocumentReport size={icon_report_size} style={{ fill: iconFillColor, verticalAlign: "middle" }} onClick={(event) => handlerLinkClicked(indexR, event)} />
+                                                                    <IoRefreshSharp size={icon_report_size - 5} style={{ fill: iconFillColor, verticalAlign: "middle", marginLeft: '0.3vw' }} onClick={(event) => handlerRefreshClicked(indexR, event)} />
+                                                                </>
 
                                                     ) : key === "X" ? (
                                                         <BsTrash3

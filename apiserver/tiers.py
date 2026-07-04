@@ -34,20 +34,20 @@ API_TIERS = {
     },
     "dev": {
         "name": "Dev", "price_monthly": 39, "price_annual": 390,
-        "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": 100,
+        "markets": ["0", "1", "2", "3", "4", "11"], "ml_access": True, "history": "full", "ml_daily_limit": 100,  # markets narrowed to US stocks + ETFs (mirrors web Analyst); all 15 (futures/forex/bonds/crypto) reserved for Pro/Business
         "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 5000}, "max_keys": 3,
         "stripe_price_metadata": {"product_line": "api", "tier": "dev"},
     },
     "pro": {
         "name": "Pro", "price_monthly": 199, "price_annual": 1990,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,  # unlimited ML = the Pro upsell
-        "opp_limit": 1000, "rate": {"per_minute": 300, "per_day": 50000}, "max_keys": 10,
+        "opp_limit": 1000, "rate": {"per_minute": 120, "per_day": 50000}, "max_keys": 10,  # signals refresh ~daily + opp_limit returns up to 1000/call, so the per-MINUTE burst is sized for signals, not a tick feed; per-DAY quota stays generous for multi-user apps
         "stripe_price_metadata": {"product_line": "api", "tier": "pro"},
     },
     "business": {
         "name": "Business", "price_monthly": 599, "price_annual": 5990,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,  # unlimited
-        "opp_limit": 5000, "rate": {"per_minute": 1200, "per_day": 250000}, "max_keys": 50,
+        "opp_limit": 5000, "rate": {"per_minute": 300, "per_day": 250000}, "max_keys": 50,  # signal-scaled burst (was 1200/min = data-feed scale); per-DAY quota kept high for high-volume apps
         "stripe_price_metadata": {"product_line": "api", "tier": "business"},
     },
 }
@@ -92,6 +92,17 @@ INTERNAL_TIERS = {
         "demo": True,
         "demo_symbols": ["AAPL", "MSFT", "NVDA", "AMZN", "TSLA"],
     },
+    # BUNDLED entitlement for the Navigator ($19/mo) WEB sub - NOT a service principal, NOT sold
+    # standalone (kept out of API_TIERS so it never appears in pricing/Stripe; resolved via tier_for()
+    # + WEB_TIER_TO_API below). Without it a paying Navigator fell through to DEFAULT_TIER='free'
+    # (S&P-only, 5 ML/day) = identical to a $0 Explorer. Scope mirrors config.level_access_hierarchy['2']
+    # (Dow + NASDAQ + S&P). Do NOT remap navigator->'dev' (that leaks all 15 markets + 100 ML/day).
+    "navigator": {
+        "name": "Navigator", "price_monthly": 0, "price_annual": 0,
+        "markets": ["0", "1", "2"], "ml_access": True, "history": "full", "ml_daily_limit": 5,
+        "opp_limit": 25, "rate": {"per_minute": 30, "per_day": 1000}, "max_keys": 1,
+        "stripe_price_metadata": None,
+    },
 }
 
 # The Founder's plan: first 100 customers get Pro at $99/mo (50% off) for 12 months, in
@@ -105,9 +116,54 @@ FOUNDER = {
 }
 
 # Unified accounts: an explicit API subscription wins; else inherit from the web tier.
-# This is also the "free Dev key bundled into a paid web sub": a web Analyst gets Dev API
-# access and a Strategist gets Pro API access at no extra charge just by holding the web sub.
-WEB_TIER_TO_API = {"explorer": "free", "analyst": "dev", "strategist": "pro"}
+# This is also the "free key bundled into a paid web sub": a web Navigator gets the bundled
+# 'navigator' entitlement (Dow/NASDAQ/S&P, 5 ML/day, NOT sold standalone), a web Analyst gets Dev API
+# access, and a Strategist gets Pro API access, at no extra charge just by holding the web sub.
+WEB_TIER_TO_API = {"explorer": "free", "navigator": "navigator", "analyst": "dev", "strategist": "pro"}
+
+# --- Consumer MCP (TradeWave inside ChatGPT/Claude via WorkOS login) -------------------
+# The MCP USER layer MIRRORS the WEB subscription, NOT the API developer ladder: what a
+# person bought on the website is exactly what they get inside the assistant. (auth.py's
+# workos_principal branch used to route consumer-OAuth through the API ladder, which gave
+# a web Analyst the Dev-API scope - subtly wrong.) These are full entitlement dicts in the
+# same shape the gateway consumes (markets/ml_daily_limit/opp_limit/rate); rate caps are
+# ASSISTANT-scaled (a human chatting makes a handful of tool calls/min), not data-feed
+# scaled. Market scope mirrors the web ladder exactly: Explorer=DJ30, Navigator=Dow/NASDAQ/
+# S&P, Analyst=US stocks+ETFs [0,1,2,3,4,11], Strategist=all 15.
+# AI gating MIRRORS Ladder A (web AI starts at Analyst): explorer/navigator carry
+# ml_daily_limit=0 in STEADY STATE - no permanent AI trickle. The in-chat AI taste comes
+# ONLY via the two time-boxed teasers in auth._resolve_mcp (Explorer's reverse trial ->
+# Strategist; Navigator's first-connect window -> Analyst), so losing it after the window
+# is the loss-shaped upgrade trigger. This deliberately makes the SAME free identity behave
+# 5/day on the BYO-key API but 0/day on consumer-MCP: API free = developer-eval taste; MCP
+# mirrors your WEB plan, where AI starts at Analyst. NOT sold standalone (kept out of
+# API_TIERS) and resolved only via auth._resolve_mcp().
+WEB_TIER_TO_MCP = {
+    "explorer": {
+        "name": "Explorer (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "markets": ["0"], "ml_access": True, "history": "full", "ml_daily_limit": 0,
+        "opp_limit": 10, "rate": {"per_minute": 20, "per_day": 400}, "max_keys": 0,
+        "stripe_price_metadata": None,
+    },
+    "navigator": {
+        "name": "Navigator (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "markets": ["0", "1", "2"], "ml_access": True, "history": "full", "ml_daily_limit": 0,
+        "opp_limit": 25, "rate": {"per_minute": 30, "per_day": 1000}, "max_keys": 0,
+        "stripe_price_metadata": None,
+    },
+    "analyst": {
+        "name": "Analyst (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "markets": ["0", "1", "2", "3", "4", "11"], "ml_access": True, "history": "full", "ml_daily_limit": 100,
+        "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 5000}, "max_keys": 0,
+        "stripe_price_metadata": None,
+    },
+    "strategist": {
+        "name": "Strategist (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,
+        "opp_limit": 500, "rate": {"per_minute": 120, "per_day": 20000}, "max_keys": 0,
+        "stripe_price_metadata": None,
+    },
+}
 
 
 # Safety rail: the `service` delegation flag (X-TW-On-Behalf-Of in auth.py) must live ONLY on
@@ -115,6 +171,18 @@ WEB_TIER_TO_API = {"explorer": "free", "analyst": "dev", "strategist": "pro"}
 # user's metering. Fail loud at import if that invariant is ever violated by a future edit.
 assert not any(t.get("service") for t in API_TIERS.values()), \
     "a sold API_TIERS entry has service:True - delegation must be INTERNAL_TIERS only"
+
+# Safety rails for the MCP mirror: it must cover exactly the web tiers (parity with
+# WEB_TIER_TO_API), carry NO delegation flag (mirrors are entitlements, not principals),
+# and only ever WIDEN scope up the ladder (a higher web tier never loses a market in chat).
+assert set(WEB_TIER_TO_MCP) == set(WEB_TIER_TO_API), \
+    "WEB_TIER_TO_MCP must mirror exactly the web tiers (parity with WEB_TIER_TO_API)"
+assert not any(t.get("service") or t.get("workos_principal") for t in WEB_TIER_TO_MCP.values()), \
+    "an MCP mirror entry has a delegation flag - mirrors are entitlements, never principals"
+_MCP_LADDER = ["explorer", "navigator", "analyst", "strategist"]
+for _lo, _hi in zip(_MCP_LADDER, _MCP_LADDER[1:]):
+    assert set(WEB_TIER_TO_MCP[_lo]["markets"]) <= set(WEB_TIER_TO_MCP[_hi]["markets"]), \
+        "MCP market scope regresses from %s to %s" % (_lo, _hi)
 
 
 def tier_for(name):
@@ -132,6 +200,33 @@ def api_tier_from_user(user_row):
     if explicit:
         return explicit
     return WEB_TIER_TO_API.get(user_row.get("tier"), DEFAULT_TIER)
+
+
+def mcp_tier_for(web_tier):
+    """The consumer-MCP entitlement that MIRRORS a web subscription tier (NOT the API
+    ladder). Falls back to the Explorer mirror (least privilege) for an unknown tier."""
+    return WEB_TIER_TO_MCP.get((web_tier or "").lower(), WEB_TIER_TO_MCP["explorer"])
+
+
+def merge_entitlements(a, b):
+    """Field-wise MAX of two entitlement dicts (broader always wins). Used so a consumer
+    who holds BOTH a web sub (-> the MCP mirror) AND an explicit standalone API sub is
+    never DOWNGRADED inside the assistant - they keep the better of the two. Returns a new
+    dict; inputs are not mutated. None ml_daily_limit (= unlimited) beats any finite cap."""
+    merged = dict(a)
+    merged["markets"] = sorted(set(a.get("markets") or []) | set(b.get("markets") or []), key=int)
+    la, lb = a.get("ml_daily_limit"), b.get("ml_daily_limit")
+    merged["ml_daily_limit"] = None if (la is None or lb is None) else max(la, lb)
+    merged["opp_limit"] = max(a.get("opp_limit", 0), b.get("opp_limit", 0))
+    ra, rb = a.get("rate") or {}, b.get("rate") or {}
+    merged["rate"] = {
+        "per_minute": max(ra.get("per_minute", 0), rb.get("per_minute", 0)),
+        "per_day": max(ra.get("per_day", 0), rb.get("per_day", 0)),
+    }
+    merged["max_keys"] = max(a.get("max_keys", 0), b.get("max_keys", 0))
+    merged["ml_access"] = bool(a.get("ml_access") or b.get("ml_access"))
+    merged["history"] = "full" if "full" in (a.get("history"), b.get("history")) else a.get("history")
+    return merged
 
 
 def market_in_scope(tier_name, market_id):

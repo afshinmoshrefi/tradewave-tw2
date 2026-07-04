@@ -278,7 +278,10 @@ const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent 
                 selectWidth = '4.5vw';
                 break;
             case 'oppBySymbol':
-                selectWidth = '7vw';
+                // Sized for the closed "Best Waves" placeholder - the toolbar row is
+                // width-critical; the OPEN dropdown popup still expands to fit the
+                // full option labels (Chrome/Firefox/Edge behavior).
+                selectWidth = '5.2vw';
                 break;
             case 'day':
                 selectWidth = '4vw';
@@ -346,7 +349,10 @@ const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent 
             }>
                 <select onChange={sbChanged} id={name} value={value} style={{ fontSize: selectFontSize, backgroundColor: selectBackgroundColor, color: tc.selectText, border: '1px solid ' + tc.selectBorder, height: selectHeight, width: selectWidth, textAlign: textAligncustom, colorScheme: UITheme === 'dark' ? 'dark' : 'light' }}>
                     {optionList.map((x) => (
-                        <option key={x.id} value={x.value} disabled={x.type === 'SEP'} style={{ fontSize: globalTextSize, ...(x.type === 'SEP' ? { fontStyle: 'italic', color: '#888' } : {}) }}> {x.label}{suffix2} </option>
+                        // x.locked = an over-tier (e.g. above the years cap) option: grayed for the
+                        // upgrade nudge but NOT disabled, so selecting it still fires onChange and the
+                        // handler can open the upgrade dialog (a disabled <option> can't be clicked).
+                        <option key={x.id} value={x.value} disabled={x.type === 'SEP'} style={{ fontSize: globalTextSize, ...((x.type === 'SEP' || x.locked) ? { fontStyle: 'italic', color: '#999' } : {}) }}> {x.label}{suffix2} </option>
                     ))}
 
                 </select>

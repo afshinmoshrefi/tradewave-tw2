@@ -17,6 +17,23 @@ export const debug           = false; // TW2: off so window.current_user_level /
 // =====================================================================
 export const appserverURL = () => '/appserver';
 
+// Per-tier historical-years cap (Explorer 10 / Navigator 15; Analyst/Strategist uncapped).
+// Read from the window global the web tier injects (web/app.py window.tw2_max_years); '' or
+// 0 = no cap -> returns null. The appserver enforces this server-side regardless; this is the
+// CLIENT side, used to gray out over-cap year options and fire the upgrade dialog on click.
+export const maxYearsCap = () => {
+  const v = Number(window.tw2_max_years);
+  return Number.isFinite(v) && v > 0 ? v : null;
+};
+
+// Tiers that include AI scoring = Analyst+ (mirror config.ml_score_access_levels = ['4','5','6','7']).
+// Explorer(1)/Navigator(2) lack AI; a reverse-trial Explorer mints level '6' so they correctly
+// read as AI-enabled during the trial. Used to show the LOCKED AI-score teaser column in the opp
+// table for non-AI tiers (the score column itself stays gated server-side).
+export const AI_TIER_LEVELS = ['4', '5', '6', '7'];
+export const tierHasAI = (wpUserLevels) =>
+  Array.isArray(wpUserLevels) && wpUserLevels.some((l) => AI_TIER_LEVELS.includes(String(l)));
+
 // ===================== THEME COLOR DICTIONARIES =====================
 // Edit these dictionaries to change colors for light and dark themes
 // After saving, the browser hot-reloads so you see changes instantly
@@ -79,6 +96,8 @@ export const DarkTheme = {
   // inputs & selects
   inputBg:         'rgb(40, 37, 52)',
   inputBorder:     'rgb(70, 67, 82)',
+  symbolAccent:    'rgb(90, 140, 230)',
+  symbolBg:        'rgb(48, 64, 108)',
   selectBg:        'rgb(40, 37, 52)',
   selectText:      'rgb(220, 220, 225)',
   selectBorder:    'rgb(70, 67, 82)',
@@ -147,6 +166,8 @@ export const LightTheme = {
   // inputs & selects
   inputBg:         'white',
   inputBorder:     'black',
+  symbolAccent:    'rgb(30, 90, 200)',
+  symbolBg:        'rgb(213, 231, 255)',
   selectBg:        'white',
   selectText:      'black',
   selectBorder:    'lightgray',
@@ -687,4 +708,45 @@ export const clearUserStorage = () => {
       if (k.indexOf(prefix) === 0) localStorage.removeItem(k);
     });
   } catch (e) {}
+};
+
+// ----------------------------------------------------------------------------
+// Cross-market symbol resolution helpers (shared by SeasonalBarChart + InfoPopup).
+// A resolved match is { resourceID, label, name } from the appserver /ResolveSymbol
+// endpoint. `props` is the spread chartProps/chartSetProps bag both components receive.
+// ----------------------------------------------------------------------------
+
+// Load a resolved match: switch to its (entitled) market, then set the symbol. Kept in one
+// synchronous block so React batches selectedSecurity + symbol into a single render and the
+// ChartData4 effect fires ONCE with the new market + symbol. Company name comes from the
+// resolver (CSV) - no NameFromTicker/EODHD round-trip.
+export const applyResolvedMatch = (props, m, sym) => {
+  const displayName = (props.resourceObj || {})[m.resourceID];
+  props.switchMarket(displayName);                 // sets selectedSecurity, clears symbol/data, default years
+  props.SetSymbol(sym);                            // overrides switchMarket's '' (same batch, last write wins)
+  props.SetCompany(m.name);
+  props.SetTrendChartStartDate(incrementDate(props.startDate, -trend_chart_left_gap_days));
+  props.SetConsolidatedSeasonalData([]);
+  props.SetInfoBoxVisible(false);
+};
+
+// true = the current user is entitled to this market (auto-switch); false = locked (upsell).
+// Uses the SAME entitlement set the dropdown uses, so auto-switch never reaches a market the
+// user could not have selected manually. securityTypeList2 holds only entitled markets.
+export const isMarketEntitled = (securityTypeList2, resourceObj, resourceID) => {
+  const displayName = (resourceObj || {})[resourceID];
+  const access = userAccessToSelectedSecurity(securityTypeList2, displayName);
+  return access[0] === 'F' || access[0] === 'P';
+};
+
+// dialogProp for the "Unlock This Market" upsell when a resolved market is locked. Plan mapping
+// mirrors the dropdown lock intercept in App.js (resource-id groups -> Navigator/Analyst/Strategist).
+export const upsellDialogForMatch = (m, sym) => {
+  const mid = parseInt(m.resourceID, 10);
+  let plan = 'a higher plan';
+  if ([7, 8, 9, 16].includes(mid) || [5, 6, 10, 12, 13].includes(mid)) plan = 'the Strategist plan';
+  else if ([3, 4, 11].includes(mid)) plan = 'the Analyst plan';
+  else if ([1, 2].includes(mid)) plan = 'the Navigator plan';
+  const msg = `${sym} is available in ${m.label}, on ${plan}. Upgrade to view it.`;
+  return { title: 'Unlock This Market', contentText: msg, button1Text: 'See Plans', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' };
 };

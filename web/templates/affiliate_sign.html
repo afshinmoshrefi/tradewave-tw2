@@ -91,7 +91,13 @@
         <tr><th>Payout</th><td>{{ ex.payout_method }}{% if ex.payout_email %} - {{ ex.payout_email }}{% endif %}</td></tr>
       </table>
     </div>
-    {% endif %}{# when signed, the frozen snapshot above already contains Exhibit A #}
+    {% if addendum_html %}
+    <div class="exhibit agreement">
+      <h2>Exhibit B - Additional Terms</h2>
+      {{ addendum_html|safe }}
+    </div>
+    {% endif %}
+    {% endif %}{# when signed, the frozen snapshot above already contains Exhibit A + B #}
 
     {% if not signed %}
       <form class="signbox" method="POST" action="{{ action_url }}">

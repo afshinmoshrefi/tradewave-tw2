@@ -29,3 +29,11 @@ CREATE TABLE IF NOT EXISTS api_usage_daily (
 -- falls back to WEB_TIER_TO_API[tier]. db.get_user_by_key_hash SELECTs this column, so the
 -- gateway/MCP/console all see the same resolved entitlement. Idempotent; the integrator runs it.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS api_tier text;
+
+-- First time a Navigator connected over consumer-MCP (TradeWave in ChatGPT/Claude). It
+-- anchors the ONE-TIME 7-day first-connect teaser that grants Analyst scope (the AI taste
+-- Navigator lacks); auth._navigator_teaser_active stamps it once (idempotent) and the window
+-- is (now - this) < 7d. Stored in Postgres (not Redis) ON PURPOSE so the "never re-arm"
+-- guarantee survives a Redis flush/eviction/policy-change, and so the teaser cohort is
+-- queryable for conversion A/B. Idempotent; the integrator runs it (gateway-owned, like api_tier).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS navigator_mcp_first_connect_at timestamptz;

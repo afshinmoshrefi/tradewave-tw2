@@ -9,12 +9,15 @@ import hmac
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from functools import wraps
 
 import redis
 from flask import g, jsonify, request
 
 from . import db, settings, tiers
+import reverse_trial  # shared reverse-trial cutoff math (also imported by web/app.py)
+from reverse_trial import NAV_TEASER_SECONDS  # hoisted: web + gateway share the 7-day window
 
 # A delegated principal id (the web user_id the in-product chatbot is acting for). Kept
 # strict so it can only ever be a clean redis-key segment - never an injection vector.
@@ -136,33 +139,115 @@ def _apply_on_behalf(cust):
 
     (A) MCP OAuth (tier flag `workos_principal`): the MCP server has already validated a WorkOS JWT;
         it passes X-TW-Principal-WorkOS:<workos_sub>. We resolve that to the user's row and apply
-        their REAL api tier + real user_id (so a logged-in researcher gets exactly their own
-        free/dev/pro entitlements + per-user metering). Unknown sub -> 401.
+        the MCP scope that MIRRORS their WEB subscription (see _resolve_mcp - NOT the API ladder),
+        plus their real user_id (so a logged-in researcher gets exactly what they bought on the
+        website, with per-user metering). Unknown sub -> 401.
     (B) Chatbot (Tara): X-TW-On-Behalf-Of:<web_user_id> swaps ONLY the metering principal to
         'cb:<id>' and KEEPS the chatbot tier (separate per-user ML bucket; never escalates scope)."""
     ent = cust.get("entitlements") or {}
     if not ent.get("service"):
         return None
-    # (A) MCP OAuth principal -> the user's REAL tier.
+    # (A) MCP OAuth principal -> the MCP scope mirroring the user's WEB sub.
     if ent.get("workos_principal"):
         sub = request.headers.get("X-TW-Principal-WorkOS", "").strip()
-        if sub:
-            if not _WORKOS_SUB_RE.match(sub):
-                return jsonify({"error": {"code": "unauthorized", "message": "invalid principal"}}), 401
-            row = db.get_user_by_workos_id(sub)
-            if not row:
-                return jsonify({"error": {"code": "unauthorized", "message": "unknown user"}}), 401
-            api_tier = tiers.api_tier_from_user(row)
-            cust["user_id"] = str(row["user_id"])
-            cust["email"] = row["email"]
-            cust["tier"] = api_tier
-            cust["entitlements"] = tiers.tier_for(api_tier)   # the researcher's REAL tier
-            return None
+        # G17: FAIL CLOSED. A legitimate consumer-OAuth call ALWAYS carries the principal
+        # header; without it we must NOT fall through and keep the mcp service tier's
+        # ALL_MARKETS entitlement (that would expose all markets with no user identity).
+        if not sub:
+            return jsonify({"error": {"code": "unauthorized", "message": "missing principal"}}), 401
+        if not _WORKOS_SUB_RE.match(sub):
+            return jsonify({"error": {"code": "unauthorized", "message": "invalid principal"}}), 401
+        row = db.get_user_by_workos_id(sub)
+        if not row:
+            return jsonify({"error": {"code": "unauthorized", "message": "unknown user"}}), 401
+        cust["user_id"] = str(row["user_id"])
+        cust["email"] = row["email"]
+        cust["tier"], cust["entitlements"], cust["teaser_state"] = _resolve_mcp(row)
+        return None
     # (B) Chatbot on-behalf (cb:-namespaced; keeps the chatbot tier).
     on_behalf = request.headers.get("X-TW-On-Behalf-Of", "").strip()
     if on_behalf and _ON_BEHALF_RE.match(on_behalf):
         cust["user_id"] = "cb:" + on_behalf
     return None
+
+
+_NO_TEASER = {"active": False, "kind": None, "ends_at": None, "post_teaser_scope": None}
+
+
+def _resolve_mcp(row):
+    """Consumer MCP (TradeWave inside ChatGPT/Claude via WorkOS): the scope MIRRORS the
+    user's WEB subscription (tiers.WEB_TIER_TO_MCP), NOT the API developer ladder - what
+    they bought on the website is what they get in the assistant. Two teasers only ever
+    WIDEN it, never narrow it:
+      (1) a trialing Explorer is elevated to full Strategist scope for the rest of the SAME
+          7-day reverse-trial window (reverse_trial.effective_web_tier already maps
+          explorer+trial -> 'strategist', mirroring web/app.py:effective_tier). Without this
+          a trial user would get LESS in chat than on the website = a bait-and-switch.
+      (2) a Navigator gets a one-time 7-day, first-MCP-connect taste of ANALYST scope (the
+          AI layer Navigator lacks under Ladder A) - the in-chat pull from Navigator->Analyst.
+    A user who ALSO holds an explicit standalone API subscription keeps the BETTER of
+    (web-mirror, api) field-by-field, so a paying developer is never downgraded in chat.
+    Also builds the STRUCTURAL teaser_state (the in-chat disclosure contract) so callers
+    (whoami via /me) never have to re-derive it.
+    Returns (tier_label, entitlements, teaser_state)."""
+    raw_tier = row.get("tier")
+    eff_web = reverse_trial.effective_web_tier(
+        raw_tier, row.get("roles"), row.get("reverse_trial_ends_at"))
+    # Build teaser_state alongside the scope, NEVER double-arming the navigator column:
+    # _navigator_teaser_active arms + reads the stamped timestamp exactly once and returns
+    # both the active flag and the stamp, so the ends_at below reuses that one read.
+    teaser_state = dict(_NO_TEASER)
+    # (1) Explorer reverse-trial -> strategist scope; surface as the explorer_trial teaser.
+    if raw_tier == "explorer" and reverse_trial.in_reverse_trial(row.get("reverse_trial_ends_at")):
+        rt = row.get("reverse_trial_ends_at")
+        teaser_state = {"active": True, "kind": "explorer_trial",
+                        "ends_at": rt.isoformat() if rt is not None else None,
+                        "post_teaser_scope": "explorer"}
+    # (2) Navigator one-time 7-day first-connect teaser -> Analyst scope (the AI taste).
+    elif eff_web == "navigator":
+        nav_active, nav_start = _navigator_teaser_active(row)
+        if nav_active:
+            eff_web = "analyst"
+            _, nav_ends = reverse_trial.navigator_teaser_window(nav_start)
+            teaser_state = {"active": True, "kind": "navigator_firstconnect",
+                            "ends_at": nav_ends, "post_teaser_scope": "navigator"}
+    ent = dict(tiers.mcp_tier_for(eff_web))
+    # MAX(web-mirror, explicit standalone API sub) so a paying developer isn't downgraded.
+    explicit = row.get("api_tier")
+    if explicit:
+        ent = tiers.merge_entitlements(ent, tiers.tier_for(explicit))
+        # G12: markets/rate may widen from a standalone API key, but a separately-held key
+        # must NOT raise in-chat AI for a tier where web AI is gated off (steady Explorer/
+        # Navigator under Ladder A). Re-floor ml_daily_limit to the mirror after the merge.
+        # eff_web here is post-teaser, so a trial Explorer (->strategist) / Navigator teaser
+        # (->analyst) keep their intended AI; only the steady sub-Analyst tiers are floored.
+        if eff_web in ("explorer", "navigator"):
+            ent["ml_daily_limit"] = tiers.mcp_tier_for(eff_web)["ml_daily_limit"]
+    return eff_web, ent, teaser_state
+
+
+def _navigator_teaser_active(row):
+    """Navigator's one-time 7-day first-MCP-connect teaser. Anchored in Postgres
+    (users.navigator_mcp_first_connect_at via db.arm_navigator_teaser_if_null) so the window
+    NEVER re-arms - it survives a Redis flush/eviction/policy change, and reconnecting after
+    the 7 days lapse cannot restart it. Stamps the column on the first connect (idempotent),
+    then the window is (now - first_connect) < 7d. Fails CLOSED (no teaser) on a DB error:
+    the user keeps their full paid Navigator scope, just without the bonus.
+
+    Returns (active: bool, first_connect_at: datetime|None) - the stamped timestamp is
+    returned so the caller can build teaser_state.ends_at from the SAME read (the column is
+    armed/read here exactly once; never call this twice for one request)."""
+    try:
+        start = row.get("navigator_mcp_first_connect_at")
+        if start is None:
+            start = db.arm_navigator_teaser_if_null(row["user_id"])   # first connect: arm + persist
+        if start is None:
+            return False, None
+        active = (datetime.now(timezone.utc) - start).total_seconds() < NAV_TEASER_SECONDS
+        return active, start
+    except Exception as e:   # fail closed - never block paid scope on a teaser-state error
+        log.warning("navigator MCP teaser check failed for %s: %s", row.get("user_id"), e)
+        return False, None
 
 
 def check_rate_limit(cust):

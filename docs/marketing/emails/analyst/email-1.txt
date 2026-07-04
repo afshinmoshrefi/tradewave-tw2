@@ -1,0 +1,31 @@
+Subject: Welcome to Analyst - And an Honest Word on Whether You Need It
+Preview: Run your first AI score on a stock the indices do not cover. Plus: the kind of trader who should not be on this plan.
+Send day: 1
+
+TradeWave Analyst
+
+Welcome. Here Is Your First Move, and an Honest Word on Whether You Need This Plan
+
+You are on Analyst now, which means one thing matters most on day one: the AI seasonal score is now ON. Analyst is where AI scoring begins, and it runs on ANY US stock or ETF. Navigator shows you the deterministic seasonal patterns on the Dow, NASDAQ 100, and S&P 500, but it does not score them - Analyst turns the AI score on and widens the universe to the whole market. That is the line you just crossed. Let us use it.
+
+Your First Action
+Pick a ticker you actually follow that is OUTSIDE the Dow, NASDAQ 100, or S&P 500 - a small-cap, a sector ETF, a name that never makes an index list. Load it and read the calibrated AI score on the odds. (You can adjust the start date too - we cover how to do that well in a couple of days.) You will see every historical year laid out: green for up, red for down, the losing years left in plain sight. That is the whole point of TradeWave - we show the work, including the years it did not happen.
+
+Run your first AI score:
+https://tradewave.ai/app/
+
+The Honest Part: Is Analyst the Right Plan for You?
+We would rather you pay us less and stay for years than pay us more and feel it. So, plainly:
+
+- If you only trade the big indices (Dow, NASDAQ 100, S&P 500) and read the patterns yourself, Navigator at $19/mo gives you exactly those markets with the custom start-date control - just without the AI score. If you do not need the calibrated score on the odds, you may not need to be here.
+- If you do not score patterns yet at all, free Explorer is a real home, not a trap: today's top 5 Dow seasonal patterns, the Trend Score, real-time prices, EDGAR earnings estimates, the election-cycle overlay on a loaded pattern, and 1 portfolio tracking 5 names. Learn the read there first; upgrade only when you outgrow it. There is no shame in starting - or staying - there.
+- Analyst earns its $47/mo only if you use what is unique to it: AI on ALL US stocks and ETFs, 25 portfolios and 100 tracked names, the weekly live Q&A, Seasonal Market News, and email support from a human who knows the methodology.
+
+Over the next few days we will help you put each of those to work. If, by then, you are not using them, changing plans is quick, and we will gladly point you to the smaller plan that fits.
+
+Glad you are here,
+The TradeWave team
+
+---
+TradeWave - seasonal market research that shows its work. Probability, not prediction.
+Manage your plan: https://tradewave.ai/account | Unsubscribe: %%unsubscribe%%

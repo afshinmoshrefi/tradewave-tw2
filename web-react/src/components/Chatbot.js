@@ -67,15 +67,21 @@ function Chatbot(props) {
   const [showAIScoresPopup, setShowAIScoresPopup] = useState(false);
   const chatboxRef = useRef(null);
 
-  // Intro message on first open, include pending tip if one exists
+  // Intro greeting on first open.
   useEffect(() => {
-    const intro = [{ role: 'bot', text: "Hi, I'm <b>Tara</b>. Ask me for today's best setups, any stock's seasonal pattern, or a concept like <b>what is a Sharpe ratio</b> - I'll pull it up on the chart and explain it." }];
+    setMessages([{ role: 'bot', text: "Hi, I'm <b>Tara</b>. Ask me for today's best setups, any stock's seasonal pattern, or a concept like <b>what is a Sharpe ratio</b> - I'll pull it up on the chart and explain it." }]);
+  }, []);
+
+  // Consume a pending tip (daily onboarding card / legacy tip) WHENEVER one is set - keyed on
+  // the prop, not a one-shot []-deps mount effect, so a tip set while the chat is already open
+  // is appended and cleared. (A mount-only effect stranded it -> the launcher icon blinks forever.)
+  useEffect(() => {
     if (props.chatbotPendingTip) {
-      intro.push({ role: 'bot', text: props.chatbotPendingTip });
+      setMessages(prev => [...prev, { role: 'bot', text: props.chatbotPendingTip }]);
       if (props.SetChatbotPendingTip) props.SetChatbotPendingTip(null);
     }
-    setMessages(intro);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.chatbotPendingTip]);
 
   // Home-page "ask Tara" prefill: when App passes props.chatbotPrefill (from the ?ask=
   // deep link), echo it into the input and auto-send it ONCE so the user bubble appears

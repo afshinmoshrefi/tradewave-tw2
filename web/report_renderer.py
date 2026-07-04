@@ -19,7 +19,9 @@ import os
 import sys
 import base64
 import datetime
+import json
 from datetime import timedelta
+from pathlib import Path
 from dateutil.relativedelta import relativedelta
 
 import requests
@@ -252,6 +254,7 @@ HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
 <link rel="shortcut icon" href="/favicon.png">
 <link rel="apple-touch-icon" href="/favicon.png">
 <link rel="stylesheet" href="/_static/report.css?v={css_version}">
+{json_ld}
 </head>
 <body>
 {header_partial}
@@ -293,16 +296,16 @@ HTML_TABLE_TEMPLATE = """
     The financial market is an ever-changing landscape, and investors need to stay on top of key indicators to make informed decisions. The key stats below provide a quick and comprehensive overview of the TradeWave opportunity and its quality.
   </p>
   <h3 class="report-h3">Symbol</h3><p class="info-block"><span class="hl">{symbol}</span> is the unique ticker symbol identifying the financial instrument analyzed in this report.</p>
-  <h3 class="report-h3">Trade Direction</h3><p class="info-block">Indicates whether the recommended trade is to go long (buy) or short (sell), based on analysis of the instrument's performance over the date range.</p>
+  <h3 class="report-h3">Trade Direction</h3><p class="info-block">Indicates whether the historical pattern favored the long (buy) or short (sell) side, based on the instrument's performance over the date range.</p>
   <h3 class="report-h3">Date Range</h3><p class="info-block">Specifies the period over which the financial instrument is analyzed.</p>
-  <h3 class="report-h3">Days Held</h3><p class="info-block">The recommended holding period after initiating the trade. The end date is derived from start-date and days-held.</p>
+  <h3 class="report-h3">Days Held</h3><p class="info-block">The holding period this analysis is based on, counted from the start date. The end date is derived from start-date and days-held.</p>
   <h3 class="report-h3">History Years</h3><p class="info-block">The number of years of historical data this report is based on. This report uses <span class="hl">{history_years}</span> years.</p>
   <h3 class="report-h3">Securities Group</h3><p class="info-block">Categorizes the financial instrument by sector, industry, asset class, or market segment.</p>
-  <h3 class="report-h3">Number of Losers / Winners</h3><p class="info-block">Counts of trades that resulted in losses vs. profits during the analyzed period - direct measures of risk and reliability.</p>
+  <h3 class="report-h3">Number of Winners / Losers</h3><p class="info-block">Counts of trades that resulted in profits vs. losses during the analyzed period - direct measures of reliability and risk.</p>
   <h3 class="report-h3">Percent Profitable</h3><p class="info-block">Percentage of profitable trades out of the total executed.</p>
-  <h3 class="report-h3">Average Profit / Average Loss</h3><p class="info-block">Mean profit per winning trade and mean loss per losing trade - drives expected value.</p>
-  <h3 class="report-h3">Biggest Winner</h3><p class="info-block">The largest profit from a single trade in the analyzed period.</p>
-  <h3 class="report-h3">Median Profit</h3><p class="info-block">The middle value of all profits - reduces the impact of outliers compared to the mean.</p>
+  <h3 class="report-h3">Average Gain / Average Loss</h3><p class="info-block">Mean gain per winning trade and mean loss per losing trade - drives expected value.</p>
+  <h3 class="report-h3">Biggest Winner</h3><p class="info-block">The largest gain from a single trade in the analyzed period.</p>
+  <h3 class="report-h3">Median Gain</h3><p class="info-block">The middle value of all gains - reduces the impact of outliers compared to the mean.</p>
   <h3 class="report-h3">Standard Deviation</h3><p class="info-block">Variability of profits and losses. Lower means more consistent; higher means more volatile.</p>
   <h3 class="report-h3">Cumulative Return</h3><p class="info-block">Total return on investment over the analyzed period.</p>
   <h3 class="report-h3">Sharpe Ratio</h3><p class="info-block">Risk-adjusted return. Higher = better return for the level of risk taken.</p>
@@ -313,17 +316,17 @@ HTML_TABLE_TEMPLATE = """
   <tr><td class="stat-td-left">Symbol</td><td class="stat-td-right">{symbol}</td></tr>
   <tr><td class="stat-td-left">Trade Direction</td><td class="stat-td-right">{trade_direction}</td></tr>
   <tr><td class="stat-td-left">Date Range</td><td class="stat-td-right">{date_range_text}</td></tr>
-  <tr><td class="stat-td-left">Days Hold</td><td class="stat-td-right">{days_hold}</td></tr>
+  <tr><td class="stat-td-left">Days Held</td><td class="stat-td-right">{days_hold}</td></tr>
   <tr><td class="stat-td-left">History Years</td><td class="stat-td-right">{history_years}</td></tr>
   <tr><td class="stat-td-left">Securities Group</td><td class="stat-td-right">{securities_group}</td></tr>
   <tr><td class="stat-td-left">Num Winners</td><td class="stat-td-right">{num_winners}</td></tr>
   <tr><td class="stat-td-left">Num Losers</td><td class="stat-td-right">{num_losers}</td></tr>
   <tr><td class="stat-td-left">Percent Profitable</td><td class="stat-td-right">{percent_profitable}</td></tr>
   <tr><td class="stat-td-left">Biggest Winner</td><td class="stat-td-right">{biggest_winner}</td></tr>
-  <tr><td class="stat-td-left">Avg Loss</td><td class="stat-td-right">{avg_loss}</td></tr>
   <tr><td class="stat-td-left">Avg Gain</td><td class="stat-td-right">{avg_profit}</td></tr>
+  <tr><td class="stat-td-left">Avg Loss</td><td class="stat-td-right">{avg_loss}</td></tr>
   <tr><td class="stat-td-left">Median Gain</td><td class="stat-td-right">{median_profit}</td></tr>
-  <tr><td class="stat-td-left">Std Dev</td><td class="stat-td-right">{std_dev}</td></tr>
+  <tr><td class="stat-td-left">Standard Deviation</td><td class="stat-td-right">{std_dev}</td></tr>
   <tr><td class="stat-td-left">Cumulative Return</td><td class="stat-td-right">{cumulative_return}</td></tr>
   <tr><td class="stat-td-left">Sharpe Ratio</td><td class="stat-td-right">{sharpe_ratio}</td></tr>
   <tr><td class="stat-td-left">Trend Long</td><td class="stat-td-right">{trend_long}</td></tr>
@@ -393,7 +396,7 @@ def _chart_sections(symbol, date1, date2, years, bar_img, cum_img, sea_img, bar_
 
 <details open>
   <summary><h2 class="report-h2-info">{symbol} {years} Year TradeWave Trend Chart<span class="info-circle"><i>i</i></span></h2></summary>
-  <p class="info-block">The detrended average price movement throughout the year for <span class="hl">{symbol}</span>, {yc}. The shaded box marks the date range opportunity ({date1} to {date2}); its color (green/red) reflects the recommended trade direction.</p>
+  <p class="info-block">The detrended average price movement throughout the year for <span class="hl">{symbol}</span>, {yc}. The shaded box marks the date range opportunity ({date1} to {date2}); its color (green/red) reflects the direction the historical pattern favored.</p>
   <p class="info-block">Use this chart to evaluate how well the date range aligns with historical seasonal trends. Adjusting the window in the Wave Viewer can reveal nearby improvements in profitability or risk.</p>
 </details>
 <img class="report-chart" src="{sea_img}" alt="{sea_alt}">
@@ -497,8 +500,11 @@ def render(report_dict, appserver_token, post_title, post_slug):
     sec_group = config.available_resources.get(str(resource_id), 'Unknown')
 
     # ── Build the stats-table HTML ──
+    # report_date is the human-visible "Generated ..." line; JSON-LD datePublished
+    # keeps the ISO today_date (schema.org requires ISO 8601).
+    _td = datetime.datetime.strptime(today_date, '%Y-%m-%d')
     table_vars = {
-        'report_date'       : today_date,
+        'report_date'       : f"{_td.strftime('%b')} {_td.day}, {_td.year}",
         'symbol'            : symbol,
         'company'           : company,
         'trade_direction'   : opp_dir.capitalize(),
@@ -566,11 +572,28 @@ def render(report_dict, appserver_token, post_title, post_slug):
     except OSError:
         css_version = 0
 
+    og_image_url = f"{DOMAIN_ROOT}{bar_img.lstrip('/')}"
+
+    # ── JSON-LD (schema.org Article) - LLM/SEO metadata only, no visible content change ──
+    json_ld_dict = {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": post_title,
+        "datePublished": today_date,
+        "image": og_image_url,
+        "mainEntityOfPage": {"@type": "WebPage", "@id": canonical_url},
+        "publisher": {"@type": "Organization", "name": "TradeWave", "url": "https://tradewave.ai"},
+    }
+    # Escape "</" so a value can never prematurely close the <script> tag (\/  is a valid
+    # JSON escape for '/', so this doesn't change what the JSON decodes to).
+    json_ld = '<script type="application/ld+json">' + json.dumps(json_ld_dict).replace('</', '<\\/') + '</script>'
+
     page_html = HTML_PAGE_TEMPLATE.format(
         post_title=post_title,
         excerpt=excerpt,
         canonical_url=canonical_url,
-        og_image=f"{DOMAIN_ROOT}{bar_img.lstrip('/')}",
+        og_image=og_image_url,
+        json_ld=json_ld,
         header_partial=header_partial,
         report_body=html_table + chart_sections,
         footer_partial=footer_partial,
@@ -593,6 +616,13 @@ def render(report_dict, appserver_token, post_title, post_slug):
     with open(out_html, 'w', encoding='utf-8') as f:
         f.write(page_html)
 
+    # Keep /r/sitemap.xml in sync with what's actually on disk (best-effort - must
+    # never fail the render itself).
+    try:
+        rebuild_report_sitemap()
+    except Exception:
+        pass
+
     return canonical_url
 
 
@@ -603,3 +633,49 @@ def _read_partial(path):
             return f.read()
     except FileNotFoundError:
         return ''
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Sitemap for /r/ (SEO groundwork) - lists every rendered report so crawlers can
+# discover them without following internal links.
+# ──────────────────────────────────────────────────────────────────────────────
+
+def rebuild_report_sitemap():
+    """Rebuild /var/www/tradewave/r/sitemap.xml from every report currently on disk.
+
+    Lists every {slug}/index.html under REPORT_OUTPUT_ROOT and emits one <url> entry
+    per report (lastmod = the index.html's mtime). Written atomically (tmp file +
+    os.replace) so a concurrent request never sees a half-written file.
+
+    Called from three places:
+      1. render() - after writing a new/refreshed report's index.html.
+      2. web/app.py internal_delete_report() - after an rmtree removes a report dir.
+      3. report_expiry.py - after its daily expiry sweep deletes anything.
+    """
+    root = Path(REPORT_OUTPUT_ROOT)
+    if not root.is_dir():
+        return None
+
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ]
+    for index_html in sorted(root.glob('*/index.html')):
+        slug = index_html.parent.name
+        loc = f"{DOMAIN_ROOT}{REPORT_URL_BASE.lstrip('/')}/{slug}/"
+        try:
+            lastmod = datetime.datetime.fromtimestamp(index_html.stat().st_mtime).strftime('%Y-%m-%d')
+        except OSError:
+            continue
+        lines.append('  <url>')
+        lines.append(f'    <loc>{loc}</loc>')
+        lines.append(f'    <lastmod>{lastmod}</lastmod>')
+        lines.append('  </url>')
+    lines.append('</urlset>')
+
+    sitemap_path = root / 'sitemap.xml'
+    tmp_path = root / '.sitemap.xml.tmp'
+    with open(tmp_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines) + '\n')
+    os.replace(tmp_path, sitemap_path)
+    return str(sitemap_path)

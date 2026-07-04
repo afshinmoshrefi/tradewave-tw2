@@ -45,7 +45,13 @@
       for old browsers; dvh second so modern browsers prefer it. */
    max-height: 90vh;
    max-height: 90dvh;
-   overflow-y: auto;
+   /* DESKTOP 2026-07-04: dialog content is %-sized and can drift 1-2px past
+      100% (font metrics / copy tweaks), and overflow-y:auto turned that
+      rounding into a visible scrollbar on every dialog. Desktop dialogs are
+      never meant to scroll themselves (long text scrolls inside .info-1), so
+      clip the drift here; the touch-device media query below keeps the
+      2026-05-31 mobile scroll behavior. */
+   overflow-y: hidden;
    -webkit-overflow-scrolling: touch;
 
    -webkit-user-select: none;  /* Chrome all / Safari all */
@@ -53,6 +59,13 @@
    -ms-user-select: none;      /* IE 10+ */
    user-select: none;          /* Likely future */
 
+ }
+
+ /* Touch devices (phones/tablets): browser chrome can shrink the real viewport
+    below the dialog, so the dialog itself must stay scrollable (the original
+    2026-05-31 mobile fix). */
+ @media (pointer: coarse) {
+   .dialog-popup { overflow-y: auto; }
  }
 
 
@@ -76,7 +89,9 @@
     height:70%;
     margin:20px;
     font-size:1.1vw;
-    overflow-y:scroll;
+    /* auto not scroll: 'scroll' paints a permanent scrollbar track on
+       classic-scrollbar platforms even when the content fits. */
+    overflow-y:auto;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -143,7 +158,8 @@
     color:whitesmoke;
     font-family: 'Raleway', sans-serif !important;
     /* line-height:2.4vh; */
-    overflow-y: scroll;
+    /* auto not scroll: no permanent scrollbar track when the text fits. */
+    overflow-y: auto;
  }
 
  .dialog-top-row{

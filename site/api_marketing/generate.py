@@ -679,13 +679,15 @@ def build_index() -> str:
   </div>
 </section>
 
-<!-- Competitor comparison -->
+<!-- What makes TradeWave different (provider-neutral category columns; no competitor names per house rule) -->
 <section class="section alt">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">How TradeWave compares</h2>
-      <p>Seasonax is the closest alternative - Bloomberg-gated at ~$480/mo with no ML layer and no API.
-         TradeWave undercuts that price and is accessible to any developer or AI agent today.</p>
+      <h2 class="gradient-text-w">What Makes TradeWave Different</h2>
+      <p>TradeWave is the only seasonality engine that both shows its work and scores the odds: an
+         AI-calibrated win-probability on every pattern, a forward-recorded track record, and native
+         REST and MCP access - at a fraction of the cost of a data terminal, open to any developer or
+         AI agent today.</p>
     </div>
     <div class="comp-table-wrap">
       <table class="comp-table">
@@ -693,18 +695,18 @@ def build_index() -> str:
           <tr>
             <th>Feature</th>
             <th>TradeWave API</th>
-            <th>Seasonax</th>
-            <th>Bloomberg Terminal</th>
+            <th>Typical seasonality tools</th>
+            <th>Data terminals</th>
           </tr>
         </thead>
         <tbody>
           <tr><td class="feat-col">ML win-probability scoring</td><td class="tw-col">All tiers (unlimited on Pro+)</td><td class="no-col">No</td><td class="no-col">No</td></tr>
-          <tr><td class="feat-col">REST API access</td><td class="tw-col">Yes - all tiers</td><td class="no-col">No</td><td class="no-col">Terminal only</td></tr>
+          <tr><td class="feat-col">REST API access</td><td class="tw-col">Yes - all tiers</td><td class="no-col">Rare</td><td class="no-col">Terminal only</td></tr>
           <tr><td class="feat-col">MCP / AI agent integration</td><td class="tw-col">Yes - native</td><td class="no-col">No</td><td class="no-col">No</td></tr>
           <tr><td class="feat-col">Verified pick track record</td><td class="tw-col">Yes - forward-recorded</td><td class="no-col">Backtest only</td><td class="no-col">No</td></tr>
-          <tr><td class="feat-col">Redistributable to your own users</td><td class="tw-col">Yes - by design</td><td class="no-col">Mixed</td><td class="no-col">Raw data</td></tr>
-          <tr><td class="feat-col">Starting price</td><td class="tw-col">Free</td><td>~$480/mo</td><td>~$24,000/yr</td></tr>
-          <tr><td class="feat-col">No Bloomberg required</td><td class="tw-col">Yes</td><td class="no-col">No (integration)</td><td>Bloomberg IS the product</td></tr>
+          <tr><td class="feat-col">Redistributable to your own users</td><td class="tw-col">Yes - by design</td><td class="no-col">Mixed</td><td class="no-col">Raw data only</td></tr>
+          <tr><td class="feat-col">No data terminal or seat required</td><td class="tw-col">Yes</td><td class="no-col">Varies</td><td class="no-col">Required</td></tr>
+          <tr><td class="feat-col">Starting price</td><td class="tw-col">Free</td><td>Hundreds per month</td><td>Tens of thousands per year</td></tr>
         </tbody>
       </table>
     </div>
@@ -795,8 +797,8 @@ def build_pricing() -> str:
         taglines = {
             "free": "ML scores included (5/day) - no commitment.",
             "dev": "Build and prototype with full market access (100 ML scores/day).",
-            "pro": "Unlimited ML win-probability scoring across every market.",
-            "business": "High-volume production and team access. Unlimited ML.",
+            "pro": "Unlimited ML across every market at 120 req/min - no web seat required.",
+            "business": "High-volume production, team access, and redistribution rights - no web seat required.",
         }
 
         return f"""<div class="p-card{hl}">
@@ -817,7 +819,6 @@ def build_pricing() -> str:
     <li>Up to {t['max_keys']} API key{'s' if t['max_keys'] > 1 else ''}</li>
     <li>Daily pick + track record</li>
     {'<li>Priority support</li>' if key in ('pro','business') else '<li class="no">Priority support</li>'}
-    {'<li>SLA guarantee</li>' if key == 'business' else ''}
   </ul>
   <a href="{btn_href}" class="btn {btn_class}">{btn_text}</a>
   {note_html}
@@ -835,8 +836,8 @@ def build_pricing() -> str:
   <div class="container">
     <h1><span class="gradient-text-w">API &amp; MCP Pricing</span></h1>
     <p class="sub">A seasonal-pattern research API over REST and MCP. Free tier includes ML scores (5/day),
-       the daily pick, and the verified track record. Dev opens all 15 markets; Pro removes the ML cap;
-       Business adds redistribution rights and team controls.</p>
+       the daily pick, and the verified track record. Dev opens 6 markets (US stocks + ETFs); Pro opens
+       all 15 and removes the ML cap; Business adds redistribution rights and team controls.</p>
     <p class="hero-note" style="margin-top:14px;">No signup to try it: <code style="color:var(--accent);">tw_demo_explore</code> is a public demo token - a real authenticated call in about 30 seconds, no key, no card.</p>
   </div>
 </section>
@@ -864,13 +865,17 @@ def build_pricing() -> str:
 
     <p class="bundle-note">Already subscribe to TradeWave? Your plan already includes API access -
        <strong>Analyst includes the Dev tier</strong> and <strong>Strategist includes Pro</strong>,
-       at no extra cost. Just <a href="{portal_urls.CONSOLE_URL}">create a key</a>.</p>
+       at no extra cost. Just <a href="{portal_urls.CONSOLE_URL}">create a key</a>.
+       Standalone Pro and Business are for builders without a web seat who need the published API caps
+       (Pro 120 req/min, Business 300 req/min) and, on Business, redistribution rights - the bundled
+       Strategist Pro key carries the identical 120 req/min cap.</p>
 
     <div class="section-head" style="margin-top:64px;">
       <h2 class="gradient-text-w">Built for teams and enterprises</h2>
       <p>Bring the edge layer into your org with the controls a security and procurement team expects -
-         centralized multi-seat key management, audit logs, an SLA, commercial seasonal-pattern
-         redistribution rights, and enterprise single sign-on on Business and Enterprise plans.</p>
+         centralized multi-seat key management, audit logs, commercial seasonal-pattern redistribution
+         rights, and enterprise single sign-on on Business and Enterprise plans, with a contractual SLA
+         on Enterprise.</p>
     </div>
     <div class="card" style="max-width:880px;margin:0 auto;">
       <p style="color:var(--dim);line-height:1.7;">When you put a verifiable, conflict-free seasonal-pattern feed
@@ -883,7 +888,7 @@ def build_pricing() -> str:
         <li><strong>Single sign-on and directory sync</strong> - SAML or OIDC plus SCIM provisioning through your identity provider (Okta, Azure AD, Google Workspace) to govern console access. Available on Business and Enterprise; talk to us to enable.</li>
         <li><strong>Multi-seat key management and centralized billing</strong> - issue, rotate, scope, and revoke API keys per developer or service from one admin view, on one invoice.</li>
         <li><strong>Audit logs</strong> - a time-stamped record of key usage and seasonal-pattern access, exportable for your own compliance and review.</li>
-        <li><strong>A service-level agreement</strong> - uptime and support commitments so the seasonal-pattern feed can sit in a production trading workflow.</li>
+        <li><strong>A service-level agreement</strong> - uptime and support commitments so the seasonal-pattern feed can sit in a production trading workflow. Contractual SLA on Enterprise; Business includes priority support.</li>
         <li><strong>Commercial seasonal-pattern redistribution rights</strong> - license TradeWave seasonal patterns into your own product or feed, as percentage movement and the 0-100 seasonal index only, never raw prices. Granted by written agreement on Business and Enterprise - the boundaries live in the <a href="api-terms.html" class="inline">API Terms</a>.</li>
       </ul>
       <div style="text-align:center;margin-top:22px;">
@@ -1190,9 +1195,10 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       <p>TradeWave's MCP is a hosted HTTP server at <code style="font-size:13px;color:var(--accent);">{portal_urls.MCP_URL}</code>.
          In ChatGPT or Claude.ai, paste that URL into Settings - Connectors, click Connect, and
          sign in with your TradeWave account - no API key needed. Bring-your-own-login means metering
-         follows the account you sign in with, not a shared key: ML scores work on every tier (free gets
-         5/day, Pro is unlimited), and when the daily limit is reached the server returns a clear quota
-         message, never a silent error.</p>
+         follows the account you sign in with, not a shared key. In chat, AI scoring follows your
+         TradeWave plan: it begins at Analyst (Explorer and Navigator see the deterministic seasonal
+         patterns), and Strategist is unlimited. When a daily limit is reached the server returns a
+         clear quota message, never a silent error.</p>
     </div>
     <div class="code-block" style="max-width:700px;margin:0 auto 16px;">
 <span class="cm">// claude_desktop_config.json - Claude Desktop / Cursor (dev tools: bring your own API key)</span>
@@ -1373,7 +1379,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       <p style="font-size:14px;color:var(--dim);line-height:1.75;margin:0;">
         <strong style="color:var(--text);">Enterprise, by contact sales.</strong> Custom volume, a contractual SLA with uptime and
         service credits, SSO and SCIM with audit logs, an MSA and DPA with security review, invoicing with PO and net-30,
-        and dedicated support. SLA and SSO are available on Business and Enterprise. There is no self-serve SLA;
+        and dedicated support. SSO and SCIM are available on Business and Enterprise; a contractual SLA is Enterprise-only (Business includes priority support). There is no self-serve SLA;
         <a href="{portal_urls.nav('contact.html')}" class="inline">talk to sales</a> to scope the agreement.
       </p>
     </div>
@@ -1460,7 +1466,7 @@ def build_use_cases() -> str:
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:20px;">
           Wire the MCP server into Claude or ChatGPT and you have a working scanner in one afternoon:
           ask "rank the strongest seasonal longs in S&P 500 stocks this week by ML win probability"
-          and get a ranked table back, no terminal, no Seasonax seat. Or skip the chat and hit
+          and get a ranked table back, no terminal, no separate data seat. Or skip the chat and hit
           <code style="font-size:13px;color:var(--accent);">/opportunities</code> from a cron job to
           email yourself the same list every morning. TradeWave supplies the seasonal and ML edge;
           you - or the assistant - pair it with news and fundamentals.
@@ -1558,7 +1564,7 @@ score_resp = requests.<span class="fn">post</span>(
           <li>Seasonal patterns only - no raw price licensing, no OHLCV compliance burden</li>
           <li class="ml">ML win_prob and pred_return on every tier - free=5/day, dev=100/day, pro=unlimited (6 ML-eligible markets)</li>
           <li>Up to 1,000 results per call on Pro, 5,000 on Business</li>
-          <li>300 req/min on Pro - compatible with intraday sweep workflows</li>
+          <li>120 req/min on Pro - compatible with intraday sweep workflows</li>
         </ul>
       </div>
     </div>
@@ -1581,9 +1587,10 @@ score_resp = requests.<span class="fn">post</span>(
           explained output your users can act on.
         </p>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:24px;">
-          The Business tier (1,200 req/min, 250,000 req/day, 50 API keys) is sized for
-          multi-tenant products. Enterprise is available for custom rate limits, SLAs,
-          and white-label use.
+          The Business tier (300 req/min, 250,000 req/day, 50 API keys) is sized for
+          multi-tenant products - no web seat required - and adds redistribution rights so
+          you can serve the derived values to your own end users under license. Enterprise is
+          available for custom rate limits, SLAs, and white-label use.
         </p>
         <ul class="check-list">
           <li>No raw price data means no exchange license to negotiate</li>
@@ -1646,8 +1653,8 @@ score_resp = requests.<span class="fn">post</span>(
           <li>End-of-day data across the US-market universe, no intraday guesswork</li>
         </ul>
         <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-top:14px;">
-          SSO/SCIM, audit logs, and a contractual SLA are available on Business and Enterprise -
-          talk to sales to scope them.
+          SSO/SCIM and audit logs are available on Business and Enterprise; a contractual SLA is
+          Enterprise-only (Business includes priority support) - talk to sales to scope them.
         </p>
       </div>
     </div>

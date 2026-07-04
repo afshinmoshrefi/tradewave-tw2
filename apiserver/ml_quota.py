@@ -39,6 +39,9 @@ def remaining(cust):
     lim = _limit(cust)
     if lim is None:
         return None
+    if lim == 0:
+        return 0  # G11: a 0-limit tier (e.g. MCP explorer/navigator) has NO AI - decide it
+                  # BEFORE the fail-open path so a Redis outage can never grant it scores.
     try:
         used = int(_redis.get(_key(cust["user_id"])) or 0)
     except redis.RedisError as e:
@@ -55,6 +58,9 @@ def consume(cust, n):
     lim = _limit(cust)
     if lim is None:
         return n  # unlimited
+    if lim == 0:
+        return 0  # G11: a 0-limit tier gets NO AI - decide BEFORE the fail-open path below,
+                  # so a Redis outage can never flip no-AI (explorer/navigator) into granted.
     k = _key(cust["user_id"])
     try:
         used = int(_redis.get(k) or 0)

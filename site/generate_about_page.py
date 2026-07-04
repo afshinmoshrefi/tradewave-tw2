@@ -30,6 +30,12 @@ HEADER_PARTIAL = '/home/flask/site/templates/_tw_header.html'
 
 CANONICAL = config.domain_root + 'about.html'
 
+# Index only on prod; dev/staging stay noindex (same ENABLE_SEO pattern as
+# generate_home_page.py - env-driven so the prod build flips it on automatically
+# instead of relying on a manual edit before launch).
+ENABLE_SEO = os.environ.get('TW2_ENV', '').strip().lower() == 'prod'
+ROBOTS_CONTENT = 'index, follow' if ENABLE_SEO else 'noindex, nofollow'
+
 
 def build_html():
     person_ld = {
@@ -75,7 +81,7 @@ def build_html():
   <title>About TradeWave - Afshin Moshrefi, Tara Data Research</title>
   <meta name="description" content="TradeWave is built by Afshin Moshrefi at Tara Data Research LLC. AI-scored seasonal market patterns across stocks, ETFs, indices, futures, forex, and bonds.">
   <link rel="canonical" href="{CANONICAL}">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="{ROBOTS_CONTENT}">
   <link rel="icon" type="image/png" href="{config.tw_favicon}">
 
   <meta property="og:locale" content="en_US">

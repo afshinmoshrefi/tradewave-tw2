@@ -1038,8 +1038,18 @@ def whoami(ctx: Optional[Context] = None) -> str:
         "What's today's AI daily pick and its track record?",
         "Give me my morning briefing",
     ) if p]
+    # Structural in-chat teaser disclosure: teaser_state rides /me verbatim; when it is
+    # active, add a belt-and-suspenders sentence to the human lead so the model always
+    # discloses that the elevated in-chat scope is temporary and what it reverts to.
+    teaser_line = ""
+    ts = data.get("teaser_state") if isinstance(data, dict) else None
+    if isinstance(ts, dict) and ts.get("active"):
+        ends = ts.get("ends_at") or "the end of the window"
+        scope = ts.get("post_teaser_scope") or "your"
+        teaser_line = (" In-chat teaser active until %s; reverts to %s scope after."
+                       % (ends, scope))
     return _lead(
-        f"You are on the {tier} plan with {ml_txt}. In-scope markets: {names}. "
+        f"You are on the {tier} plan with {ml_txt}. In-scope markets: {names}.{teaser_line} "
         "Try one of the example prompts below:",
         payload,
     )

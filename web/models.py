@@ -69,15 +69,22 @@ class User(Base):
     # implicit and needs no cron. Set on the lazy_create_user CREATE path
     # and by ops/grant_reverse_trial.py for existing explorers.
     reverse_trial_ends_at       = Column(TIMESTAMP(timezone=True))
+    # navigator_mcp_first_connect_at: stamped ONCE (idempotently) by the gateway on a
+    # Navigator's first MCP/OAuth connect (apiserver/db.py arm_navigator_teaser_if_null),
+    # anchoring the one-time 7-day first-connect teaser (Analyst scope in chat). The web
+    # tier only READS it (account() in-chat-access card; never arms it). Column already
+    # exists in Postgres via apiserver/schema.sql - this is an additive mapping, NO migration.
+    navigator_mcp_first_connect_at = Column(TIMESTAMP(timezone=True))
     created_at                  = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at                  = Column(TIMESTAMP(timezone=True), server_default=func.now())
     last_login_at               = Column(TIMESTAMP(timezone=True))
 
     __table_args__ = (
-        # Mirrors the DB-side constraint added in migration 1940d1f63473.
+        # Mirrors the DB-side constraint added in migration 1940d1f63473 and
+        # widened to include 'navigator' in migration a1f4d2c9e7b3.
         # Keep this in sync with the migration's CHECK definition.
         CheckConstraint(
-            "tier IN ('explorer','analyst','strategist','canceled')",
+            "tier IN ('explorer','navigator','analyst','strategist','canceled')",
             name="users_tier_check",
         ),
     )
@@ -299,6 +306,10 @@ class Affiliate(Base):
     agreement_signed_ip         = Column(Text)
     agreement_signed_user_agent = Column(Text)
     agreement_snapshot          = Column(Text)   # immutable copy of the exact terms signed
+    # Per-affiliate rider rendered as "Exhibit B - Additional Terms" (operator-
+    # authored markdown). The shared body (Sections 1-15) is identical for every
+    # affiliate; ONLY this varies. Frozen into agreement_snapshot on signing.
+    agreement_addendum          = Column(Text)
     agreement_token_version     = Column(Integer, nullable=False, server_default=sa_text("0"))
     created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -315,6 +326,7 @@ class Affiliate(Base):
         CheckConstraint("commission_pct_monthly IS NULL OR (commission_pct_monthly >= 0 AND commission_pct_monthly <= 100)", name="affiliates_commission_pct_monthly_check"),
         CheckConstraint("page_note IS NULL OR char_length(page_note) <= 280", name="affiliates_page_note_len_check"),
         CheckConstraint("page_signoff IS NULL OR char_length(page_signoff) <= 60", name="affiliates_page_signoff_len_check"),
+        CheckConstraint("agreement_addendum IS NULL OR char_length(agreement_addendum) <= 20000", name="affiliates_agreement_addendum_len_check"),
     )
 
     def __str__(self):
@@ -421,6 +433,23 @@ class PromoCoupon(Base):
         else:
             disc = f"{self.percent_off}% off"
         return f"{self.code} ({disc})"
+
+
+class OnboardingEvent(Base):
+    """Append-only trial-usage telemetry that powers the end-of-trial TRUST SIGNAL
+    (recommend the MINIMUM tier that covers what the user actually did, so we can
+    honestly say "you don't need Strategist"). Low-sensitivity: the market / symbol
+    / horizon a trial user touched - never an order or PII. Written by
+    POST /api/onboarding/event; aggregated by GET /api/onboarding/usage-summary."""
+    __tablename__ = "onboarding_events"
+    id          = Column(BigInteger, primary_key=True)
+    user_id     = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    event_type  = Column(Text, nullable=False)
+    detail      = Column(JSONB)
+    created_at  = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    __table_args__ = (
+        Index("ix_onboarding_events_user_id", "user_id"),
+    )
 
 
 # Engine + session factory - used app-wide

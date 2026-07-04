@@ -21,12 +21,11 @@
       align-items: center;
     }
     .nav .logo {
-      font-size: 22px; font-weight: 800;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      font-size: 24px; font-weight: 800; letter-spacing: -0.02em;
+      color: #EAF0F8;
       text-decoration: none;
     }
+    .nav .logo b { color: #7C5CFF; font-weight: 800; }
     .nav a.btn {
       color: white;
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
@@ -90,7 +89,7 @@
 </head>
 <body>
   <nav class="nav">
-    <a href="/" class="logo">TradeWave</a>
+    <a href="/" class="logo">Trade<b>Wave</b></a>
     <a href="/app/" class="btn">Open Wave Viewer</a>
   </nav>
 
@@ -112,6 +111,15 @@
       </p>
       {% endif %}
     </div>
+
+    {% if mcp_teaser and mcp_teaser.active %}
+    <div class="card" style="border-color: rgba(99, 102, 241, 0.4);">
+      <h3>In-Chat Access (ChatGPT and Claude)</h3>
+      <p style="color:#c7d2fe; font-size:14px; margin-top:12px;">
+        Your in-chat teaser is active until {{ (mcp_teaser.ends_at or '')[:10] }}. After that, in-chat access reverts to your {{ mcp_teaser.post_teaser_scope }} plan.
+      </p>
+    </div>
+    {% endif %}
 
     {% if user.stripe_subscription_status %}
     <div class="card">
