@@ -73,7 +73,7 @@ else
     NEWS_HOST=$(echo "${TW2_NEWS_WEBSITE_URL:-}" | sed -E 's|https?://||; s|/$||')
     # tw2-prod.trxstat.com = the box's pre-cutover placeholder (prod's copies were
     # baked with it); tw2.trxstat.com = the even older dev placeholder.
-    sed -i "s|tw2-dev\.trxstat\.com|$TW2_PUBLIC_HOST|g; s|tw2-stage\.trxstat\.com|$TW2_PUBLIC_HOST|g; s|tw2-prod\.trxstat\.com|$TW2_PUBLIC_HOST|g; s|tw2\.trxstat\.com|$TW2_PUBLIC_HOST|g" /var/www/tradewave/markets/*.html
+    sed -i "s|tw2-dev\.trxstat\.com|$TW2_PUBLIC_HOST|g; s|tw2-stage\.trxstat\.com|$TW2_PUBLIC_HOST|g; s|tw2-prod\.trxstat\.com|$TW2_PUBLIC_HOST|g; s|tw2\.trxstat\.com|$TW2_PUBLIC_HOST|g; s|http://192\.168\.1\.176|https://$TW2_PUBLIC_HOST|g; s|192\.168\.1\.176|$TW2_PUBLIC_HOST|g" /var/www/tradewave/markets/*.html
     [ -n "$NEWS_HOST" ] && sed -i "s|smn-dev\.trxstat\.com|$NEWS_HOST|g; s|smn-stage\.trxstat\.com|$NEWS_HOST|g" /var/www/tradewave/markets/*.html
     echo "  OK    markets-rebase - absolute hosts rebased to $TW2_PUBLIC_HOST"
   fi
