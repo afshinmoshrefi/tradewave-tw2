@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useRef } from "react";
+import React, { useContext, useEffect, useState, useRef, useCallback } from "react";
 import PopulatePortfolio from './PopulatePortfolio';
 import PortfolioSettings from './PortfolioSettings';
 import WatchlistSettings from './WatchlistSettings';
@@ -116,9 +116,15 @@ const DesktopLayout = (props) => {
     const [newListSymbols, SetNewListSymbols] = useState('');
     const [editingList, SetEditingList] = useState(null);
     const [editSymbols, SetEditSymbols] = useState('');
-    const [lbPulse, setLbPulse] = useState(false);    // toolbar lightbulb attention pulse (fires every time the LessonBox closes)
-    const [lbCallout, setLbCallout] = useState(false);
-    const [lbPos, setLbPos] = useState(null);         // {left, top} of the anchored reopen callout (sits just below the bulb)
+    const [lbPulse, setLbPulse] = useState(false);    // toolbar lightbulb attention pulse (fires on LessonBox close/invite/mute)
+    // lbCalloutKind: null | 'reopen' | 'invite' | 'muted' - which anchored callout (if any) is
+    // showing below the bulb. One kind at a time, all reusing the same pos/pulse mechanics -
+    // 'reopen' (existing "Your lessons live here"), 'invite' (Gating v2 one-time existing-user
+    // opt-in, from LessonBox's tw-lessonbox-invite), 'muted' (Gating v2 mute confirmation, from
+    // tw-lessonbox-muted). LessonBox.js owns all the underlying persisted state (tw_lesson_*,
+    // tw_onboard_dismissed); this toolbar only reacts to its window events.
+    const [lbCalloutKind, setLbCalloutKind] = useState(null);
+    const [lbPos, setLbPos] = useState(null);         // {left, top} of the anchored callout (sits just below the bulb)
     const bulbRef = useRef(null);
     const lbTimers = useRef([]);
 
@@ -128,23 +134,40 @@ const DesktopLayout = (props) => {
     const toggle_width = '2.2vw';
     const settingsSize = 18;
 
-    // When the LessonBox closes, draw the eye to the reopen lightbulb in this toolbar.
-    useEffect(() => {
-        const onClosed = () => {
-            setLbPulse(true);
-            lbTimers.current.push(setTimeout(() => setLbPulse(false), 6500));
-            try {
-                const r = bulbRef.current && bulbRef.current.getBoundingClientRect();
-                if (r && r.width) {
-                    setLbPos({ left: Math.max(8, Math.round(r.left - 4)), top: Math.round(r.bottom + 8) });
-                    setLbCallout(true);
-                    lbTimers.current.push(setTimeout(() => setLbCallout(false), 7000));
-                }
-            } catch (e) { /* noop */ }
-        };
-        window.addEventListener('tw-lessonbox-closed', onClosed);
-        return () => { window.removeEventListener('tw-lessonbox-closed', onClosed); lbTimers.current.forEach(clearTimeout); };
+    // Show an anchored callout of the given kind just below the toolbar lightbulb, with the
+    // usual attention pulse. autoHideMs === 0 leaves it up until the user dismisses it.
+    const showLbCallout = useCallback((kind, autoHideMs) => {
+        setLbPulse(true);
+        lbTimers.current.push(setTimeout(() => setLbPulse(false), 6500));
+        try {
+            const r = bulbRef.current && bulbRef.current.getBoundingClientRect();
+            if (r && r.width) {
+                setLbPos({ left: Math.max(8, Math.round(r.left - 4)), top: Math.round(r.bottom + 8) });
+                setLbCalloutKind(kind);
+                if (autoHideMs) lbTimers.current.push(setTimeout(() => setLbCalloutKind(null), autoHideMs));
+            }
+        } catch (e) { /* noop */ }
     }, []);
+
+    // Toolbar reactions to the LessonBox's own state changes (it owns all the persisted
+    // onboarding/lesson state; this is pure window-event choreography).
+    //   tw-lessonbox-closed  - draw the eye to the reopen lightbulb.
+    //   tw-lessonbox-invite  - Gating v2: unenrolled, undismissed user gets a one-time opt-in.
+    //   tw-lessonbox-muted   - Gating v2: confirms "Stop daily pop-ups" just fired.
+    useEffect(() => {
+        const onClosed = () => showLbCallout('reopen', 7000);
+        const onInvite = () => showLbCallout('invite', 9000);
+        const onMuted = () => showLbCallout('muted', 7000);
+        window.addEventListener('tw-lessonbox-closed', onClosed);
+        window.addEventListener('tw-lessonbox-invite', onInvite);
+        window.addEventListener('tw-lessonbox-muted', onMuted);
+        return () => {
+            window.removeEventListener('tw-lessonbox-closed', onClosed);
+            window.removeEventListener('tw-lessonbox-invite', onInvite);
+            window.removeEventListener('tw-lessonbox-muted', onMuted);
+            lbTimers.current.forEach(clearTimeout);
+        };
+    }, [showLbCallout]);
 
     // const showChatbot = true;
 
@@ -486,15 +509,45 @@ const DesktopLayout = (props) => {
 
     return (
         <div ref={appContainerRef} style={appContainerStyle}>
-            {/* Anchored reopen callout - sits just BELOW the toolbar lightbulb on close (never covers it). */}
-            {lbCallout && lbPos &&
+            {/* Anchored lightbulb callout - sits just BELOW the toolbar lightbulb (never covers it).
+                Kind-switched: 'reopen' (existing), 'invite' (Gating v2 one-time opt-in, two actions),
+                'muted' (Gating v2 mute confirmation). Same position/styling for all three. */}
+            {lbCalloutKind && lbPos &&
                 <div
-                    onClick={() => { setLbCallout(false); setLbPulse(false); window.dispatchEvent(new CustomEvent('tw-lessonbox-open')); }}
-                    title="Reopen your lessons"
-                    style={{ position: 'fixed', top: lbPos.top + 'px', left: lbPos.left + 'px', zIndex: 100000, maxWidth: '250px', cursor: 'pointer', background: 'linear-gradient(180deg,#1F1A2C,#1A1626)', color: '#F2EFF8', border: '1px solid rgba(167,139,250,0.4)', borderRadius: '10px', padding: '10px 13px', fontSize: '12.5px', lineHeight: 1.45, boxShadow: '0 12px 34px rgba(0,0,0,0.6)' }}
+                    style={{ position: 'fixed', top: lbPos.top + 'px', left: lbPos.left + 'px', zIndex: 100000, maxWidth: '250px', background: 'linear-gradient(180deg,#1F1A2C,#1A1626)', color: '#F2EFF8', border: '1px solid rgba(167,139,250,0.4)', borderRadius: '10px', padding: '10px 13px', fontSize: '12.5px', lineHeight: 1.45, boxShadow: '0 12px 34px rgba(0,0,0,0.6)' }}
                 >
-                    <div style={{ color: '#C4B2FF', fontWeight: 700, marginBottom: '2px' }}>&#8593; Your lessons live here</div>
-                    Click the lightbulb above - or click this - to reopen them.
+                    {lbCalloutKind === 'reopen' &&
+                        <div
+                            onClick={() => { setLbCalloutKind(null); setLbPulse(false); window.dispatchEvent(new CustomEvent('tw-lessonbox-open')); }}
+                            title="Reopen your lessons"
+                            style={{ cursor: 'pointer' }}
+                        >
+                            <div style={{ color: '#C4B2FF', fontWeight: 700, marginBottom: '2px' }}>&#8593; Your lessons live here</div>
+                            Click the lightbulb above - or click this - to reopen them.
+                        </div>
+                    }
+                    {lbCalloutKind === 'invite' &&
+                        <div>
+                            <div style={{ color: '#C4B2FF', fontWeight: 700, marginBottom: '4px' }}>&#8593; New: 7 Quick Daily Lessons</div>
+                            <div style={{ marginBottom: '9px' }}>Learn to read seasonal patterns in a few minutes a day. Want the tour?</div>
+                            <div style={{ display: 'flex', gap: '14px' }}>
+                                <span
+                                    onClick={() => { setLbCalloutKind(null); setLbPulse(false); window.dispatchEvent(new CustomEvent('tw-lessonbox-open')); }}
+                                    style={{ cursor: 'pointer', color: '#C4B2FF', fontWeight: 700 }}
+                                >Start the tour</span>
+                                <span
+                                    onClick={() => setLbCalloutKind(null)}
+                                    style={{ cursor: 'pointer', opacity: 0.75 }}
+                                >No thanks</span>
+                            </div>
+                        </div>
+                    }
+                    {lbCalloutKind === 'muted' &&
+                        <div onClick={() => setLbCalloutKind(null)} style={{ cursor: 'pointer' }}>
+                            <div style={{ color: '#C4B2FF', fontWeight: 700, marginBottom: '2px' }}>Muted</div>
+                            Your lessons stay right here whenever you want them.
+                        </div>
+                    }
                 </div>
             }
             {coverOpp && <div className='opp-cover'></div>}
@@ -557,7 +610,7 @@ const DesktopLayout = (props) => {
                                 <Tippy content="Open your lessons" placement="bottom">
                                     <div
                                         style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: '8px', cursor: 'pointer' }}
-                                        onClick={(e) => { e.stopPropagation(); setLbPulse(false); window.dispatchEvent(new CustomEvent('tw-lessonbox-open')); }}
+                                        onClick={(e) => { e.stopPropagation(); setLbCalloutKind(null); setLbPulse(false); window.dispatchEvent(new CustomEvent('tw-lessonbox-open')); }}
                                     >
                                         <style>{'@keyframes twTbBulb{0%{transform:scale(1);filter:drop-shadow(0 0 4px rgba(167,139,250,0.6))}50%{transform:scale(1.3);filter:drop-shadow(0 0 14px rgba(167,139,250,1))}100%{transform:scale(1);filter:drop-shadow(0 0 4px rgba(167,139,250,0.6))}}'}</style>
                                         <span ref={bulbRef} role="img" aria-label="Open your lessons" style={{ fontSize: '1.1vw', lineHeight: 1, display: 'inline-block', filter: 'drop-shadow(0 0 5px rgba(167,139,250,0.85))', animation: lbPulse ? 'twTbBulb 1.3s ease-in-out 5' : 'none' }}>&#128161;</span>

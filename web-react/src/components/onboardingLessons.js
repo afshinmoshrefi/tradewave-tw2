@@ -9,11 +9,30 @@
 //   Most days have 3 screens; Day 1 has 4. The renderer adapts to screens.length.
 //   desktopOnly  dropped from the deck on mobile; LessonBox indexes by POSITION.
 //   {peLabel}    (Day 5) renders live as PE+2 (the CheckBox above the table).
+//   {year}       (Day 5, "Onboarding Lessons v2") renders the live current year,
+//                e.g. "2026". Computed in LessonBox.fill() beside {peLabel}.
+//   {cyclePhrase}(Day 5, "Onboarding Lessons v2") renders the live election-cycle
+//                phrase for {year} (article included): "an election year" (PE) |
+//                "a post-election year" (PE+1) | "a midterm year" (PE+2) |
+//                "a pre-election year" (PE+3). Same year % 4 switch as {peLabel},
+//                so it is always in sync with the button the lesson points at -
+//                this makes all of Day 5 year-agnostic, forever.
 //   {dateRange}  (Day 3) renders the live date-range label of the loaded pattern.
 //   {statsIntro}/{statsOpen}/{statsAt} (Days 3/4/7) render DEVICE-AWARE directions to the
-//                Wave Stats table: desktop = the middle carousel dot below the bar chart;
-//                mobile portrait = swipe left to the Wave Stats slide. Filled in LessonBox.fill().
+//                Wave Stats table: desktop = the middle of the 3-dot carousel above the
+//                bottom chart, on its right side; mobile portrait = swipe left to the
+//                Wave Stats slide. Filled in LessonBox.fill().
 //   Voice: human, confident, honest, no advice, no em-dashes (use ' - ').
+//
+// TRIAL_CLOSE_SCREEN ("Onboarding Lessons v2", 2026-07-04): NOT part of the static
+// LESSONS array - it is a single extra screen exported on its own and appended
+// DYNAMICALLY by LessonBox at render time to whichever lesson day the user's trial
+// clock actually closes on (getTrialState().onTrial && daysRemaining <= 1), not
+// hardcoded to Day 7 screen 4. A late starter whose trial ends on lesson Day 5
+// gets it appended to Day 5 instead, so nobody's trial ends silently. It carries a
+// `cta` field ({label, action}) that LessonBox renders as a prominent button; the
+// "conversion-card" action hands off to the existing usage-measured
+// TrialConversionCard. Never appended for a non-trial (paying) user.
 // =====================================================================
 
 export const LESSONS = [
@@ -38,6 +57,7 @@ export const LESSONS = [
         "bullets": [
           "We dig up the names with a real seasonal habit.",
           "Ranked by what actually happened, strongest on top.",
+          "All week you're on full access - every market, every year of history. Use it hard.",
           "We point. You decide what's worth a look."
         ],
         "pointer": ""
@@ -57,9 +77,9 @@ export const LESSONS = [
         "title": "Choose How Many Years You're Seeing",
         "lead": "You are looking at seasonal opportunities based on the last 10 years by default.",
         "bullets": [
-          "Now click the year selector at the top of the Opportunity Table - it shows 10 years.",
-          "Select 15 years.",
-          "Now you are looking at opportunities based on the last 15 years."
+          "Click the year selector at the top of the Opportunity Table - it opens on 10 years.",
+          "Select 15.",
+          "Same market, deeper history - a longer test of every name on the list. Depth is a theme we'll come back to."
         ],
         "pointer": ""
       }
@@ -109,12 +129,12 @@ export const LESSONS = [
     "tease": "see an opportunity's whole track record",
     "screens": [
       {
-        "title": "Read the Date Range Above the Chart",
-        "lead": "Load one onto the chart, then glance at the line right above it - that is the actual window, written out as real dates.",
+        "title": "Read the Date Window Above the Chart",
+        "lead": "Load one onto the chart, then find the small bordered date box in the control bar right above it - that is the whole trade, written as dates.",
         "bullets": [
-          "The Opportunity Table gives you the start day and how many days the pattern runs.",
-          "Above the bar chart that becomes a real date range - yours reads '{dateRange}' right now. Make a habit of glancing up to read it.",
-          "Each bar is one year: what you'd have made or lost buying at the start of that range and selling at the end."
+          "Yours reads '{dateRange}' right now - that's month-day to month-day.",
+          "First date is the buy, second is the sell. That exact window is what everything on this screen is measuring.",
+          "Each bar below is one year: what that window returned if you bought the first date and sold the second."
         ],
         "pointer": ""
       },
@@ -156,11 +176,11 @@ export const LESSONS = [
         "pointer": ""
       },
       {
-        "title": "Three Years Proves Nothing",
-        "lead": "Watch out for the small sample. Up 3 years out of 3 looks flawless, but it's basically a coin flipped three times.",
+        "title": "A Short Streak Is Still a Short Streak",
+        "lead": "Every list here opens with 10 years of history behind it, and you can ask for a lot more. Here's why you should: a perfect run over a few years can be luck. A strong run over twenty years is a habit.",
         "bullets": [
-          "Up 18 of 20 has been through far more weather - that's a pattern.",
-          "More years tested, more you can trust it.",
+          "Twenty years has been through crashes, rate hikes, elections and panics - and the window still worked. That's weather a short streak has never seen.",
+          "So 90% profitable across 20 years beats 100% across 5, almost every time.",
           "And even the strong ones owe you an off year now and then."
         ],
         "pointer": ""
@@ -169,10 +189,10 @@ export const LESSONS = [
         "title": "Stress-Test the Years",
         "lead": "Let's push on one and see if it holds.",
         "bullets": [
-          "Find the years buttons in the control bar above the chart - the exact numbers change with each pattern.",
-          "It opens on 10.",
-          "Click a higher one - now you're asking more of it.",
-          "% Profitable still holds up? That one's solid."
+          "Open the year selector in the control bar above the chart - it opens on 10.",
+          "The menu only offers as many years as the stock actually has. A young stock might top out at 6 or 8 - that's not an error, that's its whole life so far. Shorter record, higher bar.",
+          "Pick the biggest number it offers - now you're asking everything of it.",
+          "% Profitable still holds at full depth? That one's solid."
         ],
         "pointer": ""
       }
@@ -180,21 +200,21 @@ export const LESSONS = [
   },
   {
     "day": 5,
-    "theme": "Midterm Years Run Their Own Playbook",
-    "tease": "midterm years run their own playbook",
+    "theme": "The Market's Four-Year Clock",
+    "tease": "the market's four-year clock, and where this year sits",
     "screens": [
       {
-        "title": "2026 Isn't Just Any Year",
-        "lead": "Markets watch the election calendar, and it runs on a four-year clock. 2026 is a midterm year, and some opportunities mostly show their face in years like this.",
+        "title": "Where {year} Sits on the Clock",
+        "lead": "Markets watch the election calendar, and it runs on a four-year clock: election year, then three years that each have their own personality. {year} is {cyclePhrase}.",
         "bullets": [
-          "Same rhythm, every cycle.",
+          "Some opportunities mostly show their face in years like this one - same spot on the clock, every cycle.",
           "It's a tendency, not a guarantee - never forget that part."
         ],
         "pointer": ""
       },
       {
         "title": "Let the Filter Find Them",
-        "lead": "Flip the {peLabel} checkbox and the table keeps only the midterm-type years, surfacing the names built for a year like this.",
+        "lead": "Flip the {peLabel} checkbox above the table and it keeps only the years that sit where {year} sits, surfacing the names built for a year like this.",
         "bullets": [
           "Short list comes back? That's normal. It's a stricter test.",
           "Empty on the Dow? Try the S&P 500.",
@@ -207,7 +227,7 @@ export const LESSONS = [
         "lead": "Try it now.",
         "bullets": [
           "Click the {peLabel} checkbox above the table.",
-          "Watch the list redraw to midterm years only.",
+          "Watch the list redraw to only the years that sit where {year} sits.",
           "Fewer rows is the point, not a bug.",
           "Click one and size it up like Day 4."
         ],
@@ -222,29 +242,29 @@ export const LESSONS = [
     "screens": [
       {
         "title": "Found a Keeper? Save It",
-        "lead": "When the one on your chart clears your bar - won often, steady, plenty of years behind it - don't let it scroll away. Tap the + above the chart and it's yours.",
+        "lead": "When the one on your chart clears your bar - won often, steady, plenty of years behind it - don't let it scroll away. Tap the + above the chart and it goes into your portfolio.",
         "bullets": [
-          "Your saved ones stick around after the trial ends.",
+          "Your portfolio is your shortlist. It holds every opportunity you save, and it sticks around after the trial ends.",
           "Saving isn't me telling you to buy. It's your shortlist, your call."
         ],
         "pointer": ""
       },
       {
-        "title": "Don't Miss the Window",
-        "lead": "A seasonal opportunity only counts once its window actually opens. So set a reminder on it and let the app watch the calendar for you.",
+        "title": "Then Let the App Watch the Calendar",
+        "lead": "A seasonal opportunity only counts once its window actually opens. That's what the Notify me bell above the chart is for.",
         "bullets": [
-          "Find your saved one in the Opportunities Manager and set its reminder.",
-          "It pings you the day the window opens - then forget about it until then."
+          "One click saves it to your Notifications portfolio and puts the window's open and close dates on your calendar.",
+          "You get pinged the day the window opens - then forget about it until then."
         ],
         "pointer": ""
       },
       {
-        "title": "Save One, Set a Reminder",
+        "title": "Save One, Bell One",
         "lead": "Do both on one you like.",
         "bullets": [
           "Click a row to load an opportunity worth keeping onto the chart.",
-          "Tap the + above the chart to save it.",
-          "Open the Opportunities Manager and set its reminder.",
+          "Tap the + above the chart to save it to your portfolio.",
+          "Hit Notify me so the window can't slip past you.",
           "Don't have a favorite yet? Save any solid one to practice."
         ],
         "pointer": ""
@@ -257,37 +277,57 @@ export const LESSONS = [
     "tease": "the hundred-year window - go see it yourself",
     "screens": [
       {
-        "title": "The Hundred-Year SPX Window",
-        "lead": "Last one, and it's my favorite. There's a single window on the S&P 500 that has gone up in nearly every cycle for the better part of a century.",
+        "title": "The Hundred-Year Window",
+        "lead": "Last lesson, and it's my favorite. There is one window on the S&P 500 that has come back, cycle after cycle, for the better part of a century.",
         "bullets": [
-          "Almost a hundred years of cycles, and this one keeps showing up.",
-          "Rare and steady - but still a habit, not a promise. It's had losing years too, and you'll see them."
+          "Wars, crashes, a dozen recessions, more than a dozen presidents - and this one window keeps showing up.",
+          "Rare and steady - but still a habit, not a promise. It's had losing years, and you'll see them on the chart yourself."
         ],
         "pointer": ""
       },
       {
         "title": "Now You Can Judge It Yourself",
-        "lead": "This is the whole week in one move: find it, read the record, judge it, save it. You've got the tools now.",
+        "lead": "This is the whole week in one move: find it, read the window, count the reds, check the numbers, save it. You've got all the tools now.",
         "bullets": [
-          "% Profitable for how often. SR and the red years to keep you honest.",
-          "Remember - 90% across 17 years beats a perfect 3 out of 3, almost every time."
+          "% Profitable for how often. Sharpe for how rough the ride. The red years to keep you honest.",
+          "And depth above everything - 90% across 20 years beats perfect across 5, almost every time."
         ],
         "pointer": ""
       },
       {
-        "title": "Go See the SPX Window",
-        "lead": "Go run it yourself, then go hunt.",
+        "title": "Go See It, Then Go Hunt",
+        "lead": "Run it yourself, then go find your own.",
         "bullets": [
           "Open the S&P 500 (SPX) index.",
-          "Find the midterm window with the {peLabel} filter.",
+          "Find the long window with the {peLabel} filter on.",
           "Read its red years on the bar chart, then its % Profitable and SR {statsAt}.",
-          "Save it, set the bell - and then go find your own."
+          "Save it, hit Notify me - and then go hunt."
         ],
         "pointer": ""
       }
     ]
   }
 ];
+
+// ---------------------------------------------------------------------
+// TRIAL_CLOSE_SCREEN ("Onboarding Lessons v2") - the closing screen tied to the
+// TRIAL clock, not the lesson counter. Appended dynamically by LessonBox to
+// whatever lesson day the user is on when getTrialState().onTrial &&
+// daysRemaining <= 1 - see the file header + LessonBox.js for the mechanics.
+// `cta.action`: 'conversion-card' -> LessonBox dispatches window CustomEvent
+// 'tw-open-conversion-card' (App.js opens the existing TrialConversionCard).
+// ---------------------------------------------------------------------
+export const TRIAL_CLOSE_SCREEN = {
+  "title": "Before This Window Closes",
+  "lead": "One more honest read, and this time it's about you: your 7 days of full access end today.",
+  "bullets": [
+    "Explorer stays free forever - the Dow list, 10 years of depth, one saved opportunity, and Tara.",
+    "If this week earned a spot in your routine, keep exactly what you used and nothing more. The button below reads your week and names the smallest plan that covers it.",
+    "We won't point you at the big plan if your week says you don't need it. Same rule as the charts: the record decides."
+  ],
+  "pointer": "",
+  "cta": { "label": "Show me my week, measured", "action": "conversion-card" }
+};
 
 export const TOTAL_LESSON_DAYS = LESSONS.length;
 export function getLesson(day) {

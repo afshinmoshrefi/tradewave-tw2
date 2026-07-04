@@ -52,6 +52,64 @@ COPY/READABILITY PASS (done)
 DEPLOY
 - React change only: build via `npm run build` (carries PUBLIC_URL=/app/), never raw react-scripts build; deploy by symlink-swap per ops/deploy.sh. gunicorn restart not needed (no Python change). No new appserver/gateway calls - the box is pure client state.
 
+## Gating v2 (2026-07-04)
+
+**The bug.** `getOnboardingDay()` unconditionally seeded `localStorage.tw_onboard_started_at`
+with today's date the first time it was ever called with no existing value. Every
+pre-existing logged-in account lacked that key (it's a client-side-only value, wiped by any
+browser/profile change too), and App.js called `getOnboardingDay()` on every login - so any
+existing user, on any new browser, was silently enrolled as a brand-new Day-1 onboarding
+target and started getting the LessonBox auto-popping daily.
+
+**The fix - eligibility + enrollment, decoupled from the day counter.**
+- Server: `web/app.py` (the `/app/` React-shell route, alongside the existing
+  `window.current_user_id` injection) now also injects `window.current_user_created_at`, a
+  date-only ISO string (e.g. `"2026-06-30"`) from `users.created_at`. Empty string if
+  unavailable.
+- `onboarding.js` adds:
+  - `getAccountAgeDays()` - calendar-day age from the injected created-date to today; `null`
+    if the date is missing/unparseable.
+  - `isAutoArcEligible()` - true only when the age is known AND `<= 7`. **Fails safe**: an
+    unknown age is never eligible, so a missing/broken server value can never silently
+    auto-enroll anyone.
+  - `isEnrolled()` / `setEnrolled()` - new per-user localStorage flag `tw_lesson_enrolled`,
+    now the single master gate for all auto-open/arc behavior. `isOnboardingArcActive()`
+    requires it first.
+  - `enrollNow()` - the one function that actually opts a user in: sets enrolled, seeds a
+    FRESH `tw_onboard_started_at` (today), and resets `tw_lesson_lastopened` + every
+    `tw_lesson_screen_<day>` key, so enrollment always starts clean at Day 1 regardless of
+    any earlier state.
+  - `clearTipsDismissed()` - the unmute counterpart to `setTipsDismissed()`.
+  - `getOnboardingDay()` no longer seeds `tw_onboard_started_at` for an unenrolled user - it
+    returns 0 (inactive) instead.
+- App.js's login effect no longer blindly calls `getOnboardingDay()` to seed the counter. It
+  now auto-enrolls ONLY a genuinely new signup: `isAutoArcEligible() && !isEnrolled() &&
+  !isTipsDismissed()` -> `enrollNow()`. An existing user is never auto-enrolled here.
+- **Existing-user invite (LessonBox.js).** A logged-in user who is not enrolled and not
+  dismissed gets, once ever (`tw_lesson_inviteseen`), a lightbulb pulse + small opt-in bubble
+  instead of any auto-open: "New: 7 quick daily lessons on reading seasonal patterns. Want the
+  tour?" with **Start the tour** (enrolls + opens Day 1) and **No thanks** (marks the invite
+  seen; does NOT mute - the lightbulb stays quiet and available). Clicking the lightbulb
+  itself while unenrolled has the same effect as "Start the tour" (opening on demand reads as
+  intent). The desktop toolbar lightbulb (DesktopLayout.js) shows the same invite via a
+  `tw-lessonbox-invite` window event, reusing its existing anchored-callout mechanics.
+- **Mute / unmute control.** The open LessonBox panel's footer utility row now has a
+  "Stop daily pop-ups" link (calls the existing `setTipsDismissed()`, closes the panel, and
+  shows a one-time "Muted. Your lessons stay right here whenever you want them." confirmation
+  bubble instead of the normal reopen hint) and, while dismissed, a "Turn daily pop-ups back
+  on" link in the same spot (`clearTipsDismissed()`, and `enrollNow()` too if the user was
+  never enrolled). Muting never hides the lightbulb and never wipes lesson progress.
+- **Retroactive cleanup is implicit.** Users wrongly auto-enrolled in the days before this
+  fix have a stale `tw_onboard_started_at` but never got the (newly-introduced)
+  `tw_lesson_enrolled` flag. Since every auto-open path now requires `isEnrolled()` first,
+  they are automatically treated as not-enrolled and stop getting daily popups - they see the
+  one-time invite instead, same as any other existing user.
+- Retained unchanged: the lesson deck content (`onboardingLessons.js`), the day-keyed
+  navigation/paging spec above, the drag/position/hint mechanics, and the
+  `SubscriptionWelcomeModal` -> `tw-lessonbox-open` handoff (its only trigger is an explicit
+  "Start the 7-Day Lessons" / "Show Me Around" button click - user intent, so it enrolls and
+  opens regardless of the age window, same as the lightbulb-while-unenrolled case).
+
 ## THE DECK
 
 ### Day 1 - What This App Does and Why It Helps You
@@ -144,3 +202,107 @@ _Try it: Find % Wins and SR on the window and say what each one tells you._
 **[3] Try It Now - Find, Check, and Save One Pattern**
 Time to drive. Here is the full loop in your own hands. Pick a market at the top. Scan the table for a pattern that starts today. Click a row to open it on the chart. Check the win number and the steadiness, and look at the years it lost too. If you are unsure, ask Tara - she reads the real numbers in plain words and never makes them up. When you find one you trust, save it and set a reminder so it pings you when its window opens. Saved patterns stay with you even after the trial ends. You now know how to find, check, trust, and keep a seasonal pattern. That is the whole skill. The box is always right here under the lightbulb whenever you want a refresher. Nice work.
 _Try it: Save one pattern you trust and turn on its reminder._
+
+---
+
+## v2 (2026-07-04) - Onboarding Lessons v2 (SUPERSEDES "THE DECK" above)
+
+**Source of truth for the exact copy is `web-react/src/components/onboardingLessons.js`
+(and `TRIAL_CLOSE_SCREEN` in the same file) - this section documents what changed and
+why, matching the owner-approved proposal at `docs/ONBOARDING_LESSONS_V2_PROPOSAL.md`.
+The "THE DECK" text above is v1 and is stale/superseded; do not use it as copy source.**
+Voice rules unchanged: human, confident, honest, no advice, no em-dashes (use " - ").
+Navigation/paging/dismiss/reopen mechanics above are all UNCHANGED by v2.
+
+### What changed, by day
+- **Day 1** screens 2 and 4 rewritten: screen 2 adds the "you're on full access all
+  week, use it hard" bullet (sets up the Day 7 close honestly); screen 4 plants the
+  Day-4 depth argument early ("deeper history... Depth is a theme we'll come back to").
+  Screens 1 and 3 unchanged.
+- **Day 2** unchanged (all 3 screens).
+- **Day 3** screen 1 rewritten to match the real bordered MM-DD date box in the control
+  bar (was previously vaguer "the line right above it"). Screens 2 and 3 unchanged. The
+  **{statsIntro}/{statsOpen}/{statsAt}** DEVICE-AWARE fill strings (rendered by
+  LessonBox.fill(), used on Days 3/4/7) were corrected on **desktop** to match the real
+  control: the Wave Stats table opens from the **middle of 3 dots above the bottom
+  chart, on its right side** (two white, one red = the active view) - NOT "below the bar
+  chart" as v1 said. Mobile strings (swipe-based) are unchanged.
+- **Day 4** screens 2 and 3 rewritten. Screen 2 ("A Short Streak Is Still a Short
+  Streak") replaces the old "Three Years Proves Nothing" - drops the invented "3 out of
+  3" scenario and anchors the contrast to the app's real numbers: the 10-year default
+  and the 5-year minimum the app actually offers, vs. 20 years of real weather (crashes,
+  rate hikes, elections, panics). Screen 3 ("Stress-Test the Years") now explains that
+  the year-selector menu only offers as many years as the stock actually HAS (a young
+  stock may top out at 6 or 8 - not an error, its whole life so far), instead of
+  assuming a fixed 10/15/17/20 button set. Screen 1 unchanged.
+- **Day 5 - fully rewritten and made YEAR-AGNOSTIC.** New theme: **"The Market's
+  Four-Year Clock"**; new tease: **"the market's four-year clock, and where this year
+  sits"**. All 3 screens rewritten around two new LIVE tokens (see below):
+  {year} and {cyclePhrase}. No more hardcoded "2026" / "midterm year" / "PE+2 only" -
+  this day now reads correctly in 2027, 2028, and every year after with zero
+  maintenance.
+- **Day 6 - fully rewritten**, same theme/tease text as before ("Keep the Good Ones,
+  Catch the Window"). Now names the REAL affordances by name: the **+ button** above
+  the chart (save to portfolio, not a "save star") and the **Notify me bell** above the
+  chart (which saves to the Notifications portfolio AND puts the window's open/close
+  dates on the calendar - not a generic "reminder").
+- **Day 7** screens 1-3 polished to carry the book's title ("The Hundred-Year Window,
+  Then the Hunt" - theme/tease unchanged). Screen 3 points at the **+ button** and
+  **Notify me** by name, matching Day 6. Day 7 also grows a 4th screen - see
+  TRIAL_CLOSE_SCREEN below (the renderer already adapts to screens.length; Day 1 has
+  always had 4).
+
+### New live tokens ({year} / {cyclePhrase})
+Computed in `LessonBox.js`'s `fillTokens()`, right beside the existing `{peLabel}`
+switch, off the same `(new Date().getFullYear() % 4)`:
+```
+{year}        ->  the current year as a string, e.g. "2026"
+{cyclePhrase} ->  0: "an election year"       (PE)
+                  1: "a post-election year"   (PE+1)
+                  2: "a midterm year"         (PE+2)
+                  3: "a pre-election year"    (PE+3)
+```
+Article is included in the phrase so "a/an" is always grammatically correct. These are
+usable in any lesson string, same as `{peLabel}`/`{dateRange}`/`{statsIntro}`/
+`{statsOpen}`/`{statsAt}`.
+
+### The trial-close screen (Day 7 growing a 4th screen - or wherever the trial actually ends)
+`TRIAL_CLOSE_SCREEN` ("Before This Window Closes") is exported separately from the
+`LESSONS` array in `onboardingLessons.js` - it is **not** statically Day 7 screen 4.
+Instead, `LessonBox.js`'s `screensAt(n)` appends it (via `.concat()`, never mutating the
+underlying array) to whichever lesson day the user's LIVE progress (`liveDay`, from
+`getOnboardingDay()`) is on, whenever:
+```
+getTrialState().onTrial && daysRemaining <= 1
+```
+This rides the TRIAL clock, not the lesson counter - a user who signed up but first
+logged in on day 3 hits trial-end at lesson Day 5, and the closing screen appends to
+Day 5 for them, not to a Day 7 they may not reach before the trial ends. It never
+appends for a paying subscriber or a user whose trial already lapsed to Explorer
+(`onTrial` is false in both cases), and it disappears again on its own once the trial
+state changes (converted or lapsed) - no separate "seen" flag needed. The progress
+rail, Back/Next, and "Done" button all adapt automatically since they key off
+`screens.length`, exactly as Day 1's 4th screen already worked.
+
+The screen carries a `cta` field: `{ label: "Show me my week, measured", action:
+"conversion-card" }`. `LessonBox.js` renders any screen's `cta` as a prominent button
+(the same premium-dark violet gradient used by the existing "Open Tara for me"
+button) below its bullets. Clicking it:
+1. logs `logEvent('persona', { stage: 'trial_close_cta' })`,
+2. dispatches `window.dispatchEvent(new CustomEvent('tw-open-conversion-card'))`,
+3. closes the LessonBox with standard bookkeeping (`closeBoxCore()` - same as the mute
+   flow - no reopen-hint pulse/bubble, since the user is being handed off elsewhere).
+
+`App.js` listens for `tw-open-conversion-card` and shows the existing
+`TrialConversionCard` (the usage-measured "Your 7 Days, Measured" card) **even if**
+`hasConversionShown()` is already true - an explicit click always works - and marks
+`setConversionShown()` afterward so it does not also cause a redundant auto-fire later.
+
+### Conversion-card auto-fire trigger also moved to the trial clock
+`App.js`'s automatic conversion-card effect (separate from the explicit CTA above) now
+fires primarily on `getTrialState().onTrial && daysRemaining <= 1`, the same condition
+as the lesson-box screen, so the card and the closing lesson screen always agree on
+"today is the day." The old `getOnboardingDay() >= 7` check survives ONLY as a fallback
+for edge users with no trial metadata at all (`window.tw2_trial_ends_at` unset), so
+existing behavior for those edge cases is not lost. The lapsed-to-Explorer branch and
+the per-user `hasConversionShown()` show-once gating are unchanged for auto-fires.

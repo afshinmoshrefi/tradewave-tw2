@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { themeColors, lsGet, lsSet } from './Common';
-import { getOnboardingDay, isTipsDismissed, logEvent, getLessonDay, setLessonDay } from './onboarding';
-import { LESSONS } from './onboardingLessons';
+import { getOnboardingDay, getTrialState, isTipsDismissed, setTipsDismissed, clearTipsDismissed, isEnrolled, enrollNow, isAutoArcEligible, logEvent, getLessonDay, setLessonDay } from './onboarding';
+import { LESSONS, TRIAL_CLOSE_SCREEN } from './onboardingLessons';
 import { FaAngleLeft, FaAngleRight, FaCheck } from 'react-icons/fa';
 
 // =====================================================================
@@ -13,12 +13,16 @@ import { FaAngleLeft, FaAngleRight, FaCheck } from 'react-icons/fa';
 // component is safe to ALWAYS mount and self-manages open/closed via its own
 // per-user localStorage state.
 //
-// Specs implemented verbatim from docs/ONBOARDING_LESSONS_LOCKED.md:
-//   - Day-keyed via getOnboardingDay() (1..7, clamped). Auto-opens ONCE per
-//     new calendar day to screen 1 (furthest day tracked in tw_lesson_lastopened).
-//     Same-day reopen restores the last screen viewed (tw_lesson_screen_<day>).
-//     A "where am I" line: "Day N of 7 - new lesson today" vs "picking up where
-//     you left off" vs "all caught up".
+// Specs implemented verbatim from docs/ONBOARDING_LESSONS_LOCKED.md, PLUS
+// Gating v2 (2026-07-04, see onboarding.js and the "Gating v2" doc section):
+//   - ALL auto-open behavior is gated on isEnrolled() first (tw_lesson_enrolled).
+//     A user who is not enrolled NEVER gets auto-opened - see the "existing-user
+//     invite" bullet below.
+//   - Day-keyed via getOnboardingDay() (1..7, clamped). While enrolled, auto-opens
+//     ONCE per new calendar day to screen 1 (furthest day tracked in
+//     tw_lesson_lastopened). Same-day reopen restores the last screen viewed
+//     (tw_lesson_screen_<day>). A "where am I" line: "Day N of 7 - new lesson
+//     today" vs "picking up where you left off" vs "all caught up".
 //   - Usually 3 screens/day (Day 1 has 4); the progress rail + Back/Next adapt
 //     to the count. Back HIDDEN on screen 1. The last screen's button is "Done":
 //     on any day but the last it shows an "End of Day N / Beginning of Day N+1"
@@ -33,10 +37,32 @@ import { FaAngleLeft, FaAngleRight, FaCheck } from 'react-icons/fa';
 //   - Draggable by the header; position persisted (tw_lesson_pos) with a
 //     snap-back-to-center safety; never covers the whole screen; clear (x).
 //   - (x) collapses to a small premium lightbulb pinned where the old Tara
-//     launcher sat. FIRST ever close pulses once + one-time "Your lessons live
-//     here" bubble (tw_lesson_hintseen). Lightbulb RESUMES exactly where left
+//     launcher sat. First several closes pulse once + a "Your lessons live
+//     here" bubble (tw_lesson_close_count). Lightbulb RESUMES exactly where left
 //     off, never restarts. Respects tw_onboard_dismissed (stays closed, but the
 //     lightbulb still reopens on demand).
+//   - EXISTING-USER INVITE (Gating v2): a logged-in user who is NOT enrolled and
+//     NOT dismissed gets, ONCE ever (tw_lesson_inviteseen), a lightbulb pulse +
+//     small opt-in bubble instead of any auto-open - "Start the tour" enrolls
+//     and opens Day 1; "No thanks" just marks the invite seen (lightbulb stays
+//     quiet and available). Clicking the lightbulb itself while unenrolled has
+//     the same effect as "Start the tour" (see reopenBox).
+//   - MUTE / UNMUTE (Gating v2): a footer link in the open panel - "Stop daily
+//     pop-ups" calls setTipsDismissed() and closes with a one-time "Muted..."
+//     confirmation bubble; "Turn daily pop-ups back on" (shown instead, while
+//     dismissed) calls clearTipsDismissed() (and enrollNow() if not already
+//     enrolled). Muting never hides the lightbulb or wipes progress.
+//   - TRIAL CLOSE SCREEN (Onboarding Lessons v2, 2026-07-04): rides the TRIAL
+//     clock, not the lesson counter. screensAt() appends TRIAL_CLOSE_SCREEN
+//     (onboardingLessons.js) to whichever day the user's LIVE progress is on
+//     whenever getTrialState().onTrial && daysRemaining <= 1 - so a late
+//     starter whose trial ends on lesson Day 5 gets it there, not only on Day
+//     7. Built via .concat() each render (never mutates LESSONS), so it never
+//     doubles up and never shows for a payer or a lapsed-to-Explorer user
+//     (onTrial is false in both cases). Its `cta` field renders a button;
+//     clicking it dispatches window CustomEvent 'tw-open-conversion-card'
+//     (App.js shows the existing TrialConversionCard) and closes the box with
+//     standard bookkeeping (no reopen-hint bubble - see handleCtaClick).
 //
 // Props:
 //   UITheme  'dark' | 'light' (we render premium-dark either way)
@@ -48,9 +74,11 @@ import { FaAngleLeft, FaAngleRight, FaCheck } from 'react-icons/fa';
 // All persisted keys are PER-USER: lsGet/lsSet (Common.js) prefix the key with
 // window.current_user_id, the same scoping onboarding.js uses for its cookies.
 // Keys: tw_lesson_lastopened (int day), tw_lesson_screen_<day> (0..N),
-//        tw_lesson_pos ({x,y}), tw_lesson_hintseen (bool). Plus the per-user
-//        cookie tw_lesson_day (last-viewed day, owned by onboarding.js) so a
-//        reopen lands on the day the user was last reading.
+//        tw_lesson_pos ({x,y}), tw_lesson_close_count (int), tw_lesson_inviteseen
+//        (bool, one-time existing-user invite). Plus the per-user cookie
+//        tw_lesson_day (last-viewed day, owned by onboarding.js) so a reopen
+//        lands on the day the user was last reading, and tw_lesson_enrolled /
+//        tw_onboard_dismissed (both owned by onboarding.js - see Gating v2).
 // =====================================================================
 
 // ---- live PE label (matches OppTable.js:72-86 exactly) ---------------
@@ -68,8 +96,31 @@ const livePELabel = () => {
   } catch (e) { return 'PE+2'; }
 };
 
-// Fill the {peLabel} token in any lesson string with the live label.
-const fillTokens = (s) => (typeof s === 'string' ? s.split('{peLabel}').join(livePELabel()) : s);
+// ---- live {year} / {cyclePhrase} ("Onboarding Lessons v2") -----------
+// Computed beside the {peLabel} switch above, off the same (year % 4), so
+// Day 5 is fully year-agnostic - it reads correctly in 2027, 2028, forever.
+// Article is included in the phrase so "a/an" is always right.
+const liveYear = () => {
+  try { return String(new Date().getFullYear()); } catch (e) { return String(new Date().getFullYear()); }
+};
+const liveCyclePhrase = () => {
+  try {
+    switch (new Date().getFullYear() % 4) {
+      case 0: return 'an election year';
+      case 1: return 'a post-election year';
+      case 2: return 'a midterm year';
+      case 3: return 'a pre-election year';
+      default: return 'a midterm year';
+    }
+  } catch (e) { return 'a midterm year'; }
+};
+
+// Fill the {peLabel}/{year}/{cyclePhrase} tokens in any lesson string with their live values.
+const fillTokens = (s) => (typeof s === 'string'
+  ? s.split('{peLabel}').join(livePELabel())
+      .split('{year}').join(liveYear())
+      .split('{cyclePhrase}').join(liveCyclePhrase())
+  : s);
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -91,13 +142,13 @@ const LessonBox = (props) => {
   //    SWIPE LEFT to the Wave Stats view (there is no "below the chart").
   const statsIntro = isMobile
     ? 'The chart panel swipes between views - swipe left until the stats table comes up (Wave Stats).'
-    : "Now look just below the bar chart - see the three little dots? Click the middle one to bring up the stats table (it turns red when you're on it).";
+    : 'Now look just above the bottom chart, on its right side - three small dots, two white and one red. The red one is the view you\'re on now. Click the middle dot - that opens the Wave Stats table.';
   const statsOpen = isMobile
     ? 'Swipe left to the stats table - the Wave Stats view'
-    : 'Pull up the stats panel below the bar chart - the middle dot';
+    : "Click the middle of the three dots above the bottom chart, on its right side - that's the Wave Stats table";
   const statsAt = isMobile
     ? 'in the stats panel (swipe left to it)'
-    : 'in the stats panel (the middle dot)';
+    : 'behind the middle dot above the bottom chart';
 
   const fill = (s) => (typeof s === 'string'
     ? fillTokens(s)
@@ -111,11 +162,35 @@ const LessonBox = (props) => {
   // lesson, since the chatbot icon is desktop-only). Days index by POSITION. ---
   const deck = isMobile ? LESSONS.filter((d) => !d.desktopOnly) : LESSONS;
   const lessonAt = (n) => deck[clamp(parseInt(n, 10) || 1, 1, deck.length) - 1] || {};
-  const screensAt = (n) => { const L = lessonAt(n); return Array.isArray(L.screens) ? L.screens : []; };
 
   // ---- live day (1..N), clamped + bounds-safe -------------------------
   const totalDays = deck.length || 7;
   const liveDay = clamp(getOnboardingDay() || 1, 1, totalDays);
+
+  // ---- TRIAL CLOSE SCREEN gate ("Onboarding Lessons v2", 2026-07-04) ---
+  // True only for an ACTIVE trial with <= 1 day left - false for a payer (no
+  // trial-end at all) and false for a lapsed-to-Explorer user (trial already
+  // over), because getTrialState().onTrial is false in both those cases. This
+  // is what keeps a paying subscriber from ever seeing the sale screen.
+  const trialClosing = (() => {
+    try {
+      const ts = getTrialState();
+      return !!(ts && ts.onTrial && typeof ts.daysRemaining === 'number' && ts.daysRemaining <= 1);
+    } catch (e) { return false; }
+  })();
+
+  // screensAt() appends TRIAL_CLOSE_SCREEN to whichever day the user's LIVE
+  // progress (liveDay) is on - a late starter whose trial ends on lesson Day 5
+  // gets it appended there, not hardcoded to Day 7. Built fresh via .concat()
+  // (never mutates the shared LESSONS/day.screens array), so it is never
+  // appended twice and never lingers once trialClosing goes false (converted,
+  // lapsed, or not a trial user at all).
+  const screensAt = (n) => {
+    const L = lessonAt(n);
+    const base = Array.isArray(L.screens) ? L.screens : [];
+    if (trialClosing && (parseInt(n, 10) || 0) === liveDay) return base.concat([TRIAL_CLOSE_SCREEN]);
+    return base;
+  };
 
   // ---- core view state ------------------------------------------------
   // open      box visible vs collapsed-to-lightbulb.
@@ -133,6 +208,9 @@ const LessonBox = (props) => {
   const [transition, setTransition] = useState(null); // between-days card {from,to}
   const [pulse, setPulse] = useState(false); // first-close lightbulb pulse
   const [showHint, setShowHint] = useState(false); // one-time "Your lessons live here" bubble
+  const [showInvite, setShowInvite] = useState(false); // one-time existing-user opt-in invite
+  const [showMuteMsg, setShowMuteMsg] = useState(false); // one-time "Muted" confirmation bubble
+  const [dismissed, setDismissed] = useState(() => isTipsDismissed()); // mirrors tw_onboard_dismissed for reactive mute/unmute UI
 
   // ---- drag position --------------------------------------------------
   // null => centered (default). {x,y} => persisted top-left, viewport-clamped.
@@ -214,6 +292,35 @@ const LessonBox = (props) => {
         }
       }
     } catch (e) { /* default centered */ }
+
+    // Gating v2: enrollment is the master switch for ALL auto-open behavior.
+    // Auto-enroll a GENUINE new user right here, at decision time - App.js also
+    // does this on login, but its effect runs AFTER this child's mount effect
+    // (React runs child effects first), so relying on it alone would make every
+    // new user's first load fall through to the invite instead of the Day-1
+    // welcome. Eligibility reads window.current_user_created_at, which the
+    // server injects into the page head, so it is available synchronously.
+    if (!isEnrolled() && isAutoArcEligible() && !isTipsDismissed()) {
+      enrollNow();
+    }
+    // Still unenrolled => existing user (or unknown created_at - fails safe).
+    // Never auto-open - instead, once ever, offer a small non-blocking invite
+    // to start the tour (logged-in users only). This is also what makes the
+    // retroactive cleanup work: users wrongly enrolled before this fix have a
+    // stale tw_onboard_started_at but no tw_lesson_enrolled, so they land here.
+    if (!isEnrolled()) {
+      setOpen(false);
+      const uid = (typeof window !== 'undefined' && window.current_user_id) ? String(window.current_user_id) : '';
+      if (uid && !isTipsDismissed() && lsGet('tw_lesson_inviteseen', null) !== '1') {
+        lsSet('tw_lesson_inviteseen', '1'); // one-time: mark seen the moment it is shown
+        setShowInvite(true);
+        setPulse(true);
+        try { window.dispatchEvent(new CustomEvent('tw-lessonbox-invite')); } catch (e) { /* noop */ }
+        after(() => setPulse(false), 2600);
+        after(() => setShowInvite(false), 9000);
+      }
+      return;
+    }
 
     const d = clamp(getOnboardingDay() || 1, 1, totalDays);
     const lastOpened = parseInt(lsGet('tw_lesson_lastopened', 0), 10) || 0;
@@ -316,16 +423,24 @@ const LessonBox = (props) => {
   const snapToCenter = () => { setPos(null); lsSet('tw_lesson_pos', null); };
 
   // ---- close / reopen -------------------------------------------------
-  const closeBox = () => {
+  // Shared bookkeeping for any way the panel closes - remember the viewed day,
+  // clear the transient overlay state, collapse to the lightbulb. Split out of
+  // closeBox() so muteTips() can close WITHOUT also firing the standard
+  // reopen-hint bubble (it shows its own "Muted" confirmation instead).
+  const closeBoxCore = () => {
     setLessonDay(viewDay); // remember the day so reopening lands back here
     setShowLessons(false);
     setConfirmDone(false);
     setTransition(null);
     setOpen(false);
-    // First ever close: pulse the lightbulb once + one-time bubble.
-    // Show the "here's the reopen lightbulb" cue (toolbar pulse + anchored callout) on the
-    // first 5 closes only - after that the user knows where it is. The permanent toolbar
-    // bulb (with its hover tooltip) stays as the reopen affordance forever.
+  };
+
+  const closeBox = () => {
+    closeBoxCore();
+    // First several closes: pulse the lightbulb + show the "here's the reopen
+    // lightbulb" cue (toolbar pulse + anchored callout) - after that the user
+    // knows where it is. The permanent toolbar bulb (with its hover tooltip)
+    // stays as the reopen affordance forever.
     const closes = (parseInt(lsGet('tw_lesson_close_count', 0), 10) || 0) + 1;
     lsSet('tw_lesson_close_count', closes);
     if (closes <= 5) {
@@ -339,13 +454,78 @@ const LessonBox = (props) => {
 
   const reopenBox = () => {
     setShowHint(false);
+    setShowInvite(false);
     setPulse(false);
+    if (!isEnrolled()) {
+      // Explicit intent overrides the age-based auto-enroll window: clicking the
+      // lightbulb while unenrolled, accepting the invite's "Start the tour", or
+      // the SubscriptionWelcomeModal handoff all land here. Enroll now and open
+      // fresh at Day 1, screen 1.
+      enrollNow();
+      lsSet('tw_lesson_lastopened', 1);
+      writeSavedScreen(1, 0);
+      setLessonDay(1);
+      setMode('today');
+      setShowLessons(false);
+      setConfirmDone(false);
+      setTransition(null);
+      setViewDay(1);
+      setScreen(0);
+      setWhereTone('new');
+      setOpen(true);
+      logEvent('persona', { stage: 'lesson_invite_start', day: 1 });
+      return;
+    }
     // Reopen on the day they were last reading (tw_lesson_day cookie), never
     // forced back to today, never restarted.
     restoreSavedDay();
     setOpen(true);
     const d = clamp(getLessonDay() || getOnboardingDay() || 1, 1, totalDays);
     logEvent('persona', { stage: 'lesson_reopen', day: d });
+  };
+
+  // ---- one-time existing-user invite: "No thanks" ----------------------
+  // tw_lesson_inviteseen is already set at show-time (mount effect), so this
+  // just dismisses the UI - no further persistence needed. Does NOT mute
+  // (tw_onboard_dismissed): the lightbulb simply stays quiet and available.
+  const dismissInvite = () => {
+    setShowInvite(false);
+    setPulse(false);
+  };
+
+  // ---- mute / unmute daily pop-ups (the footer control in the open panel) ----
+  const muteTips = () => {
+    setTipsDismissed();
+    setDismissed(true);
+    closeBoxCore(); // close WITHOUT the standard reopen-hint bubble
+    setShowMuteMsg(true);
+    setPulse(true);
+    try { window.dispatchEvent(new CustomEvent('tw-lessonbox-muted')); } catch (e) { /* noop */ }
+    after(() => setPulse(false), 2600);
+    after(() => setShowMuteMsg(false), 7000);
+    logEvent('persona', { stage: 'lesson_muted', day: viewDay });
+  };
+
+  const unmuteTips = () => {
+    clearTipsDismissed();
+    setDismissed(false);
+    if (!isEnrolled()) enrollNow(); // resuming pop-ups for a never-enrolled user opts them in
+    logEvent('persona', { stage: 'lesson_unmuted', day: viewDay });
+  };
+
+  // ---- CTA screens ("Onboarding Lessons v2") - a screen with a `cta` field
+  // (currently only TRIAL_CLOSE_SCREEN) renders a prominent button below its
+  // bullets. 'conversion-card' hands off to the existing usage-measured
+  // TrialConversionCard (App.js owns the actual dialog + listens for this
+  // event); the box then closes with standard bookkeeping - no reopen-hint
+  // bubble, same as muteTips() - since the user is being handed somewhere else.
+  const handleCtaClick = (cta) => {
+    if (!cta) return;
+    logEvent('persona', { stage: 'trial_close_cta' });
+    if (cta.action === 'conversion-card') {
+      try { window.dispatchEvent(new CustomEvent('tw-open-conversion-card')); } catch (e) { /* noop */ }
+    }
+    closeBoxCore();
   };
 
   // ---- reopen from the toolbar lightbulb (desktop docks the bulb beside the
@@ -501,7 +681,30 @@ const LessonBox = (props) => {
       <>
         <style>{keyframes}</style>
         <div style={{ position: 'fixed', bottom: '78px', right: '14px', zIndex: 9100, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-          {showHint && (
+          {showInvite && (
+            <div style={{
+              maxWidth: '220px', background: C.plateGrad, color: C.text, border: '1px solid ' + C.edge,
+              borderRadius: '10px', padding: '11px 13px', fontSize: '12.5px', lineHeight: 1.4,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.5)', animation: 'twLbFade 240ms ease-out',
+            }}>
+              <div style={{ color: C.accentText, fontWeight: 700, marginBottom: '3px' }}>New: 7 Quick Daily Lessons</div>
+              <div style={{ marginBottom: '9px' }}>Learn to read seasonal patterns in a few minutes a day. Want the tour?</div>
+              <div style={{ display: 'flex', gap: '14px' }}>
+                <button type="button" className="tw-lb-link" style={{ color: C.accentText }} onClick={reopenBox}>Start the tour</button>
+                <button type="button" className="tw-lb-link" onClick={dismissInvite}>No thanks</button>
+              </div>
+            </div>
+          )}
+          {showMuteMsg && (
+            <div style={{
+              maxWidth: '200px', background: C.plateGrad, color: C.text, border: '1px solid ' + C.edge,
+              borderRadius: '10px', padding: '9px 12px', fontSize: '12.5px', lineHeight: 1.4,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.5)', animation: 'twLbFade 240ms ease-out',
+            }}>
+              Muted. Your lessons stay right here whenever you want them.
+            </div>
+          )}
+          {showHint && !showInvite && !showMuteMsg && (
             <div style={{
               maxWidth: '190px', background: C.plateGrad, color: C.text, border: '1px solid ' + C.edge,
               borderRadius: '10px', padding: '9px 12px', fontSize: '12.5px', lineHeight: 1.4,
@@ -789,8 +992,11 @@ const LessonBox = (props) => {
               ) : null}
 
               {Array.isArray(cur.bullets) && cur.bullets.length > 0 ? (
-                onScreen3 ? (
-                  // Try-it screen: numbered keycap steps in the well.
+                onScreen3 && !cur.cta ? (
+                  // Try-it screen: numbered keycap steps in the well. (A screen carrying
+                  // a `cta` - e.g. TRIAL_CLOSE_SCREEN - is the day's last screen too, but
+                  // its bullets are a plain honest read, not "try it" steps, so it keeps
+                  // the teaching-tick style below and gets its own button instead.)
                   <div style={{ marginTop: '2px', padding: '14px 14px 15px', borderRadius: '10px', background: C.well, border: '1px solid ' + C.edge, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
                     <div style={{ fontFamily: MONO, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.12em', color: C.violet, marginBottom: '8px', fontWeight: 700 }}>
                       {'// TRY IT NOW'}
@@ -845,6 +1051,18 @@ const LessonBox = (props) => {
                 </button>
               )}
 
+              {/* CTA screens ("Onboarding Lessons v2") - a prominent button below the
+                  bullets, matching the panel's premium-dark accent styling used above. */}
+              {cur.cta && (
+                <button
+                  type="button"
+                  onClick={() => handleCtaClick(cur.cta)}
+                  style={{ marginTop: '15px', width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'linear-gradient(135deg,' + C.violet + ',' + C.violetDeep + ')', color: C.ink, border: 'none', borderRadius: '9px', padding: '12px 18px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 16px rgba(124,92,224,0.45)' }}
+                >
+                  {cur.cta.label}
+                </button>
+              )}
+
               {confirmDone && (
                 <div style={{ marginTop: '12px', fontSize: '12.5px', lineHeight: 1.45, color: C.accentText }}>
                   Nice work - that is the last lesson. Everything lives under the lightbulb any time you want a refresher.
@@ -891,7 +1109,7 @@ const LessonBox = (props) => {
               </div>
 
               {/* quiet utility row */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '8px', flexWrap: 'wrap' }}>
                 {viewDay !== liveDay && (
                   <button className="tw-lb-link" onClick={resumeToToday}>Back to Today</button>
                 )}
@@ -900,6 +1118,11 @@ const LessonBox = (props) => {
                 )}
                 <span style={{ flex: 1 }} />
                 {pos && <button className="tw-lb-link" onClick={snapToCenter}>Recenter</button>}
+                {dismissed ? (
+                  <button className="tw-lb-link" onClick={unmuteTips} title="Resume the daily auto-open">Turn daily pop-ups back on</button>
+                ) : (
+                  <button className="tw-lb-link" onClick={muteTips} title="Keep reading here any time - just stop the daily auto-open">Stop daily pop-ups</button>
+                )}
               </div>
             </div>
           </div>

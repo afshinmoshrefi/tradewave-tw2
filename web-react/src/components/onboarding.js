@@ -10,15 +10,52 @@
 // (use " - "), confident evidence framing, short.
 //
 // State pieces this module owns:
-//   localStorage 'tw_onboard_started_at'  - ISO date of first login (seeds day counter)
+//   localStorage 'tw_onboard_started_at'  - ISO date the 7-day arc actually started (seeds day
+//                                           counter). ONLY seeded when the user is enrolled (or
+//                                           being enrolled via enrollNow()) - see Gating v2 below.
 //   localStorage 'tw_onboard_lastfired'   - YYYY-MM-DD of the last day a card fired
+//   localStorage 'tw_lesson_enrolled'     - '1' once the user has opted (or been auto-opted) into
+//                                           the 7-day lesson arc. THE gate for all auto-open/arc
+//                                           behavior (see Gating v2 below).
 //   cookie       'tw_welcomed'            - welcome modal shown (per-user)
 //   cookie       'tw_onboard_dismissed'   - whole arc muted (per-user)
 //   cookie       'tw_lesson_day'          - last-viewed lesson day (LessonBox reopen, per-user)
 //
 // Window globals (set by the server, already the EFFECTIVE values):
-//   window.tw2_user_tier      'explorer'|'navigator'|'analyst'|'strategist'
-//   window.tw2_trial_ends_at  ISO string while a reverse trial is active, else ''
+//   window.tw2_user_tier          'explorer'|'navigator'|'analyst'|'strategist'
+//   window.tw2_trial_ends_at      ISO string while a reverse trial is active, else ''
+//   window.current_user_created_at  date-only ISO string ('YYYY-MM-DD') of account creation,
+//                                    injected by web/app.py from users.created_at. Drives
+//                                    getAccountAgeDays()/isAutoArcEligible() below.
+//
+// ---------------------------------------------------------------------
+// Gating v2 (2026-07-04) - eligibility + enrollment model.
+//
+// THE BUG this replaced: getOnboardingDay() used to unconditionally seed
+// tw_onboard_started_at with TODAY the first time it was ever called with no
+// existing value - which happens for every logged-in user who lacks the key,
+// i.e. literally every pre-existing account (App.js called it on every
+// login). That silently enrolled every existing user as a brand-new Day-1
+// onboarding target, so the LessonBox auto-popped daily for people who had
+// been using the app for months.
+//
+// THE FIX: enrollment is now its own explicit, persisted flag
+// (tw_lesson_enrolled), and getOnboardingDay() no longer seeds anything for
+// an unenrolled user. Only two things ever enroll a user:
+//   1. App.js, on login, auto-enrolls a GENUINE new user: isAutoArcEligible()
+//      (account created <= 7 days ago) AND not already enrolled AND not
+//      dismissed. Fails safe: an unknown/unparseable created_at date is
+//      NEVER eligible (isAutoArcEligible() returns false), so a missing
+//      server value can never accidentally auto-enroll anyone.
+//   2. An explicit user action in LessonBox.js (clicking the lightbulb while
+//      unenrolled, "Start the tour" on the one-time invite bubble, or the
+//      SubscriptionWelcomeModal handoff) calls enrollNow() - user intent
+//      overrides the age window.
+// isOnboardingArcActive() (and anything else gating the daily arc) now
+// requires isEnrolled() first. This is also the retroactive fix for the
+// past week's wrongly-enrolled existing users: they have a stale
+// tw_onboard_started_at but never got the (newly-introduced) enrolled flag,
+// so every auto-open path now correctly treats them as not-enrolled.
 // =====================================================================
 
 import { lsGet, lsSet, getCookie, setCookie } from './Common';
@@ -51,17 +88,22 @@ const _todayStr = () => {
 };
 
 // ---------------------------------------------------------------------
-// Day counter - 1-based day since first login.
+// Day counter - 1-based day since the arc started.
 //
-// Seeds localStorage 'tw_onboard_started_at' (ISO date) on first call, then
-// returns the calendar-day delta + 1, so the first day is Day 1. Clamped to
-// the 7-day arc on the high end; never returns < 1.
+// Seeds localStorage 'tw_onboard_started_at' (ISO date) the first time it is
+// called for an ENROLLED user with no start date yet (see Gating v2 above -
+// enrollNow() normally seeds this itself, so that path is mostly a safety
+// net). An UNENROLLED user with no start date is not on the arc at all -
+// returns 0 (inactive) and seeds nothing. Otherwise returns the calendar-day
+// delta + 1, so the first day is Day 1, clamped to the 7-day arc on the high
+// end; never returns < 1 once a valid start date exists.
 // ---------------------------------------------------------------------
 export function getOnboardingDay() {
   let startedAt = lsGet('tw_onboard_started_at', null);
   const now = new Date();
 
   if (!startedAt) {
+    if (!isEnrolled()) return 0; // not on the arc - never silently seed/enroll
     startedAt = _todayStr();
     lsSet('tw_onboard_started_at', startedAt);
   }
@@ -269,6 +311,72 @@ export const TIER_INFO = {
 };
 
 // ---------------------------------------------------------------------
+// Account age + auto-enroll eligibility (Gating v2, 2026-07-04).
+//
+// getAccountAgeDays() reads the server-injected window.current_user_created_at
+// (date-only ISO string, e.g. '2026-06-30') and returns the CALENDAR-day
+// difference to today - 0 the day the account was created, 1 the next
+// calendar day, etc. Returns null whenever the date is missing or fails to
+// parse, so a server/window glitch reads as "unknown", never as "0 days old".
+// ---------------------------------------------------------------------
+export function getAccountAgeDays() {
+  let createdRaw = '';
+  try {
+    if (typeof window !== 'undefined') createdRaw = window.current_user_created_at || '';
+  } catch (e) { return null; }
+  if (!createdRaw) return null;
+
+  const _m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(createdRaw));
+  const created = _m
+    ? new Date(parseInt(_m[1], 10), parseInt(_m[2], 10) - 1, parseInt(_m[3], 10))
+    : new Date(createdRaw);
+  if (isNaN(created.getTime())) return null;
+
+  const now = new Date();
+  const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const delta = Math.round((nowDay - createdDay) / (24 * 60 * 60 * 1000));
+  return delta < 0 ? 0 : delta; // clock-skew safety - never a negative age
+}
+
+// Auto-enroll eligibility window: account age must be KNOWN and <= 7 days.
+// FAILS SAFE - an unavailable/unparseable created_at (getAccountAgeDays()
+// returns null) is NEVER eligible, so a missing server value can never
+// silently auto-enroll an existing user. This is the direct fix for the bug
+// where every pre-existing account without a start date read as brand new.
+export function isAutoArcEligible() {
+  const age = getAccountAgeDays();
+  return age !== null && age <= 7;
+}
+
+// ---------------------------------------------------------------------
+// Enrollment - the master gate for ALL auto-open / daily-arc behavior
+// (Gating v2, 2026-07-04). Per-user localStorage flag, set either by
+// App.js auto-enrolling a genuinely new user (isAutoArcEligible()) or by an
+// explicit user action in LessonBox.js (lightbulb click / invite accept /
+// welcome-modal handoff while unenrolled).
+// ---------------------------------------------------------------------
+export function isEnrolled() {
+  return lsGet('tw_lesson_enrolled', null) === '1';
+}
+
+export function setEnrolled() {
+  lsSet('tw_lesson_enrolled', '1');
+}
+
+// Opt a user into the arc RIGHT NOW: mark enrolled, seed a FRESH start date
+// (today), and reset the per-day progress markers so the arc always begins
+// cleanly at Day 1 - regardless of any earlier (possibly stale/wrong) state.
+export function enrollNow() {
+  setEnrolled();
+  lsSet('tw_onboard_started_at', _todayStr());
+  lsSet('tw_lesson_lastopened', 0);
+  for (let d = 1; d <= ONBOARDING_DAYS.length; d += 1) {
+    lsSet(`tw_lesson_screen_${d}`, 0);
+  }
+}
+
+// ---------------------------------------------------------------------
 // Seen / dismissed state - one-time, cookie-gated, per-user.
 //   tw_welcomed         - the welcome modal has been shown (never re-fires).
 //   tw_onboard_dismissed- the whole arc is muted ("Skip tips" / "Just browse"
@@ -291,6 +399,12 @@ export function isTipsDismissed() {
 
 export function setTipsDismissed() {
   setCookie(_scopedCookieName('tw_onboard_dismissed'), '1', 365);
+}
+
+// Unmute counterpart - overwrites the cookie rather than deleting it, so a stale
+// browser-cached '1' can never resurrect on a partial expiry.
+export function clearTipsDismissed() {
+  setCookie(_scopedCookieName('tw_onboard_dismissed'), '0', 365);
 }
 
 // Conversion card show-once - PER USER (not global). A global name let one account
@@ -326,9 +440,10 @@ export function setLessonDay(day) {
 // cards fire and whether the legacy Tara tips stay suppressed (vs the old approach of
 // permanently pinning tw_tara_tip_index, which killed the generic tips forever).
 export function isOnboardingArcActive() {
+  if (!isEnrolled()) return false; // Gating v2: enrollment is the master switch
   if (isTipsDismissed()) return false;
   const startedAt = lsGet('tw_onboard_started_at', null);
-  if (!startedAt) return true; // brand-new user, arc just starting
+  if (!startedAt) return true; // enrolled, start date not persisted yet (race) - arc is starting
   const _m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(startedAt));
   const start = _m
     ? new Date(parseInt(_m[1], 10), parseInt(_m[2], 10) - 1, parseInt(_m[3], 10))

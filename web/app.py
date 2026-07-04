@@ -1614,6 +1614,12 @@ def app_index():
     inject = (
         '<script>'
         f'window.current_user_id={_js_safe(user_id)};'
+        # Date-only ISO string (e.g. "2026-06-30") of account creation. Feeds the React
+        # onboarding gate (onboarding.js getAccountAgeDays/isAutoArcEligible): a genuinely
+        # new user (<=7 days old) auto-enrolls into the 7-day LessonBox arc, an existing
+        # user does not. '' when unavailable so the client fails safe (never auto-enrolls
+        # on missing data) - created_at has a server_default so this should always be set.
+        f'window.current_user_created_at={_js_safe(u.created_at.date().isoformat() if getattr(u, "created_at", None) else "")};'
         f'window.current_user_level={_js_safe(user_level)};'
         f'window.ltk={_js_safe(ltk)};'
         f'window.tw2_user_email={_js_safe(u.email)};'

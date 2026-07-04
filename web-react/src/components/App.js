@@ -14,7 +14,7 @@ import LessonBox from './LessonBox'
 import SubscriptionWelcomeModal, { decideSubscriptionWelcome, markSubscriptionWelcomed } from './SubscriptionWelcomeModal'
 import DaysRemainingPill from './DaysRemainingPill'
 import TrialConversionCard from './TrialConversionCard'
-import { getOnboardingDay, getTrialState, logEvent, hasWelcomed, setWelcomed, hasConversionShown, setConversionShown, isOnboardingArcActive } from './onboarding'
+import { getOnboardingDay, getTrialState, logEvent, hasWelcomed, setWelcomed, hasConversionShown, setConversionShown, isOnboardingArcActive, isAutoArcEligible, isEnrolled, enrollNow, isTipsDismissed } from './onboarding'
 import DesktopLayout from './DesktopLayout'
 import MobileLayoutP from './MobileLayoutP'
 import MobileLayoutL from './MobileLayoutL'
@@ -2067,13 +2067,22 @@ const App = () => {
     return () => { if (chatbotTipTimerRef.current) clearTimeout(chatbotTipTimerRef.current); };
   }, [chatbotEnabled])
 
-  // Onboarding: seed the day counter on first login. The LessonBox is the welcome
-  // now (it self-opens on day 1), so we just mark "welcomed" here to keep the
-  // conversion-card gate (which requires hasWelcomed) firing. Homepage-Tara (?ask=)
-  // arrivals also get the arrival banner.
+  // Onboarding: auto-enroll a GENUINE new user into the 7-day lesson arc on login
+  // (Gating v2, 2026-07-04 - see onboarding.js). This replaced a blind
+  // getOnboardingDay() call that seeded tw_onboard_started_at for ANY logged-in
+  // user missing the key - which silently re-enrolled every pre-existing account
+  // as a brand-new Day-1 user. Now: only a genuinely new account (server-injected
+  // window.current_user_created_at <= 7 days old) that is not already enrolled
+  // and has not muted tips gets auto-enrolled here. Existing users instead get a
+  // one-time, non-blocking invite from LessonBox itself (never auto-opened).
+  // The LessonBox is the welcome now (it self-opens on day 1 once enrolled), so we
+  // just mark "welcomed" here to keep the conversion-card gate (which requires
+  // hasWelcomed) firing. Homepage-Tara (?ask=) arrivals also get the arrival banner.
   useEffect(() => {
     if (loggedinUser === '0' || !token || token.length === 0) return;
-    getOnboardingDay(); // seeds tw_onboard_started_at on first login
+    if (isAutoArcEligible() && !isEnrolled() && !isTipsDismissed()) {
+      enrollNow();
+    }
     setWelcomed();      // LessonBox replaces the welcome modal; keep the conversion-card gate alive
     const hasAsk = new URLSearchParams(window.location.search).get('ask');
     if (hasAsk) setAskBanner(true);
@@ -2108,12 +2117,22 @@ const App = () => {
   // LessonBox is now the single teaching surface for the 7-day arc. The generic
   // post-arc Tara tips above still resume after day 7 via isOnboardingArcActive.)
 
-  // Conversion card: day-7 (converter) or lapsed-to-Explorer (non-converter). Show-once PER USER.
+  // Conversion card (Onboarding Lessons v2, 2026-07-04): the converter trigger is now
+  // the TRIAL clock (getTrialState().onTrial && daysRemaining <= 1), not the lesson-day
+  // counter - a late starter whose trial ends on lesson Day 5 gets the close at Day 5,
+  // not silently carried to a Day-7 that may never arrive before the trial does. There
+  // is deliberately NO lesson-day fallback for users without trial metadata: the old
+  // code also never auto-fired without onTrial, and a day-based fallback would show a
+  // sales card to PAYING subscribers taking the tour (they have no tw2_trial_ends_at).
+  // Expired-trial users are covered by the lapsed-to-Explorer branch below, unchanged.
+  // Show-once PER USER (hasConversionShown) still gates these AUTO fires; the explicit
+  // 'tw-open-conversion-card' listener below intentionally bypasses it.
   useEffect(() => {
     if (loggedinUser === '0' || !token) return;
     if (hasConversionShown()) return;
     const ts = getTrialState();
-    if (ts.onTrial && getOnboardingDay() >= 7) { setConvCard({ nonConverter: false }); setConversionShown(); return; }
+    const trialClosing = ts.onTrial && ts.daysRemaining != null && ts.daysRemaining <= 1;
+    if (trialClosing) { setConvCard({ nonConverter: false }); setConversionShown(); return; }
     // Lapsed-to-Explorer ONLY if they ACTUALLY had a trial - never tell a never-trialed
     // Explorer "your full access wrapped up".
     if (!ts.onTrial && window.tw2_user_tier === 'explorer' && window.tw2_trial_ever && hasWelcomed()) {
@@ -2121,6 +2140,22 @@ const App = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedinUser, token])
+
+  // Explicit hand-off from the LessonBox TRIAL_CLOSE_SCREEN CTA ("Show me my week,
+  // measured" -> dispatches 'tw-open-conversion-card'). An explicit user click always
+  // works, even if the auto-fire above already ran (hasConversionShown() true) - so
+  // this listener does NOT check it - but still marks conversionShown after, so it
+  // does not also cause a redundant AUTO-fire later.
+  useEffect(() => {
+    const onOpenConversionCard = () => {
+      const ts = getTrialState();
+      const nonConverter = !ts.onTrial && window.tw2_user_tier === 'explorer';
+      setConvCard({ nonConverter });
+      setConversionShown();
+    };
+    window.addEventListener('tw-open-conversion-card', onOpenConversionCard);
+    return () => window.removeEventListener('tw-open-conversion-card', onOpenConversionCard);
+  }, []);
 
   // NOTE: exit-intent / after-N-scans early conversion was removed for v1 - a
   // mouseleave-to-top listener false-fires constantly (cursor drifting to the
