@@ -67,10 +67,15 @@ else
   echo "        Market pages come from the SMN content pipeline + rsync, not from a bare web box."
 fi
 
-# LAST: re-inject live prices into the just-built home.html + markets/*.html price spans and write
+# Re-inject live prices into the just-built home.html + markets/*.html price spans and write
 # assets/quotes.json + market-quotes.js (the single source the client JS polls). Must run after
 # home + markets are (re)built; no-ops on any file not present, so it is safe on a bare box.
 run quotes    "$SITE"               "$PY" refresh_market_quotes.py
+
+# LAST: rebuild robots.txt / sitemap.xml / llms.txt from what's on disk RIGHT NOW.
+# Must be the final step - sitemap.xml scans the pages every generator above just
+# wrote, so running this any earlier would ship a stale/incomplete sitemap.
+run seo       "$SITE"               "$PY" generate_seo_files.py
 
 echo "== regen_site done: $fails generator failure(s) =="
 exit "$fails"

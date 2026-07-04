@@ -8,6 +8,7 @@ Usage:
 """
 
 import json
+import os
 import requests
 import time
 from datetime import datetime, date, timedelta
@@ -35,6 +36,15 @@ DOMAIN_ROOT = config.domain_root
 APPSERVER_URL = config.appserver_url.rstrip('/')
 REALTIME_SERVICE_URL = config.realtime_service_url
 X_PROFILE_URL = config.x_profile_url
+
+# Index only on prod; dev/staging stay noindex (same ENABLE_SEO pattern as
+# generate_home_page.py - env-driven so the prod build flips it on automatically
+# instead of relying on a manual edit before launch).
+ENABLE_SEO = os.environ.get('TW2_ENV', '').strip().lower() == 'prod'
+CANONICAL_URL = DOMAIN_ROOT + OUTPUT_FILENAME
+META_DESCRIPTION = ("Every TradeWave daily pick, logged in public before the market opens: "
+                     "the seasonal pattern, the win probability, the target - then the outcome, "
+                     "wins and losses alike.")
 
 # =============================================================================
 # APPSERVER AUTH
@@ -510,6 +520,9 @@ def generate_scorecard_html(stats, open_positions, closed_positions):
         'domain_root': DOMAIN_ROOT,
         'x_profile_url': X_PROFILE_URL,
         'favicon': config.tw_favicon,
+        'robots_content': 'index, follow' if ENABLE_SEO else 'noindex, nofollow',
+        'canonical_url': CANONICAL_URL,
+        'meta_description': META_DESCRIPTION,
         'daily_ai_pick_group_id': '182221521780999195',
         # GA4 <head> snippet ('' when TW2_GA_MEASUREMENT_ID is unset, e.g. dev).
         'ga_head_snippet': ga_head_snippet(),

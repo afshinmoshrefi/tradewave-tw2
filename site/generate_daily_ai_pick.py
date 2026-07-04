@@ -52,6 +52,12 @@ NUM_PER_GROUP = getattr(config, 'num_opps_per_fi', 10)
 TOP10_AVG_PROFIT_FILTER = getattr(config, 'top10_avg_profit_filter', 5)
 RESTRICT_GOV_BONDS = getattr(config, 'restrict_gov_bonds_sr', -1)
 
+# Index only on prod; dev/staging stay noindex (same ENABLE_SEO pattern as
+# generate_home_page.py - env-driven so the prod build flips it on automatically
+# instead of relying on a manual edit before launch).
+ENABLE_SEO = os.environ.get('TW2_ENV', '').strip().lower() == 'prod'
+ROBOTS_CONTENT = 'index, follow' if ENABLE_SEO else 'noindex, nofollow'
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -247,7 +253,7 @@ def render_html(df, opp_date):
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Daily Pick - The Top 10 Seasonal Patterns for {NICE_DATE} | TradeWave</title>
   <meta name="description" content="The 10 strongest repeating seasonal patterns we detected for {NICE_DATE}, ranked by Sharpe and scored by our ML model, across every market we track. Free, every morning. A research read, not a recommendation - you pick the window and judge the odds.">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="{ROBOTS_CONTENT}">
   <link rel="icon" type="image/png" href="{FAVICON}">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -352,6 +358,7 @@ def render_html(df, opp_date):
     out = head + header_html + body
     out = out.replace('{NICE_DATE}', nice_date) \
              .replace('{FAVICON}', config.tw_favicon) \
+             .replace('{ROBOTS_CONTENT}', ROBOTS_CONTENT) \
              .replace('{ROWS}', rows_html) \
              .replace('{YEAR}', year)
     return out
