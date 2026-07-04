@@ -674,12 +674,11 @@ const ReportsDashboard = (props) => {
                 //     props.SetInfoBoxVisible(true)
                 // }
 
-                // else if (type == 'refresh') {
-                //     props.SetDialogProp({ title: 'delay', contentText: 'Web Report Refresh Requested', button1Text: '', button2Text: '', coverDivColor: 'rgb(222,222,222,0)' })
-                // }
-                // else {
-                //     props.SetDialogProp({ title: 'delay', contentText: 'should not happen', button1Text: '', button2Text: '', coverDivColor: 'rgb(222,222,222,0)' })
-                // }
+                if (type === 'refresh') {
+                    props.SetDialogProp({ title: 'delay', contentText: 'Web Report Refresh Requested', button1Text: '', button2Text: '', coverDivColor: 'rgb(222,222,222,0)' })
+                    props.SetDialogType('info-box');
+                    props.SetInfoBoxVisible(true)
+                }
 
             })
             .catch((error) => {
@@ -868,6 +867,31 @@ const ReportsDashboard = (props) => {
 
     }
 
+    //-------------------------------------------------------------------------------------------------------------------------------------
+    // recreate (refresh) the static report for this opportunity - re-posts the saved record's own params to dr_report_publish,
+    // which re-renders the static files for an existing report (no duplicate record is created)
+    //-------------------------------------------------------------------------------------------------------------------------------------
+    const handlerRefreshClicked = (index, event) => {
+
+        if (props.selectedPortfolio[0] === '&' && !userlist_auto.includes(props.loggedinUser)) {
+            return;
+        }
+
+        let parentRow = event.target.closest("tr");
+        let firstCell = parentRow.querySelector("td:first-child");
+        let idx = firstCell.innerText;
+
+        let id = props.reportsList[idx]['resourceID'];
+        let symbol = props.reportsList[idx]['symbol'];
+        let date = props.reportsList[idx]['date'];
+        let days_hold = props.reportsList[idx]['days_hold'];
+        let years = props.reportsList[idx]['years'];
+        let direction = props.reportsList[idx]['direction'];
+        let sharpe_ratio = props.reportsList[idx]['sharpe_ratio'];
+
+        AddReportCreationJob(id, symbol, date, days_hold, years, direction, sharpe_ratio, 'refresh')
+    }
+
     //----------------------------------------------------------------------------------------
     const handlerCreateCalendarEvent = (index, event) => {
 
@@ -921,6 +945,8 @@ const ReportsDashboard = (props) => {
             'days': days,
             'direction': props.reportsList[idx]['direction'],
             'slug': props.reportsList[idx]['slug'],
+            'sharpe_ratio': props.reportsList[idx]['sharpe_ratio'],
+            'publishDate': props.reportsList[idx]['publishDate'],
             'order_id_list': orders_list
         }
 
@@ -1483,6 +1509,7 @@ const ReportsDashboard = (props) => {
                         handlerLoadClicked={handlerLoadClicked}
                         handlerDelClicked={handlerDelClicked}
                         handlerLinkClicked={handlerLinkClicked}
+                        handlerRefreshClicked={handlerRefreshClicked}
                         handlerCreateCalendarEvent={handlerCreateCalendarEvent}
                         securityTypeList2={props.securityTypeList2}
                         handleBlur={handleBlur}

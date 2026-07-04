@@ -47,7 +47,7 @@ const DEFAULT_BB_CONFIG = {
     fill: true,
 };
 
-const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = [], SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', consolidatedSeasonalData = [], priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null }) => {
+const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = [], SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', consolidatedSeasonalData = [], showMaxProjection = false, maxYearsConsolidatedSeasonalData = [], maxAvailableYears = 0, priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null }) => {
 
     const { browserH, browserW, rdd, loggedinUser } = useContext(UserContext)
     const tc = themeColors(UITheme)
@@ -514,11 +514,15 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
     }
 
     // ── Seasonal Projection computation ──
-    const projectionResult = useMemo(() => {
+    // Both the user-selected-sy line and the full-history line share this walk; the only
+    // per-call inputs are the enable flag and the cycle to walk. Wrapped so a malformed
+    // cycle row can't tear down the price chart via the error boundary.
+    const buildSeasonalProjection = (enabled, cycle) => {
         const empty = { extraLabels: [], projectionData: [], projectionCount: 0 };
-        if (!showCurrentLineChart || !showProjection || !consolidatedSeasonalData || consolidatedSeasonalData.length === 0 || labels.length === 0 || dataClose.length === 0) {
+        if (!showCurrentLineChart || !enabled || !Array.isArray(cycle) || cycle.length === 0 || labels.length === 0 || dataClose.length === 0) {
             return empty;
         }
+        try {
 
         const lastClosePrice = dataClose[dataClose.length - 1];
         if (lastClosePrice == null || isNaN(lastClosePrice)) return empty;
@@ -526,10 +530,10 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
         // Build MM-DD → cycle index lookup. The cycle is 365 calendar days starting at
         // chart_start_date; we walk by index (not by MM-DD) so the cycle boundary is
         // continuous instead of producing a wrap-around cliff for trending stocks.
-        const cycleLen = consolidatedSeasonalData.length;
+        const cycleLen = cycle.length;
         const mmddToIdx = {};
         for (let i = 0; i < cycleLen; i++) {
-            const mmdd = consolidatedSeasonalData[i][0].substring(5);
+            const mmdd = cycle[i][0].substring(5);
             if (mmddToIdx[mmdd] === undefined) mmddToIdx[mmdd] = i;
         }
 
@@ -548,11 +552,11 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
             if (closest === null) closest = sortedMmdds[sortedMmdds.length - 1];
             todayIdx = mmddToIdx[closest];
         }
-        const todayReturn = consolidatedSeasonalData[todayIdx][1];
+        const todayReturn = cycle[todayIdx][1];
 
         // Cycle drift: the implied annual normalized appreciation. Used to keep the
         // projection continuous when it walks past the last cycle row and wraps.
-        const cycleDrift = consolidatedSeasonalData[cycleLen - 1][1] - consolidatedSeasonalData[0][1];
+        const cycleDrift = cycle[cycleLen - 1][1] - cycle[0][1];
 
         // Generate future dates (skip weekends; for weekly, one point per week)
         const periodDays = parseInt(projectionPeriod, 10) || 30;
@@ -594,7 +598,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
                 cycleIdx -= cycleLen;
                 cumulativeOffset += cycleDrift;
             }
-            const futureReturn = consolidatedSeasonalData[cycleIdx][1] + cumulativeOffset;
+            const futureReturn = cycle[cycleIdx][1] + cumulativeOffset;
             const projectedPrice = lastClosePrice * (1 + (futureReturn - todayReturn) / 100);
             extraLabels.push(fDate);
             projectionValues.push(projectedPrice);
@@ -607,17 +611,36 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
         projectionData.push(...projectionValues);
 
         return { extraLabels, projectionData, projectionCount: futureDates.length };
-    }, [showCurrentLineChart, showProjection, consolidatedSeasonalData, labels, dataClose, projectionPeriod, priceChartTimeframe]);
+        } catch (err) {
+            console.log('Seasonal projection compute error:', err?.message || err);
+            return empty;
+        }
+    };
 
-    // Extend labels and pad datasets when projection is active
+    const projectionResult = useMemo(
+        () => buildSeasonalProjection(showProjection, consolidatedSeasonalData),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [showCurrentLineChart, showProjection, consolidatedSeasonalData, labels, dataClose, projectionPeriod, priceChartTimeframe]
+    );
+    const maxProjectionResult = useMemo(
+        () => buildSeasonalProjection(showMaxProjection, maxYearsConsolidatedSeasonalData),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [showCurrentLineChart, showMaxProjection, maxYearsConsolidatedSeasonalData, labels, dataClose, projectionPeriod, priceChartTimeframe]
+    );
+
+    // Both projections share the same last-close anchor + period + timeframe, so their
+    // extraLabels arrays are identical when both are active. We just take whichever ran.
     const projCount = projectionResult.projectionCount;
-    const extendedLabels = projCount > 0 ? [...labels, ...projectionResult.extraLabels] : labels;
-    const paddedDataClose = projCount > 0 ? [...dataClose, ...new Array(projCount).fill(null)] : dataClose;
-    const paddedPointStyle = projCount > 0 ? [...pointStyle, ...new Array(projCount).fill('')] : pointStyle;
-    const paddedOhlcData = projCount > 0 ? [...ohlcData, ...new Array(projCount).fill(null)] : ohlcData;
-    const paddedVolumeData = projCount > 0 && volumeData.length > 0 ? [...volumeData, ...new Array(projCount).fill(null)] : volumeData;
-    const paddedMaDatasets = projCount > 0 ? maDatasets.map(ds => ({ ...ds, data: [...ds.data, ...new Array(projCount).fill(null)] })) : maDatasets;
-    const paddedBbDatasets = projCount > 0 ? bbDatasets.map(ds => ({ ...ds, data: [...ds.data, ...new Array(projCount).fill(null)] })) : bbDatasets;
+    const maxProjCount = maxProjectionResult.projectionCount;
+    const activeProjCount = Math.max(projCount, maxProjCount);
+    const activeExtraLabels = projCount >= maxProjCount ? projectionResult.extraLabels : maxProjectionResult.extraLabels;
+    const extendedLabels = activeProjCount > 0 ? [...labels, ...activeExtraLabels] : labels;
+    const paddedDataClose = activeProjCount > 0 ? [...dataClose, ...new Array(activeProjCount).fill(null)] : dataClose;
+    const paddedPointStyle = activeProjCount > 0 ? [...pointStyle, ...new Array(activeProjCount).fill('')] : pointStyle;
+    const paddedOhlcData = activeProjCount > 0 ? [...ohlcData, ...new Array(activeProjCount).fill(null)] : ohlcData;
+    const paddedVolumeData = activeProjCount > 0 && volumeData.length > 0 ? [...volumeData, ...new Array(activeProjCount).fill(null)] : volumeData;
+    const paddedMaDatasets = activeProjCount > 0 ? maDatasets.map(ds => ({ ...ds, data: [...ds.data, ...new Array(activeProjCount).fill(null)] })) : maDatasets;
+    const paddedBbDatasets = activeProjCount > 0 ? bbDatasets.map(ds => ({ ...ds, data: [...ds.data, ...new Array(activeProjCount).fill(null)] })) : bbDatasets;
 
     const isLineChart = priceChartType === 'line';
     // For candle/ohlc: compute y-axis bounds from OHLC range so wicks are fully visible
@@ -626,12 +649,14 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
         const ohlcValid = ohlcData.filter(d => d != null);
         ohlcMin = Math.min(...ohlcValid.map(d => d.low));
         ohlcMax = Math.max(...ohlcValid.map(d => d.high));
-        // Include projection values in bounds
-        if (projCount > 0 && projectionResult.projectionData.length > 0) {
-            const projValues = projectionResult.projectionData.filter(v => v != null);
-            if (projValues.length > 0) {
-                ohlcMin = Math.min(ohlcMin, ...projValues);
-                ohlcMax = Math.max(ohlcMax, ...projValues);
+        // Include both projection lines' values in bounds so neither gets clipped.
+        for (const pr of [projectionResult, maxProjectionResult]) {
+            if (pr.projectionCount > 0 && pr.projectionData.length > 0) {
+                const projValues = pr.projectionData.filter(v => v != null);
+                if (projValues.length > 0) {
+                    ohlcMin = Math.min(ohlcMin, ...projValues);
+                    ohlcMax = Math.max(ohlcMax, ...projValues);
+                }
             }
         }
         const pad = (ohlcMax - ohlcMin) * 0.02 || 1;
@@ -659,6 +684,18 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
                 data: projectionResult.projectionData,
                 borderWidth: 2,
                 borderColor: '#e8a838',
+                borderDash: [8, 4],
+                backgroundColor: 'transparent',
+                pointRadius: 0,
+                fill: false,
+                tension: 0.3,
+                spanGaps: false,
+            }] : []),
+            ...(maxProjCount > 0 && maxProjectionResult.projectionData.length > 0 ? [{
+                label: `Seasonal Projection (${projectionPeriod || 30}d, ${maxAvailableYears}-Y)`,
+                data: maxProjectionResult.projectionData,
+                borderWidth: 2,
+                borderColor: '#7c5cff',
                 borderDash: [8, 4],
                 backgroundColor: 'transparent',
                 pointRadius: 0,

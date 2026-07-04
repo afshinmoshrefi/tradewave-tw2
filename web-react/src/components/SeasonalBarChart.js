@@ -6,20 +6,23 @@ import TextBoxInc from './TextBoxInc'
 import CheckBox from './CheckBox'
 import BarChart from './BarChart'
 import Tippy from '@tippyjs/react'
-import { monthsAndQtrs, maxDaysOut, minDaysOut, customYearsDesc } from './Common'
+import { monthsAndQtrs, maxDaysOut, minDaysOut } from './Common'
 import { redirectBackFromSeasonals } from './Common'
 import { appserverURL } from './Common'
 import { getTodayDate } from './Common'
 import { twFetch } from './twFetch'
 import { UserContext } from './UserContext'
-import { BsFillCaretUpFill, BsFillCaretDownFill, BsQuestionCircle, BsPlus } from "react-icons/bs";
+import { BsFillCaretUpFill, BsFillCaretDownFill, BsQuestionCircle, BsPlus, BsBellFill } from "react-icons/bs";
 import { BiLineChart } from "react-icons/bi";
-import { userAccessToSelectedSecurity } from './Common'
+import { userAccessToSelectedSecurity, applyResolvedMatch, upsellDialogForMatch, isMarketEntitled } from './Common'
+import { getCookie } from './Common'
+import { buildPatternEventDict, insertCalendarEvents, requestCalendarAccessToken, shiftWeekendToNextMonday, loadGsiScript } from './googleCalendarEvents'
 import { getSelectedIDFromSecuritiesList2 } from './Common'
 import { setCookie } from './Common'
 import { UIcolors, themeColors } from './Common'
 import { opp_dashboard_dialog_content } from './Common'
 import { brand, trend_chart_left_gap_days, minYears, sameResourceFamily } from './Common'
+import { maxYearsCap } from './Common'
 import { checkTokenExpired } from './Common'
 
 // import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -46,7 +49,14 @@ const SeasonalBarChart = (props) => {
   const reqCompareRef = useRef(0)
   const reqBHRef = useRef(0)
   const reqTrendRef = useRef(0)
+  const reqMaxTrendRef = useRef(0)
   const reqOppBySymbolRef = useRef(0)
+  // Guards the data-miss -> cross-market resolve path against a market-flip loop when the
+  // SAME ticker is short on data in more than one market (see the Not Enough Data branch).
+  const resolveMissRef = useRef('')
+  // Bumped when a typed symbol is REJECTED (not found anywhere): forces the symbol TextBox
+  // to re-sync back to props.symbol, which never changed - see defaultNotFound.
+  const [symbolBoxSyncNonce, SetSymbolBoxSyncNonce] = useState(0)
 
   // when true, the next startDate change will NOT trigger a trend chart refetch (used by date nudge)
   const skipNextTrendRefetch = useRef(false)
@@ -227,8 +237,18 @@ const SeasonalBarChart = (props) => {
           maxYears = count
         }
 
+        const _yrCap = maxYearsCap()   // tier cap (null=uncapped); NOTE: local `maxYears` above is the DATA range, not this
+
+        // Lift the consecutive-cons max (tier-capped) to App state so the price-chart's
+        // second seasonal-projection line ("Proj N-Y") knows both its label and its `sy`.
+        // Always use y2-y1 (the raw range), not the local `maxYears` which is PE-adjusted.
+        const consecutiveMax = y2 - y1
+        const effectiveMaxYears = _yrCap != null ? Math.min(consecutiveMax, _yrCap) : consecutiveMax
+        props.SetMaxAvailableYears(effectiveMaxYears)
+
         for (let i = minYears; i <= maxYears; i++) {
-          tmp.push({ id: i, value: i.toString(), label: i.toString() })
+          const _locked = _yrCap != null && i > _yrCap
+          tmp.push({ id: i, value: i.toString(), label: _locked ? i + ' 🔒' : i.toString(), locked: _locked })
         }
         setSeasonalYearsList(tmp)
 
@@ -314,17 +334,32 @@ const SeasonalBarChart = (props) => {
 
 
         if (typeof cd === 'string' && cd.includes('Not Enough Data')) {
-          props.SetDialogType('info-box')
-          props.SetDialogProp({ title: 'Not Enough Data', contentText: `${props.symbol} does not have enough data. At least 5 years are required`, button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
-          props.SetInfoBoxVisible(true)
-          props.SetSeasonalBarChartData([])
-          props.SetTradeDetailData([])
-          props.SetConsolidatedSeasonalData([])
-          props.SetSymbol('')
-          props.SetLineChartYear(0)
+          const notEnoughData = () => {
+            props.SetDialogType('info-box')
+            props.SetDialogProp({ title: 'Not Enough Data', contentText: `${props.symbol} does not have enough data. At least 5 years are required`, button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+            props.SetInfoBoxVisible(true)
+            props.SetSeasonalBarChartData([])
+            props.SetTradeDetailData([])
+            props.SetConsolidatedSeasonalData([])
+            props.SetSymbol('')
+            props.SetLineChartYear(0)
+          }
+          // The ticker may belong to a DIFFERENT market (e.g. SPX typed on DJ30 lives in
+          // Indices). NameFromTicker can't catch this - it matches any same-exchange security -
+          // so ChartData4's data-miss is the real "wrong market" signal. Try to resolve across
+          // markets first; only show the dead-end if it isn't served elsewhere. Guard against a
+          // flip-loop when the same ticker is thin in >1 market (resolve once per symbol).
+          if (resolveMissRef.current === props.symbol) {
+            resolveMissRef.current = ''
+            notEnoughData()
+          } else {
+            resolveMissRef.current = props.symbol
+            resolveSymbolAcrossMarkets(props.symbol, { excludeMarketId: marketId, notFound: notEnoughData })
+          }
           return
         }
 
+        resolveMissRef.current = ''   // clean load - clear the data-miss cross-market guard
         props.SetSeasonalBarChartData(cd)
         props.SetTradeDetailData(t["stats"])
 
@@ -573,6 +608,60 @@ const SeasonalBarChart = (props) => {
   }, [props.refreshKey, marketId, props.symbol, props.seasonalYears, props.PEselected, props.janDecDateRange, props.trendChartStartDate, props.startDate, token])
 
   //--------------------------------------------------------------------------------------------------------------------
+  // Second consolidated seasonal fetch: MAX-years history, always PE=cons, for the price-chart's
+  // secondary projection line. Skips the request when the toggle is off, when the ticker's
+  // max already equals the user-selected sy (both lines would be identical), or before we know N.
+  useEffect(() => {
+    if (!token || token.length === 0) return
+    if (!props.symbol || props.symbol.length === 0) return
+    if (marketId === undefined || marketId === null) return
+    if (!props.showMaxProjection) return
+    if (!props.maxAvailableYears || props.maxAvailableYears <= 0) return
+    // If cons and the user is already viewing max, the primary line covers this — no fetch needed,
+    // and clear the stale max-cycle so we don't render two identical dashed lines on top of each other.
+    if (props.PEselected === 'cons' && parseInt(props.seasonalYears, 10) === props.maxAvailableYears) {
+      if (props.maxYearsConsolidatedSeasonalData && props.maxYearsConsolidatedSeasonalData.length > 0) {
+        props.SetMaxYearsConsolidatedSeasonalData([])
+      }
+      return
+    }
+
+    const reqId = ++reqMaxTrendRef.current
+    const controller = new AbortController()
+
+    const asURL = appserverURL()
+    const td = getTodayDate()
+    let start_date = td.substring(0, 5) + '01-01'
+    const opp_start_date = props.startDate
+    if (!props.janDecDateRange) start_date = props.trendChartStartDate
+
+    // Always cons + max years, regardless of the user's current PE / sy pick.
+    const yrs = props.maxAvailableYears
+    const url = `${asURL}/consolidated_seasonal_chart2/${marketId}/${props.symbol}/${yrs}/${start_date}/${opp_start_date}?token=${token}`
+
+    twFetch(url, { signal: controller.signal })
+      .then(res => {
+        const contentType = res.headers.get("content-type")
+        if (contentType && contentType.indexOf("application/json") !== -1) return res.json()
+        if (res.status === 429) return undefined  // primary fetch already surfaces the rate-limit dialog
+        return undefined
+      })
+      .then(t => {
+        if (reqId !== reqMaxTrendRef.current) return
+        if (!t) return
+        const chart = t && t['cons_seas_chart']
+        if (!Array.isArray(chart) || chart.length < 5) props.SetMaxYearsConsolidatedSeasonalData([])
+        else props.SetMaxYearsConsolidatedSeasonalData(chart)
+      })
+      .catch(err => {
+        if (err?.name === 'AbortError') return
+        console.log('Max-years trend chart fetch error:', err?.message || err)
+      })
+
+    return () => controller.abort()
+  }, [props.refreshKey, marketId, props.symbol, props.maxAvailableYears, props.showMaxProjection, props.PEselected, props.seasonalYears, props.janDecDateRange, props.trendChartStartDate, props.startDate, token])
+
+  //--------------------------------------------------------------------------------------------------------------------
   // Clear OppBySymbol options immediately when symbol or market changes
   useEffect(() => {
     setOppBySymbolOptions([])
@@ -613,7 +702,7 @@ const SeasonalBarChart = (props) => {
         if (t.status === 'feature_not_available') { setOppBySymbolOptions([]); return }
         if (t.status !== 'ok' || !t.OppBySymbol?.length) { setOppBySymbolOptions([]); return }
 
-        const placeholder = [{ id: 0, value: '', label: '── Best Waves ──' }]
+        const placeholder = [{ id: 0, value: '', label: 'Best Waves' }] // no decorative dashes - the select sizes to the selected option and this row is width-critical
         const options = t.OppBySymbol.map((row, i) => {
           const date = row[0]
           const daysOut = row[2]
@@ -663,6 +752,56 @@ const SeasonalBarChart = (props) => {
   const handleSymbolBlur = () => {
     setTimeout(() => { setWatchlistDropdownOpen(false) }, 200)
   }
+  //-----------------------------------------------------------------------------------------------------------
+  // Symbol not in the CURRENT market -> resolve it across ALL markets (appserver /ResolveSymbol):
+  //   0 matches   -> the usual "not found" dialog
+  //   1 entitled  -> auto-switch the market + render (applyResolvedMatch)
+  //   1 locked    -> "Unlock This Market" upsell
+  //   >1 matches  -> always show the market picker; never auto-guess (e.g. CL = stock + future)
+  //-----------------------------------------------------------------------------------------------------------
+  const resolveSymbolAcrossMarkets = (symbolValue, opts = {}) => {
+    // A truly-unknown symbol must NOT destroy the current view: props.symbol was never
+    // overwritten (only accepted symbols are Set), so every chart still shows the old
+    // symbol - keep them intact, show the dialog, and snap the text box back to the old
+    // symbol (syncNonce forces the TextBox re-sync since the `text` prop didn't change).
+    const defaultNotFound = () => {
+      props.SetDialogType('info-box')
+      props.SetDialogProp({ title: 'Symbol not Found', contentText: symbolValue + ' not found', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+      props.SetInfoBoxVisible(true)
+      SetSymbolBoxSyncNonce(n => n + 1)   // revert the typed text; charts/data untouched
+    }
+    // Caller can override the dead-end (e.g. a data-miss shows "Not Enough Data", not "not found").
+    const notFound = opts.notFound || defaultNotFound
+    const asURL = appserverURL()
+    twFetch(`${asURL}/ResolveSymbol/${symbolValue}?token=${token}`)
+      .then(res => res.json())
+      .then(res => {
+        let matches = (res && res.matches) || []
+        // When called from a data-miss on the CURRENT market, drop that market so we only offer
+        // a genuinely DIFFERENT one (SPX on DJ30 -> Indices, never "switch to DJ30" again).
+        if (opts.excludeMarketId !== undefined && opts.excludeMarketId !== null) {
+          matches = matches.filter(m => String(m.resourceID) !== String(opts.excludeMarketId))
+        }
+        if (matches.length === 0) { notFound(); return }
+        if (matches.length === 1) {
+          const m = matches[0]
+          if (isMarketEntitled(props.securityTypeList2, props.resourceObj, m.resourceID)) {
+            applyResolvedMatch(props, m, symbolValue)          // entitled -> auto-switch + render
+          } else {
+            props.SetDialogProp(upsellDialogForMatch(m, symbolValue))  // locked -> upsell
+            props.SetDialogType('info-box')
+            props.SetInfoBoxVisible(true)
+          }
+          return
+        }
+        // >1 markets contain this ticker -> always let the user choose
+        props.SetDialogProp({ title: 'Choose a Market', matches: matches, symbol: symbolValue, button1Text: 'Close', button2Text: '', coverDivColor: 'rgb(222,222,222,0)' })
+        props.SetDialogType('symbol-picker')
+        props.SetInfoBoxVisible(true)
+      })
+      .catch(err => { console.log('ResolveSymbol error:', err && err.message); notFound() })
+  }
+  //-----------------------------------------------------------------------------------------------------------
   const handleWatchlistItemClick = (sym) => {
     setWatchlistDropdownOpen(false)
     let asURL = appserverURL()
@@ -677,9 +816,7 @@ const SeasonalBarChart = (props) => {
           props.SetTrendChartStartDate(trend_chart_start_date)
           props.SetCompany(g['name'])
         } else {
-          props.SetDialogType('info-box')
-          props.SetDialogProp({ title: 'Symbol not Found', contentText: sym + ' not found in this securities group', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
-          props.SetInfoBoxVisible(true)
+          resolveSymbolAcrossMarkets(sym)   // try the other markets before giving up
         }
       })
       .catch(err => console.log('watchlist NameFromTicker error:', err.message))
@@ -761,13 +898,7 @@ const SeasonalBarChart = (props) => {
             }
             else {
               if (event.target.value !== '' && props.symbol !== '') {
-                props.SetDialogType('info-box');
-                props.SetDialogProp({ title: 'Symbol not Found', contentText: event.target.value + ' not found', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
-                props.SetInfoBoxVisible(true)
-                props.SetSymbol('')
-                props.SetSeasonalBarChartData([])
-                props.SetLineChartYear(0)
-                props.SetConsolidatedSeasonalData([])
+                resolveSymbolAcrossMarkets(event.target.value)
               }
             }
 
@@ -855,13 +986,7 @@ const SeasonalBarChart = (props) => {
             }
             else {
               if (event.target.value !== '') {
-                props.SetDialogType('info-box');
-                props.SetDialogProp({ title: 'Symbol not Found', contentText: event.target.value + ' not found', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
-                props.SetInfoBoxVisible(true)
-                props.SetSymbol('')
-                props.SetSeasonalBarChartData([])
-                props.SetLineChartYear(0)
-                props.SetConsolidatedSeasonalData([])
+                resolveSymbolAcrossMarkets(event.target.value)
               }
             }
           })
@@ -916,6 +1041,18 @@ const SeasonalBarChart = (props) => {
 
     if (event.target.id === 'years') {
       const newYears = event.target.value.toLowerCase();
+
+      // Years cap: deeper history is an Analyst/Strategist feature. PE values ('pe2') parseInt
+      // to NaN and are skipped (not depth-capped). This is the chart-side twin of App.js's
+      // opp-table years guard so neither surface can silently exceed the cap.
+      const _yrCap = maxYearsCap();
+      const _ny = parseInt(newYears, 10);
+      if (_yrCap != null && !isNaN(_ny) && _ny > _yrCap) {
+        props.SetDialogProp({ title: 'See More History', contentText: `Your plan shows ${_yrCap} years of history. Upgrade to Analyst or Strategist for the full record - decades of seasonal evidence behind every pattern.`, button1Text: 'See Plans', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' });
+        props.SetDialogType('info-box');
+        props.SetInfoBoxVisible(true);
+        return;
+      }
 
       if (newYears !== props.seasonalYears) {
         props.SetSeasonalYears(newYears);
@@ -1165,7 +1302,6 @@ const SeasonalBarChart = (props) => {
   //---------------------------------------
   var textsize = "12px";
   var displayElement = new Array(16)
-  var descpart1 = "inline";
   var questionSize = 15;
   var questionDivWidth = '3%';
   // scale placeholder font relative to actual right-panel width so it never wraps
@@ -1192,7 +1328,6 @@ const SeasonalBarChart = (props) => {
   if (rdd.isMobile && !rdd.isTablet && browserH > browserW) { // smartphone portrait
     for (var ii = 7; ii <= 11; ii++)displayElement[ii] = "none"; //remove display of text and select/options in this mode
     textsize = "2.8vw";
-    descpart1 = "none"; // don't show the first part of description - its too long
     // displayElement[1] = "none"; // remove the right left nav arrow from top bar for now
     displayElement[12] = "flex"  //this is smartphone portrait 2nd layer control
     displayElement[13] = "flex"; // this is question mark help on mobile portrait
@@ -1214,7 +1349,6 @@ const SeasonalBarChart = (props) => {
   }
   else if (rdd.isMobile && rdd.isTablet && browserH > browserW) { // tablet portrait
     displayElement[3] = "flex";
-    descpart1 = "none";
     SVDIVwidth = '6%';
 
     barchartControlDateWidth = "8";   // this is for text box 8/31/2022
@@ -1240,7 +1374,6 @@ const SeasonalBarChart = (props) => {
   }
   else if (rdd.isMobile && rdd.isTablet && browserH < browserW) { //tablet landscape
     displayElement[3] = "flex";
-    descpart1 = "none";
 
     displayElement[1] = displayElement[2] = "none";
 
@@ -1258,6 +1391,7 @@ const SeasonalBarChart = (props) => {
   else if (!rdd.isMobile) {
     displayElement[1] = "flex";                                  // desktop
     displayElement[2] = "none"; // don't need nav arrows in desktops
+    displayElement[8] = "none"; // hide the toolbar ticker box on desktop - it now lives inline in the description line (StyleSymbol)
 
     if (ticker_description != null && ticker_description.length > 40) {
       if (rdd.isMacOs) {
@@ -1318,7 +1452,7 @@ const SeasonalBarChart = (props) => {
     justifyContent: "end",
     display: displayElement[3],
     whiteSpace: 'nowrap',
-    overflow: 'hidden',
+    overflow: 'visible',  // was 'hidden'; visible so the inline ticker box's watchlist dropdown isn't clipped
     textOverflow: 'ellipsis',
     minWidth: 0,
   }
@@ -1436,17 +1570,6 @@ const SeasonalBarChart = (props) => {
   }
 
 
-  const yearsDisplay = () => {
-
-    let year_text = ' Y';
-    if (!rdd.isMobile) year_text = '-Year';
-
-    let val = Number(props.seasonalYears) ? true : false; // if false its a custom year - only show seasonalchart with jan-dec checked
-    if (val === false) {
-      return customYearsDesc[props.seasonalYears];
-    }
-    else return props.seasonalYears + year_text;
-  }
 
 
 
@@ -1471,6 +1594,146 @@ const SeasonalBarChart = (props) => {
   // new report added by clicking the plus in reports dashboard dialog
   // THIS FUNCTION IS DUPLICATED IN REPORTS DASHBAROD DUE TO ISSUES WITH PROPS SCOPE - CHANGES ARE REQUIRED IN BOTH PLACES
   //------------------------------------------------------------------------------------------------------------------------------------- 
+  //-------------------------------------------------------------------------------
+  // ONE-CLICK NOTIFY BELL (2026-07-04). Collapses the old 4-step flow (create
+  // portfolio -> add pattern -> open dashboard -> calendar dialog) into a single
+  // click: auto-creates a "Notifications" portfolio (falls back to 'main' when the
+  // tier's portfolio cap is hit), saves the pattern (idempotent - a re-click is
+  // detected via refreshed:true and shows a "already set" dialog instead of
+  // duplicating Google events), then opens the Google consent popup and inserts
+  // both start/end events with the user's saved dialog defaults.
+  // Popup-blocker note: the two API calls before requestAccessToken stay inside
+  // the ~5s transient-activation window, so the popup is allowed; the Retry /
+  // Re-create dialog buttons provide a fresh gesture if it ever isn't.
+  //-------------------------------------------------------------------------------
+  const NOTIFY_PORTFOLIO = 'Notifications'
+  const [notifyBusy, SetNotifyBusy] = useState(false)
+  // One-time attention pulse until the first click (same pattern as the symbol box).
+  const [notifyPulse, SetNotifyPulse] = useState(() => {
+    try { return !window.localStorage.getItem('tw_notifybell_seen') } catch (e) { return false }
+  })
+  // Preload the GIS script so the click path doesn't spend its popup window on it.
+  useEffect(() => { loadGsiScript().catch(() => { }) }, [])
+
+  const showInfoDialog = (dialogProp) => {
+    props.SetDialogProp(dialogProp)
+    props.SetDialogType('info-box');
+    props.SetInfoBoxVisible(true)
+  }
+
+  // Token + insert phase; called from the click flow and re-callable from the
+  // Retry / Re-create dialog buttons (each dialog click is a fresh gesture).
+  const startCalendarTokenFlow = (eventDicts, savedNote) => {
+    requestCalendarAccessToken()
+      .then((accessToken) => insertCalendarEvents(accessToken, eventDicts))
+      .then((results) => {
+        const errors = results.filter((r) => r && r.hasOwnProperty('error')).map((r) => r['error']['message'])
+        if (errors.length) {
+          showInfoDialog({ title: 'Google Calendar Events', contentText: 'Error: ' + errors.join(' / '), button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+        } else {
+          showInfoDialog({ title: 'Reminders Added', contentText: `Start and end reminders for ${props.symbol} were added to your Google Calendar${savedNote}. To customize the event time or reminder types, open the Portfolio Manager (clipboard-with-pencil icon) and click the calendar icon on the pattern.`, button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+        }
+      })
+      .catch((err) => {
+        showInfoDialog({
+          title: 'Google Sign-in Needed',
+          contentText: `Your pattern is saved, but the Google Calendar events were not created (${err.message}). Click Retry to open the Google sign-in again - and make sure popups are allowed for this site.`,
+          button1Text: 'Retry', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)',
+          onButton1: () => startCalendarTokenFlow(eventDicts, savedNote),
+        })
+      })
+  }
+
+  const handleNotifyClicked = async () => {
+    if (loggedinUser === '0') {
+      showInfoDialog({ title: 'Portfolio Manager', contentText: opp_dashboard_dialog_content, button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' });
+      return
+    }
+    if (notifyBusy) return
+    if (notifyPulse) {
+      SetNotifyPulse(false)
+      try { window.localStorage.setItem('tw_notifybell_seen', '1') } catch (e) { }
+    }
+    const id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity)
+    if (id < 0) return
+    SetNotifyBusy(true)
+    try {
+      const symbol = props.symbol
+      const date = props.startDate
+      const days_hold = props.daysOut
+      let years = props.seasonalYears
+      if (props.PEselected != 'cons') { years = `${props.PEselected}-${props.seasonalYears}` }
+      const direction = props.tradeDetailData['Trade Dir']
+      const sharpe_ratio = props.tradeDetailData['Sharpe Ratio']
+      const asURL = appserverURL()
+
+      // 1. Ensure the Notifications portfolio exists. 'duplicate' = already there
+      // (fine); 'limit_reached' = tier portfolio cap (free Explorer) -> use 'main'.
+      let portfolio = NOTIFY_PORTFOLIO
+      try {
+        const pr = await twFetch(`${asURL}/add_user_portfolio_name/${NOTIFY_PORTFOLIO}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((r) => r.json())
+        if (pr['portfolio_names_list'] === 'limit_reached') portfolio = 'main'
+      } catch (e) { portfolio = 'main' }
+
+      // 2. Save the pattern (idempotent: refreshed=true means it was already saved).
+      const data = await twFetch(`${asURL}/dr_report_publish/${id}/${symbol}/${date}/${days_hold}/${years}/${direction}/${sharpe_ratio}/${portfolio}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((r) => r.json())
+
+      if (data['publish_dr_report'] !== 'success') {
+        if (data['publish_dr_report'] === 'daily_limit_reached') {
+          showInfoDialog({ title: 'Daily Limit Reached', contentText: `Your daily limit of ${data['limit']} opportunities per day has been reached. You can add new opportunities after midnight eastern timezone, or upgrade your subscription to increase the limit.`, button1Text: 'Subscriptions', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+        } else if (data['publish_dr_report'] === 'total_limit_reached') {
+          showInfoDialog({ title: 'Opportunities Limit Reached', contentText: `You have reached the maximum number of tracked opportunities (${data['limit']}) for your current plan. Remove an existing one, or upgrade your subscription to track more.`, button1Text: 'Subscriptions', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+        } else {
+          showInfoDialog({ title: 'Google Calendar Events', contentText: 'Could not save the pattern (' + String(data['publish_dr_report']) + '). Please try again.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+        }
+        return
+      }
+
+      // Build both event dicts from what the viewer already knows (tradeDetailData
+      // IS the ChartData4 stats dict - no extra fetch needed).
+      const slug = String(data['report_url'] || '').split('/r/')[1] ? String(data['report_url']).split('/r/')[1].replace(/\/+$/, '') : ''
+      const date2 = incrementDate(date, parseInt(days_hold, 10) - 1)
+      const p = {
+        rid: id,
+        ticker: symbol,
+        direction: direction,
+        date1: date,
+        date2: date2,
+        days: days_hold,
+        years: years,
+        resource_group: props.selectedSecurity,
+        slug: slug,
+        sharpe_ratio: sharpe_ratio,
+        publishDate: null, // just saved - the "created" line in the event covers it
+        stats: props.tradeDetailData,
+        eventTime: getCookie('event_time') || '8:00AM',
+        emailReminder: getCookie('email_reminder') !== 'false',
+        popupReminder: getCookie('popup_reminder') !== 'false',
+        reminderDate1: shiftWeekendToNextMonday(date),
+        reminderDate2: shiftWeekendToNextMonday(date2),
+      }
+      const eventDicts = [buildPatternEventDict('start', p), buildPatternEventDict('end', p)]
+
+      if (data['refreshed']) {
+        // Already saved to this portfolio -> reminders were (presumably) already
+        // created. Don't silently duplicate Google events - explain how to modify,
+        // with an explicit re-create path for users who deleted the old events.
+        showInfoDialog({
+          title: 'Reminders Already Set',
+          contentText: `Calendar reminders for this ${symbol} pattern already exist (it is saved in your "${portfolio}" portfolio). To change their time or reminder settings, open the Portfolio Manager (clipboard-with-pencil icon), select the "${portfolio}" portfolio, and click the calendar icon on the pattern. If you deleted the events from Google Calendar and want them re-created with default settings, click Re-create.`,
+          button1Text: 'Re-create', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)',
+          onButton1: () => startCalendarTokenFlow(eventDicts, ''),
+        })
+        return
+      }
+
+      props.SetNumReportsCreated(props.numReportsCreated + 1)
+      startCalendarTokenFlow(eventDicts, ` and the pattern was saved to your "${portfolio}" portfolio`)
+    } finally {
+      SetNotifyBusy(false)
+    }
+  }
+
   const handleAddReport = () => {
     // new opportunity added to the portfolio by clicking the plus in reports dashboard dialog
     // check if this report can be added based on how many reports are allowed for this user and how many have already been created
@@ -1542,12 +1805,18 @@ const SeasonalBarChart = (props) => {
 
               // console.log('--------add report returned ---', props.numReportsAllowed, props.numReportsCreated)
 
-              if (data['publish_dr_report'] === 'success') {
+              if (data['publish_dr_report'] === 'success' && data['refreshed']) {
+                // Idempotent-refresh response (2026-07-04): the pattern was already in
+                // this portfolio - the server re-rendered its report instead of
+                // duplicating. Don't increment the count.
+                props.SetDialogProp({ title: 'delay', contentText: 'Already in your portfolio - report refreshed', button1Text: '', button2Text: '', coverDivColor: 'rgba(0,0,0,0.4)' })
+              }
+              else if (data['publish_dr_report'] === 'success') {
                 props.SetNumReportsCreated(props.numReportsCreated + 1) // increment the number of reports created
                 let contentText = `Opportunity Added - ${(props.numReportsAllowed - props.numReportsCreated - 1)} Remaining`;
                 props.SetDialogProp({ title: 'delay', contentText: contentText, button1Text: '', button2Text: '', coverDivColor: 'rgba(0,0,0,0.4)' })
               }
-              else if (data['publish_dr_report'] === 'duplicate') {
+              else if (data['publish_dr_report'] === 'duplicate') { // pre-2026-07 server response, kept for safety
                 props.SetDialogProp({ title: 'delay', contentText: 'Already in your portfolio (duplicate)', button1Text: '', button2Text: '', coverDivColor: 'rgba(0,0,0,0.4)' })
               }
               else if (data['publish_dr_report'] === 'daily_limit_reached') {
@@ -1557,6 +1826,11 @@ const SeasonalBarChart = (props) => {
               To increase your daily limit, please consider upgrading your subscription.
               `
                 props.SetDialogProp({ title: 'Daily Limit Reached', contentText: daily_limit_content, button1Text: 'Subscriptions', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+              }
+              else if (data['publish_dr_report'] === 'total_limit_reached') {
+                let limit = data['limit'];
+                let total_limit_content = `You have reached the maximum number of tracked opportunities (${limit}) for your current plan. Remove an existing one, or upgrade your subscription to track more.`
+                props.SetDialogProp({ title: 'Opportunities Limit Reached', contentText: total_limit_content, button1Text: 'Subscriptions', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
               }
               else { // should not happen
                 props.SetDialogProp({ title: 'delay', contentText: 'should not happen', button1Text: '', button2Text: '', coverDivColor: 'rgb(222,222,222,0)' })
@@ -1631,8 +1905,32 @@ const SeasonalBarChart = (props) => {
 
         }
 
+        {/* One-click notify bell: prominent labeled pill on desktop, compact icon on
+            mobile. First-visit pulse (localStorage-gated) makes it discoverable. */}
+        {props.seasonalBarChartData.length > 0 &&
+          <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
+            <div theme="tw" >
+              {props.tooltipSW ? 'One click adds Google Calendar reminders for this pattern’s start and end dates, and saves it to your Notifications portfolio. Customize times later via the Portfolio Manager’s calendar icon.' : ''}
+            </div>
+          }>
+            {rdd.isMobile
+              ? <div style={{ backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }}>
+                  <BsBellFill size={icon_size_plus - 12} className={notifyPulse ? 'tw-notify-pulse' : undefined} style={{ fill: "white", margin: '0 5px' }} onClick={handleNotifyClicked} />
+                </div>
+              : <button className={'tw-notify-btn' + (notifyPulse ? ' tw-notify-pulse' : '')} onClick={handleNotifyClicked} disabled={notifyBusy}>
+                  {/* Icon-only when the right panel is narrow (absolute px, not split %:
+                      a small window with the default split is just as cramped) - the
+                      labeled pill otherwise overflows this fixed row into Best Waves. */}
+                  {(window.innerWidth * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1)) < 1120
+                    ? <BsBellFill size={13} style={{ verticalAlign: '-2px' }} />
+                    : <><BsBellFill size={12} style={{ marginRight: '5px', verticalAlign: '-1px' }} />Notify me</>}
+                </button>
+            }
+          </Tippy>
+        }
+
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
-          <div style={{ paddingLeft: '0.5vw', paddingRight: '6px' }}>
+          <div style={{ paddingLeft: '2px', paddingRight: '6px' }}>
           <SelectBox
             optionList={oppBySymbolOptions}
             value={selectedOppBySymbol}
@@ -1645,40 +1943,39 @@ const SeasonalBarChart = (props) => {
         }
 
         <div style={StyleDescription} >
-          {props.symbol !== '' &&
 
-            <span>
-              <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
-                <div theme="tw" >
-                  {props.tooltipSW ? props.seasonalYears + 'Y is the number of historical years the wave viewer is analyzing.  To increase or decrease the number of years, select the desired number of years on the select box.  Select a presidential election cycle year to analyze by one of the 4 presidentail cycle years.' : ''}
-                </div>
-              }>
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
 
-                <span style={{ display: descpart1, fontWeight: 'bold' }}>{yearsDisplay()}&nbsp;</span>
+            {/* Inline ticker input - replaces the old static symbol text. The "N-Year" label that
+                used to sit before the ticker was dropped per request. Desktop only: on mobile/tablet
+                the toolbar symbol box (or the smartphone-portrait second layer) is used instead, so
+                gating on !rdd.isMobile avoids rendering a duplicate id="symbol" input off-screen.
+                Rendered even when props.symbol === '' so there's always somewhere to type a ticker
+                (on desktop the toolbar box is now hidden). */}
+            {!rdd.isMobile &&
+              <span style={{ position: 'relative', display: 'flex', alignItems: 'center', marginRight: '6px' }} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
+                <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,Ticker Symbol to analyze.  Ticker must be a part of current securities group' : ''} text={props.symbol} width={barchartControlTickerWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} qparams={props.qparams} />
+                {watchlistDropdownOpen && props.defaultWatchlistItems && props.defaultWatchlistItems.length > 0 &&
+                  <div className='watchlist-dropdown' style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9000, backgroundColor: tc.panelBg, border: '1px solid ' + tc.border, maxHeight: '200px', overflowY: 'auto', minWidth: '100px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                    {props.defaultWatchlistItems.map((sym, idx) => (
+                      <div key={idx} onMouseDown={(e) => { e.preventDefault(); handleWatchlistItemClick(sym) }} style={{ padding: '3px 8px', cursor: 'pointer', fontSize: globalTextSize, color: tc.text, backgroundColor: sym === props.symbol ? tc.statLabelBg : 'transparent' }} onMouseEnter={(e) => e.target.style.backgroundColor = tc.inputBg} onMouseLeave={(e) => e.target.style.backgroundColor = sym === props.symbol ? tc.statLabelBg : 'transparent'}>
+                        {sym}
+                      </div>
+                    ))}
+                  </div>
+                }
+              </span>
+            }
 
-              </Tippy>
-
-
-              <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
-                <div theme="tw" >
-                  {props.tooltipSW ? 'Ticker Symbol for the security' : ''}
-                </div>
-              }>
-                {/* <span style={{ color: "red", display: descpart1 }}><strong>{ticker_description}</strong>&nbsp;</span> */}
-                {/* "#FFD700"  */}
-                <span style={{ color: UIcolors(loggedinUser)['symbol_color'], display: descpart1, fontWeight: 'bolder' }}><strong>{props.symbol}</strong>&nbsp;</span>
-              </Tippy>
-
-
-              <Tippy placement={'bottom'} disabled={!props.tooltipSW} content={
+            <Tippy placement={'bottom'} disabled={!props.tooltipSW} content={
                 <div theme="tw" >
                   {props.tooltipSW ? 'Date Range for the Wave strategy' : ''}
                 </div>
               }>
-                <span style={{ fontWeight: 'bold', marginTop: '1px', border: '1px solid ' + tc.border, paddingLeft: '2px', paddingRight: '1px', marginRight: '8px' }}>{dateStartDisp} to {dateEndDisp} &nbsp;  </span>
+                <span style={{ fontWeight: 'bold', marginTop: '1px', border: '1px solid ' + tc.border, paddingLeft: '4px', paddingRight: '4px', marginRight: '5px', whiteSpace: 'nowrap', visibility: props.symbol !== '' ? 'visible' : 'hidden', width: '16ch', textAlign: 'center', boxSizing: 'border-box', display: 'inline-block' }}>{dateStartDisp} to {dateEndDisp}</span>
               </Tippy>
-            </span>
-          }
+
+          </span>
         </div>
 
 
@@ -1706,7 +2003,7 @@ const SeasonalBarChart = (props) => {
             <TextBox text={props.startDate} width="9" tbBlur={handleBlur} tbEnter={handleEnter} name="date" securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} />
           </div>
           <div className='barchart-controls-div2' style={{ position: 'relative' }} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
-            <TextBox text={props.symbol} width="5" tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} qparams={props.qparams} />
+            <TextBox text={props.symbol} width="5" tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} qparams={props.qparams} />
             {watchlistDropdownOpen && props.defaultWatchlistItems && props.defaultWatchlistItems.length > 0 &&
               <div className='watchlist-dropdown' style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9000, backgroundColor: tc.panelBg, border: '1px solid ' + tc.border, maxHeight: '200px', overflowY: 'auto', minWidth: '80px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
                 {props.defaultWatchlistItems.map((sym, idx) => (
@@ -1764,7 +2061,7 @@ const SeasonalBarChart = (props) => {
           </div>
 
           <div className='barchart-controls-div' style={{...StyleSymbol, position: 'relative'}} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
-            <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,Ticker Symbol to analyze.  Ticker must be a part of current securities group' : ''} text={props.symbol} width={barchartControlTickerWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" qparams={props.qparams} />
+            <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,Ticker Symbol to analyze.  Ticker must be a part of current securities group' : ''} text={props.symbol} width={barchartControlTickerWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} qparams={props.qparams} />
             {watchlistDropdownOpen && props.defaultWatchlistItems && props.defaultWatchlistItems.length > 0 &&
               <div className='watchlist-dropdown' style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9000, backgroundColor: tc.panelBg, border: '1px solid ' + tc.border, maxHeight: '200px', overflowY: 'auto', minWidth: '100px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
                 {props.defaultWatchlistItems.map((sym, idx) => (

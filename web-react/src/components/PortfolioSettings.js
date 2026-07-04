@@ -236,6 +236,15 @@ const PortfolioSettings = (props) => {
             })
             .then((data) => {
 
+                // Server-side quota backstop (races / stale client count). MUST short-circuit
+                // BEFORE the loop below: 'limit_reached' is a string, and iterating its .length
+                // would push junk rows into the dropdown and falsely show "added".
+                if (data['portfolio_names_list'] === 'limit_reached') {
+                    SetMessage(`Maximum portfolios for your plan (${data['limit']}) reached. Upgrade your subscription for more.`);
+                    SetMsgColor('red');
+                    return;
+                }
+
                 // console.log('add portfolio returned new list:', data['portfolio_names_list'])
                 let tmp = []
                 for (let i = 0; i < data['portfolio_names_list'].length; i++) {

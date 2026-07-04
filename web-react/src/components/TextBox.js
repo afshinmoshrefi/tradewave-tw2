@@ -4,14 +4,27 @@ import { themeColors } from './Common'
 import Tippy from '@tippyjs/react'
 import { userAccessToSelectedSecurity } from './Common'
 
+// Set once a user first focuses the symbol box; gates the one-time
+// first-visit pulse so returning users never see it again.
+const SYMBOL_SEEN_KEY = 'tw_symbolbox_seen'
 
-
-const TextBox = ({ tooltipContent, name, text, width, tbBlur, tbEnter, securityTypeList2, selectedSecurity, browserH, browserW, qparams, errorStatus, creditLock }) => {
+const TextBox = ({ tooltipContent, name, text, width, tbBlur, tbEnter, securityTypeList2, selectedSecurity, browserH, browserW, qparams, errorStatus, creditLock, syncNonce }) => {
 
 
     const { wpUserLevels, rdd, globalTextSize, loggedinUser, UITheme } = useContext(UserContext)
     const tc = themeColors(UITheme)
     const [curText, SetCurText] = useState(text)
+
+    // The symbol box is the single most important control for a first-time
+    // user - it gets a placeholder, an accent border + tinted background, and a
+    // gentle pulse on the very first visit (until first click, then never again).
+    // Deliberately NO glyph: a magnifier implies search (it's direct entry) and
+    // a $ implies a money field / breaks on forex+futures symbols - both rejected.
+    const isSymbol = name === 'symbol'
+    const [showPulse, SetShowPulse] = useState(() => {
+        if (name !== 'symbol') return false
+        try { return !window.localStorage.getItem(SYMBOL_SEEN_KEY) } catch (e) { return false }
+    })
 
 
     if (rdd.isMobile && !rdd.isTablet && browserH > browserW) { }
@@ -21,12 +34,18 @@ const TextBox = ({ tooltipContent, name, text, width, tbBlur, tbEnter, securityT
 
     //---------------------------------------------------------------------------
     useEffect(() => {
-        SetCurText(text)  //holding state in the component just to make sure 
-    }, [text])
+        SetCurText(text)  //holding state in the component just to make sure
+        // syncNonce: parent bumps it to force a re-sync when `text` did NOT change -
+        // e.g. a rejected symbol (not found) must snap the box back to the old symbol.
+    }, [text, syncNonce])
 
-    const handleFocus = (event) => { // only applies to TradeInstrument.js credit
+    const handleFocus = (event) => { // TradeInstrument.js credit + symbol first-visit pulse
         if (creditLock !== undefined){
             creditLock.current=true;
+        }
+        if (isSymbol && showPulse) {
+            SetShowPulse(false)
+            try { window.localStorage.setItem(SYMBOL_SEEN_KEY, '1') } catch (e) { }
         }
     }
     //---------------------------------------------------------------------------
@@ -161,7 +180,22 @@ const TextBox = ({ tooltipContent, name, text, width, tbBlur, tbEnter, securityT
 
             <div>
                 {/* <input type="text" value={curText} onBlur={tbBlur} onChange={handleOnChange} onKeyPress={tbEnter} size={width} id={name} style={{ fontSize: inputFontSize }} /> */}
-                <input type="text" value={curText} onBlur={tbBlur} onFocus={handleFocus} onChange={handleOnChange} onKeyPress={tbEnter} size={width} id={name} style={{ fontWeight: textFontWeight, fontSize: textboxFontSize, height: textHeight, paddingLeft: paddingText, textAlign: textAlign, border: '1px solid ' + tc.border, backgroundColor: tc.inputBg, color: tc.text }} />
+                <input type="text" value={curText} onBlur={tbBlur} onFocus={handleFocus} onChange={handleOnChange} onKeyPress={tbEnter}
+                    size={isSymbol ? (parseInt(width, 10) || 5) + 2 : width}
+                    id={name}
+                    className={isSymbol ? 'tw-symbol-input' + (showPulse ? ' tw-symbol-pulse' : '') : undefined}
+                    placeholder={isSymbol ? 'Ticker' : undefined}
+                    style={{
+                        fontWeight: isSymbol ? 'bold' : textFontWeight,
+                        fontSize: textboxFontSize,
+                        height: textHeight,
+                        paddingLeft: paddingText,
+                        textAlign: textAlign,
+                        border: isSymbol ? '2px solid ' + tc.symbolAccent : '1px solid ' + tc.border,
+                        borderRadius: isSymbol ? '3px' : undefined,
+                        backgroundColor: isSymbol ? tc.symbolBg : tc.inputBg,
+                        color: tc.text,
+                    }} />
             </div>
 
         </Tippy>

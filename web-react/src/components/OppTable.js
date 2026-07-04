@@ -19,7 +19,7 @@ import Tippy from '@tippyjs/react'
 import { userAccessToSelectedSecurity } from './Common'
 import { opp_dashboard_dialog_content } from './Common'
 import { settings_dialog_content } from './Common'
-import { trend_chart_left_gap_days, mlScoreMaxDaysAhead } from './Common'
+import { trend_chart_left_gap_days, mlScoreMaxDaysAhead, maxYearsCap } from './Common'
 import jwt_decode from 'jwt-decode'
 import { SlSettings } from "react-icons/sl";
 import { incrementDate } from './Common'
@@ -68,6 +68,7 @@ const OppTable = (props) => {
 
   const userChangedPYearsRef = useRef(false)  // true when user explicitly picks a partial years value
   const lastOppUrlRef = useRef('')  // last OppList4 URL actually fetched — fetch when the resolved query changes, not when opportunities happens to be empty
+  const metaReqRef = useRef(0)      // ordering guard: only the LATEST YearsMetaData2 response may write state (stale/empty responses clobbered the metadata)
 
   const [PELabel, SetPELabel] = useState(() => {
     const remainder = new Date().getFullYear() % 4;
@@ -118,6 +119,19 @@ const OppTable = (props) => {
 
     SetSeasonalYearsOptionsList([])
     SetPartialSeasonalYearsOptionsList([])
+
+    // id === -1 -> securityTypeList hasn't loaded / selectedSecurity not resolved yet.
+    // Do NOT fire the fetch: the '/-1/' URL returns the EMPTY sentinel, and when that
+    // response lands after the real market's it clobbers yearsMetaData AND spuriously
+    // auto-offs PE mode (live-confirmed race in the access log: /YearsMetaData2/-1 and
+    // /YearsMetaData2/0 fired the same second). The securityTypeList dep re-runs this
+    // effect once the list loads. Mirrors the id guard the OppList4 effect already has.
+    if (id === -1 || id === '-1') return
+
+    // Ordering guard: two metadata fetches can overlap during a market switch; only
+    // the latest one may write state (last-writer-wins otherwise -> stuck dropdowns).
+    const metaReqId = ++metaReqRef.current
+
     if (token && token.length > 0) { // 4/8/2025 - occational race condition crashes the app with the line below
 
       let decoded;
@@ -145,6 +159,8 @@ const OppTable = (props) => {
         .then((oppYearsLists) => {
 
           // console.log('yyyyyyyyyy oppYearsLists=', oppYearsLists)
+
+          if (metaReqId !== metaReqRef.current) return; // stale response - a newer fetch owns the state
 
           if (oppYearsLists !== undefined) {
 
@@ -178,8 +194,10 @@ const OppTable = (props) => {
             years.sort((a, b) => { return a - b }); // sort ascending
 
             var tmp = [];
+            const _yrCap = maxYearsCap();   // per-tier years cap (null = uncapped)
             for (var i = 0; i < years.length; i++) {
-              tmp.push({ id: years[i], value: years[i].toString(), label: years[i].toString() });
+              const _locked = _yrCap != null && years[i] > _yrCap;   // above the tier's history cap
+              tmp.push({ id: years[i], value: years[i].toString(), label: _locked ? years[i] + ' 🔒' : years[i].toString(), locked: _locked });
             }
 
             SetSeasonalYearsOptionsList(tmp);
@@ -220,7 +238,7 @@ const OppTable = (props) => {
 
     SetOppListExpanded(0); // 1/21/2023
 
-  }, [token, props.dayOfTheMonth, props.selectedSecurity, props.showPEOpps]) // 11/30/2021
+  }, [token, props.dayOfTheMonth, props.selectedSecurity, props.showPEOpps, props.securityTypeList]) // 11/30/2021; securityTypeList so the id=-1 early-return re-fires once the list loads
 
   //-------------------------------------------------------------------------------------------------------
   // runs when years is changed - set the partial year select from metadata 
@@ -256,6 +274,27 @@ const OppTable = (props) => {
 
     const yearsKey = String(props.oppTableYears);
 
+    // The YEARS value itself can be dead for the ACTIVE metadata - e.g. a PE-slot
+    // years (5) stranded in cons mode after a PE auto-off, where no 5-year cons
+    // datasets exist. tmp below would stay empty forever, partial-years could never
+    // resolve, and the table sat permanently blank (only a manual years toggle
+    // unstuck it). When metadata IS loaded and the current years has no rows, snap
+    // to the nearest valid years (largest <= current, else the smallest valid; both
+    // respecting the tier cap) and let the effect re-run resolve partial normally.
+    if (activeMeta.length > 0) {
+      const _cap = maxYearsCap();   // per-tier years cap (null = uncapped)
+      let validYears = [...new Set(activeMeta.map(r => parseInt(r[0])))].sort((a, b) => a - b);
+      if (_cap != null) validYears = validYears.filter(y => y <= _cap);
+      const curY = parseInt(props.oppTableYears, 10);
+      if (validYears.length > 0 && (isNaN(curY) || !validYears.includes(curY))) {
+        const below = validYears.filter(y => y <= curY);
+        const snapped = below.length > 0 ? below[below.length - 1] : validYears[0];
+        props.SetOppTableYears(snapped.toString());
+        props.SetOppTablePartialYears(-1);   // re-resolve partial for the snapped years
+        return;                              // effect re-runs with a live years value
+      }
+    }
+
     var tmp = [];
     for (var i = 0; i < activeMeta.length; i++) {
       if (String(activeMeta[i][0]) === yearsKey) {
@@ -272,10 +311,23 @@ const OppTable = (props) => {
 
     SetPartialSeasonalYearsOptionsList(tmp);
 
+    // partial-years is invalid when we KNOW the valid options for the current
+    // years (tmp populated) and the current value isn't one of them — e.g. a
+    // stale 18 left over from a years=15 selection after years drops to 10.
+    // Such a pair (10/18) has no Monthly_Opp dataset on the appserver, which
+    // returns its -1 sentinel -> empty table. tmp.length===0 means metadata is
+    // still loading, so we don't treat the value as invalid yet.
+    const partialYearsInvalid =
+      tmp.length > 0 &&
+      !tmp.some(o => String(o.value) === String(props.oppTablePartialYears));
+
     if (tmp.length > 0) {
-      // support both numeric -1 and string '-1' just in case
-      if (props.oppTablePartialYears === -1 || props.oppTablePartialYears === '-1') {
-        props.SetOppTablePartialYears(tmp[0].value); // highest
+      // Reset to the highest valid option when partial-years is the -1 reset
+      // sentinel OR a stale value invalid for the current years. The fetch
+      // below is skipped this pass (partialYearsInvalid gate); this state change
+      // re-runs the effect with a valid pair that then fetches normally.
+      if (props.oppTablePartialYears === -1 || props.oppTablePartialYears === '-1' || partialYearsInvalid) {
+        props.SetOppTablePartialYears(tmp[0].value); // highest valid
       }
     }
 
@@ -291,7 +343,7 @@ const OppTable = (props) => {
     // returns -1, which the appserver rejects. Skip the fetch entirely until
     // the resources list has loaded and selectedSecurity matches a valid market.
     var id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity)
-    if (props.selectedSecurity.length > 0 && id !== -1 && id !== '-1' && props.oppTablePartialYears.length > -1 && props.oppTablePartialYears > '0' && props.oppTableYears !== -1 && props.oppTablePartialYears !== -1) {
+    if (props.selectedSecurity.length > 0 && id !== -1 && id !== '-1' && props.oppTablePartialYears.length > -1 && props.oppTablePartialYears > '0' && props.oppTableYears !== -1 && props.oppTablePartialYears !== -1 && !partialYearsInvalid) {
 
       let day_range = '-';
       if (dayRange.length > 1) day_range = dayRange
@@ -333,6 +385,7 @@ const OppTable = (props) => {
       if (token.length > 0 && fetchKey !== lastOppUrlRef.current) {
         lastOppUrlRef.current = fetchKey
         SetOppLoadFailed(false)
+        SetInitialMessage('Loading ...')   // in-flight marker: gates the auto-step-down until THIS fetch's real result lands (a stale 'no patterns' message otherwise lets it fire mid-fetch)
 
         twFetch(url, { onRetry: () => SetInitialMessage('Data temporarily unavailable - retrying ...') })
           .then(res => {
@@ -365,6 +418,18 @@ const OppTable = (props) => {
                 SetInitialMessage('* No seasonal patterns found for the current selection');
               }
               else SetInitialMessage('Loading ...')
+
+              // Missing-dataset sentinel: when no precomputed opportunity file
+              // exists for the selected year combo, the appserver returns
+              // {OppList: '-1:<path>'} — a STRING, with no OppActiveList. Bail
+              // out to an empty table here; otherwise OppList.map() below throws
+              // on the string and the catch mislabels it "Data temporarily
+              // unavailable" instead of showing the no-patterns message above.
+              if (!Array.isArray(opps['OppList'])) {
+                props.SetOpportunities([]);
+                props.SetActiveOpportunities([]);
+                return;
+              }
 
               // console.log('opps=', opps)
 
@@ -559,15 +624,24 @@ const OppTable = (props) => {
     const currentPY = Number(props.oppTablePartialYears);
     if (isNaN(currentPY) || currentPY <= 0) return;
 
-    if (currentPY <= 1) {
+    // Step down to the next LOWER *valid* partial-years option, not a blind
+    // currentPY-1: a decremented value with no dataset gets yanked back up by the
+    // invalid-value reset while the URL dedupe blocks a refetch — an infinite
+    // 4<->5 ping-pong with the table stuck empty. Options are sorted DESC, so the
+    // first entry below currentPY is the closest valid step. No lower option
+    // (or options not loaded yet) -> stop with the guidance message.
+    const lowerValid = partialSeasonalYearsOptionsList
+      .map(o => Number(o.value))
+      .filter(v => !isNaN(v) && v < currentPY);
+    if (lowerValid.length === 0) {
       SetInitialMessage(`No patterns matched ${props.oppTablePartialYears} of ${props.oppTableYears} years - adjust the historical years and your filter to see patterns again`);
       return;
     }
 
-    const nextPY = currentPY - 1;
+    const nextPY = lowerValid[0]; // DESC order -> closest valid below current
     props.SetOpportunities([]);
     props.SetOppTablePartialYears(String(nextPY));
-  }, [props.oppTableLength, props.oppTablePartialYears])
+  }, [props.oppTableLength, props.oppTablePartialYears, partialSeasonalYearsOptionsList])
 
   //-------------------------------------------------------------------------------------------------------
   // Fetch stockscores in batch AFTER opportunities load (async - does not block table render)
@@ -812,6 +886,20 @@ const OppTable = (props) => {
       props.SetRowIndexClicked(rowIndex);
     }
   }
+
+  // The Day-3 lesson can ask us to load the first opportunity when nothing is on the
+  // chart yet, so its live "date range above the chart" example points at something real.
+  const loadFirstOppRef = useRef(null);
+  loadFirstOppRef.current = () => {
+    if (props.opportunities && props.opportunities.length > 0) {
+      handlerRowClicked(0, props.opportunities[0])();
+    }
+  };
+  useEffect(() => {
+    const h = () => { if (loadFirstOppRef.current) loadFirstOppRef.current(); };
+    window.addEventListener('tw-lessonbox-load-first', h);
+    return () => window.removeEventListener('tw-lessonbox-load-first', h);
+  }, []);
   //-------------------------------------------------------------------------------------------------------
 
   //-------------------------------------------------------------------------------------------------------

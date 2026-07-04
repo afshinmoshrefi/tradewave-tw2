@@ -4,7 +4,7 @@ import { UserContext } from './UserContext'
 import CheckBox from './CheckBox'
 import './styles/InfoPopup.css'
 import { logo64 } from './Common'
-import { userAccessToSelectedSecurity } from './Common'
+import { userAccessToSelectedSecurity, applyResolvedMatch, upsellDialogForMatch, isMarketEntitled } from './Common'
 
 const InfoPopup = (props) => {
 
@@ -186,6 +186,18 @@ Includes:
             coverDivColor = props.dialogProp['coverDivColor'];
             break;
 
+        case 'symbol-picker':
+            title = 'Choose a Market';
+            if (rdd.isMobile && !rdd.isTablet && browserH > browserW) { DialogW = '90%'; DialogH = '62%'; DialogT = '20%'; DialogL = '5%'; titleFontSize = '6vw'; contentFontSize = '3.6vw'; buttonFontSize = '4vw'; buttonH = '5vh'; logo_width = '65vw' }
+            else if (rdd.isMobile && !rdd.isTablet && browserH < browserW) { DialogW = '70%'; DialogH = '80%'; DialogT = '12%'; DialogL = '15%'; titleFontSize = '2vw'; contentFontSize = '1.6vw'; buttonFontSize = '1.8vw'; buttonH = '7vh'; logo_width = '32vw' }
+            else if (rdd.isMobile && rdd.isTablet && browserH > browserW) { DialogW = '80%'; DialogH = '55%'; DialogT = '22%'; DialogL = '10%'; titleFontSize = '4.5vw'; contentFontSize = '2.6vw'; buttonFontSize = '3vw'; buttonH = '5vh'; logo_width = '36vw' }
+            else if (rdd.isMobile && rdd.isTablet && browserH < browserW) { DialogW = '50%'; DialogH = '70%'; DialogT = '15%'; DialogL = '25%'; titleFontSize = '2vw'; contentFontSize = '1.5vw'; buttonFontSize = '2vw'; buttonH = '7vh'; logo_width = '22vw' }
+            else { DialogW = '34%'; DialogH = '46%'; DialogT = '27%'; DialogL = '33%'; }
+            button1Text = 'Close';
+            button2Text = '';
+            coverDivColor = 'rgb(222,222,222,0)';
+            break;
+
         default:
             break;
     }
@@ -326,7 +338,17 @@ Includes:
 
         // console.log('props.dialogType =', props.dialogType)
 
+        // Generic escape hatch: a dialog can carry its own button-1 action
+        // (e.g. the notify bell's "Re-create Events" / "Retry"). Runs inside
+        // this click gesture, so it may open popups (Google OAuth).
+        if (props.dialogProp && typeof props.dialogProp['onButton1'] === 'function') {
+            props.SetInfoBoxVisible(false);
+            props.dialogProp['onButton1']();
+            return
+        }
+
         if (props.dialogType === 'free-register') { props.SetInfoBoxVisible(false); return }
+        else if (props.dialogType === 'symbol-picker') { props.SetInfoBoxVisible(false); return }
         else if (props.dialogType === 'register') { props.SetInfoBoxVisible(false); }
         else if (props.dialogType === 'rate-limit') {
             // window.location.href = '/'; 
@@ -363,7 +385,7 @@ Includes:
         }
 
 
-        else if (title === 'Opportunities Limit Reached' || title === 'Daily Limit Reached') {
+        else if (title === 'Opportunities Limit Reached' || title === 'Daily Limit Reached' || title === 'See More History' || title === 'See the AI Score' || title === 'Unlock This Market') {
             props.SetInfoBoxVisible(false);
 
             if (loggedinUser === 0) {
@@ -440,6 +462,18 @@ Includes:
             });
 
     }
+
+    // symbol-picker: user clicked a market row. Entitled -> switch + load (closes dialog);
+    // locked -> swap this same dialog into the "Unlock This Market" upsell.
+    const pickMarket = (m) => {
+        const sym = props.dialogProp['symbol'];
+        if (isMarketEntitled(props.securityTypeList2, props.resourceObj, m.resourceID)) {
+            applyResolvedMatch(props, m, sym);
+        } else {
+            props.SetDialogProp(upsellDialogForMatch(m, sym));
+            props.SetDialogType('info-box');
+        }
+    };
 
     const upgradeToInstitutional = () => {
         const url = (loggedinUser === '0')
@@ -598,6 +632,27 @@ Includes:
                                 </p>
                             }
                             <div style={{ width: '100%', height: '20%', backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }}>
+                            </div>
+                        </div>
+                    }
+
+                    {props.dialogType === 'symbol-picker'
+                        &&
+                        <div style={contentDetailDivStyle}>
+                            <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', paddingBottom: '3%' }}>
+                                <span>Load <b>{props.dialogProp['symbol']}</b> from which market?</span>
+                            </div>
+                            <div style={{ width: '100%', maxHeight: '72%', overflowY: 'auto' }}>
+                                {(props.dialogProp['matches'] || []).map((m, idx) => {
+                                    const locked = !isMarketEntitled(props.securityTypeList2, props.resourceObj, m.resourceID);
+                                    return (
+                                        <div key={idx} onClick={() => pickMarket(m)}
+                                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2% 4%', marginBottom: '2%', border: '1px solid ' + tc.border, backgroundColor: tc.inputBg, cursor: 'pointer' }}>
+                                            <span><b>{m.label}</b>{m.name ? ' - ' + m.name : ''}</span>
+                                            {locked && <span title="Upgrade required">🔒</span>}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     }

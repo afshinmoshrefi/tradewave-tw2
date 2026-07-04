@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext, useRef } from 'react'
 import { UserContext } from './UserContext'
-import { themeColors, CellSpinner } from './Common'
+import { themeColors, CellSpinner, tierHasAI } from './Common'
 import { BsChevronExpand, BsChevronDown, BsChevronUp } from "react-icons/bs"
 import Tippy from '@tippyjs/react'
 import './styles/TableBox.css'
@@ -36,8 +36,19 @@ const TableBox = ({
   shortDates
 }) => {
 
-  const { tableTextSize, tableTitleTextSize, wpUserLevels, loggedinUser, token, rdd, UITheme } = useContext(UserContext)
+  const { tableTextSize, tableTitleTextSize, wpUserLevels, loggedinUser, token, rdd, UITheme, SetDialogType, SetDialogProp, SetInfoBoxVisible } = useContext(UserContext)
   const tc = themeColors(UITheme)
+  // AI scoring is an Analyst+ feature; non-AI tiers see a single LOCKED "AI Score" teaser column.
+  const hasAI = tierHasAI(wpUserLevels)
+  const openAILockDialog = () => {
+    SetDialogProp({
+      title: 'See the AI Score',
+      contentText: "The AI Score ranks these opportunities by win-probability - it starts at the Analyst plan. Upgrade to turn it on across all U.S. stocks and ETFs.\n\nPrefer not to see this column? Go to Settings -> Opp Table and uncheck the AI scoring columns.",
+      button1Text: 'See Plans', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)'
+    })
+    SetDialogType('info-box')
+    SetInfoBoxVisible(true)
+  }
 
   const [tableDataProcessed, SetTableDataProcessed] = useState(table_data)
   const [colSorted, SetColSorted] = useState('sharpe_ratio')
@@ -69,7 +80,12 @@ const TableBox = ({
   const ALL_COLUMNS = (columnOrder || ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'avg_profit', 'avg_profit2', 'sharpe_ratio2', 'TL', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'])
     .filter(col => {
       if (!showSR2 && (col === 'avg_profit2' || col === 'sharpe_ratio2')) return false;
-      if (['ml_score', 'win_prob', 'pred_return', 'pred_mfe'].includes(col) && !hasMLData) return false;
+      if (['ml_score', 'win_prob', 'pred_return', 'pred_mfe'].includes(col)) {
+        // AI tier: keep AI columns only when there is data (drop on a non-ML market). Non-AI tier:
+        // keep ONLY ml_score as the single locked "AI Score" teaser column (drop the sub-metrics).
+        if (hasAI) { if (!hasMLData) return false; }
+        else if (col !== 'ml_score') return false;
+      }
       return true;
     });
 
@@ -412,12 +428,14 @@ const TableBox = ({
                     ...(title === firstAICol ? { borderLeft: '2px solid #6366f1' } : {}),
                     ...(title === 'symbol' && !isMobilePortrait ? { position: 'sticky', left: 0, zIndex: 2 } : {})
                   }}
-                  onClick={handleTitleClicked(title)}
+                  onClick={(!hasAI && AI_COLS.includes(title)) ? openAILockDialog : handleTitleClicked(title)}
                 >
                   {tableTitleDict[title]}{' '}
-                  {title === colSorted
-                    ? (sortedDir === 'a' ? <BsChevronDown /> : <BsChevronUp />)
-                    : <BsChevronExpand />}
+                  {(!hasAI && AI_COLS.includes(title))
+                    ? <span title="AI scoring starts at Analyst" style={{ cursor: 'pointer' }}>🔒</span>
+                    : (title === colSorted
+                        ? (sortedDir === 'a' ? <BsChevronDown /> : <BsChevronUp />)
+                        : <BsChevronExpand />)}
                 </th>
               </Tippy>
             ))}
@@ -444,7 +462,9 @@ const TableBox = ({
                     backgroundColor: rowIndexClicked === index ? tc.stickySelectedBg : tc.panelBg,
                   } : {})
                 }}>
-                  {key === 'TL' && row[key] === null
+                  {(!hasAI && AI_COLS.includes(key))
+                    ? <span style={{ color: '#bbb', letterSpacing: '2px' }}>· · ·</span>
+                    : key === 'TL' && row[key] === null
                     ? <CellSpinner />
                     : key === 'price'
                       ? (row.price != null
