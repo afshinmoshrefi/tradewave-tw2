@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""Idempotently create the TradeWave **Navigator** web/EOD product + monthly/yearly
-prices in Stripe, with metadata product_line=eod + tier=navigator + period so the
-web app's price cache (web/app.py _refresh_price_cache) and the home-page pricing
-(site/generate_home_page.py _stripe_prices) resolve them deterministically.
+"""Idempotently create the TradeWave **Navigator** web/EOD products + prices in
+Stripe, matching the DEPLOYED metadata contract: ONE PRODUCT PER (tier, period)
+with metadata product_line=eod + tier=navigator + period=monthly|yearly ON THE
+PRODUCT - exactly how the hand-created Analyst/Strategist products look
+("TradeWave Analyst Monthly" etc.). Both consumers read the PRODUCT metadata for
+all three keys (web/app.py _refresh_price_cache; site/generate_home_page.py
+_stripe_prices), so a single product carrying two periods can never match.
 
-  WHY a script: the existing eod tiers (analyst/strategist) were created by hand in
-  the Stripe dashboard; Navigator is new. This mirrors web/api_portal/
-  create_api_products.py's safety gates so the operator can seed it the same way.
+  LESSON (2026-07-04 prod seed): the first version of this script created one
+  "TradeWave Navigator" product with period only on the PRICES - both matchers
+  ignored it and the home generator fail-fasted on missing navigator slots.
+  This version seeds per-period products and ARCHIVES any such periodless
+  navigator product it finds, so re-running self-heals that state.
 
   DEV NOTE: the dev box has NO Stripe key (STRIPE_SECRET_KEY empty), so checkout is
   503 on dev regardless. Run this against the shared account with a confirmed key:
@@ -21,7 +26,6 @@ After seeding: restart the web unit so _price_cache picks up the new prices.
 
 Prices (match site/generate_home_page.py fallback + project_tw2_current_prices):
   Navigator  $19/mo   $168/yr  (= $14/mo-equiv, ~26% off monthly)
-Metadata on EACH price's product: product_line=eod, tier=navigator, period=monthly|yearly.
 """
 import os
 import sys
@@ -34,11 +38,12 @@ import config
 CURRENCY = "usd"
 PRODUCT_LINE = "eod"
 TIER = "navigator"
-PRODUCT_NAME = "TradeWave Navigator"
-# (period -> (recurring interval, dollars)). Keep in sync with the home-page fallback.
-PRICES = {
-    "monthly": ("month", 19),
-    "yearly":  ("year", 168),
+# period -> (product name, recurring interval, dollars). One PRODUCT per period,
+# mirroring the live Analyst/Strategist convention. Keep in sync with the
+# home-page fallback.
+PERIODS = {
+    "monthly": ("TradeWave Navigator Monthly", "month", 19),
+    "yearly":  ("TradeWave Navigator Yearly",  "year", 168),
 }
 
 
@@ -68,7 +73,7 @@ def _require_seed_key():
         sys.exit(
             "REFUSING TO RUN: --live requires env TW2_CONFIRM_LIVE_SEED=1 as an explicit confirmation."
         )
-    print("\n!!! LIVE STRIPE SEED - creates a REAL, BILLABLE Navigator product "
+    print("\n!!! LIVE STRIPE SEED - creates REAL, BILLABLE Navigator products "
           "($19/mo, $168/yr) in LIVE Stripe. !!!\n")
     if sys.stdin.isatty():
         try:
@@ -80,39 +85,55 @@ def _require_seed_key():
     return key
 
 
-def _find_product(stripe):
-    """Find an existing product with metadata product_line=eod + tier=navigator, or None."""
+def _navigator_products(stripe):
+    """All active products with metadata product_line=eod + tier=navigator,
+    keyed by their period metadata ('' when absent - the broken shape)."""
+    found = {}
     for prod in stripe.Product.list(active=True, limit=100).auto_paging_iter():
         md = prod.metadata.to_dict() if getattr(prod, "metadata", None) else {}
-        if (md.get("product_line") or "").lower() == PRODUCT_LINE and (md.get("tier") or "").lower() == TIER:
-            return prod
-    return None
+        if ((md.get("product_line") or "").lower() == PRODUCT_LINE
+                and (md.get("tier") or "").lower() == TIER):
+            found.setdefault((md.get("period") or "").lower(), []).append(prod)
+    return found
 
 
-def _find_price(stripe, product_id, interval):
-    for price in stripe.Price.list(product=product_id, active=True, limit=100).auto_paging_iter():
-        rec = price.recurring.to_dict() if getattr(price, "recurring", None) else {}
-        if rec.get("interval") == interval:
-            return price
-    return None
+def _archive_periodless(stripe, products):
+    """Deactivate a periodless navigator product + its prices (the mis-seeded
+    shape neither matcher can use) so re-runs self-heal."""
+    for prod in products:
+        for price in stripe.Price.list(product=prod.id, active=True, limit=100).auto_paging_iter():
+            stripe.Price.modify(price.id, active=False)
+            print("  archived price   %s (periodless product)" % price.id)
+        stripe.Product.modify(prod.id, active=False)
+        print("  archived product %s (%s - no period metadata)" % (prod.id, prod.name))
 
 
-def _ensure_price(stripe, product, period, interval, dollars):
-    price = _find_price(stripe, product.id, interval)
-    if price is None:
-        price = stripe.Price.create(
-            product=product.id,
-            unit_amount=int(dollars) * 100,
-            currency=CURRENCY,
-            recurring={"interval": interval},
-            # product_line/tier live on the PRODUCT metadata (that's what the web app
-            # reads via expand=data.product); period is the per-price discriminator.
-            metadata={"product_line": PRODUCT_LINE, "tier": TIER, "period": period},
-        )
-        print("    created price %s ($%d %s)" % (price.id, dollars, period))
+def _ensure_period_product(stripe, period, existing):
+    name, interval, dollars = PERIODS[period]
+    md = {"product_line": PRODUCT_LINE, "tier": TIER, "period": period}
+    if existing:
+        product = existing[0]
+        cur = product.metadata.to_dict() if getattr(product, "metadata", None) else {}
+        if any(cur.get(k) != v for k, v in md.items()):
+            stripe.Product.modify(product.id, metadata=md)
+        print("  reused product  %s (%s)" % (product.id, product.name))
     else:
-        print("    reused price  %s ($%d %s)" % (price.id, dollars, period))
-    return price
+        product = stripe.Product.create(name=name, metadata=md)
+        print("  created product %s (%s)" % (product.id, name))
+
+    for price in stripe.Price.list(product=product.id, active=True, limit=100).auto_paging_iter():
+        rec = price.recurring.to_dict() if getattr(price, "recurring", None) else {}
+        if rec.get("interval") == interval and price.unit_amount == int(dollars) * 100:
+            print("    reused price  %s ($%d %s)" % (price.id, dollars, period))
+            return
+    price = stripe.Price.create(
+        product=product.id,
+        unit_amount=int(dollars) * 100,
+        currency=CURRENCY,
+        recurring={"interval": interval},
+        metadata={"product_line": PRODUCT_LINE, "tier": TIER, "period": period},
+    )
+    print("    created price %s ($%d %s)" % (price.id, dollars, period))
 
 
 def main():
@@ -120,27 +141,15 @@ def main():
     mode = "LIVE" if key.startswith("sk_live_") else "TEST"
     import stripe
     stripe.api_key = config.STRIPE_SECRET_KEY
-    print("Stripe %s mode confirmed. Ensuring Navigator product/prices exist...\n" % mode)
+    print("Stripe %s mode confirmed. Ensuring Navigator products/prices exist...\n" % mode)
 
-    product = _find_product(stripe)
-    if product is None:
-        product = stripe.Product.create(
-            name=PRODUCT_NAME,
-            metadata={"product_line": PRODUCT_LINE, "tier": TIER},
-        )
-        print("  created product %s (%s)" % (product.id, PRODUCT_NAME))
-    else:
-        # Ensure the metadata is present even if the product pre-existed.
-        if (product.metadata.get("product_line") != PRODUCT_LINE
-                or product.metadata.get("tier") != TIER):
-            stripe.Product.modify(product.id, metadata={"product_line": PRODUCT_LINE, "tier": TIER})
-        print("  reused product  %s (%s)" % (product.id, PRODUCT_NAME))
+    by_period = _navigator_products(stripe)
+    _archive_periodless(stripe, by_period.get("", []))
+    for period in PERIODS:
+        _ensure_period_product(stripe, period, by_period.get(period, []))
 
-    for period, (interval, dollars) in PRICES.items():
-        _ensure_price(stripe, product, period, interval, dollars)
-
-    print("\nDone. The web app resolves prices live by (product metadata product_line=eod, "
-          "tier=navigator) + period. RESTART the web unit to refresh _price_cache.")
+    print("\nDone. Both matchers resolve by PRODUCT metadata (product_line=eod, "
+          "tier=navigator, period). RESTART the web unit to refresh _price_cache.")
 
 
 if __name__ == "__main__":
