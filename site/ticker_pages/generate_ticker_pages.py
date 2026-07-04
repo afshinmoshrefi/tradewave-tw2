@@ -508,6 +508,31 @@ def main():
         except Exception as e:
             print('  Hub page render failed: %s' % e)
 
+    # --- Prune stale pages (skipped tickers + orphans) ---
+    # A ticker SKIPPED for insufficient data on this box (e.g. staging's
+    # US-subset dataset never renders SPY/EEM) would otherwise keep serving its
+    # LAST-BUILT page forever - stale copies leaked the old smn-dev header on
+    # staging and tripped the deploy host-leak gate. Orphans (pages for tickers
+    # no longer in the list) are pruned the same way. FAILED tickers (transient
+    # collect/render errors) are NOT pruned - their existing page is still the
+    # best available. Guarded on a substantially-healthy run so an appserver
+    # outage can never mass-delete the section.
+    pruned = []
+    if len(rendered) >= max(10, len(tickers) // 2):
+        keep = {'%s.html' % s for s in rendered} | {'index.html'}
+        for fname in sorted(os.listdir(output_dir)):
+            if not fname.endswith('.html') or fname in keep:
+                continue
+            if fname[:-5] in failed:
+                continue
+            try:
+                os.remove(os.path.join(output_dir, fname))
+                pruned.append(fname)
+            except OSError as e:
+                print('  prune failed for %s: %s' % (fname, e))
+        if pruned:
+            print('  Pruned %d stale page(s): %s' % (len(pruned), pruned))
+
     total = time.time() - start
     print('')
     print('=' * 60)
@@ -516,6 +541,7 @@ def main():
     print('Output dir:     %s' % output_dir)
     print('Rendered:       %d' % len(rendered))
     print('Skipped:        %d  %s' % (len(skipped), skipped if skipped else ''))
+    print('Pruned:         %d  %s' % (len(pruned), pruned if pruned else ''))
     print('Failed:         %d  %s' % (len(failed), failed if failed else ''))
     if sitemap_path:
         print('Sitemap:        %s' % sitemap_path)

@@ -73,6 +73,73 @@ def _lastmod(path: Path) -> str:
         return datetime.now().strftime('%Y-%m-%d')
 
 
+def _page_title(path: Path) -> str:
+    """First <title> in the file, minus any ' - TradeWave...' suffix; falls back
+    to the filename stem."""
+    try:
+        import re
+        head = path.read_text(encoding='utf-8', errors='ignore')[:2048]
+        m = re.search(r'<title>(.*?)</title>', head, re.S)
+        if m:
+            return m.group(1).split(' - ')[0].split(' | ')[0].strip()
+    except OSError:
+        pass
+    return path.stem.replace('-', ' ').title()
+
+
+def build_markets_index() -> bool:
+    """Write markets/index.html from the market pages on disk. The section never
+    had an index (a bare /markets/ 403'd - verify_deploy flags it as a blocker),
+    and the market pages themselves are SMN-coupled so this generator, which
+    already scans the section for the sitemap, is the natural owner. From-disk
+    like everything else here: pages that vanish drop off the index next run.
+    Returns True if written (needed so the sitemap scan can include it)."""
+    markets_dir = WEB_ROOT / 'markets'
+    if not markets_dir.is_dir():
+        return False
+    pages = [p for p in sorted(markets_dir.glob('*.html')) if p.name != 'index.html']
+    if not pages:
+        return False
+    items = '\n'.join(
+        '      <li><a href="/markets/%s">%s</a></li>' % (p.name, _page_title(p))
+        for p in pages)
+    html = no_em_dash('''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Markets - TradeWave Seasonal Market Research</title>
+  <meta name="description" content="Seasonal research hubs for the major markets TradeWave tracks - historical calendar-window behavior, shown year by year.">
+  <link rel="canonical" href="%smarkets/">
+  <style>
+    body { margin:0; background:#0d1526; color:#e8edf6; font:16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    main { max-width:720px; margin:0 auto; padding:48px 24px; }
+    h1 { font-size:32px; margin:0 0 8px; }
+    p.sub { color:#9fb0c8; margin:0 0 32px; }
+    ul { list-style:none; padding:0; }
+    li { margin:0 0 12px; }
+    a { color:#5eead4; text-decoration:none; font-size:18px; }
+    a:hover { text-decoration:underline; }
+    .home { display:inline-block; margin-top:32px; color:#9fb0c8; font-size:14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Markets</h1>
+    <p class="sub">Seasonal research for the major markets TradeWave tracks - the historical record by calendar window, shown year by year.</p>
+    <ul>
+%s
+    </ul>
+    <a class="home" href="/">TradeWave home</a>
+  </main>
+</body>
+</html>
+''' % (ROOT, items))
+    _write_atomic(markets_dir / 'index.html', html)
+    print('markets/index.html   %d market pages listed' % len(pages))
+    return True
+
+
 def collect_urls():
     """Return [(loc, lastmod), ...] built from what's actually on this box's disk
     right now - the whole point being a stale/foreign-host entry can't survive a
@@ -191,10 +258,34 @@ def _write_atomic(path: Path, content: str):
     os.replace(tmp, path)
 
 
+def _prune_legacy_static():
+    """Remove the retired duplicate-content leftovers under _static/. The live
+    market pages moved to /markets/ and research to /research.html long ago;
+    the old copies kept serving stale hosts (35 host-leak FAILs on the 2026-07-04
+    staging deploy) and shadowed the live pages in old sitemaps. Deleting here -
+    the same generator that excludes them from the sitemap - makes every env
+    self-heal on regen. Idempotent: silent no-op once gone."""
+    import shutil
+    legacy_dir = WEB_ROOT / '_static' / 'markets'
+    if legacy_dir.is_dir():
+        shutil.rmtree(legacy_dir, ignore_errors=True)
+        print('pruned legacy %s' % legacy_dir)
+    legacy_research = WEB_ROOT / '_static' / 'research.html'
+    if legacy_research.is_file():
+        try:
+            legacy_research.unlink()
+            print('pruned legacy %s' % legacy_research)
+        except OSError as e:
+            print('  prune failed for %s: %s' % (legacy_research, e), file=sys.stderr)
+
+
 def main():
     if not WEB_ROOT.is_dir():
         print('FATAL: web root %s does not exist' % WEB_ROOT, file=sys.stderr)
         sys.exit(1)
+
+    _prune_legacy_static()
+    build_markets_index()
 
     urls = collect_urls()
     if not urls:
