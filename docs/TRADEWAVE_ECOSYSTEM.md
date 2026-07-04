@@ -934,6 +934,18 @@ roadmap memories.)
 
 ## 11. Invariants / landmines (do NOT break)
 
+0. **Scorecard WIN DEFINITION (owner, 2026-07-04 - explicit, supersedes the
+   2026-06-16 held-to-close headline):** a daily pick WINS when it reaches the
+   AI's predicted gain (`peak_return >= pred_return`) inside its window - open
+   or closed, permanently (no flip-back on a faded close) - or when it closes
+   profitable. Open picks that have not hit are PENDING (excluded from the
+   denominator). "The entire point of the AI score is the highest probability
+   of gain - if that gain is reached, it's a win." Single source =
+   `site/lib/pick_stats.py` (is_win/is_judged/hit_target; scorecard + homepage
+   both consume it). Held-to-close stays as the LABELED SECONDARY stat and
+   every row keeps its realized close return visible - do NOT remove that
+   transparency, and do NOT make held-to-close the headline again.
+
 1. **Reverse-trial freemium gate (decided by owner 2026-06-10, supersedes the
    2026-05-18 open-paywall launch decision):** new free signups get the FULL
    Strategist experience for 7 days (`users.reverse_trial_ends_at`, set in
