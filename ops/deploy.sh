@@ -24,7 +24,7 @@ set -euo pipefail
 case "${1:-}" in
   staging) WEB=185.53.209.8;    APP=199.244.48.157;  HOST=tw2-stage.trxstat.com
            APIHOST=api-stage.trxstat.com; DEVHOST=developers-stage.trxstat.com; MCPHOST=mcp-stage.trxstat.com ;;
-  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tw2-prod.trxstat.com
+  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tradewave.ai
            APIHOST=api.tradewave.ai;      DEVHOST=developers.tradewave.ai;      MCPHOST=mcp.tradewave.ai ;;
   *) echo "usage: $0 {staging|prod}"; exit 2 ;;
 esac
@@ -32,13 +32,13 @@ ENV="$1"; SSH="ssh -p 4369"; BUILD=/home/flask/web-react/build
 
 [ -d "$BUILD/static" ] || { echo "ERROR: $BUILD missing — run 'npm run build' on dev first."; exit 1; }
 
-echo "==> [$ENV] pre-flight: TW2_PUBLIC_HOST correct (web strict; app strict only when the portal is live)?"
-# The WEB box bakes every public page, so it MUST equal the customer host. The APP box's
-# TW2_PUBLIC_HOST only feeds the developer-portal back-links, which are assembled on
-# staging/dev but ship DARK on prod - so enforce host==$HOST on the app box only when NOT
-# prod. (Prod's app box legitimately carries the internal tw2-prod.trxstat.com placeholder;
-# forcing it to tradewave.ai is only needed if/when API/MCP launches on prod.) Catches the
-# staging app-box stage2.trxstat.com drift without blocking a normal prod ship.
+echo "==> [$ENV] pre-flight: TW2_PUBLIC_HOST == $HOST on BOTH boxes?"
+# The WEB box bakes every public page, so it MUST equal the customer host ($HOST =
+# the LIVE host: tradewave.ai on prod since the 2026-05-31 cutover - NOT the
+# tw2-prod.trxstat.com tunnel placeholder, which is only the box's internal name).
+# The APP box is strict everywhere since the 2026-07-04 API/MCP prod launch: the
+# apiserver/mcpserver/portal bake TW2_PUBLIC_HOST into published responses.
+# Catches stage2.trxstat.com-style drift before anything deploys.
 check_host() {  # check_host <box> <strict>
   local box="$1" strict="$2" val
   val=$($SSH "root@$box" "grep -m1 '^TW2_PUBLIC_HOST=' /etc/tradewave/secrets.env 2>/dev/null | cut -d= -f2-")
