@@ -9,7 +9,7 @@ is one command and a verify is the gate. Pair with `ops/deploy.sh`, `ops/regen_s
 | Env     | WEB box (nginx + Flask + static site)        | APP box (data engine + API/MCP + portal)            |
 |---------|-----------------------------------------------|-----------------------------------------------------|
 | staging | `185.53.209.8`  host `tw2-stage.trxstat.com`  | `199.244.48.157` (api/mcp/developers-stage)         |
-| prod    | `194.113.195.141` host `tradewave.ai`         | `138.128.240.115` (API/MCP **dark**)                |
+| prod    | `194.113.195.141` host `tradewave.ai`         | `138.128.240.115` (API/MCP **LIVE** since 2026-07 launch) |
 
 SSH: `ssh -p 4369 root@<ip>`. Internal VLAN: appserver `10.0.0.92`, web `10.0.0.94`.
 All public hosts are **Cloudflare tunnels** (cloudflared per box) - never convert to an A record.
@@ -23,7 +23,7 @@ All public hosts are **Cloudflare tunnels** (cloudflared per box) - never conver
 ### APP box runs
 - `tradewave-appserver` (data engine), `tradewave-apiserver` (:8088 gateway), `tradewave-mcpserver` (:9090).
 - `nginx` on **:8080** fronting the developer portal vhost (api/mcp/developers-*) -> docroot `/var/www/developers/`.
-- cloudflared tunnel `tw2-<env>-app` -> api-/mcp-/developers-* hosts. (Prod: API/MCP dark, portal not provisioned.)
+- cloudflared tunnel `tw2-<env>-app` -> api-/mcp-/developers-* hosts (ALL envs incl. prod since the 2026-07 API/MCP launch).
 
 ## Per-box config that is NOT in git (managed on the box)
 
@@ -36,7 +36,7 @@ Both boxes must have **`TW2_PUBLIC_HOST` = the customer host** (`deploy.sh` pre-
 - app box portal hosts: `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST` (= api-/mcp-/developers-<env>). The portal's OWN host comes from these, so they do NOT collide with `TW2_PUBLIC_HOST`.
 - SMN host vars: `TW2_NEWS_WEBSITE_URL`, `TW2_SMN_FAVICON_URL`, `TW2_ARTICLE_FAVICON_URL` should point at the env's SMN host (e.g. `smn-stage` / the prod SMN host), NOT `smn-dev`. (Staging still carries some `smn-dev` values - cosmetic favicon on SMN/news pages; set correctly on prod.)
 - `STRIPE_WEBHOOK_SECRET` = the real `whsec_...` on prod (staging carries a placeholder -> webhook fail-closes 503, expected).
-- `TW2_API_CONSOLE_ENABLED=1` lights the `/account/api` console (web box; set on staging, unset on prod = dark).
+- `TW2_API_CONSOLE_ENABLED=1` lights the `/account/api` console (web box; set on staging AND prod since the 2026-07 launch).
 
 ### 2. nginx vhost `/etc/nginx/sites-enabled/tw2-<env>-web` (symlink -> sites-available)
 Route rules are per-box. Every customer route that is NOT a static file must `proxy_pass http://tw2_web`.
@@ -54,7 +54,7 @@ Required `location` blocks (mirror them across envs): `= /signup = /login = /log
 4. **regen_site** (`ops/regen_site.sh`, as flask, secrets sourced): run EVERY main-site generator in **DATA-compute-then-RENDER** order with the correct host: `insights_charts` -> authored pages (text/about/research/insights/learn) -> `ticker` -> **`home_opportunities` (data: Top Patterns CSV)** -> **`home`** (sole writer of the new featured-pick row in `data/featured_history.json`) -> **`scorecard`** (reads that row + recomputes outcomes live; MUST follow `home`) -> `daily-pick` -> `markets` (SKIP if no SMN tree) -> **`refresh_market_quotes` (last: re-injects live prices + writes `assets/quotes.json`)**. Each step is fail-soft (logs + counts, never aborts). The home/scorecard/ticker/opportunities steps need the appserver (restarted in step 2); home also needs the ML scorer + live Stripe.
 5. **React**: rsync to `releases/build-<hash>`, repoint `build` symlink (`build-previous` = instant rollback).
 6. **nginx**: refresh the shared CSP snippet + reload (vhost itself is per-box, not shipped).
-7. **portal**: assemble on the **APP box** (`/var/www/developers`); **skipped on prod** (API/MCP dark).
+7. **portal**: assemble on the **APP box** (`/var/www/developers`) on EVERY env (prod dark-ship retired 2026-07-04; skips cleanly on an unprovisioned box).
 8. **verify_deploy** (`ops/verify_deploy.sh <env>`): fail-loud smoke - services, routes (incl `/markets/`, `/join/`), baked-HTML host-leak grep, design/feature markers. Nonzero exit => live-but-not-clean.
 
 ### Pre-pull hygiene (both boxes, as the `flask` user)
@@ -71,5 +71,5 @@ Required `location` blocks (mirror them across envs): `= /signup = /login = /log
 
 ## Prod-specific gates
 - **Snapshot gate** (hard): never deploy prod unless Afshin confirms today's WEB + APP snapshots in the current conversation.
-- API/MCP/portal ship **dark** on prod (`deploy.sh` skips the portal; `verify_deploy.sh prod` skips the api/portal checks).
+- API/MCP/portal are deployed + verified on prod like staging since 2026-07-04 (dark-ship retired; provision via ops/bootstrap_api_services.sh + PROD_CUTOVER.md 102-149 first).
 - Live host is `tradewave.ai` behind Cloudflare (plain curl gets a 403 challenge) - verify through the box nginx with a `Host:` header (`verify_deploy.sh` does this).

@@ -50,7 +50,10 @@ check_host() {  # check_host <box> <strict>
   echo "    $box -> TW2_PUBLIC_HOST=$val"
 }
 check_host "$WEB" 1
-[ "$ENV" = prod ] && check_host "$APP" 0 || check_host "$APP" 1
+# App box is strict on EVERY env since the prod API/MCP launch (2026-07-04): the
+# apiserver/mcpserver bake TW2_PUBLIC_HOST into published responses, so a placeholder
+# host on the prod app box is no longer harmless.
+check_host "$APP" 1
 echo "    OK - web box resolves to $HOST"
 
 echo "==> [$ENV] pre-flight: developer-portal hosts are config-driven (no dev-host leak)?"
@@ -75,13 +78,10 @@ check_portal_host() {  # check_portal_host <key> <recommended-value-for-this-env
   esac
   echo "    $APP -> $key=$val"
 }
-if [ "$ENV" = prod ]; then
-  echo "    skipped - API/MCP ship DARK on prod (enable this check when the prod portal launches)"
-else
-  check_portal_host TW2_API_PUBLIC_HOST        "$APIHOST"
-  check_portal_host TW2_DEVELOPERS_PUBLIC_HOST "$DEVHOST"
-  check_portal_host TW2_MCP_PUBLIC_HOST        "$MCPHOST"
-fi
+# Prod included since the API/MCP prod launch (2026-07-04) - the dark-ship skip is retired.
+check_portal_host TW2_API_PUBLIC_HOST        "$APIHOST"
+check_portal_host TW2_DEVELOPERS_PUBLIC_HOST "$DEVHOST"
+check_portal_host TW2_MCP_PUBLIC_HOST        "$MCPHOST"
 
 echo "==> [$ENV] app tier ($APP): pull + sync venv + restart appserver"
 $SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
@@ -129,15 +129,10 @@ echo "==> [$ENV] nginx CSP snippet + reload"
 $SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo nginx -t && sudo systemctl reload nginx'
 
 # Public developer portal (developers.*) is the API product's marketing/docs site.
-# It ships "dark" on PROD (the API/MCP product is not launched there), so DON'T build
-# it on prod. On staging/dev it assembles as before (for testing). Guarded: skip if the
-# box isn't provisioned for the portal.
-if [ "$ENV" = "prod" ]; then
-  echo "==> [$ENV] web tier ($WEB): SKIP developer portal (API/MCP dark on prod)"
-else
-  echo "==> [$ENV] app tier ($APP): assemble developer portal (portal vhost + /var/www/developers live on the APP box, not WEB)"
-  $SSH "root@$APP" 'if [ -x /home/flask/ops/assemble_developer_portal.sh ]; then sudo bash /home/flask/ops/assemble_developer_portal.sh || { echo "ABORT: developer portal assembly failed"; exit 1; }; else echo "skip developer portal (assemble script not present)"; fi'
-fi
+# Assembled on EVERY env since the prod API/MCP launch (2026-07-04) - the dark-ship
+# skip is retired. Still guarded: skips cleanly if the box isn't provisioned yet.
+echo "==> [$ENV] app tier ($APP): assemble developer portal (portal vhost + /var/www/developers live on the APP box, not WEB)"
+$SSH "root@$APP" 'if [ -x /home/flask/ops/assemble_developer_portal.sh ]; then sudo bash /home/flask/ops/assemble_developer_portal.sh || { echo "ABORT: developer portal assembly failed"; exit 1; }; else echo "skip developer portal (assemble script not present)"; fi'
 
 echo "==> [$ENV] code+pages deployed. Running post-deploy verification..."
 # verify_deploy.sh runs FROM this (dev) box, SSHing to WEB/APP. It fails LOUD on broken

@@ -8,15 +8,15 @@
 # and undeployed features (dead GA4, old scorecard metric) at deploy time instead of in
 # production. WARN = look at it; FAIL = do not ship.
 #
-# PORTAL=1 (staging): the developer API/MCP/portal are live - verify them.
-# PORTAL=0 (prod):    API/MCP ship DARK (deploy.sh skips them) - skip those checks.
+# PORTAL=1 on BOTH envs since the prod API/MCP launch (2026-07-04): the developer
+# API/MCP/portal stack is verified everywhere. (It was 0 on prod during dark-ship.)
 set -uo pipefail
 
 ENV="${1:-}"
 case "$ENV" in
   staging) WEB=185.53.209.8;    APP=199.244.48.157; HOST=tw2-stage.trxstat.com; APIHOST=api-stage.trxstat.com; DEVHOST=developers-stage.trxstat.com; PORTAL=1
            LEAKS='tw2-dev|developers-dev|api-dev|mcp-dev|stage2\.trxstat|192\.168\.|10\.0\.0\.|127\.0\.0\.1|smn-dev' ;;
-  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tradewave.ai;        APIHOST=api.tradewave.ai;       DEVHOST=developers.tradewave.ai; PORTAL=0
+  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tradewave.ai;        APIHOST=api.tradewave.ai;       DEVHOST=developers.tradewave.ai; PORTAL=1
            LEAKS='tw2-dev|tw2-stage|developers-dev|developers-stage|api-dev|api-stage|mcp-dev|mcp-stage|stage2\.trxstat|trxstat\.com|192\.168\.|10\.0\.0\.|127\.0\.0\.1|smn-dev|smn-stage' ;;
   *) echo "usage: $0 {staging|prod}"; exit 2 ;;
 esac
