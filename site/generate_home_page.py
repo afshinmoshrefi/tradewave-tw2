@@ -31,7 +31,7 @@ from blog_tools import get_company_name, convert_param_base64
 from get_price_eod import get_quote_details
 from ga_snippet import ga_head_snippet
 from pick_stats import (
-    compute_win_rate, compute_target_hit_rate, is_resolved, is_win,
+    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, is_resolved, is_win,
 )  # shared win definition (homepage + scorecard must never diverge)
 
 # Stripe price lookup (TW2: prices come live from Stripe via PRODUCT METADATA,
@@ -830,20 +830,20 @@ def compute_homepage_scorecard_stats():
     homepage two-metric scoreboard ("We Publish the Ledger") and the public
     /scorecard can NEVER diverge. Two separate, labeled metrics over the SAME
     denominator (resolved picks), never blended into one number:
-      win_rate        = held a profit to the window close (the seasonal stat)
-      target_hit_rate = reached the predicted target during the window (the
-                        opportunity stat)
-    Win counting uses the shared, defensible definition in pick_stats: a pick is
-    resolved only once CLOSED, and a win is a positive realized close return
-    (actual_return), never the intraday peak.
+      win_rate           = reached the AI's predicted gain in-window, or closed
+                           profitable (the OWNER definition, pick_stats 2026-07-04)
+      held_to_close_rate = still in profit at the window close (strict, secondary)
+    Win counting uses the shared definition in pick_stats so the homepage strip
+    and the scorecard can never diverge.
     """
     history = load_featured_history()
     resolved = [e for e in history if is_resolved(e)]
     total_picks = len(history)
     still_open = total_picks - len(resolved)
 
-    win_rate, wins_n, _resolved_n = compute_win_rate(history)
+    win_rate, wins_n, judged_n = compute_win_rate(history)
     target_hit_rate, hits_n, _ = compute_target_hit_rate(history)
+    held_rate, held_n, _resolved_n = compute_held_to_close_rate(history)
 
     # Median realized close return across resolved picks (claim-free magnitude).
     returns = sorted(e['actual_return'] for e in resolved)
@@ -865,10 +865,13 @@ def compute_homepage_scorecard_stats():
 
     return {
         'total_picks': total_picks,
-        'win_rate': round(win_rate, 1),                 # held to close (seasonal)
+        'win_rate': round(win_rate, 1),                 # hit predicted gain OR closed up
         'win_count': wins_n,
+        'judged_count': judged_n,                       # closed + open-already-hit
         'target_hit_rate': round(target_hit_rate, 1),   # reached target in window
         'target_hit_count': hits_n,
+        'held_to_close_rate': round(held_rate, 1),      # still up at the close (strict)
+        'held_to_close_count': held_n,
         'avg_return': round(avg_return, 1),
         'current_streak': '%d%s' % (streak, streak_type) if streak else '--',
         'closed_count': len(resolved),

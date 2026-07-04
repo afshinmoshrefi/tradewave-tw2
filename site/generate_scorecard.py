@@ -21,7 +21,7 @@ import config
 from blog_tools import convert_param_base64
 from ga_snippet import ga_head_snippet
 from pick_stats import (  # shared win definition
-    compute_win_rate, compute_target_hit_rate, is_resolved, is_win, reached_target,
+    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, is_resolved, is_win, reached_target,
 )
 
 # =============================================================================
@@ -393,23 +393,21 @@ def enrich_positions(history, token):
 def compute_stats(history):
     """Compute aggregate stats for the stat boxes.
 
-    Win counting uses the shared, defensible definition in pick_stats so the
-    scorecard and the homepage strip can never diverge: a pick is RESOLVED only
-    once CLOSED, and a win is a positive realized close return (actual_return),
-    never the intraday peak. This is the conservative number, not the inflated
-    peak-based one.
+    Win counting uses the shared owner definition in pick_stats (2026-07-04)
+    so the scorecard and the homepage strip can never diverge: a pick WINS
+    when it reaches the AI's predicted gain inside the window (open or
+    closed - hitting is terminal) or closes profitable; open picks that have
+    not hit yet are pending. held_to_close is the stricter transparency stat
+    shown beside it.
     """
     resolved = [e for e in history if is_resolved(e)]
 
     total_picks = len(history)
     still_open = total_picks - len(resolved)
 
-    # TWO separate, labeled metrics - never blended into one number:
-    #   win_rate        = held a profit to the window close (the seasonal stat)
-    #   target_hit_rate = reached the predicted target during the window (the
-    #                     opportunity stat). Same denominator (resolved picks).
-    win_rate, wins_n, _resolved_n = compute_win_rate(history)
+    win_rate, wins_n, judged_n = compute_win_rate(history)
     target_hit_rate, hits_n, _ = compute_target_hit_rate(history)
+    held_rate, held_n, _resolved_n = compute_held_to_close_rate(history)
 
     # Median realized close return across resolved picks.
     returns = sorted(e['actual_return'] for e in resolved)
@@ -430,10 +428,13 @@ def compute_stats(history):
 
     return {
         'total_picks': total_picks,
-        'win_rate': round(win_rate, 1),            # held to close (seasonal)
+        'win_rate': round(win_rate, 1),            # hit predicted gain OR closed up
         'win_count': wins_n,
+        'judged_count': judged_n,                  # closed + open-already-hit
         'target_hit_rate': round(target_hit_rate, 1),  # reached target in window
         'target_hit_count': hits_n,
+        'held_to_close_rate': round(held_rate, 1),  # still up at the close (strict)
+        'held_to_close_count': held_n,
         'avg_return': round(avg_return, 1),
         'current_streak': '%d%s' % (streak, streak_type) if streak else '--',
         'closed_count': len(resolved),
@@ -468,10 +469,12 @@ def build_positions(history):
         else:
             row['success'] = 'pending'
 
-        # Resolution matches the shared win definition: a pick is in-flight
-        # until it CLOSES. We do NOT promote a still-open pick into the closed
-        # table just because its intraday peak touched the predicted target -
-        # that would let the table show more wins than the headline win rate.
+        # Table placement is by lifecycle: open picks stay in the open table
+        # until their window CLOSES (their peak column shows a target hit
+        # live). The headline win rate counts an open pick that already hit
+        # its predicted gain as a win (owner definition, pick_stats
+        # 2026-07-04) - placement here is about when the CLOSE outcome
+        # exists, not whether the pick has won.
         if not is_resolved(entry):
             row['current_return'] = '%.1f' % entry.get('current_return', 0) if entry.get('current_return') is not None else '--'
             row['current_return_num'] = entry.get('current_return', 0)

@@ -362,13 +362,13 @@
             </div>
             <div class="stat-box">
                 <div class="stat-value">{{ content.stats.win_rate }}%</div>
-                <div class="stat-label">Held-to-Close Win Rate</div>
-                <div class="stat-sublabel">Held a profit to the window close</div>
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-sublabel">Reached the AI's predicted gain in the window, or closed profitable</div>
             </div>
             <div class="stat-box">
-                <div class="stat-value">{{ content.stats.target_hit_rate }}%</div>
-                <div class="stat-label">Reached-Target Rate</div>
-                <div class="stat-sublabel">Hit the predicted target during the window</div>
+                <div class="stat-value">{{ content.stats.held_to_close_rate }}%</div>
+                <div class="stat-label">Held to Close</div>
+                <div class="stat-sublabel">Still in profit when the window closed</div>
             </div>
             <div class="stat-box">
                 <div class="stat-value">{{ content.stats.avg_return }}%</div>
@@ -384,7 +384,7 @@
 
         <!-- Two-metric framing -->
         <p class="trust-line" style="margin-bottom: 12px;">
-            Two win numbers, shown side by side and never blended into one flattering average. <strong style="color: var(--text-secondary);">Held-to-close</strong> is the strict one - the pattern still had to be in profit when its window closed. <strong style="color: var(--text-secondary);">Reached-target</strong> is the looser one - the move hit the predicted target at some point, even if it faded by the close. The honest read sits between the two.
+            The AI publishes a predicted gain for every pick before the window opens. A pick <strong style="color: var(--text-secondary);">wins</strong> when the move reaches that predicted gain inside the window - the prediction did what it said - or when it closes profitable. <strong style="color: var(--text-secondary);">Held to close</strong> is shown beside it as the stricter read: the share still in profit at the window close. Every row keeps its realized close return visible, so a pick that hit its target and then faded shows both facts.
         </p>
 
         <!-- Trust Line -->
@@ -395,7 +395,7 @@
 
         <!-- Open Positions -->
         <h2 class="section-title">Open - Still In the Window</h2>
-        <p class="section-subtitle">Picks whose seasonal window has not closed yet. These count for nothing in the win rate above until they resolve - nothing gets promoted to a "win" early.</p>
+        <p class="section-subtitle">Picks whose seasonal window has not closed yet. One that has already reached its predicted gain counts as a win now - the prediction is proven. The rest are pending and count for nothing until they close.</p>
         <p class="disclaimer-line">Windows run roughly 19 to 30 days. Current return is a mid-pattern snapshot, not a result. The peak shows the best paper gain reached so far.</p>
 
         {% if content.open_positions %}

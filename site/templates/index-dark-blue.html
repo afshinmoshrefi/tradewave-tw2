@@ -593,8 +593,8 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
       <div class="scoretbl">
         <div class="r h"><span>PICK</span><span>LOGGED</span><span>RESULT</span></div>
         {% if content.scorecard_stats %}
-        <div class="r"><span>Held to close</span><span>{{ content.scorecard_stats.win_count }} of {{ content.scorecard_stats.closed_count }}</span><span class="res-w">{{ content.scorecard_stats.win_rate }}%</span></div>
-        <div class="r"><span>Reached target</span><span>{{ content.scorecard_stats.target_hit_count }} of {{ content.scorecard_stats.closed_count }}</span><span class="res-w">{{ content.scorecard_stats.target_hit_rate }}%</span></div>
+        <div class="r"><span>Hit target or closed up</span><span>{{ content.scorecard_stats.win_count }} of {{ content.scorecard_stats.judged_count }}</span><span class="res-w">{{ content.scorecard_stats.win_rate }}%</span></div>
+        <div class="r"><span>Held to close</span><span>{{ content.scorecard_stats.held_to_close_count }} of {{ content.scorecard_stats.closed_count }}</span><span class="res-w">{{ content.scorecard_stats.held_to_close_rate }}%</span></div>
         {% endif %}
         {% for row in content.ledger_rows %}
         <div class="r"><span>{{ row.symbol }} &middot; {{ row.direction }}</span><span>{{ row.logged_date }}</span><span class="{% if row.result == 'win' %}res-w{% elif row.result == 'loss' %}res-l{% else %}faint{% endif %}">{{ row.result }}</span></div>
