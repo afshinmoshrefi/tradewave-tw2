@@ -348,6 +348,17 @@ num_watchlist_items_allowed_by_level = {
     '6': 100,
     '7': 100,
 }
+# Max historical LOOKBACK years per tier (2026-06-30). Only the lower tiers are capped;
+# Analyst/Strategist (4/5, 6/7) are OMITTED = uncapped = full available history (up to ~96y
+# indices / ~61y stocks). Enforced server-side in OppList4/OppBySymbol (year1) + getChartData4
+# (yrs), re-derived from config (admin/service bypass); the React year selector grays out the
+# options above the cap as a visible upgrade nudge. Both surfaces clamp the SAME number, so the
+# opp table and the wave-viewer can never disagree (a capped opp always loads a capped chart).
+num_years_allowed_by_level = {
+    '1': 10,   # Explorer (free)
+    '2': 15,   # Navigator
+    # '4'/'5' Analyst, '6'/'7' Strategist -> no entry = no cap (full history)
+}
 
 # appserver_url        = 'http://192.168.1.151:8001'
 appserver_url        = os.environ.get('TW2_APPSERVER_URL', '')  # set in /etc/tradewave/secrets.env (per-env appserver URL)
@@ -539,8 +550,13 @@ level_access_hierarchy_premium = {
 level_access_hierarchy = {
     '2': ['0','1','2'],   # Navigator: backend opp data for Dow + NASDAQ + S&P 500 only
     '1': ['0'],
-    '4': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
-    '5': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
+    # Analyst (4/5): US stocks (Dow/NASDAQ/S&P/Russell/Wilshire) + ETFs ONLY - matches
+    # level_access_hierarchy_premium['4'], the narrowed Dev API + the MCP mirror + the
+    # home-page copy. Was all-15 (2026-06-30 audit G2): over-granted Analyst every market
+    # and made the new server-side market clamp a no-op for Analyst. Futures/forex/bonds/
+    # foreign indices/crypto are Strategist-only.
+    '4': ['0','1','2','3','4','11'],
+    '5': ['0','1','2','3','4','11'],
     '6': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
     '7': ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','16'],
 }
@@ -630,8 +646,14 @@ TIER_FEATURES = {
         'webinar_access':             False,
         'support_channel':            'community',
     },
-    # NOTE: TIER_FEATURES is reference/documentation only (no runtime readers as of
-    # 2026-06-24); live gating runs through the legacy-level dicts above + tier_compat.
+    # NOTE: TIER_FEATURES is mostly reference/documentation; live gating runs through the
+    # legacy-level dicts above + tier_compat. ONE runtime reader remains: web/app.py reads
+    # ['resources_allowed'] (_min_tier_for_markets). The watchlist/portfolio numbers here
+    # are kept IN SYNC with the enforced num_*_allowed_by_level dicts (audit 2026-06-30 G9)
+    # so marketing copy that cites this dict can never disagree with what is enforced.
+    # `top_patterns_per_market` (50/100/500 below) is DELIBERATELY NOT a tier lever
+    # (decision 2026-06-30): every paid tier returns the full Sharpe-ranked opp list (up to
+    # max_opportunities_returned); the figures are vestigial reference, do NOT market them.
     'navigator': {
         'name':                       'Navigator',
         'monthly_price_launch':       19,
@@ -643,7 +665,7 @@ TIER_FEATURES = {
         'pe_cycle_overlay_only':      False,
         'pe_cycle_filter_manual':     True,
         'pe_cycle_filter_auto':       False,
-        'ml_scoring':                 True,
+        'ml_scoring':                 False,
         'portfolios_max':             3,
         'tracked_opportunities_max':  25,
         'watchlists_max':             1,
@@ -656,8 +678,8 @@ TIER_FEATURES = {
         'name':                       'Analyst',
         'monthly_price_launch':       47,
         'yearly_price_launch':        33,
-        'monthly_price_post':         58,
-        'resources_allowed':          [0,1,2,3,4,5,6,11],
+        'monthly_price_post':         47,
+        'resources_allowed':          [0,1,2,3,4,11],
         'top_patterns_per_market':    100,
         'change_start_date':          True,
         'pe_cycle_filter_manual':     True,
@@ -665,8 +687,8 @@ TIER_FEATURES = {
         'ml_scoring':                 True,
         'portfolios_max':             25,
         'tracked_opportunities_max':  100,
-        'watchlists_max':             5,
-        'watchlist_symbols_max':      50,
+        'watchlists_max':             10,   # = num_watchlists_allowed_by_level['4'] (enforced)
+        'watchlist_symbols_max':      50,   # = num_watchlist_items_allowed_by_level['4'] (enforced)
         'smn_articles':               True,
         'webinar_access':             'qa_weekly',
         'support_channel':            'email',
@@ -676,7 +698,7 @@ TIER_FEATURES = {
         'name':                       'Strategist',
         'monthly_price_launch':       129,
         'yearly_price_launch':        99,
-        'monthly_price_post':         199,
+        'monthly_price_post':         129,
         'resources_allowed':          'all',
         'top_patterns_per_market':    500,
         'change_start_date':          True,
@@ -685,8 +707,8 @@ TIER_FEATURES = {
         'ml_scoring':                 True,
         'portfolios_max':             100,
         'tracked_opportunities_max':  500,
-        'watchlists_max':             50,
-        'watchlist_symbols_max':      500,
+        'watchlists_max':             50,   # = num_watchlists_allowed_by_level['6'] (enforced)
+        'watchlist_symbols_max':      100,  # = num_watchlist_items_allowed_by_level['6'] (enforced)
         'smn_articles':               True,
         'webinar_access':             'zoom_weekly',
         'support_channel':            'premium',

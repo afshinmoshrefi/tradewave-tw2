@@ -421,6 +421,76 @@ def get_resource_folder_from_token(token, resourceID):
 # why isn't there a break under rf = ?
     return rf+'/'
 # -------------------------------------------------------------------------------
+# SERVER-SIDE tier enforcement helpers (audit 2026-06-30 G1/G2/G3/G4).
+# The appserver is the only component with the data; the React dropdown +
+# userAccessToSelectedSecurity are UX only and are trivially bypassed by a curl
+# carrying the user's own valid session token. THESE helpers are the real boundary.
+# Market scope + the date-lock are re-derived from config (the single source of
+# truth) so a stale token can never widen access. Admins/service accounts bypass.
+# -------------------------------------------------------------------------------
+def _market_scope_guard(token, resourceID, empty_payload):
+    """Reject (403) any resourceID not in the user's level_access_hierarchy. Returns a
+    Flask (json, status) tuple to ABORT, or None to proceed. `empty_payload` is merged
+    into the error body so the front-end renders gracefully (same keys it expects)."""
+    try:
+        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'],
+                          audience='tw2-appserver', issuer='tw2-web')
+    except Exception:
+        return jsonify({**empty_payload, 'error': 'invalid token'}), 401
+    if data.get('is_admin'):
+        return None
+    userlevel = str(data.get('user_level', '1'))
+    if str(resourceID) not in config.level_access_hierarchy.get(userlevel, ['0']):
+        return jsonify({**empty_payload, 'error': 'market_not_in_plan'}), 403
+    return None
+
+
+def _is_date_locked(userlevel, resourceID, is_admin=False):
+    """True if this market is a date-LOCKED (free-registered) teaser for this tier - the
+    user may view today's window but 'any start date' is the paid upgrade. Mirrors the
+    React level-1 lock (App.js: level-'1'-only users cannot change the start date)."""
+    if is_admin:
+        return False
+    return str(resourceID) in config.level_access_hierarchy_free_registered.get(str(userlevel), [])
+
+
+def _years_cap(userlevel, is_admin=False):
+    """Max historical lookback years for a tier (config.num_years_allowed_by_level), or None
+    for no cap. Admins/service bypass. Re-derived from config (the SSOT) so a stale token can't
+    widen the window. The OPP TABLE (year1) and the CHART (yrs) both clamp to this same value,
+    which is what keeps them consistent (a capped opp can only ever load a capped chart)."""
+    if is_admin:
+        return None
+    return config.num_years_allowed_by_level.get(str(userlevel))
+
+
+def _clamp_year_int(value, cap):
+    """Clamp a plain integer-year string (OppList4/OppBySymbol year1/year2) to cap; pass
+    through unchanged on a non-numeric value or no cap."""
+    if cap is None:
+        return value
+    try:
+        return str(min(int(value), cap))
+    except (ValueError, TypeError):
+        return value
+
+
+def _clamp_yrs(yrs, cap):
+    """Clamp the getChartData4 `yrs` param to cap. Handles "22" (consecutive) and "pe2:10"
+    (N most-recent PE years); leaves legacy "pe2" (all PE years) untouched - no count to cap."""
+    if cap is None:
+        return yrs
+    s = str(yrs)
+    try:
+        if ':' in s:
+            pfx, n = s.split(':', 1)
+            return "%s:%d" % (pfx, min(int(n), cap))
+        if s.isdigit():
+            return str(min(int(s), cap))
+    except (ValueError, TypeError):
+        pass
+    return yrs
+# -------------------------------------------------------------------------------
 # log activity by sending a request to logcollector flask service
 # -------------------------------------------------------------------------------
 
@@ -815,6 +885,11 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     if resourceID == '-1' or resourceID not in available_resources:
         return jsonify({'OppList': [], 'error': 'invalid_resource_id'}), 400
 
+    # Tier enforcement (audit G1): reject markets outside the user's plan.
+    _scope_err = _market_scope_guard(token, resourceID, {'OppList': [], 'OppActiveList': []})
+    if _scope_err is not None:
+        return _scope_err
+
     print('resourceID, month, day, year1, year2,day_range=',resourceID, month, day, year1, year2,day_range,mode)
 
     today_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -831,6 +906,12 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     userid = data['user']            # userid 0 is not logged-in
     userlevel = data['user_level']   # userlevel = '1' is free Ripple
 
+    # Years cap (2026-06-30): clamp the opp-table lookback to the tier max so it can never
+    # exceed what the chart will show (same cap in getChartData4). year2 stays <= year1.
+    _yc = _years_cap(userlevel, data.get('is_admin'))
+    if _yc is not None:
+        year1 = _clamp_year_int(year1, _yc)
+        year2 = _clamp_year_int(year2, int(year1) if str(year1).isdigit() else _yc)
 
     day_range_n1=0 # used for filtering now 12/2/2023
     day_range_n2=0
@@ -1322,6 +1403,11 @@ def OppBySymbol(resourceID, symbol, year1, year2, day_range, top_pct):
     if mode != "pe":
         mode = "consecutive"
 
+    # Tier enforcement (audit G1): reject markets outside the user's plan.
+    _scope_err = _market_scope_guard(token, resourceID, {'OppBySymbol': []})
+    if _scope_err is not None:
+        return _scope_err
+
     current_year = int(datetime.datetime.now().strftime("%Y"))
     pe_phase     = current_year % 4
 
@@ -1331,6 +1417,12 @@ def OppBySymbol(resourceID, symbol, year1, year2, day_range, top_pct):
     resourceFolder = get_resource_folder_from_token(token, resourceID)
     data      = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
     wp_userid = data['user']
+
+    # Years cap (2026-06-30): clamp lookback to the tier max (same cap as OppList4/getChartData4).
+    _yc = _years_cap(str(data.get('user_level', '1')), data.get('is_admin'))
+    if _yc is not None:
+        year1 = _clamp_year_int(year1, _yc)
+        year2 = _clamp_year_int(year2, int(year1) if str(year1).isdigit() else _yc)
 
     day_range_n1 = 0
     day_range_n2 = 0
@@ -1883,6 +1975,30 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
 
     todayDate = datetime.datetime.today().strftime('%Y-%m-%d')
     today_year = int(todayDate[:4])
+
+    # Tier enforcement (audit G1/G2/G4) - must run BEFORE the redis cache key + the
+    # exchange_mapping lookup below. Re-derive scope from config (not the token) so a
+    # stale token can't widen access; admins/service account bypass.
+    _ctoken = request.args.get("token")
+    try:
+        _claims = jwt.decode(_ctoken, app.config['SECRET_KEY'], algorithms=['HS256'],
+                             audience='tw2-appserver', issuer='tw2-web')
+    except Exception:
+        return jsonify({'ChartData4': [], 'stats': {}, 'error': 'invalid token'}), 401
+    if resourceID not in config.exchange_mapping:   # was a KeyError/500 at exchange_mapping[]
+        return jsonify({'ChartData4': [], 'stats': {}, 'error': 'invalid_resource_id'}), 400
+    if not _claims.get('is_admin'):
+        _ulevel = str(_claims.get('user_level', '1'))
+        if str(resourceID) not in config.level_access_hierarchy.get(_ulevel, ['0']):
+            return jsonify({'ChartData4': [], 'stats': {}, 'error': 'market_not_in_plan'}), 403
+        # Date-lock: free-registered markets are start-date-locked to today for this tier
+        # ('any start date' is the paid upgrade); mirrors the React level-1 lock.
+        if _is_date_locked(_ulevel, resourceID):
+            date = todayDate
+        # Years cap: clamp the chart lookback to the tier max (same cap as the opp table),
+        # before the redis cache key below is built from `yrs`.
+        yrs = _clamp_yrs(yrs, _years_cap(_ulevel, False))
+
     start_date_year = int(date[:4])
 
     # Handle case where start date is dragged to future year
@@ -2566,63 +2682,112 @@ def getStockMetaData(resourceID, symbol):
     return jsonify({'StockMetaData': list(df2['date'])})
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Shared symbol-set builder: {sym: name} for a market's EXCHANGE-wide symbol union (the CSVs are
+# unioned per exchange, so every market of an exchange returns the same set). Pure data - NO scope
+# guard and NO activity log. Used by getListSymbols (which adds the guard + miss-only log) and by
+# resolveSymbol (which must probe markets the caller is NOT entitled to). Same Redis key/TTL.
+# --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+def _symbols_for_market(resourceID):
+    resourceID = str(resourceID)
+    redis_key_list_symbols = 'list_symbols_' + resourceID
+    redis_symbols = redis_client.get(redis_key_list_symbols)
+    if redis_symbols is not None:
+        return json.loads(redis_symbols)
+
+    exchange = config.exchange_mapping[resourceID]  # e.g. 'US' for nasdaq/sp500
+
+    # Optional per-exchange override file; otherwise union every market CSV of this exchange.
+    all_symbols_file_path = '/home/flask/data/csv/symbols/symbols_' + exchange + '.csv'
+    if os.path.exists(all_symbols_file_path):
+        df = pd.read_csv(all_symbols_file_path, dtype=str)
+    else:
+        df = pd.DataFrame(columns=['symbols', 'name'])
+        for k in config.exchange_mapping:
+            if config.exchange_mapping[k] == exchange:
+                df = pd.concat([df, pd.read_csv(available_resources_path[k], dtype=str)])
+        df = df.drop_duplicates('symbols')
+        df = df[['symbols', 'name']]
+        df.columns = ['symbol', 'name']
+
+    symbol_to_name_dict = {}
+    for i, r in df.iterrows():
+        symbol_to_name_dict[r['symbol']] = r['name']
+    symbol_to_name_dict = {str(k): v for k, v in symbol_to_name_dict.items()}
+
+    redis_client.set(redis_key_list_symbols, json.dumps(symbol_to_name_dict))
+    redis_client.expire(redis_key_list_symbols, config.stock_metadata_expire_time)
+    return symbol_to_name_dict
+
+
 # returns a list of allowed symbols used for validating seasonal viewer symbol field - loads after login once
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @app.route('/GetListSymbols/<string:resourceID>', methods=['GET'])
 @check_for_token
 def getListSymbols(resourceID):  # for now not using resourceID, maybe later
 
-    redis_key_list_symbols = 'list_symbols_'+resourceID
-    redis_symbols = redis_client.get(redis_key_list_symbols)
+    # Tier enforcement (audit G1): clamp BEFORE the cache return (which otherwise served
+    # any market's symbol universe with no entitlement check).
+    _scope_err = _market_scope_guard(request.args.get("token"), resourceID, {'AllowedSymbols': {}})
+    if _scope_err is not None:
+        return _scope_err
 
-    # print('redis_symbols=',redis_symbols)
+    redis_key_list_symbols = 'list_symbols_' + resourceID
+    # Activity log only on a cache MISS (unchanged behavior); _symbols_for_market (re)caches on miss.
+    if redis_client.get(redis_key_list_symbols) is None:
+        token = request.args.get("token")
+        atime, wp_userid, ipv4, country_code, zip = get_geo_from_token(token)
+        ipv4 = get_remote_address()
+        update_activity_log(atime, resourceID, wp_userid, ipv4, country_code, zip, redis_key_list_symbols)
 
-    if redis_symbols is not None:
-        tmp = json.loads(redis_symbols) # tmp is type dict 
-        return jsonify({'AllowedSymbols': tmp})
+    return jsonify({'AllowedSymbols': _symbols_for_market(resourceID)})
 
-    # --------------------------------------------------------------------
-    # send info for activity logging
-    # --------------------------------------------------------------------
-    token = request.args.get("token")
-    atime, wp_userid, ipv4, country_code, zip = get_geo_from_token(token)
-    ipv4 = get_remote_address()
-    update_activity_log(atime, resourceID, wp_userid, ipv4, country_code, zip, redis_key_list_symbols)
+# --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# ResolveSymbol: given a bare ticker, return every MARKET (one representative per exchange) whose
+# symbol universe contains it, so the wave-viewer can auto-switch the market (or upsell / let the
+# user disambiguate) instead of a dead-end "not found" when the user is in the wrong securities group.
+#   - No _market_scope_guard: symbol existence/name is NOT gated content (only ChartData4 data is),
+#     so a free user typing SPX still gets the Indices match and the front end upsells.
+#   - One representative resourceID per exchange; each rep's set is the full exchange union, so AAPL
+#     -> a single US match (not a 5-way collision) and only cross-exchange dupes (e.g. CL = stock +
+#     future) collide -> picker. US sub-priority 2->0->1 mirrors apiserver/routes.py.
+#   - Reads local CSVs only (via _symbols_for_market); never get_security_name_from_ticker (EODHD).
+# --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+_RESOLVE_MARKETS = ['2', '5', '7', '8', '10', '11', '12', '13', '16']
 
-    token = request.args.get("token")
-    resourceFolder = get_resource_folder_from_token(token, resourceID)
+@app.route('/ResolveSymbol/<string:symbol>', methods=['GET'])
+@check_for_token
+def resolveSymbol(symbol):
+    sym = str(symbol).strip().upper()
+    if not sym:
+        return jsonify({'symbol': sym, 'matches': []})
 
-    exchange = config.exchange_mapping[resourceID] # should return US for nasdaq or sp500 6/4/2022
+    redis_key = 'resolve_symbol_' + sym
+    cached = redis_client.get(redis_key)
+    if cached is not None:
+        return jsonify(json.loads(cached))
 
-    # check if there is a special symbols file like /home/flask/data/csv/symbols/symbols_US.txt - where US is the exchange
-    # if it exist, load that file instead of going through the following creation of the list - 7/21/2025
-    all_symbols_file_path = '/home/flask/data/csv/symbols/symbols_' + exchange + '.csv'
+    def _probe(rid):
+        try:
+            d = _symbols_for_market(rid)
+        except Exception as e:
+            logging.warning(f'resolveSymbol: market {rid} lookup failed: {e}')
+            return None
+        up = {str(k).upper(): v for k, v in d.items()}  # CSV tickers are upper-case; be safe
+        if sym in up:
+            return {'resourceID': rid, 'label': config.available_resources.get(rid, rid), 'name': up[sym]}
+        return None
 
-    
-    if os.path.exists(all_symbols_file_path):
-        df = pd.read_csv(all_symbols_file_path, dtype=str)
-    else:
-        df = pd.DataFrame(columns=['symbols','name'])
+    matches = []
+    with ThreadPoolExecutor(max_workers=min(9, len(_RESOLVE_MARKETS))) as executor:
+        for r in executor.map(_probe, _RESOLVE_MARKETS):
+            if r is not None:
+                matches.append(r)
 
-        for k in config.exchange_mapping:
-            if config.exchange_mapping[k] == exchange:
-                df = pd.concat([df,pd.read_csv(available_resources_path[k],dtype=str)])
-        
-        df         = df.drop_duplicates('symbols')
-        df         = df[['symbols','name']]
-        df.columns = ['symbol','name'] # dropped (s) from symbols - just didn't make sense
-
-    ########################################
-    ####### zip doesn't work in flask ######
-    ########################################
-    symbol_to_name_dict = {}
-    for i,r in df.iterrows():
-        symbol_to_name_dict[r['symbol']]=r['name']
-
-    symbol_to_name_dict = {str(k): v for k, v in symbol_to_name_dict.items()}
-    redis_client.set(redis_key_list_symbols, json.dumps(symbol_to_name_dict))
-    redis_client.expire(redis_key_list_symbols, config.stock_metadata_expire_time)
-    return jsonify({'AllowedSymbols': symbol_to_name_dict})
+    payload = {'symbol': sym, 'matches': matches}
+    redis_client.set(redis_key, json.dumps(payload))
+    redis_client.expire(redis_key, config.opp_by_symbol_expire_time)
+    return jsonify(payload)
 
 #--------------------------------------------------------------------------------------------------------------------
 # return last date and price for the symbol
@@ -3101,6 +3266,34 @@ def resolve_resource_id(symbol, resource_id):
             return rid  # return most specific group that contains the ticker
     return resource_id  # not found in any group - keep original
 #---------------------------------------------------------------------------------------------------
+# fire-and-forget POST to the web tier to (re)render the static HTML report + PNGs for a
+# saved pattern. Shared by both the new-report path and the idempotent-refresh path in
+# dr_report_publish so the two don't drift.
+#---------------------------------------------------------------------------------------------------
+def _dr_report_render_async(report_dict, tok, t, s):
+    import threading
+    def _render_background(report_dict, tok, t, s):
+        try:
+            web_host = config.webserver_ip or 'localhost'
+            url = f'http://{web_host}:5500/internal/render_report'
+            resp = requests.post(
+                url,
+                headers={'X-Service-Key': config.SERVICE_API_KEY},
+                json={'report_dict': report_dict, 'token': tok, 'title': t, 'slug': s},
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                with open('add_to_blog_queue.log', 'a') as f:
+                    f.write(f'RENDER-HTTP-{resp.status_code}-{resp.text[:200]}-slug={s}\n')
+        except Exception as e:
+            with open('add_to_blog_queue.log', 'a') as f:
+                f.write(f'RENDER-EXC-{e}-slug={s}\n')
+    threading.Thread(
+        target=_render_background,
+        args=(report_dict, tok, t, s),
+        daemon=True,
+    ).start()
+#---------------------------------------------------------------------------------------------------
 @app.route('/dr_report_publish/<string:resourceID>/<string:symbol>/<string:date>/<string:days_hold>/<string:years>/<string:dir>/<string:sharpe_ratio>/<string:selected_portfolio>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
@@ -3119,41 +3312,90 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
     data            = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
     userid          = data['user']
     user_level      = data['user_level'].replace(',','') # apparently there are , somehow
-    # num_allowed     = config.num_opp_reports_allowed_by_level[user_level]
 
-    
+    # --------------------------------------------------------------------
+    # send info for activity logging - moved up front (was after the daily-limit
+    # block) so the refresh/duplicate short-circuit below can log too.
+    # --------------------------------------------------------------------
+    atime, wp_userid, ipv4, country_code, zip = get_geo_from_token(token)
+    ipv4 = get_remote_address()
+
+    # Tier enforcement (audit G5/G7). A date-range report is a paid deliverable: reject
+    # markets outside the user's plan; for a date-locked (free-registered) market force the
+    # report date to today (no custom-date exploration - the paid lever). Admins/service
+    # bypass. (LIFETIME cap check moved below the refresh/duplicate short-circuit - see there.)
+    if not data.get('is_admin'):
+        if str(resourceID) not in config.level_access_hierarchy.get(user_level, ['0']):
+            return jsonify({'publish_dr_report': 'market_not_in_plan'}), 403
+        if _is_date_locked(user_level, resourceID):
+            date      = datetime.datetime.now().strftime('%Y-%m-%d')
+            base_year = date[0:4]
+
+    #--------------------------------------------------------------------------------------------------------
+    # Idempotent refresh: if this exact pattern (portfolio+symbol+date+days_hold+years) is
+    # already saved for this user, this isn't a NEW report - it's the React Refresh button
+    # re-firing the same publish call to re-render a report whose static files may have
+    # expired (see report_expiry.py). Re-render and return success WITHOUT touching the
+    # lifetime/daily quota counters or adding a second Redis record.
+    #--------------------------------------------------------------------------------------------------------
+    pid = get_id_from_portfolio_name(userid,selected_portfolio)
+
+    redis_key_user_reports  = f'user_reports_{userid}'
+    redis_user_reports_raw  = redis_client2.get(redis_key_user_reports)
+    key_exists              = redis_user_reports_raw is not None
+    existing_reports_list   = json.loads(redis_user_reports_raw) if key_exists else []
+
+    refresh_check_dict = {'portfolioID': pid, 'symbol': symbol, 'date': date, 'days_hold': days_hold, 'years': years}
+    is_refresh, refresh_dr_id = check_for_duplicates(existing_reports_list, refresh_check_dict)
+
+    if is_refresh:
+        existing_record = next(d for d in existing_reports_list if d['dr_id'] == refresh_dr_id)
+        slug = existing_record['slug']
+        refresh_title,_ = generate_blog_title_slug(existing_record['resourceID'],symbol,date,days_hold,years,category)
+
+        update_activity_log(atime, -1, wp_userid, ipv4,country_code, zip, f'DR report refresh dr_id={refresh_dr_id} slug={slug}')
+
+        _dr_report_render_async(existing_record, token, refresh_title, slug)
+
+        report_url = f"https://tw2.trxstat.com/r/{slug}/"
+        return jsonify({'publish_dr_report':'success', 'report_url': report_url, 'refreshed': True})
+
+    # Not a refresh - enforce the LIFETIME report total (the per-day cap below is separate).
+    # Admins/service bypass.
+    if not data.get('is_admin'):
+        lifetime_allowed = config.num_opp_reports_allowed_by_level.get(user_level, 0)
+        if get_num_reports(userid) >= lifetime_allowed:
+            return jsonify({'publish_dr_report': 'total_limit_reached', 'limit': lifetime_allowed})
 
     #--------------------------------------------------------------------------------------------------------
     # check for daily limits for the user_level - important for free users specially
     #--------------------------------------------------------------------------------------------------------
     redis_key_daily_reports_generated = f'num_today_{userid}'
     num = redis_client2.get(redis_key_daily_reports_generated)
-    
+
     dt = datetime.datetime.now()
     secs_to_midnight = ((24 - dt.hour - 1) * 60 * 60) + ((60 - dt.minute - 1) * 60) + (60 - dt.second)
 
 
-    # --------------------------------------------------------------------
-    # send info for activity logging
-    # --------------------------------------------------------------------
-    atime, wp_userid, ipv4, country_code, zip = get_geo_from_token(token)
-    ipv4 = get_remote_address()
-
-
+    daily_allowed = config.num_daily_opp_reports_allowed_by_level.get(user_level, 0)
+    # G19: guard the first-report-of-day branch so a daily=0 tier cannot slip one through.
+    if daily_allowed <= 0 and not data.get('is_admin'):
+        update_activity_log(atime, -1, wp_userid, ipv4,country_code, zip, 'DR report publish fail daily=0 ')
+        return jsonify({'publish_dr_report':'daily_limit_reached','limit':daily_allowed})
     if num is None:
         redis_client2.set(redis_key_daily_reports_generated,1,ex=secs_to_midnight)
-    else: 
+    else:
         num = int(num)
 
-        if num >= config.num_daily_opp_reports_allowed_by_level.get(user_level, 0):
+        if num >= daily_allowed:
             update_activity_log(atime, -1, wp_userid, ipv4,country_code, zip, f'DR report publish fail num={num} ')
-            return jsonify({'publish_dr_report':'daily_limit_reached','limit':config.num_daily_opp_reports_allowed_by_level.get(user_level, 0)})
+            return jsonify({'publish_dr_report':'daily_limit_reached','limit':daily_allowed})
         else:
             num = num + 1
             redis_client2.set(redis_key_daily_reports_generated,num,ex=secs_to_midnight)
 
 
-    # generate title and slug for this post - 
+    # generate title and slug for this post -
     title,slug=generate_blog_title_slug(resourceID,symbol,date,days_hold,years,config.category_date_range_report)
 
 
@@ -3181,9 +3423,8 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
     # logcollection
     activity_txt = f'rID={resourceID} symbol={symbol} date={date} days_hold={days_hold} years={years} base_year={base_year} title={title}'
     update_activity_log(atime, -1, wp_userid, ipv4,country_code, zip, f'DR report publish num={num}  {activity_txt}')
-   
-    # get portfolio id from the portfolio name
-    pid = get_id_from_portfolio_name(userid,selected_portfolio)
+
+    # portfolio id was already resolved above (pid) for the refresh/duplicate check
 
     num_shares = config.initial_shares
 
@@ -3213,29 +3454,22 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
     
     #------------------------------------------------------------------
     # storing reports published user
-    redis_key_user_reports = f'user_reports_{userid}'
-    user_dict = {}
-    redis_user_reports_list = redis_client2.get(redis_key_user_reports)
-
-    if redis_user_reports_list is not None: 
-        redis_user_reports_list = json.loads(redis_user_reports_list)
-        is_this_a_duplicate,d_id = check_for_duplicates(redis_user_reports_list,date_range_report_dict) # checks if this is a duplicate
-        if is_this_a_duplicate:
-            return jsonify({'publish_dr_report':'duplicate','duplicate':d_id})
-        if len(redis_user_reports_list)>0:
-            max_item = max(redis_user_reports_list, key=lambda x: x['dr_id'])
+    # existing_reports_list/key_exists were already fetched above for the refresh check;
+    # is_refresh was False to get here, so this is definitely a new record.
+    if key_exists:
+        if len(existing_reports_list)>0:
+            max_item = max(existing_reports_list, key=lambda x: x['dr_id'])
             dr_id = max_item['dr_id']+1
         else:
             dr_id=1
     else:
-        redis_user_reports_list=[]
         dr_id = 0                  # this is the initial id number - it will keep incrementing
 
-    date_range_report_dict['dr_id']=dr_id # add the id key to the dictionary with the new dr_id 
+    date_range_report_dict['dr_id']=dr_id # add the id key to the dictionary with the new dr_id
 
-    redis_user_reports_list.append(date_range_report_dict) # add the properties of the new report to the list
+    existing_reports_list.append(date_range_report_dict) # add the properties of the new report to the list
 
-    redis_client2.set(redis_key_user_reports,json.dumps(redis_user_reports_list)) # set the list to the new list on redis
+    redis_client2.set(redis_key_user_reports,json.dumps(existing_reports_list)) # set the list to the new list on redis
 
     # ── Render the static HTML report on the WEB tier ──
     # The output lives at /var/www/tradewave/r/{slug}/ on the web box; on a
@@ -3243,34 +3477,13 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
     # to the web tier's /internal/render_report and the web tier renders
     # locally. On dev (single box) webserver_ip=localhost so this is just a
     # loopback HTTP call. Background thread keeps the user response instant.
-    import threading
-    def _render_background(report_dict, tok, t, s):
-        try:
-            web_host = config.webserver_ip or 'localhost'
-            url = f'http://{web_host}:5500/internal/render_report'
-            resp = requests.post(
-                url,
-                headers={'X-Service-Key': config.SERVICE_API_KEY},
-                json={'report_dict': report_dict, 'token': tok, 'title': t, 'slug': s},
-                timeout=5,
-            )
-            if resp.status_code != 200:
-                with open('add_to_blog_queue.log', 'a') as f:
-                    f.write(f'RENDER-HTTP-{resp.status_code}-{resp.text[:200]}-slug={s}\n')
-        except Exception as e:
-            with open('add_to_blog_queue.log', 'a') as f:
-                f.write(f'RENDER-EXC-{e}-slug={s}\n')
-    threading.Thread(
-        target=_render_background,
-        args=(date_range_report_dict, token, title, slug),
-        daemon=True,
-    ).start()
+    _dr_report_render_async(date_range_report_dict, token, title, slug)
 
     # Return the URL even though render hasn't completed - the file will exist
     # by the time the user navigates to it.
     report_url = f"https://tw2.trxstat.com/r/{slug}/"
 
-    # print(redis_user_reports_list)
+    # print(existing_reports_list)
     return jsonify({'publish_dr_report':'success', 'report_url': report_url})
 #---------------------------------------------------------------------------------------------------   
 # start writing an AI article for the newsroom by placing it on the writing queue
@@ -4036,7 +4249,28 @@ def update_status(status,portfolioID,dr_id): # use slug as an identifier for whi
 
     return jsonify({'update_status':'success'})
 
-#---------------------------------------------------------------------------------------------------    
+#---------------------------------------------------------------------------------------------------
+# derive a report's slug from its stored fields, for legacy user_reports_* records that predate
+# the 'slug' key (or auto-populated autotrading records that never got one). Used only for
+# reference-counting a slug before physically deleting it (dr_report_remove) - never for
+# rendering. Mirrors the same generate_blog_title_slug/create_title_slug path dr_report_publish
+# used to build the slug in the first place, so a legacy record still counts as an owner.
+#---------------------------------------------------------------------------------------------------
+def _record_slug(record):
+    slug = record.get('slug')
+    if slug:
+        return slug
+    try:
+        _title, derived_slug = generate_blog_title_slug(
+            record['resourceID'], record['symbol'], record['date'],
+            record['days_hold'], record['years'], config.category_date_range_report,
+        )
+        return derived_slug
+    except Exception:
+        logging.exception("_record_slug: could not derive slug for legacy record dr_id=%s", record.get('dr_id'))
+        return None
+
+#---------------------------------------------------------------------------------------------------
 # removes a report from the user's list of reports in redisk
 # when dr_id = -1 remove all
 # need to also put a delete on the queue on the webserver to remove the report
@@ -4086,21 +4320,48 @@ def dr_report_remove(dr_id): # get the list of reports from redis and returns a 
                 except Exception as e:
                     with open('add_to_blog_queue.log', 'a') as f:
                         f.write(f'DELREPORT-QUEUE-EXC-{e}-slug={slug}\n')
-            # Remove the static HTML on the web tier (where /var/www/tradewave/r/ lives).
-            try:
-                web_host = config.webserver_ip or 'localhost'
-                requests.post(
-                    f'http://{web_host}:5500/internal/delete_report',
-                    headers={'X-Service-Key': config.SERVICE_API_KEY},
-                    json={'slug': slug},
-                    timeout=5,
-                )
-            except Exception as e:
-                with open('add_to_blog_queue.log', 'a') as f:
-                    f.write(f'DELREPORT-WEB-EXC-{e}-slug={slug}\n')
             # remove it from the user reports list
             redis_user_reports_list = [d for d in redis_user_reports_list if d['dr_id'] != int(dr_id)]
             num_removed = 1
+
+            # Reference-counted deletion (bug fix): the slug is GLOBAL - deterministic from
+            # resourceID+symbol+date+days_hold+years, not scoped to a user - so two different
+            # users (or the same user in two different portfolios) can end up owning the
+            # identical slug. The old code called /internal/delete_report unconditionally here,
+            # so user A removing a pattern silently deleted user B's still-saved report. Only
+            # physically delete the rendered files once NO record anywhere still references
+            # this slug: count this user's own post-removal list, then SCAN (not KEYS - same
+            # idiom as ops/migrate/tw1_export.py's export_redis) every other user_reports_*
+            # key in redis db2.
+            if slug:
+                other_owners = sum(1 for d in redis_user_reports_list if _record_slug(d) == slug)
+                for key in redis_client2.scan_iter(match='user_reports_*', count=500):
+                    key_str = key.decode() if isinstance(key, bytes) else key
+                    if key_str == redis_key_user_reports:
+                        continue  # this user's post-removal list is already counted above
+                    try:
+                        other_user_list = json.loads(redis_client2.get(key) or b'[]')
+                    except Exception:
+                        logging.exception("dr_report_remove: could not parse %s during ref-count scan", key_str)
+                        continue
+                    other_owners += sum(1 for d in other_user_list if _record_slug(d) == slug)
+
+                if other_owners > 0:
+                    logging.info("dr_report_remove: kept slug=%s (%d other owner(s) remain)", slug, other_owners)
+                else:
+                    logging.info("dr_report_remove: deleted slug=%s (no owners remain)", slug)
+                    # Remove the static HTML on the web tier (where /var/www/tradewave/r/ lives).
+                    try:
+                        web_host = config.webserver_ip or 'localhost'
+                        requests.post(
+                            f'http://{web_host}:5500/internal/delete_report',
+                            headers={'X-Service-Key': config.SERVICE_API_KEY},
+                            json={'slug': slug},
+                            timeout=5,
+                        )
+                    except Exception as e:
+                        with open('add_to_blog_queue.log', 'a') as f:
+                            f.write(f'DELREPORT-WEB-EXC-{e}-slug={slug}\n')
 
     else:
         redis_user_reports_list=[]
@@ -4135,6 +4396,10 @@ def get_user_portfolio_names():
 #---------------------------------------------------------------------------------------------------
 @app.route('/add_user_portfolio_name/<string:portfolio_name>', methods=['POST'])
 @check_for_token
+@limiter.limit(config.rate_limit_general[0])
+@limiter.limit(config.rate_limit_general[1])
+@limiter.limit(config.rate_limit_general[2])
+@limiter.limit(config.rate_limit_general[3])
 def add_user_portfolio_name(portfolio_name): # use slug as an identifier for which saved report to update
 
     token           = request.args.get("token")
@@ -4159,7 +4424,12 @@ def add_user_portfolio_name(portfolio_name): # use slug as an identifier for whi
 
     if any(d["name"] == portfolio_name for d in user_portfolios): # its a duplicate
         return jsonify({'portfolio_names_list':'duplicate'})
-    
+
+    # G6: enforce the per-tier portfolio cap (the default 'main' counts as 1). Admins bypass.
+    user_level     = str(data.get('user_level', '1'))
+    max_portfolios = config.num_portfolios_allowed_by_level.get(user_level, 0)
+    if not data.get('is_admin') and len(user_portfolios) >= max_portfolios:
+        return jsonify({'portfolio_names_list':'limit_reached','limit':max_portfolios})
 
     new_id = max(user_portfolios, key=lambda x: x["id"])["id"] + 1 # new id is 1 larger than the largest id
     port_dict = {'id':new_id,'name':portfolio_name}
@@ -5358,8 +5628,14 @@ def populate_portfolio(qvars,portfolio_name,action):
     min_stock_price=float(sp[11])
     min_sr2  = sp[12]
     avg_ret2 = sp[13]
-    keep_highest_sr = sp[14] # this is '0' or '1'   
+    keep_highest_sr = sp[14] # this is '0' or '1'
     days_look_forward_sr = int(sp[15])
+
+    # Tier enforcement (audit G1): a portfolio may only be populated from a market in the
+    # user's plan. Guarding here (before the internal OppList4/getChartData4 calls below)
+    # keeps those calls on an in-scope market so they return normal payloads. Admins bypass.
+    if not data.get('is_admin') and str(id) not in config.level_access_hierarchy.get(str(data.get('user_level', '1')), ['0']):
+        return jsonify({'populate_portfolio': 'market_not_in_plan'}), 403
 
 
     #---------------------------------

@@ -112,22 +112,38 @@ def record(name, ok, detail):
     print("%s %s\n     %s" % ("PASS" if ok else "FAIL", name, detail))
 
 
+def _answer_segment(reply):
+    """Tara's FORMAT contract puts her direct answer FIRST and any alternative-window suggestion or
+    closing line AFTER a <br><br>. A win rate / % in a later paragraph belongs to a DIFFERENT setup
+    she is offering (e.g. 'the June window shows 100%'), NOT the loaded setup - so we validate only
+    the first paragraph against the loaded setup's truth. Without this, a correct, helpful reply that
+    cites a stronger alternate window gets falsely flagged as a contradiction."""
+    seg = re.split(r'(?:<br\s*/?>\s*){2,}', reply, maxsplit=1)[0]
+    # Also cut at an in-PARAGRAPH pivot to an ALTERNATIVE window (its stats are not the loaded
+    # setup's), since Tara sometimes offers a stronger window in the same paragraph.
+    seg = re.split(r'\b(?:much stronger|stronger window|strongest|shines|sweet spot|instead|however|in late|the june|want me to)\b',
+                   seg, maxsplit=1, flags=re.I)[0]
+    return seg
+
+
 def assert_winrate_matches(name, reply, wins, tot):
     """FABRICATION check: FAIL only if the reply states a win rate that CONTRADICTS the setup's real
     record (the bug class). Absence of a stat is not a fabrication. The denominator may legitimately
-    differ by ~a year ('last 10 years' vs 11 scored), so compare FRACTIONS with a small tolerance."""
+    differ by ~a year ('last 10 years' vs 11 scored), so compare FRACTIONS with a small tolerance.
+    Only the ANSWER segment (first paragraph) is validated - see _answer_segment."""
     truth = wins / tot
     tol = 1.0 / tot + 0.02            # ~one year of slack + rounding
+    seg = _answer_segment(reply)
     bad = []
-    for a, b in win_claims(reply):
+    for a, b in win_claims(seg):
         if b > 0 and abs(a / b - truth) > tol:
             bad.append("%d/%d" % (a, b))
-    for p in pct_claims(reply):
+    for p in pct_claims(seg):
         if abs(p / 100.0 - truth) > tol:
             bad.append("%d%%" % p)
     ok = not bad
-    record(name, ok, "truth=%d/%d (%.0f%%) | CONTRADICTING=%s | all win-claims=%s pct=%s"
-           % (wins, tot, truth * 100, bad, win_claims(reply), pct_claims(reply)))
+    record(name, ok, "truth=%d/%d (%.0f%%) | CONTRADICTING=%s | answer-seg win-claims=%s pct=%s"
+           % (wins, tot, truth * 100, bad, win_claims(seg), pct_claims(seg)))
     return ok
 
 
@@ -202,6 +218,31 @@ def scenario_rank():
     print("     reply: %s" % reply.replace("\n", " ")[:200])
 
 
+def scenario_loaded_strength():
+    """The reported Day-2 bug: a pattern is LOADED, user asks 'how strong is this window'. Tara must
+    ANSWER from the loaded stats (win rate / % profitable / Sharpe), not reply with a bare
+    'pattern loaded' (+ disclaimer). Truth = the loaded yearly_results (10/10 here)."""
+    yr = [{"year": y, "return_pct": 5.0, "mfe_pct": 7.0, "mae_pct": -1.0} for y in range(2016, 2026)]
+    wv = {"symbol": "AAPL", "company": "Apple Inc", "start_date": "2026-06-20", "days_out": "29",
+          "years": "10", "direction": "long", "pe_cycle": "cons",
+          "stats": {"Sharpe Ratio": "2.16", "Avg Profit": "5.6%", "Percent Profitable": "100%"},
+          "yearly_results": yr}
+    wins = sum(1 for x in yr if x["return_pct"] > 0)
+    tot = len(yr)
+    reply, _ = chat("how strong is this window", wave_viewer=wv, market="1", market_name="NASDAQ 100")
+    low = reply.lower()
+    stated = bool(win_claims(reply) or pct_claims(reply) or "sharpe" in low)
+    bare = ("load" in low) and not stated
+    record("loaded_strength_answers", stated and not bare,
+           "stated_stat=%s bare_loadack=%s | reply=%r" % (stated, bare, reply.replace("\n", " ")[:240]))
+    if win_claims(reply) or pct_claims(reply):
+        assert_winrate_matches("loaded_strength_truthful", reply, wins, tot)
+    disclaimed = "past performance" in low
+    record("loaded_strength_no_disclaimer", not disclaimed,
+           "disclaimer_present=%s (an analytical strength question should not get the disclaimer)" % disclaimed)
+    print("     reply: %s" % reply.replace("\n", " ")[:400])
+
+
 def scenario_oracle_selftest():
     """Prove the oracle has teeth: fed the ORIGINAL fabricated reply ('won 10 of 10' for a setup
     whose real record is 4/10), it MUST flag a contradiction. If this ever passes silently, the
@@ -221,6 +262,7 @@ def main():
     scenario_explicit_load("load_june_10of10", "load AAPL's pattern entering June 20th held 29 days and tell me its 10-year win rate")
     scenario_explicit_load("load_sept_weak", "show me AAPL's September 1st 30-day seasonal window and its real track record")
     scenario_rank()
+    scenario_loaded_strength()
     passed = sum(1 for _, ok, _ in RESULTS if ok)
     print("\n=== %d/%d passed ===" % (passed, len(RESULTS)))
     sys.exit(0 if passed == len(RESULTS) else 1)

@@ -404,6 +404,10 @@ def me():
         "rate": ent.get("rate"),
         "markets_in_scope": in_scope,
         "upgrade_url": _UPGRADE_URL,
+        # Structural in-chat teaser disclosure (MCP OAuth principals only; non-MCP callers
+        # never carry teaser_state, so default to the inactive contract - never a KeyError).
+        "teaser_state": g.customer.get("teaser_state") or {
+            "active": False, "kind": None, "ends_at": None, "post_teaser_scope": None},
     })
 
 

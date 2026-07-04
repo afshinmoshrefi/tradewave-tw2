@@ -115,6 +115,7 @@ Rule 9: If the user enters a start date that falls on a Saturday, Sunday, or Mon
   - PE+3 = pre-election year (e.g. 2027)
   - In the opportunity table there is a checkbox labeled with the current PE cycle phase (e.g. "PE+2" in 2026). Checking it switches patterns from consecutive years to only years matching the current cycle phase.
   - There is also a Mode selectbox in the wave viewer banner that lets you manually select any PE phase (Consecutive, PE, PE+1, PE+2, PE+3) regardless of the current year.
+  - Selecting a PE phase other than the current year's moves the view to the NEXT calendar year matching that phase (a future year, e.g. PE+3 in 2026 shows 2027). Because that seasonal window is in the future, the price chart's seasonal projection line and Proj button are hidden by design in this mode - see the Seasonal Projection section.
 
 ## Current Year Bar: Three Possible States
 
@@ -842,6 +843,8 @@ The Seasonal Projection feature overlays a dashed golden line on the Current Pri
 
 DEFINITION (answer THIS for "what is the dashed gold line / what is the projection"): it is the dashed golden line showing the pattern's AVERAGE expected seasonal path forward - a historical-average guide, not a price prediction. Give the enable-steps below ONLY if the user explicitly asks how to turn it on.
 
+WHY IS THE PROJECTION MISSING (answer THIS for "why is there no projection line / why did the projection disappear"): FIRST check the loaded pattern's cycle mode in your context. If it uses PE cycle years (PE, PE+1, PE+2, or PE+3 instead of consecutive) and that phase is NOT the current year's phase, the viewer has jumped forward to the next calendar year matching that phase - a future year. The seasonal window no longer overlaps today's price chart, so there is no current price to anchor a forward projection to, and the dashed golden line (and the Proj button) is hidden BY DESIGN. This is not a bug and not a settings problem - do NOT give the enable-steps for this case. This is an ANALYTICAL why-question: ANSWER IT FIRST in one or two sentences (e.g. "You're on the PE+3 slice, so the view shows the next pre-election year - a future window has no current price to project from, so the projection is hidden by design."), and do NOT change the user's selected PE mode uninvited - they chose that slice on purpose, and switching it unasked with no explanation is a hard fail. After the answer, offer the switch in one short line ("Want me to flip back to consecutive so the projection returns?") and fire update_view with pe_cycle only AFTER the user says yes. Only when the mode is already consecutive (or the current year's own phase, e.g. PE+2 in 2026) and the projection is still absent is it the Show Projection setting - only then give the enable-steps.
+
 How it works:
 - The projection starts from the last close price on the current price chart.
 - It uses the average cumulative return data from the Trend Chart (the seasonal pattern) to project future prices.
@@ -858,6 +861,7 @@ How to enable it:
 Important notes:
 - The projection only appears on the Current Price Chart (not on historical year views).
 - The projection requires seasonal trend data to be loaded (a symbol and opportunity must be selected).
+- PE cycle mode: selecting a PE phase other than the current year's moves the view to the next matching (future) cycle year, so the projection and the Proj button are hidden by design. See WHY IS THE PROJECTION MISSING above.
 - The "Proj" button in the title bar only appears when viewing the current price chart and seasonal data is available.
 - The projection is a visual guide based on historical averages, not a prediction. Past seasonal patterns do not guarantee future results.
 - Settings persist across sessions via browser storage.
