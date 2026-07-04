@@ -76,6 +76,7 @@ def _json_safe(obj):
 sys.path.insert(0, '/home/flask')
 sys.path.insert(0, '/home/flask/web')
 import config
+import reverse_trial  # shared reverse-trial cutoff math (also imported by apiserver/auth.py)
 
 # --- Sentry (no-op when SENTRY_DSN is empty/placeholder) ---
 try:
@@ -92,7 +93,7 @@ except ImportError:
     pass
 
 from models import (
-    User, AuditLog, StripeEvent, CouponUsed, SupportTicket,
+    User, AuditLog, StripeEvent, CouponUsed, SupportTicket, OnboardingEvent,
     SUPPORT_TICKET_TOPICS, db_session, write_audit, Session as DBSession,
 )
 from tier_compat import tier_to_wp_user_levels, tier_to_legacy_level
@@ -769,6 +770,135 @@ def api_me():
 
 
 # ============================================================
+# Onboarding usage telemetry -> the end-of-trial TRUST SIGNAL
+# ============================================================
+# Append-only log of what a trial user actually did (markets/symbols/horizon) so
+# the end-of-trial card can recommend the MINIMUM tier that covers their real
+# usage ("you don't need Strategist"). Low-sensitivity, same-origin, authed.
+_ONBOARDING_EVENT_TYPES = {
+    "market_opened", "symbol_scored", "wave_viewer_opened", "pattern_saved",
+    "reverse_date_range", "pe_toggle", "report_view", "persona",
+}
+
+
+def _min_tier_for_markets(used_ids):
+    """Smallest tier whose resources_allowed superset-covers the used market ids.
+    Returns 'explorer' when Dow-30-only (the free floor genuinely covers them) -
+    the strongest trust signal. config.TIER_FEATURES is the source of truth.
+    Returns None when nothing was logged (caller must hedge the copy)."""
+    used = set()
+    for m in used_ids:
+        try:
+            used.add(int(m))
+        except (TypeError, ValueError):
+            pass
+    if not used:
+        return None
+    for t in ("explorer", "navigator", "analyst", "strategist"):
+        allowed = (config.TIER_FEATURES.get(t) or {}).get("resources_allowed")
+        if allowed == "all":
+            return t
+        if allowed and used.issubset(set(allowed)):
+            return t
+    return "strategist"
+
+
+@app.route("/api/onboarding/event", methods=["POST"])
+@csrf.exempt  # same-origin authed fetch; append-only low-sensitivity telemetry, no mutation
+@require_login
+def onboarding_event():
+    u = get_current_user()
+    if u is None:
+        return jsonify({"ok": False}), 401
+    data = request.get_json(silent=True) or {}
+    etype = (data.get("type") or "").strip().lower()
+    if etype not in _ONBOARDING_EVENT_TYPES:
+        return jsonify({"ok": False, "error": "bad_type"}), 400
+    detail = data.get("detail")
+    if not isinstance(detail, dict):
+        detail = {}
+    else:
+        try:
+            import json as _json
+            if len(_json.dumps(detail)) > 2000:
+                detail = {"_truncated": True}
+        except Exception:
+            detail = {}
+    s = DBSession()
+    try:
+        s.add(OnboardingEvent(user_id=u.id, event_type=etype, detail=detail))
+        s.commit()
+    except Exception:
+        s.rollback()
+        log.exception("onboarding_event insert failed uid=%s", u.id)
+        return jsonify({"ok": False}), 500
+    finally:
+        s.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/onboarding/usage-summary")
+@require_login
+def onboarding_usage_summary():
+    """Aggregate the user's logged trial usage and compute the MINIMUM tier that
+    covers it (the trust signal). `measured` is False when there are no events yet -
+    the caller must then HEDGE the copy ("you spent most of your week on ...")
+    rather than claim a measured number it cannot produce."""
+    u = get_current_user()
+    if u is None:
+        return jsonify({"authenticated": False}), 401
+    s = DBSession()
+    try:
+        rows = s.query(OnboardingEvent).filter(OnboardingEvent.user_id == u.id).all()
+    finally:
+        s.close()
+    market_ids, short_ct, long_ct, patterns_saved, max_years = set(), 0, 0, 0, 0
+    for r in rows:
+        d = r.detail or {}
+        if r.event_type == "market_opened" and d.get("market_id") is not None:
+            market_ids.add(str(d.get("market_id")))
+        elif r.event_type == "pattern_saved":
+            patterns_saved += 1
+        elif r.event_type == "reverse_date_range":
+            long_ct += 1
+        elif r.event_type == "persona":
+            if d.get("persona") == "long":
+                long_ct += 1
+            elif d.get("persona") == "short":
+                short_ct += 1
+        elif r.event_type in ("symbol_scored", "wave_viewer_opened", "report_view"):
+            # ONLY setup-viewing events legitimately carry a horizon (days) / lookback
+            # (years). Parsing them for every row double-counted reverse_date_range and
+            # let stray numbers in unrelated payloads skew persona/max_years.
+            try:
+                days = int(d.get("days"))
+                if 0 < days <= 120:
+                    short_ct += 1
+                elif days >= 150:
+                    long_ct += 1
+            except (TypeError, ValueError):
+                pass
+            try:
+                max_years = max(max_years, int(d.get("years") or 0))
+            except (TypeError, ValueError):
+                pass
+    ordered = sorted(market_ids, key=lambda x: int(x) if str(x).isdigit() else 999)
+    persona = "long" if long_ct > short_ct else ("short" if short_ct > 0 else "both")
+    resp = jsonify({
+        "measured": len(rows) > 0,
+        "event_count": len(rows),
+        "markets_used": ordered,
+        "market_names": [config.available_resources.get(str(m), str(m)) for m in ordered],
+        "persona": persona,
+        "patterns_saved": patterns_saved,
+        "max_years": max_years,
+        "recommended_tier": _min_tier_for_markets(market_ids),
+    })
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
+
+
+# ============================================================
 # /api/contact - Tier-1 support form
 # ============================================================
 # Replaces the legacy mailto-only form. Anonymous endpoint; abuse-gated by
@@ -1053,7 +1183,7 @@ def account_cta_mode(email):
         # elevates an active reverse-trial to 'strategist'). Everything else - explorer (past or
         # without the 7-day trial), 'canceled' (lapsed), unknown - gets 'upgrade', so we never
         # imply access a free/lapsed account does not have, and never re-pitch a used-up trial.
-        return "open_app" if tier in ("navigator", "analyst", "strategist") else "upgrade"
+        return "open_app" if tier in ("analyst", "strategist") else "upgrade"
     except Exception as ex:
         log.warning("account_cta_mode failed for %s: %s", e, ex)
         return "signup"
@@ -1387,24 +1517,14 @@ def effective_tier(user) -> str:
     admin-granted trial_ends_at column). Paid/billing paths (Stripe webhook,
     /stripe/success, admin) must keep reading user.tier raw.
     """
-    tier = user.tier or "explorer"
-    # ROLE BYPASS (config.ROLE_BYPASSES_TIER): admins and service principals
-    # always get the full platform view regardless of their billing tier -
-    # the founder must never hit his own paywall. Access-only; billing reads
-    # user.tier raw, same as the reverse trial below.
-    try:
-        roles = set(user.roles or [])
-    except TypeError:
-        roles = set()
-    if roles & config.ROLE_BYPASSES_TIER:
-        return "strategist"
-    if (
-        tier == "explorer"
-        and user.reverse_trial_ends_at is not None
-        and user.reverse_trial_ends_at > datetime.now(timezone.utc)
-    ):
-        return "strategist"
-    return tier
+    # Delegates to the shared cutoff math so the gateway (apiserver/auth.py, which
+    # mirrors this into the MCP/consumer-OAuth scope) cannot drift from the website.
+    # ROLE BYPASS: admins/service principals (config.ROLE_BYPASSES_TIER, passed in so
+    # config stays authoritative here) always get the full platform view - the founder
+    # must never hit his own paywall. Access-only; billing reads user.tier raw.
+    return reverse_trial.effective_web_tier(
+        user.tier, user.roles, user.reverse_trial_ends_at, config.ROLE_BYPASSES_TIER
+    )
 
 
 def reverse_trial_ends_at_iso(user) -> str:
@@ -1439,6 +1559,9 @@ def generate_ltk(user) -> str:
             "email": user.email,
             "tier": eff_tier,
             "legacy_level": tier_to_legacy_level(eff_tier),
+            # Per-tier historical-years cap (10 Explorer / 15 Navigator; "" = uncapped).
+            # Informational/defensive - the appserver re-derives + enforces it from config.
+            "max_years": config.num_years_allowed_by_level.get(tier_to_legacy_level(eff_tier), ""),
             "roles": user.roles or ["user"],
             "is_admin": "super_admin" in (user.roles or []),
             "aud": "tw2-appserver",
@@ -1495,11 +1618,19 @@ def app_index():
         f'window.ltk={_js_safe(ltk)};'
         f'window.tw2_user_email={_js_safe(u.email)};'
         f'window.tw2_user_tier={_js_safe(eff_tier)};'
+        # Per-tier historical-years cap: 10 (Explorer) / 15 (Navigator) / '' = uncapped
+        # (Analyst/Strategist). React grays out year/lookback options above this as an
+        # upgrade nudge; '' (falsy) means no cap. Enforced server-side regardless.
+        f'window.tw2_max_years={_js_safe(config.num_years_allowed_by_level.get(user_level, ""))};'
         f'window.tw2_is_admin={"true" if is_admin_bool else "false"};'
         f'window.tw2_user_roles={_js_safe(u.roles or ["user"])};'
         f'window.tw2_env={_js_safe(config.tw2_env)};'
         # ISO end of an ACTIVE reverse trial, '' otherwise (additive global).
         f'window.tw2_trial_ends_at={_js_safe(reverse_trial_ends_at_iso(u))};'
+        # '1' iff the user has EVER had a reverse trial (future, past, or expired) - lets the
+        # React onboarding tell a lapsed-trial Explorer from a never-trialed one (the
+        # end-of-trial card must NOT tell a never-trialed user "your access wrapped up").
+        f'window.tw2_trial_ever={_js_safe("1" if getattr(u, "reverse_trial_ends_at", None) is not None else "")};'
         '</script>'
     )
     # Inject right before </head> (same hook the milestone-1 nginx sub_filter used)
@@ -1595,7 +1726,45 @@ def account():
         billing_interval=billing_interval,
         next_renewal_date=next_renewal_date,
         started_date=started_date,
+        mcp_teaser=_account_mcp_teaser(u),
     )
+
+
+def _account_mcp_teaser(user):
+    """READ-ONLY in-chat (MCP) teaser_state for the account card. Mirrors the gateway
+    contract (apiserver/auth.py:_resolve_mcp) using the shared reverse_trial helpers so
+    the web view never drifts from what the user actually gets in ChatGPT/Claude:
+      - explorer + active reverse trial -> explorer_trial (reverts to explorer)
+      - navigator + active first-connect window -> navigator_firstconnect (reverts to navigator)
+    NEVER arms the navigator column (that is the gateway's job on first connect); this only
+    reads navigator_mcp_first_connect_at. GATED behind TW2_MCP_LIVE (the same flag the home
+    pill uses) so the card stays hidden until consumer MCP launches - active is forced False
+    when the flag is off, even if a teaser window would otherwise be live."""
+    state = {"active": False, "kind": None, "ends_at": None, "post_teaser_scope": None}
+    if user is None:
+        return state
+    mcp_live = os.environ.get("TW2_MCP_LIVE", "").strip().lower() in ("1", "true", "yes")
+    if not mcp_live:
+        return state
+    raw_tier = user.tier or "explorer"
+    # Mirror the gateway (apiserver/auth.py): the navigator check uses the EFFECTIVE web tier
+    # so an admin/service-bypass navigator (eff_web -> strategist) shows no teaser, exactly
+    # like the gateway. Explorer-trial stays on the RAW tier (effective_web_tier maps
+    # explorer+trial -> strategist, so the raw check is the correct one there).
+    eff_web = reverse_trial.effective_web_tier(
+        user.tier, user.roles, user.reverse_trial_ends_at, config.ROLE_BYPASSES_TIER)
+    if raw_tier == "explorer" and reverse_trial.in_reverse_trial(user.reverse_trial_ends_at):
+        rt = user.reverse_trial_ends_at
+        return {"active": True, "kind": "explorer_trial",
+                "ends_at": rt.isoformat() if rt is not None else None,
+                "post_teaser_scope": "explorer"}
+    if eff_web == "navigator":
+        nav_active, nav_ends = reverse_trial.navigator_teaser_window(
+            getattr(user, "navigator_mcp_first_connect_at", None))
+        if nav_active:
+            return {"active": True, "kind": "navigator_firstconnect",
+                    "ends_at": nav_ends, "post_teaser_scope": "navigator"}
+    return state
 
 
 # ============================================================
@@ -3007,6 +3176,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         "page_photo": "Page headshot",
         "page_note": "Page note",
         "page_signoff": "Page sign-off",
+        "agreement_addendum": "Addendum (Exhibit B)",
     }
     column_formatters = {
         "agreement_signed_at": lambda v, c, m, n: (
@@ -3041,6 +3211,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                            "stripe_coupon_id_monthly",
                            "page_display_name", "page_logo", "page_photo",
                            "page_note", "page_signoff",
+                           "agreement_addendum",
                            "agreement_version", "agreement_signed_name",
                            "agreement_signed_at", "agreement_signed_ip",
                            "notes", "created_at")
@@ -3050,6 +3221,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                     "discount_pct", "commission_pct",
                     "discount_pct_monthly", "commission_pct_monthly",
                     "commission_model", "payout_method", "payout_email",
+                    "agreement_addendum",
                     "page_display_name", "page_logo", "page_photo",
                     "page_note", "page_signoff",
                     "status", "notes")
@@ -3104,6 +3276,13 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                                      "NO performance promises, guarantees, return/price/win-rate claims, or links."},
         "page_signoff": {"description": "OPTIONAL - the attribution under the note, e.g. 'Sarah, your options coach' "
                                         "(max 60 chars). The affiliate's OWN name/title only. Blank falls back to the Page name."},
+        "agreement_addendum": {"description": "OPTIONAL per-affiliate rider for THIS affiliate only, appended to their "
+                                              "agreement as 'Exhibit B - Additional Terms'. The standard Sections 1-15 stay "
+                                              "identical for everyone. Markdown allowed (## headings, **bold**, lists, tables). "
+                                              "For an UNSIGNED affiliate it appears on their signing page and is frozen into "
+                                              "their signed copy when they sign. For an ALREADY-SIGNED affiliate, editing this "
+                                              "does NOT change their binding signed copy - use 'Change terms' to require a "
+                                              "re-sign so the new Exhibit B takes legal effect. Max 20,000 chars."},
     }
 
     def create_form(self, obj=None):
@@ -3152,6 +3331,30 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                 raise ValidationError(
                     "%s must be plain text - no HTML tags (< >) or links allowed." % field)
             setattr(model, field, val)
+
+        # Agreement addendum (Exhibit B): operator-authored markdown rider. Strip;
+        # blank => NULL. Unlike page_note this is admin-authored legal text rendered
+        # into the signed document, so markup/links are permitted (markdown). Length
+        # is capped (DB CHECK backstops). Warn - don't block - if it changes after the
+        # affiliate already signed: the FROZEN snapshot is binding and is unaffected;
+        # a 'Change terms' re-sign is needed for the new Exhibit B to take effect.
+        addv = getattr(model, "agreement_addendum", None)
+        if addv is not None:
+            addv = addv.strip()
+            if not addv:
+                model.agreement_addendum = None
+            elif len(addv) > 20000:
+                raise ValidationError("Addendum (Exhibit B) must be 20,000 characters or fewer.")
+            else:
+                model.agreement_addendum = addv
+        if not is_created:
+            from flask import flash
+            addh = sa_inspect(model).attrs.agreement_addendum.history
+            if addh.has_changes() and getattr(model, "agreement_signed_at", None):
+                flash("Note: %s has already signed. The addendum is saved but does NOT "
+                      "change their binding signed agreement - use 'Change terms' to "
+                      "require a re-sign so the new Exhibit B takes effect." % model.code,
+                      "warning")
 
         # Activation gate (active <=> signed), enforced on EDITS. Creation forces
         # 'paused' below regardless; the signing route flips paused->active
@@ -4139,6 +4342,13 @@ def internal_delete_report():
     target = Path("/var/www/tradewave/r") / slug
     if target.is_dir() and target.resolve().is_relative_to("/var/www/tradewave/r"):
         shutil.rmtree(target, ignore_errors=True)
+        try:
+            if "/home/flask/web" not in sys.path:
+                sys.path.insert(0, "/home/flask/web")
+            import report_renderer
+            report_renderer.rebuild_report_sitemap()
+        except Exception:
+            log.exception("internal_delete_report: sitemap rebuild failed slug=%s", slug)
         return jsonify({"status": "deleted", "slug": slug})
     return jsonify({"status": "absent", "slug": slug})
 

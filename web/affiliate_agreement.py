@@ -149,6 +149,19 @@ def agreement_body_html() -> str:
     return _BODY_HTML_CACHE
 
 
+def addendum_html(affiliate) -> str:
+    """The per-affiliate rider ('Exhibit B - Additional Terms') as HTML, rendered
+    from affiliate.agreement_addendum (operator-authored markdown). Returns "" when
+    there is none. The standard body (Sections 1-15) is identical for every
+    affiliate; ONLY this rider varies, so a special term for one affiliate never
+    touches anyone else's contract."""
+    raw = (getattr(affiliate, "agreement_addendum", None) or "").strip()
+    if not raw:
+        return ""
+    return _no_em_dash(markdown.markdown(
+        raw, extensions=["tables", "sane_lists", "fenced_code"]))
+
+
 def exhibit(affiliate) -> dict:
     """Per-affiliate Exhibit A values for the signing template / snapshot.
 
@@ -224,10 +237,15 @@ def build_snapshot(affiliate) -> str:
             ("Commission Model", ex["model_label"]),
             ("Payout", f"{ex['payout_method']} - {ex['payout_email']}"),
         ])
+    # Per-affiliate rider, frozen alongside the rest of the terms. Empty for the
+    # vast majority of affiliates (no addendum), in which case Exhibit B is omitted.
+    add_html = addendum_html(affiliate)
+    exhibit_b = (f"<h2>Exhibit B - Additional Terms</h2>\n{add_html}\n" if add_html else "")
     snap = (
         f"<!-- TradeWave Affiliate Program Agreement v{e(affiliate.agreement_version)} -->\n"
         f"{agreement_body_html()}\n"
         f"<h2>Exhibit A - Affiliate-Specific Terms</h2>\n<table>{rows}</table>\n"
+        f"{exhibit_b}"
         f"<h2>Acceptance</h2>\n<p>Electronically signed by "
         f"<strong>{e(affiliate.agreement_signed_name)}</strong> on "
         f"{e(signed_at.isoformat() if signed_at else '')} "
