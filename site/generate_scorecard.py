@@ -21,7 +21,7 @@ import config
 from blog_tools import convert_param_base64
 from ga_snippet import ga_head_snippet
 from pick_stats import (  # shared win definition
-    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, is_resolved, is_win, reached_target,
+    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, is_resolved, is_win, reached_target, result_return,
 )
 
 # =============================================================================
@@ -409,9 +409,10 @@ def compute_stats(history):
     target_hit_rate, hits_n, _ = compute_target_hit_rate(history)
     held_rate, held_n, _resolved_n = compute_held_to_close_rate(history)
 
-    # Median realized close return across resolved picks.
-    returns = sorted(e['actual_return'] for e in resolved)
-    avg_return = returns[len(returns) // 2] if returns else 0
+    # Median RESULT return over judged picks: exit at target when hit, else the
+    # window close - consistent with the win definition (a target-hit winner
+    # must not drag its faded close into the median).
+    avg_return = compute_median_result_return(history)
 
     # Current streak (consecutive resolved wins from most recent backwards).
     streak = 0
@@ -492,6 +493,9 @@ def build_positions(history):
             row['peak_return_num'] = peak or 0
             row['win'] = is_win(entry)
             row['wl'] = 'W' if is_win(entry) else 'L'
+            # Result under the system exit rule (target when hit, else close) -
+            # feeds the month-group medians so they match the headline metric.
+            row['result_return_num'] = result_return(entry)
             # Second truth, shown separately: did the move reach target in the
             # window even if it faded by the close? (never overwrites actual_return)
             row['reached_target'] = reached_target(entry)
@@ -523,8 +527,10 @@ def group_closed_by_month(closed_positions, expand_newest=2):
     for i, m in enumerate(months):
         rows = m['positions']
         wins = sum(1 for r in rows if r['win'])
-        returns = sorted(r['actual_return_num'] for r in rows
-                         if r.get('actual_return_num') is not None)
+        # Median of RESULT returns (exit at target when hit, else the close) -
+        # same semantics as the headline Median Return.
+        returns = sorted(r['result_return_num'] for r in rows
+                         if r.get('result_return_num') is not None)
         median = returns[len(returns) // 2] if returns else 0
         m['count'] = len(rows)
         m['wins'] = wins

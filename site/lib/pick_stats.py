@@ -83,6 +83,28 @@ def compute_target_hit_rate(history):
     return rate, hits, len(judged)
 
 
+def result_return(entry):
+    """The pick's RESULT under the system's own exit rule: a pick that hit its
+    predicted gain realizes exactly that gain (a standing limit order at the
+    pre-published target fills on the touch - conservative: never the peak);
+    a closed pick that never hit realizes its window-close return. Open
+    not-yet-hit picks have no result (None). Keeps return stats consistent
+    with the win definition - a target-hit winner must not drag a faded close
+    into the medians (2026-07-05, WDC short: +6.8 target hit, -27.3 close)."""
+    if hit_target(entry):
+        return entry.get('pred_return')
+    if is_resolved(entry):
+        return entry.get('actual_return')
+    return None
+
+
+def compute_median_result_return(history):
+    """Median result_return over judged picks (same population as the win
+    rate), rounded to one decimal."""
+    vals = sorted(v for v in (result_return(e) for e in history) if v is not None)
+    return round(vals[len(vals) // 2], 1) if vals else 0
+
+
 def compute_held_to_close_rate(history):
     """Return (rate_pct, wins, resolved_count) over CLOSED picks only: the
     share that finished profitable at the close. The secondary transparency

@@ -31,7 +31,7 @@ from blog_tools import get_company_name, convert_param_base64
 from get_price_eod import get_quote_details
 from ga_snippet import ga_head_snippet
 from pick_stats import (
-    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, is_resolved, is_win,
+    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, is_resolved, is_win,
 )  # shared win definition (homepage + scorecard must never diverge)
 
 # Stripe price lookup (TW2: prices come live from Stripe via PRODUCT METADATA,
@@ -845,9 +845,9 @@ def compute_homepage_scorecard_stats():
     target_hit_rate, hits_n, _ = compute_target_hit_rate(history)
     held_rate, held_n, _resolved_n = compute_held_to_close_rate(history)
 
-    # Median realized close return across resolved picks (claim-free magnitude).
-    returns = sorted(e['actual_return'] for e in resolved)
-    avg_return = returns[len(returns) // 2] if returns else 0
+    # Median RESULT return over judged picks: exit at target when hit, else the
+    # window close - consistent with the win definition (shared pick_stats).
+    avg_return = compute_median_result_return(history)
 
     # Current streak (consecutive resolved wins from most recent backwards),
     # rendered as a 'NW'/'NL' string for the ledger scoreboard.
