@@ -1448,7 +1448,11 @@ const SeasonalBarChart = (props) => {
     // backgroundColor: "pink",
     fontSize: descFontSize,
     color: tc.textOnControl,
-    flexGrow: "2",
+    // When the Best Waves select is rendered, IT takes the row's slack (flex:1, centered)
+    // so it sits midway between the Notify pill and the ticker; the description then only
+    // wraps its content. With no select (no symbol/options), grow as before so the
+    // ticker+dates stay right-anchored next to the MFE/MAE controls.
+    flexGrow: (!rdd.isMobile && oppBySymbolOptions.length > 0) ? "0" : "2",
     justifyContent: "end",
     display: displayElement[3],
     whiteSpace: 'nowrap',
@@ -1868,6 +1872,12 @@ const SeasonalBarChart = (props) => {
 
 
 
+  // Right-panel width in px (the split-aware version of window.innerWidth). Shared by the
+  // Notify pill (icon-only when narrow) and the Best Waves select (decorative dashes + the
+  // wider box only when there is room - this toolbar row is width-critical).
+  const rightPanelPx = window.innerWidth * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1)
+  const bwWide = rightPanelPx >= 1120
+
   //--------------------------------------------------------------------------------
   return (
 
@@ -1921,7 +1931,7 @@ const SeasonalBarChart = (props) => {
                   {/* Icon-only when the right panel is narrow (absolute px, not split %:
                       a small window with the default split is just as cramped) - the
                       labeled pill otherwise overflows this fixed row into Best Waves. */}
-                  {(window.innerWidth * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1)) < 1120
+                  {rightPanelPx < 1120
                     ? <BsBellFill size={13} style={{ verticalAlign: '-2px' }} />
                     : <><BsBellFill size={12} style={{ marginRight: '5px', verticalAlign: '-1px' }} />Notify me</>}
                 </button>
@@ -1929,13 +1939,18 @@ const SeasonalBarChart = (props) => {
           </Tippy>
         }
 
+        {/* Best Waves floats CENTERED in the slack between the Notify pill and the ticker
+            (flex:1 here + flexGrow 0 on the description while this select is rendered).
+            The "-- Best Waves --" dashes and the wider box appear only when the panel has
+            room (bwWide); the tight layout keeps the compact undecorated label. */}
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
-          <div style={{ paddingLeft: '2px', paddingRight: '6px' }}>
+          <div style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
           <SelectBox
-            optionList={oppBySymbolOptions}
+            optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '-- Best Waves --' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
             value={selectedOppBySymbol}
             name="oppBySymbol"
             suffix=""
+            widthOverride={bwWide ? '7vw' : undefined}
             sbChanged={handleOppBySymbolChanged}
             tooltipContent={props.tooltipSW ? 'b,Best seasonal waves for this ticker sorted by Sharpe Ratio. Select a wave to load it in the viewer.' : ''}
           />

@@ -7,7 +7,7 @@ import { themeColors } from './Common'
 import Tippy from '@tippyjs/react'
 // import 'tippy.js/dist/tippy.css'
 
-const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent }) => {
+const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent, widthOverride }) => {
 
     const { rdd, globalTextSize, browserH, browserW, UITheme } = useContext(UserContext)
     const tc = themeColors(UITheme)
@@ -320,6 +320,10 @@ const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent 
     }
 
 
+
+    // Caller-supplied width wins over the per-name sizing above (e.g. the Best Waves
+    // select widens to fit its "-- Best Waves --" placeholder only when the panel is wide).
+    if (widthOverride) selectWidth = widthOverride;
 
     // console.log('name=', name)
 
