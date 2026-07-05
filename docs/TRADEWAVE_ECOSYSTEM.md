@@ -988,6 +988,13 @@ roadmap memories.)
    both consume it). Held-to-close stays as the LABELED SECONDARY stat and
    every row keeps its realized close return visible - do NOT remove that
    transparency, and do NOT make held-to-close the headline again.
+   RETURN STATS follow the same exit rule (owner, 2026-07-05): a target-hit
+   pick REALIZES exactly its pre-published predicted gain (limit order fills
+   on the touch - never the peak); a miss realizes the window close; open
+   not-yet-hit picks have no result (`pick_stats.result_return`). Medians
+   (headline + month groups + homepage) must never mix a hit winner's faded
+   close into the return stats (the June-2026 WDC short: +6.8 target hit,
+   -27.3 close - the bug that prompted this rule).
 
 1. **Reverse-trial freemium gate (decided by owner 2026-06-10, supersedes the
    2026-05-18 open-paywall launch decision):** new free signups get the FULL
