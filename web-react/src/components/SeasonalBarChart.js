@@ -1941,13 +1941,14 @@ const SeasonalBarChart = (props) => {
 
         {/* Best Waves floats CENTERED in the slack between the Notify pill and the ticker
             (flex:1 here + flexGrow 0 on the description while this select is rendered).
-            The "— Best Waves —" em-dashes (owner-requested decorative glyph; the no-em-dash
-            rule is for prose/content, not this UI ornament) and the wider box appear only when the panel has
+            The "── Best Waves ──" box-drawing rules (U+2500 - the original decoration this
+            row shipped with before c16a969 slimmed it; not prose em-dashes) and the wider
+            box appear only when the panel has
             room (bwWide); the tight layout keeps the compact undecorated label. */}
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
           <div style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
           <SelectBox
-            optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '— Best Waves —' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
+            optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
             value={selectedOppBySymbol}
             name="oppBySymbol"
             suffix=""
