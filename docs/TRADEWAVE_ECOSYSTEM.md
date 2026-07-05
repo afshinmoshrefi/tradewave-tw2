@@ -554,6 +554,30 @@ Rationale: a forward projection must anchor at the last close on the current
 price chart; a future-year window has no current price to anchor to. Tara's KB +
 prompt document this (see 7C).
 
+**OPEN BUG (diagnosed 2026-07-05): projections vanish once the loaded pattern's
+trade has BEGUN.** Repro'd in a real browser (Playwright vs dev): same pattern via
+`?o=` deep link - entry 2 days back shows both Proj pills + lines; entry 20 days
+back (window still active) shows neither, with a "Current" button in their place.
+Chain: (1) `ChartData4` (appserver.py:2097-2114, :2162) marks the trade active as
+soon as `entry_date < last close in the CSV` and then computes a REAL in-progress
+pct for the current-year bar (`d1 = last close`); the `'0,0,0'` placeholder row
+(appserver.py:2231) exists ONLY while the trade hasn't started in data terms.
+(2) `StockLineChart.js:398-412` sets `showCurrentLineChart=true` ONLY when the
+LAST bar has `pct === '0,0,0'` and its year is the viewed year - otherwise the
+price chart mounts the TRADE view (which for an active trade ends at the same
+last close, so it LOOKS like the current chart minus the projections).
+(3) Every projection element - both pills (:847/:872), both datasets
+(`buildSeasonalProjection`'s first guard), and also the D/W, E, and chart-range
+buttons - requires `showCurrentLineChart`. (4) The "Current" button
+(`handleSwitchToCurrentChart` :534) only resets `lineChartYear`; the mode check
+still fails on the real pct, so for a started (in-progress OR completed)
+current-year trade the projections are UNREACHABLE, not just off by default.
+Net trigger: the lines disappear on the first trading day whose close lands
+AFTER the entry date (weekends/holidays/EOD-lag make it look like "works for a
+few days"). Fix direction (undecided): treat the active-trade current-year view
+as projection-capable, or let "Current" force true current mode. Tara's KB
+missing-projection guidance does NOT yet cover this case - update it with the fix.
+
 (Source: `web-react/src/components/{App.js, SeasonalBarChart.js, DesktopLayout.js,
 StockLineChart.js, LineChart.js}`, `Common.js:maxYearsCap|lsGet|lsSet`,
 appserver.py:2594 `getHistory2` / :2839 `consolidated_seasonal_chart2` / :2644
