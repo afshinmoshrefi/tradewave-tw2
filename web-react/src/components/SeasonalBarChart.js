@@ -103,6 +103,20 @@ const SeasonalBarChart = (props) => {
 
   const [oppBySymbolOptions, setOppBySymbolOptions] = useState([])
   const [selectedOppBySymbol, setSelectedOppBySymbol] = useState('')
+  // Measured width of the Best Waves flex wrapper (the row's slack). The wrapper is
+  // flex:1 1 0 / minWidth:0, so its size is set by the row's OTHER content, never by
+  // which select variant we render inside it - measuring it is feedback-loop-free.
+  const bwWrapRef = useRef(null)
+  const [bwSlackPx, setBwSlackPx] = useState(0)
+  useEffect(() => {
+    const el = bwWrapRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(entries => {
+      for (const e of entries) setBwSlackPx(e.contentRect.width)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [oppBySymbolOptions.length > 0])
 
   const [PEselectionList, SetPEselectionList] = useState(
     [
@@ -1872,11 +1886,13 @@ const SeasonalBarChart = (props) => {
 
 
 
-  // Right-panel width in px (the split-aware version of window.innerWidth). Shared by the
-  // Notify pill (icon-only when narrow) and the Best Waves select (decorative dashes + the
-  // wider box only when there is room - this toolbar row is width-critical).
+  // Right-panel width in px (the split-aware version of window.innerWidth) - drives the
+  // Notify pill's icon-only collapse.
   const rightPanelPx = window.innerWidth * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1)
-  const bwWide = rightPanelPx >= 1120
+  // Best Waves keeps its "── Best Waves ──" decoration until the wide box, centered in the
+  // measured slack, would have under 3px of air per side - only then drop to the compact
+  // undecorated variant (owner-specified threshold). 0.07 = the 7vw wide-variant width.
+  const bwWide = bwSlackPx >= window.innerWidth * 0.07 + 6
 
   //--------------------------------------------------------------------------------
   return (
@@ -1943,10 +1959,10 @@ const SeasonalBarChart = (props) => {
             (flex:1 here + flexGrow 0 on the description while this select is rendered).
             The "── Best Waves ──" box-drawing rules (U+2500 - the original decoration this
             row shipped with before c16a969 slimmed it; not prose em-dashes) and the wider
-            box appear only when the panel has
-            room (bwWide); the tight layout keeps the compact undecorated label. */}
+            box stay until the measured slack leaves under 3px per side (bwWide); only then
+            drop to the compact undecorated label. */}
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
-          <div style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+          <div ref={bwWrapRef} style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', display: 'flex', justifyContent: 'center' }}>
           <SelectBox
             optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
             value={selectedOppBySymbol}
