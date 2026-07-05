@@ -620,7 +620,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         "3) Seasonal Patterns (seasonality, what is a seasonal pattern, how seasonal trading works) -> action: open-seasonal-popup "
         "4) Trend Chart (trend chart, seasonal trend line, how the trend chart works) -> action: open-trendchart-popup "
         "5) Bar Chart (bar chart, year-by-year, what do the bars mean, green bars red bars) -> action: open-barchart-popup "
-        "6) Projection (projection, dashed golden line, where will price go, seasonal projection) -> action: open-projection-popup "
+        "6) Projection (projection, dashed golden line, purple dashed line, purple projection, Proj N-Y, full-history projection, where will price go, seasonal projection) -> action: open-projection-popup "
         "7) PE Cycle (presidential election cycle, PE cycle, midterm, election year, PE+1 PE+2 PE+3) -> action: open-pecycle-popup "
         "8) MFE/MAE (MFE, MAE, maximum favorable excursion, maximum adverse excursion, drawdown, best point) -> action: open-mfemae-popup "
         "9) TWR (TradeWave Ratio, TWR, what is TWR) -> action: open-twr-popup "

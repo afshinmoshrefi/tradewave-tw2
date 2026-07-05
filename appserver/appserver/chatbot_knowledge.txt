@@ -115,7 +115,7 @@ Rule 9: If the user enters a start date that falls on a Saturday, Sunday, or Mon
   - PE+3 = pre-election year (e.g. 2027)
   - In the opportunity table there is a checkbox labeled with the current PE cycle phase (e.g. "PE+2" in 2026). Checking it switches patterns from consecutive years to only years matching the current cycle phase.
   - There is also a Mode selectbox in the wave viewer banner that lets you manually select any PE phase (Consecutive, PE, PE+1, PE+2, PE+3) regardless of the current year.
-  - Selecting a PE phase other than the current year's moves the view to the NEXT calendar year matching that phase (a future year, e.g. PE+3 in 2026 shows 2027). Because that seasonal window is in the future, the price chart's seasonal projection line and Proj button are hidden by design in this mode - see the Seasonal Projection section.
+  - Selecting a PE phase other than the current year's moves the view to the NEXT calendar year matching that phase (a future year, e.g. PE+3 in 2026 shows 2027). Because that seasonal window is in the future, the price chart's seasonal projection lines (both the golden and the purple full-history line) and the Proj buttons are hidden by design in this mode - see the Seasonal Projection section.
 
 ## Current Year Bar: Three Possible States
 
@@ -811,7 +811,7 @@ The settings window is accessed by clicking the gear icon in the top control bar
 
 Settings available:
 - Technical Indicators on Price Chart: toggles whether technical indicator overlays (such as moving averages) are shown on the Current Price Chart (slide 3). When enabled, the price chart displays selected indicators directly on the chart.
-- Seasonal Projection on Price Chart: toggles a dashed golden line that projects where the price might go based on the seasonal trend pattern. A period selector lets the user choose how far to project: 2 Weeks, 1 Month, 2 Months, or 3 Months. See the Seasonal Projection section for details.
+- Seasonal Projection on Price Chart: toggles a dashed golden line that projects where the price might go based on the seasonal trend pattern. A period selector lets the user choose how far to project: 2 Weeks, 1 Month, 2 Months, or 3 Months. A second checkbox, "Show Projection (N-Y)" (N = the ticker's maximum available years, e.g. 25-Y), toggles the purple full-history projection line built from all consecutive years at once. See the Seasonal Projection section for details.
 - Timeframe: switches the Current Price Chart between Daily and Weekly bars. See the Weekly Price Chart section for details.
 - Earnings Dates: toggles vertical markers on the price chart showing past earnings announcement dates and the projected next earnings date. See the Earnings Dates section for details.
 - Chart Range: controls how much price history is shown on the Current Price Chart. Options are 3M (3 months), 6M (6 months), 1Y (1 year), and 2Y (2 years). Default is 6M. Only affects the current price chart, not historical year views. Desktop only - buttons also appear in the price chart title bar for quick access.
@@ -839,31 +839,38 @@ To remove all price level lines, click the "Clear Price Lines" button in the cha
 
 ## Seasonal Projection on Price Chart
 
-The Seasonal Projection feature overlays a dashed golden line on the Current Price Chart (slide 3) that shows where the price might go if the historical seasonal pattern repeats.
+The Seasonal Projection feature overlays up to TWO dashed lines on the Current Price Chart (slide 3) that show where the price might go if the historical seasonal pattern repeats:
+- The GOLDEN dashed line projects the seasonal cycle of the pattern AS CURRENTLY LOADED - it uses the user's selected number of years and the current cycle mode (consecutive or a PE phase).
+- The PURPLE dashed line is the FULL-HISTORY projection - it is built from ALL available consecutive years of the ticker's history at once, regardless of the years count or PE mode currently selected. Its legend label includes the year count, e.g. "Seasonal Projection (30d, 25-Y)".
 
 DEFINITION (answer THIS for "what is the dashed gold line / what is the projection"): it is the dashed golden line showing the pattern's AVERAGE expected seasonal path forward - a historical-average guide, not a price prediction. Give the enable-steps below ONLY if the user explicitly asks how to turn it on.
 
-WHY IS THE PROJECTION MISSING (answer THIS for "why is there no projection line / why did the projection disappear"): FIRST check the loaded pattern's cycle mode in your context. If it uses PE cycle years (PE, PE+1, PE+2, or PE+3 instead of consecutive) and that phase is NOT the current year's phase, the viewer has jumped forward to the next calendar year matching that phase - a future year. The seasonal window no longer overlaps today's price chart, so there is no current price to anchor a forward projection to, and the dashed golden line (and the Proj button) is hidden BY DESIGN. This is not a bug and not a settings problem - do NOT give the enable-steps for this case. This is an ANALYTICAL why-question: ANSWER IT FIRST in one or two sentences (e.g. "You're on the PE+3 slice, so the view shows the next pre-election year - a future window has no current price to project from, so the projection is hidden by design."), and do NOT change the user's selected PE mode uninvited - they chose that slice on purpose, and switching it unasked with no explanation is a hard fail. After the answer, offer the switch in one short line ("Want me to flip back to consecutive so the projection returns?") and fire update_view with pe_cycle only AFTER the user says yes. Only when the mode is already consecutive (or the current year's own phase, e.g. PE+2 in 2026) and the projection is still absent is it the Show Projection setting - only then give the enable-steps.
+DEFINITION - PURPLE LINE (answer THIS for "what is the purple dashed line / what is the purple projection / what does Proj 25-Y mean"): it is the full-history seasonal projection - the same idea as the golden line, but computed from every available consecutive year of the ticker's history at once, not just the years currently selected, and always from consecutive years even when the view is on a PE cycle slice. Comparing the two lines shows whether the loaded slice agrees with the ticker's long-run seasonal behavior: when the golden and purple lines track each other, the seasonal path is consistent across the full history; when they diverge, the selected years or cycle phase behaves differently from the long-run average. Give the enable-steps below ONLY if the user explicitly asks how to turn it on.
+
+WHY IS THE PROJECTION MISSING (answer THIS for "why is there no projection line / why did the projection disappear"): FIRST check the loaded pattern's cycle mode in your context. If it uses PE cycle years (PE, PE+1, PE+2, or PE+3 instead of consecutive) and that phase is NOT the current year's phase, the viewer has jumped forward to the next calendar year matching that phase - a future year. The seasonal window no longer overlaps today's price chart, so there is no current price to anchor a forward projection to, and the dashed projection lines (golden and purple, and both Proj buttons) are hidden BY DESIGN. This is not a bug and not a settings problem - do NOT give the enable-steps for this case. This is an ANALYTICAL why-question: ANSWER IT FIRST in one or two sentences (e.g. "You're on the PE+3 slice, so the view shows the next pre-election year - a future window has no current price to project from, so the projection is hidden by design."), and do NOT change the user's selected PE mode uninvited - they chose that slice on purpose, and switching it unasked with no explanation is a hard fail. After the answer, offer the switch in one short line ("Want me to flip back to consecutive so the projection returns?") and fire update_view with pe_cycle only AFTER the user says yes. Only when the mode is already consecutive (or the current year's own phase, e.g. PE+2 in 2026) and the projection is still absent is it the Show Projection setting - only then give the enable-steps.
 
 How it works:
-- The projection starts from the last close price on the current price chart.
-- It uses the average cumulative return data from the Trend Chart (the seasonal pattern) to project future prices.
-- The projection line extends forward from today for a user-selected period: 2 Weeks, 1 Month, 2 Months, or 3 Months.
-- The dashed golden line connects smoothly from the last actual price point and curves according to the seasonal trend.
+- Both lines start from the last close price on the current price chart and extend forward for the same user-selected period: 2 Weeks, 1 Month, 2 Months, or 3 Months.
+- The golden line uses the average cumulative return data from the Trend Chart (the seasonal pattern as loaded: the selected years and the current cycle mode).
+- The purple line uses a separately computed seasonal average over the maximum available consecutive years for the ticker, always in consecutive mode.
+- Each dashed line connects smoothly from the last actual price point and curves according to its seasonal trend.
 
 How to enable it:
 1) Open the Settings window (gear icon in the top control bar).
 2) Go to the Price Chart settings category.
-3) Check "Show Projection" under the Seasonal Projection section.
-4) Select the desired projection period from the dropdown (2 Weeks, 1 Month, 2 Months, or 3 Months).
-5) Alternatively, click the "Proj" button in the price chart title bar to quickly toggle the projection on or off.
+3) Under Seasonal Projection, check "Show Projection" for the golden line, and/or "Show Projection (N-Y)" for the purple full-history line (N is the ticker's maximum years, e.g. "Show Projection (25-Y)").
+4) Select the desired projection period from the dropdown (2 Weeks, 1 Month, 2 Months, or 3 Months) - it applies to both lines.
+5) Quick toggles in the price chart title bar: the "Proj" button toggles the golden line; the "Proj N-Y" button toggles the purple line. The "Proj N-Y" button only appears after the full-history data has loaded, so the FIRST time the purple line is enabled it must be done from Settings (step 3).
 
 Important notes:
-- The projection only appears on the Current Price Chart (not on historical year views).
-- The projection requires seasonal trend data to be loaded (a symbol and opportunity must be selected).
-- PE cycle mode: selecting a PE phase other than the current year's moves the view to the next matching (future) cycle year, so the projection and the Proj button are hidden by design. See WHY IS THE PROJECTION MISSING above.
-- The "Proj" button in the title bar only appears when viewing the current price chart and seasonal data is available.
-- The projection is a visual guide based on historical averages, not a prediction. Past seasonal patterns do not guarantee future results.
+- The two lines are independent toggles - the user can show either one or both at the same time.
+- The purple line is only offered when the selected years differ from the ticker's maximum consecutive years. If the user is already viewing all consecutive years, the golden line already IS the full-history projection, so the purple checkbox/button is hidden and no second line is drawn (the two would be identical).
+- The purple line's year count respects the user's plan: on a plan with a years limit, "full history" means the maximum years that plan allows.
+- The projections only appear on the Current Price Chart (not on historical year views).
+- The projections require seasonal trend data to be loaded (a symbol and opportunity must be selected).
+- PE cycle mode: selecting a PE phase other than the current year's moves the view to the next matching (future) cycle year, so BOTH projection lines and both Proj buttons are hidden by design. See WHY IS THE PROJECTION MISSING above.
+- The "Proj" buttons in the title bar only appear when viewing the current price chart and seasonal data is available.
+- Both projections are visual guides based on historical averages, not predictions. Past seasonal patterns do not guarantee future results.
 - Settings persist across sessions via browser storage.
 
 ## Weekly Price Chart
@@ -1052,7 +1059,7 @@ Available guides:
 - Seasonal Patterns guide: what seasonality is, why patterns exist, PE cycle, how TradeWave finds them
 - Trend Chart guide: how multiple years combine into one trend line, how projections work
 - Bar Chart guide: reading the year-by-year bars, MFE/MAE overlays, what to look for
-- Projection guide: the dashed golden line on the price chart, how it is created, projection periods
+- Projection guide: the dashed projection lines on the price chart (golden = loaded pattern, purple = full history), how they are created, projection periods
 - PE Cycle guide: the 4-year presidential election cycle, why it matters, how to use it in TradeWave
 - MFE/MAE guide: maximum favorable and adverse excursion, risk management, exit timing
 - TWR guide: TradeWave Ratio vs Sharpe Ratio, when TWR > SR matters, how to use it

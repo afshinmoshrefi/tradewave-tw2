@@ -526,7 +526,14 @@ both lines.
 `Common.js:lsGet/lsSet` (localStorage keys `showProjection` /
 `showMaxProjection`); both default TRUE. The secondary pill and the secondary
 line are HIDDEN when `parseInt(seasonalYears) === maxAvailableYears` (both
-lines would be identical) or when the max-years cycle hasn't loaded. Pills are
+lines would be identical) or when the max-years cycle hasn't loaded. Chicken-
+and-egg quirk: the secondary FETCH is skipped while `showMaxProjection` is
+false (`SeasonalBarChart.js` max-fetch effect returns early), and the "Proj
+N-Y" pill requires a non-empty `maxYearsConsolidatedSeasonalData` - so from a
+cold start with the toggle saved OFF, the pill never renders and the ONLY
+first-enable path is the DesktopLayout settings checkbox (once on, data loads
+and the pill appears; toggling off does not clear the data, so the pill then
+persists for the session). Pills are
 desktop-only (`!rdd.isMobile`); the DesktopLayout settings panel exposes
 matching checkboxes with the same "N-Y" suffix. Cookies were deliberately
 rejected for these toggles - the codebase standardizes on `lsGet/lsSet` for
@@ -784,6 +791,18 @@ system-prompt rules; `chatbot_knowledge.txt` is for facts. Also added to the FOR
 the em-dash character (house style). NOTE: `chatbot_knowledge.txt` is loaded once at appserver
 startup (`_load_knowledge`) - restart `tradewave-appserver` after editing it. Verified live on dev
 (PE+3 context chat + "yes" follow-up fires `set_view pe_cycle:cons`) and `tara_truth_eval.py` 8/8.
+
+**Purple full-history projection line: chatbot coverage (2026-07-05).** `chatbot_knowledge.txt`
+"Seasonal Projection" section now covers BOTH lines: a DEFINITION - PURPLE LINE routing paragraph
+("what is the purple dashed line / Proj N-Y" -> full-history consecutive-years projection, compare
+vs the golden line for slice-vs-long-run agreement), reworked how-it-works/enable-steps (enable-steps
+lead with the Settings checkbox because of the 7.1 chicken-and-egg pill quirk), tier-cap note, and
+both-lines-hidden-in-PE-future wording; the Settings-window list, PE key-concepts bullet, and guides
+list were updated to match, and guide trigger #6 in `chatbot.py build_system_prompt` gained the
+purple/Proj N-Y/full-history terms. Verified live on dev via `/chatbot/chat` probes (definition +
+enable question; correct answers, projection guide auto-opened). GAP: the in-app `ProjectionPopup.js`
+guide itself does NOT yet mention the purple line (stale guide; fixing it needs a React rebuild via
+`npm run build`).
 
 (Source: `appserver/appserver/{chatbot,tara_gateway,AI_tools_appserver}.py`, `web-react/src/components/Chatbot.js`,
 `apiserver/{auth,tiers,provision_chatbot_key}.py`, `config.py`, `docs/TARA_GATEWAY_INTEGRATION.md`; dev .176.)
