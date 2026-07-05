@@ -47,7 +47,7 @@ const DEFAULT_BB_CONFIG = {
     fill: true,
 };
 
-const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = [], SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', consolidatedSeasonalData = [], showMaxProjection = false, maxYearsConsolidatedSeasonalData = [], maxAvailableYears = 0, priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null }) => {
+const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = [], SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', consolidatedSeasonalData = [], showMaxProjection = false, maxYearsConsolidatedSeasonalData = [], maxAvailableYears = 0, projectionCapable = false, priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null }) => {
 
     const { browserH, browserW, rdd, loggedinUser } = useContext(UserContext)
     const tc = themeColors(UITheme)
@@ -519,7 +519,9 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
     // cycle row can't tear down the price chart via the error boundary.
     const buildSeasonalProjection = (enabled, cycle) => {
         const empty = { extraLabels: [], projectionData: [], projectionCount: 0 };
-        if (!showCurrentLineChart || !enabled || !Array.isArray(cycle) || cycle.length === 0 || labels.length === 0 || dataClose.length === 0) {
+        // projectionCapable = current price chart OR the current-year trade view of an
+        // ACTIVE trade (both end at the latest close, the projection's anchor).
+        if (!projectionCapable || !enabled || !Array.isArray(cycle) || cycle.length === 0 || labels.length === 0 || dataClose.length === 0) {
             return empty;
         }
         try {
@@ -560,7 +562,9 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
 
         // Generate future dates (skip weekends; for weekly, one point per week)
         const periodDays = parseInt(projectionPeriod, 10) || 30;
-        const isWeeklyProj = priceChartTimeframe === 'weekly';
+        // Weekly point spacing only when the chart itself is weekly-aggregated - the weekly
+        // aggregation applies to the current chart only, so the trade view stays daily.
+        const isWeeklyProj = priceChartTimeframe === 'weekly' && showCurrentLineChart;
         // Map period to calendar weeks: 14→2wk, 30→4wk, 60→8wk, 90→13wk
         const weeklyPointsMap = { 14: 2, 30: 4, 60: 8, 90: 13 };
         const numPoints = isWeeklyProj ? (weeklyPointsMap[periodDays] || Math.round(periodDays / 7)) : periodDays;
@@ -620,12 +624,12 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
     const projectionResult = useMemo(
         () => buildSeasonalProjection(showProjection, consolidatedSeasonalData),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [showCurrentLineChart, showProjection, consolidatedSeasonalData, labels, dataClose, projectionPeriod, priceChartTimeframe]
+        [showCurrentLineChart, projectionCapable, showProjection, consolidatedSeasonalData, labels, dataClose, projectionPeriod, priceChartTimeframe]
     );
     const maxProjectionResult = useMemo(
         () => buildSeasonalProjection(showMaxProjection, maxYearsConsolidatedSeasonalData),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [showCurrentLineChart, showMaxProjection, maxYearsConsolidatedSeasonalData, labels, dataClose, projectionPeriod, priceChartTimeframe]
+        [showCurrentLineChart, projectionCapable, showMaxProjection, maxYearsConsolidatedSeasonalData, labels, dataClose, projectionPeriod, priceChartTimeframe]
     );
 
     // Both projections share the same last-close anchor + period + timeframe, so their

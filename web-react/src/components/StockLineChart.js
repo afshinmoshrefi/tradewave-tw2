@@ -538,6 +538,18 @@ const StockLineChart = (props) => {
         }
     }
 
+    // Projection eligibility: the current price chart, OR the current-year TRADE view while
+    // the trade is still ACTIVE. An active trade's chart ends at the latest close, so a
+    // forward projection anchors there exactly like the current chart - without this, the
+    // projections vanished for the whole life of a pattern the moment its first post-entry
+    // close landed (the current-year bar loses its '0,0,0' placeholder, so current mode
+    // becomes unreachable). Historical years and completed trades stay projection-free:
+    // their last point is in the past, there is nothing to project forward from.
+    const lastSeasonalBar = props.seasonalBarChartData && props.seasonalBarChartData.length > 0
+        ? props.seasonalBarChartData[props.seasonalBarChartData.length - 1] : null;
+    const projectionCapable = showCurrentLineChart ||
+        (props.tradeActive === true && lastSeasonalBar !== null && lastSeasonalBar['year'] === props.lineChartYear);
+
 
     var questionDisplay = "flex";
     var caretSize = '4vw';
@@ -844,7 +856,7 @@ const StockLineChart = (props) => {
                                 </Tippy>
                             }
 
-                            {showCurrentLineChart && !rdd.isMobile && props.consolidatedSeasonalData && props.consolidatedSeasonalData.length > 0 &&
+                            {projectionCapable && !rdd.isMobile && props.consolidatedSeasonalData && props.consolidatedSeasonalData.length > 0 &&
                                 <Tippy placement={'top'} content={
                                     <div theme="tw">Toggle Seasonal Projection</div>
                                 }>
@@ -869,7 +881,7 @@ const StockLineChart = (props) => {
                                 </Tippy>
                             }
 
-                            {showCurrentLineChart && !rdd.isMobile && props.maxYearsConsolidatedSeasonalData && props.maxYearsConsolidatedSeasonalData.length > 0 && props.maxAvailableYears > 0 && parseInt(props.seasonalYears, 10) !== props.maxAvailableYears &&
+                            {projectionCapable && !rdd.isMobile && props.maxYearsConsolidatedSeasonalData && props.maxYearsConsolidatedSeasonalData.length > 0 && props.maxAvailableYears > 0 && parseInt(props.seasonalYears, 10) !== props.maxAvailableYears &&
                                 <Tippy placement={'top'} content={
                                     <div theme="tw">Toggle Seasonal Projection (full {props.maxAvailableYears}-year history)</div>
                                 }>
@@ -986,7 +998,7 @@ const StockLineChart = (props) => {
 
             <div className="linechart" style={{ ...linechartStyle, position: 'relative' }}>
                 {lineChartData.length > 0
-                    ? <LineChart showCurrentLineChart={showCurrentLineChart} statDisplay={statDisplay} SetStatDisplay={SetStatDisplay} lineChartData={effectiveLineChartData} smaSeedData={effectiveSmaSeedData} barChartLongOrShort={props.barChartLongOrShort} tradeDate0={props.tradeDate0} tradeDate1={props.tradeDate1} activeTrade={props.tradeActive} saveStatDisplay={saveStatDisplay} statBoxCoordinates={props.statBoxCoordinates} SetStatBoxCoordinates={props.SetStatBoxCoordinates} UITheme={props.UITheme} showWatermark={props.showWatermark} priceChartType={props.priceChartType} showVolume={props.showVolume} maConfig={props.maConfig} bbConfig={props.bbConfig} priceLevels={priceLevels} SetPriceLevels={SetPriceLevels} selectedLevelId={selectedLevelId} SetSelectedLevelId={SetSelectedLevelId} drawingMode={drawingMode} SetDrawingMode={SetDrawingMode} showProjection={props.showProjection} projectionPeriod={props.projectionPeriod} consolidatedSeasonalData={props.consolidatedSeasonalData} showMaxProjection={props.showMaxProjection} maxYearsConsolidatedSeasonalData={props.maxYearsConsolidatedSeasonalData} maxAvailableYears={props.maxAvailableYears} priceChartTimeframe={props.priceChartTimeframe} showEarnings={props.showEarnings} tradeDetailData={props.tradeDetailData} />
+                    ? <LineChart showCurrentLineChart={showCurrentLineChart} projectionCapable={projectionCapable} statDisplay={statDisplay} SetStatDisplay={SetStatDisplay} lineChartData={effectiveLineChartData} smaSeedData={effectiveSmaSeedData} barChartLongOrShort={props.barChartLongOrShort} tradeDate0={props.tradeDate0} tradeDate1={props.tradeDate1} activeTrade={props.tradeActive} saveStatDisplay={saveStatDisplay} statBoxCoordinates={props.statBoxCoordinates} SetStatBoxCoordinates={props.SetStatBoxCoordinates} UITheme={props.UITheme} showWatermark={props.showWatermark} priceChartType={props.priceChartType} showVolume={props.showVolume} maConfig={props.maConfig} bbConfig={props.bbConfig} priceLevels={priceLevels} SetPriceLevels={SetPriceLevels} selectedLevelId={selectedLevelId} SetSelectedLevelId={SetSelectedLevelId} drawingMode={drawingMode} SetDrawingMode={SetDrawingMode} showProjection={props.showProjection} projectionPeriod={props.projectionPeriod} consolidatedSeasonalData={props.consolidatedSeasonalData} showMaxProjection={props.showMaxProjection} maxYearsConsolidatedSeasonalData={props.maxYearsConsolidatedSeasonalData} maxAvailableYears={props.maxAvailableYears} priceChartTimeframe={props.priceChartTimeframe} showEarnings={props.showEarnings} tradeDetailData={props.tradeDetailData} />
                     : <div className='barchart-background'><span style={{ fontSize: svFont, color: tc.watermark }} >{lineChartMsg}</span></div>
                 }
                 {props.lineChartYear === 0 && lineChartData.length > 0 &&
