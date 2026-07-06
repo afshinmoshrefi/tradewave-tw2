@@ -127,7 +127,7 @@
   --bg:#0B1220; --panel:#0F1A2E; --panel2:#13203a; --ink:#EAF0F8; --muted:#9FB0C8;
   --faint:#6B7A93; --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.14);
   --accent:#7C5CFF; --accent-soft:rgba(124,92,255,.14); --win:#3FB68B; --loss:#E5687F; --grey:#5A6A82;
-  --s4:40px; --s5:64px; --s6:96px; --s7:112px; --maxw-narrow:760px;
+  --s4:40px; --s5:64px; --s6:96px; --s7:144px; --maxw-narrow:760px;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -149,13 +149,13 @@ a{color:var(--accent);text-decoration:none}
 .muted{color:var(--muted)}
 .faint{color:var(--faint)}
 section{padding:var(--s7) 0;border-top:1px solid var(--line)}
-@media(max-width:880px){section{padding:20px 0}
+@media(max-width:880px){section{padding:44px 0}
   .close{padding:44px 0 !important}
   .frame-wrap.landscape .frame img,.frame-wrap.wide .frame img{aspect-ratio:auto !important}
   .frame-wrap{margin-top:24px}
   .frame-wrap.portrait{max-width:300px}
   .frame-wrap.portrait .frame img{aspect-ratio:auto !important}
-  .hero{padding-top:28px}
+  .hero{padding-top:40px}
 }
 .section-sub{color:var(--muted);max-width:760px;font-size:1.05rem}
 .eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
@@ -187,9 +187,12 @@ section{padding:var(--s7) 0;border-top:1px solid var(--line)}
 .micro{color:var(--faint);font-size:.85rem;margin-top:12px}
 .lnk{font-weight:600;font-size:.9rem}
 /* hero */
-.hero{text-align:center;padding:56px 0 0;border-top:none}
+.hero{text-align:center;padding:76px 0 0;border-top:none}
 .hero h1{max-width:27ch;margin:0 auto}
-.hero .section-sub{margin:22px auto 0;text-align:center}
+.hero .section-sub{margin:40px auto 0;text-align:center}
+/* roomy vertical rhythm between the stacked hero blocks (headline -> subhead ->
+   button -> free-report card) - hero-scoped so other CTA rows are unaffected */
+.hero .cta-row{margin-top:44px}
 /* hero trust strip - the loss-inclusive ledger, felt above the fold */
 .truststrip{width:fit-content;margin:26px auto 0;max-width:100%;display:flex;gap:6px 14px;justify-content:center;align-items:center;flex-wrap:wrap;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.74rem;line-height:1.6;color:var(--faint);padding:9px 20px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.02)}
 .truststrip b{color:var(--muted);font-weight:600}
@@ -475,36 +478,21 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 
 <!-- 01 / HERO (copy bound via content.hero - tournament winner; scored runner-ups documented in the generator) -->
 <section class="hero"><div class="wrap">
-  {% if content.mcp_live %}<a href="{{ content.hero.pill_url }}" class="hero-pill reveal"><span class="tag">New</span>{{ content.hero.pill_text }}<span class="arr">&rarr;</span></a>{% elif content.hero.pill_calendar_text %}<a href="{{ content.hero.pill_calendar_url }}" class="hero-pill reveal"><span class="tag">New</span>{{ content.hero.pill_calendar_text }}<span class="arr">&rarr;</span></a>{% endif %}
-  <div class="eyebrow reveal" style="justify-content:center"><span class="n">01</span> / {{ content.hero.eyebrow }}</div>
+  {% if content.hero.pill_calendar_text %}<a href="{{ content.hero.pill_calendar_url }}" class="hero-pill reveal"><span class="tag">New</span>{{ content.hero.pill_calendar_text }}<span class="arr">&rarr;</span></a>{% endif %}
   <h1 class="reveal d1">{{ content.hero.headline }}</h1>
   <p class="section-sub reveal d1" style="max-width:680px">{{ content.hero.subheadline }}</p>
-  <!-- Trust strip: the loss-inclusive public ledger, felt above the fold. Real
-       scorecard_stats only - the numeric segments hide themselves until data exists. -->
-  <div class="truststrip reveal d2" role="note">
-    {% if content.scorecard_stats and content.scorecard_stats.total_picks %}
-    <span><b>{{ content.scorecard_stats.total_picks }}</b> {{ content.hero.trust_strip.logged_label }}</span>
-    <span class="sep">&middot;</span>
-    {% if content.scorecard_stats.closed_count %}
-    <span><b>{{ content.scorecard_stats.win_count }} of {{ content.scorecard_stats.closed_count }}</b> {{ content.hero.trust_strip.held_label }}</span>
-    <span class="sep">&middot;</span>
-    {% endif %}
-    {% endif %}
-    <span>{{ content.hero.trust_strip.note }} <a href="{{ content.scorecard_url }}">{{ content.hero.trust_strip.link_text }} &rarr;</a></span>
-  </div>
   <div class="cta-row reveal d2">
     <a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.08rem;padding:16px 32px">{{ content.hero.cta_primary }}</a>
   </div>
   <div class="micro reveal d2" style="margin-top:12px;color:var(--muted)">{{ content.hero.cta_micro }}</div>
-  <div class="reveal d3" style="margin:22px auto 0;max-width:520px">
-    <div class="micro" style="margin-bottom:8px">{{ content.hero.report_lead }}</div>
+  <div class="reveal d3" style="margin:44px auto 0;max-width:520px">
+    <div class="micro" style="margin-bottom:16px">{{ content.hero.report_lead }}</div>
     <button type="button" class="frcard quiet" data-lm-open data-lm-source="hero" aria-label="Open the free seasonal report form">
       <span class="tk">AAPL</span><span class="tk">MSFT</span><span class="plus">+</span>
       <span class="em">you@email.com</span>
       <span class="go">Email Me My Free Report</span>
     </button>
   </div>
-  <div class="micro reveal d3" style="margin-top:18px">{{ content.hero.disclaimer }}</div>
 </div></section>
 
 <!-- 02 / TARA (the beginner hook - moved directly after the hero per the June-30
@@ -542,7 +530,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 </div></section>
 
 <!-- 03 / THE EVIDENCE -->
-<section><div class="wrap" style="text-align:center">
+<section style="padding-bottom:72px"><div class="wrap" style="text-align:center">
   <div class="eyebrow reveal" style="justify-content:center"><span class="n">03</span> / The Evidence</div>
   <h2 class="reveal" style="text-align:center">Read the Whole Track Record at a Glance</h2>
   <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600;text-align:center">Open any pattern and every year is laid out - the run in green, the drawdown in pink. None trimmed.</p>
@@ -556,12 +544,29 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
   <div class="caption">20 years of TJX. The model only ranks and calibrates the odds - it never predicts. <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
 </div></section>
 
-<!-- CTA at peak conviction (right after The Evidence) -->
-<div class="wrap" style="text-align:center"><div class="cta-row reveal" style="margin:6px 0 0"><a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.04rem;padding:14px 30px">Start Free - Full Access for 7 Days</a></div></div>
+<!-- CTA at peak conviction (right after The Evidence). Balanced in the gap: the
+     72px below here pairs with section 03's reduced 72px bottom padding above, so
+     the button sits centered between the chart and the next section's line, not
+     glued to it. -->
+<div class="wrap" style="text-align:center"><div class="cta-row reveal" style="margin:6px 0 72px"><a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.04rem;padding:14px 30px">Start Free - Full Access for 7 Days</a></div></div>
 
 <!-- 04 / YOUR STOCKS (PRIMARY free-report capture) -->
 <section id="free-report-top" class="fr"><div class="wrap" style="text-align:center">
   <div class="eyebrow reveal" style="justify-content:center"><span class="n">04</span> / Your Stocks</div>
+  <!-- Trust strip: the loss-inclusive public ledger, moved out of the hero to lead
+       the free-report offer. Real scorecard_stats only - the numeric segments hide
+       themselves until data exists. -->
+  <div class="truststrip reveal" role="note" style="margin-bottom:22px">
+    {% if content.scorecard_stats and content.scorecard_stats.total_picks %}
+    <span><b>{{ content.scorecard_stats.total_picks }}</b> {{ content.hero.trust_strip.logged_label }}</span>
+    <span class="sep">&middot;</span>
+    {% if content.scorecard_stats.closed_count %}
+    <span><b>{{ content.scorecard_stats.win_count }} of {{ content.scorecard_stats.closed_count }}</b> {{ content.hero.trust_strip.held_label }}</span>
+    <span class="sep">&middot;</span>
+    {% endif %}
+    {% endif %}
+    <span>{{ content.hero.trust_strip.note }} <a href="{{ content.scorecard_url }}">{{ content.hero.trust_strip.link_text }} &rarr;</a></span>
+  </div>
   <h2 class="reveal">Now Get That Same Track Record for the Stocks You Own</h2>
   <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">Name up to three stocks you hold - we'll email each one's per-year seasonal record. No account, no card.</p>
   <button type="button" class="frcard reveal d1" data-lm-open data-lm-source="inline-primary" aria-label="Open the free seasonal report form">
@@ -570,7 +575,6 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
     <span class="go">Email Me My Free Report</span>
   </button>
   <div class="micro reveal d1">Free. No account, no credit card, no obligation. One required, two optional - your report lands in your inbox in about a minute.</div>
-  <div class="reveal d1" style="font-size:.72rem;color:var(--faint);margin-top:16px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.5">Historical seasonal research for educational purposes, not a recommendation or personalized advice. Past results never guarantee future ones.</div>
 </div></section>
 
 <!-- 05 / THE LEDGER -->
@@ -758,7 +762,6 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
     <span class="go">Email Me My Free Report</span>
   </button>
   <div class="micro reveal d1">Free. No credit card, no signup, no obligation. Just your report, in your inbox in about a minute.</div>
-  <div class="reveal d1" style="font-size:.72rem;color:var(--faint);margin-top:16px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.5">Historical seasonal research for educational purposes, not a recommendation or personalized advice. Past results never guarantee future ones.</div>
 </div></section>
 
 <!-- 11 / BRING YOUR HUNCHES (CLOSE) -->

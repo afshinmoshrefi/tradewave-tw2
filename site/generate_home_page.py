@@ -1031,26 +1031,22 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         #                calibrates each score down, never up. The daily pick goes
         #                on a public ledger before the outcome, losses included."
         "hero": {
-            "eyebrow": "Seasonal Research That Shows Its Work",
-            "headline": "Reveal Seasonal Tendencies With The Highest Probability of Repeating",
+            # Hero eyebrow removed 2026-07-06 (owner: keep the area above the
+            # hero headline clean - no label, no pill). The headline is the
+            # first thing on the page.
+            "headline": "Uncover Seasonal Tendencies With The Highest Probability of Repeating",
             "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
                 "AI-powered rankings and scores across 98 years of data, ready "
                 "for you to leverage across thousands of stocks, ETFs, as well "
                 "as your own portfolio."
             ),
-            # The "New" MCP pill above the headline (links to #tara). Rendered
-            # only when content.mcp_live is True (gated, see MCP_LIVE). No
-            # "in plain English" phrasing (June-30 directive: many visitors
-            # are not native English speakers) and no per-plan entitlement
-            # claim here - the pill introduces Tara, nothing more.
-            "pill_text": "Meet Tara, TradeWave's AI agent - now inside ChatGPT and Claude",
-            "pill_url": "#tara",
-            # Calendar-reminders pill: previewed 2026-07-04, owner REJECTED it for
-            # the hero (feature announcements stay out of the hero region; the
-            # calendar band + pricing bullets carry the feature). Text '' = hidden.
-            # The template slot remains: it renders only while the Tara/MCP pill
-            # is dark, should a future announcement ever need it.
+            # Hero pill slot (a small "New" chip above the headline). The MCP
+            # "Meet Tara" pill was removed 2026-07-06 (owner: keep the hero to the
+            # headline - nothing renders above it). The calendar-reminders slot
+            # below stays as the single dormant announcement slot: previewed
+            # 2026-07-04, owner REJECTED it for the hero, so text '' keeps it
+            # hidden - it renders only if a future announcement sets it.
             "pill_calendar_text": "",
             "pill_calendar_url": "#calendar-reminders",
             "cta_primary": "Start For Free - No Credit Card Required",
@@ -1064,11 +1060,8 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                 "Prefer to start smaller? Get the free seasonal report on "
                 "stocks you own - no account needed:"
             ),
-            # The ONE compact hero disclaimer micro-line.
-            "disclaimer": (
-                "Historical research for educational purposes, not advice or "
-                "a recommendation."
-            ),
+            # Hero disclaimer micro-line removed 2026-07-06 (owner: keep the hero
+            # clean). The full legal disclaimer still lives in the footer.
             # Above-the-fold trust strip labels. The counts come live from
             # content.scorecard_stats at render time - never hardcode a number
             # here; the template hides numeric segments until data exists.
