@@ -748,8 +748,18 @@ MAILERLITE_WEBHOOK_SECRET = os.environ.get('MAILERLITE_WEBHOOK_SECRET', '')
 # level group. If a value is '' the sync skips that slot. (IDs confirmed live 2026-05-25.)
 MAILERLITE_LEVEL_GROUPS = {
     'explorer':           '97426012986410777',
+    'navigator_monthly':  '191588040351679718',
+    'navigator_yearly':   '191588041317418500',
     'analyst_monthly':    '97426054440814482',
     'analyst_yearly':     '97426062589298035',
     'strategist_monthly': '97426069052720199',
     'strategist_yearly':  '97426077579740921',
 }
+
+# Winback "trust letter" group: a PAYING web subscriber whose subscription ends
+# (customer.subscription.deleted -> tier reverts to explorer) joins this group;
+# the MailerLite automation "TW Winback - Explorer (trust letter)" then sends ONE
+# honest use-your-free-seat email after a 1-day delay. Any subsequent live paid
+# web event removes them again so a fast re-subscribe never queues a churn letter.
+# Populated/cleared by email_utils.sync_mailerlite_winback_group(). '' disables.
+MAILERLITE_WINBACK_GROUP_ID = os.environ.get('MAILERLITE_WINBACK_GROUP_ID', '192267699380815223')

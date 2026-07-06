@@ -303,3 +303,69 @@ def sync_mailerlite_level_group(email: str, tier: str, period: str = None,
     except Exception as e:
         log.warning("sync_mailerlite_level_group unexpected error email=%s: %s", email, e)
         return "error:exception"
+
+
+def sync_mailerlite_winback_group(email: str, churned: bool, dry_run: bool = False) -> str:
+    """Add (churned=True) or remove (churned=False) `email` from the winback
+    trust-letter group (config.MAILERLITE_WINBACK_GROUP_ID) - the trigger for
+    the "TW Winback - Explorer (trust letter)" automation that sends ONE honest
+    email a day after a paying web subscription ends.
+
+    Same contract as sync_mailerlite_level_group: best-effort, never raises,
+    returns a short status string. Rules:
+      - An unsubscribed/bounced subscriber is NEVER added (adds can reactivate);
+        removals are always safe.
+      - Someone not in MailerLite at all is NOT created just to be churn-lettered
+        (unlike the level sync, which creates - a churner who never joined the
+        list should stay off it).
+    """
+    api_key = getattr(config, 'MAILERLITE_API_KEY', '')
+    gid = str(getattr(config, 'MAILERLITE_WINBACK_GROUP_ID', '') or '')
+    if _is_placeholder(api_key) or not gid:
+        return "skip:not-configured"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Accept":        "application/json",
+        "Content-Type":  "application/json",
+    }
+    import urllib.parse as _ul
+    try:
+        r = requests.get(f"{MAILERLITE_BASE}/subscribers/{_ul.quote(email)}",
+                         headers=headers, timeout=6)
+        if r.status_code == 404:
+            return "skip:not-in-mailerlite"
+        if not (200 <= r.status_code < 300):
+            log.warning("winback GET failed email=%s status=%s", email, r.status_code)
+            return f"error:get-{r.status_code}"
+        data = (r.json() or {}).get("data") or {}
+        sub_id = data.get("id")
+        status = data.get("status")
+        in_group = any(str(g.get("id")) == gid for g in (data.get("groups") or []))
+
+        if churned:
+            if status != "active":
+                return f"skip:unsub({status})"
+            if in_group:
+                return "noop"
+            if dry_run:
+                return f"would-add:{gid}"
+            resp = requests.post(f"{MAILERLITE_BASE}/subscribers/{sub_id}/groups/{gid}",
+                                 headers=headers, timeout=3)
+            ok = 200 <= resp.status_code < 300
+            if not ok:
+                log.warning("winback add failed email=%s status=%s", email, resp.status_code)
+            return "added" if ok else f"error:{resp.status_code}"
+
+        if not in_group:
+            return "noop"
+        if dry_run:
+            return f"would-remove:{gid}"
+        requests.delete(f"{MAILERLITE_BASE}/subscribers/{sub_id}/groups/{gid}",
+                        headers=headers, timeout=3)
+        return "removed"
+    except requests.RequestException as e:
+        log.warning("sync_mailerlite_winback_group network error email=%s: %s", email, e)
+        return "error:network"
+    except Exception as e:
+        log.warning("sync_mailerlite_winback_group unexpected error email=%s: %s", email, e)
+        return "error:exception"

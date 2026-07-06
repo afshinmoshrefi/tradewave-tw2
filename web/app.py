@@ -97,7 +97,7 @@ from models import (
     SUPPORT_TICKET_TOPICS, db_session, write_audit, Session as DBSession,
 )
 from tier_compat import tier_to_wp_user_levels, tier_to_legacy_level
-from email_utils import mailerlite_subscribe, sync_mailerlite_level_group
+from email_utils import mailerlite_subscribe, sync_mailerlite_level_group, sync_mailerlite_winback_group
 
 # --- WorkOS ---
 from workos import WorkOSClient
@@ -2929,6 +2929,21 @@ def webhook_stripe():
         # same-tier monthly<->yearly switch still moves the user's group. Idempotent.
         if ml_target_period != "__skip__":
             sync_mailerlite_level_group(db_user.email, final_tier, ml_target_period, new_user=False)
+
+        # Winback trust letter (best-effort, post-commit). A PAYING web subscriber whose
+        # subscription just ended (tier actually moved paid -> explorer; a delete for an
+        # already-explorer user changes nothing and sends nothing) joins the winback
+        # group, which fires the one-email "trust letter" automation after a 1-day delay.
+        # Any live paid web event pulls them back OUT, so an upgrade or fast re-subscribe
+        # inside that delay window can never leave them queued for a churn letter. The
+        # old_tier == 'explorer' guard on removal skips the extra MailerLite round-trip
+        # on paid->paid changes (a paid-tier user can never be in the winback group).
+        if not api_event:
+            if event_type == "customer.subscription.deleted" and tier_changed_to == "explorer":
+                sync_mailerlite_winback_group(db_user.email, churned=True)
+            elif (final_tier not in ("", "explorer") and old_tier == "explorer"
+                  and sub_status in ("active", "trialing", "past_due")):
+                sync_mailerlite_winback_group(db_user.email, churned=False)
 
         return jsonify({"received": True, "tier": final_tier, "api_tier": final_api_tier,
                         "status": sub_status}), 200
