@@ -979,7 +979,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         "meta": {
             # Kept in sync with hero.headline (the tab title / og:title must
             # never advertise a headline the page no longer says).
-            "title": "TradeWave - Reveal Seasonal Tendencies With The Highest Probability of Repeating",
+            "title": "TradeWave - Discover Seasonal Tendencies With The Highest Probability of Repeating",
             "description": (
                 "TradeWave detects recurring seasonal patterns from end-of-day "
                 "data across 15 markets, over a lookback you choose: 1 to 99 "
@@ -1034,12 +1034,12 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # Hero eyebrow removed 2026-07-06 (owner: keep the area above the
             # hero headline clean - no label, no pill). The headline is the
             # first thing on the page.
-            "headline": "Uncover Seasonal Tendencies With The Highest Probability of Repeating",
+            "headline": "Discover Seasonal Tendencies With The Highest Probability of Repeating",
             "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
                 "AI-powered rankings and scores across 98 years of data, ready "
                 "for you to leverage across thousands of stocks, ETFs, as well "
-                "as your own portfolio."
+                "as your multiple portfolios."
             ),
             # Hero pill slot (a small "New" chip above the headline). The MCP
             # "Meet Tara" pill was removed 2026-07-06 (owner: keep the hero to the
@@ -1057,8 +1057,8 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # Lead-in to the hero's quiet free-report card (the card is styled
             # subordinate to the primary CTA; capture stays strong in 03/08).
             "report_lead": (
-                "Prefer to start smaller? Get the free seasonal report on "
-                "stocks you own - no account needed:"
+                "Prefer to start smaller? Enter up to 3 of your favorite "
+                "stocks below and get a free report. No account needed."
             ),
             # Hero disclaimer micro-line removed 2026-07-06 (owner: keep the hero
             # clean). The full legal disclaimer still lives in the footer.

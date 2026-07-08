@@ -337,9 +337,13 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 .foot-note{border-top:1px solid var(--line);padding-top:24px;color:var(--muted);font-size:.86rem;margin-bottom:18px}
 .foot-legal{color:var(--faint);font-size:.8rem;line-height:1.6}
 /* legend swatches */
-.legend{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--muted);margin-top:8px}
+.legend{display:inline-flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 8px;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--muted);margin-top:8px}
 .sw{width:10px;height:10px;border-radius:2px;display:inline-block}
 .sw.w{background:var(--win)} .sw.l{background:var(--loss)}
+/* Evidence chart key - swatches matched to the wave-viewer bar colors */
+.sw.dg{background:#1AA33F} .sw.lg{background:#8FD68C} .sw.pk{background:#F0908A} .sw.rd{background:#BE2130}
+/* the two seasonal projection lines under the price chart (yellow = 20y, purple = 41y) */
+.sw.yr20{background:#DCA63C} .sw.yr41{background:#8878F0}
 /* reveal motion */
 @media(prefers-reduced-motion:no-preference){
   .reveal{opacity:0;transform:translateY(12px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.2,1)}
@@ -444,8 +448,98 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 .market-item .market-change.down{color:var(--loss)}
 </style>
 {{ content.ga_head_snippet|safe }}
+<style id="bgfx-css">
+/* ============================================================
+   Variant A - Aurora mesh gradient field
+   Pure light + color. No linework, no shapes with edges.
+   A luminous purple crown behind the hero headline, faint
+   colored depth at the edges, film grain so gradients read
+   expensive, a soft vignette so sections breathe.
+   ============================================================ */
+body{background-image:none !important;}
+
+.bgfx{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
+  background:var(--bg);
+  /* deep base wash - a slow vertical descent from lifted violet-navy to near-black */
+  background-image:
+    linear-gradient(180deg,#0d1526 0%,#0b1220 46%,#090f1c 100%);
+}
+.bgfx>div{position:absolute;inset:0;will-change:transform;}
+
+/* ---- Layer 1: the aurora mesh (the crown + colored depth) ---- */
+.bgfx__aurora{inset:-12%;
+  background:
+    /* luminous purple crown - peaks off the top edge, washes the headline, fades before the CTA.
+       a cooler blue-violet inner ring gives it the two-tone aurora glow rather than a flat blob */
+    radial-gradient(1180px 560px at 50% -6%,  rgba(150,120,255,.30), rgba(108,86,236,.12) 38%, transparent 64%),
+    radial-gradient(1520px 760px at 50% -14%, rgba(96,120,240,.12),  transparent 60%),
+    /* violet shoulders - give the crown width without a second hotspot */
+    radial-gradient(980px 760px at 4% -2%,   rgba(96,74,214,.16),   transparent 55%),
+    radial-gradient(980px 760px at 97% 1%,   rgba(140,108,255,.15), transparent 55%),
+    /* a whisper of win-green, low-left - the only secondary colour, kept faint */
+    radial-gradient(1120px 820px at 10% 96%, rgba(63,182,139,.10),  transparent 56%),
+    /* a faint loss-pink ember at the far low corner for palette richness */
+    radial-gradient(860px 680px at 90% 99%,  rgba(229,104,127,.07), transparent 58%);
+  animation:bgfxDrift 30s ease-in-out infinite;
+}
+
+/* ---- Layer 2: aurora sheen - a big blurred conic anchored high, rotates glacially ---- */
+.bgfx__sheen{inset:-40% -30% auto -30%;height:70%;
+  background:
+    conic-gradient(from 200deg at 50% 30%,
+      rgba(140,110,255,.13), rgba(63,182,139,.03) 20%, rgba(124,92,255,0) 44%,
+      rgba(96,74,214,.10) 66%, rgba(150,120,255,.06) 84%, rgba(140,110,255,.13));
+  filter:blur(80px);
+  opacity:.85;
+  mix-blend-mode:screen;
+  animation:bgfxSpin 120s linear infinite;
+}
+
+/* ---- Layer 3: film grain - kills banding, gives an expensive tooth ---- */
+.bgfx__grain{
+  background-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='260'%20height='260'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.82'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3CfeColorMatrix%20type='saturate'%20values='0'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:260px 260px;
+  opacity:.07;
+  mix-blend-mode:overlay;
+}
+
+/* ---- Layer 4: vignette - darkens the frame so the centre stays the stage ---- */
+.bgfx__vignette{
+  background:
+    radial-gradient(135% 120% at 50% 28%, transparent 50%, rgba(0,0,0,.30) 84%, rgba(5,8,15,.55) 100%),
+    linear-gradient(180deg, rgba(0,0,0,.10), transparent 12% 82%, rgba(5,8,15,.35));
+}
+
+@keyframes bgfxDrift{
+  0%  {transform:translate3d(0,0,0)        scale(1.06);}
+  50% {transform:translate3d(-2.4%,1.9%,0) scale(1.15);}
+  100%{transform:translate3d(0,0,0)        scale(1.06);}
+}
+@keyframes bgfxSpin{
+  from{transform:rotate(0deg);}
+  to  {transform:rotate(360deg);}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .bgfx__aurora,.bgfx__sheen{animation:none;}
+}
+
+@media (max-width:880px){
+  /* drop the heaviest layers on phones - keep the crown + grain + vignette */
+  .bgfx__sheen{display:none;}
+  .bgfx__aurora{animation:none;inset:-6%;}
+  .bgfx__grain{opacity:.04;}
+}
+</style>
 </head>
 <body>
+<div class="bgfx" aria-hidden="true">
+  <div class="bgfx__sheen"></div>
+  <div class="bgfx__aurora"></div>
+  <div class="bgfx__grain"></div>
+  <div class="bgfx__vignette"></div>
+</div>
+
 
 <!-- LIVE MARKET BAR (content.market_bar; refreshed by /assets/market-quotes.js) -->
 {% if content.market_bar %}
@@ -488,8 +582,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
   <div class="reveal d3" style="margin:44px auto 0;max-width:520px">
     <div class="micro" style="margin-bottom:16px">{{ content.hero.report_lead }}</div>
     <button type="button" class="frcard quiet" data-lm-open data-lm-source="hero" aria-label="Open the free seasonal report form">
-      <span class="tk">AAPL</span><span class="tk">MSFT</span><span class="plus">+</span>
-      <span class="em">you@email.com</span>
+      <span class="em">Enter your 3 stocks here</span>
       <span class="go">Email Me My Free Report</span>
     </button>
   </div>
@@ -505,7 +598,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 <section id="tara"><div class="wrap">
   <div class="two">
     <div class="copy reveal">
-      <div class="eyebrow"><span class="n">02</span> / {{ content.tara.eyebrow }}</div>
+      <div class="eyebrow">{{ content.tara.eyebrow }}</div>
       <h2>{{ content.tara.headline }}</h2>
       <p style="margin-top:16px;color:var(--ink);font-weight:600">{{ content.tara.intro }}</p>
       <form class="askbar reveal d1" id="tw-askbar" action="/app/" method="get" autocomplete="off">
@@ -531,17 +624,18 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 
 <!-- 03 / THE EVIDENCE -->
 <section style="padding-bottom:72px"><div class="wrap" style="text-align:center">
-  <div class="eyebrow reveal" style="justify-content:center"><span class="n">03</span> / The Evidence</div>
+  <div class="eyebrow reveal" style="justify-content:center">The Evidence</div>
   <h2 class="reveal" style="text-align:center">Read the Whole Track Record at a Glance</h2>
-  <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600;text-align:center">Open any pattern and every year is laid out - the run in green, the drawdown in pink. None trimmed.</p>
-  <div class="legend reveal d1"><span class="sw w"></span> Favorable run &nbsp;&nbsp; <span class="sw l"></span> Drawdown</div>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600;text-align:center">Open any pattern and every year is laid out, all the way back. Here is what each color shows:</p>
+  <div class="legend reveal d1"><span class="sw dg"></span> The gain that year &nbsp;&nbsp; <span class="sw lg"></span> How high it climbed &nbsp;&nbsp; <span class="sw pk"></span> How far it dropped &nbsp;&nbsp; <span class="sw rd"></span> A losing year</div>
   <div class="frame-wrap landscape reveal d2" style="max-width:1080px">
     <div class="frame frame--artifact">
       <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - 20-Year TJX</span></div>
       <img src="/_static/evidence_hero.webp?v={{ content.asset_v['evidence_hero.webp'] }}" alt="20-Year TJX per-year bars, each pairing the favorable run with the drawdown, above the TJX price chart with this year's dashed seasonal projection - with the one-click Notify me calendar-reminder button in the toolbar" loading="lazy" decoding="async" width="1286" height="849">
     </div>
   </div>
-  <div class="caption">20 years of TJX. The model only ranks and calibrates the odds - it never predicts. <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
+  <div class="caption">The left is TJX's current price chart. The two lines to the right:</div>
+  <div class="legend reveal d1"><span class="sw yr20"></span> Trend projection based on the last 20 years &nbsp;&nbsp; <span class="sw yr41"></span> Trend projection based on all 41 years &nbsp;&middot;&nbsp; <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
 </div></section>
 
 <!-- CTA at peak conviction (right after The Evidence). Balanced in the gap: the
@@ -552,7 +646,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 
 <!-- 04 / YOUR STOCKS (PRIMARY free-report capture) -->
 <section id="free-report-top" class="fr"><div class="wrap" style="text-align:center">
-  <div class="eyebrow reveal" style="justify-content:center"><span class="n">04</span> / Your Stocks</div>
+  <div class="eyebrow reveal" style="justify-content:center">Your Stocks</div>
   <!-- Trust strip: the loss-inclusive public ledger, moved out of the hero to lead
        the free-report offer. Real scorecard_stats only - the numeric segments hide
        themselves until data exists. -->
@@ -581,7 +675,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 <section id="ledger"><div class="wrap">
   <div class="ledger-aside reveal">Seasonality sounds like astrology until you see twenty years of receipts.</div>
   <div style="text-align:center">
-    <div class="eyebrow reveal" style="justify-content:center"><span class="n">05</span> / Accountability</div>
+    <div class="eyebrow reveal" style="justify-content:center">Accountability</div>
     <h2 class="reveal">We Do Not Ask for Trust. We Publish the Ledger</h2>
     <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600">Every pick is logged in public before the outcome - losses included, nothing removed. We would rather be audited than believed.</p>
   </div>
@@ -649,7 +743,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
      cards. The MP4s are 50MB+ self-hosted files: click-to-play ONLY
      (preload="metadata", controls, styled play cover, never autoplay). -->
 <section id="traders"><div class="wrap" style="text-align:center">
-  <div class="eyebrow reveal" style="justify-content:center"><span class="n">06</span> / {{ content.proof.eyebrow }}</div>
+  <div class="eyebrow reveal" style="justify-content:center">{{ content.proof.eyebrow }}</div>
   <h2 class="reveal">{{ content.proof.headline }}</h2>
   <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">{{ content.proof.sub }}</p>
   <div class="proofgrid">
@@ -675,7 +769,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
      collect a card at Stripe checkout, so their buttons carry the honest trial
      label + micro-line. Copy bound via content.pricing / tier.cta / tier.cta_micro. -->
 <section id="pricing" class="priceband"><div class="wrap" style="text-align:center">
-  <div class="eyebrow reveal" style="justify-content:center"><span class="n">07</span> / Pricing</div>
+  <div class="eyebrow reveal" style="justify-content:center">Pricing</div>
   <h2 class="reveal">{{ content.pricing.headline }}</h2>
   <p class="kicker reveal d1" style="margin-top:14px">{{ content.pricing.subheadline }}</p>
   <div class="billtoggle reveal d1">
@@ -719,7 +813,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
      content.faq.entries - one list, no drift. -->
 <section id="faq"><div class="wrap">
   <div style="text-align:center">
-    <div class="eyebrow reveal" style="justify-content:center"><span class="n">08</span> / {{ content.faq.eyebrow }}</div>
+    <div class="eyebrow reveal" style="justify-content:center">{{ content.faq.eyebrow }}</div>
     <h2 class="reveal">{{ content.faq.headline }}</h2>
   </div>
   <div class="faqlist reveal d1">
@@ -735,7 +829,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 <!-- 09 / WHO IT'S FOR (copy bound via content.desks - was hardcoded while a
      stale desks block sat dead in the generator; now one source) -->
 <section id="desks"><div class="wrap" style="text-align:center">
-  <div class="eyebrow reveal" style="justify-content:center"><span class="n">09</span> / {{ content.desks.eyebrow }}</div>
+  <div class="eyebrow reveal" style="justify-content:center">{{ content.desks.eyebrow }}</div>
   <h2 class="reveal">{{ content.desks.headline }}</h2>
   <p class="section-sub reveal d1" style="margin:12px auto 0;text-align:center">{{ content.desks.sub }}</p>
   <div class="cols3" style="text-align:left">
@@ -753,7 +847,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 
 <!-- 10 / YOUR STOCKS (slim late re-offer) -->
 <section id="free-report-band" class="fr"><div class="wrap" style="text-align:center">
-  <div class="eyebrow reveal" style="justify-content:center"><span class="n">10</span> / Before You Go</div>
+  <div class="eyebrow reveal" style="justify-content:center">Before You Go</div>
   <h2 class="reveal">Take the Seasonals With You, Free</h2>
   <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">Name up to three stocks you hold - we'll email each one's per-year seasonal record. No account needed.</p>
   <button type="button" class="frcard reveal d1" data-lm-open data-lm-source="inline-late" aria-label="Open the free seasonal report form">
@@ -766,7 +860,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 
 <!-- 11 / BRING YOUR HUNCHES (CLOSE) -->
 <div class="close"><div class="wrap">
-  <div class="eyebrow reveal" style="justify-content:center"><span class="n">11</span> / Bring Your Hunches</div>
+  <div class="eyebrow reveal" style="justify-content:center">Bring Your Hunches</div>
   <h2 class="reveal">Bring a Hunch. Leave With the Receipts</h2>
   <p class="section-sub reveal d1" style="margin:0 auto 22px;text-align:center">Bring a ticker or a gut feel. TradeWave shows the seasonal evidence for it or against it - every year, with Tara beside the chart.</p>
   <div class="cta-row reveal">
@@ -1043,6 +1137,7 @@ document.addEventListener('click', function(e){
     revs.forEach(function(el){ io.observe(el); });
     window.addEventListener('load', function(){ document.querySelectorAll('.hero .reveal').forEach(function(el){ el.classList.add('in'); }); });
     setTimeout(function(){ document.querySelectorAll('.hero .reveal').forEach(function(el){ el.classList.add('in'); }); }, 60);
+
   }
 })();
 </script>
