@@ -381,6 +381,10 @@ seo_enabled = (tw2_env == 'prod')
 # leaves dev + staging untracked.
 ga_measurement_id = os.environ.get('TW2_GA_MEASUREMENT_ID', '')
 
+# GA4 Measurement Protocol API secret (server-side event tracking, web/ga4_mp.py).
+# Set in /etc/tradewave/secrets.env — empty default means ga4_mp.send_event() no-ops.
+GA4_MP_API_SECRET = os.environ.get('GA4_MP_API_SECRET', '')
+
 # IndexNow API key — notifies Bing, Yandex, Naver on every article publish.
 # This key must match the verification file at {news_root_folder}/{indexnow_key}.txt
 # Per-env value (treated as a key/secret). Generate once with: uuid.uuid4().hex
@@ -403,6 +407,11 @@ article_images_folder = news_root_folder
 # in staging to simulate a second website I use smn.trxstat.com
 # in production the second website is set to be SeasonalMarketNews.com
 news_website_url = os.environ.get('TW2_NEWS_WEBSITE_URL', '')  # set in /etc/tradewave/secrets.env (per-env news site)
+# Web tier base URL as seen FROM the SMN-serving box (smn/expert_sync.py pulls
+# /internal/expert_takes from here). Co-located boxes (dev/staging/prod-web)
+# use the gunicorn loopback default; a split SMN box sets the web box's VLAN
+# address in secrets.env.
+web_internal_url = os.environ.get('TW2_WEB_INTERNAL_URL', 'http://127.0.0.1:5500')
 
 
 

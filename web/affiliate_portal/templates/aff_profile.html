@@ -1,0 +1,63 @@
+{% extends "aff_base.html" %}
+{% block content %}
+<div class="card">
+  <h3>Headshot</h3>
+  <div class="row">
+    {% if aff.page_photo %}
+      <img src="{{ logo_urlpath }}/{{ aff.page_photo }}" alt="headshot"
+           style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:1px solid #1f2937;">
+    {% else %}
+      <span class="muted">No photo yet.</span>
+    {% endif %}
+    <form method="post" action="{{ url_for('affiliate_portal.profile_photo') }}"
+          enctype="multipart/form-data" class="row">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" style="color:#9ca3af;">
+      <button class="btn-secondary" type="submit">Upload</button>
+    </form>
+  </div>
+  <p class="muted" style="font-size:12px;">jpg, png or webp, up to 2 MB. Shown on your join page{% if smn %} and your Seasonal Market News expert page{% endif %}. Brand logos are set by the TradeWave team - just email us one.</p>
+</div>
+
+<form method="post" action="{{ url_for('affiliate_portal.profile') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="card">
+    <h3>Join Page ({{ aff.code }})</h3>
+    <label>Display name</label>
+    <input type="text" name="page_display_name" value="{{ aff.page_display_name or '' }}" maxlength="80">
+    <label>Note to your audience (plain text, 280 max)</label>
+    <textarea name="page_note" maxlength="280" style="min-height:80px;">{{ aff.page_note or '' }}</textarea>
+    <label>Sign-off (60 max)</label>
+    <input type="text" name="page_signoff" value="{{ aff.page_signoff or '' }}" maxlength="60">
+    <p class="muted" style="font-size:12px;">Changes go live immediately; the TradeWave team is notified of every change.</p>
+  </div>
+
+  {% if smn and smn.status in ('invited', 'active') %}
+  <div class="card">
+    <h3>Seasonal Market News Expert Profile</h3>
+    <label>Expert URL slug {% if smn.published_at %}<span class="pill warn">locked (published)</span>{% endif %}</label>
+    <input type="text" name="slug" value="{{ smn.slug or '' }}" maxlength="64"
+           {% if smn.published_at %}disabled{% endif %} placeholder="e.g. anne-marie">
+    <label>Bio (markdown, 4000 max - shown on your expert page)</label>
+    <textarea name="bio_md" maxlength="4000">{{ smn.bio_md or '' }}</textarea>
+    <label>Credentials line (plain text, 200 max)</label>
+    <input type="text" name="credentials" value="{{ smn.credentials or '' }}" maxlength="200"
+           placeholder="e.g. Author, The Trading Book; 20 years trading experience">
+    <label>Standing disclosure (markdown, 500 max - rendered under every take)</label>
+    <textarea name="disclosure_md" maxlength="500" style="min-height:70px;">{{ smn.disclosure_md or '' }}</textarea>
+    <label>Links (https only, up to 3)</label>
+    {% for i in range(1, 4) %}
+    {% set l = (smn.links or [])[i-1] if (smn.links or [])|length >= i else None %}
+    <div class="grid2" style="margin-bottom:8px;">
+      <input type="text" name="link_label_{{ i }}" maxlength="40" placeholder="Label"
+             value="{{ l.label if l else '' }}">
+      <input type="text" name="link_url_{{ i }}" maxlength="300" placeholder="https://..."
+             value="{{ l.url if l else '' }}">
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <button class="btn-primary" type="submit">Save profile</button>
+</form>
+{% endblock %}

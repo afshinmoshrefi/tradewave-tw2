@@ -1,0 +1,30 @@
+{% extends "aff_base.html" %}
+{% block heading %}Seasonal Market News Expert Desk{% endblock %}
+{% block subtitle %}You're invited to publish expert commentary on Seasonal Market News.{% endblock %}
+{% block content %}
+<div class="card">
+  <h3>How It Works</h3>
+  <p style="color:#9ca3af; font-size:15px;">
+    Pick any Seasonal Market News article, add your read on the setup and how you would trade it
+    (15 minutes, not a research report). After a quick TradeWave review it appears
+    publicly under the article with your byline, your links, and your referral code -
+    you earn commission on every reader who subscribes. Declared calls are tracked
+    on your public record; how you express the trade (options structures etc.) is
+    shown as your own reporting.
+  </p>
+</div>
+<div class="card">
+  <h3>Contributor Terms (version {{ terms_version }})</h3>
+  <div style="max-height:420px; overflow-y:auto; border:1px solid #1f2937; border-radius:10px;
+              padding:18px; font-size:14px; color:#d1d5db;">
+    {{ terms_html|safe }}
+  </div>
+  <form method="post" action="{{ url_for('affiliate_portal.smn_accept') }}" style="margin-top:16px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="row" style="color:#e5e7eb; font-size:14px;">
+      <input type="checkbox" name="agree" value="yes" style="width:auto;"> I agree to the SMN Contributor Terms
+    </label>
+    <button class="btn-primary" type="submit" style="margin-top:12px;">Accept and join the Expert Desk</button>
+  </form>
+</div>
+{% endblock %}

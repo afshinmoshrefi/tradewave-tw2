@@ -1,0 +1,61 @@
+{% extends "aff_base.html" %}
+{% block heading %}{{ 'Edit take' if take else 'Write a take' }}{% endblock %}
+{% block subtitle %}Your read on the setup - what the data says is the article's job; what YOU would do with it is yours.{% endblock %}
+{% block content %}
+{% if take and take.review_note %}
+<div class="flash error">Reviewer feedback: {{ take.review_note }}</div>
+{% endif %}
+<form method="post" action="{{ url_for('affiliate_portal.take_new') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if take %}<input type="hidden" name="take_id" value="{{ take.id }}">{% endif %}
+  <div class="card">
+    <h3>Article</h3>
+    <select name="article_slug" required>
+      <option value="">Choose a recent Seasonal Market News article...</option>
+      {% for a in articles %}
+      <option value="{{ a.slug }}" {{ 'selected' if take and take.article_slug == a.slug else '' }}>
+        {{ a.published_date }} {{ a.symbol }} - {{ a.title }}
+      </option>
+      {% endfor %}
+      {% if take and take.article_slug and take.article_slug not in articles|map(attribute='slug')|list %}
+      <option value="{{ take.article_slug }}" selected>{{ take.article_slug }}</option>
+      {% endif %}
+    </select>
+  </div>
+  <div class="card">
+    <h3>Your Take</h3>
+    <label>Headline (optional, 120 max)</label>
+    <input type="text" name="title" maxlength="120" value="{{ take.title or '' if take else '' }}">
+    <label>Body (markdown, 8000 max - 150-300 words works best)</label>
+    <textarea name="body_md" maxlength="8000" style="min-height:220px;" required>{{ take.body_md if take else '' }}</textarea>
+    <label>Trade structure (optional, 500 max - e.g. the exact spread; shown as YOUR reporting)</label>
+    <input type="text" name="execution_note" maxlength="500" value="{{ take.execution_note or '' if take else '' }}">
+  </div>
+  <div class="card">
+    <h3>Scored Call (optional)</h3>
+    <p class="muted" style="font-size:13px;">Declare the directional thesis and it joins your public
+      track record, scored by TradeWave at close of window from underlying prices - same rule the
+      engine uses for pattern win rates. Leave off for pure commentary.</p>
+    {% set c = take.declared_call if take else {} %}
+    <label class="row" style="font-size:14px; color:#e5e7eb;">
+      <input type="checkbox" name="scored_call" value="yes" style="width:auto;"
+             {{ 'checked' if c and c.get('symbol') else '' }}> Declare a scored call
+    </label>
+    <div class="grid2">
+      <div><label>Symbol</label><input type="text" name="call_symbol" maxlength="12" value="{{ c.get('symbol', '') if c else '' }}"></div>
+      <div><label>Direction</label>
+        <select name="call_direction">
+          <option value="long"  {{ 'selected' if c and c.get('direction') == 'long' else '' }}>Long</option>
+          <option value="short" {{ 'selected' if c and c.get('direction') == 'short' else '' }}>Short</option>
+        </select></div>
+      <div><label>Entry date</label><input type="date" name="call_entry" value="{{ c.get('entry_date', '') if c else '' }}"></div>
+      <div><label>Exit date</label><input type="date" name="call_exit" value="{{ c.get('exit_date', '') if c else '' }}"></div>
+    </div>
+  </div>
+  <div class="row">
+    <button class="btn-secondary" type="submit" name="action" value="draft">Save draft</button>
+    <button class="btn-primary" type="submit" name="action" value="submit">Submit for review</button>
+    <a class="btn-secondary" href="{{ url_for('affiliate_portal.smn') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

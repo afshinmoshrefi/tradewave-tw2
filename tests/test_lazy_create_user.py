@@ -74,6 +74,10 @@ class TestHappyPathCreate:
         # The schema_hardening trigger pins legacy_wp_level off tier:
         assert u.legacy_wp_level == "1"
 
+        # GA4: a genuinely brand-new row is marked so auth_callback fires
+        # sign_up ONLY here (transient attribute, not a mapped column).
+        assert getattr(u, "_tw_new_signup", False) is True
+
         # Audit row written for the user_created event.
         stub_audit.assert_called()
         call_kw = stub_audit.call_args.kwargs
@@ -103,6 +107,10 @@ class TestIdempotent:
             workos_user_id="user_repeat_42",
         ).count()
         assert cnt == 1
+
+        # GA4: the SECOND call is a plain login, not a new signup - must not
+        # be marked (this is the flag auth_callback gates sign_up on).
+        assert getattr(u2, "_tw_new_signup", False) is False
 
 
 # ---------------------------------------------------------------------
@@ -198,6 +206,11 @@ class TestSignupRace:
         # Still exactly one row.
         cnt = db_session.query(User).filter_by(workos_user_id="user_race_winner").count()
         assert cnt == 1
+
+        # GA4: the race LOSER must not be marked _tw_new_signup - the winner
+        # already got it on its own successful create path. Marking both
+        # would double-fire sign_up for one real signup.
+        assert getattr(u, "_tw_new_signup", False) is False
 
 
 # ---------------------------------------------------------------------

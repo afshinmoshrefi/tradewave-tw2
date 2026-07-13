@@ -1,0 +1,73 @@
+{% extends "aff_base.html" %}
+{% block content %}
+<div class="card">
+  <h3>Program Status</h3>
+  <div class="row">
+    <span class="pill {{ 'ok' if aff.status == 'active' else 'warn' }}">{{ aff.status }}</span>
+    {% if aff.agreement_signed_at %}
+      <span class="muted">Agreement signed {{ aff.agreement_signed_at.strftime('%Y-%m-%d') }}</span>
+    {% else %}
+      <span class="pill bad">awaiting signature</span>
+      <span class="muted">Your referral code activates once the agreement is signed - check your email for the signing link.</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h3>Your Code &amp; Terms</h3>
+  <div class="row" style="margin-bottom:10px;">
+    <span class="big mono">{{ aff.code }}</span>
+    <button class="copybtn" onclick="twCopy(this, '{{ aff.code }}')">Copy code</button>
+  </div>
+  <table>
+    <tr><th></th><th>Audience discount</th><th>Your commission</th></tr>
+    {% if terms.split %}
+    <tr><td>Annual plans</td><td>{{ terms.annual_discount }}% first year</td><td>{{ terms.annual_commission }}%</td></tr>
+    <tr><td>Monthly plans</td><td>{{ terms.monthly_discount }}%</td><td>{{ terms.monthly_commission }}%</td></tr>
+    {% else %}
+    <tr><td>All plans</td><td>{{ terms.annual_discount }}% first year</td><td>{{ terms.annual_commission }}%</td></tr>
+    {% endif %}
+  </table>
+  <p class="muted" style="font-size:13px;">Commission model: {{ terms.model_label }}. Basis is net revenue (after tax and refunds).</p>
+</div>
+
+<div class="card">
+  <h3>This Month (estimate)</h3>
+  {% if est_rows is none %}
+    <p class="muted">Live estimate temporarily unavailable - your monthly statement email remains the number of record.</p>
+  {% elif est_rows %}
+    {% for r in est_rows %}
+      <div class="big">{{ '%.2f'|format(r.commission_amount) }} {{ r.currency|upper }}</div>
+      <p class="muted" style="font-size:13px;">from {{ r.detail|length }} attributed payment(s)</p>
+    {% endfor %}
+  {% else %}
+    <div class="big">0.00</div>
+    <p class="muted" style="font-size:13px;">No attributed payments yet this month.</p>
+  {% endif %}
+  <p class="muted" style="font-size:12px;">Estimate as of {{ est_stamp }} - refreshes hourly, final on the 2nd of next month.</p>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <h3>Lifetime Paid</h3>
+    <div class="big">{{ '%.2f'|format(lifetime_paid or 0) }}</div>
+  </div>
+  <div class="card">
+    <h3>Pending Payout</h3>
+    <div class="big">{{ '%.2f'|format(pending or 0) }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Share</h3>
+  <div class="row" style="margin-bottom:8px;">
+    <code>{{ links.referral }}</code>
+    <button class="copybtn" onclick="twCopy(this, '{{ links.referral }}')">Copy</button>
+  </div>
+  <div class="row">
+    <code>{{ links.join }}</code>
+    <button class="copybtn" onclick="twCopy(this, '{{ links.join }}')">Copy</button>
+    <span class="muted" style="font-size:13px;">your co-branded page</span>
+  </div>
+</div>
+{% endblock %}

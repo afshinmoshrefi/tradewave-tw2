@@ -1,0 +1,32 @@
+{% extends "aff_base.html" %}
+{% block content %}
+<div class="card">
+  <h3>Payout Method</h3>
+  {% if aff.payout_method %}
+    <p>{{ aff.payout_method|capitalize }} - <span class="mono">{{ aff.payout_email }}</span></p>
+  {% else %}
+    <p class="muted">No payout method on file yet.</p>
+  {% endif %}
+  <p class="muted" style="font-size:13px;">To change payout details, reply to any of our emails or write to help@tradewave.ai - changes are verified manually (they gate real money).</p>
+</div>
+
+<div class="card">
+  <h3>Payout Ledger</h3>
+  {% if ledger %}
+  <table>
+    <tr><th>Period</th><th>Amount</th><th>Status</th><th>Paid</th><th>Reference</th></tr>
+    {% for p in ledger %}
+    <tr>
+      <td>{{ p.period }}</td>
+      <td>{{ '%.2f'|format(p.commission) }} {{ p.currency|upper }}</td>
+      <td><span class="pill {{ 'ok' if p.status == 'paid' else ('warn' if p.status == 'pending' else 'bad') }}">{{ p.status }}</span></td>
+      <td>{{ p.paid_at or '-' }}</td>
+      <td class="mono">{{ p.external_ref or '-' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">Nothing here yet - commissions appear after your first attributed month settles.</p>
+  {% endif %}
+</div>
+{% endblock %}

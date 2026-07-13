@@ -1,0 +1,67 @@
+{% extends "aff_base.html" %}
+{% block heading %}Seasonal Market News Expert Desk{% endblock %}
+{% block subtitle %}Your commentary on Seasonal Market News articles.{% endblock %}
+{% block content %}
+<div class="row" style="margin-bottom:18px;">
+  <a class="btn-primary" href="{{ url_for('affiliate_portal.take_new') }}">Write a take</a>
+  {% if smn.status == 'paused' %}<span class="pill warn">participation paused</span>{% endif %}
+  {% if smn.slug %}<span class="muted">Your expert page: <code>/experts/{{ smn.slug }}.html</code> (goes live with your first published take)</span>{% endif %}
+</div>
+
+{% if takes %}
+<div class="card">
+  <h3>Your Takes</h3>
+  <table>
+    <tr><th>Article</th><th>Status</th><th></th></tr>
+    {% for t in takes %}
+    <tr>
+      <td>
+        <strong>{{ t.title or t.article_slug }}</strong>
+        <div class="muted" style="font-size:12px;">{{ t.article_slug }}
+          {% if t.declared_call %}
+            · scored call: {{ t.declared_call.direction }} {{ t.declared_call.symbol }}
+            {{ t.declared_call.entry_date }} → {{ t.declared_call.exit_date }}
+          {% endif %}
+        </div>
+        {% if t.review_note and t.status == 'rejected' %}
+          <div style="color:#fca5a5; font-size:13px;">Reviewer: {{ t.review_note }}</div>
+        {% endif %}
+      </td>
+      <td>
+        <span class="pill {{ 'ok' if t.status == 'published' else ('warn' if t.status in ('submitted','draft') else 'bad') }}">{{ t.status }}</span>
+        {% if t.published_at %}<div class="muted" style="font-size:12px;">{{ t.published_at }}</div>{% endif %}
+      </td>
+      <td style="text-align:right; white-space:nowrap;">
+        {% if t.status in ('draft', 'rejected') %}
+          <a class="btn-secondary" href="{{ url_for('affiliate_portal.take_new', id=t.id) }}">Edit</a>
+        {% endif %}
+        {% if t.status == 'published' %}
+          <button class="copybtn" onclick="twCopy(this, '{{ t.url }}')">Copy link</button>
+        {% endif %}
+        {% if t.status in ('draft', 'submitted', 'rejected', 'published') %}
+        <form method="post" style="display:inline;"
+              action="{{ url_for('affiliate_portal.take_retract', take_id=t.id) }}"
+              onsubmit="return confirm('{{ 'Retract this published take?' if t.status == 'published' else 'Delete this take?' }}');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn-danger" type="submit">{{ 'Retract' if t.status == 'published' else 'Delete' }}</button>
+        </form>
+        {% endif %}
+        {% if t.status == 'published' and not t.execution_result %}
+        <form method="post" class="row" style="margin-top:6px;"
+              action="{{ url_for('affiliate_portal.take_result', take_id=t.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="execution_result" maxlength="300" placeholder="Report your trade result (optional)" style="width:230px;">
+          <button class="btn-secondary" type="submit">Save</button>
+        </form>
+        {% elif t.execution_result %}
+        <div class="muted" style="font-size:12px; max-width:260px;">Your reported result: {{ t.execution_result }}</div>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% else %}
+<div class="card"><p class="muted">No takes yet - write your first one. Pick an article you have a real opinion on; 150-300 words is the sweet spot.</p></div>
+{% endif %}
+{% endblock %}

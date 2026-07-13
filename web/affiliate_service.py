@@ -699,3 +699,20 @@ def upsert_month(session, year: int, month: int) -> list:
             .filter(AffiliatePayout.period_start == period_start)
             .order_by(AffiliatePayout.commission_amount.desc())
             .all())
+def compute_for_affiliate(session, affiliate, year: int, month: int) -> list[dict]:
+    """Scoped variant of compute_month for ONE affiliate - the portal's live
+    current-month ESTIMATE (labeled as such in the UI; the monthly statement
+    stays the number of record). Reads Stripe, writes nothing. Same attribution
+    rules as compute_month; referrals are pre-filtered to this affiliate so a
+    coupon-only match for a DIFFERENT affiliate can never leak in.
+
+    NOTE: this walks the month's paid invoices like compute_month does - the
+    portal caches the result (~1h) per (affiliate, month); do not call it per
+    page element."""
+    from models import AffiliateReferral
+    referrals_by_sub = {
+        r.stripe_subscription_id: str(r.affiliate_id)
+        for r in (session.query(AffiliateReferral)
+                  .filter(AffiliateReferral.affiliate_id == affiliate.id).all())
+    }
+    return _compute([affiliate], year, month, referrals_by_sub)

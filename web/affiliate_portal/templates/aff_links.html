@@ -1,0 +1,31 @@
+{% extends "aff_base.html" %}
+{% block content %}
+<div class="card">
+  <h3>Your Links</h3>
+  <label>Referral link (home page, code pre-applied)</label>
+  <div class="row"><code>{{ links.referral }}</code>
+    <button class="copybtn" onclick="twCopy(this, '{{ links.referral }}')">Copy</button></div>
+  <label>Co-branded join page</label>
+  <div class="row"><code>{{ links.join }}</code>
+    <button class="copybtn" onclick="twCopy(this, '{{ links.join }}')">Copy</button></div>
+  <p class="muted" style="font-size:13px; margin-top:14px;">
+    Any TradeWave URL works with <code>?code={{ aff.code }}</code> appended - attribution
+    holds for 60 days from first click.
+  </p>
+</div>
+
+{% if take_links %}
+<div class="card">
+  <h3>Your Published Takes (share these)</h3>
+  <table>
+    {% for t in take_links %}
+    <tr>
+      <td>{{ t.title }}</td>
+      <td style="text-align:right;"><button class="copybtn" onclick="twCopy(this, '{{ t.url }}')">Copy link</button></td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="muted" style="font-size:13px;">Each link lands readers on your commentary with your code attached.</p>
+</div>
+{% endif %}
+{% endblock %}

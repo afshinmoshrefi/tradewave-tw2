@@ -98,6 +98,7 @@ from models import (
 )
 from tier_compat import tier_to_wp_user_levels, tier_to_legacy_level
 from email_utils import mailerlite_subscribe, sync_mailerlite_level_group, sync_mailerlite_winback_group
+from ga4_mp import parse_ga_client_id, send_event
 
 # --- WorkOS ---
 from workos import WorkOSClient
@@ -159,6 +160,7 @@ app.config["SECRET_KEY"] = config.WORKOS_COOKIE_PASSWORD  # for Flask's own sess
 # authed /internal/* routes are exempted below at decorator level. SameSite=Lax
 # alone is not enough for top-level cross-site POSTs.
 from flask_wtf.csrf import CSRFProtect  # noqa: E402
+from wtforms import validators as wtf_validators  # noqa: E402
 csrf = CSRFProtect(app)
 
 logging.basicConfig(
@@ -486,6 +488,16 @@ def lazy_create_user(workos_user) -> User:
                 # Should not happen. Re-raise so caller sees the 500.
                 raise
             return u
+        # GA4: mark this row as a genuinely brand-new signup (transient,
+        # non-persisted attribute - NOT a mapped column) so auth_callback can
+        # fire a GA4 sign_up event ONLY here, never on every login. Plain
+        # attribute assignment survives commit/refresh: expire-on-commit only
+        # expires SQLAlchemy-mapped columns, not arbitrary python attributes.
+        # Deliberately NOT set on the IntegrityError re-query path above (the
+        # sibling worker that actually won the race already gets this flag on
+        # its own return u; marking it here too would double-fire sign_up
+        # for a two-tab signup race).
+        u._tw_new_signup = True
         # Audit
         write_audit(
             actor_label="workos_signin",
@@ -660,6 +672,15 @@ def auth_callback():
         s.commit()
     finally:
         s.close()
+
+    # GA4 sign_up (Measurement Protocol) - ONLY on the path where
+    # lazy_create_user just inserted a brand-new row, never on a plain login.
+    # client_id comes from the browser's own _ga cookie on this request (the
+    # WorkOS-hosted-UI redirect back to us); send_event no-ops safely if it's
+    # absent or GA isn't configured (dev/staging).
+    if getattr(db_user, "_tw_new_signup", False):
+        send_event(parse_ga_client_id(request), "sign_up", {"method": "workos"},
+                   user_id=str(db_user.id))
 
     # F2.1 - Build redirect with strict same-origin path validation. Rejects:
     #   "//evil.com/x"   protocol-relative
@@ -896,6 +917,81 @@ def onboarding_usage_summary():
     })
     resp.headers["Cache-Control"] = "private, no-store"
     return resp
+
+
+# ============================================================
+# /api/activation/ai-score-viewed - Postgres activation signal
+# ============================================================
+# GTM playbook CARD W1.4 (docs/marketing/GTM_EXECUTION_PLAYBOOK.md). Fired
+# once by the React wave-viewer the first time a logged-in, AI-eligible user
+# (Analyst+, config.ml_score_access_levels) actually renders an AI score.
+# Strategy §2 persistence rule (BINDING): the day-2/day-7 trial-activation
+# emails read users.first_ai_score_viewed_at, NEVER GA4 - GA4 is analytics
+# only. This handler is the SINGLE place both are written, in order:
+#   1. append an onboarding_events row (event_type='ai_score_viewed') -
+#      reuses the existing append-only table (models.py:560), no new table.
+#   2. idempotent first-touch UPDATE of users.first_ai_score_viewed_at.
+#   3. fire the GA4 ai_score_viewed Measurement Protocol event (fail-open -
+#      ga4_mp.send_event never raises; a GA outage must never fail this
+#      request, and the Postgres write above happens even when GA4 is
+#      unconfigured, e.g. dev/staging).
+@app.route("/api/activation/ai-score-viewed", methods=["POST"])
+@csrf.exempt  # same-origin authed fetch; append-only + idempotent first-touch, no destructive mutation
+@require_login
+def api_activation_ai_score_viewed():
+    u = get_current_user()
+    if u is None:
+        return jsonify({"ok": False}), 401
+
+    data = request.get_json(silent=True) or {}
+    detail = data.get("detail")
+    if not isinstance(detail, dict):
+        detail = {}
+    else:
+        # Storage-key discipline (tw-coding-standards): market is a stable resource
+        # key ('0'..'16'), never free text - coerce to str, drop anything else oversized.
+        if "market" in detail and detail["market"] is not None:
+            detail["market"] = str(detail["market"])
+        try:
+            if len(_json.dumps(detail)) > 2000:
+                detail = {"_truncated": True}
+        except Exception:
+            detail = {}
+
+    s = DBSession()
+    try:
+        # 1. Append-only per-view telemetry row (reuses onboarding_events).
+        s.add(OnboardingEvent(user_id=u.id, event_type="ai_score_viewed", detail=detail))
+
+        # 2. Idempotent first-touch stamp - only the FIRST view sets it, ever.
+        first_touch = False
+        db_user = s.query(User).filter_by(id=u.id).with_for_update().first()
+        if db_user is not None and db_user.first_ai_score_viewed_at is None:
+            db_user.first_ai_score_viewed_at = func.now()
+            first_touch = True
+
+        s.commit()
+    except Exception:
+        s.rollback()
+        log.exception("api_activation_ai_score_viewed failed uid=%s", u.id)
+        return jsonify({"ok": False}), 500
+    finally:
+        s.close()
+
+    # 3. GA4 server-side event - fail-open, fired AFTER the Postgres commit so a GA
+    # outage/misconfiguration (the normal dev/staging state) never affects the write above.
+    try:
+        client_id = parse_ga_client_id(request)
+        send_event(
+            client_id,
+            "ai_score_viewed",
+            {"market": detail.get("market"), "symbol": detail.get("symbol"), "horizon": detail.get("horizon")},
+            user_id=str(u.id),
+        )
+    except Exception:
+        log.warning("ga4_mp send_event raised unexpectedly for ai_score_viewed uid=%s", u.id)
+
+    return jsonify({"ok": True, "first_touch": first_touch})
 
 
 # ============================================================
@@ -1486,8 +1582,9 @@ def mailerlite_webhook():
         etype = (ev.get("type") or ev.get("event") or "")
         # suppress on unsubscribe, spam complaint, OR hard bounce so Resend stops mailing too
         # (a MailerLite complaint that doesn't reach the Resend side risks the Gmail/Yahoo
-        # <0.3% complaint threshold). Confirm the exact event names for the account (O2).
-        if etype.endswith((".unsubscribe", ".unsubscribed", ".spam_complaint", ".bounced")):
+        # <0.3% complaint threshold). MailerLite's connect-API event is subscriber.spam_reported
+        # (confirmed against the live webhook API 2026-07-07); .spam_complaint kept defensively.
+        if etype.endswith((".unsubscribe", ".unsubscribed", ".spam_complaint", ".spam_reported", ".bounced")):
             sub = ev.get("subscriber") or ev.get("data") or {}
             em = (sub.get("email") if isinstance(sub, dict) else None) or ev.get("email")
             if em and "@" in em and len(em) <= 320:
@@ -1529,10 +1626,14 @@ def effective_tier(user) -> str:
 
 def reverse_trial_ends_at_iso(user) -> str:
     """ISO-8601 end of the user's ACTIVE reverse trial, or '' when no
-    elevation is in effect (no trial, expired, or a paid tier). Non-empty
-    means effective_tier() is currently returning 'strategist' for an
-    explorer row - the front end can show a countdown off it."""
-    if effective_tier(user) != (user.tier or "explorer"):
+    trial elevation is in effect (no trial, expired, or a paid tier). Non-empty
+    means the front end can show a countdown off it.
+
+    Must key on the TRIAL specifically, not on effective_tier() != raw tier:
+    the role bypass (super_admin etc.) also elevates the effective tier, and an
+    admin explorer row with reverse_trial_ends_at=NULL used to 500 /app/ and
+    /api/me here (None.isoformat())."""
+    if (user.tier or "explorer") == "explorer" and reverse_trial.in_reverse_trial(user.reverse_trial_ends_at):
         return user.reverse_trial_ends_at.isoformat()
     return ""
 
@@ -1588,6 +1689,60 @@ def app_index():
         return_to = request.full_path.rstrip("?")
         return redirect(_get_authorization_url(state=return_to, screen_hint="sign-up"))
 
+    return _render_app_shell(u)
+
+
+# ============================================================
+# Dev-only screenshot-harness entry point
+# ============================================================
+#
+# /internal/capture/app renders the SAME authenticated app shell as /app/,
+# but for a fixed internal "capture-bot" service account instead of a real
+# WorkOS session - so an automated screenshot pipeline can fetch the
+# wave-viewer HTML without driving a real OAuth login.
+#
+# TWO independent gates keep this from being an auth bypass in staging/prod:
+#   1. ENV GATE: hard 404 unless config.tw2_env == "dev" (checked first,
+#      before any DB query - fails closed on every other env).
+#   2. NETWORK GATE: this app is served by gunicorn bound to 127.0.0.1:5500
+#      (see the tradewave-web unit) with no nginx `location` exposing it
+#      externally, so the route is unreachable from outside the box even on
+#      dev. Belt-and-suspenders with gate 1, not a substitute for it - the
+#      env check is what actually stops this from working if the bind or
+#      proxy config ever changes.
+#
+# The capture-bot user (email capture-bot@tradewave.local) is a
+# roles=["user"] / tier="strategist" row with no real WorkOS identity
+# (workos_user_id="capture-bot-dev", not a live WorkOS subject) - it can
+# never sign in through the normal /login flow, only be looked up here.
+@app.route("/internal/capture/app")
+def capture_app():
+    """Dev-only: render the wave-viewer app shell authenticated as the
+    screenshot-bot service account. See the module comment above for the
+    two gates (env + localhost-only bind) that keep this dev-only.
+    """
+    if config.tw2_env != "dev":
+        abort(404)
+    s = DBSession()
+    try:
+        u = s.query(User).filter_by(email="capture-bot@tradewave.local").first()
+    finally:
+        s.close()
+    if u is None:
+        return jsonify({"error": "capture bot user missing"}), 500
+    return _render_app_shell(u)
+
+
+def _render_app_shell(u):
+    """Build the React wave-viewer shell (build/index.html) with REAL window
+    globals injected for user `u`, and the shared header swapped in.
+
+    Extracted out of app_index() so the same authenticated shell can be
+    rendered for a caller that has already resolved its user by some means
+    other than the WorkOS session cookie (see capture_app() above - the
+    dev-only screenshot-bot route). Pure extraction: no behavior change vs.
+    the original inline body of app_index().
+    """
     if not REACT_BUILD_INDEX.exists():
         return jsonify({"error": "React build/index.html not found", "path": str(REACT_BUILD_INDEX)}), 500
 
@@ -1726,6 +1881,17 @@ def account():
             u.stripe_subscription_id
         )
 
+    is_affiliate = False
+    if u is not None:
+        s = DBSession()
+        try:
+            from models import Affiliate as _Aff
+            is_affiliate = (s.query(_Aff)
+                            .filter(_Aff.user_id == u.id,
+                                    _Aff.status != "terminated").first() is not None)
+        finally:
+            s.close()
+
     return render_template(
         "account.html",
         user=u,
@@ -1733,6 +1899,7 @@ def account():
         next_renewal_date=next_renewal_date,
         started_date=started_date,
         mcp_teaser=_account_mcp_teaser(u),
+        is_affiliate=is_affiliate,
     )
 
 
@@ -2030,6 +2197,47 @@ def _existing_eod_subscription(customer_id):
     return None, None, None
 
 
+def _fire_dunning_final_notice(db_user, event_id):
+    """GTM playbook CARD W1.3 - the ONE app-owned dunning email: the final
+    pre-cancel "your access pauses" nudge, fired from the invoice.payment_failed
+    branch of the Stripe webhook once Stripe has stopped scheduling further Smart
+    Retries. Every earlier "your payment failed, please update your card" email in
+    the sequence is Stripe's own (Dashboard-side "Email customers about failed
+    payments") - this function does not duplicate those.
+
+    Best-effort / fail-open by design (matches email_utils.resend_send_email's own
+    contract): never raises past the caller's try/except, and a billing-portal
+    session failure degrades to a plain /account link rather than skipping the
+    email entirely.
+    """
+    if not db_user.email:
+        return
+    public_host = os.environ.get("TW2_PUBLIC_HOST", "tw2.trxstat.com")
+    portal_url = f"https://{public_host}/account"
+    try:
+        if db_user.stripe_customer_id:
+            session_obj = stripe.billing_portal.Session.create(
+                customer=db_user.stripe_customer_id,
+                return_url=f"https://{public_host}/account",
+            )
+            portal_url = session_obj.url
+    except Exception:
+        log.warning("dunning: billing-portal session create failed for user %s (event %s); "
+                    "falling back to /account link", db_user.id, event_id)
+
+    tier_label = (db_user.tier or "explorer").capitalize()
+    subject = "Your TradeWave Access Pauses Soon - Quick Card Update"
+    body = (
+        f"Your last payment did not go through and our retries have run out.\n\n"
+        f"Update your card to keep your {tier_label} access: {portal_url}\n\n"
+        f"Nothing else changes if you update your card."
+    )
+    from email_utils import resend_send_email
+    sent = resend_send_email(db_user.email, subject, body)
+    # No PII in logs: identify by user id, not email address.
+    log.info("dunning final-notice email user=%s sent=%s event=%s", db_user.id, sent, event_id)
+
+
 # State-changing endpoint: POST only. The pricing template uses
 # <form method="post"> hidden-input forms to hit this route.
 @app.route("/api/stripe/create-checkout", methods=["GET", "POST"])
@@ -2073,6 +2281,12 @@ def stripe_create_checkout():
     public_host = os.environ.get("TW2_PUBLIC_HOST", "tw2.trxstat.com")
     success_url = f"https://{public_host}/stripe/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url  = f"https://{public_host}/pricing?cancelled=1"
+
+    # GA4: client id off the browser's own _ga cookie. Stashed onto the
+    # Checkout Session's own metadata below (distinct from subscription_data's
+    # metadata) so the /webhooks/stripe checkout.session.completed handler can
+    # attribute the eventual purchase event back to this same GA4 client.
+    ga_client_id = parse_ga_client_id(request)
 
     # Validate stored stripe_customer_id still exists AND isn't soft-deleted; clear stale ones
     valid_customer_id = None
@@ -2151,6 +2365,12 @@ def stripe_create_checkout():
     if affiliate_id:
         sub_metadata["tw2_affiliate_id"] = affiliate_id
         sub_metadata["tw2_affiliate_code"] = affiliate_code
+    # GA4: also on the SUBSCRIPTION metadata (not just the session's) so a
+    # future invoice.paid handler can attribute real post-trial revenue to the
+    # originating GA4 client - checkout completes at $0 under the 7-day trial,
+    # so the session-completed purchase event carries no dollars.
+    if ga_client_id:
+        sub_metadata["ga_client_id"] = ga_client_id
 
     try:
         kwargs = dict(
@@ -2163,6 +2383,12 @@ def stripe_create_checkout():
                 "trial_period_days": 7,
                 "metadata": sub_metadata,
             },
+            # Session-level metadata (separate object from subscription_data's
+            # metadata above) - this is what the checkout.session.completed
+            # webhook event actually carries, which is why ga_client_id + tier
+            # are duplicated here rather than relying on the subscription's.
+            # No pre-existing top-level session metadata to clobber.
+            metadata={"ga_client_id": ga_client_id or "", "tier": tier},
         )
         if discount_spec:
             kwargs["discounts"] = [discount_spec]
@@ -2186,6 +2412,27 @@ def stripe_create_checkout():
                 session_obj = stripe.checkout.Session.create(**kwargs)
             else:
                 raise
+
+        # GA4 begin_checkout (Measurement Protocol). price_obj is already
+        # cache-resident from _price_id_for(tier, period) above - no extra
+        # Stripe call - so unit_amount/currency are cheap to include. Wrapped
+        # in its own try/except (belt-and-suspenders on top of send_event's
+        # internal fail-open): this code sits inside the SAME try/except that
+        # wraps the Stripe checkout Session.create call above, so an uncaught
+        # exception here would misreport an already-successful checkout as
+        # "stripe_error" / 500 to the browser. Must never happen for analytics.
+        try:
+            begin_checkout_params = {"currency": "usd", "tier": tier}
+            price_obj = _price_for(tier, period)
+            if price_obj is not None:
+                if getattr(price_obj, "currency", None):
+                    begin_checkout_params["currency"] = price_obj.currency
+                if getattr(price_obj, "unit_amount", None) is not None:
+                    begin_checkout_params["value"] = price_obj.unit_amount / 100.0
+            send_event(ga_client_id, "begin_checkout", begin_checkout_params, user_id=str(u.id))
+        except Exception:
+            log.warning("begin_checkout GA4 tracking failed (checkout unaffected)", exc_info=True)
+
         return redirect(session_obj.url, code=303)
     except Exception:
         # F2.2 - log the full traceback, return generic message
@@ -2945,6 +3192,75 @@ def webhook_stripe():
                   and sub_status in ("active", "trialing", "past_due")):
                 sync_mailerlite_winback_group(db_user.email, churned=False)
 
+        # GA4 purchase (Measurement Protocol) - best-effort, post-commit, same
+        # region as the Mailerlite syncs above. Fired HERE rather than from
+        # /stripe/success: checkout.session.completed is the more reliable
+        # "checkout really completed" signal (Stripe-initiated, signature-
+        # verified, and this whole handler already dedupes by event_id at the
+        # top) - and it does NOT drive any tier write itself (only the
+        # customer.subscription.* events above do), so this is purely
+        # additive. The session's own top-level metadata (stashed at checkout
+        # creation in stripe_create_checkout - a SEPARATE object from
+        # subscription_data's metadata) carries ga_client_id + tier.
+        # Wrapped in its own try/except (belt-and-suspenders on top of
+        # send_event's internal fail-open): this whole function shares one
+        # broad outer except that returns 500 on any exception, and a 500
+        # here would make Stripe retry the event - a retry that would then
+        # short-circuit on the event_id dedup check above WITHOUT re-running
+        # anything. Never worth that risk for an analytics call.
+        if event_type == "checkout.session.completed":
+            try:
+                checkout_metadata = data_obj.get("metadata") or {}
+                purchase_params = {
+                    "currency": data_obj.get("currency") or "usd",
+                    "transaction_id": data_obj.get("id"),
+                }
+                amount_total = data_obj.get("amount_total")
+                if amount_total is not None:
+                    purchase_params["value"] = amount_total / 100.0
+                if checkout_metadata.get("tier"):
+                    purchase_params["tier"] = checkout_metadata["tier"]
+                send_event(checkout_metadata.get("ga_client_id") or None,
+                           "purchase", purchase_params, user_id=str(db_user.id))
+            except Exception:
+                log.warning("purchase GA4 tracking failed for event %s (webhook unaffected)",
+                            event_id, exc_info=True)
+
+        # Dunning (GTM playbook CARD W1.3, retention floor) - best-effort, post-commit,
+        # same region/pattern as the GA4/Mailerlite calls above. Stripe Smart Retries
+        # (Dashboard-side, FOUNDER-toggled) owns EVERY mid-sequence "your payment failed,
+        # please update your card" email - we do not duplicate those. The app owns exactly
+        # ONE email: the FINAL pre-cancel "your access pauses" nudge, fired only on the
+        # invoice.payment_failed event where Stripe has stopped scheduling further retries
+        # (data_obj.next_payment_attempt is None - the standard Stripe signal that this was
+        # the last attempt before the subscription's configured final action fires). This
+        # keeps the tier UNCHANGED (the webhook's tier-mapping block above intentionally
+        # never touches new_tier for invoice.* events, so access stays live through the
+        # whole retry sequence) - only the copy warns it is about to end.
+        #
+        # Reasoner-review catch (2026-07-09): next_payment_attempt is ALSO null on
+        # collection_method=send_invoice invoices (there is never a retry schedule to
+        # begin with) and on the very FIRST failure of a subscription whose retries are
+        # disabled - neither is "retries exhausted", so the bare null check alone would
+        # fire the final notice one failure too early in those cases. Require
+        # charge_automatically (the only collection method Smart Retries applies to) AND
+        # a real subscription invoice, so the gate only ever fires on a genuine
+        # exhausted-retry event.
+        if (event_type == "invoice.payment_failed" and not api_event
+                and data_obj.get("collection_method") == "charge_automatically"
+                and data_obj.get("subscription")
+                and data_obj.get("next_payment_attempt") is None):
+            try:
+                _fire_dunning_final_notice(db_user, event_id)
+            except Exception:
+                log.warning("dunning final-notice email failed for event %s (webhook unaffected)",
+                            event_id, exc_info=True)
+
+        # On recovery (a successful invoice after a prior past_due), nothing to suppress
+        # server-side: the final notice above only ever fires once retries are already
+        # exhausted, at which point Stripe's own configured final action (cancel / mark
+        # unpaid) is about to run - there is no pending scheduled app email to cancel.
+
         return jsonify({"received": True, "tier": final_tier, "api_tier": final_api_tier,
                         "status": sub_status}), 200
 
@@ -2962,7 +3278,41 @@ def webhook_stripe():
 # ============================================================
 
 class _AdminAuth:
-    """Mixin: only super_admin role can see Flask-Admin views."""
+    """Mixin: only super_admin role can see Flask-Admin views.
+
+    Also shims a flask-admin 2.1.0 bug: in contrib.sqla update_model/
+    create_model/delete_model, `session` is assigned AFTER on_model_change /
+    on_model_delete runs, so the library's own documented pattern (raising
+    wtforms ValidationError from those hooks) crashes the except-path
+    `session.rollback()` with UnboundLocalError -> 500. handle_view_exception
+    has already flashed the validation message by then; we finish the intended
+    path: rollback on our session and return False so the form re-renders."""
+
+    def _shim_rollback_return_false(self):
+        try:
+            self.session.rollback()
+        except Exception:
+            log.exception("admin shim rollback failed")
+        return False
+
+    def update_model(self, form, model):
+        try:
+            return super().update_model(form, model)
+        except UnboundLocalError:
+            return self._shim_rollback_return_false()
+
+    def create_model(self, form):
+        try:
+            return super().create_model(form)
+        except UnboundLocalError:
+            return self._shim_rollback_return_false()
+
+    def delete_model(self, model):
+        try:
+            return super().delete_model(model)
+        except UnboundLocalError:
+            return self._shim_rollback_return_false()
+
     def is_accessible(self):
         u = get_current_user()
         return u is not None and "super_admin" in (u.roles or [])
@@ -3180,9 +3530,9 @@ class _AffiliateJoinPageRowAction(BaseListRowAction):
 
 
 class AffiliateAdmin(_AdminAuth, ModelView):
-    column_list = ("code", "name", "discount_pct", "commission_pct",
+    column_list = ("name", "code", "discount_pct", "commission_pct",
                    "commission_model", "status", "agreement_signed_at",
-                   "stripe_coupon_id", "created_at")
+                   "user", "stripe_coupon_id", "created_at")
     column_searchable_list = ("code", "name", "email", "payout_email")
     column_filters = ("status", "commission_model")
     column_labels = {
@@ -3198,8 +3548,14 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         "page_note": "Page note",
         "page_signoff": "Page sign-off",
         "agreement_addendum": "Addendum (Exhibit B)",
+        "user": "Portal login",
     }
+    # Manual-link fallback for the affiliate dashboard (spec 4.1): the portal
+    # auto-links by e-mail on first visit; this field covers mismatches. Ajax
+    # so the form never loads the whole users table.
+    form_ajax_refs = {"user": {"fields": ["email"], "page_size": 10}}
     column_formatters = {
+        "user": lambda v, c, m, n: (m.user.email if m.user is not None else "-"),
         "agreement_signed_at": lambda v, c, m, n: (
             Markup('<a href="%s">✓ Signed %s</a>' % (
                 url_for("affiliate_signed.index", id=str(m.id)),
@@ -3245,6 +3601,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                     "agreement_addendum",
                     "page_display_name", "page_logo", "page_photo",
                     "page_note", "page_signoff",
+                    "user",
                     "status", "notes")
     form_extra_fields = {
         "page_logo": FileUploadField(
@@ -3377,15 +3734,24 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                       "require a re-sign so the new Exhibit B takes effect." % model.code,
                       "warning")
 
-        # Activation gate (active <=> signed), enforced on EDITS. Creation forces
-        # 'paused' below regardless; the signing route flips paused->active
-        # programmatically once the agreement is signed.
+        # Activation gate (active <=> signed), enforced on EDITS - but only on
+        # the TRANSITION into 'active' (2026-07-07 fix: a legacy row that is
+        # already active-without-signature must stay editable; the old check
+        # blocked even a name edit). Creation forces 'paused' below regardless;
+        # the signing route flips paused->active programmatically once signed.
         if (not is_created and model.status == "active"
                 and not getattr(model, "agreement_signed_at", None)):
-            raise ValidationError(
-                "Can't set an affiliate to 'active' before they've signed the "
-                "agreement. Send them the signing link - status flips to active "
-                "automatically on signing.")
+            _sh = sa_inspect(model).attrs.status.history
+            _old_status = _sh.deleted[0] if _sh.deleted else model.status
+            if _old_status != "active":
+                raise ValidationError(
+                    "Can't set an affiliate to 'active' before they've signed the "
+                    "agreement. Send them the signing link - status flips to active "
+                    "automatically on signing.")
+            from flask import flash as _flash
+            _flash("Heads-up: %s is active but has no signed agreement on record "
+                   "(legacy row). Consider sending the signing link." % model.code,
+                   "warning")
 
         # Terminating an affiliate invalidates their signing magic link (bump the
         # token version so any link already issued now 410s) - a stale link must
@@ -4397,6 +4763,105 @@ admin.add_view(AffiliatePayoutComputeView(name="Compute / What I owe", endpoint=
 admin.add_view(AffiliateSignedView(name="Signed agreement", endpoint="affiliate_signed", category="Affiliates"))
 admin.add_view(AffiliateChangeTermsView(name="Change terms", endpoint="affiliate_change_terms", category="Affiliates"))
 
+# --- SMN expert module: participation (invites) + take review queue ---
+from models import AffiliateSmnProfile, ExpertTake
+
+
+class AffiliateSmnProfileAdmin(_AdminAuth, ModelView):
+    """Operator INVITES an affiliate to the SMN expert program by creating a
+    row here (status starts 'invited'). 'active' is reached ONLY through the
+    affiliate's own click-accept of the contributor terms in the portal - the
+    admin can pause/re-invite but never activate on their behalf."""
+    column_list = ("affiliate", "status", "slug", "terms_accepted_at",
+                   "scorecard_enabled", "published_at", "updated_at")
+    column_filters = ("status",)
+    form_columns = ("affiliate", "status", "slug", "scorecard_enabled")
+    form_ajax_refs = {"affiliate": {"fields": ["code", "name", "email"], "page_size": 10}}
+
+    def on_model_change(self, form, model, is_created):
+        if model.status == "active" and model.terms_accepted_at is None:
+            raise wtf_validators.ValidationError(
+                "'active' requires the affiliate's own terms acceptance in the "
+                "portal - invite them (status 'invited') and let them accept.")
+        if (not is_created and model.published_at is not None
+                and form.slug.data != model.slug):
+            raise wtf_validators.ValidationError(
+                "slug is locked once the expert page is published (stable id).")
+        super().on_model_change(form, model, is_created)
+
+
+class ExpertTakeAdmin(_AdminAuth, ModelView):
+    """Review queue (spec B4: operator review is MANDATORY before publish).
+    Approve/Reject via row actions; the only editable field is review_note
+    (write it BEFORE running Reject so the affiliate sees why). All state
+    changes go through expert_takes_service - never edit status directly."""
+    can_create = False
+    can_delete = False
+    can_edit = True
+    can_view_details = True
+    form_columns = ("review_note",)
+    column_list = ("updated_at", "affiliate", "article_slug", "title",
+                   "status", "published_at")
+    column_filters = ("status", "article_slug")
+    column_default_sort = ("updated_at", True)
+
+    @action("approve_publish", "Approve + publish",
+            "Publish the selected takes to SMN?")
+    def action_approve(self, ids):
+        import expert_takes_service as _ets
+        u = get_current_user()
+        done = 0
+        for tid in ids:
+            take = self.session.get(ExpertTake, tid)
+            if take is None:
+                continue
+            try:
+                _ets.approve_and_publish(self.session, take, u)
+                done += 1
+            except _ets.TakeError as te:
+                flash(f"{take.article_slug}: {te}", "error")
+        self.session.commit()
+        if done:
+            flash(f"Published {done} take(s). The SMN box picks them up within a minute.", "success")
+
+    @action("reject", "Reject (uses the row's review note)",
+            "Reject the selected takes?")
+    def action_reject(self, ids):
+        import expert_takes_service as _ets
+        u = get_current_user()
+        for tid in ids:
+            take = self.session.get(ExpertTake, tid)
+            if take is None:
+                continue
+            try:
+                _ets.reject_take(self.session, take, u, take.review_note)
+            except _ets.TakeError as te:
+                flash(f"{take.article_slug}: {te}", "error")
+        self.session.commit()
+        flash("Rejected.", "success")
+
+    @action("retract", "Retract published take(s)",
+            "Retract from SMN? The block disappears on the next sync.")
+    def action_retract(self, ids):
+        import expert_takes_service as _ets
+        u = get_current_user()
+        for tid in ids:
+            take = self.session.get(ExpertTake, tid)
+            if take is None:
+                continue
+            try:
+                _ets.operator_retract(self.session, take, u)
+            except _ets.TakeError as te:
+                flash(f"{take.article_slug}: {te}", "error")
+        self.session.commit()
+        flash("Retracted.", "success")
+
+
+admin.add_view(AffiliateSmnProfileAdmin(
+    AffiliateSmnProfile, ModelsSession, name="SMN Experts", category="Affiliates"))
+admin.add_view(ExpertTakeAdmin(
+    ExpertTake, ModelsSession, name="Expert Takes", category="Affiliates"))
+
 # --- Standalone promo coupons (no affiliate / commission) ---
 from models import PromoCoupon
 admin.add_view(PromoCouponAdmin(PromoCoupon, ModelsSession, name="Coupons", category=None))
@@ -4413,6 +4878,59 @@ if config.API_CONSOLE_ENABLED:
     log.info("API console enabled at /account/api")
 else:
     log.info("API console disabled (set TW2_API_CONSOLE_ENABLED to enable /account/api)")
+
+
+# --- Affiliate dashboard: partner self-serve (always on; access is derived
+# from the affiliates.user_id linkage, so non-affiliates just see the
+# invite-only page). Spec: docs/AFFILIATE_DASHBOARD_SPEC.md ---
+import affiliate_portal  # web/affiliate_portal/ blueprint
+from affiliate_portal.blueprint import set_user_loader as _aff_set_user_loader
+_aff_set_user_loader(get_current_user)  # share the web app's WorkOS session resolver
+app.register_blueprint(affiliate_portal.bp, url_prefix="/account/affiliate")
+log.info("Affiliate dashboard enabled at /account/affiliate")
+
+
+# --- SMN expert-content pull feed (X-Service-Key, same auth as
+# /internal/render_report). The SMN box PULLS (outbound-only) on a cron and
+# injects/removes Expert Desk blocks - see smn/expert_sync.py. ---
+def _parse_since():
+    raw = request.args.get("since", "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw)
+    except ValueError:
+        abort(400)
+
+
+@app.route("/internal/expert_takes")
+def internal_expert_takes():
+    if not _check_service_key():
+        abort(403)
+    import expert_takes_service as _ets
+    since = _parse_since()
+    s = DBSession()
+    try:
+        takes = _ets.takes_since(s, since)
+    finally:
+        s.close()
+    cursor = takes[-1]["updated_at"] if takes else (request.args.get("since") or None)
+    return jsonify({"takes": takes, "cursor": cursor})
+
+
+@app.route("/internal/expert_profiles")
+def internal_expert_profiles():
+    if not _check_service_key():
+        abort(403)
+    import expert_takes_service as _ets
+    since = _parse_since()
+    s = DBSession()
+    try:
+        profiles = _ets.profiles_since(s, since)
+    finally:
+        s.close()
+    cursor = profiles[-1]["updated_at"] if profiles else (request.args.get("since") or None)
+    return jsonify({"profiles": profiles, "cursor": cursor})
 
 
 # ============================================================

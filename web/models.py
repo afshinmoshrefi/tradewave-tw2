@@ -75,6 +75,14 @@ class User(Base):
     # tier only READS it (account() in-chat-access card; never arms it). Column already
     # exists in Postgres via apiserver/schema.sql - this is an additive mapping, NO migration.
     navigator_mcp_first_connect_at = Column(TIMESTAMP(timezone=True))
+    # first_ai_score_viewed_at: stamped ONCE (idempotently), the first time a logged-in
+    # user with AI-score access (Analyst+, config.ml_score_access_levels) actually renders
+    # an AI score in the wave-viewer. Written by POST /api/activation/ai-score-viewed
+    # (web/app.py) in the SAME handler that appends the onboarding_events row
+    # (event_type='ai_score_viewed') and fires the GA4 ai_score_viewed event (web/ga4_mp.py).
+    # GTM playbook CARD W1.4 / strategy §2 persistence rule: the day-2/day-7 trial-activation
+    # emails read THIS column, never GA4. Migration b3f6a8c1d9e2.
+    first_ai_score_viewed_at    = Column(TIMESTAMP(timezone=True))
     created_at                  = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at                  = Column(TIMESTAMP(timezone=True), server_default=func.now())
     last_login_at               = Column(TIMESTAMP(timezone=True))
@@ -88,6 +96,12 @@ class User(Base):
             name="users_tier_check",
         ),
     )
+
+    def __str__(self):
+        # Flask-Admin renders related objects via str() (AffiliateAdmin's
+        # "Portal login" column + its ajax picker). Without this it shows the
+        # raw object repr and blows up the list-table layout.
+        return self.email or str(self.id)
 
     def to_dict(self):
         return {
@@ -311,8 +325,16 @@ class Affiliate(Base):
     # affiliate; ONLY this varies. Frozen into agreement_snapshot on signing.
     agreement_addendum          = Column(Text)
     agreement_token_version     = Column(Integer, nullable=False, server_default=sa_text("0"))
+    # user_id: the affiliate's DASHBOARD LOGIN (users row), migration e7a1b2c9d4f5.
+    # NULL = not yet linked. The portal (/account/affiliate) auto-links on first
+    # visit by exact case-insensitive email match; operator can set it manually
+    # in AffiliateAdmin. Access is derived from this FK - deliberately NOT a
+    # models.ROLES role (one source of truth). UNIQUE both ways (1:1).
+    user_id       = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), unique=True)
     created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user = relationship("User", foreign_keys=[user_id])
 
     __table_args__ = (
         CheckConstraint(r"code ~ '^[A-Z0-9_-]{2,64}$'", name="affiliates_code_charset_check"),
@@ -388,6 +410,114 @@ class AffiliateReferral(Base):
 
     def __str__(self):
         return f"{self.stripe_subscription_id} -> {self.affiliate_id}"
+
+
+# ---------------------------------------------------------------------------
+# SMN expert module (optional, operator-invited; docs/AFFILIATE_DASHBOARD_SPEC.md
+# section 4.3). Status strings are STORAGE IDs - never rename, only add. CHECK
+# values mirror migrations f8c2d3e0a5b6 / a9d3e4f1b6c7.
+# ---------------------------------------------------------------------------
+SMN_PROFILE_STATUSES = ("invited", "active", "paused")
+EXPERT_TAKE_STATUSES = ("draft", "submitted", "approved", "published", "rejected", "retracted")
+
+
+class AffiliateSmnProfile(Base):
+    """1:1 opt-in row: exists only once the operator invites the affiliate to
+    the SMN expert program. invited -> active happens ONLY via the portal's
+    click-accept of docs/SMN_CONTRIBUTOR_TERMS.md (audited: version/ts/ip/ua +
+    immutable snapshot, mirroring the main agreement). slug is the expert's
+    public id on SMN (hub page) - IMMUTABLE once published_at is set."""
+    __tablename__ = "affiliate_smn_profiles"
+    affiliate_id  = Column(PG_UUID(as_uuid=True),
+                           ForeignKey("affiliates.id", ondelete="CASCADE"), primary_key=True)
+    status        = Column(Text, nullable=False, server_default=sa_text("'invited'"))
+    slug          = Column(Text, unique=True)
+    bio_md        = Column(Text)
+    credentials   = Column(Text)
+    links         = Column(JSONB)   # [{"label": ..., "url": "https://..."}] - validated in the portal
+    disclosure_md = Column(Text)
+    terms_version             = Column(Text)
+    terms_accepted_at         = Column(TIMESTAMP(timezone=True))
+    terms_accepted_ip         = Column(Text)
+    terms_accepted_user_agent = Column(Text)
+    terms_snapshot            = Column(Text)   # immutable copy of the exact terms accepted
+    scorecard_enabled = Column(Boolean, nullable=False, server_default=sa_text("true"))
+    published_at  = Column(TIMESTAMP(timezone=True))
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    affiliate     = relationship("Affiliate")
+
+    __table_args__ = (
+        CheckConstraint("status IN ('invited','active','paused')",
+                        name="affiliate_smn_profiles_status_check"),
+        CheckConstraint(r"slug IS NULL OR slug ~ '^[a-z0-9-]{2,64}$'",
+                        name="affiliate_smn_profiles_slug_charset_check"),
+        CheckConstraint("bio_md IS NULL OR char_length(bio_md) <= 4000",
+                        name="affiliate_smn_profiles_bio_len_check"),
+        CheckConstraint("credentials IS NULL OR char_length(credentials) <= 200",
+                        name="affiliate_smn_profiles_credentials_len_check"),
+        CheckConstraint("disclosure_md IS NULL OR char_length(disclosure_md) <= 500",
+                        name="affiliate_smn_profiles_disclosure_len_check"),
+        Index("ix_affiliate_smn_profiles_status", "status"),
+        Index("ix_affiliate_smn_profiles_updated", "updated_at"),
+    )
+
+    def __str__(self):
+        return f"smn:{self.slug or self.affiliate_id} ({self.status})"
+
+
+class ExpertTake(Base):
+    """One expert commentary on one SMN article. Lifecycle: draft -> submitted
+    -> approved -> published (+ rejected, retracted). Operator review is
+    MANDATORY before publish (ExpertTakeAdmin). rendered_html is stamped at
+    approval by web/expert_takes_service.py (markdown -> bleach; the single
+    sanitation authority) and is what /internal/expert_takes serves to the SMN
+    box. declared_call = the house-scored directional thesis (Layer 1);
+    execution_note/result = expert-reported options detail (Layer 2, labeled,
+    never in the verified record)."""
+    __tablename__ = "expert_takes"
+    id            = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    affiliate_id  = Column(PG_UUID(as_uuid=True),
+                           ForeignKey("affiliates.id", ondelete="RESTRICT"), nullable=False)
+    article_slug  = Column(Text, nullable=False)
+    title         = Column(Text)
+    body_md       = Column(Text, nullable=False)
+    declared_call = Column(JSONB)   # {"symbol","direction","entry_date","exit_date"} or NULL
+    status        = Column(Text, nullable=False, server_default=sa_text("'draft'"))
+    review_note   = Column(Text)
+    reviewed_by   = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    rendered_html = Column(Text)
+    execution_note      = Column(Text)
+    execution_result    = Column(Text)
+    execution_result_at = Column(TIMESTAMP(timezone=True))
+    published_at  = Column(TIMESTAMP(timezone=True))
+    retracted_at  = Column(TIMESTAMP(timezone=True))
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    affiliate     = relationship("Affiliate")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft','submitted','approved','published','rejected','retracted')",
+            name="expert_takes_status_check"),
+        CheckConstraint(r"article_slug ~ '^[a-zA-Z0-9_-]{1,200}$'",
+                        name="expert_takes_article_slug_charset_check"),
+        CheckConstraint("title IS NULL OR char_length(title) <= 120",
+                        name="expert_takes_title_len_check"),
+        CheckConstraint("char_length(body_md) <= 8000",
+                        name="expert_takes_body_len_check"),
+        CheckConstraint("execution_note IS NULL OR char_length(execution_note) <= 500",
+                        name="expert_takes_execution_note_len_check"),
+        CheckConstraint("execution_result IS NULL OR char_length(execution_result) <= 300",
+                        name="expert_takes_execution_result_len_check"),
+        Index("ix_expert_takes_affiliate", "affiliate_id"),
+        Index("ix_expert_takes_status", "status"),
+        Index("ix_expert_takes_article", "article_slug"),
+        Index("ix_expert_takes_updated", "updated_at"),
+    )
+
+    def __str__(self):
+        return f"{self.article_slug} by {self.affiliate_id} ({self.status})"
 
 
 # ---------------------------------------------------------------------------

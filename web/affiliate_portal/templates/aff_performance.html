@@ -1,0 +1,46 @@
+{% extends "aff_base.html" %}
+{% block content %}
+<div class="card">
+  <h3>This Month (estimate as of {{ est_stamp }})</h3>
+  {% if est_rows is none %}
+    <p class="muted">Live estimate temporarily unavailable.</p>
+  {% elif est_rows %}
+    <table>
+      <tr><th>Currency</th><th>Attributed revenue</th><th>Commission</th><th>Payments</th></tr>
+      {% for r in est_rows %}
+      <tr>
+        <td>{{ r.currency|upper }}</td>
+        <td>{{ '%.2f'|format(r.gross_revenue) }}</td>
+        <td>{{ '%.2f'|format(r.commission_amount) }}</td>
+        <td>{{ r.detail|length }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p class="muted">No attributed payments yet this month.</p>
+  {% endif %}
+  <p class="muted" style="font-size:12px;">Estimates can move down as well as up (refunds, corrections). Final numbers settle on the 2nd.</p>
+</div>
+
+<div class="card">
+  <h3>Settled Months</h3>
+  {% if history %}
+  <table>
+    <tr><th>Period</th><th>Currency</th><th>Net revenue</th><th>Commission</th><th>Customers</th><th>Status</th></tr>
+    {% for p in history %}
+    <tr>
+      <td>{{ p.period }}</td>
+      <td>{{ p.currency|upper }}</td>
+      <td>{{ '%.2f'|format(p.gross) }}</td>
+      <td>{{ '%.2f'|format(p.commission) }}</td>
+      <td>{{ p.customers or '-' }}</td>
+      <td><span class="pill {{ 'ok' if p.status == 'paid' else ('warn' if p.status == 'pending' else 'bad') }}">{{ p.status }}</span>
+          {% if p.paid_at %}<span class="muted" style="font-size:12px;"> {{ p.paid_at }}</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">No settled months yet - your first statement lands on the 2nd of next month.</p>
+  {% endif %}
+</div>
+{% endblock %}

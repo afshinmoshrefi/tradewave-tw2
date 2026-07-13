@@ -143,6 +143,14 @@
     </div>
     {% endif %}
 
+    {% if is_affiliate %}
+    <div class="card" style="border-color: rgba(52, 211, 153, 0.4);">
+      <h3>Partner Program</h3>
+      <div class="value">You're a TradeWave partner</div>
+      <a href="/account/affiliate" style="color:#34d399;">→ Open partner dashboard</a>
+    </div>
+    {% endif %}
+
     {% if 'super_admin' in (user.roles or []) %}
     <div class="card" style="border-color: rgba(168, 85, 247, 0.4);">
       <h3>Admin</h3>

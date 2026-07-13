@@ -34,3 +34,18 @@ the human-readable name in the VALUE.
 out of one string, (4) collision/injection against other key patterns. Redis keys are
 binary-safe, so it "works" and stays hidden until it bites (e.g. migration tooling that
 must regex the id back out).
+
+## 3. Never raise ValidationError from flask-admin on_model_change without the _AdminAuth shim
+flask-admin 2.1.0 has a bug: in `contrib/sqla/view.py` update_model/create_model/
+delete_model, `session` is assigned AFTER `on_model_change`/`on_model_delete` runs, so the
+library's own documented pattern (raising wtforms `ValidationError` from those hooks) crashes
+the except-path `session.rollback()` with UnboundLocalError -> a 500 instead of the flashed
+form error. `web/app.py:_AdminAuth` now shims all three methods (catch UnboundLocalError,
+rollback, return False) - every admin view MUST keep inheriting `_AdminAuth`, and any guard
+that should allow edits on legacy rows must check the sqlalchemy attribute HISTORY (fire on
+the TRANSITION, not the resulting state).
+
+**Why:** 2026-07-07 - editing just the NAME of an affiliate 500'd: the row was legacy
+active-without-signature, the activation gate fired on state (not transition), and the
+flask-admin bug turned the intended red form message into UnboundLocalError. Two bugs
+stacked; both invisible until an operator touched a legacy row.
