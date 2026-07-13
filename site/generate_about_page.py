@@ -22,7 +22,9 @@ import sys
 from datetime import datetime
 
 sys.path.insert(0, '/home/flask')
+sys.path.insert(0, '/home/flask/site/lib')
 import config
+from ga_snippet import ga_head_snippet
 
 OUTPUT_DIR = config.web_root_dir
 OUTPUT_FILENAME = 'about.html'
@@ -83,6 +85,7 @@ def build_html():
   <link rel="canonical" href="{CANONICAL}">
   <meta name="robots" content="{ROBOTS_CONTENT}">
   <link rel="icon" type="image/png" href="{config.tw_favicon}">
+  {ga_head_snippet()}
 
   <meta property="og:locale" content="en_US">
   <meta property="og:type" content="profile">

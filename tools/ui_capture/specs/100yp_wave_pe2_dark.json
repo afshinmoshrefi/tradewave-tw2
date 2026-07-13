@@ -1,0 +1,13 @@
+{
+  "spec_version": 1,
+  "theme": "dark",
+  "display": "seasonal",
+  "market": "INDICES COMMON",
+  "symbol": "SPX",
+  "pattern": { "startDate": "2026-09-27", "daysOut": 295, "years": 95, "pe": "pe2" },
+  "scale": 2,
+  "viewport": { "width": 1920, "height": 1080 },
+  "seasonal": { "showMFE": true, "showMAE": true },
+  "crops": ["full", "display"],
+  "out": "out/blog/100yp_wave_pe2_dark"
+}

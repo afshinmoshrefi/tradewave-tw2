@@ -1,0 +1,13 @@
+{
+  "spec_version": 1,
+  "theme": "dark",
+  "display": "seasonal",
+  "market": "S&P 500 STOCKS",
+  "symbol": "AAPL",
+  "pattern": { "startDate": "2026-01-15", "daysOut": 15, "years": 10, "pe": null },
+  "scale": 4,
+  "viewport": { "width": 1920, "height": 1080 },
+  "seasonal": { "showMFE": true, "showMAE": true },
+  "crops": ["full", "display"],
+  "out": "out/demo/aapl_seasonal_dark_4x"
+}

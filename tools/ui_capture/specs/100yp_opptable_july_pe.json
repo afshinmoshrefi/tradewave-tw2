@@ -1,0 +1,12 @@
+{
+  "spec_version": 1,
+  "theme": "dark",
+  "display": "seasonal",
+  "market": "S&P 500 STOCKS",
+  "symbol": "AAPL",
+  "pattern": { "startDate": "2026-07-09", "daysOut": 30, "years": 20, "pe": "pe2" },
+  "scale": 2,
+  "viewport": { "width": 1920, "height": 1080 },
+  "crops": ["oppTable"],
+  "out": "out/blog/100yp_opptable_july_pe"
+}

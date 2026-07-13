@@ -236,6 +236,7 @@ def build_llms() -> str:
         '## Sections',
         '- Methodology: %smethodology.html' % ROOT,
         '- Scorecard - the public forward track record: %sscorecard.html' % ROOT,
+        '- Daily-Pick Ledger - the scorecard track record as machine-citable JSON: %sdata/daily-pick-ledger.json' % ROOT,
         '- Seasonal Patterns by Ticker: %spatterns/' % ROOT,
         '- Markets: %smarkets/' % ROOT,
         '- Insights: %sinsights/' % ROOT,
@@ -304,6 +305,17 @@ def main():
 
     _write_atomic(WEB_ROOT / 'llms.txt', build_llms())
     print('llms.txt      -> %s' % (WEB_ROOT / 'llms.txt'))
+
+    if ENABLE_SEO:
+        # Google Search Console site-verification file (FILE method). The token
+        # is issued once for https://tradewave.ai/ (via the Site Verification
+        # API, 2026-07-07, claude-ga4 service account = verified owner) and is
+        # permanent - re-emitting it on every prod regen means no cleanup or
+        # deploy step can ever silently un-verify the site. Prod-only: the
+        # token names the tradewave.ai property, meaningless on dev/staging.
+        gsc = 'google083fcaa7c3e113ea.html'
+        _write_atomic(WEB_ROOT / gsc, 'google-site-verification: %s\n' % gsc)
+        print('gsc-verify    -> %s' % (WEB_ROOT / gsc))
 
 
 if __name__ == '__main__':

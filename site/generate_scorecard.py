@@ -11,7 +11,7 @@ import json
 import os
 import requests
 import time
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 import sys
@@ -21,7 +21,7 @@ import config
 from blog_tools import convert_param_base64
 from ga_snippet import ga_head_snippet
 from pick_stats import (  # shared win definition
-    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, is_resolved, is_win, reached_target, result_return,
+    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, is_judged, is_resolved, is_win, reached_target, result_return,
 )
 
 # =============================================================================
@@ -31,6 +31,9 @@ from pick_stats import (  # shared win definition
 FEATURED_HISTORY_FILE = "/home/flask/site/data/featured_history.json"
 OUTPUT_DIR = config.web_root_dir
 OUTPUT_FILENAME = "scorecard.html"
+# Machine-citable ledger export (TYPE H, docs/marketing/content-engine/
+# CE_template_specs.md section 9) - served at /data/daily-pick-ledger.json.
+LEDGER_JSON_RELPATH = "data/daily-pick-ledger.json"
 TEMPLATES_DIR = "/home/flask/site/templates"
 DOMAIN_ROOT = config.domain_root
 APPSERVER_URL = config.appserver_url.rstrip('/')
@@ -542,6 +545,69 @@ def group_closed_by_month(closed_positions, expand_newest=2):
 
 
 # =============================================================================
+# MACHINE-CITABLE LEDGER EXPORT (TYPE H)
+# =============================================================================
+
+# Pinned contract: docs/marketing/content-engine/CE_template_specs.md section 9,
+# "Machine-citable export". This JSON is the artifact an AI assistant can verify
+# the scorecard's claims against; the TYPE H Dataset schema points at it.
+LEDGER_WIN_DEFINITION = (
+    "A pick wins when it reaches the AI's predicted gain inside its window "
+    "(hitting is terminal - it never un-happens, open or closed) or closes "
+    "profitable at the window end. Open picks that have not hit yet are "
+    "pending (win = null) and are excluded from the win_rate denominator, "
+    "which is resolved picks plus open picks that already hit. result_return "
+    "realizes the predicted gain when the target was hit, else the "
+    "window-close return; null while pending."
+)
+PAST_PERFORMANCE_LINE = "Past performance does not guarantee future results."
+
+
+def emit_ledger_json(history):
+    """Write the full pick ledger as machine-readable JSON beside the scorecard.
+
+    Same shared win definition as the page (pick_stats), same history, same
+    run - the JSON and the HTML can never diverge. Every pick is included
+    with a 'resolved' flag; 'win' is null for pending picks (open, target not
+    yet hit) so a machine reader never mistakes pending for lost.
+    """
+    win_rate, _wins, _judged = compute_win_rate(history)
+
+    picks = []
+    for entry in sorted(history, key=lambda e: e['featured_date']):
+        picks.append({
+            'featured_date': entry['featured_date'],
+            'symbol': entry.get('symbol', ''),
+            'direction': 'long' if entry.get('direction') == 'l' else 'short',
+            'predicted_gain': entry.get('pred_return'),
+            'result_return': result_return(entry),
+            'win': is_win(entry) if is_judged(entry) else None,
+            'resolved': is_resolved(entry),
+        })
+
+    payload = {
+        'win_rate': win_rate,
+        'resolved_count': sum(1 for e in history if is_resolved(e)),
+        'start_date': picks[0]['featured_date'] if picks else None,
+        'computed_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'definition': LEDGER_WIN_DEFINITION,
+        'past_performance': PAST_PERFORMANCE_LINE,
+        'picks': picks,
+    }
+
+    out_path = Path(OUTPUT_DIR) / LEDGER_JSON_RELPATH
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(out_path.parent, 0o755)
+    # tmp + os.replace so a machine reader never sees a half-written file
+    # (same pattern as generate_seo_files.py:_write_atomic).
+    tmp = out_path.parent / ('.' + out_path.name + '.tmp')
+    tmp.write_text(json.dumps(payload, indent=2) + '\n')
+    os.replace(tmp, out_path)
+    os.chmod(out_path, 0o644)
+    return out_path
+
+
+# =============================================================================
 # HTML GENERATION
 # =============================================================================
 
@@ -618,6 +684,10 @@ def main():
 
     print("   Generated: %s" % output_path)
     print("   Size: %d bytes" % len(html))
+
+    # 8. Machine-citable ledger export (CE_template_specs.md section 9)
+    ledger_path = emit_ledger_json(history)
+    print("   Ledger JSON: %s" % ledger_path)
     print("   Done!")
 
 

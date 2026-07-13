@@ -34,6 +34,7 @@ sys.path.insert(0, '/home/flask')
 sys.path.insert(0, '/home/flask/site/lib')
 import config
 from blog_tools import assign_years_pyears
+from ga_snippet import ga_head_snippet
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -255,6 +256,7 @@ def render_html(df, opp_date):
   <meta name="description" content="The 10 strongest repeating seasonal patterns we detected for {NICE_DATE}, ranked by Sharpe and scored by our ML model, across every market we track. Free, every morning. A research read, not a recommendation - you pick the window and judge the odds.">
   <meta name="robots" content="{ROBOTS_CONTENT}">
   <link rel="icon" type="image/png" href="{FAVICON}">
+  {GA_HEAD}
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -358,6 +360,7 @@ def render_html(df, opp_date):
     out = head + header_html + body
     out = out.replace('{NICE_DATE}', nice_date) \
              .replace('{FAVICON}', config.tw_favicon) \
+             .replace('{GA_HEAD}', ga_head_snippet()) \
              .replace('{ROBOTS_CONTENT}', ROBOTS_CONTENT) \
              .replace('{ROWS}', rows_html) \
              .replace('{YEAR}', year)

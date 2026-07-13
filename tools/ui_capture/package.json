@@ -1,0 +1,10 @@
+{
+  "name": "tw-ui-capture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TradeWave wave-viewer screenshot-capture CLI (dev-only tool, not deployed).",
+  "main": "capture.js",
+  "dependencies": {
+    "puppeteer": "^25.3.0"
+  }
+}

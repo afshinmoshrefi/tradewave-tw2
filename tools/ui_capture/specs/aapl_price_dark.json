@@ -1,0 +1,13 @@
+{
+  "spec_version": 1,
+  "theme": "dark",
+  "display": "price",
+  "market": "S&P 500 STOCKS",
+  "symbol": "AAPL",
+  "pattern": { "startDate": "2026-01-15", "daysOut": 15, "years": 10, "pe": null },
+  "scale": 2,
+  "viewport": { "width": 1920, "height": 1080 },
+  "priceChart": { "showProjection": true, "showVolume": true, "timeframe": "daily", "chartRange": "1y" },
+  "crops": ["full", "display"],
+  "out": "out/demo/aapl_price_dark"
+}

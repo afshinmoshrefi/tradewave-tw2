@@ -69,6 +69,7 @@ data_updater/symbols_*.txt
 site/data/featured_chart.svg
 site/data/featured_history.json
 site/data/home_opportunities.csv
+tools/ui_capture/out/
 
 # Backup / patch leftovers
 *.bak
