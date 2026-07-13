@@ -55,6 +55,11 @@ class User(Base):
     # Stripe path; never clobbers the web tier. DB column added additively by
     # apiserver/schema.sql (ADD COLUMN IF NOT EXISTS api_tier).
     api_tier                    = Column(Text)
+    # The developer-API product line has its own Stripe subscription identity.
+    # Keeping it separate is what makes out-of-order API cancellations safe:
+    # an old API event can never clear a newer API plan or the web/EOD plan.
+    api_stripe_subscription_id     = Column(Text)
+    api_stripe_subscription_status = Column(Text)
     # api_key_hash: HMAC-SHA256(api_key, API_KEY_HMAC_SECRET). The ONLY
     # server-side material for service-account auth. The plaintext
     # api_key column was dropped in alembic 5a3c1e2f4d6b; if a caller
@@ -114,6 +119,7 @@ class User(Base):
             "roles": self.roles or ["user"],
             "tier": self.tier,
             "api_tier": self.api_tier,
+            "api_stripe_subscription_status": self.api_stripe_subscription_status,
             "stripe_subscription_status": self.stripe_subscription_status,
             "trial_ends_at": self.trial_ends_at.isoformat() if self.trial_ends_at else None,
             "reverse_trial_ends_at": self.reverse_trial_ends_at.isoformat() if self.reverse_trial_ends_at else None,
@@ -563,6 +569,49 @@ class PromoCoupon(Base):
         else:
             disc = f"{self.percent_off}% off"
         return f"{self.code} ({disc})"
+
+
+class MailerLiteLifecycleEvent(Base):
+    """Durable outbox for MailerLite access/lifecycle reconciliation.
+
+    Event-type and status strings are persistent storage IDs. Never rename an
+    existing value; add a new value plus a migration if the state machine grows.
+    The worker always derives the desired lifecycle group from the CURRENT User
+    row, so delayed or out-of-order Stripe events converge instead of replaying
+    stale group assignments.
+    """
+    __tablename__ = "mailerlite_lifecycle_events"
+    id           = Column(BigInteger, primary_key=True)
+    user_id      = Column(PG_UUID(as_uuid=True),
+                          ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    event_type   = Column(Text, nullable=False)  # reconcile | clear_paid
+    dedupe_key   = Column(Text, nullable=False, unique=True)
+    status       = Column(Text, nullable=False, server_default=sa_text("'pending'"))
+    attempts     = Column(Integer, nullable=False, server_default=sa_text("0"))
+    available_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    claimed_at   = Column(TIMESTAMP(timezone=True))
+    processed_at = Column(TIMESTAMP(timezone=True))
+    payload      = Column(JSONB)
+    last_error   = Column(Text)
+    created_at   = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at   = Column(TIMESTAMP(timezone=True), nullable=False,
+                          server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('reconcile','clear_paid')",
+            name="mailerlite_lifecycle_events_type_check",
+        ),
+        CheckConstraint(
+            "status IN ('pending','processing','completed','suppressed','failed')",
+            name="mailerlite_lifecycle_events_status_check",
+        ),
+        Index("ix_mailerlite_lifecycle_user_status", "user_id", "status"),
+        Index(
+            "ix_mailerlite_lifecycle_due", "available_at", "id",
+            postgresql_where=sa_text("status IN ('pending','failed')"),
+        ),
+    )
 
 
 class OnboardingEvent(Base):

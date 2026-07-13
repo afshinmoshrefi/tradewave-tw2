@@ -113,6 +113,8 @@ def db_session(_models_module):
     # crashed tests can leave debris if the rollback didn't run).
     s.execute(_models_module.AuditLog.__table__.delete())
     s.execute(_models_module.StripeEvent.__table__.delete())
+    s.execute(_models_module.MailerLiteLifecycleEvent.__table__.delete())
+    s.execute(_models_module.EmailOptout.__table__.delete())
     s.execute(_models_module.User.__table__.delete())
     s.commit()
     try:
@@ -127,6 +129,8 @@ def db_session(_models_module):
         try:
             s.execute(_models_module.AuditLog.__table__.delete())
             s.execute(_models_module.StripeEvent.__table__.delete())
+            s.execute(_models_module.MailerLiteLifecycleEvent.__table__.delete())
+            s.execute(_models_module.EmailOptout.__table__.delete())
             s.execute(_models_module.User.__table__.delete())
             s.commit()
         except Exception:

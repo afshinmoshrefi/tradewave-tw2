@@ -29,6 +29,11 @@ CREATE TABLE IF NOT EXISTS api_usage_daily (
 -- falls back to WEB_TIER_TO_API[tier]. db.get_user_by_key_hash SELECTs this column, so the
 -- gateway/MCP/console all see the same resolved entitlement. Idempotent; the integrator runs it.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS api_tier text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS api_stripe_subscription_id text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS api_stripe_subscription_status text;
+CREATE UNIQUE INDEX IF NOT EXISTS users_api_stripe_subscription_id_key
+    ON users (api_stripe_subscription_id)
+    WHERE api_stripe_subscription_id IS NOT NULL;
 
 -- First time a Navigator connected over consumer-MCP (TradeWave in ChatGPT/Claude). It
 -- anchors the ONE-TIME 7-day first-connect teaser that grants Analyst scope (the AI taste

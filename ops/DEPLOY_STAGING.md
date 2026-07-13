@@ -6,6 +6,96 @@ I have everything. Now I'll compose the inventory.
 
 **Source box:** `/home/flask` (dev, 192.168.1.176). Generated 2026-05-14. Inventory only — no recommendations.
 
+## Current deployment addendum (2026-07-13): MailerLite lifecycle
+
+This addendum supersedes the older MailerLite signup, migration-head, and
+Stripe-deletion notes in the May 2026 inventory below.
+
+The application now uses `mailerlite_lifecycle_events`, added by Alembic
+revision `c7a9e2f4d6b8`, as a durable outbox. New signup and web-billing writes
+atomically enqueue the permanent storage event types `reconcile` or
+`clear_paid`. `web/mailerlite_lifecycle.py` later derives the desired state from
+the current User row and reconciles one of three mutually exclusive MailerLite
+automation trigger groups: `trial_started`, `trial_ended_explorer`, or
+`winback_explorer`. The existing LEVEL groups remain access segmentation only.
+
+Keep writes disabled throughout staging. Lifecycle IDs may remain blank there:
+
+```
+TW2_ENV=staging
+MAILERLITE_OUTBOUND_ENABLED=0
+```
+
+Before the production deploy, configure the production web box with the real
+credential and all three trigger-group IDs, but leave writes disabled:
+
+```
+TW2_ENV=prod
+MAILERLITE_API_KEY=<connect API credential, or existing MAILERLITE_TOKEN fallback>
+MAILERLITE_TRIAL_STARTED_GROUP_ID=<7-day new-signup trigger group>
+MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID=<post-trial Explorer trigger group>
+MAILERLITE_WINBACK_GROUP_ID=<former-paid Explorer trigger group>
+MAILERLITE_OUTBOUND_ENABLED=0
+```
+
+`config.py` requires both a truthy `MAILERLITE_OUTBOUND_ENABLED` and
+`TW2_ENV=prod`. Dev and staging are therefore no-write even if they share the
+account token. Missing lifecycle group IDs also stop the production worker
+without consuming the outbox.
+
+Routine `ops/deploy.sh` runs `ops/migrate.sh`, installs the canonical cron with
+`ops/install_mailerlite_lifecycle_cron.sh`, then restarts `tradewave-web`. The
+same cron is installed by `ops/staging/make_bulletproof.sh`:
+
+```cron
+* * * * * { test -r /etc/tradewave/secrets.env && set -a && . /etc/tradewave/secrets.env && set +a && cd /home/flask && /home/flask/venv/bin/python /home/flask/web/mailerlite_lifecycle.py --limit 15; } >> /var/log/tradewave/mailerlite_lifecycle.log 2>&1
+```
+
+Before any lifecycle backfill, run the Stripe subscription-identity audit. It
+is dry-run by default, retrieves current Stripe Product metadata, and pages all
+Stripe subscriptions for each affected customer. Resolve all blocking rows
+before applying in production while outbound remains disabled; `--apply`
+requires explicit `TW2_ENV=prod`:
+
+```
+sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/ops/audit_stripe_subscription_identity.py'
+sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/ops/audit_stripe_subscription_identity.py --apply'
+```
+
+It preserves confirmed web/EOD and unlabelled legacy web subscriptions, and
+never clears a paid web tier. A matching single EOD identity can be restored
+atomically with the API move; incomplete, paginated, mismatched, shared, or
+multiple-candidate evidence refuses the whole apply. Then, for users already inside an active
+reverse trial when the migration lands, preview and schedule only their
+trial-end reconcile:
+
+```
+sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/ops/backfill_active_reverse_trial_lifecycle.py'
+sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/ops/backfill_active_reverse_trial_lifecycle.py --apply'
+```
+
+The script does not enroll these users midway through the day-0 automation and
+does not touch expired Explorer accounts. Safe activation order is: deploy
+staging with writes disabled, verify; deploy prod with writes disabled and all
+three group IDs configured; audit and repair Stripe subscription identity; run
+the backfill dry run and apply; finish, test,
+and activate all three MailerLite automations; preview due outbox rows; only
+then set `MAILERLITE_OUTBOUND_ENABLED=1` on prod and restart
+`tradewave-web`. Enrolling people before an automation is active can lose its
+group-join trigger. Emergency stop: set the flag to `0` and restart web; the
+next cron is disabled and queued rows remain durable. One in-flight batch can
+finish at most 15 rows, so remove the lifecycle cron and terminate only that
+worker process if an immediate stop is required.
+
+Stripe deletion is also fail-closed. `customer.subscription.deleted` can
+downgrade a web user only when the event subscription matches
+`users.stripe_subscription_id`, or when a recognizable web/EOD price has no
+conflicting current subscription. An old conflicting deletion is ACKed 200 and
+audited as `stale_subscription_deleted_ignored`. An unsafe unclassified
+deletion is ACKed 200 and audited as
+`unclassified_subscription_deleted_ignored`. Neither path mutates tier or
+queues winback.
+
 ## 1. Code Routing — Per-Directory Tier Assignment
 
 | Path | Contents | Tier |
@@ -119,17 +209,23 @@ I have everything. Now I'll compose the inventory.
 | `users` | `id`(UUID,gen_random_uuid), `workos_user_id`(Text,unique), `email`(Text,unique,NOT NULL), `email_verified`(Bool), `first_name`, `last_name`, `legacy_phpass_hash`(Text), `roles`(JSONB,default=["user"]), `tier`(Text,default="explorer"), `legacy_wp_level`(Text), `stripe_customer_id`(Text,unique), `stripe_subscription_id`(Text), `stripe_subscription_status`(Text), `api_key_hash`(Text), `trial_ends_at`(TIMESTAMPTZ), `created_at`(TIMESTAMPTZ default now()), `updated_at`(TIMESTAMPTZ default now()), `last_login_at`(TIMESTAMPTZ) | id | CHECK `tier IN ('explorer','analyst','strategist','canceled')`; UNIQUE partial index on `stripe_subscription_id WHERE NOT NULL`; index on `api_key_hash`; trigger `users_legacy_wp_level_sync` (BEFORE INSERT/UPDATE of tier); trigger `users_updated_at` BEFORE UPDATE |
 | `audit_log` | `id`(BIGINT), `actor_user_id`(UUID,FK users.id ON DELETE SET NULL), `actor_label`(Text), `action`(Text,NOT NULL), `target_user_id`(UUID,FK users.id ON DELETE SET NULL), `details`(JSONB), `created_at`(TIMESTAMPTZ default now()) | id (bigserial) | FKs users.id |
 | `stripe_events` | `id`(BIGINT), `stripe_event_id`(Text,unique,NOT NULL), `event_type`(Text,NOT NULL), `user_id`(UUID,FK users.id), `payload`(JSONB), `received_at`(TIMESTAMPTZ default now()), `processed_at`(TIMESTAMPTZ), `processing_error`(Text) | id (bigserial) | FK users.id; unique stripe_event_id |
+| `mailerlite_lifecycle_events` | `id`(BIGINT), `user_id`(UUID), `event_type`, `dedupe_key`, `status`, `attempts`, `available_at`, `claimed_at`, `processed_at`, `payload`(JSONB), `last_error`, `created_at`, `updated_at` | id (bigserial) | FK users.id ON DELETE CASCADE; unique dedupe_key; event type and status checks; due-work and user/status indexes |
 | `coupons_used` | `id`(BIGINT), `user_id`(UUID,FK users.id ON DELETE CASCADE,NOT NULL), `stripe_coupon_id`(Text,NOT NULL), `redeemed_at`(TIMESTAMPTZ default now()), `metadata`(JSONB) | id (bigserial) | UNIQUE (user_id, stripe_coupon_id) |
 
 Additional DB objects from `c0d92cd5de83_baseline_schema.py`: `schema_version` (legacy bookkeeping; superseded by alembic_version); `set_updated_at()` PL/pgSQL function used by `users_updated_at` trigger; `users_sync_legacy_wp_level()` from migration 1940d1f63473.
 
 ### Alembic migration chain (in order — bottom-up)
 
+**Current deployment note:** revision `c7a9e2f4d6b8` adds the MailerLite
+lifecycle outbox and `d8c4e6a2f9b1` adds separate API subscription identity.
+The five-entry list below is the May 2026 inventory snapshot, not the current
+head. Routine deploy runs `ops/migrate.sh` before web restart.
+
 1. `c0d92cd5de83_baseline_schema.py` (down_revision = None) — **NO-OP**, stamp-only. Documents the hand-rolled baseline schema; downgrade() raises.
 2. `18eb4ac1baa0_tier_compat_analyst_4_strategist_6_was_.py` (down_revision = c0d92cd5de83) — data-only UPDATEs to correct `users.legacy_wp_level` mapping. Idempotent. downgrade() is no-op.
 3. `1940d1f63473_schema_hardening_tier_check_unique_sub_.py` (down_revision = 18eb4ac1baa0) — adds CHECK constraint, UNIQUE partial index on stripe_subscription_id, UNIQUE on coupons_used(user_id, stripe_coupon_id), trigger `users_legacy_wp_level_sync`.
 4. `4c2f28489e2b_hash_users_api_key_defense_in_depth_for_.py` (down_revision = 1940d1f63473) — adds `users.api_key_hash` Text column + index `users_api_key_hash_idx`.
-5. `5a3c1e2f4d6b_drop_users_api_key_plaintext.py` (down_revision = 4c2f28489e2b) — **drops** the plaintext `users.api_key` column + drops index `idx_users_api_key`. Latest head.
+5. `5a3c1e2f4d6b_drop_users_api_key_plaintext.py` (down_revision = 4c2f28489e2b): **drops** the plaintext `users.api_key` column + drops index `idx_users_api_key`. This was the head at inventory time.
 
 ### Redis namespaces
 
@@ -261,6 +357,10 @@ Additional DB objects from `c0d92cd5de83_baseline_schema.py`: `schema_version` (
 | `SENTRY_DSN` | `''` | | SHARED |
 | `MAILERLITE_API_KEY` | `''` | | WEB (used by `/home/flask/web/email_utils.py`) |
 | `MAILERLITE_GROUP_ID` | `''` | | WEB |
+| `MAILERLITE_OUTBOUND_ENABLED` | `''` (false) | app-originated writes require truthy value plus `TW2_ENV=prod` | WEB |
+| `MAILERLITE_TRIAL_STARTED_GROUP_ID` | `''` | lifecycle trigger ID, no committed default | WEB |
+| `MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID` | `''` | lifecycle trigger ID, no committed default | WEB |
+| `MAILERLITE_WINBACK_GROUP_ID` | `''` | lifecycle trigger ID, no committed default | WEB |
 
 Outside config.py:
 - `/home/flask/web/app.py:151-152` `TW2_AUTH_CALLBACK_URL` (default = `f"http://{TW2_PUBLIC_HOST}/auth/callback"`) — WEB
@@ -284,6 +384,9 @@ Keys present (values redacted in this report — they were observed):
 - FACEBOOK_APP_ID, FACEBOOK_APP_SECRET, FACEBOOK_ACCESS_TOKEN, FACEBOOK_PAGE_ID, FACEBOOK_OPP_PAGES_JSON
 - TW2_WORDPRESS_USERNAME, WORDPRESS_APP_PASSWORD
 - MAILERLITE_TOKEN, MAILERLITE_API_KEY (empty), MAILERLITE_GROUP_ID (empty)
+- Current lifecycle additions: MAILERLITE_OUTBOUND_ENABLED,
+  MAILERLITE_TRIAL_STARTED_GROUP_ID,
+  MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID, MAILERLITE_WINBACK_GROUP_ID
 - SENTRY_DSN (empty)
 - TW2_DOMAIN_ROOT, TW2_APPSERVER_IP, TW2_WEBSERVER_IP, TW2_APPSERVER_URL, TW2_ML_SCORER_URL, TW2_EDGAR_SERVICE_URL, TW2_REALTIME_SERVICE_URL, TW2_UPDATE_SERVER, TW2_LOGCOLLECTOR_URL, TW2_STOCKSCORE_URL, TW2_MASTER_APPSERVER, TW2_BLOG_QUEUE_SERVER, TW2_WORDPRESS_URL, TW2_NEWS_WEBSITE_URL, TW2_SMN_FAVICON_URL, TW2_ARTICLE_FAVICON_URL, TW2_X_PROFILE_URL, TW2_KEYSTORE_URL
 - INDEXNOW_KEY
@@ -298,7 +401,7 @@ Per-env comments in config.py noting prod overrides: WORKOS_*, STRIPE_*, PUBLER_
 |---|---|---|---|---|
 | **WorkOS AuthKit** | WEB | `web/app.py:98-100,140-147,168,204,458,533-561,1470` | WORKOS_API_KEY + WORKOS_CLIENT_ID + WORKOS_COOKIE_PASSWORD + WORKOS_AUTHKIT_DOMAIN | SDK 10s timeout (line 146); raises → caller catches in _read_sealed_session / auth_callback / logout. Hosted UI unreachable = users can't sign in/out. |
 | **Stripe** | WEB | `web/app.py:103-115,712,805,877,910,953,1108,1126,1178,1281,1464` | STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET | RequestsClient timeout=10s + max_network_retries=2. SDK raises → caller logs + 500 to user. Webhook signature verification on `web/app.py:1178`. |
-| **Mailerlite (web)** | WEB | `web/email_utils.py:26,69` POST `https://connect.mailerlite.com/api/subscribers` | MAILERLITE_API_KEY, MAILERLITE_GROUP_ID | 2s timeout; **never raises**; returns False on placeholder/empty/network. Signup path is best-effort. |
+| **Mailerlite (web)** | WEB | `web/mailerlite_lifecycle.py` + `web/email_utils.py`, `https://connect.mailerlite.com/api` | MAILERLITE_API_KEY or MAILERLITE_TOKEN fallback, three lifecycle group IDs, MAILERLITE_OUTBOUND_ENABLED | Signup/Stripe writes durable outbox rows; minute worker retries, reconciles, and verifies managed groups. Writes require explicit prod-only enablement. |
 | **Mailerlite (smn, legacy)** | APP | `smn/publish_article.py:80,5006-5125` (`MailerLite.Client`) + `smn/generate_tw_security_pages.py:140`, `smn/rebuild_news_home.py:109`, `smn/generate_security_pages.py:1548` (GET `https://connect.mailerlite.com/api/groups?limit=100`) | MAILERLITE_TOKEN | SDK exceptions propagate. |
 | **WordPress (legacy)** | APP | `smn/blog_tools.py:123,214,236`, `smn/create_report.py:415,464,731`, `smn/generate_top10_sr.py:341,366,375`, `smn/publish_article.py:484`, `smn/set_redirect.py:31,38,64`, `site/lib/blog_tools.py:123,214,236` — all use `config.post_endpoint_url`, `config.tags_endpoint_url`, `config.redirect_endpoint_url` | TW2_WORDPRESS_URL + TW2_WORDPRESS_USERNAME + WORDPRESS_APP_PASSWORD | requests.* uncaught — caller can 500. **Note: `config.post_endpoint_url` is NOT defined in config.py — it is set elsewhere (or undefined; observed only in usage).** |
 | **OpenAI** | APP | `smn/AI_tools.py:53,85,426,513-524` POST `api.openai.com/v1/chat/completions`, `/v1/images/generations` | OPENAI_KEY | requests timeouts 30-60s; retry_api_call wrapper. |
@@ -442,7 +545,7 @@ WorkOS redirects: user-browser → WorkOS hosted UI → user-browser → `https:
 - `/home/flask/site/static/` — 104M including two MP4s (51M + 54M). Served as marketing assets.
 - `/home/flask/data/*_symbols.csv` (17 small CSVs, ~1MB total) — read by `web/report_renderer.py:410` when generating reports. **Cross-tier file dependency.** Web box does NOT need the full 39G.
 - `/var/www/tradewave/` — 210M static marketing site, generated by `/home/flask/site/generate_*.py`. nginx serves.
-- Postgres `tradewave` database with the 5-migration schema applied (alembic head = `5a3c1e2f4d6b`).
+- Postgres `tradewave` database migrated through the current head, including `c7a9e2f4d6b8` (MailerLite outbox) and `d8c4e6a2f9b1` (separate API subscription identity).
 
 ## 10. Cross-tier Contracts
 
@@ -495,6 +598,12 @@ App-server routes invoked by these callers (subset, from appserver.py route grep
 
 Alembic chain (see §3 for full detail): `c0d92cd5de83 → 18eb4ac1baa0 → 1940d1f63473 → 4c2f28489e2b → 5a3c1e2f4d6b`. Note the baseline migration is **stamp-only** — `alembic upgrade head` from an empty DB will NOT create the tables; the schema has to be created manually first (or copied from a dump), then `alembic stamp head` applied.
 
+That short chain is the original inventory snapshot. Current lifecycle deploys
+must reach at least `c7a9e2f4d6b8`, which creates
+`mailerlite_lifecycle_events`; `ops/deploy.sh` reaches it through the normal
+fail-closed `ops/migrate.sh` step before installing the minute cron and
+restarting web.
+
 The `tests/README.md` documents the schema-copy command:
 ```
 sudo -u postgres psql -c "CREATE DATABASE tradewave OWNER tradewave;"
@@ -504,6 +613,9 @@ sudo PGPASSWORD=... psql -h 127.0.0.1 -U tradewave -d tradewave -f schema.sql
 For a brand-new staging-web Postgres, the baseline DDL must come from a dump of the dev DB (or be authored by hand). After that, `alembic stamp head` (or `alembic upgrade head` since migrations 18eb4ac1baa0 onwards are real DDL).
 
 **One-time backfill scripts:**
+- `/home/flask/ops/backfill_active_reverse_trial_lifecycle.py` schedules only
+  the trial-end reconcile for Explorer users whose reverse trial is still
+  active. It is dry-run by default; run `--apply` only after inspecting counts.
 - `/home/flask/web/db_admin.py` — the `hash-api-keys` subcommand is **deprecated/refused** (plaintext column was dropped). No active operational subcommands.
 - `/home/flask/smn/article_post_process.py:1436` `backfill_site_wrapper(force=False)` — re-wraps existing SMN articles in the latest site shell; `--force` flag.
 - No `migrate_*` / `import_*` / `seed_*` files exist anywhere outside `/home/flask/migrations/`.
@@ -564,6 +676,7 @@ pg_dump --schema-only --no-owner <prod_db> | psql tradewave_test
 | `restore_drill.log` | ops/restore_drill.sh |
 | `soak.log` | ops/soak_monitor.sh |
 | `uptime.log` | ops/uptime_check.sh |
+| `mailerlite_lifecycle.log` | once-per-minute durable lifecycle worker on the web box |
 | `scorecard.log` | cron `site/generate_scorecard.py` (web-side cron) |
 | `security_pages.log` | cron `site/generate_security_pages.py` (web-side cron) |
 | `select_news.log` | cron `smn/select_news_articles.py` (app-side cron) |
@@ -624,7 +737,10 @@ The following cannot be determined from the dev codebase + dev config and must b
 15. **Is the legacy `data_updater/config.py` ever loaded** at runtime in some path I missed, or can it be ignored? The grep shows only `update_client2.py` and EOD_downloader_bulk* do `sys.path.insert(0, '/home/flask'); import config`, so they pick up the top-level one, not the local data_updater/config.py. But if any other script in data_updater/ runs from data_updater/ working dir without that sys.path insert, it could shadow.
 16. **The `legacy_phpass_hash` column** has no importer code. Was a WP→Postgres migration ever performed on staging, or is staging starting empty with `users` rows created lazily via `/auth/callback` from WorkOS? If the former, where is the import script? The README/migrations don't reference one.
 17. **Sentry DSN** is empty in secrets.env. Is Sentry expected to be enabled on staging, and what's the DSN?
-18. **MAILERLITE_API_KEY** and **MAILERLITE_GROUP_ID** are empty in dev secrets.env. The smn-side uses `MAILERLITE_TOKEN` (set), but the web-side `web/email_utils.py` uses MAILERLITE_API_KEY / MAILERLITE_GROUP_ID (empty) — so signup-flow newsletter subscription is silently disabled. Should it be enabled on staging?
+18. **MailerLite application writes are intentionally disabled on staging.**
+    Keep `MAILERLITE_OUTBOUND_ENABLED=0`; `config.py` also requires
+    `TW2_ENV=prod`. Validate outbox state with the worker's `--dry-run` mode and
+    do not point staging at production lifecycle trigger groups.
 19. **`TW2_APPSERVER_IP=192.168.68.151`** in dev secrets.env is anomalous (the dev box is 192.168.1.176). Is this a stale value that needs replacement, or is there a third remote service at that address? It is read by `smn/email_tools.py:25` (`redis.Redis(host=config.appserver_ip, port=6379, db=2)`); on dev this would fail to connect unless 192.168.68.151 actually responds.
 20. **Does the staging-app box need a `data_updater/symbols_US.txt`** (or other downloadable seeds)? Currently `data_updater/EOD_downloader_bulk.py` and `create_symbol_file2.py` re-fetch from EODHD on demand.
 21. **Stripe Price IDs / Product IDs** — config.py:32 says "Create 4 Products in Stripe dashboard, copy each Price ID" but no Price IDs are stored in config.py. They must be discovered dynamically via `stripe.Price.list(...)` (see `web/app.py:805`). Confirm staging Stripe has the 4 products + prices created.
@@ -778,6 +894,9 @@ This replaces §16.3 — all 14 active entries plus `update_client2.py` (which g
 30 3 * * * /home/flask/ops/backup_db.sh >/dev/null 2>&1
 */30 * * * * /home/flask/ops/soak_monitor.sh >/dev/null 2>&1
 
+# === Durable MailerLite application lifecycle (no writes on staging) ===
+* * * * * { test -r /etc/tradewave/secrets.env && set -a && . /etc/tradewave/secrets.env && set +a && cd /home/flask && /home/flask/venv/bin/python /home/flask/web/mailerlite_lifecycle.py --limit 15; } >> /var/log/tradewave/mailerlite_lifecycle.log 2>&1
+
 # === SMN Article Pipeline ===
 # These reference smn/ which lives on the APP box. If smn/ is rsync'd to
 # the web box too (per the "ship everything to both boxes" plan), keep
@@ -820,6 +939,15 @@ In addition to the existing TW2 keys, the new scripts need:
 ```
 SMN_EMAIL_GROUP_ID=<mailerlite group id for SMN subscribers>
 DAILY_AI_PICK_GROUP_ID=<mailerlite group id for daily AI pick subscribers>   # optional; falls back to SMN
+MAILERLITE_OUTBOUND_ENABLED=0
+MAILERLITE_TRIAL_STARTED_GROUP_ID=
+MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID=
+MAILERLITE_WINBACK_GROUP_ID=
 ```
 
 PUBLER_*, FACEBOOK_*, MAILERLITE_TOKEN, EOD_TOKEN are already in secrets.env (we just verified all are populated on dev).
+
+The blank lifecycle IDs and disabled flag are deliberate on staging. Production
+gets the three reviewed trigger IDs but stays disabled until every automation
+is active and the outbox/backfill previews have been checked. See the current
+deployment addendum at the top of this file and `ops/OPERATIONS.md` §3a.

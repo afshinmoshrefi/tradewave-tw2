@@ -23,7 +23,7 @@ To sync staging+prod with the latest code: (React build if `web-react/src` chang
 | dev (single box, all tiers) | 192.168.1.176 | — | tw2-dev.trxstat.com | local |
 | stage-web | 185.53.209.8 | 10.0.0.94 | tw2-stage.trxstat.com | `ssh root@185.53.209.8 -p 4369` |
 | stage-app | 199.244.48.157 | 10.0.0.92 | tw2-stage-app.trxstat.com | `ssh root@199.244.48.157 -p 4369` |
-| prod-web | 194.113.195.141 | 10.0.0.98 | tw2-prod.trxstat.com (→ tradewave.ai at cutover) | `ssh root@194.113.195.141 -p 4369` |
+| prod-web | 194.113.195.141 | 10.0.0.98 | tradewave.ai | `ssh root@194.113.195.141 -p 4369` |
 | prod-app | 138.128.240.115 | 10.0.0.96 | tw2-prod-app.trxstat.com | `ssh root@138.128.240.115 -p 4369` |
 
 2 CPU / 2 GB each. TW1 prod web is `10.0.0.40` (Kamatera VLAN). Prod SSH is `root@<ip> -p 4369`, same pattern as staging (confirmed 2026-05-22).
@@ -78,14 +78,36 @@ The app derives `domain_root`/`tw2_public_url` from **`TW2_PUBLIC_HOST`**; if un
 ```
 ssh root@<box> -p 4369 "grep -E 'TW2_PUBLIC_HOST|TW2_ENV' /etc/tradewave/secrets.env; systemctl cat tradewave-web 2>/dev/null | grep TW2_PUBLIC_HOST"
 ```
-Expect: staging → `tw2-stage.trxstat.com` (+ `TW2_ENV=staging`); prod → `TW2_PUBLIC_HOST=tw2-prod.trxstat.com` + `TW2_ENV=prod`. A systemd `override.conf` wins over `secrets.env`.
+Expect: staging → `tw2-stage.trxstat.com` (+ `TW2_ENV=staging`); prod →
+`TW2_PUBLIC_HOST=tradewave.ai` + `TW2_ENV=prod`. The deploy preflight requires
+`TW2_ENV` in `secrets.env` on both boxes because cron does not inherit a systemd
+override. A systemd override may still replace `TW2_PUBLIC_HOST` for a service,
+so keep it consistent with `secrets.env`.
+
+MailerLite application lifecycle writes are separately fail-closed. On staging,
+keep `MAILERLITE_OUTBOUND_ENABLED=0`; `config.py` also requires `TW2_ENV=prod`, so
+a staging token cannot mutate the shared MailerLite account. Before production
+activation, the prod web box needs these values in `/etc/tradewave/secrets.env`:
+
+```
+TW2_ENV=prod
+MAILERLITE_API_KEY=<connect API credential, or use the existing MAILERLITE_TOKEN fallback>
+MAILERLITE_TRIAL_STARTED_GROUP_ID=<new-signup 7-day journey trigger group>
+MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID=<post-trial Explorer journey trigger group>
+MAILERLITE_WINBACK_GROUP_ID=<former-paid Explorer trust-letter trigger group>
+MAILERLITE_OUTBOUND_ENABLED=0
+```
+
+Leave the final flag at `0` until every automation is fully designed, tested,
+and active. Group IDs are environment configuration and must not be hardcoded
+in `config.py`.
 
 ### 2. Server code — pull on BOTH boxes, restart by what changed
 
 Each pull is followed by `pip install -r requirements.txt` (a dependency that's in requirements.txt but not installed crash-loops the gunicorn workers into a 502 - this is what had staging broken).
 ```
 # WEB box   (stage 185.53.209.8 / prod 194.113.195.141):
-ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-web && sudo systemctl is-active tradewave-web'
+ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo -u flask bash /home/flask/ops/migrate.sh && sudo bash /home/flask/ops/install_mailerlite_lifecycle_cron.sh && sudo systemctl restart tradewave-web && sudo systemctl is-active tradewave-web'
 # APP box   (stage 199.244.48.157 / prod 138.128.240.115):
 ssh root@<app> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
 # SMN pipeline daemons run on the WEB box (Type=simple, load smn/ at startup) — bounce them too when smn/ daemon code changed (the pull above already updated the code).
@@ -97,6 +119,8 @@ Restart matrix (which service to bounce after the pull):
 | Changed | Restart |
 |---|---|
 | `web/` (app.py, models.py) | `tradewave-web` (web box) |
+| `migrations/` | run `ops/migrate.sh` before restarting `tradewave-web` (routine `deploy.sh` does this) |
+| `web/mailerlite_lifecycle.py` or its cron | run `ops/install_mailerlite_lifecycle_cron.sh`; the next minute uses the new worker |
 | `appserver/` | `tradewave-appserver` (app box) |
 | `web/report_renderer.py` | `tradewave-web` **and** `tradewave-appserver` (appserver invokes it via `dr_report_publish`) |
 | `smn/` used by the pipeline services | `tradewave-blog-queue` + `tradewave-article-processor` (web box) |
@@ -106,6 +130,7 @@ Restart matrix (which service to bounce after the pull):
 | `web-react/` | none — rsync the bundle (step 2b) |
 | `ops/nginx/` | reload nginx (step 3) |
 | `secrets.env` / systemd units (NOT in git) | edit box-side, then `systemctl daemon-reload` + restart affected svc |
+| MailerLite lifecycle values in `secrets.env` | restart `tradewave-web`; each cron invocation also sources the new values |
 
 ### 2b. React bundle (build/ is gitignored - rsync to a release dir + symlink swap, NOT pull)
 `/home/flask/web-react/build` is a **symlink** to `releases/build-<commit>`; nginx serves `/app/` through it. Deploy = ship a new release dir named by the source commit hash, then repoint the symlink (keeps `build-previous` for instant rollback). Build once on dev, ship the same bundle to stage-web then prod-web:
@@ -128,8 +153,83 @@ Rollback (instant, no hash): `cd /home/flask/web-react && ln -sfn "$(readlink bu
   ```
   ⚠ `generate_home_page.py` still has hardcoded `CANONICAL_ROOT=tw2.trxstat.com` / `APPSERVER_URL=app1pp…` — make those env-driven before relying on a prod regen. (Otherwise it bakes the wrong host into the home page.)
 
+### 3a. MailerLite lifecycle outbox and activation
+
+`mailerlite_lifecycle_events` is the durable application-email outbox. Signup
+and Stripe paths insert a deduplicated `reconcile` or `clear_paid` event in the
+same Postgres transaction as the user or billing change. They do not call
+MailerLite on the request path. The web-box cron runs once per minute, claims at
+most 15 due rows, derives the desired state from the current `users` row, and
+reconciles exactly one of these mutually exclusive trigger groups:
+
+- `trial_started`: a first-time Explorer whose reverse trial is still active.
+- `trial_ended_explorer`: that same first-time user's trial has ended without a paid subscription.
+- `winback_explorer`: a former paid subscriber whose current web subscription ended.
+- no lifecycle group: any current payer, local opt-out, or explicit `clear_paid` event.
+
+The worker verifies MailerLite membership after each mutation. Network errors,
+429s, and server errors remain retryable; a ten-minute stale claim is recovered.
+A Postgres advisory lock prevents overlapping cron invocations. The canonical
+entry is installed idempotently by `ops/install_mailerlite_lifecycle_cron.sh`
+and by both routine deploy and `make_bulletproof.sh`:
+
+```cron
+* * * * * { test -r /etc/tradewave/secrets.env && set -a && . /etc/tradewave/secrets.env && set +a && cd /home/flask && /home/flask/venv/bin/python /home/flask/web/mailerlite_lifecycle.py --limit 15; } >> /var/log/tradewave/mailerlite_lifecycle.log 2>&1
+```
+
+Safe production rollout, in order:
+
+1. Keep `MAILERLITE_OUTBOUND_ENABLED=0`. Deploy to staging with `TW2_ENV=staging` and verify. The Alembic outbox migration and cron installation run before the web restart.
+2. Before deploying prod, set `TW2_ENV=prod`, populate the MailerLite credential and all three lifecycle group IDs, and keep the outbound flag at `0`. Then deploy prod.
+3. Audit stored Stripe subscription identities before lifecycle backfill. The
+   first command is Stripe-backed but read-only. It pages every subscription
+   for each affected Stripe customer. Resolve every `blocking` row; with
+   explicit `TW2_ENV=prod` and outbound still disabled, apply the proven API
+   identity moves and rerun the dry run:
+   ```
+   sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/ops/audit_stripe_subscription_identity.py'
+   sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/ops/audit_stripe_subscription_identity.py --apply'
+   ```
+   The audit preserves confirmed web/EOD and unlabelled legacy web identities,
+   and never clears a paid web tier. One matching EOD identity can be restored
+   atomically; incomplete pagination, customer/tier/status mismatch, shared
+   IDs, or multiple candidate subscriptions refuse the whole apply.
+4. Schedule only the post-trial transition for users whose reverse trial was already active when this code deployed. The first command is a dry run; inspect its counts before applying:
+   ```
+   sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/ops/backfill_active_reverse_trial_lifecycle.py'
+   sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/ops/backfill_active_reverse_trial_lifecycle.py --apply'
+   ```
+   This deliberately does not put an existing user midway into the day-0 trial journey and does not touch expired Explorer accounts.
+5. In MailerLite, finish the designs and links, send tests, and activate all three automations. Do not enroll subscribers while an automation is inactive because a group-join trigger may not replay later.
+6. Preview due work without claiming rows or contacting MailerLite:
+   ```
+   sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/web/mailerlite_lifecycle.py --dry-run --limit 15'
+   ```
+7. Set `MAILERLITE_OUTBOUND_ENABLED=1` on the prod web box and restart `tradewave-web`. The next cron tick drains due rows using current user state.
+8. Confirm the cron and watch the first batches:
+   ```
+   sudo -u flask crontab -l | grep mailerlite_lifecycle.py
+   tail -f /var/log/tradewave/mailerlite_lifecycle.log
+   ```
+
+Emergency stop: set `MAILERLITE_OUTBOUND_ENABLED=0` and restart
+`tradewave-web`. The next cron invocation is disabled and pending rows remain
+durable. One already-running batch can finish at most 15 rows; for an immediate
+stop, remove the lifecycle cron line and terminate only the exact
+`/home/flask/web/mailerlite_lifecycle.py` process, then confirm the log is quiet.
+
+Stripe deletion safety is part of the same flow. A
+`customer.subscription.deleted` event can downgrade the web tier only when its
+subscription ID matches `users.stripe_subscription_id`, or when its price is
+recognizably a web/EOD price and there is no conflicting current subscription.
+A delayed deletion for an older subscription is acknowledged with HTTP 200,
+does not mutate the user, and records `stale_subscription_deleted_ignored`.
+An unclassified deletion is likewise ignored and records
+`unclassified_subscription_deleted_ignored`. This prevents a current payer
+from being downgraded or enrolled in winback by an out-of-order Stripe event.
+
 ### 4. Verify on the env's own hostname
-`tw2-stage.trxstat.com` / `tw2-prod.trxstat.com`: login + logout (same-origin, works on first click), a report page renders, `/app/` loads with the console quiet (consoleGuard), `/api/me` returns the right tier. **Only then promote to the next env.**
+`tw2-stage.trxstat.com` / `tradewave.ai`: login + logout (same-origin, works on first click), a report page renders, `/app/` loads with the console quiet (consoleGuard), `/api/me` returns the right tier. **Only then promote to the next env.**
 
 ### Rollback
 `ssh root@<box> -p 4369 'sudo -u flask git -C /home/flask reset --hard <prev-sha> && systemctl restart <svc>'` (last resort; prefer fixing forward). React: `cd /home/flask/web-react && ln -sfn "$(readlink build-previous)" build` (instant, above).
@@ -278,7 +378,7 @@ requirements-api.txt`).
 
 - **DB backups**: `ops/backup_db.sh` nightly 03:30 on stage-app → `/var/backups/tradewave/db_*.sql.gz`, 14-day prune. Restore verified weekly by `ops/restore_drill.sh`. **Restore test: `sudo -u flask /home/flask/ops/restore_drill.sh` on stage-app — must say PASS.**
 - **Logs**: logrotate daily ×14 + journald capped 500 M. Disk-fill (the #1 "breaks every few days") is contained.
-- **Crons**: full set on stage-web flask crontab (SMN pipeline, security pages, homepage, scorecard, quotes, daily AI pick, SMN emails daily+weekly, social). `expire_trials` 04:15. EOD refresh 23:36. Ticker regen 02:00 + hourly 09-16.
+- **Crons**: full set on stage-web flask crontab (SMN pipeline, security pages, homepage, scorecard, quotes, daily AI pick, SMN emails daily+weekly, social). The durable MailerLite lifecycle worker runs every minute and is a no-write operation unless production explicitly enables it. `expire_trials` runs at 04:15. EOD refresh runs at 23:36. Ticker regeneration runs at 02:00 + hourly 09-16.
 - **Uptime/soak**: `uptime_check.sh` (every 5 min) + `soak_monitor.sh` (every 30 min) log to `/var/log/tradewave/`. **Notification gap: these only log. Proper fix = external uptime monitor (Cloudflare Health Checks or an external pinger hitting `https://tw2-stage.trxstat.com/healthz`) — not a homegrown emailer. Set this up in the Cloudflare dashboard.**
 
 ## Security posture

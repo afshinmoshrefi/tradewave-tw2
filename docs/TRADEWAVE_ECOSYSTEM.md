@@ -275,8 +275,17 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
   `SUPPORT_EMAIL_TO/FROM`, `SUPPORT_IP_HASH_SALT` - see §5A),
   service URLs `TW2_ML_SCORER_URL/STOCKSCORE_URL/REALTIME_SERVICE_URL/EDGAR_SERVICE_URL/
   UPDATE_SERVER/KEYSTORE_URL/MASTER_APPSERVER/BLOG_QUEUE_SERVER/NEWS_WEBSITE_URL`).
+- MailerLite application lifecycle configuration is explicit and fail-closed:
+  `MAILERLITE_OUTBOUND_ENABLED`, `MAILERLITE_TRIAL_STARTED_GROUP_ID`,
+  `MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID`, and
+  `MAILERLITE_WINBACK_GROUP_ID`. `MAILERLITE_OUTBOUND_ENABLED` is effective only
+  when it is truthy AND `TW2_ENV=prod`; lifecycle group IDs have no committed
+  defaults. Dev and staging can therefore hold a shared account token without
+  mutating production subscribers. Level-group IDs remain stable account-level
+  identifiers in `config.MAILERLITE_LEVEL_GROUPS`.
 - systemd loads it via `EnvironmentFile=`; a `<unit>.service.d/override.conf`
-  `Environment=` wins over secrets.env.
+  `Environment=` wins for that service only. Cron does not inherit the override,
+  so `TW2_ENV` must also be explicit in `/etc/tradewave/secrets.env`.
 > **GOTCHA:** the `TW2_*_URL` service URLs must use the **VLAN `10.0.0.x`** addresses
 > from inside the Kamatera network, not the public `104.238.214.253` (the central
 > box allowlists by source IP -> public IP gets 403). `make_staging_secrets.sh`
@@ -321,13 +330,24 @@ Flask-rendered (static from `/var/www/tradewave/`).
   end of an ACTIVE reverse trial, '' otherwise). `/api/me` likewise returns
   `effective_tier` + `trial_ends_at` (additive) and derives
   `wp_user_levels`/`legacy_wp_level` from the effective tier.
+- **MailerLite lifecycle outbox:** signup and web-subscription Stripe paths write
+  `mailerlite_lifecycle_events` in the SAME Postgres transaction as the user or
+  billing mutation. `web/mailerlite_lifecycle.py` runs from the web-box flask
+  crontab once per minute, derives the desired journey from the current User row,
+  reconciles and verifies mutually exclusive `trial_started`,
+  `trial_ended_explorer`, and `winback_explorer` trigger groups, and retries
+  failures. No MailerLite HTTP call runs on the signup or Stripe request path.
+  `reconcile` and `clear_paid` are permanent storage IDs. Paid checkout clears
+  all lifecycle triggers; a local opt-out is removed from managed lifecycle
+  groups and is never reactivated.
 - **Admin:** Flask-Admin gated on `super_admin` role; `UserAdmin` validates
   `roles` against `models.ROLES`. **Roles single source of truth = `models.py:ROLES`**
   = `{super_admin, user, newsroom_author, service_account}`.
 - **`report_renderer.py`:** renders a static date-range report (HTML + 3 PNGs) to
   `/var/www/tradewave/r/<slug>/`; invoked by the appserver via
   `/internal/render_report` (semaphore-limited to 4 concurrent).
-(Source: `web/app.py`, `web/models.py`, `web/report_renderer.py`, `web/tier_compat.py`.)
+(Source: `web/app.py`, `web/models.py`, `web/mailerlite_lifecycle.py`,
+`web/email_utils.py`, `web/report_renderer.py`, `web/tier_compat.py`.)
 
 ---
 
@@ -841,7 +861,8 @@ guide itself does NOT yet mention the purple line (stale guide; fixing it needs 
 **Routine deploy = `bash ops/deploy.sh {staging|prod}`** from dev. Per env:
 pre-flight (`TW2_PUBLIC_HOST` set on both boxes, else abort) -> per tier
 `git pull --ff-only` + `pip install -r requirements.txt` (mandatory - a missing
-dep crash-loops workers into a 502) + restart (`tradewave-appserver` on app;
+dep crash-loops workers into a 502) + web-box `ops/migrate.sh` + idempotent
+`ops/install_mailerlite_lifecycle_cron.sh` + restart (`tradewave-appserver` on app;
 `tradewave-web` + `tradewave-blog-queue` + `tradewave-article-processor` on web)
 + `is-active` -> React symlink-swap -> nginx CSP reload. Full detail +
 restart-matrix: `ops/OPERATIONS.md`.
@@ -864,11 +885,12 @@ prereq). See `project_tw2_content_sync.md`.
 always-on processor), security pages, `home_opportunities.py` (00:04),
 `generate_home_page.py` (07:00), `generate_scorecard.py` (every 10m, 09-16),
 `update_news_quotes.py` (every min), SMN emails, daily-AI-pick email + social,
-EOD `update_client2.py` (23:36), ticker regen (02:00 + hourly 09-16). App box:
+`web/mailerlite_lifecycle.py --limit 15` (every minute), `expire_trials.py`
+(04:15), EOD `update_client2.py` (23:36), ticker regen (02:00 + hourly 09-16).
+The MailerLite worker takes a Postgres advisory lock, reclaims ten-minute stale
+claims, and is a no-write operation unless production explicitly enables it.
+App box:
 DB backup 03:30 + weekly restore drill. (`make_bulletproof.sh`, `OPERATIONS.md §16`.)
-> **GAPS:** `expire_trials.py` (15 04) is NOT installed by `make_bulletproof.sh`;
-> `generate_home_page.py` still hardcodes `CANONICAL_ROOT=tw2.trxstat.com` /
-> `APPSERVER_URL=app1pp` (fix before a prod home regen).
 
 **Box rebuild from scratch:** 17 ordered idempotent steps in `ops/staging/`
 (bootstrap OS -> code+venv -> secrets -> schema -> data lift -> services ->
@@ -907,7 +929,15 @@ bulletproof). See `OPERATIONS.md`.
   + auto-disable. Prices are pulled live from active Stripe prices filtered by
   product metadata (`product_line=eod`, `tier`, `period`) - NOT hardcoded;
   in-process cache, restart `tradewave-web` after a price change. 7-day trial in
-  checkout; Stripe Billing Portal for cancel/manage.
+  checkout; Stripe Billing Portal for cancel/manage. A
+  `customer.subscription.deleted` event is allowed to downgrade the web tier
+  only when its subscription ID matches `users.stripe_subscription_id`, or when
+  the event has a recognizable web/EOD price and no conflicting current
+  subscription. A delayed delete for an older subscription is ACKed 200 without
+  mutation and audited as `stale_subscription_deleted_ignored`; an event that
+  cannot safely be classified is audited as
+  `unclassified_subscription_deleted_ignored`. This prevents an out-of-order
+  delete from downgrading a current payer or enrolling that payer in winback.
 - **Legacy billing (handled by design, NOT a blocker):** TW1's UMP created one
   Stripe price per subscriber (~14+ no-metadata legacy prices, e.g. strategist
   $189/yr). TW2's active+metadata price cache can't map them - but it does not need
@@ -925,25 +955,50 @@ bulletproof). See `OPERATIONS.md`.
   ($19/mo, $168/yr; added 2026-06-25) = entry paid tier, Dow+NASDAQ+S&P (ids 0,1,2,
   date-unlocked; the rest date-locked teasers), legacy level '2'. users.tier CHECK +
   the legacy_wp_level sync trigger were widened for it in migration a1f4d2c9e7b3.
-- **Mailerlite level-group sync (TW1/UMP parity, added 2026-05-25):** every account is
-  kept in EXACTLY the Mailerlite group matching its (tier, billing-period):
-  `explorer` / `analyst_monthly` / `analyst_yearly` / `strategist_monthly` / `strategist_yearly`
-  (IDs in `config.MAILERLITE_LEVEL_GROUPS`). `email_utils.sync_mailerlite_level_group()`
-  adds to the target group + removes from the other 4; it is wired into every tier-change
-  point: signup (`lazy_create_user` -> explorer, new_user fast path), `/stripe/success`,
-  the Stripe webhook (`subscription.created/updated` -> tier+period, fires on EVERY mappable
-  event so a same-tier monthly<->yearly switch still moves groups; `deleted` -> explorer),
-  `expire_trials.py` (-> explorer), and Flask-Admin `UserAdmin.after_model_change`. Best-effort
-  (never blocks signup/billing). Period isn't stored in Postgres -> the webhook/success have it
-  in scope; the reconcile derives it from the live Stripe price; a manual paid grant with no
-  derivable period is SKIPPED + logged for manual placement. Rules: only the 5 LEVEL groups are
-  ever touched (SMN/newsletter/webinar untouched); unsubscribed subscribers are never ADDED
-  (only removed from wrong groups - can't reactivate). One-time/idempotent reconcile:
+- **MailerLite level segmentation + durable lifecycle automation (rebuilt
+  2026-07-13):** LEVEL groups describe current access only and remain exactly
+  one of `explorer`, `navigator_monthly/yearly`, `analyst_monthly/yearly`, or
+  `strategist_monthly/yearly` (`config.MAILERLITE_LEVEL_GROUPS`). LIFECYCLE
+  groups are separate, mutually exclusive automation triggers:
+  `trial_started`, `trial_ended_explorer`, and `winback_explorer`
+  (`config.MAILERLITE_LIFECYCLE_GROUPS`). The shared Explorer LEVEL group must
+  never trigger a lifecycle automation because it contains first-time free
+  users, post-trial users, and former payers.
+
+  Critical signup and web-billing paths use the durable
+  `mailerlite_lifecycle_events` outbox (migration `c7a9e2f4d6b8`). A new signup
+  atomically queues an immediate reconcile plus a reconcile scheduled for
+  `reverse_trial_ends_at`. Paid checkout/subscription events atomically queue a
+  clear or reconcile so a purchase removes trial/winback triggers. A valid
+  current-subscription deletion changes the user to Explorer and queues the
+  winback reconcile. Dedupe keys make callback refreshes and Stripe retries
+  harmless. MailerLite HTTP is outside the request transaction.
+
+  The once-per-minute `web/mailerlite_lifecycle.py` worker derives the desired
+  state from the CURRENT User row, not the historical event payload; this makes
+  delayed events converge safely. It removes old lifecycle groups before adding
+  the one desired group, verifies final membership, never reactivates an
+  inactive/unsubscribed subscriber, retries failures with bounded backoff, and
+  recovers stale claims. Access-level reconciliation follows the lifecycle
+  transition. `reconcile` and `clear_paid` are permanent storage IDs.
+
+  Production writes require both `TW2_ENV=prod` and
+  `MAILERLITE_OUTBOUND_ENABLED=1`, plus all three lifecycle group IDs. Until
+  then the outbox remains durable but the worker consumes nothing. Safe launch
+  order is deploy with writes disabled, run
+  `ops/audit_stripe_subscription_identity.py` dry-run then `--apply`, run
+  `ops/backfill_active_reverse_trial_lifecycle.py` dry-run then `--apply`,
+  finish/test/activate all three MailerLite automations, preview the outbox, and
+  only then enable writes. The backfill schedules only the post-trial reconcile
+  for trials already active at deployment; it never drops an existing user into
+  the middle of the day-0 sequence and never touches expired Explorers. Full
+  commands and emergency stop: `ops/OPERATIONS.md` §3a.
+
+  Only managed LEVEL and LIFECYCLE groups are touched; SMN/newsletter/webinar
+  groups are outside this reconciler. A direct SaaS-created subscriber carries
+  `status:"active"` to avoid MailerLite double opt-in; the public SMN form keeps
+  its own confirmation behavior. The older one-time level audit remains
   `ops/migrate/reconcile_mailerlite.py` (dry-run default, `--apply`).
-  IMPORTANT: every subscriber CREATE sends `status:"active"` so it's a direct/single-opt-in add
-  (TW1 SaaS-signup parity) and does NOT fire MailerLite's double-opt-in "confirm your subscription"
-  email. Omitting status lets the account default (double-opt-in is ON) email the user - which is
-  reserved for the SMN newsletter FORM, not app/SaaS adds.
 - **Cutover (TW1 -> tradewave.ai), per `ops/PROD_CUTOVER.md`:** Phase 1 (days
   ahead): lower TTL to 60s, add `tradewave.ai` to prod tunnel ingress, WorkOS prod
   redirect URI, Stripe prod webhook, pre-seed `users` from a TW1 DB dump. Phase 2
@@ -1007,7 +1062,9 @@ roadmap memories.)
    `level_access_hierarchy['1']` = DJ30 only (`['0']`). NO tier mutation: the
    elevation happens at token-mint time (`web/app.py effective_tier`), so
    expiry is implicit and needs NO cron (`expire_trials.py` is the separate
-   admin-granted-trial sweep and never touches reverse trials). The paired
+   admin-granted-trial sweep and never touches reverse trials). A MailerLite
+   outbox row may be scheduled for the same cutoff, but it changes email-group
+   membership only and never grants, expires, or mutates product access. The paired
    React default-security fallback (App.js falls back to the first accessible
    security) is what makes a DJ30-only list safe - do not remove it.
 2. **Resource keys are permanent:** keys `'0'..'16'` are stable IDs (Korea 14/15
@@ -1039,6 +1096,16 @@ roadmap memories.)
     live ONLY in `tiers.INTERNAL_TIERS` (never `API_TIERS`; a module assert enforces it).
     A sold tier with `service:True` would let a paying key impersonate any user's metering.
     Delegation swaps the metering id ONLY (`cb:<uid>`), never entitlements (no scope escalation).
+17. **Stripe deletion must match current web state:** never downgrade a user from
+    `customer.subscription.deleted` when the deleted subscription ID conflicts
+    with `users.stripe_subscription_id`. Missing/unrecognized price plus no
+    matching current subscription is unclassified and must also be ignored.
+    Both cases ACK 200 and write their dedicated audit action.
+18. **MailerLite lifecycle triggers are not access groups:** the shared Explorer
+    LEVEL group must never trigger onboarding or winback. Only the three
+    environment-configured LIFECYCLE groups may trigger those automations.
+    Every app-originated MailerLite mutation requires the explicit prod-only
+    outbound gate; `reconcile` and `clear_paid` are permanent outbox storage IDs.
 
 ---
 
@@ -1154,9 +1221,10 @@ re-verification reclassified them. Only treat the REAL list as work.
 **VERIFY / STATUS (not code bugs):**
 - Stripe Checkout prices: confirm the 4 EOD prices carry correct launch pricing +
   `product_line=eod` metadata (live Stripe dashboard check).
-- TW2 prod: already deployed + ~95% verified at the placeholder `tw2-prod.trxstat.com`
-  (Afshin, 2026-05-22). Remaining ~5% overlaps gaps C/D + the prod-app service-account.
-  The `tradewave.ai` flip is the separate cutover session.
+- TW2 prod: the May 2026 `tw2-prod.trxstat.com` placeholder status is historical.
+  The current production hostname and deployment target is `tradewave.ai`; do
+  not use the placeholder for launch verification. Remaining verification
+  overlaps gaps C/D + the prod-app service-account.
 
 ---
 

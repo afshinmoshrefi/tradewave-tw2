@@ -10,8 +10,8 @@ sign-in via WorkOS. It has to be:
   * able to backfill workos_user_id onto an existing email-only row
   * able to detect a WorkOS-side email change and sync + audit it
 
-Each of those branches is covered below. We patch `mailerlite_subscribe`
-to a no-op so signup tests do not trigger an outbound HTTP call.
+Each of those branches is covered below. Signup now writes two durable
+Mailerlite lifecycle outbox rows and performs no outbound HTTP call.
 """
 from __future__ import annotations
 
@@ -41,14 +41,6 @@ def app_module(_models_module):
     return mod
 
 
-@pytest.fixture(autouse=True)
-def stub_mailerlite(app_module):
-    """The signup happy path calls mailerlite_subscribe(); stub it so
-    no test ever fires a real HTTP request to Mailerlite."""
-    with patch.object(app_module, "mailerlite_subscribe", return_value=False) as m:
-        yield m
-
-
 @pytest.fixture
 def stub_audit(app_module):
     """Capture write_audit() calls so tests can assert they happened
@@ -62,7 +54,8 @@ def stub_audit(app_module):
 # ---------------------------------------------------------------------
 
 class TestHappyPathCreate:
-    def test_creates_explorer_user(self, app_module, db_session, mock_workos_user, stub_audit):
+    def test_creates_explorer_user(self, app_module, db_session, _models_module,
+                                   mock_workos_user, stub_audit):
         wu = mock_workos_user(email="brandnew@example.com")
         u = app_module.lazy_create_user(wu)
         assert u is not None
@@ -82,6 +75,13 @@ class TestHappyPathCreate:
         stub_audit.assert_called()
         call_kw = stub_audit.call_args.kwargs
         assert call_kw["action"] == "user_created"
+
+        rows = db_session.query(_models_module.MailerLiteLifecycleEvent).filter_by(
+            user_id=u.id,
+        ).order_by(_models_module.MailerLiteLifecycleEvent.available_at).all()
+        assert [row.event_type for row in rows] == ["reconcile", "reconcile"]
+        assert rows[0].dedupe_key == f"signup:{u.id}"
+        assert rows[1].dedupe_key.startswith(f"reverse-trial-end:{u.id}:")
 
     def test_super_admin_role_for_afshin(self, app_module, mock_workos_user, stub_audit):
         wu = mock_workos_user(email="afshin@tradewave.ai")
@@ -107,6 +107,9 @@ class TestIdempotent:
             workos_user_id="user_repeat_42",
         ).count()
         assert cnt == 1
+        assert db_session.query(_models_module.MailerLiteLifecycleEvent).filter_by(
+            user_id=u1.id,
+        ).count() == 2
 
         # GA4: the SECOND call is a plain login, not a new signup - must not
         # be marked (this is the flag auth_callback gates sign_up on).

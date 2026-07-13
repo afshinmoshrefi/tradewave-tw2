@@ -39,6 +39,12 @@ def app_module():
     return importlib.import_module("app")
 
 
+@pytest.fixture
+def api_billing_module(app_module):
+    """The parent app registers and imports the API billing blueprint."""
+    return importlib.import_module("api_portal.routes_billing")
+
+
 # ---------------------------------------------------------------------
 # 1. Trial sessions: _trial_session_subscription_ok + the success gate
 # ---------------------------------------------------------------------
@@ -130,6 +136,11 @@ class TestExistingEodSubscription:
             app_module._price_cache, ("analyst", "monthly"),
             SimpleNamespace(id=self.EOD_PRICE),
         )
+        monkeypatch.setitem(
+            app_module._price_product_metadata_cache,
+            "price_api_dev",
+            {"product_line": "api", "tier": "dev"},
+        )
 
     def _sub(self, sub_id="sub_eod_1", price_id=None, status="active",
              item_id="si_1"):
@@ -170,6 +181,21 @@ class TestExistingEodSubscription:
         })
         assert app_module._existing_eod_subscription("cus_1") == (None, None, None)
 
+    def test_stored_legacy_web_subscription_found_without_price_metadata(
+        self, app_module, monkeypatch,
+    ):
+        self._patch_list(monkeypatch, {
+            "active": [self._sub(
+                sub_id="sub_legacy_web",
+                price_id="price_legacy_without_metadata",
+                item_id="si_legacy",
+            )],
+        })
+        found = app_module._existing_eod_subscription(
+            "cus_1", stored_web_subscription_id="sub_legacy_web",
+        )
+        assert found == ("sub_legacy_web", "si_legacy", "active")
+
     def test_eod_found_among_mixed_subscriptions(self, app_module, monkeypatch):
         self._patch_list(monkeypatch, {
             "active": [
@@ -180,14 +206,124 @@ class TestExistingEodSubscription:
         sub_id, item_id, status = app_module._existing_eod_subscription("cus_1")
         assert (sub_id, item_id) == ("sub_eod_2", "si_b")
 
-    def test_stripe_error_fails_open(self, app_module, monkeypatch):
-        """A Stripe hiccup on the pre-check must not block checkout: the
-        helper returns the empty tuple (checkout proceeds as before)."""
+    def test_stripe_error_fails_closed(self, app_module, monkeypatch):
+        """A Stripe hiccup must not be mistaken for no current subscription."""
         def _boom(**kw):
             raise stripe.error.APIConnectionError("stripe down")
         monkeypatch.setattr(stripe.Subscription, "list", staticmethod(_boom))
-        assert app_module._existing_eod_subscription("cus_1") == (None, None, None)
+        with pytest.raises(stripe.error.APIConnectionError):
+            app_module._existing_eod_subscription("cus_1")
 
+
+@pytest.mark.unit
+class TestExistingApiSubscription:
+    @staticmethod
+    def _sub(sub_id="sub_api_1", status="active", line="api"):
+        return {
+            "id": sub_id,
+            "status": status,
+            "metadata": {},
+            "items": {"data": [{
+                "id": "si_api_1",
+                "price": {
+                    "id": "price_api_1",
+                    "product": {"metadata": {"product_line": line}},
+                },
+            }]},
+        }
+
+    @staticmethod
+    def _patch_list(monkeypatch, by_status):
+        def _list(**kwargs):
+            return _FakeList(by_status.get(kwargs.get("status"), []))
+        monkeypatch.setattr(stripe.Subscription, "list", staticmethod(_list))
+
+    def test_active_api_subscription_found(
+        self, api_billing_module, monkeypatch,
+    ):
+        self._patch_list(monkeypatch, {"active": [self._sub()]})
+        assert api_billing_module._existing_api_subscription("cus_1") == (
+            "sub_api_1", "active",
+        )
+
+    def test_eod_subscription_ignored(
+        self, api_billing_module, monkeypatch,
+    ):
+        self._patch_list(monkeypatch, {
+            "active": [self._sub(sub_id="sub_eod", line="eod")],
+        })
+        assert api_billing_module._existing_api_subscription("cus_1") == (
+            None, None,
+        )
+
+    def test_stored_legacy_api_subscription_found_without_metadata(
+        self, api_billing_module, monkeypatch,
+    ):
+        legacy = self._sub(
+            sub_id="sub_api_legacy", status="past_due", line="",
+        )
+        self._patch_list(monkeypatch, {"past_due": [legacy]})
+        found = api_billing_module._existing_api_subscription(
+            "cus_1", stored_api_subscription_id="sub_api_legacy",
+        )
+        assert found == ("sub_api_legacy", "past_due")
+
+    def test_stripe_error_fails_closed(
+        self, api_billing_module, monkeypatch,
+    ):
+        def _boom(**kwargs):
+            raise stripe.error.APIConnectionError("stripe down")
+        monkeypatch.setattr(stripe.Subscription, "list", staticmethod(_boom))
+        with pytest.raises(stripe.error.APIConnectionError):
+            api_billing_module._existing_api_subscription("cus_1")
+
+
+@pytest.mark.unit
+class TestSubscriptionProductTarget:
+    def test_price_wins_over_stale_subscription_metadata(
+        self, app_module, monkeypatch,
+    ):
+        monkeypatch.setattr(
+            app_module, "_api_tier_for_price", lambda _price_id: None,
+        )
+        monkeypatch.setattr(
+            app_module,
+            "_tier_period_for_price",
+            lambda _price_id: ("strategist", "yearly"),
+        )
+        assert app_module._subscription_product_target(
+            "price_current",
+            {
+                "product_line": "eod",
+                "tier": "navigator",
+                "period": "monthly",
+            },
+        ) == ("eod", "strategist", "yearly")
+
+    def test_exact_price_lookup_failure_remains_retryable(
+        self, app_module, monkeypatch,
+    ):
+        def _fail(_price_id):
+            raise stripe.error.APIConnectionError("stripe unavailable")
+
+        monkeypatch.setattr(app_module, "_api_tier_for_price", _fail)
+        with pytest.raises(stripe.error.APIConnectionError):
+            app_module._subscription_product_target(
+                "price_unavailable",
+                {
+                    "product_line": "api",
+                    "tier": "business",
+                },
+            )
+
+    def test_metadata_is_fallback_only_without_price_id(self, app_module):
+        assert app_module._subscription_product_target(
+            None,
+            {
+                "product_line": "api",
+                "tier": "business",
+            },
+        ) == ("api", "business", None)
 
 # ---------------------------------------------------------------------
 # 3. /pricing affiliate param carry-through (Flask test client + test DB)

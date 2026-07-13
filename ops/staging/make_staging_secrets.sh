@@ -33,6 +33,15 @@ set -euo pipefail
 # Per-env target coordinates (staging by default; run.sh sets TGT_ENV_FILE for prod).
 . "${TGT_ENV_FILE:-$(dirname "${BASH_SOURCE[0]}")/target.env}"
 
+case "${TGT_WEB_HOST}" in
+    tw2-stage.trxstat.com) TARGET_TW2_ENV=staging ;;
+    tw2-prod.trxstat.com|tradewave.ai) TARGET_TW2_ENV=prod ;;
+    *)
+        echo "Unsupported TGT_WEB_HOST for TW2_ENV: ${TGT_WEB_HOST}" >&2
+        exit 1
+        ;;
+esac
+
 SRC=/etc/tradewave/secrets.env
 DST=/tmp/staging_secrets.env
 
@@ -78,6 +87,7 @@ cat <<EOF
 TW2_DOMAIN_ROOT=https://${TGT_WEB_HOST}
 TW2_APPSERVER_URL=https://${TGT_APP_HOST}
 TW2_PUBLIC_HOST=${TGT_WEB_HOST}
+TW2_ENV=${TARGET_TW2_ENV}
 
 # === Per-env VLAN IPs (cross-tier traffic rides 10.0.0.0/24) ===
 TW2_APPSERVER_IP=${TGT_APP_VLAN}
@@ -106,6 +116,13 @@ INDEXNOW_KEY=$(get_dev INDEXNOW_KEY)
 MAILERLITE_API_KEY=$(get_dev MAILERLITE_API_KEY)
 MAILERLITE_GROUP_ID=$(get_dev MAILERLITE_GROUP_ID)
 MAILERLITE_TOKEN=$(get_dev MAILERLITE_TOKEN)
+# App-originated MailerLite subscriber writes are always off on staging. The
+# account is shared, so production lifecycle group IDs are never copied here.
+MAILERLITE_OUTBOUND_ENABLED=0
+MAILERLITE_TRIAL_STARTED_GROUP_ID=
+MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID=
+MAILERLITE_WINBACK_GROUP_ID=
+MAILERLITE_WEBHOOK_SECRET=PLACEHOLDER_GENERATE_UNIQUE_STAGING_SECRET
 OPENAI_KEY=$(get_dev OPENAI_KEY)
 PERPLEXITY_API_KEY=$(get_dev PERPLEXITY_API_KEY)
 PUBLER_API_KEY=$(get_dev PUBLER_API_KEY)

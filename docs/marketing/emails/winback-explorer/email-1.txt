@@ -1,0 +1,22 @@
+Subject: Please Don't Re-Subscribe Yet
+Preview: Use Explorer first. Return only when a paid feature solves a real need.
+Send delay: 1 day after paid access ends
+
+Whether you chose to downgrade or simply let the subscription end, that may have been the right call. Explorer is still yours. Use it before spending anything: the Dow 30, up to 10 years of history, one portfolio, and five tracked opportunities. If that covers what you research, stay free.
+
+Navigator is the smallest step for the Nasdaq 100 and S&P 500 with custom dates. Analyst is for web-app AI scores or the wider U.S. stock and ETF universe. Strategist is only for the full 15-market set.
+
+Do not come back because an email asks. Come back only when one of those needs appears.
+
+Open Explorer:
+https://tradewave.ai/login?next=/app/
+
+Compare Plans:
+https://tradewave.ai/#pricing
+
+Research and education only. Not financial advice. Past patterns do not guarantee future results.
+
+Afshin
+TradeWave
+
+Unsubscribe: {$unsubscribe}

@@ -43,6 +43,94 @@ PURCHASABLE_TIERS = ["dev", "pro", "business"]
 _price_cache = {}
 
 
+def _as_dict(value):
+    if isinstance(value, dict):
+        return value
+    if value is None:
+        return {}
+    for method_name in ("to_dict_recursive", "to_dict"):
+        method = getattr(value, method_name, None)
+        if callable(method):
+            converted = method()
+            if isinstance(converted, dict):
+                return converted
+    try:
+        return dict(value)
+    except (TypeError, ValueError):
+        return {}
+
+
+def _subscription_has_api_line(subscription, stored_api_subscription_id=None):
+    """Recognize an API-line subscription from its durable ID or metadata."""
+    sub = _as_dict(subscription)
+    if (
+        stored_api_subscription_id
+        and sub.get("id") == stored_api_subscription_id
+    ):
+        return True
+    sub_line = str(
+        (_as_dict(sub.get("metadata")).get("product_line") or "")
+    ).strip().lower()
+    if sub_line == "api":
+        return True
+    items = (_as_dict(sub.get("items")).get("data") or [])
+    for raw_item in items:
+        price = _as_dict(_as_dict(raw_item).get("price"))
+        price_line = str(
+            (_as_dict(price.get("metadata")).get("product_line") or "")
+        ).strip().lower()
+        product = _as_dict(price.get("product"))
+        product_line = str(
+            (_as_dict(product.get("metadata")).get("product_line") or "")
+        ).strip().lower()
+        if "api" in (price_line, product_line):
+            return True
+    return False
+
+
+def _existing_api_subscription(customer_id, stored_api_subscription_id=None):
+    """Return an existing live API subscription, or propagate lookup errors."""
+    for status in ("active", "trialing", "past_due"):
+        subscriptions = stripe.Subscription.list(
+            customer=customer_id,
+            status=status,
+            limit=100,
+            expand=["data.items.data.price.product"],
+        )
+        for subscription in subscriptions.auto_paging_iter():
+            if _subscription_has_api_line(
+                subscription,
+                stored_api_subscription_id=stored_api_subscription_id,
+            ):
+                sub = _as_dict(subscription)
+                return sub.get("id"), sub.get("status") or status
+    return None, None
+
+
+def _clear_stale_customer_identity(user_id):
+    """Clear both Stripe product-line identities for a missing customer."""
+    from models import Session as DBSession, User
+
+    session = DBSession()
+    try:
+        user = session.query(User).filter_by(id=user_id).first()
+        if user is None:
+            return
+        user.stripe_customer_id = None
+        user.stripe_subscription_id = None
+        user.stripe_subscription_status = None
+        user.api_stripe_subscription_id = None
+        user.api_stripe_subscription_status = None
+        user.api_tier = None
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+        DBSession.remove()
+
+
 def _stripe_configured():
     if "PLACEHOLDER" in (config.STRIPE_SECRET_KEY or ""):
         return False
@@ -196,12 +284,60 @@ def billing_checkout():
     # Validate / clear a stale stored customer id, same as web/app.py.
     valid_customer_id = None
     customer_id = getattr(u, "stripe_customer_id", None)
+    if not customer_id and getattr(u, "api_stripe_subscription_id", None):
+        log.error(
+            "api billing: user %s has an API subscription but no Stripe customer",
+            u.id,
+        )
+        return jsonify({
+            "error": "subscription_identity_incomplete",
+            "message": "Billing needs account reconciliation before another "
+                       "subscription can be started.",
+        }), 503
     if customer_id:
-        cust = stripe.Customer.retrieve(customer_id)
-        if getattr(cust, "deleted", False):
+        try:
+            cust = stripe.Customer.retrieve(customer_id)
+            if getattr(cust, "deleted", False):
+                raise stripe.error.InvalidRequestError(
+                    "customer soft-deleted", None,
+                )
+        except stripe.error.InvalidRequestError:
             log.info("api billing: stale stripe_customer_id for user %s; not reusing", u.id)
+            _clear_stale_customer_identity(u.id)
+            u.stripe_customer_id = None
+            u.stripe_subscription_id = None
+            u.stripe_subscription_status = None
+            u.api_stripe_subscription_id = None
+            u.api_stripe_subscription_status = None
+            u.api_tier = None
         else:
             valid_customer_id = customer_id
+
+    if valid_customer_id:
+        try:
+            existing_api_id, existing_api_status = _existing_api_subscription(
+                valid_customer_id,
+                stored_api_subscription_id=getattr(
+                    u, "api_stripe_subscription_id", None,
+                ),
+            )
+        except Exception:
+            log.exception(
+                "api billing: existing-subscription lookup failed for user %s",
+                u.id,
+            )
+            return jsonify({
+                "error": "subscription_lookup_failed",
+                "message": "We could not verify your current API subscription. "
+                           "Please retry in a moment.",
+            }), 503
+        if existing_api_id:
+            log.info(
+                "api billing: user %s already has %s API subscription %s; "
+                "redirecting to billing portal",
+                u.id, existing_api_status, existing_api_id,
+            )
+            return redirect(url_for("api_portal.billing_manage"), code=303)
 
     kwargs = dict(
         mode="subscription",
@@ -210,12 +346,26 @@ def billing_checkout():
         cancel_url=cancel_url,
         allow_promotion_codes=True,
         client_reference_id=str(u.id),
+        # Checkout-session metadata is what checkout.session.completed carries.
+        # Keep product-line identity here as well as on the Subscription so the
+        # shared webhook can never mistake an API checkout for a web plan.
+        metadata={
+            "product_line": "api",
+            "tier": tier,
+            "interval": interval,
+            "replaces_subscription_id": (
+                getattr(u, "api_stripe_subscription_id", None) or ""
+            ),
+        },
         subscription_data={
             "metadata": {
                 "tw2_user_id": str(u.id),
                 "product_line": "api",
                 "tier": tier,
                 "interval": interval,
+                "replaces_subscription_id": (
+                    getattr(u, "api_stripe_subscription_id", None) or ""
+                ),
             },
         },
     )
@@ -252,9 +402,15 @@ def billing_manage():
     if not _stripe_configured():
         return jsonify({"error": "stripe_not_configured"}), 503
 
-    cust = stripe.Customer.retrieve(customer_id)
-    if getattr(cust, "deleted", False):
+    try:
+        cust = stripe.Customer.retrieve(customer_id)
+        if getattr(cust, "deleted", False):
+            raise stripe.error.InvalidRequestError(
+                "customer soft-deleted", None,
+            )
+    except stripe.error.InvalidRequestError:
         log.info("api billing manage: stale stripe_customer_id for user %s", u.id)
+        _clear_stale_customer_identity(u.id)
         return redirect(url_for("api_portal.billing_index", no_subscription=1))
 
     public_host = _public_host()

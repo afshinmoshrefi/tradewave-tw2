@@ -21,7 +21,6 @@ from __future__ import annotations
 import importlib
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -141,12 +140,6 @@ class TestLazyCreateStampsTrial:
         mod = importlib.import_module("app")
         mod.DBSession = _models_module.Session
         return mod
-
-    @pytest.fixture(autouse=True)
-    def stub_mailerlite(self, db_app_module):
-        with patch.object(db_app_module, "mailerlite_subscribe", return_value=False), \
-             patch.object(db_app_module, "sync_mailerlite_level_group", return_value=False):
-            yield
 
     def test_new_user_gets_7_day_reverse_trial(self, db_app_module, db_session, mock_workos_user):
         before = datetime.now(timezone.utc)

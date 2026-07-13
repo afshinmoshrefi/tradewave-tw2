@@ -1,0 +1,17 @@
+Subject: A Simple Explorer Routine
+Preview: One Dow name, one window, three checks.
+Send day: 10
+
+Explorer works best as a focused research habit. Pick one Dow 30 ticker. For one seasonal window, check three things: how many years are in the sample, how often it was profitable, and whether the year-by-year results are steady or carried by a few outliers.
+
+Save only a setup that meets your standards. Explorer can track five opportunities in one portfolio. You do not need AI scoring to decide whether a historical record deserves a closer look.
+
+Use Explorer:
+https://tradewave.ai/login?next=/app/
+
+Probability, not prediction. Research and education only. Not financial advice. Past patterns do not guarantee future results.
+
+Afshin
+TradeWave
+
+Unsubscribe: {$unsubscribe}

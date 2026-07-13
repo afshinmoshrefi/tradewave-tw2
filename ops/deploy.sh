@@ -3,7 +3,7 @@
 # Run from the DEV box (.176), after: commit + push  (and `npm run build` if web-react/ changed).
 #
 #   bash ops/deploy.sh staging     # then check https://tw2-stage.trxstat.com
-#   bash ops/deploy.sh prod        # then check https://tw2-prod.trxstat.com
+#   bash ops/deploy.sh prod        # then check https://tradewave.ai
 #
 # Does, in order, and stops on any error:
 #   1. pre-flight  — aborts if TW2_PUBLIC_HOST is unset (would break URLs), or (staging) if
@@ -56,6 +56,20 @@ check_host "$WEB" 1
 check_host "$APP" 1
 echo "    OK - web box resolves to $HOST"
 
+echo "==> [$ENV] pre-flight: TW2_ENV is explicit in secrets.env on both boxes?"
+check_tw2_env() {
+  local box="$1" val
+  val=$($SSH "root@$box" "grep -m1 '^TW2_ENV=' /etc/tradewave/secrets.env 2>/dev/null | cut -d= -f2-")
+  [ "$val" = "$ENV" ] || {
+    echo "ABORT: TW2_ENV=${val:-<unset>} on $box; expected TW2_ENV=$ENV."
+    echo "       Put TW2_ENV=$ENV in /etc/tradewave/secrets.env (cron does not inherit systemd overrides)."
+    exit 1
+  }
+  echo "    $box -> TW2_ENV=$val"
+}
+check_tw2_env "$WEB"
+check_tw2_env "$APP"
+
 echo "==> [$ENV] pre-flight: developer-portal hosts are config-driven (no dev-host leak)?"
 # The portal bakes TW2_API/DEVELOPERS/MCP_PUBLIC_HOST into PUBLISHED artifacts (openapi.json
 # `servers`, docs back-links, MCP setup). portal_urls now REFUSES to fall back to a dev host,
@@ -99,7 +113,7 @@ echo "==> [$ENV] web tier ($WEB): pull + sync venv + DB migrate + restart web + 
 # DB migrate (alembic upgrade head) runs BEFORE the web restart and is fail-closed:
 # a failed/needed migration aborts the deploy instead of starting the app against a
 # schema it doesn't expect. Idempotent (only unapplied revisions run).
-$SSH "root@$WEB" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo -u flask bash /home/flask/ops/migrate.sh && sudo systemctl restart tradewave-web && for u in tradewave-blog-queue tradewave-article-processor; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u"; else echo "skip $u (not installed on this box)"; fi; done && sudo systemctl is-active tradewave-web'
+$SSH "root@$WEB" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo -u flask bash /home/flask/ops/migrate.sh && sudo bash /home/flask/ops/install_mailerlite_lifecycle_cron.sh && sudo systemctl restart tradewave-web && for u in tradewave-blog-queue tradewave-article-processor; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u"; else echo "skip $u (not installed on this box)"; fi; done && sudo systemctl is-active tradewave-web'
 
 echo "==> [$ENV] web tier ($WEB): regenerate ALL static pages (home, scorecard, insights, learn, research, about, daily-pick, ticker, text, markets)"
 # regen_site.sh runs EVERY main-site generator with secrets.env sourced, so each page

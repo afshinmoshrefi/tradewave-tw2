@@ -1,0 +1,22 @@
+Subject: You May Not Need a Paid Plan
+Preview: Upgrade only when a specific research need appears.
+Send day: 14
+
+If the Dow 30 and 10 years of history cover what you research, stay on Explorer.
+
+Move to Navigator only when you need the Nasdaq 100 or S&P 500, custom start dates, or a 15-year lookback. Analyst is the smallest tier for web-app AI scoring or U.S. stocks and ETFs beyond those indexes. Strategist is only for the full 15-market set, including futures, forex, government bonds, London, Toronto and crypto.
+
+Do not pay for breadth you will not use.
+
+Keep Using Explorer:
+https://tradewave.ai/login?next=/app/
+
+Compare Plans:
+https://tradewave.ai/#pricing
+
+Research and education only. Not financial advice. Past patterns do not guarantee future results.
+
+Afshin
+TradeWave
+
+Unsubscribe: {$unsubscribe}

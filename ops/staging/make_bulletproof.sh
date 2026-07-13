@@ -75,12 +75,15 @@ echo "journald capped: \$(grep ^SystemMaxUse /etc/systemd/journald.conf)"
 
 W='set -a; . /etc/tradewave/secrets.env; set +a;'
 L='>> /var/log/tradewave'
-CUR=\$(sudo -u flask crontab -l 2>/dev/null || true)
+sudo -u flask test -r /etc/tradewave/secrets.env
+CUR=\$(sudo -u flask crontab -l 2>/dev/null | grep -v 'mailerlite_lifecycle.py' || true)
 {
   printf '%s\n' "\$CUR"
   # system health
   echo "*/5 * * * * /home/flask/ops/uptime_check.sh"
   echo "*/30 * * * * /home/flask/ops/soak_monitor.sh"
+  # durable MailerLite lifecycle outbox (worker is fail-closed off-prod/disabled)
+  echo "* * * * * { test -r /etc/tradewave/secrets.env && set -a && . /etc/tradewave/secrets.env && set +a && cd /home/flask && /home/flask/venv/bin/python /home/flask/web/mailerlite_lifecycle.py --limit 15; } \$L/mailerlite_lifecycle.log 2>&1"
   # trial expiry — revert lapsed admin-granted trials to explorer (skips Stripe subs)
   echo "15 4 * * * \$W /home/flask/venv/bin/python /home/flask/web/expire_trials.py \$L/expire_trials.log 2>&1"
   # SMN article pipeline

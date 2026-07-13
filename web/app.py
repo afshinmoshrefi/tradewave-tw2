@@ -97,7 +97,12 @@ from models import (
     SUPPORT_TICKET_TOPICS, db_session, write_audit, Session as DBSession,
 )
 from tier_compat import tier_to_wp_user_levels, tier_to_legacy_level
-from email_utils import mailerlite_subscribe, sync_mailerlite_level_group, sync_mailerlite_winback_group
+from mailerlite_lifecycle import (
+    EVENT_CLEAR_PAID,
+    EVENT_RECONCILE,
+    enqueue_mailerlite_reconcile,
+    enqueue_signup_lifecycle,
+)
 from ga4_mp import parse_ga_client_id, send_event
 
 # --- WorkOS ---
@@ -417,6 +422,22 @@ def lazy_create_user(workos_user) -> User:
                 u.email = workos_user.email
                 u.email_verified = bool(workos_user.email_verified)
                 try:
+                    import hashlib as _hashlib
+                    change_fingerprint = _hashlib.sha256(
+                        (
+                            f"{(old_email or '').strip().lower()}\0"
+                            f"{(workos_user.email or '').strip().lower()}"
+                        ).encode("utf-8")
+                    ).hexdigest()[:20]
+                    enqueue_mailerlite_reconcile(
+                        s,
+                        u,
+                        f"email-change:{u.id}:{change_fingerprint}",
+                        payload={
+                            "remove_email": old_email,
+                            "level_tier": u.tier,
+                        },
+                    )
                     s.commit()
                     write_audit(
                         actor_label="workos_signin",
@@ -470,8 +491,16 @@ def lazy_create_user(workos_user) -> User:
             # match/update paths above never touch this.
             reverse_trial_ends_at=datetime.now(timezone.utc) + timedelta(days=7),
         )
+        display_name = " ".join(filter(None, [
+            getattr(workos_user, "first_name", None),
+            getattr(workos_user, "last_name", None),
+        ])) or None
         s.add(u)
         try:
+            # Durable lifecycle routing is committed atomically with the User.
+            # The worker sends no HTTP request on this signup hot path.
+            s.flush()
+            enqueue_signup_lifecycle(s, u, name=display_name)
             s.commit()
             s.refresh(u)
         except IntegrityError:
@@ -505,21 +534,6 @@ def lazy_create_user(workos_user) -> User:
             target_user_id=u.id,
             details={"email": workos_user.email, "workos_user_id": workos_user.id},
         )
-        # F2.15 - Mailerlite list-add (best-effort; never blocks user creation).
-        # Reduced timeout to 2s inside email_utils so a Mailerlite blip does not
-        # add up to 5s of delay on the signup hot path. Returns False fast if
-        # MAILERLITE_API_KEY is placeholder.
-        try:
-            display_name = " ".join(filter(None, [
-                getattr(workos_user, "first_name", None),
-                getattr(workos_user, "last_name", None),
-            ])) or None
-            mailerlite_subscribe(workos_user.email, name=display_name)
-            # New accounts start as explorer -> add to the explorer LEVEL group
-            # (TW1/UMP parity). new_user=True keeps this to a single fast call.
-            sync_mailerlite_level_group(workos_user.email, "explorer", None, new_user=True)
-        except Exception as e:
-            log.warning("mailerlite_subscribe raised for %s: %s", workos_user.email, e)
         return u
     finally:
         s.close()
@@ -1207,6 +1221,7 @@ def _is_suppressed(email):
 def _suppress(email, source):
     from models import EmailOptout
     from sqlalchemy.dialects.postgresql import insert as _pg_insert
+    import hashlib as _hashlib
     e = (email or "").strip().lower()
     if not e:
         return
@@ -1215,6 +1230,27 @@ def _suppress(email, source):
         # race-free idempotent upsert (concurrent link GET + Gmail POST + dup webhooks)
         s.execute(_pg_insert(EmailOptout).values(email=e, source=source)
                   .on_conflict_do_nothing(index_elements=["email"]))
+        # A direct MailerLite unsubscribe below is deliberately best-effort so
+        # the public one-click endpoint can ACK quickly. For account holders,
+        # persist the same suppression in the lifecycle outbox transaction so
+        # a process crash or transient MailerLite outage cannot leave them in
+        # an already-running automation. Include the address in the payload so
+        # the worker still cleans it if WorkOS changes the user's email before
+        # this row is processed.
+        user = (
+            s.query(User)
+            .filter(func.lower(User.email) == e)
+            .with_for_update()
+            .first()
+        )
+        if user is not None:
+            email_fingerprint = _hashlib.sha256(e.encode("utf-8")).hexdigest()[:20]
+            enqueue_mailerlite_reconcile(
+                s,
+                user,
+                f"email-optout:{user.id}:{email_fingerprint}",
+                payload={"remove_email": e},
+            )
         s.commit()
     except Exception as ex:
         s.rollback(); log.warning("suppress failed for %s: %s", e, ex)
@@ -1991,6 +2027,48 @@ TIER_PRODUCT_NAMES = {
 
 # Cache: (tier, period) → price object, fetched once
 _price_cache = {}
+_price_product_metadata_cache = {}
+
+
+def _price_product_metadata(price):
+    """Return normalized product metadata from an expanded Stripe Price."""
+    price_d = (
+        price if isinstance(price, dict)
+        else (price.to_dict() if hasattr(price, "to_dict") else dict(price))
+    )
+    product = price_d.get("product")
+    if not isinstance(product, dict):
+        product = (
+            product.to_dict()
+            if hasattr(product, "to_dict") else {}
+        )
+    metadata = product.get("metadata") or {}
+    return {
+        str(key): str(value)
+        for key, value in metadata.items()
+        if value is not None
+    }
+
+
+def _metadata_for_price_id(price_id):
+    """Resolve even archived prices; transient Stripe failures stay retryable."""
+    if price_id in _price_product_metadata_cache:
+        return _price_product_metadata_cache[price_id]
+    price = stripe.Price.retrieve(price_id, expand=["product"])
+    metadata = _price_product_metadata(price)
+    _price_product_metadata_cache[price_id] = metadata
+    return metadata
+
+
+def _web_period(value):
+    value = str(value or "").strip().lower()
+    return {
+        "month": "monthly",
+        "monthly": "monthly",
+        "year": "yearly",
+        "annual": "yearly",
+        "yearly": "yearly",
+    }.get(value)
 
 
 def _stripe_configured():
@@ -2028,6 +2106,11 @@ def _refresh_price_cache():
             if not isinstance(prod, dict):
                 prod = prod.to_dict() if hasattr(prod, "to_dict") else dict(prod)
             metadata = prod.get("metadata") or {}
+            _price_product_metadata_cache[p.id] = {
+                str(key): str(value)
+                for key, value in metadata.items()
+                if value is not None
+            }
             md_line = (metadata.get("product_line") or "").strip().lower()
             md_tier = (metadata.get("tier") or "").strip().lower()
             md_period = (metadata.get("period") or "").strip().lower()
@@ -2063,6 +2146,16 @@ def _tier_period_for_price(price_id):
     for key, p in _price_cache.items():
         if p.id == price_id:
             return key
+    metadata = _metadata_for_price_id(price_id)
+    line = str(metadata.get("product_line") or "").strip().lower()
+    tier = str(metadata.get("tier") or "").strip().lower()
+    period = _web_period(metadata.get("period") or metadata.get("interval"))
+    if (
+        line == "eod"
+        and tier in {"navigator", "analyst", "strategist"}
+        and period in {"monthly", "yearly"}
+    ):
+        return tier, period
     return (None, None)
 
 
@@ -2086,6 +2179,11 @@ def _refresh_api_price_cache():
             if not isinstance(prod, dict):
                 prod = prod.to_dict() if hasattr(prod, "to_dict") else dict(prod)
             md = prod.get("metadata") or {}
+            _price_product_metadata_cache[p.id] = {
+                str(key): str(value)
+                for key, value in md.items()
+                if value is not None
+            }
             if (md.get("product_line") or "").strip().lower() != "api":
                 continue
             tier = (md.get("tier") or "").strip().lower()
@@ -2100,7 +2198,157 @@ def _api_tier_for_price(price_id):
     not an API-line price."""
     if not _api_price_tier:
         _refresh_api_price_cache()
-    return _api_price_tier.get(price_id)
+    cached = _api_price_tier.get(price_id)
+    if cached:
+        return cached
+    metadata = _metadata_for_price_id(price_id)
+    line = str(metadata.get("product_line") or "").strip().lower()
+    tier = str(metadata.get("tier") or "").strip().lower()
+    if line == "api" and tier in {"dev", "pro", "business"}:
+        return tier
+    return None
+
+
+def _subscription_product_target(price_id, metadata):
+    """Return ``(product_line, tier, period)`` for a subscription event.
+
+    The event's current price is canonical because Billing Portal plan changes
+    update the item price without rewriting subscription metadata. Exact-price
+    lookup also works for archived prices. Subscription metadata is used only
+    for a legacy event that has no price ID; lookup failures propagate so
+    Stripe retries instead of applying a possibly stale tier.
+    """
+    metadata = metadata or {}
+    line = str(metadata.get("product_line") or "").strip().lower()
+    tier = str(
+        metadata.get("tier")
+        or metadata.get("tw2_tier_target")
+        or ""
+    ).strip().lower()
+    period = _web_period(
+        metadata.get("period") or metadata.get("interval")
+    )
+    metadata_target = (None, None, None)
+    if line == "api" and tier in {"dev", "pro", "business"}:
+        metadata_target = ("api", tier, None)
+    elif (
+        line == "eod"
+        and tier in {"navigator", "analyst", "strategist"}
+        and period in {"monthly", "yearly"}
+    ):
+        metadata_target = ("eod", tier, period)
+    if not price_id:
+        return metadata_target
+
+    api_tier = _api_tier_for_price(price_id)
+    if api_tier:
+        price_target = ("api", api_tier, None)
+    else:
+        web_tier, web_period = _tier_period_for_price(price_id)
+        price_target = (
+            ("eod", web_tier, web_period)
+            if web_tier else (None, None, None)
+        )
+    if (
+        price_target[0]
+        and metadata_target[0]
+        and price_target != metadata_target
+    ):
+        log.warning(
+            "stripe subscription metadata is stale for price %s: "
+            "metadata=%s price=%s; using price",
+            price_id, metadata_target, price_target,
+        )
+    return price_target
+
+
+def _current_subscription_snapshot(subscription_id, expected_customer_id):
+    """Fetch and validate current Stripe truth for an update/create event."""
+    current = stripe.Subscription.retrieve(
+        subscription_id,
+        expand=["items.data.price.product"],
+    )
+    current_d = (
+        current if isinstance(current, dict)
+        else current.to_dict()
+    )
+    if str(current_d.get("id") or "") != str(subscription_id or ""):
+        raise ValueError("Stripe returned a different subscription ID")
+    actual_customer = current_d.get("customer")
+    if isinstance(actual_customer, dict):
+        actual_customer = actual_customer.get("id")
+    elif hasattr(actual_customer, "id"):
+        actual_customer = actual_customer.id
+    if (
+        expected_customer_id
+        and str(actual_customer or "") != str(expected_customer_id)
+    ):
+        raise ValueError("Stripe subscription customer does not match event")
+    return current_d
+
+
+def _live_api_subscription_for_customer(customer_id, *, exclude_id=None):
+    """Find a current API subscription for one legacy/untracked customer.
+
+    This is used only while adopting the new separate API subscription ID. A
+    Stripe lookup failure is intentionally not swallowed so the webhook returns
+    500 and retries instead of clearing access from incomplete evidence.
+    """
+    if not customer_id:
+        return None
+    for status in ("active", "trialing", "past_due"):
+        subscriptions = stripe.Subscription.list(
+            customer=customer_id, status=status, limit=100,
+        )
+        for subscription in subscriptions.auto_paging_iter():
+            sub_d = (
+                subscription if isinstance(subscription, dict)
+                else subscription.to_dict()
+            )
+            if sub_d.get("id") == exclude_id:
+                continue
+            items = (sub_d.get("items") or {}).get("data") or []
+            price_id = None
+            if items:
+                price_id = ((items[0] or {}).get("price") or {}).get("id")
+            line, tier, _period = _subscription_product_target(
+                price_id, sub_d.get("metadata") or {},
+            )
+            if line == "api" and tier:
+                return {
+                    "id": sub_d.get("id"),
+                    "status": sub_d.get("status") or status,
+                    "tier": tier,
+                }
+    return None
+
+
+def _created_subscription_can_replace(event_type, current_id,
+                                      replacement_id, candidate):
+    """Order a freshly hydrated differing ``subscription.created`` event."""
+    if event_type != "customer.subscription.created" or not current_id:
+        return False
+    if str((candidate or {}).get("status") or "").lower() not in {
+        "active", "trialing", "past_due",
+    }:
+        return False
+    if not (candidate or {}).get("id"):
+        return False
+    if replacement_id == current_id:
+        return True
+    candidate_created = candidate.get("created") if candidate else None
+    if not isinstance(candidate_created, (int, float)):
+        return False
+    current = stripe.Subscription.retrieve(current_id)
+    current_d = (
+        current if isinstance(current, dict)
+        else current.to_dict()
+    )
+    current_created = current_d.get("created")
+    return bool(
+        isinstance(current_created, (int, float))
+        and candidate_created > current_created
+    )
 
 
 def _resolve_affiliate_promo(raw, period=None):
@@ -2170,30 +2418,44 @@ def _record_affiliate_referral(session, sub_id, customer_id, metadata):
         log.exception("failed to record affiliate referral for subscription %s", sub_id)
 
 
-def _existing_eod_subscription(customer_id):
+def _existing_eod_subscription(customer_id, stored_web_subscription_id=None):
     """Return (subscription_id, item_id, status) for the customer's first
     active-or-trialing EOD-line Stripe subscription (an item whose price
-    resolves through the eod price cache), or (None, None, None). A Stripe
-    lookup failure logs and returns the empty tuple: this pre-check guards
-    against double-subscribing, it must never block a fresh checkout."""
-    try:
-        # past_due included: the webhook keeps the paid tier through dunning, so
-        # route those customers to the portal (fix the card) instead of a 2nd sub.
-        for sub_status in ("active", "trialing", "past_due"):
-            for sub in stripe.Subscription.list(
-                    customer=customer_id, status=sub_status, limit=100).auto_paging_iter():
-                sub_d = sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
-                items_d = sub_d.get("items") or {}
-                items_list = items_d.get("data", []) if isinstance(items_d, dict) else []
-                for item in items_list:
-                    item_d = item if isinstance(item, dict) else (
-                        item.to_dict() if hasattr(item, "to_dict") else dict(item))
-                    price_d = item_d.get("price") or {}
-                    price_id = price_d.get("id") if isinstance(price_d, dict) else None
-                    if price_id and _tier_period_for_price(price_id)[0]:
-                        return sub_d.get("id"), item_d.get("id"), sub_d.get("status")
-    except Exception:
-        log.exception("existing-subscription lookup failed for customer %s", customer_id)
+    resolves through the eod price cache), or (None, None, None). A listed
+    subscription matching the user's stored web subscription ID also counts;
+    this preserves the guard for legacy web prices without modern metadata.
+
+    Lookup failures intentionally propagate. This helper is only called for a
+    known Stripe customer; failing closed prevents a transient Stripe error
+    from minting that customer a second subscription and another trial."""
+    # past_due included: the webhook keeps the paid tier through dunning, so
+    # route those customers to the portal (fix the card) instead of a 2nd sub.
+    for sub_status in ("active", "trialing", "past_due"):
+        for sub in stripe.Subscription.list(
+                customer=customer_id, status=sub_status, limit=100).auto_paging_iter():
+            sub_d = sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
+            items_d = sub_d.get("items") or {}
+            items_list = items_d.get("data", []) if isinstance(items_d, dict) else []
+            if (
+                stored_web_subscription_id
+                and sub_d.get("id") == stored_web_subscription_id
+            ):
+                first_item = items_list[0] if items_list else {}
+                first_item_d = first_item if isinstance(first_item, dict) else (
+                    first_item.to_dict() if hasattr(first_item, "to_dict")
+                    else dict(first_item))
+                return (
+                    sub_d.get("id"),
+                    first_item_d.get("id"),
+                    sub_d.get("status"),
+                )
+            for item in items_list:
+                item_d = item if isinstance(item, dict) else (
+                    item.to_dict() if hasattr(item, "to_dict") else dict(item))
+                price_d = item_d.get("price") or {}
+                price_id = price_d.get("id") if isinstance(price_d, dict) else None
+                if price_id and _tier_period_for_price(price_id)[0]:
+                    return sub_d.get("id"), item_d.get("id"), sub_d.get("status")
     return None, None, None
 
 
@@ -2304,9 +2566,20 @@ def stripe_create_checkout():
                 row.stripe_customer_id = None
                 row.stripe_subscription_id = None
                 row.stripe_subscription_status = None
+                row.api_stripe_subscription_id = None
+                row.api_stripe_subscription_status = None
+                row.api_tier = None
                 s.commit()
             finally:
                 s.close()
+            # Keep the detached request snapshot aligned with the committed
+            # cleanup so replacement metadata cannot reference a dead ID.
+            u.stripe_customer_id = None
+            u.stripe_subscription_id = None
+            u.stripe_subscription_status = None
+            u.api_stripe_subscription_id = None
+            u.api_stripe_subscription_status = None
+            u.api_tier = None
 
     # An already-subscribed user must NOT get a second subscription (Stripe
     # happily creates one per Checkout session, each with its own 7-day
@@ -2315,8 +2588,26 @@ def stripe_create_checkout():
     # ideally straight into the update-confirm flow for the requested price,
     # else the plain portal /account/manage-subscription opens.
     if valid_customer_id:
-        existing_sub_id, existing_item_id, existing_sub_status = \
-            _existing_eod_subscription(valid_customer_id)
+        try:
+            existing_sub_id, existing_item_id, existing_sub_status = \
+                _existing_eod_subscription(
+                    valid_customer_id,
+                    stored_web_subscription_id=(
+                        u.stripe_subscription_id
+                        if u.tier in ("navigator", "analyst", "strategist")
+                        else None
+                    ),
+                )
+        except Exception:
+            log.exception(
+                "create-checkout: existing-subscription lookup failed for user %s",
+                u.id,
+            )
+            return jsonify({
+                "error": "subscription_lookup_failed",
+                "message": "We could not verify your current subscription. "
+                           "Please retry in a moment.",
+            }), 503
         if existing_sub_id:
             log.info(
                 "create-checkout: user %s already has %s eod subscription %s; "
@@ -2361,7 +2652,15 @@ def stripe_create_checkout():
     # attribution carrier - it rides on the Stripe subscription for its whole
     # life, surviving the 12-month discount coupon. The subscription webhook
     # reads it to write the affiliate_referrals row.
-    sub_metadata = {"tw2_user_id": str(u.id), "tw2_tier_target": tier}
+    sub_metadata = {
+        "tw2_user_id": str(u.id),
+        "tw2_tier_target": tier,
+        "product_line": "eod",
+        "tier": tier,
+        "period": period,
+    }
+    if u.stripe_subscription_id:
+        sub_metadata["replaces_subscription_id"] = u.stripe_subscription_id
     if affiliate_id:
         sub_metadata["tw2_affiliate_id"] = affiliate_id
         sub_metadata["tw2_affiliate_code"] = affiliate_code
@@ -2388,7 +2687,13 @@ def stripe_create_checkout():
             # webhook event actually carries, which is why ga_client_id + tier
             # are duplicated here rather than relying on the subscription's.
             # No pre-existing top-level session metadata to clobber.
-            metadata={"ga_client_id": ga_client_id or "", "tier": tier},
+            metadata={
+                "ga_client_id": ga_client_id or "",
+                "product_line": "eod",
+                "tier": tier,
+                "period": period,
+                "replaces_subscription_id": u.stripe_subscription_id or "",
+            },
         )
         if discount_spec:
             kwargs["discounts"] = [discount_spec]
@@ -2457,7 +2762,8 @@ def _trial_session_subscription_ok(sess_d):
     except Exception:
         log.exception("stripe_success: Subscription.retrieve failed for %s", sub_id)
         return False
-    return getattr(sub, "status", None) in ("trialing", "active")
+    status = sub.get("status") if isinstance(sub, dict) else getattr(sub, "status", None)
+    return status in ("trialing", "active")
 
 
 @app.route("/stripe/success")
@@ -2466,9 +2772,10 @@ def stripe_success():
     """Stripe redirects here after successful checkout. Poll the session,
     update our user row, then send them to /app/.
 
-    F2.11 - idempotent: if we've already processed this checkout session
-    (StripeEvent row with stripe_event_id=session_id exists), short-circuit
-    and redirect to /app/?upgraded=1 without re-running mutations.
+    Refreshes are idempotent: user writes are assignments and the durable
+    MailerLite outbox dedupes on the Checkout Session id. We deliberately do
+    not compare a cs_ session id to StripeEvent.stripe_event_id (which stores
+    evt_ webhook ids); that old comparison could never match.
     F2.10 - User row read happens with SELECT ... FOR UPDATE so concurrent
     /stripe/success and /webhooks/stripe handlers don't race on tier writes.
     """
@@ -2477,22 +2784,6 @@ def stripe_success():
         return redirect("/pricing")
 
     u = get_current_user()
-
-    # F2.11 - idempotency: if the matching StripeEvent already exists, skip
-    # the work and just redirect. Either /webhooks/stripe handled it, or a
-    # previous visit to this URL did. This stops user-driven page refreshes
-    # from racing against the webhook handler.
-    s_idem = DBSession()
-    try:
-        existing = s_idem.query(StripeEvent).filter_by(
-            stripe_event_id=session_id,
-            event_type="checkout.session.completed",
-        ).first()
-        if existing:
-            log.info("/stripe/success: session_id=%s already processed; redirecting", session_id)
-            return redirect("/app/?upgraded=1")
-    finally:
-        s_idem.close()
 
     try:
         sess = stripe.checkout.Session.retrieve(session_id, expand=["subscription", "subscription.items.data.price"])
@@ -2544,6 +2835,23 @@ def stripe_success():
             log.exception("stripe_success: write_audit failed for mismatch event")
         return jsonify({"error": "session_user_mismatch"}), 403
 
+    session_metadata = sess_d.get("metadata") or {}
+    session_product_line = str(
+        session_metadata.get("product_line") or ""
+    ).strip().lower()
+    if session_product_line and session_product_line != "eod":
+        log.warning(
+            "stripe_success: refusing non-web session user_id=%s session=%s line=%s",
+            expected_user_id, session_id, session_product_line,
+        )
+        return jsonify({"error": "not_web_checkout"}), 400
+    if sess_d.get("status") not in (None, "complete"):
+        log.warning(
+            "stripe_success: refusing incomplete session user_id=%s session=%s status=%s",
+            expected_user_id, session_id, sess_d.get("status"),
+        )
+        return redirect("/pricing?payment_pending=1")
+
     # SEC-C1 - never write an upgrade for an unpaid session. Stripe checkout
     # sessions can be retrieved before payment lands (e.g. user closes the tab
     # mid-flow); writing the tier change off an unpaid session would let any
@@ -2568,6 +2876,7 @@ def stripe_success():
     sub_d = sub_raw if isinstance(sub_raw, dict) else {}
     sub_id = sub_d.get("id") if sub_d else (sub_raw if isinstance(sub_raw, str) else None)
     sub_status = sub_d.get("status") if sub_d else None
+    price_id = None
     if sub_d:
         items_d = sub_d.get("items") or {}
         items_list = items_d.get("data", []) if isinstance(items_d, dict) else []
@@ -2580,6 +2889,47 @@ def stripe_success():
                     new_tier = tier
                     ml_period = period
 
+    # The expanded subscription is normally present. Fail closed and retrieve
+    # it explicitly if Stripe returned only an ID, then require a currently
+    # live subscription. This prevents replaying an old paid Checkout session
+    # after its subscription was canceled.
+    if sub_id and (not sub_status or not price_id):
+        try:
+            sub_obj = stripe.Subscription.retrieve(
+                sub_id, expand=["items.data.price"],
+            )
+            sub_d = (
+                sub_obj if isinstance(sub_obj, dict)
+                else sub_obj.to_dict()
+            )
+            sub_status = sub_d.get("status")
+            items = (sub_d.get("items") or {}).get("data") or []
+            if items:
+                price_id = ((items[0] or {}).get("price") or {}).get("id")
+                new_tier, ml_period = _tier_period_for_price(price_id)
+        except Exception:
+            log.exception(
+                "stripe_success: live subscription validation failed sub=%s",
+                sub_id,
+            )
+            return jsonify({"error": "subscription_lookup_failed"}), 503
+
+    metadata_tier = str(session_metadata.get("tier") or "").strip().lower()
+    if (
+        not sub_id
+        or sub_status not in {"active", "trialing", "past_due"}
+        or new_tier not in {"navigator", "analyst", "strategist"}
+        or ml_period not in {"monthly", "yearly"}
+        or (metadata_tier and metadata_tier != new_tier)
+    ):
+        log.warning(
+            "stripe_success: refusing unverified web subscription user=%s session=%s "
+            "sub=%s status=%s tier=%s period=%s metadata_tier=%s",
+            expected_user_id, session_id, sub_id, sub_status, new_tier,
+            ml_period, metadata_tier,
+        )
+        return jsonify({"error": "unverified_web_subscription"}), 409
+
     customer_id = sess_d.get("customer")
     if customer_id and not isinstance(customer_id, str):
         # If customer was expanded into a nested object, pull its id
@@ -2591,6 +2941,22 @@ def stripe_success():
     s = DBSession()
     try:
         db_user = s.query(User).filter_by(id=u.id).with_for_update().first()
+        if db_user is None:
+            return jsonify({"error": "user_not_found"}), 404
+        if (
+            db_user.stripe_subscription_id
+            and db_user.stripe_subscription_id != sub_id
+        ):
+            # Never let a replayed Checkout replace a different subscription.
+            # A genuine replacement is provisioned by its signed subscription
+            # webhook, which has explicit replacement metadata and ordering
+            # checks; this redirect simply avoids racing that source of truth.
+            log.warning(
+                "stripe_success: differing current subscription user=%s "
+                "session_sub=%s current_sub=%s; deferring to webhook",
+                db_user.id, sub_id, db_user.stripe_subscription_id,
+            )
+            return redirect("/app/?upgrade_pending=1")
         # F2.9 - only assign stripe_customer_id if no OTHER user already owns it.
         # Otherwise we'd silently steal a customer record from a different account
         # row, which is data corruption that's hard to unwind.
@@ -2626,6 +2992,19 @@ def stripe_success():
                 target_user_id=db_user.id,
                 details={"from": old_tier, "to": new_tier, "stripe_session_id": session_id, "stripe_sub_id": sub_id},
             )
+        # Commit the paid-state lifecycle cleanup with the billing mutation.
+        ml_payload = {
+            "paid_subscription_id": sub_id,
+            "level_tier": new_tier,
+            "level_period": ml_period,
+        }
+        enqueue_mailerlite_reconcile(
+            s,
+            db_user,
+            f"stripe-success:{session_id}",
+            event_type=EVENT_RECONCILE,
+            payload=ml_payload,
+        )
         try:
             s.commit()
         except IntegrityError as ie:
@@ -2644,10 +3023,6 @@ def stripe_success():
         write_audit(**audit_payload)
     if rebind_conflict_payload:
         write_audit(**rebind_conflict_payload)
-
-    # Mailerlite level-group sync (TW1/UMP parity) - best-effort, post-commit.
-    if new_tier:
-        sync_mailerlite_level_group(u.email, new_tier, ml_period, new_user=False)
 
     return redirect("/app/?welcome=trial" if is_trial else "/app/?upgraded=1")
 
@@ -2821,6 +3196,9 @@ def manage_subscription():
             row.stripe_customer_id = None
             row.stripe_subscription_id = None
             row.stripe_subscription_status = None
+            row.api_stripe_subscription_id = None
+            row.api_stripe_subscription_status = None
+            row.api_tier = None
             s.commit()
         finally:
             s.close()
@@ -2909,28 +3287,59 @@ def webhook_stripe():
         # Idempotency - if we already saw this event_id, skip.
         # SELECT-then-INSERT can lose the race to a sibling worker; the
         # IntegrityError below is the second line of defence.
-        existing = s.query(StripeEvent).filter_by(stripe_event_id=event_id).first()
-        if existing:
+        existing = (
+            s.query(StripeEvent)
+            .filter_by(stripe_event_id=event_id)
+            .with_for_update()
+            .first()
+        )
+        if existing and (existing.processed_at or existing.processing_error):
             return jsonify({"received": True, "duplicate": True}), 200
 
         # F2.7 - event was already normalized to a plain dict above; now
         # additionally scrub Decimal types so the JSONB insert doesn't blow up
         # when Stripe returns numeric fields as Decimal.
         payload_dict = _json_safe(event)
-        evrow = StripeEvent(
-            stripe_event_id=event_id,
-            event_type=event_type,
-            payload=payload_dict,
-        )
-        s.add(evrow)
-        try:
-            s.commit()
-        except IntegrityError:
-            # Race: a sibling worker inserted the same event_id concurrently.
-            # That worker will process it; we ack 200 so Stripe stops retrying.
-            s.rollback()
-            log.info("Concurrent duplicate Stripe webhook %s - returning 200", event_id)
-            return jsonify({"received": True, "duplicate": True, "race": True}), 200
+        if existing:
+            # A prior attempt inserted the receipt row but failed before the
+            # processed marker. Stripe retries must resume it, not short-circuit
+            # forever on the bare event id.
+            evrow = existing
+        else:
+            evrow = StripeEvent(
+                stripe_event_id=event_id,
+                event_type=event_type,
+                payload=payload_dict,
+            )
+            s.add(evrow)
+            try:
+                s.commit()
+            except IntegrityError:
+                # Race: a sibling inserted the receipt. Do not ACK blindly. Lock
+                # and inspect the winning row so this request can resume it if
+                # the winner died after its insert commit.
+                s.rollback()
+                log.info(
+                    "Concurrent Stripe receipt insert for %s; relocking",
+                    event_id,
+                )
+            # Hold the receipt row through the rest of processing. A retry that
+            # arrives concurrently waits, then sees the completed marker.
+            evrow = (
+                s.query(StripeEvent)
+                .filter_by(stripe_event_id=event_id)
+                .with_for_update()
+                .one()
+            )
+            # A sibling may have processed the row between our insert commit
+            # and this relock. Recheck the terminal markers after waiting on
+            # the lock so analytics or dunning side effects cannot run twice.
+            if evrow.processed_at or evrow.processing_error:
+                return jsonify({
+                    "received": True,
+                    "duplicate": True,
+                    "processed_during_relock": True,
+                }), 200
 
         # Determine which user this event affects
         customer_id = None
@@ -2959,10 +3368,6 @@ def webhook_stripe():
                 price_id = price_obj.get("id")
             sub_metadata = data_obj.get("metadata") or {}
             client_ref = sub_metadata.get("tw2_user_id")
-            if event_type == "customer.subscription.created":
-                # Persist the affiliate referral (durable attribution) on the
-                # first subscription event, from the metadata stamped at checkout.
-                _record_affiliate_referral(s, sub_id, customer_id, sub_metadata)
 
         elif event_type == "invoice.payment_failed":
             customer_id = data_obj.get("customer")
@@ -3058,57 +3463,230 @@ def webhook_stripe():
 
         evrow.user_id = db_user.id
 
-        # Resolve new tier (None = no change). TW2 runs TWO subscription product lines on the
-        # SAME (TW1-shared) Stripe account: the web/EOD line (product_line=eod -> users.tier)
-        # and the developer API line (product_line=api -> users.api_tier). Each subscription
-        # event carries ONE price, so we route by that price's product_line and only ever
-        # touch the matching column: cancelling the API sub must never downgrade the web tier,
-        # and vice versa.
-        new_tier = None            # web/EOD tier change (None = no change)
-        new_api_tier = None        # API-line tier change ("__free__" = revert to inherited)
-        api_event = False          # this event belongs to the developer-API product line
+        # Stripe webhook deliveries are not ordered. Hydrate every created or
+        # updated subscription from Stripe before using its status, item price,
+        # or metadata. This prevents an older active/plan-change snapshot from
+        # re-granting a subscription that is now canceled or reverting a newer
+        # Billing Portal plan switch.
+        if event_type in (
+            "customer.subscription.created",
+            "customer.subscription.updated",
+        ):
+            data_obj = _current_subscription_snapshot(sub_id, customer_id)
+            sub_status = data_obj.get("status")
+            items = (data_obj.get("items") or {}).get("data") or []
+            price_id = None
+            if items:
+                price_obj = (items[0] or {}).get("price") or {}
+                price_id = price_obj.get("id")
+            sub_metadata = data_obj.get("metadata") or {}
+            if event_type == "customer.subscription.created":
+                # Persist durable attribution from the current subscription,
+                # rather than from a possibly stale event snapshot.
+                _record_affiliate_referral(
+                    s, sub_id, customer_id, sub_metadata,
+                )
+
+        # Resolve the product line positively. TW2's web/EOD and developer API
+        # subscriptions share one Stripe customer. An event that is not proven
+        # to be web/EOD must never mutate users.stripe_subscription_*.
+        live_statuses = {"active", "trialing", "past_due"}
+        terminal_statuses = {"canceled", "unpaid"}
+        subscription_events = {
+            "customer.subscription.created",
+            "customer.subscription.updated",
+            "customer.subscription.deleted",
+        }
+        new_tier = None
+        new_api_tier = None
+        web_event = False
+        api_event = False
         unmappable_price = False
-        # Mailerlite level-group sync target: "__skip__" means don't sync this event;
-        # otherwise it's the billing period (monthly/yearly, or None for explorer) to
-        # pair with the final tier. We sync on EVERY mappable subscription event - not
-        # only on a tier change - so a same-tier monthly<->yearly switch still moves groups.
-        # API-line events never touch the web level groups (left as "__skip__").
+        subscription_ignore_reason = None
         ml_target_period = "__skip__"
-        if event_type in ("customer.subscription.created", "customer.subscription.updated") and price_id:
-            api_tier_for_price = _api_tier_for_price(price_id)
-            if api_tier_for_price is not None:
+        current_web_sub_id = db_user.stripe_subscription_id
+        current_api_sub_id = db_user.api_stripe_subscription_id
+        current_web_match = bool(
+            sub_id and current_web_sub_id and sub_id == current_web_sub_id
+        )
+        current_api_match = bool(
+            sub_id and current_api_sub_id and sub_id == current_api_sub_id
+        )
+
+        if event_type == "checkout.session.completed":
+            checkout_metadata = data_obj.get("metadata") or {}
+            checkout_product_line = str(
+                checkout_metadata.get("product_line") or ""
+            ).strip().lower()
+            checkout_target_tier = str(
+                checkout_metadata.get("tier") or ""
+            ).strip().lower()
+            if (
+                checkout_target_tier
+                in ("navigator", "analyst", "strategist")
+                and checkout_product_line in ("", "eod")
+            ):
+                web_event = True
+
+        elif event_type in subscription_events:
+            product_line, mapped_tier, mapped_period = (
+                _subscription_product_target(price_id, sub_metadata)
+            )
+            # created/updated events were hydrated from current Stripe truth
+            # above. A delayed created receipt that now resolves as terminal
+            # must revoke access just like an updated/deleted receipt.
+            terminal_event = sub_status in terminal_statuses
+            replacement_id = str(
+                (sub_metadata or {}).get("replaces_subscription_id") or ""
+            )
+
+            if product_line == "api":
                 api_event = True
-                if sub_status in ("active", "trialing", "past_due"):
-                    new_api_tier = api_tier_for_price
-            else:
-                tier, period = _tier_period_for_price(price_id)
-                if sub_status in ("active", "trialing", "past_due"):
-                    if tier:
-                        new_tier = tier
-                        ml_target_period = period
+                allowed_replacement = bool(
+                    current_api_sub_id
+                    and not current_api_match
+                    and _created_subscription_can_replace(
+                        event_type,
+                        current_api_sub_id,
+                        replacement_id,
+                        data_obj,
+                    )
+                )
+                if (
+                    current_api_sub_id
+                    and not current_api_match
+                    and not allowed_replacement
+                ):
+                    subscription_ignore_reason = "stale_api_subscription"
+                elif terminal_event and current_api_match:
+                    new_api_tier = "__free__"
+                elif sub_status in live_statuses:
+                    new_api_tier = mapped_tier
+                elif terminal_event:
+                    # Adopt the identity of any newer live API subscription
+                    # before deciding whether this legacy/untracked terminal
+                    # event can clear access.
+                    live_api = _live_api_subscription_for_customer(
+                        customer_id, exclude_id=sub_id,
+                    )
+                    if live_api:
+                        db_user.api_stripe_subscription_id = live_api["id"]
+                        db_user.api_stripe_subscription_status = live_api["status"]
+                        db_user.api_tier = live_api["tier"]
+                        subscription_ignore_reason = "stale_api_subscription"
                     else:
-                        # Legacy / no-metadata price on a LIVE subscription. We can't map it
-                        # to a tier, so we deliberately do NOT touch the tier (never wrongly
-                        # downgrade a grandfathered payer) - but we must NOT silently no-op
-                        # either: a plan change between two legacy prices would otherwise
-                        # leave the user stuck at the old tier with no signal. Alert below.
+                        new_api_tier = "__free__"
+            elif product_line == "eod" or current_web_match:
+                web_event = True
+                allowed_replacement = bool(
+                    current_web_sub_id
+                    and not current_web_match
+                    and _created_subscription_can_replace(
+                        event_type,
+                        current_web_sub_id,
+                        replacement_id,
+                        data_obj,
+                    )
+                )
+                if (
+                    current_web_sub_id
+                    and not current_web_match
+                    and not allowed_replacement
+                ):
+                    subscription_ignore_reason = "stale_subscription"
+                elif terminal_event:
+                    new_tier = "explorer"
+                    ml_target_period = None
+                elif sub_status in live_statuses:
+                    if product_line == "eod" and mapped_tier:
+                        new_tier = mapped_tier
+                        ml_target_period = mapped_period
+                    else:
+                        # A current legacy subscription may keep its existing
+                        # tier/status, but its unknown price is surfaced loudly.
                         unmappable_price = True
-        if event_type == "customer.subscription.deleted":
-            # Route the cancellation to the right line by the deleted sub's price.
-            if price_id is not None and _api_tier_for_price(price_id) is not None:
-                api_event = True
-                new_api_tier = "__free__"   # cancelled API sub -> inherit from the web tier
             else:
-                new_tier = "explorer"
-                ml_target_period = None
+                subscription_ignore_reason = "unclassified_subscription"
+
+        elif event_type in (
+            "invoice.payment_failed",
+            "invoice.payment_succeeded",
+        ):
+            # Invoice payloads do not reliably carry product-line price
+            # metadata. Only the exact stored web subscription is allowed to
+            # update status or trigger web dunning.
+            if (
+                current_web_match
+                and str(db_user.stripe_subscription_status or "").lower()
+                in terminal_statuses
+            ):
+                subscription_ignore_reason = "terminal_subscription_invoice"
+            else:
+                web_event = current_web_match
+
+        if subscription_ignore_reason:
+            evrow.processed_at = datetime.now(timezone.utc)
+            s.commit()
+            if subscription_ignore_reason == "stale_subscription":
+                action = (
+                    "stale_subscription_deleted_ignored"
+                    if event_type == "customer.subscription.deleted"
+                    else "stale_subscription_event_ignored"
+                )
+            elif subscription_ignore_reason == "unclassified_subscription":
+                action = (
+                    "unclassified_subscription_deleted_ignored"
+                    if event_type == "customer.subscription.deleted"
+                    else "unclassified_subscription_event_ignored"
+                )
+            else:
+                action = (
+                    f"{subscription_ignore_reason}_deleted_ignored"
+                    if event_type == "customer.subscription.deleted"
+                    else f"{subscription_ignore_reason}_event_ignored"
+                )
+            write_audit(
+                actor_label=f"stripe_webhook:{event_type}",
+                action=action,
+                target_user_id=db_user.id,
+                details={
+                    "stripe_event_id": event_id,
+                    "event_subscription_id": sub_id,
+                    "current_subscription_id": db_user.stripe_subscription_id,
+                    "current_api_subscription_id": (
+                        db_user.api_stripe_subscription_id
+                    ),
+                    "price_present": bool(price_id),
+                },
+            )
+            log.warning(
+                "stripe_webhook ignored %s event=%s user=%s sub=%s current_sub=%s",
+                subscription_ignore_reason, event_type, db_user.id, sub_id,
+                db_user.stripe_subscription_id,
+            )
+            response = {
+                "received": True,
+                "ignored_subscription": subscription_ignore_reason,
+            }
+            if event_type == "customer.subscription.deleted":
+                response["ignored_delete"] = subscription_ignore_reason
+            return jsonify(response), 200
 
         old_tier = db_user.tier
-        # Only the web/EOD line owns the shared stripe_subscription_id / _status fields; an
-        # API-line event must not clobber the web subscription's id (a user may hold both).
-        if sub_id and not api_event:
+        # Only positively classified web/EOD subscription events own the
+        # shared stripe_subscription_id. Matching web invoices may update
+        # status, but Checkout and every non-web event leave both fields alone.
+        if sub_id and web_event and event_type in subscription_events:
             db_user.stripe_subscription_id = sub_id
-        if sub_status and not api_event:
+        if sub_status and web_event and (
+            event_type in subscription_events
+            or event_type == "invoice.payment_failed"
+        ):
             db_user.stripe_subscription_status = sub_status
+        if sub_id and api_event and event_type in subscription_events:
+            db_user.api_stripe_subscription_id = sub_id
+        if sub_status and api_event and event_type in subscription_events:
+            db_user.api_stripe_subscription_status = sub_status
         tier_changed_to = None
         if new_tier and new_tier != db_user.tier:
             db_user.tier = new_tier
@@ -3132,6 +3710,58 @@ def webhook_stripe():
         evrow.processed_at = datetime.now(timezone.utc)
         final_tier = db_user.tier
         final_api_tier = db_user.api_tier
+
+        # Durable MailerLite routing is part of this transaction. The worker
+        # performs and verifies HTTP writes later, then retries failures.
+        if (
+            event_type == "checkout.session.completed"
+            and web_event
+            and checkout_target_tier
+            in ("navigator", "analyst", "strategist")
+        ):
+            # checkout.completed can beat subscription.created. Clear any
+            # immediate trial trigger now; the positively classified
+            # subscription event follows with the full access-group target.
+            enqueue_mailerlite_reconcile(
+                s,
+                db_user,
+                f"stripe:{event_id}:clear-paid",
+                event_type=EVENT_CLEAR_PAID,
+                payload={"paid_subscription_id": sub_id},
+            )
+        elif (
+            web_event
+            and event_type in (
+                "customer.subscription.created",
+                "customer.subscription.updated",
+            )
+            and sub_status in live_statuses
+            and ml_target_period != "__skip__"
+        ):
+            enqueue_mailerlite_reconcile(
+                s,
+                db_user,
+                f"stripe:{event_id}:reconcile",
+                payload={
+                    "level_tier": final_tier,
+                    "level_period": ml_target_period,
+                },
+            )
+        elif (
+            web_event
+            and event_type in (
+                "customer.subscription.created",
+                "customer.subscription.updated",
+                "customer.subscription.deleted",
+            )
+            and new_tier == "explorer"
+        ):
+            enqueue_mailerlite_reconcile(
+                s,
+                db_user,
+                f"stripe:{event_id}:reconcile",
+                payload={"level_tier": "explorer"},
+            )
         s.commit()
 
         if tier_changed_to:
@@ -3170,27 +3800,6 @@ def webhook_stripe():
                 details={"price_id": price_id, "stripe_sub_id": sub_id, "status": sub_status,
                          "tier_unchanged": final_tier, "stripe_event_id": event_id},
             )
-
-        # Mailerlite level-group sync (TW1/UMP parity) - best-effort, post-commit.
-        # Fires on every mappable subscription event (and on delete -> explorer), so a
-        # same-tier monthly<->yearly switch still moves the user's group. Idempotent.
-        if ml_target_period != "__skip__":
-            sync_mailerlite_level_group(db_user.email, final_tier, ml_target_period, new_user=False)
-
-        # Winback trust letter (best-effort, post-commit). A PAYING web subscriber whose
-        # subscription just ended (tier actually moved paid -> explorer; a delete for an
-        # already-explorer user changes nothing and sends nothing) joins the winback
-        # group, which fires the one-email "trust letter" automation after a 1-day delay.
-        # Any live paid web event pulls them back OUT, so an upgrade or fast re-subscribe
-        # inside that delay window can never leave them queued for a churn letter. The
-        # old_tier == 'explorer' guard on removal skips the extra MailerLite round-trip
-        # on paid->paid changes (a paid-tier user can never be in the winback group).
-        if not api_event:
-            if event_type == "customer.subscription.deleted" and tier_changed_to == "explorer":
-                sync_mailerlite_winback_group(db_user.email, churned=True)
-            elif (final_tier not in ("", "explorer") and old_tier == "explorer"
-                  and sub_status in ("active", "trialing", "past_due")):
-                sync_mailerlite_winback_group(db_user.email, churned=False)
 
         # GA4 purchase (Measurement Protocol) - best-effort, post-commit, same
         # region as the Mailerlite syncs above. Fired HERE rather than from
@@ -3246,7 +3855,7 @@ def webhook_stripe():
         # charge_automatically (the only collection method Smart Retries applies to) AND
         # a real subscription invoice, so the gate only ever fires on a genuine
         # exhausted-retry event.
-        if (event_type == "invoice.payment_failed" and not api_event
+        if (event_type == "invoice.payment_failed" and web_event
                 and data_obj.get("collection_method") == "charge_automatically"
                 and data_obj.get("subscription")
                 and data_obj.get("next_payment_attempt") is None):
@@ -3404,16 +4013,36 @@ class UserAdmin(_AdminAuth, ModelView):
             )
 
     def after_model_change(self, form, model, is_created):
-        # Mailerlite level-group sync (TW1/UMP parity) for manual admin tier edits.
-        # Period isn't known for a manual grant: explorer syncs to the explorer group;
-        # a manual analyst/strategist has no monthly/yearly, so the helper skips + logs
-        # it for manual placement (the reconcile picks up anyone with a real Stripe sub).
+        # Queue the same durable current-state reconciliation used by signup and
+        # Stripe. In particular, a manual paid grant must remove a reverse-trial
+        # user from lifecycle email groups without making MailerLite HTTP calls
+        # in the admin request. Period isn't known for a manual paid grant, so
+        # access-level placement remains unchanged unless an earlier Stripe
+        # event recorded a matching monthly/yearly period.
+        lifecycle_session = DBSession()
         try:
-            if getattr(model, "email", None) and getattr(model, "tier", None):
-                sync_mailerlite_level_group(model.email, model.tier, None, new_user=False)
+            user = (
+                lifecycle_session.query(User)
+                .filter_by(id=model.id)
+                .with_for_update()
+                .first()
+            )
+            if user is not None and user.email:
+                enqueue_mailerlite_reconcile(
+                    lifecycle_session,
+                    user,
+                    f"admin-user-edit:{user.id}:{time.time_ns()}",
+                    payload={"level_tier": user.tier or "explorer"},
+                )
+                lifecycle_session.commit()
         except Exception as e:
-            log.warning("admin after_model_change mailerlite sync failed for %s: %s",
-                        getattr(model, "email", "?"), e)
+            lifecycle_session.rollback()
+            log.warning(
+                "admin after_model_change MailerLite enqueue failed for %s: %s",
+                getattr(model, "email", "?"), e,
+            )
+        finally:
+            lifecycle_session.close()
 
     @action(
         "purge",
@@ -3427,18 +4056,39 @@ class UserAdmin(_AdminAuth, ModelView):
             purged = 0
             errors = []
             for u in users:
-                # Cancel any active Stripe subscription first
-                if u.stripe_subscription_id:
+                # Cancel both independent product-line subscriptions before
+                # removing the identity. Never orphan a billable API
+                # subscription just because the web subscription is absent.
+                cancel_failed = False
+                subscription_ids = {
+                    subscription_id
+                    for subscription_id in (
+                        u.stripe_subscription_id,
+                        u.api_stripe_subscription_id,
+                    )
+                    if subscription_id
+                }
+                for subscription_id in subscription_ids:
                     try:
-                        stripe.Subscription.delete(u.stripe_subscription_id)
+                        stripe.Subscription.delete(subscription_id)
                     except Exception as e:
-                        errors.append(f"{u.email}: stripe cancel failed: {e}")
+                        errors.append(
+                            f"{u.email}: Stripe cancellation failed for "
+                            f"{subscription_id}: {e}"
+                        )
+                        cancel_failed = True
+                if cancel_failed:
+                    # Retain WorkOS and Postgres identity so an operator can
+                    # retry after resolving Stripe; deleting it would lose the
+                    # ownership trail for a subscription that may still bill.
+                    continue
                 # Delete from WorkOS
                 if u.workos_user_id:
                     try:
                         workos_client.user_management.delete_user(user_id=u.workos_user_id)
                     except Exception as e:
                         errors.append(f"{u.email}: WorkOS delete failed: {e}")
+                        continue
                 # Audit before deleting from Postgres
                 write_audit(
                     actor_label="admin_purge",

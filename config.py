@@ -190,7 +190,10 @@ domain_root = tw2_public_url
 _tw2_env_explicit = os.environ.get('TW2_ENV', '').strip().lower()
 if _tw2_env_explicit in ('dev', 'staging', 'prod'):
     tw2_env = _tw2_env_explicit
-elif 'tw2-prod' in _tw2_public_host:
+elif (
+    'tw2-prod' in _tw2_public_host
+    or _tw2_public_host in ('tradewave.ai', 'www.tradewave.ai')
+):
     tw2_env = 'prod'
 elif 'tw2-stage' in _tw2_public_host:
     tw2_env = 'staging'
@@ -744,6 +747,15 @@ SENTRY_DSN = os.environ.get('SENTRY_DSN', '')  # set in /etc/tradewave/secrets.e
 # dedicated MAILERLITE_API_KEY in secrets.env later if you want to rotate them independently.)
 MAILERLITE_API_KEY  = os.environ.get('MAILERLITE_API_KEY', '') or os.environ.get('MAILERLITE_TOKEN', '')  # set in /etc/tradewave/secrets.env
 MAILERLITE_GROUP_ID = os.environ.get('MAILERLITE_GROUP_ID', '')  # set in /etc/tradewave/secrets.env
+# Every TradeWave-originated MailerLite mutation is fail-closed. The account is
+# shared across environments, so a valid token on dev/staging must never be
+# enough to touch production subscribers. Production must opt in explicitly
+# only after the inactive lifecycle automations have been reviewed and enabled.
+MAILERLITE_OUTBOUND_ENABLED = (
+    tw2_env == 'prod'
+    and os.environ.get('MAILERLITE_OUTBOUND_ENABLED', '').strip().lower()
+        in ('1', 'true', 'yes', 'on')
+)
 # Shared secret that authenticates the MailerLite unsubscribe/complaint/bounce webhook
 # (web/app.py:mailerlite_webhook). REQUIRED on staging/prod - the endpoint fails CLOSED
 # there when this is empty. Send it as the X-Webhook-Secret header or a ?secret= query
@@ -765,10 +777,16 @@ MAILERLITE_LEVEL_GROUPS = {
     'strategist_yearly':  '97426077579740921',
 }
 
-# Winback "trust letter" group: a PAYING web subscriber whose subscription ends
-# (customer.subscription.deleted -> tier reverts to explorer) joins this group;
-# the MailerLite automation "TW Winback - Explorer (trust letter)" then sends ONE
-# honest use-your-free-seat email after a 1-day delay. Any subsequent live paid
-# web event removes them again so a fast re-subscribe never queues a churn letter.
-# Populated/cleared by email_utils.sync_mailerlite_winback_group(). '' disables.
-MAILERLITE_WINBACK_GROUP_ID = os.environ.get('MAILERLITE_WINBACK_GROUP_ID', '192267699380815223')
+# MailerLite LIFECYCLE groups are automation triggers, distinct from the LEVEL
+# groups above (which describe current access only). The three lifecycle states
+# are mutually exclusive and are reconciled by web/mailerlite_lifecycle.py.
+# IDs are per-environment secrets. Leave them blank everywhere except the
+# deliberately enabled production environment (or dedicated test groups).
+MAILERLITE_LIFECYCLE_GROUPS = {
+    'trial_started': os.environ.get('MAILERLITE_TRIAL_STARTED_GROUP_ID', ''),
+    'trial_ended_explorer': os.environ.get('MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID', ''),
+    'winback_explorer': os.environ.get('MAILERLITE_WINBACK_GROUP_ID', ''),
+}
+# Backward-compatible alias used by the existing winback wrapper and migration
+# tooling. No live ID default: an omitted secret must fail closed.
+MAILERLITE_WINBACK_GROUP_ID = MAILERLITE_LIFECYCLE_GROUPS['winback_explorer']
