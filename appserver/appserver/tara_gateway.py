@@ -751,7 +751,9 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             })
         convo.append({"role": "user", "content": results})
     # If we broke out with the model's final text, use it; else force a final no-tool answer.
-    if final_text is None:
+    # (empty string counts as missing - a content-filtered/truncated response otherwise
+    # flows through as a blank chat bubble)
+    if not final_text:
         final_text = send_claude_messages(convo, model=model, system=system,
                                           cache_system=True, cache_ttl=cache_ttl)
     # Deterministic guard: guarantee the loaded pick is NAMED (symbol + lookback + stat), since

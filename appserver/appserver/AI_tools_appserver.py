@@ -31,7 +31,7 @@ class AnthropicAPIError(Exception):
 
 
 def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
-                         max_tokens=4096, temperature=0.0, timeout=(15, 300),
+                         max_tokens=4096, temperature=0.0, timeout=(15, 100),
                          cache_system=False, cache_ttl='5m', tools=None, return_raw=False):
     """
     Send a multi-turn conversation to Claude.

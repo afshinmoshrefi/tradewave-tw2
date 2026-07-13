@@ -52,6 +52,7 @@ from flask_cors import CORS
 from flask_limiter import Limiter, HEADERS
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
+import ast
 import os
 import pandas as pd
 import datetime
@@ -220,7 +221,9 @@ def tw_rate_limit_key():
 limiter = Limiter(
     key_func=tw_rate_limit_key,
     storage_uri="redis://localhost:6379/0",  # Use Redis as storage backend
-    headers_enabled=True
+    headers_enabled=True,
+    swallow_errors=True,               # a redis blip degrades limiting - it must never 500 every limited route
+    in_memory_fallback_enabled=True,   # per-worker in-memory caps take over while redis is unreachable
     )
 limiter.init_app(app)
 
@@ -2088,6 +2091,8 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     # ----------------------------------------------
     daysout = int(daysOut)
     dates_list = list(df['date'])
+    dates_set = set(dates_list)  # O(1) membership for the per-year date-snap loops below
+    first_date_in_csv = dates_list[0]
     last_date_in_csv = df.iloc[-1]['date']
 
     trade_active = False
@@ -2145,8 +2150,11 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
 
         # Find actual start date (d0) in the data
         d0 = d_start_0
-        while d0 not in dates_list:
+        while d0 not in dates_set:
             d0 = inc_date_day(d0, 1)
+            if d0 > last_date_in_csv:  # backstop: never spin past the end of the data
+                d0 = last_date_in_csv
+                break
 
         # Calculate end date
         d_start_1 = inc_date_day(d_start_0, daysout)
@@ -2164,12 +2172,18 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         else:
             if d_start_1[5:] == '12-31':
                 d1 = last_trading_date
-                while d1 not in dates_list:
+                while d1 not in dates_set:
                     d1 = inc_date_day(d1, -1)
+                    if d1 < first_date_in_csv:  # backstop: never spin past the start of the data
+                        d1 = first_date_in_csv
+                        break
             else:
                 d1 = d_start_1
-                while d1 not in dates_list:
+                while d1 not in dates_set:
                     d1 = inc_date_day(d1, 1)
+                    if d1 > last_date_in_csv:  # backstop: never spin past the end of the data
+                        d1 = last_date_in_csv
+                        break
 
         # Get price data
         df0 = df[df['date'] == d0]
@@ -2444,7 +2458,7 @@ def getYearsMetaData2(resourceID, year, month, day):
                 logging.warning("YearsMetaData2: no opp_meta row for date, returning empty: %s date=%s", metaFile, date)
                 sylst = []
             else:
-                ylst = eval(df['meta_col'].iloc[0])
+                ylst = ast.literal_eval(df['meta_col'].iloc[0])
                 sylst = []
                 for b in ylst:
                     sylst.append([str(b[0]), str(b[1])])
@@ -2465,7 +2479,7 @@ def getYearsMetaData2(resourceID, year, month, day):
                 dfE = pd.read_csv(metaFilePE)
                 dfE = dfE[dfE['date'] == date]
                 if not dfE.empty:
-                    ylstPE = eval(dfE['meta_col'].iloc[0])
+                    ylstPE = ast.literal_eval(dfE['meta_col'].iloc[0])
 
                     sylstPE = []
                     for b in ylstPE:
@@ -2853,7 +2867,10 @@ def getStockPriceByDate(resourceID, symbol,date):
     # df = pd.read_csv(fn_csv)[['date', 'close', 'volume']]
     df = get_symbol_csv(symbol,exchange)  # new way to getting the csv 7/21/2025
 
-
+    # get_symbol_csv returns a 'Not Traded: ...' string for stale symbols - same guard
+    # as get_security_price, otherwise df['date'] below raises and 500s the endpoint
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return jsonify({'date': date, 'price': 0})
 
     dates_list = list(df['date'])
     last_date = df['date'].iloc[-1]
@@ -2869,8 +2886,7 @@ def getStockPriceByDate(resourceID, symbol,date):
         trow = df[df['date']==d0]
         price = trow['close'].iloc[0]
 
-    redis_client.set(redis_key_stockPriceByDate, json.dumps({'date':d0,'price': price}))
-    redis_client.expire(redis_key_stockPriceByDate, config.stocklastprice_expire_time) 
+    redis_client.set(redis_key_stockPriceByDate, json.dumps({'date':d0,'price': price}), ex=config.stocklastprice_expire_time)
     return jsonify({'date':d0,'price': price})
 #---------------------------------------------------------------------------------------------------------------------------------
 # get the consolidated seasonal chart version 2 added chart start date - this is now called the trend_chart
@@ -3371,7 +3387,6 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
     # check for daily limits for the user_level - important for free users specially
     #--------------------------------------------------------------------------------------------------------
     redis_key_daily_reports_generated = f'num_today_{userid}'
-    num = redis_client2.get(redis_key_daily_reports_generated)
 
     dt = datetime.datetime.now()
     secs_to_midnight = ((24 - dt.hour - 1) * 60 * 60) + ((60 - dt.minute - 1) * 60) + (60 - dt.second)
@@ -3382,17 +3397,16 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
     if daily_allowed <= 0 and not data.get('is_admin'):
         update_activity_log(atime, -1, wp_userid, ipv4,country_code, zip, 'DR report publish fail daily=0 ')
         return jsonify({'publish_dr_report':'daily_limit_reached','limit':daily_allowed})
-    if num is None:
-        redis_client2.set(redis_key_daily_reports_generated,1,ex=secs_to_midnight)
-    else:
-        num = int(num)
-
-        if num >= daily_allowed:
-            update_activity_log(atime, -1, wp_userid, ipv4,country_code, zip, f'DR report publish fail num={num} ')
-            return jsonify({'publish_dr_report':'daily_limit_reached','limit':daily_allowed})
-        else:
-            num = num + 1
-            redis_client2.set(redis_key_daily_reports_generated,num,ex=secs_to_midnight)
+    # Atomic INCR closes the read-then-set TOCTOU where two concurrent publishes
+    # (double-click / two tabs) both read the same count and both slipped past the
+    # cap. INCR-first means a rejected attempt still consumes a count, but that can
+    # only happen at/over the cap, where every attempt is rejected anyway.
+    num = redis_client2.incr(redis_key_daily_reports_generated)
+    if num == 1 or redis_client2.ttl(redis_key_daily_reports_generated) < 0:
+        redis_client2.expire(redis_key_daily_reports_generated, secs_to_midnight)
+    if num > daily_allowed:
+        update_activity_log(atime, -1, wp_userid, ipv4,country_code, zip, f'DR report publish fail num={num} ')
+        return jsonify({'publish_dr_report':'daily_limit_reached','limit':daily_allowed})
 
 
     # generate title and slug for this post -
@@ -3485,9 +3499,89 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
 
     # print(existing_reports_list)
     return jsonify({'publish_dr_report':'success', 'report_url': report_url})
-#---------------------------------------------------------------------------------------------------   
+#---------------------------------------------------------------------------------------------------
+# Powers the wave viewer's stateful "Remind me" pill: is this exact pattern (symbol+date+
+# days_hold+years) saved in ANY of the user's portfolios? Pattern-scoped on purpose - unlike
+# the publish dedup (check_for_duplicates), which is portfolio-scoped. Returns the found
+# portfolio's NAME (for the pill tooltip / already-set dialog) plus the record's slug and
+# publishDate so the client can rebuild the Google Calendar event dicts without re-publishing.
+#---------------------------------------------------------------------------------------------------
+@app.route('/dr_report_exists/<string:symbol>/<string:date>/<string:days_hold>/<string:years>', methods=['GET'])
+@check_for_token
+@limiter.limit(config.rate_limit_general[0])
+@limiter.limit(config.rate_limit_general[1])
+@limiter.limit(config.rate_limit_general[2])
+@limiter.limit(config.rate_limit_general[3])
+def dr_report_exists(symbol, date, days_hold, years):
+
+    token  = request.args.get("token")
+    data   = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
+    userid = data['user']
+
+    raw     = redis_client2.get(f'user_reports_{userid}')
+    reports = json.loads(raw) if raw is not None else []
+
+    # str() on days_hold/years matches check_for_duplicates' string semantics while
+    # tolerating any historical records that stored them as ints.
+    matches = [d for d in reports if d['symbol'] == symbol and d['date'] == date
+               and str(d['days_hold']) == days_hold and str(d['years']) == years]
+    if not matches:
+        return jsonify({'dr_report_exists': False})
+
+    # Prefer a copy whose Google events were actually created (multi-portfolio copies
+    # of the same pattern are otherwise interchangeable). gc_events_created is stamped
+    # by /dr_report_mark_gc_events below; absent = saved but no events (e.g. the Plus
+    # icon path, or a bell click whose Google popup was abandoned).
+    match = next((d for d in matches if d.get('gc_events_created')), matches[0])
+
+    # portfolioID -> name; id 0 = the default 'main' (may predate the names key)
+    portfolio_name = 'main'
+    raw_names = redis_client2.get(f'user_portfolios_{userid}')
+    if raw_names is not None:
+        portfolio_name = next((p['name'] for p in json.loads(raw_names) if p['id'] == match['portfolioID']), 'main')
+
+    return jsonify({'dr_report_exists': True, 'gc_events': bool(match.get('gc_events_created')),
+                    'portfolio_name': portfolio_name, 'dr_id': match.get('dr_id', -1),
+                    'slug': match.get('slug', ''), 'publishDate': match.get('publishDate', None)})
+#---------------------------------------------------------------------------------------------------
+# Stamps gc_events_created (ISO UTC) on every saved record matching the pattern identity
+# (all portfolio copies - they are the same pattern). Called by the React clients right
+# after a successful Google Calendar insert (the Remind me bell and the AddGC dialog);
+# dr_report_exists reads it so the pill only claims "Reminder set" when events were
+# actually created. Absent key = never created (includes all pre-2026-07-08 records).
+# The stamp is never cleared: we cannot see deletions made inside Google Calendar, so
+# clearing would only ever fabricate certainty we don't have.
+#---------------------------------------------------------------------------------------------------
+@app.route('/dr_report_mark_gc_events/<string:symbol>/<string:date>/<string:days_hold>/<string:years>', methods=['POST'])
+@check_for_token
+@limiter.limit(config.rate_limit_general[0])
+@limiter.limit(config.rate_limit_general[1])
+@limiter.limit(config.rate_limit_general[2])
+@limiter.limit(config.rate_limit_general[3])
+def dr_report_mark_gc_events(symbol, date, days_hold, years):
+
+    token  = request.args.get("token")
+    data   = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
+    userid = data['user']
+
+    redis_key = f'user_reports_{userid}'
+    raw       = redis_client2.get(redis_key)
+    reports   = json.loads(raw) if raw is not None else []
+
+    stamped = 0
+    now_iso = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+    for d in reports:
+        if d['symbol'] == symbol and d['date'] == date and str(d['days_hold']) == days_hold and str(d['years']) == years:
+            d['gc_events_created'] = now_iso
+            stamped += 1
+
+    if stamped:
+        redis_client2.set(redis_key, json.dumps(reports))
+
+    return jsonify({'dr_report_mark_gc_events': stamped})
+#---------------------------------------------------------------------------------------------------
 # start writing an AI article for the newsroom by placing it on the writing queue
-#---------------------------------------------------------------------------------------------------   
+#---------------------------------------------------------------------------------------------------
 @app.route('/write_article_queue/<string:resourceID>/<string:symbol>/<string:date>/<string:days>/<string:years>/<string:direction>/<string:userid>/<string:publish_date>', methods=['POST'])
 @check_for_token
 def write_article_queue(resourceID, symbol, date, days, years, direction, userid, publish_date):
@@ -4193,8 +4287,9 @@ def update_number_of_shares(num_shares,portfolioID,dr_id): # use slug as an iden
     # get the list index with the slug=slug
     # use the list index to update num_shares and then load it back to redis db=2
     idx = [i for i, d in enumerate(redis_user_reports_list) if redis_user_reports_list[i]["dr_id"] == int(dr_id) and redis_user_reports_list[i]["portfolioID"] == portfolioID]
-    i=-1
-    if len(idx)==1:i=idx[0]
+    if len(idx) != 1:  # unknown/stale dr_id - never fall through to list[-1]
+        return jsonify({'update_number_of_shares':'not_found'})
+    i = idx[0]
     # now we have the index of the opportunity to update
     redis_user_reports_list[i]['num_shares']=num_shares
     # set the opp list to the new listed after updating the num_shares
@@ -4239,8 +4334,9 @@ def update_status(status,portfolioID,dr_id): # use slug as an identifier for whi
     # use the list index to update status and then load it back to redis db=2
     idx = [i for i, d in enumerate(redis_user_reports_list) if redis_user_reports_list[i]["dr_id"] == int(dr_id) and redis_user_reports_list[i]["portfolioID"] == portfolioID]
 
-    i=-1
-    if len(idx)==1:i=idx[0]
+    if len(idx) != 1:  # unknown/stale dr_id - never fall through to list[-1]
+        return jsonify({'update_status':'not_found'})
+    i = idx[0]
 
     # now we have the index of the opportunity to update
     redis_user_reports_list[i]['status']=status
@@ -4304,17 +4400,18 @@ def dr_report_remove(dr_id): # get the list of reports from redis and returns a 
         else:
 
             rec_to_del = [d for d in redis_user_reports_list if d['dr_id'] == int(dr_id)]
-            # print('rec_to_del=',rec_to_del[0])
-            slug = rec_to_del[0]["slug"]
+            if not rec_to_del:  # unknown/stale dr_id (double-click delete) - nothing to remove
+                return jsonify({'num_removed': 0})
+            slug = _record_slug(rec_to_del[0])  # legacy records may predate the 'slug' key
             # if there is a social media post for this record delete it here
-            if rec_to_del[0]["sm_post"] == "pos":
+            if rec_to_del[0].get("sm_post") == "pos":
                 try:
                     opp_del_social_media(slug)
                 except Exception as e:
                     logging.exception("opp_del_social_media failed slug=%s", slug)
             # Vestigial TW1 blog_queue ping — must not block the user delete.
             hostname = socket.gethostname()
-            if hostname != 'afshin-VirtualBox' and config.blog_queue_server:
+            if hostname != 'afshin-VirtualBox' and config.blog_queue_server and slug:
                 try:
                     requests.get(f'{config.blog_queue_server}delreport/{userid}/{slug}', timeout=5)
                 except Exception as e:
@@ -4780,12 +4877,19 @@ def detect_symbols_group(encoded_symbols):
     if len(symbols) == 0:
         return jsonify({'error': 'no_symbols'})
 
-    # load symbol sets for each resource group
+    # load symbol sets for each resource group (redis-cached: this used to re-read
+    # every market CSV on every call)
     group_matches = []
     for rid, csv_path in config.available_resources_path.items():
         try:
-            df = pd.read_csv(csv_path)
-            csv_symbols = set(df['symbols'].str.upper())
+            cache_key = f'group_symbols_{rid}'
+            cached = redis_client.get(cache_key)
+            if cached is not None:
+                csv_symbols = set(json.loads(cached))
+            else:
+                df = pd.read_csv(csv_path)
+                csv_symbols = set(df['symbols'].dropna().astype(str).str.upper())
+                redis_client.set(cache_key, json.dumps(sorted(csv_symbols)), ex=config.stock_metadata_expire_time)
             matched = [s for s in symbols if s in csv_symbols]
             if len(matched) > 0:
                 group_matches.append({
@@ -5118,9 +5222,10 @@ def get_note(dr_id): # use dr_id as an identifier for which saved report to upda
     # get the list index with the slug=dr_id
     # use the list index to update num_shares and then load it back to redis db=2
     idx = [i for i, d in enumerate(redis_user_reports_list) if redis_user_reports_list[i]["dr_id"] == dr_id]
-    i=-1
-    if len(idx)==1:i=idx[0]
-    # now we have the index of the opportunity 
+    if len(idx) != 1:  # unknown/stale dr_id - never fall through to list[-1]
+        return jsonify({'note':'missing opp'})
+    i = idx[0]
+    # now we have the index of the opportunity
     if 'note' in redis_user_reports_list[i]:
         note=redis_user_reports_list[i]['note']
     else:
@@ -5161,8 +5266,9 @@ def save_note(note,dr_id): # use dr_id as an identifier for which saved opp to u
     # get the list index with the dr_id=dr_id
     # use the list index to update num_shares and then load it back to redis db=2
     idx = [i for i, d in enumerate(redis_user_reports_list) if redis_user_reports_list[i]["dr_id"] == dr_id]
-    i=-1
-    if len(idx)==1:i=idx[0]
+    if len(idx) != 1:  # unknown/stale dr_id - never fall through to list[-1]
+        return jsonify({'update_note':'missing opp'})
+    i = idx[0]
     # now we have the index of the opportunity to update
     if note == '-': note = '' # its passed with a - so rest api doesnt fail
     redis_user_reports_list[i]['note']=note
@@ -5207,11 +5313,10 @@ def opp_to_social_media(note,slug): # use slug as an identifier for which saved 
     # get the list index with the slug=slug
     # use the list index to update num_shares and then load it back to redis db=2
     idx = [i for i, d in enumerate(redis_user_reports_list) if redis_user_reports_list[i]["slug"] == slug]
-    i=-1
-    if len(idx)==1:i=idx[0]
+    if len(idx) != 1:  # unknown/stale slug - never fall through to list[-1]
+        return jsonify({'opp_to_social_media':'missing opp'})
+    i = idx[0]
     # now we have the index of the opportunity to send to social media - its i
-
-    
 
     resourceID   = redis_user_reports_list[i]['resourceID']
     symbol       = redis_user_reports_list[i]['symbol']
@@ -5269,8 +5374,9 @@ def opp_del_social_media(slug): # use slug as an identifier for which saved opp 
     # get the list index with the slug=slug
     # use the list index to update num_shares and then load it back to redis db=2
     idx = [i for i, d in enumerate(redis_user_reports_list) if redis_user_reports_list[i]["slug"] == slug]
-    i=-1
-    if len(idx)==1:i=idx[0]
+    if len(idx) != 1:  # unknown/stale slug - never fall through to list[-1]
+        return jsonify({'opp_del_social_media':'missing opp'})
+    i = idx[0]
     # now we have the index of the opportunity to send to social media - its i
 
 
@@ -6136,24 +6242,34 @@ def get_creditspreads_data(opp_symbol,opp_start_date,opp_days,num_strikes):
 
     # print('opp_symbol=',opp_symbol)
 
-    dict  = get_quotes(opp_symbol) 
+    # Graceful degrade: a Tradier outage / sparse option chain (few strikes or
+    # expirations) used to 500 here; return the empty shape with the [-1,-1]
+    # 'none found' sentinels the React client already handles.
+    try:
+        dict  = get_quotes(opp_symbol)
     
-    # print('dict in get_quotes in appserver returned ',opp_symbol,dict)
+        # print('dict in get_quotes in appserver returned ',opp_symbol,dict)
     
-    # print(f"get_quotes called for {opp_symbol} price is:{dict['last']}")
+        # print(f"get_quotes called for {opp_symbol} price is:{dict['last']}")
 
-    creditspreads_dict = get_creditspreads_for_opportunity(dict,opp_start_date,opp_days,num_strikes)
+        creditspreads_dict = get_creditspreads_for_opportunity(dict,opp_start_date,opp_days,num_strikes)
 
-    selected_bullish,selected_bearish = desired_selections_bullish_bearish (creditspreads_dict)
-    cs_selections = {'bullish':selected_bullish,'bearish':selected_bearish}
+        selected_bullish,selected_bearish = desired_selections_bullish_bearish (creditspreads_dict)
+        cs_selections = {'bullish':selected_bullish,'bearish':selected_bearish}
 
-    # also get account info for per trade risk capital for credit spreads
-    total_equity,balances_dict = get_accounting_info(config_autotrade.account_id) 
-    capital_available = total_equity * config_autotrade.portion_balance # this is a fraction like 0.5 means only trade half of the account
-    per_trade_capital = capital_available * config_autotrade.portion_risk_per_trade # if per_trade_capital==0 means trade minimum like 1 option contract per trade
-    positions_dict    = get_positions(config_autotrade.account_id)
+        # also get account info for per trade risk capital for credit spreads
+        total_equity,balances_dict = get_accounting_info(config_autotrade.account_id)
+        capital_available = total_equity * config_autotrade.portion_balance # this is a fraction like 0.5 means only trade half of the account
+        per_trade_capital = capital_available * config_autotrade.portion_risk_per_trade # if per_trade_capital==0 means trade minimum like 1 option contract per trade
+        positions_dict    = get_positions(config_autotrade.account_id)
 
-    return jsonify({'creditspreads_dict':creditspreads_dict,'stock_quote':dict,'capital_available':capital_available,'per_trade_capital':per_trade_capital,'auto_selection':cs_selections,'positions_dict':positions_dict})
+        return jsonify({'creditspreads_dict':creditspreads_dict,'stock_quote':dict,'capital_available':capital_available,'per_trade_capital':per_trade_capital,'auto_selection':cs_selections,'positions_dict':positions_dict})
+    except Exception:
+        logging.exception('get_creditspreads_data failed symbol=%s date=%s', opp_symbol, opp_start_date)
+        return jsonify({'creditspreads_dict': {}, 'stock_quote': {}, 'capital_available': 0,
+                        'per_trade_capital': 0,
+                        'auto_selection': {'bullish': [-1, -1], 'bearish': [-1, -1]},
+                        'positions_dict': {}})
 #-----------------------------------------------------------------------------------------------------
 # place new credit spread order - basically sell a bullish or bearish at the money credit spread
 # when a new creditspread is sold, a new row is added to live_trades table in redis db=1

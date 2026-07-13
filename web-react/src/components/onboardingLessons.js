@@ -251,9 +251,9 @@ export const LESSONS = [
       },
       {
         "title": "Then Let the App Watch the Calendar",
-        "lead": "A seasonal opportunity only counts once its window actually opens. That's what the Notify me bell above the chart is for.",
+        "lead": "A seasonal opportunity only counts once its window actually opens. That's what the Remind me bell above the chart is for.",
         "bullets": [
-          "One click saves it to your Notifications portfolio and puts the window's open and close dates on your calendar.",
+          "One click saves it to your portfolio and puts the window's open and close dates on your calendar.",
           "You get pinged the day the window opens - then forget about it until then."
         ],
         "pointer": ""
@@ -264,7 +264,7 @@ export const LESSONS = [
         "bullets": [
           "Click a row to load an opportunity worth keeping onto the chart.",
           "Tap the + above the chart to save it to your portfolio.",
-          "Hit Notify me so the window can't slip past you.",
+          "Hit Remind me so the window can't slip past you.",
           "Don't have a favorite yet? Save any solid one to practice."
         ],
         "pointer": ""
@@ -301,7 +301,7 @@ export const LESSONS = [
           "Open the S&P 500 (SPX) index.",
           "Find the long window with the {peLabel} filter on.",
           "Read its red years on the bar chart, then its % Profitable and SR {statsAt}.",
-          "Save it, hit Notify me - and then go hunt."
+          "Save it, hit Remind me - and then go hunt."
         ],
         "pointer": ""
       }

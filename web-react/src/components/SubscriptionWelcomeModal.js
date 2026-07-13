@@ -45,18 +45,18 @@ const COPY = {
     },
   },
   navigator: {
-    unlocks: 'Now open: the NASDAQ 100 and the S&P 500 alongside the Dow, ML scoring on every scan.',
+    unlocks: 'Now open: the NASDAQ 100 and the S&P 500 alongside the Dow, any start date unlocked.',
     new: {
       headline: 'Welcome to Navigator',
-      body: 'Glad to have you on Navigator. You just went from the Dow to the three indexes that move the US market - Dow, NASDAQ and S&P 500 - with the ML score riding along on every scan. Start with the Opportunity Table on a fresh market and read down from the top. The strongest seasonal window is the one sitting first.',
+      body: 'Glad to have you on Navigator. You just went from the Dow to the three indexes that move the US market - Dow, NASDAQ and S&P 500 - with any start date unlocked, not just today. Start with the Opportunity Table on a fresh market and read down from the top. The strongest seasonal window is the one sitting first. Want the AI-calibrated score on top of the history? That starts at Analyst.',
     },
     upgrade: {
       headline: 'Welcome to Navigator',
-      body: "Nice - you're on Navigator now. The NASDAQ 100 and the S&P 500 just opened up next to the Dow, and every scan now carries its ML score so you can see which windows the model likes and which it doesn't. More names, same simple read: strongest opportunity on top.",
+      body: "Nice - you're on Navigator now. The NASDAQ 100 and the S&P 500 just opened up next to the Dow, and you can browse any start date, not just today. More names, same simple read: strongest opportunity on top. Analyst is the next step up if you want the AI-calibrated score riding along.",
     },
     downgrade: {
       headline: "You're on Navigator Now",
-      body: "You've moved to Navigator, and here's what stays with you: the Dow, NASDAQ and S&P 500, ML scoring on every scan, three portfolios, and everything you've already saved. The markets above this tier are paused, not gone - one click brings them back whenever you want them.",
+      body: "You've moved to Navigator, and here's what stays with you: the Dow, NASDAQ and S&P 500, any start date unlocked, three portfolios, and everything you've already saved. The markets above this tier are paused, not gone - one click brings them back whenever you want them.",
     },
   },
   analyst: {

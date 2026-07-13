@@ -425,6 +425,11 @@ const PublishArticle = (props) => {
                 SetMsgColor('darkgreen');
                 SetMessage('Article prompt created and loaded to clipboard.');
                 SetText(data['article_prompt']);
+            })
+            .catch((error) => {
+                console.error('Article prompt creation failed:', error);
+                SetMsgColor('red');
+                SetMessage(`Error creating article prompt: ${error.message}`);
             });
     };
     //-------------------------------------------------------------------------------------------------------------------------------------

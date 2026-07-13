@@ -265,30 +265,37 @@ const AutoTrade = (props) => {
 
         if (qvars !== null) {
 
-            console.log('getCookie', qvars)
+            try {
 
-            let b64_str = window.atob(qvars);
+                console.log('getCookie', qvars)
 
-            console.log('getCookie', b64_str)
+                let b64_str = window.atob(qvars);
 
-            let params = b64_str.split('|');
-            //                            0        1         2      3         4         5         6          7            8                9               10          11 
-            // let qvars = window.btoa(`${id}|${monthNum}|${day}|${years}|${pyears}|${min_sr}|${avg_ret}|${min_mfe}|${day_range}|${selectedMinMFEpct}|${tradeType}|${minPrice}`);
+                console.log('getCookie', b64_str)
 
-            console.log('getCookie', 'params=', params)
+                let params = b64_str.split('|');
+                //                            0        1         2      3         4         5         6          7            8                9               10          11
+                // let qvars = window.btoa(`${id}|${monthNum}|${day}|${years}|${pyears}|${min_sr}|${avg_ret}|${min_mfe}|${day_range}|${selectedMinMFEpct}|${tradeType}|${minPrice}`);
 
-            // SetSelectedSecurityGroup
-            // SetPopulateMonth
-            // SetPopulateDay
-            // SetPopulateYears
-            // SetPopulatePartialYears
-            // SetTradeType
-            if (params[5] !== 'undefined') SetMinSR(params[5]);
-            if (params[6] !== 'undefined') SetAvgRet(params[6] + '%');
-            if (params[7] !== 'undefined') SetSelectedMinMFE(params[7]);
-            if (params[8] !== 'undefined') SetDayRange(params[8]);
-            if (params[9] !== 'undefined') SetSelectedMinMFEpct(params[9]);
-            if (params[11] !== 'undefined') SetMinStockPrice('$' + params[11]);
+                console.log('getCookie', 'params=', params)
+
+                // SetSelectedSecurityGroup
+                // SetPopulateMonth
+                // SetPopulateDay
+                // SetPopulateYears
+                // SetPopulatePartialYears
+                // SetTradeType
+                if (params[5] !== 'undefined') SetMinSR(params[5]);
+                if (params[6] !== 'undefined') SetAvgRet(params[6] + '%');
+                if (params[7] !== 'undefined') SetSelectedMinMFE(params[7]);
+                if (params[8] !== 'undefined') SetDayRange(params[8]);
+                if (params[9] !== 'undefined') SetSelectedMinMFEpct(params[9]);
+                if (params[11] !== 'undefined') SetMinStockPrice('$' + params[11]);
+
+            } catch (err) {
+                // corrupt/undecodable cookie - ignore and fall back to defaults
+                console.log('getCookie decode error', err.message)
+            }
         }
 
     }, []);
@@ -406,10 +413,9 @@ const AutoTrade = (props) => {
                     sp = tmp.split('-');
                     if (isNaN(Number(sp[0]))) isErr = true;
                     if (isNaN(Number(sp[1]))) isErr = true;
+                    if (Number(sp[0]) >= Number(sp[1])) isErr = true;
                 }
                 else isErr = true;
-
-                if (Number(sp[0]) >= Number(sp[1])) isErr = true;
 
                 SetTextBoxError4(isErr);
                 SetDayRange(tmp);

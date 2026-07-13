@@ -83,7 +83,7 @@ const InfoPopup = (props) => {
             }
 
             button1Text = 'Close';
-            if (props.loggedinUser === 0) {
+            if (props.loggedinUser === '0') {
                 button2Text = 'Login';
             }
             else {
@@ -339,7 +339,7 @@ Includes:
         // console.log('props.dialogType =', props.dialogType)
 
         // Generic escape hatch: a dialog can carry its own button-1 action
-        // (e.g. the notify bell's "Re-create Events" / "Retry"). Runs inside
+        // (e.g. the Remind me bell's "Re-create" / "Retry"). Runs inside
         // this click gesture, so it may open popups (Google OAuth).
         if (props.dialogProp && typeof props.dialogProp['onButton1'] === 'function') {
             props.SetInfoBoxVisible(false);
@@ -388,7 +388,7 @@ Includes:
         else if (title === 'Opportunities Limit Reached' || title === 'Daily Limit Reached' || title === 'See More History' || title === 'See the AI Score' || title === 'Unlock This Market') {
             props.SetInfoBoxVisible(false);
 
-            if (loggedinUser === 0) {
+            if (loggedinUser === '0') {
                 window.location.href = '/#pricing';
             }
             else {
@@ -426,7 +426,7 @@ Includes:
             return () => clearTimeout(timer);
         }
 
-    }, []);
+    }, [props.dialogProp]); // re-arm (and clear) the auto-dismiss timer whenever the dialog changes, not just on mount
     //----------------------------------------------------------------------------------------------------------------------------------------
     // this function is to delete a user saved web report - had to be here because after confirmation need access to  props.numReportsCreated 
     // this is before I figured out I could have passed this function from the calling component :(  1/24/2024

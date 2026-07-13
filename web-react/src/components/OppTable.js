@@ -23,6 +23,7 @@ import { trend_chart_left_gap_days, mlScoreMaxDaysAhead, maxYearsCap } from './C
 import jwt_decode from 'jwt-decode'
 import { SlSettings } from "react-icons/sl";
 import { incrementDate } from './Common'
+import { markCaptureReady, clearCaptureReady } from './captureReady'
 import { BsFillCircleFill } from "react-icons/bs"
 import { BsChatDotsFill, BsChatDots } from "react-icons/bs";
 import CheckBox from './CheckBox'
@@ -66,9 +67,15 @@ const OppTable = (props) => {
   const [mlPending, SetMLPending] = useState(new Set())        // keys still waiting for scores (show spinner)
   const mlFetchIdRef = useRef(0)                               // prevents stale ML fetches from writing state
 
+  const [dayRange, SetDayRange] = useState('-'); // dash is empty - its used to send the day range to opplist4 `12/2/2023
+  // (declared up here, not next to the search textbox below: it is a dep of the OppList4
+  //  fetch effect, and a deps array that references a const declared later in the file
+  //  is a temporal-dead-zone ReferenceError at render - it blanked the whole panel)
+
   const userChangedPYearsRef = useRef(false)  // true when user explicitly picks a partial years value
   const lastOppUrlRef = useRef('')  // last OppList4 URL actually fetched — fetch when the resolved query changes, not when opportunities happens to be empty
   const metaReqRef = useRef(0)      // ordering guard: only the LATEST YearsMetaData2 response may write state (stale/empty responses clobbered the metadata)
+  const oppReqRef = useRef(0)       // ordering guard: only the LATEST OppList4 response may write opportunities/activeOpportunities state
 
   const [PELabel, SetPELabel] = useState(() => {
     const remainder = new Date().getFullYear() % 4;
@@ -140,6 +147,8 @@ const OppTable = (props) => {
       if (show_sr2_token === 1) {
         props.SetShowSR2(true);
       }
+
+      SetOppLoadFailed(false)
 
       twFetch(url) //meta
         .then(res => {
@@ -233,12 +242,19 @@ const OppTable = (props) => {
         })
         .catch(err => {
           console.log('catch login error=', err.message)
+          // Failed after twFetch's own retries - leaving oppLoadFailed unset here stranded the
+          // dropdowns empty with no visible failure state. Surface the same failed/Retry state
+          // the OppList4 path uses (guarded so a stale request can't clobber a newer success).
+          if (metaReqId === metaReqRef.current) {
+            SetInitialMessage('* Data temporarily unavailable')
+            SetOppLoadFailed(true)
+          }
         })
     }
 
     SetOppListExpanded(0); // 1/21/2023
 
-  }, [token, props.dayOfTheMonth, props.selectedSecurity, props.showPEOpps, props.securityTypeList]) // 11/30/2021; securityTypeList so the id=-1 early-return re-fires once the list loads
+  }, [token, props.dayOfTheMonth, props.selectedSecurity, props.showPEOpps, props.securityTypeList, oppRetryNonce]) // 11/30/2021; securityTypeList so the id=-1 early-return re-fires once the list loads; oppRetryNonce so the Retry button also re-fires this fetch
 
   //-------------------------------------------------------------------------------------------------------
   // runs when years is changed - set the partial year select from metadata 
@@ -384,8 +400,10 @@ const OppTable = (props) => {
       const fetchKey = url + wlSig
       if (token.length > 0 && fetchKey !== lastOppUrlRef.current) {
         lastOppUrlRef.current = fetchKey
+        const oppReqId = ++oppReqRef.current // ordering guard: a slow older response must not clobber a newer one
         SetOppLoadFailed(false)
         SetInitialMessage('Loading ...')   // in-flight marker: gates the auto-step-down until THIS fetch's real result lands (a stale 'no patterns' message otherwise lets it fire mid-fetch)
+        clearCaptureReady('oppTable')
 
         twFetch(url, { onRetry: () => SetInitialMessage('Data temporarily unavailable - retrying ...') })
           .then(res => {
@@ -413,6 +431,7 @@ const OppTable = (props) => {
             }
           })
           .then((opps) => {
+            if (oppReqId !== oppReqRef.current) return; // a newer OppList4 request has since started - drop this stale response
             if (opps !== undefined) {
               if (opps['OppList'].length === 0 || opps['OppList'].includes('-1')) {
                 SetInitialMessage('* No seasonal patterns found for the current selection');
@@ -557,6 +576,7 @@ const OppTable = (props) => {
 
               props.SetOpportunities(tbl_col_reordered)
               props.SetActiveOpportunities(tbl_col_reordered_active)
+              if (tbl_col_reordered.length > 0) markCaptureReady('oppTable', { rows: tbl_col_reordered.length, month: props.oppTableMonth, day: props.dayOfTheMonth, years: props.oppTableYears })
 
               var tmp = []
 
@@ -600,7 +620,8 @@ const OppTable = (props) => {
     props.yearsMetaDataPE,
     props.yearsMetaData,
     props.activeWatchlistFilter,
-    oppRetryNonce
+    oppRetryNonce,
+    dayRange
   ])
   // 10/27/2021 added dayofthemonth after replacing opplist2 with opplist3
   // 8/22/2021 added length of opportunities array which is better than other dependencies - could probably remove some of the others
@@ -941,7 +962,6 @@ const OppTable = (props) => {
   //-------------------------------------------------------------------------------------------------------
   // this is for the search textbox
   const [curText, SetCurText] = useState('')
-  const [dayRange, SetDayRange] = useState('-'); // dash is empty - its used to send the day range to opplist4 `12/2/2023
 
   // Filter history - persisted in localStorage
   const FILTER_HISTORY_KEY = 'tw_filter_history'

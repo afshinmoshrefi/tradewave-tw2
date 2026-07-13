@@ -17,6 +17,7 @@ import { getSelectedIDFromSecuritiesList2 } from './Common'
 import { UIcolors, themeColors } from './Common'
 import { BsDownload, BsPencilSquare } from 'react-icons/bs';
 import { opp_dashboard_dialog_content } from './Common'
+import { markCaptureReady, clearCaptureReady } from './captureReady'
 import { BsFillCircleFill } from "react-icons/bs"
 
 
@@ -53,6 +54,7 @@ const StockLineChart = (props) => {
     const [showCurrentLineChart, SetShowCurrentLineChart] = useState(true)  // set to true when showing current inactive linechart
     const [headerTooltip, SetHeaderTooltip] = useState('Date Range for the displayed Trade')
     const fetchTimerRef = useRef(null)  // debounce timer to prevent multiple fetches when props change together
+    const lineChartReqRef = useRef(0)  // generation counter - guards against a slow older ChartHistorical2 response clobbering a newer one
 
     // price level drawing state - stored in localStorage (not cookies)
     // so they don't bloat request headers and trigger nginx 400s
@@ -77,6 +79,10 @@ const StockLineChart = (props) => {
     // save price levels to localStorage whenever they change
     const prevStorageKeyRef = useRef(priceLevelStorageKey)
     useEffect(() => {
+        // On the render where the key just changed, priceLevels here is still the OLD
+        // symbol's data (the load effect below hasn't fired yet) - skip the write so we
+        // don't persist stale data under the NEW key (or removeItem-delete its saved levels).
+        if (priceLevelStorageKey !== prevStorageKeyRef.current) return
         try {
             if (priceLevels.length > 0) localStorage.setItem(priceLevelStorageKey, JSON.stringify(priceLevels))
             else localStorage.removeItem(priceLevelStorageKey)
@@ -298,6 +304,9 @@ const StockLineChart = (props) => {
         // if (token && token.length > 0) {
         // # if (token  is added due to occational crash caused race condition
         if (token && token.length > 0 && props.lineChartYear !== 0) {
+            lineChartReqRef.current += 1
+            const reqId = lineChartReqRef.current
+            clearCaptureReady('price')
             twFetch(url)
                 .then(res => {
                     const contentType = res.headers.get("content-type");
@@ -319,9 +328,11 @@ const StockLineChart = (props) => {
                     }
                 })
                 .then((t) => {
+                    if (reqId !== lineChartReqRef.current) return // a newer request has since started - drop this stale response
                     if (t !== undefined) {
                         // Split data: sma seed rows (before display start d0) and display rows
                         const allData = t['ChartHistorical2'];
+                        if (!Array.isArray(allData)) return
                         const smaPreRows = allData.filter(r => r[0] < d0);
                         const displayRows = allData.filter(r => r[0] >= d0);
 
@@ -360,6 +371,7 @@ const StockLineChart = (props) => {
 
                             SetLineChartDate0(displayRows[0][0])
                             SetLineChartDate1(displayRows[displayRows.length - 1][0])
+                            markCaptureReady('price', { symbol: props.symbol, points: displayRows.length })
 
 
                             let lastDate = displayRows[displayRows.length - 1][0]; // last date in displayed linechart 5/26/2022
@@ -391,6 +403,7 @@ const StockLineChart = (props) => {
                         }
                     }
                 })
+                .catch(err => { console.error('ChartHistorical2 fetch failed', err) })
         }
         // lineChartYear === 0 case is handled above (early return), so no else needed here
 
@@ -472,10 +485,39 @@ const StockLineChart = (props) => {
         display: 'none'
     }
 
+    var questionDisplay = "flex";
+    var caretSize = '4vw';
+    var dispSecurity = 'inline';
+    var svFont = '7vw';
+    var boldYearSize = '1.1vw';
+    var pencil_icon_size = 20;
+    var download_icon_size = 20;
+
+    if (rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth) { // smartphone portrait
+        caretSize = '5vw';
+        dispSecurity = 'none';
+        svFont = '10vw';
+        boldYearSize = '5vw'
+    }
+    else if (rdd.isMobile && !rdd.isTablet && window.innerHeight < window.innerWidth) { //smartphone landscape
+        caretSize = '4vw';
+        // questionDisplay = "none";
+    }
+    else if (rdd.isMobile && rdd.isTablet && window.innerHeight > window.innerWidth) { // tablet portrait
+        caretSize = '4vw';
+    }
+    else if (rdd.isMobile && rdd.isTablet && window.innerHeight < window.innerWidth) { //tablet landscape
+        caretSize = '2.0vw';
+        questionDisplay = "none";
+    }
+    else if (!rdd.isMobile) {                                       // desktop
+        caretSize = '1.2vw';
+        questionDisplay = "none";
+    }
+
     const boldYear = {
         // fontWeight: 'bold', //bold doesn't seem to work on react.  maybe after upgrade to new ver it will work
         // as a work around I increasd the size of the font.
-        fontSize: '1.1vw',
         fontSize: boldYearSize,
         backgroundColor: 'transparent'
     }
@@ -550,36 +592,6 @@ const StockLineChart = (props) => {
     const projectionCapable = showCurrentLineChart ||
         (props.tradeActive === true && lastSeasonalBar !== null && lastSeasonalBar['year'] === props.lineChartYear);
 
-
-    var questionDisplay = "flex";
-    var caretSize = '4vw';
-    var dispSecurity = 'inline';
-    var svFont = '7vw';
-    var boldYearSize = '1.1vw';
-    var pencil_icon_size = 20;
-    var download_icon_size = 20;
-
-    if (rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth) { // smartphone portrait
-        caretSize = '5vw';
-        dispSecurity = 'none';
-        svFont = '10vw';
-        boldYearSize = '5vw'
-    }
-    else if (rdd.isMobile && !rdd.isTablet && window.innerHeight < window.innerWidth) { //smartphone landscape
-        caretSize = '4vw';
-        // questionDisplay = "none";
-    }
-    else if (rdd.isMobile && rdd.isTablet && window.innerHeight > window.innerWidth) { // tablet portrait
-        caretSize = '4vw';
-    }
-    else if (rdd.isMobile && rdd.isTablet && window.innerHeight < window.innerWidth) { //tablet landscape
-        caretSize = '2.0vw';
-        questionDisplay = "none";
-    }
-    else if (!rdd.isMobile) {                                       // desktop
-        caretSize = '1.2vw';
-        questionDisplay = "none";
-    }
     //-------------------------------------------------------------------------------------------------
     const handleExport = () => {
         props.SetShowWatermark(true);

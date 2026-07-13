@@ -82,10 +82,11 @@ input[type=text], select, textarea{
     100% { box-shadow: 0 0 0 0 rgba(80, 130, 220, 0); }
 }
 
-/* One-click notify bell (SeasonalBarChart toolbar). Brand-purple pill so the
-   notification capability is discoverable - the ONE filled/colored control in
-   the toolbar (logo "Wave" purple #7C5CFF). First-visit pulse gated by
-   localStorage tw_notifybell_seen, removed on first click. */
+/* One-click Remind me bell (SeasonalBarChart toolbar; class names keep the
+   original tw-notify-* prefix). Brand-purple pill so the reminder capability
+   is discoverable - the ONE filled/colored control in the toolbar (logo "Wave"
+   purple #7C5CFF). First-visit pulse gated by localStorage tw_notifybell_seen,
+   removed on first click. */
 .tw-notify-btn {
     display: inline-flex;
     align-items: center;
@@ -103,6 +104,19 @@ input[type=text], select, textarea{
 }
 .tw-notify-btn:hover { background: #8d70ff; }
 .tw-notify-btn:disabled { opacity: 0.6; cursor: default; }
+/* Set state ("✓ Reminder set"): tinted-outline variant - the pattern is saved
+   and reminders exist; the pill becomes a status chip that opens the manage /
+   re-create dialog. Calmer than the solid CTA but still clearly legible (white
+   text on a purple tint; the ✓ renders green in JSX) - a status should read at
+   a glance, not whisper (owner feedback 2026-07-08). Border swaps for 1px of
+   padding each side so the two states keep the exact same height. */
+.tw-notify-btn--set {
+    background: rgba(124, 92, 255, 0.22);
+    border: 1px solid #7C5CFF;
+    color: #ffffff;
+    padding: 3px 9px;
+}
+.tw-notify-btn--set:hover { background: rgba(124, 92, 255, 0.35); }
 .tw-notify-pulse {
     animation: twNotifyPulse 2s ease-in-out infinite;
     border-radius: 999px;

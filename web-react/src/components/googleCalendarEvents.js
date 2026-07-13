@@ -1,6 +1,6 @@
 // Shared Google Calendar event machinery for TradeWave seasonal patterns.
 // Used by BOTH the AddGC dialog (Portfolio Manager -> calendar icon, custom
-// time/reminders) and the one-click notify bell on the wave viewer toolbar
+// time/reminders) and the one-click Remind me bell on the wave viewer toolbar
 // (SeasonalBarChart). Keep ALL event-content logic here so the two paths can
 // never drift apart.
 //

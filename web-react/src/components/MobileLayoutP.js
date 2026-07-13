@@ -145,8 +145,9 @@ const MobileLayoutP = (props) => {
 
 
             {/* {props.addGCVisible && <AddGC {...props} />} */}
-            {props.addGCVisible && props.selectedPortfolio[0] === '&' && <TradeInstrument {...props} />}
-            {props.addGCVisible && props.selectedPortfolio[0] !== '&' && <AddGC {...props} />}
+            {/* forceGC: the Remind me bell's Edit link always means the calendar dialog */}
+            {props.addGCVisible && props.selectedPortfolio[0] === '&' && !props.googleCalendarDict['forceGC'] && <TradeInstrument {...props} />}
+            {props.addGCVisible && (props.selectedPortfolio[0] !== '&' || props.googleCalendarDict['forceGC']) && <AddGC {...props} />}
 
 
             {props.showPortfolioSettings && <PortfolioSettings {...props} />}

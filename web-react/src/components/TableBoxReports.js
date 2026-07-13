@@ -538,6 +538,7 @@ const TableBoxReports = ({ table_data, handlerRowClicked, getCurValue, handlerKe
             setShowDiv('flex');
         }, 1000); // 1000ms = 1s delay
         SetDelayTextRender(false);
+        return () => clearTimeout(timer);
     }, [tableDataProcessed.length, delayTextRender, selectedPortfolioID])
     //-------------------------------------------------------------------------------------------------------------------
     return (

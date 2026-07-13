@@ -29,7 +29,7 @@ def diff_2_dates(date1,date0):
 def get_quotes(symbols): # gets stock quote - 
 
     url = f'{config_tradier.API_BASE_URL}/v1/markets/quotes'
-    response = requests.get(url,params={'symbols': symbols},headers=headers)
+    response = requests.get(url,params={'symbols': symbols},headers=headers, timeout=15)
     
     # print(f'get_quote {symbols} returned response=',response.text)
     json_response = response.json()
@@ -48,7 +48,7 @@ def get_quotes(symbols): # gets stock quote -
 #------------------------------------------------------------------------------------------------
 def get_option_strikes(symbol,expiration): # gets all the option strikes for the expiration date
     url = f'{config_tradier.API_BASE_URL}/v1/markets/options/strikes'
-    response = requests.get(url, params={'symbol': symbol, 'expiration': expiration, 'greeks': 'false'}, headers=headers )
+    response = requests.get(url, params={'symbol': symbol, 'expiration': expiration, 'greeks': 'false'}, headers=headers, timeout=15)
 
     json_response = response.json()
 
@@ -57,7 +57,7 @@ def get_option_strikes(symbol,expiration): # gets all the option strikes for the
 # expiration_type is either weeklys or standard expiration
 def get_option_expirations(symbol,expiration_type,wave_end_date):
     url = f'{config_tradier.API_BASE_URL}/v1/markets/options/expirations'
-    response = requests.get(url, params={'symbol': symbol, 'includeAllRoots': 'true', 'strikes': 'true', 'contractSize': 'true', 'expirationType': 'true'}, headers=headers )
+    response = requests.get(url, params={'symbol': symbol, 'includeAllRoots': 'true', 'strikes': 'true', 'contractSize': 'true', 'expirationType': 'true'}, headers=headers, timeout=15)
 
     json_response = response.json()
 
@@ -81,7 +81,7 @@ def get_option_expirations(symbol,expiration_type,wave_end_date):
 #------------------------------------------------------------------------------------------------
 def get_options_chain(symbol,expiration_date):
     url = f'{config_tradier.API_BASE_URL}/v1/markets/options/chains'
-    response = requests.get(url, params={'symbol': symbol, 'expiration': expiration_date, 'greeks':'true'}, headers=headers )
+    response = requests.get(url, params={'symbol': symbol, 'expiration': expiration_date, 'greeks':'true'}, headers=headers, timeout=15)
 
     json_response = response.json()
     options_list  = json_response['options']['option']
@@ -94,7 +94,7 @@ def get_options_chain(symbol,expiration_date):
 def get_accounting_info(account_id): # returns available balance for trading and position size
 
     url = f'{config_tradier.API_BASE_URL}/v1/accounts/{account_id}/balances'
-    response = requests.get(url, params={}, headers=headers )
+    response = requests.get(url, params={}, headers=headers, timeout=15)
     # if response.status_code == '401':
     #     print('401 - unauthorized')
     #     return 0
@@ -136,7 +136,7 @@ def get_accounting_info(account_id): # returns available balance for trading and
 def place_multileg_option_trade(data,account_id):
     url  = f'{config_tradier.API_BASE_URL}/v1/accounts/{account_id}/orders'
 
-    response = requests.post(url, data=data, headers=headers )
+    response = requests.post(url, data=data, headers=headers, timeout=30)
     if response.status_code != 200 :
         print(f'multileg_option_trade in tradier returned {response.status_code} - bad request')
         print('data for the post request =',data)
@@ -155,7 +155,7 @@ def update_multileg_option_order(order_id,account_id,price):
     url  = f'{config_tradier.API_BASE_URL}/v1/accounts/{account_id}/orders/{order_id}'
 
     data = {'updating existing order with new price':price}
-    response = requests.put(url, data=data, headers=headers)
+    response = requests.put(url, data=data, headers=headers, timeout=30)
     print('update_multileg_option_order json response=',response.text)
     json_response = response.json()
 
@@ -169,7 +169,7 @@ def cancel_order(order_id,account_id):
 
     url  = f'{config_tradier.API_BASE_URL}/v1/accounts/{account_id}/orders/{order_id}'
 
-    response = requests.delete(url, data={}, headers=headers )
+    response = requests.delete(url, data={}, headers=headers, timeout=30)
 
     print('cancel_order response',response.text)
     
@@ -186,7 +186,7 @@ def cancel_order(order_id,account_id):
 # def get_positions(account_id):
 #     url = f'{config_tradier.API_BASE_URL}/v1/accounts/{account_id}/positions'
 
-#     response = requests.get(url, params={}, headers=headers )
+#     response = requests.get(url, params={}, headers=headers, timeout=15)
 #     positions_dict = response.json()
 #     if positions_dict['positions'] == 'null':
 #         return []
@@ -229,7 +229,7 @@ def get_orders(account_id):
     page_num = 1
 
     url = f'{config_tradier.API_BASE_URL}/v1/accounts/{account_id}/orders'
-    response = requests.get(url, params={'page': page_num, 'includeTags': 'true'}, headers=headers )
+    response = requests.get(url, params={'page': page_num, 'includeTags': 'true'}, headers=headers, timeout=15)
 
 
     # print('\n\n orders_dict in get_orders',response,'\n\n')
@@ -263,7 +263,7 @@ def get_one_order(account_id,order_id):
     url = f'{config_tradier.API_BASE_URL}/v1/accounts/{account_id}/orders/{order_id}'
     # print('url from get_one_order returned',url)
 
-    response = requests.get(url, params={'includeTags': 'true'}, headers=headers )
+    response = requests.get(url, params={'includeTags': 'true'}, headers=headers, timeout=15)
     # print('response from get_one_order returned',response)
     ret = response.json()
 
@@ -285,6 +285,13 @@ def get_bullish_bearish_creditspreads(symbol,price,num_strikes,option_expiration
     # find 3 strikes higher than the stock price number 3 was changed to variable num_strikes
     more_strikes = [s for s in ex_strikes_list if s >= price ]
     if len(more_strikes) > num_strikes: more_strikes = more_strikes[:num_strikes]
+
+    # The spread catalogs below index up to [3] on both sides - a sparse chain
+    # used to IndexError and 500 the route; raise a clean error instead so the
+    # endpoint can return its graceful empty shape.
+    if len(less_strikes) < 4 or len(more_strikes) < 4:
+        raise ValueError(f'sparse option chain for {symbol} {ex_date}: '
+                         f'{len(less_strikes)} lower / {len(more_strikes)} upper strikes (need 4 each)')
 
     # print('less_strikes=',less_strikes)
     # print('more_strikes=',more_strikes)
@@ -342,15 +349,19 @@ def get_bullish_bearish_creditspreads(symbol,price,num_strikes,option_expiration
 
     bullish_creditspreads=[]
     for cs in bullish_credit_spread_strikes:
-        buy_option  = [d for d in options_list_f if d['option_type'] == 'put' and d['strike'] == cs['buy']][0]  # [0] because list returned
-        sell_option = [d for d in options_list_f if d['option_type'] == 'put' and d['strike'] == cs['sell']][0]
-        bullish_creditspreads.append({'buy':buy_option,'sell':sell_option})
+        buy_options  = [d for d in options_list_f if d['option_type'] == 'put' and d['strike'] == cs['buy']]
+        sell_options = [d for d in options_list_f if d['option_type'] == 'put' and d['strike'] == cs['sell']]
+        if not buy_options or not sell_options:
+            continue  # sparse chain: this strike pair isn't listed - skip instead of IndexError
+        bullish_creditspreads.append({'buy':buy_options[0],'sell':sell_options[0]})
 
     bearish_creditspreads=[]
     for cs in bearish_credit_spread_strikes:
-        buy_option  = [d for d in options_list_f if d['option_type'] == 'call' and d['strike'] == cs['buy']][0]
-        sell_option = [d for d in options_list_f if d['option_type'] == 'call' and d['strike'] == cs['sell']][0]
-        bearish_creditspreads.append({'buy':buy_option,'sell':sell_option}) 
+        buy_options  = [d for d in options_list_f if d['option_type'] == 'call' and d['strike'] == cs['buy']]
+        sell_options = [d for d in options_list_f if d['option_type'] == 'call' and d['strike'] == cs['sell']]
+        if not buy_options or not sell_options:
+            continue  # sparse chain: this strike pair isn't listed - skip instead of IndexError
+        bearish_creditspreads.append({'buy':buy_options[0],'sell':sell_options[0]})
 
     return bullish_creditspreads, bearish_creditspreads , ex_date
 #------------------------------------------------------------------------------------------------
@@ -363,6 +374,8 @@ def get_creditspreads_for_opportunity(symbol_quote_dict,opp_date0,opp_days,num_s
     
     # we want to find the options expiration dates that are after opp_date1
     ex = get_option_expirations(symbol,'standard',opp_date1)
+    if len(ex) < 2:  # thinly-listed underlying - was an IndexError/500 below
+        raise ValueError(f'not enough option expirations for {symbol} after {opp_date1} (got {len(ex)})')
 
     # decide if to take the first expiration or second 0 or 1
     ex_date0 = ex[0]['date']
@@ -373,9 +386,9 @@ def get_creditspreads_for_opportunity(symbol_quote_dict,opp_date0,opp_days,num_s
     if diff0 > -3: 
         option_expiration_dict      = ex[0] # if expiration is less than 3 days before wave end use it - otherwise go to next expiration
         option_expiration_dict_next = ex[1] 
-    else         : 
+    else         :
         option_expiration_dict      = ex[1]
-        option_expiration_dict_next = ex[2] 
+        option_expiration_dict_next = ex[2] if len(ex) > 2 else ex[1]
 
     bullish_creditspreads, bearish_creditspreads , ex_date = get_bullish_bearish_creditspreads(symbol,price,num_strikes,option_expiration_dict)
     bullish_creditspreads1, bearish_creditspreads1 , ex_date1 = get_bullish_bearish_creditspreads(symbol,price,num_strikes,option_expiration_dict_next)
@@ -520,7 +533,7 @@ def get_brokerage_calendar():
 
     url  = f'{config_tradier.API_BASE_URL}/v1/markets/calendar'
 
-    response = requests.get(url,params={'month': month, 'year': year},headers=headers)
+    response = requests.get(url,params={'month': month, 'year': year},headers=headers, timeout=15)
     json_response = response.json()
 
     # print(json_response['calendar']['days']['day'])
@@ -537,7 +550,7 @@ def get_brokerage_clock():
 
     url  = f'{config_tradier.API_BASE_URL}/v1/markets/clock'
 
-    response = requests.get(url,params={'delayed':'true'},headers=headers)
+    response = requests.get(url,params={'delayed':'true'},headers=headers, timeout=15)
     json_response = response.json()
 
     return json_response['clock']
@@ -572,7 +585,7 @@ def get_position_from_filled_order(order,positions):
     ls1        = 'long' if  'buy' in side1 else 'short'
 
     leg0={}
-    let1={}
+    leg1={}
 
     for p in positions['position']:
 

@@ -453,10 +453,9 @@ const PopulatePortfolio = (props) => {
                     sp = tmp.split('-');
                     if (isNaN(Number(sp[0]))) isErr = true;
                     if (isNaN(Number(sp[1]))) isErr = true;
+                    if (Number(sp[0]) >= Number(sp[1])) isErr = true;
                 }
                 else isErr = true;
-
-                if (Number(sp[0]) >= Number(sp[1])) isErr = true;
 
                 SetTextBoxError4(isErr);
                 SetDayRange(tmp);
@@ -594,8 +593,8 @@ const PopulatePortfolio = (props) => {
                     props.SetShowPopulatePortfolio(false);
                     props.SetReportsList([]);
 
-                    if (action === 'add') props.SetNumReportsCreated(data['count']);
-                    if (action === 'remove' || action === 'remove_blue') props.SetNumReportsCreated( data['count']);
+                    if (action === 'add') props.SetNumReportsCreated(props.numReportsCreated + data['count']);
+                    if (action === 'remove' || action === 'remove_blue') props.SetNumReportsCreated(props.numReportsCreated - data['count']);
                 }
 
             })

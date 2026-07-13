@@ -243,12 +243,14 @@ Navigation/paging/dismiss/reopen mechanics above are all UNCHANGED by v2.
   maintenance.
 - **Day 6 - fully rewritten**, same theme/tease text as before ("Keep the Good Ones,
   Catch the Window"). Now names the REAL affordances by name: the **+ button** above
-  the chart (save to portfolio, not a "save star") and the **Notify me bell** above the
-  chart (which saves to the Notifications portfolio AND puts the window's open/close
-  dates on the calendar - not a generic "reminder").
+  the chart (save to portfolio, not a "save star") and the **Remind me bell** above the
+  chart (which saves to the user's current portfolio AND puts the window's open/close
+  dates on the calendar - not a generic "reminder"). (2026-07-08: button renamed from
+  "Notify me" and the dedicated Notifications portfolio dropped - it now saves to the
+  current portfolio; lesson copy in onboardingLessons.js updated to match.)
 - **Day 7** screens 1-3 polished to carry the book's title ("The Hundred-Year Window,
   Then the Hunt" - theme/tease unchanged). Screen 3 points at the **+ button** and
-  **Notify me** by name, matching Day 6. Day 7 also grows a 4th screen - see
+  **Remind me** by name, matching Day 6. Day 7 also grows a 4th screen - see
   TRIAL_CLOSE_SCREEN below (the renderer already adapts to screens.length; Day 1 has
   always had 4).
 

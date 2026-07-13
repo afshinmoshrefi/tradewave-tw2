@@ -8,6 +8,7 @@
 
 
 import React, { useState, useLayoutEffect, useEffect, useMemo, useRef } from "react"
+import ReactDOM from 'react-dom'
 import { getTodayDate, monthsOptionsList, DarkBGColor, LightBGColor } from './Common'
 import * as rdd from 'react-device-detect';
 import LessonBox from './LessonBox'
@@ -501,6 +502,8 @@ const App = () => {
   const historyInitialized = useRef(false);  // true after first URL is written
   const isPopstateNav = useRef(false);       // true when navigating via back/forward
   const prevPatternKey = useRef('');          // tracks symbol|startDate to detect deliberate changes
+  const companyReqRef = useRef(0);            // ordering guard: only the LATEST NameFromTicker response may SetCompany
+  const loginInFlightRef = useRef(false);     // prevents the /login effect from double-firing (SetLoggedinUser re-runs it while token is still '')
 
   // Used to manually trigger a refresh of the useEffect below.
   // Every time we increment refreshKey, the effect re-runs.
@@ -1077,10 +1080,13 @@ const App = () => {
         twFetch(`${asURL}/get_user_watchlist_items/${wlName}?token=${token}`)
           .then(res => res.json())
           .then(data => {
-            SetActiveWatchlistFilter(prev => ({
-              ...prev,
-              symbols: new Set(data['watchlist_items'] || [])
-            }));
+            // Picking watchlist A then B before A's fetch resolves must not attach A's
+            // symbols to B - only merge if the active filter is still A's (prev.name reflects
+            // whichever watchlist was selected most recently, since selection sets it synchronously).
+            SetActiveWatchlistFilter(prev => {
+              if (!prev || prev.name !== wlName) return prev
+              return { ...prev, symbols: new Set(data['watchlist_items'] || []) }
+            });
             // re-trigger opp table fetch now that symbols are available
             SetOpportunities([]);
           })
@@ -1486,6 +1492,10 @@ const App = () => {
 
 
   let resizeWindow = () => {
+    // React 17 doesn't batch setState calls fired from a native event listener (this one isn't
+    // a React event handler) - without this, each of the setStates below triggers its own
+    // re-render. unstable_batchedUpdates folds them into a single re-render; behavior-identical.
+    ReactDOM.unstable_batchedUpdates(() => {
     // console.log('resize window width',browserW,window.innerWidth)
     // console.log('resize window Height',browserH,window.innerHeight)
 
@@ -1573,6 +1583,7 @@ const App = () => {
     SetTableTitleTextSize(table_title_text_size);
     SetInfoTextSize(info_text_size);
 
+    });
   };
 
   //- end of resizeWindow() ----------------------------------------------------------------------------------------
@@ -1808,7 +1819,10 @@ const App = () => {
     // second time, token is already establsihed, so we don't login again
     // if (true){
     // if (token && token.length === 0) {  // if token already obtained, this is the second pass, don't need to login again
-    if (!token || token.length === 0) {  // 5/9/2025 - dev stopped working - I think the above line was the reason.  changed it to this
+    if ((!token || token.length === 0) && !loginInFlightRef.current) {  // 5/9/2025 - dev stopped working - I think the above line was the reason.  changed it to this
+      // SetLoggedinUser (above) re-runs this effect on loggedinUser change while token is
+      // still '' - loginInFlightRef stops that from firing the /login handshake twice.
+      loginInFlightRef.current = true
       let asURL = appserverURL()
 
       const [deviceType, deviceOS] = detectDevice();
@@ -1867,6 +1881,7 @@ const App = () => {
             SetInfoBoxVisible(true)
           }
         })
+        .finally(() => { loginInFlightRef.current = false })
 
     }
 
@@ -2268,7 +2283,7 @@ const App = () => {
 
           // console.log('wpUserLevels=', wpUserLevels)
 
-          if (loggedinUser === 0) {
+          if (loggedinUser === '0') {
             userFree = nonlog; // set userFree list to the non loggedin resource list from server
           }
           else { // create userFree and userPrem list based on their access level
@@ -2300,7 +2315,7 @@ const App = () => {
           for (var j = 0; j < userFree.length; j++) {
             tmp.push({ id: i + j, value: userFree[j], label: resourcesObj[userFree[j]], type: 'F' })
           }
-          if (loggedinUser === 0) {
+          if (loggedinUser === '0') {
             tmp.push({ id: i + j + 1, value: '', label: 'More...', type: '' })
           }
 
@@ -2640,12 +2655,14 @@ const App = () => {
       let asURL = appserverURL()
       let url = `${asURL}/NameFromTicker/${id}/${symbol}?token=${token}`
 
+      const reqId = ++companyReqRef.current
       twFetch(url)
         .then((res) => {
           return res.json();
         })
         .then((g) => {
-          SetCompany(g['name'])
+          if (reqId !== companyReqRef.current) return // a newer symbol has since been requested - drop this stale response
+          if (g && g['name']) SetCompany(g['name'])
         })
         .catch(err => {
           console.log('NameFromTicker error=', err.message)

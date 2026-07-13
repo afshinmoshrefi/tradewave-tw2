@@ -1,7 +1,7 @@
 // AddGC is the dialog that displays when user clicks the add to google calendar icon in Opportunities Manager
 // It uses the new GIS authentication method to communicate with Google Calendar.
 // All OAuth + event-content machinery lives in googleCalendarEvents.js (shared
-// with the one-click notify bell on the wave viewer) - this file is only the
+// with the one-click Remind me bell on the wave viewer) - this file is only the
 // custom-settings dialog UI (event time, email/popup reminders).
 
 import React, { useEffect, useState, useContext, useRef } from 'react';
@@ -159,6 +159,10 @@ const AddGC = (props) => {
             if (errors.length) {
                 showResult('Error: ' + errors.join(' / '))
             } else {
+                // Stamp gc_events_created on the saved record (fire-and-forget) so the
+                // wave viewer's Remind me pill shows "Reminder set" for this pattern.
+                const d = props.googleCalendarDict;
+                fetch(`${appserverURL()}/dr_report_mark_gc_events/${d['ticker']}/${d['date1']}/${d['days']}/${d['years']}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { })
                 showResult('Created Start and End Events On Google Calendar')
             }
         } catch (err) {

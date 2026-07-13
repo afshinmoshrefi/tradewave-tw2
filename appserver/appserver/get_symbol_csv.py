@@ -9,7 +9,7 @@ import json
 import pwd
 import sys
 from datetime import datetime,date
-from filelock import FileLock  # Added for locking - so that .csv is downloaded once - otherwise it download 6 times
+from filelock import FileLock, Timeout as LockTimeout  # Added for locking - so that .csv is downloaded once - otherwise it download 6 times
 
 logger = logging.getLogger()  # Uses the root logger already set up in your script
 
@@ -36,11 +36,13 @@ def get_sym_df(symbol, exchangeID):
 
 
     try:
-        api_result = requests.get(apiURL)
+        # timeout: a hung EODHD download used to hold the FileLock indefinitely and
+        # stall every other worker wanting this ticker
+        api_result = requests.get(apiURL, timeout=(10, 60))
     except requests.exceptions.RequestException as e:
         print('exeption on download:')
         print('url=', apiURL)
-        print('exception:', e.response.text)
+        print('exception:', e)  # e.response is None for timeouts/connection errors - never deref it
         return pd.DataFrame()
 
     if api_result.status_code != 200:
@@ -226,6 +228,17 @@ def get_symbol_csv(ticker, exchange):
                 logger.warning(f"Could not chown {output_file}: {e}", exc_info=True)
 
             return df
+    except LockTimeout:
+        # Another worker held the lock past 30s (typically a slow EODHD download).
+        # This used to propagate and 500 every concurrent request for the ticker;
+        # serve the existing on-disk CSV read-only instead (reading needs no lock).
+        logger.warning(f"Lock timeout for {output_file}; serving existing CSV without refresh")
+        if os.path.exists(output_file):
+            try:
+                return pd.read_csv(output_file, index_col=0)
+            except Exception:
+                logger.exception(f"Could not read {output_file} after lock timeout")
+        return pd.DataFrame()
     finally: # purpose of finally is to cleanup the lock files - before lock files stayed around
             # Minimal addition: remove the lock file if it exists (cleanup)
             if os.path.exists(lock_file):

@@ -162,6 +162,10 @@ const TradeInstrument = (props) => {
 
     const dialogRef = useRef(null);
 
+    // tracks pending post-order SetForceRefresh timers so they can be cleared on unmount
+    // (avoids setState on an unmounted component if the dialog closes within 2s of an order action)
+    const refreshTimers = useRef([]);
+
     const [creditSpreadListBackgroundColor, SetCreditSpreadListBackgroundColor] = useState('RGB(225, 242, 242)')
 
     const BADSELECTIONCOLOR = 'RGB(255, 230, 230)';
@@ -225,6 +229,14 @@ const TradeInstrument = (props) => {
 
 
 
+    //-------------------------------------------------------------------------------------------------------------------------------------
+    // on unmount, clear any pending post-order refresh timers so we don't setState after the dialog closes
+    //-------------------------------------------------------------------------------------------------------------------------------------
+    useEffect(() => {
+        return () => {
+            refreshTimers.current.forEach(t => clearTimeout(t));
+        };
+    }, []);
     //-------------------------------------------------------------------------------------------------------------------------------------
     // query for is market open or closed - state variable is to be used for streaming quotes
     //-------------------------------------------------------------------------------------------------------------------------------------
@@ -411,7 +423,7 @@ const TradeInstrument = (props) => {
         else { // this is when there is auto selection returns -1 means all creditspread filter tests failed
             // SetCreditSpreadList(tmp);
         }
-    }, [autoSelection, selectedExpiration.current, Object.keys(saveCSdict).length], saveCSdict, streamingSymbols);
+    }, [autoSelection, selectedExpiration.current, saveCSdict, streamingSymbols]);
     //-----------------------------------------------------------------------------
     // process line for streaming
     //-----------------------------------------------------------------------------
@@ -571,7 +583,7 @@ const TradeInstrument = (props) => {
                     // now update the creditSpreadList and saveCSdict with new values
 
                     if (symbol === buy_option_symbol) {
-                        let pl = creditSpreadPriceList;
+                        let pl = [...creditSpreadPriceList]; // copy first - mutating + setting the same ref makes React bail out
                         pl[i] = cs_price.toFixed(2);
                         SetCreditSpreadPriceList(pl)
                         // update creditSpreadStore with the newest values
@@ -607,7 +619,7 @@ const TradeInstrument = (props) => {
                     let sell_price = (bid + ask) / 2;
                     let cs_price = sell_price - buy_price;
                     if (symbol === sell_option_symbol) {
-                        let pl = creditSpreadPriceList;
+                        let pl = [...creditSpreadPriceList]; // copy first - mutating + setting the same ref makes React bail out
                         pl[i] = cs_price.toFixed(2);
                         SetCreditSpreadPriceList(pl)
                         // update creditSpreadStore with the newest values
@@ -727,7 +739,9 @@ const TradeInstrument = (props) => {
             // Cleanup function: Abort the ongoing fetch operation when the component is unmounted
             return () => {
                 console.log('Cleaning up: Aborting fetch operation.');
-                socketQ.current.close();
+                if (socketQ.current) {
+                    socketQ.current.close();
+                }
             };
 
         }
@@ -798,6 +812,7 @@ const TradeInstrument = (props) => {
                         const timeout = setTimeout(() => {
                             SetForceRefresh(true);
                         }, 2000);
+                        refreshTimers.current.push(timeout); // track so an unmount can clear it
                     }
                 };
 
@@ -1243,6 +1258,10 @@ const TradeInstrument = (props) => {
     //-----------------------------------------------------------------------------------------------
     const handlePlaceOrder = () => {
 
+        // guard - an empty creditSpreadList (auto_selection returned the [-1,-1] "none found"
+        // sentinel) means there is nothing to index; bail so we don't crash on an empty array
+        if (creditSpreadList.length === 0) return;
+
         let content;
 
         content = { // confirmation dialog box content
@@ -1290,6 +1309,9 @@ const TradeInstrument = (props) => {
         })
 
             .then((res) => {
+                if (!res.ok) {
+                    throw new Error('server responded ' + res.status); // surface HTTP errors instead of parsing an error page as JSON
+                }
                 return res.json();
             })
 
@@ -1320,20 +1342,26 @@ const TradeInstrument = (props) => {
                         props.SetReportsList([]);
                     }
 
-                    // wait 2 seconds and then refresh - try without this - I don't think I need it 
+                    // wait 2 seconds and then refresh - try without this - I don't think I need it
                     const timeout = setTimeout(() => {
                         SetForceRefresh(true);
                     }, 2000);
+                    refreshTimers.current.push(timeout); // track so an unmount can clear it
 
                 }
 
             })
             .catch(err => {
                 console.log('getResourcesObj error=', err.message)
+                // the order POST failed or returned a non-JSON error page - the trade may or may not
+                // have reached the broker, so warn the trader instead of failing silently
+                props.SetDialogProp({ title: 'Error Placing Order', contentText: 'Order failed or its status is unknown - please check your broker account before retrying.', button1Text: 'Close', button2Text: '', coverDivColor: 'rgb(222,222,222,0)' })
+                props.SetDialogType('info-box');
+                props.SetInfoBoxVisible(true)
             })
     }
     //-----------------------------------------------------------------------------
-    // Create a new credit spread sell order to open a position 
+    // Create a new credit spread sell order to open a position
     // triggered when a credit spread is selected on the list of availabe CS
     // then when its confirmed in the dialog box, runs this function
     //-----------------------------------------------------------------------------
@@ -1650,6 +1678,9 @@ const TradeInstrument = (props) => {
         })
 
             .then((res) => {
+                if (!res.ok) {
+                    throw new Error('server responded ' + res.status); // surface HTTP errors instead of parsing an error page as JSON
+                }
                 return res.json();
             })
 
@@ -1662,10 +1693,16 @@ const TradeInstrument = (props) => {
                 const timeout = setTimeout(() => {
                     SetForceRefresh(true);
                 }, 2000);
+                refreshTimers.current.push(timeout); // track so an unmount can clear it
 
             })
             .catch(err => {
                 console.log('getResourcesObj error=', err.message)
+                // the cancel POST failed or returned a non-JSON error page - warn the trader instead of
+                // failing silently, since the order may still be live at the broker
+                props.SetDialogProp({ title: 'Error Canceling Order', contentText: 'Cancel failed or its status is unknown - please check your broker account.', button1Text: 'Close', button2Text: '', coverDivColor: 'rgb(222,222,222,0)', onButton1: () => { } })
+                props.SetDialogType('info-box');
+                props.SetInfoBoxVisible(true)
             })
 
 
@@ -2091,7 +2128,7 @@ const TradeInstrument = (props) => {
 
                             <div style={{ width: '25%', height: '100%', backgroundColor: 'transparent', border: '0px solid gray', display: 'flex', paddingTop: '0px', justifyContent: 'flex-start', alignItems: 'center', flexDirection: 'column' }}>
 
-                                <button style={{ fontSize: '0.8em', width: '90%', marginTop: '3px' }} onClick={() => handlePlaceOrder()}>Place Order</button>
+                                <button style={{ fontSize: '0.8em', width: '90%', marginTop: '3px' }} disabled={creditSpreadList.length === 0} onClick={() => handlePlaceOrder()}>Place Order</button>
                                 <button style={{ fontSize: '0.8em', width: '90%', marginTop: '3px' }} onClick={() => handleAutoSelection()} >Auto Select</button>
                                 <button style={{ fontSize: '0.8em', width: '90%', marginTop: '3px' }}  >Risk Profile</button>
                                 <button style={{ fontSize: '0.8em', width: '90%', marginTop: '3px' }}  >Price Chart</button>

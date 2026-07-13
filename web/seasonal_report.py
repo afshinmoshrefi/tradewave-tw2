@@ -427,7 +427,7 @@ def _cta_band(mode, signup_url):
         "upgrade": ("Signal or Noise",
             "You Have the Receipts. Unlock the Calibrated Score on Your Stocks",
             "Your free plan shows the historical record above. The AI calibration - how strong each pattern "
-            "looks now against its own history, signal or noise - is on Navigator and up, and it never "
+            "looks now against its own history, signal or noise - is on Analyst and up, and it never "
             "predicts the outcome. Unlock it and ask Tara which of your stocks looks strongest right now.",
             "Unlock the Calibrated Score", UPGRADE_URL,
             "Cancel anytime."),
@@ -548,7 +548,7 @@ def render_email_text(data, unsubscribe_url="{{ unsubscribe_url }}",
     _su = SIGNUP_URL + (("&tickers=" + quote(",".join(_syms), safe="")) if _syms else "")
     lines.append({
         "open_app": "You already have a TradeWave account - open these in your app: %s" % APP_URL,
-        "upgrade":  "Unlock the AI calibration on your stocks (Navigator and up): %s" % UPGRADE_URL,
+        "upgrade":  "Unlock the AI calibration on your stocks (Analyst and up): %s" % UPGRADE_URL,
     }.get(cta_mode,
           "See the calibrated score on your stocks - full access free for 7 days, no card: %s" % _su))
     lines.append("")

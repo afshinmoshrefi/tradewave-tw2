@@ -22,6 +22,7 @@ import { FaGlobe, RxGlobe, SlGlobe, FaShareAlt } from 'react-icons/fa'
 import { opp_dashboard_dialog_content } from './Common'
 import { brand } from './Common'
 import { UIcolors, themeColors } from './Common';
+import { markCaptureReady, clearCaptureReady } from './captureReady'
 
 const TradeDetail = (props) => {
     const tc = themeColors(props.UITheme)
@@ -130,6 +131,7 @@ const TradeDetail = (props) => {
         color: tc.text,
     }
 
+    useEffect(() => { clearCaptureReady('tradeDetail') }, [props.symbol]) // new symbol selected - a fresh fetch is starting upstream
 
     useEffect(() => {
 
@@ -313,13 +315,14 @@ const TradeDetail = (props) => {
 
 
             SetCsvData(csvTmp)
-
+            markCaptureReady('tradeDetail', { symbol: props.symbol })
 
         }
         else {
 
             SetTradeReportData([])
             SetVtTradeDetail({})
+            clearCaptureReady('tradeDetail')
         }
 
     }, [props.compareSecurityTradeDetailData, props.compareSecurityLongOrShort, props.compareSecurity[1], props.tradeDetailData, props.compareSecurityTradeDetailData, props.barChartLongOrShort, props.symbol]);

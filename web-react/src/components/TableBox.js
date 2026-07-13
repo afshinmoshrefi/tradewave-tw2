@@ -6,6 +6,14 @@ import Tippy from '@tippyjs/react'
 import './styles/TableBox.css'
 import jwt_decode from 'jwt-decode'
 
+// GTM playbook CARD W1.4 - fire once per browser session, the first time an
+// AI-eligible user actually sees real AI-score data in the table. Module-level
+// (not per-mount) so remounting TableBox (tab switches, filters) never re-fires
+// within the same session; the server-side handler is ALSO idempotent
+// (users.first_ai_score_viewed_at first-touch-only), so this is a courtesy
+// dedupe, not the source of truth.
+let _aiScoreViewedFiredThisSession = false
+
 const TableBox = ({
   table_data,
   handlerRowClicked,
@@ -89,6 +97,32 @@ const TableBox = ({
       return true;
     });
 
+  // GTM playbook CARD W1.4 - Postgres activation signal. The first time this AI-eligible
+  // user actually has real AI-score data on screen, tell the server (which stamps
+  // users.first_ai_score_viewed_at idempotently, logs an onboarding_events row, and
+  // fires the GA4 ai_score_viewed event - all in ONE handler, per the strategy §2
+  // persistence rule). Fire-and-forget, same-origin authed fetch; never throws.
+  useEffect(() => {
+    if (!hasAI || !hasMLData || _aiScoreViewedFiredThisSession) return;
+    if (loggedinUser === '0') return;
+    _aiScoreViewedFiredThisSession = true;
+    const firstScoredRow = (table_data || []).find(r => r && r.symbol);
+    try {
+      fetch('/api/activation/ai-score-viewed', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          detail: {
+            symbol: firstScoredRow ? firstScoredRow.symbol : undefined,
+            horizon: firstScoredRow ? firstScoredRow.daysOut : undefined,
+          },
+        }),
+        keepalive: true,
+      }).catch(() => { /* fire-and-forget */ });
+    } catch (e) { /* never throw from telemetry */ }
+  }, [hasAI, hasMLData, loggedinUser, table_data]);
+
   // On mobile portrait, limit columns to avoid cramped table
   const isMobilePortrait = rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth;
   const MOBILE_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio', 'lOrS', 'date', 'price', 'sharpe_ratio2']);
@@ -108,7 +142,7 @@ const TableBox = ({
 
   useEffect(() => {
     // Copy the original table data and inject TL + ML columns
-    let tmp = JSON.parse(JSON.stringify(table_data)).map(row => {
+    let tmp = [...table_data].map(row => {
       const score = stockScores && stockScores[row.symbol]
       const lor_s = String(row.lOrS).startsWith('L') ? 'l' : 's'
       const rawDays = parseInt(row.daysOut) - 1
@@ -244,14 +278,14 @@ const TableBox = ({
                 ? -1
                 : a[colSorted] > b[colSorted]
                   ? 1
-                  : a[secondColSort] - b[secondColSort]
+                  : (a[secondColSort] < b[secondColSort] ? -1 : a[secondColSort] > b[secondColSort] ? 1 : 0)
           } else {
             ret =
               a[colSorted] < b[colSorted]
                 ? 1
                 : a[colSorted] > b[colSorted]
                   ? -1
-                  : a[secondColSort] - b[secondColSort]
+                  : (a[secondColSort] < b[secondColSort] ? -1 : a[secondColSort] > b[secondColSort] ? 1 : 0)
           }
         }
         return ret
@@ -346,7 +380,7 @@ const TableBox = ({
 
     SetTableTitleDict(tmpDict)
     SetTableTitleTooltip(tmpDict_tt)
-  }, [sortedDir, colSorted, filterText, showAciveOpps, stockScores, mlScores, mlPending, columnVisibility])
+  }, [table_data, sortedDir, colSorted, filterText, showAciveOpps, stockScores, mlScores, mlPending, columnVisibility])
 
   //-------------------------------------------------------------------------------------------------------------------
   const handleTitleClicked = title => () => {

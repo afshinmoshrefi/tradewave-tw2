@@ -12,11 +12,11 @@ import { appserverURL } from './Common'
 import { getTodayDate } from './Common'
 import { twFetch } from './twFetch'
 import { UserContext } from './UserContext'
-import { BsFillCaretUpFill, BsFillCaretDownFill, BsQuestionCircle, BsPlus, BsBellFill } from "react-icons/bs";
+import { BsFillCaretUpFill, BsFillCaretDownFill, BsQuestionCircle, BsPlus, BsBell, BsBellFill } from "react-icons/bs";
 import { BiLineChart } from "react-icons/bi";
 import { userAccessToSelectedSecurity, applyResolvedMatch, upsellDialogForMatch, isMarketEntitled } from './Common'
 import { getCookie } from './Common'
-import { buildPatternEventDict, insertCalendarEvents, requestCalendarAccessToken, shiftWeekendToNextMonday, loadGsiScript } from './googleCalendarEvents'
+import { buildPatternEventDict, insertCalendarEvents, requestCalendarAccessToken, shiftWeekendToNextMonday, loadGsiScript, friendlyDate } from './googleCalendarEvents'
 import { getSelectedIDFromSecuritiesList2 } from './Common'
 import { setCookie } from './Common'
 import { UIcolors, themeColors } from './Common'
@@ -24,6 +24,7 @@ import { opp_dashboard_dialog_content } from './Common'
 import { brand, trend_chart_left_gap_days, minYears, sameResourceFamily } from './Common'
 import { maxYearsCap } from './Common'
 import { checkTokenExpired } from './Common'
+import { markCaptureReady, clearCaptureReady } from './captureReady'
 
 // import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 // import { faFileExcel, faHome } from "@fortawesome/free-solid-svg-icons";
@@ -51,6 +52,11 @@ const SeasonalBarChart = (props) => {
   const reqTrendRef = useRef(0)
   const reqMaxTrendRef = useRef(0)
   const reqOppBySymbolRef = useRef(0)
+  // Ordering guard shared by the manual ticker-entry/resolution paths (handleBlur, handleEnter,
+  // handleWatchlistItemClick, resolveSymbolAcrossMarkets) - these fire bare twFetch calls with
+  // no AbortController, so two in-flight resolutions could otherwise land out of order and let
+  // the OLDER entry's SetSymbol/applyResolvedMatch win.
+  const reqSymbolEntryRef = useRef(0)
   // Guards the data-miss -> cross-market resolve path against a market-flip loop when the
   // SAME ticker is short on data in more than one market (see the Not Enough Data branch).
   const resolveMissRef = useRef('')
@@ -266,14 +272,29 @@ const SeasonalBarChart = (props) => {
         }
         setSeasonalYearsList(tmp)
 
-        // NOTE: deliberately do NOT rewrite props.seasonalYears here. This
-        // block used to snap it to maxYears/minYears, but under a PE filter
-        // maxYears collapses to ~N/4 (≈4), silently clobbering the user's
-        // selection on every market/symbol switch and emptying the chart.
-        // The years value is owned by App.js (cookie -> per-market override
-        // -> global default; PE default [6,6]). The dropdown list above can
-        // legitimately show fewer options than the selected value; the
-        // select box handles an out-of-list value without mutating state.
+        // NOTE: deliberately do NOT snap props.seasonalYears UP or to a smaller
+        // in-range value here. This block used to snap it to maxYears/minYears,
+        // but under a PE filter maxYears collapses to ~N/4, silently clobbering
+        // the user's selection on every market/symbol switch and emptying the
+        // chart. The years value is owned by App.js (cookie -> per-market
+        // override -> global default; PE default [6,6]). The dropdown may
+        // legitimately show fewer options than a smaller selected value.
+        //
+        // EXCEPTION - overflow only (step-down clamp, same invariant family as
+        // the OppTable dead-years snap): a controlled <select value=N> whose N
+        // is ABOVE every option does NOT keep showing N - the browser silently
+        // displays the FIRST option instead (e.g. cons 95yr -> switch to PE+2:
+        // the PE list is 3..24, 95 overflows, so the box shows "3" while state
+        // stays "95" and the chart renders the full 24 - selector and chart
+        // disagree). So when the selected value exceeds the max SELECTABLE
+        // option, snap it DOWN to that max. This only fires on true overflow,
+        // never on an in-range value, so it cannot reintroduce the clobber bug.
+        // maxSelectable = the largest unlocked option (tier cap wins over range).
+        const maxSelectable = _yrCap != null ? Math.min(maxYears, _yrCap) : maxYears
+        const curYears = parseInt(props.seasonalYears, 10)
+        if (!isNaN(curYears) && curYears > maxSelectable && maxSelectable >= minYears) {
+          props.SetSeasonalYears(maxSelectable.toString())
+        }
       })
       .catch(err => {
         if (err?.name === 'AbortError') return
@@ -309,6 +330,7 @@ const SeasonalBarChart = (props) => {
 
     const reqId = ++reqChartRef.current
     const controller = new AbortController()
+    clearCaptureReady('seasonal')
 
 
     const asURL = appserverURL()
@@ -376,6 +398,7 @@ const SeasonalBarChart = (props) => {
         resolveMissRef.current = ''   // clean load - clear the data-miss cross-market guard
         props.SetSeasonalBarChartData(cd)
         props.SetTradeDetailData(t["stats"])
+        if (cd.length > 0) markCaptureReady('seasonal', { symbol: props.symbol, years: props.seasonalYears, points: cd.length })
 
         // Determine lastYearOfData + trade dir
         let lastYearOfData = 0
@@ -575,6 +598,7 @@ const SeasonalBarChart = (props) => {
 
     const reqId = ++reqTrendRef.current
     const controller = new AbortController()
+    clearCaptureReady('trendChart')
 
     let asURL = appserverURL()
     let td = getTodayDate()
@@ -610,8 +634,12 @@ const SeasonalBarChart = (props) => {
         if (reqId !== reqTrendRef.current) return
         if (!t) return
 
-        if (t['cons_seas_chart'].length < 5) props.SetConsolidatedSeasonalData([])
-        else props.SetConsolidatedSeasonalData(t['cons_seas_chart'])
+        const chart = t['cons_seas_chart']
+        if (!Array.isArray(chart) || chart.length < 5) props.SetConsolidatedSeasonalData([])
+        else {
+          props.SetConsolidatedSeasonalData(chart)
+          markCaptureReady('trendChart', { symbol: props.symbol, points: chart.length })
+        }
       })
       .catch(err => {
         if (err?.name === 'AbortError') return
@@ -787,9 +815,11 @@ const SeasonalBarChart = (props) => {
     // Caller can override the dead-end (e.g. a data-miss shows "Not Enough Data", not "not found").
     const notFound = opts.notFound || defaultNotFound
     const asURL = appserverURL()
+    const reqId = ++reqSymbolEntryRef.current
     twFetch(`${asURL}/ResolveSymbol/${symbolValue}?token=${token}`)
       .then(res => res.json())
       .then(res => {
+        if (reqId !== reqSymbolEntryRef.current) return // a newer symbol-entry action has started - drop this stale resolution
         let matches = (res && res.matches) || []
         // When called from a data-miss on the CURRENT market, drop that market so we only offer
         // a genuinely DIFFERENT one (SPX on DJ30 -> Indices, never "switch to DJ30" again).
@@ -813,16 +843,21 @@ const SeasonalBarChart = (props) => {
         props.SetDialogType('symbol-picker')
         props.SetInfoBoxVisible(true)
       })
-      .catch(err => { console.log('ResolveSymbol error:', err && err.message); notFound() })
+      .catch(err => {
+        if (reqId !== reqSymbolEntryRef.current) return
+        console.log('ResolveSymbol error:', err && err.message); notFound()
+      })
   }
   //-----------------------------------------------------------------------------------------------------------
   const handleWatchlistItemClick = (sym) => {
     setWatchlistDropdownOpen(false)
     let asURL = appserverURL()
     let id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity)
+    const reqId = ++reqSymbolEntryRef.current
     twFetch(`${asURL}/NameFromTicker/${id}/${sym}?token=${token}`)
       .then(res => res.json())
       .then(g => {
+        if (reqId !== reqSymbolEntryRef.current) return // a newer symbol-entry action has started - drop this stale resolution
         if (g['name'] !== '') {
           props.SetSymbol(sym)
           props.SetConsolidatedSeasonalData([])
@@ -892,6 +927,7 @@ const SeasonalBarChart = (props) => {
         let id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity);
         let url = `${asURL}/NameFromTicker/${id}/${event.target.value}?token=${token}`
 
+        const reqId = ++reqSymbolEntryRef.current
         twFetch(url)
           .then((res) => {
             return res.json();
@@ -899,6 +935,8 @@ const SeasonalBarChart = (props) => {
           .then((g) => {
 
             // console.log('g1111111111111111111111111111111',g)
+
+            if (reqId !== reqSymbolEntryRef.current) return // a newer symbol-entry action has started - drop this stale resolution
 
             if (g['name'] != "") {
               props.SetSymbol(event.target.value);
@@ -980,6 +1018,7 @@ const SeasonalBarChart = (props) => {
         let id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity);
         let url = `${asURL}/NameFromTicker/${id}/${event.target.value}?token=${token}`
 
+        const reqId = ++reqSymbolEntryRef.current
         twFetch(url)
           .then((res) => {
             return res.json();
@@ -987,6 +1026,8 @@ const SeasonalBarChart = (props) => {
           .then((g) => {
 
             // console.log('g22222222222222222222222222222222222',g)
+
+            if (reqId !== reqSymbolEntryRef.current) return // a newer symbol-entry action has started - drop this stale resolution
 
             if (g['name'] != "") {
               props.SetSymbol(event.target.value);
@@ -1463,7 +1504,7 @@ const SeasonalBarChart = (props) => {
     fontSize: descFontSize,
     color: tc.textOnControl,
     // When the Best Waves select is rendered, IT takes the row's slack (flex:1, centered)
-    // so it sits midway between the Notify pill and the ticker; the description then only
+    // so it sits midway between the Remind me pill and the ticker; the description then only
     // wraps its content. With no select (no symbol/options), grow as before so the
     // ticker+dates stay right-anchored next to the MFE/MAE controls.
     flexGrow: (!rdd.isMobile && oppBySymbolOptions.length > 0) ? "0" : "2",
@@ -1613,25 +1654,72 @@ const SeasonalBarChart = (props) => {
   // THIS FUNCTION IS DUPLICATED IN REPORTS DASHBAROD DUE TO ISSUES WITH PROPS SCOPE - CHANGES ARE REQUIRED IN BOTH PLACES
   //------------------------------------------------------------------------------------------------------------------------------------- 
   //-------------------------------------------------------------------------------
-  // ONE-CLICK NOTIFY BELL (2026-07-04). Collapses the old 4-step flow (create
-  // portfolio -> add pattern -> open dashboard -> calendar dialog) into a single
-  // click: auto-creates a "Notifications" portfolio (falls back to 'main' when the
-  // tier's portfolio cap is hit), saves the pattern (idempotent - a re-click is
-  // detected via refreshed:true and shows a "already set" dialog instead of
-  // duplicating Google events), then opens the Google consent popup and inserts
-  // both start/end events with the user's saved dialog defaults.
-  // Popup-blocker note: the two API calls before requestAccessToken stay inside
+  // ONE-CLICK REMIND-ME BELL (2026-07-04; stateful pill + current-portfolio rework
+  // 2026-07-08, renamed from "Notify me"). One click saves the pattern to the
+  // CURRENT portfolio (the same destination as the Plus icon; '&' autotrade
+  // portfolios fall back to 'main'), then opens the Google consent popup and
+  // inserts both start/end events with the user's saved dialog defaults.
+  // The pill is STATEFUL: dr_report_exists reports whether this exact pattern
+  // (symbol+date+days+years) is saved in ANY portfolio and whether Google events
+  // were actually created for it (gc_events, stamped on successful insert).
+  // saved+events -> "✓ Reminder set", click manages/re-creates; saved without
+  // events (Plus-icon save, abandoned popup) -> click adds events WITHOUT
+  // re-saving; unsaved -> save + events. Never re-publish a saved pattern: the
+  // server dedup is portfolio-scoped, so a re-publish from another portfolio
+  // would duplicate the record AND burn lifetime quota.
+  // Popup-blocker note: the publish call before requestAccessToken stays inside
   // the ~5s transient-activation window, so the popup is allowed; the Retry /
   // Re-create dialog buttons provide a fresh gesture if it ever isn't.
   //-------------------------------------------------------------------------------
-  const NOTIFY_PORTFOLIO = 'Notifications'
   const [notifyBusy, SetNotifyBusy] = useState(false)
   // One-time attention pulse until the first click (same pattern as the symbol box).
   const [notifyPulse, SetNotifyPulse] = useState(() => {
     try { return !window.localStorage.getItem('tw_notifybell_seen') } catch (e) { return false }
   })
+  // null = unknown (logged out / check pending or failed); else { key, saved:false }
+  // or { key, saved:true, gcEvents, portfolio, slug, publishDate }. key = the
+  // pattern identity the info belongs to (guards slow-async updates).
+  const [reminderInfo, SetReminderInfo] = useState(null)
+  const reminderReqRef = useRef(0)
   // Preload the GIS script so the click path doesn't spend its popup window on it.
   useEffect(() => { loadGsiScript().catch(() => { }) }, [])
+
+  // The years string as saved with the pattern (PE mode encodes as e.g. "pe2-10").
+  const patternYearsStr = () => props.PEselected != 'cons' ? `${props.PEselected}-${props.seasonalYears}` : `${props.seasonalYears}`
+  // The saved-record identity of the loaded pattern (mirrors the appserver's
+  // check_for_duplicates fields minus portfolio). key is used to guard async
+  // state updates against the pattern changing mid-flight (OAuth popups are slow).
+  const patternIdentity = () => ({
+    key: `${props.symbol}|${props.startDate}|${props.daysOut}|${patternYearsStr()}`,
+    symbol: props.symbol, date: props.startDate, days_hold: props.daysOut, years: patternYearsStr(),
+  })
+
+  const fetchReminderInfo = () => {
+    const idn = patternIdentity()
+    return twFetch(`${appserverURL()}/dr_report_exists/${idn.symbol}/${idn.date}/${idn.days_hold}/${idn.years}?token=${token}`)
+      .then((r) => r.json())
+      .then((d) => d['dr_report_exists']
+        ? { key: idn.key, saved: true, gcEvents: !!d['gc_events'], portfolio: d['portfolio_name'], drId: d['dr_id'], slug: d['slug'] || '', publishDate: d['publishDate'] || null }
+        : { key: idn.key, saved: false })
+  }
+
+  // Keep the pill state in sync with the loaded pattern. numReportsCreated is a
+  // dep on purpose: every save/delete path in the app mutates it (Plus icon,
+  // Portfolio Manager delete, populate/autotrade add+remove), so it doubles as a
+  // portfolio-changed signal without new plumbing. reqRef guards out-of-order
+  // responses when the identity props change quickly.
+  useEffect(() => {
+    if (!token || token.length === 0 || loggedinUser === '0' || !props.symbol || !props.startDate) {
+      SetReminderInfo(null)
+      return
+    }
+    const reqId = ++reminderReqRef.current
+    fetchReminderInfo()
+      .then((info) => { if (reqId === reminderReqRef.current) SetReminderInfo(info) })
+      .catch(() => { if (reqId === reminderReqRef.current) SetReminderInfo(null) })
+    // addGCVisible: re-check when the Portfolio Manager's calendar dialog closes -
+    // it may have just created (and stamped) events for the loaded pattern.
+  }, [props.symbol, props.startDate, props.daysOut, props.seasonalYears, props.PEselected, props.numReportsCreated, props.addGCVisible, token, loggedinUser])
 
   const showInfoDialog = (dialogProp) => {
     props.SetDialogProp(dialogProp)
@@ -1641,7 +1729,11 @@ const SeasonalBarChart = (props) => {
 
   // Token + insert phase; called from the click flow and re-callable from the
   // Retry / Re-create dialog buttons (each dialog click is a fresh gesture).
-  const startCalendarTokenFlow = (eventDicts, savedNote) => {
+  // markIdentity: on a fully successful insert, stamp gc_events_created on the
+  // saved record (fire-and-forget) and flip the pill to "Reminder set" - but only
+  // if the viewer still shows the same pattern (key guard: the OAuth popup is slow
+  // and the user may have moved on).
+  const startCalendarTokenFlow = (eventDicts, savedNote, markIdentity) => {
     requestCalendarAccessToken()
       .then((accessToken) => insertCalendarEvents(accessToken, eventDicts))
       .then((results) => {
@@ -1649,6 +1741,10 @@ const SeasonalBarChart = (props) => {
         if (errors.length) {
           showInfoDialog({ title: 'Google Calendar Events', contentText: 'Error: ' + errors.join(' / '), button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
         } else {
+          if (markIdentity) {
+            twFetch(`${appserverURL()}/dr_report_mark_gc_events/${markIdentity.symbol}/${markIdentity.date}/${markIdentity.days_hold}/${markIdentity.years}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { })
+            SetReminderInfo((prev) => prev && prev.saved && prev.key === markIdentity.key ? { ...prev, gcEvents: true } : prev)
+          }
           showInfoDialog({ title: 'Reminders Added', contentText: `Start and end reminders for ${props.symbol} were added to your Google Calendar${savedNote}. To customize the event time or reminder types, open the Portfolio Manager (clipboard-with-pencil icon) and click the calendar icon on the pattern.`, button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
         }
       })
@@ -1657,9 +1753,129 @@ const SeasonalBarChart = (props) => {
           title: 'Google Sign-in Needed',
           contentText: `Your pattern is saved, but the Google Calendar events were not created (${err.message}). Click Retry to open the Google sign-in again - and make sure popups are allowed for this site.`,
           button1Text: 'Retry', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)',
-          onButton1: () => startCalendarTokenFlow(eventDicts, savedNote),
+          onButton1: () => startCalendarTokenFlow(eventDicts, savedNote, markIdentity),
         })
       })
+  }
+
+  // Build both event dicts from what the viewer already knows (tradeDetailData
+  // IS the ChartData4 stats dict - no extra fetch needed). slug/publishDate come
+  // from the publish response (fresh save) or dr_report_exists (already saved).
+  const buildNotifyEventDicts = (id, slug, publishDate) => {
+    const date = props.startDate
+    const date2 = incrementDate(date, parseInt(props.daysOut, 10) - 1)
+    const p = {
+      rid: id,
+      ticker: props.symbol,
+      direction: props.tradeDetailData['Trade Dir'],
+      date1: date,
+      date2: date2,
+      days: props.daysOut,
+      years: patternYearsStr(),
+      resource_group: props.selectedSecurity,
+      slug: slug,
+      sharpe_ratio: props.tradeDetailData['Sharpe Ratio'],
+      publishDate: publishDate,
+      stats: props.tradeDetailData,
+      eventTime: getCookie('event_time') || '8:00AM',
+      emailReminder: getCookie('email_reminder') !== 'false',
+      popupReminder: getCookie('popup_reminder') !== 'false',
+      reminderDate1: shiftWeekendToNextMonday(date),
+      reminderDate2: shiftWeekendToNextMonday(date2),
+    }
+    return [buildPatternEventDict('start', p), buildPatternEventDict('end', p)]
+  }
+
+  // "Edit reminder settings" -> open the SAME AddGC calendar dialog the
+  // Portfolio Manager's calendar icon opens, pre-filled for this pattern.
+  // Dims reproduce the manager path exactly (its dialog dims / 1.14, centered -
+  // ReportsDashboard.js:130,934-937) so the dialog looks identical from both
+  // doors. forceGC routes the layout gates to AddGC even when an '&' autotrade
+  // portfolio happens to be the current selection (the gate normally keys off
+  // selectedPortfolio, which is unrelated to the pattern's portfolio here).
+  const addGCDialogDims = () => {
+    let W = 60, H = 57, T = 25, L = 20
+    if (rdd.isMobile && !rdd.isTablet && browserH > browserW) { W = 100; H = 88; T = 12; L = 0 }
+    else if (rdd.isMobile && !rdd.isTablet && browserH < browserW) { W = 100; H = 100; T = 20; L = 0 }
+    else if (rdd.isMobile && rdd.isTablet && browserH > browserW) { W = 90; H = 70; T = 15; L = 5 }
+    else if (rdd.isMobile && rdd.isTablet && browserH < browserW) { W = 70; H = 50; T = 25; L = 15 }
+    const f = 1.14
+    return { 'DialogW': W / f + '%', 'DialogH': H / f + '%', 'DialogT': (T + (H - H / f) / 2) + '%', 'DialogL': (L + (W - W / f) / 2) + '%' }
+  }
+
+  const openEditReminderDialog = (info, id) => {
+    const date2 = incrementDate(props.startDate, parseInt(props.daysOut, 10) - 1)
+    props.SetGoogleCalendarDict({
+      ...addGCDialogDims(),
+      'forceGC': true,
+      'dr_id': info.drId,
+      'rid': id,
+      'resource_group': props.selectedSecurity,
+      'date1': props.startDate,
+      'date2': date2,
+      'years': patternYearsStr(),
+      'ticker': props.symbol,
+      'days': props.daysOut,
+      'direction': props.tradeDetailData['Trade Dir'],
+      'slug': info.slug,
+      'sharpe_ratio': props.tradeDetailData['Sharpe Ratio'],
+      'publishDate': info.publishDate,
+      'order_id_list': [],
+    })
+    props.SetInfoBoxVisible(false)
+    props.SetAddGCVisible(true)
+  }
+
+  // Reminder already created for this pattern -> show the reminder's DETAILS
+  // as a designed layout, not prose (owner feedback 2026-07-08): header =
+  // symbol + direction chip + window, two side-by-side date cards (start/end
+  // reminder), then the portfolio meta line and an Edit LINK that opens the
+  // AddGC calendar dialog directly. InfoPopup's info-box renders contentText
+  // bare inside a centered flex column, so it accepts a JSX element; em font
+  // sizes ride the dialog's per-device contentFontSize. Dates/time come from
+  // the same sources a Re-create would use, so whatever the user does from
+  // this dialog matches what it shows.
+  const showRemindersAlreadySetDialog = (info, id) => {
+    const eventDicts = buildNotifyEventDicts(id, info.slug, info.publishDate)
+    const date2 = incrementDate(props.startDate, parseInt(props.daysOut, 10) - 1)
+    const rd1 = shiftWeekendToNextMonday(props.startDate)
+    const rd2 = shiftWeekendToNextMonday(date2)
+    const eventTime = getCookie('event_time') || '8:00AM'
+    const isShort = String(props.tradeDetailData['Trade Dir']).toLowerCase().startsWith('s')
+    const dirColor = isShort ? tc.barRed : tc.barGreen
+
+    const reminderCard = (label, actualIso, reminderIso) => (
+      <div style={{ flex: '1 1 0', minWidth: '110px', maxWidth: '220px', backgroundColor: tc.statValueBg, border: '1px solid ' + tc.border, borderRadius: '8px', padding: '10px 14px', textAlign: 'center' }}>
+        <div style={{ fontSize: '0.6em', letterSpacing: '1.5px', color: tc.textSecondary, marginBottom: '5px' }}>{label}</div>
+        <div style={{ fontSize: '1.05em', fontWeight: 600 }}>{friendlyDate(reminderIso)}</div>
+        <div style={{ fontSize: '0.8em', color: tc.textSecondary, marginTop: '3px' }}>{eventTime}</div>
+        {actualIso !== reminderIso &&
+          <div style={{ fontSize: '0.6em', color: tc.textSecondary, fontStyle: 'italic', marginTop: '3px' }}>moved off the weekend</div>}
+      </div>
+    )
+
+    showInfoDialog({
+      title: 'Reminder Set',
+      contentText: (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', width: '100%' }}>
+          <div>
+            <span style={{ fontSize: '1.2em', fontWeight: 700 }}>{props.symbol}</span>
+            <span style={{ marginLeft: '9px', padding: '2px 10px', borderRadius: '999px', border: '1px solid ' + dirColor, color: dirColor, fontSize: '0.65em', fontWeight: 600, letterSpacing: '1px', verticalAlign: '3px' }}>{isShort ? 'SHORT' : 'LONG'}</span>
+          </div>
+          <div style={{ fontSize: '0.8em', color: tc.textSecondary, marginTop: '-8px' }}>{friendlyDate(props.startDate)} – {friendlyDate(date2)} · {props.daysOut} days</div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center', width: '90%' }}>
+            {reminderCard('START REMINDER', props.startDate, rd1)}
+            {reminderCard('END REMINDER', date2, rd2)}
+          </div>
+          <div style={{ fontSize: '0.8em' }}>Saved in your "{info.portfolio}" portfolio</div>
+          <div style={{ fontSize: '0.8em' }}>
+            <span onClick={() => openEditReminderDialog(info, id)} style={{ color: '#7C5CFF', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}>Edit reminder settings</span>
+          </div>
+        </div>
+      ),
+      button1Text: 'Re-create', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)',
+      onButton1: () => startCalendarTokenFlow(eventDicts, '', patternIdentity()),
+    })
   }
 
   const handleNotifyClicked = async () => {
@@ -1676,24 +1892,40 @@ const SeasonalBarChart = (props) => {
     if (id < 0) return
     SetNotifyBusy(true)
     try {
+      // Saved in ANY portfolio -> never re-save (a cross-portfolio re-publish would
+      // duplicate the record and burn lifetime quota). Re-check inline when the
+      // pill state is unknown (check failed or still in flight).
+      let info = reminderInfo
+      if (info === null) {
+        try { info = await fetchReminderInfo(); SetReminderInfo(info) } catch (e) { info = { saved: false } }
+      }
+      if (info.saved && info.gcEvents) {
+        // Reminders exist -> manage/re-create dialog, nothing to save.
+        showRemindersAlreadySetDialog(info, id)
+        return
+      }
+      if (info.saved) {
+        // Saved (via the Plus icon, or a bell click whose Google popup was
+        // abandoned) but no reminders yet -> skip the re-save, go straight to
+        // calendar-event creation against the existing record.
+        startCalendarTokenFlow(buildNotifyEventDicts(id, info.slug, info.publishDate), ` - the pattern was already saved in your "${info.portfolio}" portfolio`, patternIdentity())
+        return
+      }
+
       const symbol = props.symbol
       const date = props.startDate
       const days_hold = props.daysOut
-      let years = props.seasonalYears
-      if (props.PEselected != 'cons') { years = `${props.PEselected}-${props.seasonalYears}` }
+      const years = patternYearsStr()
       const direction = props.tradeDetailData['Trade Dir']
       const sharpe_ratio = props.tradeDetailData['Sharpe Ratio']
       const asURL = appserverURL()
 
-      // 1. Ensure the Notifications portfolio exists. 'duplicate' = already there
-      // (fine); 'limit_reached' = tier portfolio cap (free Explorer) -> use 'main'.
-      let portfolio = NOTIFY_PORTFOLIO
-      try {
-        const pr = await twFetch(`${asURL}/add_user_portfolio_name/${NOTIFY_PORTFOLIO}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((r) => r.json())
-        if (pr['portfolio_names_list'] === 'limit_reached') portfolio = 'main'
-      } catch (e) { portfolio = 'main' }
+      // Save to the CURRENT portfolio - the same destination as the Plus icon, so
+      // the toolbar has one mental model. '&'-prefixed autotrade portfolios hold
+      // trade instruments, not patterns -> fall back to 'main'.
+      let portfolio = props.selectedPortfolio
+      if (!portfolio || portfolio[0] === '&') portfolio = 'main'
 
-      // 2. Save the pattern (idempotent: refreshed=true means it was already saved).
       const data = await twFetch(`${asURL}/dr_report_publish/${id}/${symbol}/${date}/${days_hold}/${years}/${direction}/${sharpe_ratio}/${portfolio}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((r) => r.json())
 
       if (data['publish_dr_report'] !== 'success') {
@@ -1707,46 +1939,21 @@ const SeasonalBarChart = (props) => {
         return
       }
 
-      // Build both event dicts from what the viewer already knows (tradeDetailData
-      // IS the ChartData4 stats dict - no extra fetch needed).
       const slug = String(data['report_url'] || '').split('/r/')[1] ? String(data['report_url']).split('/r/')[1].replace(/\/+$/, '') : ''
-      const date2 = incrementDate(date, parseInt(days_hold, 10) - 1)
-      const p = {
-        rid: id,
-        ticker: symbol,
-        direction: direction,
-        date1: date,
-        date2: date2,
-        days: days_hold,
-        years: years,
-        resource_group: props.selectedSecurity,
-        slug: slug,
-        sharpe_ratio: sharpe_ratio,
-        publishDate: null, // just saved - the "created" line in the event covers it
-        stats: props.tradeDetailData,
-        eventTime: getCookie('event_time') || '8:00AM',
-        emailReminder: getCookie('email_reminder') !== 'false',
-        popupReminder: getCookie('popup_reminder') !== 'false',
-        reminderDate1: shiftWeekendToNextMonday(date),
-        reminderDate2: shiftWeekendToNextMonday(date2),
-      }
-      const eventDicts = [buildPatternEventDict('start', p), buildPatternEventDict('end', p)]
 
       if (data['refreshed']) {
-        // Already saved to this portfolio -> reminders were (presumably) already
-        // created. Don't silently duplicate Google events - explain how to modify,
-        // with an explicit re-create path for users who deleted the old events.
-        showInfoDialog({
-          title: 'Reminders Already Set',
-          contentText: `Calendar reminders for this ${symbol} pattern already exist (it is saved in your "${portfolio}" portfolio). To change their time or reminder settings, open the Portfolio Manager (clipboard-with-pencil icon), select the "${portfolio}" portfolio, and click the calendar icon on the pattern. If you deleted the events from Google Calendar and want them re-created with default settings, click Re-create.`,
-          button1Text: 'Re-create', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)',
-          onButton1: () => startCalendarTokenFlow(eventDicts, ''),
-        })
+        // Safety net: the exists check said unsaved but the server found the pattern
+        // already in this portfolio (race with another tab). Reminders may or may
+        // not exist - offer creation without re-saving, like the saved branch above.
+        const inf = { key: patternIdentity().key, saved: true, gcEvents: false, portfolio: portfolio, slug: slug, publishDate: null }
+        SetReminderInfo(inf)
+        startCalendarTokenFlow(buildNotifyEventDicts(id, slug, null), ` - the pattern was already saved in your "${portfolio}" portfolio`, patternIdentity())
         return
       }
 
       props.SetNumReportsCreated(props.numReportsCreated + 1)
-      startCalendarTokenFlow(eventDicts, ` and the pattern was saved to your "${portfolio}" portfolio`)
+      SetReminderInfo({ key: patternIdentity().key, saved: true, gcEvents: false, portfolio: portfolio, slug: slug, publishDate: null })
+      startCalendarTokenFlow(buildNotifyEventDicts(id, slug, null), ` and the pattern was saved to your "${portfolio}" portfolio`, patternIdentity())
     } finally {
       SetNotifyBusy(false)
     }
@@ -1887,8 +2094,11 @@ const SeasonalBarChart = (props) => {
 
 
   // Right-panel width in px (the split-aware version of window.innerWidth) - drives the
-  // Notify pill's icon-only collapse.
+  // Remind me pill's icon-only collapse.
   const rightPanelPx = window.innerWidth * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1)
+  // "Reminder set" = Google Calendar events actually exist for this pattern (a save
+  // via the Plus icon alone does NOT flip it - gc_events is stamped only on insert).
+  const reminderSet = !!(reminderInfo?.saved && reminderInfo?.gcEvents)
   // Best Waves keeps its "── Best Waves ──" decoration until the wide box, centered in the
   // measured slack, would have under 3px of air per side - only then drop to the compact
   // undecorated variant (owner-specified threshold). 0.07 = the 7vw wide-variant width.
@@ -1931,31 +2141,44 @@ const SeasonalBarChart = (props) => {
 
         }
 
-        {/* One-click notify bell: prominent labeled pill on desktop, compact icon on
-            mobile. First-visit pulse (localStorage-gated) makes it discoverable. */}
+        {/* One-click Remind me bell (stateful): filled purple "Remind me" pill until
+            Google Calendar events actually exist for this pattern (saved via the
+            Plus icon alone does NOT flip it - gc_events is stamped only on a
+            successful insert); outline "✓ Reminder set" after. Desktop = labeled
+            pill (icon-only below 1120px), mobile = compact icon (outline bell =
+            unset, filled purple = set). First-visit pulse (localStorage-gated)
+            makes it discoverable; suppressed once set. */}
         {props.seasonalBarChartData.length > 0 &&
           <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
             <div theme="tw" >
-              {props.tooltipSW ? 'One click adds Google Calendar reminders for this pattern’s start and end dates, and saves it to your Notifications portfolio. Customize times later via the Portfolio Manager’s calendar icon.' : ''}
+              {props.tooltipSW ? (reminderSet
+                ? `Reminder set - this pattern is saved in your "${reminderInfo.portfolio}" portfolio. Click to view or edit it.`
+                : reminderInfo?.saved
+                  ? `This pattern is saved in your "${reminderInfo.portfolio}" portfolio - one click adds Google Calendar reminders for its start and end dates.`
+                  : 'One click adds Google Calendar reminders for this pattern’s start and end dates, and saves it to your current portfolio. Customize times later via the Portfolio Manager’s calendar icon.') : ''}
             </div>
           }>
             {rdd.isMobile
               ? <div style={{ backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }}>
-                  <BsBellFill size={icon_size_plus - 12} className={notifyPulse ? 'tw-notify-pulse' : undefined} style={{ fill: "white", margin: '0 5px' }} onClick={handleNotifyClicked} />
+                  {reminderSet
+                    ? <BsBellFill size={icon_size_plus - 12} style={{ fill: "#4ade80", margin: '0 5px' }} onClick={handleNotifyClicked} />
+                    : <BsBell size={icon_size_plus - 12} className={notifyPulse ? 'tw-notify-pulse' : undefined} style={{ fill: "white", margin: '0 5px' }} onClick={handleNotifyClicked} />}
                 </div>
-              : <button className={'tw-notify-btn' + (notifyPulse ? ' tw-notify-pulse' : '')} onClick={handleNotifyClicked} disabled={notifyBusy}>
+              : <button className={'tw-notify-btn' + (reminderSet ? ' tw-notify-btn--set' : '') + (notifyPulse && !reminderSet ? ' tw-notify-pulse' : '')} onClick={handleNotifyClicked} disabled={notifyBusy}>
                   {/* Icon-only when the right panel is narrow (absolute px, not split %:
                       a small window with the default split is just as cramped) - the
                       labeled pill otherwise overflows this fixed row into Best Waves. */}
                   {rightPanelPx < 1120
                     ? <BsBellFill size={13} style={{ verticalAlign: '-2px' }} />
-                    : <><BsBellFill size={12} style={{ marginRight: '5px', verticalAlign: '-1px' }} />Notify me</>}
+                    : reminderSet
+                      ? <><span style={{ color: '#4ade80', marginRight: '4px' }}>✓</span>Reminder set</>
+                      : <><BsBellFill size={12} style={{ marginRight: '5px', verticalAlign: '-1px' }} />Remind me</>}
                 </button>
             }
           </Tippy>
         }
 
-        {/* Best Waves floats CENTERED in the slack between the Notify pill and the ticker
+        {/* Best Waves floats CENTERED in the slack between the Remind me pill and the ticker
             (flex:1 here + flexGrow 0 on the description while this select is rendered).
             The "── Best Waves ──" box-drawing rules (U+2500 - the original decoration this
             row shipped with before c16a969 slimmed it; not prose em-dashes) and the wider

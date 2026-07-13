@@ -400,10 +400,9 @@ const PortfolioTradeReport = (props) => {
                     sp = tmp.split('-');
                     if (isNaN(Number(sp[0]))) isErr = true;
                     if (isNaN(Number(sp[1]))) isErr = true;
+                    if (Number(sp[0]) >= Number(sp[1])) isErr = true;
                 }
                 else isErr = true;
-
-                if (Number(sp[0]) >= Number(sp[1])) isErr = true;
 
                 SetTextBoxError4(isErr);
                 SetDayRange(tmp);

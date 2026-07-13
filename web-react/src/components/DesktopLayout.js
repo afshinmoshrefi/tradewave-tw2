@@ -189,9 +189,12 @@ const DesktopLayout = (props) => {
         window.scrollTo(0, 1);
     };
 
-    setTimeout(function () {
-        resizeWindow();
-    }, 100);
+    useEffect(() => {
+        const timer = setTimeout(function () {
+            resizeWindow();
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
 
     const chartTo = (idx) => {
         props.swiper.slideTo(idx);
@@ -557,8 +560,10 @@ const DesktopLayout = (props) => {
             {props.videosBoxVisible && <HelpPanelPopup onClose={() => props.SetVideosBoxVisible(false)} />}
             {props.reportsDashVisible && <ReportsDashboard {...props} />}
 
-            {props.addGCVisible && props.selectedPortfolio[0] === '&' && <TradeInstrument {...props} />}
-            {props.addGCVisible && props.selectedPortfolio[0] !== '&' && <AddGC {...props} />}
+            {/* forceGC: the Remind me bell's Edit link always means the calendar dialog,
+                even when an '&' autotrade portfolio happens to be the current selection */}
+            {props.addGCVisible && props.selectedPortfolio[0] === '&' && !props.googleCalendarDict['forceGC'] && <TradeInstrument {...props} />}
+            {props.addGCVisible && (props.selectedPortfolio[0] !== '&' || props.googleCalendarDict['forceGC']) && <AddGC {...props} />}
 
 
             {props.showPortfolioSettings && <PortfolioSettings {...props} />}
