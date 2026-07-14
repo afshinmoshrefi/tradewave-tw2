@@ -75,6 +75,10 @@ home=$($SSH "root@$WEB" "cat /var/www/tradewave/home.html 2>/dev/null")
 # SIGPIPEs the echo, and the pipeline reports failure EXACTLY when the marker IS
 # present. -c consumes the whole input; exit status still reflects any-match.
 echo "$home" | grep -ciE 'whoever|the receipts|tuesday'     >/dev/null && ok "home: Ledger design present" || bad "home: Ledger markers missing"
+echo "$home" | grep -c  'Public forward ledger'             >/dev/null && ok "home: live ledger preview present" || bad "home: live ledger preview MISSING"
+ledger_rows=$(printf '%s\n' "$home" | grep -o 'class="ledger-row ledger-grid"' | wc -l)
+[ "$ledger_rows" = 8 ] && ok "home: live ledger preview has 8 rows" || bad "home: live ledger preview has $ledger_rows rows (want 8)"
+echo "$home" | grep -c  'Open the Full Public Ledger'       >/dev/null && ok "home: full-ledger CTA present" || bad "home: full-ledger CTA MISSING"
 echo "$home" | grep -c  'Trade<b>Wave</b>'                  >/dev/null && ok "home: 2-color logo"           || warn "home: 2-color logo markup not found"
 echo "$home" | grep -ciE '>Wave Viewer<|>Start Free Trial<' >/dev/null && ok "home: unified nav"            || warn "home: nav markers not found"
 if echo "$home" | grep -cE 'gtag\(|googletagmanager|G-[A-Z0-9]{6,}' >/dev/null; then ok "home: GA4 loader present"; else
