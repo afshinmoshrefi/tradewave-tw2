@@ -968,7 +968,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         "meta": {
             # Kept in sync with hero.headline (the tab title / og:title must
             # never advertise a headline the page no longer says).
-            "title": "TradeWave - Discover Seasonal Tendencies With The Highest Probability of Repeating",
+            "title": "TradeWave - Discover Seasonal Tendencies With the Highest Probability of Repeating",
             "description": (
                 "TradeWave detects recurring seasonal patterns from end-of-day "
                 "data across 15 markets, over a lookback you choose: 1 to 99 "
@@ -1023,7 +1023,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # Hero eyebrow removed 2026-07-06 (owner: keep the area above the
             # hero headline clean - no label, no pill). The headline is the
             # first thing on the page.
-            "headline": "Discover Seasonal Tendencies With The Highest Probability of Repeating",
+            "headline": "Discover Seasonal Tendencies With the Highest Probability of Repeating",
             "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
                 "AI-powered rankings and scores across 98 years of data, ready "
