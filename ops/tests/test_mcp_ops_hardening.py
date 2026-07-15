@@ -699,10 +699,21 @@ def test_root_launcher_and_controller_transient_are_fail_closed():
 
     assert '[[ ! "$1" =~ ^[0-9a-f]{40}$ ]]' in launcher
     assert "ProtectSystem=strict" in launcher
-    bootstrap_start = launcher.index(
-        "# ProtectSystem=strict can make only paths that already exist writable"
+    import hashlib
+
+    assert hashlib.sha256(
+        (ROOT / "ops/launch_mcp_release.sh").read_bytes()
+    ).hexdigest() == "54749d8ba854345abe96a6797fff50e7f9ee1fdc98d92a55cec2e852f06f3efc"
+    assert "controller bootstrap mount target" not in launcher
+
+    bootstrap_start = installer.index(
+        "# The stable launcher is deliberately immutable once CURRENT exists"
     )
-    bootstrap = launcher[bootstrap_start:launcher.index("unit_uuid=", bootstrap_start)]
+    bootstrap = installer[
+        bootstrap_start:installer.index(
+            '/usr/bin/install -d -o root -g root -m 0755 \\\n', bootstrap_start
+        )
+    ]
     for record in (
         '("/home/tradewave-mcp", 0o755, None)',
         '("/var/lib/tradewave-mcp-runtime-lock", 0o750, "tradewave-mcp")',
@@ -713,22 +724,35 @@ def test_root_launcher_and_controller_transient_are_fail_closed():
         assert record in bootstrap
     for guard in (
         "os.umask(0)",
-        "unsafe controller bootstrap ancestor",
-        "unsafe controller bootstrap mount target",
-        "os.path.lexists(path)",
-        "os.lstat(path)",
+        "unsafe runtime-mount bootstrap ancestor",
+        "unsafe runtime-mount bootstrap target",
+        "os.path.lexists(current)",
+        "os.lstat(current)",
         "group_name is not None",
+        "create_gid = 0",
         "metadata.st_gid == 0",
-        "not os.listdir(path)",
-        "group_name is None or group_exists",
+        "not os.listdir(current)",
         "not settled_gid and not transitional_empty",
+        'b"d /run/lock/tradewave 0700 root root -\\n"',
+        'b"d /run/tradewave-mcp-deploy 0755 root root -\\n"',
+        'b"d /run/tradewave-mcp-verifier 0700 root root -\\n"',
+        "/usr/bin/systemd-tmpfiles --create",
     ):
         assert guard in bootstrap
     assert (
-        launcher.index("PASS: coherent sealed MCP control-plane set")
-        < bootstrap_start
-        < launcher.index("exec /usr/bin/systemd-run")
+        bootstrap.index('if [ -z "$PREFIX" ]; then')
+        < bootstrap.index("/usr/bin/systemd-tmpfiles --create")
+        < bootstrap.index("crash_point after_runtime_mount_bootstrap")
     )
+    assert installer.index("crash_point after_runtime_mount_bootstrap") < installer.index(
+        "FETCH_UUID="
+    )
+    assert installer.index(
+        "refusing control-plane upgrade while any durable transaction exists"
+    ) < bootstrap_start < installer.index(
+        'install_bootstrap "$SEALED_SET/release-launcher-bootstrap.sh"'
+    )
+    assert installer.count("/usr/bin/systemd-tmpfiles --create") == 1
 
     helper_start = deploy.index("ensure_one_runtime_lock_file()")
     runtime_helper = deploy[
@@ -768,62 +792,147 @@ def test_root_launcher_and_controller_transient_are_fail_closed():
 
 @pytest.mark.skipif(
     os.name != "posix" or getattr(os, "geteuid", lambda: 1)() != 0,
-    reason="requires a root-owned /run test directory",
+    reason="requires root on a POSIX host",
 )
-def test_launcher_retry_accepts_only_an_empty_root_bootstrap_directory():
+def test_installer_mount_bootstrap_is_crash_retry_safe_and_fail_closed():
     import grp
+    import signal
+    import stat
     import uuid
 
-    launcher = _read("ops/launch_mcp_release.sh")
-    marker = launcher.index(
-        "# ProtectSystem=strict can make only paths that already exist writable"
+    prefix = Path("/tmp") / f"tradewave-mcp-install-test-{uuid.uuid4()}"
+    prefix.mkdir(mode=0o700)
+    os.chown(prefix, 0, 0)
+    os.chmod(prefix, 0o700)
+    installer = ROOT / "ops/install_mcp_release_controller.sh"
+    environment = {
+        "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/nonexistent",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TW_MCP_INSTALL_TEST_ROOT": str(prefix),
+        "TW_MCP_INSTALL_TEST_CRASH_AT": "after_runtime_mount_bootstrap",
+    }
+
+    def run_installer():
+        return subprocess.run(
+            [
+                "/usr/bin/bash",
+                "--noprofile",
+                "--norc",
+                "-p",
+                str(installer),
+                "0" * 40,
+            ],
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    expected_directories = {
+        "home/tradewave-mcp": 0o755,
+        "var/lib/tradewave-mcp-runtime-lock": 0o750,
+        "var/lib/tradewave-api-runtime-lock": 0o750,
+        "run/lock/tradewave": 0o700,
+        "run/tradewave-mcp-deploy": 0o755,
+        "run/tradewave-mcp-verifier": 0o700,
+    }
+    expected_tmpfiles = (
+        b"d /run/lock/tradewave 0700 root root -\n"
+        b"d /run/tradewave-mcp-deploy 0755 root root -\n"
+        b"d /run/tradewave-mcp-verifier 0700 root root -\n"
     )
-    heredoc = launcher.index("/usr/bin/python3.13 -I -B -S - <<'PY'", marker)
-    body_start = launcher.index("\n", heredoc) + 1
-    body_end = launcher.index("\nPY\n", body_start)
-    bootstrap = launcher[body_start:body_end]
-    service_group = next((record for record in grp.getgrall() if record.gr_gid != 0), None)
-    if service_group is None:
-        pytest.skip("requires an installed non-root group")
 
-    parent = Path("/run") / f"tradewave-bootstrap-test-{uuid.uuid4().hex}"
-    target = parent / "runtime-lock"
-    parent.mkdir(mode=0o755)
-    os.chown(parent, 0, 0)
-    os.chmod(parent, 0o755)
+    def assert_killed_at_bootstrap(result):
+        assert result.returncode in {-signal.SIGKILL, 128 + signal.SIGKILL}
+        assert "TEST CRASH POINT: after_runtime_mount_bootstrap" in result.stderr
+
+    def snapshot():
+        values = {}
+        for relative, mode in expected_directories.items():
+            path = prefix / relative
+            metadata = os.lstat(path)
+            assert stat.S_ISDIR(metadata.st_mode) and not stat.S_ISLNK(metadata.st_mode)
+            assert (metadata.st_uid, metadata.st_gid) == (0, 0)
+            assert stat.S_IMODE(metadata.st_mode) == mode
+            values[relative] = (
+                metadata.st_dev,
+                metadata.st_ino,
+                metadata.st_mode,
+                metadata.st_uid,
+                metadata.st_gid,
+            )
+        for relative in (
+            "var/lib/tradewave-mcp-runtime-lock",
+            "var/lib/tradewave-api-runtime-lock",
+        ):
+            assert not any((prefix / relative).iterdir())
+        lock = os.lstat(prefix / "run/lock/tradewave/mcp-release.lock")
+        assert stat.S_ISREG(lock.st_mode) and not stat.S_ISLNK(lock.st_mode)
+        assert (lock.st_uid, lock.st_gid, stat.S_IMODE(lock.st_mode), lock.st_nlink) == (
+            0,
+            0,
+            0o600,
+            1,
+        )
+        config = prefix / "etc/tmpfiles.d/tradewave-mcp-release.conf"
+        config_metadata = os.lstat(config)
+        assert stat.S_ISREG(config_metadata.st_mode)
+        assert not stat.S_ISLNK(config_metadata.st_mode)
+        assert (
+            config_metadata.st_uid,
+            config_metadata.st_gid,
+            stat.S_IMODE(config_metadata.st_mode),
+            config_metadata.st_nlink,
+        ) == (0, 0, 0o644, 1)
+        assert config.read_bytes() == expected_tmpfiles
+        return values, (config_metadata.st_dev, config_metadata.st_ino, config.read_bytes())
+
     try:
-        target.mkdir(mode=0o750)
-        os.chown(target, 0, 0)
-        os.chmod(target, 0o750)
-        test_bootstrap = re.sub(
-            r"paths = \(\n.*?\n\)\n\nfor path",
-            f"paths = (({str(target)!r}, 0o750, {service_group.gr_name!r}),)"
-            "\n\nfor path",
-            bootstrap,
-            count=1,
-            flags=re.DOTALL,
-        )
-        assert test_bootstrap != bootstrap
+        first = run_installer()
+        assert_killed_at_bootstrap(first)
+        before = snapshot()
+        second = run_installer()
+        assert_killed_at_bootstrap(second)
+        assert snapshot() == before
 
-        accepted = subprocess.run(
-            ["python3", "-I", "-B", "-S", "-c", test_bootstrap],
-            check=False,
-            capture_output=True,
-            text=True,
+        group_paths = (
+            ("tradewave-mcp", prefix / "var/lib/tradewave-mcp-runtime-lock"),
+            ("tradewave-api", prefix / "var/lib/tradewave-api-runtime-lock"),
         )
-        assert accepted.returncode == 0, accepted.stderr
-
-        (target / "unexpected").write_text("occupied", encoding="utf-8")
-        rejected = subprocess.run(
-            ["python3", "-I", "-B", "-S", "-c", test_bootstrap],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert rejected.returncode != 0
-        assert "unsafe controller bootstrap mount target" in rejected.stderr
+        try:
+            settled_groups = [(grp.getgrnam(name), path) for name, path in group_paths]
+        except KeyError:
+            settled_groups = []
+        if settled_groups:
+            for group, directory in settled_groups:
+                os.chown(directory, 0, group.gr_gid)
+                lock_path = directory / "runtime.lock"
+                descriptor = os.open(
+                    lock_path,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+                    0o640,
+                )
+                try:
+                    os.fchown(descriptor, 0, group.gr_gid)
+                    os.fchmod(descriptor, 0o640)
+                    os.fsync(descriptor)
+                finally:
+                    os.close(descriptor)
+            settled = run_installer()
+            assert_killed_at_bootstrap(settled)
+            evidence_path = settled_groups[0][1] / "runtime.lock"
+            os.chown(settled_groups[0][1], 0, 0)
+        else:
+            evidence_path = prefix / "var/lib/tradewave-mcp-runtime-lock/unexpected"
+            evidence_path.write_text("occupied", encoding="utf-8")
+        rejected = run_installer()
+        assert rejected.returncode not in {-signal.SIGKILL, 128 + signal.SIGKILL, 0}
+        assert "unsafe runtime-mount bootstrap target" in rejected.stderr
+        assert evidence_path.exists()
     finally:
-        shutil.rmtree(parent)
+        shutil.rmtree(prefix)
 
 
 def test_release_verifier_freezes_seventeen_tools_and_rejects_ghost():

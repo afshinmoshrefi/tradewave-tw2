@@ -74,6 +74,7 @@ PRODUCTION_API_FENCE=$PREFIX/etc/systemd/system/tradewave-apiserver.service.d/10
 TX_ROOT=$PREFIX/var/lib/tradewave/mcp-release-transactions
 LOCK_DIR=$PREFIX/run/lock/tradewave
 LOCK_FILE=$LOCK_DIR/mcp-release.lock
+TMPFILES_CONFIG=$PREFIX/etc/tmpfiles.d/tradewave-mcp-release.conf
 
 /usr/bin/install -d -o root -g root -m 0700 "$LOCK_DIR"
 if [ ! -e "$LOCK_FILE" ]; then
@@ -92,6 +93,182 @@ if [ -e "$TX_ROOT" ] || [ -L "$TX_ROOT" ]; then
   [ -z "$(find "$TX_ROOT" -mindepth 1 -maxdepth 1 -print -quit)" ] \
     || fail "refusing control-plane upgrade while any durable transaction exists"
 fi
+
+# The stable launcher is deliberately immutable once CURRENT exists. Publish
+# every strict-namespace writable mount target here instead, and persist the
+# three /run roots through reboot with one immutable tmpfiles definition.
+ensure_runtime_mount_bootstrap() {
+  /usr/bin/python3.13 -I -B -S - "$PREFIX" "$TMPFILES_CONFIG" <<'PY'
+import grp
+import os
+import secrets
+import stat
+import sys
+
+prefix, config_path = sys.argv[1:]
+os.umask(0)
+
+
+def fsync_directory(path: str) -> None:
+    descriptor = os.open(
+        path,
+        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+base = prefix or "/"
+base_metadata = os.lstat(base)
+if (
+    not stat.S_ISDIR(base_metadata.st_mode)
+    or stat.S_ISLNK(base_metadata.st_mode)
+    or base_metadata.st_uid != 0
+    or base_metadata.st_gid != 0
+    or stat.S_IMODE(base_metadata.st_mode) & 0o022
+):
+    raise SystemExit(f"unsafe runtime-mount bootstrap root: {base}")
+
+
+def ensure_directory(path: str, mode: int, group_name: str | None = None) -> None:
+    if not path.startswith("/") or path == "/":
+        raise SystemExit("runtime-mount bootstrap path is invalid")
+    current = base
+    components = path.strip("/").split("/")
+    service_gid = None
+    if group_name is not None:
+        try:
+            service_gid = grp.getgrnam(group_name).gr_gid
+        except KeyError:
+            pass
+    for index, component in enumerate(components):
+        parent = current
+        current = os.path.join(current, component)
+        is_target = index == len(components) - 1
+        create_mode = mode if is_target else 0o755
+        # The installer always publishes the empty root:root transitional
+        # directory. Only the controller may assign a service group.
+        create_gid = 0
+        if not os.path.lexists(current):
+            os.mkdir(current, create_mode)
+            os.chown(current, 0, create_gid)
+            os.chmod(current, create_mode)
+            fsync_directory(parent)
+        metadata = os.lstat(current)
+        if (
+            not stat.S_ISDIR(metadata.st_mode)
+            or stat.S_ISLNK(metadata.st_mode)
+            or metadata.st_uid != 0
+        ):
+            raise SystemExit(f"unsafe runtime-mount bootstrap directory: {current}")
+        if not is_target:
+            if metadata.st_gid != 0 or stat.S_IMODE(metadata.st_mode) & 0o022:
+                raise SystemExit(f"unsafe runtime-mount bootstrap ancestor: {current}")
+            continue
+        transitional_empty = (
+            group_name is not None
+            and metadata.st_gid == 0
+            and stat.S_IMODE(metadata.st_mode) == 0o750
+            and not os.listdir(current)
+        )
+        settled_gid = metadata.st_gid == (service_gid if service_gid is not None else 0)
+        if group_name is not None and service_gid is None:
+            settled_gid = False
+        if (
+            stat.S_IMODE(metadata.st_mode) != mode
+            or (not settled_gid and not transitional_empty)
+        ):
+            raise SystemExit(f"unsafe runtime-mount bootstrap target: {current}")
+
+
+for record in (
+    ("/home/tradewave-mcp", 0o755, None),
+    ("/var/lib/tradewave-mcp-runtime-lock", 0o750, "tradewave-mcp"),
+    ("/var/lib/tradewave-api-runtime-lock", 0o750, "tradewave-api"),
+    ("/run/tradewave-mcp-deploy", 0o755, None),
+    ("/run/tradewave-mcp-verifier", 0o700, None),
+    ("/etc/tmpfiles.d", 0o755, None),
+):
+    ensure_directory(*record)
+
+payload = (
+    b"d /run/lock/tradewave 0700 root root -\n"
+    b"d /run/tradewave-mcp-deploy 0755 root root -\n"
+    b"d /run/tradewave-mcp-verifier 0700 root root -\n"
+)
+config_parent = os.path.dirname(config_path)
+config_name = os.path.basename(config_path)
+parent_fd = os.open(
+    config_parent,
+    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+)
+try:
+    if not os.path.lexists(config_path):
+        temporary = f".{config_name}.install-{os.getpid()}-{secrets.token_hex(8)}"
+        try:
+            descriptor = os.open(
+                temporary,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+                dir_fd=parent_fd,
+            )
+            try:
+                view = memoryview(payload)
+                while view:
+                    view = view[os.write(descriptor, view):]
+                os.fchown(descriptor, 0, 0)
+                os.fchmod(descriptor, 0o644)
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+            os.replace(
+                temporary,
+                config_name,
+                src_dir_fd=parent_fd,
+                dst_dir_fd=parent_fd,
+            )
+            os.fsync(parent_fd)
+        finally:
+            try:
+                os.unlink(temporary, dir_fd=parent_fd)
+            except FileNotFoundError:
+                pass
+    metadata = os.lstat(config_path)
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or stat.S_ISLNK(metadata.st_mode)
+        or metadata.st_uid != 0
+        or metadata.st_gid != 0
+        or stat.S_IMODE(metadata.st_mode) != 0o644
+        or metadata.st_nlink != 1
+    ):
+        raise SystemExit("unsafe runtime-mount tmpfiles bootstrap")
+    descriptor = os.open(config_name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_fd)
+    try:
+        content = bytearray()
+        while len(content) <= len(payload):
+            chunk = os.read(descriptor, min(4096, len(payload) + 1 - len(content)))
+            if not chunk:
+                break
+            content.extend(chunk)
+        if bytes(content) != payload:
+            raise SystemExit("runtime-mount tmpfiles bootstrap differs from reviewed bytes")
+    finally:
+        os.close(descriptor)
+finally:
+    os.close(parent_fd)
+PY
+}
+
+ensure_runtime_mount_bootstrap
+if [ -z "$PREFIX" ]; then
+  /usr/bin/systemd-tmpfiles --create "$TMPFILES_CONFIG" \
+    || fail "could not materialize persistent MCP release runtime directories"
+fi
+ensure_runtime_mount_bootstrap
+crash_point after_runtime_mount_bootstrap
 
 /usr/bin/install -d -o root -g root -m 0755 \
   "$PREFIX/usr/local/libexec" "$PREFIX/usr/local/sbin" "$CONTROL_ROOT" "$SETS_ROOT"

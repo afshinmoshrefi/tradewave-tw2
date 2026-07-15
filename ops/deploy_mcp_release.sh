@@ -561,8 +561,8 @@ if not os.path.lexists(directory):
     finally:
         os.close(fd)
 metadata = os.lstat(directory)
-# The fixed launcher may have created this empty mount target before the
-# service group existed so ProtectSystem=strict could bind it writable. Permit
+# The fixed control-plane installer creates this empty mount target before the
+# service group exists so ProtectSystem=strict can bind it writable. Permit
 # exactly that root:root bootstrap state to transition once, after identities
 # have been created and verified.
 if (
