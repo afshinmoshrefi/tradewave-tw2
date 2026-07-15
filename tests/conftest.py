@@ -38,14 +38,21 @@ import pytest
 # file is mode 0640 root:flask; only the flask user can read it (run
 # the test suite via `sudo -u flask`).
 _SECRETS = Path("/etc/tradewave/secrets.env")
-if _SECRETS.exists() and os.access(_SECRETS, os.R_OK):
-    for line in _SECRETS.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, _, v = line.partition("=")
-        v = v.strip().strip("'").strip('"')
-        os.environ.setdefault(k.strip(), v)
+try:
+    _SECRET_LINES = (
+        _SECRETS.read_text().splitlines() if os.access(_SECRETS, os.R_OK) else ()
+    )
+except OSError:
+    # Network-isolated release tests deliberately make /etc/tradewave
+    # inaccessible. Treat that boundary exactly like an absent optional file.
+    _SECRET_LINES = ()
+for line in _SECRET_LINES:
+    line = line.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        continue
+    k, _, v = line.partition("=")
+    v = v.strip().strip("'").strip('"')
+    os.environ.setdefault(k.strip(), v)
 
 # 2. Force POSTGRES_DSN to point at tradewave_test BEFORE models.py is
 # imported. config.POSTGRES_DSN is read at module-load time (`engine =
