@@ -1613,14 +1613,15 @@ stage_bundle_artifacts() {  # <prepared-bundle> [candidate|legacy]
         "$bundle/src" -q -p no:cacheprovider --import-mode=importlib \
         "$bundle/src/tests/test_mcpserver.py" \
         "$bundle/src/tests/test_mcp_discovery_contract.py" \
-        "$bundle/src/tests/test_provision_mcp_key.py" \
         "$bundle/src/tests/test_consistency.py" \
         "$bundle/src/ops/tests/test_mcp_contract_runtime.py" \
-        "$bundle/src/ops/tests/test_mcp_service_env.py" \
         "$bundle/src/ops/tests/test_verify_mcp_discovery.py" \
         "$bundle/src/ops/tests/test_verify_mcp_protocol.py" \
         "$bundle/src/ops/tests/test_verify_mcp_load.py" \
       || fail "network-isolated candidate MCP test suite failed"
+    echo "==> run root-ownership contracts inside the minimal disposable root view"
+    run_isolated_root_contract_tests "$bundle" \
+      || fail "minimal-root candidate security contract suite failed"
     echo "==> run candidate gateway tests from exact sealed gateway + test dependencies"
     run_isolated_actor "$MCP_TEST_USER" "$MCP_TEST_GROUP" / /tmp 1 -- \
       /usr/bin/env -i HOME=/nonexistent PATH=/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C.UTF-8 \
@@ -2005,6 +2006,468 @@ run_isolated_actor() {  # <user> <group> <workdir> <rw-path> <private-network:0|
   set -e
   assert_exact_uid_processes "$account" \
     || fail "$account retained a process after isolated unit collection"
+  [ "$rc" -eq 0 ] || return "$rc"
+}
+
+root_contract_runtime_bind_inventory() {
+  trusted_python - \
+    /usr/bin/python3.13 \
+    /usr/lib/python3.13 /usr/lib/x86_64-linux-gnu \
+    /usr/lib/locale /usr/lib64 <<'PY'
+import errno
+import hashlib
+import os
+import stat
+import struct
+import sys
+
+executables = tuple(sys.argv[1:2])
+roots = tuple(dict.fromkeys(os.path.realpath(path) for path in sys.argv[2:]))
+if executables != ("/usr/bin/python3.13",) or roots != (
+    "/usr/lib/python3.13",
+    "/usr/lib/x86_64-linux-gnu",
+    "/usr/lib/locale",
+    "/usr/lib64",
+):
+    raise SystemExit("minimal-root runtime bind allowlist is not exact")
+for path, target in (("/lib", "usr/lib"), ("/lib64", "usr/lib64")):
+    metadata = os.lstat(path)
+    if (
+        not stat.S_ISLNK(metadata.st_mode)
+        or metadata.st_uid != 0
+        or metadata.st_gid != 0
+        or os.readlink(path) != target
+    ):
+        raise SystemExit(f"unsafe merged-usr link: {path}")
+
+digest = hashlib.sha256(b"TW_MCP_MINIMAL_ROOT_RUNTIME_V1\0")
+entries = 0
+total_size = 0
+excluded = {"/usr/lib/x86_64-linux-gnu/gstreamer1.0"}
+
+def feed(path: str, metadata: os.stat_result, kind: bytes, payload: bytes = b"") -> None:
+    encoded = os.fsencode(path)
+    digest.update(kind)
+    digest.update(struct.pack(">Q", len(encoded)))
+    digest.update(encoded)
+    digest.update(
+        struct.pack(
+            ">QQIIQQQQ",
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_uid,
+            metadata.st_gid,
+            stat.S_IMODE(metadata.st_mode),
+            metadata.st_nlink,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+        )
+    )
+    digest.update(struct.pack(">Q", metadata.st_ctime_ns))
+    digest.update(struct.pack(">Q", len(payload)))
+    digest.update(payload)
+
+def audit(path: str) -> None:
+    global entries, total_size
+    entries += 1
+    if entries > 200_000:
+        raise SystemExit("minimal-root runtime tree has too many entries")
+    metadata = os.lstat(path)
+    if metadata.st_uid != 0 or metadata.st_gid != 0:
+        raise SystemExit(f"minimal-root runtime entry is not root:root: {path}")
+    mode = stat.S_IMODE(metadata.st_mode)
+    if path in excluded:
+        if not stat.S_ISDIR(metadata.st_mode) or mode & 0o022:
+            raise SystemExit(f"unsafe masked minimal-root runtime subtree: {path}")
+        feed(path, metadata, b"M")
+        return
+    if stat.S_ISLNK(metadata.st_mode):
+        target = os.readlink(path)
+        if len(os.fsencode(target)) > 4096:
+            raise SystemExit(f"oversized minimal-root runtime symlink: {path}")
+        feed(path, metadata, b"L", os.fsencode(target))
+        return
+    if mode & 0o022:
+        raise SystemExit(f"writable minimal-root runtime entry: {path}")
+    if stat.S_ISDIR(metadata.st_mode):
+        if mode & 0o005 != 0o005:
+            raise SystemExit(f"non-public minimal-root runtime directory: {path}")
+        feed(path, metadata, b"D")
+        with os.scandir(path) as iterator:
+            children = sorted(iterator, key=lambda item: os.fsencode(item.name))
+        for child in children:
+            audit(os.path.join(path, child.name))
+        return
+    if not stat.S_ISREG(metadata.st_mode):
+        raise SystemExit(f"special minimal-root runtime entry: {path}")
+    if metadata.st_nlink != 1 or not mode & 0o004 or mode & 0o6000:
+        raise SystemExit(f"unsafe minimal-root runtime file metadata: {path}")
+    try:
+        attributes = os.listxattr(path, follow_symlinks=False)
+    except OSError as exc:
+        if exc.errno not in (errno.ENOTSUP, errno.EOPNOTSUPP):
+            raise
+        attributes = []
+    if "security.capability" in attributes:
+        raise SystemExit(f"capability-bearing minimal-root runtime file: {path}")
+    total_size += metadata.st_size
+    if total_size > 8 * 1024 * 1024 * 1024:
+        raise SystemExit("minimal-root runtime tree is oversized")
+    feed(path, metadata, b"F")
+
+for executable in executables:
+    metadata = os.lstat(executable)
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_uid != 0
+        or metadata.st_gid != 0
+        or metadata.st_nlink != 1
+        or stat.S_IMODE(metadata.st_mode) & 0o022
+        or stat.S_IMODE(metadata.st_mode) & 0o111 == 0
+    ):
+        raise SystemExit(f"unsafe minimal-root executable: {executable}")
+    with open(executable, "rb") as stream:
+        payload = hashlib.sha256(stream.read()).digest()
+    feed(executable, metadata, b"X", payload)
+for root in roots:
+    audit(root)
+print(digest.hexdigest())
+PY
+}
+
+run_isolated_root_contract_tests() {  # <prepared-bundle>
+  local bundle="$1" before after runtime_before runtime_after unit rc namespace
+  local host_mnt host_pid host_net host_ipc host_uts host_user
+  [ "$#" -eq 1 ] || fail "internal root-contract test call is malformed"
+  [ "$bundle" = "$PREPARED_BUNDLE" ] && [ "$PREPARED_NEW" = 1 ] \
+    || fail "root-contract tests require the unpublished prepared bundle"
+  [ -x "$bundle/test-venv/bin/python" ] \
+    && [ -f "$bundle/src/tests/test_provision_mcp_key.py" ] \
+    && [ -f "$bundle/src/ops/tests/test_mcp_service_env.py" ] \
+    || fail "root-contract test inputs are incomplete"
+
+  # Candidate-controlled tests need real uid-0 ownership semantics, but they
+  # must never receive the VM's host filesystem, processes, sockets, devices,
+  # or capabilities.  A read-only tmpfs root exposes only system Python and
+  # this exact bundle; the only writable mounts are fresh private tmpfs trees.
+  # ProtectSystem=strict is deliberately not combined with the root tmpfs:
+  # systemd 257 applies that directive in an order that would re-expose the
+  # host's read-only root.  The trusted pre-exec guard below proves the actual
+  # mount, namespace, capability, descriptor, and root-ownership boundaries.
+  runtime_before=$(root_contract_runtime_bind_inventory) \
+    || fail "minimal-root runtime bind audit failed"
+  before=$(bundle_content_sha256 "$bundle")
+  unit="tradewave-mcp-root-contract-$(trusted_python -c 'import uuid; print(uuid.uuid4())').service"
+  host_mnt=$(readlink /proc/1/ns/mnt)
+  host_pid=$(readlink /proc/1/ns/pid)
+  host_net=$(readlink /proc/1/ns/net)
+  host_ipc=$(readlink /proc/1/ns/ipc)
+  host_uts=$(readlink /proc/1/ns/uts)
+  host_user=$(readlink /proc/1/ns/user)
+  for namespace in "$host_mnt" "$host_pid" "$host_net" "$host_ipc" "$host_uts" "$host_user"; do
+    [[ "$namespace" =~ ^[a-z]+:\[[0-9]+\]$ ]] \
+      || fail "cannot attest the host namespace boundary"
+  done
+
+  set +e
+  /usr/bin/systemd-run --quiet --wait --pipe --collect --service-type=exec \
+    --unit="$unit" --description="TradeWave MCP minimal-root contract tests" \
+    --property="BindsTo=$DEPLOY_UNIT" --property="PartOf=$DEPLOY_UNIT" \
+    --property="After=$DEPLOY_UNIT" --property=User=root --property=Group=root \
+    --property=SupplementaryGroups= --property=WorkingDirectory=/ \
+    --property="TemporaryFileSystem=/:ro,nosuid,nodev,size=64M /tmp:rw,nosuid,nodev,noexec,size=256M /var/tmp:rw,nosuid,nodev,noexec,size=64M /run:ro,nosuid,nodev,noexec,size=16M" \
+    --property="BindReadOnlyPaths=/usr/bin/python3.13 /usr/lib/python3.13 /usr/lib/x86_64-linux-gnu /usr/lib/locale /usr/lib64 /lib/x86_64-linux-gnu /lib64 $bundle:/candidate" \
+    --property=PrivatePIDs=yes --property=PrivateMounts=yes \
+    --property=PrivateNetwork=yes --property=PrivateIPC=yes \
+    --property=PrivateDevices=yes --property=ProtectHostname=yes \
+    --property=ProtectClock=yes --property=ProtectKernelTunables=yes \
+    --property=ProtectKernelModules=yes --property=ProtectControlGroups=yes \
+    --property=ProtectKernelLogs=yes --property=ProtectProc=invisible \
+    --property=ProcSubset=pid --property=RestrictSUIDSGID=yes \
+    --property=RestrictNamespaces=yes --property=LockPersonality=yes \
+    --property=RestrictRealtime=yes --property=SystemCallArchitectures=native \
+    --property="SystemCallFilter=~@keyring unshare setns clone3 bpf perf_event_open userfaultfd fanotify_init io_uring_setup io_uring_enter io_uring_register open_by_handle_at name_to_handle_at" \
+    --property=SystemCallErrorNumber=EPERM \
+    --property="RestrictAddressFamilies=AF_UNIX" --property=SocketBindDeny=any \
+    --property=CapabilityBoundingSet= --property=AmbientCapabilities= \
+    --property="SecureBits=noroot noroot-locked no-setuid-fixup no-setuid-fixup-locked" \
+    --property=NoNewPrivileges=yes --property=KeyringMode=private \
+    --property=BindLogSockets=no --property=NotifyAccess=none \
+    --property=StandardInput=null --property=UMask=0077 \
+    --property=LimitCORE=0 --property=LimitNOFILE=256 \
+    --property=LimitMEMLOCK=0 --property=LimitMSGQUEUE=0 \
+    --property=LimitSIGPENDING=128 --property=TasksMax=128 \
+    --property=MemoryHigh=512M --property=MemoryMax=768M \
+    --property=MemorySwapMax=0 --property=CPUQuota=200% \
+    --property=Restart=no --property=KillMode=control-group \
+    --property=RuntimeMaxSec=5min --property=TimeoutStopSec=15s \
+    --property="InaccessiblePaths=-/sys -/dev/shm -/dev/mqueue -/dev/hugepages -/usr/lib/x86_64-linux-gnu/gstreamer1.0 -/lib/x86_64-linux-gnu/gstreamer1.0" \
+    --setenv=PATH=/usr/bin --setenv=HOME=/nonexistent \
+    --setenv=LANG=C.UTF-8 --setenv=LC_ALL=C.UTF-8 \
+    --property="UnsetEnvironment=INVOCATION_ID LOGNAME MEMORY_PRESSURE_WATCH MEMORY_PRESSURE_WRITE SHELL SYSTEMD_EXEC_PID USER BASH_ENV ENV CDPATH GLOBIGNORE LD_AUDIT LD_DEBUG LD_DEBUG_OUTPUT LD_DYNAMIC_WEAK LD_HWCAP_MASK LD_LIBRARY_PATH LD_ORIGIN_PATH LD_PRELOAD LD_PROFILE LD_PROFILE_OUTPUT LD_SHOW_AUXV LD_USE_LOAD_BIAS GLIBC_TUNABLES MALLOC_CHECK_ MALLOC_PERTURB_ HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy SSL_CERT_FILE SSL_CERT_DIR REQUESTS_CA_BUNDLE CURL_CA_BUNDLE PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONINSPECT PYTHONWARNINGS PYTHONBREAKPOINT PYTHONPLATLIBDIR PYTHONCASEOK PYTHONUNBUFFERED PYTHONDONTWRITEBYTECODE GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_SSH GIT_SSH_COMMAND GIT_ASKPASS SSH_ASKPASS" \
+    /usr/bin/python3.13 -I -B -S -c '
+import ctypes
+import errno
+import os
+import socket
+import stat
+import sys
+import tempfile
+
+host = dict(zip(("mnt", "pid", "net", "ipc", "uts", "user"), sys.argv[1:]))
+if len(host) != 6 or len(sys.argv) != 7:
+    raise SystemExit("invalid minimal-root namespace attestation")
+if os.environ != {
+    "HOME": "/nonexistent",
+    "PATH": "/usr/bin",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+}:
+    raise SystemExit("minimal-root guard received an unexpected environment")
+if os.getresuid() != (0, 0, 0) or os.getresgid() != (0, 0, 0) or os.getgroups():
+    raise SystemExit("minimal-root guard does not have exact root:root identity")
+
+status = {}
+for line in open("/proc/self/status", encoding="ascii"):
+    if ":" in line:
+        name, value = line.split(":", 1)
+        status[name] = value.strip()
+if status.get("Uid", "").split() != ["0"] * 4:
+    raise SystemExit("minimal-root guard uid status is not exact")
+if status.get("Gid", "").split() != ["0"] * 4 or status.get("Groups", "").split():
+    raise SystemExit("minimal-root guard gid status is not exact")
+for name in ("CapInh", "CapPrm", "CapEff", "CapBnd", "CapAmb"):
+    if int(status.get(name, "-1"), 16) != 0:
+        raise SystemExit(f"minimal-root guard retained {name}")
+if status.get("NoNewPrivs") != "1" or status.get("Seccomp") != "2":
+    raise SystemExit("minimal-root guard lacks no-new-privileges/seccomp enforcement")
+libc = ctypes.CDLL(None, use_errno=True)
+if libc.prctl(27, 0, 0, 0, 0) != 0x0F:  # PR_GET_SECUREBITS; all noroot/fixup bits locked.
+    raise SystemExit("minimal-root guard securebits are not locked")
+
+def require_denied(number, *arguments):
+    ctypes.set_errno(0)
+    result = libc.syscall(ctypes.c_long(number), *map(ctypes.c_long, arguments))
+    if result != -1 or ctypes.get_errno() != errno.EPERM:
+        raise SystemExit(f"minimal-root syscall {number} is not denied")
+
+# The controller is pinned to Linux x86_64.  Probe both systemd namespace
+# filtering and the explicit keyring/high-risk syscall deny list before any
+# candidate import.  The clone flags are intentionally invalid together, so a
+# missing namespace filter returns EINVAL rather than creating a child.
+for call in (
+    (272, 0x10000000),  # unshare(CLONE_NEWUSER)
+    (308, -1, 0),  # setns
+    (435, 0, 0),  # clone3
+    (56, 0x10000000 | 0x00010000 | 17, 0, 0, 0, 0),  # clone(CLONE_NEWUSER|CLONE_THREAD)
+    (248, 0, 0, 0, 0, 0),  # add_key
+    (249, 0, 0, 0, 0),  # request_key
+    (250, 0, 0, 0, 0, 0),  # keyctl
+    (321, 0, 0, 0),  # bpf
+    (298, 0, 0, 0, 0, 0),  # perf_event_open
+    (323, 0),  # userfaultfd
+    (425, 0),  # io_uring_setup
+    (426, 0, 0, 0, 0, 0, 0),  # io_uring_enter
+    (427, 0, 0, 0),  # io_uring_register
+):
+    require_denied(*call)
+try:
+    network_probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+except OSError as exc:
+    if exc.errno not in (errno.EACCES, errno.EAFNOSUPPORT, errno.EPERM):
+        raise
+else:
+    network_probe.close()
+    raise SystemExit("minimal-root guard can create an Internet socket")
+
+for name in ("mnt", "pid", "net", "ipc", "uts"):
+    if os.readlink(f"/proc/self/ns/{name}") == host[name]:
+        raise SystemExit(f"minimal-root guard shares the host {name} namespace")
+if os.readlink("/proc/self/ns/user") != host["user"]:
+    raise SystemExit("minimal-root guard entered an unexpected user namespace")
+visible_pids = {name for name in os.listdir("/proc") if name.isdigit()}
+if visible_pids != {str(os.getpid())}:
+    raise SystemExit("minimal-root guard can see another process")
+
+mount_lines = [line.split() for line in open("/proc/self/mountinfo", encoding="ascii")]
+expected_mounts = {
+    "/", "/candidate", "/dev", "/dev/pts", "/dev/hugepages", "/dev/mqueue",
+    "/dev/shm", "/lib/x86_64-linux-gnu", "/lib64", "/proc", "/run",
+    "/run/systemd/incoming", "/tmp", "/usr/bin/python3.13",
+    "/usr/lib/locale", "/usr/lib/python3.13", "/usr/lib/x86_64-linux-gnu",
+    "/usr/lib/x86_64-linux-gnu/gstreamer1.0", "/usr/lib64", "/var/tmp",
+    "/lib/x86_64-linux-gnu/gstreamer1.0",
+}
+if {fields[4] for fields in mount_lines} != expected_mounts:
+    raise SystemExit("minimal-root guard mount allowlist is not exact")
+
+def mount_record(path):
+    for fields in mount_lines:
+        if len(fields) > 9 and fields[4] == path and "-" in fields:
+            separator = fields.index("-")
+            return (
+                set(fields[5].split(",")),
+                fields[separator + 1],
+                set(fields[separator + 3].split(",")),
+            )
+    raise SystemExit(f"required mount is absent: {path}")
+
+root_options, root_type, root_super = mount_record("/")
+if (
+    root_type != "tmpfs"
+    or not {"ro", "nosuid", "nodev"}.issubset(root_options)
+    or "size=65536k" not in root_super
+    or not (os.statvfs("/").f_flag & os.ST_RDONLY)
+):
+    raise SystemExit("minimal-root guard is not on a read-only tmpfs root")
+for path in (
+    "/candidate", "/usr/bin/python3.13",
+    "/usr/lib/python3.13", "/usr/lib/x86_64-linux-gnu", "/usr/lib/locale",
+    "/usr/lib64", "/lib/x86_64-linux-gnu", "/lib64",
+):
+    options, _kind, _super = mount_record(path)
+    if "ro" not in options or not (os.statvfs(path).f_flag & os.ST_RDONLY):
+        raise SystemExit(f"minimal-root guard found a writable bind: {path}")
+for path, size in (("/tmp", "size=262144k"), ("/var/tmp", "size=65536k")):
+    options, kind, super_options = mount_record(path)
+    if (
+        kind != "tmpfs"
+        or not {"rw", "nosuid", "nodev", "noexec"}.issubset(options)
+        or size not in super_options
+        or os.statvfs(path).f_flag & os.ST_RDONLY
+    ):
+        raise SystemExit(f"minimal-root private temporary mount is not exact: {path}")
+run_options, run_type, run_super = mount_record("/run")
+if (
+    run_type != "tmpfs"
+    or not {"ro", "nosuid", "nodev", "noexec"}.issubset(run_options)
+    or "size=16384k" not in run_super
+    or not (os.statvfs("/run").f_flag & os.ST_RDONLY)
+):
+    raise SystemExit("minimal-root /run is not an exact private read-only tmpfs")
+for forbidden in ("/etc", "/home", "/root", "/opt", "/srv", "/mnt", "/media"):
+    if os.path.lexists(forbidden):
+        raise SystemExit(f"minimal-root guard exposes a forbidden host path: {forbidden}")
+if os.path.exists("/sys/kernel"):
+    raise SystemExit("minimal-root guard exposes host sysfs")
+if os.path.exists("/proc/keys"):
+    raise SystemExit("minimal-root guard exposes the host key listing")
+for forbidden in ("/dev/mem", "/dev/sda"):
+    if os.path.exists(forbidden):
+        raise SystemExit(f"minimal-root guard exposes a forbidden device: {forbidden}")
+for forbidden in ("/dev/shm", "/dev/mqueue", "/dev/hugepages"):
+    try:
+        descriptor = os.open(forbidden, os.O_RDONLY | os.O_DIRECTORY)
+    except OSError as exc:
+        if exc.errno not in (errno.EACCES, errno.EPERM):
+            raise
+    else:
+        os.close(descriptor)
+        raise SystemExit(f"minimal-root guard can open a forbidden device mount: {forbidden}")
+for forbidden in (
+    "/usr/lib/x86_64-linux-gnu/gstreamer1.0",
+    "/lib/x86_64-linux-gnu/gstreamer1.0",
+):
+    try:
+        descriptor = os.open(forbidden, os.O_RDONLY | os.O_DIRECTORY)
+    except OSError as exc:
+        if exc.errno not in (errno.EACCES, errno.EPERM):
+            raise
+    else:
+        os.close(descriptor)
+        raise SystemExit("minimal-root guard can open the masked capability subtree")
+for directory, names, files in os.walk("/run"):
+    for name in names + files:
+        metadata = os.lstat(os.path.join(directory, name))
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise SystemExit("minimal-root /run contains a host IPC endpoint")
+# systemd-run --pipe is needed to return pytest evidence to the controller and
+# also supplies a stdin pipe.  Close it in trusted code and replace it with the
+# namespace-private null device before candidate code can run.
+os.close(0)
+if os.open("/dev/null", os.O_RDONLY) != 0:
+    raise SystemExit("minimal-root guard could not seal standard input")
+descriptors = {}
+for descriptor in os.listdir("/proc/self/fd"):
+    try:
+        target = os.readlink(f"/proc/self/fd/{descriptor}")
+    except OSError:
+        continue
+    descriptors[descriptor] = target
+    if target.startswith(("/etc", "/home", "/root", "/var/lib", "/run/systemd/private", "/run/dbus")):
+        raise SystemExit("minimal-root guard inherited a sensitive descriptor")
+if set(descriptors) != {"0", "1", "2"}:
+    raise SystemExit("minimal-root guard inherited an unexpected descriptor")
+if descriptors["0"] != "/dev/null" or any(
+    not descriptors[number].startswith("pipe:[") for number in ("1", "2")
+):
+    raise SystemExit("minimal-root guard standard descriptors are not exact")
+
+candidate = os.lstat("/candidate")
+if not stat.S_ISDIR(candidate.st_mode) or stat.S_ISLNK(candidate.st_mode):
+    raise SystemExit("candidate bind is not a real directory")
+if candidate.st_uid != 0 or candidate.st_gid != 0:
+    raise SystemExit("candidate bind ownership is not root:root")
+interpreter = "/candidate/test-venv/bin/python"
+if os.readlink(interpreter) != "/usr/bin/python3.13" or os.path.realpath(interpreter) != "/usr/bin/python3.13":
+    raise SystemExit("candidate test interpreter is not exact")
+
+write_probe = "/candidate/.root-contract-write-probe"
+try:
+    descriptor = os.open(write_probe, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+except OSError as exc:
+    if exc.errno not in (errno.EACCES, errno.EPERM, errno.EROFS):
+        raise
+else:
+    os.close(descriptor)
+    os.unlink(write_probe)
+    raise SystemExit("candidate bind accepted a write")
+
+temporary = tempfile.mkdtemp(prefix="root-contract-", dir="/tmp")
+os.chown(temporary, 0, 0)
+os.chmod(temporary, 0o700)
+staged = os.path.join(temporary, "probe.tmp")
+final = os.path.join(temporary, "probe")
+descriptor = os.open(staged, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+try:
+    os.fchown(descriptor, 0, 0)
+    os.fchmod(descriptor, 0o600)
+    os.write(descriptor, b"root-contract\n")
+    os.fsync(descriptor)
+finally:
+    os.close(descriptor)
+os.replace(staged, final)
+metadata = os.stat(final)
+if (metadata.st_uid, metadata.st_gid, stat.S_IMODE(metadata.st_mode)) != (0, 0, 0o600):
+    raise SystemExit("private tmp does not preserve root ownership contracts")
+os.unlink(final)
+os.rmdir(temporary)
+
+loader = "import runpy,sys; source=sys.argv.pop(1); sys.path.insert(0,source); sys.argv[0]=\"pytest\"; runpy.run_module(\"pytest\",run_name=\"__main__\")"
+argv = [
+    interpreter, "-I", "-B", "-c", loader, "/candidate/src",
+    "-q", "-p", "no:cacheprovider", "--import-mode=importlib",
+    "/candidate/src/tests/test_provision_mcp_key.py",
+    "/candidate/src/ops/tests/test_mcp_service_env.py",
+]
+os.execve(interpreter, argv, dict(os.environ))
+' "$host_mnt" "$host_pid" "$host_net" "$host_ipc" "$host_uts" "$host_user"
+  rc=$?
+  set -e
+
+  after=$(bundle_content_sha256 "$bundle")
+  runtime_after=$(root_contract_runtime_bind_inventory) \
+    || fail "minimal-root runtime bind post-audit failed"
+  [ "$after" = "$before" ] || fail "root-contract actor changed the prepared bundle"
+  [ "$runtime_after" = "$runtime_before" ] \
+    || fail "minimal-root runtime bind set changed during candidate execution"
+  if systemctl is-active --quiet "$unit"; then
+    systemctl kill --kill-whom=all --signal=KILL "$unit" 2>/dev/null || true
+    systemctl stop "$unit" 2>/dev/null || true
+    fail "root-contract actor remained active after collection"
+  fi
+  [ ! -e "/sys/fs/cgroup/system.slice/$unit" ] \
+    || fail "root-contract actor cgroup remained after collection"
   [ "$rc" -eq 0 ] || return "$rc"
 }
 

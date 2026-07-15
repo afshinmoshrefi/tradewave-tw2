@@ -171,6 +171,132 @@ def test_candidate_python_series_gate_fails_closed():
     assert 'fail "system Python trust boundary failed"' in gate
 
 
+def test_root_ownership_contracts_use_only_the_disposable_minimal_root_view():
+    deploy = _read("ops/deploy_mcp_release.sh")
+    candidate_start = deploy.index('if [ "$suite_kind" = candidate ]; then')
+    candidate_end = deploy.index("\n  else\n", candidate_start)
+    candidate = deploy[candidate_start:candidate_end]
+    ordinary_start = candidate.index(
+        'echo "==> run candidate MCP tests as the dedicated network-isolated test identity"'
+    )
+    ordinary_end = candidate.index(
+        '|| fail "network-isolated candidate MCP test suite failed"', ordinary_start
+    )
+    ordinary = candidate[ordinary_start:ordinary_end]
+
+    for root_contract in (
+        'tests/test_provision_mcp_key.py',
+        'ops/tests/test_mcp_service_env.py',
+    ):
+        assert root_contract not in ordinary
+    assert candidate.count('run_isolated_root_contract_tests "$bundle"') == 1
+    assert candidate.index('run_isolated_root_contract_tests "$bundle"') < candidate.index(
+        'echo "==> run candidate gateway tests'
+    )
+
+    helper_start = deploy.index("root_contract_runtime_bind_inventory()")
+    helper_end = deploy.index("\nfreeze_canonical_source()", helper_start)
+    helper = deploy[helper_start:helper_end]
+    for invariant in (
+        "root_contract_runtime_bind_inventory()",
+        '--property="BindsTo=$DEPLOY_UNIT"',
+        '--property="PartOf=$DEPLOY_UNIT"',
+        '--property="After=$DEPLOY_UNIT"',
+        '--property=User=root',
+        '--property=Group=root',
+        '--property=SupplementaryGroups=',
+        '--property=WorkingDirectory=/',
+        'TemporaryFileSystem=/:ro,nosuid,nodev,size=64M '
+        '/tmp:rw,nosuid,nodev,noexec,size=256M '
+        '/var/tmp:rw,nosuid,nodev,noexec,size=64M '
+        '/run:ro,nosuid,nodev,noexec,size=16M',
+        'BindReadOnlyPaths=/usr/bin/python3.13 /usr/lib/python3.13 '
+        '/usr/lib/x86_64-linux-gnu /usr/lib/locale /usr/lib64 '
+        '/lib/x86_64-linux-gnu /lib64 $bundle:/candidate',
+        '--property=PrivatePIDs=yes',
+        '--property=PrivateMounts=yes',
+        '--property=PrivateNetwork=yes',
+        '--property=PrivateIPC=yes',
+        '--property=PrivateDevices=yes',
+        '--property=ProtectHostname=yes',
+        '--property=ProtectClock=yes',
+        '--property=ProtectKernelTunables=yes',
+        '--property=ProtectKernelModules=yes',
+        '--property=ProtectControlGroups=yes',
+        '--property=ProtectKernelLogs=yes',
+        '--property=ProtectProc=invisible',
+        '--property=ProcSubset=pid',
+        '--property=RestrictSUIDSGID=yes',
+        '--property=RestrictNamespaces=yes',
+        '--property=LockPersonality=yes',
+        '--property=RestrictRealtime=yes',
+        '--property=SystemCallArchitectures=native',
+        'SystemCallFilter=~@keyring unshare setns clone3 bpf perf_event_open '
+        'userfaultfd fanotify_init io_uring_setup io_uring_enter '
+        'io_uring_register open_by_handle_at name_to_handle_at',
+        '--property=SystemCallErrorNumber=EPERM',
+        '--property="RestrictAddressFamilies=AF_UNIX"',
+        '--property=SocketBindDeny=any',
+        '--property=CapabilityBoundingSet=',
+        '--property=AmbientCapabilities=',
+        'SecureBits=noroot noroot-locked no-setuid-fixup '
+        'no-setuid-fixup-locked',
+        '--property=NoNewPrivileges=yes',
+        '--property=KeyringMode=private',
+        '--property=BindLogSockets=no',
+        '--property=NotifyAccess=none',
+        '--property=StandardInput=null',
+        '--property=UMask=0077',
+        '--property=LimitNOFILE=256',
+        '--property=LimitMEMLOCK=0',
+        '--property=TasksMax=128',
+        '--property=MemoryMax=768M',
+        '--property=MemorySwapMax=0',
+        '--property=RuntimeMaxSec=5min',
+        '--property=KillMode=control-group',
+        'InaccessiblePaths=-/sys -/dev/shm -/dev/mqueue -/dev/hugepages '
+        '-/usr/lib/x86_64-linux-gnu/gstreamer1.0 '
+        '-/lib/x86_64-linux-gnu/gstreamer1.0',
+        '--setenv=PATH=/usr/bin',
+        '--setenv=HOME=/nonexistent',
+        '--setenv=LANG=C.UTF-8',
+        '--setenv=LC_ALL=C.UTF-8',
+        '--property="UnsetEnvironment=',
+        '/usr/bin/python3.13 -I -B -S -c',
+        'minimal-root guard is not on a read-only tmpfs root',
+        'for name in ("CapInh", "CapPrm", "CapEff", "CapBnd", "CapAmb")',
+        'status.get("NoNewPrivs") != "1" or status.get("Seccomp") != "2"',
+        'libc.prctl(27, 0, 0, 0, 0) != 0x0F',
+        'minimal-root guard retained {name}',
+        'minimal-root syscall {number} is not denied',
+        'minimal-root guard can see another process',
+        'for forbidden in ("/etc", "/home", "/root", "/opt", "/srv", "/mnt", "/media")',
+        'minimal-root /run contains a host IPC endpoint',
+        'minimal-root guard inherited an unexpected descriptor',
+        'minimal-root guard can open the masked capability subtree',
+        'candidate bind accepted a write',
+        'private tmp does not preserve root ownership contracts',
+        '/candidate/src/tests/test_provision_mcp_key.py',
+        '/candidate/src/ops/tests/test_mcp_service_env.py',
+        'runtime_before=$(root_contract_runtime_bind_inventory)',
+        'after=$(bundle_content_sha256 "$bundle")',
+        'runtime_after=$(root_contract_runtime_bind_inventory)',
+        '[ "$runtime_after" = "$runtime_before" ]',
+        'root-contract actor cgroup remained after collection',
+    ):
+        assert invariant in helper
+    assert '--property=ProtectSystem=' not in helper
+    assert '--property=ProtectHome=' not in helper
+    assert '--property=PrivateTmp=' not in helper
+    assert 'ReadWritePaths=' not in helper
+    assert 'BindReadOnlyPaths=/usr /lib /lib64' not in helper
+    assert '/usr/bin/env -i' not in helper
+    assert 'assert_exact_uid_processes' not in helper
+    assert helper.count('bundle_content_sha256 "$bundle"') == 2
+    assert helper.count('root_contract_runtime_bind_inventory)') == 2
+    assert helper.count('os.execve(interpreter, argv, dict(os.environ))') == 1
+
+
 @pytest.mark.skipif(shutil.which("bash") is None or os.name != "posix",
                     reason="requires bash on a POSIX host")
 def test_syncfs_failure_aborts_before_journal_publication(tmp_path):
