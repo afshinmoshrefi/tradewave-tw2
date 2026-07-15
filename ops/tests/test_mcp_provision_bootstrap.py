@@ -75,6 +75,15 @@ def _synthetic_provision_venv(tmp_path: Path, monkeypatch):
     site_packages = venv / "lib" / "python3.13" / "site-packages"
     site_packages.mkdir(parents=True)
     _write_distribution(site_packages, name="pip", version="26.1.2", import_name="pip")
+    scripts = site_packages / "bin"
+    scripts.mkdir()
+    pip_script = scripts / "pip"
+    pip_script.write_text("#!/usr/bin/python3.13\n", encoding="utf-8")
+    pip_record = site_packages / "pip-26.1.2.dist-info" / "RECORD"
+    with pip_record.open("a", encoding="utf-8", newline="") as stream:
+        csv.writer(stream, lineterminator="\n").writerow(
+            ("../../bin/pip", _record_digest(pip_script), str(pip_script.stat().st_size))
+        )
     _write_distribution(
         site_packages,
         name="psycopg2-binary",
@@ -117,6 +126,44 @@ def test_exact_record_inventory_accepts_only_the_two_locked_distributions(
     tmp_path, monkeypatch
 ):
     _validate_fixture(tmp_path, monkeypatch)
+
+
+def test_pip_target_console_script_record_maps_only_to_sealed_target_bin(
+    tmp_path, monkeypatch
+):
+    venv, site_packages, _versions, _lock_hashes = _synthetic_provision_venv(
+        tmp_path, monkeypatch
+    )
+
+    target, relative = bootstrap._record_target(
+        "../../bin/pip", site_packages=site_packages, venv=venv
+    )
+
+    assert target == (site_packages / "bin" / "pip").resolve(strict=True)
+    assert relative == "lib/python3.13/site-packages/bin/pip"
+
+
+@pytest.mark.parametrize(
+    "raw_name",
+    (
+        "../../../bin/pip",
+        "../../bin/../pip",
+        "../../bin/.pip",
+        "../../bin/pip/extra",
+        "pip/../bin/pip",
+        "pip//__init__.py",
+        ".",
+    ),
+)
+def test_noncanonical_or_broader_record_escape_spellings_fail_closed(
+    tmp_path, monkeypatch, raw_name
+):
+    venv, site_packages, _versions, _lock_hashes = _synthetic_provision_venv(
+        tmp_path, monkeypatch
+    )
+
+    with pytest.raises(bootstrap.BootstrapError, match="unsafe RECORD path"):
+        bootstrap._record_target(raw_name, site_packages=site_packages, venv=venv)
 
 
 @pytest.mark.parametrize(

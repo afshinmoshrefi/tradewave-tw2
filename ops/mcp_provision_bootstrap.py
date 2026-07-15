@@ -53,6 +53,7 @@ _REQUIREMENT_RE = re.compile(
 )
 _HASH_RE = re.compile(r"--hash=sha256:([0-9a-f]{64})(?:\s+\\)?")
 _HEX_SHA256_RE = re.compile(r"[0-9a-f]{64}")
+_SAFE_SCRIPT_BASENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,250}\Z")
 
 
 class BootstrapError(RuntimeError):
@@ -347,7 +348,28 @@ def _record_target(
     ):
         raise BootstrapError(f"unsafe RECORD path: {raw_name!r}")
     pure = PurePosixPath(raw_name)
-    candidate = site_packages.joinpath(*pure.parts)
+    if (
+        not pure.parts
+        or pure.as_posix() != raw_name
+        or any(part in {"", "."} for part in pure.parts)
+    ):
+        raise BootstrapError(f"unsafe RECORD path: {raw_name!r}")
+    if (
+        len(pure.parts) == 4
+        and pure.parts[:3] == ("..", "..", "bin")
+        and _SAFE_SCRIPT_BASENAME.fullmatch(pure.parts[3])
+    ):
+        # pip --target records generated console scripts using its wheel
+        # scheme path (../../bin/<name>) while installing them beneath the
+        # target itself (<site-packages>/bin/<name>).  Accept only this exact
+        # spelling and bind it to that scanned, sealed in-tree destination.
+        candidate = site_packages / "bin" / pure.parts[3]
+    else:
+        if any(part == ".." for part in pure.parts):
+            raise BootstrapError(f"unsafe RECORD path: {raw_name!r}")
+        if re.match(r"[A-Za-z]:", pure.parts[0]):
+            raise BootstrapError(f"unsafe RECORD path: {raw_name!r}")
+        candidate = site_packages.joinpath(*pure.parts)
     try:
         resolved = candidate.resolve(strict=True)
         relative = resolved.relative_to(venv)
