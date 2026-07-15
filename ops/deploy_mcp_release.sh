@@ -5914,8 +5914,24 @@ recover_unfinished_transaction() {
   [ "${#journal_fields[@]}" -eq 18 ] \
     || fail "paired journal recovery returned invalid data"
 
-  ensure_runtime_lock_file
-  ensure_api_runtime_lock_file
+  # Recovery is entered both at process start and from EXIT after a failed
+  # live transaction.  In the latter case this controller already owns the
+  # exclusive lock on fd 8 and/or fd 7; probing a second shared lock against
+  # our own exclusive lock would deadlock recovery by failing non-blocking.
+  # Reuse only the exact already-attested descriptor, otherwise perform the
+  # normal metadata and service-identity probe before opening it.
+  if [ "$RUNTIME_LOCK_HELD" = 1 ]; then
+    [ "$(readlink -f -- "/proc/$$/fd/8")" = "$RUNTIME_LOCK" ] \
+      || fail "recovery MCP runtime-lock descriptor is not exact"
+  else
+    ensure_runtime_lock_file
+  fi
+  if [ "$API_RUNTIME_LOCK_HELD" = 1 ]; then
+    [ "$(readlink -f -- "/proc/$$/fd/7")" = "$API_RUNTIME_LOCK" ] \
+      || fail "recovery API runtime-lock descriptor is not exact"
+  else
+    ensure_api_runtime_lock_file
+  fi
   state_path=${journal_fields[1]}
   candidate_bundle=${journal_fields[2]}
   candidate_sha=${journal_fields[3]}

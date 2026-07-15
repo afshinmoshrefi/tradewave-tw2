@@ -619,6 +619,12 @@ def test_rollback_uses_fixed_config_and_legacy_smoke_is_explicit():
     assert "old unsafe provisioner" not in deploy
     assert "PAIRED RECOVERY FAILED after deploy exit" in deploy
     assert "RECOVERY PASS: pre-intent API gateway + MCP entry pair restored" in deploy
+    assert 'if [ "$RUNTIME_LOCK_HELD" = 1 ]; then' in deploy
+    assert '"/proc/$$/fd/8"' in deploy
+    assert "recovery MCP runtime-lock descriptor is not exact" in deploy
+    assert 'if [ "$API_RUNTIME_LOCK_HELD" = 1 ]; then' in deploy
+    assert '"/proc/$$/fd/7"' in deploy
+    assert "recovery API runtime-lock descriptor is not exact" in deploy
     assert 'journal_action restore' in deploy
     assert 'journal_action mark-recovered' in deploy
     assert 'journal_action cleanup-recovered' in deploy
