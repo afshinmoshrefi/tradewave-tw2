@@ -682,7 +682,10 @@ def ml_scores(market, items):
 # price fields (start_price/current_price/peak_price/end_price) are NEVER surfaced;
 # returns are already stored as percentages (current_return/peak_return/actual_return).
 
-FEATURED_HISTORY_FILE = "/home/flask/site/data/featured_history.json"
+FEATURED_HISTORY_FILE = os.environ.get(
+    "TW2_FEATURED_HISTORY_FILE",
+    "/home/flask/site/data/featured_history.json",
+)
 
 
 def _load_featured_history():

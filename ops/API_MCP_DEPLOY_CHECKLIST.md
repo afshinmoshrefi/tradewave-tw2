@@ -2,7 +2,7 @@
 
 A pick-up-able checklist to take the API/MCP product (incl. Tara + the consumer OAuth connect) from
 "working on dev" to live on staging + prod. Authored for the operator (Afshin) - per the hard rules,
-NEVER touch staging/prod directly; the operator runs the commands. Last updated 2026-06-06.
+NEVER touch staging/prod directly; the operator runs the commands. Last updated 2026-07-15.
 
 Control docs (the detail): `docs/MCP_OAUTH_INTEGRATION.md`, `docs/TARA_GATEWAY_INTEGRATION.md`,
 `ops/OPERATIONS.md`, `ops/PROD_CUTOVER.md`, `ops/bootstrap_api_services.sh`,
@@ -10,24 +10,23 @@ Control docs (the detail): `docs/MCP_OAUTH_INTEGRATION.md`, `docs/TARA_GATEWAY_I
 Memory: `reference_mcp_api_knowhow`, `project_mcp_consumer_oauth_goal`, `project_tara_gateway_client`.
 
 ## Status snapshot
-- BUILT + verified on DEV, and the MCP consumer OAuth connect is CONNECTED end-to-end from ChatGPT/Claude
-  (via the WorkOS STAGING env). Nothing is on staging/prod yet.
+- MCP is a release candidate. Promotion is blocked unless the authenticated public release verifier proves
+  OAuth discovery, the exact 17-tool schema/annotation contract, a real `whoami` gateway call, and 20
+  independent concurrent ChatGPT-style sessions. Nothing is on staging/prod yet.
 - Scope built this session: gateway tier-resolution for WorkOS users, the MCP resource-server (WorkOS JWT
   verifier, streamable-http, root-mount), Tara gateway client (Phase 1 + 2), the e2e-review fixes,
   ML-score table filter, slim dev-portal nav, Liquid name-drop removal.
 
-## GIT STATE - read this first (it's non-obvious)
-- Current branch: **`feature/affiliate-admin`** (NOT `feature/api-mcp`; the name drifted). HEAD is **17 commits
-  ahead of `main`**, and the branch is **NOT pushed** (no remote tracking) and **NOT merged**.
-- The branch has a **parallel affiliate session's work interleaved** (commit `cb0e5fa` + UNCOMMITTED:
-  `web/affiliate_service.py`, `web/app.py`, `tests/test_affiliate.py`, `docs/AFFILIATE_AGREEMENT.md`,
-  `site/generate_text_pages.py`, `site/templates/index-dark-blue.html`, `docs/TRADEWAVE_ECOSYSTEM.md`).
-  **Do NOT commit or disturb those** when doing the API/MCP deploy - they belong to that session.
-- Key API/MCP commits (all on this branch): `bf1f014` (api+mcp feature expansion + Tara P1), `62d3c13`
-  (Tara P2), `0f63b5c` (relocatable deploy), `2a3be5e` (review fixes), `63f3830` (ML filter), `9fe79f5`
-  (slim nav), `4b42335` (Liquid removal), `53a5a1d`/`45e7748`/`c231fa3`/`0f43333` (MCP OAuth).
-- DECISION NEEDED: how to land this on main (clean up the branch name / cherry-pick API-MCP vs affiliate, or
-  merge the whole branch once affiliate is done). Coordinate with the affiliate session via conversation.md.
+## RELEASE SOURCE - read this first
+- Deploy MCP only from an exact lowercase 40-character commit SHA through the fixed installed launcher.
+  Branches, refs, mixed-case SHAs, caller-supplied refspecs, and ambiguous `HEAD` are rejected before
+  the root controller starts. The SHA must be fetchable from the fixed canonical HTTPS origin.
+- The app checkout may contain unrelated operator work. `ops/deploy_mcp_release.sh` leaves the gateway in
+  `/home/flask` untouched and creates a root-owned, non-writable MCP code + venv + config bundle under
+  `/home/tradewave-mcp/releases/`. Do not clean, reset, or repoint the live gateway checkout for this release.
+- RC command on dev: `sudo /usr/local/sbin/tradewave-mcp-release <reviewed-lowercase-40-sha>`.
+  A failure in unit, nginx, process, contract, gateway-call, or 20-session verification restores the prior
+  code/runtime/config automatically. Manual rollback uses the same launcher with `--rollback`.
 
 ## Pre-deploy DECISIONS (from the e2e review - `/home/afshin/TRADEWAVE_APP_REVIEW_2026-06-02.md`)
 - [ ] Checkout CSRF (`web/app.py` `/api/stripe/create-checkout` is `@csrf.exempt`) - low blast radius; needs the
@@ -40,34 +39,59 @@ Memory: `reference_mcp_api_knowhow`, `project_mcp_consumer_oauth_goal`, `project
 ## DEPLOY - run for STAGING first, verify, THEN prod (never skip staging)
 For EACH env (staging, then prod):
 
-1. **Code out.** Get this branch's code on the box (per `ops/deploy.sh {staging|prod}` once landed on main, or
-   the branch). `pip install -r requirements.txt` + `-r requirements-api.txt`. React (Tara Phase 2 frontend) =
+1. **Code out.** Get the reviewed code on the box. MCP itself is promoted with
+   `sudo /usr/local/sbin/tradewave-mcp-release <reviewed-lowercase-40-sha>`; it uses the tracked fully
+   pinned SHA-256-hashed `requirements-mcp.lock` (MCP 1.28.1) and offline, binary-wheel-only installs
+   under the exact isolated system CPython 3.13. It never mutates `/home/flask/venv-api`.
+   The seal binds source, selected wheels, and installed bytes; the host-managed interpreter, standard
+   library, CA store, and OS remain external trust boundaries. React =
    symlink-swap deploy (`ops/deploy.sh` / the react release step). Reassemble the dev portal:
    `sudo bash ops/assemble_developer_portal.sh` (TW2_ENV set so the URL guard + SEO flip apply).
-2. **API/MCP services.** If the box has no gateway/MCP yet: `sudo bash ops/bootstrap_api_services.sh`. Install the
-   updated `tradewave-mcpserver.service` (now defaults `TW2_MCP_TRANSPORT=streamable-http`): `daemon-reload`.
-3. **secrets.env (per env) - add/confirm:**
+2. **API/MCP services.** If the box has no gateway/MCP yet, bootstrap the loopback gateway/service once. Then use
+   the immutable MCP release command above; it installs the versioned unit/drop-in/nginx configuration itself.
+3. **Secrets and MCP identity (per env) - add/confirm:**
    - Tara: `TARA_GATEWAY_KEY` (run `venv-api/bin/python -m apiserver.provision_chatbot_key`), `TW2_GATEWAY_URL`
      (the gateway base, e.g. `http://127.0.0.1:80/v1` on stg/prod), optionally `APPSERVER_CORS_ORIGINS`.
-   - MCP-OAuth: `MCP_GATEWAY_KEY` (run `venv-api/bin/python -m apiserver.provision_mcp_key`),
-     `WORKOS_AUTHKIT_DOMAIN` (already set for web login - reuse), `TW2_MCP_PUBLIC_URL` (the env's MCP host:
-     `https://mcp-stage.trxstat.com` / `https://mcp.tradewave.ai`), `TW2_MCP_TRANSPORT=streamable-http`.
+   - MCP-OAuth metadata in the broad platform source: `WORKOS_AUTHKIT_DOMAIN` (already set for web
+     login - reuse), `TW2_MCP_PUBLIC_URL` (the env's MCP host:
+     `https://mcp-stage.trxstat.com` / `https://mcp.tradewave.ai`), plus a dedicated safe smoke account:
+     `TW_MCP_SMOKE_WORKOS_SUB` and its lowercase `TW_MCP_SMOKE_EXPECT_TIER`. Deploy strictly parses these
+     values.
+   - Do **not** manually add or rotate `MCP_GATEWAY_KEY` in the broad platform file. On a legacy first
+     migration the fixed root controller may discover the old K0 there, but it transactionally creates
+     K1, writes it only to `/etc/tradewave/mcpserver.env` (root:root 0600), removes every broad-file
+     assignment, proves the replacement PID and exact database identity, then revokes K0. Its root-only
+     rotation state binds the new and superseded key IDs/hashes without storing either raw key. PID 1
+     reads the MCP-only file before dropping to `tradewave-mcp`; the worker cannot browse
+     `/etc/tradewave` or `/home/flask`, never receives `secrets.env`, and `TRADEWAVE_API_KEY` remains absent.
 4. **WorkOS dashboard (per WorkOS env).** WorkOS has only STAGING + PROD. The dev + staging BOXES both ride WorkOS
    STAGING; the prod box rides WorkOS PROD.
    - WorkOS STAGING: Connect -> Configuration -> MCP enabled + DCR (+CIMD) + scopes; Resource Indicators MUST
      include BOTH `https://mcp-dev.trxstat.com` AND `https://mcp-stage.trxstat.com`.
    - WorkOS PROD: same Connect config; Resource Indicator = `https://mcp.tradewave.ai`.
-5. **Restart** appserver (Tara), apiserver (gateway), mcpserver. **Edge:** cloudflared routes for
+5. **Restart** appserver/Tara and the gateway in place if their own code changed. The immutable release script
+   restarts MCP only after its candidate is staged. **Edge:** cloudflared routes for
    `api-*` / `mcp-*` / `developers-*` (+ prod `api.`/`mcp.`/`developers.tradewave.ai`).
 6. **Stripe:** create the 4 API products/prices (Dev/Pro/Business) so paid API signups resolve (the gateway reads
    prices from product metadata). See `web/api_portal/create_api_products.py`.
 7. **VERIFY (per env):**
-   - BYOK: a `tw_live_` key -> `GET /v1/markets` 200; MCP lists 15 tools.
-   - Discovery: `POST https://<mcp-host>/` -> 401 + WWW-Authenticate(resource_metadata); `/.well-known/
-     oauth-protected-resource` 200; the AuthKit `/.well-known/oauth-authorization-server` advertises
-     `registration_endpoint`; `POST <authkit>/oauth2/register` returns a client_id (DCR on).
-   - OAuth end-to-end: add the connector in ChatGPT/Claude at the BARE host URL -> WorkOS login -> a tool call
-     returns TIER-CORRECT data (the user's `workos_sub` must map to a `users.workos_user_id` row, else 401).
+   - BYOK: a `tw_live_` key -> `GET /v1/markets` 200.
+   - The immutable deploy provisions a permanent dedicated Pro release verifier in
+     `/etc/tradewave/mcp-verifier.env` (root:root `0600`, never loaded by systemd), validates its exact
+     reserved DB binding with `provision-mcp-key.py --check-verifier`, and injects it only into the
+     verifier child through `mcp-service-env.py exec-with-verifier`. Never copy the raw key into a
+     command, shell variable, or the broad platform `secrets.env`. The contract gate must report the
+     exact authenticated 17-tool contract, current `2025-11-25` plus compatible `2025-06-18` protocol,
+     protected-resource discovery, WorkOS authorization-server metadata (DCR/CIMD, offline access, refresh,
+     PKCE S256), and live `whoami`.
+     The deploy also runs `verify_mcp_load.py --clients 20`; 20/20 independent sessions must pass.
+     Confirm `systemctl show tradewave-mcpserver -p MemoryHigh -p MemoryMax` reports the reviewed
+     768 MiB soft-pressure threshold and 1 GiB hard ceiling. MCP opportunity schemas/runtime must
+     remain capped at 100 compact results (25 for `view=full`) with defaults of 10/25.
+   - OAuth end-to-end: remove/re-add (or create a fresh) connector in ChatGPT/Claude at the BARE host URL after
+     contract changes; connector tool catalogs are cached. WorkOS login -> a tool call
+     returns TIER-CORRECT data. Leave it connected through an access-token expiry and prove refresh succeeds,
+     then call `whoami` again (the user's `workos_sub` must map to `users.workos_user_id`, else 401).
    - Tara: in-app chat narrates a real card + drives the wave-viewer.
 
 ## MARKETING (Afshin asked; ship at deploy, not before)

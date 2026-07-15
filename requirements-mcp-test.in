@@ -1,0 +1,9 @@
+# Candidate test environment = the exact runtime plus exact test-only tools.
+-r requirements-mcp.in
+
+iniconfig==2.3.0
+packaging==26.2
+pip-audit==2.10.1
+pluggy==1.6.0
+Pygments==2.20.0
+pytest==9.0.3

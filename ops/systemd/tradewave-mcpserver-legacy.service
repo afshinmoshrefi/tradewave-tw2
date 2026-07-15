@@ -1,0 +1,44 @@
+[Unit]
+Description=TradeWave MCP server (SSE, thin wrapper over the v1 gateway)
+After=network.target redis-server.service tradewave-apiserver.service
+# The MCP server proxies every tool call to the gateway, so bring it up after it.
+Wants=tradewave-apiserver.service
+
+[Service]
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# Not gunicorn: this is the plain FastMCP SSE process, so Type=simple (no sd_notify).
+Type=simple
+User=flask
+Group=flask
+WorkingDirectory=/home/flask
+# Defaults below are placed BEFORE EnvironmentFile so secrets.env can override them per box.
+# Co-located launch topology: MCP binds loopback and proxies the LOCAL gateway. To split the
+# gateway onto its own box, KEEP MCP on that same box as the gateway so API_BASE_URL stays
+# loopback; only set TW2_MCP_HOST to the box's reachable IP if nginx fronts MCP cross-box.
+# TW2_MCP_PUBLIC_HOST (the SDK DNS-rebinding allowlist host) also comes from secrets.env per env.
+# See ops/SPLIT_GATEWAY_TO_OWN_BOX.md.
+Environment=API_BASE_URL=http://127.0.0.1:8088/v1
+Environment=TW2_MCP_HOST=127.0.0.1
+Environment=TW2_MCP_PORT=9090
+# Transport: streamable-http is the current MCP standard (what ChatGPT/Claude default to); SSE is
+# the legacy transport. Default here, overridable via secrets.env. Endpoint path = /mcp.
+Environment=TW2_MCP_TRANSPORT=streamable-http
+EnvironmentFile=/etc/tradewave/secrets.env
+Environment=PYTHONPATH=/home/flask
+# BYOK: do NOT set TRADEWAVE_API_KEY here. On a remote transport each client sends its own
+# Authorization: Bearer <key> (or a WorkOS OAuth token) per connection; a baked-in key would only
+# act as a shared fallback and break the multi-customer model. Leave it UNSET.
+ExecStart=/home/flask/venv-api/bin/python -m mcpserver.server --transport ${TW2_MCP_TRANSPORT} --host ${TW2_MCP_HOST} --port ${TW2_MCP_PORT}
+StandardOutput=append:/var/log/tradewave/mcpserver.log
+StandardError=append:/var/log/tradewave/mcpserver.log
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

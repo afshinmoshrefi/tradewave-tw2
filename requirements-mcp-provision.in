@@ -1,0 +1,8 @@
+# Exact dependencies for the root-executed MCP credential provisioner.
+# Compile on Linux/CPython 3.13 with pip-tools==7.5.3:
+#   python -m piptools compile --generate-hashes --allow-unsafe \
+#     --no-emit-index-url --no-emit-trusted-host \
+#     --output-file requirements-mcp-provision.lock requirements-mcp-provision.in
+
+pip==26.1.2
+psycopg2-binary==2.9.12

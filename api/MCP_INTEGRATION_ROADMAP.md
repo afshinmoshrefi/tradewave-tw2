@@ -99,9 +99,14 @@ cost-of-failure, lowest-cost fix.
 
 ## 1. THE IDEAL MCP TOOL SURFACE
 
-Today: **15 tools** (5 flagship + 10 primitives). The problem isn't count — it's that every tool returns
-the same HUGE card (`per_year` + `next_step` + duplicated stat blocks inline) and there's no compact list
-mode. The fix is mostly **response shaping + a `view` parameter**, plus targeted adds/merges.
+**RC status (2026-07-15): exactly 17 tools (6 flagship + 11 primitives).** The frozen,
+release-gated contract is `api/MCP_TOOLS.md`; the discussion below is the historical design
+baseline that led to that surface.
+
+At the time this roadmap was written there were **15 tools** (5 flagship + 10 primitives). The
+problem wasn't count — it was that every tool returned the same HUGE card (`per_year` +
+`next_step` + duplicated stat blocks inline) and there was no compact list mode. The fix was
+mostly **response shaping + a `view` parameter**, plus targeted adds/merges.
 
 **KEEP (flagship — right units), reshaped:**
 | Tool | Lead with | Default (NEW `view=compact`) | Expand |

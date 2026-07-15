@@ -1,5 +1,10 @@
 # TradeWave API + MCP - BUILD STATE (working control doc)
 
+> RC note (2026-07-15): the current frozen MCP contract is exactly **17 tools**
+> (6 flagship + 11 primitives). Tool counts in dated phase entries below are historical
+> snapshots, not release instructions; use `api/MCP_TOOLS.md` and the authenticated release
+> verifier for the deployable surface.
+
 Live state of the "finish the API + MCP product" build. Update as phases complete.
 Companion to: `api/STRATEGY_REVIEW_2026-05.md` (why), `api/PATTERNCARD_SPEC.md` (contract),
 `api/openapi.yaml` + `api/MCP_TOOLS.md` (frozen surface). Started 2026-06-02 on dev .176,

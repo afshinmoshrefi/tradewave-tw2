@@ -1,7 +1,7 @@
 openapi: 3.1.0
-# TradeWave public data API - v1 CONTRACT (DRAFT, 2026-05-27)
+# TradeWave public data API - v1 RELEASE CONTRACT (frozen, verified 2026-07-15)
 # Keystone artifact: the gateway implements this, docs render from it, the console
-# calls it, SDKs generate from it. Freeze before building the gateway.
+# calls it, SDKs generate from it. Contract changes require an explicit versioned review.
 #
 # INVARIANTS baked in here (do not weaken without sign-off):
 #   - DERIVED SEASONAL PATTERNS ONLY. No raw OHLCV / last price / price-by-date is ever returned.
@@ -15,8 +15,8 @@ openapi: 3.1.0
 #     /opportunities ml block keeps its older names (win_prob, pred_return, pred_mfe).
 #   - Market ids are the permanent resource keys '0'..'16' (stable IDs, never renumber).
 #   - 'years' / seasonal-window labels stay strings.
-# x-verify: field availability/shape to be confirmed against appserver OppList4/
-#   MLScoreBatch/featured_history before freeze (marked x-verify below).
+# Upstream OppList4 / MLScoreBatch / featured_history variations are normalized by the
+# gateway into this frozen public shape and covered by gateway/card contract tests.
 info:
   title: TradeWave Data API
   version: "1.0.0"
@@ -42,11 +42,13 @@ paths:
   /scan:
     get:
       tags: [patterns]
-      summary: Scan in-scope markets for the best seasonal setups (ranked PatternCards)
+      summary: Scan selected markets for the best seasonal setups (ranked PatternCards)
       description: >
-        The flagship scanner (find_best_opportunities). Fans out over the caller's
-        in-scope markets, scores each candidate by edge_score, and returns ranked
-        PatternCards. ML fields populate inline on ML-eligible markets (ids 0-4, 11)
+        The flagship scanner (find_best_opportunities). By default it fans out over a
+        liquid-equities core (DOW 30, NASDAQ 100, S&P 500, ETFs) intersected with the
+        caller's scope; pass markets explicitly for other in-scope markets. It scores
+        each candidate by edge_score and returns ranked PatternCards. ML fields populate
+        inline on ML-eligible markets (ids 0-4, 11)
         up to the caller's daily ML allowance (free 5/day, unlimited on Pro/Business);
         ml_remaining_today reflects how many ML calls remain today (null = unlimited).
         win_rate enrichment is applied AFTER ranking/slicing, so evaluated_count +
@@ -690,18 +692,25 @@ components:
         as_of: { type: string, format: date }
     ScoreRequest:
       type: object
+      required: [opportunities]
       properties:
+        market:
+          type: string
+          enum: ["0", "1", "2", "3", "4", "11"]
+          default: "2"
+          description: "one ML-eligible market id for the entire batch (0,1,2,3,4,11); defaults to S&P 500 stocks (2). Do not put market inside individual opportunities."
         opportunities:
           type: array
+          minItems: 1
           maxItems: 100
           description: "capped at 100 items per request (a larger batch returns 400 naming the cap - split into chunks)"
           items:
             type: object
             required: [symbol, date, days_out, direction]
             properties:
-              symbol: { type: string }
+              symbol: { type: string, minLength: 1, maxLength: 64 }
               date: { type: string, format: date }
-              days_out: { type: integer }
+              days_out: { type: integer, minimum: 1, maximum: 366 }
               direction: { type: string, enum: [long, short] }
     MLScore:
       type: object
@@ -814,7 +823,12 @@ components:
       type: object
       description: Identity + capabilities for the caller's key (GET /me). Read-only.
       properties:
-        tier: { type: string, enum: [free, dev, pro, business], description: "the key's API tier" }
+        mcp_admission_id:
+          type: string
+          pattern: '^acct_[0-9a-f]{64}$'
+          readOnly: true
+          description: "Opaque, non-secret account equality id used by the MCP resource server to group all keys owned by one account into one session-admission bucket. It is not an API credential."
+        tier: { type: string, enum: [demo, free, dev, pro, business, explorer, navigator, analyst, strategist], description: "the resolved caller tier; normal API keys use the API ladder, while delegated MCP OAuth calls use the mirrored web/in-chat ladder" }
         tier_name: { type: string, example: "Explorer (API)" }
         ml_remaining_today: { type: integer, nullable: true, description: "ML calls remaining today (null = unlimited)" }
         ml_daily_limit: { type: integer, nullable: true, description: "the plan's daily ML allowance (null = unlimited)" }

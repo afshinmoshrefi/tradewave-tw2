@@ -29,7 +29,7 @@ GET /scan?markets=&window=&direction=&min_win_rate=&min_years=&rank_by=&limit=
 
 | Param | What it does |
 |-------|--------------|
-| `markets` | Comma-separated market ids to search. Omit to use your full scope. Get ids from `GET /markets`. |
+| `markets` | Comma-separated market ids to search. Omit for the liquid-equities core (DOW 30, NASDAQ 100, S&P 500, ETFs) intersected with your scope; pass ids explicitly for other entitled markets. Get ids from `GET /markets`. |
 | `window` | `now`, `next_2_weeks`, `next_month`, or a date range `YYYY-MM-DD..YYYY-MM-DD`. |
 | `direction` | `long` or `short`. Omit to consider both. |
 | `min_win_rate` | Floor on `historical_win_rate` (0..1) - the share of profitable years. |

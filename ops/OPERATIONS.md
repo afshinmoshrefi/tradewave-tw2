@@ -211,13 +211,41 @@ Set `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST` (
 | Unit | Command | Bind | Venv | Type |
 |---|---|---|---|---|
 | `tradewave-apiserver` | `gunicorn apiserver.app:app` (4 gthread workers x 12 threads) | `127.0.0.1:8088` | `/home/flask/venv-api` | notify |
-| `tradewave-mcpserver` | `python -m mcpserver.server --transport streamable-http --port 9090` | `127.0.0.1:9090` | `/home/flask/venv-api` | simple |
+| `tradewave-mcpserver` | lifetime-shared activation fence -> absolute release Python -> Streamable HTTP server | `127.0.0.1:9090` | `/home/tradewave-mcp/current/venv` | exec |
 
-MCP env: `API_BASE_URL=http://127.0.0.1:8088/v1`, `TW2_MCP_PUBLIC_HOST=<host>`, and
-`TRADEWAVE_API_KEY` **UNSET** on the remote transport (BYOK - clients send their own
+PID 1 reads only `/etc/tradewave/mcpserver.env` (root:root 0600), generated transactionally by
+the immutable deploy from a strict allowlist, before dropping to the dedicated `tradewave-mcp`
+identity. The process cannot browse `/etc/tradewave` or `/home/flask`. The file contains the local
+bind/API base, WorkOS issuer, canonical MCP URL/host, and dedicated MCP delegation key. A newly
+provisioned key must exist only in this MCP-specific file; the transactional first migration removes
+every legacy `MCP_GATEWAY_KEY` assignment from the broad platform file before activation. The unit
+must never load the broad platform `secrets.env`; `TRADEWAVE_API_KEY` is **UNSET** on the remote transport (BYOK - clients send their own
 `Authorization: Bearer`). The unit defaults `TW2_MCP_TRANSPORT=streamable-http`; the server
 serves the MCP endpoint at the ROOT path `/` with `/mcp` as a permanent alias (NOT SSE at
-`/sse`). Logs: `/var/log/tradewave/`.
+`/sse`). Logs go only to journald (`journalctl -u tradewave-mcpserver`).
+
+MCP releases are immutable and separate from the potentially dirty gateway checkout. Deploy only
+an exact reviewed lowercase 40-character SHA through the installed launcher:
+```
+sudo /usr/local/sbin/tradewave-mcp-release <exact-lowercase-40-character-sha>
+```
+Each root-owned, non-writable `/home/tradewave-mcp/releases/mcp-<sha>/` bundle contains source,
+a minimal CPython 3.13 runtime populated offline and binary-wheel-only with `--require-hashes` from the
+MCP 1.28.1 lock. Systemd, nginx, provisioning, and verifier assets come only from the separately installed
+fixed controller. The seal binds source, wheels, and installed bytes; the host interpreter, standard
+library, CA store, and OS remain external trust boundaries. `current` selects
+code + runtime atomically; `previous` is the rollback target. Any failed
+dependency audit/unit/nginx/process/service-key/public-contract/20-session check restores all prior
+pointers, the dedicated environment, and config. The
+gateway remains in `/home/flask` and is neither reset nor repointed. Roll back with
+`sudo /usr/local/sbin/tradewave-mcp-release --rollback`.
+
+Isolation prevents the MCP worker from reading or modifying the gateway checkout and its broad
+secrets; it does not make the loopback gateway untrusted. The gateway remains an explicit trusted
+application dependency: it authenticates the dedicated MCP service key, resolves delegated WorkOS
+subjects, applies tiers, meters calls, and returns tool data. A compromised gateway (or its current
+database role) could forge those decisions or responses. Removing that trust requires a separately
+isolated gateway and narrower database roles, which is a platform re-architecture outside this MCP RC.
 
 **1. Build the loopback services (once per box / new box); then wire the edge manually:**
 ```
@@ -252,10 +280,10 @@ service restart needed (nginx serves it off disk).
 | Changed | Restart |
 |---|---|
 | `apiserver/` (gateway) | `systemctl restart tradewave-apiserver` |
-| `mcpserver/` | `systemctl restart tradewave-mcpserver` |
+| `mcpserver/`, MCP lock, unit, or MCP nginx edge | immutable deploy command above (tests + atomic restart + rollback gate) |
 | `web/api_portal/` (console) | `systemctl restart tradewave-web` (it is a `web/app.py` blueprint) |
 | `site/api_*` generators/copy | re-run script 2 (no restart) |
-| `secrets.env` host/key change | restart the affected unit(s) above, then re-run script 2 |
+| MCP source metadata or service-key rotation | run the immutable MCP release controller; it owns transactional key provisioning, environment regeneration, activation proof, and rollback |
 
 gunicorn does NOT auto-reload - always restart after a Python edit.
 
@@ -263,13 +291,33 @@ gunicorn does NOT auto-reload - always restart after a Python edit.
 ```
 systemctl is-active tradewave-apiserver tradewave-mcpserver
 curl -sS http://127.0.0.1:8088/v1/markets -H "Authorization: Bearer $KEY" | head    # gateway, signals-only
-# MCP: streamable-http at the ROOT (alias /mcp), NOT SSE at /sse. Answer an initialize handshake:
-curl -sS http://127.0.0.1:9090/ -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}' | head
+# Run the authenticated contract/load gates through the immutable deploy or ops/verify_deploy.sh.
+# Both use the permanent root-only /etc/tradewave/mcp-verifier.env via
+# mcp-service-env.py exec-with-verifier; never export or copy its raw token.
 curl -sS -i https://<api-host>/v1/markets | head                                    # edge -> gateway via tunnel+nginx
 curl -sS    https://<developers-host>/.well-known/mcp.json | head                   # portal docroot served
 ```
+For target-side diagnosis, first run the active bundle's sealed
+`artifacts/provision-mcp-key.py --check-verifier`, then execute its sealed
+`verify_mcp_contract.py` and `verify_mcp_load.py` artifacts through
+`artifacts/mcp-service-env.py exec-with-verifier --source
+/etc/tradewave/mcp-verifier.env -- <absolute-python> <absolute-verifier-script> ...`.
+The helper passes a minimal child environment and never prints the credential.
+The 20-session gate is not count-only: every synchronized phase must finish within 5s, `whoami`
+p95/max within 2s/3s, and full-session p95/max within 12s/15s; any breach rolls back the release.
+The deploy also authenticates `MCP_GATEWAY_KEY` locally: no principal must return `401 missing
+principal`, a random valid-shaped principal must return `401 unknown user`, and the configured safe
+`TW_MCP_SMOKE_WORKOS_SUB` must return 200 at `TW_MCP_SMOKE_EXPECT_TIER`. After deployment, create a
+fresh ChatGPT connector, complete WorkOS authorization, prove a tier-correct call, then prove refresh
+token rotation by calling again after access-token expiry. Metadata/DCR is automated; user-consent and
+refresh issuance remain an interactive release check.
+
+If a manual `urllib` metadata fetch gets Cloudflare 403 while the release probe succeeds, do not
+misdiagnose WorkOS Connect as disabled: the AuthKit edge is User-Agent-sensitive. Re-run with the
+named `TradeWave-MCP-Release-Gate/1.0` identity (the automated verifier does this) and require the
+same metadata fields; never weaken the metadata contract or the edge allowlist to accommodate an
+anonymous default Python User-Agent.
+
 Spot-check the gateway JSON for **no raw price fields** (the signals-only invariant). 502-but-active
 = a worker crash on a missing `venv-api` dep (same failure mode as the web tier; `pip install -r
 requirements-api.txt`).

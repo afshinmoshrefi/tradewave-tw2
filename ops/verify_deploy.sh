@@ -1,44 +1,57 @@
 #!/usr/bin/env bash
-# verify_deploy.sh {staging|prod} - post-deploy smoke test. Fails LOUD when the
-# deployed site is incomplete, mis-hosted, or a feature did not land. Run from the
-# DEV/deploy box after deploy.sh + regen_site. Exit 0 = clean; nonzero = #failures.
-#
-# This is the gate that turns "messy deploy" into "boring": it catches broken routes
-# (/markets 403, /join 404), wrong-host leaks (tw2-dev/stage2/api-dev baked into pages),
-# and undeployed features (dead GA4, old scorecard metric) at deploy time instead of in
-# production. WARN = look at it; FAIL = do not ship.
-#
-# PORTAL=1 on BOTH envs since the prod API/MCP launch (2026-07-04): the developer
-# API/MCP/portal stack is verified everywhere. (It was 0 on prod during dark-ship.)
+# Whole-site post-deploy gate plus exact paired immutable API/MCP attestation.
+# Usage: verify_deploy.sh {staging|prod} <lowercase-40-character-release-sha>
+set +x
 set -uo pipefail
 
-ENV="${1:-}"
+usage(){
+  echo "usage: $0 {staging|prod} <lowercase-40-character-release-sha>" >&2
+  exit 2
+}
+
+[ "$#" -eq 2 ] || usage
+ENV=$1
+RELEASE_SHA=$2
+[[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || usage
+
 case "$ENV" in
-  staging) WEB=185.53.209.8;    APP=199.244.48.157; HOST=tw2-stage.trxstat.com; APIHOST=api-stage.trxstat.com; DEVHOST=developers-stage.trxstat.com; PORTAL=1
+  staging) WEB=185.53.209.8;    APP=199.244.48.157; HOST=tw2-stage.trxstat.com; APIHOST=api-stage.trxstat.com; MCPHOST=mcp-stage.trxstat.com; DEVHOST=developers-stage.trxstat.com; PORTAL=1
            LEAKS='tw2-dev|developers-dev|api-dev|mcp-dev|stage2\.trxstat|192\.168\.|10\.0\.0\.|127\.0\.0\.1|smn-dev' ;;
-  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tradewave.ai;        APIHOST=api.tradewave.ai;       DEVHOST=developers.tradewave.ai; PORTAL=1
+  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tradewave.ai;        APIHOST=api.tradewave.ai;       MCPHOST=mcp.tradewave.ai;       DEVHOST=developers.tradewave.ai; PORTAL=1
            LEAKS='tw2-dev|tw2-stage|developers-dev|developers-stage|api-dev|api-stage|mcp-dev|mcp-stage|stage2\.trxstat|trxstat\.com|192\.168\.|10\.0\.0\.|127\.0\.0\.1|smn-dev|smn-stage' ;;
-  *) echo "usage: $0 {staging|prod}"; exit 2 ;;
+  *) usage ;;
 esac
-SSH="ssh -p 4369 -o BatchMode=yes -o ConnectTimeout=10"
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P) || exit 2
+PAIRED_VERIFIER=$SCRIPT_DIR/verify_paired_release.sh
+[ -f "$PAIRED_VERIFIER" ] && [ ! -L "$PAIRED_VERIFIER" ] \
+  || { echo "FAIL: paired immutable verifier is absent: $PAIRED_VERIFIER" >&2; exit 2; }
+
+SSH="ssh -p 4369 -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=2"
 fails=0; warns=0
 ok(){   echo "  PASS  $*"; }
 bad(){  echo "  FAIL  $*"; fails=$((fails+1)); }
 warn(){ echo "  WARN  $*"; warns=$((warns+1)); }
 wc_web(){ $SSH "root@$WEB" "curl -s -o /dev/null -w '%{http_code}' -H 'Host: $HOST' http://127.0.0.1$1" 2>/dev/null; }
 wc_app(){ $SSH "root@$APP" "curl -s -o /dev/null -w '%{http_code}' -H 'Host: $2' http://127.0.0.1:8080$1" 2>/dev/null; }
+paired_release_gate(){
+  $SSH "root@$APP" bash -s -- "$RELEASE_SHA" "$APIHOST" "$MCPHOST" \
+    < "$PAIRED_VERIFIER"
+}
 
-echo "==================  verify_deploy [$ENV]  host=$HOST  portal=$PORTAL  =================="
+echo "==================  verify_deploy [$ENV]  host=$HOST  sha=$RELEASE_SHA  =================="
 
 echo "-- services --"
 $SSH "root@$WEB" 'systemctl is-active nginx tradewave-web 2>/dev/null' | grep -qvx active \
   && bad "a WEB service is not active (nginx/tradewave-web)" || ok "WEB: nginx + tradewave-web active"
-if [ "$PORTAL" = 1 ]; then
-  $SSH "root@$APP" 'systemctl is-active tradewave-appserver tradewave-apiserver tradewave-mcpserver nginx 2>/dev/null' | grep -qvx active \
-    && bad "an APP service is not active (appserver/apiserver/mcp/nginx)" || ok "APP: appserver + apiserver + mcp + nginx active"
+$SSH "root@$APP" 'systemctl is-active tradewave-appserver tradewave-apiserver tradewave-mcpserver nginx 2>/dev/null' | grep -qvx active \
+  && bad "an APP service is not active (appserver/apiserver/mcp/nginx)" || ok "APP: appserver + apiserver + mcp + nginx active"
+
+echo "-- paired immutable API + MCP release --"
+if paired_release_gate; then
+  ok "paired immutable API/MCP runtime exactly matches $RELEASE_SHA"
 else
-  $SSH "root@$APP" 'systemctl is-active tradewave-appserver 2>/dev/null' | grep -qvx active \
-    && bad "APP appserver not active" || ok "APP: appserver active (api/mcp dark on prod - not checked)"
+  bad "paired immutable API/MCP post-commit verification failed"
 fi
 
 echo "-- web routes (nginx-direct, Host: $HOST) --"
@@ -49,31 +62,21 @@ c=$(wc_web /markets/);        case "$c" in 200|301|302) ok "/markets/ -> $c" ;; 
 c=$(wc_web /join/TESTCODE);   [ "$c" = 404 ] && bad "/join/TESTCODE -> 404 (nginx 'location /join/' proxy rule missing)" || ok "/join/TESTCODE -> $c (route reaches the app)"
 c=$(wc_web /healthz);         [ "$c" = 200 ] && ok "/healthz -> 200" || warn "/healthz -> $c"
 
-if [ "$PORTAL" = 1 ]; then
-  echo "-- api + developer portal (app box :8080) --"
-  c=$(wc_app /healthz "$APIHOST"); [ "$c" = 200 ] && ok "api /healthz -> 200" || bad "api /healthz -> $c"
-  c=$(wc_app / "$DEVHOST");        [ "$c" = 200 ] && ok "portal / -> 200"     || bad "portal / -> $c"
-  c=$(wc_app /docs/ "$DEVHOST");   [ "$c" = 200 ] && ok "portal /docs/ -> 200" || bad "portal /docs/ -> $c (403 = no docs index)"
-else
-  echo "-- api + developer portal: SKIP (API/MCP dark on $ENV) --"
-fi
+echo "-- api + developer portal (app box :8080) --"
+c=$(wc_app /healthz "$APIHOST"); [ "$c" = 200 ] && ok "api /healthz -> 200" || bad "api /healthz -> $c"
+c=$(wc_app / "$DEVHOST");        [ "$c" = 200 ] && ok "portal / -> 200"     || bad "portal / -> $c"
+c=$(wc_app /docs/ "$DEVHOST");   [ "$c" = 200 ] && ok "portal /docs/ -> 200" || bad "portal /docs/ -> $c (403 = no docs index)"
 
 echo "-- host-leak grep (baked HTML/XML must carry only the $ENV host) --"
 n=$($SSH "root@$WEB" "grep -rlE '$LEAKS' --include='*.html' --include='*.xml' /var/www/tradewave/ 2>/dev/null | wc -l")
 if [ "$n" = 0 ]; then ok "site: 0 files leak a non-$ENV host"; else bad "site: $n file(s) leak a non-$ENV host:"; $SSH "root@$WEB" "grep -rlE '$LEAKS' --include='*.html' --include='*.xml' /var/www/tradewave/ 2>/dev/null | sed 's/^/        /' | head"; fi
-if [ "$PORTAL" = 1 ]; then
-  n=$($SSH "root@$APP" "grep -rlE '$LEAKS' --include='*.html' --include='*.json' /var/www/developers/ 2>/dev/null | wc -l")
-  [ "$n" = 0 ] && ok "portal: 0 files leak a non-$ENV host" || { bad "portal: $n file(s) leak a non-$ENV host:"; $SSH "root@$APP" "grep -rlE '$LEAKS' --include='*.html' --include='*.json' /var/www/developers/ 2>/dev/null | sed 's/^/        /' | head"; }
-fi
+n=$($SSH "root@$APP" "grep -rlE '$LEAKS' --include='*.html' --include='*.json' /var/www/developers/ 2>/dev/null | wc -l")
+[ "$n" = 0 ] && ok "portal: 0 files leak a non-$ENV host" || { bad "portal: $n file(s) leak a non-$ENV host:"; $SSH "root@$APP" "grep -rlE '$LEAKS' --include='*.html' --include='*.json' /var/www/developers/ 2>/dev/null | sed 's/^/        /' | head"; }
 
 echo "-- design + feature markers --"
-# Read home.html from DISK, not via nginx: open_file_cache can briefly serve the
-# pre-regen page right after a deploy and false-WARN the design markers (bit us
-# on the 2026-07-04 staging deploy) - same reasoning as the scorecard check below.
+# Read generated files from disk: nginx open_file_cache can briefly serve the
+# prior page immediately after regeneration and produce false release failures.
 home=$($SSH "root@$WEB" "cat /var/www/tradewave/home.html 2>/dev/null")
-# NOTE: grep -c (not -q) - under `set -o pipefail`, grep -q exits on first match,
-# SIGPIPEs the echo, and the pipeline reports failure EXACTLY when the marker IS
-# present. -c consumes the whole input; exit status still reflects any-match.
 echo "$home" | grep -ciE 'different desks|the receipts|tuesday' >/dev/null && ok "home: evidence design present" || bad "home: evidence markers missing"
 echo "$home" | grep -c  'Public forward track record'       >/dev/null && ok "home: live track-record preview present" || bad "home: live track-record preview MISSING"
 ledger_rows=$(printf '%s\n' "$home" | grep -o 'class="ledger-row ledger-grid"' | wc -l)
@@ -88,9 +91,6 @@ echo "$home" | grep -c  'Trade<b>Wave</b>'                  >/dev/null && ok "ho
 echo "$home" | grep -ciE '>Wave Viewer<|>Start Free Trial<' >/dev/null && ok "home: unified nav"            || warn "home: nav markers not found"
 if echo "$home" | grep -cE 'gtag\(|googletagmanager|G-[A-Z0-9]{6,}' >/dev/null; then ok "home: GA4 loader present"; else
   [ "$ENV" = prod ] && bad "home: GA4 loader MISSING (analytics dead on prod)" || warn "home: no GA4 loader (may be prod-gated; confirm it lights on prod)"; fi
-# Read the generated file on disk, NOT via nginx: open_file_cache can briefly serve the
-# pre-regen scorecard right after a deploy, false-flagging an otherwise-correct page. This
-# check is about generated CONTENT (did the two-metric render), so the file is the source of truth.
 if $SSH "root@$WEB" "grep -qiE 'held.to.close|reached.target' /var/www/tradewave/scorecard.html 2>/dev/null"; then
   ok "scorecard: two-metric present"
 else

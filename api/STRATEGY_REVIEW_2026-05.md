@@ -41,7 +41,8 @@ question - "scan everything I can trade and rank the best setups" - is unanswera
 with a tiered tool surface: 2 opinionated flagships over the 9 primitives.
 
 ### Flagship MCP tools (P0) - compose existing /v1 endpoints, NO new appserver work
-- **`find_best_opportunities`** - cross-market scan across the caller's in-scope markets,
+- **`find_best_opportunities`** - cross-market scan over a liquid-equities core within the
+  caller's scope by default (with explicit markets for broader scans),
   ranked by a documented blended `edge_score` (sharpe x win_rate x ML-if-Pro x history
   length), filters (markets, window="now"|range, direction, min_win_rate, min_years,
   rank_by, limit). The "do what I want" front door. Needs a new gateway endpoint that

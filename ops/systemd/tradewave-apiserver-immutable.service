@@ -1,0 +1,57 @@
+[Unit]
+Description=TradeWave immutable API gateway
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=notify
+User=tradewave-api
+Group=tradewave-api
+SupplementaryGroups=
+WorkingDirectory=/home/tradewave-mcp/current/src
+EnvironmentFile=/etc/tradewave/apiserver.env
+Environment=HOME=/nonexistent
+Environment=PATH=/usr/bin:/bin
+Environment=LANG=C.UTF-8
+Environment=LC_ALL=C.UTF-8
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=TW2_FEATURED_HISTORY_FILE=/run/tradewave-gateway/featured_history.json
+UnsetEnvironment=HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy SSL_CERT_FILE SSL_CERT_DIR REQUESTS_CA_BUNDLE CURL_CA_BUNDLE PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONINSPECT PYTHONWARNINGS PYTHONBREAKPOINT PYTHONPLATLIBDIR PYTHONCASEOK PYTHONUNBUFFERED PYTHONHASHSEED BASH_ENV ENV GUNICORN_CMD_ARGS WEB_CONCURRENCY
+ExecStart=/usr/bin/flock --shared --nonblock --no-fork /var/lib/tradewave-api-runtime-lock/runtime.lock /home/tradewave-mcp/current/gateway-venv/bin/python -I -B -m gunicorn --chdir /home/tradewave-mcp/current/src --workers 4 --worker-class gthread --threads 12 --timeout 120 --keep-alive 75 --bind 127.0.0.1:8088 --access-logfile - --error-logfile - --capture-output apiserver.app:app
+Restart=on-failure
+RestartSec=3
+RuntimeDirectory=tradewave-gateway
+RuntimeDirectoryMode=0700
+BindReadOnlyPaths=/home/flask/site/data/featured_history.json:/run/tradewave-gateway/featured_history.json
+InaccessiblePaths=-/etc/tradewave /home/flask
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectKernelLogs=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+LimitCORE=0
+LimitNOFILE=65536
+TasksMax=256
+MemoryHigh=1G
+MemoryMax=1536M
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

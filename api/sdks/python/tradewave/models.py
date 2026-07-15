@@ -99,6 +99,7 @@ class Me:
     kept as a raw dict so new keys flow through without a model bump.
     """
 
+    mcp_admission_id: Optional[str] = None
     tier: Optional[str] = None
     tier_name: Optional[str] = None
     ml_remaining_today: Optional[int] = None
@@ -113,6 +114,7 @@ class Me:
     def from_dict(cls, data: Any) -> "Me":
         d = _as_dict(data)
         return cls(
+            mcp_admission_id=d.get("mcp_admission_id"),
             tier=d.get("tier"),
             tier_name=d.get("tier_name"),
             ml_remaining_today=d.get("ml_remaining_today"),

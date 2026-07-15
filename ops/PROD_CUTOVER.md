@@ -122,16 +122,34 @@ the public hostnames. Checklist:
      registers ONLY when this is truthy (`web/app.py:3712`, `if config.API_CONSOLE_ENABLED`).
      Unset (the prod default that ships the product dark) => `/account/api` 404s and
      every "Get API Key" CTA breaks. After setting it, `systemctl restart tradewave-web`.
-   - **MCP OAuth (the "sign in, no API key" consumer flow)** - all three of
+   - **MCP OAuth (the "sign in, no API key" consumer flow)** - configure
      `TW2_MCP_PUBLIC_URL` (canonical resource / token audience, e.g.
-     `https://mcp.tradewave.ai`), `MCP_GATEWAY_KEY`, and `WORKOS_AUTHKIT_DOMAIN`
-     (prod AuthKit). OAuth turns on only when all three are present
-     (`mcpserver/server.py` `OAUTH_ENABLED`); with any one missing the server stays
-     BYOK-only and the ChatGPT/Claude no-key connect flow is dead.
-3. **venv-api + units** - run `ops/bootstrap_api_services.sh` on the app box. It builds
-   `/home/flask/venv-api`, applies the additive schema, and installs + `enable --now`s the
-   two LOOPBACK units `tradewave-apiserver` :8088 + `tradewave-mcpserver` :9090. It does NOT
-   wire the edge - nginx and cloudflared are the SEPARATE manual step below. Confirm
+     `https://mcp.tradewave.ai`) and `WORKOS_AUTHKIT_DOMAIN` (prod AuthKit), plus a dedicated safe
+     `TW_MCP_SMOKE_WORKOS_SUB` and lowercase `TW_MCP_SMOKE_EXPECT_TIER`. Do **not** manually add a
+     new `MCP_GATEWAY_KEY` to the broad platform file. On a legacy first migration, the fixed root
+     controller may discover K0 there; it transactionally creates K1 in the MCP-only environment,
+     removes every broad-file assignment, proves the replacement process and database identity, and
+     only then revokes K0. OAuth starts only when the generated MCP-only environment contains all
+     required values
+     (`mcpserver/server.py` `OAUTH_ENABLED`); every remote transport now fails startup if any
+     value is missing/invalid or if `TRADEWAVE_API_KEY` is present, so configuration drift cannot
+     silently downgrade the shared endpoint to BYOK-only or expose a fallback customer key. The
+     process also refuses a non-loopback bind or a non-canonical/non-loopback `API_BASE_URL`, so
+     nginx remains the only ingress and no bearer credential can be forwarded off-box.
+     The deploy must prove on-behalf identity/tier before activation. The broad source file is
+     deployment input only: MCP
+     runs as the dedicated `tradewave-mcp` identity with generated
+     `/etc/tradewave/mcpserver.env` (root:root 0600). PID 1 reads the allowlisted file before dropping
+     privileges; the process cannot browse `/etc/tradewave` or `/home/flask` and never receives all
+     platform secrets.
+     This process boundary prevents MCP from reading or changing the gateway checkout, but the
+     loopback gateway remains a trusted application dependency for identity resolution, tiering,
+     metering, and returned data. Treat compromise of the gateway or its current DB role as compromise
+     of those decisions; eliminating that trust requires separate gateway/DB roles beyond this RC.
+3. **Gateway + immutable MCP** - bootstrap the loopback services once, then promote MCP with
+   `sudo /usr/local/sbin/tradewave-mcp-release <reviewed-lowercase-40-character-sha>`. The gateway keeps its
+   `/home/flask/venv-api`; MCP runs from its root-owned per-release source + venv under
+   `/home/tradewave-mcp` and the deploy gate installs its reviewed unit/nginx artifacts. Confirm
    `TRADEWAVE_API_KEY` is UNSET on the MCP unit (BYOK). The MCP unit serves
    **streamable-http at `/`** (alias `/mcp`), NOT SSE at `/sse`.
 4. **Tunnels** - add the `api.` / `mcp.` / `developers.tradewave.ai` ingress entries (BEFORE
@@ -149,24 +167,32 @@ the public hostnames. Checklist:
    the prod API webhook if the API tier write needs its own endpoint; verify with a test event.
 6. **Assemble the portal** - run `ops/assemble_developer_portal.sh` (generators + rsync to
    `/var/www/developers/`); the pages bake the prod hostnames, so this must run AFTER step 2.
-7. **Smoke** (use a real key you create + revoke): `https://api.tradewave.ai/v1/markets`;
-   the MCP server answers an `initialize` handshake at the ROOT (streamable-http, alias `/mcp`)
-   - NOT SSE at `/sse`:
-   ```
-   curl -sS https://mcp.tradewave.ai/ \
-     -H 'Content-Type: application/json' \
-     -H 'Accept: application/json, text/event-stream' \
-     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"cutover-smoke","version":"1"}}}'
-   ```
-   (expect a JSON-RPC `result` with `serverInfo` / `capabilities`; `/mcp` is an accepted alias);
+7. **Smoke** (use a real key you create + revoke): `https://api.tradewave.ai/v1/markets`.
+   Verify the authenticated public MCP contract at the ROOT (streamable-http, alias `/mcp`),
+   including protected-resource + WorkOS authorization-server metadata, current and backward-compatible
+   protocol revisions, exact 17 tools/schemas/annotations, and a real gateway-backed `whoami` by
+   running the immutable deploy's mandatory gates (and then `ops/verify_deploy.sh prod`). These read the
+   permanent dedicated credential only from `/etc/tradewave/mcp-verifier.env`, prove its exact DB binding
+   with `--check-verifier`, and launch the fixed controller-owned contract/load scripts in an isolated
+   transient identity using systemd credentials. Never place the raw verifier key in a shell variable,
+   command argument, systemd environment, or the broad platform `secrets.env`.
+   Both must print `PASS`; the load gate must report 20/20 independent sessions. The immutable build
+   validates the SHA-256 hash-locked, binary-wheel-only MCP 1.28.1 runtime against the staged wheel bytes
+   on CPython 3.13. The release seal binds source, selected wheels, and installed bytes; the host
+   interpreter, standard library, CA store, and OS remain external trust boundaries. After any tool
+   contract change, remove/re-add the ChatGPT connector because its reviewed tool snapshot is cached.
+   Complete WorkOS login with a fresh connector, make a tier-correct `whoami`/tool call, then leave it
+   connected through access-token expiry and prove refresh-token rotation with another call.
    `https://developers.tradewave.ai/` + `/docs` + `/.well-known/mcp.json` serve;
    the API console loads behind login: `https://tradewave.ai/account/api` and
    `https://tradewave.ai/account/api/keys` return 200 (NOT 404 - a 404 means
    `TW2_API_CONSOLE_ENABLED` is unset, step 2); confirm responses are **signals-only (no raw
    price fields)**; one paid API checkout end-to-end; `tail -f /var/log/tradewave/*.log` clean.
 
-Rollback is non-destructive: stop the two units + remove the three ingress/DNS records; the
-appserver and web tier are untouched.
+MCP rollback is non-destructive and versioned:
+`sudo /usr/local/sbin/tradewave-mcp-release --rollback`. It swaps the full code/runtime selection and
+re-runs authenticated public checks, and automatically restores the entry release if rollback
+validation fails. The gateway, appserver, and web tier are untouched.
 
 ---
 

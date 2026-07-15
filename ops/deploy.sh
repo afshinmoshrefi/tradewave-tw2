@@ -8,9 +8,8 @@
 # Does, in order, and stops on any error:
 #   1. pre-flight  — aborts if TW2_PUBLIC_HOST is unset (would break URLs), or (staging) if
 #                    TW2_API/DEVELOPERS/MCP_PUBLIC_HOST are missing or a dev host (portal leak)
-#   2. app tier    — git pull + pip install -r requirements.txt + restart tradewave-appserver
-#   2b.app tier    - sync venv-api + restart tradewave-apiserver + tradewave-mcpserver (if provisioned;
-#                    guarded so a non-API box does not abort; /healthz gate on the gateway)
+#   2. app tier    — pin /home/flask to the requested commit + restart only tradewave-appserver
+#   2b.paired edge — promote the immutable API gateway + MCP pair through its root launcher
 #   3. web tier    — git pull + pip install + alembic upgrade head + restart tradewave-web + the 2 SMN daemons
 #   3b.static pages— regenerate authored pages (/affiliate, privacy, terms, …) into /var/www/tradewave
 #   4. React       — rsync to releases/build-<hash> + repoint the 'build' symlink (build-previous = instant rollback)
@@ -30,7 +29,7 @@ case "${1:-}" in
 esac
 ENV="$1"; SSH="ssh -p 4369"; BUILD=/home/flask/web-react/build
 
-[ -d "$BUILD/static" ] || { echo "ERROR: $BUILD missing — run 'npm run build' on dev first."; exit 1; }
+[ -d "$BUILD/static" ] || { echo "ERROR: $BUILD missing - run 'npm run build' on dev first."; exit 1; }
 
 echo "==> [$ENV] pre-flight: TW2_PUBLIC_HOST == $HOST on BOTH boxes?"
 # The WEB box bakes every public page, so it MUST equal the customer host ($HOST =
@@ -83,14 +82,65 @@ check_portal_host TW2_API_PUBLIC_HOST        "$APIHOST"
 check_portal_host TW2_DEVELOPERS_PUBLIC_HOST "$DEVHOST"
 check_portal_host TW2_MCP_PUBLIC_HOST        "$MCPHOST"
 
-echo "==> [$ENV] app tier ($APP): pull + sync venv + restart appserver"
-$SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
+# The app checkout and the sealed pair must name one exact pushed commit. Validate
+# this before the first remote mutation; a branch name or abbreviated SHA is not
+# release authority.
+MCP_RELEASE_SHA=${TW_MCP_RELEASE_SHA:-}
+[[ "$MCP_RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] \
+  || { echo "ABORT: set TW_MCP_RELEASE_SHA to the exact lowercase 40-character commit SHA"; exit 1; }
 
-# API gateway + MCP server are co-located on the app box. New services: guard each so a box
-# not yet provisioned for the API (no venv-api / units) does NOT abort the deploy. Provision
-# with ops/bootstrap_api_services.sh first; thereafter every deploy syncs + restarts them.
-echo "==> [$ENV] app tier ($APP): API gateway + MCP server (if provisioned)"
-$SSH "root@$APP" 'if [ -d /home/flask/venv-api ]; then sudo -u flask /home/flask/venv-api/bin/pip install -q -r /home/flask/requirements-api.txt; else echo "skip venv-api sync (not provisioned)"; fi; for u in tradewave-apiserver tradewave-mcpserver; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u" && sudo systemctl is-active "$u"; else echo "skip $u (not installed on this box)"; fi; done; if systemctl cat tradewave-apiserver >/dev/null 2>&1; then curl -fsS http://127.0.0.1:8088/healthz >/dev/null && echo "apiserver /healthz OK" || { echo "ABORT: apiserver unhealthy after restart"; exit 1; }; fi'
+echo "==> [$ENV] app tier ($APP): exact appserver + immutable paired edge $MCP_RELEASE_SHA"
+# One remote transaction owns the ordering. On the first migration the launcher
+# must snapshot and qualify the live legacy API/MCP bytes before /home/flask moves.
+# On later releases appserver moves first so the paired canaries qualify the exact
+# gateway/MCP candidate against the newly deployed dependency. No command outside
+# the immutable launcher starts, stops, or restarts either edge service.
+$SSH "root@$APP" bash -s -- "$MCP_RELEASE_SHA" <<'REMOTE_APP_TIER'
+set -euo pipefail
+sha=$1
+[[ "$sha" =~ ^[0-9a-f]{40}$ ]] \
+  || { echo "ABORT: app-tier release target is not an exact lowercase commit SHA" >&2; exit 2; }
+checkout=/home/flask
+current=/home/tradewave-mcp/current
+launcher=/usr/local/sbin/tradewave-mcp-release
+
+[ -x "$launcher" ] && [ ! -L "$launcher" ] \
+  || { echo "ABORT: immutable paired release launcher is not installed" >&2; exit 1; }
+[ -d "$checkout/.git" ] && [ ! -L "$checkout" ] \
+  || { echo "ABORT: /home/flask is not the expected checkout" >&2; exit 1; }
+sudo -u flask git -C "$checkout" diff --quiet --
+sudo -u flask git -C "$checkout" diff --cached --quiet --
+sudo -u flask git -C "$checkout" fetch --no-tags origin main
+sudo -u flask git -C "$checkout" cat-file -e "$sha^{commit}"
+sudo -u flask git -C "$checkout" merge-base --is-ancestor "$sha" origin/main \
+  || { echo "ABORT: requested commit is not reachable from origin/main" >&2; exit 1; }
+head=$(sudo -u flask git -C "$checkout" rev-parse HEAD)
+sudo -u flask git -C "$checkout" merge-base --is-ancestor "$head" "$sha" \
+  || { echo "ABORT: /home/flask cannot fast-forward exactly to requested commit" >&2; exit 1; }
+
+first=0
+if [ ! -e "$current" ] && [ ! -L "$current" ]; then
+  first=1
+elif [ ! -L "$current" ]; then
+  echo "ABORT: immutable current release path exists but is not a symlink" >&2
+  exit 1
+fi
+
+if [ "$first" = 1 ]; then
+  "$launcher" "$sha"
+fi
+
+sudo -u flask git -C "$checkout" merge --ff-only "$sha"
+[ "$(sudo -u flask git -C "$checkout" rev-parse HEAD)" = "$sha" ] \
+  || { echo "ABORT: /home/flask did not land on the requested commit" >&2; exit 1; }
+sudo -u flask "$checkout/venv/bin/pip" install -q -r "$checkout/requirements.txt"
+systemctl restart tradewave-appserver.service
+systemctl is-active --quiet tradewave-appserver.service
+
+if [ "$first" = 0 ]; then
+  "$launcher" "$sha"
+fi
+REMOTE_APP_TIER
 
 echo "==> [$ENV] web tier ($WEB): pull + sync venv + DB migrate + restart web + SMN daemons"
 # tradewave-web is on every web box; the SMN daemons are only on boxes provisioned
@@ -139,14 +189,11 @@ echo "==> [$ENV] code+pages deployed. Running post-deploy verification..."
 # routes, wrong-host leaks, and undeployed features - turning a silent-bad deploy into a
 # visible one. Non-fatal-but-loud: the deploy already applied; a nonzero verify means the
 # site is live-but-not-clean, so fix + re-run regen before announcing.
-if [ -x /home/flask/ops/verify_deploy.sh ]; then
-  if bash /home/flask/ops/verify_deploy.sh "$ENV"; then
-    echo "==> [$ENV] DONE + VERIFIED CLEAN. Live: https://$HOST"
-  else
-    echo "!!! [$ENV] DEPLOYED, but verify_deploy reported BLOCKER(S) above."
-    echo "!!! The site is live but NOT clean - review, fix, re-run 'bash ops/regen_site.sh' on the box, then 'bash ops/verify_deploy.sh $ENV'."
-    exit 1
-  fi
+[ -x /home/flask/ops/verify_deploy.sh ] \
+  || { echo "ABORT: mandatory /home/flask/ops/verify_deploy.sh is missing"; exit 1; }
+if bash /home/flask/ops/verify_deploy.sh "$ENV" "$MCP_RELEASE_SHA"; then
+  echo "==> [$ENV] DONE + VERIFIED CLEAN. Live: https://$HOST"
 else
-  echo "==> [$ENV] DONE. (verify_deploy.sh missing - skipped verification.) Live: https://$HOST"
+  echo "!!! [$ENV] DEPLOYED, but mandatory verification reported BLOCKER(S) above."
+  exit 1
 fi

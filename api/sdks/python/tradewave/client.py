@@ -254,7 +254,7 @@ class Client:
         limit: Optional[int] = None,
         raw: bool = False,
     ) -> Union[ScanResult, dict]:
-        """FLAGSHIP. Scan in-scope markets for the best seasonal setups.
+        """FLAGSHIP. Scan selected markets for the best seasonal setups.
 
         Returns ranked :class:`~tradewave.models.PatternCard` objects. ML fields
         populate inline on ML-eligible markets up to the caller's daily ML
@@ -263,7 +263,9 @@ class Client:
 
         Args:
             markets: CSV of ids or aliases, e.g. ``'2,11'`` or ``'sp500,etf'``.
-                Default = ALL in-scope markets.
+                Omit for the liquid-equities core (DOW 30, NASDAQ 100,
+                S&P 500, ETFs) intersected with the caller's scope; pass markets
+                explicitly to scan others.
             window: ``'now'`` (default) | ``'next_2_weeks'`` | ``'next_month'``
                 | a ``'from..to'`` range. ``'now'`` = setups whose entry date is
                 within the next ~10 trading days.
@@ -378,13 +380,16 @@ class Client:
         self,
         opportunities: List[Mapping[str, Any]],
         *,
+        market: Optional[str] = None,
         raw: bool = False,
     ) -> Union[ScoreResult, MLDailyLimit, dict]:
         """ML scores for a batch of opportunities (all tiers, metered per day).
 
         Args:
             opportunities: A list of dicts, each with the keys ``symbol``,
-                ``date``, ``days_out``, ``direction`` (and optional ``market``).
+                ``date``, ``days_out``, and ``direction``.
+            market: One ML-eligible market id for the whole batch. Defaults to
+                ``'2'`` server-side. Do not put a market inside individual items.
 
         Returns a :class:`~tradewave.models.ScoreResult` with the scored items,
         ``granted`` (how many were actually scored) and ``ml_remaining_today``.
@@ -397,7 +402,9 @@ class Client:
 
         Maps to ``POST /score``.
         """
-        body = {"opportunities": list(opportunities)}
+        body: Dict[str, Any] = {"opportunities": list(opportunities)}
+        if market is not None:
+            body["market"] = market
         data = self._post("/score", body)
         if raw:
             return data

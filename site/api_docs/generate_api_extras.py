@@ -50,8 +50,9 @@ _PATH_EXAMPLES = {"symbol": "DOV", "market_id": "2"}
 
 # The /score POST body example (seasonal-pattern inputs only; the response carries the ML block).
 _SCORE_BODY = {
+    "market": "2",
     "opportunities": [
-        {"symbol": "DOV", "date": "2026-06-02", "days_out": 30, "direction": "long", "market": "2"}
+        {"symbol": "DOV", "date": "2026-06-02", "days_out": 30, "direction": "long"}
     ]
 }
 
@@ -76,6 +77,59 @@ _CAPABILITY_HINTS = (
     "view=", "decision view", "view='", "extend_research", "include_chart", "trend chart",
     "detection band", "win-rate band", "per-symbol", "per-year", "ids 0,1,2,7,9",
 )
+
+# Frozen public MCP contract.  ChatGPT snapshots a custom app's tool inventory and input
+# schemas when the app is scanned/published; it does not automatically follow later server
+# changes.  Keep this independent list here so the portal build FAILS CLOSED if server.py
+# accidentally adds, removes, renames, or reshapes a tool.  The authenticated deployment
+# probe (ops/verify_mcp_contract.py) performs the same comparison against live tools/list.
+_EXPECTED_MCP_INPUTS = {
+    "find_best_opportunities": (
+        "markets", "window", "direction", "min_win_rate", "min_years", "min_days",
+        "max_days", "min_avg_return", "min_median_return", "min_sharpe", "pe_cycle",
+        "years", "min_winning_years", "rank_by", "limit", "view",
+    ),
+    "analyze_symbol": (
+        "symbol", "market", "direction", "days_out", "entry_date", "pe_cycle", "years",
+        "period", "reverse", "view", "include_chart",
+    ),
+    "explain_pick": (),
+    "morning_briefing": (),
+    "whats_seasonal_now": ("markets", "min_win_rate", "view"),
+    "compare_opportunities": ("symbols", "market", "view"),
+    "list_markets": (),
+    "whoami": (),
+    "describe_tradewave": (),
+    "list_symbols": ("market", "prefix", "limit"),
+    "get_seasonal_opportunities": (
+        "market", "from_date", "direction", "min_win_rate", "min_days",
+        "max_days", "min_avg_return", "min_median_return", "min_sharpe", "pe_cycle",
+        "years", "min_winning_years", "limit",
+    ),
+    "get_symbol_patterns": (
+        "symbol", "market", "pe_cycle", "years", "min_winning_years", "min_days",
+        "max_days", "min_avg_return", "min_sharpe",
+    ),
+    "get_seasonal_pattern": ("market", "symbol", "pe_cycle", "years", "period", "reverse"),
+    "get_opportunity_chart": (
+        "market", "symbol", "entry_date", "days_out", "direction", "years", "pe_cycle",
+        "period", "reverse",
+    ),
+    "score_opportunities": ("opportunities", "market"),
+    "get_daily_pick": (),
+    "get_pick_track_record": (),
+}
+_EXPECTED_MCP_REQUIRED = {
+    "analyze_symbol": ("symbol",),
+    "compare_opportunities": ("symbols",),
+    "list_symbols": ("market",),
+    "get_seasonal_opportunities": ("market",),
+    "get_symbol_patterns": ("symbol", "market"),
+    "get_seasonal_pattern": ("market", "symbol"),
+    "get_opportunity_chart": ("market", "symbol"),
+    "score_opportunities": ("opportunities",),
+}
+_STALE_MCP_TERMS = ("SignalCard", "NO_SIGNAL", "get_opportunity_for_symbol")
 
 
 def _str_from_kwarg(node: ast.AST) -> str | None:
@@ -140,6 +194,31 @@ def _trim_description(desc: str, head_max: int = 300, total_max: int = 480) -> s
     return head.strip()
 
 
+def _published_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return (published argument names, required names), excluding FastMCP Context.
+
+    This deliberately checks the Python signature, not a hand-written manifest.  FastMCP
+    publishes these parameters through tools/list and strips ``ctx`` from the input schema.
+    """
+    positional = [*node.args.posonlyargs, *node.args.args]
+    defaults = [None] * (len(positional) - len(node.args.defaults)) + list(node.args.defaults)
+    names: list[str] = []
+    required: list[str] = []
+    for arg, default in zip(positional, defaults):
+        if arg.arg == "ctx":
+            continue
+        names.append(arg.arg)
+        if default is None:
+            required.append(arg.arg)
+    for arg, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+        if arg.arg == "ctx":
+            continue
+        names.append(arg.arg)
+        if default is None:
+            required.append(arg.arg)
+    return tuple(names), tuple(required)
+
+
 def _derive_mcp_tools() -> list[tuple[str, str]]:
     """Statically parse mcpserver/server.py and return [(tool_name, trimmed_description), ...] in
     source order, one entry per @mcp.tool(...)-decorated function. Raises if server.py is missing
@@ -162,8 +241,34 @@ def _derive_mcp_tools() -> list[tuple[str, str]]:
                     desc = _str_from_kwarg(kw.value)
                     break
             if desc:
+                inputs, required = _published_signature(node)
+                expected_inputs = _EXPECTED_MCP_INPUTS.get(node.name)
+                if expected_inputs is None:
+                    raise RuntimeError(f"Unexpected MCP tool in server.py: {node.name}")
+                if inputs != expected_inputs:
+                    raise RuntimeError(
+                        f"MCP input contract drift for {node.name}: got {inputs!r}, "
+                        f"expected {expected_inputs!r}"
+                    )
+                expected_required = _EXPECTED_MCP_REQUIRED.get(node.name, ())
+                if required != expected_required:
+                    raise RuntimeError(
+                        f"MCP required-input drift for {node.name}: got {required!r}, "
+                        f"expected {expected_required!r}"
+                    )
+                stale = [term for term in _STALE_MCP_TERMS if term in desc]
+                if stale:
+                    raise RuntimeError(
+                        f"Stale MCP terminology in {node.name} description: {', '.join(stale)}"
+                    )
                 tools.append((node.name, _trim_description(desc)))
             break  # one @mcp.tool per function
+    actual_names = tuple(name for name, _ in tools)
+    expected_names = tuple(_EXPECTED_MCP_INPUTS)
+    if actual_names != expected_names:
+        raise RuntimeError(
+            f"MCP inventory/order drift: got {actual_names!r}, expected {expected_names!r}"
+        )
     return tools
 
 

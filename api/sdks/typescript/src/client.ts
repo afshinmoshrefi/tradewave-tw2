@@ -54,7 +54,7 @@ export interface TradeWaveOptions {
 }
 
 export interface ScanParams {
-  /** csv of ids or aliases e.g. '2,11' or 'sp500,etf'. Default = all in-scope markets. */
+  /** csv of ids or aliases. Omit for the in-scope liquid-equities core; pass explicitly for others. */
   markets?: string;
   /** 'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. Default 'now'. */
   window?: string;
@@ -141,7 +141,8 @@ export class TradeWave {
   // ---- Flagship endpoints -------------------------------------------------
 
   /**
-   * FLAGSHIP. Scan in-scope markets for the best seasonal setups (ranked PatternCards).
+   * FLAGSHIP. Scan the in-scope liquid-equities core by default, or explicit markets,
+   * for the best seasonal setups (ranked PatternCards).
    * Prefer this over the low-level primitives.
    */
   async scan(params: ScanParams = {}): Promise<ScanResult> {
@@ -276,12 +277,13 @@ export class TradeWave {
    *
    * Returns either a ScoreResult (scores[]) or the graceful daily-limit nudge
    * (MLDailyLimitReached) - both are HTTP 200, never an error. Use
-   * isMLDailyLimitReached() to narrow.
+   * isMLDailyLimitReached() to narrow. `market` selects one ML-eligible market for
+   * the entire batch; the server defaults to S&P 500 stocks (`'2'`).
    */
-  async score(opportunities: ScoreInput[]): Promise<ScoreResponse> {
+  async score(opportunities: ScoreInput[], market?: string): Promise<ScoreResponse> {
     const res = await this.http.request<ScoreResponse>('/score', {
       method: 'POST',
-      body: { opportunities },
+      body: { opportunities, ...(market === undefined ? {} : { market }) },
     });
     return res.data;
   }

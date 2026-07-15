@@ -697,17 +697,20 @@ cloudflared tunnel front them.
   curated `/v1` derived-data endpoints (markets, daily-pick, scan, analyze, score, ...), and
   calls the appserver as a service account. Composes the `PatternCard` server-side
   (`apiserver/cards.py`) so weak agents render consistently.
-- **MCP server** - `mcpserver/` (named to not shadow the `mcp` SDK). Run as
-  `python -m mcpserver.server --transport streamable-http --host 127.0.0.1 --port 9090`
-  (the unit reads `TW2_MCP_TRANSPORT`/`TW2_MCP_HOST`/`TW2_MCP_PORT`), systemd
-  `tradewave-mcpserver` (`Type=simple`, NOT gunicorn). Mounted at the ROOT so the BARE
+- **MCP server** - `mcpserver/` (named to not shadow the `mcp` SDK). The immutable systemd
+  unit uses `Type=exec` and launches the active release's absolute Python/script paths through a
+  lifetime-shared activation fence; the root controller must stop it and acquire the exclusive side
+  before changing code, credentials, configuration, or release pointers. It binds
+  `127.0.0.1:9090` with Streamable HTTP. Mounted at the ROOT so the BARE
   public URL is the canonical connector address (`/mcp` aliased). Thin HTTP wrapper over
   the gateway: it reads `API_BASE_URL=http://127.0.0.1:8088/v1`, plus
   `TW2_MCP_PUBLIC_HOST` (the SDK's DNS-rebinding allowlist). Auth: **OAuth** for consumer
   apps (ChatGPT/Claude.ai sign in with the TradeWave account; WorkOS AuthKit, see
   `docs/MCP_OAUTH_INTEGRATION.md`) and **BYOK** for dev tools - each remote client sends
   its own `Authorization: Bearer <key>`; `TRADEWAVE_API_KEY` MUST be UNSET on the remote
-  transport (a baked env key is the stdio/Claude-Desktop fallback only).
+  transport (a baked env key is the stdio/Claude-Desktop fallback only). The dedicated service
+  identity cannot browse `/home/flask` or `/etc/tradewave`, and its exact 17-tool public contract is
+  gated in both current and backward-compatible MCP protocol revisions before activation.
 - **Customer console** - `web/api_portal/` blueprint mounted in `web/app.py` at
   `/account/api` (GATED behind the WorkOS session): create/revoke keys, see usage, manage
   the API subscription, and the MCP-connect helper. Reuses WorkOS + Stripe + the
@@ -747,9 +750,10 @@ public hostnames are: dev `api-dev` / `mcp-dev` / `developers-dev`.trxstat.com; 
 `*-stage.trxstat.com`; prod `api.tradewave.ai` / `mcp.tradewave.ai` /
 `developers.tradewave.ai`. Each is a `tw2`-tunnel ingress entry (`-> http://localhost:80`)
 plus an nginx server block: `api.*` proxies `/v1/` to the gateway `:8088`; `mcp.*` proxies
-to the MCP server `:9090` (SSE-tuned: buffering off, long read timeout); `developers.*`
-serves the static docroot. Deploy tooling: `ops/bootstrap_api_services.sh` (venv-api +
-the two systemd units + nginx + cloudflared ingress) and `ops/assemble_developer_portal.sh`
+to the Streamable HTTP MCP server `:9090` (streaming responses: buffering off, long read
+timeout); `developers.*` serves the static docroot. Deploy tooling:
+`ops/bootstrap_api_services.sh` (gateway venv/unit) followed by the immutable MCP release
+controller, plus `ops/assemble_developer_portal.sh`
 (run the generators + rsync into `/var/www/developers/`). Operator deploy/restart steps:
 `ops/OPERATIONS.md` "API/MCP deploy + restart"; go-live: `ops/PROD_CUTOVER.md` "API/MCP go-live".
 

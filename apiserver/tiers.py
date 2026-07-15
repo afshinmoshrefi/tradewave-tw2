@@ -79,8 +79,9 @@ INTERNAL_TIERS = {
     # The MCP server's principal for the consumer OAuth flow (ChatGPT/Claude -> WorkOS login).
     # `workos_principal: True` lets it pass X-TW-Principal-WorkOS:<workos_sub>; the gateway then
     # resolves that to the user's REAL api tier (not this tier) - see auth._apply_on_behalf and
-    # docs/MCP_OAUTH_INTEGRATION.md. These own entitlements are only a fallback for a direct
-    # mcp-key call with no principal header (should not happen in normal use).
+    # docs/MCP_OAUTH_INTEGRATION.md. These own entitlements define the reserved key record,
+    # but they are never a direct-call fallback: auth.py rejects this key when the WorkOS
+    # principal header is absent, invalid, or unknown.
     "mcp": {
         "name": "MCP", "price_monthly": 0, "price_annual": 0,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": 5,

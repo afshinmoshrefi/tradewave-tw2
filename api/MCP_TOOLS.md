@@ -27,17 +27,24 @@ verdict, edge_score, receipts, order ticket). The MCP tools forward those struct
 cards verbatim (`json.dumps`) plus a one-line conversational lead - they NEVER recompute
 or re-rank cards client-side. See `api/PATTERNCARD_SPEC.md` for the card shape.
 
-**Auth:** BYOK for v1 - the caller's TradeWave API key gates the server; tier and
-entitlements flow from `users.api_key_hash`. Resolved per call: the incoming MCP
-request's `Authorization: Bearer <key>` (remote sse/streamable-http) else env
-`TRADEWAVE_API_KEY` (stdio). Every tool calls `_bind_request_key(ctx)` at entry; `ctx`
-is a FastMCP `Context` and is stripped from the published input schema by FastMCP.
+**Auth:** the hosted Streamable HTTP endpoint accepts either (a) a WorkOS OAuth JWT,
+validated for issuer/audience/signature/expiry and delegated through the dedicated MCP
+service key to the caller's real web account, or (b) a `tw_` BYOK API key, validated by
+the loopback gateway at connect time and again on real calls. The gateway supplies an
+opaque account binding so all API keys owned by one account share the same session cap,
+while SDK session ownership remains bound to the exact key. Local stdio is a separate
+single-user process and reads `TRADEWAVE_API_KEY` from its environment. Legacy remote SSE
+is not a release transport. Every tool calls `_bind_request_key(ctx)` at entry; `ctx` is a
+FastMCP `Context` and is stripped from the published input schema by FastMCP.
 
 **Safety contract (same as the API):** patterns only - no raw OHLCV / last price /
 price-by-date. Returns are percentages, never price levels; the seasonal curve is a
-normalized 0-100 index, never a price. ML scores are available on every plan, metered
-daily (free Explorer 5/day, Dev 100/day, Pro + Business unlimited) and only on
-ML-eligible markets (ids 0,1,2,3,4,11). When the daily ML allowance is spent the
+normalized 0-100 index, never a price. On BYOK/API plans, ML is metered daily (Free
+5/day, Dev 100/day, Pro + Business unlimited). Consumer OAuth mirrors the web ladder:
+steady Explorer/Navigator have no in-chat ML, Analyst has 100/day, and Strategist is
+unlimited; the time-boxed Explorer/Navigator teaser windows temporarily widen that
+scope. ML is available only on eligible markets (ids 0,1,2,3,4,11). When the resolved
+daily ML allowance is spent the
 gateway returns a graceful 200 nudge - `{requires:"upgrade", reason:"ml_daily_limit",
 message, upgrade_url, ml_remaining_today}` on /v1/score; on cards the field
 `tier_notes` becomes "Daily ML limit reached on your plan - upgrade for unlimited ML
@@ -52,7 +59,7 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
 
 | Tool | Inputs | Returns | Maps to | Tier |
 |---|---|---|---|---|
-| `find_best_opportunities` | `markets?`, `window?`, `direction?`, `min_win_rate?`, `min_years?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_median_return?`, `min_sharpe?`, `pe_cycle?`, `years?`, `min_winning_years?`, `rank_by?` (default: `sharpe`), `limit?`, `view?` (full\|decision\|table; default `decision`) | ranked PatternCards across the in-scope markets, pre-sorted by Sharpe ratio. `min_days`/`max_days` filter pattern length (e.g. 10-90 days); `min_avg_return`/`min_median_return` are PERCENT (5 = 5%); `min_sharpe` is the Sharpe floor. `years`/`min_winning_years` obey the per-market lookback BAND (see below) | `GET /v1/scan` | all (ML metered daily; count gated by tier) |
+| `find_best_opportunities` | `markets?`, `window?`, `direction?`, `min_win_rate?`, `min_years?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_median_return?`, `min_sharpe?`, `pe_cycle?`, `years?`, `min_winning_years?`, `rank_by?` (default: `sharpe`), `limit?` (default 10, max 100; max 25 for `full`), `view?` (full\|decision\|table; default `decision`) | ranked PatternCards across a liquid-equities core within the caller's scope by default (pass `markets` for other in-scope markets), pre-sorted by Sharpe ratio. `min_days`/`max_days` filter pattern length (e.g. 10-90 days); `min_avg_return`/`min_median_return` are PERCENT (5 = 5%); `min_sharpe` is the Sharpe floor. `years`/`min_winning_years` obey the per-market lookback BAND (see below). MCP result caps are deliberately below the bulk REST limits to bound model context and process memory. | `GET /v1/scan` | all (ML metered daily; count gated by tier) |
 | `analyze_symbol` | `symbol`, `market?`, `direction?`, `days_out?`, `entry_date?`, `pe_cycle?`, `years?`, `period?`, `reverse?`, `view?` (full\|decision\|table; default `decision`), `include_chart?` | one rich PatternCard (best setup + receipts + order ticket) + other setups for the symbol. PIN a specific setup with `entry_date` (+`days_out`) or a `period`/`reverse` preset (the "click this exact opportunity / change the date range" flow) instead of the auto-picked best; `pe_cycle`/`years` are the wave-viewer lookback knobs. `include_chart=true` (-> `include=chart`) attaches the Trend Chart curve + per-year bars inline (one-call charting, chart DATA never an image) | `GET /v1/analyze/{symbol}` | all (ML metered daily) |
 | `explain_pick` | - | today's daily pick as a PatternCard WITH its live forward-tested track record (the strongest receipt) | `GET /v1/daily-pick` | all |
 | `morning_briefing` | - | the one-call MORNING BRIEFING: today's pick (decision view), the live track-record summary with the last 5 outcomes, and the top setups entering their window now; sections fail-soft (a degraded briefing beats no briefing) | `GET /v1/daily-pick` + `GET /v1/daily-pick/track-record` + `GET /v1/scan` (composed, parallel) | all |
@@ -66,12 +73,14 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
   "what is entering its window this week / weekly digest" prompts.
 - `compare_opportunities` fans out per symbol and fails SOFT per row: a per-symbol
   HTTP error degrades only that row (`{symbol, error, card:null}`); an upgrade stub
-  (requires:'pro' or requires:'upgrade') becomes `{symbol, requires, message, upgrade_url}` -
+  (`requires:'upgrade'`) becomes `{symbol, requires, message, upgrade_url}` -
   the comparison never breaks.
 - Empty scans return the structured payload (`count:0`) plus a lead that suggests
   widening markets/window/min_win_rate, so "nothing now" is never a dead end.
-- **Progressive disclosure (`view`):** every flagship takes `view=full|decision|table`.
-  On the MCP layer these flagships DEFAULT to `decision` (the lean read - timing + edge +
+- **Progressive disclosure (`view`):** the four list/deep-dive flagships
+  (`find_best_opportunities`, `analyze_symbol`, `whats_seasonal_now`, and
+  `compare_opportunities`) take `view=full|decision|table`. On the MCP layer these tools
+  DEFAULT to `decision` (the lean read - timing + edge +
   the extend_research hand-off); `table` = a compact ranked row per setup; `full` = the
   complete card incl. per-year receipts and detail stats. (The raw API defaults to `full`;
   the MCP tools pass `view=decision` unless overridden.) `analyze_symbol` additionally
@@ -99,14 +108,14 @@ exceptions - they are meta/onboarding tools the model SHOULD reach for first on
 | `list_markets` | - | the 15 active markets (ids span 0-16) + which are in the caller's scope, each market's ML eligibility, and its `pattern_detection` coverage (scan vs per-symbol) with an example win-rate band - so "which markets support per-symbol patterns?" and "what lookback/min_winning_years is valid here?" are answerable from data | `GET /v1/markets` | all |
 | `whoami` | - | the caller's plan tier, `ml_remaining_today` (null = unlimited), the markets in scope, and a few example prompts. The "what can you do / what plan am I on / how many ML calls left" tool | `GET /v1/me` | all |
 | `describe_tradewave` | - | the static how-it-works + how-to-research guide: the method (edge -> extend with your own tools -> synthesize), the three distinct win rates + edge_score glossary, and the SEASONAL ANALYSIS KNOBS glossary (lookback `years` + `min_winning_years` and the per-market band, day-range, market coverage). No API call | (local) | all |
-| `list_symbols` | `market` | symbols in a market | `GET /v1/markets/{id}/symbols` | all |
-| `get_seasonal_opportunities` | `market`, `from?`, `to?`, `direction?`, `min_win_rate?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_median_return?`, `min_sharpe?`, `pe_cycle?`, `years?`, `min_winning_years?`, `limit?` | raw single-market ranked setups (symbol, direction, entry, hold, sharpe, avg/median %, win rate). Same column filters as scan (`min_days`/`max_days` pattern length; `min_avg_return`/`min_median_return` PERCENT; `min_sharpe`) | `GET /v1/opportunities` | all (count gated by tier; ML metered daily) |
+| `list_symbols` | `market`, `prefix?`, `limit?` (default 100, max 1000) | one safe symbol page plus `total`/`matched`/`count` and an explicit truncation note | `GET /v1/markets/{id}/symbols` | all |
+| `get_seasonal_opportunities` | `market`, `from_date?`, `direction?`, `min_win_rate?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_median_return?`, `min_sharpe?`, `pe_cycle?`, `years?`, `min_winning_years?`, `limit?` (default 25, max 100) | raw single-market ranked setups for one entry date (symbol, direction, entry, hold, sharpe, avg/median %, win rate). For a date window use `find_best_opportunities`. Same column filters as scan (`min_days`/`max_days` pattern length; `min_avg_return`/`min_median_return` PERCENT; `min_sharpe`). The MCP cap bounds model context and server memory independently of higher bulk REST entitlements. | `GET /v1/opportunities` | all (count gated by tier; ML metered daily) |
 | `get_symbol_patterns` | `symbol`, `market`, `pe_cycle?`, `years?`, `min_winning_years?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_sharpe?` | a security's TOP seasonal patterns across the year, ranked by Sharpe (the wave-viewer pattern dropdown). COVERAGE: per-symbol patterns exist for market ids **0,1,2,7,9** only (DOW 30, NASDAQ 100, S&P 500, Futures & Commodities, FOREX Liquid); any other market returns a clear error - use `find_best_opportunities` to scan those instead. `years`/`min_winning_years` obey the same per-market band as scan | `GET /v1/securities/{symbol}/patterns` | all |
 | `get_seasonal_pattern` | `market`, `symbol`, `pe_cycle?`, `years?`, `period?`, `reverse?` | bare aggregate seasonal pattern stats (no price series) | `GET /v1/patterns/{id}/{symbol}` | all |
 | `get_opportunity_chart` | `market`, `symbol`, `entry_date?`, `days_out?`, `direction?`, `years?`, `pe_cycle?`, `period?`, `reverse?` | a SINGLE year-averaged, normalized 0-100 seasonal index curve (`seasonal_curve`) - the typical within-year shape, NOT per-year cumulative paths, NOT an image, never a price - PLUS `per_year_bars` (each completed year's trade return with its favorable (mfe)/adverse (mae) excursion band, direction-aware, all percentages); `receipts.curve_summary` describes the TREND OF THE HOLD SECTION (entry to exit), NOT the full year - `peak_day`/`trough_day` are days into the hold (0=entry) | `GET /v1/seasonal-chart` | all |
-| `score_opportunities` | list of `{symbol, date, days_out, direction}` | ML `ml_score` / `win_prob` / `pred_return` / `pred_mfe`; includes `ml_remaining_today` | `POST /v1/score` | all (metered daily: free 5/day, unlimited on Pro; graceful nudge when spent) |
+| `score_opportunities` | `opportunities` list of `{symbol, date, days_out, direction}`, `market?` (one ML-eligible market for the whole batch; default `2`) | ML `ml_score` / `win_prob` / `pred_return` / `pred_mfe`; includes `ml_remaining_today`. Use one market per call; never put `market` inside an item | `POST /v1/score` | all (subject to the resolved BYOK or web-mirrored OAuth allowance; graceful nudge when spent) |
 | `get_daily_pick` | - | bare daily-pick payload (no receipts) | `GET /v1/daily-pick` | all |
-| `get_pick_track_record` | - | standalone realized win/loss record of past picks | `GET /v1/daily-pick/track-record` | all |
+| `get_pick_track_record` | - | standalone realized win/loss record; aggregate summary covers the complete record and per-pick rows are bounded to the latest 250 for safe MCP context | `GET /v1/daily-pick/track-record` | all |
 
 ### Lookback BAND on `years` / `min_winning_years`
 Pattern DETECTION (`find_best_opportunities`, `get_seasonal_opportunities`,
@@ -132,6 +141,8 @@ seasonal line". The endpoint returns ONE year-averaged, normalized 0-100 seasona
 curve (`seasonal_curve`) - a single relative shape, not per-year paths. The tool
 description now states this accurately (and that the index is never a price).
 
-x-verify: confirm `historical_win_rate` derivation and the publishable `Pattern.stats`
-subset against the appserver before freeze; confirm the live `/v1/scan` and
-`/v1/analyze/{symbol}` response envelopes match `api/PATTERNCARD_SPEC.md` sections 1 + 5.
+**Freeze verification (2026-07-15):** `historical_win_rate` is derived from the same
+direction-aware per-year receipts used by the card headline; the publishable `Pattern.stats`
+subset is composed in `apiserver/cards.py`; and the `/v1/scan` plus
+`/v1/analyze/{symbol}` envelopes are covered by the card/gateway contract tests. The MCP
+release gate separately verifies the authenticated live `tools/list` inventory and schemas.

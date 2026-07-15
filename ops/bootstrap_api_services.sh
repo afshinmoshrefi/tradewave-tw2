@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Stand up the TradeWave API gateway + MCP server ON THE BOX this runs on.
+# Stand up the TradeWave API gateway ON THE BOX this runs on.
+# MCP is intentionally activated only by ops/deploy_mcp_release.sh, which creates
+# its dedicated identity, least-privilege environment, immutable bundle, and
+# rollback journal as one release transaction.
 #
 # The operator runs this AS root (it writes /etc/systemd, runs systemctl) on the
 # target box (dev / staging / prod). It is env-agnostic: every per-env value comes
@@ -9,10 +12,9 @@
 # is additive (CREATE TABLE IF NOT EXISTS ...), and systemd enable --now is a no-op
 # when already running. It echoes every step.
 #
-# This script handles ONLY the two services (gateway :8088, mcp :9090). Their bind/host
-# default to loopback (co-located on the app box) but read from secrets.env
-# (TW2_APISERVER_BIND, TW2_MCP_HOST/PORT) - so the SAME units + this SAME script also stand
-# the gateway up on its OWN dedicated box later. Runbook: ops/SPLIT_GATEWAY_TO_OWN_BOX.md.
+# This script handles ONLY the gateway (:8088). Its bind defaults to loopback but
+# reads from secrets.env, so the same unit/script also works on a dedicated box.
+# Runbook: ops/SPLIT_GATEWAY_TO_OWN_BOX.md.
 # The public ingress is OUT OF SCOPE here and is reminded about at the end:
 #   - nginx vhosts:  ops/nginx/tradewave-developer-portal.conf
 #   - cloudflared:   add api-* / mcp-* / developers-* to /etc/cloudflared/config.yml
@@ -41,10 +43,9 @@ hdr "0. preflight"
 [ -r "$REQ" ]           || { echo "FAIL: $REQ not found"; exit 1; }
 [ -r "$SCHEMA" ]        || { echo "FAIL: $SCHEMA not found"; exit 1; }
 [ -r "$UNIT_SRC/tradewave-apiserver.service" ] || { echo "FAIL: $UNIT_SRC/tradewave-apiserver.service not found (pull the repo)"; exit 1; }
-[ -r "$UNIT_SRC/tradewave-mcpserver.service" ] || { echo "FAIL: $UNIT_SRC/tradewave-mcpserver.service not found (pull the repo)"; exit 1; }
 id -u flask >/dev/null 2>&1 || { echo "FAIL: 'flask' user does not exist"; exit 1; }
 command -v psql >/dev/null 2>&1 || { echo "FAIL: psql not on PATH (install postgresql-client)"; exit 1; }
-say "preflight ok (root, secrets.env, requirements, schema, unit files, flask user, psql)"
+say "preflight ok (root, secrets.env, requirements, schema, gateway unit, flask user, psql)"
 
 # Load secrets for this step (POSTGRES_DSN below). Confined to this shell.
 set -a; . "$SECRETS"; set +a
@@ -88,30 +89,36 @@ fi
 psql "$POSTGRES_DSN" -v ON_ERROR_STOP=1 -f "$SCHEMA"
 say "schema applied"
 
-# --- 4. systemd units + enable + health --------------------------------------
-hdr "4. install systemd units, enable --now, health-check"
+# --- 4. gateway unit + enable + health ---------------------------------------
+hdr "4. install gateway unit, enable --now, health-check"
 install -m 0644 "$UNIT_SRC/tradewave-apiserver.service" "$UNIT_DST/tradewave-apiserver.service"
-install -m 0644 "$UNIT_SRC/tradewave-mcpserver.service" "$UNIT_DST/tradewave-mcpserver.service"
-say "copied tradewave-apiserver.service + tradewave-mcpserver.service to $UNIT_DST"
+say "copied tradewave-apiserver.service to $UNIT_DST"
 systemctl daemon-reload
 say "daemon-reload done"
 systemctl enable --now tradewave-apiserver
-systemctl enable --now tradewave-mcpserver
-say "enabled + started both units"
+say "enabled + started the gateway"
 
 # Give them a moment to bind their loopback ports before probing.
 sleep 3
-systemctl --no-pager status tradewave-apiserver tradewave-mcpserver | head -30 || true
+systemctl --no-pager status tradewave-apiserver | head -30 || true
 
 hdr "4a. health checks"
 say "gateway: curl http://127.0.0.1:8088/healthz"
 curl -fsS http://127.0.0.1:8088/healthz && echo \
     || { echo "FAIL: gateway /healthz did not return 200 - 'journalctl -u tradewave-apiserver -n 50'"; exit 1; }
-say "mcp: ss -ltnp | grep 9090 (expect the python process LISTENing on 127.0.0.1:9090)"
-ss -ltnp | grep -q ':9090 ' \
-    || { echo "FAIL: nothing listening on :9090 - 'journalctl -u tradewave-mcpserver -n 50'"; exit 1; }
-ss -ltnp | grep ':9090 ' || true
-say "both services healthy (gateway :8088 answering /healthz, mcp :9090 listening)"
+say "gateway healthy (:8088 answering /healthz)"
+
+hdr "4b. MCP immutable release is a required separate step"
+cat <<'MCP_RELEASE'
+  Do not start the repository's baseline MCP unit directly. Activate MCP through
+  the immutable release transaction with an exact reviewed commit SHA:
+
+      sudo /usr/local/sbin/tradewave-mcp-release <lowercase-40-char-sha>
+
+  That command provisions the dedicated tradewave-mcp account, a root-only MCP
+  environment, the sealed runtime, nginx edge, public contract gate, and the
+  20-session load gate before committing the release.
+MCP_RELEASE
 
 # --- 5. reminder: ingress is a SEPARATE step ---------------------------------
 hdr "5. REMINDER - public ingress is NOT done by this script"
@@ -140,5 +147,5 @@ cat <<'REMIND'
 REMIND
 
 echo
-echo "=== API + MCP services bootstrap complete on $(hostname) ==="
-echo "Loopback services are UP. Finish the ingress steps above to expose them."
+echo "=== API gateway bootstrap complete on $(hostname) ==="
+echo "Gateway loopback service is UP. Deploy MCP immutably, then finish ingress."

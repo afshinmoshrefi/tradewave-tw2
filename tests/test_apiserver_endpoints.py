@@ -3,6 +3,9 @@ functions. Auth + redis + the appserver are mocked, so these exercise ONLY the r
 the educational-only disclaimer on every pattern-bearing response, the per-market band 400, the
 ~90% default, and the view param. Runs under /home/flask/venv (has flask+pytest+apiserver).
 """
+from datetime import datetime, timedelta, timezone
+import re
+
 import pytest
 
 from apiserver import tiers
@@ -11,6 +14,14 @@ pytestmark = pytest.mark.unit  # no real external state - auth, redis, and the a
 
 _ENT = tiers.tier_for("dev")
 _CUSTOMER = {"user_id": "test-user", "email": "t@example.com", "tier": "dev", "entitlements": _ENT}
+
+
+@pytest.fixture(autouse=True)
+def _stable_gateway_hmac_secret(monkeypatch):
+    """Gateway identity tests must never depend on a workstation/VM secret file."""
+    from apiserver import settings
+
+    monkeypatch.setattr(settings, "API_KEY_HMAC_SECRET", "unit-test-hmac-secret")
 
 
 @pytest.fixture
@@ -53,6 +64,253 @@ def test_missing_key_is_401(app, monkeypatch):
     monkeypatch.setattr(auth, "resolve_customer", lambda key: None)
     r = app.test_client().get("/v1/scan")
     assert r.status_code == 401
+
+
+def _mcp_service_customer():
+    return {
+        "user_id": "mcp-service-user",
+        "email": "mcp-service@internal.tradewave",
+        "tier": "mcp",
+        "entitlements": tiers.tier_for("mcp"),
+    }
+
+
+@pytest.mark.parametrize(
+    ("principal", "message"),
+    [
+        (None, "missing principal"),
+        ("contains spaces", "invalid principal"),
+        ("user_" + "x" * 124, "invalid principal"),
+    ],
+)
+def test_mcp_service_delegation_fails_closed_without_valid_principal(
+    app, monkeypatch, principal, message
+):
+    from apiserver import auth
+
+    monkeypatch.setattr(
+        auth.db,
+        "get_user_by_workos_id",
+        lambda _sub: pytest.fail("invalid principals must not reach the database"),
+    )
+    headers = {} if principal is None else {"X-TW-Principal-WorkOS": principal}
+    with app.test_request_context("/v1/me", headers=headers):
+        response, status = auth._apply_on_behalf(_mcp_service_customer())
+    assert status == 401
+    assert response.get_json()["error"]["message"] == message
+
+
+def test_mcp_service_delegation_rejects_unknown_workos_user(app, monkeypatch):
+    from apiserver import auth
+
+    monkeypatch.setattr(auth.db, "get_user_by_workos_id", lambda _sub: None)
+    with app.test_request_context(
+        "/v1/me", headers={"X-TW-Principal-WorkOS": "user_01KNOWN_SHAPE"}
+    ):
+        response, status = auth._apply_on_behalf(_mcp_service_customer())
+    assert status == 401
+    assert response.get_json()["error"]["message"] == "unknown user"
+
+
+def test_normal_customer_cannot_activate_workos_delegation(app, monkeypatch):
+    from apiserver import auth
+
+    monkeypatch.setattr(
+        auth.db,
+        "get_user_by_workos_id",
+        lambda _sub: pytest.fail("a normal customer header must be ignored"),
+    )
+    customer = dict(_CUSTOMER)
+    with app.test_request_context(
+        "/v1/me", headers={"X-TW-Principal-WorkOS": "user_attacker"}
+    ):
+        assert auth._apply_on_behalf(customer) is None
+    assert customer == _CUSTOMER
+
+
+def test_mcp_delegation_precedes_per_user_rate_limit_and_metering(
+    app, monkeypatch
+):
+    from apiserver import appserver_client, auth
+
+    service = _mcp_service_customer()
+    resolved = {
+        "user_id": "real-user-42",
+        "email": "researcher@example.com",
+        "tier": "analyst",
+        "api_tier": None,
+        "roles": [],
+        "reverse_trial_ends_at": None,
+        "navigator_mcp_first_connect_at": None,
+    }
+    delegated_entitlements = dict(tiers.mcp_tier_for("analyst"))
+    observed = {}
+    monkeypatch.setattr(auth, "resolve_customer", lambda _key: dict(service))
+    monkeypatch.setattr(auth.db, "get_user_by_workos_id", lambda _sub: dict(resolved))
+
+    def check_rate_limit(customer):
+        observed["rate"] = dict(customer)
+        return True, {}
+
+    def record_usage(customer, path):
+        observed["usage"] = (dict(customer), path)
+
+    monkeypatch.setattr(auth, "check_rate_limit", check_rate_limit)
+    monkeypatch.setattr(auth, "record_usage", record_usage)
+    monkeypatch.setattr(appserver_client, "list_markets", lambda: [])
+    response = app.test_client().get(
+        "/v1/markets",
+        headers={
+            "Authorization": "Bearer tw_svc_test",
+            "X-TW-Principal-WorkOS": "user_01REAL",
+        },
+    )
+    assert response.status_code == 200
+    assert observed["rate"]["user_id"] == "real-user-42"
+    assert observed["rate"]["email"] == "researcher@example.com"
+    assert observed["rate"]["tier"] == "analyst"
+    assert observed["rate"]["entitlements"] == delegated_entitlements
+    assert observed["usage"][0]["user_id"] == "real-user-42"
+    assert observed["usage"][1] == "/v1/markets"
+
+
+@pytest.mark.parametrize(
+    (
+        "raw_tier",
+        "reverse_days",
+        "navigator_days",
+        "roles",
+        "api_tier",
+        "expected_tier",
+        "expected_markets",
+        "expected_ml",
+        "expected_rate",
+        "expected_opp_limit",
+        "expected_teaser",
+    ),
+    [
+        ("explorer", None, None, [], None, "explorer", ("0",), 0, (20, 400), 10, None),
+        ("explorer", 1, None, [], None, "strategist", tuple(tiers.ALL_MARKETS), None, (120, 20000), 500, "explorer_trial"),
+        ("explorer", -1, None, [], None, "explorer", ("0",), 0, (20, 400), 10, None),
+        ("navigator", None, -1, [], None, "analyst", ("0", "1", "2", "3", "4", "11"), 100, (60, 5000), 100, "navigator_firstconnect"),
+        ("navigator", None, -8, [], None, "navigator", ("0", "1", "2"), 0, (30, 1000), 25, None),
+        ("analyst", None, None, [], None, "analyst", ("0", "1", "2", "3", "4", "11"), 100, (60, 5000), 100, None),
+        ("strategist", None, None, [], None, "strategist", tuple(tiers.ALL_MARKETS), None, (120, 20000), 500, None),
+        ("explorer", None, None, ["staff_admin"], None, "strategist", tuple(tiers.ALL_MARKETS), None, (120, 20000), 500, None),
+        # Explicit API subscriptions may widen markets/rate/volume, but steady
+        # sub-Analyst web plans remain at zero in-chat ML by policy.
+        ("explorer", None, None, [], "business", "explorer", tuple(tiers.ALL_MARKETS), 0, (300, 250000), 5000, None),
+        ("navigator", None, -8, [], "pro", "navigator", tuple(tiers.ALL_MARKETS), 0, (120, 50000), 1000, None),
+        ("analyst", None, None, [], "business", "analyst", tuple(tiers.ALL_MARKETS), None, (300, 250000), 5000, None),
+    ],
+    ids=[
+        "steady-explorer",
+        "active-explorer-reverse-trial",
+        "expired-explorer-reverse-trial",
+        "active-navigator-first-connect",
+        "expired-navigator-first-connect",
+        "steady-analyst",
+        "steady-strategist",
+        "role-bypass",
+        "explorer-business-refloor",
+        "navigator-pro-refloor",
+        "analyst-business-merge",
+    ],
+)
+def test_real_mcp_tier_resolution_matrix(
+    monkeypatch,
+    raw_tier,
+    reverse_days,
+    navigator_days,
+    roles,
+    api_tier,
+    expected_tier,
+    expected_markets,
+    expected_ml,
+    expected_rate,
+    expected_opp_limit,
+    expected_teaser,
+):
+    from apiserver import auth
+
+    now = datetime.now(timezone.utc)
+    reverse_end = None if reverse_days is None else now + timedelta(days=reverse_days)
+    navigator_start = (
+        None if navigator_days is None else now + timedelta(days=navigator_days)
+    )
+    # None on a non-Navigator must never arm; the matrix's Navigator cases use
+    # persisted timestamps so active and expired windows are deterministic.
+    monkeypatch.setattr(
+        auth.db,
+        "arm_navigator_teaser_if_null",
+        lambda _user_id: pytest.fail("this matrix should not arm a new teaser"),
+    )
+    row = {
+        "user_id": "tier-matrix-user",
+        "email": "tier-matrix@example.com",
+        "tier": raw_tier,
+        "api_tier": api_tier,
+        "roles": roles,
+        "reverse_trial_ends_at": reverse_end,
+        "navigator_mcp_first_connect_at": navigator_start,
+    }
+
+    tier_label, entitlements, teaser = auth._resolve_mcp(row)
+
+    assert tier_label == expected_tier
+    assert tuple(entitlements["markets"]) == expected_markets
+    assert entitlements["ml_daily_limit"] == expected_ml
+    assert (
+        entitlements["rate"]["per_minute"],
+        entitlements["rate"]["per_day"],
+    ) == expected_rate
+    assert entitlements["opp_limit"] == expected_opp_limit
+    if expected_teaser is None:
+        assert teaser == {
+            "active": False,
+            "kind": None,
+            "ends_at": None,
+            "post_teaser_scope": None,
+        }
+    else:
+        assert teaser["active"] is True
+        assert teaser["kind"] == expected_teaser
+        assert teaser["ends_at"]
+        assert teaser["post_teaser_scope"] in {"explorer", "navigator"}
+
+
+def test_navigator_first_connect_is_armed_once_and_uses_returned_timestamp(monkeypatch):
+    from apiserver import auth
+
+    stamped = datetime.now(timezone.utc) - timedelta(hours=1)
+    calls = []
+
+    def arm(user_id):
+        calls.append(user_id)
+        return stamped
+
+    monkeypatch.setattr(auth.db, "arm_navigator_teaser_if_null", arm)
+    row = {
+        "user_id": "new-navigator",
+        "email": "navigator@example.com",
+        "tier": "navigator",
+        "api_tier": None,
+        "roles": [],
+        "reverse_trial_ends_at": None,
+        "navigator_mcp_first_connect_at": None,
+    }
+
+    tier_label, entitlements, teaser = auth._resolve_mcp(row)
+
+    assert calls == ["new-navigator"]
+    assert tier_label == "analyst"
+    assert entitlements == tiers.mcp_tier_for("analyst")
+    assert teaser == {
+        "active": True,
+        "kind": "navigator_firstconnect",
+        "ends_at": (stamped + timedelta(days=7)).isoformat(),
+        "post_teaser_scope": "navigator",
+    }
 
 
 # --- the band, at the HTTP layer -------------------------------------------------
@@ -145,18 +403,31 @@ _ENTRIES = ([{"year": 2015 + i, "pct": "4.00,6.00,-1.00"} for i in range(9)]
             + [{"year": 2024, "pct": "-3.00,2.00,-5.00"}])
 
 
+def _receipt_entries(win_rate, n_entries=10):
+    wins = round(win_rate * n_entries)
+    return [
+        {
+            "year": 2015 + i,
+            "pct": "4.00,6.00,-1.00" if i < wins else "-3.00,2.00,-5.00",
+        }
+        for i in range(n_entries)
+    ]
+
+
 def _opp(win_rate=0.9, symbol="AAPL", market="2", direction="long", entry="2026-07-01"):
     return {"symbol": symbol, "market": market, "direction": direction, "entry_date": entry,
             "days_out": 21, "sharpe_ratio": 1.5, "avg_profit_pct": 5.0,
             "median_profit_pct": 3.0, "win_rate": win_rate, "years": "10"}
 
 
-def _mock_card_chain(monkeypatch, multi=None, by_symbol=None, curve=None):
+def _mock_card_chain(monkeypatch, multi=None, by_symbol=None, curve=None, entries=None):
     from apiserver import appserver_client as ac
     monkeypatch.setattr(ac, "market_name_map",
                         lambda: {"2": "S&P 500 STOCKS", "4": "WILSHIRE 5000", "0": "DOW 30 STOCKS",
                                  "7": "FUTURES & COMMODITIES", "11": "ETFs"})
-    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *a, **k: (dict(_STATS), list(_ENTRIES)))
+    receipt_rows = list(_ENTRIES if entries is None else entries)
+    monkeypatch.setattr(ac, "chart_stats_and_years",
+                        lambda *a, **k: (dict(_STATS), list(receipt_rows)))
     monkeypatch.setattr(ac, "_seasonal_curve", lambda *a, **k: list(curve or []))
     monkeypatch.setattr(ac, "_win_rate_for_opp", lambda o: 0.9)
     if multi is not None:
@@ -178,7 +449,8 @@ def test_scan_card_carries_extend_research_and_timing(client, monkeypatch):
 
 
 def test_scan_no_signal_card_omits_order_ticket(client, monkeypatch):
-    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)])
+    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)],
+                     entries=_receipt_entries(0.30))
     r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
     card = r.get_json()["opportunities"][0]
     assert card["bias"] == "neutral"
@@ -386,7 +658,8 @@ def test_scan_min_win_rate_over_100_is_400_with_guidance(client, monkeypatch):
 
 
 def test_scan_all_no_signal_lead_is_honest(client, monkeypatch):
-    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)])
+    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)],
+                     entries=_receipt_entries(0.30))
     r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
     body = r.get_json()
     assert body["summary"].startswith("Evaluated 1 candidate - 0 have a high-conviction edge")
@@ -441,6 +714,29 @@ def test_me_carries_upgrade_url(client, monkeypatch):
     r = client.get("/v1/me", headers=_hdr())
     assert r.status_code == 200
     assert r.get_json()["upgrade_url"]
+    admission_id = r.get_json()["mcp_admission_id"]
+    assert re.fullmatch(r"acct_[0-9a-f]{64}", admission_id)
+    assert _CUSTOMER["user_id"] not in admission_id
+
+
+def test_mcp_admission_id_is_stable_per_account_and_not_per_key(monkeypatch):
+    from apiserver import auth
+
+    first = auth.mcp_admission_id({"user_id": "account-42", "email": "a@example.com"})
+    same = auth.mcp_admission_id({"user_id": "account-42", "email": "changed@example.com"})
+    other = auth.mcp_admission_id({"user_id": "account-43", "email": "a@example.com"})
+    assert first == same
+    assert first != other
+    assert re.fullmatch(r"acct_[0-9a-f]{64}", first)
+    assert "account-42" not in first
+
+    # The public demo has no database/HMAC key but still receives one fixed bucket.
+    monkeypatch.setattr(auth.settings, "API_KEY_HMAC_SECRET", None)
+    assert re.fullmatch(
+        r"acct_[0-9a-f]{64}", auth.mcp_admission_id({"user_id": "demo"})
+    )
+    with pytest.raises(auth.AuthMisconfigured):
+        auth.mcp_admission_id({"user_id": "account-42"})
 
 
 # --- token-bomb trim ---------------------------------------------------------------------
@@ -613,6 +909,83 @@ def test_score_normalizes_l_s_directions(client, monkeypatch):
         headers=_hdr())
     assert r.status_code == 200
     assert r.get_json()["scores"][0]["direction"] == "short"
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"symbol": 7}, "symbol must be a string"),
+        ({"symbol": "   "}, "between 1 and 64"),
+        ({"symbol": "A" * 65}, "between 1 and 64"),
+        ({"date": 20260701}, "valid YYYY-MM-DD"),
+        ({"date": "20260701"}, "valid YYYY-MM-DD"),
+        ({"date": "2026-02-30"}, "valid YYYY-MM-DD"),
+        ({"days_out": "21"}, "integer between 1 and 366"),
+        ({"days_out": True}, "integer between 1 and 366"),
+        ({"days_out": 0}, "integer between 1 and 366"),
+        ({"days_out": 367}, "integer between 1 and 366"),
+        ({"market": "11"}, "market must be supplied once at the top level"),
+    ],
+)
+def test_score_enforces_frozen_item_schema_before_quota(
+    client, monkeypatch, override, message
+):
+    from apiserver import ml_quota
+
+    monkeypatch.setattr(
+        ml_quota,
+        "consume",
+        lambda *_args, **_kwargs: pytest.fail("invalid score item consumed quota"),
+    )
+    item = {
+        "symbol": "AAPL",
+        "date": "2026-07-01",
+        "days_out": 21,
+        "direction": "long",
+    }
+    item.update(override)
+    r = client.post(
+        "/v1/score",
+        json={"market": "2", "opportunities": [item]},
+        headers=_hdr(),
+    )
+    assert r.status_code == 400
+    assert message in r.get_json()["error"]["message"]
+
+
+def test_score_strips_symbol_and_accepts_days_out_boundaries(client, monkeypatch):
+    from apiserver import appserver_client as ac, ml_quota
+
+    observed = []
+    monkeypatch.setattr(ml_quota, "consume", lambda _customer, n=1: n)
+    monkeypatch.setattr(ml_quota, "refund", lambda *_args, **_kwargs: None)
+
+    def score_rows(_market, items):
+        observed.extend(items)
+        return [
+            {
+                "ml_score": 80,
+                "win_prob": 0.8,
+                "pred_return": 5.0,
+                "pred_mfe": 7.0,
+            }
+            for _ in items
+        ]
+
+    monkeypatch.setattr(ac, "ml_scores", score_rows)
+    items = [
+        {"symbol": " AAPL ", "date": "2026-07-01", "days_out": days,
+         "direction": "long"}
+        for days in (1, 366)
+    ]
+    r = client.post(
+        "/v1/score",
+        json={"market": "2", "opportunities": items},
+        headers=_hdr(),
+    )
+    assert r.status_code == 200
+    assert [row["symbol"] for row in observed] == ["AAPL", "AAPL"]
+    assert [row["days_out"] for row in observed] == [1, 366]
 
 
 # --- uniform JSON error envelope on framework errors (405 etc.) ---------------------

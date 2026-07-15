@@ -59,9 +59,9 @@ export TRADEWAVE_API_URL=https://api-dev.trxstat.com/v1
 ## Flagship endpoints
 
 ```ts
-// scan() - ranked PatternCards across your in-scope markets (default rank by sharpe).
+// scan() - ranked PatternCards; omitted markets = your in-scope liquid-equities core.
 const scan = await tw.scan({
-  markets: '2,11',        // csv of ids or names; default = all in-scope
+  markets: '2,11',        // csv of ids or names; omit for the liquid-equities core
   window: 'now',          // 'now' | 'next_2_weeks' | 'next_month' | 'from..to'
   direction: 'long',
   minWinRate: 0.6,        // filter on historical_win_rate (share of profitable years)
@@ -102,14 +102,16 @@ await tw.seasonalChart({ market: '2', symbol: 'AAPL' }); // normalized 0-100 cur
 
 ML is available on every tier, **metered per day** (free 5/day, unlimited on Pro). When
 the daily allowance is already spent, `score()` returns a **graceful 200 nudge** - it is
-returned as data, never thrown. Use `isMLDailyLimitReached` to narrow:
+returned as data, never thrown. Score one market per batch by passing its id as the second
+argument (default `"2"`); opportunity items do not carry a market. Use
+`isMLDailyLimitReached` to narrow:
 
 ```ts
 import { isMLDailyLimitReached } from '@tradewave/sdk';
 
 const result = await tw.score([
-  { symbol: 'AAPL', date: '2026-07-12', days_out: 18, direction: 'long', market: '2' },
-]);
+  { symbol: 'AAPL', date: '2026-07-12', days_out: 18, direction: 'long' },
+], '2'); // one ML-eligible market for the entire batch; server default is '2'
 
 if (isMLDailyLimitReached(result)) {
   console.log('Upgrade for unlimited ML -', result.message);

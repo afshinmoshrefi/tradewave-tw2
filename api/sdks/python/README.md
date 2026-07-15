@@ -46,8 +46,9 @@ tw = Client()          # reads TRADEWAVE_API_KEY
 
 ### `scan` - find the best seasonal setups
 
-The flagship scanner. Fans out over your in-scope markets, ranks by `edge_score`, and
-returns ranked `PatternCard`s.
+The flagship scanner. It defaults to a liquid-equities core (DOW 30, NASDAQ 100,
+S&P 500, ETFs) intersected with your scope; pass `markets` explicitly to scan others.
+It ranks by `edge_score` and returns ranked `PatternCard`s.
 
 ```python
 scan = tw.scan(
@@ -114,9 +115,13 @@ for p in record.picks:
 | `analyze(symbol, market=, direction=, days_out=)` | `GET /analyze/{symbol}` |
 | `pattern(market, symbol)` | `GET /patterns/{market}/{symbol}` |
 | `seasonal_chart(market, symbol, entry_date=, days_out=)` | `GET /seasonal-chart` |
-| `score(opportunities=[...])` | `POST /score` |
+| `score(opportunities=[...], market=)` | `POST /score` |
 | `daily_pick()` | `GET /daily-pick` |
 | `daily_pick_track_record()` | `GET /daily-pick/track-record` |
+
+`score()` accepts one top-level `market` for the whole batch (default `"2"`, S&P 500
+stocks). Do not put `market` inside individual opportunity dictionaries; make a separate
+call for each ML-eligible market.
 
 The `/opportunities` `from` parameter is a Python reserved word, so the SDK kwarg is
 `from_` (it is sent on the wire as `from`).

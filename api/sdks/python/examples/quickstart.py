@@ -51,7 +51,7 @@ def main() -> None:
         # 4) ML scores for a batch. The daily-limit nudge is DATA, not an error.
         result = tw.score([
             {"symbol": "AAPL", "date": "2026-07-12", "days_out": 18, "direction": "long"},
-        ])
+        ], market="2")
         if isinstance(result, MLDailyLimit):
             print("\nML daily limit reached:", result.message)
         else:

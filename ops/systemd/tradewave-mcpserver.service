@@ -1,42 +1,84 @@
 [Unit]
-Description=TradeWave MCP server (SSE, thin wrapper over the v1 gateway)
+Description=TradeWave MCP server (Streamable HTTP, thin wrapper over the v1 gateway)
 After=network.target redis-server.service tradewave-apiserver.service
 # The MCP server proxies every tool call to the gateway, so bring it up after it.
 Wants=tradewave-apiserver.service
 
 [Service]
 NoNewPrivileges=true
-ProtectSystem=full
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+PrivateDevices=true
+ProtectHostname=true
+ProtectClock=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectProc=invisible
+ProcSubset=pid
 RestrictSUIDSGID=true
+RestrictNamespaces=true
 LockPersonality=true
-# Not gunicorn: this is the plain FastMCP SSE process, so Type=simple (no sd_notify).
-Type=simple
-User=flask
-Group=flask
-WorkingDirectory=/home/flask
-# Defaults below are placed BEFORE EnvironmentFile so secrets.env can override them per box.
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+# One async MCP process can hold many Streamable HTTP sockets, including
+# SSE-framed streaming responses. Keep the OS
+# descriptor ceiling above nginx's per-client budget while bounding runaway tasks.
+LimitNOFILE=65536
+TasksMax=256
+# Result schemas/runtime bounds are the primary protection.  These cgroup limits
+# add conservative last-resort containment without constraining 20-session load.
+# MemoryHigh applies reclaim pressure; MemoryMax is the hard runaway ceiling.
+MemoryHigh=768M
+MemoryMax=1G
+TimeoutStopSec=30
+# Type=exec makes PID1 fail the start if the exact interpreter cannot be executed.
+Type=exec
+User=tradewave-mcp
+Group=tradewave-mcp
+SupplementaryGroups=
+WorkingDirectory=/
+# The installer-owned 10-release-fence.conf drop-in supplies the one fixed
+# ExecCondition. Keeping it outside this replaceable unit also fences the exact
+# legacy unit throughout first-migration crash recovery.
+# PID 1 reads the service EnvironmentFile before entering this namespace. The
+# process itself must never browse the platform-wide secrets directory.
+InaccessiblePaths=-/etc/tradewave -/home/flask
+# Defaults below are placed BEFORE the MCP-only EnvironmentFile so its reviewed
+# bind/transport/API settings can override them per box.
 # Co-located launch topology: MCP binds loopback and proxies the LOCAL gateway. To split the
 # gateway onto its own box, KEEP MCP on that same box as the gateway so API_BASE_URL stays
-# loopback; only set TW2_MCP_HOST to the box's reachable IP if nginx fronts MCP cross-box.
-# TW2_MCP_PUBLIC_HOST (the SDK DNS-rebinding allowlist host) also comes from secrets.env per env.
+# loopback; the supported release topology requires same-box nginx on this address.
+# TW2_MCP_PUBLIC_HOST (the SDK DNS-rebinding allowlist host) comes from the generated
+# least-privilege mcpserver.env. The service must never receive the platform secrets file.
 # See ops/SPLIT_GATEWAY_TO_OWN_BOX.md.
 Environment=API_BASE_URL=http://127.0.0.1:8088/v1
 Environment=TW2_MCP_HOST=127.0.0.1
 Environment=TW2_MCP_PORT=9090
-# Transport: streamable-http is the current MCP standard (what ChatGPT/Claude default to); SSE is
-# the legacy transport. Default here, overridable via secrets.env. Endpoint path = /mcp.
+# Transport is fixed to Streamable HTTP by the generated/validated MCP-only
+# environment. SSE-framed responses occur inside this transport; legacy SSE is
+# intentionally unsupported. The canonical
+# endpoint is `/`; `/mcp` remains a permanent compatibility alias.
 Environment=TW2_MCP_TRANSPORT=streamable-http
-EnvironmentFile=/etc/tradewave/secrets.env
-Environment=PYTHONPATH=/home/flask
+EnvironmentFile=/etc/tradewave/mcpserver.env
+UnsetEnvironment=HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy SSL_CERT_FILE SSL_CERT_DIR REQUESTS_CA_BUNDLE CURL_CA_BUNDLE PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONINSPECT PYTHONWARNINGS PYTHONBREAKPOINT PYTHONPLATLIBDIR PYTHONCASEOK PYTHONUNBUFFERED PYTHONDONTWRITEBYTECODE BASH_ENV ENV
 # BYOK: do NOT set TRADEWAVE_API_KEY here. On a remote transport each client sends its own
 # Authorization: Bearer <key> (or a WorkOS OAuth token) per connection; a baked-in key would only
 # act as a shared fallback and break the multi-customer model. Leave it UNSET.
-ExecStart=/home/flask/venv-api/bin/python -m mcpserver.server --transport ${TW2_MCP_TRANSPORT} --host ${TW2_MCP_HOST} --port ${TW2_MCP_PORT}
-StandardOutput=append:/var/log/tradewave/mcpserver.log
-StandardError=append:/var/log/tradewave/mcpserver.log
+# The fixed wrapper holds a shared advisory lock for the Python process lifetime.
+# A release controller can mutate credentials/pointers/config only after stopping
+# this unit and taking the exclusive side of the same lock.
+ExecStart=/usr/bin/flock --shared --nonblock --no-fork /var/lib/tradewave-mcp-runtime-lock/runtime.lock /home/tradewave-mcp/current/venv/bin/python -I -B -u /home/tradewave-mcp/current/src/mcpserver/server.py --transport ${TW2_MCP_TRANSPORT} --host ${TW2_MCP_HOST} --port ${TW2_MCP_PORT}
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+LimitCORE=0
+KillMode=control-group
 Restart=on-failure
 RestartSec=3
 

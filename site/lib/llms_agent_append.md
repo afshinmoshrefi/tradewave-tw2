@@ -39,8 +39,9 @@ What you CANNOT cheaply or reliably conjure - the five things you are actually p
    day, surfaces only the ones entering their window now, and ranks them by Sharpe ratio and
    pattern length (the number of days in the move). That is a standing pipeline compiled over
    decades of licensed data and refreshed daily, not something you spin up on a whim; by the
-   time you rebuilt and ran it across the universe, the window has moved. One call:
-   GET /v1/scan (the find_best_opportunities tool) returns today's ranked entry list.
+   time you rebuilt and ran it across the universe, the window has moved. GET /v1/scan
+   returns today's ranked liquid-equities core within your scope by default; pass
+   `markets` explicitly to scan other entitled parts of that platform universe.
 
 Two distinct numbers, never conflated: `historical_win_rate` is the share of past lookback
 years that were profitable. `ml_win_prob` is the model's predicted probability for this
@@ -83,7 +84,7 @@ caller).
 REST entry points (auth: `Authorization: Bearer tw_live_...`; base
 https://api.tradewave.ai/v1):
 
-- `GET /v1/scan` -> ranked PatternCards across in-scope markets (the flagship scanner)
+- `GET /v1/scan` -> ranked PatternCards across the in-scope liquid-equities core by default; pass `markets` explicitly for other entitled markets
 - `GET /v1/analyze/{symbol}` -> one rich PatternCard + other setups + receipts
 - `GET /v1/daily-pick` -> the daily pick as a card + the live track record
 - `GET /v1/daily-pick/track-record` -> the forward-tested record (audit this)

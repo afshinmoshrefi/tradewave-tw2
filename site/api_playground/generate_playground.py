@@ -79,7 +79,7 @@ ENDPOINTS_JS = """
 const ENDPOINTS = {
   "daily-pick": { method:"GET", path:"/daily-pick", label:"Daily pick (a PatternCard + track record)", cards:true, params:[] },
   "scan": { method:"GET", path:"/scan", label:"Scan - find best opportunities (flagship)", cards:true, params:[
-    {name:"markets", in:"query", ph:"2,11 or gold,etfs", hint:"csv of ids or names; blank = all in scope"},
+    {name:"markets", in:"query", ph:"2,11 or gold,etfs", hint:"csv of ids or names; blank = liquid-equities core in scope"},
     {name:"window", in:"query", ph:"now", def:"now", hint:"now | next_2_weeks | next_month | YYYY-MM-DD..YYYY-MM-DD"},
     {name:"direction", in:"query", ph:"long | short", hint:"optional"},
     {name:"min_win_rate", in:"query", ph:"0.6", hint:"0..1, optional"},
@@ -102,7 +102,7 @@ const ENDPOINTS = {
   "track-record": { method:"GET", path:"/daily-pick/track-record", label:"Daily-pick realized track record", cards:false, params:[] },
   "score": { method:"POST", path:"/score", label:"ML score setups (POST)", cards:false, body:true, params:[] }
 };
-const DEFAULT_BODY = JSON.stringify({opportunities:[{symbol:"DOV",date:"",days_out:30,direction:"long",market:"2"}]}, null, 2);
+const DEFAULT_BODY = JSON.stringify({market:"2",opportunities:[{symbol:"DOV",date:"",days_out:30,direction:"long"}]}, null, 2);
 """
 
 RUNNER_JS = r"""

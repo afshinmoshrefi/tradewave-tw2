@@ -68,10 +68,13 @@ Even if your agent got all four right, it solved the wrong problem. You did not 
 
 That is a cross-sectional scan over the whole tradeable universe - hundreds of securities across 15 markets - run *every day*, surfacing only the names entering their window now, ranked by Sharpe ratio and the length of the pattern (the number of days in the move). It is a standing pipeline compiled over decades of licensed data and refreshed daily, not an ad-hoc computation an agent spins up on a whim. By the time an agent rebuilt and ran that scan across the universe, the entry window it was hunting has already moved.
 
-That ranked daily list is one API call. No account yet? Swap in the public demo token `tw_demo_explore` to run it now on a read-only slice, then bring a `tw_live_xxx` key for your full market scope:
+That ranked daily list is one API call. The omitted-market default is the liquid-equities
+core intersected with your scope; call `GET /markets` and pass `markets` explicitly for
+other entitled markets. No account yet? Use the public demo token `tw_demo_explore` to run
+the default read-only slice, then bring a `tw_live_xxx` key for broader scope:
 
 ```bash
-# Today's securities entering a seasonal window, ranked - across your in-scope markets
+# Today's securities entering a seasonal window, ranked - default liquid-equities core
 curl "{{API_BASE}}/scan?window=now&rank_by=sharpe" \
   -H "Authorization: Bearer tw_demo_explore"   # or your own tw_live_xxx key
 ```

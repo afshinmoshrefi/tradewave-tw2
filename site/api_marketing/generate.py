@@ -1120,7 +1120,7 @@ def build_mcp() -> str:
   <div class="chat-body">
     {user("Find the strongest seasonal longs in S&P 500 stocks with greater than 70% win probability, ranked by ML score.")}
     {tool("tradewave.get_seasonal_opportunities(market='2', direction='long', min_win_rate=0.70)")}
-    {tool("tradewave.score_opportunities([list of 14 setups])")}
+    {tool("tradewave.score_opportunities([list of 14 setups], market='2')")}
     {agent("""I found <strong>14 seasonal long setups</strong> in the S&P 500 stocks market with historical win rates above 70%.
 After running them through the ML scorer here are the top 5, ranked by ML score:<br><br>
 <table class="bubble-table">
@@ -1190,8 +1190,8 @@ look-ahead bias. The full record is available at <code>/v1/daily-pick/track-reco
   <div class="chat-body">
     {user("Build me a Q3 seasonal portfolio across US sectors. I want diversified exposure, minimum 70% ML win probability, nothing overlapping by more than 5 days.")}
     {tool("tradewave.list_markets()")}
-    {tool("tradewave.get_seasonal_opportunities(market='11', from='2026-07-01', to='2026-09-30', direction='long', min_win_rate=0.65, limit=50)")}
-    {tool("tradewave.score_opportunities([all 50 sector ETF setups])")}
+    {tool("tradewave.find_best_opportunities(markets=['11'], window='2026-07-01..2026-09-30', direction='long', min_win_rate=0.65, limit=50, view='table')")}
+    {tool("tradewave.score_opportunities([all 50 sector ETF setups], market='11')")}
     {agent("""I've screened 50 Q3 sector ETF setups and filtered to those with ML win probability above 70%,
 then selected one per sector sub-group to avoid overlap. Here is a 6-position portfolio:<br><br>
 <table class="bubble-table">
@@ -1237,8 +1237,8 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
     <div class="section-head">
       <h2 class="gradient-text-w">Paste the URL, sign in, ask</h2>
       <p>TradeWave's MCP is a hosted HTTP server at <code style="font-size:13px;color:var(--accent);">{portal_urls.MCP_URL}</code>.
-         In ChatGPT or Claude.ai, paste that URL into Settings - Connectors, click Connect, and
-         sign in with your TradeWave account - no API key needed. Bring-your-own-login means metering
+         In ChatGPT use Settings - Apps - Create; in Claude.ai use Settings - Connectors. Paste the
+         URL, click Connect, and sign in with your TradeWave account - no API key needed. Bring-your-own-login means metering
          follows the account you sign in with, not a shared key. In chat, AI scoring follows your
          TradeWave plan: it begins at Analyst (Explorer and Navigator see the deterministic seasonal
          patterns), and Strategist is unlimited. When a daily limit is reached the server returns a
@@ -1280,7 +1280,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
         the trade. Because we never earn per trade, a no-pattern day is as honest as a buy.</p>
       <div style="margin:18px 0;padding:14px 18px;border-left:3px solid var(--accent);background:rgba(99,102,241,.07);border-radius:8px;color:var(--dim);font-style:italic;">"Using TradeWave, find the best seasonal long entering its window in the next two weeks across my markets, show me the win rate and ML probability, and give me the order ticket."</div>
       <ol style="color:var(--dim);line-height:1.85;padding-left:20px;margin:0;">
-        <li><strong>Find</strong> - call find_best_opportunities to scan your in-scope markets and rank the strongest setups.</li>
+        <li><strong>Find</strong> - call find_best_opportunities to scan its default liquid-equities core, or pass the markets you want explicitly, and rank the strongest setups.</li>
         <li><strong>Read</strong> - off the top Pattern Card, take the edge, the year-by-year receipts, and the optional ML win-probability block (distinct from the historical win rate), plus the order ticket in next_step.</li>
         <li><strong>Place it anywhere</strong> - the MARKET/DAY ticket carries no price level, so it maps cleanly onto any in-chat execution app, broker SDK, or a manual confirmation.</li>
       </ol>
@@ -1306,7 +1306,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">find_best_opportunities</p>
-        <p style="font-size:13px;color:var(--dim);">Scan the caller's in-scope markets and return the strongest ranked seasonal setups as decision-ready Pattern Cards, each with a research hand-off.</p>
+        <p style="font-size:13px;color:var(--dim);">Scan a liquid-equities core within the caller's scope by default (or explicit markets) and return the strongest ranked seasonal setups as decision-ready Pattern Cards.</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
@@ -1316,7 +1316,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">explain_pick</p>
-        <p style="font-size:13px;color:var(--dim);">Unpack why a setup or the daily pick scores the way it does - the seasonal edge, the ML factors, and the receipts behind it.</p>
+        <p style="font-size:13px;color:var(--dim);">Explain today's daily pick with its seasonal and ML evidence plus the live forward-tested track record. This is a zero-input call.</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
@@ -1326,7 +1326,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">whats_seasonal_now</p>
-        <p style="font-size:13px;color:var(--dim);">What is entering its seasonal window today across the caller's markets - the daily, universe-wide scan in one call.</p>
+        <p style="font-size:13px;color:var(--dim);">What is entering its seasonal window now across the in-scope liquid-equities core by default; pass markets explicitly to scan others.</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
         <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
@@ -1354,17 +1354,17 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">list_symbols</p>
-        <p style="font-size:13px;color:var(--dim);">All tradeable symbols in a market. Use to populate screener inputs.</p>
+        <p style="font-size:13px;color:var(--dim);">A safely bounded symbol page with optional ticker prefix filtering and explicit totals.</p>
       </div>
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_seasonal_opportunities</p>
-        <p style="font-size:13px;color:var(--dim);">Find the best seasonal setups for a market and date window, ranked by edge. Symbol, direction, entry, hold, Sharpe, win rate, average return.</p>
+        <p style="font-size:13px;color:var(--dim);">Find seasonal setups for one market at one entry date, ranked by edge. Use find_best_opportunities for a date window.</p>
       </div>
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_symbol_patterns</p>
-        <p style="font-size:13px;color:var(--dim);">All seasonal patterns for one specific symbol across its available windows - direction, entry, hold, win rate, Sharpe.</p>
+        <p style="font-size:13px;color:var(--dim);">The top ranked seasonal patterns for one symbol - direction, entry, hold, win rate, and Sharpe - on supported per-symbol markets (ids 0,1,2,7,9).</p>
       </div>
       <div class="card" style="padding:20px 24px;">
         <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>

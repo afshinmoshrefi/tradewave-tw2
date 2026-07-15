@@ -19,7 +19,7 @@ import requests
 from flask import Blueprint, g, jsonify, request
 
 from . import appserver_client, cards, market_bands, ml_quota, tiers
-from .auth import require_api_key
+from .auth import AuthMisconfigured, mcp_admission_id, require_api_key
 
 log = logging.getLogger("apiserver.routes")
 v1 = Blueprint("v1", __name__)
@@ -393,9 +393,19 @@ def me():
     user's tier, so this reflects them, not the MCP service principal."""
     ent = g.customer["entitlements"]
     scope = set(ent["markets"])
+    try:
+        admission_id = mcp_admission_id(g.customer)
+    except AuthMisconfigured:
+        # MCP connect-time validation relies on this account binding.  Never return
+        # a successful but unbindable identity response.
+        return jsonify({"error": {
+            "code": "service_misconfigured", "message": "service misconfigured"}}), 503
     in_scope = [{"id": m["id"], "name": m["name"], "ml_eligible": m["id"] in tiers.ML_MARKETS}
                 for m in appserver_client.list_markets() if m["id"] in scope]
     return jsonify({
+        # Opaque, non-secret account equality key used only to keep all of one
+        # customer's API keys in the same MCP session-admission bucket.
+        "mcp_admission_id": admission_id,
         "tier": g.customer["tier"],
         "tier_name": ent.get("name"),
         "ml_remaining_today": ml_quota.remaining(g.customer),  # None = unlimited
@@ -1460,21 +1470,49 @@ def score():
     for it in items:
         if not isinstance(it, dict):
             return _err("invalid_request", "each opportunity must be an object", 400)
+        if "market" in it:
+            return _err(
+                "invalid_request",
+                "market must be supplied once at the top level, not inside an opportunity",
+                400,
+            )
         missing = [k for k in ("symbol", "date", "days_out", "direction") if it.get(k) in (None, "")]
         if missing:
             return _err("invalid_request",
                         "opportunity missing required fields: %s" % ", ".join(missing), 400)
+        symbol = it["symbol"]
+        if not isinstance(symbol, str):
+            return _err("invalid_request", "symbol must be a string", 400)
+        symbol = symbol.strip()
+        if not 1 <= len(symbol) <= 64:
+            return _err(
+                "invalid_request", "symbol must contain between 1 and 64 characters", 400
+            )
+        entry_date = it["date"]
+        if not isinstance(entry_date, str) or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}", entry_date
+        ):
+            return _err("invalid_request", "date must be a valid YYYY-MM-DD date", 400)
         try:
-            days_out_i = int(it["days_out"])
-        except (ValueError, TypeError):
-            return _err("invalid_request", "days_out must be a number", 400)
+            datetime.date.fromisoformat(entry_date)
+        except ValueError:
+            return _err("invalid_request", "date must be a valid YYYY-MM-DD date", 400)
+        days_out_i = it["days_out"]
+        if not isinstance(days_out_i, int) or isinstance(days_out_i, bool):
+            return _err(
+                "invalid_request", "days_out must be an integer between 1 and 366", 400
+            )
+        if not 1 <= days_out_i <= 366:
+            return _err(
+                "invalid_request", "days_out must be an integer between 1 and 366", 400
+            )
         try:
             direction = _direction_arg(it["direction"])
         except ValueError as e:
             return _err("invalid_request", str(e), 400)
         norm.append({
-            "symbol": it["symbol"],
-            "date": it["date"],
+            "symbol": symbol,
+            "date": entry_date,
             "days_out": days_out_i,
             "direction": direction,
         })

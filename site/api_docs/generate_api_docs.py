@@ -969,7 +969,11 @@ EXAMPLE_RESPONSES: dict[str, str] = {
   "symbols": [
     {"symbol": "AAPL", "name": "Apple Inc"},
     {"symbol": "MSFT", "name": "Microsoft Corp"}
-  ]
+  ],
+  "count": 2,
+  "matched": 503,
+  "total": 503,
+  "note": "showing 2 of 503 matching symbols - raise 'limit' or narrow 'prefix' for the rest"
 }""",
     "GET /opportunities": """{
   "entry_date": "2026-05-31",
@@ -1420,8 +1424,8 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>The workhorse. Scans a market (or the user's watchlist) and returns the strongest seasonal setups right now as ranked decision cards - headline, direction, edge score, entry window, and a research hand-off. Use when the user asks what to trade or when to enter.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">market</code>, <code class="inline-code">window</code> (e.g. "now"), <code class="inline-code">direction</code> (long | short), <code class="inline-code">rank_by</code>, <code class="inline-code">limit</code></p>
+    <p>The workhorse. Scans the in-scope liquid-equities core by default, or explicit markets, and returns the strongest seasonal setups as ranked decision cards. Use when the user asks what to trade or when to enter.</p>
+    <p><strong>Inputs:</strong> optional <code class="inline-code">markets</code>, <code class="inline-code">window</code>, <code class="inline-code">direction</code>, win/history/day/return/Sharpe filters, <code class="inline-code">pe_cycle</code>, <code class="inline-code">years</code>, <code class="inline-code">min_winning_years</code>, <code class="inline-code">rank_by</code>, <code class="inline-code">limit</code>, and <code class="inline-code">view</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/scan</code></p>
   </div>
 </div>
@@ -1433,7 +1437,7 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Deep-dives one named ticker - the best current seasonal setup plus alternative setups, full receipts, and a ready-to-place ticket. Use when the user asks about a specific symbol.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code></p>
+    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required); optional <code class="inline-code">market</code>, <code class="inline-code">direction</code>, <code class="inline-code">days_out</code>, <code class="inline-code">entry_date</code>, <code class="inline-code">pe_cycle</code>, <code class="inline-code">years</code>, <code class="inline-code">period</code>, <code class="inline-code">reverse</code>, <code class="inline-code">view</code>, and <code class="inline-code">include_chart</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code></p>
   </div>
 </div>
@@ -1444,9 +1448,9 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Returns the full receipts behind a setup - years tested, per-year win/loss history, best/worst year, the Trend Chart summary, and the seasonal + ML basis. Use when the user asks "why?" or wants to see the evidence behind a card.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code>, <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code></p>
-    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (receipts)</p>
+    <p>Explains today's TradeWave daily pick with its seasonal and ML evidence plus the live forward-tested pick record. Use when the user asks why today's selected setup was chosen.</p>
+    <p><strong>Inputs:</strong> none</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/daily-pick</code></p>
   </div>
 </div>
 
@@ -1468,8 +1472,8 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>The zero-input starting point. Returns what is seasonally in play right now across the caller's in-scope markets - a fast "what should I be looking at today" overview.</p>
-    <p><strong>Inputs:</strong> none (optional <code class="inline-code">market</code>, <code class="inline-code">limit</code>)</p>
+    <p>The fast "what should I be looking at today" starting point. With no market input it scans a liquid-equities core (DOW 30, NASDAQ 100, S&amp;P 500, ETFs) intersected with the caller's scope; pass markets explicitly to include others.</p>
+    <p><strong>Inputs:</strong> optional <code class="inline-code">markets</code>, <code class="inline-code">min_win_rate</code>, and <code class="inline-code">view</code> (decision | table | full)</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/scan</code></p>
   </div>
 </div>
@@ -1481,7 +1485,7 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Puts two or more setups side by side on the same yardstick - edge score, win rate, Sharpe, avg/median return, ML basis - so the assistant can reason about which is stronger. Use when the user is choosing between candidates.</p>
-    <p><strong>Inputs:</strong> list of <code class="inline-code">{{symbol, market, entry_date, days_out, direction}}</code></p>
+    <p><strong>Inputs:</strong> <code class="inline-code">symbols</code> (required list of 2-10 ticker strings); optional one <code class="inline-code">market</code> for all symbols and <code class="inline-code">view</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (per item)</p>
   </div>
 </div>
@@ -1509,7 +1513,7 @@ def build_mcp_reference() -> str:
   <div class="tool-card-body">
     <p>Reports the caller's identity and entitlements as resolved from the API key - tier, in-scope markets, ML allowance, and remaining quota. Use to check what the current key can do before making scoped calls.</p>
     <p><strong>Inputs:</strong> none</p>
-    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/markets</code> (entitlements)</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/me</code></p>
   </div>
 </div>
 
@@ -1531,8 +1535,8 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Lists the tradeable symbols in a market.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (market id, e.g. "2")</p>
+    <p>Lists a safe page of tradeable symbols in a market. The response makes truncation explicit with <code class="inline-code">total</code>, <code class="inline-code">matched</code>, <code class="inline-code">count</code>, and a note.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">prefix</code> (optional ticker prefix), <code class="inline-code">limit</code> (default 100, maximum 1000)</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/markets/{{market_id}}/symbols</code></p>
   </div>
 </div>
@@ -1543,8 +1547,8 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Find the best seasonal trade setups for a market and date window, ranked by historical edge. Use when the user asks what to trade, when to enter, or which symbols have a strong seasonal tendency.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">from</code>, <code class="inline-code">to</code>, <code class="inline-code">direction</code> (long | short), <code class="inline-code">min_win_rate</code> (0-1), <code class="inline-code">limit</code></p>
+    <p>Find seasonal trade setups for one market at one entry date, ranked by historical edge. Use <code class="inline-code">find_best_opportunities</code> when the user asks for a date window.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">from_date</code> (single entry date), <code class="inline-code">direction</code> (long | short), <code class="inline-code">min_win_rate</code> (0-1), <code class="inline-code">limit</code></p>
     <p><strong>Returns:</strong> ranked list - symbol, direction, entry date, holding period, Sharpe ratio, avg/median return %, win rate. ML fields are available on every tier (metered per day) and are null only when your daily ML allowance is spent or the market is not ML-eligible (ids 0-4, 11).</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/opportunities</code></p>
   </div>
@@ -1557,8 +1561,8 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Fetches the seasonal setups for a specific symbol. Use when you want the raw per-symbol opportunity rows rather than a synthesized card.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code> (required)</p>
-    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/opportunities/{{symbol}}</code></p>
+    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> and <code class="inline-code">market</code> (required); optional <code class="inline-code">pe_cycle</code>, <code class="inline-code">years</code>, <code class="inline-code">min_winning_years</code>, day range, average-return floor, and Sharpe floor</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/securities/{{symbol}}/patterns</code></p>
   </div>
 </div>
 
@@ -1569,7 +1573,7 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Returns aggregate seasonal pattern statistics for a symbol - win rate, average return, Sharpe, sample size. No price series is returned.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">symbol</code> (required)</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">market</code> and <code class="inline-code">symbol</code> (required); optional <code class="inline-code">pe_cycle</code>, <code class="inline-code">years</code>, <code class="inline-code">period</code>, and <code class="inline-code">reverse</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/patterns/{{market_id}}/{{symbol}}</code></p>
   </div>
 </div>
@@ -1581,7 +1585,7 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Returns The Trend Chart DATA (not an image) for a seasonal setup - a single year-averaged, normalized 0-100 seasonal index curve (<code class="inline-code">seasonal_curve</code>, one <code class="inline-code">{{date, index}}</code> point per day). It is the typical within-year shape (where it rises, peaks, fades), NOT per-year cumulative price paths, and the index is never a price. Agents can reason over the shape. Raw prices are intentionally not exposed.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">symbol</code> (required), <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code>, <code class="inline-code">years</code></p>
+    <p><strong>Inputs:</strong> <code class="inline-code">market</code> and <code class="inline-code">symbol</code> (required); optional <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code>, <code class="inline-code">years</code>, <code class="inline-code">pe_cycle</code>, <code class="inline-code">period</code>, and <code class="inline-code">reverse</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/seasonal-chart</code></p>
   </div>
 </div>
@@ -1593,7 +1597,7 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Runs the ML model on a list of opportunities and returns <code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, and <code class="inline-code">pred_mfe</code> for each. Available on every tier, metered per day (free 5/day, Dev 100/day, Pro/Business unlimited). When the daily limit is reached the response includes a graceful stub instead of scoring - never an error.</p>
-    <p><strong>Inputs:</strong> list of <code class="inline-code">{{symbol, date, days_out, direction}}</code></p>
+    <p><strong>Inputs:</strong> <code class="inline-code">opportunities</code> list of <code class="inline-code">{{symbol, date, days_out, direction}}</code>; optional top-level <code class="inline-code">market</code> for the whole batch (one ML-eligible market per call, default <code class="inline-code">"2"</code>). Never put <code class="inline-code">market</code> inside an item.</p>
     <p><strong>Maps to:</strong> <code class="inline-code">POST /v1/score</code></p>
   </div>
 </div>
@@ -1627,7 +1631,7 @@ def build_mcp_reference() -> str:
 <p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">{MCP_URL}</code>. Consumer apps (ChatGPT, Claude.ai) connect via OAuth: paste the server URL, click Connect, and sign in with your TradeWave account - no API key needed. Stdio-only dev tools (Claude Desktop, Cursor) bridge to it with the <code class="inline-code">mcp-remote</code> npx shim and a Bearer API key. There is no npm package to install.</p>
 
 <h3>ChatGPT</h3>
-<p>In ChatGPT, open <strong>Settings &rarr; Connectors</strong> (enable Developer mode under Advanced if you have not already), choose <strong>Create</strong>, and paste the server URL:</p>
+<p>In ChatGPT, open <strong>Settings &rarr; Apps &rarr; Create</strong> (or <strong>Workspace Settings &rarr; Apps &rarr; Create</strong> in a managed workspace). Enable developer mode in the Apps advanced settings if required, then paste the server URL and scan the tools:</p>
 <pre><code>Server URL: {MCP_URL}
 Auth:       OAuth - sign in with your TradeWave account</code></pre>
 <p>ChatGPT discovers the sign-in flow from the server automatically. Click <strong>Connect</strong>, log in with your TradeWave account, and approve. Your plan follows the account you sign in with.</p>

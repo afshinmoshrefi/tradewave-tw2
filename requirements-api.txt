@@ -15,5 +15,10 @@ gunicorn>=21
 psycopg2-binary>=2.9
 redis>=5.0
 requests>=2.31
-httpx>=0.27
-mcp>=1.2
+httpx==0.28.1
+# Direct OAuth/JWKS dependency; crypto installs the validated RSA backend used
+# to verify WorkOS RS256 access tokens.
+PyJWT[crypto]==2.13.0
+# Release-validated MCP SDK.  FastMCP transport/auth/schema behavior is part of
+# the public contract, so an unconstrained upgrade must not change it at deploy.
+mcp==1.28.1

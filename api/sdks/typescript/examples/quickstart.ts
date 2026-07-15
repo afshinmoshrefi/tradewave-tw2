@@ -48,8 +48,8 @@ async function main(): Promise<void> {
 
     // 4. ML scoring - the daily-limit nudge is data, not an error.
     const scores = await tw.score([
-      { symbol: 'AAPL', date: '2026-07-12', days_out: 18, direction: 'long', market: '2' },
-    ]);
+      { symbol: 'AAPL', date: '2026-07-12', days_out: 18, direction: 'long' },
+    ], '2');
     if (isMLDailyLimitReached(scores)) {
       console.log('\nML daily limit reached -', scores.message);
     } else {

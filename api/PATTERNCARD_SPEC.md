@@ -132,9 +132,11 @@ act on). This conflict-free honesty is a differentiator - never manufacture a se
 ## 5. New gateway endpoints
 
 ### GET /v1/scan  -> find_best_opportunities (the flagship scanner)
-Scan across the caller's in-scope markets, rank by edge_score, return PatternCards.
+Scan a liquid-equities core within the caller's scope by default (or explicit markets),
+rank by edge_score, return PatternCards.
 Query params:
-- markets   (optional, csv of ids or names e.g. "2,11" or "gold,energy"; default = ALL in-scope)
+- markets   (optional, csv of ids or names e.g. "2,11" or "gold,energy"; default =
+             DOW 30, NASDAQ 100, S&P 500, ETFs intersected with the caller's scope)
 - window    (optional: "now" | "next_2_weeks" | "next_month" | a from..to; default "now")
             "now" = setups whose entry_date falls within the next ~10 trading days.
 - direction (optional: long|short)

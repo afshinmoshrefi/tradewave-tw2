@@ -47,6 +47,32 @@ def hash_key(raw_key):
     return hmac.new(secret, raw_key.encode(), hashlib.sha256).hexdigest()
 
 
+def mcp_admission_id(cust):
+    """Return a stable, opaque account identity for MCP session fairness.
+
+    API keys remain distinct authentication/session-ownership credentials, but all
+    keys owned by one gateway account must share one MCP admission bucket.  The raw
+    database user id is not exposed in `/me`; a domain-separated HMAC is sufficient
+    for equality and cannot be used to recover it.  The public demo principal has no
+    database key and receives one fixed, public-safe bucket.
+    """
+    user_id = str((cust or {}).get("user_id") or "")
+    if not user_id:
+        raise AuthMisconfigured("authenticated customer has no stable user id")
+    if user_id == "demo":
+        digest = hashlib.sha256(b"tradewave-mcp-admission-v1\0demo").hexdigest()
+        return "acct_" + digest
+    secret = settings.API_KEY_HMAC_SECRET
+    if not secret:
+        raise AuthMisconfigured("API_KEY_HMAC_SECRET not configured")
+    digest = hmac.new(
+        secret.encode(),
+        b"tradewave-mcp-admission-v1\0" + user_id.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return "acct_" + digest
+
+
 def resolve_customer(raw_key):
     """raw API key -> {user_id, email, tier(api), entitlements} or None.
 

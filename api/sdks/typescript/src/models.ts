@@ -49,6 +49,8 @@ export interface MarketRef {
  * ml_remaining_today / ml_daily_limit are null when unlimited.
  */
 export interface Me {
+  /** Opaque, non-secret account equality id used for MCP session admission. */
+  mcp_admission_id?: string;
   tier?: string;
   tier_name?: string;
   /** ML calls remaining today (null = unlimited; 0 = daily limit reached). */
@@ -377,8 +379,6 @@ export interface ScoreInput {
   date: string;
   days_out: number;
   direction: Direction;
-  /** Optional market id; resolved if the symbol is unique. */
-  market?: string;
 }
 
 /** A scored item (legacy ML names), plus an optional note when unscored past the allowance. */

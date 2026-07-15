@@ -41,14 +41,17 @@ The server publishes 17 tools: 6 flagship tools that map to the richest API call
 | `analyze_symbol` | One rich Pattern Card for a named symbol, plus `other_setups` | `GET /analyze/{symbol}` |
 | `explain_pick` | Walk through today's daily pick and its forward-tested receipts | `GET /daily-pick` |
 | `morning_briefing` | The one-call start of the day: today's pick, the live track record, and the top setups entering their window | `GET /daily-pick` + `GET /daily-pick/track-record` + `GET /scan` (composed) |
-| `whats_seasonal_now` | What is lining up right now across your in-scope markets | `GET /scan?window=now` |
+| `whats_seasonal_now` | What is lining up right now across a liquid-equities core within your scope by default; pass markets explicitly for others | `GET /scan?window=now` |
 | `compare_opportunities` | Put two or more setups side by side on edge, win rate, and ML | composed |
 
 The card-bearing tools all return the same Pattern Card shape: a `bias` field (`bullish`, `bearish`, or `neutral`), `edge_score`, `stats`, an optional `ml` block, and the `receipts` audit trail. When the best available setup is weak, the tool returns a `neutral` bias and no order ticket on purpose. That conflict-free honesty is the point.
 
 ## Progressive disclosure: decide cheap, then pull the receipts
 
-Every flagship tool takes a `view` knob, so you spend tokens only where the decision needs them.
+The four list/deep-dive flagships - `find_best_opportunities`, `analyze_symbol`,
+`whats_seasonal_now`, and `compare_opportunities` - take a `view` knob, so you spend
+tokens only where the decision needs them. `explain_pick` and `morning_briefing` are
+purpose-built zero-input calls.
 
 | `view` | What you get | Use it for |
 | --- | --- | --- |
@@ -73,7 +76,7 @@ Per-symbol pattern detection (`get_symbol_patterns`) exists for five markets onl
 
 ## Set up ChatGPT
 
-ChatGPT connects to remote MCP servers over HTTP directly, and it signs you in - there is no `npx` bridge and no API key. In ChatGPT, open Settings, then Connectors (enable Developer mode under Advanced if you have not already), choose Create, and paste the server URL:
+ChatGPT connects to remote MCP servers over HTTP directly, and it signs you in - there is no `npx` bridge and no API key. Open **Settings -> Apps -> Create** (or **Workspace Settings -> Apps -> Create** in a managed workspace). Enable developer mode in the Apps advanced settings if required, paste the server URL, and scan the tools:
 
 - Server URL: `{{MCP_URL}}`
 - Auth: OAuth - sign in with your TradeWave account
