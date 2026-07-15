@@ -185,6 +185,7 @@ def ensure_directory(path: str, mode: int, group_name: str | None = None) -> Non
 
 for record in (
     ("/home/tradewave-mcp", 0o755, None),
+    ("/var/lib/tradewave", 0o755, None),
     ("/var/lib/tradewave-mcp-runtime-lock", 0o750, "tradewave-mcp"),
     ("/var/lib/tradewave-api-runtime-lock", 0o750, "tradewave-api"),
     ("/run/tradewave-mcp-deploy", 0o755, None),

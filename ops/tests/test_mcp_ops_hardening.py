@@ -716,6 +716,7 @@ def test_root_launcher_and_controller_transient_are_fail_closed():
     ]
     for record in (
         '("/home/tradewave-mcp", 0o755, None)',
+        '("/var/lib/tradewave", 0o755, None)',
         '("/var/lib/tradewave-mcp-runtime-lock", 0o750, "tradewave-mcp")',
         '("/var/lib/tradewave-api-runtime-lock", 0o750, "tradewave-api")',
         '("/run/tradewave-mcp-deploy", 0o755, None)',
@@ -832,6 +833,7 @@ def test_installer_mount_bootstrap_is_crash_retry_safe_and_fail_closed():
 
     expected_directories = {
         "home/tradewave-mcp": 0o755,
+        "var/lib/tradewave": 0o755,
         "var/lib/tradewave-mcp-runtime-lock": 0o750,
         "var/lib/tradewave-api-runtime-lock": 0o750,
         "run/lock/tradewave": 0o700,
