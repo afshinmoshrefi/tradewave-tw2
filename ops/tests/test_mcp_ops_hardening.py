@@ -698,6 +698,10 @@ def test_root_launcher_and_controller_transient_are_fail_closed():
     assert 'limit_core=$(systemctl show "$DEPLOY_UNIT" --property=LimitCORE --value)' in deploy
     assert "refusing control-plane upgrade while any durable transaction exists" in installer
     assert "/usr/bin/python3.13 -I -B -S" in installer
+    # systemctl's ExecCondition record contains the interpreter once in `path=`
+    # and again in `argv[]=`. Count the path field, not the raw substring.
+    assert installer.count("grep -o 'path=/usr/bin/python3.13'") == 2
+    assert "grep -o '/usr/bin/python3.13'" not in installer
     assert "O_NOFOLLOW" in installer
 
 

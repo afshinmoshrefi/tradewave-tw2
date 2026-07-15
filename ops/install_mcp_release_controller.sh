@@ -561,12 +561,12 @@ if [ -z "$PREFIX" ]; then
   systemctl daemon-reload || fail "could not load the stable MCP release fence"
   if systemctl cat tradewave-mcpserver.service --no-pager >/dev/null 2>&1; then
     [ "$(systemctl show tradewave-mcpserver.service --property=ExecCondition --value | \
-      grep -o '/usr/bin/python3.13' | wc -l)" -eq 1 ] \
+      grep -o 'path=/usr/bin/python3.13' | wc -l)" -eq 1 ] \
       || fail "effective MCP service did not load the one stable release fence"
   fi
   if systemctl cat tradewave-apiserver.service --no-pager >/dev/null 2>&1; then
     [ "$(systemctl show tradewave-apiserver.service --property=ExecCondition --value | \
-      grep -o '/usr/bin/python3.13' | wc -l)" -eq 1 ] \
+      grep -o 'path=/usr/bin/python3.13' | wc -l)" -eq 1 ] \
       || fail "effective API service did not load the one stable release fence"
   fi
 fi
