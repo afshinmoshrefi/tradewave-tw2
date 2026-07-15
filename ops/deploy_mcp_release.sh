@@ -2186,6 +2186,7 @@ import sys
 
 target = os.path.abspath(sys.argv[1])
 uid, gid = int(sys.argv[2]), int(sys.argv[3])
+os.umask(0)
 if os.path.lexists(target):
     raise SystemExit("minimal venv target already exists")
 parent = os.path.dirname(target)
@@ -2205,6 +2206,7 @@ os.mkdir(os.path.join(target, "lib", "python3.13"), 0o555)
 site = os.path.join(target, "lib", "python3.13", "site-packages")
 os.mkdir(site, 0o700)
 os.chown(site, uid, gid)
+os.chmod(site, 0o700)
 os.symlink("/usr/bin/python3.13", os.path.join(target, "bin", "python"))
 os.lchown(os.path.join(target, "bin", "python"), 0, 0)
 configuration = (
@@ -2224,6 +2226,7 @@ try:
     while view:
         view = view[os.write(fd, view):]
     os.fchown(fd, 0, 0)
+    os.fchmod(fd, 0o444)
     os.fsync(fd)
 finally:
     os.close(fd)

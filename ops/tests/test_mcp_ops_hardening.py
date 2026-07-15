@@ -137,6 +137,16 @@ def test_candidate_dependency_builds_are_python_313_and_wheel_only():
     assert deploy.count("--require-hashes --only-binary=:all: --target") == 4
     assert deploy.count("PIP_CONFIG_FILE=/dev/null") >= 4
     assert deploy.count("--wheelhouse") >= 5
+    venv_start = deploy.index("create_minimal_venv()")
+    venv_helper = deploy[venv_start:deploy.index("\n}\n", venv_start)]
+    for invariant in (
+        "os.umask(0)",
+        "os.mkdir(target, 0o555)",
+        'os.mkdir(os.path.join(target, "lib"), 0o555)',
+        "os.chmod(site, 0o700)",
+        "os.fchmod(fd, 0o444)",
+    ):
+        assert invariant in venv_helper
 
 
 def test_candidate_python_series_gate_fails_closed():
