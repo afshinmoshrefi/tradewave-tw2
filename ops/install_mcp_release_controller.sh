@@ -94,6 +94,120 @@ if [ -e "$TX_ROOT" ] || [ -L "$TX_ROOT" ]; then
     || fail "refusing control-plane upgrade while any durable transaction exists"
 fi
 
+# Account-database mutation cannot run inside the immutable launcher's
+# ProtectSystem=strict namespace. The out-of-band reviewed installer creates
+# each fixed least-privilege identity; the controller independently rechecks
+# the complete set before any release work.
+ensure_exact_release_identity() {  # <account> <group>
+  local account_name="$1" group_name="$2"
+  [ -x /usr/sbin/nologin ] || fail "/usr/sbin/nologin is missing"
+  [ -x /usr/bin/getent ] || fail "/usr/bin/getent is missing"
+  [ -x /usr/sbin/groupadd ] || fail "/usr/sbin/groupadd is missing"
+  [ -x /usr/sbin/useradd ] || fail "/usr/sbin/useradd is missing"
+
+  if /usr/bin/getent passwd "$account_name" >/dev/null 2>&1 \
+      && ! /usr/bin/getent group "$group_name" >/dev/null 2>&1; then
+    fail "$account_name exists without its reserved primary group"
+  fi
+  if ! /usr/bin/getent group "$group_name" >/dev/null 2>&1; then
+    /usr/sbin/groupadd --system "$group_name"
+  fi
+  if ! /usr/bin/getent passwd "$account_name" >/dev/null 2>&1; then
+    /usr/sbin/useradd --system --gid "$group_name" --no-user-group \
+      --home-dir /nonexistent --no-create-home \
+      --shell /usr/sbin/nologin --comment "" "$account_name"
+  fi
+
+  /usr/bin/env -i HOME=/nonexistent PATH=/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+    /usr/bin/python3.13 -I -B -S - "$account_name" "$group_name" <<'PY'
+import grp
+import os
+import pwd
+import sys
+
+name, group_name = sys.argv[1:]
+try:
+    account = pwd.getpwnam(name)
+    group = grp.getgrnam(group_name)
+except KeyError as exc:
+    raise SystemExit(f"dedicated MCP identity is incomplete: {exc}")
+groups = os.getgrouplist(name, account.pw_gid)
+if (
+    account.pw_uid <= 0
+    or account.pw_uid >= 1000
+    or group.gr_gid <= 0
+    or group.gr_gid >= 1000
+    or account.pw_gid != group.gr_gid
+    or account.pw_dir != "/nonexistent"
+    or account.pw_shell != "/usr/sbin/nologin"
+    or account.pw_gecos != ""
+    or group.gr_mem != []
+    or groups != [group.gr_gid]
+):
+    raise SystemExit(f"reserved {name} account/group does not match the exact service identity")
+PY
+}
+
+ensure_release_identities() {
+  ensure_exact_release_identity tradewave-mcp tradewave-mcp
+  ensure_exact_release_identity tradewave-mcp-verify tradewave-mcp-verify
+  ensure_exact_release_identity tradewave-mcp-build tradewave-mcp-build
+  ensure_exact_release_identity tradewave-mcp-deps tradewave-mcp-deps
+  ensure_exact_release_identity tradewave-mcp-test tradewave-mcp-test
+  ensure_exact_release_identity tradewave-api tradewave-api
+  /usr/bin/env -i HOME=/nonexistent PATH=/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+    /usr/bin/python3.13 -I -B -S - \
+      tradewave-mcp:tradewave-mcp \
+      tradewave-mcp-verify:tradewave-mcp-verify \
+      tradewave-mcp-build:tradewave-mcp-build \
+      tradewave-mcp-deps:tradewave-mcp-deps \
+      tradewave-mcp-test:tradewave-mcp-test \
+      tradewave-api:tradewave-api <<'PY'
+import grp
+import pwd
+import sys
+
+pairs = [item.split(":", 1) for item in sys.argv[1:]]
+accounts = {name: pwd.getpwnam(name) for name, _ in pairs}
+groups = {name: grp.getgrnam(name) for _, name in pairs}
+uids = {account.pw_uid for account in accounts.values()}
+gids = {group.gr_gid for group in groups.values()}
+if len(uids) != len(pairs) or len(gids) != len(pairs):
+    raise SystemExit("reserved MCP identities must have pairwise-distinct UIDs and GIDs")
+expected_uid_names = {account.pw_uid: name for name, account in accounts.items()}
+expected_gid_names = {group.gr_gid: name for name, group in groups.items()}
+expected_primary_ids = {
+    (accounts[account_name].pw_uid, groups[group_name].gr_gid)
+    for account_name, group_name in pairs
+}
+for account in pwd.getpwall():
+    expected = expected_uid_names.get(account.pw_uid)
+    if expected is not None and account.pw_name != expected:
+        raise SystemExit(
+            f"reserved MCP uid {account.pw_uid} is aliased by {account.pw_name!r}"
+        )
+    if (
+        account.pw_gid in gids
+        and (account.pw_uid, account.pw_gid) not in expected_primary_ids
+    ):
+        raise SystemExit(
+            f"reserved MCP primary gid {account.pw_gid} is aliased by "
+            f"{account.pw_name!r}"
+        )
+for group in grp.getgrall():
+    expected = expected_gid_names.get(group.gr_gid)
+    if expected is not None and group.gr_name != expected:
+        raise SystemExit(
+            f"reserved MCP gid {group.gr_gid} is aliased by {group.gr_name!r}"
+        )
+PY
+}
+
+if [ -z "$PREFIX" ]; then
+  ensure_release_identities
+fi
+crash_point after_service_identity_bootstrap
+
 # The stable launcher is deliberately immutable once CURRENT exists. Publish
 # every strict-namespace writable mount target here instead, and persist the
 # three /run roots through reboot with one immutable tmpfiles definition.

@@ -706,6 +706,36 @@ def test_root_launcher_and_controller_transient_are_fail_closed():
     ).hexdigest() == "54749d8ba854345abe96a6797fff50e7f9ee1fdc98d92a55cec2e852f06f3efc"
     assert "controller bootstrap mount target" not in launcher
 
+    identity_bootstrap_start = installer.index(
+        "# Account-database mutation cannot run inside the immutable launcher's"
+    )
+    identity_bootstrap = installer[
+        identity_bootstrap_start:installer.index(
+            "# The stable launcher is deliberately immutable once CURRENT exists",
+            identity_bootstrap_start,
+        )
+    ]
+    for invocation in (
+        "ensure_exact_release_identity tradewave-mcp tradewave-mcp",
+        "ensure_exact_release_identity tradewave-mcp-verify tradewave-mcp-verify",
+        "ensure_exact_release_identity tradewave-mcp-build tradewave-mcp-build",
+        "ensure_exact_release_identity tradewave-mcp-deps tradewave-mcp-deps",
+        "ensure_exact_release_identity tradewave-mcp-test tradewave-mcp-test",
+        "ensure_exact_release_identity tradewave-api tradewave-api",
+    ):
+        assert invocation in identity_bootstrap
+    for guard in (
+        '/usr/sbin/groupadd --system "$group_name"',
+        '/usr/sbin/useradd --system --gid "$group_name" --no-user-group',
+        'account.pw_dir != "/nonexistent"',
+        'account.pw_shell != "/usr/sbin/nologin"',
+        "reserved MCP identities must have pairwise-distinct UIDs and GIDs",
+        "reserved MCP primary gid",
+        'if [ -z "$PREFIX" ]; then\n  ensure_release_identities\nfi',
+        "crash_point after_service_identity_bootstrap",
+    ):
+        assert guard in identity_bootstrap
+
     bootstrap_start = installer.index(
         "# The stable launcher is deliberately immutable once CURRENT exists"
     )
@@ -750,7 +780,7 @@ def test_root_launcher_and_controller_transient_are_fail_closed():
     )
     assert installer.index(
         "refusing control-plane upgrade while any durable transaction exists"
-    ) < bootstrap_start < installer.index(
+    ) < identity_bootstrap_start < bootstrap_start < installer.index(
         'install_bootstrap "$SEALED_SET/release-launcher-bootstrap.sh"'
     )
     assert installer.count("/usr/bin/systemd-tmpfiles --create") == 1
