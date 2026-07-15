@@ -498,11 +498,23 @@ if len(uids) != len(pairs) or len(gids) != len(pairs):
     raise SystemExit("reserved MCP identities must have pairwise-distinct UIDs and GIDs")
 expected_uid_names = {account.pw_uid: name for name, account in accounts.items()}
 expected_gid_names = {group.gr_gid: name for name, group in groups.items()}
+expected_primary_ids = {
+    (accounts[account_name].pw_uid, groups[group_name].gr_gid)
+    for account_name, group_name in pairs
+}
 for account in pwd.getpwall():
     expected = expected_uid_names.get(account.pw_uid)
     if expected is not None and account.pw_name != expected:
         raise SystemExit(
             f"reserved MCP uid {account.pw_uid} is aliased by {account.pw_name!r}"
+        )
+    if (
+        account.pw_gid in gids
+        and (account.pw_uid, account.pw_gid) not in expected_primary_ids
+    ):
+        raise SystemExit(
+            f"reserved MCP primary gid {account.pw_gid} is aliased by "
+            f"{account.pw_name!r}"
         )
 for group in grp.getgrall():
     expected = expected_gid_names.get(group.gr_gid)
@@ -549,6 +561,25 @@ if not os.path.lexists(directory):
     finally:
         os.close(fd)
 metadata = os.lstat(directory)
+# The fixed launcher may have created this empty mount target before the
+# service group existed so ProtectSystem=strict could bind it writable. Permit
+# exactly that root:root bootstrap state to transition once, after identities
+# have been created and verified.
+if (
+    stat.S_ISDIR(metadata.st_mode)
+    and not stat.S_ISLNK(metadata.st_mode)
+    and metadata.st_uid == 0
+    and metadata.st_gid == 0
+    and stat.S_IMODE(metadata.st_mode) == 0o750
+    and not os.listdir(directory)
+):
+    os.chown(directory, 0, gid)
+    fd = os.open(parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    metadata = os.lstat(directory)
 if (
     not stat.S_ISDIR(metadata.st_mode)
     or stat.S_ISLNK(metadata.st_mode)

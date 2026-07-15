@@ -228,6 +228,80 @@ if [ "$VERIFY_ONLY" = 1 ]; then
   exit 0
 fi
 
+# ProtectSystem=strict can make only paths that already exist writable. Create
+# the exact first-activation mount targets before entering the transient
+# controller namespace; descendants are created by the controller itself.
+/usr/bin/env -i HOME=/nonexistent PATH=/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+  /usr/bin/python3.13 -I -B -S - <<'PY'
+import grp
+import os
+import stat
+
+# Make each mkdir land in its final mode even if this short bootstrap is
+# interrupted before the redundant chmod below.
+os.umask(0)
+
+paths = (
+    ("/home/tradewave-mcp", 0o755, None),
+    ("/var/lib/tradewave-mcp-runtime-lock", 0o750, "tradewave-mcp"),
+    ("/var/lib/tradewave-api-runtime-lock", 0o750, "tradewave-api"),
+    ("/run/tradewave-mcp-deploy", 0o755, None),
+    ("/run/tradewave-mcp-verifier", 0o700, None),
+)
+
+for path, mode, group_name in paths:
+    parent = os.path.dirname(path)
+    current = "/"
+    for component in parent.strip("/").split("/"):
+        if component:
+            current = os.path.join(current, component)
+        metadata = os.lstat(current)
+        if (
+            not stat.S_ISDIR(metadata.st_mode)
+            or stat.S_ISLNK(metadata.st_mode)
+            or metadata.st_uid != 0
+            or metadata.st_gid != 0
+            or stat.S_IMODE(metadata.st_mode) & 0o022
+        ):
+            raise SystemExit(f"unsafe controller bootstrap ancestor: {current}")
+    group_exists = False
+    try:
+        expected_gid = grp.getgrnam(group_name).gr_gid if group_name else 0
+        group_exists = group_name is not None
+    except KeyError:
+        expected_gid = 0
+    if not os.path.lexists(path):
+        os.mkdir(path, mode)
+        os.chown(path, 0, expected_gid)
+        os.chmod(path, mode)
+        descriptor = os.open(parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    metadata = os.lstat(path)
+    transitional_empty = (
+        group_name is not None
+        and stat.S_ISDIR(metadata.st_mode)
+        and not stat.S_ISLNK(metadata.st_mode)
+        and metadata.st_uid == 0
+        and metadata.st_gid == 0
+        and stat.S_IMODE(metadata.st_mode) == 0o750
+        and not os.listdir(path)
+    )
+    settled_gid = metadata.st_gid == expected_gid and (
+        group_name is None or group_exists
+    )
+    if (
+        not stat.S_ISDIR(metadata.st_mode)
+        or stat.S_ISLNK(metadata.st_mode)
+        or metadata.st_uid != 0
+        or (not settled_gid and not transitional_empty)
+        or stat.S_IMODE(metadata.st_mode) != mode
+    ):
+        raise SystemExit(f"unsafe controller bootstrap mount target: {path}")
+PY
+
 unit_uuid=$(/usr/bin/env -i HOME=/nonexistent PATH=/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C.UTF-8 \
   /usr/bin/python3.13 -I -B -S -c 'import uuid; print(uuid.uuid4())')
 unit="tradewave-mcp-deploy-$unit_uuid.service"

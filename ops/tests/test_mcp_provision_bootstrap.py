@@ -389,15 +389,26 @@ def test_run_forwards_abort_unchanged_and_surfaces_success(
     assert "reconciled for rollback" in capsys.readouterr().out
 
 
-def test_both_controller_recovery_modes_restore_then_call_the_same_abort():
+def test_active_controller_recovery_restores_then_reconciles_credentials_before_marker():
     deploy = (ROOT / "ops" / "deploy_mcp_release.sh").read_text(encoding="utf-8")
-    sequences = re.findall(
-        r"journal_action restore >/dev/null.*?"
-        r"journal_action mark-recovered.*?"
-        r'abort_mcp_key_rotation "\$candidate_bundle"',
-        deploy,
-        flags=re.DOTALL,
-    )
-    assert len(sequences) == 2
-    assert deploy.count('abort_mcp_key_rotation "$candidate_bundle"') == 2
+    recovery = deploy[
+        deploy.index('  if [ "$mode" = active ] || [ "$mode" = recovering ]; then'):
+        deploy.index('  if [ "$mode" = finalizing ]; then')
+    ]
+    active = recovery[
+        recovery.index('    if [ "$mode" = active ]; then'):
+        recovery.index(
+            '    if [ "$entry_kind" = legacy ] || [ "$gateway_kind" = legacy ]; then'
+        )
+    ]
+    reconcile = '''      if [ "$entry_kind" = sealed ]; then
+        check_release_service_key
+      else
+        abort_mcp_key_rotation "$candidate_bundle"
+      fi'''
+    assert reconcile in active
+    assert active.index("journal_action restore >/dev/null") < active.index(reconcile)
+    assert active.index(reconcile) < recovery.index("journal_action mark-recovered")
+    assert active.count('abort_mcp_key_rotation "$candidate_bundle"') == 1
+    assert deploy.count('abort_mcp_key_rotation "$candidate_bundle"') == 1
     assert 'run_release_provisioner "${1:-$CANDIDATE_BUNDLE}" --abort' in deploy

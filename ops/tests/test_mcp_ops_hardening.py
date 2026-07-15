@@ -686,8 +686,69 @@ def test_root_launcher_and_controller_transient_are_fail_closed():
     deploy = _read("ops/deploy_mcp_release.sh")
     installer = _read("ops/install_mcp_release_controller.sh")
 
+    identity_start = deploy.index("ensure_mcp_service_identities()")
+    identity_end = deploy.index("ensure_one_runtime_lock_file()", identity_start)
+    identity_helper = deploy[identity_start:identity_end]
+    for guard in (
+        "expected_primary_ids = {",
+        "account.pw_gid in gids",
+        "(account.pw_uid, account.pw_gid) not in expected_primary_ids",
+        "reserved MCP primary gid",
+    ):
+        assert guard in identity_helper
+
     assert '[[ ! "$1" =~ ^[0-9a-f]{40}$ ]]' in launcher
     assert "ProtectSystem=strict" in launcher
+    bootstrap_start = launcher.index(
+        "# ProtectSystem=strict can make only paths that already exist writable"
+    )
+    bootstrap = launcher[bootstrap_start:launcher.index("unit_uuid=", bootstrap_start)]
+    for record in (
+        '("/home/tradewave-mcp", 0o755, None)',
+        '("/var/lib/tradewave-mcp-runtime-lock", 0o750, "tradewave-mcp")',
+        '("/var/lib/tradewave-api-runtime-lock", 0o750, "tradewave-api")',
+        '("/run/tradewave-mcp-deploy", 0o755, None)',
+        '("/run/tradewave-mcp-verifier", 0o700, None)',
+    ):
+        assert record in bootstrap
+    for guard in (
+        "os.umask(0)",
+        "unsafe controller bootstrap ancestor",
+        "unsafe controller bootstrap mount target",
+        "os.path.lexists(path)",
+        "os.lstat(path)",
+        "group_name is not None",
+        "metadata.st_gid == 0",
+        "not os.listdir(path)",
+        "group_name is None or group_exists",
+        "not settled_gid and not transitional_empty",
+    ):
+        assert guard in bootstrap
+    assert (
+        launcher.index("PASS: coherent sealed MCP control-plane set")
+        < bootstrap_start
+        < launcher.index("exec /usr/bin/systemd-run")
+    )
+
+    helper_start = deploy.index("ensure_one_runtime_lock_file()")
+    runtime_helper = deploy[
+        helper_start:deploy.index("\nensure_runtime_lock_file()", helper_start)
+    ]
+    for guard in (
+        "metadata.st_uid == 0",
+        "metadata.st_gid == 0",
+        "stat.S_IMODE(metadata.st_mode) == 0o750",
+        "not os.listdir(directory)",
+        "os.chown(directory, 0, gid)",
+    ):
+        assert guard in runtime_helper
+    assert runtime_helper.count("metadata = os.lstat(directory)") >= 2
+    stateful = deploy[deploy.index("# This is intentionally the first stateful action"):]
+    assert (
+        stateful.index("ensure_mcp_service_identities")
+        < stateful.index("ensure_runtime_lock_file")
+        < stateful.index("ensure_api_runtime_lock_file")
+    )
     assert 'InaccessiblePaths=-/root -/home/flask' in launcher
     assert "--setenv=HOME=/nonexistent" in launcher
     assert "--property=LimitCORE=0" in launcher
@@ -703,6 +764,66 @@ def test_root_launcher_and_controller_transient_are_fail_closed():
     assert installer.count("grep -o 'path=/usr/bin/python3.13'") == 2
     assert "grep -o '/usr/bin/python3.13'" not in installer
     assert "O_NOFOLLOW" in installer
+
+
+@pytest.mark.skipif(
+    os.name != "posix" or getattr(os, "geteuid", lambda: 1)() != 0,
+    reason="requires a root-owned /run test directory",
+)
+def test_launcher_retry_accepts_only_an_empty_root_bootstrap_directory():
+    import grp
+    import uuid
+
+    launcher = _read("ops/launch_mcp_release.sh")
+    marker = launcher.index(
+        "# ProtectSystem=strict can make only paths that already exist writable"
+    )
+    heredoc = launcher.index("/usr/bin/python3.13 -I -B -S - <<'PY'", marker)
+    body_start = launcher.index("\n", heredoc) + 1
+    body_end = launcher.index("\nPY\n", body_start)
+    bootstrap = launcher[body_start:body_end]
+    service_group = next((record for record in grp.getgrall() if record.gr_gid != 0), None)
+    if service_group is None:
+        pytest.skip("requires an installed non-root group")
+
+    parent = Path("/run") / f"tradewave-bootstrap-test-{uuid.uuid4().hex}"
+    target = parent / "runtime-lock"
+    parent.mkdir(mode=0o755)
+    os.chown(parent, 0, 0)
+    os.chmod(parent, 0o755)
+    try:
+        target.mkdir(mode=0o750)
+        os.chown(target, 0, 0)
+        os.chmod(target, 0o750)
+        test_bootstrap = re.sub(
+            r"paths = \(\n.*?\n\)\n\nfor path",
+            f"paths = (({str(target)!r}, 0o750, {service_group.gr_name!r}),)"
+            "\n\nfor path",
+            bootstrap,
+            count=1,
+            flags=re.DOTALL,
+        )
+        assert test_bootstrap != bootstrap
+
+        accepted = subprocess.run(
+            ["python3", "-I", "-B", "-S", "-c", test_bootstrap],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert accepted.returncode == 0, accepted.stderr
+
+        (target / "unexpected").write_text("occupied", encoding="utf-8")
+        rejected = subprocess.run(
+            ["python3", "-I", "-B", "-S", "-c", test_bootstrap],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert rejected.returncode != 0
+        assert "unsafe controller bootstrap mount target" in rejected.stderr
+    finally:
+        shutil.rmtree(parent)
 
 
 def test_release_verifier_freezes_seventeen_tools_and_rejects_ghost():
