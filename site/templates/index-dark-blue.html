@@ -676,7 +676,7 @@ body{background-image:none !important;}
     </div>
   </div>
   <div class="caption">The left is TJX's current price chart. The two lines to the right:</div>
-  <div class="legend reveal d1"><span class="sw yr20"></span> Trend projection based on the last 20 years &nbsp;&nbsp; <span class="sw yr41"></span> Trend projection based on all 41 years &nbsp;&middot;&nbsp; <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
+  <div class="legend reveal d1"><span class="sw yr20"></span> Seasonal projection based on your chosen time frame &nbsp;&nbsp; <span class="sw yr41"></span> Seasonal projection based on all available data &nbsp;&middot;&nbsp; <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
 </div></section>
 
 <!-- CTA at peak conviction (right after The Evidence). Balanced in the gap: the
@@ -726,17 +726,17 @@ body{background-image:none !important;}
   <div class="live-ledger reveal d1">
     <div class="live-ledger-top">
       <div>
-        <div class="live-ledger-kicker"><span class="live-ledger-dot"></span>Public forward ledger</div>
+        <div class="live-ledger-kicker"><span class="live-ledger-dot"></span>Public forward track record</div>
         <div class="live-ledger-summary">Showing the newest {{ content.ledger_rows|length }} of {{ content.scorecard_stats.total_picks }} picks &middot; {{ content.scorecard_stats.win_rate }}% win rate &middot; losses included</div>
       </div>
-      <div class="live-ledger-updated">Updated after the latest ledger refresh<br>{{ content.ledger_updated }}<a href="{{ content.scorecard_url }}">Open full ledger &rarr;</a></div>
+      <div class="live-ledger-updated">Updated after the latest track record refresh<br>{{ content.ledger_updated }}<a href="{{ content.scorecard_url }}">Open full track record &rarr;</a></div>
     </div>
     <div class="ledger-table-head ledger-grid" aria-hidden="true">
       <span class="lc-date">Date flagged</span><span class="lc-ticker">Ticker</span><span class="lc-dir">Direction</span><span class="lc-days lc-num">Days</span><span class="lc-win lc-num">Win prob</span><span class="lc-pred lc-num">Predicted</span><span class="lc-current lc-num">Current</span><span class="lc-peak lc-num">Peak</span><span class="lc-target">Target hit</span>
     </div>
     <div class="ledger-rows">
       {% for row in content.ledger_rows %}
-      <a class="ledger-row ledger-grid" href="{{ content.scorecard_url }}" aria-label="Open the full public ledger from {{ row.symbol }}, flagged {{ row.featured_date }}">
+      <a class="ledger-row ledger-grid" href="{{ content.scorecard_url }}" aria-label="Open the full public track record from {{ row.symbol }}, flagged {{ row.featured_date }}">
         <span class="lc-date"><span class="date-full">{{ row.featured_date }}</span><span class="date-short">{{ row.short_date }}</span></span>
         <span class="lc-ticker">{{ row.symbol }}</span>
         <span class="lc-dir {{ row.direction_class }}">{{ row.direction }}</span>
@@ -749,9 +749,9 @@ body{background-image:none !important;}
       </a>
       {% endfor %}
     </div>
-    <div class="ledger-cta"><a href="{{ content.scorecard_url }}" class="btn">Open the Full Public Ledger &rarr;</a></div>
+    <div class="ledger-cta"><a href="{{ content.scorecard_url }}" class="btn">Open the Full Public Track Record &rarr;</a></div>
   </div>
-  <p class="ledger-explain reveal">Target Hit means the predicted return was reached during the window, even if the price later reversed. Every older pick remains available in the full ledger. <a href="{{ content.methodology_url }}" class="lnk">Read the methodology &rarr;</a></p>
+  <p class="ledger-explain reveal">Target Hit means the predicted return was reached and the trade was exited for a win. Every older pick remains available in the full track record. <a href="{{ content.methodology_url }}" class="lnk">Read the methodology &rarr;</a></p>
 </div></section>
 
 <!-- 06 / WHAT TRADERS SAY (third-party proof: content.video + content.video2, both

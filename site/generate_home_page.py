@@ -1474,8 +1474,8 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         #    says "Same engine", so the note must not repeat it.
         "desks": {
             "eyebrow": "Who It's For",
-            "headline": "Whoever's Asking, It Bends to You",
-            "sub": ("Same engine for a fund running a thousand backtests and "
+            "headline": "Different Desks. One Standard of Proof.",
+            "sub": ("The same engine for a fund running thousands of backtests and "
                     "a trader testing one window."),
             "note": ("Not different products - the same evidence, priced to "
                      "the job in front of you."),
