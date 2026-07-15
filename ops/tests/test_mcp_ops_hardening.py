@@ -127,7 +127,7 @@ def test_candidate_dependency_builds_are_python_313_and_wheel_only():
     assert 'sys.executable != "/usr/bin/python3.13"' in deploy
     assert 'sys.version_info[:2] != (3, 13)' in deploy
     assert 'platform.machine() != "x86_64"' in deploy
-    assert 'platform.libc_ver() != ("glibc", "2.39")' in deploy
+    assert 'platform.libc_ver() != ("glibc", "2.42")' in deploy
     assert "not sys.flags.isolated" in deploy
     assert "not sys.flags.no_site" in deploy
     assert deploy.index("recover_unfinished_transaction\nrequire_release_python") \
@@ -148,7 +148,7 @@ def test_candidate_python_series_gate_fails_closed():
         'platform.python_implementation() != "CPython"',
         "sys.version_info[:2] != (3, 13)",
         'platform.machine() != "x86_64"',
-        'platform.libc_ver() != ("glibc", "2.39")',
+        'platform.libc_ver() != ("glibc", "2.42")',
         'sys.executable != "/usr/bin/python3.13"',
         'os.path.realpath(sys.executable) != "/usr/bin/python3.13"',
         "not sys.flags.isolated",

@@ -396,7 +396,7 @@ if (
     platform.python_implementation() != "CPython"
     or sys.version_info[:2] != (3, 13)
     or platform.machine() != "x86_64"
-    or platform.libc_ver() != ("glibc", "2.39")
+    or platform.libc_ver() != ("glibc", "2.42")
     or sys.executable != "/usr/bin/python3.13"
     or os.path.realpath(sys.executable) != "/usr/bin/python3.13"
     or sys._base_executable != "/usr/bin/python3.13"
