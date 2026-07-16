@@ -206,7 +206,7 @@ def test_database_harness_requires_an_exact_local_test_database():
     source = (REPO / "tests" / "conftest.py").read_text(encoding="utf-8")
 
     assert 'os.environ.get("TW2_TEST_POSTGRES_DSN"' in source
-    assert '_test_url.database != "tradewave_test"' in source
-    assert '_query_host = _test_url.query.get("host")' in source
+    assert '_database != "tradewave_test"' in source
+    assert 'parse_qs(_test_url.query).get("host", [])' in source
     assert "host not in _allowed_hosts" in source
     assert "TEST_DSN!r" not in source

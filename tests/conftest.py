@@ -23,11 +23,10 @@ import os
 import sys
 import uuid
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlsplit, urlunsplit
 from unittest.mock import MagicMock
 
 import pytest
-from sqlalchemy.engine import make_url
-from sqlalchemy.exc import ArgumentError
 
 
 # ---------------------------------------------------------------------
@@ -69,38 +68,42 @@ if not _configured_dsn:
     _configured_dsn = "postgresql://tradewave@127.0.0.1:5432/tradewave_test"
 
 try:
-    _test_url = make_url(_configured_dsn)
-except (ArgumentError, TypeError, ValueError) as exc:
+    _test_url = urlsplit(_configured_dsn)
+    _database = unquote(_test_url.path.removeprefix("/"))
+    _url_host = _test_url.hostname
+except (TypeError, ValueError) as exc:
     raise RuntimeError(
         "REFUSING to run tests: the configured test PostgreSQL DSN is invalid"
     ) from exc
 
+if not (_test_url.scheme == "postgres" or _test_url.scheme.startswith("postgresql")):
+    raise RuntimeError(
+        "REFUSING to run tests: the configured test DSN is not PostgreSQL"
+    )
 if not _explicit_test_dsn:
-    if _test_url.database not in {"tradewave", "tradewave_test"}:
+    if _database not in {"tradewave", "tradewave_test"}:
         raise RuntimeError(
             "REFUSING to derive a test DSN from an unexpected database name; "
             "set TW2_TEST_POSTGRES_DSN explicitly"
         )
-    _test_url = _test_url.set(database="tradewave_test")
+    _test_url = _test_url._replace(path="/tradewave_test")
+    _database = "tradewave_test"
 
-if _test_url.database != "tradewave_test":
+if _database != "tradewave_test":
     raise RuntimeError(
         "REFUSING to run tests: TW2_TEST_POSTGRES_DSN must name exactly "
         "tradewave_test"
     )
 _allowed_hosts = {None, "localhost", "127.0.0.1", "::1"}
-_hosts = [_test_url.host]
-_query_host = _test_url.query.get("host")
-if isinstance(_query_host, (tuple, list)):
-    _hosts.extend(_query_host)
-elif _query_host:
-    _hosts.append(_query_host)
+_hosts = [_url_host]
+for _query_host in parse_qs(_test_url.query).get("host", []):
+    _hosts.extend(part.strip() for part in _query_host.split(",") if part.strip())
 if any(host not in _allowed_hosts and not str(host).startswith("/") for host in _hosts):
     raise RuntimeError(
         "REFUSING to run tests: tradewave_test must be on the local host"
     )
 
-TEST_DSN = _test_url.render_as_string(hide_password=False)
+TEST_DSN = urlunsplit(_test_url)
 os.environ["POSTGRES_DSN"] = TEST_DSN
 
 # 3. Make this checkout's web/ tree importable so `from models import ...`
