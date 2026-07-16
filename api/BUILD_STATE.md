@@ -382,3 +382,84 @@ VERIFIED LIVE: "load NVDA 20y"->action {market:'1',symbol:'NVDA',years:20}; "loo
 allowlist, no eval, bool-as-int hardened, loop capped, no quota burn, backward-compat - all confirmed; fixed
 1 MEDIUM (exception path now also returns actions:[] for envelope consistency). 0 em-dashes introduced.
 Blast radius of actuation = which chart/knobs the user sees (no code exec, no data beyond patterns-only, no auth/billing).
+
+## Phase 17 - Quota re-anchor + MONTHLY-ONLY billing (owner decisions) 2026-07-05
+The sold ladder's per-day quotas were data-feed-scale nonsense for a dataset that refreshes once
+per trading day (owner: "50,000 per day!! this is not price data download"). Re-anchored every
+per-day cap to sweep math = "a per-symbol card for everything in your scope, daily, plus headroom"
+(measured on the dev appserver: US stocks+ETFs ~3.7k symbols, all markets ~18.7k unique):
+free 10/min+100/day (unchanged), dev 60/min+1,000/day (was 5,000), pro 120/min+5,000/day (was
+50,000; full US+ETF sweep ~30min at burst), business 300/min+20,000/day (was 250,000; full
+all-markets nightly sweep ~1h; above = Enterprise). Consumer-MCP mirrors made genuinely
+assistant-scaled: Analyst-in-chat 1,000/day (was 5,000), Strategist-in-chat 2,000/day (was
+20,000). Quota is per CUSTOMER not per key (auth.check_rate_limit buckets on user_id).
+SAME RELEASE: API billing went MONTHLY ONLY - price_annual deleted from tiers.py (all dicts);
+create_api_products.py seeds monthly only + SELF-HEALS an earlier annual seed (re-points
+default_price to monthly FIRST - Stripe refuses to archive a default price - then archives
+active annual prices); console checkout 400s {error: monthly_only} on an explicit annual ask;
+api_billing.html billing-cycle toggle + annual notes + cycle JS removed; marketing pricing page
+annual math/toggle/setBilling removed, FAQ updated, use-cases Business blurb now interpolates
+API_TIERS (was hardcoded 250,000). Verified: tiers import rails pass, template parses, both
+services restarted healthy, portal re-assembled with zero stale numbers/annual strings in
+/var/www/developers. Rationale + doctrine in TRADEWAVE_ECOSYSTEM.md "API billing + quota model".
+
+### Phase 17 addendum - TEST-Stripe seed executed + two Stripe gotchas (2026-07-05, later same day)
+Dev sandbox is now fully wired (opus agent run + independently re-verified): TEST catalog = the 3
+monthly products (default_price = the monthly price), Founder coupon founder_pro_50_12mo restricted
+to Pro + active FOUNDER promo, NEW TEST webhook endpoint we_1TpsgIIs3CeQWow8zSw8B6aB ->
+https://tw2-dev.trxstat.com/webhooks/stripe (the 6 events web/app.py consumes), signing secret
+rotated into dev secrets.env box-to-box (root:flask 640 preserved), web restarted, unsigned POST
+/webhooks/stripe -> 400 (route + secret gate proven). Stale DISABLED endpoint we_1TT43EIs3CeQWow8
+7HvrFIw5 (tw2.trxstat.com) left for the owner to delete. GOTCHAS (cost real debugging): (1) stripe
+SDK 15.x / current API: PromotionCode.create takes promotion={"type":"coupon","coupon":id} - the
+top-level coupon= param is GONE (affiliate_service/promo_service were already migrated; the seeder
+was not). (2) API version 2026-04-22.dahlia OMITS coupon.applies_to from the default representation
+- retrieve with expand=["applies_to"] or a restriction check silently sees "unrestricted".
+_ensure_founder now self-heals: expand-retrieve -> spec-match (incl. Pro restriction) -> drifted+
+0-redemptions = delete+recreate, redeemed = loud warning + hands off; name (the one mutable field)
+kept canonical; promo reuse requires ACTIVE + pointing at OUR coupon (a deleted coupon deactivates
+its promos), strays get deactivated.
+
+### Phase 17 addendum 2 - dev pricing flipped LIVE + the regen-revert trap fixed (2026-07-05)
+TW2_API_PRICING_LIVE=1 added to dev secrets.env; web+apiserver restarted; portal re-assembled;
+verified: 0 "Coming Soon", cards $0/$39/$199/$599 + "All plans billed monthly. No lock-in - cancel
+anytime.", Founder strip ($99/mo), docs rate-limits show $ - dev checkout is now fully testable.
+TRAP FOUND + FIXED: the flag was env-only, but the portal generators run from shells that never
+load the box env (deploy.sh sshes in as root; assemble_developer_portal.sh inherits the caller's
+env) - and portal_urls' secrets.env fallback did NOT save it because generate.py imports
+apiserver.tiers BEFORE portal_urls seeds os.environ. So after a prod flip, EVERY deploy regen
+would have silently reverted the published pages to "Coming Soon". Fix: tiers._pricing_live_flag()
+falls back to /etc/tradewave/secrets.env when the env var is unset (env wins). Staging/prod flags
+remain OFF until the owner finalizes $.
+
+### Phase 17 addendum 3 - LIVE Stripe seed executed (owner-requested, 2026-07-05)
+LIVE api-line catalog created from DEV using the updated monthly-only seeder with prod-web's live
+key fetched box-to-box over ssh (prod's checked-out create_api_products.py was still the stale
+annual+old-SDK version - do NOT run the seeder ON prod until the release deploys). Created fresh
+(nothing pre-existed): Dev prod_UpYsmRY0DrjDFT ($39/mo price_1TptkkIs3CeQWow8IP567Bte), Pro
+prod_UpYsTxNHHdGMBf ($199/mo price_1TptklIs3CeQWow8aZxM4pRw), Business prod_UpYs9aBTeIAPDh
+($599/mo price_1TptkmIs3CeQWow890IPIUXL) - each default_price=monthly, metadata product_line=api+
+tier; coupon founder_pro_50_12mo (50% repeating 12mo, max 100, applies_to LIVE Pro) + active promo
+FOUNDER (max 100). Independently re-verified read-only incl. expand=["applies_to"]. Prod stays
+customer-invisible (TW2_API_PRICING_LIVE off on prod; console shows no upgrade cards) but prod's
+DEPLOYED old code resolves these correctly if checkout is invoked (old annual fallback lands on
+monthly since no annual price exists; webhook product_line=api mapping is live since the July 4
+release).
+
+### Phase 17 addendum 4 - console quickstart hardened + cross-platform (2026-07-05/06)
+web/api_portal/routes_keys.py + templates/api_keys.html "Get started" card, three fixes:
+(1) HOST WAS HARDCODED to api.tradewave.ai / developers.tradewave.ai in the template - the dev/
+staging consoles showed PROD urls. Now env-driven: routes_keys._public_host(env_var, by_env) =
+explicit TW2_API_PUBLIC_HOST / TW2_DEVELOPERS_PUBLIC_HOST wins, else derive from config.tw2_env
+(same pattern as routes_mcp._mcp_host); passed as api_host/developers_host. (2) The curl used a
+backslash line-continuation that broke on paste; now ONE line, and the freshly-created key is baked
+into the example on the one-time reveal view (new_raw_key or 'YOUR_API_KEY'). (3) TABBED cURL /
+PowerShell / Python (owner-requested) so it is copy-paste-correct on any OS - the PowerShell tab
+uses Invoke-RestMethod with a -Headers hashtable because in Windows PowerShell 5.1 `curl` is an
+alias for Invoke-WebRequest and rejects `-H` (this bit the owner live: "Cannot convert ... to
+IDictionary"). Copy button lives in the tab bar and copies the ACTIVE tab; tab choice persists in
+localStorage so it survives the create-key page reload. Verified headless (Playwright): tab
+switch/isolation/persistence + active-tab copy payloads for all three, dev host + key baked in, no
+prod-host leak, Python indentation preserved. NOTE: the public developer-portal docs
+(site/api_docs, site/api_learn) still show curl-only snippets - a candidate for the same tabbed
+treatment if we want portal parity (NOT done).

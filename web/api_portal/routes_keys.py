@@ -6,14 +6,40 @@ forms do. We do NOT csrf-exempt these (unlike the app's webhooks) because they
 are browser-session, same-origin form posts.
 """
 import logging
+import os
 
 from flask import (
     render_template, request, redirect, url_for, flash,
     session as flask_session,
 )
 
-from .blueprint import bp, require_login, get_current_user, api_entitlements_for, api_tier_name_for
+import config
+from .blueprint import (
+    bp, require_login, get_current_user, api_entitlements_for, api_tier_name_for,
+    entitlement_context,
+)
 from . import keystore
+
+# Public hosts for the quickstart/docs links: explicit env var wins, else derive
+# from the box's env (same pattern as routes_mcp._mcp_host). NEVER hardcode the
+# prod hosts in templates - the dev/staging consoles must show their own hosts.
+_API_HOST_BY_ENV = {
+    "dev": "api-dev.trxstat.com",
+    "staging": "api-stage.trxstat.com",
+    "prod": "api.tradewave.ai",
+}
+_DEVELOPERS_HOST_BY_ENV = {
+    "dev": "developers-dev.trxstat.com",
+    "staging": "developers-stage.trxstat.com",
+    "prod": "developers.tradewave.ai",
+}
+
+
+def _public_host(env_var, by_env):
+    explicit = (os.environ.get(env_var) or "").strip().rstrip("/")
+    if explicit:
+        return explicit.replace("https://", "").replace("http://", "")
+    return by_env.get(getattr(config, "tw2_env", "dev"), by_env["dev"])
 
 log = logging.getLogger("tw2.api_portal.keys")
 
@@ -52,6 +78,11 @@ def keys_index():
         tier_name=api_tier_name_for(u),
         tier_label=ent["name"],
         new_raw_key=new_raw_key,
+        api_host=_public_host("TW2_API_PUBLIC_HOST", _API_HOST_BY_ENV),
+        developers_host=_public_host("TW2_DEVELOPERS_PUBLIC_HOST", _DEVELOPERS_HOST_BY_ENV),
+        # C1 (bundling banner, always) + C4 (active reverse-trial note) context -
+        # same computation routes_billing.py uses, so the two tabs never disagree.
+        ctx=entitlement_context(u),
     )
 
 

@@ -32,7 +32,10 @@ DOCS_URL = portal_urls.DOCS_URL
 LEARN_URL = portal_urls.LEARN_URL
 API_BASE = portal_urls.API_BASE
 MCP_SETUP_URL = portal_urls.MCP_SETUP_URL
-CONSOLE_URL = portal_urls.CONSOLE_URL
+# Signup-wrapped (spec API_CONSOLE_USER_FLOWS.md R1/R2): every "Get an API Key" CTA in the
+# learning track is a free-key acquisition intent, so it routes through /signup carrying the
+# real keys target, not straight to the login-gated console.
+CONSOLE_URL = portal_urls.signup_url("/account/api/keys")
 
 # ---------------------------------------------------------------------------
 # URL templating: lessons are authored env-agnostic with {{TOKEN}} placeholders

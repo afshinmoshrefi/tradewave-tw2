@@ -11,7 +11,10 @@ is unlimited ML, not ML-vs-no-ML. The daily count is enforced in ml_quota.py (Re
 `ml_access` stays True on every tier and now just means "ML is offered at all" (it is).
 """
 
+import logging
 import os
+
+log = logging.getLogger("apiserver.tiers")
 
 ML_MARKETS = {"0", "1", "2", "3", "4", "11"}
 # 14/15 were removed (Korea); keep the hole, never renumber.
@@ -20,13 +23,43 @@ ALL_MARKETS = [str(i) for i in range(0, 17) if i not in (14, 15)]
 # Pricing display gate - paid-tier dollar amounts render only when this is set; the
 # tiers/quotas themselves are always live. THE single source; the portal marketing
 # site, the developer docs, and the console billing page all import it from here.
-API_PRICING_LIVE = os.environ.get('TW2_API_PRICING_LIVE', '').strip().lower() in ('1', 'true', 'yes')
+def _pricing_live_flag():
+    """TW2_API_PRICING_LIVE from the environment, FALLING BACK to /etc/tradewave/
+    secrets.env (env wins - same precedence as site/lib/portal_urls.py). The fallback
+    matters: the portal generators run from operator/deploy shells that do NOT load
+    the box env (deploy.sh sshes in as root), so without it a post-flip regen would
+    silently revert the published pricing pages to "Coming Soon" on every deploy."""
+    v = os.environ.get('TW2_API_PRICING_LIVE')
+    if v is None:
+        try:
+            with open('/etc/tradewave/secrets.env') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('TW2_API_PRICING_LIVE='):
+                        v = line.partition('=')[2].strip().strip('"').strip("'")
+        except OSError:
+            pass
+    return (v or '').strip().lower() in ('1', 'true', 'yes')
 
-# Annual billing = 10x the monthly price (pay for 10 months, get 12 = "2 months free",
-# ~17% off). Stripe holds a separate yearly price per product; checkout picks the interval.
-# price_annual is the single source of truth (create_api_products.py + the pricing page read it).
+
+API_PRICING_LIVE = _pricing_live_flag()
+
+# Billing is MONTHLY ONLY (owner decision 2026-07-05, pre-launch so no grandfathering).
+# Annual was dropped: developers won't prepay a year for an unproven API, annual lumps
+# distort the MRR read during the revenue push, and a large annual refund (Business) is a
+# dispute magnet - monthly keeps repricing agile while quotas/prices settle. Revisit only
+# with real usage data. There is NO price_annual anywhere; the seeder, console, and
+# pricing page are all monthly-only.
 
 # rate = (per_minute, per_day); opp_limit = max results per /opportunities call.
+# PER-DAY quotas are anchored to the data's real cadence: the whole dataset refreshes
+# ONCE per trading day, so each cap = "a per-symbol card for everything in your scope,
+# daily, plus headroom" (measured 2026-07-05 on the dev appserver: US stocks + ETFs
+# ~3.7k symbols, all markets ~18.7k unique). PER-MINUTE is burst/interactivity only.
+# Never size per-day to data-feed scale - this is EOD-derived data, and huge caps both
+# read as nonsense on the pricing page and invite bulk-export usage the EODHD
+# derived-data posture deliberately avoids. Quota is enforced PER CUSTOMER, not per key
+# (auth.check_rate_limit buckets on user_id), so max_keys never multiplies it.
 #
 # `history` is RESERVED / NOT IMPLEMENTED (verified 2026-06-12): no code path consumes
 # it - free keys receive the same live seasonal patterns as paid tiers. It is kept only as a
@@ -34,27 +67,27 @@ API_PRICING_LIVE = os.environ.get('TW2_API_PRICING_LIVE', '').strip().lower() in
 # pricing page deliberately carries no data-freshness bullet until enforcement exists.
 API_TIERS = {
     "free": {
-        "name": "Free", "price_monthly": 0, "price_annual": 0,
+        "name": "Free", "price_monthly": 0,
         "markets": ["2"], "ml_access": True, "history": "delayed", "ml_daily_limit": 5,
-        "opp_limit": 3, "rate": {"per_minute": 10, "per_day": 100}, "max_keys": 1,
+        "opp_limit": 3, "rate": {"per_minute": 10, "per_day": 100}, "max_keys": 1,  # taste: a watchlist + browsing
         "stripe_price_metadata": None,
     },
     "dev": {
-        "name": "Dev", "price_monthly": 39, "price_annual": 390,
+        "name": "Dev", "price_monthly": 39,
         "markets": ["0", "1", "2", "3", "4", "11"], "ml_access": True, "history": "full", "ml_daily_limit": 100,  # markets narrowed to US stocks + ETFs (mirrors web Analyst); all 15 (futures/forex/bonds/crypto) reserved for Pro/Business
-        "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 5000}, "max_keys": 3,
+        "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 1000}, "max_keys": 3,  # a working set of a few hundred symbols refreshed daily + all-day dev iteration; a FULL US sweep (~3.7k) is deliberately Pro-shaped
         "stripe_price_metadata": {"product_line": "api", "tier": "dev"},
     },
     "pro": {
-        "name": "Pro", "price_monthly": 199, "price_annual": 1990,
+        "name": "Pro", "price_monthly": 199,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,  # unlimited ML = the Pro upsell
-        "opp_limit": 1000, "rate": {"per_minute": 120, "per_day": 50000}, "max_keys": 10,  # signals refresh ~daily + opp_limit returns up to 1000/call, so the per-MINUTE burst is sized for signals, not a tick feed; per-DAY quota stays generous for multi-user apps
+        "opp_limit": 1000, "rate": {"per_minute": 120, "per_day": 5000}, "max_keys": 10,  # full US+ETF per-symbol sweep daily (~3.7k) with headroom; at 120/min the sweep takes ~30min
         "stripe_price_metadata": {"product_line": "api", "tier": "pro"},
     },
     "business": {
-        "name": "Business", "price_monthly": 599, "price_annual": 5990,
+        "name": "Business", "price_monthly": 599,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,  # unlimited
-        "opp_limit": 5000, "rate": {"per_minute": 300, "per_day": 250000}, "max_keys": 50,  # signal-scaled burst (was 1200/min = data-feed scale); per-DAY quota kept high for high-volume apps
+        "opp_limit": 5000, "rate": {"per_minute": 300, "per_day": 20000}, "max_keys": 50,  # full ALL-markets per-symbol sweep daily (~18.7k) with headroom; at 300/min the nightly sweep takes ~1h. Above this = Enterprise/custom
         "stripe_price_metadata": {"product_line": "api", "tier": "business"},
     },
 }
@@ -71,7 +104,7 @@ DEFAULT_TIER = "free"
 # who uses BOTH the API and the chatbot never shares one ML bucket across the two products.
 INTERNAL_TIERS = {
     "chatbot": {
-        "name": "Chatbot", "price_monthly": 0, "price_annual": 0,
+        "name": "Chatbot", "price_monthly": 0,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": 30,
         "opp_limit": 25, "rate": {"per_minute": 30, "per_day": 600}, "max_keys": 1,
         "stripe_price_metadata": None, "service": True,
@@ -82,7 +115,7 @@ INTERNAL_TIERS = {
     # docs/MCP_OAUTH_INTEGRATION.md. These own entitlements are only a fallback for a direct
     # mcp-key call with no principal header (should not happen in normal use).
     "mcp": {
-        "name": "MCP", "price_monthly": 0, "price_annual": 0,
+        "name": "MCP", "price_monthly": 0,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": 5,
         "opp_limit": 25, "rate": {"per_minute": 60, "per_day": 2000}, "max_keys": 1,
         "stripe_price_metadata": None, "service": True, "workos_principal": True,
@@ -92,7 +125,7 @@ INTERNAL_TIERS = {
     # zero-signup tryer can explore a handful of tickers but can never scrape the dataset. Has NO
     # `service` flag, so it can never delegate the metering principal to another user.
     "demo": {
-        "name": "Demo", "price_monthly": 0, "price_annual": 0,
+        "name": "Demo", "price_monthly": 0,
         "markets": ["2"], "ml_access": True, "history": "delayed", "ml_daily_limit": 25,
         "opp_limit": 5, "rate": {"per_minute": 30, "per_day": 1000}, "max_keys": 0,
         "stripe_price_metadata": None,
@@ -105,7 +138,7 @@ INTERNAL_TIERS = {
     # (S&P-only, 5 ML/day) = identical to a $0 Explorer. Scope mirrors config.level_access_hierarchy['2']
     # (Dow + NASDAQ + S&P). Do NOT remap navigator->'dev' (that leaks all 15 markets + 100 ML/day).
     "navigator": {
-        "name": "Navigator", "price_monthly": 0, "price_annual": 0,
+        "name": "Navigator", "price_monthly": 0,
         "markets": ["0", "1", "2"], "ml_access": True, "history": "full", "ml_daily_limit": 5,
         "opp_limit": 25, "rate": {"per_minute": 30, "per_day": 1000}, "max_keys": 1,
         "stripe_price_metadata": None,
@@ -122,11 +155,21 @@ FOUNDER = {
     "duration_months": 12, "max_redemptions": 100, "effective_monthly": 99,
 }
 
-# Unified accounts: an explicit API subscription wins; else inherit from the web tier.
-# This is also the "free key bundled into a paid web sub": a web Navigator gets the bundled
-# 'navigator' entitlement (Dow/NASDAQ/S&P, 5 ML/day, NOT sold standalone), a web Analyst gets Dev API
+# Unified accounts: effective REST tier = MAX(explicit, bundled) on the rank ladder below
+# (spec: docs/API_CONSOLE_USER_FLOWS.md §0/§7.1, decided 2026-07-06). This is also the
+# "free key bundled into a paid web sub": a web Navigator gets the bundled 'navigator'
+# entitlement (Dow/NASDAQ/S&P, 5 ML/day, NOT sold standalone), a web Analyst gets Dev API
 # access, and a Strategist gets Pro API access, at no extra charge just by holding the web sub.
+# MAX (not "explicit wins") matters because an explicit sub can be LOWER than the bundled
+# tier: a Strategist (bundled pro) who also holds an explicit Dev sub must resolve pro, not
+# be demoted to dev. MCP's merge_entitlements already MAXes; this makes REST match.
 WEB_TIER_TO_API = {"explorer": "free", "navigator": "navigator", "analyst": "dev", "strategist": "pro"}
+
+# Rank ladder for the MAX(explicit, bundled) rule above. Only the SOLD/bundled-sellable
+# names belong here (API_TIERS + 'navigator', the one bundled-only INTERNAL_TIERS entry
+# sold via a web plan) - service/internal principals (chatbot, mcp, demo) must never win
+# or rank in this comparison, so they are deliberately absent (see api_tier_from_user).
+API_TIER_RANK = {"free": 0, "navigator": 1, "dev": 2, "pro": 3, "business": 4}
 
 # --- Consumer MCP (TradeWave inside ChatGPT/Claude via WorkOS login) -------------------
 # The MCP USER layer MIRRORS the WEB subscription, NOT the API developer ladder: what a
@@ -147,27 +190,27 @@ WEB_TIER_TO_API = {"explorer": "free", "navigator": "navigator", "analyst": "dev
 # API_TIERS) and resolved only via auth._resolve_mcp().
 WEB_TIER_TO_MCP = {
     "explorer": {
-        "name": "Explorer (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "name": "Explorer (in-chat)", "price_monthly": 0,
         "markets": ["0"], "ml_access": True, "history": "full", "ml_daily_limit": 0,
         "opp_limit": 10, "rate": {"per_minute": 20, "per_day": 400}, "max_keys": 0,
         "stripe_price_metadata": None,
     },
     "navigator": {
-        "name": "Navigator (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "name": "Navigator (in-chat)", "price_monthly": 0,
         "markets": ["0", "1", "2"], "ml_access": True, "history": "full", "ml_daily_limit": 0,
         "opp_limit": 25, "rate": {"per_minute": 30, "per_day": 1000}, "max_keys": 0,
         "stripe_price_metadata": None,
     },
     "analyst": {
-        "name": "Analyst (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "name": "Analyst (in-chat)", "price_monthly": 0,
         "markets": ["0", "1", "2", "3", "4", "11"], "ml_access": True, "history": "full", "ml_daily_limit": 100,
-        "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 5000}, "max_keys": 0,
+        "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 1000}, "max_keys": 0,  # a HEAVY human chat day is a few hundred tool calls - this is genuinely assistant-scaled (was 5000)
         "stripe_price_metadata": None,
     },
     "strategist": {
-        "name": "Strategist (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "name": "Strategist (in-chat)", "price_monthly": 0,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,
-        "opp_limit": 500, "rate": {"per_minute": 120, "per_day": 20000}, "max_keys": 0,
+        "opp_limit": 500, "rate": {"per_minute": 120, "per_day": 2000}, "max_keys": 0,  # assistant-scaled ceiling (was 20000 = data-feed scale, wrong for a human in chat)
         "stripe_price_metadata": None,
     },
 }
@@ -178,6 +221,17 @@ WEB_TIER_TO_MCP = {
 # user's metering. Fail loud at import if that invariant is ever violated by a future edit.
 assert not any(t.get("service") for t in API_TIERS.values()), \
     "a sold API_TIERS entry has service:True - delegation must be INTERNAL_TIERS only"
+
+# Safety rails for API_TIER_RANK (the MAX(explicit, bundled) ladder - spec §7.1): every
+# name reachable via API_TIERS or the bundled WEB_TIER_TO_API mapping must be ranked, in
+# ladder order, and rank must never include an unsold/internal principal (mcp/chatbot/demo)
+# - those must fall through api_tier_from_user's "unrankable -> absent" branch, never win.
+assert set(API_TIER_RANK) == set(API_TIERS) | {"navigator"}, \
+    "API_TIER_RANK must cover exactly API_TIERS plus the bundled-only 'navigator' tier"
+assert [API_TIER_RANK[n] for n in ("free", "navigator", "dev", "pro", "business")] == [0, 1, 2, 3, 4], \
+    "API_TIER_RANK order must match the free < navigator < dev < pro < business ladder"
+assert not (set(API_TIER_RANK) & (set(INTERNAL_TIERS) - {"navigator"})), \
+    "a service/internal tier (chatbot/mcp/demo) leaked into API_TIER_RANK - it must never rank"
 
 # Safety rails for the MCP mirror: it must cover exactly the web tiers (parity with
 # WEB_TIER_TO_API), carry NO delegation flag (mirrors are entitlements, not principals),
@@ -202,11 +256,22 @@ def tier_for(name):
 
 
 def api_tier_from_user(user_row):
-    """user_row is a dict with at least 'tier' (web tier) and optionally 'api_tier'."""
+    """user_row is a dict with at least 'tier' (web tier) and optionally 'api_tier'.
+
+    Effective tier = MAX(explicit, bundled) by API_TIER_RANK (spec §7.1): an explicit API
+    subscription never DOWNGRADES a bundled one (e.g. a Strategist - bundled pro - who also
+    holds an explicit dev sub resolves pro, not dev). An explicit value unranked by
+    API_TIER_RANK (defensive: a service/internal name like 'mcp' or 'chatbot' should never
+    reach here, but must never crash or grant anything if it does) is treated as absent."""
     explicit = (user_row.get("api_tier") if hasattr(user_row, "get") else None)
-    if explicit:
+    bundled = WEB_TIER_TO_API.get(user_row.get("tier"), DEFAULT_TIER)
+    if not explicit or explicit not in API_TIER_RANK:
+        if explicit and explicit not in API_TIER_RANK:
+            log.warning("api_tier_from_user: ignoring unrankable explicit api_tier=%r", explicit)
+        return bundled
+    if API_TIER_RANK[explicit] >= API_TIER_RANK.get(bundled, 0):
         return explicit
-    return WEB_TIER_TO_API.get(user_row.get("tier"), DEFAULT_TIER)
+    return bundled
 
 
 def mcp_tier_for(web_tier):
@@ -243,3 +308,15 @@ def market_in_scope(tier_name, market_id):
 def ml_allowed(tier_name, market_id):
     t = tier_for(tier_name)
     return bool(t["ml_access"]) and str(market_id) in ML_MARKETS
+
+
+# Spot-asserts for the MAX(explicit, bundled) rule itself (the exact defect spec §7.1
+# fixes): a bundled-pro Strategist holding an explicit LOWER dev sub must resolve pro, not
+# be demoted; a paying explicit-dev holder on a lower web tier must still resolve dev; an
+# unrankable explicit value (a service name leaking in defensively) must never win.
+assert api_tier_from_user({"tier": "strategist", "api_tier": "dev"}) == "pro", \
+    "MAX regression: bundled-pro Strategist with an explicit lower dev sub must stay pro"
+assert api_tier_from_user({"tier": "explorer", "api_tier": "dev"}) == "dev", \
+    "MAX regression: an explicit dev sub must beat a lower bundled free tier"
+assert api_tier_from_user({"tier": "explorer", "api_tier": "mcp"}) == "free", \
+    "an unrankable explicit api_tier (service/internal name) must never grant anything"

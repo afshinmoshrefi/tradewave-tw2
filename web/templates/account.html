@@ -151,6 +151,14 @@
     </div>
     {% endif %}
 
+    {% if api_console_enabled %}
+    <div class="card" style="border-color: rgba(99, 102, 241, 0.4);">
+      <h3>API &amp; MCP</h3>
+      <div class="value">API keys, usage, billing, and connecting ChatGPT/Claude</div>
+      <a href="/account/api/keys" style="color:#c7d2fe;">→ Open API console</a>
+    </div>
+    {% endif %}
+
     {% if 'super_admin' in (user.roles or []) %}
     <div class="card" style="border-color: rgba(168, 85, 247, 0.4);">
       <h3>Admin</h3>

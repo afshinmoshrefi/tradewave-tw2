@@ -97,7 +97,7 @@ def load_header() -> str:
         f'      <a href="{portal_urls.PORTAL_URL}/for-ai-agents.html">For AI agents</a>\n'
         f'      <a href="{portal_urls.LEARN_URL}/">Learn</a>\n'
         f'      <a href="{portal_urls.LOGIN_URL}" id="tw-auth-link">Log In</a>\n'
-        f'      <a href="{portal_urls.nav("account/api/keys")}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>\n'
+        f'      <a href="{portal_urls.signup_url("/account/api/keys")}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>\n'
         '    </div>'
     )
     return re.sub(
@@ -723,7 +723,7 @@ print("edge", card["edge_score"], "win rate",
 </div>
 
 <ol>
-  <li>Open the API console at <a href="{portal_urls.nav('account/api')}">{portal_urls.MAIN_HOST}/account/api</a> and sign in (or create a free account).</li>
+  <li>Open the API console at <a href="{portal_urls.signup_url('/account/api/keys')}">{portal_urls.MAIN_HOST}/account/api</a> and sign in (or create a free account).</li>
   <li>Click <strong>Create Key</strong>. Copy it immediately - the secret is shown only once.</li>
   <li>Keys look like <code class="inline-code">tw_live_abc123...</code>. Keep them secret and send them in the <code class="inline-code">Authorization</code> header, never in the URL.</li>
 </ol>
@@ -809,7 +809,7 @@ def build_authentication() -> str:
 
 <h2>Key management in the console</h2>
 <ol>
-  <li>Go to <a href="{CONSOLE_URL}">Account &rarr; API Keys</a> in the dashboard.</li>
+  <li>Go to <a href="{portal_urls.signup_url('/account/api/keys')}">Account &rarr; API Keys</a> in the dashboard.</li>
   <li>Go to <strong>Account &rarr; API Keys</strong>.</li>
   <li><strong>Create</strong> - generates a new key. Copy it immediately; it is displayed only at creation time.</li>
   <li><strong>Rotate</strong> - generates a new secret for the same key slot and invalidates the old one. Useful when you suspect a key has been exposed.</li>
@@ -2163,7 +2163,7 @@ agent-ready MCP tools.</p>
 </ul>
 
 <div class="callout">
-  <p><strong>Free tier included.</strong> Create an account and get a free API key instantly - no credit card required. <a href="{portal_urls.nav('account/api/keys')}">Get an API key</a> and follow the <a href="{primary_href}">{primary_label}</a>.</p>
+  <p><strong>Free tier included.</strong> Create an account and get a free API key instantly - no credit card required. <a href="{portal_urls.signup_url('/account/api/keys')}">Get an API key</a> and follow the <a href="{primary_href}">{primary_label}</a>.</p>
 </div>
 """
     return page(

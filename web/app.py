@@ -1900,6 +1900,10 @@ def account():
         started_date=started_date,
         mcp_teaser=_account_mcp_teaser(u),
         is_affiliate=is_affiliate,
+        # R8: the hub's "API & MCP" action must not appear when the console
+        # ships dark (config.API_CONSOLE_ENABLED False, the prod default) -
+        # otherwise the link 404s on prod until the flag flips.
+        api_console_enabled=config.API_CONSOLE_ENABLED,
     )
 
 

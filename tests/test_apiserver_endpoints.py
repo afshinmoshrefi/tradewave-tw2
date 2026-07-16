@@ -663,3 +663,97 @@ def test_score_batch_at_cap_passes(client, monkeypatch):
     r = client.post("/v1/score", json={"market": "2", "opportunities": items}, headers=_hdr())
     assert r.status_code == 200
     assert r.get_json()["granted"] == routes._SCORE_BATCH_CAP
+
+
+# --- demo token: /v1/scan and /v1/opportunities scoped to the allowlist -------------------
+
+def _demo_client(app, monkeypatch):
+    from apiserver import auth
+    demo = {"user_id": "demo", "email": "demo@tradewave.ai", "tier": "demo",
+            "entitlements": tiers.tier_for("demo")}
+    monkeypatch.setattr(auth, "resolve_customer", lambda key: dict(demo))
+    monkeypatch.setattr(auth, "check_rate_limit", lambda cust: (True, {}))
+    monkeypatch.setattr(auth, "record_usage", lambda *a, **k: None)
+    from apiserver import ml_quota
+    monkeypatch.setattr(ml_quota, "remaining", lambda cust: None)
+    monkeypatch.setattr(ml_quota, "consume", lambda cust, n=1: 0)
+    monkeypatch.setattr(ml_quota, "refund", lambda cust, n=1: None)
+    return app.test_client()
+
+
+def test_demo_scan_returns_only_allowlist_symbols(app, monkeypatch):
+    # a mix of allowlisted (AAPL) and non-allowlisted (GOOG) rows on market 2 (demo's only
+    # in-scope market) - the demo response must contain ONLY the allowlist symbol, and
+    # evaluated_count must honestly reflect the filtered (not full-market) universe.
+    rows = [_opp(symbol="AAPL"), _opp(symbol="GOOG"), _opp(symbol="TSLA", entry="2026-07-02")]
+    _mock_card_chain(monkeypatch, multi=rows)
+    demo_client = _demo_client(app, monkeypatch)
+    r = demo_client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    assert r.status_code == 200
+    body = r.get_json()
+    symbols_seen = {o["symbol"] for o in body["opportunities"]}
+    assert symbols_seen <= {"AAPL", "MSFT", "NVDA", "AMZN", "TSLA"}
+    assert "GOOG" not in symbols_seen
+    assert body["evaluated_count"] == 2                    # AAPL + TSLA only, not GOOG
+
+
+def test_demo_scan_all_non_allowlist_is_honestly_empty(app, monkeypatch):
+    rows = [_opp(symbol="GOOG"), _opp(symbol="META", entry="2026-07-02")]
+    _mock_card_chain(monkeypatch, multi=rows)
+    demo_client = _demo_client(app, monkeypatch)
+    r = demo_client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    body = r.get_json()
+    assert body["evaluated_count"] == 0
+    assert body["opportunities"] == []
+
+
+def test_real_key_scan_unaffected_by_demo_scoping(client, monkeypatch):
+    # a paying key (the default `client` fixture, tier=dev) must see every row - the demo
+    # allowlist filter must be a true no-op for a non-demo entitlement.
+    rows = [_opp(symbol="AAPL"), _opp(symbol="GOOG"), _opp(symbol="META", entry="2026-07-02")]
+    _mock_card_chain(monkeypatch, multi=rows)
+    r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    body = r.get_json()
+    symbols_seen = {o["symbol"] for o in body["opportunities"]}
+    assert symbols_seen == {"AAPL", "GOOG", "META"}
+    assert body["evaluated_count"] == 3
+
+
+def test_demo_opportunities_scoped_to_allowlist(app, monkeypatch):
+    # /v1/opportunities is a single-market enumeration route with the same bulk-exposure
+    # shape as /v1/scan (audit 2026-07-10 sweep finding) - it must get the same scoping.
+    from apiserver import appserver_client as ac
+    rows = [_opp(symbol="AAPL"), _opp(symbol="GOOG")]
+    monkeypatch.setattr(ac, "market_name_map", lambda: {"2": "S&P 500 STOCKS"})
+    monkeypatch.setattr(ac, "opportunities", lambda *a, **k: list(rows))
+    monkeypatch.setattr(ac, "_win_rate_for_opp", lambda o: 0.9)
+    demo_client = _demo_client(app, monkeypatch)
+    r = demo_client.get("/v1/opportunities?market=2", headers=_hdr())
+    assert r.status_code == 200
+    body = r.get_json()
+    symbols_seen = {o["symbol"] for o in body["opportunities"]}
+    assert symbols_seen == {"AAPL"}
+    assert body["evaluated_count"] == 1
+
+
+def test_real_key_opportunities_unaffected_by_demo_scoping(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    rows = [_opp(symbol="AAPL"), _opp(symbol="GOOG")]
+    monkeypatch.setattr(ac, "market_name_map", lambda: {"2": "S&P 500 STOCKS"})
+    monkeypatch.setattr(ac, "opportunities", lambda *a, **k: list(rows))
+    monkeypatch.setattr(ac, "_win_rate_for_opp", lambda o: 0.9)
+    r = client.get("/v1/opportunities?market=2", headers=_hdr())
+    body = r.get_json()
+    symbols_seen = {o["symbol"] for o in body["opportunities"]}
+    assert symbols_seen == {"AAPL", "GOOG"}
+
+
+# --- tier rank MAX(explicit, bundled) at the resolution layer -----------------------------
+
+def test_strategist_with_explicit_dev_sub_resolves_pro():
+    # the exact defect the spec fixes: bundled-pro must not be demoted by a lower explicit sub.
+    assert tiers.api_tier_from_user({"tier": "strategist", "api_tier": "dev"}) == "pro"
+
+
+def test_explorer_with_explicit_dev_sub_resolves_dev():
+    assert tiers.api_tier_from_user({"tier": "explorer", "api_tier": "dev"}) == "dev"
