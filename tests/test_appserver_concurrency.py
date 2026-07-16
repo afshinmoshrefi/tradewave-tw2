@@ -62,6 +62,18 @@ def test_gunicorn_access_formats_drop_query_strings():
         assert "%(f)s" not in line
 
 
+def test_stage_web_bootstrap_keeps_credentials_out_of_access_logs():
+    script = (
+        ROOT / "ops" / "staging" / "bootstrap_stage_web_services.sh"
+    ).read_text(encoding="utf-8")
+    line = next(line for line in script.splitlines() if "--access-logformat" in line)
+    assert "%(U)s" in line
+    assert "%(q)s" not in line
+    assert "%(f)s" not in line
+    assert "ops/nginx/conf.d/tradewave-log-format.conf" in script
+    assert "tradewave.access.log tw_noargs" in script
+
+
 def test_nginx_trade_wave_logs_use_no_args_format():
     fmt = (ROOT / "ops" / "nginx" / "conf.d" / "tradewave-log-format.conf").read_text()
     assert "$uri" in fmt

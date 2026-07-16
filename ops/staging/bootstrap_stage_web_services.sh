@@ -6,7 +6,7 @@
 #
 # What this does:
 #   1. systemd unit for tradewave-web (gunicorn :5500, 2 workers — RAM constraint)
-#   2. 3 nginx snippets (security_headers, dotfile_deny, tw2-proxy-headers)
+#   2. nginx log format + 3 snippets (security_headers, dotfile_deny, tw2-proxy-headers)
 #   3. nginx vhost for ${TGT_WEB_HOST}:
 #        - Marketing site (static from /var/www/tradewave/)
 #        - /app/, /app/index.html → web tier (index injection); /app/static/* → React build
@@ -50,6 +50,7 @@ ExecStart=/home/flask/venv/bin/gunicorn \
     --timeout 60 \
     --bind 127.0.0.1:5500 \
     --access-logfile /var/log/tradewave/web.access.log \
+    --access-logformat '%({x-forwarded-for}i)s %(l)s %(u)s %(t)s "%(m)s %(U)s %(H)s" %(s)s %(b)s "%(a)s"' \
     --error-logfile /var/log/tradewave/web.error.log \
     --capture-output \
     app:app
@@ -60,8 +61,14 @@ RestartSec=3
 WantedBy=multi-user.target
 UNIT
 
-hdr "2. nginx snippets"
+hdr "2. nginx log format + snippets"
+install -d -m 755 /etc/nginx/conf.d
 install -d -m 755 /etc/nginx/snippets
+
+# Keep query arguments (including legacy ?token= credentials) out of access
+# logs. Install this before nginx parses the vhost's tw_noargs reference.
+install -m 0644 /home/flask/ops/nginx/conf.d/tradewave-log-format.conf \
+    /etc/nginx/conf.d/tradewave-log-format.conf
 
 cat >/etc/nginx/snippets/security_headers.conf <<'SNIP'
 # TW2 staging shared HTTP security headers.
@@ -192,7 +199,7 @@ server {
 
     location / { try_files $uri $uri/ $uri.html =404; }
 
-    access_log /var/log/nginx/tradewave.access.log;
+    access_log /var/log/nginx/tradewave.access.log tw_noargs;
     error_log  /var/log/nginx/tradewave.error.log;
 }
 NGINX
