@@ -869,6 +869,7 @@ def test_missing_api_portal_config_does_not_block_eod_portal(monkeypatch):
     app_module = importlib.import_module("app")
     user = SimpleNamespace(id="web-user", stripe_customer_id="cus_web")
     portal_calls = []
+    monkeypatch.setenv("TW2_PUBLIC_HOST", "tw2.trxstat.com")
     monkeypatch.setattr(app_module, "get_current_user", lambda: user)
     monkeypatch.setattr(app_module, "_stripe_configured", lambda: True)
     monkeypatch.setattr(
