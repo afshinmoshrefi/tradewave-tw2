@@ -509,7 +509,7 @@ def build_quickstart() -> str:
     # tw_live_ keys must always travel in the Authorization header. The api_key= query link
     # uses the templated public host so it renders the right host per environment.
     DEMO = "tw_demo_explore"
-    demo_scan_link = f"{API_BASE}/scan?market=2&amp;limit=5&amp;api_key={DEMO}"
+    demo_scan_link = f"{API_BASE}/scan?markets=2&amp;limit=5&amp;api_key={DEMO}"
     demo_analyze_link = f"{API_BASE}/analyze/AAPL?market=2&amp;api_key={DEMO}"
 
     body = f"""
@@ -566,7 +566,7 @@ print(me["tier_name"], "- markets:",
   <p><strong>Or just click this link.</strong> The demo token is the only token accepted in the
   URL (real <code class="inline-code">tw_live_</code> keys stay in the header), so you can open a live
   call right in your browser:</p>
-  <p style="margin-top:10px;"><a href="{demo_scan_link}" target="_blank" rel="noopener">{API_BASE}/scan?market=2&amp;limit=5&amp;api_key={DEMO}</a></p>
+  <p style="margin-top:10px;"><a href="{demo_scan_link}" target="_blank" rel="noopener">{API_BASE}/scan?markets=2&amp;limit=5&amp;api_key={DEMO}</a></p>
 </div>
 
 <h2>2. Scan the top seasonal patterns</h2>
@@ -582,14 +582,14 @@ ranked seasonal patterns:</p>
     <button class="code-tab-btn">JavaScript</button>
   </div>
   <div class="code-tab-pane active">
-<pre><code>curl "{API_BASE}/scan?market=2&amp;limit=5" \\
+<pre><code>curl "{API_BASE}/scan?markets=2&amp;limit=5" \\
   -H "Authorization: Bearer {DEMO}"</code></pre>
   </div>
   <div class="code-tab-pane">
 <pre><code>import urllib.request, json
 
 req = urllib.request.Request(
-    "{API_BASE}/scan?market=2&limit=5",
+    "{API_BASE}/scan?markets=2&limit=5",
     headers={{"Authorization": "Bearer {DEMO}"}},
 )
 with urllib.request.urlopen(req) as r:
@@ -601,7 +601,7 @@ for o in data["opportunities"]:
   </div>
   <div class="code-tab-pane">
 <pre><code>const res = await fetch(
-  "{API_BASE}/scan?market=2&limit=5",
+  "{API_BASE}/scan?markets=2&limit=5",
   {{ headers: {{ Authorization: "Bearer {DEMO}" }} }}
 );
 const {{ opportunities }} = await res.json();
@@ -752,7 +752,7 @@ curl "{API_BASE}/analyze/AAPL?market=2" \\
 
 KEY = "&lt;your-api-key&gt;"  # tw_live_...
 req = urllib.request.Request(
-    "{API_BASE}/scan?market=2&limit=5",
+    "{API_BASE}/scan?markets=2&limit=5",
     headers={{"Authorization": f"Bearer {{KEY}}"}},
 )
 with urllib.request.urlopen(req) as r:
@@ -765,7 +765,7 @@ for o in data["opportunities"]:
 <pre><code>const KEY = "&lt;your-api-key&gt;";  // tw_live_...
 
 const res = await fetch(
-  "{API_BASE}/scan?market=2&limit=5",
+  "{API_BASE}/scan?markets=2&limit=5",
   {{ headers: {{ Authorization: `Bearer ${{KEY}}` }} }}
 );
 const {{ opportunities }} = await res.json();
