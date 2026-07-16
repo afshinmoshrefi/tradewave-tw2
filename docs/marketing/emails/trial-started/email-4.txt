@@ -1,17 +1,17 @@
-Subject: Choose the Smallest Plan That Fits
-Preview: If Explorer covers your work, pay nothing and keep using it.
+Subject: Choose the Plan That Matches Your Research
+Preview: Use what you learned in the trial to match your markets and tools to the right TradeWave plan.
 Send day: 6
 
-Do not choose Strategist because it has everything. Choose the smallest plan that matches what you actually used:
+Use what you learned during the trial. Choose the plan that matches the markets and tools that became part of your research:
 
 Explorer: Dow 30, up to 10 years, no web-app AI score.
 Navigator: Dow, Nasdaq 100 and S&P 500, custom start dates and up to 15 years.
 Analyst: AI scores and the wider U.S. stock and ETF universe.
 Strategist: all 15 markets, including futures, forex, government bonds, London, Toronto and crypto.
 
-If Explorer covers your work, pay nothing and keep using it.
+Compare the plans side by side and select the one that supports the workflow you want to continue.
 
-See the Plans:
+Compare Plans:
 https://tradewave.ai/#pricing
 
 Research and education only. Not financial advice. Past patterns do not guarantee future results.

@@ -1,42 +1,53 @@
-Subject: How to Read a Pattern So It Cannot Fool You
-Preview: Win rate with Sharpe, the cycle lens, and the path metrics. The discipline that makes the engine pay.
+Subject: How to Read a Pattern Without Letting It Fool You
+Preview: Win rate with Sharpe, the cycle lens, and the path metrics. The discipline that makes the engine useful.
 Send day: 4
 
-STRATEGIST TRIAL - DAY 4
+TRADEWAVE STRATEGIST
 
 A Pattern Is Not a Buy Signal. It Is Evidence to Read
 
-The Opportunity Table ranks candidates. Ranked highly is not the same as approved. Every candidate earns its place only after you validate it in the Wave Viewer, in a fixed order. This is the discipline that turns the whole engine from a list into a decision.
+The Opportunity Table ranks candidates. Ranked highly is not the same as approved. Every candidate earns its place only after you validate it in the Wave Viewer.
 
 The three views, in this order
-1. Profit Bar Chart - one bar per year, green for up, red for down, losers left in. Is the edge broad-based, or carried by one hero year?
-2. Trend Chart - the typical path. Where is the pivot zone, where is the recurring weak stretch? This is what keeps you from panic-exiting or overstaying.
-3. Stats Table - the numbers confirm it: %Profitable, Sharpe, median versus average, cumulative return versus buy and hold. Act only when all three agree.
+
+1. Profit Bar Chart - one bar per year, with the losing years left in. Is the edge broad-based or carried by one exceptional year?
+
+2. Trend Chart - the typical historical path. Where is the recurring pivot, and where is the weak stretch?
+
+3. Stats Table - confirm the record with % Profitable, Sharpe, median versus average, and cumulative return versus buy and hold.
+
+The evidence is strongest when all three views tell a consistent story.
 
 The One Judgment That Separates Edge From Noise
-Read win rate WITH Sharpe. A high hit rate tells you direction. A low Sharpe means the path was lumpy, so stage in or hedge. A high Sharpe means clean, repeatable drift. And never trust a high percentage on a tiny sample - 91% across 11 occurrences is fragile, not exceptional.
 
-Then check the path itself. MFE is how far it ran in your favor at the best point - your target. MAE is the worst drawdown you would have had to sit through - your stop and your invalidation line. TWR rewards windows that move strongly along the way, which Sharpe alone throws out. Seasonality is probability, not protection: a strong multi-year bullish window still posted a roughly -23% worst-point drawdown (MAE) before finishing near -5%. Define your exit before you enter, every time.
+Read win rate with Sharpe. A high hit rate describes direction. Sharpe adds information about how smooth or volatile the historical path was. Never trust a high percentage without checking sample size: 91% across 11 occurrences is more fragile than the headline makes it sound.
 
-The Strategist lens: the 4-year cycle on every market
-A regime is the lens you measure with, not what the market is. Blend all years and a real edge dilutes or a fake one appears. The overlay that switches a loaded pattern between consecutive years and PE / PE+1 / PE+2 / PE+3 exists on every plan, including free Explorer. What Strategist adds is applying that 4-year cycle automatically across every one of the 15 markets, not just US stocks and ETFs. When the two lenses disagree, that disagreement is itself the signal.
+Then check the path itself. MFE and MAE describe the best favorable and worst adverse excursions along the historical paths. They add context about variability and path risk; they are not automatic targets or stops. TWR adds information about how strongly a window moved along the way.
+
+Seasonality is probability, not protection. Treat these statistics as research context, not trading instructions.
+
+The Cycle Lens Across the Full Market Set
+
+The cycle overlay switches a loaded pattern between consecutive years and PE, PE+1, PE+2, and PE+3. Strategist lets you apply that same lens across futures, forex, bonds, foreign indices, crypto, U.S. stocks, and ETFs.
 
 Validate a pattern, then toggle the cycle:
-https://tradewave.ai/app/
+https://tradewave.ai/login?next=%2Fapp%2F
 
 ---
 
-Where the Cycle Lens Earns Its Keep, and Where It Does Not
+Where the Cycle Lens Earns Its Keep
 
-The cycle shows up in two ways, so match the plan to which one you actually run. The overlay on a single loaded pattern is in every plan, including free Explorer. The election-cycle FILTER on the opportunity table starts at Navigator ($19/mo, $14/mo yearly). The full 4-year cycle applied automatically across all 15 markets is the Strategist lever. If you run that breadth of regime comparison routinely, it is the reason to be here.
+The cycle appears in two places: the overlay on a loaded pattern and the election-cycle filter on the Opportunity Table.
 
-If your cycle work stays on US stocks and ETFs, Analyst ($47/mo, $33/mo yearly) already gives you both the loaded-pattern overlay and the election-cycle filter on the opportunity table for those markets, with full AI scoring; the Strategist delta is applying the 4-year cycle automatically across all 15 markets. Your trial is on us, so use what you actually use - if Analyst fits, there is no charge yet and we will help you decide before day 7.
+Compare the full consecutive-year record with the matching PE-cycle subset. The cycle sample is usually smaller, so treat a higher percentage with extra skepticism rather than assuming it is automatically stronger.
 
-P.S. You do not have to pick a plan from this email. On day 7 the app puts your real trial usage next to both plans so the tier decision is settled in the product.
+Use the same comparison across the full market set. If the consecutive and cycle records disagree, investigate the difference instead of choosing the more attractive headline.
 
 ---
 
-The engine generates the statistics and shows its work. The AI reads them and never invents them. TradeWave is probability, not prediction, and not financial advice - validate it, save it, watch it.
+The engine generates the statistics and shows its work. The AI reads those statistics and does not invent them. TradeWave is probability, not prediction, and not financial advice.
 
 TradeWave - Tara Data Research LLC
-Manage your plan: https://tradewave.ai/account
+Open your account: https://tradewave.ai/login?next=%2Faccount
+Questions? help@tradewave.ai
+Unsubscribe: {$unsubscribe}

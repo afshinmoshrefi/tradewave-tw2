@@ -110,6 +110,7 @@ smn/
 
 # TW2 v2 API/MCP gateway: isolated venv + generated portal/docs output (regenerated per-env)
 venv-api/
+.codex-venv/
 site/api_marketing/out/
 site/api_docs/*.html
 site/api_docs/openapi.yaml
@@ -132,3 +133,4 @@ __pycache__/
 .pdftmp/
 archive/
 *.bak-*
+~$*

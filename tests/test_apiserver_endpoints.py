@@ -46,6 +46,18 @@ def _hdr():
     return {"Authorization": "Bearer tw_live_test"}
 
 
+def test_daily_pick_source_failure_returns_503_json(client, monkeypatch):
+    from apiserver import appserver_client
+
+    def unavailable():
+        raise appserver_client.FeaturedHistoryUnavailable("missing")
+
+    monkeypatch.setattr(appserver_client, "daily_pick_raw", unavailable)
+    response = client.get("/v1/daily-pick", headers=_hdr())
+    assert response.status_code == 503
+    assert response.get_json()["error"]["code"] == "daily_pick_unavailable"
+
+
 # --- auth ------------------------------------------------------------------------
 
 def test_missing_key_is_401(app, monkeypatch):
@@ -123,6 +135,21 @@ def test_track_record_carries_disclaimer(client, monkeypatch):
     assert r.get_json()["disclaimer"]
 
 
+def test_health_exposes_storm_breaker_canary(client, monkeypatch):
+    monkeypatch.setattr("apiserver.app.storm_breaker_active", lambda: False)
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.get_json()["storm_breaker_active"] is False
+    assert "Server-Timing" in response.headers
+
+
+def test_health_fails_while_storm_breaker_is_active(client, monkeypatch):
+    monkeypatch.setattr("apiserver.app.storm_breaker_active", lambda: True)
+    response = client.get("/healthz")
+    assert response.status_code == 503
+    assert response.get_json()["storm_breaker_active"] is True
+
+
 def test_markets_has_no_disclaimer_but_has_pattern_detection(client, monkeypatch):
     _patch_appsrv(monkeypatch,
                   list_markets=lambda: [{"id": "2", "name": "S&P 500 STOCKS"},
@@ -151,12 +178,13 @@ def _opp(win_rate=0.9, symbol="AAPL", market="2", direction="long", entry="2026-
             "median_profit_pct": 3.0, "win_rate": win_rate, "years": "10"}
 
 
-def _mock_card_chain(monkeypatch, multi=None, by_symbol=None, curve=None):
+def _mock_card_chain(monkeypatch, multi=None, by_symbol=None, curve=None, entries=None):
     from apiserver import appserver_client as ac
     monkeypatch.setattr(ac, "market_name_map",
                         lambda: {"2": "S&P 500 STOCKS", "4": "WILSHIRE 5000", "0": "DOW 30 STOCKS",
                                  "7": "FUTURES & COMMODITIES", "11": "ETFs"})
-    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *a, **k: (dict(_STATS), list(_ENTRIES)))
+    receipt_rows = _ENTRIES if entries is None else entries
+    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *a, **k: (dict(_STATS), list(receipt_rows)))
     monkeypatch.setattr(ac, "_seasonal_curve", lambda *a, **k: list(curve or []))
     monkeypatch.setattr(ac, "_win_rate_for_opp", lambda o: 0.9)
     if multi is not None:
@@ -178,7 +206,9 @@ def test_scan_card_carries_extend_research_and_timing(client, monkeypatch):
 
 
 def test_scan_no_signal_card_omits_order_ticket(client, monkeypatch):
-    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)])
+    weak = ([{"year": 2015 + i, "pct": "4.00,6.00,-1.00"} for i in range(3)]
+            + [{"year": 2018 + i, "pct": "-3.00,2.00,-5.00"} for i in range(7)])
+    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)], entries=weak)
     r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
     card = r.get_json()["opportunities"][0]
     assert card["bias"] == "neutral"
@@ -386,7 +416,9 @@ def test_scan_min_win_rate_over_100_is_400_with_guidance(client, monkeypatch):
 
 
 def test_scan_all_no_signal_lead_is_honest(client, monkeypatch):
-    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)])
+    weak = ([{"year": 2015 + i, "pct": "4.00,6.00,-1.00"} for i in range(3)]
+            + [{"year": 2018 + i, "pct": "-3.00,2.00,-5.00"} for i in range(7)])
+    _mock_card_chain(monkeypatch, multi=[_opp(win_rate=0.30)], entries=weak)
     r = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
     body = r.get_json()
     assert body["summary"].startswith("Evaluated 1 candidate - 0 have a high-conviction edge")

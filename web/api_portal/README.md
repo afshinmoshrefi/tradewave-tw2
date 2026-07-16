@@ -42,7 +42,7 @@ app.register_blueprint(api_portal.bp, url_prefix="/account/api")
 | POST   | `/billing/checkout`          | Stripe Checkout (mode=subscription)    |
 | GET    | `/billing/success`           | Post-checkout return (no tier write)   |
 | GET    | `/billing/manage`            | Stripe Billing Portal redirect         |
-| GET    | `/mcp`                       | MCP URL + ChatGPT/Claude.ai (OAuth) + Claude Desktop/Cursor (BYOK) setup |
+| GET    | `/mcp`                       | MCP URL + hosted OAuth setup; optional Claude Desktop/Cursor BYOK setup |
 
 POST routes carry `{{ csrf_token() }}` (the web app's global Flask-WTF
 `CSRFProtect` validates them; nothing here is csrf-exempt).
@@ -82,32 +82,26 @@ POST routes carry `{{ csrf_token() }}` (the web app's global Flask-WTF
   STRIPE_SECRET_KEY=sk_test_... ./venv/bin/python web/api_portal/create_api_products.py
   ```
 
-### Integration decision: who flips the API tier on payment?
-This console deliberately does **not** add a second Stripe webhook or a second
-tier-write path (avoids racing the web app's existing `/webhooks/stripe`). Two
-options for the parent at integration:
-
-1. **Recommended:** enable the optional `users.api_tier` column (the commented
-   `ALTER TABLE` at the bottom of `apiserver/schema.sql`) and extend the existing
-   `/webhooks/stripe` handler so that, when an event's subscription metadata has
-   `product_line=api`, it writes the `tier` into `users.api_tier` instead of the
-   web `users.tier`. `apiserver.tiers.api_tier_from_user` already prefers
-   `api_tier` when present, so the console and gateway pick it up automatically.
-2. If `api_tier` is left disabled, the API tier simply inherits from the web tier
-   (`explorer->free, analyst->dev, strategist->pro` per
-   `apiserver.tiers.WEB_TIER_TO_API`). The console still renders correctly; an
-   "API-only" subscription just won't change the API tier until option 1 is wired.
+### API tier writes on payment
+The active `users.api_tier` column keeps standalone API subscriptions separate
+from the web subscription tier. The existing `/webhooks/stripe` handler routes
+subscriptions with `product_line=api` to `users.api_tier`; it never writes the
+web `users.tier` for that product line. `apiserver.tiers.api_tier_from_user`
+prefers this explicit API tier. When it is null, the bundled web entitlement is
+inherited: Explorer -> Free, Navigator -> internal Navigator, Analyst -> Dev,
+and Strategist -> Pro.
 
 ## MCP connect
 - MCP host is per-env: override with `TW2_MCP_PUBLIC_HOST`, else derived from
   `config.tw2_env` (dev->`mcp-dev.trxstat.com`, staging->`mcp-stage.trxstat.com`,
-  prod->`mcp.trxstat.com`). Dev default = `mcp-dev.trxstat.com`.
+  prod->`mcp.tradewave.ai`). Dev default = `mcp-dev.trxstat.com`.
 - The published connector URL is the BARE host (no `/mcp` path; the server also
   aliases `/mcp`).
-- Page shows the MCP URL + per-client setup: ChatGPT and Claude.ai connect via
-  OAuth (paste the URL, Connect, sign in with the TradeWave account - no API
-  key); Claude Desktop and Cursor get copy-paste BYOK configs (customer pastes
-  their own API key).
+- Page shows the MCP URL + per-client setup. ChatGPT, Claude.ai, and Claude
+  Desktop connect to the hosted connector through OAuth (paste the URL, connect,
+  and sign in with the TradeWave account - no API key). Claude Desktop also has
+  an optional BYOK bridge, while Cursor uses the BYOK configuration. OAuth mirrors
+  the user's web plan and active teaser; BYOK uses the API entitlement ladder.
 
 ## Validate (web venv)
 ```

@@ -34,7 +34,14 @@ def _opp(direction="long", win_rate=0.9):
 
 
 def _build(direction="long", win_rate=0.9, **kw):
-    return cards.build_pattern_card(_opp(direction, win_rate), _STATS, list(_LONG_ENTRIES),
+    entries = list(_LONG_ENTRIES)
+    if win_rate != 0.9:
+        wins = round(win_rate * 10)
+        entries = [
+            {"year": 2015 + i, "pct": "2.00,3.00,-1.00" if i < wins else "-2.00,1.00,-3.00"}
+            for i in range(10)
+        ]
+    return cards.build_pattern_card(_opp(direction, win_rate), _STATS, entries,
                                    market_name="S&P 500 STOCKS", as_of=AS_OF, rank=1,
                                    ml_state="market", **kw)
 
@@ -207,7 +214,11 @@ def test_project_decision_keeps_explicit_chart():
 
 def _build_custom(win_rate, sharpe, n_entries):
     """Build a card with a controllable win_rate, sharpe, and number of completed years."""
-    entries = [{"year": 2000 + i, "pct": "2.00,3.00,-1.00"} for i in range(n_entries)]
+    wins = round(win_rate * n_entries)
+    entries = [
+        {"year": 2000 + i, "pct": "2.00,3.00,-1.00" if i < wins else "-2.00,1.00,-3.00"}
+        for i in range(n_entries)
+    ]
     opp = {"symbol": "TST", "market": "2", "direction": "long", "entry_date": "2026-07-01",
            "days_out": 21, "years": str(max(n_entries, 1)), "win_rate": win_rate,
            "avg_profit_pct": 2.0, "sharpe_ratio": sharpe}

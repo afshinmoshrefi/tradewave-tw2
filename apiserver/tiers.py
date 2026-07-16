@@ -103,7 +103,8 @@ INTERNAL_TIERS = {
     # standalone (kept out of API_TIERS so it never appears in pricing/Stripe; resolved via tier_for()
     # + WEB_TIER_TO_API below). Without it a paying Navigator fell through to DEFAULT_TIER='free'
     # (S&P-only, 5 ML/day) = identical to a $0 Explorer. Scope mirrors config.level_access_hierarchy['2']
-    # (Dow + NASDAQ + S&P). Do NOT remap navigator->'dev' (that leaks all 15 markets + 100 ML/day).
+    # (Dow + NASDAQ + S&P). Do NOT remap navigator->'dev' (that leaks the wider U.S.
+    # stock/ETF scope + 100 ML/day).
     "navigator": {
         "name": "Navigator", "price_monthly": 0, "price_annual": 0,
         "markets": ["0", "1", "2"], "ml_access": True, "history": "full", "ml_daily_limit": 5,

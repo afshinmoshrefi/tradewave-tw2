@@ -1,6 +1,6 @@
 # Strategist
 
-- E1 (day 1): Welcome to Your Strategist Trial, and the One Honest Question
-- E2 (day 2): Why Breadth Across 15 Markets Is Safety, Not a Bigger Menu
-- E3 (day 4): How to Read a Pattern So It Cannot Fool You
-- E4 (day 6): Save, Track, Remind, Repeat, and a Plan Self-Audit
+- E1 (day 0): Strategist Is Active — Use the Whole Engine
+- E2 (day 2): Use Fifteen Markets Without Forcing a Setup
+- E3 (day 4): How to Read a Pattern Without Letting It Fool You
+- E4 (day 6): Save It, Set the Reminder, and Build the Habit

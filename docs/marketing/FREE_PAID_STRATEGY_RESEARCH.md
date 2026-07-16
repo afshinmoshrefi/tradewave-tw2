@@ -1,5 +1,10 @@
 # TradeWave Free vs Paid Strategy - Research & Recommendation
 
+> Status: HISTORICAL RESEARCH, not the current product decision. The shipped ladder
+> keeps Explorer AI off, uses Navigator at $19 with three markets and no permanent AI,
+> keeps Analyst at $47, and keeps Strategist at $129. See `PRICING_STRATEGY.md` and
+> `../PRICING_QUOTA_SPEC.md`. The proposals below remain experiment hypotheses only.
+
 > Produced by a 24-agent adversarial workflow (5 models generated, each scored by 3
 > independent lenses - conversion economist, give-away/cannibalization skeptic,
 > growth+feasibility - then synthesized). Grounded in the verified code levers and

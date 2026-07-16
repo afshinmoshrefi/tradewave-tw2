@@ -47,6 +47,16 @@ if _SECRETS.exists() and os.access(_SECRETS, os.R_OK):
         v = v.strip().strip("'").strip('"')
         os.environ.setdefault(k.strip(), v)
 
+# The current WorkOS SDK validates configuration when the client is
+# constructed. Unit tests never make WorkOS network calls, but they still
+# import web.app, so provide unmistakably non-production placeholders when a
+# developer checkout has no secrets file.
+os.environ.setdefault("WORKOS_API_KEY", "sk_test_unit_only")
+os.environ.setdefault("WORKOS_CLIENT_ID", "client_test_unit_only")
+os.environ.setdefault("WORKOS_COOKIE_PASSWORD", "unit-only-cookie-password")
+os.environ.setdefault("APPSERVER_JWT_SECRET", "unit-only-jwt-secret-at-least-32-bytes")
+os.environ.setdefault("SERVICE_API_KEY", "unit-only-service-key")
+
 # 2. Force POSTGRES_DSN to point at tradewave_test BEFORE models.py is
 # imported. config.POSTGRES_DSN is read at module-load time (`engine =
 # create_engine(config.POSTGRES_DSN, ...)` in models.py), so we MUST

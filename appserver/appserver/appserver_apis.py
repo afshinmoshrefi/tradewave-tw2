@@ -39,7 +39,7 @@
 
 
 import pandas as pd
-import requests
+from pooled_http import http as requests
 import time
 import jwt
 import datetime

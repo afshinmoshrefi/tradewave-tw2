@@ -10,7 +10,7 @@ Writes 7 static HTML files into the same directory as this script:
   quickstart.html    - get a key + first call in 5 minutes
   authentication.html - Bearer auth, key creation/rotation, BYOK for MCP
   api-reference.html  - all 13 endpoints, regenerated from openapi.yaml
-  mcp-reference.html  - 17 tools (6 flagship + 11 primitives) + how to connect in ChatGPT/Claude.ai (OAuth) and Claude Desktop/Cursor (BYOK)
+  mcp-reference.html  - 17 tools (6 flagship + 11 primitives) + OAuth and BYOK connection paths
   data-dictionary.html - every field + all 15 live markets defined in plain English
   rate-limits.html    - per-tier limits, headers, error shape, upgrade stub
   changelog.html      - v1 release notes
@@ -34,10 +34,16 @@ from pathlib import Path
 
 import yaml
 
+# Resolve imports from the checkout as well as from the deployed /home/flask
+# layout. This keeps generation reproducible on a developer workstation.
+HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "site" / "lib"))
+
 # ---------------------------------------------------------------------------
 # Env-driven URL config (resolves per-env: dev/staging/prod)
 # ---------------------------------------------------------------------------
-sys.path.insert(0, "/home/flask/site/lib")
 import portal_urls  # noqa: E402
 import portal_seo  # noqa: E402
 
@@ -50,8 +56,6 @@ MAIN_URL    = portal_urls.MAIN_URL     # e.g. https://tw2-dev.trxstat.com
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-HERE = Path(__file__).parent
-REPO_ROOT = HERE.parent.parent          # /home/flask
 OPENAPI_YAML = REPO_ROOT / "api" / "openapi.yaml"
 MCP_TOOLS_MD = REPO_ROOT / "api" / "MCP_TOOLS.md"
 HEADER_PARTIAL = REPO_ROOT / "site" / "templates" / "_tw_header.html"
@@ -837,8 +841,8 @@ def build_authentication() -> str:
 <h2>MCP authentication: sign in or bring your own key</h2>
 <p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">{MCP_URL}</code>. It accepts two credentials:</p>
 <ul>
-  <li><strong>Consumer apps (ChatGPT, Claude.ai) - OAuth.</strong> Paste the server URL into the app's connector settings, click Connect, and sign in with your TradeWave account. No API key is involved; your plan follows the account you sign in with.</li>
-  <li><strong>Dev tools (Claude Desktop, Cursor) - BYOK.</strong> The MCP server accepts the same API keys as the REST API; there is no separate credential system. Stdio-only clients bridge to the hosted server with the <code class="inline-code">mcp-remote</code> npx shim, passing the key in the <code class="inline-code">Authorization</code> header.</li>
+  <li><strong>Consumer connections (ChatGPT, Claude.ai, Claude Desktop) - OAuth.</strong> Paste the server URL into the app's connector settings, click Connect, and sign in with your TradeWave account. No API key is involved; your plan follows the account you sign in with.</li>
+  <li><strong>Bring-your-own-key clients - BYOK.</strong> The MCP server accepts the same API keys as the REST API; there is no separate credential system. A client that needs a local stdio bridge can use the <code class="inline-code">mcp-remote</code> npx shim and pass the key in the <code class="inline-code">Authorization</code> header.</li>
 </ul>
 
 <pre><code># Dev tool (Claude Desktop / Cursor): bridge with the mcp-remote shim
@@ -1401,7 +1405,7 @@ def build_api_reference() -> str:
 def build_mcp_reference() -> str:
     body = f"""
 <h1>MCP Reference</h1>
-<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) that let AI assistants (ChatGPT, Claude, Cursor) reason over detected seasonal patterns directly. Consumer apps (ChatGPT, Claude.ai) connect via OAuth - paste the server URL and sign in with your TradeWave account, no API key needed. Dev tools (Claude Desktop, Cursor) bring your own API key. Either way, tier and entitlements flow from the signed-in account or the key.</p>
+<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) that let AI assistants (ChatGPT, Claude, Cursor) reason over detected seasonal patterns directly. ChatGPT, Claude.ai, and Claude Desktop can connect to the hosted server with OAuth - paste the server URL and sign in with your TradeWave account, no API key needed. BYOK clients use an API key. Tier and entitlements flow from the signed-in account or the key.</p>
 
 <div class="callout">
   <p><strong>A research partner, not a black box.</strong> TradeWave supplies a seasonal + 62-feature-ML statistical edge and the timing only. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
@@ -1624,7 +1628,7 @@ def build_mcp_reference() -> str:
 
 <h2>Connecting to MCP clients</h2>
 
-<p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">{MCP_URL}</code>. Consumer apps (ChatGPT, Claude.ai) connect via OAuth: paste the server URL, click Connect, and sign in with your TradeWave account - no API key needed. Stdio-only dev tools (Claude Desktop, Cursor) bridge to it with the <code class="inline-code">mcp-remote</code> npx shim and a Bearer API key. There is no npm package to install.</p>
+<p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">{MCP_URL}</code>. ChatGPT, Claude.ai, and Claude Desktop can connect with OAuth: paste the server URL, click Connect, and sign in with your TradeWave account - no API key needed. BYOK clients can send a Bearer API key directly or use the optional <code class="inline-code">mcp-remote</code> bridge.</p>
 
 <h3>ChatGPT</h3>
 <p>In ChatGPT, open <strong>Settings &rarr; Connectors</strong> (enable Developer mode under Advanced if you have not already), choose <strong>Create</strong>, and paste the server URL:</p>
@@ -1638,8 +1642,8 @@ Auth:       OAuth - sign in with your TradeWave account</code></pre>
 Auth:       OAuth - sign in with your TradeWave account</code></pre>
 <p>Click <strong>Connect</strong> and sign in with your TradeWave account when prompted. No API key needed.</p>
 
-<h3>Claude Desktop (BYOK)</h3>
-<p>Claude Desktop is a stdio-only client, so it bridges to the hosted server with the <code class="inline-code">mcp-remote</code> shim and your own API key. Add the following block to your <code class="inline-code">claude_desktop_config.json</code> (usually at <code class="inline-code">~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS):</p>
+<h3>Claude Desktop</h3>
+<p>For the normal consumer connection, open <strong>Settings &rarr; Connectors</strong>, choose <strong>Add custom connector</strong>, paste <code class="inline-code">{MCP_URL}</code>, and sign in with your TradeWave account. To meter the connection against a separate API key instead, use this optional BYOK bridge in <code class="inline-code">claude_desktop_config.json</code>:</p>
 <pre><code>{{
   "mcpServers": {{
     "tradewave": {{
@@ -1655,10 +1659,10 @@ Auth:       OAuth - sign in with your TradeWave account</code></pre>
     }}
   }}
 }}</code></pre>
-<p>Restart Claude Desktop. The TradeWave tools appear in the tools panel automatically.</p>
+<p>Restart Claude Desktop after adding the optional local BYOK configuration.</p>
 
 <h3>Cursor (BYOK)</h3>
-<p>Cursor is also a stdio client, so it uses the same <code class="inline-code">mcp-remote</code> shim with your own API key. In <strong>Cursor Settings &rarr; Features &rarr; MCP Servers</strong>, add:</p>
+<p>For a Cursor BYOK connection, use the <code class="inline-code">mcp-remote</code> shim with your own API key. In <strong>Cursor Settings &rarr; Features &rarr; MCP Servers</strong>, add:</p>
 <pre><code>{{
   "tradewave": {{
     "command": "npx",
@@ -1674,11 +1678,18 @@ Auth:       OAuth - sign in with your TradeWave account</code></pre>
 }}</code></pre>
 
 <h2>Tier behavior in MCP</h2>
-<p>The same tier rules from the REST API apply:</p>
+<p>OAuth consumer connections mirror the TradeWave web subscription:</p>
 <ul>
-  <li>Free: S&amp;P 500 stocks only, 3 results per call, 5 ML calls/day.</li>
-  <li>Dev: all 15 markets, 100 ML calls/day.</li>
-  <li>Pro/Business: all 15 markets, unlimited ML calls.</li>
+  <li>Explorer: Dow 30, 10 results per call, no permanent ML scores. An active signup trial receives Strategist scope until the same seven-day cutoff.</li>
+  <li>Navigator: Dow 30, NASDAQ 100, and S&amp;P 500, 25 results per call, no permanent ML scores. The first MCP connection receives one seven-day Analyst-scope teaser.</li>
+  <li>Analyst: all U.S. stock groups plus ETFs, 100 results per call, 100 ML scores/day.</li>
+  <li>Strategist: all 15 markets, 500 results per call, unlimited ML scores on eligible U.S. stock and ETF markets.</li>
+</ul>
+<p>BYOK connections follow the standalone REST API ladder:</p>
+<ul>
+  <li>Free: S&amp;P 500 stocks only, 3 results per call, 5 ML scores/day.</li>
+  <li>Dev: 6 U.S. stock and ETF markets, 100 ML scores/day.</li>
+  <li>Pro/Business: all 15 markets, unlimited ML scores on eligible markets.</li>
   <li><code class="inline-code">score_opportunities</code> scores up to the daily allowance and returns <code class="inline-code">ml_remaining_today</code>. When the daily limit is already spent it returns a graceful <code class="inline-code">{{"requires":"upgrade","reason":"ml_daily_limit"}}</code> stub - the agent can surface this to the user without crashing.</li>
 </ul>
 """
@@ -1687,7 +1698,7 @@ Auth:       OAuth - sign in with your TradeWave account</code></pre>
         description="TradeWave MCP server - 17 tools (6 flagship + 11 primitives) for AI assistants, plus connection instructions for ChatGPT, Claude.ai, Claude Desktop, and Cursor.",
         active_href="mcp-reference.html",
         hero_title="MCP Reference",
-        hero_sub="17 tools for AI assistants (6 flagship + 11 primitives) - sign in from ChatGPT or Claude.ai, or connect Claude Desktop and Cursor with a key.",
+        hero_sub="17 tools for AI assistants (6 flagship + 11 primitives) - sign in from ChatGPT or Claude, or connect with your own API key.",
         body=body,
     )
 
@@ -2039,9 +2050,23 @@ def build_changelog() -> str:
 
 <div class="changelog-entry">
   <div class="changelog-version">
+    <span class="version-badge">v1.2.0</span>
+    <span class="version-date">2026-07-04</span>
+    <span class="version-status">Current</span>
+  </div>
+  <p><strong>Production launch and entitlement reconciliation.</strong></p>
+  <ul>
+    <li>The REST API and hosted MCP server launched on production.</li>
+    <li>Consumer OAuth MCP now mirrors the web subscription, including the Explorer reverse trial and the one-time Navigator-to-Analyst teaser. BYOK MCP continues to use the standalone API ladder.</li>
+    <li>Dev market scope is the 6 U.S. stock and ETF markets. Pro and Business retain all 15 markets.</li>
+    <li>Current rate limits are Pro 120/min and 50k/day; Business 300/min and 250k/day.</li>
+  </ul>
+</div>
+
+<div class="changelog-entry">
+  <div class="changelog-version">
     <span class="version-badge">v1.1.0</span>
     <span class="version-date">2026-06-12</span>
-    <span class="version-status">Current</span>
   </div>
   <p><strong>OAuth sign-in for consumer MCP apps + the morning briefing.</strong></p>
   <ul>

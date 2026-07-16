@@ -125,6 +125,6 @@ server {
         try_files $uri $uri/ $uri.html =404;
     }
 
-    access_log /var/log/nginx/tradewave.access.log;
+    access_log /var/log/nginx/tradewave.access.log tw_noargs;
     error_log  /var/log/nginx/tradewave.error.log;
 }

@@ -2,22 +2,48 @@
 lookups. Same Postgres as the appserver/web (POSTGRES_DSN). Tables created by schema.sql
 at the integration step (additive; CREATE TABLE IF NOT EXISTS)."""
 import contextlib
+import threading
 import psycopg2
 import psycopg2.extras
+from psycopg2.pool import ThreadedConnectionPool
 
 from . import settings
 
 
+_pool = None
+_pool_lock = threading.Lock()
+
+
+def _connection_pool():
+    """Lazily create one thread-safe pool per gunicorn worker process."""
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                _pool = ThreadedConnectionPool(
+                    settings.DB_POOL_MIN,
+                    settings.DB_POOL_MAX,
+                    dsn=settings.POSTGRES_DSN,
+                )
+    return _pool
+
+
 @contextlib.contextmanager
 def cursor(commit=False):
-    conn = psycopg2.connect(settings.POSTGRES_DSN)
+    pool = _connection_pool()
+    conn = pool.getconn()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             yield cur
         if commit:
             conn.commit()
+        else:
+            conn.rollback()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
-        conn.close()
+        pool.putconn(conn, close=bool(conn.closed))
 
 
 def get_user_by_workos_id(workos_user_id):
@@ -82,5 +108,12 @@ def get_user_by_key_hash(key_hash):
         )
         row = cur.fetchone()
         if row:
-            cur.execute("UPDATE api_keys SET last_used_at = now() WHERE id = %s", (row["key_id"],))
+            cur.execute(
+                """
+                UPDATE api_keys SET last_used_at = now()
+                WHERE id = %s
+                  AND (last_used_at IS NULL OR last_used_at < now() - interval '60 seconds')
+                """,
+                (row["key_id"],),
+            )
         return row

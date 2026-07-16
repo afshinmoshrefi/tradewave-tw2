@@ -1,6 +1,6 @@
 # this script get the company or security name from a ticker symbol by queriying EODhd  7/20/2025
 
-import requests
+from pooled_http import http as requests
 import os, os.path
 import pandas as pd
 import json

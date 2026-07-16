@@ -8,7 +8,7 @@ Hard invariants enforced here (mirrors the spec):
 - DERIVED SEASONAL PATTERNS ONLY. No raw OHLCV / last price / price level / limit price is
   ever placed on a card. All movement is percentages; the seasonal curve is a 0-100 index.
 - `historical_win_rate` (share of profitable years) and `ml_win_prob` (the ML model's
-  predicted probability, Pro-only) are DISTINCT named fields - never both "win rate".
+  predicted probability, tier-metered) are DISTINCT named fields - never both "win rate".
 - `years` and window labels stay STRINGS. Market ids are the permanent keys '0'..'16'.
 - Every card carries the exact `disclaimer` string.
 - No em-dashes anywhere (use ' - ').
@@ -266,7 +266,7 @@ def compute_edge_score(historical_win_rate, sharpe_ratio, years_tested,
     edge_score = round(100 * clamp01(0.40*win_rate_n + 0.30*sharpe_n + 0.20*ml_n + 0.10*history_n))
       win_rate_n  = historical_win_rate (0..1)
       sharpe_n    = clamp(sharpe / 3.0, 0, 1)
-      ml_n        = ml_win_prob if (ml_available and present) else win_rate_n  (so non-Pro still ranks)
+      ml_n        = ml_win_prob if (ml_available and present) else win_rate_n  (so rows without ML still rank)
       history_n   = clamp(years_tested / 15.0, 0, 1)
     """
     wr = _clamp01(historical_win_rate if historical_win_rate is not None else 0.0)
@@ -278,7 +278,7 @@ def compute_edge_score(historical_win_rate, sharpe_ratio, years_tested,
         ml_n = _clamp01(ml_win_prob)
         ml_src = "ml_win_prob %.2f" % ml_win_prob
     else:
-        ml_n = wr  # fall back so ranking still works for non-Pro / no-ML rows
+        ml_n = wr  # fall back so ranking still works when no ML score is present
         ml_src = None
     blended = (_W_WIN * wr + _W_SHARPE * sharpe_n + _W_ML * ml_n + _W_HISTORY * history_n)
     score = round(100 * _clamp01(blended))
@@ -347,8 +347,8 @@ def _timing(entry_d, exit_d, as_of_str):
 def _pattern_alignment(historical_win_rate, ml_win_prob, ml_available):
     """Does the per-instance ML view AGREE with the in-sample seasonal win rate? A quick
     'do both point the same way' read. Only a cross-check when an ML score is present
-    (Pro / ML-eligible market); otherwise it is seasonal-only. NEVER conflates the two
-    distinct win-rate fields - it compares them."""
+    (within the caller's tier quota and an ML-eligible market); otherwise it is
+    seasonal-only. NEVER conflates the two distinct win-rate fields - it compares them."""
     if not (ml_available and ml_win_prob is not None and historical_win_rate is not None):
         return {"verdict": "seasonal_only",
                 "note": "Seasonal edge only - no ML score on this setup to cross-check."}
@@ -419,7 +419,7 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
     chart_entries:  raw ChartData4 per-year entries (for per_year receipts; price dropped).
     market_name:    resolved market name string.
     ml:             optional ML dict {ml_score, win_prob, pred_return, pred_mfe} (None if N/A).
-    ml_available:   True only when caller is Pro AND market is ML-eligible.
+    ml_available:   True when an ML score is present after tier, quota, and market checks.
     seasonal_curve: optional [{date, index}] for curve_summary (NOT shipped inline).
     as_of:          ISO date string the data is stamped as-of (defaults to today).
     rank:           pre-sorted rank int (the endpoint sets it; the agent never sorts).

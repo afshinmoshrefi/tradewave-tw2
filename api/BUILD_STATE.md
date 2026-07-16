@@ -1,6 +1,21 @@
-# TradeWave API + MCP - BUILD STATE (working control doc)
+# TradeWave API + MCP - BUILD STATE (historical build record)
 
-Live state of the "finish the API + MCP product" build. Update as phases complete.
+> **SUPERSEDED AS A LIVE CONTROL DOCUMENT.** This file preserves the June 2026
+> implementation trail. API and MCP launched to production on 2026-07-04. For
+> current entitlements and launch state, use `docs/PRICING_QUOTA_SPEC.md`,
+> `apiserver/tiers.py`, `apiserver/auth.py`, and `docs/TRADEWAVE_ECOSYSTEM.md`.
+
+**2026-07-15 scalability addendum:** the deployment-ready development baseline now uses
+bounded appserver gthread concurrency, pooled outbound HTTP, single-flight cache fills,
+atomic cache publication, pooled gateway Postgres, bounded positive API-key caching,
+atomic ML quotas, and an async pooled MCP gateway boundary. Daily-pick data crosses the
+split topology through a private service-key feed and fails with 503 if unavailable.
+`ops/verify_mvp_release.py` is the required BYOK, WorkOS OAuth, daily-pick, load, and
+storm-breaker gate. These changes are prepared in development only; no staging or
+production deployment is implied by this build record.
+
+Build history for the "finish the API + MCP product" project. The phase notes below
+are preserved in their original dev-build context and are not current operator steps.
 Companion to: `api/STRATEGY_REVIEW_2026-05.md` (why), `api/PATTERNCARD_SPEC.md` (contract),
 `api/openapi.yaml` + `api/MCP_TOOLS.md` (frozen surface). Started 2026-06-02 on dev .176,
 branch `feature/api-mcp`.
@@ -19,7 +34,8 @@ branch `feature/api-mcp`.
 4. **Pricing:** Free $0 / Dev $39 / Pro $199 / Business $599 (base, locked) PLUS
    - annual ~17% off (Dev $390 / Pro $1,990 / Business $5,990),
    - Founder's deal: first 100, $99/mo Pro (50% off) 12mo, for logo + tracked-record testimonial,
-   - free Dev-tier API key bundled into paid web subs (analyst/strategist -> api dev via inheritance).
+   - bundled API entitlement for web subscribers: Navigator -> internal Navigator,
+     Analyst -> Dev, Strategist -> Pro (Explorer -> Free) via inheritance.
    - Metered Business overage = DEFERRED (decide from real traffic). Stripe TEST mode on dev.
 5. **Where:** all dev work on .176 `/home/flask`, branch `feature/api-mcp`. NOTHING touches
    staging/prod directly - author the operator's deploy steps (hard rule).
@@ -51,8 +67,10 @@ branch `feature/api-mcp`.
 - [x] **1 Engine + web integration:** flagship ML mislabel FIXED + verified (flows through MCP);
       api_portal blueprint was already registered (+ set_user_loader); Stripe webhook now
       product_line-aware -> writes users.api_tier (model column added; never clobbers web tier
-      / cross-downgrades); api_tier resolution validated e2e (NULL->pro/free->1mkt/dev->all);
-      MCP server smoked (14 tools, BYOK env fallback, ValueError guard hardened).
+      / cross-downgrades); api_tier resolution validated e2e (an explicit API tier wins;
+      otherwise Explorer -> Free, Navigator -> internal Navigator, Analyst -> Dev,
+      Strategist -> Pro). MCP server smoked (14 tools; current surface supports hosted OAuth
+      and BYOK authentication; ValueError guard hardened).
       Minor follow-ups deferred to P2: _UPGRADE_URL hardcoded -> make env-driven; openapi.yaml
       /scan default limit (25) vs routes.py (10) mismatch.
 - [x] **2 Developer surface:** COMPLETE. Full cohesive developer portal, all cross-linked,
@@ -95,8 +113,9 @@ branch `feature/api-mcp`.
         strip, "already subscribe? Analyst=Dev / Strategist=Pro" bundle note. Regenerated.
       - Console api_billing.html: monthly/annual toggle (updates price + hidden interval), annual
         note, Founder callout. Jinja2 parses; 0 em-dashes.
-      Consumer-sub dev-key bundle = the existing api_tier inheritance (web analyst->api dev,
-      strategist->pro); no separate charge. Webhook already product_line=api aware (P1).
+      Consumer-sub API bundle = the existing api_tier inheritance (web Navigator->internal
+      Navigator, Analyst->Dev, Strategist->Pro); no separate charge. Webhook already
+      product_line=api aware (P1).
 - [x] **5 Ops:** COMPLETE + VALIDATED LIVE ON DEV. Authored: ops/systemd/{tradewave-apiserver,
       tradewave-mcpserver}.service (systemd-analyze verify clean), ops/nginx/tradewave-developer-portal.conf
       (api/mcp/developers blocks, SSE-tuned), ops/bootstrap_api_services.sh, ops/assemble_developer_portal.sh,
@@ -151,7 +170,7 @@ branch `feature/api-mcp`.
 - The untracked working-tree copy on daily-pick-fixes was a PARTIAL snapshot restore (missing
   portal_urls.py); `feature/api-mcp` is the complete committed source. Reconciled onto it.
 - portal_urls.py currently encodes the OLD IA (api-host/api + /docs). Must rework for developers. host.
-- README claim "api_tier ALTER commented out" is STALE - schema.sql line 31 has it active.
+- RESOLVED: README now reflects the active users.api_tier column and product-line-aware webhook.
 - gunicorn entrypoint: see apiserver/app.py (module-level `app`).
 - FIXED (Phase 1, committed to working tree, not yet git-committed): flagship ML mislabel.
   `/v1/scan` + `/v1/analyze` ranked long-hold setups (Sharpe-sorted); the ML model only covers

@@ -1,5 +1,5 @@
 import config_tradier
-import requests
+from pooled_http import http as requests
 import datetime
 from datetime import timedelta
 import sys
@@ -760,5 +760,4 @@ if __name__ == '__main__':
     print(selected_bearish)
 
 
-   
-   
+

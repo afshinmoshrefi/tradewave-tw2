@@ -8,15 +8,33 @@ Covers the thin-but-load-bearing MCP logic: the lean view=decision default, incl
 plumbing, the disclaimer hoist/dedup, the research hand-off, and the upgrade-stub handling.
 The gateway is mocked (server._get), so no network/appserver.
 """
+import asyncio
+import inspect
 import sys
+from pathlib import Path
 
 import pytest
 
 pytest.importorskip("mcp")              # skip cleanly when fastmcp is absent (the main venv)
-sys.path.insert(0, "/home/flask/mcpserver")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mcpserver"))
 import server                            # noqa: E402
 
 pytestmark = pytest.mark.unit
+
+
+def test_all_public_tools_have_async_boundaries():
+    tool_names = (
+        "find_best_opportunities", "analyze_symbol", "explain_pick", "morning_briefing",
+        "whats_seasonal_now", "compare_opportunities", "list_markets", "whoami",
+        "describe_tradewave", "list_symbols", "get_seasonal_opportunities",
+        "get_symbol_patterns", "get_seasonal_pattern", "get_opportunity_chart",
+        "score_opportunities", "get_daily_pick", "get_pick_track_record",
+    )
+    assert all(inspect.iscoroutinefunction(getattr(server, name)) for name in tool_names)
+
+
+def _run(awaitable):
+    return asyncio.run(awaitable)
 
 
 @pytest.fixture
@@ -24,7 +42,7 @@ def captured(monkeypatch):
     """Mock server._get and capture the (path, params) the tool sent to the gateway."""
     box = {}
 
-    def fake_get(path, params=None):
+    async def fake_get(path, params=None):
         box["path"] = path
         box["params"] = dict(params or {})
         return {"count": 0, "opportunities": []}        # empty -> tools take the 'empty' lead path
@@ -36,27 +54,29 @@ def captured(monkeypatch):
 # --- progressive disclosure: the MCP layer defaults to the lean 'decision' view -----
 
 def test_find_best_defaults_to_decision_view(captured):
-    server.find_best_opportunities(markets="2", ctx=None)
+    _run(server.find_best_opportunities(markets="2", ctx=None))
     assert captured["path"] == "/scan"
     assert captured["params"]["view"] == "decision"
 
 
 def test_whats_seasonal_now_defaults_to_decision(captured):
-    server.whats_seasonal_now(ctx=None)
+    _run(server.whats_seasonal_now(ctx=None))
     assert captured["params"]["view"] == "decision"
     assert captured["params"]["window"] == "now"
 
 
 def test_view_override_is_forwarded(captured):
-    server.find_best_opportunities(view="full", ctx=None)
+    _run(server.find_best_opportunities(view="full", ctx=None))
     assert captured["params"]["view"] == "full"
 
 
 def test_analyze_defaults_decision_and_include_chart(monkeypatch):
     box = {}
-    monkeypatch.setattr(server, "_get", lambda path, params=None: box.update(
-        path=path, params=dict(params or {})) or {"card": {"bias": "bullish"}})
-    server.analyze_symbol(symbol="AAPL", include_chart=True, ctx=None)
+    async def fake_get(path, params=None):
+        box.update(path=path, params=dict(params or {}))
+        return {"card": {"bias": "bullish"}}
+    monkeypatch.setattr(server, "_get", fake_get)
+    _run(server.analyze_symbol(symbol="AAPL", include_chart=True, ctx=None))
     assert box["path"] == "/analyze/AAPL"
     assert box["params"]["view"] == "decision"
     assert box["params"]["include"] == "chart"
@@ -139,18 +159,18 @@ def test_friendly_http_error_non_json_is_generic():
 
 
 def test_tool_returns_gateway_error_as_result(monkeypatch):
-    def boom(path, params=None):
+    async def boom(path, params=None):
         raise server.GatewayError("symbol 'GLD' not found in any of your in-scope markets")
     monkeypatch.setattr(server, "_get", boom)
-    out = server.analyze_symbol(symbol="GLD", ctx=None)
+    out = _run(server.analyze_symbol(symbol="GLD", ctx=None))
     assert out == "symbol 'GLD' not found in any of your in-scope markets"
 
 
 def test_compare_degrades_row_with_gateway_message(monkeypatch):
-    def boom(path, params=None):
+    async def boom(path, params=None):
         raise server.GatewayError("rate limit exceeded - wait a few seconds and retry; results are cached.")
     monkeypatch.setattr(server, "_get", boom)
-    out = server.compare_opportunities(symbols=["GLD", "SLV"], ctx=None)
+    out = _run(server.compare_opportunities(symbols=["GLD", "SLV"], ctx=None))
     assert "rate limit exceeded" in out and "127.0.0.1" not in out
 
 
@@ -162,14 +182,14 @@ def test_gateway_timeout_raised_to_110s():
 # --- markets accepts list[str] | str (models naturally send lists) -------------------
 
 def test_markets_list_is_csv_joined(captured):
-    server.find_best_opportunities(markets=["2", "11"], ctx=None)
+    _run(server.find_best_opportunities(markets=["2", "11"], ctx=None))
     assert captured["params"]["markets"] == "2,11"
-    server.whats_seasonal_now(markets=["0"], ctx=None)
+    _run(server.whats_seasonal_now(markets=["0"], ctx=None))
     assert captured["params"]["markets"] == "0"
 
 
 def test_markets_csv_string_passes_through(captured):
-    server.find_best_opportunities(markets="2,11", ctx=None)
+    _run(server.find_best_opportunities(markets="2,11", ctx=None))
     assert captured["params"]["markets"] == "2,11"
 
 
@@ -182,15 +202,19 @@ def _me_payload(market_ids):
 
 
 def test_whoami_example_matches_free_scope(monkeypatch):
-    monkeypatch.setattr(server, "_get", lambda path, params=None: _me_payload(["2"]))
-    out = server.whoami(ctx=None)
+    async def fake_get(path, params=None):
+        return _me_payload(["2"])
+    monkeypatch.setattr(server, "_get", fake_get)
+    out = _run(server.whoami(ctx=None))
     assert "Analyze AAPL's seasonality" in out
     assert "Analyze GLD" not in out
 
 
 def test_whoami_example_prefers_etfs_when_in_scope(monkeypatch):
-    monkeypatch.setattr(server, "_get", lambda path, params=None: _me_payload(["2", "11"]))
-    out = server.whoami(ctx=None)
+    async def fake_get(path, params=None):
+        return _me_payload(["2", "11"])
+    monkeypatch.setattr(server, "_get", fake_get)
+    out = _run(server.whoami(ctx=None))
     assert "Analyze GLD's seasonality" in out
 
 
@@ -207,8 +231,10 @@ def test_whoami_steady_payer_no_teaser_disclosure(monkeypatch):
     # A steady payer's /me carries the inactive teaser contract; whoami must NOT add the
     # teaser disclosure sentence.
     inactive = {"active": False, "kind": None, "ends_at": None, "post_teaser_scope": None}
-    monkeypatch.setattr(server, "_get", lambda path, params=None: _me_with_teaser(inactive))
-    out = server.whoami(ctx=None)
+    async def fake_get(path, params=None):
+        return _me_with_teaser(inactive)
+    monkeypatch.setattr(server, "_get", fake_get)
+    out = _run(server.whoami(ctx=None))
     import json as _json
     body = _json.loads(out.split("\n\n")[1])
     assert body["teaser_state"] == inactive          # shape rides through verbatim
@@ -218,8 +244,10 @@ def test_whoami_steady_payer_no_teaser_disclosure(monkeypatch):
 def test_whoami_explorer_trial_teaser_disclosed(monkeypatch):
     ts = {"active": True, "kind": "explorer_trial",
           "ends_at": "2026-07-05T00:00:00+00:00", "post_teaser_scope": "explorer"}
-    monkeypatch.setattr(server, "_get", lambda path, params=None: _me_with_teaser(ts))
-    out = server.whoami(ctx=None)
+    async def fake_get(path, params=None):
+        return _me_with_teaser(ts)
+    monkeypatch.setattr(server, "_get", fake_get)
+    out = _run(server.whoami(ctx=None))
     import json as _json
     body = _json.loads(out.split("\n\n")[1])
     assert body["teaser_state"]["kind"] == "explorer_trial"
@@ -231,8 +259,10 @@ def test_whoami_explorer_trial_teaser_disclosed(monkeypatch):
 def test_whoami_navigator_firstconnect_teaser_disclosed(monkeypatch):
     ts = {"active": True, "kind": "navigator_firstconnect",
           "ends_at": "2026-07-05T00:00:00+00:00", "post_teaser_scope": "navigator"}
-    monkeypatch.setattr(server, "_get", lambda path, params=None: _me_with_teaser(ts))
-    out = server.whoami(ctx=None)
+    async def fake_get(path, params=None):
+        return _me_with_teaser(ts)
+    monkeypatch.setattr(server, "_get", fake_get)
+    out = _run(server.whoami(ctx=None))
     import json as _json
     body = _json.loads(out.split("\n\n")[1])
     assert body["teaser_state"]["kind"] == "navigator_firstconnect"
@@ -242,7 +272,7 @@ def test_whoami_navigator_firstconnect_teaser_disclosed(monkeypatch):
 # --- morning_briefing: one-call composition ------------------------------------------
 
 def test_morning_briefing_composes_three_sections(monkeypatch):
-    def fake_get(path, params=None):
+    async def fake_get(path, params=None):
         if path == "/daily-pick":
             return {"card": {"symbol": "AAPL", "bias": "bullish", "disclaimer": "D"},
                     "as_of": "2026-06-12", "disclaimer": "D"}
@@ -260,7 +290,7 @@ def test_morning_briefing_composes_three_sections(monkeypatch):
         raise AssertionError(f"unexpected path {path}")
 
     monkeypatch.setattr(server, "_get", fake_get)
-    out = server.morning_briefing(ctx=None)
+    out = _run(server.morning_briefing(ctx=None))
     import json as _json
     body = _json.loads(out.split("\n\n")[1])
     assert body["todays_pick"]["symbol"] == "AAPL"
@@ -274,14 +304,14 @@ def test_morning_briefing_composes_three_sections(monkeypatch):
 
 
 def test_morning_briefing_degrades_per_section(monkeypatch):
-    def fake_get(path, params=None):
+    async def fake_get(path, params=None):
         if path == "/scan":
             raise server.GatewayError("rate limit exceeded")
         if path == "/daily-pick":
             return {"card": {"symbol": "AAPL"}, "as_of": "2026-06-12"}
         return {"summary": {"count": 1}, "picks": []}
     monkeypatch.setattr(server, "_get", fake_get)
-    out = server.morning_briefing(ctx=None)
+    out = _run(server.morning_briefing(ctx=None))
     import json as _json
     body = _json.loads(out.split("\n\n")[1])
     assert body["this_week"] == {"unavailable": "rate limit exceeded"}

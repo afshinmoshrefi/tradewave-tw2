@@ -24,6 +24,39 @@ log = logging.getLogger("apiserver.ml_quota")
 _redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 _TTL = 60 * 60 * 40  # ~40h, comfortably past a calendar day
 
+# Redis executes each script atomically. Client-side GET + INCRBY/SET would allow
+# concurrent API/MCP requests to overspend or erase one another's reservations.
+_CONSUME_LUA = """
+local used = tonumber(redis.call('GET', KEYS[1]) or '0')
+local limit = tonumber(ARGV[1])
+local requested = tonumber(ARGV[2])
+local ttl = tonumber(ARGV[3])
+if used == nil or limit == nil or requested == nil or ttl == nil or requested <= 0 then
+  return redis.error_reply('invalid ML quota state')
+end
+local remaining = limit - used
+if remaining <= 0 then return 0 end
+local granted = math.min(requested, remaining)
+redis.call('SET', KEYS[1], used + granted, 'EX', ttl)
+return granted
+"""
+
+_REFUND_LUA = """
+local used = tonumber(redis.call('GET', KEYS[1]) or '0')
+local amount = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+if used == nil or amount == nil or ttl == nil or amount <= 0 then
+  return redis.error_reply('invalid ML quota state')
+end
+local revised = math.max(0, used - amount)
+if revised == 0 then
+  redis.call('DEL', KEYS[1])
+else
+  redis.call('SET', KEYS[1], revised, 'EX', ttl)
+end
+return revised
+"""
+
 
 def _key(user_id):
     return "mlq:%s:%s" % (user_id, time.strftime("%Y-%m-%d"))
@@ -63,13 +96,7 @@ def consume(cust, n):
                   # so a Redis outage can never flip no-AI (explorer/navigator) into granted.
     k = _key(cust["user_id"])
     try:
-        used = int(_redis.get(k) or 0)
-        allowed = max(0, lim - used)
-        grant = min(n, allowed)
-        if grant > 0:
-            _redis.incrby(k, grant)
-            _redis.expire(k, _TTL)
-        return grant
+        return int(_redis.eval(_CONSUME_LUA, 1, k, lim, n, _TTL))
     except redis.RedisError as e:
         log.warning("ml_quota consume failed for %s: %s", cust.get("user_id"), e)
         return n  # fail open - never block on a counter outage
@@ -84,11 +111,6 @@ def refund(cust, n):
         return
     k = _key(cust["user_id"])
     try:
-        used = int(_redis.get(k) or 0)
-        new = max(0, used - n)
-        if new:
-            _redis.set(k, new, ex=_TTL)
-        else:
-            _redis.delete(k)
+        _redis.eval(_REFUND_LUA, 1, k, n, _TTL)
     except redis.RedisError as e:
         log.warning("ml_quota refund failed for %s: %s", cust.get("user_id"), e)

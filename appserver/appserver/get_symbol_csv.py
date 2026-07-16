@@ -1,13 +1,14 @@
 # get_symbol_csv(symbol,exchange)  will return the df for the csv - if it doesn't exist or if its old, it downloads it first  
 # otherwise, it opens and returns the df with df.get_csv()  7/20/2025
 
-import requests
+from pooled_http import http as requests
 import logging
 import os, os.path
 import pandas as pd
 import json
 import pwd
 import sys
+import threading
 from datetime import datetime,date
 from filelock import FileLock, Timeout as LockTimeout  # Added for locking - so that .csv is downloaded once - otherwise it download 6 times
 
@@ -103,7 +104,7 @@ def get_symbol_csv(ticker, exchange):
     csv_folder = config.csv_folder + exchange + '/'
     if not os.path.exists(csv_folder):
         try:
-            os.makedirs(csv_folder)
+            os.makedirs(csv_folder, exist_ok=True)
             logger.info(f"Created directory: {csv_folder}")
         except Exception as e:
             logger.error(f"Failed to create directory {csv_folder}: {e}", exc_info=True)
@@ -212,12 +213,22 @@ def get_symbol_csv(ticker, exchange):
             df = df.reset_index(drop=True)
 
             # 4) Save to CSV and set ownership
+            temp_output_file = f"{output_file}.tmp.{os.getpid()}.{threading.get_ident()}"
             try:
-                df.to_csv(output_file)
+                # Publish a complete CSV in one rename. Readers may continue using the
+                # previous file while the download is written, but never a partial file.
+                df.to_csv(temp_output_file)
+                os.replace(temp_output_file, output_file)
                 logger.info(f"Saved CSV to {output_file}")
             except Exception as e:
                 logger.error(f"Error saving CSV {output_file}: {e}", exc_info=True)
                 return pd.DataFrame()
+            finally:
+                if os.path.exists(temp_output_file):
+                    try:
+                        os.remove(temp_output_file)
+                    except OSError:
+                        logger.warning("Could not remove temporary CSV %s", temp_output_file)
 
             try:
                 flask_uid = pwd.getpwnam('flask').pw_uid
@@ -239,14 +250,8 @@ def get_symbol_csv(ticker, exchange):
             except Exception:
                 logger.exception(f"Could not read {output_file} after lock timeout")
         return pd.DataFrame()
-    finally: # purpose of finally is to cleanup the lock files - before lock files stayed around
-            # Minimal addition: remove the lock file if it exists (cleanup)
-            if os.path.exists(lock_file):
-                try:
-                    os.remove(lock_file)
-                    logger.info(f"Removed lock file {lock_file}")
-                except Exception as e:
-                    logger.warning(f"Could not remove lock file {lock_file}: {e}")
+    # FileLock lock files intentionally persist. Unlinking one after release can split
+    # the lock: a waiter may hold the old inode while a new request locks a new inode.
 
 # -----------------------------------------------------------------------------------------
 # returns how many full years of data exist in this dataframe

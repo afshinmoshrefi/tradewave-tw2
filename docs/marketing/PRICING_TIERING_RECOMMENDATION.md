@@ -1,10 +1,10 @@
-Every reviewer claim is confirmed against live code. The pricing.html shows falsified $41/$58/$131/$199 prices, "Auto PE-cycle detection", "50×500 watchlists"; the home generator has the Navigator AI over-claim (1110, 1113), Strategist "election-cycle discovery" (1166), "4-year cycle" (1172), "track up to 500" (1174), "500 symbols" (1175), Analyst "5 watchlists" (1144); and app.py:1185 returns `open_app` for navigator despite the docstring at 1164 requiring score access. I have what I need to write the decisive report.
-
-The latest reviews surface one genuinely new evidence point the prior plan got wrong: the research's actual #1 lever is **ML-on-free-DJ30** (a LADDER C), not ML-on-Navigator — and "LADDER B = Navigator AI" was mislabeled as research-coherent. I'll incorporate that as the third option and fix the other verified issues (the inert 400, the over-recommend-Analyst-for-Dow-only bug, the SSOT must read quota dicts not TIER_FEATURES, the $39 toss-up, the dormant $58/$199 already-live-on-pricing.html).
-
----
-
 # TradeWave Tier Ladder & Pricing - Final Recommendation
+
+> Status: HISTORICAL RECOMMENDATION. Ladder A was adopted, Analyst remained $47,
+> Strategist settled at $129, and Navigator shipped at $19 with no permanent AI.
+> Current decisions are in `PRICING_STRATEGY.md`; exact cross-surface entitlements are
+> in `../PRICING_QUOTA_SPEC.md`. Options and implementation instructions below are not
+> current authorization.
 
 *Prepared 2026-06-29. All gates verified against live `/home/flask/config.py`, `site/generate_home_page.py`, `web/templates/pricing.html`, and `web/app.py` on the dev box. Prices are the live Stripe-authoritative grounding values, not the stale figures in the research doc or in `TIER_FEATURES`.*
 

@@ -1,37 +1,68 @@
-Subject: How to Read the Evidence (So the Breadth Pays Off)
-Preview: Win rate with Sharpe and TWR, the hero-year check, MFE and MAE, and saving what survives. The skill that makes Analyst worth it.
-Send day: 7
+Subject: Validate Evidence Across the Full U.S. Market
+Preview: Read win rate with Sharpe and TWR, check for hero years, respect sample size, and organize what survives.
+Send day: 6
 
-TradeWave Analyst
+TRADEWAVE ANALYST
 
-How to Read the Evidence, So the Breadth Actually Pays Off
+Validate Evidence Across the Full U.S. Market
 
-Total-market breadth is only worth $47/mo if you can tell a real edge from a flattering one. That skill is the whole game. Here is the floor, in four moves.
+Analyst’s U.S. stock-and-ETF breadth becomes useful when you can separate durable evidence from a flattering result.
 
-1. Read Win Rate With Sharpe and TWR, Never Alone
-Direction is not enough. Win rate ("won 19 of the last 20 years") tells you direction. Sharpe tells you whether the path was smooth or a white-knuckle ride. Alongside Sharpe, watch TWR, the TradeWave Ratio - a Sharpe-like score that also credits how far a window ran in your favor (its maximum favorable excursion, defined below), so it rewards windows that moved strongly your way along the path even when they did not finish at the peak. High win rate with a strong Sharpe and TWR is a clean, repeatable drift. High win rate with weak ones is lumpy - tradeable, but it calls for staged or hedged tactics. The pairing is the single most important read on the screen.
+Here is the minimum validation process.
 
-2. Check the Median Against the Average (the Hero-Year Test)
-One year can fake an edge. An average can be carried by a single monster year. If the median gain is far below the average, one "hero year" is doing the lifting and the typical year looks nothing like the headline. The bar chart shows you instantly: is the green broad-based, or is it one tall bar and a crowd of small ones?
+1. READ WIN RATE WITH SHARPE AND TWR
 
-3. Respect Sample Size
-A few years is not a record. A 100% win rate on 2 occurrences is not an edge, it is a coincidence with good marketing. We show it and we flag it. High percentages only mean something on a meaningful number of years. If you are unsure, ask Tara to pressure-test it: "is this sample size meaningful, and is the median tracking the average?" Tara only reads the stats the engine already produced, so its answer is grounded in your pattern, never invented.
+Win rate tells you how often the pattern finished profitably.
 
-4. Set the Exit Before You Ever Act
-Decide your lines first. MFE (maximum favorable excursion) is the best the pattern has historically reached - use it to set a target. MAE (maximum adverse excursion) is the worst heat it put you through - use it to set a stop and your size. Seasonality is probability, not protection - a 20-year winner can still take a hard adverse move in any single year. Decide the target and the line that says "this is wrong" before you act, not after.
+Sharpe helps describe how smooth or volatile the historical path was.
 
-Then organize it: when a pattern survives all four checks, save it to one of your 25 portfolios and set a calendar reminder (the Portfolio Manager fires it when the window opens) so the setup comes back to you on its own. That is the SCAN, VALIDATE, ORGANIZE, ACT loop closing - research turned into action you do not have to remember.
+TWR, the TradeWave Ratio, is a Sharpe-like measure that also accounts for maximum favorable excursion — how far the window historically moved in its favorable direction along the way.
 
-Validate and save one pattern (it takes about three minutes):
-https://tradewave.ai/app/
+A high win rate supported by stronger Sharpe and TWR values is more convincing than a high win rate with a weak or unstable path. None of these metrics should be used alone.
 
-One Last Honest Note
-One practical note for anyone keeping Analyst: the yearly plan is $33/mo (Navigator yearly is $14/mo) - same features, billed once. You can switch billing in your account anytime.
+2. CHECK THE MEDIAN AGAINST THE AVERAGE
 
-And this is the end of your first week, so the honest test: are you scoring names beyond the indices, reading the Seasonal Market News, joining the Q&A, saving real patterns? If yes, you are getting every dollar of it. If you are honestly only using a slice, Navigator at $19/mo or even free Explorer may be the right home, and we mean that. Changing plans is quick in your account, and our support will help you land on the smallest plan that covers what you actually do. That offer never expires.
+One unusually strong year can pull an average upward.
+
+If the median gain sits far below the average, a “hero year” may be doing too much of the work. Inspect the yearly bars and ask whether the result is broad-based or dominated by one outlier.
+
+3. RESPECT SAMPLE SIZE
+
+A 100% result across two occurrences is not the same evidence as a strong result across decades.
+
+High percentages become more informative when they survive a meaningful sample. If you are unsure, ask Tara whether the sample is thin and whether the median supports the average. Tara reads the statistics produced by the engine rather than inventing new figures.
+
+4. EXAMINE MFE AND MAE
+
+Maximum favorable excursion shows how far a pattern historically moved in the favorable direction.
+
+Maximum adverse excursion shows how far it historically moved against the pattern.
+
+Use them to understand the historical path and risk. Any decision about targets, stops, position size, or whether to trade remains entirely yours.
+
+ORGANIZE WHAT SURVIVES
+
+When a pattern survives those checks, save it to one of your 25 portfolios.
+
+On the Wave Viewer, Remind Me above the bar chart is a shortcut: it saves the loaded pattern if needed and adds its start and end dates to Google Calendar. When the loaded pattern already has a reminder — including one created from a Portfolio Manager row — the control shows that the reminder is set.
+
+Validate and save a pattern:
+https://tradewave.ai/login?next=/app/
+
+YOUR ONGOING ANALYST ROUTINE
+
+Scan broadly, use the AI score as a ranking aid, validate with Sharpe, TWR, median, sample size, MFE, and MAE, then organize what survives.
+
+Use Remind Me when you want the loaded pattern saved if needed and its start and end dates added to Google Calendar. When that reminder already exists, the control shows that it is set, including when it was created from a Portfolio Manager row.
+
+Open your account:
+https://tradewave.ai/login?next=/account
+
+Need help with the research process? Email help@tradewave.ai.
 
 The TradeWave team
 
----
-TradeWave - seasonal market research that shows its work. Probability, not prediction.
-Manage your plan: https://tradewave.ai/account | Unsubscribe: %%unsubscribe%%
+TradeWave — seasonal market research that shows its work.
+Probability, not prediction. Research and education only. Not financial advice. Past patterns do not guarantee future results.
+
+Unsubscribe: {$unsubscribe}

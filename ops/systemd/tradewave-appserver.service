@@ -1,0 +1,48 @@
+[Unit]
+Description=TradeWave appserver (bounded concurrent gunicorn)
+After=network.target redis-server.service postgresql.service
+Wants=redis-server.service postgresql.service
+
+[Service]
+Type=notify
+User=flask
+Group=flask
+WorkingDirectory=/home/flask/appserver/appserver
+
+# Dev is 4 CPU / 16 GB and the intended production target is 4 CPU / 8 GB.
+# Four processes preserve pandas/CPU isolation; four threads per process provide
+# bounded headroom for slow EODHD/StockScore/EDGAR/Tradier waits.
+Environment=TW2_APPSERVER_BIND=0.0.0.0:5000
+Environment=TW2_APPSERVER_WORKERS=4
+Environment=TW2_APPSERVER_THREADS=4
+EnvironmentFile=/etc/tradewave/secrets.env
+EnvironmentFile=-/etc/tradewave/appserver.env
+Environment=PYTHONPATH=/home/flask:/home/flask/appserver/appserver
+
+NoNewPrivileges=true
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+ExecStart=/home/flask/venv/bin/gunicorn \
+    --workers ${TW2_APPSERVER_WORKERS} \
+    --worker-class gthread \
+    --threads ${TW2_APPSERVER_THREADS} \
+    --timeout 120 \
+    --keep-alive 5 \
+    --bind ${TW2_APPSERVER_BIND} \
+    --access-logformat '%({x-forwarded-for}i)s %(l)s %(u)s %(t)s "%(m)s %(U)s %(H)s" %(s)s %(b)s "%(a)s"' \
+    --access-logfile /var/log/tradewave/appserver.access.log \
+    --error-logfile /var/log/tradewave/appserver.error.log \
+    --capture-output \
+    appserver:app
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,14 +1,9 @@
-All facts confirmed, with two important corrections to the plan's own claims:
-
-1. **config.py:633 says TIER_FEATURES has "no runtime readers as of 2026-06-24"** — but app.py:786 docstring calls it "the source of truth" and :797 reads `resources_allowed` at runtime. The plan's correction (#1) is right: it IS exactly one runtime reader. The stale comment is at config.py:633-634.
-2. The home pill text is at generate_home_page.py:1005 (plan said 1005 — confirmed), gated on MCP_LIVE (line 192, env `TW2_MCP_LIVE`).
-3. SLA: the unqualified bullet is at generate.py:820 (`<li>SLA guarantee</li>` for business); :886 prose; :1376 already hedges "There is no self-serve SLA." Confirmed.
-4. apiserver imports nothing from config/web/tier_compat — confirmed (zero hits).
-5. Navigator config: `resources_allowed: [0,1,2]` — confirmed matches the plan.
-
-Now I'll write the brief.
-
 # TradeWave API + MCP - Pricing & Teaser Strategy
+
+> Status: HISTORICAL PRE-LAUNCH DECISION BRIEF. API and MCP launched on prod
+> 2026-07-04, and several quotas and implementation requirements below were changed
+> before launch. Current truth is `../PRICING_QUOTA_SPEC.md`, `PRICING_STRATEGY.md`,
+> `apiserver/tiers.py`, and `apiserver/auth.py`. Do not execute this brief as a plan.
 
 *Decision brief. Source of truth = `apiserver/tiers.py`. The developer portal is dark on prod (`TW2_MCP_LIVE` unset, `site/generate_home_page.py:192`), so there are zero subscribers to grandfather: changing the API/MCP model now is free. Web prices are live and out of scope here.*
 

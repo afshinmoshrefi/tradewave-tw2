@@ -1,34 +1,56 @@
-Subject: The One Thing Analyst Buys You: The Whole Market
-Preview: AI scoring on every US stock and ETF, plus the capacity to organize them. Here is how to use it, and when Navigator is enough.
-Send day: 3
+Subject: Analyst: AI Across All U.S. Stocks and ETFs
+Preview: AI scoring, deeper available history, and the capacity to organize a broader U.S. research universe.
+Send day: 2
 
-TradeWave Analyst
+TRADEWAVE ANALYST
 
-The One Thing Analyst Really Buys You: The Whole Market
+Analyst: AI Across All U.S. Stocks and ETFs
 
-The capability that defines Analyst is the AI score, now turned on and running across EVERY US stock and ETF, not just the index names. Navigator shows you the seasonal patterns; Analyst is where the calibrated score begins and where the universe opens to the whole market. Everything else Analyst adds is there to help you handle that bigger universe. Let us use it, then talk about when you do not need it.
+Analyst’s central capability is the calibrated AI score across all U.S. stocks and ETFs, together with up to 63 years of seasonal history where data is available.
 
-1. AI Scoring on Every US Stock and ETF
-Navigator shows the deterministic seasonal patterns on the Dow, NASDAQ 100, and S&P 500, but it does not score them. Analyst is where AI scoring begins: the calibrated AI score now runs on ALL US stocks and ETFs. The small-cap you have been watching, the niche sector fund, the name that never makes an index list - all of them get the same treatment, with every historical year shown, winners and losers both.
+1. AI SCORING ACROSS U.S. STOCKS AND ETFs
 
-2. The Start Date Is a Skill, Not a Tier
-A seasonal pattern is just three things: a symbol, a start day, and a hold length. Change the start day and you have a different pattern. The start-date control is available from NAVIGATOR UP, so this is a technique, not an Analyst lock. Use it to move the window to where the behavior actually turns - the pivot zone - instead of accepting a preset. A small, honest shift to line up with the pivot is legitimate. Hunting the entire calendar for the prettiest number is not. We will always help you tell the difference.
+A small-cap stock, a sector ETF, or a company outside the major indices receives the same evidence-first treatment: an AI score supported by the underlying seasonal statistics and the visible winning and losing years.
 
-3. The Capacity to Handle a Bigger Universe
-Once you can score the whole market, you need somewhere to keep the work. Analyst raises you to 25 portfolios, 100 tracked names, and 10 watchlists - the room to organize off-index research instead of overwriting it. That capacity is the quiet half of total-market breadth. Honest caveat: if you only ever keep a handful of saved patterns, Navigator's 3 portfolios and 25 tracked names already hold them - the extra room only earns its keep once your off-index research genuinely overflows the smaller limits.
+The score helps rank and interpret evidence. It does not replace your judgment.
 
-TRY THIS: score a stock outside the major indices, then nudge the start date a few days toward the pivot zone the trend chart shows. Watch the % profitable and the score update as the window aligns. Not sure whether a high percentage is signal or a small-sample fluke? Ask Tara, the research assistant, about your loaded pattern - it reads the stats the engine produced and answers in plain English, and it never invents a number.
+2. USE CUSTOM START DATES WITH DISCIPLINE
 
-Score a stock outside the indices:
-https://tradewave.ai/app/
+Analyst lets you move the start date while keeping the AI score and broader U.S. market coverage in view.
 
-When You Do Not Need This
-Here is the line, said plainly: if every name you research already lives in the Dow, NASDAQ 100, or S&P 500 and you are comfortable reading the patterns yourself, then Navigator at $19/mo gives you those markets AND the start-date control for less than half the price - without the AI score. Navigator also gives you the election-cycle filter on the opportunity table, so an index-only trader can still screen by the 4-year cycle. The AI score and total-market breadth are the core things Analyst adds over Navigator (the human layer and bigger capacity ride along with them - more on those in two days). If you do not need the calibrated score and you are not reaching outside the indices, Navigator is the honest fit.
+A small adjustment around a visible pivot may help align the window with the behavior you are studying. Searching the entire calendar for the most attractive number is curve-fitting. The goal is to test a reasonable hypothesis, not manufacture one.
 
-If you ARE scoring names off the index lists, this is exactly what you came for. Either way, you will know after a week of real use. Changing plans is quick, and we will point you to the plan that fits.
+3. CAPACITY FOR A BROADER RESEARCH UNIVERSE
+
+Analyst includes:
+
+- 25 portfolios
+- Up to 100 tracked opportunities
+- 10 watchlists with up to 50 symbols each
+
+That capacity lets you separate research by market, theme, timeframe, or hypothesis without losing the patterns that survive validation.
+
+TRY THIS
+
+Score a stock outside the three major index groups. Then make a small, defensible start-date adjustment around a visible pivot and inspect how the statistics change.
+
+If you are unsure whether a high percentage reflects useful evidence or a small-sample illusion, ask Tara about the loaded pattern. Tara reads the statistics produced by TradeWave; it does not invent them.
+
+Score a U.S. stock or ETF:
+https://tradewave.ai/login?next=/app/
+
+BUILD ONE COMPLETE ANALYST WORKFLOW
+
+Scan beyond the major indices, score one candidate, validate it against the visible yearly record, and organize what survives in a portfolio or watchlist.
+
+Open your account:
+https://tradewave.ai/login?next=/account
+
+Need help? Email help@tradewave.ai.
 
 The TradeWave team
 
----
-TradeWave - seasonal market research that shows its work. Probability, not prediction.
-Manage your plan: https://tradewave.ai/account | Unsubscribe: %%unsubscribe%%
+TradeWave — seasonal market research that shows its work.
+Probability, not prediction. Research and education only. Not financial advice. Past patterns do not guarantee future results.
+
+Unsubscribe: {$unsubscribe}

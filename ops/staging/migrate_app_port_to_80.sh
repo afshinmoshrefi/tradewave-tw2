@@ -13,41 +13,19 @@ APP="$TGT_APP_PUB"
 WEB="$TGT_WEB_PUB"
 SSH="-p $TGT_SSH_PORT"
 
-hdr "1. stage-app: rewrite unit to bind :80, grant CAP_NET_BIND_SERVICE, disable nginx"
-ssh $SSH "root@$APP" "APP_VLAN='$TGT_APP_VLAN' bash -s" <<'REMOTE'
+hdr "1. app box: install tracked unit, bind :80, disable nginx"
+ssh $SSH "root@$APP" "APP_VLAN='$TGT_APP_VLAN' APP_WORKERS='$TGT_APP_WORKERS' APP_THREADS='$TGT_APP_THREADS' bash -s" <<'REMOTE'
 set -e
 
-# UNIT delimiter is UNquoted so the remote shell substitutes $APP_VLAN at
-# file-write time; the unit body has no other shell-expandable tokens.
-cat >/etc/systemd/system/tradewave-appserver.service <<UNIT
-[Unit]
-Description=TradeWave 2.0 appserver (gunicorn on :80, TW1 convention)
-After=network.target redis-server.service postgresql.service
-Wants=redis-server.service postgresql.service
-
-[Service]
-Type=notify
-User=flask
-Group=flask
-WorkingDirectory=/home/flask/appserver/appserver
-EnvironmentFile=/etc/tradewave/secrets.env
-Environment=PYTHONPATH=/home/flask:/home/flask/appserver/appserver
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
-NoNewPrivileges=true
-ProtectSystem=full
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictSUIDSGID=true
-LockPersonality=true
-ExecStart=/home/flask/venv/bin/gunicorn --workers 2 --worker-class sync --timeout 120 --bind 127.0.0.1:80 --bind ${APP_VLAN}:80 --access-logfile /var/log/tradewave/appserver.access.log --error-logfile /var/log/tradewave/appserver.error.log --capture-output appserver:app
-Restart=on-failure
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-UNIT
+install -m 0644 /home/flask/ops/systemd/tradewave-appserver.service \
+    /etc/systemd/system/tradewave-appserver.service
+install -d -m 0750 /etc/tradewave
+cat >/etc/tradewave/appserver.env <<ENV
+TW2_APPSERVER_BIND=0.0.0.0:80
+TW2_APPSERVER_WORKERS=${APP_WORKERS}
+TW2_APPSERVER_THREADS=${APP_THREADS}
+ENV
+chmod 0640 /etc/tradewave/appserver.env
 
 # Drop any stale override files from the previous attempt
 rm -f /etc/systemd/system/tradewave-appserver.service.d/lowport.conf
@@ -58,7 +36,7 @@ systemctl daemon-reload
 systemctl restart tradewave-appserver
 sleep 3
 ss -tlnp | grep -E ':80\b' || { echo "FAIL: gunicorn not on :80"; tail -30 /var/log/tradewave/appserver.error.log; exit 1; }
-echo "stage-app gunicorn on :80"
+echo "appserver gunicorn on :80 with ${APP_WORKERS}x${APP_THREADS} gthread capacity"
 REMOTE
 
 hdr "2. stage-web: nginx upstream to ${TGT_APP_VLAN}:80"

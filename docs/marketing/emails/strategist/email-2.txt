@@ -1,39 +1,43 @@
-Subject: Why Breadth Across 15 Markets Is Safety, Not a Bigger Menu
-Preview: Breadth is not a longer list. It is a different kind of safety. And it is the one thing Analyst cannot do.
+Subject: Use Fifteen Markets Without Forcing a Setup
+Preview: Compare two asset classes with the same date, regime, and evidence standard.
 Send day: 2
 
-STRATEGIST TRIAL - DAY 2
+TRADEWAVE STRATEGIST
 
-Breadth Is Safety, Not a Bigger Menu
+Breadth Is a Comparison Tool, Not a Bigger Menu
 
-Strategist's defining feature is breadth across all 15 markets: futures, forex, bonds, and crypto on top of every US stock and ETF, plus global equities and indices. It is easy to read that as a longer list. It is not. It is the only way TradeWave lets you diversify across asset class, the axis equities alone cannot give you.
+Strategist's defining feature is full, date-unlocked access across all 15 markets: futures, forex, bonds, foreign indices, and crypto alongside all U.S. stocks and ETFs. It is easy to read that as a longer list. It is more useful as a way to compare evidence across markets without lowering your validation standard.
 
 Diversification has three axes
-- Timeframe: short tactical windows beside long compounding holds.
-- Sector: cyclical, defensive, commodity-sensitive names that do not all move together.
-- Asset class: energy futures, currencies, bonds, and crypto that answer to different drivers than equities. This third axis only exists for you on Strategist.
 
-A portfolio that only works when one sector or one asset class leads is a bet, not a plan. When equities have no clean seasonal window, an energy future or a currency pair often does, driven by weather, harvest, or fiscal timing instead of earnings. Standing down on one market is easy when another is in season. That optionality across all 15 markets is the whole point of breadth.
+- Timeframe: short tactical windows beside longer holding periods.
+- Sector: cyclical, defensive, and commodity-sensitive names that do not always move together.
+- Asset class: futures, currencies, bonds, and crypto that respond to different forces than equities.
+
+When one market has no clean seasonal window, another asset class may offer a different record to investigate. A cleaner record is a reason to research further, not approval to trade.
 
 Today: feel the difference
-Pick one start date. Run it on a stock you know, then on a future or a crypto pair. Same engine, same metrics - %Profitable, Sharpe, TWR, MFE and MAE - on a market that answers to entirely different forces. Notice when one is clean and the other is messy. That contrast is the edge breadth buys you.
+
+Pick one start date. Run it on a stock you know, then on a future or crypto pair. Read the same evidence on both: % Profitable, Sharpe, TWR, MFE, and MAE. Notice when one record is clean and the other is messy.
 
 Compare a stock and a future:
-https://tradewave.ai/app/
+https://tradewave.ai/login?next=%2Fapp%2F
 
 ---
 
-If You Only Trade Equities, Read This
+USE BREADTH WITHOUT FORCING A SETUP
 
-Be honest with yourself this week. Open your activity and look at what you actually scored, validated, and saved. If every one of them is a US stock or an ETF, then if you are not trading futures, forex, bonds, or crypto, the smaller plan covers you - there is no need to pay for breadth you will not use. Those four non-equity asset classes sit on top of the US stocks and ETFs you actually use.
+Pick one start date. Run it on a U.S. stock or ETF you know, then examine a future, currency, bond, foreign index, or crypto market with the same regime and holding period.
 
-Analyst ($47/mo, $33/mo yearly) gives you full AI scoring on all US stocks and ETFs, custom start dates, 25 portfolios, 100 tracked positions, and 10 watchlists (50 symbols each). For an equities-only trader that is genuinely the right plan. Your trial is on us, so there is no rush and no charge yet - keep using what fits, and we will help you settle the plan before day 7.
+Compare sample size, percentage profitable, Sharpe, TWR, MFE, and MAE. Then inspect the yearly bars rather than relying on the headline average.
 
-P.S. No decision needed today. On day 7 the app lays Strategist and Analyst side by side against your real trial usage, so you choose with the evidence in front of you.
+You do not need to trade every market. Breadth gives you more places to investigate while keeping the same evidence standard everywhere.
 
 ---
 
 Historical frequencies are facts about the past, not promises about the future. TradeWave is probability, not prediction, and not financial advice.
 
 TradeWave - Tara Data Research LLC
-Manage your plan: https://tradewave.ai/account
+Open your account: https://tradewave.ai/login?next=%2Faccount
+Questions? help@tradewave.ai
+Unsubscribe: {$unsubscribe}

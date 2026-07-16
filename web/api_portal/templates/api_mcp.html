@@ -10,10 +10,9 @@
     <h3>Your MCP endpoint</h3>
     <pre id="mcp-url"><button type="button" class="copybtn" data-copy-target="mcp-url-val">Copy</button><span id="mcp-url-val">{{ mcp_url }}</span></pre>
     <p class="muted" style="font-size:13px;">
-      In ChatGPT and Claude.ai, just paste this URL, click Connect, and sign in with your
-      TradeWave account - no API key needed. Dev tools (Claude Desktop, Cursor) authenticate
-      with your own API key instead (bring your own key) - see the configs below.
-      Tool access follows your <span class="tier-pill">{{ tier_label }}</span> plan.
+      In ChatGPT, Claude.ai, and Claude Desktop, paste this URL, click Connect, and sign in
+      with your TradeWave account - no API key needed. OAuth access mirrors your web plan
+      and any active teaser. BYOK clients can use an API key instead.
     </p>
   </div>
 
@@ -49,11 +48,14 @@
   </div>
 
   <div class="card">
-    <h3>Claude Desktop (BYOK)</h3>
+    <h3>Claude Desktop</h3>
     <p class="muted" style="font-size:13px;margin-top:0;">
-      Dev tools use your own API key.
+      For the normal consumer connection, open Settings - Connectors, choose Add custom
+      connector, paste the server URL, and sign in with your TradeWave account. The config
+      below is an optional BYOK path if you want to meter Claude Desktop against a separate API key.
       {% if has_key %}Use any active key from the <a href="{{ url_for('api_portal.keys_index') }}" style="color:#a855f7;">API Keys</a> tab.{% else %}You have no API key yet - <a href="{{ url_for('api_portal.keys_index') }}" style="color:#a855f7;">create one first</a>, then paste it in the configs below.{% endif %}
-      Open Settings - Developer - Edit Config (this opens <code>claude_desktop_config.json</code>), add the block below, then restart Claude Desktop. Replace <code>YOUR_API_KEY</code> with your key.
+      For BYOK, open Settings - Developer - Edit Config, add the block below, then restart
+      Claude Desktop. Replace <code>YOUR_API_KEY</code> with your key.
     </p>
     <pre id="cfg-claude"><button type="button" class="copybtn" data-copy-target="cfg-claude-val">Copy</button><span id="cfg-claude-val">{
   "mcpServers": {

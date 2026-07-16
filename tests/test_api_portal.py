@@ -37,7 +37,8 @@ from pathlib import Path
 
 import pytest
 
-_SCHEMA_SQL = Path("/home/flask/apiserver/schema.sql")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_SCHEMA_SQL = _REPO_ROOT / "apiserver" / "schema.sql"
 
 # Every console tab the blueprint serves (path -> substring expected in the
 # rendered page). The index ("" and "/") is asserted separately as a redirect.
@@ -197,8 +198,8 @@ def test_console_dark_without_flag():
     assert "/tradewave_test" in env.get("POSTGRES_DSN", ""), "refusing: child would hit a non-test DB"
     code = "\n".join([
         "import sys",
-        "sys.path.insert(0, '/home/flask')",
-        "sys.path.insert(0, '/home/flask/web')",
+        f"sys.path.insert(0, {str(_REPO_ROOT)!r})",
+        f"sys.path.insert(0, {str(_REPO_ROOT / 'web')!r})",
         "import config",
         "assert not config.API_CONSOLE_ENABLED, 'flag leaked into the child env'",
         "import app",

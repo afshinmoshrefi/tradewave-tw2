@@ -1,26 +1,36 @@
-Subject: Welcome to Navigator - Two More Markets, Now Date-Unlocked
-Preview: Two more markets and the calendar comes unlocked. Plus a plain word on the charge and how to reverse it.
+Subject: Navigator Is Active — Three Markets, Date-Unlocked
+Preview: Browse the Dow, NASDAQ 100, and S&P 500 on any start date, with 15 years of seasonal history.
 Send day: 0
 
-NAVIGATOR
+TRADEWAVE NAVIGATOR
 
-Welcome to Navigator - Two More Markets, Now Date-Unlocked
+Navigator Is Active — Three Markets, Date-Unlocked
 
-On free Explorer you could see today's top Dow patterns, but only as a snapshot frozen to today's date. Navigator changes two things at once: you get two more markets, and the calendar comes unlocked.
+Navigator is now active on your account.
 
-Full date-unlocked access is now on across the Dow 30, the NASDAQ 100, and the S&P 500. You can browse any start date you want, not just today, and read the full historical record of a pattern - every year, including the years it lost.
+You have fully date-unlocked access across the Dow 30, NASDAQ 100, and S&P 500. You can browse any start date and inspect 15 years of seasonal history for each pattern, including the losing years.
 
-YOUR FIRST MOVE (2 minutes):
-Open the wave viewer, pull up any NASDAQ 100 or S&P 500 symbol, and slide the start date off today. Watch the green and red years line up behind the record. That is the whole idea: see the work before you act.
+YOUR NAVIGATOR CHECK (2 MINUTES)
 
-> Browse any start date:
-https://tradewave.ai/app/
+Open the Wave Viewer, choose a NASDAQ 100 or S&P 500 symbol, and move the start date away from today. Watch the year-by-year record update.
 
-A PLAIN WORD ON THE CHARGE
-You were charged $19 today. If Navigator turns out not to be right, you can downgrade from your account and you keep access through the period you paid for. Switching or cancelling is one click - no email, no phone call.
+That is Navigator’s purpose: more markets, flexible dates, and enough visible history to inspect the evidence before you act.
 
-Give it a few days. After that, if you find you only ever scan the Dow on the default window, free Explorer already covered that, and we will help you switch back. The reason to be here is wanting two more markets and the freedom to browse any start date across all three.
+Browse any start date:
+https://tradewave.ai/login?next=/app/
 
----
-TradeWave - seasonal market research that shows its work.
-You are on the Navigator plan ($19/mo, $14/mo billed yearly). Manage your plan: https://tradewave.ai/account
+YOUR NEXT NAVIGATOR HABIT
+
+Use Navigator for one real research question today: choose a symbol you follow, set the start date you care about, inspect every year, and save the pattern only if the evidence still holds.
+
+For the rest of this week, repeat that process with one Dow name, one NASDAQ 100 name, and one S&P 500 name. The goal is not to collect patterns. It is to learn which evidence deserves a place in your workflow.
+
+Open your account:
+https://tradewave.ai/login?next=/account
+
+Need help? Email help@tradewave.ai.
+
+TradeWave — seasonal market research that shows its work.
+Probability, not prediction. Research and education only. Not financial advice. Past patterns do not guarantee future results.
+
+Unsubscribe: {$unsubscribe}

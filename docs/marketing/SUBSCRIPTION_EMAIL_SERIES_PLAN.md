@@ -1,5 +1,9 @@
 # Post-Subscription Email Series - Plan (not yet built)
 
+> Status: SUPERSEDED by `EMAIL_SERIES_HANDOFF.md` and the implemented files under
+> `docs/marketing/emails/`. This design draft contains pre-reconciliation feature claims,
+> including Navigator AI. Use the current pricing decision record and handoff instead.
+
 Status: DESIGNED, PAUSED (2026-06-28). Awaiting the in-app 7-day lesson rework before
 building MailerLite automations. Produced by 3 expert agents (lifecycle / product+methodology
 / retention) -> synthesis -> adversarial QA (caught + fixed 2 capability errors).

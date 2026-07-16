@@ -92,6 +92,7 @@ TW2_ENV=${TARGET_TW2_ENV}
 # === Per-env VLAN IPs (cross-tier traffic rides 10.0.0.0/24) ===
 TW2_APPSERVER_IP=${TGT_APP_VLAN}
 TW2_WEBSERVER_IP=${TGT_WEB_VLAN}
+TW2_FEATURED_HISTORY_URL=http://${TGT_WEB_VLAN}/internal/featured-history
 
 # === Per-env datastores ===
 # Postgres lives on the app box. Web reaches it via VLAN (${TGT_APP_VLAN}:5432).

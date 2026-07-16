@@ -41,7 +41,7 @@ const COPY = {
     },
     downgrade: {
       headline: 'Welcome Back to Explorer',
-      body: "You're on the free Explorer plan now, and you keep more than you'd think: the Dow 30, your saved patterns, your portfolio, and ten tracked opportunities. Nothing you built disappears. When you want the rest of the markets back, the door is open and it takes about a minute.",
+      body: "You're on the free Explorer plan now, and you keep more than you'd think: the Dow 30, your saved patterns, one portfolio, and five tracked opportunities. Nothing you built disappears. When you want the rest of the markets back, the door is open and it takes about a minute.",
     },
   },
   navigator: {
@@ -60,33 +60,33 @@ const COPY = {
     },
   },
   analyst: {
-    unlocks: 'Now open: eight markets including the Russell and Wilshire, the auto PE-cycle filter, SMN research.',
+    unlocks: 'Now open: all U.S. stock groups plus ETFs, AI scoring, SMN research, and weekly Q&A.',
     new: {
       headline: 'Welcome to Analyst',
-      body: "Welcome to Analyst - this is where the toolkit really opens up. You've got eight markets now, including the Russell, the Wilshire, ETFs and the indices, plus the automatic election-cycle filter and the SMN research that explains what the data is doing. There's a weekly Q&A too, if you like asking your questions out loud. Start by running a scan on a market you've never looked at.",
+      body: "Welcome to Analyst - this is where the toolkit really opens up. You can scan every U.S. stock group plus ETFs, with the AI-calibrated score alongside the historical record. SMN research and the weekly Q&A are open too. Start by scoring a stock or ETF that was outside your previous plan.",
     },
     upgrade: {
       headline: 'Welcome to Analyst',
-      body: "Good move - Analyst suits you. You've jumped to eight markets - Russell, Wilshire, ETFs, indices and the rest of US stocks - and unlocked the auto PE-cycle filter, the SMN research articles, and a seat at the weekly Q&A. The same date can tell a different story in a different part of the election cycle; now you can see that automatically.",
+      body: "Good move - Analyst suits you. You now have every U.S. stock group plus ETFs, the AI-calibrated score, SMN research articles, and a seat at the weekly Q&A. Open a stock or ETF that was outside your previous plan and put the model next to the full historical record.",
     },
     downgrade: {
       headline: "You're on Analyst Now",
-      body: "You've settled onto Analyst, and it keeps the parts most people use every day: eight markets including the Russell and Wilshire, ETFs and indices, ML scoring, the auto PE-cycle filter, SMN research, and the weekly Q&A. The futures, forex, bonds and crypto markets are paused, and your saved work is all still here. Step back up any time you need the full set.",
+      body: "You've settled onto Analyst, and it keeps the parts most people use every day: every U.S. stock group plus ETFs, ML scoring, SMN research, and the weekly Q&A. Futures, forex, bonds, foreign indices and crypto are paused, and your saved work is all still here. Step back up any time you need the full set.",
     },
   },
   strategist: {
     unlocks: 'Now open: all 15 markets including futures, forex, bonds and crypto, plus the live weekly Zoom.',
     new: {
       headline: 'Welcome to Strategist',
-      body: "Welcome to Strategist - you have the whole engine now. Every one of the 15 markets is open, from US stocks all the way out to futures, forex, bonds and crypto, with room to save 500 patterns a market and track 500 opportunities. There's a live weekly Zoom session too. Best first move: run a scan somewhere you've never been and see what almost a century of history says about it.",
+      body: "Welcome to Strategist - you have the whole engine now. Every one of the 15 markets is open, from U.S. stocks through futures, forex, bonds, foreign indices and crypto. You also have 100 portfolios, up to 500 published date-range reports, and the live weekly Zoom. Best first move: run a scan somewhere you've never been.",
     },
     upgrade: {
       headline: 'Welcome to Strategist',
-      body: 'There it is - the full plan. Futures, forex, bonds and crypto just joined everything you already had, so all 15 markets are open with nothing held back. The limits get out of your way too: 500 patterns a market, 100 portfolios, the live weekly Zoom. Go somewhere new and let the history surprise you.',
+      body: 'There it is - the full plan. Futures, forex, bonds, foreign indices and crypto just joined everything you already had, so all 15 markets are open. You also have 100 portfolios, up to 500 published date-range reports, and the live weekly Zoom. Go somewhere new and let the history surprise you.',
     },
     downgrade: {
       headline: 'Welcome to Strategist',
-      body: "You're on Strategist now, with every market open - futures, forex, bonds, crypto and all the rest - and the room to match: 500 patterns a market, 100 portfolios, 500 tracked opportunities, and the live weekly Zoom. Everything you'd saved is right where you left it. This is the full toolkit, no corners cut.",
+      body: "You're on Strategist now, with every market open - futures, forex, bonds, foreign indices, crypto and all the rest - plus 100 portfolios, up to 500 published date-range reports, and the live weekly Zoom. Everything you'd saved is right where you left it. This is the full toolkit, no corners cut.",
     },
   },
 };

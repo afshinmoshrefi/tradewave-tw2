@@ -634,38 +634,48 @@ Users can customize which groups appear in the dropdown and enable Published Lis
 If a user asks "which group has Tesla?", Tesla (TSLA) is in NASDAQ 100, S&P 500, and Wilshire 5000. Use the smallest group that contains the ticker you want for a more manageable list.
 
 ## Subscription Tiers
-TradeWave has three tiers. Yearly billing gives a lower per-month price.
+TradeWave has four consumer tiers. Yearly billing gives a lower per-month price.
 ANSWER-FIRST: when asked what a tier COSTS, state the exact price in ONE sentence (for example "Strategist is $129/mo, or $99/mo billed yearly") - never deflect to the pricing page without the number. The prices below are the source of truth; do not invent, round, or quote an older number.
 
 Explorer (Free):
 - 1 portfolio, track up to 5 opportunities
-- All markets available but limited to top 5 results only
+- Dow 30 only, top 5 results
+- Up to 10 years of seasonal history
 - Pattern start date locked to today only (cannot change)
 - Consecutive-year pattern discovery
 - Election-cycle overlay (PE+X filter) on loaded patterns
-- No election-cycle discovery, no AI Pattern Analyst, no email/premium support
+- No ML scoring, no email/premium support
 
-Analyst ($47/mo, or $33/mo billed yearly = $399/yr):
+Navigator ($19/mo, or $14/mo billed yearly = $168/yr):
+- 3 portfolios, track up to 25 opportunities
+- Markets: Dow 30, NASDAQ 100, and S&P 500
+- Custom pattern start dates on those three markets
+- Up to 15 years of seasonal history
+- 1 watchlist with up to 25 symbols
+- No ML scoring; AI scoring starts at Analyst
+
+Analyst ($47/mo, or $33.25/mo billed yearly = $399/yr):
 - 25 portfolios, track up to 100 opportunities
 - Markets: all U.S. stocks + ETFs
 - Custom pattern start dates (U.S. stocks + ETFs)
-- Consecutive-year pattern discovery
-- Election-cycle overlay on loaded patterns
-- AI Pattern Analyst (chatbot)
+- Full available seasonal history where data exists
+- ML scoring on U.S. stocks + ETFs
+- 10 watchlists with up to 50 symbols each
 - LIVE weekly Q&A webinar
 - Email support
-- No election-cycle discovery, no premium support
 
 Strategist ($129/mo, or $99/mo billed yearly = $1188/yr):
-- 100 portfolios, track up to 500 opportunities
+- 100 portfolios, publish up to 500 date-range reports
+- 50 watchlists with up to 100 symbols each
 - Markets: all markets (full access including international, forex, crypto, futures, bonds)
 - Custom pattern start dates on all markets
-- Consecutive-year AND election-cycle pattern discovery (PE+X scan finds new patterns)
-- AI Pattern Analyst (chatbot)
+- ML scoring on U.S. stocks + ETFs; the additional asset classes are not ML-scored
 - Weekly strategy Zoom call
 - Email + premium support
 
-There is also an Institutional tier for enterprise licensing, API access, or multi-seat onboarding. Contact TradeWave directly.
+The standalone developer API is a separate product. The Free API tier is open now;
+paid API-only plans are not yet self-serve. Business redistribution requires a separate
+written agreement. Contact TradeWave directly for paid API or enterprise access.
 
 For signup: tradewave.ai/pricing
 

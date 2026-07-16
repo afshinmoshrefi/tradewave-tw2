@@ -259,7 +259,7 @@ export interface PatternCard {
   verdict?: string;
   /** Exact regulatory disclaimer, present on every card. */
   disclaimer?: string;
-  /** 'ML score shown (Pro).' or the free-tier / daily-limit nudge. */
+  /** Tier-metered ML status note: shown, quota-limited, market-limited, or unavailable. */
   tier_notes?: string;
   [key: string]: unknown;
 }

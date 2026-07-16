@@ -28,8 +28,7 @@ Run (SSE, remote, NO baked-in key - each client sends its own Bearer token):
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
-import contextvars
+import asyncio
 import datetime
 import functools
 import hashlib
@@ -37,6 +36,7 @@ import json
 import os
 import sys
 import time
+from contextlib import asynccontextmanager
 from typing import Annotated, Any, Optional
 
 import httpx
@@ -262,6 +262,11 @@ def _seg(value: Any) -> str:
 # Large cold scans can legitimately run >60s (the gateway caches, so a retry returns fast);
 # the old 30s starved them mid-compute and surfaced as a raw httpx exception.
 _GATEWAY_TIMEOUT = 110
+_GATEWAY_MAX_INFLIGHT = max(
+    1, min(128, int(os.environ.get("TW2_MCP_GATEWAY_MAX_INFLIGHT", "32")))
+)
+_gateway_client: Optional[httpx.AsyncClient] = None
+_gateway_slots: Optional[asyncio.Semaphore] = None
 
 _TIMEOUT_RESULT = (
     "This large scan is still computing on the gateway - retry in a moment; the result "
@@ -300,18 +305,59 @@ def _friendly_http_error(exc: httpx.HTTPStatusError) -> str:
             "Try again in a moment.")
 
 
-def _request(method: str, path: str, *, params: dict[str, Any] | None = None,
-             body: Any = None) -> Any:
+def _new_gateway_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        timeout=httpx.Timeout(_GATEWAY_TIMEOUT, connect=5.0),
+        limits=httpx.Limits(
+            max_connections=_GATEWAY_MAX_INFLIGHT,
+            max_keepalive_connections=min(16, _GATEWAY_MAX_INFLIGHT),
+            keepalive_expiry=30.0,
+        ),
+    )
+
+
+@asynccontextmanager
+async def _mcp_lifespan(_server: FastMCP):
+    """Own one bounded reusable gateway pool for the MCP process lifetime."""
+    global _gateway_client, _gateway_slots
+    async with _new_gateway_client() as client:
+        _gateway_client = client
+        _gateway_slots = asyncio.Semaphore(_GATEWAY_MAX_INFLIGHT)
+        try:
+            yield {}
+        finally:
+            _gateway_client = None
+            _gateway_slots = None
+
+
+async def _request(method: str, path: str, *, params: dict[str, Any] | None = None,
+                   body: Any = None) -> Any:
     """One gateway round-trip. Every failure mode becomes a GatewayError whose message is
     safe to hand to the model as the tool result (see _tool_errors)."""
     url = f"{API_BASE_URL}{path}"
-    try:
-        with httpx.Client(timeout=_GATEWAY_TIMEOUT) as client:
+    async def send(client: httpx.AsyncClient):
+        slots = _gateway_slots
+        if slots is None:
             if method == "GET":
-                resp = client.get(url, params=params, headers=_headers())
-            else:
-                resp = client.post(url, json=body,
-                                   headers={**_headers(), "Content-Type": "application/json"})
+                return await client.get(url, params=params, headers=_headers())
+            return await client.post(
+                url, json=body,
+                headers={**_headers(), "Content-Type": "application/json"},
+            )
+        async with slots:
+            if method == "GET":
+                return await client.get(url, params=params, headers=_headers())
+            return await client.post(
+                url, json=body,
+                headers={**_headers(), "Content-Type": "application/json"},
+            )
+
+    try:
+        if _gateway_client is None:
+            async with _new_gateway_client() as client:
+                resp = await send(client)
+        else:
+            resp = await send(_gateway_client)
         resp.raise_for_status()
     except httpx.TimeoutException:
         raise GatewayError(_TIMEOUT_RESULT) from None
@@ -322,15 +368,17 @@ def _request(method: str, path: str, *, params: dict[str, Any] | None = None,
     return resp.json()
 
 
-def _get(path: str, params: dict[str, Any] | None = None) -> Any:
-    """Synchronous GET against the gateway. Returns parsed JSON."""
-    return _request("GET", path,
-                    params={k: v for k, v in (params or {}).items() if v is not None})
+async def _get(path: str, params: dict[str, Any] | None = None) -> Any:
+    """Asynchronous GET against the gateway. Returns parsed JSON."""
+    return await _request(
+        "GET", path,
+        params={k: v for k, v in (params or {}).items() if v is not None},
+    )
 
 
-def _post(path: str, body: Any) -> Any:
-    """Synchronous POST against the gateway. Returns parsed JSON."""
-    return _request("POST", path, body=body)
+async def _post(path: str, body: Any) -> Any:
+    """Asynchronous POST against the gateway. Returns parsed JSON."""
+    return await _request("POST", path, body=body)
 
 
 def _tool_errors(fn):
@@ -339,9 +387,9 @@ def _tool_errors(fn):
     raised exception. functools.wraps keeps the original signature visible to FastMCP's
     schema builder (inspect.signature follows __wrapped__)."""
     @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
+    async def wrapper(*args, **kwargs):
         try:
-            return fn(*args, **kwargs)
+            return await fn(*args, **kwargs)
         except GatewayError as e:
             return e.message
     return wrapper
@@ -397,6 +445,7 @@ if OAUTH_ENABLED:
 
 mcp = FastMCP(
     name="TradeWave",
+    lifespan=_mcp_lifespan,
     **_auth_kwargs,
     instructions=(
         "TradeWave is the user's seasonal-edge analyst. It finds, ranks, and explains "
@@ -536,7 +585,7 @@ def _present_cards(data: Any, empty_msg: str, found_msg) -> str:
     )
 )
 @_tool_errors
-def find_best_opportunities(
+async def find_best_opportunities(
     markets: Annotated[Optional[list[str] | str], Field(description=(
         "Market ids, list_markets names, or common aliases ('sp500','crypto','europe') to "
         "scan - a list (['2','11']) or CSV ('2,11' / 'S&P 500 STOCKS,ETFs'). Omit to scan a "
@@ -623,7 +672,7 @@ def find_best_opportunities(
         params["rank_by"] = rank_by
     if limit is not None:
         params["limit"] = limit
-    data = _get("/scan", params)
+    data = await _get("/scan", params)
 
     def _found(d: Any) -> str:
         n = d.get("count") if isinstance(d, dict) else None
@@ -663,7 +712,7 @@ def find_best_opportunities(
     )
 )
 @_tool_errors
-def analyze_symbol(
+async def analyze_symbol(
     symbol: Annotated[str, Field(description=(
         "Ticker symbol, e.g. 'GLD', 'AAPL', 'CL'. Required."))],
     market: Annotated[Optional[str], Field(description=(
@@ -719,7 +768,7 @@ def analyze_symbol(
         params["period"] = period
     if reverse is not None:
         params["reverse"] = str(reverse).lower()
-    data = _get(f"/analyze/{_seg(symbol)}", params)
+    data = await _get(f"/analyze/{_seg(symbol)}", params)
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
     sym = symbol.upper()
@@ -753,9 +802,9 @@ def analyze_symbol(
     )
 )
 @_tool_errors
-def explain_pick(ctx: Optional[Context] = None) -> str:
+async def explain_pick(ctx: Optional[Context] = None) -> str:
     _bind_request_key(ctx)
-    data = _get("/daily-pick")
+    data = await _get("/daily-pick")
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
     return _lead(
@@ -787,25 +836,24 @@ def explain_pick(ctx: Optional[Context] = None) -> str:
     )
 )
 @_tool_errors
-def morning_briefing(ctx: Optional[Context] = None) -> str:
+async def morning_briefing(ctx: Optional[Context] = None) -> str:
     _bind_request_key(ctx)
     calls = {
         "pick": ("/daily-pick", {"view": "decision"}),
         "record": ("/daily-pick/track-record", None),
         "scan": ("/scan", {"window": "now", "view": "table", "limit": 10}),
     }
-    results: dict[str, Any] = {}
-    # The three gateway calls are independent - fetch them in parallel. copy_context()
-    # carries _request_principal (a ContextVar does not cross threads by itself).
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-        futures = {name: pool.submit(contextvars.copy_context().run, _get, path, params)
-                   for name, (path, params) in calls.items()}
-        for name, fut in futures.items():
-            try:
-                results[name] = fut.result()
-            except GatewayError as e:
-                # Fail-soft per section: a degraded briefing beats no briefing.
-                results[name] = {"unavailable": e.message}
+    async def fetch(path, params):
+        try:
+            return await _get(path, params)
+        except GatewayError as e:
+            return {"unavailable": e.message}
+
+    names = list(calls)
+    fetched = await asyncio.gather(
+        *(fetch(*calls[name]) for name in names)
+    )
+    results = dict(zip(names, fetched))
 
     pick = results["pick"]
     todays_pick = pick.get("card", pick) if isinstance(pick, dict) else pick
@@ -867,7 +915,7 @@ def morning_briefing(ctx: Optional[Context] = None) -> str:
     )
 )
 @_tool_errors
-def whats_seasonal_now(
+async def whats_seasonal_now(
     markets: Annotated[Optional[list[str] | str], Field(description=(
         "Market ids, list_markets names, or common aliases ('sp500','crypto','europe') to "
         "scan - a list (['2','11']) or CSV ('2,11' / 'S&P 500 STOCKS,ETFs'). Omit to scan a "
@@ -886,7 +934,7 @@ def whats_seasonal_now(
         params["markets"] = _csv(markets)
     if min_win_rate is not None:
         params["min_win_rate"] = min_win_rate
-    data = _get("/scan", params)
+    data = await _get("/scan", params)
 
     def _found(d: Any) -> str:
         n = d.get("count") if isinstance(d, dict) else None
@@ -919,7 +967,7 @@ def whats_seasonal_now(
     )
 )
 @_tool_errors
-def compare_opportunities(
+async def compare_opportunities(
     symbols: Annotated[list[str], Field(description=(
         "List of ticker symbols to compare, e.g. ['GLD', 'SLV', 'GDX']. Required, 2 or "
         "more."))],
@@ -932,23 +980,20 @@ def compare_opportunities(
     ctx: Optional[Context] = None,
 ) -> str:
     _bind_request_key(ctx)
-    results: list[dict[str, Any]] = []
-    for sym in symbols:
+    async def analyze_one(sym):
         params: dict[str, Any] = {"view": view or "decision"}
         if market is not None:
             params["market"] = market
         try:
-            data = _get(f"/analyze/{_seg(sym)}", params)
+            data = await _get(f"/analyze/{_seg(sym)}", params)
         except GatewayError as e:
-            # Fail-soft per symbol: degrade that row, never break the comparison.
-            results.append({"symbol": sym, "error": e.message, "card": None})
-            continue
+            return {"symbol": sym, "error": e.message, "card": None}
         if _is_upgrade_stub(data):
-            # The ML daily-limit stub surfaced - keep the comparison going, note it.
-            results.append({"symbol": sym, "requires": "upgrade", "reason": data.get("reason"),
-                            "message": data.get("message"), "upgrade_url": data.get("upgrade_url")})
-            continue
-        results.append({"symbol": sym, **(data if isinstance(data, dict) else {"data": data})})
+            return {"symbol": sym, "requires": "upgrade", "reason": data.get("reason"),
+                    "message": data.get("message"), "upgrade_url": data.get("upgrade_url")}
+        return {"symbol": sym, **(data if isinstance(data, dict) else {"data": data})}
+
+    results = await asyncio.gather(*(analyze_one(sym) for sym in symbols))
     payload = {"count": len(results), "symbols": symbols, "comparison": results}
     return _lead(
         f"Side-by-side seasonal comparison of {len(symbols)} symbol(s) - compare edge score, "
@@ -983,9 +1028,9 @@ def compare_opportunities(
     )
 )
 @_tool_errors
-def list_markets(ctx: Context) -> str:
+async def list_markets(ctx: Context) -> str:
     _bind_request_key(ctx)
-    data = _get("/markets")
+    data = await _get("/markets")
     return json.dumps(data, separators=(',', ':'))
 
 
@@ -1014,9 +1059,9 @@ _ANALYZE_EXAMPLES: list[tuple[str, str]] = [
     )
 )
 @_tool_errors
-def whoami(ctx: Optional[Context] = None) -> str:
+async def whoami(ctx: Optional[Context] = None) -> str:
     _bind_request_key(ctx)
-    data = _get("/me")
+    data = await _get("/me")
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
     tier = data.get("tier_name") or data.get("tier") or "your"
@@ -1113,7 +1158,7 @@ _TRADEWAVE_GUIDE = (
         "tell you, and how to act on a Pattern Card."
     )
 )
-def describe_tradewave(ctx: Optional[Context] = None) -> str:
+async def describe_tradewave(ctx: Optional[Context] = None) -> str:
     return _TRADEWAVE_GUIDE
 
 
@@ -1133,13 +1178,13 @@ def describe_tradewave(ctx: Optional[Context] = None) -> str:
     )
 )
 @_tool_errors
-def list_symbols(
+async def list_symbols(
     market: Annotated[str, Field(description=(
         "Market id, e.g. '0', '2', '11'. Use list_markets to find valid ids."))],
     ctx: Context,
 ) -> str:
     _bind_request_key(ctx)
-    data = _get(f"/markets/{_seg(market)}/symbols")
+    data = await _get(f"/markets/{_seg(market)}/symbols")
     return json.dumps(data, separators=(',', ':'))
 
 
@@ -1160,7 +1205,7 @@ def list_symbols(
     )
 )
 @_tool_errors
-def get_seasonal_opportunities(
+async def get_seasonal_opportunities(
     market: Annotated[str, Field(description=(
         "Market id (permanent key '0'..'16'). Required."))],
     from_date: Annotated[Optional[str], Field(description=(
@@ -1227,7 +1272,7 @@ def get_seasonal_opportunities(
         params["min_winning_years"] = min_winning_years
     if limit is not None:
         params["limit"] = limit
-    data = _get("/opportunities", params)
+    data = await _get("/opportunities", params)
     return json.dumps(data, separators=(',', ':'))
 
 
@@ -1253,7 +1298,7 @@ def get_seasonal_opportunities(
     )
 )
 @_tool_errors
-def get_symbol_patterns(
+async def get_symbol_patterns(
     symbol: Annotated[str, Field(description=(
         "Ticker symbol, e.g. 'DOV', 'GLD'."))],
     market: Annotated[str, Field(description=(
@@ -1284,7 +1329,7 @@ def get_symbol_patterns(
                    ("min_avg_return", min_avg_return), ("min_sharpe", min_sharpe)):
         if _v is not None:
             params[_k] = _v
-    data = _get(f"/securities/{_seg(symbol)}/patterns", params=params)
+    data = await _get(f"/securities/{_seg(symbol)}/patterns", params=params)
     return json.dumps(data, separators=(',', ':'))
 
 
@@ -1304,7 +1349,7 @@ def get_symbol_patterns(
     )
 )
 @_tool_errors
-def get_seasonal_pattern(
+async def get_seasonal_pattern(
     market: Annotated[str, Field(description=(
         "Market id containing the symbol."))],
     symbol: Annotated[str, Field(description=(
@@ -1333,7 +1378,7 @@ def get_seasonal_pattern(
         params["period"] = period
     if reverse:
         params["reverse"] = "true"
-    data = _get(f"/patterns/{_seg(market)}/{_seg(symbol)}", params=params or None)
+    data = await _get(f"/patterns/{_seg(market)}/{_seg(symbol)}", params=params or None)
     return json.dumps(data, separators=(',', ':'))
 
 
@@ -1363,7 +1408,7 @@ def get_seasonal_pattern(
     )
 )
 @_tool_errors
-def get_opportunity_chart(
+async def get_opportunity_chart(
     market: Annotated[str, Field(description=(
         "Market id."))],
     symbol: Annotated[str, Field(description=(
@@ -1406,7 +1451,7 @@ def get_opportunity_chart(
         params["period"] = period
     if reverse:
         params["reverse"] = "true"
-    data = _get("/seasonal-chart", params)
+    data = await _get("/seasonal-chart", params)
     return json.dumps(data, separators=(',', ':'))
 
 
@@ -1430,7 +1475,7 @@ def get_opportunity_chart(
     )
 )
 @_tool_errors
-def score_opportunities(
+async def score_opportunities(
     opportunities: Annotated[list[dict[str, Any]], Field(description=(
         "List of opportunity dicts, each with keys: symbol (str, ticker symbol), date "
         "(str, entry date YYYY-MM-DD), days_out (int, holding period in days), direction "
@@ -1438,7 +1483,7 @@ def score_opportunities(
     ctx: Context,
 ) -> str:
     _bind_request_key(ctx)
-    data = _post("/score", {"opportunities": opportunities})
+    data = await _post("/score", {"opportunities": opportunities})
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
     return json.dumps(data, separators=(',', ':'))
@@ -1460,9 +1505,9 @@ def score_opportunities(
     )
 )
 @_tool_errors
-def get_daily_pick(ctx: Context) -> str:
+async def get_daily_pick(ctx: Context) -> str:
     _bind_request_key(ctx)
-    data = _get("/daily-pick")
+    data = await _get("/daily-pick")
     return json.dumps(data, separators=(',', ':'))
 
 
@@ -1483,9 +1528,9 @@ def get_daily_pick(ctx: Context) -> str:
     )
 )
 @_tool_errors
-def get_pick_track_record(ctx: Context) -> str:
+async def get_pick_track_record(ctx: Context) -> str:
     _bind_request_key(ctx)
-    data = _get("/daily-pick/track-record")
+    data = await _get("/daily-pick/track-record")
     return json.dumps(data, separators=(',', ':'))
 
 

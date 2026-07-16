@@ -1389,7 +1389,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     # ROI anchor - rendered in the Strategist card right under
                     # the features (Erin's full quote + video now live in the
                     # proof section, so the old card_testimonial was deleted).
-                    "roi_anchor": "One winning trade on a $10k position pays for a year of Strategist.",
+                    "roi_anchor": "One research workflow across U.S. stocks, futures, forex, bonds, foreign indices, and crypto.",
                     "features": [
                         "Everything in Analyst, plus:",
                         "Futures, forex, bonds, foreign indices, and crypto",

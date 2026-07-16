@@ -19,10 +19,17 @@ import time
 from urllib.parse import quote
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from . import settings
 
 log = logging.getLogger("apiserver.appserver_client")
+
+# One bounded pool per gateway worker process. The Session carries no cookies or
+# mutable auth state; every request supplies explicit headers/params.
+_http = requests.Session()
+_http.mount("http://", HTTPAdapter(pool_connections=32, pool_maxsize=64, pool_block=True))
+_http.mount("https://", HTTPAdapter(pool_connections=32, pool_maxsize=64, pool_block=True))
 
 # Timeouts sit just under gunicorn's 120s worker timeout so a slow appserver surfaces as a
 # clean RequestException (degraded card / structured 503) instead of a killed worker.
@@ -39,6 +46,11 @@ _STORM_SECONDS = 30.0
 # _STORM_SECONDS so a multi-row fan-out (scan receipts) fails fast + degrades honestly
 # instead of stacking sleeps past the gunicorn timeout. Any healthy response resets it.
 _rl_state = {"until": 0.0}
+
+
+def storm_breaker_active():
+    """Read-only health signal used by the load-test release gate."""
+    return time.time() < _rl_state["until"]
 
 _JWT_RE = re.compile(r"eyJ[A-Za-z0-9_=-]+\.[A-Za-z0-9_=-]+\.?[A-Za-z0-9_=-]*")
 
@@ -77,7 +89,7 @@ def _request(method, url, **kwargs):
     attempts = 1 if time.time() < _rl_state["until"] else _RETRY_ATTEMPTS
     try:
         for attempt in range(attempts):
-            r = requests.request(method, url, **kwargs)
+            r = _http.request(method, url, **kwargs)
             if r.status_code == 429 and attempt < attempts - 1:
                 wait = _retry_sleep_seconds(r, attempt)
                 log.warning("appserver 429 (attempt %d/%d), retrying in %.1fs: %s",
@@ -264,7 +276,7 @@ def _opp_row_to_obj(row, market, years, win_rate=None):
         "median_profit_pct": _num(rec.get("median_profit")),
         "win_rate": win_rate,
         "years": str(years),  # lookback label stays a string (we control it as input)
-        "ml": None,           # filled in by the gateway for Pro + ML-eligible markets
+        "ml": None,           # filled by the gateway when tier, quota, and market checks allow
     }
 
 
@@ -618,7 +630,8 @@ def seasonal_chart(market, symbol, entry_date, days_out, years, direction=None):
 # --------------------------------- scoring ---------------------------------
 
 def ml_scores(market, items):
-    """Pro-only ML scores via MLScoreBatch + MLScorePending. The gateway gates access;
+    """Tier-metered ML scores via MLScoreBatch + MLScorePending. The gateway gates and
+    meters access (Free 5/day, Dev 100/day, Pro/Business unlimited);
     the service account itself always has appserver ML access (level 6).
 
     MLScoreBatch returns cached scores + a pending list; MLScorePending scores the
@@ -682,17 +695,41 @@ def ml_scores(market, items):
 # price fields (start_price/current_price/peak_price/end_price) are NEVER surfaced;
 # returns are already stored as percentages (current_return/peak_return/actual_return).
 
-FEATURED_HISTORY_FILE = "/home/flask/site/data/featured_history.json"
+FEATURED_HISTORY_FILE = settings.FEATURED_HISTORY_FILE
+
+
+class FeaturedHistoryUnavailable(RuntimeError):
+    """The canonical daily-pick feed is missing, malformed, or unreachable."""
 
 
 def _load_featured_history():
-    """Read featured_history.json -> list of entries (chronological). Missing file
-    yields an empty list; malformed JSON is a real error and is allowed to surface."""
-    if not os.path.exists(FEATURED_HISTORY_FILE):
-        return []
-    with open(FEATURED_HISTORY_FILE) as f:
-        data = json.load(f)
-    return data if isinstance(data, list) else []
+    """Load the canonical chronological pick history.
+
+    Dev reads the co-located file. Split environments call the web tier's private,
+    service-key-authenticated endpoint. A missing source is an honest 503, never a
+    successful response containing ``card: null``.
+    """
+    if FEATURED_HISTORY_FILE and os.path.exists(FEATURED_HISTORY_FILE):
+        try:
+            with open(FEATURED_HISTORY_FILE, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise FeaturedHistoryUnavailable("daily-pick file unreadable") from exc
+    elif settings.FEATURED_HISTORY_URL:
+        try:
+            data = _request(
+                "GET",
+                settings.FEATURED_HISTORY_URL,
+                headers={"X-Service-Key": settings.SERVICE_API_KEY or ""},
+                timeout=10,
+            )
+        except requests.RequestException as exc:
+            raise FeaturedHistoryUnavailable("daily-pick feed unavailable") from exc
+    else:
+        raise FeaturedHistoryUnavailable("daily-pick source not configured")
+    if not isinstance(data, list):
+        raise FeaturedHistoryUnavailable("daily-pick feed has invalid shape")
+    return data
 
 
 def _realized_return_pct(entry):

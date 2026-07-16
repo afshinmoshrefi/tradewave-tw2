@@ -40,14 +40,14 @@ def _fast_and_clean(monkeypatch):
 def test_429_then_success_is_retried(monkeypatch):
     seq = [_Resp(429, headers={"Retry-After": "1"}), _Resp(200, {"ok": True})]
     calls = []
-    monkeypatch.setattr(ac.requests, "request",
+    monkeypatch.setattr(ac._http, "request",
                         lambda m, u, **k: (calls.append(u) or seq.pop(0)))
     assert ac._request("GET", "http://x/path") == {"ok": True}
     assert len(calls) == 2
 
 
 def test_429_exhausted_raises_with_scrubbed_message(monkeypatch):
-    monkeypatch.setattr(ac.requests, "request", lambda m, u, **k: _Resp(429))
+    monkeypatch.setattr(ac._http, "request", lambda m, u, **k: _Resp(429))
     with pytest.raises(requests.HTTPError) as ei:
         ac._request("GET", "http://x/path?token=eyJaaa.bbbb.cccc")
     msg = str(ei.value)
@@ -62,7 +62,7 @@ def test_non_429_errors_fail_fast_no_retry(monkeypatch):
         calls["n"] += 1
         return _Resp(500)
 
-    monkeypatch.setattr(ac.requests, "request", _one)
+    monkeypatch.setattr(ac._http, "request", _one)
     with pytest.raises(requests.HTTPError):
         ac._request("GET", "http://x/path")
     assert calls["n"] == 1
@@ -74,7 +74,7 @@ def test_retry_after_is_honored_and_bounded(monkeypatch):
     seq = [_Resp(429, headers={"Retry-After": "2"}),
            _Resp(429, headers={"Retry-After": "3600"}),   # bounded, never an hour
            _Resp(200, {"ok": 1})]
-    monkeypatch.setattr(ac.requests, "request", lambda m, u, **k: seq.pop(0))
+    monkeypatch.setattr(ac._http, "request", lambda m, u, **k: seq.pop(0))
     assert ac._request("GET", "http://x/p") == {"ok": 1}
     assert slept[0] == 2.0
     assert slept[1] == ac._RETRY_MAX_SLEEP
@@ -87,7 +87,7 @@ def test_storm_breaker_suppresses_retries_then_recovers(monkeypatch):
         calls["n"] += 1
         return _Resp(429)
 
-    monkeypatch.setattr(ac.requests, "request", _always_429)
+    monkeypatch.setattr(ac._http, "request", _always_429)
     with pytest.raises(requests.HTTPError):
         ac._request("GET", "http://x/a")        # exhausts retries, trips the breaker
     burst = calls["n"]
@@ -97,7 +97,7 @@ def test_storm_breaker_suppresses_retries_then_recovers(monkeypatch):
     assert calls["n"] == burst + 1
     # a healthy response resets the breaker
     monkeypatch.setattr(ac, "_rl_state", {"until": 0.0})
-    monkeypatch.setattr(ac.requests, "request", lambda m, u, **k: _Resp(200, {"ok": 1}))
+    monkeypatch.setattr(ac._http, "request", lambda m, u, **k: _Resp(200, {"ok": 1}))
     assert ac._request("GET", "http://x/c") == {"ok": 1}
     assert ac._rl_state["until"] == 0.0
 
@@ -130,3 +130,25 @@ def test_scrub_hides_jwt_token_param_and_service_key(monkeypatch):
     assert "sk_supersecret_key" not in s
     assert ".defg.hijk" not in s
     assert "token=***" in s
+
+
+def test_featured_history_missing_is_an_honest_failure(monkeypatch, tmp_path):
+    monkeypatch.setattr(ac, "FEATURED_HISTORY_FILE", str(tmp_path / "missing.json"))
+    monkeypatch.setattr(ac.settings, "FEATURED_HISTORY_URL", "")
+    with pytest.raises(ac.FeaturedHistoryUnavailable):
+        ac._load_featured_history()
+
+
+def test_featured_history_uses_private_remote_feed_on_split_topology(monkeypatch, tmp_path):
+    monkeypatch.setattr(ac, "FEATURED_HISTORY_FILE", str(tmp_path / "missing.json"))
+    monkeypatch.setattr(ac.settings, "FEATURED_HISTORY_URL", "http://web/internal/featured-history")
+    monkeypatch.setattr(ac.settings, "SERVICE_API_KEY", "service-key")
+    captured = {}
+
+    def fake_request(method, url, **kwargs):
+        captured.update(method=method, url=url, kwargs=kwargs)
+        return [{"symbol": "AAPL"}]
+
+    monkeypatch.setattr(ac, "_request", fake_request)
+    assert ac._load_featured_history() == [{"symbol": "AAPL"}]
+    assert captured["kwargs"]["headers"] == {"X-Service-Key": "service-key"}

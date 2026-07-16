@@ -17,6 +17,6 @@ None of those true? Stay free - we would rather keep you for years than sell you
 Compare the plans:
 https://tradewave.ai/pricing/
 
-Navigator ($19/mo, $14/mo yearly) fixes wall 2 and the big-index half of wall 3: any start date plus Dow, NASDAQ 100, and S&P 500, top 50 per market, three portfolios and a watchlist - no AI scoring. Analyst ($47/mo, $33/mo yearly) is where AI scoring lives, across all US stocks and ETFs, with custom start dates, Seasonal Market News, and the weekly Q&A - the cheapest plan with it. Strategist ($129/mo, $99/mo yearly) adds futures, forex, bonds, and crypto. Do not jump higher than your wall; your free seat always stays.
+Navigator ($19/mo, $14/mo yearly) fixes wall 2 and the big-index half of wall 3: any start date plus Dow, NASDAQ 100, and S&P 500, three portfolios and a watchlist - no AI scoring. Analyst ($47/mo, $33.25/mo yearly) is where AI scoring lives, across all US stocks and ETFs, with custom start dates, Seasonal Market News, and the weekly Q&A - the cheapest plan with it. Strategist ($129/mo, $99/mo yearly) adds futures, forex, bonds, and crypto. Do not jump higher than your wall; your free seat always stays.
 
 TradeWave - probability, not prediction. Not financial advice. Unsubscribe.

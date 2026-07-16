@@ -116,8 +116,9 @@ Enforced in `apiserver/market_bands.py` (+ the manifest `apiserver/market_bands.
 ### The THREE win rates - NEVER conflate them
 - **`historical_win_rate`** - share of past YEARS the seasonal window was profitable (in-sample
   seasonal history; the "Percent Profitable").
-- **`ml_win_prob`** - the 62-feature ML model's probability THIS instance works (per-instance, Pro/
-  ML-eligible markets only).
+- **`ml_win_prob`** - the 62-feature ML model's probability THIS instance works. It is
+  available on ML-eligible markets when the caller's tier and remaining daily quota allow it
+  (Free 5/day, Dev 100/day, Pro/Business unlimited).
 - **`track_record.win_rate`** - the LIVE, forward-tested record of past daily picks (out-of-sample,
   the real proof; daily-pick only).
 

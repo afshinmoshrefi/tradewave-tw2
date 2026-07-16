@@ -1,8 +1,7 @@
-"""MCP connect page: the MCP endpoint URL + per-client setup. Consumer apps
-(ChatGPT, Claude.ai) connect via OAuth - paste the server URL, click Connect,
-sign in with your TradeWave account; no API key involved. Dev tools (Claude
-Desktop, Cursor) use BYOK - the customer pastes their OWN API key into the
-client config; we never send keys to the client here.
+"""MCP connect page: the MCP endpoint URL + per-client setup. ChatGPT,
+Claude.ai, and Claude Desktop connect via OAuth - paste the server URL, click
+Connect, and sign in with the TradeWave account. BYOK clients can instead use
+the customer's own API key; we never send keys to the client here.
 
 The canonical connector URL is the BARE host (no /mcp path; the server also
 aliases /mcp, but published copy uses the bare URL).
@@ -16,13 +15,13 @@ import os
 import config
 from flask import render_template
 
-from .blueprint import bp, require_login, get_current_user, api_tier_name_for, api_entitlements_for
+from .blueprint import bp, require_login, get_current_user
 from . import keystore
 
 _MCP_HOST_BY_ENV = {
     "dev": "mcp-dev.trxstat.com",
     "staging": "mcp-stage.trxstat.com",
-    "prod": "mcp.trxstat.com",
+    "prod": "mcp.tradewave.ai",
 }
 
 
@@ -49,6 +48,4 @@ def mcp_index():
         mcp_host=mcp_host,
         mcp_url=mcp_url,
         has_key=has_key,
-        tier_name=api_tier_name_for(u),
-        tier_label=api_entitlements_for(u)["name"],
     )

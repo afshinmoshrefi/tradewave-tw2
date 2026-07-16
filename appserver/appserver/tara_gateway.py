@@ -20,7 +20,7 @@ import re
 import sys
 from urllib.parse import quote
 
-import requests
+from pooled_http import http as requests
 
 sys.path.insert(0, '/home/flask')
 import config

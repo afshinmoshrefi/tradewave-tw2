@@ -29,6 +29,8 @@ def _get(name, default=None):
 
 # Postgres: the TW2 users table + our api_keys / api_usage tables (same DB as appserver/web).
 POSTGRES_DSN = _get("POSTGRES_DSN")
+DB_POOL_MIN = max(1, int(_get("TW2_API_DB_POOL_MIN", "1")))
+DB_POOL_MAX = max(DB_POOL_MIN, int(_get("TW2_API_DB_POOL_MAX", "12")))
 
 # HMAC secret for hashing API keys. MUST match the appserver (API_KEY_HMAC_SECRET,
 # falling back to APPSERVER_JWT_SECRET) so keys verify consistently.
@@ -40,6 +42,21 @@ APPSERVER_URL = _get("TW2_APPSERVER_URL") or _get("APPSERVER_URL") or "http://12
 
 # Service-account key for the appserver /login/api handshake (same one home_opportunities.py uses).
 SERVICE_API_KEY = _get("SERVICE_API_KEY")
+
+# The daily-pick record is generated on the web box. Dev is co-located and reads the
+# file directly; split staging/prod topology supplies the service-authenticated URL.
+FEATURED_HISTORY_FILE = _get(
+    "TW2_FEATURED_HISTORY_FILE", "/home/flask/site/data/featured_history.json"
+)
+FEATURED_HISTORY_URL = (_get("TW2_FEATURED_HISTORY_URL", "") or "").strip()
+
+# Only successful API-key lookups are cached. Revocation can lag by this bounded TTL.
+API_KEY_CACHE_TTL_SECONDS = max(
+    0, min(60, int(_get("TW2_API_KEY_CACHE_TTL_SECONDS", "30")))
+)
+API_KEY_CACHE_MAX_ENTRIES = max(
+    1, min(10000, int(_get("TW2_API_KEY_CACHE_MAX_ENTRIES", "4096")))
+)
 
 # PUBLIC demo token (printed in the docs - NOT a secret). Safe via the 'demo' tier symbol
 # allowlist + blocked enumeration in routes.py. Override per-box with TW2_DEMO_API_KEY.

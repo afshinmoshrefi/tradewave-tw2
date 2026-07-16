@@ -83,13 +83,13 @@ def test_delayed_clear_paid_preserves_newer_free_journey():
         stripe_subscription_id="sub_old",
         stripe_subscription_status="canceled",
     )
-    assert _desired_for_event(EVENT_CLEAR_PAID, ended, False) == (
+    assert _desired_for_event(EVENT_CLEAR_PAID, ended, False, NOW) == (
         "trial_ended_explorer"
     )
-    assert _desired_for_event(EVENT_CLEAR_PAID, churned, False) == (
+    assert _desired_for_event(EVENT_CLEAR_PAID, churned, False, NOW) == (
         "winback_explorer"
     )
-    assert _desired_for_event(EVENT_CLEAR_PAID, user(), False) is None
+    assert _desired_for_event(EVENT_CLEAR_PAID, user(), False, NOW) is None
 
 
 @pytest.mark.unit

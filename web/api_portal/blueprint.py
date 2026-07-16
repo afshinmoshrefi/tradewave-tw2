@@ -146,9 +146,10 @@ def api_tier_name_for(user):
 
     Unified-accounts rule lives in apiserver.tiers.api_tier_from_user: an
     explicit `api_tier` wins, else inherit from the web tier
-    (explorer->free, analyst->dev, strategist->pro). The users.api_tier
-    column is OPTIONAL (commented out in schema.sql); api_tier_from_user
-    falls back to the web tier when it's absent, so this works either way.
+    (explorer->free, navigator->internal navigator, analyst->dev,
+    strategist->pro). The active users.api_tier column is null when the user
+    has no standalone API subscription, so api_tier_from_user then falls back
+    to the bundled web entitlement.
     """
     row = {"tier": getattr(user, "tier", None)}
     explicit = getattr(user, "api_tier", None)

@@ -316,6 +316,7 @@ Set `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST` (
 MCP env: `API_BASE_URL=http://127.0.0.1:8088/v1`, `TW2_MCP_PUBLIC_HOST=<host>`, and
 `TRADEWAVE_API_KEY` **UNSET** on the remote transport (BYOK - clients send their own
 `Authorization: Bearer`). The unit defaults `TW2_MCP_TRANSPORT=streamable-http`; the server
+uses one bounded async gateway pool (`TW2_MCP_GATEWAY_MAX_INFLIGHT`, default 32) and
 serves the MCP endpoint at the ROOT path `/` with `/mcp` as a permanent alias (NOT SSE at
 `/sse`). Logs: `/var/log/tradewave/`.
 
@@ -373,6 +374,21 @@ curl -sS    https://<developers-host>/.well-known/mcp.json | head               
 Spot-check the gateway JSON for **no raw price fields** (the signals-only invariant). 502-but-active
 = a worker crash on a missing `venv-api` dep (same failure mode as the web tier; `pip install -r
 requirements-api.txt`).
+
+**5. Mandatory pre-deployment gate:** use existing test credentials only. The script is
+read-only and does not create users, keys, products, or subscriptions.
+```
+export TW2_TEST_API_KEY='tw_...'
+export TW2_TEST_OAUTH_TOKEN='...'
+python /home/flask/ops/verify_mvp_release.py \
+  --api-base https://api-dev.trxstat.com/v1 \
+  --mcp-url https://mcp-dev.trxstat.com/mcp \
+  --concurrency 50 --requests 200
+```
+PASS requires API-key auth, a non-null daily pick, MCP BYOK, MCP WorkOS OAuth, at most 1%
+request errors, p95 at or below 15 seconds for the scan workload, and no gateway
+storm-breaker activation. Run away from the 02:00 UTC cron burst. Do not use
+`--skip-oauth` for a release decision.
 
 ## Reliability
 

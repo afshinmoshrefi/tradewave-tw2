@@ -13,7 +13,7 @@ from apiserver import market_bands as mb
 
 pytestmark = pytest.mark.unit
 
-REPO = Path("/home/flask")
+REPO = Path(__file__).resolve().parents[1]
 SERVER_PY = (REPO / "mcpserver" / "server.py").read_text()
 MANIFEST = json.loads((REPO / "site" / "api_docs" / ".well-known" / "mcp.json").read_text())
 OPENAPI = (REPO / "api" / "openapi.yaml").read_text()
@@ -32,7 +32,7 @@ def _server_tool_names():
     tree = ast.parse(SERVER_PY)
     names = []
     for node in tree.body:
-        if not isinstance(node, ast.FunctionDef):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         for dec in node.decorator_list:
             call = dec.func if isinstance(dec, ast.Call) else dec

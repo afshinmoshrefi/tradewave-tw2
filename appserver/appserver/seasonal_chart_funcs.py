@@ -13,6 +13,7 @@ import json
 import logging
 import datetime
 import sys
+import threading
 # Add the parent directory to the system path
 sys.path.insert(0, '/home/flask')
 import config
@@ -61,14 +62,24 @@ def save_to_file_cache(redis_key, data):
     Saves data to a file-based cache.
     """
     file_path = get_file_cache_path(redis_key)
+    temp_path = f"{file_path}.tmp.{os.getpid()}.{threading.get_ident()}"
     try:
-        with open(file_path, 'w') as f:
+        with open(temp_path, 'w') as f:
             json.dump(data, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, file_path)
         logging.debug(f"Saved cache to file: {file_path}")
     except Exception as e:
         logging.error(f"Failed to save cache to file {file_path}: {e}")
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                logging.warning(f"Failed to remove temporary cache file {temp_path}")
 #------------------------------------------------------------------------------------------------------------
 # Ensure the cache directory exists
 if not os.path.exists(SEASONAL_CHART_CACHE_DIR):
-    os.makedirs(SEASONAL_CHART_CACHE_DIR)
+    os.makedirs(SEASONAL_CHART_CACHE_DIR, exist_ok=True)
     logging.debug(f"Created cache directory at {SEASONAL_CHART_CACHE_DIR}")

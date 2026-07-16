@@ -47,7 +47,7 @@
 ###############################################################
 
 
-from flask import Flask, jsonify, request, session, make_response,Blueprint, g
+from flask import Flask, jsonify, request, session, make_response, Blueprint, g, after_this_request
 from flask_cors import CORS
 from flask_limiter import Limiter, HEADERS
 from flask_limiter.util import get_remote_address
@@ -65,7 +65,7 @@ import glob
 import json
 from functools import wraps
 import jwt
-import requests
+from pooled_http import http as requests
 import logging
 import redis
 import statistics
@@ -138,6 +138,42 @@ redis_client1  = redis.Redis(host='localhost', port=6379, db=1)
 redis_client2  = redis.Redis(host='localhost', port=6379, db=2)  
 # db3 is used to access the news article db on the webserver
 redis_client3  = redis.Redis(host=config.webserver_ip,port=6379,db=3)
+
+
+def _singleflight_cache_values(keys, wait_seconds=10):
+    """Return cached values while ensuring one request owns a cold computation.
+
+    The owner holds a Redis lock until Flask finishes the response. Waiters poll for
+    the published cache values and only duplicate work after the bounded wait expires.
+    The lock has a TTL so a killed worker cannot leave a permanent fence.
+    """
+    values = [redis_client.get(key) for key in keys]
+    if all(value is not None for value in values):
+        return values
+    digest = hashlib.sha256("\0".join(keys).encode()).hexdigest()
+    lock = redis_client.lock(
+        "singleflight:" + digest,
+        timeout=115,
+        blocking_timeout=wait_seconds,
+    )
+    if lock.acquire(blocking=True):
+        @after_this_request
+        def _release_singleflight(response):
+            try:
+                lock.release()
+            except redis.exceptions.LockError:
+                logging.warning("single-flight lock expired before response: %s", digest[:12])
+            return response
+        return [redis_client.get(key) for key in keys]
+
+    deadline = time.monotonic() + wait_seconds
+    while time.monotonic() < deadline:
+        values = [redis_client.get(key) for key in keys]
+        if all(value is not None for value in values):
+            return values
+        time.sleep(0.05)
+    logging.warning("single-flight wait expired; computing duplicate for %s", digest[:12])
+    return values
 
 
 ddir = config.ddir
@@ -993,8 +1029,9 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     redis_key_oppa = 'oppa4_' + resourceID+'_'+month+'_'+day+'_'+year1+'_'+year2+'_' +day_range+'_'+oppListExpanded + '_' + u + redis_suffix # username 0 is non-loggedin 1 is loggedin - opportunities opp
     
 
-    opp_redis  = redis_client.get(redis_key_opp)
-    oppa_redis = redis_client.get(redis_key_oppa) # this is for active opportunites
+    opp_redis, oppa_redis = _singleflight_cache_values(
+        [redis_key_opp, redis_key_oppa]
+    )
 
 
     #######################
@@ -2027,7 +2064,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     update_activity_log(atime, resourceID, wp_userid, ipv4, country_code, zip, redis_key_chartdata)
 
     # Check cache before stockscore to avoid unnecessary HTTP request on cache hits
-    chartdata_redis = redis_client.get(redis_key_chartdata)
+    chartdata_redis = _singleflight_cache_values([redis_key_chartdata])[0]
     if chartdata_redis is not None:
         chartData = json.loads(chartdata_redis)
         return jsonify(chartData)

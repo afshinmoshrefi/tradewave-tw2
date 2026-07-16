@@ -1,9 +1,11 @@
 # MailerLite Lifecycle Cutover
 
-Updated: 2026-07-13
+Updated: 2026-07-14
 
-All three workflows are real MailerLite drafts. They are intentionally inactive
-until the application outbox is deployed and the email designs are reviewed.
+The three lifecycle workflows and three paid onboarding workflows are real
+MailerLite drafts. They are intentionally inactive until the application
+outbox is deployed, recipient-visible email content is approved, and the
+overlap-safe cutover below is complete.
 
 ## Live resources
 
@@ -13,38 +15,89 @@ until the application outbox is deployed and the email designs are reviewed.
 | Trial ended to Explorer | `lifecycle_trial_ended_explorer` (`192896580322330062`) | [TW Lifecycle - Trial Ended to Explorer](https://dashboard.mailerlite.com/automations/192896888595285340) | Day 7, 10, 14 |
 | Former paid subscriber | `winback_explorer` (`192267699380815223`) | [TW Winback - Explorer (trust letter)](https://dashboard.mailerlite.com/automations/192267713628865734) | One day after paid access ends |
 
-MailerLite MCP verification on 2026-07-13 found all three trigger groups empty,
-all eight subjects populated, the expected 4/3/1 email steps, and no domain-auth
-warning. Direct readback still showed MailerLite's generic plain-text fallback,
-no visual design, and no preheader on all eight emails. The workflows remain
-inactive and require the dashboard checklist below before activation.
+Related paid onboarding resources:
+
+| Journey | Trigger groups | Automation | Timing |
+| --- | --- | --- | --- |
+| Navigator onboarding | `navigator_monthly`, `navigator_yearly` | [TradeWave - Navigator Nurture (4 email)](https://dashboard.mailerlite.com/automations/191588340700546941) | Day 0, 2, 4, 7 |
+| Analyst onboarding | `analyst_monthly`, `analyst_yearly` | [TradeWave - Analyst Nurture (4 email)](https://dashboard.mailerlite.com/automations/191588402343183617) | Day 0, 2, 4, 6 |
+| Strategist onboarding | `strategist_monthly`, `strategist_yearly` | [TradeWave - Strategist Nurture (4 email)](https://dashboard.mailerlite.com/automations/191588731493287625) | Day 0, 2, 4, 6 |
+
+MailerLite MCP readback on 2026-07-14 found all six replacements inactive,
+complete, unbroken, and configured to exit when a subscriber no longer matches
+the trigger. Email content must still pass the lifecycle-policy review and
+received-message test below before activation. A structurally complete
+automation is not editorial approval.
 
 The access group `explorer` (`97426012986410777`) is segmentation only. It
 must not trigger a lifecycle automation. Do not backfill its existing members.
 
-## MailerLite dashboard checklist
+## Release-blocking messaging policy
 
-1. For every email, paste the matching `.html` file into the visual email. In
-   the matching `.txt` file, skip the opening `Subject`, `Preview`, and `Send`
-   metadata block and paste only the message body into MailerLite's plain-text
-   version. Copy the preheader from the adjacent `subjects.md`. Keep the
-   already-populated subject and the sender as TradeWave
-   `<help@tradewave.ai>`.
-2. On both new automation triggers, enable **Exit workflow when subscriber no
-   longer matches the trigger**. The existing winback trigger already has this
-   enabled.
+The trigger determines the message. Do not reuse trust copy across contexts.
+
+- **Paid Navigator, Analyst, and Strategist onboarding:** recipients have
+  already selected the current paid plan. Affirm the decision, activate the
+  distinguishing features, teach evidence-first use, and build a repeatable
+  workflow. Never ask whether they need the plan, recommend another tier,
+  promote Explorer, or include a plan self-audit.
+- **First-time trial:** the user has not selected a paid plan. Activate the
+  seven-day full-access experience. Plan matching may be neutral and confined
+  to the decision point; do not use explicit anti-resubscribe language.
+- **Trial ended to Explorer:** this is a first-time nonpayer, not a churned
+  customer. Orient them to Explorer and describe tier differences neutrally.
+  Do not say or imply that they downgraded or previously paid.
+- **Former-paid Winback Explorer:** this is the only journey for explicit
+  "do not resubscribe yet," "stay free until you need X," or equivalent
+  anti-buy trust language.
+
+Apply this rule to subjects, preheaders, internal names, HTML, plain text, and
+CTAs. The HTML matters most in recipient review because that is what most email
+clients display.
+
+## MailerLite MCP and received-message checklist
+
+1. Update the matching local `.html` and `.txt` source files together. Then use
+   the current MailerLite MCP automation-email endpoint to create or replace
+   the complete recipient-visible designed email while the automation remains
+   inactive. The old dashboard-only/manual-paste limitation is obsolete.
+2. Read every automation back. Verify designed/complete/eligible email state,
+   expected subject and body, and **Exit workflow when subscriber no longer
+   matches the trigger**. Traverse the sequence by `parent_id`; the raw step
+   array is not chronological.
 3. Send one test of every email and verify links, mobile layout, unsubscribe,
-   sender, reply-to address, and preheader. Keep MailerLite's automatic company
-   footer enabled so the verified physical mailing address is included.
+   sender, reply-to address, preheader, and the actual received HTML body. Keep
+   MailerLite's automatic company footer enabled so the verified physical
+   mailing address is included.
 4. Verify `https://tradewave.ai/#pricing` shows Explorer, Navigator, Analyst,
    and Strategist with the same limits stated in the emails.
 5. Keep all old Explorer and trial workflows inactive. Activate only these
    three, in this order: winback, trial-ended, trial-started.
 
-MailerLite's automation API created the shells, triggers, delays, and subjects.
-In this account, body and preheader updates did not persist through the API, so
-the HTML, plain text, and preheaders must be completed and verified in the
-dashboard. The two new exit toggles also remain a dashboard step.
+The current MailerLite MCP integration can author recipient-visible automation
+email content; it is no longer limited to shells, delays, and plain text. Always
+verify by direct MailerLite readback and a received test. A helper's plain-text
+length limit does not justify leaving old HTML or a generic fallback in place.
+
+## Paid onboarding overlap-safe cutover
+
+Two enabled legacy workflows share paid trigger groups with the replacements:
+
+- `New Instituional Subscribers` (`163215402053141778`) shares both
+  `strategist_monthly` and `strategist_yearly`.
+- `New Pro Subscribers` (`164017395322586781`) shares `analyst_monthly`.
+
+Do not activate the paid replacements while those overlapping legacy workflows
+remain enabled. Finish and test all inactive replacements first. In one
+controlled maintenance window, disable the two overlapping legacy workflows,
+then enable Navigator, Analyst, and Strategist replacements. Keep the legacy
+workflows disabled but undeleted until a controlled subscriber is confirmed in
+exactly one intended journey.
+
+Do not enable any automation on the base `explorer` access group. A new signup
+belongs to `explorer` and `lifecycle_trial_started` simultaneously; a former
+paid subscriber can rejoin `explorer` while joining `winback_explorer`.
+Explorer-group automation would therefore duplicate both journeys.
 
 ## Application rollout
 
@@ -96,7 +149,7 @@ Then:
 
 5. Review the count, then run the same command with `--apply` while outbound
    writes are still disabled.
-6. Complete the MailerLite dashboard checklist above.
+6. Complete the MailerLite MCP and received-message checklist above.
 7. Preview due outbox decisions without claiming rows or contacting
    MailerLite:
 
@@ -109,7 +162,7 @@ Then:
    `/var/log/tradewave/mailerlite_lifecycle.log` and the outbox status counts.
 
 The backfill schedules only future trial-expiry transitions. It does not insert
-the 168 existing Explorer subscribers into a nurture sequence and does not send
-old signup emails to people already partway through a trial.
+existing Explorer subscribers into a nurture sequence and does not send old
+signup emails to people already partway through a trial.
 The worker also suppresses any queued Day-0 enrollment that is more than 24
 hours old, while preserving its scheduled trial-end reconciliation.

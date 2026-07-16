@@ -610,10 +610,10 @@ appserver.py:2594 `getHistory2` / :2839 `consolidated_seasonal_chart2` / :2644
 
 ## 7A. TW2 v2 - Public API gateway + MCP (LIVE ON PROD since 2026-07-04)
 
-The v2 public product (roadmap §9): sell the **derived** patterns (seasonal
+The v2 public product (roadmap §9) sells the **derived** patterns (seasonal
 opportunities, ML scores, the tracked daily pick) over a clean REST API + an MCP
-server for AI agents - **never raw market data**. Built + verified end-to-end on dev
-(.176); NOT on staging/prod yet (post-cutover, after the freeze).
+server for AI agents - **never raw market data**. It launched on prod 2026-07-04;
+paid standalone API price display remains separately gated as described below.
 
 **Components (all NEW + additive; the appserver code is UNCHANGED):**
 - **Gateway** `apiserver/` (note: dir is `apiserver`, one letter off the `appserver`
@@ -626,11 +626,11 @@ server for AI agents - **never raw market data**. Built + verified end-to-end on
   streamable-http mounted at the ROOT (the BARE host is the canonical published
   connector URL; `/mcp` is kept as an alias), dev `127.0.0.1:9090`, systemd
   `tradewave-mcpserver`. 17 tools (6 flagship + 11 primitives), thin HTTP wrapper
-  over the gateway. Auth, two modes: consumer apps (ChatGPT, Claude.ai) connect via
-  OAuth - paste the URL, sign in with the TradeWave account (WorkOS AuthKit AS, RFC
-  9728 discovery; see `docs/MCP_OAUTH_INTEGRATION.md`); dev tools are BYOK -
-  per-connection `Authorization: Bearer <key>`, env `TRADEWAVE_API_KEY` fallback for
-  stdio (Claude Desktop). NO baked key for remote.
+  over the gateway. Auth, two modes: ChatGPT, Claude.ai, and Claude Desktop can
+  connect through OAuth - paste the URL and sign in with the TradeWave account
+  (WorkOS AuthKit AS, RFC 9728 discovery; see `docs/MCP_OAUTH_INTEGRATION.md`). Cursor
+  and other BYOK clients use per-connection `Authorization: Bearer <key>`; an optional
+  local `mcp-remote` bridge can do the same. NO baked key for remote.
 - **Console** `web/api_portal/` blueprint, mounted in `web/app.py` at `/account/api`
   (keys/usage/billing/MCP-connect). Reuses WorkOS session + Stripe + the `apiserver`
   package. Customer self-serve only.
@@ -644,15 +644,17 @@ flagship + 11 primitives).
 `win_rate` = ChartData4 stat `Percent Profitable` (share of profitable years, no
 threshold - matches the UI), enriched per-symbol (cap 50/list) + cached gateway-side
 (redis db4, 6h TTL); `min_win_rate` filters on it (NOT `ml.win_prob`). ML = MLScoreBatch
-+ MLScorePending (two-phase), Pro-only + markets 0-4,11. `/seasonal-chart` =
++ MLScorePending (two-phase), metered by API tier and limited to markets 0-4,11.
+`/seasonal-chart` =
 consolidated_seasonal_chart2 (365-day high/low-normalized, year-averaged 0-100 curve -
 a price-SAFE shape, no price field). Daily pick/track-record = `site/data/featured_history.json`.
 
 **Auth + data (app box):** customer keys in Postgres `api_keys` (HMAC-SHA256 via
 `API_KEY_HMAC_SECRET`); usage in `api_usage_daily` + redis db4. Schema
 `apiserver/schema.sql` (additive). Tiers/entitlements `apiserver/tiers.py`
-(free/dev/pro/business; ML = the Pro line; unified accounts inherit the API tier from
-the web tier via `WEB_TIER_TO_API`, optional `users.api_tier` for API-only subs). Stripe
+(free/dev/pro/business; ML is 5/day, 100/day, unlimited, unlimited respectively;
+unified accounts inherit the API tier from the web tier via `WEB_TIER_TO_API`; the
+active `users.api_tier` column holds a separate API-only subscription). Stripe
 products `product_line=api` (test on dev).
 
 **URLs (env-driven):** `site/lib/portal_urls.py` reads `TW2_PUBLIC_HOST` /
@@ -687,8 +689,8 @@ the full stack on every env (verify_deploy prod PORTAL=1). Paid API pricing disp
 GATED OFF via `TW2_API_PRICING_LIVE` (unset = "Coming Soon"; owner sets prices later).
 GOTCHA: `cloudflared tunnel route dns` on either prod box lands in the trxstat.com
 zone (certs do not cover tradewave.ai) - the 3 public DNS records are dashboard-only.
-Still open: `users.api_tier` webhook write for API-only subs (existing-tier users
-inherit fine).
+API-only subscription webhooks now write `users.api_tier` and the separate API
+subscription identity fields; the remaining commercial gate is public price visibility.
 (Source: `apiserver/`, `mcpserver/`, `web/api_portal/`, `site/lib/portal_urls.py`,
 `api/openapi.yaml`; built + verified on dev .176, 2026-05-27.)
 
@@ -698,14 +700,15 @@ inherit fine).
 
 > §7A is the design/decision narrative; this section is the **operational shape**
 > of the same product as built out on dev `.176` (branch `feature/api-mcp`). The
-> live control doc is `api/BUILD_STATE.md` (what is done/open per phase); the frozen
+> historical build record is `api/BUILD_STATE.md`; the frozen
 > contract is `api/PATTERNCARD_SPEC.md` + `api/openapi.yaml` + `api/MCP_TOOLS.md`.
 > **It is DERIVED-DATA-ONLY**: no raw OHLCV, last price, price-by-date, or price levels in
 > any public response - all movement is percentages, the seasonal curve is a 0-100
 > normalized index, never a price (the keystone invariant; see `api/PATTERNCARD_SPEC.md`).
 
-The product is four NEW, additive pieces; the appserver data engine is UNCHANGED and
-stays internal/loopback. All four bind loopback on every env - nginx + the `tw2`
+The product is four NEW, additive pieces; the appserver data engine stays the canonical
+internal data service. Its public contract is unchanged, but its runtime now has bounded
+concurrency and cache/file safety for the API/MCP workload. All four bind loopback on every env - nginx + the `tw2`
 cloudflared tunnel front them.
 
 - **Gateway** - `apiserver/` (one letter off the `appserver` data engine, on purpose).
@@ -723,11 +726,11 @@ cloudflared tunnel front them.
   `tradewave-mcpserver` (`Type=simple`, NOT gunicorn). Mounted at the ROOT so the BARE
   public URL is the canonical connector address (`/mcp` aliased). Thin HTTP wrapper over
   the gateway: it reads `API_BASE_URL=http://127.0.0.1:8088/v1`, plus
-  `TW2_MCP_PUBLIC_HOST` (the SDK's DNS-rebinding allowlist). Auth: **OAuth** for consumer
-  apps (ChatGPT/Claude.ai sign in with the TradeWave account; WorkOS AuthKit, see
-  `docs/MCP_OAUTH_INTEGRATION.md`) and **BYOK** for dev tools - each remote client sends
-  its own `Authorization: Bearer <key>`; `TRADEWAVE_API_KEY` MUST be UNSET on the remote
-  transport (a baked env key is the stdio/Claude-Desktop fallback only).
+  `TW2_MCP_PUBLIC_HOST` (the SDK's DNS-rebinding allowlist). Auth: **OAuth** for ChatGPT,
+  Claude.ai, and Claude Desktop (sign in with the TradeWave account; WorkOS AuthKit, see
+  `docs/MCP_OAUTH_INTEGRATION.md`) and **BYOK** for Cursor and other key-based clients.
+  Each BYOK connection sends its own `Authorization: Bearer <key>`;
+  `TRADEWAVE_API_KEY` MUST be UNSET on the remote transport.
 - **Customer console** - `web/api_portal/` blueprint mounted in `web/app.py` at
   `/account/api` (GATED behind the WorkOS session): create/revoke keys, see usage, manage
   the API subscription, and the MCP-connect helper. Reuses WorkOS + Stripe + the
@@ -743,8 +746,8 @@ cloudflared tunnel front them.
 counters in `api_usage_daily` + redis **db4** (the gateway's own logical DB, distinct from
 the appserver's user-data DBs); per-account API entitlement in `users.api_tier` (NULL =
 inherit from the web tier via `WEB_TIER_TO_API`; set = an API-only sub). Schema is additive
-(`apiserver/schema.sql` / the `api/` migration). Tiers/entitlements in `apiserver/tiers.py`
-(free/dev/pro/business; ML fields are Pro-tier + ML-eligible markets only).
+  (`apiserver/schema.sql` / the `api/` migration). Tiers/entitlements in `apiserver/tiers.py`
+  (free/dev/pro/business; ML is tier-metered and only markets 0-4,11 are ML-eligible).
 
 **Pricing-visibility gate (2026-07-04):** `apiserver/tiers.py:API_PRICING_LIVE` (env
 `TW2_API_PRICING_LIVE`, truthy strings `1`/`true`/`yes`) is a DISPLAY-only flag, separate
@@ -760,6 +763,28 @@ already on (their own current plan - even if paid, e.g. a bundled Analyst->Dev -
 renders normally, since that is real state, not marketing). Checkout/Stripe code paths are
 untouched. Regenerate after flipping: `ops/assemble_developer_portal.sh` (or the individual
 generators) picks up the new value from the env at generation time.
+
+**MVP scalability baseline (2026-07-15, code complete, not deployed):** the appserver's
+tracked unit defaults to 4 gthread workers x 4 threads for the 4 CPU / 16 GB dev box and
+the intended 4 CPU / 8 GB production box. Processes retain CPU isolation while threads
+absorb bounded external-HTTP waits. Appserver outbound HTTP uses reusable bounded pools;
+expensive cache misses use Redis single-flight locks; CSV and JSON publishers use atomic
+rename so readers never observe partial files. The API gateway uses a 12-connection
+Postgres pool per worker, a 30-second positive-only bounded API-key cache (revocation may
+take at most that TTL), atomic Redis ML-quota consumption, and exposes the appserver 429
+storm-breaker state on `/healthz`. MCP tool functions are async at the gateway I/O boundary,
+share one bounded 32-connection `httpx` pool, and preserve the existing WorkOS OAuth and
+BYOK validation paths. There is no appserver or API framework rewrite.
+
+The split-topology daily-pick source is explicit: the web tier owns
+`site/data/featured_history.json` and serves it only through the service-key-protected
+`/internal/featured-history` route; the gateway reads its local configured file first and
+falls back to `TW2_FEATURED_HISTORY_URL`. Missing or malformed data is a structured 503,
+never a successful `card:null`. Gunicorn and nginx access formats log paths without query
+strings so legacy `?token=` credentials are not retained in access logs. The read-only
+release gate is `ops/verify_mvp_release.py`; it requires API BYOK and WorkOS OAuth MCP
+handshakes, a non-null daily pick, bounded concurrent API load, and verifies the gateway
+storm breaker never fires.
 
 **URLs + edge (env-driven):** `site/lib/portal_urls.py` reads `TW2_PUBLIC_HOST`,
 `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST`. Per env the
@@ -950,11 +975,16 @@ bulletproof). See `OPERATIONS.md`.
   no longer SILENT - an unmappable price on a LIVE sub now logs `log.error` + an
   `unmappable_price` audit row (still ACKs 200), so a plan change between two legacy
   prices can't leave a stuck-high tier unnoticed. Caught by a 5-agent billing audit.
-- **Tiers:** explorer/navigator/analyst/strategist (TIER_FEATURES). tier_compat:
-  explorer->'1', navigator->'2', analyst->'4'/'5', strategist->'6'/'7'. Navigator
-  ($19/mo, $168/yr; added 2026-06-25) = entry paid tier, Dow+NASDAQ+S&P (ids 0,1,2,
-  date-unlocked; the rest date-locked teasers), legacy level '2'. users.tier CHECK +
-  the legacy_wp_level sync trigger were widened for it in migration a1f4d2c9e7b3.
+- **Tiers:** explorer/navigator/analyst/strategist. `tier_compat` maps explorer->'1',
+  navigator->'2', analyst->'4'/'5', strategist->'6'/'7'. Current consumer prices are
+  Explorer $0; Navigator $19/mo or $168/yr; Analyst $47/mo or $399/yr; Strategist
+  $129/mo or $1,188/yr. Stripe metadata is price-authoritative. Ladder A is the
+  decided entitlement: AI starts at Analyst; Explorer and Navigator have no permanent
+  AI scoring. Navigator (added 2026-06-25) unlocks Dow+NASDAQ+S&P (ids 0,1,2) and
+  custom start dates at legacy level '2'. `users.tier` CHECK + the legacy_wp_level sync
+  trigger were widened for it in migration a1f4d2c9e7b3. The reconciled cross-surface
+  matrix is `docs/PRICING_QUOTA_SPEC.md`; business decisions are in
+  `docs/marketing/PRICING_STRATEGY.md`.
 - **MailerLite level segmentation + durable lifecycle automation (rebuilt
   2026-07-13):** LEVEL groups describe current access only and remain exactly
   one of `explorer`, `navigator_monthly/yearly`, `analyst_monthly/yearly`, or

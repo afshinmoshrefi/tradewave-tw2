@@ -98,13 +98,13 @@ check_portal_host TW2_DEVELOPERS_PUBLIC_HOST "$DEVHOST"
 check_portal_host TW2_MCP_PUBLIC_HOST        "$MCPHOST"
 
 echo "==> [$ENV] app tier ($APP): pull + sync venv + restart appserver"
-$SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
+$SSH "root@$APP" 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && test -r /etc/tradewave/appserver.env || { echo "ABORT: /etc/tradewave/appserver.env missing; run the appserver unit preparation step first"; exit 1; } && grep -q "^TW2_FEATURED_HISTORY_URL=" /etc/tradewave/secrets.env || { echo "ABORT: TW2_FEATURED_HISTORY_URL missing from app-box secrets"; exit 1; } && sudo install -m 0644 /home/flask/ops/systemd/tradewave-appserver.service /etc/systemd/system/tradewave-appserver.service && sudo systemctl daemon-reload && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
 
 # API gateway + MCP server are co-located on the app box. New services: guard each so a box
 # not yet provisioned for the API (no venv-api / units) does NOT abort the deploy. Provision
 # with ops/bootstrap_api_services.sh first; thereafter every deploy syncs + restarts them.
 echo "==> [$ENV] app tier ($APP): API gateway + MCP server (if provisioned)"
-$SSH "root@$APP" 'if [ -d /home/flask/venv-api ]; then sudo -u flask /home/flask/venv-api/bin/pip install -q -r /home/flask/requirements-api.txt; else echo "skip venv-api sync (not provisioned)"; fi; for u in tradewave-apiserver tradewave-mcpserver; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u" && sudo systemctl is-active "$u"; else echo "skip $u (not installed on this box)"; fi; done; if systemctl cat tradewave-apiserver >/dev/null 2>&1; then curl -fsS http://127.0.0.1:8088/healthz >/dev/null && echo "apiserver /healthz OK" || { echo "ABORT: apiserver unhealthy after restart"; exit 1; }; fi'
+$SSH "root@$APP" 'if [ -d /home/flask/venv-api ]; then sudo -u flask /home/flask/venv-api/bin/pip install -q -r /home/flask/requirements-api.txt; source /etc/tradewave/secrets.env; psql "$POSTGRES_DSN" -v ON_ERROR_STOP=1 -f /home/flask/apiserver/schema.sql; for u in tradewave-apiserver tradewave-mcpserver; do sudo install -m 0644 "/home/flask/ops/systemd/$u.service" "/etc/systemd/system/$u.service"; done; sudo systemctl daemon-reload; else echo "skip API/MCP sync (not provisioned)"; fi; for u in tradewave-apiserver tradewave-mcpserver; do if systemctl cat "$u" >/dev/null 2>&1; then sudo systemctl restart "$u" && sudo systemctl is-active "$u"; else echo "skip $u (not installed on this box)"; fi; done; if systemctl cat tradewave-apiserver >/dev/null 2>&1; then curl -fsS http://127.0.0.1:8088/healthz >/dev/null && echo "apiserver /healthz OK" || { echo "ABORT: apiserver unhealthy after restart"; exit 1; }; fi'
 
 echo "==> [$ENV] web tier ($WEB): pull + sync venv + DB migrate + restart web + SMN daemons"
 # tradewave-web is on every web box; the SMN daemons are only on boxes provisioned
@@ -140,7 +140,7 @@ echo "==> [$ENV] nginx CSP snippet + reload"
 # Route rules like /affiliate/sign/ are added to that per-box file ONCE (see
 # PROD_CUTOVER affiliate checklist). Deploy only refreshes the shared CSP snippet;
 # nginx -t gates the reload (fail-closed).
-$SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo nginx -t && sudo systemctl reload nginx'
+$SSH "root@$WEB" 'sudo cp /home/flask/ops/nginx/snippets/security_headers.conf /etc/nginx/snippets/security_headers.conf && sudo cp /home/flask/ops/nginx/conf.d/tradewave-log-format.conf /etc/nginx/conf.d/tradewave-log-format.conf && sudo nginx -t && sudo systemctl reload nginx'
 
 # Public developer portal (developers.*) is the API product's marketing/docs site.
 # Assembled on EVERY env since the prod API/MCP launch (2026-07-04) - the dark-ship

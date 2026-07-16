@@ -1,7 +1,7 @@
 ---
 title: "Connect an AI agent with MCP"
 slug: "connect-an-ai-agent-mcp"
-description: "Connect ChatGPT or Claude.ai to the TradeWave MCP server with a simple sign-in, or wire Claude Desktop and Cursor with your own API key, and let your agent pull detected seasonal patterns."
+description: "Connect ChatGPT, Claude.ai, or Claude Desktop to TradeWave with a simple sign-in, or wire Cursor and other BYOK clients with an API key."
 order: 5
 read_minutes: 8
 ---
@@ -22,8 +22,8 @@ The intended loop is explicit, and it is worth wiring into your agent's instruct
 
 Authentication depends on the client:
 
-- **Consumer apps (ChatGPT, Claude.ai) - sign in, no API key.** Paste the server URL into the app's connector settings, click Connect, and log in with your TradeWave account. The OAuth flow is discovered automatically, and your plan follows the account you sign in with.
-- **Dev tools (Claude Desktop, Cursor) - BYOK (bring your own key).** The client sends the same bearer token you use for REST:
+- **OAuth clients (ChatGPT, Claude.ai, Claude Desktop) - sign in, no API key.** Paste the server URL into the app's connector settings, click Connect, and log in with your TradeWave account. The OAuth flow is discovered automatically, and your plan follows the account you sign in with.
+- **BYOK clients (including Cursor) - bring your own key.** The client sends the same bearer token you use for REST:
 
 ```
 Authorization: Bearer tw_live_xxx
@@ -89,9 +89,11 @@ Claude.ai works the same way: paste the server URL, click Connect, sign in. In C
 
 Click Connect and log in with your TradeWave account when prompted. No API key needed - the tools appear in the conversation's tools menu once connected.
 
-## Set up Claude Desktop (BYOK)
+## Set up Claude Desktop
 
-Claude Desktop speaks MCP over stdio, so you bridge to the hosted HTTP server with `mcp-remote` and your own API key. Open your config file:
+Claude Desktop can connect directly to the hosted server with OAuth. Open Settings, choose Connectors, add a custom connector, and paste `{{MCP_URL}}`. Click Connect and sign in with your TradeWave account. Your MCP access follows that web account, including an active trial or teaser.
+
+If you specifically need the BYOK path, you can instead bridge to the hosted server with `mcp-remote` and an API key. Open your config file:
 
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -115,7 +117,7 @@ Add a `tradewave` entry under `mcpServers`:
 }
 ```
 
-Restart Claude Desktop. The TradeWave tools appear in the tools menu, and you can start asking questions in the next section.
+Restart Claude Desktop after adding the optional local BYOK configuration. The TradeWave tools appear in the tools menu, and you can start asking questions in the next section.
 
 ## Set up Cursor (BYOK)
 

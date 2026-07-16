@@ -1,5 +1,11 @@
 # Affiliate Launch Kit - Michael Sachitello
 
+> **EXPIRED CAMPAIGN ARTIFACT. DO NOT DISTRIBUTE OR EXECUTE.** The June 2026 launch
+> window, offer, pricing, discount, and affiliate earnings math below are obsolete. Do
+> not reuse any campaign numbers or customer-facing copy from this file. Use
+> [PRICING_STRATEGY.md](../PRICING_STRATEGY.md) and
+> [PRICING_QUOTA_SPEC.md](../../PRICING_QUOTA_SPEC.md) for current decisions and limits.
+
 > Campaign week target: **week of 2026-06-16** (first affiliate push; also the live smoke test
 > of the funnel before the Anne-Marie/Realtime moment).
 > Fill in before sending: Michael's actual affiliate code from /admin (everywhere `[CODE]`

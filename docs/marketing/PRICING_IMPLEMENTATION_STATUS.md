@@ -1,5 +1,10 @@
 # Tiering/Pricing - Implementation status (2026-06-29)
 
+> Status: HISTORICAL IMPLEMENTATION LOG. Ladder A shipped, but the proposed Analyst
+> $39 reprice did not. The current ladder and exact annual charges are recorded in
+> `PRICING_STRATEGY.md` and `../PRICING_QUOTA_SPEC.md`. Do not execute the old operator
+> instructions below without a new owner decision.
+
 Implements the ladder-independent Phase-0 fixes from `PRICING_TIERING_RECOMMENDATION.md` + adopts
 **Ladder A** (AI scoring starts at Analyst; no config gate change). All edits are on the DEV box,
 UNCOMMITTED; prod ships via `bash ops/deploy.sh staging|prod` (operator). Nothing on Stripe was touched.

@@ -11,12 +11,13 @@ Mapping (matches Stripe product names + price ordering):
   TW2 Analyst    = legacy levels 4 (yearly) / 5 (monthly) - mid paid tier.
                    Premium = US stocks + ETFs (6 markets); date-locked
                    for indices/futures/forex/bonds/foreign/crypto.
-                   Stripe: $58/mo or $488/yr.
+                   Stripe: $47/mo or $399/yr.
   TW2 Strategist = legacy levels 6 (yearly) / 7 (monthly) - top paid tier.
-                   Premium = all 15 markets; ML scoring; max limits.
-                   Stripe: $199/mo or $1574/yr.
+                   Premium = all 15 markets; ML scoring on eligible U.S.
+                   stock and ETF markets; max limits.
+                   Stripe: $129/mo or $1188/yr.
 
-Strategist > Analyst > Explorer by access and by price.
+Strategist > Analyst > Navigator > Explorer by access and by price.
 
 The legacy numbers come from WP UMP IDs; React gates on them directly via
 window.current_user_level → wpUserLevels.

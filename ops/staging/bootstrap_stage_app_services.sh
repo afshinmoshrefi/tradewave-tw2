@@ -22,34 +22,15 @@ hdr() { printf '\n=== %s ===\n' "$*"; }
 
 hdr "1. write systemd units"
 
-cat >/etc/systemd/system/tradewave-appserver.service <<'UNIT'
-[Unit]
-Description=TradeWave 2.0 appserver (gunicorn)
-After=network.target redis-server.service postgresql.service
-Wants=redis-server.service postgresql.service
-
-[Service]
-Type=notify
-User=flask
-Group=flask
-WorkingDirectory=/home/flask/appserver/appserver
-EnvironmentFile=/etc/tradewave/secrets.env
-Environment=PYTHONPATH=/home/flask:/home/flask/appserver/appserver
-ExecStart=/home/flask/venv/bin/gunicorn \
-    --workers 2 \
-    --worker-class sync \
-    --timeout 120 \
-    --bind 127.0.0.1:5000 \
-    --access-logfile /var/log/tradewave/appserver.access.log \
-    --error-logfile /var/log/tradewave/appserver.error.log \
-    --capture-output \
-    appserver:app
-Restart=on-failure
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-UNIT
+install -m 0644 /home/flask/ops/systemd/tradewave-appserver.service \
+    /etc/systemd/system/tradewave-appserver.service
+install -d -m 0750 /etc/tradewave
+cat >/etc/tradewave/appserver.env <<ENV
+TW2_APPSERVER_BIND=127.0.0.1:5000
+TW2_APPSERVER_WORKERS=${TGT_APP_WORKERS}
+TW2_APPSERVER_THREADS=${TGT_APP_THREADS}
+ENV
+chmod 0640 /etc/tradewave/appserver.env
 
 cat >/etc/systemd/system/tradewave-blog-queue.service <<'UNIT'
 [Unit]
@@ -97,7 +78,7 @@ StandardError=append:/var/log/tradewave/article-processor.log
 WantedBy=multi-user.target
 UNIT
 
-echo "  wrote 3 unit files"
+echo "  installed the appserver unit and wrote 2 queue unit files"
 
 hdr "2. nginx vhost for ${TGT_APP_HOST} (HTTP only — TLS later)"
 

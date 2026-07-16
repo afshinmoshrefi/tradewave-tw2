@@ -1,5 +1,5 @@
--- API gateway schema (ADDITIVE - only CREATE TABLE IF NOT EXISTS; never ALTERs existing
--- tables). Run at the integration step against the same Postgres as the appserver/web:
+-- API gateway schema (ADDITIVE - CREATE objects and ADD COLUMN IF NOT EXISTS only;
+-- never drops or rewrites existing data). Run against the same Postgres as appserver/web:
 --   psql "$POSTGRES_DSN" -f apiserver/schema.sql
 -- Safe to run on dev pre-cutover (adds 2 tables, touches nothing existing).
 

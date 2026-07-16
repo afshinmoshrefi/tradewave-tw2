@@ -629,10 +629,11 @@ min_required_years = 5 # this is the minimum required years of data for a securi
 max_days_missing   = 14 # maximum number of days missing from data before its considered not traded
 
 # === TIER MATRIX (TW2) ===
-# Source of truth for tier capabilities. Used by:
-#  - Pricing page (/pricing) when rendered from this dict (future polish)
-#  - Web tier when rendering the React app (decides what UI controls to show)
-#  - Appserver (when refactored to read tier directly instead of legacy WP level)
+# Reference mirror for tier capabilities. Live enforcement remains in the legacy-level
+# dicts above; the only current runtime reader here is `resources_allowed` (see below).
+# Consumer prices are Stripe-authoritative through site/generate_home_page.py; keep these
+# reference values aligned with the current public ladder so future refactors cannot revive
+# a retired price.
 # Existing TW1 num_*_by_level dicts above remain authoritative for the
 # legacy code paths in appserver.py until that refactor is done. The
 # tier_compat shim in /home/flask/web/tier_compat.py maps tier names to
@@ -689,7 +690,7 @@ TIER_FEATURES = {
     'analyst': {
         'name':                       'Analyst',
         'monthly_price_launch':       47,
-        'yearly_price_launch':        33,
+        'yearly_price_launch':        33.25,
         'monthly_price_post':         47,
         'resources_allowed':          [0,1,2,3,4,11],
         'top_patterns_per_market':    100,

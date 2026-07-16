@@ -6,6 +6,8 @@ Explorer works best as a focused research habit. Pick one Dow 30 ticker. For one
 
 Save only a setup that meets your standards. Explorer can track five opportunities in one portfolio. You do not need AI scoring to decide whether a historical record deserves a closer look.
 
+On the Wave Viewer, Remind Me above the bar chart is a shortcut: it saves the loaded pattern if needed and adds its start and end dates to Google Calendar. When the loaded pattern already has a reminder — including one created from a Portfolio Manager row — the control shows that the reminder is set.
+
 Use Explorer:
 https://tradewave.ai/login?next=/app/
 

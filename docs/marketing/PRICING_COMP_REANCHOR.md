@@ -37,7 +37,7 @@ All prices monthly unless noted. Every figure below was page-fetched or confirme
 |---|---|
 | Explorer | $0 |
 | Navigator | $19/mo · $14/mo yr |
-| Analyst | $47/mo · $33/mo yr |
+| Analyst | $47/mo · $33.25/mo yr |
 | Strategist | $129/mo · $99/mo yr |
 
 ---
@@ -80,7 +80,7 @@ Keep the structure - the spacing **$0 → $19 → $47 → $129** brackets the ve
 |---|---|---|---|
 | Explorer | $0 | A genuine free tier neither Seasonax nor Financhill has (both gate everything behind paid/trial). Pure acquisition wedge. | Keep |
 | Navigator | $19/$14yr | Sub-Seasonax-Basic ($49.95) breadth tier; beats Equity Clock ($25) on UX/transparency. Its job is to convert free users. | Keep (generous, deliberately) |
-| Analyst | $47/$33yr | Sits *on* Seasonax Basic's price with strictly more (AI). Where the whole pricing story lives. | **Hold $47** |
+| Analyst | $47/$33.25yr | Sits *on* Seasonax Basic's price with strictly more (AI). Where the whole pricing story lives. | **Hold $47** |
 | Strategist | $129/$99yr | Between Seasonax Pro ($100) and Financhill Platinum monthly ($199) / quarterly-equiv ($132). Only product combining AI + per-year ledger + PE cycle + 15 markets. | Hold $129 for launch; defensible to test $139-149 later |
 
 The only open lever is **modest upside on Analyst/Strategist** once traction proves the AI wedge converts. Strategist arguably has *more* room than Analyst (it still undercuts Financhill's $199 on both axes).

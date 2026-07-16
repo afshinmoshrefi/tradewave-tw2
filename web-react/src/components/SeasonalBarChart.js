@@ -1733,8 +1733,15 @@ const SeasonalBarChart = (props) => {
   // saved record (fire-and-forget) and flip the pill to "Reminder set" - but only
   // if the viewer still shows the same pattern (key guard: the OAuth popup is slow
   // and the user may have moved on).
-  const startCalendarTokenFlow = (eventDicts, savedNote, markIdentity) => {
-    requestCalendarAccessToken()
+  const startCalendarTokenFlow = (eventDicts, savedNote, markIdentity, accessTokenPromise = null) => {
+    // When supplied, this promise was started directly inside the bell's click
+    // handler. That preserves the browser's trusted user gesture on mobile while
+    // the portfolio lookup/save requests continue in parallel.
+    const accessPromise = accessTokenPromise || requestCalendarAccessToken()
+    const accessTimeout = new Promise((resolve, reject) => {
+      setTimeout(() => reject(new Error('Google sign-in did not open or complete within 30 seconds')), 30000)
+    })
+    Promise.race([accessPromise, accessTimeout])
       .then((accessToken) => insertCalendarEvents(accessToken, eventDicts))
       .then((results) => {
         const errors = results.filter((r) => r && r.hasOwnProperty('error')).map((r) => r['error']['message'])
@@ -1889,7 +1896,24 @@ const SeasonalBarChart = (props) => {
       try { window.localStorage.setItem('tw_notifybell_seen', '1') } catch (e) { }
     }
     const id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity)
-    if (id < 0) return
+    if (id < 0) {
+      showInfoDialog({ title: 'Reminder Unavailable', contentText: 'The current market could not be identified. Reload the Wave Viewer and try again.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+      return
+    }
+
+    // Google Calendar's popup must begin directly from the user's tap. Starting
+    // it after fetchReminderInfo / dr_report_publish can lose transient user
+    // activation (especially in Chrome on Android), leaving the bell apparently
+    // inert. A known set reminder only opens its management dialog, so it does
+    // not need a new token request.
+    const calendarAccessPromise = reminderInfo?.saved && reminderInfo?.gcEvents
+      ? null
+      : requestCalendarAccessToken()
+    // Attach a rejection handler immediately in case the user closes the popup
+    // before the portfolio request finishes; startCalendarTokenFlow still owns
+    // the user-facing error dialog below.
+    if (calendarAccessPromise) calendarAccessPromise.catch(() => { })
+
     SetNotifyBusy(true)
     try {
       // Saved in ANY portfolio -> never re-save (a cross-portfolio re-publish would
@@ -1908,7 +1932,7 @@ const SeasonalBarChart = (props) => {
         // Saved (via the Plus icon, or a bell click whose Google popup was
         // abandoned) but no reminders yet -> skip the re-save, go straight to
         // calendar-event creation against the existing record.
-        startCalendarTokenFlow(buildNotifyEventDicts(id, info.slug, info.publishDate), ` - the pattern was already saved in your "${info.portfolio}" portfolio`, patternIdentity())
+        startCalendarTokenFlow(buildNotifyEventDicts(id, info.slug, info.publishDate), ` - the pattern was already saved in your "${info.portfolio}" portfolio`, patternIdentity(), calendarAccessPromise)
         return
       }
 
@@ -1947,13 +1971,15 @@ const SeasonalBarChart = (props) => {
         // not exist - offer creation without re-saving, like the saved branch above.
         const inf = { key: patternIdentity().key, saved: true, gcEvents: false, portfolio: portfolio, slug: slug, publishDate: null }
         SetReminderInfo(inf)
-        startCalendarTokenFlow(buildNotifyEventDicts(id, slug, null), ` - the pattern was already saved in your "${portfolio}" portfolio`, patternIdentity())
+        startCalendarTokenFlow(buildNotifyEventDicts(id, slug, null), ` - the pattern was already saved in your "${portfolio}" portfolio`, patternIdentity(), calendarAccessPromise)
         return
       }
 
       props.SetNumReportsCreated(props.numReportsCreated + 1)
       SetReminderInfo({ key: patternIdentity().key, saved: true, gcEvents: false, portfolio: portfolio, slug: slug, publishDate: null })
-      startCalendarTokenFlow(buildNotifyEventDicts(id, slug, null), ` and the pattern was saved to your "${portfolio}" portfolio`, patternIdentity())
+      startCalendarTokenFlow(buildNotifyEventDicts(id, slug, null), ` and the pattern was saved to your "${portfolio}" portfolio`, patternIdentity(), calendarAccessPromise)
+    } catch (err) {
+      showInfoDialog({ title: 'Reminder Error', contentText: `The reminder could not be completed (${err.message || 'unknown error'}). Please try again.`, button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
     } finally {
       SetNotifyBusy(false)
     }
@@ -2159,11 +2185,18 @@ const SeasonalBarChart = (props) => {
             </div>
           }>
             {rdd.isMobile
-              ? <div style={{ backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }}>
+              ? <button
+                  type="button"
+                  className={'tw-notify-mobile-btn' + (reminderSet ? ' tw-notify-mobile-btn--set' : '') + (notifyPulse && !reminderSet ? ' tw-notify-pulse' : '')}
+                  onClick={handleNotifyClicked}
+                  disabled={notifyBusy}
+                  aria-label={reminderSet ? 'View or edit reminder' : 'Set reminder'}
+                  aria-pressed={reminderSet}
+                >
                   {reminderSet
-                    ? <BsBellFill size={icon_size_plus - 12} style={{ fill: "#4ade80", margin: '0 5px' }} onClick={handleNotifyClicked} />
-                    : <BsBell size={icon_size_plus - 12} className={notifyPulse ? 'tw-notify-pulse' : undefined} style={{ fill: "white", margin: '0 5px' }} onClick={handleNotifyClicked} />}
-                </div>
+                    ? <BsBellFill aria-hidden="true" size={icon_size_plus - 12} style={{ fill: "#4ade80" }} />
+                    : <BsBell aria-hidden="true" size={icon_size_plus - 12} style={{ fill: "white" }} />}
+                </button>
               : <button className={'tw-notify-btn' + (reminderSet ? ' tw-notify-btn--set' : '') + (notifyPulse && !reminderSet ? ' tw-notify-pulse' : '')} onClick={handleNotifyClicked} disabled={notifyBusy}>
                   {/* Icon-only when the right panel is narrow (absolute px, not split %:
                       a small window with the default split is just as cramped) - the
@@ -2228,7 +2261,7 @@ const SeasonalBarChart = (props) => {
                   {props.tooltipSW ? 'Date Range for the Wave strategy' : ''}
                 </div>
               }>
-                <span style={{ fontWeight: 'bold', marginTop: '1px', border: '1px solid ' + tc.border, paddingLeft: '4px', paddingRight: '4px', marginRight: '5px', whiteSpace: 'nowrap', visibility: props.symbol !== '' ? 'visible' : 'hidden', width: '16ch', textAlign: 'center', boxSizing: 'border-box', display: 'inline-block' }}>{dateStartDisp} to {dateEndDisp}</span>
+                <span className={rdd.isMobile ? 'tw-wave-date-range tw-wave-date-range--mobile' : 'tw-wave-date-range'} style={{ fontWeight: 'bold', marginTop: '1px', border: '1px solid ' + tc.border, paddingLeft: '4px', paddingRight: '4px', marginRight: '5px', whiteSpace: 'nowrap', visibility: props.symbol !== '' ? 'visible' : 'hidden', width: '16ch', textAlign: 'center', boxSizing: 'border-box', display: 'inline-block' }}>{dateStartDisp} to {dateEndDisp}</span>
               </Tippy>
 
           </span>

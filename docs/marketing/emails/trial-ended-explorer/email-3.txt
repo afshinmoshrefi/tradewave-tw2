@@ -1,14 +1,14 @@
-Subject: You May Not Need a Paid Plan
-Preview: Upgrade only when a specific research need appears.
+Subject: When Your Research Outgrows Explorer
+Preview: Broader markets, custom dates, and AI scoring are ready when your workflow calls for them.
 Send day: 14
 
-If the Dow 30 and 10 years of history cover what you research, stay on Explorer.
+Explorer keeps the core workflow available: research the Dow 30, inspect up to 10 years of history, save patterns, and set calendar reminders.
 
-Move to Navigator only when you need the Nasdaq 100 or S&P 500, custom start dates, or a 15-year lookback. Analyst is the smallest tier for web-app AI scoring or U.S. stocks and ETFs beyond those indexes. Strategist is only for the full 15-market set, including futures, forex, government bonds, London, Toronto and crypto.
+When your research expands, Navigator adds the Nasdaq 100 and S&P 500, custom start dates, and a 15-year lookback. Analyst adds web-app AI scoring and the wider U.S. stock-and-ETF universe. Strategist opens the full 15-market set, including futures, forex, government bonds, London, Toronto, and crypto.
 
-Do not pay for breadth you will not use.
+Compare the plans whenever your workflow changes and choose the capabilities that match the research you want to do next.
 
-Keep Using Explorer:
+Open Explorer:
 https://tradewave.ai/login?next=/app/
 
 Compare Plans:

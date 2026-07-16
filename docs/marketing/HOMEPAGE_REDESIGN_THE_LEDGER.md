@@ -1,3 +1,9 @@
+> **HISTORICAL AND SUPERSEDED. DO NOT EXECUTE THIS REDESIGN.** This is an archived
+> creative-direction artifact, not a current product or pricing specification. Use
+> [PRICING_STRATEGY.md](PRICING_STRATEGY.md) and
+> [PRICING_QUOTA_SPEC.md](../PRICING_QUOTA_SPEC.md) for current decisions and limits.
+> The executable homepage source is [site/generate_home_page.py](../../site/generate_home_page.py).
+
 I'll synthesize the final spec. Let me work through the decision and build it directly.
 
 The judges are unanimous: all three picked Direction 2 (The Ledger). The PM scored it 9, the retail trader 9, the brand strategist 9. The cross-pollination guidance is also consistent across all three judges. I have everything I need to synthesize without tool calls.

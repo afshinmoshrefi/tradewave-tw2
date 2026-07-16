@@ -1,48 +1,48 @@
-Subject: Save, Track, Remind, Repeat, and a Plan Self-Audit
-Preview: Edges fail in execution, not research. Plus an honest checklist before day 7: keep Strategist only if breadth is yours.
+Subject: Save It, Set the Reminder, and Build the Habit
+Preview: Remind Me turns a validated pattern into a saved, calendar-ready workflow.
 Send day: 6
 
-STRATEGIST TRIAL - DAY 6
+TRADEWAVE STRATEGIST
 
-The Value Is Repeatability. Build the Loop
+Save, Track, Remind, Repeat
 
-A good pattern you forget to act on is worth nothing. Seasonal edges fail in execution, not in research. The durable payoff comes from one habit: save the work, track it, get reminded, repeat it next year.
+A useful pattern you cannot find or revisit at the right time is hard to use. Build one repeatable habit: save the work, track it, set the reminder, and review the evidence again when the window approaches.
 
 Save, track, remind, repeat
-- Save stores the full configuration - entry, exit, direction, days, year set, notes - so a pattern reloads exactly, not as a screenshot.
-- Track follows this year against the historical distribution, for context, never as a prediction.
-- Remind puts the window on your calendar so the edge is there when the date arrives.
-- Repeat next cycle. Track monthly as an investor, scan briefly as a trader, and run your windows again each year.
 
-Strategist gives you room to run this at full scale: 100 portfolios, 500 tracked positions, and 50 watchlists of 100 symbols each - enough to organize by style, sector, and asset class without ever hitting a wall. The weekly strategy video session and premium support are there to keep the loop disciplined and unstick you fast.
+- Save stores the pattern's configuration so you can reload the research rather than rely on a screenshot.
+- Track follows the current opportunity against its historical context, never as a prediction.
+- Remind Me above the Wave Viewer bar chart is a shortcut: it saves the loaded pattern if needed and adds its start and end dates to Google Calendar.
+- Repeat the process next cycle.
+
+When the loaded pattern already has a reminder — including one created from a Portfolio Manager row — Remind Me shows that the reminder is set.
+
+Strategist gives you 100 portfolios, tracking for up to 500 opportunities, up to 500 published date-range reports, and 50 watchlists of up to 100 symbols each. The weekly strategy Zoom call and premium support are there when a pattern or workflow needs a second look.
 
 Save a pattern and set a reminder:
-https://tradewave.ai/app/
+https://tradewave.ai/login?next=%2Fapp%2F
 
 ---
 
-Your 60-Second Plan Self-Audit, Before Day 7
+MAKE IT OPERATIONAL
 
-Your trial settles on day 7, so here is the honest check while it is still free. Strategist is $129/mo ($99/mo yearly). The first box is the one that matters - it is the breadth you are paying for:
+1. Validate one pattern across the Profit Bar Chart, Trend Chart, and Stats Table.
 
-[ ] I score and validate patterns beyond US stocks and ETFs - futures, forex, bonds, or crypto.
-[ ] I run the 4-year election cycle lens across patterns and markets regularly.
-[ ] My saved work is outgrowing Analyst's limits (25 portfolios, 100 tracked, 10 watchlists of 50 each).
-[ ] The weekly strategy video session and premium support are part of how I work.
+2. Use Remind Me above the Wave Viewer bar chart. It saves the loaded pattern if needed and adds its start and end dates to Google Calendar.
 
-First box checked, plus at least one more? Then Strategist is the honest fit for how you actually work. Stay on Strategist at checkout. If the first box is not checked, Analyst almost certainly fits - the other three rarely justify Strategist on their own.
+3. Confirm that Remind Me shows the reminder is set. It also recognizes reminders created with the calendar icon on a Portfolio Manager row.
 
-First box not checked? Analyst at $47/mo ($33/mo yearly) likely covers your real usage - all US stocks and ETFs, full AI scoring, custom dates, the cycle overlay and the opportunity-table cycle filter, Seasonal Market News, and the live weekly Q&A. Pick Analyst at checkout before day 7 and you will not be charged for Strategist.
+4. Add notes to the saved pattern so the reason you kept it is still clear later.
 
-Zero boxes, and you have barely opened the product this trial? Free Explorer keeps today's top 5 Dow patterns, Trend Score, real-time prices, EDGAR earnings estimates, the election-cycle overlay on a loaded pattern, and the public scorecard at no cost - park there until you are actively scanning again. Explorer has no AI scoring and no custom start date, so you trade those away, but it costs nothing and we would rather you come back than churn.
+5. Bring any pattern whose three views disagree to the weekly strategy Zoom call or premium support.
 
-A customer who pays for what they use is a customer we keep for years, and that matters more to us than this month's tier.
-
-P.S. When your trial settles on day 7, the app shows the same side-by-side so you can confirm or change the plan right there, with your real usage in view.
+The Portfolio Manager calendar icon works from saved research. Remind Me provides the same calendar-reminder action directly from the Wave Viewer.
 
 ---
 
-TradeWave measures historical probability and shows its work. It is not prediction and not financial advice. Save it, track it, watch it - the decision is always yours.
+TradeWave measures historical probability and shows its work. It is not prediction or financial advice. Save it, track it, watch it - the decision is always yours.
 
 TradeWave - Tara Data Research LLC
-Manage your plan: https://tradewave.ai/account
+Open your account: https://tradewave.ai/login?next=%2Faccount
+Questions? help@tradewave.ai
+Unsubscribe: {$unsubscribe}

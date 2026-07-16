@@ -1,4 +1,11 @@
 # tradewave.ai Website Conversion Plan
+
+> **HISTORICAL AND SUPERSEDED. DO NOT EXECUTE THIS PLAN.** This document preserves a
+> June 2026 funnel audit and its then-current priorities. Use
+> [PRICING_STRATEGY.md](PRICING_STRATEGY.md) and
+> [PRICING_QUOTA_SPEC.md](../PRICING_QUOTA_SPEC.md) for current decisions and limits.
+> The executable homepage source is [site/generate_home_page.py](../../site/generate_home_page.py).
+
 > Produced 2026-06-10 by a 13-agent audit (4 site mappers, 3 competitor teardowns + category research,
 > 4 CRO reviewers, 1 adversarial critic; 43 raw findings consolidated). Owner positioning: "statistical
 > research, not a promise." Context: affiliate traffic starts ~June 16; solo founder; ~2 weeks of site

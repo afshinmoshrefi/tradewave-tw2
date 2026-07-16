@@ -8,7 +8,9 @@ import hashlib
 import hmac
 import logging
 import re
+import threading
 import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from functools import wraps
 
@@ -28,6 +30,8 @@ _WORKOS_SUB_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 
 log = logging.getLogger("apiserver.auth")
 _redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
+_key_cache = OrderedDict()
+_key_cache_lock = threading.Lock()
 
 
 class AuthMisconfigured(Exception):
@@ -47,6 +51,36 @@ def hash_key(raw_key):
     return hmac.new(secret, raw_key.encode(), hashlib.sha256).hexdigest()
 
 
+def _cached_key_row(key_hash):
+    """Return a cached successful key lookup. Misses are deliberately not cached."""
+    if settings.API_KEY_CACHE_TTL_SECONDS <= 0:
+        return None
+    now = time.monotonic()
+    with _key_cache_lock:
+        item = _key_cache.get(key_hash)
+        if item is None:
+            return None
+        expires_at, row = item
+        if expires_at <= now:
+            _key_cache.pop(key_hash, None)
+            return None
+        _key_cache.move_to_end(key_hash)
+        return dict(row)
+
+
+def _cache_key_row(key_hash, row):
+    if not row or settings.API_KEY_CACHE_TTL_SECONDS <= 0:
+        return
+    with _key_cache_lock:
+        _key_cache[key_hash] = (
+            time.monotonic() + settings.API_KEY_CACHE_TTL_SECONDS,
+            dict(row),
+        )
+        _key_cache.move_to_end(key_hash)
+        while len(_key_cache) > settings.API_KEY_CACHE_MAX_ENTRIES:
+            _key_cache.popitem(last=False)
+
+
 def resolve_customer(raw_key):
     """raw API key -> {user_id, email, tier(api), entitlements} or None.
 
@@ -61,7 +95,11 @@ def resolve_customer(raw_key):
                 "tier": "demo", "entitlements": tiers.tier_for("demo")}
     if not settings.API_KEY_HMAC_SECRET:
         raise AuthMisconfigured("API_KEY_HMAC_SECRET not configured")
-    row = db.get_user_by_key_hash(hash_key(raw_key))
+    key_hash = hash_key(raw_key)
+    row = _cached_key_row(key_hash)
+    if row is None:
+        row = db.get_user_by_key_hash(key_hash)
+        _cache_key_row(key_hash, row)
     if not row:
         return None
     api_tier = tiers.api_tier_from_user(row)

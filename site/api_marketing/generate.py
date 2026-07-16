@@ -562,10 +562,10 @@ def build_index() -> str:
     <div class="section-head">
       <h2 class="gradient-text-w">Derived research, not a data firehose</h2>
       <p>Raw market data is a commodity; execution needs capital and a license. The scarce, defensible
-         layer is the one in between - the quantified reason a setup is worth a look. Each detected seasonal
+       layer is the one in between - the quantified reason a setup is worth a look. Each detected seasonal
          pattern ships as percentages, a 0-100 seasonal index and an ML win-probability, with the dates
-         that bound the window - never raw OHLCV. Because we return derived values, not exchange-licensed
-         quotes, there are no exchange agreements, per-terminal fees, or market-data audits on your side.</p>
+         that bound the window - never raw OHLCV. Derived-only output narrows the product's data scope;
+         commercial and redistribution rights still require the applicable written agreement.</p>
     </div>
     <div class="grid-3">
       <div class="card diff-card">
@@ -587,9 +587,9 @@ def build_index() -> str:
       <div class="card diff-card">
         <div class="diff-icon">&#129302;</div>
         <h3>Agent-native via MCP</h3>
-        <p>The TradeWave MCP server is a hosted HTTP endpoint: sign in from ChatGPT or Claude.ai with your
-           TradeWave account, or connect Claude Desktop, Cursor, or any MCP-compatible host with an
-           API key. Ask your AI assistant to find the strongest
+        <p>The TradeWave MCP server is a hosted HTTP endpoint: sign in from ChatGPT, Claude.ai, or
+           Claude Desktop with your TradeWave account, or connect Cursor and other BYOK clients with
+           an API key. Ask your AI assistant to find the strongest
            seasonal longs in S&P 500 stocks, rank by ML score, and compare to the live
            track record - no glue code required. TradeWave supplies the seasonal and ML edge
            plus the timing; your assistant pairs it with its own fundamentals, news, and macro tools.</p>
@@ -771,7 +771,9 @@ def build_pricing() -> str:
     def market_scope(t: dict) -> str:
         if len(t["markets"]) == 1:
             return f"1 market ({FREE_MARKET_NAME})"
-        return f"All {len(t['markets'])} markets"
+        if len(t["markets"]) == len(API_TIERS["business"]["markets"]):
+            return f"All {len(t['markets'])} markets"
+        return f"{len(t['markets'])} markets"
 
     def card_html(key: str, t: dict, is_highlight: bool) -> str:
         hl = ' highlight' if is_highlight else ''
@@ -827,9 +829,9 @@ def build_pricing() -> str:
 
         taglines = {
             "free": "ML scores included (5/day) - no commitment.",
-            "dev": "Build and prototype with full market access (100 ML scores/day).",
+            "dev": "Build and prototype across 6 U.S. stock and ETF markets (100 ML scores/day).",
             "pro": "Unlimited ML across every market at 120 req/min - no web seat required.",
-            "business": "High-volume production, team access, and redistribution rights - no web seat required.",
+            "business": "High-volume production and team access, with redistribution available by written agreement.",
         }
 
         return f"""<div class="p-card{hl}">
@@ -886,13 +888,20 @@ def build_pricing() -> str:
                                 'Paid plans launch soon. The Free tier and bring-your-own-key access '
                                 'are open now.</p>')
 
+    standalone_status = (
+        "A standalone API subscription is also available if you want API-only access."
+        if API_PRICING_LIVE
+        else "Paid standalone API subscriptions are not yet self-serve; the Free tier is open now, and paid access is available through sales."
+    )
+
     body = f"""
 <section class="page-hero" style="padding-bottom:40px;">
   <div class="container">
     <h1><span class="gradient-text-w">API &amp; MCP Pricing</span></h1>
     <p class="sub">A seasonal-pattern research API over REST and MCP. Free tier includes ML scores (5/day),
        the daily pick, and the verified track record. Dev opens 6 markets (US stocks + ETFs); Pro opens
-       all 15 and removes the ML cap; Business adds redistribution rights and team controls.</p>
+       all 15 and removes the ML cap; Business adds team controls and can include
+       redistribution rights under a separate written agreement.</p>
     <p class="hero-note" style="margin-top:14px;">No signup to try it: <code style="color:var(--accent);">tw_demo_explore</code> is a public demo token - a real authenticated call in about 30 seconds, no key, no card.</p>
   </div>
 </section>
@@ -911,14 +920,14 @@ def build_pricing() -> str:
        <strong>Analyst includes the Dev tier</strong> and <strong>Strategist includes Pro</strong>,
        at no extra cost. Just <a href="{portal_urls.CONSOLE_URL}">create a key</a>.
        Standalone Pro and Business are for builders without a web seat who need the published API caps
-       (Pro 120 req/min, Business 300 req/min) and, on Business, redistribution rights - the bundled
+       (Pro 120 req/min, Business 300 req/min) and, on Business, separately contracted redistribution - the bundled
        Strategist Pro key carries the identical 120 req/min cap.</p>
 
     <div class="section-head" style="margin-top:64px;">
       <h2 class="gradient-text-w">Built for teams and enterprises</h2>
       <p>Bring the edge layer into your org with the controls a security and procurement team expects -
-         centralized multi-seat key management, audit logs, commercial seasonal-pattern redistribution
-         rights, and enterprise single sign-on on Business and Enterprise plans, with a contractual SLA
+         centralized multi-seat key management, audit logs, eligibility for separately contracted
+         seasonal-pattern redistribution, and enterprise single sign-on on Business and Enterprise plans, with a contractual SLA
          on Enterprise.</p>
     </div>
     <div class="card" style="max-width:880px;margin:0 auto;">
@@ -996,8 +1005,7 @@ POST /v1/score  <span class="cm"># unlimited</span>
         </summary>
         <p style="padding:0 0 18px;font-size:14px;color:var(--dim);line-height:1.7;">
           Yes. Analyst subscribers automatically receive Dev-tier API access;
-          Strategist subscribers receive Pro-tier access. A standalone API
-          subscription is also available if you want API-only access at any tier.
+          Strategist subscribers receive Pro-tier access. {standalone_status}
         </p>
       </details>
       <details style="border-bottom:1px solid var(--border);padding:0;">
@@ -1237,7 +1245,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
     <div class="section-head">
       <h2 class="gradient-text-w">Paste the URL, sign in, ask</h2>
       <p>TradeWave's MCP is a hosted HTTP server at <code style="font-size:13px;color:var(--accent);">{portal_urls.MCP_URL}</code>.
-         In ChatGPT or Claude.ai, paste that URL into Settings - Connectors, click Connect, and
+         In ChatGPT, Claude.ai, or Claude Desktop, paste that URL into Settings - Connectors, click Connect, and
          sign in with your TradeWave account - no API key needed. Bring-your-own-login means metering
          follows the account you sign in with, not a shared key. In chat, AI scoring follows your
          TradeWave plan: it begins at Analyst (Explorer and Navigator see the deterministic seasonal
@@ -1245,7 +1253,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
          clear quota message, never a silent error.</p>
     </div>
     <div class="code-block" style="max-width:700px;margin:0 auto 16px;">
-<span class="cm">// claude_desktop_config.json - Claude Desktop / Cursor (dev tools: bring your own API key)</span>
+<span class="cm">// Optional BYOK bridge - for Cursor or a separate API-key entitlement</span>
 {{
   <span class="kw">"mcpServers"</span>: {{
     <span class="kw">"tradewave"</span>: {{
@@ -1255,10 +1263,9 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
   }}
 }}</div>
     <p style="text-align:center;font-size:14px;color:var(--dim);">
-      Dev tools keep bring-your-own-key auth: Claude Desktop and Cursor are stdio-only, so they
-      bridge to the hosted server with the
-      <code style="font-size:12px;color:var(--accent);">mcp-remote</code> npx shim shown above,
-      passing a Bearer API key. There is no npm package to install.
+      Claude Desktop can use the hosted OAuth connector directly. BYOK clients can use the
+      <code style="font-size:12px;color:var(--accent);">mcp-remote</code> npx bridge shown above
+      and pass a Bearer API key when they need the standalone API entitlement.
       <a href="{portal_urls.DOCS_URL}" class="inline">Full setup guide</a>.
     </p>
   </div>
@@ -1401,14 +1408,14 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
     <div class="section-head">
       <h2 class="gradient-text-w">For data buyers and institutions</h2>
       <p>The same server, read through a licensing lens. The API returns derived values only:
-         percentages, a 0-100 seasonal index, and ML probabilities, never raw OHLCV. That keeps it
-         outside the exchange real-time market-data redistribution regime, so it is cleanly licensable
-         with no exchange agreements, no per-terminal fees, and no market-data audits on your side.</p>
+         percentages, a 0-100 seasonal index, and ML probabilities, never raw OHLCV. That bounded
+         output is the basis for a commercial license; the written agreement defines permitted use,
+         redistribution, attribution, and any data-provider or regulatory obligations.</p>
     </div>
     <div class="grid-3" style="gap:16px;margin-bottom:24px;">
       <div class="card" style="padding:22px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.10);">
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Licensing superpower</p>
-        <p style="font-size:13px;color:var(--dim);line-height:1.7;">Because derived values, not exchange-licensed prices, cross the wire, the feed is cleanly licensable. The boundaries live in the <a href="api-terms.html" class="inline">API Terms</a>.</p>
+        <p style="font-size:13px;color:var(--dim);line-height:1.7;">Only derived values cross the wire. Permitted commercial use is defined by the applicable plan and written agreement; see the <a href="api-terms.html" class="inline">API Terms</a>.</p>
       </div>
       <div class="card" style="padding:22px 24px;">
         <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Redistribution under license</p>
@@ -1460,8 +1467,8 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
   <div class="container" style="text-align:center;">
     <h2 class="gradient-text-w" style="font-size:36px;font-weight:800;margin-bottom:16px;">Ready to connect?</h2>
     <p style="color:var(--dim);font-size:17px;max-width:600px;margin:0 auto 32px;line-height:1.7;">
-      Paste the server URL into ChatGPT or Claude.ai and sign in with your TradeWave
-      account, or drop a free API key into Claude Desktop or Cursor, and ask your
+      Paste the server URL into ChatGPT, Claude.ai, or Claude Desktop and sign in with your TradeWave
+      account, or connect Cursor with an API key, and ask your
       first question in under 5 minutes. <a href="pricing.html" class="inline">See pricing</a>.
     </p>
     <div class="hero-ctas">
@@ -1474,7 +1481,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
 """
     return page_shell(
         "TradeWave MCP - Use TradeWave in Claude, Cursor, and ChatGPT",
-        "Add TradeWave to ChatGPT or Claude and sign in with your TradeWave account, or drop an API key into Claude Desktop or Cursor. "
+        "Add TradeWave to ChatGPT or Claude and sign in with your TradeWave account, or connect a BYOK client with an API key. "
         "17 purpose-built trading tools (6 flagship plus 11 primitives) for seasonal analysis and ML-scored seasonal patterns.",
         no_em_dash(body),
         active_nav="mcp",
@@ -1522,7 +1529,8 @@ def build_use_cases() -> str:
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:24px;">
           Free covers the build: S&P 500 stocks, the daily pick, 5 ML win-probability scores/day,
           and the full track record - enough to ship a personal tool end to end. {dev_opens_note}
-          all 15 markets and 100 ML scores/day; Pro lifts the ML cap entirely.
+          the six U.S. stock and ETF markets and 100 ML scores/day; Pro opens all 15 markets
+          and lifts the ML cap entirely.
         </p>
         <ul class="check-list">
           <li>Two surfaces, one account: REST for code, MCP for the chat window</li>
@@ -1540,7 +1548,7 @@ def build_use_cases() -> str:
           </div>
           <div style="display:flex;gap:12px;align-items:flex-start;">
             <div style="width:28px;height:28px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">2</div>
-            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Paste the MCP server URL into ChatGPT or Claude.ai and sign in (dev tools like Claude Desktop and Cursor use an API key instead).</p>
+            <p style="font-size:14px;color:var(--dim);line-height:1.6;">Paste the MCP server URL into ChatGPT, Claude.ai, or Claude Desktop and sign in. BYOK clients can use an API key instead.</p>
           </div>
           <div style="display:flex;gap:12px;align-items:flex-start;">
             <div style="width:28px;height:28px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">3</div>
@@ -1636,12 +1644,12 @@ score_resp = requests.<span class="fn">post</span>(
         </p>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:24px;">
           The Business tier (300 req/min, 250,000 req/day, 50 API keys) is sized for
-          multi-tenant products - no web seat required - and adds redistribution rights so
-          you can serve the derived values to your own end users under license. Enterprise is
+          multi-tenant products - no web seat required - and can be paired with a written
+          redistribution license for serving derived values to your own end users. Enterprise is
           available for custom rate limits, SLAs, and white-label use.
         </p>
         <ul class="check-list">
-          <li>No raw price data means no exchange license to negotiate</li>
+          <li>No raw price data crosses the API; permitted downstream use is defined in writing</li>
           <li>MCP-ready: surface TradeWave seasonal patterns inside any AI-native product</li>
           <li>Multiple API keys per account - one per tenant or environment</li>
           <li>Outputs are percentage returns - safe to display without price context</li>
@@ -1674,12 +1682,11 @@ score_resp = requests.<span class="fn">post</span>(
   <div class="container" style="max-width:1000px;">
     <div class="section-head">
       <span class="who">Institutions and data buyers</span>
-      <h2 class="gradient-text-w">A seasonal-pattern feed you can actually license</h2>
-      <p>The thing a data desk checks first: can we use this without dragging an exchange agreement
-         behind it. The API returns derived values only - percentage returns, a 0-100 seasonal index,
-         and ML win probabilities, never raw OHLCV - so it sits outside the real-time market-data
-         redistribution regime. That means no exchange agreements, no per-terminal fees, and no
-         market-data audits on your side to license it.</p>
+      <h2 class="gradient-text-w">A bounded seasonal-pattern feed with written licensing terms</h2>
+      <p>The API returns derived values only - percentage returns, a 0-100 seasonal index,
+         and ML win probabilities, never raw OHLCV. TradeWave documents that boundary in the
+         commercial agreement instead of asking a customer to infer licensing rights from the
+         response format.</p>
     </div>
     <div class="grid-2" style="gap:24px;align-items:start;margin-bottom:28px;">
       <div class="card" style="padding:28px;">
@@ -1927,8 +1934,8 @@ def build_api_terms() -> str:
         By design the API returns derived seasonal patterns: seasonal statistics, win rates, percentage returns,
         Sharpe ratios, the normalized 0-100 seasonal index, and ML scores. It never returns raw prices,
         quotes, or OHLCV bars. You agree not to attempt to reconstruct raw price series from API outputs,
-        and not to present API outputs as a market-data feed. This is what keeps the product cleanly
-        licensable for you as well as for us.</p>
+        and not to present API outputs as a market-data feed. Commercial permissions and any
+        downstream obligations are defined by your plan and, where required, a separate written agreement.</p>
     </div>
 
     <div class="card" style="margin-bottom:28px;">

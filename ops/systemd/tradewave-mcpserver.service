@@ -1,5 +1,5 @@
 [Unit]
-Description=TradeWave MCP server (SSE, thin wrapper over the v1 gateway)
+Description=TradeWave MCP server (async streamable HTTP wrapper over the v1 gateway)
 After=network.target redis-server.service tradewave-apiserver.service
 # The MCP server proxies every tool call to the gateway, so bring it up after it.
 Wants=tradewave-apiserver.service
@@ -12,7 +12,7 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
-# Not gunicorn: this is the plain FastMCP SSE process, so Type=simple (no sd_notify).
+# Not gunicorn: this is one asyncio FastMCP process, so Type=simple (no sd_notify).
 Type=simple
 User=flask
 Group=flask
@@ -29,6 +29,7 @@ Environment=TW2_MCP_PORT=9090
 # Transport: streamable-http is the current MCP standard (what ChatGPT/Claude default to); SSE is
 # the legacy transport. Default here, overridable via secrets.env. Endpoint path = /mcp.
 Environment=TW2_MCP_TRANSPORT=streamable-http
+Environment=TW2_MCP_GATEWAY_MAX_INFLIGHT=32
 EnvironmentFile=/etc/tradewave/secrets.env
 Environment=PYTHONPATH=/home/flask
 # BYOK: do NOT set TRADEWAVE_API_KEY here. On a remote transport each client sends its own

@@ -5317,6 +5317,30 @@ def _check_service_key():
     return bool(expected) and hmac.compare_digest(provided, expected)
 
 
+@app.route("/internal/featured-history", methods=["GET"])
+@csrf.exempt
+def internal_featured_history():
+    """Private split-topology feed for the gateway on the app box."""
+    if not _check_service_key():
+        return jsonify({"error": "unauthorized"}), 401
+    path = os.environ.get(
+        "TW2_FEATURED_HISTORY_FILE", "/home/flask/site/data/featured_history.json"
+    )
+    try:
+        with open(path, encoding="utf-8") as f:
+            entries = _json.load(f)
+    except FileNotFoundError:
+        return jsonify({"error": "daily-pick data unavailable"}), 503
+    except (OSError, _json.JSONDecodeError):
+        log.exception("internal_featured_history: canonical file unreadable")
+        return jsonify({"error": "daily-pick data unavailable"}), 503
+    if not isinstance(entries, list):
+        return jsonify({"error": "daily-pick data invalid"}), 503
+    response = jsonify(entries)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 def _slug_safe(slug: str) -> bool:
     """ASCII-only [a-zA-Z0-9_-]+ allowlist.
 

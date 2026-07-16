@@ -1,5 +1,11 @@
 # tradewave.ai Home Page - Final Spec (v1)
 
+> **HISTORICAL AND SUPERSEDED. DO NOT EXECUTE THIS SPEC.** Pricing, packaging, launch
+> status, and product claims in this document reflect an earlier planning snapshot. Use
+> [PRICING_STRATEGY.md](PRICING_STRATEGY.md) and
+> [PRICING_QUOTA_SPEC.md](../PRICING_QUOTA_SPEC.md) for current decisions and limits.
+> The executable homepage source is [site/generate_home_page.py](../../site/generate_home_page.py).
+
 > Produced 2026-06-11 by an 11-agent tournament: 5 creative directors (5 strategic angles:
 > AI-era desk / instrument / auditable platform / workflow / discovery), a 4-judge panel
 > (skeptical institutional PM, CRO expert, brand strategist, retail trader), executive
