@@ -190,6 +190,7 @@ def test_web_imports_are_release_tree_relative():
                 "appserver.py",
                 "appserver_apis.py",
                 "create_active_opps.py",
+                "get_name_from_ticker.py",
                 "get_symbol_csv.py",
                 "seasonal_chart_funcs.py",
                 "tara_gateway.py",
