@@ -18,6 +18,7 @@ import requests
 
 sys.path.insert(0, '/home/flask')
 import config
+from log_safety import scrub_secret_text
 
 # ============================================================
 # LAYOUT CONSTANTS
@@ -122,8 +123,12 @@ def login_appserver(keyprovider_token):
 def get_appserver_token():
     # TW2 path: single-step service-account API key login.
     if getattr(config, 'SERVICE_API_KEY', None):
-        url = config.appserver_url + '/login/api/' + config.SERVICE_API_KEY
-        result = requests.get(url, timeout=45).json()
+        url = config.appserver_url + '/login/api'
+        result = requests.post(
+            url,
+            headers={'X-Service-Key': config.SERVICE_API_KEY},
+            timeout=45,
+        ).json()
         token = result.get('token')
         if not token:
             print('svg_wave_chart appserver login failed: %s'
@@ -142,27 +147,36 @@ def fetch_bar_data(resource_id, date, symbol, days_out, years, token):
     """Fetch ChartData4 - year-by-year bar chart with MFE/MAE."""
     url = (f"{config.appserver_url}/ChartData4/{resource_id}/{date}"
            f"/{symbol}/{days_out}/{years}?token={token}")
-    resp = requests.get(url)
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = requests.get(url)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as exc:
+        raise RuntimeError(scrub_secret_text(exc)) from None
 
 
 def fetch_ohlc_data(resource_id, symbol, d0, d1, token):
     """Fetch ChartHistorical2 - OHLC candle data."""
     url = (f"{config.appserver_url}/ChartHistorical2/{resource_id}"
            f"/{symbol}/{d0}/{d1}?token={token}")
-    resp = requests.get(url)
-    resp.raise_for_status()
-    return resp.json().get('ChartHistorical2', [])
+    try:
+        resp = requests.get(url)
+        resp.raise_for_status()
+        return resp.json().get('ChartHistorical2', [])
+    except requests.RequestException as exc:
+        raise RuntimeError(scrub_secret_text(exc)) from None
 
 
 def fetch_seasonal_data(resource_id, symbol, years, chart_start, opp_start, token):
     """Fetch consolidated_seasonal_chart2 - seasonal projection data."""
     url = (f"{config.appserver_url}/consolidated_seasonal_chart2/{resource_id}"
            f"/{symbol}/{years}/{chart_start}/{opp_start}?token={token}")
-    resp = requests.get(url)
-    resp.raise_for_status()
-    return resp.json().get('cons_seas_chart', [])
+    try:
+        resp = requests.get(url)
+        resp.raise_for_status()
+        return resp.json().get('cons_seas_chart', [])
+    except requests.RequestException as exc:
+        raise RuntimeError(scrub_secret_text(exc)) from None
 
 # ============================================================
 # DATA PROCESSING

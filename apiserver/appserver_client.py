@@ -1,7 +1,7 @@
 """Bridge to the existing TradeWave appserver (the data engine).
 
-Logs in once as a service account via /login/api/<SERVICE_API_KEY>, caches the session
-token, then calls the data endpoints. Maps internal responses to the public v1 contract
+Logs in once as a service account via POST /login/api with an X-Service-Key header,
+caches the session token, then calls the data endpoints. Maps internal responses to the public v1 contract
 and DROPS any raw price fields (seasonal-patterns-only / EOD posture).
 
 The gateway agent extends the mapped accessors below. Internal endpoint paths/params and
@@ -54,6 +54,10 @@ def storm_breaker_active():
     return time.time() < _rl_state["until"]
 
 _JWT_RE = re.compile(r"eyJ[A-Za-z0-9_=-]+\.[A-Za-z0-9_=-]+\.?[A-Za-z0-9_=-]*")
+_SECRET_QUERY_RE = re.compile(
+    r"(?i)(?P<name>(?:access_|refresh_)?token|api_?key|key)=(?P<value>[^&\s'\"]+)"
+)
+_LEGACY_LOGIN_RE = re.compile(r"(?i)(/login/api/)[^/?#\s'\"]+")
 
 
 def _scrub(text):
@@ -62,7 +66,8 @@ def _scrub(text):
     /login path, and requests embeds the full URL in its exception text. Prefixes only,
     never a full token."""
     s = str(text)
-    s = re.sub(r"token=[^&\s'\"]+", "token=***", s)
+    s = _SECRET_QUERY_RE.sub(lambda m: "%s=***" % m.group("name"), s)
+    s = _LEGACY_LOGIN_RE.sub(r"\1***", s)
     s = _JWT_RE.sub("eyJ***", s)
     key = settings.SERVICE_API_KEY
     if key:
@@ -105,13 +110,14 @@ def _request(method, url, **kwargs):
             return r.json()
     except requests.RequestException as e:
         try:
-            scrubbed = type(e)(_scrub(e), request=getattr(e, "request", None),
-                               response=getattr(e, "response", None))
+            # Do not retain the original request/response objects: their prepared
+            # URL can still hold the service JWT even when the displayed message is
+            # clean, and error reporters may serialize exception attributes.
+            scrubbed = type(e)(_scrub(e))
         except TypeError:
-            # Exotic subclass init (e.g. JSONDecodeError): re-raise the ORIGINAL
-            # RequestException (a bare raise here would re-raise the TypeError and
-            # defeat every fail-soft handler upstream). Its message has no URL/token.
-            raise e from None
+            # Exotic subclass init (e.g. JSONDecodeError): preserve the catchable
+            # requests base type without retaining credential-bearing attributes.
+            scrubbed = requests.RequestException(_scrub(e))
         raise scrubbed from None
 
 
@@ -129,8 +135,13 @@ def _get_token():
     with _lock:
         if _token["value"] and _token["exp"] > time.time() + 60:
             return _token["value"]
-        url = f"{settings.APPSERVER_URL}/login/api/{settings.SERVICE_API_KEY}"
-        data = _request("GET", url, timeout=10)
+        url = f"{settings.APPSERVER_URL}/login/api"
+        data = _request(
+            "POST",
+            url,
+            headers={"X-Service-Key": settings.SERVICE_API_KEY or ""},
+            timeout=10,
+        )
         tok = data.get("token") or data.get("session_token")  # x-verify exact key
         if not tok:
             raise RuntimeError("appserver /login/api returned no token")
@@ -733,17 +744,12 @@ class FeaturedHistoryUnavailable(RuntimeError):
 def _load_featured_history():
     """Load the canonical chronological pick history.
 
-    Dev reads the co-located file. Split environments call the web tier's private,
-    service-key-authenticated endpoint. A missing source is an honest 503, never a
-    successful response containing ``card: null``.
+    A configured remote URL is authoritative, including when a stale local file is
+    present on a split app/web deployment.  A co-located dev install with no remote
+    URL reads the file. A missing source is an honest 503, never a successful response
+    containing ``card: null``.
     """
-    if FEATURED_HISTORY_FILE and os.path.exists(FEATURED_HISTORY_FILE):
-        try:
-            with open(FEATURED_HISTORY_FILE, encoding="utf-8") as f:
-                data = json.load(f)
-        except (OSError, json.JSONDecodeError) as exc:
-            raise FeaturedHistoryUnavailable("daily-pick file unreadable") from exc
-    elif settings.FEATURED_HISTORY_URL:
+    if settings.FEATURED_HISTORY_URL:
         try:
             data = _request(
                 "GET",
@@ -753,6 +759,12 @@ def _load_featured_history():
             )
         except requests.RequestException as exc:
             raise FeaturedHistoryUnavailable("daily-pick feed unavailable") from exc
+    elif FEATURED_HISTORY_FILE and os.path.exists(FEATURED_HISTORY_FILE):
+        try:
+            with open(FEATURED_HISTORY_FILE, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise FeaturedHistoryUnavailable("daily-pick file unreadable") from exc
     else:
         raise FeaturedHistoryUnavailable("daily-pick source not configured")
     if not isinstance(data, list):

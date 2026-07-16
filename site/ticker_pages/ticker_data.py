@@ -20,13 +20,16 @@ import datetime
 import json
 import os
 import sys
+from pathlib import Path
 
 import pandas as pd
 import requests
 
 # Central config.
 sys.path.insert(0, '/home/flask')
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
 import config
+from log_safety import scrub_secret_text
 
 from compute_monthly_seasonality import (
     compute_monthly_seasonality,
@@ -76,15 +79,19 @@ def login_appserver():
     # TW2 path
     if getattr(config, 'SERVICE_API_KEY', None):
         try:
-            url = APPSERVER_URL + '/login/api/' + config.SERVICE_API_KEY
-            resp = s.get(url, timeout=45).json()
+            url = APPSERVER_URL + '/login/api'
+            resp = s.post(
+                url,
+                headers={'X-Service-Key': config.SERVICE_API_KEY},
+                timeout=45,
+            ).json()
             token = resp.get('token')
             if not token:
                 print('login_appserver TW2 failed: %s' % resp.get('message', 'no token'))
             s.token = token
             return s
         except Exception as e:
-            print('login_appserver TW2 exception: %s' % e)
+            print('login_appserver TW2 exception: %s' % scrub_secret_text(e, config.SERVICE_API_KEY))
             s.token = None
             return s
 
@@ -104,7 +111,7 @@ def login_appserver():
         s.token = token
         return s
     except Exception as e:
-        print('login_appserver legacy failed: %s' % e)
+        print('login_appserver legacy failed: %s' % scrub_secret_text(e))
         s.token = None
         return s
 
@@ -227,7 +234,7 @@ def fetch_opp_by_symbol(session, symbol, mode='cons'):
         resp.raise_for_status()
         payload = resp.json()
     except Exception as e:
-        print('fetch_opp_by_symbol failed for %s: %s' % (symbol, e))
+        print('fetch_opp_by_symbol failed for %s: %s' % (symbol, scrub_secret_text(e)))
         return []
 
     rows = payload.get('OppBySymbol', []) if isinstance(payload, dict) else []
@@ -362,7 +369,7 @@ def fetch_price_frame(symbol, session, d0='1980-01-01', d1=None):
         resp.raise_for_status()
         payload = resp.json()
     except Exception as e:
-        print('fetch_price_frame failed for %s: %s' % (symbol, e))
+        print('fetch_price_frame failed for %s: %s' % (symbol, scrub_secret_text(e)))
         return None
     rows = payload.get('ChartHistorical2', []) if isinstance(payload, dict) else []
     if not rows:

@@ -13,12 +13,15 @@ APP="$TGT_APP_PUB"
 WEB="$TGT_WEB_PUB"
 SSH="-p $TGT_SSH_PORT"
 
-hdr "1. web box: rebind gunicorn web to also listen on the web VLAN IP:5500"
-# WEB_VLAN/APP_VLAN expanded locally into the remote env; REMOTE stays single-quoted.
+hdr "1. web box: install the tracked loopback + VLAN gunicorn unit"
+# Render from the repository source rather than mutating an installed unit in place.
 ssh $SSH "root@$WEB" "WEB_VLAN='$TGT_WEB_VLAN' APP_VLAN='$TGT_APP_VLAN' bash -s" <<'REMOTE'
-set -e
-sed -i "s|--bind 127.0.0.1:5500|--bind 127.0.0.1:5500 --bind $WEB_VLAN:5500|" /etc/systemd/system/tradewave-web.service
-grep '\-\-bind' /etc/systemd/system/tradewave-web.service
+set -euo pipefail
+src=/home/flask/ops/systemd/tradewave-web.service
+[ -r "$src" ] || { echo "FAIL: missing $src (sync the release first)" >&2; exit 1; }
+sed "s|__TW2_WEB_VLAN__|$WEB_VLAN|g" "$src" >/etc/systemd/system/tradewave-web.service
+grep -q -- "--bind 127.0.0.1:5500" /etc/systemd/system/tradewave-web.service
+grep -q -- "--bind $WEB_VLAN:5500" /etc/systemd/system/tradewave-web.service
 ufw allow from $APP_VLAN to any port 5500 comment 'render report from app box' || true
 ufw status numbered | grep 5500 || true
 REMOTE

@@ -35,6 +35,7 @@ sys.path.insert(0, '/home/flask/site/lib')
 import config
 from blog_tools import assign_years_pyears
 from ga_snippet import ga_head_snippet
+from log_safety import scrub_secret_text
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -65,31 +66,27 @@ ROBOTS_CONTENT = 'index, follow' if ENABLE_SEO else 'noindex, nofollow'
 # ---------------------------------------------------------------------------
 
 def appserver_login():
-    """Login pattern from generate_home_page.py - keyprovider hack via APPSERVER_URL."""
-    def _get(url, attempts=3, timeout=30, sleep_s=5):
+    """Mint a service session without putting the long-lived key in the URL."""
+    def _request(method, url, attempts=3, timeout=30, sleep_s=5, **kwargs):
         last = None
         for i in range(attempts):
             try:
-                return requests.get(url, timeout=timeout).json()
+                return requests.request(method, url, timeout=timeout, **kwargs).json()
             except Exception as e:
                 last = e
-                print('   WARN appserver call failed (%s), attempt %d/%d' % (e, i + 1, attempts))
+                print('   WARN appserver call failed (%s), attempt %d/%d' % (
+                    scrub_secret_text(e, config.SERVICE_API_KEY), i + 1, attempts))
                 time.sleep(sleep_s)
         raise last
 
     try:
-        result = _get(APPSERVER_URL + '/login/api/' + config.SERVICE_API_KEY)
+        result = _request(
+            'POST', APPSERVER_URL + '/login/api',
+            headers={'X-Service-Key': config.SERVICE_API_KEY},
+        )
         return result.get('token')
-        url = APPSERVER_URL + '/login/16/7/4/5/' + kp_token
-        result = _get(url)
-        if 'message' in result:
-            time.sleep(10)
-            result = _get(url)
-            if 'message' in result:
-                return None
-        return result['token']
     except Exception as e:
-        print('   ERROR appserver login failed: %s' % e)
+        print('   ERROR appserver login failed: %s' % scrub_secret_text(e, config.SERVICE_API_KEY))
         return None
 
 
@@ -155,7 +152,8 @@ def load_top10(opp_date, token):
         try:
             df_g = opp_list_to_df(num, gid, month, day, years, pyears, token)
         except Exception as e:
-            print('   WARN OppList4 failed for group %s (%s): %s' % (gid, name, e))
+            print('   WARN OppList4 failed for group %s (%s): %s' % (
+                gid, name, scrub_secret_text(e)))
             continue
         if df_g.empty:
             continue

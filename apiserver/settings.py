@@ -40,7 +40,7 @@ API_KEY_HMAC_SECRET = _get("API_KEY_HMAC_SECRET") or _get("APPSERVER_JWT_SECRET"
 # Read it off the env; never hardcode 5000 off dev.
 APPSERVER_URL = _get("TW2_APPSERVER_URL") or _get("APPSERVER_URL") or "http://127.0.0.1:5000"
 
-# Service-account key for the appserver /login/api handshake (same one home_opportunities.py uses).
+# Service-account key for the appserver POST /login/api header handshake.
 SERVICE_API_KEY = _get("SERVICE_API_KEY")
 
 # The daily-pick record is generated on the web box. Dev is co-located and reads the

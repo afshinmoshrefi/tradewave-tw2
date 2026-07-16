@@ -66,6 +66,7 @@ import json
 from functools import wraps
 import jwt
 from pooled_http import http as requests
+from service_auth import has_service_account_role
 import logging
 import redis
 import statistics
@@ -750,24 +751,28 @@ def login(wp_userid, user_level, country_code, zip, skey): # I had ip for no rea
     response.headers['Pragma'] = 'no-cache'
     return response
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# TW2: API-key login for service accounts (scorecard, ticker pages, blog gen).
-# Replaces the multi-step keyprovider handshake those scripts used in TW1 prod.
-# Looks up the HMAC-SHA256 hash of the submitted api_key in TW2 Postgres
+# TW2: header-authenticated login for service accounts (scorecard, ticker pages,
+# blog generation, and the public API gateway).  The credential is deliberately
+# excluded from the URL so reverse proxies, access logs, tracing middleware, and
+# exception messages cannot capture it as a request target.
+# Looks up the HMAC-SHA256 hash of the submitted service key in TW2 Postgres
 # `users.api_key_hash`; on match, mints a JWT scoped to that user's
 # legacy_wp_level (typically '6' for service accounts = full access (Strategist)).
 # The plaintext column is gone (alembic 5a3c1e2f4d6b); the hash is the only
 # server-side secret material for service-account auth.
-@app.route('/login/api/<string:api_key>', methods=['GET'])
+@app.route('/login/api', methods=['POST'])
 @limiter.limit("10/minute")
 @limiter.limit(config.rate_limit_login[2])
 @limiter.limit(config.rate_limit_login[3])
-def login_api(api_key):
+def login_api():
     import psycopg2, psycopg2.extras
+
+    api_key = request.headers.get('X-Service-Key', '')
 
     # TW2: brute-force guard. Reject empty / too-short keys before any DB hit so a
     # WHERE api_key_hash = <hash of ''> query can never match a real row.
     if not api_key or len(api_key) < 16:
-        logging.warning("login_api: short/empty api_key rejected ip=%s ua=%s",
+        logging.warning("login_api: short/empty service key rejected ip=%s ua=%s",
                         get_remote_address(), request.headers.get('User-Agent', '-'))
         return jsonify({'message': 'invalid api_key'}), 401
 
@@ -802,7 +807,11 @@ def login_api(api_key):
         conn.close()
 
     if row is None:
-        logging.warning("login_api: api_key not found ip=%s ua=%s",
+        logging.warning("login_api: service key not found ip=%s ua=%s",
+                        get_remote_address(), request.headers.get('User-Agent', '-'))
+        return jsonify({'message': 'invalid api_key'}), 403
+    if not has_service_account_role(row.get('roles')):
+        logging.warning("login_api: matching key lacks service_account role ip=%s ua=%s",
                         get_remote_address(), request.headers.get('User-Agent', '-'))
         return jsonify({'message': 'invalid api_key'}), 403
 
@@ -828,7 +837,8 @@ def login_api(api_key):
         'num_watchlist_items_allowed': config.num_watchlist_items_allowed_by_level.get(user_level, 500),
         'num_reports_allowed': config.num_opp_reports_allowed_by_level.get(user_level, 2000),
         'num_reports_created': 0,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7),
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(
+            hours=getattr(config, 'SERVICE_JWT_TTL_HOURS', 24)),
         'upgrade_message': '',
         'promotion_message': '',
         'promotion_coupon_code': '',
@@ -842,12 +852,14 @@ def login_api(api_key):
         'aud': 'tw2-appserver',
         'iss': 'tw2-web',
     }, app.config['SECRET_KEY'])
-    return jsonify({
+    response = jsonify({
         'token': token,
         'ip': request.remote_addr,
         'user_id': str(row['id']),
         'tier': row['tier'],
     })
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------

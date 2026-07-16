@@ -5,7 +5,7 @@
 #   ops/staging/run.sh {staging|prod} bootstrap_stage_web_services.sh
 #
 # What this does:
-#   1. systemd unit for tradewave-web (gunicorn :5500, 2 workers — RAM constraint)
+#   1. tracked systemd unit for tradewave-web (loopback + VLAN :5500 binds)
 #   2. nginx log format + 3 snippets (security_headers, dotfile_deny, tw2-proxy-headers)
 #   3. nginx vhost for ${TGT_WEB_HOST}:
 #        - Marketing site (static from /var/www/tradewave/)
@@ -25,41 +25,12 @@ hdr() { printf '\n=== %s ===\n' "$*"; }
 : "${TGT_WEB_HOST:?run via ops/staging/run.sh - it prepends the target coordinates}"
 
 hdr "1. systemd unit"
-cat >/etc/systemd/system/tradewave-web.service <<'UNIT'
-[Unit]
-Description=TradeWave 2.0 web tier (auth + admin + Stripe)
-After=network.target
-
-[Service]
-Type=simple
-User=flask
-Group=flask
-WorkingDirectory=/home/flask/web
-EnvironmentFile=/etc/tradewave/secrets.env
-Environment=PYTHONPATH=/home/flask:/home/flask/web
-NoNewPrivileges=true
-ProtectSystem=full
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictSUIDSGID=true
-LockPersonality=true
-ExecStart=/home/flask/venv/bin/gunicorn \
-    --workers 2 \
-    --worker-class sync \
-    --timeout 60 \
-    --bind 127.0.0.1:5500 \
-    --access-logfile /var/log/tradewave/web.access.log \
-    --access-logformat '%({x-forwarded-for}i)s %(l)s %(u)s %(t)s "%(m)s %(U)s %(H)s" %(s)s %(b)s "%(a)s"' \
-    --error-logfile /var/log/tradewave/web.error.log \
-    --capture-output \
-    app:app
-Restart=on-failure
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-UNIT
+UNIT_SRC=/home/flask/ops/systemd/tradewave-web.service
+[ -r "$UNIT_SRC" ] || { echo "FAIL: missing tracked unit $UNIT_SRC" >&2; exit 1; }
+sed "s|__TW2_WEB_VLAN__|$TGT_WEB_VLAN|g" "$UNIT_SRC" \
+  >/etc/systemd/system/tradewave-web.service
+grep -q -- "--bind 127.0.0.1:5500" /etc/systemd/system/tradewave-web.service
+grep -q -- "--bind $TGT_WEB_VLAN:5500" /etc/systemd/system/tradewave-web.service
 
 hdr "2. nginx log format + snippets"
 install -d -m 755 /etc/nginx/conf.d

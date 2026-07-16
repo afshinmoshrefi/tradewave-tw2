@@ -30,6 +30,7 @@ from daily_pattern_picks import get_daily_picks
 from blog_tools import get_company_name, convert_param_base64
 from get_price_eod import get_quote_details
 from ga_snippet import ga_head_snippet
+from log_safety import scrub_secret_text
 from pick_stats import (
     compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return,
     hit_target, is_resolved, is_win,
@@ -336,31 +337,27 @@ def get_recent_symbols(history, days=FEATURED_REPEAT_DAYS):
 
 def appserver_login():
     """Login to appserver and return token. Retries on transient stalls."""
-    def _get(url, attempts=3, timeout=30, sleep_s=5):
+    def _request(method, url, attempts=3, timeout=30, sleep_s=5, **kwargs):
         last = None
         for i in range(attempts):
             try:
-                return requests.get(url, timeout=timeout).json()
+                return requests.request(method, url, timeout=timeout, **kwargs).json()
             except Exception as e:
                 last = e
-                print("   WARN appserver call failed (%s), attempt %d/%d" % (e, i + 1, attempts))
+                print("   WARN appserver call failed (%s), attempt %d/%d" % (
+                    scrub_secret_text(e, config.SERVICE_API_KEY), i + 1, attempts))
                 time.sleep(sleep_s)
         raise last
 
     try:
-        result = _get(APPSERVER_URL + '/login/api/' + config.SERVICE_API_KEY)
+        result = _request(
+            'POST',
+            APPSERVER_URL + '/login/api',
+            headers={'X-Service-Key': config.SERVICE_API_KEY},
+        )
         return result.get('token')
-
-        url = APPSERVER_URL + '/login/16/7/4/5/' + kp_token
-        result = _get(url)
-        if 'message' in result:
-            time.sleep(10)
-            result = _get(url)
-            if 'message' in result:
-                return None
-        return result['token']
     except Exception as e:
-        print("   ERROR appserver login failed after retries: %s" % e)
+        print("   ERROR appserver login failed after retries: %s" % scrub_secret_text(e, config.SERVICE_API_KEY))
         return None
 
 
@@ -390,7 +387,7 @@ def fetch_close_price(resource_id, symbol, target_date, token):
         if best:
             return float(best[4])  # close price
     except Exception as e:
-        print("   WARNING: ChartHistorical2 failed for %s: %s" % (symbol, e))
+        print("   WARNING: ChartHistorical2 failed for %s: %s" % (symbol, scrub_secret_text(e)))
     return None
 
 
@@ -434,7 +431,8 @@ def lookup_years_via_opplist4(symbol, target_date, days_out, direction, token):
                         opp[3] == dir_match):
                     return True
         except Exception as e:
-            print("      WARNING: OppList4 lookup failed (%s, pyears=%s): %s" % (mode, pyears, e))
+            print("      WARNING: OppList4 lookup failed (%s, pyears=%s): %s" % (
+                mode, pyears, scrub_secret_text(e)))
         return False
 
     # Try consecutive first, walking pyears from highest to lowest valid

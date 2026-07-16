@@ -9,6 +9,12 @@ WORKOS_AUTHKIT_DOMAIN  = os.environ.get('WORKOS_AUTHKIT_DOMAIN', '')  # set in /
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')  # set in /etc/tradewave/secrets.env
 STRIPE_SECRET_KEY      = os.environ.get('STRIPE_SECRET_KEY', '')  # set in /etc/tradewave/secrets.env
 STRIPE_WEBHOOK_SECRET  = os.environ.get('STRIPE_WEBHOOK_SECRET', '')  # set in /etc/tradewave/secrets.env
+# Dedicated (non-default) Customer Portal configuration for the developer-API
+# subscription line.  Keeping this separate prevents API plan-switch settings
+# from changing the established web/EOD portal.
+API_BILLING_PORTAL_CONFIGURATION_ID = os.environ.get(
+    'TW2_API_BILLING_PORTAL_CONFIGURATION_ID', ''
+).strip()
 
 
 # === DATABASE (TW2) ===
@@ -16,6 +22,15 @@ POSTGRES_DSN = os.environ.get('POSTGRES_DSN', '')  # set in /etc/tradewave/secre
 
 # === KEYPROVIDER (TW2) ===
 SERVICE_API_KEY = os.environ.get('SERVICE_API_KEY', '')  # set in /etc/tradewave/secrets.env
+# Service JWTs only bridge internal requests; a one-day lifetime bounds exposure if a
+# downstream exception is ever logged.  Keep the configurable range above the gateway's
+# 20-hour cache but no longer than the secure 24-hour default.
+try:
+    SERVICE_JWT_TTL_HOURS = int(os.environ.get('SERVICE_JWT_TTL_HOURS', '24'))
+except (TypeError, ValueError):
+    SERVICE_JWT_TTL_HOURS = 24
+if not 21 <= SERVICE_JWT_TTL_HOURS <= 24:
+    SERVICE_JWT_TTL_HOURS = 24
 
 # === APPSERVER (TW2) ===
 APPSERVER_JWT_SECRET = os.environ.get('APPSERVER_JWT_SECRET', '')  # set in /etc/tradewave/secrets.env

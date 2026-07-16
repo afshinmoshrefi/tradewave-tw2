@@ -124,7 +124,7 @@ server {
 
     location / { try_files $uri $uri/ $uri.html =404; }
 
-    access_log /var/log/nginx/smn-stage.access.log;
+    access_log /var/log/nginx/smn-stage.access.log tw_noargs;
     error_log  /var/log/nginx/smn-stage.error.log;
 }
 NGINX

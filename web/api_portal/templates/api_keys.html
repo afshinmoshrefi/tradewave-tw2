@@ -122,12 +122,12 @@ print(r.json())</span></pre>
             {% if not k.revoked_at %}
             <div class="row" style="justify-content:flex-end;gap:8px;">
               <form method="POST" action="{{ url_for('api_portal.keys_rotate', key_id=k.id) }}" style="margin:0;"
-                    onsubmit="return confirm('Rotate this key? The current key stops working immediately and a new key is shown once.');">
+                    onsubmit="return confirm('Rotate this key? Cached authorization for the current key may continue for up to {{ revocation_delay_seconds }} seconds, and the new key is shown once.');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-secondary">Rotate</button>
               </form>
               <form method="POST" action="{{ url_for('api_portal.keys_revoke', key_id=k.id) }}" style="margin:0;"
-                    onsubmit="return confirm('Revoke this key? Any client using it stops working immediately. This cannot be undone.');">
+                    onsubmit="return confirm('Revoke this key? Cached authorization may continue for up to {{ revocation_delay_seconds }} seconds. This cannot be undone.');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-danger">Revoke</button>
               </form>

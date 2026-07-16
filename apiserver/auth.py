@@ -275,8 +275,14 @@ def _resolve_mcp(row):
                             "ends_at": nav_ends, "post_teaser_scope": "navigator"}
     ent = dict(tiers.mcp_tier_for(eff_web))
     # MAX(web-mirror, explicit standalone API sub) so a paying developer isn't downgraded.
-    explicit = row.get("api_tier")
-    if explicit:
+    # This is a CONSUMER WorkOS row, so only tiers in the sold API catalog may widen its
+    # scope. Internal names are never consumer subscription identities: _key_tier checks
+    # the durable service_account role before granting mcp/chatbot, while demo remains
+    # reachable only through the explicit public-demo-token branch. Passing an unknown
+    # value to tier_for() would otherwise fall back to Free and still widen an Explorer
+    # mirror from DJ30 to include the S&P 500.
+    explicit = str(row.get("api_tier") or "").strip().lower()
+    if explicit in tiers.API_TIERS:
         ent = tiers.merge_entitlements(ent, tiers.tier_for(explicit))
         # G12: markets/rate may widen from a standalone API key, but a separately-held key
         # must NOT raise in-chat AI for a tier where web AI is gated off (steady Explorer/
@@ -285,6 +291,12 @@ def _resolve_mcp(row):
         # (->analyst) keep their intended AI; only the steady sub-Analyst tiers are floored.
         if eff_web in ("explorer", "navigator"):
             ent["ml_daily_limit"] = tiers.mcp_tier_for(eff_web)["ml_daily_limit"]
+    elif explicit:
+        log.warning(
+            "_resolve_mcp: ignoring non-sold explicit api_tier=%r user=%s",
+            explicit,
+            row.get("user_id"),
+        )
     return eff_web, ent, teaser_state
 
 

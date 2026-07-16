@@ -1,0 +1,34 @@
+[Unit]
+Description=TradeWave 2.0 web tier (auth + admin + Stripe)
+After=network.target
+
+[Service]
+Type=simple
+User=flask
+Group=flask
+WorkingDirectory=/home/flask/web
+EnvironmentFile=/etc/tradewave/secrets.env
+Environment=PYTHONPATH=/home/flask:/home/flask/web
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ExecStart=/home/flask/venv/bin/gunicorn \
+    --workers 2 \
+    --worker-class sync \
+    --timeout 60 \
+    --bind 127.0.0.1:5500 \
+    --bind __TW2_WEB_VLAN__:5500 \
+    --access-logfile /var/log/tradewave/web.access.log \
+    --access-logformat '%({x-forwarded-for}i)s %(l)s %(u)s %(t)s "%(m)s %(U)s %(H)s" %(s)s %(b)s "%(a)s"' \
+    --error-logfile /var/log/tradewave/web.error.log \
+    --capture-output \
+    app:app
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -13,9 +13,8 @@
 # default to loopback (co-located on the app box) but read from secrets.env
 # (TW2_APISERVER_BIND, TW2_MCP_HOST/PORT) - so the SAME units + this SAME script also stand
 # the gateway up on its OWN dedicated box later. Runbook: ops/SPLIT_GATEWAY_TO_OWN_BOX.md.
-# The public ingress is OUT OF SCOPE here and is reminded about at the end:
-#   - nginx vhosts:  ops/nginx/tradewave-developer-portal.conf
-#   - cloudflared:   add api-* / mcp-* / developers-* to /etc/cloudflared/config.yml
+# The nginx API/MCP/portal vhosts are rendered from secrets.env by this script.
+# Cloudflared remains an explicit operator step because tunnel ownership is external.
 #
 # Usage (on the target box):
 #   sudo bash /home/flask/ops/bootstrap_api_services.sh
@@ -42,6 +41,7 @@ hdr "0. preflight"
 [ -r "$SCHEMA" ]        || { echo "FAIL: $SCHEMA not found"; exit 1; }
 [ -r "$UNIT_SRC/tradewave-apiserver.service" ] || { echo "FAIL: $UNIT_SRC/tradewave-apiserver.service not found (pull the repo)"; exit 1; }
 [ -r "$UNIT_SRC/tradewave-mcpserver.service" ] || { echo "FAIL: $UNIT_SRC/tradewave-mcpserver.service not found (pull the repo)"; exit 1; }
+[ -r "$REPO/ops/install_developer_portal_nginx.sh" ] || { echo "FAIL: nginx installer not found (pull the repo)"; exit 1; }
 id -u flask >/dev/null 2>&1 || { echo "FAIL: 'flask' user does not exist"; exit 1; }
 command -v psql >/dev/null 2>&1 || { echo "FAIL: psql not on PATH (install postgresql-client)"; exit 1; }
 say "preflight ok (root, secrets.env, requirements, schema, unit files, flask user, psql)"
@@ -113,28 +113,26 @@ ss -ltnp | grep -q ':9090 ' \
 ss -ltnp | grep ':9090 ' || true
 say "both services healthy (gateway :8088 answering /healthz, mcp :9090 listening)"
 
-# --- 5. reminder: ingress is a SEPARATE step ---------------------------------
-hdr "5. REMINDER - public ingress is NOT done by this script"
+# --- 5. nginx public surface --------------------------------------------------
+hdr "5. render/install API, MCP, and developer-portal nginx vhosts"
+bash "$REPO/ops/install_developer_portal_nginx.sh"
+
+# --- 6. reminder: tunnel is a SEPARATE step ----------------------------------
+hdr "6. REMINDER - cloudflared ingress is NOT done by this script"
 cat <<'REMIND'
   The gateway (:8088) and MCP (:9090) bind LOOPBACK only. They are not reachable
-  from the internet until nginx + the cloudflared tunnel front them. Still TODO,
-  per env, BY YOU (the operator):
+  from the internet until the cloudflared tunnel fronts the nginx vhosts that
+  step 5 installed. Still TODO, per env, BY YOU (the operator):
 
-  1) nginx vhosts - install the developer-portal vhost and set its server_name
-     for THIS env (dev=*-dev.trxstat.com, staging=*-stage.trxstat.com,
-     prod=api/mcp/developers.tradewave.ai):
-         /home/flask/ops/nginx/tradewave-developer-portal.conf
-     Copy it into /etc/nginx/sites-available/, symlink into sites-enabled/, then:
-         nginx -t && systemctl reload nginx
-
-  2) cloudflared ingress - add the three hostnames for THIS env to
+  1) cloudflared ingress - add the three hostnames for THIS env to
      /etc/cloudflared/config.yml ABOVE the final '- service: http_status:404'
-     catch-all, each -> http://localhost:80 :
+     catch-all. Point each at the port printed by step 5 (dev :80,
+     staging/prod :8080 by default):
          api-<env>.trxstat.com   mcp-<env>.trxstat.com   developers-<env>.trxstat.com
          (prod: api.tradewave.ai  mcp.tradewave.ai  developers.tradewave.ai)
      then: systemctl reload cloudflared   (or restart, per your cloudflared unit)
 
-  3) developer-portal docroot - generate /var/www/developers from the repo:
+  2) developer-portal docroot - generate /var/www/developers from the repo:
      see the portal generators under site/api_marketing, site/api_docs,
      site/api_learn, site/api_playground (run with /home/flask/venv/bin/python).
 REMIND

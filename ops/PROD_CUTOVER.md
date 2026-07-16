@@ -122,6 +122,10 @@ the public hostnames. Checklist:
      registers ONLY when this is truthy (`web/app.py:3712`, `if config.API_CONSOLE_ENABLED`).
      Unset (the prod default that ships the product dark) => `/account/api` 404s and
      every "Get API Key" CTA breaks. After setting it, `systemctl restart tradewave-web`.
+   - **`TW2_API_BILLING_PORTAL_CONFIGURATION_ID=bpc_...`** (WEB box) - the dedicated,
+     non-default API-only Billing Portal configuration printed by the guarded LIVE
+     seeder in step 5. Do not use Stripe's shared default configuration. The deploy
+     preflight rejects a missing/placeholder value before restarting the console.
    - **MCP OAuth (the "sign in, no API key" consumer flow)** - all three of
      `TW2_MCP_PUBLIC_URL` (canonical resource / token audience, e.g.
      `https://mcp.tradewave.ai`), `MCP_GATEWAY_KEY`, and `WORKOS_AUTHKIT_DOMAIN`
@@ -137,16 +141,22 @@ the public hostnames. Checklist:
 4. **Tunnels** - add the `api.` / `mcp.` / `developers.tradewave.ai` ingress entries (BEFORE
    the 404 catch-all), add the three Cloudflare DNS tunnel records, `systemctl restart
    cloudflared`, then `nginx -t && systemctl reload nginx`.
-5. **Stripe products** - seed the API products in **LIVE** Stripe. Run exactly (from `/home/flask`):
+5. **Stripe products + dedicated portal** - after the owner approves the live API
+   prices, seed the API products and dedicated API Billing Portal configuration in
+   **LIVE** Stripe. Run exactly (from `/home/flask`):
    ```
    STRIPE_SECRET_KEY=sk_live_... TW2_CONFIRM_LIVE_SEED=1 ./venv/bin/python web/api_portal/create_api_products.py --live
    ```
    Both `--live` AND `TW2_CONFIRM_LIVE_SEED=1` are required to touch live Stripe; without them
-   the script refuses a live key and stays TEST-only. It idempotently seeds the 3 API products
-   (Dev/Pro/Business) + monthly/annual prices + the FOUNDER coupon, all stamped `product_line=api`
-   metadata, in LIVE
-   Stripe (re-running makes no duplicates). Do NOT seed live with test keys or vice versa. Create
-   the prod API webhook if the API tier write needs its own endpoint; verify with a test event.
+   the script refuses a live key and stays TEST-only. It idempotently validates/seeds the 3 API
+   products (Dev/Pro/Business), monthly/annual prices, the FOUNDER coupon, and one non-default
+   API-only Billing Portal configuration, all stamped with API-purpose metadata. It fails closed
+   on duplicate/drifted catalog objects. Copy the printed
+   `TW2_API_BILLING_PORTAL_CONFIGURATION_ID=bpc_...` line into the prod WEB secrets and rerun to
+   validate it before deployment. Do NOT seed live with test keys or vice versa. Keep
+   `TW2_API_PRICING_LIVE` off until the owner explicitly switches it after the live catalog,
+   portal, webhook, and cancellation gates pass. Create the prod API webhook if the API tier
+   write needs its own endpoint; verify with a test event.
 6. **Assemble the portal** - run `ops/assemble_developer_portal.sh` (generators + rsync to
    `/var/www/developers/`); the pages bake the prod hostnames, so this must run AFTER step 2.
 7. **Smoke** (use a real key you create + revoke): `https://api.tradewave.ai/v1/markets`;

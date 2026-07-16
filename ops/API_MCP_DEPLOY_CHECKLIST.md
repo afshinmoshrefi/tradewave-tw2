@@ -32,7 +32,7 @@ Memory: `reference_mcp_api_knowhow`, `project_mcp_consumer_oauth_goal`, `project
 ## Pre-deploy DECISIONS (from the e2e review - `/home/afshin/TRADEWAVE_APP_REVIEW_2026-06-02.md`)
 - [ ] Checkout CSRF (`web/app.py` `/api/stripe/create-checkout` is `@csrf.exempt`) - low blast radius; needs the
       live billing form tested before changing. Decide: fix now or note as accepted.
-- [ ] `SERVICE_API_KEY` in the `/login/api/{key}` URL path (`apiserver/appserver_client.py`) - move to header.
+- [x] `SERVICE_API_KEY` is sent only in the `X-Service-Key` header to `POST /login/api`; tracked callers do not place it in a request path.
 - [ ] ML-endpoint rate-limit decorators (`appserver.py` MLScoreBatch/Pending) - pick a per-tier limit.
 - [ ] SEO: `ENABLE_SEO` now prod-only (env-driven) - confirm prod build flips it; the assemble guard rejects
       stale dev URLs.
@@ -48,7 +48,7 @@ For EACH env (staging, then prod):
    updated `tradewave-mcpserver.service` (now defaults `TW2_MCP_TRANSPORT=streamable-http`): `daemon-reload`.
 3. **secrets.env (per env) - add/confirm:**
    - Tara: `TARA_GATEWAY_KEY` (run `venv-api/bin/python -m apiserver.provision_chatbot_key`), `TW2_GATEWAY_URL`
-     (the gateway base, e.g. `http://127.0.0.1:80/v1` on stg/prod), optionally `APPSERVER_CORS_ORIGINS`.
+     (the gateway base, `http://127.0.0.1:8088/v1` while co-located), optionally `APPSERVER_CORS_ORIGINS`.
    - MCP-OAuth: `MCP_GATEWAY_KEY` (run `venv-api/bin/python -m apiserver.provision_mcp_key`),
      `WORKOS_AUTHKIT_DOMAIN` (already set for web login - reuse), `TW2_MCP_PUBLIC_URL` (the env's MCP host:
      `https://mcp-stage.trxstat.com` / `https://mcp.tradewave.ai`), `TW2_MCP_TRANSPORT=streamable-http`.

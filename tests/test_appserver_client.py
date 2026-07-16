@@ -53,6 +53,8 @@ def test_429_exhausted_raises_with_scrubbed_message(monkeypatch):
     msg = str(ei.value)
     assert "token=***" in msg
     assert ".bbbb.cccc" not in msg          # never the full JWT, prefix only
+    assert ei.value.request is None
+    assert ei.value.response is None
 
 
 def test_non_429_errors_fail_fast_no_retry(monkeypatch):
@@ -180,6 +182,29 @@ def test_scrub_hides_jwt_token_param_and_service_key(monkeypatch):
     assert "token=***" in s
 
 
+def test_scrub_hides_unknown_legacy_login_path_and_api_key_query():
+    s = ac._scrub("GET http://x/login/api/unknown-secret?api_key=also-secret failed")
+    assert s == "GET http://x/login/api/***?api_key=*** failed"
+
+
+def test_get_token_uses_header_not_request_target(monkeypatch):
+    monkeypatch.setattr(ac.settings, "APPSERVER_URL", "http://app")
+    monkeypatch.setattr(ac.settings, "SERVICE_API_KEY", "service-key")
+    monkeypatch.setattr(ac, "_token", {"value": None, "exp": 0.0})
+    captured = {}
+
+    def fake_request(method, url, **kwargs):
+        captured.update(method=method, url=url, kwargs=kwargs)
+        return {"token": "session-token"}
+
+    monkeypatch.setattr(ac, "_request", fake_request)
+    assert ac._get_token() == "session-token"
+    assert captured["method"] == "POST"
+    assert captured["url"] == "http://app/login/api"
+    assert captured["kwargs"]["headers"] == {"X-Service-Key": "service-key"}
+    assert "service-key" not in captured["url"]
+
+
 def test_featured_history_missing_is_an_honest_failure(monkeypatch, tmp_path):
     monkeypatch.setattr(ac, "FEATURED_HISTORY_FILE", str(tmp_path / "missing.json"))
     monkeypatch.setattr(ac.settings, "FEATURED_HISTORY_URL", "")
@@ -200,3 +225,14 @@ def test_featured_history_uses_private_remote_feed_on_split_topology(monkeypatch
     monkeypatch.setattr(ac, "_request", fake_request)
     assert ac._load_featured_history() == [{"symbol": "AAPL"}]
     assert captured["kwargs"]["headers"] == {"X-Service-Key": "service-key"}
+
+
+def test_featured_history_configured_remote_precedes_existing_local(monkeypatch, tmp_path):
+    local = tmp_path / "featured.json"
+    local.write_text('[{"symbol":"STALE"}]', encoding="utf-8")
+    monkeypatch.setattr(ac, "FEATURED_HISTORY_FILE", str(local))
+    monkeypatch.setattr(ac.settings, "FEATURED_HISTORY_URL", "http://web/internal/featured-history")
+    monkeypatch.setattr(ac.settings, "SERVICE_API_KEY", "service-key")
+    monkeypatch.setattr(ac, "_request", lambda *_a, **_k: [{"symbol": "REMOTE"}])
+
+    assert ac._load_featured_history() == [{"symbol": "REMOTE"}]

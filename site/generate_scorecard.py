@@ -20,6 +20,7 @@ sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent / 'lib'))
 import config
 from blog_tools import convert_param_base64
 from ga_snippet import ga_head_snippet
+from log_safety import scrub_secret_text
 from pick_stats import (  # shared win definition
     compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, is_judged, is_resolved, is_win, reached_target, result_return,
 )
@@ -60,14 +61,18 @@ def appserver_login():
     """
     if getattr(config, 'SERVICE_API_KEY', None):
         try:
-            url = APPSERVER_URL + '/login/api/' + config.SERVICE_API_KEY
-            resp = requests.get(url, timeout=30).json()
+            url = APPSERVER_URL + '/login/api'
+            resp = requests.post(
+                url,
+                headers={'X-Service-Key': config.SERVICE_API_KEY},
+                timeout=30,
+            ).json()
             if 'token' in resp:
                 return resp['token']
             print("   ERROR TW2 service-account login failed: %s" % resp.get('message', 'unknown'))
             return None
         except Exception as e:
-            print("   ERROR TW2 service-account login exception: %s" % e)
+            print("   ERROR TW2 service-account login exception: %s" % scrub_secret_text(e, config.SERVICE_API_KEY))
             return None
 
     # Legacy TW1 path - only runs if SERVICE_API_KEY isn't set
@@ -78,7 +83,7 @@ def appserver_login():
                 return requests.get(url, timeout=timeout).json()
             except Exception as e:
                 last = e
-                print("   WARN appserver call failed (%s), attempt %d/%d" % (e, i + 1, attempts))
+                print("   WARN appserver call failed (%s), attempt %d/%d" % (scrub_secret_text(e), i + 1, attempts))
                 time.sleep(sleep_s)
         raise last
 
@@ -94,7 +99,7 @@ def appserver_login():
                 return None
         return result['token']
     except Exception as e:
-        print("   ERROR legacy appserver login failed: %s" % e)
+        print("   ERROR legacy appserver login failed: %s" % scrub_secret_text(e))
         return None
 
 
@@ -121,7 +126,7 @@ def fetch_close_price(resource_id, symbol, target_date, token):
         if best:
             return float(best[4])
     except Exception as e:
-        print("   WARNING: Price fetch failed for %s on %s: %s" % (symbol, target_date, e))
+        print("   WARNING: Price fetch failed for %s on %s: %s" % (symbol, target_date, scrub_secret_text(e)))
     return None
 
 
@@ -150,7 +155,7 @@ def fetch_realtime_prices_bulk(symbols):
                 result[sym.upper()] = entry
         return result
     except Exception as e:
-        print("   WARNING: Realtime bulk fetch failed: %s" % e)
+        print("   WARNING: Realtime bulk fetch failed: %s" % scrub_secret_text(e))
         return {}
 
 
@@ -169,7 +174,7 @@ def fetch_current_price(resource_id, symbol, token):
         if rows:
             return float(rows[-1][4])
     except Exception as e:
-        print("   WARNING: Current price fetch failed for %s: %s" % (symbol, e))
+        print("   WARNING: Current price fetch failed for %s: %s" % (symbol, scrub_secret_text(e)))
     return None
 
 
@@ -193,7 +198,7 @@ def fetch_end_price(resource_id, symbol, end_date, token):
         if rows:
             return float(rows[-1][4])
     except Exception as e:
-        print("   WARNING: End price fetch failed for %s on %s: %s" % (symbol, end_date, e))
+        print("   WARNING: End price fetch failed for %s on %s: %s" % (symbol, end_date, scrub_secret_text(e)))
     return None
 
 
@@ -232,7 +237,7 @@ def fetch_peak_price(resource_id, symbol, start_date, end_date, direction, token
         else:
             return min(float(r[3]) for r in window_rows)  # lowest low
     except Exception as e:
-        print("   WARNING: Peak price fetch failed for %s %s-%s: %s" % (symbol, start_date, end_date, e))
+        print("   WARNING: Peak price fetch failed for %s %s-%s: %s" % (symbol, start_date, end_date, scrub_secret_text(e)))
     return None
 
 

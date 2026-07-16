@@ -9,7 +9,7 @@ part (light = the email convention; the website + confirm landing stay dark).
 NO forward predictions: every figure is the historical record only.
 
 Data path notes (verified 2026-06-22):
-  - Mint a service token: GET {appserver}/login/api/{SERVICE_API_KEY} -> {token}.
+  - Mint a service token: POST {appserver}/login/api with X-Service-Key -> {token}.
   - ChartData4/{market}/{date}/{symbol}/{daysOut}/{yrs}?token=...  honors daysOut
     LITERALLY (the gateway /analyze auto-snaps to a detected window - do not use it
     for fixed horizons). yrs="10" (consecutive) or "pe2-10" (midterm phase 2).
@@ -83,8 +83,9 @@ def _service_key(override=None):
 
 
 def mint_token(appserver_url=None, service_key=None, timeout=20):
-    url = "%s/login/api/%s" % (_appserver_url(appserver_url), _service_key(service_key))
-    r = requests.get(url, timeout=timeout)
+    key = _service_key(service_key)
+    url = "%s/login/api" % _appserver_url(appserver_url)
+    r = requests.post(url, headers={"X-Service-Key": key}, timeout=timeout)
     r.raise_for_status()
     tok = r.json().get("token")
     if not tok:
@@ -93,9 +94,15 @@ def mint_token(appserver_url=None, service_key=None, timeout=20):
 
 
 def _chartdata(market, date, symbol, days_out, yrs, token, appserver_url=None, timeout=45):
-    url = "%s/ChartData4/%s/%s/%s/%s/%s?token=%s" % (
-        _appserver_url(appserver_url), market, date, symbol.upper(), days_out, yrs, token)
-    r = requests.get(url, timeout=timeout)
+    url = "%s/ChartData4/%s/%s/%s/%s/%s" % (
+        _appserver_url(appserver_url), market, date, symbol.upper(), days_out, yrs)
+    try:
+        r = requests.get(url, params={"token": token}, timeout=timeout)
+    except requests.RequestException:
+        # The prepared request URL contains the session JWT. Do not propagate the
+        # requests exception into web/gunicorn logs; absence is already fail-soft.
+        log.warning("ChartData4 request failed market=%s symbol=%s", market, symbol.upper())
+        return None
     if r.status_code != 200:
         return None
     try:

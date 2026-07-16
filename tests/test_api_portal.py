@@ -248,6 +248,38 @@ class TestSubscribeDeepLink:
 
 @pytest.mark.db
 class TestCheckoutServerSideGuard:
+    @pytest.fixture(autouse=True)
+    def _paid_checkout_enabled(self, app_module, monkeypatch):
+        billing = importlib.import_module("api_portal.routes_billing")
+        monkeypatch.setattr(billing.api_tiers, "API_PRICING_LIVE", True)
+
+    def test_checkout_rejects_handcrafted_post_when_pricing_off(
+        self, client, login_as, app_module, monkeypatch,
+    ):
+        login_as(tier="explorer")
+        r_keys = client.get("/account/api/keys")
+        import re
+        token = re.search(
+            rb'name="csrf_token"[^>]*value="([^"]+)"', r_keys.data,
+        ).group(1).decode()
+        billing = importlib.import_module("api_portal.routes_billing")
+        monkeypatch.setattr(billing, "_stripe_configured", lambda: True)
+        monkeypatch.setattr(billing.api_tiers, "API_PRICING_LIVE", False)
+        price_lookup = []
+        monkeypatch.setattr(
+            billing,
+            "_price_for_tier",
+            lambda *args: price_lookup.append(args),
+        )
+
+        response = client.post(
+            "/account/api/billing/checkout",
+            data={"csrf_token": token, "tier": "dev"},
+        )
+
+        assert response.status_code == 403
+        assert price_lookup == []
+
     def test_checkout_rejects_covered_tier(self, client, login_as):
         """Server-side re-check (spec: 4xx-with-flash, never 500) even if the
         UI never should have offered the button - a stale page or hand-built
@@ -411,6 +443,19 @@ class TestConsoleLoggedIn:
         200 here proves the import exists AND the template renders."""
         r = client.get("/account/api/usage")
         assert r.status_code == 200
+
+    def test_key_reveal_page_is_never_cacheable(self, client, as_user):
+        from api_portal import routes_keys
+
+        raw = "tw_live_" + ("a" * 32)
+        with client.session_transaction() as browser_session:
+            browser_session[routes_keys._ONCE_KEY_SESSION] = raw
+        response = client.get("/account/api/keys")
+
+        assert response.status_code == 200
+        assert raw.encode() in response.data
+        assert response.headers["Cache-Control"] == "private, no-store"
+        assert response.headers["Pragma"] == "no-cache"
 
     def test_index_lands_logged_in_user_on_billing(self, client, as_user):
         r = client.get("/account/api", follow_redirects=True)

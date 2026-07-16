@@ -109,7 +109,7 @@ SERVICE_ACCOUNT_EMAIL = "service-account-internal@tradewave.ai"
 def cmd_ensure_service_account(args) -> int:
     """Idempotently create/update the internal service-account user so server-side
     callers (e.g. site/home_opportunities.py) can authenticate to the appserver via
-    GET /login/api/<SERVICE_API_KEY>.
+    POST /login/api with SERVICE_API_KEY in the X-Service-Key header.
 
     Computes api_key_hash = HMAC-SHA256(SERVICE_API_KEY, API_KEY_HMAC_SECRET or
     APPSERVER_JWT_SECRET) from THIS box's secrets, so it must run where secrets.env

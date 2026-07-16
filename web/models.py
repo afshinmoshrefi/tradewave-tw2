@@ -149,6 +149,50 @@ class StripeEvent(Base):
     processing_error   = Column(Text)
 
 
+class StripeCheckoutClaim(Base):
+    """Durable single-flight state for subscription Checkout creation.
+
+    One row per user and product line serializes browser replays and concurrent
+    Gunicorn workers.  ``request_payload`` is the exact, JSON-safe kwargs sent
+    to Stripe; persisting it with the idempotency key lets a later request retry
+    an unknown network outcome without changing parameters or minting a second
+    subscription.
+    """
+    __tablename__ = "stripe_checkout_claims"
+    user_id             = Column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    product_line        = Column(Text, primary_key=True)
+    request_fingerprint = Column(Text, nullable=False)
+    request_payload     = Column(JSONB, nullable=False)
+    idempotency_key     = Column(Text, nullable=False, unique=True)
+    lease_token         = Column(PG_UUID(as_uuid=True))
+    lease_expires_at    = Column(TIMESTAMP(timezone=True))
+    stripe_session_id   = Column(Text, unique=True)
+    stripe_session_url  = Column(Text)
+    expires_at          = Column(TIMESTAMP(timezone=True), nullable=False)
+    consumed_at         = Column(TIMESTAMP(timezone=True))
+    created_at          = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at          = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "product_line IN ('eod','api')",
+            name="stripe_checkout_claims_product_line_check",
+        ),
+        CheckConstraint(
+            "(stripe_session_id IS NULL) = (stripe_session_url IS NULL)",
+            name="stripe_checkout_claims_session_pair_check",
+        ),
+    )
+
+
 class CouponUsed(Base):
     __tablename__ = "coupons_used"
     id                = Column(BigInteger, primary_key=True)

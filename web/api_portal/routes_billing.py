@@ -28,13 +28,25 @@ docstring), so its presence/absence is authoritative. `stripe_customer_id`
 is used ONLY to gate the "manage" links to the Stripe-hosted portal, never to
 choose a card's purchase state.
 """
+from copy import deepcopy
 import os
 import logging
+import time
 
 import stripe
 
 import config
 from apiserver import tiers as api_tiers
+from checkout_claims import (
+    CHECKOUT_SESSION_TTL_SECONDS,
+    CheckoutClaimBusy,
+    CheckoutClaimConflict,
+    CheckoutClaimDeferred,
+    complete_checkout,
+    release_checkout,
+    replace_checkout_payload,
+    reserve_checkout,
+)
 from .blueprint import (
     bp, require_login, get_current_user, api_tier_name_for, api_entitlements_for,
     entitlement_context,
@@ -58,6 +70,14 @@ FOUNDER_TIER = api_tiers.FOUNDER["applies_to_tier"]
 
 # Cache: api_tier_name -> Stripe price object, fetched once per process.
 _price_cache = {}
+
+
+class PriceCatalogError(RuntimeError):
+    """The API Stripe catalog is ambiguous or differs from the sellable spec."""
+
+
+class PortalConfigurationError(RuntimeError):
+    """The dedicated API Billing Portal configuration is missing or drifted."""
 
 
 def _as_dict(value):
@@ -125,22 +145,30 @@ def _subscription_has_api_line(
 
 
 def _existing_api_subscription(customer_id, stored_api_subscription_id=None):
-    """Return an existing live API subscription, or propagate lookup errors."""
+    """Return any non-terminal API subscription, or propagate lookup errors.
+
+    ``incomplete``, ``unpaid``, and ``paused`` subscriptions can still produce
+    billing/customer consequences and must be reconciled rather than bypassed
+    with another Checkout. Only Stripe's terminal ``canceled`` and
+    ``incomplete_expired`` states are safe to ignore.
+    """
     product_cache = {}
-    for status in ("active", "trialing", "past_due"):
-        subscriptions = stripe.Subscription.list(
-            customer=customer_id,
-            status=status,
-            limit=100,
-        )
-        for subscription in subscriptions.auto_paging_iter():
-            if _subscription_has_api_line(
-                subscription,
-                stored_api_subscription_id=stored_api_subscription_id,
-                product_cache=product_cache,
-            ):
-                sub = _as_dict(subscription)
-                return sub.get("id"), sub.get("status") or status
+    subscriptions = stripe.Subscription.list(
+        customer=customer_id,
+        status="all",
+        limit=100,
+    )
+    for subscription in subscriptions.auto_paging_iter():
+        sub = _as_dict(subscription)
+        status = str(sub.get("status") or "").strip().lower()
+        if status in {"canceled", "incomplete_expired"}:
+            continue
+        if _subscription_has_api_line(
+            subscription,
+            stored_api_subscription_id=stored_api_subscription_id,
+            product_cache=product_cache,
+        ):
+            return sub.get("id"), sub.get("status") or "unknown"
     return None, None
 
 
@@ -169,11 +197,21 @@ def _clear_stale_customer_identity(user_id):
 
 
 def _stripe_configured():
-    if "PLACEHOLDER" in (config.STRIPE_SECRET_KEY or ""):
+    secret = (config.STRIPE_SECRET_KEY or "").strip()
+    publishable = (config.STRIPE_PUBLISHABLE_KEY or "").strip()
+    if "PLACEHOLDER" in secret.upper() or "PLACEHOLDER" in publishable.upper():
         return False
-    if "PLACEHOLDER" in (config.STRIPE_PUBLISHABLE_KEY or ""):
-        return False
-    return True
+    secret_mode = (
+        "test" if secret.startswith("sk_test_")
+        else "live" if secret.startswith("sk_live_")
+        else None
+    )
+    publishable_mode = (
+        "test" if publishable.startswith("pk_test_")
+        else "live" if publishable.startswith("pk_live_")
+        else None
+    )
+    return bool(secret_mode and secret_mode == publishable_mode)
 
 
 def _public_host():
@@ -191,6 +229,8 @@ def _refresh_price_cache():
     if not _stripe_configured():
         return
     valid = set(PURCHASABLE_TIERS)
+    next_cache = {}
+    errors = []
     for p in stripe.Price.list(active=True, limit=100, expand=["data.product"]).auto_paging_iter():
         prod = p.product
         if not isinstance(prod, dict):
@@ -200,18 +240,61 @@ def _refresh_price_cache():
             continue
         tier = (md.get("tier") or "").strip().lower()
         if tier not in valid:
+            errors.append("API product has an unknown tier")
             continue
-        rec = p.recurring.to_dict() if getattr(p, "recurring", None) else {}
-        interval = rec.get("interval") or "month"   # 'month' | 'year'
+        rec = _as_dict(getattr(p, "recurring", None))
+        interval = str(rec.get("interval") or "").strip().lower()
+        interval_count = rec.get("interval_count", 1)
+        if interval not in {"month", "year"} or interval_count != 1:
+            errors.append("API price has an unsupported recurring interval")
+            continue
+        expected_amount = int(
+            api_tiers.API_TIERS[tier][
+                "price_monthly" if interval == "month" else "price_annual"
+            ] * 100
+        )
+        currency = str(getattr(p, "currency", "") or "").strip().lower()
+        if currency != "usd":
+            errors.append("API price currency does not match the USD catalog")
+            continue
+        if getattr(p, "unit_amount", None) != expected_amount:
+            errors.append("API price amount does not match the published catalog")
+            continue
+        # Product metadata is canonical.  Legacy Price objects may have no
+        # metadata, but any metadata that is present must agree with the
+        # product and recurring interval.
+        price_md = _as_dict(getattr(p, "metadata", None))
+        if price_md.get("product_line") not in (None, "", "api"):
+            errors.append("API price metadata has the wrong product line")
+            continue
+        if price_md.get("tier") not in (None, "", tier):
+            errors.append("API price metadata has the wrong tier")
+            continue
+        if price_md.get("interval") not in (None, "", interval):
+            errors.append("API price metadata has the wrong interval")
+            continue
         key = (tier, interval)
-        existing = _price_cache.get(key)
+        existing = next_cache.get(key)
         if existing is not None and getattr(existing, "id", None) != getattr(p, "id", None):
-            log.warning(
-                "api price_cache: >1 active %s price for tier %s (%s, %s) - ambiguous; "
-                "archive the extra in Stripe. Using last-seen.",
-                interval, tier, getattr(existing, "id", "?"), getattr(p, "id", "?"),
-            )
-        _price_cache[key] = p
+            errors.append("API catalog has duplicate active prices for one tier/interval")
+            continue
+        next_cache[key] = p
+
+    required = {
+        (tier, interval)
+        for tier in PURCHASABLE_TIERS
+        for interval in ("month", "year")
+    }
+    if set(next_cache) != required:
+        errors.append("API catalog is missing one or more required tier/interval prices")
+    if errors:
+        _price_cache.clear()
+        # Do not include remote object IDs or full Stripe payloads in the log.
+        summary = "; ".join(sorted(set(errors)))
+        log.error("API Stripe price catalog rejected: %s", summary)
+        raise PriceCatalogError(summary)
+    _price_cache.clear()
+    _price_cache.update(next_cache)
 
 
 def _price_for_tier(tier_name, interval="month"):
@@ -224,6 +307,108 @@ def _price_for_tier(tier_name, interval="month"):
     if not _price_cache:
         _refresh_price_cache()
     return _price_cache.get((tier_name, interval))
+
+
+def _price_product_id(price):
+    product = getattr(price, "product", None)
+    if isinstance(product, str):
+        return product
+    product = _as_dict(product)
+    return product.get("id")
+
+
+def _portal_product_map(products):
+    normalized = {}
+    for raw in products or []:
+        item = _as_dict(raw)
+        product = item.get("product")
+        if not isinstance(product, str):
+            product = _as_dict(product).get("id")
+        price_ids = []
+        for raw_price in item.get("prices") or []:
+            if isinstance(raw_price, str):
+                price_ids.append(raw_price)
+            else:
+                price_id = _as_dict(raw_price).get("id")
+                if price_id:
+                    price_ids.append(price_id)
+        if product:
+            normalized[product] = frozenset(price_ids)
+    return normalized
+
+
+def _validated_portal_configuration_id():
+    """Validate the dedicated API portal against the exact API price catalog."""
+    configuration_id = getattr(
+        config, "API_BILLING_PORTAL_CONFIGURATION_ID", "",
+    )
+    if (
+        not configuration_id
+        or not configuration_id.startswith("bpc_")
+        or "PLACEHOLDER" in configuration_id.upper()
+    ):
+        raise PortalConfigurationError(
+            "TW2_API_BILLING_PORTAL_CONFIGURATION_ID is missing or a placeholder"
+        )
+    if not _price_cache:
+        _refresh_price_cache()
+    expected_products = {}
+    for price in _price_cache.values():
+        product_id = _price_product_id(price)
+        if not product_id:
+            raise PortalConfigurationError("API price lacks an expanded product ID")
+        expected_products.setdefault(product_id, set()).add(price.id)
+    expected_products = {
+        product_id: frozenset(price_ids)
+        for product_id, price_ids in expected_products.items()
+    }
+
+    portal = _as_dict(
+        stripe.billing_portal.Configuration.retrieve(configuration_id)
+    )
+    if not portal.get("active") or portal.get("is_default"):
+        raise PortalConfigurationError(
+            "API Billing Portal configuration must be active and non-default"
+        )
+    expected_livemode = (config.STRIPE_SECRET_KEY or "").startswith("sk_live_")
+    if bool(portal.get("livemode")) != expected_livemode:
+        raise PortalConfigurationError(
+            "API Billing Portal configuration belongs to the wrong Stripe mode"
+        )
+    metadata = _as_dict(portal.get("metadata"))
+    if metadata.get("tw2_purpose") != "api_subscription_management":
+        raise PortalConfigurationError(
+            "API Billing Portal configuration has the wrong purpose metadata"
+        )
+    features = _as_dict(portal.get("features"))
+    subscription_update = _as_dict(features.get("subscription_update"))
+    if (
+        not subscription_update.get("enabled")
+        or set(subscription_update.get("default_allowed_updates") or [])
+        != {"price", "promotion_code"}
+        or subscription_update.get("proration_behavior") != "create_prorations"
+        or _portal_product_map(subscription_update.get("products"))
+        != expected_products
+    ):
+        raise PortalConfigurationError(
+            "API Billing Portal configuration does not contain the exact API catalog"
+        )
+    for feature_name in (
+        "invoice_history", "payment_method_update", "subscription_cancel",
+    ):
+        if not _as_dict(features.get(feature_name)).get("enabled"):
+            raise PortalConfigurationError(
+                "API Billing Portal configuration is missing account-management features"
+            )
+    subscription_cancel = _as_dict(features.get("subscription_cancel"))
+    if (
+        subscription_cancel.get("mode") != "at_period_end"
+        or subscription_cancel.get("proration_behavior") != "none"
+    ):
+        raise PortalConfigurationError(
+            "API Billing Portal cancellation semantics have drifted"
+        )
+    return configuration_id
 
 
 def _founder_promotion_code_id():
@@ -349,10 +534,10 @@ def billing_index():
         has_customer=bool(getattr(u, "stripe_customer_id", None)),
         stripe_configured=_stripe_configured(),
         founder=api_tiers.FOUNDER,
-        # Pricing-visibility gate (apiserver.tiers.API_PRICING_LIVE): the owner has not
-        # finalized paid-tier pricing, so the template hides dollar amounts / upgrade
-        # cards for tiers the user is not already on. Display-only - entitlements,
-        # checkout, and the billing portal are untouched.
+        # Owner-controlled pricing/acquisition gate: the template hides paid
+        # offers and the POST route independently rejects new subscriptions.
+        # Existing entitlements and Billing Portal management/cancellation stay
+        # available while the gate is off.
         pricing_live=api_tiers.API_PRICING_LIVE,
     )
 
@@ -377,6 +562,11 @@ def billing_checkout():
     if not _stripe_configured():
         flash("Billing is not yet configured in this environment. Try again later.", "error")
         return redirect(url_for("api_portal.billing_index")), 503
+    if not api_tiers.API_PRICING_LIVE:
+        # Owner-controlled acquisition gate.  Management/cancellation remains
+        # available through /billing/manage for existing subscribers.
+        flash("New API subscriptions are not available yet.", "warning")
+        return redirect(url_for("api_portal.billing_index")), 403
 
     u = get_current_user()
     tier = (request.form.get("tier") or "").strip().lower()
@@ -402,7 +592,15 @@ def billing_checkout():
         flash("Billing interval must be monthly or annual.", "error")
         return redirect(url_for("api_portal.billing_index")), 400
 
-    price = _price_for_tier(tier, interval)
+    try:
+        price = _price_for_tier(tier, interval)
+    except PriceCatalogError:
+        flash(
+            "Billing is temporarily unavailable because the price catalog "
+            "needs operator review.",
+            "error",
+        )
+        return redirect(url_for("api_portal.billing_index")), 503
     if not price:
         flash(
             "No active %s price is configured for %s yet. Run "
@@ -513,6 +711,9 @@ def billing_checkout():
                 ),
             },
         },
+        # Stripe permits a 30-minute to 24-hour lifetime.  Bounding it also
+        # bounds how long the durable checkout claim blocks a different target.
+        expires_at=int(time.time()) + CHECKOUT_SESSION_TTL_SECONDS,
     )
     if valid_customer_id:
         kwargs["customer"] = valid_customer_id
@@ -539,15 +740,57 @@ def billing_checkout():
     if not applied_founder:
         kwargs["allow_promotion_codes"] = True
 
+    from models import Session as DBSession
+
     try:
-        session_obj = stripe.checkout.Session.create(**kwargs)
-    except stripe.error.StripeError as e:
+        reservation = reserve_checkout(
+            u.id, "api", kwargs, session_factory=DBSession,
+        )
+    except CheckoutClaimDeferred:
+        flash(
+            "A previous API checkout outcome is still being reconciled. Wait "
+            "for that session to expire before starting another.",
+            "warning",
+        )
+        response = redirect(url_for("api_portal.billing_index"))
+        response.status_code = 409
+        return response
+    except CheckoutClaimConflict:
+        flash(
+            "A different API subscription checkout is already pending. Finish "
+            "it or wait for it to expire.",
+            "warning",
+        )
+        response = redirect(url_for("api_portal.billing_index"))
+        response.status_code = 409
+        return response
+    except CheckoutClaimBusy:
+        flash(
+            "API checkout creation is already in progress. Retry in a few "
+            "seconds.",
+            "warning",
+        )
+        response = redirect(url_for("api_portal.billing_index"))
+        response.status_code = 409
+        response.headers["Retry-After"] = "2"
+        return response
+
+    if reservation.reused:
+        return redirect(reservation.session_url, code=303)
+
+    try:
+        session_obj = stripe.checkout.Session.create(
+            idempotency_key=reservation.idempotency_key,
+            **reservation.payload,
+        )
+    except stripe.error.InvalidRequestError as e:
         # A rejected FOUNDER discount at session-create time (rare - list()
         # above already active-filters, but Stripe is the final authority on
         # the 100-seat cap) falls back to a plain checkout rather than a dead
         # end for the exact seat-101 case R4 calls out.
-        if applied_founder:
+        if applied_founder and "discounts" in reservation.payload:
             log.warning("founder discount rejected at checkout create: %s; retrying plain", e)
+            kwargs = deepcopy(reservation.payload)
             kwargs.pop("discounts", None)
             kwargs["allow_promotion_codes"] = True
             flash(
@@ -555,10 +798,47 @@ def billing_checkout():
                 "claimed) - continuing at the regular price. You can still "
                 "enter any other promo code at checkout.", "warning",
             )
-            session_obj = stripe.checkout.Session.create(**kwargs)
+            try:
+                reservation = replace_checkout_payload(
+                    reservation, kwargs, session_factory=DBSession,
+                )
+                session_obj = stripe.checkout.Session.create(
+                    idempotency_key=reservation.idempotency_key,
+                    **reservation.payload,
+                )
+            except Exception:
+                try:
+                    release_checkout(reservation, session_factory=DBSession)
+                except Exception:
+                    log.exception(
+                        "api billing: failed to release fallback Checkout claim"
+                    )
+                raise
         else:
+            release_checkout(reservation, session_factory=DBSession)
             raise
-    return redirect(session_obj.url, code=303)
+    except Exception:
+        try:
+            release_checkout(reservation, session_factory=DBSession)
+        except Exception:
+            log.exception("api billing: failed to release Checkout claim")
+        raise
+
+    session_data = _as_dict(session_obj)
+    try:
+        complete_checkout(
+            reservation,
+            session_data.get("id"),
+            session_data.get("url"),
+            session_factory=DBSession,
+        )
+    except Exception:
+        try:
+            release_checkout(reservation, session_factory=DBSession)
+        except Exception:
+            log.exception("api billing: failed to release incomplete Checkout claim")
+        raise
+    return redirect(session_data["url"], code=303)
 
 
 @bp.route("/billing/success")
@@ -596,9 +876,22 @@ def billing_manage():
         _clear_stale_customer_identity(u.id)
         return redirect(url_for("api_portal.billing_index", no_subscription=1))
 
+    try:
+        portal_configuration_id = _validated_portal_configuration_id()
+    except (PriceCatalogError, PortalConfigurationError):
+        log.exception(
+            "api billing manage: dedicated portal configuration validation failed"
+        )
+        return jsonify({
+            "error": "billing_portal_misconfigured",
+            "message": "Subscription management is temporarily unavailable. "
+                       "Please contact support if you need to cancel now.",
+        }), 503
+
     public_host = _public_host()
     session_obj = stripe.billing_portal.Session.create(
         customer=customer_id,
+        configuration=portal_configuration_id,
         return_url="https://%s/account/api/billing" % public_host,
     )
     return redirect(session_obj.url, code=303)

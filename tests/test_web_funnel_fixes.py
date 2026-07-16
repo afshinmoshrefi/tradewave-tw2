@@ -154,6 +154,12 @@ class TestExistingEodSubscription:
     def _patch_list(self, monkeypatch, by_status):
         """by_status: dict status -> list of subscription dicts."""
         def _list(**kw):
+            if kw.get("status") == "all":
+                return _FakeList([
+                    subscription
+                    for subscriptions in by_status.values()
+                    for subscription in subscriptions
+                ])
             return _FakeList(by_status.get(kw.get("status"), []))
         monkeypatch.setattr(stripe.Subscription, "list", staticmethod(_list))
 
@@ -168,6 +174,28 @@ class TestExistingEodSubscription:
         })
         sub_id, item_id, status = app_module._existing_eod_subscription("cus_1")
         assert (sub_id, item_id, status) == ("sub_trial", "si_1", "trialing")
+
+    @pytest.mark.parametrize("status", ["incomplete", "unpaid", "paused"])
+    def test_other_nonterminal_eod_subscription_found(
+        self, app_module, monkeypatch, status,
+    ):
+        self._patch_list(monkeypatch, {
+            status: [self._sub(sub_id=f"sub_{status}", status=status)],
+        })
+        assert app_module._existing_eod_subscription("cus_1") == (
+            f"sub_{status}", "si_1", status,
+        )
+
+    @pytest.mark.parametrize("status", ["canceled", "incomplete_expired"])
+    def test_terminal_eod_subscription_ignored(
+        self, app_module, monkeypatch, status,
+    ):
+        self._patch_list(monkeypatch, {
+            status: [self._sub(sub_id=f"sub_{status}", status=status)],
+        })
+        assert app_module._existing_eod_subscription("cus_1") == (
+            None, None, None,
+        )
 
     def test_no_subscriptions_returns_empty(self, app_module, monkeypatch):
         self._patch_list(monkeypatch, {})
@@ -235,6 +263,12 @@ class TestExistingApiSubscription:
     @staticmethod
     def _patch_list(monkeypatch, by_status):
         def _list(**kwargs):
+            if kwargs.get("status") == "all":
+                return _FakeList([
+                    subscription
+                    for subscriptions in by_status.values()
+                    for subscription in subscriptions
+                ])
             return _FakeList(by_status.get(kwargs.get("status"), []))
         monkeypatch.setattr(stripe.Subscription, "list", staticmethod(_list))
 
@@ -259,8 +293,31 @@ class TestExistingApiSubscription:
         assert api_billing_module._existing_api_subscription("cus_1") == (
             None, None,
         )
-        assert len(calls) == 3
-        assert all("expand" not in call for call in calls)
+        assert len(calls) == 1
+        assert calls[0]["status"] == "all"
+        assert "expand" not in calls[0]
+
+    @pytest.mark.parametrize("status", ["incomplete", "unpaid", "paused"])
+    def test_other_nonterminal_api_subscription_found(
+        self, api_billing_module, monkeypatch, status,
+    ):
+        self._patch_list(monkeypatch, {
+            status: [self._sub(sub_id=f"sub_{status}", status=status)],
+        })
+        assert api_billing_module._existing_api_subscription("cus_1") == (
+            f"sub_{status}", status,
+        )
+
+    @pytest.mark.parametrize("status", ["canceled", "incomplete_expired"])
+    def test_terminal_api_subscription_ignored(
+        self, api_billing_module, monkeypatch, status,
+    ):
+        self._patch_list(monkeypatch, {
+            status: [self._sub(sub_id=f"sub_{status}", status=status)],
+        })
+        assert api_billing_module._existing_api_subscription("cus_1") == (
+            None, None,
+        )
 
     def test_legacy_api_product_is_resolved_without_nested_expansion(
         self, api_billing_module, monkeypatch,

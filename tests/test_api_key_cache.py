@@ -1,4 +1,6 @@
-"""Bounded positive-only gateway API-key cache tests."""
+"""Gateway API-key cache and entitlement-boundary tests."""
+
+import pytest
 
 from apiserver import auth, settings, tiers
 
@@ -74,3 +76,45 @@ def test_internal_service_tier_requires_durable_service_role(
     assert resolved_ordinary["tier"] == "free"
     assert resolved_ordinary["entitlements"].get("service") is not True
     assert "without service_account role" in caplog.text
+
+
+def _ordinary_explorer(api_tier):
+    return {
+        "user_id": "ordinary-workos-user",
+        "email": "ordinary@example.com",
+        "tier": "explorer",
+        "api_tier": api_tier,
+        "roles": ["user"],
+        "reverse_trial_ends_at": None,
+    }
+
+
+@pytest.mark.parametrize("api_tier", ["mcp", "chatbot", "demo", "unknown-tier"])
+def test_workos_ordinary_user_cannot_merge_internal_or_unknown_api_tier(
+    api_tier, caplog,
+):
+    label, entitlements, teaser = auth._resolve_mcp(_ordinary_explorer(api_tier))
+
+    assert label == "explorer"
+    assert entitlements == tiers.mcp_tier_for("explorer")
+    assert teaser == auth._NO_TEASER
+    assert entitlements.get("service") is not True
+    assert entitlements.get("demo") is not True
+    assert "ignoring non-sold explicit api_tier" in caplog.text
+
+
+@pytest.mark.parametrize("api_tier", list(tiers.API_TIERS))
+def test_workos_ordinary_user_merges_valid_sold_api_tier(api_tier):
+    label, entitlements, teaser = auth._resolve_mcp(_ordinary_explorer(api_tier))
+
+    expected = tiers.merge_entitlements(
+        tiers.mcp_tier_for("explorer"), tiers.tier_for(api_tier)
+    )
+    # A standalone API subscription may widen markets and request limits, but it does
+    # not bypass the steady Explorer in-chat ML gate.
+    expected["ml_daily_limit"] = tiers.mcp_tier_for("explorer")["ml_daily_limit"]
+
+    assert label == "explorer"
+    assert entitlements == expected
+    assert teaser == auth._NO_TEASER
+    assert entitlements.get("service") is not True

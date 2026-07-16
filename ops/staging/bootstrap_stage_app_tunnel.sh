@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TW2 APP-box cloudflared tunnel setup (target = ${TGT_APP_HOST}).
+# TW2 APP-box cloudflared tunnel setup (appserver :80 plus API/MCP/portal :8080).
 # Run on .176 as root via ops/staging/run.sh {staging|prod}. Reuses Afshin's Cloudflare account creds.
 #
 # What this does:
@@ -33,7 +33,7 @@ ssh -p "$SSH_PORT" "root@${STAGE_IP}" 'chmod 600 /root/.cloudflared/cert.pem'
 hdr "2. remote setup"
 # APP_HOST + TUNNEL are expanded LOCALLY into the remote env; the REMOTE heredoc
 # stays single-quoted so remote-only $vars are NOT expanded here.
-ssh -p "$SSH_PORT" "root@${STAGE_IP}" "APP_HOST='$TGT_APP_HOST' TUNNEL='$TGT_TUNNEL_APP' bash -s" <<'REMOTE'
+ssh -p "$SSH_PORT" "root@${STAGE_IP}" "APP_HOST='$TGT_APP_HOST' API_HOST='$TGT_API_HOST' MCP_HOST='$TGT_MCP_HOST' DEVELOPERS_HOST='$TGT_DEVELOPERS_HOST' TUNNEL='$TGT_TUNNEL_APP' bash -s" <<'REMOTE'
 set -euo pipefail
 hdr() { printf '\n--- %s ---\n' "$*"; }
 
@@ -61,8 +61,10 @@ echo "TUNNEL_ID=$TUNNEL_ID"
 
 hdr "c. route DNS"
 # Routes the proxied DNS record at $APP_HOST to the tunnel's CNAME. Replaces any A record.
-cloudflared tunnel route dns "$TUNNEL" "$APP_HOST" || \
-    echo "(DNS route may already exist — non-fatal)"
+for host in "$APP_HOST" "$API_HOST" "$MCP_HOST" "$DEVELOPERS_HOST"; do
+    cloudflared tunnel route dns "$TUNNEL" "$host" || \
+        echo "(DNS route for $host may already exist - non-fatal)"
+done
 
 hdr "d. write /etc/cloudflared/config.yml"
 mkdir -p /etc/cloudflared
@@ -73,6 +75,12 @@ credentials-file: /root/.cloudflared/${TUNNEL_ID}.json
 ingress:
   - hostname: $APP_HOST
     service: http://localhost:80
+  - hostname: $API_HOST
+    service: http://localhost:8080
+  - hostname: $MCP_HOST
+    service: http://localhost:8080
+  - hostname: $DEVELOPERS_HOST
+    service: http://localhost:8080
   - service: http_status:404
 CFG
 echo "wrote /etc/cloudflared/config.yml"
@@ -93,12 +101,16 @@ hdr "f. local smoke"
 sleep 3
 curl -sS -o /dev/null -w "local nginx /healthz via Host header: %{http_code}\n" \
     -H "Host: $APP_HOST" http://127.0.0.1/healthz
+curl -sS -o /dev/null -w "local API nginx /healthz on :8080: %{http_code}\n" \
+    -H "Host: $API_HOST" http://127.0.0.1:8080/healthz
 REMOTE
 
 hdr "3. external smoke from .176"
 sleep 5
 curl -sS -o /dev/null -w "external https://${TGT_APP_HOST}/healthz: %{http_code}\n" \
     "https://${TGT_APP_HOST}/healthz"
+curl -sS -o /dev/null -w "external https://${TGT_API_HOST}/healthz: %{http_code}\n" \
+    "https://${TGT_API_HOST}/healthz"
 echo "If 200, end-to-end TLS via Cloudflare tunnel is up."
 
 echo

@@ -6,7 +6,7 @@
 #
 # What this does:
 #   1. Write 3 systemd unit files: appserver, blog-queue, article-processor.
-#      gunicorn --workers reduced from dev's 9 → 2 (staging has 961M RAM).
+#      Post-resize appserver defaults to the audited 4 workers x 4 threads.
 #   2. Write nginx vhost for ${TGT_APP_HOST} → 127.0.0.1:5000 (port 80).
 #      TLS deferred to bootstrap_stage_app_tls.sh.
 #   3. systemctl daemon-reload, enable, start everything.
@@ -19,6 +19,11 @@ hdr() { printf '\n=== %s ===\n' "$*"; }
 # PAYLOAD: run via ops/staging/run.sh {staging|prod}, which prepends the target
 # coordinates (TGT_*). Fail clearly if invoked directly without them.
 : "${TGT_APP_HOST:?run via ops/staging/run.sh - it prepends the target coordinates}"
+[ -r /etc/tradewave/secrets.env ] || { echo "FAIL: secrets.env missing" >&2; exit 1; }
+grep -q '^TW2_FEATURED_HISTORY_URL=http.*:5500/internal/featured-history$' /etc/tradewave/secrets.env || {
+    echo "FAIL: TW2_FEATURED_HISTORY_URL must target the WEB VLAN :5500 private feed" >&2
+    exit 1
+}
 
 hdr "1. write systemd units"
 
@@ -31,6 +36,7 @@ TW2_APPSERVER_WORKERS=${TGT_APP_WORKERS}
 TW2_APPSERVER_THREADS=${TGT_APP_THREADS}
 ENV
 chmod 0640 /etc/tradewave/appserver.env
+chown root:flask /etc/tradewave/appserver.env
 
 cat >/etc/systemd/system/tradewave-blog-queue.service <<'UNIT'
 [Unit]
@@ -81,6 +87,11 @@ UNIT
 echo "  installed the appserver unit and wrote 2 queue unit files"
 
 hdr "2. nginx vhost for ${TGT_APP_HOST} (HTTP only — TLS later)"
+
+# Install the query-free named log format before nginx parses the vhost.
+install -d -m 0755 /etc/nginx/conf.d
+install -m 0644 /home/flask/ops/nginx/conf.d/tradewave-log-format.conf \
+    /etc/nginx/conf.d/tradewave-log-format.conf
 
 # Disable default vhost so our vhost wins for unknown server_name lookups.
 rm -f /etc/nginx/sites-enabled/default
@@ -133,6 +144,9 @@ server {
         proxy_send_timeout 120s;
         proxy_read_timeout 120s;
     }
+
+    access_log /var/log/nginx/tradewave-appserver.access.log tw_noargs;
+    error_log  /var/log/nginx/tradewave-appserver.error.log;
 }
 NGINX
 

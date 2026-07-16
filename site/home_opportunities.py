@@ -27,12 +27,15 @@ import csv
 import datetime
 import sys
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
 
 sys.path.insert(0, '/home/flask')
+sys.path.insert(0, str(Path(__file__).resolve().parent / 'lib'))
 import config
+from log_safety import scrub_secret_text
 
 # ---------------------------------------------------------------------------
 # CONFIGURATION
@@ -93,20 +96,24 @@ REQUEST_TIMEOUT = 30
 # ---------------------------------------------------------------------------
 
 def appserver_login() -> Optional[str]:
-    """Login via SERVICE_API_KEY (TW2 single-step path)."""
+    """Login via a credential-safe service header."""
     if not getattr(config, "SERVICE_API_KEY", None):
         print("ERROR: config.SERVICE_API_KEY is not set in secrets.env")
         return None
     try:
-        url = APPSERVER_URL + "/login/api/" + config.SERVICE_API_KEY
-        resp = requests.get(url, timeout=REQUEST_TIMEOUT).json()
+        url = APPSERVER_URL + "/login/api"
+        resp = requests.post(
+            url,
+            headers={"X-Service-Key": config.SERVICE_API_KEY},
+            timeout=REQUEST_TIMEOUT,
+        ).json()
         token = resp.get("token")
         if not token:
-            print("ERROR: appserver login failed: %s" % resp.get("message", resp))
+            print("ERROR: appserver login failed: %s" % resp.get("message", "no token"))
             return None
         return token
     except Exception as e:
-        print("ERROR: appserver login exception: %s" % e)
+        print("ERROR: appserver login exception: %s" % scrub_secret_text(e, config.SERVICE_API_KEY))
         return None
 
 
@@ -138,7 +145,7 @@ def fetch_opp_list(
         data = resp.json()
         return data.get("OppList", []) or []
     except Exception as e:
-        print("   WARN OppList4 exception: %s" % e)
+        print("   WARN OppList4 exception: %s" % scrub_secret_text(e))
         return []
 
 

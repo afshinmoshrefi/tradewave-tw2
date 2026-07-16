@@ -320,22 +320,17 @@ uses one bounded async gateway pool (`TW2_MCP_GATEWAY_MAX_INFLIGHT`, default 32)
 serves the MCP endpoint at the ROOT path `/` with `/mcp` as a permanent alias (NOT SSE at
 `/sse`). Logs: `/var/log/tradewave/`.
 
-**1. Build the loopback services (once per box / new box); then wire the edge manually:**
+**1. Build the loopback services and nginx surface (once per box / new box):**
 ```
 sudo bash /home/flask/ops/bootstrap_api_services.sh
 ```
-Idempotent + echoes each step. It does ONLY the loopback layer: builds `/home/flask/venv-api`
+Idempotent + echoes each step. It builds `/home/flask/venv-api`
 from `requirements-api.txt`, applies the additive `apiserver/schema.sql`, and installs +
-`enable --now`s the two systemd units (gateway :8088, mcp :9090). It does NOT wire the edge -
-it only echoes a reminder that nginx + cloudflared are separate. The edge is two manual steps
-done per box (cross-ref PROD_CUTOVER "API/MCP go-live" Step 4):
-- **nginx vhost** - install `ops/nginx/tradewave-developer-portal.conf` (the `api.`/`mcp.`/
-  `developers.` server blocks) into `sites-available`, symlink into `sites-enabled`, then
-  `nginx -t && systemctl reload nginx`.
-- **cloudflared ingress** - add the `api-`/`mcp-`/`developers-` (prod: bare `api.`/`mcp.`/
-  `developers.tradewave.ai`) ingress entries to `/etc/cloudflared/config.yml` BEFORE the
-  `- service: http_status:404` catch-all, then `systemctl restart cloudflared` (the cloudflared
-  edit alone does nothing - that is the 404).
+`enable --now`s the two systemd units (gateway :8088, mcp :9090). It also renders and installs
+the API/MCP/developer nginx vhosts from `secrets.env` through
+`ops/install_developer_portal_nginx.sh` (dev :80, staging/prod :8080). Cloudflared remains a
+separate edge step. The staging/prod app-tunnel bootstrap routes the three public hosts to
+`http://localhost:8080` before its final 404 catch-all; appserver stays on APP :80.
 
 **2. Assemble the developer portal docroot:**
 ```

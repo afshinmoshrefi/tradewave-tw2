@@ -578,7 +578,7 @@ Lines: 212, 324, 342, 421, 753, 1263, 1477, 3030, 3188, 3244, 3362, 3452, 3512, 
 
 **aud/iss are enforced.** The `TODO(F3)` at `/home/flask/web/app.py:605` reads "currently appserver does not pass these" but the codebase **does** now pass them — the TODO is stale and can be marked closed. Required claims: `aud=tw2-appserver`, `iss=tw2-web`. Algorithm: HS256. Secret env var: **APPSERVER_JWT_SECRET** (must match byte-exact on both boxes).
 
-`SERVICE_API_KEY` (env: `SERVICE_API_KEY`, value `twsa_...`) is the long-lived service-account credential, separately hashed and stored in `users.api_key_hash` (HMAC-SHA256 with `API_KEY_HMAC_SECRET` which falls back to `APPSERVER_JWT_SECRET`). Used by the `/login/api/<api_key>` route at appserver line 575 — for back-office/internal callers.
+`SERVICE_API_KEY` (env: `SERVICE_API_KEY`, value `twsa_...`) is the long-lived service-account credential, separately hashed and stored in `users.api_key_hash` (HMAC-SHA256 with `API_KEY_HMAC_SECRET` which falls back to `APPSERVER_JWT_SECRET`). Back-office/internal callers send it in the `X-Service-Key` header to `POST /login/api`; it must never appear in a URL.
 
 ### HTTP endpoints called by web/site on appserver
 
@@ -589,10 +589,10 @@ Lines: 212, 324, 342, 421, 753, 1263, 1477, 3030, 3188, 3244, 3362, 3452, 3512, 
 | `site/lib/blog_tools.py:264,277` | `GET {appserver_url}/login/2/3/4/5/6` and `/login/28/3/4/5/{keyprovider_token}` |
 | `site/lib/svg_wave_chart.py:79,85,106,115,124` | same /login plus `/ChartData4/...`, `/ChartHistorical2/...`, `/consolidated_seasonal_chart2/...` |
 | `site/ticker_pages/ticker_data.py:38` | sets `APPSERVER_URL = config.appserver_url`, makes various calls |
-| `smn/blog_tools.py:264-278`, `smn/create_report.py:84-287`, `smn/generate_top10_sr.py:31-73`, `smn/get_top10_data.py:31-75`, `smn/thumbnails.py:56`, `smn/thumbnail_tools.py:79` | `/login/2/3/4/5/6`, `/login/28/3/4/5/{kp_token}`, `/login/api/{kp_token}`, `/OppList4/...`, `/ChartData4/...`, `/ChartHistorical2/...`, `/consolidated_seasonal_chart2/...` |
+| `smn/blog_tools.py:264-278`, `smn/create_report.py:84-287`, `smn/generate_top10_sr.py:31-73`, `smn/get_top10_data.py:31-75`, `smn/thumbnails.py:56`, `smn/thumbnail_tools.py:79` | legacy `/login/2/3/4/5/6` and `/login/28/3/4/5/{kp_token}` flows where still present; migrated callers use header-authenticated `POST /login/api`; data routes include `/OppList4/...`, `/ChartData4/...`, `/ChartHistorical2/...`, `/consolidated_seasonal_chart2/...` |
 | `smn/select_news_articles.py:50` | sets `PROD_APPSERVER_URL = config.appserver_url.rstrip('/')` |
 
-App-server routes invoked by these callers (subset, from appserver.py route grep): `/`, `/login/{userid}/{level}/{cc}/{zip}/{skey}`, `/login/api/{api_key}`, `/OppList4/...`, `/OppBySymbol/...`, `/ChartData4/...`, `/ChartHistorical2/...`, `/StockMetaData/...`, `/GetListSymbols/...`, `/StockLastPrice/...`, `/getStockPriceByDate/...`, `/YearsMetaData2/...`, `/consolidated_seasonal_chart2/...`, `/NameFromTicker/...`, `/StockScoreBatch/...`, `/MLScoreBatch/...`, `/MLScorePending/...`, `/getResourcesObj`, `/dr_report_*`, `/article_*`, `/get_news_home_url/`, `/get_user_portfolio_names`, `/add_user_portfolio_name/...`, `/edit_user_portfolio_name/...`, `/del_user_portfolio_name/...`, `/get_user_watchlist_names`, `/get_user_watchlist_items/...`, `/update_status/...`, `/dr_report_list/...`, `/update_number_of_shares/...`, `/dr_report_remove/...`.
+App-server routes invoked by these callers (subset, from appserver.py route grep): `/`, `/login/{userid}/{level}/{cc}/{zip}/{skey}`, `POST /login/api` (with `X-Service-Key`), `/OppList4/...`, `/OppBySymbol/...`, `/ChartData4/...`, `/ChartHistorical2/...`, `/StockMetaData/...`, `/GetListSymbols/...`, `/StockLastPrice/...`, `/getStockPriceByDate/...`, `/YearsMetaData2/...`, `/consolidated_seasonal_chart2/...`, `/NameFromTicker/...`, `/StockScoreBatch/...`, `/MLScoreBatch/...`, `/MLScorePending/...`, `/getResourcesObj`, `/dr_report_*`, `/article_*`, `/get_news_home_url/`, `/get_user_portfolio_names`, `/add_user_portfolio_name/...`, `/edit_user_portfolio_name/...`, `/del_user_portfolio_name/...`, `/get_user_watchlist_names`, `/get_user_watchlist_items/...`, `/update_status/...`, `/dr_report_list/...`, `/update_number_of_shares/...`, `/dr_report_remove/...`.
 
 ## 11. Migrations + Bootstrap-relevant Scripts
 
@@ -943,9 +943,27 @@ MAILERLITE_OUTBOUND_ENABLED=0
 MAILERLITE_TRIAL_STARTED_GROUP_ID=
 MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID=
 MAILERLITE_WINBACK_GROUP_ID=
+TW2_API_BILLING_PORTAL_CONFIGURATION_ID=PLACEHOLDER_RUN_API_STRIPE_SEED_AND_PERSIST_BPC_ID
 ```
 
 PUBLER_*, FACEBOOK_*, MAILERLITE_TOKEN, EOD_TOKEN are already in secrets.env (we just verified all are populated on dev).
+
+Before enabling or deploying the staging API console, run the API catalog
+seeder with the environment's Stripe TEST key. It validates the complete TEST
+catalog, creates or updates one dedicated non-default API Billing Portal
+configuration, and prints the exact value to persist:
+
+```
+sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && ./venv/bin/python web/api_portal/create_api_products.py'
+```
+
+Replace the generated placeholder with the printed
+`TW2_API_BILLING_PORTAL_CONFIGURATION_ID=bpc_...` line in the WEB box's
+`/etc/tradewave/secrets.env`. Re-running is the validation step and is
+idempotent; it refuses duplicate active products/prices and refuses Stripe's
+shared default portal. Use the same TEST-only procedure for dev and persist the
+printed value in dev's WEB secrets. `ops/deploy.sh staging` fails before service
+restart while the value is absent or still a placeholder.
 
 The blank lifecycle IDs and disabled flag are deliberate on staging. Production
 gets the three reviewed trigger IDs but stays disabled until every automation

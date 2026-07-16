@@ -37,6 +37,7 @@ Both boxes must have **`TW2_PUBLIC_HOST` = the customer host** (`deploy.sh` pre-
 - SMN host vars: `TW2_NEWS_WEBSITE_URL`, `TW2_SMN_FAVICON_URL`, `TW2_ARTICLE_FAVICON_URL` should point at the env's SMN host (e.g. `smn-stage` / the prod SMN host), NOT `smn-dev`. (Staging still carries some `smn-dev` values - cosmetic favicon on SMN/news pages; set correctly on prod.)
 - `STRIPE_WEBHOOK_SECRET` = the real `whsec_...` on prod (staging carries a placeholder -> webhook fail-closes 503, expected).
 - `TW2_API_CONSOLE_ENABLED=1` lights the `/account/api` console (web box; set on staging AND prod since the 2026-07 launch).
+- `TW2_API_BILLING_PORTAL_CONFIGURATION_ID=bpc_...` selects the dedicated, non-default API-only Billing Portal configuration on the WEB box. Generate/validate it with `web/api_portal/create_api_products.py`, persist the printed value, and never substitute Stripe's shared default portal. `deploy.sh` rejects a missing value or staging placeholder before any service restart.
 
 ### 2. nginx vhost `/etc/nginx/sites-enabled/tw2-<env>-web` (symlink -> sites-available)
 Route rules are per-box. Every customer route that is NOT a static file must `proxy_pass http://tw2_web`.
@@ -48,7 +49,7 @@ Required `location` blocks (mirror them across envs): `= /signup = /login = /log
 
 ## Deploy flow - `bash ops/deploy.sh {staging|prod}` (run from the dev box)
 
-1. **pre-flight**: `TW2_PUBLIC_HOST` value == the env host on BOTH boxes, else abort.
+1. **pre-flight**: `TW2_PUBLIC_HOST` value == the env host on BOTH boxes and the WEB box has both the API console gate and a real `bpc_...` dedicated portal ID, else abort.
 2. **app tier**: git pull (ff) + venv sync + restart `tradewave-appserver`; restart `apiserver`/`mcpserver` if provisioned (gateway `/healthz` gate).
 3. **web tier**: git pull (ff) + venv sync + `migrate.sh` (alembic upgrade head + additive `apiserver/schema.sql`, fail-closed) + restart `tradewave-web` (+ SMN daemons if present).
 4. **regen_site** (`ops/regen_site.sh`, as flask, secrets sourced): run EVERY main-site generator in **DATA-compute-then-RENDER** order with the correct host: `insights_charts` -> authored pages (text/about/research/insights/learn) -> `ticker` -> **`home_opportunities` (data: Top Patterns CSV)** -> **`home`** (sole writer of the new featured-pick row in `data/featured_history.json`) -> **`scorecard`** (reads that row + recomputes outcomes live; MUST follow `home`) -> `daily-pick` -> `markets` (SKIP if no SMN tree) -> **`refresh_market_quotes` (last: re-injects live prices + writes `assets/quotes.json`)**. Each step is fail-soft (logs + counts, never aborts). The home/scorecard/ticker/opportunities steps need the appserver (restarted in step 2); home also needs the ML scorer + live Stripe.

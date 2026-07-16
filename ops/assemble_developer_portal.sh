@@ -12,8 +12,8 @@
 #   /var/www/developers/learn/            <- site/api_learn/out/
 #   /var/www/developers/playground/       <- site/api_playground/out/
 #
-# This is a WEB-BOX script: the operator runs it ON the target box (dev / staging /
-# prod). It does NOT ssh anywhere and it does NOT restart any service. It is
+# This is an APP-box script: the operator runs it ON the target box (dev / staging /
+# prod) where the API/MCP nginx vhosts live. It does NOT ssh anywhere or restart services. It is
 # idempotent - run it any time the generators or their source content change.
 #
 # HOSTS: the generators read the public hostnames from site/lib/portal_urls.py,
@@ -30,6 +30,12 @@
 #
 # Brand rule: no em-dashes anywhere (use ' - ').
 set -euo pipefail
+
+if [[ -r /etc/tradewave/secrets.env ]]; then
+  set -a
+  . /etc/tradewave/secrets.env
+  set +a
+fi
 
 REPO=/home/flask
 PY="$REPO/venv/bin/python"
@@ -131,10 +137,12 @@ fi
 echo "  chown -R $OWNER $DOCROOT"
 chown -R "$OWNER" "$DOCROOT"
 
-hdr "4/4  smoke (local, via nginx on :80)"
-echo '--- curl -sI http://127.0.0.1/ -H "Host: developers-dev.trxstat.com" ---'
-echo '    (on staging/prod use the matching Host: developers-stage.trxstat.com / developers.tradewave.ai)'
-curl -sI http://127.0.0.1/ -H 'Host: developers-dev.trxstat.com' || \
+if [[ "${TW2_ENV:-dev}" == dev ]]; then default_port=80; else default_port=8080; fi
+PORT="${TW2_DEVELOPER_PORT:-$default_port}"
+DEV_HOST="${TW2_DEVELOPERS_PUBLIC_HOST:?TW2_DEVELOPERS_PUBLIC_HOST must be configured}"
+hdr "4/4  smoke (local, via nginx on :$PORT)"
+echo "--- developer portal local smoke: Host=$DEV_HOST port=$PORT ---"
+curl -sI "http://127.0.0.1:$PORT/" -H "Host: $DEV_HOST" || \
   echo "  (curl failed - nginx/tunnel may not be wired for this host yet; the docroot is still built)"
 
 # Guard: a stale LOWER-env hostname must never ship to a higher env. On staging/prod, fail the

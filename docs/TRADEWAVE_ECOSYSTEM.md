@@ -456,7 +456,8 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
    `user_id` -> 403 on mismatch). Gating sourced from LTK claims. Mints a 24h
    session token (`?token=`) for all data endpoints. (Old WP/UMP/keyprovider
    branch is dead code; `useUMP`/central-server removed 2026-05-21.)
-2. **`/login/api/<api_key>`** (`login_api`) - the SERVICE login. Hashes the key
+2. **`POST /login/api`** (`login_api`) - the SERVICE login. Reads the key only
+   from the `X-Service-Key` header and hashes it
    with `API_KEY_HMAC_SECRET`, looks up `users.api_key_hash`; **no match -> 403
    "invalid api_key"**. Used by server-side scripts (e.g. `home_opportunities.py`
    via `SERVICE_API_KEY`). Hash secret is `API_KEY_HMAC_SECRET`, falling back to
@@ -1010,9 +1011,11 @@ inherit from the web tier via `WEB_TIER_TO_API`; set = an API-only sub). Schema 
 - Consumer MCP mirrors the web product at 400/day Explorer, 1,000/day Navigator,
   5,000/day Analyst, and 20,000/day Strategist.
 
-**Pricing-visibility gate (2026-07-04):** `apiserver/tiers.py:API_PRICING_LIVE` (env
-`TW2_API_PRICING_LIVE`, truthy strings `1`/`true`/`yes`) is a DISPLAY-only flag, separate
-from the tiers/quotas themselves (which are always live/enforced). While unset (owner has
+**Pricing/acquisition gate (2026-07-04):** `apiserver/tiers.py:API_PRICING_LIVE` (env
+`TW2_API_PRICING_LIVE`, truthy strings `1`/`true`/`yes`) controls paid-offer display and
+server-side creation of new API subscriptions. It remains separate from tiers/quotas
+(which are always live/enforced) and does not block existing subscribers from managing or
+cancelling through the Billing Portal. While unset (owner has
 not finalized paid-tier $), the marketing generator (`site/api_marketing/generate.py`),
 the docs generator (`site/api_docs/generate_api_docs.py`), and the console billing page
 (`web/api_portal/routes_billing.py` + `templates/api_billing.html`) all import it and
@@ -1022,8 +1025,9 @@ discount - are hidden with it; the monthly/annual toggle appears only after the 
 is enabled), docs show "See pricing page",
 and the console billing page hides upgrade cards/checkout for tiers the user is NOT
 already on (their own current plan - even if paid, e.g. a bundled Analyst->Dev - still
-renders normally, since that is real state, not marketing). Checkout/Stripe code paths are
-untouched. Regenerate after flipping: `ops/assemble_developer_portal.sh` (or the individual
+renders normally, since that is real state, not marketing). The checkout POST independently
+returns 403 while the gate is off, including for handcrafted requests. Regenerate after
+flipping: `ops/assemble_developer_portal.sh` (or the individual
 generators). The flag resolution FALLS BACK to `/etc/tradewave/secrets.env` when the env var
 is unset (`tiers._pricing_live_flag`, env wins; added 2026-07-05) - necessary because the
 generators run from operator/deploy shells that do NOT load the box env (`deploy.sh` sshes

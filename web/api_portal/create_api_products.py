@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Idempotently create the TradeWave API products + monthly/annual prices in
+"""Idempotently create the TradeWave API products + monthly/annual prices and
+the dedicated API Billing Portal configuration in
 Stripe (Dev/Pro/Business), with metadata product_line=api + tier so the
 console's billing code (and the web app's webhook) can resolve them
 deterministically.
@@ -26,8 +27,9 @@ Safety:
     will be created before proceeding.
   - Any key that is neither 'sk_test_' nor 'sk_live_' is always refused.
   - Idempotent: it looks up existing products by (product_line=api, tier)
-    metadata and reuses them; it looks up an existing active monthly price on
-    that product and reuses it. Re-running makes no duplicates.
+    metadata, validates the exact amount/currency/interval, and reuses them.
+    The dedicated portal configuration is found by purpose metadata or by
+    TW2_API_BILLING_PORTAL_CONFIGURATION_ID. Re-running makes no duplicates.
 
 Source of truth for the tiers/prices is apiserver.tiers.API_TIERS (the same
 dict the console + gateway read). The free tier has no Stripe product.
@@ -46,6 +48,26 @@ CURRENCY = "usd"
 PRODUCT_LINE = "api"
 # Tiers that get a Stripe product (free is not purchasable).
 PAID_TIERS = ["dev", "pro", "business"]
+PORTAL_CONFIGURATION_ENV = "TW2_API_BILLING_PORTAL_CONFIGURATION_ID"
+PORTAL_PURPOSE = "api_subscription_management"
+PORTAL_NAME = "TradeWave API subscriptions"
+
+
+def _as_dict(value):
+    if isinstance(value, dict):
+        return value
+    if value is None:
+        return {}
+    for method_name in ("to_dict_recursive", "to_dict"):
+        method = getattr(value, method_name, None)
+        if callable(method):
+            converted = method()
+            if isinstance(converted, dict):
+                return converted
+    try:
+        return dict(value)
+    except (TypeError, ValueError):
+        return {}
 
 
 def _live_banner():
@@ -71,6 +93,13 @@ def _live_banner():
         )
     f = api_tiers.FOUNDER
     lines += [
+        "",
+        "  Dedicated API Billing Portal configuration to ensure:",
+        "    - Create or update the non-default API-only configuration",
+        "    - Permit API tier/interval changes, promotion codes, cancellation,",
+        "      payment-method updates, and invoice history",
+        "    - Print the resulting %s value for operator persistence"
+        % PORTAL_CONFIGURATION_ENV,
         "",
         "  Plus the FOUNDER discount on the Pro product:",
         "    - Coupon %s  (%d%% off Pro, repeating %dmo, max %d redemptions)"
@@ -152,36 +181,65 @@ def _find_product(stripe, tier):
     products and match in Python to stay robust to search-index lag right
     after a create.
     """
+    matches = []
     for prod in stripe.Product.list(active=True, limit=100).auto_paging_iter():
-        md = prod.metadata.to_dict() if getattr(prod, "metadata", None) else {}
+        md = _as_dict(getattr(prod, "metadata", None))
         if (md.get("product_line") or "").lower() == PRODUCT_LINE and (md.get("tier") or "").lower() == tier:
-            return prod
-    return None
+            matches.append(prod)
+    if len(matches) > 1:
+        raise RuntimeError(
+            "REFUSING TO CONFIGURE: multiple active API products exist for "
+            "tier %s" % tier
+        )
+    return matches[0] if matches else None
 
 
 def _find_price_for_interval(stripe, product_id, interval):
-    """Find an existing active recurring price with the given interval, or None."""
+    """Find the sole active recurring price for an interval, or None."""
+    matches = []
     for price in stripe.Price.list(product=product_id, active=True, limit=100).auto_paging_iter():
-        rec = price.recurring.to_dict() if getattr(price, "recurring", None) else {}
+        rec = _as_dict(getattr(price, "recurring", None))
         if rec.get("interval") == interval:
-            return price
-    return None
+            matches.append(price)
+    if len(matches) > 1:
+        raise RuntimeError(
+            "REFUSING TO SEED: duplicate active %s prices for API product %s"
+            % (interval, product_id)
+        )
+    return matches[0] if matches else None
 
 
 def _ensure_price(stripe, product, tier, interval, dollars):
     """Idempotently ensure an active <interval> price exists on the product."""
     unit = "/mo" if interval == "month" else "/yr"
     price = _find_price_for_interval(stripe, product.id, interval)
+    expected_amount = int(dollars) * 100
     if price is None:
         price = stripe.Price.create(
             product=product.id,
-            unit_amount=int(dollars) * 100,
+            unit_amount=expected_amount,
             currency=CURRENCY,
             recurring={"interval": interval},
             metadata={"product_line": PRODUCT_LINE, "tier": tier, "interval": interval},
         )
         print("    created price %s ($%d%s)" % (price.id, dollars, unit))
     else:
+        recurring = _as_dict(getattr(price, "recurring", None))
+        metadata = _as_dict(getattr(price, "metadata", None))
+        if (
+            getattr(price, "unit_amount", None) != expected_amount
+            or str(getattr(price, "currency", "") or "").lower() != CURRENCY
+            or recurring.get("interval") != interval
+            or recurring.get("interval_count", 1) != 1
+            or metadata.get("product_line") not in (None, "", PRODUCT_LINE)
+            or metadata.get("tier") not in (None, "", tier)
+            or metadata.get("interval") not in (None, "", interval)
+        ):
+            raise RuntimeError(
+                "REFUSING TO SEED: active %s price for API tier %s does not "
+                "match amount/currency/interval/metadata; reconcile it first"
+                % (interval, tier)
+            )
         print("    reused price  %s ($%d%s)" % (price.id, dollars, unit))
     return price
 
@@ -276,6 +334,172 @@ def _ensure_founder(stripe, pro_product_id):
         print("  created promo   %s (code %s -> ~$%d/mo Pro)" % (pc.id, code, spec["effective_monthly"]))
 
 
+def _portal_products(products, prices):
+    return [
+        {
+            "product": products[tier].id,
+            "prices": [prices[tier]["month"].id, prices[tier]["year"].id],
+        }
+        for tier in PAID_TIERS
+    ]
+
+
+def _portal_product_map(raw_products):
+    result = {}
+    for raw in raw_products or []:
+        item = _as_dict(raw)
+        product = item.get("product")
+        if not isinstance(product, str):
+            product = _as_dict(product).get("id")
+        price_ids = []
+        for raw_price in item.get("prices") or []:
+            if isinstance(raw_price, str):
+                price_ids.append(raw_price)
+            else:
+                price_id = _as_dict(raw_price).get("id")
+                if price_id:
+                    price_ids.append(price_id)
+        if product:
+            result[product] = frozenset(price_ids)
+    return result
+
+
+def _portal_features(expected_products):
+    return {
+        "payment_method_update": {"enabled": True},
+        "invoice_history": {"enabled": True},
+        "subscription_cancel": {
+            "enabled": True,
+            "mode": "at_period_end",
+            "proration_behavior": "none",
+        },
+        "subscription_update": {
+            "enabled": True,
+            "default_allowed_updates": ["price", "promotion_code"],
+            "proration_behavior": "create_prorations",
+            "products": expected_products,
+        },
+    }
+
+
+def _portal_configuration_matches(configuration, expected_products):
+    configuration = _as_dict(configuration)
+    if not configuration.get("active") or configuration.get("is_default"):
+        return False
+    metadata = _as_dict(configuration.get("metadata"))
+    if metadata.get("tw2_purpose") != PORTAL_PURPOSE:
+        return False
+    features = _as_dict(configuration.get("features"))
+    for feature_name in (
+        "payment_method_update", "invoice_history", "subscription_cancel",
+    ):
+        if not _as_dict(features.get(feature_name)).get("enabled"):
+            return False
+    cancellation = _as_dict(features.get("subscription_cancel"))
+    if (
+        cancellation.get("mode") != "at_period_end"
+        or cancellation.get("proration_behavior") != "none"
+    ):
+        return False
+    subscription_update = _as_dict(features.get("subscription_update"))
+    return bool(
+        subscription_update.get("enabled")
+        and set(subscription_update.get("default_allowed_updates") or [])
+        == {"price", "promotion_code"}
+        and subscription_update.get("proration_behavior")
+        == "create_prorations"
+        and _portal_product_map(subscription_update.get("products"))
+        == _portal_product_map(expected_products)
+    )
+
+
+def _find_api_portal_configuration(stripe):
+    configured_id = (os.environ.get(PORTAL_CONFIGURATION_ENV) or "").strip()
+    if configured_id and "PLACEHOLDER" in configured_id.upper():
+        # The staging secrets generator deliberately emits a fail-closed
+        # placeholder. Treat it as "not seeded yet" so this operator command
+        # can create the dedicated configuration whose real ID replaces it.
+        configured_id = ""
+    elif configured_id and not configured_id.startswith("bpc_"):
+        raise RuntimeError(
+            "REFUSING TO CONFIGURE: %s is not a Stripe Billing Portal "
+            "configuration ID" % PORTAL_CONFIGURATION_ENV
+        )
+    if configured_id:
+        configuration = stripe.billing_portal.Configuration.retrieve(configured_id)
+        configuration_dict = _as_dict(configuration)
+        if configuration_dict.get("is_default"):
+            raise RuntimeError(
+                "REFUSING TO CONFIGURE: %s points at Stripe's shared default "
+                "portal; use a dedicated non-default configuration"
+                % PORTAL_CONFIGURATION_ENV
+            )
+        metadata = _as_dict(configuration_dict.get("metadata"))
+        if metadata.get("tw2_purpose") != PORTAL_PURPOSE:
+            raise RuntimeError(
+                "REFUSING TO CONFIGURE: %s points at a portal configuration "
+                "without TradeWave API purpose metadata"
+                % PORTAL_CONFIGURATION_ENV
+            )
+        return configuration
+
+    matches = []
+    for configuration in stripe.billing_portal.Configuration.list(
+        active=True, limit=100,
+    ).auto_paging_iter():
+        metadata = _as_dict(getattr(configuration, "metadata", None))
+        if metadata.get("tw2_purpose") == PORTAL_PURPOSE:
+            matches.append(configuration)
+    if len(matches) > 1:
+        raise RuntimeError(
+            "REFUSING TO CONFIGURE: multiple active TradeWave API portal "
+            "configurations exist; set %s explicitly"
+            % PORTAL_CONFIGURATION_ENV
+        )
+    return matches[0] if matches else None
+
+
+def _ensure_api_portal_configuration(stripe, products, prices):
+    """Create/update the dedicated API portal and return its configuration."""
+    expected_products = _portal_products(products, prices)
+    features = _portal_features(expected_products)
+    configuration = _find_api_portal_configuration(stripe)
+    if configuration is None:
+        configuration = stripe.billing_portal.Configuration.create(
+            name=PORTAL_NAME,
+            features=features,
+            metadata={
+                "product_line": PRODUCT_LINE,
+                "tw2_purpose": PORTAL_PURPOSE,
+            },
+        )
+        print("  created API Billing Portal configuration %s" % configuration.id)
+    elif _portal_configuration_matches(configuration, expected_products):
+        print("  reused API Billing Portal configuration  %s" % configuration.id)
+    else:
+        configuration = stripe.billing_portal.Configuration.modify(
+            configuration.id,
+            active=True,
+            name=PORTAL_NAME,
+            features=features,
+            metadata={
+                "product_line": PRODUCT_LINE,
+                "tw2_purpose": PORTAL_PURPOSE,
+            },
+        )
+        print("  updated API Billing Portal configuration %s" % configuration.id)
+
+    if not _portal_configuration_matches(configuration, expected_products):
+        raise RuntimeError(
+            "API Billing Portal configuration did not verify after create/update"
+        )
+    print(
+        "  persist on the WEB host: %s=%s"
+        % (PORTAL_CONFIGURATION_ENV, configuration.id)
+    )
+    return configuration
+
+
 def main():
     key = _require_seed_key()
     mode = "LIVE" if key.startswith("sk_live_") else "TEST"
@@ -284,6 +508,7 @@ def main():
 
     print("Stripe %s mode confirmed. Ensuring API products/prices exist...\n" % mode)
     products = {}
+    prices = {}
     for tier in PAID_TIERS:
         spec = api_tiers.API_TIERS[tier]
         label = "TradeWave API - %s" % spec["name"]
@@ -298,17 +523,21 @@ def main():
         else:
             print("  reused product  %s (%s)" % (product.id, label))
         products[tier] = product
+        prices[tier] = {}
 
         # Monthly + annual price. Annual is explicitly stored in API_TIERS and
         # is not inferred in the Stripe writer.
-        _ensure_price(stripe, product, tier, "month", spec["price_monthly"])
-        _ensure_price(stripe, product, tier, "year", spec["price_annual"])
+        prices[tier]["month"] = _ensure_price(stripe, product, tier, "month", spec["price_monthly"])
+        prices[tier]["year"] = _ensure_price(stripe, product, tier, "year", spec["price_annual"])
 
+    print()
+    _ensure_api_portal_configuration(stripe, products, prices)
     print()
     _ensure_founder(stripe, products["pro"].id)
 
     print("\nDone. The console resolves prices live by (metadata product_line=api, tier) + interval; "
-          "Founder is the promo code customers type at checkout. Nothing hardcoded.")
+          "the API console uses its dedicated Billing Portal configuration; Founder is the "
+          "promo code customers type at checkout. Nothing hardcoded.")
 
 
 if __name__ == "__main__":

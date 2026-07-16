@@ -94,6 +94,38 @@ def require_mcp_auth(mcp_url: str, token: str, label: str, timeout: float) -> No
     listed = ((body.get("result") or {}).get("tools") or [])
     if not listed:
         raise RuntimeError(f"MCP {label} tools/list returned no tools")
+    names = {tool.get("name") for tool in listed if isinstance(tool, dict)}
+    for required in ("whoami", "list_markets", "get_daily_pick"):
+        if required not in names:
+            raise RuntimeError(f"MCP {label} is missing required tool {required}")
+
+    # Listing tools only proves protocol access.  Invoke an identity tool and a
+    # downstream data tool so an OAuth pass also proves WorkOS-principal delegation
+    # through the gateway rather than stopping at MCP initialization.
+    for request_id, tool_name in (
+        (3, "whoami"), (4, "list_markets"), (5, "get_daily_pick")
+    ):
+        call = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": {}},
+        }
+        response = requests.post(mcp_url, headers=headers, json=call, timeout=timeout)
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"MCP {label} {tool_name} failed with HTTP {response.status_code}"
+            )
+        body = _mcp_json(response)
+        result = body.get("result") or {}
+        content = result.get("content") or []
+        has_content = any(
+            isinstance(item, dict) and bool(item.get("text") or item.get("resource"))
+            for item in content
+        )
+        if (body.get("error") or not result or result.get("isError") is True
+                or not has_content):
+            raise RuntimeError(f"MCP {label} {tool_name} returned a protocol/tool error")
 
 
 def one_sample(url: str, key: str, timeout: float) -> Sample:
@@ -137,13 +169,29 @@ def require_daily_pick(api_base: str, key: str, timeout: float) -> None:
         raise RuntimeError("daily-pick returned card:null")
 
 
-def require_healthy(api_base: str, timeout: float) -> None:
+def require_healthy(api_base: str, timeout: float, samples: int = 16) -> None:
+    """Sample fresh health connections after load.
+
+    Gunicorn's breaker is process-local, so one health response can miss a worker
+    whose breaker fired. Multiple independent connections are still sampling (not
+    a formal worker inventory) but materially reduce that blind spot without changing
+    the production API contract.
+    """
     root = api_base.rsplit("/v1", 1)[0]
-    response = requests.get(f"{root}/healthz", timeout=timeout)
-    if response.status_code != 200:
-        raise RuntimeError(f"gateway health failed with HTTP {response.status_code}")
-    if response.json().get("storm_breaker_active") is not False:
-        raise RuntimeError("gateway storm breaker fired during the load test")
+    for index in range(samples):
+        response = requests.get(
+            f"{root}/healthz", headers={"Connection": "close"}, timeout=timeout
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"gateway health sample {index + 1}/{samples} failed with HTTP "
+                f"{response.status_code}"
+            )
+        if response.json().get("storm_breaker_active") is not False:
+            raise RuntimeError(
+                f"gateway storm breaker fired during the load test "
+                f"(health sample {index + 1}/{samples})"
+            )
 
 
 def success_message(oauth_verified: bool) -> str:

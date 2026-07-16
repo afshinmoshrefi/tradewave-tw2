@@ -17,8 +17,11 @@
 #       POSTGRES_DSN         = postgresql://tradewave:<pw>@127.0.0.1:5432/tradewave   (used by app box)
 #   - Leaves placeholders for what needs configuring in 3rd-party dashboards:
 #       STRIPE_WEBHOOK_SECRET   (create a new endpoint in Stripe dashboard for
-#                                https://$TGT_APP_HOST/api/stripe/webhook,
+#                                https://$TGT_WEB_HOST/webhooks/stripe,
 #                                paste its signing secret here)
+#       TW2_API_BILLING_PORTAL_CONFIGURATION_ID
+#                               (run the TEST-only API Stripe catalog seeder,
+#                                then persist its printed bpc_... value)
 #       SMN_EMAIL_GROUP_ID      (Mailerlite group for SMN subscribers)
 #       DAILY_AI_PICK_GROUP_ID  (optional; falls back to SMN group)
 #
@@ -88,11 +91,21 @@ TW2_DOMAIN_ROOT=https://${TGT_WEB_HOST}
 TW2_APPSERVER_URL=https://${TGT_APP_HOST}
 TW2_PUBLIC_HOST=${TGT_WEB_HOST}
 TW2_ENV=${TARGET_TW2_ENV}
+TW2_API_PUBLIC_HOST=${TGT_API_HOST}
+TW2_MCP_PUBLIC_HOST=${TGT_MCP_HOST}
+TW2_DEVELOPERS_PUBLIC_HOST=${TGT_DEVELOPERS_HOST}
+TW2_MCP_PUBLIC_URL=https://${TGT_MCP_HOST}
+TW2_DEVELOPER_PORT=8080
+TW2_API_CONSOLE_ENABLED=1
+# API prices remain dark until the owner completes the environment-specific
+# Stripe seed/verification and deliberately changes this to 1.
+TW2_API_PRICING_LIVE=0
+TW2_API_BILLING_PORTAL_CONFIGURATION_ID=PLACEHOLDER_RUN_API_STRIPE_SEED_AND_PERSIST_BPC_ID
 
 # === Per-env VLAN IPs (cross-tier traffic rides 10.0.0.0/24) ===
 TW2_APPSERVER_IP=${TGT_APP_VLAN}
 TW2_WEBSERVER_IP=${TGT_WEB_VLAN}
-TW2_FEATURED_HISTORY_URL=http://${TGT_WEB_VLAN}/internal/featured-history
+TW2_FEATURED_HISTORY_URL=http://${TGT_WEB_VLAN}:5500/internal/featured-history
 
 # === Per-env datastores ===
 # Postgres lives on the app box. Web reaches it via VLAN (${TGT_APP_VLAN}:5432).
@@ -145,7 +158,7 @@ WORKOS_CLIENT_ID=$(get_dev WORKOS_CLIENT_ID)
 
 # === Stripe (test mode shared with dev) ===
 # REMINDER: in Stripe dashboard → Developers → Webhooks, add a new endpoint
-# https://${TGT_APP_HOST}/api/stripe/webhook (or /stripe/webhook),
+# https://${TGT_WEB_HOST}/webhooks/stripe,
 # subscribe to checkout.session.completed + customer.subscription.* events,
 # then paste its signing secret in STRIPE_WEBHOOK_SECRET below.
 STRIPE_PUBLISHABLE_KEY=$(get_dev STRIPE_PUBLISHABLE_KEY)

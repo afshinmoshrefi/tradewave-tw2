@@ -1,7 +1,7 @@
 -- API gateway schema (ADDITIVE - CREATE objects and ADD COLUMN IF NOT EXISTS only;
 -- never drops or rewrites existing data). Run against the same Postgres as appserver/web:
 --   psql "$POSTGRES_DSN" -f apiserver/schema.sql
--- Safe to run on dev pre-cutover (adds 2 tables, touches nothing existing).
+-- Safe to run on dev pre-cutover (adds 3 tables; existing data is not rewritten).
 
 CREATE TABLE IF NOT EXISTS api_keys (
     id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14,6 +14,30 @@ CREATE TABLE IF NOT EXISTS api_keys (
     revoked_at   timestamptz
 );
 CREATE INDEX IF NOT EXISTS api_keys_user_idx ON api_keys (user_id);
+
+-- Cross-worker single-flight state for Stripe subscription Checkout.  The web
+-- and developer-API product lines share this table but never a row: the
+-- composite primary key preserves their separate subscription identities.
+CREATE TABLE IF NOT EXISTS stripe_checkout_claims (
+    user_id             uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_line        text NOT NULL,
+    request_fingerprint text NOT NULL,
+    request_payload     jsonb NOT NULL,
+    idempotency_key     text NOT NULL UNIQUE,
+    lease_token         uuid,
+    lease_expires_at    timestamptz,
+    stripe_session_id   text UNIQUE,
+    stripe_session_url  text,
+    expires_at          timestamptz NOT NULL,
+    consumed_at         timestamptz,
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    updated_at          timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, product_line),
+    CONSTRAINT stripe_checkout_claims_product_line_check
+        CHECK (product_line IN ('eod', 'api')),
+    CONSTRAINT stripe_checkout_claims_session_pair_check
+        CHECK ((stripe_session_id IS NULL) = (stripe_session_url IS NULL))
+);
 
 -- Daily usage rollup (Redis counters are the hot path; a cron rolls them up here).
 CREATE TABLE IF NOT EXISTS api_usage_daily (

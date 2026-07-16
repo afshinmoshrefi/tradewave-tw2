@@ -104,6 +104,17 @@ from mailerlite_lifecycle import (
     enqueue_signup_lifecycle,
 )
 from ga4_mp import parse_ga_client_id, send_event
+from checkout_claims import (
+    CHECKOUT_SESSION_TTL_SECONDS,
+    CheckoutClaimBusy,
+    CheckoutClaimConflict,
+    CheckoutClaimDeferred,
+    complete_checkout,
+    consume_checkout,
+    release_checkout,
+    replace_checkout_payload,
+    reserve_checkout,
+)
 
 # --- WorkOS ---
 from workos import WorkOSClient
@@ -2034,6 +2045,10 @@ _price_cache = {}
 _price_product_metadata_cache = {}
 
 
+class StripePriceCatalogError(RuntimeError):
+    """The EOD Stripe price catalog is incomplete or ambiguous."""
+
+
 def _price_product_metadata(price):
     """Return normalized product metadata from an expanded Stripe Price."""
     price_d = (
@@ -2076,11 +2091,21 @@ def _web_period(value):
 
 
 def _stripe_configured():
-    if 'PLACEHOLDER' in (config.STRIPE_SECRET_KEY or ''):
+    secret = (config.STRIPE_SECRET_KEY or "").strip()
+    publishable = (config.STRIPE_PUBLISHABLE_KEY or "").strip()
+    if "PLACEHOLDER" in secret.upper() or "PLACEHOLDER" in publishable.upper():
         return False
-    if 'PLACEHOLDER' in (config.STRIPE_PUBLISHABLE_KEY or ''):
-        return False
-    return True
+    secret_mode = (
+        "test" if secret.startswith("sk_test_")
+        else "live" if secret.startswith("sk_live_")
+        else None
+    )
+    publishable_mode = (
+        "test" if publishable.startswith("pk_test_")
+        else "live" if publishable.startswith("pk_live_")
+        else None
+    )
+    return bool(secret_mode and secret_mode == publishable_mode)
 
 
 def _refresh_price_cache():
@@ -2104,13 +2129,16 @@ def _refresh_price_cache():
         return
     valid_tiers = {"navigator", "analyst", "strategist"}
     valid_periods = {"monthly", "yearly"}
+    next_cache = {}
+    next_metadata = {}
+    errors = []
     try:
         for p in stripe.Price.list(active=True, limit=100, expand=["data.product"]).auto_paging_iter():
             prod = p.product
             if not isinstance(prod, dict):
                 prod = prod.to_dict() if hasattr(prod, "to_dict") else dict(prod)
             metadata = prod.get("metadata") or {}
-            _price_product_metadata_cache[p.id] = {
+            next_metadata[p.id] = {
                 str(key): str(value)
                 for key, value in metadata.items()
                 if value is not None
@@ -2120,17 +2148,61 @@ def _refresh_price_cache():
             md_period = (metadata.get("period") or "").strip().lower()
             if md_line != "eod" or md_tier not in valid_tiers or md_period not in valid_periods:
                 continue  # legacy / RT / placeholder / unscoped price — ignore
-            slot = (md_tier, md_period)
-            existing = _price_cache.get(slot)
-            if existing is not None and getattr(existing, "id", None) != getattr(p, "id", None):
-                log.warning(
-                    "price_cache: >1 active EOD price for slot %s (%s, %s) — ambiguous; "
-                    "archive the extra in Stripe. Using last-seen.",
-                    slot, getattr(existing, "id", "?"), getattr(p, "id", "?"),
+
+            recurring = getattr(p, "recurring", None)
+            if not isinstance(recurring, dict):
+                recurring = (
+                    recurring.to_dict()
+                    if hasattr(recurring, "to_dict") else {}
                 )
-            _price_cache[slot] = p
+            expected_interval = "month" if md_period == "monthly" else "year"
+            if (
+                str(recurring.get("interval") or "").strip().lower()
+                != expected_interval
+                or recurring.get("interval_count", 1) != 1
+            ):
+                errors.append(
+                    "EOD price recurring interval contradicts product metadata"
+                )
+                continue
+            if str(getattr(p, "currency", "") or "").lower() != "usd":
+                errors.append("EOD price currency is not USD")
+                continue
+            if (
+                not isinstance(getattr(p, "unit_amount", None), int)
+                or p.unit_amount <= 0
+            ):
+                errors.append("EOD price amount is missing or invalid")
+                continue
+
+            slot = (md_tier, md_period)
+            existing = next_cache.get(slot)
+            if existing is not None and getattr(existing, "id", None) != getattr(p, "id", None):
+                errors.append(
+                    "EOD catalog has duplicate active prices for one tier/period"
+                )
+                continue
+            next_cache[slot] = p
     except Exception:
+        _price_cache.clear()
         log.exception("Failed to refresh Stripe price cache")
+        raise
+
+    required = {
+        (tier, period)
+        for tier in valid_tiers
+        for period in valid_periods
+    }
+    if set(next_cache) != required:
+        errors.append("EOD catalog is missing one or more required tier/period prices")
+    if errors:
+        _price_cache.clear()
+        summary = "; ".join(sorted(set(errors)))
+        log.error("EOD Stripe price catalog rejected: %s", summary)
+        raise StripePriceCatalogError(summary)
+    _price_cache.clear()
+    _price_cache.update(next_cache)
+    _price_product_metadata_cache.update(next_metadata)
 
 
 def _price_for(tier, period):
@@ -2329,7 +2401,15 @@ def _live_api_subscription_for_customer(customer_id, *, exclude_id=None):
 
 def _created_subscription_can_replace(event_type, current_id,
                                       replacement_id, candidate):
-    """Order a freshly hydrated differing ``subscription.created`` event."""
+    """Allow only an explicit, server-stamped subscription replacement.
+
+    Stripe ``created`` timestamps cannot prove lineage: two independently
+    completed Checkout sessions naturally have different timestamps.  Letting
+    the newer one win would leave the older live subscription untracked and
+    could double-bill the customer.  Checkout stamps the exact predecessor ID
+    in ``replaces_subscription_id``; no other differing subscription may take
+    over an already-tracked product line.
+    """
     if event_type != "customer.subscription.created" or not current_id:
         return False
     if str((candidate or {}).get("status") or "").lower() not in {
@@ -2338,21 +2418,7 @@ def _created_subscription_can_replace(event_type, current_id,
         return False
     if not (candidate or {}).get("id"):
         return False
-    if replacement_id == current_id:
-        return True
-    candidate_created = candidate.get("created") if candidate else None
-    if not isinstance(candidate_created, (int, float)):
-        return False
-    current = stripe.Subscription.retrieve(current_id)
-    current_d = (
-        current if isinstance(current, dict)
-        else current.to_dict()
-    )
-    current_created = current_d.get("created")
-    return bool(
-        isinstance(current_created, (int, float))
-        and candidate_created > current_created
-    )
+    return bool(replacement_id and replacement_id == current_id)
 
 
 def _resolve_affiliate_promo(raw, period=None):
@@ -2424,7 +2490,7 @@ def _record_affiliate_referral(session, sub_id, customer_id, metadata):
 
 def _existing_eod_subscription(customer_id, stored_web_subscription_id=None):
     """Return (subscription_id, item_id, status) for the customer's first
-    active-or-trialing EOD-line Stripe subscription (an item whose price
+    non-terminal EOD-line Stripe subscription (an item whose price
     resolves through the eod price cache), or (None, None, None). A listed
     subscription matching the user's stored web subscription ID also counts;
     this preserves the guard for legacy web prices without modern metadata.
@@ -2432,34 +2498,38 @@ def _existing_eod_subscription(customer_id, stored_web_subscription_id=None):
     Lookup failures intentionally propagate. This helper is only called for a
     known Stripe customer; failing closed prevents a transient Stripe error
     from minting that customer a second subscription and another trial."""
-    # past_due included: the webhook keeps the paid tier through dunning, so
-    # route those customers to the portal (fix the card) instead of a 2nd sub.
-    for sub_status in ("active", "trialing", "past_due"):
-        for sub in stripe.Subscription.list(
-                customer=customer_id, status=sub_status, limit=100).auto_paging_iter():
-            sub_d = sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
-            items_d = sub_d.get("items") or {}
-            items_list = items_d.get("data", []) if isinstance(items_d, dict) else []
-            if (
-                stored_web_subscription_id
-                and sub_d.get("id") == stored_web_subscription_id
-            ):
-                first_item = items_list[0] if items_list else {}
-                first_item_d = first_item if isinstance(first_item, dict) else (
-                    first_item.to_dict() if hasattr(first_item, "to_dict")
-                    else dict(first_item))
-                return (
-                    sub_d.get("id"),
-                    first_item_d.get("id"),
-                    sub_d.get("status"),
-                )
-            for item in items_list:
-                item_d = item if isinstance(item, dict) else (
-                    item.to_dict() if hasattr(item, "to_dict") else dict(item))
-                price_d = item_d.get("price") or {}
-                price_id = price_d.get("id") if isinstance(price_d, dict) else None
-                if price_id and _tier_period_for_price(price_id)[0]:
-                    return sub_d.get("id"), item_d.get("id"), sub_d.get("status")
+    # One paginated all-status scan prevents incomplete, unpaid, or paused
+    # subscriptions from being bypassed. Only terminal states may be ignored.
+    subscriptions = stripe.Subscription.list(
+        customer=customer_id, status="all", limit=100,
+    )
+    for sub in subscriptions.auto_paging_iter():
+        sub_d = sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
+        status = str(sub_d.get("status") or "").strip().lower()
+        if status in {"canceled", "incomplete_expired"}:
+            continue
+        items_d = sub_d.get("items") or {}
+        items_list = items_d.get("data", []) if isinstance(items_d, dict) else []
+        if (
+            stored_web_subscription_id
+            and sub_d.get("id") == stored_web_subscription_id
+        ):
+            first_item = items_list[0] if items_list else {}
+            first_item_d = first_item if isinstance(first_item, dict) else (
+                first_item.to_dict() if hasattr(first_item, "to_dict")
+                else dict(first_item))
+            return (
+                sub_d.get("id"),
+                first_item_d.get("id"),
+                sub_d.get("status"),
+            )
+        for item in items_list:
+            item_d = item if isinstance(item, dict) else (
+                item.to_dict() if hasattr(item, "to_dict") else dict(item))
+            price_d = item_d.get("price") or {}
+            price_id = price_d.get("id") if isinstance(price_d, dict) else None
+            if price_id and _tier_period_for_price(price_id)[0]:
+                return sub_d.get("id"), item_d.get("id"), sub_d.get("status")
     return None, None, None
 
 
@@ -2530,7 +2600,14 @@ def stripe_create_checkout():
     # Pull tier/period from query OR form (request.values covers both).
     tier   = (request.values.get("tier")   or "").lower()
     period = (request.values.get("period") or "").lower()
-    price_id = _price_id_for(tier, period)
+    try:
+        price_id = _price_id_for(tier, period)
+    except StripePriceCatalogError:
+        return jsonify({
+            "error": "price_catalog_invalid",
+            "message": "Billing is temporarily unavailable while the price "
+                       "catalog is reviewed.",
+        }), 503
     if not price_id:
         return jsonify({
             "error": "price_not_found",
@@ -2556,6 +2633,16 @@ def stripe_create_checkout():
 
     # Validate stored stripe_customer_id still exists AND isn't soft-deleted; clear stale ones
     valid_customer_id = None
+    if not u.stripe_customer_id and u.stripe_subscription_id:
+        log.error(
+            "create-checkout: user %s has a web subscription but no Stripe customer",
+            u.id,
+        )
+        return jsonify({
+            "error": "subscription_identity_incomplete",
+            "message": "Billing needs account reconciliation before another "
+                       "subscription can be started.",
+        }), 503
     if u.stripe_customer_id:
         try:
             cust = stripe.Customer.retrieve(u.stripe_customer_id)
@@ -2587,8 +2674,8 @@ def stripe_create_checkout():
 
     # An already-subscribed user must NOT get a second subscription (Stripe
     # happily creates one per Checkout session, each with its own 7-day
-    # trial). If this customer already carries an active or trialing EOD-line
-    # subscription, send them to the Billing Portal to change plan instead -
+    # trial). If this customer already carries any non-terminal EOD-line
+    # subscription, send them to the Billing Portal to reconcile/change it -
     # ideally straight into the update-confirm flow for the requested price,
     # else the plain portal /account/manage-subscription opens.
     if valid_customer_id:
@@ -2675,6 +2762,7 @@ def stripe_create_checkout():
     if ga_client_id:
         sub_metadata["ga_client_id"] = ga_client_id
 
+    reservation = None
     try:
         kwargs = dict(
             mode="subscription",
@@ -2698,6 +2786,10 @@ def stripe_create_checkout():
                 "period": period,
                 "replaces_subscription_id": u.stripe_subscription_id or "",
             },
+            # Bound both the remote Checkout session and its durable DB claim.
+            # The shared one-hour TTL leaves Stripe's required 30 minutes even
+            # after a 120-second unknown-outcome lease and recovery delay.
+            expires_at=int(time.time()) + CHECKOUT_SESSION_TTL_SECONDS,
         )
         if discount_spec:
             kwargs["discounts"] = [discount_spec]
@@ -2708,19 +2800,80 @@ def stripe_create_checkout():
         else:
             kwargs["customer_email"] = u.email
         try:
-            session_obj = stripe.checkout.Session.create(**kwargs)
-        except Exception:
+            reservation = reserve_checkout(
+                u.id, "eod", kwargs, session_factory=DBSession,
+            )
+        except CheckoutClaimDeferred:
+            response = jsonify({
+                "error": "checkout_unresolved",
+                "message": "A previous checkout outcome is still being "
+                           "reconciled. Wait for that session to expire before "
+                           "starting another.",
+            })
+            response.status_code = 409
+            return response
+        except CheckoutClaimConflict:
+            response = jsonify({
+                "error": "checkout_conflict",
+                "message": "A different subscription checkout is already "
+                           "pending. Finish it or wait for it to expire.",
+            })
+            response.status_code = 409
+            return response
+        except CheckoutClaimBusy:
+            response = jsonify({
+                "error": "checkout_pending",
+                "message": "Checkout creation is already in progress. Retry "
+                           "in a few seconds.",
+            })
+            response.status_code = 409
+            response.headers["Retry-After"] = "2"
+            return response
+
+        if reservation.reused:
+            return redirect(reservation.session_url, code=303)
+
+        try:
+            session_obj = stripe.checkout.Session.create(
+                idempotency_key=reservation.idempotency_key,
+                **reservation.payload,
+            )
+        except stripe.error.InvalidRequestError:
             # A pre-applied promo code Stripe rejects (expired / inactive /
             # min-amount / already-redeemed) must NOT break checkout: retry
             # once, letting the customer enter a code manually instead.
-            if discount_spec:
+            if discount_spec and "discounts" in reservation.payload:
                 log.warning("checkout: pre-applied affiliate discount %r rejected; "
                             "retrying with manual entry", discount_spec)
+                kwargs = dict(reservation.payload)
                 kwargs.pop("discounts", None)
                 kwargs["allow_promotion_codes"] = True
-                session_obj = stripe.checkout.Session.create(**kwargs)
+                reservation = replace_checkout_payload(
+                    reservation, kwargs, session_factory=DBSession,
+                )
+                session_obj = stripe.checkout.Session.create(
+                    idempotency_key=reservation.idempotency_key,
+                    **reservation.payload,
+                )
             else:
                 raise
+
+        session_id = (
+            session_obj.get("id")
+            if isinstance(session_obj, dict)
+            else getattr(session_obj, "id", None)
+        )
+        session_url = (
+            session_obj.get("url")
+            if isinstance(session_obj, dict)
+            else getattr(session_obj, "url", None)
+        )
+        complete_checkout(
+            reservation,
+            session_id,
+            session_url,
+            session_factory=DBSession,
+        )
 
         # GA4 begin_checkout (Measurement Protocol). price_obj is already
         # cache-resident from _price_id_for(tier, period) above - no extra
@@ -2742,8 +2895,13 @@ def stripe_create_checkout():
         except Exception:
             log.warning("begin_checkout GA4 tracking failed (checkout unaffected)", exc_info=True)
 
-        return redirect(session_obj.url, code=303)
+        return redirect(session_url, code=303)
     except Exception:
+        if reservation is not None and not reservation.reused:
+            try:
+                release_checkout(reservation, session_factory=DBSession)
+            except Exception:
+                log.exception("checkout: failed to release durable claim")
         # F2.2 - log the full traceback, return generic message
         log.exception("stripe checkout creation failed")
         return jsonify({"error": "stripe_error"}), 500
@@ -3531,6 +3689,16 @@ def webhook_stripe():
                 and checkout_product_line in ("", "eod")
             ):
                 web_event = True
+            claim_product_line = (
+                "eod" if web_event else checkout_product_line
+            )
+            if claim_product_line in {"eod", "api"}:
+                consume_checkout(
+                    s,
+                    db_user.id,
+                    claim_product_line,
+                    data_obj.get("id"),
+                )
 
         elif event_type in subscription_events:
             # A terminal deletion does not need a price-to-tier lookup.  Prefer

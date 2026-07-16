@@ -13,7 +13,10 @@ pytestmark = pytest.mark.db
 
 
 @pytest.fixture
-def app_module(_models_module, monkeypatch):
+def app_module(_models_module, test_engine, monkeypatch):
+    _models_module.StripeCheckoutClaim.__table__.create(
+        bind=test_engine, checkfirst=True,
+    )
     module = importlib.import_module("app")
     module.DBSession = _models_module.Session
     monkeypatch.setattr(module.config, "STRIPE_WEBHOOK_SECRET", "whsec_test")

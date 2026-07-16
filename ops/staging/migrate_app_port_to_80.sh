@@ -14,7 +14,7 @@ WEB="$TGT_WEB_PUB"
 SSH="-p $TGT_SSH_PORT"
 
 hdr "1. app box: install tracked unit, bind :80, disable nginx"
-ssh $SSH "root@$APP" "APP_VLAN='$TGT_APP_VLAN' APP_WORKERS='$TGT_APP_WORKERS' APP_THREADS='$TGT_APP_THREADS' bash -s" <<'REMOTE'
+ssh $SSH "root@$APP" "APP_VLAN='$TGT_APP_VLAN' APP_WORKERS='$TGT_APP_WORKERS' APP_THREADS='$TGT_APP_THREADS' APP_NGINX_SITE='$TGT_APP_NGINX_SITE' bash -s" <<'REMOTE'
 set -e
 
 install -m 0644 /home/flask/ops/systemd/tradewave-appserver.service \
@@ -26,11 +26,13 @@ TW2_APPSERVER_WORKERS=${APP_WORKERS}
 TW2_APPSERVER_THREADS=${APP_THREADS}
 ENV
 chmod 0640 /etc/tradewave/appserver.env
+chown root:flask /etc/tradewave/appserver.env
 
 # Drop any stale override files from the previous attempt
 rm -f /etc/systemd/system/tradewave-appserver.service.d/lowport.conf
 rmdir /etc/systemd/system/tradewave-appserver.service.d 2>/dev/null || true
 
+rm -f "/etc/nginx/sites-enabled/$APP_NGINX_SITE"
 systemctl disable --now nginx 2>/dev/null || true
 systemctl daemon-reload
 systemctl restart tradewave-appserver

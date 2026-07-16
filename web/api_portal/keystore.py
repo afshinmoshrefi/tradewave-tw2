@@ -21,6 +21,44 @@ _RANDOM_BYTES = 16
 _PREFIX_DISPLAY_CHARS = 8
 
 
+class KeyStoreError(RuntimeError):
+    pass
+
+
+class KeyLimitReached(KeyStoreError):
+    pass
+
+
+class KeyNotFound(KeyStoreError):
+    pass
+
+
+class KeyAlreadyRevoked(KeyStoreError):
+    pass
+
+
+def _lock_owner(cur, user_id):
+    """Serialize all key-count mutations for one account."""
+    cur.execute(
+        "SELECT id FROM users WHERE id = %s FOR UPDATE",
+        (str(user_id),),
+    )
+    if cur.fetchone() is None:
+        raise KeyNotFound("API-key owner no longer exists")
+
+
+def _insert_key(cur, user_id, name, raw, display_prefix):
+    cur.execute(
+        """
+        INSERT INTO api_keys (user_id, name, key_hash, prefix)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id, name, prefix, created_at, last_used_at, revoked_at
+        """,
+        (str(user_id), name, hash_key(raw), display_prefix),
+    )
+    return cur.fetchone()
+
+
 def generate_raw_key():
     """Return (raw_key, display_prefix).
 
@@ -58,7 +96,7 @@ def count_active_keys(user_id):
         return int(cur.fetchone()["n"])
 
 
-def create_key(user_id, name):
+def create_key(user_id, name, *, max_keys=None):
     """Insert a new key for the user. Returns (raw_key, row_dict).
 
     The HMAC of the raw key is stored; the raw key is returned to the caller to
@@ -66,17 +104,51 @@ def create_key(user_id, name):
     collision (astronomically unlikely) fail loudly rather than silently alias.
     """
     raw, display_prefix = generate_raw_key()
-    key_hash = hash_key(raw)
     with db.cursor(commit=True) as cur:
+        _lock_owner(cur, user_id)
+        if max_keys is not None:
+            max_keys = int(max_keys)
+            cur.execute(
+                "SELECT count(*) AS n FROM api_keys "
+                "WHERE user_id = %s AND revoked_at IS NULL",
+                (str(user_id),),
+            )
+            if int(cur.fetchone()["n"]) >= max_keys:
+                raise KeyLimitReached("active API-key limit reached")
+        row = _insert_key(cur, user_id, name, raw, display_prefix)
+    return raw, row
+
+
+def rotate_key(user_id, key_id):
+    """Create the replacement and revoke the old key in one transaction."""
+    raw, display_prefix = generate_raw_key()
+    with db.cursor(commit=True) as cur:
+        _lock_owner(cur, user_id)
         cur.execute(
             """
-            INSERT INTO api_keys (user_id, name, key_hash, prefix)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id, name, prefix, created_at, last_used_at, revoked_at
+            SELECT id, name, prefix, created_at, last_used_at, revoked_at
+            FROM api_keys
+            WHERE id = %s AND user_id = %s
+            FOR UPDATE
             """,
-            (str(user_id), name, key_hash, display_prefix),
+            (str(key_id), str(user_id)),
         )
-        row = cur.fetchone()
+        old = cur.fetchone()
+        if old is None:
+            raise KeyNotFound("API key not found")
+        if old["revoked_at"] is not None:
+            raise KeyAlreadyRevoked("API key is already revoked")
+        row = _insert_key(cur, user_id, old["name"], raw, display_prefix)
+        cur.execute(
+            """
+            UPDATE api_keys
+            SET revoked_at = now()
+            WHERE id = %s AND user_id = %s AND revoked_at IS NULL
+            """,
+            (str(key_id), str(user_id)),
+        )
+        if cur.rowcount != 1:
+            raise KeyStoreError("API key changed during rotation")
     return raw, row
 
 
@@ -88,6 +160,7 @@ def revoke_key(user_id, key_id):
     revoked.
     """
     with db.cursor(commit=True) as cur:
+        _lock_owner(cur, user_id)
         cur.execute(
             """
             UPDATE api_keys
