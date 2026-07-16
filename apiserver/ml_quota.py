@@ -19,9 +19,10 @@ import time
 import redis
 
 from . import settings
+from .gateway_redis import create_client
 
 log = logging.getLogger("apiserver.ml_quota")
-_redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
+_redis = create_client()
 _TTL = 60 * 60 * 40  # ~40h, comfortably past a calendar day
 
 # Redis executes each script atomically. Client-side GET + INCRBY/SET would allow

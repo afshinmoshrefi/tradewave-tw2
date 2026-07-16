@@ -48,7 +48,11 @@ def create_app():
             resp.headers["Vary"] = f"{existing_vary}, Origin" if existing_vary else "Origin"
         started = getattr(g, "request_started_at", None)
         if started is not None:
-            resp.headers["Server-Timing"] = f"app;dur={(time.perf_counter() - started) * 1000:.1f}"
+            app_timing = f"app;dur={(time.perf_counter() - started) * 1000:.1f}"
+            endpoint_timing = resp.headers.get("Server-Timing")
+            resp.headers["Server-Timing"] = (
+                f"{endpoint_timing}, {app_timing}" if endpoint_timing else app_timing
+            )
         return resp
 
     @app.get("/healthz")

@@ -49,8 +49,11 @@ paths:
         PatternCards. ML fields populate inline on ML-eligible markets (ids 0-4, 11)
         up to the caller's daily ML allowance (free 5/day, unlimited on Pro/Business);
         ml_remaining_today reflects how many ML calls remain today (null = unlimited).
-        win_rate enrichment is applied AFTER ranking/slicing, so evaluated_count +
-        enrichment_capped are surfaced and the min_win_rate cap is never silently misleading.
+        The reusable price-safe scan core is shared briefly across callers, but auth,
+        tier limits, rate limits, ML quota, and ML scoring run for every request. Default
+        Sharpe scans enrich only the requested depth; receipt-dependent filters and alternate
+        rankings use a bounded 50-row head. evaluated_count + enrichment_capped are surfaced,
+        and any partial market failure is explicit in market_failures.
       parameters:
         - { name: markets, in: query, schema: { type: string }, description: "csv of ids, list_markets names, or common aliases ('sp500', 'crypto', 'europe'), e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are reported in markets_note; out-of-scope markets are skipped with an upgrade note. Default (omitted) = a liquid equities core (DOW 30, NASDAQ 100, S&P 500, ETFs) intersected with your scope, NOT every in-scope market - pass markets explicitly to scan others." }
         - { name: window, in: query, schema: { type: string, default: now }, description: "'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. The underlying primitive (OppList4) is keyed to a SINGLE entry date, so the scan evaluates opportunities AS OF the window's start date and then keeps only setups whose entry_date falls inside the window - it does not re-scan every date in the range. 'now' starts today (~10 trading days wide). Default 'now'." }
@@ -71,9 +74,15 @@ paths:
       responses:
         "200":
           description: OK
+          headers:
+            X-TW-Scan-Cache:
+              description: Shared scan-core outcome for this request.
+              schema: { type: string, enum: [HIT, MISS, WAIT, BYPASS] }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ScanResponse" }
+        "503":
+          description: A cold scan is already being built and did not complete within the bounded wait. Retry-After is supplied.
         "429": { $ref: "#/components/responses/RateLimited" }
   /analyze/{symbol}:
     get:
@@ -638,13 +647,14 @@ components:
         generated_at: { type: string, format: date-time }
         summary: { type: string, description: "the honest one-line lead: how many candidates were evaluated, how many shown, how many carry a high-conviction seasonal pattern - plus any degradation (upstream win-rate outage), enrichment cap, normalization note, or plan cap" }
         window: { type: string, description: "the resolved window (e.g. 'now')" }
-        markets_scanned: { type: array, items: { type: string }, description: "the market ids actually scanned" }
+        markets_scanned: { type: array, items: { type: string }, description: "the requested in-scope market ids; check market_failures before treating the scan as complete" }
+        market_failures: { type: array, items: { type: string }, description: "market ids whose upstream request failed and whose results were omitted; normally empty" }
         rank_by: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return] }
         view: { type: string, enum: [full, decision, table], description: "the verbosity applied (echoes the request)" }
         lookback: { type: object, description: "the resolved detection knobs (year1, year2)", properties: { years: { type: integer }, min_winning_years: { type: integer } } }
         count: { type: integer, description: "number of cards returned" }
         evaluated_count: { type: integer, description: "candidates considered before slicing/enrichment" }
-        enrichment_capped: { type: boolean, description: "true when win_rate enrichment hit its cap" }
+        enrichment_capped: { type: boolean, description: "true when only the leading requested/bounded candidate depth was fully receipt-enriched" }
         capped_by_plan: { type: boolean, description: "true when the PLAN's opp_limit (not the caller's own limit) was the binding constraint on how many ranked cards came back - the free-tier wall, made visible" }
         shown_of_evaluated: { type: string, example: "3 of 6", description: "'shown of evaluated' as a display string" }
         upgrade_url: { type: string, format: uri, description: "present only when capped_by_plan is true" }

@@ -98,6 +98,9 @@ TW2_FEATURED_HISTORY_URL=http://${TGT_WEB_VLAN}/internal/featured-history
 # Postgres lives on the app box. Web reaches it via VLAN (${TGT_APP_VLAN}:5432).
 # When this file is dropped on the WEB box, change 127.0.0.1 to ${TGT_APP_VLAN}.
 POSTGRES_DSN=postgresql://tradewave:${STAGE_PG_PASSWORD}@127.0.0.1:5432/tradewave
+# Gateway-owned counters, derived caches, and scan single-flight. This is local while
+# API/MCP are co-located on the app box. A future split points the same URL at shared Redis.
+TW2_GATEWAY_REDIS_URL=redis://127.0.0.1:6379/4
 
 # === Pair-specific secrets (regenerated; do NOT reuse dev's) ===
 APPSERVER_JWT_SECRET=${STAGE_JWT}

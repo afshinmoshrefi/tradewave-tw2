@@ -13,15 +13,21 @@ Move them to a **dedicated box** when any trigger hits:
 
 ## Why this is a config flip, not a rewrite
 
-The gateway is **stateless / shared-nothing**. It holds no data locally - its only state lives
-off-box and is reached over the network:
+The gateway holds no authoritative data locally. Its shared state lives off-box and is
+reached over the network:
 - Postgres (`api_keys` + usage) via `POSTGRES_DSN`,
-- Redis db4 (rate-limit + ML-quota counters) via `REDIS_HOST`/`REDIS_PORT`/`API_REDIS_DB`,
+- gateway Redis db4 (rate limits, ML quota, API-key helpers, seasonal curves, and the
+  shared scan-core cache) via `TW2_GATEWAY_REDIS_URL`,
 - the appserver (all market/seasonal data) via `TW2_APPSERVER_URL`.
 
-So moving it = provision a box + repoint a handful of `secrets.env` values + move the edge.
-(Stateless is also why you could later run several gateway instances behind a load balancer,
-all sharing the same Postgres + redis.) Keep **MCP on the SAME box as the gateway** so
+When `TW2_GATEWAY_REDIS_URL` is unset, the current co-located deployment keeps using
+`REDIS_HOST`/`REDIS_PORT`/`API_REDIS_DB`. A split deployment must set the URL to a Redis
+service reachable by every API node. This preserves cache hits and distributed single-flight
+locks across boxes. The gateway never reads the appserver's private db0 keys.
+
+So moving it means provisioning a box, repointing a handful of `secrets.env` values, and
+moving the edge. Several gateway instances can later run behind a load balancer as long as
+they share the same Postgres and gateway Redis. Keep **MCP on the SAME box as the gateway** so
 `API_BASE_URL` stays loopback.
 
 ## Steps (operator runs these; author-only otherwise)
@@ -35,7 +41,7 @@ all sharing the same Postgres + redis.) Keep **MCP on the SAME box as the gatewa
    |---|---|---|
    | `TW2_APISERVER_BIND` | `10.0.0.<gw>:8088` | gateway must be reachable cross-box (default is loopback) |
    | `TW2_APPSERVER_URL` | `http://10.0.0.<app>:80` | reach the appserver over the VLAN (PER-ENV port: :80 staging/prod) |
-   | `REDIS_HOST` | `10.0.0.<redis>` | the shared db4 (rate/quota) - point at wherever it lives |
+   | `TW2_GATEWAY_REDIS_URL` | `redis://10.0.0.<redis>:6379/4` | shared gateway counters, cache, and cross-node single-flight; use `rediss://` and credentials where required |
    | `POSTGRES_DSN` | (same DB as web/app) | the api_keys + usage tables |
    | `API_KEY_HMAC_SECRET` / `APPSERVER_JWT_SECRET` | (same as web/app per env) | keys + JWTs must verify identically |
    | `API_BASE_URL` | leave default (`http://127.0.0.1:8088/v1`) | MCP is co-located on this box |
@@ -62,11 +68,13 @@ all sharing the same Postgres + redis.) Keep **MCP on the SAME box as the gatewa
    (`/chatbot/chat` narrates a real card); check the public `api.`/`mcp.` hostnames.
 
 **Rollback**: re-enable the app-box units, set `TW2_GATEWAY_URL` back to loopback, repoint the
-edge. Stateless gateway = no data to migrate either direction.
+edge. Gateway Redis contains derived, expiring data and counters, not authoritative market
+data, so there is no local data migration in either direction. Keep the same gateway Redis
+during rollback so rate and quota counters remain continuous.
 
 ## What did NOT need changing
 
-`TW2_APPSERVER_URL`, `REDIS_HOST`, `TW2_GATEWAY_URL` were already env-driven (`apiserver/settings.py`,
-`config.py`). The only code change to enable this was parameterizing the two hardcoded-loopback
-values in the unit files (`TW2_APISERVER_BIND`, `TW2_MCP_HOST`/`TW2_MCP_PORT`) - defaults preserve
-the co-located behavior, so the units are identical to run in either topology.
+`TW2_APPSERVER_URL`, `TW2_GATEWAY_REDIS_URL`, and `TW2_GATEWAY_URL` are env-driven
+(`apiserver/settings.py`, `config.py`). The unit files also parameterize the two bind values
+(`TW2_APISERVER_BIND`, `TW2_MCP_HOST`/`TW2_MCP_PORT`). Defaults preserve the co-located
+behavior, so the same code and units run in either topology.

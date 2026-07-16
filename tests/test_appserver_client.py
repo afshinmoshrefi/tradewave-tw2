@@ -122,6 +122,54 @@ def test_chart_stats_genuine_gap_stays_empty_pair(monkeypatch):
     assert ac.chart_stats_and_years("2", "AAPL", "2026-07-01", 21, "10") == ({}, [])
 
 
+def test_seasonal_curve_gateway_cache_avoids_second_http_call(monkeypatch):
+    class MemoryCache:
+        def __init__(self):
+            self.values = {}
+
+        def get(self, key):
+            return self.values.get(key)
+
+        def setex(self, key, _ttl, value):
+            self.values[key] = value
+
+    cache = MemoryCache()
+    calls = {"count": 0}
+
+    def fake_get(*_args, **_kwargs):
+        calls["count"] += 1
+        return {"cons_seas_chart": [["07-01", 41.5], ["07-02", 43.0]]}
+
+    monkeypatch.setattr(ac, "_curve_cache", cache)
+    monkeypatch.setattr(ac, "get", fake_get)
+    first = ac._seasonal_curve("2", "AAPL", "2026-07-01", "10")
+    second = ac._seasonal_curve("2", "AAPL", "2026-07-01", "10")
+    assert first == second
+    assert calls["count"] == 1
+
+
+def test_opportunities_multi_reports_partial_failures_when_requested(monkeypatch):
+    def one_market(market, *_args, **_kwargs):
+        if market == "4":
+            raise requests.ConnectTimeout("market unavailable")
+        return [{"market": market, "symbol": "AAPL"}]
+
+    monkeypatch.setattr(ac, "appserver_opportunities_safe", one_market)
+    rows, failures = ac.opportunities_multi(
+        ["2", "4"], "2026-07-01", return_failures=True
+    )
+    assert rows == [{"market": "2", "symbol": "AAPL"}]
+    assert failures == ["4"]
+
+
+def test_opportunities_multi_keeps_historical_list_contract(monkeypatch):
+    monkeypatch.setattr(
+        ac, "appserver_opportunities_safe",
+        lambda market, *_args, **_kwargs: [{"market": market}],
+    )
+    assert ac.opportunities_multi(["2"], "2026-07-01") == [{"market": "2"}]
+
+
 # --- log scrub ---------------------------------------------------------------------
 
 def test_scrub_hides_jwt_token_param_and_service_key(monkeypatch):

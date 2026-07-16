@@ -22,6 +22,7 @@ import requests
 from requests.adapters import HTTPAdapter
 
 from . import settings
+from .gateway_redis import create_client
 
 log = logging.getLogger("apiserver.appserver_client")
 
@@ -356,10 +357,15 @@ MAX_WIN_RATE_ENRICH = 50
 # appserver's db0/2/3.
 import redis as _redis_mod  # noqa: E402
 
-_win_rate_cache = _redis_mod.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT,
-                                   db=settings.REDIS_DB)
+_win_rate_cache = create_client()
 _WIN_RATE_TTL = 6 * 3600
 _WIN_RATE_NONE = "null"  # sentinel: computed, but no win rate available
+
+# Gateway-side curve cache. The appserver already caches the computation, but without
+# this layer every API response still spends an HTTP round trip and an appserver thread
+# on each returned card. Values are price-safe [{date,index}] data only.
+_curve_cache = create_client()
+_CURVE_TTL = 6 * 3600
 
 
 def _win_rate_for_opp(obj):
@@ -471,7 +477,7 @@ def opportunities_by_symbol(market, symbol, year1="10", year2="9", day_range="-"
 
 
 def opportunities_multi(markets, entry_date, year1="10", year2="9", direction=None,
-                        max_workers=8, mode="consecutive"):
+                        max_workers=8, mode="consecutive", return_failures=False):
     """Fan out opportunities() over several markets IN PARALLEL (independent cached GETs)
     and return a flat list of Opportunity dicts (NO win_rate enrichment here - the caller
     enriches AFTER ranking/slicing so we never fan out 50xN ChartData4 calls).
@@ -479,20 +485,23 @@ def opportunities_multi(markets, entry_date, year1="10", year2="9", direction=No
     A single market's failure degrades to [] for that market (logged) - it must not abort
     the whole scan (fail-soft on a per-market data gap)."""
     results = []
+    failures = []
 
     def _one(m):
         try:
-            return appserver_opportunities_safe(m, entry_date, year1, year2, direction, mode)
+            return appserver_opportunities_safe(m, entry_date, year1, year2, direction, mode), None
         except Exception as e:  # noqa: BLE001 - per-market isolation for the scan
             log.warning("scan: market %s failed, skipped: %s", m, e)
-            return []
+            return [], str(m)
 
     if not markets:
-        return results
+        return (results, failures) if return_failures else results
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_workers, len(markets))) as ex:
-        for rows in ex.map(_one, markets):
+        for rows, failed_market in ex.map(_one, markets):
             results.extend(rows)
-    return results
+            if failed_market is not None:
+                failures.append(failed_market)
+    return (results, failures) if return_failures else results
 
 
 def appserver_opportunities_safe(market, entry_date, year1, year2, direction, mode="consecutive"):
@@ -563,6 +572,21 @@ def _seasonal_curve(market, symbol, chart_start_date, years, opp_start_date=None
     reconstructed (the per-year high/low are not exposed and it is averaged), so it is
     price-safe. Returns a list of {date, index}. years/opp_start stay strings."""
     opp_start = opp_start_date or chart_start_date
+    cache_key = (f"gw:curve:v1:{market}:{symbol}:{years}:"
+                 f"{chart_start_date}:{opp_start}")
+    try:
+        cached = _curve_cache.get(cache_key)
+    except _redis_mod.RedisError:
+        cached = None
+    if cached is not None:
+        try:
+            if isinstance(cached, (bytes, bytearray)):
+                cached = cached.decode("utf-8")
+            value = json.loads(cached)
+            if isinstance(value, list):
+                return value
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
     path = (f"/consolidated_seasonal_chart2/{_seg(market)}/{_seg(symbol)}/{_seg(years)}"
             f"/{_seg(chart_start_date)}/{_seg(opp_start)}")
     data = get(path)
@@ -579,6 +603,10 @@ def _seasonal_curve(market, symbol, chart_start_date, years, opp_start_date=None
         if idx is None:
             continue
         curve.append({"date": str(row[0]), "index": idx})
+    try:
+        _curve_cache.setex(cache_key, _CURVE_TTL, json.dumps(curve, separators=(",", ":")))
+    except _redis_mod.RedisError:
+        pass
     return curve
 
 

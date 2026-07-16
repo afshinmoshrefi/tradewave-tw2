@@ -846,8 +846,12 @@ flagship + 11 primitives).
 
 **Data shapes (verified vs the appserver):** opportunities = OppList4/OppBySymbol;
 `win_rate` = ChartData4 stat `Percent Profitable` (share of profitable years, no
-threshold - matches the UI), enriched per-symbol (cap 50/list) + cached gateway-side
-(redis db4, 6h TTL); `min_win_rate` filters on it (NOT `ml.win_prob`). ML = MLScoreBatch
+threshold - matches the UI), enriched per-symbol + cached gateway-side
+(redis db4, 6h TTL); `min_win_rate` filters on it (NOT `ml.win_prob`). `/scan` enriches
+only the requested Sharpe-ranked depth unless a receipt-dependent filter or alternate
+ranking requires the bounded 50-row head. Its price-safe scan core is shared for 120 seconds
+with a Redis distributed single-flight lock. Auth, tier projection, rate limiting, ML quota,
+and ML scoring still run on every request. ML = MLScoreBatch
 + MLScorePending (two-phase), metered by API tier and limited to markets 0-4,11.
 `/seasonal-chart` =
 consolidated_seasonal_chart2 (365-day high/low-normalized, year-averaged 0-100 curve -
@@ -875,11 +879,12 @@ rate-limits bound API load, so a 2nd appserver instance (Option B) is DEFERRED u
 traffic competes (a no-code flip via `TW2_APPSERVER_URL`). On staging/prod, place the
 gateway+MCP on the app box (gateway->appserver localhost); the public `api-`/`mcp-`
 hostnames reach it via the web-box nginx over the VLAN or the app box's tunnel (finalize
-at deploy). The gateway is **stateless** (state = Postgres + redis db4 + the appserver, all
-over the network), so splitting it onto its OWN box later is a config flip, not a rewrite:
+at deploy). The gateway holds no authoritative local state (state = Postgres + gateway
+redis db4 + the appserver, all over the network), so splitting it onto its OWN box later is
+a config flip, not a rewrite:
 the unit files now read the bind/host from env (`TW2_APISERVER_BIND`, `TW2_MCP_HOST/PORT`;
 defaults = loopback, so co-located behavior is unchanged), and everything else
-(`TW2_APPSERVER_URL`, `REDIS_HOST`, Tara's `TW2_GATEWAY_URL`) was already per-env. Step-by-step:
+(`TW2_APPSERVER_URL`, `TW2_GATEWAY_REDIS_URL`, Tara's `TW2_GATEWAY_URL`) is per-env. Step-by-step:
 `ops/SPLIT_GATEWAY_TO_OWN_BOX.md`.
 
 **LAUNCHED ON PROD 2026-07-04** (dark-ship retired): prod-app runs venv-api +
@@ -1036,7 +1041,15 @@ expensive cache misses use Redis single-flight locks; CSV and JSON publishers us
 rename so readers never observe partial files. The API gateway uses a 12-connection
 Postgres pool per worker, a 30-second positive-only bounded API-key cache (revocation may
 take at most that TTL), atomic Redis ML-quota consumption, and exposes the appserver 429
-storm-breaker state on `/healthz`. MCP tool functions are async at the gateway I/O boundary,
+storm-breaker state on `/healthz`. The scan path shares a price-safe 120-second core in
+gateway Redis with a distributed single-flight lock. Default Sharpe scans enrich only the
+requested result depth, so `limit=5` makes five ChartData calls instead of enriching the
+old 50-row head. Seasonal curves are also cached in gateway Redis for six hours. Cache keys
+contain normalized scan inputs only; authentication, entitlements, rate limiting, ML quota,
+and ML scoring remain per request. Degraded receipt or market results are not stored in the
+normal cache, and partial market failures are explicit in `market_failures`. Set
+`TW2_GATEWAY_REDIS_URL` when API/MCP move off the appserver box so every API node shares the
+same cache and coordination locks. MCP tool functions are async at the gateway I/O boundary,
 share one bounded 32-connection `httpx` pool, and preserve the existing WorkOS OAuth and
 BYOK validation paths. There is no appserver or API framework rewrite.
 

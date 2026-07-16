@@ -3,6 +3,8 @@ functions. Auth + redis + the appserver are mocked, so these exercise ONLY the r
 the educational-only disclaimer on every pattern-bearing response, the per-market band 400, the
 ~90% default, and the view param. Runs under /home/flask/venv (has flask+pytest+apiserver).
 """
+import copy
+
 import pytest
 
 from apiserver import tiers
@@ -11,6 +13,19 @@ pytestmark = pytest.mark.unit  # no real external state - auth, redis, and the a
 
 _ENT = tiers.tier_for("dev")
 _CUSTOMER = {"user_id": "test-user", "email": "t@example.com", "tier": "dev", "entitlements": _ENT}
+
+
+@pytest.fixture(autouse=True)
+def _bypass_shared_scan_cache(monkeypatch):
+    """Route tests stay hermetic; scan-cache coordination has dedicated tests."""
+    from apiserver import scan_cache
+
+    def bypass(_key, builder):
+        built = builder()
+        value = built.value if isinstance(built, scan_cache.BuildResult) else built
+        return scan_cache.CacheResult(value, "BYPASS")
+
+    monkeypatch.setattr(scan_cache, "get_or_build", bypass)
 
 
 @pytest.fixture
@@ -61,10 +76,18 @@ def test_daily_pick_source_failure_returns_503_json(client, monkeypatch):
 # --- auth ------------------------------------------------------------------------
 
 def test_missing_key_is_401(app, monkeypatch):
-    from apiserver import auth
+    from apiserver import auth, scan_cache
+    cache_calls = {"count": 0}
+
+    def cache_spy(*_args, **_kwargs):
+        cache_calls["count"] += 1
+        raise AssertionError("unauthenticated request reached shared scan cache")
+
     monkeypatch.setattr(auth, "resolve_customer", lambda key: None)
+    monkeypatch.setattr(scan_cache, "get_or_build", cache_spy)
     r = app.test_client().get("/v1/scan")
     assert r.status_code == 401
+    assert cache_calls["count"] == 0
 
 
 # --- the band, at the HTTP layer -------------------------------------------------
@@ -203,6 +226,175 @@ def test_scan_card_carries_extend_research_and_timing(client, monkeypatch):
     card = r.get_json()["opportunities"][0]
     assert "extend_research" in card and card["setup"]["timing"] is not None
     assert card["bias"] == "bullish"
+    assert r.headers["X-TW-Scan-Cache"] == "BYPASS"
+    assert "scan-cache" in r.headers["Server-Timing"]
+
+
+def test_default_scan_enriches_only_requested_rows(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    rows = [_opp(symbol=f"SYM{i}") for i in range(10)]
+    chart_calls = {"count": 0}
+    _mock_card_chain(monkeypatch, multi=rows)
+
+    def receipts(*_args, **_kwargs):
+        chart_calls["count"] += 1
+        return dict(_STATS), list(_ENTRIES)
+
+    monkeypatch.setattr(ac, "chart_stats_and_years", receipts)
+    response = client.get(
+        f"/v1/scan?{_WIN}&markets=2&limit=5&view=decision", headers=_hdr()
+    )
+    assert response.status_code == 200
+    assert response.get_json()["count"] == 5
+    assert chart_calls["count"] == 5
+
+
+def test_shared_core_reused_across_users_but_ml_is_metered_per_request(app, monkeypatch):
+    from apiserver import appserver_client as ac, auth, ml_quota, scan_cache
+    rows = [_opp(symbol=f"SYM{i}") for i in range(5)]
+    counts = {"opp": 0, "chart": 0}
+    metered_users = []
+    stored = {}
+
+    monkeypatch.setattr(auth, "resolve_customer", lambda key: {
+        **_CUSTOMER, "user_id": key,
+    })
+    monkeypatch.setattr(auth, "check_rate_limit", lambda cust: (True, {}))
+    monkeypatch.setattr(auth, "record_usage", lambda *a, **k: None)
+    monkeypatch.setattr(ml_quota, "remaining", lambda cust: None)
+    monkeypatch.setattr(ml_quota, "refund", lambda cust, n=1: None)
+
+    def consume(customer, n=1):
+        metered_users.append(customer["user_id"])
+        return n
+
+    monkeypatch.setattr(ml_quota, "consume", consume)
+
+    def opportunities(*_args, **_kwargs):
+        counts["opp"] += 1
+        return list(rows)
+
+    def receipts(*_args, **_kwargs):
+        counts["chart"] += 1
+        return dict(_STATS), list(_ENTRIES)
+
+    def memory_cache(key, builder):
+        if key not in stored:
+            built = builder()
+            stored[key] = copy.deepcopy(built.value)
+            status = "MISS"
+        else:
+            status = "HIT"
+        return scan_cache.CacheResult(copy.deepcopy(stored[key]), status)
+
+    monkeypatch.setattr(ac, "market_name_map", lambda: {"2": "S&P 500 STOCKS"})
+    monkeypatch.setattr(ac, "opportunities_multi", opportunities)
+    monkeypatch.setattr(ac, "chart_stats_and_years", receipts)
+    monkeypatch.setattr(ac, "_seasonal_curve", lambda *_a, **_k: [])
+    monkeypatch.setattr(ac, "ml_scores", lambda _market, items: [
+        {"ml_score": 80, "win_prob": 0.8, "pred_return": 5.0, "pred_mfe": 7.0}
+        for _ in items
+    ])
+    monkeypatch.setattr(scan_cache, "get_or_build", memory_cache)
+
+    test_client = app.test_client()
+    one = test_client.get(
+        f"/v1/scan?{_WIN}&markets=2&limit=5",
+        headers={"Authorization": "Bearer user-one"},
+    )
+    two = test_client.get(
+        f"/v1/scan?{_WIN}&markets=2&limit=5",
+        headers={"Authorization": "Bearer user-two"},
+    )
+    assert (one.status_code, two.status_code) == (200, 200)
+    assert (one.headers["X-TW-Scan-Cache"], two.headers["X-TW-Scan-Cache"]) == (
+        "MISS", "HIT"
+    )
+    assert counts == {"opp": 1, "chart": 5}
+    assert metered_users == ["user-one", "user-two"]
+
+
+def test_scan_cache_boundary_drops_prices_private_fields_and_ml(client, monkeypatch):
+    from apiserver import appserver_client as ac, scan_cache
+    unsafe = _opp()
+    unsafe.update(price=123.45, _private="internal", ml={"win_prob": 0.99})
+    captured = {}
+
+    monkeypatch.setattr(ac, "market_name_map", lambda: {"2": "S&P 500 STOCKS"})
+    monkeypatch.setattr(ac, "opportunities_multi", lambda *_a, **_k: [unsafe])
+    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *_a, **_k: (
+        {**_STATS, "52W High": 999.0},
+        [{"year": 2025, "pct": "5.0,6.0,-1.0", "price": 456.78}],
+    ))
+    monkeypatch.setattr(ac, "_seasonal_curve", lambda *_a, **_k: [])
+
+    def inspect(_key, builder):
+        built = builder()
+        captured.update(copy.deepcopy(built.value))
+        return scan_cache.CacheResult(built.value, "MISS")
+
+    monkeypatch.setattr(scan_cache, "get_or_build", inspect)
+    response = client.get(
+        f"/v1/scan?{_WIN}&markets=2&limit=1", headers=_hdr()
+    )
+    assert response.status_code == 200
+    record = captured["candidates"][0]
+    assert "price" not in record["opp"] and "_private" not in record["opp"]
+    assert record["opp"]["ml"] is None
+    assert "52W High" not in record["stats"]
+    assert set(record["chart_entries"][0]) == {"year", "pct"}
+
+
+def test_partial_receipt_failure_is_never_published(client, monkeypatch):
+    from apiserver import appserver_client as ac, scan_cache
+    _mock_card_chain(monkeypatch, multi=[_opp()])
+    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *_a, **_k: (None, None))
+    captured = {}
+
+    def inspect(_key, builder):
+        built = builder()
+        captured["cacheable"] = built.cacheable
+        return scan_cache.CacheResult(built.value, "BYPASS")
+
+    monkeypatch.setattr(scan_cache, "get_or_build", inspect)
+    response = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    assert response.status_code == 200
+    assert captured["cacheable"] is False
+
+
+def test_partial_market_failure_is_explicit_and_never_published(client, monkeypatch):
+    from apiserver import appserver_client as ac, scan_cache
+    _mock_card_chain(monkeypatch)
+    monkeypatch.setattr(
+        ac, "opportunities_multi", lambda *_a, **_k: ([_opp()], ["4"])
+    )
+    captured = {}
+
+    def inspect(_key, builder):
+        built = builder()
+        captured["cacheable"] = built.cacheable
+        return scan_cache.CacheResult(built.value, "BYPASS")
+
+    monkeypatch.setattr(scan_cache, "get_or_build", inspect)
+    response = client.get(f"/v1/scan?{_WIN}&markets=2,4", headers=_hdr())
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["market_failures"] == ["4"]
+    assert "omitted" in body["summary"].lower()
+    assert captured["cacheable"] is False
+
+
+def test_scan_busy_is_retryable_json_503(client, monkeypatch):
+    from apiserver import appserver_client as ac, scan_cache
+    monkeypatch.setattr(ac, "market_name_map", lambda: {"2": "S&P 500 STOCKS"})
+    monkeypatch.setattr(
+        scan_cache, "get_or_build",
+        lambda *_a, **_k: (_ for _ in ()).throw(scan_cache.ScanBuildBusy()),
+    )
+    response = client.get(f"/v1/scan?{_WIN}&markets=2", headers=_hdr())
+    assert response.status_code == 503
+    assert response.get_json()["error"]["code"] == "scan_busy"
+    assert response.headers["Retry-After"] == "1"
 
 
 def test_scan_no_signal_card_omits_order_ticket(client, monkeypatch):

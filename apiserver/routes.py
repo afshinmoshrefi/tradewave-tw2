@@ -18,7 +18,7 @@ import re
 import requests
 from flask import Blueprint, g, jsonify, request
 
-from . import appserver_client, cards, market_bands, ml_quota, tiers
+from . import appserver_client, cards, market_bands, ml_quota, scan_cache, tiers
 from .auth import require_api_key
 
 log = logging.getLogger("apiserver.routes")
@@ -860,17 +860,70 @@ def symbol_patterns(symbol):
 # FLAGSHIP endpoints: build PatternCards via cards.py (one source of truth)     #
 # --------------------------------------------------------------------------- #
 
+_PREFETCH_NOT_PROVIDED = object()
+
+# Only these percentage/ratio fields are needed to build a PatternCard. The scan
+# core drops every other ChartData4 field before publishing to gateway Redis.
+# Per-year entries retain only year + pct; any raw price is removed.
+_SCAN_SAFE_STATS = {
+    "Percent Profitable", "Sharpe Ratio", "Avg Profit - All", "Median Profit",
+    "Std Dev", "Annualized Return", "Cumulative Return", "Sharpe Ratio2",
+}
+_SCAN_SAFE_OPP_FIELDS = {
+    "symbol", "market", "direction", "entry_date", "days_out", "sharpe_ratio",
+    "avg_profit_pct", "median_profit_pct", "win_rate", "years",
+}
+_SCAN_COLUMN_FILTER_PARAMS = (
+    "min_days", "max_days", "min_avg_return", "min_median_return", "min_sharpe",
+)
+
+
+def _price_safe_scan_receipts(stats, chart_entries):
+    safe_stats = {}
+    if isinstance(stats, dict):
+        safe_stats = {key: stats[key] for key in _SCAN_SAFE_STATS if key in stats}
+    safe_entries = []
+    if isinstance(chart_entries, list):
+        for entry in chart_entries:
+            if not isinstance(entry, dict):
+                continue
+            safe_entries.append({
+                key: entry.get(key) for key in ("year", "pct") if key in entry
+            })
+    return safe_stats, safe_entries
+
+
+def _price_safe_scan_opp(opp):
+    """Project an internal opportunity onto the reusable, non-metered scan fields."""
+    if not isinstance(opp, dict):
+        return {}
+    safe = {key: opp.get(key) for key in _SCAN_SAFE_OPP_FIELDS if key in opp}
+    # ML is always recomputed after authentication and quota consumption. Keeping an
+    # explicit empty slot preserves the Opportunity shape without sharing a score.
+    safe["ml"] = None
+    return safe
+
 def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank=None,
-                     ml_state="na", name_map=None, include_chart=False):
+                     ml_state="na", name_map=None, include_chart=False,
+                     prefetched_stats=_PREFETCH_NOT_PROVIDED,
+                     prefetched_chart_entries=_PREFETCH_NOT_PROVIDED,
+                     prefetched_receipts_unavailable=False):
     """Source receipts (ChartData4 stats + per-year entries) for ONE opp and build its
     card. Two distinct degraded paths, never conflated: a genuine per-symbol DATA GAP
     yields empty stats/entries and the card reflects the thin record; a FAILED fetch
     (429 after retries / timeout / upstream error, surfaced as (None, None)) stamps the
     card receipts_unavailable so it degrades to 'data temporarily unavailable' instead
     of a confident no-edge. Neither aborts the request."""
-    stats, chart_entries = appserver_client.chart_stats_and_years(
-        opp["market"], opp["symbol"], opp["entry_date"], opp.get("days_out"), opp.get("years"))
-    receipts_unavailable = stats is None and chart_entries is None
+    if (prefetched_stats is _PREFETCH_NOT_PROVIDED
+            or prefetched_chart_entries is _PREFETCH_NOT_PROVIDED):
+        stats, chart_entries = appserver_client.chart_stats_and_years(
+            opp["market"], opp["symbol"], opp["entry_date"],
+            opp.get("days_out"), opp.get("years"))
+        receipts_unavailable = stats is None and chart_entries is None
+    else:
+        stats = prefetched_stats
+        chart_entries = prefetched_chart_entries
+        receipts_unavailable = bool(prefetched_receipts_unavailable)
     if receipts_unavailable:
         stats, chart_entries = {}, []
     elif opp.get("win_rate") is None:
@@ -921,7 +974,7 @@ def scan():
     """find_best_opportunities: cross-market ranked seasonal scan -> PatternCard[].
 
     Fans out OppList4 over the caller's in-scope markets IN PARALLEL, resolves the window
-    to entry dates, ranks (default by edge_score), tier-caps, then enriches ONLY the
+    to entry dates, ranks (default by Sharpe), tier-caps, then enriches ONLY the
     surviving rows (win_rate + receipts + Pro ML) so we never fan out ChartData4 NxM."""
     name_map = appserver_client.market_name_map()
     markets_param = request.args.get("markets")
@@ -982,64 +1035,124 @@ def scan():
         req_limit = 0
     effective_limit = min(req_limit, tier_cap)
 
-    # 1) parallel fan-out at the window's start date (NO enrichment yet).
-    raw = appserver_client.opportunities_multi(
-        market_ids, entry_lo.isoformat(), year1=year1, year2=year2,
-        direction=direction, mode=_opp_mode(pe_cycle))
+    # Default Sharpe scans with no post-receipt filters need only the requested rows.
+    # Other rankings / trust filters may reorder or reject rows, so retain the bounded
+    # 50-row head for correctness. The depth is part of the shared cache key.
+    needs_full_head = bool(
+        min_win_rate is not None or min_years is not None or rank_by != "sharpe"
+    )
+    core_depth = _SCAN_ENRICH_CAP if needs_full_head else min(
+        effective_limit, _SCAN_ENRICH_CAP
+    )
+    column_filter_key = {
+        key: request.args.get(key) for key in _SCAN_COLUMN_FILTER_PARAMS
+        if request.args.get(key) is not None
+    }
+    demo_enabled = bool(g.customer["entitlements"].get("demo"))
+    cache_key = scan_cache.make_key({
+        "markets": sorted(str(mid) for mid in market_ids),
+        "entry_lo": entry_lo.isoformat(),
+        "entry_hi": entry_hi.isoformat(),
+        "years": str(year1),
+        "min_winning_years": str(year2),
+        "direction": direction,
+        "pe_mode": _opp_mode(pe_cycle),
+        "column_filters": column_filter_key,
+        "depth": core_depth,
+        "demo": demo_enabled,
+        "demo_symbols": sorted(g.customer["entitlements"].get("demo_symbols", []))
+        if demo_enabled else [],
+    })
 
-    # 1b) demo token: scope candidates to the public allowlist BEFORE any ranking/enrichment
-    # work happens, not by post-filtering the response - so the demo also stops burning
-    # full-market compute (spec: docs/API_CONSOLE_USER_FLOWS.md, subscriber-UX audit
-    # 2026-07-10). evaluated_count/summary below are computed AFTER this filter, so they
-    # honestly describe the 5-symbol universe rather than the full market.
-    raw = _demo_scope_rows(raw)
+    def _build_scan_core():
+        multi = appserver_client.opportunities_multi(
+            market_ids, entry_lo.isoformat(), year1=year1, year2=year2,
+            direction=direction, mode=_opp_mode(pe_cycle), return_failures=True)
+        if (isinstance(multi, tuple) and len(multi) == 2
+                and isinstance(multi[1], list)):
+            raw, failed_markets = multi
+        else:
+            # Unit-test fakes and older compatible clients return the historical list.
+            raw, failed_markets = multi, []
 
-    # 2) keep only setups whose entry_date falls inside the window (true window over the
-    #    single-date OppList4 primitive).
-    in_window = []
-    for o in raw:
-        ed = cards._parse_date(o.get("entry_date"))
-        if ed is None:
-            continue
-        if entry_lo <= ed <= entry_hi:
-            in_window.append(o)
+        # Demo remains scoped before enrichment. Its cache key is separate from normal
+        # customers, so a public token can never read a full-universe core.
+        raw = _demo_scope_rows(raw)
+        in_window = []
+        for opp in raw:
+            entry_date = cards._parse_date(opp.get("entry_date"))
+            if entry_date is not None and entry_lo <= entry_date <= entry_hi:
+                in_window.append(_price_safe_scan_opp(opp))
 
-    # 2b) numeric COLUMN filters the UI also offers (pattern length in days, avg/median profit %,
-    #     Sharpe) - applied on raw rows before we pick the head to enrich. e.g. a 10-90 day range
-    #     with avg profit >= 5% is min_days=10&max_days=90&min_avg_return=5.
-    keep = _column_filters_from_args()
-    in_window = [o for o in in_window if keep(o)]
+        keep = _column_filters_from_args()
+        in_window = [opp for opp in in_window if keep(opp)]
+        in_window = _dedupe_scan_rows(in_window)
+        evaluated = len(in_window)
+        in_window.sort(key=lambda opp: opp.get("sharpe_ratio") or 0, reverse=True)
+        selected = in_window[:core_depth]
 
-    # 2c) dedupe BEFORE rank/cap: the same setup listed by several markets must not eat
-    #     multiple ranked slots (a live top-8 once carried MSFT x3).
-    in_window = _dedupe_scan_rows(in_window)
-    evaluated_count = len(in_window)
+        def _fetch_receipts(opp):
+            stats, entries = appserver_client.chart_stats_and_years(
+                opp["market"], opp["symbol"], opp["entry_date"],
+                opp.get("days_out"), opp.get("years"))
+            unavailable = stats is None and entries is None
+            if unavailable:
+                stats, entries = {}, []
+            safe_stats, safe_entries = _price_safe_scan_receipts(stats, entries)
+            if not unavailable and opp.get("win_rate") is None:
+                opp["win_rate"] = appserver_client._win_rate_from_stats(safe_stats)
+            return {
+                "opp": opp,
+                "stats": safe_stats,
+                "chart_entries": safe_entries,
+                "receipts_unavailable": unavailable,
+            }
 
-    # 3) order by Sharpe (present on every OppList4 row, no enrichment needed) to choose
-    #    the head we enrich - this mirrors TradeWave's daily-pick / SMN 'AI' selection,
-    #    which gate on win metrics then rank by Sharpe.
-    in_window.sort(key=lambda o: o.get("sharpe_ratio") or 0, reverse=True)
+        records = []
+        if selected:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                records = list(executor.map(_fetch_receipts, selected))
+        degraded = any(record["receipts_unavailable"] for record in records)
+        value = {
+            "evaluated_count": evaluated,
+            "enrichment_capped": evaluated > len(records),
+            "failed_markets": failed_markets,
+            "candidates": records,
+        }
+        # Empty is cacheable when every requested market responded successfully. A
+        # partial market failure or transient receipt failure is never published.
+        return scan_cache.BuildResult(
+            value=value,
+            cacheable=not failed_markets and not degraded,
+        )
 
-    # 4) take a generous head for enrichment (cap), then enrich win_rate + ml on those.
-    head = in_window[: max(effective_limit, min(_SCAN_ENRICH_CAP, len(in_window)))]
-    head = head[:_SCAN_ENRICH_CAP]
-    enrichment_capped = len(in_window) > len(head)
+    try:
+        cache_result = scan_cache.get_or_build(cache_key, _build_scan_core)
+    except scan_cache.ScanBuildBusy:
+        response = jsonify({"error": {
+            "code": "scan_busy",
+            "message": "scan capacity is busy building fresh data - retry shortly",
+        }})
+        response.status_code = 503
+        response.headers["Retry-After"] = "1"
+        response.headers["X-TW-Scan-Cache"] = "BUSY"
+        return response
 
-    # enrich win_rate (+ receipts happen at card build) on the head rows - in parallel
-    # (each row is an independent appserver round-trip). max_workers=4 keeps the shared
-    # hourly appserver bucket from spiking; _win_rate_for_opp is fail-soft + g-free.
-    def _enrich_wr(o):
-        if o.get("win_rate") is None:
-            o["win_rate"] = appserver_client._win_rate_for_opp(o)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
-        list(_ex.map(_enrich_wr, head))
+    core = cache_result.value
+    evaluated_count = int(core.get("evaluated_count") or 0)
+    enrichment_capped = bool(core.get("enrichment_capped"))
+    failed_markets = [str(market) for market in (core.get("failed_markets") or [])]
+    records = list(core.get("candidates") or [])
+    head = [record.get("opp") or {} for record in records]
 
-    # 5) trust filters (after win_rate is real).
-    filtered = head
+    # Trust filters are customer/query overlays and are never cached into shared data.
+    filtered_records = records
     if min_win_rate is not None:
-        filtered = [o for o in filtered if o.get("win_rate") is not None and o["win_rate"] >= min_win_rate]
-    # min_years filter applied via receipts in the card build below (years_tested); we
-    # approximate here with the lookback label, then re-check on the built card.
+        filtered_records = [
+            record for record in filtered_records
+            if (record.get("opp") or {}).get("win_rate") is not None
+            and (record.get("opp") or {})["win_rate"] >= min_win_rate
+        ]
 
     # 6) attach ML inline, METERED by the daily allowance (free 5/day, unlimited Pro).
     #    filtered is in Sharpe order, so we spend the allowance on the strongest setups.
@@ -1048,7 +1161,8 @@ def scan():
     #    ever charged for ML scores actually delivered. Rows past the allowance are left
     #    unattempted (a true 'quota' note); attempted-but-unscored rows get the neutral
     #    'unavailable' note - never a false "upgrade for unlimited" nudge.
-    eligible = [o for o in filtered if _ml_eligible(o["market"])]
+    eligible = [record["opp"] for record in filtered_records
+                if _ml_eligible(record["opp"]["market"])]
     granted = ml_quota.consume(g.customer, len(eligible)) if eligible else 0
     attempted = eligible[:granted]
     by_market = {}
@@ -1075,17 +1189,21 @@ def scan():
     #    (avoids a curve round-trip for every candidate that gets ranked out). max_workers=4
     #    bounds the shared appserver bucket; the card-build helpers are g-free.
     _as_of = _today()
-    def _build_card(o):
+    def _build_card(record):
+        o = record["opp"]
         ml_available = bool(o.get("ml"))
         card = _enrich_and_card(
             o, ml_available=ml_available, as_of=_as_of,
-            ml_state=_ml_state_for(o, ml_available), name_map=name_map)
+            ml_state=_ml_state_for(o, ml_available), name_map=name_map,
+            prefetched_stats=record.get("stats") or {},
+            prefetched_chart_entries=record.get("chart_entries") or [],
+            prefetched_receipts_unavailable=record.get("receipts_unavailable", False))
         card["_opp"] = o
         return card
 
     built = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
-        for card in _ex.map(_build_card, filtered):
+        for card in _ex.map(_build_card, filtered_records):
             # years_tested is None on a receipts_unavailable card: an unverifiable record
             # is kept (with its explicit flag), never silently dropped by a trust filter.
             yt = card["receipts"].get("years_tested")
@@ -1099,7 +1217,13 @@ def scan():
     built = built[:effective_limit]
     # the FREE-TIER WALL, made visible: true only when the PLAN cap (not the caller's own
     # limit) was the binding constraint on how many ranked cards came back.
-    capped_by_plan = (pre_cap_count > effective_limit and tier_cap < req_limit)
+    if not needs_full_head:
+        candidate_count_after_filters = evaluated_count
+    else:
+        candidate_count_after_filters = pre_cap_count
+    capped_by_plan = (
+        candidate_count_after_filters > effective_limit and tier_cap < req_limit
+    )
 
     # curve_summary for the RETURNED cards only (parallel): the richest narratable line,
     # without paying a curve fetch for cards that ranked out. Mirrors build_pattern_card's
@@ -1148,6 +1272,12 @@ def scan():
     if degraded_rows:
         summary += (" Win-rate data unavailable for %d row(s) (upstream rate limit/outage) - "
                     "those rows are shown unverified; retry shortly." % degraded_rows)
+    if failed_markets:
+        summary += (
+            " Data was unavailable for market(s) %s; their results are omitted, so retry "
+            "before treating this scan as complete."
+            % ", ".join(name_map.get(market, market) for market in failed_markets)
+        )
     if enrichment_capped:
         summary += (" Only the top %d candidates (by Sharpe) were fully evaluated "
                     "(enrichment cap)." % len(head))
@@ -1170,6 +1300,7 @@ def scan():
         "summary": summary,
         "window": window_label,
         "markets_scanned": market_ids,
+        "market_failures": failed_markets,
         "rank_by": rank_by,
         "view": view,
         "lookback": {"years": int(year1), "min_winning_years": int(year2)},
@@ -1197,7 +1328,10 @@ def scan():
             "min_winning_years=%s is outside the detection band for %s at a %s-year lookback, "
             "so those markets returned nothing. Raise min_winning_years (toward %s) to include them."
             % (year2, ", ".join(names.get(m, m) for m in oob), year1, year1))
-    return jsonify(payload)
+    response = jsonify(payload)
+    response.headers["X-TW-Scan-Cache"] = cache_result.status
+    response.headers["Server-Timing"] = f'scan-cache;desc="{cache_result.status}"'
+    return response
 
 
 def _scan_sortkey(card, rank_by):

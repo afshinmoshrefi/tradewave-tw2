@@ -18,6 +18,7 @@ import redis
 from flask import g, jsonify, request
 
 from . import db, settings, tiers
+from .gateway_redis import create_client
 import reverse_trial  # shared reverse-trial cutoff math (also imported by web/app.py)
 from reverse_trial import NAV_TEASER_SECONDS  # hoisted: web + gateway share the 7-day window
 
@@ -29,7 +30,7 @@ _ON_BEHALF_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _WORKOS_SUB_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 
 log = logging.getLogger("apiserver.auth")
-_redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
+_redis = create_client()
 _key_cache = OrderedDict()
 _key_cache_lock = threading.Lock()
 

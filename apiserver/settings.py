@@ -67,6 +67,31 @@ REDIS_HOST = _get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(_get("REDIS_PORT", "6379"))
 REDIS_DB = int(_get("API_REDIS_DB", "4"))
 
+# Deployment-neutral gateway Redis. Today API/MCP/appserver share one box, so the
+# host/port/db fallback above is sufficient. When the gateway moves to another box
+# (or several API nodes), set one URL such as redis://user:pass@10.0.0.8:6379/4 or
+# rediss://... and every gateway-owned cache/counter uses that shared service. The
+# gateway never reads the appserver's private db0 cache keys.
+GATEWAY_REDIS_URL = (_get("TW2_GATEWAY_REDIS_URL", "") or "").strip()
+
+# Shared scan-core cache. The core contains only normalized seasonal statistics and
+# per-year percentages, never credentials, user identity, quota state, or prices.
+# Entitlements and ML allowance are applied after every cache read.
+SCAN_CACHE_TTL_SECONDS = max(
+    0, min(900, int(_get("TW2_SCAN_CACHE_TTL_SECONDS", "120")))
+)
+SCAN_CACHE_WAIT_SECONDS = max(
+    1.0, min(30.0, float(_get("TW2_SCAN_CACHE_WAIT_SECONDS", "12")))
+)
+SCAN_CACHE_LOCK_SECONDS = max(
+    15, min(115, int(_get("TW2_SCAN_CACHE_LOCK_SECONDS", "115")))
+)
+# One cold build per gunicorn process means the current four API workers can create
+# at most four builds x four downstream fan-out threads = the appserver's 16 slots.
+SCAN_CACHE_LOCAL_BUILD_SLOTS = max(
+    1, min(4, int(_get("TW2_SCAN_CACHE_LOCAL_BUILD_SLOTS", "1")))
+)
+
 # Stripe (TEST mode on dev).
 STRIPE_SECRET_KEY = _get("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = _get("STRIPE_WEBHOOK_SECRET")
