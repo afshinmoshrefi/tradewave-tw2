@@ -31,6 +31,11 @@
 # Brand rule: no em-dashes anywhere (use ' - ').
 set -euo pipefail
 
+[[ "$(id -u)" -eq 0 ]] || {
+  echo "ERROR: run as root so publishing can update /var/www/developers" >&2
+  exit 1
+}
+
 if [[ -r /etc/tradewave/secrets.env ]]; then
   set -a
   . /etc/tradewave/secrets.env
@@ -41,6 +46,7 @@ REPO=/home/flask
 PY="$REPO/venv/bin/python"
 SITE="$REPO/site"
 DOCROOT=/var/www/developers
+GENERATOR_USER=flask
 
 hdr(){ printf '\n=== %s ===\n' "$*"; }
 
@@ -55,12 +61,29 @@ echo "  TW2_MCP_PUBLIC_HOST=${TW2_MCP_PUBLIC_HOST:-<unset -> dev default>}"
 echo "  (export these before running to build staging/prod; portal_urls resolves the rest)"
 
 hdr "1/4  run the 5 portal generators with $PY"
+# Generators write ignored build artifacts inside the Git worktree.  Keep those
+# paths owned by the repository user even though this publisher must run as
+# root for /var/www.  Root-owned generator output can prevent a later Git
+# fast-forward from replacing or adding files in the same directories.
+generator_paths=(
+  "$SITE/api_marketing/out"
+  "$SITE/api_docs"
+  "$SITE/api_learn/out"
+  "$SITE/api_playground/out"
+)
+for path in "${generator_paths[@]}"; do
+  install -d -o "$GENERATOR_USER" -g "$GENERATOR_USER" -m 0755 "$path"
+  chown -R "$GENERATOR_USER:$GENERATOR_USER" "$path"
+done
+
 run_gen(){
   # run_gen <relative-script-path>
   local script="$SITE/$1"
   [[ -f "$script" ]] || { echo "ERROR: generator not found: $script"; exit 1; }
   echo "--- generating: $1 ---"
-  ( cd "$REPO" && "$PY" "$script" )
+  ( cd "$REPO" && sudo \
+      --preserve-env=TW2_ENV,TW2_PUBLIC_HOST,TW2_DEVELOPERS_PUBLIC_HOST,TW2_API_PUBLIC_HOST,TW2_MCP_PUBLIC_HOST,TW2_DEVELOPER_PORT,TW_DOCCHECK_KEY,TRADEWAVE_API_KEY,TW_DOCCHECK_KEYS_FILE,TW_DOCCHECK_API_BASE \
+      -u "$GENERATOR_USER" -- "$PY" "$script" )
 }
 run_gen api_marketing/generate.py
 run_gen api_docs/generate_api_docs.py
