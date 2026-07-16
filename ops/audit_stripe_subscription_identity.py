@@ -164,6 +164,15 @@ def _customer_subscription_ids(customer_ids):
     return result, errors
 
 
+def _customer_ids_for_identity_audit(snapshots):
+    """Scan every customer whose stored web identity may need verification."""
+    return {
+        snapshot.customer_id
+        for snapshot in snapshots
+        if snapshot.customer_id and snapshot.web_subscription_id
+    }
+
+
 def _snapshot_rows():
     session = Session()
     try:
@@ -428,20 +437,33 @@ def _apply(plans) -> int:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    apply_group = parser.add_mutually_exclusive_group()
+    apply_group.add_argument(
         "--apply", action="store_true",
-        help="commit safe identity moves (default: Stripe-backed dry-run)",
+        help="commit safe LIVE-mode identity moves in prod",
+    )
+    apply_group.add_argument(
+        "--apply-test-mode", action="store_true",
+        help="commit safe TEST-mode identity moves in dev only",
     )
     args = parser.parse_args(argv)
+    apply_mode = args.apply or args.apply_test_mode
+    environment = os.environ.get("TW2_ENV", "").strip().lower()
 
-    if args.apply and os.environ.get("TW2_ENV", "").strip().lower() != "prod":
+    if args.apply and environment != "prod":
         print(
             "REFUSING --apply unless TW2_ENV=prod is explicitly set; "
             "dry-run is allowed in every environment.",
             file=sys.stderr,
         )
         return 2
-    if args.apply and config.MAILERLITE_OUTBOUND_ENABLED:
+    if args.apply_test_mode and environment != "dev":
+        print(
+            "REFUSING --apply-test-mode unless TW2_ENV=dev is explicitly set.",
+            file=sys.stderr,
+        )
+        return 2
+    if apply_mode and config.MAILERLITE_OUTBOUND_ENABLED:
         print(
             "REFUSING --apply while MAILERLITE_OUTBOUND_ENABLED is true; "
             "set it to 0 and restart the web service first.",
@@ -451,6 +473,12 @@ def main(argv=None) -> int:
     secret_key = (config.STRIPE_SECRET_KEY or "").strip()
     if not secret_key or "PLACEHOLDER" in secret_key.upper():
         print("STRIPE_SECRET_KEY is missing or a placeholder", file=sys.stderr)
+        return 2
+    if args.apply_test_mode and not secret_key.startswith("sk_test_"):
+        print(
+            "REFUSING --apply-test-mode without a Stripe TEST secret key.",
+            file=sys.stderr,
+        )
         return 2
 
     stripe.api_key = secret_key
@@ -477,13 +505,7 @@ def main(argv=None) -> int:
     }
     evidence = _classifications(subscription_ids)
 
-    repair_customers = {
-        snapshot.customer_id
-        for snapshot in snapshots
-        if snapshot.customer_id
-        and evidence.get(snapshot.web_subscription_id)
-        and evidence[snapshot.web_subscription_id].line == "api"
-    }
+    repair_customers = _customer_ids_for_identity_audit(snapshots)
     customer_ids, customer_scan_errors = _customer_subscription_ids(
         repair_customers,
     )
@@ -499,10 +521,10 @@ def main(argv=None) -> int:
         customer_subscription_ids=customer_ids,
         customer_scan_errors=customer_scan_errors,
         expected_livemode=(
-            os.environ.get("TW2_ENV", "").strip().lower() == "prod"
+            False if args.apply_test_mode else environment == "prod"
         ),
     )
-    blocking = _print_plans(plans, apply_mode=args.apply)
+    blocking = _print_plans(plans, apply_mode=apply_mode)
 
     if blocking:
         print(
@@ -510,7 +532,7 @@ def main(argv=None) -> int:
             file=sys.stderr,
         )
         return 2
-    if args.apply:
+    if apply_mode:
         try:
             changed = _apply(plans)
         except Exception as exc:

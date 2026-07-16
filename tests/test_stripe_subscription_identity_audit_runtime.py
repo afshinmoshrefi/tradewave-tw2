@@ -89,6 +89,23 @@ def test_partial_mapping_list_fails_closed_without_auto_pager():
     assert "has no auto_paging_iter" in errors["cus_1"]
 
 
+def test_customer_scan_includes_conflicting_stored_web_identities():
+    rows = [
+        UserIdentitySnapshot(
+            user_id="user-1", email="u@example.com", customer_id="cus_1",
+            web_subscription_id="sub_conflict", web_subscription_status="active",
+            api_subscription_id=None, api_subscription_status=None,
+        ),
+        UserIdentitySnapshot(
+            user_id="user-2", email="v@example.com", customer_id="cus_2",
+            web_subscription_id=None, web_subscription_status=None,
+            api_subscription_id="sub_api", api_subscription_status="active",
+        ),
+    ]
+
+    assert audit._customer_ids_for_identity_audit(rows) == {"cus_1"}
+
+
 def test_apply_requires_explicit_production_environment(monkeypatch):
     monkeypatch.setenv("TW2_ENV", "staging")
     monkeypatch.setattr(audit.config, "MAILERLITE_OUTBOUND_ENABLED", False)
@@ -113,6 +130,17 @@ def test_apply_refuses_while_mailerlite_outbound_is_enabled(monkeypatch):
         result = audit.main(["--apply"])
 
     assert result == 2
+
+
+def test_test_mode_apply_is_allowed_only_with_dev_test_key(monkeypatch):
+    monkeypatch.setenv("TW2_ENV", "dev")
+    monkeypatch.setattr(audit.config, "MAILERLITE_OUTBOUND_ENABLED", False)
+    monkeypatch.setattr(audit.config, "STRIPE_SECRET_KEY", "sk_test_present")
+
+    with patch.object(audit, "_snapshot_rows", return_value=[]):
+        result = audit.main(["--apply-test-mode"])
+
+    assert result == 0
 
 
 def test_apply_snapshot_check_includes_entitlement_tiers():

@@ -333,6 +333,52 @@ def _api_state_problem(
     return "API subscription has ambiguous status %s" % (status or "missing")
 
 
+def _safe_customer_web_rebind(
+    snapshot: UserIdentitySnapshot,
+    stored_web_id: str,
+    customer_subscriptions: Tuple[SubscriptionClassification, ...],
+    *,
+    customer_scan_complete: bool,
+    customer_scan_error: Optional[str],
+    shared_subscription_ids: set,
+    expected_livemode: Optional[bool],
+) -> Optional[SubscriptionClassification]:
+    """Return one conclusive customer-owned web identity, else ``None``.
+
+    The stored web ID must be absent from a complete customer scan, and that
+    scan must contain exactly one subscription total. The sole replacement
+    must be strongly product-classified EOD, live, owned by the stored Stripe
+    customer, unshared, in the expected Stripe mode, and match the paid DB web
+    tier. These constraints repair a stale foreign binding without guessing.
+    """
+    if customer_scan_error or not customer_scan_complete:
+        return None
+    unique = {}
+    for candidate in customer_subscriptions:
+        candidate_id = _text(candidate.subscription_id)
+        if candidate_id:
+            unique[candidate_id] = candidate
+    if stored_web_id in unique or len(unique) != 1:
+        return None
+    candidate = next(iter(unique.values()))
+    web_tier = _lower(snapshot.web_tier)
+    if (
+        candidate.line != "eod"
+        or not _strong_product_evidence(candidate)
+        or not _customer_matches(snapshot, candidate)
+        or _lower(candidate.status) not in LIVE_SUBSCRIPTION_STATUSES
+        or _lower(candidate.tier) != web_tier
+        or web_tier not in {"navigator", "analyst", "strategist"}
+        or candidate.subscription_id in shared_subscription_ids
+        or (
+            expected_livemode is not None
+            and candidate.livemode is not expected_livemode
+        )
+    ):
+        return None
+    return candidate
+
+
 def plan_identity_reconciliation(
     snapshot: UserIdentitySnapshot,
     web_evidence: Optional[SubscriptionClassification],
@@ -347,8 +393,9 @@ def plan_identity_reconciliation(
     """Return the only safe automatic identity mutation for one user.
 
     Unknown legacy web subscriptions are intentionally preserved. Automatic
-    changes are limited to a web-column subscription proven to be API-line and
-    either an empty API column or the exact same API subscription ID.
+    changes are limited to (a) a web-column subscription proven to be API-line
+    with an empty/matching API column, or (b) a stale foreign web ID for which a
+    complete Stripe customer scan proves exactly one matching live web plan.
     """
     shared = set(shared_subscription_ids)
     web_id = _text(snapshot.web_subscription_id)
@@ -416,6 +463,29 @@ def plan_identity_reconciliation(
         return _unchanged(
             snapshot, "blocked-web-stripe-mode", blocking=True,
             reason="Web-column subscription does not match the expected Stripe mode",
+        )
+    recovered_web = _safe_customer_web_rebind(
+        snapshot,
+        web_id,
+        customer_subscriptions,
+        customer_scan_complete=customer_scan_complete,
+        customer_scan_error=customer_scan_error,
+        shared_subscription_ids=shared,
+        expected_livemode=expected_livemode,
+    )
+    if recovered_web:
+        return IdentityPlan(
+            action="rebind-web-to-customer-subscription",
+            applyable=True,
+            blocking=False,
+            reason=(
+                "Complete Stripe customer scan proves one matching live "
+                "web/EOD subscription and excludes the stale stored ID"
+            ),
+            web_subscription_id=recovered_web.subscription_id,
+            web_subscription_status=recovered_web.status,
+            api_subscription_id=api_id,
+            api_subscription_status=snapshot.api_subscription_status,
         )
     if web_evidence.line == "unknown":
         return _unchanged(

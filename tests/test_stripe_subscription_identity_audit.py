@@ -298,6 +298,64 @@ def test_customer_mismatch_blocks_move():
     assert plan.applyable is False
 
 
+def test_rebinds_stale_foreign_web_id_to_only_matching_customer_plan():
+    stale = classify_subscription_payload(subscription_payload(
+        "sub_foreign", product_line="eod", product_tier="analyst",
+        subscription_tier="strategist", customer="cus_other",
+        livemode=False,
+    ))
+    canonical = classify_subscription_payload(subscription_payload(
+        "sub_owned", product_line="eod", product_tier="strategist",
+        subscription_line="eod", subscription_tier="strategist",
+        customer="cus_1", livemode=False,
+    ))
+    user = snapshot(
+        web_subscription_id="sub_foreign",
+        web_tier="strategist",
+        api_tier=None,
+    )
+
+    plan = plan_identity_reconciliation(
+        user, stale, None,
+        customer_subscriptions=(canonical,),
+        customer_scan_complete=True,
+        expected_livemode=False,
+    )
+
+    assert stale.line == "conflict"
+    assert plan.action == "rebind-web-to-customer-subscription"
+    assert plan.applyable is True
+    assert plan.blocking is False
+    assert plan.web_subscription_id == "sub_owned"
+    assert plan.web_subscription_status == "active"
+    assert plan.api_subscription_id is None
+
+
+def test_foreign_web_id_rebind_refuses_multiple_customer_subscriptions():
+    stale = classify_subscription_payload(subscription_payload(
+        "sub_foreign", product_line="eod", product_tier="analyst",
+        subscription_tier="strategist", customer="cus_other",
+    ))
+    canonical = classify_subscription_payload(subscription_payload(
+        "sub_owned", product_line="eod", product_tier="strategist",
+    ))
+    historical = classify_subscription_payload(subscription_payload(
+        "sub_old", product_line="eod", product_tier="strategist",
+        status="canceled",
+    ))
+
+    plan = plan_identity_reconciliation(
+        snapshot(web_subscription_id="sub_foreign", web_tier="strategist"),
+        stale,
+        None,
+        customer_subscriptions=(canonical, historical),
+        customer_scan_complete=True,
+    )
+
+    assert plan.action == "blocked-web-classification"
+    assert plan.blocking is True
+
+
 def test_shared_subscription_id_blocks_move():
     evidence = classify_subscription_payload(subscription_payload(
         "sub_api", product_line="api", product_tier="dev",
