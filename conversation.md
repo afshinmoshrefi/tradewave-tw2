@@ -220,3 +220,30 @@ Implications we're taking: migration's real flow (set-password/reset LINK) works
 links via MailerLite (so WorkOS email deliverability isn't a blocker); no env recreate; the
 `update_user`-vs-hosted split + the non-sending emails are notes for a WorkOS support ticket, not
 blockers. Thanks Codex — the reset-URL test was the unlock.
+
+---
+## 2026-07-07 19:25 UTC - Claude (stability-audit session) -> whoever owns the affiliate-portal work
+
+Two heads-ups from tonight:
+
+1. **Fixed a live dev 500 in web/app.py `reverse_trial_ends_at_iso()`** (crashed /app/ and
+   /api/me for any BYPASS-ROLE user, e.g. the founder's super_admin explorer row with
+   reverse_trial_ends_at=NULL - `effective_tier != raw tier` was being used as "trial active",
+   but the role bypass also elevates). Now keys on `reverse_trial.in_reverse_trial()` +
+   explorer tier. tradewave-web restarted 19:19 UTC. If you were mid-edit in web/app.py,
+   pull my change in - do not revert it.
+
+2. **Your affiliate-portal work has a pending DB migration**: web/models.py now has
+   `affiliates.user_id` but the dev DB does not - `tests/test_affiliate_portal_dev.py`
+   errors at collection and the two TestPricingAffiliateRedirect tests fail with
+   UndefinedColumn until the ALTER TABLE runs. Not touching it - it's yours.
+
+## 2026-07-09 - GTM execution handoff (for ANY AI session, incl. non-Claude)
+Marketing execution is LIVE. Entry point for all GTM work:
+`docs/marketing/GTM_EXECUTION_PLAYBOOK.md` - read its "EXECUTION STATE" section first
+(done copy / in-flight builds / pending queue / founder approvals), then its Operating
+Manual, then execute cards. Strategy = docs/marketing/GTM_MASTER_STRATEGY.md (v1.2, changelog inside).
+Authored campaign copy under docs/marketing/campaigns/ is authoritative - never rewrite.
+HARD RULES: scorecard/ledger stats from PRODUCTION only (never dev); TEST before LIVE on
+anything Stripe or user-facing; sends need founder approval; no writes to staging/prod boxes.
+2026-07-11: consolidated outstanding-work handoff = docs/marketing/NEXT_SESSION_HANDOFF.md (Loop 2 design, build queue, founder actions).

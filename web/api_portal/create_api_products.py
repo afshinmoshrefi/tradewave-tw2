@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Idempotently create the TradeWave API products + monthly/annual prices in
+"""Idempotently create the TradeWave API products + MONTHLY prices in
 Stripe (Dev/Pro/Business), with metadata product_line=api + tier so the
 console's billing code (and the web app's webhook) can resolve them
 deterministically.
+
+API billing is MONTHLY ONLY (owner decision 2026-07-05; rationale in
+apiserver/tiers.py). This script also SELF-HEALS an earlier annual seed:
+it re-points the product's default_price to the monthly price and archives
+any active annual price it finds.
 
   DO NOT RUN THIS DURING THE CONSOLE BUILD. The parent runs it ONCE at
   integration with a confirmed Stripe TEST key:
@@ -66,8 +71,8 @@ def _live_banner():
     for tier in PAID_TIERS:
         spec = api_tiers.API_TIERS[tier]
         lines.append(
-            "    - TradeWave API - %-8s  $%d/mo  +  $%d/yr"
-            % (spec["name"], spec["price_monthly"], spec["price_annual"])
+            "    - TradeWave API - %-8s  $%d/mo (monthly only)"
+            % (spec["name"], spec["price_monthly"])
         )
     f = api_tiers.FOUNDER
     lines += [
@@ -192,33 +197,85 @@ def _ensure_price(stripe, product, tier, interval, dollars):
 FOUNDER_COUPON_ID = "founder_pro_50_12mo"
 
 
+FOUNDER_COUPON_NAME = "TradeWave Founder (Pro 50% off 12mo)"
+
+
+def _coupon_matches_founder(coupon, spec, pro_product_id):
+    """True if an existing coupon carries EXACTLY the Founder terms + Pro restriction.
+    NB: current Stripe API versions OMIT applies_to from the default representation -
+    the caller must have retrieved with expand=["applies_to"] or this always fails."""
+    applies = getattr(coupon, "applies_to", None)
+    products = list(applies.products) if applies else []
+    return (
+        coupon.percent_off == spec["percent_off"]
+        and coupon.duration == "repeating"
+        and coupon.duration_in_months == spec["duration_months"]
+        and coupon.max_redemptions == spec["max_redemptions"]
+        and products == [pro_product_id]
+    )
+
+
 def _ensure_founder(stripe, pro_product_id):
     spec = api_tiers.FOUNDER
-    try:
-        coupon = stripe.Coupon.retrieve(FOUNDER_COUPON_ID)
-        print("  reused coupon   %s (%d%% off, %dmo)" % (coupon.id, spec["percent_off"], spec["duration_months"]))
-    except Exception:
-        coupon = stripe.Coupon.create(
+
+    def _create_coupon():
+        return stripe.Coupon.create(
             id=FOUNDER_COUPON_ID,
             percent_off=spec["percent_off"],
             duration="repeating",
             duration_in_months=spec["duration_months"],
             max_redemptions=spec["max_redemptions"],
             applies_to={"products": [pro_product_id]},
-            name="TradeWave Founder (Pro 50%% off 12mo)",
+            name=FOUNDER_COUPON_NAME,
             metadata={"product_line": PRODUCT_LINE, "plan": "founder"},
         )
+
+    try:
+        coupon = stripe.Coupon.retrieve(FOUNDER_COUPON_ID, expand=["applies_to"])
+    except Exception:
+        coupon = None
+
+    if coupon is None:
+        coupon = _create_coupon()
         print("  created coupon  %s (%d%% off Pro, %dmo, max %d)" % (
             coupon.id, spec["percent_off"], spec["duration_months"], spec["max_redemptions"]))
-
-    # The customer-typed code. Reuse if a promo code with this code already exists.
-    code = spec["code"]
-    existing = stripe.PromotionCode.list(code=code, limit=1).data
-    if existing:
-        print("  reused promo    %s (code %s)" % (existing[0].id, code))
+    elif _coupon_matches_founder(coupon, spec, pro_product_id):
+        print("  reused coupon   %s (%d%% off Pro, %dmo)" % (coupon.id, spec["percent_off"], spec["duration_months"]))
+    elif coupon.times_redeemed == 0:
+        # Self-heal a drifted, never-redeemed coupon. Coupons are immutable past
+        # name/metadata, so heal = delete + recreate (deleting auto-deactivates any
+        # promo codes pointing at it; the promo ensure below recreates the code).
+        stripe.Coupon.delete(FOUNDER_COUPON_ID)
+        coupon = _create_coupon()
+        print("  RECREATED coupon %s - existing one did not match the FOUNDER spec "
+              "(0 redemptions, safe)" % coupon.id)
     else:
+        print("  !! coupon %s does not match the FOUNDER spec but has %d redemption(s) - "
+              "NOT touching it; reconcile in the Stripe dashboard." % (coupon.id, coupon.times_redeemed))
+
+    # Name is the one mutable field - keep the dashboard/checkout label canonical.
+    if getattr(coupon, "name", None) != FOUNDER_COUPON_NAME:
+        stripe.Coupon.modify(FOUNDER_COUPON_ID, name=FOUNDER_COUPON_NAME)
+        print("  renamed coupon  %s -> %r" % (coupon.id, FOUNDER_COUPON_NAME))
+
+    # The customer-typed code. Reuse only an ACTIVE promo that points at OUR coupon
+    # (a promo whose coupon was deleted goes inactive, so it must not count as "exists");
+    # deactivate any active same-code stray pointing elsewhere before recreating.
+    code = spec["code"]
+    active = stripe.PromotionCode.list(code=code, active=True, limit=10).data
+    ours = [p for p in active if getattr(p.promotion, "coupon", None) == FOUNDER_COUPON_ID]
+    for stray in [p for p in active if p not in ours]:
+        stripe.PromotionCode.modify(stray.id, active=False)
+        print("  deactivated stray promo %s (code %s pointed at %r)" % (
+            stray.id, code, getattr(stray.promotion, "coupon", None)))
+    if ours:
+        print("  reused promo    %s (code %s)" % (ours[0].id, code))
+    else:
+        # Stripe SDK 15.x: the coupon nests under `promotion`, not a top-level
+        # `coupon` param (same shape as affiliate_service/promo_service).
         pc = stripe.PromotionCode.create(
-            coupon=coupon.id, code=code, max_redemptions=spec["max_redemptions"],
+            code=code, promotion={"type": "coupon", "coupon": FOUNDER_COUPON_ID},
+            max_redemptions=spec["max_redemptions"],
             metadata={"product_line": PRODUCT_LINE, "plan": "founder"},
         )
         print("  created promo   %s (code %s -> ~$%d/mo Pro)" % (pc.id, code, spec["effective_monthly"]))
@@ -247,14 +304,25 @@ def main():
             print("  reused product  %s (%s)" % (product.id, label))
         products[tier] = product
 
-        # Monthly + annual price (annual = price_annual, i.e. 10x monthly = 2 months free).
-        _ensure_price(stripe, product, tier, "month", spec["price_monthly"])
-        _ensure_price(stripe, product, tier, "year", spec["price_annual"])
+        # Monthly price ONLY (annual dropped 2026-07-05 - rationale in apiserver/tiers.py).
+        month_price = _ensure_price(stripe, product, tier, "month", spec["price_monthly"])
+
+        # Self-heal an earlier annual seed: default_price must point at monthly BEFORE
+        # archiving (Stripe refuses to archive a product's default price), then archive
+        # every active annual price so the console cache can never resolve one.
+        if getattr(product, "default_price", None) != month_price.id:
+            stripe.Product.modify(product.id, default_price=month_price.id)
+            print("    default_price -> %s (monthly)" % month_price.id)
+        for price in stripe.Price.list(product=product.id, active=True, limit=100).auto_paging_iter():
+            rec = price.recurring.to_dict() if getattr(price, "recurring", None) else {}
+            if rec.get("interval") == "year":
+                stripe.Price.modify(price.id, active=False)
+                print("    archived stale annual price %s" % price.id)
 
     print()
     _ensure_founder(stripe, products["pro"].id)
 
-    print("\nDone. The console resolves prices live by (metadata product_line=api, tier) + interval; "
+    print("\nDone. The console resolves prices live by (metadata product_line=api, tier), monthly only; "
           "Founder is the promo code customers type at checkout. Nothing hardcoded.")
 
 

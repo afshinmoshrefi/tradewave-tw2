@@ -4,6 +4,17 @@ Status: PROPOSAL (2026-06-17). Confirmed decision behind it: **MCP is a feature 
 consumer tiers, including free — not sold separately; the developer API is the only
 thing sold standalone.** ("Price the pattern, not the pipe.")
 
+> **SUPERSEDED IN PART (2026-07-05, shipped in `apiserver/tiers.py` — that file is the
+> SSOT, not the tables below):** (a) API billing is **MONTHLY ONLY** — the annual
+> "2 months free" line below is dead; `price_annual` no longer exists and the seeder
+> archives stale annual prices. (b) The rate row is obsolete: per-day quotas were
+> re-anchored to "one per-symbol card for everything in your scope per trading day"
+> (US+ETF ~3.7k symbols, all markets ~18.7k): free 10/100, dev 60/1,000, pro
+> 120/5,000, business 300/20,000 (min/day). (c) Consumer-MCP mirrors re-scaled to
+> assistant-sized caps (Analyst-in-chat 1,000/day, Strategist-in-chat 2,000/day).
+> Rationale + the sweep math live in `docs/TRADEWAVE_ECOSYSTEM.md` (API billing +
+> quota model). Fix A (Pro $199 vs Strategist $129 inversion) remains OPEN.
+
 Sources of truth this reconciles:
 - `config.py` `TIER_FEATURES` — web app entitlements (Explorer / Analyst / Strategist)
 - `apiserver/tiers.py` `API_TIERS` + `WEB_TIER_TO_API` — programmatic (MCP + API) entitlements

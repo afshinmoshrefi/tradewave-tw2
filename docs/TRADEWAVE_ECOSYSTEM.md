@@ -132,7 +132,34 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   + Stripe history map straight into Rewardful/Tolt later (coupon attribution).
   `code` + `discount_pct` are IMMUTABLE once the coupon exists (Stripe coupons
   can't be edited). On dev, `STRIPE_SECRET_KEY` is a TEST key, so provisioning
-  creates disposable test coupons.
+  creates disposable test coupons. BUILT OUT SINCE (verified in code 2026-07-07):
+  durable per-subscription attribution (`AffiliateReferral`, written from webhook
+  metadata `tw2_affiliate_id`; compute attributes referral-first, coupon fallback);
+  co-branded public `/join/<code>` landing (`page_display_name/logo/photo/note/
+  signoff` on `Affiliate`); magic-link e-signature flow (`web/affiliate_agreement.py`,
+  `/affiliate/sign/<token>`, immutable snapshot + audit fields, affiliates are
+  created PAUSED and flip active only on signing); monthly/annual interval-split
+  coupons; anonymized monthly statement emails (`web/affiliate_report.py`, cron 2nd
+  03:30). Affiliates are NOT users yet (no `users` linkage; magic links only). The
+  affiliate-facing login dashboard + optional SMN expert module:
+  `docs/AFFILIATE_DASHBOARD_SPEC.md` - BUILT + tested on dev 2026-07-07 (32/32
+  integration checks, `tests/test_affiliate_portal_dev.py`). Pieces: blueprint
+  `web/affiliate_portal/` at `/account/affiliate` (auto-links by email on first
+  visit -> `affiliates.user_id`, migration e7a1b2c9d4f5; access = linkage, NO new
+  role); live current-month estimate via `affiliate_service.compute_for_affiliate`
+  (cached ~1h, labeled estimate); self-serve join-page fields + headshot upload
+  (PIL -> 512px webp into `/assets/affiliate-logos/`, operator notified);
+  SMN expert module (operator invites via Flask-Admin "SMN Experts" ->
+  `affiliate_smn_profiles` f8c2d3e0a5b6; affiliate click-accepts
+  `docs/SMN_CONTRIBUTOR_TERMS.md` -> active; takes in `expert_takes`
+  a9d3e4f1b6c7 via `web/expert_takes_service.py`, review queue "Expert Takes"
+  admin, approve==publish); SMN box PULLS `/internal/expert_takes` +
+  `/internal/expert_profiles` (X-Service-Key) via `smn/expert_sync.py`
+  (injects/removes TW-EXPERT-DESK sections in article HTML, heals wiped
+  sections after article regeneration, builds `/experts/<slug>.html` hubs;
+  web-tier base from `TW2_WEB_INTERNAL_URL`, default loopback :5500).
+  OPEN: expert_sync cron not yet in make_bulletproof.sh; staging/prod rollout
+  via ops/deploy.sh + migration step; scorecard evaluation job (Phase C2) not built.
 - **Standalone promo coupons (Coupons tab)** - plain marketing discount codes
   with NO affiliate / commission / payout. `web/promo_service.py` + `web/models.py`
   (`PromoCoupon`) + migration `b2c0fee1d3a5` + the top-level Flask-Admin **Coupons**
@@ -143,6 +170,19 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   only touches name/notes/status, and archiving flips the Stripe promotion code's
   `active` flag. Distinct from affiliate coupons (which add commission tracking on
   top of the same primitives). Pure Stripe writes - no webhook/billing changes.
+  **GOTCHA (hit 2026-07-09, W1.1 founding-offer campaign):** a standalone promo
+  code (e.g. a marketing coupon like `FOUNDING20`) is NEVER surfaced via the
+  `?code=`/`?via=` URL param or the `tw_ref` cookie - those two carriers are the
+  AFFILIATE rail only (`_resolve_affiliate_promo`, resolves against the
+  `Affiliate` table). Passing a non-affiliate code through `?code=` does not
+  error; it just resolves to nothing and is silently ignored (checkout falls
+  through to `allow_promotion_codes=True` regardless - see below). A standalone
+  promo code is entered by the USER, by hand, into Stripe's own promotion-code
+  field at Checkout - which only appears when `allow_promotion_codes=True` is
+  set (i.e. whenever no affiliate discount pre-applied for that visitor). So any
+  copy/email/link advertising a standalone promo code must send the visitor to
+  a bare pricing/checkout URL (no `?code=` param) and instruct them to type the
+  code in at checkout - never construct a link implying the code auto-applies.
 - **Affiliate referral link + cookie**: `/?code=ANNE` (or `?via=`) on the home page
   (`site/templates/index-dark-blue.html`) (1) stamps the code onto this page's
   checkout forms and (2) stores a first-party `tw_ref` cookie (60-day, first-touch,
@@ -270,7 +310,8 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
   (`TW2_PUBLIC_HOST`, `TW2_ENV`), cross-tier (`TW2_APPSERVER_URL/IP`, `TW2_WEBSERVER_IP`),
   and external APIs (`EOD_TOKEN`, `ANTHROPIC_TOKEN`, `OPENAI_KEY`, `GROK_API_KEY`,
   `PERPLEXITY_API_KEY`, `REPLICATE_API_TOKEN`, `TAVILY_API_KEY`, `MAILERLITE_*`,
-  `PUBLER_*`, `FACEBOOK_*`, `INDEXNOW_KEY`, `TW2_GA_MEASUREMENT_ID`, `SENTRY_DSN`,
+  `PUBLER_*`, `FACEBOOK_*`, `INDEXNOW_KEY`, `TW2_GA_MEASUREMENT_ID`, `GA4_MP_API_SECRET`
+  (server-side Measurement Protocol - see §9), `SENTRY_DSN`,
   contact form (`TURNSTILE_SITE_KEY/SECRET_KEY`, `RESEND_API_KEY`,
   `SUPPORT_EMAIL_TO/FROM`, `SUPPORT_IP_HASH_SALT` - see §5A),
   service URLs `TW2_ML_SCORER_URL/STOCKSCORE_URL/REALTIME_SERVICE_URL/EDGAR_SERVICE_URL/
@@ -290,7 +331,9 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
 Handles auth, the `/app/` shell, account/billing, admin. Marketing pages are NOT
 Flask-rendered (static from `/var/www/tradewave/`).
 
-- **Routes:** `/healthz`, `/signup`, `/login`, `/auth/callback`, `/logout` (POST,
+- **Routes** (also: `/account/affiliate/*` partner dashboard blueprint +
+  `/internal/expert_takes|expert_profiles` service-key pull feeds, 2026-07-07):
+  `/healthz`, `/signup`, `/login`, `/auth/callback`, `/logout` (POST,
   CSRF-exempt, same-origin redirect to `/`), `/api/me`, `/api/contact` (POST,
   CSRF-exempt, anonymous, Turnstile-gated - see §5A), `/app` + `/app/`
   (`app_index`), `/account`, `/pricing`, `/api/stripe/create-checkout`,
@@ -423,6 +466,15 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   (unfixed root, symptom neutralized by the years snap): the opp-years cookie slot is keyed
   on the WAVE-VIEWER's `PEselected`, not the opp table's own `showPEOpps` toggle, so a
   PE-slot years value can be restored into cons mode (`App.js getOppYearsForGroup` callers).
+- **Wave-viewer years selector overflow clamp (`SeasonalBarChart.js` ~283-297, fixed
+  2026-07-09):** the years `<select>` is CONTROLLED; if `seasonalYears` exceeds every
+  option (e.g. cons 95yr then switch regime to PE+2 whose list is 3..24), the browser
+  silently displays the FIRST option ("3") while state stays "95" and the chart renders
+  the appserver-clamped full set - selector and chart disagree. INVARIANT: on metadata
+  resolve, snap the value DOWN to the max SELECTABLE (unlocked, tier-cap-aware) option on
+  TRUE OVERFLOW ONLY - never touch an in-range value (the pre-2026 snap-to-max clobbered
+  user selections on every symbol switch under PE; the comment block at the clamp explains
+  both sides). Same step-down-clamp family as the OppTable dead-years snap above.
 - **Gating / tier ENFORCEMENT (server-side; the appserver is THE boundary - React/
   dropdown gating is UX only and curl-bypassable). All clamps re-derive from config and
   bypass admin/service tokens. (Made real in the 2026-06-30 enforcement audit; before that
@@ -436,6 +488,14 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
     score (deterministic patterns only); reverse-trial (level 6) + Analyst+ get it. (Supersedes
     the old "ML columns open to all logged-in tiers" claim - NOT current.) The React opp table
     shows non-AI tiers one locked "AI Score" teaser column.
+    **KNOWN GAP (2026-07-07 mobile-parity audit, unfixed):** on phone-portrait ONLY, this
+    gate is bypassed by a DEVICE check, not entitlement - `OppTable.js`'s ML-score fetch
+    effect OR's `isMobilePortrait` into its skip condition (`OppTable.js:717,729`) alongside
+    the real `!mlEnabled` check, so the fetch never runs for ANY tier on that one layout.
+    `TableBox.js`'s phone-portrait column allowlist (`MOBILE_COLS`, :93-97) independently
+    excludes `ml_score` too, so even the locked teaser column above is ALSO absent there -
+    silently, with no lock icon/hint. Rotating to landscape restores it (fresh mount, see
+    §7.2). Full audit (27 findings): memory `project_mobile_parity_audit_2026_07`.
   - DATE-LOCK: a market in `level_access_hierarchy_free_registered[level]` is start-date-locked
     to today (getChartData4 forces date=today); `_premium[level]` markets are date-unlocked. After
     the market clamp the only date-locked combo is Explorer's DJ30 ("any start date" = the paid lever).
@@ -586,6 +646,150 @@ StockLineChart.js, LineChart.js}`, `Common.js:maxYearsCap|lsGet|lsSet`,
 appserver.py:2594 `getHistory2` / :2839 `consolidated_seasonal_chart2` / :2644
 `StockMetaData`.)
 
+### 7.2 Mobile layout routing (`MobileLayoutP`/`MobileLayoutL` vs `DesktopLayout`)
+Device+orientation picks one of three layout components at `App.js:2907-2938` (`rdd` =
+react-device-detect): `!rdd.isMobile` -> `DesktopLayout`; `rdd.isTablet && browserH<browserW`
+(tablet-landscape) -> **also `DesktopLayout`** (the literal desktop tree - it branches on
+device exactly once, `DesktopLayout.js:177`, a container-height swap only, nothing else -
+so tablet-landscape collaterally hits every child component's own `!rdd.isMobile` gates
+too, e.g. all of StockLineChart's chart-chrome gates below); `!rdd.isTablet &&
+browserH<browserW` (phone-landscape) -> `MobileLayoutL`; `browserH>browserW` (phone-portrait
++ tablet-portrait) -> `MobileLayoutP`. Rotating the device unmounts/remounts a different
+component at the same tree position (not a resize of one component), so device-scoped
+`useEffect`s re-run fresh on rotation.
+
+**Portrait vs landscape are NOT equivalent mobile experiences.** In `MobileLayoutP`,
+`OppTable` is docked permanently below the chart swiper (:203-205, both always visible
+together). In `MobileLayoutL`, `OppTable` is just slide 1 of a 6-slide swiper shared with
+the charts (:191-193) - reaching the table means swiping away from whatever chart is
+open. `InfoPopupHelpMobileP.js`/`InfoPopupHelpMobileL.js` (per-slide mobile coach-mark
+overlays) are DEAD CODE in both layouts - imported once each but their only render site is
+commented out (`MobileLayoutP.js:142`, `MobileLayoutL.js:163`), no other reference anywhere
+in `src`. `<Chatbot/>` (Tara) mounts ONLY in `DesktopLayout.js:1452-1464` - never imported
+into either mobile layout - so tablet-landscape gets Tara (routes to DesktopLayout) but
+phones in either orientation do not (matches the deferred-by-decision Tara-mobile scope,
+memory `enh_tara_mobile`).
+
+Full mobile feature-parity audit (Opp/TableBox/chart/TradeDetail/InfoPopup/onboarding/
+conversion/portfolio/trading-dialog components, 27 ranked defects incl. the AI-column gap
+above): memory `project_mobile_parity_audit_2026_07`.
+
+### 7.3 "Remind me" bell (one-click Google Calendar reminders; stateful pill)
+Shipped 2026-07-04 as "Notify me" (auto-created a dedicated "Notifications" portfolio);
+reworked + renamed 2026-07-08 (owner decisions: stateful BUTTON not a toggle switch -
+an OFF would need Google-side deletion we can't do honestly; save to the CURRENT
+portfolio like the Plus icon, dedicated portfolio dropped; pill must be TRUTHFUL -
+"Reminder set" only when Google events were actually created, not merely saved).
+
+- **UI**: `SeasonalBarChart.js` toolbar (state/handler ~1650-1870, render next to the
+  Plus icon). Desktop pill (`.tw-notify-btn`, brand purple; `--set` = tinted-outline
+  "✓ Reminder set" variant - white text on purple tint, green ✓; owner feedback
+  2026-07-08: status must read at a glance, not whisper - `App.css`), icon-only
+  under 1120px right-panel width; mobile = outline white bell (unset) vs filled
+  GREEN bell (set). CSS classes and the
+  `tw_notifybell_seen` localStorage pulse key keep the legacy `notify` prefix (stable
+  IDs). Shared Google machinery (GIS loader, event-dict builder, insert, token flow):
+  `googleCalendarEvents.js` - one OAuth client for all envs; also used by the AddGC
+  dialog so content can't drift.
+- **State**: appserver `GET /dr_report_exists/<symbol>/<date>/<days_hold>/<years>`
+  (token-authed) - is this exact pattern saved in ANY portfolio (pattern-scoped ON
+  PURPOSE; the publish dedup `check_for_duplicates` is portfolio-scoped, so a
+  re-publish from another portfolio would duplicate the record AND burn lifetime
+  quota) + `gc_events` (were Google events created) + found portfolio name + slug +
+  publishDate (lets the client rebuild event dicts without re-publishing). React
+  re-checks on pattern-identity change and on `numReportsCreated` (mutated by every
+  save/delete path, so it doubles as the portfolio-changed signal) + `addGCVisible`.
+- **gc_events stamp**: `POST /dr_report_mark_gc_events/<same identity>` sets
+  `gc_events_created` (ISO UTC) on ALL identity-matching `user_reports_{userid}`
+  records. Fired fire-and-forget after a successful insert by BOTH clients (bell +
+  AddGC dialog). Absent key = never created (all pre-2026-07-08 records). Never
+  cleared - Google-side deletions are invisible to us. This is the ONE schema
+  addition to the user_reports record.
+- **Click flow**: saved+gc_events -> "Reminder Set" details dialog (JSX card
+  layout inside InfoPopup's info-box, which renders contentText bare so it takes
+  elements; Re-create button + an "Edit reminder settings" LINK that opens the
+  SAME AddGC dialog as the Portfolio Manager path, pre-filled, dims = manager's
+  formula; a `forceGC` flag on googleCalendarDict makes all 3 layouts route to
+  AddGC even when an '&' autotrade portfolio is the current selection);
+  saved w/o gc_events (Plus-icon save or abandoned popup) -> straight to
+  the Google token flow against the existing record, NO re-save; unsaved -> publish
+  to `props.selectedPortfolio` (`'&'` autotrade portfolios and empty fall back to
+  'main') then token flow. Popup-blocker: GIS preloaded on mount; at most one API
+  call before `requestAccessToken` (fits the ~5s transient-activation window);
+  dialog Retry/Re-create buttons are fresh gestures. Async guards: request-counter
+  ref on the exists check; pattern-identity `key` guards the post-OAuth state flip
+  (popups are slow, user may have switched patterns).
+- Button copy referenced by name in `onboardingLessons.js` (Days 6-7) and
+  `docs/ONBOARDING_LESSONS_LOCKED.md` - renamed to "Remind me" everywhere 2026-07-08.
+
+### 7.4 UI Screenshot Capture Pipeline (dev-only; built + verified 2026-07-09)
+
+Automated pixel-real screenshots of the wave-viewer (any theme/display/state, incl.
+the opp table) with zero human interaction - built to unblock fully automated blog/
+page publishing. **Full operating manual = `docs/UI_CAPTURE_PIPELINE.md` (read that,
+not this, before touching it).** The pieces and where they live:
+
+- **Auth**: `web/app.py` route `/internal/capture/app` renders the SAME
+  `_render_app_shell(u)` as `/app/` (app_index was refactored into that shared
+  helper) for the `capture-bot@tradewave.local` user (tier strategist, no real
+  WorkOS identity, cannot log in normally). Double-gated: hard 404 unless
+  `config.tw2_env == 'dev'`, plus gunicorn binds 127.0.0.1:5500 with no nginx
+  location - unreachable off-box even on dev.
+- **Readiness**: `web-react/src/components/captureReady.js` + 5 flags across 4
+  components (OppTable `oppTable` / SeasonalBarChart `seasonal` + `trendChart` /
+  StockLineChart `price` / TradeDetail `tradeDetail`) set `window.__twCapture.ready.*`
+  only when non-empty data has rendered; cleared at fetch start. Pure
+  instrumentation, ships harmlessly in the bundle. NOTE: `seasonal` and
+  `trendChart` are BOTH in `SeasonalBarChart.js` but gate two DIFFERENT fetches -
+  `seasonal` = the upper bar chart (`ChartData4`), `trendChart` = the lower
+  trend-line chart (`consolidated_seasonal_chart2`, feeds `SeasonalChart.js`
+  swiper slide 0). `seasonal` going true does NOT imply `trendChart` is ready;
+  `trendChart` was added 2026-07-09 after a cold-load blank trend-chart pane
+  passed every other gate (`capture.js` now waits on it too whenever
+  `spec.display === "seasonal"`).
+- **Harness**: `tools/ui_capture/` (capture.js + capture.sh + specs/). Declarative
+  spec v1 (theme / display / market+symbol / pattern -> `?o=` / scale 2|4 /
+  chart+table settings / crops) -> PNGs + meta.json provenance. Key mechanics:
+  main-document interception (real `http://127.0.0.1/app/` origin, HTML fetched
+  from the internal route), storage pre-seeding (localStorage keys are
+  USER-SCOPED `<uuid>:<key>` except raw `UITheme`; overlay-suppression set incl.
+  LessonBox + the two infinite CSS pulse keys), byte-stable frame gate for
+  Chart.js animations, fail-fast sanity checks.
+- **Gotchas promoted from the build** (details in the manual's failure table):
+  any querystring except `?set=on` forces the lower display to slide 2 at boot;
+  `?ask=` opens the Tara panel (never use in captures); `npm run build` can leave
+  `build/` files unreadable by nginx (www-data) -> `/app/` asset 403s - fix perms
+  755/644 after builds.
+- **Honest-data rule**: dev captures are fine for opp-table/wave patterns (CSVs
+  current) but NEVER source scorecard/ledger stats from dev (stale
+  featured_history.json; prod is the claim source - GTM claim-rail rule).
+- Acceptance gallery (visible proof): `http://tw2-dev.trxstat.com/capture-gallery/`
+  (files in `/var/www/tradewave/capture-gallery/`). Planned skins, NOT built:
+  HTTP wrapper, MCP `capture_tradewave_ui` tool.
+- **Crop regions (added 2026-07-09)**: `waveViewer` (`.seasonal-barchart-parent`),
+  `viewerPlusDisplay` (`#right-content`), `appNoBanner` (`#root`), plus `display`/
+  `oppTable`/`full` (existing). `#main-header` is a SIBLING of `#root` in the raw
+  HTML shell (`web-react/public/index.html`), not an ancestor - server-string-
+  substituted by `web/app.py`, outside the React tree entirely - so "exclude the
+  banner" is just `#root`'s own box, no offset math. `oppTable` crop is now sized
+  to actual row `boundingClientRect`s (optional `oppTable.cropRows: N` spec field
+  caps it) instead of the fixed-height `.opp_table_div` pane, fixing a real
+  proportionality bug (1 row used to produce a 1954px-tall mostly-empty PNG).
+- **KNOWN BUG (any future Puppeteer/screenshot work on this box must know this)**:
+  `page.screenshot({clip})` is UNRELIABLE over a region containing a Chart.js
+  `<canvas>` on this box - it can silently write a blank PNG even when
+  `getImageData()` read directly against that same canvas, at the same instant,
+  proves real painted pixels exist. Verified via controlled A/B, reproducible, not
+  a timing issue (stability + a canvas-paint gate both already passed first). Root
+  cause looks like a GPU-compositor-vs-canvas-backing-store desync in headless
+  Chrome specific to the `clip` capture path at 2x/4x `deviceScaleFactor` - a
+  plain unclipped `page.screenshot()` never exhibits it. Workaround (not a Chrome
+  fix, a capture-strategy change): take one unclipped full-page screenshot, then
+  crop it INSIDE the page via an offscreen `<canvas>` (`drawImage` + `toDataURL`)
+  - `captureCroppedRegion()` in `capture.js`. Any other tool on this box doing
+  clipped canvas screenshots (e.g. `/root/tw-uitools/shot.js`) should use the same
+  software-crop workaround rather than trusting `page.screenshot({clip})` directly.
+
 ---
 
 ## 7A. TW2 v2 - Public API gateway + MCP (LIVE ON PROD since 2026-07-04)
@@ -667,10 +871,147 @@ the full stack on every env (verify_deploy prod PORTAL=1). Paid API pricing disp
 GATED OFF via `TW2_API_PRICING_LIVE` (unset = "Coming Soon"; owner sets prices later).
 GOTCHA: `cloudflared tunnel route dns` on either prod box lands in the trxstat.com
 zone (certs do not cover tradewave.ai) - the 3 public DNS records are dashboard-only.
-Still open: `users.api_tier` webhook write for API-only subs (existing-tier users
-inherit fine).
+The `users.api_tier` webhook write EXISTS and works (web/app.py ~:3125,
+product_line=api routing; verified live 2026-07-10: Stripe TEST checkout flipped
+api_tier in ~2s, cancel reverted to NULL in ~2s).
+
+**Subscriber-UX audit 2026-07-10 (full journey tested end-to-end on dev + prod probe;
+report + fix order in memory note project_api_subscriber_ux_audit_2026_07). OPEN GAPS:**
+1. **FIXED (dev, 2026-07-10, uncommitted): demo-scan/enumeration giveaway.** The demo
+   allowlist (`tiers.INTERNAL_TIERS['demo']['demo_symbols']` = AAPL/MSFT/NVDA/AMZN/TSLA)
+   is now enforced at CANDIDATE-SELECTION time (before ranking/enrichment, so the demo
+   also stops burning full-market compute) via a shared `_demo_scope_rows()` helper in
+   `apiserver/routes.py`, applied to BOTH `/v1/scan` (was fully unguarded - the original
+   finding) AND `/v1/opportunities` (a second unguarded single-market enumeration route
+   found by the fix's own route-coverage sweep, same bulk-exposure shape as scan, fixed
+   the same way). `evaluated_count`/`summary` now honestly describe the 5-symbol universe
+   for the demo principal; non-demo callers are an exact no-op (gated on
+   `entitlements['demo']`). Full route sweep (13 routes): symbol-scoped routes already had
+   `_demo_guard_symbol` (analyze/patterns/seasonal-chart/opportunities-by-symbol/securities-
+   patterns); `/markets/<id>/symbols` + `POST /score` already had `_demo_block_enumeration`;
+   `/markets` + `/me` are metadata-only (no guard needed); `/daily-pick` +
+   `/daily-pick/track-record` are a single published item, not caller-controlled
+   enumeration (no guard needed). Verified live on DEV: demo `/v1/scan?market=2&limit=5` and
+   `/v1/opportunities?market=2` both return ONLY allowlist symbols with truthful
+   `evaluated_count`; a real key is unaffected (regression-tested + live-diffed). **PROD
+   RECHECK 2026-07-12: this uncommitted fix is NOT deployed** - the public demo scan evaluated
+   162 candidates and returned AVGO/CTAS/BX/PG/EXPD, and `/v1/opportunities` likewise returned
+   non-allowlist symbols. Production still exposes the full ranked S&P candidate universe to
+   the public token and burns the full-market compute path.
+2. **FIXED (dev, 2026-07-10, uncommitted): `docs/API_CONSOLE_USER_FLOWS.md` §7.1
+   entitlement rule implemented.** `apiserver/tiers.py` gained `API_TIER_RANK =
+   {free:0, navigator:1, dev:2, pro:3, business:4}`; `api_tier_from_user()` now returns
+   MAX(explicit, bundled) by rank instead of "explicit always wins" - a bundled-pro
+   Strategist holding an explicit lower dev sub now correctly resolves `pro` (was
+   demoted to `dev`). An explicit value unranked by `API_TIER_RANK` (a service/internal
+   name like `mcp`/`chatbot` leaking in defensively) is treated as absent - logged,
+   never grants, never crashes. 3 import-time rail asserts + 3 spot-asserts added,
+   following the file's existing assert-at-import style. Only two real call sites in the
+   repo, both safe by design for MAX: `apiserver/auth.py:67` (gateway auth) and
+   `web/api_portal/blueprint.py:157` (console billing/UI - its docstring already
+   described this exact contract pre-fix). MCP's `merge_entitlements`/`mcp_tier_for`
+   were untouched (already MAXed via a separate path - see §7B MCP mirror block).
+   Verified live end-to-end via a throwaway Postgres user+key (created, checked
+   `GET /v1/me` resolved `pro`, deleted). The rest of spec §7 (billing card states,
+   portal CTA routing, C1-C5 copy, /account hub link) landed the same day - see item 3.
+3. **FIXED (dev, 2026-07-10, uncommitted): `docs/API_CONSOLE_USER_FLOWS.md` §7 items
+   2-6 implemented** (portal CTA routing + billing card states + C1-C5 copy + account
+   hub link). Portal CTAs (`site/api_marketing/generate.py`) now route paid cards to
+   `signup?next=%2Faccount%2Fapi%2Fbilling%3Fsubscribe%3D<tier>` and the free card to
+   `signup?next=%2Faccount%2Fapi%2Fkeys`; the Founder strip adds `%26promo%3DFOUNDER`.
+   **The billing card-state defect (former item 4 below) is FIXED**: `routes_billing.py`
+   no longer derives ANY card state from `has_customer = bool(stripe_customer_id)` (that
+   flag now gates ONLY whether the "manage in portal" link renders, never purchase
+   state) - a new `entitlement_context()` helper in `web/api_portal/blueprint.py`
+   computes `explicit` (rankable `users.api_tier` or None - the webhook nulls it on
+   cancel, so its presence/absence is the reliable "holds an active explicit API sub"
+   signal), `bundled` (`WEB_TIER_TO_API[web tier]`), `effective` (calls
+   `api_tiers.api_tier_from_user`, never reimplements the MAX), `effective_source`
+   (which side won), and `redundant` (R7: explicit rank <= bundled rank). A pure
+   `_card_state(card_rank, ctx)` in `routes_billing.py` implements R5's 6 states exactly
+   (`current_explicit` / `current_bundled` / `included_below` / `downgrade` /
+   `upgrade_explicit` / `subscribe`) - a churned subscriber (stale `stripe_customer_id`,
+   NULL `api_tier`) now sees a real Subscribe button, and a bundled user never sees a
+   purchasable-below card. Checkout is server-side re-guarded (4xx+flash, not 500, for
+   `tier rank <= effective`) independent of what the UI rendered. `?subscribe=<tier>`
+   highlights + scrolls to the target card (CSS `.plan-highlight`, respects
+   `prefers-reduced-motion`) and degrades silently (no highlight, no error) for an
+   unknown/already-covered tier or `API_PRICING_LIVE` off. `promo=FOUNDER` looks up the
+   Stripe promotion-code id fresh per checkout (`stripe.PromotionCode.list(code=
+   'FOUNDER', active=True)`, deliberately NOT cached - redemption count moves as seats
+   fill) and passes `discounts=[{"promotion_code": id}]`; any Stripe rejection at
+   session-create time falls back to `allow_promotion_codes=True` + a flash note, so
+   the 101st founder-seat click never dead-ends. C1 (bundling banner) and C4 (active
+   reverse-trial note, gated on `web_tier == 'explorer' AND reverse_trial.
+   in_reverse_trial(...)` - never inferred from `effective != raw tier`, which breaks
+   for a role-bypass admin) render on BOTH Keys and Billing from the same
+   `entitlement_context()` dict so the two tabs can never disagree; C5 (redundant-sub
+   advice) renders on Billing only. `/account` hub gained the "API & MCP" action (R8),
+   gated on `config.API_CONSOLE_ENABLED` (new `account()` context var) so it does not
+   404 while the console ships dark on prod. 20 new tests in `tests/test_api_portal.py`
+   (persona x card-state matrix, banner copy, `?subscribe=` highlight/degrade, checkout
+   guard, no-em-dash sweep) - 34/34 pass. Verified live via Flask test-client persona
+   injection (`tools/api_console_audit/driver.py`'s pattern) against dev's real Stripe
+   TEST mode (both the FOUNDER-promo and plain-checkout paths produced live Stripe
+   Checkout sessions with the expected `discounts`/`allow_promotion_codes` shape).
+   `tradewave-web` restarted, healthy.
+4. **Cross-write to verify:** after an API-line subscribe, the API sub id appeared in
+   the WEB `users.stripe_subscription_id` column (status NULL); `/stripe/success`
+   writes sub_id UNCONDITIONALLY with no product_line guard (web/app.py:2612).
+   Pin the writer with a real browser checkout before trusting the column.
+5. **PROD proof-data topology failure (verified read-only 2026-07-12, unfixed):** the
+   scorecard generator owns `/home/flask/site/data/featured_history.json` on the WEB box
+   (76 rows), but `tradewave-apiserver` runs on the separate APP box and
+   `apiserver/appserver_client.py` hardcodes that same local path. The file does not exist
+   on PROD APP. `_load_featured_history()` treats absence as `[]`; `/v1/daily-pick` then
+   returns HTTP 200 with `card:null`, while `/v1/daily-pick/track-record` returns HTTP 200
+   with zero picks. There is no WEB-to-APP sync in `regen_site.sh` or `deploy.sh`, and WEB
+   updates this file every scorecard cycle, so a deploy-time copy alone would become stale.
+   Also, the API independently reimplements pick-result arithmetic instead of importing the
+   WEB's shared `site/lib/pick_stats.py`, leaving a second drift path once transport is fixed.
+   Required shape: one atomically published canonical proof artifact/data store accessible to
+   both tiers; missing/stale proof data must fail readiness and return an explicit 503, not a
+   successful empty payload. `verify_deploy.sh` must assert non-null/non-empty contracts.
+   Separately, the machine ledger emitter exists only in dev's uncommitted
+   `generate_scorecard.py`; PROD lacks the emitter and `/data/daily-pick-ledger.json` is 404.
+6. **PUBLIC demo quotas are global, not per visitor (verified 2026-07-12):**
+   `resolve_customer()` maps the published token to the constant `user_id='demo'`; rate-limit
+   and ML-quota Redis keys use only `user_id`. All visitors therefore share 30 requests/min,
+   1,000 requests/day, and just 25 ML scorings/day. With five cards per advertised demo scan,
+   roughly five full scans can consume the entire global ML demo budget. The live response
+   reached `ml_remaining_today:0` during verification. Serve a cached/precomputed demo or
+   isolate abuse limits per visitor/IP; do not meter the public onboarding demo as one user.
+Items 1-3 are FIXED on dev (uncommitted - owner commits) and were INDEPENDENTLY
+RE-VERIFIED 2026-07-10 by a fresh-eyes agent run (own throwaway user, own Stripe TEST
+objects, spec-verbatim string asserts): all 6 persona card-state rows match spec §3;
+C4 renders ONLY during an active trial; the server-side checkout guard 400s an
+already-covered tier with no Stripe session created; full lifecycle timed - subscribe
+webhook write 2.04s, cancel 1.05s, and the CHURN-RECOVERY loop proven end-to-end
+(post-cancel cards render actionable Subscribe again, and a churned user's
+re-subscribe re-activated in 2.05s reusing the same Stripe customer); gateway MAX +
+demo scoping confirmed with a no-leak check (a normal free key still gets the
+full-market scan, evaluated_count 299). NOTE for spec readers: §3's table row
+"Explorer: Free = current" is shorthand - per R5's authoritative prose a bundled
+T==C card renders disabled "Included with your {WebTier} plan", which is what ships
+(clarified in the spec table 2026-07-10).
+REMAINING OPEN (2026-07-12 priority): deploy items 1-3, fix the production proof source
+(item 5), and repair public-demo isolation/reliability (item 6) before calling the surface
+production-clean. Verify the cross-write in item 4 before flipping
+`TW2_API_PRICING_LIVE`; it can overwrite the WEB subscription id once standalone API
+checkout is enabled. Lower-priority follow-ups: (a) the portal header auth-swap is DEAD
+CODE on portal pages - the copied tw-auth-link script fetches `/api/me`
+same-origin against the static portal nginx docroot (404s); a real fix needs CORS on
+`/api/me` for the developers host PLUS widening the tw2_session cookie
+domain/SameSite scope at 3 set_cookie sites (an auth-posture decision, deliberately
+not bundled with the §7 work); (b) gateway 401 body is identical for invalid vs
+missing key with no signup pointer; (c) cosmetics - console quickstart key overflows
+its box, MCP/Usage tabs don't mention trial elevation, `api.tradewave.ai/` +
+`/v1/health` 404. What already works well (keep): one-time key reveal + baked tabbed
+quickstart, server-side key limits, ~2s webhook activation/cancel, checkout naming,
+pricing copy exactly matches tiers.py.
 (Source: `apiserver/`, `mcpserver/`, `web/api_portal/`, `site/lib/portal_urls.py`,
-`api/openapi.yaml`; built + verified on dev .176, 2026-05-27.)
+`api/openapi.yaml`; built + verified on dev .176, 2026-05-27; fixes 1-2 verified on dev
+2026-07-10; item 3 (spec §7 remainder) implemented + verified on dev 2026-07-10.)
 
 ---
 
@@ -712,7 +1053,15 @@ cloudflared tunnel front them.
   `/account/api` (GATED behind the WorkOS session): create/revoke keys, see usage, manage
   the API subscription, and the MCP-connect helper. Reuses WorkOS + Stripe + the
   `apiserver` package. `web/api_portal/create_api_products.py` seeds the Stripe products
-  (monthly + annual + Founder) under `product_line=api`.
+  (MONTHLY-only + Founder) under `product_line=api`; it SELF-HEALS an earlier annual
+  seed by re-pointing each product's `default_price` to the monthly price FIRST (Stripe
+  refuses to archive a default price) and then archiving every active annual price. It
+  also self-verifies/heals the Founder coupon: retrieve with `expand=["applies_to"]`
+  (current API versions OMIT `applies_to` from the default representation - without
+  expand a restriction check silently reads "unrestricted"), drifted + 0 redemptions =
+  delete + recreate, redeemed = loud warning + hands off; promo reuse requires ACTIVE +
+  pointing at our coupon. Stripe SDK 15.x: `PromotionCode.create` nests the coupon under
+  `promotion={"type":"coupon","coupon":id}` (top-level `coupon=` is gone).
 - **Public developer portal** - `developers.*`, a no-login STATIC docroot at
   `/var/www/developers/` served by nginx (marketing landing + reference docs + learn +
   interactive playground + MCP cookbook). It is assembled from the repo by the generators
@@ -726,6 +1075,29 @@ inherit from the web tier via `WEB_TIER_TO_API`; set = an API-only sub). Schema 
 (`apiserver/schema.sql` / the `api/` migration). Tiers/entitlements in `apiserver/tiers.py`
 (free/dev/pro/business; ML fields are Pro-tier + ML-eligible markets only).
 
+**API billing + quota model (owner decisions 2026-07-05, pre-pricing-launch so no
+grandfathering):**
+- **MONTHLY ONLY.** There is no annual API price anywhere (`price_annual` removed from
+  `tiers.py`; seeder/console/pricing page are all monthly-only; the console checkout
+  400s an explicit annual ask with `monthly_only`). Why: developers won't prepay a year
+  for an unproven API, annual lumps distort the MRR read, a large annual refund is a
+  dispute magnet, and monthly keeps repricing agile while the ladder settles. Adding
+  annual later is trivial (seeder is idempotent); walking it back would not be.
+- **Per-day quotas are anchored to the data's cadence** - the dataset refreshes ONCE per
+  trading day, so each cap = "a per-symbol card for everything in your scope, daily,
+  plus headroom". Measured universe (dev appserver, 2026-07-05): US stocks + ETFs ~3.7k
+  symbols; all markets ~18.7k unique (the per-market lists share one US name list, so
+  markets 0-4 each report 3,465). Shipped: free 10/min+100/day, dev 60/min+1,000/day,
+  pro 120/min+5,000/day (a full US+ETF sweep ~30min at burst), business
+  300/min+20,000/day (a full all-markets nightly sweep ~1h). Above Business =
+  Enterprise/custom. Never size per-day to data-feed scale: it reads as nonsense for
+  EOD data and invites bulk export the EODHD derived-data posture avoids.
+- **Quota is enforced PER CUSTOMER, not per key** (`auth.check_rate_limit` buckets on
+  `user_id`), so `max_keys` never multiplies entitlement.
+- The consumer-MCP mirrors were re-scaled to genuinely assistant-sized per-day caps at
+  the same time (Analyst-in-chat 1,000/day, Strategist-in-chat 2,000/day - a heavy
+  human chat day is a few hundred tool calls).
+
 **Pricing-visibility gate (2026-07-04):** `apiserver/tiers.py:API_PRICING_LIVE` (env
 `TW2_API_PRICING_LIVE`, truthy strings `1`/`true`/`yes`) is a DISPLAY-only flag, separate
 from the tiers/quotas themselves (which are always live/enforced). While unset (owner has
@@ -733,13 +1105,21 @@ not finalized paid-tier $), the marketing generator (`site/api_marketing/generat
 the docs generator (`site/api_docs/generate_api_docs.py`), and the console billing page
 (`web/api_portal/routes_billing.py` + `templates/api_billing.html`) all import it and
 suppress paid-tier dollar amounts: marketing pricing cards show "Coming Soon" + a
-talk-to-sales CTA (Free card + the monthly/annual toggle + the Founder's-plan strip -
-which quotes a derived Pro discount - are hidden with it), docs show "See pricing page",
+talk-to-sales CTA (Free card + the Founder's-plan strip - which quotes a derived Pro
+discount - are hidden with it; the old monthly/annual toggle was REMOVED outright
+2026-07-05 with the monthly-only decision), docs show "See pricing page",
 and the console billing page hides upgrade cards/checkout for tiers the user is NOT
 already on (their own current plan - even if paid, e.g. a bundled Analyst->Dev - still
 renders normally, since that is real state, not marketing). Checkout/Stripe code paths are
 untouched. Regenerate after flipping: `ops/assemble_developer_portal.sh` (or the individual
-generators) picks up the new value from the env at generation time.
+generators). The flag resolution FALLS BACK to `/etc/tradewave/secrets.env` when the env var
+is unset (`tiers._pricing_live_flag`, env wins; added 2026-07-05) - necessary because the
+generators run from operator/deploy shells that do NOT load the box env (`deploy.sh` sshes
+in as root), and before the fallback a post-flip deploy regen silently reverted the
+published pages to "Coming Soon". Note `portal_urls`'s own secrets.env fallback does NOT
+cover this: `generate.py` imports `apiserver.tiers` BEFORE `portal_urls`, so the flag was
+evaluated before portal_urls seeded os.environ. Status: DEV flipped ON 2026-07-05 (sandbox
+checkout testing); staging/prod remain OFF until the owner finalizes paid-tier $.
 
 **URLs + edge (env-driven):** `site/lib/portal_urls.py` reads `TW2_PUBLIC_HOST`,
 `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST`. Per env the
@@ -944,6 +1324,87 @@ bulletproof). See `OPERATIONS.md`.
   (TW1 SaaS-signup parity) and does NOT fire MailerLite's double-opt-in "confirm your subscription"
   email. Omitting status lets the account default (double-opt-in is ON) email the user - which is
   reserved for the SMN newsletter FORM, not app/SaaS adds.
+- **GA4 server-side tracking (Measurement Protocol, built 2026-07-07, uncommitted
+  on dev - NOT yet deployed):** `web/ga4_mp.py` fires `begin_checkout`/`purchase`/
+  `sign_up` server-side so they don't depend on the browser tab staying open or
+  gtag.js loading. `parse_ga_client_id(request)` reads the `_ga` cookie
+  (`GA1.<ver>.<p1>.<p2>` -> client_id `"<p1>.<p2>"`, else `None`);
+  `send_event(client_id, name, params, user_id)` POSTs to
+  `google-analytics.com/mp/collect?measurement_id=<config.ga_measurement_id>&
+  api_secret=<config.GA4_MP_API_SECRET>` - **fails open** (catches every
+  exception, no retry, returns bool) and no-ops silently whenever measurement id /
+  api secret / client_id is missing (the normal dev+staging state, since both are
+  prod-only secrets.env values). Three fire points, each ALSO wrapped in its own
+  local try/except beyond `send_event`'s internal fail-open, because each call
+  site sits inside code whose own broad exception handler would otherwise
+  misinterpret an analytics bug as a real failure:
+    - `begin_checkout` - in `stripe_create_checkout()` (`/api/stripe/create-
+      checkout`) right after `stripe.checkout.Session.create` succeeds. Also
+      stamps `ga_client_id` + `tier` onto the Checkout **Session's own top-level
+      `metadata`** (a separate object from `subscription_data.metadata`, which
+      already carries `tw2_user_id`/`tw2_tier_target`/affiliate fields) so the
+      webhook can read them back.
+    - `purchase` - inside `/webhooks/stripe`'s `checkout.session.completed`
+      branch (NOT `/stripe/success`). That branch already runs in this webhook
+      but drives NO tier write (only `customer.subscription.*` events do), so
+      this is purely additive; the handler's existing event_id dedup (before
+      this code runs) makes it safe. `transaction_id` = the checkout session id
+      (GA4's own purchase-dedup key); `value` = `amount_total/100.0` (this is
+      legitimately `0.0` on the standard 7-day-trial checkout - nothing is
+      charged yet at session-completion time, not a bug).
+    - `sign_up` - in the WorkOS `auth_callback`, gated on a new transient
+      (non-mapped, non-persisted) `User` attribute `_tw_new_signup` that
+      `lazy_create_user()` sets to `True` ONLY on the brand-new-INSERT success
+      path - deliberately NOT on the two-tab-signup IntegrityError re-query path
+      (the sibling worker that won the race already got the flag), so a signup
+      race can't double-fire `sign_up`. Plain Python attribute assignment
+      survives `commit()`/`refresh()` since SQLAlchemy's expire-on-commit only
+      expires mapped columns.
+  Tests: `tests/test_ga4_mp.py` (cookie parsing + send_event, hermetic, no
+  network) + 3 assertions added to `tests/test_lazy_create_user.py` for the
+  `_tw_new_signup` marker. **Operator TODO before this does anything live:**
+  set `GA4_MP_API_SECRET` in prod's `/etc/tradewave/secrets.env` (value lives at
+  `/etc/tradewave/ga4-mp-secret` on the dev box already - do not read/copy it
+  through chat) and deploy.
+- **Dunning (Stripe Smart Retries final-notice email, built 2026-07-09, GTM
+  playbook CARD W1.3, uncommitted on dev):** Stripe Dashboard-side Smart Retries
+  (FOUNDER-toggled, account-level - no API/CLI surface exists for it) owns every
+  mid-sequence "your payment failed" email; the app owns exactly ONE, a final
+  pre-cancel "your access pauses" nudge. `_fire_dunning_final_notice()` in
+  `web/app.py` (near `_existing_eod_subscription`) is called from the
+  `invoice.payment_failed` branch of `webhook_stripe()`, gated on
+  `collection_method == "charge_automatically"` AND a real `subscription` present
+  AND `next_payment_attempt is None` (see §11 invariant 19 for why the bare-null
+  check alone is wrong). Best-effort/post-commit, same fail-open pattern as GA4
+  above (own try/except at the call site; the helper itself never raises past
+  that). Sends via `email_utils.resend_send_email`; the CTA link is a live Stripe
+  billing-portal session, degrading to a plain `/account` link if that call
+  fails. Tier/access is intentionally UNCHANGED by dunning - `invoice.payment_failed`
+  never touches `new_tier` in the webhook's tier-mapping block, so access stays
+  live through Stripe's whole retry sequence; only the copy warns it is ending.
+  Tests: `tests/test_dunning.py` (8 tests, full webhook-request-path coverage via
+  the existing `mock_stripe` fixture - no live Stripe test-clock needed).
+  **Operator TODO before this recovers anything:** enable Smart Retries in the
+  Stripe Dashboard (Billing -> Revenue recovery / Retries) + the cancel-after-
+  N-failures final action - the app code is inert without it (a `past_due` sub
+  would otherwise hang forever with no configured end state).
+- **Trial-activation Postgres signal (`ai_score_viewed`, built 2026-07-09, GTM
+  playbook CARD W1.4, uncommitted on dev):** `users.first_ai_score_viewed_at`
+  (migration `b3f6a8c1d9e2`, nullable TIMESTAMPTZ) is the persistence anchor for
+  the day-2/day-7 trial-activation emails (Week-2 cards) - **they read this
+  column, never GA4**, per strategy §2's binding persistence rule. Written by
+  `POST /api/activation/ai-score-viewed` (`web/app.py`, right after
+  `onboarding_usage_summary`), called once per browser session by
+  `web-react/src/components/TableBox.js` (a `useEffect` gated on
+  `hasAI && hasMLData` - i.e. an Analyst+ user has REAL ml_score data on screen,
+  not just the locked teaser column) via a module-level fired-flag (courtesy
+  dedupe only; the server's own idempotent `IS NULL` guard + `with_for_update()`
+  is the actual source of truth for first-touch). One handler does, in order:
+  (1) append an `onboarding_events` row (`event_type='ai_score_viewed'` - reuses
+  the existing table, no new one), (2) idempotent first-touch UPDATE of the new
+  column, (3) fire the GA4 `ai_score_viewed` event (fail-open, same pattern as
+  above, fired AFTER the Postgres commit). Tests: `tests/test_activation_signal.py`
+  (6 tests).
 - **Cutover (TW1 -> tradewave.ai), per `ops/PROD_CUTOVER.md`:** Phase 1 (days
   ahead): lower TTL to 60s, add `tradewave.ai` to prod tunnel ingress, WorkOS prod
   redirect URI, Stripe prod webhook, pre-seed `users` from a TW1 DB dump. Phase 2
@@ -1039,6 +1500,34 @@ roadmap memories.)
     live ONLY in `tiers.INTERNAL_TIERS` (never `API_TIERS`; a module assert enforces it).
     A sold tier with `service:True` would let a paying key impersonate any user's metering.
     Delegation swaps the metering id ONLY (`cb:<uid>`), never entitlements (no scope escalation).
+17. **GA4 server-side tracking (`web/ga4_mp.py`) must never affect checkout/webhook/
+    signup, even if GA is fully down** - `send_event()` fails open internally, but every
+    call site is ALSO locally wrapped in its own try/except (see §9), because each site
+    sits inside a route/handler whose own broad exception handler would otherwise turn
+    an analytics bug into a false checkout failure (`stripe_create_checkout`) or a
+    wasted Stripe-retry that the webhook's event_id dedup would then silently swallow
+    (`/webhooks/stripe`). Never remove either layer of wrapping when touching this code.
+18. **`@require_login` (`web/app.py`) always REDIRECTS (302 to WorkOS hosted signup) an
+    unauthenticated caller - it never itself returns 401.** It was written for page
+    routes. Every existing JSON API route that uses it (`onboarding_event`,
+    `api_activation_ai_score_viewed`) ALSO does a manual `if get_current_user() is None:
+    return 401` inside the view body as a defensive habit, but that check is dead code -
+    the decorator already redirected before the view ever runs. Don't rely on 401 from
+    a `@require_login` JSON route in a test or a client; assert the redirect instead
+    (`test_activation_signal.py::test_anonymous_is_redirected_not_written` is the
+    reference case). A same-origin JSON fetch from React handles the redirect body
+    harmlessly (the client only cares about `ok`), so this has never been worth fixing,
+    but it recurs every time a new `@require_login` JSON endpoint is added - stop
+    re-deriving it.
+19. **Stripe `invoice.payment_failed`'s `next_payment_attempt` field being `null` does
+    NOT by itself mean "Smart Retries are exhausted."** It is ALSO always `null` on
+    `collection_method=send_invoice` invoices (no retry schedule ever exists there) and
+    on the very first failure of a subscription whose retries are disabled account-wide.
+    Any "final failure" / "retries exhausted" gate keyed off this field MUST additionally
+    require `collection_method == "charge_automatically"` AND a real `subscription` on
+    the invoice (see `web/app.py::webhook_stripe`'s dunning gate, `_fire_dunning_final_notice`
+    call site, for the reference implementation) - caught in reasoner-review 2026-07-09,
+    do not re-introduce the bare-null check.
 
 ---
 
@@ -1055,6 +1544,9 @@ roadmap memories.)
   the three win rates, MFE/MAE, the Trend Chart. Enforced in `apiserver/market_bands.py` (manifest
   `apiserver/market_bands.json`, regenerated by `ops/generate_market_bands.py` on each data rebuild).
 - `web/app.py` / `appserver/appserver/appserver.py` - the two Flask tiers.
+- `docs/UI_CAPTURE_PIPELINE.md` - **canonical manual for the automated UI screenshot
+  pipeline** (dev-only): spec schema, the full state-seeding map (scoped-key gotcha),
+  overlay suppression, failure modes, runbook. Summary in §7.4.
 - Memory store (`/root/.claude/projects/-home-flask/memory/`) - per-topic notes;
   this doc supersedes their collective content. See §13 for cleanup.
 
@@ -1157,6 +1649,63 @@ re-verification reclassified them. Only treat the REAL list as work.
 - TW2 prod: already deployed + ~95% verified at the placeholder `tw2-prod.trxstat.com`
   (Afshin, 2026-05-22). Remaining ~5% overlaps gaps C/D + the prod-app service-account.
   The `tradewave.ai` flip is the separate cutover session.
+
+**F. 2026-07-07 stability audit (appserver + React) - FIXED on dev (uncommitted) + the REMAINING backlog.**
+A 4-agent review of the appserver (+ support modules) and the React wave-viewer; ~35
+verified defects fixed on dev, pytest baseline unchanged (313 pass / same 4 pre-existing
+fails), `npm run build` clean. What was hardened (details in git diff of that day):
+- appserver.py: the `i=-1` not-found fallback (6 endpoints silently wrote to `list[-1]` -
+  wrong-record corruption incl. wrong social-media posts) now returns not_found;
+  `dr_report_remove` unknown-id/legacy-record 500; `getStockPriceByDate` missing the
+  Not-Traded string guard (the ONE `get_symbol_csv` caller without it); daily-report
+  quota counter now atomic INCR (double-click TOCTOU let users past the cap); the
+  flask-limiter now has `swallow_errors=True` + `in_memory_fallback_enabled=True`
+  (a redis db0 blip used to 500 EVERY rate-limited route at the limiter stage);
+  `getChartData4` date-snap loops bounded + set-membership (unbounded `while d not in
+  list` could spin a worker forever); `eval` -> `ast.literal_eval` on opp_meta;
+  `detect_symbols_group` redis-cached (used to re-read every market CSV per call).
+- Support modules: tradier_api.py `let1`/`leg1` NameError typo on order-position matching;
+  timeouts on ALL Tradier calls (none had any - a Tradier hang froze gunicorn workers);
+  sparse-option-chain guards + `get_creditspreads_data` graceful-degrade (returns the
+  `[-1,-1]` sentinel shape the client handles); get_symbol_csv.py EODHD timeout +
+  `e.response.text` crash-in-except fix + FileLock-timeout fallback to the stale CSV;
+  Tara LLM read timeout 300s -> 100s (gunicorn kills workers at 120s - the 300s timeout
+  made the apology fallback unreachable); tara_gateway empty-final-text guard.
+- React: StockLineChart price-level persist-before-load effect (P0: switching symbols
+  corrupted/erased saved price lines in localStorage); generation-counter ordering guards
+  on OppList4 / ChartHistorical2 / NameFromTicker / manual-ticker-resolve / watchlist-items
+  (slow older responses clobbered newer state); `loggedinUser === 0` vs `'0'` dead anon
+  branches (App.js x2, InfoPopup x2); TradeInstrument order-path fixes (Place-Order crash
+  on empty creditSpreadList, res.ok checks + visible error dialogs on order/cancel failure,
+  socket null-guard, tracked refresh timers); day_range blur-handler crash (3 files);
+  TableBox `table_data` dep + shallow clone; resize-handler batching; assorted timer cleanups.
+- KNOWN REMAINING (deliberately deferred, in priority order): (1) db2 persistent JSON
+  lists (reports/portfolios/watchlists) are non-atomic read-modify-write with NO per-user
+  lock - two tabs can lose updates (the quota counter was the sharpest case and is fixed;
+  the general fix = short per-user redis lock); (2) perf backlog: LineChart.js rebuilds all
+  Chart.js datasets/plugins every render + unthrottled price-level drag, App.js ~150-key
+  chartProps bag defeats child memoization, TradeInstrument `process_streaming_line`
+  closes over stale state (deps gap); (3) NaN can leak into ChartData4/consolidated stats
+  JSON on short/flat histories (strict JSON.parse rejects it); (4) `set()`+`expire()`
+  non-atomic pairs remain in ~20 cache writes (orphan-key risk only); (5) OppList4
+  realtime-prices cache has a small stampede window on expiry. Dead-file inventory:
+  `appserver_apis.py` fully dead; `highest_volume_stocks.py` + `appserver_async.py` +
+  `appserver_autotrade_funcs.py` + `reconcile_trade_data.py` have NO systemd/cron entry
+  point (autotrade reconciliation is manual-only today); `tara_truth_eval.py` = manual CLI.
+  SAME-DAY FIX (web tier, found live): `reverse_trial_ends_at_iso()` used
+  `effective_tier != raw tier` as its "trial active" test - but the ROLE BYPASS
+  (super_admin etc.) also elevates the effective tier, so a bypass-role explorer row with
+  `reverse_trial_ends_at=NULL` 500'd `/app/` + `/api/me` (None.isoformat) once the web
+  tier restarted with the bypass logic loaded. Now keys on
+  `reverse_trial.in_reverse_trial()` + explorer tier. RULE: any "is the trial active"
+  check must use the shared predicate, never tier-elevation inference.
+  GOTCHA for editors: `tradier_api.py` is CRLF - scripted whole-file writes must preserve
+  `\r\n` or the diff explodes. GOTCHA (bit us same day): a useEffect deps array that
+  references a const/useState declared LATER in the component is a temporal-dead-zone
+  ReferenceError at render - the build compiles fine, the app blanks at runtime (the
+  DesktopLayout error boundary catches it panel-wide). When adding a dep, verify the
+  declaration sits above the effect, then headless-verify the viewer (playwright +
+  box-minted LTK + route-fulfilled /app/ index).
 
 ---
 

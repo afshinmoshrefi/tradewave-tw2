@@ -22,7 +22,10 @@ import portal_seo          # noqa: E402
 import generate_api_docs as gad  # noqa: E402
 
 API_BASE = portal_urls.API_BASE
-CONSOLE_URL = portal_urls.CONSOLE_URL
+# Signup-wrapped (spec API_CONSOLE_USER_FLOWS.md R1/R2): "No key? Create one" in the
+# playground is a free-key acquisition intent, so it routes through /signup carrying the
+# real keys target, not straight to the login-gated console.
+CONSOLE_URL = portal_urls.signup_url("/account/api/keys")
 DOCS_URL = portal_urls.DOCS_URL
 
 PLAYGROUND_CSS = """

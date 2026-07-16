@@ -91,6 +91,19 @@ def _demo_block_enumeration():
     return None
 
 
+def _demo_scope_rows(rows):
+    """For the demo token, filter a list of opportunity rows down to the demo_symbols
+    allowlist (tiers.INTERNAL_TIERS['demo']['demo_symbols']) BEFORE ranking/enrichment,
+    so a market-wide scan/enumeration route evaluates and reports only the allowlisted
+    universe instead of the full market (anti-scraping, and the demo stops burning
+    full-market compute). No-op for a normal key (no 'demo' entitlement)."""
+    ent = g.customer["entitlements"]
+    if not ent.get("demo"):
+        return rows
+    allow = {s.upper() for s in ent.get("demo_symbols", [])}
+    return [o for o in rows if str(o.get("symbol", "")).upper() in allow]
+
+
 def _today():
     return datetime.date.today().isoformat()
 
@@ -692,6 +705,10 @@ def opportunities():
     opps = appserver_client.opportunities(
         market, entry_date, year1=year1, year2=year2, direction=direction,
         enrich_win_rate=0, mode=_opp_mode(pe_cycle))
+    # demo token: scope to the allowlist BEFORE column filters/enrichment - this is a
+    # single-market enumeration route (same bulk-exposure shape as /v1/scan), previously
+    # unguarded (subscriber-UX audit 2026-07-10 sweep finding). No-op for a normal key.
+    opps = _demo_scope_rows(opps)
     opps = [o for o in opps if keep(o)]
 
     # P0: surface how many rows were actually win-rate-evaluated and whether the
@@ -969,6 +986,13 @@ def scan():
     raw = appserver_client.opportunities_multi(
         market_ids, entry_lo.isoformat(), year1=year1, year2=year2,
         direction=direction, mode=_opp_mode(pe_cycle))
+
+    # 1b) demo token: scope candidates to the public allowlist BEFORE any ranking/enrichment
+    # work happens, not by post-filtering the response - so the demo also stops burning
+    # full-market compute (spec: docs/API_CONSOLE_USER_FLOWS.md, subscriber-UX audit
+    # 2026-07-10). evaluated_count/summary below are computed AFTER this filter, so they
+    # honestly describe the 5-symbol universe rather than the full market.
+    raw = _demo_scope_rows(raw)
 
     # 2) keep only setups whose entry_date falls inside the window (true window over the
     #    single-date OppList4 primitive).
