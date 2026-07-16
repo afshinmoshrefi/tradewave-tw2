@@ -15,7 +15,11 @@ import jwt
 import calendar
 import base64
 import sys
-sys.path.insert(0, '/home/flask')
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config
 
 # this uses a hack to get the token that changes. this hack is off on prod server. it only works on stage

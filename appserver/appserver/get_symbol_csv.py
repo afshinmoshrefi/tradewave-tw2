@@ -10,11 +10,14 @@ import pwd
 import sys
 import threading
 from datetime import datetime,date
+from pathlib import Path
 from filelock import FileLock, Timeout as LockTimeout  # Added for locking - so that .csv is downloaded once - otherwise it download 6 times
 
 logger = logging.getLogger()  # Uses the root logger already set up in your script
 
-sys.path.insert(0, '/home/flask')
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config
 
 token = config.EOD_token

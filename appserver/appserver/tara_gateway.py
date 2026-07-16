@@ -18,11 +18,14 @@ import json
 import logging
 import re
 import sys
+from pathlib import Path
 from urllib.parse import quote
 
 from pooled_http import http as requests
 
-sys.path.insert(0, '/home/flask')
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config
 
 from AI_tools_appserver import send_claude_messages

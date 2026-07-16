@@ -46,7 +46,11 @@ import datetime
 from datetime import timedelta
 import calendar
 import sys
-sys.path.insert(0, '/home/flask')
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config
 
 secret_key = '65f3218cd73e46298be64cc6ee682aec'

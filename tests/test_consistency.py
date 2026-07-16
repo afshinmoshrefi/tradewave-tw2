@@ -183,6 +183,20 @@ def test_web_imports_are_release_tree_relative():
     guarded_paths = [
         *sorted((REPO / "web").rglob("*.py")),
         *sorted((REPO / "tests").rglob("*.py")),
+        *[
+            REPO / "appserver" / "appserver" / name
+            for name in (
+                "AI_tools_appserver.py",
+                "appserver.py",
+                "appserver_apis.py",
+                "create_active_opps.py",
+                "get_symbol_csv.py",
+                "seasonal_chart_funcs.py",
+                "tara_gateway.py",
+                "tradewave_api_calls_cb.py",
+                "tradier_api.py",
+            )
+        ],
         REPO / "migrations" / "env.py",
         REPO / "ops" / "audit_stripe_subscription_identity.py",
         REPO / "ops" / "backfill_active_reverse_trial_lifecycle.py",

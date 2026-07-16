@@ -3,7 +3,11 @@ from pooled_http import http as requests
 import datetime
 from datetime import timedelta
 import sys
-sys.path.insert(0, '/home/flask')
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config_autotrade
 from pprint import pprint
 from requests.exceptions import RequestException
@@ -758,6 +762,5 @@ if __name__ == '__main__':
 
     print(selected_bullish)
     print(selected_bearish)
-
 
 

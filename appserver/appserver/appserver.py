@@ -78,8 +78,11 @@ from slugify import slugify
 import socket
 import mailerlite as MailerLite
 import re
+from pathlib import Path
 from urllib.parse import quote as _urlquote
-sys.path.insert(0, '/home/flask')
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config
 import config_autotrade
 from pprint import pprint

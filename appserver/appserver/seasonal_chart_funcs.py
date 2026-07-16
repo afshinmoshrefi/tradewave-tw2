@@ -14,8 +14,11 @@ import logging
 import datetime
 import sys
 import threading
+from pathlib import Path
 # Add the parent directory to the system path
-sys.path.insert(0, '/home/flask')
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config
 
 # Assume SEASONAL_CHART_CACHE_DIR is defined in config
