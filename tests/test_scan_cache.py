@@ -125,9 +125,14 @@ def test_degraded_build_is_not_published(monkeypatch):
         return scan_cache.BuildResult({"candidates": []}, cacheable=False)
 
     assert scan_cache.get_or_build("degraded", build).status == "BYPASS"
+    # The two-second flight handoff may serve a request that races just after the
+    # owner. It is separate from the normal cache and prevents an outage stampede.
+    assert scan_cache.get_or_build("degraded", build).status == "WAIT"
+    assert calls["count"] == 1
+    assert "degraded" not in backend.values
+    backend.delete("degraded:flight")
     assert scan_cache.get_or_build("degraded", build).status == "BYPASS"
     assert calls["count"] == 2
-    assert "degraded" not in backend.values
 
 
 def test_concurrent_degraded_requests_share_only_the_flight_result(monkeypatch):
@@ -216,4 +221,31 @@ def test_wait_deadline_returns_retryable_busy_instead_of_duplicate(monkeypatch):
 
     with pytest.raises(scan_cache.ScanBuildBusy):
         scan_cache.get_or_build("held", build)
+    assert calls["count"] == 0
+
+
+def test_lock_winner_rechecks_cache_before_building(monkeypatch):
+    """Reproduce a publish between initial GET miss and SET NX success."""
+    backend = _FakeRedis()
+    calls = {"count": 0}
+    original_set = backend.set
+
+    def publish_then_acquire(key, value, nx=False, ex=None):
+        if key == "race:lock" and nx and "race" not in backend.values:
+            backend.values["race"] = json.dumps({
+                "schema": scan_cache._CACHE_SCHEMA,
+                "value": {"from_first_owner": True},
+            })
+        return original_set(key, value, nx=nx, ex=ex)
+
+    backend.set = publish_then_acquire
+    monkeypatch.setattr(scan_cache, "_redis", backend)
+
+    def duplicate_build():
+        calls["count"] += 1
+        return {"duplicate": True}
+
+    result = scan_cache.get_or_build("race", duplicate_build)
+    assert result.status == "HIT"
+    assert result.value == {"from_first_owner": True}
     assert calls["count"] == 0

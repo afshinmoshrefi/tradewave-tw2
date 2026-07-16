@@ -147,6 +147,32 @@ def _local_bypass(builder: Callable[[], BuildResult | dict[str, Any]], reason: E
     return CacheResult(built.value, "BYPASS")
 
 
+def _after_lock_acquired(key: str, lock_key: str, token: str,
+                         builder: Callable[[], BuildResult | dict[str, Any]],
+                         cached_status: str) -> CacheResult:
+    """Recheck after NX succeeds, closing the read-miss/lock-acquire race.
+
+    Another owner can publish and release between this caller's initial cache read and
+    its SET NX. Without this second read, the caller becomes a redundant cold owner even
+    though the result is already present. The short degraded flight result is checked too,
+    so a burst never repeats a just-finished partial build.
+    """
+    try:
+        cached = _read(key)
+        if cached is not None:
+            _release_lock(lock_key, token)
+            return CacheResult(cached, cached_status)
+        flight_result = _read(key + ":flight")
+        if flight_result is not None:
+            _release_lock(lock_key, token)
+            return CacheResult(flight_result, "WAIT")
+    except redis.RedisError as exc:
+        _release_lock(lock_key, token)
+        return _local_bypass(builder, exc)
+    _clear_flight_result(key)
+    return _owner_build(key, lock_key, token, builder)
+
+
 def get_or_build(key: str, builder: Callable[[], BuildResult | dict[str, Any]]) -> CacheResult:
     """Return a cached core or coordinate exactly one cold build across API nodes.
 
@@ -175,8 +201,9 @@ def get_or_build(key: str, builder: Callable[[], BuildResult | dict[str, Any]]) 
     except redis.RedisError as exc:
         return _local_bypass(builder, exc)
     if acquired:
-        _clear_flight_result(key)
-        return _owner_build(key, lock_key, token, builder)
+        return _after_lock_acquired(
+            key, lock_key, token, builder, cached_status="HIT"
+        )
 
     deadline = time.monotonic() + settings.SCAN_CACHE_WAIT_SECONDS
     while time.monotonic() < deadline:
@@ -196,7 +223,8 @@ def get_or_build(key: str, builder: Callable[[], BuildResult | dict[str, Any]]) 
         except redis.RedisError as exc:
             return _local_bypass(builder, exc)
         if acquired:
-            _clear_flight_result(key)
-            return _owner_build(key, lock_key, token, builder)
+            return _after_lock_acquired(
+                key, lock_key, token, builder, cached_status="WAIT"
+            )
 
     raise ScanBuildBusy("shared cold scan did not publish before the wait deadline")
