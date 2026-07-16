@@ -46,3 +46,31 @@ def test_cache_is_size_bounded(monkeypatch):
     for raw in ("tw_live_a", "tw_live_b", "tw_live_c"):
         assert auth.resolve_customer(raw)
     assert len(auth._key_cache) == 2
+
+
+def test_internal_service_tier_requires_durable_service_role(
+    monkeypatch, caplog,
+):
+    monkeypatch.setattr(settings, "API_KEY_HMAC_SECRET", "test-secret")
+    monkeypatch.setattr(settings, "API_KEY_CACHE_TTL_SECONDS", 0)
+    auth._key_cache.clear()
+
+    service = _row("svc")
+    service.update({
+        "tier": "explorer",
+        "api_tier": "mcp",
+        "roles": ["service_account"],
+    })
+    ordinary = dict(service, user_id="ordinary", roles=["user"])
+    rows = iter([service, ordinary])
+    monkeypatch.setattr(auth.db, "get_user_by_key_hash", lambda _: next(rows))
+
+    resolved_service = auth.resolve_customer("tw_svc_service")
+    assert resolved_service["tier"] == "mcp"
+    assert resolved_service["entitlements"]["service"] is True
+    assert resolved_service["entitlements"]["workos_principal"] is True
+
+    resolved_ordinary = auth.resolve_customer("tw_svc_untrusted")
+    assert resolved_ordinary["tier"] == "free"
+    assert resolved_ordinary["entitlements"].get("service") is not True
+    assert "without service_account role" in caplog.text

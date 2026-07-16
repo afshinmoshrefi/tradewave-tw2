@@ -103,13 +103,36 @@ def resolve_customer(raw_key):
         _cache_key_row(key_hash, row)
     if not row:
         return None
-    api_tier = tiers.api_tier_from_user(row)
+    api_tier = _key_tier(row)
     return {
         "user_id": str(row["user_id"]),
         "email": row["email"],
         "tier": api_tier,
         "entitlements": tiers.tier_for(api_tier),
     }
+
+
+def _key_tier(row):
+    """Resolve a DB-backed key without making internal tiers customer-settable.
+
+    Sold/bundled tiers keep using ``api_tier_from_user`` and its MAX rule.  The
+    two delegation principals (Tara and consumer MCP) are allowed to select an
+    internal ``service: True`` tier only when the durable user row is explicitly
+    marked ``service_account``.  A stray or forged internal label on an ordinary
+    user therefore remains least-privilege and cannot unlock delegation.
+    """
+    explicit = str(row.get("api_tier") or "").strip().lower()
+    internal = tiers.INTERNAL_TIERS.get(explicit) or {}
+    roles = set(row.get("roles") or [])
+    if internal.get("service"):
+        if "service_account" in roles:
+            return explicit
+        log.error(
+            "refusing internal api_tier=%r without service_account role user=%s",
+            explicit,
+            row.get("user_id"),
+        )
+    return tiers.api_tier_from_user(row)
 
 
 def _extract_key():

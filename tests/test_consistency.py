@@ -147,6 +147,18 @@ def test_explicit_and_bundled_api_tiers_resolve_by_max_rank(caplog):
     assert "ignoring unrankable explicit api_tier='mcp'" in caplog.text
 
 
+def test_service_key_provisioners_preserve_configured_keys_and_roles():
+    for filename, env_name in (
+        ("provision_mcp_key.py", "MCP_GATEWAY_KEY"),
+        ("provision_chatbot_key.py", "TARA_GATEWAY_KEY"),
+    ):
+        source = (REPO / "apiserver" / filename).read_text()
+        assert f'os.environ.get("{env_name}")' in source
+        assert "service_account" in source
+        assert "key_hash <> %s" in source
+        assert "revoked_at = NULL" in source
+
+
 def test_api_billing_sources_keep_both_intervals():
     paths = [
         REPO / "web" / "api_portal" / "create_api_products.py",
