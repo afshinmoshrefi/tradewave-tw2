@@ -38,7 +38,7 @@ sed \
   -e "s|__TW2_MCP_PUBLIC_HOST__|$TW2_MCP_PUBLIC_HOST|g" \
   -e "s|__TW2_DEVELOPERS_PUBLIC_HOST__|$TW2_DEVELOPERS_PUBLIC_HOST|g" \
   "$TEMPLATE" >"$rendered"
-if grep -q '__TW2_' "$rendered"; then
+if grep -Eq '__TW2_[A-Z0-9_]+__' "$rendered"; then
   echo "FAIL: unresolved nginx template placeholder" >&2
   exit 1
 fi
