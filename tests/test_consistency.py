@@ -171,3 +171,15 @@ def test_api_billing_sources_keep_both_intervals():
     assert "_ensure_price(stripe, product, tier, \"year\"" in sources[0]
     assert "data-cycle=\"year\"" in sources[2]
     assert "id=\"btn-annual\"" in sources[3]
+
+
+def test_web_imports_are_release_tree_relative():
+    """An isolated candidate must not import modules from the live checkout."""
+    app_source = (REPO / "web" / "app.py").read_text()
+    models_source = (REPO / "web" / "models.py").read_text()
+
+    assert "Path(__file__).resolve().parents[1]" in app_source
+    assert "Path(__file__).resolve().parents[1]" in models_source
+    assert "sys.path.insert(0, '/home/flask')" not in app_source
+    assert "sys.path.insert(0, '/home/flask')" not in models_source
+    assert "sys.path.insert(0, '/home/flask/web')" not in app_source

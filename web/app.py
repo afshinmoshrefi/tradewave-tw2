@@ -73,8 +73,10 @@ def _json_safe(obj):
     return obj
 
 # --- Project / internal ---
-sys.path.insert(0, '/home/flask')
-sys.path.insert(0, '/home/flask/web')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_WEB_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_REPO_ROOT))
+sys.path.insert(0, str(_WEB_ROOT))
 import config
 import reverse_trial  # shared reverse-trial cutoff math (also imported by apiserver/auth.py)
 
@@ -5594,8 +5596,8 @@ def internal_render_report():
         return jsonify({"status": "busy"}), 503
     def _render():
         try:
-            if "/home/flask/web" not in sys.path:
-                sys.path.insert(0, "/home/flask/web")
+            if str(_WEB_ROOT) not in sys.path:
+                sys.path.insert(0, str(_WEB_ROOT))
             import report_renderer
             report_renderer.render(report_dict, appserver_token, post_title, post_slug)
         except Exception as exc:
@@ -5622,8 +5624,8 @@ def internal_delete_report():
     if target.is_dir() and target.resolve().is_relative_to("/var/www/tradewave/r"):
         shutil.rmtree(target, ignore_errors=True)
         try:
-            if "/home/flask/web" not in sys.path:
-                sys.path.insert(0, "/home/flask/web")
+            if str(_WEB_ROOT) not in sys.path:
+                sys.path.insert(0, str(_WEB_ROOT))
             import report_renderer
             report_renderer.rebuild_report_sitemap()
         except Exception:

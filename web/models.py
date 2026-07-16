@@ -3,6 +3,7 @@ TW2 web tier - SQLAlchemy models.
 Mirror of the schema defined in Postgres (see schema_version table).
 """
 from datetime import datetime
+from pathlib import Path
 from sqlalchemy import (
     Column, Text, Boolean, TIMESTAMP, BigInteger, Integer, ForeignKey, Index,
     CheckConstraint, UniqueConstraint, Date, Numeric, create_engine, JSON,
@@ -13,7 +14,8 @@ from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_
 from sqlalchemy.sql import func
 
 import sys
-sys.path.insert(0, '/home/flask')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
 import config
 
 Base = declarative_base()
