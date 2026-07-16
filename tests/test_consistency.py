@@ -69,6 +69,15 @@ def test_manifest_matches_the_live_tool_surface():
     assert manifest_names == _EXPECTED_TOOLS          # 17, flagship-first, derived from server.py
 
 
+def test_deploy_checklist_uses_current_mcp_and_stripe_inventory():
+    checklist = (REPO / "ops" / "API_MCP_DEPLOY_CHECKLIST.md").read_text(
+        encoding="utf-8"
+    )
+    assert "MCP lists 17 tools (6 flagship + 11 primitives)" in checklist
+    assert "MCP lists 15 tools" not in checklist
+    assert "3 paid API products and their monthly/annual prices" in checklist
+
+
 def test_no_phantom_tool_anywhere():
     for name in ("get_opportunity_for_symbol",):
         assert name not in [t["name"] for t in MANIFEST["tools"]]
