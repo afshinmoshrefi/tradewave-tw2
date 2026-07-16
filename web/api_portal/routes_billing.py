@@ -77,8 +77,19 @@ def _as_dict(value):
         return {}
 
 
-def _subscription_has_api_line(subscription, stored_api_subscription_id=None):
-    """Recognize an API-line subscription from its durable ID or metadata."""
+def _subscription_has_api_line(
+    subscription, stored_api_subscription_id=None, product_cache=None,
+):
+    """Recognize an API-line subscription from durable identity or metadata.
+
+    Stripe limits expansion paths to four levels, so ``Subscription.list``
+    cannot expand ``data.items.data.price.product``.  Current TradeWave
+    subscriptions carry ``product_line=api`` on the subscription itself.  For
+    a legacy subscription without that metadata (and without a stored local
+    ID), resolve the item's Product separately and inspect its canonical
+    metadata.  Lookup failures intentionally propagate so checkout fails
+    closed instead of creating a duplicate subscription.
+    """
     sub = _as_dict(subscription)
     if (
         stored_api_subscription_id
@@ -90,13 +101,21 @@ def _subscription_has_api_line(subscription, stored_api_subscription_id=None):
     ).strip().lower()
     if sub_line == "api":
         return True
+    product_cache = product_cache if product_cache is not None else {}
     items = (_as_dict(sub.get("items")).get("data") or [])
     for raw_item in items:
         price = _as_dict(_as_dict(raw_item).get("price"))
         price_line = str(
             (_as_dict(price.get("metadata")).get("product_line") or "")
         ).strip().lower()
-        product = _as_dict(price.get("product"))
+        product_ref = price.get("product")
+        if isinstance(product_ref, str) and product_ref:
+            if product_ref not in product_cache:
+                product_cache[product_ref] = stripe.Product.retrieve(
+                    product_ref,
+                )
+            product_ref = product_cache[product_ref]
+        product = _as_dict(product_ref)
         product_line = str(
             (_as_dict(product.get("metadata")).get("product_line") or "")
         ).strip().lower()
@@ -107,17 +126,18 @@ def _subscription_has_api_line(subscription, stored_api_subscription_id=None):
 
 def _existing_api_subscription(customer_id, stored_api_subscription_id=None):
     """Return an existing live API subscription, or propagate lookup errors."""
+    product_cache = {}
     for status in ("active", "trialing", "past_due"):
         subscriptions = stripe.Subscription.list(
             customer=customer_id,
             status=status,
             limit=100,
-            expand=["data.items.data.price.product"],
         )
         for subscription in subscriptions.auto_paging_iter():
             if _subscription_has_api_line(
                 subscription,
                 stored_api_subscription_id=stored_api_subscription_id,
+                product_cache=product_cache,
             ):
                 sub = _as_dict(subscription)
                 return sub.get("id"), sub.get("status") or status

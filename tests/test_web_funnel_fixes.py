@@ -246,6 +246,59 @@ class TestExistingApiSubscription:
             "sub_api_1", "active",
         )
 
+    def test_list_request_does_not_use_overdepth_product_expansion(
+        self, api_billing_module, monkeypatch,
+    ):
+        calls = []
+
+        def _list(**kwargs):
+            calls.append(kwargs)
+            return _FakeList([])
+
+        monkeypatch.setattr(stripe.Subscription, "list", staticmethod(_list))
+        assert api_billing_module._existing_api_subscription("cus_1") == (
+            None, None,
+        )
+        assert len(calls) == 3
+        assert all("expand" not in call for call in calls)
+
+    def test_legacy_api_product_is_resolved_without_nested_expansion(
+        self, api_billing_module, monkeypatch,
+    ):
+        legacy = self._sub(line="")
+        legacy["items"]["data"][0]["price"]["product"] = "prod_api"
+        self._patch_list(monkeypatch, {"active": [legacy]})
+        retrieved = []
+
+        def _retrieve(product_id):
+            retrieved.append(product_id)
+            return {"id": product_id, "metadata": {"product_line": "api"}}
+
+        monkeypatch.setattr(stripe.Product, "retrieve", staticmethod(_retrieve))
+        assert api_billing_module._existing_api_subscription("cus_1") == (
+            "sub_api_1", "active",
+        )
+        assert retrieved == ["prod_api"]
+
+    def test_product_identity_wins_over_stale_subscription_metadata(
+        self, api_billing_module, monkeypatch,
+    ):
+        legacy = self._sub(line="")
+        legacy["metadata"] = {"product_line": "eod"}
+        legacy["items"]["data"][0]["price"]["product"] = "prod_api"
+        self._patch_list(monkeypatch, {"active": [legacy]})
+        monkeypatch.setattr(
+            stripe.Product,
+            "retrieve",
+            staticmethod(lambda product_id: {
+                "id": product_id,
+                "metadata": {"product_line": "api"},
+            }),
+        )
+        assert api_billing_module._existing_api_subscription("cus_1") == (
+            "sub_api_1", "active",
+        )
+
     def test_eod_subscription_ignored(
         self, api_billing_module, monkeypatch,
     ):
