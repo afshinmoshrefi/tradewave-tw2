@@ -12,11 +12,15 @@ silently swallowed.
 import sys
 import logging
 from functools import wraps
+from pathlib import Path
 
 # The console runs under the WEB venv at integration. Make the apiserver
 # package + the web tier importable regardless of CWD.
-sys.path.insert(0, "/home/flask")
-sys.path.insert(0, "/home/flask/web")
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_WEB_ROOT = Path(__file__).resolve().parents[1]
+for candidate in (str(_REPO_ROOT), str(_WEB_ROOT)):
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 from flask import Blueprint, g, redirect, request, abort
 
@@ -25,7 +29,7 @@ import config
 from apiserver import tiers as api_tiers  # noqa: F401  (re-exported for routes)
 from apiserver.auth import hash_key  # noqa: F401  (re-exported for routes)
 # Dependency-free, repo-root module shared with web/app.py + apiserver/auth.py
-# (see reverse_trial.py docstring). sys.path already carries /home/flask above.
+# (see reverse_trial.py docstring). The release checkout root is on sys.path above.
 import reverse_trial  # noqa: F401  (re-exported for routes)
 
 log = logging.getLogger("tw2.api_portal")

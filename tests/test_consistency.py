@@ -180,6 +180,33 @@ def test_web_imports_are_release_tree_relative():
 
     assert "Path(__file__).resolve().parents[1]" in app_source
     assert "Path(__file__).resolve().parents[1]" in models_source
-    assert "sys.path.insert(0, '/home/flask')" not in app_source
-    assert "sys.path.insert(0, '/home/flask')" not in models_source
-    assert "sys.path.insert(0, '/home/flask/web')" not in app_source
+    guarded_paths = [
+        *sorted((REPO / "web").rglob("*.py")),
+        *sorted((REPO / "tests").rglob("*.py")),
+        REPO / "migrations" / "env.py",
+        REPO / "ops" / "audit_stripe_subscription_identity.py",
+        REPO / "ops" / "backfill_active_reverse_trial_lifecycle.py",
+    ]
+    forbidden = (
+        'sys.path.insert(0, "/home/flask',
+        "sys.path.insert(0, '/home/flask",
+        'Path("/home/flask")',
+        "Path('/home/flask')",
+        'str(ROOT / "web"), "/home/flask"',
+    )
+    for path in guarded_paths:
+        if path.resolve() == Path(__file__).resolve():
+            continue
+        source = path.read_text(encoding="utf-8")
+        for marker in forbidden:
+            assert marker not in source, f"{path.relative_to(REPO)} imports the live checkout"
+
+
+def test_database_harness_requires_an_exact_local_test_database():
+    source = (REPO / "tests" / "conftest.py").read_text(encoding="utf-8")
+
+    assert 'os.environ.get("TW2_TEST_POSTGRES_DSN"' in source
+    assert '_test_url.database != "tradewave_test"' in source
+    assert '_query_host = _test_url.query.get("host")' in source
+    assert "host not in _allowed_hosts" in source
+    assert "TEST_DSN!r" not in source

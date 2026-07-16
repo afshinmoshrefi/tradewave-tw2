@@ -36,10 +36,14 @@ dict the console + gateway read). The free tier has no Stripe product.
 """
 import os
 import sys
+from pathlib import Path
 
 # Make the apiserver package + config importable from any CWD.
-sys.path.insert(0, "/home/flask")
-sys.path.insert(0, "/home/flask/web")
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_WEB_ROOT = Path(__file__).resolve().parents[1]
+for candidate in (str(_REPO_ROOT), str(_WEB_ROOT)):
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 import config
 from apiserver import tiers as api_tiers

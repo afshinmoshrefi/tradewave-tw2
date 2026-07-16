@@ -23,9 +23,13 @@ import argparse
 import datetime as dt
 import logging
 import sys
+from pathlib import Path
 
-sys.path.insert(0, "/home/flask")
-sys.path.insert(0, "/home/flask/web")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_WEB_ROOT = Path(__file__).resolve().parent
+for candidate in (str(_REPO_ROOT), str(_WEB_ROOT)):
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 import config  # noqa: E402  (loads per-env Stripe key / DSN from env)
 

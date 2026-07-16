@@ -19,7 +19,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-for candidate in (str(ROOT), str(ROOT / "web"), "/home/flask", "/home/flask/web"):
+for candidate in (str(ROOT), str(ROOT / "web")):
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 

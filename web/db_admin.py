@@ -24,6 +24,7 @@ import hashlib
 import hmac
 import os
 import sys
+from pathlib import Path
 
 
 def _maybe_load_secrets_env(path: str = '/etc/tradewave/secrets.env') -> None:
@@ -61,8 +62,11 @@ def _maybe_load_secrets_env(path: str = '/etc/tradewave/secrets.env') -> None:
 
 _maybe_load_secrets_env()
 
-sys.path.insert(0, '/home/flask')
-sys.path.insert(0, '/home/flask/web')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_WEB_ROOT = Path(__file__).resolve().parent
+for candidate in (str(_REPO_ROOT), str(_WEB_ROOT)):
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 import config as tw2_config  # noqa: E402
 # NOTE: User is intentionally NOT imported here. The plaintext api_key

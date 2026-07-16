@@ -17,10 +17,13 @@ import logging
 import sys
 import time
 import urllib.parse
+from pathlib import Path
 
 import requests
 
-sys.path.insert(0, '/home/flask')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config
 
 log = logging.getLogger("tw2.web.email_utils")

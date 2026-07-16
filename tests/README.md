@@ -26,7 +26,9 @@ cd /home/flask && make test-db       # DB-only
 The fixtures resolve the repository root from `tests/conftest.py`; they do not
 hardcode `/home/flask` for imports. This is intentional: an integrity run from
 an isolated release-candidate checkout must test that checkout rather than
-silently importing modules from the currently deployed dev tree.
+silently importing modules from the currently deployed dev tree. Database
+tests accept `TW2_TEST_POSTGRES_DSN`; it must name exactly `tradewave_test` on
+the local host. The raw DSN is never included in a validation error.
 
 ## API + MCP gateway tests (no DB)
 
@@ -59,16 +61,15 @@ instance the running tier uses, with the same role. Create / refresh it:
 ```bash
 sudo -u postgres psql -c "DROP DATABASE IF EXISTS tradewave_test;"
 sudo -u postgres psql -c "CREATE DATABASE tradewave_test OWNER tradewave;"
-sudo PGPASSWORD=<tradewave-password> pg_dump -h 127.0.0.1 -U tradewave \
-     -d tradewave --schema-only --no-owner > /tmp/tradewave_schema.sql
-sudo PGPASSWORD=<tradewave-password> psql -h 127.0.0.1 -U tradewave \
-     -d tradewave_test -f /tmp/tradewave_schema.sql
+sudo -u postgres pg_dump -d tradewave --schema-only --no-owner --no-privileges \
+  | { printf 'SET ROLE tradewave;\n'; cat; } \
+  | sudo -u postgres psql -v ON_ERROR_STOP=1 -d tradewave_test
 ```
 
-Each test wraps its work in a transaction we roll back at teardown, so
-the DB stays clean across runs. `conftest.py` also clears `users`,
-`audit_log`, and `stripe_events` at the start and end of each test as a
-safety net.
+DB tests are serial and use a dedicated disposable database. `conftest.py`
+clears the customer, audit, Stripe-event, and lifecycle rows it owns at the
+start and end of each test. Recreate `tradewave_test` after an interrupted run
+instead of assuming a transaction rollback removed every committed fixture.
 
 ## What is covered
 
@@ -109,6 +110,6 @@ first pass. The following need follow-up tests:
 - DB tests are tagged `@pytest.mark.db`; pure-Python tests `@pytest.mark.unit`.
 - No test makes a real network call. WorkOS, Stripe SDK, and Mailerlite
   are mocked via `monkeypatch`/`unittest.mock`.
-- No test mutates the production `tradewave` database. DB tests use
-  `tradewave_test` only — confirmed by the `TW2_TEST_POSTGRES_DSN` env
-  var defaulting to `.../tradewave_test`.
+- No test mutates the production `tradewave` database. DB tests use exactly the
+  local `tradewave_test` database. Set `TW2_TEST_POSTGRES_DSN` when the default
+  local connection is not appropriate.

@@ -5,11 +5,14 @@ affiliate object (same approach as test_affiliate.py), token signing is pure,
 and body rendering reads the committed docs/AFFILIATE_AGREEMENT.md.
 """
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 
 import sys
-sys.path.insert(0, "/home/flask")
-sys.path.insert(0, "/home/flask/web")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+for candidate in (str(_REPO_ROOT), str(_REPO_ROOT / "web")):
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 import pytest  # noqa: E402
 import affiliate_agreement as agr  # noqa: E402

@@ -27,9 +27,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-REPO_ROOT = Path("/home/flask")
-if not REPO_ROOT.is_dir():
-    REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 CHECKER = REPO_ROOT / "site/api_docs/check_quickstart_snippets.py"
 QUICKSTART = REPO_ROOT / "site/api_docs/quickstart.html"
 CHECK_BASE = os.environ.get("TW_DOCCHECK_API_BASE", "http://127.0.0.1:8088/v1")

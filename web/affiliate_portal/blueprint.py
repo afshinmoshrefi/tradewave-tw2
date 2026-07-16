@@ -8,9 +8,13 @@ never from a request parameter (spec C2).
 import sys
 import logging
 from functools import wraps
+from pathlib import Path
 
-sys.path.insert(0, "/home/flask")
-sys.path.insert(0, "/home/flask/web")
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_WEB_ROOT = Path(__file__).resolve().parents[1]
+for candidate in (str(_REPO_ROOT), str(_WEB_ROOT)):
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 from flask import Blueprint, g, redirect, render_template, request
 

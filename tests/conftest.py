@@ -26,6 +26,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 
 # ---------------------------------------------------------------------
@@ -57,27 +59,49 @@ os.environ.setdefault("WORKOS_COOKIE_PASSWORD", "unit-only-cookie-password")
 os.environ.setdefault("APPSERVER_JWT_SECRET", "unit-only-jwt-secret-at-least-32-bytes")
 os.environ.setdefault("SERVICE_API_KEY", "unit-only-service-key")
 
-# 2. Force POSTGRES_DSN to point at tradewave_test BEFORE models.py is
-# imported. config.POSTGRES_DSN is read at module-load time (`engine =
-# create_engine(config.POSTGRES_DSN, ...)` in models.py), so we MUST
-# override before any `import models` anywhere in the suite.
-_PROD_DSN = os.environ.get("POSTGRES_DSN", "")
-if "/tradewave_test" not in _PROD_DSN:
-    if _PROD_DSN.endswith("/tradewave"):
-        os.environ["POSTGRES_DSN"] = _PROD_DSN[:-len("/tradewave")] + "/tradewave_test"
-    elif _PROD_DSN:
-        # DSN with query string or different path — best-effort swap
-        os.environ["POSTGRES_DSN"] = _PROD_DSN.replace("/tradewave", "/tradewave_test")
-    else:
-        os.environ["POSTGRES_DSN"] = (
-            "postgresql://tradewave@127.0.0.1:5432/tradewave_test"
-        )
+# 2. Force POSTGRES_DSN to an exact, local tradewave_test database BEFORE
+# models.py is imported. An explicit TW2_TEST_POSTGRES_DSN wins; otherwise we
+# derive only the database name from the configured local production DSN.
+# Never include the raw DSN in an error because it commonly embeds a password.
+_explicit_test_dsn = os.environ.get("TW2_TEST_POSTGRES_DSN", "").strip()
+_configured_dsn = _explicit_test_dsn or os.environ.get("POSTGRES_DSN", "").strip()
+if not _configured_dsn:
+    _configured_dsn = "postgresql://tradewave@127.0.0.1:5432/tradewave_test"
 
-TEST_DSN = os.environ["POSTGRES_DSN"]
-assert "/tradewave_test" in TEST_DSN, (
-    f"REFUSING to run tests: POSTGRES_DSN does not target tradewave_test "
-    f"(got {TEST_DSN!r}). Set TW2_TEST_POSTGRES_DSN explicitly."
-)
+try:
+    _test_url = make_url(_configured_dsn)
+except (ArgumentError, TypeError, ValueError) as exc:
+    raise RuntimeError(
+        "REFUSING to run tests: the configured test PostgreSQL DSN is invalid"
+    ) from exc
+
+if not _explicit_test_dsn:
+    if _test_url.database not in {"tradewave", "tradewave_test"}:
+        raise RuntimeError(
+            "REFUSING to derive a test DSN from an unexpected database name; "
+            "set TW2_TEST_POSTGRES_DSN explicitly"
+        )
+    _test_url = _test_url.set(database="tradewave_test")
+
+if _test_url.database != "tradewave_test":
+    raise RuntimeError(
+        "REFUSING to run tests: TW2_TEST_POSTGRES_DSN must name exactly "
+        "tradewave_test"
+    )
+_allowed_hosts = {None, "localhost", "127.0.0.1", "::1"}
+_hosts = [_test_url.host]
+_query_host = _test_url.query.get("host")
+if isinstance(_query_host, (tuple, list)):
+    _hosts.extend(_query_host)
+elif _query_host:
+    _hosts.append(_query_host)
+if any(host not in _allowed_hosts and not str(host).startswith("/") for host in _hosts):
+    raise RuntimeError(
+        "REFUSING to run tests: tradewave_test must be on the local host"
+    )
+
+TEST_DSN = _test_url.render_as_string(hide_password=False)
+os.environ["POSTGRES_DSN"] = TEST_DSN
 
 # 3. Make this checkout's web/ tree importable so `from models import ...`
 # works the same way the running web tier sees it.  This must be relative to

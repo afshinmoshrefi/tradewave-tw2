@@ -17,11 +17,13 @@ covered by curl in the closeout report.
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 
 import pytest
 
 
 pytestmark = pytest.mark.unit
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 # ---------------------------------------------------------------------
@@ -197,7 +199,7 @@ class TestChatbotDecorator:
     def test_decorator_is_defined(self):
         # Import via sys.path entry the appserver service uses.
         import sys
-        for p in ("/home/flask/appserver/appserver",):
+        for p in (str(REPO_ROOT / "appserver" / "appserver"),):
             if p not in sys.path:
                 sys.path.insert(0, p)
         chatbot = importlib.import_module("chatbot")
@@ -210,7 +212,7 @@ class TestChatbotDecorator:
         wraps-decorated callable without state, so the test just imports
         and verifies the source signature contract."""
         import sys
-        for p in ("/home/flask/appserver/appserver",):
+        for p in (str(REPO_ROOT / "appserver" / "appserver"),):
             if p not in sys.path:
                 sys.path.insert(0, p)
         chatbot = importlib.import_module("chatbot")

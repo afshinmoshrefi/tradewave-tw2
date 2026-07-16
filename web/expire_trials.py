@@ -15,9 +15,13 @@ from __future__ import annotations
 import logging
 import sys
 import datetime as dt
+from pathlib import Path
 
-sys.path.insert(0, "/home/flask")
-sys.path.insert(0, "/home/flask/web")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_WEB_ROOT = Path(__file__).resolve().parent
+for candidate in (str(_REPO_ROOT), str(_WEB_ROOT)):
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 import config  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402

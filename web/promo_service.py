@@ -11,10 +11,14 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from decimal import Decimal
+from pathlib import Path
 
 import sys
-sys.path.insert(0, "/home/flask")
-sys.path.insert(0, "/home/flask/web")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_WEB_ROOT = Path(__file__).resolve().parent
+for candidate in (str(_REPO_ROOT), str(_WEB_ROOT)):
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 import stripe  # noqa: E402
 import config  # noqa: E402

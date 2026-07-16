@@ -35,7 +35,9 @@ from matplotlib.patches import Rectangle
 
 from PIL import Image, ImageDraw
 
-sys.path.insert(0, '/home/flask')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config
 from tw_dateformat import format_date_range
 
@@ -562,7 +564,7 @@ def render(report_dict, appserver_token, post_title, post_slug):
     subtitle = format_date_range(date1, date2, with_year=True)
 
     # Optional: header/footer partials
-    header_partial = _read_partial('/home/flask/site/templates/_tw_header.html')
+    header_partial = _read_partial(str(_REPO_ROOT / 'site' / 'templates' / '_tw_header.html'))
     footer_partial = _read_partial('/var/www/tradewave/_partials/tw_app_footer.html')
 
     # Cache-buster from report.css mtime so a CSS edit invalidates browser

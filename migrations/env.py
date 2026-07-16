@@ -12,6 +12,7 @@ Targets models.Base.metadata for autogenerate.
 import os
 import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
 from alembic import context
@@ -42,8 +43,10 @@ def _maybe_load_secrets_env(path: str = '/etc/tradewave/secrets.env') -> None:
 
 _maybe_load_secrets_env()
 
-sys.path.insert(0, '/home/flask')
-sys.path.insert(0, '/home/flask/web')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+for candidate in (str(_REPO_ROOT), str(_REPO_ROOT / "web")):
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 import config as tw2_config  # noqa: E402
 from models import Base  # noqa: E402

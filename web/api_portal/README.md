@@ -74,8 +74,10 @@ POST routes carry `{{ csrf_token() }}` (the web app's global Flask-WTF
 - **No Stripe API call happens at import or build time** - only at request time
   when a logged-in user clicks a button. Confirmed: nothing in this package
   calls Stripe on import.
-- `create_api_products.py` idempotently creates the 4 **TEST-mode**
-  products/prices. It is **NOT run** by this build and **refuses to run** unless
+- `create_api_products.py` idempotently creates 3 paid **TEST-mode** products,
+  6 recurring prices, the Founder promotion, and a dedicated API Billing Portal
+  configuration. Free has no Stripe product. It is **NOT run** by this build and
+  **refuses to run** unless
   `STRIPE_SECRET_KEY` starts with `sk_test_`. Parent runs it once at integration:
   ```
   cd /home/flask

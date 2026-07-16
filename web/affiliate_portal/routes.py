@@ -8,6 +8,7 @@ import json
 import time
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 
 import requests as _requests
 from flask import flash, redirect, render_template, request, url_for
@@ -27,7 +28,7 @@ MODEL_LABELS = {
     "first_payment": "First payment only",
 }
 
-SMN_TERMS_PATH = "/home/flask/docs/SMN_CONTRIBUTOR_TERMS.md"
+SMN_TERMS_PATH = str(Path(__file__).resolve().parents[2] / "docs" / "SMN_CONTRIBUTOR_TERMS.md")
 SLUG_RE = re.compile(r"^[a-z0-9-]{2,64}$")
 PLAIN_TEXT_BAN = re.compile(r"[<>]|https?://", re.IGNORECASE)
 

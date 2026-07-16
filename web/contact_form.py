@@ -16,11 +16,14 @@ import hashlib
 import logging
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 import requests
 
-sys.path.insert(0, '/home/flask')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import config
 
 log = logging.getLogger("tw2.web.contact_form")

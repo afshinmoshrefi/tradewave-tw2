@@ -1648,8 +1648,8 @@ def mailerlite_webhook():
 # (replaces the milestone-1 nginx sub_filter stub)
 # ============================================================
 
-REACT_BUILD_INDEX = Path("/home/flask/web-react/build/index.html")
-TW_HEADER_TEMPLATE = Path("/home/flask/site/templates/_tw_header.html")
+REACT_BUILD_INDEX = _REPO_ROOT / "web-react" / "build" / "index.html"
+TW_HEADER_TEMPLATE = _REPO_ROOT / "site" / "templates" / "_tw_header.html"
 
 
 def effective_tier(user) -> str:
@@ -5544,7 +5544,7 @@ def internal_featured_history():
     if not _check_service_key():
         return jsonify({"error": "unauthorized"}), 401
     path = os.environ.get(
-        "TW2_FEATURED_HISTORY_FILE", "/home/flask/site/data/featured_history.json"
+        "TW2_FEATURED_HISTORY_FILE", str(_REPO_ROOT / "site" / "data" / "featured_history.json")
     )
     try:
         with open(path, encoding="utf-8") as f:
