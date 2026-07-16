@@ -84,6 +84,8 @@ echo "$home" | grep -c  'Seasonal projection based on all available data' >/dev/
 echo "$home" | grep -c  'Target Hit means the predicted return was reached and the trade was exited for a win.' >/dev/null && ok "home: Target Hit definition" || bad "home: Target Hit definition MISSING"
 echo "$home" | grep -c  'Different Desks. One Standard of Proof.' >/dev/null && ok "home: audience heading" || bad "home: audience heading MISSING"
 echo "$home" | grep -c  'fund running thousands of backtests' >/dev/null && ok "home: audience scale copy" || bad "home: audience scale copy MISSING"
+echo "$home" | grep -c  'Is TradeWave a signal service? Does it tell me what to buy?' >/dev/null && ok "home: updated FAQ question" || bad "home: updated FAQ question MISSING"
+echo "$home" | grep -c  'TradeWave is a research tool, not a signal service.' >/dev/null && ok "home: updated FAQ answer" || bad "home: updated FAQ answer MISSING"
 echo "$home" | grep -c  'Trade<b>Wave</b>'                  >/dev/null && ok "home: 2-color logo"           || warn "home: 2-color logo markup not found"
 echo "$home" | grep -ciE '>Wave Viewer<|>Start Free Trial<' >/dev/null && ok "home: unified nav"            || warn "home: nav markers not found"
 if echo "$home" | grep -cE 'gtag\(|googletagmanager|G-[A-Z0-9]{6,}' >/dev/null; then ok "home: GA4 loader present"; else

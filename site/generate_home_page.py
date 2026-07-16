@@ -1128,53 +1128,52 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # resolves to the dict method and breaks the loop.
             "entries": [
                 {
-                    "q": "Is this a signal service? Does it tell me what to buy?",
-                    "a": ("No. TradeWave shows you the evidence - the exact "
-                          "dates a move repeated, how often, how big it ran, "
-                          "and the years it failed - and you decide what to do "
-                          "with it. It never sends trade alerts and never gives "
-                          "personalized advice. Even the one daily pick we "
-                          "publish is research, added to the public track record "
+                    "q": "Is TradeWave a signal service? Does it tell me what to buy?",
+                    "a": ("No. TradeWave is a research tool, not a signal service. "
+                          "It shows you the evidence behind a seasonal move: the "
+                          "exact dates a pattern repeated, how often it happened, "
+                          "how far it ran, and the years it failed. You decide what "
+                          "to do with it. TradeWave never sends trade alerts and "
+                          "never gives personalized advice. Even the single daily pick we "
+                          "publish is research, added to a public track record "
                           "before the outcome is known."),
                 },
                 {
-                    "q": "This sounds too good to be true. Where's the catch?",
+                    "q": "What's the catch with TradeWave?",
                     "a": ("The catch is that seasonality is evidence, not "
-                          "certainty - and we show you exactly that. Every "
-                          "pattern opens to its full per-year record, failing "
-                          "years included. The daily pick goes on a public "
-                          "track record before the outcome, and the losses stay up. "
-                          "And the machine-learning model only calibrates a "
-                          "pattern's probability down, never up - it ranks "
-                          "what history supports; it never predicts. You do "
-                          "not have to take our word for any of it."),
-                    "link_text": "See the proof for yourself",
-                    "link_url": "%sscorecard.html" % DOMAIN_ROOT,
+                          "certainty, and we show you exactly that. Every pattern "
+                          "opens to its full per-year record, including the years "
+                          "it failed. The daily pick is logged to a public track "
+                          "record before the outcome, and losing picks stay up. "
+                          "The machine-learning model only adjusts a pattern's "
+                          "probability down, never up. It ranks what history "
+                          "supports and never predicts. You don't have to take "
+                          "our word for any of it."),
                 },
                 {
-                    "q": "What data is this built on?",
-                    "a": ("End-of-day price history across 15 markets - US "
-                          "stocks and ETFs, the major indices, futures, forex, "
-                          "bonds, foreign indices, and crypto - reaching back "
-                          "as far as a century. You choose the lookback, 1 to "
-                          "99 years, calendar or election cycle, and the "
-                          "engine is deterministic: the same inputs return the "
-                          "same numbers, every time."),
+                    "q": "What data is TradeWave built on?",
+                    "a": ("TradeWave runs on end-of-day price history across 15 "
+                          "markets: US stocks and ETFs, the major indices, futures, "
+                          "forex, bonds, foreign indices, and crypto. The history "
+                          "reaches back as far as a century. You choose the lookback, "
+                          "from 1 to 99 years, on a calendar or election-cycle basis. "
+                          "The engine is deterministic, so the same inputs return the "
+                          "same numbers every time."),
                 },
                 {
-                    "q": "Can I cancel? What happens after the trial?",
-                    "a": ("Yes, in one click, anytime. Signing up starts 7 "
-                          "days of the full platform; when that ends you keep "
-                          "a free plan that never expires. Cancel a paid plan "
-                          "and you simply drop back to the free plan - your "
-                          "account stays."),
+                    "q": "Can I cancel anytime?",
+                    "a": ("Yes. You can cancel in one click, anytime. Signing up "
+                          "starts a 7-day trial of the full platform. When the trial "
+                          "ends, you keep a free plan that never expires. Cancel a "
+                          "paid plan and you simply drop back to the free plan, with "
+                          "your account intact."),
                 },
                 {
                     "q": "Is my card charged?",
-                    "a": ("Starting free takes no card at all, so there is "
-                          "nothing to charge. Paid-tier trials run 7 days free "
-                          "and do take a card at checkout - cancel anytime "
-                          "during the trial in one click and you pay nothing."),
+                    "a": ("No card is needed to start free, so there's nothing to "
+                          "charge. Paid-tier trials run 7 days free but do take a "
+                          "card at checkout. Cancel anytime during the trial in one "
+                          "click and you pay nothing."),
                 },
             ],
         },
