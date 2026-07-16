@@ -12,6 +12,8 @@ esac
 
 install -d -m 0755 /etc/nginx/conf.d
 FORMAT=/etc/nginx/conf.d/tradewave-log-format.conf
+NGINX_MAIN=/etc/nginx/nginx.conf
+[ -f "$NGINX_MAIN" ] || { echo "FAIL: nginx main config not found: $NGINX_MAIN" >&2; exit 1; }
 format_backup="$(mktemp)"
 had_format=0
 if [ -f "$FORMAT" ]; then cp -p "$FORMAT" "$format_backup"; had_format=1; fi
@@ -19,21 +21,39 @@ install -m 0644 /home/flask/ops/nginx/conf.d/tradewave-log-format.conf \
   "$FORMAT"
 
 # Preserve access_log off; force every file-backed access log to use tw_noargs.
+# Patch the http-level default as well as the selected vhost: a server block with
+# no local access_log inherits nginx.conf, so checking only explicit vhost lines
+# leaves that otherwise ordinary configuration query-capable.
 rendered="$(mktemp)"
 backup="$(mktemp)"
-trap 'rm -f "$rendered" "$backup" "$format_backup"' EXIT
+main_rendered="$(mktemp)"
+main_backup="$(mktemp)"
+trap 'rm -f "$rendered" "$backup" "$main_rendered" "$main_backup" "$format_backup"' EXIT
 cp -p "$VHOST" "$rendered"
-sed -Ei '/^[[:space:]]*access_log[[:space:]]+off[[:space:]]*;/! s#^([[:space:]]*access_log[[:space:]]+[^;[:space:]]+)([[:space:]]+[^;]+)?[[:space:]]*;#\1 tw_noargs;#' "$rendered"
-if grep -E '^[[:space:]]*access_log[[:space:]]+' "$rendered" \
-    | grep -Ev '^[[:space:]]*access_log[[:space:]]+off[[:space:]]*;|[[:space:]]tw_noargs[[:space:]]*;' >/dev/null; then
-  echo "FAIL: an access_log directive is not query-safe in $VHOST" >&2
-  exit 1
-fi
+cp -p "$NGINX_MAIN" "$main_rendered"
+render_safe_access_logs() {
+  sed -Ei '/^[[:space:]]*access_log[[:space:]]+off[[:space:]]*;/! s#^([[:space:]]*access_log[[:space:]]+[^;[:space:]]+)([[:space:]]+[^;]+)?[[:space:]]*;#\1 tw_noargs;#' "$1"
+}
+require_safe_access_logs() {
+  local path="$1"
+  if grep -E '^[[:space:]]*access_log[[:space:]]+' "$path" \
+      | grep -Ev '^[[:space:]]*access_log[[:space:]]+off[[:space:]]*;|[[:space:]]tw_noargs[[:space:]]*;' >/dev/null; then
+    echo "FAIL: an access_log directive is not query-safe in $path" >&2
+    exit 1
+  fi
+}
+render_safe_access_logs "$rendered"
+render_safe_access_logs "$main_rendered"
+require_safe_access_logs "$rendered"
+require_safe_access_logs "$main_rendered"
 
 cp -p "$VHOST" "$backup"
+cp -p "$NGINX_MAIN" "$main_backup"
 install -m 0644 "$rendered" "$VHOST"
+install -m 0644 "$main_rendered" "$NGINX_MAIN"
 restore_prior() {
   install -m 0644 "$backup" "$VHOST"
+  install -m 0644 "$main_backup" "$NGINX_MAIN"
   if [ "$had_format" -eq 1 ]; then install -m 0644 "$format_backup" "$FORMAT"; else rm -f "$FORMAT"; fi
 }
 if ! nginx -t; then
