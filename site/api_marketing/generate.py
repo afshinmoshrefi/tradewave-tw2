@@ -159,6 +159,7 @@ body {
 }
 .btn-primary {
   background: var(--grad); color:#fff;
+  border:1px solid transparent; /* match btn-secondary's 1px border so the two button kinds are the same height (kept Pro's card button 2px out of line) */
   box-shadow:0 4px 20px rgba(99,102,241,.25),0 0 0 1px rgba(255,255,255,.1) inset;
 }
 .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(99,102,241,.4),0 0 0 1px rgba(255,255,255,.15) inset; }
@@ -314,10 +315,12 @@ body {
   font-size:11px; font-weight:700; letter-spacing:.3px; white-space:nowrap;
 }
 .p-name { font-size:20px; font-weight:700; margin-bottom:4px; }
-.p-tagline { font-size:13px; color:var(--dim); margin-bottom:20px; min-height:36px; }
+/* min-height reserves THREE 13px lines (the longest tagline wraps to 3 at the 4-col
+   width) so every card's price row starts at the same y - 36px (2 lines) let the
+   $ amounts stagger across cards. line-height pinned so the reservation is exact. */
+.p-tagline { font-size:13px; line-height:1.5; color:var(--dim); margin-bottom:20px; min-height:59px; }
 .p-price { font-size:44px; font-weight:800; color:var(--green); line-height:1; }
 .p-price-unit { font-size:16px; color:var(--muted); font-weight:400; }
-.p-annual-note { font-size:12px; color:var(--muted); margin-top:6px; margin-bottom:20px; }
 .p-features { list-style:none; flex:1; margin:16px 0 24px; }
 .p-features li { display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--dim); padding:6px 0; border-bottom:1px solid rgba(31,41,55,.5); }
 .p-features li:last-child { border-bottom:none; }
@@ -327,19 +330,10 @@ body {
 .p-features li.ml-feat { font-weight:600; color:var(--text); }
 .p-features li.ml-feat::before { content:'\\2605'; color:var(--accent); }
 .p-card .btn { width:100%; padding:12px 20px; font-size:14px; }
-.p-note { font-size:11px; color:var(--muted); text-align:center; margin-top:10px; line-height:1.5; }
-
-/* Toggle */
-.billing-toggle { display:flex; justify-content:center; gap:0; margin-bottom:40px; }
-.billing-btn {
-  padding:10px 28px; font-size:14px; font-weight:600; cursor:pointer;
-  border:1px solid var(--border); color:var(--dim); background:var(--bg-card);
-  font-family:inherit; transition:all .2s;
-}
-.billing-btn:first-child { border-radius:8px 0 0 8px; }
-.billing-btn:last-child  { border-radius:0 8px 8px 0; border-left:none; }
-.billing-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
-.save-badge { font-size:11px; font-weight:700; color:var(--green); margin-left:6px; }
+/* Every card renders a p-note under its button; min-height reserves TWO lines so a
+   wrapping note (Business's, at narrow 4-col widths) can't lift its button out of
+   line with the other cards' buttons in the equal-height row. */
+.p-note { font-size:11px; color:var(--muted); text-align:center; margin-top:10px; line-height:1.5; min-height:33px; }
 
 /* Enterprise strip */
 .enterprise-strip {
@@ -465,7 +459,7 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "",
         '      <a href="for-ai-agents.html">For AI agents</a>\n'
         f'      <a href="{portal_urls.LEARN_URL}/">Learn</a>\n'
         f'      <a href="{portal_urls.LOGIN_URL}" id="tw-auth-link">Log In</a>\n'
-        f'      <a href="{portal_urls.nav("account/api/keys")}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>\n'
+        f'      <a href="{portal_urls.signup_url("/account/api/keys")}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>\n'
         '    </div>'
     )
     header = re.sub(
@@ -549,7 +543,7 @@ def build_index() -> str:
 
     <div class="hero-ctas">
       <a href="{portal_urls.DOCS_URL}/quickstart.html" class="btn btn-primary">Run it in 30 seconds</a>
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-secondary">Get a free key</a>
+      <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-secondary">Get a free key</a>
       <a href="mcp.html" class="btn btn-ghost">Connect it to Claude</a>
     </div>
     <p class="hero-note">{pricing_hero_note}</p>
@@ -686,7 +680,7 @@ def build_index() -> str:
     </p>
     <div style="text-align:center;margin-top:28px;">
       <a href="{portal_urls.nav('scorecard.html')}" class="btn btn-primary">See the Public Record</a>
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-ghost" style="margin-left:12px;">Pull It via the API</a>
+      <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-ghost" style="margin-left:12px;">Pull It via the API</a>
     </div>
   </div>
 </section>
@@ -733,7 +727,7 @@ def build_index() -> str:
       Start free, scale when it earns its place. The full ladder is on the pricing page.
     </p>
     <div class="hero-ctas">
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
+      <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-primary">Get a Free API Key</a>
       <a href="pricing.html" class="btn btn-secondary">See All Plans</a>
       <a href="{portal_urls.nav('contact.html')}" class="btn btn-ghost">Contact Sales</a>
     </div>
@@ -755,7 +749,7 @@ def build_index() -> str:
 def build_pricing() -> str:
     tiers = API_TIERS  # from the single source of truth
 
-    # Annual = price_annual (10x monthly = pay for 10 months, get 12 = 2 months free, ~17% off).
+    # Annual = price_annual (10x monthly: pay for 10 months, get 12).
     def annual_permo(t: dict) -> int:
         return 0 if t["price_monthly"] == 0 else round(t["price_annual"] / 12)
 
@@ -782,10 +776,9 @@ def build_pricing() -> str:
         # figure and route their CTA to sales instead of signup, until the flag flips.
         price_hidden = key != "free" and not API_PRICING_LIVE
         ann_permo = annual_permo(t)
-        ann = f"${ann_permo}"
+        annual_total = t["price_annual"]
         save = annual_savings(t)
         save_span = f' <span class="save-badge">{save}</span>' if save else ''
-        annual_total = t.get('price_annual', 0)
 
         if price_hidden:
             price_html = '<span class="p-price">Coming Soon</span>'
@@ -795,9 +788,11 @@ def build_pricing() -> str:
             price_html = (f'<span class="p-price" data-monthly="{t["price_monthly"]}" '
                           f'data-annual="{ann_permo}">{price_display}</span>\n'
                           f'    <span class="p-price-unit">/mo</span>')
-            annual_note_html = (f'<p class="p-annual-note" data-annual-note="{ann}/mo billed annually '
-                                f'(${annual_total}/yr){save_span}">\n'
-                                f'    {ann}/mo billed annually (${annual_total}/yr){save_span}\n  </p>')
+            annual_note_html = (
+                f'<p class="p-annual-note" data-annual-note="${ann_permo}/mo billed annually '
+                f'(${annual_total}/yr){save_span}">\n'
+                f'    ${ann_permo}/mo billed annually (${annual_total}/yr){save_span}\n  </p>'
+            )
 
         btn_class = "btn-primary" if is_highlight else "btn-secondary"
         if price_hidden:
@@ -805,7 +800,11 @@ def build_pricing() -> str:
             btn_href = portal_urls.nav("contact.html")
         else:
             btn_text = "Get Started" if key == "free" else f"Start {t['name']}"
-            btn_href = portal_urls.CONSOLE_URL
+            # R2: free intent -> Keys; paid intent -> Billing with that tier highlighted
+            # (?subscribe=<tier>). Acquisition CTA -> signup, not straight to console
+            # (R1) - AuthKit's sign-in toggle still lets an existing user pass through.
+            btn_href = (portal_urls.signup_url("/account/api/keys") if key == "free"
+                        else portal_urls.signup_url(f"/account/api/billing?subscribe={key}"))
 
         ml_limit = t.get("ml_daily_limit")
         if t["ml_access"] and ml_limit is None:
@@ -821,7 +820,10 @@ def build_pricing() -> str:
         # "Delayed data (30-day lag)" was a false claim. The Free card is anchored on
         # the caps that ARE enforced: 1 market, 3 results/call, 5 ML scores/day.
 
-        note_html = ""
+        # Every card renders a note (Dev/Pro get a non-breaking-space placeholder):
+        # the note sits BELOW the button, so a missing one lifts that card's button
+        # out of line with its neighbors in the equal-height grid row.
+        note_html = '<p class="p-note">&nbsp;</p>'
         if key == "free":
             note_html = '<p class="p-note">No credit card required</p>'
         elif key == "business":
@@ -872,12 +874,11 @@ def build_pricing() -> str:
            your logo and a short tracked-record testimonial. Use code <code>FOUNDER</code> at
            checkout. When the first 100 seats are gone, this is gone.</p>
       </div>
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary" style="white-space:nowrap;">Claim a founder seat</a>
+      <a href="{portal_urls.signup_url('/account/api/billing?subscribe=pro&promo=FOUNDER')}" class="btn btn-primary" style="white-space:nowrap;">Claim a founder seat</a>
     </div>"""
 
-    # The monthly/annual toggle only ever switches a price display - with paid pricing not
-    # yet live there is nothing for it to switch (paid cards show "Coming Soon"; Free is
-    # $0 either way), so swap it for a single muted note instead of an inert control.
+    # With paid pricing hidden there is nothing for the billing-cycle control to
+    # switch, so render a launch note until the owner enables pricing.
     if API_PRICING_LIVE:
         billing_toggle_html = """<div class="billing-toggle">
       <button class="billing-btn active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
@@ -918,7 +919,7 @@ def build_pricing() -> str:
 
     <p class="bundle-note">Already subscribe to TradeWave? Your plan already includes API access -
        <strong>Analyst includes the Dev tier</strong> and <strong>Strategist includes Pro</strong>,
-       at no extra cost. Just <a href="{portal_urls.CONSOLE_URL}">create a key</a>.
+       at no extra cost. Just <a href="{portal_urls.signup_url('/account/api/keys')}">create a key</a>.
        Standalone Pro and Business are for builders without a web seat who need the published API caps
        (Pro 120 req/min, Business 300 req/min) and, on Business, separately contracted redistribution - the bundled
        Strategist Pro key carries the identical 120 req/min cap.</p>
@@ -1075,22 +1076,18 @@ function setBilling(mode) {{
   document.getElementById('btn-monthly').classList.toggle('active', mode === 'monthly');
   document.getElementById('btn-annual').classList.toggle('active', mode === 'annual');
   document.querySelectorAll('.p-price').forEach(function(el) {{
-    var m = parseInt(el.dataset.monthly, 10);
-    var a = parseInt(el.dataset.annual, 10);
-    if (m === 0) {{ el.textContent = '$0'; return; }}
-    el.textContent = mode === 'monthly' ? '$' + m : '$' + a;
+    var monthly = parseInt(el.dataset.monthly, 10);
+    var annual = parseInt(el.dataset.annual, 10);
+    if (monthly === 0) {{ el.textContent = '$0'; return; }}
+    el.textContent = mode === 'monthly' ? '$' + monthly : '$' + annual;
   }});
   document.querySelectorAll('[data-annual-note]').forEach(function(el) {{
-    if (mode === 'annual') {{
-      el.style.display = 'block';
-    }} else {{
-      el.style.display = 'none';
-    }}
+    el.style.display = mode === 'annual' ? 'block' : 'none';
   }});
 }}
-// Hide annual notes on load (monthly is default).
 document.querySelectorAll('[data-annual-note]').forEach(function(el) {{ el.style.display = 'none'; }});
 </script>
+
 """
     return page_shell(
         "API & MCP Pricing",
@@ -1232,7 +1229,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       Paste one URL, sign in with your TradeWave account, ask. No glue code, no API key juggling.
     </p>
     <div class="hero-ctas">
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
+      <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-primary">Get a Free API Key</a>
       <a href="{portal_urls.DOCS_URL}" class="btn btn-secondary">MCP Setup Docs</a>
     </div>
     <p style="font-size:13px;color:var(--dim);margin-top:16px;">17 purpose-built tools, 6 flagship plus 11 primitives. Try it with the public demo token <code style="font-size:12px;color:var(--accent);">tw_demo_explore</code> - a real call in about 30 seconds, no signup.</p>
@@ -1472,7 +1469,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       first question in under 5 minutes. <a href="pricing.html" class="inline">See pricing</a>.
     </p>
     <div class="hero-ctas">
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
+      <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-primary">Get a Free API Key</a>
       <a href="{portal_urls.DOCS_URL}" class="btn btn-secondary">Full MCP Docs</a>
       <a href="pricing.html" class="btn btn-ghost">See Pricing</a>
     </div>
@@ -1643,7 +1640,10 @@ score_resp = requests.<span class="fn">post</span>(
           explained output your users can act on.
         </p>
         <p style="font-size:16px;color:var(--dim);line-height:1.8;margin-bottom:24px;">
-          The Business tier (300 req/min, 250,000 req/day, 50 API keys) is sized for
+          The Business tier ({API_TIERS['business']['rate']['per_minute']} req/min,
+          {API_TIERS['business']['rate']['per_day']:,} req/day - enough to refresh every
+          symbol across all {len(API_TIERS['business']['markets'])} markets daily - and
+          {API_TIERS['business']['max_keys']} API keys) is sized for
           multi-tenant products - no web seat required - and can be paired with a written
           redistribution license for serving derived values to your own end users. Enterprise is
           available for custom rate limits, SLAs, and white-label use.
@@ -1744,7 +1744,7 @@ score_resp = requests.<span class="fn">post</span>(
       The plan you need becomes obvious once you have the data in front of you.
     </p>
     <div class="hero-ctas">
-      <a href="{portal_urls.CONSOLE_URL}" class="btn btn-primary">Get a Free API Key</a>
+      <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-primary">Get a Free API Key</a>
       <a href="pricing.html" class="btn btn-secondary">Compare Plans</a>
       <a href="mcp.html" class="btn btn-ghost">MCP Showcase</a>
     </div>
@@ -1773,7 +1773,7 @@ def build_agents() -> str:
            .replace("https://api.tradewave.ai/v1", portal_urls.API_BASE)
            .replace("https://mcp.tradewave.ai", portal_urls.MCP_URL)
            .replace("https://developers.tradewave.ai", portal_urls.PORTAL_URL)
-           .replace("https://tradewave.ai/account/api/keys", portal_urls.CONSOLE_URL))
+           .replace("https://tradewave.ai/account/api/keys", portal_urls.signup_url("/account/api/keys")))
     copy = _json.loads(raw)
 
     def esc(t):

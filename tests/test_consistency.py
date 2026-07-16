@@ -11,12 +11,14 @@ from pathlib import Path
 import pytest
 
 from apiserver import market_bands as mb
+from apiserver import tiers
 
 pytestmark = pytest.mark.unit
 
 REPO = Path(__file__).resolve().parents[1]
 SERVER_PY = (REPO / "mcpserver" / "server.py").read_text()
 OPENAPI = (REPO / "api" / "openapi.yaml").read_text()
+PRICING_SPEC = (REPO / "docs" / "PRICING_QUOTA_SPEC.md").read_text()
 
 
 def _generated_manifest():
@@ -106,3 +108,54 @@ def test_symbol_path_markets_are_the_five_everywhere():
     assert mb.SYMBOL_MARKETS == ["0", "1", "2", "7", "9"]
     for mid in mb.SYMBOL_MARKETS:
         assert mid in SERVER_PY  # get_symbol_patterns lists the ids 0,1,2,7,9
+
+
+# --- commercial contract: runtime, console, and current spec must move together ---
+
+def test_api_price_and_quota_contract_matches_current_spec():
+    expected = {
+        "free": (0, 0, 10, 100),
+        "dev": (39, 390, 60, 5_000),
+        "pro": (199, 1_990, 120, 50_000),
+        "business": (599, 5_990, 300, 250_000),
+    }
+    for name, (monthly, annual, per_minute, per_day) in expected.items():
+        entitlement = tiers.API_TIERS[name]
+        assert entitlement["price_monthly"] == monthly
+        assert entitlement["price_annual"] == annual
+        assert entitlement["rate"] == {
+            "per_minute": per_minute,
+            "per_day": per_day,
+        }
+
+    assert tiers.WEB_TIER_TO_MCP["analyst"]["rate"]["per_day"] == 5_000
+    assert tiers.WEB_TIER_TO_MCP["strategist"]["rate"]["per_day"] == 20_000
+    assert "| Annual price | $0 | $390 | $1,990 | $5,990 |" in PRICING_SPEC
+    assert "| Rate per minute / day | 10 / 100 | 60 / 5,000 | 120 / 50,000 | 300 / 250,000 |" in PRICING_SPEC
+
+
+def test_explicit_and_bundled_api_tiers_resolve_by_max_rank(caplog):
+    assert tiers.api_tier_from_user(
+        {"tier": "strategist", "api_tier": "dev"}
+    ) == "pro"
+    assert tiers.api_tier_from_user(
+        {"tier": "explorer", "api_tier": "dev"}
+    ) == "dev"
+    assert tiers.api_tier_from_user(
+        {"tier": "explorer", "api_tier": "mcp"}
+    ) == "free"
+    assert "ignoring unrankable explicit api_tier='mcp'" in caplog.text
+
+
+def test_api_billing_sources_keep_both_intervals():
+    paths = [
+        REPO / "web" / "api_portal" / "create_api_products.py",
+        REPO / "web" / "api_portal" / "routes_billing.py",
+        REPO / "web" / "api_portal" / "templates" / "api_billing.html",
+        REPO / "site" / "api_marketing" / "generate.py",
+    ]
+    sources = [path.read_text() for path in paths]
+    assert all("price_annual" in source for source in sources)
+    assert "_ensure_price(stripe, product, tier, \"year\"" in sources[0]
+    assert "data-cycle=\"year\"" in sources[2]
+    assert "id=\"btn-annual\"" in sources[3]

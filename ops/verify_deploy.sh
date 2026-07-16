@@ -74,7 +74,16 @@ home=$($SSH "root@$WEB" "cat /var/www/tradewave/home.html 2>/dev/null")
 # NOTE: grep -c (not -q) - under `set -o pipefail`, grep -q exits on first match,
 # SIGPIPEs the echo, and the pipeline reports failure EXACTLY when the marker IS
 # present. -c consumes the whole input; exit status still reflects any-match.
-echo "$home" | grep -ciE 'whoever|the receipts|tuesday'     >/dev/null && ok "home: Ledger design present" || bad "home: Ledger markers missing"
+echo "$home" | grep -ciE 'different desks|the receipts|tuesday' >/dev/null && ok "home: evidence design present" || bad "home: evidence markers missing"
+echo "$home" | grep -c  'Public forward track record'       >/dev/null && ok "home: live track-record preview present" || bad "home: live track-record preview MISSING"
+ledger_rows=$(printf '%s\n' "$home" | grep -o 'class="ledger-row ledger-grid"' | wc -l)
+[ "$ledger_rows" = 8 ] && ok "home: live ledger preview has 8 rows" || bad "home: live ledger preview has $ledger_rows rows (want 8)"
+echo "$home" | grep -c  'Open the Full Public Track Record' >/dev/null && ok "home: full track-record CTA present" || bad "home: full track-record CTA MISSING"
+echo "$home" | grep -c  'Seasonal projection based on your chosen time frame' >/dev/null && ok "home: chosen-time-frame projection label" || bad "home: chosen-time-frame projection label MISSING"
+echo "$home" | grep -c  'Seasonal projection based on all available data' >/dev/null && ok "home: all-data projection label" || bad "home: all-data projection label MISSING"
+echo "$home" | grep -c  'Target Hit means the predicted return was reached and the trade was exited for a win.' >/dev/null && ok "home: Target Hit definition" || bad "home: Target Hit definition MISSING"
+echo "$home" | grep -c  'Different Desks. One Standard of Proof.' >/dev/null && ok "home: audience heading" || bad "home: audience heading MISSING"
+echo "$home" | grep -c  'fund running thousands of backtests' >/dev/null && ok "home: audience scale copy" || bad "home: audience scale copy MISSING"
 echo "$home" | grep -c  'Trade<b>Wave</b>'                  >/dev/null && ok "home: 2-color logo"           || warn "home: 2-color logo markup not found"
 echo "$home" | grep -ciE '>Wave Viewer<|>Start Free Trial<' >/dev/null && ok "home: unified nav"            || warn "home: nav markers not found"
 if echo "$home" | grep -cE 'gtag\(|googletagmanager|G-[A-Z0-9]{6,}' >/dev/null; then ok "home: GA4 loader present"; else

@@ -253,11 +253,36 @@ section{padding:var(--s7) 0;border-top:1px solid var(--line)}
 .card p{font-size:.92rem;color:var(--muted)}
 .card .lnk{font-size:.85rem;font-weight:600}
 .desk-note{text-align:center;color:var(--faint);margin-top:22px;font-size:.95rem}
-/* ledger */
-.ledger{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px}
-.scoretbl{font-family:'JetBrains Mono',monospace;font-size:.8rem}
-.scoretbl .r{display:grid;grid-template-columns:1fr 90px 70px;gap:8px;padding:9px 2px;border-top:1px solid var(--line)}
-.scoretbl .r.h{color:var(--faint);border-top:none}
+/* live forward-ledger preview */
+.live-ledger{margin-top:32px;border:1px solid var(--line2);border-radius:16px;overflow:hidden;background:rgba(8,13,24,.78);box-shadow:0 30px 80px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.035)}
+.live-ledger-top{display:flex;align-items:center;justify-content:space-between;gap:22px;padding:18px 22px;background:linear-gradient(180deg,rgba(124,92,255,.08),rgba(255,255,255,.015));border-bottom:1px solid var(--line)}
+.live-ledger-kicker{display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:.69rem;letter-spacing:.13em;text-transform:uppercase;color:var(--ink);font-weight:600}
+.live-ledger-dot{width:8px;height:8px;border-radius:50%;background:var(--win);box-shadow:0 0 0 4px rgba(63,182,139,.12)}
+.live-ledger-summary{margin-top:5px;color:var(--muted);font-size:.83rem}
+.live-ledger-updated{text-align:right;color:var(--faint);font-family:'JetBrains Mono',monospace;font-size:.7rem;line-height:1.5}
+.live-ledger-updated a{display:block;color:var(--muted);font-weight:600;margin-top:2px}
+.ledger-grid{display:grid;grid-template-columns:minmax(100px,1.15fr) 70px 82px 48px 80px 110px 108px 84px 86px;gap:10px;align-items:center}
+.ledger-table-head{padding:10px 22px;background:rgba(255,255,255,.035);color:var(--faint);font-family:'JetBrains Mono',monospace;font-size:.61rem;letter-spacing:.055em;text-transform:uppercase;font-weight:600}
+.ledger-rows{position:relative}
+.ledger-row{padding:12px 22px;border-top:1px solid var(--line);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:.76rem;font-variant-numeric:tabular-nums;transition:background .14s ease,color .14s ease}
+.ledger-row:first-child{border-top:0}
+.ledger-row:hover,.ledger-row:focus-visible{background:rgba(124,92,255,.08);outline:none}
+.ledger-row:hover .lc-ticker,.ledger-row:focus-visible .lc-ticker{color:var(--accent)}
+.ledger-row:nth-last-child(2){opacity:.62}
+.ledger-row:last-child{opacity:.26}
+.ledger-rows::after{content:"";position:absolute;left:0;right:0;bottom:0;height:96px;pointer-events:none;background:linear-gradient(180deg,rgba(8,13,24,0),rgba(8,13,24,.92) 82%,rgba(8,13,24,1))}
+.lc-ticker{font-weight:700;transition:color .14s ease}
+.lc-dir.long{color:var(--win)}
+.lc-dir.short{color:#E778B7}
+.lc-num{text-align:right}
+.lc-pos{color:var(--win)}
+.lc-neg{color:var(--loss)}
+.lc-hit{text-align:center;color:var(--win);font-size:1rem;font-weight:700}
+.lc-pending{text-align:center;color:var(--faint)}
+.date-short{display:none}
+.ledger-cta{position:relative;z-index:2;display:flex;justify-content:center;margin-top:-34px;padding:0 18px 22px}
+.ledger-cta .btn{padding:11px 20px;font-size:.9rem;box-shadow:0 10px 32px rgba(124,92,255,.32)}
+.ledger-explain{text-align:center;color:var(--faint);font-size:.79rem;line-height:1.55;margin:14px auto 0;max-width:760px}
 .res-w{color:var(--win)} .res-l{color:var(--loss)}
 .ledger-aside{text-align:center;font-family:Newsreader,Georgia,serif;font-style:italic;font-size:1.2rem;color:var(--muted);max-width:46ch;margin:0 auto 22px}
 .prov{display:flex;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:24px;max-width:680px;margin-left:auto;margin-right:auto}
@@ -333,7 +358,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 .foot-cols h4{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 14px;font-weight:600}
 .foot-cols a{display:block;color:var(--muted);font-size:.88rem;margin-bottom:9px}
 .foot-cols a:hover{color:var(--ink)}
-.foot-cols .brand{font-size:24px}
+.foot-cols .brand{font-size:24px;color:var(--ink)}
 .foot-note{border-top:1px solid var(--line);padding-top:24px;color:var(--muted);font-size:.86rem;margin-bottom:18px}
 .foot-legal{color:var(--faint);font-size:.8rem;line-height:1.6}
 /* legend swatches */
@@ -351,8 +376,12 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
   .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}.reveal.d5{transition-delay:.40s}
 }
 @media(max-width:880px){
-  .two,.cols3,.ledger{grid-template-columns:1fr}
-  #ledger .frame-wrap.portrait{display:none}
+  .two,.cols3{grid-template-columns:minmax(0,1fr)}
+  .live-ledger-top{align-items:flex-start;padding:16px 18px}
+  .ledger-grid{grid-template-columns:92px 62px 72px minmax(88px,1fr) 68px}
+  .ledger-table-head,.ledger-row{padding-left:18px;padding-right:18px}
+  .lc-days,.lc-win,.lc-pred,.lc-peak{display:none}
+  .date-full{display:none}.date-short{display:inline}
   .cols3{gap:10px;margin-top:20px}
   .card{padding:15px 18px}
   .panelshot{padding:14px}
@@ -374,6 +403,17 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
   .nav nav .btn.ghost{margin-top:14px;text-align:center;padding:12px 16px;font-size:1rem}
   .nav nav .btn.nav-cta{margin-top:10px;text-align:center;padding:13px 16px;font-size:1rem}
   .nav:not(.scrolled) .btn.nav-cta{background:var(--accent);color:#fff;border-color:transparent}
+}
+@media(max-width:560px){
+  .live-ledger{margin-left:-12px;margin-right:-12px;border-radius:12px}
+  .live-ledger-top{gap:12px;padding:14px}
+  .live-ledger-summary{font-size:.74rem;line-height:1.5}
+  .live-ledger-updated{font-size:.62rem}
+  .ledger-grid{grid-template-columns:58px 52px 58px minmax(72px,1fr) 48px;gap:6px}
+  .ledger-table-head,.ledger-row{padding-left:12px;padding-right:12px}
+  .ledger-table-head{font-size:.54rem;letter-spacing:.025em}
+  .ledger-row{font-size:.67rem;padding-top:11px;padding-bottom:11px}
+  .lc-hit{font-size:.92rem}
 }
 /* mobile sticky CTA */
 .stickycta{display:none}
@@ -601,6 +641,7 @@ body{background-image:none !important;}
       <div class="eyebrow">{{ content.tara.eyebrow }}</div>
       <h2>{{ content.tara.headline }}</h2>
       <p style="margin-top:16px;color:var(--ink);font-weight:600">{{ content.tara.intro }}</p>
+      <p style="margin-top:8px;color:var(--muted)">{{ content.tara.try_line }}</p>
       <form class="askbar reveal d1" id="tw-askbar" action="/app/" method="get" autocomplete="off">
         <b class="qp">&gt;</b>
         <input class="q" id="tw-ask-input" name="ask" type="text" maxlength="280" placeholder="{{ content.tara.ask_placeholder }}" aria-label="Ask Tara a market question">
@@ -626,16 +667,16 @@ body{background-image:none !important;}
 <section style="padding-bottom:72px"><div class="wrap" style="text-align:center">
   <div class="eyebrow reveal" style="justify-content:center">The Evidence</div>
   <h2 class="reveal" style="text-align:center">Read the Whole Track Record at a Glance</h2>
-  <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600;text-align:center">Open any pattern and every year is laid out, all the way back. Here is what each color shows:</p>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600;text-align:center">TJX is one example. Run the same year-by-year analysis on any stock you choose. Here is what each color shows:</p>
   <div class="legend reveal d1"><span class="sw dg"></span> The gain that year &nbsp;&nbsp; <span class="sw lg"></span> How high it climbed &nbsp;&nbsp; <span class="sw pk"></span> How far it dropped &nbsp;&nbsp; <span class="sw rd"></span> A losing year</div>
   <div class="frame-wrap landscape reveal d2" style="max-width:1080px">
     <div class="frame frame--artifact">
       <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - 20-Year TJX</span></div>
-      <img src="/_static/evidence_hero.webp?v={{ content.asset_v['evidence_hero.webp'] }}" alt="20-Year TJX per-year bars, each pairing the favorable run with the drawdown, above the TJX price chart with this year's dashed seasonal projection - with the one-click Notify me calendar-reminder button in the toolbar" loading="lazy" decoding="async" width="1286" height="849">
+      <img src="/_static/evidence_hero.webp?v={{ content.asset_v['evidence_hero.webp'] }}" alt="20-Year TJX per-year bars, each pairing the favorable run with the drawdown, above the TJX price chart with this year's dashed seasonal projection - with the one-click Remind me calendar-reminder button in the toolbar" loading="lazy" decoding="async" width="1286" height="849">
     </div>
   </div>
   <div class="caption">The left is TJX's current price chart. The two lines to the right:</div>
-  <div class="legend reveal d1"><span class="sw yr20"></span> Trend projection based on the last 20 years &nbsp;&nbsp; <span class="sw yr41"></span> Trend projection based on all 41 years &nbsp;&middot;&nbsp; <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
+  <div class="legend reveal d1"><span class="sw yr20"></span> Seasonal projection based on your chosen time frame &nbsp;&nbsp; <span class="sw yr41"></span> Seasonal projection based on all available data &nbsp;&middot;&nbsp; <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
 </div></section>
 
 <!-- CTA at peak conviction (right after The Evidence). Balanced in the gap: the
@@ -644,82 +685,18 @@ body{background-image:none !important;}
      glued to it. -->
 <div class="wrap" style="text-align:center"><div class="cta-row reveal" style="margin:6px 0 72px"><a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.04rem;padding:14px 30px">Start Free - Full Access for 7 Days</a></div></div>
 
-<!-- 04 / YOUR STOCKS (PRIMARY free-report capture) -->
-<section id="free-report-top" class="fr"><div class="wrap" style="text-align:center">
-  <div class="eyebrow reveal" style="justify-content:center">Your Stocks</div>
-  <!-- Trust strip: the loss-inclusive public ledger, moved out of the hero to lead
-       the free-report offer. Real scorecard_stats only - the numeric segments hide
-       themselves until data exists. -->
-  <div class="truststrip reveal" role="note" style="margin-bottom:22px">
-    {% if content.scorecard_stats and content.scorecard_stats.total_picks %}
-    <span><b>{{ content.scorecard_stats.total_picks }}</b> {{ content.hero.trust_strip.logged_label }}</span>
-    <span class="sep">&middot;</span>
-    {% if content.scorecard_stats.closed_count %}
-    <span><b>{{ content.scorecard_stats.win_count }} of {{ content.scorecard_stats.closed_count }}</b> {{ content.hero.trust_strip.held_label }}</span>
-    <span class="sep">&middot;</span>
-    {% endif %}
-    {% endif %}
-    <span>{{ content.hero.trust_strip.note }} <a href="{{ content.scorecard_url }}">{{ content.hero.trust_strip.link_text }} &rarr;</a></span>
-  </div>
-  <h2 class="reveal">Now Get That Same Track Record for the Stocks You Own</h2>
-  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">Name up to three stocks you hold - we'll email each one's per-year seasonal record. No account, no card.</p>
-  <button type="button" class="frcard reveal d1" data-lm-open data-lm-source="inline-primary" aria-label="Open the free seasonal report form">
-    <span class="tk">AAPL</span><span class="tk">MSFT</span><span class="plus">+</span>
-    <span class="em">you@email.com</span>
-    <span class="go">Email Me My Free Report</span>
-  </button>
-  <div class="micro reveal d1">Free. No account, no credit card, no obligation. One required, two optional - your report lands in your inbox in about a minute.</div>
-</div></section>
-
-<!-- 05 / THE LEDGER -->
-<section id="ledger"><div class="wrap">
-  <div class="ledger-aside reveal">Seasonality sounds like astrology until you see twenty years of receipts.</div>
-  <div style="text-align:center">
-    <div class="eyebrow reveal" style="justify-content:center">Accountability</div>
-    <h2 class="reveal">We Do Not Ask for Trust. We Publish the Ledger</h2>
-    <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600">Every pick is logged in public before the outcome - losses included, nothing removed. We would rather be audited than believed.</p>
-  </div>
-  <div class="ledger reveal d1">
-    <div class="frame-wrap portrait reveal" style="max-width:380px;margin-top:0">
-      <div class="frame frame--artifact">
-        <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - explain</span></div>
-        <img src="/_static/shows_work.webp?v={{ content.asset_v['shows_work.webp'] }}" alt="The scorecard and explain view showing a pick's full per-year record beside its outcome" loading="lazy" decoding="async" width="575" height="850">
-      </div>
-    </div>
-    <div class="panelshot" style="box-shadow:0 24px 60px rgba(0,0,0,.4),inset 0 1px 0 rgba(63,182,139,.12)">
-      <div class="caption" style="text-align:left;margin-bottom:8px">/scorecard - the public forward ledger</div>
-      <div class="scoretbl">
-        <div class="r h"><span>PICK</span><span>LOGGED</span><span>RESULT</span></div>
-        {% if content.scorecard_stats %}
-        <div class="r"><span>Hit target or closed up</span><span>{{ content.scorecard_stats.win_count }} of {{ content.scorecard_stats.judged_count }}</span><span class="res-w">{{ content.scorecard_stats.win_rate }}%</span></div>
-        <div class="r"><span>Held to close</span><span>{{ content.scorecard_stats.held_to_close_count }} of {{ content.scorecard_stats.closed_count }}</span><span class="res-w">{{ content.scorecard_stats.held_to_close_rate }}%</span></div>
-        {% endif %}
-        {% for row in content.ledger_rows %}
-        <div class="r"><span>{{ row.symbol }} &middot; {{ row.direction }}</span><span>{{ row.logged_date }}</span><span class="{% if row.result == 'win' %}res-w{% elif row.result == 'loss' %}res-l{% else %}faint{% endif %}">{{ row.result }}</span></div>
-        {% endfor %}
-      </div>
-      <div class="faint" style="font-size:.78rem;margin-top:12px">Real rates and counts, published in full. Past results never guarantee future ones; evidence only, never advice.</div>
-    </div>
-  </div>
-  <div style="text-align:center;margin-top:22px" class="reveal"><a href="{{ content.scorecard_url }}" class="lnk">Inspect the ledger &rarr;</a> &nbsp;&nbsp; <a href="{{ content.methodology_url }}" class="lnk">Read the methodology &rarr;</a></div>
-  <div class="prov reveal">
-    <div class="av">AM</div>
-    <div><q>Every number on this page traces back to a per-year table you can open and an audit log you can read.</q><span class="by">{{ content.founder.name }}, founder, Tara Data Research LLC</span></div>
-  </div>
-</div></section>
-
 <!-- CALENDAR REMINDERS band (unnumbered, like the CTA/free-report bands, so the
-     section numbering stays intact). One-click notify bell: the visual is the
+     section numbering stays intact). One-click reminder bell: the visual is the
      real button -> the real Google Calendar event it creates. Keep the mock
      event content in sync with googleCalendarEvents.js if the copy there
-     changes. Google Calendar only for now - do NOT generalize to "your
-     calendar" until the .ics (Apple/Outlook) path ships. -->
+     changes. Google Calendar is the current implementation; the visible copy
+     intentionally uses the simpler "calendar" wording. -->
 <section id="calendar-reminders"><div class="wrap" style="text-align:center">
   <h2 class="reveal">Never Watch the Calendar Again</h2>
-  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center;max-width:640px">A seasonal window opens on a specific date - miss it, and the pattern doesn't wait. One click in the Wave Viewer puts the open and the close on your Google Calendar, evidence attached, reminder set for the morning it begins.</p>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center;max-width:640px">TradeWave's AI captures the highest-probability seasonal patterns for you. Don't miss them, because patterns don't wait. One click in the Wave Viewer puts the trade window on your calendar, with the evidence attached and a reminder set.</p>
   <div class="reveal d1" style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:26px">
     <div style="text-align:center">
-      <span style="display:inline-flex;align-items:center;background:#7C5CFF;color:#fff;border-radius:999px;padding:8px 18px;font-weight:600;font-size:.95rem;box-shadow:0 6px 24px rgba(124,92,255,.35)"><svg width="13" height="13" viewBox="0 0 16 16" fill="#fff" style="margin-right:7px" aria-hidden="true"><path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2m.995-14.901a1 1 0 1 0-1.99 0A5 5 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7a5 5 0 0 0-4.005-4.901"/></svg>Notify me</span>
+      <span style="display:inline-flex;align-items:center;background:#7C5CFF;color:#fff;border-radius:999px;padding:8px 18px;font-weight:600;font-size:.95rem;box-shadow:0 6px 24px rgba(124,92,255,.35)"><svg width="13" height="13" viewBox="0 0 16 16" fill="#fff" style="margin-right:7px" aria-hidden="true"><path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2m.995-14.901a1 1 0 1 0-1.99 0A5 5 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7a5 5 0 0 0-4.005-4.901"/></svg>Remind me</span>
       <div class="faint" style="font-size:.75rem;margin-top:8px">one click in the viewer</div>
     </div>
     <div class="faint" style="font-size:1.6rem" aria-hidden="true">&rarr;</div>
@@ -727,7 +704,7 @@ body{background-image:none !important;}
       <div style="display:flex;align-items:flex-start;gap:10px">
         <span style="width:12px;height:12px;border-radius:3px;background:#7C5CFF;margin-top:5px;flex:0 0 auto"></span>
         <div>
-          <div style="font-weight:700;color:var(--ink);font-size:.95rem;line-height:1.35">TJX Long &mdash; TradeWave Seasonal Start (Oct 12 &ndash; Nov 24)</div>
+          <div style="font-weight:700;color:var(--ink);font-size:.95rem;line-height:1.35">TJX Long - TradeWave Seasonal Start (Oct 12 - Nov 24)</div>
           <div class="faint" style="font-size:.8rem;margin-top:3px">Monday, October 12 &middot; 8:00 AM</div>
         </div>
       </div>
@@ -736,6 +713,45 @@ body{background-image:none !important;}
     </div>
   </div>
   <div class="micro reveal d1" style="margin-top:18px">Included with every plan, even Free. Both the start and the end date land on your calendar - change times or reminders anytime.</div>
+</div></section>
+
+<!-- 05 / THE LEDGER -->
+<section id="ledger"><div class="wrap">
+  <div class="ledger-aside reveal">Seasonality sounds like astrology until you see twenty years of evidence.</div>
+  <div style="text-align:center">
+    <div class="eyebrow reveal" style="justify-content:center">Accountability</div>
+    <h2 class="reveal">We Do Not Ask for Trust &mdash; We Publish the Proof</h2>
+    <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600">Every pick is published for you to see before the outcome.<br>Losses included. Nothing removed.</p>
+  </div>
+  <div class="live-ledger reveal d1">
+    <div class="live-ledger-top">
+      <div>
+        <div class="live-ledger-kicker"><span class="live-ledger-dot"></span>Public forward track record</div>
+        <div class="live-ledger-summary">Showing the newest {{ content.ledger_rows|length }} of {{ content.scorecard_stats.total_picks }} picks &middot; {{ content.scorecard_stats.win_rate }}% win rate &middot; losses included</div>
+      </div>
+      <div class="live-ledger-updated">Updated after the latest track record refresh<br>{{ content.ledger_updated }}<a href="{{ content.scorecard_url }}">Open full track record &rarr;</a></div>
+    </div>
+    <div class="ledger-table-head ledger-grid" aria-hidden="true">
+      <span class="lc-date">Date flagged</span><span class="lc-ticker">Ticker</span><span class="lc-dir">Direction</span><span class="lc-days lc-num">Days</span><span class="lc-win lc-num">Win prob</span><span class="lc-pred lc-num">Predicted</span><span class="lc-current lc-num">Current</span><span class="lc-peak lc-num">Peak</span><span class="lc-target">Target hit</span>
+    </div>
+    <div class="ledger-rows">
+      {% for row in content.ledger_rows %}
+      <a class="ledger-row ledger-grid" href="{{ content.scorecard_url }}" aria-label="Open the full public track record from {{ row.symbol }}, flagged {{ row.featured_date }}">
+        <span class="lc-date"><span class="date-full">{{ row.featured_date }}</span><span class="date-short">{{ row.short_date }}</span></span>
+        <span class="lc-ticker">{{ row.symbol }}</span>
+        <span class="lc-dir {{ row.direction_class }}">{{ row.direction }}</span>
+        <span class="lc-days lc-num">{{ row.days }}</span>
+        <span class="lc-win lc-num">{{ row.win_prob }}%</span>
+        <span class="lc-pred lc-num">{{ row.pred_return }}%</span>
+        <span class="lc-current lc-num {% if row.current_return_num is not none %}{% if row.current_return_num >= 0 %}lc-pos{% else %}lc-neg{% endif %}{% endif %}">{{ row.current_return }}{% if row.current_return != '--' %}%{% endif %}</span>
+        <span class="lc-peak lc-num {% if row.peak_return_num is not none %}{% if row.peak_return_num >= 0 %}lc-pos{% else %}lc-neg{% endif %}{% endif %}">{{ row.peak_return }}{% if row.peak_return != '--' %}%{% endif %}</span>
+        {% if row.target_hit %}<span class="lc-target lc-hit" title="Reached the predicted return during the window">&#10003;</span>{% else %}<span class="lc-target lc-pending">--</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    <div class="ledger-cta"><a href="{{ content.scorecard_url }}" class="btn">Open the Full Public Track Record &rarr;</a></div>
+  </div>
+  <p class="ledger-explain reveal">Target Hit means the predicted return was reached and the trade was exited for a win. Every older pick remains available in the full track record. <a href="{{ content.methodology_url }}" class="lnk">Read the methodology &rarr;</a></p>
 </div></section>
 
 <!-- 06 / WHAT TRADERS SAY (third-party proof: content.video + content.video2, both
@@ -803,7 +819,7 @@ body{background-image:none !important;}
     </div>
     {% endfor %}
   </div>
-  <div class="reveal" style="margin-top:16px;font-size:.9rem;color:var(--muted)">Not ready to sign up? <a href="#free-report-top" class="lnk" data-lm-open data-lm-source="pricing">Get the free seasonal report on your stocks instead - no card &rarr;</a></div>
+  <div class="reveal" style="margin-top:16px;font-size:.9rem;color:var(--muted)">Not ready to sign up? <a href="#free-report" class="lnk" data-lm-open data-lm-source="pricing">Get the free seasonal report on your stocks instead - no card &rarr;</a></div>
   <div class="kicker reveal" style="margin-top:20px">{% if content.mcp_live %}The same deterministic engine and public record inside ChatGPT, Claude, or any MCP assistant - plus a {% else %}A {% endif %}documented REST API with Python and TypeScript SDKs, multi-seat keys, SSO and audit. Funds and enterprise can license the pattern file, the model, and the API. <a href="mailto:hello@tradewave.ai?subject=Funds%20%26%20Enterprise" class="lnk">Talk to us &rarr;</a></div>
 </div></section>
 
@@ -855,7 +871,7 @@ body{background-image:none !important;}
     <span class="em">you@email.com</span>
     <span class="go">Email Me My Free Report</span>
   </button>
-  <div class="micro reveal d1">Free. No credit card, no signup, no obligation. Just your report, in your inbox in about a minute.</div>
+  <div class="micro reveal d1">Free. No credit card, no signup, no obligation. Just your report, in your inbox shortly.</div>
 </div></section>
 
 <!-- 11 / BRING YOUR HUNCHES (CLOSE) -->
@@ -871,7 +887,7 @@ body{background-image:none !important;}
 
 <!-- MOBILE STICKY CTA -->
 <div class="stickycta" id="stickycta" style="gap:8px">
-  <a href="#free-report-top" class="btn ghost" data-lm-open data-lm-source="sticky" style="padding:11px 14px;white-space:nowrap">Free Report</a>
+  <a href="#free-report" class="btn ghost" data-lm-open data-lm-source="sticky" style="padding:11px 14px;white-space:nowrap">Free Report</a>
   <a href="{{ content.hero.cta_primary_url }}" class="btn" style="flex:1;text-align:center">Start Free &rarr;</a>
 </div>
 
@@ -1150,7 +1166,7 @@ document.addEventListener('click', function(e){
       <div class="lm-form">
         <div class="eyebrow">Free / Seasonal Report</div>
         <h3 id="lmTitle">Your Stocks, Their Seasonal Track Record</h3>
-        <p class="lm-sub">One required ticker, two optional, one email. You get each stock's per-year seasonal record - the last <span class="mono">10</span> completed years plus the matching election-cycle years - over the next ~30, ~60, and ~90 days, in about a minute. The record as it happened, losses included, none trimmed.</p>
+        <p class="lm-sub">Enter up to three of your favorite stocks. You'll get each stock's per-year seasonal record for the last <span class="mono">10</span> completed years, plus the matching election-cycle years, across the next ~30, ~60, and ~90 days.</p>
         <form id="lmForm" autocomplete="off" novalidate>
           <div class="lm-grid">
             <div class="lm-field lm-tk"><label>Ticker 1</label><input name="t1" maxlength="8" placeholder="AAPL" aria-label="Ticker 1"></div>
@@ -1158,12 +1174,12 @@ document.addEventListener('click', function(e){
             <div class="lm-field lm-tk"><label>Ticker 3 - optional</label><input name="t3" maxlength="8" placeholder="NVDA" aria-label="Ticker 3, optional"></div>
           </div>
           <div class="lm-help">US stocks, indices and ETFs. One per box - the first one is all you need.</div>
-          <div class="lm-field lm-email"><label>Where should we send it</label><input name="email" type="email" placeholder="you@email.com" aria-label="Your email"></div>
+          <div class="lm-field lm-email"><label>Where should we send it?</label><input name="email" type="email" placeholder="you@email.com" aria-label="Your email"></div>
           <div class="lm-help">One report. We will not sell your address or flood your inbox.</div>
           <input class="lm-hp" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
           <div class="lm-err" id="lmErr" role="alert"></div>
           <button class="btn lm-btn" type="submit">Email Me My Free Report &rarr;</button>
-          <div class="lm-reassure">No account, no credit card, about a minute.</div>
+          <div class="lm-reassure">No account, no credit card. Your report will arrive shortly.</div>
           <div class="lm-comp">Historical seasonal research for educational purposes - not investment advice, a recommendation, or an offer to buy or sell any security. Figures are the historical record only; past results never guarantee future ones. We email you the report and occasional product updates; unsubscribe anytime.</div>
         </form>
       </div>
@@ -1175,7 +1191,7 @@ document.addEventListener('click', function(e){
       <div class="lm-done">
         <div class="lm-mark">&#10003;</div>
         <h3>Check Your Inbox to Confirm</h3>
-        <p class="muted" id="lmDoneBody" style="margin:10px 0 0">We just sent a confirmation link to your inbox. Click it and your full report is on its way - usually within a couple of minutes.</p>
+        <p class="muted" id="lmDoneBody" style="margin:10px 0 0">We just sent a confirmation link to your inbox. Click it and your full report is on its way. It should arrive within a few minutes.</p>
         <div class="lm-chip" id="lmDoneChip">Confirmation sent to your inbox</div>
         <p class="faint" style="font-size:.82rem;margin:0">Do not see it soon? Check spam or promotions and mark it "not spam" so the next one lands straight in.</p>
         <div class="lm-up">{{ content.lead_modal.upsell }}
@@ -1232,7 +1248,7 @@ document.addEventListener('click', function(e){
     try{ localStorage.setItem('tw_lead', JSON.stringify({tickers:clean})); }catch(e){}
     lm.className='lm state-loading';
     function done(){
-      document.getElementById('lmDoneBody').textContent='We just sent a confirmation link to '+email+'. Click it and your full report on '+clean.join(', ')+' is on its way - usually within a couple of minutes.';
+      document.getElementById('lmDoneBody').textContent='We just sent a confirmation link to '+email+'. Click it and your full report on '+clean.join(', ')+' is on its way. It should arrive within a few minutes.';
       document.getElementById('lmDoneChip').textContent='Confirmation sent to '+email;
       lm.className='lm state-done'; lm.scrollTop=0;
       if(typeof gtag==='function') gtag('event','free_report_success',{tickers:clean.length,source:(window.__twLeadSource||'home_free_report')});

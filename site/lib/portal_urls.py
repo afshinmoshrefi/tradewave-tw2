@@ -13,6 +13,7 @@ defaults. Prod sets the four env vars, e.g.:
 The customer console (keys/usage/billing) stays GATED on the main app at MAIN_HOST.
 """
 import os
+from urllib.parse import quote
 
 
 def _load_secrets_env(path="/etc/tradewave/secrets.env"):
@@ -85,6 +86,16 @@ LOGIN_URL     = f"{MAIN_URL}/login"
 def nav(path):
     """A main-site nav target (login, pricing, scorecard, insights, legal pages, ...)."""
     return f"{MAIN_URL}/{str(path).lstrip('/')}"
+
+
+def signup_url(next_path):
+    """Acquisition CTA target (spec API_CONSOLE_USER_FLOWS.md R1/R2): every portal CTA that
+    intends to CREATE an account routes to signup, carrying the real console target (an
+    absolute path off MAIN_HOST, e.g. "/account/api/keys" or
+    "/account/api/billing?subscribe=pro&promo=FOUNDER") fully percent-encoded in `next` so
+    /auth/callback's `state` round-trips it intact. Management/login links (already-have-an-
+    account) stay on LOGIN_URL / nav() untouched - do not route those through here."""
+    return f"{SIGNUP_URL}?next={quote(str(next_path), safe='')}"
 
 
 def dev(path=""):

@@ -24,6 +24,9 @@ import config
 # Reuse the apiserver foundation (tier defs, api_keys table access, hash_key).
 from apiserver import tiers as api_tiers  # noqa: F401  (re-exported for routes)
 from apiserver.auth import hash_key  # noqa: F401  (re-exported for routes)
+# Dependency-free, repo-root module shared with web/app.py + apiserver/auth.py
+# (see reverse_trial.py docstring). sys.path already carries /home/flask above.
+import reverse_trial  # noqa: F401  (re-exported for routes)
 
 log = logging.getLogger("tw2.api_portal")
 
@@ -161,6 +164,115 @@ def api_tier_name_for(user):
 def api_entitlements_for(user):
     """Full entitlement dict (markets, ml, rate, max_keys, ...) for the user."""
     return api_tiers.tier_for(api_tier_name_for(user))
+
+
+# ------------------------------------------------------------------
+# §7.3 shared context: explicit/bundled/effective split + C1/C4/C5 copy
+# plumbing, used by BOTH routes_keys.py (Keys tab: C1 + C4) and
+# routes_billing.py (Billing tab: C1 + C4 + C5 + per-card state). Lives here
+# (not duplicated in each route module) so the two tabs can never drift on
+# what "effective" or "redundant sub" means - one computation, two renders.
+# ------------------------------------------------------------------
+
+# WebTier display label (Title Case, matches copy blocks C1/C4/C5 "{WebTier}").
+_WEB_TIER_LABEL = {
+    "explorer": "Explorer", "navigator": "Navigator",
+    "analyst": "Analyst", "strategist": "Strategist",
+}
+
+
+def _rankable_explicit(user):
+    """The user's explicit api_tier IF it is a ranked/sellable name, else None.
+    Mirrors apiserver.tiers.api_tier_from_user's own defensive treatment of an
+    unrankable explicit value (a service/internal name like 'mcp' leaking in) -
+    such a value must never be treated as "holds an explicit API sub" here
+    either, for the same reason it must never win the MAX in tiers.py."""
+    explicit = getattr(user, "api_tier", None)
+    if explicit and explicit in api_tiers.API_TIER_RANK:
+        return explicit
+    return None
+
+
+def _scope_summary(tier_name):
+    """Human scope summary for a bundled/API tier, e.g. 'Dow, NASDAQ, S&P +
+    5 ML/day'. Reads names/limits from config.available_resources +
+    apiserver.tiers so numbers are never hand-duplicated (C1's "don't hardcode
+    numbers tiers.py already owns")."""
+    t = api_tiers.tier_for(tier_name)
+    names = []
+    for mid in t["markets"]:
+        raw = config.available_resources.get(mid, "market %s" % mid)
+        # Title-case + drop the noisy "STOCKS"/"ALL" suffixes for a short banner
+        # phrase (e.g. "DOW 30 STOCKS" -> "Dow 30", "S&P 500 STOCKS" -> "S&P 500").
+        label = raw.title().replace(" Stocks", "").replace(" All", "")
+        names.append(label)
+    if len(names) > 4:
+        market_part = "%d markets" % len(names)
+    else:
+        market_part = ", ".join(names)
+    if t.get("ml_access"):
+        ml_part = "unlimited ML/day" if t.get("ml_daily_limit") is None else "%d ML/day" % t["ml_daily_limit"]
+    else:
+        ml_part = "no ML"
+    return "%s, %s" % (market_part, ml_part)
+
+
+def entitlement_context(user):
+    """The full §7.3 explicit/bundled/effective picture for `user`, plus the
+    C1/C4/C5 copy-block context. One dict, reused verbatim by both the Keys
+    and Billing templates so banner copy can never disagree between tabs.
+
+    Keys:
+      explicit          - explicit api_tier name if rankable, else None
+      bundled           - WEB_TIER_TO_API[web tier] (always present)
+      effective         - api_tiers.api_tier_from_user(...) (MAX by rank)
+      effective_source  - "explicit" | "bundled" (which side of the MAX won;
+                           ties (equal rank) count as "bundled" - a same-rank
+                           explicit sub is redundant, not a distinct source)
+      web_tier / web_tier_label
+      bundled_label / effective_label - API_TIERS/INTERNAL_TIERS "name" fields
+      c1_scope_summary  - scope summary for the BUNDLED tier (C1 always
+                           describes what the plan itself grants)
+      in_trial          - reverse_trial.in_reverse_trial() AND web tier explorer
+                           (C4 gate - computed the same way as the account-hub
+                           MCP teaser: web_tier == 'explorer' AND the raw
+                           reverse_trial_ends_at is active. Deliberately NOT
+                           inferred from "effective != raw tier" - that pattern
+                           breaks for a role-bypass user, e.g. an admin whose
+                           effective access is elevated by config.ROLE_BYPASSES_
+                           TIER rather than by an actual trial, which would
+                           incorrectly show the trial note; see web/app.py's
+                           _account_mcp_teaser for the same distinction.)
+      redundant         - True iff explicit is rankable and its rank <= bundled's
+                           rank (R7 - explicit sub adds nothing, advise cancel)
+    """
+    web_tier = (getattr(user, "tier", None) or "explorer")
+    explicit = _rankable_explicit(user)
+    bundled = api_tiers.WEB_TIER_TO_API.get(web_tier, api_tiers.DEFAULT_TIER)
+    effective = api_tier_name_for(user)
+    if explicit is not None and api_tiers.API_TIER_RANK[explicit] > api_tiers.API_TIER_RANK.get(bundled, 0):
+        effective_source = "explicit"
+    else:
+        effective_source = "bundled"
+    redundant = explicit is not None and api_tiers.API_TIER_RANK[explicit] <= api_tiers.API_TIER_RANK.get(bundled, 0)
+    in_trial = (
+        web_tier == "explorer"
+        and reverse_trial.in_reverse_trial(getattr(user, "reverse_trial_ends_at", None))
+    )
+    return {
+        "explicit": explicit,
+        "bundled": bundled,
+        "effective": effective,
+        "effective_source": effective_source,
+        "web_tier": web_tier,
+        "web_tier_label": _WEB_TIER_LABEL.get(web_tier, web_tier.capitalize() if web_tier else web_tier),
+        "explicit_label": api_tiers.tier_for(explicit)["name"] if explicit else None,
+        "bundled_label": api_tiers.tier_for(bundled)["name"],
+        "effective_label": api_tiers.tier_for(effective)["name"],
+        "c1_scope_summary": _scope_summary(bundled),
+        "in_trial": in_trial,
+        "redundant": redundant,
+    }
 
 
 # Import the route modules so their @bp.route handlers attach to `bp`.

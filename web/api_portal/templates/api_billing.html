@@ -6,6 +6,34 @@
 
 {% block content %}
 
+  <style>
+    /* ?subscribe=<tier> highlight target (R3) - visible border + glow, never
+       relies on color alone. Respects prefers-reduced-motion for the pulse. */
+    .plan-highlight {
+      border-color: #a855f7 !important;
+      box-shadow: 0 0 0 2px rgba(168,85,247,.35), 0 0 24px rgba(168,85,247,.25);
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .plan-highlight { animation: plan-highlight-pulse 1.8s ease-in-out 2; }
+    }
+    @keyframes plan-highlight-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(168,85,247,.35), 0 0 24px rgba(168,85,247,.25); }
+      50% { box-shadow: 0 0 0 3px rgba(168,85,247,.55), 0 0 32px rgba(168,85,247,.4); }
+    }
+    /* "Included..." disabled states read distinctly from a plain "Current
+       plan" disabled button - amber-tinted so bundled-below/at-a-higher-tier
+       never looks like a generic unavailable button. */
+    .plan-included {
+      background: rgba(251,191,36,0.08) !important;
+      color: #fcd34d !important;
+      border-color: rgba(251,191,36,0.3) !important;
+      white-space: normal;
+      height: auto;
+      line-height: 1.4;
+      padding-top: 10px; padding-bottom: 10px;
+    }
+  </style>
+
   {% if request.args.get('subscribed') %}
   <div class="flash success">Thanks! Your subscription is being activated. Your new plan appears here once Stripe confirms payment.</div>
   {% endif %}
@@ -17,6 +45,25 @@
   {% endif %}
   {% if not stripe_configured %}
   <div class="flash warning">Billing is not yet configured in this environment (Stripe keys are placeholders). Plans are shown for reference.</div>
+  {% endif %}
+
+  {# C1 (R6): always present. When effective is 'navigator' (bundled-only, no
+     card of its own) this banner IS the Navigator persona's representation. #}
+  <div class="card" style="border-color:rgba(99,102,241,.35);">
+    <h3 style="margin-bottom:4px;color:#c7d2fe;">Your API access</h3>
+    <div class="muted">Your API access is included with your TradeWave plan: {{ ctx.web_tier_label }} includes {{ ctx.bundled_label }} ({{ ctx.c1_scope_summary }}). Keys automatically carry your current plan - upgrade the plan and every key upgrades with it.</div>
+  </div>
+
+  {# C4 (active reverse trial). #}
+  {% if ctx.in_trial %}
+  <div class="card" style="border-color:rgba(196,181,253,.35);">
+    <div class="muted">Your 7-day Strategist trial applies to the website and to TradeWave inside ChatGPT/Claude. REST API keys are separate and start on the Free tier - upgrade any time on the Billing tab.</div>
+  </div>
+  {% endif %}
+
+  {# C5 (R7): redundant explicit sub advice. Never auto-cancel. #}
+  {% if ctx.redundant %}
+  <div class="flash warning">Your {{ ctx.web_tier_label }} plan already includes {{ ctx.bundled_label }} API access. Your {{ ctx.explicit_label }} API subscription is no longer needed - you can cancel it in the billing portal.</div>
   {% endif %}
 
   {% if has_customer %}
@@ -51,7 +98,7 @@
        plan (whatever it is - e.g. a bundled Dev/Pro from a web sub) render; the
        other paid tiers collapse to the note below instead of an upgrade card. #}
     {% if pricing_live or not p.purchasable or p.is_current %}
-    <div class="card" style="margin-bottom:0;{% if p.is_current %}border-color:#6366f1;{% endif %}">
+    <div id="plan-{{ p.name }}" class="card{% if p.highlight %} plan-highlight{% endif %}" style="margin-bottom:0;{% if p.is_current %}border-color:#6366f1;{% endif %}">
       <div class="row" style="justify-content:space-between;align-items:baseline;">
         <h3 style="color:#e5e7eb;text-transform:none;letter-spacing:0;font-size:18px;margin:0;">{{ p.label }}</h3>
         {% if p.is_current %}<span class="badge-active">current</span>{% endif %}
@@ -68,21 +115,32 @@
         <li>Up to {{ '{:,}'.format(p.opp_limit) }} results/call</li>
         <li>{{ p.max_keys }} API key{{ 's' if p.max_keys != 1 else '' }}</li>
       </ul>
-      {% if p.is_current %}
+
+      {% if p.state == 'current_explicit' %}
         <button class="btn-secondary" style="width:100%;" disabled>Current plan</button>
-      {% elif not p.purchasable %}
-        {# free tier - the default; reachable only by cancelling a paid plan in the portal #}
-        <button class="btn-secondary" style="width:100%;" disabled>Default plan</button>
-      {% elif has_customer %}
-        {# already a customer: plan switches (up or down) go through the Stripe portal so proration is handled #}
-        <a href="{{ url_for('api_portal.billing_manage') }}" class="btn-secondary" style="width:100%;">Switch in portal</a>
+        {% if has_customer %}
+        <a href="{{ url_for('api_portal.billing_manage') }}" style="display:block;text-align:center;margin-top:8px;color:#a855f7;font-size:13px;">Manage in billing portal</a>
+        {% endif %}
+      {% elif p.state == 'current_bundled' %}
+        <button class="btn-secondary plan-included" style="width:100%;" disabled>Included with your {{ ctx.web_tier_label }} plan</button>
+      {% elif p.state == 'included_below' %}
+        <button class="btn-secondary plan-included" style="width:100%;" disabled title="Included at a higher tier with your {{ ctx.web_tier_label }} plan.">Included at a higher tier with your {{ ctx.web_tier_label }} plan.</button>
+      {% elif p.state == 'downgrade' %}
+        <a href="{{ url_for('api_portal.billing_manage') }}" class="btn-secondary" style="width:100%;">Downgrade in billing portal</a>
+      {% elif p.state == 'upgrade_explicit' %}
+        <a href="{{ url_for('api_portal.billing_manage') }}" class="btn-secondary" style="width:100%;">Upgrade in billing portal</a>
       {% else %}
-        <form method="POST" action="{{ url_for('api_portal.billing_checkout') }}" style="margin:0;">
+        {# 'subscribe' - strictly-above card, no explicit sub in the way #}
+        <form method="POST" action="{{ url_for('api_portal.billing_checkout') }}{% if request.args.get('promo') %}?promo={{ request.args.get('promo') }}{% endif %}" style="margin:0;">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="tier" value="{{ p.name }}">
           <input type="hidden" name="interval" value="month" class="bill-interval">
+          {% if request.args.get('promo') %}<input type="hidden" name="promo" value="{{ request.args.get('promo') }}">{% endif %}
           <button type="submit" class="btn-primary" style="width:100%;" {% if not stripe_configured %}disabled{% endif %}>Subscribe</button>
         </form>
+      {% endif %}
+      {% if p.show_c3 %}
+      <div class="muted" style="font-size:12px;margin-top:10px;">Also included with the Strategist web plan.</div>
       {% endif %}
     </div>
     {% endif %}
@@ -97,32 +155,44 @@
     Plan changes for existing subscribers are handled in the Stripe billing portal so proration and downgrades apply correctly.
   </p>
 
-  {% if pricing_live %}
-  <script>
-  (function() {
-    var cycle = "month";
-    function apply() {
-      document.querySelectorAll(".price-amt").forEach(function(el) {
-        el.textContent = "$" + (cycle === "year" ? el.dataset.year : el.dataset.month);
+{% endblock %}
+
+{% block scripts %}
+{% if pricing_live %}
+<script>
+  (function () {
+    var cycle = 'month';
+    function applyCycle() {
+      document.querySelectorAll('.price-amt').forEach(function (el) {
+        el.textContent = '$' + (cycle === 'year' ? el.dataset.year : el.dataset.month);
       });
-      document.querySelectorAll(".price-annual-note").forEach(function(el) {
-        el.style.display = cycle === "year" ? "block" : "none";
+      document.querySelectorAll('.price-annual-note').forEach(function (el) {
+        el.style.display = cycle === 'year' ? 'block' : 'none';
       });
-      document.querySelectorAll(".bill-interval").forEach(function(el) { el.value = cycle; });
-      document.querySelectorAll(".bill-cycle").forEach(function(b) {
-        var on = b.dataset.cycle === cycle;
-        b.classList.toggle("active", on);
-        b.style.background = on ? "#6366f1" : "";
-        b.style.borderColor = on ? "#6366f1" : "";
-        b.style.color = on ? "#fff" : "";
+      document.querySelectorAll('.bill-interval').forEach(function (el) { el.value = cycle; });
+      document.querySelectorAll('.bill-cycle').forEach(function (button) {
+        var active = button.dataset.cycle === cycle;
+        button.classList.toggle('active', active);
+        button.style.background = active ? '#6366f1' : '';
+        button.style.borderColor = active ? '#6366f1' : '';
+        button.style.color = active ? '#fff' : '';
       });
     }
-    document.querySelectorAll(".bill-cycle").forEach(function(b) {
-      b.addEventListener("click", function() { cycle = b.dataset.cycle; apply(); });
+    document.querySelectorAll('.bill-cycle').forEach(function (button) {
+      button.addEventListener('click', function () { cycle = button.dataset.cycle; applyCycle(); });
     });
-    apply();
+    applyCycle();
   })();
-  </script>
-  {% endif %}
-
+</script>
+{% endif %}
+{% if highlight_tier %}
+<script>
+  (function () {
+    var el = document.getElementById('plan-{{ highlight_tier }}');
+    if (!el) return;
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+  })();
+</script>
+{% endif %}
 {% endblock %}

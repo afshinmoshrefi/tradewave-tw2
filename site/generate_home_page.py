@@ -31,7 +31,8 @@ from blog_tools import get_company_name, convert_param_base64
 from get_price_eod import get_quote_details
 from ga_snippet import ga_head_snippet
 from pick_stats import (
-    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, is_resolved, is_win,
+    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return,
+    hit_target, is_resolved, is_win,
 )  # shared win definition (homepage + scorecard must never diverge)
 
 # Stripe price lookup (TW2: prices come live from Stripe via PRODUCT METADATA,
@@ -827,7 +828,7 @@ def compute_homepage_scorecard_stats():
     """Compute scorecard stats for the homepage ledger scoreboard.
 
     Mirrors generate_scorecard.compute_scorecard_stats() field-for-field so the
-    homepage two-metric scoreboard ("We Publish the Ledger") and the public
+    homepage two-metric scoreboard ("We Publish the Proof") and the public
     /scorecard can NEVER diverge. Two separate, labeled metrics over the SAME
     denominator (resolved picks), never blended into one number:
       win_rate           = reached the AI's predicted gain in-window, or closed
@@ -879,50 +880,38 @@ def compute_homepage_scorecard_stats():
     }
 
 
-def build_ledger_rows(limit=5, min_resolved=3):
-    """Build the forward-ledger preview rows for the 'We Publish the Ledger'
-    section (newest first). Each row: {symbol, direction 'L'/'S',
-    logged_date 'MM-DD', result 'win'/'loss'/'pending'}.
+def build_ledger_rows(limit=8):
+    """Build a fixed-size, newest-first preview of the real forward ledger.
 
-    Drives the redesign's scoretbl directly from featured_history.json using the
-    shared is_resolved/is_win definitions, so the visible rows always agree with
-    the headline win_rate. Replaces the hardcoded NOW/FTNT/NVDA/AMD/COP mock.
-
-    Guarantees at least min_resolved settled rows (when the history has them):
-    picks run 22-30 days, so the newest 5 entries are routinely ALL still open,
-    and an all-pending strip reads as "no track record" in the one section whose
-    job is proof. The oldest pending slots give way to the newest resolved picks;
-    rows stay real entries, newest first.
+    The homepage must stay compact as the append-only ledger grows into the
+    hundreds. The full scorecard remains the audit surface; this preview always
+    shows only the newest ``limit`` entries and links every row to that record.
     """
     history = load_featured_history()
-    newest_first = list(reversed(history))
-
-    picked = newest_first[:limit]
-    have_resolved = sum(1 for e in picked if is_resolved(e))
-    want_resolved = min(min_resolved, sum(1 for e in newest_first if is_resolved(e)))
-    if have_resolved < want_resolved:
-        backfill = [e for e in newest_first[limit:] if is_resolved(e)]
-        for _ in range(want_resolved - have_resolved):
-            # drop the OLDEST pending row still shown, pull in the next resolved
-            oldest_pending = next((e for e in reversed(picked) if not is_resolved(e)), None)
-            if oldest_pending is None or not backfill:
-                break
-            picked.remove(oldest_pending)
-            picked.append(backfill.pop(0))
-        picked.sort(key=lambda e: e.get('featured_date', ''), reverse=True)
+    picked = list(reversed(history))[:limit]
 
     rows = []
     for entry in picked:
-        if is_resolved(entry):
-            result = 'win' if is_win(entry) else 'loss'
-        else:
-            result = 'pending'
-        logged = entry.get('featured_date', '')
+        resolved = is_resolved(entry)
+        current = entry.get('actual_return') if resolved else entry.get('current_return')
+        peak = entry.get('peak_return')
+        direction = 'Long' if entry.get('direction') == 'l' else 'Short'
         rows.append({
+            'featured_date': entry.get('featured_date', ''),
+            'short_date': entry.get('featured_date', '')[5:],
             'symbol': entry.get('symbol', ''),
-            'direction': 'L' if entry.get('direction') == 'l' else 'S',
-            'logged_date': logged[5:] if len(logged) >= 10 else logged,  # MM-DD
-            'result': result,
+            'direction': direction,
+            'direction_class': direction.lower(),
+            'days': entry.get('daysOut', 0),
+            'win_prob': '%.1f' % (entry.get('win_prob', 0) * 100),
+            'pred_return': '%+.1f' % entry.get('pred_return', 0),
+            'current_return': ('%+.1f' % current) if current is not None else '--',
+            'current_return_num': current,
+            'peak_return': ('%+.1f' % peak) if peak is not None else '--',
+            'peak_return_num': peak,
+            'target_hit': hit_target(entry),
+            'resolved': resolved,
+            'result': ('win' if is_win(entry) else 'loss') if resolved else 'open',
         })
     return rows
 
@@ -979,14 +968,14 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         "meta": {
             # Kept in sync with hero.headline (the tab title / og:title must
             # never advertise a headline the page no longer says).
-            "title": "TradeWave - Discover Seasonal Tendencies With The Highest Probability of Repeating",
+            "title": "TradeWave - Discover Seasonal Tendencies With the Highest Probability of Repeating",
             "description": (
                 "TradeWave detects recurring seasonal patterns from end-of-day "
                 "data across 15 markets, over a lookback you choose: 1 to 99 "
                 "years, calendar or election cycle. The engine is deterministic, "
                 "same inputs and same numbers, and the model only ranks, it "
-                "predicts nothing. Every daily pick is logged to a public ledger "
-                "before the outcome, losses included. "
+                "predicts nothing. Every daily pick is published in a public "
+                "track record before the outcome, losses included. "
                 + ("REST API and MCP included. " if MCP_LIVE else "REST API included. ")
                 + "Research, not advice."
             ),
@@ -1034,12 +1023,12 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # Hero eyebrow removed 2026-07-06 (owner: keep the area above the
             # hero headline clean - no label, no pill). The headline is the
             # first thing on the page.
-            "headline": "Discover Seasonal Tendencies With The Highest Probability of Repeating",
+            "headline": "Discover Seasonal Tendencies With the Highest Probability of Repeating",
             "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
                 "AI-powered rankings and scores across 98 years of data, ready "
-                "for you to leverage across thousands of stocks, ETFs, as well "
-                "as your multiple portfolios."
+                "for you to leverage across thousands of stocks and ETFs, as "
+                "well as your own portfolios."
             ),
             # Hero pill slot (a small "New" chip above the headline). The MCP
             # "Meet Tara" pill was removed 2026-07-06 (owner: keep the hero to the
@@ -1066,13 +1055,13 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # content.scorecard_stats at render time - never hardcode a number
             # here; the template hides numeric segments until data exists.
             "trust_strip": {
-                "logged_label": "picks on the public ledger",
+                "logged_label": "picks in the public track record",
                 "held_label": "held a profit to the close",
                 # De-duped 2026-07-02: the subheadline directly above already
                 # says "logged before the outcome ... losses stay on the public
                 # record" - never repeat it two lines later.
                 "note": "The full record is public.",
-                "link_text": "Inspect the ledger",
+                "link_text": "See the proof for yourself",
             },
             # Logged-in CTA variants
             "cta_analyst_url":     PRICING_ANALYST_MONTHLY_URL,
@@ -1102,23 +1091,23 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                 "TradeWave's AI agent Tara reads the data and produces the "
                 "analysis for you."
             ),
+            "try_line": "Give our AI agent a try. No credit card required.",
             "ask_placeholder": "Which tech stocks tend to rise this time of year?",
             "ask_button": "See the Evidence",
             "control_points": [
                 {"lead": "You ask.",
                  "text": "Any market, any question, in your own words."},
                 {"lead": "You set the parameters.",
-                 "text": ("Markets, date window, lookback, election cycle - "
+                 "text": ("Markets, test period, election cycle - "
                           "the analysis runs on your choices.")},
                 {"lead": "Tara assists.",
-                 "text": ("She runs the numbers, ranks the setups, and drives "
+                 "text": ("She performs the analysis, ranks the setups, and drives "
                           "the charts. She never replaces your judgment, and "
                           "she never tells you what to do.")},
             ],
             "micro": (
-                "Tara reads the same deterministic statistics you see on the "
-                "chart and explains the evidence - never personalized advice, "
-                "never a prediction."
+                "Tara gives you the results in plain English - never "
+                "personalized advice, never a prediction."
             ),
             # Truthful CTA - there is no public demo (/app/ is a signup wall
             # when logged out; 2026-07-01 audit item 3), so invite the real
@@ -1145,7 +1134,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                           "and the years it failed - and you decide what to do "
                           "with it. It never sends trade alerts and never gives "
                           "personalized advice. Even the one daily pick we "
-                          "publish is research, logged to the public ledger "
+                          "publish is research, added to the public track record "
                           "before the outcome is known."),
                 },
                 {
@@ -1154,12 +1143,12 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                           "certainty - and we show you exactly that. Every "
                           "pattern opens to its full per-year record, failing "
                           "years included. The daily pick goes on a public "
-                          "ledger before the outcome, and the losses stay up. "
+                          "track record before the outcome, and the losses stay up. "
                           "And the machine-learning model only calibrates a "
                           "pattern's probability down, never up - it ranks "
                           "what history supports; it never predicts. You do "
                           "not have to take our word for any of it."),
-                    "link_text": "Inspect the ledger",
+                    "link_text": "See the proof for yourself",
                     "link_url": "%sscorecard.html" % DOMAIN_ROOT,
                 },
                 {
@@ -1208,19 +1197,19 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                        "starts with 7 days of the full platform, no card."),
         },
 
-        # -- Proof (section 06 "What Traders Say") - the two cleared third-party
+        # -- Proof (section 06 "What Pro Traders Say") - the two cleared third-party
         #    endorsements (locked owner decision 2): video + quote for Anne-Marie
         #    Baiynd and Erin West, rendered between the ledger and pricing. Both
         #    are TradeWave affiliates, so the template renders the quiet
         #    material-connection disclosure right under the cards. The videos
         #    are 50MB+ self-hosted MP4s - click-to-play only, never autoplay.
         "proof": {
-            "eyebrow": "What Traders Say",
+            "eyebrow": "What Pro Traders Say",
             "headline": "From Traders Who Do This for a Living",
             "sub": (
-                "Anne-Marie Baiynd and Erin West trade for a living and teach "
-                "traders to do the same. Here is where TradeWave sits in their "
-                "process - on camera, in their own words."
+                "Professional traders Anne-Marie Baiynd and Erin West trade "
+                "for a living and teach traders to do the same. Here is where "
+                "TradeWave sits in their process - on camera, in their own words."
             ),
             "disclosure": (
                 "Disclosure: Anne-Marie and Erin are TradeWave affiliates and "
@@ -1252,9 +1241,13 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         "methodology_url": "%smethodology" % DOMAIN_ROOT,
         "developers_url": DEVELOPERS_URL,
         "scorecard_stats": compute_homepage_scorecard_stats(),
-        # Forward-ledger preview rows (newest first) for the "We Publish the
-        # Ledger" scoretbl - real picks, not the NOW/FTNT/NVDA mock.
-        "ledger_rows": build_ledger_rows(limit=5),
+        # Fixed-size forward-ledger preview. The public ledger grows forever;
+        # the homepage remains eight current rows with a link to the full record.
+        "ledger_rows": build_ledger_rows(limit=8),
+        "ledger_updated": (
+            datetime.fromtimestamp(Path(FEATURED_HISTORY_FILE).stat().st_mtime).strftime("%b %d, %Y")
+            if Path(FEATURED_HISTORY_FILE).exists() else date.today().strftime("%b %d, %Y")
+        ),
         "recent_picks": [e['symbol'] for e in reversed(load_featured_history())][:3],
         "market_bar": market_bar_items or [],
 
@@ -1481,8 +1474,8 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         #    says "Same engine", so the note must not repeat it.
         "desks": {
             "eyebrow": "Who It's For",
-            "headline": "Whoever's Asking, It Bends to You",
-            "sub": ("Same engine for a fund running a thousand backtests and "
+            "headline": "Different Desks. One Standard of Proof.",
+            "sub": ("The same engine for a fund running thousands of backtests and "
                     "a trader testing one window."),
             "note": ("Not different products - the same evidence, priced to "
                      "the job in front of you."),
@@ -1491,7 +1484,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "audience": "New and Independent Traders",
                     "question": "What's seasonal in tech right now?",
                     "blurb": ("Ask Tara, get a named ranked answer. Real "
-                              "research in your first minute."),
+                              "research from your first session."),
                     "cta_text": "Start free",
                     "cta_url": "#pricing",
                 },
