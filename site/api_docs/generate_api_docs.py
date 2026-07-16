@@ -94,12 +94,12 @@ def load_header() -> str:
         header = header.replace(old, new)
     dev_nav = (
         '<div class="tw-nav-links" id="tw-nav-links">\n'
-        f'      <a href="{portal_urls.PORTAL_URL}/">API</a>\n'
-        f'      <a href="{portal_urls.DOCS_URL}/quickstart.html">Docs</a>\n'
-        f'      <a href="{portal_urls.PORTAL_URL}/pricing.html">Pricing</a>\n'
-        f'      <a href="{portal_urls.PORTAL_URL}/mcp.html">MCP</a>\n'
+        f'      <a href="{portal_urls.PORTAL_URL}">API</a>\n'
+        f'      <a href="{portal_urls.API_QUICKSTART_URL}">Docs</a>\n'
+        f'      <a href="{portal_urls.API_PRICING_URL}">Pricing</a>\n'
+        f'      <a href="{portal_urls.MCP_SETUP_URL}">MCP</a>\n'
         f'      <a href="{portal_urls.PORTAL_URL}/for-ai-agents.html">For AI agents</a>\n'
-        f'      <a href="{portal_urls.LEARN_URL}/">Learn</a>\n'
+        f'      <a href="{portal_urls.LEARN_HOME_URL}">Learn</a>\n'
         f'      <a href="{portal_urls.LOGIN_URL}" id="tw-auth-link">Log In</a>\n'
         f'      <a href="{portal_urls.signup_url("/account/api/keys")}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>\n'
         '    </div>'
@@ -406,7 +406,7 @@ def sidebar_html(active: str) -> str:
   <hr class="sidebar-divider">
   <h2>Try &amp; build</h2>
   <a href="{portal_urls.PLAYGROUND_URL}">API Playground</a>
-  <a href="{portal_urls.LEARN_URL}">Learning track</a>
+  <a href="{portal_urls.LEARN_HOME_URL}">Learning track</a>
   <a href="{portal_urls.MCP_SETUP_URL}">MCP setup</a>
   <hr class="sidebar-divider">
   <h2>API</h2>
@@ -417,11 +417,16 @@ def sidebar_html(active: str) -> str:
 
 
 def footer_html() -> str:
+    developer_links = "\n".join(
+        f'    <a href="{url}">{label}</a>'
+        for label, url in portal_urls.DEVELOPER_FOOTER_LINKS
+    )
     return f"""
 <footer class="docs-footer">
   <nav>
+{developer_links}
+    <a href="{portal_urls.API_PRICING_URL}">API Pricing</a>
     <a href="{portal_urls.nav('/')}">Home</a>
-    <a href="{portal_urls.nav('/pricing')}">Pricing</a>
     <a href="{portal_urls.nav('/app/')}">Wave Viewer</a>
     <a href="{portal_urls.nav('/contact.html')}">Contact</a>
     <a href="{portal_urls.nav('/privacy.html')}">Privacy</a>
@@ -441,7 +446,7 @@ def page(title: str, description: str, active_href: str, hero_title: str,
     # Canonical URL: real doc pages use their own filename; the landing index canonicalises
     # to the docs/ directory root (its served URL), and anything else falls back to quickstart.
     if active_href == "index.html":
-        canonical = portal_urls.DOCS_URL + "/"
+        canonical = portal_urls.DOCS_HOME_URL
     elif active_href.endswith(".html"):
         canonical = portal_urls.DOCS_URL + "/" + active_href
     else:
@@ -2182,7 +2187,7 @@ agent-ready MCP tools.</p>
 <h2>Try &amp; build</h2>
 <ul>
   <li><a href="{portal_urls.PLAYGROUND_URL}">API Playground</a> - run live calls against your key in the browser.</li>
-  <li><a href="{portal_urls.LEARN_URL}">Learning track</a> - guided lessons from first call to a working integration.</li>
+  <li><a href="{portal_urls.LEARN_HOME_URL}">Learning track</a> - guided lessons from first call to a working integration.</li>
   <li><a href="{portal_urls.MCP_SETUP_URL}">MCP setup</a> - connect TradeWave to ChatGPT, Claude, or Cursor.</li>
   <li><a href="openapi.yaml">OpenAPI spec (YAML)</a> and <a href="tradewave.postman_collection.json">Postman collection</a> - import the full contract.</li>
 </ul>

@@ -14,9 +14,9 @@ set -uo pipefail
 
 ENV="${1:-}"
 case "$ENV" in
-  staging) WEB=185.53.209.8;    APP=199.244.48.157; HOST=tw2-stage.trxstat.com; APIHOST=api-stage.trxstat.com; DEVHOST=developers-stage.trxstat.com; PORTAL=1
+  staging) WEB=185.53.209.8;    APP=199.244.48.157; HOST=tw2-stage.trxstat.com; APIHOST=api-stage.trxstat.com; DEVHOST=developers-stage.trxstat.com; MCPHOST=mcp-stage.trxstat.com; PORTAL=1
            LEAKS='tw2-dev|developers-dev|api-dev|mcp-dev|stage2\.trxstat|192\.168\.|10\.0\.0\.|127\.0\.0\.1|smn-dev' ;;
-  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tradewave.ai;        APIHOST=api.tradewave.ai;       DEVHOST=developers.tradewave.ai; PORTAL=1
+  prod)    WEB=194.113.195.141; APP=138.128.240.115; HOST=tradewave.ai;        APIHOST=api.tradewave.ai;       DEVHOST=developers.tradewave.ai; MCPHOST=mcp.tradewave.ai; PORTAL=1
            LEAKS='tw2-dev|tw2-stage|developers-dev|developers-stage|api-dev|api-stage|mcp-dev|mcp-stage|stage2\.trxstat|trxstat\.com|192\.168\.|10\.0\.0\.|127\.0\.0\.1|smn-dev|smn-stage' ;;
   *) echo "usage: $0 {staging|prod}"; exit 2 ;;
 esac
@@ -54,6 +54,19 @@ if [ "$PORTAL" = 1 ]; then
   c=$(wc_app /healthz "$APIHOST"); [ "$c" = 200 ] && ok "api /healthz -> 200" || bad "api /healthz -> $c"
   c=$(wc_app / "$DEVHOST");        [ "$c" = 200 ] && ok "portal / -> 200"     || bad "portal / -> $c"
   c=$(wc_app /docs/ "$DEVHOST");   [ "$c" = 200 ] && ok "portal /docs/ -> 200" || bad "portal /docs/ -> $c (403 = no docs index)"
+  c=$(wc_app /learn/ "$DEVHOST");  [ "$c" = 200 ] && ok "portal /learn/ -> 200" || bad "portal /learn/ -> $c"
+  c=$(wc_app /playground/ "$DEVHOST"); [ "$c" = 200 ] && ok "portal /playground/ -> 200" || bad "portal /playground/ -> $c"
+  c=$(wc_app /mcp "$DEVHOST");     [ "$c" = 200 ] && ok "portal /mcp -> 200" || bad "portal /mcp -> $c"
+  c=$(wc_app / "$MCPHOST")
+  case "$c" in
+    200|400|401|405|406) ok "mcp protocol host is routed -> $c" ;;
+    *) bad "mcp protocol host is not routed correctly -> $c" ;;
+  esac
+  mcp_redirect_code=$($SSH "root@$APP" "curl -sS -o /dev/null -w '%{http_code}' -H 'Host: $DEVHOST' http://127.0.0.1:8080/mcp/" 2>/dev/null)
+  mcp_redirect_location=$($SSH "root@$APP" "curl -sSI -H 'Host: $DEVHOST' http://127.0.0.1:8080/mcp/ | tr -d '\\r' | grep -i '^Location:' | head -1" 2>/dev/null)
+  [ "$mcp_redirect_code" = 308 ] && [ "$mcp_redirect_location" = "Location: /mcp" ] \
+    && ok "portal /mcp/ -> relative /mcp redirect" \
+    || bad "portal /mcp/ redirect is not exactly 308 Location: /mcp"
 else
   echo "-- api + developer portal: SKIP (API/MCP dark on $ENV) --"
 fi
@@ -88,6 +101,18 @@ echo "$home" | grep -c  'Is TradeWave a signal service? Does it tell me what to 
 echo "$home" | grep -c  'TradeWave is a research tool, not a signal service.' >/dev/null && ok "home: updated FAQ answer" || bad "home: updated FAQ answer MISSING"
 echo "$home" | grep -c  'Trade<b>Wave</b>'                  >/dev/null && ok "home: 2-color logo"           || warn "home: 2-color logo markup not found"
 echo "$home" | grep -ciE '>Wave Viewer<|>Start Free Trial<' >/dev/null && ok "home: unified nav"            || warn "home: nav markers not found"
+for href in \
+  "https://$DEVHOST" \
+  "https://$DEVHOST/docs/quickstart.html" \
+  "https://$DEVHOST/mcp"
+do
+  echo "$home" | grep -F "href=\"$href\"" >/dev/null \
+    && ok "home footer: $href" \
+    || bad "home footer: missing $href"
+done
+echo "$home" | grep -F 'href="/insights/"' >/dev/null \
+  && ok "home footer: Insights" \
+  || bad "home footer: Insights link missing"
 if echo "$home" | grep -cE 'gtag\(|googletagmanager|G-[A-Z0-9]{6,}' >/dev/null; then ok "home: GA4 loader present"; else
   [ "$ENV" = prod ] && bad "home: GA4 loader MISSING (analytics dead on prod)" || warn "home: no GA4 loader (may be prod-gated; confirm it lights on prod)"; fi
 # Read the generated file on disk, NOT via nginx: open_file_cache can briefly serve the

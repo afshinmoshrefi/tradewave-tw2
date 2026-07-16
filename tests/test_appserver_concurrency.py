@@ -131,7 +131,7 @@ def test_deploy_requires_exact_environment_portal_hosts():
     deploy = (ROOT / "ops" / "deploy.sh").read_text(encoding="utf-8")
     portal_check = deploy[
         deploy.index("check_portal_host()") : deploy.index(
-            "check_portal_host TW2_API_PUBLIC_HOST"
+            'echo "==> [$ENV] pre-flight: split-tier runtime files'
         )
     ]
     assert 'if [ "$val" != "$want" ]; then' in portal_check
@@ -141,7 +141,8 @@ def test_deploy_requires_exact_environment_portal_hosts():
         "TW2_DEVELOPERS_PUBLIC_HOST",
         "TW2_MCP_PUBLIC_HOST",
     ):
-        assert f"check_portal_host {key}" in deploy
+        assert f'check_portal_host "$box" {key}' in deploy
+    assert 'for box in "$WEB" "$APP"; do' in deploy
 
 
 def test_split_daily_pick_uses_reachable_web_nginx():
@@ -150,6 +151,7 @@ def test_split_daily_pick_uses_reachable_web_nginx():
     assert "TW2_API_PUBLIC_HOST=${TGT_API_HOST}" in secrets
     assert "TW2_MCP_PUBLIC_HOST=${TGT_MCP_HOST}" in secrets
     assert "TW2_DEVELOPERS_PUBLIC_HOST=${TGT_DEVELOPERS_HOST}" in secrets
+    assert "TW2_MCP_LIVE=1" in secrets
     assert "TW2_API_CONSOLE_ENABLED=1" in secrets
     assert "TW2_API_PRICING_LIVE=0" in secrets
     assert "https://${TGT_WEB_HOST}/webhooks/stripe" in secrets

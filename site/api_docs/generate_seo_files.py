@@ -50,6 +50,10 @@ def collect_urls():
                 continue
             if name == "index.html":
                 loc = PORTAL + "/" + sub                  # canonical dir URL
+            elif sub == "" and name == "mcp.html":
+                # nginx serves the human setup page at the clean canonical URL.
+                # Do not teach crawlers or users the implementation filename.
+                loc = portal_urls.MCP_SETUP_URL
             else:
                 loc = PORTAL + "/" + sub + name
             if loc in seen:

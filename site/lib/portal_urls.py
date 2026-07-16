@@ -44,7 +44,11 @@ def _norm(h):
 # artifact (exactly how api-dev leaked into a prod-bound openapi.json). Per the config.py
 # invariant: per-env values come from secrets.env; hosts are never hardcoded.
 _MAIN_RAW = _norm(os.environ.get("TW2_PUBLIC_HOST", ""))
-_IS_DEV = (not _MAIN_RAW) or ("-dev." in _MAIN_RAW) or _MAIN_RAW.startswith("tw2-dev")
+_ENV = os.environ.get("TW2_ENV", "").strip().lower()
+_MAIN_LOOKS_DEV = (
+    (not _MAIN_RAW) or ("-dev." in _MAIN_RAW) or _MAIN_RAW.startswith("tw2-dev")
+)
+_IS_DEV = _MAIN_LOOKS_DEV and (_ENV in ("", "dev"))
 
 
 def _host(name, dev_default):
@@ -75,12 +79,27 @@ PORTAL_URL    = f"https://{DEV_HOST}"           # developer portal root (marketi
 DOCS_URL      = f"https://{DEV_HOST}/docs"      # technical docs / API reference
 LEARN_URL     = f"https://{DEV_HOST}/learn"     # learning / tutorials track
 MCP_SETUP_URL = f"https://{DEV_HOST}/mcp"       # MCP setup + agent cookbook pages
-PLAYGROUND_URL = f"https://{DEV_HOST}/playground"  # interactive "Try it" API console
+DOCS_HOME_URL = f"{DOCS_URL}/"                  # directory links include / to avoid origin redirects
+LEARN_HOME_URL = f"{LEARN_URL}/"
+PLAYGROUND_URL = f"https://{DEV_HOST}/playground/"  # interactive "Try it" API console
 API_BASE      = f"https://{API_HOST}/v1"        # REST base shown in docs/examples
 MCP_URL       = f"https://{MCP_HOST}"           # the MCP server endpoint (what clients connect to)
 CONSOLE_URL   = f"{MAIN_URL}/account/api/keys"  # "Get a free API key" -> login -> the keys page
 SIGNUP_URL    = f"{MAIN_URL}/signup"
 LOGIN_URL     = f"{MAIN_URL}/login"
+
+# Human-facing destinations used by the main-site and developer-site footers.
+# Keep these distinct: the protocol endpoint belongs in connector settings, while
+# the setup/reference pages belong in a browser.  There is intentionally no SDK
+# link until TradeWave publishes a real SDK page/package.
+API_QUICKSTART_URL = f"{DOCS_URL}/quickstart.html"
+API_PRICING_URL = f"{PORTAL_URL}/pricing.html"
+MCP_REFERENCE_URL = f"{DOCS_URL}/mcp-reference.html"
+DEVELOPER_FOOTER_LINKS = (
+    ("Developer Portal", PORTAL_URL),
+    ("API Docs", API_QUICKSTART_URL),
+    ("MCP for ChatGPT & Claude", MCP_SETUP_URL),
+)
 
 
 def nav(path):

@@ -820,7 +820,7 @@ body{background-image:none !important;}
     {% endfor %}
   </div>
   <div class="reveal" style="margin-top:16px;font-size:.9rem;color:var(--muted)">Not ready to sign up? <a href="#free-report" class="lnk" data-lm-open data-lm-source="pricing">Get the free seasonal report on your stocks instead - no card &rarr;</a></div>
-  <div class="kicker reveal" style="margin-top:20px">{% if content.mcp_live %}The same deterministic engine and public record inside ChatGPT, Claude, or any MCP assistant - plus a {% else %}A {% endif %}documented REST API with Python and TypeScript SDKs, multi-seat keys, SSO and audit. Funds and enterprise can license the pattern file, the model, and the API. <a href="mailto:hello@tradewave.ai?subject=Funds%20%26%20Enterprise" class="lnk">Talk to us &rarr;</a></div>
+  <div class="kicker reveal" style="margin-top:20px">{% if content.mcp_live %}The same deterministic engine and public record inside ChatGPT, Claude, or any MCP assistant - plus a {% else %}A {% endif %}documented REST API with Python and TypeScript examples, multi-seat keys, SSO and audit. Funds and enterprise can license the pattern file, the model, and the API. <a href="mailto:hello@tradewave.ai?subject=Funds%20%26%20Enterprise" class="lnk">Talk to us &rarr;</a></div>
 </div></section>
 
 <!-- 08 / FAQ (objection handling - 2026-07-01 audit item 5). Placed right after
@@ -905,6 +905,7 @@ body{background-image:none !important;}
       <a href="#pricing">Pricing</a>
       <a href="#tara">Tara</a>
       <a href="https://seasonalmarketnews.com/">News</a>
+      <a href="/insights/">Insights</a>
       <a href="{{ content.scorecard_url }}">Scorecard</a>
       <a href="{{ content.methodology_url }}">Methodology</a>
     </div>
@@ -915,9 +916,7 @@ body{background-image:none !important;}
     </div>
     <div>
       <h4>Developers</h4>
-      <a href="{{ content.developers_url }}">API{% if content.mcp_live %} &amp; MCP{% endif %}</a>
-      <a href="{{ content.developers_url }}">Developer Portal</a>
-      <a href="{{ content.developers_url }}">SDKs</a>
+      {% for label, url in content.developer_footer_links %}<a href="{{ url }}">{{ label }}</a>{% endfor %}
     </div>
     <div>
       <h4>Legal</h4>

@@ -76,25 +76,30 @@ def load_header() -> str:
     # Fallback minimal header if partial missing.
     return f"""<nav style="background:#0f0a15;border-bottom:1px solid #1f2937;padding:16px 24px;display:flex;align-items:center;gap:32px;">
 <a href="{portal_urls.MAIN_URL}" style="font-size:26px;font-weight:800;background:linear-gradient(135deg,#6366f1,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-decoration:none;">TradeWave</a>
-<a href="index.html" style="color:#9ca3af;text-decoration:none;font-size:14px;">API Home</a>
-<a href="pricing.html" style="color:#9ca3af;text-decoration:none;font-size:14px;">Pricing</a>
-<a href="mcp.html" style="color:#9ca3af;text-decoration:none;font-size:14px;">MCP</a>
+<a href="{portal_urls.PORTAL_URL}" style="color:#9ca3af;text-decoration:none;font-size:14px;">API Home</a>
+<a href="{portal_urls.API_PRICING_URL}" style="color:#9ca3af;text-decoration:none;font-size:14px;">Pricing</a>
+<a href="{portal_urls.MCP_SETUP_URL}" style="color:#9ca3af;text-decoration:none;font-size:14px;">MCP</a>
 </nav>"""
 
 
 def footer_html() -> str:
+    developer_links = "\n".join(
+        f'      <a href="{url}">{label}</a>'
+        for label, url in portal_urls.DEVELOPER_FOOTER_LINKS
+    )
     return f"""<footer class="api-footer">
   <div class="container">
     <nav class="footer-nav" aria-label="Footer">
+{developer_links}
+      <a href="{portal_urls.LEARN_HOME_URL}">Learn</a>
+      <a href="{portal_urls.PLAYGROUND_URL}">API Playground</a>
+      <a href="{portal_urls.API_PRICING_URL}">API Pricing</a>
       <a href="{portal_urls.MAIN_URL}">TradeWave Home</a>
-      <a href="index.html">API Home</a>
-      <a href="pricing.html">API Pricing</a>
-      <a href="mcp.html">MCP Showcase</a>
-      <a href="for-ai-agents.html">For AI agents</a>
-      <a href="use-cases.html">Use Cases</a>
+      <a href="{portal_urls.dev('for-ai-agents.html')}">For AI agents</a>
+      <a href="{portal_urls.dev('use-cases.html')}">Use Cases</a>
       <a href="{portal_urls.nav('contact.html')}">Contact</a>
       <a href="{portal_urls.nav('privacy.html')}">Privacy</a>
-      <a href="api-terms.html">API Terms</a>
+      <a href="{portal_urls.dev('api-terms.html')}">API Terms</a>
       <a href="{portal_urls.nav('disclaimer.html')}">Disclaimer</a>
     </nav>
     <p class="footer-copy">&copy; {YEAR} Tara Data Research LLC. All rights reserved.</p>
@@ -452,12 +457,12 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "",
     # main site, and the auth/CTA ids (tw-auth-link/tw-cta-link) are preserved for the JS hooks.
     _dev_nav = (
         '<div class="tw-nav-links" id="tw-nav-links">\n'
-        '      <a href="index.html">API</a>\n'
-        f'      <a href="{portal_urls.DOCS_URL}/quickstart.html">Docs</a>\n'
-        '      <a href="pricing.html">Pricing</a>\n'
-        '      <a href="mcp.html">MCP</a>\n'
-        '      <a href="for-ai-agents.html">For AI agents</a>\n'
-        f'      <a href="{portal_urls.LEARN_URL}/">Learn</a>\n'
+        f'      <a href="{portal_urls.PORTAL_URL}">API</a>\n'
+        f'      <a href="{portal_urls.API_QUICKSTART_URL}">Docs</a>\n'
+        f'      <a href="{portal_urls.API_PRICING_URL}">Pricing</a>\n'
+        f'      <a href="{portal_urls.MCP_SETUP_URL}">MCP</a>\n'
+        f'      <a href="{portal_urls.dev("for-ai-agents.html")}">For AI agents</a>\n'
+        f'      <a href="{portal_urls.LEARN_HOME_URL}">Learn</a>\n'
         f'      <a href="{portal_urls.LOGIN_URL}" id="tw-auth-link">Log In</a>\n'
         f'      <a href="{portal_urls.signup_url("/account/api/keys")}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>\n'
         '    </div>'
@@ -469,7 +474,10 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "",
 
     # active_nav is "", "pricing", "mcp", "use-cases" -> map to the output filename.
     _page = (active_nav + ".html") if (active_nav and active_nav != "index") else "index.html"
-    _canonical = portal_urls.PORTAL_URL + ("/" if _page == "index.html" else "/" + _page)
+    if active_nav == "mcp":
+        _canonical = portal_urls.MCP_SETUP_URL
+    else:
+        _canonical = portal_urls.PORTAL_URL + ("/" if _page == "index.html" else "/" + _page)
     _seo = portal_seo.head_tags(
         _canonical, title, description,
         jsonld=portal_seo.api_jsonld() if _page == "index.html" else None,
@@ -544,7 +552,7 @@ def build_index() -> str:
     <div class="hero-ctas">
       <a href="{portal_urls.DOCS_URL}/quickstart.html" class="btn btn-primary">Run it in 30 seconds</a>
       <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-secondary">Get a free key</a>
-      <a href="mcp.html" class="btn btn-ghost">Connect it to Claude</a>
+      <a href="{portal_urls.MCP_SETUP_URL}" class="btn btn-ghost">Connect it to Claude</a>
     </div>
     <p class="hero-note">{pricing_hero_note}</p>
   </div>
@@ -1230,7 +1238,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
     </p>
     <div class="hero-ctas">
       <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-primary">Get a Free API Key</a>
-      <a href="{portal_urls.DOCS_URL}" class="btn btn-secondary">MCP Setup Docs</a>
+      <a href="{portal_urls.MCP_REFERENCE_URL}" class="btn btn-secondary">MCP Setup Docs</a>
     </div>
     <p style="font-size:13px;color:var(--dim);margin-top:16px;">17 purpose-built tools, 6 flagship plus 11 primitives. Try it with the public demo token <code style="font-size:12px;color:var(--accent);">tw_demo_explore</code> - a real call in about 30 seconds, no signup.</p>
   </div>
@@ -1263,7 +1271,7 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
       Claude Desktop can use the hosted OAuth connector directly. BYOK clients can use the
       <code style="font-size:12px;color:var(--accent);">mcp-remote</code> npx bridge shown above
       and pass a Bearer API key when they need the standalone API entitlement.
-      <a href="{portal_urls.DOCS_URL}" class="inline">Full setup guide</a>.
+       <a href="{portal_urls.MCP_REFERENCE_URL}" class="inline">Full setup guide</a>.
     </p>
   </div>
 </section>
@@ -1470,8 +1478,8 @@ Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any
     </p>
     <div class="hero-ctas">
       <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-primary">Get a Free API Key</a>
-      <a href="{portal_urls.DOCS_URL}" class="btn btn-secondary">Full MCP Docs</a>
-      <a href="pricing.html" class="btn btn-ghost">See Pricing</a>
+      <a href="{portal_urls.MCP_REFERENCE_URL}" class="btn btn-secondary">Full MCP Docs</a>
+      <a href="{portal_urls.API_PRICING_URL}" class="btn btn-ghost">See Pricing</a>
     </div>
   </div>
 </section>
@@ -1746,7 +1754,7 @@ score_resp = requests.<span class="fn">post</span>(
     <div class="hero-ctas">
       <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-primary">Get a Free API Key</a>
       <a href="pricing.html" class="btn btn-secondary">Compare Plans</a>
-      <a href="mcp.html" class="btn btn-ghost">MCP Showcase</a>
+      <a href="{portal_urls.MCP_SETUP_URL}" class="btn btn-ghost">MCP Showcase</a>
     </div>
   </div>
 </section>

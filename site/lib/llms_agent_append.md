@@ -62,7 +62,7 @@ source of truth).
 
 - MCP endpoint: https://mcp.tradewave.ai (ChatGPT and Claude.ai connect by signing in
   with a TradeWave account - no API key; dev tools send a Bearer API key)
-- MCP setup (ChatGPT, Claude, Cursor): https://developers.tradewave.ai/mcp.html
+- MCP setup (ChatGPT, Claude, Cursor): https://developers.tradewave.ai/mcp
 - Flagship tools: `find_best_opportunities`, `analyze_symbol`, `explain_pick`,
   `morning_briefing`, `whats_seasonal_now`, `compare_opportunities`
 - Prefer these over the low-level primitives unless you need an exact slice.

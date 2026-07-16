@@ -17,6 +17,7 @@ DOCS = portal_urls.DOCS_URL
 LEARN = portal_urls.LEARN_URL
 API_BASE = portal_urls.API_BASE
 MCP_URL = portal_urls.MCP_URL
+MCP_SETUP = portal_urls.MCP_SETUP_URL
 CONSOLE = portal_urls.CONSOLE_URL
 MAIN = portal_urls.MAIN_URL
 OG_IMAGE = PORTAL + "/og-developers.png"   # generated brand card (see build_og_image note)
@@ -124,7 +125,7 @@ investment advice.
 
 ## For AI agents (MCP)
 - MCP endpoint (streamable-http; ChatGPT/Claude.ai sign in via OAuth, dev tools use a Bearer API key): {mcp}
-- MCP setup (ChatGPT, Claude, Cursor): {portal}/mcp.html
+- MCP setup (ChatGPT, Claude, Cursor): {mcp_setup}
 - Flagship tools: find_best_opportunities, analyze_symbol, explain_pick, morning_briefing, whats_seasonal_now, compare_opportunities
 - Discovery manifest: {portal}/.well-known/mcp.json
 
@@ -138,7 +139,14 @@ investment advice.
 - OpenAPI spec: {docs}/openapi.yaml
 - Postman collection: {docs}/tradewave.postman_collection.json
 - Pricing: {portal}/pricing.html
-""".format(docs=DOCS, portal=PORTAL, console=CONSOLE, mcp=MCP_URL, learn=LEARN)
+""".format(
+        docs=DOCS,
+        portal=PORTAL,
+        console=CONSOLE,
+        mcp=MCP_URL,
+        mcp_setup=MCP_SETUP,
+        learn=LEARN,
+    )
 
     # Append the agent-era argument (why consume instead of compute + how an agent integrates),
     # authored + honesty-critiqued, stored in llms_agent_append.md. Its hardcoded prod URLs are
@@ -156,7 +164,8 @@ investment advice.
                  .replace("https://mcp.tradewave.ai", MCP_URL)
                  .replace("https://developers.tradewave.ai/docs/openapi.yaml", DOCS + "/openapi.yaml")
                  .replace("https://developers.tradewave.ai/.well-known/mcp.json", PORTAL + "/.well-known/mcp.json")
-                 .replace("https://developers.tradewave.ai/mcp.html", PORTAL + "/mcp.html")
+                 .replace("https://developers.tradewave.ai/mcp.html", MCP_SETUP)
+                 .replace("https://developers.tradewave.ai/mcp", MCP_SETUP)
                  .replace("https://tradewave.ai/account/api/keys", CONSOLE))
         base = base + "\n" + extra
     return base

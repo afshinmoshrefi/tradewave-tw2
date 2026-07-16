@@ -204,9 +204,10 @@ LOGIN_URL = "/login"
 LOGOUT_URL = "/logout"
 DASHBOARD_URL = "/account"
 UPGRADE_URL = "/pricing"
-# The public developer portal (API + MCP + docs), env-resolved (dev -> developers-dev,
-# prod -> developers.tradewave.ai). Surfaced in the footer so users + search engines find it.
-DEVELOPERS_URL = portal_urls.PORTAL_URL
+# Human developer destinations are resolved together so the footer never sends
+# API docs, MCP setup, and the portal home to one indistinguishable root URL.
+# portal_urls fails closed on staging/prod when any public host is missing.
+DEVELOPER_FOOTER_LINKS = portal_urls.DEVELOPER_FOOTER_LINKS
 
 # =============================================================================
 # PRICING URLs - Set these to your actual signup pages for each plan
@@ -1236,7 +1237,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         "featured_pattern": featured_data,
         "scorecard_url": "%sscorecard.html" % DOMAIN_ROOT,
         "methodology_url": "%smethodology" % DOMAIN_ROOT,
-        "developers_url": DEVELOPERS_URL,
+        "developer_footer_links": DEVELOPER_FOOTER_LINKS,
         "scorecard_stats": compute_homepage_scorecard_stats(),
         # Fixed-size forward-ledger preview. The public ledger grows forever;
         # the homepage remains eight current rows with a link to the full record.

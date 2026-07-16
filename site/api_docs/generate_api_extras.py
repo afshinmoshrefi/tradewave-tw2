@@ -36,6 +36,7 @@ import portal_urls  # noqa: E402
 API_BASE = portal_urls.API_BASE                 # https://api.tradewave.ai/v1
 MCP_URL = portal_urls.MCP_URL                   # https://mcp.tradewave.ai
 DOCS_URL = portal_urls.DOCS_URL
+DOCS_HOME_URL = portal_urls.DOCS_HOME_URL
 CONSOLE_URL = portal_urls.CONSOLE_URL
 
 # Sensible, immediately-runnable example values for the known query params, so an imported
@@ -237,7 +238,7 @@ def build_postman(spec: dict) -> str:
             "name": "TradeWave Data API (v1)",
             "description": ("Seasonal-edge + ML-scored seasonal patterns. Seasonal patterns only - no raw prices. "
                             f"Set the collection variable api_key to your tw_live_ key (get one at {CONSOLE_URL}). "
-                            f"Docs: {DOCS_URL}"),
+                            f"Docs: {DOCS_HOME_URL}"),
             "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
         },
         "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{api_key}}", "type": "string"}]},
@@ -257,7 +258,7 @@ def build_well_known_mcp() -> str:
                         "(percentages and a normalized 0-100 seasonal index, never raw prices); "
                         "broker-agnostic. Includes a public, forward-tested daily-pick track record."),
         "version": "1.0.0",
-        "documentation": DOCS_URL,
+        "documentation": DOCS_HOME_URL,
         "mcp": {
             "url": MCP_URL,
             "transport": ["streamable-http"],

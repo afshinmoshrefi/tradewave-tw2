@@ -165,8 +165,14 @@ PORT="${TW2_DEVELOPER_PORT:-$default_port}"
 DEV_HOST="${TW2_DEVELOPERS_PUBLIC_HOST:?TW2_DEVELOPERS_PUBLIC_HOST must be configured}"
 hdr "4/4  smoke (local, via nginx on :$PORT)"
 echo "--- developer portal local smoke: Host=$DEV_HOST port=$PORT ---"
-curl -sI "http://127.0.0.1:$PORT/" -H "Host: $DEV_HOST" || \
-  echo "  (curl failed - nginx/tunnel may not be wired for this host yet; the docroot is still built)"
+for path in / /docs/ /learn/ /playground/ /mcp; do
+  if curl -fsSI "http://127.0.0.1:$PORT$path" -H "Host: $DEV_HOST" >/dev/null; then
+    echo "  OK  $path"
+  else
+    echo "FAIL: developer portal smoke failed for $path on Host=$DEV_HOST port=$PORT" >&2
+    exit 1
+  fi
+done
 
 # Guard: a stale LOWER-env hostname must never ship to a higher env. On staging/prod, fail the
 # build if the generated docroot still contains dev (or, on prod, dev/stage) hostnames - this

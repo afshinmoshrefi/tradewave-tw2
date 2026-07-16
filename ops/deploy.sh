@@ -96,34 +96,38 @@ echo "==> [$ENV] pre-flight: developer-portal hosts are config-driven (no dev-ho
 # The portal bakes TW2_API/DEVELOPERS/MCP_PUBLIC_HOST into PUBLISHED artifacts (openapi.json
 # `servers`, docs back-links, MCP setup). portal_urls now REFUSES to fall back to a dev host,
 # so catch a missing/dev value HERE - before any tier deploys - and say exactly what to set.
-check_portal_host() {  # check_portal_host <key> <recommended-value-for-this-env>
-  local key="$1" want="$2" val
-  val=$($SSH "root@$APP" "grep -m1 '^$key=' /etc/tradewave/secrets.env 2>/dev/null | cut -d= -f2-")
+check_portal_host() {  # check_portal_host <box> <key> <required-value-for-this-env>
+  local box="$1" key="$2" want="$3" val
+  val=$($SSH "root@$box" "grep -m1 '^$key=' /etc/tradewave/secrets.env 2>/dev/null | cut -d= -f2-")
   if [ -z "$val" ]; then
-    echo "ABORT: $key is not set on the APP box ($APP)."
-    echo "       The developer portal would fail to assemble (portal_urls refuses a dev fallback)."
-    echo "       Add to /etc/tradewave/secrets.env on $APP:   $key=$want"
+    echo "ABORT: $key is not set on $box."
+    echo "       Footer/portal generation would fail (portal_urls refuses a dev fallback)."
+    echo "       Add to /etc/tradewave/secrets.env on $box:   $key=$want"
     exit 1
   fi
   case "$val" in
     *-dev.*|*tw2-dev*|*127.0.0.1*|*10.0.0.*|*192.168.*)
-      echo "ABORT: $key=$val on the APP box ($APP) is a DEV/internal host."
+      echo "ABORT: $key=$val on $box is a DEV/internal host."
       echo "       It would leak into the published portal (openapi.json, docs, MCP manifest)."
-      echo "       Set the [$ENV] host in /etc/tradewave/secrets.env on $APP:   $key=$want"
+      echo "       Set the [$ENV] host in /etc/tradewave/secrets.env on $box:   $key=$want"
       exit 1 ;;
   esac
   if [ "$val" != "$want" ]; then
-    echo "ABORT: $key=$val on the APP box ($APP), but [$ENV] requires $want."
+    echo "ABORT: $key=$val on $box, but [$ENV] requires $want."
     echo "       Cross-environment API/MCP/developer hosts can misroute OAuth and customer traffic."
     echo "       Set exactly:   $key=$want"
     exit 1
   fi
-  echo "    $APP -> $key=$val"
+  echo "    $box -> $key=$val"
 }
-# Prod included since the API/MCP prod launch (2026-07-04) - the dark-ship skip is retired.
-check_portal_host TW2_API_PUBLIC_HOST        "$APIHOST"
-check_portal_host TW2_DEVELOPERS_PUBLIC_HOST "$DEVHOST"
-check_portal_host TW2_MCP_PUBLIC_HOST        "$MCPHOST"
+# Both tiers import portal_urls: WEB bakes the main-site footer and APP bakes
+# docs/OpenAPI/MCP discovery.  Validate the same exact matrix before either
+# tier is changed. Prod included since the API/MCP launch.
+for box in "$WEB" "$APP"; do
+  check_portal_host "$box" TW2_API_PUBLIC_HOST         "$APIHOST"
+  check_portal_host "$box" TW2_DEVELOPERS_PUBLIC_HOST  "$DEVHOST"
+  check_portal_host "$box" TW2_MCP_PUBLIC_HOST         "$MCPHOST"
+done
 
 echo "==> [$ENV] pre-flight: split-tier runtime files and API console are complete?"
 $SSH "root@$APP" "sudo -u flask test -r /etc/tradewave/appserver.env && grep -Fqx 'TW2_FEATURED_HISTORY_URL=http://$WEB_VLAN:5500/internal/featured-history' /etc/tradewave/secrets.env && grep -q '^TW2_DEVELOPER_PORT=8080$' /etc/tradewave/secrets.env" || {

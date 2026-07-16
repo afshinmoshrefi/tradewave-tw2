@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Build /tmp/staging_secrets.env from /etc/tradewave/secrets.env on this dev box.
-# Run as root on .176. Output is mode 600 root:root, then scp to staging-app.
+# Build tier-specific staging secrets from /etc/tradewave/secrets.env on this dev box.
+# Run as root on .176. Outputs are mode 600 root:root, then copied to their
+# matching target boxes.
 #
 # What this does:
 #   - Copies all "shared" 3rd-party keys verbatim from dev (EOD_TOKEN,
@@ -26,9 +27,11 @@
 #       DAILY_AI_PICK_GROUP_ID  (optional; falls back to SMN group)
 #
 # After this script:
-#   1. Review /tmp/staging_secrets.env once
-#   2. scp -P $TGT_SSH_PORT /tmp/staging_secrets.env root@$TGT_APP_PUB:/etc/tradewave/secrets.env
-#   3. ssh root@$TGT_APP_PUB -p $TGT_SSH_PORT 'chown root:flask /etc/tradewave/secrets.env && chmod 640 /etc/tradewave/secrets.env'
+#   1. Review /tmp/staging_secrets.env (APP) and /tmp/staging_web_secrets.env (WEB).
+#   2. Copy each tier's file to /etc/tradewave/secrets.env on its matching box.
+#      Both contain the same public-host matrix, but WEB reaches PostgreSQL over
+#      the app VLAN while APP uses loopback.
+#   3. Set root:flask 0640 on /etc/tradewave/secrets.env on both boxes.
 #   4. Save the printed POSTGRES password somewhere — bootstrap_stage_app_db.sh will use it.
 
 set -euo pipefail
@@ -47,6 +50,7 @@ esac
 
 SRC=/etc/tradewave/secrets.env
 DST=/tmp/staging_secrets.env
+WEB_DST=/tmp/staging_web_secrets.env
 
 if [[ "$EUID" -ne 0 ]]; then
     echo "Run as root (needs to read $SRC)." >&2
@@ -59,6 +63,7 @@ fi
 # with a crash, we don't want it lingering on .176 disk.
 on_exit() {
     [[ -f "$DST" ]] && shred -u "$DST" 2>/dev/null || true
+    [[ -f "$WEB_DST" ]] && shred -u "$WEB_DST" 2>/dev/null || true
 }
 trap on_exit INT TERM HUP   # NOT EXIT — normal exit keeps the file for scp
 
@@ -97,6 +102,7 @@ TW2_DEVELOPERS_PUBLIC_HOST=${TGT_DEVELOPERS_HOST}
 TW2_MCP_PUBLIC_URL=https://${TGT_MCP_HOST}
 TW2_DEVELOPER_PORT=8080
 TW2_API_CONSOLE_ENABLED=1
+TW2_MCP_LIVE=1
 # API prices remain dark until the owner completes the environment-specific
 # Stripe seed/verification and deliberately changes this to 1.
 TW2_API_PRICING_LIVE=0
@@ -198,6 +204,15 @@ EOF
 
 chmod 600 "$DST"
 
+# WEB needs the same environment URL matrix and pair-specific secrets, but its
+# database connection must cross the private VLAN to APP. Keep APP on loopback.
+sed "s|@127.0.0.1:5432/tradewave|@${TGT_APP_VLAN}:5432/tradewave|" "$DST" > "$WEB_DST"
+chmod 600 "$WEB_DST"
+grep -Fq "@${TGT_APP_VLAN}:5432/tradewave" "$WEB_DST" || {
+    echo "Failed to create WEB-tier PostgreSQL DSN in $WEB_DST" >&2
+    exit 1
+}
+
 # Safety: this copied WorkOS + Stripe keys from THIS dev box (test mode / shared
 # "Staging" WorkOS env). Production must use its OWN WorkOS production env + LIVE
 # Stripe keys - warn loudly if the target looks like prod.
@@ -208,14 +223,17 @@ case "${TGT_WEB_HOST}" in
     ;;
 esac
 
-echo "Wrote $DST ($(wc -l < "$DST") lines, mode 600)"
+echo "Wrote APP $DST ($(wc -l < "$DST") lines, mode 600)"
+echo "Wrote WEB $WEB_DST ($(wc -l < "$WEB_DST") lines, mode 600)"
 echo
 echo "POSTGRES password is embedded in POSTGRES_DSN in $DST."
 echo "bootstrap_stage_app_db.sh reads it from /etc/tradewave/secrets.env after you scp."
 echo "If you need it on .176 for a manual check:  grep POSTGRES_DSN $DST | cut -d: -f3 | cut -d@ -f1"
 echo
 echo "Next:"
-echo "  1. Inspect /tmp/staging_secrets.env (less /tmp/staging_secrets.env)"
-echo "  2. scp -P ${TGT_SSH_PORT} /tmp/staging_secrets.env root@${TGT_APP_PUB}:/etc/tradewave/secrets.env"
-echo "  3. ssh root@${TGT_APP_PUB} -p ${TGT_SSH_PORT} 'chown root:flask /etc/tradewave/secrets.env && chmod 640 /etc/tradewave/secrets.env'"
-echo "  4. (Optional but recommended) shred -u /tmp/staging_secrets.env after scp"
+echo "  1. Inspect both generated files without printing them into logs"
+echo "  2. Copy each file to /etc/tradewave/secrets.env on its matching tier:"
+echo "       APP $DST -> ${TGT_APP_PUB}:${TGT_SSH_PORT}"
+echo "       WEB $WEB_DST -> ${TGT_WEB_PUB}:${TGT_SSH_PORT}"
+echo "  3. Set root:flask mode 0640 on BOTH target copies"
+echo "  4. (Optional but recommended) shred -u both /tmp files after copying"

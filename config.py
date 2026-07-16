@@ -177,7 +177,7 @@ SUPPORT_IP_HASH_SALT = os.environ.get('SUPPORT_IP_HASH_SALT', '')
 # domain (never a LAN IP):
 #     dev    -> tw2-dev.trxstat.com
 #     stage  -> tw2-stage.trxstat.com
-#     prod   -> tw2-prod.trxstat.com
+#     prod   -> tradewave.ai
 # Set via TW2_PUBLIC_HOST in /etc/tradewave/secrets.env. This drives every
 # user-facing absolute URL: the /app/ auth + logout return_to, the home-page
 # canonical / OG / JSON-LD tags, email-newsletter links, and the article /
