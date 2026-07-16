@@ -300,4 +300,3 @@ def market_in_scope(tier_name, market_id):
 def ml_allowed(tier_name, market_id):
     t = tier_for(tier_name)
     return bool(t["ml_access"]) and str(market_id) in ML_MARKETS
-
