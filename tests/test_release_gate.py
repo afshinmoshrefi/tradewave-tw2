@@ -19,6 +19,14 @@ def test_percentile_is_deterministic():
     assert gate.percentile([5, 1, 4, 2, 3], 0.95) == 4
 
 
+def test_success_message_claims_only_executed_auth_gates():
+    skipped = gate.success_message(oauth_verified=False)
+    verified = gate.success_message(oauth_verified=True)
+    assert "MCP BYOK" in skipped
+    assert "OAuth" not in skipped
+    assert "OAuth" in verified
+
+
 def test_load_gate_rejects_error_budget(monkeypatch):
     samples = iter([
         gate.Sample(0.1, 200, True),

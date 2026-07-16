@@ -146,6 +146,14 @@ def require_healthy(api_base: str, timeout: float) -> None:
         raise RuntimeError("gateway storm breaker fired during the load test")
 
 
+def success_message(oauth_verified: bool) -> str:
+    checks = ["API", "daily-pick", "MCP BYOK"]
+    if oauth_verified:
+        checks.append("OAuth")
+    checks.extend(["load", "storm-breaker"])
+    return "PASS: " + ", ".join(checks) + " gates"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--api-base", default=os.environ.get(
@@ -183,7 +191,7 @@ def main() -> int:
     load_gate(scan_url, key, args.concurrency, args.requests, args.timeout,
               args.max_p95, args.max_error_rate)
     require_healthy(api_base, args.timeout)
-    print("PASS: API, daily-pick, MCP BYOK, OAuth, load, and storm-breaker gates")
+    print(success_message(oauth_verified=not args.skip_oauth))
     return 0
 
 
