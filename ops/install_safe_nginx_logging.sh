@@ -34,6 +34,30 @@ cp -p "$NGINX_MAIN" "$main_rendered"
 render_safe_access_logs() {
   sed -Ei '/^[[:space:]]*access_log[[:space:]]+off[[:space:]]*;/! s#^([[:space:]]*access_log[[:space:]]+[^;[:space:]]+)([[:space:]]+[^;]+)?[[:space:]]*;#\1 tw_noargs;#' "$1"
 }
+order_format_before_access_logs() {
+  local path="$1" first_log format_include ordered
+  first_log="$(grep -nE '^[[:space:]]*access_log[[:space:]]+[^;[:space:]]+' "$path" \
+    | grep -Ev 'access_log[[:space:]]+off[[:space:]]*;' | head -n1 | cut -d: -f1 || true)"
+  format_include="$(grep -nF 'include /etc/nginx/conf.d/*.conf;' "$path" \
+    | head -n1 | cut -d: -f1 || true)"
+  [ -z "$first_log" ] || [ -z "$format_include" ] || [ "$format_include" -lt "$first_log" ] || {
+    ordered="$(mktemp)"
+    awk '
+      /^[[:space:]]*access_log[[:space:]]+[^;[:space:]]+/ &&
+          $0 !~ /access_log[[:space:]]+off[[:space:]]*;/ {
+        pending = pending $0 ORS
+        next
+      }
+      { print }
+      /^[[:space:]]*include \/etc\/nginx\/conf\.d\/\*\.conf;/ {
+        printf "%s", pending
+        pending = ""
+      }
+      END { if (pending != "") exit 42 }
+    ' "$path" >"$ordered"
+    mv "$ordered" "$path"
+  }
+}
 require_safe_access_logs() {
   local path="$1"
   if grep -E '^[[:space:]]*access_log[[:space:]]+' "$path" \
@@ -44,6 +68,10 @@ require_safe_access_logs() {
 }
 render_safe_access_logs "$rendered"
 render_safe_access_logs "$main_rendered"
+# Some distro nginx.conf files include conf.d after the global access_log. Move
+# only pre-include file-backed log directives below that include so tw_noargs is
+# defined before nginx parses its first use.
+order_format_before_access_logs "$main_rendered"
 require_safe_access_logs "$rendered"
 require_safe_access_logs "$main_rendered"
 

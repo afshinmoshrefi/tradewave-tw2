@@ -35,6 +35,8 @@ def test_nginx_safe_log_installer_covers_inherited_global_access_log():
     assert "NGINX_MAIN=/etc/nginx/nginx.conf" in installer
     assert 'render_safe_access_logs "$rendered"' in installer
     assert 'render_safe_access_logs "$main_rendered"' in installer
+    assert 'order_format_before_access_logs "$main_rendered"' in installer
+    assert "include /etc/nginx/conf.d/*.conf;" in installer
     assert 'require_safe_access_logs "$rendered"' in installer
     assert 'require_safe_access_logs "$main_rendered"' in installer
     assert 'install -m 0644 "$main_rendered" "$NGINX_MAIN"' in installer
