@@ -3529,9 +3529,55 @@ def webhook_stripe():
                 web_event = True
 
         elif event_type in subscription_events:
-            product_line, mapped_tier, mapped_period = (
-                _subscription_product_target(price_id, sub_metadata)
-            )
+            # A terminal deletion does not need a price-to-tier lookup.  Prefer
+            # the locally stored subscription identity, then the event's
+            # explicit product line.  This keeps a stale delete from turning
+            # into a retrying 500 merely because its archived Stripe price can
+            # no longer be retrieved.
+            metadata_product_line = str(
+                (sub_metadata or {}).get("product_line") or ""
+            ).strip().lower()
+            if (
+                event_type == "customer.subscription.deleted"
+                and current_api_match
+            ):
+                product_line, mapped_tier, mapped_period = "api", None, None
+            elif (
+                event_type == "customer.subscription.deleted"
+                and current_web_match
+            ):
+                product_line, mapped_tier, mapped_period = "eod", None, None
+            elif (
+                event_type == "customer.subscription.deleted"
+                and metadata_product_line in {"api", "eod"}
+            ):
+                product_line, mapped_tier, mapped_period = (
+                    metadata_product_line, None, None
+                )
+            else:
+                try:
+                    product_line, mapped_tier, mapped_period = (
+                        _subscription_product_target(price_id, sub_metadata)
+                    )
+                except Exception:
+                    if (
+                        event_type != "customer.subscription.deleted"
+                        or not (current_web_sub_id or current_api_sub_id)
+                    ):
+                        raise
+                    # A different current subscription is already recorded and
+                    # the event cannot be classified safely.  Preserve access,
+                    # ACK the delete, and surface it through the existing
+                    # unclassified-delete audit path instead of retrying.
+                    log.warning(
+                        "stripe_webhook could not classify stale delete "
+                        "event=%s sub=%s; preserving current subscriptions",
+                        event_id,
+                        sub_id,
+                        exc_info=True,
+                    )
+                    product_line, mapped_tier, mapped_period = None, None, None
+                    subscription_ignore_reason = "unclassified_subscription"
             # created/updated events were hydrated from current Stripe truth
             # above. A delayed created receipt that now resolves as terminal
             # must revoke access just like an updated/deleted receipt.

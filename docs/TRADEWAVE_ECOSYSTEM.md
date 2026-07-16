@@ -1131,6 +1131,12 @@ roadmap memories.)
     with `users.stripe_subscription_id`. Missing/unrecognized price plus no
     matching current subscription is unclassified and must also be ignored.
     Both cases ACK 200 and write their dedicated audit action.
+    Terminal deletes resolve a matching stored web/API subscription identity
+    before consulting Stripe pricing, then accept an explicit `product_line`
+    from the event. If a different current identity is stored and an ambiguous
+    delete cannot be classified because Stripe pricing is unavailable, preserve
+    access and ACK 200 through the unclassified-delete audit path. A stale or
+    archived price must never turn a safely ignorable delete into a retry storm.
 18. **MailerLite lifecycle triggers are not access groups:** the shared Explorer
     LEVEL group must never trigger onboarding or winback. Only the three
     environment-configured LIFECYCLE groups may trigger those automations.

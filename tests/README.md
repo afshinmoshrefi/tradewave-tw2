@@ -23,6 +23,11 @@ cd /home/flask && make test-unit     # unit-only
 cd /home/flask && make test-db       # DB-only
 ```
 
+The fixtures resolve the repository root from `tests/conftest.py`; they do not
+hardcode `/home/flask` for imports. This is intentional: an integrity run from
+an isolated release-candidate checkout must test that checkout rather than
+silently importing modules from the currently deployed dev tree.
+
 ## API + MCP gateway tests (no DB)
 
 The public API gateway (`apiserver/`) and the MCP server (`mcpserver/`) are covered by

@@ -378,12 +378,15 @@ def test_matching_delete_downgrades_and_queues_winback_reconcile(
         stripe_subscription_status="active",
     )
     event = deleted_event("evt_matching_delete", "cus_match", "sub_match")
-    with patch.object(app_module, "_api_tier_for_price", return_value=None), \
-         patch.object(app_module, "_tier_period_for_price", return_value=("analyst", "yearly")), \
-         patch.object(app_module, "write_audit"):
+    with patch.object(
+        app_module,
+        "_subscription_product_target",
+        side_effect=AssertionError("matching delete must not query Stripe pricing"),
+    ) as classify, patch.object(app_module, "write_audit"):
         response = post_event(app_module, event)
 
     assert response.status_code == 200
+    classify.assert_not_called()
     db_session.expire_all()
     fresh = db_session.query(_models_module.User).filter_by(id=user.id).one()
     assert fresh.tier == "explorer"
@@ -415,11 +418,15 @@ def test_api_subscription_delete_never_touches_web_tier(
     event = deleted_event(
         "evt_api_delete", "cus_api", "sub_api", price_id="price_api",
     )
-    with patch.object(app_module, "_api_tier_for_price", return_value="pro"), \
-         patch.object(app_module, "write_audit"):
+    with patch.object(
+        app_module,
+        "_subscription_product_target",
+        side_effect=AssertionError("matching API delete must not query Stripe pricing"),
+    ) as classify, patch.object(app_module, "write_audit"):
         response = post_event(app_module, event)
 
     assert response.status_code == 200
+    classify.assert_not_called()
     db_session.expire_all()
     fresh = db_session.query(_models_module.User).filter_by(id=user.id).one()
     assert fresh.tier == "strategist"
@@ -951,10 +958,15 @@ def test_stale_api_cancellation_preserves_newer_api_plan(
         "product_line": "api",
         "tier": "pro",
     }
-    with patch.object(app_module, "write_audit"):
+    with patch.object(
+        app_module,
+        "_subscription_product_target",
+        side_effect=AssertionError("stale API delete must not query Stripe pricing"),
+    ) as classify, patch.object(app_module, "write_audit"):
         response = post_event(app_module, event)
 
     assert response.status_code == 200
+    classify.assert_not_called()
     assert response.get_json()["ignored_subscription"] == (
         "stale_api_subscription"
     )
@@ -964,6 +976,38 @@ def test_stale_api_cancellation_preserves_newer_api_plan(
     assert fresh.api_stripe_subscription_id == "sub_api_new"
     assert fresh.tier == "analyst"
     assert fresh.stripe_subscription_id == "sub_web"
+
+
+def test_unclassified_delete_lookup_failure_preserves_current_plan(
+    app_module, db_session, _models_module, make_user, mock_stripe,
+):
+    user = make_user(
+        email="unclassified-delete@example.com",
+        tier="strategist",
+        stripe_customer_id="cus_unclassified_delete",
+        stripe_subscription_id="sub_web_current",
+        stripe_subscription_status="active",
+    )
+    event = deleted_event(
+        "evt_unclassified_delete",
+        "cus_unclassified_delete",
+        "sub_unknown_old",
+        price_id="price_archived_unavailable",
+    )
+    with patch.object(
+        app_module,
+        "_subscription_product_target",
+        side_effect=RuntimeError("Stripe price lookup unavailable"),
+    ), patch.object(app_module, "write_audit"):
+        response = post_event(app_module, event)
+
+    assert response.status_code == 200
+    assert response.get_json()["ignored_delete"] == "unclassified_subscription"
+    db_session.expire_all()
+    fresh = db_session.query(_models_module.User).filter_by(id=user.id).one()
+    assert fresh.tier == "strategist"
+    assert fresh.stripe_subscription_id == "sub_web_current"
+    assert fresh.stripe_subscription_status == "active"
 
 
 def test_late_failed_invoice_cannot_undo_terminal_web_state(

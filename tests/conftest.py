@@ -79,10 +79,14 @@ assert "/tradewave_test" in TEST_DSN, (
     f"(got {TEST_DSN!r}). Set TW2_TEST_POSTGRES_DSN explicitly."
 )
 
-# 3. Make the web/ tree importable so `from models import ...` works the
-# same way the running web tier sees it.
-sys.path.insert(0, "/home/flask")
-sys.path.insert(0, "/home/flask/web")
+# 3. Make this checkout's web/ tree importable so `from models import ...`
+# works the same way the running web tier sees it.  This must be relative to
+# conftest.py rather than hardcoded to /home/flask: integrity runs use an
+# isolated release-candidate checkout on the dev box, and importing the live
+# checkout there would test the wrong code while appearing to pass.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
+sys.path.insert(0, str(_REPO_ROOT / "web"))
 
 
 # ---------------------------------------------------------------------

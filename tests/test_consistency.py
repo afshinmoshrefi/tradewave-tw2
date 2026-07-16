@@ -4,6 +4,7 @@ fall out of sync - the failure mode that bit us before (a phantom tool, a stale 
 re-added portfolio tool). Hermetic: pure file reads, no DB/redis/appserver/fastmcp.
 """
 import ast
+import importlib.util
 import json
 from pathlib import Path
 
@@ -15,8 +16,22 @@ pytestmark = pytest.mark.unit
 
 REPO = Path(__file__).resolve().parents[1]
 SERVER_PY = (REPO / "mcpserver" / "server.py").read_text()
-MANIFEST = json.loads((REPO / "site" / "api_docs" / ".well-known" / "mcp.json").read_text())
 OPENAPI = (REPO / "api" / "openapi.yaml").read_text()
+
+
+def _generated_manifest():
+    """Build the manifest from source without relying on ignored build output."""
+    generator_path = REPO / "site" / "api_docs" / "generate_api_extras.py"
+    spec = importlib.util.spec_from_file_location(
+        "_tradewave_generate_api_extras", generator_path
+    )
+    assert spec is not None and spec.loader is not None
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    return json.loads(generator.build_well_known_mcp())
+
+
+MANIFEST = _generated_manifest()
 
 _FLAGSHIP = ["find_best_opportunities", "analyze_symbol", "explain_pick",
              "morning_briefing", "whats_seasonal_now", "compare_opportunities"]
