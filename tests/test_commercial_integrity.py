@@ -638,15 +638,22 @@ def test_runtime_validates_dedicated_portal_contains_exact_api_catalog(monkeypat
         "bpc_api_test",
     )
     monkeypatch.setattr(billing.config, "STRIPE_SECRET_KEY", "sk_test_fake")
+    retrieve_calls = []
+
+    def retrieve_portal(_configuration_id, **kwargs):
+        retrieve_calls.append(kwargs)
+        return _portal_config("bpc_api_test", portal_products)
+
     monkeypatch.setattr(
         billing.stripe.billing_portal.Configuration,
         "retrieve",
-        staticmethod(lambda _configuration_id: _portal_config(
-            "bpc_api_test", portal_products,
-        )),
+        staticmethod(retrieve_portal),
     )
 
     assert billing._validated_portal_configuration_id() == "bpc_api_test"
+    assert retrieve_calls == [{
+        "expand": ["features.subscription_update.products"],
+    }]
 
     portal_products[0] = {
         "product": "prod_dev",
@@ -691,7 +698,7 @@ def test_runtime_rejects_portal_billing_semantic_drift(
     monkeypatch.setattr(
         billing.stripe.billing_portal.Configuration,
         "retrieve",
-        staticmethod(lambda _configuration_id: portal),
+        staticmethod(lambda _configuration_id, **_kwargs: portal),
     )
 
     with pytest.raises(billing.PortalConfigurationError):
@@ -730,9 +737,18 @@ def test_portal_seeder_is_idempotent_and_dedicated(monkeypatch):
         for tier in seeder.PAID_TIERS
     }
     state = {"configuration": None, "creates": 0, "modifies": 0}
+    retrieval_expands = []
+
+    def summarized_configuration():
+        if state["configuration"] is None:
+            return None
+        summary = _portal_config(state["configuration"].id, [])
+        del summary["features"]["subscription_update"]["products"]
+        return summary
 
     def list_configurations(**_kwargs):
-        items = [state["configuration"]] if state["configuration"] else []
+        summary = summarized_configuration()
+        items = [summary] if summary else []
         return _StripeList(items)
 
     def create_configuration(**kwargs):
@@ -741,7 +757,7 @@ def test_portal_seeder_is_idempotent_and_dedicated(monkeypatch):
             "bpc_api_dedicated",
             kwargs["features"]["subscription_update"]["products"],
         )
-        return state["configuration"]
+        return summarized_configuration()
 
     def modify_configuration(configuration_id, **kwargs):
         state["modifies"] += 1
@@ -749,13 +765,17 @@ def test_portal_seeder_is_idempotent_and_dedicated(monkeypatch):
             configuration_id,
             kwargs["features"]["subscription_update"]["products"],
         )
+        return summarized_configuration()
+
+    def retrieve_configuration(_configuration_id, **kwargs):
+        retrieval_expands.append(kwargs.get("expand"))
         return state["configuration"]
 
     configuration_api = SimpleNamespace(
         list=list_configurations,
         create=create_configuration,
         modify=modify_configuration,
-        retrieve=lambda _configuration_id: state["configuration"],
+        retrieve=retrieve_configuration,
     )
     fake_stripe = SimpleNamespace(
         billing_portal=SimpleNamespace(Configuration=configuration_api),
@@ -775,6 +795,10 @@ def test_portal_seeder_is_idempotent_and_dedicated(monkeypatch):
         "creates": 1,
         "modifies": 0,
     }
+    assert retrieval_expands == [
+        [seeder.PORTAL_PRODUCTS_EXPANSION],
+        [seeder.PORTAL_PRODUCTS_EXPANSION],
+    ]
 
 
 @pytest.mark.unit
@@ -789,7 +813,9 @@ def test_portal_seeder_refuses_shared_default(monkeypatch):
     )
     fake_stripe = SimpleNamespace(
         billing_portal=SimpleNamespace(
-            Configuration=SimpleNamespace(retrieve=lambda _id: shared),
+            Configuration=SimpleNamespace(
+                retrieve=lambda _id, **_kwargs: shared,
+            ),
         ),
     )
 

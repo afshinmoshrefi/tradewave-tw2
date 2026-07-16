@@ -55,6 +55,7 @@ PAID_TIERS = ["dev", "pro", "business"]
 PORTAL_CONFIGURATION_ENV = "TW2_API_BILLING_PORTAL_CONFIGURATION_ID"
 PORTAL_PURPOSE = "api_subscription_management"
 PORTAL_NAME = "TradeWave API subscriptions"
+PORTAL_PRODUCTS_EXPANSION = "features.subscription_update.products"
 
 
 def _as_dict(value):
@@ -417,6 +418,14 @@ def _portal_configuration_matches(configuration, expected_products):
     )
 
 
+def _retrieve_api_portal_configuration(stripe, configuration_id):
+    """Retrieve the complete portal catalog, including expandable products."""
+    return stripe.billing_portal.Configuration.retrieve(
+        configuration_id,
+        expand=[PORTAL_PRODUCTS_EXPANSION],
+    )
+
+
 def _find_api_portal_configuration(stripe):
     configured_id = (os.environ.get(PORTAL_CONFIGURATION_ENV) or "").strip()
     if configured_id and "PLACEHOLDER" in configured_id.upper():
@@ -430,7 +439,9 @@ def _find_api_portal_configuration(stripe):
             "configuration ID" % PORTAL_CONFIGURATION_ENV
         )
     if configured_id:
-        configuration = stripe.billing_portal.Configuration.retrieve(configured_id)
+        configuration = _retrieve_api_portal_configuration(
+            stripe, configured_id,
+        )
         configuration_dict = _as_dict(configuration)
         if configuration_dict.get("is_default"):
             raise RuntimeError(
@@ -460,7 +471,9 @@ def _find_api_portal_configuration(stripe):
             "configurations exist; set %s explicitly"
             % PORTAL_CONFIGURATION_ENV
         )
-    return matches[0] if matches else None
+    if not matches:
+        return None
+    return _retrieve_api_portal_configuration(stripe, matches[0].id)
 
 
 def _ensure_api_portal_configuration(stripe, products, prices):
@@ -478,6 +491,9 @@ def _ensure_api_portal_configuration(stripe, products, prices):
             },
         )
         print("  created API Billing Portal configuration %s" % configuration.id)
+        configuration = _retrieve_api_portal_configuration(
+            stripe, configuration.id,
+        )
     elif _portal_configuration_matches(configuration, expected_products):
         print("  reused API Billing Portal configuration  %s" % configuration.id)
     else:
@@ -492,6 +508,9 @@ def _ensure_api_portal_configuration(stripe, products, prices):
             },
         )
         print("  updated API Billing Portal configuration %s" % configuration.id)
+        configuration = _retrieve_api_portal_configuration(
+            stripe, configuration.id,
+        )
 
     if not _portal_configuration_matches(configuration, expected_products):
         raise RuntimeError(

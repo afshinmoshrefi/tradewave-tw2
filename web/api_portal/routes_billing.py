@@ -364,7 +364,10 @@ def _validated_portal_configuration_id():
     }
 
     portal = _as_dict(
-        stripe.billing_portal.Configuration.retrieve(configuration_id)
+        stripe.billing_portal.Configuration.retrieve(
+            configuration_id,
+            expand=["features.subscription_update.products"],
+        )
     )
     if not portal.get("active") or portal.get("is_default"):
         raise PortalConfigurationError(
