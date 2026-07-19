@@ -909,8 +909,8 @@ def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False
     description=(
         "THE flagship 'what should I trade right now' tool. Scan across markets, rank every "
         "seasonal setup by Sharpe ratio (mirroring TradeWave's own daily-pick selection: "
-        "filter then rank by Sharpe), and return ready, evidence-backed Pattern Cards "
-        "(headline + verdict + receipts + a copyable order ticket). "
+        "filter then rank by Sharpe), and return ready, evidence-backed Pattern Cards with "
+        "an extend_research hand-off (headline + verdict + receipts + a copyable order ticket). "
         "REACH FOR THIS FIRST whenever the user asks 'find me a trade', 'what's good right now', "
         "'anything seasonal in gold / energy / tech', 'best setups this month', or wants a ranked "
         "shortlist - it replaces stitching list_markets + get_seasonal_opportunities yourself. "
@@ -919,7 +919,8 @@ def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
         "Present the complete returned shortlist in rank order; the gateway has already sorted it. "
         "This scan is intentionally LIST-FIRST and does not mount the single-pattern evidence "
-        "widget. The default DECISION view keeps every returned pattern visible. When the user "
+        "widget. The default DECISION view keeps every returned pattern visible with its "
+        "extend_research hand-off. When the user "
         "focuses on one pattern, call analyze_symbol to open its detailed card, exact Wave Viewer "
         "link, and charts. Pass view='table' only when the user explicitly wants a compact list."
     ),

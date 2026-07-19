@@ -199,6 +199,8 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     assert "ui/notifications/tool-result" in server.PATTERN_WIDGET_HTML
     assert "All ${opportunities.length} ranked patterns" in server.PATTERN_WIDGET_HTML
     assert "rankedShortlist(data?.opportunities" in server.PATTERN_WIDGET_HTML
+    assert 'classList.add("no-content")' in server.PATTERN_WIDGET_HTML
+    assert "No chart-bearing TradeWave pattern" not in server.PATTERN_WIDGET_HTML
 
 
 def test_ranked_scan_returns_every_row_without_mounting_detail_widget(monkeypatch):

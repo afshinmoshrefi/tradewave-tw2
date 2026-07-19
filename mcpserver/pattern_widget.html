@@ -20,6 +20,13 @@
       --red: #ff6474;
     }
     * { box-sizing: border-box; }
+    html.no-content, html.no-content body {
+      height: 0 !important;
+      min-height: 0 !important;
+      overflow: hidden;
+      background: transparent;
+    }
+    html.no-content body { padding: 0; }
     body {
       margin: 0;
       padding: 14px;
@@ -359,9 +366,16 @@
         const data = raw?.structuredContent || raw?.result?.structuredContent || raw?.result || raw;
         const card = data?.card || data?.opportunities?.[0];
         if (!card) {
-          app.replaceChildren(htmlEl("div", "status", "No chart-bearing TradeWave pattern was returned for this request."));
+          // An already-connected host may retain this template for the list-first
+          // scan tool after the server removes that association. Collapse instead
+          // of showing a misleading empty detail card above the native ranked list.
+          document.documentElement.classList.add("no-content");
+          document.body.classList.add("no-content");
+          app.replaceChildren();
           return;
         }
+        document.documentElement.classList.remove("no-content");
+        document.body.classList.remove("no-content");
         const chart = card.chart || {};
         const setup = card.setup || {};
         const stats = card.stats || {};
