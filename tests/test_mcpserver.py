@@ -134,9 +134,11 @@ def test_scan_carries_focused_followup_contract(monkeypatch):
 
     out = _run(server.find_best_opportunities(ctx=None))
 
-    assert isinstance(out, str)
-    assert '"required_tool":"analyze_symbol"' in out
-    assert "never require the user to ask for a chart" in out
+    assert isinstance(out, server.CallToolResult)
+    assert out.meta["ui"]["resourceUri"] == server.SCAN_WIDGET_URI
+    rule = out.structuredContent["focused_followup"]
+    assert rule["required_tool"] == "analyze_symbol"
+    assert "never require the user to ask for a chart" in rule["instruction"]
 
 
 def test_analyze_returns_mcp_app_result_with_structured_evidence(monkeypatch):
@@ -176,13 +178,17 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     assert analyze.outputSchema["type"] == "object"
     assert not scan.meta or "ui" not in scan.meta
     assert scan.annotations.readOnlyHint is True
-    assert scan.outputSchema["properties"]["result"]["type"] == "string"
+    assert scan.outputSchema["type"] == "object"
 
     resources = _run(server.mcp.list_resources())
     widget = next(resource for resource in resources if str(resource.uri) == server.PATTERN_WIDGET_URI)
     legacy_widget = next(
         resource for resource in resources
         if str(resource.uri) == server.LEGACY_PATTERN_WIDGET_URI
+    )
+    scan_widget = next(
+        resource for resource in resources
+        if str(resource.uri) == server.SCAN_WIDGET_URI
     )
     assert widget.mimeType == "text/html;profile=mcp-app"
     assert widget.meta["ui"]["prefersBorder"] is True
@@ -193,6 +199,8 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     assert server.LEGACY_PATTERN_WIDGET_URI.endswith("pattern-evidence-v2.html")
     assert legacy_widget.mimeType == "text/html;profile=mcp-app"
     assert server.pattern_evidence_widget_v2() == server.PATTERN_WIDGET_HTML
+    assert scan_widget.mimeType == "text/html;profile=mcp-app"
+    assert server.ranked_opportunities_widget() == server.PATTERN_WIDGET_HTML
     assert 'request("ui/initialize"' in server.PATTERN_WIDGET_HTML
     assert 'notify("ui/notifications/initialized")' in server.PATTERN_WIDGET_HTML
     assert 'notify("ui/notifications/size-changed"' in server.PATTERN_WIDGET_HTML
@@ -239,12 +247,14 @@ def test_ranked_scan_returns_every_row_without_mounting_detail_widget(monkeypatc
     monkeypatch.setattr(server, "_get", fake_get)
     out = _run(server.find_best_opportunities(ctx=None))
 
-    assert isinstance(out, str)
-    assert "Found 2 ranked seasonal setup(s)" in out
-    assert '"symbol":"TJX"' in out
-    assert '"symbol":"ALL"' in out
-    assert out.index('"symbol":"TJX"') < out.index('"symbol":"ALL"')
-    assert "pattern-evidence" not in out
+    assert isinstance(out, server.CallToolResult)
+    assert out.meta["ui"]["resourceUri"] == server.SCAN_WIDGET_URI
+    assert out.meta["openai/outputTemplate"] == server.SCAN_WIDGET_URI
+    assert [row["symbol"] for row in out.structuredContent["opportunities"]] == ["TJX", "ALL"]
+    text = out.content[0].text
+    assert "Found 2 ranked seasonal setup(s)" in text
+    assert "1. TJX LONG" in text
+    assert "2. ALL LONG" in text
 
 
 # --- disclaimer hoist / dedup (token-saving envelope handling) ----------------------

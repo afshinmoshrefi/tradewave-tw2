@@ -307,7 +307,7 @@
         const table = htmlEl("table", "ranked-table");
         const thead = htmlEl("thead");
         const header = htmlEl("tr");
-        ["#", "Pattern", "Entry", "Hold", "Win rate", "Average", "Sharpe", "View"].forEach(label => {
+        ["#", "Pattern", "Entry", "Hold", "Win rate", "Average", "Sharpe", "ML", "View"].forEach(label => {
           header.appendChild(htmlEl("th", "", label));
         });
         thead.appendChild(header);
@@ -336,6 +336,11 @@
           row.appendChild(htmlEl("td", "", pct(stats.avg_return_pct)));
           row.appendChild(htmlEl("td", "", num(stats.sharpe_ratio, 2)));
 
+          const ml = item.ml || item;
+          let mlProbability = Number(ml.ml_win_prob);
+          if (Number.isFinite(mlProbability) && Math.abs(mlProbability) <= 1) mlProbability *= 100;
+          row.appendChild(htmlEl("td", "", Number.isFinite(mlProbability) ? pct(mlProbability, 1) : "-"));
+
           const view = htmlEl("td");
           if (viewer.url) {
             const link = htmlEl("a", "row-open", "Open");
@@ -362,8 +367,33 @@
         return section;
       }
 
+      function renderScan(data) {
+        document.documentElement.classList.remove("no-content");
+        document.body.classList.remove("no-content");
+        app.replaceChildren();
+
+        const opportunities = data.opportunities;
+        const hero = htmlEl("header", "hero");
+        const heroText = htmlEl("div");
+        heroText.append(
+          htmlEl("div", "eyebrow", "TradeWave seasonal scan"),
+          htmlEl("h1", "", `${opportunities.length} ranked opportunities`),
+          htmlEl("div", "window", "Complete shortlist first · select a pattern for detailed charts")
+        );
+        hero.appendChild(heroText);
+        app.appendChild(hero);
+
+        const shortlist = rankedShortlist(opportunities, data.rank_by);
+        if (shortlist) app.appendChild(shortlist);
+        app.appendChild(htmlEl("div", "foot", "TradeWave seasonal statistics are historical and do not guarantee future results."));
+      }
+
       function render(raw) {
         const data = raw?.structuredContent || raw?.result?.structuredContent || raw?.result || raw;
+        if (Array.isArray(data?.opportunities) && data.opportunities.length) {
+          renderScan(data);
+          return;
+        }
         const card = data?.card || data?.opportunities?.[0];
         if (!card) {
           // An already-connected host may retain this template for the list-first

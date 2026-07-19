@@ -88,6 +88,7 @@ MAIN_PUBLIC_URL: str = (
 
 LEGACY_PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v2.html"
 PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v3.html"
+SCAN_WIDGET_URI = "ui://tradewave/ranked-opportunities-v1.html"
 PATTERN_WIDGET_HTML = (Path(__file__).with_name("pattern_widget.html")).read_text(
     encoding="utf-8"
 )
@@ -607,6 +608,34 @@ def pattern_evidence_widget_v2() -> str:
     return PATTERN_WIDGET_HTML
 
 
+@mcp.resource(
+    SCAN_WIDGET_URI,
+    name="tradewave-ranked-opportunities",
+    title="TradeWave Ranked Opportunities",
+    description="Complete ranked seasonal shortlist with exact Wave Viewer links.",
+    mime_type="text/html;profile=mcp-app",
+    meta={
+        "ui": {
+            "prefersBorder": True,
+            "csp": {
+                "connectDomains": [],
+                "resourceDomains": [],
+            },
+        },
+        "openai/widgetDescription": (
+            "Shows every returned TradeWave opportunity in rank order. Detailed charts appear "
+            "only after the user selects a pattern for analysis."
+        ),
+        "openai/widgetCSP": {
+            "redirect_domains": [MAIN_PUBLIC_URL],
+        },
+    },
+)
+def ranked_opportunities_widget() -> str:
+    """Fresh result-level template that overrides stale single-pattern scan metadata."""
+    return PATTERN_WIDGET_HTML
+
+
 def _extract_disclaimer(obj: Any) -> Optional[str]:
     """Recursively pop every identical 'disclaimer' field out of the payload and
     return the first one, so the MCP transport carries the regulator disclaimer
@@ -858,6 +887,21 @@ def _widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> Call
     )
 
 
+def _scan_widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> CallToolResult:
+    """Return the ranked-list component explicitly at result level.
+
+    ChatGPT can retain an older tool descriptor after a connector update. The result-level
+    resource URI is authoritative for this call and prevents that stale descriptor from
+    mounting the single-pattern chart component for a plural scan.
+    """
+    result = _widget_lead(text, data, handoff=handoff)
+    result.meta = {
+        "ui": {"resourceUri": SCAN_WIDGET_URI},
+        "openai/outputTemplate": SCAN_WIDGET_URI,
+    }
+    return result
+
+
 def _lead(text: str, data: Any, handoff: bool = False) -> str:
     """Prepend a one-line conversational lead to the gateway's structured JSON.
 
@@ -918,8 +962,8 @@ def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False
         "weak setups come back as neutral rather than a manufactured trade. "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
         "Present the complete returned shortlist in rank order; the gateway has already sorted it. "
-        "This scan is intentionally LIST-FIRST and does not mount the single-pattern evidence "
-        "widget. The default DECISION view keeps every returned pattern visible with its "
+        "This scan is intentionally LIST-FIRST and never mounts the single-pattern evidence "
+        "widget; its ranked-list component keeps every returned pattern visible with its "
         "extend_research hand-off. When the user "
         "focuses on one pattern, call analyze_symbol to open its detailed card, exact Wave Viewer "
         "link, and charts. Pass view='table' only when the user explicitly wants a compact list."
@@ -931,8 +975,9 @@ def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=True,
 )
-@_tool_errors
+@_widget_tool_errors
 async def find_best_opportunities(
     markets: Annotated[Optional[list[str] | str], Field(description=(
         "Market ids, list_markets names, or common aliases ('sp500','crypto','europe') to "
@@ -989,7 +1034,7 @@ async def find_best_opportunities(
         "Compatibility parameter. Ranked scans remain list-first; use analyze_symbol on a "
         "selected result to render its TradeWave charts."))] = None,
     ctx: Optional[Context] = None,
-) -> str:
+) -> dict[str, Any]:
     _bind_request_key(ctx)
     params: dict[str, Any] = {"view": view or "decision"}
     if markets is not None:
@@ -1052,16 +1097,16 @@ async def find_best_opportunities(
         return f"Found {n} ranked seasonal setup(s){where}, sorted by {by}. Top of the list first:"
 
     if _is_upgrade_stub(data):
-        return _format_upgrade(data)
+        return _scan_widget_lead(_format_upgrade(data), data)
     if isinstance(data, dict):
         count = data.get("count")
         if count == 0 or (count is None and not data.get("opportunities")):
-            return _lead(
+            return _scan_widget_lead(
                 "No high-conviction seasonal setups matched those filters right now. "
                 "Try widening the markets, the window, or lowering min_win_rate.",
                 data,
             )
-    return _lead(_found(data), data, handoff=True)
+    return _scan_widget_lead(_found(data), data, handoff=True)
 
 
 # ---------------------------------------------------------------------------
