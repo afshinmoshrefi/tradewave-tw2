@@ -215,13 +215,15 @@ paths:
       summary: A symbol's top seasonal patterns across the year, ranked by Sharpe (the wave-viewer pattern list)
       parameters:
         - { name: symbol, in: path, required: true, schema: { type: string } }
-        - { name: market, in: query, required: true, schema: { type: string } }
-        - { name: pe_cycle, in: query, schema: { type: string, enum: [consecutive, pe], default: consecutive }, description: "presidential election cycle: 'consecutive' (default) or 'pe' (current cycle position)" }
-        - { name: min_days, in: query, schema: { type: integer }, description: "minimum pattern length in days" }
-        - { name: max_days, in: query, schema: { type: integer }, description: "maximum pattern length in days" }
-        - { name: min_sharpe, in: query, schema: { type: number }, description: "minimum Sharpe ratio" }
-        - { name: years, in: query, schema: { type: integer, default: 10 }, description: "pattern lookback in years (5-98)" }
-        - { name: min_winning_years, in: query, schema: { type: integer }, description: "minimum WINNING years (the win-rate floor; year2). DEFAULTS to ~90% of `years`; validated against the market's DETECTION BAND (~75-90%+, market-specific). Per-symbol patterns exist for market ids 0,1,2,7,9 only; other markets return 400." }
+        - { $ref: "#/components/parameters/SymbolPatternsMarket" }
+        - { $ref: "#/components/parameters/SymbolPatternsPeCycle" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinDays" }
+        - { $ref: "#/components/parameters/SymbolPatternsMaxDays" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinAvgReturn" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinMedianReturn" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinSharpe" }
+        - { $ref: "#/components/parameters/SymbolPatternsYears" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinWinningYears" }
       responses:
         "200":
           description: OK
@@ -237,17 +239,18 @@ paths:
     get:
       tags: [opportunities]
       summary: A symbol's top seasonal patterns across the year, ranked by Sharpe (clearly-named alias)
-      description: "Same data as GET /opportunities/{symbol} - one security's ranked seasonal patterns throughout the year (the wave-viewer pattern dropdown), with the same pe_cycle and column filters."
+      description: "Same data as GET /opportunities/{symbol} - one security's ranked seasonal patterns throughout the year (the wave-viewer pattern dropdown). Both endpoints are served by the same handler, so their parameters are identical (shared $refs below) and cannot drift apart."
       parameters:
         - { name: symbol, in: path, required: true, schema: { type: string } }
-        - { name: market, in: query, required: true, schema: { type: string } }
-        - { name: pe_cycle, in: query, schema: { type: string, enum: [consecutive, pe], default: consecutive }, description: "presidential election cycle: 'consecutive' (default) or 'pe' (current cycle position)" }
-        - { name: min_days, in: query, schema: { type: integer } }
-        - { name: max_days, in: query, schema: { type: integer } }
-        - { name: min_avg_return, in: query, schema: { type: number }, description: "minimum average seasonal profit, PERCENT" }
-        - { name: min_sharpe, in: query, schema: { type: number } }
-        - { name: years, in: query, schema: { type: integer, default: 10 }, description: "pattern lookback in years (5-98)" }
-        - { name: min_winning_years, in: query, schema: { type: integer }, description: "minimum WINNING years (the win-rate floor; year2). DEFAULTS to ~90% of `years`; validated against the market's DETECTION BAND (~75-90%+, market-specific). Per-symbol patterns exist for market ids 0,1,2,7,9 only; other markets return 400." }
+        - { $ref: "#/components/parameters/SymbolPatternsMarket" }
+        - { $ref: "#/components/parameters/SymbolPatternsPeCycle" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinDays" }
+        - { $ref: "#/components/parameters/SymbolPatternsMaxDays" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinAvgReturn" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinMedianReturn" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinSharpe" }
+        - { $ref: "#/components/parameters/SymbolPatternsYears" }
+        - { $ref: "#/components/parameters/SymbolPatternsMinWinningYears" }
       responses:
         "200":
           description: OK
@@ -374,6 +377,59 @@ components:
       required: true
       schema: { type: string }
       description: "permanent resource key '0'..'16'"
+    SymbolPatternsMarket:
+      name: market
+      in: query
+      required: false
+      schema: { type: string }
+      description: >
+        Market id '0'..'16'. Required only when your key has access to more than one
+        market; a single-market key (the free/demo/navigator case) may omit it - the one
+        in-scope market is used automatically.
+    SymbolPatternsPeCycle:
+      name: pe_cycle
+      in: query
+      schema: { type: string, enum: [consecutive, pe], default: consecutive }
+      description: "presidential election cycle: 'consecutive' (default) or 'pe' (current cycle position)"
+    SymbolPatternsMinDays:
+      name: min_days
+      in: query
+      schema: { type: integer }
+      description: "minimum pattern length in days"
+    SymbolPatternsMaxDays:
+      name: max_days
+      in: query
+      schema: { type: integer }
+      description: "maximum pattern length in days"
+    SymbolPatternsMinAvgReturn:
+      name: min_avg_return
+      in: query
+      schema: { type: number }
+      description: "minimum average seasonal profit, PERCENT"
+    SymbolPatternsMinMedianReturn:
+      name: min_median_return
+      in: query
+      schema: { type: number }
+      description: "minimum median seasonal profit, PERCENT"
+    SymbolPatternsMinSharpe:
+      name: min_sharpe
+      in: query
+      schema: { type: number }
+      description: "minimum Sharpe ratio"
+    SymbolPatternsYears:
+      name: years
+      in: query
+      schema: { type: integer, default: 10 }
+      description: "pattern lookback in years (5-98, data-dependent)"
+    SymbolPatternsMinWinningYears:
+      name: min_winning_years
+      in: query
+      schema: { type: integer }
+      description: >
+        of those `years`, the minimum WINNING years (the win-rate floor; year2). DEFAULTS
+        to ~90% of `years`; validated against the market's DETECTION BAND (~75-90%+,
+        market-specific); an out-of-band value returns 400 with the valid range. Per-symbol
+        patterns exist for market ids 0,1,2,7,9 only; other markets return 400.
   responses:
     RateLimited:
       description: >
@@ -411,7 +467,7 @@ components:
       properties:
         symbol: { type: string }
         market: { type: string }
-        direction: { type: string, enum: [long, short], description: "from LorS l/s" }
+        direction: { type: string, enum: [long, short], description: "long or short - which side of the seasonal pattern the stats assume" }
         entry_date: { type: string, format: date }
         days_out: { type: integer, description: "holding period in days (internal: daysOut)" }
         sharpe_ratio: { type: number }
@@ -808,7 +864,15 @@ components:
         error:
           type: object
           properties:
-            code: { type: string, description: "machine-readable, e.g. invalid_request | unauthorized | forbidden | not_found | method_not_allowed | rate_limited | upstream_unavailable | internal" }
+            code:
+              type: string
+              description: >
+                machine-readable, e.g. invalid_request | unauthorized | forbidden | not_found |
+                method_not_allowed | rate_limited | upstream_unavailable | internal |
+                demo_restricted (403 - the public demo token is limited to its 5-ticker
+                allowlist and blocked from enumeration-style endpoints) | scan_busy (503 -
+                the scan cache is warming; retry shortly) | service_misconfigured (503 - a
+                server-side configuration error; never returned as an authentication result)
             message: { type: string }
     RateLimitError:
       type: object
@@ -824,8 +888,16 @@ components:
       type: object
       description: Identity + capabilities for the caller's key (GET /me). Read-only.
       properties:
-        tier: { type: string, enum: [free, dev, pro, business], description: "the key's API tier" }
-        tier_name: { type: string, example: "Explorer (API)" }
+        tier:
+          type: string
+          description: >
+            The caller's tier. The purchasable API ladder is free | dev | pro | business.
+            Bundled or web-linked principals can also see other values depending on how the
+            caller authenticated: 'demo' (the public demo token), 'navigator' (a web
+            Navigator sub bundled into the API, tiers.py INTERNAL_TIERS), or - under MCP
+            OAuth - a web-mirror tier name (explorer | navigator | analyst | strategist,
+            apiserver/auth.py _resolve_mcp). Do not treat this as a closed enum.
+        tier_name: { type: string, example: "Dev" }
         ml_remaining_today: { type: integer, nullable: true, description: "ML calls remaining today (null = unlimited)" }
         ml_daily_limit: { type: integer, nullable: true, description: "the plan's daily ML allowance (null = unlimited)" }
         opp_limit: { type: integer, description: "max results per opportunities/scan call on this plan" }

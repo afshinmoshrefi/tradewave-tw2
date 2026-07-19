@@ -48,7 +48,7 @@ The top result is a `PatternCard`. Here is a trimmed, illustrative one - your li
   "bias": "bullish",
   "setup": {
     "entry_date": "2026-06-05",
-    "entry_window": "2026-06-03..2026-06-08",
+    "entry_window": "2026-06-03 to 2026-06-08",
     "hold_days": 21,
     "exit_date": "2026-06-26"
   },
@@ -63,7 +63,7 @@ The top result is a `PatternCard`. Here is a trimmed, illustrative one - your li
   "ml": { "ml_score": 72, "ml_win_prob": 0.69, "pred_return_pct": 2.8, "pred_mfe_pct": 4.5 },
   "next_step": {
     "order_ticket": {
-      "side": "buy",
+      "side": "BUY",
       "symbol": "XLE",
       "type": "MARKET",
       "time_in_force": "DAY",
@@ -99,7 +99,7 @@ When nothing clears the bar, the card comes back with `bias: "neutral"` and no `
 
 The whole point of `next_step` is that it is ready to execute somewhere else. The `order_ticket` is deliberately minimal and provider-neutral:
 
-- `side` - `buy` or `sell`
+- `side` - `BUY` or `SELL`
 - `symbol` - the ticker
 - `type` - always `MARKET`
 - `time_in_force` - always `DAY`

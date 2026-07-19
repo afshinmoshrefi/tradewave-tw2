@@ -68,7 +68,7 @@ Runtime source: `apiserver/tiers.py:WEB_TIER_TO_MCP`, resolved by
 | Markets | `0` | `0,1,2` | `0,1,2,3,4,11` | All 15 |
 | ML scores per day | 0 | 0 | 100 | Unlimited |
 | Results per call | 10 | 25 | 100 | 500 |
-| Rate per minute / day | 20 / 400 | 30 / 1,000 | 60 / 5,000 | 120 / 20,000 |
+| Rate per minute / day | 20 / 400 | 30 / 1,000 | 60 / 1,000 | 120 / 2,000 |
 
 Temporary MCP exposure is explicit and machine-readable through `teaser_state`:
 
@@ -85,14 +85,17 @@ Temporary MCP exposure is explicit and machine-readable through `teaser_state`:
 Runtime source: `apiserver/tiers.py:API_TIERS`. Paid prices are configured, but public
 price display and self-serve acquisition are hidden while `TW2_API_PRICING_LIVE` is off.
 
+Billing is monthly only (owner decision 2026-07-05, reaffirmed 2026-07-17, pre-launch
+so no grandfathering). There is no annual API price; `price_annual` does not exist
+anywhere in `apiserver/tiers.py`, the seeder, the console, or the pricing page.
+
 | Entitlement | Free | Dev | Pro | Business |
 |---|---:|---:|---:|---:|
 | Monthly price | $0 | $39 | $199 | $599 |
-| Annual price | $0 | $390 | $1,990 | $5,990 |
 | Markets | `2` | `0,1,2,3,4,11` | All 15 | All 15 |
 | ML scores per day | 5 | 100 | Unlimited | Unlimited |
 | Results per call | 3 | 100 | 1,000 | 5,000 |
-| Rate per minute / day | 10 / 100 | 60 / 5,000 | 120 / 50,000 | 300 / 250,000 |
+| Rate per minute / day | 10 / 100 | 60 / 1,000 | 120 / 5,000 | 300 / 20,000 |
 | API keys | 1 | 3 | 10 | 50 |
 
 The `history` field is reserved and not enforced. Do not market a delayed-versus-full

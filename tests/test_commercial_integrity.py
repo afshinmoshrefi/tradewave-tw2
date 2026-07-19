@@ -425,28 +425,27 @@ def test_api_key_rotation_rolls_back_insert_if_revoke_path_fails(
 
 
 def _api_prices():
+    """The API price catalog is MONTHLY ONLY (owner decision 2026-07-05,
+    reaffirmed 2026-07-17) - one active price per paid tier, no annual."""
     from apiserver import tiers
 
     prices = []
     for tier in ("dev", "pro", "business"):
-        for interval, amount_key in (
-            ("month", "price_monthly"),
-            ("year", "price_annual"),
-        ):
-            prices.append(SimpleNamespace(
-                id=f"price_{tier}_{interval}",
-                product={
-                    "id": f"prod_{tier}",
-                    "metadata": {"product_line": "api", "tier": tier},
-                },
-                recurring={"interval": interval, "interval_count": 1},
-                currency="usd",
-                unit_amount=tiers.API_TIERS[tier][amount_key] * 100,
-                metadata={
-                    "product_line": "api", "tier": tier,
-                    "interval": interval,
-                },
-            ))
+        interval = "month"
+        prices.append(SimpleNamespace(
+            id=f"price_{tier}_{interval}",
+            product={
+                "id": f"prod_{tier}",
+                "metadata": {"product_line": "api", "tier": tier},
+            },
+            recurring={"interval": interval, "interval_count": 1},
+            currency="usd",
+            unit_amount=tiers.API_TIERS[tier]["price_monthly"] * 100,
+            metadata={
+                "product_line": "api", "tier": tier,
+                "interval": interval,
+            },
+        ))
     return prices
 
 
@@ -464,7 +463,7 @@ def test_api_price_catalog_accepts_only_exact_complete_catalog(monkeypatch):
 
     billing._refresh_price_cache()
 
-    assert len(billing._price_cache) == 6
+    assert len(billing._price_cache) == 3
 
 
 @pytest.mark.unit
@@ -622,13 +621,12 @@ def test_runtime_validates_dedicated_portal_contains_exact_api_catalog(monkeypat
     prices = _api_prices()
     billing._price_cache.clear()
     for price in prices:
-        interval = price.recurring["interval"]
         tier = price.product["metadata"]["tier"]
-        billing._price_cache[(tier, interval)] = price
+        billing._price_cache[tier] = price
     portal_products = [
         {
             "product": f"prod_{tier}",
-            "prices": [f"price_{tier}_month", f"price_{tier}_year"],
+            "prices": [f"price_{tier}_month"],
         }
         for tier in ("dev", "pro", "business")
     ]
@@ -655,9 +653,11 @@ def test_runtime_validates_dedicated_portal_contains_exact_api_catalog(monkeypat
         "expand": ["features.subscription_update.products"],
     }]
 
+    # Drift: the portal's dev entry points at a stale/wrong price id (e.g. a
+    # leftover annual price) instead of the current monthly one.
     portal_products[0] = {
         "product": "prod_dev",
-        "prices": ["price_dev_month"],
+        "prices": ["price_dev_year"],
     }
     with pytest.raises(billing.PortalConfigurationError):
         billing._validated_portal_configuration_id()
@@ -679,13 +679,11 @@ def test_runtime_rejects_portal_billing_semantic_drift(
     prices = _api_prices()
     billing._price_cache.clear()
     for price in prices:
-        billing._price_cache[
-            (price.product["metadata"]["tier"], price.recurring["interval"])
-        ] = price
+        billing._price_cache[price.product["metadata"]["tier"]] = price
     portal_products = [
         {
             "product": f"prod_{tier}",
-            "prices": [f"price_{tier}_month", f"price_{tier}_year"],
+            "prices": [f"price_{tier}_month"],
         }
         for tier in ("dev", "pro", "business")
     ]
@@ -732,7 +730,6 @@ def test_portal_seeder_is_idempotent_and_dedicated(monkeypatch):
     prices = {
         tier: {
             "month": SimpleNamespace(id=f"price_{tier}_month"),
-            "year": SimpleNamespace(id=f"price_{tier}_year"),
         }
         for tier in seeder.PAID_TIERS
     }

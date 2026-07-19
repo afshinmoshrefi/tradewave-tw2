@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Idempotently create the TradeWave API products + monthly/annual prices and
+"""Idempotently create the TradeWave API products + MONTHLY prices and
 the dedicated API Billing Portal configuration in
 Stripe (Dev/Pro/Business), with metadata product_line=api + tier so the
 console's billing code (and the web app's webhook) can resolve them
 deterministically.
+
+API billing is MONTHLY ONLY (owner decision 2026-07-05, reaffirmed 2026-07-17;
+rationale in apiserver/tiers.py). This script also SELF-HEALS an earlier annual
+seed: it re-points the product's default_price to the monthly price first, then
+archives any active annual price it finds.
 
   DO NOT RUN THIS DURING THE CONSOLE BUILD. The parent runs it ONCE at
   integration with a confirmed Stripe TEST key:
@@ -93,8 +98,8 @@ def _live_banner():
     for tier in PAID_TIERS:
         spec = api_tiers.API_TIERS[tier]
         lines.append(
-            "    - TradeWave API - %-8s  $%d/mo  +  $%d/yr"
-            % (spec["name"], spec["price_monthly"], spec["price_annual"])
+            "    - TradeWave API - %-8s  $%d/mo (monthly only)"
+            % (spec["name"], spec["price_monthly"])
         )
     f = api_tiers.FOUNDER
     lines += [
@@ -343,7 +348,7 @@ def _portal_products(products, prices):
     return [
         {
             "product": products[tier].id,
-            "prices": [prices[tier]["month"].id, prices[tier]["year"].id],
+            "prices": [prices[tier]["month"].id],
         }
         for tier in PAID_TIERS
     ]
@@ -548,18 +553,35 @@ def main():
         products[tier] = product
         prices[tier] = {}
 
-        # Monthly + annual price. Annual is explicitly stored in API_TIERS and
-        # is not inferred in the Stripe writer.
-        prices[tier]["month"] = _ensure_price(stripe, product, tier, "month", spec["price_monthly"])
-        prices[tier]["year"] = _ensure_price(stripe, product, tier, "year", spec["price_annual"])
+        # Monthly price ONLY (annual dropped 2026-07-05, reaffirmed 2026-07-17 -
+        # rationale in apiserver/tiers.py).
+        month_price = _ensure_price(stripe, product, tier, "month", spec["price_monthly"])
+        prices[tier]["month"] = month_price
+
+        # Self-heal an earlier annual seed: default_price must point at monthly
+        # BEFORE archiving (Stripe refuses to archive a product's default price),
+        # then archive every active annual price so the console/portal can never
+        # resolve one.
+        if getattr(product, "default_price", None) != month_price.id:
+            stripe.Product.modify(product.id, default_price=month_price.id)
+            print("    default_price -> %s (monthly)" % month_price.id)
+        for price in stripe.Price.list(product=product.id, active=True, limit=100).auto_paging_iter():
+            rec = _as_dict(getattr(price, "recurring", None))
+            if rec.get("interval") == "year":
+                stripe.Price.modify(price.id, active=False)
+                print("    archived stale annual price %s" % price.id)
 
     print()
     _ensure_api_portal_configuration(stripe, products, prices)
     print()
     _ensure_founder(stripe, products["pro"].id)
 
-    print("\nDone. The console resolves prices live by (metadata product_line=api, tier) + interval; "
-          "the API console uses its dedicated Billing Portal configuration; Founder is the "
+    for tier in PAID_TIERS:
+        spec = api_tiers.API_TIERS[tier]
+        print("  %-8s $%d/mo (monthly only)" % (spec["name"], spec["price_monthly"]))
+
+    print("\nDone. The console resolves prices live by (metadata product_line=api, tier), monthly "
+          "only; the API console uses its dedicated Billing Portal configuration; Founder is the "
           "promo code customers type at checkout. Nothing hardcoded.")
 
 

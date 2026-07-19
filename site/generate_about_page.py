@@ -248,7 +248,7 @@ def build_html():
     </article>
 
     <div class="about-foot">
-      &copy; {year} Tara Data Research LLC &middot;
+            &copy; {year} <a href="https://taradataresearch.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;text-underline-offset:2px">Tara Data Research LLC</a> &middot;
       <a href="/methodology">Methodology</a> &middot;
       <a href="/research.html">Research</a> &middot;
       <a href="/patterns/">Tickers</a> &middot;

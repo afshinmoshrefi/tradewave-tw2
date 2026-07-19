@@ -59,8 +59,9 @@ For EACH env (staging, then prod):
    - WorkOS PROD: same Connect config; Resource Indicator = `https://mcp.tradewave.ai`.
 5. **Restart** appserver (Tara), apiserver (gateway), mcpserver. **Edge:** cloudflared routes for
    `api-*` / `mcp-*` / `developers-*` (+ prod `api.`/`mcp.`/`developers.tradewave.ai`).
-6. **Stripe:** create the 3 paid API products and their monthly/annual prices (Dev/Pro/Business) so paid API
-   signups resolve (the gateway reads prices from product metadata). See `web/api_portal/create_api_products.py`.
+6. **Stripe:** create the 3 paid API products with their monthly prices (monthly only - no annual)
+   (Dev/Pro/Business) so paid API signups resolve (the gateway reads prices from product metadata).
+   See `web/api_portal/create_api_products.py`.
 7. **VERIFY (per env):**
    - BYOK: a `tw_live_` key -> `GET /v1/markets` 200; MCP lists 17 tools (6 flagship + 11 primitives).
    - Discovery: `POST https://<mcp-host>/` -> 401 + WWW-Authenticate(resource_metadata); `/.well-known/

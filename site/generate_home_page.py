@@ -1238,6 +1238,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         "scorecard_url": "%sscorecard.html" % DOMAIN_ROOT,
         "methodology_url": "%smethodology" % DOMAIN_ROOT,
         "developer_footer_links": DEVELOPER_FOOTER_LINKS,
+        "mcp_setup_url": portal_urls.MCP_SETUP_URL,
         "scorecard_stats": compute_homepage_scorecard_stats(),
         # Fixed-size forward-ledger preview. The public ledger grows forever;
         # the homepage remains eight current rows with a link to the full record.
@@ -1268,6 +1269,13 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                 "trials also run 7 days free; those take a card at checkout "
                 "and cancel in one click."
             ),
+            "chat_headline": "Use TradeWave Right Inside ChatGPT or Claude",
+            "chat_copy": (
+                "Connect your account, ask market questions, and work with "
+                "TradeWave data without leaving the chat. Free includes a "
+                "limited preview. Paid access automatically matches the markets, "
+                "history, and tools included with your TradeWave plan."
+            ),
             "default_billing": "yearly",
             "max_yearly_savings": _p['max_yearly_savings'],
             "tiers": [
@@ -1282,14 +1290,14 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "description": "Get a feel for the platform with no credit card required",
                     "trial_badge": "",
                     "features": [
-                        "See today's top 5 seasonal patterns",
+                        "Today's top 3 seasonal patterns",
                         "10 years of seasonal history",
                         "Track up to 5 opportunities in 1 portfolio",
                         "One-click Google Calendar reminders",
                         "Real-time prices and Trend Score",
                         "Earnings date estimates (EDGAR)",
-                        "Election-cycle overlay on loaded patterns",
-                        "~upgrade:Upgrade to unlock AI scoring, all markets, and more",
+                        "Limited TradeWave preview inside ChatGPT and Claude",
+                        "~upgrade:Upgrade to unlock AI scoring",
                     ],
                     # Free start = the ONLY genuinely card-free path (locked
                     # decision 4); the micro-line may say "no card" here ONLY.
@@ -1311,14 +1319,15 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "description": "Hunt seasonal patterns across the three big U.S. indices, with any start date",
                     "trial_badge": "",
                     "features": [
-                        "Dow, NASDAQ 100, and S&P 500 - fully date-unlocked",
+                        "Everything in Free, plus…",
+                        "Dow, Nasdaq 100, and S&P 500 - fully date-unlocked",
                         "Browse any start date, not just today",
                         "15 years of seasonal history",
                         "3 portfolios, track up to 25 opportunities",
-                        "One-click Google Calendar reminders",
                         "1 watchlist, up to 25 symbols",
                         "Election-cycle filter on the opportunity table",
-                        "~upgrade:Upgrade to Analyst for AI scoring and all U.S. stocks plus ETFs",
+                        "Use TradeWave inside ChatGPT and Claude - access matches your plan",
+                        "~upgrade:Upgrade to Analyst",
                     ],
                     # Paid trial: honest label (locked decision 4) - Stripe
                     # collects a card at checkout, so never say "no card" here.
@@ -1343,6 +1352,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "description": "Deep seasonal insights across all U.S. stocks and ETFs with AI scoring",
                     "trial_badge": "",
                     "features": [
+                        "Everything in Navigator, plus…",
                         "AI Pattern Analyst with scoring",
                         "All U.S. stocks + ETFs, custom start dates",
                         # 63 = the data provider's deepest per-stock history (the
@@ -1351,9 +1361,8 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                         # per-stock promise. Re-check if the data provider changes.
                         "Full seasonal history - up to 63 years where data is available",
                         "25 portfolios, track up to 100 opportunities",
-                        "One-click Google Calendar reminders",
                         "10 watchlists, up to 50 symbols each",
-                        "Seasonal Market News articles",
+                        "Daily seasonal market news articles",
                         "LIVE weekly Q&A webinar",
                         "Email Support",
                     ],
@@ -1375,19 +1384,17 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                     "yearly_price": _p['strategist_yearly'],
                     "yearly_period": "/mo, billed yearly",
                     "yearly_original": "",
-                    "description": "Everything in Analyst plus all 15 markets - futures, forex, bonds, foreign indices and crypto - and premium support",
+                    "description": "Broader global market coverage and premium support for professional research workflows",
                     "trial_badge": "7 days free, full access",
                     # ROI anchor - rendered in the Strategist card right under
                     # the features (Erin's full quote + video now live in the
                     # proof section, so the old card_testimonial was deleted).
-                    "roi_anchor": "One research workflow across U.S. stocks, futures, forex, bonds, foreign indices, and crypto.",
+                    "roi_anchor": "One research workflow across U.S. stocks, futures, forex, bond yields, foreign indices, and cryptocurrency.",
                     "features": [
-                        "Everything in Analyst, plus:",
-                        "Futures, forex, bonds, foreign indices, and crypto",
-                        "All 15 markets with full access",
+                        "Everything in Analyst, plus…",
+                        "Futures, forex, bond yields, foreign indices, and cryptocurrency",
                         "100 portfolios; publish up to 500 date-range reports",
                         "50 watchlists, up to 100 symbols each",
-                        "Weekly strategy Zoom call",
                         "Premium Support",
                     ],
                     "cta": "Try Free for 7 Days",
@@ -1436,7 +1443,8 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                 "the same public record, wherever you work."
             ),
             "legal": {
-                "copyright": "%d Tara Data Research LLC. All rights reserved." % datetime.now().year,
+            "copyright": "%d Tara Data Research LLC. All rights reserved." % datetime.now().year,
+            "copyright_year": datetime.now().year,
                 "disclaimer": (
                     "TradeWave is a research platform. It is not a brokerage and "
                     "does not execute trades. All data is based on historical analysis "
@@ -1455,6 +1463,156 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # Absolute URL to a REAL file - /static/images/* does not exist on
             # any box (og:image 404'd; trust-audit critical).
             "og_image": "%s_static/evidence_hero.webp" % CANONICAL_ROOT,
+        },
+
+        # -- Product workflow --
+        # The six-step homepage story supplied in the product mockup. Copy and
+        # asset metadata live here so the template remains presentation-only.
+        "product_story": {
+            "eyebrow": "The Platform",
+            "headline": "One Research Workflow. Every Decision in Context.",
+            "sub": (
+                "Find the strongest seasonal opportunities, test the record "
+                "from every angle, and track the positions you decide to take."
+            ),
+            "steps": [
+                {
+                    "label": "Opportunities Table",
+                    "title": "Find High-Probability Trading Waves",
+                    "body": [
+                        (
+                            "TradeWave's Opportunities Table ranks each day's strongest "
+                            "seasonal setups by Sharpe Ratio, the same risk-adjusted measure "
+                            "institutional desks use."
+                        ),
+                        (
+                            "TradeWave's AI probability score calibrates the historical win "
+                            "probability against current market conditions. It can lower "
+                            "confidence when today's setup is weaker, but it never raises the "
+                            "probability above what history supports."
+                        ),
+                        (
+                            "The cleanest, highest-conviction waves sort straight to the top, "
+                            "so you read the board instead of hunting the market."
+                        ),
+                    ],
+                    "image": "home-opportunities.webp",
+                    "width": 631,
+                    "height": 365,
+                    "alt": (
+                        "TradeWave Opportunities Table for S&P 500 stocks showing Sharpe Ratio, "
+                        "average performance, AI-calibrated win probability, and predicted return"
+                    ),
+                },
+                {
+                    "label": "Stats Table",
+                    "title": "Build a Strategy Based on Rigor",
+                    "body": [
+                        (
+                            "The Stats Table is TradeWave's primary tool for evaluating the "
+                            "historical performance of each pattern. This is where seasonal "
+                            "tendencies are proven."
+                        ),
+                        (
+                            "See how the pattern performed year over year, including win rate, "
+                            "average gain, drawdown, and risk-adjusted performance. Read those "
+                            "numbers and you know in seconds whether a seasonal move has held up."
+                        ),
+                    ],
+                    "image": "home-stats.webp",
+                    "width": 1452,
+                    "height": 689,
+                    "alt": (
+                        "TradeWave Stats Table showing wave details, win rate, Sharpe Ratio, "
+                        "average gain, and cumulative return"
+                    ),
+                },
+                {
+                    "label": "Trend Chart",
+                    "title": "Get a Clear Picture of the Window You Are Looking to Trade",
+                    "body": [
+                        (
+                            "The Trend Chart highlights your chosen timeframe within the broader "
+                            "seasonal trend, so you know exactly where price sits relative to "
+                            "history before the trading window starts."
+                        ),
+                    ],
+                    "image": "home-trend-chart.webp",
+                    "width": 1466,
+                    "height": 701,
+                    "alt": (
+                        "TradeWave Trend Chart highlighting a selected seasonal trading window "
+                        "within ten years of price history"
+                    ),
+                },
+                {
+                    "label": "Seasonal Projection",
+                    "title": "Context Is Everything",
+                    "body": [
+                        (
+                            "Whether you are working from the past few quarters, years, or decades "
+                            "of seasonality, the Seasonal Projection chart builds the forward path "
+                            "and lays it over current price."
+                        ),
+                        (
+                            "Project that path across presidential-cycle years to see how market "
+                            "tendencies have changed during different years of an administration."
+                        ),
+                    ],
+                    "image": "home-seasonal-projection.webp",
+                    "width": 1468,
+                    "height": 703,
+                    "alt": (
+                        "TradeWave price chart with seasonal projection paths extending beyond "
+                        "the current market price"
+                    ),
+                },
+                {
+                    "label": "Year-by-Year Evidence",
+                    "title": "See the Year-by-Year Evidence",
+                    "body": [
+                        (
+                            "TradeWave strips out the long-term trend so the seasonal signal "
+                            "stands on its own, then lays every year side by side, with the gain "
+                            "in green against the drawdown in red."
+                        ),
+                        (
+                            "When the pattern repeats year after year, you are looking at a "
+                            "tendency with history behind it."
+                        ),
+                    ],
+                    "image": "home-year-by-year.webp",
+                    "width": 1466,
+                    "height": 700,
+                    "alt": (
+                        "TradeWave year-by-year chart comparing favorable gains in green with "
+                        "drawdowns in red"
+                    ),
+                },
+                {
+                    "label": "Portfolio Manager",
+                    "title": "Build and Track Multiple Portfolios",
+                    "body": [
+                        (
+                            "Save any wave straight from the Wave Viewer, then set your entry, "
+                            "shares, and price to turn it into a live position. The Portfolio "
+                            "Manager tracks profit and loss on every wave and rolls it into one "
+                            "running total."
+                        ),
+                        (
+                            "Construct separate portfolios for different strategies, timeframes, "
+                            "or accounts, and keep each one's performance in its own view."
+                        ),
+                    ],
+                    "image": "home-portfolios.webp",
+                    "width": 1156,
+                    "height": 522,
+                    "alt": (
+                        "TradeWave Portfolio Manager tracking entry and exit dates, shares, "
+                        "position values, and percentage returns"
+                    ),
+                },
+            ],
         },
 
         # =====================================================================
@@ -1521,7 +1679,17 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
     _asset_dir = Path(__file__).resolve().parent / "static"
     content["asset_v"] = {
         a: int((_asset_dir / a).stat().st_mtime) if (_asset_dir / a).exists() else 0
-        for a in ("evidence_hero.webp", "shows_work.webp", "ask.webp")
+        for a in (
+            "evidence_hero.webp",
+            "shows_work.webp",
+            "ask.webp",
+            "home-opportunities.webp",
+            "home-stats.webp",
+            "home-trend-chart.webp",
+            "home-seasonal-projection.webp",
+            "home-year-by-year.webp",
+            "home-portfolios.webp",
+        )
     }
 
     return template.render(content=content)
@@ -1693,13 +1861,23 @@ def main():
     output_path = output_dir / OUTPUT_FILENAME
     output_path.write_text(html)
 
-    # Copy the home page's embedded image assets into _static so the /_static/*.webp
+    # Copy the home page's embedded image assets into _static so the /_static/*
     # references resolve. The redesign embeds screenshots that have no other copy step
     # (deploy.sh and regen_site do not sync site/static), so they 404 without this.
     src_static = Path(__file__).resolve().parent / "static"
     static_out = output_dir / "_static"
     static_out.mkdir(parents=True, exist_ok=True)
-    for asset in ("evidence_hero.webp", "shows_work.webp", "ask.webp"):
+    for asset in (
+        "evidence_hero.webp",
+        "shows_work.webp",
+        "ask.webp",
+        "home-opportunities.webp",
+        "home-stats.webp",
+        "home-trend-chart.webp",
+        "home-seasonal-projection.webp",
+        "home-year-by-year.webp",
+        "home-portfolios.webp",
+    ):
         src = src_static / asset
         if src.exists():
             shutil.copy2(str(src), str(static_out / asset))

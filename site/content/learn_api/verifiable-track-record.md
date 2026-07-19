@@ -64,8 +64,8 @@ The pick itself is a normal `PatternCard` under the top-level `card` key - perce
     },
     "ml": { "ml_score": 68, "ml_win_prob": 0.66, "pred_return_pct": 2.9, "pred_mfe_pct": 4.7 },
     "receipts": { "...": "per-year history, best/worst year, curve summary" },
-    "disclaimer": "Educational, not personalized advice.",
-    "tier_notes": null
+    "disclaimer": "Educational seasonal pattern + ML research, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+    "tier_notes": "ML score shown."
   },
   "track_record": {
     "count": 198,

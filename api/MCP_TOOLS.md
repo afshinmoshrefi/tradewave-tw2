@@ -27,17 +27,33 @@ verdict, edge_score, receipts, order ticket). The MCP tools forward those struct
 cards verbatim (`json.dumps`) plus a one-line conversational lead - they NEVER recompute
 or re-rank cards client-side. See `api/PATTERNCARD_SPEC.md` for the card shape.
 
-**Auth:** BYOK for v1 - the caller's TradeWave API key gates the server; tier and
-entitlements flow from `users.api_key_hash`. Resolved per call: the incoming MCP
-request's `Authorization: Bearer <key>` (remote sse/streamable-http) else env
-`TRADEWAVE_API_KEY` (stdio). Every tool calls `_bind_request_key(ctx)` at entry; `ctx`
-is a FastMCP `Context` and is stripped from the published input schema by FastMCP.
+**Authentication:** the hosted MCP server supports two authentication paths.
+
+1. **TradeWave account authorization (recommended for ChatGPT and Claude):** the user
+   adds the hosted MCP URL, selects Connect/Authorize, and signs in to TradeWave through
+   WorkOS. The user does **not** create, copy, or paste an API key. The MCP server validates
+   the audience-bound WorkOS OAuth token, maps its `sub` claim to the existing TradeWave
+   user, and applies that user's web subscription, market access, metering, and quotas.
+   The server's `MCP_GATEWAY_KEY` is an internal service credential and is never given to
+   the user or MCP client.
+2. **Bring your own API key (developer alternative):** developer tools and local clients
+   may send a TradeWave key in `Authorization: Bearer <tw_...>`. A stdio deployment may
+   instead read the same user-owned key from `TRADEWAVE_API_KEY`. Tier and entitlements
+   for this path flow from `users.api_key_hash`.
+
+Both paths are resolved independently on every call. Every tool invokes
+`_bind_request_key(ctx)` at entry; `ctx` is a FastMCP `Context` and is stripped from the
+published input schema by FastMCP. Missing or invalid credentials fail authentication.
 
 **Safety contract (same as the API):** patterns only - no raw OHLCV / last price /
 price-by-date. Returns are percentages, never price levels; the seasonal curve is a
-normalized 0-100 index, never a price. ML scores are available on every plan, metered
-daily (free Explorer 5/day, Dev 100/day, Pro + Business unlimited) and only on
-ML-eligible markets (ids 0,1,2,3,4,11). When the daily ML allowance is spent the
+normalized 0-100 index, never a price. Entitlements depend on the authentication path:
+with TradeWave account authorization, the consumer web plans are mirrored exactly
+(Explorer and Navigator receive deterministic seasonal tools, Analyst receives 100 ML
+scores/day, and Strategist receives unlimited ML); temporary trials may widen that access.
+With a developer API key, the API plans apply (Free 5 ML scores/day, Dev 100/day, and
+Pro or Business unlimited). ML scoring is limited to eligible markets (ids 0,1,2,3,4,11).
+When the daily ML allowance is spent the
 gateway returns a graceful 200 nudge - `{requires:"upgrade", reason:"ml_daily_limit",
 message, upgrade_url, ml_remaining_today}` on /v1/score; on cards the field
 `tier_notes` becomes "Daily ML limit reached on your plan - upgrade for unlimited ML
@@ -104,7 +120,7 @@ exceptions - they are meta/onboarding tools the model SHOULD reach for first on
 | `get_symbol_patterns` | `symbol`, `market`, `pe_cycle?`, `years?`, `min_winning_years?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_sharpe?` | a security's TOP seasonal patterns across the year, ranked by Sharpe (the wave-viewer pattern dropdown). COVERAGE: per-symbol patterns exist for market ids **0,1,2,7,9** only (DOW 30, NASDAQ 100, S&P 500, Futures & Commodities, FOREX Liquid); any other market returns a clear error - use `find_best_opportunities` to scan those instead. `years`/`min_winning_years` obey the same per-market band as scan | `GET /v1/securities/{symbol}/patterns` | all |
 | `get_seasonal_pattern` | `market`, `symbol`, `pe_cycle?`, `years?`, `period?`, `reverse?` | bare aggregate seasonal pattern stats (no price series) | `GET /v1/patterns/{id}/{symbol}` | all |
 | `get_opportunity_chart` | `market`, `symbol`, `entry_date?`, `days_out?`, `direction?`, `years?`, `pe_cycle?`, `period?`, `reverse?` | a SINGLE year-averaged, normalized 0-100 seasonal index curve (`seasonal_curve`) - the typical within-year shape, NOT per-year cumulative paths, NOT an image, never a price - PLUS `per_year_bars` (each completed year's trade return with its favorable (mfe)/adverse (mae) excursion band, direction-aware, all percentages); `receipts.curve_summary` describes the TREND OF THE HOLD SECTION (entry to exit), NOT the full year - `peak_day`/`trough_day` are days into the hold (0=entry) | `GET /v1/seasonal-chart` | all |
-| `score_opportunities` | list of `{symbol, date, days_out, direction}` | ML `ml_score` / `win_prob` / `pred_return` / `pred_mfe`; includes `ml_remaining_today` | `POST /v1/score` | all (metered daily: free 5/day, unlimited on Pro; graceful nudge when spent) |
+| `score_opportunities` | list of `{symbol, date, days_out, direction}` | ML `ml_score` / `win_prob` / `pred_return` / `pred_mfe`; includes `ml_remaining_today` | `POST /v1/score` | quota depends on authentication path; see Authentication and Safety contract above |
 | `get_daily_pick` | - | bare daily-pick payload (no receipts) | `GET /v1/daily-pick` | all |
 | `get_pick_track_record` | - | standalone realized win/loss record of past picks | `GET /v1/daily-pick/track-record` | all |
 

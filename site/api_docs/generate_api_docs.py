@@ -433,7 +433,7 @@ def footer_html() -> str:
     <a href="{portal_urls.dev('api-terms.html')}">API Terms</a>
     <a href="{portal_urls.nav('/disclaimer.html')}">Disclaimer</a>
   </nav>
-  <p>&copy; {YEAR} Tara Data Research LLC. All rights reserved.</p>
+      <p>&copy; {YEAR} <a href="https://taradataresearch.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;text-underline-offset:2px">Tara Data Research LLC</a>. All rights reserved.</p>
   <p class="disclaimer">{LEGAL_DISCLAIMER}</p>
 </footer>"""
 
@@ -581,8 +581,8 @@ print(me["tier_name"], "- markets:",
 <h2>2. Scan the top seasonal patterns</h2>
 
 <p><code class="inline-code">/scan</code> ranks the strongest current setups for a market.
-The demo token scans the full S&amp;P 500 and returns the top <code class="inline-code">limit</code>
-ranked seasonal patterns:</p>
+With the demo token, <code class="inline-code">/scan</code> is scoped to the 5 demo tickers
+(<strong>AAPL, MSFT, NVDA, AMZN, TSLA</strong>) - a free key scans the full market:</p>
 
 <div class="code-tabs">
   <div class="code-tab-bar">
@@ -626,35 +626,34 @@ opportunities.forEach(o =>
 
 <p>Real response (top setup shown; arrays trimmed for the docs):</p>
 <pre class="response-ex"><code>{{
-  "count": 2,
-  "evaluated_count": 351,
-  "shown_of_evaluated": "2 of 351",
+  "count": 3,
+  "evaluated_count": 3,
   "rank_by": "sharpe",
   "markets_scanned": ["2"],
   "opportunities": [
     {{
       "rank": 1,
-      "symbol": "MCO",
+      "symbol": "NVDA",
       "market": {{ "id": "2", "name": "S&P 500 STOCKS" }},
       "direction": "long",
       "bias": "bullish",
-      "edge_score": 97,
-      "edge_basis": "win_rate 1.00 x sharpe 3.7 x 10y history",
-      "headline": "MCO long - enter ~Jun 19, hold 29d. Won 10/10 years, avg +5.7%, Sharpe 3.7.",
+      "edge_score": 70,
+      "edge_basis": "win_rate 0.90 x sharpe 1.0 x 10y history",
+      "headline": "NVDA long - enter ~Jul 17, hold 213d. Won 9/10 years, avg +40.8%, Sharpe 1.0.",
       "setup": {{
-        "entry_date": "2026-06-19",
-        "entry_window": "2026-06-16 to 2026-06-22",
-        "exit_date": "2026-07-18",
-        "hold_days": 29
+        "entry_date": "2026-07-17",
+        "entry_window": "2026-07-14 to 2026-07-20",
+        "exit_date": "2027-02-15",
+        "hold_days": 213
       }},
       "stats": {{
-        "historical_win_rate": 1.0, "avg_return_pct": 5.66,
-        "median_return_pct": 5.92, "sharpe_ratio": 3.7, "years": "10"
+        "historical_win_rate": 0.9, "avg_return_pct": 40.84,
+        "median_return_pct": 45.89, "sharpe_ratio": 0.98, "years": "10"
       }},
       "ml": null,
       "next_step": {{
-        "order_ticket": {{ "side": "BUY", "symbol": "MCO", "type": "MARKET",
-                           "time_in_force": "DAY", "suggested_exit_date": "2026-07-18" }}
+        "order_ticket": {{ "side": "BUY", "symbol": "NVDA", "type": "MARKET",
+                           "time_in_force": "DAY", "suggested_exit_date": "2027-02-15" }}
       }},
       "receipts": {{ "...": "per-year wins/losses, best/worst year, seasonal curve summary" }}
     }}
@@ -662,10 +661,10 @@ opportunities.forEach(o =>
 }}</code></pre>
 
 <div class="callout yellow">
-  <p>The scan above is the live, full-list S&amp;P 500 scan, so it surfaces names beyond the
-  5 demo tickers. The per-symbol calls below are where the demo allowlist applies: deep dives
-  work for AAPL, MSFT, NVDA, AMZN and TSLA only. <strong>A free key removes both limits</strong> -
-  any symbol, any market.</p>
+  <p>The demo token's <code class="inline-code">/scan</code> is scoped to the 5 demo tickers
+  (AAPL, MSFT, NVDA, AMZN, TSLA), so <code class="inline-code">evaluated_count</code> above is
+  small on purpose. <strong>A free key unlocks the full market scan</strong> - every symbol in
+  every market your plan covers, not just the 5 demo tickers.</p>
 </div>
 
 <h2>3. Deep-dive one symbol</h2>
@@ -818,6 +817,13 @@ opportunities.forEach(o => console.log(o.rank, o.symbol, o.edge_score));</code><
 # ---------------------------------------------------------------------------
 
 def build_authentication() -> str:
+    # Key limits by tier - read directly from tiers.py (same pattern as build_rate_limits)
+    # so this table can never drift from the real max_keys entitlements.
+    key_limit_rows = "\n".join(
+        f"<tr><td class='tier-name'>{t['name']}</td><td>{t['max_keys']}</td></tr>"
+        for t in API_TIERS.values()
+    )
+
     body = f"""
 <h1>Authentication</h1>
 <p>All requests to the TradeWave API must be authenticated with an API key.</p>
@@ -835,9 +841,8 @@ def build_authentication() -> str:
 <h2>Key management in the console</h2>
 <ol>
   <li>Go to <a href="{portal_urls.signup_url('/account/api/keys')}">Account &rarr; API Keys</a> in the dashboard.</li>
-  <li>Go to <strong>Account &rarr; API Keys</strong>.</li>
   <li><strong>Create</strong> - generates a new key. Copy it immediately; it is displayed only at creation time.</li>
-  <li><strong>Rotate</strong> - generates a new secret for the same key slot and invalidates the old one. Useful when you suspect a key has been exposed.</li>
+  <li><strong>Rotate</strong> - revokes the old key and issues a new key and id in its place. Useful when you suspect a key has been exposed.</li>
   <li><strong>Revoke</strong> - permanently deletes a key. Requests using it will get <code class="inline-code">401</code>.</li>
 </ol>
 
@@ -851,13 +856,11 @@ def build_authentication() -> str:
     </tr>
   </thead>
   <tbody>
-    <tr><td class="tier-name">Free</td><td>1</td></tr>
-    <tr><td class="tier-name">Dev</td><td>3</td></tr>
-    <tr><td class="tier-name">Pro</td><td>10</td></tr>
-    <tr><td class="tier-name">Business</td><td>50</td></tr>
+    {key_limit_rows}
   </tbody>
 </table>
 </div>
+<p>More keys do not multiply your quota - limits are enforced per account, and every key under an account shares the same limits.</p>
 
 <h2>MCP authentication: sign in or bring your own key</h2>
 <p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">{MCP_URL}</code>. It accepts two credentials:</p>
@@ -891,7 +894,7 @@ npx -y mcp-remote {MCP_URL} \\
 <pre><code>{{
   "error": {{
     "code":    "unauthorized",
-    "message": "API key missing or invalid."
+    "message": "invalid or missing API key"
   }}
 }}</code></pre>
 """
@@ -1034,11 +1037,21 @@ EXAMPLE_RESPONSES: dict[str, str] = {
   ]
 }""",
     "GET /patterns/{market_id}/{symbol}": """{
-  "symbol": "AAPL", "market": "2",
+  "disclaimer": "Educational seasonal pattern + ML research, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+  "market": "2",
+  "symbol": "AAPL",
+  "win_rate": 0.8,
   "stats": {
-    "avg_profit_pct": 3.12, "median_profit_pct": 2.88,
-    "win_rate": 0.78,       "sharpe_ratio": 1.84,
-    "sample_size": 18
+    "trade_direction": "long",
+    "percent_profitable": "80%",
+    "num_winners": "8", "num_losers": "2",
+    "avg_profit": "10.66%", "avg_loss": "-4.99%",
+    "median_profit": "9.05%",
+    "sharpe_ratio": "0.85", "sharpe_ratio_mfe": "1.56",
+    "annualized_return": "7.22%", "cumulative_return": "100%",
+    "std_dev": "8.5%", "return_1m": "10.49%", "avg_profit_all": "8%",
+    "trend_long": 79, "trend_long_prev": 65,
+    "trend_short": 0, "trend_short_prev": 5
   }
 }""",
     "GET /seasonal-chart": """{
@@ -1424,16 +1437,25 @@ def build_api_reference() -> str:
 # ---------------------------------------------------------------------------
 
 def build_mcp_reference() -> str:
+    # Preview gate: when consumer MCP connect (ChatGPT/Claude sign-in) has not launched
+    # in this environment, say so up front instead of implying the connector is live.
+    # The rest of the page (stable URLs, nav, the tool reference itself) still renders -
+    # the reference is accurate today; only the launch state changes.
+    preview_banner = "" if portal_urls.MCP_LIVE else """
+<div class="callout yellow">
+  <p><strong>Preview - consumer connect not yet live here.</strong> Signing in from ChatGPT or Claude.ai has not launched in this environment yet. The tool reference below is accurate, and the connector URL will activate at launch. REST API access with your own key is available today - see the <a href="quickstart.html">Quickstart</a>.</p>
+</div>
+"""
     body = f"""
 <h1>MCP Reference</h1>
-<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) that let AI assistants (ChatGPT, Claude, Cursor) reason over detected seasonal patterns directly. ChatGPT, Claude.ai, and Claude Desktop can connect to the hosted server with OAuth - paste the server URL and sign in with your TradeWave account, no API key needed. BYOK clients use an API key. Tier and entitlements flow from the signed-in account or the key.</p>
-
+<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) for detected seasonal patterns, ML scoring, chart data, and the published daily-pick record. ChatGPT and Claude authorize a TradeWave account. Other developer clients can use OAuth when compatible or the developer bearer-authentication path. Access follows the account or developer credential used for the connection.</p>
+{preview_banner}
 <div class="callout">
   <p><strong>A research partner, not a black box.</strong> TradeWave supplies a seasonal + 62-feature-ML statistical edge and the timing only. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
 </div>
 
 <div class="callout">
-  <p><strong>Seasonal patterns only.</strong> The same contract as the REST API applies. No raw prices or OHLCV data is ever returned. ML tools are available on every tier, metered per day (free 5/day, unlimited on Pro/Business). When the daily limit is reached the tool returns a graceful stub instead of an error.</p>
+  <p><strong>Seasonal patterns only.</strong> The same contract as the REST API applies. No raw prices or OHLCV data is ever returned. Seasonal tools are available to every connected plan. ML access follows the credential used to connect: TradeWave-account connections use web-plan entitlements, while developer-key connections use API-plan quotas. If ML is unavailable or its daily allowance is spent, the tool returns a graceful stub instead of failing.</p>
 </div>
 
 <h2>Flagship tools</h2>
@@ -1445,8 +1467,8 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>The workhorse. Scans a market (or the user's watchlist) and returns the strongest seasonal setups right now as ranked decision cards - headline, direction, edge score, entry window, and a research hand-off. Use when the user asks what to trade or when to enter.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">market</code>, <code class="inline-code">window</code> (e.g. "now"), <code class="inline-code">direction</code> (long | short), <code class="inline-code">rank_by</code>, <code class="inline-code">limit</code></p>
+    <p>The workhorse. Scans one or more markets and returns the strongest seasonal setups right now as ranked decision cards - headline, direction, edge score, entry window, and a research hand-off. Use when the user asks what to trade or when to enter.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">markets</code> (plural - a list or CSV of market ids/names), <code class="inline-code">window</code> (e.g. "now"), <code class="inline-code">direction</code> (long | short), <code class="inline-code">min_win_rate</code>, <code class="inline-code">min_years</code>, <code class="inline-code">min_days</code>, <code class="inline-code">max_days</code>, <code class="inline-code">min_avg_return</code>, <code class="inline-code">min_median_return</code>, <code class="inline-code">min_sharpe</code>, <code class="inline-code">pe_cycle</code>, <code class="inline-code">years</code>, <code class="inline-code">min_winning_years</code>, <code class="inline-code">rank_by</code>, <code class="inline-code">limit</code>, <code class="inline-code">view</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/scan</code></p>
   </div>
 </div>
@@ -1458,7 +1480,7 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Deep-dives one named ticker - the best current seasonal setup plus alternative setups, full receipts, and a ready-to-place ticket. Use when the user asks about a specific symbol.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code></p>
+    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code>, <code class="inline-code">direction</code>, <code class="inline-code">days_out</code>, <code class="inline-code">entry_date</code>, <code class="inline-code">pe_cycle</code>, <code class="inline-code">years</code>, <code class="inline-code">period</code>, <code class="inline-code">reverse</code>, <code class="inline-code">view</code>, <code class="inline-code">include_chart</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code></p>
   </div>
 </div>
@@ -1469,9 +1491,9 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Returns the full receipts behind a setup - years tested, per-year win/loss history, best/worst year, the Trend Chart summary, and the seasonal + ML basis. Use when the user asks "why?" or wants to see the evidence behind a card.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code>, <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code></p>
-    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (receipts)</p>
+    <p>Returns today's AI daily pick as a full Pattern Card WITH its live, forward-tested track record - the strongest proof TradeWave can offer (the pick is made in advance, then scored later). Use when the user asks for "today's pick", "the trade of the day", or wants to see proof the seasonal patterns work before trusting them.</p>
+    <p><strong>Inputs:</strong> none</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/daily-pick</code></p>
   </div>
 </div>
 
@@ -1494,8 +1516,8 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>The zero-input starting point. Returns what is seasonally in play right now across the caller's in-scope markets - a fast "what should I be looking at today" overview.</p>
-    <p><strong>Inputs:</strong> none (optional <code class="inline-code">market</code>, <code class="inline-code">limit</code>)</p>
-    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/scan</code></p>
+    <p><strong>Inputs:</strong> none required (optional <code class="inline-code">markets</code> (plural), <code class="inline-code">min_win_rate</code>, <code class="inline-code">view</code>)</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/scan</code> with <code class="inline-code">window=now</code></p>
   </div>
 </div>
 
@@ -1506,8 +1528,8 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Puts two or more setups side by side on the same yardstick - edge score, win rate, Sharpe, avg/median return, ML basis - so the assistant can reason about which is stronger. Use when the user is choosing between candidates.</p>
-    <p><strong>Inputs:</strong> list of <code class="inline-code">{{symbol, market, entry_date, days_out, direction}}</code></p>
-    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (per item)</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">symbols</code> (required, a list of ticker symbols, e.g. <code class="inline-code">["GLD", "SLV", "GDX"]</code>), <code class="inline-code">market</code> (optional, applied to every symbol), <code class="inline-code">view</code></p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (per symbol)</p>
   </div>
 </div>
 
@@ -1532,9 +1554,9 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Reports the caller's identity and entitlements as resolved from the API key - tier, in-scope markets, ML allowance, and remaining quota. Use to check what the current key can do before making scoped calls.</p>
+    <p>Reports the caller's identity and entitlements as resolved from the authenticated TradeWave account or developer key - plan, in-scope markets, ML allowance, and remaining quota. Use it after connecting to confirm what the current connection can access.</p>
     <p><strong>Inputs:</strong> none</p>
-    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/markets</code> (entitlements)</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/me</code></p>
   </div>
 </div>
 
@@ -1570,7 +1592,7 @@ def build_mcp_reference() -> str:
   <div class="tool-card-body">
     <p>Find the best seasonal trade setups for a market and date window, ranked by historical edge. Use when the user asks what to trade, when to enter, or which symbols have a strong seasonal tendency.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">from</code>, <code class="inline-code">to</code>, <code class="inline-code">direction</code> (long | short), <code class="inline-code">min_win_rate</code> (0-1), <code class="inline-code">limit</code></p>
-    <p><strong>Returns:</strong> ranked list - symbol, direction, entry date, holding period, Sharpe ratio, avg/median return %, win rate. ML fields are available on every tier (metered per day) and are null only when your daily ML allowance is spent or the market is not ML-eligible (ids 0-4, 11).</p>
+    <p><strong>Returns:</strong> ranked list - symbol, direction, entry date, holding period, Sharpe ratio, avg/median return %, win rate. ML fields are included only when the connected TradeWave account or developer key has ML access and the market is ML-eligible (ids 0-4, 11); otherwise they are null.</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/opportunities</code></p>
   </div>
 </div>
@@ -1581,9 +1603,9 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Fetches the seasonal setups for a specific symbol. Use when you want the raw per-symbol opportunity rows rather than a synthesized card.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code> (required)</p>
-    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/opportunities/{{symbol}}</code></p>
+    <p>A security's top seasonal patterns throughout the year, ranked by Sharpe ratio - the list the wave viewer shows in its pattern dropdown. Coverage: per-symbol patterns exist for market ids 0, 1, 2, 7, and 9 only (DOW 30, NASDAQ 100, S&amp;P 500, Futures &amp; Commodities, FOREX Liquid); any other market returns a clear error - use <code class="inline-code">find_best_opportunities</code> to scan those instead.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">symbol</code> (required), <code class="inline-code">market</code> (required), <code class="inline-code">pe_cycle</code>, <code class="inline-code">years</code>, <code class="inline-code">min_winning_years</code>, <code class="inline-code">min_days</code>, <code class="inline-code">max_days</code>, <code class="inline-code">min_avg_return</code>, <code class="inline-code">min_sharpe</code></p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/securities/{{symbol}}/patterns</code></p>
   </div>
 </div>
 
@@ -1593,8 +1615,8 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Returns aggregate seasonal pattern statistics for a symbol - win rate, average return, Sharpe, sample size. No price series is returned.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">symbol</code> (required)</p>
+    <p>Returns aggregate seasonal pattern statistics for a symbol - win rate, average/median profit, Sharpe ratio, and related percentages. No price series is returned.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">symbol</code> (required), <code class="inline-code">pe_cycle</code>, <code class="inline-code">years</code>, <code class="inline-code">period</code>, <code class="inline-code">reverse</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/patterns/{{market_id}}/{{symbol}}</code></p>
   </div>
 </div>
@@ -1606,7 +1628,7 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Returns The Trend Chart DATA (not an image) for a seasonal setup - a single year-averaged, normalized 0-100 seasonal index curve (<code class="inline-code">seasonal_curve</code>, one <code class="inline-code">{{date, index}}</code> point per day). It is the typical within-year shape (where it rises, peaks, fades), NOT per-year cumulative price paths, and the index is never a price. Agents can reason over the shape. Raw prices are intentionally not exposed.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">symbol</code> (required), <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code>, <code class="inline-code">years</code></p>
+    <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">symbol</code> (required), <code class="inline-code">entry_date</code>, <code class="inline-code">days_out</code>, <code class="inline-code">direction</code>, <code class="inline-code">years</code>, <code class="inline-code">pe_cycle</code>, <code class="inline-code">period</code>, <code class="inline-code">reverse</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/seasonal-chart</code></p>
   </div>
 </div>
@@ -1617,7 +1639,7 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Runs the ML model on a list of opportunities and returns <code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, and <code class="inline-code">pred_mfe</code> for each. Available on every tier, metered per day (free 5/day, Dev 100/day, Pro/Business unlimited). When the daily limit is reached the response includes a graceful stub instead of scoring - never an error.</p>
+    <p>Runs the ML model on a list of opportunities and returns <code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, and <code class="inline-code">pred_mfe</code> for each. Availability and daily allowance follow the connected TradeWave account's web plan or the developer key's API plan. If ML is unavailable or the daily allowance is spent, the response returns a graceful upgrade stub instead of failing.</p>
     <p><strong>Inputs:</strong> list of <code class="inline-code">{{symbol, date, days_out, direction}}</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">POST /v1/score</code></p>
   </div>
@@ -1649,54 +1671,24 @@ def build_mcp_reference() -> str:
 
 <h2>Connecting to MCP clients</h2>
 
-<p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">{MCP_URL}</code>. ChatGPT, Claude.ai, and Claude Desktop can connect with OAuth: paste the server URL, click Connect, and sign in with your TradeWave account - no API key needed. BYOK clients can send a Bearer API key directly or use the optional <code class="inline-code">mcp-remote</code> bridge.</p>
+<p>Client setup screens change independently of the MCP protocol. Use the <a href="{portal_urls.MCP_CONNECT_GUIDE_URL}">TradeWave MCP setup guide</a> for the current, numbered ChatGPT and Claude instructions and a connection test.</p>
 
-<h3>ChatGPT</h3>
-<p>In ChatGPT, open <strong>Settings &rarr; Connectors</strong> (enable Developer mode under Advanced if you have not already), choose <strong>Create</strong>, and paste the server URL:</p>
-<pre><code>Server URL: {MCP_URL}
-Auth:       OAuth - sign in with your TradeWave account</code></pre>
-<p>ChatGPT discovers the sign-in flow from the server automatically. Click <strong>Connect</strong>, log in with your TradeWave account, and approve. Your plan follows the account you sign in with.</p>
+<ul>
+  <li><strong>ChatGPT, Claude.ai, and Claude Desktop:</strong> add <code class="inline-code">{MCP_URL}</code>, complete the TradeWave sign-in flow, and enable TradeWave in the conversation.</li>
+  <li><strong>Other clients:</strong> use the remote Streamable HTTP connection with OAuth when the client supports it. If the client cannot complete OAuth, use the developer-key fallback below.</li>
+</ul>
 
-<h3>Claude.ai</h3>
-<p>In Claude.ai, open <strong>Settings &rarr; Connectors</strong>, choose <strong>Add custom connector</strong>, and paste the server URL:</p>
-<pre><code>Server URL: {MCP_URL}
-Auth:       OAuth - sign in with your TradeWave account</code></pre>
-<p>Click <strong>Connect</strong> and sign in with your TradeWave account when prompted. No API key needed.</p>
+<h3 id="developer-authentication">Developer-key fallback for other clients</h3>
+<p>This fallback is only for developer clients that cannot complete TradeWave sign-in. ChatGPT and Claude users should follow the setup guide above.</p>
+<ol>
+  <li><a href="{portal_urls.signup_url('/account/api/keys')}">Create a TradeWave developer API key</a>.</li>
+  <li>Configure the MCP server as <code class="inline-code">{MCP_URL}</code> and send <code class="inline-code">Authorization: Bearer &lt;your-key&gt;</code> if the client supports headers.</li>
+  <li>If the client only supports local stdio servers, run <code class="inline-code">mcp-remote</code> as the bridge:</li>
+</ol>
+<pre><code>npx -y mcp-remote {MCP_URL} \\
+  --header "Authorization: Bearer &lt;your-key&gt;"</code></pre>
+<p>Keep the key in the client's secure configuration. Do not paste it into a chat message.</p>
 
-<h3>Claude Desktop</h3>
-<p>For the normal consumer connection, open <strong>Settings &rarr; Connectors</strong>, choose <strong>Add custom connector</strong>, paste <code class="inline-code">{MCP_URL}</code>, and sign in with your TradeWave account. To meter the connection against a separate API key instead, use this optional BYOK bridge in <code class="inline-code">claude_desktop_config.json</code>:</p>
-<pre><code>{{
-  "mcpServers": {{
-    "tradewave": {{
-      "command": "npx",
-      "args": [
-        "-y", "mcp-remote",
-        "{MCP_URL}",
-        "--header", "Authorization: Bearer ${{TRADEWAVE_API_KEY}}"
-      ],
-      "env": {{
-        "TRADEWAVE_API_KEY": "tw_live_&lt;your-key&gt;"
-      }}
-    }}
-  }}
-}}</code></pre>
-<p>Restart Claude Desktop after adding the optional local BYOK configuration.</p>
-
-<h3>Cursor (BYOK)</h3>
-<p>For a Cursor BYOK connection, use the <code class="inline-code">mcp-remote</code> shim with your own API key. In <strong>Cursor Settings &rarr; Features &rarr; MCP Servers</strong>, add:</p>
-<pre><code>{{
-  "tradewave": {{
-    "command": "npx",
-    "args": [
-      "-y", "mcp-remote",
-      "{MCP_URL}",
-      "--header", "Authorization: Bearer ${{TRADEWAVE_API_KEY}}"
-    ],
-    "env": {{
-      "TRADEWAVE_API_KEY": "tw_live_&lt;your-key&gt;"
-    }}
-  }}
-}}</code></pre>
 
 <h2>Tier behavior in MCP</h2>
 <p>OAuth consumer connections mirror the TradeWave web subscription:</p>
@@ -1793,7 +1785,7 @@ def build_data_dictionary() -> str:
 </table>
 
 <h2>ML fields (all tiers, metered per day)</h2>
-<p>ML fields are available on every tier, metered per day: free 5/day, Dev 100/day, Pro/Business unlimited. ML fields are <code class="inline-code">null</code> when the daily limit is exhausted or the market is not ML-eligible (ids 5-13, 16). ML-eligible markets are ids 0, 1, 2, 3, 4, and 11.</p>
+<p>ML fields are available on every tier, metered per day: free 5/day, Dev 100/day, Pro/Business unlimited. ML fields are <code class="inline-code">null</code> when the daily limit is exhausted or the market is not ML-eligible. ML-eligible markets are ids 0, 1, 2, 3, 4, and 11; all other markets (ids 5, 6, 7, 8, 9, 10, 12, 13, and 16) are not ML-eligible.</p>
 <table>
   <thead>
     <tr><th>Field</th><th>Type</th><th>Definition</th></tr>
@@ -1943,7 +1935,7 @@ def build_rate_limits() -> str:
 
     body = f"""
 <h1>Rate Limits &amp; Errors</h1>
-<p>Limits are enforced per API key. Exceeding them returns a <code class="inline-code">429 Too Many Requests</code> response with retry headers.</p>
+<p>Limits are enforced per account, not per API key. Multiple keys under one account share the same limits - keys are for attribution and rotation, not for multiplying quota. Exceeding the limit returns a <code class="inline-code">429 Too Many Requests</code> response with retry headers.</p>
 
 <h2>Per-tier limits</h2>
 <div class="tier-table-wrap">
@@ -2010,9 +2002,12 @@ Content-Type:          application/json
     <tr><td>400</td><td><code class="inline-code">invalid_request</code></td><td>Missing or invalid parameter, including an unknown <strong>market</strong> id/name (see message for details)</td></tr>
     <tr><td>401</td><td><code class="inline-code">unauthorized</code></td><td>Missing or invalid API key</td></tr>
     <tr><td>403</td><td><code class="inline-code">forbidden</code></td><td>Valid key, but the market is outside your plan's scope (upgrade) or not ML-eligible for /score</td></tr>
+    <tr><td>403</td><td><code class="inline-code">demo_restricted</code></td><td>The public demo token was used outside its allowlist (a symbol other than the 5 demo tickers, or a bulk/enumeration endpoint) - create a free key for full access</td></tr>
     <tr><td>404</td><td><code class="inline-code">not_found</code></td><td>Unknown <strong>symbol</strong> (no seasonal data), or an unknown endpoint. An unknown market is a 400, not a 404.</td></tr>
     <tr><td>429</td><td><code class="inline-code">rate_limited</code></td><td>Too many requests - check X-RateLimit-Reset and the scope (minute|day)</td></tr>
+    <tr><td>503</td><td><code class="inline-code">scan_busy</code></td><td>The scan cache is warming up fresh data - retry shortly (a <code class="inline-code">Retry-After</code> header is included)</td></tr>
     <tr><td>503</td><td><code class="inline-code">upstream_unavailable</code></td><td>Chart/seasonal data temporarily unavailable (upstream rate limit/outage) - retry shortly</td></tr>
+    <tr><td>503</td><td><code class="inline-code">service_misconfigured</code></td><td>Server-side auth backend misconfiguration - the API fails closed rather than authenticate incorrectly; try again shortly or contact support</td></tr>
     <tr><td>500</td><td><code class="inline-code">internal</code></td><td>Unexpected server error - try again; report if persistent</td></tr>
   </tbody>
 </table>
@@ -2071,16 +2066,31 @@ def build_changelog() -> str:
 
 <div class="changelog-entry">
   <div class="changelog-version">
+    <span class="version-badge">v1.3.0</span>
+    <span class="version-date">2026-07-17</span>
+    <span class="version-status">Current</span>
+  </div>
+  <p><strong>Documentation-accuracy corrections.</strong></p>
+  <ul>
+    <li>Example responses across the Quickstart and API Reference were regenerated from live gateway calls rather than hand-written, so every field name, type, and value shown is real.</li>
+    <li>The MCP tool reference (inputs and mapped endpoint for every tool) was re-synced against the MCP server source, fixing several drifted tool cards.</li>
+    <li>The rate-limits error catalog was completed with the remaining reachable error codes.</li>
+    <li>Rate limits and API key limits are enforced per account, not per key - clarified throughout the Authentication and Rate Limits pages; the key-limits table now reads live from the tier configuration.</li>
+    <li>Current request quotas are Free 10/min and 100/day, Dev 60/min and 1,000/day, Pro 120/min and 5,000/day, and Business 300/min and 20,000/day.</li>
+  </ul>
+</div>
+
+<div class="changelog-entry">
+  <div class="changelog-version">
     <span class="version-badge">v1.2.0</span>
     <span class="version-date">2026-07-04</span>
-    <span class="version-status">Current</span>
   </div>
   <p><strong>Production launch and entitlement reconciliation.</strong></p>
   <ul>
     <li>The REST API and hosted MCP server launched on production.</li>
     <li>Consumer OAuth MCP now mirrors the web subscription, including the Explorer reverse trial and the one-time Navigator-to-Analyst teaser. BYOK MCP continues to use the standalone API ladder.</li>
     <li>Dev market scope is the 6 U.S. stock and ETF markets. Pro and Business retain all 15 markets.</li>
-    <li>Current rate limits are Pro 120/min and 50k/day; Business 300/min and 250k/day.</li>
+    <li>At launch, rate limits were Pro 120/min and 50k/day; Business 300/min and 250k/day.</li>
   </ul>
 </div>
 

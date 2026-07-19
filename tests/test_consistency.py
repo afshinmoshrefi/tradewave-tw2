@@ -75,7 +75,7 @@ def test_deploy_checklist_uses_current_mcp_and_stripe_inventory():
     )
     assert "MCP lists 17 tools (6 flagship + 11 primitives)" in checklist
     assert "MCP lists 15 tools" not in checklist
-    assert "3 paid API products and their monthly/annual prices" in checklist
+    assert "3 paid API products with their monthly prices (monthly only - no annual)" in checklist
 
 
 def test_no_phantom_tool_anywhere():
@@ -123,24 +123,38 @@ def test_symbol_path_markets_are_the_five_everywhere():
 
 def test_api_price_and_quota_contract_matches_current_spec():
     expected = {
-        "free": (0, 0, 10, 100),
-        "dev": (39, 390, 60, 5_000),
-        "pro": (199, 1_990, 120, 50_000),
-        "business": (599, 5_990, 300, 250_000),
+        "free": (0, 10, 100),
+        "dev": (39, 60, 1_000),
+        "pro": (199, 120, 5_000),
+        "business": (599, 300, 20_000),
     }
-    for name, (monthly, annual, per_minute, per_day) in expected.items():
+    for name, (monthly, per_minute, per_day) in expected.items():
         entitlement = tiers.API_TIERS[name]
         assert entitlement["price_monthly"] == monthly
-        assert entitlement["price_annual"] == annual
         assert entitlement["rate"] == {
             "per_minute": per_minute,
             "per_day": per_day,
         }
 
-    assert tiers.WEB_TIER_TO_MCP["analyst"]["rate"]["per_day"] == 5_000
-    assert tiers.WEB_TIER_TO_MCP["strategist"]["rate"]["per_day"] == 20_000
-    assert "| Annual price | $0 | $390 | $1,990 | $5,990 |" in PRICING_SPEC
-    assert "| Rate per minute / day | 10 / 100 | 60 / 5,000 | 120 / 50,000 | 300 / 250,000 |" in PRICING_SPEC
+    assert tiers.WEB_TIER_TO_MCP["analyst"]["rate"]["per_day"] == 1_000
+    assert tiers.WEB_TIER_TO_MCP["strategist"]["rate"]["per_day"] == 2_000
+    # The API entitlement table (section 4) must not carry an Annual price row;
+    # the web tier table (section 2) legitimately does, so this checks the API
+    # section specifically rather than banning "Annual" from the whole doc.
+    api_section = PRICING_SPEC.split("## 4. Standalone developer API", 1)[1]
+    api_section = api_section.split("## 5.", 1)[0]
+    assert "Annual" not in api_section
+    assert "billed monthly" in api_section.lower() or "monthly only" in api_section.lower()
+    assert "| Rate per minute / day | 10 / 100 | 60 / 1,000 | 120 / 5,000 | 300 / 20,000 |" in PRICING_SPEC
+
+    changelog_source = (
+        REPO / "site" / "api_docs" / "generate_api_docs.py"
+    ).read_text(encoding="utf-8")
+    assert (
+        "Current request quotas are Free 10/min and 100/day, Dev 60/min and "
+        "1,000/day, Pro 120/min and 5,000/day, and Business 300/min and 20,000/day."
+    ) in changelog_source
+    assert "Current rate limits are Pro 120/min and 50k/day" not in changelog_source
 
 
 def test_explicit_and_bundled_api_tiers_resolve_by_max_rank(caplog):
@@ -168,18 +182,27 @@ def test_service_key_provisioners_preserve_configured_keys_and_roles():
         assert "revoked_at = NULL" in source
 
 
-def test_api_billing_sources_keep_both_intervals():
-    paths = [
-        REPO / "web" / "api_portal" / "create_api_products.py",
-        REPO / "web" / "api_portal" / "routes_billing.py",
-        REPO / "web" / "api_portal" / "templates" / "api_billing.html",
-        REPO / "site" / "api_marketing" / "generate.py",
-    ]
+def test_api_billing_is_monthly_only():
+    """Billing is MONTHLY ONLY (owner decision 2026-07-05, reaffirmed 2026-07-17).
+    Guards against annual plumbing creeping back into any of the four billing
+    sources - this is exactly the regression that 93f0a16d accidentally reintroduced
+    while integrating unrelated console/entitlement fixes."""
+    create_products = REPO / "web" / "api_portal" / "create_api_products.py"
+    routes_billing = REPO / "web" / "api_portal" / "routes_billing.py"
+    api_billing_html = REPO / "web" / "api_portal" / "templates" / "api_billing.html"
+    marketing_generate = REPO / "site" / "api_marketing" / "generate.py"
+    paths = [create_products, routes_billing, api_billing_html, marketing_generate]
     sources = [path.read_text() for path in paths]
-    assert all("price_annual" in source for source in sources)
-    assert "_ensure_price(stripe, product, tier, \"year\"" in sources[0]
-    assert "data-cycle=\"year\"" in sources[2]
-    assert "id=\"btn-annual\"" in sources[3]
+
+    assert all("price_annual" not in source for source in sources)
+    # The seeder must never call _ensure_price(..., "year", ...) - the only
+    # "year" it may reference is the self-heal that ARCHIVES a stale annual
+    # price it finds, never one that creates one.
+    assert "_ensure_price(stripe, product, tier, \"year\"" not in sources[0]
+    assert "API plans are billed monthly only; annual billing is not offered." in sources[1]
+    assert "btn-annual" not in sources[2]
+    assert "data-cycle=\"year\"" not in sources[2]
+    assert "btn-annual" not in sources[3]
 
 
 def test_web_imports_are_release_tree_relative():

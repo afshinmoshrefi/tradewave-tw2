@@ -1582,9 +1582,9 @@ def seasonal_chart():
 @v1.post("/score")
 @require_api_key
 def score():
-    r = _demo_block_enumeration()  # batch scoring is an enumeration vector - block the demo token
-    if r:
-        return r
+    if g.customer["entitlements"].get("demo"):
+        return jsonify({"error": {"code": "demo_restricted",
+            "message": "batch scoring is not available on the demo token - use GET /v1/analyze/{symbol} on the demo tickers, or create a free API key for full access"}}), 403
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
         return _err("invalid_request", "JSON body with 'opportunities' is required", 400)

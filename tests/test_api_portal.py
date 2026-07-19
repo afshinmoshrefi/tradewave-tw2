@@ -308,18 +308,24 @@ class TestCheckoutServerSideGuard:
         )
         assert r.status_code == 400
 
-    def test_price_resolution_never_falls_back_across_intervals(
+    def test_price_resolution_is_monthly_only(
         self, app_module, monkeypatch,
     ):
+        """Billing is MONTHLY ONLY (owner decision 2026-07-05, reaffirmed
+        2026-07-17). There is no interval parameter to fall back across - the
+        cache is keyed by tier alone, and only ever holds a monthly price."""
         billing = importlib.import_module("api_portal.routes_billing")
         monthly = object()
-        monkeypatch.setattr(billing, "_price_cache", {("pro", "month"): monthly})
-        assert billing._price_for_tier("pro", "month") is monthly
-        assert billing._price_for_tier("pro", "year") is None
+        monkeypatch.setattr(billing, "_price_cache", {"pro": monthly})
+        assert billing._price_for_tier("pro") is monthly
+        assert billing._price_for_tier("business") is None
 
-    def test_annual_checkout_requests_the_exact_year_price(
+    def test_annual_checkout_is_rejected_before_any_price_lookup(
         self, client, login_as, monkeypatch,
     ):
+        """An explicit annual ask must be rejected loudly (flash + redirect),
+        never silently resolved to a different interval - and it must never
+        even reach price resolution, since none is offered."""
         login_as(tier="explorer")
         r_keys = client.get("/account/api/keys")
         import re
@@ -333,7 +339,7 @@ class TestCheckoutServerSideGuard:
         monkeypatch.setattr(
             billing,
             "_price_for_tier",
-            lambda tier, interval: requested.append((tier, interval)) or None,
+            lambda tier: requested.append(tier) or None,
         )
         response = client.post(
             "/account/api/billing/checkout",
@@ -344,7 +350,8 @@ class TestCheckoutServerSideGuard:
             },
         )
         assert response.status_code == 400
-        assert requested == [("dev", "year")]
+        assert response.headers["Location"].endswith("/account/api/billing")
+        assert requested == []
 
 
 @pytest.mark.db

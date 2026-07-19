@@ -12,9 +12,9 @@ Most clients break on rate limits not because backoff is hard, but because they 
 
 | Limit | Scope | What happens at the edge |
 | --- | --- | --- |
-| **Per-minute rate limit** | Requests per key per minute | A real **HTTP 429**, with `Retry-After`. Back off and retry. |
-| **Per-day request quota** | Requests per key per day | A real **HTTP 429** once exhausted. Resets daily. |
-| **Daily ML allowance** | ML scorings per key per day | Never an error. **HTTP 200** with `ml: null` and an upgrade nudge. |
+| **Per-minute rate limit** | Requests per account per minute | A real **HTTP 429**, with `Retry-After`. Back off and retry. |
+| **Per-day request quota** | Requests per account per day | A real **HTTP 429** once exhausted. Resets daily. |
+| **Daily ML allowance** | ML scorings per account per day | Never an error. **HTTP 200** with `ml: null` and an upgrade nudge. |
 
 The headline distinction: rate and quota limits are transport-level guards that say "slow down" or "come back tomorrow," while the ML allowance is a **product** limit that degrades gracefully instead of failing. Your detected seasonal pattern still arrives even when your ML budget is gone. Everything below is illustrative; live responses carry a `disclaimer` and are educational, not personalized advice.
 
@@ -146,7 +146,7 @@ Your API keys live in the [console]({{CONSOLE_URL}}). Treat them like passwords:
 - **Rotate** on a schedule and before any suspected exposure. Generate the new key, deploy it, confirm traffic has moved, then revoke the old one - that overlap means **zero downtime**.
 - **Revoke** immediately if a key leaks. A revoked key fails authentication on the very next request.
 
-Keep keys server-side and out of source control, logs, and client bundles. Rate limits and quotas are tracked **per key**, so a separate key per service also stops one noisy job from starving another.
+Keep keys server-side and out of source control, logs, and client bundles. Rate limits and quotas are tracked **per account**, not per key - every key on your account shares one bucket, so adding keys never multiplies your quota. A separate key per service does not isolate or increase your budget; it buys you attribution (which key made which call), easy rotation, and blast-radius control (revoke one leaked key without touching the others).
 
 ## Where to go next
 
@@ -154,4 +154,4 @@ Keep keys server-side and out of source control, logs, and client bundles. Rate 
 - [Using the ML win-probability model](/learn/ml-win-probability) - the full `ml` block, metering, and the 90-day horizon.
 - [Cross-market screener](/learn/cross-market-screener) - drive `GET /scan` with `rank_by` and `limit`.
 
-Building an AI agent? The same seasonal patterns - and the same per-key limits and graceful ML metering - apply over MCP at {{MCP_URL}} (sign in with your TradeWave account from ChatGPT or Claude.ai, or bring your own key in the `Authorization` header from dev tools), with tools like `find_best_opportunities` and `analyze_symbol`. We show the edge and the timing; you place the trade at any broker. Every response is educational and carries a disclaimer, not personalized advice.
+Building an AI agent? The same seasonal patterns - and the same per-account limits and graceful ML metering - apply over MCP at {{MCP_URL}} (sign in with your TradeWave account from ChatGPT or Claude.ai, or bring your own key in the `Authorization` header from dev tools), with tools like `find_best_opportunities` and `analyze_symbol`. We show the edge and the timing; you place the trade at any broker. Every response is educational and carries a disclaimer, not personalized advice.
