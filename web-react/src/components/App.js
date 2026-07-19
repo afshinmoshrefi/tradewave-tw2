@@ -456,7 +456,10 @@ const App = () => {
 
     let queryString = window.location.search;
     if (queryString.length > 0 && queryString !== '?set=on') {
-      bottomWindowNumber = 2; // slide 3 (current price chart) for querystring loads
+      const requestedView = new URLSearchParams(queryString).get('view');
+      // MCP evidence links should land on the seasonal Trend Chart (slide 1).
+      // Existing article/report links keep their historical price-chart default.
+      bottomWindowNumber = requestedView === 'evidence' || requestedView === 'trend' ? 0 : 2;
     }
 
     if (bottomWindowNumber === null) return "1";
@@ -2527,7 +2530,10 @@ const App = () => {
 
           // if (rdd.isMobile && !rdd.isTablet && browserH < browserW) {
           if (!rdd.isMobile) {
-            setCookie('WindowNumber', '2', 300) // 0-indexed: slide 3 (current price chart)
+            const requestedView = urlParams.get('view');
+            const requestedWindow = requestedView === 'evidence' || requestedView === 'trend' ? '0' : '2';
+            setCookie('WindowNumber', requestedWindow, 300)
+            SetInitialWindowNum(requestedWindow)
           }
 
           // Querystring loads (from articles/reports) show the current price chart
@@ -2570,7 +2576,10 @@ const App = () => {
 
     const param_str = fg_id + '|' + symbol + '|' + startDate + '|' + daysOut + '|' + years_str;
     const b64 = window.btoa(param_str);
-    const newUrl = window.location.pathname + '?o=' + b64;
+    // Preserve an explicit landing view while keeping legacy ?o= links unchanged.
+    const requestedView = new URLSearchParams(window.location.search).get('view');
+    const viewSuffix = requestedView ? '&view=' + encodeURIComponent(requestedView) : '';
+    const newUrl = window.location.pathname + '?o=' + b64 + viewSuffix;
 
     const patternKey = symbol + '|' + startDate;
 

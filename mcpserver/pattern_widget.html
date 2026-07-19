@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TradeWave Pattern Evidence</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: #0d1a2b;
+      --panel-2: #10243a;
+      --text: #edf6ff;
+      --muted: #9fb4c8;
+      --line: #27445f;
+      --blue: #2f80ed;
+      --blue-soft: rgba(47, 128, 237, .24);
+      --orange: #ff7a3d;
+      --green: #35c98b;
+      --red: #ff6474;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 14px;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .shell { max-width: 980px; margin: 0 auto; }
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .eyebrow { color: #70b7ff; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 3px 0 2px; font-size: 23px; line-height: 1.15; }
+    .window { color: var(--muted); }
+    .open {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 13px;
+      border-radius: 9px;
+      background: var(--blue);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+    .open:hover { filter: brightness(1.08); }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .stat, .panel {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      border-radius: 11px;
+    }
+    .stat { padding: 10px; min-height: 67px; }
+    .stat .label { color: var(--muted); font-size: 11px; }
+    .stat .value { margin-top: 3px; font-size: 18px; font-weight: 800; }
+    .panel { padding: 12px; margin-bottom: 10px; overflow: hidden; }
+    .panel-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 5px; }
+    .panel-title { font-size: 15px; font-weight: 800; }
+    .panel-note { color: var(--muted); font-size: 11px; text-align: right; }
+    .chart-wrap { position: relative; width: 100%; min-height: 245px; }
+    svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .grid { stroke: var(--line); stroke-width: 1; opacity: .7; }
+    .axis-label { fill: var(--muted); font-size: 10px; }
+    .trend-line { fill: none; stroke: #55a4ff; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+    .trend-area { fill: var(--blue-soft); }
+    .zero { stroke: #8aa0b4; stroke-width: 1; }
+    .bar { fill: #2f80d8; opacity: .9; }
+    .net { fill: var(--orange); }
+    .tip {
+      position: absolute;
+      pointer-events: none;
+      display: none;
+      z-index: 2;
+      padding: 6px 8px;
+      border: 1px solid #385773;
+      border-radius: 7px;
+      background: #06101d;
+      color: #fff;
+      font-size: 11px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    }
+    .legend { display: flex; gap: 14px; color: var(--muted); font-size: 11px; margin: 2px 0 0 4px; }
+    .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; border-radius: 2px; }
+    .dot { transform: rotate(45deg); border-radius: 1px; background: var(--orange); }
+    .status { padding: 28px; color: var(--muted); text-align: center; }
+    .foot { color: var(--muted); font-size: 11px; padding: 2px 3px 0; }
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+    @media (max-width: 760px) {
+      body { padding: 10px; }
+      .hero { display: block; }
+      .open { margin-top: 10px; width: 100%; }
+      .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .panel-head { display: block; }
+      .panel-note { text-align: left; margin-top: 2px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell" id="app">
+    <div class="status">Loading TradeWave evidence…</div>
+  </main>
+  <script>
+    (() => {
+      const NS = "http://www.w3.org/2000/svg";
+      const app = document.getElementById("app");
+      const el = (name, attrs = {}) => {
+        const node = document.createElementNS(NS, name);
+        Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+        return node;
+      };
+      const htmlEl = (tag, cls, text) => {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      };
+      const num = (value, digits = 2) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n.toFixed(digits) : "—";
+      };
+      const pct = (value, digits = 2) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? `${n > 0 ? "+" : ""}${n.toFixed(digits)}%` : "—";
+      };
+      const shortDate = (value) => {
+        if (!value) return "—";
+        const parts = String(value).split("-");
+        if (parts.length !== 3) return String(value);
+        const date = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+        return date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+      };
+      const text = (svg, value, x, y, anchor = "start", cls = "axis-label") => {
+        const node = el("text", { x, y, "text-anchor": anchor, class: cls });
+        node.textContent = value;
+        svg.appendChild(node);
+        return node;
+      };
+
+      function statCard(label, value, tone) {
+        const card = htmlEl("div", "stat");
+        card.append(htmlEl("div", "label", label));
+        card.append(htmlEl("div", `value ${tone || ""}`, value));
+        return card;
+      }
+
+      function lineChart(container, points, holdDays) {
+        const data = points.slice(0, Math.min(points.length, Math.max(2, Number(holdDays || 30) + 1)));
+        if (data.length < 2) {
+          container.append(htmlEl("div", "status", "Seasonal trend data is unavailable."));
+          return;
+        }
+        const W = 820, H = 260, M = { l: 48, r: 18, t: 16, b: 34 };
+        const values = data.map(d => Number(d.index)).filter(Number.isFinite);
+        let min = Math.min(...values), max = Math.max(...values);
+        const pad = Math.max((max - min) * .12, .5);
+        min -= pad; max += pad;
+        const x = i => M.l + (i / (data.length - 1)) * (W - M.l - M.r);
+        const y = v => M.t + ((max - v) / (max - min)) * (H - M.t - M.b);
+        const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Normalized seasonal trend" });
+        for (let i = 0; i <= 4; i++) {
+          const value = min + ((max - min) * i / 4);
+          const yy = y(value);
+          svg.appendChild(el("line", { x1: M.l, x2: W - M.r, y1: yy, y2: yy, class: "grid" }));
+          text(svg, num(value, 1), M.l - 7, yy + 3, "end");
+        }
+        const coords = data.map((d, i) => [x(i), y(Number(d.index))]);
+        const line = coords.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+        const area = `${line} L${x(data.length - 1)},${H - M.b} L${x(0)},${H - M.b} Z`;
+        svg.appendChild(el("path", { d: area, class: "trend-area" }));
+        svg.appendChild(el("path", { d: line, class: "trend-line" }));
+        const ticks = [0, Math.floor((data.length - 1) / 2), data.length - 1];
+        ticks.forEach((i, n) => text(svg, shortDate(data[i].date), x(i), H - 11, n === 0 ? "start" : n === 2 ? "end" : "middle"));
+
+        const focusLine = el("line", { y1: M.t, y2: H - M.b, stroke: "#7bb8ff", "stroke-width": 1, opacity: 0 });
+        const focusDot = el("circle", { r: 4, fill: "#fff", stroke: "#2f80ed", "stroke-width": 2, opacity: 0 });
+        svg.append(focusLine, focusDot);
+        const overlay = el("rect", { x: M.l, y: M.t, width: W - M.l - M.r, height: H - M.t - M.b, fill: "transparent" });
+        const tip = htmlEl("div", "tip");
+        overlay.addEventListener("mousemove", event => {
+          const rect = svg.getBoundingClientRect();
+          const localX = ((event.clientX - rect.left) / rect.width) * W;
+          const i = Math.max(0, Math.min(data.length - 1, Math.round((localX - M.l) / (W - M.l - M.r) * (data.length - 1))));
+          const px = x(i), py = y(Number(data[i].index));
+          focusLine.setAttribute("x1", px); focusLine.setAttribute("x2", px); focusLine.setAttribute("opacity", 1);
+          focusDot.setAttribute("cx", px); focusDot.setAttribute("cy", py); focusDot.setAttribute("opacity", 1);
+          tip.textContent = `${shortDate(data[i].date)} · Index ${num(data[i].index, 2)}`;
+          tip.style.display = "block";
+          tip.style.left = `${Math.min(container.clientWidth - 145, Math.max(5, event.clientX - rect.left + 10))}px`;
+          tip.style.top = `${Math.max(2, event.clientY - rect.top - 30)}px`;
+        });
+        overlay.addEventListener("mouseleave", () => {
+          focusLine.setAttribute("opacity", 0); focusDot.setAttribute("opacity", 0); tip.style.display = "none";
+        });
+        svg.appendChild(overlay);
+        container.append(svg, tip);
+      }
+
+      function evidenceBars(container, bars) {
+        if (!Array.isArray(bars) || !bars.length) {
+          container.append(htmlEl("div", "status", "Year-by-year evidence is unavailable."));
+          return;
+        }
+        const W = 820, H = 285, M = { l: 46, r: 18, t: 18, b: 42 };
+        const lo = Math.min(0, ...bars.map(d => Number(d.mae_pct) || 0));
+        const hi = Math.max(0, ...bars.map(d => Number(d.mfe_pct) || 0));
+        const pad = Math.max((hi - lo) * .08, .5);
+        const min = lo - pad, max = hi + pad;
+        const y = v => M.t + ((max - v) / (max - min)) * (H - M.t - M.b);
+        const slot = (W - M.l - M.r) / bars.length;
+        const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Year by year maximum favorable and adverse excursion" });
+        const tickCount = 5;
+        for (let i = 0; i <= tickCount; i++) {
+          const value = min + ((max - min) * i / tickCount);
+          const yy = y(value);
+          svg.appendChild(el("line", { x1: M.l, x2: W - M.r, y1: yy, y2: yy, class: value === 0 ? "zero" : "grid" }));
+          text(svg, pct(value, 0), M.l - 7, yy + 3, "end");
+        }
+        bars.forEach((d, i) => {
+          const center = M.l + slot * i + slot / 2;
+          const top = y(Number(d.mfe_pct));
+          const bottom = y(Number(d.mae_pct));
+          const width = Math.min(32, slot * .48);
+          const rect = el("rect", { x: center - width / 2, y: top, width, height: Math.max(2, bottom - top), rx: 4, class: "bar" });
+          const title = el("title");
+          title.textContent = `${d.year}: worst ${pct(d.mae_pct)}, best ${pct(d.mfe_pct)}, final ${pct(d.net_pct)}`;
+          rect.appendChild(title);
+          svg.appendChild(rect);
+          const py = y(Number(d.net_pct));
+          const diamond = el("rect", { x: center - 5, y: py - 5, width: 10, height: 10, class: "net", transform: `rotate(45 ${center} ${py})` });
+          const netTitle = el("title"); netTitle.textContent = `${d.year} final return ${pct(d.net_pct)}`; diamond.appendChild(netTitle);
+          svg.appendChild(diamond);
+          text(svg, String(d.year), center, H - 14, "middle");
+        });
+        container.appendChild(svg);
+      }
+
+      function panel(titleValue, noteValue) {
+        const node = htmlEl("section", "panel");
+        const head = htmlEl("div", "panel-head");
+        head.append(htmlEl("div", "panel-title", titleValue), htmlEl("div", "panel-note", noteValue));
+        const wrap = htmlEl("div", "chart-wrap");
+        node.append(head, wrap);
+        return [node, wrap];
+      }
+
+      function render(raw) {
+        const data = raw?.structuredContent || raw?.result?.structuredContent || raw?.result || raw;
+        const card = data?.card || data?.opportunities?.[0];
+        if (!card) {
+          app.replaceChildren(htmlEl("div", "status", "No chart-bearing TradeWave pattern was returned for this request."));
+          return;
+        }
+        const chart = card.chart || {};
+        const setup = card.setup || {};
+        const stats = card.stats || {};
+        const ml = card.ml || {};
+        const viewer = card.wave_viewer || data.primary_action || {};
+        app.replaceChildren();
+
+        const hero = htmlEl("header", "hero");
+        const heroText = htmlEl("div");
+        heroText.append(
+          htmlEl("div", "eyebrow", "TradeWave seasonal evidence"),
+          htmlEl("h1", "", `${card.symbol || "Pattern"} · ${(card.direction || card.bias || "").toUpperCase()}`),
+          htmlEl("div", "window", `${shortDate(setup.entry_date)} → ${shortDate(setup.exit_date)} · ${setup.hold_days || "—"} calendar days · ${stats.years || "—"}-year evidence`)
+        );
+        hero.appendChild(heroText);
+        if (viewer.url) {
+          const link = htmlEl("a", "open", "Open exact pattern ↗");
+          link.href = viewer.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+          hero.appendChild(link);
+        }
+        app.appendChild(hero);
+
+        const statsGrid = htmlEl("section", "stats");
+        const wr = Number(stats.historical_win_rate);
+        statsGrid.append(
+          statCard("Win rate", Number.isFinite(wr) ? pct(wr * 100, 0) : "—", wr >= .7 ? "positive" : ""),
+          statCard("Average return", pct(stats.avg_return_pct), Number(stats.avg_return_pct) >= 0 ? "positive" : "negative"),
+          statCard("Median return", pct(stats.median_return_pct), Number(stats.median_return_pct) >= 0 ? "positive" : "negative"),
+          statCard("Sharpe", num(stats.sharpe_ratio, 2)),
+          statCard("Volatility", pct(stats.std_dev_pct)),
+          statCard("ML win probability", ml.ml_win_prob == null ? "—" : pct(Number(ml.ml_win_prob) * (Number(ml.ml_win_prob) <= 1 ? 100 : 1), 1))
+        );
+        app.appendChild(statsGrid);
+
+        const [trendPanel, trendWrap] = panel("Normalized seasonal trend", "The historical path during this exact holding window");
+        lineChart(trendWrap, Array.isArray(chart.trend_chart) ? chart.trend_chart : [], setup.hold_days);
+        app.appendChild(trendPanel);
+
+        const [barsPanel, barsWrap] = panel("Year-by-year path risk and outcome", "Blue = worst-to-best excursion · orange diamond = final return");
+        evidenceBars(barsWrap, chart.per_year_bars || []);
+        const legend = htmlEl("div", "legend");
+        const range = htmlEl("span"); const rangeSwatch = htmlEl("i", "swatch"); rangeSwatch.style.background = "#2f80d8"; range.append(rangeSwatch, document.createTextNode("MFE / MAE range"));
+        const final = htmlEl("span"); final.append(htmlEl("i", "swatch dot"), document.createTextNode("Final return"));
+        legend.append(range, final); barsPanel.appendChild(legend);
+        app.appendChild(barsPanel);
+
+        app.appendChild(htmlEl("div", "foot", "TradeWave seasonal statistics are historical and do not guarantee future results. Use the exact-pattern link to inspect individual years and stress-test the window."));
+      }
+
+      window.addEventListener("message", event => {
+        if (event.source !== window.parent) return;
+        const message = event.data;
+        if (!message || message.jsonrpc !== "2.0" || message.method !== "ui/notifications/tool-result") return;
+        render(message.params);
+      }, { passive: true });
+
+      if (window.openai?.toolOutput) render(window.openai.toolOutput);
+    })();
+  </script>
+</body>
+</html>

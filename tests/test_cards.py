@@ -5,6 +5,8 @@ additions (extend_research, setup.timing, alignment, extended stats, per_year_ba
 view projection) plus the invariants: derived-data only (no price), the edge_score blend,
 neutral, direction-aware receipts, and the short-direction MFE/MAE sign.
 """
+import base64
+
 import pytest
 
 from apiserver import cards
@@ -52,10 +54,20 @@ def test_card_has_all_expected_blocks():
     c = _build()
     for k in ("rank", "symbol", "market", "direction", "bias", "setup", "edge_score",
               "stats", "alignment", "receipts", "extend_research", "next_step",
-              "headline", "verdict", "disclaimer", "tier_notes"):
+              "headline", "verdict", "disclaimer", "tier_notes", "wave_viewer"):
         assert k in c, "missing %s" % k
     assert c["disclaimer"] == cards.DISCLAIMER
     assert c["bias"] == "bullish"
+
+
+def test_wave_viewer_link_opens_exact_pattern(monkeypatch):
+    monkeypatch.setenv("TW2_PUBLIC_HOST", "tradewave.example")
+    link = _build()["wave_viewer"]
+    assert link["url"].startswith("https://tradewave.example/app/?o=")
+    encoded = link["url"].split("?o=", 1)[1].split("&", 1)[0]
+    encoded += "=" * (-len(encoded) % 4)
+    assert base64.b64decode(encoded).decode() == "2|TEST|2026-07-01|21|10"
+    assert link["url"].endswith("&view=evidence")
 
 
 def test_setup_timing_is_computed():
@@ -171,6 +183,9 @@ def test_include_chart_attaches_curve_and_bars():
     assert len(c["chart"]["trend_chart"]) == 2
     assert c["chart"]["trend_chart"][0] == {"date": "2026-07-01", "index": 40.0}
     assert len(c["chart"]["per_year_bars"]) == 10            # 10 completed years, stub excluded
+    assert c["chart"]["presentation_order"] == ["year_by_year_evidence", "seasonal_trend"]
+    assert [spec["id"] for spec in c["chart"]["recommended_charts"]] == [
+        "year_by_year_evidence", "seasonal_trend"]
 
 
 # --- progressive disclosure / view projection ------------------------------------
@@ -178,6 +193,16 @@ def test_include_chart_attaches_curve_and_bars():
 def test_project_full_is_identical_passthrough():
     c = _build()
     assert cards.project_card(c, "full") == c
+
+
+def test_project_evidence_keeps_winner_full_and_trims_runner():
+    winner = _build(include_chart=True)
+    runner = _build(include_chart=True)
+    runner["rank"] = 2
+    assert "per_year" in cards.project_card(winner, "evidence")["receipts"]
+    projected_runner = cards.project_card(runner, "evidence")
+    assert "per_year" not in projected_runner["receipts"]
+    assert "chart" in projected_runner  # explicit chart data is never silently discarded
 
 
 def test_project_decision_trims_but_keeps_decision_essentials():
@@ -199,7 +224,7 @@ def test_project_table_is_a_compact_row():
     row = cards.project_card(_build(), "table")
     assert set(row) == {"rank", "symbol", "market", "direction", "bias", "entry_date",
                         "hold_days", "edge_score", "historical_win_rate", "ml_win_prob",
-                        "sharpe_ratio", "headline"}
+                        "sharpe_ratio", "headline", "wave_viewer"}
     assert row["symbol"] == "TEST" and row["market"] == "S&P 500 STOCKS"
 
 

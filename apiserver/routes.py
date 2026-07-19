@@ -108,13 +108,14 @@ def _today():
     return datetime.date.today().isoformat()
 
 
-_VALID_VIEWS = ("full", "decision", "table")
+_VALID_VIEWS = ("full", "evidence", "decision", "table")
 
 
 def _view_arg(default="full"):
-    """Progressive-disclosure verbosity: ?view=full|decision|table. 'full' is the API
+    """Progressive-disclosure verbosity: ?view=full|evidence|decision|table. 'full' is the API
     default (backward-compatible); the MCP layer asks for 'decision' so the assistant gets
-    the lean read by default. An unknown value falls back to the default (never an error)."""
+    the lean read by default. ``evidence`` keeps the ranked winner full and trims runners.
+    An unknown value falls back to the default (never an error)."""
     v = (request.args.get("view") or "").strip().lower()
     return v if v in _VALID_VIEWS else default
 
@@ -1199,6 +1200,7 @@ def scan():
             prefetched_chart_entries=record.get("chart_entries") or [],
             prefetched_receipts_unavailable=record.get("receipts_unavailable", False))
         card["_opp"] = o
+        card["_chart_entries"] = record.get("chart_entries") or []
         return card
 
     built = []
@@ -1228,6 +1230,9 @@ def scan():
     # curve_summary for the RETURNED cards only (parallel): the richest narratable line,
     # without paying a curve fetch for cards that ranked out. Mirrors build_pattern_card's
     # hold-window slice (the curve starts at entry; the first days_out points are the section).
+    include_chart = _wants_chart()
+    primary = built[0] if built else None
+
     def _add_curve(card):
         o = card["_opp"]
         try:
@@ -1240,13 +1245,24 @@ def scan():
         hold = o.get("days_out")
         section = curve[: hold + 1] if isinstance(hold, int) and hold > 1 else curve
         card["receipts"]["curve_summary"] = cards.curve_summary(section)
+        if include_chart and card is primary:
+            cards.attach_chart_evidence(
+                card, curve, card.get("_chart_entries") or [], o.get("direction"))
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
         list(_ex.map(_add_curve, built))
+
+    # Even when the optional seasonal curve fetch fails, keep the winner's per-year
+    # evidence chart. A partial evidence pack is more useful than silently dropping both.
+    if include_chart and primary is not None and "chart" not in primary:
+        cards.attach_chart_evidence(
+            primary, [], primary.get("_chart_entries") or [],
+            (primary.get("_opp") or {}).get("direction"))
 
     for i, c in enumerate(built, 1):
         c["rank"] = i
         c.pop("_sortkey", None)
         c.pop("_opp", None)
+        c.pop("_chart_entries", None)
 
     # --- the honest one-line lead (computed on the FULL cards, before projection) ---
     # Scan honesty: an all-neutral page must never read as "Found N setups"; a degraded
@@ -1582,6 +1598,8 @@ def seasonal_chart():
 @v1.post("/score")
 @require_api_key
 def score():
+    # Preserve the dev branch's explicit demo response copy while keeping the same
+    # anti-enumeration behavior as _demo_block_enumeration().
     if g.customer["entitlements"].get("demo"):
         return jsonify({"error": {"code": "demo_restricted",
             "message": "batch scoring is not available on the demo token - use GET /v1/analyze/{symbol} on the demo tickers, or create a free API key for full access"}}), 403
