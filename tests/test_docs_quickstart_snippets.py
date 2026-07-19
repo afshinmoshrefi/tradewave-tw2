@@ -73,3 +73,10 @@ def test_doc_ci_preflight_uses_an_explicit_edge_identity():
     checker = CHECKER.read_text(encoding="utf-8")
     assert '"User-Agent": "TradeWave-DocCI/1.0"' in checker
     assert '"Accept": "application/json"' in checker
+
+
+def test_published_python_quickstarts_use_an_explicit_edge_identity():
+    generator = (REPO_ROOT / "site/api_docs/generate_api_docs.py").read_text(
+        encoding="utf-8"
+    )
+    assert generator.count('"User-Agent": "TradeWave-Python-Quickstart/1.0"') == 4

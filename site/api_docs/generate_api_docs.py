@@ -545,7 +545,11 @@ def build_quickstart() -> str:
 
 req = urllib.request.Request(
     "{API_BASE}/me",
-    headers={{"Authorization": "Bearer {DEMO}"}},
+    headers={{
+        "Authorization": "Bearer {DEMO}",
+        "Accept": "application/json",
+        "User-Agent": "TradeWave-Python-Quickstart/1.0",
+    }},
 )
 with urllib.request.urlopen(req) as r:
     me = json.loads(r.read())
@@ -595,7 +599,11 @@ ranked seasonal patterns:</p>
 
 req = urllib.request.Request(
     "{API_BASE}/scan?markets=2&limit=5",
-    headers={{"Authorization": "Bearer {DEMO}"}},
+    headers={{
+        "Authorization": "Bearer {DEMO}",
+        "Accept": "application/json",
+        "User-Agent": "TradeWave-Python-Quickstart/1.0",
+    }},
 )
 with urllib.request.urlopen(req) as r:
     data = json.loads(r.read())
@@ -680,7 +688,11 @@ demo token, use one of the 5 allowlisted tickers:</p>
 
 req = urllib.request.Request(
     "{API_BASE}/analyze/AAPL?market=2",
-    headers={{"Authorization": "Bearer {DEMO}"}},
+    headers={{
+        "Authorization": "Bearer {DEMO}",
+        "Accept": "application/json",
+        "User-Agent": "TradeWave-Python-Quickstart/1.0",
+    }},
 )
 with urllib.request.urlopen(req) as r:
     data = json.loads(r.read())
@@ -758,7 +770,11 @@ curl "{API_BASE}/analyze/AAPL?market=2" \\
 KEY = "&lt;your-api-key&gt;"  # tw_live_...
 req = urllib.request.Request(
     "{API_BASE}/scan?markets=2&limit=5",
-    headers={{"Authorization": f"Bearer {{KEY}}"}},
+    headers={{
+        "Authorization": f"Bearer {{KEY}}",
+        "Accept": "application/json",
+        "User-Agent": "TradeWave-Python-Quickstart/1.0",
+    }},
 )
 with urllib.request.urlopen(req) as r:
     data = json.loads(r.read())
