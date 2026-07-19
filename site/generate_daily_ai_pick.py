@@ -343,7 +343,7 @@ def render_html(df, opp_date):
       <p style="color:var(--text-muted);font-size:13px;margin-top:12px;">No credit card. Keep a free plan that stays useful, or try full access for 7 days.</p>
     </div>
     <div class="pick-foot">
-      &copy; {YEAR} Tara Data Research LLC &middot;
+        &copy; {YEAR} <a href="https://taradataresearch.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;text-underline-offset:2px">Tara Data Research LLC</a> &middot;
       <a href="/research.html">Research</a> &middot;
       <a href="/patterns/">Tickers</a> &middot;
       <a href="/app/">Wave Viewer</a>

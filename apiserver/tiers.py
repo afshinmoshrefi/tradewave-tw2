@@ -44,9 +44,12 @@ def _pricing_live_flag():
 
 API_PRICING_LIVE = _pricing_live_flag()
 
-# Annual billing = 10x the monthly price (pay for 10 months, get 12 = "2 months free",
-# about 17% off). Stripe holds separate monthly and yearly prices per product;
-# create_api_products.py and the console both read price_annual from this module.
+# Billing is MONTHLY ONLY (owner decision 2026-07-05, reaffirmed 2026-07-17, pre-launch
+# so no grandfathering). Annual was dropped: developers won't prepay a year for an
+# unproven API, annual lumps distort the MRR read during the revenue push, and a large
+# annual refund (Business) is a dispute magnet - monthly keeps repricing agile while
+# quotas/prices settle. There is NO price_annual anywhere; the seeder, console, and
+# pricing pages are all monthly-only.
 
 # rate = (per_minute, per_day); opp_limit = max results per /opportunities call.
 # Quotas are enforced per customer, not per key (auth.check_rate_limit buckets on
@@ -58,27 +61,27 @@ API_PRICING_LIVE = _pricing_live_flag()
 # pricing page deliberately carries no data-freshness bullet until enforcement exists.
 API_TIERS = {
     "free": {
-        "name": "Free", "price_monthly": 0, "price_annual": 0,
+        "name": "Free", "price_monthly": 0,
         "markets": ["2"], "ml_access": True, "history": "delayed", "ml_daily_limit": 5,
         "opp_limit": 3, "rate": {"per_minute": 10, "per_day": 100}, "max_keys": 1,  # taste: a watchlist + browsing
         "stripe_price_metadata": None,
     },
     "dev": {
-        "name": "Dev", "price_monthly": 39, "price_annual": 390,
+        "name": "Dev", "price_monthly": 39,
         "markets": ["0", "1", "2", "3", "4", "11"], "ml_access": True, "history": "full", "ml_daily_limit": 100,  # markets narrowed to US stocks + ETFs (mirrors web Analyst); all 15 (futures/forex/bonds/crypto) reserved for Pro/Business
-        "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 5000}, "max_keys": 3,
+        "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 1000}, "max_keys": 3,  # a working set of a few hundred symbols refreshed daily + all-day dev iteration; a FULL US sweep (~3.7k) is deliberately Pro-shaped
         "stripe_price_metadata": {"product_line": "api", "tier": "dev"},
     },
     "pro": {
-        "name": "Pro", "price_monthly": 199, "price_annual": 1990,
+        "name": "Pro", "price_monthly": 199,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,  # unlimited ML = the Pro upsell
-        "opp_limit": 1000, "rate": {"per_minute": 120, "per_day": 50000}, "max_keys": 10,
+        "opp_limit": 1000, "rate": {"per_minute": 120, "per_day": 5000}, "max_keys": 10,  # full US+ETF per-symbol sweep daily (~3.7k) with headroom; at 120/min the sweep takes ~30min
         "stripe_price_metadata": {"product_line": "api", "tier": "pro"},
     },
     "business": {
-        "name": "Business", "price_monthly": 599, "price_annual": 5990,
+        "name": "Business", "price_monthly": 599,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,  # unlimited
-        "opp_limit": 5000, "rate": {"per_minute": 300, "per_day": 250000}, "max_keys": 50,
+        "opp_limit": 5000, "rate": {"per_minute": 300, "per_day": 20000}, "max_keys": 50,  # full ALL-markets per-symbol sweep daily (~18.7k) with headroom; at 300/min the nightly sweep takes ~1h. Above this = Enterprise/custom
         "stripe_price_metadata": {"product_line": "api", "tier": "business"},
     },
 }
@@ -95,7 +98,7 @@ DEFAULT_TIER = "free"
 # who uses BOTH the API and the chatbot never shares one ML bucket across the two products.
 INTERNAL_TIERS = {
     "chatbot": {
-        "name": "Chatbot", "price_monthly": 0, "price_annual": 0,
+        "name": "Chatbot", "price_monthly": 0,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": 30,
         "opp_limit": 25, "rate": {"per_minute": 30, "per_day": 600}, "max_keys": 1,
         "stripe_price_metadata": None, "service": True,
@@ -106,7 +109,7 @@ INTERNAL_TIERS = {
     # docs/MCP_OAUTH_INTEGRATION.md. These own entitlements are only a fallback for a direct
     # mcp-key call with no principal header (should not happen in normal use).
     "mcp": {
-        "name": "MCP", "price_monthly": 0, "price_annual": 0,
+        "name": "MCP", "price_monthly": 0,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": 5,
         "opp_limit": 25, "rate": {"per_minute": 60, "per_day": 2000}, "max_keys": 1,
         "stripe_price_metadata": None, "service": True, "workos_principal": True,
@@ -116,7 +119,7 @@ INTERNAL_TIERS = {
     # zero-signup tryer can explore a handful of tickers but can never scrape the dataset. Has NO
     # `service` flag, so it can never delegate the metering principal to another user.
     "demo": {
-        "name": "Demo", "price_monthly": 0, "price_annual": 0,
+        "name": "Demo", "price_monthly": 0,
         "markets": ["2"], "ml_access": True, "history": "delayed", "ml_daily_limit": 25,
         "opp_limit": 5, "rate": {"per_minute": 30, "per_day": 1000}, "max_keys": 0,
         "stripe_price_metadata": None,
@@ -130,7 +133,7 @@ INTERNAL_TIERS = {
     # (Dow + NASDAQ + S&P). Do NOT remap navigator->'dev' (that leaks the wider U.S.
     # stock/ETF scope + 100 ML/day).
     "navigator": {
-        "name": "Navigator", "price_monthly": 0, "price_annual": 0,
+        "name": "Navigator", "price_monthly": 0,
         "markets": ["0", "1", "2"], "ml_access": True, "history": "full", "ml_daily_limit": 5,
         "opp_limit": 25, "rate": {"per_minute": 30, "per_day": 1000}, "max_keys": 1,
         "stripe_price_metadata": None,
@@ -182,27 +185,27 @@ API_TIER_RANK = {"free": 0, "navigator": 1, "dev": 2, "pro": 3, "business": 4}
 # API_TIERS) and resolved only via auth._resolve_mcp().
 WEB_TIER_TO_MCP = {
     "explorer": {
-        "name": "Explorer (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "name": "Explorer (in-chat)", "price_monthly": 0,
         "markets": ["0"], "ml_access": True, "history": "full", "ml_daily_limit": 0,
         "opp_limit": 10, "rate": {"per_minute": 20, "per_day": 400}, "max_keys": 0,
         "stripe_price_metadata": None,
     },
     "navigator": {
-        "name": "Navigator (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "name": "Navigator (in-chat)", "price_monthly": 0,
         "markets": ["0", "1", "2"], "ml_access": True, "history": "full", "ml_daily_limit": 0,
         "opp_limit": 25, "rate": {"per_minute": 30, "per_day": 1000}, "max_keys": 0,
         "stripe_price_metadata": None,
     },
     "analyst": {
-        "name": "Analyst (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "name": "Analyst (in-chat)", "price_monthly": 0,
         "markets": ["0", "1", "2", "3", "4", "11"], "ml_access": True, "history": "full", "ml_daily_limit": 100,
-        "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 5000}, "max_keys": 0,
+        "opp_limit": 100, "rate": {"per_minute": 60, "per_day": 1000}, "max_keys": 0,  # assistant-scaled: a human chatting, not a data feed
         "stripe_price_metadata": None,
     },
     "strategist": {
-        "name": "Strategist (in-chat)", "price_monthly": 0, "price_annual": 0,
+        "name": "Strategist (in-chat)", "price_monthly": 0,
         "markets": ALL_MARKETS, "ml_access": True, "history": "full", "ml_daily_limit": None,
-        "opp_limit": 500, "rate": {"per_minute": 120, "per_day": 20000}, "max_keys": 0,
+        "opp_limit": 500, "rate": {"per_minute": 120, "per_day": 2000}, "max_keys": 0,  # assistant-scaled: a human chatting, not a data feed
         "stripe_price_metadata": None,
     },
 }

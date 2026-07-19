@@ -102,7 +102,7 @@ def footer_html() -> str:
       <a href="{portal_urls.dev('api-terms.html')}">API Terms</a>
       <a href="{portal_urls.nav('disclaimer.html')}">Disclaimer</a>
     </nav>
-    <p class="footer-copy">&copy; {YEAR} Tara Data Research LLC. All rights reserved.</p>
+      <p class="footer-copy">&copy; {YEAR} <a href="https://taradataresearch.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;text-underline-offset:2px">Tara Data Research LLC</a>. All rights reserved.</p>
     <p class="footer-legal">{LEGAL_DISCLAIMER}</p>
   </div>
 </footer>"""
@@ -203,6 +203,17 @@ body {
 .page-hero { padding:80px 0 60px; text-align:center; position:relative; z-index:1; }
 .page-hero h1 { font-size:52px; font-weight:800; line-height:1.25; margin-bottom:24px; }
 .page-hero .sub { font-size:19px; color:var(--dim); max-width:740px; margin:0 auto 36px; line-height:1.7; }
+.assistant-brand-pill {
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  margin:0 0 24px; padding:7px 10px 7px 14px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.12);
+}
+.assistant-brand-divider { width:1px; height:18px; margin:0 1px; background:rgba(129,140,248,.28); }
+.assistant-brand-mark {
+  width:22px; height:22px; display:grid; place-items:center; color:var(--text);
+  background:rgba(12,18,37,.62); border:1px solid rgba(255,255,255,.12); border-radius:6px;
+}
+.assistant-brand-mark svg { display:block; width:15px; height:15px; }
 .hero-ctas { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; }
 .hero-ctas .btn { padding:16px 36px; font-size:16px; }
 .hero-note { font-size:13px; color:var(--muted); }
@@ -455,22 +466,40 @@ def page_shell(title: str, description: str, body: str, active_nav: str = "",
     # serve a developer audience. Replace the whole nav-link list with a focused developer nav -
     # the shared partial (and the consumer site) are untouched; the logo still links back to the
     # main site, and the auth/CTA ids (tw-auth-link/tw-cta-link) are preserved for the JS hooks.
+    if active_nav == "mcp":
+        _header_cta_href = portal_urls.MCP_CONNECT_GUIDE_URL
+        _header_cta_text = "Connect TradeWave"
+        _header_cta_extra = ' data-preserve-cta="true"'
+    else:
+        _header_cta_href = portal_urls.signup_url("/account/api/keys")
+        _header_cta_text = "Get API Key"
+        _header_cta_extra = ""
+    _pricing_label = "API Pricing" if active_nav == "mcp" else "Pricing"
+
     _dev_nav = (
         '<div class="tw-nav-links" id="tw-nav-links">\n'
         f'      <a href="{portal_urls.PORTAL_URL}">API</a>\n'
         f'      <a href="{portal_urls.API_QUICKSTART_URL}">Docs</a>\n'
-        f'      <a href="{portal_urls.API_PRICING_URL}">Pricing</a>\n'
+        f'      <a href="{portal_urls.API_PRICING_URL}">{_pricing_label}</a>\n'
         f'      <a href="{portal_urls.MCP_SETUP_URL}">MCP</a>\n'
         f'      <a href="{portal_urls.dev("for-ai-agents.html")}">For AI agents</a>\n'
         f'      <a href="{portal_urls.LEARN_HOME_URL}">Learn</a>\n'
         f'      <a href="{portal_urls.LOGIN_URL}" id="tw-auth-link">Log In</a>\n'
-        f'      <a href="{portal_urls.signup_url("/account/api/keys")}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>\n'
+        f'      <a href="{_header_cta_href}" id="tw-cta-link" class="tw-btn-primary"{_header_cta_extra}>{_header_cta_text}</a>\n'
         '    </div>'
     )
     header = re.sub(
         r'<div class="tw-nav-links" id="tw-nav-links">.*?</div>',
         lambda _m: _dev_nav, header, count=1, flags=re.DOTALL,
     )
+    if active_nav == "mcp":
+        # Keep the MCP-specific setup CTA after the shared header's authenticated-user swap runs.
+        # Login/logout may still change, but this page should never turn its primary action into an
+        # API upgrade/account button and hide the connector instructions.
+        header = header.replace(
+            "if (cta) {",
+            "if (cta && cta.dataset.preserveCta !== 'true') {",
+        )
 
     # active_nav is "", "pricing", "mcp", "use-cases" -> map to the output filename.
     _page = (active_nav + ".html") if (active_nav and active_nav != "index") else "index.html"
@@ -757,16 +786,8 @@ def build_index() -> str:
 def build_pricing() -> str:
     tiers = API_TIERS  # from the single source of truth
 
-    # Annual = price_annual (10x monthly: pay for 10 months, get 12).
-    def annual_permo(t: dict) -> int:
-        return 0 if t["price_monthly"] == 0 else round(t["price_annual"] / 12)
-
-    def annual_savings(t: dict) -> str:
-        if t["price_monthly"] == 0:
-            return ""
-        saved = t["price_monthly"] * 12 - t["price_annual"]
-        return f"Save ${saved}/yr"
-
+    # Billing is MONTHLY ONLY (owner decision 2026-07-05, reaffirmed 2026-07-17;
+    # rationale in apiserver/tiers.py) - no annual math, no billing-cycle toggle.
     def rate_label(r: dict) -> str:
         return f"{r['per_minute']}/min, {r['per_day']:,}/day"
 
@@ -783,24 +804,13 @@ def build_pricing() -> str:
         # finalized paid-tier pricing yet, so paid cards show "Coming Soon" with no dollar
         # figure and route their CTA to sales instead of signup, until the flag flips.
         price_hidden = key != "free" and not API_PRICING_LIVE
-        ann_permo = annual_permo(t)
-        annual_total = t["price_annual"]
-        save = annual_savings(t)
-        save_span = f' <span class="save-badge">{save}</span>' if save else ''
 
         if price_hidden:
             price_html = '<span class="p-price">Coming Soon</span>'
-            annual_note_html = ""
         else:
             price_display = f"${t['price_monthly']}" if t['price_monthly'] > 0 else "$0"
-            price_html = (f'<span class="p-price" data-monthly="{t["price_monthly"]}" '
-                          f'data-annual="{ann_permo}">{price_display}</span>\n'
+            price_html = (f'<span class="p-price">{price_display}</span>\n'
                           f'    <span class="p-price-unit">/mo</span>')
-            annual_note_html = (
-                f'<p class="p-annual-note" data-annual-note="${ann_permo}/mo billed annually '
-                f'(${annual_total}/yr){save_span}">\n'
-                f'    ${ann_permo}/mo billed annually (${annual_total}/yr){save_span}\n  </p>'
-            )
 
         btn_class = "btn-primary" if is_highlight else "btn-secondary"
         if price_hidden:
@@ -850,7 +860,6 @@ def build_pricing() -> str:
   <div>
     {price_html}
   </div>
-  {annual_note_html}
   <ul class="p-features">
     <li>{market_scope(t)}</li>
     {ml_line}
@@ -885,13 +894,11 @@ def build_pricing() -> str:
       <a href="{portal_urls.signup_url('/account/api/billing?subscribe=pro&promo=FOUNDER')}" class="btn btn-primary" style="white-space:nowrap;">Claim a founder seat</a>
     </div>"""
 
-    # With paid pricing hidden there is nothing for the billing-cycle control to
-    # switch, so render a launch note until the owner enables pricing.
+    # MONTHLY ONLY - there is no billing-cycle toggle. Pre-pricing-launch the slot
+    # carries the "launch soon" note; once live it states the billing terms plainly.
     if API_PRICING_LIVE:
-        billing_toggle_html = """<div class="billing-toggle">
-      <button class="billing-btn active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
-      <button class="billing-btn" id="btn-annual" onclick="setBilling('annual')">Annual <span class="save-badge">2 months free</span></button>
-    </div>"""
+        billing_toggle_html = ('<p class="p-note" style="text-align:center;margin-bottom:24px;">'
+                                'All plans billed monthly. No lock-in - cancel anytime.</p>')
     else:
         billing_toggle_html = ('<p class="p-note" style="text-align:center;margin-bottom:24px;">'
                                 'Paid plans launch soon. The Free tier and bring-your-own-key access '
@@ -1071,30 +1078,12 @@ POST /v1/score  <span class="cm"># unlimited</span>
         </summary>
         <p style="padding:0 0 18px;font-size:14px;color:var(--dim);line-height:1.7;">
           Yes. Upgrades take effect immediately; downgrades take effect at the next
-          billing cycle. No lock-in periods. Annual subscriptions are non-refundable
-          after the first 14 days.
+          billing cycle. No lock-in periods.
         </p>
       </details>
     </div>
   </div>
 </section>
-
-<script>
-function setBilling(mode) {{
-  document.getElementById('btn-monthly').classList.toggle('active', mode === 'monthly');
-  document.getElementById('btn-annual').classList.toggle('active', mode === 'annual');
-  document.querySelectorAll('.p-price').forEach(function(el) {{
-    var monthly = parseInt(el.dataset.monthly, 10);
-    var annual = parseInt(el.dataset.annual, 10);
-    if (monthly === 0) {{ el.textContent = '$0'; return; }}
-    el.textContent = mode === 'monthly' ? '$' + monthly : '$' + annual;
-  }});
-  document.querySelectorAll('[data-annual-note]').forEach(function(el) {{
-    el.style.display = mode === 'annual' ? 'block' : 'none';
-  }});
-}}
-document.querySelectorAll('[data-annual-note]').forEach(function(el) {{ el.style.display = 'none'; }});
-</script>
 
 """
     return page_shell(
@@ -1112,382 +1101,151 @@ document.querySelectorAll('[data-annual-note]').forEach(function(el) {{ el.style
 # ===========================================================================
 
 def build_mcp() -> str:
-    # Chat bubble helpers.
-    def user(text: str) -> str:
-        return f'<div class="chat-label">You</div><div class="bubble user">{text}</div>'
-
-    def tool(text: str) -> str:
-        return f'<div class="bubble tool-call">{text}</div>'
-
-    def agent(text: str) -> str:
-        return f'<div class="chat-label">Claude (via TradeWave MCP)</div><div class="bubble agent">{text}</div>'
-
-    # Conversation 1: seasonal longs in S&P 500 stocks, ML-ranked.
-    conv1 = f"""<div class="chat-window">
-  <div class="chat-bar">
-    <span class="chat-dot red"></span>
-    <span class="chat-dot ylw"></span>
-    <span class="chat-dot grn"></span>
-    <span class="chat-title">Claude - Pro plan (unlimited ML)</span>
-  </div>
-  <div class="chat-body">
-    {user("Find the strongest seasonal longs in S&P 500 stocks with greater than 70% win probability, ranked by ML score.")}
-    {tool("tradewave.get_seasonal_opportunities(market='2', direction='long', min_win_rate=0.70)")}
-    {tool("tradewave.score_opportunities([list of 14 setups])")}
-    {agent("""I found <strong>14 seasonal long setups</strong> in the S&P 500 stocks market with historical win rates above 70%.
-After running them through the ML scorer here are the top 5, ranked by ML score:<br><br>
-<table class="bubble-table">
-  <thead><tr><th>Symbol</th><th>Entry</th><th>Hold</th><th>Hist WR</th><th>ML Win Prob</th><th>ML Score</th><th>Pred Return</th></tr></thead>
-  <tbody>
-    <tr><td>AAPL</td><td>Jun 12</td><td>18d</td><td>74%</td><td class="hi">84%</td><td class="acc">91</td><td class="hi">+5.1%</td></tr>
-    <tr><td>MSFT</td><td>Jun 14</td><td>22d</td><td>71%</td><td class="hi">81%</td><td class="acc">88</td><td class="hi">+4.3%</td></tr>
-    <tr><td>NVDA</td><td>Jun 18</td><td>15d</td><td>76%</td><td class="hi">79%</td><td class="acc">84</td><td class="hi">+3.8%</td></tr>
-    <tr><td>JPM</td><td>Jun 10</td><td>20d</td><td>70%</td><td class="hi">77%</td><td class="acc">80</td><td class="hi">+3.2%</td></tr>
-    <tr><td>HD</td><td>Jun 15</td><td>17d</td><td>73%</td><td class="hi">76%</td><td class="acc">77</td><td class="hi">+2.9%</td></tr>
-  </tbody>
-</table><br>
-<strong>AAPL entering Jun 12</strong> has the strongest ML conviction - an 84% ML win probability
-vs. a 74% historical seasonal win rate, holding 18 days. The ML model is lifting all five setups
-meaningfully above their seasonal base. This is a seasonal and ML read only - pair it with your own
-check on fundamentals, earnings dates, and news before you act. Want the Trend Chart data for any of these?""")}
-  </div>
-</div>"""
-
-    # Conversation 2: today's pick + track record.
-    conv2 = f"""<div class="chat-window">
-  <div class="chat-bar">
-    <span class="chat-dot red"></span>
-    <span class="chat-dot ylw"></span>
-    <span class="chat-dot grn"></span>
-    <span class="chat-title">Claude - Free plan (track record always available)</span>
-  </div>
-  <div class="chat-body">
-    {user("What's today's pick and does it actually work? Show me the evidence.")}
-    {tool("tradewave.get_daily_pick()")}
-    {tool("tradewave.get_pick_track_record()")}
-    {agent("""<strong>Today's pick: XOM (Exxon Mobil) - Long, entering today, 21-day hold.</strong><br><br>
-ML win probability: <strong class="hi" style="color:var(--green)">81%</strong> &nbsp; |&nbsp;
-Predicted return: <strong class="hi" style="color:var(--green)">+3.9%</strong> &nbsp; |&nbsp;
-ML Score: <strong class="acc" style="color:var(--accent)">88</strong><br><br>
-Now, the track record. Here are the last 10 resolved picks (all recorded before market open,
-outcome measured at end of hold period):<br><br>
-<table class="bubble-table">
-  <thead><tr><th>Date</th><th>Symbol</th><th>Direction</th><th>Hold</th><th>Result</th><th>Return</th></tr></thead>
-  <tbody>
-    <tr><td>May 26</td><td>CVX</td><td>Long</td><td>18d</td><td class="hi">Win</td><td class="hi">+4.1%</td></tr>
-    <tr><td>May 23</td><td>UNH</td><td>Long</td><td>20d</td><td class="hi">Win</td><td class="hi">+2.8%</td></tr>
-    <tr><td>May 22</td><td>CAT</td><td>Long</td><td>15d</td><td style="color:var(--danger)">Loss</td><td style="color:var(--danger)">-1.2%</td></tr>
-    <tr><td>May 21</td><td>XOM</td><td>Long</td><td>21d</td><td class="hi">Win</td><td class="hi">+3.6%</td></tr>
-    <tr><td>May 20</td><td>AAPL</td><td>Long</td><td>18d</td><td class="hi">Win</td><td class="hi">+5.2%</td></tr>
-    <tr><td>May 19</td><td>PG</td><td>Long</td><td>22d</td><td class="hi">Win</td><td class="hi">+1.9%</td></tr>
-    <tr><td>May 16</td><td>HD</td><td>Long</td><td>17d</td><td style="color:var(--danger)">Loss</td><td style="color:var(--danger)">-0.8%</td></tr>
-    <tr><td>May 15</td><td>JPM</td><td>Long</td><td>20d</td><td class="hi">Win</td><td class="hi">+2.5%</td></tr>
-    <tr><td>May 14</td><td>MSFT</td><td>Long</td><td>15d</td><td class="hi">Win</td><td class="hi">+3.3%</td></tr>
-    <tr><td>May 13</td><td>KO</td><td>Long</td><td>19d</td><td class="hi">Win</td><td class="hi">+4.7%</td></tr>
-  </tbody>
-</table><br>
-<strong>8 of the last 10 resolved picks closed as wins (80%)</strong> - in line with the model's
-predicted win probability. These outcomes were all locked in before market open, so there is no
-look-ahead bias. The full record is available at <code>/v1/daily-pick/track-record</code>.""")}
-  </div>
-</div>"""
-
-    # Conversation 3: Q3 seasonal portfolio across sectors.
-    conv3 = f"""<div class="chat-window">
-  <div class="chat-bar">
-    <span class="chat-dot red"></span>
-    <span class="chat-dot ylw"></span>
-    <span class="chat-dot grn"></span>
-    <span class="chat-title">Claude - Pro plan (ML enabled)</span>
-  </div>
-  <div class="chat-body">
-    {user("Build me a Q3 seasonal portfolio across US sectors. I want diversified exposure, minimum 70% ML win probability, nothing overlapping by more than 5 days.")}
-    {tool("tradewave.list_markets()")}
-    {tool("tradewave.get_seasonal_opportunities(market='11', from='2026-07-01', to='2026-09-30', direction='long', min_win_rate=0.65, limit=50)")}
-    {tool("tradewave.score_opportunities([all 50 sector ETF setups])")}
-    {agent("""I've screened 50 Q3 sector ETF setups and filtered to those with ML win probability above 70%,
-then selected one per sector sub-group to avoid overlap. Here is a 6-position portfolio:<br><br>
-<table class="bubble-table">
-  <thead><tr><th>Symbol</th><th>Sector</th><th>Entry</th><th>Exit</th><th>ML Win Prob</th><th>Pred Return</th><th>Sharpe</th></tr></thead>
-  <tbody>
-    <tr><td>XLE</td><td>Energy</td><td>Jul 3</td><td>Jul 24</td><td class="hi">82%</td><td class="hi">+4.8%</td><td>1.42</td></tr>
-    <tr><td>XLK</td><td>Technology</td><td>Jul 8</td><td>Jul 30</td><td class="hi">78%</td><td class="hi">+3.9%</td><td>1.31</td></tr>
-    <tr><td>XLV</td><td>Healthcare</td><td>Jul 15</td><td>Aug 5</td><td class="hi">75%</td><td class="hi">+2.6%</td><td>1.18</td></tr>
-    <tr><td>XLI</td><td>Industrials</td><td>Aug 4</td><td>Aug 25</td><td class="hi">73%</td><td class="hi">+3.1%</td><td>1.24</td></tr>
-    <tr><td>XLF</td><td>Financials</td><td>Aug 18</td><td>Sep 8</td><td class="hi">71%</td><td class="hi">+2.3%</td><td>1.09</td></tr>
-    <tr><td>XLU</td><td>Utilities</td><td>Sep 2</td><td>Sep 23</td><td class="hi">70%</td><td class="hi">+2.0%</td><td>1.05</td></tr>
-  </tbody>
-</table><br>
-<strong>No two positions overlap by more than 2 days.</strong> All six have ML win probabilities above your 70% threshold.
-The positions are staggered across July, August, and September, so you are never holding more than two
-at once. This is a seasonal and ML read only - I would pair each with a fundamentals and macro check before sizing.
-Want me to pull the Trend Chart (the year-averaged 0-100 seasonal index) for any of these?""")}
-  </div>
-</div>"""
 
     body = f"""
 <section class="page-hero">
   <div class="container">
-    <div class="tag tag-ml" style="margin-bottom:20px;">MCP Server</div>
-    <h1><span class="gradient-text-w">Ask ChatGPT and Claude for ranked seasonal patterns</span></h1>
+    <div class="tag tag-ml assistant-brand-pill" aria-label="MCP server works with ChatGPT and Claude">
+      <span>MCP Server</span>
+      <span class="assistant-brand-divider" aria-hidden="true"></span>
+      <span class="assistant-brand-mark" role="img" aria-label="ChatGPT" title="ChatGPT">
+      <svg viewBox="29.487 29.964 121.035 119.954" fill="none" aria-hidden="true" focusable="false"><path d="M75.91 73.628V62.232c0-.96.36-1.68 1.199-2.16l22.912-13.194c3.119-1.8 6.838-2.639 10.676-2.639 14.394 0 23.511 11.157 23.511 23.032 0 .839 0 1.799-.12 2.758l-23.752-13.914c-1.439-.84-2.879-.84-4.318 0L75.91 73.627Zm53.499 44.383v-27.23c0-1.68-.72-2.88-2.159-3.719L97.142 69.55l9.836-5.638c.839-.48 1.559-.48 2.399 0l22.912 13.195c6.598 3.839 11.035 11.995 11.035 19.912 0 9.116-5.397 17.513-13.915 20.992v.001Zm-60.577-23.99-9.836-5.758c-.84-.48-1.2-1.2-1.2-2.16v-26.39c0-12.834 9.837-22.55 23.152-22.55 5.039 0 9.716 1.679 13.676 4.678L70.993 55.516c-1.44.84-2.16 2.039-2.16 3.719v34.787-.002Zm21.173 12.234L75.91 98.339V81.546l14.095-7.917 14.094 7.917v16.793l-14.094 7.916Zm9.056 36.467c-5.038 0-9.716-1.68-13.675-4.678l23.631-13.676c1.439-.839 2.159-2.038 2.159-3.718V85.863l9.956 5.757c.84.48 1.2 1.2 1.2 2.16v26.389c0 12.835-9.957 22.552-23.27 22.552v.001Zm-28.43-26.75L47.72 102.778c-6.599-3.84-11.036-11.996-11.036-19.913 0-9.236 5.518-17.513 14.034-20.992v27.35c0 1.68.72 2.879 2.16 3.718l29.989 17.393-9.837 5.638c-.84.48-1.56.48-2.399 0Zm-1.318 19.673c-13.555 0-23.512-10.196-23.512-22.792 0-.959.12-1.919.24-2.879l23.63 13.675c1.44.84 2.88.84 4.32 0l30.108-17.392v11.395c0 .96-.361 1.68-1.2 2.16l-22.912 13.194c-3.119 1.8-6.837 2.639-10.675 2.639Zm29.748 14.274c14.515 0 26.63-10.316 29.39-23.991 13.434-3.479 22.071-16.074 22.071-28.91 0-8.396-3.598-16.553-10.076-22.43.6-2.52.96-5.039.96-7.557 0-17.153-13.915-29.99-29.989-29.99-3.239 0-6.358.48-9.477 1.56-5.398-5.278-12.835-8.637-20.992-8.637-14.515 0-26.63 10.316-29.39 23.991-13.434 3.48-22.07 16.074-22.07 28.91 0 8.396 3.598 16.553 10.075 22.431-.6 2.519-.96 5.038-.96 7.556 0 17.154 13.915 29.989 29.99 29.989 3.238 0 6.357-.479 9.476-1.559 5.397 5.278 12.835 8.637 20.992 8.637Z" fill="currentColor"/></svg>
+      </span>
+      <span class="assistant-brand-mark" role="img" aria-label="Claude" title="Claude">
+      <svg viewBox="0 0 94 94" fill="none" aria-hidden="true" focusable="false"><path d="M18.7657 62.4437L37.1822 52.1167L37.4857 51.2122L37.1822 50.7085H36.2715L33.1852 50.5208L22.6615 50.2391L13.5545 49.8636L4.70044 49.3942L2.47428 48.9248L.399902 46.1553L.602281 44.794L2.47428 43.5266L5.15579 43.7613L11.0754 44.1837L19.98 44.794L26.4055 45.1695L35.9679 46.1553H37.4857L37.6881 45.545L37.1822 45.1695L36.7774 44.794L27.5692 38.5508L17.6021 31.9791L12.3908 28.1769L9.60812 26.2524L8.19147 24.4686L7.58433 20.5256L10.1141 17.7091L13.5545 17.9438L14.4146 18.1785L17.9056 20.8542L25.343 26.6279L35.0572 33.7629L36.4739 34.9364L37.0443 34.5514L37.1316 34.2792L36.4739 33.1996L31.212 23.6706L25.596 13.9539L23.0663 9.91695L22.4086 7.52296C22.1538 6.51831 22.0038 5.68714 22.0038 4.65957L24.8877.716544L26.5067.200195L30.4025.716544L32.0215 2.12477L34.4501 7.66379L38.3458 16.3478L44.4172 28.1769L46.188 31.6975L47.1493 34.9364L47.5035 35.9222H48.1106V35.3589L48.6166 28.6933L49.5273 20.5256L50.438 10.0108L50.7415 7.05356L52.2088 3.48605L55.1433 1.56148L57.42 2.64112L59.292 5.31674L59.039 7.05356L57.926 14.2824L55.7504 25.5952L54.3337 33.1996H55.1433L56.1046 32.2138L59.9497 27.1442L66.3752 19.0704L69.2085 15.8784L72.5478 12.3579L74.6728 10.668H78.7203L81.6548 15.0804L80.3394 19.6337L76.1906 24.8911L72.7502 29.3504L67.8172 35.9595L64.7562 41.2734L65.0307 41.7118L65.7681 41.6489L76.8989 39.255L82.9197 38.1753L90.1041 36.9549L93.3422 38.457L93.6963 40.006L92.4315 43.151L84.7411 45.0287L75.7353 46.8594L62.3244 50.0164L62.1759 50.1358L62.3512 50.3958L68.399 50.9432L70.9794 51.084H77.3037L89.0922 51.9759L92.1785 53.9944L93.9999 56.4822L93.6963 58.4068L88.9404 60.8008L82.5655 59.2987L67.6401 55.7312L62.5301 54.4638H61.8217V54.8862L66.0717 59.064L73.9139 66.1051L83.6786 75.2116L84.1845 77.4648L82.9197 79.2485L81.6042 79.0608L73.0032 72.5829L69.6639 69.6726L62.1759 63.3356H61.67V63.9928L63.3902 66.5276L72.5478 80.2812L73.0032 84.5059L72.3454 85.8672L69.9675 86.7121L67.3871 86.2427L61.9735 78.6852L56.4587 70.2359L52.0064 62.6315L51.4687 62.971L48.8189 91.2654L47.6047 92.7206L44.7714 93.8002L42.3934 92.0164L41.1286 89.1061L42.3934 83.3324L43.9113 75.8219L45.1255 69.8604L46.2386 62.4437L46.9184 59.9661L46.8583 59.8003L46.3153 59.8916L40.7238 67.5603L32.2239 79.0608L25.4948 86.2427L23.8758 86.8999L21.0931 85.4447L21.3461 82.863L22.9145 80.5629L32.2239 68.7338L37.8399 61.3641L41.4594 57.1337L41.4242 56.5218L41.2244 56.5048L16.489 72.6299L12.0873 73.1932L10.1647 71.4094L10.4176 68.4991L11.3283 67.5603L18.7657 62.4437Z" fill="#D97757"/></svg>
+      </span>
+    </div>
+    <h1><span class="gradient-text-w">Use TradeWave research in ChatGPT and Claude</span></h1>
     <p class="sub">
-      Connect the TradeWave MCP server and your AI assistant answers in plain language:
-      "the strongest seasonal longs in US stocks right now, ML-ranked" comes back as a table
-      of real setups with win rates, ML probabilities, and a forward track record you can audit.
-      Paste one URL, sign in with your TradeWave account, ask. No glue code, no API key juggling.
+      Ask for seasonal opportunities, analyze a symbol, compare setups, or check the published
+      track record. TradeWave supplies the seasonal evidence and, when available for your plan and setup,
+      the ML probability directly in your conversation.
     </p>
     <div class="hero-ctas">
-      <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-primary">Get a Free API Key</a>
-      <a href="{portal_urls.MCP_REFERENCE_URL}" class="btn btn-secondary">MCP Setup Docs</a>
+      <a href="{portal_urls.MCP_CONNECT_GUIDE_URL}" class="btn btn-primary">Open the Setup Guide</a>
+      <a href="#examples" class="btn btn-secondary">See What You Can Ask</a>
     </div>
-    <p style="font-size:13px;color:var(--dim);margin-top:16px;">17 purpose-built tools, 6 flagship plus 11 primitives. Try it with the public demo token <code style="font-size:12px;color:var(--accent);">tw_demo_explore</code> - a real call in about 30 seconds, no signup.</p>
+    <p style="font-size:13px;color:var(--dim);margin-top:16px;">Connect it once, then enable TradeWave in any conversation where you want market research.</p>
   </div>
 </section>
 
 <!-- Setup strip -->
-<section class="section">
+<section class="section" id="connect">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">Paste the URL, sign in, ask</h2>
-      <p>TradeWave's MCP is a hosted HTTP server at <code style="font-size:13px;color:var(--accent);">{portal_urls.MCP_URL}</code>.
-         In ChatGPT, Claude.ai, or Claude Desktop, paste that URL into Settings - Connectors, click Connect, and
-         sign in with your TradeWave account - no API key needed. Bring-your-own-login means metering
-         follows the account you sign in with, not a shared key. In chat, AI scoring follows your
-         TradeWave plan: it begins at Analyst (Explorer and Navigator see the deterministic seasonal
-         patterns), and Strategist is unlimited. When a daily limit is reached the server returns a
-         clear quota message, never a silent error.</p>
+      <h2 class="gradient-text-w">Connect TradeWave in three steps</h2>
+      <p>Use the server URL below with ChatGPT, Claude.ai, or Claude Desktop. The detailed guide has
+         the current menu path for each application.</p>
     </div>
-    <div class="code-block" style="max-width:700px;margin:0 auto 16px;">
-<span class="cm">// Optional BYOK bridge - for Cursor or a separate API-key entitlement</span>
-{{
-  <span class="kw">"mcpServers"</span>: {{
-    <span class="kw">"tradewave"</span>: {{
-      <span class="kw">"command"</span>: <span class="st">"npx"</span>,
-      <span class="kw">"args"</span>: [<span class="st">"-y"</span>, <span class="st">"mcp-remote"</span>, <span class="st">"{portal_urls.MCP_URL}"</span>, <span class="st">"--header"</span>, <span class="st">"Authorization: Bearer ${{TRADEWAVE_API_KEY}}"</span>]
-    }}
-  }}
-}}</div>
-    <p style="text-align:center;font-size:14px;color:var(--dim);">
-      Claude Desktop can use the hosted OAuth connector directly. BYOK clients can use the
-      <code style="font-size:12px;color:var(--accent);">mcp-remote</code> npx bridge shown above
-      and pass a Bearer API key when they need the standalone API entitlement.
-       <a href="{portal_urls.MCP_REFERENCE_URL}" class="inline">Full setup guide</a>.
-    </p>
-  </div>
-</section>
-
-<!-- TradeWave + your broker recipe (GTM hero feature) -->
-<section class="section alt">
-  <div class="container">
-    <div class="section-head">
-      <h2 class="gradient-text-w">Recipe: from chat question to placeable order ticket</h2>
-      <p>Ask for the edge, get a broker-agnostic ticket, place it anywhere. We do not take your
-         trades - we show you our receipts.</p>
-    </div>
-    <div class="card" style="max-width:840px;margin:0 auto;">
-      <p style="color:var(--dim);line-height:1.7;margin-bottom:4px;">Ask TradeWave through MCP for the
-        best seasonal setup and its ML win probability. You get back a Pattern Card with the receipts and
-        a broker-agnostic order ticket: a side, a symbol, and the dates, with no price level for us to
-        game. Hand it to whatever you already trade with. We find the edge and the timing; you place
-        the trade. Because we never earn per trade, a no-pattern day is as honest as a buy.</p>
-      <div style="margin:18px 0;padding:14px 18px;border-left:3px solid var(--accent);background:rgba(99,102,241,.07);border-radius:8px;color:var(--dim);font-style:italic;">"Using TradeWave, find the best seasonal long entering its window in the next two weeks across my markets, show me the win rate and ML probability, and give me the order ticket."</div>
-      <ol style="color:var(--dim);line-height:1.85;padding-left:20px;margin:0;">
-        <li><strong>Find</strong> - call find_best_opportunities to scan your in-scope markets and rank the strongest setups.</li>
-        <li><strong>Read</strong> - off the top Pattern Card, take the edge, the year-by-year receipts, and the optional ML win-probability block (distinct from the historical win rate), plus the order ticket in next_step.</li>
-        <li><strong>Place it anywhere</strong> - the MARKET/DAY ticket carries no price level, so it maps cleanly onto any in-chat execution app, broker SDK, or a manual confirmation.</li>
-      </ol>
-      <div style="text-align:center;margin-top:22px;">
-        <a href="{portal_urls.LEARN_URL}/recipe-tradewave-plus-broker.html" class="btn btn-primary">See the full recipe</a>
+    <div class="grid-3" style="gap:16px;max-width:960px;margin:0 auto 22px;">
+      <div class="card" style="padding:22px 24px;">
+        <p class="tag tag-ml" style="margin-bottom:10px;">Step 1</p>
+        <h3 style="font-size:17px;margin-bottom:8px;">Open your app's setup</h3>
+        <p style="font-size:14px;color:var(--dim);line-height:1.7;">Open the custom app or connector settings in ChatGPT or Claude.</p>
+      </div>
+      <div class="card" style="padding:22px 24px;">
+        <p class="tag tag-ml" style="margin-bottom:10px;">Step 2</p>
+        <h3 style="font-size:17px;margin-bottom:8px;">Finish adding the server</h3>
+        <p style="font-size:14px;color:var(--dim);line-height:1.7;">Paste <code style="font-size:12px;color:var(--accent);">{portal_urls.MCP_URL}</code>, then follow your app's prompt to create or add the connection.</p>
+      </div>
+      <div class="card" style="padding:22px 24px;">
+        <p class="tag tag-ml" style="margin-bottom:10px;">Step 3</p>
+        <h3 style="font-size:17px;margin-bottom:8px;">Sign in and approve</h3>
+        <p style="font-size:14px;color:var(--dim);line-height:1.7;">Sign in on the TradeWave page, approve access, then enable TradeWave in your conversation.</p>
       </div>
     </div>
+    <p style="text-align:center;font-size:14px;color:var(--dim);margin:0;">
+      <a href="{portal_urls.MCP_CONNECT_GUIDE_URL}" class="inline">Open the step-by-step setup guide</a>
+      for the exact instructions for your app.
+    </p>
   </div>
 </section>
 
 <!-- Tool reference -->
-<section class="section">
+<section class="section alt" id="examples">
   <div class="container">
     <div class="section-head">
-      <h2 class="gradient-text-w">17 trading tools, purpose-built for agents</h2>
-      <p>Six flagship tools cover the decisions; eleven primitives give an agent full control.
-         Each is described so the model knows exactly when to call it - agents do not
-         need to know the API, they just get asked questions and the right tool fires. Tools use
-         progressive disclosure: a one-line decision by default, the full receipts and Trend Chart data on request.</p>
+      <h2 class="gradient-text-w">Start with the question you want answered</h2>
+      <p>You do not need to choose a tool or learn an API. Ask naturally, then request more detail
+         when you want the supporting years, chart data, or published track record.</p>
     </div>
-    <h3 style="font-size:15px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">6 flagship tools</h3>
     <div class="grid-3" style="gap:16px;margin-bottom:32px;">
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
-        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">find_best_opportunities</p>
-        <p style="font-size:13px;color:var(--dim);">Scan the caller's in-scope markets and return the strongest ranked seasonal setups as decision-ready Pattern Cards, each with a research hand-off.</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Find opportunities</p>
+        <p style="font-size:13px;color:var(--dim);">"What are the strongest seasonal setups entering their window in the next two weeks?"</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
-        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">analyze_symbol</p>
-        <p style="font-size:13px;color:var(--dim);">Deep dive on one symbol: its seasonal windows, the historical win rate, and the ML read, with the Trend Chart available on request.</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Analyze one symbol</p>
+        <p style="font-size:13px;color:var(--dim);">"Is there a seasonal pattern in XLE right now? Show me the supporting history."</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
-        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">explain_pick</p>
-        <p style="font-size:13px;color:var(--dim);">Unpack why a setup or the daily pick scores the way it does - the seasonal edge, the ML factors, and the receipts behind it.</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Explain today's pick</p>
+        <p style="font-size:13px;color:var(--dim);">"What is today's published pick, and what evidence supports it?"</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
-        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">morning_briefing</p>
-        <p style="font-size:13px;color:var(--dim);">The one-call start of the day: today's pick, the live track record with the last five outcomes, and the top setups entering their window now - say "good morning" and it fires.</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Get a morning briefing</p>
+        <p style="font-size:13px;color:var(--dim);">"Good morning. What seasonal opportunities should I research today?"</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
-        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">whats_seasonal_now</p>
-        <p style="font-size:13px;color:var(--dim);">What is entering its seasonal window today across the caller's markets - the daily, universe-wide scan in one call.</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">See what is seasonal now</p>
+        <p style="font-size:13px;color:var(--dim);">"What is entering a seasonal window now across the markets I can access?"</p>
       </div>
       <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
-        <p class="tag tag-ml" style="margin-bottom:10px;">Flagship</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">compare_opportunities</p>
-        <p style="font-size:13px;color:var(--dim);">Put two or more setups side by side on historical win rate, ML win probability, predicted return, and Sharpe to pick the better bet.</p>
+        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Compare setups</p>
+        <p style="font-size:13px;color:var(--dim);">"Compare the energy and technology setups by timing, historical win rate, and ML probability."</p>
       </div>
     </div>
-    <h3 style="font-size:15px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">11 primitives</h3>
+    <p style="text-align:center;font-size:14px;color:var(--dim);margin:0 0 24px;">
+      <a href="{portal_urls.MCP_REFERENCE_URL}" class="inline">See the complete MCP tool reference</a>.
+    </p>
+  </div>
+</section>
+
+<!-- Result guide -->
+<section class="section" id="results">
+  <div class="container">
+    <div class="section-head">
+      <h2 class="gradient-text-w">Know what each result means</h2>
+      <p>TradeWave keeps three different kinds of evidence separate so your assistant can explain
+         the result without blending them into one number.</p>
+    </div>
     <div class="grid-3" style="gap:16px;">
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">list_markets</p>
-        <p style="font-size:13px;color:var(--dim);">Returns the 15 active markets and which are in the caller's tier scope.</p>
+      <div class="card" style="padding:22px 24px;">
+        <h3 style="font-size:17px;margin-bottom:8px;">Historical win rate</h3>
+        <p style="font-size:14px;color:var(--dim);line-height:1.7;">How often that seasonal window was profitable in the historical sample, with the years and returns available for review.</p>
       </div>
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">whoami</p>
-        <p style="font-size:13px;color:var(--dim);">Reports the caller's tier, market scope, and remaining daily ML quota so an agent can plan its calls.</p>
+      <div class="card" style="padding:22px 24px;">
+        <h3 style="font-size:17px;margin-bottom:8px;">ML probability</h3>
+        <p style="font-size:14px;color:var(--dim);line-height:1.7;">The model's probability for the current setup when ML coverage and your TradeWave plan include it.</p>
       </div>
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">describe_tradewave</p>
-        <p style="font-size:13px;color:var(--dim);">Self-documents the method: a seasonal plus 62-feature ML edge only, blind to fundamentals, news, and live price - built to pair with the agent's own tools.</p>
-      </div>
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">list_symbols</p>
-        <p style="font-size:13px;color:var(--dim);">All tradeable symbols in a market. Use to populate screener inputs.</p>
-      </div>
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_seasonal_opportunities</p>
-        <p style="font-size:13px;color:var(--dim);">Find the best seasonal setups for a market and date window, ranked by edge. Symbol, direction, entry, hold, Sharpe, win rate, average return.</p>
-      </div>
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_symbol_patterns</p>
-        <p style="font-size:13px;color:var(--dim);">All seasonal patterns for one specific symbol across its available windows - direction, entry, hold, win rate, Sharpe.</p>
-      </div>
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_seasonal_pattern</p>
-        <p style="font-size:13px;color:var(--dim);">Aggregate seasonal pattern statistics for a symbol - win rates, average/median return, Sharpe across years.</p>
-      </div>
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_opportunity_chart</p>
-        <p style="font-size:13px;color:var(--dim);">The Trend Chart data for a setup: a single year-averaged, normalized 0-100 seasonal index curve (the typical within-year shape), not prices. Data only - agents format the output.</p>
-      </div>
-      <div class="card" style="padding:20px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.12);">
-        <p class="tag tag-ml" style="margin-bottom:10px;">All tiers (unlimited on Pro+)</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">score_opportunities</p>
-        <p style="font-size:13px;color:var(--dim);">ML win_prob, pred_return, pred_mfe, and ml_score for a list of setups. Free=5/day, Dev=100/day, Pro+ = unlimited. Returns a quota message when the daily limit is hit.</p>
-      </div>
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_daily_pick</p>
-        <p style="font-size:13px;color:var(--dim);">Today's ML-selected featured pick with full metadata. Available to all tiers as a credibility proof point.</p>
-      </div>
-      <div class="card" style="padding:20px 24px;">
-        <p class="tag tag-free" style="margin-bottom:10px;">All tiers</p>
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">get_pick_track_record</p>
-        <p style="font-size:13px;color:var(--dim);">Full forward-recorded win/loss history of past picks. The hook - not a backtest, a forward ledger you can audit.</p>
+      <div class="card" style="padding:22px 24px;">
+        <h3 style="font-size:17px;margin-bottom:8px;">Published pick record</h3>
+        <p style="font-size:14px;color:var(--dim);line-height:1.7;">The share of resolved published daily picks counted as wins, recorded separately from historical seasonal testing.</p>
       </div>
     </div>
+    <p style="text-align:center;font-size:14px;color:var(--dim);max-width:760px;margin:24px auto 0;line-height:1.7;">
+      TradeWave provides educational market research. It does not read your holdings, execute trades,
+      or replace checks on current price, news, fundamentals, earnings, and risk.
+    </p>
   </div>
 </section>
 
-<!-- For data buyers and institutions -->
-<section class="section">
-  <div class="container">
-    <div class="section-head">
-      <h2 class="gradient-text-w">For data buyers and institutions</h2>
-      <p>The same server, read through a licensing lens. The API returns derived values only:
-         percentages, a 0-100 seasonal index, and ML probabilities, never raw OHLCV. That bounded
-         output is the basis for a commercial license; the written agreement defines permitted use,
-         redistribution, attribution, and any data-provider or regulatory obligations.</p>
-    </div>
-    <div class="grid-3" style="gap:16px;margin-bottom:24px;">
-      <div class="card" style="padding:22px 24px;border-color:var(--accent);box-shadow:0 0 30px rgba(99,102,241,.10);">
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Licensing superpower</p>
-        <p style="font-size:13px;color:var(--dim);line-height:1.7;">Only derived values cross the wire. Permitted commercial use is defined by the applicable plan and written agreement; see the <a href="api-terms.html" class="inline">API Terms</a>.</p>
-      </div>
-      <div class="card" style="padding:22px 24px;">
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Redistribution under license</p>
-        <p style="font-size:13px;color:var(--dim);line-height:1.7;">Internal and personal use on Free, Dev, and Pro. Redistribute the derived values to your own end users under a written license at <strong>Business</strong>. Custom white-label, multi-tenant, and downstream-feed scope at <strong>Enterprise</strong>.</p>
-      </div>
-      <div class="card" style="padding:22px 24px;">
-        <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">Data integrity</p>
-        <p style="font-size:13px;color:var(--dim);line-height:1.7;">Deterministic, the same inputs return the same numbers. An auditable public record, every pick logged before the outcome. End-of-day data across the US-market universe.</p>
-      </div>
-    </div>
-    <div class="card" style="max-width:920px;margin:0 auto;padding:20px 26px;border-left:3px solid var(--accent);background:rgba(99,102,241,.06);">
-      <p style="font-size:14px;color:var(--dim);line-height:1.75;margin:0;">
-        <strong style="color:var(--text);">Enterprise, by contact sales.</strong> Custom volume, a contractual SLA with uptime and
-        service credits, SSO and SCIM with audit logs, an MSA and DPA with security review, invoicing with PO and net-30,
-        and dedicated support. SSO and SCIM are available on Business and Enterprise; a contractual SLA is Enterprise-only (Business includes priority support). There is no self-serve SLA;
-        <a href="{portal_urls.nav('contact.html')}" class="inline">talk to sales</a> to scope the agreement.
-      </p>
-    </div>
-  </div>
-</section>
-
-<!-- Example conversations -->
 <section class="section alt">
-  <div class="container">
-    <div class="section-head">
-      <h2 class="gradient-text-w">What it looks like in practice</h2>
-      <p>These are realistic example conversations. Numbers are illustrative.
-         The MCP server is calling live API endpoints behind each tool call.</p>
-    </div>
-
-    <h3 style="font-size:18px;font-weight:700;color:var(--dim);margin-bottom:16px;text-align:center;">
-      Example 1 - Scan S&P 500 stocks for ML-ranked longs
-    </h3>
-    {conv1}
-
-    <h3 style="font-size:18px;font-weight:700;color:var(--dim);margin-bottom:16px;text-align:center;margin-top:32px;">
-      Example 2 - Today's pick and its track record
-    </h3>
-    {conv2}
-
-    <h3 style="font-size:18px;font-weight:700;color:var(--dim);margin-bottom:16px;text-align:center;margin-top:32px;">
-      Example 3 - Build a diversified Q3 seasonal portfolio
-    </h3>
-    {conv3}
-  </div>
-</section>
-
-<section class="section">
   <div class="container" style="text-align:center;">
     <h2 class="gradient-text-w" style="font-size:36px;font-weight:800;margin-bottom:16px;">Ready to connect?</h2>
     <p style="color:var(--dim);font-size:17px;max-width:600px;margin:0 auto 32px;line-height:1.7;">
-      Paste the server URL into ChatGPT, Claude.ai, or Claude Desktop and sign in with your TradeWave
-      account, or connect Cursor with an API key, and ask your
-      first question in under 5 minutes. <a href="pricing.html" class="inline">See pricing</a>.
+      Follow the instructions for your app, sign in to TradeWave, and verify the connection with your first question.
     </p>
     <div class="hero-ctas">
-      <a href="{portal_urls.signup_url('/account/api/keys')}" class="btn btn-primary">Get a Free API Key</a>
-      <a href="{portal_urls.MCP_REFERENCE_URL}" class="btn btn-secondary">Full MCP Docs</a>
-      <a href="{portal_urls.API_PRICING_URL}" class="btn btn-ghost">See Pricing</a>
+      <a href="{portal_urls.MCP_CONNECT_GUIDE_URL}" class="btn btn-primary">Open the Setup Guide</a>
+      <a href="{portal_urls.MCP_REFERENCE_URL}" class="btn btn-secondary">MCP Tool Reference</a>
     </div>
   </div>
 </section>
 """
     return page_shell(
-        "TradeWave MCP - Use TradeWave in Claude, Cursor, and ChatGPT",
-        "Add TradeWave to ChatGPT or Claude and sign in with your TradeWave account, or connect a BYOK client with an API key. "
-        "17 purpose-built trading tools (6 flagship plus 11 primitives) for seasonal analysis and ML-scored seasonal patterns.",
+        "TradeWave MCP - Use TradeWave in ChatGPT and Claude",
+        "Connect TradeWave to ChatGPT or Claude and ask for seasonal opportunities, symbol analysis, comparisons, and the published pick record.",
         no_em_dash(body),
         active_nav="mcp",
     )

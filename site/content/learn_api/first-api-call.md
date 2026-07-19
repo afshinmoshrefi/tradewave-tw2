@@ -112,14 +112,20 @@ The endpoint returns a small envelope: today's `PatternCard` under the top-level
         { "year": "2024", "return_pct": 4.0, "result": "win" },
         { "year": "2023", "return_pct": -1.2, "result": "loss" }
       ],
-      "curve_summary": "rising into late June",
+      "curve_summary": {
+        "shape": "strengthens into the exit; seasonal index rising +5 pts over the hold",
+        "trend": "rising",
+        "change_pts": 5.1,
+        "peak_day": 18,
+        "trough_day": 0
+      },
       "source": "forward-tested daily pick",
       "as_of": "2026-06-02"
     },
     "headline": "Energy ETF has risen in 13 of the last 16 Junes",
     "verdict": "Strong seasonal long with confirming ML.",
-    "disclaimer": "Educational, not personalized advice.",
-    "tier_notes": ""
+    "disclaimer": "Educational seasonal pattern + ML research, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+    "tier_notes": "ML score shown."
   },
   "track_record": { "count": 11, "win_count": 6, "win_rate": 0.6, "avg_return_pct": 6.1 }
 }

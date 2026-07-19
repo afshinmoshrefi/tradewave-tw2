@@ -841,6 +841,16 @@ paid standalone API price display remains separately gated as described below.
   package. Customer self-serve only.
 - **Portal + docs**: static, brand-matched, nginx-served. Sources `site/api_marketing/`
   + `site/api_docs/` (generators read `site/lib/portal_urls.py`).
+  LAUNCH GATE (2026-07-17): `portal_urls.MCP_LIVE` (env `TW2_MCP_LIVE`, secrets.env
+  fallback - same flag + truthy parse as the home page and account card, so every
+  surface flips together per env). While OFF, `site/api_docs/generate_api_docs.py`
+  (mcp-reference) and `site/api_learn/generate_learn_api.py` (the connect-an-AI-agent
+  article) render a "Preview" callout instead of promising a live consumer connect;
+  content/URLs otherwise unchanged. Flipping the env flag + regenerating needs no code
+  edit. Docs-accuracy invariant: examples in the docs are captured from live gateway
+  responses, never hand-invented (the 2026-07-16 audit found invented examples were the
+  #1 drift class); `api/MCP_TOOLS.md` is the MCP tool SSOT - sync `build_mcp_reference()`
+  to it + `mcpserver/server.py` whenever tools change.
 
 **Contract:** `api/openapi.yaml` (12 endpoints) + `api/MCP_TOOLS.md` (17 tools - 6
 flagship + 11 primitives).
@@ -1000,16 +1010,34 @@ inherit from the web tier via `WEB_TIER_TO_API`; set = an API-only sub). Schema 
   (`apiserver/schema.sql` / the `api/` migration). Tiers/entitlements in `apiserver/tiers.py`
   (free/dev/pro/business; ML is tier-metered and only markets 0-4,11 are ML-eligible).
 
-**API billing + quota model (current contract, code-verified 2026-07-14):**
-- Paid API plans support monthly and annual billing. Annual prices are 10x monthly
-  ($390 Dev, $1,990 Pro, $5,990 Business), and checkout must resolve the exact requested
-  interval without silently falling back to another cadence.
-- The enforced request caps are Free 10/min and 100/day, Dev 60/min and 5,000/day,
-  Pro 120/min and 50,000/day, and Business 300/min and 250,000/day.
+**API billing + quota model (current contract, code-verified 2026-07-17):**
+- QUOTA DOCTRINE (owner, 2026-07-05, restored 2026-07-17): TradeWave sells detected
+  seasonal patterns, not price data; the dataset refreshes once per trading day, so the
+  per-day cap = "one per-symbol card for everything in your scope, daily, plus headroom"
+  (US+ETF ~3.7k symbols; all markets ~18.7k). Data-feed-scale quotas are WRONG for this
+  product and were explicitly rejected. HISTORY: the 2026-07-16 "Integrate verified API
+  console" commit (93f0a16d) silently reverted the quotas to feed scale
+  (5k/50k/250k) and re-added annual billing; quotas re-restored 2026-07-17. When
+  "integrating" snapshots, diff `tiers.py` quota/billing lines against this block first.
+- The enforced request caps are Free 10/min and 100/day, Dev 60/min and 1,000/day,
+  Pro 120/min and 5,000/day, and Business 300/min and 20,000/day (Dev = a few-hundred-
+  symbol working set daily; Pro = a full US+ETF sweep with headroom; Business = a full
+  all-markets sweep with headroom; above that is Enterprise/custom).
 - **Quota is enforced PER CUSTOMER, not per key** (`auth.check_rate_limit` buckets on
   `user_id`), so `max_keys` never multiplies entitlement.
-- Consumer MCP mirrors the web product at 400/day Explorer, 1,000/day Navigator,
-  5,000/day Analyst, and 20,000/day Strategist.
+- Consumer MCP mirrors the web product, ASSISTANT-scaled (a human chatting, never a
+  feed): 400/day Explorer, 1,000/day Navigator, 1,000/day Analyst, 2,000/day Strategist.
+- Billing is MONTHLY ONLY (owner decision 2026-07-05, REAFFIRMED 2026-07-17 after the
+  93f0a16d revert briefly re-added annual). No `price_annual` anywhere; the seeder
+  creates monthly prices only and SELF-HEALS a stale annual seed (re-points
+  default_price to monthly first, then archives annual prices - verified live on dev
+  Stripe TEST 2026-07-17, where it archived 3 stale annual prices the revert had
+  created); checkout 400s any non-monthly interval; the price cache skips non-monthly
+  prices so a stale one can never resolve. Live prod Stripe was never touched and
+  remains monthly-only.
+- The quota contract is pinned by `tests/test_consistency.py::
+  test_api_price_and_quota_contract_matches_current_spec` + `docs/PRICING_QUOTA_SPEC.md`
+  - change all three together.
 
 **Pricing/acquisition gate (2026-07-04):** `apiserver/tiers.py:API_PRICING_LIVE` (env
 `TW2_API_PRICING_LIVE`, truthy strings `1`/`true`/`yes`) controls paid-offer display and

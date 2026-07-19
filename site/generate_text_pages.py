@@ -347,7 +347,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
     <a href="/terms.html">Terms</a>
     <a href="/disclaimer.html">Disclaimer</a>
   </nav>
-  <p>&copy; {YEAR} Tara Data Research LLC. All rights reserved.</p>
+        <p>&copy; {YEAR} <a href="https://taradataresearch.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;text-underline-offset:2px">Tara Data Research LLC</a>. All rights reserved.</p>
   <p class="tw-disclaimer">{LEGAL_DISCLAIMER}</p>
 </footer>
 </body>

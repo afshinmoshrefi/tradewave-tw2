@@ -219,12 +219,18 @@ def _public_host():
 
 
 def _refresh_price_cache():
-    """Bucket active Stripe prices by API tier - metadata-only.
+    """Bucket active Stripe prices by API tier - metadata-only, MONTHLY ONLY.
 
-    A price is used ONLY if its product carries product_line=api and a tier in
-    PURCHASABLE_TIERS. This is the same deterministic, metadata-only approach
-    web/app.py uses for the EOD product line, so legacy UMP prices, the EOD
-    product line, and placeholders are all ignored (no name collisions).
+    A price is used ONLY if its product carries product_line=api, a tier in
+    PURCHASABLE_TIERS, AND a monthly recurring interval. This is the same
+    deterministic, metadata-only approach web/app.py uses for the EOD product
+    line, so legacy UMP prices, the EOD product line, and placeholders are all
+    ignored (no name collisions).
+
+    Billing is MONTHLY ONLY (owner decision 2026-07-05, reaffirmed 2026-07-17;
+    rationale in apiserver/tiers.py). A stale annual price left over in Stripe
+    from before that decision is tolerated: it is simply skipped here rather
+    than matched or required, so it can never resolve at checkout.
     """
     if not _stripe_configured():
         return
@@ -245,14 +251,15 @@ def _refresh_price_cache():
         rec = _as_dict(getattr(p, "recurring", None))
         interval = str(rec.get("interval") or "").strip().lower()
         interval_count = rec.get("interval_count", 1)
-        if interval not in {"month", "year"} or interval_count != 1:
+        if interval != "month":
+            # A stale annual price (or anything else non-monthly) - never
+            # matched, not an error. This is the tolerance for an earlier
+            # annual seed that create_api_products.py self-heals separately.
+            continue
+        if interval_count != 1:
             errors.append("API price has an unsupported recurring interval")
             continue
-        expected_amount = int(
-            api_tiers.API_TIERS[tier][
-                "price_monthly" if interval == "month" else "price_annual"
-            ] * 100
-        )
+        expected_amount = int(api_tiers.API_TIERS[tier]["price_monthly"] * 100)
         currency = str(getattr(p, "currency", "") or "").strip().lower()
         if currency != "usd":
             errors.append("API price currency does not match the USD catalog")
@@ -273,20 +280,15 @@ def _refresh_price_cache():
         if price_md.get("interval") not in (None, "", interval):
             errors.append("API price metadata has the wrong interval")
             continue
-        key = (tier, interval)
-        existing = next_cache.get(key)
+        existing = next_cache.get(tier)
         if existing is not None and getattr(existing, "id", None) != getattr(p, "id", None):
-            errors.append("API catalog has duplicate active prices for one tier/interval")
+            errors.append("API catalog has duplicate active monthly prices for one tier")
             continue
-        next_cache[key] = p
+        next_cache[tier] = p
 
-    required = {
-        (tier, interval)
-        for tier in PURCHASABLE_TIERS
-        for interval in ("month", "year")
-    }
+    required = set(PURCHASABLE_TIERS)
     if set(next_cache) != required:
-        errors.append("API catalog is missing one or more required tier/interval prices")
+        errors.append("API catalog is missing one or more required monthly tier prices")
     if errors:
         _price_cache.clear()
         # Do not include remote object IDs or full Stripe payloads in the log.
@@ -297,16 +299,13 @@ def _refresh_price_cache():
     _price_cache.update(next_cache)
 
 
-def _price_for_tier(tier_name, interval="month"):
-    """Resolve the exact tier and billing interval requested.
-
-    Never fall back from an annual request to a monthly price: charging a
-    different cadence than the submitted form while labeling metadata as yearly
-    would be a billing-integrity failure.
-    """
+def _price_for_tier(tier_name):
+    """Resolve the (only) monthly price for this tier. Billing is MONTHLY ONLY
+    (owner decision 2026-07-05, reaffirmed 2026-07-17); there is no interval
+    parameter to accept, so a caller can never resolve anything else."""
     if not _price_cache:
         _refresh_price_cache()
-    return _price_cache.get((tier_name, interval))
+    return _price_cache.get(tier_name)
 
 
 def _price_product_id(price):
@@ -505,7 +504,6 @@ def billing_index():
             "name": name,
             "label": t["name"],
             "price_monthly": t["price_monthly"],
-            "price_annual": t["price_annual"],
             "markets": "1 market" if len(t["markets"]) == 1 else "All %d markets" % len(t["markets"]),
             "ml_access": t["ml_access"],
             "ml_daily_limit": t.get("ml_daily_limit"),  # None = unlimited
@@ -548,7 +546,7 @@ def billing_index():
 @bp.route("/billing/checkout", methods=["POST"])
 @require_login
 def billing_checkout():
-    """Start Stripe Checkout for the requested API tier and billing interval.
+    """Start Stripe Checkout for the requested API tier (monthly).
 
     Mirrors web/app.py:stripe_create_checkout - validates a stored customer id,
     sets client_reference_id + subscription metadata (product_line=api, tier)
@@ -586,17 +584,17 @@ def billing_checkout():
         )
         return redirect(url_for("api_portal.billing_index")), 400
 
+    # MONTHLY ONLY (owner decision 2026-07-05, reaffirmed 2026-07-17). Reject an
+    # explicit annual ask loudly rather than silently resolving a different
+    # interval than the caller requested.
     interval = (request.form.get("interval") or "month").strip().lower()
-    if interval in ("annual", "yearly", "year"):
-        interval = "year"
-    elif interval in ("monthly", "month"):
-        interval = "month"
-    else:
-        flash("Billing interval must be monthly or annual.", "error")
+    if interval not in ("monthly", "month"):
+        flash("API plans are billed monthly only; annual billing is not offered.", "error")
         return redirect(url_for("api_portal.billing_index")), 400
+    interval = "month"
 
     try:
-        price = _price_for_tier(tier, interval)
+        price = _price_for_tier(tier)
     except PriceCatalogError:
         flash(
             "Billing is temporarily unavailable because the price catalog "
@@ -606,9 +604,8 @@ def billing_checkout():
         return redirect(url_for("api_portal.billing_index")), 503
     if not price:
         flash(
-            "No active %s price is configured for %s yet. Run "
-            "web/api_portal/create_api_products.py (TEST mode) first."
-            % (interval, tier),
+            "No active monthly price is configured for %s yet. Run "
+            "web/api_portal/create_api_products.py (TEST mode) first." % tier,
             "error",
         )
         return redirect(url_for("api_portal.billing_index")), 400

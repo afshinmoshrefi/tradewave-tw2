@@ -70,6 +70,7 @@ def main():
         wave_viewer_url=wave_viewer_url,
         contact_url=CONTACT_URL,
         copyright="%d Tara Data Research LLC. All rights reserved." % datetime.now().year,
+        copyright_year=datetime.now().year,
         disclaimer=DISCLAIMER,
     )
 

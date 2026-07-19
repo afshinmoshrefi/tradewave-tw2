@@ -44,7 +44,7 @@ Here is a realistic (illustrative) card for a **long US equity** setup. Values a
   "bias": "bullish",
   "setup": {
     "entry_date": "2026-10-12",
-    "entry_window": "2026-10-12..2026-10-16",
+    "entry_window": "2026-10-12 to 2026-10-16",
     "hold_days": 21,
     "exit_date": "2026-11-02"
   },
@@ -77,13 +77,19 @@ Here is a realistic (illustrative) card for a **long US equity** setup. Values a
       { "year": 2023, "return_pct": 2.2, "result": "win" },
       { "year": 2022, "return_pct": -2.7, "result": "loss" }
     ],
-    "curve_summary": "rises through late October, peaks early November",
+    "curve_summary": {
+      "shape": "strengthens into the exit; seasonal index rising +6 pts over the hold",
+      "trend": "rising",
+      "change_pts": 6.0,
+      "peak_day": 19,
+      "trough_day": 0
+    },
     "source": "tradewave-seasonal-engine",
     "as_of": "2026-06-02"
   },
   "next_step": {
     "order_ticket": {
-      "side": "buy",
+      "side": "BUY",
       "symbol": "AAPL",
       "type": "MARKET",
       "time_in_force": "DAY",
@@ -100,11 +106,13 @@ Here is a realistic (illustrative) card for a **long US equity** setup. Values a
     "framing": "We show the edge and timing; you place the trade."
   },
   "headline": "AAPL has a strong late-October seasonal lean (long).",
-  "verdict": "BUY",
-  "disclaimer": "Educational, not personalized advice. Past seasonality does not guarantee future results.",
-  "tier_notes": null
+  "verdict": "Strong, consistent seasonal long. Seasonal shape: strengthens into the exit; seasonal index rising +6 pts over the hold.",
+  "disclaimer": "Educational seasonal pattern + ML research, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results.",
+  "tier_notes": "ML score shown."
 }
 ```
+
+`disclaimer` is not illustrative wording - it is byte-identical on every single card TradeWave returns, verbatim, regardless of tier or setup. `tier_notes` is also always one of a small fixed set of strings describing the ML state of this exact card (here, `"ML score shown."` because an `ml` block is present); it is never `null`.
 
 ## Reading every field
 
@@ -113,7 +121,7 @@ Here is a realistic (illustrative) card for a **long US equity** setup. Values a
 - **`rank`** - position in a ranked result set (1 = best by your `rank_by` choice in `/scan`).
 - **`symbol`** and **`market`** - what and where. `market.id` is the stable market identifier; `market.name` is the label.
 - **`direction`** - `"long"` (you profit if it rises) or `"short"` (you profit if it falls).
-- **`bias`** / **`verdict`** - the wire field for the actionable conclusion: `"bullish"`, `"bearish"`, or `"neutral"`. Branch your code on this first.
+- **`bias`** - the wire field for the actionable conclusion: `"bullish"`, `"bearish"`, or `"neutral"`. Branch your code on this first. **`verdict`** is a separate field: a one-line prose read composed server-side (e.g. `"Strong, consistent seasonal long. ..."`), not a categorical value - never parse it, branch on `bias` instead.
 
 ### The setup window
 
@@ -161,7 +169,7 @@ ML is available on every tier but **metered per day**: the free tier gets a smal
 
 `receipts` is what makes TradeWave different. It is the auditable proof behind the card: `years_tested`, `wins`, `losses`, the `best_year` and `worst_year`, and - most importantly - **`per_year`**, a year-by-year breakdown with each year's `return_pct` and a `result` of `"win"` or `"loss"`.
 
-Scan `per_year` before you trust any score. Twelve wins in fifteen years with one ugly outlier tells a very different story than a knife-edge 8-of-15. `curve_summary` describes the seasonal shape in words, and `as_of` plus `source` time-stamp the evidence. For the daily pick specifically, this evidence is a public, forward-tested track record (see `/daily-pick/track-record`) - receipts you can check, not a marketing claim.
+Scan `per_year` before you trust any score. Twelve wins in fifteen years with one ugly outlier tells a very different story than a knife-edge 8-of-15. `curve_summary` is an object describing the Trend Chart shape over the hold window - `shape` (a one-line description), `trend` (`"rising"`, `"falling"`, or `"flat"`), `change_pts`, `peak_day`, and `trough_day` - or `null` when no curve section is available for this setup. `as_of` plus `source` time-stamp the evidence. For the daily pick specifically, this evidence is a public, forward-tested track record (see `/daily-pick/track-record`) - receipts you can check, not a marketing claim.
 
 ### neutral bias: honesty as a feature
 

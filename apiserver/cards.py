@@ -18,8 +18,11 @@ dict, ChartData4 stats, the per-year ChartData4 returns, an optional seasonal cu
 optional ml) and returns a card dict. It never calls the appserver itself (the endpoints /
 appserver_client own fetching), so it stays cheap and testable.
 """
+import base64
 import datetime
 import logging
+import os
+from urllib.parse import quote
 
 log = logging.getLogger("apiserver.cards")
 
@@ -315,6 +318,40 @@ def _short(d):
     return d.strftime("%b %d").replace(" 0", " ") if d else None
 
 
+def _wave_viewer(symbol, market_id, entry_date, hold_days, years):
+    """Build the exact, authenticated Wave Viewer destination for this pattern.
+
+    The React app's established ``?o=`` contract is base64 of
+    ``group|symbol|date|days|years``.  Generate it server-side so an AI never has to
+    reconstruct the payload and accidentally open a different setup.  WorkOS remains
+    responsible for authentication at the app boundary.
+    """
+    if not all((symbol, market_id, entry_date, hold_days, years)):
+        return None
+    host = (os.environ.get("TW2_PUBLIC_HOST") or "tw2-dev.trxstat.com").strip()
+    if host.startswith("http://") or host.startswith("https://"):
+        base = host.rstrip("/")
+    else:
+        base = "https://" + host.rstrip("/")
+    payload = "%s|%s|%s|%s|%s" % (
+        market_id, str(symbol).upper(), entry_date, hold_days, str(years).lower())
+    encoded = base64.b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
+    return {
+        "label": "Open and stress-test this exact pattern in TradeWave",
+        "url": "%s/app/?o=%s&view=evidence" % (base, quote(encoded, safe="")),
+        "opens": "Wave Viewer",
+        "pattern": {
+            "market_id": str(market_id),
+            "symbol": str(symbol).upper(),
+            "entry_date": entry_date,
+            "hold_days": hold_days,
+            "years": str(years).lower(),
+        },
+        "value": ("Inspect individual years, change the lookback or PE cycle, adjust the "
+                  "window, compare patterns, and save or share the setup."),
+    }
+
+
 def _entry_window(entry_d, tol_days=3):
     if not entry_d:
         return None
@@ -583,6 +620,9 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
     # --- tier_notes (ML is metered per day across all tiers; ml_state set by the route) ---
     tier_notes = _ML_NOTES.get(ml_state, _ML_NOTES["na"])
 
+    wave_viewer = _wave_viewer(
+        symbol, opp.get("market"), _fmt(entry_d), hold_days, years_str)
+
     card = {
         "rank": rank,
         "symbol": symbol,
@@ -619,18 +659,69 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
         "disclaimer": DISCLAIMER,
         "tier_notes": tier_notes,
     }
+    if wave_viewer:
+        card["wave_viewer"] = wave_viewer
     # --- optional inline chart DATA (include=chart): the Trend Chart curve + per-year bars in
     # one payload so the client can draw without a second round-trip. All percentages / a 0-100
     # index - never a price. ---
     if include_chart:
-        card["chart"] = {
-            "trend_chart": [{"date": p.get("date"), "index": p.get("index")}
-                            for p in (seasonal_curve or []) if isinstance(p, dict)],
-            "per_year_bars": per_year_bars(chart_entries, direction),
-            "note": ("trend_chart is the normalized 0-100 seasonal index (one point per day, "
-                     "entry-anchored); per_year_bars are each year's trade return with its "
-                     "favorable (mfe) / adverse (mae) excursion band. Percentages, never prices."),
-        }
+        attach_chart_evidence(card, seasonal_curve, chart_entries, direction)
+    return card
+
+
+def attach_chart_evidence(card, seasonal_curve, chart_entries, direction=None):
+    """Attach the canonical two-chart evidence pack to an already-built card.
+
+    Keeping this separate lets a ranked scan enrich only its winner instead of
+    repeating a full curve and per-year series on every runner-up.
+    """
+    direction = direction or card.get("direction") or "long"
+    card["chart"] = {
+        # Backward-compatible raw arrays used by existing API clients.
+        "trend_chart": [{"date": p.get("date"), "index": p.get("index")}
+                        for p in (seasonal_curve or []) if isinstance(p, dict)],
+        "per_year_bars": per_year_bars(chart_entries, direction),
+        # Explicit semantics make it much harder for an agent to label the seasonal
+        # index as a price or to reduce the excursion chart to net returns alone.
+        "presentation_order": ["year_by_year_evidence", "seasonal_trend"],
+        "recommended_charts": [
+            {
+                "id": "year_by_year_evidence",
+                "title": "%s year-by-year evidence" % (card.get("symbol") or "Pattern"),
+                "chart_type": "range_with_net_marker",
+                "data_ref": "chart.per_year_bars",
+                "x": "year",
+                "y_unit": "percent",
+                "range": {"adverse_field": "mae_pct", "favorable_field": "mfe_pct"},
+                "marker": "net_pct",
+                "purpose": ("Show consistency, losing years, realized return, and the "
+                            "favorable/adverse path risk for every completed year."),
+            },
+            {
+                "id": "seasonal_trend",
+                "title": "%s normalized seasonal trend" % (card.get("symbol") or "Pattern"),
+                "chart_type": "line",
+                "data_ref": "chart.trend_chart",
+                "x": "date",
+                "y": "index",
+                "y_unit": "normalized_index_0_100",
+                "highlight": {
+                    "entry_date": (card.get("setup") or {}).get("entry_date"),
+                    "exit_date": (card.get("setup") or {}).get("exit_date"),
+                },
+                "purpose": ("Show the typical seasonal shape and where the selected hold "
+                            "window begins, peaks, and exits."),
+            },
+        ],
+        "rendering_instruction": (
+            "Display both TradeWave charts when the client supports charts or images. "
+            "Lead with the year-by-year evidence, then the seasonal trend. Do not call the "
+            "normalized seasonal index a price or a return series."
+        ),
+        "note": ("trend_chart is the normalized 0-100 seasonal index (one point per day, "
+                 "entry-anchored); per_year_bars are each year's trade return with its "
+                 "favorable (mfe) / adverse (mae) excursion band. Percentages, never prices."),
+    }
     return card
 
 
@@ -751,6 +842,7 @@ _DECISION_STAT_KEYS = ("historical_win_rate", "sharpe_ratio", "avg_return_pct", 
 def project_card(card, view="full"):
     """Shape a built card for the requested verbosity (progressive disclosure):
       'full'     - everything (the default for the raw API; backward-compatible).
+      'evidence' - full winner (rank 1), lean decision cards for ranked runners.
       'decision' - the lean read: bias + verdict + setup/timing + edge + ml + alignment +
                    the research hand-off + next_step, with the heavy arrays (receipts.per_year,
                    chart, detail stats) trimmed. The agent re-requests 'full' for receipts.
@@ -763,6 +855,8 @@ def project_card(card, view="full"):
         return card
     if view == "table":
         return _card_row(card)
+    if view == "evidence":
+        return card if card.get("rank") == 1 else project_card(card, "decision")
     if view != "decision":
         return card  # 'full' (and any unknown value) -> untouched
     out = dict(card)
@@ -801,6 +895,7 @@ def _card_row(card):
         "ml_win_prob": ml.get("ml_win_prob"),
         "sharpe_ratio": stats.get("sharpe_ratio"),
         "headline": card.get("headline"),
+        "wave_viewer": card.get("wave_viewer"),
     }
     # the honesty flag survives the compact projection - a row built on a failed receipts
     # fetch must never read as a verified one.

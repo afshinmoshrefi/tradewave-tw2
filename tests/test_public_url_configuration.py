@@ -72,6 +72,7 @@ def test_public_url_matrix_and_footer_targets(monkeypatch, name, hosts):
     assert urls.PLAYGROUND_URL == f"https://{developers}/playground/"
     assert urls.MCP_SETUP_URL == f"https://{developers}/mcp"
     assert urls.MCP_REFERENCE_URL == f"https://{developers}/docs/mcp-reference.html"
+    assert urls.MCP_CONNECT_GUIDE_URL == f"https://{developers}/learn/connect-an-ai-agent-mcp.html"
     assert urls.API_BASE == f"https://{api}/v1"
     assert urls.MCP_URL == f"https://{mcp}"
     assert urls.DEVELOPER_FOOTER_LINKS == (
@@ -144,6 +145,76 @@ def test_rendered_marketing_pages_use_clean_mcp_url(monkeypatch):
     rendered = module.build_index() + module.build_use_cases()
     assert 'href="https://developers-dev.trxstat.com/mcp"' in rendered
     assert 'href="mcp.html"' not in rendered
+
+    mcp_page = module.build_mcp()
+    assert "Sign in on the TradeWave page" in mcp_page
+    assert "no API key" not in mcp_page
+    assert "do not need an API key" not in mcp_page
+    assert "No credential" not in mcp_page
+    assert "Developer option: connect with a TradeWave API key" not in mcp_page
+    assert "https://developers-dev.trxstat.com/learn/connect-an-ai-agent-mcp.html" in mcp_page
+    assert "Open the step-by-step setup guide" in mcp_page
+    assert '>Open the Setup Guide</a>' in mcp_page
+    assert "Get API Key" not in mcp_page
+    assert '>Connect TradeWave</a>' in mcp_page
+    assert 'data-preserve-cta="true"' in mcp_page
+    assert "Connect TradeWave in three steps" in mcp_page
+    assert "For data buyers and institutions" not in mcp_page
+    assert "placeable order ticket" not in mcp_page
+    assert "Build me a Q3 seasonal portfolio" not in mcp_page
+    assert "Claude - Strategist plan" not in mcp_page
+    assert "Claude - Pro plan" not in mcp_page
+    assert "Claude - Free plan" not in mcp_page
+    assert "tw_demo_explore" not in mcp_page
+
+
+def test_mcp_tool_docs_describe_oauth_before_byok():
+    docs = (ROOT / "api" / "MCP_TOOLS.md").read_text(encoding="utf-8")
+
+    assert "TradeWave account authorization (recommended for ChatGPT and Claude)" in docs
+    assert "does **not** create, copy, or paste an API key" in docs
+    assert "Bring your own API key (developer alternative)" in docs
+    assert "BYOK for v1" not in docs
+    assert "quota depends on authentication path" in docs
+    assert "metered daily: free 5/day" not in docs
+
+
+def test_mcp_learning_guide_is_login_first(monkeypatch):
+    hosts = (
+        "tw2-dev.trxstat.com",
+        "developers-dev.trxstat.com",
+        "api-dev.trxstat.com",
+        "mcp-dev.trxstat.com",
+    )
+    for key, value in zip(PUBLIC_HOST_KEYS, hosts):
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("TW2_ENV", "dev")
+    for module_name in ("portal_urls", "portal_seo", "generate_api_docs"):
+        monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    generator_path = ROOT / "site" / "api_learn" / "generate_learn_api.py"
+    spec = importlib.util.spec_from_file_location("mcp_learning_auth_test", generator_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    articles = module.load_articles()
+    index = next(i for i, article in enumerate(articles)
+                 if article["slug"] == "connect-an-ai-agent-mcp")
+    article = articles[index]
+    rendered = module.build_article(
+        article,
+        articles[index - 1] if index else None,
+        articles[index + 1] if index + 1 < len(articles) else None,
+        articles,
+    )
+
+    assert 'data-preserve-cta="true">Connect TradeWave</a>' in rendered
+    assert ">Get API Key</a>" not in rendered
+    assert "Developer API Key (optional)" not in rendered
+    assert "Connect TradeWave" in rendered
+    assert "Settings → Security and login" in rendered
+    assert "Customize → Connectors" in rendered
+    assert "Confirm the connection" in rendered
+    assert "For data buyers and institutions" not in rendered
 
 
 def test_footer_hosts_are_gated_on_both_deployment_tiers():

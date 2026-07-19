@@ -85,13 +85,6 @@
   </div>
   {% endif %}
 
-  {% if pricing_live %}
-  <div class="row" style="justify-content:center;gap:0;margin:8px 0 18px;">
-    <button type="button" class="btn-secondary bill-cycle active" data-cycle="month" style="border-radius:8px 0 0 8px;">Monthly</button>
-    <button type="button" class="btn-secondary bill-cycle" data-cycle="year" style="border-radius:0 8px 8px 0;border-left:none;">Annual <span class="muted" style="font-weight:600;">- 2 months free</span></button>
-  </div>
-  {% endif %}
-
   <div class="tiers-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
     {% for p in plans %}
     {# When pricing is not yet live, only the Free tier and the user's own current
@@ -104,9 +97,9 @@
         {% if p.is_current %}<span class="badge-active">current</span>{% endif %}
       </div>
       <div style="font-size:30px;font-weight:800;margin:10px 0 0;">
-        {% if p.price_monthly == 0 %}Free{% else %}<span class="price-amt" data-month="{{ p.price_monthly }}" data-year="{{ (p.price_annual / 12)|round|int }}">${{ p.price_monthly }}</span><span class="muted" style="font-size:15px;font-weight:500;">/mo</span>{% endif %}
+        {% if p.price_monthly == 0 %}Free{% else %}<span class="price-amt">${{ p.price_monthly }}</span><span class="muted" style="font-size:15px;font-weight:500;">/mo</span>{% endif %}
       </div>
-      {% if p.price_monthly > 0 %}<div class="muted price-annual-note" data-annual="${{ p.price_annual }}/yr billed annually" style="font-size:12px;margin:2px 0 8px;display:none;">${{ p.price_annual }}/yr billed annually</div>{% else %}<div style="height:8px;"></div>{% endif %}
+      <div style="height:8px;"></div>
       <ul style="list-style:none;padding:0;margin:0 0 18px 0;font-size:13px;color:#d1d5db;line-height:1.9;">
         <li>{{ p.markets }}</li>
         <li>{% if p.ml_daily_limit is none and p.ml_access %}Unlimited ML scores{% elif p.ml_access %}ML scores ({{ p.ml_daily_limit }}/day){% else %}No ML scoring{% endif %}</li>
@@ -134,7 +127,7 @@
         <form method="POST" action="{{ url_for('api_portal.billing_checkout') }}{% if request.args.get('promo') %}?promo={{ request.args.get('promo') }}{% endif %}" style="margin:0;">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="tier" value="{{ p.name }}">
-          <input type="hidden" name="interval" value="month" class="bill-interval">
+          <input type="hidden" name="interval" value="month">
           {% if request.args.get('promo') %}<input type="hidden" name="promo" value="{{ request.args.get('promo') }}">{% endif %}
           <button type="submit" class="btn-primary" style="width:100%;" {% if not stripe_configured %}disabled{% endif %}>Subscribe</button>
         </form>
@@ -158,33 +151,6 @@
 {% endblock %}
 
 {% block scripts %}
-{% if pricing_live %}
-<script>
-  (function () {
-    var cycle = 'month';
-    function applyCycle() {
-      document.querySelectorAll('.price-amt').forEach(function (el) {
-        el.textContent = '$' + (cycle === 'year' ? el.dataset.year : el.dataset.month);
-      });
-      document.querySelectorAll('.price-annual-note').forEach(function (el) {
-        el.style.display = cycle === 'year' ? 'block' : 'none';
-      });
-      document.querySelectorAll('.bill-interval').forEach(function (el) { el.value = cycle; });
-      document.querySelectorAll('.bill-cycle').forEach(function (button) {
-        var active = button.dataset.cycle === cycle;
-        button.classList.toggle('active', active);
-        button.style.background = active ? '#6366f1' : '';
-        button.style.borderColor = active ? '#6366f1' : '';
-        button.style.color = active ? '#fff' : '';
-      });
-    }
-    document.querySelectorAll('.bill-cycle').forEach(function (button) {
-      button.addEventListener('click', function () { cycle = button.dataset.cycle; applyCycle(); });
-    });
-    applyCycle();
-  })();
-</script>
-{% endif %}
 {% if highlight_tier %}
 <script>
   (function () {
