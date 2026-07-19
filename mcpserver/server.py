@@ -86,6 +86,7 @@ MAIN_PUBLIC_URL: str = (
     else f"https://{_main_public_host}"
 )
 
+LEGACY_PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v2.html"
 PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v3.html"
 PATTERN_WIDGET_HTML = (Path(__file__).with_name("pattern_widget.html")).read_text(
     encoding="utf-8"
@@ -546,7 +547,7 @@ mcp = FastMCP(
     name="tradewave-pattern-evidence",
     title="TradeWave Pattern Evidence",
     description=(
-        "Interactive seasonal trend and year-by-year MFE/MAE evidence for one exact pattern."
+        "Complete ranked seasonal shortlist plus interactive evidence for the top pattern."
     ),
     mime_type="text/html;profile=mcp-app",
     meta={
@@ -561,8 +562,8 @@ mcp = FastMCP(
             },
         },
         "openai/widgetDescription": (
-            "Shows TradeWave's normalized seasonal trend, yearly MFE/MAE ranges, final returns, "
-            "key statistics, and a button to open the exact setup in Wave Viewer."
+            "Shows the complete ranked TradeWave shortlist, normalized seasonal trend, yearly "
+            "MFE/MAE ranges, final returns, key statistics, and exact Wave Viewer links."
         ),
         "openai/widgetCSP": {
             "redirect_domains": [MAIN_PUBLIC_URL],
@@ -571,6 +572,38 @@ mcp = FastMCP(
 )
 def pattern_evidence_widget() -> str:
     """MCP App template. All evidence arrives in the tool's structuredContent."""
+    return PATTERN_WIDGET_HTML
+
+
+# MCP hosts can cache a tool's outputTemplate URI for an existing connector. Keep
+# the previous URI resolvable so a deploy cannot break an already-connected client.
+@mcp.resource(
+    LEGACY_PATTERN_WIDGET_URI,
+    name="tradewave-pattern-evidence-v2",
+    title="TradeWave Pattern Evidence",
+    description=(
+        "Complete ranked seasonal shortlist plus interactive evidence for the top pattern."
+    ),
+    mime_type="text/html;profile=mcp-app",
+    meta={
+        "ui": {
+            "prefersBorder": True,
+            "csp": {
+                "connectDomains": [],
+                "resourceDomains": [],
+            },
+        },
+        "openai/widgetDescription": (
+            "Shows the complete ranked TradeWave shortlist, normalized seasonal trend, yearly "
+            "MFE/MAE ranges, final returns, key statistics, and exact Wave Viewer links."
+        ),
+        "openai/widgetCSP": {
+            "redirect_domains": [MAIN_PUBLIC_URL],
+        },
+    },
+)
+def pattern_evidence_widget_v2() -> str:
+    """Compatibility alias for hosts that cached the previous outputTemplate URI."""
     return PATTERN_WIDGET_HTML
 
 
@@ -714,10 +747,7 @@ def _widget_text_fallback(data: dict[str, Any]) -> str:
             number *= 100
         return f"{number:+.2f}%"
 
-    lines = [
-        "Required ranked shortlist: present EVERY returned row below in rank order "
-        "before commentary. Do not collapse a plural scan to the winner."
-    ]
+    lines = [f"Ranked shortlist ({len(cards)} returned patterns, in rank order):"]
     for index, card in enumerate(cards, start=1):
         setup = card.get("setup") if isinstance(card.get("setup"), dict) else card
         stats = card.get("stats") if isinstance(card.get("stats"), dict) else card
@@ -782,26 +812,6 @@ def _widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> Call
     whether a host chooses to display ordinary MCP ``image`` content blocks.
     """
     payload = copy.deepcopy(data)
-    opportunities = payload.get("opportunities")
-    if isinstance(opportunities, list) and opportunities:
-        payload = {
-            "ranked_list_presentation": {
-                "required": True,
-                "result_count": len(opportunities),
-                "instruction": (
-                    "This is a plural ranked-scan result. Present every returned opportunity "
-                    "in a ranked table before analysis; name every symbol and include direction, "
-                    "entry date, holding period, win rate, average return, and Sharpe when present. "
-                    "Do not summarize the scan as only the top pattern. The embedded TradeWave "
-                    "widget shows the complete shortlist plus charts for rank 1."
-                ),
-            },
-            **payload,
-        }
-        text += (
-            f"\n\nRequired presentation: show all {len(opportunities)} returned patterns "
-            "in a ranked table before commentary; do not collapse this plural result to rank 1."
-        )
     card = _primary_card(payload)
     viewer = card.get("wave_viewer") if isinstance(card, dict) else None
     viewer_url = viewer.get("url") if isinstance(viewer, dict) else None
