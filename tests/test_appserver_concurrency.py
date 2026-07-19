@@ -113,6 +113,10 @@ def test_deploy_pins_source_build_and_one_time_login_cutover():
     assert "SELECT roles FROM users WHERE api_key_hash = %s" in deploy
     assert "len(rows) != 1" in deploy
     assert 'hmac.compare_digest(role, "service_account")' in deploy
+    assert "MCP_SERVICE_ACCOUNT_PREFLIGHT" in deploy
+    assert "MCP_GATEWAY_KEY" in deploy
+    assert "FROM api_keys k JOIN users u ON u.id = k.user_id" in deploy
+    assert 'hmac.compare_digest(str(api_tier or ""), "mcp")' in deploy
     assert deploy.index("service-account identity OK") < deploy.index(
         "both target worktrees are clean"
     )

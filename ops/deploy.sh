@@ -261,6 +261,71 @@ if not isinstance(roles, list) or not any(
 print("    service-account identity OK")
 SERVICE_ACCOUNT_PREFLIGHT
 
+# The consumer MCP key is a separate delegation principal from SERVICE_API_KEY.
+# Validate its durable identity too: if the key exists but loses service_account,
+# OAuth still succeeds while every request silently resolves as Explorer/free.
+$SSH "root@$APP" 'set -a; . /etc/tradewave/secrets.env; set +a; exec /home/flask/venv-api/bin/python -' <<'MCP_SERVICE_ACCOUNT_PREFLIGHT'
+import hashlib
+import hmac
+import os
+import sys
+
+import psycopg2
+
+mcp_key = os.environ.get("MCP_GATEWAY_KEY", "")
+hmac_secret = (
+    os.environ.get("API_KEY_HMAC_SECRET", "")
+    or os.environ.get("APPSERVER_JWT_SECRET", "")
+)
+dsn = os.environ.get("POSTGRES_DSN", "")
+if len(mcp_key) < 16 or not hmac_secret or not dsn:
+    sys.stderr.write("ABORT: MCP service-account preflight configuration is incomplete.\n")
+    raise SystemExit(1)
+
+key_hash = hmac.new(
+    hmac_secret.encode("utf-8"),
+    mcp_key.encode("utf-8"),
+    hashlib.sha256,
+).hexdigest()
+conn = None
+try:
+    conn = psycopg2.connect(dsn)
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT u.api_tier, u.roles "
+            "FROM api_keys k JOIN users u ON u.id = k.user_id "
+            "WHERE k.key_hash = %s AND k.revoked_at IS NULL",
+            (key_hash,),
+        )
+        rows = cur.fetchall()
+except Exception:
+    # Do not echo exception text: connection failures may serialize a credentialed DSN.
+    sys.stderr.write("ABORT: MCP service-account preflight could not query the database.\n")
+    raise SystemExit(1)
+finally:
+    if conn is not None:
+        conn.close()
+
+if len(rows) != 1:
+    sys.stderr.write(
+        "ABORT: configured MCP gateway key must match exactly one active API-key row; "
+        "run apiserver.provision_mcp_key on APP.\n"
+    )
+    raise SystemExit(1)
+api_tier, roles = rows[0]
+has_service_role = isinstance(roles, list) and any(
+    isinstance(role, str) and hmac.compare_digest(role, "service_account")
+    for role in roles
+)
+if not hmac.compare_digest(str(api_tier or ""), "mcp") or not has_service_role:
+    sys.stderr.write(
+        "ABORT: configured MCP gateway key lacks the mcp tier or service_account role; "
+        "run apiserver.provision_mcp_key on APP.\n"
+    )
+    raise SystemExit(1)
+print("    MCP service-account identity OK")
+MCP_SERVICE_ACCOUNT_PREFLIGHT
+
 echo "==> [$ENV] pre-flight: both target worktrees are clean and see the intended origin/main?"
 for box in "$APP" "$WEB"; do
   $SSH "root@$box" "EXPECTED_SHA='$EXPECTED_SHA' bash -s" <<'REMOTE_PREFLIGHT'
