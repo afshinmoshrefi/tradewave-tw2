@@ -79,6 +79,13 @@ MCP_PUBLIC_URL: str = (os.environ.get("TW2_MCP_PUBLIC_URL", "") or "").rstrip("/
 MCP_GATEWAY_KEY: str = os.environ.get("MCP_GATEWAY_KEY", "")
 OAUTH_ENABLED: bool = bool(WORKOS_AUTHKIT_DOMAIN and MCP_PUBLIC_URL and MCP_GATEWAY_KEY)
 
+_main_public_host = (os.environ.get("TW2_PUBLIC_HOST", "") or "tw2-dev.trxstat.com").strip().rstrip("/")
+MAIN_PUBLIC_URL: str = (
+    _main_public_host
+    if _main_public_host.startswith(("http://", "https://"))
+    else f"https://{_main_public_host}"
+)
+
 PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v1.html"
 PATTERN_WIDGET_HTML = (Path(__file__).with_name("pattern_widget.html")).read_text(
     encoding="utf-8"
@@ -539,7 +546,9 @@ mcp = FastMCP(
     meta={
         "ui": {
             "prefersBorder": True,
-            "domain": "https://mcp-dev.trxstat.com",
+            # Deliberately omit ui.domain. MCP hosts assign their own isolated widget
+            # origin (Claude uses <hash>.claudemcpcontent.com); advertising the MCP
+            # server host here makes Claude reject the app before it can list tools.
             "csp": {
                 "connectDomains": [],
                 "resourceDomains": [],
@@ -550,7 +559,7 @@ mcp = FastMCP(
             "key statistics, and a button to open the exact setup in Wave Viewer."
         ),
         "openai/widgetCSP": {
-            "redirect_domains": ["https://tw2-dev.trxstat.com"],
+            "redirect_domains": [MAIN_PUBLIC_URL],
         },
     },
 )

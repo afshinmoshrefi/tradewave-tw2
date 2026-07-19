@@ -149,6 +149,9 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     widget = next(resource for resource in resources if str(resource.uri) == server.PATTERN_WIDGET_URI)
     assert widget.mimeType == "text/html;profile=mcp-app"
     assert widget.meta["ui"]["prefersBorder"] is True
+    assert "domain" not in widget.meta["ui"]
+    assert widget.meta["openai/widgetCSP"]["redirect_domains"] == [server.MAIN_PUBLIC_URL]
+    assert "mcp-dev.trxstat.com" not in repr(widget.meta)
     assert "ui/notifications/tool-result" in server.PATTERN_WIDGET_HTML
 
 
