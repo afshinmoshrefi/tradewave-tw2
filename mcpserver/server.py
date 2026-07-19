@@ -917,11 +917,11 @@ def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False
         "Scans the caller's in-scope markets by default; narrow with `markets`. Honest by design: "
         "weak setups come back as neutral rather than a manufactured trade. "
         "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
-        "Present the returned cards as-is; the gateway has already sorted them by rank. "
-        "The default EVIDENCE view returns the winner in full with two TradeWave charts and "
-        "keeps runners lean; the winner retains its receipts, detail stats, and extend_research "
-        "context. Render the TradeWave evidence widget and include the exact Wave Viewer link. "
-        "Pass view='table' only when the user explicitly wants a compact list."
+        "Present the complete returned shortlist in rank order; the gateway has already sorted it. "
+        "This scan is intentionally LIST-FIRST and does not mount the single-pattern evidence "
+        "widget. The default DECISION view keeps every returned pattern visible. When the user "
+        "focuses on one pattern, call analyze_symbol to open its detailed card, exact Wave Viewer "
+        "link, and charts. Pass view='table' only when the user explicitly wants a compact list."
     ),
     annotations=ToolAnnotations(
         title="Find the best TradeWave opportunities",
@@ -930,15 +930,8 @@ def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False
         idempotentHint=True,
         openWorldHint=False,
     ),
-    meta={
-        "ui": {"resourceUri": PATTERN_WIDGET_URI},
-        "openai/outputTemplate": PATTERN_WIDGET_URI,
-        "openai/toolInvocation/invoking": "Scanning and building TradeWave charts…",
-        "openai/toolInvocation/invoked": "TradeWave opportunities and charts ready",
-    },
-    structured_output=True,
 )
-@_widget_tool_errors
+@_tool_errors
 async def find_best_opportunities(
     markets: Annotated[Optional[list[str] | str], Field(description=(
         "Market ids, list_markets names, or common aliases ('sp500','crypto','europe') to "
@@ -989,18 +982,15 @@ async def find_best_opportunities(
     limit: Annotated[Optional[int], Field(description=(
         "Max cards to return (tier-capped to the caller's opp_limit)."))] = None,
     view: Annotated[Optional[str], Field(description=(
-        "Verbosity. 'evidence' (default) = full winner + lean runners; 'decision' = lean "
-        "cards; 'table' = compact ranked rows; 'full' = complete cards for every result."))] = None,
+        "Verbosity. 'decision' (default) = the complete ranked shortlist with a lean read per "
+        "pattern; 'table' = compact ranked rows; 'full' = complete cards for every result."))] = None,
     include_chart: Annotated[Optional[bool], Field(description=(
-        "Attach and render TradeWave's year-by-year MFE/MAE evidence chart and normalized "
-        "seasonal trend for the winner. Defaults true; set false only for a text-only client."))] = None,
+        "Compatibility parameter. Ranked scans remain list-first; use analyze_symbol on a "
+        "selected result to render its TradeWave charts."))] = None,
     ctx: Optional[Context] = None,
-) -> dict[str, Any]:
+) -> str:
     _bind_request_key(ctx)
-    selected_view = view or "evidence"
-    params: dict[str, Any] = {"view": selected_view}
-    if include_chart is not False and selected_view != "table":
-        params["include"] = "chart"
+    params: dict[str, Any] = {"view": view or "decision"}
     if markets is not None:
         params["markets"] = _csv(markets)
     if window is not None:
@@ -1060,13 +1050,17 @@ async def find_best_opportunities(
         where = f" entering its {win} window" if win == "now" else (f" for {win}" if win else "")
         return f"Found {n} ranked seasonal setup(s){where}, sorted by {by}. Top of the list first:"
 
-    return _present_cards(
-        data,
-        empty_msg="No high-conviction seasonal setups matched those filters right now. "
-                  "Try widening the markets, the window, or lowering min_win_rate.",
-        found_msg=_found,
-        widget=True,
-    )
+    if _is_upgrade_stub(data):
+        return _format_upgrade(data)
+    if isinstance(data, dict):
+        count = data.get("count")
+        if count == 0 or (count is None and not data.get("opportunities")):
+            return _lead(
+                "No high-conviction seasonal setups matched those filters right now. "
+                "Try widening the markets, the window, or lowering min_win_rate.",
+                data,
+            )
+    return _lead(_found(data), data, handoff=True)
 
 
 # ---------------------------------------------------------------------------

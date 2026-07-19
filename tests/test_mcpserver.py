@@ -4,8 +4,8 @@ explicitly under venv-api:
 
     /home/flask/venv-api/bin/python -m pytest tests/test_mcpserver.py
 
-Covers the thin-but-load-bearing MCP logic: the evidence-first default, include=chart
-plumbing, the disclaimer hoist/dedup, the research hand-off, and the upgrade-stub handling.
+Covers the thin-but-load-bearing MCP logic: list-first scans, evidence-first symbol details,
+the disclaimer hoist/dedup, the research hand-off, and the upgrade-stub handling.
 The gateway is mocked (server._get), so no network/appserver.
 """
 import asyncio
@@ -53,11 +53,11 @@ def captured(monkeypatch):
 
 # --- progressive disclosure: the MCP layer defaults to the lean 'decision' view -----
 
-def test_find_best_defaults_to_evidence_view_and_chart(captured):
+def test_find_best_defaults_to_list_first_decision_view(captured):
     _run(server.find_best_opportunities(markets="2", ctx=None))
     assert captured["path"] == "/scan"
-    assert captured["params"]["view"] == "evidence"
-    assert captured["params"]["include"] == "chart"
+    assert captured["params"]["view"] == "decision"
+    assert "include" not in captured["params"]
 
 
 def test_whats_seasonal_now_defaults_to_decision(captured):
@@ -134,10 +134,9 @@ def test_scan_carries_focused_followup_contract(monkeypatch):
 
     out = _run(server.find_best_opportunities(ctx=None))
 
-    assert isinstance(out, server.CallToolResult)
-    rule = out.structuredContent["focused_followup"]
-    assert rule["required_tool"] == "analyze_symbol"
-    assert "never require the user to ask for a chart" in rule["instruction"]
+    assert isinstance(out, str)
+    assert '"required_tool":"analyze_symbol"' in out
+    assert "never require the user to ask for a chart" in out
 
 
 def test_analyze_returns_mcp_app_result_with_structured_evidence(monkeypatch):
@@ -175,9 +174,9 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     assert analyze.meta["openai/outputTemplate"] == server.PATTERN_WIDGET_URI
     assert analyze.annotations.readOnlyHint is True
     assert analyze.outputSchema["type"] == "object"
-    assert scan.meta["ui"]["resourceUri"] == server.PATTERN_WIDGET_URI
+    assert not scan.meta or "ui" not in scan.meta
     assert scan.annotations.readOnlyHint is True
-    assert scan.outputSchema["type"] == "object"
+    assert scan.outputSchema["properties"]["result"]["type"] == "string"
 
     resources = _run(server.mcp.list_resources())
     widget = next(resource for resource in resources if str(resource.uri) == server.PATTERN_WIDGET_URI)
@@ -202,7 +201,7 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     assert "rankedShortlist(data?.opportunities" in server.PATTERN_WIDGET_HTML
 
 
-def test_widget_result_has_ranked_text_fallback_for_non_rendering_hosts(monkeypatch):
+def test_ranked_scan_returns_every_row_without_mounting_detail_widget(monkeypatch):
     async def fake_get(path, params=None):
         return {
             "count": 2,
@@ -237,16 +236,13 @@ def test_widget_result_has_ranked_text_fallback_for_non_rendering_hosts(monkeypa
 
     monkeypatch.setattr(server, "_get", fake_get)
     out = _run(server.find_best_opportunities(ctx=None))
-    text = out.content[0].text
 
-    assert "Ranked shortlist (2 returned patterns, in rank order):" in text
-    assert "Required presentation:" not in text
-    assert "1. TJX LONG" in text
-    assert "win rate 95% over 20 years" in text
-    assert "ML win probability 86.50%" in text
-    assert "2. ALL LONG" in text
-    assert "2025: final +10.00% (path -1.00% to +12.00%)" in text
-    assert "ranked_list_presentation" not in out.structuredContent
+    assert isinstance(out, str)
+    assert "Found 2 ranked seasonal setup(s)" in out
+    assert '"symbol":"TJX"' in out
+    assert '"symbol":"ALL"' in out
+    assert out.index('"symbol":"TJX"') < out.index('"symbol":"ALL"')
+    assert "pattern-evidence" not in out
 
 
 # --- disclaimer hoist / dedup (token-saving envelope handling) ----------------------
