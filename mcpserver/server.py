@@ -86,7 +86,7 @@ MAIN_PUBLIC_URL: str = (
     else f"https://{_main_public_host}"
 )
 
-PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v2.html"
+PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v3.html"
 PATTERN_WIDGET_HTML = (Path(__file__).with_name("pattern_widget.html")).read_text(
     encoding="utf-8"
 )
@@ -714,7 +714,10 @@ def _widget_text_fallback(data: dict[str, Any]) -> str:
             number *= 100
         return f"{number:+.2f}%"
 
-    lines = ["TradeWave ranked results (text fallback):"]
+    lines = [
+        "Required ranked shortlist: present EVERY returned row below in rank order "
+        "before commentary. Do not collapse a plural scan to the winner."
+    ]
     for index, card in enumerate(cards, start=1):
         setup = card.get("setup") if isinstance(card.get("setup"), dict) else card
         stats = card.get("stats") if isinstance(card.get("stats"), dict) else card
@@ -779,6 +782,26 @@ def _widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> Call
     whether a host chooses to display ordinary MCP ``image`` content blocks.
     """
     payload = copy.deepcopy(data)
+    opportunities = payload.get("opportunities")
+    if isinstance(opportunities, list) and opportunities:
+        payload = {
+            "ranked_list_presentation": {
+                "required": True,
+                "result_count": len(opportunities),
+                "instruction": (
+                    "This is a plural ranked-scan result. Present every returned opportunity "
+                    "in a ranked table before analysis; name every symbol and include direction, "
+                    "entry date, holding period, win rate, average return, and Sharpe when present. "
+                    "Do not summarize the scan as only the top pattern. The embedded TradeWave "
+                    "widget shows the complete shortlist plus charts for rank 1."
+                ),
+            },
+            **payload,
+        }
+        text += (
+            f"\n\nRequired presentation: show all {len(opportunities)} returned patterns "
+            "in a ranked table before commentary; do not collapse this plural result to rank 1."
+        )
     card = _primary_card(payload)
     viewer = card.get("wave_viewer") if isinstance(card, dict) else None
     viewer_url = viewer.get("url") if isinstance(viewer, dict) else None

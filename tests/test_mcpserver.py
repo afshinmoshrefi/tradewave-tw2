@@ -186,11 +186,13 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     assert "domain" not in widget.meta["ui"]
     assert widget.meta["openai/widgetCSP"]["redirect_domains"] == [server.MAIN_PUBLIC_URL]
     assert "mcp-dev.trxstat.com" not in repr(widget.meta)
-    assert server.PATTERN_WIDGET_URI.endswith("pattern-evidence-v2.html")
+    assert server.PATTERN_WIDGET_URI.endswith("pattern-evidence-v3.html")
     assert 'request("ui/initialize"' in server.PATTERN_WIDGET_HTML
     assert 'notify("ui/notifications/initialized")' in server.PATTERN_WIDGET_HTML
     assert 'notify("ui/notifications/size-changed"' in server.PATTERN_WIDGET_HTML
     assert "ui/notifications/tool-result" in server.PATTERN_WIDGET_HTML
+    assert "All ${opportunities.length} ranked patterns" in server.PATTERN_WIDGET_HTML
+    assert "rankedShortlist(data?.opportunities" in server.PATTERN_WIDGET_HTML
 
 
 def test_widget_result_has_ranked_text_fallback_for_non_rendering_hosts(monkeypatch):
@@ -230,12 +232,17 @@ def test_widget_result_has_ranked_text_fallback_for_non_rendering_hosts(monkeypa
     out = _run(server.find_best_opportunities(ctx=None))
     text = out.content[0].text
 
-    assert "TradeWave ranked results (text fallback):" in text
+    assert "Required ranked shortlist: present EVERY returned row" in text
+    assert "show all 2 returned patterns in a ranked table" in text
     assert "1. TJX LONG" in text
     assert "win rate 95% over 20 years" in text
     assert "ML win probability 86.50%" in text
     assert "2. ALL LONG" in text
     assert "2025: final +10.00% (path -1.00% to +12.00%)" in text
+    contract = out.structuredContent["ranked_list_presentation"]
+    assert contract["required"] is True
+    assert contract["result_count"] == 2
+    assert "Present every returned opportunity" in contract["instruction"]
 
 
 # --- disclaimer hoist / dedup (token-saving envelope handling) ----------------------

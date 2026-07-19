@@ -95,6 +95,17 @@
     .legend { display: flex; gap: 14px; color: var(--muted); font-size: 11px; margin: 2px 0 0 4px; }
     .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; border-radius: 2px; }
     .dot { transform: rotate(45deg); border-radius: 1px; background: var(--orange); }
+    .ranked-wrap { width: 100%; overflow-x: auto; }
+    .ranked-table { width: 100%; min-width: 690px; border-collapse: collapse; }
+    .ranked-table th, .ranked-table td { padding: 8px 7px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    .ranked-table th { color: var(--muted); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+    .ranked-table th:nth-child(2), .ranked-table td:nth-child(2) { text-align: left; }
+    .ranked-table tbody tr:last-child td { border-bottom: 0; }
+    .ranked-table tbody tr:first-child { background: rgba(47, 128, 237, .10); }
+    .rank-symbol { color: var(--text); font-weight: 800; }
+    .rank-direction { color: var(--muted); font-size: 11px; margin-left: 5px; }
+    .row-open { color: #70b7ff; font-weight: 750; text-decoration: none; }
+    .row-open:hover { text-decoration: underline; }
     .status { padding: 28px; color: var(--muted); text-align: center; }
     .foot { color: var(--muted); font-size: 11px; padding: 2px 3px 0; }
     .positive { color: var(--green); }
@@ -275,6 +286,75 @@
         return [node, wrap];
       }
 
+      function rankedShortlist(opportunities, rankBy) {
+        if (!Array.isArray(opportunities) || opportunities.length === 0) return null;
+        const section = htmlEl("section", "panel");
+        const head = htmlEl("div", "panel-head");
+        head.append(
+          htmlEl("div", "panel-title", `All ${opportunities.length} ranked patterns`),
+          htmlEl("div", "panel-note", `Sorted by ${rankBy || "rank"} - charts below show rank #1`)
+        );
+        section.appendChild(head);
+
+        const wrap = htmlEl("div", "ranked-wrap");
+        const table = htmlEl("table", "ranked-table");
+        const thead = htmlEl("thead");
+        const header = htmlEl("tr");
+        ["#", "Pattern", "Entry", "Hold", "Win rate", "Average", "Sharpe", "View"].forEach(label => {
+          header.appendChild(htmlEl("th", "", label));
+        });
+        thead.appendChild(header);
+        table.appendChild(thead);
+
+        const tbody = htmlEl("tbody");
+        opportunities.forEach((item, index) => {
+          const setup = item.setup || item;
+          const stats = item.stats || item;
+          const viewer = item.wave_viewer || {};
+          const row = htmlEl("tr");
+          row.appendChild(htmlEl("td", "", String(item.rank || index + 1)));
+
+          const pattern = htmlEl("td");
+          pattern.append(
+            htmlEl("span", "rank-symbol", item.symbol || "Pattern"),
+            htmlEl("span", "rank-direction", String(item.direction || item.bias || "").toUpperCase())
+          );
+          row.appendChild(pattern);
+          row.appendChild(htmlEl("td", "", shortDate(setup.entry_date)));
+          row.appendChild(htmlEl("td", "", setup.hold_days == null ? "-" : `${setup.hold_days}d`));
+
+          let winRate = Number(stats.historical_win_rate);
+          if (Number.isFinite(winRate) && Math.abs(winRate) <= 1) winRate *= 100;
+          row.appendChild(htmlEl("td", "", Number.isFinite(winRate) ? pct(winRate, 0) : "-"));
+          row.appendChild(htmlEl("td", "", pct(stats.avg_return_pct)));
+          row.appendChild(htmlEl("td", "", num(stats.sharpe_ratio, 2)));
+
+          const view = htmlEl("td");
+          if (viewer.url) {
+            const link = htmlEl("a", "row-open", "Open");
+            link.href = viewer.url;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.addEventListener("click", event => {
+              if (!hostCapabilities.openLinks) return;
+              event.preventDefault();
+              request("ui/open-link", { url: viewer.url }).catch(() => {
+                window.open(viewer.url, "_blank", "noopener,noreferrer");
+              });
+            });
+            view.appendChild(link);
+          } else {
+            view.textContent = "-";
+          }
+          row.appendChild(view);
+          tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        section.appendChild(wrap);
+        return section;
+      }
+
       function render(raw) {
         const data = raw?.structuredContent || raw?.result?.structuredContent || raw?.result || raw;
         const card = data?.card || data?.opportunities?.[0];
@@ -322,6 +402,9 @@
           statCard("ML win probability", ml.ml_win_prob == null ? "—" : pct(Number(ml.ml_win_prob) * (Number(ml.ml_win_prob) <= 1 ? 100 : 1), 1))
         );
         app.appendChild(statsGrid);
+
+        const shortlist = rankedShortlist(data?.opportunities, data?.rank_by);
+        if (shortlist) app.appendChild(shortlist);
 
         const [trendPanel, trendWrap] = panel("Normalized seasonal trend", "The historical path during this exact holding window");
         lineChart(trendWrap, Array.isArray(chart.trend_chart) ? chart.trend_chart : [], setup.hold_days);
