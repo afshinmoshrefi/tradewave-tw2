@@ -66,3 +66,10 @@ def test_scan_quickstarts_use_the_contract_parameter_name():
     document = QUICKSTART.read_text(encoding="utf-8")
     assert "/scan?market=" not in document
     assert "/scan?markets=2" in document
+
+
+def test_doc_ci_preflight_uses_an_explicit_edge_identity():
+    """Do not let urllib's default fingerprint turn Cloudflare 1010 into a false API failure."""
+    checker = CHECKER.read_text(encoding="utf-8")
+    assert '"User-Agent": "TradeWave-DocCI/1.0"' in checker
+    assert '"Accept": "application/json"' in checker

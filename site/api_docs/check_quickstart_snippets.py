@@ -76,8 +76,18 @@ def preflight(key: str) -> int:
     Returns 0 = good to go, 3 = day quota exhausted (inconclusive), 1 = broken key."""
     import urllib.request
     import urllib.error
-    req = urllib.request.Request(f"{CHECK_BASE}/daily-pick",
-                                 headers={"Authorization": f"Bearer {key}"})
+    # Cloudflare rejects urllib's default ``Python-urllib/*`` fingerprint with
+    # error 1010 even though the documented curl/Python/JS clients are allowed.
+    # Send an explicit release-gate identity so this cheap key preflight tests
+    # the API contract instead of an unrelated edge fingerprint rule.
+    req = urllib.request.Request(
+        f"{CHECK_BASE}/daily-pick",
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Accept": "application/json",
+            "User-Agent": "TradeWave-DocCI/1.0",
+        },
+    )
     for attempt in range(3):
         try:
             with urllib.request.urlopen(req, timeout=15):
