@@ -100,6 +100,10 @@ def test_post_resize_staging_defaults_match_release_topology():
 def test_deploy_pins_source_build_and_one_time_login_cutover():
     deploy = (ROOT / "ops" / "deploy.sh").read_text(encoding="utf-8")
     assert "TW2_DEPLOY_SHA" in deploy
+    assert 'DEPLOY_REPO="${TW2_DEPLOY_REPO:-/home/flask}"' in deploy
+    assert 'BUILD="$DEPLOY_REPO/web-react/build"' in deploy
+    assert 'git -C "$DEPLOY_REPO" status' in deploy
+    assert '"$DEPLOY_REPO/ops/verify_deploy.sh"' in deploy
     assert ".tradewave-source-sha" in deploy
     assert "git -C \"$repo\" merge --ff-only \"$EXPECTED_SHA\"" in deploy
     assert "TW2_SERVICE_LOGIN_CUTOVER" in deploy

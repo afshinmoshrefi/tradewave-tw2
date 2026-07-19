@@ -30,18 +30,23 @@ case "${1:-}" in
            APIHOST=api.tradewave.ai;      DEVHOST=developers.tradewave.ai;      MCPHOST=mcp.tradewave.ai ;;
   *) echo "usage: $0 {staging|prod}"; exit 2 ;;
 esac
-ENV="$1"; SSH="ssh -p 4369"; BUILD=/home/flask/web-react/build
+ENV="$1"; SSH="ssh -p 4369"
+# The live dev checkout can contain unrelated in-progress work.  Permit release
+# orchestration from a separate clean worktree while keeping /home/flask as the
+# normal default for operators and automation.
+DEPLOY_REPO="${TW2_DEPLOY_REPO:-/home/flask}"
+BUILD="$DEPLOY_REPO/web-react/build"
 
 # Pin the deployment to one reviewed commit. A local-only commit, a later main
 # update, a dirty target, or a React bundle built from another SHA all fail before
 # any remote state is changed.
-EXPECTED_SHA="${TW2_DEPLOY_SHA:-$(git -C /home/flask rev-parse HEAD)}"
+EXPECTED_SHA="${TW2_DEPLOY_SHA:-$(git -C "$DEPLOY_REPO" rev-parse HEAD)}"
 case "$EXPECTED_SHA" in *[!0-9a-f]*|'') echo "ABORT: TW2_DEPLOY_SHA must be a full lowercase commit SHA"; exit 1 ;; esac
 [ "${#EXPECTED_SHA}" -eq 40 ] || { echo "ABORT: expected a full 40-character deploy SHA"; exit 1; }
-[ -z "$(git -C /home/flask status --porcelain --untracked-files=normal)" ] || {
+[ -z "$(git -C "$DEPLOY_REPO" status --porcelain --untracked-files=normal)" ] || {
   echo "ABORT: local release worktree is dirty; commit or remove release artifacts first."; exit 1;
 }
-REMOTE_MAIN="$(git -C /home/flask ls-remote origin refs/heads/main | awk '{print $1}')"
+REMOTE_MAIN="$(git -C "$DEPLOY_REPO" ls-remote origin refs/heads/main | awk '{print $1}')"
 [ "$REMOTE_MAIN" = "$EXPECTED_SHA" ] || {
   echo "ABORT: intended SHA is not the current origin/main; push/merge the reviewed release first."; exit 1;
 }
@@ -409,8 +414,8 @@ echo "==> [$ENV] code+pages deployed. Running post-deploy verification..."
 # routes, wrong-host leaks, and undeployed features - turning a silent-bad deploy into a
 # visible one. Non-fatal-but-loud: the deploy already applied; a nonzero verify means the
 # site is live-but-not-clean, so fix + re-run regen before announcing.
-if [ -x /home/flask/ops/verify_deploy.sh ]; then
-  if bash /home/flask/ops/verify_deploy.sh "$ENV"; then
+if [ -x "$DEPLOY_REPO/ops/verify_deploy.sh" ]; then
+  if bash "$DEPLOY_REPO/ops/verify_deploy.sh" "$ENV"; then
     echo "==> [$ENV] DONE + VERIFIED CLEAN. Live: https://$HOST"
   else
     echo "!!! [$ENV] DEPLOYED, but verify_deploy reported BLOCKER(S) above."
