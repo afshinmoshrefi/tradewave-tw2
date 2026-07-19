@@ -17,6 +17,8 @@ env/
 # Node / React
 node_modules/
 web-react/build/
+web-react/build-previous
+web-react/releases/
 *.tsbuildinfo
 
 # Caches
@@ -28,6 +30,11 @@ web-react/build/
 # Editor / OS
 .vscode/
 .idea/
+# /home/flask is both the deployment checkout and the service user's home on
+# Linux targets, so normal login profiles can exist at the repository root.
+/.bash_logout
+/.bashrc
+/.profile
 # .claude holds local Claude Code settings (ignored), but the shared, version-controlled
 # coding-standards skill must ship with the repo:
 .claude/*
