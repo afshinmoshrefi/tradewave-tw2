@@ -4,7 +4,7 @@ explicitly under venv-api:
 
     /home/flask/venv-api/bin/python -m pytest tests/test_mcpserver.py
 
-Covers the thin-but-load-bearing MCP logic: the lean view=decision default, include=chart
+Covers the thin-but-load-bearing MCP logic: the evidence-first default, include=chart
 plumbing, the disclaimer hoist/dedup, the research hand-off, and the upgrade-stub handling.
 The gateway is mocked (server._get), so no network/appserver.
 """
@@ -53,10 +53,11 @@ def captured(monkeypatch):
 
 # --- progressive disclosure: the MCP layer defaults to the lean 'decision' view -----
 
-def test_find_best_defaults_to_decision_view(captured):
+def test_find_best_defaults_to_evidence_view_and_chart(captured):
     _run(server.find_best_opportunities(markets="2", ctx=None))
     assert captured["path"] == "/scan"
-    assert captured["params"]["view"] == "decision"
+    assert captured["params"]["view"] == "evidence"
+    assert captured["params"]["include"] == "chart"
 
 
 def test_whats_seasonal_now_defaults_to_decision(captured):
@@ -70,7 +71,7 @@ def test_view_override_is_forwarded(captured):
     assert captured["params"]["view"] == "full"
 
 
-def test_analyze_defaults_decision_and_include_chart(monkeypatch):
+def test_analyze_defaults_evidence_and_include_chart(monkeypatch):
     box = {}
     async def fake_get(path, params=None):
         box.update(path=path, params=dict(params or {}))
@@ -78,8 +79,77 @@ def test_analyze_defaults_decision_and_include_chart(monkeypatch):
     monkeypatch.setattr(server, "_get", fake_get)
     _run(server.analyze_symbol(symbol="AAPL", include_chart=True, ctx=None))
     assert box["path"] == "/analyze/AAPL"
-    assert box["params"]["view"] == "decision"
+    assert box["params"]["view"] == "evidence"
     assert box["params"]["include"] == "chart"
+
+
+def test_analyze_chart_is_mandatory_even_for_legacy_false(monkeypatch):
+    box = {}
+    async def fake_get(path, params=None):
+        box.update(path=path, params=dict(params or {}))
+        return {"card": {"bias": "bullish"}}
+    monkeypatch.setattr(server, "_get", fake_get)
+    _run(server.analyze_symbol(symbol="AAPL", include_chart=False, ctx=None))
+    assert box["params"]["include"] == "chart"
+
+
+def test_scan_carries_focused_followup_contract(monkeypatch):
+    async def fake_get(path, params=None):
+        return {"count": 1, "opportunities": [{"symbol": "TJX"}]}
+    monkeypatch.setattr(server, "_get", fake_get)
+
+    out = _run(server.find_best_opportunities(ctx=None))
+
+    assert isinstance(out, server.CallToolResult)
+    rule = out.structuredContent["focused_followup"]
+    assert rule["required_tool"] == "analyze_symbol"
+    assert "never require the user to ask for a chart" in rule["instruction"]
+
+
+def test_analyze_returns_mcp_app_result_with_structured_evidence(monkeypatch):
+    url = "https://tradewave.example/app/?o=all&view=evidence"
+    async def fake_get(path, params=None):
+        return {"card": {
+            "symbol": "ALL",
+            "bias": "bullish",
+            "setup": {"entry_date": "2026-07-19", "exit_date": "2026-09-12",
+                      "hold_days": 55},
+            "stats": {"historical_win_rate": .9, "years": "10"},
+            "chart": {
+                "trend_chart": [{"date": "2026-07-19", "index": 100}],
+                "per_year_bars": [{"year": "2025", "mae_pct": -1, "mfe_pct": 5,
+                                    "net_pct": 4}],
+            },
+            "wave_viewer": {"label": "Open exact ALL pattern", "url": url},
+        }}
+    monkeypatch.setattr(server, "_get", fake_get)
+
+    out = _run(server.analyze_symbol(symbol="ALL", market="2", ctx=None))
+
+    assert isinstance(out, server.CallToolResult)
+    assert out.structuredContent["card"]["chart"]["per_year_bars"][0]["year"] == "2025"
+    assert out.structuredContent["primary_action"]["url"] == url
+    assert url in out.content[0].text
+    assert out.content[1].type == "resource_link"
+
+
+def test_analyze_tool_and_resource_advertise_mcp_app_contract():
+    tools = _run(server.mcp.list_tools())
+    analyze = next(tool for tool in tools if tool.name == "analyze_symbol")
+    scan = next(tool for tool in tools if tool.name == "find_best_opportunities")
+    assert analyze.meta["ui"]["resourceUri"] == server.PATTERN_WIDGET_URI
+    assert analyze.meta["openai/outputTemplate"] == server.PATTERN_WIDGET_URI
+    assert analyze.annotations.readOnlyHint is True
+    assert analyze.outputSchema["type"] == "object"
+    assert scan.meta["ui"]["resourceUri"] == server.PATTERN_WIDGET_URI
+    assert scan.annotations.readOnlyHint is True
+    assert scan.outputSchema["type"] == "object"
+
+    resources = _run(server.mcp.list_resources())
+    widget = next(resource for resource in resources if str(resource.uri) == server.PATTERN_WIDGET_URI)
+    assert widget.mimeType == "text/html;profile=mcp-app"
+    assert widget.meta["ui"]["prefersBorder"] is True
+    assert "ui/notifications/tool-result" in server.PATTERN_WIDGET_HTML
 
 
 # --- disclaimer hoist / dedup (token-saving envelope handling) ----------------------
@@ -106,6 +176,43 @@ def test_lead_appends_handoff_and_hoists_disclaimer():
 def test_lead_without_handoff_omits_it():
     out = server._lead("Markets:", {"markets": []}, handoff=False)
     assert "Research hand-off:" not in out
+
+
+def test_rich_lead_returns_native_image_blocks(monkeypatch):
+    monkeypatch.setattr(
+        server,
+        "render_card_charts",
+        lambda card: [("TradeWave evidence", b"\x89PNG\r\n\x1a\nsynthetic")],
+    )
+    data = {"card": {
+        "symbol": "AAPL",
+        "chart": {"trend_chart": [{"index": 1}]},
+        "wave_viewer": {
+            "label": "Open exact AAPL pattern",
+            "url": "https://tradewave.example/app/?o=abc&view=evidence",
+        },
+    }}
+    out = server._rich_lead("Evidence:", data)
+    assert isinstance(out, list)
+    assert "[Open exact AAPL pattern](https://tradewave.example/app/?o=abc&view=evidence)" in out[0]
+    assert '"primary_action"' in out[0]
+    assert out[1].type == "resource_link"
+    assert str(out[1].uri) == "https://tradewave.example/app/?o=abc&view=evidence"
+    assert out[2] == "TradeWave evidence"
+    assert out[3].to_image_content().mimeType == "image/png"
+
+
+def test_rich_lead_returns_clickable_resource_even_without_chart():
+    data = {"card": {
+        "symbol": "ALL",
+        "wave_viewer": {
+            "label": "Open exact ALL pattern",
+            "url": "https://tradewave.example/app/?o=all&view=evidence",
+        },
+    }}
+    out = server._rich_lead("Evidence:", data)
+    assert isinstance(out, list) and len(out) == 2
+    assert out[1].type == "resource_link"
 
 
 # --- upgrade-stub handling (graceful, never an error) -------------------------------
@@ -163,7 +270,11 @@ def test_tool_returns_gateway_error_as_result(monkeypatch):
         raise server.GatewayError("symbol 'GLD' not found in any of your in-scope markets")
     monkeypatch.setattr(server, "_get", boom)
     out = _run(server.analyze_symbol(symbol="GLD", ctx=None))
-    assert out == "symbol 'GLD' not found in any of your in-scope markets"
+    assert isinstance(out, server.CallToolResult)
+    assert out.isError is True
+    assert out.structuredContent["error"]["message"] == (
+        "symbol 'GLD' not found in any of your in-scope markets"
+    )
 
 
 def test_compare_degrades_row_with_gateway_message(monkeypatch):

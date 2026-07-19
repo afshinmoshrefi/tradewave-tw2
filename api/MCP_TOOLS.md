@@ -27,17 +27,33 @@ verdict, edge_score, receipts, order ticket). The MCP tools forward those struct
 cards verbatim (`json.dumps`) plus a one-line conversational lead - they NEVER recompute
 or re-rank cards client-side. See `api/PATTERNCARD_SPEC.md` for the card shape.
 
-**Auth:** BYOK for v1 - the caller's TradeWave API key gates the server; tier and
-entitlements flow from `users.api_key_hash`. Resolved per call: the incoming MCP
-request's `Authorization: Bearer <key>` (remote sse/streamable-http) else env
-`TRADEWAVE_API_KEY` (stdio). Every tool calls `_bind_request_key(ctx)` at entry; `ctx`
-is a FastMCP `Context` and is stripped from the published input schema by FastMCP.
+**Authentication:** the hosted MCP server supports two authentication paths.
+
+1. **TradeWave account authorization (recommended for ChatGPT and Claude):** the user
+   adds the hosted MCP URL, selects Connect/Authorize, and signs in to TradeWave through
+   WorkOS. The user does **not** create, copy, or paste an API key. The MCP server validates
+   the audience-bound WorkOS OAuth token, maps its `sub` claim to the existing TradeWave
+   user, and applies that user's web subscription, market access, metering, and quotas.
+   The server's `MCP_GATEWAY_KEY` is an internal service credential and is never given to
+   the user or MCP client.
+2. **Bring your own API key (developer alternative):** developer tools and local clients
+   may send a TradeWave key in `Authorization: Bearer <tw_...>`. A stdio deployment may
+   instead read the same user-owned key from `TRADEWAVE_API_KEY`. Tier and entitlements
+   for this path flow from `users.api_key_hash`.
+
+Both paths are resolved independently on every call. Every tool invokes
+`_bind_request_key(ctx)` at entry; `ctx` is a FastMCP `Context` and is stripped from the
+published input schema by FastMCP. Missing or invalid credentials fail authentication.
 
 **Safety contract (same as the API):** patterns only - no raw OHLCV / last price /
 price-by-date. Returns are percentages, never price levels; the seasonal curve is a
-normalized 0-100 index, never a price. ML scores are available on every plan, metered
-daily (free Explorer 5/day, Dev 100/day, Pro + Business unlimited) and only on
-ML-eligible markets (ids 0,1,2,3,4,11). When the daily ML allowance is spent the
+normalized 0-100 index, never a price. Entitlements depend on the authentication path:
+with TradeWave account authorization, the consumer web plans are mirrored exactly
+(Explorer and Navigator receive deterministic seasonal tools, Analyst receives 100 ML
+scores/day, and Strategist receives unlimited ML); temporary trials may widen that access.
+With a developer API key, the API plans apply (Free 5 ML scores/day, Dev 100/day, and
+Pro or Business unlimited). ML scoring is limited to eligible markets (ids 0,1,2,3,4,11).
+When the daily ML allowance is spent the
 gateway returns a graceful 200 nudge - `{requires:"upgrade", reason:"ml_daily_limit",
 message, upgrade_url, ml_remaining_today}` on /v1/score; on cards the field
 `tier_notes` becomes "Daily ML limit reached on your plan - upgrade for unlimited ML
@@ -52,8 +68,8 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
 
 | Tool | Inputs | Returns | Maps to | Tier |
 |---|---|---|---|---|
-| `find_best_opportunities` | `markets?`, `window?`, `direction?`, `min_win_rate?`, `min_years?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_median_return?`, `min_sharpe?`, `pe_cycle?`, `years?`, `min_winning_years?`, `rank_by?` (default: `sharpe`), `limit?`, `view?` (full\|decision\|table; default `decision`) | ranked PatternCards across the in-scope markets, pre-sorted by Sharpe ratio. `min_days`/`max_days` filter pattern length (e.g. 10-90 days); `min_avg_return`/`min_median_return` are PERCENT (5 = 5%); `min_sharpe` is the Sharpe floor. `years`/`min_winning_years` obey the per-market lookback BAND (see below) | `GET /v1/scan` | all (ML metered daily; count gated by tier) |
-| `analyze_symbol` | `symbol`, `market?`, `direction?`, `days_out?`, `entry_date?`, `pe_cycle?`, `years?`, `period?`, `reverse?`, `view?` (full\|decision\|table; default `decision`), `include_chart?` | one rich PatternCard (best setup + receipts + order ticket) + other setups for the symbol. PIN a specific setup with `entry_date` (+`days_out`) or a `period`/`reverse` preset (the "click this exact opportunity / change the date range" flow) instead of the auto-picked best; `pe_cycle`/`years` are the wave-viewer lookback knobs. `include_chart=true` (-> `include=chart`) attaches the Trend Chart curve + per-year bars inline (one-call charting, chart DATA never an image) | `GET /v1/analyze/{symbol}` | all (ML metered daily) |
+| `find_best_opportunities` | `markets?`, `window?`, `direction?`, `min_win_rate?`, `min_years?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_median_return?`, `min_sharpe?`, `pe_cycle?`, `years?`, `min_winning_years?`, `rank_by?` (default: `sharpe`), `limit?`, `view?` (full\|evidence\|decision\|table; default `evidence`), `include_chart?` (default true) | ranked PatternCards across the in-scope markets, pre-sorted by Sharpe ratio. The default evidence view returns the winner in full, lean runners, two native TradeWave chart images for the winner, chart data/specifications, and its exact Wave Viewer link. `min_days`/`max_days` filter pattern length; return filters are percentages/ratios. | `GET /v1/scan` | all (ML metered daily; count gated by tier) |
+| `analyze_symbol` | `symbol`, `market?`, `direction?`, `days_out?`, `entry_date?`, `pe_cycle?`, `years?`, `period?`, `reverse?`, `view?` (full\|evidence\|decision\|table; default `evidence`), `include_chart?` (default true) | one full PatternCard plus other setups. PIN a specific setup with `entry_date` (+`days_out`) or a `period`/`reverse` preset. By default the MCP response includes year-by-year MFE/MAE evidence and normalized seasonal trend data/specifications, two native PNG image blocks, and a server-generated link that opens the exact setup in Wave Viewer. | `GET /v1/analyze/{symbol}` | all (ML metered daily) |
 | `explain_pick` | - | today's daily pick as a PatternCard WITH its live forward-tested track record (the strongest receipt) | `GET /v1/daily-pick` | all |
 | `morning_briefing` | - | the one-call MORNING BRIEFING: today's pick (decision view), the live track-record summary with the last 5 outcomes, and the top setups entering their window now; sections fail-soft (a degraded briefing beats no briefing) | `GET /v1/daily-pick` + `GET /v1/daily-pick/track-record` + `GET /v1/scan` (composed, parallel) | all |
 | `whats_seasonal_now` | `markets?`, `min_win_rate?`, `view?` (full\|decision\|table; default `decision`) | setups entering their window in the next ~10 trading days, as ranked PatternCards (weekly digest) | `GET /v1/scan` with `window="now"` | all |
@@ -70,19 +86,24 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
   the comparison never breaks.
 - Empty scans return the structured payload (`count:0`) plus a lead that suggests
   widening markets/window/min_win_rate, so "nothing now" is never a dead end.
-- **Progressive disclosure (`view`):** every flagship takes `view=full|decision|table`.
-  On the MCP layer these flagships DEFAULT to `decision` (the lean read - timing + edge +
-  the extend_research hand-off); `table` = a compact ranked row per setup; `full` = the
-  complete card incl. per-year receipts and detail stats. (The raw API defaults to `full`;
-  the MCP tools pass `view=decision` unless overridden.) `analyze_symbol` additionally
-  takes `include_chart=true`, forwarded as `include=chart`, to fold the Trend Chart curve
-  (0-100 seasonal index) + per-year bars into the same call.
-- **Research hand-off + disclaimer on every card-bearing response.** Card-bearing flagships
+- **Progressive disclosure (`view`):** the flagship discovery/deep-dive tools take
+  `view=full|evidence|decision|table`. MCP defaults to `evidence`: rank 1 is complete,
+  runners are lean, and the winner receives the two-chart evidence pack. `table` is a
+  compact ranked row; `decision` is lean; `full` expands every card. The raw API remains
+  backward-compatible with `full` as its default.
+- **Native TradeWave charts + Wave Viewer:** `find_best_opportunities` and `analyze_symbol`
+  request `include=chart` by default. Their MCP result contains the canonical chart data,
+  explicit chart specifications, and native PNG image content blocks. Every PatternCard
+  also carries a server-generated `wave_viewer.url` for the exact market, symbol, date,
+  hold, lookback, and PE-cycle selection.
+- **TradeWave-first presentation, research hand-off + disclaimer.** Card-bearing flagships
   (`find_best_opportunities`, `analyze_symbol`, `explain_pick`, `whats_seasonal_now`, `morning_briefing`,
   `compare_opportunities`) append an `extend_research` hand-off after the payload
   (`handoff=True`): it states TradeWave is BLIND to fundamentals/news/macro/valuation/
-  earnings, tells the model to verify the seasonal thesis with its OWN tools (and never to
-  invent a catalyst), and to report a `neutral` bias as a genuine "no edge" finding. The
+  earnings, but first requires the model to present TradeWave's verdict, statistics,
+  charts, path risk, failed years, and Wave Viewer link. Outside research is an optional
+  current-context check, never a substitute. The model must never invent a catalyst and
+  must report a `neutral` bias as a genuine "no edge" finding. The
   educational disclaimer is hoisted to a single envelope line on every pattern-bearing
   response. Primitives like `whoami`/`list_markets` do NOT carry the hand-off.
 
@@ -104,7 +125,7 @@ exceptions - they are meta/onboarding tools the model SHOULD reach for first on
 | `get_symbol_patterns` | `symbol`, `market`, `pe_cycle?`, `years?`, `min_winning_years?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_sharpe?` | a security's TOP seasonal patterns across the year, ranked by Sharpe (the wave-viewer pattern dropdown). COVERAGE: per-symbol patterns exist for market ids **0,1,2,7,9** only (DOW 30, NASDAQ 100, S&P 500, Futures & Commodities, FOREX Liquid); any other market returns a clear error - use `find_best_opportunities` to scan those instead. `years`/`min_winning_years` obey the same per-market band as scan | `GET /v1/securities/{symbol}/patterns` | all |
 | `get_seasonal_pattern` | `market`, `symbol`, `pe_cycle?`, `years?`, `period?`, `reverse?` | bare aggregate seasonal pattern stats (no price series) | `GET /v1/patterns/{id}/{symbol}` | all |
 | `get_opportunity_chart` | `market`, `symbol`, `entry_date?`, `days_out?`, `direction?`, `years?`, `pe_cycle?`, `period?`, `reverse?` | a SINGLE year-averaged, normalized 0-100 seasonal index curve (`seasonal_curve`) - the typical within-year shape, NOT per-year cumulative paths, NOT an image, never a price - PLUS `per_year_bars` (each completed year's trade return with its favorable (mfe)/adverse (mae) excursion band, direction-aware, all percentages); `receipts.curve_summary` describes the TREND OF THE HOLD SECTION (entry to exit), NOT the full year - `peak_day`/`trough_day` are days into the hold (0=entry) | `GET /v1/seasonal-chart` | all |
-| `score_opportunities` | list of `{symbol, date, days_out, direction}` | ML `ml_score` / `win_prob` / `pred_return` / `pred_mfe`; includes `ml_remaining_today` | `POST /v1/score` | all (metered daily: free 5/day, unlimited on Pro; graceful nudge when spent) |
+| `score_opportunities` | list of `{symbol, date, days_out, direction}` | ML `ml_score` / `win_prob` / `pred_return` / `pred_mfe`; includes `ml_remaining_today` | `POST /v1/score` | quota depends on authentication path; see Authentication and Safety contract above |
 | `get_daily_pick` | - | bare daily-pick payload (no receipts) | `GET /v1/daily-pick` | all |
 | `get_pick_track_record` | - | standalone realized win/loss record of past picks | `GET /v1/daily-pick/track-record` | all |
 

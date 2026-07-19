@@ -230,6 +230,30 @@ def test_scan_card_carries_extend_research_and_timing(client, monkeypatch):
     assert "scan-cache" in r.headers["Server-Timing"]
 
 
+def test_scan_evidence_view_enriches_only_winner_with_chart(client, monkeypatch):
+    curve = [
+        {"date": "2026-07-01", "index": 40.0},
+        {"date": "2026-07-02", "index": 41.0},
+    ]
+    _mock_card_chain(
+        monkeypatch,
+        multi=[_opp(symbol="WIN"), _opp(symbol="RUN", win_rate=0.8)],
+        curve=curve,
+    )
+    r = client.get(
+        f"/v1/scan?{_WIN}&markets=2&limit=2&view=evidence&include=chart",
+        headers=_hdr(),
+    )
+    assert r.status_code == 200
+    cards = r.get_json()["opportunities"]
+    assert "chart" in cards[0]
+    assert cards[0]["chart"]["trend_chart"] == curve
+    assert "per_year" in cards[0]["receipts"]
+    assert "chart" not in cards[1]
+    assert "per_year" not in cards[1]["receipts"]
+    assert cards[0]["wave_viewer"]["pattern"]["symbol"] == "WIN"
+
+
 def test_default_scan_enriches_only_requested_rows(client, monkeypatch):
     from apiserver import appserver_client as ac
     rows = [_opp(symbol=f"SYM{i}") for i in range(10)]

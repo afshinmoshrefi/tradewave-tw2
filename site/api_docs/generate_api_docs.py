@@ -1426,14 +1426,14 @@ def build_api_reference() -> str:
 def build_mcp_reference() -> str:
     body = f"""
 <h1>MCP Reference</h1>
-<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) that let AI assistants (ChatGPT, Claude, Cursor) reason over detected seasonal patterns directly. ChatGPT, Claude.ai, and Claude Desktop can connect to the hosted server with OAuth - paste the server URL and sign in with your TradeWave account, no API key needed. BYOK clients use an API key. Tier and entitlements flow from the signed-in account or the key.</p>
+<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) for detected seasonal patterns, ML scoring, chart data, and the published daily-pick record. ChatGPT and Claude authorize a TradeWave account. Other developer clients can use OAuth when compatible or the developer bearer-authentication path. Access follows the account or developer credential used for the connection.</p>
 
 <div class="callout">
   <p><strong>A research partner, not a black box.</strong> TradeWave supplies a seasonal + 62-feature-ML statistical edge and the timing only. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
 </div>
 
 <div class="callout">
-  <p><strong>Seasonal patterns only.</strong> The same contract as the REST API applies. No raw prices or OHLCV data is ever returned. ML tools are available on every tier, metered per day (free 5/day, unlimited on Pro/Business). When the daily limit is reached the tool returns a graceful stub instead of an error.</p>
+  <p><strong>Seasonal patterns only.</strong> The same contract as the REST API applies. No raw prices or OHLCV data is ever returned. Seasonal tools are available to every connected plan. ML access follows the credential used to connect: TradeWave-account connections use web-plan entitlements, while developer-key connections use API-plan quotas. If ML is unavailable or its daily allowance is spent, the tool returns a graceful stub instead of failing.</p>
 </div>
 
 <h2>Flagship tools</h2>
@@ -1532,7 +1532,7 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Reports the caller's identity and entitlements as resolved from the API key - tier, in-scope markets, ML allowance, and remaining quota. Use to check what the current key can do before making scoped calls.</p>
+    <p>Reports the caller's identity and entitlements as resolved from the authenticated TradeWave account or developer key - plan, in-scope markets, ML allowance, and remaining quota. Use it after connecting to confirm what the current connection can access.</p>
     <p><strong>Inputs:</strong> none</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/markets</code> (entitlements)</p>
   </div>
@@ -1570,7 +1570,7 @@ def build_mcp_reference() -> str:
   <div class="tool-card-body">
     <p>Find the best seasonal trade setups for a market and date window, ranked by historical edge. Use when the user asks what to trade, when to enter, or which symbols have a strong seasonal tendency.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">from</code>, <code class="inline-code">to</code>, <code class="inline-code">direction</code> (long | short), <code class="inline-code">min_win_rate</code> (0-1), <code class="inline-code">limit</code></p>
-    <p><strong>Returns:</strong> ranked list - symbol, direction, entry date, holding period, Sharpe ratio, avg/median return %, win rate. ML fields are available on every tier (metered per day) and are null only when your daily ML allowance is spent or the market is not ML-eligible (ids 0-4, 11).</p>
+    <p><strong>Returns:</strong> ranked list - symbol, direction, entry date, holding period, Sharpe ratio, avg/median return %, win rate. ML fields are included only when the connected TradeWave account or developer key has ML access and the market is ML-eligible (ids 0-4, 11); otherwise they are null.</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/opportunities</code></p>
   </div>
 </div>
@@ -1617,7 +1617,7 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Runs the ML model on a list of opportunities and returns <code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, and <code class="inline-code">pred_mfe</code> for each. Available on every tier, metered per day (free 5/day, Dev 100/day, Pro/Business unlimited). When the daily limit is reached the response includes a graceful stub instead of scoring - never an error.</p>
+    <p>Runs the ML model on a list of opportunities and returns <code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, and <code class="inline-code">pred_mfe</code> for each. Availability and daily allowance follow the connected TradeWave account's web plan or the developer key's API plan. If ML is unavailable or the daily allowance is spent, the response returns a graceful upgrade stub instead of failing.</p>
     <p><strong>Inputs:</strong> list of <code class="inline-code">{{symbol, date, days_out, direction}}</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">POST /v1/score</code></p>
   </div>
@@ -1649,54 +1649,24 @@ def build_mcp_reference() -> str:
 
 <h2>Connecting to MCP clients</h2>
 
-<p>TradeWave's MCP is a hosted HTTP server at <code class="inline-code">{MCP_URL}</code>. ChatGPT, Claude.ai, and Claude Desktop can connect with OAuth: paste the server URL, click Connect, and sign in with your TradeWave account - no API key needed. BYOK clients can send a Bearer API key directly or use the optional <code class="inline-code">mcp-remote</code> bridge.</p>
+<p>Client setup screens change independently of the MCP protocol. Use the <a href="{portal_urls.MCP_CONNECT_GUIDE_URL}">TradeWave MCP setup guide</a> for the current, numbered ChatGPT and Claude instructions and a connection test.</p>
 
-<h3>ChatGPT</h3>
-<p>In ChatGPT, open <strong>Settings &rarr; Connectors</strong> (enable Developer mode under Advanced if you have not already), choose <strong>Create</strong>, and paste the server URL:</p>
-<pre><code>Server URL: {MCP_URL}
-Auth:       OAuth - sign in with your TradeWave account</code></pre>
-<p>ChatGPT discovers the sign-in flow from the server automatically. Click <strong>Connect</strong>, log in with your TradeWave account, and approve. Your plan follows the account you sign in with.</p>
+<ul>
+  <li><strong>ChatGPT, Claude.ai, and Claude Desktop:</strong> add <code class="inline-code">{MCP_URL}</code>, complete the TradeWave sign-in flow, and enable TradeWave in the conversation.</li>
+  <li><strong>Other clients:</strong> use the remote Streamable HTTP connection with OAuth when the client supports it. If the client cannot complete OAuth, use the developer-key fallback below.</li>
+</ul>
 
-<h3>Claude.ai</h3>
-<p>In Claude.ai, open <strong>Settings &rarr; Connectors</strong>, choose <strong>Add custom connector</strong>, and paste the server URL:</p>
-<pre><code>Server URL: {MCP_URL}
-Auth:       OAuth - sign in with your TradeWave account</code></pre>
-<p>Click <strong>Connect</strong> and sign in with your TradeWave account when prompted. No API key needed.</p>
+<h3 id="developer-authentication">Developer-key fallback for other clients</h3>
+<p>This fallback is only for developer clients that cannot complete TradeWave sign-in. ChatGPT and Claude users should follow the setup guide above.</p>
+<ol>
+  <li><a href="{portal_urls.signup_url('/account/api/keys')}">Create a TradeWave developer API key</a>.</li>
+  <li>Configure the MCP server as <code class="inline-code">{MCP_URL}</code> and send <code class="inline-code">Authorization: Bearer &lt;your-key&gt;</code> if the client supports headers.</li>
+  <li>If the client only supports local stdio servers, run <code class="inline-code">mcp-remote</code> as the bridge:</li>
+</ol>
+<pre><code>npx -y mcp-remote {MCP_URL} \\
+  --header "Authorization: Bearer &lt;your-key&gt;"</code></pre>
+<p>Keep the key in the client's secure configuration. Do not paste it into a chat message.</p>
 
-<h3>Claude Desktop</h3>
-<p>For the normal consumer connection, open <strong>Settings &rarr; Connectors</strong>, choose <strong>Add custom connector</strong>, paste <code class="inline-code">{MCP_URL}</code>, and sign in with your TradeWave account. To meter the connection against a separate API key instead, use this optional BYOK bridge in <code class="inline-code">claude_desktop_config.json</code>:</p>
-<pre><code>{{
-  "mcpServers": {{
-    "tradewave": {{
-      "command": "npx",
-      "args": [
-        "-y", "mcp-remote",
-        "{MCP_URL}",
-        "--header", "Authorization: Bearer ${{TRADEWAVE_API_KEY}}"
-      ],
-      "env": {{
-        "TRADEWAVE_API_KEY": "tw_live_&lt;your-key&gt;"
-      }}
-    }}
-  }}
-}}</code></pre>
-<p>Restart Claude Desktop after adding the optional local BYOK configuration.</p>
-
-<h3>Cursor (BYOK)</h3>
-<p>For a Cursor BYOK connection, use the <code class="inline-code">mcp-remote</code> shim with your own API key. In <strong>Cursor Settings &rarr; Features &rarr; MCP Servers</strong>, add:</p>
-<pre><code>{{
-  "tradewave": {{
-    "command": "npx",
-    "args": [
-      "-y", "mcp-remote",
-      "{MCP_URL}",
-      "--header", "Authorization: Bearer ${{TRADEWAVE_API_KEY}}"
-    ],
-    "env": {{
-      "TRADEWAVE_API_KEY": "tw_live_&lt;your-key&gt;"
-    }}
-  }}
-}}</code></pre>
 
 <h2>Tier behavior in MCP</h2>
 <p>OAuth consumer connections mirror the TradeWave web subscription:</p>

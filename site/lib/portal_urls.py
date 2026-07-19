@@ -95,6 +95,7 @@ LOGIN_URL     = f"{MAIN_URL}/login"
 API_QUICKSTART_URL = f"{DOCS_URL}/quickstart.html"
 API_PRICING_URL = f"{PORTAL_URL}/pricing.html"
 MCP_REFERENCE_URL = f"{DOCS_URL}/mcp-reference.html"
+MCP_CONNECT_GUIDE_URL = f"{LEARN_URL}/connect-an-ai-agent-mcp.html"
 DEVELOPER_FOOTER_LINKS = (
     ("Developer Portal", PORTAL_URL),
     ("API Docs", API_QUICKSTART_URL),

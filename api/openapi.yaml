@@ -70,7 +70,8 @@ paths:
         - { name: min_winning_years, in: query, schema: { type: integer }, description: "of those `years`, the minimum WINNING years for a pattern to be listed (the win-rate floor; year2). DEFAULTS to ~90% of `years` (so years=20 -> a valid 20-18). Must lie in the market's DETECTION BAND, which is market-specific (~75-90%+ winners; e.g. S&P 500 ~85%, Wilshire ~90%, FOREX Liquid ~70% at a 20-year lookback). Multi-market scan: out-of-band markets are reported in lookback_note (not errored)." }
         - { name: rank_by, in: query, schema: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return], default: sharpe }, description: "ranking key; default sharpe (Sharpe ratio)" }
         - { name: limit, in: query, schema: { type: integer, default: 25 }, description: "tier-capped (free 3, dev 100, pro 1000, business 5000)" }
-        - { name: view, in: query, schema: { type: string, enum: [full, decision, table], default: full }, description: "response verbosity (progressive disclosure). 'full' (default) = complete cards; 'decision' = the lean read (drops receipts.per_year, the detail stats, and the per-card extend_research block - the response envelope carries the research hand-off once; keeps verdict/timing/edge); 'table' = one compact row per setup. The MCP layer requests 'decision' by default." }
+        - { name: view, in: query, schema: { type: string, enum: [full, evidence, decision, table], default: full }, description: "response verbosity. 'full' (API default) = complete cards; 'evidence' = full rank-1 winner + lean runners; 'decision' = lean cards; 'table' = compact rows. MCP discovery defaults to evidence." }
+        - { name: include, in: query, schema: { type: string, enum: [chart] }, description: "include=chart attaches the two-chart evidence data/specifications to the rank-1 winner only." }
       responses:
         "200":
           description: OK
@@ -107,8 +108,8 @@ paths:
         - { name: years, in: query, schema: { type: integer, minimum: 1, maximum: 99 }, description: "lookback length (default 10)." }
         - { name: period, in: query, schema: { type: string, enum: [jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec, q1, q2, q3, q4, spring, summer, fall, winter, ytd, year_end, buy_hold] }, description: "wave-viewer date-range preset; overrides entry_date/days_out." }
         - { name: reverse, in: query, schema: { type: boolean }, description: "invert the period to all-of-year-except-that-window." }
-        - { name: view, in: query, schema: { type: string, enum: [full, decision, table], default: full }, description: "response verbosity (progressive disclosure). 'full' (default) = the complete card; 'decision' = the lean read; 'table' = a single compact row. The MCP layer requests 'decision' by default." }
-        - { name: include, in: query, schema: { type: string, enum: [chart] }, description: "include=chart attaches a `chart` block to the card - the Trend Chart curve + per-year bars (chart DATA, not an image) - in one call." }
+        - { name: view, in: query, schema: { type: string, enum: [full, evidence, decision, table], default: full }, description: "response verbosity. 'full'/'evidence' = complete evidence card; 'decision' = lean; 'table' = compact. MCP defaults to evidence." }
+        - { name: include, in: query, schema: { type: string, enum: [chart] }, description: "include=chart attaches the canonical two-chart data and rendering specifications. MCP additionally renders them as native image content blocks." }
       responses:
         "200":
           description: OK
@@ -342,7 +343,7 @@ paths:
         made in advance, scored later), the strongest receipt. featured_date is the date
         the pick was made; track_record echoes the live record at the top level too.
       parameters:
-        - { name: view, in: query, schema: { type: string, enum: [full, decision, table], default: full }, description: "response verbosity (progressive disclosure): 'full' (default), 'decision' (lean), or 'table'." }
+        - { name: view, in: query, schema: { type: string, enum: [full, evidence, decision, table], default: full }, description: "response verbosity: 'full' (default), 'evidence' (full rank-1 card), 'decision' (lean), or 'table'." }
         - { name: include, in: query, schema: { type: string, enum: [chart] }, description: "include=chart attaches a `chart` block (Trend Chart curve + per-year bars) to the pick card." }
       responses:
         "200":
@@ -462,6 +463,7 @@ components:
         alignment: { $ref: "#/components/schemas/PatternAlignment", description: "whether the per-instance ML view agrees with the in-sample seasonal win rate (a cross-check, not a 4th win rate)" }
         extend_research: { $ref: "#/components/schemas/ExtendResearch", description: "structured research hand-off: what TradeWave is blind to + what to check with your own tools. Present in the 'full' view; the 'decision' view omits it per card (the envelope-level hand-off carries the methodology once per response)." }
         chart: { $ref: "#/components/schemas/CardChart", description: "present ONLY when the request set include=chart - the Trend Chart curve + per-year bars, inline (chart DATA, never an image)." }
+        wave_viewer: { $ref: "#/components/schemas/WaveViewerLink", description: "exact server-generated destination for opening this setup in TradeWave" }
         disclaimer: { type: string, description: "exact regulatory disclaimer, present on every card" }
         tier_notes: { type: string, description: "'ML score shown.' or the upgrade nudge when the daily ML allowance is spent" }
         note: { type: string, description: "optional - e.g. a bare-ticker resolution note when a symbol existed in multiple markets and was resolved to the primary US listing" }
@@ -632,7 +634,19 @@ components:
         per_year_bars:
           type: array
           items: { $ref: "#/components/schemas/PerYearBar" }
+        presentation_order: { type: array, items: { type: string }, description: "recommended evidence order: year-by-year evidence, then seasonal trend" }
+        recommended_charts: { type: array, items: { type: object }, description: "client-neutral chart semantics, labels, data references, units, highlights, and purpose" }
+        rendering_instruction: { type: string, description: "agent instruction to display both charts and preserve their units/meaning" }
         note: { type: string }
+    WaveViewerLink:
+      type: object
+      description: Server-generated deep link to this exact pattern. Authentication remains at the TradeWave app boundary.
+      properties:
+        label: { type: string }
+        url: { type: string, format: uri }
+        opens: { type: string, enum: [Wave Viewer] }
+        pattern: { type: object, properties: { market_id: { type: string }, symbol: { type: string }, entry_date: { type: string, format: date }, hold_days: { type: integer }, years: { type: string } } }
+        value: { type: string }
     PatternDetection:
       type: object
       description: Which seasonal pattern-detection paths exist for a market + an illustrative win-rate band.
@@ -650,7 +664,7 @@ components:
         markets_scanned: { type: array, items: { type: string }, description: "the requested in-scope market ids; check market_failures before treating the scan as complete" }
         market_failures: { type: array, items: { type: string }, description: "market ids whose upstream request failed and whose results were omitted; normally empty" }
         rank_by: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return] }
-        view: { type: string, enum: [full, decision, table], description: "the verbosity applied (echoes the request)" }
+        view: { type: string, enum: [full, evidence, decision, table], description: "the verbosity applied (echoes the request)" }
         lookback: { type: object, description: "the resolved detection knobs (year1, year2)", properties: { years: { type: integer }, min_winning_years: { type: integer } } }
         count: { type: integer, description: "number of cards returned" }
         evaluated_count: { type: integer, description: "candidates considered before slicing/enrichment" }
@@ -661,7 +675,7 @@ components:
         ml_remaining_today: { type: integer, nullable: true, description: "ML calls remaining today for this key (null = unlimited; 0 = daily limit reached). Free 5/day, Dev 100/day, Pro/Business unlimited." }
         opportunities:
           type: array
-          description: "ranked PatternCards. Under view='decision' each card is trimmed (no receipts.per_year or detail stats); under view='table' each item is a COMPACT ROW (symbol, direction, entry_date, hold_days, edge_score, win rates, headline) rather than a full PatternCard."
+          description: "ranked PatternCards. Under view='evidence', rank 1 is full and runners are lean; under decision every card is lean; under table each item is a compact row."
           items: { $ref: "#/components/schemas/PatternCard" }
         lookback_note: { type: string, description: "present only when the (year1, year2) combo is out of band for some scanned markets - it names them (they contributed nothing). Raise min_winning_years to include them." }
         disclaimer: { type: string, description: "exact regulatory disclaimer (envelope level; guarantees it survives a 'table' projection)" }
@@ -673,7 +687,7 @@ components:
           type: array
           description: alternate candidate setups for the same symbol (compact - no card composition)
           items: { $ref: "#/components/schemas/CompactSetup" }
-        view: { type: string, enum: [full, decision, table], description: "the verbosity applied (echoes the request)" }
+        view: { type: string, enum: [full, evidence, decision, table], description: "the verbosity applied (echoes the request)" }
         disclaimer: { type: string, description: "exact regulatory disclaimer (envelope level)" }
         as_of: { type: string, format: date }
     CompactSetup:
@@ -695,7 +709,7 @@ components:
         card: { $ref: "#/components/schemas/PatternCard", description: "the pick as a PatternCard (trimmed under view='decision'); receipts.live_track_record carries the live record" }
         featured_date: { type: string, format: date, description: "the date the pick was made" }
         track_record: { $ref: "#/components/schemas/TrackRecordSummary", description: "the live forward-tested record (echoed at top level)" }
-        view: { type: string, enum: [full, decision, table], description: "the verbosity applied (echoes the request)" }
+        view: { type: string, enum: [full, evidence, decision, table], description: "the verbosity applied (echoes the request)" }
         disclaimer: { type: string, description: "exact regulatory disclaimer (envelope level)" }
         as_of: { type: string, format: date }
     ScoreRequest:

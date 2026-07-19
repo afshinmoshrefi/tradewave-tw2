@@ -140,10 +140,32 @@ def load_articles() -> list:
 
 
 def sidebar(active_slug: str, articles: list) -> str:
+    if active_slug == "connect-an-ai-agent-mcp":
+        return f"""
+<nav class="docs-sidebar" aria-label="MCP setup navigation">
+  <h2>Setup</h2>
+  <a href="#connect-tradewave" class="active">Connect TradeWave</a>
+  <a href="#chatgpt">ChatGPT</a>
+  <a href="#claudeai-and-claude-desktop">Claude</a>
+  <a href="#confirm-the-connection">Confirm connection</a>
+  <a href="#troubleshooting">Troubleshooting</a>
+  <a href="#other-clients">Other clients</a>
+  <hr class="sidebar-divider">
+  <h2>More</h2>
+  <a href="{MCP_SETUP_URL}">MCP Overview</a>
+  <a href="{portal_urls.MCP_REFERENCE_URL}">MCP Tool Reference</a>
+  <a href="{DOCS_URL}/quickstart.html">Developer Docs</a>
+</nav>"""
     links = "\n".join(
         f'<a href="{a["slug"]}.html" {"class=\"active\"" if a["slug"] == active_slug else ""}>{a["title"]}</a>'
         for a in articles
     )
+    more_links = f"""
+  <a href="{DOCS_URL}/quickstart.html">Developer Docs</a>
+  <a href="{DOCS_URL}/api-reference.html">API Reference</a>
+  <a href="{portal_urls.PLAYGROUND_URL}">API Playground</a>
+  <a href="{MCP_SETUP_URL}">MCP Overview</a>
+  <a href="{CONSOLE_URL}">Get an API Key</a>"""
     return f"""
 <nav class="docs-sidebar" aria-label="Learning navigation">
   <h2>Learn</h2>
@@ -151,17 +173,31 @@ def sidebar(active_slug: str, articles: list) -> str:
   {links}
   <hr class="sidebar-divider">
   <h2>More</h2>
-  <a href="{DOCS_URL}/quickstart.html">Developer Docs</a>
-  <a href="{DOCS_URL}/api-reference.html">API Reference</a>
-  <a href="{portal_urls.PLAYGROUND_URL}">API Playground</a>
-  <a href="{MCP_SETUP_URL}">MCP Setup</a>
-  <a href="{CONSOLE_URL}">Get an API Key</a>
+  {more_links}
 </nav>"""
 
 
 def shell(title: str, description: str, hero_title: str, hero_sub: str,
-          sidebar_html: str, body: str, canonical_url: str = None) -> str:
+          sidebar_html: str, body: str, canonical_url: str = None,
+          mcp_lesson: bool = False) -> str:
     header = gad.load_header()
+    if mcp_lesson:
+        # This lesson's primary path is hosted OAuth. Keep the global developer header from
+        # telling ChatGPT/Claude users to get an API key or replacing the MCP setup link after
+        # the shared authenticated-user script runs.
+        header = header.replace(
+            f'<a href="{CONSOLE_URL}" id="tw-cta-link" class="tw-btn-primary">Get API Key</a>',
+            '<a href="#connect-tradewave" id="tw-cta-link" class="tw-btn-primary" '
+            'data-preserve-cta="true">Connect TradeWave</a>',
+        )
+        header = header.replace(
+            "if (cta) {",
+            "if (cta && cta.dataset.preserveCta !== 'true') {",
+        )
+        header = header.replace(
+            f'<a href="{portal_urls.API_PRICING_URL}">Pricing</a>',
+            f'<a href="{portal_urls.API_PRICING_URL}">API Pricing</a>',
+        )
     footer = gad.footer_html()
     canonical_url = canonical_url or LEARN_URL + "/"
     seo = portal_seo.head_tags(canonical_url, title, description, og_type="article")
@@ -213,9 +249,10 @@ runnable code and the live <a href="{DOCS_URL}/api-reference.html">v1 endpoints<
 Start with lesson 1, or jump straight to <a href="first-api-call.html">your first API call</a>.</p>
 
 <div class="callout green">
-  <p><strong>You will need a free API key.</strong> Create one in the
-  <a href="{CONSOLE_URL}">dashboard</a> - no credit card, instant. Then set it as
-  <code class="inline-code">Authorization: Bearer tw_live_...</code> on every request.</p>
+  <p><strong>Following the REST API lessons?</strong> Create a developer key in the
+  <a href="{CONSOLE_URL}">dashboard</a> and send it as
+  <code class="inline-code">Authorization: Bearer tw_live_...</code>. The MCP setup lesson uses the
+  TradeWave account authorization shown in that guide.</p>
 </div>
 
 <div class="learn-grid">{''.join(cards)}</div>
@@ -248,7 +285,9 @@ def build_article(a: dict, prev_a, next_a, articles: list) -> str:
     if next_a:
         nav_bits.append(f'<a class="next" href="{next_a["slug"]}.html">{next_a["title"]} &rarr;</a>')
     article_nav = f'<div class="article-nav">{"".join(nav_bits)}</div>'
-    meta = f'<div class="article-meta">Lesson {a["order"]:02d} &middot; {a.get("read_minutes",5)} min read</div>'
+    meta = ('<div class="article-meta">Setup guide</div>'
+            if a["slug"] == "connect-an-ai-agent-mcp"
+            else f'<div class="article-meta">Lesson {a["order"]:02d} &middot; {a.get("read_minutes",5)} min read</div>')
     body = meta + a["body_html"] + article_nav
     return shell(
         title=a["title"],
@@ -258,6 +297,7 @@ def build_article(a: dict, prev_a, next_a, articles: list) -> str:
         sidebar_html=sidebar(a["slug"], articles),
         body=body,
         canonical_url=LEARN_URL + "/" + a["slug"] + ".html",
+        mcp_lesson=a["slug"] == "connect-an-ai-agent-mcp",
     )
 
 
