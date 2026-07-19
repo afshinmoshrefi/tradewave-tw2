@@ -86,7 +86,7 @@ MAIN_PUBLIC_URL: str = (
     else f"https://{_main_public_host}"
 )
 
-PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v1.html"
+PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v2.html"
 PATTERN_WIDGET_HTML = (Path(__file__).with_name("pattern_widget.html")).read_text(
     encoding="utf-8"
 )
@@ -679,6 +679,92 @@ def _rich_lead(text: str, data: Any, handoff: bool = False):
     return content
 
 
+def _widget_text_fallback(data: dict[str, Any]) -> str:
+    """Compact evidence that remains useful when a host cannot render MCP Apps.
+
+    MCP App ``structuredContent`` is intended for the embedded view and is not
+    guaranteed to enter the model's context.  Keep the ranked rows and the top
+    setup's yearly path evidence in ordinary text as a portable fallback.
+    """
+    cards: list[dict[str, Any]] = []
+    if isinstance(data.get("card"), dict):
+        cards = [data["card"]]
+    elif isinstance(data.get("opportunities"), list):
+        cards = [card for card in data["opportunities"] if isinstance(card, dict)]
+    if not cards:
+        return ""
+
+    def _number(value: Any) -> Optional[float]:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _pct(value: Any, *, probability: bool = False) -> Optional[str]:
+        number = _number(value)
+        if number is None:
+            return None
+        if probability and abs(number) <= 1:
+            number *= 100
+        return f"{number:+.2f}%"
+
+    lines = ["TradeWave ranked results (text fallback):"]
+    for index, card in enumerate(cards, start=1):
+        setup = card.get("setup") if isinstance(card.get("setup"), dict) else card
+        stats = card.get("stats") if isinstance(card.get("stats"), dict) else card
+        ml = card.get("ml") if isinstance(card.get("ml"), dict) else card
+        rank = card.get("rank") or index
+        symbol = card.get("symbol") or "Pattern"
+        direction = (card.get("direction") or card.get("bias") or "").upper()
+        entry = setup.get("entry_date") or card.get("entry_date")
+        exit_date = setup.get("exit_date") or card.get("exit_date")
+        hold_days = setup.get("hold_days") or card.get("hold_days")
+        win_rate = _number(stats.get("historical_win_rate"))
+        if win_rate is not None and abs(win_rate) <= 1:
+            win_rate *= 100
+
+        pieces = [f"{rank}. {symbol}{f' {direction}' if direction else ''}"]
+        if entry or exit_date or hold_days:
+            window = f"{entry or '?'} to {exit_date or '?'}"
+            if hold_days is not None:
+                window += f" ({hold_days} days)"
+            pieces.append(window)
+        if win_rate is not None:
+            years = stats.get("years") or card.get("years")
+            pieces.append(f"win rate {win_rate:.0f}%{f' over {years} years' if years else ''}")
+        avg = _pct(stats.get("avg_return_pct"))
+        median = _pct(stats.get("median_return_pct"))
+        sharpe = _number(stats.get("sharpe_ratio"))
+        ml_prob = _pct(ml.get("ml_win_prob"), probability=True)
+        if avg:
+            pieces.append(f"average {avg}")
+        if median:
+            pieces.append(f"median {median}")
+        if sharpe is not None:
+            pieces.append(f"Sharpe {sharpe:.2f}")
+        if ml_prob:
+            pieces.append(f"ML win probability {ml_prob.lstrip('+')}")
+        lines.append(" | ".join(pieces))
+
+    chart = cards[0].get("chart") if isinstance(cards[0].get("chart"), dict) else {}
+    bars = chart.get("per_year_bars") if isinstance(chart, dict) else None
+    if isinstance(bars, list) and bars:
+        yearly = []
+        for bar in bars:
+            if not isinstance(bar, dict):
+                continue
+            final = _pct(bar.get("net_pct"))
+            worst = _pct(bar.get("mae_pct"))
+            best = _pct(bar.get("mfe_pct"))
+            detail = f"{bar.get('year', '?')}: final {final or 'n/a'}"
+            if worst and best:
+                detail += f" (path {worst} to {best})"
+            yearly.append(detail)
+        if yearly:
+            lines.append("Top setup year-by-year evidence: " + "; ".join(yearly))
+    return "\n".join(lines)
+
+
 def _widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> CallToolResult:
     """Return a proper MCP App result for ChatGPT while keeping the exact link portable.
 
@@ -716,6 +802,9 @@ def _widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> Call
     disclaimer = _extract_disclaimer(payload)
     if disclaimer:
         payload["disclaimer"] = disclaimer
+    fallback = _widget_text_fallback(payload)
+    if fallback:
+        text += f"\n\n{fallback}"
     if handoff:
         text += f"\n\n{_HANDOFF}"
     if disclaimer:

@@ -117,6 +117,24 @@
     (() => {
       const NS = "http://www.w3.org/2000/svg";
       const app = document.getElementById("app");
+      const pending = new Map();
+      let nextRequestId = 1;
+      let hostCapabilities = {};
+
+      const send = message => window.parent.postMessage(message, "*");
+      const notify = (method, params = {}) => send({ jsonrpc: "2.0", method, params });
+      const request = (method, params, timeoutMs = 8000) => new Promise((resolve, reject) => {
+        const id = nextRequestId++;
+        const timer = window.setTimeout(() => {
+          pending.delete(id);
+          reject(new Error(`${method} timed out`));
+        }, timeoutMs);
+        pending.set(id, {
+          resolve: value => { window.clearTimeout(timer); resolve(value); },
+          reject: error => { window.clearTimeout(timer); reject(error); },
+        });
+        send({ jsonrpc: "2.0", id, method, params });
+      });
       const el = (name, attrs = {}) => {
         const node = document.createElementNS(NS, name);
         Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
@@ -282,6 +300,13 @@
         if (viewer.url) {
           const link = htmlEl("a", "open", "Open exact pattern ↗");
           link.href = viewer.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+          link.addEventListener("click", event => {
+            if (!hostCapabilities.openLinks) return;
+            event.preventDefault();
+            request("ui/open-link", { url: viewer.url }).catch(() => {
+              window.open(viewer.url, "_blank", "noopener,noreferrer");
+            });
+          });
           hero.appendChild(link);
         }
         app.appendChild(hero);
@@ -316,11 +341,71 @@
       window.addEventListener("message", event => {
         if (event.source !== window.parent) return;
         const message = event.data;
-        if (!message || message.jsonrpc !== "2.0" || message.method !== "ui/notifications/tool-result") return;
-        render(message.params);
+        if (!message || message.jsonrpc !== "2.0") return;
+
+        if (message.id !== undefined && ("result" in message || "error" in message)) {
+          const waiter = pending.get(message.id);
+          if (!waiter) return;
+          pending.delete(message.id);
+          if (message.error) waiter.reject(new Error(message.error.message || "MCP App request failed"));
+          else waiter.resolve(message.result);
+          return;
+        }
+
+        if (message.method === "ui/notifications/tool-result") {
+          render(message.params);
+          return;
+        }
+
+        if (message.method === "ping" && message.id !== undefined) {
+          send({ jsonrpc: "2.0", id: message.id, result: {} });
+          return;
+        }
+
+        if (message.method === "ui/resource-teardown" && message.id !== undefined) {
+          send({ jsonrpc: "2.0", id: message.id, result: {} });
+        }
       }, { passive: true });
 
       if (window.openai?.toolOutput) render(window.openai.toolOutput);
+
+      const reportSize = () => {
+        const root = document.documentElement;
+        const previousHeight = root.style.height;
+        root.style.height = "max-content";
+        const height = Math.ceil(root.getBoundingClientRect().height);
+        root.style.height = previousHeight;
+        notify("ui/notifications/size-changed", {
+          width: Math.ceil(window.innerWidth),
+          height,
+        });
+      };
+
+      request("ui/initialize", {
+        appInfo: { name: "TradeWave Pattern Evidence", version: "2.0.0" },
+        appCapabilities: {},
+        protocolVersion: "2026-01-26",
+      }).then(result => {
+        hostCapabilities = result?.hostCapabilities || {};
+        notify("ui/notifications/initialized");
+        reportSize();
+        if (window.ResizeObserver) {
+          let scheduled = false;
+          const observer = new ResizeObserver(() => {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(() => {
+              scheduled = false;
+              reportSize();
+            });
+          });
+          observer.observe(document.documentElement);
+          observer.observe(document.body);
+        }
+      }).catch(() => {
+        // ChatGPT uses window.openai instead of the MCP Apps handshake. The
+        // compatibility path above remains active when no MCP Apps host replies.
+      });
     })();
   </script>
 </body>

@@ -152,7 +152,56 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     assert "domain" not in widget.meta["ui"]
     assert widget.meta["openai/widgetCSP"]["redirect_domains"] == [server.MAIN_PUBLIC_URL]
     assert "mcp-dev.trxstat.com" not in repr(widget.meta)
+    assert server.PATTERN_WIDGET_URI.endswith("pattern-evidence-v2.html")
+    assert 'request("ui/initialize"' in server.PATTERN_WIDGET_HTML
+    assert 'notify("ui/notifications/initialized")' in server.PATTERN_WIDGET_HTML
+    assert 'notify("ui/notifications/size-changed"' in server.PATTERN_WIDGET_HTML
     assert "ui/notifications/tool-result" in server.PATTERN_WIDGET_HTML
+
+
+def test_widget_result_has_ranked_text_fallback_for_non_rendering_hosts(monkeypatch):
+    async def fake_get(path, params=None):
+        return {
+            "count": 2,
+            "opportunities": [
+                {
+                    "rank": 1,
+                    "symbol": "TJX",
+                    "direction": "long",
+                    "setup": {
+                        "entry_date": "2026-07-19",
+                        "exit_date": "2026-09-16",
+                        "hold_days": 59,
+                    },
+                    "stats": {
+                        "historical_win_rate": .95,
+                        "years": "20",
+                        "avg_return_pct": 6.0,
+                        "median_return_pct": 5.36,
+                        "sharpe_ratio": 1.8,
+                    },
+                    "ml": {"ml_win_prob": .865},
+                    "chart": {
+                        "per_year_bars": [
+                            {"year": "2025", "mae_pct": -1, "mfe_pct": 12,
+                             "net_pct": 10}
+                        ]
+                    },
+                },
+                {"rank": 2, "symbol": "ALL", "direction": "long"},
+            ],
+        }
+
+    monkeypatch.setattr(server, "_get", fake_get)
+    out = _run(server.find_best_opportunities(ctx=None))
+    text = out.content[0].text
+
+    assert "TradeWave ranked results (text fallback):" in text
+    assert "1. TJX LONG" in text
+    assert "win rate 95% over 20 years" in text
+    assert "ML win probability 86.50%" in text
+    assert "2. ALL LONG" in text
+    assert "2025: final +10.00% (path -1.00% to +12.00%)" in text
 
 
 # --- disclaimer hoist / dedup (token-saving envelope handling) ----------------------
