@@ -66,6 +66,20 @@ if [ "$PORTAL" = 1 ]; then
   else
     bad "portal MCP setup guide is missing the $MCPHOST connector URL"
   fi
+  oauth_issuer=$($SSH "root@$APP" "grep -m1 '^WORKOS_AUTHKIT_DOMAIN=' /etc/tradewave/secrets.env | cut -d= -f2-")
+  case "$oauth_issuer" in http://*|https://*) ;; *) oauth_issuer="https://$oauth_issuer" ;; esac
+  oauth_issuer="${oauth_issuer%/}"
+  resource_metadata=$(curl -fsS --max-time 15 "https://$MCPHOST/.well-known/oauth-protected-resource" 2>/dev/null || true)
+  oauth_metadata=$(curl -fsS --max-time 15 "$oauth_issuer/.well-known/oauth-authorization-server" 2>/dev/null || true)
+  printf '%s' "$resource_metadata" | grep -Fq "$oauth_issuer" \
+    && ok "mcp discovery advertises the configured WorkOS issuer" \
+    || bad "mcp discovery does not advertise $oauth_issuer"
+  printf '%s' "$oauth_metadata" | grep -q '"registration_endpoint"' \
+    && ok "WorkOS issuer publishes Dynamic Client Registration" \
+    || bad "WorkOS issuer is missing registration_endpoint (Claude cannot connect)"
+  printf '%s' "$oauth_metadata" | grep -Eq '"client_id_metadata_document_supported"[[:space:]]*:[[:space:]]*true' \
+    && ok "WorkOS issuer publishes CIMD support" \
+    || bad "WorkOS issuer is missing CIMD support"
   c=$(wc_app / "$MCPHOST")
   case "$c" in
     200|400|401|405|406) ok "mcp protocol host is routed -> $c" ;;

@@ -148,6 +148,44 @@ for box in "$WEB" "$APP"; do
   echo "    $box -> TW2_MCP_LIVE=1"
 done
 
+echo "==> [$ENV] pre-flight: WorkOS MCP issuer matches the web client and supports registration?"
+workos_issuer=""
+for box in "$WEB" "$APP"; do
+  issuer=$($SSH "root@$box" "grep -m1 '^WORKOS_AUTHKIT_DOMAIN=' /etc/tradewave/secrets.env 2>/dev/null | cut -d= -f2-")
+  [ -n "$issuer" ] || { echo "ABORT: WORKOS_AUTHKIT_DOMAIN is missing on $box."; exit 1; }
+  case "$issuer" in http://*|https://*) ;; *) issuer="https://$issuer" ;; esac
+  issuer="${issuer%/}"
+  if [ -n "$workos_issuer" ] && [ "$issuer" != "$workos_issuer" ]; then
+    echo "ABORT: production tiers disagree on WORKOS_AUTHKIT_DOMAIN ($workos_issuer vs $issuer)."
+    exit 1
+  fi
+  workos_issuer="$issuer"
+  echo "    $box -> WORKOS_AUTHKIT_DOMAIN=$issuer"
+done
+
+# The web login's WorkOS redirect is authoritative for the environment assigned to
+# WORKOS_CLIENT_ID. Comparing it catches a plausible-looking but wrong AuthKit domain,
+# which otherwise leaves Claude with no DCR endpoint before login even begins.
+web_login_location=$($SSH "root@$WEB" "curl -sSI -H 'Host: $HOST' http://127.0.0.1/login | tr -d '\r' | grep -i '^Location:' | head -1 | cut -d' ' -f2-")
+[ -n "$web_login_location" ] || { echo "ABORT: could not resolve the WEB WorkOS login redirect."; exit 1; }
+authkit_location=$(curl -sSI --max-time 15 "$web_login_location" | tr -d '\r' | grep -i '^Location:' | head -1 | cut -d' ' -f2-)
+actual_workos_issuer=$(printf '%s' "$authkit_location" | sed -E 's#^(https://[^/]+).*#\1#')
+[ "$actual_workos_issuer" = "$workos_issuer" ] || {
+  echo "ABORT: WORKOS_AUTHKIT_DOMAIN=$workos_issuer, but the [$ENV] web client belongs to $actual_workos_issuer."
+  echo "       Correct WORKOS_AUTHKIT_DOMAIN on both tiers before publishing MCP OAuth metadata."
+  exit 1
+}
+workos_metadata=$(curl -fsS --max-time 15 "$workos_issuer/.well-known/oauth-authorization-server") || {
+  echo "ABORT: cannot read WorkOS OAuth metadata from $workos_issuer."; exit 1;
+}
+printf '%s' "$workos_metadata" | grep -q '"registration_endpoint"' || {
+  echo "ABORT: WorkOS Dynamic Client Registration is not published for $workos_issuer."; exit 1;
+}
+printf '%s' "$workos_metadata" | grep -Eq '"client_id_metadata_document_supported"[[:space:]]*:[[:space:]]*true' || {
+  echo "ABORT: WorkOS Client ID Metadata Document support is not published for $workos_issuer."; exit 1;
+}
+echo "    OK - issuer matches the web client; DCR + CIMD are published"
+
 echo "==> [$ENV] pre-flight: split-tier runtime files and API console are complete?"
 $SSH "root@$APP" "sudo -u flask test -r /etc/tradewave/appserver.env && grep -Fqx 'TW2_FEATURED_HISTORY_URL=http://$WEB_VLAN:5500/internal/featured-history' /etc/tradewave/secrets.env && grep -q '^TW2_DEVELOPER_PORT=8080$' /etc/tradewave/secrets.env" || {
   echo "ABORT: APP needs readable appserver.env, WEB-VLAN :5500 featured URL, and developer port 8080."; exit 1;

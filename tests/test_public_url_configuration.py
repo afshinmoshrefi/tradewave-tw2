@@ -240,6 +240,10 @@ def test_footer_hosts_are_gated_on_both_deployment_tiers():
     assert "MCP launch state is live on both publishing tiers" in deploy
     assert "TW2_MCP_LIVE is not enabled on $box" in deploy
     assert "grep -Eiq '^TW2_MCP_LIVE=(1|true|yes)$'" in deploy
+    assert "WorkOS MCP issuer matches the web client and supports registration" in deploy
+    assert "actual_workos_issuer" in deploy
+    assert '"registration_endpoint"' in deploy
+    assert '"client_id_metadata_document_supported"' in deploy
     assert "TW2_MCP_LIVE=1" in secrets
     assert "WEB_DST=/tmp/staging_web_secrets.env" in secrets
     assert '@${TGT_APP_VLAN}:5432/tradewave' in secrets
@@ -260,6 +264,9 @@ def test_release_gate_checks_footer_and_mcp_routes():
     assert "wc_app /learn/connect-an-ai-agent-mcp.html" in verify
     assert "portal MCP setup guide is launch-ready" in verify
     assert "has not launched|activates at launch" in verify
+    assert "mcp discovery advertises the configured WorkOS issuer" in verify
+    assert "WorkOS issuer publishes Dynamic Client Registration" in verify
+    assert "WorkOS issuer publishes CIMD support" in verify
     assert '[ "$mcp_redirect_code" = 308 ]' in verify
     assert '[ "$mcp_redirect_location" = "Location: /mcp" ]' in verify
     assert "portal /mcp/ -> relative /mcp redirect" in verify
