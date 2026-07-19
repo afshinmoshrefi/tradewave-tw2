@@ -57,6 +57,15 @@ if [ "$PORTAL" = 1 ]; then
   c=$(wc_app /learn/ "$DEVHOST");  [ "$c" = 200 ] && ok "portal /learn/ -> 200" || bad "portal /learn/ -> $c"
   c=$(wc_app /playground/ "$DEVHOST"); [ "$c" = 200 ] && ok "portal /playground/ -> 200" || bad "portal /playground/ -> $c"
   c=$(wc_app /mcp "$DEVHOST");     [ "$c" = 200 ] && ok "portal /mcp -> 200" || bad "portal /mcp -> $c"
+  c=$(wc_app /learn/connect-an-ai-agent-mcp.html "$DEVHOST")
+  [ "$c" = 200 ] && ok "portal MCP setup guide -> 200" || bad "portal MCP setup guide -> $c"
+  if $SSH "root@$APP" "grep -Eqi 'has not launched|activates at launch|<strong>Preview\.</strong>' /var/www/developers/learn/connect-an-ai-agent-mcp.html"; then
+    bad "portal MCP setup guide still says the launched connector is unavailable"
+  elif $SSH "root@$APP" "grep -Fq 'https://$MCPHOST' /var/www/developers/learn/connect-an-ai-agent-mcp.html"; then
+    ok "portal MCP setup guide is launch-ready"
+  else
+    bad "portal MCP setup guide is missing the $MCPHOST connector URL"
+  fi
   c=$(wc_app / "$MCPHOST")
   case "$c" in
     200|400|401|405|406) ok "mcp protocol host is routed -> $c" ;;

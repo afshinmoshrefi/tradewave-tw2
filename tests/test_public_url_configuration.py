@@ -189,6 +189,7 @@ def test_mcp_learning_guide_is_login_first(monkeypatch):
     for key, value in zip(PUBLIC_HOST_KEYS, hosts):
         monkeypatch.setenv(key, value)
     monkeypatch.setenv("TW2_ENV", "dev")
+    monkeypatch.setenv("TW2_MCP_LIVE", "1")
     for module_name in ("portal_urls", "portal_seo", "generate_api_docs"):
         monkeypatch.delitem(sys.modules, module_name, raising=False)
 
@@ -215,6 +216,9 @@ def test_mcp_learning_guide_is_login_first(monkeypatch):
     assert "Customize → Connectors" in rendered
     assert "Confirm the connection" in rendered
     assert "For data buyers and institutions" not in rendered
+    assert "has not launched" not in rendered
+    assert "activates at launch" not in rendered
+    assert "<strong>Preview.</strong>" not in rendered
 
 
 def test_footer_hosts_are_gated_on_both_deployment_tiers():
@@ -233,6 +237,9 @@ def test_footer_hosts_are_gated_on_both_deployment_tiers():
         "TW2_MCP_PUBLIC_HOST",
     ):
         assert f'check_portal_host "$box" {key}' in deploy
+    assert "MCP launch state is live on both publishing tiers" in deploy
+    assert "TW2_MCP_LIVE is not enabled on $box" in deploy
+    assert "grep -Eiq '^TW2_MCP_LIVE=(1|true|yes)$'" in deploy
     assert "TW2_MCP_LIVE=1" in secrets
     assert "WEB_DST=/tmp/staging_web_secrets.env" in secrets
     assert '@${TGT_APP_VLAN}:5432/tradewave' in secrets
@@ -250,6 +257,9 @@ def test_release_gate_checks_footer_and_mcp_routes():
     assert '"https://$DEVHOST/docs/quickstart.html"' in verify
     assert '"https://$DEVHOST/mcp"' in verify
     assert 'wc_app / "$MCPHOST"' in verify
+    assert "wc_app /learn/connect-an-ai-agent-mcp.html" in verify
+    assert "portal MCP setup guide is launch-ready" in verify
+    assert "has not launched|activates at launch" in verify
     assert '[ "$mcp_redirect_code" = 308 ]' in verify
     assert '[ "$mcp_redirect_location" = "Location: /mcp" ]' in verify
     assert "portal /mcp/ -> relative /mcp redirect" in verify

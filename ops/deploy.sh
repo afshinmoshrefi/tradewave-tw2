@@ -134,6 +134,20 @@ for box in "$WEB" "$APP"; do
   check_portal_host "$box" TW2_MCP_PUBLIC_HOST         "$MCPHOST"
 done
 
+echo "==> [$ENV] pre-flight: MCP launch state is live on both publishing tiers?"
+# WEB uses this flag for the main-site MCP claims; APP uses it while rendering the
+# developer setup guide. A split value published a live connector page alongside a
+# contradictory "has not launched" banner in production, so require the launched
+# state on both boxes before changing either worktree.
+for box in "$WEB" "$APP"; do
+  $SSH "root@$box" "grep -Eiq '^TW2_MCP_LIVE=(1|true|yes)$' /etc/tradewave/secrets.env" || {
+    echo "ABORT: TW2_MCP_LIVE is not enabled on $box."
+    echo "       MCP is launched in [$ENV]; set TW2_MCP_LIVE=1 in /etc/tradewave/secrets.env on both tiers."
+    exit 1
+  }
+  echo "    $box -> TW2_MCP_LIVE=1"
+done
+
 echo "==> [$ENV] pre-flight: split-tier runtime files and API console are complete?"
 $SSH "root@$APP" "sudo -u flask test -r /etc/tradewave/appserver.env && grep -Fqx 'TW2_FEATURED_HISTORY_URL=http://$WEB_VLAN:5500/internal/featured-history' /etc/tradewave/secrets.env && grep -q '^TW2_DEVELOPER_PORT=8080$' /etc/tradewave/secrets.env" || {
   echo "ABORT: APP needs readable appserver.env, WEB-VLAN :5500 featured URL, and developer port 8080."; exit 1;
