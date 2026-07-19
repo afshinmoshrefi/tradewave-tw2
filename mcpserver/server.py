@@ -1291,7 +1291,11 @@ async def whats_seasonal_now(
         "Verbosity. 'decision' (default) = lean read; 'table' = compact ranked rows; "
         "'full' = full cards."))] = None,
     ctx: Optional[Context] = None,
-) -> str:
+) -> Any:
+    # This tool can return FastMCP's unstructured mixed-content sequence (text,
+    # ResourceLink, and optional Image blocks).  Do not annotate it as ``str``:
+    # FastMCP would publish a string-only output schema and reject the valid
+    # sequence during protocol serialization before the client receives it.
     _bind_request_key(ctx)
     params: dict[str, Any] = {"window": "now", "view": view or "decision"}
     if markets is not None:

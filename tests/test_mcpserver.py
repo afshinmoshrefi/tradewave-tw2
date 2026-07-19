@@ -66,6 +66,36 @@ def test_whats_seasonal_now_defaults_to_decision(captured):
     assert captured["params"]["window"] == "now"
 
 
+def test_whats_seasonal_now_mixed_content_survives_fastmcp_serialization(monkeypatch):
+    """Regression: a string return schema rejected text + ResourceLink in production."""
+    async def fake_get(path, params=None):
+        return {
+            "count": 1,
+            "opportunities": [{
+                "symbol": "ALL",
+                "wave_viewer": {
+                    "label": "Open exact ALL pattern",
+                    "url": "https://tradewave.example/app/?o=all",
+                },
+            }],
+        }
+
+    monkeypatch.setattr(server, "_get", fake_get)
+
+    out = _run(server.mcp.call_tool("whats_seasonal_now", {}))
+
+    assert out[0].type == "text"
+    assert "1 seasonal setup(s)" in out[0].text
+    assert out[1].type == "resource_link"
+    assert str(out[1].uri) == "https://tradewave.example/app/?o=all"
+
+    tool = next(
+        tool for tool in _run(server.mcp.list_tools())
+        if tool.name == "whats_seasonal_now"
+    )
+    assert tool.outputSchema is None
+
+
 def test_view_override_is_forwarded(captured):
     _run(server.find_best_opportunities(view="full", ctx=None))
     assert captured["params"]["view"] == "full"
