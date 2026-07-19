@@ -48,3 +48,13 @@ def test_mcp_setup_trailing_slash_redirects_to_clean_url():
     assert "absolute_redirect off;" in template
     assert "location = /mcp/" in template
     assert "return 308 /mcp;" in template
+
+
+def test_mcp_endpoint_has_path_aware_oauth_discovery():
+    template = NGINX_TEMPLATE.read_text(encoding="utf-8")
+
+    assert "location = /.well-known/oauth-protected-resource/mcp" in template
+    assert (
+        "proxy_pass http://tw2_mcpserver/.well-known/oauth-protected-resource;"
+        in template
+    )
