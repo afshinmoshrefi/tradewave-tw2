@@ -95,6 +95,7 @@ CUR=\$(sudo -u flask crontab -l 2>/dev/null | grep -v 'mailerlite_lifecycle.py' 
   # homepage / scorecard / quotes
   echo "4 0 * * * \$W /home/flask/venv/bin/python /home/flask/site/home_opportunities.py \$L/home_opportunities.log 2>&1"
   echo "0 7 * * 1-5 \$W /home/flask/venv/bin/python /home/flask/site/generate_home_page.py \$L/home_page.log 2>&1"
+  echo "0 10-17 * * * \$W /home/flask/venv/bin/python /home/flask/site/generate_webinar_page.py --force \$L/webinar_page.log 2>&1"
   echo "*/10 9-16 * * 1-5 \$W /home/flask/venv/bin/python /home/flask/site/generate_scorecard.py \$L/scorecard.log 2>&1"
   echo "* * * * 0-5 \$W /home/flask/venv/bin/python /home/flask/smn/update_news_quotes.py \$L/smn_quote_injection.log 2>&1"
   # emails / social

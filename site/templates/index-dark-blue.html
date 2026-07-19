@@ -148,7 +148,7 @@ a{color:var(--accent);text-decoration:none}
 .narrow{max-width:780px;margin-left:auto;margin-right:auto}
 .muted{color:var(--muted)}
 .faint{color:var(--faint)}
-section{padding:var(--s7) 0}
+section{padding:var(--s6) 0}
 @media(max-width:880px){section{padding:44px 0}
   .close{padding:44px 0 !important}
   .frame-wrap.landscape .frame img,.frame-wrap.wide .frame img{aspect-ratio:auto !important}
@@ -245,11 +245,11 @@ section{padding:var(--s7) 0}
 /* two-col / band */
 .two{display:grid;grid-template-columns:1fr 1fr;gap:46px;align-items:center}
 .two.rev .copy{order:2}
-.product-story-section{padding-top:120px;padding-bottom:104px;overflow:hidden}
-.product-story-head{max-width:780px;margin:0 auto 72px;text-align:center}
+.product-story-section{padding-top:96px;padding-bottom:80px;overflow:hidden}
+.product-story-head{max-width:780px;margin:0 auto 64px;text-align:center}
 .product-story-head .eyebrow{justify-content:center}
 .product-story-head .section-sub{margin:18px auto 0;text-align:center}
-.product-story-list{display:grid;gap:88px}
+.product-story-list{display:grid;gap:72px}
 .product-step{display:grid;grid-template-columns:minmax(0,.88fr) minmax(420px,1.12fr);gap:58px;align-items:center}
 .product-step.media-left{grid-template-columns:minmax(420px,1.12fr) minmax(0,.88fr)}
 .product-step.media-left .product-media{grid-column:1;grid-row:1}
@@ -385,6 +385,7 @@ section{padding:var(--s7) 0}
   background:radial-gradient(820px 380px at 50% -5%,rgba(124,92,255,.18),transparent 60%)}
 .priceband .wrap{position:relative;z-index:1}
 .priceband h2{font-size:clamp(1.9rem,4.2vw,3rem)}
+#ai-access{padding-top:80px;padding-bottom:80px}
 .plan .feat{list-style:none;margin:14px 0 20px;padding:0;font-size:.9rem;color:var(--muted)}
 .plan .feat li{position:relative;padding-left:22px;margin-bottom:9px;line-height:1.45}
 .plan .feat li::before{content:"";position:absolute;left:0;top:7px;width:12px;height:12px;border-radius:3px;
@@ -749,7 +750,7 @@ body{background-image:none !important;}
 </div></section>
 
 <!-- CTA at peak conviction (right after the complete product workflow). -->
-<div class="wrap" style="text-align:center"><div class="cta-row reveal" style="margin:6px 0 72px"><a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.04rem;padding:14px 30px">Start Free - Full Access for 7 Days</a></div></div>
+<div class="wrap" style="text-align:center"><div class="cta-row reveal" style="margin:0 0 24px"><a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.04rem;padding:14px 30px">Start Free - Full Access for 7 Days</a></div></div>
 
 <!-- CALENDAR REMINDERS band (unnumbered, like the CTA/free-report bands, so the
      section numbering stays intact). One-click reminder bell: the visual is the
@@ -968,6 +969,7 @@ body{background-image:none !important;}
       <a href="#tara">Tara</a>
       <a href="https://seasonalmarketnews.com/">News</a>
       <a href="/insights/">Insights</a>
+      <a href="/webinars/" id="footer-webinars-link" hidden>Webinars</a>
       <a href="{{ content.scorecard_url }}">Scorecard</a>
       <a href="{{ content.methodology_url }}">Methodology</a>
     </div>
@@ -1033,6 +1035,17 @@ body{background-image:none !important;}
 </script>
 
 <script>
+// Webinar navigation is schedule-aware. Keep the link absent visually by
+// default, then reveal it only when the generated public feed has a future row.
+(function(){
+    var link = document.getElementById('footer-webinars-link');
+    if (!link || !window.fetch) return;
+    fetch('/webinars/webinars.json', {cache:'no-store', credentials:'same-origin'})
+      .then(function(response){ return response.ok ? response.json() : []; })
+      .then(function(sessions){ if (Array.isArray(sessions) && sessions.length) link.hidden = false; })
+      .catch(function(){ /* fail closed: no schedule means no footer link */ });
+})();
+
 // Pricing monthly/yearly toggle.
 (function(){
     var toggleBtns = document.querySelectorAll('.pricing-toggle-btn');

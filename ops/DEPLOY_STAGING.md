@@ -876,7 +876,7 @@ The 5 previously-blocked code+cron-gap scripts have been ported from inference u
 | `send_daily_ai_pick.py` | `/home/flask/site/send_daily_ai_pick.py` | Parses `/var/www/tradewave/daily-ai-pick.html` (title + table), wraps in clean email template with inline styles, rewrites relative URLs to absolute via `config.domain_root`, schedules Mailerlite campaign. Refuses to send if HTML > 24h old. Lock prevents TW1's duplicate 30 7 + 41 7 cron firing. |
 | `m_daily_ai_pick_social.py` | `/home/flask/site/m_daily_ai_pick_social.py` | Parses top pick from daily-ai-pick.html, posts to FB Page via Graph API v18.0 and to X via Publer v1 `/posts/schedule`. **Defaults to dry-run** — requires `--send` to actually publish. Skip flags `--skip-fb` and `--skip-x` for partial-network operation. Lock only if at least one network succeeded. |
 | `update_news_quotes.py` | `/home/flask/smn/update_news_quotes.py` | Refreshes `/var/www/smn/assets/quotes.json` + `/var/www/tradewave/assets/quotes.json`. Fetches 7 market-bar symbols (GSPC, DJI, IXIC, VIX, CL, NG, GC) via `get_quote_details()` (which uses the local realtime service first, falls back to EODHD). Each run ~3-5s. Atomic write. Fail-soft if all lookups fail — keeps existing JSON. |
-| `webinar_page_generator.py` | **NOT PORTED** | No TW2 evidence (no `/home/flask/webinar/`, no template, no related code). Likely deprecated. If you want it back, share the TW1 source and I'll port. |
+| `generate_webinar_page.py` | **PORTED** | Reads the published TradeWave Webinars Sheet, renders only future `wb001` sessions at `/webinars/`, keeps `/webinar` as a compatibility alias, and writes the public schedule used by the conditional home-footer link. |
 
 ## 17.1 Validated on dev
 

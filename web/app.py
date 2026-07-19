@@ -28,6 +28,7 @@ Key design rule (from architecture decisions):
 import os
 import sys
 import time
+import re
 import json as _json
 import socket
 import decimal
@@ -1046,6 +1047,61 @@ def _client_ip() -> str:
     if xff:
         return xff.split(",")[0].strip()
     return request.headers.get("X-Real-IP") or request.remote_addr or ""
+
+
+_WEBINAR_NAME_MAX = 100
+_WEBINAR_EMAIL_MAX = 320
+_WEBINAR_GROUP_RE = re.compile(r"^wb001_\d{4}-\d{2}-\d{2}_\d{4}(?:AM|PM)$")
+_WEBINAR_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+@app.route("/api/webinar/register", methods=["POST"])
+@csrf.exempt  # anonymous registration; exact future session is revalidated server-side
+def api_webinar_register():
+    data = request.get_json(silent=True) or {}
+
+    # Quiet honeypot success keeps automated form fillers from learning whether
+    # they reached the MailerLite integration.
+    if (data.get("company") or "").strip():
+        log.info("api_webinar_register honeypot tripped ip=%s", _client_ip())
+        return jsonify({"status": "success"}), 200
+
+    first_name = (data.get("first_name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    group_name = (data.get("group_name") or "").strip()
+    if not first_name or len(first_name) > _WEBINAR_NAME_MAX:
+        return jsonify({"status": "error", "message": "Enter your first name."}), 400
+    if (
+        not email
+        or len(email) > _WEBINAR_EMAIL_MAX
+        or not _WEBINAR_EMAIL_RE.fullmatch(email)
+    ):
+        return jsonify({"status": "error", "message": "Enter a valid email address."}), 400
+    if not _WEBINAR_GROUP_RE.fullmatch(group_name):
+        return jsonify({"status": "error", "message": "This webinar is no longer available."}), 400
+
+    from webinar_registration import register_webinar_subscriber
+
+    result = register_webinar_subscriber(email, first_name, group_name)
+    if result == "success":
+        return jsonify({"status": "success"}), 200
+    if result == "invalid_session":
+        return jsonify({"status": "error", "message": "This webinar is no longer available."}), 400
+    if result in ("inactive", "suppressed"):
+        return jsonify({
+            "status": "error",
+            "message": "We could not register this email. Please contact support if you need help.",
+        }), 409
+    if result == "disabled":
+        return jsonify({
+            "status": "error",
+            "message": "Registration is temporarily unavailable. Please try again shortly.",
+        }), 503
+    log.warning("api_webinar_register failed result=%s group=%s", result, group_name)
+    return jsonify({
+        "status": "error",
+        "message": "Registration failed. Please try again shortly.",
+    }), 502
 
 
 @app.route("/api/contact", methods=["POST"])
