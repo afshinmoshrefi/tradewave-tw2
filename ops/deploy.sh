@@ -401,6 +401,7 @@ sudo -u flask git -C "$repo" merge --ff-only "$EXPECTED_SHA"
 sudo -u flask "$repo/venv/bin/pip" install -q -r "$repo/requirements.txt"
 sudo -u flask bash "$repo/ops/migrate.sh"
 bash "$repo/ops/install_mailerlite_lifecycle_cron.sh"
+bash "$repo/ops/install_webinar_cron.sh"
 sed "s|__TW2_WEB_VLAN__|$WEB_VLAN|g" "$repo/ops/systemd/tradewave-web.service" >/etc/systemd/system/tradewave-web.service
 grep -q -- "--bind 127.0.0.1:5500" /etc/systemd/system/tradewave-web.service
 grep -q -- "--bind $WEB_VLAN:5500" /etc/systemd/system/tradewave-web.service

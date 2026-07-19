@@ -41,6 +41,12 @@ else
     && bad "APP appserver not active" || ok "APP: appserver active (api/mcp dark on prod - not checked)"
 fi
 
+if $SSH "root@$WEB" "crontab -u flask -l 2>/dev/null | grep -Fq '/home/flask/site/generate_webinar_page.py --force'"; then
+  ok "WEB: hourly webinar schedule refresh cron installed"
+else
+  bad "WEB: webinar schedule refresh cron missing"
+fi
+
 echo "-- web routes (nginx-direct, Host: $HOST) --"
 for r in / /home.html /scorecard.html /research.html /about.html /terms.html /privacy.html /disclaimer.html /methodology.html /insights/ /learn/ /webinars/ /markets/sp500.html /affiliate.html; do
   c=$(wc_web "$r"); [ "$c" = 200 ] && ok "$r -> 200" || bad "$r -> $c (want 200)"
@@ -160,6 +166,17 @@ done
 echo "$home" | grep -F 'href="/insights/"' >/dev/null \
   && ok "home footer: Insights" \
   || bad "home footer: Insights link missing"
+echo "$home" | grep -F 'id="footer-webinars-link" hidden' >/dev/null \
+  && ok "home footer: Webinars defaults hidden" \
+  || bad "home footer: conditional Webinars link missing"
+echo "$home" | grep -F "fetch('/webinars/webinars.json'" >/dev/null \
+  && ok "home footer: Webinars schedule reveal wired" \
+  || bad "home footer: Webinars schedule reveal missing"
+if $SSH "root@$WEB" "python3 -c 'import json; value=json.load(open(\"/var/www/tradewave/webinars/webinars.json\")); assert isinstance(value, list)'"; then
+  ok "webinars: public future-session feed is valid JSON"
+else
+  bad "webinars: public future-session feed missing or invalid"
+fi
 if echo "$home" | grep -cE 'gtag\(|googletagmanager|G-[A-Z0-9]{6,}' >/dev/null; then ok "home: GA4 loader present"; else
   [ "$ENV" = prod ] && bad "home: GA4 loader MISSING (analytics dead on prod)" || warn "home: no GA4 loader (may be prod-gated; confirm it lights on prod)"; fi
 # Read the generated file on disk, NOT via nginx: open_file_cache can briefly serve the
