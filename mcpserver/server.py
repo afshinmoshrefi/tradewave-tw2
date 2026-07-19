@@ -486,6 +486,12 @@ if OAUTH_ENABLED:
 mcp = FastMCP(
     name="TradeWave",
     lifespan=_mcp_lifespan,
+    # Every remote request is independently authenticated and all business state
+    # lives in the gateway.  Keeping transport sessions in this process makes a
+    # valid Claude/ChatGPT connector fail after a deploy (or when a load balancer
+    # sends its next request to another worker).  Stateless Streamable HTTP accepts
+    # the client's prior session header without depending on in-memory session state.
+    stateless_http=True,
     **_auth_kwargs,
     instructions=(
         "TradeWave is the user's seasonal-edge analyst. It finds, ranks, and explains "

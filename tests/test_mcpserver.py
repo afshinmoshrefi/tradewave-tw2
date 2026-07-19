@@ -96,6 +96,10 @@ def test_whats_seasonal_now_mixed_content_survives_fastmcp_serialization(monkeyp
     assert tool.outputSchema is None
 
 
+def test_remote_mcp_transport_is_stateless_across_workers_and_restarts():
+    assert server.mcp.settings.stateless_http is True
+
+
 def test_view_override_is_forwarded(captured):
     _run(server.find_best_opportunities(view="full", ctx=None))
     assert captured["params"]["view"] == "full"
