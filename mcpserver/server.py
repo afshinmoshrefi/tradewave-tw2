@@ -640,7 +640,7 @@ _HANDOFF = (
     "its charts, risk statistics, failed years, and Wave Viewer link. Then, only when relevant to "
     "the user's question, note that this is a SEASONAL + ML statistical edge and TradeWave is blind to "
     "fundamentals, news, macro, valuation, and upcoming earnings/events. Before treating it as a "
-    "a complete current-market view. You may use your own tools to check whether current news, macro, or recent price action "
+    "complete current-market view, you may use your own tools to check whether current news, macro, or recent price action "
     "SUPPORT or THREATEN this seasonal thesis - search for them; do NOT assume a catalyst exists and "
     "do NOT invent one. If TradeWave reports neutral / no edge, report that as a genuine 'no edge' "
     "finding (computed independently of any news), not as mild support. Then synthesize, keeping "
@@ -849,18 +849,13 @@ def _widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> Call
     if disclaimer:
         text += f"\n\nDisclaimer: {disclaimer}"
 
-    content: list[Any] = [TextContent(type="text", text=text)]
-    if viewer_url:
-        content.append(ResourceLink(
-            type="resource_link",
-            name="tradewave_exact_pattern",
-            title=viewer_label,
-            uri=viewer_url,
-            description=("Open the exact market, symbol, entry date, holding period, and "
-                         "lookback returned by this TradeWave analysis."),
-            mimeType="text/html",
-        ))
-    return CallToolResult(content=content, structuredContent=payload)
+    # Widget-bearing tools already expose the exact URL in ordinary Markdown,
+    # structuredContent, and the embedded app. Some MCP hosts do not support a
+    # ResourceLink content block and inject a noisy warning into the model context.
+    return CallToolResult(
+        content=[TextContent(type="text", text=text)],
+        structuredContent=payload,
+    )
 
 
 def _lead(text: str, data: Any, handoff: bool = False) -> str:

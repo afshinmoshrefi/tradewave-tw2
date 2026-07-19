@@ -164,7 +164,7 @@ def test_analyze_returns_mcp_app_result_with_structured_evidence(monkeypatch):
     assert out.structuredContent["card"]["chart"]["per_year_bars"][0]["year"] == "2025"
     assert out.structuredContent["primary_action"]["url"] == url
     assert url in out.content[0].text
-    assert out.content[1].type == "resource_link"
+    assert len(out.content) == 1
 
 
 def test_analyze_tool_and_resource_advertise_mcp_app_contract():
