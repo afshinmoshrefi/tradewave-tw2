@@ -92,8 +92,31 @@ echo "$home" | grep -c  'Public forward track record'       >/dev/null && ok "ho
 ledger_rows=$(printf '%s\n' "$home" | grep -o 'class="ledger-row ledger-grid"' | wc -l)
 [ "$ledger_rows" = 8 ] && ok "home: live ledger preview has 8 rows" || bad "home: live ledger preview has $ledger_rows rows (want 8)"
 echo "$home" | grep -c  'Open the Full Public Track Record' >/dev/null && ok "home: full track-record CTA present" || bad "home: full track-record CTA MISSING"
-echo "$home" | grep -c  'Seasonal projection based on your chosen time frame' >/dev/null && ok "home: chosen-time-frame projection label" || bad "home: chosen-time-frame projection label MISSING"
-echo "$home" | grep -c  'Seasonal projection based on all available data' >/dev/null && ok "home: all-data projection label" || bad "home: all-data projection label MISSING"
+for marker in \
+  'Opportunities Table' \
+  'Stats Table' \
+  'Trend Chart' \
+  'Seasonal Projection' \
+  'Year-by-Year Evidence' \
+  'Portfolio Manager'
+do
+  echo "$home" | grep -F -c "$marker" >/dev/null \
+    && ok "home journey: $marker" \
+    || bad "home journey: $marker MISSING"
+done
+for asset in \
+  home-opportunities.webp \
+  home-stats.webp \
+  home-trend-chart.webp \
+  home-seasonal-projection.webp \
+  home-year-by-year.webp \
+  home-portfolios.webp
+do
+  c=$(wc_web "/_static/$asset")
+  [ "$c" = 200 ] \
+    && ok "home asset: $asset -> 200" \
+    || bad "home asset: $asset -> $c (want 200)"
+done
 echo "$home" | grep -c  'Target Hit means the predicted return was reached and the trade was exited for a win.' >/dev/null && ok "home: Target Hit definition" || bad "home: Target Hit definition MISSING"
 echo "$home" | grep -c  'Different Desks. One Standard of Proof.' >/dev/null && ok "home: audience heading" || bad "home: audience heading MISSING"
 echo "$home" | grep -c  'fund running thousands of backtests' >/dev/null && ok "home: audience scale copy" || bad "home: audience scale copy MISSING"
