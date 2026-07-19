@@ -763,6 +763,12 @@ SENTRY_DSN = os.environ.get('SENTRY_DSN', '')  # set in /etc/tradewave/secrets.e
 # dedicated MAILERLITE_API_KEY in secrets.env later if you want to rotate them independently.)
 MAILERLITE_API_KEY  = os.environ.get('MAILERLITE_API_KEY', '') or os.environ.get('MAILERLITE_TOKEN', '')  # set in /etc/tradewave/secrets.env
 MAILERLITE_GROUP_ID = os.environ.get('MAILERLITE_GROUP_ID', '')  # set in /etc/tradewave/secrets.env
+# Stable MailerLite group used for every webinar registration. Individual
+# sessions also receive a dated group created from the verified Google Sheet
+# row, so reminders can target one session without exposing its meeting URL.
+MAILERLITE_WEBINAR_GROUP_ID = os.environ.get(
+    'MAILERLITE_WEBINAR_GROUP_ID', '135476648313095637'
+)
 # Every TradeWave-originated MailerLite mutation is fail-closed. The account is
 # shared across environments, so a valid token on dev/staging must never be
 # enough to touch production subscribers. Production must opt in explicitly

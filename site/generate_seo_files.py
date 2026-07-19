@@ -63,7 +63,7 @@ TOP_LEVEL_PAGES = [
 # _static/markets, the retired SMN-style path that dir-name still collides with.
 # 404.html, home-ui-preview/, r/, and patterns/ are excluded by construction -
 # nothing here ever scans those paths.
-SECTION_DIRS = ['insights', 'learn', 'markets']
+SECTION_DIRS = ['insights', 'learn', 'markets', 'webinars']
 
 
 def _lastmod(path: Path) -> str:
@@ -241,6 +241,7 @@ def build_llms() -> str:
         '- Markets: %smarkets/' % ROOT,
         '- Insights: %sinsights/' % ROOT,
         '- Learn: %slearn/' % ROOT,
+        '- Free Live Webinars: %swebinars/' % ROOT,
         '- Daily AI Pick: %sdaily-ai-pick.html' % ROOT,
     ]
     dev_line = _developers_line()

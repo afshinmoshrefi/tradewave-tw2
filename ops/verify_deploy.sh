@@ -42,9 +42,10 @@ else
 fi
 
 echo "-- web routes (nginx-direct, Host: $HOST) --"
-for r in / /home.html /scorecard.html /research.html /about.html /terms.html /privacy.html /disclaimer.html /methodology.html /insights/ /learn/ /markets/sp500.html /affiliate.html; do
+for r in / /home.html /scorecard.html /research.html /about.html /terms.html /privacy.html /disclaimer.html /methodology.html /insights/ /learn/ /webinars/ /markets/sp500.html /affiliate.html; do
   c=$(wc_web "$r"); [ "$c" = 200 ] && ok "$r -> 200" || bad "$r -> $c (want 200)"
 done
+c=$(wc_web /webinar); case "$c" in 200|301|302|307|308) ok "/webinar compatibility route -> $c" ;; *) bad "/webinar -> $c (compatibility route missing)";; esac
 c=$(wc_web /markets/);        case "$c" in 200|301|302) ok "/markets/ -> $c" ;; *) bad "/markets/ -> $c (raw 403 = no section index)";; esac
 c=$(wc_web /join/TESTCODE);   [ "$c" = 404 ] && bad "/join/TESTCODE -> 404 (nginx 'location /join/' proxy rule missing)" || ok "/join/TESTCODE -> $c (route reaches the app)"
 c=$(wc_web /healthz);         [ "$c" = 200 ] && ok "/healthz -> 200" || warn "/healthz -> $c"
