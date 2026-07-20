@@ -21,17 +21,18 @@ a fresh API/MCP deployment.
   demo traffic is metered per client instead of every visitor sharing one global
   `demo` rate-limit and ML-quota bucket. Raw client addresses are never stored in
   Redis or usage records.
-- Staging was fully verified on 2026-07-19, but on 2026-07-20 both public staging
-  hosts returned Cloudflare 530 and the recorded staging web SSH endpoint refused
-  connections. Restore staging before promotion. Do not bypass this gate.
+- Staging availability was restored on 2026-07-20. Both public health surfaces
+  return 200; the web and app repositories are clean at `b9242d1`; the expected
+  services are active; and pricing is explicitly off on both tiers. Staging now
+  awaits promotion of the reviewed rollout branch and the commercial gate below.
 
 ## Guarded Rollout Order
 
 All staging and production commands below are operator-run. Keep the flag off
 until the applicable environment passes every gate.
 
-1. Merge `codex/complete-api-rollout` to `main`, then restore staging network and
-   host availability. Confirm both staging repositories are clean before deploy.
+1. Merge `codex/complete-api-rollout` to `main`. Confirm both staging repositories
+   remain clean before deploy; this was last verified on 2026-07-20 at `b9242d1`.
 2. Deploy current `main` to staging with pricing still off:
 
    ```bash
