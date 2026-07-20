@@ -17,7 +17,7 @@ class _AtomicRedis:
     def eval(self, script, key_count, key, *args):
         assert key_count == 1 and key.startswith("mlq:")
         with self._lock:
-            self.eval_calls.append((script, args))
+            self.eval_calls.append((script, key, args))
             if script == ml_quota._CONSUME_LUA:
                 limit, requested, _ttl = map(int, args)
                 grant = min(requested, max(0, limit - self.value))
@@ -75,3 +75,13 @@ def test_unlimited_tier_never_touches_redis(monkeypatch):
     monkeypatch.setattr(ml_quota, "_redis", _UnavailableRedis())
     assert ml_quota.consume(_customer(None), 7) == 7
     ml_quota.refund(_customer(None), 7)
+
+
+def test_public_demo_ml_allowance_uses_the_per_client_metering_bucket(monkeypatch):
+    ledger = _AtomicRedis()
+    monkeypatch.setattr(ml_quota, "_redis", ledger)
+    demo = _customer(25)
+    demo.update({"user_id": "demo", "metering_id": "demo:visitor-a"})
+
+    assert ml_quota.consume(demo, 1) == 1
+    assert ledger.eval_calls[0][1].startswith("mlq:demo:visitor-a:")

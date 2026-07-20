@@ -6,6 +6,7 @@ and even then it logs rather than silently swallowing.
 """
 import hashlib
 import hmac
+import ipaddress
 import logging
 import re
 import threading
@@ -91,7 +92,8 @@ def resolve_customer(raw_key):
     if not raw_key:
         return None
     if raw_key == settings.DEMO_API_KEY:
-        # public demo principal: no HMAC, no DB row. Shared metering bucket ("demo").
+        # Public demo principal: no key HMAC and no DB row. require_api_key adds a
+        # request-scoped, per-client metering_id before applying rate/ML quotas.
         return {"user_id": "demo", "email": "demo@tradewave.ai",
                 "tier": "demo", "entitlements": tiers.tier_for("demo")}
     if not settings.API_KEY_HMAC_SECRET:
@@ -153,6 +155,44 @@ def _extract_key():
     return None
 
 
+def _canonical_ip(value):
+    """Return a stable IP spelling, or None for an invalid/missing value."""
+    try:
+        parsed = ipaddress.ip_address((value or "").strip())
+    except ValueError:
+        return None
+    # Cloudflare may represent an IPv4 address as an IPv4-mapped IPv6 address.
+    # Collapse both spellings so one visitor cannot double their demo allowance.
+    if getattr(parsed, "ipv4_mapped", None) is not None:
+        parsed = parsed.ipv4_mapped
+    return parsed.compressed
+
+
+def _public_demo_metering_id():
+    """Return a privacy-preserving, per-client bucket for the public demo.
+
+    The gateway binds loopback and nginx is its only public ingress.  Trust
+    Cloudflare's canonical client-IP header only when the immediate peer is
+    loopback; otherwise use the socket peer and ignore a spoofable forwarded
+    header.  Only an HMAC digest enters Redis - never the raw address.
+    """
+    peer = _canonical_ip(request.remote_addr)
+    peer_is_loopback = bool(peer and ipaddress.ip_address(peer).is_loopback)
+    cloudflare_client = (
+        _canonical_ip(request.headers.get("CF-Connecting-IP"))
+        if peer_is_loopback else None
+    )
+    client = cloudflare_client or peer or "unknown"
+    secret = settings.API_KEY_HMAC_SECRET or "tradewave-public-demo-meter-v1"
+    digest = hmac.new(secret.encode(), client.encode(), hashlib.sha256).hexdigest()[:24]
+    return "demo:" + digest
+
+
+def _metering_id(cust):
+    """Rate/quota identity; customer keys stay per-user, demo is per client."""
+    return str(cust.get("metering_id") or cust["user_id"])
+
+
 def require_api_key(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -168,6 +208,10 @@ def require_api_key(fn):
         deleg_err = _apply_on_behalf(cust)
         if deleg_err is not None:
             return deleg_err
+        # The public token is intentionally shared, but its availability must not be:
+        # one visitor must never consume every other visitor's rate/ML allowance.
+        if (cust.get("entitlements") or {}).get("demo"):
+            cust["metering_id"] = _public_demo_metering_id()
         # NOTE: record_usage runs only past this point, so 401/503/rate-limited calls are
         # not metered - only authenticated, non-rate-limited requests count.
         ok, headers = check_rate_limit(cust)
@@ -332,8 +376,9 @@ def check_rate_limit(cust):
     SDK can tell a short wait from 'come back tomorrow'."""
     rate = cust["entitlements"]["rate"]
     now = int(time.time())
-    min_key = f"rl:min:{cust['user_id']}:{now // 60}"
-    day_key = f"rl:day:{cust['user_id']}:{now // 86400}"
+    meter = _metering_id(cust)
+    min_key = f"rl:min:{meter}:{now // 60}"
+    day_key = f"rl:day:{meter}:{now // 86400}"
     pipe = _redis.pipeline()
     pipe.incr(min_key); pipe.expire(min_key, 60)
     pipe.incr(day_key); pipe.expire(day_key, 86400)

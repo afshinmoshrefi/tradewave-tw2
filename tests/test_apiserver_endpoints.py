@@ -816,6 +816,79 @@ def test_within_limits_has_no_retry_after(app, monkeypatch):
     assert r.headers["X-RateLimit-Limit"] == str(_ENT["rate"]["per_minute"])
 
 
+def test_public_demo_gets_stable_per_client_metering_buckets(app, monkeypatch):
+    from apiserver import appserver_client as ac, auth, ml_quota, tiers
+
+    demo = {"user_id": "demo", "email": "demo@tradewave.ai", "tier": "demo",
+            "entitlements": tiers.tier_for("demo")}
+    observed = []
+    monkeypatch.setattr(auth, "resolve_customer", lambda key: dict(demo))
+    monkeypatch.setattr(
+        auth, "check_rate_limit",
+        lambda cust: (observed.append(dict(cust)) or True, {}),
+    )
+    monkeypatch.setattr(auth, "record_usage", lambda *a, **k: None)
+    monkeypatch.setattr(ml_quota, "remaining", lambda cust: 25)
+    monkeypatch.setattr(ac, "list_markets", lambda: [])
+    client = app.test_client()
+
+    for address in ("203.0.113.10", "203.0.113.10", "203.0.113.11"):
+        response = client.get(
+            "/v1/me", headers={**_hdr(), "CF-Connecting-IP": address},
+            environ_overrides={"REMOTE_ADDR": "127.0.0.1"},
+        )
+        assert response.status_code == 200
+
+    meter_ids = [cust["metering_id"] for cust in observed]
+    assert meter_ids[0] == meter_ids[1]
+    assert meter_ids[0] != meter_ids[2]
+    assert all(value.startswith("demo:") for value in meter_ids)
+    assert all("203.0.113." not in value for value in meter_ids)
+    assert all(cust["user_id"] == "demo" for cust in observed)
+
+
+def test_public_demo_ignores_forwarded_ip_from_non_loopback_peer(app):
+    from apiserver import auth
+
+    with app.test_request_context(
+        "/", headers={"CF-Connecting-IP": "203.0.113.99"},
+        environ_base={"REMOTE_ADDR": "198.51.100.7"},
+    ):
+        spoofed = auth._public_demo_metering_id()
+    with app.test_request_context(
+        "/", environ_base={"REMOTE_ADDR": "198.51.100.7"},
+    ):
+        direct = auth._public_demo_metering_id()
+    assert spoofed == direct
+
+
+def test_rate_limit_uses_demo_metering_id_instead_of_shared_user_id(monkeypatch):
+    from apiserver import auth, tiers
+
+    keys = []
+
+    class CapturingPipe(_FakeRatePipe):
+        def incr(self, key):
+            keys.append(key)
+            return self
+
+    class CapturingRedis:
+        def pipeline(self):
+            return CapturingPipe(1, 1)
+
+    monkeypatch.setattr(auth, "_redis", CapturingRedis())
+    customer = {
+        "user_id": "demo", "metering_id": "demo:visitor-a",
+        "entitlements": tiers.tier_for("demo"),
+    }
+    allowed, _headers = auth.check_rate_limit(customer)
+
+    assert allowed
+    assert len(keys) == 2
+    assert all(":demo:visitor-a:" in key for key in keys)
+    assert all(":demo:" not in key.replace(":demo:visitor-a:", ":") for key in keys)
+
+
 # --- direction validation: a 400 naming the valid values, never a silent empty 200 --
 
 @pytest.mark.parametrize("path", [

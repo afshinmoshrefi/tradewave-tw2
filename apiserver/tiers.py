@@ -53,7 +53,8 @@ API_PRICING_LIVE = _pricing_live_flag()
 
 # rate = (per_minute, per_day); opp_limit = max results per /opportunities call.
 # Quotas are enforced per customer, not per key (auth.check_rate_limit buckets on
-# user_id), so max_keys never multiplies the entitlement.
+# user_id; the public demo is the deliberate per-client exception), so max_keys never
+# multiplies the entitlement.
 #
 # `history` is RESERVED / NOT IMPLEMENTED (verified 2026-06-12): no code path consumes
 # it - free keys receive the same live seasonal patterns as paid tiers. It is kept only as a
