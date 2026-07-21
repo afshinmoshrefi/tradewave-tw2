@@ -222,11 +222,16 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   (sharpe, win_prob, ml_score, pred_return...) + price tracking (start/end/peak,
   win/loss). `generate_scorecard.py` reads it and renders the track record;
   `generate_home_page.py` appends to it; `send_daily_ai_pick.py` emails from it.
+- **Daily-pick X publishing** (`site/m_daily_ai_pick_social.py`) reads that same
+  structured ledger record, never the standalone top-10 HTML page. It posts one
+  factual, bounded message directly through X's user-context API. Dry-run is the
+  default; writes require both `TW2_ENV=prod` and `TW2_X_POSTING_ENABLED=1`.
+  A per-featured-date success lock is written only after X returns a post ID.
 - So: the user's belief ("the daily AI pick is what gets stored in the scorecard")
   is **correct**. The "AI" = the ML scorer.
-- **OPEN:** TW2 has a standalone `site/generate_daily_ai_pick.py` -> `daily-ai-pick.html`
-  that may invoke an LLM for narrative. Confirm whether that page is the same pick
-  as the scorecard featured pick or a separate artifact before relying on it.
+- TW2's standalone `site/generate_daily_ai_pick.py` -> `daily-ai-pick.html` is a
+  separate top-10 artifact. It is not the canonical homepage pick and is not a
+  source for scorecard social publishing.
 (Source: `.151` `blog/*.py`, `ml_scorer/daily_opp_selection.py`, `featured_history.json`.)
 
 ### 2.4 TW1 auth (the "headcheese" pattern - the contract TW2 replaces)
@@ -310,7 +315,9 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
   (`TW2_PUBLIC_HOST`, `TW2_ENV`), cross-tier (`TW2_APPSERVER_URL/IP`, `TW2_WEBSERVER_IP`),
   and external APIs (`EOD_TOKEN`, `ANTHROPIC_TOKEN`, `OPENAI_KEY`, `GROK_API_KEY`,
   `PERPLEXITY_API_KEY`, `REPLICATE_API_TOKEN`, `TAVILY_API_KEY`, `MAILERLITE_*`,
-  `PUBLER_*`, `FACEBOOK_*`, `INDEXNOW_KEY`, `TW2_GA_MEASUREMENT_ID`, `GA4_MP_API_SECRET`
+  `PUBLER_*`, `FACEBOOK_*`, direct X publishing (`X_API_KEY`, `X_API_KEY_SECRET`,
+  `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET`, `TW2_X_POSTING_ENABLED`),
+  `INDEXNOW_KEY`, `TW2_GA_MEASUREMENT_ID`, `GA4_MP_API_SECRET`
   (server-side Measurement Protocol - see §9), `SENTRY_DSN`,
   contact form (`TURNSTILE_SITE_KEY/SECRET_KEY`, `RESEND_API_KEY`,
   `SUPPORT_EMAIL_TO/FROM`, `SUPPORT_IP_HASH_SALT` - see §5A),
@@ -1218,11 +1225,14 @@ prereq). See `project_tw2_content_sync.md`.
 **Crons** (web box flask crontab): SMN pipeline (select 02:00 / queue 03:00 /
 always-on processor), security pages, `home_opportunities.py` (00:04),
 `generate_home_page.py` (07:00), `generate_scorecard.py` (every 10m, 09-16),
-`update_news_quotes.py` (every min), SMN emails, daily-AI-pick email + social,
+`m_daily_ai_pick_social.py --send` (07:10 weekdays, after the homepage writer),
+`update_news_quotes.py` (every min), SMN emails, daily-AI-pick email,
 `web/mailerlite_lifecycle.py --limit 15` (every minute), `expire_trials.py`
 (04:15), EOD `update_client2.py` (23:36), ticker regen (02:00 + hourly 09-16).
 The MailerLite worker takes a Postgres advisory lock, reclaims ten-minute stale
 claims, and is a no-write operation unless production explicitly enables it.
+The X worker is also inert outside production and until its independent outbound
+flag is enabled. Routine deploy installs both workers' canonical cron entries.
 App box:
 DB backup 03:30 + weekly restore drill. (`make_bulletproof.sh`, `OPERATIONS.md §16`.)
 

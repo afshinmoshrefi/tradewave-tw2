@@ -76,7 +76,7 @@ echo "journald capped: \$(grep ^SystemMaxUse /etc/systemd/journald.conf)"
 W='set -a; . /etc/tradewave/secrets.env; set +a;'
 L='>> /var/log/tradewave'
 sudo -u flask test -r /etc/tradewave/secrets.env
-CUR=\$(sudo -u flask crontab -l 2>/dev/null | grep -v 'mailerlite_lifecycle.py' || true)
+CUR=\$(sudo -u flask crontab -l 2>/dev/null | grep -vE 'mailerlite_lifecycle.py|m_daily_ai_pick_social.py' || true)
 {
   printf '%s\n' "\$CUR"
   # system health
@@ -103,7 +103,9 @@ CUR=\$(sudo -u flask crontab -l 2>/dev/null | grep -v 'mailerlite_lifecycle.py' 
   echo "0 7 * * 1-5 \$W /home/flask/venv/bin/python /home/flask/smn/send_smn_emails.py \$L/smn_email_cron.log 2>&1"
   echo "0 9 * * 0 \$W /home/flask/venv/bin/python /home/flask/smn/send_smn_emails.py \$L/smn_email_cron.log 2>&1"
   echo "0 6 * * 0-5 \$W /home/flask/venv/bin/python /home/flask/site/generate_daily_ai_pick.py \$L/daily_ai_pick_gen.log 2>&1"
-  echo "10 6 * * 0-5 \$W /home/flask/venv/bin/python /home/flask/site/m_daily_ai_pick_social.py --send \$L/m_daily_ai_pick_social.log 2>&1"
+  # The canonical pick is appended by generate_home_page.py at 07:00. Post only
+  # after that writer completes, and only on weekdays when a new pick is made.
+  echo "10 7 * * 1-5 \$W /home/flask/venv/bin/python /home/flask/site/m_daily_ai_pick_social.py --send \$L/m_daily_ai_pick_social.log 2>&1"
 } | grep -vE '^\$' | sort -u | sudo -u flask crontab -
 echo "web crontab entry count: \$(sudo -u flask crontab -l | grep -vcE '^#|^\$')"
 sudo -u flask crontab -l | grep -vE '^#|^\$' | sort

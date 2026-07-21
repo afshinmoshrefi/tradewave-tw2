@@ -107,7 +107,7 @@ in `config.py`.
 Each pull is followed by `pip install -r requirements.txt` (a dependency that's in requirements.txt but not installed crash-loops the gunicorn workers into a 502 - this is what had staging broken).
 ```
 # WEB box   (stage 185.53.209.8 / prod 194.113.195.141):
-ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo -u flask bash /home/flask/ops/migrate.sh && sudo bash /home/flask/ops/install_mailerlite_lifecycle_cron.sh && sudo systemctl restart tradewave-web && sudo systemctl is-active tradewave-web'
+ssh root@<web> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo -u flask bash /home/flask/ops/migrate.sh && sudo bash /home/flask/ops/install_mailerlite_lifecycle_cron.sh && sudo bash /home/flask/ops/install_daily_ai_pick_social_cron.sh && sudo systemctl restart tradewave-web && sudo systemctl is-active tradewave-web'
 # APP box   (stage 199.244.48.157 / prod 138.128.240.115):
 ssh root@<app> -p 4369 'sudo -u flask git -C /home/flask pull --ff-only && sudo -u flask /home/flask/venv/bin/pip install -q -r /home/flask/requirements.txt && sudo systemctl restart tradewave-appserver && sudo systemctl is-active tradewave-appserver'
 # SMN pipeline daemons run on the WEB box (Type=simple, load smn/ at startup) — bounce them too when smn/ daemon code changed (the pull above already updated the code).
@@ -153,7 +153,46 @@ Rollback (instant, no hash): `cd /home/flask/web-react && ln -sfn "$(readlink bu
   ```
   ⚠ `generate_home_page.py` still has hardcoded `CANONICAL_ROOT=tw2.trxstat.com` / `APPSERVER_URL=app1pp…` — make those env-driven before relying on a prod regen. (Otherwise it bakes the wrong host into the home page.)
 
-### 3a. MailerLite lifecycle outbox and activation
+### 3a. Daily AI pick X publishing
+
+`site/m_daily_ai_pick_social.py` publishes the exact homepage/scorecard pick from
+`/home/flask/site/data/featured_history.json`. It does not read
+`daily-ai-pick.html`, use Publer, or use Hermes. The canonical cron runs at 07:10
+Monday through Friday, ten minutes after `generate_home_page.py` writes the pick.
+Routine deploy installs the cron idempotently.
+
+Keep these values absent or disabled on dev and staging. On the production web
+box, create an X app with write permission and user-context access tokens, then
+set the following in `/etc/tradewave/secrets.env`:
+
+```
+X_API_KEY=<consumer key>
+X_API_KEY_SECRET=<consumer secret>
+X_ACCESS_TOKEN=<user access token>
+X_ACCESS_TOKEN_SECRET=<user access token secret>
+TW2_X_POSTING_ENABLED=0
+```
+
+Verify the exact pending copy without a network write:
+
+```
+sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask && /home/flask/venv/bin/python /home/flask/site/m_daily_ai_pick_social.py'
+```
+
+After review, set `TW2_X_POSTING_ENABLED=1`. No service restart is needed because
+each cron process reloads `secrets.env`. To make the first production post under
+operator observation, run the same command with `--send`, then verify:
+
+```
+tail -50 /var/log/tradewave/m_daily_ai_pick_social.log
+ls -l /var/log/tradewave/m_daily_ai_pick_social.x.*.json
+sudo -u flask crontab -l | grep m_daily_ai_pick_social.py
+```
+
+Emergency stop: set `TW2_X_POSTING_ENABLED=0`. Existing successful dates remain
+locked and failed API requests remain retryable because they do not create a lock.
+
+### 3b. MailerLite lifecycle outbox and activation
 
 `mailerlite_lifecycle_events` is the durable application-email outbox. Signup
 and Stripe paths insert a deduplicated `reconcile` or `clear_paid` event in the
@@ -389,7 +428,7 @@ storm-breaker activation. Run away from the 02:00 UTC cron burst. Do not use
 
 - **DB backups**: `ops/backup_db.sh` nightly 03:30 on stage-app → `/var/backups/tradewave/db_*.sql.gz`, 14-day prune. Restore verified weekly by `ops/restore_drill.sh`. **Restore test: `sudo -u flask /home/flask/ops/restore_drill.sh` on stage-app — must say PASS.**
 - **Logs**: logrotate daily ×14 + journald capped 500 M. Disk-fill (the #1 "breaks every few days") is contained.
-- **Crons**: full set on stage-web flask crontab (SMN pipeline, security pages, homepage, scorecard, quotes, daily AI pick, SMN emails daily+weekly, social). The durable MailerLite lifecycle worker runs every minute and is a no-write operation unless production explicitly enables it. `expire_trials` runs at 04:15. EOD refresh runs at 23:36. Ticker regeneration runs at 02:00 + hourly 09-16.
+- **Crons**: full set on stage-web flask crontab (SMN pipeline, security pages, homepage, scorecard, quotes, daily AI pick, SMN emails daily+weekly, social). Direct X social runs at 07:10 weekdays after the 07:00 homepage pick writer and is inert outside production. The durable MailerLite lifecycle worker runs every minute and is a no-write operation unless production explicitly enables it. `expire_trials` runs at 04:15. EOD refresh runs at 23:36. Ticker regeneration runs at 02:00 + hourly 09-16.
 - **Uptime/soak**: `uptime_check.sh` (every 5 min) + `soak_monitor.sh` (every 30 min) log to `/var/log/tradewave/`. **Notification gap: these only log. Proper fix = external uptime monitor (Cloudflare Health Checks or an external pinger hitting `https://tw2-stage.trxstat.com/healthz`) — not a homegrown emailer. Set this up in the Cloudflare dashboard.**
 
 ## Security posture
