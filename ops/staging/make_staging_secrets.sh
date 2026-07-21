@@ -151,6 +151,14 @@ PERPLEXITY_API_KEY=$(get_dev PERPLEXITY_API_KEY)
 PUBLER_API_KEY=$(get_dev PUBLER_API_KEY)
 PUBLER_WORKSPACE_ID=$(get_dev PUBLER_WORKSPACE_ID)
 PUBLER_X_ACCOUNT_ID=$(get_dev PUBLER_X_ACCOUNT_ID)
+# Direct X publishing is production-only. Keep staging inert even if this
+# generated file is later used as a production template; populate the four
+# credentials and flip the flag directly on the verified production web box.
+TW2_X_POSTING_ENABLED=0
+X_API_KEY=
+X_API_KEY_SECRET=
+X_ACCESS_TOKEN=
+X_ACCESS_TOKEN_SECRET=
 REPLICATE_API_TOKEN=$(get_dev REPLICATE_API_TOKEN)
 TAVILY_API_KEY=$(get_dev TAVILY_API_KEY)
 SENTRY_DSN=$(get_dev SENTRY_DSN)

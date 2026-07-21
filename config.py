@@ -110,6 +110,17 @@ PUBLER_API_KEY = os.environ.get('PUBLER_API_KEY', '')  # set in /etc/tradewave/s
 PUBLER_WORKSPACE_ID = os.environ.get('PUBLER_WORKSPACE_ID', '')  # set in /etc/tradewave/secrets.env (per-env workspace)
 PUBLER_X_ACCOUNT_ID = os.environ.get('PUBLER_X_ACCOUNT_ID', '')  # set in /etc/tradewave/secrets.env (per-env X account)
 
+# Direct X API credentials for the canonical daily AI pick. The posting job
+# separately requires TW2_ENV=prod, so credentials alone cannot enable writes.
+X_API_KEY = os.environ.get('X_API_KEY', '')
+X_API_KEY_SECRET = os.environ.get('X_API_KEY_SECRET', '')
+X_ACCESS_TOKEN = os.environ.get('X_ACCESS_TOKEN', '')
+X_ACCESS_TOKEN_SECRET = os.environ.get('X_ACCESS_TOKEN_SECRET', '')
+X_POSTING_ENABLED = (
+    os.environ.get('TW2_X_POSTING_ENABLED', '').strip().lower()
+    in ('1', 'true', 'yes', 'on')
+)
+
 #------------------------------------------
 # facebook API variables
 #------------------------------------------

@@ -1,304 +1,389 @@
 #!/usr/bin/env python3
-"""
-Daily AI Pick — Social Media Poster (TW2 port from TW1 prod).
+"""Publish TradeWave's canonical daily AI pick to X.
 
-Reads /var/www/tradewave/daily-ai-pick.html, extracts the day's top pick,
-and posts to:
-  - Facebook Page (Graph API) — via config.FACEBOOK_PAGE_ID + FACEBOOK_ACCESS_TOKEN
-  - X / Twitter via Publer — via config.PUBLER_API_KEY + PUBLER_WORKSPACE_ID + PUBLER_X_ACCOUNT_ID
+The homepage generator is the sole writer of the daily-pick record in
+``featured_history.json``. This job reads that structured record directly; it
+does not scrape the separate Top-10 HTML page.
 
-TW1 lineage: /home/flask/blog/m_daily_ai_pick_social.py, scheduled at
-`10 6 * * 0-5` in TW1 prod /etc/crontab.
-
-TW2 has zero existing social-posting code (only credentials in config.py).
-This file is the FIRST implementation in TW2; the Publer/FB API call
-shapes are taken from public API docs, not from TW1 source. Treat as
-draft until validated against a TW1 reference post.
-
-Safety: dry-run by default. Add --send to actually publish.
+Safety rules:
+  * Dry-run is the default. ``--send`` is required for a network write.
+  * Network writes require both ``TW2_ENV=prod`` and
+    ``TW2_X_POSTING_ENABLED=1``.
+  * A successful post is locked by featured date. Failed attempts remain
+    retryable, and a lock is written atomically only after X returns a post id.
+  * The newest record must match today's featured date unless ``--date`` is
+    supplied explicitly for an operator-controlled backfill.
 
 Usage:
-    python m_daily_ai_pick_social.py             # dry-run (default)
-    python m_daily_ai_pick_social.py --send      # actually post
-    python m_daily_ai_pick_social.py --send --skip-fb     # X only
-    python m_daily_ai_pick_social.py --send --skip-x      # FB only
+    python m_daily_ai_pick_social.py
+    python m_daily_ai_pick_social.py --send
+    python m_daily_ai_pick_social.py --date 2026-07-21 --send
+    python m_daily_ai_pick_social.py --send --force
 """
 
 import argparse
-import datetime
+import datetime as dt
 import json
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import requests
 
-sys.path.insert(0, '/home/flask')
+try:
+    from requests_oauthlib import OAuth1
+except ImportError:  # pragma: no cover - exercised on a misconfigured box
+    OAuth1 = None
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+if os.path.isdir("/home/flask") and "/home/flask" not in sys.path:
+    sys.path.insert(0, "/home/flask")
+
 import config
 
-INPUT_HTML = "/var/www/tradewave/daily-ai-pick.html"
-LOCK_DIR = "/var/log/tradewave"
-MAX_AGE_HOURS = 24
 
-# Graph API version. v18 was current at time of writing; bump as Meta
-# deprecates. TW1_SPEC: confirm against TW1 m_daily_ai_pick_social.py.
-FB_GRAPH_VERSION = "v18.0"
-
-# Publer API base. TW1_SPEC: confirm endpoint shape.
-PUBLER_BASE = "https://app.publer.io/api/v1"
-
-REQUEST_TIMEOUT = 30
-
-
-# ---------------------------------------------------------------------------
-# Pick extraction
-# ---------------------------------------------------------------------------
-
-_FIRST_ROW_RE = re.compile(
-    r'<tr[^>]*>\s*<td[^>]*class="r-num"[^>]*>(?P<rank>\d+)</td>.*?'
-    r'<td[^>]*class="r-sym"[^>]*>.*?>(?P<symbol>[A-Z\.\-]+)</a>.*?'
-    r'<td[^>]*class="r-comp"[^>]*>(?P<company>[^<]+)</td>.*?'
-    r'<td[^>]*class="r-mkt"[^>]*>(?P<market>[^<]+)</td>.*?'
-    r'<td[^>]*class="r-dir\s+(?P<direction>long|short)[^"]*"[^>]*>[^<]+</td>.*?'
-    r'<td[^>]*class="r-sr"[^>]*>(?P<sr>[\d\.]+)</td>.*?'
-    r'<td[^>]*class="r-ap"[^>]*>(?P<ap>[\d\.\-%]+)</td>',
-    re.IGNORECASE | re.DOTALL,
+FEATURED_HISTORY_FILE = os.environ.get(
+    "TW2_FEATURED_HISTORY_FILE", "/home/flask/site/data/featured_history.json"
 )
+LOCK_DIR = "/var/log/tradewave"
+X_CREATE_POST_URL = "https://api.x.com/2/tweets"
+REQUEST_TIMEOUT = 30
+MAX_X_CHARS = 280
+X_SHORTENED_URL_LENGTH = 23
 
-_TITLE_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+_URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+_CASHTAG_RE = re.compile(r"(?<!\w)\$[A-Za-z][A-Za-z0-9._-]*")
 
 
-def extract_top_pick(html_path: str) -> Optional[Dict[str, Any]]:
-    with open(html_path, "r", encoding="utf-8") as f:
-        src = f.read()
+class DailyPickError(RuntimeError):
+    """The canonical daily-pick record cannot be safely published."""
 
-    t = _TITLE_RE.search(src)
-    title = t.group(1).strip() if t else "TradeWave Daily AI Pick"
 
-    m = _FIRST_ROW_RE.search(src)
-    if not m:
-        return {"title": title, "first_row": None}
+def _number(value: Any) -> Optional[float]:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
+
+def _direction(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    if raw in {"l", "long", "buy"}:
+        return "Long"
+    if raw in {"s", "short", "sell"}:
+        return "Short"
+    raise DailyPickError("daily pick has an invalid direction")
+
+
+def _friendly_date(value: Any) -> str:
+    try:
+        parsed = dt.date.fromisoformat(str(value))
+    except (TypeError, ValueError) as exc:
+        raise DailyPickError("daily pick has an invalid date") from exc
+    return "%s %d" % (parsed.strftime("%b"), parsed.day)
+
+
+def _lookback_label(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    if raw.isdigit():
+        return "%s-year history" % raw
+    match = re.fullmatch(r"pe([0-3])-(\d+)", raw)
+    if match:
+        phase, samples = match.groups()
+        phase_label = "PE" if phase == "0" else "PE+%s" % phase
+        return "%s %s samples" % (samples, phase_label)
+    return "Historical sample"
+
+
+def load_featured_pick(history_path: str, featured_date: str) -> Dict[str, Any]:
+    """Load the one canonical pick for ``featured_date`` from the ledger."""
+    try:
+        with open(history_path, "r", encoding="utf-8") as handle:
+            history = json.load(handle)
+    except FileNotFoundError as exc:
+        raise DailyPickError("featured-history file is missing: %s" % history_path) from exc
+    except (OSError, json.JSONDecodeError) as exc:
+        raise DailyPickError("featured-history file is unreadable") from exc
+
+    if not isinstance(history, list):
+        raise DailyPickError("featured-history data is not a list")
+
+    matches = [
+        item for item in history
+        if isinstance(item, dict) and item.get("featured_date") == featured_date
+    ]
+    if not matches:
+        newest = history[-1].get("featured_date") if history and isinstance(history[-1], dict) else None
+        if newest:
+            raise DailyPickError(
+                "no pick for %s; newest ledger record is %s" % (featured_date, newest)
+            )
+        raise DailyPickError("no pick for %s" % featured_date)
+
+    pick = matches[-1]
+    required = ("symbol", "date", "daysOut", "direction", "featured_date")
+    missing = [name for name in required if pick.get(name) in (None, "")]
+    if missing:
+        raise DailyPickError("daily pick is missing fields: %s" % ", ".join(missing))
+
+    try:
+        days_out = int(pick["daysOut"])
+    except (TypeError, ValueError) as exc:
+        raise DailyPickError("daily pick has an invalid holding period") from exc
+    if days_out <= 0:
+        raise DailyPickError("daily pick holding period must be positive")
+
+    _direction(pick["direction"])
+    _friendly_date(pick["date"])
+    return pick
+
+
+def estimated_x_length(message: str) -> int:
+    """Estimate X's weighted length for ordinary ASCII copy and t.co URLs."""
+    urls = _URL_RE.findall(message)
+    return len(_URL_RE.sub("", message)) + len(urls) * X_SHORTENED_URL_LENGTH
+
+
+def validate_x_message(message: str) -> None:
+    length = estimated_x_length(message)
+    if length > MAX_X_CHARS:
+        raise DailyPickError(
+            "composed X post is %d weighted characters (max %d)" % (length, MAX_X_CHARS)
+        )
+    cashtags = _CASHTAG_RE.findall(message)
+    if len(cashtags) > 1:
+        raise DailyPickError("X self-serve posts may contain only one cashtag")
+
+
+def compose_x_message(pick: Dict[str, Any], landing_url: str) -> str:
+    """Compose factual copy only from the persisted daily-pick record."""
+    symbol = str(pick["symbol"]).strip().upper()
+    if not re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,14}", symbol):
+        raise DailyPickError("daily pick has an invalid symbol")
+
+    direction = _direction(pick["direction"])
+    start = _friendly_date(pick["date"])
+    days_out = int(pick["daysOut"])
+    end_value = pick.get("end_date")
+    if not end_value:
+        end_value = (
+            dt.date.fromisoformat(str(pick["date"])) + dt.timedelta(days=days_out)
+        ).isoformat()
+    end = _friendly_date(end_value)
+
+    lines = [
+        "Today's TradeWave AI Pick: $%s" % symbol,
+        "%s seasonal window | %s-%s (%dd)" % (
+            direction, start, end, days_out,
+        ),
+    ]
+
+    stats = []
+    avg_profit = _number(pick.get("avg_profit"))
+    sharpe = _number(pick.get("sharpe_ratio"))
+    if avg_profit is not None:
+        stats.append("Hist avg %.1f%%" % avg_profit)
+    if sharpe is not None:
+        stats.append("Sharpe %.2f" % sharpe)
+    stats.append(_lookback_label(pick.get("years")))
+    if stats:
+        lines.append(" | ".join(stats))
+
+    win_prob = _number(pick.get("win_prob"))
+    if win_prob is not None:
+        probability_pct = win_prob * 100.0 if 0 <= win_prob <= 1 else win_prob
+        lines.append("Est. win probability: %.0f%%" % probability_pct)
+
+    lines.extend([
+        "",
+        "Full history + public scorecard:",
+        landing_url,
+        "",
+        "Research only. Not financial advice.",
+    ])
+    message = "\n".join(lines)
+    validate_x_message(message)
+    return message
+
+
+def _x_credentials() -> Dict[str, str]:
     return {
-        "title": title,
-        "first_row": {
-            "rank": int(m.group("rank")),
-            "symbol": m.group("symbol"),
-            "company": m.group("company").strip(),
-            "market": m.group("market").strip(),
-            "direction": m.group("direction").capitalize(),
-            "sharpe": float(m.group("sr")),
-            "avg_profit": m.group("ap").strip(),
-        },
+        "api_key": getattr(config, "X_API_KEY", ""),
+        "api_secret": getattr(config, "X_API_KEY_SECRET", ""),
+        "access_token": getattr(config, "X_ACCESS_TOKEN", ""),
+        "access_token_secret": getattr(config, "X_ACCESS_TOKEN_SECRET", ""),
     }
 
 
-# ---------------------------------------------------------------------------
-# Message composition
-# ---------------------------------------------------------------------------
+def post_to_x(message: str, http_post=None) -> Dict[str, Any]:
+    """Create one X post with OAuth 1.0a user context."""
+    if OAuth1 is None:
+        return {"ok": False, "error": "requests-oauthlib is not installed"}
 
-def compose_message(pick: Dict[str, Any], landing_url: str) -> Dict[str, str]:
-    """Return {"long": fb_text, "short": x_text}."""
-    row = pick.get("first_row")
-    today = datetime.date.today().strftime("%a %b %d")
-
-    if not row:
-        long_text = (
-            "TradeWave Daily AI Pick — %s\n\n"
-            "Today's top 10 AI-scored seasonal patterns are live.\n\n"
-            "%s"
-        ) % (today, landing_url)
-        short_text = "TradeWave Daily AI Pick — %s — see today's top 10 → %s" % (today, landing_url)
-        return {"long": long_text, "short": short_text}
-
-    long_text = (
-        "TradeWave Daily AI Pick — %s\n\n"
-        "#1 today: %s (%s) — %s seasonal pattern\n"
-        "Sharpe Ratio: %.2f | Avg Profit: %s\n\n"
-        "See the full top 10 → %s"
-    ) % (today, row["symbol"], row["company"], row["direction"],
-         row["sharpe"], row["avg_profit"], landing_url)
-
-    short_text = (
-        "TradeWave AI Pick — %s: $%s %s seasonal (SR %.2f, AvgP %s). Top 10 → %s"
-    ) % (today, row["symbol"], row["direction"], row["sharpe"],
-         row["avg_profit"], landing_url)
-    # X has a 280-char limit; truncate if needed.
-    if len(short_text) > 280:
-        short_text = short_text[:277] + "..."
-    return {"long": long_text, "short": short_text}
-
-
-# ---------------------------------------------------------------------------
-# Facebook Graph API
-# ---------------------------------------------------------------------------
-
-def post_to_facebook(message: str, link: str) -> Dict[str, Any]:
-    page_id = config.FACEBOOK_PAGE_ID
-    token = config.FACEBOOK_ACCESS_TOKEN
-    if not page_id or not token:
-        return {"ok": False, "error": "FACEBOOK_PAGE_ID or FACEBOOK_ACCESS_TOKEN not set"}
-    url = "https://graph.facebook.com/%s/%s/feed" % (FB_GRAPH_VERSION, page_id)
-    params = {
-        "message": message,
-        "link": link,
-        "access_token": token,
-    }
-    try:
-        resp = requests.post(url, data=params, timeout=REQUEST_TIMEOUT)
-        ok = resp.status_code in (200, 201)
-        return {"ok": ok, "status": resp.status_code, "body": resp.text[:400]}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
-# ---------------------------------------------------------------------------
-# Publer (X / Twitter)
-# ---------------------------------------------------------------------------
-
-def post_to_x_via_publer(message: str) -> Dict[str, Any]:
-    """Schedule an immediate X post via Publer.
-
-    TW1_SPEC: confirm the exact Publer endpoint + payload schema against
-    a TW1 reference. Below is the documented v1 shape.
-    """
-    api_key = config.PUBLER_API_KEY
-    workspace = config.PUBLER_WORKSPACE_ID
-    x_account = config.PUBLER_X_ACCOUNT_ID
-    if not api_key or not workspace or not x_account:
-        return {"ok": False, "error":
-                "PUBLER_API_KEY, PUBLER_WORKSPACE_ID or PUBLER_X_ACCOUNT_ID not set"}
-
-    url = "%s/posts/schedule" % PUBLER_BASE
-    headers = {
-        "Authorization": "Bearer-API %s" % api_key,
-        "Publer-Workspace-Id": workspace,
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "bulk": {
-            "state": "scheduled",
-            "type": "post",
-            "accounts": [x_account],
-            "posts": [{
-                "networks": {
-                    "default": {
-                        "details": {"text": message},
-                    },
-                },
-                "scheduled_at": None,  # null = post immediately
-            }],
+    credentials = _x_credentials()
+    missing = [name for name, value in credentials.items() if not value]
+    if missing:
+        return {
+            "ok": False,
+            "error": "missing X credentials: %s" % ", ".join(missing),
         }
+
+    auth = OAuth1(
+        credentials["api_key"],
+        credentials["api_secret"],
+        credentials["access_token"],
+        credentials["access_token_secret"],
+    )
+    sender = http_post or requests.post
+    try:
+        response = sender(
+            X_CREATE_POST_URL,
+            auth=auth,
+            json={"text": message},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException as exc:
+        return {"ok": False, "error": "X request failed: %s" % type(exc).__name__}
+
+    try:
+        body = response.json()
+    except (TypeError, ValueError):
+        body = None
+
+    post_id = None
+    if isinstance(body, dict) and isinstance(body.get("data"), dict):
+        post_id = body["data"].get("id")
+    if response.status_code == 201 and post_id:
+        return {
+            "ok": True,
+            "status": response.status_code,
+            "post_id": str(post_id),
+            "post_url": "https://x.com/i/web/status/%s" % post_id,
+        }
+
+    error_detail = "HTTP %s" % response.status_code
+    if isinstance(body, dict):
+        error_detail = str(body.get("detail") or body.get("title") or error_detail)
+    return {"ok": False, "status": response.status_code, "error": error_detail[:300]}
+
+
+def lock_path(lock_dir: str, featured_date: str) -> str:
+    return os.path.join(lock_dir, "m_daily_ai_pick_social.x.%s.json" % featured_date)
+
+
+def read_post_lock(lock_dir: str, featured_date: str) -> Optional[Dict[str, Any]]:
+    path = lock_path(lock_dir, featured_date)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            value = json.load(handle)
+        return value if isinstance(value, dict) else {"lock": path}
+    except (OSError, json.JSONDecodeError):
+        return {"lock": path}
+
+
+def write_post_lock(
+    lock_dir: str,
+    featured_date: str,
+    pick: Dict[str, Any],
+    result: Dict[str, Any],
+) -> None:
+    os.makedirs(lock_dir, exist_ok=True)
+    path = lock_path(lock_dir, featured_date)
+    temporary = "%s.tmp.%s" % (path, os.getpid())
+    payload = {
+        "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "featured_date": featured_date,
+        "symbol": pick.get("symbol"),
+        "provider": "x-direct",
+        "post_id": result.get("post_id"),
+        "post_url": result.get("post_url"),
     }
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
-        ok = resp.status_code in (200, 201, 202)
-        return {"ok": ok, "status": resp.status_code, "body": resp.text[:400]}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+        with open(temporary, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, sort_keys=True)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
-# ---------------------------------------------------------------------------
-# Lock file
-# ---------------------------------------------------------------------------
+def _posting_enabled() -> bool:
+    return bool(getattr(config, "X_POSTING_ENABLED", False))
 
-def lock_path(day: datetime.date) -> str:
-    return os.path.join(LOCK_DIR, "m_daily_ai_pick_social.%s.lock" % day.isoformat())
-
-
-def already_posted(day: datetime.date) -> bool:
-    return os.path.exists(lock_path(day))
-
-
-def mark_posted(day: datetime.date, info: Dict[str, Any]) -> None:
-    p = lock_path(day)
-    try:
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        with open(p, "w") as f:
-            json.dump({"timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-                       "day": day.isoformat(), **info}, f)
-    except Exception:
-        pass
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--send", action="store_true",
-                   help="Actually post (default: dry-run)")
-    p.add_argument("--skip-fb", action="store_true")
-    p.add_argument("--skip-x", action="store_true")
-    p.add_argument("--force", action="store_true",
-                   help="Post even if today's lock file exists")
-    p.add_argument("--input", default=INPUT_HTML)
-    args = p.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--send", action="store_true", help="Publish to X")
+    parser.add_argument("--force", action="store_true", help="Ignore an existing success lock")
+    parser.add_argument("--date", help="Featured date YYYY-MM-DD (default: today)")
+    parser.add_argument("--history", default=FEATURED_HISTORY_FILE)
+    parser.add_argument("--lock-dir", default=LOCK_DIR)
+    args = parser.parse_args()
 
-    now = datetime.datetime.now(datetime.timezone.utc)
-    today = now.date()
-    print("=== m_daily_ai_pick_social.py — TW2 port ===")
-    print("Started at %s   (dry-run=%s)" % (now.isoformat(), not args.send))
-
-    if not os.path.exists(args.input):
-        print("ERROR: %s does not exist." % args.input)
+    featured_date = args.date or dt.date.today().isoformat()
+    try:
+        dt.date.fromisoformat(featured_date)
+    except ValueError:
+        print("ERROR: --date must be YYYY-MM-DD")
         return 2
 
-    age_h = (now.timestamp() - os.path.getmtime(args.input)) / 3600.0
-    if age_h > MAX_AGE_HOURS:
-        print("ERROR: %s is %.1fh old (> %dh). Refusing to post stale picks."
-              % (args.input, age_h, MAX_AGE_HOURS))
+    print("=== TradeWave canonical daily pick -> X ===")
+    print("Featured date: %s" % featured_date)
+    print("Source: %s" % args.history)
+
+    try:
+        pick = load_featured_pick(args.history, featured_date)
+        domain = (getattr(config, "domain_root", "") or "https://tradewave.ai/").rstrip("/") + "/"
+        message = compose_x_message(pick, domain + "scorecard.html")
+    except DailyPickError as exc:
+        print("ERROR: %s" % exc)
         return 3
 
-    if args.send and not args.force and already_posted(today):
-        print("Already posted today (%s); use --force to re-send. Exiting cleanly."
-              % lock_path(today))
-        return 0
-
-    pick = extract_top_pick(args.input)
-    if pick is None:
-        print("ERROR: could not parse %s" % args.input)
-        return 4
-
-    domain = (config.domain_root.rstrip("/") + "/") if config.domain_root else "https://tw2.trxstat.com/"
-    landing_url = domain + "daily-ai-pick.html"
-    msgs = compose_message(pick, landing_url)
-
-    print("--- FB message ---")
-    print(msgs["long"])
-    print("--- X message ---")
-    print(msgs["short"])
+    print("Symbol: %s" % pick.get("symbol"))
+    print("Weighted length: %d/%d" % (estimated_x_length(message), MAX_X_CHARS))
+    print("--- X post ---")
+    print(message)
 
     if not args.send:
-        print("\nDRY-RUN: not posting. Re-run with --send to publish.")
+        print("\nDRY-RUN: nothing was posted. Re-run with --send to publish.")
         return 0
 
-    results = {}
-    if not args.skip_fb:
-        print("\nPosting to Facebook...")
-        results["facebook"] = post_to_facebook(msgs["long"], landing_url)
-        print("  FB result: %s" % results["facebook"])
-    else:
-        print("\nSkipping Facebook (--skip-fb)")
-
-    if not args.skip_x:
-        print("\nPosting to X via Publer...")
-        results["x_publer"] = post_to_x_via_publer(msgs["short"])
-        print("  X result: %s" % results["x_publer"])
-    else:
-        print("\nSkipping X (--skip-x)")
-
-    # Lock only if at least one succeeded.
-    any_ok = any(r.get("ok") for r in results.values())
-    if any_ok:
-        mark_posted(today, {"results": results, "pick": pick.get("first_row")})
-        print("\nDone — at least one network posted successfully.")
+    environment = str(getattr(config, "tw2_env", "")).strip().lower()
+    if environment != "prod":
+        print("\nSKIP: X writes are production-only (TW2_ENV=%s)." % (environment or "unset"))
         return 0
-    else:
-        print("\nAll posts failed — not locking; will retry on next cron fire.")
+    if not _posting_enabled():
+        print("\nERROR: X posting is disabled. Set TW2_X_POSTING_ENABLED=1 after verification.")
+        return 4
+
+    existing = read_post_lock(args.lock_dir, featured_date)
+    if existing and not args.force:
+        print("\nAlready posted for %s: %s" % (
+            featured_date, existing.get("post_url") or lock_path(args.lock_dir, featured_date),
+        ))
+        return 0
+
+    result = post_to_x(message)
+    if not result.get("ok"):
+        print("\nERROR posting to X: %s" % result.get("error", "unknown error"))
         return 5
+
+    try:
+        write_post_lock(args.lock_dir, featured_date, pick, result)
+    except OSError as exc:
+        print("\nERROR: X post succeeded but success lock could not be written: %s" % exc)
+        print("Post URL: %s" % result["post_url"])
+        return 6
+
+    print("\nPosted successfully: %s" % result["post_url"])
+    return 0
 
 
 if __name__ == "__main__":

@@ -874,7 +874,7 @@ The 5 previously-blocked code+cron-gap scripts have been ported from inference u
 | `home_opportunities.py` | `/home/flask/site/home_opportunities.py` | Login via `SERVICE_API_KEY`, query `/OppList4/` for resource_id=2 (S&P 500) in both `pe` and `cons` modes for both day_range buckets, filter direction=Long & SR≥0.5 & within 90-day forward window, dedupe by (symbol,date) keeping highest SR, look up names via `/NameFromTicker/`, write CSV. **TWA/TWR formulas are best-effort approximations** (placeholder pending TW1 reference). |
 | `send_smn_emails.py` | `/home/flask/smn/send_smn_emails.py` | Auto-detects daily vs weekly mode from day-of-week. Reads `/var/www/smn/posts.json`, filters by published_date within window (28h daily / 7d weekly), composes inline-styled HTML, uses `email_tools.create_campaign` + `schedule_campaign`. Requires `SMN_EMAIL_GROUP_ID` env var. Daily lock file in `/var/log/tradewave/`. |
 | `send_daily_ai_pick.py` | `/home/flask/site/send_daily_ai_pick.py` | Parses `/var/www/tradewave/daily-ai-pick.html` (title + table), wraps in clean email template with inline styles, rewrites relative URLs to absolute via `config.domain_root`, schedules Mailerlite campaign. Refuses to send if HTML > 24h old. Lock prevents TW1's duplicate 30 7 + 41 7 cron firing. |
-| `m_daily_ai_pick_social.py` | `/home/flask/site/m_daily_ai_pick_social.py` | Parses top pick from daily-ai-pick.html, posts to FB Page via Graph API v18.0 and to X via Publer v1 `/posts/schedule`. **Defaults to dry-run** — requires `--send` to actually publish. Skip flags `--skip-fb` and `--skip-x` for partial-network operation. Lock only if at least one network succeeded. |
+| `m_daily_ai_pick_social.py` | `/home/flask/site/m_daily_ai_pick_social.py` | Reads the canonical homepage/scorecard pick from `featured_history.json` and posts directly to X with OAuth 1.0a user context. Dry-run is the default. Writes require `--send`, `TW2_ENV=prod`, and `TW2_X_POSTING_ENABLED=1`. A per-date lock is written only after X returns a post ID. |
 | `update_news_quotes.py` | `/home/flask/smn/update_news_quotes.py` | Refreshes `/var/www/smn/assets/quotes.json` + `/var/www/tradewave/assets/quotes.json`. Fetches 7 market-bar symbols (GSPC, DJI, IXIC, VIX, CL, NG, GC) via `get_quote_details()` (which uses the local realtime service first, falls back to EODHD). Each run ~3-5s. Atomic write. Fail-soft if all lookups fail — keeps existing JSON. |
 | `generate_webinar_page.py` | **PORTED** | Reads the published TradeWave Webinars Sheet, renders only future `wb001` sessions at `/webinars/`, keeps `/webinar` as a compatibility alias, and writes the public schedule used by the conditional home-footer link. |
 
@@ -909,7 +909,7 @@ This replaces §16.3 — all 14 active entries plus `update_client2.py` (which g
 40 5 * * 1-5 set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask/smn && /home/flask/venv/bin/python generate_tw_security_pages.py >> /var/log/tradewave/security_pages.log 2>&1
 
 # === Social Media ===
-10 6 * * 0-5 set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/site/m_daily_ai_pick_social.py --send >> /var/log/tradewave/m_daily_ai_pick_social.log 2>&1
+10 7 * * 1-5 set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/site/m_daily_ai_pick_social.py --send >> /var/log/tradewave/m_daily_ai_pick_social.log 2>&1
 
 # === TradeWave Homepage + Daily AI Pick ===
 4 0 * * * set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/site/home_opportunities.py >> /var/log/tradewave/home_opportunities.log 2>&1
@@ -944,9 +944,16 @@ MAILERLITE_TRIAL_STARTED_GROUP_ID=
 MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID=
 MAILERLITE_WINBACK_GROUP_ID=
 TW2_API_BILLING_PORTAL_CONFIGURATION_ID=PLACEHOLDER_RUN_API_STRIPE_SEED_AND_PERSIST_BPC_ID
+TW2_X_POSTING_ENABLED=0
+X_API_KEY=
+X_API_KEY_SECRET=
+X_ACCESS_TOKEN=
+X_ACCESS_TOKEN_SECRET=
 ```
 
-PUBLER_*, FACEBOOK_*, MAILERLITE_TOKEN, EOD_TOKEN are already in secrets.env (we just verified all are populated on dev).
+PUBLER_*, FACEBOOK_*, MAILERLITE_TOKEN, EOD_TOKEN are already in secrets.env. The
+direct X credentials are intentionally blank on staging and must never be copied
+from production; the direct publisher also refuses writes outside `TW2_ENV=prod`.
 
 Before enabling or deploying the staging API console, run the API catalog
 seeder with the environment's Stripe TEST key. It validates the complete TEST
