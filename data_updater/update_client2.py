@@ -8,6 +8,8 @@
 # Version 1.2 - Uses the new format of data where csvs are stored per exchange
 
 import requests
+import argparse
+import json
 import os
 import sys
 import time
@@ -29,6 +31,48 @@ csv_columns = ['date', 'open', 'high', 'low', 'close','volume', 'adj_factor']
 REQUEST_TIMEOUT = 30  # seconds
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2  # exponential backoff base
+STATUS_FILE = os.environ.get(
+    'TW2_EOD_UPDATE_STATUS_FILE',
+    '/var/lib/tradewave/eod/update_status.json',
+)
+NY_TZ = pytz.timezone('America/New_York')
+
+
+def utc_now_iso():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def market_date():
+    return datetime.datetime.now(NY_TZ).date().isoformat()
+
+
+def read_success_marker(path, expected_market_date):
+    try:
+        with open(path, encoding='utf-8') as handle:
+            value = json.load(handle)
+        if (
+            isinstance(value, dict)
+            and value.get('ok') is True
+            and value.get('market_date') == expected_market_date
+        ):
+            return value
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def write_status_marker(path, payload):
+    directory = os.path.dirname(path)
+    os.makedirs(directory, exist_ok=True)
+    temporary = f'{path}.tmp.{os.getpid()}'
+    try:
+        with open(temporary, 'w', encoding='utf-8') as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write('\n')
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 #-----------------------------------------------------------------------------
 # POST-MARKET TIMESTAMP FUNCTIONS
@@ -88,6 +132,24 @@ def get_update_with_retry(url, retries=MAX_RETRIES):
 
 #-----------------------------------------------------------------------------
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help='run even if today already has a successful completion marker',
+    )
+    args = parser.parse_args()
+    current_market_date = market_date()
+    if not args.force:
+        existing_marker = read_success_marker(STATUS_FILE, current_market_date)
+        if existing_marker:
+            print(
+                'EOD appserver sync already completed for '
+                f'{current_market_date} at {existing_marker.get("completed_at")}'
+            )
+            raise SystemExit(0)
+
+    started_at = utc_now_iso()
     print('update client version 1.4')  # 1.4 adds post-market timestamp adjustment
     print(f'Started at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print()
@@ -98,6 +160,7 @@ if __name__ == "__main__":
     skipped_count = 0
     failed_count = 0
     missing_count = 0  # symbol not on server
+    latest_us_date = None
 
     exchange_list = list(set(config.exchange_mapping.values()))
 
@@ -117,6 +180,7 @@ if __name__ == "__main__":
                     df = pd.concat([df, pd.read_csv(config.available_resources_path[k])])
                 except Exception as e:
                     print(f'  Error reading resource file for {k}: {e}')
+                    failed_count += 1
                     continue
                     
         slist = list(df['symbols'])
@@ -174,6 +238,8 @@ if __name__ == "__main__":
             
             # Handle empty update (already up to date)
             if len(result['update']) == 0:
+                if exchange == 'US' and last_date != '1800-01-01':
+                    latest_us_date = max(latest_us_date or last_date, str(last_date))
                 continue
             
             # Apply update
@@ -185,6 +251,12 @@ if __name__ == "__main__":
                     df_final = dfu
                 df_final.to_csv(csv_path)
                 set_file_date_tomorrow_if_post_market(csv_path)
+                if exchange == 'US' and not df_final.empty:
+                    local_last_date = str(df_final['date'].iloc[-1])
+                    latest_us_date = max(
+                        latest_us_date or local_last_date,
+                        local_last_date,
+                    )
                 updated_count += 1
                 exchange_updated += 1
                 print(f'  {c}/{len(slist)} Updated: {s} (+{len(dfu)} rows)')
@@ -207,3 +279,26 @@ if __name__ == "__main__":
     print(f'Failed:   {failed_count}')
     print(f'Finished at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print('=' * 50)
+    sync_ok = (
+        total_symbols > 0
+        and failed_count == 0
+        and latest_us_date is not None
+        and latest_us_date >= current_market_date
+    )
+    status = {
+        'ok': sync_ok,
+        'started_at': started_at,
+        'completed_at': utc_now_iso(),
+        'market_date': current_market_date,
+        'latest_us_date': latest_us_date,
+        'total': total_symbols,
+        'updated': updated_count,
+        'skipped': skipped_count,
+        'missing': missing_count,
+        'failed': failed_count,
+        'source': str(config.update_server),
+    }
+    write_status_marker(STATUS_FILE, status)
+    print(f'Status marker: {STATUS_FILE} (ok={sync_ok})')
+    if not sync_ok:
+        raise SystemExit(1)

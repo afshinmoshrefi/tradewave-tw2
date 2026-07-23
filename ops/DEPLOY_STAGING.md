@@ -472,11 +472,11 @@ App tier services **always reach Redis on `localhost`** for db=0,1,2 (appserver)
 
 ### Cron entries
 
-System crontab `/etc/crontab`:
+Appserver flask crontab:
 ```
-36 23 * * * root  set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/data_updater/update_client2.py >> /var/log/tradewave/update_client.log 2>&1
+5 3-5 * * 2-6 set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask/data_updater && flock -n /var/lib/tradewave/eod/update.lock /home/flask/venv/bin/python update_client2.py >> /var/log/tradewave/update_client.log 2>&1
 ```
-This is the **EOD data update**, currently configured to run on dev. Reads update_server from env, writes to `/home/flask/data/csv/`. App-box only.
+This is the **EOD data update**. The keyprovider starts EODHD at 20:03 New York time and historically finishes around 21:35; the appserver pull therefore starts later and retries until `/var/lib/tradewave/eod/update_status.json` records a successful same-market-date sync. It reads `TW2_UPDATE_SERVER` from env and writes `/home/flask/data/csv/`. App-box only.
 
 flask user crontab (`crontab -u flask`):
 | Schedule | Command | Log | Tier |
@@ -485,6 +485,7 @@ flask user crontab (`crontab -u flask`):
 | `30 3 * * *` | `/home/flask/ops/backup_db.sh` | `/var/log/tradewave/backup.log` | WEB (Postgres) |
 | `*/30 * * * *` | `/home/flask/ops/soak_monitor.sh` | `/var/log/tradewave/soak.log` | WEB (checks all services + DB) |
 | `*/10 * * * 1-5` | `set -a; . /etc/tradewave/secrets.env; set +a; venv/bin/python /home/flask/site/generate_scorecard.py` | `scorecard.log` | WEB (site/) — calls appserver_url over HTTP |
+| `*/10 3-6 * * 2-6` | `site/m_daily_pick_close_social.py --send` (EOD-marker-gated) | `m_daily_pick_close_social.log` | WEB |
 | `30 5 * * 1-5` | same for `site/generate_security_pages.py` | `security_pages.log` | WEB |
 | `0 2 * * *` | `cd /home/flask/smn && venv/bin/python select_news_articles.py` | `select_news.log` | APP |
 | `0 3 * * *` | `cd /home/flask/smn && venv/bin/python daily_article_queue.py` | `daily_queue.log` | APP |

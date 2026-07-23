@@ -38,6 +38,7 @@ printf '%s\n' '$LOGROTATE' > /etc/logrotate.d/tradewave
 logrotate -d /etc/logrotate.d/tradewave >/dev/null 2>&1 && echo "logrotate config valid"
 $JOURNALD_CAP
 echo "journald capped: \$(grep ^SystemMaxUse /etc/systemd/journald.conf)"
+bash /home/flask/ops/install_eod_cron.sh
 
 # backup_db/uptime/soak run fine as flask. restore_drill needs root
 # (it does `sudo -u postgres psql` to drop/create a scratch DB — flask
@@ -76,7 +77,7 @@ echo "journald capped: \$(grep ^SystemMaxUse /etc/systemd/journald.conf)"
 W='set -a; . /etc/tradewave/secrets.env; set +a;'
 L='>> /var/log/tradewave'
 sudo -u flask test -r /etc/tradewave/secrets.env
-CUR=\$(sudo -u flask crontab -l 2>/dev/null | grep -vE 'mailerlite_lifecycle.py|m_daily_ai_pick_social.py' || true)
+CUR=\$(sudo -u flask crontab -l 2>/dev/null | grep -vE 'mailerlite_lifecycle.py|m_daily_ai_pick_social.py|m_daily_pick_close_social.py' || true)
 {
   printf '%s\n' "\$CUR"
   # system health
@@ -106,6 +107,9 @@ CUR=\$(sudo -u flask crontab -l 2>/dev/null | grep -vE 'mailerlite_lifecycle.py|
   # The canonical pick is appended by generate_home_page.py at 07:00. Post only
   # after that writer completes, and only on weekdays when a new pick is made.
   echo "10 7 * * 1-5 \$W /home/flask/venv/bin/python /home/flask/site/m_daily_ai_pick_social.py --send \$L/m_daily_ai_pick_social.log 2>&1"
+  # The close publisher polls only after the appserver's post-keyprovider EOD
+  # completion marker. It locks each market date, including no-close days.
+  echo "*/10 3-6 * * 2-6 \$W flock -n /var/log/tradewave/daily_pick_close_social.lock /home/flask/venv/bin/python /home/flask/site/m_daily_pick_close_social.py --send \$L/m_daily_pick_close_social.log 2>&1"
 } | grep -vE '^\$' | sort -u | sudo -u flask crontab -
 echo "web crontab entry count: \$(sudo -u flask crontab -l | grep -vcE '^#|^\$')"
 sudo -u flask crontab -l | grep -vE '^#|^\$' | sort

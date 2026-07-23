@@ -865,6 +865,38 @@ def login_api():
     return response
 
 
+# Internal completion signal for jobs that must not consume the appserver's
+# local CSVs until its post-keyprovider EOD pull has finished.
+@app.route('/internal/eod-status', methods=['GET'])
+@check_for_token
+def internal_eod_status():
+    claims = _request_token_claims()
+    if not claims or not claims.get('is_service_account'):
+        return jsonify({'message': 'service account required'}), 403
+
+    status_path = os.environ.get(
+        'TW2_EOD_UPDATE_STATUS_FILE',
+        '/var/lib/tradewave/eod/update_status.json',
+    )
+    try:
+        with open(status_path, encoding='utf-8') as handle:
+            status = json.load(handle)
+        if not isinstance(status, dict):
+            raise ValueError('invalid status shape')
+    except (OSError, ValueError):
+        response = jsonify({
+            'ok': False,
+            'message': 'EOD appserver sync has not completed',
+        })
+        response.status_code = 503
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    response = jsonify(status)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # 4/12/2022  - return resource obj from config back to react app
 @app.route('/getResourcesObj', methods=['GET'])

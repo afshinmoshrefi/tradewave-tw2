@@ -120,6 +120,15 @@ X_POSTING_ENABLED = (
     os.environ.get('TW2_X_POSTING_ENABLED', '').strip().lower()
     in ('1', 'true', 'yes', 'on')
 )
+# Close-ledger posts inherit the verified global X switch unless explicitly
+# overridden. This avoids a second required production secret while preserving
+# an independent emergency off switch.
+_X_CLOSE_POSTING_RAW = os.environ.get('TW2_X_CLOSE_POSTING_ENABLED', '').strip()
+X_CLOSE_POSTING_ENABLED = (
+    _X_CLOSE_POSTING_RAW.lower() in ('1', 'true', 'yes', 'on')
+    if _X_CLOSE_POSTING_RAW
+    else X_POSTING_ENABLED
+)
 
 #------------------------------------------
 # facebook API variables

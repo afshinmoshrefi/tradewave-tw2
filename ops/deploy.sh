@@ -374,6 +374,7 @@ sudo -u flask git -C "$repo" merge --ff-only "$EXPECTED_SHA"
 test -r /etc/tradewave/appserver.env || { echo "ABORT: /etc/tradewave/appserver.env missing"; exit 1; }
 grep -Fqx "TW2_FEATURED_HISTORY_URL=http://$WEB_VLAN:5500/internal/featured-history" /etc/tradewave/secrets.env || { echo "ABORT: APP featured-history URL is not the expected WEB VLAN :5500 feed"; exit 1; }
 sudo -u flask "$repo/venv/bin/pip" install -q -r "$repo/requirements.txt"
+sudo bash "$repo/ops/install_eod_cron.sh"
 install -m 0644 "$repo/ops/systemd/tradewave-appserver.service" /etc/systemd/system/tradewave-appserver.service
 if [ -d "$repo/venv-api" ]; then
   sudo -u flask "$repo/venv-api/bin/pip" install -q -r "$repo/requirements-api.txt"

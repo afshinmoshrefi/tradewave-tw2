@@ -1232,9 +1232,12 @@ prereq). See `project_tw2_content_sync.md`.
 always-on processor), security pages, `home_opportunities.py` (00:04),
 `generate_home_page.py` (07:00), `generate_scorecard.py` (every 10m, 09-16),
 `m_daily_ai_pick_social.py --send` (07:10 weekdays, after the homepage writer),
+`m_daily_pick_close_social.py --send` (03:00-06:59 UTC Tue-Sat, only after
+the appserver EOD completion marker, no post when nothing closes),
 `update_news_quotes.py` (every min), SMN emails, daily-AI-pick email,
 `web/mailerlite_lifecycle.py --limit 15` (every minute), `expire_trials.py`
-(04:15), EOD `update_client2.py` (23:36), ticker regen (02:00 + hourly 09-16).
+(04:15), appserver EOD `update_client2.py` (03:05-05:05 UTC Tue-Sat after the
+keyprovider's 20:03 ET EODHD load), ticker regen (02:00 + hourly 09-16).
 The MailerLite worker takes a Postgres advisory lock, reclaims ten-minute stale
 claims, and is a no-write operation unless production explicitly enables it.
 The X worker is also inert outside production and until its independent outbound

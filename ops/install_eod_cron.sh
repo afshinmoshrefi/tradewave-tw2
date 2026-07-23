@@ -9,14 +9,17 @@
 # What it installs (TW1's canonical job, per the deployment runbook):
 #   data_updater/update_client2.py pulls EOD deltas from config.update_server
 #   (TW2_UPDATE_SERVER in secrets.env) into /home/flask/data/csv/. Runs as
-#   flask (the data dir is flask-owned) with secrets sourced, 23:36 daily
-#   (TW1 schedule, after the US market EOD). Logs to update_client.log.
+#   flask (the data dir is flask-owned) with secrets sourced. The production
+#   keyprovider starts its EODHD load at 20:03 New York time and currently
+#   takes about 92 minutes. Appservers therefore poll at 03:05-05:05 UTC
+#   Tuesday-Saturday; update_client2 exits immediately after a successful
+#   same-market-date completion marker. Logs to update_client.log.
 #
 # TW1 ran this from /etc/crontab as root; TW2 runs it on the flask crontab
 # with secrets sourced so it picks up the per-env TW2_UPDATE_SERVER.
 set -euo pipefail
 
-LINE='36 23 * * * set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask/data_updater && /home/flask/venv/bin/python update_client2.py >> /var/log/tradewave/update_client.log 2>&1'
+LINE='5 3-5 * * 2-6 set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask/data_updater && flock -n /var/lib/tradewave/eod/update.lock /home/flask/venv/bin/python update_client2.py >> /var/log/tradewave/update_client.log 2>&1'
 
 # Sanity: every piece the cron needs must exist on THIS box.
 [ -r /etc/tradewave/secrets.env ]                  || { echo "FAIL: /etc/tradewave/secrets.env not readable"; exit 1; }
@@ -26,11 +29,25 @@ us=$(grep -E '^TW2_UPDATE_SERVER=' /etc/tradewave/secrets.env | cut -d= -f2- || 
 [ -n "$us" ] || { echo "FAIL: TW2_UPDATE_SERVER is empty/unset in secrets.env"; exit 1; }
 echo "TW2_UPDATE_SERVER = $us"
 
-cur=$(sudo -u flask crontab -l 2>/dev/null || true)
-{ printf '%s\n' "$cur"; printf '%s\n' "$LINE"; } | grep -vE '^$' | sort -u | sudo -u flask crontab -
+install -d -o flask -g flask -m 0750 /var/log/tradewave /var/lib/tradewave/eod
+touch /var/log/tradewave/update_client.log
+chown flask:flask /var/log/tradewave/update_client.log
 
-if sudo -u flask crontab -l | grep -qF 'update_client2.py'; then
-  echo "OK: appserver EOD refresh cron installed (23:36 daily, flask, secrets-sourced)."
+# Remove the legacy system-crontab copy. In production it was missing the
+# mandatory username field, so cron interpreted `set` as a user and never ran.
+if grep -q 'update_client2.py' /etc/crontab; then
+  cp -a /etc/crontab "/etc/crontab.pre-tw2-eod.$(date -u +%Y%m%d%H%M%S)"
+  awk '!/update_client2[.]py/' /etc/crontab > /etc/crontab.tw2-eod.tmp
+  install -m 0644 /etc/crontab.tw2-eod.tmp /etc/crontab
+  rm -f /etc/crontab.tw2-eod.tmp
+fi
+
+cur=$(sudo -u flask crontab -l 2>/dev/null || true)
+cleaned=$(printf '%s\n' "$cur" | grep -v 'update_client2.py' || true)
+{ printf '%s\n' "$cleaned"; printf '%s\n' "$LINE"; } | grep -vE '^$' | sudo -u flask crontab -
+
+if sudo -u flask crontab -l | grep -qF "$LINE"; then
+  echo "OK: appserver EOD refresh cron installed (03:05-05:05 UTC Tue-Sat, marker-gated)."
   echo "flask crontab now:"
   sudo -u flask crontab -l | grep -vE '^#|^$' | sort
 else
