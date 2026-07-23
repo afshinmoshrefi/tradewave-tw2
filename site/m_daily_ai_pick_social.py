@@ -41,10 +41,14 @@ except ImportError:  # pragma: no cover - exercised on a misconfigured box
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+SITE_LIB_DIR = Path(__file__).resolve().parent / "lib"
+if str(SITE_LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(SITE_LIB_DIR))
 if os.path.isdir("/home/flask") and "/home/flask" not in sys.path:
     sys.path.insert(0, "/home/flask")
 
 import config
+from daily_pick_social_card import refresh_scorecard_social_meta
 
 
 FEATURED_HISTORY_FILE = os.environ.get(
@@ -341,7 +345,8 @@ def main() -> int:
     try:
         pick = load_featured_pick(args.history, featured_date)
         domain = (getattr(config, "domain_root", "") or "https://tradewave.ai/").rstrip("/") + "/"
-        message = compose_x_message(pick, domain + "scorecard.html")
+        landing_url = domain + "scorecard.html?pick=" + featured_date
+        message = compose_x_message(pick, landing_url)
     except DailyPickError as exc:
         print("ERROR: %s" % exc)
         return 3
@@ -369,6 +374,17 @@ def main() -> int:
             featured_date, existing.get("post_url") or lock_path(args.lock_dir, featured_date),
         ))
         return 0
+
+    try:
+        metadata = refresh_scorecard_social_meta(
+            pick,
+            getattr(config, "web_root_dir", "/var/www/tradewave/"),
+            domain,
+        )
+        print("Social card ready: %s" % metadata["image_url"])
+    except (OSError, RuntimeError, ValueError) as exc:
+        print("\nERROR: social card preparation failed: %s" % exc)
+        return 5
 
     result = post_to_x(message)
     if not result.get("ok"):

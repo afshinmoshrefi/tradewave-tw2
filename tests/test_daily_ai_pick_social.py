@@ -188,6 +188,53 @@ def test_main_send_skips_all_nonproduction_environments(
     assert "X writes are production-only" in capsys.readouterr().out
 
 
+def test_main_send_prepares_versioned_card_before_post(
+    tmp_path, pick, monkeypatch, capsys
+):
+    history = tmp_path / "featured_history.json"
+    history.write_text(json.dumps([pick]), encoding="utf-8")
+    monkeypatch.setattr(social.config, "tw2_env", "prod")
+    monkeypatch.setattr(social.config, "X_POSTING_ENABLED", True, raising=False)
+    monkeypatch.setattr(social.config, "domain_root", "https://tradewave.ai/")
+    monkeypatch.setattr(social.config, "web_root_dir", str(tmp_path), raising=False)
+    calls = []
+
+    def fake_prepare(prepared_pick, output_root, domain):
+        calls.append(("prepare", prepared_pick["symbol"], output_root, domain))
+        return {"image_url": "https://tradewave.ai/assets/social/card.png"}
+
+    def fake_post(message):
+        calls.append(("post", message))
+        return {
+            "ok": True,
+            "post_id": "12345",
+            "post_url": "https://x.com/i/web/status/12345",
+        }
+
+    monkeypatch.setattr(social, "refresh_scorecard_social_meta", fake_prepare)
+    monkeypatch.setattr(social, "post_to_x", fake_post)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "m_daily_ai_pick_social.py",
+            "--send",
+            "--date",
+            "2026-07-21",
+            "--history",
+            str(history),
+            "--lock-dir",
+            str(tmp_path),
+        ],
+    )
+
+    assert social.main() == 0
+    assert calls[0][0] == "prepare"
+    assert calls[1][0] == "post"
+    assert "scorecard.html?pick=2026-07-21" in calls[1][1]
+    assert "Social card ready" in capsys.readouterr().out
+
+
 def test_release_installs_social_cron_after_homepage_writer():
     installer = (
         REPO_ROOT / "ops" / "install_daily_ai_pick_social_cron.sh"
