@@ -20,6 +20,13 @@ SOCIAL_META_END = "<!-- daily-pick-social:end -->"
 SITE_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_BACKGROUND = SITE_DIR / "static" / "social" / "daily-pick-card-bg.png"
 DEFAULT_LOGO = SITE_DIR / "static" / "favicon-white.png"
+WEEKDAY_BACKGROUNDS = {
+    0: SITE_DIR / "static" / "social" / "daily-pick-card-bg-mon.png",
+    1: SITE_DIR / "static" / "social" / "daily-pick-card-bg-tue.png",
+    2: SITE_DIR / "static" / "social" / "daily-pick-card-bg-wed.png",
+    3: DEFAULT_BACKGROUND,
+    4: SITE_DIR / "static" / "social" / "daily-pick-card-bg-fri.png",
+}
 
 WHITE = (248, 250, 252)
 MUTED = (174, 184, 205)
@@ -100,6 +107,12 @@ def card_relative_path(pick: Dict[str, Any]) -> str:
     return "%s/%s" % (IMAGE_RELPATH_PREFIX, card_filename(pick))
 
 
+def background_for_pick(pick: Dict[str, Any]) -> Path:
+    """Choose a stable weekday background from the featured pick date."""
+    weekday = _date(pick["featured_date"]).weekday()
+    return WEEKDAY_BACKGROUNDS.get(weekday, DEFAULT_BACKGROUND)
+
+
 def card_alt_text(pick: Dict[str, Any]) -> str:
     symbol = str(pick.get("symbol") or "").strip().upper()
     probability = _number(pick.get("win_prob"))
@@ -178,13 +191,15 @@ def _draw_stat(draw, box, value, label, color):
 def generate_daily_pick_card(
     pick: Dict[str, Any],
     output_root: str | Path,
-    background_path: str | Path = DEFAULT_BACKGROUND,
+    background_path: str | Path | None = None,
     logo_path: str | Path = DEFAULT_LOGO,
 ) -> Path:
     output_root = Path(output_root)
     output_path = output_root / card_relative_path(pick)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    if background_path is None:
+        background_path = background_for_pick(pick)
     background = Image.open(background_path).convert("RGB")
     card = ImageOps.fit(
         background, (WIDTH, HEIGHT), method=Image.Resampling.LANCZOS

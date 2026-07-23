@@ -36,6 +36,28 @@ def test_generates_x_large_image_card(tmp_path):
         assert image.mode == "RGB"
 
 
+def test_weekday_background_rotation_is_stable():
+    expected = {
+        "2026-07-20": "daily-pick-card-bg-mon.png",
+        "2026-07-21": "daily-pick-card-bg-tue.png",
+        "2026-07-22": "daily-pick-card-bg-wed.png",
+        "2026-07-23": "daily-pick-card-bg.png",
+        "2026-07-24": "daily-pick-card-bg-fri.png",
+    }
+
+    for featured_date, filename in expected.items():
+        pick = dict(PICK, featured_date=featured_date)
+        background = card.background_for_pick(pick)
+        assert background.name == filename
+        assert background.is_file()
+
+
+def test_weekend_uses_the_default_background():
+    saturday = dict(PICK, featured_date="2026-07-25")
+
+    assert card.background_for_pick(saturday) == card.DEFAULT_BACKGROUND
+
+
 def test_social_metadata_is_unique_per_pick_date():
     metadata = card.social_metadata(PICK, "https://tradewave.ai/")
 
