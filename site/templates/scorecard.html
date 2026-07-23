@@ -8,9 +8,29 @@
     <meta name="robots" content="{{ content.robots_content }}">
     <link rel="canonical" href="{{ content.canonical_url }}">
     <meta property="og:type" content="website">
+{% if content.social_meta %}
+    <!-- daily-pick-social:start -->
+    <meta property="og:title" content="{{ content.social_meta.title }}">
+    <meta property="og:description" content="{{ content.social_meta.description }}">
+    <meta property="og:url" content="{{ content.social_meta.page_url }}">
+    <meta property="og:image" content="{{ content.social_meta.image_url }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="{{ content.social_meta.image_alt }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ content.social_meta.title }}">
+    <meta name="twitter:description" content="{{ content.social_meta.description }}">
+    <meta name="twitter:image" content="{{ content.social_meta.image_url }}">
+    <meta name="twitter:image:alt" content="{{ content.social_meta.image_alt }}">
+    <!-- daily-pick-social:end -->
+{% else %}
+    <!-- daily-pick-social:start -->
     <meta property="og:title" content="The TradeWave Ledger - Public Track Record">
     <meta property="og:description" content="{{ content.meta_description }}">
     <meta property="og:url" content="{{ content.canonical_url }}">
+    <meta name="twitter:card" content="summary">
+    <!-- daily-pick-social:end -->
+{% endif %}
     <link rel="icon" type="image/png" href="{{ content.favicon }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>

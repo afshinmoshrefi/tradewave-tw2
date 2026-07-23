@@ -20,6 +20,7 @@ sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent / 'lib'))
 import config
 from blog_tools import convert_param_base64
 from ga_snippet import ga_head_snippet
+from daily_pick_social_card import generate_daily_pick_card, social_metadata
 from log_safety import scrub_secret_text
 from pick_stats import (  # shared win definition
     compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, is_judged, is_resolved, is_win, reached_target, result_return,
@@ -616,7 +617,7 @@ def emit_ledger_json(history):
 # HTML GENERATION
 # =============================================================================
 
-def generate_scorecard_html(stats, open_positions, closed_positions):
+def generate_scorecard_html(stats, open_positions, closed_positions, social_meta=None):
     """Generate the scorecard HTML page."""
     jinja_env = Environment(
         loader=FileSystemLoader(TEMPLATES_DIR),
@@ -635,6 +636,7 @@ def generate_scorecard_html(stats, open_positions, closed_positions):
         'robots_content': 'index, follow' if ENABLE_SEO else 'noindex, nofollow',
         'canonical_url': CANONICAL_URL,
         'meta_description': META_DESCRIPTION,
+        'social_meta': social_meta,
         # GA4 <head> snippet ('' when TW2_GA_MEASUREMENT_ID is unset, e.g. dev).
         'ga_head_snippet': ga_head_snippet(),
     }
@@ -676,11 +678,27 @@ def main():
     open_positions, closed_positions = build_positions(history)
     print("   Open: %d, Closed: %d" % (len(open_positions), len(closed_positions)))
 
-    # 6. Generate HTML
-    print("   Generating HTML...")
-    html = generate_scorecard_html(stats, open_positions, closed_positions)
+    # 6. Generate the current large-image social card before the HTML points to it.
+    social_meta = None
+    if history:
+        latest_pick = max(history, key=lambda entry: entry.get('featured_date', ''))
+        try:
+            social_path = generate_daily_pick_card(latest_pick, OUTPUT_DIR)
+            social_meta = social_metadata(latest_pick, DOMAIN_ROOT)
+            print("   Social card: %s" % social_path)
+        except Exception as exc:
+            print("   WARNING: social card generation failed: %s" % exc)
 
-    # 7. Save
+    # 7. Generate HTML
+    print("   Generating HTML...")
+    html = generate_scorecard_html(
+        stats,
+        open_positions,
+        closed_positions,
+        social_meta=social_meta,
+    )
+
+    # 8. Save
     output_dir = Path(OUTPUT_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / OUTPUT_FILENAME
@@ -689,7 +707,7 @@ def main():
     print("   Generated: %s" % output_path)
     print("   Size: %d bytes" % len(html))
 
-    # 8. Machine-citable ledger export (CE_template_specs.md section 9)
+    # 9. Machine-citable ledger export (CE_template_specs.md section 9)
     ledger_path = emit_ledger_json(history)
     print("   Ledger JSON: %s" % ledger_path)
     print("   Done!")
