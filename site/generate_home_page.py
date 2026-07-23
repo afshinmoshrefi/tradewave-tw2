@@ -1025,9 +1025,20 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             "headline": "Discover Seasonal Tendencies With the Highest Probability of Repeating",
             "headline_dynamic": _hero_headline(load_featured_history()),
             "subheadline": (
-                "AI-powered rankings and scores across 98 years of data, ready "
-                "for you to leverage across thousands of stocks and ETFs, as "
-                "well as your own portfolios."
+                "AI-powered rankings and scores across stocks, ETFs, futures & "
+                "commodities, and forex, using up to 98 years of market history. "
+                "Apply the same analysis to your own portfolios."
+            ),
+            "market_strip": (
+                "U.S. Stocks",
+                "ETFs",
+                "Futures & Commodities",
+                "Forex",
+                "Bond Yields",
+                "Major & Foreign Indices",
+                "London Stocks",
+                "Toronto Stocks",
+                "Crypto",
             ),
             # Hero pill slot (a small "New" chip above the headline). The MCP
             # "Meet Tara" pill was removed 2026-07-06 (owner: keep the hero to the

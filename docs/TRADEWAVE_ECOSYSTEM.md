@@ -227,6 +227,12 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   factual, bounded message directly through X's user-context API. Dry-run is the
   default; writes require both `TW2_ENV=prod` and `TW2_X_POSTING_ENABLED=1`.
   A per-featured-date success lock is written only after X returns a post ID.
+- **Public scorecard email signup** posts directly from the browser to the
+  MailerLite form endpoint for `TradeWave Daily AI Pick - Scorecard` (form
+  `193536028893512718`). The form is configured for double opt-in and the
+  `DAILY_AI_PICK` group. The page reads MailerLite's JSON response and only shows
+  success when `success` is true; it does not use the application lifecycle
+  outbox described in section 2.6.
 - So: the user's belief ("the daily AI pick is what gets stored in the scorecard")
   is **correct**. The "AI" = the ML scorer.
 - TW2's standalone `site/generate_daily_ai_pick.py` -> `daily-ai-pick.html` is a

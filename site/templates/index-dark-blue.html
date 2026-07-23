@@ -196,6 +196,15 @@ section{padding:var(--s6) 0}
 .hero .section-sub{margin:40px auto 0;text-align:center}
 @media(max-width:880px){.hero-wave-field{opacity:.70}}
 @media(prefers-reduced-motion:reduce){.hero-wave-field{opacity:.58}}
+.market-strip{padding:15px 0 18px;background:rgba(255,255,255,.012)}
+.market-strip-list{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;color:var(--faint);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.68rem;line-height:1.6;letter-spacing:.055em;text-transform:uppercase}
+.market-strip-item{white-space:nowrap}
+.market-strip-item:not(:first-child)::before{content:"\00b7";margin:0 10px;color:rgba(148,163,184,.44)}
+@media(max-width:720px){
+  .market-strip{padding:14px 0 16px}
+  .market-strip-list{gap:5px 16px;font-size:.64rem}
+  .market-strip-item:not(:first-child)::before{display:none}
+}
 /* roomy vertical rhythm between the stacked hero blocks (headline -> subhead ->
    button -> free-report card) - hero-scoped so other CTA rows are unaffected */
 .hero .cta-row{margin-top:44px}
@@ -673,7 +682,7 @@ body{background-image:none !important;}
 <div class="wrap">
   {% if content.hero.pill_calendar_text %}<a href="{{ content.hero.pill_calendar_url }}" class="hero-pill reveal"><span class="tag">New</span>{{ content.hero.pill_calendar_text }}<span class="arr">&rarr;</span></a>{% endif %}
   <h1 class="reveal d1">{{ content.hero.headline }}</h1>
-  <p class="section-sub reveal d1" style="max-width:680px">{{ content.hero.subheadline }}</p>
+  <p class="section-sub reveal d1" style="max-width:740px">{{ content.hero.subheadline }}</p>
   <div class="cta-row reveal d2">
     <a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.08rem;padding:16px 32px">{{ content.hero.cta_primary }}</a>
   </div>
@@ -686,6 +695,11 @@ body{background-image:none !important;}
     </button>
   </div>
 </div></section>
+<div class="market-strip" aria-label="Markets available in TradeWave">
+  <div class="wrap market-strip-list">
+    {% for market in content.hero.market_strip %}<span class="market-strip-item">{{ market }}</span>{% endfor %}
+  </div>
+</div>
 
 <!-- 02 / TARA (the beginner hook - moved directly after the hero per the June-30
      owner+Michael directive; id stays #tara for deep links). Copy is bound via
@@ -752,36 +766,6 @@ body{background-image:none !important;}
 <!-- CTA at peak conviction (right after the complete product workflow). -->
 <div class="wrap" style="text-align:center"><div class="cta-row reveal" style="margin:0 0 24px"><a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.04rem;padding:14px 30px">Start Free - Full Access for 7 Days</a></div></div>
 
-<!-- CALENDAR REMINDERS band (unnumbered, like the CTA/free-report bands, so the
-     section numbering stays intact). One-click reminder bell: the visual is the
-     real button -> the real Google Calendar event it creates. Keep the mock
-     event content in sync with googleCalendarEvents.js if the copy there
-     changes. Google Calendar is the current implementation; the visible copy
-     intentionally uses the simpler "calendar" wording. -->
-<section id="calendar-reminders"><div class="wrap" style="text-align:center">
-  <h2 class="reveal">Never Watch the Calendar Again</h2>
-  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center;max-width:640px">TradeWave's AI captures the highest-probability seasonal patterns for you. Don't miss them, because patterns don't wait. One click in the Wave Viewer puts the trade window on your calendar, with the evidence attached and a reminder set.</p>
-  <div class="reveal d1" style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:26px">
-    <div style="text-align:center">
-      <span style="display:inline-flex;align-items:center;background:#7C5CFF;color:#fff;border-radius:999px;padding:8px 18px;font-weight:600;font-size:.95rem;box-shadow:0 6px 24px rgba(124,92,255,.35)"><svg width="13" height="13" viewBox="0 0 16 16" fill="#fff" style="margin-right:7px" aria-hidden="true"><path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2m.995-14.901a1 1 0 1 0-1.99 0A5 5 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7a5 5 0 0 0-4.005-4.901"/></svg>Remind me</span>
-      <div class="faint" style="font-size:.75rem;margin-top:8px">one click in the viewer</div>
-    </div>
-    <div class="faint" style="font-size:1.6rem" aria-hidden="true">&rarr;</div>
-    <div class="panelshot" style="max-width:430px;text-align:left;padding:18px 20px">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <span style="width:12px;height:12px;border-radius:3px;background:#7C5CFF;margin-top:5px;flex:0 0 auto"></span>
-        <div>
-          <div style="font-weight:700;color:var(--ink);font-size:.95rem;line-height:1.35">TJX Long - TradeWave Seasonal Start (Oct 12 - Nov 24)</div>
-          <div class="faint" style="font-size:.8rem;margin-top:3px">Monday, October 12 &middot; 8:00 AM</div>
-        </div>
-      </div>
-      <div style="border-top:1px solid rgba(255,255,255,.08);margin:12px 0"></div>
-      <div style="font-size:.85rem;color:var(--muted);line-height:1.6"><b style="color:var(--ink)">Seasonal pattern window opens today.</b><br>Full per-year record and shareable report linked inside.<br>Reminders: email 24 h before &middot; popup at 8:00 AM</div>
-    </div>
-  </div>
-  <div class="micro reveal d1" style="margin-top:18px">Included with every plan, even Free. Both the start and the end date land on your calendar - change times or reminders anytime.</div>
-</div></section>
-
 <!-- 05 / THE LEDGER -->
 <section id="ledger"><div class="wrap">
   <div class="ledger-aside reveal">Seasonality sounds like astrology until you see twenty years of evidence.</div>
@@ -819,6 +803,36 @@ body{background-image:none !important;}
     <div class="ledger-cta"><a href="{{ content.scorecard_url }}" class="btn">Open the Full Public Track Record &rarr;</a></div>
   </div>
   <p class="ledger-explain reveal">Target Hit means the predicted return was reached and the trade was exited for a win. Every older pick remains available in the full track record. <a href="{{ content.methodology_url }}" class="lnk">Read the methodology &rarr;</a></p>
+</div></section>
+
+<!-- CALENDAR REMINDERS band (unnumbered, like the CTA/free-report bands, so the
+     section numbering stays intact). One-click reminder bell: the visual is the
+     real button -> the real Google Calendar event it creates. Keep the mock
+     event content in sync with googleCalendarEvents.js if the copy there
+     changes. Google Calendar is the current implementation; the visible copy
+     intentionally uses the simpler "calendar" wording. -->
+<section id="calendar-reminders"><div class="wrap" style="text-align:center">
+  <h2 class="reveal">Never Watch the Calendar Again</h2>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center;max-width:640px">TradeWave's AI captures the highest-probability seasonal patterns for you. Don't miss them, because patterns don't wait. One click in the Wave Viewer puts the trade window on your calendar, with the evidence attached and a reminder set.</p>
+  <div class="reveal d1" style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:26px">
+    <div style="text-align:center">
+      <span style="display:inline-flex;align-items:center;background:#7C5CFF;color:#fff;border-radius:999px;padding:8px 18px;font-weight:600;font-size:.95rem;box-shadow:0 6px 24px rgba(124,92,255,.35)"><svg width="13" height="13" viewBox="0 0 16 16" fill="#fff" style="margin-right:7px" aria-hidden="true"><path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2m.995-14.901a1 1 0 1 0-1.99 0A5 5 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7a5 5 0 0 0-4.005-4.901"/></svg>Remind me</span>
+      <div class="faint" style="font-size:.75rem;margin-top:8px">one click in the viewer</div>
+    </div>
+    <div class="faint" style="font-size:1.6rem" aria-hidden="true">&rarr;</div>
+    <div class="panelshot" style="max-width:430px;text-align:left;padding:18px 20px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="width:12px;height:12px;border-radius:3px;background:#7C5CFF;margin-top:5px;flex:0 0 auto"></span>
+        <div>
+          <div style="font-weight:700;color:var(--ink);font-size:.95rem;line-height:1.35">TJX Long - TradeWave Seasonal Start (Oct 12 - Nov 24)</div>
+          <div class="faint" style="font-size:.8rem;margin-top:3px">Monday, October 12 &middot; 8:00 AM</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,.08);margin:12px 0"></div>
+      <div style="font-size:.85rem;color:var(--muted);line-height:1.6"><b style="color:var(--ink)">Seasonal pattern window opens today.</b><br>Full per-year record and shareable report linked inside.<br>Reminders: email 24 h before &middot; popup at 8:00 AM</div>
+    </div>
+  </div>
+  <div class="micro reveal d1" style="margin-top:18px">Included with every plan, even Free. Both the start and the end date land on your calendar - change times or reminders anytime.</div>
 </div></section>
 
 <!-- 06 / CHATGPT + CLAUDE (standalone MCP compatibility section) -->

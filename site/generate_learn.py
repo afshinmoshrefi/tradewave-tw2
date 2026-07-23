@@ -54,6 +54,15 @@ SITEMAP_PATH  = Path('/var/www/tradewave/sitemap.xml')
 
 YEAR = datetime.now().year
 
+# Editorial credit shown across the Learn section. Keeping this in one place
+# ensures the visible byline and structured metadata stay in sync.
+LEARN_CREATOR = {
+    'name': 'Michael Sacchitello, CMT',
+    'linkedin_url': 'https://www.linkedin.com/in/michael-sacchitello/',
+    'studio_name': 'FatTail Studio',
+    'studio_url': 'https://www.fattailstudio.com/',
+}
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -242,6 +251,7 @@ def main() -> int:
         html = article_tmpl.render(
             article=art,
             related=related,
+            creator=LEARN_CREATOR,
             tw_header=tw_header,
             year=YEAR,
             ga_head_snippet=ga_head_snippet(),
@@ -254,6 +264,7 @@ def main() -> int:
     # Index
     html = index_tmpl.render(
         articles=articles,
+        creator=LEARN_CREATOR,
         tw_header=tw_header,
         year=YEAR,
         ga_head_snippet=ga_head_snippet(),

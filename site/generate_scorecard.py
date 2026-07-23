@@ -635,7 +635,6 @@ def generate_scorecard_html(stats, open_positions, closed_positions):
         'robots_content': 'index, follow' if ENABLE_SEO else 'noindex, nofollow',
         'canonical_url': CANONICAL_URL,
         'meta_description': META_DESCRIPTION,
-        'daily_ai_pick_group_id': '182221521780999195',
         # GA4 <head> snippet ('' when TW2_GA_MEASUREMENT_ID is unset, e.g. dev).
         'ga_head_snippet': ga_head_snippet(),
     }

@@ -37,6 +37,17 @@
         "description": {{ a.summary | tojson }},
         "datePublished": "{{ a.date_iso }}",
         "url": "https://tradewave.ai/learn/{{ a.slug }}.html",
+        "author": {
+          "@type": "Person",
+          "name": {{ creator.name | tojson }},
+          "url": {{ creator.studio_url | tojson }},
+          "sameAs": [{{ creator.linkedin_url | tojson }}],
+          "worksFor": {
+            "@type": "Organization",
+            "name": {{ creator.studio_name | tojson }},
+            "url": {{ creator.studio_url | tojson }}
+          }
+        },
         "keywords": {{ (a.tags or []) | tojson }}
       }{% if not loop.last %},{% endif %}
       {% endfor %}
@@ -70,6 +81,10 @@
     .learn-hero { background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(168,85,247,0.10) 100%); border-bottom: 1px solid var(--border); padding: 64px 24px 48px; text-align: center; }
     .learn-hero h1 { margin: 0 0 12px; font-size: 44px; font-weight: 800; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .learn-hero p { margin: 0 auto; max-width: 720px; color: var(--text-dim); font-size: 18px; }
+    .learn-creator { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 7px; margin-top: 18px; color: var(--text-muted); font-size: 13px; }
+    .learn-creator a { color: var(--text-dim); font-weight: 600; text-decoration: none; transition: color 160ms ease; }
+    .learn-creator a:hover { color: var(--link-hover); }
+    .learn-creator .separator { color: rgba(156,163,175,0.55); }
     main.learn-grid { max-width: 1100px; margin: 0 auto; padding: 48px 24px 72px; }
     .learn-grid-inner { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
     .learn-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 24px 24px 20px; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; display: flex; flex-direction: column; }
@@ -103,6 +118,12 @@
 <section class="learn-hero">
   <h1>Learn</h1>
   <p>Step-by-step guides to TradeWave: the Wave Viewer, the Stats Table, the Trend Chart, the Portfolio Manager, and how to read a seasonal trading opportunity.</p>
+  <div class="learn-creator" aria-label="Learn section creator">
+    <span>Guides created by</span>
+    <a href="{{ creator.linkedin_url }}" target="_blank" rel="noopener">{{ creator.name }}</a>
+    <span class="separator" aria-hidden="true">&middot;</span>
+    <a href="{{ creator.studio_url }}" target="_blank" rel="noopener">{{ creator.studio_name }}</a>
+  </div>
 </section>
 
 <main class="learn-grid">
