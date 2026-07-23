@@ -11,7 +11,7 @@ import json
 import os
 import requests
 import time
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 import sys
@@ -22,6 +22,7 @@ from blog_tools import convert_param_base64
 from ga_snippet import ga_head_snippet
 from daily_pick_social_card import generate_daily_pick_card, social_metadata
 from log_safety import scrub_secret_text
+from market_clock import new_york_now, session_bar_is_final
 from pick_stats import (  # shared win definition
     compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, is_judged, is_resolved, is_win, reached_target, result_return,
 )
@@ -162,7 +163,7 @@ def fetch_realtime_prices_bulk(symbols):
 
 def fetch_current_price(resource_id, symbol, token):
     """Fetch the most recent close price for a symbol (fallback via ChartHistorical2)."""
-    today = date.today()
+    today = new_york_now().date()
     d1 = today.strftime('%Y-%m-%d')
     d0 = (today - timedelta(days=10)).strftime('%Y-%m-%d')
     url = '%s/ChartHistorical2/%s/%s/%s/%s?token=%s' % (
@@ -180,7 +181,11 @@ def fetch_current_price(resource_id, symbol, token):
 
 
 def fetch_end_price(resource_id, symbol, end_date, token):
-    """Fetch the close price on or just after the pattern end date."""
+    """Fetch the first available session close on/after the pattern end date.
+
+    Never fall back to a bar before ``end_date``: doing so used to mark an
+    opportunity closed with stale data before its actual exit session existed.
+    """
     dt = datetime.strptime(end_date, '%Y-%m-%d')
     d0 = (dt - timedelta(days=2)).strftime('%Y-%m-%d')
     d1 = (dt + timedelta(days=5)).strftime('%Y-%m-%d')
@@ -194,10 +199,10 @@ def fetch_end_price(resource_id, symbol, end_date, token):
         # Find the first trading day on or after end_date
         for row in rows:
             if row[0] >= end_date:
-                return float(row[4])
-        # If none on/after, use the last available
-        if rows:
-            return float(rows[-1][4])
+                return {
+                    'price': float(row[4]),
+                    'session_date': str(row[0]),
+                }
     except Exception as e:
         print("   WARNING: End price fetch failed for %s on %s: %s" % (symbol, end_date, scrub_secret_text(e)))
     return None
@@ -216,7 +221,7 @@ def fetch_peak_price(resource_id, symbol, start_date, end_date, direction, token
     dt_start = datetime.strptime(start_date, '%Y-%m-%d')
     d0 = (dt_start + timedelta(days=1)).strftime('%Y-%m-%d')
     # For open positions, use today as the end
-    today_str = date.today().strftime('%Y-%m-%d')
+    today_str = new_york_now().date().strftime('%Y-%m-%d')
     d1 = min(end_date, today_str)
     # Add a few days buffer for weekends
     dt_end = datetime.strptime(d1, '%Y-%m-%d')
@@ -268,13 +273,40 @@ def compute_end_date(start_date, days_out):
     return end.strftime('%Y-%m-%d')
 
 
-def enrich_positions(history, token):
+def _set_entry_value(entry, key, value):
+    """Set one ledger field and report whether its persisted value changed."""
+    if entry.get(key) == value:
+        return False
+    entry[key] = value
+    return True
+
+
+def _clear_resolution(entry):
+    """Remove a premature close while preserving the published pick itself."""
+    changed = False
+    for key in (
+        'end_price',
+        'actual_return',
+        'win',
+        'resolved_session_date',
+        'result_finalized_at',
+    ):
+        if key in entry:
+            del entry[key]
+            changed = True
+    changed |= _set_entry_value(entry, 'status', 'open')
+    return changed
+
+
+def enrich_positions(history, token, now=None):
     """Enrich history entries with current/end prices and returns.
 
     Classifies each entry as 'open' or 'closed' and computes actual returns.
     Modifies entries in place and saves back to history file.
     """
-    today_str = date.today().strftime('%Y-%m-%d')
+    market_now = now or new_york_now()
+    today = market_now.date()
+    today_str = today.isoformat()
     changed = False
 
     # Bulk-fetch real-time prices for all open positions in one call
@@ -289,7 +321,7 @@ def enrich_positions(history, token):
 
     for entry in history:
         end_date = compute_end_date(entry['date'], entry['daysOut'])
-        entry['end_date'] = end_date
+        changed |= _set_entry_value(entry, 'end_date', end_date)
 
         # Ensure start_price exists
         if not entry.get('start_price'):
@@ -302,48 +334,89 @@ def enrich_positions(history, token):
             else:
                 continue
 
-        if today_str >= end_date:
-            # Closed position
-            entry['status'] = 'closed'
-            if not entry.get('end_price'):
-                end_price = fetch_end_price(
-                    entry['resource_id'], entry['symbol'], end_date, token
+        end_day = datetime.strptime(end_date, '%Y-%m-%d').date()
+        has_recorded_resolution = bool(entry.get('resolved_session_date'))
+        # Older records predate resolved_session_date. Trust those stable,
+        # already-persisted outcomes; recent closes are deliberately revalidated
+        # so stale bars from the old implementation cannot survive.
+        stable_legacy_close = (
+            not has_recorded_resolution
+            and entry.get('status') == 'closed'
+            and entry.get('actual_return') is not None
+            and end_day < today - timedelta(days=7)
+        )
+
+        resolution = None
+        if end_day <= today and not has_recorded_resolution and not stable_legacy_close:
+            resolution = fetch_end_price(
+                entry['resource_id'], entry['symbol'], end_date, token
+            )
+            if resolution:
+                try:
+                    session_date = datetime.strptime(
+                        resolution['session_date'], '%Y-%m-%d'
+                    ).date()
+                except (KeyError, TypeError, ValueError):
+                    resolution = None
+                else:
+                    if not session_bar_is_final(session_date, market_now):
+                        resolution = None
+
+        should_close = has_recorded_resolution or stable_legacy_close or bool(resolution)
+        if should_close:
+            changed |= _set_entry_value(entry, 'status', 'closed')
+            if resolution:
+                changed |= _set_entry_value(entry, 'end_price', resolution['price'])
+                changed |= _set_entry_value(
+                    entry, 'resolved_session_date', resolution['session_date']
                 )
-                if end_price:
-                    entry['end_price'] = end_price
-                    changed = True
+                changed |= _set_entry_value(
+                    entry,
+                    'result_finalized_at',
+                    market_now.astimezone(timezone.utc).isoformat(),
+                )
 
             if entry.get('end_price') and entry.get('start_price'):
                 if entry['direction'] == 'l':
-                    entry['actual_return'] = round(
+                    actual_return = round(
                         (entry['end_price'] - entry['start_price']) / entry['start_price'] * 100, 2
                     )
                 else:
-                    entry['actual_return'] = round(
+                    actual_return = round(
                         (entry['start_price'] - entry['end_price']) / entry['start_price'] * 100, 2
                     )
-                entry['win'] = entry['actual_return'] > 0
+                changed |= _set_entry_value(entry, 'actual_return', actual_return)
+                changed |= _set_entry_value(entry, 'win', actual_return > 0)
 
-            # Peak return (MFE) for closed positions - fetch once and persist
-            if not entry.get('peak_price') and entry.get('start_price'):
+            # Recompute a newly finalized window through the actual resolution
+            # session (which may be after a weekend/holiday nominal end date).
+            if (
+                entry.get('start_price')
+                and (resolution or not entry.get('peak_price'))
+            ):
+                peak_end = entry.get('resolved_session_date') or end_date
                 peak = fetch_peak_price(
                     entry['resource_id'], entry['symbol'],
-                    entry['date'], end_date, entry['direction'], token
+                    entry['date'], peak_end, entry['direction'], token
                 )
                 if peak:
-                    entry['peak_price'] = peak
+                    changed |= _set_entry_value(entry, 'peak_price', peak)
                     if entry['direction'] == 'l':
-                        entry['peak_return'] = round(
+                        peak_return = round(
                             (peak - entry['start_price']) / entry['start_price'] * 100, 2
                         )
                     else:
-                        entry['peak_return'] = round(
+                        peak_return = round(
                             (entry['start_price'] - peak) / entry['start_price'] * 100, 2
                         )
-                    changed = True
+                    changed |= _set_entry_value(entry, 'peak_return', peak_return)
         else:
-            # Open position
-            entry['status'] = 'open'
+            # The nominal end date alone is not proof of a close. Keep the pick
+            # open until the appserver exposes a final bar on/after that date.
+            if end_day <= today:
+                changed |= _clear_resolution(entry)
+            else:
+                changed |= _set_entry_value(entry, 'status', 'open')
             sym = entry['symbol'].upper()
             rt_data = realtime_prices.get(sym)
             current_price = None
@@ -351,22 +424,23 @@ def enrich_positions(history, token):
             if rt_data:
                 current_price = rt_data['price']
                 today_high = rt_data.get('high')
-                entry['price_source'] = 'realtime'
+                changed |= _set_entry_value(entry, 'price_source', 'realtime')
             else:
                 current_price = fetch_current_price(
                     entry['resource_id'], entry['symbol'], token
                 )
-                entry['price_source'] = 'close'
+                changed |= _set_entry_value(entry, 'price_source', 'close')
             if current_price and entry.get('start_price'):
                 if entry['direction'] == 'l':
-                    entry['current_return'] = round(
+                    current_return = round(
                         (current_price - entry['start_price']) / entry['start_price'] * 100, 2
                     )
                 else:
-                    entry['current_return'] = round(
+                    current_return = round(
                         (entry['start_price'] - current_price) / entry['start_price'] * 100, 2
                     )
-                entry['current_price'] = current_price
+                changed |= _set_entry_value(entry, 'current_return', current_return)
+                changed |= _set_entry_value(entry, 'current_price', current_price)
 
             # Peak return (MFE) for open positions - recalculate each run
             if entry.get('start_price'):
@@ -382,16 +456,16 @@ def enrich_positions(history, token):
                             peak = max(peak, today_high)
                         else:
                             peak = min(peak, today_high)
-                    entry['peak_price'] = peak
+                    changed |= _set_entry_value(entry, 'peak_price', peak)
                     if entry['direction'] == 'l':
-                        entry['peak_return'] = round(
+                        peak_return = round(
                             (peak - entry['start_price']) / entry['start_price'] * 100, 2
                         )
                     else:
-                        entry['peak_return'] = round(
+                        peak_return = round(
                             (entry['start_price'] - peak) / entry['start_price'] * 100, 2
                         )
-                    changed = True
+                    changed |= _set_entry_value(entry, 'peak_return', peak_return)
 
     if changed:
         save_history(history)
