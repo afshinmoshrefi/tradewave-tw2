@@ -16,18 +16,16 @@ the BK reference-data issue.
 
 - Handoff branch: `codex/wave-viewer-regression-loop-20260724`
 - Application URL: `https://tw2-dev.trxstat.com/app/`
-- Owner-supplied development host: `192.168.1.180`
+- Development host: `192.168.1.176`
 - Repository path normally used on a TradeWave development host:
   `/home/flask`
 - React source: `web-react/`
 - React build command: `npm run build`
 
-Do not assume the host topology. On 2026-07-24, a direct HTTP request to
-`192.168.1.180` returned the Seasonal Market News vhost, while ports 22 and 80
-were open. Before changing anything, confirm the hostname, repository path,
-nginx vhost, current branch, worktree status, and the filesystem target serving
-`tw2-dev.trxstat.com/app/`. Do not overwrite a dirty server checkout or switch a
-symlink until its current target and rollback target have been recorded.
+Before changing anything, confirm the hostname, repository path, nginx vhost,
+current branch, worktree status, and the filesystem target serving
+`tw2-dev.trxstat.com/app/`. Do not overwrite a dirty server checkout or switch
+a symlink until its current target and rollback target have been recorded.
 
 Never request or print a password or secret. Use credentials already available
 to the remote task.
@@ -112,7 +110,7 @@ continue the loop.
 > `codex/wave-viewer-regression-loop-20260724`. You may inspect, edit, test,
 > build, and deploy to the development environment only. Do not touch staging,
 > production, TW1, secrets, billing, authentication, customer data, or DQ-01.
-> Confirm that `192.168.1.180` is the correct Wave Viewer host and identify the
+> Confirm that `192.168.1.176` is the Wave Viewer host and identify the
 > served React build target before writing. Then loop through reproduce,
 > diagnose, repair, automated verification, dev deployment, browser retest,
 > documentation, commit, and push. Continue until every requested case passes

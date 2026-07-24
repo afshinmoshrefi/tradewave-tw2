@@ -11,11 +11,9 @@ yet built or deployed on the development host.
 - Last browser-verified bundle: `main.08bde07a.js`
 - Baseline: S&P 500 STOCKS, 10 years, 8 of 10, empty filter, 419
   opportunities, UNH first and EQR last.
-- Owner-supplied development host for the new loop: `192.168.1.180`.
-- From the primary workstation on 2026-07-24, `.180` had ports 22 and 80 open,
-  but direct HTTP returned the Seasonal Market News vhost. SSH authentication
-  was not available from that workstation. The remote task must identify the
-  correct Wave Viewer checkout and nginx target before deployment.
+- Development host: `192.168.1.176`, hostname `TW2`.
+- The remote task must still record the current Wave Viewer checkout, served
+  build target, and rollback target before each deployment.
 
 ## Latest retest
 
@@ -83,8 +81,8 @@ from an older partial source snapshot.
 
 1. Fetch and check out the handoff branch in a clean worktree on the remote
    machine or development host.
-2. Confirm `.180` is the intended Wave Viewer host and record the currently
-   served build and rollback target.
+2. Confirm `.176` is the Wave Viewer host and record the currently served build
+   and rollback target.
 3. Run focused tests and the production build.
 4. Deploy to development only and confirm the bundle hash is no longer
    `main.08bde07a.js`.
