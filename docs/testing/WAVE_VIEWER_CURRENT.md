@@ -2,7 +2,7 @@
 
 **Updated:** 2026-07-24  
 **Status:** Latest repairs are built and deployed on the development host.
-Browser regression retesting is next.  
+Browser regression retesting is next.
 **Handoff branch:** `codex/wave-viewer-regression-loop-20260724`
 
 ## Environment and deployment evidence
