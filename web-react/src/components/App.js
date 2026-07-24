@@ -7,7 +7,7 @@
 
 
 
-import React, { useState, useLayoutEffect, useEffect, useMemo, useRef, useCallback } from "react"
+import React, { useState, useLayoutEffect, useEffect, useMemo, useRef } from "react"
 import ReactDOM from 'react-dom'
 import { getTodayDate, monthsOptionsList, DarkBGColor, LightBGColor } from './Common'
 import * as rdd from 'react-device-detect';
@@ -41,15 +41,6 @@ import {
   resolveOpportunityRecurrence,
   resolveViewerDeepLinkOpportunityRecurrence,
 } from './opportunityRecurrence'
-import {
-  advanceTaraActionFromViewerReport,
-  advanceTaraViewerDataState,
-  mergeTaraViewActions,
-  taraActionRequiresChartData,
-  taraRequestedSpecMatches,
-  taraViewKey,
-  TARA_ACTION_TIMEOUT_MS,
-} from './taraActionContract'
 import jwt_decode from 'jwt-decode'
 //-------------------- swiper -----------------------------
 // Import Swiper styles
@@ -165,7 +156,6 @@ const App = () => {
   const [tradeDate1, SetTradeDate1] = useState('') //current linechart date1
 
   const [lastPrice, SetLastPrice] = useState(['', 0]); // last stock price to be shown in VisualTableDesc.js
-  const [lastPriceIdentity, SetLastPriceIdentity] = useState('');
 
   const [token, SetToken] = useState('')
 
@@ -355,7 +345,7 @@ const App = () => {
 
   const [showMaxProjection, SetShowMaxProjection] = useState(() => {
     const saved = lsGet('showMaxProjection');
-    return saved === null ? false : !!saved;
+    return saved === null ? true : !!saved;
   });
   const handleSetShowMaxProjection = (val) => {
     SetShowMaxProjection(val);
@@ -512,21 +502,6 @@ const App = () => {
   const [chatbotPendingTip, SetChatbotPendingTip] = useState(null);
   const [chatbotPrefill, SetChatbotPrefill] = useState(null); // home-page "ask Tara" question to auto-send (desktop)
   const [askMobileNote, SetAskMobileNote] = useState(false);  // mobile note when home asks Tara but no chat UI exists
-  // Tara actions are transactions, not setter calls. SeasonalBarChart is the
-  // authority that marks chart-backed actions successful after ChartData4
-  // returns current, non-empty data for this exact request key.
-  const [taraActionState, SetTaraActionState] = useState(null);
-  const [viewerDataState, SetViewerDataState] = useState({
-    status: 'idle',
-    request_key: '',
-    view: null,
-    data_points: 0,
-    reason: '',
-    source_states: {},
-    source_points: {},
-  });
-  const [taraLoadGeneration, SetTaraLoadGeneration] = useState(0);
-  const taraAbortersRef = useRef(new Map());
   const chatbotTipTimerRef = useRef(null);
   const queryStringLoadedRef = useRef(false);
   const askHandledRef = useRef(false);  // one-shot guard for home-page ?ask= deep-link
@@ -536,9 +511,8 @@ const App = () => {
   const prevPatternKey = useRef('');          // tracks symbol|startDate to detect deliberate changes
   const companyReqRef = useRef(0);            // ordering guard: only the LATEST NameFromTicker response may SetCompany
   const loginInFlightRef = useRef(false);     // prevents the /login effect from double-firing (SetLoggedinUser re-runs it while token is still '')
-  // Once an explicit opp-table selection (market, years, or minimum winning
-  // years) owns the state, later token/bootstrap reruns must not restore an
-  // older cookie/default over it.
+  // Once an explicit opportunity-table selection owns the state, later
+  // token/bootstrap reruns must not restore an older cookie/default over it.
   const oppYearsSelectionOwnedRef = useRef(false);
 
   // Used to manually trigger a refresh of the useEffect below.
@@ -866,314 +840,6 @@ const App = () => {
     SetOpportunities([]); // clear opp table; a new fetch follows for the new market
   };
 
-  const marketIdForName = useMemo(() => (marketDisplayName) => {
-    const match = Object.entries(resourceObj || {})
-      .find(([, name]) => name === marketDisplayName);
-    return match ? String(match[0]) : '';
-  }, [resourceObj]);
-
-  const registerTaraLoadAbort = useCallback((generation, abortLoad) => {
-    if (!Number.isInteger(generation) || typeof abortLoad !== 'function') {
-      return () => {};
-    }
-    if (!taraAbortersRef.current.has(generation)) {
-      taraAbortersRef.current.set(generation, new Set());
-    }
-    const aborters = taraAbortersRef.current.get(generation);
-    aborters.add(abortLoad);
-    return () => {
-      aborters.delete(abortLoad);
-      if (aborters.size === 0) taraAbortersRef.current.delete(generation);
-    };
-  }, []);
-
-  const cancelTaraLoadGeneration = useCallback((generation) => {
-    const aborters = taraAbortersRef.current.get(generation);
-    if (!aborters) return;
-    for (const abortLoad of aborters) {
-      try {
-        abortLoad();
-      } catch (err) {
-        console.warn('Tara load cancellation failed:', err?.message || err);
-      }
-    }
-    taraAbortersRef.current.delete(generation);
-  }, []);
-
-  // Accept and apply a server-validated Tara transaction. This function
-  // returns "accepted", never "loaded"; SeasonalBarChart owns that terminal
-  // decision after the exact ChartData4 request succeeds.
-  const beginTaraViewAction = (actions, turnId) => {
-    const normalizedTurnId = typeof turnId === 'string' ? turnId.toLowerCase() : '';
-    if (
-      !/^[a-f0-9]{32}$/.test(normalizedTurnId)
-      || !Array.isArray(actions)
-      || actions.some(action => String(action?.turn_id || '').toLowerCase() !== normalizedTurnId)
-    ) {
-      return { ok: false, reason: 'invalid_action_turn' };
-    }
-    const merged = mergeTaraViewActions(actions);
-    if (!merged.ok) return { ok: false, reason: merged.reason };
-    const audit = {
-      turn_id: normalizedTurnId,
-      action_ids: merged.actionIds,
-      action_proofs: merged.actionProofs,
-    };
-
-    const requested = merged.spec;
-    const currentMarket = marketIdForName(selectedSecurity);
-    const targetMarket = requested.market || currentMarket;
-    const targetMarketName = targetMarket ? resourceObj?.[parseInt(targetMarket, 10)] : selectedSecurity;
-    if (requested.market && !targetMarketName) {
-      return { ok: false, reason: 'unknown_or_unavailable_market', audit };
-    }
-
-    const changingMarket = Boolean(
-      requested.market && targetMarketName !== selectedSecurity
-    );
-    const changingSymbol = Boolean(
-      requested.symbol
-      && (
-        requested.symbol !== String(symbol || '').toUpperCase()
-        || changingMarket
-      )
-    );
-    if (
-      changingSymbol
-      && (!requested.entry_date || !Number.isInteger(requested.days_out))
-    ) {
-      return { ok: false, reason: 'new_symbol_requires_resolved_setup', audit };
-    }
-
-    let targetYears = requested.years || parseInt(seasonalYears, 10);
-    if (changingMarket && !requested.years) {
-      const defaults = getOppYearsForGroup(targetMarketName, showPEOpps);
-      targetYears = parseInt(defaults[0], 10);
-    }
-    const target = {
-      market: targetMarket,
-      symbol: requested.symbol || (
-        changingMarket ? '' : String(symbol || '').toUpperCase()
-      ),
-      entry_date: requested.entry_date || startDate,
-      days_out: requested.days_out || parseInt(daysOut, 10),
-      years: targetYears,
-      pe_cycle: requested.pe_cycle || PEselected || 'cons',
-      cut_off_year: Number(trimYear || 0),
-    };
-    if (
-      target.symbol
-      && (
-        !target.market
-        || !target.entry_date
-        || !Number.isInteger(target.days_out)
-        || !Number.isInteger(target.years)
-      )
-    ) {
-      return { ok: false, reason: 'incomplete_target_view', audit };
-    }
-
-    const requiresChartData = taraActionRequiresChartData(requested, target);
-    const nextLoadGeneration = requiresChartData ? taraLoadGeneration + 1 : null;
-    const transaction = {
-      turn_id: normalizedTurnId,
-      action_ids: merged.actionIds,
-      action_proofs: merged.actionProofs,
-      requested_spec: requested,
-      target,
-      request_key: taraViewKey(target),
-      requires_chart_data: requiresChartData,
-      load_generation: nextLoadGeneration,
-      required_sources: requiresChartData ? ['primary', 'trend'] : [],
-      source_states: {},
-      source_points: {},
-      status: 'loading',
-      chart_started: false,
-      reason: '',
-      started_at: Date.now(),
-      finished_at: null,
-      observed_view: null,
-    };
-
-    if (requiresChartData) {
-      // Invalidate data surfaces only when this transaction actually requests
-      // chart data. A redundant market-only action must not blank the viewer.
-      SetSeasonalBarChartData([]);
-      SetTradeDetailData([]);
-      SetConsolidatedSeasonalData([]);
-      SetMaxYearsConsolidatedSeasonalData([]);
-      SetLineChartYear(0);
-      SetViewerDataState({
-        status: 'loading',
-        request_key: transaction.request_key,
-        load_generation: nextLoadGeneration,
-        source: 'primary',
-        view: target,
-        data_points: 0,
-        reason: '',
-        source_states: {},
-        source_points: {},
-      });
-      SetTaraLoadGeneration(nextLoadGeneration);
-    }
-    SetTaraActionState(transaction);
-
-    if (changingMarket) {
-      switchMarket(targetMarketName);
-    }
-    if (changingSymbol) {
-      companyReqRef.current += 1;
-      SetCompany('');
-      SetLastPrice(['', 0]);
-    }
-    if (requested.symbol) SetSymbol(requested.symbol);
-    if (requested.entry_date) {
-      SetStartDate(requested.entry_date);
-      SetTrendChartStartDate(incrementDate(requested.entry_date, -trend_chart_left_gap_days));
-    }
-    if (requested.days_out) SetDaysOut(requested.days_out);
-    if (requested.years) SetSeasonalYears(String(requested.years));
-    if (requested.pe_cycle) SetPEselected(requested.pe_cycle);
-
-    if (requiresChartData) {
-      // Also makes an identical same-spec "reload" a real new ChartData4
-      // request instead of a no-op.
-      SetRefreshKey(prev => prev + 1);
-    }
-    return { ok: true, transaction };
-  };
-
-  const reportViewerDataState = (report) => {
-    if (!report || typeof report !== 'object' || !report.request_key) return;
-    const status = ['loading', 'succeeded', 'failed'].includes(report.status)
-      ? report.status
-      : 'failed';
-    const next = {
-      status,
-      request_key: report.request_key,
-      load_generation: Number.isInteger(report.load_generation)
-        ? report.load_generation
-        : -1,
-      source: report.source === 'trend' ? 'trend' : 'primary',
-      view: report.view || null,
-      data_points: Number.isInteger(report.data_points) ? report.data_points : 0,
-      reason: String(report.reason || '').slice(0, 160),
-    };
-    SetViewerDataState(prev => advanceTaraViewerDataState(prev, next));
-    SetTaraActionState(prev => advanceTaraActionFromViewerReport(prev, next));
-  };
-
-  // State-only actions (for example, switch the opportunity-table market with
-  // no pattern loaded) can be confirmed from App state. Chart-backed actions
-  // must wait for SeasonalBarChart's ChartData4 acknowledgement.
-  useEffect(() => {
-    if (!taraActionState || taraActionState.status !== 'loading' || taraActionState.requires_chart_data) return;
-    const observed = {
-      market: marketIdForName(selectedSecurity),
-      symbol: String(symbol || '').toUpperCase(),
-      entry_date: startDate,
-      days_out: parseInt(daysOut, 10),
-      years: parseInt(seasonalYears, 10),
-      pe_cycle: PEselected || 'cons',
-      cut_off_year: Number(trimYear || 0),
-    };
-    if (taraRequestedSpecMatches(observed, taraActionState.requested_spec)) {
-      SetTaraActionState(prev => (
-        prev && prev.status === 'loading'
-          ? { ...prev, status: 'succeeded', finished_at: Date.now(), observed_view: observed }
-          : prev
-      ));
-    }
-  }, [
-    taraActionState,
-    marketIdForName,
-    selectedSecurity,
-    symbol,
-    startDate,
-    daysOut,
-    seasonalYears,
-    PEselected,
-    trimYear,
-  ]);
-
-  // Once the exact chart request has started, any manual change to its inputs
-  // supersedes the Tara transaction immediately instead of leaving a spinner
-  // until timeout or allowing a later response to cross-confirm it.
-  useEffect(() => {
-    if (
-      !taraActionState
-      || taraActionState.status !== 'loading'
-      || !taraActionState.requires_chart_data
-      || !taraActionState.chart_started
-    ) return;
-    const observed = {
-      market: marketIdForName(selectedSecurity),
-      symbol: String(symbol || '').toUpperCase(),
-      entry_date: startDate,
-      days_out: parseInt(daysOut, 10),
-      years: parseInt(seasonalYears, 10),
-      pe_cycle: PEselected || 'cons',
-      cut_off_year: Number(trimYear || 0),
-    };
-    if (taraViewKey(observed) !== taraActionState.request_key) {
-      SetTaraActionState(prev => (
-        prev && prev.status === 'loading'
-          ? {
-            ...prev,
-            status: 'failed',
-            reason: 'view_superseded',
-            finished_at: Date.now(),
-            observed_view: observed,
-          }
-          : prev
-      ));
-    }
-  }, [
-    taraActionState,
-    marketIdForName,
-    selectedSecurity,
-    symbol,
-    startDate,
-    daysOut,
-    seasonalYears,
-    PEselected,
-    trimYear,
-  ]);
-
-  // A missing terminal chart callback is a failure, never implied success.
-  useEffect(() => {
-    if (!taraActionState || taraActionState.status !== 'loading') return undefined;
-    const generation = taraActionState.load_generation;
-    const timer = setTimeout(() => {
-      if (Number.isInteger(generation)) cancelTaraLoadGeneration(generation);
-      SetTaraActionState(prev => (
-        prev && prev.status === 'loading'
-          ? { ...prev, status: 'failed', reason: 'chart_load_timeout', finished_at: Date.now() }
-          : prev
-      ));
-    }, TARA_ACTION_TIMEOUT_MS);
-    return () => clearTimeout(timer);
-  }, [taraActionState, cancelTaraLoadGeneration]);
-
-  // A terminal failure cancels the sibling chart request too, so a late
-  // response cannot populate a graph after Tara reported failure. Successful
-  // transactions simply release their completed abort callbacks.
-  useEffect(() => {
-    if (
-      !taraActionState
-      || !['succeeded', 'failed'].includes(taraActionState.status)
-      || !Number.isInteger(taraActionState.load_generation)
-    ) return;
-    if (taraActionState.status === 'failed') {
-      cancelTaraLoadGeneration(taraActionState.load_generation);
-    } else {
-      taraAbortersRef.current.delete(taraActionState.load_generation);
-    }
-  }, [
-    taraActionState,
-    cancelTaraLoadGeneration,
-  ]);
-
   //---------------------------------------------------------------
   // this serves oppTable selectboxes
   //---------------------------------------------------------------
@@ -1359,7 +1025,6 @@ const App = () => {
 
         const parentGroupName = resourceObj[pl.resource_id] || '';
 
-        oppYearsSelectionOwnedRef.current = true;
         SetShowActiveOpps(false);
         SetSelectedSecurity(parentGroupName);
 
@@ -1370,6 +1035,7 @@ const App = () => {
           symbols: new Set(pl.symbols || [])
         });
 
+        oppYearsSelectionOwnedRef.current = true;
         const [y1, y2] = getOppYearsForGroup(parentGroupName, showPEOpps);
 
         SetOppTableYears(-1);
@@ -1409,7 +1075,6 @@ const App = () => {
         // resolve the parent securities group display name from resourceObj
         const parentGroupName = resourceObj[wl.resourceId] || '';
 
-        oppYearsSelectionOwnedRef.current = true;
         SetShowActiveOpps(false);
         SetSelectedSecurity(parentGroupName) // use real group name so all API calls resolve correctly
 
@@ -1421,6 +1086,7 @@ const App = () => {
           symbols: null // will be populated after fetch
         });
 
+        oppYearsSelectionOwnedRef.current = true;
         const [y1, y2] = getOppYearsForGroup(parentGroupName, showPEOpps);
 
         SetOppTableYears(-1)
@@ -1615,7 +1281,6 @@ const App = () => {
     stockScoreCurrent, // 5/17/2022 - true false - when false its historical
     exportImage, // 5/24/2022
     lastPrice, // 6/21/2022
-    lastPriceIdentity,
     consolidatedSeasonalData, //7/17/2022
     maxYearsConsolidatedSeasonalData,
     maxAvailableYears,
@@ -1684,9 +1349,6 @@ const App = () => {
     chatbotIconBlink,
     chatbotPendingTip,
     chatbotPrefill,
-    taraActionState,
-    viewerDataState,
-    taraLoadGeneration,
     refreshKey,
     showArticlePublish,
     PEselected,
@@ -1774,7 +1436,6 @@ const App = () => {
     SetStockScoreCurrent,   // true = current , false = historical
     SetExportImage, // 5/24/2022 - true of false to signal exporting the visible div as jpg or png
     SetLastPrice, // 6/21/2022
-    SetLastPriceIdentity,
     SetConsolidatedSeasonalData, //7/17/2022
     SetMaxYearsConsolidatedSeasonalData,
     SetMaxAvailableYears,
@@ -1842,13 +1503,10 @@ const App = () => {
     SetChatbotIconBlink,
     SetChatbotPendingTip,
     SetChatbotPrefill,
-    BeginTaraViewAction: beginTaraViewAction,
-    ReportViewerDataState: reportViewerDataState,
-    RegisterTaraLoadAbort: registerTaraLoadAbort,
-    SetTaraActionState,
     onChatbotIconClick: () => { SetChatbotIconBlink(false); },
     SetRefreshKey,
     SetShowArticlePublish,
+    SetPEselected,
     SetUITheme,
     SetBackgroundColor,
     SetColumnVisibility: handleSetColumnVisibility,
@@ -2876,22 +2534,17 @@ const App = () => {
           SetSelectedSecurity(resource_group)
           setCookie('selectedSecurity', resource_group, 300) // sync cookie so refresh without querystring loads correct group
 
-          // OppTable's settled-URL fetch guard makes the old one-second timing
-          // workaround unnecessary. Apply the deep-link state now and claim
-          // ownership so a later login/token rerun cannot restore an older
-          // default after the user starts interacting.
+          // Apply the deep-link state immediately and claim ownership so a
+          // later login/token rerun cannot restore an older table default.
           oppYearsSelectionOwnedRef.current = true;
           let [y1, y2] = getOppYearsForGroup(resource_group, showPEOpps);
-          // The deep link describes the Wave Viewer only. Opportunity Table
-          // recurrence is an independently persisted per-market preference and
-          // must not inherit Viewer years after a reload.
-          const deepLinkOppRecurrence = resolveViewerDeepLinkOpportunityRecurrence(
+          const opportunityRecurrence = resolveViewerDeepLinkOpportunityRecurrence(
             parsedYears,
             y1,
             y2,
           )
-          SetOppTableYears(deepLinkOppRecurrence.years)
-          SetOppTablePartialYears(deepLinkOppRecurrence.partialYears)
+          SetOppTableYears(opportunityRecurrence.years)
+          SetOppTablePartialYears(opportunityRecurrence.partialYears)
           // Don't clear opportunities here: OppTable refetches whenever its
           // resolved URL changes (selectedSecurity / partialYears / oppTableYears
           // etc.). If the cookie already pointed at the pattern's market with
@@ -3110,55 +2763,6 @@ const App = () => {
       document.removeEventListener('submit', handleSubmit, true);
     };
   }, []);
-
-  const handleLessonHighlightChatbot = useCallback((on) => {
-    SetChatbotIconBlink(on);
-  }, []);
-
-  const handleLessonOpenChatbot = useCallback(() => {
-    if (!chatbotEnabled) return;
-    SetChatbotIconBlink(false);
-    SetShowChatbot(true);
-  }, [chatbotEnabled]);
-
-  const userContextValue = useMemo(() => ({
-    selectedSecurityType,
-    resourceObj,
-    debug,
-    wpUserLevels,
-    seasonalAppDivH,
-    seasonalAppDivH2,
-    browserH,
-    browserW,
-    rdd,
-    token,
-    globalTextSize,
-    checkboxZoom,
-    tableTextSize,
-    tableTitleTextSize,
-    infoTextSize,
-    loggedinUser,
-    UITheme,
-    SetDialogType,
-    SetDialogProp,
-    SetInfoBoxVisible,
-  }), [
-    selectedSecurityType,
-    resourceObj,
-    wpUserLevels,
-    seasonalAppDivH,
-    seasonalAppDivH2,
-    browserH,
-    browserW,
-    token,
-    globalTextSize,
-    checkboxZoom,
-    tableTextSize,
-    tableTitleTextSize,
-    infoTextSize,
-    loggedinUser,
-    UITheme,
-  ]);
   //------------------------------------------------------------------------------------------------------------------------------------------------------
   return (
 
@@ -3176,7 +2780,7 @@ const App = () => {
               <SubscriptionWelcomeModal UITheme={UITheme} rdd={rdd} tier={subWelcome.tier} subscriptionEvent={subWelcome.event}
                 onClose={() => { try { markSubscriptionWelcomed(); } catch (e) { /* noop */ } setSubWelcome(null); }} />
             )}
-            <LessonBox UITheme={UITheme} rdd={rdd} hidden={infoBoxVisible || !!subWelcome} dateRangeLabel={_lessonRange} onHighlightChatbot={handleLessonHighlightChatbot} onOpenChatbot={handleLessonOpenChatbot} />
+            <LessonBox UITheme={UITheme} rdd={rdd} hidden={infoBoxVisible || !!subWelcome} dateRangeLabel={_lessonRange} onHighlightChatbot={(on) => SetChatbotIconBlink(on)} onOpenChatbot={() => { if (chatbotEnabled) { SetChatbotIconBlink(false); SetShowChatbot(true); } }} />
             {_ts.onTrial && _ts.daysRemaining != null && (
               <div style={{ position: 'fixed', bottom: '86px', right: '18px', zIndex: 9000 }}>
                 <DaysRemainingPill UITheme={UITheme} daysRemaining={_ts.daysRemaining} totalDays={7}
@@ -3325,7 +2929,7 @@ const App = () => {
           </div>
         </div>
       )}
-      <UserContext.Provider value={userContextValue} >
+      <UserContext.Provider value={{ selectedSecurityType, resourceObj, debug, wpUserLevels, seasonalAppDivH, seasonalAppDivH2, browserH, browserW, rdd, token, globalTextSize, checkboxZoom, tableTextSize, tableTitleTextSize, infoTextSize, loggedinUser, UITheme, SetDialogType, SetDialogProp, SetInfoBoxVisible }} >
         {/* had to add test !rdd.isMobile only for safari on ipad */}
         {/*
             Nested ErrorBoundary wraps each layout root so a crash in DesktopLayout

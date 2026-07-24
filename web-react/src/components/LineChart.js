@@ -47,105 +47,11 @@ const DEFAULT_BB_CONFIG = {
     fill: true,
 };
 
-const EMPTY_ARRAY = Object.freeze([]);
-
-const computeSMA = (data, period) => {
-    const windowSize = Number(period);
-    const result = new Array(data.length).fill(null);
-    if (!Number.isInteger(windowSize) || windowSize <= 0) return result;
-
-    const parsedValues = new Array(data.length);
-    let sum = 0;
-    let invalidCount = 0;
-
-    for (let i = 0; i < data.length; i++) {
-        const parsed = parseFloat(data[i]);
-        const isValid = data[i] !== null && data[i] !== undefined && !isNaN(parsed);
-        parsedValues[i] = isValid ? parsed : null;
-
-        if (isValid) sum += parsed;
-        else invalidCount++;
-
-        if (i >= windowSize) {
-            const outgoing = parsedValues[i - windowSize];
-            if (outgoing === null) invalidCount--;
-            else sum -= outgoing;
-        }
-
-        if (i >= windowSize - 1 && invalidCount === 0) {
-            result[i] = sum / windowSize;
-        }
-    }
-
-    return result;
-};
-
-const computeEMA = (data, period) => {
-    const k = 2 / (period + 1);
-    const result = new Array(data.length).fill(null);
-    // Find the first window of `period` valid values for the initial SMA seed
-    let seedSum = 0, seedCount = 0, seedEnd = -1;
-    for (let i = 0; i < data.length; i++) {
-        const v = parseFloat(data[i]);
-        if (!isNaN(v)) {
-            seedSum += v;
-            seedCount++;
-            if (seedCount === period) { seedEnd = i; break; }
-        }
-    }
-    if (seedEnd === -1) return result;
-    let ema = seedSum / period;
-    result[seedEnd] = ema;
-    for (let i = seedEnd + 1; i < data.length; i++) {
-        const v = parseFloat(data[i]);
-        if (isNaN(v)) { result[i] = ema; continue; }
-        ema = v * k + ema * (1 - k);
-        result[i] = ema;
-    }
-    return result;
-};
-
-const computeBB = (data, period, multiplier) => {
-    const middle = computeSMA(data, period);
-    const upper = new Array(data.length).fill(null);
-    const lower = new Array(data.length).fill(null);
-    for (let i = period - 1; i < data.length; i++) {
-        if (middle[i] === null) continue;
-        const window = data.slice(i - period + 1, i + 1).map(v => parseFloat(v));
-        if (window.some(v => isNaN(v))) continue;
-        const mean = middle[i];
-        const variance = window.reduce((sum, v) => sum + (v - mean) ** 2, 0) / period;
-        const stddev = Math.sqrt(variance);
-        upper[i] = mean + multiplier * stddev;
-        lower[i] = mean - multiplier * stddev;
-    }
-    return { middle, upper, lower };
-};
-
-const hexToRgb = (hex) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `${r},${g},${b}`;
-};
-
-const formatEarningsDate = (dateStr) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const [year, month, day] = dateStr.split('-');
-    return `${months[parseInt(month, 10) - 1]} ${parseInt(day, 10)}, ${year}`;
-};
-
-const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_ARRAY, barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = EMPTY_ARRAY, SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', consolidatedSeasonalData = EMPTY_ARRAY, showMaxProjection = false, maxYearsConsolidatedSeasonalData = EMPTY_ARRAY, maxAvailableYears = 0, projectionCapable = false, priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null }) => {
+const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = [], SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', consolidatedSeasonalData = [], showMaxProjection = false, maxYearsConsolidatedSeasonalData = [], maxAvailableYears = 0, projectionCapable = false, priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null }) => {
 
     const { browserH, browserW, rdd, loggedinUser } = useContext(UserContext)
-    const tc = useMemo(() => themeColors(UITheme), [UITheme])
-    const chartBackgroundColor = useMemo(
-        () => UIcolors(loggedinUser, UITheme)['background_price_chart'],
-        [loggedinUser, UITheme]
-    )
+    const tc = themeColors(UITheme)
     const chartRef = useRef(null);
-    const themeRef = useRef(UITheme)
-    themeRef.current = UITheme
 
     // default values are just for testing - not used
 
@@ -476,15 +382,47 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
     //-------------------------------------------------
 
     // Prepend seed closes so MAs are fully computed from bar 0 of the display window
-    const seedCloses = useMemo(() => smaSeedData.map(r => r[4]), [smaSeedData]);
-    const allCloses = useMemo(() => [...seedCloses, ...dataClose], [seedCloses, dataClose]);
+    const seedCloses = smaSeedData.map(r => r[4]);
+    const allCloses = [...seedCloses, ...dataClose];
     const seedLen = seedCloses.length;
 
-    const enabledMAs = useMemo(
-        () => (maConfig || DEFAULT_MA_CONFIG).filter(ma => ma.enabled),
-        [maConfig]
-    );
-    const maDatasets = useMemo(() => enabledMAs.map(ma => {
+    const computeSMA = (data, period) => {
+        return data.map((_, i) => {
+            if (i < period - 1) return null;
+            const slice = data.slice(i - period + 1, i + 1);
+            const valid = slice.filter(v => v !== null && v !== undefined && !isNaN(parseFloat(v)));
+            if (valid.length < period) return null;
+            return valid.reduce((a, b) => a + parseFloat(b), 0) / period;
+        });
+    };
+
+    const computeEMA = (data, period) => {
+        const k = 2 / (period + 1);
+        const result = new Array(data.length).fill(null);
+        // Find the first window of `period` valid values for the initial SMA seed
+        let seedSum = 0, seedCount = 0, seedEnd = -1;
+        for (let i = 0; i < data.length; i++) {
+            const v = parseFloat(data[i]);
+            if (!isNaN(v)) {
+                seedSum += v;
+                seedCount++;
+                if (seedCount === period) { seedEnd = i; break; }
+            }
+        }
+        if (seedEnd === -1) return result;
+        let ema = seedSum / period;
+        result[seedEnd] = ema;
+        for (let i = seedEnd + 1; i < data.length; i++) {
+            const v = parseFloat(data[i]);
+            if (isNaN(v)) { result[i] = ema; continue; }
+            ema = v * k + ema * (1 - k);
+            result[i] = ema;
+        }
+        return result;
+    };
+
+    const enabledMAs = (maConfig || DEFAULT_MA_CONFIG).filter(ma => ma.enabled);
+    const maDatasets = enabledMAs.map(ma => {
         const full = ma.type === 'ema'
             ? computeEMA(allCloses, ma.period)
             : computeSMA(allCloses, ma.period);
@@ -501,55 +439,79 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
             tension: 0.3,
             spanGaps: false,
         };
-    }), [enabledMAs, allCloses, seedLen]);
+    });
 
     // ── Bollinger Bands ──
-    const bbDatasets = useMemo(() => {
-        if (!bbConfig || !bbConfig.enabled) return [];
+    const computeBB = (data, period, multiplier) => {
+        const middle = computeSMA(data, period);
+        const upper = new Array(data.length).fill(null);
+        const lower = new Array(data.length).fill(null);
+        for (let i = period - 1; i < data.length; i++) {
+            if (middle[i] === null) continue;
+            const window = data.slice(i - period + 1, i + 1).map(v => parseFloat(v));
+            if (window.some(v => isNaN(v))) continue;
+            const mean = middle[i];
+            const variance = window.reduce((sum, v) => sum + (v - mean) ** 2, 0) / period;
+            const stddev = Math.sqrt(variance);
+            upper[i] = mean + multiplier * stddev;
+            lower[i] = mean - multiplier * stddev;
+        }
+        return { middle, upper, lower };
+    };
 
+    const bbDatasets = [];
+    if (bbConfig && bbConfig.enabled) {
         const bb = computeBB(allCloses, bbConfig.period, bbConfig.multiplier);
         const bbColor = bbConfig.color || '#e8a838';
+        // Parse hex to rgb for opacity variants
+        const hexToRgb = (hex) => {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `${r},${g},${b}`;
+        };
         const rgb = hexToRgb(bbColor);
-        return [
-            {
-                label: 'BB Upper',
-                data: bb.upper.slice(seedLen),
-                borderWidth: 1,
-                borderColor: bbColor,
-                backgroundColor: 'transparent',
-                pointRadius: 0,
-                pointHoverRadius: 0,
-                fill: false,
-                tension: 0.3,
-                spanGaps: false,
-            },
-            {
-                label: 'BB Lower',
-                data: bb.lower.slice(seedLen),
-                borderWidth: 1,
-                borderColor: bbColor,
-                backgroundColor: bbConfig.fill ? `rgba(${rgb},0.10)` : 'transparent',
-                pointRadius: 0,
-                pointHoverRadius: 0,
-                fill: bbConfig.fill ? '-1' : false,
-                tension: 0.3,
-                spanGaps: false,
-            },
-            {
-                label: 'BB Middle',
-                data: bb.middle.slice(seedLen),
-                borderWidth: 1,
-                borderColor: `rgba(${rgb},0.5)`,
-                borderDash: [4, 4],
-                backgroundColor: 'transparent',
-                pointRadius: 0,
-                pointHoverRadius: 0,
-                fill: false,
-                tension: 0.3,
-                spanGaps: false,
-            },
-        ];
-    }, [allCloses, bbConfig, seedLen]);
+        // Upper band
+        bbDatasets.push({
+            label: 'BB Upper',
+            data: bb.upper.slice(seedLen),
+            borderWidth: 1,
+            borderColor: bbColor,
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+            tension: 0.3,
+            spanGaps: false,
+        });
+        // Lower band - fill to previous dataset (upper) when fill enabled
+        bbDatasets.push({
+            label: 'BB Lower',
+            data: bb.lower.slice(seedLen),
+            borderWidth: 1,
+            borderColor: bbColor,
+            backgroundColor: bbConfig.fill ? `rgba(${rgb},0.10)` : 'transparent',
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: bbConfig.fill ? '-1' : false,
+            tension: 0.3,
+            spanGaps: false,
+        });
+        // Middle band (SMA basis) - dashed, reduced opacity
+        bbDatasets.push({
+            label: 'BB Middle',
+            data: bb.middle.slice(seedLen),
+            borderWidth: 1,
+            borderColor: `rgba(${rgb},0.5)`,
+            borderDash: [4, 4],
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+            tension: 0.3,
+            spanGaps: false,
+        });
+    }
 
     // ── Seasonal Projection computation ──
     // Both the user-selected-sy line and the full-history line share this walk; the only
@@ -672,89 +634,41 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
 
     // Both projections share the same last-close anchor + period + timeframe, so their
     // extraLabels arrays are identical when both are active. We just take whichever ran.
-    const projectionLayout = useMemo(() => {
-        const projCount = projectionResult.projectionCount;
-        const maxProjCount = maxProjectionResult.projectionCount;
-        const activeProjCount = Math.max(projCount, maxProjCount);
-        const activeExtraLabels = projCount >= maxProjCount
-            ? projectionResult.extraLabels
-            : maxProjectionResult.extraLabels;
-
-        if (activeProjCount === 0) {
-            return {
-                projCount,
-                maxProjCount,
-                extendedLabels: labels,
-                paddedDataClose: dataClose,
-                paddedPointStyle: pointStyle,
-                paddedOhlcData: ohlcData,
-                paddedVolumeData: volumeData,
-                paddedMaDatasets: maDatasets,
-                paddedBbDatasets: bbDatasets,
-            };
-        }
-
-        const nullPadding = new Array(activeProjCount).fill(null);
-        return {
-            projCount,
-            maxProjCount,
-            extendedLabels: [...labels, ...activeExtraLabels],
-            paddedDataClose: [...dataClose, ...nullPadding],
-            paddedPointStyle: [...pointStyle, ...new Array(activeProjCount).fill('')],
-            paddedOhlcData: [...ohlcData, ...nullPadding],
-            paddedVolumeData: volumeData.length > 0 ? [...volumeData, ...nullPadding] : volumeData,
-            paddedMaDatasets: maDatasets.map(ds => ({ ...ds, data: [...ds.data, ...nullPadding] })),
-            paddedBbDatasets: bbDatasets.map(ds => ({ ...ds, data: [...ds.data, ...nullPadding] })),
-        };
-    }, [projectionResult, maxProjectionResult, labels, dataClose, pointStyle, ohlcData, volumeData, maDatasets, bbDatasets]);
-
-    const {
-        projCount,
-        maxProjCount,
-        extendedLabels,
-        paddedDataClose,
-        paddedPointStyle,
-        paddedOhlcData,
-        paddedVolumeData,
-        paddedMaDatasets,
-        paddedBbDatasets,
-    } = projectionLayout;
+    const projCount = projectionResult.projectionCount;
+    const maxProjCount = maxProjectionResult.projectionCount;
+    const activeProjCount = Math.max(projCount, maxProjCount);
+    const activeExtraLabels = projCount >= maxProjCount ? projectionResult.extraLabels : maxProjectionResult.extraLabels;
+    const extendedLabels = activeProjCount > 0 ? [...labels, ...activeExtraLabels] : labels;
+    const paddedDataClose = activeProjCount > 0 ? [...dataClose, ...new Array(activeProjCount).fill(null)] : dataClose;
+    const paddedPointStyle = activeProjCount > 0 ? [...pointStyle, ...new Array(activeProjCount).fill('')] : pointStyle;
+    const paddedOhlcData = activeProjCount > 0 ? [...ohlcData, ...new Array(activeProjCount).fill(null)] : ohlcData;
+    const paddedVolumeData = activeProjCount > 0 && volumeData.length > 0 ? [...volumeData, ...new Array(activeProjCount).fill(null)] : volumeData;
+    const paddedMaDatasets = activeProjCount > 0 ? maDatasets.map(ds => ({ ...ds, data: [...ds.data, ...new Array(activeProjCount).fill(null)] })) : maDatasets;
+    const paddedBbDatasets = activeProjCount > 0 ? bbDatasets.map(ds => ({ ...ds, data: [...ds.data, ...new Array(activeProjCount).fill(null)] })) : bbDatasets;
 
     const isLineChart = priceChartType === 'line';
     // For candle/ohlc: compute y-axis bounds from OHLC range so wicks are fully visible
-    const { ohlcMin, ohlcMax } = useMemo(() => {
-        if (isLineChart || ohlcData.length === 0) {
-            return { ohlcMin: undefined, ohlcMax: undefined };
-        }
-
-        let min = Infinity;
-        let max = -Infinity;
-        for (const bar of ohlcData) {
-            if (bar == null) continue;
-            min = Math.min(min, bar.low);
-            max = Math.max(max, bar.high);
-        }
-
-        if (!Number.isFinite(min) || !Number.isFinite(max)) {
-            return { ohlcMin: undefined, ohlcMax: undefined };
-        }
-
+    let ohlcMin, ohlcMax;
+    if (!isLineChart && ohlcData.length > 0) {
+        const ohlcValid = ohlcData.filter(d => d != null);
+        ohlcMin = Math.min(...ohlcValid.map(d => d.low));
+        ohlcMax = Math.max(...ohlcValid.map(d => d.high));
         // Include both projection lines' values in bounds so neither gets clipped.
         for (const pr of [projectionResult, maxProjectionResult]) {
             if (pr.projectionCount > 0 && pr.projectionData.length > 0) {
-                for (const value of pr.projectionData) {
-                    if (value == null) continue;
-                    min = Math.min(min, value);
-                    max = Math.max(max, value);
+                const projValues = pr.projectionData.filter(v => v != null);
+                if (projValues.length > 0) {
+                    ohlcMin = Math.min(ohlcMin, ...projValues);
+                    ohlcMax = Math.max(ohlcMax, ...projValues);
                 }
             }
         }
+        const pad = (ohlcMax - ohlcMin) * 0.02 || 1;
+        ohlcMin -= pad;
+        ohlcMax += pad;
+    }
 
-        const pad = (max - min) * 0.02 || 1;
-        return { ohlcMin: min - pad, ohlcMax: max + pad };
-    }, [isLineChart, ohlcData, projectionResult, maxProjectionResult]);
-
-    const data = useMemo(() => ({
+    const data = {
         labels: extendedLabels,
         datasets: [
             { fill: true },
@@ -805,27 +719,10 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
                 order: 10,
             }] : []),
         ],
-    }), [
-        extendedLabels,
-        isLineChart,
-        paddedDataClose,
-        paddedPointStyle,
-        paddedMaDatasets,
-        paddedBbDatasets,
-        projCount,
-        projectionResult,
-        projectionPeriod,
-        maxProjCount,
-        maxProjectionResult,
-        maxAvailableYears,
-        showVolume,
-        paddedVolumeData,
-        UITheme,
-        tc.lineFill,
-        tc.lineColor,
-    ]);
+    };
     //-------------------------------------------------
-    const highlightBox = useMemo(() => ({
+    const highlightBox = {
+
         drawTime: "afterDatasetsDraw",
         display: !showCurrentLineChart, // when showing the current chart don't place annotation for trade
         type: "box",
@@ -834,10 +731,10 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
         // yMin: 50,
         // yMax: 97,
         backgroundColor: tradeBoxColor,
-    }), [showCurrentLineChart, x0, x1, tradeBoxColor])
+    }
 
     //-------------------------------------------------
-    const tradeLine = useMemo(() => ({
+    const tradeLine = {
         xMin: x0,
         xMax: x1,
         yMin: y0,
@@ -846,7 +743,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
         borderDash: [5, 5],
         borderColor: tradeLineColor,
         display: !activeTrade
-    }), [x0, x1, y0, y1, tradeLineColor, activeTrade])
+    }
 
     //-------------------------------------------------
     let axisFontSize = '20vw';
@@ -875,18 +772,9 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
         caretSize = '20';
     }
 
-    const isMobile = rdd.isMobile;
-    const isMobilePortrait = isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth;
-    const volumeAxisMax = useMemo(() => {
-        if (!showVolume || paddedVolumeData.length === 0) return null;
-        let maxVolume = -Infinity;
-        for (const value of paddedVolumeData) {
-            if (value != null) maxVolume = Math.max(maxVolume, value);
-        }
-        return maxVolume * 4;
-    }, [showVolume, paddedVolumeData]);
+    const isMobilePortrait = rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth;
 
-    const options = useMemo(() => ({
+    const options = {
         animation: false,         // disable animation so re-renders don't cause visible flashing
         maintainAspectRatio: false,
         _squareGridColor: UITheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
@@ -913,7 +801,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
                         if (prevMM && prevMM !== mm) {
                             // Year change (Jan) → show year
                             if (mm === '01') return label.substring(0, 4);
-                            if (isMobile) {
+                            if (rdd.isMobile) {
                                 const monthNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                                 return monthNames[parseInt(mm, 10)] || mm;
                             }
@@ -940,7 +828,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
                     position: 'right',
                     display: false,
                     beginAtZero: true,
-                    max: volumeAxisMax,
+                    max: Math.max(...paddedVolumeData.filter(v => v != null)) * 4,
                     grid: { display: false },
                 },
             } : {}),
@@ -968,21 +856,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
                 }
             }
         }
-    }), [
-        UITheme,
-        tc.tickColor,
-        axisFontSize,
-        isMobile,
-        isMobilePortrait,
-        ohlcMin,
-        ohlcMax,
-        showVolume,
-        paddedVolumeData,
-        volumeAxisMax,
-        enabledMAs,
-        highlightBox,
-        tradeLine,
-    ]);
+    };
 
     //---------------------------------------
 
@@ -1040,7 +914,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
     }
 
     // Square-grid plugin: draws dashed grid so cells are approximately square
-    const squareGridPlugin = useMemo(() => ({
+    const squareGridPlugin = {
         id: 'squareGridPlugin',
         beforeDraw: (chart) => {
             const yScale = chart.scales.y;
@@ -1086,26 +960,26 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
 
             ctx.restore();
         },
-    }), []);
+    };
 
     // Permanent watermark plugin - draws on every chart render
-    const watermarkPlugin = useMemo(() => ({
+    const watermarkPlugin = {
         id: 'watermarkPlugin',
         afterDraw: (chart) => {
             const ctx = chart.ctx;
             const chartArea = chart.chartArea;
             ctx.save();
             ctx.font = 'bold 14px Arial';
-            ctx.fillStyle = themeRef.current === 'dark' ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
+            ctx.fillStyle = UITheme === 'dark' ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'bottom';
             ctx.fillText('TradeWave.AI', chartArea.right - 10, chartArea.bottom - 8);
             ctx.restore();
         },
-    }), []);
+    };
 
     // Candlestick / OHLC drawing plugin (created once on mount - reads from refs for live values)
-    const candlestickPlugin = useMemo(() => ({
+    const candlestickPlugin = {
         id: 'candlestickPlugin',
         afterDraw: (chart) => {
             const type = priceChartTypeRef.current;
@@ -1175,10 +1049,10 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
             });
             ctx.restore();
         },
-    }), []);
+    };
 
     // Price level drawing plugin
-    const priceLevelPlugin = useMemo(() => ({
+    const priceLevelPlugin = {
         id: 'priceLevelPlugin',
         afterDraw: (chart) => {
             const levels = priceLevelsRef.current
@@ -1227,11 +1101,17 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
             })
             ctx.restore()
         },
-    }), [])
+    }
 
     // Earnings date marker plugin - draws professional vertical markers + badges
     // Format "YYYY-MM-DD" → "Jan 29, 2026"
-    const earningsPlugin = useMemo(() => ({
+    const fmtEarningsDate = (dateStr) => {
+        const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const [y, mo, d] = dateStr.split('-');
+        return `${m[parseInt(mo, 10) - 1]} ${parseInt(d, 10)}, ${y}`;
+    };
+
+    const earningsPlugin = {
         id: 'earningsPlugin',
         afterEvent: (chart, args) => {
             const event = args.event;
@@ -1414,8 +1294,8 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
                 }
                 if (closest) {
                     const label = closest.isProjected
-                        ? `Est. Earnings: ${formatEarningsDate(closest.date)}`
-                        : `Earnings: ${formatEarningsDate(closest.date)}`;
+                        ? `Est. Earnings: ${fmtEarningsDate(closest.date)}`
+                        : `Earnings: ${fmtEarningsDate(closest.date)}`;
                     ctx.save();
                     ctx.font = '11px Arial';
                     const textW = ctx.measureText(label).width;
@@ -1456,12 +1336,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
                 }
             }
         },
-    }), []);
-
-    const chartPlugins = useMemo(
-        () => [squareGridPlugin, candlestickPlugin, earningsPlugin, priceLevelPlugin, watermarkPlugin],
-        [squareGridPlugin, candlestickPlugin, earningsPlugin, priceLevelPlugin, watermarkPlugin]
-    );
+    };
 
     // Mouse interaction for price levels
     useEffect(() => {
@@ -1615,7 +1490,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
 
     //------------------------------------------------------------------------------------------
     return (
-        <div style={{ backgroundColor: chartBackgroundColor, height: "100%" }}>
+        <div style={{ backgroundColor: UIcolors(loggedinUser, UITheme)['background_price_chart'], height: "100%" }}>
 
             {/* floating window section */}
             <div className='f-parent' style={fWindowStyle} >
@@ -1660,7 +1535,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
             {/* end floating window section */}
 
             <div style={{ height: '100%', width: '100%' }}>
-                <Line ref={chartRef} data={data} options={options} plugins={chartPlugins} />
+                <Line ref={chartRef} data={data} options={options} plugins={[squareGridPlugin, candlestickPlugin, earningsPlugin, priceLevelPlugin, watermarkPlugin]} />
             </div>
         </div>
     )

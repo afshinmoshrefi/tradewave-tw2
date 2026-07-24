@@ -1,71 +1,60 @@
-import React, { useMemo, useContext, useRef } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { UserContext } from './UserContext';
 import { UIcolors, themeColors } from './Common';
 
 const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChartLongOrShort, UITheme }) => {
     const { rdd, loggedinUser } = useContext(UserContext);
-    const tc = useMemo(() => themeColors(UITheme), [UITheme]);
-    const chartBackgroundColor = useMemo(
-        () => UIcolors(loggedinUser, UITheme)['background_barchart'],
-        [loggedinUser, UITheme]
-    );
-    const barClickedRef = useRef(barClicked);
-    barClickedRef.current = barClicked;
+    const tc = themeColors(UITheme);
 
+    // Derive the complete Chart.js payload during render. The previous effect-
+    // backed state rendered one frame with the prior ticker before installing
+    // the new labels and bars, creating a measurable stale-canvas flash.
     const {
         dataMain,
         dataMainColors,
         dataMax,
-        maxColor,
         dataMin,
-        minColor,
         labels,
     } = useMemo(() => {
-        const tmpLevels = [];
-        const tmpColors = [];
-        const tmpMin = [];
-        const tmpMax = [];
-        const tmpLabels = [];
+        const nextMain = [];
+        const nextColors = [];
+        const nextMax = [];
+        const nextMin = [];
+        const nextLabels = [];
 
-        seasonalBarChartData.forEach((r) => {
-            const plist = r['pct'].split(',');
-            tmpLabels.push(r['year']);
-            tmpLevels.push(plist[0]);
-
-            if (plist[0] >= 0) {
-                tmpColors.push(tc.barGreen);
-            }
-            if (plist[0] < 0) {
-                tmpColors.push(tc.barRed);
-            }
-
+        seasonalBarChartData.forEach((row) => {
+            const plist = row['pct'].split(',').map(value => parseFloat(value));
             const close = plist[0];
             const high = plist[1];
             const low = plist[2];
 
-            if (close >= 0 && high > 0) tmpMax.push(parseFloat(high - close).toFixed(2));
-            else if (close < 0 && high >= 0) tmpMax.push(parseFloat(high).toFixed(2));
-            else if (close < 0 && high < 0) tmpMax.push(0);
+            nextLabels.push(row['year']);
+            nextMain.push(close);
+            nextColors.push(close >= 0 ? tc.barGreen : tc.barRed);
 
-            if (close <= 0 && low < 0) tmpMin.push(parseFloat(low - close).toFixed(2));
-            else if (close > 0 && low <= 0) tmpMin.push(parseFloat(low).toFixed(2));
-            else if (close > 0 && low > 0) tmpMin.push(0);
+            if (close >= 0 && high > 0) nextMax.push(parseFloat(high - close).toFixed(2));
+            else if (close < 0 && high >= 0) nextMax.push(parseFloat(high).toFixed(2));
+            else nextMax.push(0);
+
+            if (close <= 0 && low < 0) nextMin.push(parseFloat(low - close).toFixed(2));
+            else if (close > 0 && low <= 0) nextMin.push(parseFloat(low).toFixed(2));
+            else nextMin.push(0);
         });
 
-        const showMax = (barChartLongOrShort === 'long' && showMFE)
-            || (barChartLongOrShort === 'short' && showMAE);
-        const showMin = (barChartLongOrShort === 'long' && showMAE)
-            || (barChartLongOrShort === 'short' && showMFE);
+        const includeMax =
+            (barChartLongOrShort === 'long' && showMFE) ||
+            (barChartLongOrShort === 'short' && showMAE);
+        const includeMin =
+            (barChartLongOrShort === 'long' && showMAE) ||
+            (barChartLongOrShort === 'short' && showMFE);
 
         return {
-            dataMain: tmpLevels,
-            dataMainColors: tmpColors,
-            dataMax: showMax ? tmpMax : [],
-            maxColor: tc.barMFE,
-            dataMin: showMin ? tmpMin : [],
-            minColor: tc.barMAE,
-            labels: tmpLabels,
+            dataMain: nextMain,
+            dataMainColors: nextColors,
+            dataMax: includeMax ? nextMax : [],
+            dataMin: includeMin ? nextMin : [],
+            labels: nextLabels,
         };
     }, [
         seasonalBarChartData,
@@ -74,8 +63,6 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
         barChartLongOrShort,
         tc.barGreen,
         tc.barRed,
-        tc.barMFE,
-        tc.barMAE,
     ]);
 
     let axisFontSize = '20vw';
@@ -96,8 +83,8 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
         axisFontSize = '17vw';
     }
 
-    const data = useMemo(() => ({
-        labels,
+    const data = {
+        labels: labels,
         datasets: [
             {
                 label: 'dataMain',
@@ -107,22 +94,29 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
             {
                 label: 'dataMax',
                 data: dataMax,
-                backgroundColor: maxColor,
+                backgroundColor: tc.barMFE,
             },
             {
                 label: 'dataMin',
                 data: dataMin,
-                backgroundColor: minColor,
+                backgroundColor: tc.barMAE,
             },
         ]
-    }), [labels, dataMain, dataMainColors, dataMax, maxColor, dataMin, minColor]);
+    };
 
-    const options = useMemo(() => ({
+    const options = {
+        // The chart is an interaction result, not a decorative entrance. Chart.js
+        // animations kept repainting the canvas after ChartData4 had completed,
+        // which made rapid row selections look stale and missed the viewer's
+        // response-to-usable budget.
+        animation: false,
         onClick: function (event, item) {
             if (item.length > 0) {
-                barClickedRef.current(labels[item[0]['index']]);
+                barClicked(labels[item[0]['index']]);
             }
         },
+        devicePixelRatio: 0.5,
+        normalized: true,
         maintainAspectRatio: false,
         scales: {
             y: {
@@ -199,10 +193,10 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
                 }
             },
         },
-    }), [labels, axisFontSize, tc.tickColor, tooltipEnabled, barChartLongOrShort]);
+    };
 
     return (
-        <div style={{ backgroundColor: chartBackgroundColor, height: "100%" }}>
+        <div style={{ backgroundColor: UIcolors(loggedinUser, UITheme)['background_barchart'], height: "100%" }}>
             <Bar
                 key={`${UITheme}`}
                 data={data}
@@ -212,4 +206,4 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
     );
 };
 
-export default BarChart;
+export default React.memo(BarChart);

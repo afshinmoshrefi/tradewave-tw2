@@ -1,0 +1,25 @@
+{
+  "captured_at": "2026-07-24T17:03:23.924Z",
+  "cold": {
+    "symbol": "AAPL",
+    "selection_to_request_start_ms": 4168,
+    "request_duration_ms": 623,
+    "response_to_stable_canvas_ms": 3895,
+    "selection_to_usable_chart_ms": 8686
+  },
+  "warm": [],
+  "console_errors": [],
+  "missing_targets": [
+    "UNH",
+    "PCAR",
+    "FAST",
+    "EQR",
+    "AAPL"
+  ],
+  "bundle_hash": "08bde07a",
+  "baseline": {
+    "selected_security": "S&P 500 STOCKS",
+    "rows": 419,
+    "seasonal_symbol": "AAPL"
+  }
+}
