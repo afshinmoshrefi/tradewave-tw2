@@ -49,3 +49,20 @@ This file is append-only. Keep the compact current state in
 - The owner confirmed that patterns load in the authenticated browser after the
   deployment.
 - Full authenticated browser regression retesting remains next.
+
+## 2026-07-24 - `main.e3ef851f.js` rejected and rolled back
+
+- The 419-row Opportunity Table loaded, but the Wave Viewer became stranded on
+  `Loading statistics for FAST...` with zero chart canvases.
+- No browser console error was recorded. Recent appserver logs contained no
+  FAST chart-data request, proving the new frontend failed before launching the
+  primary Wave Viewer request.
+- The repair branch contained additional frontend changes that were absent from
+  the source used for `main.08bde07a.js`; those changes had not been covered by
+  the regression retest.
+- `.176` was rolled back to
+  `/home/flask/web-react/build-before-wave-loop-eca5ca9`, containing
+  `main.08bde07a.js`. The rejected build remains at
+  `/home/flask/web-react/releases/build-eca5ca958f82` for diagnosis.
+- `tradewave-web`, `tradewave-appserver`, and nginx remained active. `.180` was
+  not modified.
