@@ -2,7 +2,7 @@
 // first 2 characters of tooltip content define the position.  
 // l, is left tooltip while b, is bottom tooltip
 
-import React, { useState, useEffect, useContext, useRef } from 'react'
+import React, { useState, useEffect, useContext, useRef, useCallback } from 'react'
 import ReactDOM from 'react-dom'
 import TableBox from './TableBox'
 import SelectBox from './SelectBox'
@@ -29,6 +29,13 @@ import { BsChatDotsFill, BsChatDots } from "react-icons/bs";
 import CheckBox from './CheckBox'
 import { themeColors, setCookie } from './Common'
 import { twFetch } from './twFetch'
+import {
+  analyzeOpportunityFilter,
+  EMPTY_DAY_RANGE,
+  getOpportunityDayRange,
+} from './opportunityFilters'
+import { selectOpportunityMLScoreSource } from './opportunityMLSource'
+import { resolveOpportunityRecurrence } from './opportunityRecurrence'
 
 const OppTable = (props) => {
   const tc = themeColors(props.UITheme)
@@ -59,15 +66,16 @@ const OppTable = (props) => {
   const [numShorts, SetNumShorts] = useState(0);   // used to show longs vs shorts breakdown on the opp table
 
   const [stockScores, SetStockScores] = useState({})           // { symbol: { lscore, sscore, lscore1, sscore1 } }
-  const [stockScoresLoading, SetStockScoresLoading] = useState(false)
 
   const [mlScores, SetMLScores] = useState({})                 // { "AAPL|19|l": { ml_score, win_prob, pred_return, pred_mfe } }
-  const [mlScoresLoading, SetMLScoresLoading] = useState(false)
+  const [mlScoresLoading, SetMLScoresLoading] = useState(false) // true until the current opportunity set has a complete AI-score snapshot
   const [mlEnabled, SetMLEnabled] = useState(false)            // true when backend says this user+market has ML access
-  const [mlPending, SetMLPending] = useState(new Set())        // keys still waiting for scores (show spinner)
+  const [mlPending, SetMLPending] = useState(new Set())        // keys still waiting for scores
   const mlFetchIdRef = useRef(0)                               // prevents stale ML fetches from writing state
+  const mlBaselineOppsRef = useRef({ contextKey: '', rows: [] })
 
-  const [dayRange, SetDayRange] = useState('-'); // dash is empty - its used to send the day range to opplist4 `12/2/2023
+  const [dayRange, SetDayRange] = useState(EMPTY_DAY_RANGE)
+  const [curText, SetCurText] = useState('')
   // (declared up here, not next to the search textbox below: it is a dep of the OppList4
   //  fetch effect, and a deps array that references a const declared later in the file
   //  is a temporal-dead-zone ReferenceError at render - it blanked the whole panel)
@@ -75,7 +83,9 @@ const OppTable = (props) => {
   const userChangedPYearsRef = useRef(false)  // true when user explicitly picks a partial years value
   const lastOppUrlRef = useRef('')  // last OppList4 URL actually fetched — fetch when the resolved query changes, not when opportunities happens to be empty
   const metaReqRef = useRef(0)      // ordering guard: only the LATEST YearsMetaData2 response may write state (stale/empty responses clobbered the metadata)
+  const metaLoadingRef = useRef(false) // synchronous guard: do not validate against metadata from the previous request
   const oppReqRef = useRef(0)       // ordering guard: only the LATEST OppList4 response may write opportunities/activeOpportunities state
+  const [metaLoading, SetMetaLoading] = useState(false)
 
   const [PELabel, SetPELabel] = useState(() => {
     const remainder = new Date().getFullYear() % 4;
@@ -124,31 +134,38 @@ const OppTable = (props) => {
     let asURL = appserverURL();
     var url = `${asURL}/YearsMetaData2/${id}/${base_y}/${month}/${day}?token=${token}`
 
-    SetSeasonalYearsOptionsList([])
-    SetPartialSeasonalYearsOptionsList([])
-
     // id === -1 -> securityTypeList hasn't loaded / selectedSecurity not resolved yet.
     // Do NOT fire the fetch: the '/-1/' URL returns the EMPTY sentinel, and when that
     // response lands after the real market's it clobbers yearsMetaData AND spuriously
     // auto-offs PE mode (live-confirmed race in the access log: /YearsMetaData2/-1 and
     // /YearsMetaData2/0 fired the same second). The securityTypeList dep re-runs this
     // effect once the list loads. Mirrors the id guard the OppList4 effect already has.
-    if (id === -1 || id === '-1') return
-
     // Ordering guard: two metadata fetches can overlap during a market switch; only
     // the latest one may write state (last-writer-wins otherwise -> stuck dropdowns).
     const metaReqId = ++metaReqRef.current
+    if (id === -1 || id === '-1') {
+      metaLoadingRef.current = false
+      SetMetaLoading(false)
+      return
+    }
 
     if (token && token.length > 0) { // 4/8/2025 - occational race condition crashes the app with the line below
 
       let decoded;
-      try { decoded = jwt_decode(token); } catch (e) { console.error('jwt_decode failed in OppTable meta effect:', e.message); return; }
+      try { decoded = jwt_decode(token); } catch (e) {
+        metaLoadingRef.current = false
+        SetMetaLoading(false)
+        console.error('jwt_decode failed in OppTable meta effect:', e.message)
+        return
+      }
       let show_sr2_token = decoded['show_sr2'];
       if (show_sr2_token === 1) {
         props.SetShowSR2(true);
       }
 
       SetOppLoadFailed(false)
+      metaLoadingRef.current = true
+      SetMetaLoading(true)
 
       twFetch(url) //meta
         .then(res => {
@@ -214,31 +231,13 @@ const OppTable = (props) => {
 
             props.dayOfMonthList(props.oppTableMonth);
 
-            // -----------------------------
-            // Partial Years dropdown (from activeMeta)
-            // -----------------------------
-            var tmp2 = [];
-            const yearsKey = String(props.oppTableYears);
-
-            for (var i = 0; i < activeMeta.length; i++) {
-              if (String(activeMeta[i][0]) === yearsKey) {
-                tmp2.push({
-                  id: activeMeta[i][1],
-                  value: activeMeta[i][1],
-                  label: activeMeta[i][1],
-                });
-              }
-            }
-
-            // sort numerically by value, not by object stringification
-            tmp2.sort((a, b) => parseInt(a.value, 10) - parseInt(b.value, 10));
-
-            SetPartialSeasonalYearsOptionsList(tmp2);
-
-
-
           }
 
+          // React 17 may render between the metadata setters above. Keep the
+          // ref true until both arrays are installed, then allow exactly one
+          // validation pass against the new request's data.
+          metaLoadingRef.current = false
+          SetMetaLoading(false)
         })
         .catch(err => {
           console.log('catch login error=', err.message)
@@ -246,10 +245,16 @@ const OppTable = (props) => {
           // dropdowns empty with no visible failure state. Surface the same failed/Retry state
           // the OppList4 path uses (guarded so a stale request can't clobber a newer success).
           if (metaReqId === metaReqRef.current) {
+            metaLoadingRef.current = false
+            SetMetaLoading(false)
             SetInitialMessage('* Data temporarily unavailable')
             SetOppLoadFailed(true)
           }
         })
+    }
+    else {
+      metaLoadingRef.current = false
+      SetMetaLoading(false)
     }
 
     SetOppListExpanded(0); // 1/21/2023
@@ -265,6 +270,11 @@ const OppTable = (props) => {
   //-------------------------------------------------------------------------------------------------------
 
   useEffect(() => {
+    // A token, date, market, or PE-mode change can start a metadata request
+    // while the previous metadata is still in props. Never use that stale
+    // array to declare a fresh user choice invalid and reset it to the first
+    // option (the intermittent 8-of-10 -> 10-of-10 snap-back).
+    if (metaLoadingRef.current || metaLoading) return;
 
     // console.log('props.dayOfTheMonth=',props.dayOfTheMonth)
     // console.log('props.oppTablePartialYears=',props.oppTablePartialYears)
@@ -621,7 +631,8 @@ const OppTable = (props) => {
     props.yearsMetaData,
     props.activeWatchlistFilter,
     oppRetryNonce,
-    dayRange
+    dayRange,
+    metaLoading
   ])
   // 10/27/2021 added dayofthemonth after replacing opplist2 with opplist3
   // 8/22/2021 added length of opportunities array which is better than other dependencies - could probably remove some of the others
@@ -638,6 +649,10 @@ const OppTable = (props) => {
       userChangedPYearsRef.current = false; // reset for next context change
       return;
     }
+
+    // A partially typed or invalid filter is not an empty settled result and
+    // must never change recurrence while the user is editing it.
+    if (analyzeOpportunityFilter(curText).status !== 'valid') return;
 
     // oppTableLength is the visible count after TableBox client-side filtering
     if (props.oppTableLength > 0) return; // user sees results, no step-down needed
@@ -662,7 +677,7 @@ const OppTable = (props) => {
     const nextPY = lowerValid[0]; // DESC order -> closest valid below current
     props.SetOpportunities([]);
     props.SetOppTablePartialYears(String(nextPY));
-  }, [props.oppTableLength, props.oppTablePartialYears, partialSeasonalYearsOptionsList])
+  }, [props.oppTableLength, props.oppTablePartialYears, partialSeasonalYearsOptionsList, curText])
 
   //-------------------------------------------------------------------------------------------------------
   // Fetch stockscores in batch AFTER opportunities load (async - does not block table render)
@@ -681,7 +696,6 @@ const OppTable = (props) => {
     const url = `${asURL}/StockScoreBatch/${id}?token=${token}`
 
     const controller = new AbortController()
-    SetStockScoresLoading(true)
 
     twFetch(url, {
       method: 'POST',
@@ -694,18 +708,19 @@ const OppTable = (props) => {
         throw new Error('StockScoreBatch failed')
       })
       .then(data => {
-        if (data && data.stockscores) {
-          SetStockScores(data.stockscores)
-        }
+        ReactDOM.unstable_batchedUpdates(() => {
+          if (data && data.stockscores) {
+            SetStockScores(data.stockscores)
+          }
+        })
       })
       .catch(err => {
-        if (err.name !== 'AbortError') {
-          console.log('StockScoreBatch error:', err)
-          SetStockScores({})
-        }
-      })
-      .finally(() => {
-        SetStockScoresLoading(false)
+        ReactDOM.unstable_batchedUpdates(() => {
+          if (err.name !== 'AbortError') {
+            console.log('StockScoreBatch error:', err)
+            SetStockScores({})
+          }
+        })
       })
 
     return () => controller.abort()
@@ -716,6 +731,29 @@ const OppTable = (props) => {
   // Phase 1: POST all visible rows to MLScoreBatch - get cached scores + pending list
   // Phase 2: Poll MLScorePending every 3s to score a chunk of pending items at a time
   //-------------------------------------------------------------------------------------------------------
+  const mlContextKey = [
+    props.selectedSecurity,
+    props.oppTableMonth,
+    props.dayOfTheMonth,
+    props.oppTableYears,
+    props.oppTablePartialYears,
+    props.showPEOpps ? 'pe' : 'cons',
+    oppListExpanded,
+  ].join('|')
+
+  // A server day range can re-rank which pattern represents each ticker. AI
+  // membership must still be anchored to the unfiltered opportunity snapshot;
+  // otherwise adding a range can create more AI matches than the standalone
+  // AI filter and token order changes the result.
+  const mlSourceSelection = selectOpportunityMLScoreSource({
+    snapshot: mlBaselineOppsRef.current,
+    contextKey: mlContextKey,
+    dayRange,
+    opportunities: props.opportunities,
+  })
+  mlBaselineOppsRef.current = mlSourceSelection.snapshot
+  const mlScoreSource = mlSourceSelection.scoreSource
+
   useEffect(() => {
     const isMobilePortrait = rdd.isMobile && !rdd.isTablet && browserH > browserW
 
@@ -729,8 +767,9 @@ const OppTable = (props) => {
     const daysAhead = Math.round((oppDate - today) / (1000 * 60 * 60 * 24));
     const tooFarAhead = daysAhead > mlScoreMaxDaysAhead;
 
-    if (props.opportunities.length === 0 || !mlEnabled || isMobilePortrait || tooFarAhead) {
+    if (mlScoreSource.length === 0 || !mlEnabled || isMobilePortrait || tooFarAhead) {
       SetMLScores({})
+      SetMLScoresLoading(false)
       SetMLPending(new Set())
       return
     }
@@ -744,7 +783,7 @@ const OppTable = (props) => {
     let pollTimer = null
 
     // Build opportunity tuples sorted by sharpe_ratio descending (highest SR scored first)
-    const opps = [...props.opportunities]
+    const opps = [...mlScoreSource]
       .sort((a, b) => (b.sharpe_ratio || 0) - (a.sharpe_ratio || 0))
       .map(row => ({
         symbol: row.symbol,
@@ -753,9 +792,11 @@ const OppTable = (props) => {
         direction: String(row.lOrS).startsWith('L') ? 'l' : 's'
       }))
 
-    SetMLScoresLoading(true)
-    SetMLScores({})
-    SetMLPending(new Set())
+    ReactDOM.unstable_batchedUpdates(() => {
+      SetMLScores({})
+      SetMLScoresLoading(true)
+      SetMLPending(new Set())
+    })
 
     // Phase 1: batch request - get cached scores + pending list
     twFetch(`${asURL}/MLScoreBatch/${id}?token=${token}`, {
@@ -767,26 +808,28 @@ const OppTable = (props) => {
       .then(data => {
         if (cancelled || fetchId !== mlFetchIdRef.current) return
 
-        if (data.scores && Object.keys(data.scores).length > 0) {
-          SetMLScores(prev => ({ ...prev, ...data.scores }))
-        }
-
         // Phase 2: poll for pending items
         let pendingList = data.pending || []
+        ReactDOM.unstable_batchedUpdates(() => {
+          if (data.scores && Object.keys(data.scores).length > 0) {
+            SetMLScores(prev => ({ ...prev, ...data.scores }))
+          }
+          // Track pending keys so TableBox can show lightweight loading markers.
+          SetMLPending(new Set(pendingList.map(o => `${o.symbol}|${o.daysOut}|${o.direction}`)))
+          if (pendingList.length === 0) SetMLScoresLoading(false)
+        })
 
-        // Track pending keys so TableBox can show spinners
-        SetMLPending(new Set(pendingList.map(o => `${o.symbol}|${o.daysOut}|${o.direction}`)))
-
-        if (pendingList.length === 0) {
-          SetMLScoresLoading(false)
-          return
-        }
+        if (pendingList.length === 0) return
 
         let errorCount = 0
         const MAX_RETRIES = 3
 
         const pollPending = () => {
           if (cancelled || fetchId !== mlFetchIdRef.current) return
+          if (document.visibilityState === 'hidden') {
+            pollTimer = setTimeout(pollPending, 10000)
+            return
+          }
 
           twFetch(`${asURL}/MLScorePending/${id}?token=${token}`, {
             method: 'POST',
@@ -798,15 +841,16 @@ const OppTable = (props) => {
               if (cancelled || fetchId !== mlFetchIdRef.current) return
               errorCount = 0  // reset on success
 
-              if (result.scores && Object.keys(result.scores).length > 0) {
-                SetMLScores(prev => ({ ...prev, ...result.scores }))
-              }
               pendingList = result.still_pending || []
-              SetMLPending(new Set(pendingList.map(o => `${o.symbol}|${o.daysOut}|${o.direction}`)))
+              ReactDOM.unstable_batchedUpdates(() => {
+                if (result.scores && Object.keys(result.scores).length > 0) {
+                  SetMLScores(prev => ({ ...prev, ...result.scores }))
+                }
+                SetMLPending(new Set(pendingList.map(o => `${o.symbol}|${o.daysOut}|${o.direction}`)))
+                if (pendingList.length === 0) SetMLScoresLoading(false)
+              })
               if (pendingList.length > 0) {
                 pollTimer = setTimeout(pollPending, 3000)
-              } else {
-                SetMLScoresLoading(false)
               }
             })
             .catch(err => {
@@ -816,8 +860,10 @@ const OppTable = (props) => {
               if (errorCount < MAX_RETRIES) {
                 pollTimer = setTimeout(pollPending, 5000)  // retry after 5s
               } else {
-                SetMLScoresLoading(false)
-                SetMLPending(new Set())
+                ReactDOM.unstable_batchedUpdates(() => {
+                  SetMLScoresLoading(false)
+                  SetMLPending(new Set())
+                })
               }
             })
         }
@@ -827,9 +873,11 @@ const OppTable = (props) => {
       .catch(err => {
         if (!cancelled) {
           console.log('MLScoreBatch error:', err)
-          SetMLScores({})
-          SetMLScoresLoading(false)
-          SetMLPending(new Set())
+          ReactDOM.unstable_batchedUpdates(() => {
+            SetMLScores({})
+            SetMLScoresLoading(false)
+            SetMLPending(new Set())
+          })
         }
       })
 
@@ -837,76 +885,61 @@ const OppTable = (props) => {
       cancelled = true
       if (pollTimer) clearTimeout(pollTimer)
     }
-  }, [props.opportunities, props.selectedSecurity, mlEnabled, props.oppTableMonth, props.dayOfTheMonth])
+  }, [mlScoreSource, props.selectedSecurity, mlEnabled, props.oppTableMonth, props.dayOfTheMonth])
 
   //-------------------------------------------------------------------------------------------------------
-  const handlerKeyDown = (event) => {
-
-    let pressed_key = event['key']
-    let ci = props.rowIndexClicked;
-    let idx = 0;
-
-
-    return;  // disabling up down arrow selection 
-
-    if (pressed_key !== 'ArrowUp' && pressed_key !== 'ArrowDown') return;
-
-
-    if (pressed_key === 'ArrowUp') {
-      if (ci > 0) idx = ci - 1;
-    }
-    else if (pressed_key === 'ArrowDown') {
-      if (ci < props.opportunities.length - 1) idx = ci + 1
-    }
-
-    if (ci !== idx) {
-      props.SetRowIndexClicked(idx);
-      props.SetStartDate(props.opportunities[idx]['date'])
-      props.SetLastPrice(['', 0]) // reset last price 6/23/2022
-      props.SetSymbol(props.opportunities[idx]['symbol'])
-      props.SetDaysOut(props.opportunities[idx]['daysOut'])
-      props.SetSeasonalYears(props.oppTableYears)
-      props.SetMonthsAndQtrs('Months & Qtrs')
-    }
-
-
-  }
+  // Keyboard row selection is intentionally disabled. Keep the callback stable
+  // so unrelated chart state does not invalidate the memoized opportunity table.
+  const handlerKeyDown = useCallback(() => {}, [])
   //-------------------------------------------------------------------------------------------------------
   // when an opportunity row is clicked in TableBox, this runs
   //-------------------------------------------------------------------------------------------------------
-  const handlerRowClicked = (rowIndex, row) => (event) => { // this is to handleRowClicked in TableBox
-    if (props.rowIndexClicked !== rowIndex) {
+  const rowClickStateRef = useRef({ props, PELabel })
+  rowClickStateRef.current = { props, PELabel }
+  const handlerRowClicked = useCallback((rowIndex, row) => () => { // this is to handleRowClicked in TableBox
+    const current = rowClickStateRef.current
+    const currentProps = current.props
+    if (currentProps.rowIndexClicked !== rowIndex) {
       const opp_start_date = row.date;
-      props.SetStartDate(opp_start_date);
-      props.SetLastPrice(['', 0]) // reset last price 6/23/2022
-      props.SetSymbol(row.symbol);
-      props.SetDaysOut(row.daysOut);
+
+      // Invalidate every payload that belongs to the previously selected
+      // opportunity in this same click transaction. Leaving those objects in
+      // state until ChartData4 returns makes the new ticker/date temporarily
+      // display the prior row's statistics.
+      currentProps.SetSeasonalBarChartData([])
+      currentProps.SetTradeDetailData([])
+      currentProps.SetConsolidatedSeasonalData([])
+      currentProps.SetMaxYearsConsolidatedSeasonalData([])
+      currentProps.SetCompareSecurityBarChartData([])
+      currentProps.SetCompareSecurityTradeDetailData([])
+      currentProps.SetSecurityBHstats([])
+      currentProps.SetLineChartYear(0)
+      if (currentProps.symbol !== row.symbol) currentProps.SetCompany('')
+
+      currentProps.SetStartDate(opp_start_date);
+      currentProps.SetLastPrice(['', 0]) // reset last price 6/23/2022
+      currentProps.SetSymbol(row.symbol);
+      currentProps.SetDaysOut(row.daysOut);
 
       // PE cycle opplist type is selected
-      if (props.showPEOpps === true) {
-        let t = PELabel.toLocaleLowerCase().replace('+', '');
+      if (currentProps.showPEOpps === true) {
+        let t = current.PELabel.toLocaleLowerCase().replace('+', '');
         if (t === 'pe') t = 'pe0';
-        props.SetPEselected(t)
-        props.SetSeasonalYears(props.oppTableYears);
+        currentProps.SetPEselected(t)
+        currentProps.SetSeasonalYears(currentProps.oppTableYears);
       }
       else {
-        props.SetSeasonalYears(props.oppTableYears)
-        props.SetPEselected('cons')
+        currentProps.SetSeasonalYears(currentProps.oppTableYears)
+        currentProps.SetPEselected('cons')
       }
 
-      props.SetMonthsAndQtrs('Months & Qtrs')
+      currentProps.SetMonthsAndQtrs('Months & Qtrs')
 
-      if (
-        props.symbol !== row.symbol ||
-        props.seasonalYears !== props.oppTableYears
-      ) {
-        props.SetConsolidatedSeasonalData([])
-        const trend_chart_start_date = incrementDate(opp_start_date, -trend_chart_left_gap_days);
-        props.SetTrendChartStartDate(trend_chart_start_date)
-      }
-      props.SetRowIndexClicked(rowIndex);
+      const trend_chart_start_date = incrementDate(opp_start_date, -trend_chart_left_gap_days);
+      currentProps.SetTrendChartStartDate(trend_chart_start_date)
+      currentProps.SetRowIndexClicked(rowIndex);
     }
-  }
+  }, [])
 
   // The Day-3 lesson can ask us to load the first opportunity when nothing is on the
   // chart yet, so its live "date range above the chart" example points at something real.
@@ -961,8 +994,6 @@ const OppTable = (props) => {
 
   //-------------------------------------------------------------------------------------------------------
   // this is for the search textbox
-  const [curText, SetCurText] = useState('')
-
   // Filter history - persisted in localStorage
   const FILTER_HISTORY_KEY = 'tw_filter_history'
   const MAX_FILTER_HISTORY = 8
@@ -998,7 +1029,7 @@ const OppTable = (props) => {
     if (filterWrapperRef.current) {
       SetFilterDropdownRect(filterWrapperRef.current.getBoundingClientRect())
     }
-    SetShowFilterHistory(true)
+    SetShowFilterHistory(curText.trim() === '')
   }
 
   const handleFilterBlur = () => {
@@ -1018,25 +1049,25 @@ const OppTable = (props) => {
 
   const handleClearFilter = (e) => {
     e.preventDefault()
+    if (dayRange !== EMPTY_DAY_RANGE) {
+      props.SetOpportunities([])
+      SetInitialMessage('Loading ...')
+    }
     SetCurText('')
-    SetDayRange('-')
-    props.SetOpportunities([])
+    SetShowFilterHistory(false)
+    SetDayRange(EMPTY_DAY_RANGE)
   }
 
   const handleSelectHistoryItem = (item) => {
     if (filterBlurTimer.current) clearTimeout(filterBlurTimer.current)
+    const nextDayRange = getOpportunityDayRange(item)
+    if (nextDayRange !== dayRange) {
+      props.SetOpportunities([])
+      SetInitialMessage('Loading ...')
+    }
     SetCurText(item)
     SetShowFilterHistory(false)
-    const segments = item.split(';').map(s => s.trim()).filter(s => s.length > 0)
-    let found = false
-    for (const seg of segments) {
-      if (/^\d+\s*-\s*\d+$/.test(seg)) {
-        const [a, b] = seg.split('-').map(s => parseInt(s.trim(), 10))
-        if (!isNaN(a) && !isNaN(b) && b > a) { SetDayRange(seg); found = true; break }
-      }
-    }
-    if (!found) SetDayRange('-')
-    props.SetOpportunities([])
+    SetDayRange(nextDayRange)
   }
 
   // Portal dropdown - renders at document.body to escape any overflow:hidden parent
@@ -1076,42 +1107,20 @@ const OppTable = (props) => {
   //-------------------------------------------------------------------------------------------------------
 
   const handleOnChange = (event) => {
-    const newText = event.target.value.trim();
-    SetCurText(newText);
+    const newText = event.target.value
+    const nextDayRange = getOpportunityDayRange(newText)
 
-    // Split the filter text by semicolons (if present)
-    const segments = newText
-      .split(';')
-      .map(seg => seg.trim())
-      .filter(seg => seg.length > 0);
-
-    let foundDayRange = false;
-    let dayRangeVal = '-';  // Use '-' (as per your original logic)
-
-    // Look for exactly one valid day-range filter among the segments, e.g. "10-40"
-    for (const seg of segments) {
-      // Regex to match "<digits> - <digits>"
-      if (/^\d+\s*-\s*\d+$/.test(seg)) {
-        const [n1Str, n2Str] = seg.split('-');
-        const n1 = parseInt(n1Str.trim(), 10);
-        const n2 = parseInt(n2Str.trim(), 10);
-
-        // Check that n1 < n2 and both are valid numbers
-        if (!isNaN(n1) && !isNaN(n2) && n2 > n1) {
-          foundDayRange = true;
-          dayRangeVal = seg;  // e.g., "10-40"
-          break;              // Stop after finding the first valid range
-        }
-      }
+    // Range transitions intentionally request the server's re-ranked source.
+    // Clear the old source in the same input transaction so the textbox can
+    // never display a new expression over stale rows while that request runs.
+    if (nextDayRange !== dayRange) {
+      props.SetOpportunities([])
+      SetInitialMessage('Loading ...')
     }
 
-    if (foundDayRange) {
-      SetDayRange(dayRangeVal);
-      // Clear the opportunities so they will refresh or re-fetch
-      props.SetOpportunities([]);
-    } else {
-      SetDayRange('-');
-    }
+    SetCurText(newText)
+    SetShowFilterHistory(false)
+    SetDayRange(nextDayRange)
   };
 
   //-------------------------------------------------------------------------------------------------------
@@ -1402,20 +1411,40 @@ const OppTable = (props) => {
     }
 
     const next = !props.showPEOpps;
-    props.SetShowPEOpps(next);
-    setCookie('showPEOpps', next.toString(), 300);
-    props.SetOpportunities([]);   // force refetch
-
-    // When switching TO PE mode, snap years to a valid PE year (target: 10)
-    // so the years selectbox and partial years list stay consistent
-    if (next && peMetaAvailable) {
-      const peYears = [...new Set(props.yearsMetaDataPE.map(item => parseInt(item[0])))].sort((a, b) => a - b);
-      const TARGET = 10;
-      const below = peYears.filter(y => y <= TARGET);
-      const validYear = below.length > 0 ? below[below.length - 1] : peYears[0];
-      props.SetOppTableYears(validYear.toString());
-      props.SetOppTablePartialYears(-1);
+    const currentYears = parseInt(props.oppTableYears, 10)
+    const currentPartialYears = parseInt(props.oppTablePartialYears, 10)
+    if (
+      typeof props.SaveOppYearsForGroup === 'function' &&
+      currentYears > 0 &&
+      currentPartialYears > 0
+    ) {
+      props.SaveOppYearsForGroup(
+        props.selectedSecurity,
+        currentYears,
+        currentPartialYears,
+        props.showPEOpps,
+      )
     }
+
+    const saved = typeof props.GetOppYearsForGroup === 'function'
+      ? props.GetOppYearsForGroup(props.selectedSecurity, next)
+      : [props.oppTableYears, props.oppTablePartialYears]
+    const targetMeta = next ? props.yearsMetaDataPE : props.yearsMetaData
+    const resolved = resolveOpportunityRecurrence(
+      targetMeta,
+      saved[0],
+      saved[1],
+      maxYearsCap(),
+    )
+
+    ReactDOM.unstable_batchedUpdates(() => {
+      props.SetShowPEOpps(next);
+      props.SetPEOppsChecked(next);
+      props.SetOpportunities([]);
+      props.SetOppTableYears(resolved ? resolved.years : String(saved[0]));
+      props.SetOppTablePartialYears(resolved ? resolved.partialYears : String(saved[1]));
+    })
+    setCookie('showPEOpps', next.toString(), 300);
   }
 
 
@@ -1566,6 +1595,7 @@ const OppTable = (props) => {
                 'For a day range of 30 to 60 days, type "30-60". ' +
                 'To filter by Sharpe Ratio, type "SR>2". ' +
                 'For Average Profit, type "AP>10" or "AVGP>10". ' +
+                'For AI results, use "WIN>70", "PREDR>3", "ML>70", or "PMFE>8". ' +
                 'You can also do a default text search by typing any keyword, like "AAPL". '
                 : ''
             }
@@ -1576,7 +1606,25 @@ const OppTable = (props) => {
             onBlur={handleFilterBlur}
             onKeyDown={handleFilterKeyDown}
             onClear={handleClearFilter}
+            placeholder='e.g. 10-90; PREDR>3'
+            title='Filter by ticker or combine conditions with semicolons: 10-90, SR>2, AVGP>10, WIN>70, PREDR>3, ML>70, PMFE>8.'
+            ariaLabel='Filter opportunities'
+            ariaDescribedBy='opportunity-filter-help'
           />
+          <span id='opportunity-filter-help' style={{
+            position: 'absolute',
+            width: '1px',
+            height: '1px',
+            padding: 0,
+            margin: '-1px',
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}>
+            Enter a ticker, or combine filters with semicolons. Examples: 10-90 for days,
+            SR&gt;2, AVGP&gt;10, WIN&gt;70, PREDR&gt;3, ML&gt;70, and PMFE&gt;8.
+          </span>
           {filterHistoryDropdown}
         </div>
 
@@ -1606,7 +1654,6 @@ const OppTable = (props) => {
                 SetNumLongs={SetNumLongs}
                 SetNumShorts={SetNumShorts}
                 stockScores={stockScores}
-                stockScoresLoading={stockScoresLoading}
                 mlScores={mlScores}
                 mlScoresLoading={mlScoresLoading}
                 mlPending={mlPending}

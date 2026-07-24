@@ -70,6 +70,10 @@ const TradeDetailMobile = (props) => {
     const tradeDetailStyle = {
         height: tradeDetailHeight,
     }
+    const tradeDetailReady =
+        props.tradeDetailData &&
+        !Array.isArray(props.tradeDetailData) &&
+        Object.keys(props.tradeDetailData).length > 0
 
 
   
@@ -82,7 +86,7 @@ const TradeDetailMobile = (props) => {
         SetCumulativeGrowth(cret['cdata'])
         SetCumulativeGrowthL(cret['cdataL'])
 
-        if (props.symbol.length > 0) {
+        if (props.symbol.length > 0 && tradeDetailReady) {
             // let sd = props.startDate.substring(5);
             // let m  = parseInt(props.startDate.substring(5,7)) - 1;
 
@@ -162,9 +166,12 @@ const TradeDetailMobile = (props) => {
         else {
             SetTradeReportData([])
             SetVtTradeDetail({})
+            SetVTStrategyPL({})
+            SetCumulativeGrowth([])
+            SetCumulativeGrowthL([])
         }
         // }, [props.tradeDetailData, props.barChartLongOrShort]);
-    }, [props.compareSecurityTradeDetailData, props.compareSecurityLongOrShort, props.compareSecurity[1], props.tradeDetailData, props.compareSecurityTradeDetailData, props.barChartLongOrShort, props.symbol]);
+    }, [props.compareSecurityTradeDetailData, props.compareSecurityLongOrShort, props.compareSecurity[1], props.tradeDetailData, props.compareSecurityTradeDetailData, props.barChartLongOrShort, props.symbol, tradeDetailReady]);
 
 
 
@@ -203,6 +210,7 @@ const TradeDetailMobile = (props) => {
             </div>
 
             {props.symbol !== ''
+                ? tradeDetailReady
                 ? <div className="trade-detail-m" style={{ ...tradeDetailStyle, backgroundColor: darkBg }}>
 
                     <div className="report-div-row-m" style={{ backgroundColor: darkBg }}>
@@ -218,6 +226,9 @@ const TradeDetailMobile = (props) => {
                         <div className="report-div-m"> <VisualTable title="Wave Info" data={tradeReportData} filter={[12, 15, 19, 21]} icons={['', '', lsIcon, ssIcon]} /> </div>
 
                     </div>
+                </div>
+                : <div className="trade-detail-m trade-detail-blank-m" style={{ ...tradeDetailStyle, backgroundColor: darkBg }} role="status" aria-live="polite">
+                    <span style={{ color: "white" }}>Loading statistics for {props.symbol}...</span>
                 </div>
 
                 : <div className="trade-detail-m trade-detail-blank-m" style={{ ...tradeDetailStyle, backgroundColor: darkBg }}>

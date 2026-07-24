@@ -1756,6 +1756,29 @@ fails), `npm run build` clean. What was hardened (details in git diff of that da
   declaration sits above the effect, then headless-verify the viewer (playwright +
   box-minted LTK + route-fulfilled /app/ index).
 
+**G. 2026-07-24 Wave Viewer regression handoff - SOURCE COMPLETE; DEV
+BUILD/RETEST REQUIRED.** The source state used by the Windows regression work is
+captured on branch `codex/wave-viewer-regression-loop-20260724` with its durable
+workflow in `docs/testing/WAVE_VIEWER_LOOP.md`.
+
+- The opportunity filter is a two-source state machine: its one valid day-range
+  segment selects a server-side OppList4 membership set, while other predicates
+  filter in the browser. AI predicates use scores anchored to the baseline
+  opportunity set. They may remove rows from the active server range but must
+  never add rows outside it, and token order must not change membership.
+- Incomplete or invalid tokens retain the last valid rows with explicit
+  guidance. Unknown bare words are invalid while ticker-shaped bare searches
+  remain supported. Filtering is derived synchronously from the current input,
+  so a previous result cannot remain visible during a delayed effect window.
+- Sorting is presentation-only. A Win% or PredR header click must never rewrite
+  the filter, server range, recurrence, or source membership. Stale async
+  responses cannot override a later filter clear or recurrence reset, and a
+  source-changing transition must show matching rows or an honest bounded
+  Loading state.
+- The Wave Viewer and Opportunity Table own independent recurrence state. Viewer
+  cycle or viewer-years changes, including deep links and reloads, must never
+  overwrite the table's saved years/partial pair.
+
 ---
 
 ## 14. Memory cleanup (from the audit)

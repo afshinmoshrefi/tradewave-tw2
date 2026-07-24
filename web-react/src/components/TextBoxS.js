@@ -5,7 +5,22 @@ import Tippy from '@tippyjs/react'
 import { UserContext } from './UserContext'
 import { themeColors } from './Common'
 
-const TextBoxS = ({ tooltipContent, name, text, width, curText, handleOnChange, onFocus, onBlur, onKeyDown, onClear }) => {
+const TextBoxS = ({
+    tooltipContent,
+    name,
+    text,
+    width,
+    curText,
+    handleOnChange,
+    onFocus,
+    onBlur,
+    onKeyDown,
+    onClear,
+    placeholder,
+    title,
+    ariaLabel,
+    ariaDescribedBy,
+}) => {
 
     const { browserH, browserW, rdd, globalTextSize, UITheme } = useContext(UserContext)
     const tc = themeColors(UITheme)
@@ -63,7 +78,22 @@ const TextBoxS = ({ tooltipContent, name, text, width, curText, handleOnChange, 
         }>
 
             <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                <input type="text" value={curText} onChange={handleOnChange} onFocus={onFocus} onBlur={onBlur} onKeyDown={onKeyDown} size={searchTextBoxWidth} name={name} id={name} style={{ fontSize: globalTextSize, height: textBoxHeight, backgroundColor: tc.inputBg, color: tc.text, border: '1px solid ' + tc.inputBorder, paddingRight: '16px' }} />
+                <input
+                    type="text"
+                    value={curText}
+                    onChange={handleOnChange}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                    onKeyDown={onKeyDown}
+                    size={searchTextBoxWidth}
+                    name={name}
+                    id={name}
+                    placeholder={placeholder}
+                    title={title}
+                    aria-label={ariaLabel}
+                    aria-describedby={ariaDescribedBy}
+                    style={{ fontSize: globalTextSize, height: textBoxHeight, backgroundColor: tc.inputBg, color: tc.text, border: '1px solid ' + tc.inputBorder, paddingRight: '16px' }}
+                />
                 {onClear && (
                     <span
                         onMouseDown={curText ? onClear : undefined}

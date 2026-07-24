@@ -17,6 +17,11 @@ import DaysOutPopup from './DaysOutPopup';
 import YearsRangePopup from './YearsRangePopup';
 import FilteringPopup from './FilteringPopup';
 import AIScoresPopup from './AIScoresPopup';
+import {
+  containsInternalToolMarkup,
+  taraTrendFailureHasPrimaryData,
+  taraViewKey,
+} from './taraActionContract';
 
 //--------------------------------------------------------------------------------------------------------
 // The bot reply is model-generated HTML rendered via dangerouslySetInnerHTML; with Tara now
@@ -38,6 +43,33 @@ const sanitizeBotHtml = (html) => {
   return s;
 };
 
+const botHtmlToPlainText = (html) => {
+  const safe = sanitizeBotHtml(html).replace(/<br\s*\/?>/gi, '\n');
+  if (typeof document !== 'undefined') {
+    const node = document.createElement('div');
+    node.innerHTML = safe;
+    return String(node.textContent || '').trim();
+  }
+  return safe.replace(/<[^>]*>/g, '').trim();
+};
+
+const taraFailureDetail = (reason) => {
+  if (reason === 'rate_limited') return 'the chart service is temporarily rate-limited';
+  if (reason === 'not_enough_data') return 'there is not enough history for that setup';
+  if (reason === 'empty_or_malformed_chart_data') return 'the server returned no usable chart data';
+  if (reason === 'server_normalized_or_unverified_request') {
+    return 'the server adjusted the requested date or lookback';
+  }
+  if (reason === 'view_superseded') return 'the view changed before the request finished';
+  if (reason === 'chart_load_timeout') return 'the chart request timed out';
+  if (reason === 'network_error') return 'the chart service could not be reached';
+  if (String(reason || '').startsWith('trend_')) {
+    return 'the lower seasonal graph could not be verified';
+  }
+  if (String(reason || '').startsWith('http_')) return 'the chart service returned an error';
+  return 'the chart request did not complete';
+};
+
 //--------------------------------------------------------------------------------------------------------
 function Chatbot(props) {
   const { token, resourceObj } = useContext(UserContext);
@@ -49,6 +81,7 @@ function Chatbot(props) {
   const [history, setHistory] = useState([]);        // { role, content } for API context
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingViewTransaction, setPendingViewTransaction] = useState(null);
   const [showTrendPopup, setShowTrendPopup] = useState(false);
   const [showSharpePopup, setShowSharpePopup] = useState(false);
   const [showSeasonalPopup, setShowSeasonalPopup] = useState(false);
@@ -66,6 +99,7 @@ function Chatbot(props) {
   const [showFilteringPopup, setShowFilteringPopup] = useState(false);
   const [showAIScoresPopup, setShowAIScoresPopup] = useState(false);
   const chatboxRef = useRef(null);
+  const actionAuditAfterRenderRef = useRef(null);
 
   // Intro greeting on first open.
   useEffect(() => {
@@ -111,31 +145,166 @@ function Chatbot(props) {
     setMessages((prev) => [...prev, { role, text }]);
   };
 
+  const postActionResult = (pending, actionState, status, reason, displayedResponse) => {
+    const payload = {
+      token,
+      turn_id: pending.turnId,
+      actions: pending.actionProofs,
+      status,
+      reason: reason || '',
+      observed_view: actionState?.observed_view || null,
+      data_points: actionState?.data_points || 0,
+      displayed_response: displayedResponse || '',
+    };
+    const send = (attempt) => {
+      fetch(`${asURL}/chatbot/action_result`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).then(response => {
+        if (response.ok) return;
+        const err = new Error(`HTTP ${response.status}`);
+        err.retryable = response.status === 429 || response.status >= 500;
+        throw err;
+      }).catch(err => {
+        if (attempt < 2 && err?.retryable !== false) {
+          setTimeout(() => send(attempt + 1), 750 * (attempt + 1));
+          return;
+        }
+        // The chart result remains authoritative even if audit transport fails.
+        console.warn('Tara action audit failed:', err?.message || err);
+      });
+    };
+    send(0);
+  };
+
+  // Post only after React has committed the sanitized reply into Tara's
+  // message list. Keeping Chatbot mounted while hidden guarantees this effect
+  // also runs when the user closes the panel mid-load.
+  useEffect(() => {
+    const queued = actionAuditAfterRenderRef.current;
+    if (!queued) return;
+    actionAuditAfterRenderRef.current = null;
+    postActionResult(
+      queued.pending,
+      queued.actionState,
+      queued.status,
+      queued.reason,
+      queued.displayedResponse,
+    );
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The model's prose is held back while a view action is pending. Only this
+  // client-side terminal state may append a completion statement.
+  useEffect(() => {
+    if (!pendingViewTransaction || !props.taraActionState) return;
+    const state = props.taraActionState;
+    const sameActions = (
+      Array.isArray(state.action_ids)
+      && state.action_ids.join('|') === pendingViewTransaction.actionIds.join('|')
+    );
+    if (!sameActions || !['succeeded', 'failed'].includes(state.status)) return;
+
+    let finalReply;
+    let auditStatus;
+    if (state.status === 'succeeded') {
+      const requested = state.requested_spec || {};
+      const symbol = state.target?.symbol;
+      const confirmation = state.requires_chart_data
+        ? `${symbol ? `<b>${symbol}</b> ` : ''}pattern and seasonal graph loaded in the Wave Viewer.`
+        : (requested.market ? 'Market selection updated.' : 'View settings updated.');
+      finalReply = `${pendingViewTransaction.reply || ''}${pendingViewTransaction.reply ? '<br><br>' : ''}${confirmation}`;
+      auditStatus = 'succeeded';
+    } else {
+      const symbol = state.target?.symbol;
+      const detail = taraFailureDetail(state.reason);
+      finalReply = taraTrendFailureHasPrimaryData(state)
+        ? (
+          `The pattern data for${symbol ? ` <b>${symbol}</b>` : ' that view'} arrived, `
+          + `but ${detail}. I have not marked the full view as loaded; please try again.`
+        )
+        : (
+          `I couldn't load${symbol ? ` <b>${symbol}</b>` : ' that view'} because ${detail}. `
+          + 'I have not marked it as loaded; please try again.'
+        );
+      auditStatus = 'failed';
+    }
+
+    const plainReply = botHtmlToPlainText(finalReply);
+    actionAuditAfterRenderRef.current = {
+      pending: pendingViewTransaction,
+      actionState: state,
+      status: auditStatus,
+      reason: state.reason || '',
+      displayedResponse: plainReply,
+    };
+    displayMessage('bot', finalReply);
+    setHistory([
+      ...pendingViewTransaction.updatedHistory,
+      { role: 'assistant', content: plainReply },
+    ]);
+    setPendingViewTransaction(null);
+    setIsLoading(false);
+  }, [pendingViewTransaction, props.taraActionState]); // eslint-disable-line react-hooks/exhaustive-deps
+
   //--------------------------------------------------------------------------------------------------------
   // Build wave viewer context from props
   const buildWaveViewerContext = () => {
+    const marketIdRaw = getSelectedIDFromSecuritiesList2(
+      props.securityTypeList || [],
+      props.selectedSecurity || ''
+    );
+    const currentView = {
+      market: (
+        marketIdRaw !== undefined
+        && marketIdRaw !== null
+        && String(marketIdRaw) !== '-1'
+      ) ? String(marketIdRaw) : '',
+      symbol: String(props.symbol || '').toUpperCase(),
+      entry_date: props.startDate || '',
+      days_out: parseInt(props.daysOut, 10),
+      years: parseInt(props.seasonalYears, 10),
+      pe_cycle: props.PEselected || 'cons',
+      cut_off_year: Number(props.trimYear || 0),
+    };
+    const viewReady = (
+      props.viewerDataState
+      && props.viewerDataState.status === 'succeeded'
+      && props.viewerDataState.request_key === taraViewKey(currentView)
+    );
     const ctx = {
+      market: currentView.market,
       symbol: props.symbol || '',
-      company: props.company || '',
       start_date: props.startDate || '',
+      entry_date: props.startDate || '',
       days_out: props.daysOut || '',
       years: props.seasonalYears || '',
       pe_cycle: props.PEselected || 'cons',
       direction: props.barChartLongOrShort || 'long',
       mae_enabled: props.showMAE === true,
+      view_ready: viewReady,
+      view_request_key: viewReady ? props.viewerDataState.request_key : '',
     };
     // Include last known price for the security
-    if (Array.isArray(props.lastPrice) && props.lastPrice[0] && props.lastPrice[1]) {
+    if (viewReady && props.company) ctx.company = props.company;
+    if (
+      viewReady
+      && Array.isArray(props.lastPrice)
+      && props.lastPriceIdentity === `${currentView.market}|${currentView.symbol}`
+      && props.lastPrice[0]
+      && props.lastPrice[1]
+    ) {
       ctx.last_price = props.lastPrice[1];
       ctx.last_price_date = props.lastPrice[0];
     }
     // Include stats if available (tradeDetailData is an object with keys like
     // 'Percent Profitable', 'Avg Profit', 'Sharpe Ratio', etc.)
-    if (props.tradeDetailData && Object.keys(props.tradeDetailData).length > 0) {
+    if (viewReady && props.tradeDetailData && Object.keys(props.tradeDetailData).length > 0) {
       ctx.stats = props.tradeDetailData;
     }
     // Include year-by-year bar chart data so the bot can discuss specific years
-    if (Array.isArray(props.seasonalBarChartData) && props.seasonalBarChartData.length > 0) {
+    if (viewReady && Array.isArray(props.seasonalBarChartData) && props.seasonalBarChartData.length > 0) {
       ctx.yearly_results = props.seasonalBarChartData.map(r => {
         const plist = r['pct'].split(',');
         return {
@@ -200,7 +369,11 @@ function Chatbot(props) {
     // it she ran an independent, divergent scan whose names didn't match the visible table.
     const oppMarketName = props.selectedSecurity || '';
     const oppMarketIdRaw = getSelectedIDFromSecuritiesList2(props.securityTypeList || [], oppMarketName);
-    const oppMarketId = (oppMarketIdRaw !== -1 && oppMarketIdRaw !== '-1') ? String(oppMarketIdRaw) : '';
+    const oppMarketId = (
+      oppMarketIdRaw !== undefined
+      && oppMarketIdRaw !== null
+      && String(oppMarketIdRaw) !== '-1'
+    ) ? String(oppMarketIdRaw) : '';
 
     const postData = {
       message: text,
@@ -227,7 +400,16 @@ function Chatbot(props) {
       })
       .then((data) => {
         const reply = data.reply || '';
-        displayMessage('bot', reply);
+        if (containsInternalToolMarkup(reply)) {
+          const safeReply = (
+            "I couldn't produce a valid chart action, so I haven't changed the chart. "
+            + 'Please try that request again.'
+          );
+          displayMessage('bot', safeReply);
+          setHistory([...updatedHistory, { role: 'assistant', content: safeReply }]);
+          setIsLoading(false);
+          return;
+        }
         // Auto-open popups: check LLM response first, then fall back to keyword matching on the user question
         const hasAction = reply.includes('data-action=');
         if (hasAction) {
@@ -275,12 +457,51 @@ function Chatbot(props) {
             }
           }
         }
-        // Phase 2: apply any wave-viewer actions Tara requested (load a symbol/setup, change knobs)
-        if (Array.isArray(data.actions)) {
-          for (const action of data.actions) {
-            if (action && action.type === 'set_view' && action.spec) applyViewSpec(action.spec);
+        const viewActions = Array.isArray(data.actions)
+          ? data.actions.filter(action => action && action.type === 'set_view')
+          : [];
+        if (viewActions.length > 0) {
+          if (typeof props.BeginTaraViewAction !== 'function') {
+            const safeReply = "I couldn't connect that request to the chart, so nothing was marked as loaded.";
+            displayMessage('bot', safeReply);
+            setHistory([...updatedHistory, { role: 'assistant', content: safeReply }]);
+            setIsLoading(false);
+            return;
           }
+          const accepted = props.BeginTaraViewAction(viewActions, data.turn_id || '');
+          if (!accepted || !accepted.ok) {
+            const safeReply = "I couldn't validate that chart request, so I haven't changed the chart.";
+            if (accepted?.audit) {
+              actionAuditAfterRenderRef.current = {
+                pending: {
+                  turnId: accepted.audit.turn_id,
+                  actionProofs: accepted.audit.action_proofs,
+                },
+                actionState: null,
+                status: 'failed',
+                reason: accepted.reason || 'client_validation_failed',
+                displayedResponse: botHtmlToPlainText(safeReply),
+              };
+            }
+            displayMessage('bot', safeReply);
+            setHistory([...updatedHistory, { role: 'assistant', content: safeReply }]);
+            setIsLoading(false);
+            return;
+          }
+          setPendingViewTransaction({
+            turnId: data.turn_id || '',
+            actionIds: accepted.transaction.action_ids,
+            actionProofs: accepted.transaction.action_proofs,
+            reply,
+            updatedHistory,
+          });
+          // Keep the loading indicator active. The terminal ChartData4 result
+          // effect displays either the model prose + deterministic success, or
+          // a deterministic failure with no success language.
+          return;
         }
+
+        displayMessage('bot', reply);
         // Keep history in plain text (strip HTML tags for history context)
         const plainReply = reply.replace(/<[^>]*>/g, '');
         setHistory([...updatedHistory, { role: 'assistant', content: plainReply }]);
@@ -313,42 +534,6 @@ function Chatbot(props) {
     let resource_group = resourceObj[parseInt(rid)];
     props.SetReportsDashVisible(false);
     props.SetSelectedSecurity(resource_group);
-  };
-
-  //--------------------------------------------------------------------------------------------------------
-  // Phase 2: apply a validated ViewSpec from Tara (update_view) to DRIVE the wave-viewer. The
-  // server already allowlists + range-checks the spec; we re-check each field here (defense in
-  // depth) before touching state. Loading a symbol mirrors loadOppWV (clear stale state first).
-  const applyViewSpec = (spec) => {
-    if (!spec || typeof spec !== 'object') return;
-    if (spec.market != null && resourceObj && resourceObj[parseInt(spec.market)]) {
-      props.SetSelectedSecurity(resourceObj[parseInt(spec.market)]);
-    }
-    // Only a CHANGE of symbol is a fresh load (clear stale chart/report state); when the model
-    // re-asserts the already-loaded symbol alongside a knob change, leave the chart in place.
-    if (typeof spec.symbol === 'string' && /^[A-Za-z0-9.\-]{1,15}$/.test(spec.symbol)) {
-      const sym = spec.symbol.toUpperCase();
-      if (sym !== (props.symbol || '').toUpperCase()) {
-        props.SetOpportunities([]);
-        props.SetConsolidatedSeasonalData([]);
-        props.SetReportsDashVisible(false);
-        props.SetMonthsAndQtrs('Months & Qtrs');
-        props.SetSymbol(sym);
-      }
-    }
-    if (typeof spec.entry_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(spec.entry_date)) {
-      props.SetStartDate(spec.entry_date);
-      props.SetTrendChartStartDate(incrementDate(spec.entry_date, -trend_chart_left_gap_days));
-    }
-    if (Number.isInteger(spec.days_out) && spec.days_out >= 1 && spec.days_out <= 366) {
-      props.SetDaysOut(spec.days_out);
-    }
-    if (Number.isInteger(spec.years) && spec.years >= 1 && spec.years <= 99) {
-      props.SetSeasonalYears(String(spec.years));
-    }
-    if (typeof spec.pe_cycle === 'string' && ['cons', 'pe0', 'pe1', 'pe2', 'pe3'].includes(spec.pe_cycle)) {
-      if (props.SetPEselected) props.SetPEselected(spec.pe_cycle);
-    }
   };
 
   //--------------------------------------------------------------------------------------------------------

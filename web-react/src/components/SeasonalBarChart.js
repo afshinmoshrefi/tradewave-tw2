@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useContext, useRef } from 'react'
+import ReactDOM from 'react-dom'
 import './styles/SeasonalBarChart.css'
 import SelectBox from './SelectBox'
 import TextBox from './TextBox'
@@ -25,6 +26,14 @@ import { brand, trend_chart_left_gap_days, minYears, sameResourceFamily } from '
 import { maxYearsCap } from './Common'
 import { checkTokenExpired } from './Common'
 import { markCaptureReady, clearCaptureReady } from './captureReady'
+import {
+  isValidTaraPrimaryPayload,
+  isValidTaraTrendChartData,
+  taraEffectiveResponseMatches,
+  taraTrendResponseMatches,
+  taraViewKey,
+} from './taraActionContract'
+import { transitionViewerCycleState } from './viewerCycleState'
 
 // import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 // import { faFileExcel, faHome } from "@fortawesome/free-solid-svg-icons";
@@ -33,16 +42,33 @@ import { markCaptureReady, clearCaptureReady } from './captureReady'
 
 import { FaAngleRight } from "react-icons/fa";
 
+const DAYS_OUT_OPTIONS = Array.from(
+  { length: maxDaysOut - minDaysOut + 1 },
+  (_, index) => {
+    const value = minDaysOut + index
+    return { id: value, value: value.toString(), label: value.toString() }
+  }
+)
+
 const SeasonalBarChart = (props) => {
 
   const { wpUserLevels, browserH, browserW, rdd, token, globalTextSize, infoTextSize, loggedinUser, debug } = useContext(UserContext)
-  const tc = themeColors(props.UITheme)
+  const tc = useMemo(() => themeColors(props.UITheme), [props.UITheme])
 
   // Stable market/resource id for all fetches in this component
   const marketId = useMemo(
     () => getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity),
     [props.securityTypeList, props.selectedSecurity]
   )
+  const currentViewKey = useMemo(() => taraViewKey({
+    market: String(marketId ?? ''),
+    symbol: String(props.symbol || '').toUpperCase(),
+    entry_date: props.startDate || '',
+    days_out: parseInt(props.daysOut, 10),
+    years: parseInt(props.seasonalYears, 10),
+    pe_cycle: props.PEselected || 'cons',
+    cut_off_year: Number(props.trimYear || 0),
+  }), [marketId, props.symbol, props.startDate, props.daysOut, props.seasonalYears, props.PEselected, props.trimYear])
 
   // Request guards: only the latest response is allowed to update state
   const reqMetaRef = useRef(0)
@@ -52,6 +78,38 @@ const SeasonalBarChart = (props) => {
   const reqTrendRef = useRef(0)
   const reqMaxTrendRef = useRef(0)
   const reqOppBySymbolRef = useRef(0)
+  const primaryReadyKeyRef = useRef('')
+  const cycleViewStatesRef = useRef({})
+
+  const chartViewSnapshot = () => ({
+    market: String(marketId ?? ''),
+    symbol: String(props.symbol || '').toUpperCase(),
+    entry_date: props.startDate || '',
+    days_out: parseInt(props.daysOut, 10),
+    years: parseInt(props.seasonalYears, 10),
+    pe_cycle: props.PEselected || 'cons',
+    cut_off_year: Number(props.trimYear || 0),
+  })
+
+  const reportViewerLoad = (
+    source,
+    status,
+    view,
+    loadGeneration,
+    reason = '',
+    dataPoints = 0,
+  ) => {
+    if (typeof props.ReportViewerDataState !== 'function') return
+    props.ReportViewerDataState({
+      source,
+      status,
+      request_key: taraViewKey(view),
+      load_generation: loadGeneration,
+      view,
+      reason,
+      data_points: dataPoints,
+    })
+  }
   // Ordering guard shared by the manual ticker-entry/resolution paths (handleBlur, handleEnter,
   // handleWatchlistItemClick, resolveSymbolAcrossMarkets) - these fire bare twFetch calls with
   // no AbortController, so two in-flight resolutions could otherwise land out of order and let
@@ -63,9 +121,6 @@ const SeasonalBarChart = (props) => {
   // Bumped when a typed symbol is REJECTED (not found anywhere): forces the symbol TextBox
   // to re-sync back to props.symbol, which never changed - see defaultNotFound.
   const [symbolBoxSyncNonce, SetSymbolBoxSyncNonce] = useState(0)
-
-  // when true, the next startDate change will NOT trigger a trend chart refetch (used by date nudge)
-  const skipNextTrendRefetch = useRef(false)
 
   const [watchlistDropdownOpen, setWatchlistDropdownOpen] = useState(false)
 
@@ -95,7 +150,7 @@ const SeasonalBarChart = (props) => {
 
 
 
-  const [daysOutList, setDaysOutList] = useState([])
+  const daysOutList = DAYS_OUT_OPTIONS
 
   const [seasonalYearsList, setSeasonalYearsList] = useState(() => {
     // initially set the years to 30 years manually.  make it work by getting metaData from appserver later
@@ -185,15 +240,6 @@ const SeasonalBarChart = (props) => {
     return (incDate)
   }
   //-----------------------------------------------------------------------------------------------------------------------
-  // Build daysOutList once (it does not depend on symbol)
-  useEffect(() => {
-    const tmp = []
-    for (let i = minDaysOut; i <= maxDaysOut; i++) {
-      tmp.push({ id: i, value: i.toString(), label: i.toString() })
-    }
-    setDaysOutList(tmp)
-  }, [])
-
   // Fetch StockMetaData safely (abort + latest response wins)
   useEffect(() => {
     if (!token || token.length === 0) return
@@ -264,14 +310,11 @@ const SeasonalBarChart = (props) => {
         // Always use y2-y1 (the raw range), not the local `maxYears` which is PE-adjusted.
         const consecutiveMax = y2 - y1
         const effectiveMaxYears = _yrCap != null ? Math.min(consecutiveMax, _yrCap) : consecutiveMax
-        props.SetMaxAvailableYears(effectiveMaxYears)
 
         for (let i = minYears; i <= maxYears; i++) {
           const _locked = _yrCap != null && i > _yrCap
           tmp.push({ id: i, value: i.toString(), label: _locked ? i + ' 🔒' : i.toString(), locked: _locked })
         }
-        setSeasonalYearsList(tmp)
-
         // NOTE: deliberately do NOT snap props.seasonalYears UP or to a smaller
         // in-range value here. This block used to snap it to maxYears/minYears,
         // but under a PE filter maxYears collapses to ~N/4, silently clobbering
@@ -292,9 +335,13 @@ const SeasonalBarChart = (props) => {
         // maxSelectable = the largest unlocked option (tier cap wins over range).
         const maxSelectable = _yrCap != null ? Math.min(maxYears, _yrCap) : maxYears
         const curYears = parseInt(props.seasonalYears, 10)
-        if (!isNaN(curYears) && curYears > maxSelectable && maxSelectable >= minYears) {
-          props.SetSeasonalYears(maxSelectable.toString())
-        }
+        ReactDOM.unstable_batchedUpdates(() => {
+          props.SetMaxAvailableYears(effectiveMaxYears)
+          setSeasonalYearsList(tmp)
+          if (!isNaN(curYears) && curYears > maxSelectable && maxSelectable >= minYears) {
+            props.SetSeasonalYears(maxSelectable.toString())
+          }
+        })
       })
       .catch(err => {
         if (err?.name === 'AbortError') return
@@ -323,14 +370,36 @@ const SeasonalBarChart = (props) => {
   useEffect(() => { // fetch barchart data (stable: abort + latest response wins)
     if (!token || token.length === 0) return
     if (!props.symbol || props.symbol.length === 0) return
-    if (marketId === undefined || marketId === null) return
+    if (marketId === undefined || marketId === null || String(marketId) === '-1') return
     if (!props.startDate) return
     if (!props.daysOut) return
     if (!props.seasonalYears) return
 
     const reqId = ++reqChartRef.current
     const controller = new AbortController()
+    const loadGeneration = Number(props.taraLoadGeneration || 0)
+    const requestView = chartViewSnapshot()
+    const requestKey = taraViewKey(requestView)
+    primaryReadyKeyRef.current = ''
+    const abortRequest = () => {
+      if (reqId === reqChartRef.current) reqChartRef.current += 1
+      controller.abort()
+    }
+    const unregisterAbort = typeof props.RegisterTaraLoadAbort === 'function'
+      ? props.RegisterTaraLoadAbort(loadGeneration, abortRequest)
+      : () => {}
     clearCaptureReady('seasonal')
+    reportViewerLoad('primary', 'loading', requestView, loadGeneration)
+
+    // The request key has changed, so none of the prior viewer payloads may be
+    // shown under the new controls while this request is in flight.
+    ReactDOM.unstable_batchedUpdates(() => {
+      props.SetSeasonalBarChartData([])
+      props.SetTradeDetailData([])
+      props.SetCompareSecurityBarChartData([])
+      props.SetCompareSecurityTradeDetailData([])
+      props.SetSecurityBHstats([])
+    })
 
 
     const asURL = appserverURL()
@@ -345,20 +414,30 @@ const SeasonalBarChart = (props) => {
 
     twFetch(url, { signal: controller.signal })
       .then(res => {
-        const contentType = res.headers.get("content-type")
-        if (contentType && contentType.indexOf("application/json") !== -1) return res.json()
-
+        if (reqId !== reqChartRef.current) return undefined
         if (res.status === 429) {
           props.SetDialogType('rate-limit')
           props.SetInfoBoxVisible(true)
+          reportViewerLoad('primary', 'failed', requestView, loadGeneration, 'rate_limited')
           return undefined
         }
+        if (!res.ok) {
+          console.log('ChartData4 response status = ', res.status)
+          props.SetDialogType('info-box')
+          props.SetDialogProp({ title: 'Data Temporarily Unavailable', contentText: 'The chart data could not be loaded. Please try again in a moment - reselect the pattern or refresh the browser.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
+          props.SetInfoBoxVisible(true)
+          reportViewerLoad('primary', 'failed', requestView, loadGeneration, `http_${res.status}`)
+          return undefined
+        }
+        const contentType = res.headers.get("content-type")
+        if (contentType && contentType.indexOf("application/json") !== -1) return res.json()
 
-        // transient failure already retried by twFetch - surface instead of a blank chart
-        console.log('ChartData4 response status = ', res.status)
+        // A 200 with a non-JSON body is not chart success.
+        console.log('ChartData4 non-JSON response')
         props.SetDialogType('info-box')
         props.SetDialogProp({ title: 'Data Temporarily Unavailable', contentText: 'The chart data could not be loaded. Please try again in a moment - reselect the pattern or refresh the browser.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
         props.SetInfoBoxVisible(true)
+        reportViewerLoad('primary', 'failed', requestView, loadGeneration, 'non_json_response')
         return undefined
       })
       .then(t => {
@@ -367,6 +446,20 @@ const SeasonalBarChart = (props) => {
         if (!t) return
 
         const cd = t["ChartData4"]
+        const effectiveRequest = t.request
+        if (!taraEffectiveResponseMatches(requestView, effectiveRequest, props.trimYear)) {
+          props.SetSeasonalBarChartData([])
+          props.SetTradeDetailData([])
+          props.SetConsolidatedSeasonalData([])
+          reportViewerLoad(
+            'primary',
+            'failed',
+            requestView,
+            loadGeneration,
+            'server_normalized_or_unverified_request',
+          )
+          return
+        }
 
 
         if (typeof cd === 'string' && cd.includes('Not Enough Data')) {
@@ -379,6 +472,7 @@ const SeasonalBarChart = (props) => {
             props.SetConsolidatedSeasonalData([])
             props.SetSymbol('')
             props.SetLineChartYear(0)
+            reportViewerLoad('primary', 'failed', requestView, loadGeneration, 'not_enough_data')
           }
           // The ticker may belong to a DIFFERENT market (e.g. SPX typed on DJ30 lives in
           // Indices). NameFromTicker can't catch this - it matches any same-exchange security -
@@ -395,35 +489,60 @@ const SeasonalBarChart = (props) => {
           return
         }
 
-        resolveMissRef.current = ''   // clean load - clear the data-miss cross-market guard
-        props.SetSeasonalBarChartData(cd)
-        props.SetTradeDetailData(t["stats"])
-        if (cd.length > 0) markCaptureReady('seasonal', { symbol: props.symbol, years: props.seasonalYears, points: cd.length })
-
-        // Determine lastYearOfData + trade dir
-        let lastYearOfData = 0
-        cd.forEach(r => { lastYearOfData = r['year'] })
-        props.SetBarChartLongOrShort(t["stats"]["Trade Dir"])
-        props.SetLineChartYear(lastYearOfData)
-
-        const eDate = incrementDate(props.startDate, props.daysOut - 1).substring(5, 10)
-        let download_img_name = `TradeWave Opportunity Export for ${props.symbol} date range  ${props.startDate} to ${eDate}.jpg`
-        if (props.monthsAndQtrs !== 'Months & Qtrs') {
-          download_img_name = props.symbol + '_' + props.monthsAndQtrs + '.jpg'
+        if (!isValidTaraPrimaryPayload(cd, t.stats)) {
+          props.SetSeasonalBarChartData([])
+          props.SetTradeDetailData([])
+          props.SetConsolidatedSeasonalData([])
+          reportViewerLoad(
+            'primary',
+            'failed',
+            requestView,
+            loadGeneration,
+            'empty_or_malformed_chart_data',
+          )
+          return
         }
-        props.SetDownloadImageName(download_img_name)
+
+        ReactDOM.unstable_batchedUpdates(() => {
+          resolveMissRef.current = ''   // clean load - clear the data-miss cross-market guard
+          primaryReadyKeyRef.current = requestKey
+          props.SetSeasonalBarChartData(cd)
+          props.SetTradeDetailData(t["stats"])
+          if (cd.length > 0) markCaptureReady('seasonal', { symbol: props.symbol, years: props.seasonalYears, points: cd.length })
+          // This exact, latest, non-empty ChartData4 response is the sole
+          // authority that may confirm a Tara chart action.
+          reportViewerLoad('primary', 'succeeded', requestView, loadGeneration, '', cd.length)
+
+          // Determine lastYearOfData + trade dir
+          let lastYearOfData = 0
+          cd.forEach(r => { lastYearOfData = r['year'] })
+          props.SetBarChartLongOrShort(t["stats"]["Trade Dir"])
+          props.SetLineChartYear(lastYearOfData)
+
+          const eDate = incrementDate(props.startDate, props.daysOut - 1).substring(5, 10)
+          let download_img_name = `TradeWave Opportunity Export for ${props.symbol} date range  ${props.startDate} to ${eDate}.jpg`
+          if (props.monthsAndQtrs !== 'Months & Qtrs') {
+            download_img_name = props.symbol + '_' + props.monthsAndQtrs + '.jpg'
+          }
+          props.SetDownloadImageName(download_img_name)
+        })
       })
       .catch(err => {
         if (err?.name === 'AbortError') return
+        if (reqId !== reqChartRef.current) return
         // network failure after twFetch retries - surface instead of a blank chart
         console.log('ChartData4 fetch error:', err?.message || err)
         props.SetDialogType('info-box')
         props.SetDialogProp({ title: 'Data Temporarily Unavailable', contentText: 'The chart data could not be loaded. Please try again in a moment - reselect the pattern or refresh the browser.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
         props.SetInfoBoxVisible(true)
+        reportViewerLoad('primary', 'failed', requestView, loadGeneration, 'network_error')
       })
 
-    return () => controller.abort()
-  }, [marketId, props.startDate, props.symbol, props.daysOut, props.seasonalYears, props.PEselected, props.trimYear, props.monthsAndQtrs, token])
+    return () => {
+      unregisterAbort()
+      abortRequest()
+    }
+  }, [props.refreshKey, props.taraLoadGeneration, marketId, props.startDate, props.symbol, props.daysOut, props.seasonalYears, props.PEselected, props.trimYear, props.monthsAndQtrs, token])
   //--------------------------------------------------------------------------------------------------------------------
   // this fetch is for the comparison security - spx by default
   //--------------------------------------------------------------------------------------------------------------------
@@ -432,6 +551,10 @@ const SeasonalBarChart = (props) => {
   // --------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     if (!token || token.length === 0) return;
+    // Comparison statistics are secondary. Wait until the primary wave is on
+    // screen so this request cannot compete with the interaction-critical load.
+    if (!Array.isArray(props.seasonalBarChartData) || props.seasonalBarChartData.length === 0) return;
+    if (primaryReadyKeyRef.current !== currentViewKey) return;
 
     const compareMarketId = props.compareSecurity?.[0];
     const compareSymbol = props.compareSecurity?.[1];
@@ -488,9 +611,6 @@ const SeasonalBarChart = (props) => {
         const chart = t["ChartData4"];
         const stats = t["stats"];
 
-        props.SetCompareSecurityBarChartData(chart || []);
-        props.SetCompareSecurityTradeDetailData(stats || {});
-
         let pos = 0, neg = 0;
 
         (chart || []).forEach(r => {
@@ -501,7 +621,11 @@ const SeasonalBarChart = (props) => {
           else neg++;
         });
 
-        props.SetCompareSecurityLongOrShort((pos >= neg) ? 'long' : 'short');
+        ReactDOM.unstable_batchedUpdates(() => {
+          props.SetCompareSecurityBarChartData(chart || []);
+          props.SetCompareSecurityTradeDetailData(stats || {});
+          props.SetCompareSecurityLongOrShort((pos >= neg) ? 'long' : 'short');
+        })
       })
       .catch(err => {
         if (err?.name === 'AbortError') return;
@@ -514,6 +638,8 @@ const SeasonalBarChart = (props) => {
     props.compareSecurity?.[1],
     props.compareSecurity?.[2],
     props.compareSecurity?.[3],
+    currentViewKey,
+    props.seasonalBarChartData,
     props.seasonalYears,
     props.PEselected,
     token
@@ -527,6 +653,10 @@ const SeasonalBarChart = (props) => {
     if (!token || token.length === 0) return
     if (!props.symbol || props.symbol.length === 0) return
     if (marketId === undefined || marketId === null) return
+    // Buy-and-hold stats are informational; keep the primary chart's request
+    // path clear, then fill these stats after the wave has rendered.
+    if (!Array.isArray(props.seasonalBarChartData) || props.seasonalBarChartData.length === 0) return
+    if (primaryReadyKeyRef.current !== currentViewKey) return
 
     const reqId = ++reqBHRef.current
     const controller = new AbortController()
@@ -571,7 +701,7 @@ const SeasonalBarChart = (props) => {
       })
 
     return () => controller.abort()
-  }, [marketId, props.symbol, props.seasonalYears, props.PEselected, token])
+  }, [marketId, props.symbol, props.seasonalYears, props.PEselected, props.seasonalBarChartData, currentViewKey, token])
 
 
   //-----------------------------------------------------------------------------------------------------------------------
@@ -593,11 +723,19 @@ const SeasonalBarChart = (props) => {
     if (!props.symbol || props.symbol.length === 0) return
     if (marketId === undefined || marketId === null) return
 
-    // date nudge sets this flag so the trend chart doesn't refetch on startDate shift
-    if (skipNextTrendRefetch.current) { skipNextTrendRefetch.current = false; return }
-
     const reqId = ++reqTrendRef.current
     const controller = new AbortController()
+    const loadGeneration = Number(props.taraLoadGeneration || 0)
+    const requestView = chartViewSnapshot()
+    const abortRequest = () => {
+      if (reqId === reqTrendRef.current) reqTrendRef.current += 1
+      controller.abort()
+    }
+    const unregisterAbort = (
+      typeof props.RegisterTaraLoadAbort === 'function'
+        ? props.RegisterTaraLoadAbort(loadGeneration, abortRequest)
+        : null
+    ) || (() => {})
     clearCaptureReady('trendChart')
 
     let asURL = appserverURL()
@@ -612,42 +750,89 @@ const SeasonalBarChart = (props) => {
     let yrs = props.seasonalYears;
     if (props.PEselected !== 'cons') yrs = `${props.PEselected}-${props.seasonalYears}`;
 
+    const trendRequest = {
+      market: String(marketId),
+      symbol: String(props.symbol || '').toUpperCase(),
+      sy: String(yrs),
+      chart_start_date: start_date,
+      opp_start_date: opp_start_date,
+    }
+    reportViewerLoad('trend', 'loading', requestView, loadGeneration)
+
     const url = `${asURL}/consolidated_seasonal_chart2/${marketId}/${props.symbol}/${yrs}/${start_date}/${opp_start_date}?token=${token}`
 
     // console.log('ttttttttttttttttttttttttrendchart triggered with props. opp_start_date=',opp_start_date)
 
     twFetch(url, { signal: controller.signal })
       .then(res => {
-        const contentType = res.headers.get("content-type")
-        if (contentType && contentType.indexOf("application/json") !== -1) return res.json()
-
+        if (reqId !== reqTrendRef.current) return undefined
         if (res.status === 429) {
           props.SetDialogType('rate-limit')
           props.SetInfoBoxVisible(true)
+          reportViewerLoad('trend', 'failed', requestView, loadGeneration, 'trend_rate_limited')
           return undefined
         }
+        if (!res.ok) {
+          console.log('consolidated_seasonal_chart2 response status = ', res.status)
+          reportViewerLoad('trend', 'failed', requestView, loadGeneration, `trend_http_${res.status}`)
+          return undefined
+        }
+        const contentType = res.headers.get("content-type")
+        if (contentType && contentType.indexOf("application/json") !== -1) return res.json()
 
-        console.log('consolidated_seasonal_chart2 response status = ', res.status)
+        console.log('consolidated_seasonal_chart2 returned non-JSON data')
+        reportViewerLoad('trend', 'failed', requestView, loadGeneration, 'trend_non_json_response')
         return undefined
       })
       .then(t => {
         if (reqId !== reqTrendRef.current) return
         if (!t) return
 
+        if (!taraTrendResponseMatches(trendRequest, t.request)) {
+          ReactDOM.unstable_batchedUpdates(() => {
+            props.SetConsolidatedSeasonalData([])
+            reportViewerLoad(
+              'trend',
+              'failed',
+              requestView,
+              loadGeneration,
+              'trend_server_normalized_or_unverified_request',
+            )
+          })
+          return
+        }
         const chart = t['cons_seas_chart']
-        if (!Array.isArray(chart) || chart.length < 5) props.SetConsolidatedSeasonalData([])
-        else {
+        if (!isValidTaraTrendChartData(chart)) {
+          ReactDOM.unstable_batchedUpdates(() => {
+            props.SetConsolidatedSeasonalData([])
+            reportViewerLoad(
+              'trend',
+              'failed',
+              requestView,
+              loadGeneration,
+              'trend_empty_or_malformed_chart_data',
+            )
+          })
+          return
+        }
+        ReactDOM.unstable_batchedUpdates(() => {
           props.SetConsolidatedSeasonalData(chart)
           markCaptureReady('trendChart', { symbol: props.symbol, points: chart.length })
-        }
+          reportViewerLoad('trend', 'succeeded', requestView, loadGeneration, '', chart.length)
+        })
       })
       .catch(err => {
         if (err?.name === 'AbortError') return
+        if (reqId !== reqTrendRef.current) return
         console.log('Trend chart fetch error:', err?.message || err)
+        reportViewerLoad('trend', 'failed', requestView, loadGeneration, 'trend_network_error')
       })
 
-    return () => controller.abort()
-  }, [props.refreshKey, marketId, props.symbol, props.seasonalYears, props.PEselected, props.janDecDateRange, props.trendChartStartDate, props.startDate, token])
+    return () => {
+      unregisterAbort()
+      abortRequest()
+    }
+  }, [props.refreshKey, props.taraLoadGeneration, marketId, props.symbol, props.seasonalYears, props.PEselected, props.janDecDateRange, props.trendChartStartDate, props.startDate, props.daysOut, props.trimYear, token])
 
   //--------------------------------------------------------------------------------------------------------------------
   // Second consolidated seasonal fetch: MAX-years history, always PE=cons, for the price-chart's
@@ -720,6 +905,8 @@ const SeasonalBarChart = (props) => {
     if (marketId === undefined || marketId === null) return
     if (!props.seasonalYears) return
     if (loggedinUser === '0') return
+    if (!Array.isArray(props.seasonalBarChartData) || props.seasonalBarChartData.length === 0) return
+    if (primaryReadyKeyRef.current !== currentViewKey) return
 
     const retArray = userAccessToSelectedSecurity(props.securityTypeList2, props.selectedSecurity)
     if (retArray[0] === 'F') return
@@ -730,7 +917,6 @@ const SeasonalBarChart = (props) => {
     const asURL = appserverURL()
     const mode = props.PEselected !== 'cons' ? 'pe' : 'consecutive'
     const url = `${asURL}/OppBySymbol/${marketId}/${props.symbol}/${props.seasonalYears}/${props.seasonalYears}/-/100?token=${token}&mode=${mode}`
-    console.log('OppBySymbol url:', url)
 
     twFetch(url, { signal: controller.signal })
       .then(res => {
@@ -740,7 +926,6 @@ const SeasonalBarChart = (props) => {
       .then(t => {
         if (reqId !== reqOppBySymbolRef.current) return
         if (!t) return
-        console.log('OppBySymbol response:', t)
         if (t.status === 'feature_not_available') { setOppBySymbolOptions([]); return }
         if (t.status !== 'ok' || !t.OppBySymbol?.length) { setOppBySymbolOptions([]); return }
 
@@ -750,7 +935,6 @@ const SeasonalBarChart = (props) => {
           const daysOut = row[2]
           const lOrS = row[3]
           const sharpe = row[4]
-          const avgProfit = row[5]
           const startMMDD = date.substring(5).replace('-', '/')
           const endMMDD = incrementDate(date, daysOut - 1).substring(5).replace('-', '/')
           const dir = lOrS[0]
@@ -769,7 +953,7 @@ const SeasonalBarChart = (props) => {
       })
 
     return () => controller.abort()
-  }, [marketId, props.symbol, props.seasonalYears, props.PEselected, token, loggedinUser])
+  }, [marketId, props.symbol, props.seasonalYears, props.PEselected, props.seasonalBarChartData, currentViewKey, token, loggedinUser])
 
   //--------------------------------------------------------------------------------------------------------------------
   const checkboxChanged = (event) => {
@@ -1053,15 +1237,15 @@ const SeasonalBarChart = (props) => {
     }
   }
   //-----------------------------------------------------------------------------------------------------------
-  // nudge start date by +-1 day while keeping end date fixed (adjusts daysOut inversely)
-  // does NOT trigger trend chart refetch - only the highlight window moves
+  // Nudge start date by +-1 day while keeping end date fixed (adjusts
+  // daysOut inversely). Both data sources refetch so viewer readiness always
+  // describes the exact currently displayed view.
   //-----------------------------------------------------------------------------------------------------------
   const handleDateNudge = (direction) => {
     const newDaysOut = parseInt(props.daysOut) - direction
     if (newDaysOut < 2 || newDaysOut > 366) return
     const newDate = incrementDate(props.startDate, direction)
     if (direction < 0 && props.consolidatedSeasonalData.length > 0 && newDate < props.consolidatedSeasonalData[0][0]) return
-    skipNextTrendRefetch.current = true  // nudge should NOT trigger trend chart refetch
     props.SetStartDate(newDate)
     props.SetDaysOut(String(newDaysOut))
     setSelectedOppBySymbol('')
@@ -1129,19 +1313,47 @@ const SeasonalBarChart = (props) => {
     }
 
     if (event.target.id === 'PEselection') {
-      props.SetPEselected(event.target.value);
+      const nextCycle = event.target.value
+      const currentCycle = props.PEselected || 'cons'
+      if (nextCycle === currentCycle) return
 
-      // If selecting a PE cycle, advance startDate to the next matching cycle year
-      if (event.target.value !== 'cons') {
-        const bumped = bumpStartDateYearToPE(props.startDate, event.target.value);
-
-        if (bumped !== props.startDate) {
-          props.SetStartDate(bumped);
-          const trend_chart_start_date = incrementDate(bumped, -trend_chart_left_gap_days);
-          props.SetTrendChartStartDate(trend_chart_start_date);
-          props.SetConsolidatedSeasonalData([]);
-        }
+      const currentView = {
+        startDate: props.startDate,
+        trendChartStartDate: props.trendChartStartDate,
+        seasonalYears: String(props.seasonalYears),
       }
+      const nextStartDate = nextCycle === 'cons'
+        ? props.startDate
+        : bumpStartDateYearToPE(props.startDate, nextCycle)
+      const defaultNextView = {
+        startDate: nextStartDate,
+        trendChartStartDate: incrementDate(nextStartDate, -trend_chart_left_gap_days),
+        seasonalYears: String(props.seasonalYears),
+      }
+      const transition = transitionViewerCycleState({
+        savedStates: cycleViewStatesRef.current,
+        currentCycle,
+        nextCycle,
+        currentView,
+        defaultNextView,
+      })
+      cycleViewStatesRef.current = transition.savedStates
+
+      ReactDOM.unstable_batchedUpdates(() => {
+        props.SetPEselected(nextCycle)
+        props.SetStartDate(transition.nextView.startDate)
+        props.SetTrendChartStartDate(transition.nextView.trendChartStartDate)
+        props.SetSeasonalYears(transition.nextView.seasonalYears)
+        props.SetLineChartYear(0)
+        props.SetSeasonalBarChartData([])
+        props.SetTradeDetailData([])
+        props.SetConsolidatedSeasonalData([])
+        props.SetMaxYearsConsolidatedSeasonalData([])
+        props.SetCompareSecurityBarChartData([])
+        props.SetCompareSecurityTradeDetailData([])
+        props.SetSecurityBHstats([])
+      })
+      setSelectedOppBySymbol('')
     }
 
     if (event.target.id === 'monthsAndQtrs') {
@@ -1681,8 +1893,19 @@ const SeasonalBarChart = (props) => {
   // pattern identity the info belongs to (guards slow-async updates).
   const [reminderInfo, SetReminderInfo] = useState(null)
   const reminderReqRef = useRef(0)
-  // Preload the GIS script so the click path doesn't spend its popup window on it.
-  useEffect(() => { loadGsiScript().catch(() => { }) }, [])
+  // Preload GIS only when the browser has breathing room. The click path also
+  // calls the idempotent loader, so an immediate click remains correct.
+  useEffect(() => {
+    const preload = () => { loadGsiScript().catch(() => { }) }
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(preload, { timeout: 5000 })
+      return () => {
+        if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId)
+      }
+    }
+    const timerId = window.setTimeout(preload, 1500)
+    return () => window.clearTimeout(timerId)
+  }, [])
 
   // The years string as saved with the pattern (PE mode encodes as e.g. "pe2-10").
   const patternYearsStr = () => props.PEselected != 'cons' ? `${props.PEselected}-${props.seasonalYears}` : `${props.seasonalYears}`
@@ -1713,13 +1936,21 @@ const SeasonalBarChart = (props) => {
       SetReminderInfo(null)
       return
     }
+    if (
+      !Array.isArray(props.seasonalBarChartData) ||
+      props.seasonalBarChartData.length === 0 ||
+      primaryReadyKeyRef.current !== currentViewKey
+    ) {
+      SetReminderInfo(null)
+      return
+    }
     const reqId = ++reminderReqRef.current
     fetchReminderInfo()
       .then((info) => { if (reqId === reminderReqRef.current) SetReminderInfo(info) })
       .catch(() => { if (reqId === reminderReqRef.current) SetReminderInfo(null) })
     // addGCVisible: re-check when the Portfolio Manager's calendar dialog closes -
     // it may have just created (and stamped) events for the loaded pattern.
-  }, [props.symbol, props.startDate, props.daysOut, props.seasonalYears, props.PEselected, props.numReportsCreated, props.addGCVisible, token, loggedinUser])
+  }, [props.symbol, props.startDate, props.daysOut, props.seasonalYears, props.PEselected, props.seasonalBarChartData, props.numReportsCreated, props.addGCVisible, currentViewKey, token, loggedinUser])
 
   const showInfoDialog = (dialogProp) => {
     props.SetDialogProp(dialogProp)

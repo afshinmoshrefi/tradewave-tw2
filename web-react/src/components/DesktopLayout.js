@@ -19,7 +19,6 @@ import SelectBox from './SelectBox';
 import CheckBox from './CheckBox';
 import Settings from './Settings';
 import SecuritiesGroupSettings from './SecuritiesGroupSettings';
-import Chatbot from './Chatbot';
 import OppNote from "./OppNote";
 import AutoTrade from "./AutoTrade";
 import TradeReport from "./PortfolioTradeReport";
@@ -34,7 +33,6 @@ import { toggle_off_64, toggle_on_64 } from './Common';
 import { settings_dialog_content } from './Common';
 import { incrementDate } from './Common';
 import { Swiper, SwiperSlide } from "swiper/react";
-import html2canvas from "html2canvas";
 import "swiper/swiper.min.css";
 import "swiper/components/pagination/pagination.min.css";
 import "swiper/components/navigation/navigation.min.css";
@@ -52,6 +50,7 @@ import Tippy from '@tippyjs/react'
 
 
 const SWIPE_WITH_MOUSE = false;
+const Chatbot = React.lazy(() => import('./Chatbot'));
 
 SwiperCore.use([Pagination, Navigation, Virtual]);
 
@@ -67,8 +66,13 @@ const DesktopLayout = (props) => {
     const [coverTopCharts, SetCoverTopCharts] = useState(false);
 
     const [chatbotHeightPct, SetChatbotHeightPct] = useState(30);
+    const [chatbotHasOpened, SetChatbotHasOpened] = useState(() => !!props.showChatbot);
     const isDragging = useRef(false);
     const oppChatContainerRef = useRef(null);
+
+    useEffect(() => {
+        if (props.showChatbot) SetChatbotHasOpened(true);
+    }, [props.showChatbot]);
 
     const DEFAULT_LEFT_NAV_PCT = 30;
     const [leftNavWidthPct, SetLeftNavWidthPct] = useState(() => {
@@ -236,39 +240,48 @@ const DesktopLayout = (props) => {
 
     useEffect(() => {
         if (props.exportImage) {
-            const timeoutid = setTimeout(() => {
-                html2canvas(document.getElementById("right-content"), {
-                    allowTaint: true,
-                    useCORS: true
-                }).then(canvas => {
-                    const imgData = canvas.toDataURL('image/jpeg');
-                    var link = document.createElement('a');
-                    link.download = props.downloadImageName;
-                    link.href = imgData;
-                    link.click();
-                    props.SetShowWatermark(false);
-                }).catch(err => {
-                    console.log('Export image error:', err);
-                    props.SetShowWatermark(false);
-                });
+            setTimeout(() => {
+                import("html2canvas")
+                    .then(module => {
+                        const captureElement = module.default || module;
+                        return captureElement(document.getElementById("right-content"), {
+                            allowTaint: true,
+                            useCORS: true
+                        });
+                    })
+                    .then(canvas => {
+                        const imgData = canvas.toDataURL('image/jpeg');
+                        var link = document.createElement('a');
+                        link.download = props.downloadImageName;
+                        link.href = imgData;
+                        link.click();
+                        props.SetShowWatermark(false);
+                    })
+                    .catch(err => {
+                        console.log('Export image error:', err);
+                        props.SetShowWatermark(false);
+                    });
             }, 2000);
         }
         props.SetExportImage(false);
     }, [props.exportImage]);
 
     useEffect(() => {
-        const onMouseMove = (e) => {
+        let resizeFrame = null;
+        let latestPointer = null;
+
+        const applyResize = ({ clientX, clientY }) => {
             // chatbot vertical resize
             if (isDragging.current && oppChatContainerRef.current) {
                 const rect = oppChatContainerRef.current.getBoundingClientRect();
-                const mouseY = e.clientY - rect.top;
+                const mouseY = clientY - rect.top;
                 const pct = ((rect.height - mouseY) / rect.height) * 100;
                 SetChatbotHeightPct(Math.min(75, Math.max(15, pct)));
             }
             // left-nav horizontal resize
             if (isResizingNav.current && appContainerRef.current) {
                 const rect = appContainerRef.current.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
+                const mouseX = clientX - rect.left;
                 const pct = Math.min(40, Math.max(20, (mouseX / rect.width) * 100));
                 navWidthRef.current = pct;
                 SetLeftNavWidthPct(pct);
@@ -276,13 +289,36 @@ const DesktopLayout = (props) => {
             // right-side top/bottom chart vertical resize
             if (isResizingTopChart.current && rightContentRef.current) {
                 const rect = rightContentRef.current.getBoundingClientRect();
-                const mouseY = e.clientY - rect.top;
+                const mouseY = clientY - rect.top;
                 const pct = Math.min(80, Math.max(20, (mouseY / rect.height) * 100));
                 topChartHeightRef.current = pct;
                 SetTopChartHeightPct(pct);
             }
         };
+
+        const flushResize = () => {
+            resizeFrame = null;
+            if (!latestPointer) return;
+            const pointer = latestPointer;
+            latestPointer = null;
+            applyResize(pointer);
+        };
+
+        const onMouseMove = (e) => {
+            if (!isDragging.current && !isResizingNav.current && !isResizingTopChart.current) return;
+            latestPointer = { clientX: e.clientX, clientY: e.clientY };
+            if (resizeFrame === null) {
+                resizeFrame = window.requestAnimationFrame(flushResize);
+            }
+        };
+
         const onMouseUp = () => {
+            if (resizeFrame !== null) {
+                window.cancelAnimationFrame(resizeFrame);
+                resizeFrame = null;
+            }
+            if (latestPointer) flushResize();
+
             isDragging.current = false;
             if (isResizingNav.current) {
                 isResizingNav.current = false;
@@ -298,6 +334,7 @@ const DesktopLayout = (props) => {
         return () => {
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
+            if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
         };
     }, []);
 
@@ -306,11 +343,19 @@ const DesktopLayout = (props) => {
     useEffect(() => {
         const rightContent = document.getElementById('right-content');
         if (!rightContent) return;
+        let resizeFrame = null;
         const observer = new ResizeObserver(() => {
-            swiperRef.current?.update();
+            if (resizeFrame !== null) return;
+            resizeFrame = window.requestAnimationFrame(() => {
+                resizeFrame = null;
+                swiperRef.current?.update();
+            });
         });
         observer.observe(rightContent);
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
+        };
     }, []);
 
     const handleResizerMouseDown = (e) => {
@@ -1451,7 +1496,7 @@ const DesktopLayout = (props) => {
                         <OppTable {...props} />
                     </div>
 
-                    {props.showChatbot && <>
+                    {props.showChatbot && (
                         <div
                             onMouseDown={handleResizerMouseDown}
                             style={{
@@ -1462,10 +1507,24 @@ const DesktopLayout = (props) => {
                                 flexShrink: 0,
                             }}
                         />
-                        <div style={{ flex: chatbotHeightPct, minHeight: 0, width: '100%', overflow: 'hidden' }}>
-                            <Chatbot {...props} />
-                        </div>
-                    </>}
+                    )}
+                    <div
+                        style={{
+                            flex: props.showChatbot ? chatbotHeightPct : '0 0 0px',
+                            minHeight: 0,
+                            width: '100%',
+                            overflow: 'hidden',
+                            display: props.showChatbot ? 'block' : 'none',
+                        }}
+                    >
+                        {/* Load Tara on first use, then keep it mounted while hidden so
+                            history and in-flight chart transactions survive closing. */}
+                        {(chatbotHasOpened || props.showChatbot) && (
+                            <React.Suspense fallback={null}>
+                                <Chatbot {...props} />
+                            </React.Suspense>
+                        )}
+                    </div>
                 </div>
 
             </div>
