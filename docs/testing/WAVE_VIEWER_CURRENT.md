@@ -2,8 +2,10 @@
 
 **Updated:** 2026-07-24  
 **Status:** `main.e3ef851f.js` failed Wave Viewer smoke testing and was rolled
-back. Development is serving `main.08bde07a.js` again. The repair branch must be
-corrected before another deployment.
+back. Development is serving `main.08bde07a.js` again. The owner confirmed that
+patterns render after rollback, but bar-chart loading is extraordinarily slow.
+The repair branch must be corrected and P-01 performance must be diagnosed
+before another deployment.
 **Handoff branch:** `codex/wave-viewer-regression-loop-20260724`
 
 ## Environment and deployment evidence
@@ -50,6 +52,13 @@ The `main.08bde07a.js` retest produced 6 PASS, 8 FAIL, 0 BLOCKED.
 | NR-02 | FAIL | A stale AI-sort response must not override a later clear or strand Loading. |
 
 DQ-01, the BK Price `NaN` row, is excluded from this UI regression loop.
+
+P-01 is now a required performance regression. The current bundle loads
+patterns, but bar-chart speed is unacceptable. The task must measure request
+launch, server response, and post-response rendering separately and meet the
+budgets in `WAVE_VIEWER_LOOP.md`. This does not narrow the assignment: the
+remote task must also run and repair the complete Wave Viewer regression
+matrix.
 
 ## Repairs now present on the handoff branch
 
@@ -104,17 +113,21 @@ and reapply only the intended regression repairs.
 
 ## Next action
 
-1. Hard-refresh the authenticated browser and confirm the rollback restored
-   Wave Viewer chart loading on `main.08bde07a.js`.
+1. On `main.08bde07a.js`, capture the P-01 cold-load and five-selection timing
+   baseline, separating request-launch delay, server duration, and rendering
+   delay.
 2. In `/home/tradewave-wave-loop-20260724`, compare the rejected branch source
    with `/home/flask/web-react/src/components`, the source corresponding to the
    last-known-good bundle.
 3. Remove unintended source changes and reapply only the eight intended
-   regression repairs with focused tests.
+   regression repairs plus the diagnosed P-01 performance repair, with focused
+   tests.
 4. Build and smoke-test chart request launch through the dev-only capture
-   harness before switching the served build.
+   harness, including a rendered bar-chart canvas and timing evidence, before
+   switching the served build.
 5. Only after Wave Viewer charts load, run the eight failing cases and continue
-   the loop according to `WAVE_VIEWER_LOOP.md`.
+   the goal loop until all correctness and performance terminal conditions in
+   `WAVE_VIEWER_LOOP.md` are achieved.
 
 ## Source reports
 

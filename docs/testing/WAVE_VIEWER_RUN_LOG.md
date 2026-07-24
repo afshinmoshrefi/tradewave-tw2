@@ -66,3 +66,14 @@ This file is append-only. Keep the compact current state in
   `/home/flask/web-react/releases/build-eca5ca958f82` for diagnosis.
 - `tradewave-web`, `tradewave-appserver`, and nginx remained active. `.180` was
   not modified.
+
+## 2026-07-24 - Rollback confirmed; P-01 performance regression opened
+
+- The owner confirmed that patterns render again on `main.08bde07a.js` after
+  rollback.
+- Bar-chart and pattern loading is extraordinarily slow.
+- P-01 is now required goal scope. Each loop must measure primary request
+  launch delay, server response duration, post-response render duration, and
+  total time.
+- The loop cannot complete until every correctness case and the P-01 budgets
+  pass in two consecutive clean runs on the same deployed bundle.

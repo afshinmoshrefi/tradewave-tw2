@@ -12,6 +12,24 @@ development environment only. It is not authorized to modify staging,
 production, TW1, customer data, billing, authentication, analytics records, or
 the BK reference-data issue.
 
+## Goal
+
+Make the development Wave Viewer correct, stable, and fast. Keep this goal
+active and continue the complete test -> repair -> verify -> deploy to dev ->
+retest loop until every correctness and performance terminal condition in this
+document is achieved.
+
+This is a full application regression-and-repair goal, not a performance-only
+exercise. The focused failing and adjacent cases establish repair order; once
+they are green, run the complete original regression matrix and investigate any
+newly observed regression. P-01 adds measurable speed acceptance to that full
+test scope.
+
+Do not mark the goal complete after a source repair, passing unit tests, a
+successful build, or a successful deployment. Those are intermediate states.
+Do not stop after one loop iteration. A regression or missed performance budget
+starts another iteration on the same goal.
+
 ## Source and environment
 
 - Handoff branch: `codex/wave-viewer-regression-loop-20260724`
@@ -30,31 +48,37 @@ a symlink until its current target and rollback target have been recorded.
 Never request or print a password or secret. Use credentials already available
 to the remote task.
 
-## Loop
+## Goal loop
 
-Run these steps repeatedly without waiting for the owner between ordinary
+Run these phases repeatedly without waiting for the owner between ordinary
 development iterations:
 
-1. Read `WAVE_VIEWER_CURRENT.md` and inspect the currently served JavaScript
-   bundle.
-2. Restore and verify the baseline: S&P 500 STOCKS, 10 years, 8 of 10, empty
-   filter, 419 opportunities, first UNH, last EQR.
-3. Reproduce the remaining failures before editing. Save concise evidence.
-4. Diagnose the state transition or data-source error. Add or update a focused
-   automated test when the behavior can be isolated.
-5. Make the smallest coherent repair. Preserve the Opportunity Table's state
-   independently from the Wave Viewer's cycle and years state.
-6. Run the focused tests, all React unit tests that can run, and a production
-   React build.
-7. Deploy the build to development only. Use a new immutable release directory
-   and an atomic symlink swap when the host uses the release layout. Preserve
-   the previous symlink for rollback. Never copy a partial build over a live
-   directory.
-8. Hard-refresh the authenticated browser, record the new bundle hash, verify
-   the baseline, and retest the repaired cases plus adjacent cases.
-9. Update `WAVE_VIEWER_CURRENT.md` and append a dated entry to
-   `WAVE_VIEWER_RUN_LOG.md`.
-10. Commit and push each verified round to the handoff branch.
+1. **Test.** Read `WAVE_VIEWER_CURRENT.md`, inspect the served JavaScript
+   bundle, restore the S&P 500 STOCKS / 10 years / 8 of 10 / empty-filter
+   baseline, reproduce the remaining failures, and measure P-01 chart latency.
+   Save concise evidence.
+2. **Diagnose and repair.** Identify the state transition, request, rendering,
+   or data-source cause. Add or update a focused automated test or timing
+   instrumentation. Make the smallest coherent repair. Preserve Opportunity
+   Table state independently from Wave Viewer cycle and years state.
+3. **Verify before deployment.** Run focused tests, all runnable React unit
+   tests, and a production React build. Use the dev-only capture/smoke harness
+   to prove the primary chart-data request launches and the first bar-chart
+   canvas renders before changing the live build symlink.
+4. **Deploy to development only.** Use a new immutable release directory and
+   an atomic symlink swap. Record and preserve the previous symlink as the
+   rollback target. Never copy a partial build over a live directory.
+5. **Retest the same bundle.** Hard-refresh the authenticated browser, record
+   the bundle hash, verify the baseline, rerun repaired and adjacent cases, and
+   repeat the P-01 timing sample. When the focused set is green, run the
+   complete original regression matrix on that bundle.
+6. **Record the iteration.** Update `WAVE_VIEWER_CURRENT.md`, append a dated
+   entry to `WAVE_VIEWER_RUN_LOG.md`, and commit and push the verified round to
+   the handoff branch.
+7. **Evaluate the goal.** If any correctness case fails, any performance
+   budget is missed, a Loading state becomes stranded, or a new regression
+   appears, return to phase 1. Continue until the goal's terminal conditions
+   have been achieved.
 
 When one change affects filter membership, sorting, recurrence, loading state,
 or viewer/table ownership, rerun every case in that interaction family rather
@@ -81,12 +105,47 @@ Finally rerun the complete original matrix when the focused set is green.
 The BK `NaN` row is DQ-01, an analytics/reference-data follow-up. It is not a
 Wave Viewer UI regression and must not be counted in the pass/fail total.
 
+## P-01 performance acceptance
+
+The current known-good bundle renders patterns again after rollback, but the
+bar chart is unacceptably slow. Treat chart and pattern loading speed as a
+required product regression, not an optional optimization.
+
+Instrument and report these timings separately:
+
+1. user selection or page-ready to the primary chart-data request starting;
+2. primary chart-data request duration;
+3. chart-data response completion to the first stable bar-chart canvas;
+4. total selection-to-usable-chart time.
+
+Measure one cold authenticated reload and five warm opportunity selections.
+Include UNH, PCAR, and FAST where the current baseline makes them available.
+Record the browser, served bundle hash, opportunity, cache state, and each
+timing rather than reporting only that loading "felt slow."
+
+The acceptance budgets are:
+
+- frontend overhead from chart-data response completion to a usable chart:
+  median at or below 500 ms and no sample above 1 second;
+- warm selection-to-usable-chart: median at or below 3 seconds and no sample
+  above 5 seconds;
+- cold authenticated reload to the first usable bar chart: at or below
+  10 seconds;
+- the primary chart-data request starts immediately and is not gated by
+  optional downstream work;
+- no stale, mixed-symbol, blank, or permanently Loading chart is accepted.
+
+If the server response is the dominant cost, diagnose the endpoint, query,
+payload, caching, and concurrency path instead of hiding the delay in the UI.
+Keep the timings split so frontend and backend regressions are not confused.
+
 ## Acceptance and terminal conditions
 
 The loop is complete only when all requested Wave Viewer cases pass in two
-consecutive clean runs on the same deployed bundle, the baseline is restored at
-the end of both runs, no persistent Loading state remains, and no new console
-error or UI regression is introduced.
+consecutive clean runs on the same deployed bundle, all P-01 performance
+budgets pass in both runs, the baseline is restored at the end of both runs, no
+persistent Loading state remains, and no new console, API, data-mixing, or UI
+regression is introduced. Only then mark the goal achieved.
 
 Stop and ask the owner only when:
 
@@ -103,15 +162,5 @@ continue the loop.
 
 ## Prompt for the remote Codex task
 
-> Work autonomously through the TradeWave Wave Viewer development regression
-> loop. First read `docs/TRADEWAVE_ECOSYSTEM.md`,
-> `docs/testing/WAVE_VIEWER_LOOP.md`, and
-> `docs/testing/WAVE_VIEWER_CURRENT.md`. Use branch
-> `codex/wave-viewer-regression-loop-20260724`. You may inspect, edit, test,
-> build, and deploy to the development environment only. Do not touch staging,
-> production, TW1, secrets, billing, authentication, customer data, or DQ-01.
-> Confirm that `192.168.1.176` is the Wave Viewer host and identify the
-> served React build target before writing. Then loop through reproduce,
-> diagnose, repair, automated verification, dev deployment, browser retest,
-> documentation, commit, and push. Continue until every requested case passes
-> twice consecutively on the same bundle or a listed stop condition is met.
+Use the complete paste-ready prompt in
+`docs/testing/WAVE_VIEWER_REMOTE_GOAL_PROMPT.md`.
