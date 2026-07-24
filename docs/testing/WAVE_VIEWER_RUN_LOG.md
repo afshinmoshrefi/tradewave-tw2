@@ -30,3 +30,22 @@ This file is append-only. Keep the compact current state in
   default run.
 - Production build and browser acceptance remain to be completed on the Linux
   development host.
+
+## 2026-07-24 - Development deployment of `main.e3ef851f.js`
+
+- Source commit: `eca5ca958f825791ee9156cc42d97c77414e39be`.
+- Isolated `.176` worktree:
+  `/home/tradewave-wave-loop-20260724`.
+- Server verification: seven component suites and 78 tests passed under Node.js
+  22; the supported production build completed with existing ESLint warnings.
+- Served build:
+  `/home/flask/web-react/build -> releases/build-eca5ca958f82`.
+- Rollback:
+  `/home/flask/web-react/build-before-wave-loop-eca5ca9`, containing
+  `main.08bde07a.js`.
+- `main.e3ef851f.js` returned HTTP 200 locally and through Cloudflare. Nginx
+  validated, all relevant services remained active, and the dev-only
+  authenticated capture shell emitted the new bundle.
+- The owner confirmed that patterns load in the authenticated browser after the
+  deployment.
+- Full authenticated browser regression retesting remains next.

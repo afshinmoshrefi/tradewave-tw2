@@ -1,14 +1,22 @@
 # Wave Viewer loop - current state
 
 **Updated:** 2026-07-24  
-**Status:** Latest repairs are source-complete and locally verified, but are not
-yet built or deployed on the development host.  
+**Status:** Latest repairs are built and deployed on the development host.
+Browser regression retesting is next.  
 **Handoff branch:** `codex/wave-viewer-regression-loop-20260724`
 
 ## Environment and deployment evidence
 
 - Regression URL: `https://tw2-dev.trxstat.com/app/`
-- Last browser-verified bundle: `main.08bde07a.js`
+- Deployed repair bundle: `main.e3ef851f.js`
+- Deployed source commit: `eca5ca958f825791ee9156cc42d97c77414e39be`
+- Isolated source worktree on `.176`:
+  `/home/tradewave-wave-loop-20260724`
+- Served build symlink:
+  `/home/flask/web-react/build -> releases/build-eca5ca958f82`
+- Rollback directory:
+  `/home/flask/web-react/build-before-wave-loop-eca5ca9`
+  (contains `main.08bde07a.js`)
 - Baseline: S&P 500 STOCKS, 10 years, 8 of 10, empty filter, 419
   opportunities, UNH first and EQR last.
 - Development host: `192.168.1.176`, hostname `TW2`.
@@ -66,29 +74,33 @@ by the regression work, including the responsiveness and Tara action-contract
 changes on which the tested frontend source depends. This avoids rebuilding
 from an older partial source snapshot.
 
-## Verification already completed before handoff
+## Verification and deployment completed
 
 - Focused helper suites: 4 suites, 19 tests passed.
-- React component unit suites: 7 suites, 78 tests passed.
+- React component unit suites: 7 suites, 78 tests passed locally and again in
+  the isolated `.176` worktree under Node.js 22.
 - `src/App.test.js` remains a pre-existing unrelated test-runner failure because
   it imports missing `src/App.js`.
 - Babel parsing succeeded for every changed component.
-- A production build could not run on the primary Windows workspace because its
-  Node.js 14 runtime cannot load the current ESLint dependencies. Build on the
-  Linux development host with its supported Node runtime.
+- The supported `bash ops/build_react_release.sh` command completed on `.176`.
+  The build compiled with the project's existing ESLint warnings and produced
+  `main.e3ef851f.js`.
+- The new asset returns HTTP 200 locally and through Cloudflare. Nginx validates,
+  `tradewave-web`, `tradewave-appserver`, and nginx are active, the provenance
+  marker matches `eca5ca9`, and the dev-only authenticated capture shell emits
+  `main.e3ef851f.js`.
+- The owner confirmed that patterns load in the authenticated browser after the
+  deployment.
 
 ## Next action
 
-1. Fetch and check out the handoff branch in a clean worktree on the remote
-   machine or development host.
-2. Confirm `.176` is the Wave Viewer host and record the currently served build
-   and rollback target.
-3. Run focused tests and the production build.
-4. Deploy to development only and confirm the bundle hash is no longer
-   `main.08bde07a.js`.
-5. Verify the 419-row baseline.
-6. Run the eight failing cases, then the six adjacent passing cases.
-7. Continue the loop according to `WAVE_VIEWER_LOOP.md`.
+1. Pull the handoff branch in
+   `/home/tradewave-wave-loop-20260724`.
+2. Hard-refresh the authenticated browser and confirm
+   `main.e3ef851f.js` is loaded.
+3. Verify the 419-row baseline.
+4. Run the eight failing cases, then the six adjacent passing cases.
+5. Continue the loop according to `WAVE_VIEWER_LOOP.md`.
 
 ## Source reports
 
