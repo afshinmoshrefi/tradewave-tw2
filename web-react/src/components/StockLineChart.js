@@ -260,7 +260,8 @@ const StockLineChart = (props) => {
         var d1 = date1.getFullYear() + '-' + mm1 + '-' + dd1
 
         let td = getTodayDate();
-        if (d1 > td) {
+        const currentChartRequest = d1 > td;
+        if (currentChartRequest) {
 
             d1 = td;
 
@@ -409,14 +410,15 @@ const StockLineChart = (props) => {
 
 
         if (props.seasonalBarChartData.length > 0) {
-
-            // let tmp2 = props.seasonalBarChartData[props.seasonalYears];
-            let tmp2 = props.seasonalBarChartData[props.seasonalBarChartData.length - 1];
-
-            // check if linechart shown is the current inactive linechart
-            if (tmp2['pct'] === '0,0,0' && tmp2['year'] === props.lineChartYear) {
+            // The date request is authoritative. A recent/forward trade whose
+            // padded end crosses today is fetched as a current-range chart
+            // (chartRange -> 3m/6m/1y/2y), even when the current-year seasonal
+            // bar already has a realized percentage. Classifying from pct
+            // mislabeled that current dataset as a historical trade chart and
+            // hid its range/timeframe controls.
+            if (currentChartRequest) {
                 SetShowCurrentLineChart(true)
-                SetHeaderTooltip('This is the up-to-date daily price chart until the last available date.  There is no active trade for this chart yet.')
+                SetHeaderTooltip('This is the up-to-date price chart through the last available date.')
             }
             else {
                 SetShowCurrentLineChart(false)

@@ -10,6 +10,7 @@ APPSERVER = ROOT / "appserver" / "appserver" / "appserver.py"
 APP_JS = ROOT / "web-react" / "src" / "components" / "App.js"
 REPORTS_JS = ROOT / "web-react" / "src" / "components" / "ReportsDashboard.js"
 TEXT_BOX_INC_JS = ROOT / "web-react" / "src" / "components" / "TextBoxInc.js"
+STOCK_LINE_CHART_JS = ROOT / "web-react" / "src" / "components" / "StockLineChart.js"
 
 
 def _functions(*names):
@@ -100,3 +101,10 @@ def test_start_date_nudges_are_real_accessible_buttons():
     assert 'aria-label="Move start date one day earlier"' in source
     assert 'aria-label="Move start date one day later"' in source
     assert source.count('<button type="button"') == 2
+
+
+def test_price_chart_mode_follows_the_range_actually_requested():
+    source = STOCK_LINE_CHART_JS.read_text(encoding="utf-8")
+    assert "const currentChartRequest = d1 > td" in source
+    assert "if (currentChartRequest) {" in source
+    assert "tmp2['pct'] === '0,0,0'" not in source
