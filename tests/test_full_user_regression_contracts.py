@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APPSERVER = ROOT / "appserver" / "appserver" / "appserver.py"
 APP_JS = ROOT / "web-react" / "src" / "components" / "App.js"
 REPORTS_JS = ROOT / "web-react" / "src" / "components" / "ReportsDashboard.js"
+TEXT_BOX_INC_JS = ROOT / "web-react" / "src" / "components" / "TextBoxInc.js"
 
 
 def _functions(*names):
@@ -92,3 +93,10 @@ def test_market_switch_clears_all_prior_viewer_identity_and_chart_state():
         "SetRowIndexClicked(-1)",
     ):
         assert reset in switch_market
+
+
+def test_start_date_nudges_are_real_accessible_buttons():
+    source = TEXT_BOX_INC_JS.read_text(encoding="utf-8")
+    assert 'aria-label="Move start date one day earlier"' in source
+    assert 'aria-label="Move start date one day later"' in source
+    assert source.count('<button type="button"') == 2
