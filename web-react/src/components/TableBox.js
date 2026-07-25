@@ -425,7 +425,7 @@ const TableBox = ({
                     : key === 'TL' && row[key] === null
                     ? PENDING_CELL
                     : key === 'price'
-                      ? (row.price != null
+                      ? (Number.isFinite(row.price)
                         ? <Tippy
                             placement="top"
                             content={
@@ -433,7 +433,7 @@ const TableBox = ({
                                 <span style={{ color: row.change_p > 0 ? '#4caf50' : row.change_p < 0 ? '#f44336' : 'inherit' }}>
                                   {row.change_p > 0 ? '▲' : row.change_p < 0 ? '▼' : '–'}
                                 </span>{' '}
-                                {row.change_p != null ? `${row.change_p > 0 ? '+' : ''}${row.change_p.toFixed(2)}%` : '0.00%'}
+                                {Number.isFinite(row.change_p) ? `${row.change_p > 0 ? '+' : ''}${row.change_p.toFixed(2)}%` : '0.00%'}
                               </div>
                             }
                           >

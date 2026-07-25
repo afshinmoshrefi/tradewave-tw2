@@ -1682,10 +1682,10 @@ const App = () => {
     return lvl;
   };
 
-  // Re-derive the /login handshake URL from the page credentials (window
-  // globals re-minted by Flask on every /app/ load, legacy 'apsl' cookie
-  // fallback). Returns null when no credentials are present.
-  const buildLoginUrl = () => {
+  // Re-derive the login handshake from the page credentials (window globals
+  // re-minted by Flask on every /app/ load, legacy 'apsl' cookie fallback).
+  // The signed LTK goes in a POST body, never in a URL/access-log path.
+  const buildLoginRequest = () => {
     let cookie = null;
     if (window.current_user_id && window.ltk) cookie = `${window.current_user_id},${window.ltk}`;
     else cookie = getCookie('apsl');
@@ -1697,7 +1697,20 @@ const App = () => {
     if (debug) loginToken = process.env.REACT_APP_DEBUG_LOGIN_TOKEN;
 
     const [deviceType, deviceOS] = detectDevice();
-    return `${appserverURL()}/login/${userid}/${effectiveUserLevel()}/${deviceType}/${deviceOS}/${loginToken}`;
+    return {
+      url: `${appserverURL()}/login/session`,
+      options: {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wp_userid: userid,
+          user_level: effectiveUserLevel(),
+          country_code: deviceType,
+          zip: deviceOS,
+          skey: loginToken,
+        }),
+      },
+    };
   };
 
   //-------------------------------------------------------------------------------
@@ -1708,11 +1721,11 @@ const App = () => {
   useEffect(() => {
     registerTwFetchAuth({
       relogin: () => {
-        const url = buildLoginUrl();
-        if (!url) return Promise.resolve(null);
+        const loginRequest = buildLoginRequest();
+        if (!loginRequest) return Promise.resolve(null);
         // twFetch (skipAuthRetry) so a transient 429/5xx during the ONE re-login
         // attempt retries with backoff instead of falsely latching sessionDead.
-        return twFetch(url, { skipAuthRetry: true })
+        return twFetch(loginRequest.url, { ...loginRequest.options, skipAuthRetry: true })
           .then((res) => {
             const contentType = res.headers.get("content-type");
             if (!res.ok || !contentType || contentType.indexOf("application/json") === -1) return null;
@@ -1855,14 +1868,24 @@ const App = () => {
       // SetLoggedinUser (above) re-runs this effect on loggedinUser change while token is
       // still '' - loginInFlightRef stops that from firing the /login handshake twice.
       loginInFlightRef.current = true
-      let asURL = appserverURL()
-
       const [deviceType, deviceOS] = detectDevice();
       tmp = effectiveUserLevel();
 
-      let url = `${asURL}/login/${userid}/${tmp}/${deviceType}/${deviceOS}/${loginToken}`
+      let url = `${appserverURL()}/login/session`
+      let loginOptions = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wp_userid: userid,
+          user_level: tmp,
+          country_code: deviceType,
+          zip: deviceOS,
+          skey: loginToken,
+        }),
+        skipAuthRetry: true,
+      }
 
-      if (debug) console.log('login url =', url)
+      if (debug) console.log('login endpoint =', url)
 
       // console.log('.................login url =', url)
       console.log('.') ; // I think this helps make login work for non logged in with trxstat.com - it was crashing for some reason
@@ -1870,7 +1893,7 @@ const App = () => {
       var stat = ''
       // login to appserver - twFetch retries transient 429/5xx with backoff;
       // skipAuthRetry because a 401 here means the LTK itself is dead
-      twFetch(url, { skipAuthRetry: true })
+      twFetch(url, loginOptions)
         .then(res => {
 
           const contentType = res.headers.get("content-type");

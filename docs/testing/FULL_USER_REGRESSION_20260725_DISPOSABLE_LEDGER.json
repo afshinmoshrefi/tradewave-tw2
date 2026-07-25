@@ -1,0 +1,46 @@
+{
+  "run_id": "TW-QA-20260725",
+  "target": "192.168.1.176",
+  "allowed_origin": "https://tw2-dev.trxstat.com",
+  "records": [
+    {
+      "kind": "portfolio",
+      "name": "TW-QA-20260725-A",
+      "renamed_to": "TW-QA-20260725-B",
+      "server_id": null,
+      "status": "created",
+      "created": true,
+      "deleted": false,
+      "absence_verified": false
+    },
+    {
+      "kind": "saved_pattern",
+      "portfolio": "TW-QA-20260725-B",
+      "symbol": "AAPL",
+      "start_date": "2026-07-25",
+      "days": 43,
+      "direction": "long",
+      "server_id": null,
+      "status": "created",
+      "created": true,
+      "deleted": false,
+      "absence_verified": false
+    }
+  ],
+  "local_test_files": [],
+  "original_preferences": {
+    "portfolio_names": [
+      "main",
+      "Notifications"
+    ],
+    "selected_portfolio": "main",
+    "main_saved_pattern_count": 11
+  },
+  "cleanup_complete": false,
+  "absence_verified": false,
+  "notes": [
+    "Record an item before or immediately after each stateful action.",
+    "Never remove pre-existing user data.",
+    "Restore every modified user preference to its recorded baseline."
+  ]
+}

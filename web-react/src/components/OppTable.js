@@ -36,6 +36,7 @@ import {
 } from './opportunityFilters'
 import { selectOpportunityMLScoreSource } from './opportunityMLSource'
 import { resolveOpportunityRecurrence } from './opportunityRecurrence'
+import { normalizeRealtimeQuote } from './realtimePrices'
 
 const OppTable = (props) => {
   const tc = themeColors(props.UITheme)
@@ -484,10 +485,10 @@ const OppTable = (props) => {
                 }
 
                 // Inject realtime price data
-                const p = prices[row[1]];
+                const p = normalizeRealtimeQuote(prices[row[1]]);
                 if (p) {
-                  newRow.price = parseFloat(p.price);
-                  newRow.change_p = parseFloat(p.change_p);
+                  newRow.price = p.price;
+                  newRow.change_p = p.change_p;
                 } else {
                   newRow.price = null;
                   newRow.change_p = null;
@@ -516,10 +517,10 @@ const OppTable = (props) => {
                 // }
 
                 // Inject realtime price data
-                const pa = prices[row[1]];
+                const pa = normalizeRealtimeQuote(prices[row[1]]);
                 if (pa) {
-                  newRow.price = parseFloat(pa.price);
-                  newRow.change_p = parseFloat(pa.change_p);
+                  newRow.price = pa.price;
+                  newRow.change_p = pa.change_p;
                 } else {
                   newRow.price = null;
                   newRow.change_p = null;
