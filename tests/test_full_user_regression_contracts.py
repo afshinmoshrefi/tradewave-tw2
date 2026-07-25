@@ -74,3 +74,21 @@ def test_portfolio_footer_updates_only_for_the_selected_row():
     source = REPORTS_JS.read_text(encoding="utf-8")
     assert "if (parseInt(idx) === clickedRowIndex)" in source
     assert "SetSecurityData((current) => ({" in source
+
+
+def test_market_switch_clears_all_prior_viewer_identity_and_chart_state():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.index("const switchMarket = (marketDisplayName) =>")
+    end = source.index("const selectboxChanged = (event) =>", start)
+    switch_market = source[start:end]
+    for reset in (
+        "SetSymbol('')",
+        "SetCompany('')",
+        "SetSeasonalBarChartData([])",
+        "SetTradeDetailData([])",
+        "SetConsolidatedSeasonalData([])",
+        "SetMaxYearsConsolidatedSeasonalData([])",
+        "SetCompareSecurityBarChartData([])",
+        "SetRowIndexClicked(-1)",
+    ):
+        assert reset in switch_market

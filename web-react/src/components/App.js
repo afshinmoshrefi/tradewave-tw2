@@ -831,7 +831,13 @@ const App = () => {
     SetLastPrice(['', 0]);
     SetSymbol('');
     SetSeasonalBarChartData([]);
+    SetTradeDetailData([]);
+    SetConsolidatedSeasonalData([]);
+    SetMaxYearsConsolidatedSeasonalData([]);
+    SetCompareSecurityBarChartData([]);
+    SetCompany('');
     SetLineChartYear(0);
+    SetRowIndexClicked(-1);
     if (window.location.search.length > 0) {
       window.history.replaceState(null, '', window.location.pathname);
       queryStringLoadedRef.current = true;
