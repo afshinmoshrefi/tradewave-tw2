@@ -15,6 +15,7 @@ TEXT_BOX_INC_JS = ROOT / "web-react" / "src" / "components" / "TextBoxInc.js"
 STOCK_LINE_CHART_JS = ROOT / "web-react" / "src" / "components" / "StockLineChart.js"
 DESKTOP_LAYOUT_JS = ROOT / "web-react" / "src" / "components" / "DesktopLayout.js"
 WATCHLIST_SETTINGS_JS = ROOT / "web-react" / "src" / "components" / "WatchlistSettings.js"
+PORTFOLIO_SETTINGS_JS = ROOT / "web-react" / "src" / "components" / "PortfolioSettings.js"
 CHATBOT_JS = ROOT / "web-react" / "src" / "components" / "Chatbot.js"
 CHATBOT_PY = ROOT / "appserver" / "appserver" / "chatbot.py"
 CONFIG_PY = ROOT / "config.py"
@@ -83,6 +84,18 @@ def test_portfolio_footer_updates_only_for_the_selected_row():
     source = REPORTS_JS.read_text(encoding="utf-8")
     assert "if (parseInt(idx) === clickedRowIndex)" in source
     assert "SetSecurityData((current) => ({" in source
+
+
+def test_nonempty_portfolio_delete_waits_for_the_selected_portfolio_count():
+    source = PORTFOLIO_SETTINGS_JS.read_text(encoding="utf-8")
+    assert "SetNumOppsSelectedPortfolio(-1);" in source
+    assert "SetPortfolioCountFor('');" in source
+    assert "SetPortfolioCountFor(value);" in source
+    assert "portfolioCountFor !== delname || numOppsSelectedPortfolio < 0" in source
+    count_guard = source.index("portfolioCountFor !== delname || numOppsSelectedPortfolio < 0")
+    confirmation = source.index("numOppsSelectedPortfolio > 0 && !confirmDelete")
+    deletion = source.index("let url = `${asURL}/del_user_portfolio_name/")
+    assert count_guard < confirmation < deletion
 
 
 def test_market_switch_clears_all_prior_viewer_identity_and_chart_state():
