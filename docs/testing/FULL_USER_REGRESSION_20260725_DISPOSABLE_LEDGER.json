@@ -7,40 +7,92 @@
       "kind": "portfolio",
       "name": "TW-QA-20260725-A",
       "renamed_to": "TW-QA-20260725-B",
-      "server_id": null,
-      "status": "created",
       "created": true,
-      "deleted": false,
-      "absence_verified": false
+      "deleted": true,
+      "absence_verified": true
     },
     {
       "kind": "saved_pattern",
       "portfolio": "TW-QA-20260725-B",
       "symbol": "AAPL",
-      "start_date": "2026-07-25",
-      "days": 43,
-      "direction": "long",
-      "server_id": null,
-      "status": "created",
       "created": true,
-      "deleted": false,
-      "absence_verified": false
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "saved_pattern",
+      "portfolio": "TW-QA-20260725-B",
+      "symbol": "LUV",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "portfolio_note",
+      "portfolio": "TW-QA-20260725-B",
+      "symbol": "LUV",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "portfolio",
+      "name": "TW-QA-20260725-C",
+      "purpose": "post-repair non-empty deletion race retest",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "saved_pattern",
+      "portfolio": "TW-QA-20260725-C",
+      "symbol": "AXP",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "watchlist_symbol",
+      "watchlist": "MY FAVORITE STOCKS",
+      "symbol": "AMZN",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
     }
   ],
-  "local_test_files": [],
+  "local_test_files": [
+    {
+      "path": "qa-artifacts/TW-QA-WL-20260725-import.csv",
+      "status": "retained_as_test_evidence"
+    },
+    {
+      "path": "qa-artifacts/TradeWave Opportunity Export for AAPL date range  2026-06-25 to 07-18.jpg",
+      "status": "retained_as_test_evidence"
+    }
+  ],
   "original_preferences": {
     "portfolio_names": [
       "main",
       "Notifications"
     ],
     "selected_portfolio": "main",
-    "main_saved_pattern_count": 11
+    "main_saved_pattern_count": 11,
+    "tooltips": "OFF",
+    "short_dates": false,
+    "favorite_symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "GOOGL",
+      "BA",
+      "LLY"
+    ]
   },
-  "cleanup_complete": false,
-  "absence_verified": false,
-  "notes": [
-    "Record an item before or immediately after each stateful action.",
-    "Never remove pre-existing user data.",
-    "Restore every modified user preference to its recorded baseline."
+  "restored_preferences": true,
+  "cleanup_complete": true,
+  "absence_verified": true,
+  "final_portfolio_names": [
+    "main",
+    "Notifications"
   ]
 }

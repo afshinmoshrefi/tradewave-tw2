@@ -48,5 +48,27 @@
 
 ## Cleanup and boundary proof
 
-Pending. Completion requires every ledger item to be marked `deleted` and `absence_verified`, plus a final host/deployment audit proving only `.176` was touched.
+Completed. Every application record in the disposable ledger is marked `deleted` and `absence_verified`. Final Portfolio Manager names are the pre-existing `main` and `Notifications`; favorites were restored to the original six symbols; tooltip and short-date preferences were restored.
 
+## Completion appendix
+
+| Test/change | Result | Evidence/notes |
+|---|---|---|
+| Visible Chrome Wave Viewer passes | PASS with release findings | Core viewer, charts, Portfolio Manager, watchlists, Tara, preferences, navigation, reload, multi-tab, empty/error recovery |
+| Defect repairs | PASS | Commits `fc5492db` through `929f8180` |
+| Non-empty portfolio deletion race | REPAIRED | Immediate select/delete now shows `Delete Forever / Cancel`; disposable row/portfolio then removed |
+| Retired `CTRA` cache entry | REPAIRED | S&P default count 448 → 447; `CTRA` filter returns no rows |
+| Focused contracts | PASS | 14 passed |
+| Full Python suite | PASS | 682 passed, 3 environmental/generated-doc skips |
+| React suite | PASS | 7 suites, 61 tests |
+| Normal production build | PASS | `main.266c0d79.js` |
+| CI-strict build | FAIL / release blocker | Existing lint warnings become errors under `CI=true` |
+| Responsive qualification | FAIL / release blocker | Clipping/unusable layout at 1024×768, 768×1024, and 390×844 desktop-UA viewports |
+| Market-data refresh | FAIL / release blocker | Configured EODHD credential returns HTTP 401 |
+| Watchlist CSV upload | BLOCKED | Chrome extension file-URL permission disabled |
+| Trade Detail CSV download | INCONCLUSIVE | Correct blob URL/filename; no download event/file in controlled Chrome |
+| Browser back/forward | BLOCKED | Browser-control channel timed out twice |
+| External/admin mutations | NOT RUN by design | Scope exclusion |
+| `.180`, staging, production | UNTOUCHED | All host commands and deploy paths targeted `.176` only |
+
+Final release verdict and remediation sequence are in `FULL_USER_REGRESSION_20260725_REPORT.md`.

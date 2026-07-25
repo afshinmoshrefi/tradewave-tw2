@@ -2,12 +2,16 @@
 
 Run: `TW-QA-20260725`
 
-Status: baseline inventory and traceability matrix in progress.
+Status: completed on `.176`; repairs deployed and cleanup verified.
 
-Authoritative surface: current signed-in visible Chrome.
+Authoritative surface: the signed-in visible Chrome session.
 
-Target boundary: `.176` only. `.180`, staging, production, admin screens, WorkOS changes, and real external side effects are excluded.
+Current dev build: branch `codex/full-user-regression-20260725`, application code `929f8180`, browser asset `main.266c0d79.js`.
 
-Current finding: the default opportunity table renders `NaN` for ticker `BK` price; diagnosis is in progress.
+Verification: 14 focused contracts, 682 full Python tests, and 61 React tests passed. The normal production frontend build succeeded.
 
-The run is not complete until the full matrix passes twice on the deployed immutable `.176` build, all disposable data is removed with absence verified, and the final release-readiness report is written.
+Release verdict: **not ready for staging or production**. Blocking items are the EODHD HTTP 401 refresh failure, responsive-layout failures at narrow/tablet/mobile widths, and the CI-strict frontend build failing on lint warnings. The CSV upload/download and browser-history evidence gaps must also be closed before production qualification.
+
+Cleanup: complete. Only the pre-existing `main` and `Notifications` portfolios remain; all `TW-QA-20260725` records are absent and preferences are restored.
+
+Full report: `FULL_USER_REGRESSION_20260725_REPORT.md`.

@@ -1,5 +1,7 @@
 # TradeWave Full User-Facing Regression Matrix — 2026-07-25
 
+> Execution is complete. This is the planned traceability catalog; the authoritative final dispositions, repaired defects, cleanup proof, and release decision are recorded in `FULL_USER_REGRESSION_20260725_REPORT.md`. Unclosed items are explicitly listed there and are not claimed as passes.
+
 ## Scope and authority
 
 - Target: `192.168.1.176` / `https://tw2-dev.trxstat.com` only.
@@ -171,4 +173,3 @@
 | QA-15 | Dev deploy/rollback | `.176` deploy is atomic, health-checked, and rollback target recorded | — | — | |
 | QA-16 | Boundary audit | No `.180`, staging, production, admin, or external side effect touched | — | — | |
 | QA-17 | Cleanup audit | Every disposable record/file is removed and absence verified | — | — | |
-
