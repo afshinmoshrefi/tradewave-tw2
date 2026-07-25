@@ -3,7 +3,9 @@
 import ast
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 APPSERVER = ROOT / "appserver" / "appserver" / "appserver.py"
@@ -15,6 +17,7 @@ DESKTOP_LAYOUT_JS = ROOT / "web-react" / "src" / "components" / "DesktopLayout.j
 WATCHLIST_SETTINGS_JS = ROOT / "web-react" / "src" / "components" / "WatchlistSettings.js"
 CHATBOT_JS = ROOT / "web-react" / "src" / "components" / "Chatbot.js"
 CHATBOT_PY = ROOT / "appserver" / "appserver" / "chatbot.py"
+CONFIG_PY = ROOT / "config.py"
 
 
 def _functions(*names):
@@ -143,3 +146,20 @@ def test_tara_uses_inclusive_dates_and_strips_unknown_html_tags():
     assert "timedelta(days=max(num_days - 1, 0))" in server
     assert "inclusive end date" in server
     assert "s.replace(/<(?!\\/?(?:b|br|i|a|span)\\b)[^>]*>/gi, '');" in client
+
+
+def test_retired_symbols_are_filtered_after_cache_loading():
+    ns = _functions("_drop_disabled_market_symbols")
+    ns["config"] = SimpleNamespace(drop_symbols_by_market={"2": ["CTRA"]})
+    drop = ns["_drop_disabled_market_symbols"]
+    source = APPSERVER.read_text(encoding="utf-8")
+    config = CONFIG_PY.read_text(encoding="utf-8")
+
+    original = pd.DataFrame({"sym": ["AAPL", "CTRA"], "sharpe_ratio": [1.0, 2.0]})
+    filtered = drop(original, "2")
+
+    assert filtered["sym"].tolist() == ["AAPL"]
+    assert original["sym"].tolist() == ["AAPL", "CTRA"]
+    assert source.count("_drop_disabled_market_symbols(") == 3
+    assert "'2':  ['CTRA']" in config
+    assert "'3':  ['CTRA']" in config

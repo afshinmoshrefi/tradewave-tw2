@@ -309,6 +309,8 @@ session_expiration_hours = 24
 # some symbols are no longer getting updated.  we'll drop them when loading opp_list 
 drop_symbols_by_market = {
 
+ '2':  ['CTRA'],  # S&P 500 - Coterra merged into Devon and was delisted 2026-05-07
+ '3':  ['CTRA'],  # Russell 1000
  '5':  ['CEX','MSCIWORLD'],  # indices common
  '6':  ['CEX','MSCIWORLD']  # indices all
 

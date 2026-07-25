@@ -962,6 +962,14 @@ def root(token=''):
 
 
 
+def _drop_disabled_market_symbols(df, resource_id):
+    """Exclude retired/disabled symbols on both cache hits and cache misses."""
+    disabled = config.drop_symbols_by_market.get(str(resource_id), [])
+    if df.empty or 'sym' not in df.columns or not disabled:
+        return df
+    return df[~df['sym'].isin(disabled)]
+
+
 # --------start opplist4------------------------------------------------------------------------------------------------------------------------------------------------------------
 # version 4 returns a list of lists instead of dictionary.  saves around 40% in size
 # add active list to opplist4 based on module create_acitve_opps.py
@@ -1237,12 +1245,6 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
                 # print('ooooooooooooooooooooooooopp=',opp,'\n\n')
 
 
-                # remove symbols listed in config - these are symbols that aren't being updated for some reason
-                if resourceID in config.drop_symbols_by_market: 
-                    # print('before',opp.shape[0],opp)
-                    opp = opp[~opp['sym'].isin(config.drop_symbols_by_market[resourceID])]
-                    # print('after',opp)
-
                 # change all the dates on the opp list to next_trading_day to support weekend and holidays
                 # opp['date']=next_trading_day # keep the dates as is 9/11/2022
             
@@ -1340,6 +1342,12 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     else:
         opp  = pd.DataFrame(json.loads(opp_redis))
         oppa = pd.DataFrame(json.loads(oppa_redis))
+
+    # Apply the disabled-symbol policy after loading from either files or Redis.
+    # Keeping this outside the cache-miss branch prevents retired symbols from
+    # lingering in cached regular or active opportunity lists.
+    opp = _drop_disabled_market_symbols(opp, resourceID)
+    oppa = _drop_disabled_market_symbols(oppa, resourceID)
 
     # ------------------------------------------------------------------------
     # now we have opp llist - if symbol != '' then filter by symbol 12/4/2023
