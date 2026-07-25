@@ -11,6 +11,10 @@ APP_JS = ROOT / "web-react" / "src" / "components" / "App.js"
 REPORTS_JS = ROOT / "web-react" / "src" / "components" / "ReportsDashboard.js"
 TEXT_BOX_INC_JS = ROOT / "web-react" / "src" / "components" / "TextBoxInc.js"
 STOCK_LINE_CHART_JS = ROOT / "web-react" / "src" / "components" / "StockLineChart.js"
+DESKTOP_LAYOUT_JS = ROOT / "web-react" / "src" / "components" / "DesktopLayout.js"
+WATCHLIST_SETTINGS_JS = ROOT / "web-react" / "src" / "components" / "WatchlistSettings.js"
+CHATBOT_JS = ROOT / "web-react" / "src" / "components" / "Chatbot.js"
+CHATBOT_PY = ROOT / "appserver" / "appserver" / "chatbot.py"
 
 
 def _functions(*names):
@@ -108,3 +112,34 @@ def test_price_chart_mode_follows_the_range_actually_requested():
     assert "const currentChartRequest = d1 > td" in source
     assert "if (currentChartRequest) {" in source
     assert "tmp2['pct'] === '0,0,0'" not in source
+
+
+def test_watchlist_names_are_bounded_and_symbol_button_passes_no_event():
+    client = WATCHLIST_SETTINGS_JS.read_text(encoding="utf-8")
+    server = APPSERVER.read_text(encoding="utf-8")
+    assert "const WATCHLIST_NAME_MAX_LENGTH = 64" in client
+    assert "WATCHLIST_NAME_MAX_LENGTH = 64" in server
+    assert client.count("watchlist_names_list'] === 'invalid_name'") >= 3
+    assert "onClick={() => handleAddSymbol()}" in client
+    assert "onClick={handleAddSymbol}" not in client
+    assert "if not name or len(name) > WATCHLIST_NAME_MAX_LENGTH:" in server
+    assert "if not new_name or len(new_name) > WATCHLIST_NAME_MAX_LENGTH:" in server
+    assert "return jsonify({'watchlist_names_list': 'duplicate'})" in server
+
+
+def test_user_scoped_preferences_survive_reload():
+    app = APP_JS.read_text(encoding="utf-8")
+    desktop = DESKTOP_LAYOUT_JS.read_text(encoding="utf-8")
+    assert "const persisted = lsGet('tw_tooltips');" in app
+    assert "const persisted = lsGet('tw_short_dates');" in app
+    assert "lsSet('tw_tooltips', next);" in desktop
+    assert "lsSet('tw_short_dates', next);" in desktop
+    assert "localStorage.setItem('tw_short_dates'" not in desktop
+
+
+def test_tara_uses_inclusive_dates_and_strips_unknown_html_tags():
+    server = CHATBOT_PY.read_text(encoding="utf-8")
+    client = CHATBOT_JS.read_text(encoding="utf-8")
+    assert "timedelta(days=max(num_days - 1, 0))" in server
+    assert "inclusive end date" in server
+    assert "s.replace(/<(?!\\/?(?:b|br|i|a|span)\\b)[^>]*>/gi, '');" in client

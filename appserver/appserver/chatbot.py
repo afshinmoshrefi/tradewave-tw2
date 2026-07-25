@@ -204,7 +204,7 @@ def get_appserver_token():
 #-------------------------------------------------------------------------------------------------------------------
 def calculate_end_date(start_date, num_days):
     """
-    Calculate the end date based on the start_date and num_days.
+    Calculate the inclusive end date based on the start_date and num_days.
 
     Args:
         start_date (str): The start date in the format 'YYYY-MM-DD'.
@@ -215,7 +215,7 @@ def calculate_end_date(start_date, num_days):
     """
     num_days = int(num_days)  # Ensure num_days is an integer
     start_date_obj = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-    end_date_obj = start_date_obj + timedelta(days=num_days)
+    end_date_obj = start_date_obj + timedelta(days=max(num_days - 1, 0))
     return end_date_obj.strftime("%Y-%m-%d")
 
 #-------------------------------------------------------------------------------------------------------------------
@@ -956,7 +956,6 @@ def chat():
         logging.exception("chatbot.chat failed for user_id=%s", user_id)  # detail server-side only
         return jsonify({"reply": "Sorry, something went wrong on my end. Please try again.",
                         "actions": []})  # generic message; consistent envelope on every path
-
 
 
 

@@ -218,7 +218,10 @@ const App = () => {
 
 
   // tooltip on/off
-  const [tooltipSW, SetTooltipSW] = useState(false)
+  const [tooltipSW, SetTooltipSW] = useState(() => {
+    const persisted = lsGet('tw_tooltips');
+    return persisted === true || persisted === '1';
+  })
 
 
   //4/12/2022 - 
@@ -487,7 +490,8 @@ const App = () => {
 
   const [showSR2, SetShowSR2] = useState(false); // this is to control the configuration of oppTable that display 2 additional columns for AP2 and SR2
   const [shortDates, SetShortDates] = useState(() => {
-    return lsGet('tw_short_dates') === '1' || lsGet('tw_short_dates') === true;
+    const persisted = lsGet('tw_short_dates');
+    return persisted === true || persisted === '1';
   });
 
   const [switchStreamingQuotes, SetSwitchStreamingQuotes] = useState(true); // this is to switch streaming quotes on and off

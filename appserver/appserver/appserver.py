@@ -4815,6 +4815,9 @@ def del_user_portfolio_name(portfolio_name): # use slug as an identifier for whi
 # Redis key: user_watchlists_{userid} -> JSON list of dicts: [{name, resourceId, resourceName, isDefault}, ...]
 # Redis key: user_watchlist_items_{userid}_{name} -> JSON list of symbol strings: ["AAPL", "MSFT", ...]
 #---------------------------------------------------------------------------------------------------
+WATCHLIST_NAME_MAX_LENGTH = 64
+
+
 @app.route('/get_user_watchlist_names', methods=['GET'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
@@ -4860,6 +4863,13 @@ def add_user_watchlist_name(name, resourceId, resourceName):
     data            = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
     userid          = data['user']
     user_level      = str(data.get('user_level', '1'))
+    name            = name.strip()
+
+    if not name or len(name) > WATCHLIST_NAME_MAX_LENGTH:
+        return jsonify({
+            'watchlist_names_list': 'invalid_name',
+            'message': f'Watchlist names are limited to {WATCHLIST_NAME_MAX_LENGTH} characters',
+        })
 
     max_allowed = config.num_watchlists_allowed_by_level.get(user_level, 0)
 
@@ -4894,10 +4904,20 @@ def edit_user_watchlist_name(old_name, new_name):
     token           = request.args.get("token")
     data            = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
     userid          = data['user']
+    new_name        = new_name.strip()
+
+    if not new_name or len(new_name) > WATCHLIST_NAME_MAX_LENGTH:
+        return jsonify({
+            'watchlist_names_list': 'invalid_name',
+            'message': f'Watchlist names are limited to {WATCHLIST_NAME_MAX_LENGTH} characters',
+        })
 
     redis_key = f'user_watchlists_{userid}'
     raw = redis_client2.get(redis_key)
     watchlists = json.loads(raw) if raw else []
+
+    if any(w['name'] == new_name and w['name'] != old_name for w in watchlists):
+        return jsonify({'watchlist_names_list': 'duplicate'})
 
     for w in watchlists:
         if w['name'] == old_name:
