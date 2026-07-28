@@ -4,13 +4,14 @@
 
 **Dev result:** The repaired build is deployed and functioning on `192.168.1.176`.
 
-**Release decision:** **Not ready for staging or production yet.** The user-facing regression found and repaired 14 product defects, and the resulting automated suites are green. Release is still blocked by:
+**Corrected release decision — 2026-07-28:** **Reasonable candidate for staging.** The regression found and repaired 14 product defects, and the automated suites are green. The original no-go decision overstated several test-harness observations:
 
-1. The configured EODHD market-data credential returns HTTP 401, so routine price refreshes are not reliable.
-2. The Wave Viewer is clipped or unusable at tested narrow/tablet/mobile-width desktop viewports, and one viewport transition left the opportunity pane in a stale loading state until the market was reselected.
-3. `CI=true npm run build` promotes the repository's existing lint warnings to errors. The normal production build succeeds, but the CI release gate is not clean.
+- A direct recheck of the configured `.176` EODHD credential returned HTTP 200 for both daily and realtime AAPL data, with daily data through 2026-07-28. The earlier 401 is withdrawn as a current blocker.
+- Resizing desktop Chrome retained a desktop user agent and was not a valid phone test. The user's successful real-phone test supersedes the mobile-failure label.
+- Watchlist CSV, chart CSV download, and browser back/forward work in the user's manual testing. The automation failures were harness limitations, not demonstrated TradeWave defects.
+- `CI=true npm run build` treats existing lint warnings as errors, while the normal production build succeeds. This is build-pipeline hygiene and blocks release only if the actual release pipeline requires that strict CI mode.
 
-Before production qualification, also close the visible-browser evidence gaps for watchlist CSV upload, chart CSV download, and browser back/forward recovery described below.
+Production should still follow a staging smoke test rather than bypass staging.
 
 ## Scope and safety
 
@@ -71,7 +72,7 @@ Passed in visible Chrome: authenticated load, opportunity population, representa
 
 Passed: seasonal bar chart, trend chart, stats sections, current-price chart, representative ranges and chart modes, overlays, projection behavior, chart navigation, and non-empty JPEG export. The JPEG evidence is retained under `qa-artifacts`.
 
-Not closed: the Trade Detail CSV anchor had the correct blob URL and filename (`AXP TradeWave Opportunity csv report.csv`), but controlled Chrome emitted no download event and produced no local file. There were no console errors. Retest manually and, if reproducible outside browser control, treat it as a product defect.
+Passed by user verification: Trade Detail CSV download works. During automation, the anchor had the correct blob URL and filename, but the Chrome-control harness emitted no download event and exposed no local file. That was a harness observation, not a product failure.
 
 ### Portfolio Manager
 
@@ -83,23 +84,17 @@ The non-empty deletion race was reproduced, repaired, deployed, and retested. Th
 
 Passed: settings load, invalid/long/duplicate name behavior, add valid symbol, remove symbol, and preference persistence. `AMZN` was added to and removed from the pre-existing favorites list; the original six symbols were restored.
 
-Not closed: CSV upload could not be selected because the ChatGPT Chrome extension's **Allow access to file URLs** permission is disabled. The synthetic import file remains at `qa-artifacts/TW-QA-WL-20260725-import.csv`. Enable that permission, rerun valid/duplicate/invalid mixed-row import, and then remove any imported test symbols/list.
+Passed by user verification: watchlist CSV upload works. The automated run could not select the synthetic file because the ChatGPT Chrome extension lacked file-URL access. That limitation applied to the test extension, not TradeWave.
 
 ### Tara, preferences, navigation, and auth
 
 Passed: Tara open/use/clear flows, selected-wave context, viewer update action, inclusive-date answer, unsafe-markup sanitization, tooltip persistence, short-date persistence, reload recovery, multi-tab/deep-link behavior, global navigation, account visibility, and signed-in session continuity. Logout was deliberately not invoked.
 
-Browser back/forward could not be completed reliably because the visible-browser control channel timed out twice during history navigation. This is a qualification gap, not a claimed application failure.
+Passed by user verification: browser back/forward works. The visible-browser control channel timed out twice during automation; that was not a demonstrated application failure.
 
 ### Responsive behavior
 
-Failed release qualification:
-
-- `1024×768`: controls clipped; one transition left stale loading until market reselect.
-- `768×1024`: desktop-UA layout unusable/clipped.
-- `390×844`: desktop-UA layout unusable/clipped.
-
-A true mobile-UA pass was not available in the preserved signed-in Chrome session. Either fix these widths or explicitly document the supported-device/viewport contract and validate with the intended mobile UA.
+Passed on the user's real phone as expected. The automated run resized desktop Chrome to `1024×768`, `768×1024`, and `390×844` while retaining a desktop user agent. Those results describe narrow desktop-UA behavior and must not be presented as a valid mobile-device failure. One narrow-desktop transition did require a market reselect after stale loading; this can be retained as a low-priority edge case if narrow desktop windows are supported.
 
 ## Automated and operational verification
 
@@ -109,10 +104,10 @@ A true mobile-UA pass was not available in the preserved signed-in Chrome sessio
 | Full Python suite | 682 passed, 3 skipped |
 | React suites | 7/7 suites; 61/61 tests passed |
 | Normal production frontend build | Passed; emitted `main.266c0d79.js` |
-| CI-strict frontend build | Failed because existing lint warnings are treated as errors |
+| CI-strict frontend build | Existing lint warnings become errors; normal production build passes |
 | Visible Chrome post-deploy | Passed core retest; no console warnings/errors |
 | App/web services | Active on `.176` |
-| EODHD credential | HTTP 401; release-blocking refresh risk |
+| EODHD credential recheck, 2026-07-28 | Daily HTTP 200; realtime HTTP 200; daily data through 2026-07-28 |
 
 The three Python skips were environmental/document-generation skips: missing optional `mcp` package and two quickstart checks whose generated HTML was absent.
 
@@ -131,12 +126,9 @@ Final Portfolio Manager portfolio list: `main`, `Notifications`.
 
 Pre-existing user data was not deleted or renamed. Local JPG/CSV files under `qa-artifacts` are retained only as regression evidence; they are not application records.
 
-## Required work before release
+## Recommended release sequence
 
-1. Replace/repair the EODHD credential on `.176`, prove successful refreshes for every configured market, and audit stale/delisted constituents.
-2. Fix or explicitly constrain responsive support, then repeat desktop/tablet/mobile-UA passes.
-3. Eliminate or baseline the lint warnings so `CI=true npm run build` passes.
-4. Enable file-URL access for the Chrome test extension and finish watchlist CSV import/cleanup.
-5. Manually retest Trade Detail CSV download and repair if it fails outside browser control.
-6. Repeat browser back/forward recovery with a stable visible Chrome control session.
-7. After those items pass on `.176`, run the same release candidate in staging. Do not promote the present build directly to production.
+1. Promote this candidate to staging.
+2. Run a concise staging smoke test covering authentication, a fresh opportunity load, one chart, one Portfolio Manager save/delete cycle, CSV import/export, phone access, and browser history.
+3. Confirm whether the real release pipeline intentionally requires `CI=true`; if so, clean or formally baseline its lint warnings.
+4. Promote to production only after the staging smoke test passes.

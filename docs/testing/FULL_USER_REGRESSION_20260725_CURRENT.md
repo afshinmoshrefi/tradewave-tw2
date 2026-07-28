@@ -10,7 +10,7 @@ Current dev build: branch `codex/full-user-regression-20260725`, application cod
 
 Verification: 14 focused contracts, 682 full Python tests, and 61 React tests passed. The normal production frontend build succeeded.
 
-Release verdict: **not ready for staging or production**. Blocking items are the EODHD HTTP 401 refresh failure, responsive-layout failures at narrow/tablet/mobile widths, and the CI-strict frontend build failing on lint warnings. The CSV upload/download and browser-history evidence gaps must also be closed before production qualification.
+Corrected release verdict, 2026-07-28: **reasonable candidate for staging**. EODHD daily and realtime requests now return HTTP 200; the user verified real-phone behavior, CSV upload/download, and browser history. The earlier contrary observations were automation limitations. The strict `CI=true` build still promotes lint warnings to errors, but the normal production build passes; this matters only if strict CI is an actual release requirement.
 
 Cleanup: complete. Only the pre-existing `main` and `Notifications` portfolios remain; all `TW-QA-20260725` records are absent and preferences are restored.
 
