@@ -56,6 +56,19 @@ c=$(wc_web /markets/);        case "$c" in 200|301|302) ok "/markets/ -> $c" ;; 
 c=$(wc_web /join/TESTCODE);   [ "$c" = 404 ] && bad "/join/TESTCODE -> 404 (nginx 'location /join/' proxy rule missing)" || ok "/join/TESTCODE -> $c (route reaches the app)"
 c=$(wc_web /healthz);         [ "$c" = 200 ] && ok "/healthz -> 200" || warn "/healthz -> $c"
 
+# The authenticated /app/ shell is proxied through Flask, while its bundle is
+# served directly by nginx. A restrictive build umask can therefore leave every
+# JS/CSS asset at 403 even though /app/ and /healthz look healthy.
+react_js=$($SSH "root@$WEB" "find -L /home/flask/web-react/build/static/js -maxdepth 1 -type f -name 'main.*.js' -printf '%f\\n' 2>/dev/null | head -1" 2>/dev/null)
+if [ -n "$react_js" ]; then
+  c=$(wc_web "/app/static/js/$react_js")
+  [ "$c" = 200 ] && ok "React main bundle -> 200" || bad "React main bundle -> $c (nginx cannot serve the app JS)"
+else
+  bad "React main bundle is missing from the active release"
+fi
+c=$(wc_web /app/manifest.json)
+[ "$c" = 200 ] && ok "React manifest -> 200" || bad "React manifest -> $c (nginx cannot serve the app manifest)"
+
 if [ "$PORTAL" = 1 ]; then
   echo "-- api + developer portal (app box :8080) --"
   c=$(wc_app /healthz "$APIHOST"); [ "$c" = 200 ] && ok "api /healthz -> 200" || bad "api /healthz -> $c"

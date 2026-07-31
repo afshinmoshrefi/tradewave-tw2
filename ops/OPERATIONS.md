@@ -139,8 +139,13 @@ Restart matrix (which service to bounce after the pull):
 REL=$(git -C /home/flask rev-parse --short HEAD)
 rsync -az -e 'ssh -p 4369' /home/flask/web-react/build/ root@<web>:/home/flask/web-react/releases/build-$REL/
 # on <web>:
-cd /home/flask/web-react && chown -R flask:flask releases/build-$REL && ln -sfn "$(readlink build)" build-previous && ln -sfn releases/build-$REL build && chown -h flask:flask build build-previous
+cd /home/flask/web-react && chown -R flask:flask releases/build-$REL && chmod -R a+rX releases/build-$REL && ln -sfn "$(readlink build)" build-previous && ln -sfn releases/build-$REL build && chown -h flask:flask build build-previous
 ```
+The build helper and deploy both normalize public bundle read/traverse permissions;
+`rsync -a` otherwise preserves a restrictive operator umask and nginx returns 403
+for the JS/CSS while the authenticated `/app/` shell remains stuck on "Loading".
+`verify_deploy.sh` requests the active hashed main bundle and manifest through nginx
+and blocks the release unless both return 200.
 Rollback (instant, no hash): `cd /home/flask/web-react && ln -sfn "$(readlink build-previous)" build`
 (One-time per box, already done on stage+prod: `mkdir -p releases && mv build releases/build-prev && ln -s releases/build-prev build`. `deploy.sh` runs ship+flip automatically. Full detail: memory `tw2-react-deploy-method`.)
 
