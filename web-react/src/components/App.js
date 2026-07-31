@@ -359,6 +359,16 @@ const App = () => {
     const saved = lsGet('projectionPeriod');
     return saved || '90';
   });
+  // Snapshot of what the Price Chart is actually rendering. Tara is a sibling
+  // of StockLineChart, so this small lifted contract lets "what am I looking
+  // at?" describe the visible lower chart and projection lines without
+  // guessing from settings that may currently be ineligible/hidden.
+  const [priceChartContext, SetPriceChartContext] = useState({
+    mode: 'current',
+    projection_capable: false,
+    selected_projection_visible: false,
+    full_history_projection_visible: false,
+  });
   const handleSetProjectionPeriod = (val) => {
     SetProjectionPeriod(val);
     lsSet('projectionPeriod', val);
@@ -1377,6 +1387,7 @@ const App = () => {
     bbConfig,
     showProjection,
     projectionPeriod,
+    priceChartContext,
     priceChartTimeframe,
     showEarnings,
     chartRange,
@@ -1435,6 +1446,7 @@ const App = () => {
     SetShowPEOpps,
     SetPEOppsChecked,
     SetPEselected,   // wave-viewer per-security PE selector (chat update_view actuation)
+    SetPriceChartContext,
 
     SetResourceObj,  //4/12/2022 - this is all resources object obtained by calling getResourcesObj API
     SetUserFreeResources,

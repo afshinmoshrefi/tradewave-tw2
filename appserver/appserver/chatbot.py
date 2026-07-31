@@ -731,6 +731,81 @@ def _pattern_date_labels(wave_viewer):
         return start_date, '', ''
 
 
+def _projection_period_label(value):
+    days = _as_int(value)
+    return {
+        14: '2-week',
+        30: '1-month',
+        60: '2-month',
+        90: '3-month',
+    }.get(days, f'{days}-day' if days is not None else 'selected-horizon')
+
+
+def _visible_lower_view_overview(wave_viewer):
+    """Explain the lower Wave Viewer slide the client says is actually visible."""
+    wv = wave_viewer or {}
+    slide = str(wv.get('visible_slide') or '').strip().lower()
+    start_label, end_label, _ = _pattern_date_labels(wv)
+    date_range = f" ({start_label} to {end_label})" if start_label and end_label else ''
+
+    if slide == 'trend_chart':
+        return (
+            "<b>Bottom chart - Trend Chart:</b> This compresses the selected historical years "
+            f"into their typical seasonal price path and highlights the loaded window{date_range}. "
+            "It shows recurring timing and shape, not a forecast of this year's result."
+        )
+
+    if slide == 'wave_stats':
+        winners, losers = _historical_record(wv)
+        sample = winners + losers
+        sample_text = f" across {sample} completed years" if sample else ''
+        return (
+            "<b>Bottom panel - Wave Stats:</b> This is the direction-adjusted numerical breakdown"
+            f"{sample_text}: winners, losers, average gain/loss, Sharpe, cumulative return, and "
+            "the comparison metrics for the same loaded window."
+        )
+
+    if slide == 'price_chart':
+        price = wv.get('price_chart') or {}
+        mode = str(price.get('mode') or '').lower()
+        if mode == 'historical' and price.get('year'):
+            intro = f"This shows the underlying's actual price action for {price.get('year')} around the loaded window{date_range}."
+        else:
+            timeframe = str(price.get('timeframe') or 'daily').lower()
+            intro = f"This shows the underlying's actual current {timeframe} price action and where the loaded window{date_range} sits in context."
+
+        projection_bits = []
+        if price.get('selected_projection_visible'):
+            horizon = _projection_period_label(price.get('projection_period_days'))
+            selected_years = str(price.get('selected_years') or wv.get('years') or '').strip()
+            sample = f"loaded {selected_years}-year sample" if selected_years else "loaded historical sample"
+            projection_bits.append(
+                f"The dashed golden line is the {horizon} seasonal projection from the {sample}, anchored to the latest close"
+            )
+        if price.get('full_history_projection_visible'):
+            horizon = _projection_period_label(price.get('projection_period_days'))
+            full_years = _as_int(price.get('full_history_years'))
+            sample = f"all {full_years} available consecutive years" if full_years else "all available consecutive years"
+            projection_bits.append(
+                f"the dashed purple line is the {horizon} full-history projection from {sample}"
+            )
+
+        projection_text = ''
+        if projection_bits:
+            projection_text = " " + "; ".join(projection_bits) + ". These are rescaled historical-average guides, not price predictions."
+            if _is_short(wv.get('direction')):
+                projection_text += " For this short setup, a falling projected path is favorable to the trade and a rising path is unfavorable."
+        return "<b>Bottom chart - Price Chart:</b> " + intro + projection_text
+
+    # Rolling-deploy fallback for an older client that has not begun sending the
+    # active slide yet. Name the lower panel without pretending to know which of
+    # its three views is currently selected.
+    return (
+        "<b>Bottom panel:</b> Its three slides add the typical seasonal path (Trend Chart), "
+        "the numerical record (Wave Stats), and actual market context (Price Chart)."
+    )
+
+
 _LOADED_OVERVIEW_Q = re.compile(
     r"\bwhat\s+(?:am|are)\s+(?:i|we)\s+looking\s+at\b|"
     r"\b(?:explain|describe|walk\s+me\s+through)\s+(?:this|the)\s+"
@@ -767,13 +842,13 @@ def _loaded_pattern_overview(user_message, wave_viewer):
 
     if direction == 'short':
         record = (
-            f"Historically, the price fell in {winners} of {sample} completed years"
+            f"<b>Top bar chart:</b> Historically, the price fell in {winners} of {sample} completed years"
             if sample else "Historically, price-down years are the profitable years"
         )
         record += "; those red/down bars are profitable short years, while green/up bars are losing short years."
     else:
         record = (
-            f"Historically, the price rose or held flat in {winners} of {sample} completed years"
+            f"<b>Top bar chart:</b> Historically, the price rose or held flat in {winners} of {sample} completed years"
             if sample else "Historically, price-up years are the profitable years"
         )
         record += "; green/up bars are profitable long years, while red/down bars are losing long years."
@@ -790,7 +865,8 @@ def _loaded_pattern_overview(user_message, wave_viewer):
     if cumulative:
         stat_bits.append(f"cumulative return {cumulative}")
     stats_line = " Direction-adjusted stats: " + ", ".join(stat_bits) + "." if stat_bits else ''
-    return setup + "<br><br>" + record + stats_line
+    lower_view = _visible_lower_view_overview(wv)
+    return setup + "<br><br>" + record + stats_line + "<br><br>" + lower_view
 
 
 def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
@@ -992,6 +1068,10 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                         parts.append(f"  {yr}: raw price {raw_ret:+.2f}% ({color}); {direction} trade {trade_ret:+.2f}% [{result}]  trade MFE: {trade_mfe:+.2f}%  trade MAE: {trade_mae:+.2f}%")
                     else:
                         parts.append(f"  {yr}: raw price {raw_ret:+.2f}% ({color}); {direction} trade {trade_ret:+.2f}% [{result}]  trade MFE: {trade_mfe:+.2f}%")
+        parts.append(
+            "VISIBLE LOWER VIEW GROUND TRUTH: " +
+            _visible_lower_view_overview(wave_viewer).replace('<b>', '').replace('</b>', '')
+        )
     else:
         parts.append("\n<b>Wave Viewer:</b> No pattern currently loaded.")
 

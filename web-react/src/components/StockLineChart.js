@@ -594,6 +594,44 @@ const StockLineChart = (props) => {
     const projectionCapable = showCurrentLineChart ||
         (props.tradeActive === true && lastSeasonalBar !== null && lastSeasonalBar['year'] === props.lineChartYear);
 
+    // Report the rendered Price Chart state to Tara's sibling component. Settings
+    // alone are insufficient: projection toggles can be on while the lines are
+    // hidden on a past/completed view, so expose the same eligibility conditions
+    // the chart uses instead of making the chatbot infer them.
+    useEffect(() => {
+        if (typeof props.SetPriceChartContext !== 'function') return
+        props.SetPriceChartContext({
+            mode: showCurrentLineChart ? 'current' : 'historical',
+            year: props.lineChartYear,
+            projection_capable: projectionCapable,
+            selected_projection_visible: Boolean(
+                projectionCapable && props.showProjection &&
+                Array.isArray(props.consolidatedSeasonalData) && props.consolidatedSeasonalData.length > 0
+            ),
+            full_history_projection_visible: Boolean(
+                projectionCapable && props.showMaxProjection &&
+                Array.isArray(props.maxYearsConsolidatedSeasonalData) && props.maxYearsConsolidatedSeasonalData.length > 0
+            ),
+            projection_period_days: props.projectionPeriod,
+            selected_years: props.seasonalYears,
+            full_history_years: props.maxAvailableYears,
+            timeframe: props.priceChartTimeframe,
+        })
+    }, [
+        showCurrentLineChart,
+        projectionCapable,
+        props.lineChartYear,
+        props.showProjection,
+        props.showMaxProjection,
+        props.consolidatedSeasonalData,
+        props.maxYearsConsolidatedSeasonalData,
+        props.projectionPeriod,
+        props.seasonalYears,
+        props.maxAvailableYears,
+        props.priceChartTimeframe,
+        props.SetPriceChartContext,
+    ])
+
     //-------------------------------------------------------------------------------------------------
     const handleExport = () => {
         props.SetShowWatermark(true);

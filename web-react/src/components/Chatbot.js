@@ -125,6 +125,13 @@ function Chatbot(props) {
       direction: props.barChartLongOrShort || 'long',
       mae_enabled: props.showMAE === true,
     };
+    const slideIndex = Number.isInteger(props.swiper?.activeIndex)
+      ? props.swiper.activeIndex
+      : parseInt(props.initialWindowNum, 10);
+    ctx.visible_slide = ['trend_chart', 'wave_stats', 'price_chart'][slideIndex] || 'unknown';
+    if (props.priceChartContext && typeof props.priceChartContext === 'object') {
+      ctx.price_chart = props.priceChartContext;
+    }
     // Include last known price for the security
     if (Array.isArray(props.lastPrice) && props.lastPrice[0] && props.lastPrice[1]) {
       ctx.last_price = props.lastPrice[1];

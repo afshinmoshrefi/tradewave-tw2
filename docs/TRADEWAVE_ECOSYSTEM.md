@@ -1211,6 +1211,14 @@ and prompt enforce invariant 0A: TradeWave counts inclusive CALENDAR days with e
 Jul 31 through Aug 6 is exactly 7 days and the end remains `start + (days - 1)`. Aggregate stats
 (`Num Winners`, `Num Losers`, `% Profitable`, averages, Sharpe, cumulative return) are already
 trade-direction-adjusted, and all win-rate claims retain their completed-year sample size.
+`Chatbot.js` also sends the active lower slide (`trend_chart`, `wave_stats`, or `price_chart`),
+while `StockLineChart.js` lifts the actual rendered projection state through App (current vs
+historical mode, eligibility, golden selected-sample line, purple full-history line, horizon,
+sample sizes, and timeframe). Therefore a generic screen-overview question explains both the top
+bar chart and the lower view the user is actually looking at. On the Price Chart it identifies the
+solid/candle history as actual price action, the golden dashed line as the loaded-sample seasonal
+projection, and the purple dashed line as the maximum-consecutive-history comparison; both are
+historical-average guides anchored to the latest close, never price predictions.
 
 (Source: `appserver/appserver/{chatbot,tara_gateway,AI_tools_appserver}.py`, `web-react/src/components/Chatbot.js`,
 `apiserver/{auth,tiers,provision_chatbot_key}.py`, `config.py`, `docs/TARA_GATEWAY_INTEGRATION.md`; dev .176.)

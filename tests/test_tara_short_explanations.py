@@ -40,6 +40,17 @@ def _short_wave(*, legacy_rows=False):
         "pe_cycle": "cons",
         "direction": "short",
         "mae_enabled": False,
+        "visible_slide": "price_chart",
+        "price_chart": {
+            "mode": "current",
+            "projection_capable": True,
+            "selected_projection_visible": True,
+            "full_history_projection_visible": True,
+            "projection_period_days": "90",
+            "selected_years": "17",
+            "full_history_years": 25,
+            "timeframe": "daily",
+        },
         "stats": {
             "Num Winners": "14",
             "Num Losers": "3",
@@ -67,6 +78,12 @@ def test_loaded_short_overview_is_inclusive_and_direction_aware():
     assert "red/down bars are profitable short years" in reply
     assert "green/up bars are losing short years" in reply
     assert "82% profitable" in reply
+    assert "Bottom chart - Price Chart" in reply
+    assert "actual current daily price action" in reply
+    assert "dashed golden line is the 3-month seasonal projection from the loaded 17-year sample" in reply
+    assert "dashed purple line is the 3-month full-history projection from all 25 available consecutive years" in reply
+    assert "historical-average guides, not price predictions" in reply
+    assert "falling projected path is favorable" in reply
     assert "6-day" not in reply
     assert "most bars are green" not in reply.lower()
 
@@ -104,6 +121,18 @@ def test_bad_short_color_or_day_reply_is_replaced_with_loaded_truth():
     assert "most bars are green" not in guarded.lower()
 
 
+def test_loaded_overview_explains_the_visible_trend_slide_instead():
+    wave = _short_wave()
+    wave["visible_slide"] = "trend_chart"
+
+    reply = chatbot._loaded_pattern_overview("what am I looking at?", wave)
+
+    assert "Bottom chart - Trend Chart" in reply
+    assert "typical seasonal price path" in reply
+    assert "Jul 31 to Aug 6" in reply
+    assert "Bottom chart - Price Chart" not in reply
+
+
 def test_strength_floor_uses_direction_adjusted_stats_and_sample_size():
     reply = chatbot._ensure_strength_answered(
         "how strong is this?", _short_wave(), "Loaded on the chart."
@@ -131,6 +160,13 @@ def test_current_year_zero_stub_is_not_part_of_completed_record():
 
 def test_react_payload_names_the_value_as_raw_price_return():
     source = (ROOT / "web-react" / "src" / "components" / "Chatbot.js").read_text()
+    app_source = (ROOT / "web-react" / "src" / "components" / "App.js").read_text()
+    price_source = (ROOT / "web-react" / "src" / "components" / "StockLineChart.js").read_text()
 
     assert "raw_return_pct: parseFloat(plist[0])" in source
     assert "\n          return_pct: parseFloat(plist[0])" not in source
+    assert "ctx.visible_slide" in source
+    assert "ctx.price_chart = props.priceChartContext" in source
+    assert "const [priceChartContext, SetPriceChartContext]" in app_source
+    assert "selected_projection_visible" in price_source
+    assert "full_history_projection_visible" in price_source
