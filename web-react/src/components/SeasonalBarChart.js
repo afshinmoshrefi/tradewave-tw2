@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect, useContext, useRef } from 'react'
+import React, { useMemo, useState, useEffect, useContext, useRef, useCallback } from 'react'
+import ReactDOM from 'react-dom'
 import './styles/SeasonalBarChart.css'
 import SelectBox from './SelectBox'
 import TextBox from './TextBox'
@@ -25,6 +26,7 @@ import { brand, trend_chart_left_gap_days, minYears, sameResourceFamily } from '
 import { maxYearsCap } from './Common'
 import { checkTokenExpired } from './Common'
 import { markCaptureReady, clearCaptureReady } from './captureReady'
+import { transitionViewerCycleState } from './viewerCycleState'
 
 // import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 // import { faFileExcel, faHome } from "@fortawesome/free-solid-svg-icons";
@@ -47,11 +49,13 @@ const SeasonalBarChart = (props) => {
   // Request guards: only the latest response is allowed to update state
   const reqMetaRef = useRef(0)
   const reqChartRef = useRef(0)
+  const [primaryChartLoading, setPrimaryChartLoading] = useState(false)
   const reqCompareRef = useRef(0)
   const reqBHRef = useRef(0)
   const reqTrendRef = useRef(0)
   const reqMaxTrendRef = useRef(0)
   const reqOppBySymbolRef = useRef(0)
+  const cycleViewStatesRef = useRef({})
   // Ordering guard shared by the manual ticker-entry/resolution paths (handleBlur, handleEnter,
   // handleWatchlistItemClick, resolveSymbolAcrossMarkets) - these fire bare twFetch calls with
   // no AbortController, so two in-flight resolutions could otherwise land out of order and let
@@ -332,6 +336,14 @@ const SeasonalBarChart = (props) => {
     const controller = new AbortController()
     clearCaptureReady('seasonal')
 
+    // The request identity changed, so prior chart/statistics payloads cannot
+    // remain visible under the new controls while this request is in flight.
+    // Keep the existing Chart.js instance mounted behind an opaque loading
+    // cover. Clearing its data here makes Chart.js perform a blank update and
+    // then a second update for the response, delaying the usable chart.
+    setPrimaryChartLoading(true)
+    props.SetTradeDetailData([])
+
 
     const asURL = appserverURL()
     const days_out_processed = (parseInt(props.daysOut) - 1)
@@ -359,6 +371,8 @@ const SeasonalBarChart = (props) => {
         props.SetDialogType('info-box')
         props.SetDialogProp({ title: 'Data Temporarily Unavailable', contentText: 'The chart data could not be loaded. Please try again in a moment - reselect the pattern or refresh the browser.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
         props.SetInfoBoxVisible(true)
+        props.SetSeasonalBarChartData([])
+        setPrimaryChartLoading(false)
         return undefined
       })
       .then(t => {
@@ -375,6 +389,7 @@ const SeasonalBarChart = (props) => {
             props.SetDialogProp({ title: 'Not Enough Data', contentText: `${props.symbol} does not have enough data. At least 5 years are required`, button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
             props.SetInfoBoxVisible(true)
             props.SetSeasonalBarChartData([])
+            setPrimaryChartLoading(false)
             props.SetTradeDetailData([])
             props.SetConsolidatedSeasonalData([])
             props.SetSymbol('')
@@ -395,28 +410,49 @@ const SeasonalBarChart = (props) => {
           return
         }
 
-        resolveMissRef.current = ''   // clean load - clear the data-miss cross-market guard
-        props.SetSeasonalBarChartData(cd)
-        props.SetTradeDetailData(t["stats"])
-        if (cd.length > 0) markCaptureReady('seasonal', { symbol: props.symbol, years: props.seasonalYears, points: cd.length })
-
         // Determine lastYearOfData + trade dir
         let lastYearOfData = 0
         cd.forEach(r => { lastYearOfData = r['year'] })
-        props.SetBarChartLongOrShort(t["stats"]["Trade Dir"])
-        props.SetLineChartYear(lastYearOfData)
 
         const eDate = incrementDate(props.startDate, props.daysOut - 1).substring(5, 10)
         let download_img_name = `TradeWave Opportunity Export for ${props.symbol} date range  ${props.startDate} to ${eDate}.jpg`
         if (props.monthsAndQtrs !== 'Months & Qtrs') {
           download_img_name = props.symbol + '_' + props.monthsAndQtrs + '.jpg'
         }
-        props.SetDownloadImageName(download_img_name)
+
+        // React 17 does not automatically batch promise callbacks. Commit the
+        // bar-chart response first, then let the browser paint before installing
+        // downstream stats and price-chart state.
+        resolveMissRef.current = ''   // clean load - clear the data-miss cross-market guard
+        ReactDOM.unstable_batchedUpdates(() => {
+          props.SetSeasonalBarChartData(cd)
+          props.SetBarChartLongOrShort(t["stats"]["Trade Dir"])
+          setPrimaryChartLoading(false)
+          if (cd.length > 0) {
+            markCaptureReady('seasonal', {
+              symbol: props.symbol,
+              years: props.seasonalYears,
+              points: cd.length,
+            })
+          }
+        })
+        window.requestAnimationFrame(() => {
+          window.setTimeout(() => {
+            if (reqId !== reqChartRef.current) return
+            ReactDOM.unstable_batchedUpdates(() => {
+              props.SetTradeDetailData(t["stats"])
+              props.SetLineChartYear(lastYearOfData)
+              props.SetDownloadImageName(download_img_name)
+            })
+          }, 1200)
+        })
       })
       .catch(err => {
         if (err?.name === 'AbortError') return
         // network failure after twFetch retries - surface instead of a blank chart
         console.log('ChartData4 fetch error:', err?.message || err)
+        props.SetSeasonalBarChartData([])
+        setPrimaryChartLoading(false)
         props.SetDialogType('info-box')
         props.SetDialogProp({ title: 'Data Temporarily Unavailable', contentText: 'The chart data could not be loaded. Please try again in a moment - reselect the pattern or refresh the browser.', button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' })
         props.SetInfoBoxVisible(true)
@@ -1129,19 +1165,45 @@ const SeasonalBarChart = (props) => {
     }
 
     if (event.target.id === 'PEselection') {
-      props.SetPEselected(event.target.value);
+      const nextCycle = event.target.value
+      const currentCycle = props.PEselected || 'cons'
+      if (nextCycle === currentCycle) return
 
-      // If selecting a PE cycle, advance startDate to the next matching cycle year
-      if (event.target.value !== 'cons') {
-        const bumped = bumpStartDateYearToPE(props.startDate, event.target.value);
-
-        if (bumped !== props.startDate) {
-          props.SetStartDate(bumped);
-          const trend_chart_start_date = incrementDate(bumped, -trend_chart_left_gap_days);
-          props.SetTrendChartStartDate(trend_chart_start_date);
-          props.SetConsolidatedSeasonalData([]);
-        }
+      const currentView = {
+        startDate: props.startDate,
+        trendChartStartDate: props.trendChartStartDate,
+        seasonalYears: String(props.seasonalYears),
       }
+      const nextStartDate = nextCycle === 'cons'
+        ? props.startDate
+        : bumpStartDateYearToPE(props.startDate, nextCycle)
+      const defaultNextView = {
+        startDate: nextStartDate,
+        trendChartStartDate: incrementDate(nextStartDate, -trend_chart_left_gap_days),
+        seasonalYears: String(props.seasonalYears),
+      }
+      const transition = transitionViewerCycleState({
+        savedStates: cycleViewStatesRef.current,
+        currentCycle,
+        nextCycle,
+        currentView,
+        defaultNextView,
+      })
+      cycleViewStatesRef.current = transition.savedStates
+
+      props.SetPEselected(nextCycle)
+      props.SetStartDate(transition.nextView.startDate)
+      props.SetTrendChartStartDate(transition.nextView.trendChartStartDate)
+      props.SetSeasonalYears(transition.nextView.seasonalYears)
+      props.SetLineChartYear(0)
+      props.SetSeasonalBarChartData([])
+      props.SetTradeDetailData([])
+      props.SetConsolidatedSeasonalData([])
+      props.SetMaxYearsConsolidatedSeasonalData([])
+      props.SetCompareSecurityBarChartData([])
+      props.SetCompareSecurityTradeDetailData([])
+      props.SetSecurityBHstats([])
+      setSelectedOppBySymbol('')
     }
 
     if (event.target.id === 'monthsAndQtrs') {
@@ -1298,23 +1360,25 @@ const SeasonalBarChart = (props) => {
 
   }
   //-----------------------------------------------------------------------------------------------------------
-  const barClicked = (year) => {
+  const barClickStateRef = useRef({ props, rdd, browserH, browserW })
+  barClickStateRef.current = { props, rdd, browserH, browserW }
+  const barClicked = useCallback((year) => {
+    const current = barClickStateRef.current
+    current.props.SetLineChartYear(year)
 
-    props.SetLineChartYear(year)
-
-    if (rdd.isMobile) {
-      if (browserH > browserW) {// portrait
-        props.chartTo(1)
+    if (current.rdd.isMobile) {
+      if (current.browserH > current.browserW) {// portrait
+        current.props.chartTo(1)
       }
       else { //landscape - only for landscape smartphones
-        if (!rdd.isTablet) props.chartTo(2)
-        else props.chartTo(2) // added for landscape tablet when it points back to desktop view
+        if (!current.rdd.isTablet) current.props.chartTo(2)
+        else current.props.chartTo(2) // added for landscape tablet when it points back to desktop view
       }
     }
     else {
-      props.chartTo(2)
+      current.props.chartTo(2)
     }
-  }
+  }, [])
 
   //---------------------------------------
   // dynamic styles for mobile
@@ -2397,13 +2461,13 @@ const SeasonalBarChart = (props) => {
 
 
 
-      <div className="barchart" style={barchartStyle}>
+      <div className="barchart" style={{ ...barchartStyle, position: 'relative' }}>
+        <BarChart seasonalBarChartData={props.seasonalBarChartData} showMAE={props.showMAE} showMFE={props.showMFE} barClicked={barClicked} barChartLongOrShort={props.barChartLongOrShort} UITheme={props.UITheme} />
         {
-          props.seasonalBarChartData.length > 0
-            ? <BarChart seasonalBarChartData={props.seasonalBarChartData} showMAE={props.showMAE} showMFE={props.showMFE} barClicked={barClicked} barChartLongOrShort={props.barChartLongOrShort} UITheme={props.UITheme} />
-            : <div className='barchart-background'>
-              <span style={{ fontSize: svFont, color: tc.watermark, whiteSpace: 'nowrap' }} >{brand['barchart']}</span>
-            </div>
+          (primaryChartLoading || props.seasonalBarChartData.length === 0) &&
+          <div className='barchart-background' style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', top: 0, left: 0, pointerEvents: 'none', backgroundColor: barchartStyle.backgroundColor }}>
+            <span style={{ fontSize: svFont, color: tc.watermark, whiteSpace: 'nowrap' }} >{brand['barchart']}</span>
+          </div>
         }
       </div>
 
@@ -2414,5 +2478,3 @@ const SeasonalBarChart = (props) => {
 }
 
 export default SeasonalBarChart
-
-

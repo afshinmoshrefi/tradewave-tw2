@@ -12,6 +12,9 @@ import { BsPlus, BsTrash3, BsUpload } from "react-icons/bs"
 import { GrEdit } from "react-icons/gr"
 
 
+const WATCHLIST_NAME_MAX_LENGTH = 64
+
+
 const WatchlistSettings = (props) => {
 
     const tc = themeColors(props.UITheme)
@@ -246,6 +249,12 @@ const WatchlistSettings = (props) => {
             return
         }
 
+        if (newText.trim().length > WATCHLIST_NAME_MAX_LENGTH) {
+            SetMessage(`Watchlist names are limited to ${WATCHLIST_NAME_MAX_LENGTH} characters`)
+            SetMsgColor('red')
+            return
+        }
+
         if (selResourceGroup === '') {
             SetMessage('Select a securities group first')
             SetMsgColor('red')
@@ -274,6 +283,11 @@ const WatchlistSettings = (props) => {
                 }
                 if (data['watchlist_names_list'] === 'duplicate') {
                     SetMessage(`${newText} name already exists`)
+                    SetMsgColor('red')
+                    return
+                }
+                if (data['watchlist_names_list'] === 'invalid_name') {
+                    SetMessage(data['message'] || `Watchlist names are limited to ${WATCHLIST_NAME_MAX_LENGTH} characters`)
                     SetMsgColor('red')
                     return
                 }
@@ -309,6 +323,12 @@ const WatchlistSettings = (props) => {
             return
         }
 
+        if (newText.trim().length > WATCHLIST_NAME_MAX_LENGTH) {
+            SetMessage(`Watchlist names are limited to ${WATCHLIST_NAME_MAX_LENGTH} characters`)
+            SetMsgColor('red')
+            return
+        }
+
         if (newText.trim() === selWatchlist) {
             SetMessage('New name is the same as current name')
             SetMsgColor('red')
@@ -330,6 +350,16 @@ const WatchlistSettings = (props) => {
         twFetch(`${asURL}/edit_user_watchlist_name/${oldName}/${newName}?token=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(res => res.json())
             .then(data => {
+                if (data['watchlist_names_list'] === 'duplicate') {
+                    SetMessage(`${newName} name already exists`)
+                    SetMsgColor('red')
+                    return
+                }
+                if (data['watchlist_names_list'] === 'invalid_name') {
+                    SetMessage(data['message'] || `Watchlist names are limited to ${WATCHLIST_NAME_MAX_LENGTH} characters`)
+                    SetMsgColor('red')
+                    return
+                }
                 props.SetWatchlists(data['watchlist_names_list'])
                 SetSelWatchlist(newName)
                 SetMessage(`${oldName} is now changed to ${newName}`)
@@ -628,6 +658,12 @@ const WatchlistSettings = (props) => {
             return
         }
 
+        if (name.length > WATCHLIST_NAME_MAX_LENGTH) {
+            SetMessage(`Watchlist names are limited to ${WATCHLIST_NAME_MAX_LENGTH} characters`)
+            SetMsgColor('red')
+            return
+        }
+
         // check duplicate name
         if (props.watchlists.some(w => w.name === name)) {
             SetMessage(`"${name}" already exists`)
@@ -664,6 +700,12 @@ const WatchlistSettings = (props) => {
                 }
                 if (data['watchlist_names_list'] === 'duplicate') {
                     SetMessage(`"${name}" already exists`)
+                    SetMsgColor('red')
+                    SetCsvImporting(false)
+                    return
+                }
+                if (data['watchlist_names_list'] === 'invalid_name') {
+                    SetMessage(data['message'] || `Watchlist names are limited to ${WATCHLIST_NAME_MAX_LENGTH} characters`)
                     SetMsgColor('red')
                     SetCsvImporting(false)
                     return
@@ -805,7 +847,7 @@ const WatchlistSettings = (props) => {
                                 )}
                                 <div style={{ display: 'flex', alignItems: 'center', marginTop: '6px', marginBottom: '6px' }}>
                                     <span style={{ marginRight: '5px' }}>Name:</span>
-                                    <input type="text" value={csvWatchlistName} onChange={(e) => SetCsvWatchlistName(e.target.value)}
+                                    <input type="text" value={csvWatchlistName} maxLength={WATCHLIST_NAME_MAX_LENGTH} onChange={(e) => SetCsvWatchlistName(e.target.value)}
                                         style={{ flex: 1, padding: '3px 5px', fontSize: globalTextSize }} />
                                 </div>
                                 <div style={{ display: 'flex', gap: '5px' }}>
@@ -877,7 +919,7 @@ const WatchlistSettings = (props) => {
                         {/* Add symbol row */}
                         <div className='div_basic' style={{ width: '80%', height: 'auto', backgroundColor: 'transparent', marginBottom: '6px', flexShrink: 0 }}>
                             <div style={{ display: 'flex', justifyContent: 'right', paddingRight: '5px', alignItems: 'center', marginRight: '5px', backgroundColor: 'transparent', width: '50%' }}>
-                                <button onClick={handleAddSymbol} style={{ width: '97%', height: button_height }}><BsPlus size={icon_sizeP} style={{ fill: "black", verticalAlign: "middle" }} />&nbsp;Add Symbol</button>
+                                <button onClick={() => handleAddSymbol()} style={{ width: '97%', height: button_height }}><BsPlus size={icon_sizeP} style={{ fill: "black", verticalAlign: "middle" }} />&nbsp;Add Symbol</button>
                             </div>
                             <div style={{ backgroundColor: 'transparent', width: '50%' }}>
                                 <TextBox name='wl_new_symbol' text={newSymbol} tbBlur={handleSymbolBlur} width={textboxWidth} tbEnter={handleSymbolEnter} tooltipContent={props.tooltipSW ? 'b,Enter Ticker Symbol' : ''} />

@@ -613,6 +613,7 @@ const ReportsDashboard = (props) => {
         // update securityData for display on the security row below
 
         if (clickedRowIndex === -1) return; // this is the first time before any row selected
+        if (!props.reportsList || props.reportsList.length <= clickedRowIndex) return;
 
         let security_purchase_price = parseFloat(props.reportsList[clickedRowIndex]['price1']).toFixed(2);
         let security_num_shares = parseInt(props.reportsList[clickedRowIndex]['num_shares']);
@@ -621,22 +622,18 @@ const ReportsDashboard = (props) => {
 
         let security_current_price = (security_purchase_price * (1 + gain_loss / 100)).toFixed(2);
 
-        let tmp = { ...securityData }; // making a copy of securityData object 
+        let bgcolor = 'transparent'; // this is the color if gain_loss===0
+        if (gain_loss > 0) bgcolor = tc.profitRowBg;
+        else if (gain_loss < 0) bgcolor = tc.lossRowBg;
 
-        tmp['value1'] = '$' + security_purchase_price.toString();
-        tmp['value2'] = security_num_shares.toString();
-        tmp['value3'] = '$' + security_current_price.toString();
+        SetSecurityData({
+            'value1': '$' + security_purchase_price.toString(),
+            'value2': security_num_shares.toString(),
+            'value3': '$' + security_current_price.toString(),
+            'bgcolor': bgcolor,
+        });
 
-        tmp['bgcolor'] = 'transparent'; // this is the color if gain_loss===0
-        if (gain_loss > 0) tmp['bgcolor'] = tc.profitRowBg;
-        else if (gain_loss < 0) tmp['bgcolor'] = tc.lossRowBg;
-
-
-
-        SetSecurityData(tmp);
-
-
-    }, [clickedRowIndex])
+    }, [clickedRowIndex, props.reportsList, tc.profitRowBg, tc.lossRowBg])
 
     //-------------------------------------------------------------------------------------------------------------------------------------
     // Add a report to the queue for blog creation - called from handleAddReport and handleRefresh
@@ -1113,9 +1110,15 @@ const ReportsDashboard = (props) => {
                 // console.log('update num_shares returned ', data)
 
                 // if $ value or number of shares changes, update the display on the 1st footer row 8/22/2023
-                let tmp = securityData;
-                tmp['value2'] = num_shares.toString(); // update only number of shares for display on the first footer row
-                SetSecurityData(tmp);
+                // The footer describes the selected row. Editing a different
+                // row must not combine that row's share count with the selected
+                // row's symbol and purchase price.
+                if (parseInt(idx) === clickedRowIndex) {
+                    SetSecurityData((current) => ({
+                        ...current,
+                        value2: num_shares.toString(),
+                    }));
+                }
             })
 
             .catch((error) => {

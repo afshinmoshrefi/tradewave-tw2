@@ -35,6 +35,7 @@ const sanitizeBotHtml = (html) => {
   s = s.replace(/\son\w+\s*=\s*[^\s>]+/gi, '');
   s = s.replace(/(href|src)\s*=\s*"\s*(?:javascript|data|vbscript):[^"]*"/gi, '$1="#"');
   s = s.replace(/(href|src)\s*=\s*'\s*(?:javascript|data|vbscript):[^']*'/gi, "$1='#'");
+  s = s.replace(/<(?!\/?(?:b|br|i|a|span)\b)[^>]*>/gi, '');
   return s;
 };
 

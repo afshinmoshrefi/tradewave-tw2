@@ -130,6 +130,10 @@ const TradeDetail = (props) => {
         backgroundColor: tc.panelBg,
         color: tc.text,
     }
+    const tradeDetailReady =
+        props.tradeDetailData &&
+        !Array.isArray(props.tradeDetailData) &&
+        Object.keys(props.tradeDetailData).length > 0
 
     useEffect(() => { clearCaptureReady('tradeDetail') }, [props.symbol]) // new symbol selected - a fresh fetch is starting upstream
 
@@ -147,7 +151,7 @@ const TradeDetail = (props) => {
         // console.log("cretCompare=",cretCompare)
 
 
-        if (props.symbol.length > 0 && props.startDate && props.startDate.length >= 10 && props.daysOut != null) {
+        if (props.symbol.length > 0 && props.startDate && props.startDate.length >= 10 && props.daysOut != null && tradeDetailReady) {
 
 
 
@@ -322,10 +326,14 @@ const TradeDetail = (props) => {
 
             SetTradeReportData([])
             SetVtTradeDetail({})
+            SetVTStrategyPL({})
+            SetVTWaveStats({})
+            SetCumulativeGrowth([])
+            SetCumulativeGrowthL([])
             clearCaptureReady('tradeDetail')
         }
 
-    }, [props.compareSecurityTradeDetailData, props.compareSecurityLongOrShort, props.compareSecurity[1], props.tradeDetailData, props.compareSecurityTradeDetailData, props.barChartLongOrShort, props.symbol]);
+    }, [props.compareSecurityTradeDetailData, props.compareSecurityLongOrShort, props.compareSecurity[1], props.tradeDetailData, props.compareSecurityTradeDetailData, props.barChartLongOrShort, props.symbol, tradeDetailReady]);
 
     // console.log('tradeReportData=',tradeReportData)
 
@@ -477,6 +485,7 @@ const TradeDetail = (props) => {
             {/* the stats tables start here  */}
             {
                 props.symbol !== ''
+                    ? tradeDetailReady
                     ? <div className="trade-detail" style={tradeDetailStyle}>
                         <div className="report-div-row" style={{ backgroundColor: tc.panelBg }}>
                             <div className="report-div">
@@ -515,6 +524,9 @@ const TradeDetail = (props) => {
                             </div>
                         </div>
 
+                    </div>
+                    : <div className="trade-detail trade-detail-blank" style={tradeDetailStyle} role="status" aria-live="polite">
+                        <span style={{ fontSize: infoTextSize, color: tc.watermark }}>Loading statistics for {props.symbol}...</span>
                     </div>
                     : <div className="trade-detail trade-detail-blank" style={tradeDetailStyle} >
                         <span style={{ fontSize: svFont, color: tc.watermark }} >{brand['strategy stats']}</span>

@@ -1,10 +1,16 @@
-import React, { useEffect, useState, useContext, useRef } from 'react'
+import React, { useEffect, useState, useContext, useRef, useMemo } from 'react'
 import { UserContext } from './UserContext'
-import { themeColors, CellSpinner, tierHasAI } from './Common'
+import { themeColors, tierHasAI } from './Common'
 import { BsChevronExpand, BsChevronDown, BsChevronUp } from "react-icons/bs"
 import Tippy from '@tippyjs/react'
 import './styles/TableBox.css'
 import jwt_decode from 'jwt-decode'
+import {
+  analyzeOpportunityFilter,
+  filterOpportunityRows,
+  isOpportunityFilterPending,
+  sortOpportunityRows,
+} from './opportunityFilters'
 
 // GTM playbook CARD W1.4 - fire once per browser session, the first time an
 // AI-eligible user actually sees real AI-score data in the table. Module-level
@@ -13,6 +19,12 @@ import jwt_decode from 'jwt-decode'
 // (users.first_ai_score_viewed_at first-touch-only), so this is a courtesy
 // dedupe, not the source of truth.
 let _aiScoreViewedFiredThisSession = false
+
+const REQUIRED_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])
+const MOBILE_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio', 'lOrS', 'date', 'price', 'sharpe_ratio2'])
+const AI_COLS = ['ml_score', 'win_prob', 'pred_return', 'pred_mfe']
+const DEFAULT_COLUMN_ORDER = ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'avg_profit', 'avg_profit2', 'sharpe_ratio2', 'TL', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe']
+const PENDING_CELL = <span title="Loading" aria-label="Loading">…</span>
 
 const TableBox = ({
   table_data,
@@ -35,7 +47,6 @@ const TableBox = ({
   SetNumLongs,
   SetNumShorts,
   stockScores,
-  stockScoresLoading,
   mlScores,
   mlScoresLoading,
   mlPending,
@@ -45,7 +56,7 @@ const TableBox = ({
 }) => {
 
   const { tableTextSize, tableTitleTextSize, wpUserLevels, loggedinUser, token, rdd, UITheme, SetDialogType, SetDialogProp, SetInfoBoxVisible } = useContext(UserContext)
-  const tc = themeColors(UITheme)
+  const tc = useMemo(() => themeColors(UITheme), [UITheme])
   // AI scoring is an Analyst+ feature; non-AI tiers see a single LOCKED "AI Score" teaser column.
   const hasAI = tierHasAI(wpUserLevels)
   const openAILockDialog = () => {
@@ -58,12 +69,16 @@ const TableBox = ({
     SetInfoBoxVisible(true)
   }
 
-  const [tableDataProcessed, SetTableDataProcessed] = useState(table_data)
   const [colSorted, SetColSorted] = useState('sharpe_ratio')
   const [sortedDir, SetSortedDir] = useState('d') // ascending or descending
-  const [tableTitleDict, SetTableTitleDict] = useState({})
-  const [tableTitleTooltip, SetTableTitleTooltip] = useState({})
   const prevDataDepsRef = useRef('')
+  const lastValidRowsRef = useRef([])
+  const lastSourceRowsRef = useRef(table_data)
+
+  if (lastSourceRowsRef.current !== table_data) {
+    lastSourceRowsRef.current = table_data
+    lastValidRowsRef.current = []
+  }
 
   let rowHeight = '3vh'
   if (rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth) {
@@ -79,13 +94,9 @@ const TableBox = ({
     // desktop
   }
 
-  // Not generic, used as a second column for tie-breaks
-  const secondColSort = 'date'
-
   // Build visible columns list based on user-defined order and columnVisibility
-  const REQUIRED_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio']);
   const hasMLData = mlScores && Object.keys(mlScores).length > 0;
-  const ALL_COLUMNS = (columnOrder || ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'avg_profit', 'avg_profit2', 'sharpe_ratio2', 'TL', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'])
+  const allColumns = useMemo(() => (columnOrder || DEFAULT_COLUMN_ORDER)
     .filter(col => {
       if (!showSR2 && (col === 'avg_profit2' || col === 'sharpe_ratio2')) return false;
       if (['ml_score', 'win_prob', 'pred_return', 'pred_mfe'].includes(col)) {
@@ -95,7 +106,7 @@ const TableBox = ({
         else if (col !== 'ml_score') return false;
       }
       return true;
-    });
+    }), [columnOrder, showSR2, hasAI, hasMLData]);
 
   // GTM playbook CARD W1.4 - Postgres activation signal. The first time this AI-eligible
   // user actually has real AI-score data on screen, tell the server (which stamps
@@ -125,22 +136,25 @@ const TableBox = ({
 
   // On mobile portrait, limit columns to avoid cramped table
   const isMobilePortrait = rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth;
-  const MOBILE_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio', 'lOrS', 'date', 'price', 'sharpe_ratio2']);
-
-  const visibleColumns = ALL_COLUMNS.filter(col => {
+  const visibleColumns = useMemo(() => allColumns.filter(col => {
     if (isMobilePortrait) return MOBILE_COLS.has(col);
     if (REQUIRED_COLS.has(col)) return true;
     if (columnVisibility && columnVisibility[col] === false) return false;
     return true;
-  });
+  }), [allColumns, isMobilePortrait, columnVisibility]);
 
   // If colSorted is not in visibleColumns, reset to sharpe_ratio
-  if (colSorted !== '' && !visibleColumns.includes(colSorted)) {
-    SetColSorted('sharpe_ratio');
-    SetSortedDir('d');
-  }
-
   useEffect(() => {
+    if (colSorted !== '' && !visibleColumns.includes(colSorted)) {
+      SetColSorted('sharpe_ratio');
+      SetSortedDir('d');
+    }
+  }, [colSorted, visibleColumns])
+
+  const filterAnalysis = useMemo(() => analyzeOpportunityFilter(filterText), [filterText])
+  const aiFilterPending = isOpportunityFilterPending(filterText, mlScoresLoading)
+
+  const currentFilterRows = useMemo(() => {
     // Copy the original table data and inject TL + ML columns
     let tmp = [...table_data].map(row => {
       const score = stockScores && stockScores[row.symbol]
@@ -160,149 +174,48 @@ const TableBox = ({
       }
     })
 
-    // If there is any filter text, split it into segments by semicolon
-    if (filterText && filterText.trim() !== "") {
-      const filters = filterText
-        .split(';')
-        .map(segment => segment.trim())
-        .filter(segment => segment.length > 0)
+    if (filterAnalysis.status !== 'valid' || aiFilterPending) return []
 
-      // Process each filter segment (they are ANDed together)
-      filters.forEach(segment => {
-        // Convert segment to lowercase for matching, or use /i in the regex
-        const lowerSegment = segment.toLowerCase()
+    return sortOpportunityRows(filterOpportunityRows(tmp, filterText), colSorted, sortedDir)
+  }, [table_data, sortedDir, colSorted, filterText, stockScores, mlScores, mlPending, filterAnalysis.status, aiFilterPending])
 
-        // Sharpe Ratio filter: e.g., "SR>2"
-        if (/^sr\s*>\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^sr\s*>\s*(\d+(\.\d+)?)/i)
-          const threshold = parseFloat(match[1])
-          tmp = tmp.filter(item => item.sharpe_ratio >= threshold)
-        }
-        // Average Profit filter: e.g., "AP>10" or "AVGP>10"
-        // both mean filter item.avg_profit >= threshold
-        else if (/^(?:ap|avgp)\s*>\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^(?:ap|avgp)\s*>\s*(\d+(\.\d+)?)/i)
-          const threshold = parseFloat(match[1])
-          tmp = tmp.filter(item => item.avg_profit >= threshold)
-        }
-        // Days Range filter: e.g., "10-40"
-        else if (/^\d+\s*-\s*\d+$/i.test(segment)) {
-          const parts = segment.split('-').map(s => parseInt(s.trim()))
-          if (parts.length === 2) {
-            const [n1, n2] = parts
-            tmp = tmp.filter(item => item.daysOut >= n1 && item.daysOut <= n2)
-          }
-        }
-        // TradeWave Average Profit filter: e.g., "TWA>10"
-        else if (/^twa\s*>\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^twa\s*>\s*(\d+(\.\d+)?)/i)
-          const threshold = parseFloat(match[1])
-          tmp = tmp.filter(item => item.avg_profit2 >= threshold)
-        }
-        // TradeWave Ratio filter: e.g., "TWR>2"
-        else if (/^twr\s*>\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^twr\s*>\s*(\d+(\.\d+)?)/i)
-          const threshold = parseFloat(match[1])
-          tmp = tmp.filter(item => item.sharpe_ratio2 >= threshold)
-        }
-        // Trend Long filter: e.g., "TL>50"
-        else if (/^tl\s*>\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^tl\s*>\s*(\d+(\.\d+)?)/i)
-          const threshold = parseFloat(match[1])
-          tmp = tmp.filter(item => item.TL !== null && item.TL >= threshold)
-        }
-        // Price filter: e.g., "price>100" or "price<50"
-        else if (/^price\s*([><])\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^price\s*([><])\s*(\d+(\.\d+)?)/i)
-          const op = match[1]
-          const threshold = parseFloat(match[2])
-          tmp = tmp.filter(item => item.price != null && (op === '>' ? item.price >= threshold : item.price <= threshold))
-        }
-        // AI Score (AIS) filter, 0-100: e.g., "ML>70" or "AIS>70" (also supports <). Rows with
-        // no ML score (not yet scored / patterns > 90 days) are excluded, like TL/price.
-        else if (/^(?:ml|ais)\s*([><])\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^(?:ml|ais)\s*([><])\s*(\d+(\.\d+)?)/i)
-          const op = match[1]
-          const threshold = parseFloat(match[2])
-          tmp = tmp.filter(item => item.ml_score != null && (op === '>' ? item.ml_score >= threshold : item.ml_score <= threshold))
-        }
-        // Win Probability (Win%) filter, percent: e.g., "WIN>60" or "WP>60". Stored 0-1, displayed
-        // x100, so the threshold is compared against win_prob*100 to match the displayed value.
-        else if (/^(?:win|wp)\s*([><])\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^(?:win|wp)\s*([><])\s*(\d+(\.\d+)?)/i)
-          const op = match[1]
-          const threshold = parseFloat(match[2])
-          tmp = tmp.filter(item => item.win_prob != null && (op === '>' ? item.win_prob * 100 >= threshold : item.win_prob * 100 <= threshold))
-        }
-        // Predicted Return (PredR) filter, percent: e.g., "PREDR>5"
-        else if (/^predr\s*([><])\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^predr\s*([><])\s*(\d+(\.\d+)?)/i)
-          const op = match[1]
-          const threshold = parseFloat(match[2])
-          tmp = tmp.filter(item => item.pred_return != null && (op === '>' ? item.pred_return >= threshold : item.pred_return <= threshold))
-        }
-        // Predicted Max Favorable Excursion (PMFE) filter, percent: e.g., "PMFE>8"
-        else if (/^pmfe\s*([><])\s*(\d+(\.\d+)?)/i.test(segment)) {
-          const match = segment.match(/^pmfe\s*([><])\s*(\d+(\.\d+)?)/i)
-          const op = match[1]
-          const threshold = parseFloat(match[2])
-          tmp = tmp.filter(item => item.pred_mfe != null && (op === '>' ? item.pred_mfe >= threshold : item.pred_mfe <= threshold))
-        }
-        // Default text search across all columns
-        else {
-          tmp = tmp.filter(item =>
-            JSON.stringify(item).toLowerCase().includes(lowerSegment)
-          )
-        }
-      })
-    }
+  // Incomplete or invalid text is a typing state, not a new empty result.
+  // Preserve the last valid membership while the status row explains what is
+  // unfinished. A valid AI filter still masks rows while its complete score
+  // snapshot is loading, so stale AI membership is never presented as final.
+  if (filterAnalysis.status === 'valid' && !aiFilterPending) {
+    lastValidRowsRef.current = currentFilterRows
+  }
+  const tableDataProcessed =
+    filterAnalysis.status === 'valid'
+      ? currentFilterRows
+      : lastValidRowsRef.current
 
-    // Now apply the final sort
-    if (colSorted !== '') {
-      tmp.sort((a, b) => {
-        // Handle null values (push to bottom regardless of sort direction)
-        if (a[colSorted] === null && b[colSorted] === null) return 0
-        if (a[colSorted] === null) return 1
-        if (b[colSorted] === null) return -1
+  const tableStatusMessage =
+    filterAnalysis.status === 'incomplete'
+      ? filterAnalysis.message
+      : filterAnalysis.status === 'invalid'
+        ? `Invalid filter: ${filterAnalysis.message}`
+        : aiFilterPending
+          ? 'Loading AI scores before applying this filter...'
+          : tableDataProcessed.length === 0 && String(filterText || '').trim().length > 0
+            ? 'No opportunities match this filter.'
+            : ''
 
-        let ret
-        const colType = typeof a[colSorted]
-        if (colType === 'number') {
-          // numeric sort
-          ret = sortedDir === 'a' ? a[colSorted] - b[colSorted] : b[colSorted] - a[colSorted]
-        } else {
-          // string (alphabetical) sort
-          if (sortedDir === 'a') {
-            ret =
-              a[colSorted] < b[colSorted]
-                ? -1
-                : a[colSorted] > b[colSorted]
-                  ? 1
-                  : (a[secondColSort] < b[secondColSort] ? -1 : a[secondColSort] > b[secondColSort] ? 1 : 0)
-          } else {
-            ret =
-              a[colSorted] < b[colSorted]
-                ? 1
-                : a[colSorted] > b[colSorted]
-                  ? -1
-                  : (a[secondColSort] < b[secondColSort] ? -1 : a[secondColSort] > b[secondColSort] ? 1 : 0)
-          }
-        }
-        return ret
-      })
-    }
-
-    // Update long/short counts
-    const shortCount = tmp.filter(item => item.lOrS === 'Short').length
-    const longCount = tmp.filter(item => item.lOrS === 'Long').length
+  useEffect(() => {
+    let shortCount = 0
+    let longCount = 0
+    tableDataProcessed.forEach(item => {
+      if (item.lOrS === 'Short') shortCount += 1
+      else if (item.lOrS === 'Long') longCount += 1
+    })
     SetNumLongs(longCount)
     SetNumShorts(shortCount)
+    SetOppTableLength(tableDataProcessed.length)
+  }, [tableDataProcessed, SetNumLongs, SetNumShorts, SetOppTableLength])
 
-    // Update processed data & table length
-    SetTableDataProcessed(tmp)
-    SetOppTableLength(tmp.length)
-
-    // Reset row selection only when data/sort/filter changes - NOT when mlScores or mlPending trickle in
+  // Reset row selection only when data/sort/filter changes - NOT when ML scores trickle in.
+  useEffect(() => {
     const dataChanged = [sortedDir, colSorted, filterText, showAciveOpps, stockScores, columnVisibility].join('|')
     if (dataChanged !== prevDataDepsRef.current) {
       prevDataDepsRef.current = dataChanged
@@ -317,8 +230,9 @@ const TableBox = ({
         SetRowIndexClicked(null)
       }
     }
+  }, [sortedDir, colSorted, filterText, showAciveOpps, stockScores, columnVisibility, token, loggedinUser, SetRowIndexClicked])
 
-    // Rebuild the column titles & tooltips
+  const { tableTitleDict, tableTitleTooltip } = useMemo(() => {
     let daysout_title = 'Days'
     if (rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth) {
       daysout_title = 'Days'
@@ -378,9 +292,8 @@ const TableBox = ({
       }
     })
 
-    SetTableTitleDict(tmpDict)
-    SetTableTitleTooltip(tmpDict_tt)
-  }, [table_data, sortedDir, colSorted, filterText, showAciveOpps, stockScores, mlScores, mlPending, columnVisibility])
+    return { tableTitleDict: tmpDict, tableTitleTooltip: tmpDict_tt }
+  }, [visibleColumns, rdd.isMobile, rdd.isTablet])
 
   //-------------------------------------------------------------------------------------------------------------------
   const handleTitleClicked = title => () => {
@@ -415,7 +328,6 @@ const TableBox = ({
   const DEFAULT_COL_MIN = 55;
   const tableMinWidth = visibleColumns.reduce((sum, c) => sum + (COL_MIN_W[c] || DEFAULT_COL_MIN), 0);
 
-  const AI_COLS = ['ml_score', 'win_prob', 'pred_return', 'pred_mfe'];
   const firstAICol = visibleColumns.find(c => AI_COLS.includes(c));
 
   //-------------------------------------------------------------------------------------------------------------------
@@ -477,6 +389,18 @@ const TableBox = ({
         </thead>
 
         <tbody>
+          {tableStatusMessage && (
+            <tr>
+              <td
+                colSpan={Math.max(visibleColumns.length, 1)}
+                role="status"
+                aria-live="polite"
+                style={{ padding: '14px', textAlign: 'center', color: tc.text }}
+              >
+                {tableStatusMessage}
+              </td>
+            </tr>
+          )}
           {tableDataProcessed.map((row, index) => (
             <tr
               key={`row-${index}`}
@@ -499,9 +423,9 @@ const TableBox = ({
                   {(!hasAI && AI_COLS.includes(key))
                     ? <span style={{ color: '#bbb', letterSpacing: '2px' }}>· · ·</span>
                     : key === 'TL' && row[key] === null
-                    ? <CellSpinner />
+                    ? PENDING_CELL
                     : key === 'price'
-                      ? (row.price != null
+                      ? (Number.isFinite(row.price)
                         ? <Tippy
                             placement="top"
                             content={
@@ -509,7 +433,7 @@ const TableBox = ({
                                 <span style={{ color: row.change_p > 0 ? '#4caf50' : row.change_p < 0 ? '#f44336' : 'inherit' }}>
                                   {row.change_p > 0 ? '▲' : row.change_p < 0 ? '▼' : '–'}
                                 </span>{' '}
-                                {row.change_p != null ? `${row.change_p > 0 ? '+' : ''}${row.change_p.toFixed(2)}%` : '0.00%'}
+                                {Number.isFinite(row.change_p) ? `${row.change_p > 0 ? '+' : ''}${row.change_p.toFixed(2)}%` : '0.00%'}
                               </div>
                             }
                           >
@@ -519,13 +443,13 @@ const TableBox = ({
                           </Tippy>
                         : ' - ')
                       : key === 'ml_score'
-                        ? (row.ml_score != null ? row.ml_score.toFixed(1) : row.ml_pending ? <CellSpinner /> : '---')
+                        ? (row.ml_score != null ? row.ml_score.toFixed(1) : row.ml_pending ? PENDING_CELL : '---')
                         : key === 'win_prob'
-                          ? (row.win_prob != null ? (row.win_prob * 100).toFixed(0) + '%' : row.ml_pending ? <CellSpinner /> : '---')
+                          ? (row.win_prob != null ? (row.win_prob * 100).toFixed(0) + '%' : row.ml_pending ? PENDING_CELL : '---')
                           : key === 'pred_return'
-                            ? (row.pred_return != null ? row.pred_return.toFixed(1) + '%' : row.ml_pending ? <CellSpinner /> : '---')
+                            ? (row.pred_return != null ? row.pred_return.toFixed(1) + '%' : row.ml_pending ? PENDING_CELL : '---')
                             : key === 'pred_mfe'
-                              ? (row.pred_mfe != null ? row.pred_mfe.toFixed(1) + '%' : row.ml_pending ? <CellSpinner /> : '---')
+                              ? (row.pred_mfe != null ? row.pred_mfe.toFixed(1) + '%' : row.ml_pending ? PENDING_CELL : '---')
                               : (key === 'date' && shortDates && row[key] && row[key].length > 5)
                                 ? row[key].substring(5)
                                 : row[key]
@@ -773,4 +697,4 @@ const TableBox = ({
   )
 }
 
-export default TableBox
+export default React.memo(TableBox)

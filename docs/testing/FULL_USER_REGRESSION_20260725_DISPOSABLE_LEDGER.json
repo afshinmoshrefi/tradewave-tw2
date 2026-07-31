@@ -1,0 +1,98 @@
+{
+  "run_id": "TW-QA-20260725",
+  "target": "192.168.1.176",
+  "allowed_origin": "https://tw2-dev.trxstat.com",
+  "records": [
+    {
+      "kind": "portfolio",
+      "name": "TW-QA-20260725-A",
+      "renamed_to": "TW-QA-20260725-B",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "saved_pattern",
+      "portfolio": "TW-QA-20260725-B",
+      "symbol": "AAPL",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "saved_pattern",
+      "portfolio": "TW-QA-20260725-B",
+      "symbol": "LUV",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "portfolio_note",
+      "portfolio": "TW-QA-20260725-B",
+      "symbol": "LUV",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "portfolio",
+      "name": "TW-QA-20260725-C",
+      "purpose": "post-repair non-empty deletion race retest",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "saved_pattern",
+      "portfolio": "TW-QA-20260725-C",
+      "symbol": "AXP",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    },
+    {
+      "kind": "watchlist_symbol",
+      "watchlist": "MY FAVORITE STOCKS",
+      "symbol": "AMZN",
+      "created": true,
+      "deleted": true,
+      "absence_verified": true
+    }
+  ],
+  "local_test_files": [
+    {
+      "path": "qa-artifacts/TW-QA-WL-20260725-import.csv",
+      "status": "retained_as_test_evidence"
+    },
+    {
+      "path": "qa-artifacts/TradeWave Opportunity Export for AAPL date range  2026-06-25 to 07-18.jpg",
+      "status": "retained_as_test_evidence"
+    }
+  ],
+  "original_preferences": {
+    "portfolio_names": [
+      "main",
+      "Notifications"
+    ],
+    "selected_portfolio": "main",
+    "main_saved_pattern_count": 11,
+    "tooltips": "OFF",
+    "short_dates": false,
+    "favorite_symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "GOOGL",
+      "BA",
+      "LLY"
+    ]
+  },
+  "restored_preferences": true,
+  "cleanup_complete": true,
+  "absence_verified": true,
+  "final_portfolio_names": [
+    "main",
+    "Notifications"
+  ]
+}

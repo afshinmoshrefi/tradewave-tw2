@@ -37,6 +37,10 @@ import { getCookie, setCookie } from './Common'
 import { lsGet, lsSet, lsRemove, clearUserStorage } from './Common'
 import { twFetch, registerTwFetchAuth } from './twFetch'
 import ErrorBoundary from './ErrorBoundary'
+import {
+  resolveOpportunityRecurrence,
+  resolveViewerDeepLinkOpportunityRecurrence,
+} from './opportunityRecurrence'
 import jwt_decode from 'jwt-decode'
 //-------------------- swiper -----------------------------
 // Import Swiper styles
@@ -214,7 +218,10 @@ const App = () => {
 
 
   // tooltip on/off
-  const [tooltipSW, SetTooltipSW] = useState(false)
+  const [tooltipSW, SetTooltipSW] = useState(() => {
+    const persisted = lsGet('tw_tooltips');
+    return persisted === true || persisted === '1';
+  })
 
 
   //4/12/2022 - 
@@ -483,7 +490,8 @@ const App = () => {
 
   const [showSR2, SetShowSR2] = useState(false); // this is to control the configuration of oppTable that display 2 additional columns for AP2 and SR2
   const [shortDates, SetShortDates] = useState(() => {
-    return lsGet('tw_short_dates') === '1' || lsGet('tw_short_dates') === true;
+    const persisted = lsGet('tw_short_dates');
+    return persisted === true || persisted === '1';
   });
 
   const [switchStreamingQuotes, SetSwitchStreamingQuotes] = useState(true); // this is to switch streaming quotes on and off
@@ -507,6 +515,9 @@ const App = () => {
   const prevPatternKey = useRef('');          // tracks symbol|startDate to detect deliberate changes
   const companyReqRef = useRef(0);            // ordering guard: only the LATEST NameFromTicker response may SetCompany
   const loginInFlightRef = useRef(false);     // prevents the /login effect from double-firing (SetLoggedinUser re-runs it while token is still '')
+  // Once an explicit opportunity-table selection owns the state, later
+  // token/bootstrap reruns must not restore an older cookie/default over it.
+  const oppYearsSelectionOwnedRef = useRef(false);
 
   // Used to manually trigger a refresh of the useEffect below.
   // Every time we increment refreshKey, the effect re-runs.
@@ -795,8 +806,9 @@ const App = () => {
   // callers must switch only to an ENTITLED market.
   //---------------------------------------------------------------
   const switchMarket = (marketDisplayName) => {
+    oppYearsSelectionOwnedRef.current = true;
     SetShowActiveOpps(false);
-    const [y1, y2] = getOppYearsForGroup(marketDisplayName, PEselected !== 'cons');
+    const [y1, y2] = getOppYearsForGroup(marketDisplayName, showPEOpps);
     const sameGroup = marketDisplayName === selectedSecurity;
     SetSelectedSecurity(marketDisplayName);
     SetActiveWatchlistFilter(null);
@@ -823,7 +835,13 @@ const App = () => {
     SetLastPrice(['', 0]);
     SetSymbol('');
     SetSeasonalBarChartData([]);
+    SetTradeDetailData([]);
+    SetConsolidatedSeasonalData([]);
+    SetMaxYearsConsolidatedSeasonalData([]);
+    SetCompareSecurityBarChartData([]);
+    SetCompany('');
     SetLineChartYear(0);
+    SetRowIndexClicked(-1);
     if (window.location.search.length > 0) {
       window.history.replaceState(null, '', window.location.pathname);
       queryStringLoadedRef.current = true;
@@ -897,14 +915,37 @@ const App = () => {
         return
       }
 
-      SetOppTableYears(event.target.value)
-      saveOppYearsForGroup(selectedSecurity, parseInt(event.target.value), parseInt(oppTablePartialYears), PEselected !== 'cons')
-      SetOppTablePartialYears(-1) // (1) this is to force render only after new partial year is established.  fixed the lockup bug 8/22/2021
+      const activeMeta =
+        showPEOpps && yearsMetaDataPE.length > 0
+          ? yearsMetaDataPE
+          : yearsMetaData
+      const resolved = resolveOpportunityRecurrence(
+        activeMeta,
+        event.target.value,
+        oppTablePartialYears,
+        maxYearsCap(),
+      )
+      const nextYears = resolved ? resolved.years : String(event.target.value)
+      const nextPartialYears = resolved ? resolved.partialYears : '-1'
+
+      oppYearsSelectionOwnedRef.current = true
+      SetOpportunities([])
+      SetOppTableYears(nextYears)
+      SetOppTablePartialYears(nextPartialYears)
+      if (resolved) {
+        saveOppYearsForGroup(
+          selectedSecurity,
+          parseInt(nextYears, 10),
+          parseInt(nextPartialYears, 10),
+          showPEOpps,
+        )
+      }
     }
     else if (event.target.id === 'partialYears') {
+      oppYearsSelectionOwnedRef.current = true
       SetOpportunities([])
       SetOppTablePartialYears(event.target.value)
-      saveOppYearsForGroup(selectedSecurity, parseInt(oppTableYears), parseInt(event.target.value), PEselected !== 'cons')
+      saveOppYearsForGroup(selectedSecurity, parseInt(oppTableYears), parseInt(event.target.value), showPEOpps)
     }
     else if (event.target.id === 'day') {  // 4/30/2022 - changed day of the month to a pull down
 
@@ -1004,7 +1045,8 @@ const App = () => {
           symbols: new Set(pl.symbols || [])
         });
 
-        const [y1, y2] = getOppYearsForGroup(parentGroupName, PEselected !== 'cons');
+        oppYearsSelectionOwnedRef.current = true;
+        const [y1, y2] = getOppYearsForGroup(parentGroupName, showPEOpps);
 
         SetOppTableYears(-1);
         SetOppTablePartialYears(-1);
@@ -1054,7 +1096,8 @@ const App = () => {
           symbols: null // will be populated after fetch
         });
 
-        const [y1, y2] = getOppYearsForGroup(parentGroupName, PEselected !== 'cons');
+        oppYearsSelectionOwnedRef.current = true;
+        const [y1, y2] = getOppYearsForGroup(parentGroupName, showPEOpps);
 
         SetOppTableYears(-1)
         SetOppTablePartialYears(-1)
@@ -1363,6 +1406,8 @@ const App = () => {
     SetOppTablePartialYears,
     selectboxChanged,
     SetAppliedFilter,
+    GetOppYearsForGroup: getOppYearsForGroup,
+    SaveOppYearsForGroup: saveOppYearsForGroup,
     SetRowIndexClicked,
     SetSeasonalBarChartData,
     SetTradeDetailData,
@@ -1647,10 +1692,10 @@ const App = () => {
     return lvl;
   };
 
-  // Re-derive the /login handshake URL from the page credentials (window
-  // globals re-minted by Flask on every /app/ load, legacy 'apsl' cookie
-  // fallback). Returns null when no credentials are present.
-  const buildLoginUrl = () => {
+  // Re-derive the login handshake from the page credentials (window globals
+  // re-minted by Flask on every /app/ load, legacy 'apsl' cookie fallback).
+  // The signed LTK goes in a POST body, never in a URL/access-log path.
+  const buildLoginRequest = () => {
     let cookie = null;
     if (window.current_user_id && window.ltk) cookie = `${window.current_user_id},${window.ltk}`;
     else cookie = getCookie('apsl');
@@ -1662,7 +1707,20 @@ const App = () => {
     if (debug) loginToken = process.env.REACT_APP_DEBUG_LOGIN_TOKEN;
 
     const [deviceType, deviceOS] = detectDevice();
-    return `${appserverURL()}/login/${userid}/${effectiveUserLevel()}/${deviceType}/${deviceOS}/${loginToken}`;
+    return {
+      url: `${appserverURL()}/login/session`,
+      options: {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wp_userid: userid,
+          user_level: effectiveUserLevel(),
+          country_code: deviceType,
+          zip: deviceOS,
+          skey: loginToken,
+        }),
+      },
+    };
   };
 
   //-------------------------------------------------------------------------------
@@ -1673,11 +1731,11 @@ const App = () => {
   useEffect(() => {
     registerTwFetchAuth({
       relogin: () => {
-        const url = buildLoginUrl();
-        if (!url) return Promise.resolve(null);
+        const loginRequest = buildLoginRequest();
+        if (!loginRequest) return Promise.resolve(null);
         // twFetch (skipAuthRetry) so a transient 429/5xx during the ONE re-login
         // attempt retries with backoff instead of falsely latching sessionDead.
-        return twFetch(url, { skipAuthRetry: true })
+        return twFetch(loginRequest.url, { ...loginRequest.options, skipAuthRetry: true })
           .then((res) => {
             const contentType = res.headers.get("content-type");
             if (!res.ok || !contentType || contentType.indexOf("application/json") === -1) return null;
@@ -1784,11 +1842,11 @@ const App = () => {
         SetSelectedPortfolioID(0)
       }
 
-      if (userid === '0') {
-        SetOppTableYears(freeYears[0].toString())  // set to 8 or 10 
+      if (!oppYearsSelectionOwnedRef.current && userid === '0') {
+        SetOppTableYears(freeYears[0].toString())  // set to 8 or 10
         SetOppTablePartialYears(freeYears[1].toString())
       }
-      else {
+      else if (userid !== '0') {
         if (tmp_selected_security === '') {
           tmp_selected_security = getCookie('selectedSecurity')
 
@@ -1802,14 +1860,8 @@ const App = () => {
 
         // console.log('.......................tmp_selected_security=',tmp_selected_security)
 
-        if (wpUserLevels.length === 1 && wpUserLevels[0] === '1') { //free registered
-
-          const [y1, y2] = getOppYearsForGroup(tmp_selected_security, PEselected !== 'cons');
-          SetOppTableYears(y1.toString())
-          SetOppTablePartialYears(y2.toString())
-        }
-        else { // all paid registered users
-          const [y1, y2] = getOppYearsForGroup(tmp_selected_security, PEselected !== 'cons');
+        if (!oppYearsSelectionOwnedRef.current) {
+          const [y1, y2] = getOppYearsForGroup(tmp_selected_security, showPEOpps);
           SetOppTableYears(y1.toString())
           SetOppTablePartialYears(y2.toString())
         }
@@ -1826,14 +1878,24 @@ const App = () => {
       // SetLoggedinUser (above) re-runs this effect on loggedinUser change while token is
       // still '' - loginInFlightRef stops that from firing the /login handshake twice.
       loginInFlightRef.current = true
-      let asURL = appserverURL()
-
       const [deviceType, deviceOS] = detectDevice();
       tmp = effectiveUserLevel();
 
-      let url = `${asURL}/login/${userid}/${tmp}/${deviceType}/${deviceOS}/${loginToken}`
+      let url = `${appserverURL()}/login/session`
+      let loginOptions = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wp_userid: userid,
+          user_level: tmp,
+          country_code: deviceType,
+          zip: deviceOS,
+          skey: loginToken,
+        }),
+        skipAuthRetry: true,
+      }
 
-      if (debug) console.log('login url =', url)
+      if (debug) console.log('login endpoint =', url)
 
       // console.log('.................login url =', url)
       console.log('.') ; // I think this helps make login work for non logged in with trxstat.com - it was crashing for some reason
@@ -1841,7 +1903,7 @@ const App = () => {
       var stat = ''
       // login to appserver - twFetch retries transient 429/5xx with backoff;
       // skipAuthRetry because a 401 here means the LTK itself is dead
-      twFetch(url, { skipAuthRetry: true })
+      twFetch(url, loginOptions)
         .then(res => {
 
           const contentType = res.headers.get("content-type");
@@ -2505,21 +2567,17 @@ const App = () => {
           SetSelectedSecurity(resource_group)
           setCookie('selectedSecurity', resource_group, 300) // sync cookie so refresh without querystring loads correct group
 
-          let [y1, y2] = getOppYearsForGroup(resource_group, parsedPE !== 'cons');
-
-
-          const timer = setTimeout(() => {
-            SetOppTableYears(parsedYears) // removed then readded with timer on 3/27/2025 -
-          }, 1000); // 1000ms = 1s delay
-
-
-
-          if (parseInt(history_years) === y1) {
-            SetOppTablePartialYears(y2.toString())
-          }
-          else {
-            SetOppTablePartialYears(-1) // -1 defaults the partial years to the first one on the list
-          }
+          // Apply the deep-link state immediately and claim ownership so a
+          // later login/token rerun cannot restore an older table default.
+          oppYearsSelectionOwnedRef.current = true;
+          let [y1, y2] = getOppYearsForGroup(resource_group, showPEOpps);
+          const opportunityRecurrence = resolveViewerDeepLinkOpportunityRecurrence(
+            parsedYears,
+            y1,
+            y2,
+          )
+          SetOppTableYears(opportunityRecurrence.years)
+          SetOppTablePartialYears(opportunityRecurrence.partialYears)
           // Don't clear opportunities here: OppTable refetches whenever its
           // resolved URL changes (selectedSecurity / partialYears / oppTableYears
           // etc.). If the cookie already pointed at the pattern's market with

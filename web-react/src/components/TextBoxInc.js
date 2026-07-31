@@ -87,14 +87,17 @@ const TextBoxInc = ({ tooltipContent, name, text, width, tbBlur, tbEnter, securi
         justifyContent: 'center',
         cursor: 'pointer',
         padding: '0 3px',
+        border: 0,
+        background: 'transparent',
+        color: tc.text,
     }
 
     return (
         <div style={{ display: 'flex', alignItems: 'center' }}>
 
-            <div style={arrowStyle} onClick={onLeftClick}>
+            <button type="button" aria-label="Move start date one day earlier" style={arrowStyle} onClick={onLeftClick}>
                 <FaChevronLeft size={iconSize} style={{ fill: tc.text }} />
-            </div>
+            </button>
 
             <Tippy placement={ttp} disabled={!ttc} content={
                 <div theme="tw">
@@ -106,9 +109,9 @@ const TextBoxInc = ({ tooltipContent, name, text, width, tbBlur, tbEnter, securi
                 </div>
             </Tippy>
 
-            <div style={arrowStyle} onClick={onRightClick}>
+            <button type="button" aria-label="Move start date one day later" style={arrowStyle} onClick={onRightClick}>
                 <FaChevronRight size={iconSize} style={{ fill: tc.text }} />
-            </div>
+            </button>
 
         </div>
     )

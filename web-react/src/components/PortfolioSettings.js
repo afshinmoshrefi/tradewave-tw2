@@ -23,6 +23,7 @@ const PortfolioSettings = (props) => {
     const [newText, SetNewText] = useState('')
     const [selPort, SetSelPort] = useState('main')
     const [numOppsSelectedPortfolio, SetNumOppsSelectedPortfolio] = useState(-1)
+    const [portfolioCountFor, SetPortfolioCountFor] = useState('')
 
     const [msgColor, SetMsgColor] = useState('red')
     const [confirmDelete, SetConfirmDelete] = useState(false)
@@ -286,6 +287,8 @@ const PortfolioSettings = (props) => {
 
         SetMessage('');
         SetConfirmDelete(false);
+        SetNumOppsSelectedPortfolio(-1);
+        SetPortfolioCountFor('');
 
         let id = -1;
 
@@ -320,9 +323,12 @@ const PortfolioSettings = (props) => {
                 let tmp = data['reports_list'];
                 let num = tmp.length;
                 SetNumOppsSelectedPortfolio(num); // set number of opportunities for the selected portfolio - used to check if we can delete or not
+                SetPortfolioCountFor(value);
             })
 
             .catch((error) => {
+                SetNumOppsSelectedPortfolio(-1);
+                SetPortfolioCountFor('');
                 if (error.message === '404') {
                     console.log('Resource not found'); // handle a 404 error response
                     console.log('url=', url)
@@ -406,6 +412,15 @@ const PortfolioSettings = (props) => {
             SetMessage('main Portfolio cannot be deleted')
             SetMsgColor('red')
             return;
+        }
+
+        // Never treat the initial/stale count as an empty portfolio. A user can
+        // select a populated portfolio and click Delete before its report list
+        // finishes loading; without this guard that race bypasses confirmation.
+        if (portfolioCountFor !== delname || numOppsSelectedPortfolio < 0) {
+            SetMessage(`Checking "${delname}" before deletion. Please try again.`)
+            SetMsgColor('red')
+            return
         }
 
         // if portfolio has opportunities, show confirmation prompt

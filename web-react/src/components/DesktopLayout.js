@@ -43,6 +43,7 @@ import { getCookie, setCookie, appserverURL } from './Common';
 import { LiaToggleOffSolid, LiaToggleOnSolid } from "react-icons/lia";
 import { DarkBGColor, LightBGColor, themeColors } from './Common'
 import { tierHasAI } from './Common'
+import { lsSet } from './Common'
 import { BsPlus, BsTrash3 } from "react-icons/bs";
 import { GrEdit } from "react-icons/gr";
 import Tippy from '@tippyjs/react'
@@ -217,7 +218,9 @@ const DesktopLayout = (props) => {
     };
 
     const handleTooltipSW = () => {
-        props.SetTooltipSW(!props.tooltipSW);
+        const next = !props.tooltipSW;
+        props.SetTooltipSW(next);
+        lsSet('tw_tooltips', next);
     };
 
     const handleTheme = () => {
@@ -1259,7 +1262,7 @@ const DesktopLayout = (props) => {
                                                 cbChanged={() => {
                                                     const next = !props.shortDates;
                                                     props.SetShortDates(next);
-                                                    try { localStorage.setItem('tw_short_dates', next ? '1' : '0'); } catch (e) {}
+                                                    lsSet('tw_short_dates', next);
                                                 }}
                                                 checked={props.shortDates || false}
                                                 textSide="right"

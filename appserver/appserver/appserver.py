@@ -60,6 +60,7 @@ from datetime import timedelta
 import base64
 import hashlib
 import hmac
+import math
 from dateutil.relativedelta import relativedelta
 import glob
 import json
@@ -604,12 +605,25 @@ def get_num_reports(wp_userid):
 # (spoofing one = a chosen-key limiter bypass). Mitigation: rate_limit_login in
 # config.py is sized for the WHOLE user base sharing one bucket, and /login/api
 # keeps its own tight 10/minute api-key brute-force guard.
+@app.route('/login/session', methods=['POST'])
 @app.route('/login/<string:wp_userid>/<string:user_level>/<string:country_code>/<string:zip>/<string:skey>', methods=['GET'])
 @limiter.limit(config.rate_limit_login[0])
 @limiter.limit(config.rate_limit_login[1])
 @limiter.limit(config.rate_limit_login[2])
 @limiter.limit(config.rate_limit_login[3])
-def login(wp_userid, user_level, country_code, zip, skey): # I had ip for no reason - changed it to user_level 3/7/2023
+def login(wp_userid=None, user_level=None, country_code=None, zip=None, skey=None): # I had ip for no reason - changed it to user_level 3/7/2023
+    # Browser sessions use POST so the signed login credential cannot be copied
+    # into reverse-proxy/access-log request paths. Keep the legacy GET route for
+    # old clients during the rollout, but the React client no longer calls it.
+    if request.method == 'POST':
+        payload = request.get_json(silent=True) or {}
+        wp_userid = str(payload.get('wp_userid') or '')
+        user_level = str(payload.get('user_level') or '')
+        country_code = str(payload.get('country_code') or '')
+        zip = str(payload.get('zip') or '')
+        skey = str(payload.get('skey') or '')
+        if not wp_userid or not skey:
+            return jsonify({'message': 'authentication required'}), 401
     # with open("log.txt", "a+") as f: f.write("text")
     # print('login started')
     
@@ -948,6 +962,14 @@ def root(token=''):
 
 
 
+def _drop_disabled_market_symbols(df, resource_id):
+    """Exclude retired/disabled symbols on both cache hits and cache misses."""
+    disabled = config.drop_symbols_by_market.get(str(resource_id), [])
+    if df.empty or 'sym' not in df.columns or not disabled:
+        return df
+    return df[~df['sym'].isin(disabled)]
+
+
 # --------start opplist4------------------------------------------------------------------------------------------------------------------------------------------------------------
 # version 4 returns a list of lists instead of dictionary.  saves around 40% in size
 # add active list to opplist4 based on module create_acitve_opps.py
@@ -1223,12 +1245,6 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
                 # print('ooooooooooooooooooooooooopp=',opp,'\n\n')
 
 
-                # remove symbols listed in config - these are symbols that aren't being updated for some reason
-                if resourceID in config.drop_symbols_by_market: 
-                    # print('before',opp.shape[0],opp)
-                    opp = opp[~opp['sym'].isin(config.drop_symbols_by_market[resourceID])]
-                    # print('after',opp)
-
                 # change all the dates on the opp list to next_trading_day to support weekend and holidays
                 # opp['date']=next_trading_day # keep the dates as is 9/11/2022
             
@@ -1326,6 +1342,12 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     else:
         opp  = pd.DataFrame(json.loads(opp_redis))
         oppa = pd.DataFrame(json.loads(oppa_redis))
+
+    # Apply the disabled-symbol policy after loading from either files or Redis.
+    # Keeping this outside the cache-miss branch prevents retired symbols from
+    # lingering in cached regular or active opportunity lists.
+    opp = _drop_disabled_market_symbols(opp, resourceID)
+    oppa = _drop_disabled_market_symbols(oppa, resourceID)
 
     # ------------------------------------------------------------------------
     # now we have opp llist - if symbol != '' then filter by symbol 12/4/2023
@@ -1452,12 +1474,14 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     if all_prices:
         for row in l:
             if len(row) > 1 and row[1] in all_prices:
-                p = all_prices[row[1]]
-                opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
+                p = validate_realtime_quote_for_resource(resourceID, row[1], all_prices[row[1]])
+                if p:
+                    opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
         for row in la:
             if len(row) > 1 and row[1] not in opp_prices and row[1] in all_prices:
-                p = all_prices[row[1]]
-                opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
+                p = validate_realtime_quote_for_resource(resourceID, row[1], all_prices[row[1]])
+                if p:
+                    opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
 
     # Check if this user+market qualifies for ML score columns
     ml_enabled = False
@@ -1977,6 +2001,87 @@ def get_earnings_dates(symbol):
 
     return result
 
+def _finite_number(value, *, positive=False):
+    """Return a finite float or None; upstream sometimes emits "NA"/NaN."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or (positive and number <= 0):
+        return None
+    return number
+
+
+def _sanitize_realtime_prices(prices):
+    sanitized = {}
+    for sym, pair in (prices or {}).items():
+        if isinstance(pair, dict):
+            raw_price, raw_change = pair.get('price'), pair.get('change_p')
+        elif isinstance(pair, (list, tuple)) and len(pair) >= 2:
+            raw_price, raw_change = pair[0], pair[1]
+        else:
+            continue
+        price = _finite_number(raw_price, positive=True)
+        if price is None:
+            continue
+        sanitized[str(sym).upper()] = [price, _finite_number(raw_change)]
+    return sanitized
+
+
+_commodity_symbols = None
+_equity_close_cache = {}
+
+
+def _load_commodity_symbols():
+    global _commodity_symbols
+    if _commodity_symbols is None:
+        try:
+            frame = pd.read_csv(config.available_resources_path['7'])
+            _commodity_symbols = {
+                str(symbol).strip().upper()
+                for symbol in frame['symbols'].dropna().tolist()
+            }
+        except Exception:
+            _commodity_symbols = set()
+    return _commodity_symbols
+
+
+def _latest_equity_close(symbol):
+    symbol = str(symbol).strip().upper()
+    if symbol not in _equity_close_cache:
+        try:
+            frame = pd.read_csv(
+                f'/home/flask/data/csv/US/{symbol}.csv',
+                usecols=['close'],
+            )
+            closes = pd.to_numeric(frame['close'], errors='coerce').dropna()
+            _equity_close_cache[symbol] = float(closes.iloc[-1]) if not closes.empty else None
+        except Exception:
+            _equity_close_cache[symbol] = None
+    return _equity_close_cache[symbol]
+
+
+def validate_realtime_quote_for_resource(resource_id, symbol, pair):
+    """Reject malformed quotes and obvious bare-ticker namespace collisions.
+
+    The real-time service keys quotes only by ticker. Symbols such as ES exist
+    in both the equity and futures universes; compare only those collisions with
+    the equity EOD close so a futures quote cannot appear in an equity table.
+    """
+    normalized = _sanitize_realtime_prices({symbol: pair}).get(str(symbol).upper())
+    if not normalized:
+        return None
+    if str(resource_id) in {'0', '1', '2', '3', '4'}:
+        sym = str(symbol).strip().upper()
+        if sym in _load_commodity_symbols():
+            reference = _latest_equity_close(sym)
+            if reference and not (0.5 * reference <= normalized[0] <= 2.0 * reference):
+                return None
+    return normalized
+
+
 def get_realtime_prices_cached():
     """Get all real-time prices from the realtime service, cached in Redis for 55 min.
     Returns dict of {symbol: [price, change_p]} - compact format to minimize Redis payload.
@@ -1987,7 +2092,7 @@ def get_realtime_prices_cached():
     redis_key = 'realtime_prices'
     cached = redis_client.get(redis_key)
     if cached is not None:
-        return json.loads(cached)
+        return _sanitize_realtime_prices(json.loads(cached))
 
     try:
         url = f'{config.realtime_service_url}prices/all'
@@ -1997,9 +2102,7 @@ def get_realtime_prices_cached():
         data = resp.json()
         prices = data.get('prices', {})
         # Trim to [price, change_p] arrays - reduces ~3MB to ~400KB
-        trimmed = {}
-        for sym, p in prices.items():
-            trimmed[sym] = [p.get('price'), p.get('change_p')]
+        trimmed = _sanitize_realtime_prices(prices)
         redis_client.set(redis_key, json.dumps(trimmed))
         redis_client.expire(redis_key, 3300)  # 55 min - slightly less than the 60 min refresh interval
         return trimmed
@@ -3361,6 +3464,11 @@ def resolve_resource_id(symbol, resource_id):
     if resource_id not in us_ids:
         return resource_id  # non-US group - don't touch it
     sym = symbol.strip().upper()
+    # Preserve the user's selected group when the ticker belongs to it. Many
+    # symbols intentionally overlap DOW/NASDAQ/S&P/Russell/Wilshire.
+    selected_path = dict(_us_stock_groups).get(resource_id)
+    if selected_path and sym in _load_us_stock_set(resource_id, selected_path):
+        return resource_id
     for rid, path in _us_stock_groups:
         if sym in _load_us_stock_set(rid, path):
             return rid  # return most specific group that contains the ticker
@@ -3457,7 +3565,7 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
 
         _dr_report_render_async(existing_record, token, refresh_title, slug)
 
-        report_url = f"https://tw2.trxstat.com/r/{slug}/"
+        report_url = f"{config.tw2_public_url.rstrip('/')}/r/{slug}/"
         return jsonify({'publish_dr_report':'success', 'report_url': report_url, 'refreshed': True})
 
     # Not a refresh - enforce the LIFETIME report total (the per-day cap below is separate).
@@ -3579,7 +3687,7 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
 
     # Return the URL even though render hasn't completed - the file will exist
     # by the time the user navigates to it.
-    report_url = f"https://tw2.trxstat.com/r/{slug}/"
+    report_url = f"{config.tw2_public_url.rstrip('/')}/r/{slug}/"
 
     # print(existing_reports_list)
     return jsonify({'publish_dr_report':'success', 'report_url': report_url})
@@ -4715,6 +4823,9 @@ def del_user_portfolio_name(portfolio_name): # use slug as an identifier for whi
 # Redis key: user_watchlists_{userid} -> JSON list of dicts: [{name, resourceId, resourceName, isDefault}, ...]
 # Redis key: user_watchlist_items_{userid}_{name} -> JSON list of symbol strings: ["AAPL", "MSFT", ...]
 #---------------------------------------------------------------------------------------------------
+WATCHLIST_NAME_MAX_LENGTH = 64
+
+
 @app.route('/get_user_watchlist_names', methods=['GET'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
@@ -4760,6 +4871,13 @@ def add_user_watchlist_name(name, resourceId, resourceName):
     data            = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
     userid          = data['user']
     user_level      = str(data.get('user_level', '1'))
+    name            = name.strip()
+
+    if not name or len(name) > WATCHLIST_NAME_MAX_LENGTH:
+        return jsonify({
+            'watchlist_names_list': 'invalid_name',
+            'message': f'Watchlist names are limited to {WATCHLIST_NAME_MAX_LENGTH} characters',
+        })
 
     max_allowed = config.num_watchlists_allowed_by_level.get(user_level, 0)
 
@@ -4794,10 +4912,20 @@ def edit_user_watchlist_name(old_name, new_name):
     token           = request.args.get("token")
     data            = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
     userid          = data['user']
+    new_name        = new_name.strip()
+
+    if not new_name or len(new_name) > WATCHLIST_NAME_MAX_LENGTH:
+        return jsonify({
+            'watchlist_names_list': 'invalid_name',
+            'message': f'Watchlist names are limited to {WATCHLIST_NAME_MAX_LENGTH} characters',
+        })
 
     redis_key = f'user_watchlists_{userid}'
     raw = redis_client2.get(redis_key)
     watchlists = json.loads(raw) if raw else []
+
+    if any(w['name'] == new_name and w['name'] != old_name for w in watchlists):
+        return jsonify({'watchlist_names_list': 'duplicate'})
 
     for w in watchlists:
         if w['name'] == old_name:

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { UserContext } from './UserContext';
 import { UIcolors, themeColors } from './Common';
@@ -7,61 +7,63 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
     const { rdd, loggedinUser } = useContext(UserContext);
     const tc = themeColors(UITheme);
 
-    const [dataMain, setDataMain] = useState([21.02, 7.92, 1.73, 3.65, -4.13, 1.36, 3.56, 5.02, 1.85, 1.17, 6.29, 24.07]);
-    const [dataMainColors, setDataMainColors] = useState(() => Array(12).fill(tc.barGreen));
-    const [dataMax, setDataMax] = useState([9.53, 4.6, 0.41, 0.36, 0.91, 2.47, 1.3, 0.53, 4.48, 7.83, 3.13, 0.48]);
-    const [maxColor, setMaxColor] = useState(tc.barMFE);
-    const [dataMin, setDataMin] = useState([-3.28, -1.78, -4, -6.28, -2.3, -4.16, -1.761, -1.54, -4.37, -1.7, -5.2, -6.73]);
-    const [minColor, setMinColor] = useState(tc.barMAE);
-    const [labels, setLabels] = useState(['2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']);
+    // Derive the complete Chart.js payload during render. The previous effect-
+    // backed state rendered one frame with the prior ticker before installing
+    // the new labels and bars, creating a measurable stale-canvas flash.
+    const {
+        dataMain,
+        dataMainColors,
+        dataMax,
+        dataMin,
+        labels,
+    } = useMemo(() => {
+        const nextMain = [];
+        const nextColors = [];
+        const nextMax = [];
+        const nextMin = [];
+        const nextLabels = [];
 
-    useEffect(() => {
-        var pos = 0, neg = 0, tmpLevels = [], tmpColors = [], tmpMin = [], tmpMax = [], tmpLabels = [];
-        seasonalBarChartData.forEach((r) => {
-            var plist = r['pct'].split(',');
-            tmpLabels.push(r['year']);
-            tmpLevels.push(plist[0]);
+        seasonalBarChartData.forEach((row) => {
+            const plist = row['pct'].split(',').map(value => parseFloat(value));
+            const close = plist[0];
+            const high = plist[1];
+            const low = plist[2];
 
-            if (plist[0] >= 0) {
-                pos++;
-                tmpColors.push(tc.barGreen);
-            }
-            if (plist[0] < 0) {
-                neg++;
-                tmpColors.push(tc.barRed);
-            }
+            nextLabels.push(row['year']);
+            nextMain.push(close);
+            nextColors.push(close >= 0 ? tc.barGreen : tc.barRed);
+
+            if (close >= 0 && high > 0) nextMax.push(parseFloat(high - close).toFixed(2));
+            else if (close < 0 && high >= 0) nextMax.push(parseFloat(high).toFixed(2));
+            else nextMax.push(0);
+
+            if (close <= 0 && low < 0) nextMin.push(parseFloat(low - close).toFixed(2));
+            else if (close > 0 && low <= 0) nextMin.push(parseFloat(low).toFixed(2));
+            else nextMin.push(0);
         });
 
-        setDataMain(tmpLevels);
-        setDataMainColors(tmpColors);
-        setLabels(tmpLabels);
-        var longOrShort = barChartLongOrShort;
+        const includeMax =
+            (barChartLongOrShort === 'long' && showMFE) ||
+            (barChartLongOrShort === 'short' && showMAE);
+        const includeMin =
+            (barChartLongOrShort === 'long' && showMAE) ||
+            (barChartLongOrShort === 'short' && showMFE);
 
-        seasonalBarChartData.forEach((r) => {
-            var plist = r['pct'].split(',');
-            var close = plist[0];
-            var high = plist[1];
-            var low = plist[2];
-
-            if (close >= 0 && high > 0) tmpMax.push(parseFloat(high - close).toFixed(2));
-            else if (close < 0 && high >= 0) tmpMax.push(parseFloat(high).toFixed(2));
-            else if (close < 0 && high < 0) tmpMax.push(0);
-
-            if (close <= 0 && low < 0) tmpMin.push(parseFloat(low - close).toFixed(2));
-            else if (close > 0 && low <= 0) tmpMin.push(parseFloat(low).toFixed(2));
-            else if (close > 0 && low > 0) tmpMin.push(0);
-        });
-
-        if ((longOrShort === 'long' && showMFE) || (longOrShort === 'short' && showMAE)) {
-            setDataMax(tmpMax);
-        } else setDataMax([]);
-        setMaxColor(tc.barMFE);
-
-        if ((longOrShort === 'long' && showMAE) || (longOrShort === 'short' && showMFE)) {
-            setDataMin(tmpMin);
-        } else setDataMin([]);
-        setMinColor(tc.barMAE);
-    }, [seasonalBarChartData, showMFE, showMAE, barChartLongOrShort, UITheme]);
+        return {
+            dataMain: nextMain,
+            dataMainColors: nextColors,
+            dataMax: includeMax ? nextMax : [],
+            dataMin: includeMin ? nextMin : [],
+            labels: nextLabels,
+        };
+    }, [
+        seasonalBarChartData,
+        showMFE,
+        showMAE,
+        barChartLongOrShort,
+        tc.barGreen,
+        tc.barRed,
+    ]);
 
     let axisFontSize = '20vw';
     let tooltipEnabled = true;
@@ -92,22 +94,29 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
             {
                 label: 'dataMax',
                 data: dataMax,
-                backgroundColor: maxColor,
+                backgroundColor: tc.barMFE,
             },
             {
                 label: 'dataMin',
                 data: dataMin,
-                backgroundColor: minColor,
+                backgroundColor: tc.barMAE,
             },
         ]
     };
 
     const options = {
+        // The chart is an interaction result, not a decorative entrance. Chart.js
+        // animations kept repainting the canvas after ChartData4 had completed,
+        // which made rapid row selections look stale and missed the viewer's
+        // response-to-usable budget.
+        animation: false,
         onClick: function (event, item) {
             if (item.length > 0) {
                 barClicked(labels[item[0]['index']]);
             }
         },
+        devicePixelRatio: 0.5,
+        normalized: true,
         maintainAspectRatio: false,
         scales: {
             y: {
@@ -197,4 +206,4 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
     );
 };
 
-export default BarChart;
+export default React.memo(BarChart);

@@ -1,0 +1,67 @@
+{
+  "captured_at": "2026-07-24T17:28:47.535Z",
+  "cold": {
+    "symbol": "AAPL",
+    "selection_to_request_start_ms": 3503,
+    "request_duration_ms": 582,
+    "response_to_capture_ready_ms": 902,
+    "response_to_first_canvas_ms": 1402,
+    "response_to_stable_canvas_ms": 2208,
+    "selection_to_usable_chart_ms": 6293
+  },
+  "warm": [
+    {
+      "symbol": "UNH",
+      "selection_to_request_start_ms": 161,
+      "request_duration_ms": 614,
+      "response_to_capture_ready_ms": 204,
+      "response_to_first_canvas_ms": 617,
+      "response_to_stable_canvas_ms": 1297,
+      "selection_to_usable_chart_ms": 2072
+    },
+    {
+      "symbol": "PCAR",
+      "selection_to_request_start_ms": 128,
+      "request_duration_ms": 742,
+      "response_to_capture_ready_ms": 77,
+      "response_to_first_canvas_ms": 516,
+      "response_to_stable_canvas_ms": 1124,
+      "selection_to_usable_chart_ms": 1994
+    },
+    {
+      "symbol": "FAST",
+      "selection_to_request_start_ms": 133,
+      "request_duration_ms": 547,
+      "response_to_capture_ready_ms": 201,
+      "response_to_first_canvas_ms": 616,
+      "response_to_stable_canvas_ms": 1142,
+      "selection_to_usable_chart_ms": 1822
+    },
+    {
+      "symbol": "EQR",
+      "selection_to_request_start_ms": 190,
+      "request_duration_ms": 669,
+      "response_to_capture_ready_ms": 70,
+      "response_to_first_canvas_ms": 479,
+      "response_to_stable_canvas_ms": 1147,
+      "selection_to_usable_chart_ms": 2006
+    },
+    {
+      "symbol": "AAPL",
+      "selection_to_request_start_ms": 200,
+      "request_duration_ms": 623,
+      "response_to_capture_ready_ms": 57,
+      "response_to_first_canvas_ms": 485,
+      "response_to_stable_canvas_ms": 958,
+      "selection_to_usable_chart_ms": 1781
+    }
+  ],
+  "console_errors": [],
+  "missing_targets": [],
+  "bundle_hash": "c37ea73a",
+  "baseline": {
+    "selected_security": "S&P 500 STOCKS",
+    "rows": 419,
+    "seasonal_symbol": "AAPL"
+  }
+}
