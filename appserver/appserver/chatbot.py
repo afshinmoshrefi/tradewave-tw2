@@ -594,6 +594,205 @@ def log_question(user_id, question, response, wave_viewer):
         print(f'[WARN] chatbot log failed: {e}')
 
 #-------------------------------------------------------------------------------------------------------------------
+def _is_short(direction):
+    """Return whether a loaded TradeWave direction is short/bearish."""
+    return str(direction or '').strip().lower().startswith('s')
+
+
+def _as_float(value, default=0.0):
+    try:
+        if isinstance(value, str):
+            value = value.replace(',', '').replace('%', '').strip()
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_int(value):
+    try:
+        return int(float(str(value).replace(',', '').replace('%', '').strip()))
+    except (TypeError, ValueError):
+        return None
+
+
+def _raw_year_return(row):
+    """Read the raw underlying-price return, including old React payloads.
+
+    New clients send ``raw_return_pct``. During a rolling deploy, an older
+    bundle may still send the same raw value under the misleading historical
+    name ``return_pct``; retain that fallback until all clients have rolled.
+    """
+    if not isinstance(row, dict):
+        return None
+    value = row.get('raw_return_pct')
+    if value is None:
+        value = row.get('return_pct')
+    if value is None:
+        return None
+    return _as_float(value, None)
+
+
+def _trade_year_return(raw_return, direction):
+    if raw_return is None:
+        return None
+    return -raw_return if _is_short(direction) else raw_return
+
+
+def _is_trade_win(raw_return, direction):
+    if raw_return is None:
+        return False
+    # Match ChartData4: long zero-return years are wins; short wins require the
+    # underlying price to fall. (The current-year zero stub is excluded first.)
+    return raw_return < 0 if _is_short(direction) else raw_return >= 0
+
+
+def _trade_excursions(row, direction):
+    raw_mfe = _as_float((row or {}).get('mfe_pct'))
+    raw_mae = _as_float((row or {}).get('mae_pct'))
+    if _is_short(direction):
+        return -raw_mae, -raw_mfe
+    return raw_mfe, raw_mae
+
+
+def _loaded_trade_status(wave_viewer, today=None):
+    """Return upcoming/active/completed for the loaded current-year window."""
+    wv = wave_viewer or {}
+    start_date = str(wv.get('start_date') or '')
+    days_out = wv.get('days_out')
+    if not start_date or days_out in (None, ''):
+        return 'upcoming'
+    try:
+        today = today or datetime.datetime.now().date()
+        trade_start = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
+        # The engine enters on the next available market day when the calendar
+        # start is a weekend. The inclusive calendar end date never moves.
+        if trade_start.weekday() == 5:
+            trade_start += timedelta(days=2)
+        elif trade_start.weekday() == 6:
+            trade_start += timedelta(days=1)
+        trade_end = datetime.datetime.strptime(
+            calculate_end_date(start_date, days_out), '%Y-%m-%d'
+        ).date()
+        if today < trade_start:
+            return 'upcoming'
+        if today <= trade_end:
+            return 'active'
+        return 'completed'
+    except (TypeError, ValueError):
+        return 'upcoming'
+
+
+def _completed_year_rows(wave_viewer, today=None):
+    """Yield completed rows only; ChartData4's current-year zero stub is not history."""
+    wv = wave_viewer or {}
+    today = today or datetime.datetime.now().date()
+    current_year = today.year
+    current_status = _loaded_trade_status(wv, today)
+    completed = []
+    for row in wv.get('yearly_results') or []:
+        if not isinstance(row, dict) or _raw_year_return(row) is None:
+            continue
+        try:
+            year = int(row.get('year'))
+        except (TypeError, ValueError):
+            continue
+        if year < current_year or (year == current_year and current_status == 'completed'):
+            completed.append(row)
+    return completed
+
+
+def _historical_record(wave_viewer):
+    """Return direction-aware winners/losers, preferring engine aggregate stats."""
+    wv = wave_viewer or {}
+    stats = wv.get('stats') or {}
+    winners = _as_int(stats.get('Num Winners'))
+    losers = _as_int(stats.get('Num Losers'))
+    if winners is not None and losers is not None:
+        return winners, losers
+
+    direction = wv.get('direction', 'long')
+    rows = _completed_year_rows(wv)
+    winners = sum(_is_trade_win(_raw_year_return(row), direction) for row in rows)
+    return winners, len(rows) - winners
+
+
+def _pattern_date_labels(wave_viewer):
+    wv = wave_viewer or {}
+    start_date = str(wv.get('start_date') or '')
+    days_out = wv.get('days_out')
+    if not start_date or days_out in (None, ''):
+        return '', '', ''
+    try:
+        end_date = calculate_end_date(start_date, days_out)
+        start_obj = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+        end_obj = datetime.datetime.strptime(end_date, '%Y-%m-%d')
+        return start_obj.strftime('%b %-d'), end_obj.strftime('%b %-d'), end_date
+    except (TypeError, ValueError):
+        return start_date, '', ''
+
+
+_LOADED_OVERVIEW_Q = re.compile(
+    r"\bwhat\s+(?:am|are)\s+(?:i|we)\s+looking\s+at\b|"
+    r"\b(?:explain|describe|walk\s+me\s+through)\s+(?:this|the)\s+"
+    r"(?:setup|pattern|chart|window)\b|\bwhat\s+is\s+this\s+(?:setup|pattern|chart|window)\b",
+    re.I,
+)
+
+
+def _loaded_pattern_overview(user_message, wave_viewer):
+    """Build the authoritative short explanation without asking an LLM to infer signs."""
+    wv = wave_viewer or {}
+    symbol = str(wv.get('symbol') or '').strip().upper()
+    if not symbol or not _LOADED_OVERVIEW_Q.search(user_message or ''):
+        return None
+
+    direction = 'short' if _is_short(wv.get('direction')) else 'long'
+    days = _as_int(wv.get('days_out'))
+    start_label, end_label, _ = _pattern_date_labels(wv)
+    date_range = f", {start_label} to {end_label}" if start_label and end_label else ''
+    setup = f"<b>{symbol} {direction}{date_range}</b> is a {direction} seasonal window"
+    if days is not None:
+        day_word = 'day' if days == 1 else 'days'
+        setup += f" covering exactly {days} calendar {day_word}; TradeWave counts {start_label or 'the entry date'} as day 1"
+    setup += "."
+
+    stats = wv.get('stats') or {}
+    winners, losers = _historical_record(wv)
+    sample = winners + losers
+    pct = str(stats.get('Percent Profitable') or '').strip()
+    avg_win = str(stats.get('Avg Profit') or '').strip()
+    avg_loss = str(stats.get('Avg Loss') or '').strip()
+    sharpe = str(stats.get('Sharpe Ratio') or '').strip()
+    cumulative = str(stats.get('Cumulative Return') or '').strip()
+
+    if direction == 'short':
+        record = (
+            f"Historically, the price fell in {winners} of {sample} completed years"
+            if sample else "Historically, price-down years are the profitable years"
+        )
+        record += "; those red/down bars are profitable short years, while green/up bars are losing short years."
+    else:
+        record = (
+            f"Historically, the price rose or held flat in {winners} of {sample} completed years"
+            if sample else "Historically, price-up years are the profitable years"
+        )
+        record += "; green/up bars are profitable long years, while red/down bars are losing long years."
+
+    stat_bits = []
+    if pct:
+        stat_bits.append(f"{pct} profitable")
+    if avg_win:
+        stat_bits.append(f"average winner {avg_win}")
+    if avg_loss:
+        stat_bits.append(f"average loser {avg_loss}")
+    if sharpe:
+        stat_bits.append(f"Sharpe {sharpe}")
+    if cumulative:
+        stat_bits.append(f"cumulative return {cumulative}")
+    stats_line = " Direction-adjusted stats: " + ", ".join(stat_bits) + "." if stat_bits else ''
+    return setup + "<br><br>" + record + stats_line
+
+
 def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                         opp_table_market=None, opp_table_market_name=None):
     """Build a system prompt that gives the LLM awareness of the wave viewer and opp table."""
@@ -641,7 +840,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         "IMPORTANT: When the user asks a general knowledge question (about a concept, a pattern like the 100-Year Pattern, a definition, or anything described in the knowledge base), answer it directly from the knowledge base. Do NOT tell the user to load a pattern or click an opportunity. Knowledge questions must be answered even when no pattern is loaded.",
         "",
         "<b>TradeWave UI Layout:</b>",
-        "- Top panel: Gain-Loss Bar Chart. Shows each historical year as a bar (green=profit, red=loss) for the currently loaded pattern. Gives a quick visual of year-by-year consistency. Clicking a bar switches the bottom right to the Price Chart for that specific historical year.",
+        "- Top panel: Gain-Loss Bar Chart. Each bar shows the UNDERLYING PRICE return for one historical year: green/up means the price rose and red/down means it fell. For a LONG, green/up is profitable; for a SHORT, red/down is profitable and green/up is a loss. Color is price direction, not universal trade P/L. Clicking a bar switches the bottom right to the Price Chart for that specific historical year.",
         "- Left panel: Opportunity Table. Ranked list of seasonal opportunities filtered by the user's settings (market, date, years, direction). User clicks a row to load it into the viewer.",
         "- Bottom right (3 slides):",
         "  Slide 1: Trend Chart. Current price line chart with the seasonal window highlighted. Below it shows summary stats: SR, Avg Gain, % Profitable, Cumulative Return, Buy-and-Hold.",
@@ -704,11 +903,15 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
             parts.append(f"End Date:   {end_date}")
             parts.append(f"Pattern Date Range (year-agnostic): {sd_md} to {end_desc} ({days_out} calendar days). "
                          f"This pattern recurs on these same month-day dates each year.")
+            parts.append(f"DAY-COUNT GROUND TRUTH: TradeWave windows are measured in CALENDAR days, the entry date is day 1, and this window is EXACTLY {days_out} calendar days. Use that supplied count verbatim; do not subtract the dates and do not call it a different number of days.")
             parts.append(f"Next/current occurrence: {start_date} to {end_date}.")
             parts.append(f"CRITICAL: When discussing ANY historical year (e.g. 2020, 2019, etc.), "
                          f"always express the date range as '{sd_md} to {end_desc}', never as '{start_date} to {end_date}'. "
                          f"Only use the full calendar dates ({start_date} to {end_date}) when explicitly discussing the next/upcoming occurrence.")
-            parts.append(f"Trade: buy at closing price on the pattern start date each year, sell at closing price on the pattern end date.")
+            if _is_short(wave_viewer.get('direction')):
+                parts.append("Trade: enter the short at the closing price on the pattern start date each year, then cover at the closing price on the pattern end date.")
+            else:
+                parts.append("Trade: buy at the closing price on the pattern start date each year, then sell at the closing price on the pattern end date.")
         else:
             parts.append(f"Duration: {days_out or 'N/A'} calendar days")
         years     = wave_viewer.get('years', 'N/A')
@@ -727,8 +930,12 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                          f"When discussing this pattern, always mention it uses {short} cycle years, NOT consecutive years.")
         else:
             parts.append(f"Historical Years: {years} consecutive years")
-        direction = wave_viewer.get("direction", "long")
+        direction = 'short' if _is_short(wave_viewer.get("direction", "long")) else 'long'
         parts.append(f"Direction: {'Long (Bullish)' if direction == 'long' else 'Short (Bearish)'}")
+        if _is_short(direction):
+            parts.append("SHORT GROUND TRUTH: The aggregate statistics below are already direction-adjusted. A year when the underlying price FELL is a profitable short year. The visible bar chart still colors raw price movement, so RED/DOWN bars are profitable short years and GREEN/UP bars are losing short years. Never say a bearish setup won because most bars were green; for this short, historical wins correspond to price-down/red bars.")
+        else:
+            parts.append("LONG GROUND TRUTH: The aggregate statistics below are direction-adjusted. A GREEN/UP bar is a profitable long year and a RED/DOWN bar is a losing long year.")
         stats = wave_viewer.get("stats", {})
         if stats:
             parts.append("Statistics:")
@@ -738,55 +945,53 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         yearly = wave_viewer.get("yearly_results", [])
         if yearly:
             today      = datetime.datetime.now().date()
-            today_str  = today.strftime('%Y-%m-%d')
             current_year = today.year
-            # Determine current-year trade status using the loaded pattern's dates
-            trade_status = 'upcoming'   # default
-            if start_date and days_out:
-                try:
-                    trade_start = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
-                    # If start falls on Saturday (5) or Sunday (6), shift to next Monday
-                    if trade_start.weekday() == 5:    # Saturday
-                        trade_start += timedelta(days=2)
-                    elif trade_start.weekday() == 6:  # Sunday
-                        trade_start += timedelta(days=1)
-                    trade_end   = datetime.datetime.strptime(end_date,   '%Y-%m-%d').date()
-                    if today < trade_start:
-                        trade_status = 'upcoming'
-                    elif trade_start <= today <= trade_end:
-                        trade_status = 'active'
-                    else:
-                        trade_status = 'completed'
-                except Exception:
-                    pass
+            trade_status = _loaded_trade_status(wave_viewer, today)
+
+            completed_rows = _completed_year_rows(wave_viewer, today)
+            green_count = sum(_raw_year_return(row) >= 0 for row in completed_rows)
+            red_count = sum(_raw_year_return(row) < 0 for row in completed_rows)
+            winners, losers = _historical_record(wave_viewer)
+            parts.append(
+                f"AUTHORITATIVE COMPLETED RECORD: {winners} profitable and {losers} losing years; "
+                f"the raw-price bar chart has {green_count} green/up and {red_count} red/down completed bars. "
+                "Never state a different majority, and always state the completed sample size with a record or win rate."
+            )
 
             if mae_enabled:
-                parts.append("Year-by-year results (return_pct = trade return, mfe_pct = max gain above entry close, mae_pct = max loss below entry close):")
+                parts.append("Year-by-year results (raw price return/color first, then the DIRECTION-ADJUSTED trade return/result and trade MFE/MAE):")
             else:
-                parts.append("Year-by-year results (return_pct = trade return, mfe_pct = max gain above entry close). "
+                parts.append("Year-by-year results (raw price return/color first, then the DIRECTION-ADJUSTED trade return/result and trade MFE). "
                              "NOTE: MAE (max adverse excursion) is NOT enabled - the MAE checkbox is unchecked. "
                              "Do NOT mention or discuss MAE values. If the user asks about MAE or drawdown, tell them MAE is not currently enabled and suggest they check the MAE checkbox in the bar chart controls to enable it.")
             for y in yearly:
-                yr = int(y.get("year", 0))
+                try:
+                    yr = int(y.get("year", 0))
+                except (TypeError, ValueError):
+                    continue
+                raw_ret = _raw_year_return(y)
+                if raw_ret is None:
+                    continue
+                trade_ret = _trade_year_return(raw_ret, direction)
+                color = "GREEN/UP" if raw_ret >= 0 else "RED/DOWN"
+                result = "PROFIT" if _is_trade_win(raw_ret, direction) else ("BREAKEVEN" if trade_ret == 0 else "LOSS")
+                trade_mfe, trade_mae = _trade_excursions(y, direction)
                 if yr >= current_year:
                     if trade_status == 'upcoming':
                         parts.append(f"  {yr}: [UPCOMING - pattern has not started yet. Exclude from all statistics.]")
                     elif trade_status == 'active':
-                        ret = y.get("return_pct", 0)
-                        direction_label = "currently gaining" if ret >= 0 else "currently losing"
-                        parts.append(f"  {yr}: {ret:+.2f}%  [ACTIVE - pattern in progress right now, {direction_label}. This return updates daily and is not yet final. Exclude from historical statistics but you can mention it as the live running return.]")
+                        direction_label = "currently gaining" if trade_ret >= 0 else "currently losing"
+                        parts.append(f"  {yr}: raw price {raw_ret:+.2f}% ({color}); {direction} trade {trade_ret:+.2f}% [ACTIVE - pattern in progress right now, {direction_label}. This return updates daily and is not yet final. Exclude from historical statistics but you can mention it as the live running return.]")
                     else:
-                        result = "PROFIT" if y.get("return_pct", 0) >= 0 else "LOSS"
                         if mae_enabled:
-                            parts.append(f"  {yr}: {y['return_pct']:+.2f}%  [{result}]  MFE: {y['mfe_pct']:+.2f}%  MAE: {y['mae_pct']:+.2f}%")
+                            parts.append(f"  {yr}: raw price {raw_ret:+.2f}% ({color}); {direction} trade {trade_ret:+.2f}% [{result}]  trade MFE: {trade_mfe:+.2f}%  trade MAE: {trade_mae:+.2f}%")
                         else:
-                            parts.append(f"  {yr}: {y['return_pct']:+.2f}%  [{result}]  MFE: {y['mfe_pct']:+.2f}%")
+                            parts.append(f"  {yr}: raw price {raw_ret:+.2f}% ({color}); {direction} trade {trade_ret:+.2f}% [{result}]  trade MFE: {trade_mfe:+.2f}%")
                 else:
-                    result = "PROFIT" if y.get("return_pct", 0) >= 0 else "LOSS"
                     if mae_enabled:
-                        parts.append(f"  {yr}: {y['return_pct']:+.2f}%  [{result}]  MFE: {y['mfe_pct']:+.2f}%  MAE: {y['mae_pct']:+.2f}%")
+                        parts.append(f"  {yr}: raw price {raw_ret:+.2f}% ({color}); {direction} trade {trade_ret:+.2f}% [{result}]  trade MFE: {trade_mfe:+.2f}%  trade MAE: {trade_mae:+.2f}%")
                     else:
-                        parts.append(f"  {yr}: {y['return_pct']:+.2f}%  [{result}]  MFE: {y['mfe_pct']:+.2f}%")
+                        parts.append(f"  {yr}: raw price {raw_ret:+.2f}% ({color}); {direction} trade {trade_ret:+.2f}% [{result}]  trade MFE: {trade_mfe:+.2f}%")
     else:
         parts.append("\n<b>Wave Viewer:</b> No pattern currently loaded.")
 
@@ -839,6 +1044,14 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
 # numbers the prompt already had), confident historical framing, no disclaimer.
 _STRENGTH_Q = re.compile(r'\bhow\s+(?:strong|good|reliable|solid)\b|\bstrength\b|\bhow\s+did\s+(?:it|this)\b|\bis\s+(?:it|this)\s+(?:strong|good|reliable)\b', re.I)
 _REPLY_HAS_STAT = re.compile(r'\d{1,3}\s*%|\bwon\s+\d+|\d+\s+of\s+\d+|sharpe[^\d]{0,12}\d', re.I)
+_SHORT_COLOR_CONTRADICTION = re.compile(
+    r"\bmost\s+(?:of\s+the\s+)?bars?\s+(?:are|were|look)\s+green\b|"
+    r"\bgreen(?:/up)?\s+bars?\s+(?:are|were|mean|show|represent)\s+(?:the\s+)?(?:profitable|winning|winners?|profits?)\b|"
+    r"\bred(?:/down)?\s+bars?\s+(?:are|were|mean|show|represent)\s+(?:the\s+)?(?:losing|loss|losses)\b|"
+    r"\bunusual\s+for\s+(?:a\s+)?short\s+pattern\b",
+    re.I,
+)
+_DAY_CLAIM = re.compile(r'\b(\d+)\s*(?:-|\s)\s*day\b', re.I)
 
 
 def _ensure_strength_answered(user_message, wave_viewer, reply):
@@ -854,10 +1067,9 @@ def _ensure_strength_answered(user_message, wave_viewer, reply):
             return reply                      # she already stated a real stat - leave it
         pct = str(stats.get("Percent Profitable") or "").strip()
         sr = str(stats.get("Sharpe Ratio") or "").strip()
-        avg = str(stats.get("Avg Profit") or "").strip()
-        yr = wv.get("yearly_results") or []
-        wins = sum(1 for x in yr if isinstance(x, dict) and (x.get("return_pct") or 0) > 0)
-        tot = sum(1 for x in yr if isinstance(x, dict) and x.get("return_pct") is not None)
+        avg = str(stats.get("Avg Profit - All") or stats.get("Avg Profit") or "").strip()
+        wins, losses = _historical_record(wv)
+        tot = wins + losses
         bits = []
         if pct:
             bits.append(pct + " profitable" + ((" (won %d of %d years)" % (wins, tot)) if tot else ""))
@@ -872,6 +1084,32 @@ def _ensure_strength_answered(user_message, wave_viewer, reply):
         line = "Historically, %s's loaded window has been %s." % (sym, ", ".join(bits))
         sep = "<br>" if (reply or "").strip() else ""
         return (reply or "").rstrip() + sep + line
+    except Exception:
+        return reply
+
+
+def _guard_loaded_pattern_reply(user_message, wave_viewer, reply):
+    """Replace known sign/day-count contradictions with loaded, deterministic facts."""
+    try:
+        wv = wave_viewer or {}
+        if not wv.get('symbol'):
+            return reply
+
+        overview = _loaded_pattern_overview(user_message, wv)
+        if overview:
+            return overview
+
+        reply_text = reply or ''
+        if _is_short(wv.get('direction')) and _SHORT_COLOR_CONTRADICTION.search(reply_text):
+            return _loaded_pattern_overview("what am I looking at?", wv) or reply
+
+        exact_days = _as_int(wv.get('days_out'))
+        describes_window = re.search(r'\b(?:seasonal|pattern|window|setup)\b', reply_text, re.I)
+        if exact_days is not None and describes_window:
+            stated_days = [_as_int(match.group(1)) for match in _DAY_CLAIM.finditer(reply_text)]
+            if any(value is not None and value != exact_days for value in stated_days):
+                return _loaded_pattern_overview("what am I looking at?", wv) or reply
+        return reply
     except Exception:
         return reply
 
@@ -913,6 +1151,14 @@ def chat():
     user_id = getattr(g, 'chatbot_user_id', 'unknown')
 
     try:
+        # A generic explanation of an already-loaded setup is fully determined
+        # by the supplied viewer data. Answer it here so an LLM cannot re-count
+        # inclusive dates or invert short-year signs/colors.
+        deterministic_overview = _loaded_pattern_overview(user_message, wave_viewer)
+        if deterministic_overview:
+            log_question(user_id, user_message, deterministic_overview, wave_viewer)
+            return jsonify({"reply": deterministic_overview, "actions": []})
+
         system_prompt = build_system_prompt(wave_viewer, opportunities, opp_table_length,
                                             opp_table_market, opp_table_market_name)
         if TARA_TOOLS_ENABLED:
@@ -947,6 +1193,7 @@ def chat():
         # Deterministic floor: guarantee a stat on a loaded-pattern strength question
         # (Haiku at temp 0 occasionally punts with a bare "loaded" and no number).
         bot_reply = _ensure_strength_answered(user_message, wave_viewer, bot_reply)
+        bot_reply = _guard_loaded_pattern_reply(user_message, wave_viewer, bot_reply)
 
         log_question(user_id, user_message, bot_reply, wave_viewer)
 
@@ -956,6 +1203,3 @@ def chat():
         logging.exception("chatbot.chat failed for user_id=%s", user_id)  # detail server-side only
         return jsonify({"reply": "Sorry, something went wrong on my end. Please try again.",
                         "actions": []})  # generic message; consistent envelope on every path
-
-
-

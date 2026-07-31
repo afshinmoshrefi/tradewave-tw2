@@ -95,7 +95,7 @@ Rule 9: If the user enters a start date that falls on a Saturday, Sunday, or Mon
 - Opportunity: a specific seasonal trade defined by symbol, start date, holding days, and direction.
 - Long: bullish, profits if price rises during the window.
 - Short: bearish, profits if price falls during the window.
-- Days: the number of calendar days in the pattern, from start date to end date.
+- Days: the inclusive number of calendar days in the pattern. The entry date is day 1, so end date = start date + (Days - 1). For example, Jul 31 through Aug 6 is 7 calendar days.
 - Seasonal Years or Years Filter: number of historical years used in analysis.
 - Partial Years: includes incomplete most recent year when enabled. If user wants clean history, disable it.
 - Percent Profitable (Win Rate): percent of years that were profitable.
@@ -145,7 +145,7 @@ This one setting drives two things simultaneously:
 So the table and the bar chart are always in sync. They are two views of the same dataset.
 
 Why it matters:
-- A pattern with 10 years of data and 9 green bars is 90 percent profitable over 10 years.
+- A long pattern with 10 years of data and 9 green/up bars is 90 percent profitable over 10 years. For a short pattern, profitable years are the red/down bars because the underlying price fell.
 - The same pattern with 20 years of data might look different. More years = larger sample = potentially more trustworthy, but may include older market regimes.
 - Increasing Years makes filters stricter and generally shows fewer but more proven patterns.
 - Decreasing Years shows more recent behavior only.
@@ -220,15 +220,16 @@ The banner above the bar chart shows key information about the currently loaded 
 - Months & Qtrs selectbox: time grouping filter
 - Help icon (?): opens help information
 
-The date range shown in the banner (MM-DD to MM-DD) is the exact entry and exit date for the pattern. The trade is defined as: buy at the closing price on the start date, sell at the closing price on the end date.
+The date range shown in the banner (MM-DD to MM-DD) is the exact entry and exit date for the pattern. TradeWave counts the entry date as calendar day 1, so end date = start date + (Days - 1). A long buys at the start-date close and sells at the end-date close; a short enters at the start-date close and covers at the end-date close.
 
 Tara should always state the full date range (both start and end date) when discussing a pattern, not just the start date or the number of days.
 
 ## Gain-Loss Bar Chart (Top Right, Wave Viewer)
 - Also called the year-by-year bar chart.
 - One bar per year for the selected pattern.
-- Green bar means that year was profitable. Red bar means that year was a loss.
-- Bar height represents the percent return for that year.
+- Bar color and direction show the underlying price return: green/up means the price rose; red/down means it fell.
+- For a Long, green/up years are profitable and red/down years are losses. For a Short, red/down years are profitable and green/up years are losses.
+- Bar height represents the magnitude of the underlying price return for that year. The tooltip and aggregate stats apply the loaded trade direction.
 - Clicking a year bar switches focus to that specific historical year (this often surprises users).
 - When MFE is enabled, an additional line or overlay on the bar shows the maximum favorable excursion for that year.
 - When MAE is enabled, an additional line or overlay shows the maximum adverse excursion for that year.
@@ -423,7 +424,7 @@ Playbook: Fewer but higher quality results
 Goal: Reduce list to best patterns
 1) Increase Years in the top bar.
 2) Sort by TWR or SR.
-3) Prefer patterns with mostly green bars and high percent profitable.
+3) Prefer patterns with a high percent profitable and direction-consistent bars: mostly green/up for Longs, mostly red/down for Shorts.
 You should now see: fewer results and higher quality scores near the top.
 
 Playbook: Add a pattern to a portfolio
@@ -726,8 +727,8 @@ IMPORTANT: When a user says "teach me", "how do I use this", "I'm new", "walk me
 Phase 1 - See your first pattern (30 seconds):
 1) The opportunity table on the left already shows seasonal patterns ranked by quality.
 2) Ask Tara for a setup and she loads it - you do not have to hunt the table.
-3) The right side lights up with a bar chart: green bars = profitable years, red bars = losses.
-4) More green bars = more consistent pattern.
+3) The right side lights up with a bar chart: green/up means the price rose and red/down means it fell.
+4) Long wins are green/up; Short wins are red/down. Use Percent Profitable for the direction-adjusted win rate.
 That is it. You just loaded your first seasonal pattern.
 
 Phase 2 - Understand what you are looking at:
@@ -764,7 +765,7 @@ Playbook: Getting started for a new user
 Goal: See your first seasonal pattern in under 60 seconds
 1) The opportunity table on the left already shows patterns for the current date and the default securities group.
 2) Ask Tara to load a setup (e.g. 'show me today's pick') and she puts it on the chart for you - the right side lights up with the year-by-year bars.
-3) Look at the bar chart: green bars are profitable years, red bars are losses. More green = more consistent.
+3) Look at the bar chart: green/up means the price rose and red/down means it fell. Long wins are green/up; Short wins are red/down. Use Percent Profitable for the direction-adjusted consistency.
 4) Swipe or click to slide 2 (Wave Stats) to see detailed statistics.
 5) Swipe or click to slide 3 (Price Chart) to see the current price in context of the seasonal window.
 You should now see: a loaded pattern with bars on the right and stats below.
@@ -1059,7 +1060,7 @@ If a user asks how to filter the opportunity table to a specific set of symbols,
 Use these signals as a quick checklist:
 - High SR and high TWR
 - High percent profitable (often above 70 percent is good, above 80 percent is strong)
-- Bars are mostly green with limited severe red years
+- Bars agree with the trade direction (mostly green/up for a Long or red/down for a Short), with limited severe losing years
 - Trend is consistent when viewed across years
 - Cumulative return is strong relative to S&P 500 buy and hold
 - MFE is meaningfully larger than MAE, suggesting favorable movement vs drawdown
@@ -1138,4 +1139,3 @@ When a user asks about AI scores, what AIS means, what the AI columns are, how t
 ## Account & Profile
 - To change your password or update profile details, go to: https://tradewave.ai/my-account/?ihc_ap_menu=profile
 - To view your account page (subscription status, billing, profile): https://tradewave.ai/my-account
-

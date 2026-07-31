@@ -1198,6 +1198,20 @@ enable question; correct answers, projection guide auto-opened). GAP: the in-app
 guide itself does NOT yet mention the purple line (stale guide; fixing it needs a React rebuild via
 `npm run build`).
 
+**Loaded short-pattern explanations use raw-price bars plus direction-adjusted trade results
+(fix 2026-07-31).** `ChartData4` intentionally supplies the bar chart's raw underlying-price
+return, so visible colors mean price direction: green/up means the price rose and red/down means it
+fell. That is not universal trade P/L: green wins for a Long, while red wins for a Short.
+`Chatbot.js` now names this payload `raw_return_pct` (the appserver temporarily accepts the legacy
+`return_pct` name for rolling-deploy compatibility), and `chatbot.py` explicitly derives each
+direction-adjusted trade return before labeling PROFIT/LOSS. Generic loaded-view questions such as
+"what am I looking at?" use a deterministic overview built from the loaded stats and year rows;
+the post-response guard also replaces contradictory short/color or duration claims. The overview
+and prompt enforce invariant 0A: TradeWave counts inclusive CALENDAR days with entry as day 1, so
+Jul 31 through Aug 6 is exactly 7 days and the end remains `start + (days - 1)`. Aggregate stats
+(`Num Winners`, `Num Losers`, `% Profitable`, averages, Sharpe, cumulative return) are already
+trade-direction-adjusted, and all win-rate claims retain their completed-year sample size.
+
 (Source: `appserver/appserver/{chatbot,tara_gateway,AI_tools_appserver}.py`, `web-react/src/components/Chatbot.js`,
 `apiserver/{auth,tiers,provision_chatbot_key}.py`, `config.py`, `docs/TARA_GATEWAY_INTEGRATION.md`; dev .176.)
 

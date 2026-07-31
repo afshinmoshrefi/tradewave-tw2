@@ -135,13 +135,16 @@ function Chatbot(props) {
     if (props.tradeDetailData && Object.keys(props.tradeDetailData).length > 0) {
       ctx.stats = props.tradeDetailData;
     }
-    // Include year-by-year bar chart data so the bot can discuss specific years
+    // Include the raw price-return rows behind the visible bar chart. Do not call
+    // these trade returns: a negative price return is a profitable year for a
+    // short opportunity. The appserver applies the loaded direction when it
+    // presents these rows to Tara.
     if (Array.isArray(props.seasonalBarChartData) && props.seasonalBarChartData.length > 0) {
       ctx.yearly_results = props.seasonalBarChartData.map(r => {
         const plist = r['pct'].split(',');
         return {
           year: r['year'],
-          return_pct: parseFloat(plist[0]),
+          raw_return_pct: parseFloat(plist[0]),
           mfe_pct: parseFloat(plist[1]) || 0,
           mae_pct: parseFloat(plist[2]) || 0,
         };
