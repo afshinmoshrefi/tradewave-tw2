@@ -11,4 +11,8 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 ( cd "$REPO/web-react" && npm run build )
 [ -d "$REPO/web-react/build/static" ] || { echo "FAIL: React build output missing" >&2; exit 1; }
 printf '%s\n' "$SHA" >"$REPO/web-react/build/.tradewave-source-sha"
+# The release may be built under a restrictive operator umask (for example 027).
+# Nginx serves these files as a different user, so normalize only read/traverse
+# access on the public bundle before rsync preserves its modes.
+chmod -R a+rX "$REPO/web-react/build"
 echo "React release built for $SHA"

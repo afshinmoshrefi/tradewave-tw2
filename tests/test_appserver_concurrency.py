@@ -105,6 +105,7 @@ def test_deploy_pins_source_build_and_one_time_login_cutover():
     assert 'git -C "$DEPLOY_REPO" status' in deploy
     assert '"$DEPLOY_REPO/ops/verify_deploy.sh"' in deploy
     assert ".tradewave-source-sha" in deploy
+    assert "chmod -R a+rX releases/build-$REL" in deploy
     assert "git -C \"$repo\" merge --ff-only \"$EXPECTED_SHA\"" in deploy
     assert "TW2_SERVICE_LOGIN_CUTOVER" in deploy
     assert "service-login-header-v1" in deploy
@@ -133,6 +134,18 @@ def test_deploy_pins_source_build_and_one_time_login_cutover():
     )]
     assert "systemctl restart tradewave-appserver" not in recovery
     assert "callers remain stopped (fail-closed)" in recovery
+
+
+def test_react_release_permissions_and_assets_are_release_gates():
+    builder = (ROOT / "ops" / "build_react_release.sh").read_text(encoding="utf-8")
+    verifier = (ROOT / "ops" / "verify_deploy.sh").read_text(encoding="utf-8")
+
+    assert 'chmod -R a+rX "$REPO/web-react/build"' in builder
+    assert "find -L /home/flask/web-react/build/static/js" in verifier
+    assert 'wc_web "/app/static/js/$react_js"' in verifier
+    assert "React main bundle -> 200" in verifier
+    assert "wc_web /app/manifest.json" in verifier
+    assert "React manifest -> 200" in verifier
 
 
 def test_deploy_requires_exact_environment_portal_hosts():

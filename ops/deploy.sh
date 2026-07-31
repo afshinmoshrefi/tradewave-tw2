@@ -512,7 +512,7 @@ $SSH "root@$WEB" 'if [ -x /home/flask/ops/regen_site.sh ]; then sudo -u flask ba
 # (One-time per box, already done on stage+prod: mkdir -p releases && mv build releases/build-prev && ln -s releases/build-prev build)
 echo "==> [$ENV] React bundle -> $WEB (release build-$REL; repoint build symlink; build-previous = rollback)"
 rsync -az -e "$SSH" "$BUILD/" "root@$WEB:/home/flask/web-react/releases/build-$REL/"
-$SSH "root@$WEB" "cd /home/flask/web-react && test \"\$(tr -d '[:space:]' < releases/build-$REL/.tradewave-source-sha)\" = '$EXPECTED_SHA' && chown -R flask:flask releases/build-$REL && ln -sfn \"\$(readlink build)\" build-previous && ln -sfn releases/build-$REL build && chown -h flask:flask build build-previous"
+$SSH "root@$WEB" "cd /home/flask/web-react && test \"\$(tr -d '[:space:]' < releases/build-$REL/.tradewave-source-sha)\" = '$EXPECTED_SHA' && chown -R flask:flask releases/build-$REL && chmod -R a+rX releases/build-$REL && ln -sfn \"\$(readlink build)\" build-previous && ln -sfn releases/build-$REL build && chown -h flask:flask build build-previous"
 
 echo "==> [$ENV] nginx CSP snippet + reload"
 # The per-box site config (/etc/nginx/sites-enabled/tw2-<env>-web) is managed ON
