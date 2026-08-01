@@ -1336,7 +1336,15 @@ does it rank here?" return only the requested evidence slice. Break-even rate, c
 dispersion and streak detail are no longer forced into every broad answer.
 
 The same planner labels PE-cycle samples as cycle observations rather than consecutive years, uses
-the direction-specific live Trend score, explains when TWR materially exceeds Sharpe, flags an
+the direction-specific live Trend score, and translates Trend Alignment into the concrete comparison:
+roughly the last one to two weeks of price movement versus the loaded seasonal direction (upward for
+a long, downward for a short). `Aligned` means recent movement confirms that direction; `Against`
+means it has not been moving strongly in that direction; `Neutral` means no clear confirmation.
+This is current-momentum context, not a historical pattern score or forecast. `ChartData4` and
+`StockScoreBatch` carry an explicit score-availability bit; a provider/configuration failure is
+rendered as unavailable rather than the legacy numeric `0` fallback. During rolling deploys, a
+legacy all-zero current/prior score set without the bit is also treated as unavailable. The planner
+also explains when TWR materially exceeds Sharpe, flags an
 estimated earnings date inside the current occurrence, and states whether the selected-history and
 full-history normalized seasonal curves support or oppose the loaded direction. React derives only
 those closed-vocabulary curve-direction labels (`supports` / `against` / `flat` / `unknown`); the

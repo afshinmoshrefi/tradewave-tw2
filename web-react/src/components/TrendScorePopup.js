@@ -36,11 +36,11 @@ const TrendScorePopup = ({ onClose }) => {
     ]
 
     const ranges = [
-        ['80-100', 'Very strong uptrend', '#16a34a'],
-        ['60-79', 'Solid uptrend in place', '#22c55e'],
-        ['40-59', 'Neutral - no clear direction', '#9ca3af'],
-        ['20-39', 'Weak, trending down', '#f59e0b'],
-        ['0-19', 'Strong downtrend', '#ef4444'],
+        ['80-100', 'Strongly supports the tested direction', '#16a34a'],
+        ['61-79', 'Supports the tested direction', '#22c55e'],
+        ['40-60', 'Neutral - no clear confirmation', '#9ca3af'],
+        ['20-39', 'Does not support the tested direction', '#f59e0b'],
+        ['0-19', 'Strongly does not support the tested direction', '#ef4444'],
     ]
 
     return (
@@ -51,7 +51,7 @@ const TrendScorePopup = ({ onClose }) => {
                 onClick={e => e.stopPropagation()}
             >
                 <div className="ts-header">
-                    <h2>Trend Score</h2>
+                    <h2>Trend Scores &amp; Alignment</h2>
                     <button className="ts-close-btn" style={{ color: textColor }} onClick={handleClose}>&times;</button>
                 </div>
 
@@ -60,19 +60,30 @@ const TrendScorePopup = ({ onClose }) => {
                         Seasonal patterns tell you what a stock has <em>historically</em> done at a given time of year - but they don't tell you what the stock is doing <em>right now</em>. Is it actually following the pattern? Is it trending up, down, or going nowhere?
                     </p>
                     <p>
-                        The <strong>Trend Score</strong> answers that question. It's a technical analysis score that captures how the stock has been behaving over the last one to two weeks, giving you a real-time read on momentum and direction to pair with the seasonal data.
+                        <strong>Trend Long</strong> asks how strongly price has been moving upward over roughly the last one to two weeks. <strong>Trend Short</strong> asks how strongly it has been moving downward. These are current-momentum readings to compare with the seasonal data.
+                    </p>
+
+                    <div className="ts-section-title">
+                        <span className="ts-dot" style={{ backgroundColor: '#a855f7' }}></span>
+                        What Trend Alignment Means
+                    </div>
+                    <p>
+                        Trend Alignment chooses the score that matches the loaded setup. A <strong>long</strong> setup uses Trend Long and asks whether recent movement has been upward. A <strong>short</strong> setup uses Trend Short and asks whether recent movement has been downward.
+                    </p>
+                    <p>
+                        <strong>Aligned</strong> means recent movement confirms the seasonal direction. <strong>Against</strong> means recent movement has not been moving strongly in that direction. <strong>Neutral</strong> means there is no clear confirmation. This does not change the historical win rate and does not predict the outcome.
                     </p>
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#3b82f6' }}></span>
-                        Reading the Score
+                        Reading the Direction-Specific Score
                     </div>
 
                     <div className="ts-score-bar-container" style={{ backgroundColor: cardBg, borderColor: subtleBorder }}>
                         <div className="ts-score-labels">
-                            <span>Downtrend</span>
+                            <span>Against direction</span>
                             <span>Neutral</span>
-                            <span>Uptrend</span>
+                            <span>Aligned direction</span>
                         </div>
                         <div className="ts-score-bar"></div>
                         <div className="ts-score-ticks">
@@ -94,7 +105,7 @@ const TrendScorePopup = ({ onClose }) => {
                         How It's Calculated
                     </div>
                     <p>
-                        The score is the sum of 10 components, each worth <strong>0 - 10 points</strong>, for a total of 0 - 100:
+                        The score uses 10 technical components, each worth <strong>0 - 10 points</strong>, for a total of 0 - 100. Trend Long reads them for upward confirmation; Trend Short reads them for downward confirmation:
                     </p>
 
                     <table className="ts-formula-table">
@@ -117,7 +128,7 @@ const TrendScorePopup = ({ onClose }) => {
                     </table>
 
                     <p className="ts-note">
-                        Each distance component is scaled to the stock's own volatility (ATR), so a calm utility stock and a volatile growth stock are measured on equal footing.
+                        Each distance component is scaled to the stock's own volatility (ATR), so a calm utility stock and a volatile growth stock are measured on equal footing. If TradeWave cannot retrieve a usable score, it shows Unavailable; that must not be interpreted as a real score of zero.
                     </p>
                 </div>
             </div>

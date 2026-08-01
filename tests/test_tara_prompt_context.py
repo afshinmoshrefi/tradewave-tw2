@@ -85,6 +85,7 @@ def test_prompt_stats_exclude_raw_prices_volumes_and_large_nested_data():
         "Percent Profitable": "82%",
         "Avg Profit - All": "2%",
         "Sharpe Ratio": "0.82",
+        "Trend Score Available": False,
         "52W High": 99.25,
         "52W Low": 42.10,
         "SMA 50": 75.4,
@@ -97,6 +98,7 @@ def test_prompt_stats_exclude_raw_prices_volumes_and_large_nested_data():
 
     assert selected["Percent Profitable"] == "82%"
     assert selected["Sharpe Ratio"] == "0.82"
+    assert selected["Trend Score Available"] == "False"
     assert selected["next_earnings_est"] == "2026-10-20"
     assert "52W High" not in selected
     assert "SMA 50" not in selected

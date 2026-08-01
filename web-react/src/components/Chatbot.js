@@ -32,7 +32,7 @@ const CHATBOT_DERIVED_STAT_KEYS = [
   'Avg Profit - All', 'Avg Profit', 'Avg Loss', 'Median Profit',
   'Annualized Return', 'Cumulative Return', 'Std Dev', 'Sharpe Ratio',
   'Sharpe Ratio2', 'Trend Long', 'Trend Short', 'Trend Long1', 'Trend Short1',
-  'next_earnings_est', 'days_to_earnings',
+  'Trend Score Available', 'next_earnings_est', 'days_to_earnings',
 ];
 
 //--------------------------------------------------------------------------------------------------------

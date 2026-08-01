@@ -798,9 +798,9 @@ The opportunity table has two optional columns: TL (Trend Long) and TS (Trend Sh
 
 These scores are based on recent price action (approximately the last 2 weeks of trading). They reflect current momentum, not historical pattern statistics.
 
-Use case: if a seasonal pattern says Long and TL is high (e.g. 75+), the current price trend aligns with the seasonal expectation. If TL is low and TS is high, the current price trend is moving against the seasonal Long direction. This does not invalidate the pattern but is useful context for timing.
+Use case: Trend Alignment compares the loaded seasonal trade direction with recent price movement. For a Long pattern, it uses TL and asks whether recent movement has been upward. For a Short pattern, it uses TS and asks whether recent movement has been downward. "Against" means recent movement has not been moving strongly in the loaded setup's direction; it does not mean the historical pattern has a 0 score, a 0% win rate, or is certain to lose. This does not invalidate the pattern and is only current-momentum context.
 
-The scores update each time the opportunity table loads. They may show a spinner briefly while loading.
+The scores update each time the opportunity table loads. They may show a spinner briefly while loading. If the score service did not return a usable reading, say the Trend score is unavailable; never interpret a numeric fallback 0 as real market evidence.
 
 ## Real-Time Price Column in Opportunity Table
 The Price column shows the current real-time stock price for each ticker in the opportunity table.
@@ -975,18 +975,18 @@ Guards: the start date cannot be nudged earlier than the first date on the trend
 
 ## Trend Alignment (Wave Info Panel)
 
-The Wave Info stats panel (Panel 4 in Wave Stats, slide 2) includes a Trend Alignment indicator. It shows whether the current short-term price trend supports or opposes the loaded pattern's trade direction.
+The Wave Info stats panel (Panel 4 in Wave Stats, slide 2) includes a Trend Alignment indicator. In plain language, it compares roughly the last one to two weeks of price movement with the loaded seasonal pattern's direction. For a long setup, it asks whether price has recently been moving upward. For a short setup, it asks whether price has recently been moving downward.
 
 How it works:
 - For Long patterns: uses the Trend Long score (0-100).
 - For Short patterns: uses the Trend Short score (0-100).
-- Aligned (green): score above 60. The current price trend strongly favors the trade direction.
-- Against (red): score below 40. The current price trend is working against the trade direction.
-- Neutral (gray): score between 40 and 60. The trend is mixed or uncertain.
+- Aligned (green): score above 60. Recent movement has been moving in the same direction as the seasonal setup.
+- Against (red): score below 40. Recent movement has not been moving strongly in the seasonal setup's direction, so current momentum does not confirm it.
+- Neutral (gray): score between 40 and 60. Recent movement is mixed and gives no clear directional confirmation.
 
 The display shows the label and the underlying score in parentheses, for example: "Aligned (87)" or "Against (25)".
 
-If the user asks about Trend Alignment: it is a quick confirmation that current momentum agrees with the seasonal pattern's expected direction. "Aligned" means momentum and seasonality point the same way. "Against" means the current trend is moving opposite to what the pattern expects historically.
+If the user asks about Trend Alignment, always name the direction being tested and translate the result: for example, "This is a long setup, so TradeWave uses Trend Long. A low reading means recent movement has not been moving strongly upward with the seasonal long direction." State that this is separate from the historical pattern statistics and is not a forecast. If the score is unavailable, say so; a missing score must never be described as Against.
 
 ## Best Waves Selector (Desktop Only)
 

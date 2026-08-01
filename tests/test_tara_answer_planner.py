@@ -23,6 +23,7 @@ from tara_answer_planner import (  # noqa: E402
     build_per_year_excursion_reply,
     build_rank_reply,
     build_specific_year_reply,
+    build_trend_alignment_reply,
     canonical_pattern_facts,
     is_pattern_analysis_question,
     is_per_year_excursion_question,
@@ -437,6 +438,82 @@ def test_upcoming_consecutive_analysis_names_dates_and_relevant_pe_phase():
     assert "Aug 20" not in reply
 
 
+def test_against_trend_is_translated_into_recent_movement_for_a_long_setup():
+    wave = _analysis_context([1.0] * 20)
+    wave["stats"].update({
+        "Trend Long": 0,
+        "Trend Long1": 15,
+        "Trend Score Available": True,
+    })
+
+    facts = canonical_pattern_facts(wave, current_year=2026)
+    reply = build_pattern_analysis_reply("Analyze this pattern", wave, {}, current_year=2026)
+
+    assert facts["trend_score"] == 0
+    assert facts["trend_alignment"] == "against"
+    assert "current momentum does not confirm the seasonal long direction" in reply
+    assert "Trend Long is 0/100 (Against)" in reply
+    assert "price movement over roughly the last one to two weeks has not been moving strongly upward" in reply
+    assert "direction-specific Trend score" not in reply
+    assert "use the Price Chart to verify that recent movement is not yet moving upward" in reply
+
+
+def test_trend_alignment_question_names_the_short_direction_and_separates_history():
+    wave = _analysis_context([1.0] * 20, direction="short")
+    wave["stats"].update({
+        "Trend Short": 25,
+        "Trend Short1": 31,
+        "Trend Score Available": True,
+    })
+
+    reply = build_trend_alignment_reply(
+        "What does trend alignment mean?", wave, current_year=2026
+    )
+
+    assert "For a long pattern it asks whether price has been moving upward" in reply
+    assert "for a short pattern it asks whether price has been moving downward" in reply
+    assert "For this TST short setup" in reply
+    assert "current momentum does not confirm the seasonal short direction" in reply
+    assert "Trend Short is 25/100 (Against)" in reply
+    assert "has not been moving strongly downward" in reply
+    assert "does not change the pattern's win rate or predict the outcome" in reply
+
+
+def test_unavailable_trend_score_is_never_described_as_zero_or_against():
+    wave = _analysis_context([1.0] * 20)
+    wave["stats"].update({
+        "Trend Long": 0,
+        "Trend Long1": 0,
+        "Trend Score Available": False,
+    })
+
+    facts = canonical_pattern_facts(wave, current_year=2026)
+    reply = build_pattern_analysis_reply("Analyze this pattern", wave, {}, current_year=2026)
+    explanation = build_trend_alignment_reply(
+        "Why does the trend say against?", wave, current_year=2026
+    )
+
+    assert facts["trend_score_available"] is False
+    assert facts["trend_score"] is None
+    assert facts["trend_alignment"] is None
+    assert "current momentum confirmation is unavailable" in reply
+    assert "0/100" not in reply
+    assert "0/100 (Against)" not in explanation
+    assert "current momentum confirmation is unavailable" in explanation
+    assert "did not receive a usable Trend Long reading" in explanation
+
+
+def test_legacy_all_zero_trend_fallback_without_availability_is_missing():
+    wave = _analysis_context([1.0] * 20)
+    wave["stats"].update({"Trend Long": 0, "Trend Long1": 0})
+
+    facts = canonical_pattern_facts(wave, current_year=2026)
+
+    assert facts["trend_score_available"] is False
+    assert facts["trend_score"] is None
+    assert facts["trend_alignment"] is None
+
+
 def test_noncurrent_pe_occurrence_is_identified_and_compared_to_current_phase():
     wave = {
         "symbol": "ROST",
@@ -731,7 +808,10 @@ def test_verified_prompt_facts_state_short_semantics_positively():
     assert "selected-history lookback=17; full-history lookback=40" in prompt_tail
     assert "selected-history=yes; full-history=yes" in prompt_tail
     assert "selected-history=supports; full-history=against" in prompt_tail
-    assert "Current Trend Short: 67/100 (aligned)" in prompt_tail
+    assert "Current momentum confirms the seasonal short direction" in prompt_tail
+    assert "Trend Short is 67/100 (Aligned)" in prompt_tail
+    assert "price movement over roughly the last one to two weeks has been moving downward" in prompt_tail
+    assert "not a historical pattern statistic" in prompt_tail
     assert "TradeWave Ratio (TWR): 1.24" in prompt_tail
     assert "entry year 2026: PE+2 (midterm year)" in prompt_tail
     assert "Loaded cohort: consecutive years" in prompt_tail

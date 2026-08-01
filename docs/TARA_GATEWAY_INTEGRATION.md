@@ -10,6 +10,13 @@ staging/production default to 0%. `run_chat_with_tools` (Anthropic) and
 `_execute_tara_tool` path. Luna uses low reasoning/verbosity, explicit stable-prefix caching, and
 automatic Haiku fallback. Deterministic planner answers run before provider selection.
 
+Loaded ChartData4 context includes an explicit `Trend Score Available` flag alongside Trend Long /
+Trend Short. Tara treats unavailable readings as missing, not as a real `0`; for a rolling old bundle
+or cached response, an all-zero current/prior score set with no flag is also treated as missing.
+Trend Alignment wording must name the loaded direction and explain that it compares roughly the last
+one to two weeks of price movement with that seasonal direction. It is not a historical score or a
+forecast.
+
 Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. Both tool loops
 in `tara_gateway.py` return (text, actions); an update_view call is
 validated server-side (`_validate_view_spec`: allowlist + range-check symbol/market/entry_date/
