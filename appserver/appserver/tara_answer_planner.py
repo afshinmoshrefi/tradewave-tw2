@@ -2016,11 +2016,6 @@ def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
     return result
 
 
-def _ai_score_text(value: float) -> str:
-    rounded = round(value, 1)
-    return str(int(rounded)) if rounded.is_integer() else f"{rounded:.1f}"
-
-
 def _ai_probability_comparison(ai_probability: float, historical_pct: Any) -> str:
     if historical_pct is None:
         return ""
@@ -2075,8 +2070,6 @@ def _analysis_ai_context_line(
         readings = []
         for item in horizons:
             metrics = []
-            if item.get("ai_score") is not None:
-                metrics.append(f"AIS {_ai_score_text(item['ai_score'])}/100")
             if item.get("win_probability") is not None:
                 metrics.append(f"AI Win% {item['win_probability'] * 100:.0f}%")
             if item.get("predicted_return_pct") is not None:
@@ -2098,8 +2091,6 @@ def _analysis_ai_context_line(
 
     item = horizons[0]
     metrics = []
-    if item.get("ai_score") is not None:
-        metrics.append(f"AI Score {_ai_score_text(item['ai_score'])}/100")
     if item.get("win_probability") is not None:
         comparison = _ai_probability_comparison(
             item["win_probability"], facts.get("win_rate_pct")

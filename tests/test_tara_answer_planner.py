@@ -536,7 +536,8 @@ def test_analysis_compares_ai_probability_with_same_window_historical_rate():
     )
 
     assert "Current-condition model for this same 17-calendar-day window" in reply
-    assert "AI Score 71.4/100" in reply
+    assert "AI Score" not in reply
+    assert "AIS " not in reply
     assert "AI Win Probability 62% (12 percentage points above the historical rate)" in reply
     assert "PredR +2.1%" in reply
     assert "PMFE +4.8%" in reply
@@ -562,9 +563,10 @@ def test_long_pattern_analysis_labels_ai_horizons_as_checkpoints_not_full_score(
     )
 
     assert "The full 180-calendar-day pattern is outside the model's 90-day limit" in reply
-    assert "30 days: AIS 61/100, AI Win% 58%, PredR +1.2%" in reply
-    assert "60 days: AIS 68/100, AI Win% 63%, PredR +2.7%" in reply
-    assert "90 days: AIS 73/100, AI Win% 67%, PredR +4.1%" in reply
+    assert "30 days: AI Win% 58%, PredR +1.2%" in reply
+    assert "60 days: AI Win% 63%, PredR +2.7%" in reply
+    assert "90 days: AI Win% 67%, PredR +4.1%" in reply
+    assert "AIS " not in reply
     assert "none is an AI score for the full 180-day pattern" in reply
     assert "historical rate" not in reply.split("Near-term AI checkpoints:", 1)[1].split("</div>", 1)[0]
 

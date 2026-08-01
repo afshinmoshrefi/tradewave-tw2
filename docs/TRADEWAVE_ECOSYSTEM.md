@@ -1330,10 +1330,12 @@ current-condition ML section. The browser cannot supply or override this evidenc
 removes any incoming `wave_viewer.ai_analysis`, then calls the scorer callback registered in
 `current_app.extensions['tara_ai_analysis_context']`. The callback reuses the web product's
 `_ml_check_access`, `ml_score_resource_ids`, daily Redis keys, and ML scorer. A 10-90-calendar-day
-pattern receives a like-for-like AI Score, AI Win Probability, PredR, and PMFE; Tara compares the
-AI Win Probability with the historical win rate only because both describe the exact same window.
-These names remain distinct: the former is a current-condition model estimate and the latter is
-the observed share of profitable completed years.
+pattern receives a like-for-like AI Win Probability, PredR, and PMFE in Tara's prose; the composite
+AIS number is intentionally omitted there because it has no direct standalone interpretation. AIS
+remains available in the opportunity table and its dedicated explainer. Tara compares AI Win
+Probability with the historical win rate only because both describe the exact same window. These
+names remain distinct: the former is a current-condition model estimate and the latter is the
+observed share of profitable completed years.
 
 The ML model does not score a full window longer than 90 calendar days. For those windows Tara
 requests bounded 30-, 60-, and 90-calendar-day checkpoints from the same entry date and direction,
