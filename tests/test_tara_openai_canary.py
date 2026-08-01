@@ -411,3 +411,58 @@ def test_chat_route_loads_visible_ordinal_row_without_calling_a_provider(monkeyp
     ]
     assert "Loaded row #3: PEG short" in payload["reply"]
     assert seen["provider"] == "deterministic"
+
+
+def test_chat_route_replaces_client_ai_values_with_server_analysis_context(monkeypatch):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    captured = {}
+
+    def deterministic(_message, wave_viewer, _screen, **_kwargs):
+        captured["wave"] = wave_viewer
+        return "verified analysis"
+
+    monkeypatch.setattr(chatbot_module, "build_deterministic_reply", deterministic)
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: pytest.fail("verified pattern analysis must bypass providers"),
+    )
+
+    app = Flask(__name__)
+    app.extensions["tara_ai_analysis_context"] = lambda wave, token, market: {
+        "status": "available",
+        "mode": "pattern",
+        "full_pattern_calendar_days": 17,
+        "horizons": [
+            {
+                "calendar_days": 17,
+                "ai_score": 72,
+                "win_probability": 0.64,
+                "predicted_return_pct": 2.1,
+            }
+        ],
+    }
+    body = {
+        "message": "Analyze this pattern",
+        "history": [{"role": "user", "content": "Analyze this pattern"}],
+        "token": "browser-token",
+        "wave_viewer": {
+            "symbol": "ROST",
+            "start_date": "2026-08-03",
+            "days_out": "17",
+            "direction": "long",
+            "ai_analysis": {"status": "available", "horizons": [{"ai_score": 100}]},
+        },
+        "screen_context": {},
+        "opportunities": [],
+        "opp_table_market": "2",
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "ai-context-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    assert response.get_json() == {"reply": "verified analysis", "actions": []}
+    assert captured["wave"]["ai_analysis"]["horizons"][0]["ai_score"] == 72

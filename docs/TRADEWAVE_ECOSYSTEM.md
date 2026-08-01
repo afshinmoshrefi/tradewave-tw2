@@ -1325,6 +1325,27 @@ one targeted next check; and a gross-cost/non-forecast scope line. MAE is descri
 move from entry, not peak-to-trough maximum drawdown, and Tara never converts MFE/MAE into a target
 or stop. Missing excursion fields stay missing rather than becoming a false `0%` path claim.
 
+For an eligible US-stock/ETF user, that deterministic brief now adds a server-derived,
+current-condition ML section. The browser cannot supply or override this evidence: `chatbot.py`
+removes any incoming `wave_viewer.ai_analysis`, then calls the scorer callback registered in
+`current_app.extensions['tara_ai_analysis_context']`. The callback reuses the web product's
+`_ml_check_access`, `ml_score_resource_ids`, daily Redis keys, and ML scorer. A 10-90-calendar-day
+pattern receives a like-for-like AI Score, AI Win Probability, PredR, and PMFE; Tara compares the
+AI Win Probability with the historical win rate only because both describe the exact same window.
+These names remain distinct: the former is a current-condition model estimate and the latter is
+the observed share of profitable completed years.
+
+The ML model does not score a full window longer than 90 calendar days. For those windows Tara
+requests bounded 30-, 60-, and 90-calendar-day checkpoints from the same entry date and direction,
+labels them `Near-term AI checkpoints`, and states that none is a score for the full pattern. The
+legacy scorer still accepts the analytics-engine offset, so `tara_ai_analysis.py` converts those
+inclusive calendar labels to `daysOut=29/59/89`; it never adds a day to an end date. Independent
+tiers are requested in parallel and cached under the same daily keys as the opportunity table.
+Current-condition scores are suppressed more than five calendar days before entry so inputs are
+not presented stale, and a new entry-time score is not calculated after entry because post-entry
+data would contaminate the pre-entry comparison. Missing/provider-failed results remain unavailable,
+never numeric zero. The historical brief remains available if enrichment fails.
+
 Recent comparisons use the latest five completed observations versus the earlier non-overlapping
 sample, and are phrased descriptively ("weaker in this sample"), never as proof of regime decay.
 The React context also labels a loaded window `scanner` versus `user_defined`; scanner-selected

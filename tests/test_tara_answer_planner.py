@@ -514,6 +514,78 @@ def test_legacy_all_zero_trend_fallback_without_availability_is_missing():
     assert facts["trend_alignment"] is None
 
 
+def test_analysis_compares_ai_probability_with_same_window_historical_rate():
+    wave = _analysis_context([1.0, -1.0] * 10)
+    wave["ai_analysis"] = {
+        "status": "available",
+        "mode": "pattern",
+        "full_pattern_calendar_days": 17,
+        "horizons": [
+            {
+                "calendar_days": 17,
+                "ai_score": 71.4,
+                "win_probability": 0.62,
+                "predicted_return_pct": 2.1,
+                "predicted_mfe_pct": 4.8,
+            }
+        ],
+    }
+
+    reply = build_pattern_analysis_reply(
+        "Analyze this pattern", wave, {}, current_year=2026
+    )
+
+    assert "Current-condition model for this same 17-calendar-day window" in reply
+    assert "AI Score 71.4/100" in reply
+    assert "AI Win Probability 62% (12 percentage points above the historical rate)" in reply
+    assert "PredR +2.1%" in reply
+    assert "PMFE +4.8%" in reply
+    assert "estimates, not additional historical observations" in reply
+
+
+def test_long_pattern_analysis_labels_ai_horizons_as_checkpoints_not_full_score():
+    wave = _analysis_context([2.0, -1.0] * 10)
+    wave["days_out"] = "180"
+    wave["ai_analysis"] = {
+        "status": "available",
+        "mode": "checkpoints",
+        "full_pattern_calendar_days": 180,
+        "horizons": [
+            {"calendar_days": 30, "ai_score": 61, "win_probability": 0.58, "predicted_return_pct": 1.2},
+            {"calendar_days": 60, "ai_score": 68, "win_probability": 0.63, "predicted_return_pct": 2.7},
+            {"calendar_days": 90, "ai_score": 73, "win_probability": 0.67, "predicted_return_pct": 4.1},
+        ],
+    }
+
+    reply = build_pattern_analysis_reply(
+        "Give me your analysis", wave, {}, current_year=2026
+    )
+
+    assert "The full 180-calendar-day pattern is outside the model's 90-day limit" in reply
+    assert "30 days: AIS 61/100, AI Win% 58%, PredR +1.2%" in reply
+    assert "60 days: AIS 68/100, AI Win% 63%, PredR +2.7%" in reply
+    assert "90 days: AIS 73/100, AI Win% 67%, PredR +4.1%" in reply
+    assert "none is an AI score for the full 180-day pattern" in reply
+    assert "historical rate" not in reply.split("Near-term AI checkpoints:", 1)[1].split("</div>", 1)[0]
+
+
+def test_analysis_explains_why_ai_is_not_shown_too_far_before_entry():
+    wave = _analysis_context([1.0] * 20)
+    wave["ai_analysis"] = {
+        "status": "too_early",
+        "mode": "pattern",
+        "full_pattern_calendar_days": 17,
+        "days_to_entry": 12,
+    }
+
+    reply = build_pattern_analysis_reply(
+        "Analyze this pattern", wave, {}, current_year=2026
+    )
+
+    assert "entry is 12 calendar days away" in reply
+    assert "within five calendar days of entry so the inputs are not stale" in reply
+
+
 def test_noncurrent_pe_occurrence_is_identified_and_compared_to_current_phase():
     wave = {
         "symbol": "ROST",

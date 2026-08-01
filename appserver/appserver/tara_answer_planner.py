@@ -257,6 +257,14 @@ def is_pattern_advice_question(message: Any, wave_viewer: Any) -> bool:
     return _has_loaded_pattern(wave_viewer) and bool(_ADVICE_PATTERNS.search(str(message or "")))
 
 
+def needs_pattern_ai_context(message: Any, wave_viewer: Any) -> bool:
+    """Whether this turn merits a current-condition AI read of the loaded setup."""
+
+    return is_pattern_analysis_question(message, wave_viewer) or is_pattern_advice_question(
+        message, wave_viewer
+    )
+
+
 def is_pattern_rank_question(message: Any, wave_viewer: Any) -> bool:
     """Whether the user is asking about the loaded row's opportunity-table rank."""
 
@@ -1945,6 +1953,179 @@ def _analysis_compact_read_line(facts: Mapping[str, Any]) -> str:
     return f"<b>Read:</b> {setup}: " + "; ".join(clauses) + ". " + verdict
 
 
+def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
+    """Accept only the small server-derived ML context used in analysis prose."""
+
+    if not isinstance(wave_viewer, Mapping):
+        return None
+    raw = wave_viewer.get("ai_analysis")
+    if not isinstance(raw, Mapping):
+        return None
+    status = str(raw.get("status") or "").strip().lower()
+    mode = str(raw.get("mode") or "").strip().lower()
+    if status not in {
+        "available",
+        "unavailable",
+        "too_early",
+        "after_entry",
+        "unsupported_duration",
+    } or mode not in {"pattern", "checkpoints"}:
+        return None
+    full_days_number = _number(raw.get("full_pattern_calendar_days"))
+    if full_days_number is None or not full_days_number.is_integer():
+        return None
+    full_days = int(full_days_number)
+    if not 1 <= full_days <= 366:
+        return None
+    result: Dict[str, Any] = {
+        "status": status,
+        "mode": mode,
+        "full_pattern_calendar_days": full_days,
+    }
+    days_to_entry = _number(raw.get("days_to_entry"))
+    if days_to_entry is not None and days_to_entry.is_integer() and days_to_entry >= 0:
+        result["days_to_entry"] = int(days_to_entry)
+
+    horizons = []
+    for item in raw.get("horizons") or ():
+        if not isinstance(item, Mapping):
+            continue
+        horizon_number = _number(item.get("calendar_days"))
+        if horizon_number is None or not horizon_number.is_integer():
+            continue
+        horizon = int(horizon_number)
+        if not 1 <= horizon <= 90:
+            continue
+        cleaned: Dict[str, Any] = {"calendar_days": horizon}
+        ai_score = _number(item.get("ai_score"))
+        win_probability = _number(item.get("win_probability"))
+        predicted_return = _number(item.get("predicted_return_pct"))
+        predicted_mfe = _number(item.get("predicted_mfe_pct"))
+        if ai_score is not None and 0 <= ai_score <= 100:
+            cleaned["ai_score"] = ai_score
+        if win_probability is not None and 0 <= win_probability <= 1:
+            cleaned["win_probability"] = win_probability
+        if predicted_return is not None and -1000 <= predicted_return <= 1000:
+            cleaned["predicted_return_pct"] = predicted_return
+        if predicted_mfe is not None and -1000 <= predicted_mfe <= 1000:
+            cleaned["predicted_mfe_pct"] = predicted_mfe
+        if len(cleaned) > 1:
+            horizons.append(cleaned)
+    if horizons:
+        result["horizons"] = sorted(horizons, key=lambda item: item["calendar_days"])
+    return result
+
+
+def _ai_score_text(value: float) -> str:
+    rounded = round(value, 1)
+    return str(int(rounded)) if rounded.is_integer() else f"{rounded:.1f}"
+
+
+def _ai_probability_comparison(ai_probability: float, historical_pct: Any) -> str:
+    if historical_pct is None:
+        return ""
+    ai_pct = ai_probability * 100
+    difference = ai_pct - float(historical_pct)
+    if abs(difference) < 0.5:
+        return "about level with the rounded historical rate"
+    points = max(1, int(round(abs(difference))))
+    noun = "percentage point" if points == 1 else "percentage points"
+    relation = "above" if difference > 0 else "below"
+    return f"{points} {noun} {relation} the historical rate"
+
+
+def _analysis_ai_context_line(
+    facts: Mapping[str, Any], wave_viewer: Any
+) -> Optional[str]:
+    """Explain ML estimates without blending them into the historical record."""
+
+    context = _normalized_ai_analysis(wave_viewer)
+    if context is None:
+        return None
+    status = context["status"]
+    if status == "too_early":
+        days_to_entry = context.get("days_to_entry")
+        timing = (
+            f"; entry is {days_to_entry} calendar days away"
+            if isinstance(days_to_entry, int)
+            else ""
+        )
+        return (
+            "<b>AI context:</b> No current-condition AI reading is shown yet"
+            + timing
+            + ". TradeWave waits until the setup is within five calendar days of entry so the inputs are not stale."
+        )
+    if status == "after_entry":
+        return (
+            "<b>AI context:</b> No new entry-time AI reading is added after the occurrence starts; "
+            "using post-entry data would not be a clean pre-entry comparison."
+        )
+    if status == "unsupported_duration":
+        return (
+            "<b>AI context:</b> This duration is outside the model's supported range, so no AI estimate is shown."
+        )
+    horizons = context.get("horizons") or []
+    if status != "available" or not horizons:
+        return (
+            "<b>AI context:</b> The current-condition model reading is unavailable, and Tara is not treating "
+            "the missing values as zero."
+        )
+
+    if context["mode"] == "checkpoints":
+        readings = []
+        for item in horizons:
+            metrics = []
+            if item.get("ai_score") is not None:
+                metrics.append(f"AIS {_ai_score_text(item['ai_score'])}/100")
+            if item.get("win_probability") is not None:
+                metrics.append(f"AI Win% {item['win_probability'] * 100:.0f}%")
+            if item.get("predicted_return_pct") is not None:
+                metrics.append(
+                    "PredR " + _pct(item["predicted_return_pct"], signed=True, decimals=1)
+                )
+            if metrics:
+                readings.append(f"{item['calendar_days']} days: " + ", ".join(metrics))
+        if not readings:
+            return None
+        full_days = context["full_pattern_calendar_days"]
+        return (
+            f"<b>Near-term AI checkpoints:</b> The full {full_days}-calendar-day pattern is outside the "
+            "model's 90-day limit. From the same entry date and in the same direction: "
+            + "; ".join(readings)
+            + f". These readings score only the first 30, 60, and 90 calendar days; none is an AI score "
+            f"for the full {full_days}-day pattern."
+        )
+
+    item = horizons[0]
+    metrics = []
+    if item.get("ai_score") is not None:
+        metrics.append(f"AI Score {_ai_score_text(item['ai_score'])}/100")
+    if item.get("win_probability") is not None:
+        comparison = _ai_probability_comparison(
+            item["win_probability"], facts.get("win_rate_pct")
+        )
+        win_text = f"AI Win Probability {item['win_probability'] * 100:.0f}%"
+        if comparison:
+            win_text += f" ({comparison})"
+        metrics.append(win_text)
+    if item.get("predicted_return_pct") is not None:
+        metrics.append(
+            "PredR " + _pct(item["predicted_return_pct"], signed=True, decimals=1)
+        )
+    if item.get("predicted_mfe_pct") is not None:
+        metrics.append(
+            "PMFE " + _pct(item["predicted_mfe_pct"], signed=True, decimals=1)
+        )
+    if not metrics:
+        return None
+    horizon = item["calendar_days"]
+    return (
+        f"<b>AI context:</b> Current-condition model for this same {horizon}-calendar-day window: "
+        + "; ".join(metrics)
+        + ". AI Win Probability and PredR are estimates, not additional historical observations."
+    )
+
+
 def _analysis_payoff_and_path_line(facts: Mapping[str, Any]) -> Optional[str]:
     """Summarize endpoint payoff and entry-relative intrawindow excursions."""
 
@@ -2414,6 +2595,7 @@ def build_pattern_analysis_reply(
     if focus == "overview":
         lines = [
             _analysis_compact_read_line(facts),
+            _analysis_ai_context_line(facts, wave_viewer),
             _analysis_chart_context_line(facts, screen),
             _analysis_payoff_and_path_line(facts),
             _analysis_occurrence_line(facts),
@@ -2711,6 +2893,7 @@ def build_advice_safe_reply(
     lines = [
         "<b>I can evaluate the evidence, but I can't decide whether you should take the trade.</b>",
         _analysis_compact_read_line(facts),
+        _analysis_ai_context_line(facts, wave_viewer),
         _analysis_chart_context_line(facts, screen),
         _analysis_payoff_and_path_line(facts),
         _analysis_occurrence_line(facts),

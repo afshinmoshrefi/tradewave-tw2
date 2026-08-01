@@ -17,6 +17,16 @@ Trend Alignment wording must name the loaded direction and explain that it compa
 one to two weeks of price movement with that seasonal direction. It is not a historical score or a
 forecast.
 
+Loaded-pattern analysis also has a direct appserver ML enrichment path; this is separate from Tara's
+gateway tool loop. For an eligible US-stock/ETF user, `chatbot.py` discards any browser-supplied
+`ai_analysis` object and asks the callback registered by `appserver.py` for the current daily-cached
+reading. A 10-90-calendar-day setup gets a same-window AI Score / AI Win Probability / PredR / PMFE
+read. A longer setup has no full-pattern AI score; Tara may instead show 30/60/90-calendar-day
+checkpoints from the same entry and direction, explicitly labeled as partial horizons. The callback
+converts those inclusive calendar horizons to the legacy scorer offsets 29/59/89. Scores are not
+shown more than five days before entry or newly calculated after entry, and scorer failure degrades
+to the verified historical analysis rather than blocking Tara.
+
 Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. Both tool loops
 in `tara_gateway.py` return (text, actions); an update_view call is
 validated server-side (`_validate_view_spec`: allowlist + range-check symbol/market/entry_date/
