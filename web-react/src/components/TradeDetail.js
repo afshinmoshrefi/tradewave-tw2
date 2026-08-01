@@ -23,6 +23,7 @@ import { opp_dashboard_dialog_content } from './Common'
 import { brand } from './Common'
 import { UIcolors, themeColors } from './Common';
 import { markCaptureReady, clearCaptureReady } from './captureReady'
+import { hasUsableTrendScore, trendAlignmentLabel } from './trendScoreState'
 
 const TradeDetail = (props) => {
     const tc = themeColors(props.UITheme)
@@ -81,9 +82,9 @@ const TradeDetail = (props) => {
         'Percent Profitable': 'Percentage of years that were profitable; 100% means every year was profitable',
         'Cumulative Return': 'Cumulative return of the seasonal pattern over the number of historical years being analyzed',
         'Sharpe Ratio': 'The Sharpe Ratio gauges the quality of a pattern by comparing its average profit to how much those profits vary year to year. Above 1 means the average profit is larger than the year-to-year fluctuation - a sign of a consistent pattern. Below 1 means the fluctuation outweighs the average profit. It is the default sort for the opportunity table.',
-        'Trend Long': 'Trend Long measures how bullish (upward) the current price trend is on a scale of 0 to 100 as of ' + (props.lastPrice[0] || '') + '. A high score (e.g. 80+) means the price is well above its key moving averages and momentum is pointing up - a good sign for long (buy) trades. A low score means the price is below most indicators. The arrow shows if the score improved (green up), declined (red down), or stayed the same (gray) since the previous day. To visually verify, go to the Price Chart - click the right arrow or the rightmost dot on the title bar.',
-        'Trend Short': 'Trend Short measures how bearish (downward) the current price trend is on a scale of 0 to 100 as of ' + (props.lastPrice[0] || '') + '. A high score (e.g. 80+) means the price is well below its key moving averages and momentum is pointing down - a good sign for short (sell) trades. A low score means the price is below most indicators. The arrow shows if the score improved (green up), declined (red down), or stayed the same (gray) since the previous day. To visually verify, go to the Price Chart - click the right arrow or the rightmost dot on the title bar.',
-        'Trend Alignment': 'Shows whether the current price trend supports this trade direction. "Aligned" (score above 60) means the trend favors this trade - "Against" (score below 40) means the trend is working against it - "Neutral" (40-60) means the trend is mixed. For a long trade, this uses the Trend Long score. For a short trade, it uses the Trend Short score.',
+        'Trend Long': 'Trend Long measures whether price has been moving upward over roughly the last one to two weeks, on a scale of 0 to 100 as of ' + (props.lastPrice[0] || '') + '. A high score means recent movement supports a long direction. A low score means it has not been moving strongly upward; it is not a prediction that the seasonal pattern will lose. The arrow shows whether the score rose, fell, or stayed unchanged since the prior reading.',
+        'Trend Short': 'Trend Short measures whether price has been moving downward over roughly the last one to two weeks, on a scale of 0 to 100 as of ' + (props.lastPrice[0] || '') + '. A high score means recent movement supports a short direction. A low score means it has not been moving strongly downward; it is not a prediction that the seasonal pattern will lose. The arrow shows whether the score rose, fell, or stayed unchanged since the prior reading.',
+        'Trend Alignment': 'Compares recent price movement with this seasonal setup\'s direction. For a long setup, it uses Trend Long and asks whether price has recently been moving upward. For a short setup, it uses Trend Short and asks whether price has recently been moving downward. Aligned (above 60) means recent movement confirms that direction; Against (below 40) means it does not; Neutral (40-60) means no clear confirmation. This is separate from the historical win rate. Unavailable means no usable current score was returned.',
 
         'S&P 500 Buy & Hold': 'The S&P 500 return is the equivalent return of the S&P 500 index for the entire year. It is useful for comparing this pattern to a buy & hold of the broader market. The cumulative S&P 500 return is also shown as the dark red line on the Cumulative Return chart.',
         'Date Range': "The date range of a seasonal pattern defines the specific period each year when the pattern occurs. For example, a date range from March 5 to April 10 means we measure how the stock performed during this exact period in past years, using the closing price at the start and end of the range each year. This surfaces consistent tendencies - whether a stock has tended to rise or fall during this window - for you to evaluate.",
@@ -178,22 +179,33 @@ const TradeDetail = (props) => {
 
 
 
-            // set up down netural icons for long score and short score
-            // icons define arrows that determines the trend direction from one period prior
-            if (trData['Trend Long'] > trData['Trend Long1']) SetLsIcon('u')
-            else if (trData['Trend Long'] < trData['Trend Long1']) SetLsIcon('d')
-            else if (trData['Trend Long'] === trData['Trend Long1']) SetLsIcon('n')
+            // A numeric zero is valid market data only when the server explicitly says
+            // the provider returned a score. Older responses used 0/0/0/0 as a missing
+            // fallback, so keep that legacy shape from becoming a false "Against" label.
+            const trendKey = props.barChartLongOrShort === 'long' ? 'Trend Long' : 'Trend Short'
+            const trendScore = trData[trendKey]
+            const trendScoreAvailable = hasUsableTrendScore(trData, props.barChartLongOrShort)
 
-            if (trData['Trend Short'] > trData['Trend Short1']) SetSsIcon('u')
-            else if (trData['Trend Short'] < trData['Trend Short1']) SetSsIcon('d')
-            else if (trData['Trend Short'] === trData['Trend Short1']) SetSsIcon('n')
+            if (trendScoreAvailable) {
+                // Icons show whether each score improved versus its prior reading.
+                if (trData['Trend Long'] > trData['Trend Long1']) SetLsIcon('u')
+                else if (trData['Trend Long'] < trData['Trend Long1']) SetLsIcon('d')
+                else SetLsIcon('n')
 
-            // Trend Alignment - does the current trend support the trade direction?
-            let trendScore = props.barChartLongOrShort === 'long' ? trData['Trend Long'] : trData['Trend Short']
-            let alignLabel = 'Neutral'
-            if (trendScore > 60) alignLabel = 'Aligned'
-            else if (trendScore < 40) alignLabel = 'Against'
-            trData['Trend Alignment'] = alignLabel + ' (' + trendScore + ')'
+                if (trData['Trend Short'] > trData['Trend Short1']) SetSsIcon('u')
+                else if (trData['Trend Short'] < trData['Trend Short1']) SetSsIcon('d')
+                else SetSsIcon('n')
+
+                const alignLabel = trendAlignmentLabel(trendScore)
+                trData['Trend Alignment'] = alignLabel + ' (' + trendScore + ')'
+            } else {
+                SetLsIcon('')
+                SetSsIcon('')
+                trData['Trend Long'] = 'Unavailable'
+                trData['Trend Short'] = 'Unavailable'
+                trData['Trend Alignment'] = 'Unavailable'
+            }
+            delete trData['Trend Score Available']
 
 
             // for some reason the added item in the dict is there but not visible !!!! not sure why net 6/16/2022 - try adding it in appserver

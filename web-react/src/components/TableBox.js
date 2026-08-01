@@ -11,6 +11,7 @@ import {
   isOpportunityFilterPending,
   sortOpportunityRows,
 } from './opportunityFilters'
+import { hasUsableBatchTrendScore } from './trendScoreState'
 
 // GTM playbook CARD W1.4 - fire once per browser session, the first time an
 // AI-eligible user actually sees real AI-score data in the table. Module-level
@@ -166,7 +167,7 @@ const TableBox = ({
       const isPending = mlPending && mlPending.has(mlKey)
       return {
         ...row,
-        TL: score ? score.lscore : null,
+        TL: hasUsableBatchTrendScore(score) ? score.lscore : null,
         ml_score: ml ? ml.ml_score : null,
         win_prob: ml ? ml.win_prob : null,
         pred_return: ml ? ml.pred_return : null,

@@ -436,7 +436,7 @@ Organized into labeled blue-headed panels:
 - **Wave Detail:** Symbol, Trade Direction (long/short), Date Range, Calendar Days Hold.
 - **Wave Profit Loss:** Num Winners, Num Losers, Cumulative Return, **S&P 500 Buy & Hold** (benchmark).
 - **Wave Stats:** Avg Loss, Avg Gain, Median Gain, Std Dev.
-- **Wave Info:** Percent Profitable, Sharpe Ratio, **Trend Long**, **Trend Short** (directional-tendency readouts, sometimes with up/down arrows, e.g. Trend Long 80 / Trend Short 20).
+- **Wave Info:** Percent Profitable, Sharpe Ratio, **Trend Long**, **Trend Short**, and **Trend Alignment**. Trend Long asks whether roughly the last one to two weeks of movement has been upward; Trend Short asks whether it has been downward. Alignment selects the score matching the loaded seasonal direction: Aligned = recent movement confirms it, Against = recent movement has not been moving strongly in it, Neutral = no clear confirmation. This is current-momentum context, not part of the historical win rate or a forecast; a missing provider reading displays as Unavailable, never as a real zero.
 - **General:** Years Filter, Securities Group, Last Price, `TradeWave.AI`, plus an **ACTIVE flag** when the analysis includes the current in-progress year.
 - A small **Cumulative Return mini-chart** plotting the ticker vs the S&P 500 (red line).
 
@@ -724,7 +724,7 @@ Key reads for an active trader:
 - **Sharpe** — "not luck" check; confirms the result isn't carried by one or two lucky years and the variance isn't chaotic.
 - **Avg Gain vs Avg Loss**, **Median Gain** (less outlier-distorted than the average), **Std Dev** (volatility/torture level).
 - **Cumulative Ret vs B&H** — does timing the window beat simply holding?
-- **Trend Long / Trend Short** — directional-tendency readout (e.g. CAH Trend Long 100 / Trend Short 0 = fully long-directional).
+- **Trend Long / Trend Short / Alignment** — current-momentum readout over roughly the last one to two weeks. For a long setup, Alignment uses Trend Long and tests for upward movement; for a short setup, it uses Trend Short and tests for downward movement. Against means the recent move is not confirming the seasonal direction, not that the historical pattern scored zero or is certain to lose. Unavailable means no usable current score was returned.
 
 > "Charts help you see. The Stats Table helps you measure." / "Metrics help you find candidates. Charts help you decide what is real."
 

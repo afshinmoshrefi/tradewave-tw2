@@ -36,6 +36,12 @@ _BAR_SEMANTICS_PATTERNS = (
     re.compile(r"\b(?:bar|bars|colors?) .{0,20}(?:short|profit|loss|win)\b", re.I),
 )
 
+_TREND_ALIGNMENT_PATTERNS = (
+    re.compile(r"\b(?:what (?:does|is)|explain|define|how does) (?:the )?trend alignment\b", re.I),
+    re.compile(r"\bwhy (?:does|is) (?:the )?trend (?:say|show|alignment)\s*(?:aligned|against|neutral)?\b", re.I),
+    re.compile(r"\bwhat does (?:aligned|against|neutral) mean\b", re.I),
+)
+
 _PATTERN_ANALYSIS_PATTERNS = (
     re.compile(r"\b(?:analy[sz]e|evaluate|assess|review) (?:this|the|current|loaded) (?:pattern|setup|window|trade|opportunity)\b", re.I),
     re.compile(r"\b(?:analy[sz]e|evaluate|assess|review|break down) this\s*[?.!]*$", re.I),
@@ -180,6 +186,13 @@ def is_bar_semantics_question(message: Any) -> bool:
 
     text = str(message or "").strip()
     return bool(text and any(pattern.search(text) for pattern in _BAR_SEMANTICS_PATTERNS))
+
+
+def is_trend_alignment_question(message: Any) -> bool:
+    """Return True for questions about current momentum versus the loaded direction."""
+
+    text = str(message or "").strip()
+    return bool(text and any(pattern.search(text) for pattern in _TREND_ALIGNMENT_PATTERNS))
 
 
 def is_pattern_analysis_question(message: Any, wave_viewer: Any) -> bool:
@@ -480,6 +493,22 @@ def _number(value: Any) -> Optional[float]:
     return number
 
 
+def _optional_bool(value: Any) -> Optional[bool]:
+    """Parse an explicit availability flag without treating arbitrary text as true."""
+
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes"}:
+            return True
+        if normalized in {"0", "false", "no"}:
+            return False
+    return None
+
+
 def _today() -> _datetime.date:
     """Small clock seam so occurrence-boundary tests do not depend on wall time."""
 
@@ -775,7 +804,27 @@ def canonical_pattern_facts(
     prior_trend_key = "Trend Short1" if direction == "short" else "Trend Long1"
     trend_score = _percent_number(stats.get(trend_key))
     prior_trend_score = _percent_number(stats.get(prior_trend_key))
-    if trend_score is None:
+    explicit_trend_availability = _optional_bool(stats.get("Trend Score Available"))
+    if explicit_trend_availability is None:
+        # Rolling-deploy compatibility: old ChartData4 responses had no availability
+        # bit and used 0/0 when the provider was absent. Preserve real nonzero legacy
+        # readings while refusing to call the ambiguous fallback a market conclusion.
+        # No score fields at all means the feature is simply outside this payload, not
+        # that an attempted provider lookup failed.
+        if trend_score is None and prior_trend_score is None:
+            trend_score_available = None
+        elif trend_score is None or (
+            trend_score == 0
+            and (prior_trend_score is None or prior_trend_score == 0)
+        ):
+            trend_score_available = False
+        else:
+            trend_score_available = True
+    else:
+        trend_score_available = explicit_trend_availability and trend_score is not None
+    if trend_score_available is not True:
+        trend_score = None
+        prior_trend_score = None
         trend_alignment = None
     elif trend_score > 60:
         trend_alignment = "aligned"
@@ -837,6 +886,7 @@ def canonical_pattern_facts(
             "trend_score": trend_score,
             "prior_trend_score": prior_trend_score,
             "trend_alignment": trend_alignment,
+            "trend_score_available": trend_score_available,
             "next_earnings_est": earnings_date,
             "earnings_in_window": _date_in_loaded_window(
                 earnings_date, start_date, days
@@ -1408,6 +1458,41 @@ def build_direction_reply(
     )
 
 
+def build_trend_alignment_reply(
+    message: Any,
+    wave_viewer: Any,
+    *,
+    current_year: Optional[int] = None,
+) -> Optional[str]:
+    """Define Trend Alignment and explain the loaded reading in plain language."""
+
+    if not is_trend_alignment_question(message):
+        return None
+    facts = canonical_pattern_facts(wave_viewer, current_year=current_year)
+    definition = (
+        "<b>Trend Alignment compares recent price movement with the loaded seasonal trade "
+        "direction.</b> For a long pattern it asks whether price has been moving upward; for a "
+        "short pattern it asks whether price has been moving downward. It uses roughly the last "
+        "one to two weeks, not the historical seasonal record."
+    )
+    if not facts.get("symbol"):
+        return (
+            definition
+            + " Above 60 is Aligned, 40–60 is Neutral, and below 40 is Against. Against means "
+            "recent movement has not been moving strongly in the seasonal setup's direction."
+        )
+
+    direction = "short" if facts.get("direction") == "short" else "long"
+    symbol = html.escape(str(facts.get("symbol") or "This symbol"))
+    actual = _trend_alignment_plain_language(facts)
+    return (
+        definition
+        + f"<br><b>For this {symbol} {direction} setup:</b> {actual}. "
+        "Above 60 is Aligned, 40–60 is Neutral, and below 40 is Against. This is a current-momentum "
+        "confirmation check; it does not change the pattern's win rate or predict the outcome."
+    )
+
+
 def _analysis_record_line(facts: Mapping[str, Any]) -> str:
     symbol = html.escape(str(facts.get("symbol") or "This pattern"))
     direction = "short" if facts.get("direction") == "short" else "long"
@@ -1688,6 +1773,41 @@ def _analysis_risk_line(facts: Mapping[str, Any]) -> Optional[str]:
     return line
 
 
+def _trend_alignment_plain_language(facts: Mapping[str, Any]) -> str:
+    """Explain current momentum versus the seasonal direction without jargon."""
+
+    direction = "short" if facts.get("direction") == "short" else "long"
+    trend_name = "Trend Short" if direction == "short" else "Trend Long"
+    expected_move = "downward" if direction == "short" else "upward"
+    score = facts.get("trend_score")
+    alignment = facts.get("trend_alignment")
+
+    if facts.get("trend_score_available") is False or score is None:
+        return (
+            f"current momentum confirmation is unavailable: TradeWave did not receive a usable "
+            f"{trend_name} reading to compare recent price movement with the seasonal {direction} "
+            "direction"
+        )
+    score_text = f"{score:.0f}/100"
+    if alignment == "aligned":
+        return (
+            f"current momentum confirms the seasonal {direction} direction: {trend_name} is "
+            f"{score_text} (Aligned), meaning price movement over roughly the last one to two weeks "
+            f"has been moving {expected_move}, the same direction as the setup"
+        )
+    if alignment == "against":
+        return (
+            f"current momentum does not confirm the seasonal {direction} direction: {trend_name} is "
+            f"{score_text} (Against), meaning price movement over roughly the last one to two weeks "
+            f"has not been moving strongly {expected_move} with the setup"
+        )
+    return (
+        f"current momentum gives no clear confirmation of the seasonal {direction} direction: "
+        f"{trend_name} is {score_text} (Neutral), meaning price movement over roughly the last one "
+        f"to two weeks is mixed rather than clearly moving {expected_move} with the setup"
+    )
+
+
 def _analysis_path_line(facts: Mapping[str, Any], screen: Mapping[str, Any]) -> Optional[str]:
     details: List[str] = []
     status = facts.get("occurrence_status")
@@ -1729,11 +1849,8 @@ def _analysis_path_line(facts: Mapping[str, Any], screen: Mapping[str, Any]) -> 
     elif selected == "supports":
         details.append("the selected-history normalized seasonal curve moves with the loaded direction")
 
-    trend_score = facts.get("trend_score")
-    alignment = facts.get("trend_alignment")
-    if trend_score is not None and alignment:
-        trend_name = "Trend Short" if facts.get("direction") == "short" else "Trend Long"
-        details.append(f"current {trend_name} is {trend_score:.0f}/100 ({alignment})")
+    if facts.get("trend_score_available") is False or facts.get("trend_score") is not None:
+        details.append(_trend_alignment_plain_language(facts))
 
     sharpe = facts.get("sharpe_ratio")
     twr = facts.get("tradewave_ratio")
@@ -2072,17 +2189,16 @@ def _analysis_compact_context_line(
             + " falls inside the window"
         )
     elif facts.get("trend_alignment") == "against" and facts.get("trend_score") is not None:
-        issue = f"the direction-specific Trend score is {facts['trend_score']:.0f}/100 (against)"
+        issue = _trend_alignment_plain_language(facts)
     elif (
         screen.get("selected_window_path") == "supports"
         and screen.get("full_history_window_path") == "supports"
         and facts.get("trend_alignment") == "aligned"
         and facts.get("trend_score") is not None
     ):
-        issue = (
-            "both historical curve views support the direction and the current Trend score is "
-            f"{facts['trend_score']:.0f}/100 (aligned)"
-        )
+        issue = "both historical curve views support the direction; " + _trend_alignment_plain_language(facts)
+    elif facts.get("trend_score_available") is False:
+        issue = _trend_alignment_plain_language(facts)
     elif int(facts.get("sample_size") or 0) < 20:
         issue = "sample depth is the main limitation"
     else:
@@ -2103,6 +2219,14 @@ def _analysis_compact_next_check_line(
         check = "inspect both normalized curves across the exact entry-to-exit window"
     elif facts.get("earnings_in_window"):
         check = "compare historical occurrences with and without earnings inside the window"
+    elif facts.get("trend_score_available") is False:
+        check = "use the Price Chart for recent direction until a current Trend score is available"
+    elif facts.get("trend_alignment") == "against":
+        expected_move = "downward" if facts.get("direction") == "short" else "upward"
+        check = (
+            f"use the Price Chart to verify that recent movement is not yet moving {expected_move} "
+            "with the seasonal setup"
+        )
     elif int(facts.get("sample_size") or 0) < 10:
         check = "increase the history depth if this symbol has enough completed data"
     elif facts.get("selection_origin") == "scanner":
@@ -2617,6 +2741,11 @@ def build_deterministic_reply(
     )
     if overview is not None:
         return overview
+    trend_alignment = build_trend_alignment_reply(
+        message, wave_viewer, current_year=current_year
+    )
+    if trend_alignment is not None:
+        return trend_alignment
     bars = build_bar_semantics_reply(message, wave_viewer, current_year=current_year)
     if bars is not None:
         return bars
@@ -2748,9 +2877,15 @@ def verified_context_lines(
             f"- Normalized seasonal-curve direction over the loaded window: selected-history={selected_path}; full-history={full_path}. These are direction labels, not return percentages."
         )
     if facts.get("trend_score") is not None:
-        trend_name = "Trend Short" if facts["direction"] == "short" else "Trend Long"
+        trend_phrase = _trend_alignment_plain_language(facts)
         lines.append(
-            f"- Current {trend_name}: {facts['trend_score']:.0f}/100 ({facts.get('trend_alignment')})."
+            f"- {trend_phrase[:1].upper()}{trend_phrase[1:]}. The label compares recent "
+            "movement with the seasonal trade direction; it is not a historical pattern statistic."
+        )
+    elif facts.get("trend_score_available") is False:
+        lines.append(
+            "- Current Trend score is unavailable. Do not interpret the numeric 0 fallback as "
+            "movement against the seasonal direction."
         )
     if facts.get("tradewave_ratio") is not None:
         lines.append(f"- TradeWave Ratio (TWR): {facts['tradewave_ratio']:.2f}.")

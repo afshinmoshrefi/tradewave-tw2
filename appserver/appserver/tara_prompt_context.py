@@ -337,6 +337,7 @@ _PROMPT_STAT_KEYS = (
     "Trend Short",
     "Trend Long1",
     "Trend Short1",
+    "Trend Score Available",
     "next_earnings_est",
     "days_to_earnings",
 )

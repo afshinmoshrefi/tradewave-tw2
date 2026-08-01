@@ -1617,54 +1617,63 @@ def inc_date_year(d, i):
 # stockscore is obtained from service running on keyprovider
 # when currentFlag = 0 then use date for score,
 # when currentFlag = 1 then use today for score 
-def stockscore(resourceID, symbol,date):
+def stockscore_with_availability(resourceID, symbol, date):
+    """Return trend scores plus whether they came from a usable provider response.
 
+    Zero is a valid score, so it must not also silently mean that the stock-score
+    service was unconfigured, unavailable, or returned malformed data.  Existing
+    callers keep the four-number ``stockscore`` wrapper below; ChartData4 and the
+    batch endpoint carry the explicit availability bit to newer clients.
+    """
 
-    redis_key_stockscore = 'stockscore_'+resourceID+'_'+symbol
-
+    redis_key_stockscore = 'stockscore_' + resourceID + '_' + symbol
     stockscore_redis = redis_client.get(redis_key_stockscore)
 
-
-    # stockscore_redis = None  # for testing remove
-
-
     if stockscore_redis is not None:
-        stockscore = json.loads(stockscore_redis)
-        # print('from redis:',stockscore,type(stockscore))
-        lscore=stockscore['lscore']
-        sscore=stockscore['sscore']
-        lscore1=stockscore['lscore1']
-        sscore1=stockscore['sscore1']
-    else:
+        try:
+            cached = json.loads(stockscore_redis)
+            return (
+                cached['lscore'],
+                cached['sscore'],
+                cached['lscore1'],
+                cached['sscore1'],
+                cached.get('available', True) is not False,
+            )
+        except (TypeError, ValueError, KeyError):
+            # Treat an old/corrupt cache entry as a miss and try the provider.
+            pass
 
-        lscore = 0
-        sscore = 0
-        lscore1 = 0
-        sscore1 = 0
+    unavailable = (0, 0, 0, 0, False)
+    if config.stockscore_url == '':  # no stock score for this server
+        return unavailable
 
-        if config.stockscore_url == '':  # no stock score for this server
-            return lscore,sscore,lscore1,sscore1
+    url = f'{config.stockscore_url}stockscore/{resourceID}/{symbol}'
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return unavailable
+        payload = response.json()
+        scores = {
+            'lscore': payload['lscore'],
+            'sscore': payload['sscore'],
+            'lscore1': payload['lscore1'],
+            'sscore1': payload['sscore1'],
+            'available': True,
+        }
+    except (requests.RequestException, TypeError, ValueError, KeyError):
+        return unavailable
 
-        url = f'{config.stockscore_url}stockscore/{resourceID}/{symbol}'
-
-        x = requests.get(url, timeout=10)
-
-        
-        if x.status_code == 200:
-            j = x.json()
+    redis_client.set(redis_key_stockscore, json.dumps(scores))
+    redis_client.expire(redis_key_stockscore, config.stockscore_expire_time)
+    return (
+        scores['lscore'], scores['sscore'], scores['lscore1'], scores['sscore1'], True
+    )
 
 
-            lscore = j['lscore']
-            sscore = j['sscore']
-            lscore1 = j['lscore1']
-            sscore1 = j['sscore1']
-        
-            redis_client.set(redis_key_stockscore, json.dumps(j))
-            redis_client.expire(redis_key_stockscore, config.stockscore_expire_time)
+def stockscore(resourceID, symbol, date):
+    """Backward-compatible four-score result for legacy callers."""
 
-    
-
-    return lscore,sscore,lscore1,sscore1
+    return stockscore_with_availability(resourceID, symbol, date)[:4]
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Batch stockscore endpoint - returns stockscores for multiple symbols in one call
@@ -1697,12 +1706,15 @@ def StockScoreBatch(resourceID):
 
     # Second pass: fetch uncached symbols in parallel
     def fetch_one(symbol):
-        lscore, sscore, lscore1, sscore1 = stockscore(resourceID, symbol, today_str)
+        lscore, sscore, lscore1, sscore1, available = stockscore_with_availability(
+            resourceID, symbol, today_str
+        )
         scores = {
             'lscore': lscore,
             'sscore': sscore,
             'lscore1': lscore1,
-            'sscore1': sscore1
+            'sscore1': sscore1,
+            'available': available,
         }
         redis_key = f'stockscore_daily_{resourceID}_{symbol}_{today_str}'
         redis_client.set(redis_key, json.dumps(scores))
@@ -1718,7 +1730,13 @@ def StockScoreBatch(resourceID):
                     results[symbol] = scores
                 except Exception as e:
                     sym = futures[future]
-                    results[sym] = {'lscore': 0, 'sscore': 0, 'lscore1': 0, 'sscore1': 0}
+                    results[sym] = {
+                        'lscore': 0,
+                        'sscore': 0,
+                        'lscore1': 0,
+                        'sscore1': 0,
+                        'available': False,
+                    }
 
     return jsonify({'stockscores': results})
 
@@ -2219,7 +2237,9 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         chartData = json.loads(chartdata_redis)
         return jsonify(chartData)
 
-    lscore, sscore, lscore1, sscore1 = stockscore(resourceID, symbol, date)
+    lscore, sscore, lscore1, sscore1, trend_score_available = stockscore_with_availability(
+        resourceID, symbol, date
+    )
 
     # ----------------------------------------------
     # Load symbol data
@@ -2532,6 +2552,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         '1M Return': str(round(return_1m * 100, 2)) + '%',
         'SMA 50': sma_50,
         'SMA 200': sma_200,
+        'Trend Score Available': trend_score_available,
     }
 
     # Add earnings data if available (from EDGAR per-ticker JSON files)
