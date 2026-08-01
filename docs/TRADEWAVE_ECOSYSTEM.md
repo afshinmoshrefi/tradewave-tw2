@@ -1348,6 +1348,10 @@ not presented stale, and a new entry-time score is not calculated after entry be
 data would contaminate the pre-entry comparison. Missing/provider-failed results remain unavailable,
 never numeric zero. The historical brief remains available if enrichment fails.
 
+When a chart pattern is loaded, terse commands such as `analyze`, `analyze this`, and `analyze it`
+are deterministic analysis intents. They must take the same enriched brief path as `analyze this
+pattern`; they do not fall through to an LLM provider or return its older generic summary.
+
 Recent comparisons use the latest five completed observations versus the earlier non-overlapping
 sample, and are phrased descriptively ("weaker in this sample"), never as proof of regime decay.
 The React context also labels a loaded window `scanner` versus `user_defined`; scanner-selected

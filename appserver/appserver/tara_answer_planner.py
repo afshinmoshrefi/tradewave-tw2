@@ -43,6 +43,13 @@ _TREND_ALIGNMENT_PATTERNS = (
 )
 
 _PATTERN_ANALYSIS_PATTERNS = (
+    # A loaded chart makes terse imperatives unambiguous. Keep these out of the
+    # provider path so "analyze" is as fast and complete as "analyze this pattern."
+    re.compile(
+        r"^\s*(?:please\s+)?(?:analy[sz]e|evaluate|assess|review)"
+        r"(?:\s+(?:this|it))?(?:\s+please)?\s*[?.!]*\s*$",
+        re.I,
+    ),
     re.compile(r"\b(?:analy[sz]e|evaluate|assess|review) (?:this|the|current|loaded) (?:pattern|setup|window|trade|opportunity)\b", re.I),
     re.compile(r"\b(?:analy[sz]e|evaluate|assess|review|break down) this\s*[?.!]*$", re.I),
     re.compile(r"\b(?:give|show) me (?:an |your )?(?:analysis|assessment|deep dive)(?: of (?:this|the (?:pattern|setup|window)))?\b", re.I),

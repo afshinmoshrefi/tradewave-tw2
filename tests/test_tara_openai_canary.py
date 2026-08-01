@@ -413,7 +413,10 @@ def test_chat_route_loads_visible_ordinal_row_without_calling_a_provider(monkeyp
     assert seen["provider"] == "deterministic"
 
 
-def test_chat_route_replaces_client_ai_values_with_server_analysis_context(monkeypatch):
+@pytest.mark.parametrize("analysis_message", ["Analyze", "Analyze this", "Analyze this pattern"])
+def test_chat_route_replaces_client_ai_values_with_server_analysis_context(
+    monkeypatch, analysis_message
+):
     from flask import Flask, g
     import chatbot as chatbot_module
 
@@ -446,8 +449,8 @@ def test_chat_route_replaces_client_ai_values_with_server_analysis_context(monke
         ],
     }
     body = {
-        "message": "Analyze this pattern",
-        "history": [{"role": "user", "content": "Analyze this pattern"}],
+        "message": analysis_message,
+        "history": [{"role": "user", "content": analysis_message}],
         "token": "browser-token",
         "wave_viewer": {
             "symbol": "ROST",

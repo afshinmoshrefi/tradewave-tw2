@@ -805,6 +805,10 @@ def test_high_sharpe_does_not_erase_severe_intrawindow_mae_or_imply_smooth_path(
 def test_analysis_router_does_not_intercept_advice_other_symbol_or_specific_year():
     wave = _peg_short_context()
 
+    assert is_pattern_analysis_question("Analyze", wave)
+    assert is_pattern_analysis_question("Analyze this", wave)
+    assert is_pattern_analysis_question("Please analyze this", wave)
+    assert is_pattern_analysis_question("analyze\nthis", wave)
     assert is_pattern_analysis_question("How strong is this?", wave)
     assert is_pattern_analysis_question("Analyze PEG", wave)
     assert is_pattern_analysis_question("Tell me about this pattern", wave)
@@ -817,6 +821,23 @@ def test_analysis_router_does_not_intercept_advice_other_symbol_or_specific_year
     assert not is_pattern_analysis_question("Should I trade this pattern?", wave)
     assert not is_pattern_analysis_question("How good is this trade?", wave)
     assert not is_pattern_analysis_question("How did it do in 2022?", wave)
+
+
+@pytest.mark.parametrize(
+    "message",
+    ["Analyze", "Analyze this", "Please analyze this", "analyze\nthis", "Analyze it."],
+)
+def test_terse_analysis_commands_build_the_same_full_brief(message):
+    wave = _analysis_context([2.0, 3.0, -2.0, 1.0] * 5, years="20", origin="scanner")
+    expected = build_pattern_analysis_reply(
+        "Analyze this pattern", wave, {}, current_year=2026
+    )
+
+    reply = build_pattern_analysis_reply(message, wave, {}, current_year=2026)
+
+    assert reply == expected
+    assert reply.startswith('<div class="tara-analysis">')
+    assert "<b>Payoff and path:</b>" in reply
 
 
 def test_screen_context_is_allowlisted_and_lookback_stays_a_string():
