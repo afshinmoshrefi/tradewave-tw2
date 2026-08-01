@@ -18,6 +18,7 @@ const GettingStartedPopup = ({ onClose, iconRect }) => {
     const cardBg = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
     const cardBorder = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
     const accentGreen = '#22c55e'
+    const accentRed = '#ef4444'
     const accentBlue = '#3b82f6'
     const accentAmber = '#f59e0b'
     const accentPurple = '#a78bfa'
@@ -53,7 +54,7 @@ const GettingStartedPopup = ({ onClose, iconRect }) => {
     // Step cards
     const steps = [
         { num: '1', color: accentBlue, text: 'The opportunity table on the left already shows patterns ranked by quality. No setup needed.' },
-        { num: '2', color: accentGreen, text: 'Click any row. In the bar chart, green/up means price rose and red/down means it fell. Long wins are green; short wins are red.' },
+        { num: '2', color: accentGreen, text: 'Click any row. The bar chart shows price direction by year: green/up wins for a long setup; red/down wins for a short setup.' },
         { num: '3', color: accentAmber, text: 'Swipe to the middle slide to see detailed stats: win rate, average profit, Sharpe Ratio.' },
         { num: '4', color: accentPurple, text: 'Swipe to the last slide to see the current price chart with the seasonal window timing.' },
     ]

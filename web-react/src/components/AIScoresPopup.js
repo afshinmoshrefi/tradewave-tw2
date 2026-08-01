@@ -47,7 +47,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
         { col: 'AIS', full: 'AI Score', desc: 'A composite quality score from 0 to 100. Higher means the AI sees stronger conditions supporting this pattern right now. Think of it as an overall confidence rating that combines multiple inputs into one number.', color: '#3b82f6' },
         { col: 'Win%', full: 'AI Win Probability', desc: 'The AI-calibrated probability that this pattern will be profitable. Unlike the historical win rate (which only counts past years), this factors in current market conditions to give a more realistic estimate.', color: '#22c55e' },
         { col: 'PredR', full: 'Predicted Return', desc: 'The AI-estimated average return for this pattern given current conditions. This adjusts the historical average profit by considering what the market environment looks like today.', color: '#a78bfa' },
-        { col: 'PMFE', full: 'Predicted MFE', desc: 'The AI-estimated maximum favorable excursion, the best expected intra-trade peak before the pattern exit date. Useful for setting profit targets or deciding when to take early profits.', color: '#f59e0b' },
+        { col: 'PMFE', full: 'Predicted MFE', desc: 'The model-estimated maximum favorable excursion: the largest direction-adjusted favorable move it estimates could occur before the pattern exit date. It is a model output, not a profit target or an exit instruction.', color: '#f59e0b' },
     ]
 
     const scores = [
@@ -150,19 +150,20 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                     </div>
                     <ul style={{ paddingLeft: '20px', margin: '8px 0 12px' }}>
                         <li style={{ marginBottom: '6px' }}>
-                            <strong>Pair with historical stats.</strong> A pattern with a high Sharpe Ratio
-                            and a high AI Score means both history and current conditions agree. That is the
-                            strongest confirmation.
+                            <strong>Pair with historical stats.</strong> A high Sharpe Ratio and a high AI Score
+                            indicate agreement between two different evidence sets. Check sample size, median,
+                            MFE/MAE, and outlier dependence before interpreting that agreement.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
                             <strong>Compare Win% to historical win rate.</strong> If the historical percent
                             profitable is 90% but AI Win% is 55%, the AI is seeing something in current
-                            conditions that makes this year less favorable. Worth investigating before taking
-                            the trade.
+                            conditions that makes this year's estimate less favorable. That discrepancy is a useful
+                            prompt to inspect the inputs and the historical distribution.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            <strong>Use PMFE for profit targets.</strong> If PMFE is higher than PredR, the
-                            pattern tends to overshoot before settling. Consider taking partial profits early.
+                            <strong>Compare PMFE with PredR.</strong> A higher PMFE suggests the model estimates a
+                            larger favorable intrawindow move than the ending return. It does not show when that move
+                            might occur or prescribe a target, partial sale, or early exit.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
                             <strong>Scores update daily.</strong> The AI re-scores every pattern each trading
@@ -211,7 +212,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                     <div className="ts-footer-note">
                         AI scores are calibrated estimates based on machine learning models and current market
                         data. They are not guarantees. Past performance and AI predictions do not guarantee
-                        future results. Always manage your risk.
+                        future results. They are research inputs, not individualized recommendations.
                     </div>
                 </div>
 

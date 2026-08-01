@@ -1125,13 +1125,14 @@ the two systemd units + nginx + cloudflared ingress) and `ops/assemble_developer
 
 ### 7C. Tara (in-product chatbot) -> gateway CLIENT (data flow; Phase 1 built 2026-06-02)
 
-The wave-viewer assistant "Tara" (`appserver/appserver/chatbot.py`, Haiku 4.5) is now a
-CLIENT of the v1 gateway: it calls the flagship tools (scan / analyze / symbol-patterns /
-daily-pick) via Anthropic tool-use and narrates the gateway's own composed PatternCards, so
-its numbers match the API/MCP/daily-pick (one source of truth, derived-data only, same disclaimer).
+The wave-viewer assistant "Tara" (`appserver/appserver/chatbot.py`) is a CLIENT of the v1
+gateway: it calls the flagship tools (scan / analyze / symbol-patterns / daily-pick) through
+provider function tools and narrates the gateway's own composed PatternCards, so its numbers
+match the API/MCP/daily-pick (one source of truth, derived-data only, same disclaimer).
 NOT a product merge - Tara stays the login-gated UI helper; the public API/MCP is unchanged.
 Data flow: React `Chatbot.js` -> appserver `/chatbot/chat` (JWT-gated) -> `tara_gateway.py`
-tool loop -> gateway `:8088/v1` (loopback) -> appserver engine. Auth/metering (option A):
+provider-specific tool loop -> gateway `:8088/v1` (loopback) -> appserver engine. Auth/metering
+(option A):
 Tara holds an internal **`chatbot` tier** key (`tiers.INTERNAL_TIERS`, `service:True`, kept OUT
 of the sold `API_TIERS`) and passes the web user id as **`X-TW-On-Behalf-Of`**; the gateway
 (`auth.py:_apply_on_behalf`) honors that header ONLY for `service:True` keys and swaps ONLY the
@@ -1198,29 +1199,225 @@ enable question; correct answers, projection guide auto-opened). GAP: the in-app
 guide itself does NOT yet mention the purple line (stale guide; fixing it needs a React rebuild via
 `npm run build`).
 
-**Loaded short-pattern explanations use raw-price bars plus direction-adjusted trade results
-(fix 2026-07-31).** `ChartData4` intentionally supplies the bar chart's raw underlying-price
-return, so visible colors mean price direction: green/up means the price rose and red/down means it
-fell. That is not universal trade P/L: green wins for a Long, while red wins for a Short.
-`Chatbot.js` now names this payload `raw_return_pct` (the appserver temporarily accepts the legacy
-`return_pct` name for rolling-deploy compatibility), and `chatbot.py` explicitly derives each
-direction-adjusted trade return before labeling PROFIT/LOSS. Generic loaded-view questions such as
-"what am I looking at?" use a deterministic overview built from the loaded stats and year rows;
-the post-response guard also replaces contradictory short/color or duration claims. The overview
-and prompt enforce invariant 0A: TradeWave counts inclusive CALENDAR days with entry as day 1, so
-Jul 31 through Aug 6 is exactly 7 days and the end remains `start + (days - 1)`. Aggregate stats
-(`Num Winners`, `Num Losers`, `% Profitable`, averages, Sharpe, cumulative return) are already
-trade-direction-adjusted, and all win-rate claims retain their completed-year sample size.
-`Chatbot.js` also sends the active lower slide (`trend_chart`, `wave_stats`, or `price_chart`),
-while `StockLineChart.js` lifts the actual rendered projection state through App (current vs
-historical mode, eligibility, golden selected-sample line, purple full-history line, horizon,
-sample sizes, and timeframe). Therefore a generic screen-overview question explains both the top
-bar chart and the lower view the user is actually looking at. On the Price Chart it identifies the
-solid/candle history as actual price action, the golden dashed line as the loaded-sample seasonal
-projection, and the purple dashed line as the maximum-consecutive-history comparison; both are
-historical-average guides anchored to the latest close, never price predictions.
+**Verified screen-aware answers and short-bar truth (2026-07-31).** A broad question such as
+"what am I looking at?" can no longer be answered reliably from generic layout prose: Tara must
+know which lower slide is active and which projection lines are actually rendered. `Chatbot.js`
+now sends an allowlisted `screen_context`, built by `chatbotScreenContext.js`, containing only UI
+metadata (active lower slide, current/active/historical price-chart mode, visible gold/purple
+projection flags, their lookbacks, opportunity-row count, and closed-vocabulary direction summaries
+for the selected/full-history normalized curves across the loaded window). It never sends the curves
+or raw price series. `StockLineChart` keys its rendered-state report to symbol, inclusive window,
+lookback and PE cycle; `chatbotScreenContext.js` ignores a stale report after any of those change and
+uses its derived first-render fallback until the matching chart reports back.
+`tara_answer_planner.py` sanitizes that snapshot and creates a verified fact ledger from the loaded
+pattern. High-confidence screen-overview and bar-color questions bypass the LLM entirely: the reply
+always covers the top Gain-Loss chart, the active lower slide (including visible projections on the
+Price Chart), and the left table when visible. Explicit analysis of the already-loaded pattern is
+also deterministic as of 2026-07-31 (details below); other open-ended questions still use Haiku
+4.5 by default, with compact verified facts appended last to its system prompt. On dev, a
+sticky 10% of model-bound users use the GPT-5.6 Luna canary described below.
 
-(Source: `appserver/appserver/{chatbot,tara_gateway,AI_tools_appserver}.py`, `web-react/src/components/Chatbot.js`,
+The direction contract is essential: `ChartData4[].pct[0]` and the bars are the UNDERLYING price
+move, not direction-adjusted trade P&L. Green/up means the security rose; red/down means it fell.
+For a long setup, positive/green years are profitable. For a short setup, negative/red years are
+profitable and the short return is the inverse of the underlying move; positive/green years are
+losing short trades. Tara's client payload therefore names these fields
+`underlying_return_pct`/`upside_excursion_pct`/`downside_excursion_pct`, and both the prompt builder
+and deterministic planner convert them by direction before labeling PROFIT/LOSS, MFE, MAE, win
+rate, or averages. Records exclude the current-year placeholder and always state `n`. The planner
+also excludes a non-zero active partial observation until its inclusive window has finished; while
+that row is present it omits engine Sharpe/TWR and derives cumulative return from completed rows so
+aggregates cannot silently mix cohorts. A genuinely completed current-year observation is included.
+The planner also owns the inclusive display date (`start + (days - 1)`, invariant 0A), so a 6-day Jul 31 window
+ends Aug 5. For an arbitrary window (`rowIndexClicked === -1`), the client derives direction from
+the non-zero per-year underlying returns instead of trusting `ChartData4`'s unreliable arbitrary-
+window direction field. Regression coverage: `tests/test_tara_answer_planner.py` and
+`web-react/src/components/chatbotScreenContext.test.js`. The verified context now states both
+the selected-history and full-history lookback labels explicitly whenever the Price Chart is
+active, so a model cannot describe two visible projections without naming which sample feeds each.
+
+As of 2026-08-01, a loaded-chart request such as "max and min for each year," "highs and lows
+year by year," or "best and worst move each year" is a deterministic per-year excursion request.
+Tara clarifies the plain-language terms as best move (MFE) and worst move (MAE), then reports the
+direction-adjusted intrawindow values and final return for every completed observation, newest
+first, with the sample size and median path values. The alias requires explicit per-year scope so
+unrelated maximum/minimum questions do not get misrouted. It never substitutes the highest and
+lowest end-of-window returns across the sample for MFE/MAE.
+
+The shorter visual commands "show me max and min" and "show me MFE and MAE" mean something
+different: they deterministically emit a validated `set_view` action with `show_mfe:true` and
+`show_mae:true`, and React turns on those overlays for the already-loaded chart. Singular show/hide
+commands can control either overlay independently. The frontend suppresses its concept-guide
+auto-open fallback when one of these actions is present, so the guide cannot cover the chart the
+user just asked to change. Definitions still open the guide; explicit requests to list per-year
+values still use the deterministic value response above.
+
+**Loaded full-history command and chart alignment (2026-08-01).** "Load max years," "use all
+available years," and "show the full history" are resolved from the loaded symbol's verified
+`full_history_years` screen value (for example, ROST = 40), never from `99`. The latter is only the
+tool/API validation ceiling, not a full-history sentinel; using it generated decades of zero rows
+before a younger symbol's listing, diluted aggregate statistics, left React state at a value absent
+from the selector, and made the browser display the first option (5) while Tara claimed 40. Both
+provider loops now override the read to the same loaded symbol/date/duration/direction at the exact
+real lookback and enforce the matching `set_view` action. React independently clamps consecutive-
+history actions to the symbol's known maximum as defense in depth.
+
+A Tara `set_view` action that loads another symbol in the currently selected market preserves the
+opportunity rows. `OppTable` deduplicates identical query URLs, so clearing a same-market list cannot
+cause a replacement fetch and previously stranded the table at `Loading ...`. Only an actual market
+change clears the rows; that change produces a distinct `OppList4` URL and a real refetch.
+
+Ordinal opportunity commands are provider-independent as of 2026-08-01. `TableBox` publishes the
+exact rows visible after active-list selection, text filtering, and user sorting back to `App`, and
+`Chatbot.js` sends that ordered snapshot (not merely the raw OppList4 order). The appserver parses
+direct commands such as "load the top one," "open row 2," and "load the 3rd one on the list" before
+either model runs, selects the 1-based row deterministically, validates its ViewSpec, and returns a
+`load_opportunity` action. React applies that setup as the equivalent of a row click, retains the
+opportunity table's string lookback and PE phase, and highlights the requested visible row. This
+prevents prompt segmentation, conversation resets, model counting, or provider choice from making
+Tara ask which market when the table already supplies the answer.
+
+TradeWave gateway/viewer windows are inclusive CALENDAR days and count the entry date as day 1. At
+the one appserver boundary, the gateway converts public `days_out` to the legacy analytics offset
+`daysOut = days_out - 1`; opportunity and stored-pick offsets are converted back to inclusive labels.
+The shared API scan-core cache uses its `v2` namespace for this normalized contract, preventing a
+warm pre-normalization entry from briefly resurfacing the old offset after deployment.
+Thus a displayed Aug 3-Aug 19 pattern is 17 days but every `ChartData4` and ML calculation receives
+16, exactly like the React viewer. Finally, `BarChart` now emits one MFE and one MAE array slot for
+every year label. An all-zero placeholder uses `null` overlays instead of omitting its entries, so a
+pre-history/current-year row can no longer shift real excursion bars onto decades-old labels.
+
+**Segmented prompt loading + verified loaded-pattern analysis (2026-07-31).** The previous prompt
+path appended the entire roughly 89,000-character `chatbot_knowledge.txt` plus up to 30 opportunity rows,
+every yearly row, and every `ChartData4.stats` field to every model call. Worse, Anthropic caching
+wrapped that whole changing string in one cache block, so changing the loaded symbol or active screen
+invalidated the huge prefix. The replacement has three ordered layers:
+
+1. `chatbot.py`'s stable behavior/tool contract is the first system block, with the cache breakpoint
+   at its end. `AI_tools_appserver.send_claude_messages` now accepts ordered system blocks and applies
+   `cache_ttl` to that explicit breakpoint (`5m` default; `1h` supported). Topic and live-context
+   changes therefore preserve the stable-prefix cache, including across tool-loop rounds. Provider
+   responses log only the input/cache-create/cache-read/output token counts for operational QA.
+2. `tara_prompt_context.py` parses the KB once by `##` heading and selects at most three complete,
+   relevant sections (16,000-character ceiling) for the current question. It includes yearly rows
+   only for specific-year/bar/outlier/MFE/MAE questions and opportunity rows only for table/list/rank/
+   screen questions (maximum 12). The React payload sends a derived-stat allowlist only, and the
+   server repeats that allowlist at the trust boundary; raw price levels, moving averages, volume,
+   and nested filing history do not enter Tara context. The old `last_price`/`last_price_date` fields
+   were removed as well.
+3. Live loaded-pattern identity, selected derived stats, exact rank when available, allowlisted screen
+   state, and the positively stated calendar-day/short-return fact ledger remain the final dynamic
+   block, where they have maximum recency.
+
+Measured with the real tool-enabled prompt and representative loaded/screen questions, model-bound
+system content fell from roughly 117K-121K characters to 31K-34K characters (about 72%-74% smaller;
+character count, not a token estimate). Live dev provider usage then confirmed the cache boundary:
+the first identical knowledge request created 8,854 stable-prefix cache tokens; the next read all
+8,854 with zero cache creation. A later KB-suffix edit still reused those same 8,854 cached tokens.
+An explicit request such as "analyze this pattern," "how strong is this," "what stands out?," or
+"what do you think of this opportunity?" does not call the model when the referenced pattern is
+already loaded. `tara_answer_planner.py` now uses an intent-focused evidence read rather than one
+generic metric dump. As of 2026-08-01, broad analysis is a compact decision brief: exact inclusive
+calendar window; cohort type, year span and `n`; direction-adjusted hit rate, gross mean and median;
+Sharpe explicitly labeled as cross-year ending-return consistency; average winner/loss payoff;
+median MFE, median MAE, worst MAE and worst ending result; one material current/robustness issue;
+one targeted next check; and a gross-cost/non-forecast scope line. MAE is described as the adverse
+move from entry, not peak-to-trough maximum drawdown, and Tara never converts MFE/MAE into a target
+or stop. Missing excursion fields stay missing rather than becoming a false `0%` path claim.
+
+Recent comparisons use the latest five completed observations versus the earlier non-overlapping
+sample, and are phrased descriptively ("weaker in this sample"), never as proof of regime decay.
+The React context also labels a loaded window `scanner` versus `user_defined`; scanner-selected
+analysis discloses that its in-sample statistics are selection-sensitive because the opportunity
+engine searched many candidates. Gross results disclose unmodeled execution costs/taxes and, for
+shorts, borrow costs/dividends owed. Focused follow-ups such as "has it weakened recently?," "what's
+the catch?," "is one year carrying it?," "why is it short?," a specific historical year, and "why
+does it rank here?" return only the requested evidence slice. Break-even rate, cumulative compounding,
+dispersion and streak detail are no longer forced into every broad answer.
+
+The same planner labels PE-cycle samples as cycle observations rather than consecutive years, uses
+the direction-specific live Trend score, explains when TWR materially exceeds Sharpe, flags an
+estimated earnings date inside the current occurrence, and states whether the selected-history and
+full-history normalized seasonal curves support or oppose the loaded direction. React derives only
+those closed-vocabulary curve-direction labels (`supports` / `against` / `flat` / `unknown`); the
+0-100 curves and raw prices never enter Tara's payload. A loaded "should I trade it?" request is also
+handled deterministically: Tara says she can evaluate but not decide the trade, gives the strongest
+historical support and counter-signal, and includes the disclaimer. All analysis is explicitly
+historical, makes no forward claim, and is not a trade recommendation. Questions about a different
+symbol stay on the normal policy/tool path. Investor-grade outperformance remains a declared gap:
+Tara must not claim that a long window beats buy-and-hold until the same-security and market
+benchmarks are passed with verified matching cohort, exposure and return semantics.
+
+As of 2026-08-01, broad loaded-pattern analysis also separates three contexts that must never be
+blended: the aggregate cohort, an individually selected historical Price Chart year, and the dated
+current/next occurrence. Tara labels a historical chart year as one path, names that year's PE
+phase, and states that the aggregate statistics are not statistics for that one year. Occurrence
+timing is derived from the literal inclusive CALENDAR window: upcoming replies give the exact start,
+days until start, and inclusive end; active replies give the calendar day within the window, end,
+and days to end while excluding the partial live row; completed replies state whether the finalized
+entry-year row is present in the completed `n`. Occurrence status never shifts a weekend entry to
+Monday. Reminder delivery may move separately, but the analytical window does not.
+
+PE context is anchored to the occurrence's ENTRY year, including a cross-year window that remains
+active in January. With consecutive years loaded, Tara identifies that occurrence phase and suggests
+the exact same symbol/direction/date/duration in the matching PE cohort. With a PE cohort already
+loaded, she suggests the exact same window in consecutive years for broader context. A non-current
+phase explicitly names both the occurrence phase and the current year's phase; a loaded-cohort versus
+occurrence-phase mismatch is flagged rather than rationalized. Every compact PE label includes its
+plain-English phase (for example, `PE+2 (midterm)`), and a loaded PE sample converts observations to
+its calendar footprint: 10 contiguous PE+2 observations represent a 40-calendar-year cycle lookback,
+not 10 consecutive years. The suggested comparison is an explicit user-invoked link. React dispatches
+that link through the same cycle transition used by the Wave Viewer selector, so switching to the
+matching PE phase or back to consecutive years preserves each view's saved date and lookback. Tara
+never says the alternate cohort is stronger or weaker until it has been loaded. Any comparison must
+preserve the exact inclusive window and state `n` for both cohorts. Regression coverage includes
+current matching PE, non-current PE, mismatched PE, upcoming, active, completed, cross-year active,
+historical-price-chart, PE-span, and cycle-action cases in `tests/test_tara_answer_planner.py` and
+`web-react/src/components/viewerCycleState.test.js`.
+
+The same evidence brief is rendered as semantic HTML rather than one `<br>`-joined paragraph.
+`tara_answer_planner.py` wraps each labeled line in a `tara-analysis-section`; `Chatbot.css` gives
+those sections spacing, a subtle theme-aware surface and border, a separate accent-colored heading,
+tabular numerals, and a quieter scope/disclosure treatment. This keeps the detailed analysis
+scannable inside the narrow desktop chat column without removing the evidence the user requested.
+Other short Tara answers retain their compact normal message rendering.
+
+**GPT-5.6 Luna dev canary (2026-08-01).** Deterministic planner answers still run first and never
+enter a provider experiment. For the remaining model-bound turns, `tara_model_router.py` hashes the
+authenticated user id into a stable 0-99 bucket. `TARA_OPENAI_CANARY_PERCENT` defaults to `10` when
+`TW2_ENV=dev` and `0` on staging/production; `0` is the immediate kill switch. Selection also requires
+`OPENAI_KEY`, so a missing key always stays on Haiku. `openai_tools_appserver.py` uses the stateless
+Responses API (`store:false`) with `gpt-5.6-luna`, low reasoning effort, low text verbosity, a bounded
+2,048-token output ceiling, and an explicit cache breakpoint at the end of the same stable prompt
+prefix used by Anthropic. Four stable cache-key shards share that prefix without concentrating all
+requests on one routing key.
+
+`tara_gateway.run_chat_with_openai_tools` carries Responses function calls and outputs forward
+explicitly but executes them through the same `_execute_tara_tool` path as Haiku. Thus gateway reads,
+OppList4/table interception, result trimming, ViewSpec validation, UI actions, and the final truth
+guards do not vary by model. Any OpenAI/API/adapter failure discards unreturned local UI actions and
+retries the full turn on Haiku; Tara exposes only the usual generic error if both providers fail.
+Question-log rows record `deterministic`, `openai`, `anthropic`, or `anthropic_fallback`, while provider
+usage logs contain token/cache counts but no prompt text. This is an evaluation canary, not a staging
+or production model change.
+
+**Gateway restart/service-login invariant (2026-08-01).** The gateway keeps both
+`SERVICE_API_KEY` and its downstream appserver JWT in process memory. A manual appserver-only restart
+once loaded the current secrets file on the appserver while the long-running gateway retained an
+older key; `/healthz` remained 200, but every Tara read failed at `/login/api` and the model replied
+"temporarily busy." The tracked `tradewave-apiserver.service` now has
+`PartOf=tradewave-appserver.service` plus ordering after it, so an explicit appserver restart also
+restarts the gateway. Its `ExecStartPost` runs a fresh, credential-safe `_get_token()` canary; a key,
+HMAC, database-row, or endpoint mismatch now fails service activation instead of presenting a false
+healthy state. The existing deployment path already restarts APP then API/MCP; this closes the manual
+restart gap.
+
+Regression coverage: `tests/test_tara_prompt_context.py`, `tests/test_ai_tools_prompt_cache.py`, and
+`tests/test_tara_answer_planner.py`, plus `tests/test_tara_openai_canary.py` for routing, request,
+cache-breakpoint, and shared-tool-loop behavior.
+
+(Source: `appserver/appserver/{chatbot,tara_prompt_context,tara_answer_planner,tara_gateway,AI_tools_appserver,openai_tools_appserver,tara_model_router}.py`,
+`web-react/src/components/{Chatbot,chatbotScreenContext,BarChartPopup,GettingStartedPopup}.js`,
 `apiserver/{auth,tiers,provision_chatbot_key}.py`, `config.py`, `docs/TARA_GATEWAY_INTEGRATION.md`; dev .176.)
 
 ---

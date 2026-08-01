@@ -626,7 +626,7 @@ The Opportunity Table is the output of an institutional-grade analytics engine (
 
 `Date | Ticker | Days | DIR | AvgP | A% (or SR) | TWA | TWR`
 
-- **Days** — window length in days.
+- **Days** — window length in CALENDAR days, counting the ENTRY DAY as day 1. The last date is therefore `start + (days - 1)`: Jul 21 with Days=30 ends Aug 19; Jul 1 with Days=31 ends Jul 31. Never call these trading days. The analytics engine receives `daysOut = days - 1`; the +1 is only the inclusive display convention. See ecosystem doc §11 (0A).
 - **DIR** — direction, **Long or Short** (the table surfaces both; you take the side the seasonal direction dictates).
 - **AvgP** — average profit/return across the sample (simplest signal, but skewable by outliers).
 - **SR (Sharpe Ratio)** — rewards cleaner, more stable patterns; largely focused on the final result.

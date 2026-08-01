@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UNIT = ROOT / "ops" / "systemd" / "tradewave-appserver.service"
+API_UNIT = ROOT / "ops" / "systemd" / "tradewave-apiserver.service"
 
 
 def test_pooled_http_preserves_requests_methods(monkeypatch):
@@ -60,6 +61,15 @@ def test_gunicorn_access_formats_drop_query_strings():
         assert "%(U)s" in line
         assert "%(q)s" not in line
         assert "%(f)s" not in line
+
+
+def test_gateway_restart_tracks_appserver_and_proves_service_login():
+    unit = API_UNIT.read_text(encoding="utf-8")
+
+    assert "After=network.target redis-server.service tradewave-appserver.service" in unit
+    assert "PartOf=tradewave-appserver.service" in unit
+    assert "ExecStartPost=/home/flask/venv-api/bin/python -c" in unit
+    assert "from apiserver.appserver_client import _get_token; assert _get_token()" in unit
 
 
 def test_stage_web_bootstrap_keeps_credentials_out_of_access_logs():

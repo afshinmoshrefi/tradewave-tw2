@@ -158,7 +158,8 @@ def test_tara_uses_inclusive_dates_and_strips_unknown_html_tags():
     client = CHATBOT_JS.read_text(encoding="utf-8")
     assert "timedelta(days=max(num_days - 1, 0))" in server
     assert "inclusive end date" in server
-    assert "s.replace(/<(?!\\/?(?:b|br|i|a|span)\\b)[^>]*>/gi, '');" in client
+    assert "s.replace(/<(?!\\/?(?:b|br|i|a|span|div)\\b)[^>]*>/gi, '');" in client
+    assert "s.replace(/\\sstyle\\s*=" in client
 
 
 def test_retired_symbols_are_filtered_after_cache_loading():

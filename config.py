@@ -235,6 +235,20 @@ elif 'tw2-stage' in _tw2_public_host:
 else:
     tw2_env = 'dev'  # tw2-dev + local/ad-hoc default
 
+# Tara's model-bound turns use a sticky GPT-5.6 Luna canary on dev.  Staging and
+# production default to Haiku-only unless an operator deliberately sets an
+# environment-specific percentage.  Invalid values fail closed to 0 rather than
+# unexpectedly widening the canary.
+_tara_openai_canary_default = '10' if _tw2_env_explicit == 'dev' else '0'
+try:
+    TARA_OPENAI_CANARY_PERCENT = int(
+        os.environ.get('TARA_OPENAI_CANARY_PERCENT', _tara_openai_canary_default)
+    )
+except (TypeError, ValueError):
+    TARA_OPENAI_CANARY_PERCENT = 0
+if not 0 <= TARA_OPENAI_CANARY_PERCENT <= 100:
+    TARA_OPENAI_CANARY_PERCENT = 0
+
 active_days = 5 # number of look back days to find active opportunities for the active list
 
 alias_symbols = {'GSPC':'SPX','SPX':'GSPC'} # this is the change GSPC to SPX 10/20/2022

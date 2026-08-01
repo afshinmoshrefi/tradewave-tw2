@@ -601,7 +601,14 @@ const StockLineChart = (props) => {
     useEffect(() => {
         if (typeof props.SetPriceChartContext !== 'function') return
         props.SetPriceChartContext({
-            mode: showCurrentLineChart ? 'current' : 'historical',
+            symbol: props.symbol,
+            start_date: props.startDate,
+            days_out: String(props.daysOut),
+            years: String(props.seasonalYears),
+            pe_cycle: props.PEselected || 'cons',
+            mode: showCurrentLineChart
+                ? 'current'
+                : (projectionCapable && props.tradeActive ? 'active_trade' : 'historical'),
             year: props.lineChartYear,
             projection_capable: projectionCapable,
             selected_projection_visible: Boolean(
@@ -621,6 +628,12 @@ const StockLineChart = (props) => {
         showCurrentLineChart,
         projectionCapable,
         props.lineChartYear,
+        props.symbol,
+        props.startDate,
+        props.daysOut,
+        props.seasonalYears,
+        props.PEselected,
+        props.tradeActive,
         props.showProjection,
         props.showMaxProjection,
         props.consolidatedSeasonalData,

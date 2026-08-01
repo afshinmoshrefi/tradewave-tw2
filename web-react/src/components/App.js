@@ -173,6 +173,10 @@ const App = () => {
 
   // 8/22/2021 moved it from oppTable 
   const [opportunities, SetOpportunities] = useState([])// opportinities table data
+  // Exact filtered/sorted rows currently visible in TableBox. Tara uses this
+  // snapshot for ordinal requests such as "load the third one" so its row
+  // numbering always matches the user's screen.
+  const [visibleOpportunities, SetVisibleOpportunities] = useState(null)
   const [activeOpportunities, SetActiveOpportunities] = useState([])// 5/2/2024
   const [showActiveOpps, SetShowActiveOpps] = useState(false); // 5/2/2024
 
@@ -364,6 +368,11 @@ const App = () => {
   // at?" describe the visible lower chart and projection lines without
   // guessing from settings that may currently be ineligible/hidden.
   const [priceChartContext, SetPriceChartContext] = useState({
+    symbol: '',
+    start_date: '',
+    days_out: '',
+    years: '',
+    pe_cycle: 'cons',
     mode: 'current',
     projection_capable: false,
     selected_projection_visible: false,
@@ -1269,6 +1278,7 @@ const App = () => {
     selectedSecurity,
     selectedSecurityDisplay,
     opportunities,
+    visibleOpportunities,
     oppTableMonth,
     oppTableYears,
     oppTablePartialYears,
@@ -1412,6 +1422,7 @@ const App = () => {
     SetSelectedSecurity,
 
     SetOpportunities,
+    SetVisibleOpportunities,
     SetOppTableMonth,
     SetOppTableYears,
     SetOppTablePartialYears,
