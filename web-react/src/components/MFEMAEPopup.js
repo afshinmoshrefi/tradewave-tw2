@@ -156,9 +156,9 @@ const MFEMAEPopup = ({ onClose, iconRect }) => {
                     <div className="ts-section-title">Why This Matters</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
                         {[
-                            { title: 'Better Exit Timing', color: accentGreen, text: 'If MFE is consistently much higher than the final return, the trade often peaks early then gives back gains. You could exit earlier to capture more profit.' },
-                            { title: 'Risk Management', color: accentAmber, text: 'MAE shows the worst drawdown you should expect. If a pattern has MAE of -8% across most years, set your stop-loss below that level.' },
-                            { title: 'Pattern Quality', color: accentPurple, text: 'A pattern with high MFE and low MAE moves strongly in your favor with little pullback. That is an ideal trade profile.' },
+                            { title: 'Exit Evidence', color: accentGreen, text: 'If MFE is consistently much higher than the final return, the fixed window exit historically gave back part of the best move. MFE alone does not show when the peak occurred or prescribe an earlier exit.' },
+                            { title: 'Adverse-Move Context', color: accentAmber, text: 'MAE is the worst move against the setup from entry, not peak-to-trough maximum drawdown or a loss you should expect. It provides historical heat context; it does not prescribe a stop-loss.' },
+                            { title: 'Path Quality', color: accentPurple, text: 'Higher MFE with more contained MAE describes a more favorable historical path profile. It remains sample evidence, not a guarantee of a similar future path.' },
                         ].map((item, i) => (
                             <div key={i} style={{ ...cardStyle, marginBottom: 0, display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px' }}>
                                 <div style={{ width: '4px', alignSelf: 'stretch', borderRadius: '2px', backgroundColor: item.color, flexShrink: 0 }} />

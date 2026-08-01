@@ -26,7 +26,7 @@ import { brand, trend_chart_left_gap_days, minYears, sameResourceFamily } from '
 import { maxYearsCap } from './Common'
 import { checkTokenExpired } from './Common'
 import { markCaptureReady, clearCaptureReady } from './captureReady'
-import { transitionViewerCycleState } from './viewerCycleState'
+import { VIEWER_CYCLE_CHANGE_EVENT, isViewerCycle, transitionViewerCycleState } from './viewerCycleState'
 
 // import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 // import { faFileExcel, faHome } from "@fortawesome/free-solid-svg-icons";
@@ -783,7 +783,9 @@ const SeasonalBarChart = (props) => {
         const placeholder = [{ id: 0, value: '', label: 'Best Waves' }] // no decorative dashes - the select sizes to the selected option and this row is width-critical
         const options = t.OppBySymbol.map((row, i) => {
           const date = row[0]
-          const daysOut = row[2]
+          // OppBySymbol stores the analytics-engine offset. Viewer state and
+          // labels use inclusive calendar days, with the entry date as day 1.
+          const daysOut = parseInt(row[2], 10) + 1
           const lOrS = row[3]
           const sharpe = row[4]
           const avgProfit = row[5]
@@ -1104,6 +1106,71 @@ const SeasonalBarChart = (props) => {
   }
   //-----------------------------------------------------------------------------------------------------------
 
+  // Keep Tara's PE comparison links on exactly the same state transition as
+  // the Wave Viewer selector. The ref gives the native event listener current
+  // props without recreating it on every render.
+  const viewerCyclePropsRef = useRef(props)
+  viewerCyclePropsRef.current = props
+  const changeViewerCycle = useCallback((nextCycle) => {
+    if (!isViewerCycle(nextCycle)) return
+    const currentProps = viewerCyclePropsRef.current
+    const currentCycle = currentProps.PEselected || 'cons'
+    if (nextCycle === currentCycle) return
+
+    const bumpStartDateYearToPE = (startDate, peValue) => {
+      const target = { pe0: 0, pe1: 1, pe2: 2, pe3: 3 }[peValue]
+      if (target === undefined) return startDate
+      const baseYear = parseInt(getTodayDate().substring(0, 4), 10)
+      const [, mm, dd] = startDate.split('-')
+      const delta = (target - (baseYear % 4) + 4) % 4
+      return `${baseYear + delta}-${mm}-${dd}`
+    }
+
+    const currentView = {
+      startDate: currentProps.startDate,
+      trendChartStartDate: currentProps.trendChartStartDate,
+      seasonalYears: String(currentProps.seasonalYears),
+    }
+    const nextStartDate = nextCycle === 'cons'
+      ? currentProps.startDate
+      : bumpStartDateYearToPE(currentProps.startDate, nextCycle)
+    const defaultNextView = {
+      startDate: nextStartDate,
+      trendChartStartDate: incrementDate(nextStartDate, -trend_chart_left_gap_days),
+      seasonalYears: String(currentProps.seasonalYears),
+    }
+    const transition = transitionViewerCycleState({
+      savedStates: cycleViewStatesRef.current,
+      currentCycle,
+      nextCycle,
+      currentView,
+      defaultNextView,
+    })
+    cycleViewStatesRef.current = transition.savedStates
+
+    currentProps.SetPEselected(nextCycle)
+    currentProps.SetStartDate(transition.nextView.startDate)
+    currentProps.SetTrendChartStartDate(transition.nextView.trendChartStartDate)
+    currentProps.SetSeasonalYears(transition.nextView.seasonalYears)
+    currentProps.SetLineChartYear(0)
+    currentProps.SetSeasonalBarChartData([])
+    currentProps.SetTradeDetailData([])
+    currentProps.SetConsolidatedSeasonalData([])
+    currentProps.SetMaxYearsConsolidatedSeasonalData([])
+    currentProps.SetCompareSecurityBarChartData([])
+    currentProps.SetCompareSecurityTradeDetailData([])
+    currentProps.SetSecurityBHstats([])
+    setSelectedOppBySymbol('')
+  }, [])
+
+  useEffect(() => {
+    const handleCycleLink = event => changeViewerCycle(event?.detail?.cycle)
+    window.addEventListener(VIEWER_CYCLE_CHANGE_EVENT, handleCycleLink)
+    return () => window.removeEventListener(VIEWER_CYCLE_CHANGE_EVENT, handleCycleLink)
+  }, [changeViewerCycle])
+
+  //-----------------------------------------------------------------------------------------------------------
+
   const selectboxChanged = (event) => {
 
     console.log('select changed', event.target.id)
@@ -1116,19 +1183,6 @@ const SeasonalBarChart = (props) => {
     }
 
     // 
-
-    const bumpStartDateYearToPE = (startDate, peValue) => {
-      const target = { pe0: 0, pe1: 1, pe2: 2, pe3: 3 }[peValue];
-      if (target === undefined) return startDate;
-
-      const baseYear = parseInt(getTodayDate().substring(0, 4), 10); // anchor to now
-      const [, mm, dd] = startDate.split('-');
-
-      const delta = (target - (baseYear % 4) + 4) % 4;
-      const newY = baseYear + delta;
-
-      return `${newY}-${mm}-${dd}`;
-    };
 
     if (event.target.id === 'years') {
       const newYears = event.target.value.toLowerCase();
@@ -1165,45 +1219,7 @@ const SeasonalBarChart = (props) => {
     }
 
     if (event.target.id === 'PEselection') {
-      const nextCycle = event.target.value
-      const currentCycle = props.PEselected || 'cons'
-      if (nextCycle === currentCycle) return
-
-      const currentView = {
-        startDate: props.startDate,
-        trendChartStartDate: props.trendChartStartDate,
-        seasonalYears: String(props.seasonalYears),
-      }
-      const nextStartDate = nextCycle === 'cons'
-        ? props.startDate
-        : bumpStartDateYearToPE(props.startDate, nextCycle)
-      const defaultNextView = {
-        startDate: nextStartDate,
-        trendChartStartDate: incrementDate(nextStartDate, -trend_chart_left_gap_days),
-        seasonalYears: String(props.seasonalYears),
-      }
-      const transition = transitionViewerCycleState({
-        savedStates: cycleViewStatesRef.current,
-        currentCycle,
-        nextCycle,
-        currentView,
-        defaultNextView,
-      })
-      cycleViewStatesRef.current = transition.savedStates
-
-      props.SetPEselected(nextCycle)
-      props.SetStartDate(transition.nextView.startDate)
-      props.SetTrendChartStartDate(transition.nextView.trendChartStartDate)
-      props.SetSeasonalYears(transition.nextView.seasonalYears)
-      props.SetLineChartYear(0)
-      props.SetSeasonalBarChartData([])
-      props.SetTradeDetailData([])
-      props.SetConsolidatedSeasonalData([])
-      props.SetMaxYearsConsolidatedSeasonalData([])
-      props.SetCompareSecurityBarChartData([])
-      props.SetCompareSecurityTradeDetailData([])
-      props.SetSecurityBHstats([])
-      setSelectedOppBySymbol('')
+      changeViewerCycle(event.target.value)
     }
 
     if (event.target.id === 'monthsAndQtrs') {

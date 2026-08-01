@@ -1,4 +1,15 @@
-const { transitionViewerCycleState } = require('./viewerCycleState')
+const {
+  VIEWER_CYCLE_CHANGE_EVENT,
+  isViewerCycle,
+  transitionViewerCycleState,
+} = require('./viewerCycleState')
+
+test('accepts only supported Wave Viewer cycle actions', () => {
+  expect(VIEWER_CYCLE_CHANGE_EVENT).toBe('tradewave:viewer-cycle-change')
+  expect(['cons', 'pe0', 'pe1', 'pe2', 'pe3'].every(isViewerCycle)).toBe(true)
+  expect(isViewerCycle('pe4')).toBe(false)
+  expect(isViewerCycle(undefined)).toBe(false)
+})
 
 test('restores the exact consecutive view after inspecting a PE cycle', () => {
   const consecutive = {

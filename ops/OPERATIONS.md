@@ -122,6 +122,7 @@ Restart matrix (which service to bounce after the pull):
 | `migrations/` | run `ops/migrate.sh` before restarting `tradewave-web` (routine `deploy.sh` does this) |
 | `web/mailerlite_lifecycle.py` or its cron | run `ops/install_mailerlite_lifecycle_cron.sh`; the next minute uses the new worker |
 | `appserver/` | `tradewave-appserver` (app box) |
+| Tara gateway credentials or `tradewave-appserver` restart | `tradewave-apiserver` follows automatically via `PartOf`; its startup login canary must pass |
 | `web/report_renderer.py` | `tradewave-web` **and** `tradewave-appserver` (appserver invokes it via `dr_report_publish`) |
 | `smn/` used by the pipeline services | `tradewave-blog-queue` + `tradewave-article-processor` (web box) |
 | `smn/` cron-only scripts (generate_security_pages, rebuild_news_home, daily_article_queue, update_news_quotes …) | none — next cron run uses new code |
@@ -398,6 +399,12 @@ service restart needed (nginx serves it off disk).
 | `secrets.env` host/key change | restart the affected unit(s) above, then re-run script 2 |
 
 gunicorn does NOT auto-reload - always restart after a Python edit.
+
+The tracked `tradewave-apiserver` unit is ordered after and `PartOf=tradewave-appserver`.
+An appserver restart therefore refreshes the gateway's cached service JWT as one lifecycle,
+and the gateway's `ExecStartPost` performs a real service login. A mismatched service key,
+JWT secret, database role, or appserver endpoint fails activation instead of leaving Tara on
+a superficially healthy gateway that returns internal errors.
 
 **4. Health checks (on the app box):**
 ```

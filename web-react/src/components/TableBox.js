@@ -36,6 +36,7 @@ const TableBox = ({
   oppListExpanded,
   tooltipSW,
   SetOppTableLength,
+  SetVisibleOpportunities,
   showSR2,
   showAciveOpps,
   upgradeMessage,
@@ -212,7 +213,10 @@ const TableBox = ({
     SetNumLongs(longCount)
     SetNumShorts(shortCount)
     SetOppTableLength(tableDataProcessed.length)
-  }, [tableDataProcessed, SetNumLongs, SetNumShorts, SetOppTableLength])
+    if (typeof SetVisibleOpportunities === 'function') {
+      SetVisibleOpportunities(tableDataProcessed)
+    }
+  }, [tableDataProcessed, SetNumLongs, SetNumShorts, SetOppTableLength, SetVisibleOpportunities])
 
   // Reset row selection only when data/sort/filter changes - NOT when ML scores trickle in.
   useEffect(() => {

@@ -2,6 +2,7 @@ import React, { useContext, useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { UserContext } from './UserContext';
 import { UIcolors, themeColors } from './Common';
+import { buildBarChartSeries } from './barChartSeries';
 
 const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChartLongOrShort, UITheme }) => {
     const { rdd, loggedinUser } = useContext(UserContext);
@@ -17,29 +18,9 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
         dataMin,
         labels,
     } = useMemo(() => {
-        const nextMain = [];
-        const nextColors = [];
-        const nextMax = [];
-        const nextMin = [];
-        const nextLabels = [];
-
-        seasonalBarChartData.forEach((row) => {
-            const plist = row['pct'].split(',').map(value => parseFloat(value));
-            const close = plist[0];
-            const high = plist[1];
-            const low = plist[2];
-
-            nextLabels.push(row['year']);
-            nextMain.push(close);
-            nextColors.push(close >= 0 ? tc.barGreen : tc.barRed);
-
-            if (close >= 0 && high > 0) nextMax.push(parseFloat(high - close).toFixed(2));
-            else if (close < 0 && high >= 0) nextMax.push(parseFloat(high).toFixed(2));
-            else nextMax.push(0);
-
-            if (close <= 0 && low < 0) nextMin.push(parseFloat(low - close).toFixed(2));
-            else if (close > 0 && low <= 0) nextMin.push(parseFloat(low).toFixed(2));
-            else nextMin.push(0);
+        const series = buildBarChartSeries(seasonalBarChartData, {
+            green: tc.barGreen,
+            red: tc.barRed,
         });
 
         const includeMax =
@@ -50,11 +31,11 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
             (barChartLongOrShort === 'short' && showMFE);
 
         return {
-            dataMain: nextMain,
-            dataMainColors: nextColors,
-            dataMax: includeMax ? nextMax : [],
-            dataMin: includeMin ? nextMin : [],
-            labels: nextLabels,
+            dataMain: series.main,
+            dataMainColors: series.mainColors,
+            dataMax: includeMax ? series.upperRemainders : [],
+            dataMin: includeMin ? series.lowerRemainders : [],
+            labels: series.labels,
         };
     }, [
         seasonalBarChartData,

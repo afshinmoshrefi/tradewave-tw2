@@ -4,10 +4,16 @@ Status: PHASE 1 (read-client) + PHASE 2 (UI-actuation) BOTH BUILT + verified on 
 Owner decision on the auth/metering principal (section 7): RESOLVED = option A (internal chatbot
 service key + per-web-user 'cb:'-namespaced quota).
 
-Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. The tool loop
-(`tara_gateway.py run_chat_with_tools`) now returns (text, actions); an update_view call is
+Provider note (2026-08-01): model-bound dev turns now have a sticky 10% GPT-5.6 Luna canary;
+staging/production default to 0%. `run_chat_with_tools` (Anthropic) and
+`run_chat_with_openai_tools` (OpenAI Responses) both execute calls through the same validated
+`_execute_tara_tool` path. Luna uses low reasoning/verbosity, explicit stable-prefix caching, and
+automatic Haiku fallback. Deterministic planner answers run before provider selection.
+
+Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. Both tool loops
+in `tara_gateway.py` return (text, actions); an update_view call is
 validated server-side (`_validate_view_spec`: allowlist + range-check symbol/market/entry_date/
-days_out/years/pe_cycle, dropping invalid fields) and queued as `{type:'set_view', spec}` -
+days_out/years/pe_cycle/show_mfe/show_mae, dropping invalid fields) and queued as `{type:'set_view', spec}` -
 it never hits the gateway. `chat()` returns `{reply, actions}` (additive; old bundles ignore it).
 `Chatbot.js applyViewSpec` re-validates each field then calls the React setters (mirrors
 `loadOppWV`; a fresh load only on a symbol CHANGE), and `SetPEselected` was added to
@@ -49,11 +55,10 @@ assert forbids any sold tier carrying `service:True`.
 ## 1. What and why
 
 "Tara" is the in-product chatbot already shipped in the desktop wave-viewer
-(`web-react/src/components/Chatbot.js` <-> `appserver/appserver/chatbot.py`, Claude
-Haiku 4.5, prompt-cached, JWT-gated). Today it can only **reason over the screen it
-was handed** (the loaded pattern + top-30 opp rows passed as context) and **open one
-of 17 help popups**. It does NOT call the v1 API/MCP gateway and cannot fetch anything
-the user has not already loaded.
+(`web-react/src/components/Chatbot.js` <-> `appserver/appserver/chatbot.py`, JWT-gated).
+The shipped implementation uses a deterministic verified-answer planner first, then a
+provider-routed model/tool loop for questions that need it. Historical proposal language below
+describes the gateway capabilities that were subsequently built.
 
 This spec makes Tara a **client of the same gateway** the public API + MCP server use
 (`apiserver/`), in two phases:
@@ -92,6 +97,8 @@ ViewSpec = {
   days_out?:   integer,  // 1..366
   years?:      integer,  // 1..99 (lookback)
   pe_cycle?:   'consecutive'|'pe'|'pe0'|'pe1'|'pe2'|'pe3',
+  show_mfe?:   boolean,  // best-move overlay on the year-by-year chart
+  show_mae?:   boolean,  // worst-move overlay on the year-by-year chart
   period?:     'jan'..'dec'|'q1'..'q4'|'spring'|'summer'|'fall'|'winter'|'ytd'|'year_end'|'buy_hold',
   reverse?:    boolean,
   direction?:  'long'|'short',
@@ -119,6 +126,8 @@ Phase 2 generalizes that existing write-channel.
 | `filter` | `SetAppliedFilter(str)` | `filter` | direct |
 | `market` | `SetSelectedSecurity(name)` | `market` | name resolved to id via `getSelectedIDFromSecuritiesList2` |
 | `direction` | `SetBarChartLongOrShort('long'\|'short')` | `direction` | usually inferred from ChartData4; settable but normally let the setup decide |
+| `show_mfe` | `setShowMFE(bool)` | local view only | shows/hides the direction-aware MFE overlay; persisted in the existing `MFE` cookie |
+| `show_mae` | `setShowMAE(bool)` | local view only | shows/hides the direction-aware MAE overlay; persisted in the existing `MAE` cookie |
 
 A single `applyViewSpec(spec)` helper in `Chatbot.js` walks these keys and calls the
 matching `props.Set*` from `chartSetProps`. No new state is introduced - it drives the

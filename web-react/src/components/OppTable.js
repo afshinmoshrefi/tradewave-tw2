@@ -892,6 +892,15 @@ const OppTable = (props) => {
   // Keyboard row selection is intentionally disabled. Keep the callback stable
   // so unrelated chart state does not invalidate the memoized opportunity table.
   const handlerKeyDown = useCallback(() => {}, [])
+
+  // An empty source list means the table is between markets/queries; invalidate
+  // Tara's processed-row snapshot so an ordinal command cannot target stale rows.
+  useEffect(() => {
+    if (props.opportunities.length === 0 && typeof props.SetVisibleOpportunities === 'function') {
+      props.SetVisibleOpportunities(null)
+    }
+  }, [props.opportunities.length, props.SetVisibleOpportunities])
+
   //-------------------------------------------------------------------------------------------------------
   // when an opportunity row is clicked in TableBox, this runs
   //-------------------------------------------------------------------------------------------------------
@@ -900,7 +909,12 @@ const OppTable = (props) => {
   const handlerRowClicked = useCallback((rowIndex, row) => () => { // this is to handleRowClicked in TableBox
     const current = rowClickStateRef.current
     const currentProps = current.props
-    if (currentProps.rowIndexClicked !== rowIndex) {
+    const sameOpportunity =
+      currentProps.rowIndexClicked === rowIndex &&
+      currentProps.symbol === row.symbol &&
+      currentProps.startDate === row.date &&
+      parseInt(currentProps.daysOut, 10) === parseInt(row.daysOut, 10)
+    if (!sameOpportunity) {
       const opp_start_date = row.date;
 
       // Invalidate every payload that belongs to the previously selected
@@ -1644,6 +1658,7 @@ const OppTable = (props) => {
                 filterText={curText}
                 tooltipSW={props.tooltipSW}
                 SetOppTableLength={props.SetOppTableLength}
+                SetVisibleOpportunities={props.SetVisibleOpportunities}
                 showSR2={props.showSR2}
                 showAciveOpps={props.showActiveOpps}
                 upgradeMessage={props.upgradeMessage}

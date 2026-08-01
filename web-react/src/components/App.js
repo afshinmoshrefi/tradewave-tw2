@@ -173,6 +173,10 @@ const App = () => {
 
   // 8/22/2021 moved it from oppTable 
   const [opportunities, SetOpportunities] = useState([])// opportinities table data
+  // Exact filtered/sorted rows currently visible in TableBox. Tara uses this
+  // snapshot for ordinal requests such as "load the third one" so its row
+  // numbering always matches the user's screen.
+  const [visibleOpportunities, SetVisibleOpportunities] = useState(null)
   const [activeOpportunities, SetActiveOpportunities] = useState([])// 5/2/2024
   const [showActiveOpps, SetShowActiveOpps] = useState(false); // 5/2/2024
 
@@ -358,6 +362,21 @@ const App = () => {
   const [projectionPeriod, SetProjectionPeriod] = useState(() => {
     const saved = lsGet('projectionPeriod');
     return saved || '90';
+  });
+  // Snapshot of what the Price Chart is actually rendering. Tara is a sibling
+  // of StockLineChart, so this small lifted contract lets "what am I looking
+  // at?" describe the visible lower chart and projection lines without
+  // guessing from settings that may currently be ineligible/hidden.
+  const [priceChartContext, SetPriceChartContext] = useState({
+    symbol: '',
+    start_date: '',
+    days_out: '',
+    years: '',
+    pe_cycle: 'cons',
+    mode: 'current',
+    projection_capable: false,
+    selected_projection_visible: false,
+    full_history_projection_visible: false,
   });
   const handleSetProjectionPeriod = (val) => {
     SetProjectionPeriod(val);
@@ -1259,6 +1278,7 @@ const App = () => {
     selectedSecurity,
     selectedSecurityDisplay,
     opportunities,
+    visibleOpportunities,
     oppTableMonth,
     oppTableYears,
     oppTablePartialYears,
@@ -1377,6 +1397,7 @@ const App = () => {
     bbConfig,
     showProjection,
     projectionPeriod,
+    priceChartContext,
     priceChartTimeframe,
     showEarnings,
     chartRange,
@@ -1401,6 +1422,7 @@ const App = () => {
     SetSelectedSecurity,
 
     SetOpportunities,
+    SetVisibleOpportunities,
     SetOppTableMonth,
     SetOppTableYears,
     SetOppTablePartialYears,
@@ -1435,6 +1457,7 @@ const App = () => {
     SetShowPEOpps,
     SetPEOppsChecked,
     SetPEselected,   // wave-viewer per-security PE selector (chat update_view actuation)
+    SetPriceChartContext,
 
     SetResourceObj,  //4/12/2022 - this is all resources object obtained by calling getResourcesObj API
     SetUserFreeResources,

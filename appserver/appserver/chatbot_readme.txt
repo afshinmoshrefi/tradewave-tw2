@@ -1,24 +1,32 @@
 ================================================================================
  TRADEWAVE CHATBOT - README
 ================================================================================
-Last updated: Feb 2026
+Last updated: August 1, 2026
 
 --------------------------------------------------------------------------------
  OVERVIEW
 --------------------------------------------------------------------------------
 The TradeWave chatbot is a context-aware AI assistant embedded in the desktop
 UI. It knows about the currently loaded wave pattern, the opportunity table,
-and the TradeWave interface. It uses Anthropic Claude via the Anthropic API.
+and the TradeWave interface. Verified questions are answered by a deterministic
+planner. Other turns use Haiku 4.5 by default, with a sticky GPT-5.6 Luna canary
+on dev only.
 
 Files involved:
   appserver:  chatbot.py - Flask blueprint, route, prompt builder
+              tara_prompt_context.py - KB/topic and row-context segmentation
+              tara_answer_planner.py - verified screen/bar/pattern-analysis answers
+              AI_tools_appserver.py - Anthropic system-block cache handling
+              openai_tools_appserver.py - OpenAI Responses API + cache translation
+              tara_model_router.py - sticky provider canary bucketing
+              tara_gateway.py - shared gateway tools + provider-specific loops
               chatbot_knowledge.txt - editable knowledge base (no code change needed)
               chatbot_readme.txt - this file
   UI:         src/components/Chatbot.js - React chatbot component
               src/components/DesktopLayout.js - mounts chatbot, resizable panel
 
 --------------------------------------------------------------------------------
- CONFIGURATION (top of chatbot.py)
+ MODEL CONFIGURATION
 --------------------------------------------------------------------------------
   CHATBOT_MODEL - which Claude model to use:
     CLAUDE_HAIKU_45   = claude-haiku-4-5-20251001   cheap + fast   ~$1/MTok in
@@ -30,13 +38,28 @@ Files involved:
     '5m' - $1.25/MTok to write. Cache resets on every hit. Good for active chat.
             This is the currently working option.
     '1h' - $2.00/MTok to write. Cache survives 1hr of inactivity. Better for
-            sporadic use. NOT YET ENABLED - the correct beta header string needs
-            to be verified at docs.claude.com before implementing.
+            sporadic use. Supported by AI_tools_appserver.py, but not the default.
 
-After changing either variable: sudo systemctl restart appserver
+  OPENAI_CHATBOT_MODEL = gpt-5.6-luna. The Responses request fixes:
+    reasoning.effort=low, text.verbosity=low, store=false, max output=2,048.
+
+  TARA_OPENAI_CANARY_PERCENT (environment):
+    Default on dev: 10. Default on staging/prod: 0.
+    Selection is sticky by authenticated user, and only applies after the
+    deterministic answer planner declines the question. Set 0 for an immediate
+    Haiku-only kill switch. A missing OPENAI_KEY also forces Haiku.
+
+After changing a model, cache, or canary setting:
+  sudo systemctl restart tradewave-appserver
+
+The tracked API-gateway unit is PartOf the appserver unit, so this restart also
+reloads the gateway's in-memory SERVICE_API_KEY and cached service JWT. Its
+ExecStartPost login canary fails activation if gateway -> appserver authentication
+is broken. Do not treat the gateway's shallow /healthz response alone as proof that
+live Tara reads work.
 
 --------------------------------------------------------------------------------
- COST BREAKDOWN (Claude Haiku 4.5 pricing)
+ COST BREAKDOWN (re-check provider pages before budgeting)
 --------------------------------------------------------------------------------
   Base input tokens:      $1.00 / MTok
   5m cache write:         $1.25 / MTok  (first message of a session)
@@ -44,38 +67,70 @@ After changing either variable: sudo systemctl restart appserver
   Cache hits:             $0.10 / MTok  (every subsequent message - 10x cheaper)
   Output tokens:          $5.00 / MTok  (the bot's reply - keep answers short!)
 
-  Example per message (knowledge base ~1,500 tokens, currently):
-    First message (cache write):  ~0.2 cents
-    Each subsequent message:      ~0.015 cents + output cost
+  GPT-5.6 Luna canary (August 1, 2026 published pricing):
+  Base input tokens:      $0.20 / MTok
+  Explicit cache write:   $0.25 / MTok  (1.25x base input)
+  Cache hits:             $0.02 / MTok
+  Output tokens:          $1.20 / MTok
 
-  If knowledge base grows to 27,000 tokens (20,000 words):
-    First message (1h write):     ~5.4 cents
-    Each subsequent message:      ~0.27 cents + output cost
+  Prompt-size regression measurement (July 31, 2026; characters, not tokens):
+    Old representative prompt:                 117K-121K chars
+    Segmented representative prompt:            31K-34K chars
+    Reduction:                                  approximately 72%-74%
 
-  Key insight: output tokens cost 5x more than input. The bullet-point
-  response style instruction in the system prompt saves significant money.
+  Luna is materially cheaper per token, but the canary decision is quality-first.
+  Do not widen it based on price alone; review real Tara replies, fallback rate,
+  latency, tool accuracy, and cache usage first.
 
 --------------------------------------------------------------------------------
  HOW THE SYSTEM PROMPT WORKS
 --------------------------------------------------------------------------------
 Every message to the LLM includes:
-  1. Static system prompt (CACHED):
+  1. Stable system prefix (CACHED at its own breakpoint):
      - Bot persona + response style rules
      - TradeWave UI layout description
-     - Full content of chatbot_knowledge.txt
-  2. Dynamic context (NOT cached, changes per message):
-     - Currently loaded pattern: symbol, dates, direction, stats
-     - Opportunity table: top 50 rows (date, symbol, days, direction, SR, AP)
-  3. Conversation history: last 20 turns (user + assistant)
-  4. Current user message
+     - Live-tool behavior contract
+  2. Topic-selected product knowledge (NOT cached; changes by question):
+     - chatbot_knowledge.txt is parsed by its ## headings at startup
+     - At most 3 relevant complete sections / 16,000 characters are selected
+     - The full knowledge base is never appended to every request
+  3. Dynamic context (NOT cached, changes per message):
+     - Loaded pattern identity + allowlisted derived statistics
+     - Selected/full-history normalized curves reduced client-side to direction-only
+       labels over the loaded window (supports/against/flat/unknown); curves stay local
+     - Year-by-year rows only for specific-year/bar/outlier/MFE/MAE questions
+     - Opportunity rows only for table/list/ranking/screening questions, max 12
+     - React sends only allowlisted derived stats; the server rechecks the same boundary
+     - Raw prices, price levels, volumes, and nested earnings history are excluded
+  4. Conversation history: last 20 turns (user + assistant)
+  5. Current user message
 
-  NOTE: For caching to be maximally effective, the static portion must come
-  FIRST in the prompt and be identical across all requests. Dynamic content
-  comes after and is not cached. This is already implemented correctly.
+  The cache breakpoint is at the END of the stable prefix. Anthropic uses its
+  cache_control block; OpenAI uses an explicit Responses cache breakpoint plus
+  one of four stable routing keys. A symbol, screen, or selected KB topic can
+  change without invalidating the large stable prefix.
+  Each provider response logs input/cache-create/cache-read/output token counts
+  server-side so cache effectiveness can be checked without logging prompt text.
+  Live dev verification showed an 8,854-token stable-prefix cache creation on the
+  first request and an 8,854-token cache read with zero creation on the next.
 
-  Future optimization: split into TWO cached blocks - one for the knowledge
-  base (never changes) and one for the wave viewer stats (changes per pattern
-  but stays constant within a session). Anthropic supports up to 4 cache blocks.
+  High-confidence screen overview, bar semantics, direction rationale, exact-year,
+  per-year MFE/MAE (including contextual "max/min" plain language), table-rank,
+  advice-safe, and loaded-pattern analysis requests bypass the provider.
+  Direct show/hide MFE/MAE commands also bypass the provider and return validated
+  show_mfe/show_mae set_view actions; the React client toggles the chart overlays
+  without opening the MFE/MAE education popup.
+  The planner matches depth to intent: broad analysis explains driver, robustness,
+  recency, failure profile, trend/TWR/event context, and curve agreement; focused
+  follow-ups return only their relevant diagnostics. PE-cycle samples are labeled as
+  cycle observations, not consecutive years. Advice wording gets evidence plus the
+  disclaimer, never a trade verdict.
+
+  Both provider tool loops call the same _execute_tara_tool implementation. Tool
+  result trimming, OppList4 screen matching, ViewSpec validation, and reply truth
+  guards therefore stay provider-independent. Any Luna failure retries the turn
+  through Haiku before a user-visible error is returned. chatbot_questions.log
+  records the actual provider/fallback label for canary review.
 
 --------------------------------------------------------------------------------
  UPDATING THE KNOWLEDGE BASE
