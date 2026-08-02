@@ -54,6 +54,8 @@ def test_page_generator_writes_environment_aware_output_atomically(tmp_path, mon
     rendered = output_html.read_text(encoding="utf-8")
 
     assert output_html == tmp_path / "100-year-pattern.html"
+    if os.name != "nt":
+        assert output_html.stat().st_mode & 0o777 == 0o644
     assert 'content="noindex,nofollow"' in rendered
     assert (
         'href="https://tw2-dev.trxstat.com/100-year-pattern.html"'
