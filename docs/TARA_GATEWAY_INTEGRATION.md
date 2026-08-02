@@ -29,6 +29,13 @@ scorer offsets 29/59/89. Scores are not shown more than five days before entry o
 after entry, and scorer failure degrades to the verified historical analysis rather than blocking
 Tara.
 
+Product-value questions do not need a provider or live scorer. `tara_answer_planner.py`
+deterministically handles seasonality-value prompts with a compact loaded-pattern demonstration and
+strategy-building prompts with a measurable-odds research framework. These replies use the same
+semantic `tara-analysis` HTML cards as pattern analysis, preserve sample-size and calendar-day
+semantics, link to the existing Years/Seasonality/Filtering guides, and avoid negative refusal-led
+marketing language.
+
 Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. Both tool loops
 in `tara_gateway.py` return (text, actions); an update_view call is
 validated server-side (`_validate_view_spec`: allowlist + range-check symbol/market/entry_date/

@@ -22,11 +22,16 @@ from tara_answer_planner import (  # noqa: E402
     build_pattern_analysis_reply,
     build_per_year_excursion_reply,
     build_rank_reply,
+    build_seasonality_value_reply,
     build_specific_year_reply,
+    build_strategy_framework_reply,
     build_trend_alignment_reply,
     canonical_pattern_facts,
     is_pattern_analysis_question,
     is_per_year_excursion_question,
+    is_seasonality_value_question,
+    is_strategy_building_question,
+    needs_pattern_ai_context,
     normalize_screen_context,
     requested_opportunity_row_rank,
     requested_full_history_years,
@@ -838,6 +843,109 @@ def test_terse_analysis_commands_build_the_same_full_brief(message):
     assert reply == expected
     assert reply.startswith('<div class="tara-analysis">')
     assert "<b>Payoff and path:</b>" in reply
+
+
+def test_seasonality_value_question_uses_loaded_pattern_as_a_compact_demonstration():
+    wave = _analysis_context([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
+    wave.update(
+        {
+            "symbol": "AVGO",
+            "start_date": "2026-08-02",
+            "days_out": "133",
+            "selection_origin": "scanner",
+        }
+    )
+
+    reply = build_seasonality_value_reply(
+        "Convince me I should use seasonality", wave, {}, current_year=2026
+    )
+
+    assert reply.startswith('<div class="tara-analysis">')
+    assert "Traditional indicators describe recent price action" in reply
+    assert "AVGO long, Aug 2 to Dec 12 (133 calendar days)" in reply
+    assert "profitable in 10 of 10 completed years (100%; n=10)" in reply
+    assert "gross average +5.50%" in reply
+    assert "Each bar is one completed occurrence" in reply
+    assert "10, 12, 15, 20, 25, or maximum history" in reply
+    assert "Historical hit rate is the observed base rate" in reply
+    assert "AI Win Probability adds current context" in reply
+    assert "Card-counter mindset" in reply
+    assert "Find the pattern. Measure the odds. Build your strategy." in reply
+    assert 'data-action="open-years-popup"' in reply
+    assert 'data-action="open-seasonal-popup"' in reply
+    assert "AI Score" not in reply
+    assert "AIS " not in reply
+    assert "above chance" not in reply
+    assert "I won't" not in reply
+    assert "I can't" not in reply
+    assert "**" not in reply
+    plain = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", reply)).strip()
+    assert len(plain.split()) <= 150
+
+
+def test_strategy_request_becomes_a_positive_measurable_research_process():
+    wave = _analysis_context([2.0, 3.0, -1.0, 4.0, 1.0] * 4, years="20", origin="scanner")
+    wave["symbol"] = "ROST"
+
+    reply = build_strategy_framework_reply(
+        "Help me come up with a winning strategy", wave, {}, current_year=2026
+    )
+
+    assert reply.startswith('<div class="tara-analysis">')
+    assert "Build around measurable odds" in reply
+    assert "Starting evidence" in reply
+    assert "ROST long" in reply
+    assert "16 profitable outcomes in 20 completed years (80%; n=20)" in reply
+    assert "10, 12, 15, 20, 25, and maximum history" in reply
+    assert "nearby start dates, holding periods, and PE-cycle cohorts" in reply
+    assert "AI Win Probability and Trend Alignment" in reply
+    assert "MFE, MAE, and worst finish" in reply
+    assert "Keep the rules unchanged and record future occurrences" in reply
+    assert "Tara finds candidates, measures the odds, and challenges weak assumptions" in reply
+    assert 'data-action="open-filtering-popup"' in reply
+    assert 'data-action="open-years-popup"' in reply
+    assert "do not promise" not in reply.lower()
+    assert "can't" not in reply.lower()
+    assert "guarantee" not in reply.lower()
+    plain = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", reply)).strip()
+    assert len(plain.split()) <= 150
+
+
+def test_strategy_framework_still_helps_before_a_pattern_is_loaded():
+    seasonality_reply = build_seasonality_value_reply(
+        "Show me why seasonality matters", {}, {}, current_year=2026
+    )
+    reply = build_strategy_framework_reply(
+        "Build me a rules-based trading strategy", {}, {}, current_year=2026
+    )
+
+    assert "What TradeWave detects" in seasonality_reply
+    assert "single chronological price chart" in seasonality_reply
+    assert "Define the rule" in reply
+    assert "Fix the market, direction, calendar entry rule" in reply
+    assert "Starting evidence" not in reply
+
+
+def test_signature_product_intents_are_narrow_and_do_not_wait_for_ai_scoring():
+    wave = _peg_short_context()
+
+    for message in (
+        "convince me I should use seasonality",
+        "why should I use seasonality?",
+        "what can seasonality detect that a normal chart cannot?",
+    ):
+        assert is_seasonality_value_question(message)
+        assert needs_pattern_ai_context(message, wave) is False
+    for message in (
+        "help me come up with a winning strategy",
+        "build me a rules-based trading strategy",
+        "turn this into a testable strategy",
+    ):
+        assert is_strategy_building_question(message)
+        assert needs_pattern_ai_context(message, wave) is False
+
+    assert not is_seasonality_value_question("What is seasonality?")
+    assert not is_strategy_building_question("Should I trade this pattern?")
 
 
 def test_screen_context_is_allowlisted_and_lookback_stays_a_string():

@@ -551,6 +551,15 @@ pattern longer than 90 calendar days has no full-pattern AI score; Tara may show
 they cover only those partial horizons. Model estimates never become extra historical observations,
 and missing scores are never treated as zero.
 
+Tara can also demonstrate why this differs from a conventional technical-indicator workflow.
+Traditional indicators summarize recent price state; TradeWave aligns the same inclusive calendar
+window across completed years and exposes the observed base rate, payoff, path, and failure years.
+The user can recalculate that exact hypothesis over supported 10-, 12-, 15-, 20-, 25-year or maximum
+history depths to reveal whether it is recent, durable, or lookback-sensitive. Strategy-building
+questions are framed positively as a measurable research process: define fixed rules, test history
+and nearby-window robustness, add current-condition context, and preserve the definition for future
+tracking. Historical hit rate and AI Win Probability remain distinct evidence layers.
+
 ### Confidence Overlay (reliability second-opinion)
 A **second opinion before committing**, answering a *different* question than the historical edge: "How stable is this edge, and how easy is it to misuse?" It weighs measurable attributes — **sample size & year-set relevance, return dispersion & outlier dependence, drawdown severity & typical adverse excursion, consistency across modern vs older regimes, and concentration of gains in a small subset of years.** Output: a simple **Green / Yellow / Red** rating **plus 2–4 short bullet reasons** (never a black-box prediction score):
 - **Green** = solid edge, consistent behavior, drawdown matches reward.

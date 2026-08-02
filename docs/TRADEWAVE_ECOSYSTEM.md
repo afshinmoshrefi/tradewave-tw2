@@ -1352,6 +1352,17 @@ When a chart pattern is loaded, terse commands such as `analyze`, `analyze this`
 are deterministic analysis intents. They must take the same enriched brief path as `analyze this
 pattern`; they do not fall through to an LLM provider or return its older generic summary.
 
+Tara also owns two deterministic product-education intents. Seasonality-value prompts (`convince me
+I should use seasonality`, `why should I use seasonality`, comparisons with normal indicators) use
+the loaded pattern as a concrete demonstration: exact inclusive calendar window, observed record
+with `n`, flexible 10/12/15/20/25/maximum-history testing, historical base rate versus the separate
+AI Win Probability concept, and visible guide links. Strategy-building prompts (`help me come up
+with a winning strategy`, `turn this into a testable strategy`) produce a positive research process:
+fixed rules, robustness across history/date/hold/PE cohorts, payoff and MFE/MAE failure evidence,
+current-condition context, and unchanged forward tracking. Both routes bypass the model and live ML
+scorer so the answer is immediate, stable, HTML-card formatted, and cannot regress into a defensive
+essay. They do not claim Sharpe demonstrates statistical significance or above-chance results.
+
 Recent comparisons use the latest five completed observations versus the earlier non-overlapping
 sample, and are phrased descriptively ("weaker in this sample"), never as proof of regime decay.
 The React context also labels a loaded window `scanner` versus `user_defined`; scanner-selected

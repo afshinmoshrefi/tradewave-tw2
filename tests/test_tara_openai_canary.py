@@ -469,3 +469,81 @@ def test_chat_route_replaces_client_ai_values_with_server_analysis_context(
 
     assert response.get_json() == {"reply": "verified analysis", "actions": []}
     assert captured["wave"]["ai_analysis"]["horizons"][0]["ai_score"] == 72
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("Convince me I should use seasonality", "Why seasonality matters"),
+        ("Help me come up with a winning strategy", "Build around measurable odds"),
+    ],
+)
+def test_signature_product_questions_bypass_models_and_live_ai_scorer(
+    monkeypatch, message, expected
+):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    seen = {}
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: pytest.fail("signature product answers must bypass providers"),
+    )
+    monkeypatch.setattr(
+        chatbot_module,
+        "log_question",
+        lambda user_id, question, response, wave_viewer, provider="unknown": seen.update(
+            provider=provider, response=response
+        ),
+    )
+
+    rows = [
+        {
+            "year": year,
+            "underlying_return_pct": float(index + 1),
+            "upside_excursion_pct": float(index + 3),
+            "downside_excursion_pct": -1.0,
+        }
+        for index, year in enumerate(range(2016, 2026))
+    ]
+    rows.append(
+        {
+            "year": 2026,
+            "underlying_return_pct": 0.0,
+            "upside_excursion_pct": 0.0,
+            "downside_excursion_pct": 0.0,
+        }
+    )
+    app = Flask(__name__)
+    app.extensions["tara_ai_analysis_context"] = lambda *args, **kwargs: pytest.fail(
+        "signature product answers must not wait for live AI scoring"
+    )
+    body = {
+        "message": message,
+        "history": [{"role": "user", "content": message}],
+        "token": "browser-token",
+        "wave_viewer": {
+            "symbol": "AVGO",
+            "market": "2",
+            "start_date": "2026-08-02",
+            "days_out": "133",
+            "years": "10",
+            "direction": "long",
+            "selection_origin": "scanner",
+            "stats": {"Sharpe Ratio": "1.78"},
+            "yearly_results": rows,
+        },
+        "screen_context": {"selected_lookback": "10", "full_history_years": "17"},
+        "opportunities": [],
+        "opp_table_market": "2",
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "signature-product-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    payload = response.get_json()
+    assert expected in payload["reply"]
+    assert 'class="tara-analysis"' in payload["reply"]
+    assert payload["actions"] == []
+    assert seen["provider"] == "deterministic"
