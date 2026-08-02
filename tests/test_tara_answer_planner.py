@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "appserver" / "appserver"))
 import tara_answer_planner as planner  # noqa: E402
 from tara_answer_planner import (  # noqa: E402
     build_advice_safe_reply,
+    build_ai_horizon_explanation_reply,
     build_bar_semantics_reply,
     build_deterministic_reply,
     build_direction_reply,
@@ -27,6 +28,7 @@ from tara_answer_planner import (  # noqa: E402
     build_strategy_framework_reply,
     build_trend_alignment_reply,
     canonical_pattern_facts,
+    is_ai_horizon_explanation_question,
     is_pattern_analysis_question,
     is_per_year_excursion_question,
     is_seasonality_value_question,
@@ -549,17 +551,17 @@ def test_analysis_compares_ai_probability_with_same_window_historical_rate():
     assert "estimates, not additional historical observations" in reply
 
 
-def test_long_pattern_analysis_labels_ai_horizons_as_checkpoints_not_full_score():
+def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_outlook():
     wave = _analysis_context([2.0, -1.0] * 10)
-    wave["days_out"] = "180"
+    wave["days_out"] = "133"
     wave["ai_analysis"] = {
         "status": "available",
         "mode": "checkpoints",
-        "full_pattern_calendar_days": 180,
+        "full_pattern_calendar_days": 133,
         "horizons": [
-            {"calendar_days": 30, "ai_score": 61, "win_probability": 0.58, "predicted_return_pct": 1.2},
-            {"calendar_days": 60, "ai_score": 68, "win_probability": 0.63, "predicted_return_pct": 2.7},
-            {"calendar_days": 90, "ai_score": 73, "win_probability": 0.67, "predicted_return_pct": 4.1},
+            {"calendar_days": 30, "ai_score": 81, "win_probability": 0.82, "predicted_return_pct": 3.4},
+            {"calendar_days": 60, "ai_score": 76, "win_probability": 0.77, "predicted_return_pct": 3.8},
+            {"calendar_days": 90, "ai_score": 62, "win_probability": 0.60, "predicted_return_pct": 1.4},
         ],
     }
 
@@ -567,13 +569,20 @@ def test_long_pattern_analysis_labels_ai_horizons_as_checkpoints_not_full_score(
         "Give me your analysis", wave, {}, current_year=2026
     )
 
-    assert "The full 180-calendar-day pattern is outside the model's 90-day limit" in reply
-    assert "30 days: AI Win% 58%, PredR +1.2%" in reply
-    assert "60 days: AI Win% 63%, PredR +2.7%" in reply
-    assert "90 days: AI Win% 67%, PredR +4.1%" in reply
+    assert "<b>AI-calibrated outlook:</b>" in reply
+    assert "AI-calibrated probabilities for this opportunity over the first 30, 60, and 90 calendar days are as follows" in reply
+    assert "&bull; <b>30 days:</b> 82% AI Win Probability; predicted return +3.4%" in reply
+    assert "&bull; <b>60 days:</b> 77% AI Win Probability; predicted return +3.8%" in reply
+    assert "&bull; <b>90 days:</b> 60% AI Win Probability; predicted return +1.4%" in reply
+    assert "Each outlook begins on the same entry date and evaluates the same direction" in reply
+    assert "The highest AI Win Probability appears over 30 days" in reply
+    assert "the highest predicted return appears over 60 days" in reply
+    assert "historical analysis above describes the complete 133-day pattern" in reply
     assert "AIS " not in reply
-    assert "none is an AI score for the full 180-day pattern" in reply
-    assert "historical rate" not in reply.split("Near-term AI checkpoints:", 1)[1].split("</div>", 1)[0]
+    ai_section = reply.split("<b>AI-calibrated outlook:</b>", 1)[1].split("</div>", 1)[0]
+    for negative_phrase in ("outside", "limit", "cannot", "can't", "none is"):
+        assert negative_phrase not in ai_section.lower()
+    assert "historical rate" not in ai_section
 
 
 def test_analysis_explains_why_ai_is_not_shown_too_far_before_entry():
@@ -943,9 +952,46 @@ def test_signature_product_intents_are_narrow_and_do_not_wait_for_ai_scoring():
     ):
         assert is_strategy_building_question(message)
         assert needs_pattern_ai_context(message, wave) is False
+    for message in (
+        "Why does AI only do the first 90 days?",
+        "Why are the AI models limited to 90 calendar days?",
+        "Explain the 30/60/90 AI horizons",
+        "Why doesn't AI score this full pattern?",
+        "Why are AI scores blank for a 133-day pattern?",
+    ):
+        assert is_ai_horizon_explanation_question(message)
+        assert needs_pattern_ai_context(message, wave) is False
 
     assert not is_seasonality_value_question("What is seasonality?")
     assert not is_strategy_building_question("Should I trade this pattern?")
+    assert not is_ai_horizon_explanation_question("What is the 90-day AI Win Probability?")
+    assert not is_ai_horizon_explanation_question("Analyze this 90-day pattern")
+
+
+def test_ai_horizon_explanation_is_deterministic_positive_and_pattern_specific():
+    wave = _analysis_context([2.0, -1.0] * 10)
+    wave["symbol"] = "AVGO"
+    wave["days_out"] = "133"
+
+    reply = build_ai_horizon_explanation_reply(
+        "Why does AI only do the first 90 days?",
+        wave,
+        {},
+        current_year=2026,
+    )
+
+    assert reply.startswith('<div class="tara-analysis">')
+    assert "Why TradeWave uses 90-day AI horizons" in reply
+    assert "trained and calibrated for seasonal windows from 10 to 90 calendar days" in reply
+    assert "current market conditions provide useful predictive context" in reply.lower()
+    assert "For this 133-calendar-day pattern" in reply
+    assert "30-, 60-, and 90-day AI-calibrated outlooks" in reply
+    assert "same entry date and direction" in reply
+    assert "historical analysis evaluates the complete 133-day pattern" in reply
+    assert "AI Win Probability and predicted return" in reply
+    assert "Today's AI pick" not in reply
+    for negative_phrase in ("can't", "cannot", "outside the model", "no ai score"):
+        assert negative_phrase not in reply.lower()
 
 
 def test_screen_context_is_allowlisted_and_lookback_stays_a_string():

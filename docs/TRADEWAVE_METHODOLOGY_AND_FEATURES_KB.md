@@ -545,11 +545,13 @@ For eligible US-stock/ETF setups, a loaded-pattern brief separates the observed 
 from the current-condition ML read. On a 10-90-calendar-day pattern it states the directly
 interpretable AI Win Probability, PredR, and PMFE and compares AI Win Probability with the
 historical win rate for that same exact window. Tara deliberately omits the opaque composite AIS
-number from analysis prose; AIS remains available in the opportunity table and its explainer. A
-pattern longer than 90 calendar days has no full-pattern AI score; Tara may show separate
-30/60/90-calendar-day checkpoints from the same entry and direction, with an explicit warning that
-they cover only those partial horizons. Model estimates never become extra historical observations,
-and missing scores are never treated as zero.
+number from analysis prose; AIS remains available in the opportunity table and its explainer. For a
+pattern longer than 90 calendar days, Tara presents separate 30/60/90-calendar-day
+AI-calibrated outlooks from the same entry and direction, then explains which horizon has the highest
+probability and predicted return. The complete-window historical analysis remains alongside that
+current-condition view. Questions about the 90-day horizon receive a deterministic explanation of
+the model's trained and calibrated 10-90-day range instead of a provider-generated answer. Model
+estimates never become extra historical observations, and missing scores are never treated as zero.
 
 Tara can also demonstrate why this differs from a conventional technical-indicator workflow.
 Traditional indicators summarize recent price state; TradeWave aligns the same inclusive calendar
