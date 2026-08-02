@@ -318,7 +318,9 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
   `TW2_AUTH_CALLBACK_URL`), Stripe (`STRIPE_PUBLISHABLE_KEY/SECRET_KEY/WEBHOOK_SECRET`),
   `POSTGRES_DSN`, inter-service (`SERVICE_API_KEY`, `APPSERVER_JWT_SECRET`,
   `API_KEY_HMAC_SECRET` [defaults to APPSERVER_JWT_SECRET]), env identity
-  (`TW2_PUBLIC_HOST`, `TW2_ENV`), cross-tier (`TW2_APPSERVER_URL/IP`, `TW2_WEBSERVER_IP`),
+  (`TW2_PUBLIC_HOST`, `TW2_ENV`, optional static-home gate
+  `TW2_HOME_100_YEAR_PATTERN_ENABLED`), cross-tier
+  (`TW2_APPSERVER_URL/IP`, `TW2_WEBSERVER_IP`),
   and external APIs (`EOD_TOKEN`, `ANTHROPIC_TOKEN`, `OPENAI_KEY`, `GROK_API_KEY`,
   `PERPLEXITY_API_KEY`, `REPLICATE_API_TOKEN`, `TAVILY_API_KEY`, `MAILERLITE_*`,
   `PUBLER_*`, `FACEBOOK_*`, direct X publishing (`X_API_KEY`, `X_API_KEY_SECRET`,
@@ -352,6 +354,16 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
 
 Handles auth, the `/app/` shell, account/billing, admin. Marketing pages are NOT
 Flask-rendered (static from `/var/www/tradewave/`).
+
+- **100-Year Pattern public evidence page:**
+  `site/generate_100_year_pattern.py` publishes the framework-free source at
+  `site/100-year-pattern/100-year-pattern.html` to
+  `/var/www/tradewave/100-year-pattern.html` and copies its CSV/book assets from
+  `site/static/100-year-pattern/` to
+  `/var/www/tradewave/_static/100-year-pattern/`. The homepage countdown is a
+  separate, server-rendered block in `site/templates/index-dark-blue.html`,
+  gated per environment by `TW2_HOME_100_YEAR_PATTERN_ENABLED`. The gate is off
+  unless explicitly enabled, so stage and production do not inherit a dev test.
 
 - **Routes** (also: `/account/affiliate/*` partner dashboard blueprint +
   `/internal/expert_takes|expert_profiles` service-key pull feeds, 2026-07-07):

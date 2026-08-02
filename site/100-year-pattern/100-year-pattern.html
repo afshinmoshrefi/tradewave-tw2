@@ -1,0 +1,1165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="__ROBOTS__">
+  <link rel="canonical" href="__CANONICAL_URL__">
+  <link rel="icon" href="__FAVICON_URL__">
+  <title>The 100-Year Pattern | TradeWave Research</title>
+  <meta name="description" content="The complete 24-cycle SPX record behind The 100-Year Pattern, including returns, MFE, MAE, dates, methodology, and raw data.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="The 100-Year Pattern | TradeWave Research">
+  <meta property="og:description" content="The complete 24-cycle SPX record, including every return, MFE, MAE, resolved date, and the raw CSV.">
+  <meta property="og:url" content="__CANONICAL_URL__">
+  <meta property="og:image" content="__OG_IMAGE_URL__">
+  <style>:root {
+  --bg: #0b1220;
+  --bg-deep: #070c17;
+  --panel: #0f1a2e;
+  --panel-2: #13203a;
+  --ink: #eaf0f8;
+  --muted: #9fb0c8;
+  --muted-2: #71839d;
+  --line: rgba(255, 255, 255, 0.11);
+  --line-soft: rgba(255, 255, 255, 0.07);
+  --violet: #7c5cff;
+  --purple: #a855f7;
+  --positive: #159447;
+  --mfe: #61d874;
+  --negative: #c91f32;
+  --mae: #ff858a;
+  --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 96px; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+}
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 65% 5%, rgba(124, 92, 255, 0.12), transparent 34%),
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: auto, 72px 72px, 72px 72px;
+  mask-image: linear-gradient(to bottom, #000 0, transparent 64%);
+}
+
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+button { color: inherit; }
+img { display: block; max-width: 100%; }
+::selection { background: rgba(124, 92, 255, 0.45); color: #fff; }
+
+.page-width { width: min(1120px, calc(100% - 48px)); margin-inline: auto; }
+.skip-link { position: fixed; top: 10px; left: 10px; z-index: 100; transform: translateY(-160%); border-radius: 8px; background: #fff; color: #07101f; padding: 10px 14px; font-weight: 700; }
+.skip-link:focus { transform: translateY(0); }
+
+.research-strip { border-bottom: 1px solid var(--line-soft); background: #08101d; color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.research-strip .page-width { min-height: 32px; display: flex; align-items: center; justify-content: center; gap: 13px; }
+.research-strip span:first-child { color: #c9d6e8; font-weight: 800; }
+.research-strip i { width: 3px; height: 3px; border-radius: 50%; background: var(--violet); }
+
+.site-header { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid var(--line); background: rgba(11, 18, 32, 0.82); backdrop-filter: blur(18px); }
+.header-inner { min-height: 70px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 28px; }
+.wordmark { color: var(--ink); font-size: 27px; font-weight: 800; letter-spacing: -0.055em; line-height: 1; }
+.wordmark span { background: linear-gradient(110deg, #7160ff, #a855f7); background-clip: text; color: transparent; }
+nav { justify-self: center; display: flex; align-items: center; gap: 28px; }
+nav a { color: var(--muted); font-size: 13px; font-weight: 650; }
+nav a:hover { color: #fff; }
+.header-actions, .hero-actions { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; }
+.button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 0 18px; font-size: 13px; font-weight: 750; line-height: 1.2; transition: transform 160ms ease, border-color 160ms ease, background 160ms ease; }
+.button:hover { transform: translateY(-1px); border-color: rgba(255, 255, 255, 0.27); }
+.button-primary { border-color: rgba(168, 85, 247, 0.75); background: linear-gradient(115deg, #6d5dfc, #9c4ff1); box-shadow: 0 13px 36px rgba(104, 74, 255, 0.2); color: #fff; }
+.button-outline { border-color: rgba(124, 92, 255, 0.42); }
+.button-quiet { background: rgba(255, 255, 255, 0.02); color: #d8e1ef; }
+
+.hero { min-height: 640px; display: grid; grid-template-columns: 1.12fr 0.88fr; align-items: center; gap: 72px; padding-block: 96px 106px; }
+.eyebrow, .section-kicker { margin: 0 0 18px; color: #9f8cff; font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
+.eyebrow { display: flex; align-items: center; gap: 8px; }
+.eyebrow span, .edition-badge span { width: 7px; height: 7px; border-radius: 50%; background: #3fb68b; box-shadow: 0 0 16px rgba(63, 182, 139, 0.6); }
+h1, h2, h3, p { overflow-wrap: anywhere; }
+h1 { max-width: 720px; margin: 0; font-size: clamp(52px, 5.3vw, 74px); line-height: 0.99; letter-spacing: -0.055em; font-weight: 820; }
+.hero-intro { max-width: 690px; margin: 28px 0 30px; color: #b8c4d5; font-size: 18px; line-height: 1.65; }
+.hero-disclosure { margin: 20px 0 0; color: var(--muted-2); font-size: 12px; }
+
+.countdown-card { position: relative; overflow: hidden; border: 1px solid rgba(124, 92, 255, 0.32); border-radius: 18px; padding: 28px; background: linear-gradient(145deg, rgba(25, 33, 68, 0.97), rgba(10, 17, 33, 0.98)); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.28); }
+.countdown-card::before { position: absolute; inset: 0; content: ""; pointer-events: none; background: radial-gradient(circle at 90% 0%, rgba(168, 85, 247, 0.19), transparent 36%); }
+.countdown-topline { position: relative; display: flex; align-items: center; justify-content: space-between; color: #9f8cff; font-family: var(--mono); font-size: 10px; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
+.countdown-topline b { border: 1px solid rgba(229, 104, 127, 0.36); border-radius: 99px; padding: 5px 9px; background: rgba(229, 104, 127, 0.08); color: #ff91a5; font-weight: 800; }
+.countdown-date { position: relative; margin: 22px 0 20px; font-size: 30px; line-height: 1.08; font-weight: 800; letter-spacing: -0.04em; }
+.countdown { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.countdown-unit { border: 1px solid var(--line); border-radius: 12px; padding: 14px 8px 12px; background: rgba(3, 8, 18, 0.44); text-align: center; }
+.countdown-unit span { display: block; font-family: var(--mono); font-size: clamp(27px, 3vw, 40px); font-weight: 720; line-height: 1; letter-spacing: -0.07em; font-variant-numeric: tabular-nums; }
+.countdown-unit small { display: block; margin-top: 7px; color: var(--muted-2); font-family: var(--mono); font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; }
+.countdown-open { border: 1px solid rgba(63, 182, 139, 0.35); border-radius: 12px; padding: 18px; background: rgba(63, 182, 139, 0.09); color: #75e5ac; font-family: var(--mono); font-weight: 700; }
+.countdown-basis { position: relative; margin: 14px 0 0; border-left: 2px solid rgba(124, 92, 255, 0.5); padding-left: 10px; color: #8496af; font-size: 10px; line-height: 1.55; }
+.countdown-basis strong { color: #b8c5d7; }
+.date-resolution { position: relative; display: grid; gap: 11px; margin: 22px 0 0; padding-top: 20px; border-top: 1px solid var(--line); }
+.date-resolution div { display: flex; justify-content: space-between; gap: 18px; }
+.date-resolution dt { color: var(--muted-2); font-size: 11px; }
+.date-resolution dd { margin: 0; color: #cad5e6; font-family: var(--mono); font-size: 11px; text-align: right; }
+.countdown-footnote { position: relative; margin: 18px 0 0; color: var(--muted-2); font-size: 11px; line-height: 1.55; }
+
+.rule-section { border-block: 1px solid var(--line); padding-block: 92px; background: rgba(10, 18, 33, 0.78); }
+.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 36px; margin-bottom: 38px; }
+.section-heading h2, .book-copy h2, .product-bridge h2 { margin: 0; max-width: 760px; font-size: clamp(34px, 4vw, 50px); line-height: 1.08; letter-spacing: -0.045em; }
+.compact-heading { display: block; }
+.rule-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.rule-card { min-height: 220px; border: 1px solid var(--line); border-radius: 14px; padding: 22px; background: var(--panel); }
+.rule-card-primary { border-color: rgba(124, 92, 255, 0.38); background: linear-gradient(145deg, rgba(124, 92, 255, 0.13), var(--panel)); }
+.rule-number { color: #7261ff; font-family: var(--mono); font-size: 11px; font-weight: 800; }
+.rule-card h3 { margin: 46px 0 7px; font-size: 20px; }
+.rule-card p { margin: 0; color: var(--muted); font-size: 14px; }
+.rule-card strong { color: #e9eff8; }
+.rule-note { margin: 22px 0 0; color: var(--muted-2); font-size: 12px; }
+.rule-note strong { color: #a9b7ca; }
+
+.evidence-section { padding-block: 112px; }
+.text-link { color: #b9aaff; font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; }
+.text-link:hover, .correction-link:hover { color: #d8cfff; }
+.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 72px; }
+.stat-grid article { min-height: 148px; display: flex; flex-direction: column; justify-content: flex-end; border: 1px solid var(--line); border-radius: 12px; padding: 18px; background: linear-gradient(160deg, rgba(19, 32, 58, 0.8), rgba(15, 26, 46, 0.7)); }
+.stat-grid span { margin-bottom: auto; color: var(--muted-2); font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.stat-grid strong { font-family: var(--mono); font-size: clamp(25px, 2.5vw, 36px); line-height: 1.1; letter-spacing: -0.06em; }
+.stat-grid small { margin-top: 6px; color: var(--muted-2); font-size: 10px; }
+.stat-grid .loss-stat { border-color: rgba(229, 104, 127, 0.28); }
+.loss-stat strong { color: #ff8ca1; }
+.chart-heading { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin-bottom: 18px; }
+.chart-heading h3 { margin: 0 0 6px; font-size: 23px; letter-spacing: -0.025em; }
+.chart-heading p { margin: 0; color: var(--muted-2); font-size: 12px; }
+.mobile-scroll-hint { display: none; color: var(--muted-2); font-family: var(--mono); font-size: 10px; }
+
+.chart-shell { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: linear-gradient(180deg, rgba(14, 23, 42, 0.98), rgba(9, 16, 29, 0.98)); }
+.chart-toolbar { min-height: 54px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; border-bottom: 1px solid var(--line); padding: 8px 14px; }
+.chart-toolbar > span { margin-right: 3px; color: var(--muted-2); font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; }
+.series-toggle { min-height: 32px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; background: rgba(255, 255, 255, 0.02); color: #c9d4e5; cursor: pointer; font-size: 10px; font-weight: 750; }
+.series-toggle[aria-pressed="false"] { opacity: 0.42; }
+.series-toggle i, .chart-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.return-toggle i, .legend-return { background: var(--positive); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+.mfe-toggle i, .legend-mfe { background: var(--mfe); }
+.mae-toggle i, .legend-mae { background: var(--mae); }
+.chart-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-color: #34415a #10192b; scrollbar-width: thin; }
+.chart-scroll:focus { outline: 2px solid var(--violet); outline-offset: -2px; }
+.chart { position: relative; min-width: 1040px; height: 500px; }
+.chart-axis { position: absolute; inset: 26px 18px 58px 58px; }
+.grid-line { position: absolute; left: 0; right: 0; border-top: 1px solid rgba(255, 255, 255, 0.065); }
+.grid-line span { position: absolute; left: -45px; top: -8px; width: 34px; color: #5e708a; font-family: var(--mono); font-size: 9px; text-align: right; }
+.zero-line { border-color: rgba(204, 213, 228, 0.52); border-top-width: 1.5px; }
+.zero-line span { color: #a7b4c8; }
+.cycle-columns { position: absolute; inset: 26px 18px 58px 58px; display: grid; grid-template-columns: repeat(25, minmax(28px, 1fr)); gap: 5px; }
+.cycle-column { position: relative; height: 100%; min-width: 0; border: 0; padding: 0; background: transparent; cursor: help; }
+.plot-area { position: absolute; inset: 0; display: block; }
+.bar-segment { position: absolute; left: 5px; right: 5px; display: block; min-height: 1px; border-radius: 2px 2px 0 0; }
+.return-segment.positive { z-index: 2; background: linear-gradient(90deg, #087d2d, #12a33e); box-shadow: inset 0 0 0 1px rgba(0, 255, 105, 0.14); }
+.return-segment.negative { z-index: 2; background: linear-gradient(90deg, #ae1627, #d52a3b); border-radius: 0 0 2px 2px; }
+.mfe-segment { z-index: 1; background: linear-gradient(90deg, #4ecf63, #79e98b); box-shadow: inset 0 0 0 1px rgba(255,255,255,.13); }
+.mae-segment { z-index: 1; background: linear-gradient(90deg, #ff7780, #f69a9d); border-radius: 0 0 2px 2px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.year-label { position: absolute; top: calc(100% + 15px); left: 50%; transform: translateX(-50%); color: #7989a0; font-family: var(--mono); font-size: 9px; }
+.cycle-column:hover .year-label, .cycle-column:focus-visible .year-label { color: #fff; }
+.cycle-column:focus-visible { outline: 1px solid rgba(124, 92, 255, 0.8); outline-offset: 2px; }
+.cycle-tooltip { position: absolute; top: 20px; left: 50%; z-index: 10; min-width: 176px; display: grid; gap: 4px; transform: translateX(-50%) translateY(4px); visibility: hidden; opacity: 0; border: 1px solid rgba(124, 92, 255, 0.38); border-radius: 10px; padding: 12px; background: #101a2e; box-shadow: 0 18px 40px rgba(0,0,0,.4); color: var(--ink); text-align: left; transition: opacity 120ms ease, transform 120ms ease; pointer-events: none; }
+.cycle-column:nth-child(-n+3) .cycle-tooltip { left: 0; transform: translateX(0) translateY(4px); }
+.cycle-column:nth-child(n+23) .cycle-tooltip { left: auto; right: 0; transform: translateX(0) translateY(4px); }
+.cycle-column:hover .cycle-tooltip, .cycle-column:focus-visible .cycle-tooltip { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
+.cycle-column:nth-child(-n+3):hover .cycle-tooltip, .cycle-column:nth-child(-n+3):focus-visible .cycle-tooltip, .cycle-column:nth-child(n+23):hover .cycle-tooltip, .cycle-column:nth-child(n+23):focus-visible .cycle-tooltip { transform: translateX(0) translateY(0); }
+.cycle-tooltip strong { font-size: 12px; }
+.cycle-tooltip small { color: var(--muted-2); font-family: var(--mono); font-size: 8px; }
+.cycle-tooltip > span { display: flex; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 9px; }
+.cycle-tooltip b { color: var(--muted); font-weight: 650; }
+.unresolved .plot-area { top: 4px; bottom: 4px; border: 1px dashed rgba(159, 176, 200, 0.28); border-radius: 5px; }
+.unresolved .plot-area i { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-90deg); color: #60718a; font-family: var(--mono); font-size: 8px; font-style: normal; letter-spacing: 0.1em; text-transform: uppercase; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 10px 24px; border-top: 1px solid var(--line); padding: 16px 18px 9px; }
+.chart-legend p { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--muted); font-size: 11px; }
+.chart-legend strong { color: #dfe6f1; }
+.chart-note { margin: 0; padding: 3px 18px 17px; color: var(--muted-2); font-size: 10px; }
+.evidence-callouts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+.evidence-callouts article { border: 1px solid var(--line); border-radius: 13px; padding: 21px; background: rgba(15, 26, 46, 0.68); }
+.evidence-callouts span { color: #8f7bff; font-family: var(--mono); font-size: 9px; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
+.evidence-callouts strong { display: block; margin: 15px 0 7px; font-family: var(--mono); font-size: 24px; letter-spacing: -0.04em; }
+.evidence-callouts p { margin: 0; color: var(--muted); font-size: 13px; }
+
+.cycles-section { border-block: 1px solid var(--line); padding-block: 100px; background: rgba(7, 13, 24, 0.62); }
+.table-heading > p { max-width: 350px; margin: 0; color: var(--muted-2); font-size: 12px; text-align: right; }
+.table-scroll { overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: #0d1729; scrollbar-color: #34415a #10192b; scrollbar-width: thin; }
+.table-scroll:focus { outline: 2px solid var(--violet); outline-offset: 2px; }
+table { width: 100%; min-width: 1100px; border-collapse: separate; border-spacing: 0; font-family: var(--mono); font-size: 11px; }
+thead th { position: sticky; top: 0; z-index: 3; height: 48px; background: #111d32; color: #8191a9; font-size: 8px; letter-spacing: 0.1em; text-align: left; text-transform: uppercase; }
+th, td { border-bottom: 1px solid var(--line-soft); padding: 12px 14px; white-space: nowrap; }
+tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td, tbody tr:hover th { background: rgba(124, 92, 255, 0.055); }
+tbody th { color: #dae4f1; text-align: left; }
+thead th:nth-child(1), tbody td:nth-child(1) { position: sticky; left: 0; z-index: 2; width: 54px; background: #0e192b; color: #65768f; }
+thead th:nth-child(2), tbody th:nth-child(2) { position: sticky; left: 54px; z-index: 2; width: 66px; background: #0e192b; box-shadow: 8px 0 18px rgba(0,0,0,.18); }
+thead th:nth-child(1), thead th:nth-child(2) { z-index: 5; background: #111d32; }
+.positive-value { color: #61d98f; font-weight: 800; }
+.negative-value { color: #ff879a; font-weight: 800; }
+.loss-row td, .loss-row th { background-color: rgba(201, 31, 50, 0.045); }
+.table-actions { display: flex; align-items: center; gap: 18px; margin-top: 20px; }
+.table-actions > span { color: var(--muted-2); font-size: 11px; }
+
+.methodology-section { padding-block: 110px; }
+.method-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.method-grid article { min-height: 210px; border: 1px solid var(--line); border-radius: 14px; padding: 24px; background: var(--panel); }
+.method-grid article > span { color: #7969ff; font-family: var(--mono); font-size: 10px; font-weight: 800; }
+.method-grid h3 { margin: 28px 0 8px; font-size: 19px; }
+.method-grid p { margin: 0; color: var(--muted); font-size: 13px; }
+.method-note { display: grid; grid-template-columns: 210px 1fr; align-items: center; gap: 28px; margin-top: 14px; border: 1px solid rgba(63, 182, 139, 0.27); border-radius: 14px; padding: 24px; background: rgba(63, 182, 139, 0.065); }
+.method-note strong { color: #77d7aa; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.method-note p { margin: 0; color: #b6c7d7; font-size: 13px; }
+.fine-print { margin: 22px 0 0; color: #6e7f98; font-size: 10px; line-height: 1.7; }
+.fine-print strong { color: #8899b1; }
+
+.product-bridge { position: relative; overflow: hidden; border-block: 1px solid rgba(124, 92, 255, 0.27); padding-block: 94px; background: linear-gradient(135deg, rgba(28, 25, 66, 0.82), rgba(8, 16, 29, 0.94)); }
+.product-bridge::after { position: absolute; inset: 0; content: ""; pointer-events: none; background: radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.16), transparent 34%); }
+.bridge-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.3fr 0.7fr; align-items: center; gap: 72px; }
+.product-bridge h2 { max-width: 720px; }
+.product-bridge p:not(.section-kicker) { max-width: 690px; margin: 24px 0 28px; color: var(--muted); }
+.bridge-panel { display: grid; gap: 11px; border: 1px solid rgba(124, 92, 255, 0.28); border-radius: 16px; padding: 22px; background: rgba(8, 14, 28, 0.55); }
+.bridge-panel span { border: 1px solid var(--line); border-radius: 9px; padding: 13px; background: rgba(255,255,255,.025); color: #cbd5e4; font-size: 12px; }
+.bridge-panel i { color: #7967ff; font-style: normal; text-align: center; }
+
+.book-section { display: grid; grid-template-columns: 0.82fr 1.18fr; align-items: center; gap: 90px; padding-block: 120px; }
+.book-visual { min-height: 480px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 18px; background: radial-gradient(circle at 50% 48%, rgba(124, 92, 255, 0.18), transparent 52%), #080e1b; }
+.book-visual img { width: min(330px, 78%); height: auto; filter: drop-shadow(0 28px 28px rgba(0,0,0,.45)); }
+.edition-badge { width: fit-content; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(124, 92, 255, 0.3); border-radius: 999px; padding: 7px 11px; color: #a795ff; font-family: var(--mono); font-size: 9px; font-weight: 750; text-transform: uppercase; }
+.book-copy > p:not(.edition-badge):not(.section-kicker) { max-width: 650px; margin: 24px 0 28px; color: var(--muted); }
+.book-actions { margin-bottom: 20px; }
+.correction-link { color: #a995ff; font-size: 12px; font-weight: 700; }
+
+footer { border-top: 1px solid var(--line); background: #070d17; }
+.footer-top { min-height: 112px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 26px; }
+.footer-top > p { color: var(--muted); font-size: 12px; }
+.footer-top > div { display: flex; gap: 20px; }
+.footer-top > div a { color: var(--muted); font-size: 11px; }
+.footer-bottom { min-height: 92px; display: flex; align-items: center; justify-content: space-between; gap: 40px; border-top: 1px solid var(--line-soft); }
+.footer-bottom p { margin: 0; color: #60718a; font-size: 9px; }
+.footer-bottom p:first-child { max-width: 760px; }
+.footer-bottom p:last-child { white-space: nowrap; }
+
+a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offset: 3px; }
+
+@media (max-width: 980px) {
+  nav { display: none; }
+  .header-inner { grid-template-columns: 1fr auto; }
+  .hero { min-height: auto; grid-template-columns: 1fr; gap: 52px; padding-block: 78px 88px; }
+  .hero-copy { max-width: 820px; }
+  .countdown-card { max-width: 650px; }
+  .rule-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-grid { grid-template-columns: repeat(3, 1fr); }
+  .stat-grid article { min-height: 138px; }
+  .evidence-callouts { grid-template-columns: 1fr; }
+  .bridge-grid { grid-template-columns: 1fr; gap: 42px; }
+  .bridge-panel { grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; }
+  .bridge-panel i { transform: none; }
+  .book-section { gap: 50px; }
+}
+
+@media (max-width: 700px) {
+  .page-width { width: min(100% - 28px, 1120px); }
+  .research-strip .page-width { justify-content: flex-start; overflow: hidden; white-space: nowrap; }
+  .research-strip span:nth-of-type(3), .research-strip span:nth-of-type(4), .research-strip i:nth-of-type(2), .research-strip i:nth-of-type(3) { display: none; }
+  .site-header { position: relative; }
+  .header-inner { min-height: 64px; gap: 12px; }
+  .wordmark { font-size: 25px; }
+  .header-actions .button-quiet { display: none; }
+  .header-actions .button { min-height: 38px; padding: 0 13px; font-size: 11px; }
+  .hero { gap: 42px; padding-block: 60px 70px; }
+  h1 { font-size: clamp(43px, 13.5vw, 58px); line-height: 1.01; }
+  .hero-intro { margin-top: 22px; font-size: 16px; }
+  .hero-actions { align-items: stretch; }
+  .hero-actions .button { flex: 1 1 auto; }
+  .countdown-card { padding: 21px 17px; }
+  .countdown-date { font-size: 25px; }
+  .countdown { gap: 7px; }
+  .countdown-unit { padding-inline: 4px; }
+  .countdown-unit span { font-size: 27px; }
+  .date-resolution div { display: grid; gap: 2px; }
+  .date-resolution dd { text-align: left; }
+  .rule-section, .cycles-section { padding-block: 74px; }
+  .evidence-section, .methodology-section { padding-block: 78px; }
+  .section-heading { display: block; margin-bottom: 28px; }
+  .section-heading h2, .book-copy h2, .product-bridge h2 { font-size: 35px; }
+  .section-heading .text-link { display: inline-block; margin-top: 17px; }
+  .rule-grid { grid-template-columns: 1fr; }
+  .rule-card { min-height: 174px; }
+  .rule-card h3 { margin-top: 30px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); margin-bottom: 55px; }
+  .stat-grid article { min-height: 124px; padding: 15px; }
+  .stat-grid article:first-child { grid-column: span 2; }
+  .chart-heading { display: block; }
+  .mobile-scroll-hint { display: inline-block; margin-top: 11px; }
+  .chart-toolbar { justify-content: flex-start; overflow-x: auto; }
+  .chart-toolbar > span { display: none; }
+  .chart { min-width: 1020px; height: 460px; }
+  .chart-legend { display: grid; gap: 7px; }
+  .chart-note { line-height: 1.5; }
+  .evidence-callouts { margin-top: 14px; }
+  .table-heading > p { max-width: none; margin-top: 14px; text-align: left; }
+  .table-actions { align-items: stretch; flex-direction: column; }
+  .table-actions .button { width: 100%; }
+  .method-grid { grid-template-columns: 1fr; }
+  .method-grid article { min-height: 184px; }
+  .method-note { grid-template-columns: 1fr; gap: 9px; }
+  .product-bridge { padding-block: 72px; }
+  .bridge-panel { grid-template-columns: 1fr; }
+  .bridge-panel i { transform: rotate(90deg); }
+  .book-section { grid-template-columns: 1fr; gap: 44px; padding-block: 82px; }
+  .book-visual { min-height: 380px; }
+  .book-visual img { width: min(275px, 72%); }
+  .footer-top { grid-template-columns: 1fr; gap: 8px; padding-block: 28px; }
+  .footer-top > p { margin: 0; }
+  .footer-bottom { align-items: flex-start; flex-direction: column; gap: 14px; padding-block: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+}
+
+
+[hidden] { display: none !important; }
+.static-page-note { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 700px) {
+  body { overflow-x: hidden; }
+  .page-width { width: calc(100% - 28px); }
+  .header-inner { grid-template-columns: minmax(0, 1fr) auto; }
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .hero-copy, .countdown-card { width: 100%; min-width: 0; max-width: 100%; }
+  .hero-copy h1 { max-width: 100%; }
+}
+@media (max-width: 420px) {
+  .header-actions { display: none; }
+  .hero-actions { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
+  .hero-actions .button { width: 100%; min-width: 0; }
+}
+@media print {
+  .site-header, .chart-toolbar, .hero-actions, .table-actions { display: none !important; }
+  body { background: #fff; color: #111; }
+}
+</style>
+</head>
+<body>
+<main>
+  <a class="skip-link" href="#evidence">Skip to evidence</a>
+
+  <div class="research-strip" aria-label="Pattern summary">
+    <div class="page-width"><span>SPX</span><i></i><span>Fixed-date seasonal research</span><i></i><span>PE+2 years</span><i></i><span>24 completed cycles</span></div>
+  </div>
+
+  <header class="site-header">
+    <div class="page-width header-inner">
+      <a class="wordmark" href="/" aria-label="TradeWave home">Trade<span>Wave</span></a>
+      <nav aria-label="Page navigation"><a href="#rule">The Rule</a><a href="#evidence">24 Cycles</a><a href="#methodology">Methodology</a><a href="#book">The Book</a></nav>
+      <div class="header-actions"><a class="button button-quiet" href="/app/">Wave Viewer</a><a class="button button-outline" href="/signup">Start Free</a></div>
+    </div>
+  </header>
+
+  <section class="hero page-width">
+    <div class="hero-copy">
+      <p class="eyebrow"><span></span> TradeWave research · published before the next cycle</p>
+      <h1>One date. Twenty-four completed cycles. One failure.</h1>
+      <p class="hero-intro">The 100-Year Pattern is a fixed S&amp;P 500 window: September 27 of each midterm election year through July 18 of the following year. This record begins in 1930.</p>
+      <div class="hero-actions"><a class="button button-primary" href="#evidence">See all 24 cycles <span aria-hidden="true">→</span></a><a class="button button-quiet" href="/_static/100-year-pattern/100-year-pattern-cycles.csv" download>Download the CSV</a></div>
+      <p class="hero-disclosure">Historical pattern evidence, not a forecast or recommendation. The cycle from 2026 to 2027 is unresolved.</p>
+    </div>
+
+    <aside class="countdown-card" aria-labelledby="countdown-title">
+      <div class="countdown-topline"><span>Next occurrence</span><b>Unresolved</b></div>
+      <p class="countdown-date" id="countdown-title">September 27, 2026</p>
+      <div class="countdown" data-countdown aria-label="Countdown to September 27, 2026" aria-live="polite">
+        <div class="countdown-unit"><span data-countdown-days>--</span><small>days</small></div>
+        <div class="countdown-unit"><span data-countdown-hours>--</span><small>hours</small></div>
+        <div class="countdown-unit"><span data-countdown-minutes>--</span><small>minutes</small></div>
+      </div>
+      <p class="countdown-basis"><strong>Countdown basis:</strong> time remaining to 12:00 a.m. Eastern Time on September 27; the target date is not included. The 295-day pattern window is counted inclusively, with September 27 as day 1.</p>
+      <dl class="date-resolution">
+        <div><dt>Nominal window</dt><dd>Sep 27, 2026 → Jul 18, 2027</dd></div>
+        <div><dt>Trading dates</dt><dd>Sep 28, 2026 → Jul 19, 2027</dd></div>
+      </dl>
+      <p class="countdown-footnote">Both dates fall on Sunday, so TradeWave uses the next trading day for the analysis.</p>
+    </aside>
+  </section>
+
+  <section class="rule-section" id="rule">
+    <div class="page-width">
+      <div class="section-heading compact-heading"><p class="section-kicker">The rule, stated before the result</p><h2>Calendar dates first. Trading dates second.</h2></div>
+      <div class="rule-grid">
+        <article class="rule-card rule-card-primary"><span class="rule-number">01</span><h3>Enter</h3><p><strong>September 27</strong> of a midterm election year.</p></article>
+        <article class="rule-card"><span class="rule-number">02</span><h3>Hold</h3><p><strong>295 calendar days</strong>, counted inclusively. The entry date is day 1.</p></article>
+        <article class="rule-card"><span class="rule-number">03</span><h3>Exit</h3><p><strong>July 18</strong> of the following year.</p></article>
+        <article class="rule-card"><span class="rule-number">04</span><h3>Resolve</h3><p>If a date is not a trading day, use the <strong>first trading day after it</strong>.</p></article>
+      </div>
+      <p class="rule-note"><strong>Counting example:</strong> July 1 through July 31 is 31 days. This is TradeWave's general calendar convention - not special handling created for this pattern.</p>
+    </div>
+  </section>
+
+  <section class="evidence-section page-width" id="evidence">
+    <div class="section-heading evidence-heading">
+      <div><p class="section-kicker">We do not ask for trust - we publish the proof</p><h2>The full distribution, not just the average.</h2></div>
+      <a class="text-link" href="/_static/100-year-pattern/100-year-pattern-cycles.csv" download>Download raw CSV <span aria-hidden="true">↓</span></a>
+    </div>
+
+    <div class="stat-grid">
+      <article><span>Completed cycles</span><strong>24</strong><small>1930 to 2022</small></article>
+      <article><span>Positive outcomes</span><strong>23</strong><small>95.83% of cycles<br>Includes 1978 at +0.03%, the smallest positive outcome</small></article>
+      <article><span>All-cycle mean</span><strong>+18.79%</strong><small>close-to-close</small></article>
+      <article><span>Median return</span><strong>+18.92%</strong><small>across all cycles</small></article>
+      <article class="loss-stat"><span>Only loss</span><strong>-23.41%</strong><small>1930</small></article>
+    </div>
+
+    <div class="chart-heading">
+      <div><h3>Return and in-window excursion by midterm cycle</h3><p>SPX fixed-date window, Sep 27 to Jul 18 · 24 completed cycles, 1930 to 2022 · percent from resolved entry</p></div>
+      <span class="mobile-scroll-hint">Swipe to inspect all years →</span>
+    </div>
+    <div class="chart-shell">
+      <div class="chart-toolbar" aria-label="Chart series controls">
+        <span>Show</span>
+        <button class="series-toggle return-toggle" type="button" aria-pressed="true" data-chart-toggle="return"><i></i> Window return</button>
+        <button class="series-toggle mfe-toggle" type="button" aria-pressed="true" data-chart-toggle="mfe"><i></i> MFE</button>
+        <button class="series-toggle mae-toggle" type="button" aria-pressed="true" data-chart-toggle="mae"><i></i> MAE</button>
+      </div>
+      <div class="chart-scroll" tabindex="0" aria-label="Scrollable chart of all 24 completed cycles">
+        <div class="chart" role="img" aria-label="Return, maximum favorable excursion, and maximum adverse excursion for 24 completed S&amp;P 500 cycles from 1930 to 2022">
+          <div class="chart-axis" aria-hidden="true"><div class="grid-line" style="top:0.000000%"><span>50%</span></div><div class="grid-line" style="top:11.111111%"><span>40%</span></div><div class="grid-line" style="top:22.222222%"><span>30%</span></div><div class="grid-line" style="top:33.333333%"><span>20%</span></div><div class="grid-line" style="top:44.444444%"><span>10%</span></div><div class="grid-line zero-line" style="top:55.555556%"><span>0%</span></div><div class="grid-line" style="top:66.666667%"><span>-10%</span></div><div class="grid-line" style="top:77.777778%"><span>-20%</span></div><div class="grid-line" style="top:88.888889%"><span>-30%</span></div><div class="grid-line" style="top:100.000000%"><span>-40%</span></div></div>
+          <div class="cycle-columns"><button class="cycle-column" type="button" aria-label="1930: return -23.41%, MFE +2.86%, MAE -35.38%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:52.377778%;height:3.177778%"></i>
+      <i class="bar-segment return-segment negative" data-series="return" style="top:55.555556%;height:26.012222%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:39.311111%"></i>
+    </span>
+    <span class="year-label">1930</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1930 · cycle 1</strong>
+      <small>1930-09-29 → 1931-07-20</small>
+      <span><b>Return</b> -23.41%</span>
+      <span><b>MFE</b> +2.86%</span>
+      <span><b>MAE</b> -35.38%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1934: return +16.12%, MFE +16.23%, MAE -12.20%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:37.522222%;height:18.033333%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:37.642222%;height:17.913333%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:13.555556%"></i>
+    </span>
+    <span class="year-label">1934</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1934 · cycle 2</strong>
+      <small>1934-09-27 → 1935-07-18</small>
+      <span><b>Return</b> +16.12%</span>
+      <span><b>MFE</b> +16.23%</span>
+      <span><b>MAE</b> -12.20%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1938: return +10.65%, MFE +26.57%, MAE -5.19%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:26.033333%;height:29.522222%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:43.726667%;height:11.828889%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:5.766667%"></i>
+    </span>
+    <span class="year-label">1938</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1938 · cycle 3</strong>
+      <small>1938-09-27 → 1939-07-18</small>
+      <span><b>Return</b> +10.65%</span>
+      <span><b>MFE</b> +26.57%</span>
+      <span><b>MAE</b> -5.19%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1942: return +41.17%, MFE +42.18%, MAE -0.45%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:8.688889%;height:46.866667%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:9.811222%;height:45.744333%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:0.500000%"></i>
+    </span>
+    <span class="year-label">1942</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1942 · cycle 4</strong>
+      <small>1942-09-28 → 1943-07-19</small>
+      <span><b>Return</b> +41.17%</span>
+      <span><b>MFE</b> +42.18%</span>
+      <span><b>MAE</b> -0.45%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1946: return +4.90%, MFE +6.82%, MAE -8.87%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:47.977778%;height:7.577778%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:50.114000%;height:5.441556%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:9.855556%"></i>
+    </span>
+    <span class="year-label">1946</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1946 · cycle 5</strong>
+      <small>1946-09-27 → 1947-07-18</small>
+      <span><b>Return</b> +4.90%</span>
+      <span><b>MFE</b> +6.82%</span>
+      <span><b>MAE</b> -8.87%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1950: return +12.73%, MFE +17.52%, MAE -2.11%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:36.088889%;height:19.466667%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:41.416222%;height:14.139333%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:2.344444%"></i>
+    </span>
+    <span class="year-label">1950</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1950 · cycle 6</strong>
+      <small>1950-09-27 → 1951-07-18</small>
+      <span><b>Return</b> +12.73%</span>
+      <span><b>MFE</b> +17.52%</span>
+      <span><b>MAE</b> -2.11%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1954: return +30.22%, MFE +32.74%, MAE -2.61%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:19.177778%;height:36.377778%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:21.979667%;height:33.575889%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:2.900000%"></i>
+    </span>
+    <span class="year-label">1954</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1954 · cycle 7</strong>
+      <small>1954-09-27 → 1955-07-18</small>
+      <span><b>Return</b> +30.22%</span>
+      <span><b>MFE</b> +32.74%</span>
+      <span><b>MAE</b> -2.61%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1958: return +18.13%, MFE +20.37%, MAE +0.22%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:32.922222%;height:22.633333%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:35.414333%;height:20.141222%"></i>
+
+    </span>
+    <span class="year-label">1958</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1958 · cycle 8</strong>
+      <small>1958-09-29 → 1959-07-20</small>
+      <span><b>Return</b> +18.13%</span>
+      <span><b>MFE</b> +20.37%</span>
+      <span><b>MAE</b> +0.22%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1962: return +22.81%, MFE +27.74%, MAE -5.77%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:24.733333%;height:30.822222%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:30.213333%;height:25.342222%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:6.411111%"></i>
+    </span>
+    <span class="year-label">1962</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1962 · cycle 9</strong>
+      <small>1962-09-27 → 1963-07-18</small>
+      <span><b>Return</b> +22.81%</span>
+      <span><b>MFE</b> +27.74%</span>
+      <span><b>MAE</b> -5.77%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1966: return +19.72%, MFE +21.96%, MAE -7.45%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:31.155556%;height:24.400000%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:33.646333%;height:21.909222%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:8.277778%"></i>
+    </span>
+    <span class="year-label">1966</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1966 · cycle 10</strong>
+      <small>1966-09-27 → 1967-07-18</small>
+      <span><b>Return</b> +19.72%</span>
+      <span><b>MFE</b> +21.96%</span>
+      <span><b>MAE</b> -7.45%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1970: return +17.90%, MFE +25.85%, MAE -2.00%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:26.833333%;height:28.722222%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:35.666556%;height:19.889000%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:2.222222%"></i>
+    </span>
+    <span class="year-label">1970</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1970 · cycle 11</strong>
+      <small>1970-09-28 → 1971-07-19</small>
+      <span><b>Return</b> +17.90%</span>
+      <span><b>MFE</b> +25.85%</span>
+      <span><b>MAE</b> -2.00%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1974: return +43.52%, MFE +48.72%, MAE -6.13%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:1.422222%;height:54.133333%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:7.203222%;height:48.352333%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:6.811111%"></i>
+    </span>
+    <span class="year-label">1974</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1974 · cycle 12</strong>
+      <small>1974-09-27 → 1975-07-18</small>
+      <span><b>Return</b> +43.52%</span>
+      <span><b>MFE</b> +48.72%</span>
+      <span><b>MAE</b> -6.13%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1978: return +0.03%, MFE +4.50%, MAE -9.85%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:50.555556%;height:5.000000%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:55.522778%;height:0.032778%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:10.944444%"></i>
+    </span>
+    <span class="year-label">1978</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1978 · cycle 13</strong>
+      <small>1978-09-27 → 1979-07-18</small>
+      <span><b>Return</b> +0.03%</span>
+      <span><b>MFE</b> +4.50%</span>
+      <span><b>MAE</b> -9.85%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1982: return +32.62%, MFE +38.81%, MAE -2.82%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:12.433333%;height:43.122222%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:19.306444%;height:36.249111%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:3.133333%"></i>
+    </span>
+    <span class="year-label">1982</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1982 · cycle 14</strong>
+      <small>1982-09-27 → 1983-07-18</small>
+      <span><b>Return</b> +32.62%</span>
+      <span><b>MFE</b> +38.81%</span>
+      <span><b>MAE</b> -2.82%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1986: return +35.44%, MFE +36.83%, MAE 0.00%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:14.633333%;height:40.922222%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:16.177778%;height:39.377778%"></i>
+
+    </span>
+    <span class="year-label">1986</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1986 · cycle 15</strong>
+      <small>1986-09-29 → 1987-07-20</small>
+      <span><b>Return</b> +35.44%</span>
+      <span><b>MFE</b> +36.83%</span>
+      <span><b>MAE</b> 0.00%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1990: return +28.04%, MFE +30.00%, MAE -2.15%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:22.222222%;height:33.333333%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:24.397000%;height:31.158556%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:2.388889%"></i>
+    </span>
+    <span class="year-label">1990</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1990 · cycle 16</strong>
+      <small>1990-09-27 → 1991-07-18</small>
+      <span><b>Return</b> +28.04%</span>
+      <span><b>MFE</b> +30.00%</span>
+      <span><b>MAE</b> -2.15%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1994: return +20.87%, MFE +21.84%, MAE -4.15%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:31.288889%;height:24.266667%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:32.371444%;height:23.184111%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:4.611111%"></i>
+    </span>
+    <span class="year-label">1994</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1994 · cycle 17</strong>
+      <small>1994-09-27 → 1995-07-18</small>
+      <span><b>Return</b> +20.87%</span>
+      <span><b>MFE</b> +21.84%</span>
+      <span><b>MAE</b> -4.15%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="1998: return +34.23%, MFE +35.44%, MAE -11.95%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:16.177778%;height:39.377778%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:17.522889%;height:38.032667%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:13.277778%"></i>
+    </span>
+    <span class="year-label">1998</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>1998 · cycle 18</strong>
+      <small>1998-09-28 → 1999-07-19</small>
+      <span><b>Return</b> +34.23%</span>
+      <span><b>MFE</b> +35.44%</span>
+      <span><b>MAE</b> -11.95%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="2002: return +20.06%, MFE +22.73%, MAE -7.10%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:30.300000%;height:25.255556%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:33.269444%;height:22.286111%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:7.888889%"></i>
+    </span>
+    <span class="year-label">2002</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>2002 · cycle 19</strong>
+      <small>2002-09-27 → 2003-07-18</small>
+      <span><b>Return</b> +20.06%</span>
+      <span><b>MFE</b> +22.73%</span>
+      <span><b>MAE</b> -7.10%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="2006: return +15.68%, MFE +16.41%, MAE -0.71%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:37.322222%;height:18.233333%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:38.133111%;height:17.422444%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:0.788889%"></i>
+    </span>
+    <span class="year-label">2006</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>2006 · cycle 20</strong>
+      <small>2006-09-27 → 2007-07-18</small>
+      <span><b>Return</b> +15.68%</span>
+      <span><b>MFE</b> +16.41%</span>
+      <span><b>MAE</b> -0.71%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="2010: return +14.30%, MFE +20.00%, MAE -0.90%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:33.333333%;height:22.222222%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:39.671444%;height:15.884111%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:1.000000%"></i>
+    </span>
+    <span class="year-label">2010</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>2010 · cycle 21</strong>
+      <small>2010-09-27 → 2011-07-18</small>
+      <span><b>Return</b> +14.30%</span>
+      <span><b>MFE</b> +20.00%</span>
+      <span><b>MAE</b> -0.90%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="2014: return +7.61%, MFE +7.93%, MAE -7.95%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:46.744444%;height:8.811111%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:47.101667%;height:8.453889%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:8.833333%"></i>
+    </span>
+    <span class="year-label">2014</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>2014 · cycle 22</strong>
+      <small>2014-09-29 → 2015-07-20</small>
+      <span><b>Return</b> +7.61%</span>
+      <span><b>MFE</b> +7.93%</span>
+      <span><b>MAE</b> -7.95%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="2018: return +2.78%, MFE +3.56%, MAE -19.47%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:51.600000%;height:3.955556%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:52.462778%;height:3.092778%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:21.633333%"></i>
+    </span>
+    <span class="year-label">2018</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>2018 · cycle 23</strong>
+      <small>2018-09-27 → 2019-07-18</small>
+      <span><b>Return</b> +2.78%</span>
+      <span><b>MFE</b> +3.56%</span>
+      <span><b>MAE</b> -19.47%</span>
+    </span>
+  </button>
+<button class="cycle-column" type="button" aria-label="2022: return +24.89%, MFE +25.09%, MAE -4.27%">
+    <span class="plot-area" aria-hidden="true">
+      <i class="bar-segment mfe-segment" data-series="mfe" style="top:27.677778%;height:27.877778%"></i>
+      <i class="bar-segment return-segment positive" data-series="return" style="top:27.903667%;height:27.651889%"></i>
+      <i class="bar-segment mae-segment" data-series="mae" style="top:55.555556%;height:4.744444%"></i>
+    </span>
+    <span class="year-label">2022</span>
+    <span class="cycle-tooltip" role="tooltip">
+      <strong>2022 · cycle 24</strong>
+      <small>2022-09-27 → 2023-07-18</small>
+      <span><b>Return</b> +24.89%</span>
+      <span><b>MFE</b> +25.09%</span>
+      <span><b>MAE</b> -4.27%</span>
+    </span>
+  </button><div class="cycle-column unresolved" aria-label="2026 cycle unresolved"><span class="plot-area"><i>Unresolved</i></span><span class="year-label">2026</span></div></div>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <p><i class="legend-return"></i> <strong>Window return</strong> - the close-to-close result</p>
+        <p><i class="legend-mfe"></i> <strong>MFE</strong> - highest favorable move during the window</p>
+        <p><i class="legend-mae"></i> <strong>MAE</strong> - deepest adverse move during the window</p>
+      </div>
+      <p class="chart-note">Excursions show the path inside each window; they are not additional returns. Hover or focus a year for exact values.</p>
+    </div>
+
+    <div class="evidence-callouts">
+      <article><span>Path matters</span><strong>21 of 23</strong><p>winning cycles moved below the entry price at some point before finishing positive.</p></article>
+      <article><span>The 2018 test</span><strong>-19.47% MAE</strong><p>The window suffered the deepest non-1930 adverse move and still closed +2.78%.</p></article>
+      <article><span>Largest favorable move</span><strong>+48.72% MFE</strong><p>1974 finished the window at +43.52% after reaching the largest favorable excursion in the record.</p></article>
+    </div>
+  </section>
+
+  <section class="cycles-section" id="cycles">
+    <div class="page-width">
+      <div class="section-heading table-heading"><div><p class="section-kicker">Every completed observation</p><h2>All 24 cycles, including the loss.</h2></div><p>The zero-value 2026 placeholder in the TradeWave export is excluded. That cycle has not begun.</p></div>
+      <div class="table-scroll" tabindex="0" aria-label="Scrollable table of all 24 historical cycles">
+        <table>
+          <thead><tr><th>Cycle</th><th>Year</th><th>Nominal window</th><th>Resolved entry</th><th>Resolved exit</th><th>Return</th><th>MFE</th><th>MAE</th><th>MAE basis</th></tr></thead>
+          <tbody><tr class="loss-row">
+  <td>01</td>
+  <th scope="row">1930</th>
+  <td>09-27 → 07-18</td>
+  <td>09/29/1930</td>
+  <td>07/20/1931</td>
+  <td class="negative-value">-23.41%</td>
+  <td>+2.86%</td>
+  <td class="negative-value">-35.38%</td>
+  <td>Close</td>
+</tr>
+<tr>
+  <td>02</td>
+  <th scope="row">1934</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1934</td>
+  <td>07/18/1935</td>
+  <td class="positive-value">+16.12%</td>
+  <td>+16.23%</td>
+  <td class="negative-value">-12.20%</td>
+  <td>Close</td>
+</tr>
+<tr>
+  <td>03</td>
+  <th scope="row">1938</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1938</td>
+  <td>07/18/1939</td>
+  <td class="positive-value">+10.65%</td>
+  <td>+26.57%</td>
+  <td class="negative-value">-5.19%</td>
+  <td>Close</td>
+</tr>
+<tr>
+  <td>04</td>
+  <th scope="row">1942</th>
+  <td>09-27 → 07-18</td>
+  <td>09/28/1942</td>
+  <td>07/19/1943</td>
+  <td class="positive-value">+41.17%</td>
+  <td>+42.18%</td>
+  <td class="negative-value">-0.45%</td>
+  <td>Close</td>
+</tr>
+<tr>
+  <td>05</td>
+  <th scope="row">1946</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1946</td>
+  <td>07/18/1947</td>
+  <td class="positive-value">+4.90%</td>
+  <td>+6.82%</td>
+  <td class="negative-value">-8.87%</td>
+  <td>Close</td>
+</tr>
+<tr>
+  <td>06</td>
+  <th scope="row">1950</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1950</td>
+  <td>07/18/1951</td>
+  <td class="positive-value">+12.73%</td>
+  <td>+17.52%</td>
+  <td class="negative-value">-2.11%</td>
+  <td>Close</td>
+</tr>
+<tr>
+  <td>07</td>
+  <th scope="row">1954</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1954</td>
+  <td>07/18/1955</td>
+  <td class="positive-value">+30.22%</td>
+  <td>+32.74%</td>
+  <td class="negative-value">-2.61%</td>
+  <td>Close</td>
+</tr>
+<tr>
+  <td>08</td>
+  <th scope="row">1958</th>
+  <td>09-27 → 07-18</td>
+  <td>09/29/1958</td>
+  <td>07/20/1959</td>
+  <td class="positive-value">+18.13%</td>
+  <td>+20.37%</td>
+  <td>+0.22%</td>
+  <td>Close*</td>
+</tr>
+<tr>
+  <td>09</td>
+  <th scope="row">1962</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1962</td>
+  <td>07/18/1963</td>
+  <td class="positive-value">+22.81%</td>
+  <td>+27.74%</td>
+  <td class="negative-value">-5.77%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>10</td>
+  <th scope="row">1966</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1966</td>
+  <td>07/18/1967</td>
+  <td class="positive-value">+19.72%</td>
+  <td>+21.96%</td>
+  <td class="negative-value">-7.45%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>11</td>
+  <th scope="row">1970</th>
+  <td>09-27 → 07-18</td>
+  <td>09/28/1970</td>
+  <td>07/19/1971</td>
+  <td class="positive-value">+17.90%</td>
+  <td>+25.85%</td>
+  <td class="negative-value">-2.00%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>12</td>
+  <th scope="row">1974</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1974</td>
+  <td>07/18/1975</td>
+  <td class="positive-value">+43.52%</td>
+  <td>+48.72%</td>
+  <td class="negative-value">-6.13%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>13</td>
+  <th scope="row">1978</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1978</td>
+  <td>07/18/1979</td>
+  <td class="positive-value">+0.03%</td>
+  <td>+4.50%</td>
+  <td class="negative-value">-9.85%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>14</td>
+  <th scope="row">1982</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1982</td>
+  <td>07/18/1983</td>
+  <td class="positive-value">+32.62%</td>
+  <td>+38.81%</td>
+  <td class="negative-value">-2.82%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>15</td>
+  <th scope="row">1986</th>
+  <td>09-27 → 07-18</td>
+  <td>09/29/1986</td>
+  <td>07/20/1987</td>
+  <td class="positive-value">+35.44%</td>
+  <td>+36.83%</td>
+  <td>0.00%</td>
+  <td>Close</td>
+</tr>
+<tr>
+  <td>16</td>
+  <th scope="row">1990</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1990</td>
+  <td>07/18/1991</td>
+  <td class="positive-value">+28.04%</td>
+  <td>+30.00%</td>
+  <td class="negative-value">-2.15%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>17</td>
+  <th scope="row">1994</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/1994</td>
+  <td>07/18/1995</td>
+  <td class="positive-value">+20.87%</td>
+  <td>+21.84%</td>
+  <td class="negative-value">-4.15%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>18</td>
+  <th scope="row">1998</th>
+  <td>09-27 → 07-18</td>
+  <td>09/28/1998</td>
+  <td>07/19/1999</td>
+  <td class="positive-value">+34.23%</td>
+  <td>+35.44%</td>
+  <td class="negative-value">-11.95%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>19</td>
+  <th scope="row">2002</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/2002</td>
+  <td>07/18/2003</td>
+  <td class="positive-value">+20.06%</td>
+  <td>+22.73%</td>
+  <td class="negative-value">-7.10%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>20</td>
+  <th scope="row">2006</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/2006</td>
+  <td>07/18/2007</td>
+  <td class="positive-value">+15.68%</td>
+  <td>+16.41%</td>
+  <td class="negative-value">-0.71%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>21</td>
+  <th scope="row">2010</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/2010</td>
+  <td>07/18/2011</td>
+  <td class="positive-value">+14.30%</td>
+  <td>+20.00%</td>
+  <td class="negative-value">-0.90%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>22</td>
+  <th scope="row">2014</th>
+  <td>09-27 → 07-18</td>
+  <td>09/29/2014</td>
+  <td>07/20/2015</td>
+  <td class="positive-value">+7.61%</td>
+  <td>+7.93%</td>
+  <td class="negative-value">-7.95%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>23</td>
+  <th scope="row">2018</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/2018</td>
+  <td>07/18/2019</td>
+  <td class="positive-value">+2.78%</td>
+  <td>+3.56%</td>
+  <td class="negative-value">-19.47%</td>
+  <td>Intraday</td>
+</tr>
+<tr>
+  <td>24</td>
+  <th scope="row">2022</th>
+  <td>09-27 → 07-18</td>
+  <td>09/27/2022</td>
+  <td>07/18/2023</td>
+  <td class="positive-value">+24.89%</td>
+  <td>+25.09%</td>
+  <td class="negative-value">-4.27%</td>
+  <td>Intraday</td>
+</tr></tbody>
+        </table>
+      </div>
+      <div class="table-actions"><a class="button button-primary" href="/_static/100-year-pattern/100-year-pattern-cycles.csv" download>Download the 24-cycle CSV <span aria-hidden="true">↓</span></a><span>Ungated · 24 rows · nominal and resolved dates included</span></div>
+    </div>
+  </section>
+
+  <section class="methodology-section page-width" id="methodology">
+    <div class="section-heading methodology-heading"><div><p class="section-kicker">Methodology and limits</p><h2>What this demonstrates - and what it does not.</h2></div><a class="text-link" href="/methodology">TradeWave methodology <span aria-hidden="true">→</span></a></div>
+    <div class="method-grid">
+      <article><span>01</span><h3>Calculation</h3><p>Returns are SPX price returns calculated close-to-close from the resolved entry and exit shown in the CSV. No transaction costs or slippage are included.</p></article>
+      <article><span>02</span><h3>Excursions</h3><p>The chart reproduces TradeWave's displayed MFE and MAE. Early-history MAE is close-based; later history uses intraday data where available. The CSV retains the separate fields.</p></article>
+      <article><span>03</span><h3>Sample status</h3><p>All 24 completed cycles are in-sample. They demonstrate repetition; they do not prove a mathematical law. The cycle from 2026 to 2027 is the first prospective out-of-sample test and is excluded from every historical statistic until it resolves.</p></article>
+      <article><span>04</span><h3>Benchmark context</h3><p>The 118% buy-and-hold figure shown in the book and TradeWave export uses Jan 1 to Jan 1 annual periods. It is not a like-for-like Sep to Jul benchmark, so it is not plotted here.</p></article>
+    </div>
+    <div class="method-note"><strong>First out-of-sample test.</strong><p>The rule, dates, full historical record, raw CSV, and scoring convention for the cycle from 2026 to 2027 are public before the nominal start date.</p></div>
+    <p class="fine-print"><strong>Excursion note:</strong> 1958 is displayed at +0.22% MAE in TradeWave while the close series floors the entry baseline at 0.00%. In 1986, the TradeWave display is 0.00% while the separate intraday field records -0.80% on the entry date. Both source fields remain visible in the downloadable CSV.</p>
+  </section>
+
+  <section class="product-bridge">
+    <div class="page-width bridge-grid">
+      <div><p class="section-kicker">The pattern is the case study. TradeWave is the instrument.</p><h2>The Almanac told you the season. TradeWave tells you the day - on your symbols, with the drawdowns included.</h2><p>This page freezes one SPX example in public. The Wave Viewer applies the same research workflow across stocks, ETFs, futures, commodities, forex, indices, and more.</p><div class="hero-actions"><a class="button button-primary" href="/app/">Open the Wave Viewer <span aria-hidden="true">→</span></a><a class="button button-quiet" href="/signup">Start Free</a></div></div>
+      <div class="bridge-panel" aria-label="TradeWave evidence workflow"><span>Ask a market question</span><i>→</i><span>Set the dates and years</span><i>→</i><span>Inspect every outcome</span></div>
+    </div>
+  </section>
+
+  <section class="book-section page-width" id="book">
+    <div class="book-visual"><img src="/_static/100-year-pattern/100-year-pattern-book.webp" alt="The 100-Year Pattern, 2026 updated edition book cover" width="1000" height="1313"></div>
+    <div class="book-copy">
+      <p class="edition-badge"><span></span> 2026 edition · updated and expanded</p>
+      <p class="section-kicker">Continue the research</p>
+      <h2>The book behind this record.</h2>
+      <p><em>The 100-Year Pattern</em> explains the seasonal calendar, the TradeWave research process, and why September 27 matters. The current printing also contains the author's public correction concerning prior Almanac research.</p>
+      <div class="hero-actions book-actions"><a class="button button-primary" href="https://100yearpattern.com/assets/100-year-pattern-preview.pdf">Download Free Preview</a><a class="button button-quiet" href="https://www.amazon.com/dp/B0FCX61K4Y">Buy on Amazon</a></div>
+      <a class="correction-link" href="https://100yearpattern.com/#corrections">Read the correction and edition note <span aria-hidden="true">→</span></a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="page-width footer-top"><a class="wordmark" href="/">Trade<span>Wave</span></a><p>Seasonal market research that shows its work.</p><div><a href="/methodology">Methodology</a><a href="/disclaimer.html">Disclaimer</a><a href="https://100yearpattern.com">The Book</a></div></div>
+    <div class="page-width footer-bottom"><p>TradeWave is a research platform, not a brokerage. Historical analysis is informational and educational; past performance does not guarantee future results. Trading and investing involve substantial risk of loss.</p><p>© 2026 Tara Data Research LLC</p></div>
+  </footer>
+</main>
+<script>
+(() => {
+  "use strict";
+
+  const target = new Date("2026-09-27T00:00:00-04:00").getTime();
+  const countdown = document.querySelector("[data-countdown]");
+  const units = {
+    days: document.querySelector("[data-countdown-days]"),
+    hours: document.querySelector("[data-countdown-hours]"),
+    minutes: document.querySelector("[data-countdown-minutes]")
+  };
+
+  function refreshCountdown() {
+    const difference = Math.max(0, target - Date.now());
+    if (difference === 0) {
+      countdown.innerHTML = '<p class="countdown-open">The nominal window is now open.</p>';
+      return;
+    }
+    const totalMinutes = Math.floor(difference / 60000);
+    units.days.textContent = String(Math.floor(totalMinutes / 1440)).padStart(2, "0");
+    units.hours.textContent = String(Math.floor((totalMinutes % 1440) / 60)).padStart(2, "0");
+    units.minutes.textContent = String(totalMinutes % 60).padStart(2, "0");
+  }
+
+  refreshCountdown();
+  window.setInterval(refreshCountdown, 30000);
+
+  document.querySelectorAll("[data-chart-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const series = button.dataset.chartToggle;
+      const nextPressed = button.getAttribute("aria-pressed") !== "true";
+      button.setAttribute("aria-pressed", String(nextPressed));
+      document.querySelectorAll('[data-series="' + series + '"]').forEach((element) => {
+        element.hidden = !nextPressed;
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

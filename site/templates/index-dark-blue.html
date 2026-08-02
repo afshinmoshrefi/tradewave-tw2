@@ -218,6 +218,29 @@ section{padding:var(--s7) 0;border-top:1px solid var(--line)}
 .hero-pill:hover{border-color:var(--accent)}
 .hero-pill .tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:3px 9px}
 .hero-pill .arr{color:var(--accent);font-weight:700}
+{% if content.home_100_year_pattern_enabled %}
+/* TW100 HOME COUNTDOWN START - flag: TW2_HOME_100_YEAR_PATTERN_ENABLED */
+.tw100-home-card{max-width:920px;margin:42px auto 72px;padding:24px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:center;text-align:left;border:1px solid rgba(124,92,255,.32);border-radius:16px;background:linear-gradient(135deg,rgba(124,92,255,.13),rgba(8,13,24,.88) 55%);box-shadow:0 26px 70px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.04)}
+.tw100-home-copy{min-width:0}
+.tw100-home-kicker{display:flex;align-items:center;gap:9px;margin-bottom:8px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.66rem;letter-spacing:.13em;text-transform:uppercase;color:#b9adff;font-weight:700}
+.tw100-home-kicker::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(124,92,255,.14)}
+.tw100-home-card h2{font-size:clamp(1.25rem,2.3vw,1.75rem);letter-spacing:-.02em}
+.tw100-home-copy p{max-width:590px;margin:10px 0 0;color:var(--muted);font-size:.92rem;line-height:1.55}
+.tw100-home-link{display:inline-flex;align-items:center;gap:8px;margin-top:14px;color:#d6d0ff;font-weight:700;font-size:.9rem}
+.tw100-home-link:hover{color:#fff}
+.tw100-home-timer{display:grid;grid-template-columns:repeat(3,minmax(76px,1fr));gap:8px;min-width:258px}
+.tw100-home-unit{padding:12px 10px;text-align:center;border:1px solid var(--line2);border-radius:11px;background:rgba(6,10,20,.62)}
+.tw100-home-unit strong{display:block;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:clamp(1.3rem,2.5vw,1.85rem);line-height:1;color:#fff;font-variant-numeric:tabular-nums}
+.tw100-home-unit span{display:block;margin-top:7px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.tw100-home-basis{grid-column:1/-1;margin:-8px 0 0;padding-top:14px;border-top:1px solid var(--line);color:var(--faint);font-size:.74rem;line-height:1.5;text-align:center}
+@media(max-width:760px){
+  .tw100-home-card{grid-template-columns:1fr;gap:20px;margin:38px auto 62px;padding:21px 16px;text-align:center}
+  .tw100-home-kicker{justify-content:center}.tw100-home-copy p{margin-left:auto;margin-right:auto}
+  .tw100-home-timer{width:100%;min-width:0;max-width:420px;margin:0 auto}
+  .tw100-home-unit{padding:12px 6px}
+}
+/* TW100 HOME COUNTDOWN END */
+{% endif %}
 /* artifact frame */
 .frame{margin:0;border:1px solid var(--line2);border-radius:16px;overflow:hidden;background:var(--panel)}
 .frame .bar{display:flex;align-items:center;gap:7px;padding:11px 14px;background:#0c1526;border-bottom:1px solid var(--line)}
@@ -530,6 +553,27 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
     </button>
   </div>
 </div></section>
+
+{% if content.home_100_year_pattern_enabled %}
+<!-- TW100 HOME COUNTDOWN START -->
+<div class="wrap">
+  <aside class="tw100-home-card" aria-labelledby="tw100-home-title">
+    <div class="tw100-home-copy">
+      <div class="tw100-home-kicker">The 100-Year Pattern</div>
+      <h2 id="tw100-home-title">The next recorded window begins September 27, 2026</h2>
+      <p>The rule and all 24 completed cycles are public before the next occurrence.</p>
+      <a class="tw100-home-link" href="/100-year-pattern.html">See the full 24-cycle record <span aria-hidden="true">&rarr;</span></a>
+    </div>
+    <div class="tw100-home-timer" id="tw100-home-countdown" role="timer" aria-label="Time remaining until September 27, 2026 at midnight Eastern Time">
+      <div class="tw100-home-unit"><strong data-tw100-days>--</strong><span>Days</span></div>
+      <div class="tw100-home-unit"><strong data-tw100-hours>--</strong><span>Hours</span></div>
+      <div class="tw100-home-unit"><strong data-tw100-minutes>--</strong><span>Minutes</span></div>
+    </div>
+    <p class="tw100-home-basis">Countdown to 12:00 a.m. Eastern Time on the nominal calendar date. September 27 and July 18 both fall on Sunday; TradeWave uses the next trading day for analytics.</p>
+  </aside>
+</div>
+<!-- TW100 HOME COUNTDOWN END -->
+{% endif %}
 
 <!-- 02 / TARA (the beginner hook - moved directly after the hero per the June-30
      owner+Michael directive; id stays #tara for deep links). Copy is bound via
@@ -1027,6 +1071,32 @@ document.addEventListener('click', function(e){
         });
     });
 })();
+
+{% if content.home_100_year_pattern_enabled %}
+// TW100 HOME COUNTDOWN START - minute resolution, no network or scroll work.
+(function(){
+  var root=document.getElementById('tw100-home-countdown');
+  if(!root) return;
+  var target=new Date('2026-09-27T00:00:00-04:00').getTime();
+  var day=root.querySelector('[data-tw100-days]');
+  var hour=root.querySelector('[data-tw100-hours]');
+  var minute=root.querySelector('[data-tw100-minutes]');
+  function pad(value){return String(value).padStart(2,'0');}
+  function render(){
+    var remaining=Math.max(0,target-Date.now());
+    var totalMinutes=Math.floor(remaining/60000);
+    day.textContent=String(Math.floor(totalMinutes/1440));
+    hour.textContent=pad(Math.floor((totalMinutes%1440)/60));
+    minute.textContent=pad(totalMinutes%60);
+  }
+  render();
+  window.setTimeout(function(){
+    render();
+    window.setInterval(render,60000);
+  },60000-(Date.now()%60000)+20);
+})();
+// TW100 HOME COUNTDOWN END
+{% endif %}
 
 // Nav scroll state + mobile toggle + sticky CTA. Scroll work is frame-batched,
 // and the closing section uses IntersectionObserver instead of forced layout.

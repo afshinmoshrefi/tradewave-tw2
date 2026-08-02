@@ -195,6 +195,14 @@ ENABLE_SEO = os.environ.get('TW2_ENV', '').strip().lower() == 'prod'
 # (TW2_MCP_LIVE=1) so it flips on without a code edit once MCP ships.
 MCP_LIVE = os.environ.get('TW2_MCP_LIVE', '').strip().lower() in ('1', 'true', 'yes')
 
+# Dev-controlled switch for the public 100-Year Pattern homepage countdown.
+# Stage and production remain unchanged unless their environment explicitly
+# enables it. Turning this off and regenerating home.html is the fast rollback.
+HOME_100_YEAR_PATTERN_ENABLED = (
+    os.environ.get('TW2_HOME_100_YEAR_PATTERN_ENABLED', '').strip().lower()
+    in ('1', 'true', 'yes')
+)
+
 # =============================================================================
 # SIGNUP & AUTH URLs
 # =============================================================================
@@ -957,6 +965,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
     # =========================================================================
     content = {
         "show_opportunities": show_opportunities,
+        "home_100_year_pattern_enabled": HOME_100_YEAR_PATTERN_ENABLED,
         "enable_seo": ENABLE_SEO,
         # GA4 <head> snippet ('' when TW2_GA_MEASUREMENT_ID is unset, e.g. dev).
         "ga_head_snippet": ga_head_snippet(),

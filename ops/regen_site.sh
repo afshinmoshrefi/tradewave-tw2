@@ -48,6 +48,7 @@ run insightschart "$SITE"           "$PY" generate_insights_charts.py  # embedde
 run textpages "$SITE"               "$PY" generate_text_pages.py
 run about     "$SITE"               "$PY" generate_about_page.py
 run research  "$SITE"               "$PY" generate_research_page.py
+run 100yp     "$SITE"               "$PY" generate_100_year_pattern.py
 run webinars  "$SITE"               "$PY" generate_webinar_page.py
 run insights  "$SITE"               "$PY" generate_insights.py
 run learn     "$SITE"               "$PY" generate_learn.py
