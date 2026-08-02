@@ -1479,6 +1479,12 @@ dep crash-loops workers into a 502) + web-box `ops/migrate.sh` + idempotent
 + `is-active` -> React symlink-swap -> nginx CSP reload. Full detail +
 restart-matrix: `ops/OPERATIONS.md`.
 
+The deploy pre-flight normally requires the APP tier to have at least 4 CPUs
+and roughly 8 GB RAM. An intentionally reduced **staging-only** APP can be
+deployed with the explicit operator acknowledgement
+`TW2_ALLOW_UNDERSIZED_STAGING_APP=1`; production cannot use this override, and
+all other deployment and health gates remain enforced.
+
 **React deploy = SYMLINK SWAP** (NOT a dir copy, NOT git pull): `build` is a
 symlink to `releases/build-<commit>`; deploy rsyncs to a new release dir then
 `ln -sfn`; `build-previous` = instant rollback (`ln -sfn "$(readlink build-previous)" build`).

@@ -52,6 +52,14 @@ Health: `systemctl is-active <svc>`. Logs: `/var/log/tradewave/*.log` (rotated d
 
 **Fast path (one command per env):** `bash ops/deploy.sh staging` → verify → `bash ops/deploy.sh prod`. The script runs everything below for one env (pre-flight, pull+restart web/app/SMN, React bundle, nginx) and aborts safely if `TW2_PUBLIC_HOST` is unset. Prereqs: commit+push, and `npm run build` if `web-react/` changed. The steps below are the reference the script implements (and for partial/manual deploys).
 
+The APP capacity pre-flight expects at least 4 CPUs and roughly 8 GB RAM. When
+the owner has intentionally reduced **staging** capacity, an operator may make
+that decision explicit with
+`TW2_ALLOW_UNDERSIZED_STAGING_APP=1 bash ops/deploy.sh staging`. The override is
+ignored for production and does not bypass host, identity, clean-tree, disk,
+service, or health gates. Treat performance results from an undersized staging
+APP as capacity-limited.
+
 **Promotion flow: dev → staging → prod**, one env at a time. Code is edited and
 tested on dev (`.176`), then promoted. The **React bundle is built ONCE on dev**
 (env-agnostic, runtime-gated by `window.tw2_env`) and the *same* bundle is copied
