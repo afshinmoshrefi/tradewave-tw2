@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import re
 import sys
 from pathlib import Path
 
@@ -138,6 +139,13 @@ def test_tara_loads_and_explains_the_upcoming_2026_row():
     assert "1930 was the one losing observation" in reply
     assert "2026 is upcoming" in reply
     assert "excluded from the completed n=24" in reply
+
+    plain_reply = re.sub(r"<[^>]*>", "", reply)
+    assert "Loaded The 100-Year Pattern SPX long" in plain_reply
+    assert "What the bars show One bar" in plain_reply
+    assert "Historical result 23 of 24" in plain_reply
+    assert "Current row 2026 is upcoming" in plain_reply
+    assert "Book This is the pattern" in plain_reply
 
 
 def test_tara_labels_active_row_partial_and_keeps_completed_n_24():

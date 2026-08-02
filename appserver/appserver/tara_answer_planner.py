@@ -828,18 +828,18 @@ def build_hundred_year_pattern_command(
         else "no completed observations yet"
     )
     lines = [
-        "<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">Loaded The 100-Year Pattern</span>"
+        "<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">Loaded The 100-Year Pattern</span> "
         "SPX long, PE+2 (midterm years), September 27 through July 18 of the following year. "
         "That is 295 calendar days, with the entry date counted as day 1.</div>",
-        f"<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">What the bars show</span>"
+        f"<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">What the bars show</span> "
         f"One bar per qualifying midterm-cycle observation. The completed cohort contains "
         f"n={completed_count} observations with entry years {range_text}; these are not "
         f"{completed_count} consecutive calendar years.</div>",
-        f"<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">Historical result</span>"
+        f"<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">Historical result</span> "
         f"{record_text}</div>",
-        f"<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">Current row</span>"
+        f"<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">Current row</span> "
         f"{occurrence_line}</div>",
-        "<div class=\"tara-analysis-section tara-analysis-scope\"><span class=\"tara-analysis-heading\">Book</span>"
+        "<div class=\"tara-analysis-section tara-analysis-scope\"><span class=\"tara-analysis-heading\">Book</span> "
         "This is the pattern documented in <a href=\"https://www.amazon.com/dp/B0FCX61K4Y\" "
         "target=\"_blank\" rel=\"noopener\">The 100-Year Pattern</a>.</div>",
     ]
