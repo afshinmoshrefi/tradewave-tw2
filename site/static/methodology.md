@@ -1,0 +1,23 @@
+# Methodology
+
+- Outcome disclosure: 22 of 24 cycles gained more than 2%; the 1978 cycle gained 0.03% as the index moved only 0.03 points, from 101.66 to 101.69; 1930 lost.
+- Intraday MAE availability: `mae_intraday_pct` and `mae_intraday_date` are blank for the 1930 through 1958 cycles because the vendor series has no distinct daily high or low before 1962. No close value is substituted for an unavailable intraday low. Blank means unavailable, not zero.
+- Index series and identifier: EODHD `GSPC.INDX`, stored by TradeWave as `SPX`.
+- Index history: before March 1957, the series represents the daily 90-stock S&P Composite predecessor. The S&P 500 began in its current 500-stock format in March 1957.
+- Data source and vendor: EODHD End-of-Day Historical Data API, using the existing TradeWave daily OHLC file. No data was downloaded for this extraction.
+- Adjustment: the TradeWave ingestion pipeline applies `adjusted_close / close` to OHLC. Every adjustment factor in this index file is 1.0, so the published levels are unchanged price-index levels.
+- Return basis: price return. Dividends are not reinvested.
+- Return measurement: close to close from resolved entry through resolved exit.
+- Transaction costs and slippage: zero.
+- Cohort: 24 completed PE+2 midterm cycles, entry years 1930 through 2022.
+- Nominal window: September 27 of each midterm year through July 18 of the following year.
+- Endpoint convention: if a nominal endpoint has no observation, use the first dated observation after it. Entry and exit are resolved independently.
+- Session calendar: the dated observations in the canonical EODHD `GSPC.INDX` file. No weekday, holiday, or price observation is interpolated, forward-filled, or reconstructed.
+- Historical session note: this vendor series contains no Saturday observations. Before the NYSE adopted a year-round five-day week in September 1952, Saturday exchange sessions existed. The CSV exposes every endpoint shift so this source convention is visible.
+- Inclusive counting: the entry date counts as day 1, so July 1 to July 31 is 31 calendar days.
+- Duration: 295 days is the nominal inclusive calendar label. `calendar_days_held` reports the inclusive span between resolved endpoints. `trading_days_held` counts dated source observations inclusively.
+- Close-basis MAE: the lowest close in the inclusive resolved window versus `entry_close`, reported as a negative percentage or zero.
+- Intraday-basis MAE: when available, the lowest vendor daily low in the inclusive resolved window versus `entry_close`, reported as a negative percentage or zero.
+- MAE reference price: `entry_close` for both MAE columns.
+- Historical OHLC note: all 8508 source rows before 1962 have identical open, high, low, and close values. The first distinct daily OHLC row is 1962-01-02.
+- CSV precision: prices and percentages are published to four decimal places. Summary figures use TradeWave's display convention: round each cycle return to two decimals, compute aggregates, and display whole percentages.
