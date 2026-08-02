@@ -129,11 +129,12 @@ h1 { max-width: 720px; margin: 0; font-size: clamp(52px, 5.3vw, 74px); line-heig
 .evidence-section { padding-block: 112px; }
 .text-link { color: #b9aaff; font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; }
 .text-link:hover, .correction-link:hover { color: #d8cfff; }
-.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 72px; }
+.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 10px; }
 .stat-grid article { min-height: 148px; display: flex; flex-direction: column; justify-content: flex-end; border: 1px solid var(--line); border-radius: 12px; padding: 18px; background: linear-gradient(160deg, rgba(19, 32, 58, 0.8), rgba(15, 26, 46, 0.7)); }
 .stat-grid span { margin-bottom: auto; color: var(--muted-2); font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
 .stat-grid strong { font-family: var(--mono); font-size: clamp(25px, 2.5vw, 36px); line-height: 1.1; letter-spacing: -0.06em; }
 .stat-grid small { margin-top: 6px; color: var(--muted-2); font-size: 10px; }
+.stat-footnote { margin: 0 0 72px; color: var(--muted-2); font-size: 9px; line-height: 1.45; text-align: center; }
 .stat-grid .loss-stat { border-color: rgba(229, 104, 127, 0.28); }
 .loss-stat strong { color: #ff8ca1; }
 .chart-heading { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin-bottom: 18px; }
@@ -295,7 +296,8 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
   .rule-grid { grid-template-columns: 1fr; }
   .rule-card { min-height: 174px; }
   .rule-card h3 { margin-top: 30px; }
-  .stat-grid { grid-template-columns: repeat(2, 1fr); margin-bottom: 55px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); margin-bottom: 10px; }
+  .stat-footnote { margin-bottom: 55px; }
   .stat-grid article { min-height: 124px; padding: 15px; }
   .stat-grid article:first-child { grid-column: span 2; }
   .chart-heading { display: block; }
@@ -413,11 +415,12 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
 
     <div class="stat-grid">
       <article><span>Completed cycles</span><strong>24</strong><small>1930 to 2022</small></article>
-      <article><span>Positive outcomes</span><strong>23</strong><small>95.83% of cycles<br>Includes 1978 at +0.03%, the smallest positive outcome</small></article>
+      <article><span>Positive outcomes</span><strong>23</strong><small>95.83% of cycles</small></article>
       <article><span>All-cycle mean</span><strong>+18.79%</strong><small>close-to-close</small></article>
       <article><span>Median return</span><strong>+18.92%</strong><small>across all cycles</small></article>
       <article class="loss-stat"><span>Only loss</span><strong>-23.41%</strong><small>1930</small></article>
     </div>
+    <p class="stat-footnote">1978 finished +0.03% and is counted as a positive outcome.</p>
 
     <div class="chart-heading">
       <div><h3>Return and in-window excursion by midterm cycle</h3><p>SPX fixed-date window, Sep 27 to Jul 18 · 24 completed cycles, 1930 to 2022 · percent from resolved entry</p></div>

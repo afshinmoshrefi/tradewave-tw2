@@ -37,7 +37,7 @@ def test_static_evidence_page_contains_the_complete_record():
     assert html.count('class="cycle-column"') == 24
     assert html.count('<tr class="loss-row">') == 1
     assert "This record begins in 1930." in html
-    assert "Includes 1978 at +0.03%" in html
+    assert "1978 finished +0.03% and is counted as a positive outcome." in html
     assert "first prospective out-of-sample test" in html
     assert "July 1 through July 31 is 31 days" in html
     assert "data-countdown-minutes" in html
