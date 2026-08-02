@@ -133,11 +133,10 @@
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
   font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
-  background-image:
-    radial-gradient(1100px 560px at 50% -8%, rgba(124,92,255,.12), transparent 60%),
-    radial-gradient(1400px 900px at 50% 120%, rgba(124,92,255,.05), transparent 55%),
-    radial-gradient(120% 120% at 50% 0%, transparent 60%, rgba(0,0,0,.45) 100%);
-  background-attachment:fixed;}
+  background-image:url("/_static/home-aurora-static.webp?v={{ content.asset_v['home-aurora-static.webp'] }}");
+  background-position:center top;
+  background-repeat:no-repeat;
+  background-size:max(1280px, 100vw) auto;}
 h1,h2,h3{line-height:1.12;letter-spacing:-.01em;font-weight:700;margin:0}
 h1{font-size:clamp(2.1rem,5vw,3.6rem);font-weight:800}
 h2{font-size:clamp(1.6rem,3.4vw,2.5rem)}
@@ -148,7 +147,7 @@ a{color:var(--accent);text-decoration:none}
 .narrow{max-width:780px;margin-left:auto;margin-right:auto}
 .muted{color:var(--muted)}
 .faint{color:var(--faint)}
-section{padding:var(--s6) 0}
+section{padding:var(--s7) 0;border-top:1px solid var(--line)}
 @media(max-width:880px){section{padding:44px 0}
   .close{padding:44px 0 !important}
   .frame-wrap.landscape .frame img,.frame-wrap.wide .frame img{aspect-ratio:auto !important}
@@ -162,8 +161,8 @@ section{padding:var(--s6) 0}
 .eyebrow::before{content:"";width:22px;height:1px;background:var(--accent);opacity:.6}
 .eyebrow .n{color:var(--faint)}
 /* nav */
-.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(11,18,32,.55);border-bottom:1px solid transparent;transition:background .2s ease,border-color .2s ease}
-.nav.scrolled{background:rgba(11,18,32,.80);border-bottom-color:var(--line)}
+.nav{position:sticky;top:0;z-index:50;background:rgba(11,18,32,.90);border-bottom:1px solid transparent;transition:background .2s ease,border-color .2s ease}
+.nav.scrolled{background:rgba(11,18,32,.98);border-bottom-color:var(--line)}
 .nav .wrap{display:flex;align-items:center;gap:28px;height:64px}
 .brand{font-weight:800;letter-spacing:-.02em;font-size:30px}
 .brand b{color:var(--accent)}
@@ -187,24 +186,9 @@ section{padding:var(--s6) 0}
 .micro{color:var(--faint);font-size:.85rem;margin-top:12px}
 .lnk{font-weight:600;font-size:.9rem}
 /* hero */
-.hero{position:relative;isolation:isolate;overflow:hidden;text-align:center;padding:76px 0 0;border-top:none}
-.hero-wave-field{position:absolute;inset:0;z-index:0;width:100%;height:100%;display:block;pointer-events:none;opacity:.90;
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 14%,#000 82%,transparent 100%);
-  mask-image:linear-gradient(to bottom,transparent 0%,#000 14%,#000 82%,transparent 100%)}
-.hero>.wrap{position:relative;z-index:1}
+.hero{text-align:center;padding:76px 0 0;border-top:none}
 .hero h1{max-width:27ch;margin:0 auto}
 .hero .section-sub{margin:40px auto 0;text-align:center}
-@media(max-width:880px){.hero-wave-field{opacity:.70}}
-@media(prefers-reduced-motion:reduce){.hero-wave-field{opacity:.58}}
-.market-strip{padding:15px 0 18px;background:rgba(255,255,255,.012)}
-.market-strip-list{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;color:var(--faint);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.68rem;line-height:1.6;letter-spacing:.055em;text-transform:uppercase}
-.market-strip-item{white-space:nowrap}
-.market-strip-item:not(:first-child)::before{content:"\00b7";margin:0 10px;color:rgba(148,163,184,.44)}
-@media(max-width:720px){
-  .market-strip{padding:14px 0 16px}
-  .market-strip-list{gap:5px 16px;font-size:.64rem}
-  .market-strip-item:not(:first-child)::before{display:none}
-}
 /* roomy vertical rhythm between the stacked hero blocks (headline -> subhead ->
    button -> free-report card) - hero-scoped so other CTA rows are unaffected */
 .hero .cta-row{margin-top:44px}
@@ -245,7 +229,7 @@ section{padding:var(--s6) 0}
 .frame-wrap{position:relative;isolation:isolate;margin:34px auto 0}
 .frame-wrap::before{content:"";position:absolute;inset:-8% -6% -12% -6%;z-index:-1;
   background:radial-gradient(60% 55% at 50% 38%, rgba(124,92,255,.20), transparent 70%);
-  filter:blur(40px);opacity:.8;pointer-events:none}
+  opacity:.62;pointer-events:none}
 .frame.frame--artifact{border:1px solid rgba(124,92,255,.18);
   box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 40px 100px -25px rgba(0,0,0,.7), 0 8px 40px rgba(124,92,255,.10)}
 .frame-wrap.portrait{max-width:520px}
@@ -254,45 +238,6 @@ section{padding:var(--s6) 0}
 /* two-col / band */
 .two{display:grid;grid-template-columns:1fr 1fr;gap:46px;align-items:center}
 .two.rev .copy{order:2}
-.product-story-section{padding-top:96px;padding-bottom:80px;overflow:hidden}
-.product-story-head{max-width:780px;margin:0 auto 64px;text-align:center}
-.product-story-head .eyebrow{justify-content:center}
-.product-story-head .section-sub{margin:18px auto 0;text-align:center}
-.product-story-list{display:grid;gap:72px}
-.product-step{display:grid;grid-template-columns:minmax(0,.88fr) minmax(420px,1.12fr);gap:58px;align-items:center}
-.product-step.media-left{grid-template-columns:minmax(420px,1.12fr) minmax(0,.88fr)}
-.product-step.media-left .product-media{grid-column:1;grid-row:1}
-.product-step.media-left .product-copy{grid-column:2;grid-row:1}
-.product-copy{position:relative}
-.product-step-label{display:flex;align-items:center;gap:12px;margin-bottom:16px;font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);font-weight:600}
-.product-step-label .product-step-number{display:grid;place-items:center;width:30px;height:30px;border:1px solid rgba(124,92,255,.35);border-radius:8px;background:var(--accent-soft);font-size:.62rem;letter-spacing:0}
-.product-copy h3{font-size:clamp(1.45rem,2.5vw,2rem);margin-bottom:18px;max-width:19ch}
-.product-copy p{color:var(--muted);font-size:.96rem;line-height:1.7;max-width:52ch}
-.product-copy p:last-child{margin-bottom:0}
-.product-media{margin:0;position:relative;isolation:isolate}
-.product-media::before{content:"";position:absolute;inset:8% -6% -10%;z-index:-1;background:radial-gradient(60% 62% at 50% 45%,rgba(124,92,255,.18),transparent 72%);filter:blur(34px);pointer-events:none}
-.product-shot{overflow:hidden;border:1px solid rgba(124,92,255,.24);border-radius:16px;background:#0c1526;box-shadow:0 36px 90px -30px rgba(0,0,0,.78),0 10px 34px rgba(124,92,255,.10),inset 0 1px 0 rgba(255,255,255,.05)}
-.product-shot-top{display:flex;align-items:center;gap:7px;min-height:40px;padding:9px 13px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));border-bottom:1px solid var(--line)}
-.product-shot-top .dot{width:9px;height:9px}
-.product-shot-name{margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
-.product-shot img{display:block;width:100%;height:auto}
-@media(max-width:960px){
-  .product-story-section{padding-top:76px;padding-bottom:76px}
-  .product-story-head{margin-bottom:52px}
-  .product-story-list{gap:64px}
-  .product-step{grid-template-columns:minmax(0,.8fr) minmax(360px,1.2fr);gap:34px}
-  .product-step.media-left{grid-template-columns:minmax(360px,1.2fr) minmax(0,.8fr);gap:34px}
-}
-@media(max-width:760px){
-  .product-story-section{padding-top:54px;padding-bottom:60px}
-  .product-story-head{margin-bottom:46px}
-  .product-story-list{gap:54px}
-  .product-step,.product-step.media-left{grid-template-columns:minmax(0,1fr);gap:22px}
-  .product-step .product-copy,.product-step.media-left .product-copy{grid-column:1;grid-row:1}
-  .product-step .product-media,.product-step.media-left .product-media{grid-column:1;grid-row:2}
-  .product-copy h3{max-width:24ch}
-  .product-copy p{max-width:64ch}
-}
 .panelshot{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border:1px solid var(--line2);border-radius:14px;padding:16px;box-shadow:0 24px 60px rgba(0,0,0,.4),0 1px 0 rgba(255,255,255,.04) inset}
 .tag{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:3px 8px;display:inline-block;margin-bottom:10px}
 .badge{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:0 7px;font-weight:600;font-family:'JetBrains Mono',monospace}
@@ -389,30 +334,18 @@ section{padding:var(--s6) 0}
 .billtoggle button.on{background:var(--accent);color:#fff}
 .kicker{text-align:center;color:var(--faint);margin-top:16px;font-size:.9rem}
 .priceband{position:relative;background:linear-gradient(180deg,rgba(124,92,255,.10),rgba(124,92,255,.02) 60%,transparent),var(--panel);
-  border-top:0;border-bottom:0}
+  border-top:1px solid rgba(124,92,255,.30);border-bottom:1px solid rgba(124,92,255,.30)}
 .priceband::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
   background:radial-gradient(820px 380px at 50% -5%,rgba(124,92,255,.18),transparent 60%)}
 .priceband .wrap{position:relative;z-index:1}
 .priceband h2{font-size:clamp(1.9rem,4.2vw,3rem)}
-#ai-access{padding-top:80px;padding-bottom:80px}
 .plan .feat{list-style:none;margin:14px 0 20px;padding:0;font-size:.9rem;color:var(--muted)}
 .plan .feat li{position:relative;padding-left:22px;margin-bottom:9px;line-height:1.45}
 .plan .feat li::before{content:"";position:absolute;left:0;top:7px;width:12px;height:12px;border-radius:3px;
   background:var(--accent-soft);border:1px solid rgba(124,92,255,.5)}
-.plan .feat li.upgrade-cue{color:var(--ink);font-weight:600;margin-top:14px}
-.plan .feat li.upgrade-cue::before{content:"\2713";top:1px;width:16px;height:16px;display:grid;place-items:center;border-radius:50%;font-size:.7rem;line-height:1;color:var(--win);background:rgba(63,182,139,.12);border-color:rgba(63,182,139,.55)}
 .plan .feat li b{color:var(--ink);font-weight:600}
 .plan .roi{font-size:.84rem;color:var(--muted);border-left:2px solid var(--accent);padding-left:10px;margin:0 0 18px;line-height:1.5}
 .plan .ctamicro{font-size:.72rem;color:var(--faint);text-align:center;margin-top:10px;line-height:1.45;min-height:2.9em}
-.pricing-chat{max-width:860px;margin:24px auto 0;padding:18px 20px;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:18px;text-align:left;background:linear-gradient(135deg,rgba(124,92,255,.14),rgba(63,182,139,.06));border:1px solid rgba(124,92,255,.38);border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
-.pricing-chat-brand{display:flex;align-items:center;justify-content:center;align-self:center}
-.pricing-chat-icons{display:flex;align-items:center;justify-content:center;gap:12px}
-.pricing-chat-icon{width:48px;height:48px;display:grid;place-items:center;color:var(--ink);background:rgba(5,9,18,.45);border:1px solid rgba(255,255,255,.14);border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
-.pricing-chat-icon svg{display:block;width:30px;height:30px}
-.pricing-chat-copy{display:flex;flex-direction:column;align-items:flex-start}
-.pricing-chat p{margin:0;color:var(--muted);font-size:.88rem;line-height:1.55}
-.pricing-chat-cta{margin-top:12px;padding:8px 14px;font-size:.82rem}
-@media(max-width:600px){.pricing-chat{grid-template-columns:1fr;gap:12px}.pricing-chat-brand{align-items:center}.pricing-chat-icons{padding-left:0}}
 /* close */
 .close{text-align:center;padding:140px 0;position:relative;overflow:hidden}
 .close::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(700px 360px at 50% 30%,rgba(124,92,255,.12),transparent 65%)}
@@ -435,12 +368,6 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 .sw.dg{background:#1AA33F} .sw.lg{background:#8FD68C} .sw.pk{background:#F0908A} .sw.rd{background:#BE2130}
 /* the two seasonal projection lines under the price chart (yellow = 20y, purple = 41y) */
 .sw.yr20{background:#DCA63C} .sw.yr41{background:#8878F0}
-/* reveal motion */
-@media(prefers-reduced-motion:no-preference){
-  .reveal{opacity:0;transform:translateY(12px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.2,1)}
-  .reveal.in{opacity:1;transform:none}
-  .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}.reveal.d5{transition-delay:.40s}
-}
 @media(max-width:880px){
   .two,.cols3{grid-template-columns:minmax(0,1fr)}
   .live-ledger-top{align-items:flex-start;padding:16px 18px}
@@ -462,7 +389,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
   .two.rev .copy{order:0}
   .navtoggle{display:flex}
   .nav nav{position:fixed;top:64px;left:0;right:0;margin:0;flex-direction:column;align-items:stretch;gap:0;
-    background:#0b1220;backdrop-filter:blur(14px);border-bottom:1px solid var(--line);box-shadow:0 24px 60px rgba(0,0,0,.6);
+    background:#0b1220;border-bottom:1px solid var(--line);box-shadow:0 24px 60px rgba(0,0,0,.6);
     padding:8px 24px 20px;transform:translateY(-12px);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
   .nav.open nav{transform:none;opacity:1;pointer-events:auto}
   .nav nav a.lk{display:block;padding:13px 2px;border-bottom:1px solid var(--line);font-size:1rem;color:var(--ink)}
@@ -485,7 +412,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 .stickycta{display:none}
 @media(max-width:880px){
   .stickycta{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
-    gap:10px;align-items:center;justify-content:space-between;background:rgba(11,18,32,.92);backdrop-filter:blur(12px);
+    gap:10px;align-items:center;justify-content:space-between;background:rgba(11,18,32,.98);
     border-top:1px solid var(--line2);transform:translateY(120%);transition:transform .25s ease}
   .stickycta.show{transform:none}
   .stickycta .lbl{font-size:.8rem;color:var(--muted);line-height:1.2}
@@ -507,7 +434,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 .frcard.quiet:hover{border-color:var(--line2);box-shadow:none;transform:none}
 .frcard.quiet .go{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(124,92,255,.35);box-shadow:none}
 @media(max-width:520px){.frcard{flex-wrap:wrap}.frcard .em{flex-basis:100%;order:5}.frcard .go{flex-basis:100%;text-align:center;order:6;margin-top:4px}}
-.lm-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,18,32,.72);backdrop-filter:blur(8px)}
+.lm-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,18,32,.94)}
 .lm-overlay.open{display:flex}
 .lm{position:relative;width:100%;max-width:520px;max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:16px;box-shadow:0 40px 100px -25px rgba(0,0,0,.75);background-image:linear-gradient(180deg,rgba(124,92,255,.12),transparent 140px)}
 .lm-x{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--muted);font-size:1.2rem;cursor:pointer;line-height:1;z-index:2}
@@ -554,98 +481,8 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 .market-item .market-change.down{color:var(--loss)}
 </style>
 {{ content.ga_head_snippet|safe }}
-<style id="bgfx-css">
-/* ============================================================
-   Variant A - Aurora mesh gradient field
-   Pure light + color. No linework, no shapes with edges.
-   A luminous purple crown behind the hero headline, faint
-   colored depth at the edges, film grain so gradients read
-   expensive, a soft vignette so sections breathe.
-   ============================================================ */
-body{background-image:none !important;}
-
-.bgfx{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
-  background:var(--bg);
-  /* deep base wash - a slow vertical descent from lifted violet-navy to near-black */
-  background-image:
-    linear-gradient(180deg,#0d1526 0%,#0b1220 46%,#090f1c 100%);
-}
-.bgfx>div{position:absolute;inset:0;will-change:transform;}
-
-/* ---- Layer 1: the aurora mesh (the crown + colored depth) ---- */
-.bgfx__aurora{inset:-12%;
-  background:
-    /* luminous purple crown - peaks off the top edge, washes the headline, fades before the CTA.
-       a cooler blue-violet inner ring gives it the two-tone aurora glow rather than a flat blob */
-    radial-gradient(1180px 560px at 50% -6%,  rgba(150,120,255,.30), rgba(108,86,236,.12) 38%, transparent 64%),
-    radial-gradient(1520px 760px at 50% -14%, rgba(96,120,240,.12),  transparent 60%),
-    /* violet shoulders - give the crown width without a second hotspot */
-    radial-gradient(980px 760px at 4% -2%,   rgba(96,74,214,.16),   transparent 55%),
-    radial-gradient(980px 760px at 97% 1%,   rgba(140,108,255,.15), transparent 55%),
-    /* a whisper of win-green, low-left - the only secondary colour, kept faint */
-    radial-gradient(1120px 820px at 10% 96%, rgba(63,182,139,.10),  transparent 56%),
-    /* a faint loss-pink ember at the far low corner for palette richness */
-    radial-gradient(860px 680px at 90% 99%,  rgba(229,104,127,.07), transparent 58%);
-  animation:bgfxDrift 30s ease-in-out infinite;
-}
-
-/* ---- Layer 2: aurora sheen - a big blurred conic anchored high, rotates glacially ---- */
-.bgfx__sheen{inset:-40% -30% auto -30%;height:70%;
-  background:
-    conic-gradient(from 200deg at 50% 30%,
-      rgba(140,110,255,.13), rgba(63,182,139,.03) 20%, rgba(124,92,255,0) 44%,
-      rgba(96,74,214,.10) 66%, rgba(150,120,255,.06) 84%, rgba(140,110,255,.13));
-  filter:blur(80px);
-  opacity:.85;
-  mix-blend-mode:screen;
-  animation:bgfxSpin 120s linear infinite;
-}
-
-/* ---- Layer 3: film grain - kills banding, gives an expensive tooth ---- */
-.bgfx__grain{
-  background-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='260'%20height='260'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.82'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3CfeColorMatrix%20type='saturate'%20values='0'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size:260px 260px;
-  opacity:.07;
-  mix-blend-mode:overlay;
-}
-
-/* ---- Layer 4: vignette - darkens the frame so the centre stays the stage ---- */
-.bgfx__vignette{
-  background:
-    radial-gradient(135% 120% at 50% 28%, transparent 50%, rgba(0,0,0,.30) 84%, rgba(5,8,15,.55) 100%),
-    linear-gradient(180deg, rgba(0,0,0,.10), transparent 12% 82%, rgba(5,8,15,.35));
-}
-
-@keyframes bgfxDrift{
-  0%  {transform:translate3d(0,0,0)        scale(1.06);}
-  50% {transform:translate3d(-2.4%,1.9%,0) scale(1.15);}
-  100%{transform:translate3d(0,0,0)        scale(1.06);}
-}
-@keyframes bgfxSpin{
-  from{transform:rotate(0deg);}
-  to  {transform:rotate(360deg);}
-}
-
-@media (prefers-reduced-motion:reduce){
-  .bgfx__aurora,.bgfx__sheen{animation:none;}
-}
-
-@media (max-width:880px){
-  /* drop the heaviest layers on phones - keep the crown + grain + vignette */
-  .bgfx__sheen{display:none;}
-  .bgfx__aurora{animation:none;inset:-6%;}
-  .bgfx__grain{opacity:.04;}
-}
-</style>
 </head>
 <body>
-<div class="bgfx" aria-hidden="true">
-  <div class="bgfx__sheen"></div>
-  <div class="bgfx__aurora"></div>
-  <div class="bgfx__grain"></div>
-  <div class="bgfx__vignette"></div>
-</div>
-
 
 <!-- LIVE MARKET BAR (content.market_bar; refreshed by /assets/market-quotes.js) -->
 {% if content.market_bar %}
@@ -677,12 +514,10 @@ body{background-image:none !important;}
 </div></header>
 
 <!-- 01 / HERO (copy bound via content.hero - tournament winner; scored runner-ups documented in the generator) -->
-<section class="hero">
-<canvas id="hero-wave-field" class="hero-wave-field" aria-hidden="true"></canvas>
-<div class="wrap">
+<section class="hero"><div class="wrap">
   {% if content.hero.pill_calendar_text %}<a href="{{ content.hero.pill_calendar_url }}" class="hero-pill reveal"><span class="tag">New</span>{{ content.hero.pill_calendar_text }}<span class="arr">&rarr;</span></a>{% endif %}
   <h1 class="reveal d1">{{ content.hero.headline }}</h1>
-  <p class="section-sub reveal d1" style="max-width:740px">{{ content.hero.subheadline }}</p>
+  <p class="section-sub reveal d1" style="max-width:680px">{{ content.hero.subheadline }}</p>
   <div class="cta-row reveal d2">
     <a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.08rem;padding:16px 32px">{{ content.hero.cta_primary }}</a>
   </div>
@@ -695,11 +530,6 @@ body{background-image:none !important;}
     </button>
   </div>
 </div></section>
-<div class="market-strip" aria-label="Markets available in TradeWave">
-  <div class="wrap market-strip-list">
-    {% for market in content.hero.market_strip %}<span class="market-strip-item">{{ market }}</span>{% endfor %}
-  </div>
-</div>
 
 <!-- 02 / TARA (the beginner hook - moved directly after the hero per the June-30
      owner+Michael directive; id stays #tara for deep links). Copy is bound via
@@ -736,35 +566,57 @@ body{background-image:none !important;}
   </div>
 </div></section>
 
-<!-- 03 / PRODUCT WORKFLOW (the six alternating product stories supplied in the
-     homepage mockup, rendered as responsive HTML rather than a spreadsheet). -->
-<section id="product-story" class="product-story-section"><div class="wrap">
-  <header class="product-story-head">
-    <div class="eyebrow reveal">{{ content.product_story.eyebrow }}</div>
-    <h2 class="reveal">{{ content.product_story.headline }}</h2>
-    <p class="section-sub reveal d1">{{ content.product_story.sub }}</p>
-  </header>
-  <div class="product-story-list">
-    {% for step in content.product_story.steps %}
-    <article class="product-step{% if loop.index is even %} media-left{% endif %}">
-      <div class="product-copy reveal">
-        <div class="product-step-label"><span class="product-step-number" aria-hidden="true">0{{ loop.index }}</span>{{ step.label }}</div>
-        <h3>{{ step.title }}</h3>
-        {% for paragraph in step.body %}<p>{{ paragraph }}</p>{% endfor %}
-      </div>
-      <figure class="product-media reveal d1">
-        <div class="product-shot">
-          <div class="product-shot-top" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="product-shot-name">{{ step.label }}</span></div>
-          <img src="/_static/{{ step.image }}?v={{ content.asset_v[step.image] }}" alt="{{ step.alt }}" loading="lazy" decoding="async" width="{{ step.width }}" height="{{ step.height }}">
-        </div>
-      </figure>
-    </article>
-    {% endfor %}
+<!-- 03 / THE EVIDENCE -->
+<section style="padding-bottom:72px"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center">The Evidence</div>
+  <h2 class="reveal" style="text-align:center">Read the Whole Track Record at a Glance</h2>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600;text-align:center">TJX is one example. Run the same year-by-year analysis on any stock you choose. Here is what each color shows:</p>
+  <div class="legend reveal d1"><span class="sw dg"></span> The gain that year &nbsp;&nbsp; <span class="sw lg"></span> How high it climbed &nbsp;&nbsp; <span class="sw pk"></span> How far it dropped &nbsp;&nbsp; <span class="sw rd"></span> A losing year</div>
+  <div class="frame-wrap landscape reveal d2" style="max-width:1080px">
+    <div class="frame frame--artifact">
+      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">tradewave.ai/app - 20-Year TJX</span></div>
+      <img src="/_static/evidence_hero.webp?v={{ content.asset_v['evidence_hero.webp'] }}" alt="20-Year TJX per-year bars, each pairing the favorable run with the drawdown, above the TJX price chart with this year's dashed seasonal projection - with the one-click Remind me calendar-reminder button in the toolbar" loading="lazy" decoding="async" width="1286" height="849">
+    </div>
   </div>
+  <div class="caption">The left is TJX's current price chart. The two lines to the right:</div>
+  <div class="legend reveal d1"><span class="sw yr20"></span> Seasonal projection based on your chosen time frame &nbsp;&nbsp; <span class="sw yr41"></span> Seasonal projection based on all available data &nbsp;&middot;&nbsp; <a href="{{ content.methodology_url }}" style="color:var(--faint);text-decoration:underline">Read the methodology &rarr;</a></div>
 </div></section>
 
-<!-- CTA at peak conviction (right after the complete product workflow). -->
-<div class="wrap" style="text-align:center"><div class="cta-row reveal" style="margin:0 0 24px"><a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.04rem;padding:14px 30px">Start Free - Full Access for 7 Days</a></div></div>
+<!-- CTA at peak conviction (right after The Evidence). Balanced in the gap: the
+     72px below here pairs with section 03's reduced 72px bottom padding above, so
+     the button sits centered between the chart and the next section's line, not
+     glued to it. -->
+<div class="wrap" style="text-align:center"><div class="cta-row reveal" style="margin:6px 0 72px"><a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.04rem;padding:14px 30px">Start Free - Full Access for 7 Days</a></div></div>
+
+<!-- CALENDAR REMINDERS band (unnumbered, like the CTA/free-report bands, so the
+     section numbering stays intact). One-click reminder bell: the visual is the
+     real button -> the real Google Calendar event it creates. Keep the mock
+     event content in sync with googleCalendarEvents.js if the copy there
+     changes. Google Calendar is the current implementation; the visible copy
+     intentionally uses the simpler "calendar" wording. -->
+<section id="calendar-reminders"><div class="wrap" style="text-align:center">
+  <h2 class="reveal">Never Watch the Calendar Again</h2>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center;max-width:640px">TradeWave's AI captures the highest-probability seasonal patterns for you. Don't miss them, because patterns don't wait. One click in the Wave Viewer puts the trade window on your calendar, with the evidence attached and a reminder set.</p>
+  <div class="reveal d1" style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:26px">
+    <div style="text-align:center">
+      <span style="display:inline-flex;align-items:center;background:#7C5CFF;color:#fff;border-radius:999px;padding:8px 18px;font-weight:600;font-size:.95rem;box-shadow:0 6px 24px rgba(124,92,255,.35)"><svg width="13" height="13" viewBox="0 0 16 16" fill="#fff" style="margin-right:7px" aria-hidden="true"><path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2m.995-14.901a1 1 0 1 0-1.99 0A5 5 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7a5 5 0 0 0-4.005-4.901"/></svg>Remind me</span>
+      <div class="faint" style="font-size:.75rem;margin-top:8px">one click in the viewer</div>
+    </div>
+    <div class="faint" style="font-size:1.6rem" aria-hidden="true">&rarr;</div>
+    <div class="panelshot" style="max-width:430px;text-align:left;padding:18px 20px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="width:12px;height:12px;border-radius:3px;background:#7C5CFF;margin-top:5px;flex:0 0 auto"></span>
+        <div>
+          <div style="font-weight:700;color:var(--ink);font-size:.95rem;line-height:1.35">TJX Long - TradeWave Seasonal Start (Oct 12 - Nov 24)</div>
+          <div class="faint" style="font-size:.8rem;margin-top:3px">Monday, October 12 &middot; 8:00 AM</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,.08);margin:12px 0"></div>
+      <div style="font-size:.85rem;color:var(--muted);line-height:1.6"><b style="color:var(--ink)">Seasonal pattern window opens today.</b><br>Full per-year record and shareable report linked inside.<br>Reminders: email 24 h before &middot; popup at 8:00 AM</div>
+    </div>
+  </div>
+  <div class="micro reveal d1" style="margin-top:18px">Included with every plan, even Free. Both the start and the end date land on your calendar - change times or reminders anytime.</div>
+</div></section>
 
 <!-- 05 / THE LEDGER -->
 <section id="ledger"><div class="wrap">
@@ -805,58 +657,7 @@ body{background-image:none !important;}
   <p class="ledger-explain reveal">Target Hit means the predicted return was reached and the trade was exited for a win. Every older pick remains available in the full track record. <a href="{{ content.methodology_url }}" class="lnk">Read the methodology &rarr;</a></p>
 </div></section>
 
-<!-- CALENDAR REMINDERS band (unnumbered, like the CTA/free-report bands, so the
-     section numbering stays intact). One-click reminder bell: the visual is the
-     real button -> the real Google Calendar event it creates. Keep the mock
-     event content in sync with googleCalendarEvents.js if the copy there
-     changes. Google Calendar is the current implementation; the visible copy
-     intentionally uses the simpler "calendar" wording. -->
-<section id="calendar-reminders"><div class="wrap" style="text-align:center">
-  <h2 class="reveal">Never Watch the Calendar Again</h2>
-  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center;max-width:640px">TradeWave's AI captures the highest-probability seasonal patterns for you. Don't miss them, because patterns don't wait. One click in the Wave Viewer puts the trade window on your calendar, with the evidence attached and a reminder set.</p>
-  <div class="reveal d1" style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:26px">
-    <div style="text-align:center">
-      <span style="display:inline-flex;align-items:center;background:#7C5CFF;color:#fff;border-radius:999px;padding:8px 18px;font-weight:600;font-size:.95rem;box-shadow:0 6px 24px rgba(124,92,255,.35)"><svg width="13" height="13" viewBox="0 0 16 16" fill="#fff" style="margin-right:7px" aria-hidden="true"><path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2m.995-14.901a1 1 0 1 0-1.99 0A5 5 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7a5 5 0 0 0-4.005-4.901"/></svg>Remind me</span>
-      <div class="faint" style="font-size:.75rem;margin-top:8px">one click in the viewer</div>
-    </div>
-    <div class="faint" style="font-size:1.6rem" aria-hidden="true">&rarr;</div>
-    <div class="panelshot" style="max-width:430px;text-align:left;padding:18px 20px">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <span style="width:12px;height:12px;border-radius:3px;background:#7C5CFF;margin-top:5px;flex:0 0 auto"></span>
-        <div>
-          <div style="font-weight:700;color:var(--ink);font-size:.95rem;line-height:1.35">TJX Long - TradeWave Seasonal Start (Oct 12 - Nov 24)</div>
-          <div class="faint" style="font-size:.8rem;margin-top:3px">Monday, October 12 &middot; 8:00 AM</div>
-        </div>
-      </div>
-      <div style="border-top:1px solid rgba(255,255,255,.08);margin:12px 0"></div>
-      <div style="font-size:.85rem;color:var(--muted);line-height:1.6"><b style="color:var(--ink)">Seasonal pattern window opens today.</b><br>Full per-year record and shareable report linked inside.<br>Reminders: email 24 h before &middot; popup at 8:00 AM</div>
-    </div>
-  </div>
-  <div class="micro reveal d1" style="margin-top:18px">Included with every plan, even Free. Both the start and the end date land on your calendar - change times or reminders anytime.</div>
-</div></section>
-
-<!-- 06 / CHATGPT + CLAUDE (standalone MCP compatibility section) -->
-<section id="ai-access"><div class="wrap" style="text-align:center">
-  <h2 class="reveal">{{ content.pricing.chat_headline }}</h2>
-  <div class="pricing-chat reveal d1">
-    <div class="pricing-chat-brand">
-      <div class="pricing-chat-icons" aria-label="Works with ChatGPT and Claude">
-        <span class="pricing-chat-icon" role="img" aria-label="ChatGPT" title="ChatGPT">
-          <svg viewBox="29.487 29.964 121.035 119.954" fill="none" aria-hidden="true" focusable="false"><path d="M75.91 73.628V62.232c0-.96.36-1.68 1.199-2.16l22.912-13.194c3.119-1.8 6.838-2.639 10.676-2.639 14.394 0 23.511 11.157 23.511 23.032 0 .839 0 1.799-.12 2.758l-23.752-13.914c-1.439-.84-2.879-.84-4.318 0L75.91 73.627Zm53.499 44.383v-27.23c0-1.68-.72-2.88-2.159-3.719L97.142 69.55l9.836-5.638c.839-.48 1.559-.48 2.399 0l22.912 13.195c6.598 3.839 11.035 11.995 11.035 19.912 0 9.116-5.397 17.513-13.915 20.992v.001Zm-60.577-23.99-9.836-5.758c-.84-.48-1.2-1.2-1.2-2.16v-26.39c0-12.834 9.837-22.55 23.152-22.55 5.039 0 9.716 1.679 13.676 4.678L70.993 55.516c-1.44.84-2.16 2.039-2.16 3.719v34.787-.002Zm21.173 12.234L75.91 98.339V81.546l14.095-7.917 14.094 7.917v16.793l-14.094 7.916Zm9.056 36.467c-5.038 0-9.716-1.68-13.675-4.678l23.631-13.676c1.439-.839 2.159-2.038 2.159-3.718V85.863l9.956 5.757c.84.48 1.2 1.2 1.2 2.16v26.389c0 12.835-9.957 22.552-23.27 22.552v.001Zm-28.43-26.75L47.72 102.778c-6.599-3.84-11.036-11.996-11.036-19.913 0-9.236 5.518-17.513 14.034-20.992v27.35c0 1.68.72 2.879 2.16 3.718l29.989 17.393-9.837 5.638c-.84.48-1.56.48-2.399 0Zm-1.318 19.673c-13.555 0-23.512-10.196-23.512-22.792 0-.959.12-1.919.24-2.879l23.63 13.675c1.44.84 2.88.84 4.32 0l30.108-17.392v11.395c0 .96-.361 1.68-1.2 2.16l-22.912 13.194c-3.119 1.8-6.837 2.639-10.675 2.639Zm29.748 14.274c14.515 0 26.63-10.316 29.39-23.991 13.434-3.479 22.071-16.074 22.071-28.91 0-8.396-3.598-16.553-10.076-22.43.6-2.52.96-5.039.96-7.557 0-17.153-13.915-29.99-29.989-29.99-3.239 0-6.358.48-9.477 1.56-5.398-5.278-12.835-8.637-20.992-8.637-14.515 0-26.63 10.316-29.39 23.991-13.434 3.48-22.07 16.074-22.07 28.91 0 8.396 3.598 16.553 10.075 22.431-.6 2.519-.96 5.038-.96 7.556 0 17.154 13.915 29.989 29.99 29.989 3.238 0 6.357-.479 9.476-1.559 5.397 5.278 12.835 8.637 20.992 8.637Z" fill="currentColor"/></svg>
-        </span>
-        <span class="pricing-chat-icon" role="img" aria-label="Claude" title="Claude">
-          <svg viewBox="0 0 94 94" fill="none" aria-hidden="true" focusable="false"><path d="M18.7657 62.4437L37.1822 52.1167L37.4857 51.2122L37.1822 50.7085H36.2715L33.1852 50.5208L22.6615 50.2391L13.5545 49.8636L4.70044 49.3942L2.47428 48.9248L.399902 46.1553L.602281 44.794L2.47428 43.5266L5.15579 43.7613L11.0754 44.1837L19.98 44.794L26.4055 45.1695L35.9679 46.1553H37.4857L37.6881 45.545L37.1822 45.1695L36.7774 44.794L27.5692 38.5508L17.6021 31.9791L12.3908 28.1769L9.60812 26.2524L8.19147 24.4686L7.58433 20.5256L10.1141 17.7091L13.5545 17.9438L14.4146 18.1785L17.9056 20.8542L25.343 26.6279L35.0572 33.7629L36.4739 34.9364L37.0443 34.5514L37.1316 34.2792L36.4739 33.1996L31.212 23.6706L25.596 13.9539L23.0663 9.91695L22.4086 7.52296C22.1538 6.51831 22.0038 5.68714 22.0038 4.65957L24.8877.716544L26.5067.200195L30.4025.716544L32.0215 2.12477L34.4501 7.66379L38.3458 16.3478L44.4172 28.1769L46.188 31.6975L47.1493 34.9364L47.5035 35.9222H48.1106V35.3589L48.6166 28.6933L49.5273 20.5256L50.438 10.0108L50.7415 7.05356L52.2088 3.48605L55.1433 1.56148L57.42 2.64112L59.292 5.31674L59.039 7.05356L57.926 14.2824L55.7504 25.5952L54.3337 33.1996H55.1433L56.1046 32.2138L59.9497 27.1442L66.3752 19.0704L69.2085 15.8784L72.5478 12.3579L74.6728 10.668H78.7203L81.6548 15.0804L80.3394 19.6337L76.1906 24.8911L72.7502 29.3504L67.8172 35.9595L64.7562 41.2734L65.0307 41.7118L65.7681 41.6489L76.8989 39.255L82.9197 38.1753L90.1041 36.9549L93.3422 38.457L93.6963 40.006L92.4315 43.151L84.7411 45.0287L75.7353 46.8594L62.3244 50.0164L62.1759 50.1358L62.3512 50.3958L68.399 50.9432L70.9794 51.084H77.3037L89.0922 51.9759L92.1785 53.9944L93.9999 56.4822L93.6963 58.4068L88.9404 60.8008L82.5655 59.2987L67.6401 55.7312L62.5301 54.4638H61.8217V54.8862L66.0717 59.064L73.9139 66.1051L83.6786 75.2116L84.1845 77.4648L82.9197 79.2485L81.6042 79.0608L73.0032 72.5829L69.6639 69.6726L62.1759 63.3356H61.67V63.9928L63.3902 66.5276L72.5478 80.2812L73.0032 84.5059L72.3454 85.8672L69.9675 86.7121L67.3871 86.2427L61.9735 78.6852L56.4587 70.2359L52.0064 62.6315L51.4687 62.971L48.8189 91.2654L47.6047 92.7206L44.7714 93.8002L42.3934 92.0164L41.1286 89.1061L42.3934 83.3324L43.9113 75.8219L45.1255 69.8604L46.2386 62.4437L46.9184 59.9661L46.8583 59.8003L46.3153 59.8916L40.7238 67.5603L32.2239 79.0608L25.4948 86.2427L23.8758 86.8999L21.0931 85.4447L21.3461 82.863L22.9145 80.5629L32.2239 68.7338L37.8399 61.3641L41.4594 57.1337L41.4242 56.5218L41.2244 56.5048L16.489 72.6299L12.0873 73.1932L10.1647 71.4094L10.4176 68.4991L11.3283 67.5603L18.7657 62.4437Z" fill="#D97757"/></svg>
-        </span>
-      </div>
-    </div>
-    <div class="pricing-chat-copy">
-      <p>{{ content.pricing.chat_copy }}</p>
-      <a href="{{ content.mcp_setup_url }}" class="btn ghost pricing-chat-cta">See How to Use TradeWave in ChatGPT or Claude &rarr;</a>
-    </div>
-  </div>
-</div></section>
-
-<!-- 07 / WHAT TRADERS SAY (third-party proof: content.video + content.video2, both
+<!-- 06 / WHAT TRADERS SAY (third-party proof: content.video + content.video2, both
      TradeWave affiliates - the material-connection disclosure renders below the
      cards. The MP4s are 50MB+ self-hosted files: click-to-play ONLY
      (preload="metadata", controls, styled play cover, never autoplay). -->
@@ -882,7 +683,7 @@ body{background-image:none !important;}
   <div class="disclose reveal">{{ content.proof.disclosure }}</div>
 </div></section>
 
-<!-- 08 / PRICING (Stripe-injected loop, v4 look). The kicker + CTA labels scope the
+<!-- 07 / PRICING (Stripe-injected loop, v4 look). The kicker + CTA labels scope the
      "no card" promise to the FREE start only (locked decision 4): paid-tier trials
      collect a card at Stripe checkout, so their buttons carry the honest trial
      label + micro-line. Copy bound via content.pricing / tier.cta / tier.cta_micro. -->
@@ -904,7 +705,7 @@ body{background-image:none !important;}
       <div class="bill">{% if tier.monthly_price == 'Free' %}no card, ever{% else %}<span class="pricing-altprice" data-monthly-alt="or {{ tier.yearly_price }}/mo billed yearly" data-yearly-alt="or {{ tier.monthly_price }}/mo billed monthly">{% if content.pricing.default_billing == 'monthly' %}or {{ tier.yearly_price }}/mo billed yearly{% else %}or {{ tier.monthly_price }}/mo billed monthly{% endif %}</span>{% endif %}</div>
       <ul class="feat">
         {% for feature in tier.features %}
-          {% if feature == '' or feature == '~' %}{% elif feature.startswith('!') %}<li>{{ feature[1:] }}</li>{% elif feature.startswith('~upgrade:') %}<li class="upgrade-cue">{{ feature[9:] }}</li>{% else %}<li>{{ feature }}</li>{% endif %}
+          {% if feature == '' or feature == '~' %}{% elif feature.startswith('!') %}<li>{{ feature[1:] }}</li>{% elif feature.startswith('~upgrade:') %}<li>{{ feature[9:] }}</li>{% else %}<li>{{ feature }}</li>{% endif %}
         {% endfor %}
       </ul>
       {% if tier.roi_anchor %}<div class="roi">{{ tier.roi_anchor }}</div>{% endif %}
@@ -925,7 +726,7 @@ body{background-image:none !important;}
   <div class="kicker reveal" style="margin-top:20px">{% if content.mcp_live %}The same deterministic engine and public record inside ChatGPT, Claude, or any MCP assistant - plus a {% else %}A {% endif %}documented REST API with Python and TypeScript examples, multi-seat keys, SSO and audit. Funds and enterprise can license the pattern file, the model, and the API. <a href="mailto:hello@tradewave.ai?subject=Funds%20%26%20Enterprise" class="lnk">Talk to us &rarr;</a></div>
 </div></section>
 
-<!-- 09 / FAQ (objection handling - 2026-07-01 audit item 5). Placed right after
+<!-- 08 / FAQ (objection handling - 2026-07-01 audit item 5). Placed right after
      pricing, where the card/cancel/catch objections actually fire. The visible
      accordion and the FAQPage JSON-LD in <head> both render from
      content.faq.entries - one list, no drift. -->
@@ -944,7 +745,7 @@ body{background-image:none !important;}
   </div>
 </div></section>
 
-<!-- 10 / WHO IT'S FOR (copy bound via content.desks - was hardcoded while a
+<!-- 09 / WHO IT'S FOR (copy bound via content.desks - was hardcoded while a
      stale desks block sat dead in the generator; now one source) -->
 <section id="desks"><div class="wrap" style="text-align:center">
   <div class="eyebrow reveal" style="justify-content:center">{{ content.desks.eyebrow }}</div>
@@ -963,13 +764,38 @@ body{background-image:none !important;}
   <div class="desk-note reveal">{{ content.desks.note }}</div>
 </div></section>
 
+<!-- 10 / YOUR STOCKS (slim late re-offer) -->
+<section id="free-report-band" class="fr"><div class="wrap" style="text-align:center">
+  <div class="eyebrow reveal" style="justify-content:center">Before You Go</div>
+  <h2 class="reveal">Take the Seasonals With You, Free</h2>
+  <p class="section-sub reveal d1" style="margin:14px auto 0;text-align:center">Name up to three stocks you hold - we'll email each one's per-year seasonal record. No account needed.</p>
+  <button type="button" class="frcard reveal d1" data-lm-open data-lm-source="inline-late" aria-label="Open the free seasonal report form">
+    <span class="tk">AAPL</span><span class="tk">MSFT</span><span class="plus">+</span>
+    <span class="em">you@email.com</span>
+    <span class="go">Email Me My Free Report</span>
+  </button>
+  <div class="micro reveal d1">Free. No credit card, no signup, no obligation. Just your report, in your inbox shortly.</div>
+</div></section>
+
+<!-- 11 / BRING YOUR HUNCHES (CLOSE) -->
+<div class="close"><div class="wrap">
+  <div class="eyebrow reveal" style="justify-content:center">Bring Your Hunches</div>
+  <h2 class="reveal">Bring a Hunch. Leave With the Receipts</h2>
+  <p class="section-sub reveal d1" style="margin:0 auto 22px;text-align:center">Bring a ticker or a gut feel. TradeWave shows the seasonal evidence for it or against it - every year, with Tara beside the chart.</p>
+  <div class="cta-row reveal">
+    <a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.08rem;padding:16px 32px">Start Free - Full Access for 7 Days</a>
+  </div>
+  <div class="micro reveal">{{ content.close.micro }} &nbsp;<a href="{{ content.scorecard_url }}" class="lnk" style="color:var(--muted)">{{ content.close.link_text }} &rarr;</a></div>
+</div></div>
+
 <!-- MOBILE STICKY CTA -->
 <div class="stickycta" id="stickycta" style="gap:8px">
   <a href="#free-report" class="btn ghost" data-lm-open data-lm-source="sticky" style="padding:11px 14px;white-space:nowrap">Free Report</a>
   <a href="{{ content.hero.cta_primary_url }}" class="btn" style="flex:1;text-align:center">Start Free &rarr;</a>
 </div>
 
-<!-- FOOTER -->
+<!-- FOOTER (the old foot-motif line was cut: it repeated the "receipts" motif
+     immediately after the close's "Leave With the Receipts" h2) -->
 <footer><div class="wrap">
   <div class="foot-cols">
     <div>
@@ -983,7 +809,6 @@ body{background-image:none !important;}
       <a href="#tara">Tara</a>
       <a href="https://seasonalmarketnews.com/">News</a>
       <a href="/insights/">Insights</a>
-      <a href="/webinars/" id="footer-webinars-link" hidden>Webinars</a>
       <a href="{{ content.scorecard_url }}">Scorecard</a>
       <a href="{{ content.methodology_url }}">Methodology</a>
     </div>
@@ -1005,7 +830,7 @@ body{background-image:none !important;}
   </div>
   {% if content.mcp_live %}<div class="foot-note">{{ content.footer.mcp_note }}</div>{% endif %}
   <p class="foot-legal">{{ content.footer.legal.disclaimer }}</p>
-        <p class="foot-legal" style="margin-top:14px">&copy; {{ content.footer.legal.copyright_year }} <a href="https://taradataresearch.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;text-underline-offset:2px">Tara Data Research LLC</a>. All rights reserved.</p>
+  <p class="foot-legal" style="margin-top:14px">&copy; {{ content.footer.legal.copyright }}</p>
 </div></footer>
 
 <!-- =================== AFFILIATE REFERRAL CAPTURE (no visual effect) =================== -->
@@ -1049,17 +874,6 @@ body{background-image:none !important;}
 </script>
 
 <script>
-// Webinar navigation is schedule-aware. Keep the link absent visually by
-// default, then reveal it only when the generated public feed has a future row.
-(function(){
-    var link = document.getElementById('footer-webinars-link');
-    if (!link || !window.fetch) return;
-    fetch('/webinars/webinars.json', {cache:'no-store', credentials:'same-origin'})
-      .then(function(response){ return response.ok ? response.json() : []; })
-      .then(function(sessions){ if (Array.isArray(sessions) && sessions.length) link.hidden = false; })
-      .catch(function(){ /* fail closed: no schedule means no footer link */ });
-})();
-
 // Pricing monthly/yearly toggle.
 (function(){
     var toggleBtns = document.querySelectorAll('.pricing-toggle-btn');
@@ -1196,7 +1010,7 @@ document.addEventListener('click', function(e){
 }, true);
 
 // Proof videos ("What Traders Say"): click-to-play only - the MP4s are 50MB+,
-// so nothing beyond metadata loads until the visitor asks for it. Never autoplay.
+// so no video request starts until the visitor asks for it. Never autoplay.
 (function(){
     document.querySelectorAll('.vshell').forEach(function(shell){
         var v = shell.querySelector('video'), cover = shell.querySelector('.vplay');
@@ -1214,11 +1028,10 @@ document.addEventListener('click', function(e){
     });
 })();
 
-// nav scroll state + mobile toggle + sticky CTA + reveal-on-scroll
+// Nav scroll state + mobile toggle + sticky CTA. Scroll work is frame-batched,
+// and the closing section uses IntersectionObserver instead of forced layout.
 (function(){
   var nav = document.getElementById('nav');
-  function onScroll(){ if(window.scrollY > 8){ nav.classList.add('scrolled'); } else { nav.classList.remove('scrolled'); } }
-  window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
   var navToggle = document.getElementById('navtoggle');
   if(navToggle){
     navToggle.addEventListener('click', function(){ var open = nav.classList.toggle('open'); navToggle.setAttribute('aria-expanded', open ? 'true' : 'false'); });
@@ -1226,135 +1039,29 @@ document.addEventListener('click', function(e){
   }
   var sticky = document.getElementById('stickycta');
   var closeEl = document.querySelector('.close');
-  function onSticky(){
+  var closeVisible = false;
+  var scrollTicking = false;
+  function updateScrollState(){
+    scrollTicking = false;
+    if(window.scrollY > 8){ nav.classList.add('scrolled'); } else { nav.classList.remove('scrolled'); }
     if(!sticky) return;
     var past = window.scrollY > (window.innerHeight * 0.9);
-    var nearEnd = closeEl && closeEl.getBoundingClientRect().top < window.innerHeight;
-    if(past && !nearEnd){ sticky.classList.add('show'); } else { sticky.classList.remove('show'); }
+    if(past && !closeVisible){ sticky.classList.add('show'); } else { sticky.classList.remove('show'); }
   }
-  window.addEventListener('scroll', onSticky, {passive:true}); onSticky();
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var revs = document.querySelectorAll('.reveal');
-  if(reduce){ revs.forEach(function(el){ el.classList.add('in'); }); }
-  else {
-    var io = new IntersectionObserver(function(entries){ entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, {threshold:0.12, rootMargin:'0px 0px 0px 0px'});
-    revs.forEach(function(el){ io.observe(el); });
-    window.addEventListener('load', function(){ document.querySelectorAll('.hero .reveal').forEach(function(el){ el.classList.add('in'); }); });
-    setTimeout(function(){ document.querySelectorAll('.hero .reveal').forEach(function(el){ el.classList.add('in'); }); }, 60);
-
+  function onScroll(){
+    if(scrollTicking) return;
+    scrollTicking = true;
+    window.requestAnimationFrame(updateScrollState);
   }
-})();
-</script>
-
-<script>
-/* Subtle seasonal signal field behind the hero.
-   Original TradeWave treatment: low-contrast paths, one restrained win-green
-   signal, 30fps cap, paused off-screen, and a static reduced-motion frame. */
-(function(){
-  var canvas=document.getElementById('hero-wave-field');
-  if(!canvas) return;
-  var hero=canvas.parentElement;
-  var ctx=canvas.getContext('2d');
-  if(!ctx) return;
-
-  var motion=window.matchMedia('(prefers-reduced-motion: reduce)');
-  var frameId=0, lastFrame=0, active=true, width=1, height=1, mobile=false;
-  var waves=[
-    {y:.29,amp:18,phase:.15,speed:.000031,rgb:'124,92,255',alpha:.14,line:1.05},
-    {y:.35,amp:27,phase:.72,speed:.000027,rgb:'112,102,244',alpha:.17,line:1.05},
-    {y:.41,amp:38,phase:1.30,speed:.000023,rgb:'91,118,238',alpha:.25,line:1.25},
-    {y:.48,amp:31,phase:1.92,speed:.000025,rgb:'63,182,139',alpha:.20,line:1.25},
-    {y:.55,amp:35,phase:2.50,speed:.000021,rgb:'124,92,255',alpha:.21,line:1.15},
-    {y:.61,amp:25,phase:3.05,speed:.000028,rgb:'105,111,238',alpha:.15,line:1.05},
-    {y:.67,amp:17,phase:3.68,speed:.000032,rgb:'124,92,255',alpha:.11,line:1.05}
-  ];
-
-  function prepareStrokes(){
-    waves.forEach(function(wave){
-      var gradient=ctx.createLinearGradient(0,0,width,0);
-      gradient.addColorStop(0,'rgba('+wave.rgb+',0)');
-      gradient.addColorStop(.16,'rgba('+wave.rgb+','+(wave.alpha*.34)+')');
-      gradient.addColorStop(.38,'rgba('+wave.rgb+','+wave.alpha+')');
-      gradient.addColorStop(.68,'rgba('+wave.rgb+','+(wave.alpha*.78)+')');
-      gradient.addColorStop(1,'rgba('+wave.rgb+',0)');
-      wave.stroke=gradient;
-    });
-  }
-
-  function resize(){
-    var rect=hero.getBoundingClientRect();
-    width=Math.max(1,Math.round(rect.width));
-    height=Math.max(1,Math.round(rect.height));
-    mobile=width<700;
-    var ratio=Math.min(window.devicePixelRatio||1,mobile?1.25:1.5);
-    var nextWidth=Math.round(width*ratio), nextHeight=Math.round(height*ratio);
-    if(canvas.width!==nextWidth||canvas.height!==nextHeight){
-      canvas.width=nextWidth;
-      canvas.height=nextHeight;
-    }
-    ctx.setTransform(ratio,0,0,ratio,0,0);
-    prepareStrokes();
-    draw(0);
-  }
-
-  function draw(time){
-    ctx.clearRect(0,0,width,height);
-    var count=mobile?5:waves.length;
-    var step=mobile?12:10;
-    for(var i=0;i<count;i++){
-      var wave=waves[i];
-      var amp=wave.amp*(mobile ? .72 : 1);
-      var base=height*(wave.y+(mobile ? .025 : 0));
-      ctx.beginPath();
-      for(var x=-step;x<=width+step;x+=step){
-        var n=x/Math.max(width,1);
-        var y=base
-          +Math.sin(n*Math.PI*2*1.08+wave.phase+time*wave.speed)*amp
-          +Math.sin(n*Math.PI*2*2.18-wave.phase*.62-time*wave.speed*.42)*amp*.31;
-        if(x===-step){ctx.moveTo(x,y);}else{ctx.lineTo(x,y);}
-      }
-      ctx.strokeStyle=wave.stroke;
-      ctx.lineWidth=wave.line;
-      ctx.stroke();
-    }
-  }
-
-  function stop(){
-    if(frameId){cancelAnimationFrame(frameId);frameId=0;}
-  }
-
-  function tick(time){
-    if(!active||document.hidden||motion.matches){stop();return;}
-    if(time-lastFrame>=33){
-      draw(time);
-      lastFrame=time;
-    }
-    frameId=requestAnimationFrame(tick);
-  }
-
-  function start(){
-    stop();
-    if(motion.matches){draw(0);return;}
-    if(active&&!document.hidden){frameId=requestAnimationFrame(tick);}
-  }
-
-  if('ResizeObserver' in window){
-    new ResizeObserver(function(){resize();start();}).observe(hero);
-  }else{
-    window.addEventListener('resize',function(){resize();start();},{passive:true});
-  }
-  if('IntersectionObserver' in window){
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll, {passive:true});
+  if(closeEl && 'IntersectionObserver' in window){
     new IntersectionObserver(function(entries){
-      active=!!(entries[0]&&entries[0].isIntersecting);
-      if(active){start();}else{stop();}
-    },{rootMargin:'80px'}).observe(hero);
+      closeVisible = entries[0].isIntersecting;
+      updateScrollState();
+    }, {threshold:0}).observe(closeEl);
   }
-  document.addEventListener('visibilitychange',function(){if(document.hidden){stop();}else{start();}});
-  if(motion.addEventListener){motion.addEventListener('change',start);}
-  else if(motion.addListener){motion.addListener(start);}
-
-  resize();
-  start();
+  updateScrollState();
 })();
 </script>
 
