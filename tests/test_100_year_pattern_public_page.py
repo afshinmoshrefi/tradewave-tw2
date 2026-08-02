@@ -42,6 +42,7 @@ def test_static_evidence_page_contains_the_complete_record():
     assert "July 1 through July 31 is 31 days" in html
     assert "data-countdown-minutes" in html
     assert "decay" not in html.lower()
+    assert "almanac" not in html.lower()
     assert "\u2014" not in html
 
 
