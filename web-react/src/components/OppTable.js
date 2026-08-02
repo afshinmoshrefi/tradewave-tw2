@@ -144,6 +144,12 @@ const OppTable = (props) => {
     // Ordering guard: two metadata fetches can overlap during a market switch; only
     // the latest one may write state (last-writer-wins otherwise -> stuck dropdowns).
     const metaReqId = ++metaReqRef.current
+    if (props.hundredYearPatternActive) {
+      metaLoadingRef.current = false
+      SetMetaLoading(false)
+      SetOppLoadFailed(false)
+      return
+    }
     if (id === -1 || id === '-1') {
       metaLoadingRef.current = false
       SetMetaLoading(false)
@@ -260,7 +266,7 @@ const OppTable = (props) => {
 
     SetOppListExpanded(0); // 1/21/2023
 
-  }, [token, props.dayOfTheMonth, props.selectedSecurity, props.showPEOpps, props.securityTypeList, oppRetryNonce]) // 11/30/2021; securityTypeList so the id=-1 early-return re-fires once the list loads; oppRetryNonce so the Retry button also re-fires this fetch
+  }, [token, props.dayOfTheMonth, props.selectedSecurity, props.showPEOpps, props.securityTypeList, props.hundredYearPatternActive, oppRetryNonce]) // 11/30/2021; securityTypeList so the id=-1 early-return re-fires once the list loads; oppRetryNonce so the Retry button also re-fires this fetch
 
   //-------------------------------------------------------------------------------------------------------
   // runs when years is changed - set the partial year select from metadata 
@@ -271,6 +277,14 @@ const OppTable = (props) => {
   //-------------------------------------------------------------------------------------------------------
 
   useEffect(() => {
+    if (props.hundredYearPatternActive) {
+      lastOppUrlRef.current = ''
+      SetOppLoadFailed(false)
+      SetInitialMessage('The 100-Year Pattern is loaded in the Wave Viewer above.')
+      if (props.opportunities.length > 0) props.SetOpportunities([])
+      if (props.activeOpportunities.length > 0) props.SetActiveOpportunities([])
+      return
+    }
     // A token, date, market, or PE-mode change can start a metadata request
     // while the previous metadata is still in props. Never use that stale
     // array to declare a fresh user choice invalid and reset it to the first
@@ -633,7 +647,8 @@ const OppTable = (props) => {
     props.activeWatchlistFilter,
     oppRetryNonce,
     dayRange,
-    metaLoading
+    metaLoading,
+    props.hundredYearPatternActive
   ])
   // 10/27/2021 added dayofthemonth after replacing opplist2 with opplist3
   // 8/22/2021 added length of opportunities array which is better than other dependencies - could probably remove some of the others
@@ -641,6 +656,7 @@ const OppTable = (props) => {
   // Auto-step-down: when fetch returns empty, automatically try a lower partial years value
   //-------------------------------------------------------------------------------------------------------
   useEffect(() => {
+    if (props.hundredYearPatternActive) return;
     // only act after a fetch has completed (opportunities array is populated or message says no data)
     if (props.opportunities.length === 0 && (initialMessage === 'Loading ...' || initialMessage.startsWith('Data temporarily unavailable'))) return; // still loading/retrying
 
@@ -678,7 +694,7 @@ const OppTable = (props) => {
     const nextPY = lowerValid[0]; // DESC order -> closest valid below current
     props.SetOpportunities([]);
     props.SetOppTablePartialYears(String(nextPY));
-  }, [props.oppTableLength, props.oppTablePartialYears, partialSeasonalYearsOptionsList, curText])
+  }, [props.oppTableLength, props.oppTablePartialYears, partialSeasonalYearsOptionsList, curText, props.hundredYearPatternActive])
 
   //-------------------------------------------------------------------------------------------------------
   // Fetch stockscores in batch AFTER opportunities load (async - does not block table render)

@@ -517,6 +517,16 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
     `['0','1','2']`; Analyst '4'/'5'=`['0','1','2','3','4','11']` (US stocks+ETFs); Strategist
     '6'/'7'=all 15; reverse-trial Explorers carry level-'6' claims. CLAMPED on OppList4,
     getChartData4, OppBySymbol, GetListSymbols + dr_report_publish -> out-of-scope market = 403.
+    **One exact public exhibit is intentionally excepted:**
+    `ChartData4/5/2026-09-27/SPX/294/pe2-24` (no trim) is The 100-Year Pattern.
+    `featured_patterns.py` owns that identity and
+    checks every defining field before bypassing market/date/year clamps. Any change to market,
+    symbol, date, engine offset (display 295 calendar days -> engine 294), PE cohort, completed
+    sample count, or trim year is an ordinary request and follows normal entitlement. This is not
+    general Indices Common access. React independently recognizes the same exact view, preserves
+    the real market-5 resource id, permits the 24-observation primary PE selector, suppresses
+    auxiliary market-wide/B&H/full-history requests, and replaces the otherwise-forbidden
+    opportunity-table fetch with a signature-view message.
   - AI/ML = LADDER A: `ml_score_access_levels=['4','5','6','7']` x `ml_score_resource_ids=
     ['0','1','2','3','4','11']` -> AI scoring STARTS at ANALYST. Explorer + Navigator get NO
     score (deterministic patterns only); reverse-trial (level 6) + Analyst+ get it. (Supersedes
@@ -1451,6 +1461,19 @@ those sections spacing, a subtle theme-aware surface and border, a separate acce
 tabular numerals, and a quieter scope/disclosure treatment. This keeps the detailed analysis
 scannable inside the narrow desktop chat column without removing the evidence the user requested.
 Other short Tara answers retain their compact normal message rendering.
+
+**The 100-Year Pattern public signature command (2026-08-02).** Questions containing the title,
+its written-out “hundred-year” form, “the pattern from the book,” or Afshin's book/signature
+phrasing bypass the model and deterministically load market 5 / SPX / 2026-09-27 / 295 display
+calendar days / `pe2-24`. Tara explains that entry day is day 1 and the inclusive end is July 18,
+that the bars are 24 completed PE+2 (midterm) observations with entry years 1930-2022 rather than
+24 consecutive years, and that the documented record is 23/24 profitable (96%, average +18.8%,
+1930 the loss). Before the 2026 entry, the zero row is labeled upcoming and excluded from n=24;
+during the window its live partial row remains visible but excluded from n=24; after July 18, 2027
+it becomes the 25th completed observation. `ChartData4` now keeps an incomplete live row visible
+while excluding it from completed aggregates and, for bounded PE cohorts, retains N completed rows
+plus that separate partial row instead of letting it displace the oldest completed observation.
+The command is available to every tier, including Explorer, but does not widen any adjacent view.
 
 **GPT-5.6 Luna dev/staging canary (2026-08-02).** Deterministic planner answers still run first and never
 enter a provider experiment. For the remaining model-bound turns, `tara_model_router.py` hashes the

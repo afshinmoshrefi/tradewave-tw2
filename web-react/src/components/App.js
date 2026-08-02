@@ -41,6 +41,7 @@ import {
   resolveOpportunityRecurrence,
   resolveViewerDeepLinkOpportunityRecurrence,
 } from './opportunityRecurrence'
+import { isHundredYearPatternView } from './featuredPatterns'
 import jwt_decode from 'jwt-decode'
 //-------------------- swiper -----------------------------
 // Import Swiper styles
@@ -1017,9 +1018,7 @@ const App = () => {
       // instead of selecting it. Must run FIRST, before any SetSelectedSecurity.
       const _picked = securityTypeListCombined.find(o => o.value === event.target.value);
       if (_picked && _picked.locked) {
-        // reverse-lookup the REAL resource id from the display name to pick the
-        // message (the locked option's own id is a synthetic 90000+ sentinel,
-        // so resolve against resourceObj which is the true id->name map).
+        // Reverse-lookup the resource id from the display name to pick the message.
         let _mktId = -1;
         for (const [rid, rname] of Object.entries(resourceObj || {})) {
           if (rname === event.target.value) { _mktId = parseInt(rid, 10); break; }
@@ -1034,6 +1033,9 @@ const App = () => {
         SetInfoBoxVisible(true);
         return;
       }
+      // Re-selecting the temporarily unlocked signature market must not run the
+      // ordinary market-switch cascade, which would clear the public pattern.
+      if (_picked && _picked.publicSignature) return;
 
       // show message to non-loggedin users to register to get more data
       if (event.target.value.includes('More..')) {
@@ -1184,6 +1186,19 @@ const App = () => {
 
   //---------------------------------------------------------------
 
+  const selectedResourceId = Object.entries(resourceObj || {}).find(
+    ([, name]) => name === selectedSecurity
+  )?.[0]
+  const hundredYearPatternActive = isHundredYearPatternView({
+    marketId: selectedResourceId,
+    symbol,
+    startDate,
+    daysOut,
+    seasonalYears,
+    peCycle: PEselected,
+    trimYear,
+  })
+
   // combine securities groups with watchlists and published lists, filtered by user prefs
   const securityTypeListCombined = useMemo(() => {
     if (!securityTypeList || securityTypeList.length === 0) return securityTypeList;
@@ -1240,22 +1255,28 @@ const App = () => {
     // so selecting a real market still resolves. For Strategist nothing is
     // locked, so this appends nothing (no separator either).
     const entitledNames = new Set(securityTypeList.map(item => item.value));
-    const lockedEntries = Object.values(resourceObj || {})
-      .filter(name => !entitledNames.has(name))
-      .map((name, i) => ({
-        id: 90000 + i,
-        value: name,
-        label: name + ' 🔒',
-        type: 'P',
-        locked: true
-      }));
+    const lockedEntries = Object.entries(resourceObj || {})
+      .filter(([, name]) => !entitledNames.has(name))
+      .map(([resourceId, name], index) => {
+        const isPublicSignatureMarket = hundredYearPatternActive && String(resourceId) === '5'
+        return {
+          // Ordinary locked markets retain their inert sentinel ids. Only the exact public
+          // signature view temporarily exposes market 5's real id to chart components.
+          id: isPublicSignatureMarket ? parseInt(resourceId, 10) : 90000 + index,
+          value: name,
+          label: isPublicSignatureMarket ? name : name + ' 🔒',
+          type: 'P',
+          locked: !isPublicSignatureMarket,
+          publicSignature: isPublicSignatureMarket,
+        }
+      });
 
     if (lockedEntries.length > 0) {
       base.push({ id: 89999, value: '_sep_locked_', label: 'Locked Markets', type: 'SEP' }, ...lockedEntries);
     }
 
     return base;
-  }, [securityTypeList, watchlists, publishedLists, securitiesPrefs, resourceObj]);
+  }, [securityTypeList, watchlists, publishedLists, securitiesPrefs, resourceObj, hundredYearPatternActive]);
 
   // dropdown shows watchlist name when active, otherwise the real group name
   const selectedSecurityDisplay = activeWatchlistFilter
@@ -1379,6 +1400,7 @@ const App = () => {
     chatbotIconBlink,
     chatbotPendingTip,
     chatbotPrefill,
+    hundredYearPatternActive,
     refreshKey,
     showArticlePublish,
     PEselected,
@@ -2740,7 +2762,7 @@ const App = () => {
   //-------------------------------------------------------------------------------------
   useEffect(() => {
     if (selectedSecurity.length > 0 && token.length > 0 && symbol.length > 0) {
-      let id = getSelectedIDFromSecuritiesList2(securityTypeList, selectedSecurity);
+      let id = getSelectedIDFromSecuritiesList2(securityTypeListCombined, selectedSecurity);
 
       let asURL = appserverURL()
       let url = `${asURL}/NameFromTicker/${id}/${symbol}?token=${token}`
@@ -2768,7 +2790,7 @@ const App = () => {
 
     }
 
-  }, [symbol, token])
+  }, [symbol, token, selectedSecurity, securityTypeListCombined])
   //------------------------------------------------------------------------------------------------------------------------------------------------------
   // refresh when mobile orientation changes
   //------------------------------------------------------------------------------------------------------------------------------------------------------

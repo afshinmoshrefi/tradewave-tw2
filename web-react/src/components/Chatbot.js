@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
+import ReactDOM from 'react-dom';
 import { UserContext } from './UserContext';
 import { appserverURL, trend_chart_left_gap_days, incrementDate, themeColors, getSelectedIDFromSecuritiesList2, setCookie } from './Common';
 import TrendScorePopup from './TrendScorePopup';
@@ -27,6 +28,7 @@ import {
   shouldClearOpportunityTable,
 } from './chatbotScreenContext';
 import { VIEWER_CYCLE_CHANGE_EVENT, isViewerCycle } from './viewerCycleState';
+import { isHundredYearPatternView } from './featuredPatterns';
 
 const CHATBOT_DERIVED_STAT_KEYS = [
   'Trade Dir', 'Num Winners', 'Num Losers', 'Percent Profitable',
@@ -152,6 +154,7 @@ function Chatbot(props) {
       days_out: props.daysOut || '',
       years: props.seasonalYears || '',
       pe_cycle: props.PEselected || 'cons',
+      trim_year: props.trimYear || 0,
       direction,
       selection_origin: isArbitraryWindow ? 'user_defined' : 'scanner',
       mfe_enabled: props.showMFE === true,
@@ -376,6 +379,19 @@ function Chatbot(props) {
   // depth) before touching state. Loading a symbol mirrors loadOppWV (clear stale state first).
   const applyViewSpec = (spec) => {
     if (!spec || typeof spec !== 'object') return;
+    // React 17 does not batch promise callbacks. A pattern ViewSpec is one atomic
+    // identity; rendering market 5 before its exact public signature fields arrive
+    // would briefly fire ordinary locked-market requests and surface false errors.
+    ReactDOM.unstable_batchedUpdates(() => {
+    const loadsHundredYearPattern = isHundredYearPatternView({
+      marketId: spec.market,
+      symbol: spec.symbol,
+      startDate: spec.entry_date,
+      daysOut: spec.days_out,
+      seasonalYears: spec.years,
+      peCycle: spec.pe_cycle,
+      trimYear: 0,
+    });
     if (spec.market != null && resourceObj && resourceObj[parseInt(spec.market)]) {
       const targetMarket = resourceObj[parseInt(spec.market)];
       if (shouldClearOpportunityTable(props.selectedSecurity, targetMarket)) {
@@ -416,6 +432,9 @@ function Chatbot(props) {
     if (typeof spec.pe_cycle === 'string' && ['cons', 'pe0', 'pe1', 'pe2', 'pe3'].includes(spec.pe_cycle)) {
       if (props.SetPEselected) props.SetPEselected(spec.pe_cycle);
     }
+    if (loadsHundredYearPattern && typeof props.SetTrimYear === 'function') {
+      props.SetTrimYear(0);
+    }
     if (typeof spec.show_mfe === 'boolean' && typeof props.setShowMFE === 'function') {
       props.setShowMFE(spec.show_mfe);
       setCookie('MFE', spec.show_mfe.toString(), 300);
@@ -427,6 +446,7 @@ function Chatbot(props) {
     if (typeof spec.bottom_slide === 'string') {
       showBottomSlide(props.swiper, spec.bottom_slide);
     }
+    });
   };
 
   //--------------------------------------------------------------------------------------------------------

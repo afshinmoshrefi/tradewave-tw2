@@ -261,17 +261,21 @@ const SeasonalBarChart = (props) => {
           maxYears = count
         }
 
-        const _yrCap = maxYearsCap()   // tier cap (null=uncapped); NOTE: local `maxYears` above is the DATA range, not this
+        const planYearCap = maxYearsCap()
+        const signatureYears = parseInt(props.seasonalYears, 10)
 
         // Lift the consecutive-cons max (tier-capped) to App state so the price-chart's
         // second seasonal-projection line ("Proj N-Y") knows both its label and its `sy`.
         // Always use y2-y1 (the raw range), not the local `maxYears` which is PE-adjusted.
         const consecutiveMax = y2 - y1
-        const effectiveMaxYears = _yrCap != null ? Math.min(consecutiveMax, _yrCap) : consecutiveMax
+        const effectiveMaxYears = planYearCap != null ? Math.min(consecutiveMax, planYearCap) : consecutiveMax
         props.SetMaxAvailableYears(effectiveMaxYears)
 
         for (let i = minYears; i <= maxYears; i++) {
-          const _locked = _yrCap != null && i > _yrCap
+          // Lift the cap for the signature's exact 24-observation value only. Nearby
+          // lookbacks remain visibly locked and follow the user's ordinary entitlement.
+          const signatureException = props.hundredYearPatternActive && i === signatureYears
+          const _locked = planYearCap != null && i > planYearCap && !signatureException
           tmp.push({ id: i, value: i.toString(), label: _locked ? i + ' 🔒' : i.toString(), locked: _locked })
         }
         setSeasonalYearsList(tmp)
@@ -293,8 +297,10 @@ const SeasonalBarChart = (props) => {
         // disagree). So when the selected value exceeds the max SELECTABLE
         // option, snap it DOWN to that max. This only fires on true overflow,
         // never on an in-range value, so it cannot reintroduce the clobber bug.
-        // maxSelectable = the largest unlocked option (tier cap wins over range).
-        const maxSelectable = _yrCap != null ? Math.min(maxYears, _yrCap) : maxYears
+        // maxSelectable = the largest unlocked option (tier cap wins over range,
+        // except for the exact signature observation count).
+        const unlockedYears = tmp.filter(option => !option.locked).map(option => parseInt(option.value, 10))
+        const maxSelectable = unlockedYears.length > 0 ? Math.max(...unlockedYears) : 0
         const curYears = parseInt(props.seasonalYears, 10)
         if (!isNaN(curYears) && curYears > maxSelectable && maxSelectable >= minYears) {
           props.SetSeasonalYears(maxSelectable.toString())
@@ -306,7 +312,7 @@ const SeasonalBarChart = (props) => {
       })
 
     return () => controller.abort()
-  }, [marketId, props.symbol, token, props.PEselected])
+  }, [marketId, props.symbol, token, props.PEselected, props.hundredYearPatternActive])
   //-----------------------------------------------------------------------------------------------------------------------
   // calculate end date 9/10/2023 - I don't know how it was working before
   //-----------------------------------------------------------------------------------------------------------------------
@@ -468,6 +474,11 @@ const SeasonalBarChart = (props) => {
   // --------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     if (!token || token.length === 0) return;
+    if (props.hundredYearPatternActive) {
+      props.SetCompareSecurityBarChartData([])
+      props.SetCompareSecurityTradeDetailData([])
+      return
+    }
 
     const compareMarketId = props.compareSecurity?.[0];
     const compareSymbol = props.compareSecurity?.[1];
@@ -552,6 +563,7 @@ const SeasonalBarChart = (props) => {
     props.compareSecurity?.[3],
     props.seasonalYears,
     props.PEselected,
+    props.hundredYearPatternActive,
     token
   ]);
   //-----------------------------------------------------------------------------------------------------------------------
@@ -561,6 +573,10 @@ const SeasonalBarChart = (props) => {
   //--------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     if (!token || token.length === 0) return
+    if (props.hundredYearPatternActive) {
+      props.SetSecurityBHstats([])
+      return
+    }
     if (!props.symbol || props.symbol.length === 0) return
     if (marketId === undefined || marketId === null) return
 
@@ -607,7 +623,7 @@ const SeasonalBarChart = (props) => {
       })
 
     return () => controller.abort()
-  }, [marketId, props.symbol, props.seasonalYears, props.PEselected, token])
+  }, [marketId, props.symbol, props.seasonalYears, props.PEselected, props.hundredYearPatternActive, token])
 
 
   //-----------------------------------------------------------------------------------------------------------------------
@@ -691,6 +707,12 @@ const SeasonalBarChart = (props) => {
   // max already equals the user-selected sy (both lines would be identical), or before we know N.
   useEffect(() => {
     if (!token || token.length === 0) return
+    if (props.hundredYearPatternActive) {
+      if (props.maxYearsConsolidatedSeasonalData && props.maxYearsConsolidatedSeasonalData.length > 0) {
+        props.SetMaxYearsConsolidatedSeasonalData([])
+      }
+      return
+    }
     if (!props.symbol || props.symbol.length === 0) return
     if (marketId === undefined || marketId === null) return
     if (!props.showMaxProjection) return
@@ -737,7 +759,7 @@ const SeasonalBarChart = (props) => {
       })
 
     return () => controller.abort()
-  }, [props.refreshKey, marketId, props.symbol, props.maxAvailableYears, props.showMaxProjection, props.PEselected, props.seasonalYears, props.janDecDateRange, props.trendChartStartDate, props.startDate, token])
+  }, [props.refreshKey, marketId, props.symbol, props.maxAvailableYears, props.showMaxProjection, props.PEselected, props.seasonalYears, props.janDecDateRange, props.trendChartStartDate, props.startDate, props.hundredYearPatternActive, token])
 
   //--------------------------------------------------------------------------------------------------------------------
   // Clear OppBySymbol options immediately when symbol or market changes
@@ -751,6 +773,7 @@ const SeasonalBarChart = (props) => {
   //--------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     if (rdd.isMobile) return
+    if (props.hundredYearPatternActive) return
     if (!token || token.length === 0) return
     if (!props.symbol || props.symbol.length === 0) return
     if (marketId === undefined || marketId === null) return
@@ -807,7 +830,7 @@ const SeasonalBarChart = (props) => {
       })
 
     return () => controller.abort()
-  }, [marketId, props.symbol, props.seasonalYears, props.PEselected, token, loggedinUser])
+  }, [marketId, props.symbol, props.seasonalYears, props.PEselected, props.hundredYearPatternActive, token, loggedinUser])
 
   //--------------------------------------------------------------------------------------------------------------------
   const checkboxChanged = (event) => {
