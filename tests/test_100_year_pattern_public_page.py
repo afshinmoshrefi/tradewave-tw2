@@ -1,5 +1,8 @@
 import csv
 import importlib.util
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -62,6 +65,28 @@ def test_page_generator_writes_environment_aware_output_atomically(tmp_path, mon
         "100-year-pattern-book.webp",
         "100-year-pattern-cycles.csv",
     }
+
+
+def test_page_generator_cli_runs_outside_the_repository(tmp_path):
+    output = tmp_path / "published"
+    environment = os.environ.copy()
+    environment.update({"TW2_PUBLIC_HOST": "tw2-dev.trxstat.com", "TW2_ENV": "dev"})
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "site" / "generate_100_year_pattern.py"),
+            "--output-dir",
+            str(output),
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (output / "100-year-pattern.html").is_file()
 
 
 def test_home_countdown_is_scoped_and_disabled_by_default():

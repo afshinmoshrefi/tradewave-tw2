@@ -22,7 +22,9 @@ OUTPUT_FILENAME = "100-year-pattern.html"
 
 
 def _runtime_config():
-    sys.path.insert(0, "/home/flask")
+    repository_root = str(SITE_DIR.parent)
+    if repository_root not in sys.path:
+        sys.path.insert(0, repository_root)
     import config  # pylint: disable=import-outside-toplevel
 
     return config
