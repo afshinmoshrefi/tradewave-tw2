@@ -41,6 +41,7 @@ def _public_root() -> str:
 def _write_atomic(path: Path, content: str) -> None:
     temp = path.with_name(".%s.tmp" % path.name)
     temp.write_text(content, encoding="utf-8")
+    temp.chmod(0o644)
     os.replace(temp, path)
 
 
