@@ -85,6 +85,7 @@ def publish(output_root: Path) -> tuple[Path, list[Path]]:
 
     output_assets = output_root / "_static" / "100-year-pattern"
     output_assets.mkdir(parents=True, exist_ok=True)
+    output_assets.chmod(0o755)
     copied: list[Path] = []
     for source in sorted(SOURCE_ASSETS.iterdir()):
         if not source.is_file():
