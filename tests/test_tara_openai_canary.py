@@ -411,3 +411,139 @@ def test_chat_route_loads_visible_ordinal_row_without_calling_a_provider(monkeyp
     ]
     assert "Loaded row #3: PEG short" in payload["reply"]
     assert seen["provider"] == "deterministic"
+
+
+@pytest.mark.parametrize("analysis_message", ["Analyze", "Analyze this", "Analyze this pattern"])
+def test_chat_route_replaces_client_ai_values_with_server_analysis_context(
+    monkeypatch, analysis_message
+):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    captured = {}
+
+    def deterministic(_message, wave_viewer, _screen, **_kwargs):
+        captured["wave"] = wave_viewer
+        return "verified analysis"
+
+    monkeypatch.setattr(chatbot_module, "build_deterministic_reply", deterministic)
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: pytest.fail("verified pattern analysis must bypass providers"),
+    )
+
+    app = Flask(__name__)
+    app.extensions["tara_ai_analysis_context"] = lambda wave, token, market: {
+        "status": "available",
+        "mode": "pattern",
+        "full_pattern_calendar_days": 17,
+        "horizons": [
+            {
+                "calendar_days": 17,
+                "ai_score": 72,
+                "win_probability": 0.64,
+                "predicted_return_pct": 2.1,
+            }
+        ],
+    }
+    body = {
+        "message": analysis_message,
+        "history": [{"role": "user", "content": analysis_message}],
+        "token": "browser-token",
+        "wave_viewer": {
+            "symbol": "ROST",
+            "start_date": "2026-08-03",
+            "days_out": "17",
+            "direction": "long",
+            "ai_analysis": {"status": "available", "horizons": [{"ai_score": 100}]},
+        },
+        "screen_context": {},
+        "opportunities": [],
+        "opp_table_market": "2",
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "ai-context-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    assert response.get_json() == {"reply": "verified analysis", "actions": []}
+    assert captured["wave"]["ai_analysis"]["horizons"][0]["ai_score"] == 72
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("Convince me I should use seasonality", "Why seasonality matters"),
+        ("Help me come up with a winning strategy", "Build around measurable odds"),
+    ],
+)
+def test_signature_product_questions_bypass_models_and_live_ai_scorer(
+    monkeypatch, message, expected
+):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    seen = {}
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: pytest.fail("signature product answers must bypass providers"),
+    )
+    monkeypatch.setattr(
+        chatbot_module,
+        "log_question",
+        lambda user_id, question, response, wave_viewer, provider="unknown": seen.update(
+            provider=provider, response=response
+        ),
+    )
+
+    rows = [
+        {
+            "year": year,
+            "underlying_return_pct": float(index + 1),
+            "upside_excursion_pct": float(index + 3),
+            "downside_excursion_pct": -1.0,
+        }
+        for index, year in enumerate(range(2016, 2026))
+    ]
+    rows.append(
+        {
+            "year": 2026,
+            "underlying_return_pct": 0.0,
+            "upside_excursion_pct": 0.0,
+            "downside_excursion_pct": 0.0,
+        }
+    )
+    app = Flask(__name__)
+    app.extensions["tara_ai_analysis_context"] = lambda *args, **kwargs: pytest.fail(
+        "signature product answers must not wait for live AI scoring"
+    )
+    body = {
+        "message": message,
+        "history": [{"role": "user", "content": message}],
+        "token": "browser-token",
+        "wave_viewer": {
+            "symbol": "AVGO",
+            "market": "2",
+            "start_date": "2026-08-02",
+            "days_out": "133",
+            "years": "10",
+            "direction": "long",
+            "selection_origin": "scanner",
+            "stats": {"Sharpe Ratio": "1.78"},
+            "yearly_results": rows,
+        },
+        "screen_context": {"selected_lookback": "10", "full_history_years": "17"},
+        "opportunities": [],
+        "opp_table_market": "2",
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "signature-product-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    payload = response.get_json()
+    assert expected in payload["reply"]
+    assert 'class="tara-analysis"' in payload["reply"]
+    assert payload["actions"] == []
+    assert seen["provider"] == "deterministic"

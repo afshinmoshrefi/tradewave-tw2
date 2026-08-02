@@ -541,6 +541,25 @@ Reads your TradeWave outputs instantly and turns them into plain-English researc
 - "Does this pattern work better in PE+2 than in all years?"
 - "Summarize how much of the return happens early vs late in the window."
 
+For eligible US-stock/ETF setups, a loaded-pattern brief separates the observed seasonal record
+from the current-condition ML read. On a 10-90-calendar-day pattern it states the directly
+interpretable AI Win Probability, PredR, and PMFE and compares AI Win Probability with the
+historical win rate for that same exact window. Tara deliberately omits the opaque composite AIS
+number from analysis prose; AIS remains available in the opportunity table and its explainer. A
+pattern longer than 90 calendar days has no full-pattern AI score; Tara may show separate
+30/60/90-calendar-day checkpoints from the same entry and direction, with an explicit warning that
+they cover only those partial horizons. Model estimates never become extra historical observations,
+and missing scores are never treated as zero.
+
+Tara can also demonstrate why this differs from a conventional technical-indicator workflow.
+Traditional indicators summarize recent price state; TradeWave aligns the same inclusive calendar
+window across completed years and exposes the observed base rate, payoff, path, and failure years.
+The user can recalculate that exact hypothesis over supported 10-, 12-, 15-, 20-, 25-year or maximum
+history depths to reveal whether it is recent, durable, or lookback-sensitive. Strategy-building
+questions are framed positively as a measurable research process: define fixed rules, test history
+and nearby-window robustness, add current-condition context, and preserve the definition for future
+tracking. Historical hit rate and AI Win Probability remain distinct evidence layers.
+
 ### Confidence Overlay (reliability second-opinion)
 A **second opinion before committing**, answering a *different* question than the historical edge: "How stable is this edge, and how easy is it to misuse?" It weighs measurable attributes — **sample size & year-set relevance, return dispersion & outlier dependence, drawdown severity & typical adverse excursion, consistency across modern vs older regimes, and concentration of gains in a small subset of years.** Output: a simple **Green / Yellow / Red** rating **plus 2–4 short bullet reasons** (never a black-box prediction score):
 - **Green** = solid edge, consistent behavior, drawdown matches reward.

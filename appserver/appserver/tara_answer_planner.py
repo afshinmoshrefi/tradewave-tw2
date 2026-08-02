@@ -43,6 +43,13 @@ _TREND_ALIGNMENT_PATTERNS = (
 )
 
 _PATTERN_ANALYSIS_PATTERNS = (
+    # A loaded chart makes terse imperatives unambiguous. Keep these out of the
+    # provider path so "analyze" is as fast and complete as "analyze this pattern."
+    re.compile(
+        r"^\s*(?:please\s+)?(?:analy[sz]e|evaluate|assess|review)"
+        r"(?:\s+(?:this|it))?(?:\s+please)?\s*[?.!]*\s*$",
+        re.I,
+    ),
     re.compile(r"\b(?:analy[sz]e|evaluate|assess|review) (?:this|the|current|loaded) (?:pattern|setup|window|trade|opportunity)\b", re.I),
     re.compile(r"\b(?:analy[sz]e|evaluate|assess|review|break down) this\s*[?.!]*$", re.I),
     re.compile(r"\b(?:give|show) me (?:an |your )?(?:analysis|assessment|deep dive)(?: of (?:this|the (?:pattern|setup|window)))?\b", re.I),
@@ -61,6 +68,58 @@ _PATTERN_ANALYSIS_PATTERNS = (
     re.compile(r"\bdoes (?:this|it|the (?:pattern|setup|window)) (?:make money|work)\b", re.I),
     re.compile(r"\bis (?:this|it|the (?:pattern|setup|window)) historically profitable\b", re.I),
     re.compile(r"\bwhat makes (?:this|it|the (?:pattern|setup|window)) (?:interesting|useful|notable)\b", re.I),
+)
+
+_SEASONALITY_VALUE_PATTERNS = (
+    re.compile(r"\bconvince me\b.{0,45}\bseasonalit(?:y|ies)\b", re.I),
+    re.compile(
+        r"\bwhy (?:should|would|do) (?:i|we|someone|traders?) "
+        r"(?:use|care about|look at) seasonalit(?:y|ies)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:why is|is|what makes) seasonalit(?:y|ies) (?:actually )?"
+        r"(?:useful|helpful|valuable|different|special|powerful|worthwhile)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\bwhat(?:'s| is) (?:so )?(?:great|useful|helpful|valuable|different|special) "
+        r"about seasonalit(?:y|ies)\b",
+        re.I,
+    ),
+    re.compile(r"\bshow me\b.{0,45}\bwhy seasonalit(?:y|ies) (?:matter|work|help)", re.I),
+    re.compile(r"\bwhat can seasonalit(?:y|ies) (?:show|find|detect|see)\b", re.I),
+    re.compile(
+        r"\bhow is seasonalit(?:y|ies) different from\b.{0,45}"
+        r"\b(?:indicators?|technicals?|charts?|traditional analysis)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\bseasonalit(?:y|ies)\b.{0,45}\b(?:normal|traditional|technical) "
+        r"(?:indicators?|analysis|charts?)\b",
+        re.I,
+    ),
+    re.compile(r"\bsell me on seasonalit(?:y|ies)\b", re.I),
+)
+
+_STRATEGY_BUILDING_PATTERNS = (
+    re.compile(
+        r"\bhelp me (?:come up with|build|create|develop|design|form) "
+        r"(?:a |my )?(?:(?:winning|profitable|seasonal|trading|rules?[- ]based) )*"
+        r"strateg(?:y|ies)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:build|create|develop|design) (?:me )?(?:a |my )?"
+        r"(?:(?:winning|profitable|seasonal|trading|rules?[- ]based) )+strateg(?:y|ies)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\bturn (?:this|the pattern|my idea|a seasonal pattern) into "
+        r"(?:a )?(?:testable |trading |seasonal )?strategy\b",
+        re.I,
+    ),
+    re.compile(r"\bstrategy (?:with|around|using) measurable (?:odds|probabilit(?:y|ies))\b", re.I),
 )
 
 _ADVICE_PATTERNS = re.compile(
@@ -221,6 +280,18 @@ def is_pattern_analysis_question(message: Any, wave_viewer: Any) -> bool:
     return bool(named and named.group(1).upper() == symbol)
 
 
+def is_seasonality_value_question(message: Any) -> bool:
+    """Whether the user wants the value of seasonality demonstrated, not defined."""
+
+    return _matches_any(message, _SEASONALITY_VALUE_PATTERNS)
+
+
+def is_strategy_building_question(message: Any) -> bool:
+    """Whether the user wants help turning evidence into repeatable research rules."""
+
+    return _matches_any(message, _STRATEGY_BUILDING_PATTERNS)
+
+
 def _has_loaded_pattern(wave_viewer: Any) -> bool:
     return bool(
         isinstance(wave_viewer, Mapping)
@@ -255,6 +326,19 @@ def is_pattern_advice_question(message: Any, wave_viewer: Any) -> bool:
     """Recognize advice wording so Tara can provide evidence without recommending a trade."""
 
     return _has_loaded_pattern(wave_viewer) and bool(_ADVICE_PATTERNS.search(str(message or "")))
+
+
+def needs_pattern_ai_context(message: Any, wave_viewer: Any) -> bool:
+    """Whether this turn merits a current-condition AI read of the loaded setup."""
+
+    # These product/research-framework answers explain what the AI probability layer
+    # does, but they do not need to block on a live scorer call. Their value is an
+    # immediate, deterministic explanation from the already-loaded historical record.
+    if is_seasonality_value_question(message) or is_strategy_building_question(message):
+        return False
+    return is_pattern_analysis_question(message, wave_viewer) or is_pattern_advice_question(
+        message, wave_viewer
+    )
 
 
 def is_pattern_rank_question(message: Any, wave_viewer: Any) -> bool:
@@ -1945,6 +2029,170 @@ def _analysis_compact_read_line(facts: Mapping[str, Any]) -> str:
     return f"<b>Read:</b> {setup}: " + "; ".join(clauses) + ". " + verdict
 
 
+def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
+    """Accept only the small server-derived ML context used in analysis prose."""
+
+    if not isinstance(wave_viewer, Mapping):
+        return None
+    raw = wave_viewer.get("ai_analysis")
+    if not isinstance(raw, Mapping):
+        return None
+    status = str(raw.get("status") or "").strip().lower()
+    mode = str(raw.get("mode") or "").strip().lower()
+    if status not in {
+        "available",
+        "unavailable",
+        "too_early",
+        "after_entry",
+        "unsupported_duration",
+    } or mode not in {"pattern", "checkpoints"}:
+        return None
+    full_days_number = _number(raw.get("full_pattern_calendar_days"))
+    if full_days_number is None or not full_days_number.is_integer():
+        return None
+    full_days = int(full_days_number)
+    if not 1 <= full_days <= 366:
+        return None
+    result: Dict[str, Any] = {
+        "status": status,
+        "mode": mode,
+        "full_pattern_calendar_days": full_days,
+    }
+    days_to_entry = _number(raw.get("days_to_entry"))
+    if days_to_entry is not None and days_to_entry.is_integer() and days_to_entry >= 0:
+        result["days_to_entry"] = int(days_to_entry)
+
+    horizons = []
+    for item in raw.get("horizons") or ():
+        if not isinstance(item, Mapping):
+            continue
+        horizon_number = _number(item.get("calendar_days"))
+        if horizon_number is None or not horizon_number.is_integer():
+            continue
+        horizon = int(horizon_number)
+        if not 1 <= horizon <= 90:
+            continue
+        cleaned: Dict[str, Any] = {"calendar_days": horizon}
+        ai_score = _number(item.get("ai_score"))
+        win_probability = _number(item.get("win_probability"))
+        predicted_return = _number(item.get("predicted_return_pct"))
+        predicted_mfe = _number(item.get("predicted_mfe_pct"))
+        if ai_score is not None and 0 <= ai_score <= 100:
+            cleaned["ai_score"] = ai_score
+        if win_probability is not None and 0 <= win_probability <= 1:
+            cleaned["win_probability"] = win_probability
+        if predicted_return is not None and -1000 <= predicted_return <= 1000:
+            cleaned["predicted_return_pct"] = predicted_return
+        if predicted_mfe is not None and -1000 <= predicted_mfe <= 1000:
+            cleaned["predicted_mfe_pct"] = predicted_mfe
+        if len(cleaned) > 1:
+            horizons.append(cleaned)
+    if horizons:
+        result["horizons"] = sorted(horizons, key=lambda item: item["calendar_days"])
+    return result
+
+
+def _ai_probability_comparison(ai_probability: float, historical_pct: Any) -> str:
+    if historical_pct is None:
+        return ""
+    ai_pct = ai_probability * 100
+    difference = ai_pct - float(historical_pct)
+    if abs(difference) < 0.5:
+        return "about level with the rounded historical rate"
+    points = max(1, int(round(abs(difference))))
+    noun = "percentage point" if points == 1 else "percentage points"
+    relation = "above" if difference > 0 else "below"
+    return f"{points} {noun} {relation} the historical rate"
+
+
+def _analysis_ai_context_line(
+    facts: Mapping[str, Any], wave_viewer: Any
+) -> Optional[str]:
+    """Explain ML estimates without blending them into the historical record."""
+
+    context = _normalized_ai_analysis(wave_viewer)
+    if context is None:
+        return None
+    status = context["status"]
+    if status == "too_early":
+        days_to_entry = context.get("days_to_entry")
+        timing = (
+            f"; entry is {days_to_entry} calendar days away"
+            if isinstance(days_to_entry, int)
+            else ""
+        )
+        return (
+            "<b>AI context:</b> No current-condition AI reading is shown yet"
+            + timing
+            + ". TradeWave waits until the setup is within five calendar days of entry so the inputs are not stale."
+        )
+    if status == "after_entry":
+        return (
+            "<b>AI context:</b> No new entry-time AI reading is added after the occurrence starts; "
+            "using post-entry data would not be a clean pre-entry comparison."
+        )
+    if status == "unsupported_duration":
+        return (
+            "<b>AI context:</b> This duration is outside the model's supported range, so no AI estimate is shown."
+        )
+    horizons = context.get("horizons") or []
+    if status != "available" or not horizons:
+        return (
+            "<b>AI context:</b> The current-condition model reading is unavailable, and Tara is not treating "
+            "the missing values as zero."
+        )
+
+    if context["mode"] == "checkpoints":
+        readings = []
+        for item in horizons:
+            metrics = []
+            if item.get("win_probability") is not None:
+                metrics.append(f"AI Win% {item['win_probability'] * 100:.0f}%")
+            if item.get("predicted_return_pct") is not None:
+                metrics.append(
+                    "PredR " + _pct(item["predicted_return_pct"], signed=True, decimals=1)
+                )
+            if metrics:
+                readings.append(f"{item['calendar_days']} days: " + ", ".join(metrics))
+        if not readings:
+            return None
+        full_days = context["full_pattern_calendar_days"]
+        return (
+            f"<b>Near-term AI checkpoints:</b> The full {full_days}-calendar-day pattern is outside the "
+            "model's 90-day limit. From the same entry date and in the same direction: "
+            + "; ".join(readings)
+            + f". These readings score only the first 30, 60, and 90 calendar days; none is an AI score "
+            f"for the full {full_days}-day pattern."
+        )
+
+    item = horizons[0]
+    metrics = []
+    if item.get("win_probability") is not None:
+        comparison = _ai_probability_comparison(
+            item["win_probability"], facts.get("win_rate_pct")
+        )
+        win_text = f"AI Win Probability {item['win_probability'] * 100:.0f}%"
+        if comparison:
+            win_text += f" ({comparison})"
+        metrics.append(win_text)
+    if item.get("predicted_return_pct") is not None:
+        metrics.append(
+            "PredR " + _pct(item["predicted_return_pct"], signed=True, decimals=1)
+        )
+    if item.get("predicted_mfe_pct") is not None:
+        metrics.append(
+            "PMFE " + _pct(item["predicted_mfe_pct"], signed=True, decimals=1)
+        )
+    if not metrics:
+        return None
+    horizon = item["calendar_days"]
+    return (
+        f"<b>AI context:</b> Current-condition model for this same {horizon}-calendar-day window: "
+        + "; ".join(metrics)
+        + ". AI Win Probability and PredR are estimates, not additional historical observations."
+    )
+
+
 def _analysis_payoff_and_path_line(facts: Mapping[str, Any]) -> Optional[str]:
     """Summarize endpoint payoff and entry-relative intrawindow excursions."""
 
@@ -2256,7 +2504,9 @@ def _render_analysis_sections(lines: Iterable[Optional[str]]) -> str:
         if not line:
             continue
         classes = ["tara-analysis-section"]
-        if line.startswith("<b>Read:"):
+        if line.startswith(
+            ("<b>Read:", "<b>Why seasonality matters:", "<b>Build around measurable odds:")
+        ):
             classes.append("tara-analysis-lead")
         elif line.startswith("<b>Cycle context:") or line.startswith("<b>Next check:"):
             classes.append("tara-analysis-action")
@@ -2264,6 +2514,173 @@ def _render_analysis_sections(lines: Iterable[Optional[str]]) -> str:
             classes.append("tara-analysis-scope")
         sections.append(f'<div class="{" ".join(classes)}">{line}</div>')
     return '<div class="tara-analysis">' + "".join(sections) + "</div>"
+
+
+def _guide_link(action: str, label: str) -> str:
+    """Render one allowlisted client-handled educational link."""
+
+    allowed = {
+        "open-filtering-popup",
+        "open-seasonal-popup",
+        "open-years-popup",
+    }
+    if action not in allowed:
+        return ""
+    return (
+        '<a href="#" class="tara-analysis-link" '
+        f'data-action="{action}">{html.escape(label)}</a>'
+    )
+
+
+def _loaded_pattern_value_line(facts: Mapping[str, Any]) -> Optional[str]:
+    """Use the visible chart as the concrete proof of what the detector found."""
+
+    symbol = html.escape(str(facts.get("symbol") or ""))
+    n = int(facts.get("sample_size") or 0)
+    if not symbol or n <= 0:
+        return None
+    direction = "short" if facts.get("direction") == "short" else "long"
+    start = _month_day(str(facts.get("start_date") or ""))
+    end = _month_day(
+        _inclusive_end_date(
+            str(facts.get("start_date") or ""), str(facts.get("days") or "")
+        )
+        or ""
+    )
+    days = html.escape(str(facts.get("days") or ""))
+    setup = f"{symbol} {direction}"
+    if start and end and days:
+        setup += f", {start} to {end} ({days} calendar days)"
+
+    wins = int(facts.get("profitable_years") or 0)
+    details = [
+        f"profitable in {wins} of {_observation_label(facts, n)} "
+        f"({_pct(facts.get('win_rate_pct'))}; n={n})"
+    ]
+    average = facts.get("avg_trade_return_pct")
+    median = facts.get("median_trade_return_pct")
+    if average is not None:
+        details.append("gross average " + _pct(average, signed=True, decimals=2))
+    if median is not None:
+        details.append("median " + _pct(median, signed=True, decimals=2))
+    return (
+        f"<b>What TradeWave detected here:</b> {setup}: "
+        + "; ".join(details)
+        + ". Each bar is one completed occurrence."
+    )
+
+
+def build_seasonality_value_reply(
+    message: Any,
+    wave_viewer: Any,
+    screen_context: Any = None,
+    *,
+    current_year: Optional[int] = None,
+) -> Optional[str]:
+    """Demonstrate seasonality's product value without a sales essay or refusal."""
+
+    if not is_seasonality_value_question(message):
+        return None
+    facts = canonical_pattern_facts(wave_viewer, current_year=current_year)
+    example = _loaded_pattern_value_line(facts)
+    if example is None:
+        example = (
+            "<b>What TradeWave detects:</b> exact calendar windows whose direction, payoff, and "
+            "historical path repeated across completed years - evidence that a single chronological "
+            "price chart does not organize for you."
+        )
+
+    lines = [
+        (
+            "<b>Why seasonality matters:</b> Traditional indicators describe recent price action. "
+            "TradeWave aligns the same calendar window across prior years to detect recurring behavior."
+        ),
+        example,
+        (
+            "<b>Flexible pattern detection:</b> Test the exact window over 10, 12, 15, 20, 25, or "
+            "maximum history to see whether it is recent, durable, or lookback-sensitive."
+        ),
+        (
+            "<b>From pattern to probability:</b> Historical hit rate is the observed base rate for "
+            "the exact window and n. On supported horizons, AI Win Probability adds current context; "
+            "MFE and MAE show the path. Card-counter mindset: measure the odds, update the evidence, "
+            "and build rules. Find the pattern. Measure the odds. Build your strategy."
+        ),
+        (
+            "<b>Explore it:</b> "
+            + _guide_link("open-years-popup", "See flexible lookbacks")
+            + " "
+            + _guide_link("open-seasonal-popup", "Open the seasonality guide")
+        ),
+    ]
+    return _render_analysis_sections(lines)
+
+
+def _strategy_starting_evidence_line(facts: Mapping[str, Any]) -> str:
+    symbol = html.escape(str(facts.get("symbol") or ""))
+    n = int(facts.get("sample_size") or 0)
+    if not symbol or n <= 0:
+        return (
+            "<b>Define the rule:</b> Fix the market, direction, calendar entry rule, and "
+            "calendar-day holding range so Tara can search the same hypothesis consistently."
+        )
+    direction = "short" if facts.get("direction") == "short" else "long"
+    wins = int(facts.get("profitable_years") or 0)
+    details = [
+        f"{wins} profitable outcomes in {_observation_label(facts, n)} "
+        f"({_pct(facts.get('win_rate_pct'))}; n={n})"
+    ]
+    average = facts.get("avg_trade_return_pct")
+    median = facts.get("median_trade_return_pct")
+    if average is not None:
+        details.append("gross average " + _pct(average, signed=True, decimals=2))
+    if median is not None:
+        details.append("median " + _pct(median, signed=True, decimals=2))
+    return (
+        f"<b>Starting evidence:</b> The loaded {symbol} {direction} pattern provides an immediate "
+        "base rate: " + "; ".join(details) + "."
+    )
+
+
+def build_strategy_framework_reply(
+    message: Any,
+    wave_viewer: Any,
+    screen_context: Any = None,
+    *,
+    current_year: Optional[int] = None,
+) -> Optional[str]:
+    """Turn a broad strategy request into a positive, testable research process."""
+
+    if not is_strategy_building_question(message):
+        return None
+    facts = canonical_pattern_facts(wave_viewer, current_year=current_year)
+    lines = [
+        (
+            "<b>Build around measurable odds:</b> Fix the market, direction, calendar entry, and "
+            "holding period so every result is comparable."
+        ),
+        _strategy_starting_evidence_line(facts),
+        (
+            "<b>Stress-test it:</b> Compare 10, 12, 15, 20, 25, and maximum history, plus nearby "
+            "start dates, holding periods, and PE-cycle cohorts. Note where the result changes."
+        ),
+        (
+            "<b>Measure probability and path:</b> Pair hit rate with average and median payoff, "
+            "losing years, MFE, MAE, and worst finish. Treat AI Win Probability and Trend Alignment "
+            "as separate current evidence."
+        ),
+        (
+            "<b>Make it repeatable:</b> Keep the rules unchanged and record future occurrences. You "
+            "choose the rules and risk; Tara finds candidates, measures the odds, and challenges weak assumptions."
+        ),
+        (
+            "<b>Build it in TradeWave:</b> "
+            + _guide_link("open-filtering-popup", "Define pattern filters")
+            + " "
+            + _guide_link("open-years-popup", "Test history depth")
+        ),
+    ]
+    return _render_analysis_sections(lines)
 
 
 def _historical_only_line() -> str:
@@ -2414,6 +2831,7 @@ def build_pattern_analysis_reply(
     if focus == "overview":
         lines = [
             _analysis_compact_read_line(facts),
+            _analysis_ai_context_line(facts, wave_viewer),
             _analysis_chart_context_line(facts, screen),
             _analysis_payoff_and_path_line(facts),
             _analysis_occurrence_line(facts),
@@ -2711,6 +3129,7 @@ def build_advice_safe_reply(
     lines = [
         "<b>I can evaluate the evidence, but I can't decide whether you should take the trade.</b>",
         _analysis_compact_read_line(facts),
+        _analysis_ai_context_line(facts, wave_viewer),
         _analysis_chart_context_line(facts, screen),
         _analysis_payoff_and_path_line(facts),
         _analysis_occurrence_line(facts),
@@ -2771,6 +3190,22 @@ def build_deterministic_reply(
     )
     if rank is not None:
         return rank
+    seasonality_value = build_seasonality_value_reply(
+        message,
+        wave_viewer,
+        screen_context,
+        current_year=current_year,
+    )
+    if seasonality_value is not None:
+        return seasonality_value
+    strategy = build_strategy_framework_reply(
+        message,
+        wave_viewer,
+        screen_context,
+        current_year=current_year,
+    )
+    if strategy is not None:
+        return strategy
     advice = build_advice_safe_reply(
         message,
         wave_viewer,

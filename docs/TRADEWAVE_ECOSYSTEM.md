@@ -1325,6 +1325,44 @@ one targeted next check; and a gross-cost/non-forecast scope line. MAE is descri
 move from entry, not peak-to-trough maximum drawdown, and Tara never converts MFE/MAE into a target
 or stop. Missing excursion fields stay missing rather than becoming a false `0%` path claim.
 
+For an eligible US-stock/ETF user, that deterministic brief now adds a server-derived,
+current-condition ML section. The browser cannot supply or override this evidence: `chatbot.py`
+removes any incoming `wave_viewer.ai_analysis`, then calls the scorer callback registered in
+`current_app.extensions['tara_ai_analysis_context']`. The callback reuses the web product's
+`_ml_check_access`, `ml_score_resource_ids`, daily Redis keys, and ML scorer. A 10-90-calendar-day
+pattern receives a like-for-like AI Win Probability, PredR, and PMFE in Tara's prose; the composite
+AIS number is intentionally omitted there because it has no direct standalone interpretation. AIS
+remains available in the opportunity table and its dedicated explainer. Tara compares AI Win
+Probability with the historical win rate only because both describe the exact same window. These
+names remain distinct: the former is a current-condition model estimate and the latter is the
+observed share of profitable completed years.
+
+The ML model does not score a full window longer than 90 calendar days. For those windows Tara
+requests bounded 30-, 60-, and 90-calendar-day checkpoints from the same entry date and direction,
+labels them `Near-term AI checkpoints`, and states that none is a score for the full pattern. The
+legacy scorer still accepts the analytics-engine offset, so `tara_ai_analysis.py` converts those
+inclusive calendar labels to `daysOut=29/59/89`; it never adds a day to an end date. Independent
+tiers are requested in parallel and cached under the same daily keys as the opportunity table.
+Current-condition scores are suppressed more than five calendar days before entry so inputs are
+not presented stale, and a new entry-time score is not calculated after entry because post-entry
+data would contaminate the pre-entry comparison. Missing/provider-failed results remain unavailable,
+never numeric zero. The historical brief remains available if enrichment fails.
+
+When a chart pattern is loaded, terse commands such as `analyze`, `analyze this`, and `analyze it`
+are deterministic analysis intents. They must take the same enriched brief path as `analyze this
+pattern`; they do not fall through to an LLM provider or return its older generic summary.
+
+Tara also owns two deterministic product-education intents. Seasonality-value prompts (`convince me
+I should use seasonality`, `why should I use seasonality`, comparisons with normal indicators) use
+the loaded pattern as a concrete demonstration: exact inclusive calendar window, observed record
+with `n`, flexible 10/12/15/20/25/maximum-history testing, historical base rate versus the separate
+AI Win Probability concept, and visible guide links. Strategy-building prompts (`help me come up
+with a winning strategy`, `turn this into a testable strategy`) produce a positive research process:
+fixed rules, robustness across history/date/hold/PE cohorts, payoff and MFE/MAE failure evidence,
+current-condition context, and unchanged forward tracking. Both routes bypass the model and live ML
+scorer so the answer is immediate, stable, HTML-card formatted, and cannot regress into a defensive
+essay. They do not claim Sharpe demonstrates statistical significance or above-chance results.
+
 Recent comparisons use the latest five completed observations versus the earlier non-overlapping
 sample, and are phrased descriptively ("weaker in this sample"), never as proof of regime decay.
 The React context also labels a loaded window `scanner` versus `user_defined`; scanner-selected

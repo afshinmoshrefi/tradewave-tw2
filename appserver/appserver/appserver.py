@@ -101,6 +101,7 @@ except ImportError:
     pass
 
 from chatbot import chatbot_bp  # Import the chatbot Blueprint
+from tara_ai_analysis import build_analysis_score_plan, finalize_analysis_score_context
 
 
 # from appserver_apis import get_remote_OppList4, get_remote_chart_data4, get_remote_YearsMetaData2, get_remote_History2, get_remote_StockMetaData, get_remote_ListSymbols, get_remote_StockLastPrice, get_remote_StockPriceByDate, get_remote_consolidated_seasonal_chart2, get_remote_security_price
@@ -1795,6 +1796,144 @@ def _ml_tier(days_out):
     elif days_out <= 90:
         return '61_90'
     return None
+
+
+def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
+    """Return current-condition ML context for Tara's loaded-pattern analysis.
+
+    The web AI table and Tara share the same entitlement check, Redis keys, provider,
+    and daily cache.  For a chart window longer than 90 displayed calendar days, the
+    returned readings are explicitly bounded 30/60/90-day checkpoints; they are never
+    labeled as a score of the full pattern.
+    """
+
+    userid, _userlevel = _ml_check_access(token)
+    if userid is None:
+        return None
+    market = str((wave_viewer or {}).get('market') or fallback_market or '').strip()
+    if market not in config.ml_score_resource_ids:
+        return None
+
+    plan = build_analysis_score_plan(wave_viewer)
+    if not plan:
+        return None
+    if plan.get('status') != 'ready':
+        return finalize_analysis_score_context(plan)
+
+    opportunities = list(plan.get('opportunities') or ())
+    score_map = {}
+    misses = []
+    for opp in opportunities:
+        rkey = _ml_redis_key(
+            opp['symbol'], opp['date'], int(opp['daysOut']), opp['direction']
+        )
+        cached = redis_client.get(rkey)
+        if cached is None:
+            misses.append(opp)
+            continue
+        try:
+            score_map[opp['score_key']] = json.loads(cached)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            misses.append(opp)
+
+    if misses:
+        by_tier = {}
+        for opp in misses:
+            tier = _ml_tier(int(opp['daysOut']))
+            if tier is not None:
+                by_tier.setdefault(tier, []).append(opp)
+
+        def score_tier(tier_and_opps):
+            tier, tier_opps = tier_and_opps
+            provider_opps = [
+                {
+                    'symbol': opp['symbol'],
+                    'date': opp['date'],
+                    'daysOut': int(opp['daysOut']),
+                    'direction': opp['direction'],
+                }
+                for opp in tier_opps
+            ]
+            try:
+                response = requests.post(
+                    f'{config.ml_scorer_url}/score',
+                    json={'opportunities': provider_opps, 'tier': tier},
+                    timeout=12,
+                )
+                if response.status_code != 200:
+                    logging.warning(
+                        'Tara AI analysis scorer returned HTTP %s for tier %s',
+                        response.status_code,
+                        tier,
+                    )
+                    return {}
+                results = response.json().get('results', [])
+                requested = {
+                    (
+                        opp['symbol'], opp['date'], int(opp['daysOut']), opp['direction']
+                    )
+                    for opp in tier_opps
+                }
+                cleaned = {}
+                for result in results:
+                    if not isinstance(result, dict) or 'error' in result or 'vix_blocked' in result:
+                        continue
+                    identity = (
+                        str(result.get('symbol') or ''),
+                        str(result.get('date') or ''),
+                        int(result.get('daysOut') or 0),
+                        str(result.get('direction') or ''),
+                    )
+                    if identity not in requested:
+                        continue
+                    ui_key = f'{identity[0]}|{identity[2]}|{identity[3]}'
+                    cleaned[ui_key] = {
+                        'ml_score': result.get('ml_score'),
+                        'win_prob': result.get('win_prob'),
+                        'pred_return': result.get('pred_return'),
+                        'pred_mfe': result.get('pred_mfe'),
+                    }
+                return cleaned
+            except Exception as exc:
+                logging.warning('Tara AI analysis scorer unavailable for tier %s: %s', tier, exc)
+                return {}
+
+        # A long pattern spans three independent scorer tiers. Resolve them in parallel
+        # so adding the checkpoints does not triple Tara's response latency.
+        with ThreadPoolExecutor(max_workers=min(3, len(by_tier))) as executor:
+            futures = [executor.submit(score_tier, item) for item in by_tier.items()]
+            ttl = _ml_ttl_seconds()
+            for future in as_completed(futures):
+                for ui_key, score in future.result().items():
+                    score_map[ui_key] = score
+                    symbol, engine_days, direction = ui_key.rsplit('|', 2)
+                    matching = next(
+                        (
+                            opp for opp in misses
+                            if opp['symbol'] == symbol
+                            and str(opp['daysOut']) == engine_days
+                            and opp['direction'] == direction
+                        ),
+                        None,
+                    )
+                    if matching is not None:
+                        redis_client.set(
+                            _ml_redis_key(
+                                symbol,
+                                matching['date'],
+                                int(engine_days),
+                                direction,
+                            ),
+                            json.dumps(score),
+                            ex=ttl,
+                        )
+
+    return finalize_analysis_score_context(plan, score_map)
+
+
+# The chatbot blueprint is imported before the scorer functions are defined. Register a
+# runtime callback through Flask's extension registry to avoid a circular module import.
+app.extensions['tara_ai_analysis_context'] = _tara_ai_analysis_context
 
 
 @app.route('/MLScoreBatch/<string:resourceID>', methods=['POST'])

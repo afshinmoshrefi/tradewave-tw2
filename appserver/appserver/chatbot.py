@@ -35,6 +35,7 @@ from tara_answer_planner import (
     build_deterministic_reply,
     build_opportunity_row_load_command,
     canonical_pattern_facts,
+    needs_pattern_ai_context,
     requested_full_history_years,
     verified_context_lines,
 )
@@ -1018,7 +1019,11 @@ def chat():
     incoming_data = request.json or {}
     user_message  = incoming_data.get("message", "")
     history       = incoming_data.get("history", [])   # list of {role, content}
-    wave_viewer   = incoming_data.get("wave_viewer", {})
+    incoming_wave = incoming_data.get("wave_viewer", {})
+    wave_viewer = dict(incoming_wave) if isinstance(incoming_wave, dict) else {}
+    # AI analysis is server-derived. Never accept model scores supplied by the browser,
+    # an old tab, or a modified request as verified current-condition evidence.
+    wave_viewer.pop("ai_analysis", None)
     screen_context = incoming_data.get("screen_context", {})
     opportunities = incoming_data.get("opportunities", [])
     opp_table_length = incoming_data.get("opp_table_length")
@@ -1081,6 +1086,21 @@ def chat():
                     provider="deterministic",
                 )
                 return jsonify({"reply": reply, "actions": actions})
+
+        # Historical chart facts are already in the viewer payload. For a true pattern
+        # analysis/advice turn, enrich them with the gated, daily-cached ML reading before
+        # deterministic planning. The scorer callback is registered by appserver.py at
+        # runtime so this blueprint stays importable without a circular dependency.
+        if needs_pattern_ai_context(user_message, wave_viewer):
+            scorer = current_app.extensions.get("tara_ai_analysis_context")
+            if callable(scorer):
+                try:
+                    ai_analysis = scorer(wave_viewer, user_token, opp_table_market)
+                    if isinstance(ai_analysis, dict):
+                        wave_viewer["ai_analysis"] = ai_analysis
+                except Exception:
+                    # The historical analysis must remain available during an ML outage.
+                    logging.exception("Tara AI analysis enrichment failed; continuing without it")
 
         # Questions whose answer is completely determined by the loaded data and current UI state
         # bypass the provider. This prevents direction inversions and guarantees that a broad screen
