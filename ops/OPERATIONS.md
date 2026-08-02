@@ -172,7 +172,28 @@ Rollback (instant, no hash): `cd /home/flask/web-react && ln -sfn "$(readlink bu
   ssh root@<web> -p 4369
   sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/site/generate_home_page.py'
   ```
-  ⚠ `generate_home_page.py` still has hardcoded `CANONICAL_ROOT=tw2.trxstat.com` / `APPSERVER_URL=app1pp…` — make those env-driven before relying on a prod regen. (Otherwise it bakes the wrong host into the home page.)
+  The generator reads its canonical host from `TW2_PUBLIC_HOST` through
+  `config.tw2_public_url`.
+
+- **100-Year Pattern evidence page** (`site/100-year-pattern/`,
+  `site/static/100-year-pattern/`, or `site/generate_100_year_pattern.py`
+  changed): publish only that static page and its downloads with:
+  ```
+  sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/site/generate_100_year_pattern.py'
+  ```
+  This generator has no appserver, Stripe, or market-data dependency and writes
+  `/var/www/tradewave/100-year-pattern.html` plus
+  `/var/www/tradewave/_static/100-year-pattern/` atomically. Routine
+  `ops/regen_site.sh` also runs it.
+
+- **Homepage 100-Year Pattern countdown flag:** the home template renders the
+  marked `TW100 HOME COUNTDOWN` regions only when
+  `TW2_HOME_100_YEAR_PATTERN_ENABLED=1`. Keep the key absent or `0` on any
+  environment where the block is not approved. Fast persistent rollback on dev:
+  set it to `0` in `/etc/tradewave/secrets.env`, then run only
+  `generate_home_page.py`; no service or nginx restart is needed. Preserve a
+  timestamped copy of `home.html`, the generator, and the template before first
+  enabling it for exact rollback.
 
 ### 3a. Daily AI pick X publishing
 
