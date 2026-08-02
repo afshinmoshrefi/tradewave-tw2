@@ -340,9 +340,16 @@ REMOTE_PREFLIGHT
 done
 
 echo "==> [$ENV] pre-flight: APP was resized and both boxes have disk headroom?"
-$SSH "root@$APP" 'cpu=$(nproc); mem_kb=$(awk "/^MemTotal:/{print \$2}" /proc/meminfo); [ "$cpu" -ge 4 ] && [ "$mem_kb" -ge 7000000 ]' || {
-  echo "ABORT: APP needs the planned >=4 CPU / ~8 GB resize before deployment."; exit 1;
-}
+if ! $SSH "root@$APP" 'cpu=$(nproc); mem_kb=$(awk "/^MemTotal:/{print \$2}" /proc/meminfo); [ "$cpu" -ge 4 ] && [ "$mem_kb" -ge 7000000 ]'; then
+  if [ "$ENV" = staging ] && [ "${TW2_ALLOW_UNDERSIZED_STAGING_APP:-}" = 1 ]; then
+    app_capacity=$($SSH "root@$APP" 'printf "%s CPU / %s MiB RAM" "$(nproc)" "$(( $(awk "/^MemTotal:/{print \$2}" /proc/meminfo) / 1024 ))"')
+    echo "    WARNING - operator-approved undersized staging APP: $app_capacity"
+  else
+    echo "ABORT: APP needs the planned >=4 CPU / ~8 GB resize before deployment."
+    echo "       For an intentionally undersized staging APP only, rerun with TW2_ALLOW_UNDERSIZED_STAGING_APP=1."
+    exit 1
+  fi
+fi
 for box in "$APP" "$WEB"; do
   $SSH "root@$box" 'root_blocks=$(df -Pk / | awk "NR==2{print \$2}"); root_free=$(df -Pk / | awk "NR==2{print \$4}"); [ "$root_free" -ge 2097152 ] && [ $((root_free * 100 / root_blocks)) -ge 10 ]' || {
     echo "ABORT: $box needs >=2 GB and >=10% free root disk before deployment."; exit 1;
