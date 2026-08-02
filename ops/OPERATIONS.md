@@ -60,6 +60,13 @@ ignored for production and does not bypass host, identity, clean-tree, disk,
 service, or health gates. Treat performance results from an undersized staging
 APP as capacity-limited.
 
+The current Tara provider evaluation routes model-bound dev and staging turns to
+GPT-5.6 Luna by setting `TARA_OPENAI_CANARY_PERCENT=100` in
+`/etc/tradewave/appserver.env`; production remains `0` (Haiku). `OPENAI_KEY` must
+also be present. Restart `tradewave-appserver` after changing the percentage.
+OpenAI failures automatically retry the full turn on Haiku, and deterministic
+Tara answers never enter the provider route.
+
 **Promotion flow: dev → staging → prod**, one env at a time. Code is edited and
 tested on dev (`.176`), then promoted. The **React bundle is built ONCE on dev**
 (env-agnostic, runtime-gated by `window.tw2_env`) and the *same* bundle is copied

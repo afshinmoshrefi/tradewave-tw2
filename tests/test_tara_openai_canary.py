@@ -230,6 +230,14 @@ def test_view_spec_accepts_only_real_boolean_excursion_controls():
     assert tara_gateway._validate_view_spec({"show_mfe": "true", "show_mae": 0}) == {}
 
 
+def test_view_spec_accepts_only_named_lower_panels():
+    assert tara_gateway._validate_view_spec({"bottom_slide": "wave_stats"}) == {
+        "bottom_slide": "wave_stats"
+    }
+    assert tara_gateway._validate_view_spec({"bottom_slide": "settings"}) == {}
+    assert tara_gateway._validate_view_spec({"bottom_slide": 2}) == {}
+
+
 def test_full_history_command_overrides_model_sentinel_and_pins_loaded_window(monkeypatch):
     captured = {}
 
@@ -291,6 +299,118 @@ def test_full_history_action_cannot_switch_the_loaded_setup():
     tara_gateway._enforce_full_history_action(actions, {"years": 40})
 
     assert actions == [{"type": "set_view", "spec": {"years": 40}}]
+
+
+def test_named_symbol_action_uses_current_occurrence_year_and_drops_wrong_symbol():
+    actions = [
+        {
+            "type": "set_view",
+            "spec": {"symbol": "TDG", "entry_date": "2025-08-02", "days_out": 30},
+        },
+        {
+            "type": "set_view",
+            "spec": {
+                "symbol": "ITW",
+                "market": "2",
+                "entry_date": "2025-08-02",
+                "days_out": 208,
+                "years": 16,
+            },
+        },
+    ]
+
+    tara_gateway._enforce_named_symbol_action(actions, {}, "ITW", 2026)
+
+    assert actions == [
+        {
+            "type": "set_view",
+            "spec": {
+                "symbol": "ITW",
+                "market": "2",
+                "entry_date": "2026-08-02",
+                "days_out": 208,
+                "years": 16,
+            },
+        }
+    ]
+
+
+def test_named_symbol_read_is_forced_to_inherit_current_lookback(monkeypatch):
+    captured = {}
+
+    def fake_run_tool(name, tool_input, user_id):
+        captured.update(name=name, tool_input=tool_input)
+        return {"card": {"symbol": "ITW", "headline": "ITW - Won 15/16 years"}}
+
+    monkeypatch.setattr(tara_gateway, "run_tool", fake_run_tool)
+    monkeypatch.setattr(
+        tara_gateway, "_symbol_max_available_years", lambda market, symbol, token: 16
+    )
+
+    tara_gateway._execute_tara_tool(
+        "analyze_symbol",
+        {"symbol": "ITW", "market": "2", "years": 10},
+        "user-42",
+        [],
+        {},
+        [],
+        user_token="viewer-token",
+        named_symbol_override="ITW",
+        named_symbol_lookback=16,
+    )
+
+    assert captured["tool_input"]["years"] == 16
+
+
+def test_named_symbol_inherited_lookback_steps_down_to_target_metadata(monkeypatch):
+    captured = {}
+
+    def fake_run_tool(name, tool_input, user_id):
+        captured.update(tool_input=tool_input)
+        return {"card": {"symbol": "NEW", "headline": "NEW - Won 8/12 years"}}
+
+    monkeypatch.setattr(tara_gateway, "run_tool", fake_run_tool)
+    monkeypatch.setattr(
+        tara_gateway, "_symbol_max_available_years", lambda market, symbol, token: 12
+    )
+
+    tara_gateway._execute_tara_tool(
+        "analyze_symbol",
+        {"symbol": "NEW", "market": "2", "years": 10},
+        "user-42",
+        [],
+        {},
+        [],
+        user_token="viewer-token",
+        named_symbol_override="NEW",
+        named_symbol_lookback=16,
+    )
+
+    assert captured["tool_input"]["years"] == 12
+
+
+def test_tara_brief_card_keeps_twr_without_restoring_heavy_receipts():
+    brief = tara_gateway._briefify(
+        {
+            "card": {
+                "symbol": "ITW",
+                "headline": "ITW long - Won 15/16 years",
+                "stats": {
+                    "historical_win_rate": 0.9375,
+                    "sharpe_ratio": 1.64,
+                    "sharpe_ratio_mfe": 2.18,
+                    "avg_return_pct": 12.87,
+                    "years": "16",
+                    "std_dev_pct": 7.0,
+                },
+                "receipts": {"per_year": [{"year": "2021", "return_pct": -2.09}]},
+            }
+        }
+    )
+
+    assert brief["card"]["stats"]["sharpe_ratio_mfe"] == 2.18
+    assert "std_dev_pct" not in brief["card"]["stats"]
+    assert "receipts" not in brief["card"]
 
 
 def test_openai_http_failure_is_generic_and_does_not_expose_body(monkeypatch):
@@ -411,6 +531,117 @@ def test_chat_route_loads_visible_ordinal_row_without_calling_a_provider(monkeyp
     ]
     assert "Loaded row #3: PEG short" in payload["reply"]
     assert seen["provider"] == "deterministic"
+
+
+@pytest.mark.parametrize(
+    "message, expected_slide, expected_reply",
+    [
+        ("show me the trend chart", "trend_chart", "Trend Chart"),
+        ("show me the stats", "wave_stats", "Wave Stats"),
+        ("open the price chart", "price_chart", "Price Chart"),
+    ],
+)
+def test_chat_route_moves_lower_panel_without_calling_a_provider(
+    monkeypatch, message, expected_slide, expected_reply
+):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: pytest.fail("lower-panel commands must bypass providers"),
+    )
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+
+    app = Flask(__name__)
+    body = {
+        "message": message,
+        "history": [{"role": "user", "content": message}],
+        "wave_viewer": {"symbol": "ADI", "years": "16", "pe_cycle": "cons"},
+        "screen_context": {},
+        "opportunities": [],
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "panel-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    payload = response.get_json()
+    assert payload["actions"] == [
+        {"type": "set_view", "spec": {"bottom_slide": expected_slide}}
+    ]
+    assert expected_reply in payload["reply"]
+
+
+def test_system_prompt_forces_named_symbol_over_loaded_symbol():
+    import chatbot as chatbot_module
+
+    blocks = chatbot_module.build_system_prompt(
+        {
+            "symbol": "TDG",
+            "start_date": "2026-08-02",
+            "days_out": "30",
+            "years": "16",
+            "pe_cycle": "cons",
+            "direction": "long",
+            "stats": {},
+            "yearly_results": [],
+        },
+        [],
+        screen_context={},
+        user_message="What does TWR reveal about this ITW pattern that Sharpe misses?",
+    )
+    prompt = "\n".join(block["text"] for block in blocks)
+
+    assert "EXPLICIT NAMED-SYMBOL OVERRIDE" in prompt
+    assert "the user named ITW, while TDG is currently loaded" in prompt
+    assert "Do not answer with or relabel TDG's statistics" in prompt
+    assert "Analyze and load ITW at 16 years, not the default 10" in prompt
+
+
+def test_chat_route_passes_loaded_lookback_to_a_different_named_symbol(monkeypatch):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    seen = {}
+    monkeypatch.setattr(chatbot_module, "build_deterministic_reply", lambda *args, **kwargs: None)
+    monkeypatch.setattr(chatbot_module, "build_system_prompt", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: (OPENAI_PROVIDER, 3),
+    )
+    monkeypatch.setattr(chatbot_module, "TARA_TOOLS_ENABLED", True)
+
+    def fake_openai(*args, **kwargs):
+        seen.update(kwargs)
+        return "ITW result", []
+
+    monkeypatch.setattr(chatbot_module, "run_chat_with_openai_tools", fake_openai)
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+
+    app = Flask(__name__)
+    message = "how does ITW do?"
+    body = {
+        "message": message,
+        "history": [{"role": "user", "content": message}],
+        "wave_viewer": {
+            "symbol": "ADI",
+            "years": "16",
+            "pe_cycle": "cons",
+            "start_date": "2026-08-02",
+            "days_out": "30",
+        },
+        "screen_context": {},
+        "opportunities": [],
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "lookback-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    assert response.get_json()["reply"] == "ITW result"
+    assert seen["named_symbol_override"] == "ITW"
+    assert seen["named_symbol_lookback"] == 16
 
 
 @pytest.mark.parametrize("analysis_message", ["Analyze", "Analyze this", "Analyze this pattern"])

@@ -1213,9 +1213,9 @@ uses its derived first-render fallback until the matching chart reports back.
 pattern. High-confidence screen-overview and bar-color questions bypass the LLM entirely: the reply
 always covers the top Gain-Loss chart, the active lower slide (including visible projections on the
 Price Chart), and the left table when visible. Explicit analysis of the already-loaded pattern is
-also deterministic as of 2026-07-31 (details below); other open-ended questions still use Haiku
-4.5 by default, with compact verified facts appended last to its system prompt. On dev, a
-sticky 10% of model-bound users use the GPT-5.6 Luna canary described below.
+also deterministic as of 2026-07-31 (details below); other open-ended questions use the selected
+model provider with compact verified facts appended last to its system prompt. Dev and staging
+currently override the GPT-5.6 Luna canary to 100%; production remains on Haiku 4.5.
 
 The direction contract is essential: `ChartData4[].pct[0]` and the bars are the UNDERLYING price
 move, not direction-adjusted trade P&L. Green/up means the security rose; red/down means it fell.
@@ -1390,7 +1390,11 @@ This is current-momentum context, not a historical pattern score or forecast. `C
 `StockScoreBatch` carry an explicit score-availability bit; a provider/configuration failure is
 rendered as unavailable rather than the legacy numeric `0` fallback. During rolling deploys, a
 legacy all-zero current/prior score set without the bit is also treated as unavailable. The planner
-also explains when TWR materially exceeds Sharpe, flags an
+also explains when TWR materially exceeds Sharpe. TWR applies the Sharpe-style
+return-to-dispersion calculation to each completed observation's direction-adjusted MFE rather than
+its ending return; it does not use final close-to-close gains/losses. When a losing finish first had
+meaningful favorable MFE, Tara surfaces the year, MFE, final result, and giveback so an endpoint-only
+record cannot hide exit sensitivity. It also flags an
 estimated earnings date inside the current occurrence, and states whether the selected-history and
 full-history normalized seasonal curves support or oppose the loaded direction. React derives only
 those closed-vocabulary curve-direction labels (`supports` / `against` / `flat` / `unknown`); the
@@ -1398,7 +1402,13 @@ those closed-vocabulary curve-direction labels (`supports` / `against` / `flat` 
 handled deterministically: Tara says she can evaluate but not decide the trade, gives the strongest
 historical support and counter-signal, and includes the disclaimer. All analysis is explicitly
 historical, makes no forward claim, and is not a trade recommendation. Questions about a different
-symbol stay on the normal policy/tool path. Investor-grade outperformance remains a declared gap:
+symbol stay on the policy/tool path, but an explicitly named ticker is authoritative over the loaded
+chart and pronouns. A bare cross-symbol request inherits the current consecutive lookback; the tool
+layer caps it to the target symbol's `StockMetaData` history, forces the read and view action to the
+same effective lookback, and anchors the recurring setup to the current occurrence year.
+`/v1/analyze/<symbol>` passes the matching market-specific `year1` and `year2` detection grid pair,
+so a non-default lookback cannot silently resolve through the legacy 10-year band. Investor-grade
+outperformance remains a declared gap:
 Tara must not claim that a long window beats buy-and-hold until the same-security and market
 benchmarks are passed with verified matching cohort, exposure and return semantics.
 
@@ -1411,6 +1421,12 @@ days until start, and inclusive end; active replies give the calendar day within
 and days to end while excluding the partial live row; completed replies state whether the finalized
 entry-year row is present in the completed `n`. Occurrence status never shifts a weekend entry to
 Monday. Reminder delivery may move separately, but the analytical window does not.
+
+Direct lower-carousel commands are deterministic UI actions: Trend Chart, Wave Stats (including
+“show me the stats”), and Price Chart map to `bottom_slide=trend_chart|wave_stats|price_chart`, and
+React moves the existing desktop Swiper to indices 0/1/2. These commands do not reload the symbol or
+clear the opportunity table. Concept questions such as “what does the Trend Chart show?” remain
+explanations and do not move the viewer.
 
 PE context is anchored to the occurrence's ENTRY year, including a cross-year window that remains
 active in January. With consecutive years loaded, Tara identifies that occurrence phase and suggests
@@ -1436,10 +1452,11 @@ tabular numerals, and a quieter scope/disclosure treatment. This keeps the detai
 scannable inside the narrow desktop chat column without removing the evidence the user requested.
 Other short Tara answers retain their compact normal message rendering.
 
-**GPT-5.6 Luna dev canary (2026-08-01).** Deterministic planner answers still run first and never
+**GPT-5.6 Luna dev/staging canary (2026-08-02).** Deterministic planner answers still run first and never
 enter a provider experiment. For the remaining model-bound turns, `tara_model_router.py` hashes the
 authenticated user id into a stable 0-99 bucket. `TARA_OPENAI_CANARY_PERCENT` defaults to `10` when
-`TW2_ENV=dev` and `0` on staging/production; `0` is the immediate kill switch. Selection also requires
+`TW2_ENV=dev` and `0` on staging/production; the deployed dev and staging appserver environments
+currently set it to `100`, while production leaves it at `0`. Zero is the immediate kill switch. Selection also requires
 `OPENAI_KEY`, so a missing key always stays on Haiku. `openai_tools_appserver.py` uses the stateless
 Responses API (`store:false`) with `gpt-5.6-luna`, low reasoning effort, low text verbosity, a bounded
 2,048-token output ceiling, and an explicit cache breakpoint at the end of the same stable prompt
@@ -1452,8 +1469,8 @@ OppList4/table interception, result trimming, ViewSpec validation, UI actions, a
 guards do not vary by model. Any OpenAI/API/adapter failure discards unreturned local UI actions and
 retries the full turn on Haiku; Tara exposes only the usual generic error if both providers fail.
 Question-log rows record `deterministic`, `openai`, `anthropic`, or `anthropic_fallback`, while provider
-usage logs contain token/cache counts but no prompt text. This is an evaluation canary, not a staging
-or production model change.
+usage logs contain token/cache counts but no prompt text. This is a dev/staging evaluation rollout,
+not a production model change.
 
 **Gateway restart/service-login invariant (2026-08-01).** The gateway keeps both
 `SERVICE_API_KEY` and its downstream appserver JWT in process memory. A manual appserver-only restart

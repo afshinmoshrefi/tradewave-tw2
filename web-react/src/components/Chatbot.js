@@ -23,6 +23,7 @@ import {
   buildOpportunityTableContext,
   deriveDirectionFromBars,
   parseOptionalNumber,
+  showBottomSlide,
   shouldClearOpportunityTable,
 } from './chatbotScreenContext';
 import { VIEWER_CYCLE_CHANGE_EVENT, isViewerCycle } from './viewerCycleState';
@@ -422,6 +423,9 @@ function Chatbot(props) {
     if (typeof spec.show_mae === 'boolean' && typeof props.setShowMAE === 'function') {
       props.setShowMAE(spec.show_mae);
       setCookie('MAE', spec.show_mae.toString(), 300);
+    }
+    if (typeof spec.bottom_slide === 'string') {
+      showBottomSlide(props.swiper, spec.bottom_slide);
     }
   };
 

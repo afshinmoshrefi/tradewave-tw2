@@ -1,7 +1,10 @@
 // Build the allowlisted UI snapshot Tara needs to explain what the user can actually see.
 // This intentionally carries metadata and derived directional summaries only - never raw price series.
 
-const BOTTOM_SLIDES = ['trend_chart', 'wave_stats', 'price_chart'];
+export const BOTTOM_SLIDES = ['trend_chart', 'wave_stats', 'price_chart'];
+const BOTTOM_SLIDE_INDEX = Object.freeze(
+  BOTTOM_SLIDES.reduce((indices, slide, index) => ({ ...indices, [slide]: index }), {}),
+);
 const WINDOW_PATH_STATES = ['supports', 'against', 'flat', 'unknown'];
 
 const asArrayWithRows = (value) => Array.isArray(value) && value.length > 0;
@@ -21,6 +24,16 @@ export const shouldClearOpportunityTable = (currentMarket, targetMarket) => {
   const current = String(currentMarket || '').trim();
   const target = String(targetMarket || '').trim();
   return target !== '' && target !== current;
+};
+
+// Tara is desktop-only, where the lower Swiper order is a stable semantic contract:
+// Trend Chart, Wave Stats, Price Chart. Return whether a validated move was applied so
+// unsupported values cannot accidentally move the carousel.
+export const showBottomSlide = (swiper, slide) => {
+  const index = BOTTOM_SLIDE_INDEX[slide];
+  if (!Number.isInteger(index) || typeof swiper?.slideTo !== 'function') return false;
+  swiper.slideTo(index);
+  return true;
 };
 
 // Tara's ordinal commands refer to what the user can actually see, after TableBox applies

@@ -1243,7 +1243,9 @@ def scan():
         if not curve:
             return
         hold = o.get("days_out")
-        section = curve[: hold + 1] if isinstance(hold, int) and hold > 1 else curve
+        # TradeWave counts the entry point as calendar day 1, so an N-day window
+        # contains exactly the first N curve points (ending at start + N - 1).
+        section = curve[:hold] if isinstance(hold, int) and hold > 1 else curve
         card["receipts"]["curve_summary"] = cards.curve_summary(section)
         if include_chart and card is primary:
             cards.attach_chart_evidence(
@@ -1421,9 +1423,16 @@ def analyze_symbol(symbol):
     try:
         direction = _direction_arg(request.args.get("direction"))
         pe_cycle = _resolve_pe_cycle(allow_positions=False)        # consecutive | pe (wave-viewer knob)
-        years_n = request.args.get("years", default=10, type=int)  # lookback knob
-        if years_n is None or not (1 <= years_n <= 99):
-            raise ValueError("years must be an integer between 1 and 99")
+        # OppBySymbol is a precomputed detection grid keyed by BOTH lookback and its
+        # market-specific winning-years floor. Never pair a custom lookback with the
+        # client's legacy default year2=9 (for example, 16/9 returns no ITW patterns).
+        year1, year2 = _lookback_args(
+            market=market,
+            path="symbol",
+            pe_mode=_opp_mode(pe_cycle) != "consecutive",
+            name_map=name_map,
+        )
+        years_n = int(year1)
         # PIN a specific window: an explicit entry_date (+days_out), or a period/reverse preset. This is
         # the "click THIS exact opportunity / change the date range" flow - analyze loads THAT window
         # instead of auto-picking the best setup.
@@ -1444,7 +1453,7 @@ def analyze_symbol(symbol):
 
     yrs = _chart_years(pe_cycle, years_n)   # 'N' | 'pe{phase}-N' - drives the receipts/curve lookback
     opps = appserver_client.opportunities_by_symbol(
-        market, symbol, year1=str(years_n), mode=_opp_mode(pe_cycle))
+        market, symbol, year1=year1, year2=year2, mode=_opp_mode(pe_cycle))
     if direction:
         want = appserver_client._dir_to_public(direction)
         opps = [o for o in opps if o["direction"] == want]
@@ -1469,7 +1478,7 @@ def analyze_symbol(symbol):
             # the cross-market scanner (OppList4) ranks the symbol. Fall back to today's market
             # scan kept to this symbol, so 'find a trade -> tell me more about #1' stays coherent.
             scan_rows = appserver_client.opportunities(
-                market, _today(), year1=str(years_n), direction=direction or None,
+                market, _today(), year1=year1, year2=year2, direction=direction or None,
                 enrich_win_rate=5, mode=_opp_mode(pe_cycle))
             opps = [o for o in scan_rows if o.get("symbol") == symbol]
             if not opps:

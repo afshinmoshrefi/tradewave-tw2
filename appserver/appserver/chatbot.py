@@ -31,10 +31,12 @@ from tara_gateway import (
     run_chat_with_tools,
 )
 from tara_answer_planner import (
+    build_bottom_slide_command,
     build_excursion_overlay_command,
     build_deterministic_reply,
     build_opportunity_row_load_command,
     canonical_pattern_facts,
+    explicit_pattern_symbol,
     needs_pattern_ai_context,
     requested_full_history_years,
     verified_context_lines,
@@ -147,10 +149,13 @@ TOOL_INSTRUCTION = (
     "a bare 'Pattern loaded' / 'Loaded on the chart' with no stat is a HARD FAIL here too, even though no "
     "load action fired.\n"
     "2) When the user asks to LOAD / SHOW / OPEN / PULL UP a symbol or setup, CHANGE the years "
-    "or PE cycle, or SHOW/HIDE MFE or MAE on the loaded chart, you MUST call update_view and do it yourself. "
+    "or PE cycle, SHOW/HIDE MFE or MAE, or SHOW the Trend Chart / Wave Stats / Price Chart, "
+    "you MUST call update_view and do it yourself. "
     "For MFE/MAE use show_mfe/show_mae booleans; do not open the guide for a view command. Do NOT tell them to use a dropdown, "
     "selectbox, or to click a row - you CAN drive the view for them. After update_view, say in one "
-    "short line what you changed.\n"
+    "short line what you changed. For a lower-panel command use bottom_slide=trend_chart, "
+    "wave_stats, or price_chart; confirm the panel in one line without reloading the symbol or "
+    "adding unrelated statistics.\n"
     "3) For a date-range preset (a month/quarter/season), first call analyze_symbol with period= to "
     "get the resolved entry_date + days_out, then pass those to update_view.\n"
     "4) SCREENING / 'which <group> stocks ...' questions (e.g. 'which tech stocks tend to rise this time "
@@ -165,14 +170,14 @@ TOOL_INSTRUCTION = (
     "or sort the table - call the tool and give the actual names.\n"
     "All figures are percentages, never price levels. Keep answers concise and plain-English.\n"
     "=== TWO HARD RULES, NO EXCEPTIONS ===\n"
-    "A) NARRATE EVERY LOAD. Any turn that fires update_view MUST also contain, in the chat text, the "
+    "A) NARRATE EVERY PATTERN LOAD. Any turn that fires update_view to load or reload a symbol/setup MUST also contain, in the chat text, the "
     "symbol AND at least one real stat from the tool (win rate OR avg return OR Sharpe) AND, if the user "
     "asked a question, the answer to THAT question type: a yes/no gets yes/no; a 'why' gets the reason "
     "(top Sharpe / strongest seasonal edge / forward-tested record); a 'does it work / is it backtested' "
     "gets the made-in-advance-scored-later point in <=2 sentences; a compare gets ONE stat line PER named "
     "symbol + an 'X wins' verdict before you load the winner. A reply of 'Loaded on the chart', 'Pattern "
     "loaded', or any bare confirmation that omits the symbol+stat is a HARD FAIL. Never fire update_view "
-    "on a pure pricing / coverage / definition question. When you load the BEST / top result and ALSO list "
+    "on a pure pricing / coverage / definition question. A lower-panel-only bottom_slide action is not a pattern load: confirm only the named panel. When you load the BEST / top result and ALSO list "
     "runner-ups, NAME THE LOADED ONE FIRST with its stat ('FAST long, won 10/10 years, +16.1% - loaded'), "
     "then the others; leaving the loaded pick as a bare 'now on the chart' while you name OTHER tickers is a HARD FAIL.\n"
     "B) NEVER INSTRUCT A CLICK, EVEN WHEN A TOOL ERRORS OR THE ANSWER HAS A LOAD PATH. Forbidden in any "
@@ -696,6 +701,19 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
     static_parts = list(parts)
     if TARA_TOOLS_ENABLED:
         static_parts.append("\n" + TOOL_INSTRUCTION)
+    static_parts.append(
+        "\n=== EXPLICIT SYMBOL, PATH METRICS, AND LOWER-PANEL OVERRIDES ===\n"
+        "A ticker explicitly named in the current user message outranks pronouns, history, and "
+        "the loaded chart. If ITW is named while TDG is loaded, read and load ITW and use only "
+        "ITW facts. For a loaded-pattern quality question, Sharpe uses ending returns while TWR "
+        "applies the same return-to-dispersion idea to each year's MFE. If a losing finish first "
+        "reached substantial favorable MFE, name the year, MFE, final return, and giveback because "
+        "that is essential endpoint-versus-path and exit-sensitivity context. Tara CAN drive the "
+        "lower carousel: a direct request to show/open/switch to the Trend Chart, Wave Stats "
+        "(including 'the stats'), or Price Chart MUST call update_view with ONLY "
+        "bottom_slide=trend_chart, wave_stats, or price_chart. Confirm the panel in one short line; "
+        "never tell the user to swipe. Explanatory questions still receive the concept explanation."
+    )
     parts = []
 
     # Detect if the loaded pattern is the named "100-Year Pattern"
@@ -908,7 +926,42 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
 
     # Append a compact, allowlisted fact ledger last so current UI state and direction semantics
     # have maximum recency and cannot be contradicted by stale conversation or generic KB prose.
-    parts.append("\n" + "\n".join(verified_context_lines(wave_viewer, screen_context)))
+    verified_lines = verified_context_lines(wave_viewer, screen_context)
+    named_symbol = explicit_pattern_symbol(user_message)
+    loaded_symbol = str(wave_viewer.get("symbol") or "").strip().upper()
+    if named_symbol and loaded_symbol and named_symbol != loaded_symbol:
+        viewer_year = datetime.datetime.now(datetime.timezone.utc).year
+        verified_lines.append(
+            f"- EXPLICIT NAMED-SYMBOL OVERRIDE: the user named {named_symbol}, while {loaded_symbol} "
+            "is currently loaded. The named symbol overrides 'this', 'it', and the loaded screen. "
+            f"Do not answer with or relabel {loaded_symbol}'s statistics. Call analyze_symbol for "
+            f"{named_symbol}; reuse an exact entry date, inclusive calendar-day duration, direction, "
+            "and lookback from recent conversation only when they are explicitly available. Then call "
+            f"update_view with the verified {named_symbol} setup and answer only from {named_symbol} "
+            f"facts. For a recurring setup, update_view must anchor the returned month/day to the "
+            f"current {viewer_year} occurrence unless the user explicitly requested a historical year. "
+            "If the named setup cannot be resolved, say so instead of substituting the loaded symbol."
+        )
+        current_years = str(wave_viewer.get("years") or "")
+        requested_other_lookback = re.search(
+            r"\b(?:max(?:imum)?|all|full)(?:\s+available)?\s+(?:years?|history)\b|"
+            r"\b\d{1,2}\s*(?:-|\s)?years?\b",
+            user_message,
+            re.I,
+        )
+        current_cycle = str(wave_viewer.get("pe_cycle") or "cons").strip().lower()
+        if (
+            current_years.isdigit()
+            and current_cycle in {"cons", "consecutive"}
+            and not requested_other_lookback
+        ):
+            verified_lines.append(
+                f"- LOOKBACK INHERITANCE: the viewer is set to {current_years} years and the "
+                f"user did not request another lookback. Analyze and load {named_symbol} at "
+                f"{current_years} years, not the default 10. If {named_symbol} has fewer "
+                "completed observations, use and name its available maximum."
+            )
+    parts.append("\n" + "\n".join(verified_lines))
 
     knowledge = select_topic_knowledge(user_message, _KNOWLEDGE_SECTIONS)
     blocks = segmented_system_blocks(
@@ -1069,6 +1122,23 @@ def chat():
             log_question(user_id, user_message, reply, wave_viewer, provider="deterministic")
             return jsonify({"reply": reply, "actions": actions})
 
+        # Lower-panel navigation is an exact reversible UI command. Resolve it before the
+        # provider so Tara actually moves the carousel instead of merely telling the user to swipe.
+        bottom_slide_command = build_bottom_slide_command(user_message)
+        if bottom_slide_command is not None:
+            cleaned = _validate_view_spec(bottom_slide_command.get("spec"))
+            if cleaned:
+                reply = bottom_slide_command["reply"]
+                actions = [{"type": "set_view", "spec": cleaned}]
+                log_question(
+                    user_id,
+                    user_message,
+                    reply,
+                    wave_viewer,
+                    provider="deterministic",
+                )
+                return jsonify({"reply": reply, "actions": actions})
+
         # A direct show/hide request for MFE/MAE is a reversible chart command, not a
         # definition request or a request for sample extrema. Keep it provider-independent
         # so the overlay is changed reliably and no education popup obscures the chart.
@@ -1125,6 +1195,36 @@ def chat():
             if full_history_years is not None
             else None
         )
+        explicit_named_symbol = explicit_pattern_symbol(user_message)
+        loaded_symbol = str(wave_viewer.get("symbol") or "").strip().upper()
+        named_symbol_override = (
+            explicit_named_symbol
+            if explicit_named_symbol
+            and loaded_symbol
+            and explicit_named_symbol != loaded_symbol
+            else None
+        )
+        named_symbol_lookback = None
+        # A bare symbol change inherits the viewer's current consecutive lookback. An
+        # explicitly requested N-year/max-history comparison remains authoritative.
+        explicit_lookback = re.search(
+            r"\b(?:max(?:imum)?|all|full)(?:\s+available)?\s+(?:years?|history)\b|"
+            r"\b\d{1,2}\s*(?:-|\s)?years?\b",
+            user_message,
+            re.I,
+        )
+        if named_symbol_override and not explicit_lookback:
+            raw_years = wave_viewer.get("years")
+            pe_cycle = str(wave_viewer.get("pe_cycle") or "cons").strip().lower()
+            if pe_cycle in {"cons", "consecutive"} and str(raw_years or "").isdigit():
+                inherited = int(str(raw_years))
+                if 1 <= inherited <= 99:
+                    named_symbol_lookback = inherited
+        viewer_entry_year = (
+            None
+            if re.search(r"\b(?:19|20)\d{2}\b", user_message)
+            else datetime.datetime.now(datetime.timezone.utc).year
+        )
 
         system_prompt = build_system_prompt(wave_viewer, opportunities, opp_table_length,
                                             opp_table_market, opp_table_market_name,
@@ -1174,6 +1274,9 @@ def chat():
                         user_token=user_token,
                         opp_table_years=opp_table_years,
                         full_history_request=full_history_request,
+                        named_symbol_override=named_symbol_override,
+                        named_symbol_lookback=named_symbol_lookback,
+                        viewer_entry_year=viewer_entry_year,
                     )
                 else:
                     bot_reply = send_openai_messages(
@@ -1204,6 +1307,9 @@ def chat():
                         user_token=user_token,
                         opp_table_years=opp_table_years,
                         full_history_request=full_history_request,
+                        named_symbol_override=named_symbol_override,
+                        named_symbol_lookback=named_symbol_lookback,
+                        viewer_entry_year=viewer_entry_year,
                     )
                 else:
                     bot_reply = send_claude_messages(
@@ -1227,6 +1333,9 @@ def chat():
                 user_token=user_token,
                 opp_table_years=opp_table_years,
                 full_history_request=full_history_request,
+                named_symbol_override=named_symbol_override,
+                named_symbol_lookback=named_symbol_lookback,
+                viewer_entry_year=viewer_entry_year,
             )
         else:
             bot_reply = send_claude_messages(

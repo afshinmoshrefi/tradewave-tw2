@@ -4,6 +4,7 @@ import {
   deriveDirectionFromBars,
   deriveSeasonalWindowPath,
   parseOptionalNumber,
+  showBottomSlide,
   shouldClearOpportunityTable,
 } from './chatbotScreenContext';
 
@@ -38,6 +39,24 @@ test('preserves opportunity rows for a same-market Tara chart load', () => {
 test('clears opportunity rows only for a real market change', () => {
   expect(shouldClearOpportunityTable('S&P 500', 'NASDAQ 100')).toBe(true);
   expect(shouldClearOpportunityTable('S&P 500', '')).toBe(false);
+});
+
+test('moves Tara lower-panel commands to the exact desktop carousel slide', () => {
+  const slideTo = jest.fn();
+  const swiper = { slideTo };
+
+  expect(showBottomSlide(swiper, 'trend_chart')).toBe(true);
+  expect(showBottomSlide(swiper, 'wave_stats')).toBe(true);
+  expect(showBottomSlide(swiper, 'price_chart')).toBe(true);
+  expect(slideTo.mock.calls).toEqual([[0], [1], [2]]);
+});
+
+test('rejects unknown lower-panel targets without moving the carousel', () => {
+  const slideTo = jest.fn();
+
+  expect(showBottomSlide({ slideTo }, 'settings')).toBe(false);
+  expect(showBottomSlide(null, 'price_chart')).toBe(false);
+  expect(slideTo).not.toHaveBeenCalled();
 });
 
 test('sends Tara the exact filtered and sorted visible opportunity order', () => {

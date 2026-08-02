@@ -145,6 +145,33 @@ _ADVICE_PATTERNS = re.compile(
 )
 _SPECIFIC_YEAR_PATTERN = re.compile(r"\b(?:19|20)\d{2}\b")
 
+# An explicitly named ticker next to a pattern noun outranks pronouns such as
+# "this" and the currently loaded chart. Keep the ticker token case-sensitive so
+# ordinary phrases such as "this pattern" and company names are not misread as symbols.
+_EXPLICIT_PATTERN_SYMBOL_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9])"
+    r"((?:[$^][A-Z0-9.-]{1,10})|(?:[A-Z][A-Z0-9.$^-]{0,10}))"
+    r"(?:['’]s)?(?i:\s+(?:seasonal\s+)?(?:pattern|setup|window|trade|opportunity)\b)"
+)
+_EXPLICIT_SYMBOL_QUERY_PATTERN = re.compile(
+    r"(?i:\b(?:how\s+(?:does|did)|what\s+about|analy[sz]e|evaluate|assess|review|"
+    r"show(?:\s+me)?|load|open|pull\s+up|bring\s+up)\s+(?:the\s+)?)"
+    r"((?:[$^][A-Z0-9.-]{1,10})|(?:[A-Z][A-Z0-9.$^-]{0,10}))\b"
+)
+_NON_SYMBOL_PATTERN_WORDS = {
+    "AI",
+    "CURRENT",
+    "LOADED",
+    "MFE",
+    "MAE",
+    "PE",
+    "SAME",
+    "THAT",
+    "THE",
+    "THIS",
+    "TWR",
+}
+
 # In a loaded year-by-year chart, users often describe MFE/MAE in plain language as
 # the "max and min for each year."  Requiring both a path-extreme phrase and an
 # explicit per-year scope keeps unrelated max/min questions (hold days, win rate,
@@ -242,6 +269,39 @@ _OPPORTUNITY_ROW_WORDS = {
     "tenth": 10,
 }
 
+# Moving among the three lower desktop panels is a reversible viewer command. Keep this
+# deterministic so a direct request never depends on a model deciding whether Tara can drive
+# the carousel. The anchored command prefix deliberately excludes explanatory questions such
+# as "what does the Trend Chart show?" and "explain Wave Stats".
+_BOTTOM_SLIDE_COMMAND_PREFIX = re.compile(
+    r"^\s*(?:please\s+)?(?:(?:can|could|would|will)\s+you\s+)?"
+    r"(?:show(?:\s+me)?|open|display|load|pull\s+up|bring\s+up|"
+    r"switch(?:\s+me)?(?:\s+over)?(?:\s+to)?|go\s+to|take\s+me\s+to|"
+    r"flip\s+to|swipe\s+to)\b",
+    re.I,
+)
+_BOTTOM_SLIDE_TARGETS = (
+    (
+        "trend_chart",
+        "Trend Chart",
+        re.compile(r"\b(?:the\s+)?(?:seasonal\s+)?trend\s+chart\b", re.I),
+    ),
+    (
+        "price_chart",
+        "Price Chart",
+        re.compile(r"\b(?:the\s+)?(?:stock\s+)?price\s+chart\b", re.I),
+    ),
+    (
+        "wave_stats",
+        "Wave Stats",
+        re.compile(
+            r"\b(?:the\s+)?(?:(?:wave|pattern|trade)\s+)?stat(?:s|istics)"
+            r"(?:\s+(?:panel|slide|chart))?\b",
+            re.I,
+        ),
+    ),
+)
+
 _BOTTOM_SLIDES = {"trend_chart", "wave_stats", "price_chart"}
 _PRICE_CHART_MODES = {"current", "active_trade", "historical"}
 _WINDOW_PATH_STATES = {"supports", "against", "flat", "unknown"}
@@ -292,6 +352,23 @@ def is_pattern_analysis_question(message: Any, wave_viewer: Any) -> bool:
         re.I,
     )
     return bool(named and named.group(1).upper() == symbol)
+
+
+def explicit_pattern_symbol(message: Any) -> Optional[str]:
+    """Return an uppercase ticker explicitly named in a pattern/view question.
+
+    Besides ``ITW pattern``, accept common compact requests such as ``how does ITW do?``
+    and ``show me ITW``. The ticker capture itself remains case-sensitive so ordinary words
+    do not become symbols; known analytical acronyms are excluded below.
+    """
+
+    text = str(message or "")
+    for pattern in (_EXPLICIT_PATTERN_SYMBOL_PATTERN, _EXPLICIT_SYMBOL_QUERY_PATTERN):
+        for match in pattern.finditer(text):
+            symbol = match.group(1).upper()
+            if symbol not in _NON_SYMBOL_PATTERN_WORDS:
+                return symbol
+    return None
 
 
 def is_seasonality_value_question(message: Any) -> bool:
@@ -429,6 +506,30 @@ def requested_opportunity_row_rank(message: Any) -> Optional[int]:
     if not word_match:
         return None
     return _OPPORTUNITY_ROW_WORDS[word_match.group(1).lower()]
+
+
+def build_bottom_slide_command(message: Any) -> Optional[Dict[str, Any]]:
+    """Return a deterministic command for a direct lower-panel navigation request.
+
+    The desktop wave viewer's lower carousel has three stable semantic destinations. This
+    parser recognizes only an explicit navigation verb followed by one of those destinations;
+    concept questions remain in Tara's normal explanation/guide path.
+    """
+
+    text = str(message or "").strip()
+    prefix = _BOTTOM_SLIDE_COMMAND_PREFIX.search(text) if text else None
+    if prefix is None:
+        return None
+    # "Show me where/what/how ..." asks for an explanation, not navigation.
+    if re.match(r"\s+(?:where|what|how|why|whether)\b", text[prefix.end():], re.I):
+        return None
+    for slide, label, target_pattern in _BOTTOM_SLIDE_TARGETS:
+        if target_pattern.search(text):
+            return {
+                "reply": f"<b>Showing {label}.</b>",
+                "spec": {"bottom_slide": slide},
+            }
+    return None
 
 
 def requested_full_history_years(
@@ -816,6 +917,20 @@ def completed_outcome_facts(
         for row in path_rows
         if row["trade_return_pct"] > 0 and row["mae_pct"] is not None
     ]
+    losing_path_rows = [
+        row for row in path_rows if row["trade_return_pct"] < 0
+    ]
+    losing_mfe_values = [
+        row["mfe_pct"]
+        for row in losing_path_rows
+        if row["mfe_pct"] is not None
+    ]
+    largest_losing_mfe_row = max(
+        (row for row in losing_path_rows if row["mfe_pct"] is not None),
+        key=lambda row: row["mfe_pct"],
+        default=None,
+    )
+    only_losing_row = losing_path_rows[0] if len(losing_path_rows) == 1 else None
     worst_mae_row = min(
         (row for row in path_rows if row["mae_pct"] is not None),
         key=lambda row: row["mae_pct"],
@@ -880,6 +995,31 @@ def completed_outcome_facts(
             statistics.median(profitable_mae_values)
             if profitable_mae_values
             else None
+        ),
+        "losing_mfe_sample_size": len(losing_mfe_values),
+        "median_losing_mfe_pct": (
+            statistics.median(losing_mfe_values) if losing_mfe_values else None
+        ),
+        "largest_losing_mfe_pct": (
+            largest_losing_mfe_row["mfe_pct"] if largest_losing_mfe_row else None
+        ),
+        "largest_losing_mfe_year": (
+            largest_losing_mfe_row["year"] if largest_losing_mfe_row else None
+        ),
+        "largest_losing_mfe_finish_pct": (
+            largest_losing_mfe_row["trade_return_pct"]
+            if largest_losing_mfe_row
+            else None
+        ),
+        "only_losing_year": only_losing_row["year"] if only_losing_row else None,
+        "only_losing_return_pct": (
+            only_losing_row["trade_return_pct"] if only_losing_row else None
+        ),
+        "only_losing_mfe_pct": (
+            only_losing_row["mfe_pct"] if only_losing_row else None
+        ),
+        "only_losing_mae_pct": (
+            only_losing_row["mae_pct"] if only_losing_row else None
         ),
         "worst_mae_pct": worst_mae_row["mae_pct"] if worst_mae_row else None,
         "worst_mae_year": worst_mae_row["year"] if worst_mae_row else None,
@@ -2024,6 +2164,7 @@ def _analysis_compact_read_line(facts: Mapping[str, Any]) -> str:
 
     n = int(facts.get("sample_size") or 0)
     wins = int(facts.get("profitable_years") or 0)
+    losses = int(facts.get("losing_years") or 0)
     first_year = facts.get("first_completed_year")
     latest_year = facts.get("latest_completed_year")
     span = (
@@ -2045,7 +2186,13 @@ def _analysis_compact_read_line(facts: Mapping[str, Any]) -> str:
         clauses.append("median " + _pct(median, signed=True, decimals=2))
     sharpe = facts.get("sharpe_ratio")
     if sharpe is not None:
-        clauses.append(f"Sharpe {sharpe:.2f} for cross-year consistency")
+        twr = facts.get("tradewave_ratio")
+        if twr is not None:
+            clauses.append(
+                f"Sharpe {sharpe:.2f} (final returns); TWR {twr:.2f} (MFE)"
+            )
+        else:
+            clauses.append(f"Sharpe {sharpe:.2f} for cross-year consistency")
 
     win_rate = facts.get("win_rate_pct")
     payoff = facts.get("payoff_ratio")
@@ -2056,9 +2203,20 @@ def _analysis_compact_read_line(facts: Mapping[str, Any]) -> str:
             verdict = "The historical evidence is mixed"
     elif median is not None and median <= 0:
         verdict = "The gross average was positive, but the typical observation was not"
-    elif win_rate is not None and win_rate >= 75 and payoff is not None and payoff >= 1:
-        verdict = "Win frequency and payoff were both favorable"
-    elif payoff is not None and payoff >= 1.5:
+    elif losses == 0:
+        verdict = "Every completed observation was profitable"
+    elif losses == 1:
+        verdict = "The historical record was positive in all but one completed observation"
+    elif (
+        win_rate is not None
+        and win_rate >= 75
+        and wins >= 2
+        and losses >= 2
+        and payoff is not None
+        and payoff >= 1
+    ):
+        verdict = "Win frequency and payoff were favorable"
+    elif wins >= 2 and losses >= 2 and payoff is not None and payoff >= 1.5:
         verdict = "The positive history was driven more by payoff size than win frequency"
     else:
         verdict = "The loaded sample was positive but uneven"
@@ -2331,6 +2489,33 @@ def _analysis_payoff_and_path_line(facts: Mapping[str, Any]) -> Optional[str]:
     if median_mae is not None:
         details.append(
             f"median adverse move {_pct(median_mae, signed=True, decimals=2)} (MAE)"
+        )
+    only_losing_year = facts.get("only_losing_year")
+    only_losing_mfe = facts.get("only_losing_mfe_pct")
+    only_losing_finish = facts.get("only_losing_return_pct")
+    if (
+        losses == 1
+        and only_losing_year is not None
+        and only_losing_mfe is not None
+        and only_losing_finish is not None
+    ):
+        giveback = only_losing_mfe - only_losing_finish
+        details.append(
+            f"the lone losing observation ({only_losing_year}) first reached "
+            f"{_pct(only_losing_mfe, signed=True, decimals=2)} MFE before finishing "
+            f"{_pct(only_losing_finish, signed=True, decimals=2)}—a "
+            f"{giveback:.2f}-percentage-point giveback from its best move"
+        )
+    elif (
+        losses >= 2
+        and int(facts.get("losing_mfe_sample_size") or 0) >= 2
+        and facts.get("median_losing_mfe_pct") is not None
+        and facts["median_losing_mfe_pct"] >= 1.0
+    ):
+        details.append(
+            "losing observations still reached a median "
+            + _pct(facts["median_losing_mfe_pct"], signed=True, decimals=2)
+            + " MFE before their final losses"
         )
     if worst_mae is not None:
         details.append(
@@ -3488,7 +3673,33 @@ def verified_context_lines(
             "movement against the seasonal direction."
         )
     if facts.get("tradewave_ratio") is not None:
-        lines.append(f"- TradeWave Ratio (TWR): {facts['tradewave_ratio']:.2f}.")
+        lines.append(
+            f"- TradeWave Ratio (TWR) {facts['tradewave_ratio']:.2f} applies the Sharpe-style "
+            "return-to-dispersion calculation to each observation's MFE rather than its ending return."
+        )
+    if (
+        int(facts.get("losing_years") or 0) == 1
+        and facts.get("only_losing_year") is not None
+        and facts.get("only_losing_mfe_pct") is not None
+        and facts.get("only_losing_return_pct") is not None
+    ):
+        giveback = facts["only_losing_mfe_pct"] - facts["only_losing_return_pct"]
+        lines.append(
+            f"- The lone losing observation, {facts['only_losing_year']}, reached "
+            f"{_pct(facts['only_losing_mfe_pct'], signed=True, decimals=2)} MFE before finishing "
+            f"{_pct(facts['only_losing_return_pct'], signed=True, decimals=2)}—a "
+            f"{giveback:.2f}-percentage-point giveback from its best move. Surface this when "
+            "judging pattern quality, TWR, exit sensitivity, or why the final-return record hides useful path information."
+        )
+    elif (
+        int(facts.get("losing_mfe_sample_size") or 0) >= 2
+        and facts.get("median_losing_mfe_pct") is not None
+    ):
+        lines.append(
+            "- Losing observations reached a median "
+            + _pct(facts["median_losing_mfe_pct"], signed=True, decimals=2)
+            + " before their final losses. This is relevant to TWR and exit sensitivity."
+        )
     occurrence_status = facts.get("occurrence_status")
     if occurrence_status == "upcoming":
         lines.append(

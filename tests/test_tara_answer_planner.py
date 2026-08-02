@@ -16,6 +16,7 @@ from tara_answer_planner import (  # noqa: E402
     build_advice_safe_reply,
     build_ai_horizon_explanation_reply,
     build_bar_semantics_reply,
+    build_bottom_slide_command,
     build_deterministic_reply,
     build_direction_reply,
     build_excursion_overlay_command,
@@ -28,6 +29,7 @@ from tara_answer_planner import (  # noqa: E402
     build_strategy_framework_reply,
     build_trend_alignment_reply,
     canonical_pattern_facts,
+    explicit_pattern_symbol,
     is_ai_horizon_explanation_question,
     is_pattern_analysis_question,
     is_per_year_excursion_question,
@@ -39,6 +41,42 @@ from tara_answer_planner import (  # noqa: E402
     requested_full_history_years,
     verified_context_lines,
 )
+
+
+@pytest.mark.parametrize(
+    "message, slide, label",
+    [
+        ("show me the trend chart", "trend_chart", "Trend Chart"),
+        ("Can you show me the stats?", "wave_stats", "Wave Stats"),
+        ("open Wave Stats", "wave_stats", "Wave Stats"),
+        ("switch me over to the price chart", "price_chart", "Price Chart"),
+    ],
+)
+def test_direct_bottom_panel_commands_are_deterministic(message, slide, label):
+    command = build_bottom_slide_command(message)
+
+    assert command["spec"] == {"bottom_slide": slide}
+    assert label in command["reply"]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "what is the trend chart?",
+        "what does the price chart show?",
+        "explain Wave Stats",
+        "show me where the price chart is",
+    ],
+)
+def test_bottom_panel_parser_does_not_steal_explanation_questions(message):
+    assert build_bottom_slide_command(message) is None
+
+
+def test_compact_named_symbol_question_overrides_the_loaded_symbol():
+    assert explicit_pattern_symbol("how does ITW do?") == "ITW"
+    assert explicit_pattern_symbol("what about TDG?") == "TDG"
+    assert explicit_pattern_symbol("What does TWR reveal about this ITW pattern?") == "ITW"
+    assert explicit_pattern_symbol("how does this do?") is None
 
 
 @pytest.fixture(autouse=True)
@@ -362,7 +400,7 @@ def test_explicit_loaded_pattern_analysis_is_compact_path_aware_and_non_advisory
     assert "14 of 17 completed years (82%, 2009-2025)" in reply
     assert "gross average +1.81%" in reply
     assert "median +2.51%" in reply
-    assert "Sharpe 0.82 for cross-year consistency" in reply
+    assert "Sharpe 0.82 (final returns); TWR 1.24 (MFE)" in reply
     assert "the sample is modest" in reply
     assert "Red/down years are the profitable short outcomes" in reply
     assert "<b>Payoff and path:</b> average winner +2.51% versus average loser -1.44% (1.74:1)" in reply
@@ -424,6 +462,31 @@ def _analysis_context(returns, *, direction="long", years="10", origin="user_def
         "stats": {"Sharpe Ratio": "0.80"},
         "yearly_results": rows,
     }
+
+
+def test_lone_losing_year_surfaces_favorable_path_and_twr_context():
+    wave = _analysis_context([2.0] * 11 + [-2.09] + [2.0] * 4, years="16")
+    wave["symbol"] = "ITW"
+    wave["stats"].update({"Sharpe Ratio": "1.64", "Sharpe Ratio2": "2.31"})
+    losing_row = next(row for row in wave["yearly_results"] if row["year"] == 2021)
+    losing_row["upside_excursion_pct"] = 11.97
+    losing_row["downside_excursion_pct"] = -5.44
+
+    facts = canonical_pattern_facts(wave, current_year=2026)
+    reply = build_pattern_analysis_reply("Analyze", wave, {}, current_year=2026)
+
+    assert facts["only_losing_year"] == 2021
+    assert facts["only_losing_mfe_pct"] == 11.97
+    assert facts["only_losing_return_pct"] == -2.09
+    assert "Sharpe 1.64 (final returns); TWR 2.31 (MFE)" in reply
+    assert "lone losing observation (2021) first reached +11.97% MFE" in reply
+    assert "before finishing -2.09%" in reply
+    assert "14.06-percentage-point giveback" in reply
+
+    prompt_tail = "\n".join(verified_context_lines(wave, {}, current_year=2026))
+    assert "TWR) 2.31 applies the Sharpe-style" in prompt_tail
+    assert "MFE rather than its ending return" in prompt_tail
+    assert "lone losing observation, 2021, reached +11.97% MFE" in prompt_tail
 
 
 def test_upcoming_consecutive_analysis_names_dates_and_relevant_pe_phase():
@@ -1061,7 +1124,7 @@ def test_verified_prompt_facts_state_short_semantics_positively():
     assert "Trend Short is 67/100 (Aligned)" in prompt_tail
     assert "price movement over roughly the last one to two weeks has been moving downward" in prompt_tail
     assert "not a historical pattern statistic" in prompt_tail
-    assert "TradeWave Ratio (TWR): 1.24" in prompt_tail
+    assert "TradeWave Ratio (TWR) 1.24 applies the Sharpe-style" in prompt_tail
     assert "entry year 2026: PE+2 (midterm year)" in prompt_tail
     assert "Loaded cohort: consecutive years" in prompt_tail
     assert "Dated occurrence status: active" in prompt_tail

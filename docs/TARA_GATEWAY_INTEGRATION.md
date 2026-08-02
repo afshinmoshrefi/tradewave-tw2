@@ -4,8 +4,8 @@ Status: PHASE 1 (read-client) + PHASE 2 (UI-actuation) BOTH BUILT + verified on 
 Owner decision on the auth/metering principal (section 7): RESOLVED = option A (internal chatbot
 service key + per-web-user 'cb:'-namespaced quota).
 
-Provider note (2026-08-01): model-bound dev turns now have a sticky 10% GPT-5.6 Luna canary;
-staging/production default to 0%. `run_chat_with_tools` (Anthropic) and
+Provider note (2026-08-02): model-bound dev and staging turns use the GPT-5.6 Luna canary at
+100% while production remains at 0%. `run_chat_with_tools` (Anthropic) and
 `run_chat_with_openai_tools` (OpenAI Responses) both execute calls through the same validated
 `_execute_tara_tool` path. Luna uses low reasoning/verbosity, explicit stable-prefix caching, and
 automatic Haiku fallback. Deterministic planner answers run before provider selection.
@@ -46,7 +46,7 @@ marketing language.
 Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. Both tool loops
 in `tara_gateway.py` return (text, actions); an update_view call is
 validated server-side (`_validate_view_spec`: allowlist + range-check symbol/market/entry_date/
-days_out/years/pe_cycle/show_mfe/show_mae, dropping invalid fields) and queued as `{type:'set_view', spec}` -
+days_out/years/pe_cycle/show_mfe/show_mae/bottom_slide, dropping invalid fields) and queued as `{type:'set_view', spec}` -
 it never hits the gateway. `chat()` returns `{reply, actions}` (additive; old bundles ignore it).
 `Chatbot.js applyViewSpec` re-validates each field then calls the React setters (mirrors
 `loadOppWV`; a fresh load only on a symbol CHANGE), and `SetPEselected` was added to
@@ -56,6 +56,19 @@ to drive the view rather than tell the user where to click. Verified live: "load
 to PE+2" -> `pe_cycle:'pe2'`. React bundle rebuilt (served from web-react/build on dev). Blast
 radius of the actuation = which chart/knobs the user sees (no code exec, no data beyond the
 derived-data-only gateway, no auth/billing).
+
+Direct lower-panel requests bypass both model providers. `tara_answer_planner.py` maps Trend Chart,
+Wave Stats (including “the stats”), and Price Chart to a validated `bottom_slide`; React calls the
+desktop Swiper's stable `slideTo(0|1|2)` contract. Explanatory questions remain explanations.
+
+An explicitly named ticker also outranks the loaded chart and conversation pronouns. When a user
+changes symbols without naming a new lookback, Tara carries the current consecutive lookback to the
+target, checks the target's `StockMetaData` limit, and steps down only when less history exists. The
+gateway read and final viewer action use that same effective lookback and anchor the recurring setup
+to the current occurrence year. `/v1/analyze/<symbol>` supplies the matching market-specific
+`year1`/`year2` detection pair so a 16-year request cannot silently fall back to the legacy 10-year
+grid. Tara's brief card retains `sharpe_ratio_mfe`; TWR is described as the Sharpe-style calculation
+on MFE, and losing-year MFE/giveback is surfaced when it changes the endpoint-only interpretation.
 
 Screening fix (2026-06-21): a "which <group> stocks" answer must match the on-screen opp table, but
 the table (`OppList4`) and the gateway `/scan` are DIFFERENT data paths that pick different setups per
@@ -132,6 +145,7 @@ ViewSpec = {
   pe_cycle?:   'consecutive'|'pe'|'pe0'|'pe1'|'pe2'|'pe3',
   show_mfe?:   boolean,  // best-move overlay on the year-by-year chart
   show_mae?:   boolean,  // worst-move overlay on the year-by-year chart
+  bottom_slide?: 'trend_chart'|'wave_stats'|'price_chart',
   period?:     'jan'..'dec'|'q1'..'q4'|'spring'|'summer'|'fall'|'winter'|'ytd'|'year_end'|'buy_hold',
   reverse?:    boolean,
   direction?:  'long'|'short',
@@ -161,6 +175,7 @@ Phase 2 generalizes that existing write-channel.
 | `direction` | `SetBarChartLongOrShort('long'\|'short')` | `direction` | usually inferred from ChartData4; settable but normally let the setup decide |
 | `show_mfe` | `setShowMFE(bool)` | local view only | shows/hides the direction-aware MFE overlay; persisted in the existing `MFE` cookie |
 | `show_mae` | `setShowMAE(bool)` | local view only | shows/hides the direction-aware MAE overlay; persisted in the existing `MAE` cookie |
+| `bottom_slide` | `swiper.slideTo(0\|1\|2)` | local view only | shows Trend Chart, Wave Stats, or Price Chart without changing the loaded pattern |
 
 A single `applyViewSpec(spec)` helper in `Chatbot.js` walks these keys and calls the
 matching `props.Set*` from `chartSetProps`. No new state is introduced - it drives the
