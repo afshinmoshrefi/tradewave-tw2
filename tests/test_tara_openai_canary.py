@@ -476,6 +476,7 @@ def test_chat_route_replaces_client_ai_values_with_server_analysis_context(
     [
         ("Convince me I should use seasonality", "Why seasonality matters"),
         ("Help me come up with a winning strategy", "Build around measurable odds"),
+        ("Why does AI only do the first 90 days?", "Why TradeWave uses 90-day AI horizons"),
     ],
 )
 def test_signature_product_questions_bypass_models_and_live_ai_scorer(

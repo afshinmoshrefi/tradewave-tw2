@@ -122,6 +122,20 @@ _STRATEGY_BUILDING_PATTERNS = (
     re.compile(r"\bstrategy (?:with|around|using) measurable (?:odds|probabilit(?:y|ies))\b", re.I),
 )
 
+_AI_HORIZON_MODEL_PATTERN = re.compile(
+    r"\b(?:ai|machine[- ]learning|model|win probability|predr|pmfe|calibrated probabilit(?:y|ies))\b",
+    re.I,
+)
+_AI_HORIZON_REASON_PATTERN = re.compile(
+    r"\b(?:why|how come|explain|reason|only|limit(?:ed)?|stop(?:s|ped)?|"
+    r"end(?:s|ed)?|maximum|max|up to|beyond|after)\b",
+    re.I,
+)
+_AI_HORIZON_DAY_PATTERN = re.compile(
+    r"\b(\d{2,3})\s*[- ]?\s*(?:calendar\s+)?days?\b",
+    re.I,
+)
+
 _ADVICE_PATTERNS = re.compile(
     r"\b(?:should i|should we|would you|would you take|do you recommend|recommend(?:ation)?|"
     r"buy (?:this|it|the (?:stock|setup|pattern|trade))|sell (?:this|it|the (?:stock|setup|pattern|trade))|short it|"
@@ -292,6 +306,33 @@ def is_strategy_building_question(message: Any) -> bool:
     return _matches_any(message, _STRATEGY_BUILDING_PATTERNS)
 
 
+def is_ai_horizon_explanation_question(message: Any) -> bool:
+    """Whether the user wants the reason for the calibrated 30/60/90 horizons."""
+
+    text = str(message or "").strip()
+    if not text or not _AI_HORIZON_REASON_PATTERN.search(text):
+        return False
+    triplet = bool(re.search(r"\b30\b.{0,20}\b60\b.{0,20}\b90\b", text, re.I))
+    has_model_term = bool(_AI_HORIZON_MODEL_PATTERN.search(text))
+    if not has_model_term and not triplet:
+        return False
+    numeric_horizons = [
+        int(match.group(1)) for match in _AI_HORIZON_DAY_PATTERN.finditer(text)
+    ]
+    names_ninety_days = bool(
+        re.search(r"\bninety\s+(?:calendar\s+)?days?\b", text, re.I)
+    )
+    names_long_pattern = bool(
+        re.search(r"\b(?:full|long(?:er)?)[- ](?:pattern|window|setup)\b", text, re.I)
+    )
+    return (
+        triplet
+        or names_ninety_days
+        or names_long_pattern
+        or any(days >= 90 for days in numeric_horizons)
+    )
+
+
 def _has_loaded_pattern(wave_viewer: Any) -> bool:
     return bool(
         isinstance(wave_viewer, Mapping)
@@ -334,7 +375,11 @@ def needs_pattern_ai_context(message: Any, wave_viewer: Any) -> bool:
     # These product/research-framework answers explain what the AI probability layer
     # does, but they do not need to block on a live scorer call. Their value is an
     # immediate, deterministic explanation from the already-loaded historical record.
-    if is_seasonality_value_question(message) or is_strategy_building_question(message):
+    if (
+        is_seasonality_value_question(message)
+        or is_strategy_building_question(message)
+        or is_ai_horizon_explanation_question(message)
+    ):
         return False
     return is_pattern_analysis_question(message, wave_viewer) or is_pattern_advice_question(
         message, wave_viewer
@@ -2147,22 +2192,84 @@ def _analysis_ai_context_line(
         for item in horizons:
             metrics = []
             if item.get("win_probability") is not None:
-                metrics.append(f"AI Win% {item['win_probability'] * 100:.0f}%")
+                metrics.append(f"{item['win_probability'] * 100:.0f}% AI Win Probability")
             if item.get("predicted_return_pct") is not None:
                 metrics.append(
-                    "PredR " + _pct(item["predicted_return_pct"], signed=True, decimals=1)
+                    "predicted return "
+                    + _pct(item["predicted_return_pct"], signed=True, decimals=1)
                 )
             if metrics:
-                readings.append(f"{item['calendar_days']} days: " + ", ".join(metrics))
+                readings.append(
+                    f"&bull; <b>{item['calendar_days']} days:</b> "
+                    + "; ".join(metrics)
+                )
         if not readings:
             return None
         full_days = context["full_pattern_calendar_days"]
+        horizon_days = [
+            item["calendar_days"]
+            for item in horizons
+            if item.get("win_probability") is not None
+            or item.get("predicted_return_pct") is not None
+        ]
+        if len(horizon_days) == 1:
+            horizon_text = str(horizon_days[0])
+        elif len(horizon_days) == 2:
+            horizon_text = f"{horizon_days[0]} and {horizon_days[1]}"
+        else:
+            horizon_text = ", ".join(str(day) for day in horizon_days[:-1])
+            horizon_text += f", and {horizon_days[-1]}"
+
+        probabilities = [
+            (item["calendar_days"], item["win_probability"])
+            for item in horizons
+            if item.get("win_probability") is not None
+        ]
+        predicted_returns = [
+            (item["calendar_days"], item["predicted_return_pct"])
+            for item in horizons
+            if item.get("predicted_return_pct") is not None
+        ]
+        standout = ""
+        if len(probabilities) >= 2 and len(predicted_returns) >= 2:
+            best_probability_days = [
+                day
+                for day, value in probabilities
+                if value == max(item[1] for item in probabilities)
+            ]
+            best_return_days = [
+                day
+                for day, value in predicted_returns
+                if value == max(item[1] for item in predicted_returns)
+            ]
+
+            def format_best_days(days: List[int]) -> str:
+                if len(days) == 1:
+                    return f"{days[0]} days"
+                if len(days) == 2:
+                    return f"{days[0]} and {days[1]} days"
+                return ", ".join(str(day) for day in days[:-1]) + f", and {days[-1]} days"
+
+            probability_days = format_best_days(best_probability_days)
+            return_days = format_best_days(best_return_days)
+            if best_probability_days == best_return_days:
+                standout = (
+                    "The highest AI Win Probability and predicted return both appear over "
+                    f"{probability_days}. "
+                )
+            else:
+                standout = (
+                    f"The highest AI Win Probability appears over {probability_days}, while "
+                    f"the highest predicted return appears over {return_days}. "
+                )
         return (
-            f"<b>Near-term AI checkpoints:</b> The full {full_days}-calendar-day pattern is outside the "
-            "model's 90-day limit. From the same entry date and in the same direction: "
-            + "; ".join(readings)
-            + f". These readings score only the first 30, 60, and 90 calendar days; none is an AI score "
-            f"for the full {full_days}-day pattern."
+            "<b>AI-calibrated outlook:</b> AI-calibrated probabilities for this opportunity over "
+            f"the first {horizon_text} calendar days are as follows:<br>"
+            + "<br>".join(readings)
+            + "<br>Each outlook begins on the same entry date and evaluates the same direction."
+            + "<br><br><b>What stands out:</b> "
+            + standout
+            + f"The historical analysis above describes the complete {full_days}-day pattern."
         )
 
     item = horizons[0]
@@ -2505,7 +2612,12 @@ def _render_analysis_sections(lines: Iterable[Optional[str]]) -> str:
             continue
         classes = ["tara-analysis-section"]
         if line.startswith(
-            ("<b>Read:", "<b>Why seasonality matters:", "<b>Build around measurable odds:")
+            (
+                "<b>Read:",
+                "<b>Why seasonality matters:",
+                "<b>Build around measurable odds:",
+                "<b>Why TradeWave uses 90-day AI horizons:",
+            )
         ):
             classes.append("tara-analysis-lead")
         elif line.startswith("<b>Cycle context:") or line.startswith("<b>Next check:"):
@@ -2568,6 +2680,51 @@ def _loaded_pattern_value_line(facts: Mapping[str, Any]) -> Optional[str]:
         + "; ".join(details)
         + ". Each bar is one completed occurrence."
     )
+
+
+def build_ai_horizon_explanation_reply(
+    message: Any,
+    wave_viewer: Any,
+    screen_context: Any = None,
+    *,
+    current_year: Optional[int] = None,
+) -> Optional[str]:
+    """Explain the calibrated horizon positively and without provider drift."""
+
+    if not is_ai_horizon_explanation_question(message):
+        return None
+    facts = canonical_pattern_facts(wave_viewer, current_year=current_year)
+    try:
+        full_days = int(facts.get("days") or 0)
+    except (TypeError, ValueError):
+        full_days = 0
+    if full_days > 90:
+        longer_pattern_line = (
+            f"<b>For this {full_days}-calendar-day pattern:</b> Tara provides separate 30-, 60-, "
+            "and 90-day AI-calibrated outlooks from the same entry date and direction. The "
+            f"historical analysis evaluates the complete {full_days}-day pattern."
+        )
+    else:
+        longer_pattern_line = (
+            "<b>For longer patterns:</b> Tara provides separate 30-, 60-, and 90-day "
+            "AI-calibrated outlooks from the same entry date and direction, while the historical "
+            "analysis evaluates the complete seasonal window."
+        )
+    lines = [
+        (
+            "<b>Why TradeWave uses 90-day AI horizons:</b> TradeWave's AI models are trained and "
+            "calibrated for seasonal windows from 10 to 90 calendar days. Current market "
+            "conditions provide useful predictive context over these nearer horizons, and 90 days "
+            "keeps each probability within the range where its calibration was tested."
+        ),
+        longer_pattern_line,
+        (
+            "<b>How the evidence fits together:</b> AI Win Probability and predicted return add "
+            "current-condition context for each named horizon. Historical hit rate, average and "
+            "median return, MFE, and MAE describe the pattern across completed years."
+        ),
+    ]
+    return _render_analysis_sections(lines)
 
 
 def build_seasonality_value_reply(
@@ -3190,6 +3347,14 @@ def build_deterministic_reply(
     )
     if rank is not None:
         return rank
+    ai_horizon = build_ai_horizon_explanation_reply(
+        message,
+        wave_viewer,
+        screen_context,
+        current_year=current_year,
+    )
+    if ai_horizon is not None:
+        return ai_horizon
     seasonality_value = build_seasonality_value_reply(
         message,
         wave_viewer,

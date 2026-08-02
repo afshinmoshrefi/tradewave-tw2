@@ -22,12 +22,19 @@ gateway tool loop. For an eligible US-stock/ETF user, `chatbot.py` discards any 
 `ai_analysis` object and asks the callback registered by `appserver.py` for the current daily-cached
 reading. A 10-90-calendar-day setup gets a same-window AI Win Probability / PredR / PMFE read. Tara
 intentionally omits the opaque composite AIS number from analysis prose; AIS remains in the
-opportunity table and its dedicated explainer. A longer setup has no full-pattern AI score; Tara may
-instead show 30/60/90-calendar-day checkpoints from the same entry and direction, explicitly
-labeled as partial horizons. The callback converts those inclusive calendar horizons to the legacy
-scorer offsets 29/59/89. Scores are not shown more than five days before entry or newly calculated
+opportunity table and its dedicated explainer. For a longer setup, Tara presents a positively framed
+AI-calibrated outlook with separate 30/60/90-calendar-day horizons from the same entry and direction;
+the historical brief continues to describe the complete pattern. The callback converts those
+inclusive calendar horizons to the legacy scorer offsets 29/59/89. Scores are not shown more than
+five days before entry or newly calculated
 after entry, and scorer failure degrades to the verified historical analysis rather than blocking
 Tara.
+
+Questions such as "why does AI only do the first 90 days?" are deterministic product explanations,
+not provider turns. Tara explains that the models are trained and calibrated for 10-90-calendar-day
+seasonal horizons, that current conditions provide useful context over those nearer horizons, and
+how the 30/60/90-day AI outlook complements the complete-window historical record. This prevents a
+provider from denying the real horizon boundary or diverting to an unrelated daily pick.
 
 Product-value questions do not need a provider or live scorer. `tara_answer_planner.py`
 deterministically handles seasonality-value prompts with a compact loaded-pattern demonstration and

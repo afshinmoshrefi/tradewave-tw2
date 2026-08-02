@@ -1337,16 +1337,24 @@ Probability with the historical win rate only because both describe the exact sa
 names remain distinct: the former is a current-condition model estimate and the latter is the
 observed share of profitable completed years.
 
-The ML model does not score a full window longer than 90 calendar days. For those windows Tara
-requests bounded 30-, 60-, and 90-calendar-day checkpoints from the same entry date and direction,
-labels them `Near-term AI checkpoints`, and states that none is a score for the full pattern. The
-legacy scorer still accepts the analytics-engine offset, so `tara_ai_analysis.py` converts those
+For a window longer than 90 calendar days, Tara requests bounded 30-, 60-, and 90-calendar-day
+readings from the same entry date and direction and presents them as an `AI-calibrated outlook`.
+The copy leads with the available probabilities and predicted returns, identifies which horizon has
+the highest probability and predicted return, and pairs them with the complete-window historical
+analysis without negative limitation-led language. The legacy scorer still accepts the
+analytics-engine offset, so `tara_ai_analysis.py` converts those
 inclusive calendar labels to `daysOut=29/59/89`; it never adds a day to an end date. Independent
 tiers are requested in parallel and cached under the same daily keys as the opportunity table.
 Current-condition scores are suppressed more than five calendar days before entry so inputs are
 not presented stale, and a new entry-time score is not calculated after entry because post-entry
 data would contaminate the pre-entry comparison. Missing/provider-failed results remain unavailable,
 never numeric zero. The historical brief remains available if enrichment fails.
+
+AI-horizon why-questions are also deterministic. `tara_answer_planner.py` recognizes variants such
+as "why does AI only do the first 90 days?" and explains that the models are trained and calibrated
+for 10-90-calendar-day seasonal horizons, then shows how the 30/60/90 current-condition outlook and
+the complete-window historical record fit together. This route runs before provider selection and
+does not wait for a scorer call.
 
 When a chart pattern is loaded, terse commands such as `analyze`, `analyze this`, and `analyze it`
 are deterministic analysis intents. They must take the same enriched brief path as `analyze this
