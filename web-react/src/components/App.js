@@ -41,6 +41,7 @@ import {
   resolveOpportunityRecurrence,
   resolveViewerDeepLinkOpportunityRecurrence,
 } from './opportunityRecurrence'
+import { TARA_PANEL_OPEN_KEY, hasTaraPanelLayout, initialTaraPanelOpen } from './taraPanelPreference'
 import jwt_decode from 'jwt-decode'
 //-------------------- swiper -----------------------------
 // Import Swiper styles
@@ -519,7 +520,19 @@ const App = () => {
   const [showWatermark, SetShowWatermark] = useState(false); // this is to show the watermark on the chart
   const [downloadImageName, SetDownloadImageName] = useState('initial.jpg');
 
-  const [showChatbot, SetShowChatbot] = useState(false);
+  const taraPanelLayout = hasTaraPanelLayout({
+    isMobile: rdd.isMobile,
+    isTablet: rdd.isTablet,
+    width: browserW,
+    height: browserH,
+  });
+  const [showChatbot, SetShowChatbot] = useState(() => initialTaraPanelOpen({
+    isMobile: rdd.isMobile,
+    isTablet: rdd.isTablet,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    storedPreference: lsGet(TARA_PANEL_OPEN_KEY),
+  }));
   const [chatbotEnabled, SetChatbotEnabled] = useState(false);
   const [chatbotIconBlink, SetChatbotIconBlink] = useState(false);
   const [chatbotPendingTip, SetChatbotPendingTip] = useState(null);
@@ -1374,7 +1387,7 @@ const App = () => {
     promotionBackColor,
     showWatermark,
     downloadImageName,
-    showChatbot,
+    showChatbot: chatbotEnabled && showChatbot,
     chatbotEnabled,
     chatbotIconBlink,
     chatbotPendingTip,
@@ -2087,6 +2100,13 @@ const App = () => {
         .catch(() => { SetChatbotEnabled(false) })
     }
   }, [token])
+
+  // Remember the user's explicit Tara panel choice. Mobile layouts do not
+  // render Tara, so they must never overwrite the desktop preference.
+  useEffect(() => {
+    if (!chatbotEnabled || !taraPanelLayout) return;
+    lsSet(TARA_PANEL_OPEN_KEY, showChatbot);
+  }, [chatbotEnabled, showChatbot, taraPanelLayout])
 
   //---------------------------------------------------------------------------------
   // Tara onboarding tip system
