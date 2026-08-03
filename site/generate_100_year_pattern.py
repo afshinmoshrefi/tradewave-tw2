@@ -19,6 +19,7 @@ SITE_DIR = Path(__file__).resolve().parent
 SOURCE_HTML = SITE_DIR / "100-year-pattern" / "100-year-pattern.html"
 SOURCE_ASSETS = SITE_DIR / "static" / "100-year-pattern"
 OUTPUT_FILENAME = "100-year-pattern.html"
+PUBLIC_PATH = "100-year-pattern"
 
 
 def _runtime_config():
@@ -88,7 +89,7 @@ def publish(output_root: Path) -> tuple[Path, list[Path]]:
         raise FileNotFoundError("Missing page assets: %s" % SOURCE_ASSETS)
 
     public_root = _public_root()
-    canonical_url = "%s/%s" % (public_root, OUTPUT_FILENAME)
+    canonical_url = "%s/%s" % (public_root, PUBLIC_PATH)
     is_production = os.environ.get("TW2_ENV", "").strip().lower() == "prod"
     robots = "index,follow" if is_production else "noindex,nofollow"
     favicon = str(_runtime_config().tw_favicon).strip()

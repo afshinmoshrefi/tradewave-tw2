@@ -24,6 +24,8 @@ ICS_SOURCE = (
 )
 HOME_GENERATOR = ROOT / "site" / "generate_home_page.py"
 HOME_TEMPLATE = ROOT / "site" / "templates" / "index-dark-blue.html"
+NGINX_SITE = ROOT / "ops" / "nginx" / "sites-available" / "tradewave"
+STAGE_BOOTSTRAP = ROOT / "ops" / "staging" / "bootstrap_stage_web_services.sh"
 
 
 def _load_page_generator():
@@ -94,7 +96,7 @@ def test_page_generator_writes_environment_aware_output_atomically(tmp_path, mon
         assert asset_mode & 0o777 == 0o755
     assert 'content="noindex,nofollow"' in rendered
     assert (
-        'href="https://tw2-dev.trxstat.com/100-year-pattern.html"'
+        'href="https://tw2-dev.trxstat.com/100-year-pattern"'
         in rendered
     )
     assert 'href="/favicon.png"' in rendered
@@ -113,7 +115,7 @@ def test_page_generator_writes_environment_aware_output_atomically(tmp_path, mon
     ).read_bytes()
     assert b"DTSTART;VALUE=DATE:20260928\r\n" in calendar
     assert b"DTEND;VALUE=DATE:20260929\r\n" in calendar
-    assert b"URL:https://tw2-dev.trxstat.com/100-year-pattern.html\r\n" in calendar
+    assert b"URL:https://tw2-dev.trxstat.com/100-year-pattern\r\n" in calendar
     assert b"__CANONICAL_URL__" not in calendar
     assert b"TRIGGER;VALUE=DATE-TIME:20260921T130000Z\r\n" in calendar
     assert b"TRIGGER;VALUE=DATE-TIME:20260927T130000Z\r\n" in calendar
@@ -152,3 +154,29 @@ def test_home_countdown_is_scoped_and_disabled_by_default():
     assert "tw100-home-countdown" in template
     assert "2026-09-27T00:00:00-04:00" in template
     assert "setInterval(render,60000)" in template
+    assert 'href="/100-year-pattern"' in template
+    assert 'href="/100-year-pattern.html"' not in template
+
+
+def test_100_year_pattern_clean_url_is_canonical_and_backward_compatible():
+    redirect_html = (
+        "location = /100-year-pattern.html {\n"
+        "        absolute_redirect off;\n"
+        "        return 308 /100-year-pattern$is_args$args;\n"
+        "    }"
+    )
+    redirect_slash = (
+        "location = /100-year-pattern/ {\n"
+        "        absolute_redirect off;\n"
+        "        return 308 /100-year-pattern$is_args$args;\n"
+        "    }"
+    )
+    nginx = NGINX_SITE.read_text(encoding="utf-8")
+    bootstrap = STAGE_BOOTSTRAP.read_text(encoding="utf-8")
+
+    assert "location = /100-year-pattern {" in nginx
+    assert redirect_html in nginx
+    assert redirect_slash in nginx
+    assert "location = /100-year-pattern {" in bootstrap
+    assert "location = /100-year-pattern.html { absolute_redirect off; return 308 /100-year-pattern$is_args$args; }" in bootstrap
+    assert "location = /100-year-pattern/ { absolute_redirect off; return 308 /100-year-pattern$is_args$args; }" in bootstrap

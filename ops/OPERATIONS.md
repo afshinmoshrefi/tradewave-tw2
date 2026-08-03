@@ -183,7 +183,9 @@ Rollback (instant, no hash): `cd /home/flask/web-react && ln -sfn "$(readlink bu
   This generator has no appserver, Stripe, or market-data dependency and writes
   `/var/www/tradewave/100-year-pattern.html` plus
   `/var/www/tradewave/_static/100-year-pattern/` atomically. Routine
-  `ops/regen_site.sh` also runs it.
+  `ops/regen_site.sh` also runs it. Keep the physical `.html` artifact: nginx
+  exposes it publicly at the canonical clean route `/100-year-pattern` and
+  redirects the legacy `.html` and trailing-slash variants there.
 
 - **Homepage 100-Year Pattern countdown flag:** the home template renders the
   marked `TW100 HOME COUNTDOWN` regions only when
