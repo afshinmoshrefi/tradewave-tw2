@@ -50,7 +50,12 @@ def test_static_evidence_page_contains_the_complete_record():
         '<h1><span>The 100-Year Pattern</span><span>24 completed cycles.</span>'
         '<span class="hero-result">96% finished positive.</span></h1>'
     ) in html
-    assert "The next test begins" in html
+    assert "Next unresolved window" in html
+    assert "A historically favorable S&amp;P 500 window is approaching again." in html
+    assert "No account. No subscription. No email." in html
+    assert "The information remains public whether or not you ever use TradeWave." in html
+    assert "You do not need TradeWave to understand or use the public record above." in html
+    assert 'href="/signup"' not in html
     assert "U.S. midterm years only" in html
     assert "One cycle every four years" in html
     assert "A positive result means the exit close is higher than the entry close." in html
