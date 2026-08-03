@@ -46,6 +46,8 @@ def test_static_evidence_page_contains_the_complete_record():
     assert html.count('class="cycle-column"') == 24
     assert html.count('<tr class="loss-row">') == 1
     assert "This record begins in 1930." in html
+    assert "Out of 24 completed windows, 23 ended above their starting close." in html
+    assert "Twenty-three of 24 completed windows" not in html
     assert (
         "1978 finished +0.03% before transaction costs and is therefore "
         "classified as a positive close-to-close return."
@@ -65,6 +67,8 @@ def test_static_evidence_page_contains_the_complete_record():
     assert "The information remains public whether or not you ever use TradeWave." in html
     assert "You do not need TradeWave to understand or use the public record above." in html
     assert "Add September 27 to my calendar" in html
+    assert html.count('type="button" data-calendar-open') == 2
+    assert 'const calendarTriggers = document.querySelectorAll("[data-calendar-open]");' in html
     assert 'aria-haspopup="dialog"' in html
     assert "Google Calendar" in html
     assert "Outlook Calendar" in html
