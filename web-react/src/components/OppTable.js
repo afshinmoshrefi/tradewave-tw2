@@ -1704,10 +1704,36 @@ const OppTable = (props) => {
           }
           {
             (rdd.isDesktop && props.chatbotEnabled) &&
-            (props.showChatbot
-              ? <BsChatDotsFill size={24} style={{ color: "#f5c842", cursor: 'pointer' }} onClick={() => { props.SetShowChatbot(false) }} />
-              : <BsChatDots size={24} className={props.chatbotIconBlink ? 'chatbot-icon-blink' : ''} style={{ color: "white", cursor: 'pointer' }} onClick={() => { props.SetShowChatbot(true); if (props.onChatbotIconClick) props.onChatbotIconClick(); }} />
-            )
+            <Tippy
+              placement={'top'}
+              content={props.showChatbot
+                ? 'Close Tara'
+                : 'Open Tara: ask questions, load patterns, and analyze the chart.'}
+            >
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={props.showChatbot
+                  ? 'Close Tara'
+                  : 'Open Tara: ask questions, load patterns, and analyze the chart.'}
+                style={{ display: 'inline-flex', alignItems: 'center' }}
+                onClick={() => {
+                  props.SetShowChatbot(!props.showChatbot);
+                  if (!props.showChatbot && props.onChatbotIconClick) props.onChatbotIconClick();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    props.SetShowChatbot(!props.showChatbot);
+                    if (!props.showChatbot && props.onChatbotIconClick) props.onChatbotIconClick();
+                  }
+                }}
+              >
+                {props.showChatbot
+                  ? <BsChatDotsFill aria-hidden="true" size={24} style={{ color: "#f5c842", cursor: 'pointer' }} />
+                  : <BsChatDots aria-hidden="true" size={24} className={props.chatbotIconBlink ? 'chatbot-icon-blink' : ''} style={{ color: "white", cursor: 'pointer' }} />}
+              </span>
+            </Tippy>
           }
         </div>
 
