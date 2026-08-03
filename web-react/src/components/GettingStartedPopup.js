@@ -54,7 +54,7 @@ const GettingStartedPopup = ({ onClose, iconRect }) => {
     // Step cards
     const steps = [
         { num: '1', color: accentBlue, text: 'The opportunity table on the left already shows patterns ranked by quality. No setup needed.' },
-        { num: '2', color: accentGreen, text: 'Click any row. The right side lights up with a bar chart: green bars = profitable years, red = losses.' },
+        { num: '2', color: accentGreen, text: 'Click any row. The bar chart shows price direction by year: green/up wins for a long setup; red/down wins for a short setup.' },
         { num: '3', color: accentAmber, text: 'Swipe to the middle slide to see detailed stats: win rate, average profit, Sharpe Ratio.' },
         { num: '4', color: accentPurple, text: 'Swipe to the last slide to see the current price chart with the seasonal window timing.' },
     ]

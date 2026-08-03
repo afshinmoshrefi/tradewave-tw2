@@ -91,19 +91,19 @@ const BarChartPopup = ({ onClose, iconRect }) => {
                     {/* Hero card */}
                     <div style={{ ...cardStyle, background: dark ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.06)', border: `1px solid ${dark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)'}`, textAlign: 'center', padding: '16px 20px' }}>
                         <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>
-                            What would your trade have done in each historical year?
+                            What did the security do in each historical window?
                         </div>
                         <div style={{ fontSize: '12px', opacity: 0.75 }}>
-                            The bar chart answers this instantly. Each bar represents one year's actual result
-                            for the seasonal pattern.
+                            Each bar is the underlying price move. The setup direction tells you whether that
+                            move was profitable: up for a long, down for a short.
                         </div>
                     </div>
 
                     {/* Reading the Bars */}
                     <div className="ts-section-title">Reading the Bars</div>
                     <p style={{ fontSize: '12px', marginBottom: '8px' }}>
-                        Green bars show profitable years. Red bars show loss years. The height of each bar
-                        reflects the percent return for that year's holding window.
+                        Green bars mean the underlying rose; red bars mean it fell. Green years profit on a
+                        long setup, while red years profit on a short setup. Height is the size of the move.
                     </p>
 
                     {/* SVG bar chart visual */}
@@ -135,14 +135,14 @@ const BarChartPopup = ({ onClose, iconRect }) => {
                             })}
 
                             {/* Labels */}
-                            <text x="395" y="78" textAnchor="end" fontSize="9" fill={accentGreen} fontWeight="600">Profitable</text>
-                            <text x="395" y="118" textAnchor="end" fontSize="9" fill={accentRed} fontWeight="600">Loss</text>
+                            <text x="395" y="78" textAnchor="end" fontSize="9" fill={accentGreen} fontWeight="600">Underlying up</text>
+                            <text x="395" y="118" textAnchor="end" fontSize="9" fill={accentRed} fontWeight="600">Underlying down</text>
                         </svg>
 
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '8px', fontSize: '10px' }}>
-                            <span><span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: accentGreen, borderRadius: '2px', marginRight: '4px' }} />Green = profitable year</span>
-                            <span><span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: accentRed, borderRadius: '2px', marginRight: '4px' }} />Red = loss year</span>
-                            <span style={{ opacity: 0.6 }}>Bar height = percent return</span>
+                            <span><span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: accentGreen, borderRadius: '2px', marginRight: '4px' }} />Green = price rose</span>
+                            <span><span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: accentRed, borderRadius: '2px', marginRight: '4px' }} />Red = price fell</span>
+                            <span style={{ opacity: 0.6 }}>Example shown: long setup</span>
                         </div>
                     </div>
 
@@ -234,9 +234,9 @@ const BarChartPopup = ({ onClose, iconRect }) => {
                     <div className="ts-section-title">What to Look For</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                         <div style={{ ...cardStyle, marginBottom: 0, borderTop: `3px solid ${accentGreen}`, textAlign: 'center', padding: '10px 10px' }}>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: accentGreen, marginBottom: '4px' }}>Mostly Green</div>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: accentGreen, marginBottom: '4px' }}>Match the Direction</div>
                             <div style={{ fontSize: '11px', opacity: 0.7, lineHeight: 1.4 }}>
-                                More green bars = higher win rate. 8 of 10 green = 80% win rate.
+                                Long winners are green/up. Short winners are red/down. Always read color with DIR.
                             </div>
                         </div>
                         <div style={{ ...cardStyle, marginBottom: 0, borderTop: `3px solid ${accentBlue}`, textAlign: 'center', padding: '10px 10px' }}>
@@ -246,9 +246,9 @@ const BarChartPopup = ({ onClose, iconRect }) => {
                             </div>
                         </div>
                         <div style={{ ...cardStyle, marginBottom: 0, borderTop: `3px solid ${accentAmber}`, textAlign: 'center', padding: '10px 10px' }}>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: accentAmber, marginBottom: '4px' }}>Small Red Bars</div>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: accentAmber, marginBottom: '4px' }}>Contained Losing Years</div>
                             <div style={{ fontSize: '11px', opacity: 0.7, lineHeight: 1.4 }}>
-                                Small losses in losing years mean limited downside risk.
+                                Check whether moves against the loaded direction are small and contained.
                             </div>
                         </div>
                         <div style={{ ...cardStyle, marginBottom: 0, borderTop: `3px solid ${accentPurple}`, textAlign: 'center', padding: '10px 10px' }}>

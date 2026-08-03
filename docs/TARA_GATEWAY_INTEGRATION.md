@@ -4,10 +4,16 @@ Status: PHASE 1 (read-client) + PHASE 2 (UI-actuation) BOTH BUILT + verified on 
 Owner decision on the auth/metering principal (section 7): RESOLVED = option A (internal chatbot
 service key + per-web-user 'cb:'-namespaced quota).
 
-Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. The tool loop
-(`tara_gateway.py run_chat_with_tools`) now returns (text, actions); an update_view call is
+Provider note (2026-08-01): model-bound dev turns now have a sticky 10% GPT-5.6 Luna canary;
+staging/production default to 0%. `run_chat_with_tools` (Anthropic) and
+`run_chat_with_openai_tools` (OpenAI Responses) both execute calls through the same validated
+`_execute_tara_tool` path. Luna uses low reasoning/verbosity, explicit stable-prefix caching, and
+automatic Haiku fallback. Deterministic planner answers run before provider selection.
+
+Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. Both tool loops
+in `tara_gateway.py` return (text, actions); an update_view call is
 validated server-side (`_validate_view_spec`: allowlist + range-check symbol/market/entry_date/
-days_out/years/pe_cycle, dropping invalid fields) and queued as `{type:'set_view', spec}` -
+days_out/years/pe_cycle/show_mfe/show_mae/bottom_slide, dropping invalid fields) and queued as `{type:'set_view', spec}` -
 it never hits the gateway. `chat()` returns `{reply, actions}` (additive; old bundles ignore it).
 `Chatbot.js applyViewSpec` re-validates each field then calls the React setters (mirrors
 `loadOppWV`; a fresh load only on a symbol CHANGE), and `SetPEselected` was added to
@@ -49,11 +55,10 @@ assert forbids any sold tier carrying `service:True`.
 ## 1. What and why
 
 "Tara" is the in-product chatbot already shipped in the desktop wave-viewer
-(`web-react/src/components/Chatbot.js` <-> `appserver/appserver/chatbot.py`, Claude
-Haiku 4.5, prompt-cached, JWT-gated). Today it can only **reason over the screen it
-was handed** (the loaded pattern + top-30 opp rows passed as context) and **open one
-of 17 help popups**. It does NOT call the v1 API/MCP gateway and cannot fetch anything
-the user has not already loaded.
+(`web-react/src/components/Chatbot.js` <-> `appserver/appserver/chatbot.py`, JWT-gated).
+The shipped implementation uses a deterministic verified-answer planner first, then a
+provider-routed model/tool loop for questions that need it. Historical proposal language below
+describes the gateway capabilities that were subsequently built.
 
 This spec makes Tara a **client of the same gateway** the public API + MCP server use
 (`apiserver/`), in two phases:
@@ -92,6 +97,9 @@ ViewSpec = {
   days_out?:   integer,  // 1..366
   years?:      integer,  // 1..99 (lookback)
   pe_cycle?:   'consecutive'|'pe'|'pe0'|'pe1'|'pe2'|'pe3',
+  show_mfe?:   boolean,  // best-move overlay on the year-by-year chart
+  show_mae?:   boolean,  // worst-move overlay on the year-by-year chart
+  bottom_slide?: 'trend_chart'|'wave_stats'|'price_chart', // lower carousel destination
   period?:     'jan'..'dec'|'q1'..'q4'|'spring'|'summer'|'fall'|'winter'|'ytd'|'year_end'|'buy_hold',
   reverse?:    boolean,
   direction?:  'long'|'short',
@@ -119,10 +127,18 @@ Phase 2 generalizes that existing write-channel.
 | `filter` | `SetAppliedFilter(str)` | `filter` | direct |
 | `market` | `SetSelectedSecurity(name)` | `market` | name resolved to id via `getSelectedIDFromSecuritiesList2` |
 | `direction` | `SetBarChartLongOrShort('long'\|'short')` | `direction` | usually inferred from ChartData4; settable but normally let the setup decide |
+| `show_mfe` | `setShowMFE(bool)` | local view only | shows/hides the direction-aware MFE overlay; persisted in the existing `MFE` cookie |
+| `show_mae` | `setShowMAE(bool)` | local view only | shows/hides the direction-aware MAE overlay; persisted in the existing `MAE` cookie |
+| `bottom_slide` | `swiper.slideTo(0\|1\|2)` | local view only | shows Trend Chart, Wave Stats, or Price Chart immediately; Tara is desktop-only |
 
 A single `applyViewSpec(spec)` helper in `Chatbot.js` walks these keys and calls the
 matching `props.Set*` from `chartSetProps`. No new state is introduced - it drives the
 exact setters the dropdowns/sliders/row-clicks already use.
+
+Direct lower-panel commands are resolved deterministically before provider selection. Thus
+"show me the stats" produces `bottom_slide:'wave_stats'` and actually moves the carousel; Tara
+does not merely tell the user to swipe. Concept questions (for example, "what is the Trend
+Chart?") remain explanation/guide requests and do not move the panel.
 
 ## 4. Action allowlist + guardrails
 
@@ -243,3 +259,89 @@ Phase 2 (frontend + backend):
 
 When built, update `docs/TRADEWAVE_ECOSYSTEM.md` (new data flow: Tara -> gateway) in the
 same commit, per the repo rule.
+
+## 11. Approved direction - smarter Tara on GPT-5.6 Luna (2026-08-03)
+
+Owner decision: keep GPT-5.6 Luna as Tara's model-bound provider direction. Do not switch
+back to Haiku merely to reduce cost. This is a product/design decision, not a claim that
+every environment is already routed 100% to Luna. Deterministic answers and validated UI
+actions remain provider-independent.
+
+### Finding
+
+The segmented prompt and explicit cache are working. The remaining intelligence limit is
+orchestration, not token price:
+
+- Every Luna turn currently uses low reasoning and low text verbosity, including deep
+  analysis questions.
+- The stable behavior prefix is approximately 30,000 characters, around 8,000 tokens in
+  observed usage. Caching makes it inexpensive but does not make the instruction set simpler.
+- All five tools are exposed to every model-bound turn. Their serialized definitions are
+  approximately 4,378 characters, roughly 1,100 tokens, before tool results. The loop allows
+  four rounds.
+- A local sample of 30 logged Luna API calls cost approximately $0.0308 at the published
+  2026-08-03 standard prices, about $0.001 per API call. Quality can therefore receive more
+  reasoning budget selectively without undoing the efficiency work.
+- Existing tests strongly cover numeric truth and UI-action correctness. They do not yet
+  measure relevance, depth, readability, or usefulness across beginner, intermediate, and
+  professional trader/investor lenses.
+
+### Target architecture
+
+Keep the boundary explicit: TradeWave computes and verifies facts; Luna prioritizes,
+connects, and explains them; the server validates the answer and actions.
+
+1. Add a deterministic complexity router. Direct view commands bypass the model. Simple
+   definitions use low reasoning. Loaded-pattern analysis and comparisons use medium
+   reasoning and medium verbosity. Deep skeptical, strategy, and "what do you really think"
+   questions use high reasoning with a concise output contract.
+2. Build one compact, verified analysis brief for the loaded pattern. It should contain the
+   exact pattern identity, completed `n`, record, mean/median, Sharpe, TWR, winner/loser
+   payoff, MFE/MAE, losing-year path, recent-versus-earlier comparison, outlier concentration,
+   occurrence timing, PE context, Trend alignment, and AI 30/60/90 checkpoints when available.
+3. Add deterministic insight flags such as high-hit/weak-payoff, favorable-path/exit-giveback,
+   outlier-dependent average, recent weakness, modest sample, history/AI agreement, and
+   history/AI divergence. Luna selects only the facts that change the interpretation.
+4. Render broad analysis as five compact sections: bottom line, strongest evidence, path/risk,
+   current context, and one best next check with a validated action link. Do not dump every
+   available metric.
+5. Split the large stable prompt into a small invariant core plus intent-specific modules.
+   Move arithmetic, day counting, current-row exclusion, direction semantics, and state
+   identity into deterministic enforcement rather than repeated prose.
+6. Expose only the tools required by the routed intent and convert schemas to strict mode.
+   A loaded analysis with a complete brief should normally require no read tool. This should
+   also reduce latency by avoiding unnecessary tool rounds.
+7. Preserve compact verified session state: loaded pattern fingerprint, market, lookback,
+   PE mode, active lower panel, opportunity-table identity/order, last compared patterns,
+   and current analysis brief. Do not use unrestricted opaque model memory when the chart
+   state has changed.
+8. Keep Luna as the default candidate. Test Luna low, medium, and high blindly before adding
+   another model. Route to a different model only if a repeatable eval gap remains.
+
+### Evaluation gate
+
+Create a representative trace set from real Tara failures and successful interactions. Cover
+short and long patterns, active/upcoming/completed occurrences, long/short bar semantics, PE
+cohorts, more-than-90-day AI checkpoints, terse "analyze" prompts, MFE/MAE aliases, loaded
+symbol/lookback continuity, table ordinals, and beginner/intermediate/professional explanations.
+Grade numeric truth and UI actions deterministically. Grade relevance, completeness, clarity,
+and concision blindly. Record quality, tool rounds, latency, input/cache-write/cache-read/output/
+reasoning tokens, fallback rate, and estimated cost. Establish the current Luna-low baseline
+before changing behavior and evaluate one material change at a time.
+
+### Question-log reality and analytics gap
+
+The current per-environment file is
+`/home/flask/appserver/appserver/chatbot_questions.log`. It is JSONL with `ts`, `user_id`,
+`provider`, loaded `symbol`, full `question`, and only the first 500 characters of `response`.
+It has no conversation/session id, turn id, actions, tools, intent, model settings, prompt
+version, latency, token/cache usage, error/fallback detail, user feedback, rotation, or retention
+policy. It is useful for spot review but is not a complete future quality-analysis dataset.
+
+Before relying on logs for product analysis, add a versioned, access-controlled event schema
+with a conversation id and turn id; provider/model/reasoning/verbosity; routed intent; a
+non-price pattern fingerprint; question and complete bounded response; validated actions and
+tool names/status; latency; cache/token/cost fields; fallback/error class; prompt/analysis-brief
+version; and explicit user feedback. Never log auth tokens, API keys, raw price payloads, or the
+full hidden prompt. Add rotation, a declared retention period, and a pseudonymous user key before
+opening this analysis beyond the owner.

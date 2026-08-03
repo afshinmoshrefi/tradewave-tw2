@@ -95,19 +95,19 @@ Rule 9: If the user enters a start date that falls on a Saturday, Sunday, or Mon
 - Opportunity: a specific seasonal trade defined by symbol, start date, holding days, and direction.
 - Long: bullish, profits if price rises during the window.
 - Short: bearish, profits if price falls during the window.
-- Days: the number of calendar days in the pattern, from start date to end date.
+- Days: the inclusive number of calendar dates in the pattern. The entry date is day 1, so end date = start date + (Days - 1). Example: 6 days from Jul 31 ends Aug 5.
 - Seasonal Years or Years Filter: number of historical years used in analysis.
 - Partial Years: includes incomplete most recent year when enabled. If user wants clean history, disable it.
 - Percent Profitable (Win Rate): percent of years that were profitable.
 - AvgP or Avg Profit: average percent return across years.
-- Median Gain: median profitable year result.
-- Std Dev: volatility of annual results.
-- SR (Sharpe Ratio): risk adjusted consistency. Higher is better.
-- TWR (TradeWave Ratio): pattern quality score similar to Sharpe but includes MFE. Higher is better.
+- Median Gain: median direction-adjusted ending return across all completed observations.
+- Std Dev: cross-observation dispersion of the ending returns; it is not intrawindow volatility or MAE.
+- SR (Sharpe Ratio): historical cross-observation consistency. TradeWave calculates it as (average pattern return minus the configured annual risk-free rate prorated to the pattern's calendar-day length) divided by the standard deviation of the yearly pattern returns. Use these descriptive in-sample bands: above 2.0 = very high; 1.0 to 2.0 = high; 0.5 to 1.0 = moderate; 0.0 to 0.5 = low; below 0.0 = average return below the prorated risk-free benchmark. Compare patterns using the same Years/lookback and always include n. A high value does not prove repeatability or describe the intrawindow path.
+- TWR (TradeWave Ratio): the same return-to-dispersion concept calculated from MFE rather than ending returns. A gap above Sharpe shows favorable excursions were more consistent than finishes in the loaded sample; it does not reveal peak timing or prescribe an exit.
 - TWA: TradeWave Average metric shown in the table. Use with SR and TWR.
-- MFE: maximum favorable excursion, best run up during the holding window.
-- MAE: maximum adverse excursion, worst drawdown during the holding window.
-- Cumulative Return: compounded return if the pattern was taken every year in the sample.
+- MFE: maximum favorable excursion, the best move in the trade's favor during the holding window (up for a long, down for a short).
+- MAE: maximum adverse excursion, the worst move against the trade during the holding window (down for a long, up for a short).
+- Cumulative Return: hypothetical compounded gross return if the fixed window was repeated in every observation in the loaded sample; it does not include execution costs, taxes, or short-borrow costs/dividends.
 - PE Cycle (Presidential Election Cycle): the 4-year election cycle.
   - PE = election year (divisible by 4, e.g. 2024)
   - PE+1 = year after election (e.g. 2025)
@@ -145,7 +145,7 @@ This one setting drives two things simultaneously:
 So the table and the bar chart are always in sync. They are two views of the same dataset.
 
 Why it matters:
-- A pattern with 10 years of data and 9 green bars is 90 percent profitable over 10 years.
+- A pattern with 10 years of data and 9 bars in its profitable direction is 90 percent profitable over 10 years: green/up bars for a long setup, red/down bars for a short setup.
 - The same pattern with 20 years of data might look different. More years = larger sample = potentially more trustworthy, but may include older market regimes.
 - Increasing Years makes filters stricter and generally shows fewer but more proven patterns.
 - Decreasing Years shows more recent behavior only.
@@ -177,7 +177,7 @@ Columns (all column headers are clickable to sort):
 - PredR: AI Predicted Return, the AI-estimated average return given current conditions
 - PMFE: AI Predicted MFE, the AI-estimated best intra-trade peak before the pattern exit date
 
-The AI columns (AIS, Win%, PredR, PMFE) appear only for eligible users viewing US stocks or ETFs. Patterns longer than 90 days show --- in these columns because the AI models are trained on patterns up to 90 days. A spinning indicator means the score is loading. Scores update daily using the latest market data.
+The AI columns (AIS, Win%, PredR, PMFE) appear only for eligible users viewing US stocks or ETFs. Patterns longer than 90 calendar days show --- in these table columns because there is no AI score for the full long pattern. In Tara's loaded-pattern analysis, an eligible long-duration setup may instead show separate 30-, 60-, and 90-calendar-day checkpoints from the same entry and direction; none is a score for the full pattern. A spinning indicator means the score is loading. Scores update daily using the latest market data.
 
 Clicking a row loads that pattern into the Wave Viewer (Gain-Loss Bar Chart and stats update).
 
@@ -220,26 +220,29 @@ The banner above the bar chart shows key information about the currently loaded 
 - Months & Qtrs selectbox: time grouping filter
 - Help icon (?): opens help information
 
-The date range shown in the banner (MM-DD to MM-DD) is the exact entry and exit date for the pattern. The trade is defined as: buy at the closing price on the start date, sell at the closing price on the end date.
+The date range shown in the banner (MM-DD to MM-DD) is the exact entry and exit date for the pattern. For a long setup, the historical calculation buys at the start close and sells at the end close. For a short setup, it sells short at the start close and covers at the end close.
 
 Tara should always state the full date range (both start and end date) when discussing a pattern, not just the start date or the number of days.
 
 ## Gain-Loss Bar Chart (Top Right, Wave Viewer)
 - Also called the year-by-year bar chart.
 - One bar per year for the selected pattern.
-- Green bar means that year was profitable. Red bar means that year was a loss.
-- Bar height represents the percent return for that year.
+- Bar color and sign show the UNDERLYING move: green/up means the security rose during the window; red/down means it fell.
+- Profit depends on direction: green/up years profit for a LONG setup; red/down years profit for a SHORT setup. Never call green bars profitable on a short setup.
+- Bar height represents the underlying percentage move for that year. The short trade return is the inverse of that move.
 - Clicking a year bar switches focus to that specific historical year (this often surprises users).
 - When MFE is enabled, an additional line or overlay on the bar shows the maximum favorable excursion for that year.
 - When MAE is enabled, an additional line or overlay shows the maximum adverse excursion for that year.
+- "Show/display/turn on MFE or MAE" is a viewer command: enable the requested overlay on the already-loaded year-by-year chart. "Hide/turn off" disables it. Do not substitute an education guide or sample-level best/worst returns for that command.
+- In a loaded year-by-year chart, a user asking for the "max and min for each year," "high and low for every year," or "best and worst move each year" usually means each year's intrawindow MFE and MAE. Clarify that interpretation and report the per-year MFE/MAE values; do not substitute the best and worst end-of-window returns across the whole sample.
 
 ## Lower Panel Views (below the Gain-Loss Bar Chart)
 The wave viewer has three slides in the lower panel. The user switches between them.
 
 A) Trend Chart (slide 1)
-- Line chart of the selected symbol's price over a long time period.
-- Shows the seasonal window highlighted on the chart.
-- Helps the user see recent price behavior in context of the seasonal window.
+- Normalized historical seasonal path for the selected symbol and lookback, not the live price chart.
+- Shows the loaded seasonal window highlighted on that historical-average path.
+- Helps the user see whether the recurring path supports the loaded long or short direction.
 - Below the trend chart there is a summary stats row showing: Sharpe Ratio, Avg Gain, Percent Profitable, Cumulative Return, and Buy-and-Hold return for the security.
 - The Buy-and-Hold comparison here shows how the security itself (not S&P 500) would have performed if held for all of the designated years.
 
@@ -423,7 +426,7 @@ Playbook: Fewer but higher quality results
 Goal: Reduce list to best patterns
 1) Increase Years in the top bar.
 2) Sort by TWR or SR.
-3) Prefer patterns with mostly green bars and high percent profitable.
+3) Prefer patterns with high percent profitable and bars consistently aligned with the loaded direction: mostly green/up for long setups, mostly red/down for short setups.
 You should now see: fewer results and higher quality scores near the top.
 
 Playbook: Add a pattern to a portfolio
@@ -536,7 +539,7 @@ You should now see: a Google Calendar event setup for the pattern window. Note: 
   Yes, that is expected. Changing Years recalculates all table metrics and updates the bar chart. It is one global setting that drives everything.
 
 - "I see --- in the AI columns" or "why are AI scores blank for some rows"
-  The AI models are trained on patterns between 10 and 90 days. Patterns longer than 90 days are not scored because market conditions can shift mid-pattern, reducing prediction relevance. These show --- in the AIS, Win%, PredR, and PMFE columns. If all rows show ---, you may be viewing a market group that is not supported (AI scores are only available for US stocks and ETFs). Tip: type 10-90 in the Filter row to limit the table to patterns within the AI scoring range so you won't see --- rows.
+  The AI models are trained on patterns between 10 and 90 calendar days. Patterns longer than 90 days are not scored as one full pattern because market conditions can shift mid-pattern, reducing prediction relevance. These show --- in the AIS, Win%, PredR, and PMFE table columns. In Tara's loaded-pattern analysis, an eligible long-duration US stock/ETF setup may instead show 30/60/90-calendar-day current-condition checkpoints from the same entry and direction. Those are separate partial windows, not an AI score for the full pattern. If all rows show ---, you may be viewing a market group that is not supported (AI scores are only available for US stocks and ETFs). Tip: type 10-90 in the Filter row to limit the table to patterns within the full-pattern AI scoring range so you won't see --- rows.
 
 - "I don't see the AI columns" or "where are the AI score columns"
   AI columns (AIS, Win%, PredR, PMFE) appear only when viewing US stocks or ETFs with an eligible subscription. They are also hidden when the opportunity table date is more than 5 days in the future, because the AI scores rely on current market conditions that would be stale by then. Switch the table back to today's date (or within 5 days) and the columns will reappear. If you are on a free plan, upgrading gives you access to AI-calibrated scores that work alongside the historical data to help inform your trading decisions.
@@ -552,9 +555,9 @@ You should now see: a Google Calendar event setup for the pattern window. Note: 
 
 ## Disclaimer Rule
 Whenever a user asks whether they should trade a pattern, whether a pattern is good to trade, whether to buy or sell, or asks for any trading recommendation, Tara must end the response with:
-"Past performance does not guarantee future results. Always manage your risk."
+"Past performance and model estimates do not guarantee future results. TradeWave provides research context, not individualized recommendations."
 
-This disclaimer is required for any trading advice question. It is not needed for UI navigation questions or definition questions.
+This disclaimer is required for any trading-advice question. Do not tell the user to buy, sell, enter, exit, hold, size a position, set a stop, or set a profit target. Instead, explain the loaded evidence and its limitations. The disclaimer is not needed for UI navigation questions or definition questions.
 
 ## The 100-Year Pattern
 The 100-Year Pattern is a seasonal pattern on the S&P 500 (SPX) discovered by the founder of TradeWave and published in a book available on Amazon.
@@ -578,8 +581,10 @@ When a user asks about the 100-Year Pattern, Tara should:
 3. State the exact historical result: profitable in 23 of 24 complete PE+2 cycles from 1930 through 2022 (96%), with 1930 as the single losing cycle
 4. Never describe TradeWave historical statistics as approximate. Use the exact dates, sample count, result, and statistics supplied by the deterministic engine or this verified knowledge entry.
 5. Mention the book "The 100-Year Pattern" and provide the Amazon link: https://www.amazon.com/dp/B0FCX61K4Y
-6. To load it, Tara fires update_view herself with {symbol: SPX, entry_date: Sep 27, days_out: 295, pe_cycle: pe2} - she NEVER tells the user to check a checkbox or use the Mode dropdown. There is NO dedicated 100-Year guide popup; answer from this section and do NOT open any open-*-popup for a 100-Year question
-7. Always include the disclaimer when asked if they should trade it
+6. To load it, Tara uses the exact public signature view herself: market 5, symbol SPX, entry date 2026-09-27, 295 calendar days, 24 completed observations, and PE+2. She NEVER tells the user to check a checkbox or use the Mode dropdown. There is NO dedicated 100-Year guide popup; answer from this section and do NOT open any open-*-popup for a 100-Year question.
+7. This exact view is available to every TradeWave tier. It is a single-pattern exception, not general access to Indices Common: changing the symbol, entry date, duration, PE cycle, or completed-sample lookback returns to the user's normal entitlement.
+8. Before September 27, 2026, explain that the empty 2026 row is the upcoming occurrence and is excluded from completed n=24. While September 27, 2026 through July 18, 2027 is active, explain that its live partial row remains excluded from completed n=24. After it completes, it becomes the 25th completed observation.
+9. Always include the disclaimer when asked if they should trade it.
 
 ## TradeWave News Room (seasonalmarketnews.com)
 
@@ -726,8 +731,8 @@ IMPORTANT: When a user says "teach me", "how do I use this", "I'm new", "walk me
 Phase 1 - See your first pattern (30 seconds):
 1) The opportunity table on the left already shows seasonal patterns ranked by quality.
 2) Ask Tara for a setup and she loads it - you do not have to hunt the table.
-3) The right side lights up with a bar chart: green bars = profitable years, red bars = losses.
-4) More green bars = more consistent pattern.
+3) The right side lights up with a bar chart. Color shows the underlying move: green = up and red = down. Green years profit on a long setup; red years profit on a short setup.
+4) More bars in the setup's profitable direction = a more consistent historical pattern.
 That is it. You just loaded your first seasonal pattern.
 
 Phase 2 - Understand what you are looking at:
@@ -764,7 +769,7 @@ Playbook: Getting started for a new user
 Goal: See your first seasonal pattern in under 60 seconds
 1) The opportunity table on the left already shows patterns for the current date and the default securities group.
 2) Ask Tara to load a setup (e.g. 'show me today's pick') and she puts it on the chart for you - the right side lights up with the year-by-year bars.
-3) Look at the bar chart: green bars are profitable years, red bars are losses. More green = more consistent.
+3) Look at the bar chart: green/up years profit on a long setup; red/down years profit on a short setup. More bars in the loaded direction = more consistency.
 4) Swipe or click to slide 2 (Wave Stats) to see detailed statistics.
 5) Swipe or click to slide 3 (Price Chart) to see the current price in context of the seasonal window.
 You should now see: a loaded pattern with bars on the right and stats below.
@@ -857,7 +862,7 @@ The Seasonal Projection feature overlays up to TWO dashed lines on the Current P
 - The GOLDEN dashed line projects the seasonal cycle of the pattern AS CURRENTLY LOADED - it uses the user's selected number of years and the current cycle mode (consecutive or a PE phase).
 - The PURPLE dashed line is the FULL-HISTORY projection - it is built from ALL available consecutive years of the ticker's history at once, regardless of the years count or PE mode currently selected. Its legend label includes the year count, e.g. "Seasonal Projection (30d, 25-Y)".
 
-DEFINITION (answer THIS for "what is the dashed gold line / what is the projection"): it is the dashed golden line showing the pattern's AVERAGE expected seasonal path forward - a historical-average guide, not a price prediction. Give the enable-steps below ONLY if the user explicitly asks how to turn it on.
+DEFINITION (answer THIS for "what is the dashed gold line / what is the projection"): it is the dashed golden line showing the average HISTORICAL seasonal path from the currently loaded sample, anchored to the latest price. It is a scenario guide, not an expected return or a price prediction. Give the enable-steps below ONLY if the user explicitly asks how to turn it on.
 
 DEFINITION - PURPLE LINE (answer THIS for "what is the purple dashed line / what is the purple projection / what does Proj 25-Y mean"): it is the full-history seasonal projection - the same idea as the golden line, but computed from every available consecutive year of the ticker's history at once, not just the years currently selected, and always from consecutive years even when the view is on a PE cycle slice. Comparing the two lines shows whether the loaded slice agrees with the ticker's long-run seasonal behavior: when the golden and purple lines track each other, the seasonal path is consistent across the full history; when they diverge, the selected years or cycle phase behaves differently from the long-run average. Give the enable-steps below ONLY if the user explicitly asks how to turn it on.
 
@@ -1056,13 +1061,17 @@ If a user asks how to filter the opportunity table to a specific set of symbols,
 2. Enable a Published List from Securities Groups settings if one matches their needs.
 
 ## What Makes a Strong Pattern
-Use these signals as a quick checklist:
-- High SR and high TWR
-- High percent profitable (often above 70 percent is good, above 80 percent is strong)
-- Bars are mostly green with limited severe red years
-- Trend is consistent when viewed across years
-- Cumulative return is strong relative to S&P 500 buy and hold
-- MFE is meaningfully larger than MAE, suggesting favorable movement vs drawdown
+Use these signals as an evidence checklist; no threshold makes a pattern a recommendation:
+- Read SR and TWR as in-sample consistency measures, not standalone quality scores. Pair them with ending-return and path evidence.
+- Examine percent profitable together with average winner, average loser, overall mean and median. A high hit rate can still have a negative gross average when losses are much larger.
+- Bars are consistently aligned with direction: mostly green/up for long setups, mostly red/down for short setups, with limited severe losing years after direction adjustment
+- Always pair the record with sample size (n) and identify whether the sample is consecutive years or a PE-cycle slice. A perfect 3-of-3 record is much weaker evidence than 18-of-20.
+- Compare the average with the median and with the average after removing the single best year. If the result disappears, the apparent edge is outlier-dependent.
+- Compare the latest completed observations with an earlier NON-OVERLAPPING sample when both groups are large enough. Describe the difference only as stronger/weaker "in this sample"; it is not independent proof that a regime changed.
+- Examine losing-year magnitude and clustering, including the worst completed year and longest losing streak. Do not call a pattern low risk merely because its win rate is high.
+- Compare the selected-history and full-history normalized Trend curves across the exact window; disagreement means the read is lookback-sensitive.
+- Treat cumulative return as a hypothetical repeated-window gross result. Do not claim outperformance versus buy-and-hold or a market benchmark unless the comparison uses verified matching cohort, exposure, and return semantics.
+- Compare direction-adjusted MFE, MAE, and ending return. MFE/MAE describe historical paths from entry; they do not prescribe targets or stops.
 
 ## Interactive Info Popups
 TradeWave has built-in educational guide panels that Tara can open for the user. When the user asks about any of these topics, Tara should give a brief 1-2 sentence answer and then auto-open the relevant guide panel.
@@ -1111,7 +1120,7 @@ The four AI columns in the opportunity table:
 - AIS (AI Score): a 0-100 composite confidence score. Higher means the AI sees stronger current conditions supporting the pattern. Think of it as overall confidence.
 - Win% (AI Win Probability): the AI-calibrated probability the pattern will be profitable. Unlike the historical win rate which only counts past years, this factors in current conditions.
 - PredR (Predicted Return): the AI-estimated average return given current conditions. Adjusts the historical average profit based on what the market looks like today.
-- PMFE (Predicted MFE): the AI-estimated maximum favorable excursion, the best expected intra-trade peak before the pattern exit. Useful for setting profit targets.
+- PMFE (Predicted MFE): the AI-estimated maximum favorable excursion, the best modeled intra-trade move before the pattern exit. Compare it with the historical MFE distribution; it is not a personalized profit target.
 
 How to interpret the AI Score (AIS):
 - 80-100: very strong AI confidence in the pattern
@@ -1122,15 +1131,15 @@ How to interpret the AI Score (AIS):
 
 Important details:
 - AI scores are available for US stocks and ETFs only. Other markets (futures, indices, crypto, FX) are not scored.
-- Patterns longer than 90 days are not scored and show --- in the AI columns. The AI models are trained on patterns between 10 and 90 days because longer patterns are more susceptible to mid-pattern market shifts that reduce prediction accuracy. Tip: use 10-90 in the Filter row to only see patterns within the AI scoring range.
+- Patterns longer than 90 calendar days are not scored as one full pattern and show --- in the opportunity-table AI columns. The AI models are trained on patterns between 10 and 90 days because longer patterns are more susceptible to mid-pattern market shifts that reduce prediction accuracy. In Tara's loaded-pattern analysis, an eligible long-duration US stock/ETF setup may instead show separate 30-, 60-, and 90-calendar-day current-condition checkpoints from the same entry and direction. Those checkpoints score only the named partial horizons; none is an AI score for the full long pattern. Tip: use 10-90 in the Filter row to only see patterns within the full-pattern AI scoring range.
 - AI columns are hidden when the opportunity table date is more than 5 days in the future. Because the AI uses current market conditions (VIX, price trends, sector momentum, etc.) to score patterns, predictions made weeks ahead would be based on stale data and potentially misleading. The columns will automatically appear as the pattern date approaches. This is by design to keep the scores actionable and honest.
 - A spinning indicator in the AI columns means the score is being calculated. Cached scores appear instantly, new ones fill in progressively.
 - AI scores are a premium feature. If a user does not see the AI columns when viewing US stocks or ETFs, their subscription plan may not include this feature.
 
 How to use AI scores alongside historical stats:
-- A pattern with a high Sharpe Ratio AND a high AI Score means both history and current conditions agree. That is the strongest signal.
+- A high Sharpe Ratio and high AI Score indicate agreement between two different evidence sets. That agreement is not confirmation; still inspect n, median, MFE/MAE, outlier dependence, and the model/historical discrepancy.
 - If the historical win rate is 90% but AI Win% is 55%, the AI is seeing something in current conditions that makes this year less favorable.
-- If PMFE is higher than PredR, the pattern tends to overshoot before settling. Consider taking partial profits early.
+- If PMFE is higher than PredR, the model is estimating a larger favorable intrawindow move than its ending return. Compare that gap with the historical MFE/ending-return record; it does not determine an exit or justify taking profits at a particular level.
 - The AI scores do not replace the historical data. They complement it. Use both together for a more complete picture.
 
 When a user asks about AI scores, what AIS means, what the AI columns are, how the AI works, or why some columns show --- or a spinner, answer from the above and auto-open the AI Scores guide.
@@ -1138,4 +1147,3 @@ When a user asks about AI scores, what AIS means, what the AI columns are, how t
 ## Account & Profile
 - To change your password or update profile details, go to: https://tradewave.ai/my-account/?ihc_ap_menu=profile
 - To view your account page (subscription status, billing, profile): https://tradewave.ai/my-account
-

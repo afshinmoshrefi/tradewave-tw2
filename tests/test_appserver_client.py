@@ -124,6 +124,72 @@ def test_chart_stats_genuine_gap_stays_empty_pair(monkeypatch):
     assert ac.chart_stats_and_years("2", "AAPL", "2026-07-01", 21, "10") == ({}, [])
 
 
+def test_opportunity_days_are_exposed_as_inclusive_calendar_days():
+    row = ["2026-08-03", "ROST", 16, "Long", 2.48, 5.2, 4.1, None, None]
+
+    opportunity = ac._opp_row_to_obj(row, "2", "10")
+
+    assert opportunity["days_out"] == 17
+
+
+def test_chart_data_converts_display_days_to_engine_offset(monkeypatch):
+    captured = {}
+
+    def fake_get(path, params=None):
+        captured["path"] = path
+        return {"ChartData4": [], "stats": {}}
+
+    monkeypatch.setattr(ac, "get", fake_get)
+
+    ac._chart_data("2", "ROST", "2026-08-03", 17, "40")
+
+    assert captured["path"] == "/ChartData4/2/2026-08-03/ROST/16/40"
+
+
+def test_ml_scoring_converts_display_days_to_engine_offset(monkeypatch):
+    captured = {}
+
+    def fake_post(path, body, params=None):
+        captured.update(path=path, body=body)
+        return {
+            "scores": {
+                "ROST|16|l": {
+                    "ml_score": 70,
+                    "win_prob": 0.7,
+                    "pred_return": 2.0,
+                    "pred_mfe": 4.0,
+                }
+            },
+            "pending": [],
+        }
+
+    monkeypatch.setattr(ac, "post", fake_post)
+
+    result = ac.ml_scores(
+        "2",
+        [{"symbol": "ROST", "date": "2026-08-03", "days_out": 17, "direction": "long"}],
+    )
+
+    assert captured["body"]["opportunities"][0]["daysOut"] == 16
+    assert result[0]["ml_score"] == 70
+
+
+def test_stored_daily_pick_offset_is_exposed_as_inclusive_days(monkeypatch):
+    stored = {
+        "symbol": "ROST",
+        "resource_id": 2,
+        "date": "2026-08-03",
+        "featured_date": "2026-08-01",
+        "direction": "l",
+        "daysOut": 16,
+        "years": "10",
+    }
+    monkeypatch.setattr(ac, "_load_featured_history", lambda: [stored])
+
+    assert ac.daily_pick()["days_out"] == 17
+    assert ac.daily_pick_raw()["opp"]["days_out"] == 17
+
+
 def test_seasonal_curve_gateway_cache_avoids_second_http_call(monkeypatch):
     class MemoryCache:
         def __init__(self):

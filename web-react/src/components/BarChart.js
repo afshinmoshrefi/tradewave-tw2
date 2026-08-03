@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { UserContext } from './UserContext';
 import { UIcolors, themeColors } from './Common';
+import { buildBarChartSeries } from './barChartSeries';
 
 const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChartLongOrShort, UITheme }) => {
     const { rdd, loggedinUser } = useContext(UserContext);
@@ -16,52 +17,27 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
     const [labels, setLabels] = useState(['2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']);
 
     useEffect(() => {
-        var pos = 0, neg = 0, tmpLevels = [], tmpColors = [], tmpMin = [], tmpMax = [], tmpLabels = [];
-        seasonalBarChartData.forEach((r) => {
-            var plist = r['pct'].split(',');
-            tmpLabels.push(r['year']);
-            tmpLevels.push(plist[0]);
-
-            if (plist[0] >= 0) {
-                pos++;
-                tmpColors.push(tc.barGreen);
-            }
-            if (plist[0] < 0) {
-                neg++;
-                tmpColors.push(tc.barRed);
-            }
+        const series = buildBarChartSeries(seasonalBarChartData, {
+            green: tc.barGreen,
+            red: tc.barRed,
         });
 
-        setDataMain(tmpLevels);
-        setDataMainColors(tmpColors);
-        setLabels(tmpLabels);
-        var longOrShort = barChartLongOrShort;
-
-        seasonalBarChartData.forEach((r) => {
-            var plist = r['pct'].split(',');
-            var close = plist[0];
-            var high = plist[1];
-            var low = plist[2];
-
-            if (close >= 0 && high > 0) tmpMax.push(parseFloat(high - close).toFixed(2));
-            else if (close < 0 && high >= 0) tmpMax.push(parseFloat(high).toFixed(2));
-            else if (close < 0 && high < 0) tmpMax.push(0);
-
-            if (close <= 0 && low < 0) tmpMin.push(parseFloat(low - close).toFixed(2));
-            else if (close > 0 && low <= 0) tmpMin.push(parseFloat(low).toFixed(2));
-            else if (close > 0 && low > 0) tmpMin.push(0);
-        });
+        setDataMain(series.main);
+        setDataMainColors(series.mainColors);
+        setLabels(series.labels);
+        const longOrShort = barChartLongOrShort;
 
         if ((longOrShort === 'long' && showMFE) || (longOrShort === 'short' && showMAE)) {
-            setDataMax(tmpMax);
+            setDataMax(series.upperRemainders);
         } else setDataMax([]);
         setMaxColor(tc.barMFE);
 
         if ((longOrShort === 'long' && showMAE) || (longOrShort === 'short' && showMFE)) {
-            setDataMin(tmpMin);
+            setDataMin(series.lowerRemainders);
         } else setDataMin([]);
         setMinColor(tc.barMAE);
-    }, [seasonalBarChartData, showMFE, showMAE, barChartLongOrShort, UITheme]);
+    }, [seasonalBarChartData, showMFE, showMAE, barChartLongOrShort,
+        tc.barGreen, tc.barRed, tc.barMFE, tc.barMAE]);
 
     let axisFontSize = '20vw';
     let tooltipEnabled = true;

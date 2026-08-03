@@ -37,6 +37,7 @@ import { getCookie, setCookie } from './Common'
 import { lsGet, lsSet, lsRemove, clearUserStorage } from './Common'
 import { twFetch, registerTwFetchAuth } from './twFetch'
 import ErrorBoundary from './ErrorBoundary'
+import { resolveOpportunityRecurrence } from './opportunityRecurrence'
 import jwt_decode from 'jwt-decode'
 //-------------------- swiper -----------------------------
 // Import Swiper styles
@@ -170,6 +171,10 @@ const App = () => {
   // 8/22/2021 moved it from oppTable 
   const [opportunities, SetOpportunities] = useState([])// opportinities table data
   const [activeOpportunities, SetActiveOpportunities] = useState([])// 5/2/2024
+  // Null means TableBox has not published a processed snapshot yet. Once ready, this is
+  // the exact visible order after active mode, filtering, and sorting; Tara uses it for
+  // commands such as "load the 3rd one on the list."
+  const [visibleOpportunities, SetVisibleOpportunities] = useState(null)
   const [showActiveOpps, SetShowActiveOpps] = useState(false); // 5/2/2024
 
   const [oppTableMonth, SetOppTableMonth] = useState(() => {
@@ -507,6 +512,9 @@ const App = () => {
   const prevPatternKey = useRef('');          // tracks symbol|startDate to detect deliberate changes
   const companyReqRef = useRef(0);            // ordering guard: only the LATEST NameFromTicker response may SetCompany
   const loginInFlightRef = useRef(false);     // prevents the /login effect from double-firing (SetLoggedinUser re-runs it while token is still '')
+  // Once an explicit opportunity-table selection owns the state, later
+  // token/bootstrap reruns must not restore an older cookie/default over it.
+  const oppYearsSelectionOwnedRef = useRef(false);
 
   // Used to manually trigger a refresh of the useEffect below.
   // Every time we increment refreshKey, the effect re-runs.
@@ -795,8 +803,9 @@ const App = () => {
   // callers must switch only to an ENTITLED market.
   //---------------------------------------------------------------
   const switchMarket = (marketDisplayName) => {
+    oppYearsSelectionOwnedRef.current = true;
     SetShowActiveOpps(false);
-    const [y1, y2] = getOppYearsForGroup(marketDisplayName, PEselected !== 'cons');
+    const [y1, y2] = getOppYearsForGroup(marketDisplayName, showPEOpps);
     const sameGroup = marketDisplayName === selectedSecurity;
     SetSelectedSecurity(marketDisplayName);
     SetActiveWatchlistFilter(null);
@@ -897,14 +906,37 @@ const App = () => {
         return
       }
 
-      SetOppTableYears(event.target.value)
-      saveOppYearsForGroup(selectedSecurity, parseInt(event.target.value), parseInt(oppTablePartialYears), PEselected !== 'cons')
-      SetOppTablePartialYears(-1) // (1) this is to force render only after new partial year is established.  fixed the lockup bug 8/22/2021
+      const activeMeta =
+        showPEOpps && yearsMetaDataPE.length > 0
+          ? yearsMetaDataPE
+          : yearsMetaData
+      const resolved = resolveOpportunityRecurrence(
+        activeMeta,
+        event.target.value,
+        oppTablePartialYears,
+        maxYearsCap(),
+      )
+      const nextYears = resolved ? resolved.years : String(event.target.value)
+      const nextPartialYears = resolved ? resolved.partialYears : '-1'
+
+      oppYearsSelectionOwnedRef.current = true
+      SetOpportunities([])
+      SetOppTableYears(nextYears)
+      SetOppTablePartialYears(nextPartialYears)
+      if (resolved) {
+        saveOppYearsForGroup(
+          selectedSecurity,
+          parseInt(nextYears, 10),
+          parseInt(nextPartialYears, 10),
+          showPEOpps,
+        )
+      }
     }
     else if (event.target.id === 'partialYears') {
+      oppYearsSelectionOwnedRef.current = true
       SetOpportunities([])
       SetOppTablePartialYears(event.target.value)
-      saveOppYearsForGroup(selectedSecurity, parseInt(oppTableYears), parseInt(event.target.value), PEselected !== 'cons')
+      saveOppYearsForGroup(selectedSecurity, parseInt(oppTableYears), parseInt(event.target.value), showPEOpps)
     }
     else if (event.target.id === 'day') {  // 4/30/2022 - changed day of the month to a pull down
 
@@ -1004,7 +1036,8 @@ const App = () => {
           symbols: new Set(pl.symbols || [])
         });
 
-        const [y1, y2] = getOppYearsForGroup(parentGroupName, PEselected !== 'cons');
+        oppYearsSelectionOwnedRef.current = true;
+        const [y1, y2] = getOppYearsForGroup(parentGroupName, showPEOpps);
 
         SetOppTableYears(-1);
         SetOppTablePartialYears(-1);
@@ -1054,7 +1087,8 @@ const App = () => {
           symbols: null // will be populated after fetch
         });
 
-        const [y1, y2] = getOppYearsForGroup(parentGroupName, PEselected !== 'cons');
+        oppYearsSelectionOwnedRef.current = true;
+        const [y1, y2] = getOppYearsForGroup(parentGroupName, showPEOpps);
 
         SetOppTableYears(-1)
         SetOppTablePartialYears(-1)
@@ -1216,6 +1250,7 @@ const App = () => {
     selectedSecurity,
     selectedSecurityDisplay,
     opportunities,
+    visibleOpportunities,
     oppTableMonth,
     oppTableYears,
     oppTablePartialYears,
@@ -1358,11 +1393,14 @@ const App = () => {
     SetSelectedSecurity,
 
     SetOpportunities,
+    SetVisibleOpportunities,
     SetOppTableMonth,
     SetOppTableYears,
     SetOppTablePartialYears,
     selectboxChanged,
     SetAppliedFilter,
+    GetOppYearsForGroup: getOppYearsForGroup,
+    SaveOppYearsForGroup: saveOppYearsForGroup,
     SetRowIndexClicked,
     SetSeasonalBarChartData,
     SetTradeDetailData,
@@ -1784,11 +1822,11 @@ const App = () => {
         SetSelectedPortfolioID(0)
       }
 
-      if (userid === '0') {
+      if (!oppYearsSelectionOwnedRef.current && userid === '0') {
         SetOppTableYears(freeYears[0].toString())  // set to 8 or 10 
         SetOppTablePartialYears(freeYears[1].toString())
       }
-      else {
+      else if (userid !== '0') {
         if (tmp_selected_security === '') {
           tmp_selected_security = getCookie('selectedSecurity')
 
@@ -1802,14 +1840,8 @@ const App = () => {
 
         // console.log('.......................tmp_selected_security=',tmp_selected_security)
 
-        if (wpUserLevels.length === 1 && wpUserLevels[0] === '1') { //free registered
-
-          const [y1, y2] = getOppYearsForGroup(tmp_selected_security, PEselected !== 'cons');
-          SetOppTableYears(y1.toString())
-          SetOppTablePartialYears(y2.toString())
-        }
-        else { // all paid registered users
-          const [y1, y2] = getOppYearsForGroup(tmp_selected_security, PEselected !== 'cons');
+        if (!oppYearsSelectionOwnedRef.current) {
+          const [y1, y2] = getOppYearsForGroup(tmp_selected_security, showPEOpps);
           SetOppTableYears(y1.toString())
           SetOppTablePartialYears(y2.toString())
         }
@@ -2505,16 +2537,15 @@ const App = () => {
           SetSelectedSecurity(resource_group)
           setCookie('selectedSecurity', resource_group, 300) // sync cookie so refresh without querystring loads correct group
 
-          let [y1, y2] = getOppYearsForGroup(resource_group, parsedPE !== 'cons');
+          // Apply the deep-link state immediately and claim ownership so a
+          // later login/token rerun cannot restore an older table default.
+          oppYearsSelectionOwnedRef.current = true;
+          let [y1, y2] = getOppYearsForGroup(resource_group, showPEOpps);
+          SetOppTableYears(parsedYears)
 
 
-          const timer = setTimeout(() => {
-            SetOppTableYears(parsedYears) // removed then readded with timer on 3/27/2025 -
-          }, 1000); // 1000ms = 1s delay
 
-
-
-          if (parseInt(history_years) === y1) {
+          if (parseInt(parsedYears, 10) === y1) {
             SetOppTablePartialYears(y2.toString())
           }
           else {

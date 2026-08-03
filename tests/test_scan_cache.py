@@ -68,7 +68,7 @@ def test_key_is_canonical_hashed_and_contains_no_credential_material():
     first = scan_cache.make_key({"markets": ["2", "4"], "depth": 5})
     second = scan_cache.make_key({"depth": 5, "markets": ["2", "4"]})
     assert first == second
-    assert first.startswith("tw:api:scan-core:v1:")
+    assert first.startswith("tw:api:scan-core:v2:")
     assert "Bearer" not in first and "user" not in first
     assert len(first.rsplit(":", 1)[-1]) == 64
 

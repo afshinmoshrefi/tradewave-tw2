@@ -1,6 +1,10 @@
 [Unit]
 Description=TradeWave API gateway (gunicorn)
-After=network.target redis-server.service
+After=network.target redis-server.service tradewave-appserver.service
+# The gateway holds SERVICE_API_KEY and a cached appserver JWT in memory. Restart it
+# whenever the co-located appserver is explicitly restarted so a rotated secrets.env
+# value cannot leave the two processes on different credentials.
+PartOf=tradewave-appserver.service
 
 [Service]
 NoNewPrivileges=true
@@ -28,6 +32,10 @@ ExecStart=/home/flask/venv-api/bin/gunicorn --workers 4 --worker-class gthread -
     --bind ${TW2_APISERVER_BIND} --access-logfile /var/log/tradewave/apiserver.access.log \
     --access-logformat '%({x-forwarded-for}i)s %(l)s %(u)s %(t)s "%(m)s %(U)s %(H)s" %(s)s %(b)s "%(a)s"' \
     --error-logfile /var/log/tradewave/apiserver.error.log --capture-output apiserver.app:app
+# /healthz is intentionally cheap and cannot prove the downstream service login. A
+# fresh-process login canary makes service activation fail if the configured key,
+# HMAC secret, database row, or appserver endpoint is out of sync.
+ExecStartPost=/home/flask/venv-api/bin/python -c "from apiserver.appserver_client import _get_token; assert _get_token()"
 Restart=on-failure
 RestartSec=3
 

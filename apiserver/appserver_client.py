@@ -233,6 +233,25 @@ def _num(v):
         return None
 
 
+def _engine_days_to_display(value):
+    """Convert the legacy engine offset to TradeWave's inclusive calendar-day label."""
+    if value is None or str(value).strip() in ("", "None"):
+        return None
+    return int(value) + 1
+
+
+def _display_days_to_engine(value):
+    """Convert public inclusive calendar days to the engine's elapsed-day offset.
+
+    TradeWave counts the entry date as calendar day 1.  ChartData4 and the original
+    opportunity/ML datasets use ``daysOut = displayed_days - 1`` internally.
+    """
+    days = int(value)
+    if days < 1:
+        raise ValueError("days_out must be at least 1")
+    return days - 1
+
+
 def _pct_str_to_fraction(v):
     """Map a ChartData4 percentage-stat string ('60%') to a 0..1 fraction (0.6).
 
@@ -282,7 +301,7 @@ def _opp_row_to_obj(row, market, years, win_rate=None):
         "market": str(market),
         "direction": _dir_to_public(rec.get("lOrS")),
         "entry_date": rec.get("date"),
-        "days_out": int(rec["daysOut"]) if str(rec.get("daysOut", "")).strip() not in ("", "None") else None,
+        "days_out": _engine_days_to_display(rec.get("daysOut")),
         "sharpe_ratio": _num(rec.get("sharpe_ratio")),
         "avg_profit_pct": _num(rec.get("avg_profit")),
         "median_profit_pct": _num(rec.get("median_profit")),
@@ -524,8 +543,15 @@ def appserver_opportunities_safe(market, entry_date, year1, year2, direction, mo
 # --------------------------- patterns / chart data -------------------------
 
 def _chart_data(market, symbol, entry_date, days_out, years):
-    """Raw ChartData4 fetch. Returns (chart_entries, stats). years stays a string."""
-    path = f"/ChartData4/{_seg(market)}/{_seg(entry_date)}/{_seg(symbol)}/{_seg(days_out)}/{_seg(years)}"
+    """Raw ChartData4 fetch from a public/display window.
+
+    ``days_out`` is the inclusive calendar-day count exposed by the gateway.  Convert it
+    once at this boundary to ChartData4's legacy elapsed-day offset.  ``years`` stays a
+    string because it may be a consecutive lookback or a PE-cycle slice.
+    """
+    engine_days_out = _display_days_to_engine(days_out)
+    path = (f"/ChartData4/{_seg(market)}/{_seg(entry_date)}/{_seg(symbol)}"
+            f"/{_seg(engine_days_out)}/{_seg(years)}")
     data = get(path)
     if not isinstance(data, dict):
         return [], {}
@@ -681,13 +707,13 @@ def ml_scores(market, items):
     Returns a list of contract MLScore dicts aligned 1:1 with `items` (None where the
     appserver could not score, e.g. days_out out of the 10-90 range).
     """
-    # Build the appserver request body (internal uses daysOut + raw l/s direction).
+    # Build the appserver request body (internal uses elapsed daysOut + raw l/s direction).
     norm = []
     for it in items:
         norm.append({
             "symbol": it["symbol"],
             "date": it["date"],
-            "daysOut": int(it["days_out"]),
+            "daysOut": _display_days_to_engine(it["days_out"]),
             "direction": _dir_to_internal(it["direction"]),
         })
 
@@ -813,7 +839,7 @@ def daily_pick():
     if not history:
         return {}
     e = history[-1]
-    days = e.get("daysOut")
+    days = _engine_days_to_display(e.get("daysOut"))
     yrs = e.get("years")
     summary = (
         "%s %s seasonal setup over a %s-day hold, %s-year lookback."
@@ -828,7 +854,7 @@ def daily_pick():
         "symbol": e.get("symbol"),
         "featured_date": e.get("featured_date"),
         "direction": _dir_to_public(e.get("direction", "")),
-        "days_out": int(days) if days is not None else None,
+        "days_out": days,
         "pattern_summary": summary,
         "ml": {
             "ml_score": e.get("ml_score"),
@@ -847,14 +873,14 @@ def daily_pick_raw():
     if not history:
         return None
     e = history[-1]
-    days = e.get("daysOut")
+    days = _engine_days_to_display(e.get("daysOut"))
     market = str(e.get("resource_id")) if e.get("resource_id") is not None else None
     opp = {
         "symbol": e.get("symbol"),
         "market": market,
         "direction": _dir_to_public(e.get("direction", "")),
         "entry_date": e.get("date"),
-        "days_out": int(days) if days is not None else None,
+        "days_out": days,
         "sharpe_ratio": _num(e.get("sharpe_ratio")),
         "avg_profit_pct": _num(e.get("avg_profit")),
         "median_profit_pct": _num(e.get("median_profit")),

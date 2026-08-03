@@ -1158,7 +1158,8 @@ async def analyze_symbol(
     direction: Annotated[Optional[str], Field(description=(
         "'long' or 'short'. Omit to let the best setup decide."))] = None,
     days_out: Annotated[Optional[int], Field(description=(
-        "Preferred holding period in calendar days. With entry_date, PINS the exact "
+        "Preferred inclusive holding period in CALENDAR days: entry date is day 1 and "
+        "the end date is entry_date + (days_out - 1). With entry_date, PINS the exact "
         "window; without it, biases setup selection."))] = None,
     entry_date: Annotated[Optional[str], Field(description=(
         "'YYYY-MM-DD'. PIN analysis to THIS exact opportunity (the 'click this one / "
@@ -1858,7 +1859,8 @@ async def get_opportunity_chart(
     entry_date: Annotated[Optional[str], Field(description=(
         "Entry date for the setup, ISO 8601 (YYYY-MM-DD)."))] = None,
     days_out: Annotated[Optional[int], Field(description=(
-        "Holding period in calendar days."))] = None,
+        "Inclusive holding period in CALENDAR days: entry date is day 1 and the end "
+        "date is entry_date + (days_out - 1)."))] = None,
     direction: Annotated[Optional[str], Field(description=(
         "'long' or 'short'."))] = None,
     years: Annotated[Optional[str], Field(description=(
@@ -1912,7 +1914,8 @@ async def get_opportunity_chart(
         "When the daily ML allowance is spent the gateway returns a graceful nudge (never an error): "
         "a 200 body with requires='upgrade', reason='ml_daily_limit', and ml_remaining_today. "
         "ML scoring is available for markets 0-4 and 11 only. "
-        "Input: a list of {symbol, date, days_out, direction} dicts. "
+        "Input: a list of {symbol, date, days_out, direction} dicts. days_out is the "
+        "inclusive CALENDAR-day count: date is day 1. "
         "Output: ml_score (0-100), win_prob (0-1), pred_return %, pred_mfe %."
     )
 )
@@ -1920,7 +1923,8 @@ async def get_opportunity_chart(
 async def score_opportunities(
     opportunities: Annotated[list[dict[str, Any]], Field(description=(
         "List of opportunity dicts, each with keys: symbol (str, ticker symbol), date "
-        "(str, entry date YYYY-MM-DD), days_out (int, holding period in days), direction "
+        "(str, entry date YYYY-MM-DD), days_out (int, inclusive CALENDAR-day count; "
+        "entry date is day 1), direction "
         "(str, 'long' or 'short')."))],
     ctx: Context,
 ) -> str:

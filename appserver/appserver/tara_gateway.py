@@ -29,6 +29,15 @@ if str(_REPO_ROOT) not in sys.path:
 import config
 
 from AI_tools_appserver import send_claude_messages
+from openai_tools_appserver import (
+    OpenAIAPIError,
+    build_responses_input,
+    decode_function_arguments,
+    function_calls,
+    prompt_cache_key,
+    response_text,
+    send_openai_response,
+)
 
 log = logging.getLogger("tara_gateway")
 
@@ -127,7 +136,9 @@ TOOLS = [
         "description": (
             "DRIVE THE WAVE-VIEWER: load a symbol/setup or change a knob so the user actually "
             "SEES it on screen, instead of telling them where to click. Call this when the user "
-            "says show me / load / pull up / open / change the years / switch to the PE cycle. "
+            "says show me / load / pull up / open / change the years / switch to the PE cycle, "
+            "asks to show/hide the MFE or MAE overlays, or asks to switch the lower panel to "
+            "Trend Chart, Wave Stats, or Price Chart. "
             "Pass concrete fields. To show a date-range PRESET (a month/quarter/season), FIRST "
             "call analyze_symbol with period= to get the resolved entry_date + days_out, THEN "
             "pass those here. Usually pair this with a read tool so you can also narrate the setup."
@@ -142,6 +153,13 @@ TOOLS = [
                 "years": {"type": "integer", "description": "lookback 1-99"},
                 "pe_cycle": {"type": "string", "enum": ["consecutive", "pe0", "pe1", "pe2", "pe3"],
                              "description": "wave-viewer cycle selector; consecutive = normal years"},
+                "show_mfe": {"type": "boolean", "description": "show/hide the best-move MFE overlay"},
+                "show_mae": {"type": "boolean", "description": "show/hide the worst-move MAE overlay"},
+                "bottom_slide": {
+                    "type": "string",
+                    "enum": ["trend_chart", "wave_stats", "price_chart"],
+                    "description": "lower-panel destination to show immediately",
+                },
             },
         },
     },
@@ -228,7 +246,13 @@ def _mini(item):
     for k in ("rank", "symbol", "direction", "bias", "headline"):
         if item.get(k) is not None:
             out[k] = item[k]
-    for k in ("historical_win_rate", "sharpe_ratio", "avg_return_pct", "years"):
+    for k in (
+        "historical_win_rate",
+        "sharpe_ratio",
+        "sharpe_ratio_mfe",
+        "avg_return_pct",
+        "years",
+    ):
         if st.get(k) is not None:
             out[k] = st[k]
     for k in ("entry_date", "hold_days"):
@@ -245,7 +269,13 @@ def _mini(item):
 _BRIEF_DROP = ("extend_research", "receipts", "next_step", "edge_basis", "edge_score",
                "alignment", "verdict", "ml", "tier_notes", "rank", "disclaimer", "bias",
                "blind_to", "suggested_checks", "synthesis_rule", "loop_back")
-_BRIEF_STATS = ("historical_win_rate", "sharpe_ratio", "avg_return_pct", "years")
+_BRIEF_STATS = (
+    "historical_win_rate",
+    "sharpe_ratio",
+    "sharpe_ratio_mfe",
+    "avg_return_pct",
+    "years",
+)
 _BRIEF_SETUP = ("entry_date", "exit_date", "hold_days", "entry_window")
 
 
@@ -320,6 +350,7 @@ def _bounded_json(out):
 _VS_SYMBOL_RE = re.compile(r"^[A-Za-z0-9.\-]{1,15}$")
 _VS_MARKETS = {str(i) for i in range(17) if i not in (14, 15)}   # 14/15 (Korea) removed; never renumber
 _VS_PE = {"consecutive": "cons", "cons": "cons", "pe0": "pe0", "pe1": "pe1", "pe2": "pe2", "pe3": "pe3"}
+_VS_BOTTOM_SLIDES = {"trend_chart", "wave_stats", "price_chart"}
 
 
 def _validate_view_spec(spec):
@@ -351,6 +382,13 @@ def _validate_view_spec(spec):
     pe = spec.get("pe_cycle")
     if isinstance(pe, str) and pe.lower() in _VS_PE:
         out["pe_cycle"] = _VS_PE[pe.lower()]
+    for field in ("show_mfe", "show_mae"):
+        value = spec.get(field)
+        if isinstance(value, bool):
+            out[field] = value
+    bottom_slide = spec.get("bottom_slide")
+    if isinstance(bottom_slide, str) and bottom_slide in _VS_BOTTOM_SLIDES:
+        out["bottom_slide"] = bottom_slide
     return out
 
 
@@ -665,6 +703,50 @@ def _opplist4_rows(market_id, token, years):
     return _opplist4_to_rows(ol) if isinstance(ol, list) else None
 
 
+def _symbol_max_available_years(market_id, symbol, token):
+    """Return the symbol's consecutive data limit from the viewer's StockMetaData source.
+
+    This mirrors ``SeasonalBarChart`` (end year minus start year) so a named-symbol change
+    can inherit the current lookback without asking a younger ticker for unavailable years.
+    It is a best-effort guard: failures leave the requested lookback unchanged and React's
+    existing metadata clamp remains the final defense.
+    """
+
+    market = str(market_id or "").strip()
+    ticker = str(symbol or "").strip().upper()
+    base = (config.appserver_url or "").rstrip("/")
+    if not base or not token or market not in _VS_MARKETS or not _VS_SYMBOL_RE.match(ticker):
+        return None
+    url = "%s/StockMetaData/%s/%s" % (base, quote(market), quote(ticker))
+    try:
+        response = requests.get(
+            url,
+            params={"token": token},
+            timeout=(5, 15),
+        )
+    except requests.RequestException as exc:
+        log.warning("tara StockMetaData %s/%s failed: %s", market, ticker, exc)
+        return None
+    if response.status_code != 200:
+        log.warning(
+            "tara StockMetaData %s/%s -> %s", market, ticker, response.status_code
+        )
+        return None
+    try:
+        metadata = response.json().get("StockMetaData")
+    except (AttributeError, ValueError):
+        return None
+    if not isinstance(metadata, list) or len(metadata) < 2:
+        return None
+    try:
+        first_year = int(str(metadata[0])[:4])
+        last_year = int(str(metadata[1])[:4])
+    except (TypeError, ValueError):
+        return None
+    available = last_year - first_year
+    return min(available, 99) if available > 0 else None
+
+
 def _append_market_switch(actions, target):
     """Queue a market-only set_view (switch the opp table to `target`) unless one is already queued."""
     if not any(a.get("type") == "set_view" and a.get("spec", {}).get("market") == target for a in actions):
@@ -685,8 +767,255 @@ def _break_before_cta(text):
     return _TRAILING_CTA.sub(r'\1<br><br>\2', text or '')
 
 
+def _full_history_years(request_spec):
+    if not isinstance(request_spec, dict):
+        return None
+    value = request_spec.get("years")
+    if isinstance(value, bool) or not isinstance(value, int) or not (1 <= value <= 99):
+        return None
+    return value
+
+
+def _apply_full_history_request(name, inp, request_spec):
+    """Apply a deterministic max-history command to a provider's tool arguments.
+
+    Models may treat 99 (the schema ceiling) as a magic "max" value or may reselect a
+    symbol's best setup after the lookback changes.  The client supplied the exact real
+    history limit and loaded window, so keep the provider's read on that same setup.
+    """
+
+    years = _full_history_years(request_spec)
+    out = dict(inp) if isinstance(inp, dict) else {}
+    if years is None:
+        return out
+    if name == "update_view":
+        # This command changes one knob on the already-loaded setup. Do not let a
+        # provider opportunistically switch the symbol/window in the same action.
+        out = {"years": years}
+    elif name == "analyze_symbol":
+        out = {
+            field: request_spec[field]
+            for field in (
+                "symbol", "market", "entry_date", "days_out", "direction", "pe_cycle", "years"
+            )
+            if field in request_spec
+        }
+    elif name == "get_symbol_patterns":
+        # This is not the preferred tool for a loaded-window lookback change, but if a
+        # provider chooses it, keep it on the verified loaded symbol and lookback.
+        out = {
+            field: request_spec[field]
+            for field in ("symbol", "market", "pe_cycle", "years")
+            if field in request_spec
+        }
+    return out
+
+
+def _enforce_full_history_action(actions, request_spec):
+    """Guarantee the viewer receives the same exact lookback used by the read tool."""
+
+    years = _full_history_years(request_spec)
+    if years is None:
+        return
+    found = False
+    for action in actions:
+        if not isinstance(action, dict) or action.get("type") != "set_view":
+            continue
+        spec = action.get("spec")
+        if not isinstance(spec, dict):
+            continue
+        action["spec"] = {"years": years}
+        found = True
+    if not found:
+        actions.append({"type": "set_view", "spec": {"years": years}})
+
+
+def _viewer_year_entry_date(value, viewer_year):
+    """Anchor a recurring setup's month/day to the viewer's current occurrence year."""
+
+    if not isinstance(value, str) or not isinstance(viewer_year, int):
+        return value
+    try:
+        parsed = datetime.datetime.strptime(value, "%Y-%m-%d").date()
+        return parsed.replace(year=viewer_year).isoformat()
+    except (TypeError, ValueError):
+        return value
+
+
+def _card_effective_years(card, preferred_years=None):
+    """Resolve the target symbol's usable lookback from its verified card.
+
+    ``stats.years`` is the requested lookback, while the gateway-composed headline's X/Y
+    record reflects the completed observations actually returned. Preserve the user's current
+    lookback when available and step down to the available record when it is smaller.
+    """
+
+    if not isinstance(card, dict):
+        return preferred_years
+    stats = card.get("stats") if isinstance(card.get("stats"), dict) else card
+    requested = preferred_years if isinstance(preferred_years, int) else stats.get("years")
+    try:
+        requested = int(requested)
+    except (TypeError, ValueError):
+        requested = None
+    headline_stats = _card_headline_stats(card)
+    available = headline_stats[1] if headline_stats else None
+    if requested is not None and available is not None:
+        return min(requested, available)
+    return requested if requested is not None else available
+
+
+def _card_view_spec(card, symbol, viewer_year, preferred_years=None):
+    """Build the smallest concrete viewer spec from a verified read-tool card."""
+
+    if not isinstance(card, dict):
+        return {}
+    setup = card.get("setup") if isinstance(card.get("setup"), dict) else card
+    stats = card.get("stats") if isinstance(card.get("stats"), dict) else card
+    candidate = {"symbol": symbol}
+    if card.get("market") is not None:
+        candidate["market"] = str(card["market"])
+    entry_date = setup.get("entry_date") if isinstance(setup, dict) else None
+    if entry_date:
+        candidate["entry_date"] = _viewer_year_entry_date(entry_date, viewer_year)
+    hold_days = setup.get("hold_days") if isinstance(setup, dict) else None
+    if isinstance(hold_days, int) and not isinstance(hold_days, bool):
+        candidate["days_out"] = hold_days
+    years = _card_effective_years(card, preferred_years)
+    if years is not None:
+        candidate["years"] = years
+    return _validate_view_spec(candidate)
+
+
+def _enforce_named_symbol_action(
+    actions, cards, symbol, viewer_year, preferred_years=None
+):
+    """Keep a named-symbol override on that symbol and the current recurrence year.
+
+    Read tools can return a recurring setup anchored to the prior data year. The
+    wave viewer, however, must receive the same month/day in the current occurrence
+    year. If the model omitted the load action after reading the named symbol, derive
+    one from the verified card rather than leaving the old symbol on screen.
+    """
+
+    target = str(symbol or "").strip().upper()
+    if not target or not _VS_SYMBOL_RE.match(target):
+        return
+    actions[:] = [
+        action
+        for action in actions
+        if not (
+            isinstance(action, dict)
+            and action.get("type") == "set_view"
+            and isinstance(action.get("spec"), dict)
+            and action["spec"].get("symbol")
+            and str(action["spec"]["symbol"]).strip().upper() != target
+        )
+    ]
+    card = cards.get(target) if isinstance(cards, dict) else None
+    effective_years = _card_effective_years(card, preferred_years)
+    matching_action = None
+    for action in actions:
+        if not isinstance(action, dict) or action.get("type") != "set_view":
+            continue
+        spec = action.get("spec")
+        if not isinstance(spec, dict):
+            continue
+        action_symbol = str(spec.get("symbol") or "").strip().upper()
+        if action_symbol == target:
+            matching_action = action
+    if matching_action is not None:
+        spec = matching_action["spec"]
+        if spec.get("entry_date"):
+            spec["entry_date"] = _viewer_year_entry_date(
+                spec["entry_date"], viewer_year
+            )
+        if effective_years is not None:
+            spec["years"] = effective_years
+        matching_action["spec"] = _validate_view_spec(spec)
+        return
+
+    spec = _card_view_spec(card, target, viewer_year, preferred_years)
+    if {"symbol", "entry_date", "days_out"}.issubset(spec):
+        actions.append({"type": "set_view", "spec": spec})
+
+
+def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
+                       table_market=None, opp_table=None, user_token=None,
+                       opp_table_years=None, full_history_request=None,
+                       named_symbol_override=None, named_symbol_lookback=None):
+    """Execute one provider-neutral Tara tool call through the established safety path."""
+
+    inp = _apply_full_history_request(name, inp, full_history_request)
+    target_symbol = str(named_symbol_override or "").strip().upper()
+    effective_named_lookback = named_symbol_lookback
+    action_symbol = str(inp.get("symbol") or "").strip().upper()
+    if (
+        target_symbol
+        and action_symbol == target_symbol
+        and isinstance(named_symbol_lookback, int)
+        and name in {"analyze_symbol", "get_symbol_patterns", "update_view"}
+    ):
+        target_market = inp.get("market") or table_market
+        available_years = _symbol_max_available_years(
+            target_market, target_symbol, user_token
+        )
+        if available_years is not None:
+            effective_named_lookback = min(named_symbol_lookback, available_years)
+    if (
+        target_symbol
+        and isinstance(effective_named_lookback, int)
+        and name in {"analyze_symbol", "get_symbol_patterns"}
+        and action_symbol == target_symbol
+    ):
+        inp = dict(inp)
+        inp["years"] = effective_named_lookback
+    if name == "update_view":                       # client-side UI action, not a gateway call
+        if (
+            target_symbol
+            and isinstance(effective_named_lookback, int)
+            and action_symbol == target_symbol
+        ):
+            inp = dict(inp)
+            inp["years"] = effective_named_lookback
+        cleaned = _validate_view_spec(inp)
+        if cleaned:
+            actions.append({"type": "set_view", "spec": cleaned})
+            return {"ok": True, "applied": cleaned}
+        return {"ok": False, "error": "no valid view fields to apply"}
+
+    if name == "find_best_opportunities":
+        # Screen from OppList4 (the opp-table data path) so the answer == the on-screen table;
+        # /scan is a different path that names different tickers (see _opplist4_rows note).
+        target = _single_market_id(inp.get("markets"))
+        blocking = bool(set(inp.keys()) & _TABLE_BLOCKING_FILTERS)
+        screen_rows = None
+        if target is not None and not blocking:
+            if table_market == target and opp_table:
+                screen_rows = _filter_table_rows(opp_table, inp)   # exact on-screen rows
+            else:
+                fetched = _opplist4_rows(target, user_token, opp_table_years)
+                screen_rows = _filter_table_rows(fetched, inp) if fetched else None
+                if table_market != target:        # switch the table so the screen follows the names
+                    _append_market_switch(actions, target)
+        if screen_rows:
+            out = _rows_to_scan_cards(screen_rows, target)
+        else:
+            out = _briefify(run_tool(name, inp, user_id))  # multi-market / blocking / loopback-failed
+            if target is not None and table_market != target:
+                _append_market_switch(actions, target)
+    else:
+        out = _briefify(run_tool(name, inp, user_id))
+
+    _index_cards(out, cards, card_list)
+    return out
+
+
 def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
-                        opp_table=None, opp_table_market=None, user_token=None, opp_table_years=None):
+                        opp_table=None, opp_table_market=None, user_token=None,
+                        opp_table_years=None, full_history_request=None,
+                        named_symbol_override=None, named_symbol_lookback=None,
+                        viewer_entry_year=None):
     """Run the Tara chat with gateway tool-use. `messages` ends with the user turn. Returns
     (final_text, actions): the assistant TEXT plus any UI actions the model requested (Phase 2,
     e.g. [{'type':'set_view','spec':{...}}]). Read tools (scan/analyze/...) are executed as
@@ -716,37 +1045,21 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             if b.get("type") != "tool_use":
                 continue
             name, inp = b.get("name"), (b.get("input") or {})
-            if name == "update_view":                       # client-side UI action, not a gateway call
-                cleaned = _validate_view_spec(inp)
-                if cleaned:
-                    actions.append({"type": "set_view", "spec": cleaned})
-                    out = {"ok": True, "applied": cleaned}
-                else:
-                    out = {"ok": False, "error": "no valid view fields to apply"}
-            elif name == "find_best_opportunities":
-                # Screen from OppList4 (the opp-table data path) so the answer == the on-screen table;
-                # /scan is a different path that names different tickers (see _opplist4_rows note).
-                target = _single_market_id(inp.get("markets"))
-                blocking = bool(set(inp.keys()) & _TABLE_BLOCKING_FILTERS)
-                screen_rows = None
-                if target is not None and not blocking:
-                    if table_market == target and opp_table:
-                        screen_rows = _filter_table_rows(opp_table, inp)   # exact on-screen rows
-                    else:
-                        fetched = _opplist4_rows(target, user_token, opp_table_years)
-                        screen_rows = _filter_table_rows(fetched, inp) if fetched else None
-                        if table_market != target:        # switch the table so the screen follows the names
-                            _append_market_switch(actions, target)
-                if screen_rows:
-                    out = _rows_to_scan_cards(screen_rows, target)
-                else:
-                    out = _briefify(run_tool(name, inp, user_id))      # multi-market / blocking-filter / loopback-failed
-                    if target is not None and table_market != target:
-                        _append_market_switch(actions, target)
-                _index_cards(out, cards, card_list)
-            else:
-                out = _briefify(run_tool(name, inp, user_id))
-                _index_cards(out, cards, card_list)
+            out = _execute_tara_tool(
+                name,
+                inp,
+                user_id,
+                actions,
+                cards,
+                card_list,
+                table_market=table_market,
+                opp_table=opp_table,
+                user_token=user_token,
+                opp_table_years=opp_table_years,
+                full_history_request=full_history_request,
+                named_symbol_override=named_symbol_override,
+                named_symbol_lookback=named_symbol_lookback,
+            )
             results.append({
                 "type": "tool_result",
                 "tool_use_id": b.get("id"),
@@ -761,6 +1074,105 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                                           cache_system=True, cache_ttl=cache_ttl)
     # Deterministic guard: guarantee the loaded pick is NAMED (symbol + lookback + stat), since
     # Haiku-4.5 intermittently returns a bare 'Loaded on the chart' with no symbol.
+    _enforce_full_history_action(actions, full_history_request)
+    _enforce_named_symbol_action(
+        actions, cards, named_symbol_override, viewer_entry_year,
+        preferred_years=named_symbol_lookback,
+    )
     final_text = _ensure_load_named(final_text, actions, cards, card_list)
     final_text = _break_before_cta(final_text)   # closing CTA never runs onto the last list line
+    return final_text, actions
+
+
+def run_chat_with_openai_tools(messages, system, user_id, model,
+                               opp_table=None, opp_table_market=None,
+                               user_token=None, opp_table_years=None,
+                               full_history_request=None,
+                               named_symbol_override=None,
+                               named_symbol_lookback=None,
+                               viewer_entry_year=None):
+    """Run Tara's existing gateway tool loop through the OpenAI Responses API.
+
+    Tool execution, result trimming, ViewSpec validation, table-screen interception, and
+    deterministic narration guards are shared with the Anthropic path above.  Responses are
+    stateless (``store:false`` in the adapter), so each round carries the prior output items and
+    matching ``function_call_output`` items forward explicitly.
+    """
+
+    input_items = build_responses_input(messages, system=system)
+    cache_key = prompt_cache_key(user_id)
+    actions = []
+    cards = {}
+    card_list = []
+    table_market = str(opp_table_market) if opp_table_market not in (None, "") else None
+    final_text = None
+
+    for _ in range(_MAX_TOOL_ROUNDS):
+        response = send_openai_response(
+            input_items,
+            model=model,
+            tools=TOOLS,
+            cache_key=cache_key,
+        )
+        calls = function_calls(response)
+        if not calls:
+            final_text = response_text(response)
+            break
+
+        output_items = response.get("output", [])
+        if not isinstance(output_items, list):
+            raise OpenAIAPIError("OpenAI response output was not a list")
+        input_items.extend(output_items)
+        results = []
+        for call in calls:
+            call_id = call.get("call_id") or call.get("id")
+            if not call_id:
+                raise OpenAIAPIError("OpenAI function call omitted call_id")
+            try:
+                inp = decode_function_arguments(call)
+                out = _execute_tara_tool(
+                    call.get("name"),
+                    inp,
+                    user_id,
+                    actions,
+                    cards,
+                    card_list,
+                    table_market=table_market,
+                    opp_table=opp_table,
+                    user_token=user_token,
+                    opp_table_years=opp_table_years,
+                    full_history_request=full_history_request,
+                    named_symbol_override=named_symbol_override,
+                    named_symbol_lookback=named_symbol_lookback,
+                )
+            except OpenAIAPIError:
+                # Feed a bounded, narration-safe error back to the model rather than executing
+                # malformed arguments. Provider/API failures still propagate for Haiku fallback.
+                out = {"ok": False, "error": "invalid tool arguments"}
+            results.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": _bounded_json(out),
+                }
+            )
+        input_items.extend(results)
+
+    if not final_text:
+        response = send_openai_response(
+            input_items,
+            model=model,
+            cache_key=cache_key,
+        )
+        final_text = response_text(response)
+    if not final_text:
+        raise OpenAIAPIError("OpenAI returned no assistant text")
+
+    _enforce_full_history_action(actions, full_history_request)
+    _enforce_named_symbol_action(
+        actions, cards, named_symbol_override, viewer_entry_year,
+        preferred_years=named_symbol_lookback,
+    )
+    final_text = _ensure_load_named(final_text, actions, cards, card_list)
+    final_text = _break_before_cta(final_text)
     return final_text, actions

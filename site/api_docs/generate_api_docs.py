@@ -1754,7 +1754,7 @@ def build_data_dictionary() -> str:
     <tr>
       <td class="field-name">days_out</td>
       <td class="field-type">integer</td>
-      <td>The holding period in calendar days. The pattern's historical win/loss statistics are measured at this exit point. Example: 22 means the exit is 22 calendar days after entry.</td>
+      <td>The inclusive holding period in calendar days, counting the entry date as day 1. The end date is <code class="inline-code">entry_date + (days_out - 1)</code>; for example, 22 days means the exit is 21 calendar days after entry.</td>
     </tr>
     <tr>
       <td class="field-name">years</td>

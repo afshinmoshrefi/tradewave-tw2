@@ -307,7 +307,8 @@ class Client:
             market: Permanent resource key ``'0'..'16'``. Optional - resolved if
                 the symbol is unique.
             direction: ``'long'`` or ``'short'``.
-            days_out: Holding period in days.
+            days_out: Inclusive holding period in calendar days. The entry date is
+                day 1, so the end date is ``entry_date + (days_out - 1)``.
 
         Maps to ``GET /analyze/{symbol}``.
         """
@@ -355,7 +356,8 @@ class Client:
             market: Market id ``'0'..'16'`` (required).
             symbol: The symbol (required).
             entry_date: Start of the annual cycle (``YYYY-MM-DD``).
-            days_out: Echoed for parity; does not change the full-cycle curve.
+            days_out: Inclusive calendar-day count (entry date is day 1). Echoed
+                for parity; does not change the full-cycle curve.
             direction: ``'long'`` or ``'short'``.
             years: Lookback window label (stays a string).
 
@@ -385,6 +387,7 @@ class Client:
         Args:
             opportunities: A list of dicts, each with the keys ``symbol``,
                 ``date``, ``days_out``, ``direction`` (and optional ``market``).
+                ``days_out`` is inclusive calendar days and ``date`` is day 1.
 
         Returns a :class:`~tradewave.models.ScoreResult` with the scored items,
         ``granted`` (how many were actually scored) and ``ml_remaining_today``.

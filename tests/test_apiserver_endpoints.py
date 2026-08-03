@@ -455,6 +455,26 @@ def test_analyze_carries_disclaimer_and_extend_research(client, monkeypatch):
     assert "extend_research" in body["card"]
 
 
+def test_analyze_custom_lookback_uses_matching_symbol_detection_band(client, monkeypatch):
+    from apiserver import appserver_client as ac
+
+    seen = {}
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()])
+
+    def by_symbol(market, symbol, **kwargs):
+        seen.update(market=market, symbol=symbol, **kwargs)
+        return [_opp()]
+
+    monkeypatch.setattr(ac, "opportunities_by_symbol", by_symbol)
+
+    response = client.get("/v1/analyze/AAPL?market=2&years=16", headers=_hdr())
+
+    assert response.status_code == 200
+    assert seen["year1"] == "16"
+    assert seen["year2"] == "14"
+    assert response.get_json()["card"]["stats"]["years"] == "16"
+
+
 def test_analyze_include_chart_attaches_inline(client, monkeypatch):
     _mock_card_chain(monkeypatch, by_symbol=[_opp()],
                      curve=[{"date": "2026-07-01", "index": 40.0}, {"date": "2026-07-02", "index": 41.0}])

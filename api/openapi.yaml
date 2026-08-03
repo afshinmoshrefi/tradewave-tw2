@@ -102,7 +102,7 @@ paths:
         - { name: symbol, in: path, required: true, schema: { type: string } }
         - { name: market, in: query, schema: { type: string }, description: "permanent resource key '0'..'16'. Optional - resolved if the symbol is unique." }
         - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
-        - { name: days_out, in: query, schema: { type: integer }, description: "holding period in days (internal: daysOut). With entry_date, pins the exact window." }
+        - { name: days_out, in: query, schema: { type: integer }, description: "inclusive calendar-day count; entry day is day 1 and end = entry_date + (days_out - 1). With entry_date, pins the exact window." }
         - { name: entry_date, in: query, schema: { type: string, format: date }, description: "YYYY-MM-DD. Pin analysis to THIS exact opportunity instead of the auto-picked best." }
         - { name: pe_cycle, in: query, schema: { type: string, enum: [consecutive, pe] }, description: "score over presidential-election-cycle years (same phase as the entry year) instead of consecutive. Default consecutive." }
         - { name: years, in: query, schema: { type: integer, minimum: 1, maximum: 99 }, description: "lookback length (default 10)." }
@@ -271,7 +271,7 @@ paths:
         - { name: symbol, in: path, required: true, schema: { type: string } }
         - { name: pe_cycle, in: query, schema: { type: string, enum: [consecutive, pe, pe0, pe1, pe2, pe3], default: consecutive }, description: "presidential cycle: consecutive (default), pe (current position), or a specific position pe0..pe3 (PE+0 = election years, PE+2 = current in 2026)" }
         - { name: years, in: query, schema: { type: integer, default: 10 }, description: "lookback count (years, or number of cycle occurrences when pe_cycle is a pe* value)" }
-        - { name: days_out, in: query, schema: { type: integer, default: 30 } }
+        - { name: days_out, in: query, schema: { type: integer, default: 30 }, description: "inclusive calendar-day count; entry day is day 1" }
         - { name: period, in: query, schema: { type: string, enum: [jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec, q1, q2, q3, q4, spring, summer, fall, winter, ytd, year_end, buy_hold] }, description: "date-range PRESET (overrides entry_date/days_out): a month, quarter, season, ytd, year_end, or buy_hold" }
         - { name: reverse, in: query, schema: { type: boolean }, description: "use the COMPLEMENT of the window (e.g. period=mar&reverse=true = all year except March). buy_hold cannot be reversed." }
       summary: Seasonal pattern stats for a symbol (aggregate stats, no price series)
@@ -296,7 +296,7 @@ paths:
         - { name: market, in: query, required: true, schema: { type: string } }
         - { name: symbol, in: query, required: true, schema: { type: string } }
         - { name: entry_date, in: query, schema: { type: string, format: date } }
-        - { name: days_out, in: query, schema: { type: integer } }
+        - { name: days_out, in: query, schema: { type: integer }, description: "inclusive calendar-day count; entry day is day 1" }
         - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
         - { name: years, in: query, schema: { type: string }, description: "lookback window, stays a string" }
         - { name: pe_cycle, in: query, schema: { type: string, enum: [consecutive, pe, pe0, pe1, pe2, pe3], default: consecutive }, description: "presidential cycle for the curve: consecutive (default), pe (current position), or a specific position pe0..pe3" }
@@ -470,7 +470,7 @@ components:
         market: { type: string }
         direction: { type: string, enum: [long, short], description: "long or short - which side of the seasonal pattern the stats assume" }
         entry_date: { type: string, format: date }
-        days_out: { type: integer, description: "holding period in days (internal: daysOut)" }
+        days_out: { type: integer, description: "inclusive holding period in calendar days; entry day is day 1 and end = entry_date + (days_out - 1)" }
         sharpe_ratio: { type: number }
         avg_profit_pct: { type: number }
         median_profit_pct: { type: number }
@@ -534,7 +534,7 @@ components:
       properties:
         entry_date: { type: string, format: date }
         entry_window: { type: string, description: "tolerance range (a few trading days), e.g. '2026-07-08 to 2026-07-15'" }
-        hold_days: { type: integer, description: "seasonal hold in calendar days" }
+        hold_days: { type: integer, description: "inclusive seasonal hold in calendar days; entry day is day 1" }
         exit_date: { type: string, format: date }
         timing: { $ref: "#/components/schemas/SeasonalTiming", nullable: true, description: "where the entry window sits relative to today (days_to_entry + a plain-language status); null when there is no entry date" }
     PatternStats:
@@ -781,7 +781,7 @@ components:
             properties:
               symbol: { type: string }
               date: { type: string, format: date }
-              days_out: { type: integer }
+              days_out: { type: integer, description: "inclusive calendar-day count; entry day is day 1" }
               direction: { type: string, enum: [long, short] }
     MLScore:
       type: object
@@ -820,7 +820,7 @@ components:
         market: { type: string }
         direction: { type: string, enum: [long, short] }
         entry_date: { type: string, format: date, description: "start of the annual cycle (chart_start_date)" }
-        days_out: { type: integer, nullable: true, description: "echoed for parity; does not change the full-cycle curve" }
+        days_out: { type: integer, nullable: true, description: "inclusive calendar-day count (entry day is day 1); echoed for parity and does not change the full-cycle curve" }
         years: { type: string, description: "lookback window label, stays a string" }
         win_rate: { type: number, nullable: true, description: "REAL historical win rate, 0..1, from ChartData4 'Percent Profitable' (same as /patterns)." }
         seasonal_curve:
@@ -845,7 +845,7 @@ components:
         symbol: { type: string }
         featured_date: { type: string, format: date }
         direction: { type: string, enum: [long, short] }
-        days_out: { type: integer }
+        days_out: { type: integer, description: "inclusive calendar-day count; entry day is day 1" }
         pattern_summary: { type: string }
         ml: { $ref: "#/components/schemas/MLScore" }
     TrackRecord:

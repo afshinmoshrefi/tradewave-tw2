@@ -29,6 +29,8 @@ import { BsChatDotsFill, BsChatDots } from "react-icons/bs";
 import CheckBox from './CheckBox'
 import { themeColors, setCookie } from './Common'
 import { twFetch } from './twFetch'
+import { EMPTY_DAY_RANGE, getOpportunityDayRange } from './opportunityFilters'
+import { resolveOpportunityRecurrence } from './opportunityRecurrence'
 
 const OppTable = (props) => {
   const tc = themeColors(props.UITheme)
@@ -55,6 +57,14 @@ const OppTable = (props) => {
   const [oppLoadFailed, SetOppLoadFailed] = useState(false)  // OppList4 failed after twFetch retries - show manual Retry
   const [oppRetryNonce, SetOppRetryNonce] = useState(0)      // bumped by the Retry button to re-run the fetch effect
 
+  // A cleared raw table means any previously published filtered/sorted snapshot is stale.
+  // Null lets Chatbot distinguish "not processed yet" from a real filter result of zero rows.
+  useEffect(() => {
+    if (props.opportunities.length === 0 && typeof props.SetVisibleOpportunities === 'function') {
+      props.SetVisibleOpportunities(null)
+    }
+  }, [props.opportunities.length, props.SetVisibleOpportunities])
+
   const [numLongs, SetNumLongs] = useState(0);     // used to show longs vs shorts breakdown on the opp table
   const [numShorts, SetNumShorts] = useState(0);   // used to show longs vs shorts breakdown on the opp table
 
@@ -67,7 +77,7 @@ const OppTable = (props) => {
   const [mlPending, SetMLPending] = useState(new Set())        // keys still waiting for scores (show spinner)
   const mlFetchIdRef = useRef(0)                               // prevents stale ML fetches from writing state
 
-  const [dayRange, SetDayRange] = useState('-'); // dash is empty - its used to send the day range to opplist4 `12/2/2023
+  const [dayRange, SetDayRange] = useState(EMPTY_DAY_RANGE); // dash is empty - its used to send the day range to opplist4 `12/2/2023
   // (declared up here, not next to the search textbox below: it is a dep of the OppList4
   //  fetch effect, and a deps array that references a const declared later in the file
   //  is a temporal-dead-zone ReferenceError at render - it blanked the whole panel)
@@ -731,6 +741,7 @@ const OppTable = (props) => {
 
     if (props.opportunities.length === 0 || !mlEnabled || isMobilePortrait || tooFarAhead) {
       SetMLScores({})
+      SetMLScoresLoading(false)
       SetMLPending(new Set())
       return
     }
@@ -875,8 +886,27 @@ const OppTable = (props) => {
   // when an opportunity row is clicked in TableBox, this runs
   //-------------------------------------------------------------------------------------------------------
   const handlerRowClicked = (rowIndex, row) => (event) => { // this is to handleRowClicked in TableBox
-    if (props.rowIndexClicked !== rowIndex) {
+    const sameOpportunity =
+      props.rowIndexClicked === rowIndex &&
+      props.symbol === row.symbol &&
+      props.startDate === row.date &&
+      parseInt(props.daysOut, 10) === parseInt(row.daysOut, 10)
+    if (!sameOpportunity) {
       const opp_start_date = row.date;
+
+      // Invalidate every payload that belongs to the previously selected
+      // opportunity before assigning the new row identity. Stale statistics
+      // must never remain visible under the new ticker/date.
+      props.SetSeasonalBarChartData([])
+      props.SetTradeDetailData([])
+      props.SetConsolidatedSeasonalData([])
+      props.SetMaxYearsConsolidatedSeasonalData([])
+      props.SetCompareSecurityBarChartData([])
+      props.SetCompareSecurityTradeDetailData([])
+      props.SetSecurityBHstats([])
+      props.SetLineChartYear(0)
+      if (props.symbol !== row.symbol) props.SetCompany('')
+
       props.SetStartDate(opp_start_date);
       props.SetLastPrice(['', 0]) // reset last price 6/23/2022
       props.SetSymbol(row.symbol);
@@ -896,14 +926,8 @@ const OppTable = (props) => {
 
       props.SetMonthsAndQtrs('Months & Qtrs')
 
-      if (
-        props.symbol !== row.symbol ||
-        props.seasonalYears !== props.oppTableYears
-      ) {
-        props.SetConsolidatedSeasonalData([])
-        const trend_chart_start_date = incrementDate(opp_start_date, -trend_chart_left_gap_days);
-        props.SetTrendChartStartDate(trend_chart_start_date)
-      }
+      const trend_chart_start_date = incrementDate(opp_start_date, -trend_chart_left_gap_days);
+      props.SetTrendChartStartDate(trend_chart_start_date)
       props.SetRowIndexClicked(rowIndex);
     }
   }
@@ -1019,24 +1043,14 @@ const OppTable = (props) => {
   const handleClearFilter = (e) => {
     e.preventDefault()
     SetCurText('')
-    SetDayRange('-')
-    props.SetOpportunities([])
+    SetDayRange(EMPTY_DAY_RANGE)
   }
 
   const handleSelectHistoryItem = (item) => {
     if (filterBlurTimer.current) clearTimeout(filterBlurTimer.current)
     SetCurText(item)
     SetShowFilterHistory(false)
-    const segments = item.split(';').map(s => s.trim()).filter(s => s.length > 0)
-    let found = false
-    for (const seg of segments) {
-      if (/^\d+\s*-\s*\d+$/.test(seg)) {
-        const [a, b] = seg.split('-').map(s => parseInt(s.trim(), 10))
-        if (!isNaN(a) && !isNaN(b) && b > a) { SetDayRange(seg); found = true; break }
-      }
-    }
-    if (!found) SetDayRange('-')
-    props.SetOpportunities([])
+    SetDayRange(getOpportunityDayRange(item))
   }
 
   // Portal dropdown - renders at document.body to escape any overflow:hidden parent
@@ -1076,42 +1090,12 @@ const OppTable = (props) => {
   //-------------------------------------------------------------------------------------------------------
 
   const handleOnChange = (event) => {
-    const newText = event.target.value.trim();
-    SetCurText(newText);
-
-    // Split the filter text by semicolons (if present)
-    const segments = newText
-      .split(';')
-      .map(seg => seg.trim())
-      .filter(seg => seg.length > 0);
-
-    let foundDayRange = false;
-    let dayRangeVal = '-';  // Use '-' (as per your original logic)
-
-    // Look for exactly one valid day-range filter among the segments, e.g. "10-40"
-    for (const seg of segments) {
-      // Regex to match "<digits> - <digits>"
-      if (/^\d+\s*-\s*\d+$/.test(seg)) {
-        const [n1Str, n2Str] = seg.split('-');
-        const n1 = parseInt(n1Str.trim(), 10);
-        const n2 = parseInt(n2Str.trim(), 10);
-
-        // Check that n1 < n2 and both are valid numbers
-        if (!isNaN(n1) && !isNaN(n2) && n2 > n1) {
-          foundDayRange = true;
-          dayRangeVal = seg;  // e.g., "10-40"
-          break;              // Stop after finding the first valid range
-        }
-      }
-    }
-
-    if (foundDayRange) {
-      SetDayRange(dayRangeVal);
-      // Clear the opportunities so they will refresh or re-fetch
-      props.SetOpportunities([]);
-    } else {
-      SetDayRange('-');
-    }
+    // Only the day range changes the server query. Client-side predicates such
+    // as AVGP, SR, and ticker must preserve the rows returned for that range;
+    // clearing them under an unchanged URL leaves the deduplicated query empty.
+    const newText = event.target.value
+    SetCurText(newText)
+    SetDayRange(getOpportunityDayRange(newText))
   };
 
   //-------------------------------------------------------------------------------------------------------
@@ -1402,20 +1386,40 @@ const OppTable = (props) => {
     }
 
     const next = !props.showPEOpps;
-    props.SetShowPEOpps(next);
-    setCookie('showPEOpps', next.toString(), 300);
-    props.SetOpportunities([]);   // force refetch
-
-    // When switching TO PE mode, snap years to a valid PE year (target: 10)
-    // so the years selectbox and partial years list stay consistent
-    if (next && peMetaAvailable) {
-      const peYears = [...new Set(props.yearsMetaDataPE.map(item => parseInt(item[0])))].sort((a, b) => a - b);
-      const TARGET = 10;
-      const below = peYears.filter(y => y <= TARGET);
-      const validYear = below.length > 0 ? below[below.length - 1] : peYears[0];
-      props.SetOppTableYears(validYear.toString());
-      props.SetOppTablePartialYears(-1);
+    const currentYears = parseInt(props.oppTableYears, 10)
+    const currentPartialYears = parseInt(props.oppTablePartialYears, 10)
+    if (
+      typeof props.SaveOppYearsForGroup === 'function' &&
+      currentYears > 0 &&
+      currentPartialYears > 0
+    ) {
+      props.SaveOppYearsForGroup(
+        props.selectedSecurity,
+        currentYears,
+        currentPartialYears,
+        props.showPEOpps,
+      )
     }
+
+    const saved = typeof props.GetOppYearsForGroup === 'function'
+      ? props.GetOppYearsForGroup(props.selectedSecurity, next)
+      : [props.oppTableYears, props.oppTablePartialYears]
+    const targetMeta = next ? props.yearsMetaDataPE : props.yearsMetaData
+    const resolved = resolveOpportunityRecurrence(
+      targetMeta,
+      saved[0],
+      saved[1],
+      maxYearsCap(),
+    )
+
+    ReactDOM.unstable_batchedUpdates(() => {
+      props.SetShowPEOpps(next);
+      props.SetPEOppsChecked(next);
+      props.SetOpportunities([]);
+      props.SetOppTableYears(resolved ? resolved.years : String(saved[0]));
+      props.SetOppTablePartialYears(resolved ? resolved.partialYears : String(saved[1]));
+    })
+    setCookie('showPEOpps', next.toString(), 300);
   }
 
 
@@ -1566,6 +1570,7 @@ const OppTable = (props) => {
                 'For a day range of 30 to 60 days, type "30-60". ' +
                 'To filter by Sharpe Ratio, type "SR>2". ' +
                 'For Average Profit, type "AP>10" or "AVGP>10". ' +
+                'AI examples: "WIN>70", "PREDR>3", "ML>70", or "PMFE>8". ' +
                 'You can also do a default text search by typing any keyword, like "AAPL". '
                 : ''
             }
@@ -1595,6 +1600,7 @@ const OppTable = (props) => {
                 filterText={curText}
                 tooltipSW={props.tooltipSW}
                 SetOppTableLength={props.SetOppTableLength}
+                SetVisibleOpportunities={props.SetVisibleOpportunities}
                 showSR2={props.showSR2}
                 showAciveOpps={props.showActiveOpps}
                 upgradeMessage={props.upgradeMessage}

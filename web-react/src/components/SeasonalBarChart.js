@@ -25,6 +25,7 @@ import { brand, trend_chart_left_gap_days, minYears, sameResourceFamily } from '
 import { maxYearsCap } from './Common'
 import { checkTokenExpired } from './Common'
 import { markCaptureReady, clearCaptureReady } from './captureReady'
+import { VIEWER_CYCLE_CHANGE_EVENT, isViewerCycle, transitionViewerCycleState } from './viewerCycleState'
 
 // import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 // import { faFileExcel, faHome } from "@fortawesome/free-solid-svg-icons";
@@ -52,6 +53,7 @@ const SeasonalBarChart = (props) => {
   const reqTrendRef = useRef(0)
   const reqMaxTrendRef = useRef(0)
   const reqOppBySymbolRef = useRef(0)
+  const cycleViewStatesRef = useRef({})
   // Ordering guard shared by the manual ticker-entry/resolution paths (handleBlur, handleEnter,
   // handleWatchlistItemClick, resolveSymbolAcrossMarkets) - these fire bare twFetch calls with
   // no AbortController, so two in-flight resolutions could otherwise land out of order and let
@@ -331,6 +333,14 @@ const SeasonalBarChart = (props) => {
     const reqId = ++reqChartRef.current
     const controller = new AbortController()
     clearCaptureReady('seasonal')
+
+    // The request identity changed, so prior chart/statistics payloads cannot
+    // remain visible under the new controls while this request is in flight.
+    props.SetSeasonalBarChartData([])
+    props.SetTradeDetailData([])
+    props.SetCompareSecurityBarChartData([])
+    props.SetCompareSecurityTradeDetailData([])
+    props.SetSecurityBHstats([])
 
 
     const asURL = appserverURL()
@@ -747,7 +757,9 @@ const SeasonalBarChart = (props) => {
         const placeholder = [{ id: 0, value: '', label: 'Best Waves' }] // no decorative dashes - the select sizes to the selected option and this row is width-critical
         const options = t.OppBySymbol.map((row, i) => {
           const date = row[0]
-          const daysOut = row[2]
+          // OppBySymbol stores the legacy engine offset. The viewer label/state uses
+          // inclusive calendar days (entry day = day 1), matching the main opp table.
+          const daysOut = parseInt(row[2], 10) + 1
           const lOrS = row[3]
           const sharpe = row[4]
           const avgProfit = row[5]
@@ -1068,6 +1080,69 @@ const SeasonalBarChart = (props) => {
   }
   //-----------------------------------------------------------------------------------------------------------
 
+  const bumpStartDateYearToPE = (startDate, peValue) => {
+    const target = { pe0: 0, pe1: 1, pe2: 2, pe3: 3 }[peValue]
+    if (target === undefined) return startDate
+
+    const baseYear = parseInt(getTodayDate().substring(0, 4), 10) // anchor to now
+    const [, mm, dd] = startDate.split('-')
+    const delta = (target - (baseYear % 4) + 4) % 4
+    const newYear = baseYear + delta
+    return `${newYear}-${mm}-${dd}`
+  }
+
+  const changeViewerCycle = (nextCycle) => {
+    if (!isViewerCycle(nextCycle)) return
+    const currentCycle = props.PEselected || 'cons'
+    if (nextCycle === currentCycle) return
+
+    const currentView = {
+      startDate: props.startDate,
+      trendChartStartDate: props.trendChartStartDate,
+      seasonalYears: String(props.seasonalYears),
+    }
+    const nextStartDate = nextCycle === 'cons'
+      ? props.startDate
+      : bumpStartDateYearToPE(props.startDate, nextCycle)
+    const defaultNextView = {
+      startDate: nextStartDate,
+      trendChartStartDate: incrementDate(nextStartDate, -trend_chart_left_gap_days),
+      seasonalYears: String(props.seasonalYears),
+    }
+    const transition = transitionViewerCycleState({
+      savedStates: cycleViewStatesRef.current,
+      currentCycle,
+      nextCycle,
+      currentView,
+      defaultNextView,
+    })
+    cycleViewStatesRef.current = transition.savedStates
+
+    props.SetPEselected(nextCycle)
+    props.SetStartDate(transition.nextView.startDate)
+    props.SetTrendChartStartDate(transition.nextView.trendChartStartDate)
+    props.SetSeasonalYears(transition.nextView.seasonalYears)
+    props.SetLineChartYear(0)
+    props.SetSeasonalBarChartData([])
+    props.SetTradeDetailData([])
+    props.SetConsolidatedSeasonalData([])
+    props.SetMaxYearsConsolidatedSeasonalData([])
+    props.SetCompareSecurityBarChartData([])
+    props.SetCompareSecurityTradeDetailData([])
+    props.SetSecurityBHstats([])
+    setSelectedOppBySymbol('')
+  }
+
+  // Tara's cycle-comparison links use the same transition as the selector, including
+  // preserving each cycle view's date and lookback when the user switches back.
+  useEffect(() => {
+    const handleCycleLink = event => changeViewerCycle(event?.detail?.cycle)
+    window.addEventListener(VIEWER_CYCLE_CHANGE_EVENT, handleCycleLink)
+    return () => window.removeEventListener(VIEWER_CYCLE_CHANGE_EVENT, handleCycleLink)
+  })
+
+  //-----------------------------------------------------------------------------------------------------------
+
   const selectboxChanged = (event) => {
 
     console.log('select changed', event.target.id)
@@ -1080,19 +1155,6 @@ const SeasonalBarChart = (props) => {
     }
 
     // 
-
-    const bumpStartDateYearToPE = (startDate, peValue) => {
-      const target = { pe0: 0, pe1: 1, pe2: 2, pe3: 3 }[peValue];
-      if (target === undefined) return startDate;
-
-      const baseYear = parseInt(getTodayDate().substring(0, 4), 10); // anchor to now
-      const [, mm, dd] = startDate.split('-');
-
-      const delta = (target - (baseYear % 4) + 4) % 4;
-      const newY = baseYear + delta;
-
-      return `${newY}-${mm}-${dd}`;
-    };
 
     if (event.target.id === 'years') {
       const newYears = event.target.value.toLowerCase();
@@ -1129,19 +1191,7 @@ const SeasonalBarChart = (props) => {
     }
 
     if (event.target.id === 'PEselection') {
-      props.SetPEselected(event.target.value);
-
-      // If selecting a PE cycle, advance startDate to the next matching cycle year
-      if (event.target.value !== 'cons') {
-        const bumped = bumpStartDateYearToPE(props.startDate, event.target.value);
-
-        if (bumped !== props.startDate) {
-          props.SetStartDate(bumped);
-          const trend_chart_start_date = incrementDate(bumped, -trend_chart_left_gap_days);
-          props.SetTrendChartStartDate(trend_chart_start_date);
-          props.SetConsolidatedSeasonalData([]);
-        }
-      }
+      changeViewerCycle(event.target.value)
     }
 
     if (event.target.id === 'monthsAndQtrs') {
@@ -2414,5 +2464,3 @@ const SeasonalBarChart = (props) => {
 }
 
 export default SeasonalBarChart
-
-

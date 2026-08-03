@@ -85,6 +85,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 import config
 import config_autotrade
+from featured_patterns import is_hundred_year_chart_request
 from pprint import pprint
 from tradier_api import get_quotes, get_creditspreads_for_opportunity,get_accounting_info,desired_selections_bullish_bearish,get_positions
 from tradier_api import get_orders,cancel_order,get_brokerage_clock,get_position_from_filled_order,get_one_order # 1/2/2024
@@ -100,6 +101,7 @@ except ImportError:
     pass
 
 from chatbot import chatbot_bp  # Import the chatbot Blueprint
+from tara_ai_analysis import build_analysis_score_plan, finalize_analysis_score_context
 
 
 # from appserver_apis import get_remote_OppList4, get_remote_chart_data4, get_remote_YearsMetaData2, get_remote_History2, get_remote_StockMetaData, get_remote_ListSymbols, get_remote_StockLastPrice, get_remote_StockPriceByDate, get_remote_consolidated_seasonal_chart2, get_remote_security_price
@@ -1723,6 +1725,144 @@ def _ml_tier(days_out):
     return None
 
 
+def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
+    """Return current-condition ML context for Tara's loaded-pattern analysis.
+
+    The web AI table and Tara share the same entitlement check, Redis keys, provider,
+    and daily cache.  For a chart window longer than 90 displayed calendar days, the
+    returned readings are explicitly bounded 30/60/90-day checkpoints; they are never
+    labeled as a score of the full pattern.
+    """
+
+    userid, _userlevel = _ml_check_access(token)
+    if userid is None:
+        return None
+    market = str((wave_viewer or {}).get('market') or fallback_market or '').strip()
+    if market not in config.ml_score_resource_ids:
+        return None
+
+    plan = build_analysis_score_plan(wave_viewer)
+    if not plan:
+        return None
+    if plan.get('status') != 'ready':
+        return finalize_analysis_score_context(plan)
+
+    opportunities = list(plan.get('opportunities') or ())
+    score_map = {}
+    misses = []
+    for opp in opportunities:
+        rkey = _ml_redis_key(
+            opp['symbol'], opp['date'], int(opp['daysOut']), opp['direction']
+        )
+        cached = redis_client.get(rkey)
+        if cached is None:
+            misses.append(opp)
+            continue
+        try:
+            score_map[opp['score_key']] = json.loads(cached)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            misses.append(opp)
+
+    if misses:
+        by_tier = {}
+        for opp in misses:
+            tier = _ml_tier(int(opp['daysOut']))
+            if tier is not None:
+                by_tier.setdefault(tier, []).append(opp)
+
+        def score_tier(tier_and_opps):
+            tier, tier_opps = tier_and_opps
+            provider_opps = [
+                {
+                    'symbol': opp['symbol'],
+                    'date': opp['date'],
+                    'daysOut': int(opp['daysOut']),
+                    'direction': opp['direction'],
+                }
+                for opp in tier_opps
+            ]
+            try:
+                response = requests.post(
+                    f'{config.ml_scorer_url}/score',
+                    json={'opportunities': provider_opps, 'tier': tier},
+                    timeout=12,
+                )
+                if response.status_code != 200:
+                    logging.warning(
+                        'Tara AI analysis scorer returned HTTP %s for tier %s',
+                        response.status_code,
+                        tier,
+                    )
+                    return {}
+                results = response.json().get('results', [])
+                requested = {
+                    (
+                        opp['symbol'], opp['date'], int(opp['daysOut']), opp['direction']
+                    )
+                    for opp in tier_opps
+                }
+                cleaned = {}
+                for result in results:
+                    if not isinstance(result, dict) or 'error' in result or 'vix_blocked' in result:
+                        continue
+                    identity = (
+                        str(result.get('symbol') or ''),
+                        str(result.get('date') or ''),
+                        int(result.get('daysOut') or 0),
+                        str(result.get('direction') or ''),
+                    )
+                    if identity not in requested:
+                        continue
+                    ui_key = f'{identity[0]}|{identity[2]}|{identity[3]}'
+                    cleaned[ui_key] = {
+                        'ml_score': result.get('ml_score'),
+                        'win_prob': result.get('win_prob'),
+                        'pred_return': result.get('pred_return'),
+                        'pred_mfe': result.get('pred_mfe'),
+                    }
+                return cleaned
+            except Exception as exc:
+                logging.warning('Tara AI analysis scorer unavailable for tier %s: %s', tier, exc)
+                return {}
+
+        # A long pattern spans three independent scorer tiers. Resolve them in parallel
+        # so adding the checkpoints does not triple Tara's response latency.
+        with ThreadPoolExecutor(max_workers=min(3, len(by_tier))) as executor:
+            futures = [executor.submit(score_tier, item) for item in by_tier.items()]
+            ttl = _ml_ttl_seconds()
+            for future in as_completed(futures):
+                for ui_key, score in future.result().items():
+                    score_map[ui_key] = score
+                    symbol, engine_days, direction = ui_key.rsplit('|', 2)
+                    matching = next(
+                        (
+                            opp for opp in misses
+                            if opp['symbol'] == symbol
+                            and str(opp['daysOut']) == engine_days
+                            and opp['direction'] == direction
+                        ),
+                        None,
+                    )
+                    if matching is not None:
+                        redis_client.set(
+                            _ml_redis_key(
+                                symbol,
+                                matching['date'],
+                                int(engine_days),
+                                direction,
+                            ),
+                            json.dumps(score),
+                            ex=ttl,
+                        )
+
+    return finalize_analysis_score_context(plan, score_map)
+
+
+# The chatbot blueprint is imported before the scorer functions are defined. Register a
+# runtime callback through Flask's extension registry to avoid a circular module import.
+app.extensions['tara_ai_analysis_context'] = _tara_ai_analysis_context
+
+
 @app.route('/MLScoreBatch/<string:resourceID>', methods=['POST'])
 @check_for_token
 @limiter.limit(config.rate_limit_mlscore[0])
@@ -2028,8 +2168,18 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     except (ValueError, TypeError):
         return jsonify({'ChartData4': [], 'stats': {}, 'error': 'invalid date format'}), 400
 
-    todayDate = datetime.datetime.today().strftime('%Y-%m-%d')
-    today_year = int(todayDate[:4])
+    request_today = datetime.date.today()
+    todayDate = request_today.strftime('%Y-%m-%d')
+    today_year = request_today.year
+    public_hundred_year_pattern = is_hundred_year_chart_request(
+        resourceID,
+        date,
+        symbol,
+        daysOut,
+        yrs,
+        cut_off_year,
+        today=request_today,
+    )
 
     # Tier enforcement (audit G1/G2/G4) - must run BEFORE the redis cache key + the
     # exchange_mapping lookup below. Re-derive scope from config (not the token) so a
@@ -2044,15 +2194,22 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         return jsonify({'ChartData4': [], 'stats': {}, 'error': 'invalid_resource_id'}), 400
     if not _claims.get('is_admin'):
         _ulevel = str(_claims.get('user_level', '1'))
-        if str(resourceID) not in config.level_access_hierarchy.get(_ulevel, ['0']):
+        if (
+            str(resourceID) not in config.level_access_hierarchy.get(_ulevel, ['0'])
+            and not public_hundred_year_pattern
+        ):
             return jsonify({'ChartData4': [], 'stats': {}, 'error': 'market_not_in_plan'}), 403
-        # Date-lock: free-registered markets are start-date-locked to today for this tier
-        # ('any start date' is the paid upgrade); mirrors the React level-1 lock.
-        if _is_date_locked(_ulevel, resourceID):
-            date = todayDate
-        # Years cap: clamp the chart lookback to the tier max (same cap as the opp table),
-        # before the redis cache key below is built from `yrs`.
-        yrs = _clamp_yrs(yrs, _years_cap(_ulevel, False))
+        # The public exception is the exact, server-validated SPX signature view only.
+        # Its defining date and 24-observation PE+2 cohort must not be rewritten by a
+        # lower tier's general date/year clamps. Every near miss follows the normal path.
+        if not public_hundred_year_pattern:
+            # Date-lock: free-registered markets are start-date-locked to today for this tier
+            # ('any start date' is the paid upgrade); mirrors the React level-1 lock.
+            if _is_date_locked(_ulevel, resourceID):
+                date = todayDate
+            # Years cap: clamp the chart lookback to the tier max (same cap as the opp table),
+            # before the redis cache key below is built from `yrs`.
+            yrs = _clamp_yrs(yrs, _years_cap(_ulevel, False))
 
     start_date_year = int(date[:4])
 
@@ -2178,10 +2335,15 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     pctArray = []
     pctArray_low = []
     pctArray_high = []
+    completed_flags = []
 
     for y in range(years, endNum, -1):
         d_start_0 = inc_date_year(date, -y)
         year_int = int(d_start_0[:4])
+        incomplete_observation = bool(
+            (trade_active and y == 0)
+            or (active_trade_begin_last_year and y == 1)
+        )
 
         # Apply cut_off_year filter
         if cut_off_year != 0 and year_int < cut_off_year:
@@ -2273,18 +2435,40 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
             'price': str(c0) + ',' + str(c1)
         }
         chartData.append(yearDict)
+        completed_flags.append(not incomplete_observation)
 
     # ----------------------------------------------
     # IMPORTANT: Trim to most recent N years for custom PE filters
     # The loop processes oldest to newest, so chartData is in chronological order
     # We want the LAST (most recent) max_filtered_years entries
     # ----------------------------------------------
-    if custom_years and max_filtered_years is not None and len(chartData) > max_filtered_years:
-        # Keep only the most recent N entries (last N in the list)
-        chartData = chartData[-max_filtered_years:]
-        pctArray = pctArray[-max_filtered_years:]
-        pctArray_low = pctArray_low[-max_filtered_years:]
-        pctArray_high = pctArray_high[-max_filtered_years:]
+    if custom_years and max_filtered_years is not None:
+        # N means N completed PE observations. Keep an active partial row alongside
+        # those N rows instead of letting it displace the oldest completed observation.
+        completed_indices = [
+            index for index, is_completed in enumerate(completed_flags) if is_completed
+        ]
+        keep_indices = set(completed_indices[-max_filtered_years:])
+        keep_indices.update(
+            index for index, is_completed in enumerate(completed_flags) if not is_completed
+        )
+        ordered_keep = sorted(keep_indices)
+        chartData = [chartData[index] for index in ordered_keep]
+        pctArray = [pctArray[index] for index in ordered_keep]
+        pctArray_low = [pctArray_low[index] for index in ordered_keep]
+        pctArray_high = [pctArray_high[index] for index in ordered_keep]
+        completed_flags = [completed_flags[index] for index in ordered_keep]
+
+    # Keep an active partial row visible while excluding it from completed aggregates.
+    pctArray = [
+        value for index, value in enumerate(pctArray) if completed_flags[index]
+    ]
+    pctArray_low = [
+        value for index, value in enumerate(pctArray_low) if completed_flags[index]
+    ]
+    pctArray_high = [
+        value for index, value in enumerate(pctArray_high) if completed_flags[index]
+    ]
 
     # ----------------------------------------------
     # Add current year placeholder if applicable
@@ -3329,6 +3513,11 @@ def resolve_resource_id(symbol, resource_id):
     if resource_id not in us_ids:
         return resource_id  # non-US group - don't touch it
     sym = symbol.strip().upper()
+    # Preserve the user's selected group when the ticker belongs to it. Many
+    # symbols intentionally overlap DOW/NASDAQ/S&P/Russell/Wilshire.
+    selected_path = dict(_us_stock_groups).get(resource_id)
+    if selected_path and sym in _load_us_stock_set(resource_id, selected_path):
+        return resource_id
     for rid, path in _us_stock_groups:
         if sym in _load_us_stock_set(rid, path):
             return rid  # return most specific group that contains the ticker
