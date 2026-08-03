@@ -8,6 +8,11 @@ exists so we stop guessing and re-deriving the system. If a memory note disagree
 with that doc, the doc wins. Deploy detail: `ops/OPERATIONS.md`. Cutover:
 `ops/PROD_CUTOVER.md`.
 
+**For ANY code edit, Git operation, multi-session handoff, integration, cleanup, release,
+or deployment, also read FIRST:**
+`.claude/skills/tw-git-release-workflow/SKILL.md` - every task uses a separate branch and
+worktree; handoffs name pushed commit SHAs; releases promote tested commits, not dev files.
+
 **For product / methodology / copy / onboarding / Tara work, also read FIRST:**
 `docs/TRADEWAVE_METHODOLOGY_AND_FEATURES_KB.md` - what a "pattern" is, the MFE/MAE/TWA/TWR
 metrics, the PE/100-Year cycle, the SCAN -> VALIDATE -> ORGANIZE -> ACT loop, and the two
@@ -31,6 +36,10 @@ TW2 is the WordPress-removal rebuild of TW1: WorkOS + Stripe + Postgres + Flask
 replace WP/UMP, keeping the React app and the appserver `/login` handshake.
 
 ## Hard rules (full list + reasons in the ecosystem doc §11)
+- RELEASES ARE COMMITS: before any code/Git/handoff/integration/release/deploy work, follow
+  `.claude/skills/tw-git-release-workflow/SKILL.md`. Use a dedicated branch + worktree per
+  task, commit + push before handoff, and integrate in a clean release worktree. Never treat
+  the arbitrary contents of `/home/flask` as the version to promote.
 - SELF-MAINTAINING KNOWLEDGE: at the end of any substantive task, run the `tw-knowledge`
   skill unprompted (see "Keep it current" above) - capture + improve the ecosystem doc +
   memory, update existing files in place, never duplicate, never re-derive twice.

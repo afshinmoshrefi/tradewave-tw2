@@ -1,0 +1,4 @@
+interface:
+  display_name: "TradeWave Git Release Workflow"
+  short_description: "Clean worktrees and deterministic releases"
+  default_prompt: "Use $tw-git-release-workflow to prepare a clean TradeWave change for staging."

@@ -1536,6 +1536,15 @@ dep crash-loops workers into a 502) + web-box `ops/migrate.sh` + idempotent
 + `is-active` -> React symlink-swap -> nginx CSP reload. Full detail +
 restart-matrix: `ops/OPERATIONS.md`.
 
+**Git release invariant:** deployments promote exact commits, not the current contents of
+the dev server. Every Codex or Claude task uses a dedicated branch and worktree; the task
+ends with intended changes committed and pushed, and its handoff names the full SHA. A
+clean integration worktree based on current `origin/main` combines the exact handoff SHAs,
+runs the release tests/build, and pushes a tested release commit. That commit advances
+`origin/main` before `ops/deploy.sh` runs because the deploy script pulls `origin/main` on
+the target boxes. `/home/flask` is the operational checkout, not a shared development
+scratchpad. Canonical procedure: `.claude/skills/tw-git-release-workflow/SKILL.md`.
+
 The APP deploy pre-flight enforces the tested environment baselines: staging
 supports 2 CPUs / 4 GB for low traffic, while production retains a 4 CPU /
 roughly 8 GB floor. Capacity scales above those baselines in response to
