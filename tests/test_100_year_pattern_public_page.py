@@ -37,13 +37,26 @@ def test_static_evidence_page_contains_the_complete_record():
     assert html.count('class="cycle-column"') == 24
     assert html.count('<tr class="loss-row">') == 1
     assert "This record begins in 1930." in html
-    assert "1978 finished +0.03% and is counted as a positive outcome." in html
+    assert (
+        "1978 finished +0.03% before transaction costs and is therefore "
+        "classified as a positive close-to-close return."
+    ) in html
     assert "first prospective out-of-sample test" in html
     assert "July 1 through July 31 is 31 days" in html
     assert "data-countdown-minutes" in html
     assert "decay" not in html.lower()
     assert "almanac" not in html.lower()
-    assert "One date. Twenty-four completed cycles. 96% positive." in html
+    assert (
+        '<h1><span>The 100-Year Pattern</span><span>24 completed cycles.</span>'
+        '<span class="hero-result">96% finished positive.</span></h1>'
+    ) in html
+    assert "The next test begins" in html
+    assert "U.S. midterm years only" in html
+    assert "One cycle every four years" in html
+    assert "A positive result means the exit close is higher than the entry close." in html
+    assert "The pattern appeared visually. The dates were confirmed mathematically." in html
+    assert "100-year-pattern-trend-chart.webp" in html
+    assert "We do not ask for trust - we publish the proof" not in html
     assert "One failure." not in html
     assert "\u2014" not in html
 
@@ -71,6 +84,7 @@ def test_page_generator_writes_environment_aware_output_atomically(tmp_path, mon
     assert {path.name for path in copied} == {
         "100-year-pattern-book.webp",
         "100-year-pattern-cycles.csv",
+        "100-year-pattern-trend-chart.webp",
     }
 
 
