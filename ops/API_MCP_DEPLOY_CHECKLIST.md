@@ -1,5 +1,11 @@
 # API / MCP Deployment - Action Items & Handoff
 
+> **Historical record (2026-06-06).** This checklist describes the original
+> API/MCP deployment and its branch state; those services are now live in production.
+> Do not use its status snapshot for the paid-pricing launch. The current launch gate
+> and operator sequence are in `ops/MVP_RELEASE_READINESS.md`; implementation truth is
+> in sections 7A and 7B of `docs/TRADEWAVE_ECOSYSTEM.md`.
+
 A pick-up-able checklist to take the API/MCP product (incl. Tara + the consumer OAuth connect) from
 "working on dev" to live on staging + prod. Authored for the operator (Afshin) - per the hard rules,
 NEVER touch staging/prod directly; the operator runs the commands. Last updated 2026-06-06.

@@ -63,6 +63,11 @@ def _key(user_id):
     return "mlq:%s:%s" % (user_id, time.strftime("%Y-%m-%d"))
 
 
+def _metering_id(cust):
+    """Quota identity; the shared public demo token receives per-client buckets."""
+    return str(cust.get("metering_id") or cust["user_id"])
+
+
 def _limit(cust):
     """The tier's daily ML limit; None = unlimited."""
     return (cust.get("entitlements") or {}).get("ml_daily_limit")
@@ -77,7 +82,7 @@ def remaining(cust):
         return 0  # G11: a 0-limit tier (e.g. MCP explorer/navigator) has NO AI - decide it
                   # BEFORE the fail-open path so a Redis outage can never grant it scores.
     try:
-        used = int(_redis.get(_key(cust["user_id"])) or 0)
+        used = int(_redis.get(_key(_metering_id(cust))) or 0)
     except redis.RedisError as e:
         log.warning("ml_quota remaining read failed for %s: %s", cust.get("user_id"), e)
         return lim  # fail open
@@ -95,7 +100,7 @@ def consume(cust, n):
     if lim == 0:
         return 0  # G11: a 0-limit tier gets NO AI - decide BEFORE the fail-open path below,
                   # so a Redis outage can never flip no-AI (explorer/navigator) into granted.
-    k = _key(cust["user_id"])
+    k = _key(_metering_id(cust))
     try:
         return int(_redis.eval(_CONSUME_LUA, 1, k, lim, n, _TTL))
     except redis.RedisError as e:
@@ -110,7 +115,7 @@ def refund(cust, n):
     actually delivered. No-op for unlimited tiers or n <= 0; fails open on a Redis outage."""
     if n <= 0 or _limit(cust) is None:
         return
-    k = _key(cust["user_id"])
+    k = _key(_metering_id(cust))
     try:
         _redis.eval(_REFUND_LUA, 1, k, n, _TTL)
     except redis.RedisError as e:

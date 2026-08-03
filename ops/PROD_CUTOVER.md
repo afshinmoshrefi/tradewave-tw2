@@ -149,7 +149,7 @@ the public hostnames. Checklist:
    ```
    Both `--live` AND `TW2_CONFIRM_LIVE_SEED=1` are required to touch live Stripe; without them
    the script refuses a live key and stays TEST-only. It idempotently validates/seeds the 3 API
-   products (Dev/Pro/Business), monthly/annual prices, the FOUNDER coupon, and one non-default
+   products (Dev/Pro/Business), monthly-only prices, the FOUNDER coupon, and one non-default
    API-only Billing Portal configuration, all stamped with API-purpose metadata. It fails closed
    on duplicate/drifted catalog objects. Copy the printed
    `TW2_API_BILLING_PORTAL_CONFIGURATION_ID=bpc_...` line into the prod WEB secrets and rerun to

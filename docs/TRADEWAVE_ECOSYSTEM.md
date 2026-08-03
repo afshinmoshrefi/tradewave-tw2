@@ -972,17 +972,21 @@ commercial gate is the owner-controlled public price visibility flip.
    or unreachable proof data returns an explicit 503 instead of a successful
    `card:null` response.
 
-**Remaining API onboarding risk:** all public demo callers currently resolve to the
-same `user_id='demo'`, so they share the same minute, day, and ML quotas. This is not
-an authorization escape, but it can make the public demo unreliable under concurrent
-use. Before the public pricing flip, either serve a cached/precomputed demo or isolate
-abuse limits per visitor/IP and add an integration test for concurrent demo use.
+**Public demo isolation (fixed 2026-07-20):** the public token still resolves to the
+non-DB `user_id='demo'` principal and the five-symbol allowlist, but rate and ML quota
+counters use a separate privacy-preserving per-client `metering_id`. The gateway trusts
+`CF-Connecting-IP` only when the immediate peer is loopback (nginx is the only public
+ingress), otherwise it uses the socket peer; an HMAC digest, never the raw address,
+enters Redis. Aggregate usage remains on `user_id='demo'`. One visitor can therefore no
+longer exhaust the public demo for everyone, while paid/BYOK and OAuth principals remain
+per-customer exactly as before. Regression coverage pins stable same-client buckets,
+different-client isolation, forwarded-header spoof resistance, and ML-key isolation.
 
-These changes are code-complete in this integration branch and are not yet deployed
-to staging or production.
+The subscriber-journey changes above are deployed on production. The 2026-07-20
+public-demo isolation change is code-complete on `codex/complete-api-rollout` and awaits
+the normal staging gate before production promotion.
 (Source: `apiserver/`, `mcpserver/`, `web/api_portal/`, `site/lib/portal_urls.py`,
-`api/openapi.yaml`; implementation is integrated in the release branch and pending
-the complete dev integrity gate.)
+`api/openapi.yaml`.)
 
 ---
 
