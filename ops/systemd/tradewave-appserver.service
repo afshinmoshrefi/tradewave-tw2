@@ -9,9 +9,10 @@ User=flask
 Group=flask
 WorkingDirectory=/home/flask/appserver/appserver
 
-# Dev is 4 CPU / 16 GB and the intended production target is 4 CPU / 8 GB.
-# Four processes preserve pandas/CPU isolation; four threads per process provide
-# bounded headroom for slow EODHD/StockScore/EDGAR/Tradier waits.
+# Dev is 4 CPU / 16 GB; production has an approved low-traffic 2 CPU / 4 GB baseline.
+# Four processes preserve pandas/CPU isolation and bounded concurrency, with
+# modest production CPU oversubscription. Four threads per process provide bounded
+# headroom for slow EODHD/StockScore/EDGAR/Tradier waits.
 Environment=TW2_APPSERVER_BIND=0.0.0.0:5000
 Environment=TW2_APPSERVER_WORKERS=4
 Environment=TW2_APPSERVER_THREADS=4

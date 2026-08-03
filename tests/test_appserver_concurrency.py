@@ -110,7 +110,8 @@ def test_post_resize_staging_defaults_match_release_topology():
 def test_deploy_uses_tested_floors_then_scales_capacity_with_traffic():
     deploy = (ROOT / "ops" / "deploy.sh").read_text(encoding="utf-8")
     assert "staging APP is below the tested 2 CPU / 4 GB baseline" in deploy
-    assert "production APP requires >=4 CPU / ~8 GB" in deploy
+    assert "production APP is below the approved 2 CPU / 4 GB baseline" in deploy
+    assert deploy.count('[ "$cpu" -ge 2 ] && [ "$mem_kb" -ge 3500000 ]') == 2
     assert "APP capacity: $app_capacity (scales with traffic)" in deploy
     assert "MemAvailable:" in deploy
     assert "TW2_ALLOW_UNDERSIZED_STAGING_APP" not in deploy

@@ -52,9 +52,9 @@ Health: `systemctl is-active <svc>`. Logs: `/var/log/tradewave/*.log` (rotated d
 
 **Fast path (one command per env):** `bash ops/deploy.sh staging` → verify → `bash ops/deploy.sh prod`. The script runs everything below for one env (pre-flight, pull+restart web/app/SMN, React bundle, nginx) and aborts safely if `TW2_PUBLIC_HOST` is unset. Prereqs: commit+push, and `npm run build` if `web-react/` changed. The steps below are the reference the script implements (and for partial/manual deploys).
 
-The APP pre-flight enforces the tested environment baselines: staging supports
-2 CPUs / 4 GB for low traffic, while production retains a 4 CPU / roughly 8 GB
-floor. Capacity scales above those baselines in response to observed traffic.
+The APP pre-flight enforces the supported low-traffic baseline of 2 CPUs / 4 GB
+for both staging and production. Capacity scales above that baseline in response
+to observed traffic.
 Host, identity, clean-tree, disk, service, route, and post-deploy health gates
 remain fail-closed. Capacity performance should be interpreted against the
 traffic level and footprint recorded for the test.

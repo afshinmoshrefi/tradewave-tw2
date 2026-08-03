@@ -29,10 +29,11 @@ deployment was performed by this work.
 7. **Prepare staging, then deploy in a separate authorized session.** Before any staging
    performance gate, free disk space and resize it; the current 1 CPU / roughly 1 GB box
    is not a meaningful proxy. Deployment itself is intentionally outside this work.
-8. **Prepare production vertical capacity, then deploy separately.** Resize the
-   appserver to the intended 4 CPU / 8 GB, use 4 workers x 4 threads, deploy off-hours
-   away from the 02:00 UTC cron burst, rerun the same auth/load gate, then make the
-   owner-approved Stripe pricing visibility flip.
+8. **Deploy production on the owner-approved low-traffic capacity.** As of 2026-08-03,
+   the production appserver baseline is 2 CPU / 4 GB with 4 workers x 4 threads. Deploy
+   off-hours away from the 02:00 UTC cron burst, rerun the same auth/load gate, and scale
+   above the baseline when the documented sustained-load triggers are reached. Make the
+   owner-approved Stripe pricing visibility flip only as a separate business decision.
 
 ## MVP acceptance criteria
 

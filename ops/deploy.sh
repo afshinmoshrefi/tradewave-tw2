@@ -341,17 +341,17 @@ done
 
 echo "==> [$ENV] pre-flight: APP meets its tested baseline and both boxes have disk headroom?"
 # Capacity scales above the supported environment baseline in response to
-# observed traffic. Staging's tested low-traffic footprint is 2 CPU / 4 GB;
-# production retains its 4 CPU / ~8 GB floor. Identity, clean-tree,
-# service-health, route, and disk-headroom gates remain fail-closed.
+# observed traffic. Staging and production both use the owner-approved
+# low-traffic footprint of 2 CPU / 4 GB. Identity, clean-tree, service-health,
+# route, and disk-headroom gates remain fail-closed.
 if [ "$ENV" = staging ]; then
   if ! $SSH "root@$APP" 'cpu=$(nproc); mem_kb=$(awk "/^MemTotal:/{print \$2}" /proc/meminfo); [ "$cpu" -ge 2 ] && [ "$mem_kb" -ge 3500000 ]'; then
     echo "ABORT: staging APP is below the tested 2 CPU / 4 GB baseline."
     exit 1
   fi
 else
-  if ! $SSH "root@$APP" 'cpu=$(nproc); mem_kb=$(awk "/^MemTotal:/{print \$2}" /proc/meminfo); [ "$cpu" -ge 4 ] && [ "$mem_kb" -ge 7000000 ]'; then
-    echo "ABORT: production APP requires >=4 CPU / ~8 GB."
+  if ! $SSH "root@$APP" 'cpu=$(nproc); mem_kb=$(awk "/^MemTotal:/{print \$2}" /proc/meminfo); [ "$cpu" -ge 2 ] && [ "$mem_kb" -ge 3500000 ]'; then
+    echo "ABORT: production APP is below the approved 2 CPU / 4 GB baseline."
     exit 1
   fi
 fi

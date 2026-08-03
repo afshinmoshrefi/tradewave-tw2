@@ -1102,9 +1102,11 @@ checkout testing); staging/prod remain OFF until the owner finalizes paid-tier $
 
 **MVP scalability baseline (2026-07-15, code complete, not deployed):** the appserver's
 tracked unit defaults to 4 gthread workers x 4 threads for the 4 CPU / 16 GB dev box and
-the intended 4 CPU / 8 GB production box. Processes retain CPU isolation while threads
-absorb bounded external-HTTP waits. Appserver outbound HTTP uses reusable bounded pools;
-expensive cache misses use Redis single-flight locks; CSV and JSON publishers use atomic
+the owner-approved low-traffic 2 CPU / 4 GB production box. Production keeps four worker
+processes for isolation and bounded concurrency, with modest CPU oversubscription while
+traffic is low. Threads absorb bounded external-HTTP waits. Capacity scales when observed
+load reaches the documented operational triggers. Appserver outbound HTTP uses reusable
+bounded pools; expensive cache misses use Redis single-flight locks; CSV and JSON publishers use atomic
 rename so readers never observe partial files. The API gateway uses a 12-connection
 Postgres pool per worker, a 30-second positive-only bounded API-key cache (revocation may
 take at most that TTL), atomic Redis ML-quota consumption, and exposes the appserver 429
@@ -1545,11 +1547,11 @@ runs the release tests/build, and pushes a tested release commit. That commit ad
 the target boxes. `/home/flask` is the operational checkout, not a shared development
 scratchpad. Canonical procedure: `.claude/skills/tw-git-release-workflow/SKILL.md`.
 
-The APP deploy pre-flight enforces the tested environment baselines: staging
-supports 2 CPUs / 4 GB for low traffic, while production retains a 4 CPU /
-roughly 8 GB floor. Capacity scales above those baselines in response to
-observed traffic. Host, identity, clean-tree, disk, service, route, and
-post-deploy health gates remain enforced in every environment.
+The APP deploy pre-flight enforces the supported low-traffic environment baseline
+of 2 CPUs / 4 GB for both staging and production. Production approval for that
+baseline was recorded by the owner on 2026-08-03. Capacity scales above the
+baseline in response to observed traffic. Host, identity, clean-tree, disk,
+service, route, and post-deploy health gates remain enforced in every environment.
 
 **React deploy = SYMLINK SWAP** (NOT a dir copy, NOT git pull): `build` is a
 symlink to `releases/build-<commit>`; deploy rsyncs to a new release dir then
