@@ -147,6 +147,7 @@ body.calendar-dialog-open { overflow: hidden; }
 .public-record-card h3 { margin: 18px 0 10px; font-size: 24px; line-height: 1.2; }
 .public-record-card p { margin: 0; color: #afbdd0; font-size: 13px; line-height: 1.7; }
 .public-record-card .why-publish { margin-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 18px; color: var(--muted-2); font-size: 11px; }
+.public-record-card .calendar-cta { margin-top: 20px; border-top: 0; padding-top: 0; }
 .why-publish strong { color: #cbd6e6; }
 
 .rule-section { border-block: 1px solid var(--line); padding-block: 92px; background: rgba(10, 18, 33, 0.78); }
@@ -474,7 +475,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
     <div class="hero-copy">
       <p class="eyebrow"><span></span> Public S&amp;P 500 historical record</p>
       <h1><span>The 100-Year Pattern</span><span>24 completed cycles.</span><span class="hero-result">96% finished positive.</span></h1>
-      <p class="hero-intro">One fixed S&amp;P 500 window: September 27 of every U.S. presidential midterm election year through July 18 of the following year. This record begins in 1930. Twenty-three of 24 completed windows ended above their starting close.</p>
+      <p class="hero-intro">One fixed S&amp;P 500 window: September 27 of every U.S. presidential midterm election year through July 18 of the following year. This record begins in 1930. Out of 24 completed windows, 23 ended above their starting close.</p>
       <p class="hero-public-note"><strong>If you invest in, trade, or follow U.S. equities, this is a recurring historical period worth knowing before it begins again.</strong> We are publishing every result, every drawdown, and the raw data so you can evaluate it for yourself.</p>
       <div class="hero-actions"><a class="button button-primary" href="#evidence">See every completed cycle <span aria-hidden="true">→</span></a><a class="button button-quiet" href="/_static/100-year-pattern/100-year-pattern-cycles.csv" download>Download the raw data</a></div>
       <p class="hero-access">Public record &middot; No email &middot; No account &middot; Raw data included</p>
@@ -517,6 +518,12 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
         <h3>No account. No subscription. No email.</h3>
         <p>The fixed rule, all 24 completed results, every drawdown, and the raw CSV are public. Evaluate the record independently and decide whether, or how, it fits your own process. The information remains public whether or not you ever use TradeWave.</p>
         <p class="why-publish"><strong>Why publish it now?</strong> The next unresolved window begins September 27, 2026. Publishing the rule before it starts lets everyone judge the next result by the same dates and scoring convention.</p>
+        <div class="calendar-cta">
+          <button class="button calendar-trigger" type="button" data-calendar-open aria-haspopup="dialog" aria-expanded="false" aria-controls="calendar-dialog">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6.5 3.5v3M17.5 3.5v3M4 9h16M5.5 5h13A1.5 1.5 0 0 1 20 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-12A1.5 1.5 0 0 1 5.5 5Z"/></svg>
+            Add September 27 to my calendar
+          </button>
+        </div>
       </aside>
     </div>
   </section>
@@ -1350,14 +1357,15 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
   refreshCountdown();
   window.setInterval(refreshCountdown, 30000);
 
-  const calendarTrigger = document.querySelector("[data-calendar-open]");
+  const calendarTriggers = document.querySelectorAll("[data-calendar-open]");
+  let calendarTrigger = calendarTriggers[0] || null;
   const calendarDialog = document.querySelector("[data-calendar-dialog]");
   const calendarClose = document.querySelector("[data-calendar-close]");
   const googleCalendar = document.querySelector("[data-calendar-google]");
   const outlookCalendar = document.querySelector("[data-calendar-outlook]");
   const calendarChoices = document.querySelectorAll("[data-calendar-google], [data-calendar-outlook], [data-calendar-ics]");
 
-  if (calendarTrigger && calendarDialog && calendarClose && googleCalendar && outlookCalendar) {
+  if (calendarTriggers.length > 0 && calendarDialog && calendarClose && googleCalendar && outlookCalendar) {
     const canonicalLink = document.querySelector('link[rel="canonical"]');
     const canonicalUrl = canonicalLink ? canonicalLink.href : window.location.href;
     const eventTitle = "The 100-Year Pattern: Sep 27 anchor, Sep 28 trading date";
@@ -1397,15 +1405,18 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
       }
     }
 
-    calendarTrigger.addEventListener("click", () => {
-      calendarTrigger.setAttribute("aria-expanded", "true");
-      document.body.classList.add("calendar-dialog-open");
-      if (typeof calendarDialog.showModal === "function") {
-        calendarDialog.showModal();
-      } else {
-        calendarDialog.setAttribute("open", "");
-      }
-      calendarClose.focus();
+    calendarTriggers.forEach((trigger) => {
+      trigger.addEventListener("click", () => {
+        calendarTrigger = trigger;
+        calendarTrigger.setAttribute("aria-expanded", "true");
+        document.body.classList.add("calendar-dialog-open");
+        if (typeof calendarDialog.showModal === "function") {
+          calendarDialog.showModal();
+        } else {
+          calendarDialog.setAttribute("open", "");
+        }
+        calendarClose.focus();
+      });
     });
     calendarClose.addEventListener("click", closeCalendarDialog);
     calendarDialog.addEventListener("click", (event) => {
