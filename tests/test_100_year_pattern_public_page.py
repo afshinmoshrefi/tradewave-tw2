@@ -43,6 +43,8 @@ def test_static_evidence_page_contains_the_complete_record():
     assert "data-countdown-minutes" in html
     assert "decay" not in html.lower()
     assert "almanac" not in html.lower()
+    assert "One date. Twenty-four completed cycles. 96% positive." in html
+    assert "One failure." not in html
     assert "\u2014" not in html
 
 
