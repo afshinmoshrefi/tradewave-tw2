@@ -896,6 +896,7 @@ def test_analysis_router_does_not_intercept_advice_other_symbol_or_specific_year
     assert is_pattern_analysis_question("Does this make money?", wave)
     assert not is_pattern_analysis_question("Analyze AAPL", wave)
     assert not is_pattern_analysis_question("Should I trade this pattern?", wave)
+    assert not is_pattern_analysis_question("Would you trade this pattern?", wave)
     assert not is_pattern_analysis_question("How good is this trade?", wave)
     assert not is_pattern_analysis_question("How did it do in 2022?", wave)
 
@@ -915,6 +916,36 @@ def test_terse_analysis_commands_build_the_same_full_brief(message):
     assert reply == expected
     assert reply.startswith('<div class="tara-analysis">')
     assert "<b>Payoff and path:</b>" in reply
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "can you analyze this for me",
+        "Could you please analyse this for me?",
+        "Would you evaluate this setup for me?",
+        "Will you review it for me, please?",
+        "please assess this one for me",
+    ],
+)
+def test_polite_loaded_pattern_analysis_variants_use_verified_full_reply(message):
+    wave = _peg_short_context()
+
+    assert is_pattern_analysis_question(message, wave)
+    reply = build_deterministic_reply(
+        message,
+        wave,
+        _price_screen(),
+        current_year=2026,
+    )
+
+    assert reply.startswith('<div class="tara-analysis">')
+    assert "<b>Read:</b> PEG short, Jul 31 to Aug 5" in reply
+    assert "<b>Payoff and path:</b>" in reply
+    assert "<b>Timing:</b>" in reply
+    assert "<b>Cycle context:</b>" in reply
+    assert "<b>Next check:</b>" in reply
+    assert "<b>Scope:</b>" in reply
 
 
 def test_seasonality_value_question_uses_loaded_pattern_as_a_compact_demonstration():
