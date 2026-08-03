@@ -194,7 +194,7 @@
       }
 
       function lineChart(container, points, holdDays) {
-        const data = points.slice(0, Math.min(points.length, Math.max(2, Number(holdDays || 30) + 1)));
+        const data = points.slice(0, Math.min(points.length, Math.max(2, Number(holdDays || 30))));
         if (data.length < 2) {
           container.append(htmlEl("div", "status", "Seasonal trend data is unavailable."));
           return;

@@ -86,6 +86,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 import config
 import config_autotrade
+from featured_patterns import is_hundred_year_chart_request
 from pprint import pprint
 from tradier_api import get_quotes, get_creditspreads_for_opportunity,get_accounting_info,desired_selections_bullish_bearish,get_positions
 from tradier_api import get_orders,cancel_order,get_brokerage_clock,get_position_from_filled_order,get_one_order # 1/2/2024
@@ -2320,8 +2321,18 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     except (ValueError, TypeError):
         return jsonify({'ChartData4': [], 'stats': {}, 'error': 'invalid date format'}), 400
 
-    todayDate = datetime.datetime.today().strftime('%Y-%m-%d')
-    today_year = int(todayDate[:4])
+    request_today = datetime.date.today()
+    todayDate = request_today.strftime('%Y-%m-%d')
+    today_year = request_today.year
+    public_hundred_year_pattern = is_hundred_year_chart_request(
+        resourceID,
+        date,
+        symbol,
+        daysOut,
+        yrs,
+        cut_off_year,
+        today=request_today,
+    )
 
     # Tier enforcement (audit G1/G2/G4) - must run BEFORE the redis cache key + the
     # exchange_mapping lookup below. Re-derive scope from config (not the token) so a
@@ -2336,15 +2347,22 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         return jsonify({'ChartData4': [], 'stats': {}, 'error': 'invalid_resource_id'}), 400
     if not _claims.get('is_admin'):
         _ulevel = str(_claims.get('user_level', '1'))
-        if str(resourceID) not in config.level_access_hierarchy.get(_ulevel, ['0']):
+        if (
+            str(resourceID) not in config.level_access_hierarchy.get(_ulevel, ['0'])
+            and not public_hundred_year_pattern
+        ):
             return jsonify({'ChartData4': [], 'stats': {}, 'error': 'market_not_in_plan'}), 403
-        # Date-lock: free-registered markets are start-date-locked to today for this tier
-        # ('any start date' is the paid upgrade); mirrors the React level-1 lock.
-        if _is_date_locked(_ulevel, resourceID):
-            date = todayDate
-        # Years cap: clamp the chart lookback to the tier max (same cap as the opp table),
-        # before the redis cache key below is built from `yrs`.
-        yrs = _clamp_yrs(yrs, _years_cap(_ulevel, False))
+        # The public exception is the exact, server-validated SPX signature view only.
+        # Its defining date and 24-observation PE+2 cohort must not be rewritten by a
+        # lower tier's general date/year clamps. Every near miss follows the normal path.
+        if not public_hundred_year_pattern:
+            # Date-lock: free-registered markets are start-date-locked to today for this tier
+            # ('any start date' is the paid upgrade); mirrors the React level-1 lock.
+            if _is_date_locked(_ulevel, resourceID):
+                date = todayDate
+            # Years cap: clamp the chart lookback to the tier max (same cap as the opp table),
+            # before the redis cache key below is built from `yrs`.
+            yrs = _clamp_yrs(yrs, _years_cap(_ulevel, False))
 
     start_date_year = int(date[:4])
 
@@ -2472,10 +2490,15 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     pctArray = []
     pctArray_low = []
     pctArray_high = []
+    completed_flags = []
 
     for y in range(years, endNum, -1):
         d_start_0 = inc_date_year(date, -y)
         year_int = int(d_start_0[:4])
+        incomplete_observation = bool(
+            (trade_active and y == 0)
+            or (active_trade_begin_last_year and y == 1)
+        )
 
         # Apply cut_off_year filter
         if cut_off_year != 0 and year_int < cut_off_year:
@@ -2567,18 +2590,40 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
             'price': str(c0) + ',' + str(c1)
         }
         chartData.append(yearDict)
+        completed_flags.append(not incomplete_observation)
 
     # ----------------------------------------------
     # IMPORTANT: Trim to most recent N years for custom PE filters
     # The loop processes oldest to newest, so chartData is in chronological order
     # We want the LAST (most recent) max_filtered_years entries
     # ----------------------------------------------
-    if custom_years and max_filtered_years is not None and len(chartData) > max_filtered_years:
-        # Keep only the most recent N entries (last N in the list)
-        chartData = chartData[-max_filtered_years:]
-        pctArray = pctArray[-max_filtered_years:]
-        pctArray_low = pctArray_low[-max_filtered_years:]
-        pctArray_high = pctArray_high[-max_filtered_years:]
+    if custom_years and max_filtered_years is not None:
+        # N means N completed PE observations. Keep an active partial row alongside
+        # those N rows instead of letting it displace the oldest completed observation.
+        completed_indices = [
+            index for index, is_completed in enumerate(completed_flags) if is_completed
+        ]
+        keep_indices = set(completed_indices[-max_filtered_years:])
+        keep_indices.update(
+            index for index, is_completed in enumerate(completed_flags) if not is_completed
+        )
+        ordered_keep = sorted(keep_indices)
+        chartData = [chartData[index] for index in ordered_keep]
+        pctArray = [pctArray[index] for index in ordered_keep]
+        pctArray_low = [pctArray_low[index] for index in ordered_keep]
+        pctArray_high = [pctArray_high[index] for index in ordered_keep]
+        completed_flags = [completed_flags[index] for index in ordered_keep]
+
+    # Keep an active partial row visible while excluding it from completed aggregates.
+    pctArray = [
+        value for index, value in enumerate(pctArray) if completed_flags[index]
+    ]
+    pctArray_low = [
+        value for index, value in enumerate(pctArray_low) if completed_flags[index]
+    ]
+    pctArray_high = [
+        value for index, value in enumerate(pctArray_high) if completed_flags[index]
+    ]
 
     # ----------------------------------------------
     # Add current year placeholder if applicable

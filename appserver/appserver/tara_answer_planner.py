@@ -18,6 +18,16 @@ import statistics
 from collections.abc import Iterable
 from typing import Any, Dict, List, Mapping, Optional
 
+from featured_patterns import (
+    HUNDRED_YEAR_DISPLAY_DAYS,
+    hundred_year_completed_count,
+    hundred_year_completed_year_bounds,
+    hundred_year_end_date,
+    hundred_year_occurrence_start,
+    hundred_year_occurrence_status,
+    hundred_year_view_spec,
+)
+
 
 _SCREEN_OVERVIEW_PATTERNS = (
     re.compile(r"\bwhat (?:am i|are we) looking at\b", re.I),
@@ -144,6 +154,23 @@ _ADVICE_PATTERNS = re.compile(
     re.I,
 )
 _SPECIFIC_YEAR_PATTERN = re.compile(r"\b(?:19|20)\d{2}\b")
+
+_HUNDRED_YEAR_PATTERN_QUESTIONS = (
+    re.compile(r"\b(?:the\s+)?(?:100|hundred)[- ]year (?:seasonal )?pattern\b", re.I),
+    re.compile(
+        r"\b(?:load|show|open|explain|analy[sz]e|tell me about|what is|what's)\b"
+        r".{0,35}\b(?:pattern from|pattern in) "
+        r"(?:the|my|your|afshin(?:'s)?) book\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:the\s+)?pattern (?:from|in) "
+        r"(?:the|my|your|afshin(?:'s)?) book\b",
+        re.I,
+    ),
+    re.compile(r"\b(?:the\s+)?book(?:'s)? (?:100[- ]year )?pattern\b", re.I),
+    re.compile(r"\bafshin(?:'s)? (?:book|signature|100[- ]year) pattern\b", re.I),
+)
 
 # An explicitly named ticker next to a pattern noun outranks pronouns such as
 # "this" and the currently loaded chart. Keep the ticker token case-sensitive so
@@ -743,6 +770,108 @@ def _today() -> _datetime.date:
     """Small clock seam so occurrence-boundary tests do not depend on wall time."""
 
     return _datetime.date.today()
+
+
+def is_hundred_year_pattern_question(message: Any) -> bool:
+    """Return True for the book/signature phrases that always load the public exhibit."""
+
+    text = str(message or "").strip()
+    return bool(
+        text
+        and any(pattern.search(text) for pattern in _HUNDRED_YEAR_PATTERN_QUESTIONS)
+    )
+
+
+def build_hundred_year_pattern_command(
+    message: Any,
+    *,
+    today: Optional[_datetime.date] = None,
+) -> Optional[Dict[str, Any]]:
+    """Build Tara's deterministic load and explanation for The 100-Year Pattern."""
+
+    if not is_hundred_year_pattern_question(message):
+        return None
+
+    current = today or _today()
+    spec = hundred_year_view_spec(current)
+    occurrence_start = hundred_year_occurrence_start(current)
+    occurrence_end = hundred_year_end_date(occurrence_start)
+    occurrence_status = hundred_year_occurrence_status(current)
+    completed_count = hundred_year_completed_count(current)
+    first_completed, last_completed = hundred_year_completed_year_bounds(current)
+
+    if completed_count == 24 and last_completed == 2022:
+        record_text = (
+            "23 of 24 PE+2 observations were profitable "
+            "(96%), averaging +18.8%; 1930 was the one losing observation."
+        )
+    else:
+        record_text = (
+            "The book record through 2022 was 23 profitable observations out of 24 "
+            "completed PE+2 observations (96%), averaging +18.8%; 1930 was the one loss."
+        )
+
+    if occurrence_status == "upcoming":
+        days_until = (occurrence_start - current).days
+        occurrence_line = (
+            f"{occurrence_start.year} is upcoming - it starts "
+            f"{occurrence_start.strftime('%b')} {occurrence_start.day}, "
+            f"{occurrence_start.year} in {days_until} calendar days and ends "
+            f"{occurrence_end.strftime('%b')} {occurrence_end.day}, "
+            f"{occurrence_end.year}. Its empty row is shown separately and excluded "
+            f"from the completed n={completed_count}."
+        )
+    elif occurrence_status == "active":
+        day_number = (current - occurrence_start).days + 1
+        occurrence_line = (
+            f"{occurrence_start.year} is active on calendar day {day_number} of "
+            f"{HUNDRED_YEAR_DISPLAY_DAYS}. Its partial row is shown separately and "
+            f"excluded from the completed n={completed_count} until the window ends "
+            f"{occurrence_end.strftime('%b')} {occurrence_end.day}, "
+            f"{occurrence_end.year}."
+        )
+    else:
+        occurrence_line = (
+            f"The {occurrence_start.year} window ended "
+            f"{occurrence_end.strftime('%b')} {occurrence_end.day}, "
+            f"{occurrence_end.year}; the viewer now includes it in the completed "
+            f"n={completed_count}."
+        )
+
+    range_text = (
+        f"{first_completed}-{last_completed}"
+        if first_completed is not None and last_completed is not None
+        else "no completed observations yet"
+    )
+    lines = [
+        "<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">"
+        "Loaded The 100-Year Pattern</span> SPX long, PE+2 (midterm years), "
+        "September 27 through July 18 of the following year. That is 295 calendar "
+        "days, with the entry date counted as day 1.</div>",
+        f"<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">"
+        f"What the bars show</span> One bar per qualifying midterm-cycle observation. "
+        f"The completed cohort contains n={completed_count} observations with entry "
+        f"years {range_text}; these are not {completed_count} consecutive calendar "
+        f"years.</div>",
+        f"<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">"
+        f"Historical result</span> {record_text}</div>",
+        f"<div class=\"tara-analysis-section\"><span class=\"tara-analysis-heading\">"
+        f"Current row</span> {occurrence_line}</div>",
+        "<div class=\"tara-analysis-section tara-analysis-scope\"><span "
+        "class=\"tara-analysis-heading\">Book</span> This is the pattern documented "
+        "in <a href=\"https://www.amazon.com/dp/B0FCX61K4Y\" target=\"_blank\" "
+        "rel=\"noopener\">The 100-Year Pattern</a>.</div>",
+    ]
+    if _ADVICE_PATTERNS.search(str(message or "")):
+        lines.append(
+            "<div class=\"tara-analysis-section tara-analysis-scope\">Past performance "
+            "and model estimates do not guarantee future results. TradeWave provides "
+            "research context, not individualized recommendations.</div>"
+        )
+    return {
+        "spec": spec,
+        "reply": "<div class=\"tara-analysis\">" + "".join(lines) + "</div>",
+    }
 
 
 def _direction_adjusted_rows(

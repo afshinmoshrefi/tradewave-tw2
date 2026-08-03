@@ -34,6 +34,7 @@ from tara_answer_planner import (
     build_bottom_slide_command,
     build_excursion_overlay_command,
     build_deterministic_reply,
+    build_hundred_year_pattern_command,
     build_opportunity_row_load_command,
     canonical_pattern_facts,
     explicit_pattern_symbol,
@@ -41,6 +42,7 @@ from tara_answer_planner import (
     requested_full_history_years,
     verified_context_lines,
 )
+from featured_patterns import is_hundred_year_view_spec
 from tara_prompt_context import (
     allowlisted_prompt_stats,
     needs_opportunity_rows,
@@ -718,23 +720,17 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
 
     # Detect if the loaded pattern is the named "100-Year Pattern"
     def is_100_year_pattern(wv):
-        sym      = (wv.get('symbol') or '').upper()
-        sd       = wv.get('start_date', '')   # e.g. "2022-09-27"
-        days     = wv.get('days_out', '')
-        pe       = wv.get('pe_cycle', 'cons')
-        spx_syms = {'SPX', '$SPX', 'SP500', 'SPY'}
-        if sym not in spx_syms: return False
-        if pe != 'pe2': return False
-        try:
-            month = int(sd.split('-')[1])
-            day   = int(sd.split('-')[2])
-            if not (month == 9 and 24 <= day <= 30): return False
-        except: return False
-        try:
-            d = int(str(days))
-            if not (290 <= d <= 310): return False
-        except: return False
-        return True
+        return is_hundred_year_view_spec(
+            {
+                "market": wv.get("market"),
+                "symbol": wv.get("symbol"),
+                "entry_date": wv.get("start_date"),
+                "days_out": wv.get("days_out"),
+                "years": wv.get("years"),
+                "pe_cycle": wv.get("pe_cycle"),
+                "trim_year": wv.get("trim_year", 0),
+            }
+        )
 
     # Wave viewer context
     symbol = wave_viewer.get("symbol", "")
@@ -1099,6 +1095,32 @@ def chat():
     user_id = getattr(g, 'chatbot_user_id', 'unknown')
 
     try:
+        # Resolve the public book/signature pattern before provider routing so every
+        # model and subscription tier receives the same exact load parameters.
+        hundred_year_command = build_hundred_year_pattern_command(user_message)
+        if hundred_year_command is not None:
+            cleaned = _validate_view_spec(hundred_year_command.get("spec"))
+            required = {
+                "market",
+                "symbol",
+                "entry_date",
+                "days_out",
+                "years",
+                "pe_cycle",
+            }
+            actions = []
+            if required.issubset(cleaned):
+                actions.append({"type": "set_view", "spec": cleaned})
+            reply = hundred_year_command["reply"]
+            log_question(
+                user_id,
+                user_message,
+                reply,
+                wave_viewer,
+                provider="deterministic",
+            )
+            return jsonify({"reply": reply, "actions": actions})
+
         # Ordinal table commands are exact UI actions, not language-model decisions. Resolve
         # them from the filtered/sorted visible rows supplied by the browser so "load the 3rd
         # one" cannot count the wrong list, forget the current market, or punt after a refresh.

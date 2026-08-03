@@ -300,3 +300,89 @@ Phase 2 (frontend + backend):
 
 When built, update `docs/TRADEWAVE_ECOSYSTEM.md` (new data flow: Tara -> gateway) in the
 same commit, per the repo rule.
+
+## 11. Approved direction - smarter Tara on GPT-5.6 Luna (2026-08-03)
+
+Owner decision: keep GPT-5.6 Luna as Tara's model-bound provider direction. Do not switch
+back to Haiku merely to reduce cost. This is a product/design decision, not a claim that
+every environment is already routed 100% to Luna. Deterministic answers and validated UI
+actions remain provider-independent.
+
+### Finding
+
+The segmented prompt and explicit cache are working. The remaining intelligence limit is
+orchestration, not token price:
+
+- Every Luna turn currently uses low reasoning and low text verbosity, including deep
+  analysis questions.
+- The stable behavior prefix is approximately 30,000 characters, around 8,000 tokens in
+  observed usage. Caching makes it inexpensive but does not make the instruction set simpler.
+- All five tools are exposed to every model-bound turn. Their serialized definitions are
+  approximately 4,378 characters, roughly 1,100 tokens, before tool results. The loop allows
+  four rounds.
+- A local sample of 30 logged Luna API calls cost approximately $0.0308 at the published
+  2026-08-03 standard prices, about $0.001 per API call. Quality can therefore receive more
+  reasoning budget selectively without undoing the efficiency work.
+- Existing tests strongly cover numeric truth and UI-action correctness. They do not yet
+  measure relevance, depth, readability, or usefulness across beginner, intermediate, and
+  professional trader/investor lenses.
+
+### Target architecture
+
+Keep the boundary explicit: TradeWave computes and verifies facts; Luna prioritizes,
+connects, and explains them; the server validates the answer and actions.
+
+1. Add a deterministic complexity router. Direct view commands bypass the model. Simple
+   definitions use low reasoning. Loaded-pattern analysis and comparisons use medium
+   reasoning and medium verbosity. Deep skeptical, strategy, and "what do you really think"
+   questions use high reasoning with a concise output contract.
+2. Build one compact, verified analysis brief for the loaded pattern. It should contain the
+   exact pattern identity, completed `n`, record, mean/median, Sharpe, TWR, winner/loser
+   payoff, MFE/MAE, losing-year path, recent-versus-earlier comparison, outlier concentration,
+   occurrence timing, PE context, Trend alignment, and AI 30/60/90 checkpoints when available.
+3. Add deterministic insight flags such as high-hit/weak-payoff, favorable-path/exit-giveback,
+   outlier-dependent average, recent weakness, modest sample, history/AI agreement, and
+   history/AI divergence. Luna selects only the facts that change the interpretation.
+4. Render broad analysis as five compact sections: bottom line, strongest evidence, path/risk,
+   current context, and one best next check with a validated action link. Do not dump every
+   available metric.
+5. Split the large stable prompt into a small invariant core plus intent-specific modules.
+   Move arithmetic, day counting, current-row exclusion, direction semantics, and state
+   identity into deterministic enforcement rather than repeated prose.
+6. Expose only the tools required by the routed intent and convert schemas to strict mode.
+   A loaded analysis with a complete brief should normally require no read tool. This should
+   also reduce latency by avoiding unnecessary tool rounds.
+7. Preserve compact verified session state: loaded pattern fingerprint, market, lookback,
+   PE mode, active lower panel, opportunity-table identity/order, last compared patterns,
+   and current analysis brief. Do not use unrestricted opaque model memory when the chart
+   state has changed.
+8. Keep Luna as the default candidate. Test Luna low, medium, and high blindly before adding
+   another model. Route to a different model only if a repeatable eval gap remains.
+
+### Evaluation gate
+
+Create a representative trace set from real Tara failures and successful interactions. Cover
+short and long patterns, active/upcoming/completed occurrences, long/short bar semantics, PE
+cohorts, more-than-90-day AI checkpoints, terse "analyze" prompts, MFE/MAE aliases, loaded
+symbol/lookback continuity, table ordinals, and beginner/intermediate/professional explanations.
+Grade numeric truth and UI actions deterministically. Grade relevance, completeness, clarity,
+and concision blindly. Record quality, tool rounds, latency, input/cache-write/cache-read/output/
+reasoning tokens, fallback rate, and estimated cost. Establish the current Luna-low baseline
+before changing behavior and evaluate one material change at a time.
+
+### Question-log reality and analytics gap
+
+The current per-environment file is
+`/home/flask/appserver/appserver/chatbot_questions.log`. It is JSONL with `ts`, `user_id`,
+`provider`, loaded `symbol`, full `question`, and only the first 500 characters of `response`.
+It has no conversation/session id, turn id, actions, tools, intent, model settings, prompt
+version, latency, token/cache usage, error/fallback detail, user feedback, rotation, or retention
+policy. It is useful for spot review but is not a complete future quality-analysis dataset.
+
+Before relying on logs for product analysis, add a versioned, access-controlled event schema
+with a conversation id and turn id; provider/model/reasoning/verbosity; routed intent; a
+non-price pattern fingerprint; question and complete bounded response; validated actions and
+tool names/status; latency; cache/token/cost fields; fallback/error class; prompt/analysis-brief
+version; and explicit user feedback. Never log auth tokens, API keys, raw price payloads, or the
+full hidden prompt. Add rotation, a declared retention period, and a pseudonymous user key before
+opening this analysis beyond the owner.

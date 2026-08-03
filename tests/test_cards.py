@@ -75,6 +75,13 @@ def test_setup_timing_is_computed():
     assert c["setup"]["timing"] == {"days_to_entry": 23, "status": "window opens in 23 days"}
 
 
+def test_setup_exit_date_counts_entry_as_calendar_day_one():
+    c = _build()
+    assert c["setup"]["entry_date"] == "2026-07-01"
+    assert c["setup"]["hold_days"] == 21
+    assert c["setup"]["exit_date"] == "2026-07-21"
+
+
 def test_extended_stats_present_and_parsed():
     s = _build()["stats"]
     assert s["sharpe_ratio_mfe"] == 1.8

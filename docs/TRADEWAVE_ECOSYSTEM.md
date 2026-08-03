@@ -1299,6 +1299,16 @@ Thus a displayed Aug 3-Aug 19 pattern is 17 days but every `ChartData4` and ML c
 every year label. An all-zero placeholder uses `null` overlays instead of omitting its entries, so a
 pre-history/current-year row can no longer shift real excursion bars onto decades-old labels.
 
+The public 100-Year Pattern is one exact exhibit, not a general indices-market entitlement.
+`appserver/appserver/featured_patterns.py` owns its canonical identity: market `5`, SPX, the
+latest/current PE+2 September 27 occurrence, 295 inclusive display days (`daysOut=294`), the
+completed cohort encoded as the string `pe2-N`, and no cutoff year. `getChartData4` bypasses only
+the normal market, date-lock, and years-cap checks when every field matches; every near miss follows
+the caller's normal subscription rules. An active partial occurrence remains visible but is excluded
+from completed aggregates until its inclusive window ends. Tara resolves book/signature-pattern
+requests deterministically before either model provider, loads that same canonical ViewSpec, and
+states the completed `n`, entry-year range, historical record, and current-row status.
+
 **Segmented prompt loading + verified loaded-pattern analysis (2026-07-31).** The previous prompt
 path appended the entire roughly 89,000-character `chatbot_knowledge.txt` plus up to 30 opportunity rows,
 every yearly row, and every `ChartData4.stats` field to every model call. Worse, Anthropic caching

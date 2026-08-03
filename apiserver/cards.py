@@ -555,15 +555,17 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
     entry_d = _parse_date(opp.get("entry_date"))
     hold_days = opp.get("days_out")
     exit_d = None
-    if entry_d and isinstance(hold_days, int):
-        exit_d = entry_d + datetime.timedelta(days=hold_days)
+    if entry_d and isinstance(hold_days, int) and hold_days > 0:
+        # TradeWave windows are measured in CALENDAR days and the entry day is day 1.
+        # The displayed hold count is inclusive, so it never gets added to the end date.
+        exit_d = entry_d + datetime.timedelta(days=hold_days - 1)
 
     # --- trend chart SECTION: the slice of the curve over the hold window. The appserver
     # returns the curve starting at the entry date, so the first hold_days points are the
     # entry -> exit section. curve_summary describes the TREND of that section, not the year.
     section_curve = seasonal_curve
     if seasonal_curve and isinstance(hold_days, int) and hold_days > 1:
-        section_curve = seasonal_curve[: hold_days + 1]
+        section_curve = seasonal_curve[:hold_days]
     csum = curve_summary(section_curve)
 
     # --- neutral rule (spec section 4) ---
