@@ -168,6 +168,11 @@ server {
     error_page 404 /404.html;
     location = /404.html { root /var/www/tradewave; internal; }
 
+    # Canonical public route for the static 100-Year Pattern evidence page.
+    location = /100-year-pattern { try_files /100-year-pattern.html =404; }
+    location = /100-year-pattern.html { absolute_redirect off; return 308 /100-year-pattern$is_args$args; }
+    location = /100-year-pattern/ { absolute_redirect off; return 308 /100-year-pattern$is_args$args; }
+
     location / { try_files $uri $uri/ $uri.html =404; }
 
     access_log /var/log/nginx/tradewave.access.log tw_noargs;

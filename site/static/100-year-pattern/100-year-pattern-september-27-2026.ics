@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Tara Data Research LLC//TradeWave 100 Year Pattern//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:100-year-pattern-2026-resolved-date@tradewave.ai
+DTSTAMP:20260803T120000Z
+DTSTART;VALUE=DATE:20260928
+DTEND;VALUE=DATE:20260929
+SUMMARY:The 100-Year Pattern: Sep 27 anchor\, Sep 28 trading date
+DESCRIPTION:September 27 is the fixed calendar anchor in TradeWave's published S&P 500 midterm-year study.\nIn 2026\, September 27 falls on Sunday. Under the published calculation rule\, the analysis uses the first trading day after it\, Monday\, September 28\, and its closing value as the resolved entry.\nThe published window ends July 18\, 2027. That date also falls on Sunday\, so the resolved exit is Monday\, July 19.\nThe 2026 to 2027 result is unresolved and is the first prospective out-of-sample test.\nHistorical market research only - not a forecast or investment recommendation.
+URL:__CANONICAL_URL__
+TRANSP:TRANSPARENT
+STATUS:CONFIRMED
+SEQUENCE:0
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:TradeWave research date - September 27 anchor resolves to September 28 in 2026. One week away. Informational only.
+TRIGGER;VALUE=DATE-TIME:20260921T130000Z
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:TradeWave research date - September 27 anchor resolves to September 28 tomorrow. Informational only.
+TRIGGER;VALUE=DATE-TIME:20260927T130000Z
+END:VALARM
+END:VEVENT
+END:VCALENDAR

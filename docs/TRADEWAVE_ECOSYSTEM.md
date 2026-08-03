@@ -360,10 +360,20 @@ Flask-rendered (static from `/var/www/tradewave/`).
   `site/100-year-pattern/100-year-pattern.html` to
   `/var/www/tradewave/100-year-pattern.html` and copies its CSV/book assets from
   `site/static/100-year-pattern/` to
-  `/var/www/tradewave/_static/100-year-pattern/`. The homepage countdown is a
+  `/var/www/tradewave/_static/100-year-pattern/`. The physical `.html` filename
+  is not the public address: nginx serves the canonical route
+  `/100-year-pattern` and permanently redirects both `/100-year-pattern.html`
+  and `/100-year-pattern/` to it. Homepage links, canonical/OG metadata, and
+  generated calendar URLs all use the clean route. The homepage countdown is a
   separate, server-rendered block in `site/templates/index-dark-blue.html`,
   gated per environment by `TW2_HOME_100_YEAR_PATTERN_ENABLED`. The gate is off
   unless explicitly enabled, so stage and production do not inherit a dev test.
+  The evidence-page countdown card also offers a no-signup calendar chooser.
+  Google and Outlook open a prefilled event; Apple and other calendars receive
+  an environment-aware `.ics` file rendered by the same generator. The public
+  CTA retains the September 27 calendar anchor, while the 2026 event is dated
+  Monday, September 28 because the published rule resolves a Sunday endpoint to
+  the first trading day after it.
 
 - **Routes** (also: `/account/affiliate/*` partner dashboard blueprint +
   `/internal/expert_takes|expert_profiles` service-key pull feeds, 2026-07-07):
