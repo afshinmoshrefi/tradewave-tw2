@@ -51,6 +51,36 @@ def _copy_atomic(source: Path, destination: Path) -> None:
     os.replace(temp, destination)
 
 
+def _write_ics_atomic(path: Path, content: str) -> None:
+    """Write an environment-aware RFC 5545 file with CRLF line endings."""
+    logical_lines = content.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    folded_lines: list[str] = []
+    for logical_line in logical_lines:
+        remaining = logical_line
+        prefix = ""
+        while len((prefix + remaining).encode("utf-8")) > 75:
+            byte_limit = 75 - len(prefix.encode("utf-8"))
+            split_at = 0
+            used = 0
+            for index, character in enumerate(remaining):
+                size = len(character.encode("utf-8"))
+                if used + size > byte_limit:
+                    break
+                used += size
+                split_at = index + 1
+            if split_at == 0:
+                raise RuntimeError("Unable to fold calendar line safely")
+            folded_lines.append(prefix + remaining[:split_at])
+            remaining = remaining[split_at:]
+            prefix = " "
+        folded_lines.append(prefix + remaining)
+    payload = ("\r\n".join(folded_lines).rstrip("\r\n") + "\r\n").encode("utf-8")
+    temp = path.with_name(".%s.tmp" % path.name)
+    temp.write_bytes(payload)
+    temp.chmod(0o644)
+    os.replace(temp, path)
+
+
 def publish(output_root: Path) -> tuple[Path, list[Path]]:
     if not SOURCE_HTML.is_file():
         raise FileNotFoundError("Missing page source: %s" % SOURCE_HTML)
@@ -91,7 +121,18 @@ def publish(output_root: Path) -> tuple[Path, list[Path]]:
         if not source.is_file():
             continue
         destination = output_assets / source.name
-        _copy_atomic(source, destination)
+        if source.suffix.lower() == ".ics":
+            calendar = source.read_text(encoding="utf-8")
+            for token, value in replacements.items():
+                calendar = calendar.replace(token, value)
+            unresolved_calendar = [token for token in replacements if token in calendar]
+            if unresolved_calendar:
+                raise RuntimeError(
+                    "Unresolved calendar metadata tokens: %s" % unresolved_calendar
+                )
+            _write_ics_atomic(destination, calendar)
+        else:
+            _copy_atomic(source, destination)
         copied.append(destination)
 
     return output_html, copied

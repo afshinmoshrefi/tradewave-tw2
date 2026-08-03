@@ -364,6 +364,12 @@ Flask-rendered (static from `/var/www/tradewave/`).
   separate, server-rendered block in `site/templates/index-dark-blue.html`,
   gated per environment by `TW2_HOME_100_YEAR_PATTERN_ENABLED`. The gate is off
   unless explicitly enabled, so stage and production do not inherit a dev test.
+  The evidence-page countdown card also offers a no-signup calendar chooser.
+  Google and Outlook open a prefilled event; Apple and other calendars receive
+  an environment-aware `.ics` file rendered by the same generator. The public
+  CTA retains the September 27 calendar anchor, while the 2026 event is dated
+  Monday, September 28 because the published rule resolves a Sunday endpoint to
+  the first trading day after it.
 
 - **Routes** (also: `/account/affiliate/*` partner dashboard blueprint +
   `/internal/expert_takes|expert_profiles` service-key pull feeds, 2026-07-07):

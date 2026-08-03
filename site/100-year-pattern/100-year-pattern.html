@@ -116,6 +116,27 @@ h1 .hero-result { color: #75e5ac; }
 .date-resolution dt { color: var(--muted-2); font-size: 11px; }
 .date-resolution dd { margin: 0; color: #cad5e6; font-family: var(--mono); font-size: 11px; text-align: right; }
 .countdown-footnote { position: relative; margin: 18px 0 0; color: var(--muted-2); font-size: 11px; line-height: 1.55; }
+.calendar-cta { position: relative; display: grid; gap: 8px; margin-top: 20px; border-top: 1px solid var(--line); padding-top: 18px; }
+.calendar-trigger { width: 100%; cursor: pointer; border-color: rgba(117, 229, 172, 0.34); background: rgba(63, 182, 139, 0.08); color: #dff9ec; }
+.calendar-trigger:hover { border-color: rgba(117, 229, 172, 0.58); background: rgba(63, 182, 139, 0.13); }
+.calendar-trigger svg { width: 17px; height: 17px; flex: 0 0 auto; }
+.calendar-cta p { margin: 0; color: #7890aa; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-align: center; text-transform: uppercase; }
+
+body.calendar-dialog-open { overflow: hidden; }
+.calendar-dialog { width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 32px); margin: auto; border: 1px solid rgba(124, 92, 255, 0.4); border-radius: 18px; padding: 0; overflow: hidden; background: #0d172a; color: var(--ink); box-shadow: 0 36px 100px rgba(0, 0, 0, 0.62); }
+.calendar-dialog::backdrop { background: rgba(2, 7, 16, 0.78); backdrop-filter: blur(7px); }
+.calendar-dialog-panel { position: relative; max-height: calc(100dvh - 32px); overflow-y: auto; padding: 30px; }
+.calendar-dialog-close { position: absolute; top: 14px; right: 14px; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.025); color: #cbd6e6; font-size: 25px; line-height: 1; }
+.calendar-dialog-close:hover { border-color: rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.06); }
+.calendar-dialog-kicker { display: block; margin-right: 52px; color: #75e5ac; font-family: var(--mono); font-size: 9px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.calendar-dialog h2 { max-width: 400px; margin: 17px 52px 0 0; font-size: 31px; line-height: 1.12; letter-spacing: -0.04em; }
+.calendar-dialog-description { margin: 17px 0 0; color: #aab9cd; font-size: 13px; line-height: 1.65; }
+.calendar-options { display: grid; gap: 9px; margin-top: 23px; }
+.calendar-option { width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 18px; cursor: pointer; border: 1px solid var(--line); border-radius: 12px; padding: 12px 15px; background: rgba(255, 255, 255, 0.025); color: #e7edf6; text-align: left; }
+.calendar-option:hover { border-color: rgba(124, 92, 255, 0.52); background: rgba(124, 92, 255, 0.09); }
+.calendar-option > span { font-size: 13px; font-weight: 760; }
+.calendar-option small { max-width: 210px; color: var(--muted-2); font-size: 12px; line-height: 1.35; text-align: right; }
+.calendar-dialog-note { margin: 20px 0 0; border-top: 1px solid var(--line); padding-top: 17px; color: #71839d; font-size: 12px; line-height: 1.6; }
 
 .why-section { border-block: 1px solid var(--line); padding-block: 92px; background: linear-gradient(135deg, rgba(10, 18, 33, 0.93), rgba(13, 27, 42, 0.9)); }
 .why-grid { display: grid; grid-template-columns: 1.12fr 0.88fr; align-items: center; gap: 72px; }
@@ -346,6 +367,10 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
   .countdown-unit span { font-size: 27px; }
   .date-resolution div { display: grid; gap: 2px; }
   .date-resolution dd { text-align: left; }
+  .calendar-dialog { width: 100%; max-width: none; max-height: 92dvh; margin: auto 0 0; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 20px 20px 0 0; }
+  .calendar-dialog-panel { max-height: 92dvh; padding: 25px 18px max(24px, env(safe-area-inset-bottom)); }
+  .calendar-dialog h2 { font-size: 28px; }
+  .calendar-option { min-height: 68px; }
   .rule-section, .cycles-section { padding-block: 74px; }
   .why-section { padding-block: 72px; }
   .why-section h2 { font-size: 35px; }
@@ -470,6 +495,13 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
         <div><dt>Trading dates</dt><dd>Sep 28, 2026 → Jul 19, 2027</dd></div>
       </dl>
       <p class="countdown-footnote">Both dates fall on Sunday, so TradeWave uses the next trading day for the analysis. The rule and complete historical record are public before this window begins.</p>
+      <div class="calendar-cta">
+        <button class="button calendar-trigger" type="button" data-calendar-open aria-haspopup="dialog" aria-expanded="false" aria-controls="calendar-dialog">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6.5 3.5v3M17.5 3.5v3M4 9h16M5.5 5h13A1.5 1.5 0 0 1 20 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-12A1.5 1.5 0 0 1 5.5 5Z"/></svg>
+          Add September 27 to my calendar
+        </button>
+        <p>Sunday anchor &middot; Event set for Monday, Sep 28 &middot; No signup or email</p>
+      </div>
     </aside>
   </section>
 
@@ -1277,6 +1309,20 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
     <div class="page-width footer-bottom"><p>TradeWave is a research platform, not a brokerage. Historical analysis is informational and educational; past performance does not guarantee future results. Trading and investing involve substantial risk of loss.</p><p>© 2026 Tara Data Research LLC</p></div>
   </footer>
 </main>
+<dialog class="calendar-dialog" id="calendar-dialog" data-calendar-dialog aria-labelledby="calendar-dialog-title" aria-describedby="calendar-dialog-description">
+  <div class="calendar-dialog-panel">
+    <button class="calendar-dialog-close" type="button" data-calendar-close aria-label="Close calendar choices">&times;</button>
+    <span class="calendar-dialog-kicker">Calendar reminder</span>
+    <h2 id="calendar-dialog-title">Add September 27 for 2026</h2>
+    <p class="calendar-dialog-description" id="calendar-dialog-description">Choose your calendar to open a prefilled all-day event. September 27 is the published pattern date. In 2026 it falls on Sunday, so the event is dated Monday, September 28, the first trading day after it. Review and save it in your calendar.</p>
+    <div class="calendar-options">
+      <a class="calendar-option" href="#" data-calendar-google target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"><span>Google Calendar</span><small>Opens a prefilled event in a new tab</small></a>
+      <a class="calendar-option" href="#" data-calendar-outlook target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"><span>Outlook Calendar</span><small>Opens a prefilled event in a new tab</small></a>
+      <a class="calendar-option" href="/_static/100-year-pattern/100-year-pattern-september-27-2026.ics" data-calendar-ics download><span>Apple or other calendar</span><small>Downloads an .ics file to import</small></a>
+    </div>
+    <p class="calendar-dialog-note">No TradeWave signup or email is required. Google or Outlook may ask you to sign in to their service and use your provider reminder settings. The downloadable calendar file includes 9 a.m. Eastern reminders one week and one day before.</p>
+  </div>
+</dialog>
 <script>
 (() => {
   "use strict";
@@ -1303,6 +1349,90 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
 
   refreshCountdown();
   window.setInterval(refreshCountdown, 30000);
+
+  const calendarTrigger = document.querySelector("[data-calendar-open]");
+  const calendarDialog = document.querySelector("[data-calendar-dialog]");
+  const calendarClose = document.querySelector("[data-calendar-close]");
+  const googleCalendar = document.querySelector("[data-calendar-google]");
+  const outlookCalendar = document.querySelector("[data-calendar-outlook]");
+  const calendarChoices = document.querySelectorAll("[data-calendar-google], [data-calendar-outlook], [data-calendar-ics]");
+
+  if (calendarTrigger && calendarDialog && calendarClose && googleCalendar && outlookCalendar) {
+    const canonicalLink = document.querySelector('link[rel="canonical"]');
+    const canonicalUrl = canonicalLink ? canonicalLink.href : window.location.href;
+    const eventTitle = "The 100-Year Pattern: Sep 27 anchor, Sep 28 trading date";
+    const eventDescription = [
+      "September 27 is the fixed calendar anchor in TradeWave's published S&P 500 midterm-year study.",
+      "In 2026, September 27 falls on Sunday. Under the published calculation rule, the analysis uses the next trading day, Monday, September 28, and its closing value as the resolved entry.",
+      "The published window ends July 18, 2027. That date also falls on Sunday, so the resolved exit is Monday, July 19.",
+      "The 2026 to 2027 result is unresolved and is the first prospective out-of-sample test.",
+      "Historical market research only - not a forecast or investment recommendation.",
+      "Review the complete public record: " + canonicalUrl
+    ].join("\n\n");
+
+    googleCalendar.href = "https://calendar.google.com/calendar/render?" + new URLSearchParams({
+      action: "TEMPLATE",
+      text: eventTitle,
+      dates: "20260928/20260929",
+      details: eventDescription
+    }).toString();
+    outlookCalendar.href = "https://outlook.office.com/calendar/action/compose?" + new URLSearchParams({
+      path: "/calendar/action/compose",
+      rru: "addevent",
+      subject: eventTitle,
+      startdt: "2026-09-28",
+      enddt: "2026-09-29",
+      allday: "true",
+      body: eventDescription
+    }).toString();
+
+    function closeCalendarDialog() {
+      if (typeof calendarDialog.close === "function" && calendarDialog.open) {
+        calendarDialog.close();
+      } else {
+        calendarDialog.removeAttribute("open");
+        document.body.classList.remove("calendar-dialog-open");
+        calendarTrigger.setAttribute("aria-expanded", "false");
+        calendarTrigger.focus();
+      }
+    }
+
+    calendarTrigger.addEventListener("click", () => {
+      calendarTrigger.setAttribute("aria-expanded", "true");
+      document.body.classList.add("calendar-dialog-open");
+      if (typeof calendarDialog.showModal === "function") {
+        calendarDialog.showModal();
+      } else {
+        calendarDialog.setAttribute("open", "");
+      }
+      calendarClose.focus();
+    });
+    calendarClose.addEventListener("click", closeCalendarDialog);
+    calendarDialog.addEventListener("click", (event) => {
+      if (event.target === calendarDialog) closeCalendarDialog();
+    });
+    calendarDialog.addEventListener("keydown", (event) => {
+      if (event.key !== "Tab") return;
+      const focusable = [calendarClose, ...calendarChoices];
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+    calendarDialog.addEventListener("close", () => {
+      document.body.classList.remove("calendar-dialog-open");
+      calendarTrigger.setAttribute("aria-expanded", "false");
+      calendarTrigger.focus();
+    });
+    calendarChoices.forEach((choice) => {
+      choice.addEventListener("click", () => window.setTimeout(closeCalendarDialog, 0));
+    });
+  }
 
   document.querySelectorAll("[data-chart-toggle]").forEach((button) => {
     button.addEventListener("click", () => {

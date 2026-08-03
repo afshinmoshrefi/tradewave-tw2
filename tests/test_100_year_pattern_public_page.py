@@ -15,6 +15,13 @@ CSV_SOURCE = (
     / "100-year-pattern"
     / "100-year-pattern-cycles.csv"
 )
+ICS_SOURCE = (
+    ROOT
+    / "site"
+    / "static"
+    / "100-year-pattern"
+    / "100-year-pattern-september-27-2026.ics"
+)
 HOME_GENERATOR = ROOT / "site" / "generate_home_page.py"
 HOME_TEMPLATE = ROOT / "site" / "templates" / "index-dark-blue.html"
 
@@ -55,6 +62,12 @@ def test_static_evidence_page_contains_the_complete_record():
     assert "No account. No subscription. No email." in html
     assert "The information remains public whether or not you ever use TradeWave." in html
     assert "You do not need TradeWave to understand or use the public record above." in html
+    assert "Add September 27 to my calendar" in html
+    assert 'aria-haspopup="dialog"' in html
+    assert "Google Calendar" in html
+    assert "Outlook Calendar" in html
+    assert "Apple or other calendar" in html
+    assert ICS_SOURCE.is_file()
     assert 'href="/signup"' not in html
     assert "U.S. midterm years only" in html
     assert "One cycle every four years" in html
@@ -89,8 +102,21 @@ def test_page_generator_writes_environment_aware_output_atomically(tmp_path, mon
     assert {path.name for path in copied} == {
         "100-year-pattern-book.webp",
         "100-year-pattern-cycles.csv",
+        "100-year-pattern-september-27-2026.ics",
         "100-year-pattern-trend-chart.webp",
     }
+    calendar = (
+        tmp_path
+        / "_static"
+        / "100-year-pattern"
+        / "100-year-pattern-september-27-2026.ics"
+    ).read_bytes()
+    assert b"DTSTART;VALUE=DATE:20260928\r\n" in calendar
+    assert b"DTEND;VALUE=DATE:20260929\r\n" in calendar
+    assert b"URL:https://tw2-dev.trxstat.com/100-year-pattern.html\r\n" in calendar
+    assert b"__CANONICAL_URL__" not in calendar
+    assert b"TRIGGER;VALUE=DATE-TIME:20260921T130000Z\r\n" in calendar
+    assert b"TRIGGER;VALUE=DATE-TIME:20260927T130000Z\r\n" in calendar
 
 
 def test_page_generator_cli_runs_outside_the_repository(tmp_path):
