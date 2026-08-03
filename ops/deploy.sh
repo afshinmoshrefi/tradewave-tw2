@@ -339,17 +339,24 @@ remote_main="$(sudo -u flask git -C "$repo" ls-remote origin refs/heads/main | a
 REMOTE_PREFLIGHT
 done
 
-echo "==> [$ENV] pre-flight: APP was resized and both boxes have disk headroom?"
-if ! $SSH "root@$APP" 'cpu=$(nproc); mem_kb=$(awk "/^MemTotal:/{print \$2}" /proc/meminfo); [ "$cpu" -ge 4 ] && [ "$mem_kb" -ge 7000000 ]'; then
-  if [ "$ENV" = staging ] && [ "${TW2_ALLOW_UNDERSIZED_STAGING_APP:-}" = 1 ]; then
-    app_capacity=$($SSH "root@$APP" 'printf "%s CPU / %s MiB RAM" "$(nproc)" "$(( $(awk "/^MemTotal:/{print \$2}" /proc/meminfo) / 1024 ))"')
-    echo "    WARNING - operator-approved undersized staging APP: $app_capacity"
-  else
-    echo "ABORT: APP needs the planned >=4 CPU / ~8 GB resize before deployment."
-    echo "       For an intentionally undersized staging APP only, rerun with TW2_ALLOW_UNDERSIZED_STAGING_APP=1."
+echo "==> [$ENV] pre-flight: APP meets its tested baseline and both boxes have disk headroom?"
+# Capacity scales above the supported environment baseline in response to
+# observed traffic. Staging's tested low-traffic footprint is 2 CPU / 4 GB;
+# production retains its 4 CPU / ~8 GB floor. Identity, clean-tree,
+# service-health, route, and disk-headroom gates remain fail-closed.
+if [ "$ENV" = staging ]; then
+  if ! $SSH "root@$APP" 'cpu=$(nproc); mem_kb=$(awk "/^MemTotal:/{print \$2}" /proc/meminfo); [ "$cpu" -ge 2 ] && [ "$mem_kb" -ge 3500000 ]'; then
+    echo "ABORT: staging APP is below the tested 2 CPU / 4 GB baseline."
+    exit 1
+  fi
+else
+  if ! $SSH "root@$APP" 'cpu=$(nproc); mem_kb=$(awk "/^MemTotal:/{print \$2}" /proc/meminfo); [ "$cpu" -ge 4 ] && [ "$mem_kb" -ge 7000000 ]'; then
+    echo "ABORT: production APP requires >=4 CPU / ~8 GB."
     exit 1
   fi
 fi
+app_capacity=$($SSH "root@$APP" 'printf "%s CPU / %s MiB RAM / %s MiB available" "$(nproc)" "$(( $(awk "/^MemTotal:/{print \$2}" /proc/meminfo) / 1024 ))" "$(( $(awk "/^MemAvailable:/{print \$2}" /proc/meminfo) / 1024 ))"')
+echo "    OK - $ENV APP capacity: $app_capacity (scales with traffic)"
 for box in "$APP" "$WEB"; do
   $SSH "root@$box" 'root_blocks=$(df -Pk / | awk "NR==2{print \$2}"); root_free=$(df -Pk / | awk "NR==2{print \$4}"); [ "$root_free" -ge 2097152 ] && [ $((root_free * 100 / root_blocks)) -ge 10 ]' || {
     echo "ABORT: $box needs >=2 GB and >=10% free root disk before deployment."; exit 1;

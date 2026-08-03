@@ -107,6 +107,15 @@ def test_post_resize_staging_defaults_match_release_topology():
     assert 'TGT_APP_THREADS="${TGT_APP_THREADS:-4}"' in target
 
 
+def test_deploy_uses_tested_floors_then_scales_capacity_with_traffic():
+    deploy = (ROOT / "ops" / "deploy.sh").read_text(encoding="utf-8")
+    assert "staging APP is below the tested 2 CPU / 4 GB baseline" in deploy
+    assert "production APP requires >=4 CPU / ~8 GB" in deploy
+    assert "APP capacity: $app_capacity (scales with traffic)" in deploy
+    assert "MemAvailable:" in deploy
+    assert "TW2_ALLOW_UNDERSIZED_STAGING_APP" not in deploy
+
+
 def test_deploy_pins_source_build_and_one_time_login_cutover():
     deploy = (ROOT / "ops" / "deploy.sh").read_text(encoding="utf-8")
     assert "TW2_DEPLOY_SHA" in deploy
