@@ -50,8 +50,10 @@ _PATTERN_ANALYSIS_PATTERNS = (
     # A loaded chart makes terse imperatives unambiguous. Keep these out of the
     # provider path so "analyze" is as fast and complete as "analyze this pattern."
     re.compile(
-        r"^\s*(?:please\s+)?(?:analy[sz]e|evaluate|assess|review)"
-        r"(?:\s+(?:this|it))?(?:\s+please)?\s*[?.!]*\s*$",
+        r"^\s*(?:please\s+)?(?:(?:can|could|would|will)\s+you\s+)?(?:please\s+)?"
+        r"(?:analy[sz]e|evaluate|assess|review)"
+        r"(?:\s+(?:this(?:\s+(?:pattern|setup|window|trade|opportunity|one))?|it))?"
+        r"(?:\s+for\s+me)?(?:\s+please|,\s*please)?\s*[?.!]*\s*$",
         re.I,
     ),
     re.compile(r"\b(?:analy[sz]e|evaluate|assess|review) (?:this|the|current|loaded) (?:pattern|setup|window|trade|opportunity)\b", re.I),
@@ -75,7 +77,9 @@ _PATTERN_ANALYSIS_PATTERNS = (
 )
 
 _ADVICE_PATTERNS = re.compile(
-    r"\b(?:should i|should we|would you|would you take|do you recommend|recommend(?:ation)?|"
+    r"\b(?:should i|should we|"
+    r"would you(?!\s+(?:please\s+)?(?:analy[sz]e|evaluate|assess|review)\b)|"
+    r"would you take|do you recommend|recommend(?:ation)?|"
     r"buy (?:this|it|the (?:stock|setup|pattern|trade))|sell (?:this|it|the (?:stock|setup|pattern|trade))|short it|"
     r"take (?:it|this|the trade)|enter (?:it|this|the trade)|put money|position size|"
     r"good trade|how good is (?:this|the) trade|worth (?:it|trading|taking)|trade it)\b",
