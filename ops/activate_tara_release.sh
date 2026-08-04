@@ -205,9 +205,16 @@ PYTHONPATH="$release_dir:$release_dir/appserver/appserver" \
   --check-credentials --require-no-legacy-canary \
   --expected-fingerprint "$expected_fingerprint" >/dev/null
 
-app_port=${TW2_APPSERVER_BIND##*:}
+app_bind=$(
+  systemctl show tradewave-appserver --property=Environment --value \
+    | tr ' ' '\n' \
+    | sed -n 's/^TW2_APPSERVER_BIND=//p' \
+    | tail -1
+)
+export TW2_APPSERVER_BIND="$app_bind"
+app_port=${app_bind##*:}
 case "$app_port" in
-  ''|*[!0-9]*) echo "ABORT: invalid TW2_APPSERVER_BIND" >&2; false ;;
+  ''|*[!0-9]*) echo "ABORT: invalid active TW2_APPSERVER_BIND" >&2; false ;;
 esac
 health_json=$(curl -fsS "http://127.0.0.1:${app_port}/chatbot/runtime-fingerprint")
 HEALTH_JSON="$health_json" EXPECTED_FINGERPRINT="$expected_fingerprint" \
