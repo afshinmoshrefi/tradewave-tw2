@@ -35,7 +35,15 @@ def _combined_hash(paths):
 def _release_sha():
     try:
         return subprocess.check_output(
-            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+            [
+                "git",
+                "-c",
+                f"safe.directory={REPO_ROOT}",
+                "-C",
+                str(REPO_ROOT),
+                "rev-parse",
+                "HEAD",
+            ],
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()

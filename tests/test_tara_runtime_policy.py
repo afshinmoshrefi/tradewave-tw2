@@ -58,6 +58,21 @@ def test_runtime_fingerprint_is_stable_nonsecret_and_tracks_frontend_bundle(
     assert "tara_gateway_key" not in encoded
 
 
+def test_release_sha_uses_only_the_exact_worktree_safe_directory(monkeypatch):
+    captured = {}
+
+    def fake_check_output(command, **kwargs):
+        captured["command"] = command
+        return "b" * 40 + "\n"
+
+    monkeypatch.setattr(fingerprint.subprocess, "check_output", fake_check_output)
+
+    assert fingerprint._release_sha() == "b" * 40
+    assert captured["command"][0:2] == ["git", "-c"]
+    assert captured["command"][2] == f"safe.directory={fingerprint.REPO_ROOT}"
+    assert "--global" not in captured["command"]
+
+
 def test_credential_preflight_fails_closed_and_parity_mismatch_fails(monkeypatch):
     import importlib.util
 
