@@ -16,7 +16,13 @@ from AI_tools_appserver import (
     CLAUDE_SONNET_46,  # claude-sonnet-4-6 - strong + fast
     CLAUDE_OPUS_46,    # claude-opus-4-6 - most capable
 )
-from openai_tools_appserver import GPT_56_LUNA, send_openai_messages
+from openai_tools_appserver import (
+    GPT_56_LUNA,
+    OpenAIAPIError,
+    OpenAIConfigurationError,
+    failure_category,
+    send_openai_messages,
+)
 from tradewave_api_calls_cb import (
     get_keyprovider_token, login_appserver, get_financial_groups,
     get_opp_list, get_years_pyears_from_resource_id,
@@ -35,6 +41,7 @@ from tara_answer_planner import (
     build_excursion_overlay_command,
     build_deterministic_reply,
     build_hundred_year_pattern_command,
+    build_current_table_pick_command,
     build_opportunity_row_load_command,
     build_tooltip_preference_command,
     canonical_pattern_facts,
@@ -53,7 +60,14 @@ from tara_prompt_context import (
     segmented_system_blocks,
     select_topic_knowledge,
 )
-from tara_model_router import OPENAI_PROVIDER, select_tara_provider
+from tara_model_router import select_tara_provider
+from tara_runtime_policy import (
+    FALLBACK_MODEL,
+    FALLBACK_PROVIDER,
+    PRIMARY_MODEL,
+    PRIMARY_PROVIDER,
+)
+from tara_release_fingerprint import runtime_fingerprint
 
 
 # -----------------------------------------------------------------
@@ -206,6 +220,13 @@ TOOL_INSTRUCTION = (
 
 # Initialize Blueprint
 chatbot_bp = Blueprint("chatbot", __name__)
+
+
+@chatbot_bp.route("/chatbot/runtime-fingerprint", methods=["GET"])
+def tara_runtime_fingerprint():
+    """Expose only nonsecret release parity data for deployment verification."""
+
+    return jsonify(runtime_fingerprint())
 
 # Load knowledge base at startup
 def _load_knowledge():
@@ -1146,6 +1167,29 @@ def chat():
             log_question(user_id, user_message, reply, wave_viewer, provider="deterministic")
             return jsonify({"reply": reply, "actions": actions})
 
+        # A discovery request must use the exact filtered/sorted rows on screen.
+        # The visible table's first row is its highest-ranked row, so no model can
+        # substitute a historical or off-screen candidate.
+        table_pick = build_current_table_pick_command(
+            user_message,
+            opportunities,
+            market=opp_table_market,
+            pe_cycle=opp_table_pe_cycle,
+        )
+        if table_pick is not None:
+            actions = []
+            cleaned = _validate_view_spec(table_pick.get("spec"))
+            required = {"symbol", "entry_date", "days_out"}
+            if required.issubset(cleaned):
+                actions.append({
+                    "type": "load_opportunity",
+                    "rank": table_pick["rank"],
+                    "spec": cleaned,
+                })
+            reply = table_pick["reply"]
+            log_question(user_id, user_message, reply, wave_viewer, provider="deterministic")
+            return jsonify({"reply": reply, "actions": actions})
+
         # Tooltip preference language has a direct, reversible UI meaning. Confusion about
         # controls enables the guidance; annoyance with the guidance disables it. Tara also
         # names the visible switch so the user learns how to change the setting later.
@@ -1289,104 +1333,92 @@ def chat():
             messages.append({"role": role, "content": h.get("content", "")})
         messages.append({"role": "user", "content": user_message})
 
-        provider, provider_bucket = select_tara_provider(
-            user_id,
-            config.TARA_OPENAI_CANARY_PERCENT,
-            openai_available=bool(config.OPENAI_KEY),
-        )
+        provider = select_tara_provider()
         logging.info(
-            "Tara provider selected=%s canary_pct=%s bucket=%s tools=%s",
+            "Tara model turn phase=start provider=%s model=%s tools=%s",
             provider,
-            config.TARA_OPENAI_CANARY_PERCENT,
-            provider_bucket,
+            PRIMARY_MODEL,
             TARA_TOOLS_ENABLED,
         )
         response_provider = provider
 
         actions = []
-        if provider == OPENAI_PROVIDER:
-            try:
-                if TARA_TOOLS_ENABLED:
-                    bot_reply, actions = run_chat_with_openai_tools(
-                        messages,
-                        system_prompt,
-                        user_id,
-                        OPENAI_CHATBOT_MODEL,
-                        opp_table=opportunities,
-                        opp_table_market=opp_table_market,
-                        user_token=user_token,
-                        opp_table_years=opp_table_years,
-                        full_history_request=full_history_request,
-                        named_symbol_override=named_symbol_override,
-                        named_symbol_lookback=named_symbol_lookback,
-                        viewer_entry_year=viewer_entry_year,
-                    )
-                else:
-                    bot_reply = send_openai_messages(
-                        messages,
-                        model=OPENAI_CHATBOT_MODEL,
-                        system=system_prompt,
-                        user_id=user_id,
-                    )
-            except Exception:
-                # The canary must never become a user-visible outage. Tool reads are GET-only and
-                # update_view actions are not returned until the loop completes, so a fresh Haiku
-                # retry is safe if Luna or its adapter fails mid-turn.
-                logging.exception(
-                    "Tara OpenAI canary failed bucket=%s; retrying with Anthropic",
-                    provider_bucket,
+        try:
+            if TARA_TOOLS_ENABLED:
+                bot_reply, actions = run_chat_with_openai_tools(
+                    messages,
+                    system_prompt,
+                    user_id,
+                    OPENAI_CHATBOT_MODEL,
+                    opp_table=opportunities,
+                    opp_table_market=opp_table_market,
+                    user_token=user_token,
+                    opp_table_years=opp_table_years,
+                    full_history_request=full_history_request,
+                    named_symbol_override=named_symbol_override,
+                    named_symbol_lookback=named_symbol_lookback,
+                    viewer_entry_year=viewer_entry_year,
                 )
-                response_provider = "anthropic_fallback"
-                actions = []
-                if TARA_TOOLS_ENABLED:
-                    bot_reply, actions = run_chat_with_tools(
-                        messages,
-                        system_prompt,
-                        user_id,
-                        CHATBOT_MODEL,
-                        CACHE_TTL,
-                        opp_table=opportunities,
-                        opp_table_market=opp_table_market,
-                        user_token=user_token,
-                        opp_table_years=opp_table_years,
-                        full_history_request=full_history_request,
-                        named_symbol_override=named_symbol_override,
-                        named_symbol_lookback=named_symbol_lookback,
-                        viewer_entry_year=viewer_entry_year,
-                    )
-                else:
-                    bot_reply = send_claude_messages(
-                        messages,
-                        model=CHATBOT_MODEL,
-                        system=system_prompt,
-                        cache_system=True,
-                        cache_ttl=CACHE_TTL,
-                    )
-        elif TARA_TOOLS_ENABLED:
-            # Tara fetches live data via the gateway tools and narrates the result; `actions`
-            # carries any wave-viewer changes the model requested for the client to apply.
-            bot_reply, actions = run_chat_with_tools(
-                messages,
-                system_prompt,
-                user_id,
-                CHATBOT_MODEL,
-                CACHE_TTL,
-                opp_table=opportunities,
-                opp_table_market=opp_table_market,
-                user_token=user_token,
-                opp_table_years=opp_table_years,
-                full_history_request=full_history_request,
-                named_symbol_override=named_symbol_override,
-                named_symbol_lookback=named_symbol_lookback,
-                viewer_entry_year=viewer_entry_year,
+            else:
+                bot_reply = send_openai_messages(
+                    messages,
+                    model=OPENAI_CHATBOT_MODEL,
+                    system=system_prompt,
+                    user_id=user_id,
+                )
+            logging.info(
+                "Tara model turn phase=complete provider=%s model=%s status=success",
+                PRIMARY_PROVIDER,
+                PRIMARY_MODEL,
             )
-        else:
-            bot_reply = send_claude_messages(
-                messages,
-                model=CHATBOT_MODEL,
-                system=system_prompt,
-                cache_system=True,
-                cache_ttl=CACHE_TTL,
+        except OpenAIConfigurationError:
+            # Misconfiguration is a deployment failure, never a reason to silently
+            # choose a different model policy at runtime.
+            raise
+        except Exception as exc:
+            # Tool reads are GET-only and update_view actions are not returned until
+            # the loop completes, so a fresh Haiku retry is safe after a genuine
+            # primary API/connection/adapter failure.
+            category = failure_category(exc)
+            logging.warning(
+                "Tara model fallback primary_provider=%s primary_model=%s "
+                "fallback_provider=%s fallback_model=%s category=%s",
+                PRIMARY_PROVIDER,
+                PRIMARY_MODEL,
+                FALLBACK_PROVIDER,
+                FALLBACK_MODEL,
+                category,
+            )
+            response_provider = "anthropic_fallback"
+            actions = []
+            if TARA_TOOLS_ENABLED:
+                bot_reply, actions = run_chat_with_tools(
+                    messages,
+                    system_prompt,
+                    user_id,
+                    CHATBOT_MODEL,
+                    CACHE_TTL,
+                    opp_table=opportunities,
+                    opp_table_market=opp_table_market,
+                    user_token=user_token,
+                    opp_table_years=opp_table_years,
+                    full_history_request=full_history_request,
+                    named_symbol_override=named_symbol_override,
+                    named_symbol_lookback=named_symbol_lookback,
+                    viewer_entry_year=viewer_entry_year,
+                )
+            else:
+                bot_reply = send_claude_messages(
+                    messages,
+                    model=CHATBOT_MODEL,
+                    system=system_prompt,
+                    cache_system=True,
+                    cache_ttl=CACHE_TTL,
+                )
+            logging.info(
+                "Tara model turn phase=complete provider=%s model=%s status=fallback_success",
+                FALLBACK_PROVIDER,
+                FALLBACK_MODEL,
             )
 
         # Deterministic floor: guarantee a stat on a loaded-pattern strength question

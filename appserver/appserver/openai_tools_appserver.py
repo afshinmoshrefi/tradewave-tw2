@@ -1,4 +1,4 @@
-"""Small OpenAI Responses API adapter for Tara's GPT-5.6 Luna canary.
+"""Small OpenAI Responses API adapter for Tara's GPT-5.6 Luna primary.
 
 Tara intentionally keeps its provider integration local instead of requiring the
 OpenAI SDK in the appserver environment.  The adapter accepts the same segmented
@@ -19,20 +19,52 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 import config
+from tara_runtime_policy import PRIMARY_MODEL
 
 
 log = logging.getLogger("openai_tools_appserver")
 
 OPENAI_API_KEY = config.OPENAI_KEY
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
-GPT_56_LUNA = "gpt-5.6-luna"
+GPT_56_LUNA = PRIMARY_MODEL
 
 _CACHE_KEY_VERSION = "tara-luna-v1"
 _CACHE_SHARDS = 4
 
 
 class OpenAIAPIError(Exception):
-    pass
+    """A runtime provider/API/adapter failure eligible for the safe fallback."""
+
+    def __init__(self, category):
+        super().__init__(category)
+        self.category = str(category or "adapter_error")
+
+
+class OpenAIConfigurationError(RuntimeError):
+    """A deployment/configuration failure that must never select a fallback."""
+
+
+def failure_category(exc):
+    """Return a bounded nonsecret category for operational fallback telemetry."""
+
+    if isinstance(exc, OpenAIAPIError):
+        allowed = {
+            "timeout",
+            "connection",
+            "authentication",
+            "rate_limit",
+            "provider_server",
+            "provider_http",
+            "invalid_response",
+            "adapter_error",
+        }
+        return exc.category if exc.category in allowed else "adapter_error"
+    name = type(exc).__name__.lower()
+    if "timeout" in name:
+        return "timeout"
+    if "connection" in name:
+        return "connection"
+    return "adapter_error"
 
 
 def prompt_cache_key(user_id):
@@ -147,9 +179,9 @@ def decode_function_arguments(call):
     try:
         decoded = json.loads(raw) if isinstance(raw, str) else raw
     except (TypeError, ValueError) as exc:
-        raise OpenAIAPIError("invalid function-call arguments") from exc
+        raise OpenAIAPIError("invalid_response") from exc
     if not isinstance(decoded, dict):
-        raise OpenAIAPIError("function-call arguments must be a JSON object")
+        raise OpenAIAPIError("invalid_response")
     return decoded
 
 
@@ -176,7 +208,7 @@ def send_openai_response(input_items, model=GPT_56_LUNA, tools=None,
     """Send one stateless Responses API request and return its full JSON body."""
 
     if not OPENAI_API_KEY:
-        raise OpenAIAPIError("OpenAI API key is not configured")
+        raise OpenAIConfigurationError("OpenAI primary credential is not configured")
     payload = {
         "model": model,
         "input": input_items,
@@ -195,20 +227,32 @@ def send_openai_response(input_items, model=GPT_56_LUNA, tools=None,
         "Authorization": "Bearer " + OPENAI_API_KEY,
         "Content-Type": "application/json",
     }
-    response = requests.post(
-        OPENAI_RESPONSES_URL,
-        headers=headers,
-        json=payload,
-        timeout=timeout,
-    )
+    try:
+        response = requests.post(
+            OPENAI_RESPONSES_URL,
+            headers=headers,
+            json=payload,
+            timeout=timeout,
+        )
+    except Exception as exc:
+        raise OpenAIAPIError(failure_category(exc)) from exc
     if response.status_code != 200:
-        # Provider bodies can contain request detail; keep them server-side and bounded.
-        log.warning("OpenAI API %s: %s", response.status_code, response.text[:500])
-        raise OpenAIAPIError(f"HTTP {response.status_code}")
+        status = int(response.status_code)
+        if status in {401, 403}:
+            category = "authentication"
+        elif status == 429:
+            category = "rate_limit"
+        elif status >= 500:
+            category = "provider_server"
+        else:
+            category = "provider_http"
+        # Never log the provider body: it can echo request or customer content.
+        log.warning("OpenAI API failure status=%s category=%s", status, category)
+        raise OpenAIAPIError(category)
     try:
         data = response.json()
     except ValueError as exc:
-        raise OpenAIAPIError("OpenAI returned invalid JSON") from exc
+        raise OpenAIAPIError("invalid_response") from exc
     _log_usage(model, data)
     return data
 
@@ -225,5 +269,5 @@ def send_openai_messages(messages, system=None, user_id=None, model=GPT_56_LUNA,
     )
     text = response_text(response)
     if not text:
-        raise OpenAIAPIError("OpenAI returned no assistant text")
+        raise OpenAIAPIError("invalid_response")
     return text

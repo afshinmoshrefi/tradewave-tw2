@@ -1,7 +1,7 @@
 ================================================================================
  TRADEWAVE CHATBOT - README
 ================================================================================
-Last updated: August 1, 2026
+Last updated: August 4, 2026
 
 --------------------------------------------------------------------------------
  OVERVIEW
@@ -9,8 +9,8 @@ Last updated: August 1, 2026
 The TradeWave chatbot is a context-aware AI assistant embedded in the desktop
 UI. It knows about the currently loaded wave pattern, the opportunity table,
 and the TradeWave interface. Verified questions are answered by a deterministic
-planner. Other turns use Haiku 4.5 by default, with a sticky GPT-5.6 Luna canary
-on dev only.
+planner. Every other turn starts on GPT-5.6 Luna in dev, staging, and production.
+Haiku 4.5 is a runtime fallback only after a classified OpenAI failure.
 
 Files involved:
   appserver:  chatbot.py - Flask blueprint, route, prompt builder
@@ -18,7 +18,9 @@ Files involved:
               tara_answer_planner.py - verified screen/bar/pattern-analysis answers
               AI_tools_appserver.py - Anthropic system-block cache handling
               openai_tools_appserver.py - OpenAI Responses API + cache translation
-              tara_model_router.py - sticky provider canary bucketing
+              tara_model_router.py - release-owned primary provider selection
+              tara_runtime_policy.py - tracked primary and fallback model policy
+              tara_release_fingerprint.py - nonsecret release parity fingerprint
               tara_gateway.py - shared gateway tools + provider-specific loops
               chatbot_knowledge.txt - editable knowledge base (no code change needed)
               chatbot_readme.txt - this file
@@ -43,13 +45,14 @@ Files involved:
   OPENAI_CHATBOT_MODEL = gpt-5.6-luna. The Responses request fixes:
     reasoning.effort=low, text.verbosity=low, store=false, max output=2,048.
 
-  TARA_OPENAI_CANARY_PERCENT (environment):
-    Default on dev: 10. Default on staging/prod: 0.
-    Selection is sticky by authenticated user, and only applies after the
-    deterministic answer planner declines the question. Set 0 for an immediate
-    Haiku-only kill switch. A missing OPENAI_KEY also forces Haiku.
+  The tracked Tara policy is identical in every environment:
+    primary:  OpenAI gpt-5.6-luna
+    fallback: Anthropic claude-haiku-4-5-20251001
+    TARA_OPENAI_CANARY_PERCENT is retired. There are no percentage buckets,
+    user buckets, or environment-specific primary defaults. Missing OPENAI_KEY
+    is a deployment/configuration failure and does not silently force Haiku.
 
-After changing a model, cache, or canary setting:
+After changing a tracked model or cache setting:
   sudo systemctl restart tradewave-appserver
 
 The tracked API-gateway unit is PartOf the appserver unit, so this restart also
@@ -67,7 +70,7 @@ live Tara reads work.
   Cache hits:             $0.10 / MTok  (every subsequent message - 10x cheaper)
   Output tokens:          $5.00 / MTok  (the bot's reply - keep answers short!)
 
-  GPT-5.6 Luna canary (August 1, 2026 published pricing):
+  GPT-5.6 Luna primary (August 1, 2026 published pricing):
   Base input tokens:      $0.20 / MTok
   Explicit cache write:   $0.25 / MTok  (1.25x base input)
   Cache hits:             $0.02 / MTok
@@ -78,9 +81,9 @@ live Tara reads work.
     Segmented representative prompt:            31K-34K chars
     Reduction:                                  approximately 72%-74%
 
-  Luna is materially cheaper per token, but the canary decision is quality-first.
-  Do not widen it based on price alone; review real Tara replies, fallback rate,
-  latency, tool accuracy, and cache usage first.
+  Luna is materially cheaper per token, but model policy remains a product and
+  quality decision. Review real Tara replies, fallback rate, latency, tool
+  accuracy, and cache usage before changing the tracked release policy.
 
 --------------------------------------------------------------------------------
  HOW THE SYSTEM PROMPT WORKS

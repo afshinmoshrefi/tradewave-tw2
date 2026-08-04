@@ -1253,8 +1253,9 @@ pattern. High-confidence screen-overview and bar-color questions bypass the LLM 
 always covers the top Gain-Loss chart, the active lower slide (including visible projections on the
 Price Chart), and the left table when visible. Explicit analysis of the already-loaded pattern is
 also deterministic as of 2026-07-31 (details below); other open-ended questions use the selected
-model provider with compact verified facts appended last to its system prompt. Dev and staging
-currently override the GPT-5.6 Luna canary to 100%; production remains on Haiku 4.5.
+model provider with compact verified facts appended last to its system prompt. The release-owned
+policy is identical in every environment: OpenAI `gpt-5.6-luna` is primary and Haiku 4.5 is a
+classified runtime fallback only.
 
 The direction contract is essential: `ChartData4[].pct[0]` and the bars are the UNDERLYING price
 move, not direction-adjusted trade P&L. Green/up means the security rose; red/down means it fell.
@@ -1530,12 +1531,12 @@ tabular numerals, and a quieter scope/disclosure treatment. This keeps the detai
 scannable inside the narrow desktop chat column without removing the evidence the user requested.
 Other short Tara answers retain their compact normal message rendering.
 
-**GPT-5.6 Luna dev/staging canary (2026-08-02).** Deterministic planner answers still run first and never
-enter a provider experiment. For the remaining model-bound turns, `tara_model_router.py` hashes the
-authenticated user id into a stable 0-99 bucket. `TARA_OPENAI_CANARY_PERCENT` defaults to `10` when
-`TW2_ENV=dev` and `0` on staging/production; the deployed dev and staging appserver environments
-currently set it to `100`, while production leaves it at `0`. Zero is the immediate kill switch. Selection also requires
-`OPENAI_KEY`, so a missing key always stays on Haiku. `openai_tools_appserver.py` uses the stateless
+**GPT-5.6 Luna release policy (2026-08-04).** Deterministic planner answers still run first and never
+enter a provider route. Every remaining model-bound turn starts on the tracked primary provider and
+model: OpenAI `gpt-5.6-luna`. `tara_model_router.py` contains no authenticated-user bucket,
+percentage canary, or environment default. `TARA_OPENAI_CANARY_PERCENT` is retired and absent during
+normal operation. Missing `OPENAI_KEY` or an invalid tracked primary policy fails deployment
+preflight and does not silently select another model. `openai_tools_appserver.py` uses the stateless
 Responses API (`store:false`) with `gpt-5.6-luna`, low reasoning effort, low text verbosity, a bounded
 2,048-token output ceiling, and an explicit cache breakpoint at the end of the same stable prompt
 prefix used by Anthropic. Four stable cache-key shards share that prefix without concentrating all
@@ -1544,11 +1545,14 @@ requests on one routing key.
 `tara_gateway.run_chat_with_openai_tools` carries Responses function calls and outputs forward
 explicitly but executes them through the same `_execute_tara_tool` path as Haiku. Thus gateway reads,
 OppList4/table interception, result trimming, ViewSpec validation, UI actions, and the final truth
-guards do not vary by model. Any OpenAI/API/adapter failure discards unreturned local UI actions and
-retries the full turn on Haiku; Tara exposes only the usual generic error if both providers fail.
+guards do not vary by model. A classified OpenAI request, API, connection, or adapter failure discards
+unreturned local UI actions and retries the full turn on Haiku; configuration failures do not fall
+back. Tara exposes only the usual generic error if both runtime providers fail.
 Question-log rows record `deterministic`, `openai`, `anthropic`, or `anthropic_fallback`, while provider
-usage logs contain token/cache counts but no prompt text. This is a dev/staging evaluation rollout,
-not a production model change.
+usage and turn-completion logs contain the actual provider, exact model, token/cache counts, and safe
+failure category but no prompt text or provider response body. `/chatbot/runtime-fingerprint` and
+`ops/verify_tara_release.py` expose only the release SHA, tracked model policy, prompt and planner
+hashes, frontend bundle hash when supplied, and non-secret configuration hash.
 
 **Gateway restart/service-login invariant (2026-08-01).** The gateway keeps both
 `SERVICE_API_KEY` and its downstream appserver JWT in process memory. A manual appserver-only restart
@@ -1590,6 +1594,15 @@ runs the release tests/build, and pushes a tested release commit. That commit ad
 `origin/main` before `ops/deploy.sh` runs because the deploy script pulls `origin/main` on
 the target boxes. `/home/flask` is the operational checkout, not a shared development
 scratchpad. Canonical procedure: `.claude/skills/tw-git-release-workflow/SKILL.md`.
+
+**Tara immutable app release invariant (2026-08-04):** a scoped Tara-only backend promotion uses
+a clean detached worktree under `/home/flask/.tw2-releases/<sha>` and atomically points
+`/home/flask/.tw2-app-current` at it. Systemd drop-ins make both `tradewave-appserver` and its coupled
+`tradewave-apiserver` load that exact source tree. `ops/activate_tara_release.sh` snapshots the prior
+source/config/unit state, runs fail-closed credential and fingerprint checks, performs deterministic
+and model-bound live gates, and writes tested rollback and roll-forward scripts. The dirty developer
+checkout is never reset, stashed, switched, or used as the artifact. For a backend-only Tara diff,
+the active React artifact, homepage, 100-Year Pattern page, and nginx configuration remain untouched.
 
 The APP deploy pre-flight enforces the supported low-traffic environment baseline
 of 2 CPUs / 4 GB for both staging and production. Production approval for that

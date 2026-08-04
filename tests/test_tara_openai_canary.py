@@ -1,4 +1,4 @@
-"""Regression coverage for Tara's GPT-5.6 Luna canary and Responses adapter."""
+"""Regression coverage for Tara's GPT-5.6 Luna primary and safe fallback."""
 
 import copy
 import json
@@ -16,26 +16,19 @@ sys.path.insert(0, str(APPSERVER))
 
 import openai_tools_appserver as openai_tools  # noqa: E402
 import tara_gateway  # noqa: E402
-from tara_model_router import (  # noqa: E402
-    ANTHROPIC_PROVIDER,
-    OPENAI_PROVIDER,
-    canary_bucket,
-    select_tara_provider,
-)
+from tara_model_router import OPENAI_PROVIDER, select_tara_provider  # noqa: E402
+from tara_runtime_policy import FALLBACK_MODEL, PRIMARY_MODEL, public_policy  # noqa: E402
 
 
-def test_provider_selection_is_sticky_bounded_and_requires_a_key():
-    bucket = canary_bucket("user-42")
-
-    assert canary_bucket("user-42") == bucket
-    assert select_tara_provider("user-42", 0, True)[0] == ANTHROPIC_PROVIDER
-    assert select_tara_provider("user-42", 100, False)[0] == ANTHROPIC_PROVIDER
-    assert select_tara_provider("user-42", bucket, True)[0] == ANTHROPIC_PROVIDER
-    assert select_tara_provider("user-42", bucket + 1, True)[0] == OPENAI_PROVIDER
+def test_provider_selection_is_release_owned_and_has_no_user_bucket():
+    assert select_tara_provider() == OPENAI_PROVIDER
+    assert PRIMARY_MODEL == "gpt-5.6-luna"
+    assert FALLBACK_MODEL == "claude-haiku-4-5-20251001"
+    assert "canary" not in json.dumps(public_policy()).lower()
 
 
-@pytest.mark.parametrize("environment, expected", [("dev", "10"), ("staging", "0"), ("prod", "0")])
-def test_canary_defaults_to_ten_percent_on_dev_and_zero_elsewhere(environment, expected):
+@pytest.mark.parametrize("environment", ["dev", "staging", "prod"])
+def test_legacy_canary_setting_is_absent_in_every_environment(environment):
     env = os.environ.copy()
     env["TW2_ENV"] = environment
     env.pop("TARA_OPENAI_CANARY_PERCENT", None)
@@ -43,16 +36,16 @@ def test_canary_defaults_to_ten_percent_on_dev_and_zero_elsewhere(environment, e
         [
             sys.executable,
             "-c",
-            "import config; print(config.TARA_OPENAI_CANARY_PERCENT)",
+            "import config; print(hasattr(config, 'TARA_OPENAI_CANARY_PERCENT'))",
         ],
         cwd=ROOT,
         env=env,
         text=True,
     )
-    assert output.strip() == expected
+    assert output.strip() == "False"
 
 
-def test_canary_fails_closed_when_environment_is_not_explicit():
+def test_legacy_canary_setting_is_absent_when_environment_is_not_explicit():
     env = os.environ.copy()
     env.pop("TW2_ENV", None)
     env.pop("TARA_OPENAI_CANARY_PERCENT", None)
@@ -60,13 +53,13 @@ def test_canary_fails_closed_when_environment_is_not_explicit():
         [
             sys.executable,
             "-c",
-            "import config; print(config.TARA_OPENAI_CANARY_PERCENT)",
+            "import config; print(hasattr(config, 'TARA_OPENAI_CANARY_PERCENT'))",
         ],
         cwd=ROOT,
         env=env,
         text=True,
     )
-    assert output.strip() == "0"
+    assert output.strip() == "False"
 
 
 def test_segmented_prompt_maps_only_stable_prefix_to_explicit_cache_breakpoint():
@@ -423,7 +416,7 @@ def test_tara_brief_card_keeps_twr_without_restoring_heavy_receipts():
     assert "receipts" not in brief["card"]
 
 
-def test_openai_http_failure_is_generic_and_does_not_expose_body(monkeypatch):
+def test_openai_http_failure_is_classified_and_does_not_expose_body(monkeypatch, caplog):
     class Response:
         status_code = 429
         text = "provider-private-detail"
@@ -431,11 +424,18 @@ def test_openai_http_failure_is_generic_and_does_not_expose_body(monkeypatch):
     monkeypatch.setattr(openai_tools, "OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(openai_tools.requests, "post", lambda *args, **kwargs: Response())
 
-    with pytest.raises(openai_tools.OpenAIAPIError, match="HTTP 429"):
+    with pytest.raises(openai_tools.OpenAIAPIError, match="rate_limit"):
+        openai_tools.send_openai_response([{"role": "user", "content": "hello"}])
+    assert "provider-private-detail" not in caplog.text
+
+
+def test_missing_openai_credential_is_configuration_failure_not_api_fallback(monkeypatch):
+    monkeypatch.setattr(openai_tools, "OPENAI_API_KEY", "")
+    with pytest.raises(openai_tools.OpenAIConfigurationError):
         openai_tools.send_openai_response([{"role": "user", "content": "hello"}])
 
 
-def test_chat_route_retries_haiku_when_luna_fails(monkeypatch):
+def test_chat_route_retries_haiku_when_luna_fails(monkeypatch, caplog):
     from flask import Flask, g
     import chatbot as chatbot_module
 
@@ -445,7 +445,7 @@ def test_chat_route_retries_haiku_when_luna_fails(monkeypatch):
     monkeypatch.setattr(
         chatbot_module,
         "select_tara_provider",
-        lambda *args, **kwargs: (OPENAI_PROVIDER, 3),
+        lambda *args, **kwargs: OPENAI_PROVIDER,
     )
     monkeypatch.setattr(chatbot_module, "TARA_TOOLS_ENABLED", True)
 
@@ -480,6 +480,48 @@ def test_chat_route_retries_haiku_when_luna_fails(monkeypatch):
 
     assert response.get_json() == {"reply": "Haiku recovered the turn.", "actions": []}
     assert seen == {"provider": "anthropic_fallback", "response": "Haiku recovered the turn."}
+    assert "primary_provider=openai" in caplog.text
+    assert "primary_model=gpt-5.6-luna" in caplog.text
+    assert "fallback_model=claude-haiku-4-5-20251001" in caplog.text
+    assert "category=adapter_error" in caplog.text
+    assert "simulated provider failure" not in caplog.text
+
+
+def test_chat_route_does_not_fallback_for_missing_primary_configuration(monkeypatch):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    monkeypatch.setattr(chatbot_module, "build_deterministic_reply", lambda *args, **kwargs: None)
+    monkeypatch.setattr(chatbot_module, "build_system_prompt", lambda *args, **kwargs: [])
+    monkeypatch.setattr(chatbot_module, "select_tara_provider", lambda: OPENAI_PROVIDER)
+    monkeypatch.setattr(chatbot_module, "TARA_TOOLS_ENABLED", True)
+    monkeypatch.setattr(
+        chatbot_module,
+        "run_chat_with_openai_tools",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            openai_tools.OpenAIConfigurationError("missing primary")
+        ),
+    )
+    monkeypatch.setattr(
+        chatbot_module,
+        "run_chat_with_tools",
+        lambda *args, **kwargs: pytest.fail("configuration failures must not use Haiku"),
+    )
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+
+    app = Flask(__name__)
+    body = {
+        "message": "What can you do?",
+        "history": [{"role": "user", "content": "What can you do?"}],
+        "wave_viewer": {},
+        "screen_context": {},
+        "opportunities": [],
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "configuration-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    assert response.get_json()["reply"].startswith("Sorry")
 
 
 def test_chat_route_loads_visible_ordinal_row_without_calling_a_provider(monkeypatch):
@@ -541,6 +583,72 @@ def test_chat_route_loads_visible_ordinal_row_without_calling_a_provider(monkeyp
     ]
     assert "Loaded row #3: PEG short" in payload["reply"]
     assert seen["provider"] == "deterministic"
+
+
+def test_chat_route_uses_current_visible_googl_row_not_stale_history(monkeypatch):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: pytest.fail("current-table selection must bypass providers"),
+    )
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+
+    app = Flask(__name__)
+    message = "show me something good from the table"
+    body = {
+        "message": message,
+        "history": [
+            {
+                "role": "assistant",
+                "content": "Earlier we discussed an expired GOOGL window from July.",
+            },
+            {"role": "user", "content": message},
+        ],
+        "wave_viewer": {"symbol": "MSFT"},
+        "screen_context": {"opportunity_rows": 2},
+        "opp_table_market": "2",
+        "opp_table_pe_cycle": "cons",
+        "opportunities": [
+            {
+                "date": "2026-08-07",
+                "symbol": "GOOGL",
+                "days_out": 21,
+                "direction": "Long",
+                "avg_profit": 4.2,
+                "sharpe_ratio": 1.91,
+            },
+            {
+                "date": "2026-08-08",
+                "symbol": "AAPL",
+                "days_out": 12,
+                "direction": "Short",
+                "sharpe_ratio": 1.44,
+            },
+        ],
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "current-table-googl-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    payload = response.get_json()
+    assert payload["actions"] == [
+        {
+            "type": "load_opportunity",
+            "rank": 1,
+            "spec": {
+                "symbol": "GOOGL",
+                "market": "2",
+                "entry_date": "2026-08-07",
+                "days_out": 21,
+                "pe_cycle": "cons",
+            },
+        }
+    ]
+    assert "highest-ranked visible row (#1): GOOGL long" in payload["reply"]
+    assert "July" not in payload["reply"]
 
 
 @pytest.mark.parametrize(
@@ -706,7 +814,7 @@ def test_chat_route_passes_loaded_lookback_to_a_different_named_symbol(monkeypat
     monkeypatch.setattr(
         chatbot_module,
         "select_tara_provider",
-        lambda *args, **kwargs: (OPENAI_PROVIDER, 3),
+        lambda *args, **kwargs: OPENAI_PROVIDER,
     )
     monkeypatch.setattr(chatbot_module, "TARA_TOOLS_ENABLED", True)
 

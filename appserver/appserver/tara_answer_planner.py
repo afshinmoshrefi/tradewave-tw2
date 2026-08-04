@@ -80,6 +80,27 @@ _PATTERN_ANALYSIS_PATTERNS = (
     re.compile(r"\bdoes (?:this|it|the (?:pattern|setup|window)) (?:make money|work)\b", re.I),
     re.compile(r"\bis (?:this|it|the (?:pattern|setup|window)) historically profitable\b", re.I),
     re.compile(r"\bwhat makes (?:this|it|the (?:pattern|setup|window)) (?:interesting|useful|notable)\b", re.I),
+    re.compile(r"^\s*explain this(?:\s+(?:chart|pattern|setup|window))?\s*[?.!]*\s*$", re.I),
+    re.compile(r"^\s*tell me more(?:\s+about\s+(?:this|it|the (?:chart|pattern|setup|window)))?\s*[?.!]*\s*$", re.I),
+)
+
+_CURRENT_TABLE_PICK_PATTERN = re.compile(
+    r"^\s*(?:please\s+)?(?:show|find|spot|pick|load)\s+me\s+"
+    r"(?:something|one)\s+(?:good|strong|interesting)\s+"
+    r"(?:from|in|on)\s+(?:the\s+)?(?:opportunity\s+)?table\s*[?.!]*\s*$",
+    re.I,
+)
+
+_METRIC_DEFINITION_PATTERN = re.compile(
+    r"\b(?:what (?:is|does)|define|explain|how (?:is|does))\b.{0,50}"
+    r"\b(?:historical win rate|ai win(?:%| probability)?|predr|predicted return|"
+    r"mfe|mae|maximum favorable excursion|maximum adverse excursion|twr|tradewave ratio)\b",
+    re.I,
+)
+
+_VOLUME_PATTERN = re.compile(
+    r"\b(?:volume|shares traded|trading volume)\b",
+    re.I,
 )
 
 _SEASONALITY_VALUE_PATTERNS = (
@@ -1871,6 +1892,113 @@ def build_opportunity_row_load_command(
     }
 
 
+def build_current_table_pick_command(
+    message: Any,
+    opportunities: Any,
+    *,
+    market: Any = None,
+    pe_cycle: Any = None,
+) -> Optional[Dict[str, Any]]:
+    """Load the first exact visible row for a current-table discovery request.
+
+    The browser supplies the filtered and sorted visible order.  The table is sorted
+    by its displayed ranking, best first, so this function never scans another list,
+    invents a symbol, or lets a provider choose from stale history.
+    """
+
+    if not _CURRENT_TABLE_PICK_PATTERN.search(str(message or "")):
+        return None
+    rows = opportunities if isinstance(opportunities, list) else []
+    if not rows:
+        return {
+            "rank": 1,
+            "spec": None,
+            "reply": (
+                "<b>The current opportunity table has no visible rows to select.</b> "
+                "Change or clear the table filters, then ask me again."
+            ),
+        }
+    command = build_opportunity_row_load_command(
+        "load row 1 from the table",
+        rows,
+        market=market,
+        pe_cycle=pe_cycle,
+    )
+    if command is not None:
+        command["reply"] = command["reply"].replace(
+            "<b>Loaded row #1:",
+            "<b>Loaded the current table's highest-ranked visible row (#1):",
+            1,
+        )
+    return command
+
+
+def build_metric_definitions_reply(message: Any) -> Optional[str]:
+    """Define Tara's historical, model, and path metrics without blending them."""
+
+    if not _METRIC_DEFINITION_PATTERN.search(str(message or "")):
+        return None
+    lines = [
+        (
+            "<b>Historical win rate:</b> profitable completed occurrences divided by the exact "
+            "historical sample size n for this symbol, direction, entry date, holding window, "
+            "lookback, and PE cycle."
+        ),
+        (
+            "<b>AI Win%:</b> the model's calibrated probability of a positive return for the "
+            "same symbol, direction, entry date, and named horizon under current conditions. "
+            "It is not another historical observation."
+        ),
+        (
+            "<b>PredR:</b> the model's predicted return for that same named horizon and direction, "
+            "not the historical average return."
+        ),
+        (
+            "<b>Agreement:</b> the historical record and AI estimates point the same way. "
+            "<b>Conflict:</b> they point opposite ways. <b>Mixed:</b> probability and return or "
+            "different horizons do not agree."
+        ),
+        (
+            "<b>MFE / MAE:</b> historical path measures from entry for each completed occurrence. "
+            "MFE is the best move in the trade direction; MAE is the worst move against it. "
+            "They are not calculated by the AI model."
+        ),
+        (
+            "<b>TWR:</b> TradeWave Ratio applies a Sharpe-style average-to-dispersion calculation "
+            "to each completed occurrence's MFE. Sharpe uses final returns; TWR uses the best "
+            "favorable move reached during each window."
+        ),
+    ]
+    return _render_analysis_sections(lines)
+
+
+def build_volume_boundary_reply(
+    message: Any, screen_context: Any = None
+) -> Optional[str]:
+    """State exactly whether Tara has usable volume evidence in the current context."""
+
+    if not _VOLUME_PATTERN.search(str(message or "")):
+        return None
+    screen = screen_context if isinstance(screen_context, Mapping) else {}
+    if screen.get("volume_available") is True and screen.get("volume_summary"):
+        summary = html.escape(str(screen["volume_summary"]))
+        return _render_analysis_sections(
+            [
+                "<b>Volume evidence:</b> " + summary,
+                "<b>Scope:</b> I am using only the volume summary supplied in the current loaded context.",
+            ]
+        )
+    return _render_analysis_sections(
+        [
+            (
+                "<b>Volume boundary:</b> TradeWave's historical price data can contain volume, "
+                "but Tara's allowlisted loaded context and tools do not currently expose usable "
+                "volume evidence. I will not use or infer volume in this analysis."
+            )
+        ]
+    )
+
+
 def _inclusive_end_date(start_date: str, days: str) -> Optional[str]:
     """TradeWave windows use calendar days and count the entry date as day 1."""
 
@@ -2891,6 +3019,36 @@ def _ai_probability_comparison(ai_probability: float, historical_pct: Any) -> st
     return f"{points} {noun} {relation} the historical rate"
 
 
+def _ai_evidence_relationship(
+    facts: Mapping[str, Any], horizons: Iterable[Mapping[str, Any]]
+) -> str:
+    """Classify historical versus AI direction without inventing model factors."""
+
+    historical_rate = _number(facts.get("win_rate_pct"))
+    historical_return = _number(facts.get("avg_trade_return_pct"))
+    historical_signals = []
+    if historical_rate is not None:
+        historical_signals.append(historical_rate >= 50)
+    if historical_return is not None:
+        historical_signals.append(historical_return >= 0)
+
+    ai_signals = []
+    for item in horizons:
+        probability = _number(item.get("win_probability"))
+        predicted_return = _number(item.get("predicted_return_pct"))
+        if probability is not None:
+            ai_signals.append(probability >= 0.5)
+        if predicted_return is not None:
+            ai_signals.append(predicted_return >= 0)
+    if not historical_signals or not ai_signals:
+        return "mixed because one side lacks enough comparable direction evidence"
+    if len(set(historical_signals)) > 1 or len(set(ai_signals)) > 1:
+        return "mixed because the available signals do not all point the same way"
+    if historical_signals[0] == ai_signals[0]:
+        return "agreement because the historical record and AI estimates point the same way"
+    return "conflict because the historical record and AI estimates point opposite ways"
+
+
 def _analysis_ai_context_line(
     facts: Mapping[str, Any], wave_viewer: Any
 ) -> Optional[str]:
@@ -3008,6 +3166,9 @@ def _analysis_ai_context_line(
             f"the first {horizon_text} calendar days are as follows:<br>"
             + "<br>".join(readings)
             + "<br>Each outlook begins on the same entry date and evaluates the same direction."
+            + "<br><b>Evidence relationship:</b> "
+            + _ai_evidence_relationship(facts, horizons)
+            + "."
             + "<br><br><b>What stands out:</b> "
             + standout
             + f"The historical analysis above describes the complete {full_days}-day pattern."
@@ -3037,7 +3198,11 @@ def _analysis_ai_context_line(
     return (
         f"<b>AI context:</b> Current-condition model for this same {horizon}-calendar-day window: "
         + "; ".join(metrics)
-        + ". AI Win Probability and PredR are estimates, not additional historical observations."
+        + ". AI Win Probability is the calibrated chance of a positive return and PredR is the "
+        "predicted return for that same horizon. They are estimates, not additional historical "
+        "observations. <b>Evidence relationship:</b> "
+        + _ai_evidence_relationship(facts, [item])
+        + "."
     )
 
 
@@ -4083,6 +4248,14 @@ def build_deterministic_reply(
     mcp_product = build_mcp_product_reply(message)
     if mcp_product is not None:
         return mcp_product
+
+    definitions = build_metric_definitions_reply(message)
+    if definitions is not None:
+        return definitions
+
+    volume = build_volume_boundary_reply(message, screen_context)
+    if volume is not None:
+        return volume
 
     trend_arrow = build_trend_arrow_reply(message, wave_viewer)
     if trend_arrow is not None:

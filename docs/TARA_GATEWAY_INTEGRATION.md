@@ -4,11 +4,14 @@ Status: PHASE 1 (read-client) + PHASE 2 (UI-actuation) BOTH BUILT + verified on 
 Owner decision on the auth/metering principal (section 7): RESOLVED = option A (internal chatbot
 service key + per-web-user 'cb:'-namespaced quota).
 
-Provider note (2026-08-02): model-bound dev and staging turns use the GPT-5.6 Luna canary at
-100% while production remains at 0%. `run_chat_with_tools` (Anthropic) and
-`run_chat_with_openai_tools` (OpenAI Responses) both execute calls through the same validated
-`_execute_tara_tool` path. Luna uses low reasoning/verbosity, explicit stable-prefix caching, and
-automatic Haiku fallback. Deterministic planner answers run before provider selection.
+Provider note (2026-08-04): the tracked release policy is the same in dev, staging, and
+production. Deterministic planner answers run first. Every model-bound turn starts on OpenAI
+`gpt-5.6-luna`; Haiku 4.5 is used only after a classified OpenAI request, API, connection, or
+adapter failure. `run_chat_with_tools` (Anthropic fallback) and
+`run_chat_with_openai_tools` (OpenAI Responses primary) both execute calls through the same
+validated `_execute_tara_tool` path. Missing primary credentials fail release preflight and do
+not select Haiku. Percentage canaries, user buckets, and environment-specific provider defaults
+are not part of normal operation.
 
 Loaded ChartData4 context includes an explicit `Trend Score Available` flag alongside Trend Long /
 Trend Short. Tara treats unavailable readings as missing, not as a real `0`; for a rolling old bundle
@@ -321,10 +324,9 @@ same commit, per the repo rule.
 
 ## 11. Approved direction - smarter Tara on GPT-5.6 Luna (2026-08-03)
 
-Owner decision: keep GPT-5.6 Luna as Tara's model-bound provider direction. Do not switch
-back to Haiku merely to reduce cost. This is a product/design decision, not a claim that
-every environment is already routed 100% to Luna. Deterministic answers and validated UI
-actions remain provider-independent.
+Owner decision: GPT-5.6 Luna is Tara's primary model for every model-bound turn in every
+environment. Haiku is fallback-only. Deterministic answers and validated UI actions remain
+provider-independent.
 
 ### Finding
 

@@ -17,10 +17,12 @@ from tara_answer_planner import (  # noqa: E402
     build_ai_horizon_explanation_reply,
     build_bar_semantics_reply,
     build_bottom_slide_command,
+    build_current_table_pick_command,
     build_deterministic_reply,
     build_direction_reply,
     build_excursion_overlay_command,
     build_mcp_product_reply,
+    build_metric_definitions_reply,
     build_opportunity_row_load_command,
     build_pattern_analysis_reply,
     build_per_year_excursion_reply,
@@ -31,6 +33,7 @@ from tara_answer_planner import (  # noqa: E402
     build_trend_alignment_reply,
     build_tooltip_help_reply,
     build_tooltip_preference_command,
+    build_volume_boundary_reply,
     canonical_pattern_facts,
     explicit_pattern_symbol,
     is_ai_horizon_explanation_question,
@@ -545,6 +548,80 @@ def test_ordinal_command_never_guesses_when_visible_rank_does_not_exist():
     assert "only 2 visible rows" in command["reply"]
 
 
+def test_current_table_discovery_loads_exact_highest_ranked_visible_row():
+    rows = [
+        {
+            "date": "2026-08-03",
+            "symbol": "ROST",
+            "days_out": 17,
+            "direction": "Long",
+            "avg_profit": 5.2,
+            "sharpe_ratio": 2.48,
+        },
+        {
+            "date": "2026-08-02",
+            "symbol": "PCAR",
+            "days_out": 177,
+            "direction": "Long",
+            "sharpe_ratio": 1.32,
+        },
+    ]
+
+    command = build_current_table_pick_command(
+        "show me something good from the table",
+        rows,
+        market="2",
+        pe_cycle="cons",
+    )
+
+    assert command["rank"] == 1
+    assert command["spec"]["symbol"] == "ROST"
+    assert command["spec"]["market"] == "2"
+    assert "highest-ranked visible row (#1)" in command["reply"]
+
+
+def test_current_table_discovery_never_invents_a_row_when_table_is_empty():
+    command = build_current_table_pick_command(
+        "find me something strong in the opportunity table", []
+    )
+
+    assert command["spec"] is None
+    assert "no visible rows" in command["reply"]
+
+
+def test_metric_definitions_keep_history_ai_path_and_twr_separate():
+    reply = build_metric_definitions_reply(
+        "Explain historical win rate, AI Win%, PredR, MFE, MAE, and TWR"
+    )
+
+    assert "historical sample size n" in reply
+    assert "calibrated probability" in reply
+    assert "same named horizon" in reply
+    assert "They are not calculated by the AI model" in reply
+    assert "Sharpe uses final returns; TWR uses" in reply
+    assert "<b>Agreement:</b>" in reply
+    assert "<b>Conflict:</b>" in reply
+    assert "<b>Mixed:</b>" in reply
+
+
+def test_volume_boundary_refuses_to_infer_unexposed_volume():
+    reply = build_volume_boundary_reply("What does volume say about this pattern?", {})
+
+    assert "historical price data can contain volume" in reply
+    assert "do not currently expose usable volume evidence" in reply
+    assert "will not use or infer volume" in reply
+
+
+def test_volume_boundary_uses_only_an_explicit_current_summary_when_available():
+    reply = build_volume_boundary_reply(
+        "Explain the volume",
+        {"volume_available": True, "volume_summary": "Median volume increased 12%."},
+    )
+
+    assert "Median volume increased 12%." in reply
+    assert "only the volume summary supplied" in reply
+
+
 def test_explicit_loaded_pattern_analysis_is_compact_path_aware_and_non_advisory():
     reply = build_pattern_analysis_reply(
         "Analyze this pattern",
@@ -770,6 +847,7 @@ def test_analysis_compares_ai_probability_with_same_window_historical_rate():
     assert "PredR +2.1%" in reply
     assert "PMFE +4.8%" in reply
     assert "estimates, not additional historical observations" in reply
+    assert "<b>Evidence relationship:</b> agreement" in reply
 
 
 def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_outlook():
@@ -796,6 +874,7 @@ def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_out
     assert "&bull; <b>60 days:</b> 77% AI Win Probability; predicted return +3.8%" in reply
     assert "&bull; <b>90 days:</b> 60% AI Win Probability; predicted return +1.4%" in reply
     assert "Each outlook begins on the same entry date and evaluates the same direction" in reply
+    assert "<b>Evidence relationship:</b> agreement" in reply
     assert "The highest AI Win Probability appears over 30 days" in reply
     assert "the highest predicted return appears over 60 days" in reply
     assert "historical analysis above describes the complete 133-day pattern" in reply
@@ -1047,6 +1126,9 @@ def test_analysis_router_does_not_intercept_advice_other_symbol_or_specific_year
     assert is_pattern_analysis_question("How strong is this?", wave)
     assert is_pattern_analysis_question("Analyze PEG", wave)
     assert is_pattern_analysis_question("Tell me about this pattern", wave)
+    assert is_pattern_analysis_question("Explain this", wave)
+    assert is_pattern_analysis_question("Explain this chart", wave)
+    assert is_pattern_analysis_question("Tell me more", wave)
     assert is_pattern_analysis_question("What do you think of this setup?", wave)
     assert is_pattern_analysis_question("What do you think of this opportunity?", wave)
     assert is_pattern_analysis_question("What stands out here?", wave)

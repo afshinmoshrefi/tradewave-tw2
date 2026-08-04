@@ -59,12 +59,40 @@ Host, identity, clean-tree, disk, service, route, and post-deploy health gates
 remain fail-closed. Capacity performance should be interpreted against the
 traffic level and footprint recorded for the test.
 
-The current Tara provider evaluation routes model-bound dev and staging turns to
-GPT-5.6 Luna by setting `TARA_OPENAI_CANARY_PERCENT=100` in
-`/etc/tradewave/appserver.env`; production remains `0` (Haiku). `OPENAI_KEY` must
-also be present. Restart `tradewave-appserver` after changing the percentage.
-OpenAI failures automatically retry the full turn on Haiku, and deterministic
-Tara answers never enter the provider route.
+Tara's tracked release policy is identical in dev, staging, and production.
+Deterministic answers run first. Every remaining model-bound turn starts on OpenAI
+`gpt-5.6-luna`; the existing `claude-haiku-4-5-20251001` is runtime fallback only
+after a classified OpenAI request, API, connection, or adapter failure.
+`TARA_OPENAI_CANARY_PERCENT` is retired and must be absent from normal runtime
+configuration. `OPENAI_KEY`, `ANTHROPIC_TOKEN`, and `TARA_GATEWAY_KEY` must all be
+present; a missing primary credential fails preflight and never selects Haiku.
+Operational logs name the actual provider and exact model for every model-bound
+turn. Fallback logs contain only the provider/model names and a bounded failure
+category, never request bodies or customer content.
+
+For a Tara-only backend release whose reviewed diff does not touch React, static
+pages, nginx, migrations, dependencies, or other services, use the immutable
+release-directory path instead of the full site-regenerating deploy:
+
+1. Create `/home/flask/.tw2-releases/<release-sha>` as a clean detached worktree
+   of the exact canonical release commit on each target.
+2. Compute the approved backend fingerprint with
+   `ops/verify_tara_release.py`; it includes the Git SHA, model policy, prompt
+   hash/version, planner hash, and non-secret configuration hash.
+3. On the app box run
+   `bash <release-dir>/ops/activate_tara_release.sh <release-dir> <fingerprint>`.
+   This snapshots the previous source/config/unit state, removes the retired
+   canary line, atomically switches `/home/flask/.tw2-app-current`, installs
+   appserver and API-gateway pointer drop-ins, restarts the coupled services, and
+   runs deterministic plus genuinely model-bound live gates.
+4. Verify the active frontend bundle and the homepage and 100-Year Pattern hashes
+   on the web tier are unchanged. Do not rebuild React when `web-react/src` did
+   not change.
+
+Each activation prints one environment-specific rollback script and roll-forward
+script under `/root/tradewave-snapshots/tara-parity-<env>-<timestamp>/`. Dev must
+execute and verify both scripts before staging. A failed post-activation gate
+automatically executes the rollback script.
 
 **Promotion flow: dev → staging → prod**, one env at a time. Code is edited and
 tested on dev (`.176`), then promoted. The **React bundle is built ONCE on dev**
