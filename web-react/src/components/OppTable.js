@@ -1707,15 +1707,15 @@ const OppTable = (props) => {
             <Tippy
               placement={'top'}
               content={props.showChatbot
-                ? 'Close Tara'
-                : 'Open Tara: ask questions, load patterns, and analyze the chart.'}
+                ? 'Tara is open: ask questions, load patterns, and analyze the chart. Click to close.'
+                : 'Open Tara to ask questions, load patterns, and analyze the chart.'}
             >
               <span
                 role="button"
                 tabIndex={0}
                 aria-label={props.showChatbot
-                  ? 'Close Tara'
-                  : 'Open Tara: ask questions, load patterns, and analyze the chart.'}
+                  ? 'Close Tara chatbot'
+                  : 'Open Tara chatbot'}
                 style={{ display: 'inline-flex', alignItems: 'center' }}
                 onClick={() => {
                   props.SetShowChatbot(!props.showChatbot);
