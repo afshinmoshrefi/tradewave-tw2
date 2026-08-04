@@ -1707,8 +1707,8 @@ const OppTable = (props) => {
             <Tippy
               placement={'top'}
               content={props.showChatbot
-                ? 'Tara is open: ask questions, load patterns, and analyze the chart. Click to close.'
-                : 'Open Tara to ask questions, load patterns, and analyze the chart.'}
+                ? "Tara is TradeWave's AI guide. She can find seasonal patterns, load them on the chart, explain the statistics, and analyze what you're viewing. Click to close."
+                : "Tara is TradeWave's AI guide. She can find seasonal patterns, load them on the chart, explain the statistics, and analyze what you're viewing. Click to open."}
             >
               <span
                 role="button"
