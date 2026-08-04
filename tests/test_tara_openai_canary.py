@@ -230,6 +230,16 @@ def test_view_spec_accepts_only_real_boolean_excursion_controls():
     assert tara_gateway._validate_view_spec({"show_mfe": "true", "show_mae": 0}) == {}
 
 
+def test_view_spec_accepts_only_real_boolean_tooltip_control():
+    assert tara_gateway._validate_view_spec({"show_tooltips": True}) == {
+        "show_tooltips": True
+    }
+    assert tara_gateway._validate_view_spec({"show_tooltips": False}) == {
+        "show_tooltips": False
+    }
+    assert tara_gateway._validate_view_spec({"show_tooltips": "false"}) == {}
+
+
 def test_view_spec_accepts_only_named_lower_panels():
     assert tara_gateway._validate_view_spec({"bottom_slide": "wave_stats"}) == {
         "bottom_slide": "wave_stats"
@@ -658,6 +668,45 @@ def test_chat_route_moves_lower_panel_without_calling_a_provider(
         {"type": "set_view", "spec": {"bottom_slide": expected_slide}}
     ]
     assert expected_reply in payload["reply"]
+
+
+@pytest.mark.parametrize(
+    "message, expected",
+    [
+        ("I don't like all the tooltips", False),
+        ("I don't understand all these controls", True),
+    ],
+)
+def test_chat_route_changes_tooltips_without_calling_a_provider(
+    monkeypatch, message, expected
+):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: pytest.fail("tooltip commands must bypass providers"),
+    )
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+
+    app = Flask(__name__)
+    body = {
+        "message": message,
+        "history": [{"role": "user", "content": message}],
+        "wave_viewer": {},
+        "screen_context": {},
+        "opportunities": [],
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "tooltip-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    payload = response.get_json()
+    assert payload["actions"] == [
+        {"type": "set_view", "spec": {"show_tooltips": expected}}
+    ]
+    assert "upper-left toolbar" in payload["reply"]
 
 
 def test_chat_route_passes_loaded_lookback_to_a_different_named_symbol(monkeypatch):

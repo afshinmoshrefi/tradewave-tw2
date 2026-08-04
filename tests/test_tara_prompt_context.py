@@ -77,6 +77,17 @@ def test_mcp_questions_load_only_the_new_connected_ai_knowledge():
     assert select_topic_knowledge("Is Tara using Claude?", sections).headings == ()
 
 
+def test_tooltip_questions_load_the_small_guidance_section():
+    _, sections = _sections()
+
+    selection = select_topic_knowledge("Where is the tooltip toggle?", sections)
+
+    assert selection.headings == ("Guidance Tooltips",)
+    assert "upper-left toolbar" in selection.text
+    assert "show_tooltips=true" in selection.text
+    assert "## TradeWave UI Map" not in selection.text
+
+
 def test_large_row_context_is_loaded_only_when_the_question_needs_it():
     _, sections = _sections()
     assert not needs_yearly_results("Explain Sharpe ratio")

@@ -1276,6 +1276,13 @@ an allowlisted `bottom_slide` ViewSpec and React moves the desktop lower Swiper 
 Explanatory questions still use Tara's concept/guide path. This replaces the former prompt-only
 "swipe to slide N" limitation, which could acknowledge a request without changing the screen.
 
+**Guidance-tooltip control (2026-08-04):** Tara deterministically maps dislike/removal wording to
+`show_tooltips:false` and confusion about controls/buttons/icons to `show_tooltips:true`. The field
+is boolean-validated in the same ViewSpec on the backend and frontend, then applied through
+`SetTooltipSW`, the state used by the visible Tooltips switch in the upper-left toolbar beside the
+settings gear. Tara names that location after changing the setting. Asking only what or where the
+switch is produces an explanation without changing the preference.
+
 When a user names a different ticker without naming another lookback (for example, ADI is loaded at
 16 years and the user asks "how does ITW do?"), the target read and load inherit the current
 consecutive 16-year setting instead of the tools' 10-year default. The backend enforces this for both

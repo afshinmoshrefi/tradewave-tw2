@@ -36,6 +36,17 @@ export const showBottomSlide = (swiper, slide) => {
   return true;
 };
 
+// Apply Tara's global guidance-tooltip action through the same App-level setter used by
+// the visible toolbar switch. Return whether an action was applied so malformed values
+// cannot be treated as booleans by JavaScript truthiness.
+export const applyTooltipPreference = (spec, setTooltipsEnabled) => {
+  if (typeof spec?.show_tooltips !== 'boolean' || typeof setTooltipsEnabled !== 'function') {
+    return false;
+  }
+  setTooltipsEnabled(spec.show_tooltips);
+  return true;
+};
+
 // Tara's ordinal commands refer to what the user can actually see, after TableBox applies
 // its active-list mode, text filters, and current sort. Prefer that processed snapshot over
 // the raw OppList4 order; use the raw rows only before TableBox has published its first snapshot.
