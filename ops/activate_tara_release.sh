@@ -221,14 +221,14 @@ HEALTH_JSON="$health_json" EXPECTED_FINGERPRINT="$expected_fingerprint" \
   /home/flask/venv/bin/python -c \
   'import json, os; actual=json.loads(os.environ["HEALTH_JSON"]); assert actual["fingerprint"] == os.environ["EXPECTED_FINGERPRINT"]'
 
-error_log=/var/log/tradewave/appserver.error.log
-before_lines=$(wc -l <"$error_log" 2>/dev/null || printf 0)
+model_log=/var/log/tradewave/appserver.log
+before_lines=$(wc -l <"$model_log" 2>/dev/null || printf 0)
 PYTHONPATH="$release_dir:$release_dir/appserver/appserver" \
   /home/flask/venv/bin/python "$release_dir/ops/smoke_tara_deterministic.py"
 PYTHONPATH="$release_dir:$release_dir/appserver/appserver" \
   /home/flask/venv/bin/python "$release_dir/ops/smoke_tara_model_bound.py"
 new_log="$snapshot_dir/appserver-smoke.log"
-tail -n "+$((before_lines + 1))" "$error_log" >"$new_log"
+tail -n "+$((before_lines + 1))" "$model_log" >"$new_log"
 grep -Fq 'Tara model turn phase=complete provider=openai model=gpt-5.6-luna status=success' "$new_log"
 if grep -Fq 'Tara model fallback' "$new_log"; then
   echo "ABORT: fallback occurred during the live Luna gate" >&2
