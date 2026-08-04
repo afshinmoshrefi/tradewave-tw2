@@ -49,6 +49,16 @@ def parse_knowledge_sections(knowledge_text: str) -> Dict[str, str]:
 _TOPIC_ROUTES: Sequence[Tuple[re.Pattern[str], Tuple[str, ...]]] = (
     (re.compile(r"\b100[- ]year pattern\b", re.I), ("The 100-Year Pattern",)),
     (
+        re.compile(
+            r"\b(?:mcp|model context protocol|ai connector)\b|"
+            r"^(?!.*\b(?:is tara using|does tara use|is tara powered by)\b)"
+            r"(?=.*\b(?:chatgpt|claude(?:\.ai| desktop)?|external ai(?: assistant)?)\b)"
+            r"(?=.*\b(?:tradewave|tara|seasonality|seasonal|connect|connector)\b)",
+            re.I,
+        ),
+        ("TradeWave in ChatGPT and Claude (MCP)",),
+    ),
+    (
         re.compile(r"\b(?:pricing|price plan|subscription|tier|explorer|navigator|strategist|free|cost)\b", re.I),
         ("Subscription Tiers",),
     ),
@@ -210,6 +220,10 @@ def select_topic_knowledge(message: Any, sections: Mapping[str, str]) -> Knowled
             for heading in headings:
                 if heading in sections and heading not in selected:
                     selected.append(heading)
+            # The MCP section is intentionally self-contained. General TradeWave and pricing
+            # routes would repeat its facts and waste tokens on connected-AI questions.
+            if "TradeWave in ChatGPT and Claude (MCP)" in selected:
+                break
             if len(selected) >= MAX_TOPIC_SECTIONS:
                 break
 
@@ -219,7 +233,15 @@ def select_topic_knowledge(message: Any, sections: Mapping[str, str]) -> Knowled
         re.search(r"\b(?:19|20)\d{2}\b", text)
         and re.search(r"\b(?:this|it|pattern|setup|window|year|perform|return)\b", text, re.I)
     )
-    if not selected and not is_specific_year_question:
+    is_tara_provider_identity_question = bool(
+        re.search(
+            r"\b(?:is\s+tara\s+(?:using|running on|running with|powered by)|"
+            r"does\s+tara\s+use)\s+(?:chatgpt|claude)\b",
+            text,
+            re.I,
+        )
+    )
+    if not selected and not is_specific_year_question and not is_tara_provider_identity_question:
         fallback = _fallback_heading(text, sections)
         if fallback:
             selected.append(fallback)
