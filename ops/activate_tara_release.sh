@@ -209,12 +209,15 @@ PYTHONPATH="$release_dir:$release_dir/appserver/appserver" \
   --check-credentials --require-no-legacy-canary \
   --expected-fingerprint "$expected_fingerprint" >/dev/null
 
-app_bind=$(
-  systemctl show tradewave-appserver --property=Environment --value \
-    | tr ' ' '\n' \
-    | sed -n 's/^TW2_APPSERVER_BIND=//p' \
-    | tail -1
-)
+app_bind=${TW2_APPSERVER_BIND:-}
+if [[ -z "$app_bind" ]]; then
+  app_bind=$(
+    systemctl show tradewave-appserver --property=Environment --value \
+      | tr ' ' '\n' \
+      | sed -n 's/^TW2_APPSERVER_BIND=//p' \
+      | tail -1
+  )
+fi
 export TW2_APPSERVER_BIND="$app_bind"
 app_port=${app_bind##*:}
 case "$app_port" in
