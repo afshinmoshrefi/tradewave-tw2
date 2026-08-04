@@ -73,6 +73,19 @@ def test_release_sha_uses_only_the_exact_worktree_safe_directory(monkeypatch):
     assert "--global" not in captured["command"]
 
 
+def test_fingerprint_route_uses_the_existing_chatbot_blueprint_prefix():
+    import chatbot
+    # Flask stores blueprint routes as deferred callables, so register it on a tiny
+    # app and assert the final public path rather than relying on implementation details.
+    from flask import Flask
+
+    app = Flask(__name__)
+    app.register_blueprint(chatbot.chatbot_bp, url_prefix="/chatbot")
+    paths = {rule.rule for rule in app.url_map.iter_rules()}
+    assert "/chatbot/runtime-fingerprint" in paths
+    assert "/chatbot/chatbot/runtime-fingerprint" not in paths
+
+
 def test_credential_preflight_fails_closed_and_parity_mismatch_fails(monkeypatch):
     import importlib.util
 

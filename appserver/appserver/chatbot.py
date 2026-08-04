@@ -222,7 +222,7 @@ TOOL_INSTRUCTION = (
 chatbot_bp = Blueprint("chatbot", __name__)
 
 
-@chatbot_bp.route("/chatbot/runtime-fingerprint", methods=["GET"])
+@chatbot_bp.route("/runtime-fingerprint", methods=["GET"])
 def tara_runtime_fingerprint():
     """Expose only nonsecret release parity data for deployment verification."""
 
