@@ -212,7 +212,6 @@ const BarChart = ({
                 barClicked(labels[item[0].index]);
             }
         },
-        devicePixelRatio: 0.5,
         normalized: true,
         maintainAspectRatio: false,
         scales: {

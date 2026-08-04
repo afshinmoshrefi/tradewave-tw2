@@ -606,6 +606,11 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
 - Features: PE-cycle overlays/filters (`mode=pe`), years selectors, securities
   groups + published lists + watchlists, the `?o=BASE64` shareable pattern param,
   the "Tara" chatbot, wave-viewer charts (bar/cumulative/price).
+- **Chart canvas resolution invariant (2026-08-04):** never force a fractional
+  Chart.js `devicePixelRatio`. The seasonal bar chart and its canvas-rendered
+  tooltip must use the browser's native device-pixel ratio. A forced `0.5`
+  backing bitmap was stretched to twice its rendered size and became visibly
+  blurry, especially with Windows or browser scaling above 100%.
 (Source: `web-react/src/*`, `web/app.py:679`, `project_tw2_react_build_env.md`.)
 
 ### 7.1 Price chart + seasonal projections (`StockLineChart` -> `LineChart`)
