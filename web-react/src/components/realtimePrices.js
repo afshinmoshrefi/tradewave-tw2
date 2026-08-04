@@ -13,5 +13,11 @@ export const normalizeRealtimeQuote = (quote) => {
   return {
     price,
     change_p: finiteQuoteNumber(quote.change_p),
+    open: finiteQuoteNumber(quote.open),
+    high: finiteQuoteNumber(quote.high),
+    low: finiteQuoteNumber(quote.low),
+    volume: finiteQuoteNumber(quote.volume),
+    timestamp: finiteQuoteNumber(quote.timestamp),
+    date: typeof quote.date === 'string' ? quote.date : '',
   };
 };

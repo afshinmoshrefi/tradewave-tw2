@@ -503,13 +503,15 @@ const OppTable = (props) => {
                 }
 
                 // Inject realtime price data
-                const p = normalizeRealtimeQuote(prices[row[1]]);
-                if (p) {
-                  newRow.price = p.price;
-                  newRow.change_p = p.change_p;
+                const realtimeQuote = normalizeRealtimeQuote(prices[row[1]]);
+                if (realtimeQuote) {
+                  newRow.price = realtimeQuote.price;
+                  newRow.change_p = realtimeQuote.change_p;
+                  newRow.realtimeQuote = realtimeQuote;
                 } else {
                   newRow.price = null;
                   newRow.change_p = null;
+                  newRow.realtimeQuote = null;
                 }
 
                 return newRow;
@@ -535,13 +537,15 @@ const OppTable = (props) => {
                 // }
 
                 // Inject realtime price data
-                const pa = normalizeRealtimeQuote(prices[row[1]]);
-                if (pa) {
-                  newRow.price = pa.price;
-                  newRow.change_p = pa.change_p;
+                const realtimeQuote = normalizeRealtimeQuote(prices[row[1]]);
+                if (realtimeQuote) {
+                  newRow.price = realtimeQuote.price;
+                  newRow.change_p = realtimeQuote.change_p;
+                  newRow.realtimeQuote = realtimeQuote;
                 } else {
                   newRow.price = null;
                   newRow.change_p = null;
+                  newRow.realtimeQuote = null;
                 }
 
                 return newRow;
@@ -1299,6 +1303,7 @@ const OppTable = (props) => {
     height: oppFilterHeight,
     backgroundColor: tc.oppFilterBg,
     color: tc.text,
+    position: 'relative',
   }
 
 
@@ -1714,6 +1719,25 @@ const OppTable = (props) => {
 
 
       <div className='opp-filter' style={oppFilterStyle}>
+
+        {rdd.isDesktop && props.showChatbot && typeof props.onChatbotResizeMouseDown === 'function' &&
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize Tara chat from top edge"
+            onMouseDown={props.onChatbotResizeMouseDown}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '5px',
+              cursor: 'ns-resize',
+              zIndex: 3,
+              userSelect: 'none',
+            }}
+          />
+        }
 
         <div className='opp-filter-left-space' style={StyleoppFilterLeftSpace} onClick={handleBackClick}  >
           {

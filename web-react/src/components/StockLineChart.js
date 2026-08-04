@@ -19,6 +19,7 @@ import { BsDownload, BsPencilSquare } from 'react-icons/bs';
 import { opp_dashboard_dialog_content } from './Common'
 import { markCaptureReady, clearCaptureReady } from './captureReady'
 import { BsFillCircleFill } from "react-icons/bs"
+import { appendRealtimePriceBar, findRealtimeQuoteForSymbol } from './realtimePriceBar'
 
 
 const StockLineChart = (props) => {
@@ -147,12 +148,23 @@ const StockLineChart = (props) => {
         return weeks.map(w => [w.date, w.open, w.high, w.low, w.close, w.volume]);
     };
 
-    // When timeframe is weekly, aggregate lineChartData and smaSeedData
+    const selectedRealtimeQuote = useMemo(() => findRealtimeQuoteForSymbol(
+        props.symbol,
+        props.opportunities,
+        props.activeOpportunities,
+    ), [props.symbol, props.opportunities, props.activeOpportunities]);
+
+    const dailyLineChartData = useMemo(() => {
+        if (!showCurrentLineChart) return lineChartData;
+        return appendRealtimePriceBar(lineChartData, selectedRealtimeQuote, getTodayDate());
+    }, [lineChartData, selectedRealtimeQuote, showCurrentLineChart]);
+
+    // When timeframe is weekly, aggregate the daily display rows, including today's live bar.
     const isWeekly = props.priceChartTimeframe === 'weekly';
     const effectiveLineChartData = useMemo(() => {
-        if (!isWeekly || !showCurrentLineChart) return lineChartData;
-        return aggregateToWeekly(lineChartData);
-    }, [isWeekly, showCurrentLineChart, lineChartData]);
+        if (!isWeekly || !showCurrentLineChart) return dailyLineChartData;
+        return aggregateToWeekly(dailyLineChartData);
+    }, [isWeekly, showCurrentLineChart, dailyLineChartData]);
 
     const effectiveSmaSeedData = useMemo(() => {
         if (!isWeekly || !showCurrentLineChart) return smaSeedData;

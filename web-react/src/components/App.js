@@ -42,6 +42,8 @@ import {
   resolveViewerDeepLinkOpportunityRecurrence,
 } from './opportunityRecurrence'
 import { TARA_PANEL_OPEN_KEY, hasTaraPanelLayout, initialTaraPanelOpen } from './taraPanelPreference'
+import { normalizeBarChartExcursionStyle } from './barChartExcursion'
+import { TOOLTIP_ENABLED_KEY, initialTooltipsEnabled } from './tooltipPreference'
 import jwt_decode from 'jwt-decode'
 //-------------------- swiper -----------------------------
 // Import Swiper styles
@@ -147,6 +149,15 @@ const App = () => {
     return ret;
   });
 
+  const [barChartExcursionStyle, SetBarChartExcursionStyle] = useState(() => (
+    normalizeBarChartExcursionStyle(lsGet('barChartExcursionStyle'))
+  ));
+  const handleSetBarChartExcursionStyle = (style) => {
+    const nextStyle = normalizeBarChartExcursionStyle(style);
+    SetBarChartExcursionStyle(nextStyle);
+    lsSet('barChartExcursionStyle', nextStyle);
+  };
+
   const [helpEmailDisplay, SetHelpEmailDisplay] = useState('none'); // css display value for help dialog
 
   const [barChartLongOrShort, SetBarChartLongOrShort] = useState('long')
@@ -223,10 +234,12 @@ const App = () => {
 
 
   // tooltip on/off
-  const [tooltipSW, SetTooltipSW] = useState(() => {
-    const persisted = lsGet('tw_tooltips');
-    return persisted === true || persisted === '1';
-  })
+  const [tooltipSW, SetTooltipSW] = useState(() => (
+    initialTooltipsEnabled(lsGet(TOOLTIP_ENABLED_KEY))
+  ))
+  useEffect(() => {
+    lsSet(TOOLTIP_ENABLED_KEY, tooltipSW)
+  }, [tooltipSW])
 
 
   //4/12/2022 - 
@@ -1283,6 +1296,7 @@ const App = () => {
     seasonalYears,
     showMFE,
     showMAE,
+    barChartExcursionStyle,
     barChartLongOrShort,
     lineChartYear,
     tradeActive,
@@ -1555,6 +1569,7 @@ const App = () => {
     SetPEselected,
     SetUITheme,
     SetBackgroundColor,
+    SetBarChartExcursionStyle: handleSetBarChartExcursionStyle,
     SetColumnVisibility: handleSetColumnVisibility,
     SetColumnOrder: handleSetColumnOrder,
     SetActiveWatchlistFilter,

@@ -3,17 +3,122 @@ import { Bar } from 'react-chartjs-2';
 import { UserContext } from './UserContext';
 import { UIcolors, themeColors } from './Common';
 import { buildBarChartSeries } from './barChartSeries';
+import {
+    BAR_CHART_EXCURSION_STYLES,
+    getExcursionVisibility,
+    getNeedleRange,
+    normalizeBarChartExcursionStyle,
+} from './barChartExcursion';
 
-const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChartLongOrShort, UITheme }) => {
+const formatPercent = (value) => {
+    const rounded = Number.parseFloat(Number(value).toFixed(2));
+    return `${rounded > 0 ? '+' : ''}${rounded}%`;
+};
+
+const excursionOverlayPlugin = {
+    id: 'tradeWaveExcursionOverlay',
+    afterDatasetsDraw(chart, args, pluginOptions) {
+        const {
+            style,
+            highs = [],
+            lows = [],
+            showHigh,
+            showLow,
+            highColor,
+            lowColor,
+            needleColor,
+        } = pluginOptions || {};
+
+        if (!style || style === BAR_CHART_EXCURSION_STYLES.FILLED) return;
+
+        const bars = chart.getDatasetMeta(0)?.data || [];
+        const yScale = chart.scales?.y;
+        if (!yScale || bars.length === 0) return;
+
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.lineCap = style === BAR_CHART_EXCURSION_STYLES.TICKS ? 'butt' : 'round';
+
+        bars.forEach((bar, index) => {
+            const high = highs[index];
+            const low = lows[index];
+            const x = bar.x;
+            const barWidth = Number.isFinite(bar.width) ? bar.width : 12;
+            const hasHigh = Number.isFinite(high) && high > 0;
+            const hasLow = Number.isFinite(low) && low < 0;
+
+            if (style === BAR_CHART_EXCURSION_STYLES.TICKS) {
+                const halfWidth = barWidth / 2;
+                ctx.lineWidth = Math.max(2, Math.min(3, barWidth * 0.08));
+
+                if (showHigh && hasHigh) {
+                    const highY = yScale.getPixelForValue(high);
+                    ctx.beginPath();
+                    ctx.strokeStyle = highColor;
+                    ctx.moveTo(x - halfWidth, highY);
+                    ctx.lineTo(x + halfWidth, highY);
+                    ctx.stroke();
+                }
+
+                if (showLow && hasLow) {
+                    const lowY = yScale.getPixelForValue(low);
+                    ctx.beginPath();
+                    ctx.strokeStyle = lowColor;
+                    ctx.moveTo(x - halfWidth, lowY);
+                    ctx.lineTo(x + halfWidth, lowY);
+                    ctx.stroke();
+                }
+                return;
+            }
+
+            const drawHigh = showHigh && hasHigh;
+            const drawLow = showLow && hasLow;
+            if (!drawHigh && !drawLow) return;
+            const range = getNeedleRange(
+                hasHigh ? high : 0,
+                hasLow ? low : 0,
+                drawHigh,
+                drawLow
+            );
+            if (!range) return;
+
+            ctx.beginPath();
+            ctx.strokeStyle = needleColor;
+            ctx.lineWidth = 1.5;
+            ctx.moveTo(x, yScale.getPixelForValue(range.from));
+            ctx.lineTo(x, yScale.getPixelForValue(range.to));
+            ctx.stroke();
+        });
+
+        ctx.restore();
+    },
+};
+
+const BarChart = ({
+    seasonalBarChartData,
+    showMFE,
+    showMAE,
+    barClicked,
+    barChartLongOrShort,
+    UITheme,
+    barChartExcursionStyle,
+}) => {
     const { rdd, loggedinUser } = useContext(UserContext);
     const tc = themeColors(UITheme);
+    const excursionStyle = normalizeBarChartExcursionStyle(barChartExcursionStyle);
+    const excursionVisibility = getExcursionVisibility(
+        barChartLongOrShort,
+        showMFE,
+        showMAE
+    );
 
-    // Derive the complete Chart.js payload during render. The previous effect-
-    // backed state rendered one frame with the prior ticker before installing
-    // the new labels and bars, creating a measurable stale-canvas flash.
+    // Derive the complete Chart.js payload during render. Effect-backed state
+    // briefly painted the previous ticker after a fast row change.
     const {
         dataMain,
         dataMainColors,
+        dataHigh,
+        dataLow,
         dataMax,
         dataMin,
         labels,
@@ -23,25 +128,19 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
             red: tc.barRed,
         });
 
-        const includeMax =
-            (barChartLongOrShort === 'long' && showMFE) ||
-            (barChartLongOrShort === 'short' && showMAE);
-        const includeMin =
-            (barChartLongOrShort === 'long' && showMAE) ||
-            (barChartLongOrShort === 'short' && showMFE);
-
         return {
             dataMain: series.main,
             dataMainColors: series.mainColors,
-            dataMax: includeMax ? series.upperRemainders : [],
-            dataMin: includeMin ? series.lowerRemainders : [],
+            dataHigh: series.highs,
+            dataLow: series.lows,
+            dataMax: excursionVisibility.showHigh ? series.upperRemainders : [],
+            dataMin: excursionVisibility.showLow ? series.lowerRemainders : [],
             labels: series.labels,
         };
     }, [
         seasonalBarChartData,
-        showMFE,
-        showMAE,
-        barChartLongOrShort,
+        excursionVisibility.showHigh,
+        excursionVisibility.showLow,
         tc.barGreen,
         tc.barRed,
     ]);
@@ -49,29 +148,28 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
     let axisFontSize = '20vw';
     let tooltipEnabled = true;
 
-    if (rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth) { // smartphone portrait
+    if (rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth) {
         axisFontSize = '15vw';
         tooltipEnabled = false;
-    } else if (rdd.isMobile && !rdd.isTablet && window.innerHeight < window.innerWidth) { //smartphone landscape
+    } else if (rdd.isMobile && !rdd.isTablet && window.innerHeight < window.innerWidth) {
         axisFontSize = '18vw';
         tooltipEnabled = false;
-    } else if (rdd.isMobile && rdd.isTablet && window.innerHeight > window.innerWidth) { // tablet portrait
+    } else if (rdd.isMobile && rdd.isTablet && window.innerHeight > window.innerWidth) {
         if (window.innerHeight > 1024) axisFontSize = '26vw';
         else axisFontSize = '20vw';
-    } else if (rdd.isMobile && rdd.isTablet && window.innerHeight < window.innerWidth) { //tablet landscape
+    } else if (rdd.isMobile && rdd.isTablet && window.innerHeight < window.innerWidth) {
         axisFontSize = '16vw';
-    } else if (!rdd.isMobile) { // desktop
+    } else if (!rdd.isMobile) {
         axisFontSize = '17vw';
     }
 
-    const data = {
-        labels: labels,
-        datasets: [
-            {
-                label: 'dataMain',
-                data: dataMain,
-                backgroundColor: dataMainColors,
-            },
+    const datasets = [{
+        label: 'dataMain',
+        data: dataMain,
+        backgroundColor: dataMainColors,
+    }];
+    if (excursionStyle === BAR_CHART_EXCURSION_STYLES.FILLED) {
+        datasets.push(
             {
                 label: 'dataMax',
                 data: dataMax,
@@ -81,19 +179,37 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
                 label: 'dataMin',
                 data: dataMin,
                 backgroundColor: tc.barMAE,
-            },
-        ]
-    };
+            }
+        );
+    }
+
+    const data = { labels, datasets };
+    const scaleValues = [0, ...dataMain].filter(Number.isFinite);
+    if (excursionStyle !== BAR_CHART_EXCURSION_STYLES.FILLED) {
+        if (excursionVisibility.showHigh) {
+            scaleValues.push(...dataHigh.filter(value => Number.isFinite(value) && value > 0));
+        }
+        if (excursionVisibility.showLow) {
+            scaleValues.push(...dataLow.filter(value => Number.isFinite(value) && value < 0));
+        }
+    }
+    const scaleBounds = excursionStyle === BAR_CHART_EXCURSION_STYLES.FILLED
+        ? {}
+        : {
+            suggestedMin: Math.min(...scaleValues),
+            suggestedMax: Math.max(...scaleValues),
+        };
+    const highColor = excursionVisibility.highKind === 'MFE' ? tc.barMFE : tc.barMAE;
+    const lowColor = excursionVisibility.lowKind === 'MFE' ? tc.barMFE : tc.barMAE;
+    const needleColor = UITheme === 'dark'
+        ? 'rgba(220, 225, 232, 0.92)'
+        : 'rgba(25, 30, 35, 0.82)';
 
     const options = {
-        // The chart is an interaction result, not a decorative entrance. Chart.js
-        // animations kept repainting the canvas after ChartData4 had completed,
-        // which made rapid row selections look stale and missed the viewer's
-        // response-to-usable budget.
         animation: false,
         onClick: function (event, item) {
             if (item.length > 0) {
-                barClicked(labels[item[0]['index']]);
+                barClicked(labels[item[0].index]);
             }
         },
         devicePixelRatio: 0.5,
@@ -101,16 +217,17 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
         maintainAspectRatio: false,
         scales: {
             y: {
-                stacked: true,
+                stacked: excursionStyle === BAR_CHART_EXCURSION_STYLES.FILLED,
+                beginAtZero: true,
+                ...scaleBounds,
                 ticks: {
                     color: tc.tickColor,
                     font: { size: axisFontSize },
-                    beginAtZero: true,
-                    callback: function (val, index) {
-                        let val_str = val.toString();
-                        let val2 = val;
-                        if (val_str.length > 10) val2 = val2.toFixed(2);
-                        return val2 + '%';
+                    callback: function (val) {
+                        const valueString = val.toString();
+                        let renderedValue = val;
+                        if (valueString.length > 10) renderedValue = renderedValue.toFixed(2);
+                        return renderedValue + '%';
                     },
                 },
                 grid: {
@@ -118,7 +235,7 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
                 },
             },
             x: {
-                stacked: true,
+                stacked: excursionStyle === BAR_CHART_EXCURSION_STYLES.FILLED,
                 ticks: {
                     color: tc.tickColor,
                     font: { size: axisFontSize },
@@ -132,56 +249,82 @@ const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChart
             legend: {
                 display: false,
             },
+            tradeWaveExcursionOverlay: {
+                style: excursionStyle,
+                highs: dataHigh,
+                lows: dataLow,
+                showHigh: excursionVisibility.showHigh,
+                showLow: excursionVisibility.showLow,
+                highColor,
+                lowColor,
+                needleColor,
+            },
             tooltip: {
                 enabled: tooltipEnabled,
                 callbacks: {
                     title: function (context) {
-                        return 'year: ' + context[0]['label'];
+                        return 'year: ' + context[0].label;
                     },
-                    afterTitle: function (context) {
-                        let f = '';
-                        if (barChartLongOrShort === 'long') f = 'strategy: Long';
-                        else f = 'strategy: Short';
-                        return f;
+                    afterTitle: function () {
+                        return barChartLongOrShort === 'long'
+                            ? 'strategy: Long'
+                            : 'strategy: Short';
                     },
                     beforeBody: function (context) {
-                        let r = '';
+                        let result = '';
                         switch (context[0].dataset.label) {
                             case 'dataMin':
-                                if (barChartLongOrShort === 'long') r = 'MAE: min price';
-                                else r = 'MFE: min price';
+                                result = excursionVisibility.lowKind + ': min price';
                                 break;
                             case 'dataMax':
-                                if (barChartLongOrShort === 'long') r = 'MFE: max price';
-                                else r = 'MAE: min price';
+                                result = excursionVisibility.highKind + ': max price';
                                 break;
                             case 'dataMain':
-                                r = 'strategy data';
+                                result = 'strategy data';
                                 break;
                             default:
                                 break;
                         }
-                        return r;
+                        return result;
                     },
                     label: function (context) {
-                        let pct = parseFloat(context.raw);
+                        let pct = Number.parseFloat(context.raw);
                         if (barChartLongOrShort === 'short') pct *= -1;
-                        let r = 'gain:';
-                        if (pct > 0) r += '+';
-                        r += pct + '%';
-                        return r;
+                        return 'gain:' + formatPercent(pct);
                     },
-                }
+                    afterBody: function (context) {
+                        if (
+                            excursionStyle === BAR_CHART_EXCURSION_STYLES.FILLED
+                            || context[0].dataset.label !== 'dataMain'
+                        ) return [];
+
+                        const dataIndex = context[0].dataIndex;
+                        const directionMultiplier = barChartLongOrShort === 'short' ? -1 : 1;
+                        const lines = [];
+                        if (excursionVisibility.showHigh && dataHigh[dataIndex] > 0) {
+                            lines.push(
+                                `${excursionVisibility.highKind}: ${formatPercent(dataHigh[dataIndex] * directionMultiplier)}`
+                            );
+                        }
+                        if (excursionVisibility.showLow && dataLow[dataIndex] < 0) {
+                            lines.push(
+                                `${excursionVisibility.lowKind}: ${formatPercent(dataLow[dataIndex] * directionMultiplier)}`
+                            );
+                        }
+                        return lines;
+                    },
+                },
             },
         },
     };
 
     return (
-        <div style={{ backgroundColor: UIcolors(loggedinUser, UITheme)['background_barchart'], height: "100%" }}>
+        <div style={{ backgroundColor: UIcolors(loggedinUser, UITheme)['background_barchart'], height: '100%' }}>
             <Bar
                 key={`${UITheme}`}
                 data={data}
                 options={options}
+                plugins={[excursionOverlayPlugin]}
             />
         </div>
     );

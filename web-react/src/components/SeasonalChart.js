@@ -19,6 +19,7 @@ import { UIcolors, themeColors } from './Common';
 import { opp_dashboard_dialog_content } from './Common';
 import { BsFillCircleFill } from "react-icons/bs";
 import { brand, trend_chart_left_gap_days } from './Common'
+import { getTrendChartResizeTooltips } from './trendChartResizeTooltips';
 
 const SeasonalChart = (props) => {
 
@@ -28,6 +29,14 @@ const SeasonalChart = (props) => {
 
     const { browserH, browserW, rdd, infoTextSize, loggedinUser, wpUserLevels, globalTextSize, token } = useContext(UserContext);
     const tc = themeColors(props.UITheme);
+    const selectedSecurityAccess = Array.isArray(props.securityTypeList2)
+        ? userAccessToSelectedSecurity(props.securityTypeList2, props.selectedSecurity)[0]
+        : '';
+    const resizeTooltips = getTrendChartResizeTooltips({
+        loggedinUser,
+        wpUserLevels,
+        selectedSecurityAccess,
+    });
     const [x0, SetX0] = useState(0);
     const [x1, SetX1] = useState(0);
 
@@ -992,8 +1001,26 @@ const SeasonalChart = (props) => {
 
             {/* these divs are for interactive resizing of the opp windows */}
             <div ref={ref} className="seasonal-opp" style={oppDivStyle} >
-                <div ref={refLeft} className="seasonal-opp-left-resizer" style={{ width: resizerWidth }}></div>
-                <div ref={refRight} className="seasonal-opp-right-resizer" style={{ width: resizerWidth }}></div>
+                <Tippy disabled={!props.tooltipSW} placement="top-start" content={
+                    <div theme="tw">{resizeTooltips.left}</div>
+                }>
+                    <div
+                        ref={refLeft}
+                        className="seasonal-opp-left-resizer"
+                        style={{ width: resizerWidth }}
+                        aria-label="Change the wave start date"
+                    />
+                </Tippy>
+                <Tippy disabled={!props.tooltipSW} placement="top-end" content={
+                    <div theme="tw">{resizeTooltips.right}</div>
+                }>
+                    <div
+                        ref={refRight}
+                        className="seasonal-opp-right-resizer"
+                        style={{ width: resizerWidth }}
+                        aria-label="Change the wave length in days"
+                    />
+                </Tippy>
             </div>
 
             <div className="seasonal-chart-controls noselect" style={linechartControlsStyle}>
@@ -1134,4 +1161,4 @@ const SeasonalChart = (props) => {
     );
 
 }
-export default SeasonalChart;    
+export default SeasonalChart;

@@ -44,6 +44,7 @@ import { LiaToggleOffSolid, LiaToggleOnSolid } from "react-icons/lia";
 import { DarkBGColor, LightBGColor, themeColors } from './Common'
 import { tierHasAI } from './Common'
 import { lsSet } from './Common'
+import { BAR_CHART_EXCURSION_STYLES } from './barChartExcursion'
 import { BsPlus, BsTrash3 } from "react-icons/bs";
 import { GrEdit } from "react-icons/gr";
 import Tippy from '@tippyjs/react'
@@ -675,6 +676,7 @@ const DesktopLayout = (props) => {
                             <div style={{ width: '140px', flexShrink: 0, borderRight: '1px solid ' + tc.border, paddingTop: '6px' }}>
                                 {[
                                     { key: 'general', label: 'General' },
+                                    { key: 'barchart', label: 'Bar Chart' },
                                     { key: 'pricechart', label: 'Price Chart' },
                                     { key: 'opptable', label: 'Opp Table' },
                                     { key: 'secgroups', label: 'Securities Groups' },
@@ -797,6 +799,73 @@ const DesktopLayout = (props) => {
                                                 setCookie('show_watchlist_on_focus', newVal.toString(), 365)
                                             }} checked={props.showWatchlistOnFocus} />
                                             <span style={{ fontSize: '12px', color: tc.text }}>Show Watchlist on Focus</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── Bar Chart ── */}
+                                {settingsCategory === 'barchart' && (
+                                    <div>
+                                        <Tippy placement="right" content={<div>Choose how MFE and MAE are drawn around each annual return bar</div>}>
+                                            <div style={{ fontSize: '10px', fontWeight: '600', color: tc.text, opacity: 0.55, textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: '10px' }}>
+                                                MFE / MAE Display
+                                            </div>
+                                        </Tippy>
+                                        <div
+                                            role="radiogroup"
+                                            aria-label="MFE and MAE bar chart display"
+                                            style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+                                        >
+                                            {[
+                                                {
+                                                    key: BAR_CHART_EXCURSION_STYLES.FILLED,
+                                                    label: 'Filled Extensions',
+                                                    description: 'Current view - shaded distance from the close to each extreme.',
+                                                },
+                                                {
+                                                    key: BAR_CHART_EXCURSION_STYLES.TICKS,
+                                                    label: 'High / Low Ticks',
+                                                    description: 'Thin green and pink marks at the exact extreme levels.',
+                                                },
+                                                {
+                                                    key: BAR_CHART_EXCURSION_STYLES.NEEDLE,
+                                                    label: 'Range Needles',
+                                                    description: 'A theme-aware vertical line spanning the selected range.',
+                                                },
+                                            ].map(({ key, label, description }) => {
+                                                const selected = props.barChartExcursionStyle === key;
+                                                return (
+                                                    <button
+                                                        key={key}
+                                                        type="button"
+                                                        role="radio"
+                                                        aria-checked={selected}
+                                                        onClick={() => props.SetBarChartExcursionStyle(key)}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '9px 11px',
+                                                            border: '1px solid ' + (selected
+                                                                ? (props.UITheme === 'dark' ? '#7aa2f7' : '#336')
+                                                                : tc.border),
+                                                            borderRadius: '7px',
+                                                            cursor: 'pointer',
+                                                            textAlign: 'left',
+                                                            backgroundColor: selected
+                                                                ? (props.UITheme === 'dark' ? '#3a3a5c' : '#ffffff')
+                                                                : (props.UITheme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'),
+                                                            color: tc.text,
+                                                            boxShadow: selected ? '0 1px 5px rgba(0,0,0,0.18)' : 'none',
+                                                        }}
+                                                    >
+                                                        <div style={{ fontSize: '12px', fontWeight: selected ? '700' : '500' }}>
+                                                            {label}{key === BAR_CHART_EXCURSION_STYLES.FILLED ? ' (Default)' : ''}
+                                                        </div>
+                                                        <div style={{ marginTop: '3px', fontSize: '10px', lineHeight: 1.35, opacity: 0.65 }}>
+                                                            {description}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -1451,11 +1520,14 @@ const DesktopLayout = (props) => {
 
                 <div ref={oppChatContainerRef} className='opp_table_div' style={{ backgroundColor: tc.panelBg }}>
                     <div style={{ flex: 100 - chatbotHeightPct, minHeight: 0, width: '100%', overflow: 'hidden' }} >
-                        <OppTable {...props} />
+                        <OppTable {...props} onChatbotResizeMouseDown={handleResizerMouseDown} />
                     </div>
 
                     {props.showChatbot && <>
                         <div
+                            role="separator"
+                            aria-orientation="horizontal"
+                            aria-label="Resize Tara chat from bottom edge"
                             onMouseDown={handleResizerMouseDown}
                             style={{
                                 height: '5px',

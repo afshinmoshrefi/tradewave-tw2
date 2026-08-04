@@ -2478,7 +2478,7 @@ const SeasonalBarChart = (props) => {
 
 
       <div className="barchart" style={{ ...barchartStyle, position: 'relative' }}>
-        <BarChart seasonalBarChartData={props.seasonalBarChartData} showMAE={props.showMAE} showMFE={props.showMFE} barClicked={barClicked} barChartLongOrShort={props.barChartLongOrShort} UITheme={props.UITheme} />
+        <BarChart seasonalBarChartData={props.seasonalBarChartData} showMAE={props.showMAE} showMFE={props.showMFE} barClicked={barClicked} barChartLongOrShort={props.barChartLongOrShort} UITheme={props.UITheme} barChartExcursionStyle={props.barChartExcursionStyle} />
         {
           (primaryChartLoading || props.seasonalBarChartData.length === 0) &&
           <div className='barchart-background' style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', top: 0, left: 0, pointerEvents: 'none', backgroundColor: barchartStyle.backgroundColor }}>
