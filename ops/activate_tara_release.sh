@@ -47,7 +47,11 @@ set -a
 set +a
 tw2_env=${TW2_ENV:-unknown}
 if [[ "$tw2_env" != dev ]]; then
-  [[ -z $(sudo -u flask git -C /home/flask status --porcelain) ]] || {
+  target_status=$(
+    sudo -u flask git -C /home/flask status --porcelain --untracked-files=all -- \
+      . ':(exclude).tw2-releases' ':(exclude).tw2-app-current'
+  )
+  [[ -z "$target_status" ]] || {
     echo "ABORT: /home/flask target worktree is dirty" >&2
     exit 1
   }
