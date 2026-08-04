@@ -262,6 +262,28 @@ _DIRECTION_PATTERNS = (
     re.compile(r"\bhow (?:did|does) (?:tradewave|tara|it) (?:choose|pick|decide|determine|label) (?:the )?(?:direction|short|long)\b", re.I),
 )
 
+_MCP_TERM_PATTERN = re.compile(r"\b(?:mcp|model context protocol)\b", re.I)
+_EXTERNAL_AI_PATTERN = re.compile(
+    r"\b(?:chatgpt|claude(?:\.ai| desktop)?|external ai(?: assistant)?|"
+    r"outside ai(?: assistant)?|ai connector)\b",
+    re.I,
+)
+_TRADEWAVE_PRODUCT_PATTERN = re.compile(
+    r"\b(?:tradewave|tara|seasonality|seasonal (?:research|pattern|analysis)|wave viewer)\b",
+    re.I,
+)
+_MCP_PRODUCT_CUE_PATTERN = re.compile(
+    r"\b(?:what|how|why|where|can|could|does|do|need|use|using|connect|access|"
+    r"replace|instead|difference|same|safe|private|cost|plan|key|ask|work)\b",
+    re.I,
+)
+_TARA_PROVIDER_IDENTITY_PATTERN = re.compile(
+    r"\b(?:is\s+tara\s+(?:using|running on|running with|powered by)|"
+    r"does\s+tara\s+use)\s+(?:chatgpt|claude)\b",
+    re.I,
+)
+_MCP_SETUP_URL = "https://developers.tradewave.ai/mcp"
+
 _FULL_HISTORY_COMMAND_PATTERN = re.compile(
     r"\b(?:load|show(?:\s+me)?|use|set|change|switch|expand|extend|run|"
     r"analy[sz]e|review|look)\b.{0,60}\b(?:max(?:imum)?(?:\s+available)?\s+years?|"
@@ -451,6 +473,225 @@ def _has_loaded_pattern(wave_viewer: Any) -> bool:
 def _matches_any(message: Any, patterns: Iterable[re.Pattern[str]]) -> bool:
     text = str(message or "").strip()
     return bool(text and any(pattern.search(text) for pattern in patterns))
+
+
+def is_mcp_product_question(message: Any) -> bool:
+    """Recognize questions about using TradeWave through ChatGPT or Claude."""
+
+    text = str(message or "").strip()
+    if not text or _TARA_PROVIDER_IDENTITY_PATTERN.search(text):
+        return False
+    if _MCP_TERM_PATTERN.search(text):
+        return True
+    return bool(
+        _EXTERNAL_AI_PATTERN.search(text)
+        and _TRADEWAVE_PRODUCT_PATTERN.search(text)
+        and _MCP_PRODUCT_CUE_PATTERN.search(text)
+    )
+
+
+def _mcp_setup_link(label: str = "Open the MCP setup guide") -> str:
+    return (
+        f'<a href="{_MCP_SETUP_URL}" target="_blank" rel="noopener noreferrer">'
+        f"{html.escape(label)}</a>"
+    )
+
+
+def build_mcp_product_reply(message: Any) -> Optional[str]:
+    """Return a plain-language, source-of-truth answer about TradeWave MCP."""
+
+    if not is_mcp_product_question(message):
+        return None
+    text = str(message or "").strip()
+
+    if re.search(
+        r"\b(?:control|change|move|load|open)\b.{0,45}\b(?:wave viewer|viewer|screen|chart)\b|"
+        r"\b(?:wave viewer|viewer|screen|chart)\b.{0,45}\b(?:control|change|move|load|open)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>Tara is the assistant that can see and change your open TradeWave screen.</b> "
+            "ChatGPT or Claude can use TradeWave research through MCP and return a link to the "
+            "exact Wave Viewer setup, but they do not control the viewer that is already open."
+        )
+
+    if re.search(
+        r"\b(?:mcp (?:versus|vs\.?) api|api (?:versus|vs\.?) mcp|"
+        r"difference between (?:the )?api and mcp)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>MCP is made for conversations with AI assistants; the API is made for software "
+            "code.</b> Both use the same TradeWave gateway and return calculated pattern research. "
+            "The normal ChatGPT or Claude MCP connection uses your TradeWave sign-in, while a "
+            "developer API connection normally uses an API key."
+        )
+
+    if re.search(r"\b(?:api key|access key|secret key|token)\b", text, re.I):
+        return (
+            "<b>You do not need an API key for the normal ChatGPT or Claude connection.</b> "
+            "Add the TradeWave MCP connector, then sign in with your TradeWave account. "
+            "Developer tools can use a TradeWave API key instead. "
+            + _mcp_setup_link()
+            + "."
+        )
+
+    if re.search(
+        r"\b(?:how|where)\b.{0,35}\b(?:connect|add|set up|setup|start)\b|"
+        r"\b(?:connect|add|set up|setup)\b.{0,35}\b(?:mcp|tradewave|chatgpt|claude)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>Open the TradeWave MCP setup guide and add its server address as a connector "
+            "in ChatGPT or Claude.</b> Then choose Connect and sign in with your TradeWave "
+            "account. No API key is needed for this normal account connection. "
+            + _mcp_setup_link()
+            + "."
+        )
+
+    if re.search(
+        r"\b(?:share|sync|same)\b.{0,35}\b(?:chat|conversation|history|screen state|viewer state)\b|"
+        r"\b(?:chat|conversation|history|screen state|viewer state)\b.{0,35}\b(?:share|sync|same)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>Tara and an outside assistant do not share chat history or screen state.</b> Tara "
+            "receives the screen that is open inside TradeWave. ChatGPT or Claude receives the "
+            "TradeWave tool results it requests inside its own conversation."
+        )
+
+    if re.search(
+        r"\b(?:fundamentals?|news|macro|valuation|earnings|other research|outside research)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>TradeWave MCP supplies seasonal pattern evidence, not company news, fundamentals, "
+            "valuation, or macro research.</b> ChatGPT or Claude can add those subjects from other "
+            "tools or sources available to it, while keeping them separate from the TradeWave "
+            "results."
+        )
+
+    if re.search(
+        r"\b(?:what (?:should|can) i (?:buy|sell|trade)|tell me what to (?:buy|sell)|"
+        r"recommend(?:ation)?|personalized|guarantee|certain|sure thing|winning trade)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>TradeWave MCP helps an assistant rank and compare opportunities using measured "
+            "historical odds, AI-calibrated probabilities, and path risk.</b> It does not know the "
+            "future outcome, read your holdings, or turn the research into a personalized buy or "
+            "sell decision."
+        )
+
+    if re.search(
+        r"\b(?:holdings?|positions?|portfolio|raw (?:data|prices?)|price history|live prices?|"
+        r"personal data|private|privacy|safe|secure|see my account)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>TradeWave MCP shares pattern research, not your holdings or raw market-price "
+            "history.</b> It returns calculated evidence such as percentage results, charts that "
+            "show the pattern's shape, each year's best and worst move (MFE and MAE), and AI scores "
+            "allowed by your plan. You approve the connection by signing in with your TradeWave "
+            "account."
+        )
+
+    if re.search(r"\b(?:cost|price|free|plan|tier|limit|quota|subscription)\b", text, re.I):
+        return (
+            "<b>The normal MCP connection uses your existing TradeWave account.</b> The markets, "
+            "research tools, and AI-score limits available through ChatGPT or Claude follow your "
+            "TradeWave plan. "
+            + _mcp_setup_link("See MCP setup and access details")
+            + "."
+        )
+
+    if re.search(
+        r"\b(?:same (?:data|numbers?|research|results?)|match(?:ing)? (?:data|numbers?|results?)|"
+        r"source of truth|different (?:data|numbers?|results?)|accurate|accuracy|reliable|"
+        r"hallucinat(?:e|es|ion))\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>For the same pattern inputs, Tara and MCP receive their calculated numbers from the "
+            "same TradeWave gateway.</b> Their wording can differ, and Tara also has the current "
+            "TradeWave screen as context. The assistant should present the supplied record rather "
+            "than recalculate it; the returned chart and exact Wave Viewer link are the clearest "
+            "ways to check the result."
+        )
+
+    if re.search(
+        r"\b(?:need|replace|instead of|without)\b.{0,55}\b(?:seasonality|seasonal|tradewave|tara)\b|"
+        r"\b(?:seasonality|seasonal|tradewave|tara)\b.{0,55}\b(?:need|replace|instead of|without)\b|"
+        r"\bnow that (?:there is|there's|i have|we have)\b.{0,30}\b(?:ai|chatgpt|claude)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>AI and seasonality are not substitutes.</b> TradeWave finds and measures repeating "
+            "calendar patterns; AI helps you ask questions and understand the evidence.<br>"
+            "<b>Use the assistant you prefer:</b> Tara can see and change the open TradeWave screen. "
+            "Or connect TradeWave to ChatGPT or Claude through MCP, a secure link that lets them use "
+            "TradeWave's scans, pattern history, charts, and the AI scores included in your plan. "
+            "Without that connection, a general AI does not automatically have TradeWave's exact "
+            "research. "
+            + _mcp_setup_link("Connect TradeWave to ChatGPT or Claude")
+            + "."
+        )
+
+    if re.search(
+        r"\b(?:difference|versus|vs\.?|which (?:one|assistant)|why use tara|need tara|"
+        r"instead of tara|replace tara)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>Tara is best while you are working inside TradeWave.</b> She sees the loaded pattern, "
+            "the visible table, and the chart view, and she can change that view for you.<br>"
+            "<b>ChatGPT or Claude with MCP is best when you want TradeWave research in that assistant's "
+            "workspace.</b> It can scan, analyze, compare, and return charts or exact Wave Viewer links, "
+            "then combine the evidence with other research tools you choose."
+        )
+
+    if re.search(
+        r"\b(?:what can|what does|can (?:chatgpt|claude|mcp)|questions? (?:can|should) i ask|"
+        r"example (?:question|prompt)|prompts?)\b",
+        text,
+        re.I,
+    ):
+        return (
+            "<b>With TradeWave connected, ask ChatGPT or Claude to:</b><br>"
+            "Find the strongest seasonal setups entering now.<br>"
+            "Analyze one symbol with each year's best and worst move (MFE and MAE).<br>"
+            "Compare several opportunities on the same evidence.<br>"
+            "Give a morning briefing or explain today's TradeWave pick.<br>"
+            "Each result can include TradeWave charts and a link to the exact Wave Viewer setup."
+        )
+
+    if re.search(r"\b(?:what is|what's|explain|define|mean)\b", text, re.I):
+        return (
+            "<b>MCP stands for Model Context Protocol. TradeWave MCP is a secure connection that "
+            "lets an AI assistant use TradeWave's research tools.</b> After you connect and sign in, "
+            "ChatGPT or Claude can scan seasonal patterns, analyze symbols, compare setups, and "
+            "receive TradeWave charts and evidence. "
+            + _mcp_setup_link()
+            + "."
+        )
+
+    return (
+        "<b>TradeWave MCP lets ChatGPT or Claude use TradeWave research after you connect your "
+        "account.</b> Tara remains the screen-aware assistant inside TradeWave, while the connected "
+        "assistant works in its own chat and can return TradeWave evidence and Wave Viewer links. "
+        + _mcp_setup_link()
+        + "."
+    )
 
 
 def is_pattern_recency_question(message: Any, wave_viewer: Any) -> bool:
@@ -3625,6 +3866,22 @@ def build_deterministic_reply(
     current_year: Optional[int] = None,
 ) -> Optional[str]:
     """Route high-confidence UI questions to verified, provider-independent replies."""
+
+    mcp_product = build_mcp_product_reply(message)
+    if mcp_product is not None:
+        return mcp_product
+
+    named_symbol = explicit_pattern_symbol(message)
+    loaded_symbol = str(
+        (wave_viewer or {}).get("symbol")
+        if isinstance(wave_viewer, Mapping)
+        else ""
+    ).strip().upper()
+    if named_symbol and loaded_symbol and named_symbol != loaded_symbol:
+        # The loaded facts belong to another security. Let the tool-capable provider
+        # resolve and load the explicitly named ticker instead of answering with stale
+        # screen data under the wrong name.
+        return None
 
     overview = build_screen_overview_reply(
         message,

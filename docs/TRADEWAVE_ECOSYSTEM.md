@@ -1157,6 +1157,16 @@ NOT a product merge - Tara stays the login-gated UI helper; the public API/MCP i
 Data flow: React `Chatbot.js` -> appserver `/chatbot/chat` (JWT-gated) -> `tara_gateway.py`
 provider-specific tool loop -> gateway `:8088/v1` (loopback) -> appserver engine. Auth/metering
 (option A):
+
+**Consumer-MCP product explanations (2026-08-04):** Tara answers common questions about
+connecting TradeWave to ChatGPT or Claude through a deterministic product-knowledge route before
+the model call. She distinguishes an unconnected general AI, screen-aware Tara inside Wave Viewer,
+and an outside assistant using TradeWave MCP. The outside assistant can call the derived research
+tools and return exact Wave Viewer links but cannot control the already-open viewer. Same-input
+derived numbers come from the same gateway; account OAuth follows the consumer web plan and needs
+no user-created API key; raw prices and holdings remain out of scope. Broader wording selects only
+the dedicated MCP section from `chatbot_knowledge.txt`, so unrelated turns do not pay its token cost.
+
 Tara holds an internal **`chatbot` tier** key (`tiers.INTERNAL_TIERS`, `service:True`, kept OUT
 of the sold `API_TIERS`) and passes the web user id as **`X-TW-On-Behalf-Of`**; the gateway
 (`auth.py:_apply_on_behalf`) honors that header ONLY for `service:True` keys and swaps ONLY the

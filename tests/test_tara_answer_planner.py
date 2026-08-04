@@ -20,6 +20,7 @@ from tara_answer_planner import (  # noqa: E402
     build_deterministic_reply,
     build_direction_reply,
     build_excursion_overlay_command,
+    build_mcp_product_reply,
     build_opportunity_row_load_command,
     build_pattern_analysis_reply,
     build_per_year_excursion_reply,
@@ -31,6 +32,7 @@ from tara_answer_planner import (  # noqa: E402
     canonical_pattern_facts,
     explicit_pattern_symbol,
     is_ai_horizon_explanation_question,
+    is_mcp_product_question,
     is_pattern_analysis_question,
     is_per_year_excursion_question,
     is_seasonality_value_question,
@@ -41,6 +43,48 @@ from tara_answer_planner import (  # noqa: E402
     requested_full_history_years,
     verified_context_lines,
 )
+
+
+def test_ai_seasonality_question_explains_the_mcp_product_boundary():
+    message = "Do I really need this seasonality now that there is AI like ChatGPT and Claude?"
+
+    reply = build_mcp_product_reply(message)
+
+    assert is_mcp_product_question(message)
+    assert "AI and seasonality are not substitutes" in reply
+    assert "Tara can see and change the open TradeWave screen" in reply
+    assert "connect TradeWave to ChatGPT or Claude through MCP" in reply
+    assert "does not automatically have TradeWave's exact research" in reply
+    assert "MET" not in reply
+
+
+@pytest.mark.parametrize(
+    "message, expected",
+    [
+        ("What is MCP?", "secure connection"),
+        ("How do I connect TradeWave to ChatGPT?", "No API key is needed"),
+        ("Do I need an API key for Claude MCP?", "do not need an API key"),
+        ("Can Claude control my Wave Viewer?", "do not control the viewer"),
+        ("Does MCP see my portfolio holdings?", "not your holdings"),
+        ("Do Tara and MCP use the same data?", "same TradeWave gateway"),
+        ("What can I ask ChatGPT with TradeWave connected?", "morning briefing"),
+        ("Does Tara share chat history with Claude MCP?", "do not share chat history"),
+        ("Can Claude MCP add company news and fundamentals?", "not company news"),
+        ("What is the difference between the API and MCP?", "API is made for software code"),
+        ("Can MCP guarantee a winning trade?", "measured historical odds"),
+        ("Can MCP hallucinate the TradeWave numbers?", "exact Wave Viewer link"),
+    ],
+)
+def test_mcp_faq_answers_are_deterministic_and_plain(message, expected):
+    reply = build_deterministic_reply(message, {}, {})
+
+    assert expected in reply
+    assert "—" not in reply
+
+
+def test_provider_identity_question_is_not_misrouted_as_mcp():
+    assert not is_mcp_product_question("Is Tara using Claude?")
+    assert build_mcp_product_reply("Is Tara using Claude?") is None
 
 
 @pytest.mark.parametrize(

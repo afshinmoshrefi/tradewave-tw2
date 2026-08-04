@@ -386,3 +386,29 @@ tool names/status; latency; cache/token/cost fields; fallback/error class; promp
 version; and explicit user feedback. Never log auth tokens, API keys, raw price payloads, or the
 full hidden prompt. Add rotation, a declared retention period, and a pseudonymous user key before
 opening this analysis beyond the owner.
+
+## 12. Tara awareness of consumer MCP (2026-08-04)
+
+Tara must explain the connected-AI product boundary in plain language. TradeWave computes the
+pattern evidence; Tara, ChatGPT, or Claude can help the user work with that evidence.
+
+- An unconnected AI assistant does not automatically have TradeWave scans, exact historical
+  results, path evidence, charts, or ML scores.
+- Tara is screen-aware inside the Wave Viewer. She can use the loaded pattern, visible table, and
+  active chart state, and can drive validated TradeWave view controls.
+- ChatGPT or Claude connected through TradeWave MCP can call TradeWave's derived research tools in
+  its own chat. It can return charts and an exact Wave Viewer link, but it does not control the
+  already-open Wave Viewer.
+- Tara and MCP receive server-composed derived evidence from the same TradeWave gateway. For the
+  same inputs, the underlying numbers should match even when the assistants phrase the answer
+  differently.
+- Consumer MCP account authorization follows the web plan. The normal ChatGPT or Claude connection
+  uses TradeWave sign-in and does not require a user-created API key.
+- MCP never exposes raw market-price history, live prices, or user holdings. It remains impersonal,
+  derived-data-only research.
+
+Common product questions are answered deterministically before a model call: what MCP is, how to
+connect, API-key requirements, Tara versus an outside assistant, Wave Viewer control, same-data
+questions, plan access, data boundaries, and useful starter prompts. Broader connected-AI wording
+loads only the dedicated MCP knowledge section through `tara_prompt_context.py`, preserving the
+segmented-prompt efficiency contract.

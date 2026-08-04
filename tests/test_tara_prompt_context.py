@@ -61,6 +61,22 @@ def test_core_seasonality_definition_routes_to_general_facts_not_named_pattern()
     assert "The 100-Year Pattern" not in selection.headings
 
 
+def test_mcp_questions_load_only_the_new_connected_ai_knowledge():
+    _, sections = _sections()
+
+    definition = select_topic_knowledge("What is TradeWave MCP?", sections)
+    comparison = select_topic_knowledge(
+        "Do I need seasonality now that I have ChatGPT and Claude?", sections
+    )
+
+    assert definition.headings == ("TradeWave in ChatGPT and Claude (MCP)",)
+    assert comparison.headings[0] == "TradeWave in ChatGPT and Claude (MCP)"
+    assert "MCP is a secure connection" in comparison.text
+    assert "An AI assistant without a TradeWave connection" in comparison.text
+    assert "## Subscription Tiers" not in comparison.text
+    assert select_topic_knowledge("Is Tara using Claude?", sections).headings == ()
+
+
 def test_large_row_context_is_loaded_only_when_the_question_needs_it():
     _, sections = _sections()
     assert not needs_yearly_results("Explain Sharpe ratio")
