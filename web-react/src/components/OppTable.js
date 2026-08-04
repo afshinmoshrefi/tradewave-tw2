@@ -38,8 +38,26 @@ import { selectOpportunityMLScoreSource } from './opportunityMLSource'
 import { resolveOpportunityRecurrence } from './opportunityRecurrence'
 import { normalizeRealtimeQuote } from './realtimePrices'
 
+const TARA_LAUNCHER_TOOLTIP_COPY = Object.freeze({
+  closed: {
+    title: 'Meet Tara, Your TradeWave AI Guide',
+    description: "She finds market behavior that repeated around similar dates in past years, loads it on the chart, and explains what you're seeing.",
+    prompts: ["Show me today's top pattern."],
+    action: 'Open Tara',
+  },
+  open: {
+    title: 'Tara Is Your TradeWave AI Guide',
+    description: "She can find a historical pattern, explain this screen and its numbers, or analyze what's loaded in plain English.",
+    prompts: ['What am I looking at?', 'Analyze this pattern.'],
+    action: 'Hide Chat',
+  },
+});
+
 const OppTable = (props) => {
   const tc = themeColors(props.UITheme)
+  const taraLauncherCopy = props.showChatbot
+    ? TARA_LAUNCHER_TOOLTIP_COPY.open
+    : TARA_LAUNCHER_TOOLTIP_COPY.closed;
 
   const selectbox = document.getElementById('securityTypeList');
 
@@ -1706,16 +1724,30 @@ const OppTable = (props) => {
             (rdd.isDesktop && props.chatbotEnabled) &&
             <Tippy
               placement={'top'}
-              content={props.showChatbot
-                ? "Tara is TradeWave's AI guide. She can find seasonal patterns, load them on the chart, explain the statistics, and analyze what you're viewing. Click to close."
-                : "Tara is TradeWave's AI guide. She can find seasonal patterns, load them on the chart, explain the statistics, and analyze what you're viewing. Click to open."}
+              maxWidth={360}
+              content={
+                <div style={{ textAlign: 'left', lineHeight: 1.4, padding: '2px 1px' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '5px' }}>{taraLauncherCopy.title}</div>
+                  <div>{taraLauncherCopy.description}</div>
+                  <div style={{ marginTop: '7px' }}>
+                    <strong>Start with:</strong>{' '}
+                    {taraLauncherCopy.prompts.map((prompt, index) => (
+                      <React.Fragment key={prompt}>
+                        {index > 0 && ' or '}
+                        &ldquo;{prompt}&rdquo;
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: '7px', color: '#f5c842', fontWeight: 700 }}>{taraLauncherCopy.action}</div>
+                </div>
+              }
             >
               <span
                 role="button"
                 tabIndex={0}
                 aria-label={props.showChatbot
-                  ? 'Close Tara chatbot'
-                  : 'Open Tara chatbot'}
+                  ? 'Hide Tara chat, TradeWave AI guide'
+                  : 'Open Tara, TradeWave AI guide'}
                 style={{ display: 'inline-flex', alignItems: 'center' }}
                 onClick={() => {
                   props.SetShowChatbot(!props.showChatbot);
