@@ -284,6 +284,40 @@ _TARA_PROVIDER_IDENTITY_PATTERN = re.compile(
 )
 _MCP_SETUP_URL = "https://developers.tradewave.ai/mcp"
 
+_TOOLTIPS_OFF_PATTERN = re.compile(
+    r"\b(?:turn|switch|shut)\s+(?:all\s+|the\s+)?(?:guidance\s+)?"
+    r"(?:tooltips?|hover tips?)\s+off\b|"
+    r"\b(?:disable|hide|remove|stop showing|get rid of)\b.{0,35}"
+    r"\b(?:tooltips?|hover tips?)\b|"
+    r"\b(?:do not|don't|dont)\s+(?:like|want|need)\b.{0,35}"
+    r"\b(?:tooltips?|hover tips?)\b|"
+    r"\b(?:tooltips?|hover tips?)\b.{0,35}"
+    r"\b(?:annoying|distracting|everywhere|cluttered?|too many|in the way)\b",
+    re.I,
+)
+_TOOLTIPS_ON_PATTERN = re.compile(
+    r"\b(?:turn|switch)\s+(?:all\s+|the\s+)?(?:guidance\s+)?"
+    r"(?:tooltips?|hover tips?)\s+on\b|"
+    r"\b(?:enable|show)\b.{0,30}\b(?:tooltips?|hover tips?)\b|"
+    r"\b(?:do not|don't|dont|cannot|can't|cant)\s+"
+    r"(?:understand|follow|make sense of)\b.{0,45}"
+    r"\b(?:controls?|buttons?|icons?|switches?|interface)\b|"
+    r"\b(?:controls?|buttons?|icons?|switches?|interface)\b.{0,35}"
+    r"\b(?:confusing|overwhelming|unclear|do not make sense|don't make sense)\b|"
+    r"\b(?:help me understand|explain)\b.{0,35}"
+    r"\b(?:these|the|all these)\s+(?:controls?|buttons?|icons?|switches?)\b|"
+    r"\bwhat do\b.{0,30}\b(?:these|the|all these)\s+"
+    r"(?:controls?|buttons?|icons?|switches?)\s+do\b",
+    re.I,
+)
+_TOOLTIPS_HELP_PATTERN = re.compile(
+    r"\b(?:where (?:is|are)|where can i find|show me where|find)\b.{0,35}"
+    r"\b(?:tooltips?|tooltip (?:switch|toggle))\b|"
+    r"\bhow (?:do|can) i toggle\b.{0,25}\btooltips?\b|"
+    r"^\s*what (?:are|is) (?:the )?(?:guidance )?tooltips?(?: toggle| switch)?\s*[?.!]*\s*$",
+    re.I,
+)
+
 _FULL_HISTORY_COMMAND_PATTERN = re.compile(
     r"\b(?:load|show(?:\s+me)?|use|set|change|switch|expand|extend|run|"
     r"analy[sz]e|review|look)\b.{0,60}\b(?:max(?:imum)?(?:\s+available)?\s+years?|"
@@ -473,6 +507,45 @@ def _has_loaded_pattern(wave_viewer: Any) -> bool:
 def _matches_any(message: Any, patterns: Iterable[re.Pattern[str]]) -> bool:
     text = str(message or "").strip()
     return bool(text and any(pattern.search(text) for pattern in patterns))
+
+
+def build_tooltip_preference_command(message: Any) -> Optional[Dict[str, Any]]:
+    """Turn global guidance tooltips on or off from clear preference language."""
+
+    text = str(message or "").strip()
+    if not text:
+        return None
+    if _TOOLTIPS_OFF_PATTERN.search(text):
+        return {
+            "reply": (
+                "You can turn guidance tooltips on or off with the <b>Tooltips</b> switch in "
+                "the upper-left toolbar, beside the settings gear. I turned them off now."
+            ),
+            "spec": {"show_tooltips": False},
+        }
+    if _TOOLTIPS_ON_PATTERN.search(text):
+        return {
+            "reply": (
+                "You can turn guidance tooltips on or off with the <b>Tooltips</b> switch in "
+                "the upper-left toolbar, beside the settings gear. I turned them on now so "
+                "the controls explain themselves when you hover."
+            ),
+            "spec": {"show_tooltips": True},
+        }
+    return None
+
+
+def build_tooltip_help_reply(message: Any) -> Optional[str]:
+    """Explain the tooltip control without changing a preference the user did not choose."""
+
+    text = str(message or "").strip()
+    if not text or not _TOOLTIPS_HELP_PATTERN.search(text):
+        return None
+    return (
+        "Guidance tooltips explain controls when you hover over them. The <b>Tooltips</b> "
+        "switch is in the upper-left toolbar, beside the settings gear; Tara can also turn "
+        "them on or off for you."
+    )
 
 
 def is_mcp_product_question(message: Any) -> bool:
@@ -3866,6 +3939,10 @@ def build_deterministic_reply(
     current_year: Optional[int] = None,
 ) -> Optional[str]:
     """Route high-confidence UI questions to verified, provider-independent replies."""
+
+    tooltip_help = build_tooltip_help_reply(message)
+    if tooltip_help is not None:
+        return tooltip_help
 
     mcp_product = build_mcp_product_reply(message)
     if mcp_product is not None:

@@ -19,6 +19,7 @@ import FilteringPopup from './FilteringPopup';
 import AIScoresPopup from './AIScoresPopup';
 import './styles/Chatbot.css';
 import {
+  applyTooltipPreference,
   buildChatbotScreenContext,
   buildOpportunityTableContext,
   deriveDirectionFromBars,
@@ -424,6 +425,7 @@ function Chatbot(props) {
       props.setShowMAE(spec.show_mae);
       setCookie('MAE', spec.show_mae.toString(), 300);
     }
+    applyTooltipPreference(spec, props.SetTooltipSW);
     if (typeof spec.bottom_slide === 'string') {
       showBottomSlide(props.swiper, spec.bottom_slide);
     }

@@ -46,7 +46,7 @@ marketing language.
 Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. Both tool loops
 in `tara_gateway.py` return (text, actions); an update_view call is
 validated server-side (`_validate_view_spec`: allowlist + range-check symbol/market/entry_date/
-days_out/years/pe_cycle/show_mfe/show_mae/bottom_slide, dropping invalid fields) and queued as `{type:'set_view', spec}` -
+days_out/years/pe_cycle/show_mfe/show_mae/show_tooltips/bottom_slide, dropping invalid fields) and queued as `{type:'set_view', spec}` -
 it never hits the gateway. `chat()` returns `{reply, actions}` (additive; old bundles ignore it).
 `Chatbot.js applyViewSpec` re-validates each field then calls the React setters (mirrors
 `loadOppWV`; a fresh load only on a symbol CHANGE), and `SetPEselected` was added to
@@ -145,7 +145,8 @@ ViewSpec = {
   pe_cycle?:   'consecutive'|'pe'|'pe0'|'pe1'|'pe2'|'pe3',
   show_mfe?:   boolean,  // best-move overlay on the year-by-year chart
   show_mae?:   boolean,  // worst-move overlay on the year-by-year chart
-  bottom_slide?: 'trend_chart'|'wave_stats'|'price_chart',
+  show_tooltips?: boolean, // global guidance tooltips across TradeWave
+  bottom_slide?: 'trend_chart'|'wave_stats'|'price_chart', // lower carousel destination
   period?:     'jan'..'dec'|'q1'..'q4'|'spring'|'summer'|'fall'|'winter'|'ytd'|'year_end'|'buy_hold',
   reverse?:    boolean,
   direction?:  'long'|'short',
@@ -175,11 +176,22 @@ Phase 2 generalizes that existing write-channel.
 | `direction` | `SetBarChartLongOrShort('long'\|'short')` | `direction` | usually inferred from ChartData4; settable but normally let the setup decide |
 | `show_mfe` | `setShowMFE(bool)` | local view only | shows/hides the direction-aware MFE overlay; persisted in the existing `MFE` cookie |
 | `show_mae` | `setShowMAE(bool)` | local view only | shows/hides the direction-aware MAE overlay; persisted in the existing `MAE` cookie |
-| `bottom_slide` | `swiper.slideTo(0\|1\|2)` | local view only | shows Trend Chart, Wave Stats, or Price Chart without changing the loaded pattern |
+| `show_tooltips` | `SetTooltipSW(bool)` | local view only | shows/hides global guidance tooltips through the same state as the upper-left toolbar switch |
+| `bottom_slide` | `swiper.slideTo(0\|1\|2)` | local view only | shows Trend Chart, Wave Stats, or Price Chart immediately; Tara is desktop-only |
 
 A single `applyViewSpec(spec)` helper in `Chatbot.js` walks these keys and calls the
 matching `props.Set*` from `chartSetProps`. No new state is introduced - it drives the
 exact setters the dropdowns/sliders/row-clicks already use.
+
+Direct lower-panel commands are resolved deterministically before provider selection. Thus
+"show me the stats" produces `bottom_slide:'wave_stats'` and actually moves the carousel; Tara
+does not merely tell the user to swipe. Concept questions (for example, "what is the Trend
+Chart?") remain explanation/guide requests and do not move the panel.
+
+Tooltip preference language is also deterministic. Dislike, distraction, or removal wording emits
+`show_tooltips:false`; confusion about controls/buttons/icons emits `show_tooltips:true`. Tara names
+the switch in the upper-left toolbar beside the settings gear in both replies. A location or
+definition question explains the switch without changing it.
 
 ## 4. Action allowlist + guardrails
 

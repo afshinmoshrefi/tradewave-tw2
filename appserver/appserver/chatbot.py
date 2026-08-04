@@ -36,6 +36,7 @@ from tara_answer_planner import (
     build_deterministic_reply,
     build_hundred_year_pattern_command,
     build_opportunity_row_load_command,
+    build_tooltip_preference_command,
     canonical_pattern_facts,
     explicit_pattern_symbol,
     needs_pattern_ai_context,
@@ -153,7 +154,8 @@ TOOL_INSTRUCTION = (
     "2) When the user asks to LOAD / SHOW / OPEN / PULL UP a symbol or setup, CHANGE the years "
     "or PE cycle, SHOW/HIDE MFE or MAE, or SHOW the Trend Chart / Wave Stats / Price Chart, "
     "you MUST call update_view and do it yourself. "
-    "For MFE/MAE use show_mfe/show_mae booleans; do not open the guide for a view command. Do NOT tell them to use a dropdown, "
+    "For MFE/MAE use show_mfe/show_mae booleans; for the global guidance tooltips use "
+    "show_tooltips. Do not open a guide for a direct view command. Do NOT tell them to use a dropdown, "
     "selectbox, or to click a row - you CAN drive the view for them. After update_view, say in one "
     "short line what you changed. For a lower-panel command use bottom_slide=trend_chart, "
     "wave_stats, or price_chart; confirm the panel in one line without reloading the symbol or "
@@ -1144,8 +1146,27 @@ def chat():
             log_question(user_id, user_message, reply, wave_viewer, provider="deterministic")
             return jsonify({"reply": reply, "actions": actions})
 
-        # Lower-panel navigation is an exact reversible UI command. Resolve it before the
-        # provider so Tara actually moves the carousel instead of merely telling the user to swipe.
+        # Tooltip preference language has a direct, reversible UI meaning. Confusion about
+        # controls enables the guidance; annoyance with the guidance disables it. Tara also
+        # names the visible switch so the user learns how to change the setting later.
+        tooltip_command = build_tooltip_preference_command(user_message)
+        if tooltip_command is not None:
+            cleaned = _validate_view_spec(tooltip_command.get("spec"))
+            if cleaned:
+                reply = tooltip_command["reply"]
+                actions = [{"type": "set_view", "spec": cleaned}]
+                log_question(
+                    user_id,
+                    user_message,
+                    reply,
+                    wave_viewer,
+                    provider="deterministic",
+                )
+                return jsonify({"reply": reply, "actions": actions})
+
+        # Lower-panel navigation is exact UI state, not an analytical/model decision. Move
+        # the desktop carousel immediately for direct commands such as "show me the stats"
+        # instead of answering with a swipe instruction that leaves the screen unchanged.
         bottom_slide_command = build_bottom_slide_command(user_message)
         if bottom_slide_command is not None:
             cleaned = _validate_view_spec(bottom_slide_command.get("spec"))

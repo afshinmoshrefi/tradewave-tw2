@@ -29,6 +29,8 @@ from tara_answer_planner import (  # noqa: E402
     build_specific_year_reply,
     build_strategy_framework_reply,
     build_trend_alignment_reply,
+    build_tooltip_help_reply,
+    build_tooltip_preference_command,
     canonical_pattern_facts,
     explicit_pattern_symbol,
     is_ai_horizon_explanation_question,
@@ -85,6 +87,64 @@ def test_mcp_faq_answers_are_deterministic_and_plain(message, expected):
 def test_provider_identity_question_is_not_misrouted_as_mcp():
     assert not is_mcp_product_question("Is Tara using Claude?")
     assert build_mcp_product_reply("Is Tara using Claude?") is None
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "I don't like all the tooltips",
+        "Turn the tooltips off",
+        "These tooltips are annoying and everywhere",
+        "Get rid of the hover tips",
+    ],
+)
+def test_tooltip_dislike_turns_guidance_off_and_teaches_location(message):
+    command = build_tooltip_preference_command(message)
+
+    assert command["spec"] == {"show_tooltips": False}
+    assert "turned them off now" in command["reply"]
+    assert "upper-left toolbar" in command["reply"]
+    assert "settings gear" in command["reply"]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "I don't understand all these controls",
+        "These controls are confusing",
+        "Turn the guidance tooltips on",
+        "Help me understand these buttons",
+        "What do all these icons do?",
+    ],
+)
+def test_control_confusion_turns_guidance_on_and_teaches_location(message):
+    command = build_tooltip_preference_command(message)
+
+    assert command["spec"] == {"show_tooltips": True}
+    assert "turned them on now" in command["reply"]
+    assert "upper-left toolbar" in command["reply"]
+    assert "settings gear" in command["reply"]
+
+
+def test_tooltip_location_question_explains_without_changing_preference():
+    message = "Where is the tooltip toggle?"
+
+    assert build_tooltip_preference_command(message) is None
+    reply = build_tooltip_help_reply(message)
+    assert "upper-left toolbar" in reply
+    assert "Tara can also turn them on or off" in reply
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "I don't understand this pattern",
+        "I don't like this setup",
+        "What does the MFE tooltip mean?",
+    ],
+)
+def test_tooltip_parser_does_not_steal_unrelated_questions(message):
+    assert build_tooltip_preference_command(message) is None
 
 
 @pytest.mark.parametrize(

@@ -1,4 +1,5 @@
 import {
+  applyTooltipPreference,
   buildChatbotScreenContext,
   buildOpportunityTableContext,
   deriveDirectionFromBars,
@@ -57,6 +58,19 @@ test('rejects unknown lower-panel targets without moving the carousel', () => {
   expect(showBottomSlide({ slideTo }, 'settings')).toBe(false);
   expect(showBottomSlide(null, 'price_chart')).toBe(false);
   expect(slideTo).not.toHaveBeenCalled();
+});
+
+test('applies only explicit boolean Tara tooltip preferences', () => {
+  const setTooltipsEnabled = jest.fn();
+
+  expect(applyTooltipPreference({ show_tooltips: true }, setTooltipsEnabled)).toBe(true);
+  expect(applyTooltipPreference({ show_tooltips: false }, setTooltipsEnabled)).toBe(true);
+  expect(setTooltipsEnabled.mock.calls).toEqual([[true], [false]]);
+
+  expect(applyTooltipPreference({ show_tooltips: 'false' }, setTooltipsEnabled)).toBe(false);
+  expect(applyTooltipPreference({}, setTooltipsEnabled)).toBe(false);
+  expect(applyTooltipPreference({ show_tooltips: true }, null)).toBe(false);
+  expect(setTooltipsEnabled).toHaveBeenCalledTimes(2);
 });
 
 test('sends Tara the exact filtered and sorted visible opportunity order', () => {

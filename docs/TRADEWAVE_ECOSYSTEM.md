@@ -1301,6 +1301,28 @@ opportunity rows. `OppTable` deduplicates identical query URLs, so clearing a sa
 cause a replacement fetch and previously stranded the table at `Loading ...`. Only an actual market
 change clears the rows; that change produces a distinct `OppList4` URL and a real refetch.
 
+Direct lower-panel navigation is also provider-independent as of 2026-08-02. Requests such as
+"show me the Trend Chart," "show me the stats," and "open the Price Chart" deterministically emit
+an allowlisted `bottom_slide` ViewSpec and React moves the desktop lower Swiper to index 0, 1, or 2.
+Explanatory questions still use Tara's concept/guide path. This replaces the former prompt-only
+"swipe to slide N" limitation, which could acknowledge a request without changing the screen.
+
+**Guidance-tooltip control (2026-08-04):** Tara deterministically maps dislike/removal wording to
+`show_tooltips:false` and confusion about controls/buttons/icons to `show_tooltips:true`. The field
+is boolean-validated in the same ViewSpec on the backend and frontend, then applied through
+`SetTooltipSW`, the state used by the visible Tooltips switch in the upper-left toolbar beside the
+settings gear. Tara names that location after changing the setting. Asking only what or where the
+switch is produces an explanation without changing the preference.
+
+When a user names a different ticker without naming another lookback (for example, ADI is loaded at
+16 years and the user asks "how does ITW do?"), the target read and load inherit the current
+consecutive 16-year setting instead of the tools' 10-year default. The backend enforces this for both
+providers and caps the final action to the target card's available completed record when it is
+smaller. An explicit N-year or max-history request still overrides inheritance. The canonical
+`/v1/analyze/<symbol>` route also resolves the matching market-specific detection pair for custom
+lookbacks (`16/14` for the S&P symbol grid), rather than combining `years=16` with the legacy
+10-year default floor of `9`, which returned an empty setup list despite valid 16-year patterns.
+
 Ordinal opportunity commands are provider-independent as of 2026-08-01. `TableBox` publishes the
 exact rows visible after active-list selection, text filtering, and user sorting back to `App`, and
 `Chatbot.js` sends that ordered snapshot (not merely the raw OppList4 order). The appserver parses

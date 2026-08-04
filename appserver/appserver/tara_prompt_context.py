@@ -50,6 +50,14 @@ _TOPIC_ROUTES: Sequence[Tuple[re.Pattern[str], Tuple[str, ...]]] = (
     (re.compile(r"\b100[- ]year pattern\b", re.I), ("The 100-Year Pattern",)),
     (
         re.compile(
+            r"\b(?:guidance tooltips?|tooltip (?:switch|toggle)|all (?:these|the) tooltips|"
+            r"tooltips everywhere|turn .{0,20} tooltips? (?:on|off))\b",
+            re.I,
+        ),
+        ("Guidance Tooltips",),
+    ),
+    (
+        re.compile(
             r"\b(?:mcp|model context protocol|ai connector)\b|"
             r"^(?!.*\b(?:is tara using|does tara use|is tara powered by)\b)"
             r"(?=.*\b(?:chatgpt|claude(?:\.ai| desktop)?|external ai(?: assistant)?)\b)"

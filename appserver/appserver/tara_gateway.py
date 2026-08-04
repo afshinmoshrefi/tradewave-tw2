@@ -138,7 +138,8 @@ TOOLS = [
             "SEES it on screen, instead of telling them where to click. Call this when the user "
             "says show me / load / pull up / open / change the years / switch to the PE cycle, "
             "asks to show/hide the MFE or MAE overlays, or asks to show the Trend Chart, "
-            "Wave Stats, or Price Chart in the lower carousel. "
+            "Wave Stats, or Price Chart in the lower carousel. It can also show or hide the global "
+            "guidance tooltips. "
             "Pass concrete fields. To show a date-range PRESET (a month/quarter/season), FIRST "
             "call analyze_symbol with period= to get the resolved entry_date + days_out, THEN "
             "pass those here. Usually pair this with a read tool so you can also narrate the setup."
@@ -155,6 +156,10 @@ TOOLS = [
                              "description": "wave-viewer cycle selector; consecutive = normal years"},
                 "show_mfe": {"type": "boolean", "description": "show/hide the best-move MFE overlay"},
                 "show_mae": {"type": "boolean", "description": "show/hide the worst-move MAE overlay"},
+                "show_tooltips": {
+                    "type": "boolean",
+                    "description": "show/hide TradeWave guidance tooltips across the UI",
+                },
                 "bottom_slide": {
                     "type": "string",
                     "enum": ["trend_chart", "wave_stats", "price_chart"],
@@ -382,7 +387,7 @@ def _validate_view_spec(spec):
     pe = spec.get("pe_cycle")
     if isinstance(pe, str) and pe.lower() in _VS_PE:
         out["pe_cycle"] = _VS_PE[pe.lower()]
-    for field in ("show_mfe", "show_mae"):
+    for field in ("show_mfe", "show_mae", "show_tooltips"):
         value = spec.get(field)
         if isinstance(value, bool):
             out[field] = value
