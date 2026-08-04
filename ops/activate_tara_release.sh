@@ -10,6 +10,18 @@ if [[ $# -ne 2 ]]; then
   exit 1
 fi
 
+wait_service_active() {
+  local unit=$1
+  for _ in {1..45}; do
+    if systemctl is-active --quiet "$unit"; then
+      return 0
+    fi
+    sleep 1
+  done
+  systemctl status "$unit" --no-pager -l >&2 || true
+  return 1
+}
+
 release_dir=$(readlink -f "$1")
 expected_fingerprint=$2
 case "$release_dir" in
@@ -132,8 +144,13 @@ else
 fi
 systemctl daemon-reload
 systemctl restart tradewave-appserver
-systemctl is-active --quiet tradewave-appserver
-systemctl is-active --quiet tradewave-apiserver
+for unit in tradewave-appserver tradewave-apiserver; do
+  for _ in {1..45}; do
+    systemctl is-active --quiet "\$unit" && break
+    sleep 1
+  done
+  systemctl is-active --quiet "\$unit"
+done
 echo "restored Tara runtime: $(cat "$snapshot_dir/prior-app-target")"
 ROLLBACK
 chmod 0700 "$snapshot_dir/rollback.sh"
@@ -148,8 +165,13 @@ cp -a "$snapshot_dir/tradewave-appserver.dropin.after" /etc/systemd/system/trade
 cp -a "$snapshot_dir/tradewave-apiserver.dropin.after" /etc/systemd/system/tradewave-apiserver.service.d/20-release-pointer.conf
 systemctl daemon-reload
 systemctl restart tradewave-appserver
-systemctl is-active --quiet tradewave-appserver
-systemctl is-active --quiet tradewave-apiserver
+for unit in tradewave-appserver tradewave-apiserver; do
+  for _ in {1..45}; do
+    systemctl is-active --quiet "\$unit" && break
+    sleep 1
+  done
+  systemctl is-active --quiet "\$unit"
+done
 echo "activated Tara runtime: $release_dir"
 ROLLFORWARD
 chmod 0700 "$snapshot_dir/rollforward.sh"
@@ -168,8 +190,8 @@ trap on_error ERR
 
 systemctl daemon-reload
 systemctl restart tradewave-appserver
-systemctl is-active --quiet tradewave-appserver
-systemctl is-active --quiet tradewave-apiserver
+wait_service_active tradewave-appserver
+wait_service_active tradewave-apiserver
 
 unset TARA_OPENAI_CANARY_PERCENT
 set -a
