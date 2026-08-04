@@ -648,6 +648,54 @@ def test_chat_route_changes_tooltips_without_calling_a_provider(
     assert "upper-left toolbar" in payload["reply"]
 
 
+def test_chat_route_explains_trend_arrow_without_calling_a_provider(monkeypatch):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    seen = {}
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: pytest.fail("trend-arrow questions must bypass providers"),
+    )
+    monkeypatch.setattr(
+        chatbot_module,
+        "log_question",
+        lambda user_id, question, response, wave_viewer, provider="unknown": seen.update(
+            provider=provider, response=response
+        ),
+    )
+
+    app = Flask(__name__)
+    body = {
+        "message": "what is the red arrow next to trend long?",
+        "history": [
+            {"role": "user", "content": "what is the red arrow next to trend long?"}
+        ],
+        "wave_viewer": {
+            "symbol": "MET",
+            "direction": "long",
+            "stats": {
+                "Trade Dir": "long",
+                "Trend Long": "69",
+                "Trend Long1": "74",
+            },
+        },
+        "screen_context": {},
+        "opportunities": [],
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "trend-arrow-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    payload = response.get_json()
+    assert payload["actions"] == []
+    assert "moved from 74 to 69" in payload["reply"]
+    assert "69/100 score is still <b>Aligned</b>" in payload["reply"]
+    assert "arrow only shows how that score changed" in payload["reply"]
+    assert seen["provider"] == "deterministic"
+
+
 def test_chat_route_passes_loaded_lookback_to_a_different_named_symbol(monkeypatch):
     from flask import Flask, g
     import chatbot as chatbot_module

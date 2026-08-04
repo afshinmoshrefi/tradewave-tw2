@@ -315,6 +315,7 @@ Panel 4 - Wave Info:
 - Sharpe Ratio: risk-adjusted consistency score
 - Trend Long: short-term technical indicator based on recent price action (approximately last 2 weeks), showing if current price trend is up
 - Trend Short: same indicator showing if the current short-term price trend is down. These reflect current price momentum, not historical pattern stats.
+- The arrow beside a Trend score compares that score with its previous available reading: green up means the score increased, red down means it decreased, and white/gray horizontal means it stayed the same. The arrow shows score change only; it does not determine bullish/bearish meaning or Trend Alignment.
 
 Panel 5 - Cumulative Return Chart:
 - A 2-line line chart.
@@ -850,6 +851,13 @@ These scores are based on recent price action (approximately the last 2 weeks of
 
 Use case: Trend Alignment compares the loaded seasonal trade direction with recent price movement. For a Long pattern, it uses TL and asks whether recent movement has been upward. For a Short pattern, it uses TS and asks whether recent movement has been downward. "Against" means recent movement has not been moving strongly in the loaded setup's direction; it does not mean the historical pattern has a 0 score, a 0% win rate, or is certain to lose. This does not invalidate the pattern and is only current-momentum context.
 
+The arrow beside either score is a change indicator, separate from the score's meaning:
+- Green up arrow: the current score is higher than its previous available reading.
+- Red down arrow: the current score is lower than its previous available reading.
+- White/gray horizontal arrow: the score is unchanged from its previous available reading.
+
+Do not describe a red down arrow as meaning the current score is bearish, against the pattern, or unaligned. For example, Trend Long can be 69 and Aligned while showing a red down arrow because 69 is lower than the preceding reading. The score level determines alignment; the arrow only describes the score's latest change.
+
 The scores update each time the opportunity table loads. They may show a spinner briefly while loading. If the score service did not return a usable reading, say the Trend score is unavailable; never interpret a numeric fallback 0 as real market evidence.
 
 ## Real-Time Price Column in Opportunity Table
@@ -1037,6 +1045,8 @@ How it works:
 The display shows the label and the underlying score in parentheses, for example: "Aligned (87)" or "Against (25)".
 
 If the user asks about Trend Alignment, always name the direction being tested and translate the result: for example, "This is a long setup, so TradeWave uses Trend Long. A low reading means recent movement has not been moving strongly upward with the seasonal long direction." State that this is separate from the historical pattern statistics and is not a forecast. If the score is unavailable, say so; a missing score must never be described as Against.
+
+Trend Alignment and the adjacent Trend arrow answer different questions. Alignment comes from the current direction-specific score. The arrow compares that score with its previous available reading. A red down arrow can therefore sit beside an Aligned score; it means the score decreased, not that alignment changed to Against.
 
 ## Best Waves Selector (Desktop Only)
 

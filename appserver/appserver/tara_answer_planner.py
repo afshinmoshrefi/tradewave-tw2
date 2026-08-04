@@ -318,6 +318,14 @@ _TOOLTIPS_HELP_PATTERN = re.compile(
     re.I,
 )
 
+_TREND_ARROW_PATTERN = re.compile(
+    r"(?:\btrend(?:\s+(?:long|short|score))?\b|\b(?:tl|ts)\b)"
+    r".{0,60}\barrows?\b|"
+    r"\barrows?\b.{0,60}"
+    r"(?:\btrend(?:\s+(?:long|short|score))?\b|\b(?:tl|ts)\b)",
+    re.I,
+)
+
 _FULL_HISTORY_COMMAND_PATTERN = re.compile(
     r"\b(?:load|show(?:\s+me)?|use|set|change|switch|expand|extend|run|"
     r"analy[sz]e|review|look)\b.{0,60}\b(?:max(?:imum)?(?:\s+available)?\s+years?|"
@@ -546,6 +554,134 @@ def build_tooltip_help_reply(message: Any) -> Optional[str]:
         "switch is in the upper-left toolbar, beside the settings gear; Tara can also turn "
         "them on or off for you."
     )
+
+
+def build_trend_arrow_reply(message: Any, wave_viewer: Any) -> Optional[str]:
+    """Explain score movement separately from direction-specific Trend alignment."""
+
+    text = str(message or "").strip()
+    if not text or not _TREND_ARROW_PATTERN.search(text):
+        return None
+
+    wv = wave_viewer if isinstance(wave_viewer, Mapping) else {}
+    stats = wv.get("stats") if isinstance(wv.get("stats"), Mapping) else {}
+    direction = str(wv.get("direction") or stats.get("Trade Dir") or "").strip().lower()
+    if direction not in {"long", "short"}:
+        direction = ""
+
+    if re.search(r"\btrend\s+short\b|\bts\b", text, re.I):
+        trend_name = "Trend Short"
+    elif re.search(r"\btrend\s+long\b|\btl\b", text, re.I):
+        trend_name = "Trend Long"
+    elif direction == "short":
+        trend_name = "Trend Short"
+    elif direction == "long":
+        trend_name = "Trend Long"
+    else:
+        trend_name = "Trend score"
+
+    current_score = _percent_number(stats.get(trend_name))
+    prior_score = _percent_number(stats.get(trend_name + "1"))
+    calculated_movement = None
+    if current_score is not None and prior_score is not None:
+        if current_score > prior_score:
+            calculated_movement = "up"
+        elif current_score < prior_score:
+            calculated_movement = "down"
+        else:
+            calculated_movement = "unchanged"
+
+    requested_movement = None
+    if re.search(r"\b(?:red|down|lower|fell|declined?)\b", text, re.I):
+        requested_movement = "down"
+    elif re.search(r"\b(?:green|up|higher|rose|improved?)\b", text, re.I):
+        requested_movement = "up"
+    elif re.search(
+        r"\b(?:white|gr[ae]y|horizontal|sideways|flat|unchanged|same)\b",
+        text,
+        re.I,
+    ):
+        requested_movement = "unchanged"
+    movement = requested_movement or calculated_movement
+
+    arrow_labels = {
+        "up": "green up arrow",
+        "down": "red down arrow",
+        "unchanged": "white/gray horizontal arrow",
+    }
+    movement_words = {
+        "up": "higher",
+        "down": "lower",
+        "unchanged": "unchanged",
+    }
+    arrow_label = arrow_labels.get(movement, "Trend arrow")
+    movement_word = movement_words.get(movement, "changed")
+
+    def display_score(value: float) -> str:
+        rounded = round(value, 2)
+        if rounded.is_integer():
+            return str(int(rounded))
+        return ("%.2f" % rounded).rstrip("0").rstrip(".")
+
+    if (
+        movement is not None
+        and calculated_movement == movement
+        and current_score is not None
+        and prior_score is not None
+    ):
+        if movement == "unchanged":
+            first = (
+                f"The <b>{arrow_label}</b> means {trend_name} stayed at "
+                f"{display_score(current_score)} since the previous reading."
+            )
+        else:
+            first = (
+                f"The <b>{arrow_label}</b> means {trend_name} moved from "
+                f"{display_score(prior_score)} to {display_score(current_score)} since the "
+                "previous reading."
+            )
+    else:
+        first = (
+            f"The <b>{arrow_label}</b> means {trend_name} is {movement_word} than its "
+            "previous reading."
+        )
+
+    expected_metric = (
+        "Trend Short" if direction == "short" else "Trend Long" if direction == "long" else ""
+    )
+    if current_score is not None and trend_name == expected_metric:
+        if current_score > 60:
+            alignment = "Aligned"
+        elif current_score < 40:
+            alignment = "Against"
+        else:
+            alignment = "Neutral"
+        symbol = html.escape(str(wv.get("symbol") or "").strip().upper())
+        subject = (
+            f"the loaded {symbol} {direction} pattern"
+            if symbol
+            else f"the loaded {direction} pattern"
+        )
+        second = (
+            f"For {subject}, the current {display_score(current_score)}/100 score is still "
+            f"<b>{alignment}</b>. The score determines alignment; the arrow only shows how "
+            "that score changed."
+        )
+    else:
+        second = (
+            "The score level determines Aligned, Neutral, or Against; the arrow only shows "
+            "whether that same score rose, fell, or stayed unchanged."
+        )
+
+    legend = (
+        "Green up = higher; red down = lower; white/gray horizontal = unchanged."
+    )
+    guide = (
+        'I just opened the Trend Score guide for you. <a href="#" '
+        'data-action="open-trend-popup" style="font-size:0.85em">[reopen guide]</a>'
+        '<span data-action="open-trend-popup" style="display:none"></span>'
+    )
+    return "<br><br>".join((first, second, legend, guide))
 
 
 def is_mcp_product_question(message: Any) -> bool:
@@ -3948,6 +4084,10 @@ def build_deterministic_reply(
     if mcp_product is not None:
         return mcp_product
 
+    trend_arrow = build_trend_arrow_reply(message, wave_viewer)
+    if trend_arrow is not None:
+        return trend_arrow
+
     named_symbol = explicit_pattern_symbol(message)
     loaded_symbol = str(
         (wave_viewer or {}).get("symbol")
@@ -4134,6 +4274,21 @@ def verified_context_lines(
             f"- {trend_phrase[:1].upper()}{trend_phrase[1:]}. The label compares recent "
             "movement with the seasonal trade direction; it is not a historical pattern statistic."
         )
+        trend_name = "Trend Short" if facts["direction"] == "short" else "Trend Long"
+        prior_trend_score = facts.get("prior_trend_score")
+        if prior_trend_score is not None:
+            if facts["trend_score"] > prior_trend_score:
+                arrow_text = "green up arrow (score increased)"
+            elif facts["trend_score"] < prior_trend_score:
+                arrow_text = "red down arrow (score decreased)"
+            else:
+                arrow_text = "white/gray horizontal arrow (score unchanged)"
+            lines.append(
+                f"- Current {trend_name}: {facts['trend_score']:.0f}/100 "
+                f"({facts.get('trend_alignment')}); previous reading "
+                f"{prior_trend_score:.0f}/100; {arrow_text}. The score level determines "
+                "alignment; the arrow only compares the current score with the previous reading."
+            )
     elif facts.get("trend_score_available") is False:
         lines.append(
             "- Current Trend score is unavailable. Do not interpret the numeric 0 fallback as "

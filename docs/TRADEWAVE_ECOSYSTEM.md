@@ -1478,6 +1478,13 @@ outperformance remains a declared gap:
 Tara must not claim that a long window beats buy-and-hold until the same-security and market
 benchmarks are passed with verified matching cohort, exposure and return semantics.
 
+Trend score level and Trend-arrow movement are separate facts. For a Long pattern, alignment uses
+the current Trend Long score; for a Short pattern, it uses the current Trend Short score. The arrow
+compares that score with its previous available reading: green up means higher, red down means
+lower, and white/gray horizontal means unchanged. Therefore an Aligned score such as Trend Long 69
+can correctly have a red down arrow. Tara handles arrow questions deterministically and must never
+translate a red arrow into `Against` or bearish meaning when the current score remains Aligned.
+
 As of 2026-08-01, broad loaded-pattern analysis also separates three contexts that must never be
 blended: the aggregate cohort, an individually selected historical Price Chart year, and the dated
 current/next occurrence. Tara labels a historical chart year as one path, names that year's PE

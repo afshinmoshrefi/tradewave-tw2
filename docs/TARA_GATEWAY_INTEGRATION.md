@@ -193,6 +193,12 @@ Tooltip preference language is also deterministic. Dislike, distraction, or remo
 the switch in the upper-left toolbar beside the settings gear in both replies. A location or
 definition question explains the switch without changing it.
 
+Trend-arrow questions are deterministic as well. The direction-specific score level determines
+`Aligned`, `Neutral`, or `Against`; the adjacent arrow only compares the current score with its
+previous available reading. Green up is higher, red down is lower, and white/gray horizontal is
+unchanged. When both readings are available, Tara names the exact change and keeps it separate from
+the current alignment label.
+
 ## 4. Action allowlist + guardrails
 
 Today actions are smuggled as HTML: the reply is `{reply: "<...data-action='open-sharpe-popup'...>"}`

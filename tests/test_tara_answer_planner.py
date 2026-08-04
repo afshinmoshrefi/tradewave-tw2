@@ -405,6 +405,60 @@ def test_direction_question_explains_why_the_loaded_pattern_is_short():
     assert "forecast" in reply
 
 
+def test_red_trend_arrow_is_score_change_not_alignment_direction():
+    wave = {
+        "symbol": "MET",
+        "direction": "long",
+        "stats": {
+            "Trade Dir": "long",
+            "Trend Long": "69",
+            "Trend Long1": "74",
+            "Trend Short": "31",
+            "Trend Short1": "26",
+        },
+    }
+
+    reply = build_deterministic_reply(
+        "what is the red arrow next to trend long?", wave, {}
+    )
+
+    assert "red down arrow" in reply
+    assert "moved from 74 to 69" in reply
+    assert "69/100 score is still <b>Aligned</b>" in reply
+    assert "score determines alignment" in reply
+    assert "arrow only shows how that score changed" in reply
+    assert "Green up = higher; red down = lower; white/gray horizontal = unchanged" in reply
+    assert "pointing against bullish momentum" not in reply
+    assert 'data-action="open-trend-popup"' in reply
+
+
+@pytest.mark.parametrize(
+    ("message", "current", "prior", "expected"),
+    [
+        ("What does the green arrow beside Trend Long mean?", "72", "69", "moved from 69 to 72"),
+        ("What does the white horizontal arrow by Trend Long mean?", "69", "69", "stayed at 69"),
+    ],
+)
+def test_other_trend_arrows_use_the_same_previous_reading_contract(
+    message, current, prior, expected
+):
+    wave = {
+        "symbol": "MET",
+        "direction": "long",
+        "stats": {
+            "Trade Dir": "long",
+            "Trend Long": current,
+            "Trend Long1": prior,
+        },
+    }
+
+    reply = build_deterministic_reply(message, wave, {})
+
+    assert expected in reply
+    assert "previous reading" in reply
+    assert "score determines alignment" in reply
+
+
 def test_concept_question_still_routes_to_the_model():
     assert (
         build_deterministic_reply(
@@ -1259,6 +1313,9 @@ def test_verified_prompt_facts_state_short_semantics_positively():
     assert "Trend Short is 67/100 (Aligned)" in prompt_tail
     assert "price movement over roughly the last one to two weeks has been moving downward" in prompt_tail
     assert "not a historical pattern statistic" in prompt_tail
+    assert "Current Trend Short: 67/100 (aligned)" in prompt_tail
+    assert "previous reading 61/100; green up arrow (score increased)" in prompt_tail
+    assert "arrow only compares the current score with the previous reading" in prompt_tail
     assert "TradeWave Ratio (TWR) 1.24 applies the Sharpe-style" in prompt_tail
     assert "entry year 2026: PE+2 (midterm year)" in prompt_tail
     assert "Loaded cohort: consecutive years" in prompt_tail

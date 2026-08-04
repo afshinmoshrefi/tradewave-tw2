@@ -88,6 +88,20 @@ def test_tooltip_questions_load_the_small_guidance_section():
     assert "## TradeWave UI Map" not in selection.text
 
 
+def test_trend_arrow_question_loads_the_change_and_alignment_contract():
+    _, sections = _sections()
+
+    selection = select_topic_knowledge(
+        "What is the red arrow next to Trend Long?", sections
+    )
+
+    assert "Trend Long / Trend Short Scores (TL / TS columns in Opportunity Table)" in selection.headings
+    assert "Trend Alignment (Wave Info Panel)" in selection.headings
+    assert "Red down arrow" in selection.text
+    assert "score level determines alignment" in selection.text
+    assert "red down arrow can therefore sit beside an Aligned score" in selection.text
+
+
 def test_large_row_context_is_loaded_only_when_the_question_needs_it():
     _, sections = _sections()
     assert not needs_yearly_results("Explain Sharpe ratio")
