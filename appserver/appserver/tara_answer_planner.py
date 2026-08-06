@@ -3003,6 +3003,36 @@ def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
         if predicted_mfe is not None and -1000 <= predicted_mfe <= 1000:
             cleaned["predicted_mfe_pct"] = predicted_mfe
         item_status = str(item.get("status") or "").strip().lower()
+        recurrence_status = str(
+            item.get("selected_recurrence_status") or ""
+        ).strip().lower()
+        recurrence_values = (
+            _number(item.get("positive_years")),
+            _number(item.get("sample_size")),
+            _number(item.get("required_positive_years")),
+            _number(item.get("requested_observations")),
+        )
+        if (
+            recurrence_status in {
+                "qualified",
+                "below_threshold",
+                "insufficient_history",
+                "not_enforced",
+            }
+            and all(
+                value is not None and value.is_integer()
+                for value in recurrence_values[:2]
+            )
+        ):
+            cleaned.update({
+                "selected_recurrence_status": recurrence_status,
+                "positive_years": int(recurrence_values[0]),
+                "sample_size": int(recurrence_values[1]),
+            })
+            if recurrence_values[2] is not None and recurrence_values[2].is_integer():
+                cleaned["required_positive_years"] = int(recurrence_values[2])
+            if recurrence_values[3] is not None and recurrence_values[3].is_integer():
+                cleaned["requested_observations"] = int(recurrence_values[3])
         if item_status == "below_threshold":
             positive_years = _number(item.get("positive_years"))
             sample_size = _number(item.get("sample_size"))
@@ -3013,6 +3043,7 @@ def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
             ):
                 cleaned.update({
                     "status": "below_threshold",
+                    "selected_recurrence_status": "below_threshold",
                     "positive_years": int(positive_years),
                     "sample_size": int(sample_size),
                     "required_positive_years": int(required_years),
@@ -3170,10 +3201,29 @@ def _analysis_ai_context_line(
                     "predicted return "
                     + _pct(item["predicted_return_pct"], signed=True, decimals=1)
                 )
+            recurrence_status = item.get("selected_recurrence_status")
+            recurrence_note = ""
+            if (
+                recurrence_status == "below_threshold"
+                and item.get("required_positive_years") is not None
+            ):
+                recurrence_note = (
+                    f"; screen not met: {item['positive_years']} of "
+                    f"{item['sample_size']} positive, requires "
+                    f"{item['required_positive_years']}"
+                )
+            elif recurrence_status == "insufficient_history":
+                requested = item.get("requested_observations")
+                recurrence_note = (
+                    f"; screen check incomplete: {item['sample_size']}"
+                    + (f" of {requested}" if requested is not None else "")
+                    + f" observations available, {item['positive_years']} positive"
+                )
             if metrics:
                 readings.append(
                     f"&bull; <b>{item['calendar_days']} days:</b> "
                     + "; ".join(metrics)
+                    + recurrence_note
                 )
             elif item.get("status") == "unavailable":
                 reason = (

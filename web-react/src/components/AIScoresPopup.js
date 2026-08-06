@@ -201,9 +201,10 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                     </p>
                     <p>
                         The neutral violet outline and dotted underline identify a duration comparison. They do not mean the
-                        reading is good, bad, bullish, or bearish. At each shorter duration, TradeWave first checks the
-                        same selected historical recurrence. If it falls below its requirement, the cell shows a dash
-                        and the actual positive-year count instead of inventing an AI prediction. TradeWave stops at
+                        reading is good, bad, bullish, or bearish. At each shorter duration, TradeWave recalculates the
+                        same selected historical recurrence and shows whether it still meets your table screen. That
+                        screen result is evidence beside the AI reading, not permission to erase it. A duration receives
+                        a score whenever a valid V3 model profile exists. TradeWave stops at
                         90 days because these models were
                         validated for near-term horizons through 90 calendar days, where current conditions are most
                         useful. Patterns above 90 days are summarized at the 30-, 60-, and 90-day checkpoints.

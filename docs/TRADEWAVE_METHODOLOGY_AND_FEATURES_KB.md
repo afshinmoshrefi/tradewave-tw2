@@ -561,15 +561,15 @@ return; AIS remains available in the opportunity table and guide.
 
 Every shorter comparison preserves the same symbol, nominal entry date, direction, string
 historical-years selection, and recurrence rule; only duration changes. The entry day is day 1, so
-30, 60, and 90 calendar days end at entry plus 29, 59, and 89 days. Before V3 inference, the scorer
-recalculates the selected historical cohort at that shorter duration. If it does not meet the
-selected recurrence requirement, the scorer skips model inference and returns the actual evidence,
-such as `6 of 10 positive; requires 9`. The UI shows an em dash and **Below threshold**, not a fake
-zero or a prediction. Too little completed history is **Not enough history**; a provider or data
-failure is **Temporarily unavailable**. The learned V3 vector still uses the all-qualifying-combo
-profile on which the 62-feature model was trained; selected recurrence is an eligibility gate and
-explanation, not a substitute feature profile. Model estimates never become extra historical
-observations.
+30, 60, and 90 calendar days end at entry plus 29, 59, and 89 days. The scorer independently
+recalculates the selected historical cohort at that shorter duration and reports the actual screen
+evidence, such as `6 of 10 positive; requires 9`. That screen result does not gate inference. Every
+duration with a validated all-qualifying-combo V3 profile keeps its numeric model reading, and the
+UI separately says **Meets screen**, **Does not meet screen**, or **Screen check incomplete**. A true
+profile, input-data, volatility, or provider failure is **Temporarily unavailable** and remains a
+dash, never a fake zero. The learned V3 vector still uses the all-qualifying-combo profile on which
+the 62-feature model was trained; selected recurrence is explanation, not a substitute feature
+profile or inference gate. Model estimates never become extra historical observations.
 
 AI sorting and filtering always use the value visibly shown: the current-duration value through 90
 calendar days and the 90-day comparison above 90 days. Unavailable states use an internal null and

@@ -10,6 +10,12 @@ import {
 
 const safeIdPart = value => String(value || '').replace(/[^a-zA-Z0-9_-]/g, '-')
 
+const finiteNumberOrNull = value => {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 const statusLabel = (metric, horizon) => {
   if (horizon.status === 'loading') return 'Loading'
   if (horizon.status !== 'available') return '—'
@@ -19,14 +25,32 @@ const statusLabel = (metric, horizon) => {
 const recurrenceEvidence = horizon => {
   const recurrence = horizon && horizon.selectedRecurrence
   if (!recurrence || typeof recurrence !== 'object') return null
-  const sample = Number(recurrence.sample_size)
-  const positive = Number(recurrence.positive_years)
-  const required = Number(recurrence.required_positive_years)
-  if (!Number.isFinite(sample) || !Number.isFinite(positive) || !Number.isFinite(required) || sample <= 0) return null
-  const average = Number(recurrence.average_return_pct)
+  const sample = finiteNumberOrNull(recurrence.sample_size)
+  const positive = finiteNumberOrNull(recurrence.positive_years)
+  const required = finiteNumberOrNull(recurrence.required_positive_years)
+  const requested = finiteNumberOrNull(recurrence.requested_observations)
+  if (
+    sample === null || sample < 0 ||
+    positive === null || positive < 0 || positive > sample ||
+    required === null || required < 1 ||
+    requested === null || requested < sample
+  ) return null
+  const average = finiteNumberOrNull(recurrence.average_return_pct)
+  const recurrenceStatus = String(recurrence.status || '').toLowerCase()
+  const incomplete = recurrenceStatus === 'insufficient_history' || sample < requested
+  const meetsRequirement = recurrenceStatus !== 'below_threshold' && !incomplete && positive >= required
+  let summary
+  if (incomplete) {
+    summary = `Screen check incomplete: ${sample} of ${requested} observations available; ${positive} positive; requires ${required}.`
+  } else if (meetsRequirement) {
+    summary = `Meets screen: ${positive} of ${sample} positive; requires ${required}.`
+  } else {
+    summary = `Does not meet screen: ${positive} of ${sample} positive; requires ${required}.`
+  }
   return {
-    summary: `${positive} of ${sample} positive; requires ${required} of ${Number(recurrence.requested_observations) || sample}.`,
+    summary,
     average: Number.isFinite(average) ? ` Historical average return ${average >= 0 ? '+' : ''}${average.toFixed(1)}%.` : '',
+    meetsRequirement,
   }
 }
 
@@ -63,7 +87,7 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId })
       </div>
       {isDurationComparison && (
         <div className="opp-ai-detail__checkpoint-note">
-          The same selected historical recurrence is checked at each shorter duration. V3 assigns an AI reading only when that recalculated pattern still meets the requirement.
+          V3 scores each duration that has a valid model profile. The recurrence line separately shows whether that duration still meets your selected screen.
         </div>
       )}
       <table className="opp-ai-detail__table">
@@ -71,8 +95,9 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId })
           <tr><th>Calendar days</th><th>{metadata.shortLabel}</th></tr>
         </thead>
         <tbody>
-          {bundle.horizons.map(horizon => (
-            <tr key={horizon.calendarDays}>
+          {bundle.horizons.map(horizon => {
+            const evidence = recurrenceEvidence(horizon)
+            return <tr key={horizon.calendarDays}>
               <td>
                 {horizon.calendarDays}
                 {horizon.isCurrent && (
@@ -89,18 +114,18 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId })
                 {horizon.status !== 'available' && horizon.status !== 'loading' && (
                   <span className="opp-ai-detail__state">{opportunityAICompactStatus(horizon)}</span>
                 )}
-                {recurrenceEvidence(horizon) && (
+                {evidence && (
                   <span className="opp-ai-detail__reason">
-                    {recurrenceEvidence(horizon).summary}
-                    {horizon.status === 'below_threshold' ? recurrenceEvidence(horizon).average : ''}
+                    {evidence.summary}
+                    {!evidence.meetsRequirement ? evidence.average : ''}
                   </span>
                 )}
-                {horizon.status === 'unavailable' && !recurrenceEvidence(horizon) && (
+                {horizon.status === 'unavailable' && !evidence && (
                   <span className="opp-ai-detail__reason">{opportunityAIReasonCopy(horizon.reason)}</span>
                 )}
               </td>
             </tr>
-          ))}
+          })}
         </tbody>
       </table>
       <div className="opp-ai-detail__calendar-note">Calendar days; the entry day counts as day 1.</div>

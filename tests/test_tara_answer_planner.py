@@ -858,7 +858,17 @@ def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_out
         "mode": "checkpoints",
         "full_pattern_calendar_days": 133,
         "horizons": [
-            {"calendar_days": 30, "ai_score": 81, "win_probability": 0.82, "predicted_return_pct": 3.4},
+            {
+                "calendar_days": 30,
+                "ai_score": 81,
+                "win_probability": 0.82,
+                "predicted_return_pct": 3.4,
+                "selected_recurrence_status": "below_threshold",
+                "positive_years": 7,
+                "sample_size": 10,
+                "required_positive_years": 9,
+                "requested_observations": 10,
+            },
             {"calendar_days": 60, "ai_score": 76, "win_probability": 0.77, "predicted_return_pct": 3.8},
             {"calendar_days": 90, "ai_score": 62, "win_probability": 0.60, "predicted_return_pct": 1.4},
         ],
@@ -871,6 +881,7 @@ def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_out
     assert "<b>AI-calibrated outlook:</b>" in reply
     assert "AI-calibrated probabilities for this opportunity over the first 30, 60, and 90 calendar days are as follows" in reply
     assert "&bull; <b>30 days:</b> 82% AI Win Probability; predicted return +3.4%" in reply
+    assert "screen not met: 7 of 10 positive, requires 9" in reply
     assert "&bull; <b>60 days:</b> 77% AI Win Probability; predicted return +3.8%" in reply
     assert "&bull; <b>90 days:</b> 60% AI Win Probability; predicted return +1.4%" in reply
     assert "Each outlook begins on the same entry date and evaluates the same direction" in reply

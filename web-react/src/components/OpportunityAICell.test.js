@@ -86,7 +86,7 @@ test('checkpoint cell has no visible 90d badge and exposes 30/60/90 detail on cl
   expect(screen.getByText('90')).toBeInTheDocument()
   expect(screen.getByText('shown')).toBeInTheDocument()
   expect(screen.getByText(/Entry 2026-08-05.*Short/)).toBeInTheDocument()
-  expect(screen.getByText(/same selected historical recurrence is checked at each shorter duration/i)).toBeInTheDocument()
+  expect(screen.getByText(/V3 scores each duration that has a valid model profile/i)).toBeInTheDocument()
 })
 
 test('focus opens metric detail and Escape closes it while retaining a keyboard focus target', () => {
@@ -201,9 +201,10 @@ test('an 85-day pattern keeps its current score and compares only 30 and 60 days
       longBundle.horizons[0],
       {
         ...longBundle.horizons[1],
-        status: 'below_threshold',
-        metrics: { ml_score: null, win_prob: null, pred_return: null, pred_mfe: null },
+        status: 'available',
+        metrics: { ml_score: 63, win_prob: 0.64, pred_return: 2, pred_mfe: 5 },
         selectedRecurrence: {
+          status: 'below_threshold',
           sample_size: 10,
           positive_years: 7,
           required_positive_years: 9,
@@ -225,7 +226,8 @@ test('an 85-day pattern keeps its current score and compares only 30 and 60 days
   const button = screen.getByRole('button', { name: /AI Score 74.0.*85-day displayed horizon/i })
   fireEvent.click(button)
   expect(screen.getByText('current')).toBeInTheDocument()
-  expect(screen.getByText('Below threshold')).toBeInTheDocument()
-  expect(screen.getByText(/7 of 10 positive; requires 9 of 10.*Historical average return \+0.4%/i)).toBeInTheDocument()
+  expect(screen.getByText('63.0')).toBeInTheDocument()
+  expect(screen.queryByText('Below threshold')).not.toBeInTheDocument()
+  expect(screen.getByText(/Does not meet screen: 7 of 10 positive; requires 9.*Historical average return \+0.4%/i)).toBeInTheDocument()
   expect(screen.queryByText('90')).not.toBeInTheDocument()
 })

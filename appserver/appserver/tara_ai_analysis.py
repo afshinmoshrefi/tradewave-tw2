@@ -213,6 +213,71 @@ def _clean_unavailable(raw: Any) -> Optional[Dict[str, str]]:
     }
 
 
+def _clean_selected_recurrence(raw: Any) -> Optional[Dict[str, Any]]:
+    """Allowlist selected-screen evidence without making it score eligibility."""
+
+    if not isinstance(raw, Mapping):
+        return None
+    recurrence = raw.get("selected_recurrence")
+    if not isinstance(recurrence, Mapping):
+        return None
+    status = str(recurrence.get("status") or "").strip().lower()
+    if status not in {
+        "qualified",
+        "below_threshold",
+        "insufficient_history",
+        "not_enforced",
+    }:
+        return None
+    sample_size = _integer(recurrence.get("sample_size"))
+    positive_years = _integer(recurrence.get("positive_years"))
+    required_years = _integer(recurrence.get("required_positive_years"))
+    requested = _integer(recurrence.get("requested_observations"))
+    if (
+        sample_size is None
+        or sample_size < 0
+        or positive_years is None
+        or not 0 <= positive_years <= sample_size
+        or requested is None
+        or requested <= 0
+        or requested < sample_size
+        or (
+            required_years is not None
+            and not 1 <= required_years <= requested
+        )
+    ):
+        return None
+    if (
+        status == "below_threshold"
+        and (
+            required_years is None
+            or sample_size < requested
+            or positive_years >= required_years
+        )
+    ):
+        return None
+    if (
+        status == "qualified"
+        and (
+            required_years is None
+            or sample_size < requested
+            or positive_years < required_years
+        )
+    ):
+        return None
+    if status == "insufficient_history" and sample_size >= requested:
+        return None
+    cleaned: Dict[str, Any] = {
+        "selected_recurrence_status": status,
+        "positive_years": positive_years,
+        "sample_size": sample_size,
+        "requested_observations": requested,
+    }
+    if required_years is not None:
+        cleaned["required_positive_years"] = required_years
+    return cleaned
+
+
 def finalize_analysis_score_context(
     plan: Any,
     scores_by_key: Any = None,
@@ -298,27 +363,22 @@ def finalize_analysis_checkpoint_bundle(
             if cleaned is None:
                 continue
             item.update(cleaned)
+            recurrence = _clean_selected_recurrence(raw)
+            if recurrence is not None:
+                item.update(recurrence)
             item["status"] = "available"
             available_count += 1
         elif raw_status == "below_threshold":
-            recurrence = raw.get("selected_recurrence")
-            if not isinstance(recurrence, Mapping):
-                continue
-            sample_size = _integer(recurrence.get("sample_size"))
-            positive_years = _integer(recurrence.get("positive_years"))
-            required_years = _integer(recurrence.get("required_positive_years"))
+            recurrence = _clean_selected_recurrence(raw)
             if (
-                sample_size is None or sample_size <= 0
-                or positive_years is None or positive_years < 0
-                or required_years is None or required_years <= positive_years
+                recurrence is None
+                or recurrence.get("selected_recurrence_status") != "below_threshold"
+                or recurrence.get("required_positive_years") is None
+                or recurrence["required_positive_years"] <= recurrence["positive_years"]
             ):
                 continue
-            item.update({
-                "status": "below_threshold",
-                "positive_years": positive_years,
-                "sample_size": sample_size,
-                "required_positive_years": required_years,
-            })
+            item.update(recurrence)
+            item["status"] = "below_threshold"
         elif raw_status == "unavailable":
             unavailable = _clean_unavailable(raw)
             if unavailable is None:

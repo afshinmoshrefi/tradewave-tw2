@@ -519,14 +519,15 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   The scorer receives inclusive `calendar_days` and derives legacy offsets
   `29/59/89`; no caller adds a day to an end date. Cold rows are deduplicated and
   sent in one bounded `/score/context` batch, protected by exact-request Redis
-  single-flight locks. Before inference, the scorer recalculates the selected cohort
-  at the shorter duration. If it has fewer positive completed observations than the
-  selected requirement, the scorer returns structured `below_threshold` evidence
-  (`positive_years`, `sample_size`, `required_positive_years`) and no model values.
-  The UI shows an em dash plus **Below threshold**, never a fabricated zero. The V3
-  model itself remains its trained 62-feature all-qualifying-combo model; selected
-  recurrence drives the eligibility gate and explanation, not a rewritten feature
-  vector. The response is additive: comparison rows have a date-qualified bundle;
+  single-flight locks. The scorer independently recalculates the selected cohort at
+  the shorter duration and returns structured screen evidence (`positive_years`,
+  `sample_size`, `required_positive_years`). That recurrence result does not gate V3:
+  every duration with a validated 62-feature all-qualifying-combo profile receives a
+  model reading, while the UI separately says whether the selected screen was met.
+  Only a true model-profile, input-data, volatility, or provider failure produces an
+  unavailable dash, never a fabricated zero. Selected recurrence is explanation, not
+  a rewritten feature vector or inference gate. The response is additive: comparison
+  rows have a date-qualified bundle;
   exact-window rows retain the unchanged legacy alias so older clients keep working.
   `apiserver/appserver_client.py` prefers the qualified alias and falls back to the
   legacy one for backward compatibility.
@@ -1502,9 +1503,10 @@ inside the horizon, not a target. Historical profitable share is always reported
 its completed sample size `n`.
 
 For every source over 30 calendar days, Tara uses the same scorer-owned shorter recalculations as
-the table. The selected historical recurrence is tested at each shorter horizon before V3 inference.
-If it is below threshold, Tara states the actual `x of n; requires y` result and does not call it an
-AI prediction or zero. A source longer than 90 uses 30, 60, and 90 inclusive calendar days in one
+the table. V3 scores every shorter horizon with a validated all-qualifying-combo profile. The
+selected historical recurrence is independently tested at each horizon and Tara states the actual
+`x of n; requires y` screen evidence beside the model reading when it misses. A source longer than
+90 uses 30, 60, and 90 inclusive calendar days in one
 bounded call and the table displays 90; Tara states that the historical evidence still describes the
 complete source window. Entry day is day 1, so the scorer
 derives `daysOut=29/59/89`; no end date is extended. A score is unavailable more than five calendar

@@ -110,8 +110,13 @@ test('an 85-day comparison keeps 85 current and never invents a 90-day horizon',
         { calendar_days: 30, status: 'available', ml_score: 51, win_prob: 0.52, pred_return: 1, pred_mfe: 3 },
         {
           calendar_days: 60,
-          status: 'below_threshold',
+          status: 'available',
+          ml_score: 63,
+          win_prob: 0.64,
+          pred_return: 2,
+          pred_mfe: 5,
           selected_recurrence: {
+            status: 'below_threshold',
             sample_size: 10,
             positive_years: 7,
             required_positive_years: 9,
@@ -132,7 +137,8 @@ test('an 85-day comparison keeps 85 current and never invents a 90-day horizon',
   })
   expect(bundle.horizons.map(item => item.calendarDays)).toEqual([30, 60, 85])
   expect(bundle.horizons[1]).toMatchObject({
-    status: 'below_threshold',
+    status: 'available',
+    metrics: { ml_score: 63, win_prob: 0.64, pred_return: 2, pred_mfe: 5 },
     selectedRecurrence: { positive_years: 7, required_positive_years: 9 },
   })
   expect(opportunityAIFlatFields(bundle).ml_score).toBe(74)

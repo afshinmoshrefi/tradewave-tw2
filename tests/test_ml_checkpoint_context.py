@@ -894,6 +894,13 @@ def test_tara_bundle_keeps_per_horizon_unavailable_reason():
                     "win_prob": 0.7,
                     "pred_return": 3,
                     "pred_mfe": 5,
+                    "selected_recurrence": {
+                        "status": "below_threshold",
+                        "positive_years": 7,
+                        "sample_size": 10,
+                        "required_positive_years": 9,
+                        "requested_observations": 10,
+                    },
                 },
                 {
                     "status": "unavailable",
@@ -918,6 +925,19 @@ def test_tara_bundle_keeps_per_horizon_unavailable_reason():
     assert context["status"] == "available"
     assert context["basis"] == "duration_comparison"
     assert context["checkpoint_status"] == "partial"
+    assert context["horizons"][0] == {
+        "calendar_days": 30,
+        "ai_score": 70.0,
+        "win_probability": 0.7,
+        "predicted_return_pct": 3.0,
+        "predicted_mfe_pct": 5.0,
+        "selected_recurrence_status": "below_threshold",
+        "positive_years": 7,
+        "sample_size": 10,
+        "requested_observations": 10,
+        "required_positive_years": 9,
+        "status": "available",
+    }
     assert context["horizons"][1] == {
         "calendar_days": 60,
         "status": "unavailable",
@@ -926,6 +946,9 @@ def test_tara_bundle_keeps_per_horizon_unavailable_reason():
     }
 
     line = _analysis_ai_context_line({}, {"ai_analysis": context})
+    assert "30 days" in line
+    assert "70% AI Win Probability" in line
+    assert "screen not met: 7 of 10 positive, requires 9" in line
     assert "60 days" in line
     assert "volatility safety gate" in line
     assert "missing values as zero" not in line

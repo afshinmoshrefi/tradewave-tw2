@@ -31,10 +31,11 @@ comparisons and clearly keeps the complete source window as historical context. 
 omits AIS from analysis prose; AIS remains in the opportunity table and its dedicated explainer.
 The callback converts inclusive 30/60/90 labels to legacy scorer offsets 29/59/89.
 
-At every shorter horizon the scorer first recalculates the selected consecutive- or PE-year cohort.
-If the selected recurrence is below its requirement, Tara reports the actual `x of n; requires y`
-evidence and presents no model value. It never turns that state into a zero. Insufficient completed
-history and temporary technical failure remain separate structured states. Scores are not shown more
+At every shorter horizon the scorer recalculates both the trained all-qualifying-combo V3 profile
+and the selected consecutive- or PE-year cohort. Every valid V3 profile receives a model reading;
+Tara separately reports the actual `x of n; requires y` screen evidence when the selected recurrence
+misses its requirement. A true model-profile, input-data, volatility, or provider failure remains a
+structured unavailable state and never becomes zero. Scores are not shown more
 than five days before entry or newly calculated
 after entry, and scorer failure degrades to the verified historical analysis rather than blocking
 Tara.
