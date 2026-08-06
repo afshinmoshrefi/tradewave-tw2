@@ -571,9 +571,11 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   for that calendar date and selects every eligible default row first, then
   re-fetches a bounded set of the most-viewed recent logical contexts. Stored usage
   dates and opportunity snapshots are never scored directly. Active rows remain out
-  of this phase. Popular contexts retain per-context/aggregate caps and the complete
-  job has a 2,500-row global safety bound; manifests report eligible, selected,
-  warmed, and truncated coverage by default/popular scope. Selection accepts
+  of this phase. A selected popular context keeps up to the telemetry maximum of
+  100 rows so an ordinary viewed table is not only partly warm. Popular contexts
+  still share a 180-row aggregate cap, and the complete job has a 2,500-row global
+  safety bound; manifests report eligible, selected, warmed, and truncated coverage
+  by default/popular scope. Selection accepts
   displayed 1-367-calendar-day source windows, which are raw analytics offsets
   `0..366`, and excludes past-entry rows. For selected 1-9-day sources, the warmer
   deduplicates by `(symbol, date, daysOut=9, direction)` and publishes that shared

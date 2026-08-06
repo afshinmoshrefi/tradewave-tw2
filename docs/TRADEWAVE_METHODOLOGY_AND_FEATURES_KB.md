@@ -599,7 +599,8 @@ table contexts are recorded without user identity and warmed only after the auth
 completion marker. The warmer discards old dates and row snapshots, re-fetches the six standard
 default-year tables plus bounded popular logical views for the marker's target calendar date, and
 gives every eligible default row first use of a 2,500-row global safety budget. Active rows are a
-separate later phase. Manifests disclose eligible, warmed, truncated, unique-request, and
+separate later phase. A selected popular view keeps up to 100 recorded rows, while all popular
+views still share a 180-row cap. Manifests disclose eligible, warmed, truncated, unique-request, and
 deduplicated coverage. Eligible source windows are 1-367 inclusive calendar days; source rows under
 10 days share the matching symbol/date/direction 10-day cache identity. Scorer data must be from the exact EOD session
 proven by the marker. Candidate scores stay

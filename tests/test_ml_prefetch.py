@@ -870,6 +870,40 @@ def test_default_rows_are_uncapped_per_context_before_bounded_popular_rows():
     assert bounded_coverage["truncated_rows"] == 35
 
 
+def test_selected_popular_context_keeps_a_typical_table_whole_when_budget_allows():
+    context = {
+        "resource_id": "2",
+        "is_default": False,
+        "opportunities": [
+            {
+                "symbol": f"S{index}",
+                "date": "2026-08-06",
+                "daysOut": 94,
+                "direction": "l",
+                "years": "10",
+                "partial": "9",
+            }
+            for index in range(39)
+        ],
+    }
+
+    selected, coverage = prefetch._select_opportunities_with_coverage(
+        [context],
+        popular_rows_per_context=100,
+        popular_max_rows=180,
+        max_total_rows=2500,
+        minimum_entry_date=dt.date(2026, 8, 6),
+    )
+
+    assert len(selected) == 39
+    assert coverage["popular"] == {
+        "eligible_rows": 39,
+        "selected_rows": 39,
+        "truncated_rows": 0,
+        "truncated": False,
+    }
+
+
 @pytest.mark.parametrize("missing_field", prefetch._REQUIRED_SCORER_IDENTITY_FIELDS)
 def test_prefetch_metadata_fails_closed_for_every_missing_identity_field(
     missing_field,
@@ -965,7 +999,7 @@ def test_complete_generation_and_active_pointer_publish_atomically(
     assert manifest["selection_truncated"] is False
     assert manifest["selection_coverage"]["limits"] == {
         "global_max_rows": 2500,
-        "popular_rows_per_context": 20,
+        "popular_rows_per_context": 100,
         "popular_max_rows": 180,
     }
     assert manifest["selection_coverage"]["default"]["warmed_rows"] == 0

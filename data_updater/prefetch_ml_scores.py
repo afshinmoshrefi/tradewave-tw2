@@ -1129,8 +1129,12 @@ def run_prefetch(
     scorer_fingerprint = metadata_fingerprint(metadata)
     popular_limit = _positive_env_int("TW2_ML_PREFETCH_POPULAR_CONTEXTS", 8, 50)
     usage_days = _positive_env_int("TW2_ML_PREFETCH_USAGE_DAYS", 14, 30)
+    # Usage telemetry retains at most 100 rows for one logical view. Keep a
+    # selected popular view whole up to that same bound; the separate 180-row
+    # popular aggregate and 2,500-row global limits still own total work. A
+    # smaller per-view default left the most-viewed 39-row table partly cold.
     rows_per_context = _positive_env_int(
-        "TW2_ML_PREFETCH_ROWS_PER_CONTEXT", 20, 100
+        "TW2_ML_PREFETCH_ROWS_PER_CONTEXT", 100, 100
     )
     # The historical MAX_ROWS setting bounded the entire job and left most
     # default-table rows cold. Retain it as a popular-view cap only; defaults
