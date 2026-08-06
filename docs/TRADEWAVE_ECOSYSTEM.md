@@ -577,6 +577,19 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   manifest, any same-day correction to one requires a scorer restart before
   serving or warming; the new process data-generation identity invalidates prior
   TradeWave pointers.
+  The standalone development scorer on `192.168.1.215` does not share TW2's data
+  filesystem. A development-only root cron retries at 03:40, 04:40, and 05:40 UTC
+  and runs the scorer release's `sync_dev_data.sh`. The script accepts data only
+  from `root@192.168.1.176`, validates the source EOD marker with TW2's canonical
+  `eod_readiness.py`, incrementally copies the `US`, `ETF`, `INDX`, and `COMM`
+  directories without deleting destination files, and verifies that the marker
+  stayed unchanged and all 26 shared scorer sources match its completed session.
+  Only then does it restart the scorer and require `/health.data_as_of` to equal
+  that session. Its accepted generation is recorded in
+  `/var/lib/ml_scorer/dev-data-generation.json`, so later retries are idempotent.
+  The following TW2 hourly retry can then publish the marker-gated warm cache.
+  This `.176` to `.215` bridge is development-only and is not a staging or
+  production data path.
 - **Opp-table years/partial resolution chain (React `OppTable.js`, hardened 2026-07-03):**
   `YearsMetaData2` returns the valid `[years, partial]` dataset pairs (cons + PE); the opp
   table can only fetch `OppList4` for a pair that exists. The resolution chain: metadata

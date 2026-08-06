@@ -236,6 +236,27 @@ sudo -u flask crontab -l | grep update_client2.py
 redis-cli --raw GET ml6:prefetch:active
 ```
 
+The standalone development scorer at `192.168.1.215` has a separate data
+filesystem. Its root cron retries at 03:40, 04:40, and 05:40 UTC, after TW2's
+corresponding EOD attempts, and runs `/home/flask/ml_scorer/sync_dev_data.sh`.
+That development-only script is locked to `root@192.168.1.176`; it validates the
+source marker with the exact source release's canonical readiness validator,
+incrementally copies `US`, `ETF`, `INDX`, and `COMM` without destination deletes,
+proves that the marker did not change and that all 26 shared sources match the
+completed session, then restarts the scorer and checks its health date. Accepted
+state is written atomically to
+`/var/lib/ml_scorer/dev-data-generation.json`, making the hourly retries
+idempotent. Verify this dev bridge with:
+
+```
+ssh root@192.168.1.215 'crontab -l | grep sync_dev_data.sh; cat /var/lib/ml_scorer/dev-data-generation.json 2>/dev/null || true; tail -50 /var/log/ml_scorer_data_sync.log'
+```
+
+The first TW2 retry may correctly defer warming while `.215` still has the prior
+session; the next retry publishes after the scorer sync. Staging and production
+must use their own authoritative data distribution and do not use this `.176` to
+`.215` bridge.
+
 The last command is expected to be empty before the first authoritative warm. A
 published pointer names `ml6:prefetch:generation:<sha>`; that manifest must say
 `status=complete`. A failed generation remains inspectable but never replaces
