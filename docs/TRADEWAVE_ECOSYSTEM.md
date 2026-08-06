@@ -540,7 +540,15 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   excluded from scorer requests and cache identity, so the same statistical setup
   shares one value. The scorer owns the 62-feature recalculation and returns a hash
   of the exact ordered feature vector; TW2 never fabricates learned pattern features
-  from the selected UI cohort. `MLScoreBatch` records a bounded, non-user table
+  from the selected UI cohort. The additive scorer contract is currently
+  `duration-comparison-context-v4`. To preserve V3 training parity, the scorer
+  requires the dynamically rebuilt qualifying-combo set to match the authoritative
+  prebuilt set, then serves the prebuilt aggregate values used by training. It
+  accepts only named, bounded two-decimal Sharpe/MFE differences. A rounded
+  best-combo ordering tie is accepted only when the authoritative winning row also
+  validates independently and its raw-price Sharpe ties the dynamic winner at
+  display precision; every other material or structural mismatch stays unavailable.
+  `MLScoreBatch` records a bounded, non-user table
   context in Redis. After the authoritative EOD completion marker,
   `data_updater/prefetch_ml_scores.py` uses the marker's explicit New York
   `target_table_date`. It re-fetches all six default-year standard OppList4 tables
