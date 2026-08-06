@@ -55,3 +55,17 @@ test('preserves a complete valid quote for price-chart and stats consumers', () 
     date: '2026-08-04',
   });
 });
+
+test('preserves a completed-close source label without treating it as realtime', () => {
+  expect(normalizeRealtimeQuote({
+    price: '159.12',
+    change_p: '0.8',
+    date: '2026-08-05',
+    source: 'eod_close',
+  })).toMatchObject({
+    price: 159.12,
+    change_p: 0.8,
+    date: '2026-08-05',
+    source: 'eod_close',
+  });
+});

@@ -10,7 +10,7 @@ export const normalizeRealtimeQuote = (quote) => {
   if (!quote || typeof quote !== 'object') return null;
   const price = finiteQuoteNumber(quote.price, { positive: true });
   if (price === null) return null;
-  return {
+  const normalized = {
     price,
     change_p: finiteQuoteNumber(quote.change_p),
     open: finiteQuoteNumber(quote.open),
@@ -20,4 +20,6 @@ export const normalizeRealtimeQuote = (quote) => {
     timestamp: finiteQuoteNumber(quote.timestamp),
     date: typeof quote.date === 'string' ? quote.date : '',
   };
+  if (quote.source === 'eod_close') normalized.source = 'eod_close';
+  return normalized;
 };

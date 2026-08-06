@@ -140,8 +140,8 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             For a <strong>1-9-day pattern</strong>, TradeWave changes only the AI window to 10 calendar
                             days, the shortest duration the model scores. The historical pattern and its historical
                             stats stay at the real length. This single AI reading is not outlined because there is no
-                            second duration to compare. A small <strong>10d</strong> label marks it in the first visible
-                            AI column.
+                            second duration to compare. Hover over, tap, or focus the AI value to see that it uses the
+                            10-day model minimum.
                         </p>
                         <div style={{ fontSize: '15px', fontWeight: 700, margin: '14px 0 8px' }}>
                             Quick summary: Why this helps
@@ -249,8 +249,8 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         days, patterns over 60 days also add 60 days, and patterns over 90 days add the bounded 90-day
                         checkpoint. A longer pattern therefore shows the <strong>90-calendar-day checkpoint</strong> in
                         the table, not a score of its complete historical window. The one exception at the lower end is
-                        a 1-9-day pattern, which uses the clearly labeled 10-day AI model minimum while its historical
-                        statistics stay at the real pattern length.
+                        a 1-9-day pattern, which uses the 10-day AI model minimum while its historical statistics stay
+                        at the real pattern length. Its AI value tooltip explains that minimum.
                     </p>
                     <p>
                         TradeWave windows are inclusive calendar days: the entry day counts as day 1.
@@ -323,7 +323,8 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             A pattern of 31-60 days compares 30 days with the current duration. A pattern of 61-90 days
                             compares 30 and 60 days with the current duration. Those comparisons never extend beyond
                             the original pattern. The separate 1-9-day minimum-horizon rule is the only exception: its
-                            AI reading uses 10 days and is labeled 10d, while its historical statistics remain unchanged.
+                            AI reading uses 10 days while its historical statistics remain unchanged. The AI value
+                            tooltip identifies it as the 10-day model minimum.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
                             Patterns longer than <strong>90 calendar days</strong> show the 90-day checkpoint in the

@@ -56,6 +56,10 @@ table thead th {
   top: 0;
 }
 
+.opp-table-box .table-striped > thead > tr > th {
+  z-index: 3;
+}
+
 .selected {
   background-color: rgba(173,216,230,0.5);
 }
@@ -94,7 +98,6 @@ tr {
 }
 
 .opp-table-sort-button,
-.opp-ai-header-help,
 .opp-ai-locked-cell,
 .opp-ai-cell {
   color: inherit;
@@ -127,7 +130,7 @@ tr {
 }
 
 .opp-table-sort-button:focus-visible,
-.opp-ai-header-help:focus-visible,
+.opp-ai-tooltip-help:focus-visible,
 .opp-ai-locked-cell:focus-visible,
 .opp-ai-cell:focus-visible,
 .opp-ai-detail__help:focus-visible,
@@ -136,8 +139,19 @@ tr {
   outline-offset: 2px;
 }
 
-.opp-ai-header-help {
+.opp-ai-header-tooltip {
+  display: flex;
+  max-width: 330px;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+}
+
+.opp-ai-tooltip-help {
   display: inline-flex;
+  flex: 0 0 20px;
   align-items: center;
   justify-content: center;
   width: 20px;
@@ -199,14 +213,6 @@ tr {
 
 .opp-ai-cell--below_threshold {
   color: var(--opp-ai-muted, #6b7280);
-}
-
-.opp-ai-cell__minimum-label {
-  margin-left: 3px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.1px;
-  opacity: 0.72;
 }
 
 .opp-ai-cell--below_threshold.opp-ai-cell--checkpoint,
@@ -382,8 +388,9 @@ tr {
     min-height: 30px;
   }
 
-  .opp-ai-header-help {
+  .opp-ai-tooltip-help {
     width: 24px;
     height: 24px;
+    flex-basis: 24px;
   }
 }

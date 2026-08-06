@@ -31,6 +31,15 @@ describe('appendRealtimePriceBar', () => {
         }, '2026-08-04')).toBe(history);
     });
 
+    test('does not append a completed EOD close as an intraday bar', () => {
+        const quote = {
+            date: '2026-08-04',
+            price: 94.88,
+            source: 'eod_close',
+        };
+        expect(appendRealtimePriceBar(history, quote, '2026-08-04')).toBe(history);
+    });
+
     test('does not duplicate a historical row that already contains today', () => {
         const withToday = [...history, ['2026-08-04', 95, 96, 94, 95.5, 120000]];
         expect(appendRealtimePriceBar(withToday, {
@@ -75,6 +84,18 @@ describe('getCurrentRealtimeLastPrice', () => {
 
     test('rejects a stale quote', () => {
         expect(getCurrentRealtimeLastPrice('MET', '2026-08-05', opportunities)).toBeNull();
+    });
+
+    test('rejects a completed EOD close as a current realtime price', () => {
+        const eod = [{
+            symbol: 'MET',
+            realtimeQuote: {
+                date: '2026-08-04',
+                price: 94.88,
+                source: 'eod_close',
+            },
+        }];
+        expect(getCurrentRealtimeLastPrice('MET', '2026-08-04', eod)).toBeNull();
     });
 
     test('rejects a missing or invalid price', () => {

@@ -11,21 +11,25 @@ export const AI_METRICS = Object.freeze({
   ml_score: Object.freeze({
     shortLabel: 'AIS',
     label: 'AI Score',
+    shortDescription: 'AI strength rank from 0 to 100.',
     description: 'A 0-100 rank showing how strong PredR is compared with other model readings in the same time range. It is not a chance of winning.',
   }),
   win_prob: Object.freeze({
     shortLabel: 'Win%',
     label: 'AI Win Probability',
+    shortDescription: 'AI-calibrated win probability.',
     description: 'How often past cases with similar model readings later finished profitable in the selected direction. This percentage is checked against real results.',
   }),
   pred_return: Object.freeze({
     shortLabel: 'PredR',
     label: 'Predicted Return',
+    shortDescription: 'AI-predicted return at the end of this time window.',
     description: 'The model estimate for the return at the end of this time window. A positive number favors the selected Long or Short direction.',
   }),
   pred_mfe: Object.freeze({
     shortLabel: 'PMFE',
     label: 'Predicted MFE',
+    shortDescription: 'AI-predicted best favorable move during this time window.',
     description: 'The model estimate for the best move in the selected direction at any point during this time window. It is not a price target or exit instruction.',
   }),
 })
@@ -37,6 +41,10 @@ export const opportunityAIHeaderTooltip = metric => {
   if (!metadata) return ''
   return `${metadata.label} (${metadata.shortLabel}). ${metadata.description} ${AI_DURATION_OUTLINE_DESCRIPTION} For a 1-9-day historical pattern, AI uses the model's 10-day minimum. Click to sort.`
 }
+
+export const opportunityAIShortHeaderTooltip = metric => (
+  AI_METRICS[metric] ? AI_METRICS[metric].shortDescription : ''
+)
 
 const CHECKPOINT_DAYS = [30, 60, 90]
 const REQUIRED_OPPORTUNITY_COLUMNS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])

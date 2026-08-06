@@ -505,6 +505,17 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   `StockMetaData`, `getStockPriceByDate`, `consolidated_seasonal_chart2`,
   `StockScoreBatch`, `MLScoreBatch`/`MLScorePending`, etc. Short Redis TTLs (~51s);
   historical price-by-date cached 11.5 days.
+- **Opportunity price source:** `OppList4` prefers the central realtime quote for
+  every displayed ticker. When that service returns a healthy nonempty snapshot but
+  omits no more than 12 displayed US-stock/ETF symbols, the appserver may read an
+  already-provisioned local EOD CSV and return its latest completed close with
+  `source=eod_close` and the close date. It never downloads or aliases a ticker in
+  the request path, never masks an empty/broadly incomplete realtime response, and
+  the React tooltip labels the value as a completed close. Completed-close fallbacks
+  are excluded from current-day chart bars and realtime last-price state. A ticker
+  migration must provision the new ticker's verified price history and update its
+  resource symbol manifests; copying or silently aliasing the retired ticker is not
+  an acceptable substitute.
 - **Opportunity AI duration comparisons (V3, 2026-08-06):** `OppList4` returns the
   additive `ml_market_eligible` bit separately from the entitlement-aware
   `ml_enabled` bit. AI targets remain limited to US stocks and ETFs in resource
@@ -513,8 +524,8 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   exact score remains the table value. For the explicit lower-bound exception, a
   source pattern of 1-9 calendar days keeps its real historical duration and UI key,
   while its AI calculation uses V3's 10-day minimum (`daysOut=9`, ending at entry + 9).
-  The response is labeled `basis=minimum_horizon`, displays a small `10d` marker in the
-  first visible AI column, and is not outlined because it contains only one AI duration.
+  The response is labeled `basis=minimum_horizon`; the AI value tooltip/detail explains
+  the 10-day model minimum. It is not outlined because it contains only one AI duration.
   A source pattern of 31-60 days additionally asks
   `ml_checkpoint_context.py` for a 30-day comparison; a source of 61-90 days adds
   30- and 60-day comparisons; and a source of 91-367 days uses bounded 30-, 60-,

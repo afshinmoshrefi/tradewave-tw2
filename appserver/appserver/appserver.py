@@ -1523,18 +1523,7 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     # Merge real-time prices for symbols in the opp lists
     # all_prices format: {symbol: [price, change_p]}
     all_prices = get_realtime_prices_cached()
-    opp_prices = {}
-    if all_prices:
-        for row in l:
-            if len(row) > 1 and row[1] in all_prices:
-                p = validate_realtime_quote_for_resource(resourceID, row[1], all_prices[row[1]])
-                if p:
-                    opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
-        for row in la:
-            if len(row) > 1 and row[1] not in opp_prices and row[1] in all_prices:
-                p = validate_realtime_quote_for_resource(resourceID, row[1], all_prices[row[1]])
-                if p:
-                    opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
+    opp_prices = _opportunity_prices_for_rows(resourceID, l, la, all_prices)
 
     # Check if this user+market qualifies for ML score columns
     ml_market_eligible = resourceID in config.ml_score_resource_ids
@@ -3202,6 +3191,10 @@ def _sanitize_realtime_prices(prices):
 
 _commodity_symbols = None
 _equity_close_cache = {}
+_local_eod_quote_cache = {}
+_LOCAL_EOD_QUOTE_RESOURCES = frozenset({'0', '1', '2', '3', '4', '11'})
+_LOCAL_EOD_QUOTE_CACHE_MAX = 128
+_LOCAL_EOD_FALLBACK_MAX_SYMBOLS = 12
 
 
 def _load_commodity_symbols():
@@ -3250,6 +3243,121 @@ def validate_realtime_quote_for_resource(resource_id, symbol, pair):
             if reference and not (0.5 * reference <= normalized[0] <= 2.0 * reference):
                 return None
     return normalized
+
+
+def _latest_local_eod_quote(resource_id, symbol, *, today=None):
+    """Return a clearly labeled completed-close fallback without downloading.
+
+    This is used only for isolated gaps in an otherwise healthy realtime price
+    response. It never aliases tickers and never invokes ``get_symbol_csv`` in
+    the Opportunity Table request path.
+    """
+
+    resource_id = str(resource_id)
+    normalized_symbol = str(symbol or '').strip().upper()
+    if (
+        resource_id not in _LOCAL_EOD_QUOTE_RESOURCES
+        or not _ML_SYMBOL_RE.fullmatch(normalized_symbol)
+    ):
+        return None
+    exchange = config.exchange_mapping.get(resource_id)
+    if exchange not in {'US', 'ETF'}:
+        return None
+    exchange_root = os.path.realpath(os.path.join(config.csv_folder, exchange))
+    price_path = os.path.realpath(
+        os.path.join(exchange_root, f'{normalized_symbol}.csv')
+    )
+    if os.path.dirname(price_path) != exchange_root or not os.path.isfile(price_path):
+        return None
+    try:
+        current_date = today or datetime.date.today()
+        if isinstance(current_date, datetime.datetime):
+            current_date = current_date.date()
+        if not isinstance(current_date, datetime.date):
+            return None
+        file_stat = os.stat(price_path)
+        cache_identity = (file_stat.st_mtime_ns, file_stat.st_size)
+        cached = _local_eod_quote_cache.get(price_path)
+        if cached and cached[0] == cache_identity:
+            cached_date = datetime.datetime.strptime(
+                cached[1]['date'], '%Y-%m-%d'
+            ).date()
+            cached_age_days = (current_date - cached_date).days
+            if 0 <= cached_age_days <= int(config.max_days_missing):
+                return dict(cached[1])
+            return None
+
+        frame = pd.read_csv(price_path, usecols=['date', 'close']).tail(2)
+        if frame.shape[0] != 2:
+            return None
+        dates = frame['date'].astype(str).tolist()
+        try:
+            parsed_date = datetime.datetime.strptime(dates[-1], '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            return None
+        if parsed_date.isoformat() != dates[-1]:
+            return None
+        age_days = (current_date - parsed_date).days
+        if age_days < 0 or age_days > int(config.max_days_missing):
+            return None
+        closes = pd.to_numeric(frame['close'], errors='coerce').tolist()
+        previous_close, latest_close = (
+            _finite_number(value, positive=True) for value in closes
+        )
+        if previous_close is None or latest_close is None:
+            return None
+        quote = {
+            'price': latest_close,
+            'change_p': 100.0 * (latest_close / previous_close - 1.0),
+            'date': dates[-1],
+            'source': 'eod_close',
+        }
+        if len(_local_eod_quote_cache) >= _LOCAL_EOD_QUOTE_CACHE_MAX:
+            _local_eod_quote_cache.pop(next(iter(_local_eod_quote_cache)))
+        _local_eod_quote_cache[price_path] = (cache_identity, quote)
+        return dict(quote)
+    except (OSError, ValueError, KeyError, pd.errors.ParserError):
+        return None
+
+
+def _opportunity_prices_for_rows(resource_id, regular_rows, active_rows, all_prices):
+    """Merge central quotes and a bounded, explicitly labeled local fallback."""
+
+    if not all_prices:
+        return {}
+    prices = {}
+    rows = list(regular_rows or []) + list(active_rows or [])
+    for row in rows:
+        if len(row) <= 1:
+            continue
+        symbol = str(row[1]).strip().upper()
+        if not symbol or symbol in prices or symbol not in all_prices:
+            continue
+        realtime = validate_realtime_quote_for_resource(
+            resource_id, symbol, all_prices[symbol]
+        )
+        if realtime:
+            prices[symbol] = {
+                'price': realtime[0],
+                'change_p': realtime[1],
+            }
+
+    # A healthy central response can still omit one newly renamed ticker.
+    # Fill only small, isolated gaps from an already-provisioned local EOD
+    # file, and label the source so the browser never calls it realtime.
+    displayed_symbols = {
+        str(row[1]).strip().upper()
+        for row in rows
+        if len(row) > 1 and row[1]
+    }
+    missing_symbols = sorted(displayed_symbols.difference(prices))
+    if len(missing_symbols) > _LOCAL_EOD_FALLBACK_MAX_SYMBOLS:
+        return prices
+    for missing_symbol in missing_symbols:
+        fallback = _latest_local_eod_quote(resource_id, missing_symbol)
+        if fallback:
+            prices[missing_symbol] = fallback
+    return prices
 
 
 def get_realtime_prices_cached():

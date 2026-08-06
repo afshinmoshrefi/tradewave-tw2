@@ -43,7 +43,7 @@ than five days before entry or newly calculated
 after entry, and scorer failure degrades to the verified historical analysis rather than blocking
 Tara.
 
-Questions such as "why does this 6-day pattern show 10d?" and "why does AI only do the first 90
+Questions such as "why does this 6-day pattern use a 10-day AI score?" and "why does AI only do the first 90
 days?" are deterministic product explanations,
 not provider turns. Tara explains that the models are trained and calibrated for 10-90-calendar-day
 seasonal horizons, that 1-9-day sources use the explicit 10-day AI minimum, that standard shorter

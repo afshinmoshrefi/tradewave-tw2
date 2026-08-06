@@ -191,14 +191,13 @@ test('full-window score keeps the legacy numeric appearance and labels the compl
   expect(screen.getByText('Full 45-day pattern window')).toBeInTheDocument()
 })
 
-test('short pattern shows a ten-day label without the duration-comparison outline', () => {
+test('short pattern explains the ten-day minimum in details without adding a cell tag', () => {
   render(
     <OpportunityAICell
       bundle={minimumBundle}
       metric="ml_score"
       symbol="AAPL"
       cellId="minimum-ais"
-      showMinimumHorizonLabel
     />
   )
   const button = screen.getByRole('button', {
@@ -207,7 +206,7 @@ test('short pattern shows a ten-day label without the duration-comparison outlin
 
   expect(button).not.toHaveClass('opp-ai-cell--checkpoint')
   expect(button).toHaveTextContent('73.0')
-  expect(button).toHaveTextContent('10d')
+  expect(button).not.toHaveTextContent('10d')
   fireEvent.click(button)
   expect(screen.getByText('10-day AI reading for a shorter pattern')).toBeInTheDocument()
   expect(screen.getByText(/6-day historical pattern; AI uses the 10-day model minimum/i)).toBeInTheDocument()

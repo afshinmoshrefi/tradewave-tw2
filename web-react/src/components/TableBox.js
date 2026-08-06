@@ -10,12 +10,12 @@ import OpportunityAICell from './OpportunityAICell'
 import {
   AI_CHECKPOINT_COACHMARK_KEY,
   AI_COLUMNS,
-  AI_METRICS,
   hasAvailableOpportunityAIScores,
   normalizeOpportunityAIScore,
   opportunityAIFlatFields,
   opportunityAIHeaderColor,
   opportunityAIHeaderTooltip,
+  opportunityAIShortHeaderTooltip,
   opportunityTableMinimumWidth,
   selectOpportunityVisibleColumns,
 } from './opportunityAIScores'
@@ -38,6 +38,26 @@ let _aiScoreViewedFiredThisSession = false
 const AI_COLS = AI_COLUMNS
 const DEFAULT_COLUMN_ORDER = ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'avg_profit', 'avg_profit2', 'sharpe_ratio2', 'TL', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe']
 const PENDING_CELL = <span title="Loading" aria-label="Loading">…</span>
+
+export const OpportunityAIHeaderTooltip = ({ metric, detailed, onOpenHelp }) => (
+  <div theme="tw" className="opp-ai-header-tooltip">
+    <span>
+      {detailed
+        ? opportunityAIHeaderTooltip(metric)
+        : opportunityAIShortHeaderTooltip(metric)}
+    </span>
+    <button
+      type="button"
+      className="opp-ai-tooltip-help"
+      aria-label="Open the AI Scores guide"
+      onClick={event => {
+        event.preventDefault()
+        event.stopPropagation()
+        onOpenHelp(event)
+      }}
+    >?</button>
+  </div>
+)
 
 const TableBox = ({
   table_data,
@@ -331,7 +351,7 @@ const TableBox = ({
         tmpDict_tt['TL'] = 'Trend Long (0-100) - how bullish the current price trend is. Higher means price is above key moving averages with upward momentum. Click to sort.'
       } else if (k === 'price') {
         tmpDict['price'] = 'Price'
-        tmpDict_tt['price'] = 'Current real-time price. Green = up today, Red = down today. Hover for % change. Click to sort.'
+        tmpDict_tt['price'] = 'Latest available price. Real-time when available; otherwise the latest completed daily close is clearly labeled. Green = up, Red = down. Hover for details. Click to sort.'
       } else if (k === 'ml_score') {
         tmpDict['ml_score'] = 'AIS'
         tmpDict_tt['ml_score'] = opportunityAIHeaderTooltip('ml_score')
@@ -416,61 +436,60 @@ const TableBox = ({
 
         <thead>
           <tr style={{ fontSize: tableTitleTextSize, borderBottom: 'none' }}>
-            {visibleColumns.map((title) => (
-              <Tippy
-                disabled={!tooltipSW}
-                key={title}
-                placement={'bottom'}
-                content={
-                  <div theme="tw" >
-                    {tooltipSW ? tableTitleTooltip[title] : ''}
-                  </div>
-                }
-              >
-                <th
+            {visibleColumns.map((title) => {
+              const isAIColumn = AI_COLS.includes(title)
+              return (
+                <Tippy
+                  disabled={!tooltipSW && !isAIColumn}
                   key={title}
-                  aria-sort={title === colSorted ? (sortedDir === 'a' ? 'ascending' : 'descending') : 'none'}
-                  style={{
-                    height: rowHeight,
-                    whiteSpace: 'nowrap',
-                    backgroundColor: title === colSorted ? tc.statLabelBg : tc.tableHeaderBg,
-                    color: showAciveOpps
-                      ? 'blue'
-                      : (['ml_score', 'win_prob', 'pred_return', 'pred_mfe'].includes(title)
-                          ? opportunityAIHeaderColor(UITheme)
-                          : tc.text),
-                    ...(title === firstAICol ? { borderLeft: `2px solid ${tc.aiCheckpointBorder || '#6366f1'}` } : {}),
-                    ...(title === 'symbol' && !isMobilePortrait ? { position: 'sticky', left: 0, zIndex: 2 } : {})
-                  }}
+                  placement={'bottom'}
+                  interactive={isAIColumn}
+                  maxWidth={isAIColumn ? 380 : 350}
+                  content={isAIColumn
+                    ? <OpportunityAIHeaderTooltip
+                        metric={title}
+                        detailed={tooltipSW}
+                        onOpenHelp={openAIHelp}
+                      />
+                    : <div theme="tw">{tooltipSW ? tableTitleTooltip[title] : ''}</div>}
                 >
-                  <div className="opp-table-header-actions">
-                    <button
-                      type="button"
-                      className="opp-table-sort-button"
-                      onClick={(!hasAI && AI_COLS.includes(title)) ? openAILockDialog : handleTitleClicked(title)}
-                      aria-label={(!hasAI && AI_COLS.includes(title))
-                        ? `${tableTitleDict[title]} is locked. Learn about AI scoring plans.`
-                        : `Sort by ${tableTitleDict[title]}${title === colSorted ? `, currently ${sortedDir === 'a' ? 'ascending' : 'descending'}` : ''}`}
-                    >
-                      <span>{tableTitleDict[title]}</span>
-                      {(!hasAI && AI_COLS.includes(title))
-                        ? <span title="AI scoring starts at Analyst" aria-hidden="true">🔒</span>
-                        : (title === colSorted
-                            ? (sortedDir === 'a' ? <BsChevronDown aria-hidden="true" /> : <BsChevronUp aria-hidden="true" />)
-                            : <BsChevronExpand aria-hidden="true" />)}
-                    </button>
-                    {hasAI && AI_COLS.includes(title) && (
+                  <th
+                    key={title}
+                    aria-sort={title === colSorted ? (sortedDir === 'a' ? 'ascending' : 'descending') : 'none'}
+                    style={{
+                      height: rowHeight,
+                      whiteSpace: 'nowrap',
+                      backgroundColor: title === colSorted ? tc.statLabelBg : tc.tableHeaderBg,
+                      color: showAciveOpps
+                        ? 'blue'
+                        : (AI_COLS.includes(title)
+                            ? opportunityAIHeaderColor(UITheme)
+                            : tc.text),
+                      ...(title === firstAICol ? { borderLeft: `2px solid ${tc.aiCheckpointBorder || '#6366f1'}` } : {}),
+                      ...(title === 'symbol' && !isMobilePortrait ? { position: 'sticky', left: 0, zIndex: 4 } : {})
+                    }}
+                  >
+                    <div className="opp-table-header-actions">
                       <button
                         type="button"
-                        className="opp-ai-header-help"
-                        aria-label={`About ${AI_METRICS[title].label} and AI durations`}
-                        onClick={event => { event.stopPropagation(); openAIHelp(event) }}
-                      >?</button>
-                    )}
-                  </div>
-                </th>
-              </Tippy>
-            ))}
+                        className="opp-table-sort-button"
+                        onClick={(!hasAI && isAIColumn) ? openAILockDialog : handleTitleClicked(title)}
+                        aria-label={(!hasAI && isAIColumn)
+                          ? `${tableTitleDict[title]} is locked. Learn about AI scoring plans.`
+                          : `Sort by ${tableTitleDict[title]}${title === colSorted ? `, currently ${sortedDir === 'a' ? 'ascending' : 'descending'}` : ''}`}
+                      >
+                        <span>{tableTitleDict[title]}</span>
+                        {(!hasAI && isAIColumn)
+                          ? <span title="AI scoring starts at Analyst" aria-hidden="true">🔒</span>
+                          : (title === colSorted
+                              ? (sortedDir === 'a' ? <BsChevronDown aria-hidden="true" /> : <BsChevronUp aria-hidden="true" />)
+                              : <BsChevronExpand aria-hidden="true" />)}
+                      </button>
+                    </div>
+                  </th>
+                </Tippy>
+              )
+            })}
           </tr>
         </thead>
 
@@ -521,10 +540,16 @@ const TableBox = ({
                             placement="top"
                             content={
                               <div style={{ fontSize: '11px' }}>
-                                <span style={{ color: row.change_p > 0 ? '#4caf50' : row.change_p < 0 ? '#f44336' : 'inherit' }}>
-                                  {row.change_p > 0 ? '▲' : row.change_p < 0 ? '▼' : '–'}
-                                </span>{' '}
-                                {Number.isFinite(row.change_p) ? `${row.change_p > 0 ? '+' : ''}${row.change_p.toFixed(2)}%` : '0.00%'}
+                                {row.realtimeQuote && row.realtimeQuote.source === 'eod_close' && (
+                                  <div>Latest completed close, {row.realtimeQuote.date || 'date unavailable'}</div>
+                                )}
+                                <div>
+                                  <span style={{ color: row.change_p > 0 ? '#4caf50' : row.change_p < 0 ? '#f44336' : 'inherit' }}>
+                                    {row.change_p > 0 ? '▲' : row.change_p < 0 ? '▼' : '–'}
+                                  </span>{' '}
+                                  {Number.isFinite(row.change_p) ? `${row.change_p > 0 ? '+' : ''}${row.change_p.toFixed(2)}%` : '0.00%'}
+                                  {row.realtimeQuote && row.realtimeQuote.source === 'eod_close' ? ' from previous close' : ''}
+                                </div>
                               </div>
                             }
                           >
@@ -539,7 +564,6 @@ const TableBox = ({
                             metric={key}
                             symbol={row.symbol}
                             cellId={`${row.aiBundle && row.aiBundle.key}-${key}-${index}`}
-                            showMinimumHorizonLabel={key === firstAICol}
                             showCoachmark={checkpointCoachmarkVisible && row === checkpointCoachmarkTarget && key === firstAICol}
                             onDismissCoachmark={dismissCheckpointCoachmark}
                             onOpenHelp={openAIHelp}

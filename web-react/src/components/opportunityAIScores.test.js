@@ -8,6 +8,7 @@ const {
   opportunityAIFlatFields,
   opportunityAIHeaderColor,
   opportunityAIHeaderTooltip,
+  opportunityAIShortHeaderTooltip,
   opportunityAILegacyKey,
   opportunityAIReasonCopy,
   opportunityTableMinimumWidth,
@@ -115,6 +116,13 @@ test('all AI heading tooltips explain the outline and short-pattern minimum', ()
     expect(tooltip).toContain(AI_DURATION_OUTLINE_DESCRIPTION)
     expect(tooltip).toMatch(/1-9-day historical pattern.*10-day minimum/i)
   })
+})
+
+test('AI headings have compact always-available explanations', () => {
+  expect(opportunityAIShortHeaderTooltip('ml_score')).toBe('AI strength rank from 0 to 100.')
+  expect(opportunityAIShortHeaderTooltip('win_prob')).toBe('AI-calibrated win probability.')
+  expect(opportunityAIShortHeaderTooltip('pred_return')).toMatch(/AI-predicted return/i)
+  expect(opportunityAIShortHeaderTooltip('pred_mfe')).toMatch(/best favorable move/i)
 })
 
 test('normalizes long-pattern checkpoints and always displays the 90-day reading', () => {

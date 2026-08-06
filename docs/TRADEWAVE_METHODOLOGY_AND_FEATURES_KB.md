@@ -560,9 +560,9 @@ PredR rank, not a probability. Use them as a second opinion beside history, not 
 
 For a 1-9-calendar-day pattern, the historical pattern and every historical statistic remain at
 the real source length. V3 does not have a shorter AI model, so the separate AI reading uses the
-10-calendar-day minimum (`daysOut=9`, ending at entry plus 9 days) and is labeled `10d`. It is not
-outlined because only one AI duration is present, and it is never called an exact score for the
-shorter historical window.
+10-calendar-day minimum (`daysOut=9`, ending at entry plus 9 days). The AI value tooltip/detail
+explains that minimum. It is not outlined because only one AI duration is present, and it is never
+called an exact score for the shorter historical window.
 
 An outlined AI value means that row has more than one AI duration to view. Open it to compare
 them. The outline does not mean the score is better or worse, and it is not a warning.

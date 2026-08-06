@@ -18,14 +18,14 @@ export const getCurrentRealtimeLastPrice = (symbol, today, ...opportunityLists) 
 
     const quote = findRealtimeQuoteForSymbol(symbol, ...opportunityLists);
     const price = finiteNumber(quote?.price);
-    if (!quote || quote.date !== today || price == null || price <= 0) return null;
+    if (!quote || quote.source === 'eod_close' || quote.date !== today || price == null || price <= 0) return null;
 
     return [quote.date, price];
 };
 
 export const appendRealtimePriceBar = (historicalRows, quote, today) => {
     const rows = Array.isArray(historicalRows) ? historicalRows : [];
-    if (!quote || quote.date !== today || !/^\d{4}-\d{2}-\d{2}$/.test(String(today || ''))) {
+    if (!quote || quote.source === 'eod_close' || quote.date !== today || !/^\d{4}-\d{2}-\d{2}$/.test(String(today || ''))) {
         return rows;
     }
 

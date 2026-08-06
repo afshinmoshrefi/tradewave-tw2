@@ -181,7 +181,6 @@ const OpportunityAICell = ({
   metric,
   symbol,
   cellId,
-  showMinimumHorizonLabel = false,
   showCoachmark = false,
   onDismissCoachmark,
   onOpenHelp,
@@ -275,9 +274,6 @@ const OpportunityAICell = ({
           <span className="opp-ai-cell__value" aria-hidden="true">
             {state === 'loading' ? <CellSpinner /> : formatted}
           </span>
-          {isMinimumHorizon && showMinimumHorizonLabel && (
-            <span className="opp-ai-cell__minimum-label" aria-hidden="true">10d</span>
-          )}
           {compactState && (
             <span className="opp-ai-cell__status" aria-hidden="true">{compactState}</span>
           )}
