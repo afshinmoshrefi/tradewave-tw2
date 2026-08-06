@@ -2,10 +2,18 @@ import React from 'react'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import AIScorePanel from './AIScorePanel'
 import { UserContext } from './UserContext'
+import { resetAIScoreViewedForTests } from './aiScoreActivation'
 
 const renderPanel = (viewModel, options = {}) => render(
-  <UserContext.Provider value={{ UITheme: options.theme || 'light' }}>
-    <AIScorePanel viewModel={viewModel} onOpenGuide={options.onOpenGuide} />
+  <UserContext.Provider value={{
+    UITheme: options.theme || 'light',
+    loggedinUser: options.loggedinUser,
+  }}>
+    <AIScorePanel
+      viewModel={viewModel}
+      onOpenGuide={options.onOpenGuide}
+      active={options.active}
+    />
   </UserContext.Provider>
 )
 
@@ -71,6 +79,7 @@ test('presents a long selected pattern as a clear decision-support summary', () 
   expect(panel).toHaveTextContent(/Short.*benefits if price falls/i)
   expect(panel).toHaveTextContent(/Starts Aug 5, 2026/i)
   expect(panel).toHaveTextContent(/120 calendar days/i)
+  expect(within(panel).getByLabelText('90 calendar days')).toHaveTextContent('90')
 
   expect(panel).toHaveTextContent(/History shows what happened in the years you selected/i)
   expect(panel).toHaveTextContent(/separate second opinion/i)
@@ -125,7 +134,71 @@ test('explains the separate 10-day AI minimum without changing a short historica
   expect(panel).toHaveTextContent(/AI uses 10 calendar days because 10 days is the model's shortest supported time length/i)
   expect(panel).toHaveTextContent(/10-day historical check below applies only to the AI calculation/i)
   expect(panel).toHaveTextContent(/10-calendar-day view/i)
+  expect(within(panel).getByLabelText('10 calendar days')).toHaveTextContent('10')
   expect(panel).toHaveTextContent(/Long.*benefits if price rises/i)
+})
+
+test('records a real score only while the panel is active and the user is signed in', () => {
+  resetAIScoreViewedForTests()
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true }))
+
+  const viewModel = {
+    eligible: true,
+    enabled: true,
+    selected: { symbol: 'MSFT', daysOut: 120 },
+    bundle: longBundle,
+  }
+  const view = renderPanel(viewModel, { active: false, loggedinUser: '42' })
+  expect(global.fetch).not.toHaveBeenCalled()
+
+  view.rerender(
+    <UserContext.Provider value={{ UITheme: 'light', loggedinUser: '0' }}>
+      <AIScorePanel viewModel={viewModel} active />
+    </UserContext.Provider>
+  )
+  expect(global.fetch).not.toHaveBeenCalled()
+
+  view.rerender(
+    <UserContext.Provider value={{ UITheme: 'light', loggedinUser: '42' }}>
+      <AIScorePanel viewModel={viewModel} active />
+    </UserContext.Provider>
+  )
+  expect(global.fetch).toHaveBeenCalledTimes(1)
+  expect(global.fetch).toHaveBeenCalledWith('/api/activation/ai-score-viewed', expect.objectContaining({
+    method: 'POST',
+    body: JSON.stringify({ detail: { symbol: 'MSFT', horizon: 120 } }),
+  }))
+
+  view.rerender(
+    <UserContext.Provider value={{ UITheme: 'light', loggedinUser: '42' }}>
+      <AIScorePanel viewModel={{ ...viewModel, selected: { symbol: 'AAPL' } }} active />
+    </UserContext.Provider>
+  )
+  expect(global.fetch).toHaveBeenCalledTimes(1)
+  delete global.fetch
+})
+
+test('does not record an active panel when every AI reading is unavailable', () => {
+  resetAIScoreViewedForTests()
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true }))
+  const unavailableMetrics = { ml_score: null, win_prob: null, pred_return: null, pred_mfe: null }
+  renderPanel({
+    eligible: true,
+    enabled: true,
+    selected: { symbol: 'MSFT' },
+    bundle: {
+      ...longBundle,
+      display: { ...longBundle.display, status: 'unavailable', metrics: unavailableMetrics },
+      horizons: longBundle.horizons.map(horizon => ({
+        ...horizon,
+        status: 'unavailable',
+        metrics: unavailableMetrics,
+      })),
+    },
+  }, { active: true, loggedinUser: '42' })
+
+  expect(global.fetch).not.toHaveBeenCalled()
+  delete global.fetch
 })
 
 test('shows clear empty, loading, and unsupported-market states', () => {

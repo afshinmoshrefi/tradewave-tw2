@@ -575,7 +575,10 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   sample size `n`, latest completed data date, and distinct loading/history-filter/service
   states. Detailed AI cell/header popovers, outlined values, and the first-use coachmark were
   removed. AI cells are quiet scan values; all four AI columns default off through a one-time
-  versioned per-user migration and remain individually opt-in through Settings. A visible
+  versioned per-user migration and remain individually opt-in through the desktop and shared
+  mobile/tablet Settings. A saved `ai_scores` panel destination is preserved while the current
+  market's eligibility is unresolved, then restored or replaced only after that result is known.
+  A visible
   `Sort by` control can sort by an available hidden column without turning it on; AI sorting
   waits for the complete score snapshot so polling cannot repeatedly reorder the table.
   The response is additive: comparison and minimum-horizon rows have a date-qualified bundle;
@@ -1989,15 +1992,16 @@ bulletproof). See `OPERATIONS.md`.
   Stripe Dashboard (Billing -> Revenue recovery / Retries) + the cancel-after-
   N-failures final action - the app code is inert without it (a `past_due` sub
   would otherwise hang forever with no configured end state).
-- **Trial-activation Postgres signal (`ai_score_viewed`, built for GTM playbook CARD W1.4 and verified in the integration branch; not yet deployed):** `users.first_ai_score_viewed_at`
+- **Trial-activation Postgres signal (`ai_score_viewed`, GTM playbook CARD W1.4):** `users.first_ai_score_viewed_at`
   (migration `b3f6a8c1d9e2`, nullable TIMESTAMPTZ) is the persistence anchor for
   the day-2/day-7 trial-activation emails (Week-2 cards) - **they read this
   column, never GA4**, per strategy §2's binding persistence rule. Written by
   `POST /api/activation/ai-score-viewed` (`web/app.py`, right after
-  `onboarding_usage_summary`), called once per browser session by
-  `web-react/src/components/TableBox.js` (a `useEffect` gated on
-  `hasAI && hasMLData` - i.e. an Analyst+ user has REAL ml_score data on screen,
-  not just the locked teaser column) via a module-level fired-flag (courtesy
+  `onboarding_usage_summary`), called once per browser session through
+  `web-react/src/components/aiScoreActivation.js`. `TableBox.js` calls it when an
+  opted-in AI column has real score data on screen; `AIScorePanel.js` calls it only
+  when the AI panel is active and has real completed metrics. Locked, loading, and
+  unavailable states do not count. The shared module-level fired flag is courtesy
   dedupe only; the server's own idempotent `IS NULL` guard + `with_for_update()`
   is the actual source of truth for first-touch). One handler does, in order:
   (1) append an `onboarding_events` row (`event_type='ai_score_viewed'` - reuses

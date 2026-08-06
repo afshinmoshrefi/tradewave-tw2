@@ -22,6 +22,7 @@ PORTFOLIO_SETTINGS_JS = ROOT / "web-react" / "src" / "components" / "PortfolioSe
 CHATBOT_JS = ROOT / "web-react" / "src" / "components" / "Chatbot.js"
 CHATBOT_PY = ROOT / "appserver" / "appserver" / "chatbot.py"
 CONFIG_PY = ROOT / "config.py"
+UI_CAPTURE_JS = ROOT / "tools" / "ui_capture" / "capture.js"
 
 
 def _functions(*names):
@@ -279,3 +280,26 @@ def test_retired_symbols_are_filtered_after_cache_loading():
     assert source.count("_drop_disabled_market_symbols(") == 3
     assert "'2':  ['CTRA']" in config
     assert "'3':  ['CTRA']" in config
+
+
+def test_optional_ai_bottom_panel_keeps_semantic_state_and_accessible_panel_links():
+    desktop = DESKTOP_LAYOUT_JS.read_text(encoding="utf-8")
+
+    assert "preserveRequestedBottomSlide" in desktop
+    assert "if (preserveRequestedBottomSlide && semantic === visibleBottomSlide) return;" in desktop
+    assert desktop.count('role="tabpanel"') == 4
+    for slide in ("trend_chart", "wave_stats", "ai_scores", "price_chart"):
+        assert f"id={{getBottomPanelId('{slide}')}}" in desktop
+        assert f"aria-labelledby={{getBottomPanelTabId('{slide}')}}" in desktop
+    assert "active={activeBottomSlide === 'ai_scores'}" in desktop
+
+
+def test_capture_explicit_column_visibility_bypasses_the_legacy_ai_default_migration():
+    capture = UI_CAPTURE_JS.read_text(encoding="utf-8")
+
+    visibility_block = capture[
+        capture.index("if (oppTable.columnVisibility) {"):
+        capture.index("if (oppTable.columnOrder)")
+    ]
+    assert "scoped['oppTableColumnVisibility'] = oppTable.columnVisibility;" in visibility_block
+    assert "scoped['oppTableAIColumnDefaultsVersion'] = 1;" in visibility_block

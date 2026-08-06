@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { UserContext } from './UserContext'
-import { appserverURL, securityTypeList } from './Common'
+import { appserverURL, securityTypeList, tierHasAI } from './Common'
 import './styles/InfoPopup.css'
 import './styles/Settings.css'
 import { GrClose } from "react-icons/gr";
@@ -10,13 +10,17 @@ import { GrEdit, GrRun } from "react-icons/gr";
 import { BsTrash3 } from "react-icons/bs";
 import CheckBox from './CheckBox'
 import { monthsOptionsList, monthsOptionsListS, getTodayDate } from './Common'
+import {
+    OPPORTUNITY_AI_COLUMN_CONTROLS,
+    setOpportunityAIColumnVisible,
+} from './opportunityAIColumnControls'
 
 // <SlSettings size={portMoveSize} style={{ fill: "black", backgroundColor: "transparent", verticalAlign: 'bottom' }} />
 
 const Settings = (props) => {
 
 
-    const { numReportsAllowed, browserH, browserW, tableTitleTextSize, rdd, resourceObj, globalTextSize, infoTextSize, loggedinUser, token } = useContext(UserContext)
+    const { numReportsAllowed, browserH, browserW, tableTitleTextSize, rdd, resourceObj, globalTextSize, infoTextSize, loggedinUser, token, wpUserLevels } = useContext(UserContext)
 
 
     const [message, SetMessage] = useState('')
@@ -341,6 +345,15 @@ const Settings = (props) => {
         props.SetOpportunities([])
     }
     //-------------------------------------------------------------------------------------------------------------------------------------
+    const hasAIColumnAccess = tierHasAI(wpUserLevels)
+    const setAIColumnVisible = (column, visible) => {
+        props.SetColumnVisibility(setOpportunityAIColumnVisible(
+            props.columnVisibility,
+            column,
+            visible,
+        ))
+    }
+    //-------------------------------------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------------------------------------------------------------
     const handlePortfolioAction = (action) => {
         console.log('handel portoflio action ', action)
@@ -423,9 +436,36 @@ const Settings = (props) => {
 
 
 
-                    <div className="add-gc-div-top-rows" style={{ backgroundColor: 'transparent', height: '80%', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                    <div className="add-gc-div-top-rows settings-controls-scroll" style={{ backgroundColor: 'transparent', height: '80%', fontSize: 12, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', flexDirection: 'column', overflowY: 'auto' }}>
 
                         <div style={controlsDIV}>
+                            <fieldset className="settings-ai-column-group" disabled={!hasAIColumnAccess}>
+                                <legend>AI Scores in Opportunity Table</legend>
+                                <p id="settings-ai-column-help" className="settings-ai-column-help">
+                                    Columns start off. Add any readings you want for quick scanning.
+                                </p>
+                                <div className="settings-ai-column-grid" aria-describedby="settings-ai-column-help">
+                                    {OPPORTUNITY_AI_COLUMN_CONTROLS.map(column => (
+                                        <label className="settings-ai-column-option" key={column.key}>
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(props.columnVisibility && props.columnVisibility[column.key] === true)}
+                                                onChange={event => setAIColumnVisible(column.key, event.target.checked)}
+                                            />
+                                            <span className="settings-ai-column-copy">
+                                                <strong>{column.label}</strong>
+                                                <small>{column.description}</small>
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                                <p className="settings-ai-column-note">
+                                    {hasAIColumnAccess
+                                        ? 'These choices only change the table. Full details stay in the AI Scores window.'
+                                        : 'AI Scores are available on the Analyst plan and above.'}
+                                </p>
+                            </fieldset>
+
                             <div style={controlRowDIV}>
                                 <div style={controlLeftCell}>
                                     <span>Trim Year To:</span>

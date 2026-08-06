@@ -193,7 +193,13 @@ function buildLocalStorageSeed(uuid, spec) {
   scoped['tw_lesson_lastopened'] = 7;
 
   const oppTable = spec.oppTable || {};
-  if (oppTable.columnVisibility) scoped['oppTableColumnVisibility'] = oppTable.columnVisibility;
+  if (oppTable.columnVisibility) {
+    scoped['oppTableColumnVisibility'] = oppTable.columnVisibility;
+    // The app's version-1 migration intentionally turns legacy AI defaults off.
+    // A capture spec that explicitly chooses visible columns is already an
+    // intentional preference, so mark it migrated before App.js starts.
+    scoped['oppTableAIColumnDefaultsVersion'] = 1;
+  }
   if (oppTable.columnOrder) scoped['oppTableColumnOrder'] = oppTable.columnOrder;
 
   const priceChart = spec.priceChart || {};

@@ -8,7 +8,7 @@ import StockLineChart from './StockLineChart';
 import SeasonalChart from './SeasonalChart';
 import TradeDetail from './TradeDetail';
 import AIScorePanel from './AIScorePanel';
-import BottomPanelTabs from './BottomPanelTabs';
+import BottomPanelTabs, { getBottomPanelId, getBottomPanelTabId } from './BottomPanelTabs';
 import AIScoresPopup from './AIScoresPopup';
 import InfoPopup from './InfoPopup';
 import OppTable from './OppTable';
@@ -55,7 +55,7 @@ import {
     getBottomSlideIndex,
     getBottomSlideName,
     getBottomSlides,
-    sanitizeBottomSlide,
+    resolveBottomSlidePresentation,
 } from './bottomSlides';
 
 
@@ -158,15 +158,30 @@ const DesktopLayout = (props) => {
 
     const { seasonalAppDivH, seasonalAppDivH2, rdd, loggedinUser, wpUserLevels, token } = useContext(UserContext);
     const tc = themeColors(props.UITheme);
-    const hasAIScores = Boolean(
-        tierHasAI(wpUserLevels) &&
+    const userHasAITier = tierHasAI(wpUserLevels);
+    const opportunityAIStateMatchesMarket = Boolean(
         props.opportunityAIState &&
-        props.opportunityAIState.resolved === true &&
-        props.opportunityAIState.market === props.selectedSecurity &&
+        props.opportunityAIState.market === props.selectedSecurity
+    );
+    const aiEligibilityResolved = Boolean(
+        opportunityAIStateMatchesMarket &&
+        props.opportunityAIState.resolved === true
+    );
+    const hasAIScores = Boolean(
+        userHasAITier &&
+        aiEligibilityResolved &&
+        opportunityAIStateMatchesMarket &&
         props.opportunityAIState.eligible === true &&
         props.opportunityAIState.enabled === true
     );
     const bottomSlides = getBottomSlides({ hasAIScores });
+    const bottomSlidePresentation = resolveBottomSlidePresentation(activeBottomSlide, {
+        hasAIScores,
+        aiEligibilityResolved,
+        fallback: 'wave_stats',
+    });
+    const visibleBottomSlide = bottomSlidePresentation.visibleSlide;
+    const preserveRequestedBottomSlide = bottomSlidePresentation.preserveRequestedSlide;
     const publishedAISelection = props.opportunityAIState && props.opportunityAIState.selected;
     const publishedAISelectionMatchesViewer = Boolean(
         publishedAISelection &&
@@ -255,23 +270,26 @@ const DesktopLayout = (props) => {
     }, []);
 
     const goToBottomSlide = useCallback((requestedSlide) => {
-        const target = sanitizeBottomSlide(requestedSlide, {
+        const presentation = resolveBottomSlidePresentation(requestedSlide, {
             hasAIScores,
+            aiEligibilityResolved,
             fallback: requestedSlide === 'ai_scores' ? 'wave_stats' : 'trend_chart',
         });
+        const target = presentation.visibleSlide;
+        const savedTarget = presentation.preserveRequestedSlide ? requestedSlide : target;
         const index = getBottomSlideIndex(target, { hasAIScores });
         const targetSwiper = swiperRef.current || props.swiper;
         if (index >= 0 && targetSwiper && typeof targetSwiper.slideTo === 'function') {
             targetSwiper.slideTo(index);
         }
-        SetActiveBottomSlide(target);
-        setCookie('BottomWindowName', target, 300);
+        SetActiveBottomSlide(savedTarget);
+        setCookie('BottomWindowName', savedTarget, 300);
         // Preserve rollback compatibility. Legacy builds know only 0/1/2.
-        const legacyIndex = target === 'wave_stats' || target === 'ai_scores'
+        const legacyIndex = savedTarget === 'wave_stats' || savedTarget === 'ai_scores'
             ? 1
-            : target === 'price_chart' ? 2 : 0;
+            : savedTarget === 'price_chart' ? 2 : 0;
         setCookie('WindowNumber', String(legacyIndex), 300);
-    }, [hasAIScores, props.swiper]);
+    }, [hasAIScores, aiEligibilityResolved, props.swiper]);
 
     // Existing chart headers still call chartTo(0/1/2). Treat those numbers as
     // their old semantic destinations so "2" remains Price Chart after AI is inserted.
@@ -283,10 +301,9 @@ const DesktopLayout = (props) => {
     }, [goToBottomSlide]);
 
     useEffect(() => {
-        const fallback = activeBottomSlide === 'ai_scores' ? 'wave_stats' : 'trend_chart';
-        const target = sanitizeBottomSlide(activeBottomSlide, { hasAIScores, fallback });
+        const target = visibleBottomSlide;
         const index = getBottomSlideIndex(target, { hasAIScores });
-        if (target !== activeBottomSlide) {
+        if (!preserveRequestedBottomSlide && target !== activeBottomSlide) {
             SetActiveBottomSlide(target);
             setCookie('BottomWindowName', target, 300);
         }
@@ -294,7 +311,7 @@ const DesktopLayout = (props) => {
         if (index >= 0 && targetSwiper && targetSwiper.activeIndex !== index) {
             targetSwiper.slideTo(index);
         }
-    }, [hasAIScores, activeBottomSlide, props.swiper]);
+    }, [hasAIScores, activeBottomSlide, visibleBottomSlide, preserveRequestedBottomSlide, props.swiper]);
 
     useEffect(() => {
         if (
@@ -1685,7 +1702,7 @@ const DesktopLayout = (props) => {
                 <div className='stock-linechart-parent' style={{ backgroundColor: tc.panelBg, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                     <BottomPanelTabs
                         slides={bottomSlides}
-                        activeSlide={sanitizeBottomSlide(activeBottomSlide, { hasAIScores, fallback: 'wave_stats' })}
+                        activeSlide={visibleBottomSlide}
                         onSelect={goToBottomSlide}
                     />
                     <Swiper
@@ -1693,13 +1710,11 @@ const DesktopLayout = (props) => {
                         navigation={true}
                         className={`mySwiper ${SWIPE_WITH_MOUSE ? '' : 'no-mouse-drag'}`}
                         style={{ flex: 1, minHeight: 0, width: '100%' }}
-                        initialSlide={getBottomSlideIndex(
-                            sanitizeBottomSlide(activeBottomSlide, { hasAIScores, fallback: 'wave_stats' }),
-                            { hasAIScores },
-                        )}
+                        initialSlide={getBottomSlideIndex(visibleBottomSlide, { hasAIScores })}
                         onSlideChange={(swiperCore) => {
                             const { activeIndex } = swiperCore;
                             const semantic = getBottomSlideName(activeIndex, { hasAIScores, fallback: 'wave_stats' });
+                            if (preserveRequestedBottomSlide && semantic === visibleBottomSlide) return;
                             SetActiveBottomSlide(semantic);
                             setCookie('BottomWindowName', semantic, 300);
                             const legacyIndex = semantic === 'wave_stats' || semantic === 'ai_scores'
@@ -1711,7 +1726,13 @@ const DesktopLayout = (props) => {
                         allowSlidePrev={true}
                         simulateTouch={SWIPE_WITH_MOUSE}  // controls mouse dragging; false disables it on desktop
                     >
-                        <SwiperSlide>
+                        <SwiperSlide
+                            role="tabpanel"
+                            id={getBottomPanelId('trend_chart')}
+                            aria-labelledby={getBottomPanelTabId('trend_chart')}
+                            aria-hidden={visibleBottomSlide !== 'trend_chart'}
+                            tabIndex={visibleBottomSlide === 'trend_chart' ? 0 : -1}
+                        >
                             <SeasonalChart
                                 {...props}
                                 chartTo={chartTo}
@@ -1720,18 +1741,37 @@ const DesktopLayout = (props) => {
                                 chartData={props.consolidatedSeasonalData}
                             />
                         </SwiperSlide>
-                        <SwiperSlide>
+                        <SwiperSlide
+                            role="tabpanel"
+                            id={getBottomPanelId('wave_stats')}
+                            aria-labelledby={getBottomPanelTabId('wave_stats')}
+                            aria-hidden={visibleBottomSlide !== 'wave_stats'}
+                            tabIndex={visibleBottomSlide === 'wave_stats' ? 0 : -1}
+                        >
                             <TradeDetail {...props} chartTo={chartTo} sharedBottomPanelNavigation={true} />
                         </SwiperSlide>
                         {hasAIScores && (
-                            <SwiperSlide>
+                            <SwiperSlide
+                                role="tabpanel"
+                                id={getBottomPanelId('ai_scores')}
+                                aria-labelledby={getBottomPanelTabId('ai_scores')}
+                                aria-hidden={visibleBottomSlide !== 'ai_scores'}
+                                tabIndex={visibleBottomSlide === 'ai_scores' ? 0 : -1}
+                            >
                                 <AIScorePanel
                                     viewModel={aiPanelViewModel}
+                                    active={activeBottomSlide === 'ai_scores'}
                                     onOpenGuide={() => SetShowAIScoresGuide(true)}
                                 />
                             </SwiperSlide>
                         )}
-                        <SwiperSlide>
+                        <SwiperSlide
+                            role="tabpanel"
+                            id={getBottomPanelId('price_chart')}
+                            aria-labelledby={getBottomPanelTabId('price_chart')}
+                            aria-hidden={visibleBottomSlide !== 'price_chart'}
+                            tabIndex={visibleBottomSlide === 'price_chart' ? 0 : -1}
+                        >
                             <StockLineChart {...props} chartTo={chartTo} priceChartType={priceChartType} sharedBottomPanelNavigation={true} />
                         </SwiperSlide>
                     </Swiper>

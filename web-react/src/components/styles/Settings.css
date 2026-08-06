@@ -44,3 +44,115 @@
 .myList li {
   list-style-type: disc;
 }
+
+.settings-controls-scroll {
+  scrollbar-gutter: stable;
+}
+
+.settings-controls-scroll > div {
+  box-sizing: border-box;
+  height: auto !important;
+  margin: 8px auto 12px;
+}
+
+.settings-controls-scroll > div > div:not(.settings-ai-column-group) {
+  min-height: 38px;
+}
+
+.settings-ai-column-group {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 8px 10px 9px;
+  border: 1px solid #aeb9c4;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f7fa 100%);
+  color: #17212b;
+}
+
+.settings-ai-column-group legend {
+  padding: 0 5px;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.settings-ai-column-group:disabled {
+  opacity: 0.7;
+}
+
+.settings-ai-column-help,
+.settings-ai-column-note {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.settings-ai-column-help {
+  color: #3f4b57;
+  font-size: 11px;
+}
+
+.settings-ai-column-note {
+  color: #56616d;
+  font-size: 10px;
+}
+
+.settings-ai-column-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.settings-ai-column-option {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 7px;
+  border: 1px solid #d7dde3;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+}
+
+.settings-ai-column-option:focus-within {
+  border-color: #15803d;
+  box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.16);
+}
+
+.settings-ai-column-option input {
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: #15803d;
+}
+
+.settings-ai-column-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.settings-ai-column-copy strong {
+  font-size: 11px;
+}
+
+.settings-ai-column-copy small {
+  margin-top: 2px;
+  color: #596674;
+  font-size: 9px;
+  white-space: normal;
+}
+
+@media (max-width: 420px) {
+  .settings-controls-scroll > div {
+    width: 92% !important;
+  }
+
+  .settings-ai-column-group {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+}

@@ -23,14 +23,7 @@ import {
   sortOpportunityRows,
 } from './opportunityFilters'
 import { hasUsableBatchTrendScore } from './trendScoreState'
-
-// GTM playbook CARD W1.4 - fire once per browser session, the first time an
-// AI-eligible user actually sees real AI-score data in the table. Module-level
-// (not per-mount) so remounting TableBox (tab switches, filters) never re-fires
-// within the same session; the server-side handler is ALSO idempotent
-// (users.first_ai_score_viewed_at first-touch-only), so this is a courtesy
-// dedupe, not the source of truth.
-let _aiScoreViewedFiredThisSession = false
+import { recordAIScoreViewed } from './aiScoreActivation'
 
 const AI_COLS = AI_COLUMNS
 const DEFAULT_COLUMN_ORDER = ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'avg_profit', 'avg_profit2', 'sharpe_ratio2', 'TL', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe']
@@ -119,24 +112,13 @@ const TableBox = ({
   // fires the GA4 ai_score_viewed event - all in ONE handler, per the strategy §2
   // persistence rule). Fire-and-forget, same-origin authed fetch; never throws.
   useEffect(() => {
-    if (!hasAI || !hasMLData || !hasOptedInAIColumn || _aiScoreViewedFiredThisSession) return;
-    if (loggedinUser === '0') return;
-    _aiScoreViewedFiredThisSession = true;
+    if (!hasAI || !hasMLData || !hasOptedInAIColumn) return;
     const firstScoredRow = (table_data || []).find(r => r && r.symbol);
-    try {
-      fetch('/api/activation/ai-score-viewed', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          detail: {
-            symbol: firstScoredRow ? firstScoredRow.symbol : undefined,
-            horizon: firstScoredRow ? firstScoredRow.daysOut : undefined,
-          },
-        }),
-        keepalive: true,
-      }).catch(() => { /* fire-and-forget */ });
-    } catch (e) { /* never throw from telemetry */ }
+    recordAIScoreViewed({
+      loggedinUser,
+      symbol: firstScoredRow ? firstScoredRow.symbol : undefined,
+      horizon: firstScoredRow ? firstScoredRow.daysOut : undefined,
+    });
   }, [hasAI, hasMLData, hasOptedInAIColumn, loggedinUser, table_data]);
 
   // On mobile portrait, limit columns to avoid cramped table

@@ -41,3 +41,28 @@ export const getBottomSlideName = (
     ? slides[index]
     : sanitizeBottomSlide(fallback, { hasAIScores });
 };
+
+// A saved AI Scores destination must survive the short period before OppTable
+// resolves the selected market's eligibility. Show Wave Stats as a harmless
+// placeholder, but do not replace the saved semantic destination until the
+// market has definitively resolved as unsupported.
+export const resolveBottomSlidePresentation = (
+  requestedSlide,
+  {
+    hasAIScores = false,
+    aiEligibilityResolved = true,
+    fallback = 'wave_stats',
+  } = {},
+) => {
+  const preserveRequestedSlide = requestedSlide === 'ai_scores'
+    && hasAIScores !== true
+    && aiEligibilityResolved !== true;
+  const visibleSlide = preserveRequestedSlide
+    ? sanitizeBottomSlide(fallback, { hasAIScores: false })
+    : sanitizeBottomSlide(requestedSlide, { hasAIScores, fallback });
+
+  return {
+    visibleSlide,
+    preserveRequestedSlide,
+  };
+};

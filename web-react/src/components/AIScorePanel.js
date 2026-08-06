@@ -1,12 +1,14 @@
-import React, { useContext } from 'react'
+import React, { useContext, useEffect } from 'react'
 import { UserContext } from './UserContext'
 import { themeColors } from './Common'
 import {
   AI_METRICS,
   formatOpportunityAIMetric,
+  hasAvailableOpportunityAIScores,
   opportunityAICompactStatus,
   opportunityAIReasonCopy,
 } from './opportunityAIScores'
+import { recordAIScoreViewed } from './aiScoreActivation'
 import './styles/AIScorePanel.css'
 
 const METRIC_ORDER = ['win_prob', 'pred_return', 'pred_mfe', 'ml_score']
@@ -169,9 +171,10 @@ const statusDetails = (display, fallbackReason) => {
   }
 }
 
-const AIScorePanel = ({ viewModel = {}, onOpenGuide }) => {
+const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
   const userContext = useContext(UserContext) || {}
   const UITheme = userContext.UITheme || 'light'
+  const loggedinUser = userContext.loggedinUser
   const tc = themeColors(UITheme)
   const {
     eligible = true,
@@ -193,6 +196,9 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide }) => {
   const direction = firstText(bundle && bundle.direction, selectedRow.direction, selectedRow.lOrS)
   const entryDate = firstText(bundle && bundle.entryDate, selectedRow.date, selectedRow.entryDate)
   const fullDays = integerOrNull(bundle && bundle.fullPatternCalendarDays)
+  const displayDays = integerOrNull(bundle && bundle.displayCalendarDays) ??
+    integerOrNull(display && display.calendarDays) ??
+    fullDays
   const dataAsOf = firstText(
     viewModel.dataAsOf,
     bundle && bundle.dataAsOf,
@@ -211,6 +217,16 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide }) => {
     '--ai-panel-soft': UITheme === 'dark' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(79, 70, 229, 0.055)',
     '--ai-panel-soft-border': UITheme === 'dark' ? 'rgba(129, 140, 248, 0.28)' : 'rgba(79, 70, 229, 0.16)',
   }
+
+  const hasRealScoreData = hasAvailableOpportunityAIScores({ panel: bundle })
+  useEffect(() => {
+    if (active !== true || !eligible || !enabled || !hasRealScoreData) return
+    recordAIScoreViewed({
+      loggedinUser,
+      symbol: symbol === 'Selected pattern' ? undefined : symbol,
+      horizon: fullDays ?? displayDays ?? undefined,
+    })
+  }, [active, eligible, enabled, hasRealScoreData, loggedinUser, symbol, fullDays, displayDays])
 
   let mainContent
   if (!eligible) {
@@ -271,7 +287,9 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide }) => {
         </div>
 
         <div className="ai-score-panel__duration-note">
-          <span aria-hidden="true">30</span>
+          {displayDays !== null && (
+            <span aria-label={`${displayDays} calendar days`}>{displayDays}</span>
+          )}
           <p>{durationExplanation(bundle)}</p>
         </div>
 
@@ -285,7 +303,7 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide }) => {
           <div className="ai-score-panel__section-heading">
             <div>
               <span className="ai-score-panel__eyebrow">Main AI reading</span>
-              <h4 id="ai-score-main-reading-title">{bundle.displayCalendarDays}-calendar-day view</h4>
+              <h4 id="ai-score-main-reading-title">{displayDays}-calendar-day view</h4>
             </div>
             {!displayIsAvailable && anyAvailable && (
               <span className="ai-score-panel__available-note">Shorter readings are available below</span>

@@ -4,6 +4,7 @@ import {
   getBottomSlideIndex,
   getBottomSlideName,
   getBottomSlides,
+  resolveBottomSlidePresentation,
   sanitizeBottomSlide,
 } from './bottomSlides';
 
@@ -42,4 +43,31 @@ test('resolves numeric Swiper positions through the active semantic slide list',
   expect(getBottomSlideName(2, { hasAIScores: true })).toBe('ai_scores');
   expect(getBottomSlideName(3, { hasAIScores: true })).toBe('price_chart');
   expect(getBottomSlideName(9, { hasAIScores: true, fallback: 'wave_stats' })).toBe('wave_stats');
+});
+
+test('preserves a saved AI Scores destination until market eligibility resolves', () => {
+  expect(resolveBottomSlidePresentation('ai_scores', {
+    hasAIScores: false,
+    aiEligibilityResolved: false,
+  })).toEqual({
+    visibleSlide: 'wave_stats',
+    preserveRequestedSlide: true,
+  });
+});
+
+test('restores AI Scores when eligible and falls back only after an ineligible result', () => {
+  expect(resolveBottomSlidePresentation('ai_scores', {
+    hasAIScores: true,
+    aiEligibilityResolved: true,
+  })).toEqual({
+    visibleSlide: 'ai_scores',
+    preserveRequestedSlide: false,
+  });
+  expect(resolveBottomSlidePresentation('ai_scores', {
+    hasAIScores: false,
+    aiEligibilityResolved: true,
+  })).toEqual({
+    visibleSlide: 'wave_stats',
+    preserveRequestedSlide: false,
+  });
 });
