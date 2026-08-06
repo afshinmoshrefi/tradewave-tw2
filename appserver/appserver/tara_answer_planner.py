@@ -507,7 +507,22 @@ def is_ai_horizon_explanation_question(message: Any) -> bool:
         return False
     triplet = bool(re.search(r"\b30\b.{0,20}\b60\b.{0,20}\b90\b", text, re.I))
     has_model_term = bool(_AI_HORIZON_MODEL_PATTERN.search(text))
-    if not has_model_term and not triplet:
+    names_minimum_horizon = bool(
+        re.search(
+            r"\b(?:10[- ]?(?:day|d) (?:ai |model )?minimum|"
+            r"minimum (?:ai |model )?(?:duration|horizon)|"
+            r"(?:under|below|less than) 10 (?:calendar )?days?|"
+            r"1\s*[-–]\s*9[- ]day)\b",
+            text,
+            re.I,
+        )
+        or re.search(
+            r"\b[1-9][ -]day (?:pattern|window).{0,30}\b10d?\b",
+            text,
+            re.I,
+        )
+    )
+    if not has_model_term and not triplet and not names_minimum_horizon:
         return False
     numeric_horizons = [
         int(match.group(1)) for match in _AI_HORIZON_DAY_PATTERN.finditer(text)
@@ -520,6 +535,7 @@ def is_ai_horizon_explanation_question(message: Any) -> bool:
     )
     return (
         triplet
+        or names_minimum_horizon
         or names_ninety_days
         or names_long_pattern
         or any(days >= 90 for days in numeric_horizons)
@@ -2960,7 +2976,12 @@ def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
         "too_early",
         "after_entry",
         "unsupported_duration",
-    } or mode not in {"pattern", "checkpoints", "duration_comparison"}:
+    } or mode not in {
+        "pattern",
+        "minimum_horizon",
+        "checkpoints",
+        "duration_comparison",
+    }:
         return None
     full_days_number = _number(raw.get("full_pattern_calendar_days"))
     if full_days_number is None or not full_days_number.is_integer():
@@ -2973,6 +2994,8 @@ def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
         "mode": mode,
         "full_pattern_calendar_days": full_days,
     }
+    if mode == "minimum_horizon":
+        result["minimum_model_calendar_days"] = 10
     days_to_entry = _number(raw.get("days_to_entry"))
     if days_to_entry is not None and days_to_entry.is_integer() and days_to_entry >= 0:
         result["days_to_entry"] = int(days_to_entry)
@@ -3319,8 +3342,12 @@ def _analysis_ai_context_line(
     item = horizons[0]
     metrics = []
     if item.get("win_probability") is not None:
-        comparison = _ai_probability_comparison(
-            item["win_probability"], facts.get("win_rate_pct")
+        comparison = (
+            ""
+            if context["mode"] == "minimum_horizon"
+            else _ai_probability_comparison(
+                item["win_probability"], facts.get("win_rate_pct")
+            )
         )
         win_text = f"AI Win Probability {item['win_probability'] * 100:.0f}%"
         if comparison:
@@ -3337,6 +3364,15 @@ def _analysis_ai_context_line(
     if not metrics:
         return None
     horizon = item["calendar_days"]
+    if context["mode"] == "minimum_horizon":
+        full_days = context["full_pattern_calendar_days"]
+        return (
+            f"<b>AI context:</b> The historical analysis stays based on the real {full_days}-calendar-day pattern. "
+            f"V3's shortest AI horizon is {horizon} calendar days, so this separate current-condition reading uses that minimum: "
+            + "; ".join(metrics)
+            + ". AI Win Probability is the calibrated chance of a positive return over the 10-day AI horizon, "
+            "not an extra historical observation. It is not an exact score for the shorter pattern."
+        )
     return (
         f"<b>AI context:</b> Current-condition model for this same {horizon}-calendar-day window: "
         + "; ".join(metrics)
@@ -3774,7 +3810,14 @@ def build_ai_horizon_explanation_reply(
         full_days = int(facts.get("days") or 0)
     except (TypeError, ValueError):
         full_days = 0
-    if full_days > 90:
+    if 1 <= full_days < 10:
+        longer_pattern_line = (
+            f"<b>For this {full_days}-calendar-day pattern:</b> The historical analysis stays at "
+            f"the real {full_days}-day length. Because 10 calendar days is the model minimum, "
+            "the separate AI reading uses 10 days and is not presented as an exact score for "
+            "the shorter historical window."
+        )
+    elif full_days > 90:
         longer_pattern_line = (
             f"<b>For this {full_days}-calendar-day pattern:</b> Tara provides separate 30-, 60-, "
             "and 90-day AI-calibrated outlooks from the same entry date and direction. The "

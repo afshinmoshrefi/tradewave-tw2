@@ -97,9 +97,11 @@ def build_analysis_score_plan(
 ) -> Optional[Dict[str, Any]]:
     """Return a validated score plan for one loaded pattern.
 
-    The current like-for-like score remains primary through 90 displayed calendar
-    days. Patterns over 30 days also receive supported shorter comparisons. A longer
-    pattern receives 30/60/90 checkpoints, none labeled as its full-window score.
+    A 1-9-day source retains its historical length but uses the 10-day AI model
+    minimum. The current like-for-like score remains primary from 10 through 90
+    displayed calendar days. Patterns over 30 days also receive supported shorter
+    comparisons. A longer pattern receives 30/60/90 checkpoints, none labeled as
+    its full-window score.
     """
 
     if not isinstance(wave_viewer, Mapping):
@@ -120,7 +122,10 @@ def build_analysis_score_plan(
     except (TypeError, ValueError):
         return None
 
-    mode = "duration_comparison" if calendar_days > 30 else "pattern"
+    if calendar_days < AI_MIN_CALENDAR_DAYS:
+        mode = "minimum_horizon"
+    else:
+        mode = "duration_comparison" if calendar_days > 30 else "pattern"
     base = {
         "mode": mode,
         "full_pattern_calendar_days": calendar_days,
@@ -132,11 +137,10 @@ def build_analysis_score_plan(
         return {**base, "status": "too_early", "days_to_entry": days_to_entry}
     if days_to_entry < 0:
         return {**base, "status": "after_entry"}
-    if calendar_days < AI_MIN_CALENDAR_DAYS:
-        return {**base, "status": "unsupported_duration"}
-
     horizons: Sequence[int]
-    if mode == "duration_comparison" and calendar_days > AI_MAX_CALENDAR_DAYS:
+    if mode == "minimum_horizon":
+        horizons = (AI_MIN_CALENDAR_DAYS,)
+    elif mode == "duration_comparison" and calendar_days > AI_MAX_CALENDAR_DAYS:
         horizons = AI_CHECKPOINT_CALENDAR_DAYS
     elif mode == "duration_comparison":
         # The context scorer supplies the shorter standard horizons; this exact
@@ -289,13 +293,21 @@ def finalize_analysis_score_context(
     status = str(plan.get("status") or "")
     mode = str(plan.get("mode") or "")
     full_days = _integer(plan.get("full_pattern_calendar_days"))
-    if mode not in {"pattern", "duration_comparison", "checkpoints"} or full_days is None:
+    if mode not in {
+        "pattern",
+        "minimum_horizon",
+        "duration_comparison",
+        "checkpoints",
+    } or full_days is None:
         return None
     public = {
         "status": status,
         "mode": mode,
         "full_pattern_calendar_days": full_days,
     }
+    if mode == "minimum_horizon":
+        public["minimum_model_calendar_days"] = AI_MIN_CALENDAR_DAYS
+        public["display_horizon_days"] = AI_MIN_CALENDAR_DAYS
     if status == "too_early":
         days_to_entry = _integer(plan.get("days_to_entry"))
         if days_to_entry is not None:

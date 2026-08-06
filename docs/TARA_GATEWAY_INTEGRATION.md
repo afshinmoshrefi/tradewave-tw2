@@ -23,7 +23,10 @@ forecast.
 Loaded-pattern analysis also has a direct appserver ML enrichment path; this is separate from Tara's
 gateway tool loop. For an eligible US-stock/ETF user, `chatbot.py` discards any browser-supplied
 `ai_analysis` object and asks the callback registered by `appserver.py` for the current daily-cached
-reading. A setup from 10 through 30 calendar days gets its current-duration AI Win Probability /
+reading. For a 1-9-calendar-day setup, the historical analysis remains at its real source length,
+while the separate AI reading uses the model's 10-day minimum (`daysOut=9`, ending at entry plus
+9 days) with the same entry date and direction. Tara never labels it as an exact AI score for the
+shorter historical window. A setup from 10 through 30 calendar days gets its current-duration AI Win Probability /
 PredR / PMFE read. Above 30 days, Tara keeps that exact current reading through 90 days and adds only
 shorter standard comparisons that fit: 31-60 adds 30, while 61-90 adds 30 and 60. An 85-day setup
 therefore shows 30, 60, and the current 85 days, never 90. Above 90 days Tara uses bounded 30/60/90
@@ -40,9 +43,11 @@ than five days before entry or newly calculated
 after entry, and scorer failure degrades to the verified historical analysis rather than blocking
 Tara.
 
-Questions such as "why does AI only do the first 90 days?" are deterministic product explanations,
+Questions such as "why does this 6-day pattern show 10d?" and "why does AI only do the first 90
+days?" are deterministic product explanations,
 not provider turns. Tara explains that the models are trained and calibrated for 10-90-calendar-day
-seasonal horizons, that shorter comparisons never extend beyond the source duration, and how those
+seasonal horizons, that 1-9-day sources use the explicit 10-day AI minimum, that standard shorter
+comparisons never extend beyond the source duration, and how those
 readings complement the complete-window historical record. This prevents a provider from denying
 the real horizon boundary or diverting to an unrelated daily pick.
 

@@ -850,6 +850,35 @@ def test_analysis_compares_ai_probability_with_same_window_historical_rate():
     assert "<b>Evidence relationship:</b> agreement" in reply
 
 
+def test_short_pattern_analysis_labels_ten_day_ai_minimum_without_false_rate_comparison():
+    wave = _analysis_context([1.0, -1.0] * 10)
+    wave["days_out"] = "6"
+    wave["ai_analysis"] = {
+        "status": "available",
+        "mode": "minimum_horizon",
+        "full_pattern_calendar_days": 6,
+        "minimum_model_calendar_days": 10,
+        "display_horizon_days": 10,
+        "horizons": [{
+            "calendar_days": 10,
+            "ai_score": 74,
+            "win_probability": 0.67,
+            "predicted_return_pct": 2.6,
+            "predicted_mfe_pct": 5.1,
+        }],
+    }
+
+    reply = build_pattern_analysis_reply(
+        "Analyze this pattern", wave, {}, current_year=2026
+    )
+
+    assert "historical analysis stays based on the real 6-calendar-day pattern" in reply
+    assert "V3's shortest AI horizon is 10 calendar days" in reply
+    assert "AI Win Probability 67%" in reply
+    assert "not an exact score for the shorter pattern" in reply
+    assert "percentage point" not in reply
+
+
 def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_outlook():
     wave = _analysis_context([2.0, -1.0] * 10)
     wave["days_out"] = "133"
@@ -1354,6 +1383,8 @@ def test_signature_product_intents_are_narrow_and_do_not_wait_for_ai_scoring():
         "Why are there 30, 60, and 90 day AI scores?",
         "Why doesn't AI score this full pattern?",
         "Why are AI scores blank for a 133-day pattern?",
+        "Why does this 6-day pattern show 10d?",
+        "Explain the 10-day model minimum",
     ):
         assert is_ai_horizon_explanation_question(message)
         assert needs_pattern_ai_context(message, wave) is False
@@ -1361,6 +1392,7 @@ def test_signature_product_intents_are_narrow_and_do_not_wait_for_ai_scoring():
     assert not is_seasonality_value_question("What is seasonality?")
     assert not is_strategy_building_question("Should I trade this pattern?")
     assert not is_ai_horizon_explanation_question("What is the 90-day AI Win Probability?")
+    assert not is_ai_horizon_explanation_question("What is the 10-day AI Win Probability?")
     assert not is_ai_horizon_explanation_question("Analyze this 90-day pattern")
 
 
@@ -1390,6 +1422,23 @@ def test_ai_horizon_explanation_is_deterministic_positive_and_pattern_specific()
     assert "Today's AI pick" not in reply
     for negative_phrase in ("can't", "cannot", "outside the model", "no ai score"):
         assert negative_phrase not in reply.lower()
+
+
+def test_ai_horizon_explanation_states_short_pattern_exception_plainly():
+    wave = _analysis_context([2.0, -1.0] * 10)
+    wave["days_out"] = "6"
+
+    reply = build_ai_horizon_explanation_reply(
+        "Why does this 6-day pattern show 10d?",
+        wave,
+        {},
+        current_year=2026,
+    )
+
+    assert "For this 6-calendar-day pattern" in reply
+    assert "historical analysis stays at the real 6-day length" in reply
+    assert "10 calendar days is the model minimum" in reply
+    assert "not presented as an exact score for the shorter historical window" in reply
 
 
 def test_screen_context_is_allowlisted_and_lookback_stays_a_string():

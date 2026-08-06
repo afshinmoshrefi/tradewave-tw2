@@ -30,6 +30,14 @@ export const AI_METRICS = Object.freeze({
   }),
 })
 
+export const AI_DURATION_OUTLINE_DESCRIPTION = 'An outlined AI value means that pattern has more than one AI duration to view. Open it to compare them. The outline does not mean the score is better or worse, and it is not a warning.'
+
+export const opportunityAIHeaderTooltip = metric => {
+  const metadata = AI_METRICS[metric]
+  if (!metadata) return ''
+  return `${metadata.label} (${metadata.shortLabel}). ${metadata.description} ${AI_DURATION_OUTLINE_DESCRIPTION} For a 1-9-day historical pattern, AI uses the model's 10-day minimum. Click to sort.`
+}
+
 const CHECKPOINT_DAYS = [30, 60, 90]
 const REQUIRED_OPPORTUNITY_COLUMNS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])
 const MOBILE_OPPORTUNITY_COLUMNS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])
@@ -192,6 +200,7 @@ const normalizeHorizon = (source, fallbackStatus, fallbackReason) => {
     reason: reasonFrom(source) || fallbackReason || '',
     metrics,
     isCurrent: Boolean(source && firstDefined(source.is_current, source.isCurrent, false)),
+    isModelMinimum: Boolean(source && firstDefined(source.is_model_minimum, source.isModelMinimum, false)),
     selectedRecurrence: source && firstDefined(source.selected_recurrence, source.selectedRecurrence, null),
   }
 }
@@ -235,12 +244,21 @@ export const normalizeOpportunityAIScore = ({
     ? payload.source
     : {}
   const requestedBasis = String(firstDefined(payload && payload.basis, payload && payload.mode, '')).toLowerCase()
-  const basis = requestedBasis === 'duration_comparison' || requestedBasis === 'duration-comparison'
+  const isMinimumHorizon = fullPatternCalendarDays >= 1 && fullPatternCalendarDays < 10
+  const basis = isMinimumHorizon || [
+    'minimum_horizon',
+    'minimum-horizon',
+    'minimum_model_horizon',
+  ].includes(requestedBasis)
+    ? 'minimum_horizon'
+    : requestedBasis === 'duration_comparison' || requestedBasis === 'duration-comparison'
     ? 'duration_comparison'
     : requestedBasis === 'checkpoint' || requestedBasis === 'checkpoints' || requestedBasis === 'recalculated_checkpoints' || fullPatternCalendarDays > 90
       ? 'duration_comparison'
       : 'full_pattern'
-  const expectedDays = basis === 'duration_comparison'
+  const expectedDays = basis === 'minimum_horizon'
+    ? [10]
+    : basis === 'duration_comparison'
     ? [...new Set([
         ...CHECKPOINT_DAYS.filter(days => days < fullPatternCalendarDays),
         ...(fullPatternCalendarDays <= 90 ? [fullPatternCalendarDays] : []),
@@ -265,7 +283,11 @@ export const normalizeOpportunityAIScore = ({
   // A bundle may provide the displayed score separately from its detail list.
   if (payload && payload.display && typeof payload.display === 'object') {
     horizonList.push({
-      calendar_days: firstDefined(payload.display.calendar_days, payload.display.calendarDays, fullPatternCalendarDays > 90 ? 90 : fullPatternCalendarDays),
+      calendar_days: firstDefined(
+        payload.display.calendar_days,
+        payload.display.calendarDays,
+        basis === 'minimum_horizon' ? 10 : fullPatternCalendarDays > 90 ? 90 : fullPatternCalendarDays,
+      ),
       ...payload.display,
     })
   }
@@ -273,7 +295,9 @@ export const normalizeOpportunityAIScore = ({
   // Legacy <=90 responses are one flat score object with no horizon wrapper.
   if (payload && horizonList.length === 0) {
     horizonList.push({
-      calendar_days: fullPatternCalendarDays > 90 ? 90 : fullPatternCalendarDays,
+      calendar_days: basis === 'minimum_horizon'
+        ? 10
+        : fullPatternCalendarDays > 90 ? 90 : fullPatternCalendarDays,
       ...payload,
     })
   }
@@ -291,11 +315,14 @@ export const normalizeOpportunityAIScore = ({
       status: fallbackStatus,
       reason: fallbackReason,
       metrics: { ml_score: null, win_prob: null, pred_return: null, pred_mfe: null },
-      isCurrent: fullPatternCalendarDays <= 90 && calendarDays === fullPatternCalendarDays,
+      isCurrent: basis !== 'minimum_horizon' && fullPatternCalendarDays <= 90 && calendarDays === fullPatternCalendarDays,
+      isModelMinimum: basis === 'minimum_horizon',
       selectedRecurrence: null,
     }
   })
-  const displayCalendarDays = fullPatternCalendarDays > 90 ? 90 : fullPatternCalendarDays
+  const displayCalendarDays = basis === 'minimum_horizon'
+    ? 10
+    : fullPatternCalendarDays > 90 ? 90 : fullPatternCalendarDays
   const display = horizons.find(horizon => horizon.calendarDays === displayCalendarDays) || horizons[horizons.length - 1]
 
   return {
@@ -304,6 +331,7 @@ export const normalizeOpportunityAIScore = ({
     fullPatternCalendarDays,
     entryDate: String(firstDefined(source.date, row && row.date, '')),
     direction: String(firstDefined(source.direction, directionKey(row))).toLowerCase().startsWith('s') ? 'Short' : 'Long',
+    minimumModelCalendarDays: basis === 'minimum_horizon' ? 10 : null,
     displayCalendarDays,
     display,
     horizons,
@@ -396,6 +424,8 @@ export const shouldShowCheckpointCoachmark = ({ hasAI, seen, bundle, visible }) 
   visible &&
   bundle &&
   bundle.basis === 'duration_comparison' &&
+  Array.isArray(bundle.horizons) &&
+  bundle.horizons.length > 1 &&
   bundle.display &&
   bundle.display.status === 'available'
 )

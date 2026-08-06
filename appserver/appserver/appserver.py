@@ -113,11 +113,13 @@ from ml_checkpoint_context import (
     CheckpointProviderError,
     CheckpointScoringService,
     assemble_duration_comparison_bundle,
+    assemble_minimum_horizon_bundle,
     build_checkpoint_plan,
     build_usage_context,
     checkpoint_pending_opportunity,
     legacy_lock_key,
     legacy_score_keys,
+    model_days_out_for_source,
     normalize_legacy_score_result,
     normalize_scorer_metadata,
     read_cached_legacy_score,
@@ -1830,10 +1832,16 @@ def _ml_normalize_opportunity(value):
         return None, 'invalid_date', 'Entry date must use YYYY-MM-DD.'
     if parsed_date.strftime('%Y-%m-%d') != date_text:
         return None, 'invalid_date', 'Entry date must use YYYY-MM-DD.'
+    raw_days_out = value.get('daysOut')
+    if isinstance(raw_days_out, bool):
+        return None, 'invalid_duration', 'Pattern duration is invalid.'
     try:
-        days_out = int(value.get('daysOut'))
+        numeric_days_out = float(str(raw_days_out).strip())
     except (TypeError, ValueError):
         return None, 'invalid_duration', 'Pattern duration is invalid.'
+    if not math.isfinite(numeric_days_out) or not numeric_days_out.is_integer():
+        return None, 'invalid_duration', 'Pattern duration is invalid.'
+    days_out = int(numeric_days_out)
     direction_text = str(value.get('direction') or '').strip().lower()
     if direction_text in {'l', 'long'}:
         direction = 'l'
@@ -1848,11 +1856,11 @@ def _ml_normalize_opportunity(value):
         'daysOut': days_out,
         'direction': direction,
     }
-    if not 9 <= days_out <= 366:
+    if not 0 <= days_out <= 366:
         return (
             normalized,
             'unsupported_duration',
-            'AI scores support patterns from 10 through 367 calendar days.',
+            'AI scores support patterns from 1 through 367 calendar days.',
         )
     return normalized, None, None
 
@@ -1956,6 +1964,28 @@ def _ml_add_legacy_score(scores, sym, opp_date, days_out, direction, payload):
         scores[key] = payload
 
 
+def _ml_scoring_days_out(opportunity):
+    """Return the scorer/cache offset without changing the source row identity."""
+
+    return model_days_out_for_source(opportunity['daysOut'])
+
+
+def _ml_add_source_legacy_score(scores, opportunity, payload):
+    """Publish a score under the source keys with an honest short-horizon label."""
+
+    source_days_out = int(opportunity['daysOut'])
+    if 0 <= source_days_out < 9:
+        payload = assemble_minimum_horizon_bundle(opportunity, payload)
+    _ml_add_legacy_score(
+        scores,
+        opportunity['symbol'],
+        opportunity['date'],
+        source_days_out,
+        opportunity['direction'],
+        payload,
+    )
+
+
 def _ml_wait_for_cached_legacy(items, metadata, scores, *, wait_seconds=2.0):
     """Briefly join another worker's exact-score single flight."""
 
@@ -1964,25 +1994,49 @@ def _ml_wait_for_cached_legacy(items, metadata, scores, *, wait_seconds=2.0):
     while unresolved:
         remaining = []
         for item in unresolved:
+            scoring_days_out = _ml_scoring_days_out(item)
             cached = read_cached_legacy_score(
                 redis_client,
                 item['symbol'],
                 item['date'],
-                item['daysOut'],
+                scoring_days_out,
                 item['direction'],
                 expected_metadata=metadata,
             )
             if cached is None:
                 remaining.append(item)
             else:
-                _ml_add_legacy_score(
-                    scores,
-                    item['symbol'],
-                    item['date'],
-                    item['daysOut'],
-                    item['direction'],
-                    cached,
-                )
+                _ml_add_source_legacy_score(scores, item, cached)
+        unresolved = remaining
+        if not unresolved or time.monotonic() >= deadline:
+            break
+        time.sleep(0.1)
+    return unresolved
+
+
+def _ml_wait_for_cached_legacy_groups(
+    groups, metadata, scores, *, wait_seconds=2.0
+):
+    """Join one single flight per canonical identity and fan out to sources."""
+
+    unresolved = list(groups)
+    deadline = time.monotonic() + max(float(wait_seconds), 0.0)
+    while unresolved:
+        remaining = []
+        for identity, source_items in unresolved:
+            cached = read_cached_legacy_score(
+                redis_client,
+                identity[0],
+                identity[1],
+                identity[2],
+                identity[3],
+                expected_metadata=metadata,
+            )
+            if cached is None:
+                remaining.append((identity, source_items))
+            else:
+                for item in source_items:
+                    _ml_add_source_legacy_score(scores, item, cached)
         unresolved = remaining
         if not unresolved or time.monotonic() >= deadline:
             break
@@ -2098,7 +2152,8 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
     """Return current-condition ML context for Tara's loaded-pattern analysis.
 
     The web AI table and Tara share the same entitlement check, Redis keys, provider,
-    and daily cache. Above 30 displayed calendar days, shorter comparisons are added
+    and daily cache. A 1-9-day source uses the 10-day model minimum without changing
+    its historical length. Above 30 displayed calendar days, shorter comparisons are added
     only when they fit inside the source window. Above 90 days the returned readings
     are explicitly bounded at 30/60/90 and never labeled as a full-pattern score.
     """
@@ -2199,6 +2254,7 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
             cleaned = {}
             owned = []
             waiting = []
+            acquired_locks = []
             try:
                 for opp in tier_opps:
                     lock = redis_client.lock(
@@ -2212,6 +2268,9 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
                         blocking_timeout=0,
                     )
                     if lock.acquire(blocking=False):
+                        # Register immediately so a cache-read exception cannot
+                        # strand the distributed lock until its TTL expires.
+                        acquired_locks.append((opp, lock))
                         cached = read_cached_legacy_score(
                             redis_client,
                             opp['symbol'],
@@ -2222,7 +2281,6 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
                         )
                         if cached is not None:
                             cleaned[opp['score_key']] = cached
-                            lock.release()
                         else:
                             owned.append((opp, lock))
                     else:
@@ -2335,7 +2393,7 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
                 logging.warning('Tara AI analysis scorer unavailable for tier %s: %s', tier, exc)
                 return cleaned
             finally:
-                for _opp, lock in owned:
+                for _opp, lock in acquired_locks:
                     try:
                         lock.release()
                     except Exception:
@@ -2374,9 +2432,10 @@ app.extensions['tara_ai_analysis_context'] = _tara_ai_analysis_context
 @limiter.limit(config.rate_limit_mlscore[3])
 def MLScoreBatch(resourceID):
     """Receive opportunity tuples, return cached scores + pending list.
-    The current exact score remains primary through 90 calendar days. Patterns
-    over 30 days add supported shorter-duration comparisons; longer patterns
-    use bounded 30/60/90 checkpoints while preserving the original UI key.
+    A 1-9-day source retains its original key while using the 10-day model
+    minimum. The current exact score remains primary from 10 through 90 calendar
+    days. Patterns over 30 days add supported shorter-duration comparisons;
+    longer patterns use bounded 30/60/90 checkpoints.
     """
     token = request.args.get('token')
     userid, userlevel = _ml_check_access(token)
@@ -2433,12 +2492,9 @@ def MLScoreBatch(resourceID):
                     )
                 )
             else:
-                _ml_add_legacy_score(
+                _ml_add_source_legacy_score(
                     scores,
-                    sym,
-                    opp_date,
-                    days_out,
-                    direction,
+                    opp,
                     _ml_unavailable_legacy_score(
                         validation_code, validation_message
                     ),
@@ -2455,12 +2511,9 @@ def MLScoreBatch(resourceID):
                     )
                 )
             else:
-                _ml_add_legacy_score(
+                _ml_add_source_legacy_score(
                     scores,
-                    sym,
-                    opp_date,
-                    days_out,
-                    direction,
+                    opp,
                     _ml_unavailable_legacy_score(code, message),
                 )
             continue
@@ -2526,7 +2579,8 @@ def MLScoreBatch(resourceID):
                     checkpoint_pending_opportunity(opp, checkpoint_plan)
                 )
             continue
-        if _ml_tier(days_out) is None:
+        scoring_days_out = _ml_scoring_days_out(opp)
+        if _ml_tier(scoring_days_out) is None:
             continue
 
         if not legacy_metadata_loaded:
@@ -2543,7 +2597,7 @@ def MLScoreBatch(resourceID):
                 redis_client,
                 sym,
                 opp_date,
-                days_out,
+                scoring_days_out,
                 direction,
                 expected_metadata=legacy_metadata,
             )
@@ -2551,9 +2605,7 @@ def MLScoreBatch(resourceID):
             else None
         )
         if cached_score is not None:
-            _ml_add_legacy_score(
-                scores, sym, opp_date, days_out, direction, cached_score
-            )
+            _ml_add_source_legacy_score(scores, opp, cached_score)
         else:
             pending.append({'symbol': sym, 'date': opp_date, 'daysOut': days_out, 'direction': direction})
 
@@ -2631,12 +2683,9 @@ def MLScorePending(resourceID):
                     )
                 )
             else:
-                _ml_add_legacy_score(
+                _ml_add_source_legacy_score(
                     scores,
-                    sym,
-                    opp_date,
-                    days_out,
-                    direction,
+                    opp,
                     _ml_unavailable_legacy_score(
                         validation_code, validation_message
                     ),
@@ -2653,12 +2702,9 @@ def MLScorePending(resourceID):
                     )
                 )
             else:
-                _ml_add_legacy_score(
+                _ml_add_source_legacy_score(
                     scores,
-                    sym,
-                    opp_date,
-                    days_out,
-                    direction,
+                    opp,
                     _ml_unavailable_legacy_score(code, message),
                 )
             continue
@@ -2713,7 +2759,8 @@ def MLScorePending(resourceID):
                     (dict(opp), checkpoint_plan, checkpoint_bundle, current_score)
                 )
             continue
-        if _ml_tier(days_out) is None:
+        scoring_days_out = _ml_scoring_days_out(opp)
+        if _ml_tier(scoring_days_out) is None:
             continue
         if not legacy_metadata_loaded:
             legacy_metadata_loaded = True
@@ -2729,7 +2776,7 @@ def MLScorePending(resourceID):
                 redis_client,
                 sym,
                 opp_date,
-                days_out,
+                scoring_days_out,
                 direction,
                 expected_metadata=legacy_metadata,
             )
@@ -2737,9 +2784,7 @@ def MLScorePending(resourceID):
             else None
         )
         if cached_score is not None:
-            _ml_add_legacy_score(
-                scores, sym, opp_date, days_out, direction, cached_score
-            )
+            _ml_add_source_legacy_score(scores, opp, cached_score)
         else:
             legacy_to_score.append(opp)
 
@@ -2762,206 +2807,221 @@ def MLScorePending(resourceID):
             if int(original['daysOut']) <= 89 and current_score is None:
                 legacy_to_score.append(original)
 
-    # The existing exact-window path remains grouped by its legacy model tier.
-    legacy_chunk = legacy_to_score[:LEGACY_CHUNK_SIZE]
-    remainder.extend(legacy_to_score[LEGACY_CHUNK_SIZE:])
-    if legacy_chunk:
+    # Chunk by canonical scorer/cache identity, not by source row. Every 1-9-day
+    # source for the same symbol/date/direction shares raw scoring offset 9 and
+    # must resolve in the same poll after that one score is published.
+    legacy_groups = {}
+    for item in legacy_to_score:
+        identity = (
+            item['symbol'],
+            item['date'],
+            _ml_scoring_days_out(item),
+            item['direction'],
+        )
+        legacy_groups.setdefault(identity, []).append(item)
+    selected_legacy_groups = list(legacy_groups.items())[:LEGACY_CHUNK_SIZE]
+    remainder.extend(
+        item
+        for _identity, members in list(legacy_groups.items())[LEGACY_CHUNK_SIZE:]
+        for item in members
+    )
+    if selected_legacy_groups:
         by_tier = {}
-        for o in legacy_chunk:
-            tier = _ml_tier(o['daysOut'])
-            by_tier.setdefault(tier, []).append(o)
+        for identity, members in selected_legacy_groups:
+            tier = _ml_tier(identity[2])
+            by_tier.setdefault(tier, []).append((identity, members))
 
         ttl = _ml_ttl_seconds()
-        for tier, tier_opps in by_tier.items():
+        for tier, tier_groups in by_tier.items():
             if legacy_metadata is None:
-                remainder = tier_opps + remainder
+                remainder = [
+                    item
+                    for _identity, members in tier_groups
+                    for item in members
+                ] + remainder
                 continue
 
-            owned = []
-            waiting = []
+            unresolved = {
+                identity: list(members) for identity, members in tier_groups
+            }
+            owned_groups = []
+            waiting_groups = []
+            held_locks = []
             try:
-                for item in tier_opps:
+                for identity, members in tier_groups:
                     lock = redis_client.lock(
                         legacy_lock_key(
-                            item['symbol'],
-                            item['date'],
-                            item['daysOut'],
-                            item['direction'],
+                            identity[0],
+                            identity[1],
+                            identity[2],
+                            identity[3],
                         ),
                         timeout=60,
                         blocking_timeout=0,
                     )
                     if lock.acquire(blocking=False):
+                        # Track immediately so any exception during the cache
+                        # recheck still releases the acquired distributed lock.
+                        held_locks.append((identity, lock))
                         # A warmer or another request may have published between
                         # the first cache read and acquisition of this lock.
                         cached = read_cached_legacy_score(
                             redis_client,
-                            item['symbol'],
-                            item['date'],
-                            item['daysOut'],
-                            item['direction'],
+                            identity[0],
+                            identity[1],
+                            identity[2],
+                            identity[3],
                             expected_metadata=legacy_metadata,
                         )
                         if cached is not None:
-                            _ml_add_legacy_score(
-                                scores,
-                                item['symbol'],
-                                item['date'],
-                                item['daysOut'],
-                                item['direction'],
-                                cached,
-                            )
-                            lock.release()
+                            for item in members:
+                                _ml_add_source_legacy_score(scores, item, cached)
+                            unresolved.pop(identity, None)
                         else:
-                            owned.append((item, lock))
+                            owned_groups.append((identity, members))
                     else:
-                        waiting.append(item)
+                        waiting_groups.append((identity, members))
 
-                if not owned:
-                    remainder = _ml_wait_for_cached_legacy(
-                        waiting, legacy_metadata, scores
-                    ) + remainder
-                    continue
-
-                owned_opps = [item for item, _lock in owned]
-                scorer_opps = [
-                    {'symbol': o['symbol'], 'date': o['date'], 'daysOut': o['daysOut'], 'direction': o['direction']}
-                    for o in owned_opps
-                ]
-                resp = requests.post(
-                    f'{config.ml_scorer_url}/score',
-                    json={'opportunities': scorer_opps, 'tier': tier},
-                    timeout=30
-                )
-                if resp.status_code == 200:
-                    payload = resp.json()
-                    provider_metadata = normalize_scorer_metadata(
-                        payload.get('metadata', {}) if isinstance(payload, dict) else {}
+                if owned_groups:
+                    scorer_opps = [
+                        {
+                            'symbol': identity[0],
+                            'date': identity[1],
+                            'daysOut': identity[2],
+                            'direction': identity[3],
+                        }
+                        for identity, _members in owned_groups
+                    ]
+                    resp = requests.post(
+                        f'{config.ml_scorer_url}/score',
+                        json={'opportunities': scorer_opps, 'tier': tier},
+                        timeout=30,
                     )
-                    if not valid_scorer_metadata(provider_metadata):
+                    if resp.status_code == 200:
+                        payload = resp.json()
+                        provider_metadata = normalize_scorer_metadata(
+                            payload.get('metadata', {})
+                            if isinstance(payload, dict) else {}
+                        )
+                        if not valid_scorer_metadata(provider_metadata):
+                            logging.error(
+                                'MLScorePending scorer metadata was incomplete for tier %s',
+                                tier,
+                            )
+                        elif not scorer_metadata_matches(
+                            provider_metadata, legacy_metadata
+                        ):
+                            logging.error(
+                                'MLScorePending scorer identity changed during tier %s',
+                                tier,
+                            )
+                        else:
+                            results = (
+                                payload.get('results', [])
+                                if isinstance(payload, dict) else []
+                            )
+                            if not isinstance(results, list):
+                                results = []
+                            requested = dict(owned_groups)
+                            for result in results:
+                                if not isinstance(result, dict):
+                                    continue
+                                normalized_result, result_code, _message = (
+                                    _ml_normalize_opportunity(result)
+                                )
+                                if normalized_result is None or result_code is not None:
+                                    continue
+                                identity = (
+                                    normalized_result['symbol'],
+                                    normalized_result['date'],
+                                    normalized_result['daysOut'],
+                                    normalized_result['direction'],
+                                )
+                                matching_items = requested.get(identity)
+                                if matching_items is None:
+                                    logging.warning(
+                                        'MLScorePending ignored mismatched scorer identity for tier %s',
+                                        tier,
+                                    )
+                                    continue
+                                try:
+                                    score_data = normalize_legacy_score_result(result)
+                                except CheckpointProviderError:
+                                    logging.warning(
+                                        'MLScorePending rejected malformed scorer result for tier %s',
+                                        tier,
+                                    )
+                                    continue
+                                error = score_data.get('error')
+                                retryable = (
+                                    score_data.get('status') == 'unavailable'
+                                    and isinstance(error, dict)
+                                    and error.get('retryable') is True
+                                )
+                                if retryable:
+                                    continue
+                                try:
+                                    write_cached_legacy_score(
+                                        redis_client,
+                                        identity[0],
+                                        identity[1],
+                                        identity[2],
+                                        identity[3],
+                                        score_data,
+                                        metadata=provider_metadata,
+                                        ttl_seconds=ttl,
+                                    )
+                                except Exception as exc:
+                                    logging.error(
+                                        'MLScorePending cache write failed for %s: %s',
+                                        identity,
+                                        exc,
+                                    )
+                                    continue
+                                try:
+                                    # Temporary rolling-deploy compatibility.
+                                    redis_client.set(
+                                        _ml_redis_key(*identity),
+                                        json.dumps(score_data),
+                                        ex=ttl,
+                                    )
+                                except Exception:
+                                    logging.warning(
+                                        'MLScorePending legacy compatibility cache write failed'
+                                    )
+                                for matching in matching_items:
+                                    _ml_add_source_legacy_score(
+                                        scores, matching, score_data
+                                    )
+                                unresolved.pop(identity, None)
+                    else:
                         logging.error(
-                            'MLScorePending scorer metadata was incomplete for tier %s',
+                            'MLScorePending scorer returned HTTP %s for tier %s',
+                            resp.status_code,
                             tier,
                         )
-                        remainder = owned_opps + _ml_wait_for_cached_legacy(
-                            waiting, legacy_metadata, scores
-                        ) + remainder
-                        continue
-                    if not scorer_metadata_matches(
-                        provider_metadata, legacy_metadata
-                    ):
-                        logging.error(
-                            'MLScorePending scorer identity changed during tier %s',
-                            tier,
-                        )
-                        remainder = owned_opps + _ml_wait_for_cached_legacy(
-                            waiting, legacy_metadata, scores
-                        ) + remainder
-                        continue
-                    results = payload.get('results', []) if isinstance(payload, dict) else []
-                    if not isinstance(results, list):
-                        results = []
-                    requested = {
-                        (
-                            item['symbol'],
-                            item['date'],
-                            item['daysOut'],
-                            item['direction'],
-                        ): item
-                        for item in owned_opps
+
+                if waiting_groups:
+                    still_waiting = _ml_wait_for_cached_legacy_groups(
+                        waiting_groups, legacy_metadata, scores
+                    )
+                    still_waiting_ids = {
+                        identity for identity, _members in still_waiting
                     }
-                    fulfilled = set()
-                    for r in results:
-                        if not isinstance(r, dict):
-                            continue
-                        normalized_result, result_code, _message = (
-                            _ml_normalize_opportunity(r)
-                        )
-                        if normalized_result is None or result_code is not None:
-                            continue
-                        identity = (
-                            normalized_result['symbol'],
-                            normalized_result['date'],
-                            normalized_result['daysOut'],
-                            normalized_result['direction'],
-                        )
-                        matching = requested.get(identity)
-                        if matching is None:
-                            logging.warning(
-                                'MLScorePending ignored mismatched scorer identity for tier %s',
-                                tier,
-                            )
-                            continue
-                        try:
-                            score_data = normalize_legacy_score_result(r)
-                        except CheckpointProviderError:
-                            logging.warning(
-                                'MLScorePending rejected malformed scorer result for tier %s',
-                                tier,
-                            )
-                            continue
-                        error = score_data.get('error')
-                        retryable = (
-                            score_data.get('status') == 'unavailable'
-                            and isinstance(error, dict)
-                            and error.get('retryable') is True
-                        )
-                        if not retryable:
-                            write_cached_legacy_score(
-                                redis_client,
-                                matching['symbol'],
-                                matching['date'],
-                                matching['daysOut'],
-                                matching['direction'],
-                                score_data,
-                                metadata=provider_metadata,
-                                ttl_seconds=ttl,
-                            )
-                            # Temporary rolling-deploy compatibility only. New
-                            # readers never trust this unversioned UTC-day key.
-                            redis_client.set(
-                                _ml_redis_key(
-                                    matching['symbol'],
-                                    matching['date'],
-                                    matching['daysOut'],
-                                    matching['direction'],
-                                ),
-                                json.dumps(score_data),
-                                ex=ttl,
-                            )
-                            fulfilled.add(identity)
-                            _ml_add_legacy_score(
-                                scores,
-                                matching['symbol'],
-                                matching['date'],
-                                matching['daysOut'],
-                                matching['direction'],
-                                score_data,
-                            )
-                    remainder = [
-                        item
-                        for identity, item in requested.items()
-                        if identity not in fulfilled
-                    ] + _ml_wait_for_cached_legacy(
-                        waiting, legacy_metadata, scores
-                    ) + remainder
-                else:
-                    remainder = owned_opps + _ml_wait_for_cached_legacy(
-                        waiting, legacy_metadata, scores
-                    ) + remainder
+                    for identity, _members in waiting_groups:
+                        if identity not in still_waiting_ids:
+                            unresolved.pop(identity, None)
             except Exception as e:
                 logging.error(f'MLScorePending scorer error (tier {tier}): {e}')
-                remainder = [
-                    item for item, _lock in owned
-                ] + _ml_wait_for_cached_legacy(
-                    waiting, legacy_metadata, scores
-                ) + remainder
             finally:
-                for _item, lock in owned:
+                for _identity, lock in held_locks:
                     try:
                         lock.release()
                     except Exception:
                         logging.warning('MLScorePending single-flight lock expired')
+            remainder = [
+                item for members in unresolved.values() for item in members
+            ] + remainder
 
     # A 31-90-day comparison is complete only when both its unchanged current
     # score and every shorter checkpoint are terminal.  Publish the combined

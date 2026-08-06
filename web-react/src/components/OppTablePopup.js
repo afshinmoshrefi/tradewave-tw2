@@ -67,7 +67,7 @@ const OppTablePopup = ({ onClose, iconRect }) => {
         { title: 'SR (Sharpe Ratio)', color: accentGreen, text: 'Risk-adjusted consistency. Higher = more reliable. The table is sorted by SR by default.' },
         { title: 'TWA & TWR', color: accentPurple, text: 'TradeWave Average and TradeWave Ratio. Additional quality metrics. TWR uses peak profit (MFE) instead of final return.' },
         { title: 'TL & Price', color: accentBlue, text: 'Real-time trend score and current stock price. TL shows current price momentum (0-100).' },
-        { title: 'AIS, Win%, PredR & PMFE', color: '#818cf8', text: 'Current-condition model readings. The current score stays primary through 90 calendar days. Open a value to compare supported shorter durations; longer rows show the bounded 90-day checkpoint.' },
+        { title: 'AIS, Win%, PredR & PMFE', color: '#818cf8', text: 'Current-condition model readings. Patterns under 10 days use a clearly labeled 10-day model minimum. Patterns from 10 through 90 days use their current duration. An outline means more durations are available to compare, and longer rows show the bounded 90-day checkpoint.' },
     ]
 
     const headerBg = dark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.08)'

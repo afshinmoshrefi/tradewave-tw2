@@ -509,12 +509,19 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   additive `ml_market_eligible` bit separately from the entitlement-aware
   `ml_enabled` bit. AI targets remain limited to US stocks and ETFs in resource
   IDs `0,1,2,3,4,11`. `MLScoreBatch` and `MLScorePending` preserve the existing
-  exact complete-window scorer path through 90 inclusive CALENDAR days. That exact
-  score remains the table value. A source pattern of 31-60 days additionally asks
+  exact complete-window scorer path from 10 through 90 inclusive CALENDAR days. That
+  exact score remains the table value. For the explicit lower-bound exception, a
+  source pattern of 1-9 calendar days keeps its real historical duration and UI key,
+  while its AI calculation uses V3's 10-day minimum (`daysOut=9`, ending at entry + 9).
+  The response is labeled `basis=minimum_horizon`, displays a small `10d` marker in the
+  first visible AI column, and is not outlined because it contains only one AI duration.
+  A source pattern of 31-60 days additionally asks
   `ml_checkpoint_context.py` for a 30-day comparison; a source of 61-90 days adds
   30- and 60-day comparisons; and a source of 91-367 days uses bounded 30-, 60-,
-  and 90-day comparisons and displays 90 days. A comparison is never extended past
-  the source duration. Each request keeps the same resource, symbol, nominal entry
+  and 90-day comparisons and displays 90 days. Standard 30/60/90 comparisons are never
+  extended past the source duration; the 1-9 to 10-day model-minimum rule is the only
+  explicit extension and never changes the source historical statistics. Each request
+  keeps the same resource, symbol, nominal entry
   date, direction, string `years`, and selected recurrence requirement.
   The scorer receives inclusive `calendar_days` and derives legacy offsets
   `29/59/89`; no caller adds a day to an end date. Cold rows are deduplicated and
@@ -529,13 +536,16 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   vector. Only a profile-validation disagreement, required input-data gap, volatility
   block, or provider failure produces an unavailable dash, never a fabricated zero.
   Selected recurrence is explanation, not a rewritten feature vector or inference gate.
-  The response is additive: comparison
-  rows have a date-qualified bundle;
+  The neutral outlined cell treatment is present only when more than one AI duration is
+  available to open. It is not a quality grade, bullish/bearish signal, or warning; the
+  AI guide begins with this explanation and every AI column-heading tooltip repeats it.
+  The response is additive: comparison and minimum-horizon rows have a date-qualified bundle;
   exact-window rows retain the unchanged legacy alias so older clients keep working.
   `apiserver/appserver_client.py` prefers the qualified alias and falls back to the
   legacy one for backward compatibility.
 - **V3 checkpoint cache and warm path:** duration-comparison cache records use the `ml6`
-  namespace and atomic pointer/value writes. Identity includes the resource,
+  namespace, orchestration contract `tw2-duration-comparison-v3`, and atomic pointer/value
+  writes. Identity includes the resource,
   symbol, entry date, direction, inclusive horizon, string `years`, recurrence
   selection, contract version, model release and manifest, feature/context/profile
   schemas, complete input-data generation/source manifests, and data-as-of date.
@@ -564,9 +574,13 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   of this phase. Popular contexts retain per-context/aggregate caps and the complete
   job has a 2,500-row global safety bound; manifests report eligible, selected,
   warmed, and truncated coverage by default/popular scope. Selection accepts
-  displayed 10-367-calendar-day windows only, which are raw analytics offsets
-  `9..366`, and excludes past-entry rows. Exact current scores are warmed through
-  90 calendar days; every selected source over 30 days also warms only the standard
+  displayed 1-367-calendar-day source windows, which are raw analytics offsets
+  `0..366`, and excludes past-entry rows. For selected 1-9-day sources, the warmer
+  deduplicates by `(symbol, date, daysOut=9, direction)` and publishes that shared
+  10-day cache identity without rewriting any source row. Manifests report
+  legacy/short source rows, unique provider requests, and deduplicated rows. Exact
+  current scores are warmed from 10 through 90 calendar days; every selected source
+  over 30 days also warms only the standard
   shorter comparisons that fit inside it. A service-account-only additive OppList4
   `target_date=YYYY-MM-DD` override, resolved by
   `appserver/appserver/opportunity_table_target.py`, permits New York today/tomorrow
@@ -1505,7 +1519,10 @@ recurrence selection, and consecutive/PE mode, so Tara cannot silently analyze a
 Caller origin remains outside score identity, which makes scanner warming, the table, and Tara hit
 the same cached score for identical statistical inputs.
 
-A complete 10-90-calendar-day pattern keeps its existing complete-window AI Win%, PredR, and
+A 1-9-calendar-day pattern keeps its historical analysis at the real source length while its
+separate AI reading uses the clearly stated 10-day V3 model minimum. It uses the same entry date
+and direction, requests raw `daysOut=9`, and is never described as an exact AI score for the
+shorter historical window. A complete 10-90-calendar-day pattern keeps its existing complete-window AI Win%, PredR, and
 PMFE as the primary table and Tara reading. A 31-60-day source adds a shorter 30-day comparison;
 a 61-90-day source adds 30 and 60 days. The current duration is marked `is_current` and no
 comparison is extended beyond the original window. AIS remains available in the table and guide but is not the headline: it is
@@ -1532,8 +1549,9 @@ available if enrichment fails. The React request path has a finite polling budge
 
 AI-horizon and AI-metric questions are deterministic and open the canonical AI Scores guide.
 `tara_answer_planner.py` explains that V3 is trained and walk-forward calibrated for exact seasonal
-windows from 10 through 90 calendar days; standard shorter comparisons are added only when they
-fit inside the source duration. It also explains how neutral duration-comparison styling differs from a value
+windows from 10 through 90 calendar days. It explicitly explains the 1-9-day source to 10-day AI
+minimum rule; standard shorter comparisons are added only when they fit inside the source duration.
+It also explains how neutral duration-comparison styling differs from a value
 judgment and how early-window estimates sit beside the complete-window historical record.
 This route runs before provider selection and does not wait for a scorer call.
 

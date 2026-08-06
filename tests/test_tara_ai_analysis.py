@@ -45,6 +45,53 @@ def test_like_for_like_plan_converts_calendar_label_to_engine_days_out():
     ]
 
 
+def test_short_pattern_keeps_real_length_and_uses_ten_day_model_minimum():
+    plan = build_analysis_score_plan(
+        _wave(days="6"), today=datetime.date(2026, 8, 1)
+    )
+
+    assert plan == {
+        "mode": "minimum_horizon",
+        "full_pattern_calendar_days": 6,
+        "entry_date": "2026-08-03",
+        "status": "ready",
+        "opportunities": [{
+            "symbol": "ROST",
+            "date": "2026-08-03",
+            "daysOut": 9,
+            "direction": "l",
+            "calendar_days": 10,
+            "score_key": "ROST|9|l",
+        }],
+    }
+
+    context = finalize_analysis_score_context(
+        plan,
+        {
+            "ROST|9|l": {
+                "ml_score": 74,
+                "win_prob": 0.67,
+                "pred_return": 2.6,
+                "pred_mfe": 5.1,
+            }
+        },
+    )
+    assert context == {
+        "status": "available",
+        "mode": "minimum_horizon",
+        "full_pattern_calendar_days": 6,
+        "minimum_model_calendar_days": 10,
+        "display_horizon_days": 10,
+        "horizons": [{
+            "calendar_days": 10,
+            "ai_score": 74.0,
+            "win_probability": 0.67,
+            "predicted_return_pct": 2.6,
+            "predicted_mfe_pct": 5.1,
+        }],
+    }
+
+
 def test_long_pattern_uses_30_60_90_calendar_day_checkpoints_only():
     plan = build_analysis_score_plan(
         _wave(days="180", direction="short"), today=datetime.date(2026, 8, 1)

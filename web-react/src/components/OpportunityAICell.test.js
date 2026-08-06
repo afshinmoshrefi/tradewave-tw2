@@ -66,6 +66,32 @@ const fullBundle = {
   ],
 }
 
+const minimumBundle = {
+  key: 'AAPL|5|l',
+  basis: 'minimum_horizon',
+  fullPatternCalendarDays: 6,
+  minimumModelCalendarDays: 10,
+  entryDate: '2026-08-05',
+  direction: 'Long',
+  displayCalendarDays: 10,
+  display: {
+    calendarDays: 10,
+    status: 'available',
+    isCurrent: false,
+    isModelMinimum: true,
+    reason: '',
+    metrics: { ml_score: 73, win_prob: 0.69, pred_return: 2.5, pred_mfe: 4.9 },
+  },
+  horizons: [{
+    calendarDays: 10,
+    status: 'available',
+    isCurrent: false,
+    isModelMinimum: true,
+    reason: '',
+    metrics: { ml_score: 73, win_prob: 0.69, pred_return: 2.5, pred_mfe: 4.9 },
+  }],
+}
+
 test('checkpoint cell has no visible 90d badge and exposes 30/60/90 detail on click', () => {
   const parentClick = jest.fn()
   render(
@@ -163,6 +189,31 @@ test('full-window score keeps the legacy numeric appearance and labels the compl
   expect(button).toHaveTextContent('70.0')
   fireEvent.mouseEnter(button)
   expect(screen.getByText('Full 45-day pattern window')).toBeInTheDocument()
+})
+
+test('short pattern shows a ten-day label without the duration-comparison outline', () => {
+  render(
+    <OpportunityAICell
+      bundle={minimumBundle}
+      metric="ml_score"
+      symbol="AAPL"
+      cellId="minimum-ais"
+      showMinimumHorizonLabel
+    />
+  )
+  const button = screen.getByRole('button', {
+    name: /AI Score 73.0.*10-day AI model minimum for a 6-day historical pattern/i,
+  })
+
+  expect(button).not.toHaveClass('opp-ai-cell--checkpoint')
+  expect(button).toHaveTextContent('73.0')
+  expect(button).toHaveTextContent('10d')
+  fireEvent.click(button)
+  expect(screen.getByText('10-day AI reading for a shorter pattern')).toBeInTheDocument()
+  expect(screen.getByText(/6-day historical pattern; AI uses the 10-day model minimum/i)).toBeInTheDocument()
+  expect(screen.getByText(/historical pattern and its statistics stay at 6 calendar days/i)).toBeInTheDocument()
+  expect(screen.getByText('model minimum')).toBeInTheDocument()
+  expect(screen.queryByText('current')).not.toBeInTheDocument()
 })
 
 test('first-use coachmark uses the checkpoint wording and remains actionable', () => {

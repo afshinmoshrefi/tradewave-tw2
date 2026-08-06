@@ -158,11 +158,14 @@ def test_staged_pipeline_accounts_for_mixed_score_and_metadata_writes():
 
 
 class LegacyScoreHTTP:
+    def __init__(self):
+        self.posts = []
+
     def post(self, url, json, timeout):
         assert url == "http://scorer/score"
         assert json["tier"] == "10_30"
         assert timeout == 60
-        requested = json["opportunities"][0]
+        self.posts.append(json)
         return FakeResponse(
             {
                 "metadata": METADATA,
@@ -174,6 +177,7 @@ class LegacyScoreHTTP:
                         "pred_return": 4.2,
                         "pred_mfe": 6.7,
                     }
+                    for requested in json["opportunities"]
                 ]
             }
         )
@@ -423,6 +427,50 @@ def test_popular_views_are_retargeted_refetched_and_aggregated(monkeypatch):
     assert [row["symbol"] for row in contexts[0]["opportunities"]] == ["FRESH"]
 
 
+def test_popular_one_to_nine_day_view_refetches_engine_zero_to_eight(monkeypatch):
+    monkeypatch.setattr(prefetch, "_prefetch_token", lambda: "test-token")
+    target = dt.date(2026, 8, 6)
+    logical = [{
+        "resource_id": "2",
+        "views": 5,
+        "table_context": {
+            "years": "20",
+            "partial": {"min_winning_years": "17", "mode": "consecutive"},
+            "mode": "consecutive",
+            "date": "2026-08-06",
+            "day_range": "1-9",
+            "is_default": False,
+        },
+    }]
+
+    class ShortHTTP:
+        def __init__(self):
+            self.url = ""
+
+        def get(self, url, params, timeout):
+            self.url = url
+            assert params["target_date"] == "2026-08-06"
+            assert timeout == 90
+            return FakeResponse({
+                "OppList": [
+                    ["2026-08-06", "FIRST", 0, "Long"],
+                    ["2026-08-06", "SHORT", 8, "Long"],
+                ]
+            })
+
+    http = ShortHTTP()
+    contexts, failures = prefetch.fetch_target_contexts(
+        logical_contexts=logical,
+        target=target,
+        http_client=http,
+        appserver_url="http://127.0.0.1:5000",
+    )
+
+    assert failures == []
+    assert "/OppList4/2/August/6/20/17/0-8/0/0" in http.url
+    assert [row["daysOut"] for row in contexts[0]["opportunities"]] == [0, 8]
+
+
 def test_authoritative_default_refetch_is_not_cut_to_telemetry_row_limit(monkeypatch):
     monkeypatch.setattr(prefetch, "_prefetch_token", lambda: "test-token")
     target = dt.date(2026, 8, 6)
@@ -514,6 +562,85 @@ def test_legacy_warm_writes_versioned_value_and_pointer_with_atomic_expiry():
     }
 
 
+def test_legacy_warm_fans_short_sources_into_one_ten_day_cache_identity():
+    redis_client = StrictSetRedis()
+    http_client = LegacyScoreHTTP()
+    rows = [
+        {
+            "symbol": "AAPL",
+            "date": "2026-08-06",
+            "daysOut": days_out,
+            "direction": "l",
+        }
+        for days_out in (0, 5, 8, 9)
+    ]
+    completed, failures = prefetch.warm_legacy_rows(
+        rows,
+        redis_client=redis_client,
+        http_client=http_client,
+        scorer_url="http://scorer",
+        expected_metadata=METADATA,
+        ttl_seconds=321,
+        request_batch_size=25,
+    )
+
+    assert completed == 4
+    assert failures == []
+    assert len(http_client.posts) == 1
+    assert http_client.posts[0]["opportunities"] == [{
+        "symbol": "AAPL",
+        "date": "2026-08-06",
+        "daysOut": 9,
+        "direction": "l",
+    }]
+    assert len(redis_client.set_calls) == 2
+    assert read_cached_legacy_score(
+        redis_client,
+        "AAPL",
+        "2026-08-06",
+        9,
+        "l",
+        expected_metadata=METADATA,
+    )["ml_score"] == 81.0
+    assert read_cached_legacy_score(
+        redis_client,
+        "AAPL",
+        "2026-08-06",
+        8,
+        "l",
+        expected_metadata=METADATA,
+    ) is None
+
+
+def test_short_warm_does_not_share_across_date_or_direction():
+    redis_client = StrictSetRedis()
+    http_client = LegacyScoreHTTP()
+    rows = [
+        {"symbol": "AAPL", "date": "2026-08-06", "daysOut": 0, "direction": "l"},
+        {"symbol": "AAPL", "date": "2026-08-06", "daysOut": 8, "direction": "s"},
+        {"symbol": "AAPL", "date": "2026-08-07", "daysOut": 5, "direction": "l"},
+    ]
+
+    completed, failures = prefetch.warm_legacy_rows(
+        rows,
+        redis_client=redis_client,
+        http_client=http_client,
+        scorer_url="http://scorer",
+        expected_metadata=METADATA,
+        ttl_seconds=321,
+        request_batch_size=25,
+    )
+
+    assert completed == 3
+    assert failures == []
+    assert len(http_client.posts) == 1
+    assert http_client.posts[0]["opportunities"] == [
+        {"symbol": "AAPL", "date": "2026-08-06", "daysOut": 9, "direction": "l"},
+        {"symbol": "AAPL", "date": "2026-08-06", "daysOut": 9, "direction": "s"},
+        {"symbol": "AAPL", "date": "2026-08-07", "daysOut": 9, "direction": "l"},
+    ]
+
+
 def test_legacy_unavailable_reason_is_vix_only_when_scorer_says_vix():
     generic = prefetch._terminal_legacy_score(
         {"status": "unavailable", "error": "profile missing"}
@@ -595,7 +722,7 @@ def test_retryable_provider_states_cannot_publish_as_warm():
     assert checkpoint_failures and "retryable provider state" in checkpoint_failures[0]
 
 
-def test_warm_selection_accepts_displayed_10_through_367_calendar_days_only():
+def test_warm_selection_accepts_displayed_1_through_367_calendar_days():
     context = {
         "resource_id": "2",
         "context_hash": "bounded-days",
@@ -609,7 +736,8 @@ def test_warm_selection_accepts_displayed_10_through_367_calendar_days_only():
                 "partial": "17",
             }
             for symbol, days_out in (
-                ("TOOLOW", 8),
+                ("FIRST", 0),
+                ("SHORT", 8),
                 ("LOW", 9),
                 ("HIGH", 366),
                 ("TOOHIGH", 367),
@@ -624,10 +752,15 @@ def test_warm_selection_accepts_displayed_10_through_367_calendar_days_only():
     )
 
     assert [(row["symbol"], row["daysOut"]) for _resource, row in selected] == [
+        ("FIRST", 0),
+        ("SHORT", 8),
         ("LOW", 9),
         ("HIGH", 366),
     ]
-    assert prefetch._legacy_tier(8) is None
+    assert prefetch._opplist_engine_day_range("1-9") == "0-8"
+    assert prefetch._legacy_tier(-1) is None
+    assert prefetch._legacy_tier(0) == "10_30"
+    assert prefetch._legacy_tier(8) == "10_30"
     assert prefetch._legacy_tier(9) == "10_30"
     assert prefetch._legacy_tier(89) == "61_90"
     assert prefetch._legacy_tier(90) is None
@@ -822,6 +955,12 @@ def test_complete_generation_and_active_pointer_publish_atomically(
     assert manifest["eligible_rows"] == 0
     assert manifest["warmed_rows"] == 0
     assert manifest["staged_terminal_rows"] == 0
+    assert manifest["legacy_source_rows"] == 0
+    assert manifest["legacy_unique_requests"] == 0
+    assert manifest["legacy_deduplicated_rows"] == 0
+    assert manifest["short_source_rows"] == 0
+    assert manifest["short_unique_requests"] == 0
+    assert manifest["short_deduplicated_rows"] == 0
     assert manifest["truncated_rows"] == 0
     assert manifest["selection_truncated"] is False
     assert manifest["selection_coverage"]["limits"] == {
@@ -845,6 +984,7 @@ def test_complete_generation_and_active_pointer_publish_atomically(
     }
     assert active["target_table_date"] == "2026-08-06"
     assert active["scorer_data_as_of"] == "2026-08-05"
+    assert active["contract_version"] == prefetch.CONTEXT_CONTRACT_VERSION
 
     monkeypatch.setenv("TW2_ML_PREFETCH_MAX_ROWS", "181")
     assert prefetch.run_prefetch(
@@ -902,6 +1042,9 @@ def test_complete_manifest_reports_warmed_default_scope(tmp_path, monkeypatch):
     assert manifest["eligible_rows"] == 1
     assert manifest["selected_rows"] == 1
     assert manifest["staged_terminal_rows"] == 1
+    assert manifest["legacy_source_rows"] == 1
+    assert manifest["legacy_unique_requests"] == 1
+    assert manifest["legacy_deduplicated_rows"] == 0
     assert manifest["warmed_rows"] == 1
     assert manifest["selection_coverage"]["default"]["warmed_rows"] == 1
     assert manifest["selection_coverage"]["popular"]["warmed_rows"] == 0

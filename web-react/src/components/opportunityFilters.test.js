@@ -177,6 +177,31 @@ test('long-pattern AI sort and filters use the displayed 90-day checkpoint, not 
   expect(sortOpportunityRows([displayedLong, fullWindow], 'ml_score', 'd').map(row => row.symbol)).toEqual(['FULL', 'LONG'])
 })
 
+test('short-pattern AI sort and filters use the displayed ten-day model minimum', () => {
+  const source = { symbol: 'SHORT', date: '2026-08-05', daysOut: 6, lOrS: 'Long' }
+  const bundle = normalizeOpportunityAIScore({
+    row: source,
+    scores: {
+      'SHORT|2026-08-05|5|l': {
+        basis: 'minimum_model_horizon',
+        horizons: [{
+          calendar_days: 10,
+          status: 'available',
+          ml_score: 82,
+          win_prob: 0.71,
+          pred_return: 3.4,
+          pred_mfe: 6.2,
+        }],
+      },
+    },
+  })
+  const displayedShort = { ...source, ...opportunityAIFlatFields(bundle) }
+  const lower = { symbol: 'LOWER', daysOut: 20, ml_score: 70, win_prob: 0.6, pred_return: 2, pred_mfe: 4 }
+
+  expect(filterOpportunityRows([displayedShort, lower], 'ais>80').map(row => row.symbol)).toEqual(['SHORT'])
+  expect(sortOpportunityRows([displayedShort, lower], 'ml_score', 'd').map(row => row.symbol)).toEqual(['SHORT', 'LOWER'])
+})
+
 test('below-threshold AI readings remain null and sort below real zero in both directions', () => {
   const source = { symbol: 'BELOW', date: '2026-08-05', daysOut: 120, lOrS: 'Long' }
   const bundle = normalizeOpportunityAIScore({

@@ -15,6 +15,7 @@ import {
   normalizeOpportunityAIScore,
   opportunityAIFlatFields,
   opportunityAIHeaderColor,
+  opportunityAIHeaderTooltip,
   opportunityTableMinimumWidth,
   selectOpportunityVisibleColumns,
 } from './opportunityAIScores'
@@ -333,16 +334,16 @@ const TableBox = ({
         tmpDict_tt['price'] = 'Current real-time price. Green = up today, Red = down today. Hover for % change. Click to sort.'
       } else if (k === 'ml_score') {
         tmpDict['ml_score'] = 'AIS'
-        tmpDict_tt['ml_score'] = 'AI Score (0-100) - the direction-adjusted PredR percentile within this horizon tier. It is a relative rank, not a probability. Open a value to compare supported shorter durations. Click to sort.'
+        tmpDict_tt['ml_score'] = opportunityAIHeaderTooltip('ml_score')
       } else if (k === 'win_prob') {
         tmpDict['win_prob'] = 'Win%'
-        tmpDict_tt['win_prob'] = 'AI Win Probability - calibrated profitable share for the matching predicted-return calibration bin. Open a value to compare supported shorter durations. Click to sort.'
+        tmpDict_tt['win_prob'] = opportunityAIHeaderTooltip('win_prob')
       } else if (k === 'pred_return') {
         tmpDict['pred_return'] = 'PredR'
-        tmpDict_tt['pred_return'] = 'Predicted Return (%) - direction-adjusted close-to-close ensemble estimate at the horizon. Open a value to compare supported shorter durations. Click to sort.'
+        tmpDict_tt['pred_return'] = opportunityAIHeaderTooltip('pred_return')
       } else if (k === 'pred_mfe') {
         tmpDict['pred_mfe'] = 'PMFE'
-        tmpDict_tt['pred_mfe'] = 'Predicted MFE (%) - direction-adjusted maximum favorable excursion estimate within the horizon. It is not a target. Open a value to compare supported shorter durations. Click to sort.'
+        tmpDict_tt['pred_mfe'] = opportunityAIHeaderTooltip('pred_mfe')
       } else {
         tmpDict[k] = k
       }
@@ -462,7 +463,7 @@ const TableBox = ({
                       <button
                         type="button"
                         className="opp-ai-header-help"
-                        aria-label={`About ${AI_METRICS[title].label} and AI checkpoints`}
+                        aria-label={`About ${AI_METRICS[title].label} and AI durations`}
                         onClick={event => { event.stopPropagation(); openAIHelp(event) }}
                       >?</button>
                     )}
@@ -538,6 +539,7 @@ const TableBox = ({
                             metric={key}
                             symbol={row.symbol}
                             cellId={`${row.aiBundle && row.aiBundle.key}-${key}-${index}`}
+                            showMinimumHorizonLabel={key === firstAICol}
                             showCoachmark={checkpointCoachmarkVisible && row === checkpointCoachmarkTarget && key === firstAICol}
                             onDismissCoachmark={dismissCheckpointCoachmark}
                             onOpenHelp={openAIHelp}

@@ -49,6 +49,7 @@ from ml_checkpoint_context import (  # noqa: E402
     build_checkpoint_plan,
     build_usage_context,
     metadata_fingerprint,
+    model_days_out_for_source,
     normalize_legacy_score_result,
     normalize_scorer_metadata,
     ranked_usage_contexts,
@@ -571,8 +572,9 @@ def _opplist_engine_day_range(displayed_range: Any) -> Optional[str]:
     if match is None:
         raise ValueError("invalid displayed day range")
     # Entry day is calendar day 1, while OppList4 stores the zero-based engine
-    # offset.  Intersect with the ML-supported displayed 10..367 day range.
-    raw_start = max(int(match.group(1)) - 1, 9)
+    # offset. Intersect with the TradeWave source range of 1..367 days. Source
+    # rows under 10 days are later mapped to V3's 10-day scoring identity.
+    raw_start = max(int(match.group(1)) - 1, 0)
     raw_end = min(int(match.group(2)) - 1, 366)
     if raw_start > raw_end:
         return None
@@ -734,9 +736,9 @@ def _normalized_eligible_opportunity(
     if not numeric_days.is_integer():
         return None
     days_out = int(numeric_days)
-    # OppList4 supplies the analytics-engine offset. Eligible displayed
-    # windows are 10..367 inclusive calendar days, hence raw 9..366.
-    if not 9 <= days_out <= 366:
+    # OppList4 supplies the analytics-engine offset. Eligible source windows
+    # are 1..367 inclusive calendar days, hence raw 0..366.
+    if not 0 <= days_out <= 366:
         return None
     identity = (
         resource_id,
@@ -860,14 +862,14 @@ def _selected_opportunities(
 
 
 def _legacy_tier(days_out: int) -> Optional[str]:
-    # Legacy scoring handles displayed 10..90 inclusive calendar days. Raw
-    # analytics offsets are therefore 9..89. Duration comparisons are warmed
-    # separately for every raw offset from 30 upward.
-    if not 9 <= days_out <= 89:
+    # Source patterns span 1..90 inclusive calendar days here. V3's minimum
+    # model horizon is 10 days, so raw offsets 0..8 share scoring offset 9.
+    if not 0 <= days_out <= 89:
         return None
-    if days_out <= 30:
+    scoring_days_out = model_days_out_for_source(days_out)
+    if scoring_days_out <= 30:
         return "10_30"
-    if days_out <= 60:
+    if scoring_days_out <= 60:
         return "31_60"
     return "61_90"
 
@@ -888,24 +890,36 @@ def warm_legacy_rows(
     ttl_seconds: int,
     request_batch_size: int,
 ) -> Tuple[int, List[str]]:
-    by_tier: Dict[str, List[Mapping[str, Any]]] = {}
+    by_tier: Dict[
+        str,
+        Dict[Tuple[str, str, int, str], List[Mapping[str, Any]]],
+    ] = {}
     for opportunity in rows:
         tier = _legacy_tier(int(opportunity["daysOut"]))
         if tier is not None:
-            by_tier.setdefault(tier, []).append(opportunity)
+            scoring_identity = (
+                str(opportunity["symbol"]),
+                str(opportunity["date"]),
+                model_days_out_for_source(opportunity["daysOut"]),
+                str(opportunity["direction"]),
+            )
+            by_tier.setdefault(tier, {}).setdefault(
+                scoring_identity, []
+            ).append(opportunity)
     completed = 0
     failures: List[str] = []
-    for tier, tier_rows in by_tier.items():
-        for start in range(0, len(tier_rows), request_batch_size):
-            batch = tier_rows[start : start + request_batch_size]
+    for tier, tier_groups in by_tier.items():
+        groups = list(tier_groups.items())
+        for start in range(0, len(groups), request_batch_size):
+            batch = groups[start : start + request_batch_size]
             provider_rows = [
                 {
-                    "symbol": row["symbol"],
-                    "date": row["date"],
-                    "daysOut": int(row["daysOut"]),
-                    "direction": row["direction"],
+                    "symbol": identity[0],
+                    "date": identity[1],
+                    "daysOut": identity[2],
+                    "direction": identity[3],
                 }
-                for row in batch
+                for identity, _source_rows in batch
             ]
             try:
                 response = http_client.post(
@@ -939,17 +953,11 @@ def warm_legacy_rows(
                     for item in results
                     if isinstance(item, Mapping)
                 }
-                for row in batch:
-                    identity = (
-                        str(row["symbol"]),
-                        str(row["date"]),
-                        int(row["daysOut"]),
-                        str(row["direction"]),
-                    )
+                for identity, source_rows in batch:
                     result = result_map.get(identity)
                     if result is None:
                         failures.append(
-                            f"legacy {tier}: missing {row['symbol']} {row['daysOut']}"
+                            f"legacy {tier}: missing {identity[0]} {identity[2]}"
                         )
                         continue
                     try:
@@ -965,26 +973,26 @@ def warm_legacy_rows(
                     ):
                         failures.append(
                             f"legacy {tier}: retryable provider state for "
-                            f"{row['symbol']} {row['daysOut']}"
+                            f"{identity[0]} {identity[2]}"
                         )
                         continue
                     try:
                         write_cached_legacy_score(
                             redis_client,
-                            row["symbol"],
-                            row["date"],
-                            row["daysOut"],
-                            row["direction"],
+                            identity[0],
+                            identity[1],
+                            identity[2],
+                            identity[3],
                             score,
                             metadata=response_metadata,
                             ttl_seconds=ttl_seconds,
                         )
                         round_trip = read_cached_legacy_score(
                             redis_client,
-                            row["symbol"],
-                            row["date"],
-                            row["daysOut"],
-                            row["direction"],
+                            identity[0],
+                            identity[1],
+                            identity[2],
+                            identity[3],
                             expected_metadata=expected_metadata,
                         )
                     except CheckpointProviderError as exc:
@@ -993,10 +1001,10 @@ def warm_legacy_rows(
                     if round_trip != score:
                         failures.append(
                             f"legacy {tier}: cache verification failed for "
-                            f"{row['symbol']} {row['daysOut']}"
+                            f"{identity[0]} {identity[2]}"
                         )
                         continue
-                    completed += 1
+                    completed += len(source_rows)
             except Exception as exc:
                 failures.append(f"legacy {tier}: {type(exc).__name__}")
     return completed, failures
@@ -1155,6 +1163,8 @@ def run_prefetch(
     active = _decode_json(redis_client.get(ACTIVE_GENERATION_KEY))
     if (
         isinstance(active, Mapping)
+        and str(active.get("contract_version") or "")
+        == CONTEXT_CONTRACT_VERSION
         and str(active.get("latest_us_date") or "") == str(status["latest_us_date"])
         and str(active.get("target_table_date") or "")
         == str(status["target_table_date"])
@@ -1256,6 +1266,37 @@ def run_prefetch(
             ttl_seconds=ttl_seconds,
             request_timeout=60,
         )
+        legacy_rows = [
+            opportunity
+            for _resource_id, opportunity in selected
+            if int(opportunity["daysOut"]) < 90
+        ]
+        checkpoint_rows = [
+            (resource_id, opportunity)
+            for resource_id, opportunity in selected
+            if int(opportunity["daysOut"]) >= 30
+        ]
+        legacy_identities = {
+            (
+                str(row["symbol"]),
+                str(row["date"]),
+                model_days_out_for_source(row["daysOut"]),
+                str(row["direction"]),
+            )
+            for row in legacy_rows
+        }
+        short_source_rows = [
+            row for row in legacy_rows if int(row["daysOut"]) < 9
+        ]
+        short_identities = {
+            (
+                str(row["symbol"]),
+                str(row["date"]),
+                model_days_out_for_source(row["daysOut"]),
+                str(row["direction"]),
+            )
+            for row in short_source_rows
+        }
         warming_manifest = {
             "status": "warming",
             "generation_id": generation_id,
@@ -1270,19 +1311,14 @@ def run_prefetch(
             "truncated_rows": selection_coverage["truncated_rows"],
             "selection_truncated": selection_coverage["truncated"],
             "selection_coverage": selection_coverage,
+            "legacy_source_rows": len(legacy_rows),
+            "legacy_unique_requests": len(legacy_identities),
+            "legacy_deduplicated_rows": len(legacy_rows) - len(legacy_identities),
+            "short_source_rows": len(short_source_rows),
+            "short_unique_requests": len(short_identities),
+            "short_deduplicated_rows": len(short_source_rows) - len(short_identities),
         }
         _write_manifest(redis_client, manifest_key, warming_manifest)
-
-        legacy_rows = [
-            opportunity
-            for _resource_id, opportunity in selected
-            if int(opportunity["daysOut"]) < 90
-        ]
-        checkpoint_rows = [
-            (resource_id, opportunity)
-            for resource_id, opportunity in selected
-            if int(opportunity["daysOut"]) >= 30
-        ]
         legacy_completed, legacy_failures = warm_legacy_rows(
             legacy_rows,
             redis_client=publication,
@@ -1397,6 +1433,7 @@ def run_prefetch(
         active_pointer = {
             "generation_id": generation_id,
             "manifest_key": manifest_key,
+            "contract_version": CONTEXT_CONTRACT_VERSION,
             "latest_us_date": str(status["latest_us_date"]),
             "target_table_date": target.isoformat(),
             "scorer_data_as_of": scorer_data_as_of,

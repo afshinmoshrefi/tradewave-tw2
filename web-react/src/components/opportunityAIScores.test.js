@@ -1,10 +1,13 @@
 const {
+  AI_COLUMNS,
+  AI_DURATION_OUTLINE_DESCRIPTION,
   advanceOpportunityAIPollBudget,
   findOpportunityAIScore,
   formatOpportunityAIMetric,
   normalizeOpportunityAIScore,
   opportunityAIFlatFields,
   opportunityAIHeaderColor,
+  opportunityAIHeaderTooltip,
   opportunityAILegacyKey,
   opportunityAIReasonCopy,
   opportunityTableMinimumWidth,
@@ -40,6 +43,77 @@ test('keeps legacy flat scores compatible for a full-window pattern', () => {
     pred_return: -1.2,
     pred_mfe: 4.5,
     ml_pending: false,
+  })
+})
+
+test('labels a short historical pattern with the ten-day AI model minimum', () => {
+  const row = { symbol: 'AAPL', date: '2026-08-05', daysOut: 6, lOrS: 'Long' }
+  const scores = {
+    'AAPL|2026-08-05|5|l': {
+      basis: 'minimum_model_horizon',
+      full_pattern_calendar_days: 6,
+      display_horizon_days: 10,
+      source: { date: '2026-08-05', direction: 'l', calendar_days: 6 },
+      horizons: [{
+        calendar_days: 10,
+        daysOut: 9,
+        status: 'available',
+        is_model_minimum: true,
+        ml_score: 73,
+        win_prob: 0.69,
+        pred_return: 2.5,
+        pred_mfe: 4.9,
+      }],
+    },
+  }
+
+  const bundle = normalizeOpportunityAIScore({ row, scores })
+
+  expect(bundle).toMatchObject({
+    basis: 'minimum_horizon',
+    fullPatternCalendarDays: 6,
+    minimumModelCalendarDays: 10,
+    displayCalendarDays: 10,
+    display: {
+      calendarDays: 10,
+      status: 'available',
+      isCurrent: false,
+      isModelMinimum: true,
+    },
+  })
+  expect(bundle.horizons).toHaveLength(1)
+  expect(opportunityAIFlatFields(bundle)).toMatchObject({
+    ml_score: 73,
+    win_prob: 0.69,
+    pred_return: 2.5,
+    pred_mfe: 4.9,
+    ml_pending: false,
+  })
+  expect(shouldShowCheckpointCoachmark({ hasAI: true, seen: false, visible: true, bundle })).toBe(false)
+})
+
+test('shows a pending short row at the ten-day minimum before a score arrives', () => {
+  const row = { symbol: 'AAPL', date: '2026-08-05', daysOut: 4, lOrS: 'Long' }
+  const bundle = normalizeOpportunityAIScore({
+    row,
+    scores: {},
+    pendingKeys: new Set(['AAPL|3|l']),
+    loading: true,
+  })
+
+  expect(bundle).toMatchObject({
+    basis: 'minimum_horizon',
+    fullPatternCalendarDays: 4,
+    displayCalendarDays: 10,
+    display: { calendarDays: 10, status: 'loading', isCurrent: false },
+  })
+})
+
+test('all AI heading tooltips explain the outline and short-pattern minimum', () => {
+  AI_COLUMNS.forEach(metric => {
+    const tooltip = opportunityAIHeaderTooltip(metric)
+    expect(tooltip).toContain(AI_DURATION_OUTLINE_DESCRIPTION)
+    expect(tooltip).toMatch(/1-9-day historical pattern.*10-day minimum/i)
   })
 })
 

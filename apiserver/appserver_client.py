@@ -705,7 +705,8 @@ def ml_scores(market, items):
 
     `items` is a list of {symbol, date, days_out, direction(long|short)}.
     Returns a list of contract MLScore dicts aligned 1:1 with `items` (None where the
-    appserver could not score, e.g. days_out out of the 10-90 range).
+    appserver could not score, e.g. days_out out of the public API's exact
+    10-90 calendar-day range).
     """
     # Build the appserver request body (internal uses elapsed daysOut + raw l/s direction).
     # The public v1 contract remains exact-window-only through 90 inclusive
@@ -716,7 +717,7 @@ def ml_scores(market, items):
     out = [None] * len(items)
     for index, it in enumerate(items):
         display_days = int(it["days_out"])
-        if display_days > 90:
+        if not 10 <= display_days <= 90:
             continue
         norm.append({
             "symbol": it["symbol"],

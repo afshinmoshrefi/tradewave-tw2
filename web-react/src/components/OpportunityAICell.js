@@ -56,7 +56,10 @@ const recurrenceEvidence = horizon => {
 
 const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId }) => {
   const metadata = AI_METRICS[metric]
-  const isDurationComparison = bundle.basis === 'duration_comparison' || bundle.basis === 'checkpoint'
+  const isDurationComparison = (
+    bundle.basis === 'duration_comparison' || bundle.basis === 'checkpoint'
+  ) && Array.isArray(bundle.horizons) && bundle.horizons.length > 1
+  const isMinimumHorizon = bundle.basis === 'minimum_horizon'
   return (
     <div
       id={detailId}
@@ -71,16 +74,20 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId })
       <div className="opp-ai-detail__title">
         {isDurationComparison
           ? 'How this pattern changes by duration'
-          : metadata.label}
+          : isMinimumHorizon
+            ? '10-day AI reading for a shorter pattern'
+            : metadata.label}
       </div>
-      {isDurationComparison && (
+      {(isDurationComparison || isMinimumHorizon) && (
         <div className="opp-ai-detail__metric">{metadata.label}</div>
       )}
       <div className="opp-ai-detail__description">{metadata.description}</div>
       <div className="opp-ai-detail__basis">
         {isDurationComparison
           ? `${bundle.fullPatternCalendarDays}-day pattern duration comparison`
-          : `Full ${bundle.fullPatternCalendarDays}-day pattern window`}
+          : isMinimumHorizon
+            ? `${bundle.fullPatternCalendarDays}-day historical pattern; AI uses the 10-day model minimum`
+            : `Full ${bundle.fullPatternCalendarDays}-day pattern window`}
       </div>
       <div className="opp-ai-detail__context">
         Entry {bundle.entryDate || 'date unavailable'} · {bundle.direction || 'Direction unavailable'}
@@ -88,6 +95,11 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId })
       {isDurationComparison && (
         <div className="opp-ai-detail__checkpoint-note">
           V3 scores each recalculated duration. The recurrence line separately shows whether that duration still meets your selected historical screen.
+        </div>
+      )}
+      {isMinimumHorizon && (
+        <div className="opp-ai-detail__checkpoint-note">
+          The historical pattern and its statistics stay at {bundle.fullPatternCalendarDays} calendar days. V3's shortest AI horizon is 10 calendar days, so only this separate AI reading covers 10 days.
         </div>
       )}
       <table className="opp-ai-detail__table">
@@ -105,6 +117,9 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId })
                 )}
                 {!horizon.isCurrent && bundle.fullPatternCalendarDays > 90 && horizon.calendarDays === bundle.displayCalendarDays && (
                   <span className="opp-ai-detail__shown">shown</span>
+                )}
+                {isMinimumHorizon && horizon.calendarDays === bundle.displayCalendarDays && (
+                  <span className="opp-ai-detail__shown">model minimum</span>
                 )}
               </td>
               <td>
@@ -166,6 +181,7 @@ const OpportunityAICell = ({
   metric,
   symbol,
   cellId,
+  showMinimumHorizonLabel = false,
   showCoachmark = false,
   onDismissCoachmark,
   onOpenHelp,
@@ -209,7 +225,10 @@ const OpportunityAICell = ({
   if (!metadata || !bundle) return <span className="opp-ai-state opp-ai-state--unavailable">—</span>
 
   const display = bundle && bundle.display
-  const isDurationComparison = bundle.basis === 'duration_comparison' || bundle.basis === 'checkpoint'
+  const isDurationComparison = (
+    bundle.basis === 'duration_comparison' || bundle.basis === 'checkpoint'
+  ) && Array.isArray(bundle.horizons) && bundle.horizons.length > 1
+  const isMinimumHorizon = bundle.basis === 'minimum_horizon'
   const state = display ? display.status : 'unavailable'
   const formatted = state === 'available'
     ? formatOpportunityAIMetric(metric, display.metrics[metric])
@@ -219,7 +238,9 @@ const OpportunityAICell = ({
     : opportunityAICompactStatus(display)
   const horizonCopy = isDurationComparison
     ? `${bundle.displayCalendarDays}-day displayed horizon with duration comparison`
-    : `full ${bundle ? bundle.fullPatternCalendarDays : ''}-day window`
+    : isMinimumHorizon
+      ? `10-day AI model minimum for a ${bundle.fullPatternCalendarDays}-day historical pattern`
+      : `full ${bundle ? bundle.fullPatternCalendarDays : ''}-day window`
   const detailId = `opp-ai-detail-${safeIdPart(cellId || `${symbol}-${metric}-${bundle && bundle.key}`)}`
   const ariaLabel = state === 'loading'
     ? `Loading ${metadata.label} for ${symbol}, ${horizonCopy}`
@@ -254,6 +275,9 @@ const OpportunityAICell = ({
           <span className="opp-ai-cell__value" aria-hidden="true">
             {state === 'loading' ? <CellSpinner /> : formatted}
           </span>
+          {isMinimumHorizon && showMinimumHorizonLabel && (
+            <span className="opp-ai-cell__minimum-label" aria-hidden="true">10d</span>
+          )}
           {compactState && (
             <span className="opp-ai-cell__status" aria-hidden="true">{compactState}</span>
           )}

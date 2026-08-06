@@ -241,6 +241,19 @@ def test_public_scoring_keeps_long_checkpoint_contract_unsupported_and_refundabl
     assert calls == []
 
 
+def test_public_scoring_keeps_sub_ten_minimum_horizon_out_of_exact_api_contract(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ac, "post", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    result = ac.ml_scores(
+        "2",
+        [{"symbol": "AAPL", "date": "2026-08-05", "days_out": 6, "direction": "long"}],
+    )
+
+    assert result == [None]
+    assert calls == []
+
+
 def test_structured_unavailable_score_is_not_counted_as_api_delivery(monkeypatch):
     monkeypatch.setattr(
         ac,

@@ -1690,7 +1690,7 @@ const OppTable = (props) => {
                 'To filter by Sharpe Ratio, type "SR>2". ' +
                 'For Average Profit, type "AP>10" or "AVGP>10". ' +
                 'For AI results, use "WIN>70", "PREDR>3", "ML>70", or "PMFE>8". ' +
-                'AI filters use the value shown: the complete window through 90 days, or the 90-day checkpoint for a longer pattern. ' +
+                'AI filters use the value shown: the 10-day model minimum for a 1-9-day pattern, the complete window from 10 through 90 days, or the 90-day checkpoint for a longer pattern. ' +
                 'You can also do a default text search by typing any keyword, like "AAPL". '
                 : ''
             }
@@ -1702,7 +1702,7 @@ const OppTable = (props) => {
             onKeyDown={handleFilterKeyDown}
             onClear={handleClearFilter}
             placeholder='e.g. 10-90; PREDR>3'
-            title='Filter by ticker or combine conditions with semicolons: 10-90, SR>2, AVGP>10, WIN>70, PREDR>3, ML>70, PMFE>8. AI filters use the displayed full-window or 90-day checkpoint value.'
+            title='Filter by ticker or combine conditions with semicolons: 10-90, SR>2, AVGP>10, WIN>70, PREDR>3, ML>70, PMFE>8. AI filters use the displayed 10-day minimum, full-window, or 90-day checkpoint value.'
             ariaLabel='Filter opportunities'
             ariaDescribedBy='opportunity-filter-help'
           />
@@ -1719,8 +1719,9 @@ const OppTable = (props) => {
           }}>
             Enter a ticker, or combine filters with semicolons. Examples: 10-90 for days,
             SR&gt;2, AVGP&gt;10, WIN&gt;70, PREDR&gt;3, ML&gt;70, and PMFE&gt;8.
-            AI filters use the complete-window value through 90 calendar days and the displayed
-            90-day checkpoint for longer patterns.
+            AI filters use the displayed 10-day model minimum for 1-9-day patterns, the
+            complete-window value from 10 through 90 days, and the displayed 90-day checkpoint
+            for longer patterns.
           </span>
           {filterHistoryDropdown}
         </div>

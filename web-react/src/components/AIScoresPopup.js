@@ -129,9 +129,24 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         marginBottom: '16px',
                     }}>
                         <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '8px' }}>
-                            Quick summary: Why this helps
+                            First: What the outline means
                         </div>
                         <p style={{ marginTop: 0 }}>
+                            <strong>An outlined AI value means that pattern has more than one AI duration to view.</strong>{' '}
+                            Open it to compare them. The outline does not mean the score is better or worse, and it is
+                            not a warning.
+                        </p>
+                        <p>
+                            For a <strong>1-9-day pattern</strong>, TradeWave changes only the AI window to 10 calendar
+                            days, the shortest duration the model scores. The historical pattern and its historical
+                            stats stay at the real length. This single AI reading is not outlined because there is no
+                            second duration to compare. A small <strong>10d</strong> label marks it in the first visible
+                            AI column.
+                        </p>
+                        <div style={{ fontSize: '15px', fontWeight: 700, margin: '14px 0 8px' }}>
+                            Quick summary: Why this helps
+                        </div>
+                        <p>
                             <strong>TradeWave history tells you what usually happened. AI Scores add a second check:
                             does this pattern still look favorable under today's stock and market conditions?</strong>
                             The two belong side by side. History shows how repeatable the pattern was, while AI adds
@@ -229,11 +244,13 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         Current Score and Duration Comparison
                     </div>
                     <p>
-                        The table keeps the current full-window reading for patterns through 90 calendar days. Open a
-                        value to compare supported shorter durations: patterns over 30 days add 30 days, patterns over
-                        60 days also add 60 days, and patterns over 90 days add the bounded 90-day checkpoint. A longer
-                        pattern therefore shows the <strong>90-calendar-day checkpoint</strong> in the table, not a score
-                        of its complete historical window.
+                        Patterns from 10 through 90 calendar days keep their current full-window reading in the table.
+                        Open an outlined value to compare supported shorter durations: patterns over 30 days add 30
+                        days, patterns over 60 days also add 60 days, and patterns over 90 days add the bounded 90-day
+                        checkpoint. A longer pattern therefore shows the <strong>90-calendar-day checkpoint</strong> in
+                        the table, not a score of its complete historical window. The one exception at the lower end is
+                        a 1-9-day pattern, which uses the clearly labeled 10-day AI model minimum while its historical
+                        statistics stay at the real pattern length.
                     </p>
                     <p>
                         TradeWave windows are inclusive calendar days: the entry day counts as day 1.
@@ -282,9 +299,9 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             might occur or prescribe a target, partial sale, or early exit.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            <strong>Compare durations.</strong> The current duration stays highlighted through 90 days.
-                            Shorter readings show whether the seasonal edge appears quickly, develops later, or falls
-                            below its selected historical requirement.
+                            <strong>Compare durations.</strong> For a 10-90-day pattern, the current duration stays
+                            highlighted. Shorter readings show whether the seasonal edge appears quickly, develops
+                            later, or falls below its selected historical requirement.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
                             <strong>Scores update with completed data.</strong> The AI uses the latest completed
@@ -304,8 +321,9 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         </li>
                         <li style={{ marginBottom: '6px' }}>
                             A pattern of 31-60 days compares 30 days with the current duration. A pattern of 61-90 days
-                            compares 30 and 60 days with the current duration. TradeWave never extends a comparison
-                            beyond the original pattern.
+                            compares 30 and 60 days with the current duration. Those comparisons never extend beyond
+                            the original pattern. The separate 1-9-day minimum-horizon rule is the only exception: its
+                            AI reading uses 10 days and is labeled 10d, while its historical statistics remain unchanged.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
                             Patterns longer than <strong>90 calendar days</strong> show the 90-day checkpoint in the

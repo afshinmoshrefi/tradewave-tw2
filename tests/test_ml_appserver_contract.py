@@ -225,6 +225,7 @@ def test_500_row_collapsed_table_is_accepted(monkeypatch):
 def test_duration_boundaries_and_malformed_rows_are_explicit(monkeypatch):
     _configure(monkeypatch)
     opportunities = [
+        _opportunity("RAW0", 0),
         _opportunity("RAW8", 8),
         _opportunity("RAW9", 9),
         _opportunity("RAW89", 89),
@@ -237,17 +238,100 @@ def test_duration_boundaries_and_malformed_rows_are_explicit(monkeypatch):
     body = _post("/MLScoreBatch/2", {"opportunities": opportunities}).get_json()
 
     assert {item["symbol"] for item in body["pending"]} == {
-        "RAW9", "RAW89", "RAW90", "RAW366"
+        "RAW0", "RAW8", "RAW9", "RAW89", "RAW90", "RAW366"
     }
-    assert body["scores"][f"RAW8|8|l"]["error"]["code"] == "unsupported_duration"
     assert body["scores"][
         f"RAW367|{_market_date()}|367|l"
     ]["horizons"][0]["error"]["code"] == "unsupported_duration"
     assert body["validation_errors"] == [{
-        "index": 6,
+        "index": 7,
         "code": "invalid_date",
         "message": "Entry date must use YYYY-MM-DD.",
     }]
+
+
+def test_duration_parser_rejects_boolean_fractional_and_nonfinite_offsets():
+    valid = {
+        "symbol": "AAPL",
+        "date": _market_date(),
+        "direction": "l",
+    }
+
+    for raw in (False, True, 0.5, "0.5", float("nan"), float("inf")):
+        normalized, code, _message = appserver_module._ml_normalize_opportunity(
+            {**valid, "daysOut": raw}
+        )
+        assert normalized is None
+        assert code == "invalid_duration"
+
+    for raw in (0, 8, 9, 366):
+        normalized, code, message = appserver_module._ml_normalize_opportunity(
+            {**valid, "daysOut": raw}
+        )
+        assert normalized["daysOut"] == raw
+        assert code is None
+        assert message is None
+
+    for raw in (-1, 367):
+        normalized, code, _message = appserver_module._ml_normalize_opportunity(
+            {**valid, "daysOut": raw}
+        )
+        assert normalized["daysOut"] == raw
+        assert code == "unsupported_duration"
+
+
+def test_short_sources_share_one_ten_day_provider_score_and_keep_source_keys(monkeypatch):
+    redis = _configure(monkeypatch)
+    opportunities = [
+        _opportunity("AAPL", 0),
+        _opportunity("AAPL", 8),
+        _opportunity("AAPL", 9),
+    ]
+    provider_requests = []
+
+    def provider(url, json, timeout):
+        assert url.endswith("/score")
+        assert json["tier"] == "10_30"
+        assert timeout == 30
+        provider_requests.extend(json["opportunities"])
+        return _Response({
+            "metadata": METADATA,
+            "results": [{
+                **item,
+                "ml_score": 73,
+                "win_prob": 0.69,
+                "pred_return": 2.5,
+                "pred_mfe": 4.9,
+            } for item in json["opportunities"]],
+        })
+
+    monkeypatch.setattr(appserver_module.requests, "post", provider)
+    body = _post("/MLScorePending/2", {"pending": opportunities}).get_json()
+
+    assert provider_requests == [{
+        "symbol": "AAPL",
+        "date": _market_date(),
+        "daysOut": 9,
+        "direction": "l",
+    }]
+    assert body["still_pending"] == []
+    for raw_days, full_days in ((0, 1), (8, 9)):
+        bundle = body["scores"][
+            f"AAPL|{_market_date()}|{raw_days}|l"
+        ]
+        assert bundle["basis"] == "minimum_horizon"
+        assert bundle["full_pattern_calendar_days"] == full_days
+        assert bundle["display_horizon_days"] == 10
+        assert bundle["horizons"][0]["daysOut"] == 9
+        assert bundle["ml_score"] == 73.0
+    assert body["scores"][f"AAPL|{_market_date()}|9|l"] == {
+        "status": "available",
+        "ml_score": 73.0,
+        "win_prob": 0.69,
+        "pred_return": 2.5,
+        "pred_mfe": 4.9,
+    }
+    assert redis.locks == set()
 
 
 def test_85_day_row_keeps_current_score_and_adds_only_30_60_comparisons(monkeypatch):
@@ -383,6 +467,90 @@ def test_exact_score_cold_miss_is_single_flight_between_workers(monkeypatch):
     assert all(response.get_json()["still_pending"] == [] for response in responses)
 
 
+def test_pending_cache_recheck_failure_requeues_row_and_releases_lock(monkeypatch):
+    class FailSecondGetRedis(_Redis):
+        def __init__(self):
+            super().__init__()
+            self.get_calls = 0
+
+        def get(self, key):
+            self.get_calls += 1
+            if self.get_calls == 2:
+                raise RuntimeError("simulated cache recheck failure")
+            return super().get(key)
+
+    redis = _configure(monkeypatch, FailSecondGetRedis())
+    opportunity = _opportunity("AAPL", 8)
+
+    body = _post(
+        "/MLScorePending/2", {"pending": [opportunity]}
+    ).get_json()
+
+    assert body["scores"] == {}
+    assert body["still_pending"] == [opportunity]
+    assert redis.locks == set()
+
+
+def test_pending_lock_setup_failure_does_not_drop_current_or_later_rows(monkeypatch):
+    class FailSecondLockRedis(_Redis):
+        def __init__(self):
+            super().__init__()
+            self.lock_calls = 0
+
+        def lock(self, key, timeout=None, blocking_timeout=None):
+            self.lock_calls += 1
+            if self.lock_calls == 2:
+                raise RuntimeError("simulated second lock failure")
+            return super().lock(key, timeout=timeout, blocking_timeout=blocking_timeout)
+
+    redis = _configure(monkeypatch, FailSecondLockRedis())
+    opportunities = [_opportunity("AAPL", 8), _opportunity("MSFT", 8)]
+
+    body = _post(
+        "/MLScorePending/2", {"pending": opportunities}
+    ).get_json()
+
+    assert body["scores"] == {}
+    assert {item["symbol"] for item in body["still_pending"]} == {"AAPL", "MSFT"}
+    assert redis.locks == set()
+
+
+def test_pending_partial_cache_write_never_scores_and_requeues_same_identity(monkeypatch):
+    redis = _configure(monkeypatch)
+    opportunities = [_opportunity("AAPL", 29), _opportunity("MSFT", 29)]
+
+    def provider(url, json, timeout):
+        del url, timeout
+        return _Response({
+            "metadata": METADATA,
+            "results": [{
+                **item,
+                "ml_score": 70,
+                "win_prob": 0.7,
+                "pred_return": 2,
+                "pred_mfe": 4,
+            } for item in json["opportunities"]],
+        })
+
+    original_write = appserver_module.write_cached_legacy_score
+
+    def selective_write(redis_client, symbol, *args, **kwargs):
+        if symbol == "MSFT":
+            raise RuntimeError("simulated second cache write failure")
+        return original_write(redis_client, symbol, *args, **kwargs)
+
+    monkeypatch.setattr(appserver_module.requests, "post", provider)
+    monkeypatch.setattr(appserver_module, "write_cached_legacy_score", selective_write)
+    body = _post(
+        "/MLScorePending/2", {"pending": opportunities}
+    ).get_json()
+
+    assert body["scores"][f"AAPL|{_market_date()}|29|l"]["ml_score"] == 70.0
+    assert f"MSFT|{_market_date()}|29|l" not in body["scores"]
+    assert [item["symbol"] for item in body["still_pending"]] == ["MSFT"]
+    assert redis.locks == set()
+
+
 def test_tara_and_table_share_the_same_exact_score_single_flight(monkeypatch):
     redis = _configure(monkeypatch)
     opportunity = _opportunity("AAPL")
@@ -432,3 +600,33 @@ def test_tara_and_table_share_the_same_exact_score_single_flight(monkeypatch):
     assert table_response.get_json()["still_pending"] == []
     assert tara_context["status"] == "available"
     assert tara_context["horizons"][0]["ai_score"] == 72.0
+
+
+def test_tara_cache_recheck_failure_releases_exact_score_lock(monkeypatch):
+    class FailSecondGetRedis(_Redis):
+        def __init__(self):
+            super().__init__()
+            self.get_calls = 0
+
+        def get(self, key):
+            self.get_calls += 1
+            if self.get_calls == 2:
+                raise RuntimeError("simulated Tara cache recheck failure")
+            return super().get(key)
+
+    redis = _configure(monkeypatch, FailSecondGetRedis())
+    opportunity = _opportunity("AAPL", 29)
+    wave = {
+        "market": "2",
+        "symbol": "AAPL",
+        "start_date": opportunity["date"],
+        "days_out": "30",
+        "direction": "long",
+    }
+
+    context = appserver_module._tara_ai_analysis_context(
+        wave, _token()
+    )
+
+    assert context["status"] == "unavailable"
+    assert redis.locks == set()

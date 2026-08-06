@@ -19,6 +19,7 @@ from ml_checkpoint_context import (  # noqa: E402
     CheckpointProviderError,
     CheckpointScoringService,
     assemble_duration_comparison_bundle,
+    assemble_minimum_horizon_bundle,
     build_checkpoint_plan,
     build_usage_context,
     checkpoint_pending_opportunity,
@@ -27,6 +28,7 @@ from ml_checkpoint_context import (  # noqa: E402
     legacy_score_keys,
     legacy_pointer_key,
     legacy_value_key,
+    model_days_out_for_source,
     normalize_checkpoint_response,
     normalize_legacy_score_result,
     read_cached_legacy_score,
@@ -232,6 +234,97 @@ def test_legacy_score_keys_add_date_without_breaking_the_old_alias():
     assert second == ("AAPL|2026-09-10|29|l", "AAPL|29|l")
     assert first[0] != second[0]
     assert first[1] == second[1]
+
+
+def test_short_source_uses_ten_day_model_identity_without_changing_source_keys():
+    opportunity = {
+        "symbol": "AAPL",
+        "date": "2026-08-10",
+        "daysOut": 5,
+        "direction": "l",
+    }
+    bundle = assemble_minimum_horizon_bundle(
+        opportunity,
+        {
+            "ml_score": 72,
+            "win_prob": 0.68,
+            "pred_return": 2.4,
+            "pred_mfe": 4.8,
+        },
+    )
+
+    assert model_days_out_for_source(0) == 9
+    assert model_days_out_for_source(8) == 9
+    assert model_days_out_for_source(9) == 9
+    assert model_days_out_for_source(29) == 29
+    assert legacy_score_keys("AAPL", "2026-08-10", 5, "l") == (
+        "AAPL|2026-08-10|5|l",
+        "AAPL|5|l",
+    )
+    assert bundle == {
+        "status": "available",
+        "basis": "minimum_horizon",
+        "pattern_recalculated": False,
+        "model_horizon_adjusted": True,
+        "minimum_model_calendar_days": 10,
+        "full_pattern_calendar_days": 6,
+        "display_horizon_days": 10,
+        "display_status": "available",
+        "ml_score": 72.0,
+        "win_prob": 0.68,
+        "pred_return": 2.4,
+        "pred_mfe": 4.8,
+        "horizons": [{
+            "status": "available",
+            "ml_score": 72.0,
+            "win_prob": 0.68,
+            "pred_return": 2.4,
+            "pred_mfe": 4.8,
+            "calendar_days": 10,
+            "daysOut": 9,
+            "basis": "minimum_horizon",
+            "pattern_recalculated": False,
+            "is_current": False,
+            "is_model_minimum": True,
+        }],
+        "source": {
+            "symbol": "AAPL",
+            "date": "2026-08-10",
+            "daysOut": 5,
+            "calendar_days": 6,
+            "direction": "l",
+        },
+        "mixed_scorer_identity": False,
+    }
+
+
+def test_short_minimum_bundle_preserves_local_entry_gate_reason():
+    bundle = assemble_minimum_horizon_bundle(
+        {
+            "symbol": "AAPL",
+            "date": "2026-08-10",
+            "daysOut": 2,
+            "direction": "l",
+        },
+        {
+            "status": "unavailable",
+            "ml_score": None,
+            "win_prob": None,
+            "pred_return": None,
+            "pred_mfe": None,
+            "error": {
+                "code": "after_entry",
+                "message": "untrusted local detail",
+                "retryable": False,
+            },
+        },
+    )
+
+    assert bundle["horizons"][0]["error"] == {
+        "code": "after_entry",
+        "message": "A new current-condition score is not calculated after entry.",
+        "retryable": False,
+    }
 
 
 def test_legacy_cache_is_exact_and_invalidates_with_scorer_generation():
@@ -779,6 +872,52 @@ def test_cold_multiple_rows_use_one_bounded_context_post_then_hit_cache():
     second = service.score_bundles(plans, max_request_items=6)
     assert len(http.posts) == 1
     assert second == first
+
+
+def test_usage_context_retains_short_rows_inside_displayed_one_to_nine_range():
+    detail = build_usage_context(
+        "2",
+        {
+            "table_context": {
+                "years": "10",
+                "partial": "9",
+                "mode": "consecutive",
+                "date": "2026-08-06",
+                "day_range": "1-9",
+            },
+            "opportunities": [
+                {
+                    "symbol": "FIRST",
+                    "date": "2026-08-06",
+                    "daysOut": 0,
+                    "direction": "l",
+                    "years": "10",
+                    "partial": "9",
+                },
+                {
+                    "symbol": "SHORT",
+                    "date": "2026-08-06",
+                    "daysOut": 8,
+                    "direction": "l",
+                    "years": "10",
+                    "partial": "9",
+                },
+                {
+                    "symbol": "TEN",
+                    "date": "2026-08-06",
+                    "daysOut": 9,
+                    "direction": "l",
+                    "years": "10",
+                    "partial": "9",
+                },
+            ],
+        },
+    )
+
+    assert [item["symbol"] for item in detail["opportunities"]] == [
+        "FIRST",
+        "SHORT",
+    ]
 
 
 def test_usage_registry_is_full_identity_default_first_then_view_count():

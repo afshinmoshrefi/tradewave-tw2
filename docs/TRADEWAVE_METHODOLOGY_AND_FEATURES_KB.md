@@ -558,6 +558,15 @@ current-condition question. Win% is the quickest probability summary, PredR esti
 return, PMFE estimates the best favorable move inside the window, and AIS is only a 0-100 relative
 PredR rank, not a probability. Use them as a second opinion beside history, not as a replacement.
 
+For a 1-9-calendar-day pattern, the historical pattern and every historical statistic remain at
+the real source length. V3 does not have a shorter AI model, so the separate AI reading uses the
+10-calendar-day minimum (`daysOut=9`, ending at entry plus 9 days) and is labeled `10d`. It is not
+outlined because only one AI duration is present, and it is never called an exact score for the
+shorter historical window.
+
+An outlined AI value means that row has more than one AI duration to view. Open it to compare
+them. The outline does not mean the score is better or worse, and it is not a warning.
+
 For a pattern from 10 through 30 calendar days, Tara states only the current-duration AI Win
 Probability, PredR, and PMFE. Above 30 days, TradeWave also shows shorter-duration comparisons that
 fit inside the source window: 31-60 days adds 30; 61-90 days adds 30 and 60; and a source above 90
@@ -582,15 +591,17 @@ used by the manual duration scorer; it does not substitute the selected recurren
 features. Selected recurrence is explanation, not an inference gate. Model estimates never become
 extra historical observations.
 
-AI sorting and filtering always use the value visibly shown: the current-duration value through 90
-calendar days and the 90-day comparison above 90 days. Unavailable states use an internal null and
+AI sorting and filtering always use the value visibly shown: the 10-day model minimum for a
+1-9-day source, the current-duration value from 10 through 90 calendar days, and the 90-day
+comparison above 90 days. Unavailable states use an internal null and
 sort below numeric readings; they never become numeric zero. Common default and frequently viewed
 table contexts are recorded without user identity and warmed only after the authoritative EOD
 completion marker. The warmer discards old dates and row snapshots, re-fetches the six standard
 default-year tables plus bounded popular logical views for the marker's target calendar date, and
 gives every eligible default row first use of a 2,500-row global safety budget. Active rows are a
-separate later phase. Manifests disclose eligible, warmed, and truncated coverage. Eligible table
-windows are 10-367 inclusive calendar days, and scorer data must be from the exact EOD session
+separate later phase. Manifests disclose eligible, warmed, truncated, unique-request, and
+deduplicated coverage. Eligible source windows are 1-367 inclusive calendar days; source rows under
+10 days share the matching symbol/date/direction 10-day cache identity. Scorer data must be from the exact EOD session
 proven by the marker. Candidate scores stay
 in generation-scoped staging records until every selected row has a terminal durable result; one
 transaction then publishes all score values and pointers with the complete generation. A failed or

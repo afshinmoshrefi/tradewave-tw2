@@ -23,7 +23,9 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 
 CACHE_SCHEMA_VERSION = "ml6"
-CONTEXT_CONTRACT_VERSION = "tw2-duration-comparison-v2"
+CONTEXT_CONTRACT_VERSION = "tw2-duration-comparison-v3"
+MINIMUM_MODEL_CALENDAR_DAYS = 10
+MINIMUM_MODEL_DAYS_OUT = MINIMUM_MODEL_CALENDAR_DAYS - 1
 CHECKPOINT_CALENDAR_DAYS = (30, 60, 90)
 ALLOWED_RESOURCE_IDS = frozenset({"0", "1", "2", "3", "4", "11"})
 USAGE_MAX_STORED_ROWS = 100
@@ -57,6 +59,10 @@ _METADATA_FIELDS = (
 )
 
 _LEGACY_UNAVAILABLE_COPY = {
+    "after_entry": "A new current-condition score is not calculated after entry.",
+    "too_far_ahead": "AI scores become available within five calendar days of entry.",
+    "invalid_score_context": "The pattern entry date is invalid.",
+    "unsupported_duration": "The pattern duration is outside the supported TradeWave range.",
     "vix_blocked": "Volatility safety gate is active.",
     "target_entry_unavailable": "A valid price entry could not be established for this date.",
     "target_price_unavailable": "Price history is not available for this ticker.",
@@ -291,6 +297,21 @@ def legacy_score_keys(
     )
 
 
+def model_days_out_for_source(days_out: Any) -> int:
+    """Return the V3 scoring offset for one TradeWave source duration.
+
+    V3's shortest supported horizon is 10 inclusive calendar days, represented
+    by the analytics offset 9. A source pattern of 1 through 9 calendar days
+    therefore shares that 10-day scoring identity while retaining its original
+    duration in every browser-facing key and explanation.
+    """
+
+    normalized = _integer(days_out, "daysOut")
+    if normalized < 0:
+        raise CheckpointContextError("daysOut must be zero or greater")
+    return max(normalized, MINIMUM_MODEL_DAYS_OUT)
+
+
 def normalize_legacy_score_result(result: Mapping[str, Any]) -> Dict[str, Any]:
     """Give the legacy scorer's terminal failures an explicit additive shape."""
 
@@ -330,6 +351,83 @@ def normalize_legacy_score_result(result: Mapping[str, Any]) -> Dict[str, Any]:
         "win_prob": _score_number(result.get("win_prob"), "win_prob", minimum=0, maximum=1),
         "pred_return": _score_number(result.get("pred_return"), "pred_return", minimum=-1000, maximum=1000),
         "pred_mfe": _score_number(result.get("pred_mfe"), "pred_mfe", minimum=-1000, maximum=1000),
+    }
+
+
+def assemble_minimum_horizon_bundle(
+    opportunity: Mapping[str, Any],
+    score: Optional[Mapping[str, Any]] = None,
+    *,
+    loading: bool = False,
+) -> Dict[str, Any]:
+    """Label a 1-9-day source with V3's honest 10-day model minimum.
+
+    The source pattern and its historical statistics are not lengthened. Only
+    the AI horizon is 10 inclusive calendar days, ending on entry + 9 days.
+    """
+
+    if not isinstance(opportunity, Mapping):
+        raise CheckpointContextError("opportunity must be an object")
+    raw_days_out = _integer(opportunity.get("daysOut"), "daysOut")
+    full_calendar_days = raw_days_out + 1
+    if not 1 <= full_calendar_days < MINIMUM_MODEL_CALENDAR_DAYS:
+        raise CheckpointContextError(
+            "minimum-horizon bundles require a 1-9 calendar-day source pattern"
+        )
+
+    if score is None:
+        normalized_score: Dict[str, Any] = {
+            "status": "loading" if loading else "unavailable",
+            "ml_score": None,
+            "win_prob": None,
+            "pred_return": None,
+            "pred_mfe": None,
+            "error": {
+                "code": "loading" if loading else "provider_unavailable",
+                "message": (
+                    "The 10-day AI reading is loading."
+                    if loading
+                    else "The 10-day AI reading is unavailable."
+                ),
+                "retryable": bool(loading),
+            },
+        }
+    else:
+        normalized_score = normalize_legacy_score_result(score)
+
+    horizon = {
+        **normalized_score,
+        "calendar_days": MINIMUM_MODEL_CALENDAR_DAYS,
+        "daysOut": MINIMUM_MODEL_DAYS_OUT,
+        "basis": "minimum_horizon",
+        "pattern_recalculated": False,
+        "is_current": False,
+        "is_model_minimum": True,
+    }
+    direction = _direction(opportunity.get("direction"))
+    source = {
+        "symbol": str(opportunity.get("symbol") or "").strip().upper(),
+        "date": _entry_date(opportunity.get("date")).isoformat(),
+        "daysOut": raw_days_out,
+        "calendar_days": full_calendar_days,
+        "direction": direction,
+    }
+    return {
+        "status": normalized_score["status"],
+        "basis": "minimum_horizon",
+        "pattern_recalculated": False,
+        "model_horizon_adjusted": True,
+        "minimum_model_calendar_days": MINIMUM_MODEL_CALENDAR_DAYS,
+        "full_pattern_calendar_days": full_calendar_days,
+        "display_horizon_days": MINIMUM_MODEL_CALENDAR_DAYS,
+        "display_status": normalized_score["status"],
+        "ml_score": normalized_score.get("ml_score"),
+        "win_prob": normalized_score.get("win_prob"),
+        "pred_return": normalized_score.get("pred_return"),
+        "pred_mfe": normalized_score.get("pred_mfe"),
+        "horizons": [horizon],
+        "source": source,
+        "mixed_scorer_identity": False,
     }
 
 
@@ -1466,7 +1564,7 @@ def build_usage_context(
             continue
         try:
             raw_days = _integer(opportunity.get("daysOut"), "daysOut")
-            if not 9 <= raw_days <= 366:
+            if not 0 <= raw_days <= 366:
                 continue
             if raw_range is not None and not raw_range[0] <= raw_days <= raw_range[1]:
                 # React scores its stable baseline plus the currently visible
