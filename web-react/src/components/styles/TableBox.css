@@ -183,10 +183,10 @@ tr {
   align-items: center;
   justify-content: center;
   padding: 2px 5px;
-  border: 1px solid transparent;
-  border-radius: 5px;
+  border: 0;
+  border-radius: 4px;
   background: transparent;
-  cursor: help;
+  cursor: default;
   line-height: 1.15;
 }
 
@@ -208,7 +208,7 @@ tr {
 }
 
 .opp-ai-cell--unavailable {
-  cursor: help;
+  cursor: default;
   color: var(--opp-ai-muted, #6b7280);
   font-size: 0.9em;
 }

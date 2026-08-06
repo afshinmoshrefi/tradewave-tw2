@@ -47,6 +47,7 @@ from tara_answer_planner import (
     canonical_pattern_facts,
     explicit_pattern_symbol,
     needs_pattern_ai_context,
+    normalize_screen_context,
     requested_full_history_years,
     verified_context_lines,
 )
@@ -166,13 +167,13 @@ TOOL_INSTRUCTION = (
     "a bare 'Pattern loaded' / 'Loaded on the chart' with no stat is a HARD FAIL here too, even though no "
     "load action fired.\n"
     "2) When the user asks to LOAD / SHOW / OPEN / PULL UP a symbol or setup, CHANGE the years "
-    "or PE cycle, SHOW/HIDE MFE or MAE, or SHOW the Trend Chart / Wave Stats / Price Chart, "
+    "or PE cycle, SHOW/HIDE MFE or MAE, or SHOW the Trend Chart / Wave Stats / AI Scores / Price Chart, "
     "you MUST call update_view and do it yourself. "
     "For MFE/MAE use show_mfe/show_mae booleans; for the global guidance tooltips use "
     "show_tooltips. Do not open a guide for a direct view command. Do NOT tell them to use a dropdown, "
     "selectbox, or to click a row - you CAN drive the view for them. After update_view, say in one "
     "short line what you changed. For a lower-panel command use bottom_slide=trend_chart, "
-    "wave_stats, or price_chart; confirm the panel in one line without reloading the symbol or "
+    "wave_stats, ai_scores, or price_chart; confirm the panel in one line without reloading the symbol or "
     "adding unrelated statistics.\n"
     "3) For a date-range preset (a month/quarter/season), first call analyze_symbol with period= to "
     "get the resolved entry_date + days_out, then pass those to update_view.\n"
@@ -708,10 +709,11 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         "<b>TradeWave UI Layout:</b>",
         "- Top panel: Gain-Loss Bar Chart. Each bar is the UNDERLYING price move during the window: green/up means the underlying rose and red/down means it fell. For a LONG setup, green years are profitable; for a SHORT setup, red years are profitable. Color is not direction-adjusted P&L. Clicking a bar switches the bottom right to the Price Chart for that historical year.",
         "- Left panel: Opportunity Table. Ranked list of seasonal opportunities filtered by the user's settings (market, date, years, direction). User clicks a row to load it into the viewer.",
-        "- Bottom right (3 slides):",
+        "- Bottom right (3 or 4 slides, depending on market):",
         "  Slide 1: Trend Chart. Normalized historical seasonal path for the selected lookback, with the loaded window highlighted. Below it shows summary stats: SR, Avg Gain, % Profitable, Cumulative Return, Buy-and-Hold.",
         "  Slide 2: Wave Stats. Six panels: Wave Detail (symbol, direction, date range, days), Wave Stats (avg gain two numbers: winners-only and overall, avg loss, median, std dev), Wave Profit Loss (num winners, num losers, cumulative return, S&P 500 full-year comparison), Wave Info (% profitable, SR, trend long, trend short), Cumulative Return Chart (2-line chart vs S&P 500), General (sample size and type, last price).",
-        "  Slide 3: Price Chart. Shows current price chart by default. When user clicks a year bar in the Gain-Loss Bar Chart, automatically switches to the historical price chart for that year with entry/exit arrows and a shaded trade window.",
+        "  Optional Slide 3: AI Scores. Available for supported US stocks and ETFs; explains the selected pattern's calibrated AI estimates and duration comparisons.",
+        "  Final slide: Price Chart. Shows current price chart by default. When user clicks a year bar in the Gain-Loss Bar Chart, automatically switches to the historical price chart for that year with entry/exit arrows and a shaded trade window.",
         "",
         "<b>Securities Groups (markets) - map a sector or group name to its market id when scanning:</b>",
         "- Technology / tech stocks -> NASDAQ 100 (market 1). Blue chips / mega caps -> DOW 30 (market 0). Broad large-cap US -> S&P 500 (market 2). Broader US (small + mid cap) -> Russell 1000 (market 3) or Wilshire 5000 (market 4).",
@@ -735,8 +737,8 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         "reached substantial favorable MFE, name the year, MFE, final return, and giveback because "
         "that is essential endpoint-versus-path and exit-sensitivity context. Tara CAN drive the "
         "lower carousel: a direct request to show/open/switch to the Trend Chart, Wave Stats "
-        "(including 'the stats'), or Price Chart MUST call update_view with ONLY "
-        "bottom_slide=trend_chart, wave_stats, or price_chart. Confirm the panel in one short line; "
+        "(including 'the stats'), AI Scores, or Price Chart MUST call update_view with ONLY "
+        "bottom_slide=trend_chart, wave_stats, ai_scores, or price_chart. Confirm the panel in one short line; "
         "never tell the user to swipe. Explanatory questions still receive the concept explanation."
     )
     parts = []
@@ -1215,8 +1217,19 @@ def chat():
         if bottom_slide_command is not None:
             cleaned = _validate_view_spec(bottom_slide_command.get("spec"))
             if cleaned:
-                reply = bottom_slide_command["reply"]
-                actions = [{"type": "set_view", "spec": cleaned}]
+                ai_scores_unavailable = (
+                    cleaned.get("bottom_slide") == "ai_scores"
+                    and not normalize_screen_context(screen_context).get("ai_scores_available")
+                )
+                if ai_scores_unavailable:
+                    reply = (
+                        "<b>AI Scores are not available for this market.</b> "
+                        "They appear for supported US stocks and ETFs."
+                    )
+                    actions = []
+                else:
+                    reply = bottom_slide_command["reply"]
+                    actions = [{"type": "set_view", "spec": cleaned}]
                 log_question(
                     user_id,
                     user_message,

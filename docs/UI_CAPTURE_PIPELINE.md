@@ -487,7 +487,7 @@ simply now accepts one more optional field). `spec_version` stays `1`.
 |---|---|---|---|
 | `spec_version` | yes | `1` | Schema version guard |
 | `theme` | no (default `"dark"`) | `"dark"` \| `"light"` | Seeds `UITheme` |
-| `display` | yes | `"seasonal"` \| `"tradeDetail"` \| `"price"` | Which lower-display slide to capture; maps to Swiper slide index 0/1/2 respectively |
+| `display` | yes | `"seasonal"` \| `"tradeDetail"` \| `"price"` | Which lower display to capture. The harness selects the labeled semantic tab because Price Chart may be index 2 or 3 when AI Scores is available. |
 | `market` | yes if `pattern` is set | one of the names in section 4 | Which resource group to select |
 | `symbol` | yes if `pattern` is set | ticker string, e.g. `"AAPL"` | Which symbol the deep link targets |
 | `pattern` | no | object: `{startDate, daysOut, years, pe}` | If present, builds a `?o=` deep link (see Layer 5 above). Omit entirely to capture the app's default/no-pattern state |
@@ -724,8 +724,8 @@ content) the next time someone runs it:
 
 1. `capture.js` itself - specifically whichever of these it touches: the
    `RESOURCE_GROUPS` map (if `config.py`'s `available_resources` changes), the
-   `DISPLAY_SLIDE_INDEX`/`SLIDE_INDEX_DISPLAY` order (if the Swiper's slide JSX
-   order changes), the localStorage/cookie seeding maps (if a state key is
+   `DISPLAY_BOTTOM_PANEL` labels/semantic names (if the lower-panel contract
+   changes), the localStorage/cookie seeding maps (if a state key is
    renamed), the crop selectors `.opp_table_div` / `.stock-linechart-parent` (if
    those class names change), or the swiper nav selectors
    `.swiper-button-next`/`.swiper-button-prev` (if the Swiper version or markup

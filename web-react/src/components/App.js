@@ -44,6 +44,11 @@ import {
 import { TARA_PANEL_OPEN_KEY, hasTaraPanelLayout, initialTaraPanelOpen } from './taraPanelPreference'
 import { normalizeBarChartExcursionStyle } from './barChartExcursion'
 import { TOOLTIP_ENABLED_KEY, initialTooltipsEnabled } from './tooltipPreference'
+import {
+  OPPORTUNITY_AI_COLUMN_DEFAULTS_VERSION_KEY,
+  OPPORTUNITY_COLUMN_VISIBILITY_KEY,
+  resolveOpportunityColumnVisibility,
+} from './opportunityColumnPreferences'
 import jwt_decode from 'jwt-decode'
 //-------------------- swiper -----------------------------
 // Import Swiper styles
@@ -283,20 +288,42 @@ const App = () => {
 
   const [showSettings, SetShowSettings] = useState(false);
 
-  // TW2 defaults: Date, Ticker, Days, DIR, SR, AvgP, Price + AI Win% + AI PredR. Everything else hidden.
-  const DEFAULT_COL_VISIBILITY = {
-    date: true, symbol: true, daysOut: true, lOrS: true, sharpe_ratio: true,
-    avg_profit: true, price: true, win_prob: true, pred_return: true,
-    avg_profit2: false, sharpe_ratio2: false, TL: false, ml_score: false, pred_mfe: false,
-  };
-  const [columnVisibility, SetColumnVisibility] = useState(() => {
-    const saved = lsGet('oppTableColumnVisibility');
-    if (saved) return { ...DEFAULT_COL_VISIBILITY, ...saved };
-    return { ...DEFAULT_COL_VISIBILITY };
+  // OppTable owns batch scoring and publishes only the selected pattern's
+  // normalized AI view. Keeping this small state here lets the sibling lower
+  // panel render the same values without duplicating scorer logic.
+  const [opportunityAIState, SetOpportunityAIState] = useState({
+    market: '',
+    resolved: false,
+    eligible: false,
+    enabled: false,
+    selected: null,
+    loading: false,
+    unavailableReason: '',
+    bundle: null,
   });
+
+  // AI columns start off so the table remains a quick historical scan. A
+  // versioned, per-user migration resets the old Win%/PredR defaults once;
+  // every explicit choice made after that is preserved.
+  const columnVisibilityInitRef = useRef(null);
+  if (columnVisibilityInitRef.current === null) {
+    columnVisibilityInitRef.current = resolveOpportunityColumnVisibility({
+      savedVisibility: lsGet(OPPORTUNITY_COLUMN_VISIBILITY_KEY),
+      savedAIColumnDefaultsVersion: lsGet(OPPORTUNITY_AI_COLUMN_DEFAULTS_VERSION_KEY),
+    });
+  }
+  const [columnVisibility, SetColumnVisibility] = useState(() => (
+    columnVisibilityInitRef.current.visibility
+  ));
+  useEffect(() => {
+    const initial = columnVisibilityInitRef.current;
+    if (!initial || !initial.needsMigration) return;
+    lsSet(OPPORTUNITY_COLUMN_VISIBILITY_KEY, initial.visibility);
+    lsSet(OPPORTUNITY_AI_COLUMN_DEFAULTS_VERSION_KEY, initial.version);
+  }, []);
   const handleSetColumnVisibility = (newVis) => {
     SetColumnVisibility(newVis);
-    lsSet('oppTableColumnVisibility', newVis);
+    lsSet(OPPORTUNITY_COLUMN_VISIBILITY_KEY, newVis);
   };
 
   const DEFAULT_COL_ORDER = ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'avg_profit', 'avg_profit2', 'sharpe_ratio2', 'TL', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'];
@@ -1429,6 +1456,7 @@ const App = () => {
     showEarnings,
     chartRange,
     shortDates,
+    opportunityAIState,
 
   }
 
@@ -1586,6 +1614,7 @@ const App = () => {
     SetShowEarnings: handleSetShowEarnings,
     SetChartRange: handleSetChartRange,
     SetShortDates,
+    SetOpportunityAIState,
   }
 
 

@@ -78,10 +78,23 @@ test('moves Tara lower-panel commands to the exact desktop carousel slide', () =
   expect(slideTo.mock.calls).toEqual([[0], [1], [2]]);
 });
 
+test('moves semantic commands to the dynamic AI Scores carousel order', () => {
+  const slideTo = jest.fn();
+  const swiper = { slideTo };
+  const options = { hasAIScores: true };
+
+  expect(showBottomSlide(swiper, 'trend_chart', options)).toBe(true);
+  expect(showBottomSlide(swiper, 'wave_stats', options)).toBe(true);
+  expect(showBottomSlide(swiper, 'ai_scores', options)).toBe(true);
+  expect(showBottomSlide(swiper, 'price_chart', options)).toBe(true);
+  expect(slideTo.mock.calls).toEqual([[0], [1], [2], [3]]);
+});
+
 test('rejects unknown lower-panel targets without moving the carousel', () => {
   const slideTo = jest.fn();
 
   expect(showBottomSlide({ slideTo }, 'settings')).toBe(false);
+  expect(showBottomSlide({ slideTo }, 'ai_scores')).toBe(false);
   expect(showBottomSlide(null, 'price_chart')).toBe(false);
   expect(slideTo).not.toHaveBeenCalled();
 });
@@ -122,6 +135,7 @@ test('sends Tara the exact filtered and sorted visible opportunity order', () =>
 test('reports the active price chart and both actually visible projections', () => {
   expect(buildChatbotScreenContext(baseProps)).toEqual({
     active_bottom_slide: 'price_chart',
+    ai_scores_available: false,
     price_chart_mode: 'current',
     selected_projection_visible: true,
     full_history_projection_visible: true,
@@ -133,6 +147,27 @@ test('reports the active price chart and both actually visible projections', () 
     selected_window_path: 'unknown',
     full_history_window_path: 'unknown',
   });
+});
+
+test('reports AI Scores at index two and Price Chart at index three when AI is available', () => {
+  const aiContext = buildChatbotScreenContext({
+    ...baseProps,
+    hasAIScores: true,
+    swiper: { activeIndex: 2 },
+  });
+  expect(aiContext.active_bottom_slide).toBe('ai_scores');
+  expect(aiContext.ai_scores_available).toBe(true);
+  expect(aiContext.selected_projection_visible).toBe(false);
+  expect(aiContext.full_history_projection_visible).toBe(false);
+
+  const priceContext = buildChatbotScreenContext({
+    ...baseProps,
+    hasAIScores: true,
+    swiper: { activeIndex: 3 },
+  });
+  expect(priceContext.active_bottom_slide).toBe('price_chart');
+  expect(priceContext.selected_projection_visible).toBe(true);
+  expect(priceContext.full_history_projection_visible).toBe(true);
 });
 
 test('does not call hidden price-chart projections visible on another slide', () => {

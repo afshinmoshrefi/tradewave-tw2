@@ -459,7 +459,7 @@ const TradeDetail = (props) => {
                     <div className="trade-detail-controls-mid" style={tradeDetailDescStyle}></div>
                 }
 
-                <div className="trade-detail-controls-right">
+                <div className={`trade-detail-controls-right${props.sharedBottomPanelNavigation ? ' legacy-bottom-panel-navigation--hidden' : ''}`}>
 
 
                     <Tippy  placement={'top'} content={

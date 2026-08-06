@@ -73,8 +73,9 @@ radius of the actuation = which chart/knobs the user sees (no code exec, no data
 derived-data-only gateway, no auth/billing).
 
 Direct lower-panel requests bypass both model providers. `tara_answer_planner.py` maps Trend Chart,
-Wave Stats (including “the stats”), and Price Chart to a validated `bottom_slide`; React calls the
-desktop Swiper's stable `slideTo(0|1|2)` contract. Explanatory questions remain explanations.
+Wave Stats (including “the stats”), AI Scores, and Price Chart to a validated semantic
+`bottom_slide`. React resolves that name against the eligible screen's three- or four-panel list;
+it never assumes Price Chart has one fixed numeric index. Explanatory questions remain explanations.
 
 An explicitly named ticker also outranks the loaded chart and conversation pronouns. When a user
 changes symbols without naming a new lookback, Tara carries the current consecutive lookback to the
@@ -161,7 +162,7 @@ ViewSpec = {
   show_mfe?:   boolean,  // best-move overlay on the year-by-year chart
   show_mae?:   boolean,  // worst-move overlay on the year-by-year chart
   show_tooltips?: boolean, // global guidance tooltips across TradeWave
-  bottom_slide?: 'trend_chart'|'wave_stats'|'price_chart', // lower carousel destination
+  bottom_slide?: 'trend_chart'|'wave_stats'|'ai_scores'|'price_chart', // lower carousel destination
   period?:     'jan'..'dec'|'q1'..'q4'|'spring'|'summer'|'fall'|'winter'|'ytd'|'year_end'|'buy_hold',
   reverse?:    boolean,
   direction?:  'long'|'short',
@@ -192,7 +193,7 @@ Phase 2 generalizes that existing write-channel.
 | `show_mfe` | `setShowMFE(bool)` | local view only | shows/hides the direction-aware MFE overlay; persisted in the existing `MFE` cookie |
 | `show_mae` | `setShowMAE(bool)` | local view only | shows/hides the direction-aware MAE overlay; persisted in the existing `MAE` cookie |
 | `show_tooltips` | `SetTooltipSW(bool)` | local view only | shows/hides global guidance tooltips through the same state as the upper-left toolbar switch |
-| `bottom_slide` | `swiper.slideTo(0\|1\|2)` | local view only | shows Trend Chart, Wave Stats, or Price Chart immediately; Tara is desktop-only |
+| `bottom_slide` | semantic lower-panel resolver | local view only | shows Trend Chart, Wave Stats, eligible AI Scores, or Price Chart immediately; Tara is desktop-only |
 
 A single `applyViewSpec(spec)` helper in `Chatbot.js` walks these keys and calls the
 matching `props.Set*` from `chartSetProps`. No new state is introduced - it drives the

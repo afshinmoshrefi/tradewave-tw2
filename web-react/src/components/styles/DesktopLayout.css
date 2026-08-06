@@ -124,4 +124,84 @@ input[type=text], select, textarea{
  .no-mouse-drag .swiper-button-next, .no-mouse-drag .swiper-button-prev {
    pointer-events: auto;
  }
- 
+
+.legacy-bottom-panel-navigation--hidden {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.bottom-panel-tabs {
+    position: relative;
+    z-index: 8;
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: center;
+    padding: 5px 10px 4px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.06);
+    color: inherit;
+}
+
+.bottom-panel-tabs__rail {
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(92px, auto);
+    max-width: 100%;
+    padding: 3px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.bottom-panel-tabs__tab {
+    position: relative;
+    min-height: 30px;
+    padding: 5px 12px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 650;
+    opacity: 0.68;
+    transition: background-color 140ms ease, color 140ms ease, opacity 140ms ease, box-shadow 140ms ease;
+}
+
+.bottom-panel-tabs__tab:hover {
+    background: rgba(129, 140, 248, 0.1);
+    opacity: 0.95;
+}
+
+.bottom-panel-tabs__tab--active {
+    background: rgba(99, 102, 241, 0.18);
+    box-shadow: 0 1px 5px rgba(15, 23, 42, 0.18);
+    opacity: 1;
+}
+
+.bottom-panel-tabs__tab--ai.bottom-panel-tabs__tab--active {
+    background: rgba(22, 163, 74, 0.16);
+    color: rgb(74, 222, 128);
+}
+
+.bottom-panel-tabs__tab:focus-visible {
+    outline: 2px solid #818cf8;
+    outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+    .bottom-panel-tabs {
+        justify-content: flex-start;
+        overflow-x: auto;
+    }
+
+    .bottom-panel-tabs__rail {
+        grid-auto-columns: minmax(84px, auto);
+    }
+
+    .bottom-panel-tabs__tab {
+        padding-inline: 9px;
+    }
+}

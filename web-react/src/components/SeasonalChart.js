@@ -1100,7 +1100,7 @@ const SeasonalChart = (props) => {
                 </div>
 
                 {!rdd.isMobile || (rdd.isMobile && rdd.isTablet && browserH < browserW) ?
-                    <div style={{ width: div3W, display: 'flex', alignItems: 'center', backgroundColor: 'transparent', justifyContent: 'center' }}>
+                    <div className={props.sharedBottomPanelNavigation ? 'legacy-bottom-panel-navigation--hidden' : ''} style={{ width: div3W, display: 'flex', alignItems: 'center', backgroundColor: 'transparent', justifyContent: 'center' }}>
 
                         <Tippy placement={'top'} content={
                             <div theme="tw" >

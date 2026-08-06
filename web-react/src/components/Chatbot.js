@@ -430,7 +430,9 @@ function Chatbot(props) {
     }
     applyTooltipPreference(spec, props.SetTooltipSW);
     if (typeof spec.bottom_slide === 'string') {
-      showBottomSlide(props.swiper, spec.bottom_slide);
+      showBottomSlide(props.swiper, spec.bottom_slide, {
+        hasAIScores: props.hasAIScores === true,
+      });
     }
   };
 

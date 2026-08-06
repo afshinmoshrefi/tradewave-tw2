@@ -148,6 +148,16 @@ def test_loaded_overview_explains_the_visible_trend_slide_instead():
     assert "Bottom Price Chart" not in reply
 
 
+def test_loaded_overview_explains_the_visible_ai_scores_slide():
+    reply = planner.build_deterministic_reply(
+        "what am I looking at?", _short_wave(), _screen("ai_scores"), current_year=2026
+    )
+
+    assert "Bottom AI Scores" in reply
+    assert "estimated chance of profit" in reply
+    assert "0-100 return rank" in reply
+
+
 def test_strength_floor_uses_direction_adjusted_stats_and_sample_size():
     reply = chatbot._ensure_strength_answered(
         "how strong is this?", _short_wave(), "Loaded on the chart."

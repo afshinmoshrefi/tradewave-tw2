@@ -156,6 +156,7 @@ def test_tooltip_parser_does_not_steal_unrelated_questions(message):
         ("show me the trend chart", "trend_chart", "Trend Chart"),
         ("Can you show me the stats?", "wave_stats", "Wave Stats"),
         ("open Wave Stats", "wave_stats", "Wave Stats"),
+        ("open the AI Scores panel", "ai_scores", "AI Scores"),
         ("switch me over to the price chart", "price_chart", "Price Chart"),
     ],
 )
@@ -1465,6 +1466,16 @@ def test_screen_context_is_allowlisted_and_lookback_stays_a_string():
     wave = _peg_short_context()
     wave["years"] = "pe2-10"
     assert canonical_pattern_facts(wave, current_year=2026)["years"] == "pe2-10"
+
+
+def test_screen_context_accepts_the_optional_ai_scores_panel():
+    screen = normalize_screen_context({
+        "active_bottom_slide": "ai_scores",
+        "ai_scores_available": True,
+    })
+
+    assert screen["active_bottom_slide"] == "ai_scores"
+    assert screen["ai_scores_available"] is True
 
 
 def test_max_years_command_resolves_to_exact_loaded_symbol_history():

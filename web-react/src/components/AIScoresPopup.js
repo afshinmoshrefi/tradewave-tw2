@@ -129,15 +129,17 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         marginBottom: '16px',
                     }}>
                         <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>
-                            First: what the outline means
+                            Start in the AI Scores window
                         </div>
                         <p style={{ marginTop: 0 }}>
-                            <strong>An outline means this value has more than one AI time length to view.</strong>{' '}
-                            Open it to compare them. The outline is not a better/worse rating or a warning.
+                            <strong>Select an opportunity, then open AI Scores after Wave Stats.</strong>{' '}
+                            That window explains the selected pattern, shows all available time lengths, and keeps the
+                            historical sample size beside the AI readings.
                         </p>
                         <p>
-                            No outline means only one AI time length is available. For a <strong>1-9-day pattern</strong>,
-                            history keeps the real pattern length while AI uses 10 days, its shortest supported length.
+                            The Opportunity Table is meant for quick scanning. Its four AI columns are off by default,
+                            but you can turn on any of them in Settings. You can also sort by an AI value without showing
+                            that column.
                         </p>
 
                         <div style={{ fontSize: '16px', fontWeight: 700, margin: '16px 0 8px' }}>
@@ -216,7 +218,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#a78bfa' }}></span>
-                        The four columns
+                        The four AI readings
                     </div>
                     <table className="ts-range-table">
                         <thead>
@@ -249,7 +251,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#818cf8' }}></span>
-                        Time lengths and outlined values
+                        How time lengths work
                     </div>
                     <p>Every time length uses calendar days. The start date is day 1, and weekends and holidays count.</p>
                     <ul style={{ paddingLeft: '20px', margin: '8px 0 12px' }}>
@@ -260,7 +262,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         <li><strong>More than 90 days:</strong> compare 30, 60, and 90 days; the table shows 90 days.</li>
                     </ul>
                     <p>
-                        An outline appears when there is more than one reading. TradeWave recalculates the same
+                        The AI Scores window shows every applicable reading together. TradeWave recalculates the same
                         opportunity at each shown length. A shorter AI estimate can still appear when that shorter
                         length does not pass your history filter because the AI estimate and history check answer
                         different questions.
@@ -291,8 +293,8 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             update during the trading day (intraday).
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            A spinner means AI is still calculating. A dash means no score was assigned; open it to see
-                            why. Zero is a real AI value, not an unavailable sign.
+                            A spinner means AI is still calculating. A dash means no score was assigned. Select that
+                            row and open the AI Scores window to see why. Zero is a real AI value, not an unavailable sign.
                         </li>
                     </ul>
 
@@ -304,12 +306,13 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         marginTop: '8px',
                     }}>
                         <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
-                            Don't see the AI columns?
+                            Want AI values in the Opportunity Table?
                         </div>
                         <div style={{ fontSize: '13px', opacity: 0.8, lineHeight: 1.5 }}>
-                            AI scoring is available to TradeWave subscribers with an eligible plan. If you
-                            are viewing US stocks or ETFs and do not see the AIS, Win%, PredR, and PMFE
-                            columns, your current plan may not include this feature.
+                            The AI columns start off to keep the table clean. Open Settings, choose Opportunity Table,
+                            and turn on AIS, Win%, PredR, or PMFE. The AI Scores window remains available even when all
+                            four table columns are hidden. AI scoring also requires an eligible plan and a U.S. stock
+                            or ETF market.
                         </div>
                     </div>
 

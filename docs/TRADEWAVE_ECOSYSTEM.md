@@ -543,8 +543,8 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   exact score remains the table value. For the explicit lower-bound exception, a
   source pattern of 1-9 calendar days keeps its real historical duration and UI key,
   while its AI calculation uses V3's 10-day minimum (`daysOut=9`, ending at entry + 9).
-  The response is labeled `basis=minimum_horizon`; the AI value tooltip/detail explains
-  the 10-day model minimum. It is not outlined because it contains only one AI duration.
+  The response is labeled `basis=minimum_horizon`; the dedicated AI Scores panel explains
+  the 10-day model minimum while keeping the historical duration unchanged.
   A source pattern of 31-60 days additionally asks
   `ml_checkpoint_context.py` for a 30-day comparison; a source of 61-90 days adds
   30- and 60-day comparisons; and a source of 91-367 days uses bounded 30-, 60-,
@@ -566,9 +566,18 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   vector. Only a profile-validation disagreement, required input-data gap, volatility
   block, or provider failure produces an unavailable dash, never a fabricated zero.
   Selected recurrence is explanation, not a rewritten feature vector or inference gate.
-  The neutral outlined cell treatment is present only when more than one AI duration is
-  available to open. It is not a quality grade, bullish/bearish signal, or warning; the
-  AI guide begins with this explanation and every AI column-heading tooltip repeats it.
+  The desktop lower viewer is semantic, not index-owned. Eligible users in supported
+  markets see `Trend Chart -> Wave Stats -> AI Scores -> Price Chart`; unsupported markets
+  retain the three non-AI panels. The selected row's normalized bundle is published from
+  `OppTable` to the AI panel, so its main value and 10/full/30/60/90-day comparison are the
+  same values used by table display, filters, and sorting. The panel shows plain-language
+  metric definitions, selected-pattern context, available selected-recurrence evidence with
+  sample size `n`, latest completed data date, and distinct loading/history-filter/service
+  states. Detailed AI cell/header popovers, outlined values, and the first-use coachmark were
+  removed. AI cells are quiet scan values; all four AI columns default off through a one-time
+  versioned per-user migration and remain individually opt-in through Settings. A visible
+  `Sort by` control can sort by an available hidden column without turning it on; AI sorting
+  waits for the complete score snapshot so polling cannot repeatedly reorder the table.
   The response is additive: comparison and minimum-horizon rows have a date-qualified bundle;
   exact-window rows retain the unchanged legacy alias so older clients keep working.
   `apiserver/appserver_client.py` prefers the qualified alias and falls back to the
@@ -689,11 +698,11 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
     ['0','1','2','3','4','11']` -> AI scoring STARTS at ANALYST. Explorer + Navigator get NO
     score (deterministic patterns only); reverse-trial (level 6) + Analyst+ get it. (Supersedes
     the old "ML columns open to all logged-in tiers" claim - NOT current.) The React opp table
-    shows non-AI tiers one locked "AI Score" teaser column.
+    can show non-AI tiers a locked "AI Score" teaser only after an explicit column opt-in.
     **FIXED 2026-08-05:** phone portrait uses the same entitlement and supported-market
     checks as every other layout. Its compact core is Symbol, Days, and Sharpe, followed
-    by whichever AI columns the user has configured; default Win% and PredR fit at 390px,
-    and all four configured AI columns remain within the tested compact table width. A
+    by whichever AI columns the user explicitly configured; all four configured AI columns
+    remain within the tested compact table width. A
     non-AI tier's locked AIS teaser still respects the saved column-visibility setting.
   - DATE-LOCK: a market in `level_access_hierarchy_free_registered[level]` is start-date-locked
     to today (getChartData4 forces date=today); `_premium[level]` markets are date-unlocked. After
@@ -1452,8 +1461,9 @@ cause a replacement fetch and previously stranded the table at `Loading ...`. On
 change clears the rows; that change produces a distinct `OppList4` URL and a real refetch.
 
 Direct lower-panel navigation is also provider-independent as of 2026-08-02. Requests such as
-"show me the Trend Chart," "show me the stats," and "open the Price Chart" deterministically emit
-an allowlisted `bottom_slide` ViewSpec and React moves the desktop lower Swiper to index 0, 1, or 2.
+"show me the Trend Chart," "show me the stats," "open AI Scores," and "open the Price Chart"
+deterministically emit an allowlisted `bottom_slide` ViewSpec. React resolves the semantic name
+against the current three- or four-panel set, so Price Chart remains Price Chart when AI is present.
 Explanatory questions still use Tara's concept/guide path. This replaces the former prompt-only
 "swipe to slide N" limitation, which could acknowledge a request without changing the screen.
 
@@ -1661,10 +1671,12 @@ entry-year row is present in the completed `n`. Occurrence status never shifts a
 Monday. Reminder delivery may move separately, but the analytical window does not.
 
 Direct lower-carousel commands are deterministic UI actions: Trend Chart, Wave Stats (including
-“show me the stats”), and Price Chart map to `bottom_slide=trend_chart|wave_stats|price_chart`, and
-React moves the existing desktop Swiper to indices 0/1/2. These commands do not reload the symbol or
-clear the opportunity table. Concept questions such as “what does the Trend Chart show?” remain
-explanations and do not move the viewer.
+“show me the stats”), AI Scores, and Price Chart map to semantic
+`bottom_slide=trend_chart|wave_stats|ai_scores|price_chart`. AI Scores is accepted only when the
+screen context says it is available. React resolves names through the active panel list rather than
+persisting a numeric meaning; a legacy `WindowNumber=2` still migrates to Price Chart. These commands
+do not reload the symbol or clear the opportunity table. Concept questions remain explanations and
+do not move the viewer.
 
 PE context is anchored to the occurrence's ENTRY year, including a cross-year window that remains
 active in January. With consecutive years loaded, Tara identifies that occurrence phase and suggests

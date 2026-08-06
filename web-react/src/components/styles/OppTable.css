@@ -44,7 +44,75 @@
     align-items:center;
     display: flex;
     justify-content: flex-end;
-    
+    gap: 6px;
+    padding: 0 6px;
+    box-sizing: border-box;
+
+}
+
+.opp-sort-control {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 5px;
+    color: inherit;
+    white-space: nowrap;
+}
+
+.opp-sort-control__label {
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+}
+
+.opp-sort-control select {
+    width: clamp(138px, 12vw, 195px);
+    min-width: 0;
+    height: 27px;
+    padding: 2px 24px 2px 8px;
+    border: 1px solid;
+    border-radius: 6px;
+    font-size: 11px;
+    text-overflow: ellipsis;
+}
+
+.opp-sort-control select:focus-visible {
+    outline: 2px solid #818cf8;
+    outline-offset: 1px;
+}
+
+.opp-filter-search-control {
+    flex: 1 1 150px;
+    min-width: 88px;
+}
+
+.opp-filter-search-control > div,
+.opp-filter-search-control > div > div {
+    width: 100%;
+}
+
+.opp-filter-search-control input[type="text"] {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+    .opp-sort-control__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .opp-sort-control select {
+        width: clamp(112px, 24vw, 160px);
+    }
 }
 
 .opp-table {

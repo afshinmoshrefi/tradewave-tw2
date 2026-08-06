@@ -27,7 +27,7 @@ import { markCaptureReady, clearCaptureReady } from './captureReady'
 import { BsFillCircleFill } from "react-icons/bs"
 import { BsChatDotsFill, BsChatDots } from "react-icons/bs";
 import CheckBox from './CheckBox'
-import { themeColors, setCookie } from './Common'
+import { themeColors, setCookie, tierHasAI } from './Common'
 import { twFetch } from './twFetch'
 import {
   analyzeOpportunityFilter,
@@ -42,7 +42,13 @@ import {
 } from './opportunityMLSource'
 import { resolveOpportunityRecurrence } from './opportunityRecurrence'
 import { normalizeRealtimeQuote } from './realtimePrices'
-import { advanceOpportunityAIPollBudget } from './opportunityAIScores'
+import { advanceOpportunityAIPollBudget, normalizeOpportunityAIScore } from './opportunityAIScores'
+import {
+  DEFAULT_OPPORTUNITY_SORT,
+  buildOpportunitySortOptions,
+  opportunitySortValue,
+  parseOpportunitySortValue,
+} from './opportunitySorting'
 
 const TARA_LAUNCHER_TOOLTIP_COPY = Object.freeze({
   closed: {
@@ -69,6 +75,8 @@ const mlPendingKey = opportunity => {
 
 const OppTable = (props) => {
   const tc = themeColors(props.UITheme)
+  const setOpportunityAIState = props.SetOpportunityAIState
+  const selectedSecurityForAI = props.selectedSecurity
   const taraLauncherCopy = props.showChatbot
     ? TARA_LAUNCHER_TOOLTIP_COPY.open
     : TARA_LAUNCHER_TOOLTIP_COPY.closed;
@@ -104,10 +112,44 @@ const OppTable = (props) => {
   const [mlScoresLoading, SetMLScoresLoading] = useState(false) // true until the current opportunity set has a complete AI-score snapshot
   const [mlEnabled, SetMLEnabled] = useState(false)            // true when backend says this user+market has ML access
   const [mlMarketEligible, SetMLMarketEligible] = useState(false) // true only for supported U.S. stock/ETF resources
+  const [mlEligibilityResolved, SetMLEligibilityResolved] = useState(false)
   const [mlPending, SetMLPending] = useState(new Set())        // keys still waiting for scores
   const [mlUnavailableReason, SetMLUnavailableReason] = useState('')
   const mlFetchIdRef = useRef(0)                               // prevents stale ML fetches from writing state
   const mlBaselineOppsRef = useRef({ contextKey: '', rows: [] })
+  const mlPublishedPanelSignatureRef = useRef('')
+  const selectedAIRowIdentityRef = useRef(null)
+  const [opportunitySortColumn, SetOpportunitySortColumn] = useState(DEFAULT_OPPORTUNITY_SORT.column)
+  const [opportunitySortDirection, SetOpportunitySortDirection] = useState(DEFAULT_OPPORTUNITY_SORT.direction)
+
+  // A market switch must hide the prior market's AI panel immediately. The
+  // OppList response will authoritatively enable it again for supported U.S.
+  // stock and ETF resources.
+  useEffect(() => {
+    mlFetchIdRef.current += 1
+    SetMLScores({})
+    SetMLScoresLoading(false)
+    SetMLEnabled(false)
+    SetMLMarketEligible(false)
+    SetMLEligibilityResolved(false)
+    SetMLPending(new Set())
+    SetMLUnavailableReason('')
+    selectedAIRowIdentityRef.current = null
+    if (typeof setOpportunityAIState === 'function') {
+      const clearedState = {
+        market: selectedSecurityForAI,
+        resolved: false,
+        eligible: false,
+        enabled: false,
+        selected: null,
+        loading: false,
+        unavailableReason: '',
+        bundle: null,
+      }
+      mlPublishedPanelSignatureRef.current = JSON.stringify(clearedState)
+      setOpportunityAIState(clearedState)
+    }
+  }, [selectedSecurityForAI, setOpportunityAIState])
 
   const [dayRange, SetDayRange] = useState(EMPTY_DAY_RANGE)
   const [curText, SetCurText] = useState('')
@@ -499,6 +541,7 @@ const OppTable = (props) => {
               const prices = opps['prices'] || {};
               SetMLEnabled(opps['ml_enabled'] || false);
               SetMLMarketEligible(opps['ml_market_eligible'] || false);
+              SetMLEligibilityResolved(true);
 
               var tbl_col_reordered = opps['OppList'].map((row) => {
                 // ['date','symbol','days','dir','sharpe_ratio','avg_profit','median_profit','avg_profit2','sharpe_ratio2']
@@ -799,6 +842,56 @@ const OppTable = (props) => {
   mlBaselineOppsRef.current = mlSourceSelection.snapshot
   const mlScoreSource = mlSourceSelection.scoreSource
 
+  // Publish only the selected pattern's normalized view model. This keeps the
+  // panel on exactly the same 10/full/30/60/90-day interpretation used by table
+  // display, filters, and sorting without lifting the entire score cache.
+  useEffect(() => {
+    if (typeof setOpportunityAIState !== 'function') return
+    const identityMatchesViewer = row => (
+      String(row && row.symbol) === String(props.symbol || '') &&
+      String(row && row.date) === String(props.startDate || '') &&
+      parseInt(row && row.daysOut, 10) === parseInt(props.daysOut, 10)
+    )
+    const clickedIdentity = selectedAIRowIdentityRef.current
+    const selectedCandidates = mlScoreSource.filter(identityMatchesViewer)
+    const selectedRow = selectedCandidates.find(row => (
+      clickedIdentity &&
+      identityMatchesViewer(clickedIdentity) &&
+      String(row && row.lOrS) === String(clickedIdentity.lOrS)
+    )) || selectedCandidates[0] || null
+    const bundle = selectedRow
+      ? normalizeOpportunityAIScore({
+          row: selectedRow,
+          scores: mlScores,
+          pendingKeys: mlPending,
+          loading: mlScoresLoading,
+          unavailableReason: mlUnavailableReason,
+        })
+      : null
+    const nextState = {
+      market: props.selectedSecurity,
+      resolved: mlEligibilityResolved,
+      eligible: Boolean(mlMarketEligible),
+      enabled: Boolean(mlEnabled),
+      selected: selectedRow ? {
+        symbol: selectedRow.symbol,
+        date: selectedRow.date,
+        daysOut: selectedRow.daysOut,
+        direction: selectedRow.lOrS,
+        averageProfit: selectedRow.avg_profit,
+        sharpeRatio: selectedRow.sharpe_ratio,
+      } : null,
+      loading: Boolean(bundle && bundle.display && bundle.display.status === 'loading'),
+      unavailableReason: mlUnavailableReason,
+      bundle,
+    }
+    const signature = JSON.stringify(nextState)
+    if (signature !== mlPublishedPanelSignatureRef.current) {
+      mlPublishedPanelSignatureRef.current = signature
+      setOpportunityAIState(nextState)
+    }
+  }, [mlScoreSource, mlScores, mlPending, mlScoresLoading, mlUnavailableReason, mlEnabled, mlMarketEligible, mlEligibilityResolved, props.selectedSecurity, props.symbol, props.startDate, props.daysOut, setOpportunityAIState])
+
   useEffect(() => {
     // OppList supplies the authoritative ISO entry date for every row. The
     // New York-aware backend applies the five-day/current-entry gate per row;
@@ -987,6 +1080,7 @@ const OppTable = (props) => {
   const handlerRowClicked = useCallback((rowIndex, row) => () => { // this is to handleRowClicked in TableBox
     const current = rowClickStateRef.current
     const currentProps = current.props
+    selectedAIRowIdentityRef.current = row
     const sameOpportunity =
       currentProps.rowIndexClicked === rowIndex &&
       currentProps.symbol === row.symbol &&
@@ -1541,6 +1635,34 @@ const OppTable = (props) => {
     setCookie('showPEOpps', next.toString(), 300);
   }
 
+  const opportunitySortOptions = buildOpportunitySortOptions({
+    hasAI: tierHasAI(wpUserLevels),
+    mlEnabled,
+    marketEligible: mlMarketEligible,
+    showSR2: props.showSR2,
+  })
+  const preferredOpportunitySortValue = opportunitySortValue(
+    opportunitySortColumn,
+    opportunitySortDirection,
+  )
+  const preferredSortIsAvailable = opportunitySortOptions.some(
+    option => option.value === preferredOpportunitySortValue,
+  )
+  const effectiveOpportunitySort = preferredSortIsAvailable
+    ? { column: opportunitySortColumn, direction: opportunitySortDirection }
+    : DEFAULT_OPPORTUNITY_SORT
+  const effectiveOpportunitySortValue = opportunitySortValue(
+    effectiveOpportunitySort.column,
+    effectiveOpportunitySort.direction,
+  )
+
+  const handleOpportunitySortChange = event => {
+    const next = parseOpportunitySortValue(event.target.value)
+    if (!next) return
+    SetOpportunitySortColumn(next.column)
+    SetOpportunitySortDirection(next.direction)
+  }
+
 
   // const marginRight = browserH > browserW ? '3vw' : '2vw';
   const marginRight = browserH > browserW ? (peMetaAvailable ? '3vw' : '8.5vw') : '2vw';
@@ -1655,6 +1777,24 @@ const OppTable = (props) => {
             </div>
             : <div></div>
         }
+
+        <label className="opp-sort-control">
+          <span className="opp-sort-control__label">Sort by</span>
+          <select
+            aria-label="Sort opportunities by"
+            value={effectiveOpportunitySortValue}
+            onChange={handleOpportunitySortChange}
+            style={{
+              backgroundColor: tc.inputBg,
+              color: tc.text,
+              borderColor: tc.inputBorder,
+            }}
+          >
+            {opportunitySortOptions.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
         {/* ******************************************* */}
         {/* this is for the active opportunities button */}
         {props.activeOpportunities.length > 0 && loggedinUser !== '0' &&
@@ -1679,7 +1819,7 @@ const OppTable = (props) => {
         }
 
         <div className='opp-table-controls-items noselect' >  <span style={{ fontSize: globalTextSize, color: tc.text }}  >Filter&nbsp;</span>    </div>
-        <div ref={filterWrapperRef} className='opp-table-controls-items' style={{ marginRight: "11px" }} >
+        <div ref={filterWrapperRef} className='opp-table-controls-items opp-filter-search-control' style={{ marginRight: "5px" }} >
           {/* <TextBoxS tooltipContent={props.tooltipSW ? 'b,Search and Filter the Opportunities Table by all cells. \n Days can be filtered by a range of days; to filter a range of 30 to 60 days enter the range in the search as: 30-60.  You can also filter the Sharpe Ratio, (SR) by entering > sign and a number.  For example, enter ">2.0" in the filter text box.  Opportunities table is filtered to show only opportunities with Sharpe Ratio > 2.0 ' : ''} handleOnChange={handleOnChange} curText={curText} name='Filter' /> */}
           <TextBoxS
             tooltipContent={
@@ -1762,6 +1902,10 @@ const OppTable = (props) => {
                 columnVisibility={props.columnVisibility}
                 columnOrder={props.columnOrder}
                 shortDates={props.shortDates}
+                colSorted={effectiveOpportunitySort.column}
+                sortedDir={effectiveOpportunitySort.direction}
+                SetColSorted={SetOpportunitySortColumn}
+                SetSortedDir={SetOpportunitySortDirection}
               />
             )
             : <span>

@@ -138,7 +138,7 @@ TOOLS = [
             "SEES it on screen, instead of telling them where to click. Call this when the user "
             "says show me / load / pull up / open / change the years / switch to the PE cycle, "
             "asks to show/hide the MFE or MAE overlays, or asks to show the Trend Chart, "
-            "Wave Stats, or Price Chart in the lower carousel. It can also show or hide the global "
+            "Wave Stats, AI Scores, or Price Chart in the lower carousel. It can also show or hide the global "
             "guidance tooltips. "
             "Pass concrete fields. To show a date-range PRESET (a month/quarter/season), FIRST "
             "call analyze_symbol with period= to get the resolved entry_date + days_out, THEN "
@@ -162,7 +162,7 @@ TOOLS = [
                 },
                 "bottom_slide": {
                     "type": "string",
-                    "enum": ["trend_chart", "wave_stats", "price_chart"],
+                    "enum": ["trend_chart", "wave_stats", "ai_scores", "price_chart"],
                     "description": "lower carousel panel to display",
                 },
             },
@@ -355,7 +355,7 @@ def _bounded_json(out):
 _VS_SYMBOL_RE = re.compile(r"^[A-Za-z0-9.\-]{1,15}$")
 _VS_MARKETS = {str(i) for i in range(17) if i not in (14, 15)}   # 14/15 (Korea) removed; never renumber
 _VS_PE = {"consecutive": "cons", "cons": "cons", "pe0": "pe0", "pe1": "pe1", "pe2": "pe2", "pe3": "pe3"}
-_VS_BOTTOM_SLIDES = {"trend_chart", "wave_stats", "price_chart"}
+_VS_BOTTOM_SLIDES = {"trend_chart", "wave_stats", "ai_scores", "price_chart"}
 
 
 def _validate_view_spec(spec):

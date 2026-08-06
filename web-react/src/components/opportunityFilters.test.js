@@ -155,6 +155,19 @@ test('sorting changes order without adding or removing filtered opportunities', 
   expect(filtered.map(row => row.symbol)).toEqual(['LOW', 'GOOD', 'EDGE'])
 })
 
+test('sorting a hidden field keeps missing values last in both directions', () => {
+  const hiddenFieldRows = [
+    { date: '2026-08-05', symbol: 'MISSING', daysOut: 40, lOrS: 'Long', pred_return: null },
+    { date: '2026-08-05', symbol: 'LOWER', daysOut: 40, lOrS: 'Long', pred_return: -2 },
+    { date: '2026-08-05', symbol: 'HIGHER', daysOut: 40, lOrS: 'Long', pred_return: 4 },
+  ]
+
+  expect(sortOpportunityRows(hiddenFieldRows, 'pred_return', 'a').map(row => row.symbol))
+    .toEqual(['LOWER', 'HIGHER', 'MISSING'])
+  expect(sortOpportunityRows(hiddenFieldRows, 'pred_return', 'd').map(row => row.symbol))
+    .toEqual(['HIGHER', 'LOWER', 'MISSING'])
+})
+
 test('long-pattern AI sort and filters use the displayed 90-day checkpoint, not a stronger shorter checkpoint', () => {
   const longRow = { symbol: 'LONG', date: '2026-08-05', daysOut: 120, lOrS: 'Long' }
   const longBundle = normalizeOpportunityAIScore({

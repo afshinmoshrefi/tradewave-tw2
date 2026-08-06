@@ -1,19 +1,15 @@
 const {
   AI_COLUMNS,
-  AI_DURATION_OUTLINE_DESCRIPTION,
   advanceOpportunityAIPollBudget,
   findOpportunityAIScore,
   formatOpportunityAIMetric,
   normalizeOpportunityAIScore,
   opportunityAIFlatFields,
   opportunityAIHeaderColor,
-  opportunityAIHeaderTooltip,
-  opportunityAIShortHeaderTooltip,
   opportunityAILegacyKey,
   opportunityAIReasonCopy,
   opportunityTableMinimumWidth,
   selectOpportunityVisibleColumns,
-  shouldShowCheckpointCoachmark,
 } = require('./opportunityAIScores')
 
 const fullRow = { symbol: 'AAPL', date: '2026-08-05', daysOut: 45, lOrS: 'Long' }
@@ -90,7 +86,6 @@ test('labels a short historical pattern with the ten-day AI model minimum', () =
     pred_mfe: 4.9,
     ml_pending: false,
   })
-  expect(shouldShowCheckpointCoachmark({ hasAI: true, seen: false, visible: true, bundle })).toBe(false)
 })
 
 test('shows a pending short row at the ten-day minimum before a score arrives', () => {
@@ -108,26 +103,6 @@ test('shows a pending short row at the ten-day minimum before a score arrives', 
     displayCalendarDays: 10,
     display: { calendarDays: 10, status: 'loading', isCurrent: false },
   })
-})
-
-test('all AI heading tooltips explain the outline and short-pattern minimum in plain language', () => {
-  AI_COLUMNS.forEach(metric => {
-    const tooltip = opportunityAIHeaderTooltip(metric)
-    expect(tooltip).toContain(AI_DURATION_OUTLINE_DESCRIPTION)
-    expect(tooltip).toMatch(/shorter than 10 days.*10-day AI reading/i)
-    expect(tooltip).not.toMatch(/horizon|feature vector|recurrence|profile/i)
-  })
-})
-
-test('AI headings give compact explanations that say how to read each number', () => {
-  expect(opportunityAIShortHeaderTooltip('ml_score'))
-    .toBe('0-100 rank of the AI-estimated ending return. Not a win chance.')
-  expect(opportunityAIShortHeaderTooltip('win_prob'))
-    .toBe('AI-calibrated chance of a profitable result.')
-  expect(opportunityAIShortHeaderTooltip('pred_return'))
-    .toBe('Estimated return when this time window ends.')
-  expect(opportunityAIShortHeaderTooltip('pred_mfe'))
-    .toBe('Estimated best move during this time window. Not a target.')
 })
 
 test('normalizes long-pattern checkpoints and always displays the 90-day reading', () => {
@@ -304,23 +279,7 @@ test('formats all four metrics and preserves numeric zero', () => {
   expect(formatOpportunityAIMetric('pred_mfe', null)).toBe('N/A')
 })
 
-test('only offers the coachmark for the first unseen available checkpoint surface', () => {
-  const bundle = normalizeOpportunityAIScore({
-    row: longRow,
-    scores: {
-      'MSFT|2026-08-05|119|s': {
-        basis: 'checkpoint',
-        horizons: [{ calendar_days: 90, ml_score: 78, win_prob: 0.73, pred_return: 4, pred_mfe: 8 }],
-      },
-    },
-  })
-
-  expect(shouldShowCheckpointCoachmark({ hasAI: true, seen: false, visible: true, bundle })).toBe(true)
-  expect(shouldShowCheckpointCoachmark({ hasAI: true, seen: true, visible: true, bundle })).toBe(false)
-  expect(shouldShowCheckpointCoachmark({ hasAI: false, seen: false, visible: true, bundle })).toBe(false)
-})
-
-test('phone portrait keeps a compact core plus configured Win% and PredR defaults', () => {
+test('phone portrait keeps a compact core plus explicitly selected Win% and PredR columns', () => {
   const columns = selectOpportunityVisibleColumns({
     columnOrder: ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'],
     showSR2: false,
@@ -332,6 +291,29 @@ test('phone portrait keeps a compact core plus configured Win% and PredR default
 
   expect(columns).toEqual(['symbol', 'daysOut', 'sharpe_ratio', 'win_prob', 'pred_return'])
   expect(opportunityTableMinimumWidth({ columns, isMobilePortrait: true })).toBeLessThanOrEqual(390)
+})
+
+test('AI columns require an explicit opt-in instead of appearing from a missing preference', () => {
+  const base = {
+    columnOrder: ['symbol', 'daysOut', 'sharpe_ratio', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'],
+    showSR2: false,
+    isMobilePortrait: true,
+    marketEligible: true,
+  }
+
+  expect(selectOpportunityVisibleColumns({
+    ...base,
+    hasAI: true,
+    mlEnabled: true,
+    columnVisibility: undefined,
+  })).toEqual(['symbol', 'daysOut', 'sharpe_ratio'])
+
+  expect(selectOpportunityVisibleColumns({
+    ...base,
+    hasAI: true,
+    mlEnabled: true,
+    columnVisibility: { win_prob: true },
+  })).toEqual(['symbol', 'daysOut', 'sharpe_ratio', 'win_prob'])
 })
 
 test('all four configured AI columns still fit the compact 390px portrait table', () => {

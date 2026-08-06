@@ -250,6 +250,9 @@ def test_view_spec_accepts_only_named_lower_panels():
     assert tara_gateway._validate_view_spec({"bottom_slide": "wave_stats"}) == {
         "bottom_slide": "wave_stats"
     }
+    assert tara_gateway._validate_view_spec({"bottom_slide": "ai_scores"}) == {
+        "bottom_slide": "ai_scores"
+    }
     assert tara_gateway._validate_view_spec({"bottom_slide": "settings"}) == {}
     assert tara_gateway._validate_view_spec({"bottom_slide": 2}) == {}
 
@@ -669,6 +672,7 @@ def test_chat_route_uses_current_visible_googl_row_not_stale_history(monkeypatch
     [
         ("show me the trend chart", "trend_chart", "Trend Chart"),
         ("show me the stats", "wave_stats", "Wave Stats"),
+        ("show me AI Scores", "ai_scores", "AI Scores"),
         ("open the price chart", "price_chart", "Price Chart"),
     ],
 )
@@ -690,7 +694,7 @@ def test_chat_route_moves_lower_panel_without_calling_a_provider(
         "message": message,
         "history": [{"role": "user", "content": message}],
         "wave_viewer": {"symbol": "ADI", "years": "16", "pe_cycle": "cons"},
-        "screen_context": {},
+        "screen_context": {"ai_scores_available": expected_slide == "ai_scores"},
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
@@ -702,6 +706,30 @@ def test_chat_route_moves_lower_panel_without_calling_a_provider(
         {"type": "set_view", "spec": {"bottom_slide": expected_slide}}
     ]
     assert expected_reply in payload["reply"]
+
+
+def test_chat_route_explains_when_ai_scores_panel_is_not_available(monkeypatch):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+
+    app = Flask(__name__)
+    body = {
+        "message": "show me AI Scores",
+        "history": [],
+        "wave_viewer": {"symbol": "BTCUSD", "market": "16"},
+        "screen_context": {"ai_scores_available": False},
+        "opportunities": [],
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "panel-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    payload = response.get_json()
+    assert payload["actions"] == []
+    assert "not available for this market" in payload["reply"]
+    assert "supported US stocks and ETFs" in payload["reply"]
 
 
 def test_system_prompt_forces_named_symbol_over_loaded_symbol():

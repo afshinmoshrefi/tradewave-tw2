@@ -521,8 +521,12 @@ export const monthsOptionsListS = [
 ]
 
 export const monthsAndQtrs = [
-  { id: 0, value: "Months & Qtrs", label: "Months & Qtrs", range: ['', ''] },
-  { id: 1, value: "Reverse Date Range", label: "Reverse Date Range", range: ['00-00', '00-00'] },
+  // The first item is the closed select's heading. `hidden` keeps it out of the
+  // opened menu so it cannot be mistaken for a date-range action.
+  { id: 0, value: "Months & Qtrs", label: "Months & Qtrs", range: ['', ''], hidden: true },
+  // These actions stay in the canonical collection because the existing date
+  // calculations use their ranges, but they render as standalone controls.
+  { id: 1, value: "Reverse Date Range", label: "Reverse Date Range", range: ['00-00', '00-00'], menu: false },
   ...monthsOptionsList,
   { id: 14, value: "1st Qtr", label: "1st Qtr", range: ['01-01', '03-31'] },
   { id: 15, value: "2nd Qtr", label: "2nd Qtr", range: ['04-01', '06-30'] },
@@ -535,11 +539,13 @@ export const monthsAndQtrs = [
   { id: 21, value: "Winter", label: "Winter", range: ['12-22', '03-20'] },
   { id: 22, value: "Year to Date", label: "Year to Date", range: ['01-01', '00-00'] },
   { id: 23, value: "Today to Year End", label: "Today to Year End", range: ['01-01', '12-31'] },
-  { id: 24, value: "Buy & Hold", label: "Buy & Hold", range: ['01-01', '01-01'] },
+  { id: 24, value: "Buy & Hold", label: "Buy & Hold", range: ['01-01', '01-01'], menu: false },
   // { id: 21, value: "Buy & Hold", label: "Buy & Hold", range: ['12-31', '12-31'] },
 
 
 ]
+
+export const monthsAndQtrsMenu = monthsAndQtrs.filter((option) => option.menu !== false)
 
 export const numTopOppsForEmail = [
   { id: 1, value: 1, label: "Top 1 Opportunities" },

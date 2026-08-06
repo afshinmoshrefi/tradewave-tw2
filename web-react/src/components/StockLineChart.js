@@ -1021,7 +1021,7 @@ const StockLineChart = (props) => {
                 {
                     (!rdd.isMobile || (rdd.isMobile && rdd.isTablet && browserH < browserW))
                         ?
-                        <div style={{ width: '20%', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className={props.sharedBottomPanelNavigation ? 'legacy-bottom-panel-navigation--hidden' : ''} style={{ width: '20%', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
 
 
                             <Tippy placement={'top'} content={

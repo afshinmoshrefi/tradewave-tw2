@@ -1,8 +1,7 @@
 export const AI_COLUMNS = ['ml_score', 'win_prob', 'pred_return', 'pred_mfe']
-export const AI_CHECKPOINT_COACHMARK_KEY = 'tw_ai_duration_comparison_coachmark_seen_v2'
 
-// Keep the AI group easy to spot in either theme. This is the established
-// Opportunity Table header green; checkpoint identity remains violet in cells.
+// Keep optional AI columns easy to spot in either theme with the established
+// Opportunity Table header green.
 export const opportunityAIHeaderColor = theme => (
   theme === 'dark' ? 'rgb(100, 220, 140)' : 'rgb(22, 163, 74)'
 )
@@ -33,18 +32,6 @@ export const AI_METRICS = Object.freeze({
     description: 'The AI-estimated best move in the selected Long or Short direction before the window ends. It does not say when that move may happen, and it is not a price target or exit instruction.',
   }),
 })
-
-export const AI_DURATION_OUTLINE_DESCRIPTION = 'An outline means you can open the value and compare more than one AI time length. It is not a warning or a quality grade.'
-
-export const opportunityAIHeaderTooltip = metric => {
-  const metadata = AI_METRICS[metric]
-  if (!metadata) return ''
-  return `${AI_DURATION_OUTLINE_DESCRIPTION} ${metadata.label} (${metadata.shortLabel}). ${metadata.description} Patterns shorter than 10 days use a 10-day AI reading while history keeps the real length. Patterns longer than 90 days show 90 days in the table. Select the heading to sort.`
-}
-
-export const opportunityAIShortHeaderTooltip = metric => (
-  AI_METRICS[metric] ? AI_METRICS[metric].shortDescription : ''
-)
 
 const CHECKPOINT_DAYS = [30, 60, 90]
 const REQUIRED_OPPORTUNITY_COLUMNS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])
@@ -131,10 +118,10 @@ export const selectOpportunityVisibleColumns = ({
   if (AI_COLUMNS.includes(column)) {
     if (!marketEligible) return false
     if (!hasAI) {
-      return column === 'ml_score' && (!columnVisibility || columnVisibility[column] !== false)
+      return column === 'ml_score' && Boolean(columnVisibility && columnVisibility[column] === true)
     }
     if (!mlEnabled) return false
-    return !columnVisibility || columnVisibility[column] !== false
+    return Boolean(columnVisibility && columnVisibility[column] === true)
   }
   if (isMobilePortrait) return MOBILE_OPPORTUNITY_COLUMNS.has(column)
   if (REQUIRED_OPPORTUNITY_COLUMNS.has(column)) return true
@@ -210,6 +197,7 @@ const normalizeHorizon = (source, fallbackStatus, fallbackReason) => {
     isCurrent: Boolean(source && firstDefined(source.is_current, source.isCurrent, false)),
     isModelMinimum: Boolean(source && firstDefined(source.is_model_minimum, source.isModelMinimum, false)),
     selectedRecurrence: source && firstDefined(source.selected_recurrence, source.selectedRecurrence, null),
+    scorer: source && source.scorer && typeof source.scorer === 'object' ? source.scorer : null,
   }
 }
 
@@ -332,6 +320,15 @@ export const normalizeOpportunityAIScore = ({
     ? 10
     : fullPatternCalendarDays > 90 ? 90 : fullPatternCalendarDays
   const display = horizons.find(horizon => horizon.calendarDays === displayCalendarDays) || horizons[horizons.length - 1]
+  const scorer = firstDefined(
+    payload && payload.scorer,
+    display && display.scorer,
+    ...horizons.map(horizon => horizon.scorer),
+  )
+  const normalizedScorer = scorer && typeof scorer === 'object' ? {
+    dataAsOf: String(firstDefined(scorer.data_as_of, scorer.latest_data_date, '')),
+    modelRelease: String(firstDefined(scorer.model_release, scorer.model_version, '')),
+  } : null
 
   return {
     key: found.key,
@@ -343,6 +340,8 @@ export const normalizeOpportunityAIScore = ({
     displayCalendarDays,
     display,
     horizons,
+    scorer: normalizedScorer,
+    dataAsOf: normalizedScorer ? normalizedScorer.dataAsOf : '',
   }
 }
 
@@ -424,15 +423,3 @@ export const opportunityAICompactStatus = horizon => {
   if (reason === 'too_early' || reason === 'too_far_ahead') return 'Not available yet'
   return 'Temporarily unavailable'
 }
-
-export const shouldShowCheckpointCoachmark = ({ hasAI, seen, bundle, visible }) => Boolean(
-  hasAI &&
-  !seen &&
-  visible &&
-  bundle &&
-  bundle.basis === 'duration_comparison' &&
-  Array.isArray(bundle.horizons) &&
-  bundle.horizons.length > 1 &&
-  bundle.display &&
-  bundle.display.status === 'available'
-)

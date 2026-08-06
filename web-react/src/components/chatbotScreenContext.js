@@ -1,10 +1,14 @@
 // Build the allowlisted UI snapshot Tara needs to explain what the user can actually see.
 // This intentionally carries metadata and derived directional summaries only - never raw price series.
 
-export const BOTTOM_SLIDES = ['trend_chart', 'wave_stats', 'price_chart'];
-const BOTTOM_SLIDE_INDEX = Object.freeze(
-  BOTTOM_SLIDES.reduce((indices, slide, index) => ({ ...indices, [slide]: index }), {}),
-);
+import {
+  BOTTOM_SLIDES,
+  getBottomSlideIndex,
+  getBottomSlideName,
+  getBottomSlides,
+} from './bottomSlides';
+
+export { BOTTOM_SLIDES };
 const WINDOW_PATH_STATES = ['supports', 'against', 'flat', 'unknown'];
 
 const asArrayWithRows = (value) => Array.isArray(value) && value.length > 0;
@@ -44,12 +48,11 @@ export const shouldClearOpportunityTable = (currentMarket, targetMarket) => {
   return target !== '' && target !== current;
 };
 
-// Tara is desktop-only, where the lower Swiper order is a stable semantic contract:
-// Trend Chart, Wave Stats, Price Chart. Return whether a validated move was applied so
-// unsupported values cannot accidentally move the carousel.
-export const showBottomSlide = (swiper, slide) => {
-  const index = BOTTOM_SLIDE_INDEX[slide];
-  if (!Number.isInteger(index) || typeof swiper?.slideTo !== 'function') return false;
+// Tara is desktop-only. Resolve semantic destinations through the active slide set so the
+// optional AI Scores panel cannot redirect a Price Chart command to the wrong numeric slide.
+export const showBottomSlide = (swiper, slide, options = {}) => {
+  const index = getBottomSlideIndex(slide, options);
+  if (index < 0 || typeof swiper?.slideTo !== 'function') return false;
   swiper.slideTo(index);
   return true;
 };
@@ -144,12 +147,15 @@ export const deriveSeasonalWindowPath = (cycle, startDate, daysOut, direction = 
 };
 
 export const buildChatbotScreenContext = (props = {}) => {
+  const bottomSlideOptions = { hasAIScores: props.hasAIScores === true };
+  const bottomSlides = getBottomSlides(bottomSlideOptions);
   const swiperIndex = Number.isInteger(props.swiper?.activeIndex)
     ? props.swiper.activeIndex
     : Number(props.initialWindowNum);
-  const activeIndex = Number.isInteger(swiperIndex) && swiperIndex >= 0 && swiperIndex <= 2
+  const activeIndex = Number.isInteger(swiperIndex) && swiperIndex >= 0 && swiperIndex < bottomSlides.length
     ? swiperIndex
     : 0;
+  const activeBottomSlide = getBottomSlideName(activeIndex, bottomSlideOptions);
 
   const bars = Array.isArray(props.seasonalBarChartData) ? props.seasonalBarChartData : [];
   const direction = props.rowIndexClicked === -1
@@ -167,7 +173,7 @@ export const buildChatbotScreenContext = (props = {}) => {
   const activeTradeChart = !currentPriceChart && props.tradeActive === true && sameYear;
   const derivedPriceChartMode = currentPriceChart ? 'current' : (activeTradeChart ? 'active_trade' : 'historical');
   const derivedProjectionCapable = currentPriceChart || activeTradeChart;
-  const priceChartIsActive = activeIndex === 2;
+  const priceChartIsActive = activeBottomSlide === 'price_chart';
 
   // Prefer the small contract published by StockLineChart itself. It reflects
   // what was actually rendered, including projection eligibility; the derived
@@ -209,7 +215,8 @@ export const buildChatbotScreenContext = (props = {}) => {
 
   const rowCount = Number(props.oppTableLength);
   const context = {
-    active_bottom_slide: BOTTOM_SLIDES[activeIndex],
+    active_bottom_slide: activeBottomSlide,
+    ai_scores_available: props.hasAIScores === true,
     price_chart_mode: priceChartMode,
     selected_projection_visible: selectedProjectionVisible,
     full_history_projection_visible: fullHistoryProjectionVisible,

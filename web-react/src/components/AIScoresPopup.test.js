@@ -41,14 +41,15 @@ test('AI Scores guide traps focus, makes long content keyboard-scrollable, and c
   jest.useRealTimers()
 })
 
-test('guide starts with the outline and gives a plain-English decision checklist', () => {
+test('guide starts with the AI Scores window and gives a plain-English decision checklist', () => {
   const view = renderGuide(jest.fn())
 
   const guide = screen.getByRole('region', { name: 'AI Scores guide content' })
-  expect(guide.textContent.trim()).toMatch(/^First: what the outline means/)
-  expect(guide).toHaveTextContent(/An outline means this value has more than one AI time length to view/i)
-  expect(guide).toHaveTextContent(/outline is not a better\/worse rating or a warning/i)
-  expect(guide).toHaveTextContent(/1-9-day pattern.*history keeps the real pattern length while AI uses 10 days/i)
+  expect(guide.textContent.trim()).toMatch(/^Start in the AI Scores window/)
+  expect(guide).toHaveTextContent(/Select an opportunity, then open AI Scores after Wave Stats/i)
+  expect(guide).toHaveTextContent(/shows all available time lengths.*historical sample size/i)
+  expect(guide).toHaveTextContent(/four AI columns are off by default/i)
+  expect(guide).toHaveTextContent(/sort by an AI value without showing that column/i)
 
   expect(guide).toHaveTextContent(/AI Scores in plain English/i)
   expect(guide).toHaveTextContent(/History shows what happened.*years you selected/i)
@@ -98,13 +99,14 @@ test('guide explains calendar-day comparisons, availability, and what to do befo
   expect(guide).toHaveTextContent(/31-60 days: compare 30 days with the full pattern/i)
   expect(guide).toHaveTextContent(/61-90 days: compare 30 and 60 days with the full pattern/i)
   expect(guide).toHaveTextContent(/More than 90 days: compare 30, 60, and 90 days; the table shows 90 days/i)
+  expect(guide).toHaveTextContent(/AI Scores window shows every applicable reading together/i)
   expect(guide).toHaveTextContent(/AI estimate and history check answer different questions/i)
   expect(guide).toHaveTextContent(/Long means the setup benefits if price rises.*Short means it benefits if price falls/i)
 
   expect(guide).toHaveTextContent(/US stocks and ETFs/i)
   expect(guide).toHaveTextContent(/stock and market data from the latest completed market day/i)
   expect(guide).toHaveTextContent(/does not update during the trading day \(intraday\)/i)
-  expect(guide).toHaveTextContent(/spinner means AI is still calculating.*dash means no score was assigned.*Zero is a real AI value/i)
+  expect(guide).toHaveTextContent(/spinner means AI is still calculating.*dash means no score was assigned.*Select that row and open the AI Scores window.*Zero is a real AI value/i)
   expect(guide).toHaveTextContent(/Review the historical sample, expected return, possible loss, and your own risk limits before acting/i)
 
   expect(guide).not.toHaveTextContent(/ensemble|horizon tier|walk-forward|feature vector|pattern profile|recurrence|direction-adjusted|today's conditions/i)

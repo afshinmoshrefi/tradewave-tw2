@@ -65,6 +65,11 @@ const RESOURCE_GROUP_IDS = Object.fromEntries(
 // Order is fixed by JSX order: SeasonalChart, TradeDetail, StockLineChart.
 const DISPLAY_SLIDE_INDEX = { seasonal: 0, tradeDetail: 1, price: 2 };
 const SLIDE_INDEX_DISPLAY = ['seasonal', 'tradeDetail', 'price'];
+const DISPLAY_BOTTOM_PANEL = {
+  seasonal: { semantic: 'trend_chart', label: 'Trend Chart' },
+  tradeDetail: { semantic: 'wave_stats', label: 'Wave Stats' },
+  price: { semantic: 'price_chart', label: 'Price Chart' },
+};
 
 // Internal dev-only route that renders the authenticated app shell for the
 // capture-bot service account (web/app.py:1718, capture_app()). Only live
@@ -218,6 +223,7 @@ function buildCookieSeed(spec, deepLink) {
   const wantSlideIdx = DISPLAY_SLIDE_INDEX[spec.display];
   if (wantSlideIdx === undefined) fail(`spec.display "${spec.display}" must be one of seasonal|tradeDetail|price`);
   push('WindowNumber', wantSlideIdx);
+  push('BottomWindowName', DISPLAY_BOTTOM_PANEL[spec.display].semantic);
 
   if (spec.market) push('selectedSecurity', spec.market);
   if (deepLink && deepLink.paramStr) {
@@ -500,29 +506,11 @@ async function main() {
       ).catch(() => fail(`timed out waiting for deep link to apply for symbol "${spec.symbol}". Console errors: ` + JSON.stringify(consoleErrors)));
     }
 
-    // ---- Step 7: correct the slide if the querystring forced slide 2 ----
-    // GOTCHA (App.js:454-459): ANY querystring except exactly "?set=on"
-    // forces initialWindowNum=2 (price display) at boot, overriding the
-    // WindowNumber cookie we seeded. Since deep-linked specs use ?o=..., we
-    // must detect and correct this post-boot rather than trust the cookie.
-    const wantIdx = DISPLAY_SLIDE_INDEX[spec.display];
-    if (deepLink && wantIdx !== 2) {
-      log(`querystring forced slide 2 (price); navigating swiper to slide ${wantIdx} (${spec.display})...`);
-      await switchSlide(page, 2, wantIdx, consoleErrors);
-    } else if (!deepLink) {
-      // ?set=on does not force slide 2, so the WindowNumber cookie should
-      // have taken effect already - but verify, since App.js's initial-load
-      // branches are intricate and we'd rather actively confirm than assume.
-      const actualIdx = await page.evaluate(() => {
-        const bullets = document.querySelector('.mySwiper');
-        return bullets ? Number(bullets.querySelector('.swiper-slide-active') ?
-          Array.from(bullets.querySelectorAll('.swiper-slide')).indexOf(bullets.querySelector('.swiper-slide-active')) : -1) : -1;
-      });
-      if (actualIdx !== -1 && actualIdx !== wantIdx) {
-        log(`WindowNumber cookie didn't land on slide ${wantIdx} (found ${actualIdx}); correcting via swiper nav...`);
-        await switchSlide(page, actualIdx, wantIdx, consoleErrors);
-      }
-    }
+    // ---- Step 7: select the requested semantic panel ----
+    // AI Scores is inserted only for eligible U.S. stock/ETF markets, so Price
+    // Chart can be numeric index 2 or 3. Use the visible labeled tab instead of
+    // encoding either index in capture automation.
+    await selectBottomPanel(page, DISPLAY_BOTTOM_PANEL[spec.display].label, consoleErrors);
 
     // Wait for the target display's own ready flag (may already be true).
     const readyFlagName = spec.display; // 'seasonal' | 'tradeDetail' | 'price'
@@ -755,6 +743,24 @@ async function switchSlide(page, fromIdx, toIdx, consoleErrors) {
       { timeout: 30000 }
     ).catch(() => fail(`switched swiper to slide ${toIdx} but ready.trendChart never went true. Console errors: ` + JSON.stringify(consoleErrors)));
   }
+}
+
+async function selectBottomPanel(page, label, consoleErrors) {
+  const clicked = await page.evaluate((targetLabel) => {
+    const tabs = Array.from(document.querySelectorAll('.bottom-panel-tabs [role="tab"]'));
+    const tab = tabs.find(item => item.textContent.trim() === targetLabel);
+    if (!tab) return false;
+    tab.click();
+    return true;
+  }, label);
+  if (!clicked) fail(`bottom panel tab "${label}" not found - lower navigation may have changed`);
+  await page.waitForFunction(
+    (targetLabel) => Array.from(document.querySelectorAll('.bottom-panel-tabs [role="tab"]'))
+      .some(item => item.textContent.trim() === targetLabel && item.getAttribute('aria-selected') === 'true'),
+    { timeout: 30000 },
+    label
+  ).catch(() => fail(`bottom panel "${label}" did not become active. Console errors: ` + JSON.stringify(consoleErrors)));
+  await new Promise((resolve) => setTimeout(resolve, 300));
 }
 
 // -----------------------------------------------------------------------

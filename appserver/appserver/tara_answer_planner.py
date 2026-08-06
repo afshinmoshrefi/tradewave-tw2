@@ -385,7 +385,7 @@ _OPPORTUNITY_ROW_WORDS = {
     "tenth": 10,
 }
 
-# Moving among the three lower desktop panels is a reversible viewer command. Keep this
+# Moving among the lower desktop panels is a reversible viewer command. Keep this
 # deterministic so a direct request never depends on a model deciding whether Tara can drive
 # the carousel. The anchored command prefix deliberately excludes explanatory questions such
 # as "what does the Trend Chart show?" and "explain Wave Stats".
@@ -416,9 +416,17 @@ _BOTTOM_SLIDE_TARGETS = (
             re.I,
         ),
     ),
+    (
+        "ai_scores",
+        "AI Scores",
+        re.compile(
+            r"\b(?:the\s+)?ai\s+scores?(?:\s+(?:panel|slide|window))?\b",
+            re.I,
+        ),
+    ),
 )
 
-_BOTTOM_SLIDES = {"trend_chart", "wave_stats", "price_chart"}
+_BOTTOM_SLIDES = {"trend_chart", "wave_stats", "ai_scores", "price_chart"}
 _PRICE_CHART_MODES = {"current", "active_trade", "historical"}
 _WINDOW_PATH_STATES = {"supports", "against", "flat", "unknown"}
 
@@ -1029,7 +1037,7 @@ def requested_opportunity_row_rank(message: Any) -> Optional[int]:
 def build_bottom_slide_command(message: Any) -> Optional[Dict[str, Any]]:
     """Return a deterministic command for a direct lower-panel navigation request.
 
-    The desktop wave viewer's lower carousel has three stable semantic destinations. This
+    The desktop wave viewer's lower carousel has stable semantic destinations. This
     parser recognizes only an explicit navigation verb followed by one of those destinations;
     concept questions remain in Tara's normal explanation/guide path.
     """
@@ -1188,6 +1196,7 @@ def normalize_screen_context(raw: Any) -> Dict[str, Any]:
 
     out: Dict[str, Any] = {
         "active_bottom_slide": slide,
+        "ai_scores_available": src.get("ai_scores_available") is True,
         "price_chart_mode": mode,
         "selected_projection_visible": src.get("selected_projection_visible") is True,
         "full_history_projection_visible": src.get("full_history_projection_visible") is True,
@@ -2340,9 +2349,15 @@ def _bottom_panel_line(screen: Mapping[str, Any], facts: Mapping[str, Any]) -> s
             "<b>Bottom Trend Chart:</b> it shows the historical seasonal path for the selected "
             "lookback, with the loaded trade window and summary statistics."
         )
+    if slide == "ai_scores":
+        return (
+            "<b>Bottom AI Scores:</b> it explains the AI estimates for the selected pattern, "
+            "including its estimated chance of profit, ending return, best move and 0-100 return rank."
+        )
     return (
-        "<b>Bottom viewer:</b> it has Trend Chart, Wave Stats and Price Chart slides; the current "
-        "client did not identify which slide is active, so all three are available for this pattern."
+        "<b>Bottom viewer:</b> it has Trend Chart, Wave Stats and Price Chart slides, plus AI "
+        "Scores when the selected market supports them. The current client did not identify which "
+        "slide is active."
     )
 
 

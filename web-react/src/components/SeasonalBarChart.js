@@ -7,7 +7,7 @@ import TextBoxInc from './TextBoxInc'
 import CheckBox from './CheckBox'
 import BarChart from './BarChart'
 import Tippy from '@tippyjs/react'
-import { monthsAndQtrs, maxDaysOut, minDaysOut } from './Common'
+import { monthsAndQtrs, monthsAndQtrsMenu, maxDaysOut, minDaysOut } from './Common'
 import { redirectBackFromSeasonals } from './Common'
 import { appserverURL } from './Common'
 import { getTodayDate } from './Common'
@@ -1588,6 +1588,9 @@ const SeasonalBarChart = (props) => {
     // wraps its content. With no select (no symbol/options), grow as before so the
     // ticker+dates stay right-anchored next to the MFE/MAE controls.
     flexGrow: (!rdd.isMobile && oppBySymbolOptions.length > 0) ? "0" : "2",
+    // This group contains fixed-size text inputs. Letting it shrink makes its child
+    // spill left over Best Waves even though the toolbar itself still appears to fit.
+    flexShrink: 0,
     justifyContent: "end",
     display: displayElement[3],
     whiteSpace: 'nowrap',
@@ -2202,6 +2205,37 @@ const SeasonalBarChart = (props) => {
   // Right-panel width in px (the split-aware version of window.innerWidth) - drives the
   // Remind me pill's icon-only collapse.
   const rightPanelPx = window.innerWidth * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1)
+  const compactBuyHold = rightPanelPx < 1040
+  const compactExcludeRange = rightPanelPx < 1220
+  const compactActionPadding = rightPanelPx < 1220
+  const rangeActionButtonStyle = {
+    height: !rdd.isMobile ? '2.7vh' : undefined,
+    minHeight: '22px',
+    padding: compactActionPadding ? '0 4px' : '0 6px',
+    fontSize: globalTextSize,
+    lineHeight: 1,
+    color: tc.selectText,
+    backgroundColor: tc.selectBg,
+    border: '1px solid ' + tc.selectBorder,
+    borderRadius: '3px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  }
+  const buyHoldActive = props.monthsAndQtrs === 'Buy & Hold'
+  const buyHoldButtonStyle = {
+    ...rangeActionButtonStyle,
+    color: buyHoldActive ? 'white' : tc.text,
+    backgroundColor: buyHoldActive ? tc.symbolAccent : tc.symbolBg,
+    border: '1px solid ' + tc.symbolAccent,
+    fontWeight: 600,
+  }
+  const excludeRangeButtonStyle = {
+    ...rangeActionButtonStyle,
+    color: tc.text,
+    backgroundColor: tc.statLabelBg,
+    border: '1px solid ' + tc.textSecondary,
+    fontWeight: 500,
+  }
   // "Reminder set" = Google Calendar events actually exist for this pattern (a save
   // via the Plus icon alone does NOT flip it - gc_events is stamped only on insert).
   const reminderSet = !!(reminderInfo?.saved && reminderInfo?.gcEvents)
@@ -2281,7 +2315,7 @@ const SeasonalBarChart = (props) => {
                   {/* Icon-only when the right panel is narrow (absolute px, not split %:
                       a small window with the default split is just as cramped) - the
                       labeled pill otherwise overflows this fixed row into Best Waves. */}
-                  {rightPanelPx < 1120
+                  {rightPanelPx < 1220
                     ? <BsBellFill size={13} style={{ verticalAlign: '-2px' }} />
                     : reminderSet
                       ? <><span style={{ color: '#4ade80', marginRight: '4px' }}>✓</span>Reminder set</>
@@ -2298,13 +2332,14 @@ const SeasonalBarChart = (props) => {
             box stay until the measured slack leaves under 3px per side (bwWide); only then
             drop to the compact undecorated label. */}
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
-          <div ref={bwWrapRef} style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', display: 'flex', justifyContent: 'center' }}>
+          <div ref={bwWrapRef} style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
           <SelectBox
             optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
             value={selectedOppBySymbol}
             name="oppBySymbol"
             suffix=""
             widthOverride={bwWide ? '7vw' : undefined}
+            fitContainer
             sbChanged={handleOppBySymbolChanged}
             tooltipContent={props.tooltipSW ? 'b,Best seasonal waves for this ticker sorted by Sharpe Ratio. Select a wave to load it in the viewer.' : ''}
           />
@@ -2461,8 +2496,41 @@ const SeasonalBarChart = (props) => {
           <div className='barchart-controls-div' style={StylePEselection} >
             <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" sbChanged={selectboxChanged} tooltipContent={props.tooltipSW ? 'b,Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.)' : ''} />
           </div>
-          <div className='barchart-controls-div' style={StyleMQtrs}>
-            <SelectBox tooltipContent={props.tooltipSW ? 'b,Premium Feature: TradeWave Shortcut to quickly enter date range for each month of the year, each season and by each quarter.  You can also select shortcuts for the following date ranges: "Year To Date", "Today to Year End" and "Buy & Hold" . \n When Reverse Date Range is selected, the resulting date range is the entire year except the initial date range.' : ''} optionList={monthsAndQtrs} name="monthsAndQtrs" value={props.monthsAndQtrs} sbChanged={selectboxChanged} />
+          <div className='barchart-controls-div' style={{ ...StyleMQtrs, alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+            <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
+              <div theme="tw">Show yearly performance from January 1 to the next January 1.</div>
+            }>
+              <button
+                type="button"
+                aria-label="Buy and Hold"
+                aria-pressed={buyHoldActive}
+                onClick={() => selectboxChanged({ target: { id: 'monthsAndQtrs', value: 'Buy & Hold' } })}
+                style={buyHoldButtonStyle}
+              >
+                {compactBuyHold ? 'B&H' : 'Buy & Hold'}
+              </button>
+            </Tippy>
+            <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
+              <div theme="tw">Exclude the current date range and analyze the rest of the year.</div>
+            }>
+              <button
+                type="button"
+                aria-label="Exclude Date Range"
+                onClick={() => selectboxChanged({ target: { id: 'monthsAndQtrs', value: 'Reverse Date Range' } })}
+                style={excludeRangeButtonStyle}
+              >
+                {compactExcludeRange ? 'Exclude' : 'Exclude Range'}
+              </button>
+            </Tippy>
+            <SelectBox
+              ariaLabel="Months and Quarters"
+              tooltipContent={props.tooltipSW ? 'b,Choose a month, quarter, season, Year to Date, or Today to Year End. The selected shortcut replaces the current date range.' : ''}
+              optionList={monthsAndQtrsMenu}
+              name="monthsAndQtrs"
+              value="Months & Qtrs"
+              widthOverride={!rdd.isMobile ? 'clamp(108px, 6.5vw, 116px)' : undefined}
+              sbChanged={selectboxChanged}
+            />
           </div>
 
         </div>
