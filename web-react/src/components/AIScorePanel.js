@@ -212,7 +212,6 @@ const AIViewTable = ({ view, displayDays }) => {
   const days = Number(view && view.calendarDays)
   const isTableView = days === Number(displayDays)
   const status = view && view.status === 'available' ? '' : opportunityAICompactStatus(view)
-  const titleSuffix = isTableView ? ' • Shown in Opportunity Table' : ''
 
   return (
     <section
@@ -220,7 +219,8 @@ const AIViewTable = ({ view, displayDays }) => {
       aria-label={`${days}-day AI checkpoint${isTableView ? ' (shown in Opportunity Table)' : ''}`}
     >
       <div className="ai-score-panel__view-title">
-        <span>{days}-Day Checkpoint{titleSuffix}</span>
+        <span>{days}-Day Checkpoint</span>
+        {isTableView && <small>Shown in Opportunity Table</small>}
         {status && <small>{status}</small>}
       </div>
       <table aria-label={`${days}-day AI scores`}>
