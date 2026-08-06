@@ -121,9 +121,46 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                     tabIndex="0"
                 >
 
+                    <div style={{
+                        background: accentBg,
+                        border: `1px solid ${accentBorder}`,
+                        borderRadius: '8px',
+                        padding: '14px 16px',
+                        marginBottom: '16px',
+                    }}>
+                        <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '8px' }}>
+                            Quick summary: Why this helps
+                        </div>
+                        <p style={{ marginTop: 0 }}>
+                            <strong>TradeWave history tells you what usually happened. AI Scores add a second check:
+                            does this pattern still look favorable under today's stock and market conditions?</strong>
+                            The two belong side by side. History shows how repeatable the pattern was, while AI adds
+                            current context.
+                        </p>
+                        <p>
+                            <strong>Why it matters:</strong> a pattern may have risen in 9 of 10 past years, but today's
+                            setup can be different. The historical result stays 9 of 10. AI then reality-checks that raw
+                            historical probability for today's conditions by comparing older model readings with what
+                            actually happened next. If similar readings made money 7 out of 10 times, the calibrated AI
+                            Win% would be about 70%. That is <strong>calibration</strong>: checking a model percentage
+                            against real results and adjusting it instead of leaving it as a raw guess.
+                        </p>
+                        <ul style={{ paddingLeft: '20px', margin: '8px 0' }}>
+                            <li style={{ marginBottom: '5px' }}><strong>Win%:</strong> how often similar model readings later made money.</li>
+                            <li style={{ marginBottom: '5px' }}><strong>PredR:</strong> the estimated return at the end of the shown time window.</li>
+                            <li style={{ marginBottom: '5px' }}><strong>PMFE:</strong> the estimated best favorable move during the window.</li>
+                            <li><strong>AIS:</strong> a 0-100 relative rank; it is not a win probability.</li>
+                        </ul>
+                        <p style={{ marginBottom: 0 }}>
+                            <strong>How to use it:</strong> compare historical Win% with AI Win%. Agreement adds support.
+                            A large difference tells you to inspect the setup more closely; it is not an automatic buy
+                            or sell signal. Then use PredR and PMFE to understand the possible size of the move.
+                        </p>
+                    </div>
+
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#3b82f6' }}></span>
-                        Why AI Scores Exist
+                        More Detail: Why AI Scores Exist
                     </div>
                     <p>
                         TradeWave finds seasonal patterns by looking at history: windows where a stock has
@@ -138,17 +175,19 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#22c55e' }}></span>
-                        How It Works
+                        How Calibration Works
                     </div>
                     <p>
-                        TradeWave V3 assembles <strong>62 model inputs</strong> from the recalculated pattern profile
-                        and current technical, market, and calendar context. Horizon-specific ensemble models produce
-                        direction-adjusted return and favorable-excursion estimates.
+                        TradeWave V3 uses <strong>62 inputs</strong> about the pattern, the stock, the market, and the
+                        calendar. Separate models estimate the ending return and the best favorable move for the
+                        selected direction and time window.
                     </p>
                     <p>
-                        Walk-forward calibration then maps the predicted return to an empirical profitable share for
-                        Win% and to its percentile position for AIS. The result reflects the selected direction and
-                        horizon; it does not replace the historical record.
+                        For calibration, older model readings are kept in time order and compared with what happened
+                        afterward. Similar PredR readings are grouped together, and Win% reports the share of that
+                        group that really finished profitable. AIS reports where PredR ranks within the matching time
+                        range. This is why AI Win% can be different from the pattern's historical win rate: they answer
+                        related but different questions.
                     </p>
 
                     <div className="ts-section-title">
@@ -203,8 +242,9 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         The neutral violet outline and dotted underline identify a duration comparison. They do not mean the
                         reading is good, bad, bullish, or bearish. At each shorter duration, TradeWave recalculates the
                         same selected historical recurrence and shows whether it still meets your table screen. That
-                        screen result is evidence beside the AI reading, not permission to erase it. A duration receives
-                        a score whenever a valid V3 model profile exists. TradeWave stops at
+                        screen result is evidence beside the AI reading, not a reason to erase it. A shorter duration
+                        can still have an AI score when it does not pass your historical screen because the two readings
+                        answer different questions. TradeWave stops at
                         90 days because these models were
                         validated for near-term horizons through 90 calendar days, where current conditions are most
                         useful. Patterns above 90 days are summarized at the 30-, 60-, and 90-day checkpoints.
@@ -272,10 +312,10 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             table. Open the value to see all three bounded checkpoint readings.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            A loading marker means calculation is in progress. A dash with <strong>Below threshold</strong>,
-                            <strong>Not enough history</strong>, or <strong>Temporarily unavailable</strong> explains why
-                            no AI reading was assigned. Numeric zero remains a valid model value and is never used as an
-                            unavailable marker.
+                            A loading marker means calculation is in progress. A dash with a clear data or service
+                            message explains why no AI reading was assigned. Failing the selected historical screen does
+                            not erase a valid model reading. Numeric zero remains a valid model value and is never used
+                            as an unavailable marker.
                         </li>
                     </ul>
 

@@ -87,7 +87,7 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId })
       </div>
       {isDurationComparison && (
         <div className="opp-ai-detail__checkpoint-note">
-          V3 scores each duration that has a valid model profile. The recurrence line separately shows whether that duration still meets your selected screen.
+          V3 scores each recalculated duration. The recurrence line separately shows whether that duration still meets your selected historical screen.
         </div>
       )}
       <table className="opp-ai-detail__table">

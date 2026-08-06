@@ -549,6 +549,15 @@ direction-adjusted PMFE inside the horizon. Win% is the empirical profitable sha
 walk-forward PredR calibration group. AIS is PredR's 0-100 percentile position within that horizon
 tier's walk-forward calibration distribution, not a probability or universal confidence grade.
 
+Plain-language reading: the historical record says what happened in the selected completed years;
+AI Scores ask how the setup looks under current stock and market conditions. Calibration is the
+reality check that turns model output into AI Win%: older readings are kept in time order, similar
+PredR readings are grouped, and Win% is the share of that group that later finished profitable. A
+historical 9 of 10 therefore stays 9 of 10 (n=10), while AI Win% may differ because it answers a
+current-condition question. Win% is the quickest probability summary, PredR estimates the ending
+return, PMFE estimates the best favorable move inside the window, and AIS is only a 0-100 relative
+PredR rank, not a probability. Use them as a second opinion beside history, not as a replacement.
+
 For a pattern from 10 through 30 calendar days, Tara states only the current-duration AI Win
 Probability, PredR, and PMFE. Above 30 days, TradeWave also shows shorter-duration comparisons that
 fit inside the source window: 31-60 days adds 30; 61-90 days adds 30 and 60; and a source above 90
@@ -564,12 +573,14 @@ historical-years selection, and recurrence rule; only duration changes. The entr
 30, 60, and 90 calendar days end at entry plus 29, 59, and 89 days. The scorer independently
 recalculates the selected historical cohort at that shorter duration and reports the actual screen
 evidence, such as `6 of 10 positive; requires 9`. That screen result does not gate inference. Every
-duration with a validated all-qualifying-combo V3 profile keeps its numeric model reading, and the
+duration with a validated qualifying profile or a raw/prebuilt-validated empty-profile state keeps
+its numeric model reading, and the
 UI separately says **Meets screen**, **Does not meet screen**, or **Screen check incomplete**. A true
-profile, input-data, volatility, or provider failure is **Temporarily unavailable** and remains a
-dash, never a fake zero. The learned V3 vector still uses the all-qualifying-combo profile on which
-the 62-feature model was trained; selected recurrence is explanation, not a substitute feature
-profile or inference gate. Model estimates never become extra historical observations.
+input-data, volatility, profile-validation, or provider failure is **Temporarily unavailable** and
+remains a dash, never a fake zero. A validated empty set preserves the same missing pattern inputs
+used by the manual duration scorer; it does not substitute the selected recurrence as learned
+features. Selected recurrence is explanation, not an inference gate. Model estimates never become
+extra historical observations.
 
 AI sorting and filtering always use the value visibly shown: the current-duration value through 90
 calendar days and the 90-day comparison above 90 days. Unavailable states use an internal null and

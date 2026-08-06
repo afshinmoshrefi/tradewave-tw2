@@ -1169,6 +1169,12 @@ Filter syntax reference (for answering filter questions):
 
 TradeWave's historical pattern detection finds calendar windows where a security has repeatedly moved in the same direction. AI scoring adds a separate current-condition estimate. It never changes the observed historical record.
 
+Simple explanation:
+- Historical results tell you what usually happened in the completed years you selected. AI Scores tell you how that pattern looks under today's stock and market conditions. They are a second opinion beside history, not a replacement for it.
+- Calibration is a reality check. TradeWave keeps older model readings in time order, groups similar PredR readings, and checks what happened next. If 7 of 10 similar readings later finished profitably, that group produces an AI Win% near 70%. The model does not get to invent an unchecked probability.
+- Start with Win% and compare it with the historical profitable record (always state n). PredR estimates the ending return; PMFE estimates the best favorable move inside the window; AIS is a 0-100 relative PredR rank and is not a win probability.
+- A large difference between the historical record and AI Win% is a reason to inspect the setup more closely, not an automatic buy or sell instruction.
+
 How the AI works:
 - "AI Score" is the customer-facing name. Technically, it is a machine-learning score, not a score created by generative AI and not a chatbot's opinion.
 - TradeWave first computes the historical pattern statistics exactly. The machine-learning layer does not change or reinterpret that historical record.
@@ -1195,7 +1201,7 @@ Important details:
 - AI scores are available for supported US stocks and ETFs only. Other markets, including futures, indices, crypto, and FX, are not scoring targets.
 - TradeWave windows use calendar days and the entry day counts as day 1. A 30-day checkpoint ends at entry plus 29 days; 60 ends at plus 59; 90 ends at plus 89.
 - Patterns through 30 calendar days show only the current duration. A 31-60-day source adds a shorter 30-day comparison. A 61-90-day source adds 30 and 60 while retaining the exact current duration as the displayed score. A source above 90 uses bounded 30-, 60-, and 90-day comparisons and displays 90. A comparison never extends beyond the source duration.
-- Each shorter recalculation keeps the symbol, entry date, direction, string historical-years selection, and recurrence rule. V3 scores the duration whenever its trained all-qualifying-combo profile is valid. The selected cohort is checked independently and its actual x-of-n screen evidence stays visible beside the model reading.
+- Each shorter recalculation keeps the symbol, entry date, direction, string historical-years selection, and recurrence rule. V3 scores the duration when raw and prebuilt data validate either a qualifying profile or an empty qualifying set. A validated empty set keeps the same missing-profile model inputs used when the duration is changed manually; the selected cohort is never substituted as learned features. Its actual x-of-n screen evidence stays visible beside the model reading.
 - The neutral duration-comparison treatment identifies this horizon basis only. It does not mean bullish, bearish, good, bad, warning, or disabled. Hover, tap, or keyboard-focus the selected metric to see each applicable duration and the one marked current.
 - Historical AvgP, record, Sharpe, MFE, and MAE continue to describe the complete source pattern. Each AI value describes only its labeled calendar-day duration.
 - AI sort and filter rules use the value displayed in the cell: exact current duration through 90 days, and the 90-day comparison above 90. A true unavailable reading is null and sorts below numeric values; it is never zero. Missing the selected recurrence screen does not erase an otherwise valid V3 reading.

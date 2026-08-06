@@ -14,6 +14,7 @@ import {
   hasAvailableOpportunityAIScores,
   normalizeOpportunityAIScore,
   opportunityAIFlatFields,
+  opportunityAIHeaderColor,
   opportunityTableMinimumWidth,
   selectOpportunityVisibleColumns,
 } from './opportunityAIScores'
@@ -435,7 +436,7 @@ const TableBox = ({
                     color: showAciveOpps
                       ? 'blue'
                       : (['ml_score', 'win_prob', 'pred_return', 'pred_mfe'].includes(title)
-                          ? (tc.aiCheckpointText || (UITheme === 'dark' ? '#c7d2fe' : '#3730a3'))
+                          ? opportunityAIHeaderColor(UITheme)
                           : tc.text),
                     ...(title === firstAICol ? { borderLeft: `2px solid ${tc.aiCheckpointBorder || '#6366f1'}` } : {}),
                     ...(title === 'symbol' && !isMobilePortrait ? { position: 'sticky', left: 0, zIndex: 2 } : {})

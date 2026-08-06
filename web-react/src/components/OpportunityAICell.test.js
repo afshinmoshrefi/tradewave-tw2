@@ -86,7 +86,7 @@ test('checkpoint cell has no visible 90d badge and exposes 30/60/90 detail on cl
   expect(screen.getByText('90')).toBeInTheDocument()
   expect(screen.getByText('shown')).toBeInTheDocument()
   expect(screen.getByText(/Entry 2026-08-05.*Short/)).toBeInTheDocument()
-  expect(screen.getByText(/V3 scores each duration that has a valid model profile/i)).toBeInTheDocument()
+  expect(screen.getByText(/V3 scores each recalculated duration/i)).toBeInTheDocument()
 })
 
 test('focus opens metric detail and Escape closes it while retaining a keyboard focus target', () => {

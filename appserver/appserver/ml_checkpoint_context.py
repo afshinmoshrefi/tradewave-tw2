@@ -863,9 +863,21 @@ def normalize_checkpoint_response(
         profile_source.get("qualifying_combo_count", 0),
         "qualifying_combo_count",
     )
-    if qualifying_combo_count <= 0:
+    profile_state = str(profile_source.get("profile_state") or "").strip()
+    profile_origin = str(profile_source.get("source") or "").strip()
+    validated_empty_profile = (
+        qualifying_combo_count == 0
+        and profile_state == "no_qualifying_profile"
+        and profile_origin == "dynamic_recalculation_no_qualifying_profile"
+        and profile_source.get("prebuilt_validated") is True
+        and str(profile_source.get("profile_validation") or "")
+        == "exact_absence"
+    )
+    if qualifying_combo_count < 0 or (
+        qualifying_combo_count == 0 and not validated_empty_profile
+    ):
         raise CheckpointProviderError(
-            "scorer qualifying_combo_count must be positive"
+            "scorer qualifying_combo_count is not a validated profile state"
         )
     profile_hash = str(profile_source.get("profile_hash") or "").strip().lower()
     context_hash = str(result.get("context_hash") or "").strip().lower()
@@ -893,6 +905,7 @@ def normalize_checkpoint_response(
         ),
         "pattern_profile": {
             "source": str(profile_source.get("source") or "dynamic_recalculation")[:80],
+            "profile_state": profile_state or "qualifying_profile",
             "qualifying_combo_count": qualifying_combo_count,
             "profile_hash": profile_hash,
         },

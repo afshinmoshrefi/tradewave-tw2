@@ -4,6 +4,7 @@ const {
   formatOpportunityAIMetric,
   normalizeOpportunityAIScore,
   opportunityAIFlatFields,
+  opportunityAIHeaderColor,
   opportunityAILegacyKey,
   opportunityAIReasonCopy,
   opportunityTableMinimumWidth,
@@ -13,6 +14,11 @@ const {
 
 const fullRow = { symbol: 'AAPL', date: '2026-08-05', daysOut: 45, lOrS: 'Long' }
 const longRow = { symbol: 'MSFT', date: '2026-08-05', daysOut: 120, lOrS: 'Short' }
+
+test('keeps the established green AI column headings in both themes', () => {
+  expect(opportunityAIHeaderColor('light')).toBe('rgb(22, 163, 74)')
+  expect(opportunityAIHeaderColor('dark')).toBe('rgb(100, 220, 140)')
+})
 
 test('keeps legacy flat scores compatible for a full-window pattern', () => {
   const scores = {

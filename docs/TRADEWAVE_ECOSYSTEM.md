@@ -522,11 +522,14 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   single-flight locks. The scorer independently recalculates the selected cohort at
   the shorter duration and returns structured screen evidence (`positive_years`,
   `sample_size`, `required_positive_years`). That recurrence result does not gate V3:
-  every duration with a validated 62-feature all-qualifying-combo profile receives a
-  model reading, while the UI separately says whether the selected screen was met.
-  Only a true model-profile, input-data, volatility, or provider failure produces an
-  unavailable dash, never a fabricated zero. Selected recurrence is explanation, not
-  a rewritten feature vector or inference gate. The response is additive: comparison
+  every duration with either a validated qualifying profile or a raw/prebuilt-validated
+  empty-profile state receives a model reading, while the UI separately says whether
+  the selected screen was met. The empty-profile state preserves the existing manual
+  duration scorer's missing pattern inputs; it does not invent a selected-cohort feature
+  vector. Only a profile-validation disagreement, required input-data gap, volatility
+  block, or provider failure produces an unavailable dash, never a fabricated zero.
+  Selected recurrence is explanation, not a rewritten feature vector or inference gate.
+  The response is additive: comparison
   rows have a date-qualified bundle;
   exact-window rows retain the unchanged legacy alias so older clients keep working.
   `apiserver/appserver_client.py` prefers the qualified alias and falls back to the
@@ -541,13 +544,16 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   shares one value. The scorer owns the 62-feature recalculation and returns a hash
   of the exact ordered feature vector; TW2 never fabricates learned pattern features
   from the selected UI cohort. The additive scorer contract is currently
-  `duration-comparison-context-v4`. To preserve V3 training parity, the scorer
+  `duration-comparison-context-v5`; the profile contract is
+  `all-qualifying-combos-v2`. To preserve V3 training parity, the scorer
   requires the dynamically rebuilt qualifying-combo set to match the authoritative
   prebuilt set, then serves the prebuilt aggregate values used by training. It
   accepts only named, bounded two-decimal Sharpe/MFE differences. A rounded
   best-combo ordering tie is accepted only when the authoritative winning row also
   validates independently and its raw-price Sharpe ties the dynamic winner at
-  display precision; every other material or structural mismatch stays unavailable.
+  display precision. When both sources independently produce an empty qualifying set,
+  the scorer uses the same missing-profile model inputs as a manual duration change and
+  returns the numeric reading; every material or structural disagreement stays unavailable.
   `MLScoreBatch` records a bounded, non-user table
   context in Redis. After the authoritative EOD completion marker,
   `data_updater/prefetch_ml_scores.py` uses the marker's explicit New York
@@ -1511,7 +1517,8 @@ inside the horizon, not a target. Historical profitable share is always reported
 its completed sample size `n`.
 
 For every source over 30 calendar days, Tara uses the same scorer-owned shorter recalculations as
-the table. V3 scores every shorter horizon with a validated all-qualifying-combo profile. The
+the table. V3 scores every shorter horizon whose qualifying profile or empty-profile state is
+independently validated against raw and prebuilt data. The
 selected historical recurrence is independently tested at each horizon and Tara states the actual
 `x of n; requires y` screen evidence beside the model reading when it misses. A source longer than
 90 uses 30, 60, and 90 inclusive calendar days in one
@@ -1519,7 +1526,7 @@ bounded call and the table displays 90; Tara states that the historical evidence
 complete source window. Entry day is day 1, so the scorer
 derives `daysOut=29/59/89`; no end date is extended. A score is unavailable more than five calendar
 days before entry and is not newly calculated after entry, preventing current inputs from being
-misrepresented as pre-entry evidence. VIX, profile, input-data, validation, and temporary provider
+misrepresented as pre-entry evidence. VIX, input-data, profile-validation, and temporary provider
 failures remain structured unavailable reasons, never numeric zero, and the historical brief remains
 available if enrichment fails. The React request path has a finite polling budget for retryable work.
 

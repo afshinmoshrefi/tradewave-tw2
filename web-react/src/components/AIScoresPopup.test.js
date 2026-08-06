@@ -44,10 +44,16 @@ test('AI Scores guide traps focus, makes long content keyboard-scrollable, and c
 test('guide explains current-score priority, shorter comparisons, screen evidence, and model scope', () => {
   const view = renderGuide(jest.fn())
 
+  expect(screen.getByText(/Quick summary: Why this helps/i)).toBeInTheDocument()
+  expect(screen.getByText(/history tells you what usually happened.*AI Scores add a second check/i)).toBeInTheDocument()
+  expect(screen.getByText(/The two belong side by side/i)).toBeInTheDocument()
+  expect(screen.getByText('calibration')).toBeInTheDocument()
+  expect(screen.getByText(/calibrated AI Win% would be about 70%/i)).toBeInTheDocument()
+  expect(screen.getByText(/a 0-100 relative rank/i)).toBeInTheDocument()
   expect(screen.getByText(/table keeps the current full-window reading for patterns through 90 calendar days/i)).toBeInTheDocument()
   expect(screen.getByText(/patterns over 30 days add 30 days/i)).toBeInTheDocument()
   expect(screen.getByText(/neutral violet outline and dotted underline/)).toBeInTheDocument()
-  expect(screen.getByText(/screen result is evidence beside the AI reading, not permission to erase it/i)).toBeInTheDocument()
+  expect(screen.getByText(/screen result is evidence beside the AI reading, not a reason to erase it/i)).toBeInTheDocument()
   expect(screen.getByText(/validated for near-term horizons through 90 calendar days/)).toBeInTheDocument()
   expect(screen.getByText(/9 profitable years out of 10 \(n=10\)/)).toBeInTheDocument()
   expect(screen.getByText(/US stocks and ETFs/)).toBeInTheDocument()

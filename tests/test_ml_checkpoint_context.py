@@ -539,6 +539,48 @@ def test_provider_identity_and_all_four_scores_are_validated():
     assert checkpoint["scorer"] == METADATA
 
 
+def test_validated_empty_profile_keeps_the_manual_duration_score():
+    request_item = build_checkpoint_plan("2", long_opp())["requests"][0]
+    result = {
+        **request_item,
+        "tier": "10_30",
+        "pattern_recalculated": True,
+        "selected_recurrence": {
+            **SELECTED_RECURRENCE,
+            "status": "below_threshold",
+            "positive_years": 16,
+        },
+        "ml_score": 52.7,
+        "win_prob": 0.7398,
+        "pred_return": 3.1829,
+        "pred_mfe": 16.9459,
+        "pattern_profile": {
+            "source": "dynamic_recalculation_no_qualifying_profile",
+            "profile_state": "no_qualifying_profile",
+            "qualifying_combo_count": 0,
+            "prebuilt_validated": True,
+            "profile_validation": "exact_absence",
+            "profile_hash": "a" * 64,
+        },
+        "context_hash": "b" * 64,
+        "feature_vector_hash": "c" * 64,
+    }
+
+    checkpoint = normalize_checkpoint_response(
+        request_item,
+        {"metadata": METADATA, "results": [result]},
+    )
+
+    assert checkpoint["status"] == "available"
+    assert checkpoint["ml_score"] == 52.7
+    assert checkpoint["pattern_profile"] == {
+        "source": "dynamic_recalculation_no_qualifying_profile",
+        "profile_state": "no_qualifying_profile",
+        "qualifying_combo_count": 0,
+        "profile_hash": "a" * 64,
+    }
+
+
 def test_below_threshold_checkpoint_keeps_evidence_without_fake_metrics():
     request_item = build_checkpoint_plan("2", long_opp())["requests"][0]
     below = {

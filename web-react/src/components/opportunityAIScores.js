@@ -1,26 +1,32 @@
 export const AI_COLUMNS = ['ml_score', 'win_prob', 'pred_return', 'pred_mfe']
 export const AI_CHECKPOINT_COACHMARK_KEY = 'tw_ai_duration_comparison_coachmark_seen_v2'
 
+// Keep the AI group easy to spot in either theme. This is the established
+// Opportunity Table header green; checkpoint identity remains violet in cells.
+export const opportunityAIHeaderColor = theme => (
+  theme === 'dark' ? 'rgb(100, 220, 140)' : 'rgb(22, 163, 74)'
+)
+
 export const AI_METRICS = Object.freeze({
   ml_score: Object.freeze({
     shortLabel: 'AIS',
     label: 'AI Score',
-    description: "The ensemble's direction-adjusted PredR percentile within this horizon tier's walk-forward calibration distribution. It is a relative rank from 0 to 100, not a probability.",
+    description: 'A 0-100 rank showing how strong PredR is compared with other model readings in the same time range. It is not a chance of winning.',
   }),
   win_prob: Object.freeze({
     shortLabel: 'Win%',
     label: 'AI Win Probability',
-    description: 'Calibrated probability based on the empirical profitable share in the matching direction-adjusted predicted-return calibration bin.',
+    description: 'How often past cases with similar model readings later finished profitable in the selected direction. This percentage is checked against real results.',
   }),
   pred_return: Object.freeze({
     shortLabel: 'PredR',
     label: 'Predicted Return',
-    description: 'Direction-adjusted close-to-close ensemble regression estimate at the end of the selected horizon.',
+    description: 'The model estimate for the return at the end of this time window. A positive number favors the selected Long or Short direction.',
   }),
   pred_mfe: Object.freeze({
     shortLabel: 'PMFE',
     label: 'Predicted MFE',
-    description: 'Direction-adjusted maximum favorable excursion ensemble estimate within the horizon. It is not a target or exit instruction.',
+    description: 'The model estimate for the best move in the selected direction at any point during this time window. It is not a price target or exit instruction.',
   }),
 })
 
