@@ -23,21 +23,27 @@ forecast.
 Loaded-pattern analysis also has a direct appserver ML enrichment path; this is separate from Tara's
 gateway tool loop. For an eligible US-stock/ETF user, `chatbot.py` discards any browser-supplied
 `ai_analysis` object and asks the callback registered by `appserver.py` for the current daily-cached
-reading. A 10-90-calendar-day setup gets a same-window AI Win Probability / PredR / PMFE read. Tara
-intentionally omits the opaque composite AIS number from analysis prose; AIS remains in the
-opportunity table and its dedicated explainer. For a longer setup, Tara presents a positively framed
-AI-calibrated outlook with separate 30/60/90-calendar-day horizons from the same entry and direction;
-the historical brief continues to describe the complete pattern. The callback converts those
-inclusive calendar horizons to the legacy scorer offsets 29/59/89. Scores are not shown more than
-five days before entry or newly calculated
+reading. A setup from 10 through 30 calendar days gets its current-duration AI Win Probability /
+PredR / PMFE read. Above 30 days, Tara keeps that exact current reading through 90 days and adds only
+shorter standard comparisons that fit: 31-60 adds 30, while 61-90 adds 30 and 60. An 85-day setup
+therefore shows 30, 60, and the current 85 days, never 90. Above 90 days Tara uses bounded 30/60/90
+comparisons and clearly keeps the complete source window as historical context. Tara intentionally
+omits AIS from analysis prose; AIS remains in the opportunity table and its dedicated explainer.
+The callback converts inclusive 30/60/90 labels to legacy scorer offsets 29/59/89.
+
+At every shorter horizon the scorer first recalculates the selected consecutive- or PE-year cohort.
+If the selected recurrence is below its requirement, Tara reports the actual `x of n; requires y`
+evidence and presents no model value. It never turns that state into a zero. Insufficient completed
+history and temporary technical failure remain separate structured states. Scores are not shown more
+than five days before entry or newly calculated
 after entry, and scorer failure degrades to the verified historical analysis rather than blocking
 Tara.
 
 Questions such as "why does AI only do the first 90 days?" are deterministic product explanations,
 not provider turns. Tara explains that the models are trained and calibrated for 10-90-calendar-day
-seasonal horizons, that current conditions provide useful context over those nearer horizons, and
-how the 30/60/90-day AI outlook complements the complete-window historical record. This prevents a
-provider from denying the real horizon boundary or diverting to an unrelated daily pick.
+seasonal horizons, that shorter comparisons never extend beyond the source duration, and how those
+readings complement the complete-window historical record. This prevents a provider from denying
+the real horizon boundary or diverting to an unrelated daily pick.
 
 Product-value questions do not need a provider or live scorer. `tara_answer_planner.py`
 deterministically handles seasonality-value prompts with a compact loaded-pattern demonstration and
@@ -143,7 +149,7 @@ ViewSpec = {
   market?:     string,   // market name or permanent id '0'..'16'
   symbol?:     string,
   entry_date?: string,   // 'YYYY-MM-DD'
-  days_out?:   integer,  // 1..366
+  days_out?:   integer,  // 1..367 inclusive calendar days
   years?:      integer,  // 1..99 (lookback)
   pe_cycle?:   'consecutive'|'pe'|'pe0'|'pe1'|'pe2'|'pe3',
   show_mfe?:   boolean,  // best-move overlay on the year-by-year chart
@@ -219,7 +225,7 @@ actions: [
 Guardrails (defense in depth):
 - **Allowlist, both ends.** Backend validates every action: `type` in {open_guide,set_view},
   `guide` in the known 17, ViewSpec keys in the table above, values range-checked (reuse the
-  gateway's existing validators: days_out 1-366, years 1-99, period enum, pe_cycle enum).
+  gateway's existing validators: days_out 1-367, years 1-99, period enum, pe_cycle enum).
   Frontend re-validates against the same allowlist before applying. Never `eval`, never a
   dynamic setter name.
 - **View/navigation only.** Every setter in the allowlist is reversible view state. Tara
@@ -359,7 +365,7 @@ connects, and explains them; the server validates the answer and actions.
 2. Build one compact, verified analysis brief for the loaded pattern. It should contain the
    exact pattern identity, completed `n`, record, mean/median, Sharpe, TWR, winner/loser
    payoff, MFE/MAE, losing-year path, recent-versus-earlier comparison, outlier concentration,
-   occurrence timing, PE context, Trend alignment, and AI 30/60/90 checkpoints when available.
+   occurrence timing, PE context, Trend alignment, and applicable current/shorter AI durations.
 3. Add deterministic insight flags such as high-hit/weak-payoff, favorable-path/exit-giveback,
    outlier-dependent average, recent weakness, modest sample, history/AI agreement, and
    history/AI divergence. Luna selects only the facts that change the interpretation.
@@ -383,7 +389,7 @@ connects, and explains them; the server validates the answer and actions.
 
 Create a representative trace set from real Tara failures and successful interactions. Cover
 short and long patterns, active/upcoming/completed occurrences, long/short bar semantics, PE
-cohorts, more-than-90-day AI checkpoints, terse "analyze" prompts, MFE/MAE aliases, loaded
+cohorts, above-30-day AI duration comparisons, terse "analyze" prompts, MFE/MAE aliases, loaded
 symbol/lookback continuity, table ordinals, and beginner/intermediate/professional explanations.
 Grade numeric truth and UI actions deterministically. Grade relevance, completeness, clarity,
 and concision blindly. Record quality, tool rounds, latency, input/cache-write/cache-read/output/

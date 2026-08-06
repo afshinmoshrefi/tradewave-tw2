@@ -505,6 +505,78 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   `StockMetaData`, `getStockPriceByDate`, `consolidated_seasonal_chart2`,
   `StockScoreBatch`, `MLScoreBatch`/`MLScorePending`, etc. Short Redis TTLs (~51s);
   historical price-by-date cached 11.5 days.
+- **Opportunity AI duration comparisons (V3, 2026-08-06):** `OppList4` returns the
+  additive `ml_market_eligible` bit separately from the entitlement-aware
+  `ml_enabled` bit. AI targets remain limited to US stocks and ETFs in resource
+  IDs `0,1,2,3,4,11`. `MLScoreBatch` and `MLScorePending` preserve the existing
+  exact complete-window scorer path through 90 inclusive CALENDAR days. That exact
+  score remains the table value. A source pattern of 31-60 days additionally asks
+  `ml_checkpoint_context.py` for a 30-day comparison; a source of 61-90 days adds
+  30- and 60-day comparisons; and a source of 91-367 days uses bounded 30-, 60-,
+  and 90-day comparisons and displays 90 days. A comparison is never extended past
+  the source duration. Each request keeps the same resource, symbol, nominal entry
+  date, direction, string `years`, and selected recurrence requirement.
+  The scorer receives inclusive `calendar_days` and derives legacy offsets
+  `29/59/89`; no caller adds a day to an end date. Cold rows are deduplicated and
+  sent in one bounded `/score/context` batch, protected by exact-request Redis
+  single-flight locks. Before inference, the scorer recalculates the selected cohort
+  at the shorter duration. If it has fewer positive completed observations than the
+  selected requirement, the scorer returns structured `below_threshold` evidence
+  (`positive_years`, `sample_size`, `required_positive_years`) and no model values.
+  The UI shows an em dash plus **Below threshold**, never a fabricated zero. The V3
+  model itself remains its trained 62-feature all-qualifying-combo model; selected
+  recurrence drives the eligibility gate and explanation, not a rewritten feature
+  vector. The response is additive: comparison rows have a date-qualified bundle;
+  exact-window rows retain the unchanged legacy alias so older clients keep working.
+  `apiserver/appserver_client.py` prefers the qualified alias and falls back to the
+  legacy one for backward compatibility.
+- **V3 checkpoint cache and warm path:** duration-comparison cache records use the `ml6`
+  namespace and atomic pointer/value writes. Identity includes the resource,
+  symbol, entry date, direction, inclusive horizon, string `years`, recurrence
+  selection, contract version, model release and manifest, feature/context/profile
+  schemas, complete input-data generation/source manifests, and data-as-of date.
+  Caller origin (`scanner`, table, or Tara) is telemetry only and is deliberately
+  excluded from scorer requests and cache identity, so the same statistical setup
+  shares one value. The scorer owns the 62-feature recalculation and returns a hash
+  of the exact ordered feature vector; TW2 never fabricates learned pattern features
+  from the selected UI cohort. `MLScoreBatch` records a bounded, non-user table
+  context in Redis. After the authoritative EOD completion marker,
+  `data_updater/prefetch_ml_scores.py` uses the marker's explicit New York
+  `target_table_date`. It re-fetches all six default-year standard OppList4 tables
+  for that calendar date and selects every eligible default row first, then
+  re-fetches a bounded set of the most-viewed recent logical contexts. Stored usage
+  dates and opportunity snapshots are never scored directly. Active rows remain out
+  of this phase. Popular contexts retain per-context/aggregate caps and the complete
+  job has a 2,500-row global safety bound; manifests report eligible, selected,
+  warmed, and truncated coverage by default/popular scope. Selection accepts
+  displayed 10-367-calendar-day windows only, which are raw analytics offsets
+  `9..366`, and excludes past-entry rows. Exact current scores are warmed through
+  90 calendar days; every selected source over 30 days also warms only the standard
+  shorter comparisons that fit inside it. A service-account-only additive OppList4
+  `target_date=YYYY-MM-DD` override, resolved by
+  `appserver/appserver/opportunity_table_target.py`, permits New York today/tomorrow
+  and isolates its year-sensitive cache; ordinary browser behavior is unchanged.
+  The warmer requires every scorer model/data identity field, a complete input-data manifest, the V3
+  62-feature schema, and exact equality between scorer `data_as_of`, the proven EOD
+  completed session, and `latest_us_date`. After all score batches finish, it bypasses
+  the short metadata cache and re-reads live scorer `/health`; any model/data identity
+  change fails the generation before publication. It writes
+  candidate exact-window values and comparison values/pointers only to
+  generation-scoped Redis staging records. After every selected row is terminal,
+  durable, and valid, one Redis transaction publishes all staged live records plus
+  the complete manifest and `ml6:prefetch:active`. A failed generation therefore
+  exposes or replaces no live warmed score, even though ordinary interactive misses
+  continue to publish their own on-demand result independently. On-demand polling is
+  bounded and becomes an explicit unavailable state instead of spinning forever.
+  Exact-window misses use the same model/data-versioned pointer/value cache and
+  per-identity Redis single-flight discipline as checkpoint misses, including
+  Tara requests. A provider response whose complete identity changes between
+  health lookup and scoring, or whose requested identity/result is missing, is
+  never cached or displayed as a match. Because target-security and opportunity
+  definition files are not all members of the scorer's shared 26-series health
+  manifest, any same-day correction to one requires a scorer restart before
+  serving or warming; the new process data-generation identity invalidates prior
+  TradeWave pointers.
 - **Opp-table years/partial resolution chain (React `OppTable.js`, hardened 2026-07-03):**
   `YearsMetaData2` returns the valid `[years, partial]` dataset pairs (cons + PE); the opp
   table can only fetch `OppList4` for a pair that exists. The resolution chain: metadata
@@ -544,14 +616,11 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
     score (deterministic patterns only); reverse-trial (level 6) + Analyst+ get it. (Supersedes
     the old "ML columns open to all logged-in tiers" claim - NOT current.) The React opp table
     shows non-AI tiers one locked "AI Score" teaser column.
-    **KNOWN GAP (2026-07-07 mobile-parity audit, unfixed):** on phone-portrait ONLY, this
-    gate is bypassed by a DEVICE check, not entitlement - `OppTable.js`'s ML-score fetch
-    effect OR's `isMobilePortrait` into its skip condition (`OppTable.js:717,729`) alongside
-    the real `!mlEnabled` check, so the fetch never runs for ANY tier on that one layout.
-    `TableBox.js`'s phone-portrait column allowlist (`MOBILE_COLS`, :93-97) independently
-    excludes `ml_score` too, so even the locked teaser column above is ALSO absent there -
-    silently, with no lock icon/hint. Rotating to landscape restores it (fresh mount, see
-    §7.2). Full audit (27 findings): memory `project_mobile_parity_audit_2026_07`.
+    **FIXED 2026-08-05:** phone portrait uses the same entitlement and supported-market
+    checks as every other layout. Its compact core is Symbol, Days, and Sharpe, followed
+    by whichever AI columns the user has configured; default Win% and PredR fit at 390px,
+    and all four configured AI columns remain within the tested compact table width. A
+    non-AI tier's locked AIS teaser still respects the saved column-visibility setting.
   - DATE-LOCK: a market in `level_access_hierarchy_free_registered[level]` is start-date-locked
     to today (getChartData4 forces date=today); `_premium[level]` markets are date-unlocked. After
     the market clamp the only date-locked combo is Explorer's DJ30 ("any start date" = the paid lever).
@@ -581,7 +650,8 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   IP-keyed (anonymous path) and is sized for the whole base sharing one bucket.
   The React app pairs this with `web-react/src/components/twFetch.js` (retry +
   backoff + single-flight 401 re-login + visible retrying states).
-(Source: `appserver/appserver/appserver.py`, `web/app.py:616`, `config.py`.)
+(Source: `appserver/appserver/{appserver,ml_checkpoint_context}.py`,
+`data_updater/{update_client2,prefetch_ml_scores}.py`, `web/app.py:616`, `config.py`.)
 
 ---
 
@@ -1397,36 +1467,45 @@ one targeted next check; and a gross-cost/non-forecast scope line. MAE is descri
 move from entry, not peak-to-trough maximum drawdown, and Tara never converts MFE/MAE into a target
 or stop. Missing excursion fields stay missing rather than becoming a false `0%` path claim.
 
-For an eligible US-stock/ETF user, that deterministic brief now adds a server-derived,
-current-condition ML section. The browser cannot supply or override this evidence: `chatbot.py`
+For an eligible US-stock/ETF user, that deterministic brief adds a server-derived V3
+current-condition section. The browser cannot supply or override this evidence: `chatbot.py`
 removes any incoming `wave_viewer.ai_analysis`, then calls the scorer callback registered in
-`current_app.extensions['tara_ai_analysis_context']`. The callback reuses the web product's
-`_ml_check_access`, `ml_score_resource_ids`, daily Redis keys, and ML scorer. A 10-90-calendar-day
-pattern receives a like-for-like AI Win Probability, PredR, and PMFE in Tara's prose; the composite
-AIS number is intentionally omitted there because it has no direct standalone interpretation. AIS
-remains available in the opportunity table and its dedicated explainer. Tara compares AI Win
-Probability with the historical win rate only because both describe the exact same window. These
-names remain distinct: the former is a current-condition model estimate and the latter is the
-observed share of profitable completed years.
+`current_app.extensions['tara_ai_analysis_context']`. The callback reuses the product's
+`_ml_check_access`, resource allowlist, and the same `ml_checkpoint_context.py` plans and Redis
+records used by the Opportunity Table. It also preserves the loaded table's exact string `years`,
+recurrence selection, and consecutive/PE mode, so Tara cannot silently analyze a different cohort.
+Caller origin remains outside score identity, which makes scanner warming, the table, and Tara hit
+the same cached score for identical statistical inputs.
 
-For a window longer than 90 calendar days, Tara requests bounded 30-, 60-, and 90-calendar-day
-readings from the same entry date and direction and presents them as an `AI-calibrated outlook`.
-The copy leads with the available probabilities and predicted returns, identifies which horizon has
-the highest probability and predicted return, and pairs them with the complete-window historical
-analysis without negative limitation-led language. The legacy scorer still accepts the
-analytics-engine offset, so `tara_ai_analysis.py` converts those
-inclusive calendar labels to `daysOut=29/59/89`; it never adds a day to an end date. Independent
-tiers are requested in parallel and cached under the same daily keys as the opportunity table.
-Current-condition scores are suppressed more than five calendar days before entry so inputs are
-not presented stale, and a new entry-time score is not calculated after entry because post-entry
-data would contaminate the pre-entry comparison. Missing/provider-failed results remain unavailable,
-never numeric zero. The historical brief remains available if enrichment fails.
+A complete 10-90-calendar-day pattern keeps its existing complete-window AI Win%, PredR, and
+PMFE as the primary table and Tara reading. A 31-60-day source adds a shorter 30-day comparison;
+a 61-90-day source adds 30 and 60 days. The current duration is marked `is_current` and no
+comparison is extended beyond the original window. AIS remains available in the table and guide but is not the headline: it is
+the 0-100 percentile position of direction-adjusted PredR in that horizon tier's walk-forward
+calibration distribution, not a probability or universal confidence grade. Win% is the empirical
+profitable share in the matching calibration group. PredR is the direction-adjusted close-to-close
+ensemble estimate, and PMFE is the direction-adjusted maximum favorable excursion ensemble estimate
+inside the horizon, not a target. Historical profitable share is always reported separately with
+its completed sample size `n`.
 
-AI-horizon why-questions are also deterministic. `tara_answer_planner.py` recognizes variants such
-as "why does AI only do the first 90 days?" and explains that the models are trained and calibrated
-for 10-90-calendar-day seasonal horizons, then shows how the 30/60/90 current-condition outlook and
-the complete-window historical record fit together. This route runs before provider selection and
-does not wait for a scorer call.
+For every source over 30 calendar days, Tara uses the same scorer-owned shorter recalculations as
+the table. The selected historical recurrence is tested at each shorter horizon before V3 inference.
+If it is below threshold, Tara states the actual `x of n; requires y` result and does not call it an
+AI prediction or zero. A source longer than 90 uses 30, 60, and 90 inclusive calendar days in one
+bounded call and the table displays 90; Tara states that the historical evidence still describes the
+complete source window. Entry day is day 1, so the scorer
+derives `daysOut=29/59/89`; no end date is extended. A score is unavailable more than five calendar
+days before entry and is not newly calculated after entry, preventing current inputs from being
+misrepresented as pre-entry evidence. VIX, profile, input-data, validation, and temporary provider
+failures remain structured unavailable reasons, never numeric zero, and the historical brief remains
+available if enrichment fails. The React request path has a finite polling budget for retryable work.
+
+AI-horizon and AI-metric questions are deterministic and open the canonical AI Scores guide.
+`tara_answer_planner.py` explains that V3 is trained and walk-forward calibrated for exact seasonal
+windows from 10 through 90 calendar days; standard shorter comparisons are added only when they
+fit inside the source duration. It also explains how neutral duration-comparison styling differs from a value
+judgment and how early-window estimates sit beside the complete-window historical record.
+This route runs before provider selection and does not wait for a scorer call.
 
 When a chart pattern is loaded, terse commands such as `analyze`, `analyze this`, and `analyze it`
 are deterministic analysis intents. They must take the same enriched brief path as `analyze this
@@ -1569,7 +1648,7 @@ Regression coverage: `tests/test_tara_prompt_context.py`, `tests/test_ai_tools_p
 `tests/test_tara_answer_planner.py`, plus `tests/test_tara_openai_canary.py` for routing, request,
 cache-breakpoint, and shared-tool-loop behavior.
 
-(Source: `appserver/appserver/{chatbot,tara_prompt_context,tara_answer_planner,tara_gateway,AI_tools_appserver,openai_tools_appserver,tara_model_router}.py`,
+(Source: `appserver/appserver/{chatbot,tara_prompt_context,tara_answer_planner,tara_ai_analysis,ml_checkpoint_context,tara_gateway,AI_tools_appserver,openai_tools_appserver,tara_model_router}.py`,
 `web-react/src/components/{Chatbot,chatbotScreenContext,BarChartPopup,GettingStartedPopup}.js`,
 `apiserver/{auth,tiers,provision_chatbot_key}.py`, `config.py`, `docs/TARA_GATEWAY_INTEGRATION.md`; dev .176.)
 
@@ -1632,8 +1711,11 @@ always-on processor), security pages, `home_opportunities.py` (00:04),
 the appserver EOD completion marker, no post when nothing closes),
 `update_news_quotes.py` (every min), SMN emails, daily-AI-pick email,
 `web/mailerlite_lifecycle.py --limit 15` (every minute), `expire_trials.py`
-(04:15), appserver EOD `update_client2.py` (03:05-05:05 UTC Tue-Sat after the
-keyprovider's 20:03 ET EODHD load), ticker regen (02:00 + hourly 09-16).
+  (04:15), appserver EOD `update_client2.py` (03:05-05:05 UTC Tue-Sat after the
+  keyprovider's 20:03 ET EODHD load), ticker regen (02:00 + hourly 09-16).
+  Each successful EOD pull or same-market-date marker no-op invokes the bounded
+  AI score warmer from the active immutable app release. The warmer refuses to
+  run without the authoritative marker or a complete V3 input-data manifest.
 The MailerLite worker takes a Postgres advisory lock, reclaims ten-minute stale
 claims, and is a no-write operation unless production explicitly enables it.
 The X worker is also inert outside production and until its independent outbound

@@ -62,6 +62,10 @@ export const DarkTheme = {
   text:            'rgb(220, 220, 225)',
   textSecondary:   'rgb(180, 180, 190)',
   textOnControl:   'white',
+  aiCheckpointText:'#c7d2fe',
+  aiCheckpointBg:  'rgba(99, 102, 241, 0.18)',
+  aiCheckpointBorder:'rgba(129, 140, 248, 0.75)',
+  aiCheckpointFocus:'#a5b4fc',
 
   // borders & grid
   border:          'rgb(50, 47, 62)',
@@ -133,6 +137,10 @@ export const LightTheme = {
   text:            'black',
   textSecondary:   'gray',
   textOnControl:   'white',
+  aiCheckpointText:'#3730a3',
+  aiCheckpointBg:  '#eef2ff',
+  aiCheckpointBorder:'#818cf8',
+  aiCheckpointFocus:'#4338ca',
 
   // borders & grid
   border:          'lightgray',
@@ -418,7 +426,7 @@ export const maxDaysOut = 367;  // shown on pulldown on seasonal viewer
 export const minDaysOut = 2;
 export const minYears = 5; // minimum number of years in the pull down above barchart
 export const trend_chart_left_gap_days = 14; // sets how many days before the opp trend chart should start its first date
-export const mlScoreMaxDaysAhead = 5; // hide AI score columns when opp table date is more than this many days in the future
+export const mlScoreMaxDaysAhead = 5; // keep eligible columns visible with an explicit N/A beyond this pre-entry window
 //---------------------------------------------------------------------------------------------
 // to add a new securies group, add it with default number of years and number of partial years  11/19/2022
 // default is [10,10]  to override for a market then add it here

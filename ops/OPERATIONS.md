@@ -165,6 +165,7 @@ Restart matrix (which service to bounce after the pull):
 | `web/mailerlite_lifecycle.py` or its cron | run `ops/install_mailerlite_lifecycle_cron.sh`; the next minute uses the new worker |
 | `appserver/` | `tradewave-appserver` (app box) |
 | Tara gateway credentials or `tradewave-appserver` restart | `tradewave-apiserver` follows automatically via `PartOf`; its startup login canary must pass |
+| `data_updater/update_client2.py`, `data_updater/prefetch_ml_scores.py`, or `ops/install_eod_cron.sh` | switch the immutable app release pointer, run `sudo bash <release>/ops/install_eod_cron.sh`, then let the next authoritative marker-gated run execute; no daemon restart is required for the cron-only code |
 | `web/report_renderer.py` | `tradewave-web` **and** `tradewave-appserver` (appserver invokes it via `dr_report_publish`) |
 | `smn/` used by the pipeline services | `tradewave-blog-queue` + `tradewave-article-processor` (web box) |
 | `smn/` cron-only scripts (generate_security_pages, rebuild_news_home, daily_article_queue, update_news_quotes …) | none — next cron run uses new code |
@@ -191,6 +192,78 @@ for the JS/CSS while the authenticated `/app/` shell remains stuck on "Loading".
 and blocks the release unless both return 200.
 Rollback (instant, no hash): `cd /home/flask/web-react && ln -sfn "$(readlink build-previous)" build`
 (One-time per box, already done on stage+prod: `mkdir -p releases && mv build releases/build-prev && ln -s releases/build-prev build`. `deploy.sh` runs ship+flip automatically. Full detail: memory `tw2-react-deploy-method`.)
+
+### 2c. Opportunity AI duration-comparison warm cache
+
+`data_updater/update_client2.py` invokes `data_updater/prefetch_ml_scores.py` only
+after `/var/lib/tradewave/eod/update_status.json` proves the authoritative US EOD
+sync is complete. A missing or incomplete marker is a successful deferred no-op;
+never fabricate or hand-edit the marker to force a warm. Each of the hourly
+03:05-05:05 UTC marker no-ops retries the idempotent warm if an earlier attempt
+failed after the data pull.
+
+The bounded policy re-fetches the six supported US stock/ETF default-year tables
+for the marker's explicit `target_table_date` and selects every eligible default
+row first. It then adds up to eight commonly viewed logical table contexts from
+the prior 14 days; their old dates/row snapshots are discarded and OppList4 is
+re-fetched for the same target date. Standard rows only are warmed; active rows
+remain a separately deferred feature. Popular views remain capped at 20 rows per
+context and 180 rows in aggregate, while a 2,500-row global safety fence bounds
+the complete job (the measured six defaults total 1,739 rows). Exact-window
+legacy requests batch at 25; comparison rows batch at 10, which becomes at most 30
+scorer horizon items. Only raw appserver offsets `9..366` are eligible (displayed
+10-367 inclusive calendar days), and past-entry rows are excluded. Optional
+environment overrides, all positively bounded by the script, are:
+
+```
+TW2_ML_PREFETCH_TTL_SECONDS=172800
+TW2_ML_PREFETCH_POPULAR_CONTEXTS=8
+TW2_ML_PREFETCH_USAGE_DAYS=14
+TW2_ML_PREFETCH_ROWS_PER_CONTEXT=20
+TW2_ML_PREFETCH_POPULAR_MAX_ROWS=180
+TW2_ML_PREFETCH_GLOBAL_MAX_ROWS=2500
+# Legacy TW2_ML_PREFETCH_MAX_ROWS, when present, is a popular-max fallback only.
+TW2_ML_PREFETCH_LEGACY_BATCH_SIZE=25
+TW2_ML_PREFETCH_CHECKPOINT_ROW_BATCH=10
+TW2_ML_PREFETCH_APPSERVER_URL=http://127.0.0.1:5000  # dev only; omit elsewhere
+```
+
+Run or verify it on an app box without changing market data:
+
+```
+sudo -u flask bash -lc 'set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/.tw2-app-current/data_updater/prefetch_ml_scores.py'
+sudo -u flask crontab -l | grep update_client2.py
+redis-cli --raw GET ml6:prefetch:active
+```
+
+The last command is expected to be empty before the first authoritative warm. A
+published pointer names `ml6:prefetch:generation:<sha>`; that manifest must say
+`status=complete`. A failed generation remains inspectable but never replaces
+`ml6:prefetch:active` or any live warmed score. Score candidates are written to
+generation-scoped staging keys; only one final Redis transaction exposes every
+staged score value/pointer together with the complete manifest and active pointer.
+Interactive on-demand cache fills remain independent. The scorer health metadata
+must report nonempty model, feature/context/profile, manifest, data-as-of, and data
+generation/source identities, a 62-feature V3 schema, and
+`context_data_complete=true`; missing or `unknown` identity fields fail closed.
+The scorer `data_as_of` must also exactly equal the marker's completed US session
+and `latest_us_date`. The complete manifest reports eligible, selected, warmed,
+and truncated rows overall and for default versus popular contexts. Immediately
+before Redis publication, the warmer bypasses cached health metadata and requires
+live scorer `/health` to still have the initial complete fingerprint and data date;
+a rolling scorer restart or identity change leaves the prior generation active.
+
+If a target-security CSV or opportunity-definition file is corrected after its
+same-day score was already served, restart the development scorer before rerunning
+the warmer. Confirm that `/health` reports a new `data_generation_hash`; otherwise
+existing versioned TradeWave pointers may still refer to the pre-correction score.
+
+Rollback does not delete Redis. React rolls back with `build-previous`; backend
+rolls back with the activation script printed for the previous immutable release,
+then `install_eod_cron.sh` is rerun from that release so cron follows the same
+source pointer. The additive `ml6` keys expire naturally and are ignored by older
+code. Deleting them during an incident would remove useful evidence and is not
+part of the rollback.
 
 ### 3. Post-deploy (only if relevant)
 - **nginx** (CSP/headers in `ops/nginx/` changed): re-apply via `ops/staging/apply_audit_hardening.sh` (or copy the snippet into the site config), then `ssh root@<web> -p 4369 'nginx -t && systemctl reload nginx'` (a gunicorn restart does NOT pick up nginx config).

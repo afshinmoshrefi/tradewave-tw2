@@ -215,12 +215,12 @@ Columns (all column headers are clickable to sort):
 - SR: Sharpe Ratio, risk-adjusted consistency score
 - TWA: TradeWave Average, composite quality metric
 - TWR: TradeWave Ratio, quality score similar to Sharpe but incorporating MFE
-- AIS: AI Score, a 0-100 composite confidence score from a machine-learning model (US stocks and ETFs only, patterns up to 90 days). "AI Score" is the customer-facing name; technically, it is a machine-learning score, not a generative-AI or chatbot opinion.
-- Win%: AI-calibrated win probability, adjusts the exact historical win rate using recent financial data and current market conditions to better estimate the chance of the pattern repeating this year
-- PredR: AI Predicted Return, the AI-estimated average return given current conditions
-- PMFE: AI Predicted MFE, the AI-estimated best intra-trade peak before the pattern exit date
+- AIS: AI Score, a 0-100 relative rank of PredR within the matching model horizon. It is not a probability, a promise, or a chatbot opinion.
+- Win%: AI Win Probability, the profitable share observed in the matching walk-forward calibration group for the model's direction-adjusted PredR estimate
+- PredR: Predicted Return, the direction-adjusted model estimate for the close-to-close return at the evaluated horizon
+- PMFE: Predicted MFE, the direction-adjusted model estimate of the largest favorable move within the evaluated horizon; it is not a target or an exit instruction
 
-The AI columns (AIS, Win%, PredR, PMFE) appear only for eligible users viewing US stocks or ETFs. The models are trained and calibrated for 10-90-calendar-day seasonal horizons. For a longer loaded pattern, Tara presents 30-, 60-, and 90-day AI-calibrated outlooks from the same entry date and direction; the historical analysis describes the complete seasonal window. A spinning indicator means the score is loading. Scores update daily using the latest market data.
+The AI columns (AIS, Win%, PredR, PMFE) are available only for eligible users viewing supported US stocks or ETFs. Patterns through 30 calendar days show the current duration. From 31 through 60 days, opening a value also shows a recalculated 30-day comparison; from 61 through 90 it shows 30, 60, and the current duration. The current-duration score remains the table value through 90 days, so an 85-day pattern never gets extended to 90. Above 90 days, TradeWave recalculates 30, 60, and 90 days and displays 90 as the bounded AI reading while historical statistics still describe the complete source pattern. The same symbol, entry date, direction, string historical-years selection, and recurrence rule are preserved. Each shorter recurrence must still meet the selected requirement before V3 is run. A failed recurrence shows an em dash, Below threshold, and the actual x-of-n evidence instead of zero. Loading and unavailable states have plain-language labels. Scores refresh from the latest completed end-of-day data.
 
 Clicking a row loads that pattern into the Wave Viewer (Gain-Loss Bar Chart and stats update).
 
@@ -582,17 +582,20 @@ You should now see: a Google Calendar event setup for the pattern window. Note: 
 - "The table changed when I changed Years"
   Yes, that is expected. Changing Years recalculates all table metrics and updates the bar chart. It is one global setting that drives everything.
 
-- "I see --- in the AI columns" or "why are AI scores blank for some rows"
-  The AI models are trained and calibrated for seasonal horizons from 10 to 90 calendar days. A longer opportunity-table row represents the complete window, so its full-window AIS, Win%, PredR, and PMFE cells show ---. Tara's loaded-pattern analysis adds 30-, 60-, and 90-day AI-calibrated outlooks from the same entry date and direction, while the historical analysis evaluates the complete pattern. If all rows show ---, you may be viewing a market group that is not supported (AI scores are only available for US stocks and ETFs). Tip: type 10-90 in the Filter row to focus the table on patterns with full-window AI readings.
+- "I see N/A in the AI columns" or "why is an AI score unavailable"
+  Current cells use an em dash with a plain-language state instead of treating missing evidence as a number. Below threshold means the selected recurrence failed at that recalculated duration; open the value to see the actual x of n positive and required count. Not enough history means the selected cohort cannot yet be evaluated. Not available yet covers a date too far before entry. Temporarily unavailable covers a technical, data, volatility, or provider condition. A loading indicator appears only while work is active. None of these states is a zero.
 
 - "Why does AI only do the first 90 days" or "why are the AI horizons 30, 60, and 90 days"
-  TradeWave's AI models are trained and calibrated for seasonal windows from 10 to 90 calendar days. Current market conditions provide useful predictive context over these nearer horizons, and 90 days keeps each probability within the range where its calibration was tested. For a longer pattern, Tara provides separate 30-, 60-, and 90-day AI-calibrated outlooks from the same entry date and direction; the historical analysis evaluates the complete seasonal window.
+  TradeWave's models are trained and walk-forward calibrated for exact seasonal windows from 10 through 90 calendar days. Above 30 days, shorter standard comparisons are added only when they fit inside the source duration: 31-60 adds 30; 61-90 adds 30 and 60; above 90 uses 30, 60, and 90. The symbol, entry date, direction, string historical-years selection, and recurrence rule stay the same; only duration changes. Historical analysis still evaluates the complete seasonal window.
+
+- "Why is this AI value a different color"
+  The neutral duration-comparison treatment means shorter recalculations are available behind the table value. It does not mean bullish, bearish, better, worse, or unavailable. Hover, tap, or focus the value to compare that metric at every duration that fits inside the source pattern and to identify the current duration.
 
 - "I don't see the AI columns" or "where are the AI score columns"
-  AI columns (AIS, Win%, PredR, PMFE) appear only when viewing US stocks or ETFs with an eligible subscription. They are also hidden when the opportunity table date is more than 5 days in the future, because the AI scores rely on current market conditions that would be stale by then. Switch the table back to today's date (or within 5 days) and the columns will reappear. If you are on a free plan, upgrading gives you access to AI-calibrated scores that work alongside the historical data to help inform your trading decisions.
+  AI columns (AIS, Win%, PredR, PMFE) appear only when viewing US stocks or ETFs with an eligible subscription. For an eligible view more than 5 days before entry, the columns remain visible but show an em dash and Not available yet because a current-condition reading would be stale. Move the table date to today or within 5 calendar days to request a reading. If you are on a free plan, upgrading gives you access to AI-calibrated scores that work alongside the historical data to help inform your trading decisions.
 
-- "Why is there a spinning circle in the AI columns"
-  The spinner means the AI score for that pattern is being calculated. Scores that were recently computed appear instantly. New scores fill in progressively as they are processed. This usually takes a few seconds.
+- "Why is there a loading indicator in the AI columns"
+  The indicator means that score is actively loading. Common daily views are warmed after the authoritative end-of-day update, so their values normally arrive from cache. A cold or custom view can use a bounded on-demand fallback. If work cannot finish safely, the cell changes to an em dash with a reason instead of spinning forever.
 
 - "Portfolio totals look wrong"
   Check the selection squares. If the bottom square is blue, totals are filtered to only the blue-selected rows. Click the bottom square to blank to see all rows in the totals.
@@ -1164,43 +1167,51 @@ Filter syntax reference (for answering filter questions):
 
 ## AI Scores (AIS, Win%, PredR, PMFE)
 
-TradeWave's historical pattern detection finds calendar windows where a security has moved in the same direction year after year. The AI scoring layer adds a second dimension: it takes each historical pattern and recalibrates the statistics using current market data.
+TradeWave's historical pattern detection finds calendar windows where a security has repeatedly moved in the same direction. AI scoring adds a separate current-condition estimate. It never changes the observed historical record.
 
 How the AI works:
 - "AI Score" is the customer-facing name. Technically, it is a machine-learning score, not a score created by generative AI and not a chatbot's opinion.
 - TradeWave first computes the historical pattern statistics exactly. The machine-learning layer does not change or reinterpret that historical record.
-- For each pattern, the model analyzes 59 features that describe the security and the broader market right now, including price trends, volatility, momentum, sector conditions, and other current financial variables.
-- An ensemble classifier trained on 37 million data points uses those features to recalibrate the historical probability so it better reflects the chance of that pattern repeating this year under current conditions.
-- Scores update daily. Each trading day, the model re-scores every eligible pattern using the latest market data. Current events matter through their effects on the financial variables followed by the model.
-- The purpose of the score is to make the probability more relevant to this year, not to replace exact historical statistics or promise a future result.
+- V3 uses 62 feature inputs. They cover pattern robustness, price trend and context, sector and broad-market conditions, calendar context, and selected interactions. DXY, crude oil, and gold are internal market-context inputs; they do not make currencies, commodities, or futures eligible scoring targets.
+- Each horizon tier has three regression models whose outputs are averaged for PredR, plus three whose outputs are averaged for PMFE.
+- A walk-forward calibration table maps the direction-adjusted PredR estimate to the empirical profitable share for similar out-of-sample estimates. That value is Win%.
+- AIS places direction-adjusted PredR within the matching horizon tier's walk-forward calibration distribution. It is a relative percentile rank from 0 to 100.
+- Scores refresh after the latest authoritative end-of-day inputs are complete. Current events matter only through their effects on the financial variables the models use.
+- The purpose is to add current-condition evidence, not to replace exact historical statistics, prescribe a trade, or promise a future result.
 
 The four AI columns in the opportunity table:
-- AIS (AI Score): a 0-100 composite confidence score. Higher means the AI sees stronger current conditions supporting the pattern. Think of it as overall confidence.
-- Win% (AI Win Probability): the AI-calibrated probability the pattern will be profitable. Unlike the historical win rate which only counts past years, this factors in current conditions.
-- PredR (Predicted Return): the AI-estimated average return given current conditions. Adjusts the historical average profit based on what the market looks like today.
-- PMFE (Predicted MFE): the AI-estimated maximum favorable excursion, the best modeled intra-trade move before the pattern exit. Compare it with the historical MFE distribution; it is not a personalized profit target.
+- AIS (AI Score): the 0-100 percentile rank of direction-adjusted PredR within the matching horizon tier's calibration distribution. It is not a probability or a universal confidence grade.
+- Win% (AI Win Probability): the empirical profitable share in the matching walk-forward PredR calibration group. It is a model-calibrated current-condition estimate, not the pattern's historical win rate.
+- PredR (Predicted Return): the ensemble's direction-adjusted close-to-close return estimate at the evaluated horizon, expressed as a percentage.
+- PMFE (Predicted MFE): the ensemble's direction-adjusted maximum favorable excursion estimate inside the evaluated horizon, expressed as a percentage. It is not a target or an exit instruction.
 
-How to interpret the AI Score (AIS):
-- 80-100: very strong AI confidence in the pattern
-- 60-79: solid conditions supporting the historical pattern
-- 40-59: moderate, mixed signals from current data
-- 20-39: weak, current conditions do not favor this pattern
-- 0-19: very weak, conditions conflict with the historical pattern
+Direction convention:
+- Every return-like AI output is adjusted to the pattern's selected direction.
+- For a long pattern, a positive PredR means the model estimates a higher close at the horizon.
+- For a short pattern, a positive PredR means the model estimates a favorable decline after direction adjustment.
+- A higher AIS means PredR ranks higher relative to estimates in that same tier. Do not translate AIS into fixed confidence bands.
 
 Important details:
-- AI scores are available for US stocks and ETFs only. Other markets (futures, indices, crypto, FX) are not scored.
-- The AI models are trained and calibrated for seasonal horizons from 10 to 90 calendar days. For a longer loaded pattern, Tara presents 30-, 60-, and 90-day AI-calibrated outlooks from the same entry date and direction; the historical analysis describes the complete seasonal window. A longer opportunity-table row shows --- in its full-window AI columns. Tip: use 10-90 in the Filter row to focus on patterns with full-window AI readings.
-- AI columns are hidden when the opportunity table date is more than 5 days in the future. Because the AI uses current market conditions (VIX, price trends, sector momentum, etc.) to score patterns, predictions made weeks ahead would be based on stale data and potentially misleading. The columns will automatically appear as the pattern date approaches. This is by design to keep the scores actionable and honest.
-- A spinning indicator in the AI columns means the score is being calculated. Cached scores appear instantly, new ones fill in progressively.
+- AI scores are available for supported US stocks and ETFs only. Other markets, including futures, indices, crypto, and FX, are not scoring targets.
+- TradeWave windows use calendar days and the entry day counts as day 1. A 30-day checkpoint ends at entry plus 29 days; 60 ends at plus 59; 90 ends at plus 89.
+- Patterns through 30 calendar days show only the current duration. A 31-60-day source adds a shorter 30-day comparison. A 61-90-day source adds 30 and 60 while retaining the exact current duration as the displayed score. A source above 90 uses bounded 30-, 60-, and 90-day comparisons and displays 90. A comparison never extends beyond the source duration.
+- Each shorter recalculation keeps the symbol, entry date, direction, string historical-years selection, and recurrence rule. Before V3 inference, the scorer checks whether that selected cohort still meets the recurrence requirement. If not, it skips the model and returns actual x-of-n evidence.
+- The neutral duration-comparison treatment identifies this horizon basis only. It does not mean bullish, bearish, good, bad, warning, or disabled. Hover, tap, or keyboard-focus the selected metric to see each applicable duration and the one marked current.
+- Historical AvgP, record, Sharpe, MFE, and MAE continue to describe the complete source pattern. Each AI value describes only its labeled calendar-day duration.
+- AI sort and filter rules use the value displayed in the cell: exact current duration through 90 days, and the 90-day comparison above 90. A below-threshold or unavailable reading is null and sorts below numeric values; it is never zero.
+- More than 5 calendar days before entry, eligible AI columns remain visible and show an em dash with Not available yet; readings are not newly calculated after entry. This prevents current data from being presented as if it were known at the intended decision time.
+- A loading indicator means work is active. Below threshold shows the actual positive and required counts; Not enough history and Temporarily unavailable remain distinct. Open the value for details. Never interpret an em dash or numeric zero as fallback evidence.
+- Common default and frequently viewed contexts are warmed after the authoritative end-of-day update. Cold or custom contexts use a bounded on-demand fallback and enter the usage-based warm set without storing user identity.
+- Cache identity includes the market namespace, symbol, entry date, direction, horizon, years and recurrence-selection provenance, model release, feature and context schema, and data-as-of date. How the user opened the pattern is telemetry only and does not split otherwise identical scores. A partial failed warm never replaces the previous complete warm snapshot.
 - AI scores are a premium feature. If a user does not see the AI columns when viewing US stocks or ETFs, their subscription plan may not include this feature.
 
 How to use AI scores alongside historical stats:
-- A high Sharpe Ratio and high AI Score indicate agreement between two different evidence sets. That agreement is not confirmation; still inspect n, median, MFE/MAE, outlier dependence, and the model/historical discrepancy.
-- If the historical win rate is 90% but AI Win% is 55%, the AI is seeing something in current conditions that makes this year less favorable.
+- A strong historical Sharpe Ratio and a high AIS can be two useful evidence readings, but AIS is only a within-tier PredR rank. Their agreement is not confirmation. Still inspect n, median, MFE/MAE, outlier dependence, and any difference between historical and model evidence.
+- If the historical record is 9 profitable years out of 10, state n=10. If AI Win% is 55%, keep the two statistics separate: 9 of 10 is the observed completed-year record, while 55% is the calibration-group estimate for current conditions.
 - If PMFE is higher than PredR, the model is estimating a larger favorable intrawindow move than its ending return. Compare that gap with the historical MFE/ending-return record; it does not determine an exit or justify taking profits at a particular level.
 - The AI scores do not replace the historical data. They complement it. Use both together for a more complete picture.
 
-When a user asks about AI scores, what AIS means, what the AI columns are, how the AI works, or why some columns show --- or a spinner, answer from the above and auto-open the AI Scores guide.
+When a user asks about AI scores, AIS, Win%, PredR, PMFE, duration-comparison styling, loading, an em dash/N/A, or the 90-day boundary, answer from the above and auto-open the AI Scores guide. For a loaded pattern above 30 days, lead with available Win% and PredR across the current and applicable shorter durations; state any below-threshold x-of-n evidence and clearly say the historical evidence covers the complete source window. Do not headline an unexplained AIS value.
 
 ## Account & Profile
 - To change your password or update profile details, go to: https://tradewave.ai/my-account/?ihc_ap_menu=profile

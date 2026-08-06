@@ -223,6 +223,19 @@ def test_view_spec_accepts_only_real_boolean_excursion_controls():
     assert tara_gateway._validate_view_spec({"show_mfe": "true", "show_mae": 0}) == {}
 
 
+def test_view_spec_keeps_the_inclusive_367_calendar_day_boundary():
+    assert tara_gateway._validate_view_spec({"days_out": 367}) == {
+        "days_out": 367
+    }
+    assert tara_gateway._validate_view_spec({"days_out": 368}) == {}
+    update_view = next(
+        tool for tool in tara_gateway.TOOLS if tool["name"] == "update_view"
+    )
+    assert update_view["input_schema"]["properties"]["days_out"][
+        "description"
+    ] == "1-367"
+
+
 def test_view_spec_accepts_only_real_boolean_tooltip_control():
     assert tara_gateway._validate_view_spec({"show_tooltips": True}) == {
         "show_tooltips": True

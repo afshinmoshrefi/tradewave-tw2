@@ -885,6 +885,30 @@ def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_out
     assert "historical rate" not in ai_section
 
 
+def test_367_day_long_pattern_keeps_its_end_date_and_checkpoint_analysis():
+    wave = _analysis_context([2.0, -1.0] * 10)
+    wave["start_date"] = "2026-01-01"
+    wave["days_out"] = "367"
+    wave["ai_analysis"] = {
+        "status": "available",
+        "mode": "checkpoints",
+        "full_pattern_calendar_days": 367,
+        "horizons": [
+            {"calendar_days": 30, "win_probability": 0.70, "predicted_return_pct": 2.0},
+            {"calendar_days": 60, "win_probability": 0.72, "predicted_return_pct": 2.5},
+            {"calendar_days": 90, "win_probability": 0.74, "predicted_return_pct": 3.0},
+        ],
+    }
+
+    reply = build_pattern_analysis_reply(
+        "Analyze this pattern", wave, {}, current_year=2026
+    )
+
+    assert planner._inclusive_end_date("2026-01-01", "367") == "2027-01-02"
+    assert "complete 367-day pattern" in reply
+    assert "30, 60, and 90 calendar days" in reply
+
+
 def test_analysis_explains_why_ai_is_not_shown_too_far_before_entry():
     wave = _analysis_context([1.0] * 20)
     wave["ai_analysis"] = {
@@ -900,6 +924,31 @@ def test_analysis_explains_why_ai_is_not_shown_too_far_before_entry():
 
     assert "entry is 12 calendar days away" in reply
     assert "within five calendar days of entry so the inputs are not stale" in reply
+
+
+def test_exact_window_analysis_explains_structured_vix_state_without_calling_it_checkpoints():
+    wave = _analysis_context([1.0] * 20)
+    wave["ai_analysis"] = {
+        "status": "unavailable",
+        "mode": "pattern",
+        "full_pattern_calendar_days": 17,
+        "horizons": [
+            {
+                "calendar_days": 17,
+                "status": "unavailable",
+                "error_code": "vix_blocked",
+                "unavailable_reason": "Volatility safety gate is active.",
+            }
+        ],
+    }
+
+    reply = build_pattern_analysis_reply(
+        "Analyze this pattern", wave, {}, current_year=2026
+    )
+
+    assert "volatility safety gate blocked the current-condition reading for this window" in reply
+    assert "for these checkpoints" not in reply
+    assert "not treating the missing values as zero" in reply
 
 
 def test_noncurrent_pe_occurrence_is_identified_and_compared_to_current_phase():
@@ -1290,6 +1339,8 @@ def test_signature_product_intents_are_narrow_and_do_not_wait_for_ai_scoring():
         "Why does AI only do the first 90 days?",
         "Why are the AI models limited to 90 calendar days?",
         "Explain the 30/60/90 AI horizons",
+        "Why are there 30/60/90 AI checkpoints?",
+        "Why are there 30, 60, and 90 day AI scores?",
         "Why doesn't AI score this full pattern?",
         "Why are AI scores blank for a 133-day pattern?",
     ):
@@ -1323,6 +1374,8 @@ def test_ai_horizon_explanation_is_deterministic_positive_and_pattern_specific()
     assert "same entry date and direction" in reply
     assert "historical analysis evaluates the complete 133-day pattern" in reply
     assert "AI Win Probability and predicted return" in reply
+    assert 'data-action="open-aiscores-popup"' in reply
+    assert "Open the AI Scores guide" in reply
     assert "Today's AI pick" not in reply
     for negative_phrase in ("can't", "cannot", "outside the model", "no ai score"):
         assert negative_phrase not in reply.lower()

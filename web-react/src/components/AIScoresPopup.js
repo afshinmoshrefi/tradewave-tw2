@@ -1,18 +1,65 @@
-import React, { useState, useContext } from 'react'
+import React, { useCallback, useEffect, useRef, useState, useContext } from 'react'
 import ReactDOM from 'react-dom'
 import { UserContext } from './UserContext'
 import { themeColors } from './Common'
+import { AI_COLUMNS, AI_METRICS } from './opportunityAIScores'
 import './styles/TrendScorePopup.css'
 
 const AIScoresPopup = ({ onClose, iconRect }) => {
     const { UITheme, seasonalAppDivH } = useContext(UserContext)
     const tc = themeColors(UITheme)
     const [closing, setClosing] = useState(false)
+    const dialogRef = useRef(null)
+    const previousFocusRef = useRef(null)
+    const closeTimerRef = useRef(null)
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         setClosing(true)
-        setTimeout(() => onClose(), 200)
-    }
+        if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = window.setTimeout(() => onClose(), 200)
+    }, [onClose])
+
+    useEffect(() => {
+        const handleKeyDown = event => {
+            if (event.key === 'Escape') {
+                event.preventDefault()
+                handleClose()
+                return
+            }
+            if (event.key !== 'Tab' || !dialogRef.current) return
+            const focusable = Array.from(dialogRef.current.querySelectorAll(
+                'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            ))
+            if (focusable.length === 0) {
+                event.preventDefault()
+                dialogRef.current.focus()
+                return
+            }
+            const first = focusable[0]
+            const last = focusable[focusable.length - 1]
+            if (document.activeElement === dialogRef.current) {
+                event.preventDefault()
+                ;(event.shiftKey ? last : first).focus()
+            } else if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault()
+                last.focus()
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault()
+                first.focus()
+            }
+        }
+        previousFocusRef.current = document.activeElement
+        window.addEventListener('keydown', handleKeyDown)
+        if (dialogRef.current) dialogRef.current.focus()
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown)
+            if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+            const previousFocus = previousFocusRef.current
+            if (previousFocus && previousFocus.isConnected && typeof previousFocus.focus === 'function') {
+                previousFocus.focus()
+            }
+        }
+    }, [handleClose])
 
     const handleOverlayClick = (e) => {
         if (e.target === e.currentTarget) handleClose()
@@ -43,31 +90,36 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
         popupStyle.left = 'auto'
     }
 
-    const columns = [
-        { col: 'AIS', full: 'AI Score', desc: 'A composite quality score from 0 to 100. Higher means the AI sees stronger conditions supporting this pattern right now. Think of it as an overall confidence rating that combines multiple inputs into one number.', color: '#3b82f6' },
-        { col: 'Win%', full: 'AI Win Probability', desc: 'The AI-calibrated probability that this pattern will be profitable. Unlike the historical win rate (which only counts past years), this factors in current market conditions to give a more realistic estimate.', color: '#22c55e' },
-        { col: 'PredR', full: 'Predicted Return', desc: 'The AI-estimated average return for this pattern given current conditions. This adjusts the historical average profit by considering what the market environment looks like today.', color: '#a78bfa' },
-        { col: 'PMFE', full: 'Predicted MFE', desc: 'The model-estimated maximum favorable excursion: the largest direction-adjusted favorable move it estimates could occur before the pattern exit date. It is a model output, not a profit target or an exit instruction.', color: '#f59e0b' },
-    ]
-
-    const scores = [
-        { range: '80 - 100', label: 'Very strong AI confidence in the pattern', color: '#22c55e' },
-        { range: '60 - 79', label: 'Solid conditions supporting the historical pattern', color: '#4ade80' },
-        { range: '40 - 59', label: 'Moderate - mixed readings from current data', color: '#f59e0b' },
-        { range: '20 - 39', label: 'Weak - current conditions do not favor this pattern', color: '#fb923c' },
-        { range: '0 - 19', label: 'Very weak - conditions conflict with the historical pattern', color: '#ef4444' },
-    ]
+    const columns = AI_COLUMNS.map(key => ({
+        col: AI_METRICS[key].shortLabel,
+        full: AI_METRICS[key].label,
+        desc: AI_METRICS[key].description,
+        color: '#818cf8',
+    }))
 
     return ReactDOM.createPortal(
         <div className="trend-score-overlay" onClick={handleOverlayClick}>
-            <div className={`trend-score-popup${closing ? ' closing' : ''}${UITheme === 'dark' ? ' dark-scroll' : ''}`} style={popupStyle}>
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="ai-scores-popup-title"
+                tabIndex="-1"
+                className={`trend-score-popup${closing ? ' closing' : ''}${UITheme === 'dark' ? ' dark-scroll' : ''}`}
+                style={popupStyle}
+            >
 
                 <div className="ts-header">
-                    <h2 style={{ color: textColor }}>AI Scores</h2>
-                    <button className="ts-close-btn" style={{ color: textColor }} onClick={handleClose}>&times;</button>
+                    <h2 id="ai-scores-popup-title" style={{ color: textColor }}>AI Scores</h2>
+                    <button className="ts-close-btn" aria-label="Close AI Scores guide" style={{ color: textColor }} onClick={handleClose}>&times;</button>
                 </div>
 
-                <div className="ts-body">
+                <div
+                    className="ts-body"
+                    role="region"
+                    aria-label="AI Scores guide content"
+                    tabIndex="0"
+                >
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#3b82f6' }}></span>
@@ -79,9 +131,9 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         but it does not account for what is happening in the market <em>right now</em>.
                     </p>
                     <p>
-                        The AI scoring layer bridges that gap. It takes each historical pattern and
-                        recalibrates the statistics using current market conditions, giving you a
-                        forward-looking view grounded in both history and the present.
+                        The AI scoring layer adds separate current-condition estimates alongside each historical
+                        pattern. The historical statistics remain unchanged, so you can compare the past record with
+                        a model view built from the latest available inputs.
                     </p>
 
                     <div className="ts-section-title">
@@ -89,15 +141,14 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         How It Works
                     </div>
                     <p>
-                        For each pattern in the opportunity table, the AI analyzes <strong>59 features</strong> that
-                        describe the security and the broader market at this moment. These features include price
-                        trends, volatility, momentum, sector conditions, and more. An ensemble classifier
-                        trained on <strong>37 million data points</strong> then produces four calibrated scores.
+                        TradeWave V3 assembles <strong>62 model inputs</strong> from the recalculated pattern profile
+                        and current technical, market, and calendar context. Horizon-specific ensemble models produce
+                        direction-adjusted return and favorable-excursion estimates.
                     </p>
                     <p>
-                        The result is a set of statistics that reflect not just "what has this pattern done
-                        historically" but "given what the market looks like today, how likely is this pattern
-                        to work again."
+                        Walk-forward calibration then maps the predicted return to an empirical profitable share for
+                        Win% and to its percentile position for AIS. The result reflects the selected direction and
+                        horizon; it does not replace the historical record.
                     </p>
 
                     <div className="ts-section-title">
@@ -127,22 +178,47 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         <span className="ts-dot" style={{ backgroundColor: '#f59e0b' }}></span>
                         Reading the AI Score (AIS)
                     </div>
-                    <table className="ts-range-table">
-                        <thead>
-                            <tr>
-                                <th style={{ color: textColor }}>AIS Range</th>
-                                <th style={{ color: textColor }}>What It Means</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {scores.map((s, i) => (
-                                <tr key={i} style={{ backgroundColor: i % 2 === 0 ? rowEven : 'transparent' }}>
-                                    <td><span style={{ color: s.color, fontWeight: 600 }}>{s.range}</span></td>
-                                    <td>{s.label}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <p>
+                        AIS is the 0-100 percentile position of the ensemble's direction-adjusted PredR within that
+                        horizon tier's 20-bin walk-forward calibration distribution. It is a <strong>relative rank</strong>,
+                        not a probability, an overall confidence score, or a classifier output. Win% is the probability
+                        field; an AIS of 80 does not mean an 80% chance of profit.
+                    </p>
+
+                    <div className="ts-section-title">
+                        <span className="ts-dot" style={{ backgroundColor: '#818cf8' }}></span>
+                        Current Score and Duration Comparison
+                    </div>
+                    <p>
+                        The table keeps the current full-window reading for patterns through 90 calendar days. Open a
+                        value to compare supported shorter durations: patterns over 30 days add 30 days, patterns over
+                        60 days also add 60 days, and patterns over 90 days add the bounded 90-day checkpoint. A longer
+                        pattern therefore shows the <strong>90-calendar-day checkpoint</strong> in the table, not a score
+                        of its complete historical window.
+                    </p>
+                    <p>
+                        TradeWave windows are inclusive calendar days: the entry day counts as day 1.
+                    </p>
+                    <p>
+                        The neutral violet outline and dotted underline identify a duration comparison. They do not mean the
+                        reading is good, bad, bullish, or bearish. At each shorter duration, TradeWave first checks the
+                        same selected historical recurrence. If it falls below its requirement, the cell shows a dash
+                        and the actual positive-year count instead of inventing an AI prediction. TradeWave stops at
+                        90 days because these models were
+                        validated for near-term horizons through 90 calendar days, where current conditions are most
+                        useful. Patterns above 90 days are summarized at the 30-, 60-, and 90-day checkpoints.
+                    </p>
+
+                    <div className="ts-section-title">
+                        <span className="ts-dot" style={{ backgroundColor: '#818cf8' }}></span>
+                        Long and Short Examples
+                    </div>
+                    <p>
+                        For a long pattern, a positive PredR means the model estimates a price gain in the long
+                        direction. For a short pattern, a positive direction-adjusted PredR means a price decline would
+                        favor the short direction. Win% also follows the selected direction, so it estimates how often
+                        that direction was profitable in the matching calibration group.
+                    </p>
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#14b8a6' }}></span>
@@ -150,13 +226,12 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                     </div>
                     <ul style={{ paddingLeft: '20px', margin: '8px 0 12px' }}>
                         <li style={{ marginBottom: '6px' }}>
-                            <strong>Pair with historical stats.</strong> A high Sharpe Ratio and a high AI Score
-                            indicate agreement between two different evidence sets. Check sample size, median,
-                            MFE/MAE, and outlier dependence before interpreting that agreement.
+                            <strong>Pair with historical stats.</strong> Use the model outputs alongside Sharpe Ratio,
+                            sample size, median, MFE/MAE, and outlier dependence rather than treating AIS as a verdict.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            <strong>Compare Win% to historical win rate.</strong> If the historical percent
-                            profitable is 90% but AI Win% is 55%, the AI is seeing something in current
+                            <strong>Compare Win% to historical win rate.</strong> If the historical record is
+                            9 profitable years out of 10 (n=10) but AI Win% is 55%, the AI is seeing something in current
                             conditions that makes this year's estimate less favorable. That discrepancy is a useful
                             prompt to inspect the inputs and the historical distribution.
                         </li>
@@ -166,8 +241,14 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             might occur or prescribe a target, partial sale, or early exit.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            <strong>Scores update daily.</strong> The AI re-scores every pattern each trading
-                            day using the latest market data. What you see reflects conditions as of today.
+                            <strong>Compare durations.</strong> The current duration stays highlighted through 90 days.
+                            Shorter readings show whether the seasonal edge appears quickly, develops later, or falls
+                            below its selected historical requirement.
+                        </li>
+                        <li style={{ marginBottom: '6px' }}>
+                            <strong>Scores update with completed data.</strong> The AI uses the latest completed
+                            end-of-day inputs. On weekends, holidays, or before an update finishes, that data may be
+                            from the prior market session.
                         </li>
                     </ul>
 
@@ -181,12 +262,19 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             (futures, indices, crypto, FX) are not scored at this time.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            Patterns longer than <strong>90 days</strong> are not scored. These show <strong>---</strong> in
-                            the AI columns. The AI models are trained on patterns up to 90 days in length.
+                            A pattern of 31-60 days compares 30 days with the current duration. A pattern of 61-90 days
+                            compares 30 and 60 days with the current duration. TradeWave never extends a comparison
+                            beyond the original pattern.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            When scores are loading, you will see a small spinning indicator. Scores that are
-                            already cached appear instantly, while new scores fill in progressively.
+                            Patterns longer than <strong>90 calendar days</strong> show the 90-day checkpoint in the
+                            table. Open the value to see all three bounded checkpoint readings.
+                        </li>
+                        <li style={{ marginBottom: '6px' }}>
+                            A loading marker means calculation is in progress. A dash with <strong>Below threshold</strong>,
+                            <strong>Not enough history</strong>, or <strong>Temporarily unavailable</strong> explains why
+                            no AI reading was assigned. Numeric zero remains a valid model value and is never used as an
+                            unavailable marker.
                         </li>
                     </ul>
 

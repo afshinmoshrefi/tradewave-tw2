@@ -1096,7 +1096,7 @@ const SeasonalBarChart = (props) => {
   //-----------------------------------------------------------------------------------------------------------
   const handleDateNudge = (direction) => {
     const newDaysOut = parseInt(props.daysOut) - direction
-    if (newDaysOut < 2 || newDaysOut > 366) return
+    if (newDaysOut < 2 || newDaysOut > maxDaysOut) return
     const newDate = incrementDate(props.startDate, direction)
     if (direction < 0 && props.consolidatedSeasonalData.length > 0 && newDate < props.consolidatedSeasonalData[0][0]) return
     skipNextTrendRefetch.current = true  // nudge should NOT trigger trend chart refetch

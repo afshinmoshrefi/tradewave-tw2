@@ -22,12 +22,14 @@ import {
   applyTooltipPreference,
   buildChatbotScreenContext,
   buildOpportunityTableContext,
+  buildWaveViewerRecurrenceContext,
   deriveDirectionFromBars,
   parseOptionalNumber,
   showBottomSlide,
   shouldClearOpportunityTable,
 } from './chatbotScreenContext';
 import { VIEWER_CYCLE_CHANGE_EVENT, isViewerCycle } from './viewerCycleState';
+import { isValidWaveViewerDaysOut } from './chatbotViewSpec';
 
 const CHATBOT_DERIVED_STAT_KEYS = [
   'Trade Dir', 'Num Winners', 'Num Losers', 'Percent Profitable',
@@ -153,6 +155,7 @@ function Chatbot(props) {
       days_out: props.daysOut || '',
       years: props.seasonalYears || '',
       pe_cycle: props.PEselected || 'cons',
+      ...buildWaveViewerRecurrenceContext(props),
       direction,
       selection_origin: isArbitraryWindow ? 'user_defined' : 'scanner',
       mfe_enabled: props.showMFE === true,
@@ -310,7 +313,7 @@ function Chatbot(props) {
             { keywords: ['days out', 'holding period', 'how long to hold'], setter: setShowDaysOutPopup },
             { keywords: ['years setting', 'data depth', 'lookback', 'how many years', 'how far back'], setter: setShowYearsRangePopup },
             { keywords: ['filter syntax', 'how to filter', 'advanced filter', 'filter the table'], setter: setShowFilteringPopup },
-            { keywords: ['ai score', 'ai column', 'ais column', 'win prob', 'predicted return', 'pred return', 'pmfe', 'predicted mfe', 'ai calibrat', 'ml score', 'machine learning'], setter: setShowAIScoresPopup },
+            { keywords: ['ai score', 'ai column', 'ais column', 'win prob', 'predicted return', 'pred return', 'pmfe', 'predicted mfe', 'ai calibrat', 'ml score', 'machine learning', 'ai checkpoint', 'checkpoint color', 'different color', '30/60/90', '30, 60, and 90', 'why are there 30', 'ai loading', 'ai unavailable', 'ai n/a', 'ai dash', 'ai dashes', 'ai stop at 90', 'ai only do the first 90'], setter: setShowAIScoresPopup },
           ];
           for (const entry of popupKeywordMap) {
             if (entry.keywords.some(kw => q.includes(kw))) {
@@ -399,7 +402,7 @@ function Chatbot(props) {
       props.SetStartDate(spec.entry_date);
       props.SetTrendChartStartDate(incrementDate(spec.entry_date, -trend_chart_left_gap_days));
     }
-    if (Number.isInteger(spec.days_out) && spec.days_out >= 1 && spec.days_out <= 366) {
+    if (isValidWaveViewerDaysOut(spec.days_out)) {
       props.SetDaysOut(spec.days_out);
     }
     if (Number.isInteger(spec.years) && spec.years >= 1 && spec.years <= 99) {

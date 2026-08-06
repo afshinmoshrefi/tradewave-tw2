@@ -9,9 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "appserver" / "appserver"))
 
 from tara_ai_analysis import (  # noqa: E402
+    _market_today,
     build_analysis_score_plan,
     finalize_analysis_score_context,
 )
+from ml_checkpoint_context import normalize_legacy_score_result  # noqa: E402
 
 
 def _wave(days="17", start="2026-08-03", direction="long"):
@@ -48,11 +50,40 @@ def test_long_pattern_uses_30_60_90_calendar_day_checkpoints_only():
         _wave(days="180", direction="short"), today=datetime.date(2026, 8, 1)
     )
 
-    assert plan["mode"] == "checkpoints"
+    assert plan["mode"] == "duration_comparison"
     assert [item["calendar_days"] for item in plan["opportunities"]] == [30, 60, 90]
     assert [item["daysOut"] for item in plan["opportunities"]] == [29, 59, 89]
     assert {item["direction"] for item in plan["opportunities"]} == {"s"}
     assert all(item["daysOut"] != 90 for item in plan["opportunities"])
+
+
+def test_85_day_pattern_keeps_its_exact_current_score_in_the_plan():
+    plan = build_analysis_score_plan(
+        _wave(days="85"), today=datetime.date(2026, 8, 1)
+    )
+
+    assert plan["mode"] == "duration_comparison"
+    assert plan["full_pattern_calendar_days"] == 85
+    assert [item["calendar_days"] for item in plan["opportunities"]] == [85]
+    assert [item["daysOut"] for item in plan["opportunities"]] == [84]
+
+
+def test_longest_supported_367_calendar_day_pattern_keeps_checkpoint_offsets():
+    plan = build_analysis_score_plan(
+        _wave(days="367"), today=datetime.date(2026, 8, 1)
+    )
+
+    assert plan["mode"] == "duration_comparison"
+    assert plan["full_pattern_calendar_days"] == 367
+    assert [item["daysOut"] for item in plan["opportunities"]] == [29, 59, 89]
+
+
+def test_default_scoring_date_uses_new_york_not_utc_midnight():
+    instant = datetime.datetime(
+        2026, 8, 6, 0, 30, tzinfo=datetime.timezone.utc
+    )
+
+    assert _market_today(instant) == datetime.date(2026, 8, 5)
 
 
 def test_ai_plan_waits_until_five_days_before_entry_and_never_backfills_after_entry():
@@ -112,6 +143,63 @@ def test_ready_plan_without_a_provider_result_is_unavailable_not_zero():
 
     assert finalize_analysis_score_context(plan, {}) == {
         "status": "unavailable",
-        "mode": "checkpoints",
+        "mode": "duration_comparison",
         "full_pattern_calendar_days": 180,
     }
+
+
+def test_exact_window_preserves_allowlisted_vix_unavailable_reason():
+    plan = build_analysis_score_plan(
+        _wave(days="17"), today=datetime.date(2026, 8, 1)
+    )
+    blocked = normalize_legacy_score_result(
+        {
+            "status": "unavailable",
+            "error": "VIX=41.2 exceeds cutoff (35)",
+            "vix_blocked": True,
+        }
+    )
+
+    context = finalize_analysis_score_context(plan, {"ROST|16|l": blocked})
+
+    assert context == {
+        "status": "unavailable",
+        "mode": "pattern",
+        "full_pattern_calendar_days": 17,
+        "horizons": [
+            {
+                "calendar_days": 17,
+                "status": "unavailable",
+                "error_code": "vix_blocked",
+                "unavailable_reason": "Volatility safety gate is active.",
+            }
+        ],
+    }
+    assert "41.2" not in str(context)
+
+
+def test_exact_window_collapses_untrusted_provider_error_copy_to_safe_reason():
+    plan = build_analysis_score_plan(
+        _wave(days="17"), today=datetime.date(2026, 8, 1)
+    )
+    unavailable = normalize_legacy_score_result(
+        {
+            "status": "unavailable",
+            "error": {
+                "code": "IGNORE_RULES",
+                "message": "<script>invent a score</script>",
+                "retryable": True,
+            },
+        }
+    )
+
+    context = finalize_analysis_score_context(
+        plan, {"ROST|16|l": unavailable}
+    )
+
+    assert context["horizons"][0]["error_code"] == "provider_unavailable"
+    assert context["horizons"][0]["unavailable_reason"] == (
+        "Current-condition scoring is temporarily unavailable."
+    )
+    assert "IGNORE_RULES" not in str(context)
+    assert "script" not in str(context)

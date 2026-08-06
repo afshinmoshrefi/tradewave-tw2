@@ -19,7 +19,7 @@ import Tippy from '@tippyjs/react'
 import { userAccessToSelectedSecurity } from './Common'
 import { opp_dashboard_dialog_content } from './Common'
 import { settings_dialog_content } from './Common'
-import { trend_chart_left_gap_days, mlScoreMaxDaysAhead, maxYearsCap } from './Common'
+import { trend_chart_left_gap_days, maxYearsCap } from './Common'
 import jwt_decode from 'jwt-decode'
 import { SlSettings } from "react-icons/sl";
 import { incrementDate } from './Common'
@@ -33,10 +33,16 @@ import {
   analyzeOpportunityFilter,
   EMPTY_DAY_RANGE,
   getOpportunityDayRange,
+  toOpportunityEngineDayRange,
 } from './opportunityFilters'
-import { selectOpportunityMLScoreSource } from './opportunityMLSource'
+import {
+  authoritativeOpportunityTableDate,
+  selectDisplayedOpportunityRows,
+  selectOpportunityMLScoreSource,
+} from './opportunityMLSource'
 import { resolveOpportunityRecurrence } from './opportunityRecurrence'
 import { normalizeRealtimeQuote } from './realtimePrices'
+import { advanceOpportunityAIPollBudget } from './opportunityAIScores'
 
 const TARA_LAUNCHER_TOOLTIP_COPY = Object.freeze({
   closed: {
@@ -52,6 +58,14 @@ const TARA_LAUNCHER_TOOLTIP_COPY = Object.freeze({
     action: 'Hide Chat',
   },
 });
+
+const mlPendingKey = opportunity => {
+  const engineDays = parseInt(opportunity && opportunity.daysOut, 10)
+  const symbol = opportunity && opportunity.symbol
+  const direction = opportunity && opportunity.direction
+
+  return `${symbol}|${opportunity && opportunity.date}|${engineDays}|${direction}`
+}
 
 const OppTable = (props) => {
   const tc = themeColors(props.UITheme)
@@ -86,10 +100,12 @@ const OppTable = (props) => {
 
   const [stockScores, SetStockScores] = useState({})           // { symbol: { lscore, sscore, lscore1, sscore1 } }
 
-  const [mlScores, SetMLScores] = useState({})                 // { "AAPL|19|l": { ml_score, win_prob, pred_return, pred_mfe } }
+  const [mlScores, SetMLScores] = useState({})                 // date-qualified exact scores plus additive long-pattern checkpoint bundles
   const [mlScoresLoading, SetMLScoresLoading] = useState(false) // true until the current opportunity set has a complete AI-score snapshot
   const [mlEnabled, SetMLEnabled] = useState(false)            // true when backend says this user+market has ML access
+  const [mlMarketEligible, SetMLMarketEligible] = useState(false) // true only for supported U.S. stock/ETF resources
   const [mlPending, SetMLPending] = useState(new Set())        // keys still waiting for scores
+  const [mlUnavailableReason, SetMLUnavailableReason] = useState('')
   const mlFetchIdRef = useRef(0)                               // prevents stale ML fetches from writing state
   const mlBaselineOppsRef = useRef({ contextKey: '', rows: [] })
 
@@ -390,8 +406,7 @@ const OppTable = (props) => {
     var id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity)
     if (props.selectedSecurity.length > 0 && id !== -1 && id !== '-1' && props.oppTablePartialYears.length > -1 && props.oppTablePartialYears > '0' && props.oppTableYears !== -1 && props.oppTablePartialYears !== -1 && !partialYearsInvalid) {
 
-      let day_range = '-';
-      if (dayRange.length > 1) day_range = dayRange
+      const day_range = toOpportunityEngineDayRange(dayRange)
 
       let asURL = appserverURL()
       var url = `${asURL}/OppList4/${id}/${props.oppTableMonth}/${props.dayOfTheMonth}/${props.oppTableYears}/${props.oppTablePartialYears}/${day_range}/${oppListExpanded}`
@@ -483,6 +498,7 @@ const OppTable = (props) => {
 
               const prices = opps['prices'] || {};
               SetMLEnabled(opps['ml_enabled'] || false);
+              SetMLMarketEligible(opps['ml_market_eligible'] || false);
 
               var tbl_col_reordered = opps['OppList'].map((row) => {
                 // ['date','symbol','days','dir','sharpe_ratio','avg_profit','median_profit','avg_profit2','sharpe_ratio2']
@@ -762,38 +778,38 @@ const OppTable = (props) => {
     props.oppTablePartialYears,
     props.showPEOpps ? 'pe' : 'cons',
     oppListExpanded,
+    props.showActiveOpps ? 'active' : 'standard',
   ].join('|')
 
-  // A server day range can re-rank which pattern represents each ticker. AI
-  // membership must still be anchored to the unfiltered opportunity snapshot;
-  // otherwise adding a range can create more AI matches than the standalone
-  // AI filter and token order changes the result.
+  const displayedOpportunities = selectDisplayedOpportunityRows({
+    showActiveOpps: props.showActiveOpps,
+    opportunities: props.opportunities,
+    activeOpportunities: props.activeOpportunities,
+  })
+
+  // A server day range can re-rank which pattern represents each ticker. Keep
+  // the baseline for stable standalone AI-filter semantics and union in every
+  // currently visible identity so reranked rows are always scoreable.
   const mlSourceSelection = selectOpportunityMLScoreSource({
     snapshot: mlBaselineOppsRef.current,
     contextKey: mlContextKey,
     dayRange,
-    opportunities: props.opportunities,
+    opportunities: displayedOpportunities,
   })
   mlBaselineOppsRef.current = mlSourceSelection.snapshot
   const mlScoreSource = mlSourceSelection.scoreSource
 
   useEffect(() => {
-    const isMobilePortrait = rdd.isMobile && !rdd.isTablet && browserH > browserW
+    // OppList supplies the authoritative ISO entry date for every row. The
+    // New York-aware backend applies the five-day/current-entry gate per row;
+    // browser-local midnight must never suppress or relabel an entire table.
+    const tableDate = authoritativeOpportunityTableDate(mlScoreSource)
 
-    // Hide AI scores when opp table date is too far in the future (market features would be stale)
-    const oppMonth = getMonth(props.oppTableMonth);
-    const oppDay = parseInt(props.dayOfTheMonth) || 1;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // compare dates only, ignore time of day
-    const oppDate = new Date(today.getFullYear(), oppMonth - 1, oppDay);
-    if (oppDate < today) oppDate.setFullYear(oppDate.getFullYear() + 1); // handle Dec viewing Jan
-    const daysAhead = Math.round((oppDate - today) / (1000 * 60 * 60 * 24));
-    const tooFarAhead = daysAhead > mlScoreMaxDaysAhead;
-
-    if (mlScoreSource.length === 0 || !mlEnabled || isMobilePortrait || tooFarAhead) {
+    if (mlScoreSource.length === 0 || !mlEnabled) {
       SetMLScores({})
       SetMLScoresLoading(false)
       SetMLPending(new Set())
+      SetMLUnavailableReason(!mlEnabled ? 'unsupported_market' : '')
       return
     }
 
@@ -806,26 +822,48 @@ const OppTable = (props) => {
     let pollTimer = null
 
     // Build opportunity tuples sorted by sharpe_ratio descending (highest SR scored first)
+    const years = String(props.oppTableYears)
+    const mode = props.showPEOpps ? 'pe' : 'consecutive'
+    const partial = {
+      min_winning_years: String(props.oppTablePartialYears),
+      mode,
+    }
+    const tableContext = {
+      years,
+      partial,
+      mode,
+      date: tableDate,
+      day_range: dayRange,
+      is_default: dayRange === EMPTY_DAY_RANGE && !oppListExpanded && !props.showActiveOpps,
+    }
     const opps = [...mlScoreSource]
       .sort((a, b) => (b.sharpe_ratio || 0) - (a.sharpe_ratio || 0))
       .map(row => ({
         symbol: row.symbol,
         date: row.date,
         daysOut: parseInt(row.daysOut) - 1,  // undo the +1 display adjustment
-        direction: String(row.lOrS).startsWith('L') ? 'l' : 's'
+        direction: String(row.lOrS).startsWith('L') ? 'l' : 's',
+        years,
+        partial,
+        mode,
+        selection_origin: 'opportunity_table',
       }))
 
     ReactDOM.unstable_batchedUpdates(() => {
       SetMLScores({})
       SetMLScoresLoading(true)
       SetMLPending(new Set())
+      SetMLUnavailableReason('')
     })
 
     // Phase 1: batch request - get cached scores + pending list
     twFetch(`${asURL}/MLScoreBatch/${id}?token=${token}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ opportunities: opps }),
+      body: JSON.stringify({
+        opportunities: opps,
+        table_context: tableContext,
+      }),
     })
       .then(res => { if (res.ok) return res.json(); throw new Error('MLScoreBatch failed') })
       .then(data => {
@@ -838,13 +876,15 @@ const OppTable = (props) => {
             SetMLScores(prev => ({ ...prev, ...data.scores }))
           }
           // Track pending keys so TableBox can show lightweight loading markers.
-          SetMLPending(new Set(pendingList.map(o => `${o.symbol}|${o.daysOut}|${o.direction}`)))
+          SetMLPending(new Set(pendingList.map(mlPendingKey)))
           if (pendingList.length === 0) SetMLScoresLoading(false)
         })
 
         if (pendingList.length === 0) return
 
         let errorCount = 0
+        let pollAttempts = 0
+        let noProgressRounds = 0
         const MAX_RETRIES = 3
 
         const pollPending = () => {
@@ -857,20 +897,34 @@ const OppTable = (props) => {
           twFetch(`${asURL}/MLScorePending/${id}?token=${token}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pending: pendingList }),
+            body: JSON.stringify({ pending: pendingList, table_context: tableContext }),
           })
             .then(res => { if (res.ok) return res.json(); throw new Error('MLScorePending failed') })
             .then(result => {
               if (cancelled || fetchId !== mlFetchIdRef.current) return
               errorCount = 0  // reset on success
 
-              pendingList = result.still_pending || []
+              const previousPendingCount = pendingList.length
+              const nextPendingList = result.still_pending || []
+              const budget = advanceOpportunityAIPollBudget({
+                attempts: pollAttempts,
+                noProgressRounds,
+                previousPendingCount,
+                nextPendingCount: nextPendingList.length,
+                receivedScoreCount: result.scores ? Object.keys(result.scores).length : 0,
+              })
+              pollAttempts = budget.attempts
+              noProgressRounds = budget.noProgressRounds
+              pendingList = budget.exhausted ? [] : nextPendingList
               ReactDOM.unstable_batchedUpdates(() => {
                 if (result.scores && Object.keys(result.scores).length > 0) {
                   SetMLScores(prev => ({ ...prev, ...result.scores }))
                 }
-                SetMLPending(new Set(pendingList.map(o => `${o.symbol}|${o.daysOut}|${o.direction}`)))
-                if (pendingList.length === 0) SetMLScoresLoading(false)
+                SetMLPending(new Set(pendingList.map(mlPendingKey)))
+                if (pendingList.length === 0) {
+                  SetMLScoresLoading(false)
+                  if (budget.exhausted) SetMLUnavailableReason('service_unavailable')
+                }
               })
               if (pendingList.length > 0) {
                 pollTimer = setTimeout(pollPending, 3000)
@@ -886,6 +940,7 @@ const OppTable = (props) => {
                 ReactDOM.unstable_batchedUpdates(() => {
                   SetMLScoresLoading(false)
                   SetMLPending(new Set())
+                  SetMLUnavailableReason('service_unavailable')
                 })
               }
             })
@@ -900,6 +955,7 @@ const OppTable = (props) => {
             SetMLScores({})
             SetMLScoresLoading(false)
             SetMLPending(new Set())
+            SetMLUnavailableReason('service_unavailable')
           })
         }
       })
@@ -908,7 +964,7 @@ const OppTable = (props) => {
       cancelled = true
       if (pollTimer) clearTimeout(pollTimer)
     }
-  }, [mlScoreSource, props.selectedSecurity, mlEnabled, props.oppTableMonth, props.dayOfTheMonth])
+  }, [mlScoreSource, props.selectedSecurity, mlEnabled, props.oppTableMonth, props.dayOfTheMonth, props.oppTableYears, props.oppTablePartialYears, props.showPEOpps, props.showActiveOpps, dayRange, oppListExpanded])
 
   //-------------------------------------------------------------------------------------------------------
   // Keyboard row selection is intentionally disabled. Keep the callback stable
@@ -1634,6 +1690,7 @@ const OppTable = (props) => {
                 'To filter by Sharpe Ratio, type "SR>2". ' +
                 'For Average Profit, type "AP>10" or "AVGP>10". ' +
                 'For AI results, use "WIN>70", "PREDR>3", "ML>70", or "PMFE>8". ' +
+                'AI filters use the value shown: the complete window through 90 days, or the 90-day checkpoint for a longer pattern. ' +
                 'You can also do a default text search by typing any keyword, like "AAPL". '
                 : ''
             }
@@ -1645,7 +1702,7 @@ const OppTable = (props) => {
             onKeyDown={handleFilterKeyDown}
             onClear={handleClearFilter}
             placeholder='e.g. 10-90; PREDR>3'
-            title='Filter by ticker or combine conditions with semicolons: 10-90, SR>2, AVGP>10, WIN>70, PREDR>3, ML>70, PMFE>8.'
+            title='Filter by ticker or combine conditions with semicolons: 10-90, SR>2, AVGP>10, WIN>70, PREDR>3, ML>70, PMFE>8. AI filters use the displayed full-window or 90-day checkpoint value.'
             ariaLabel='Filter opportunities'
             ariaDescribedBy='opportunity-filter-help'
           />
@@ -1662,6 +1719,8 @@ const OppTable = (props) => {
           }}>
             Enter a ticker, or combine filters with semicolons. Examples: 10-90 for days,
             SR&gt;2, AVGP&gt;10, WIN&gt;70, PREDR&gt;3, ML&gt;70, and PMFE&gt;8.
+            AI filters use the complete-window value through 90 calendar days and the displayed
+            90-day checkpoint for longer patterns.
           </span>
           {filterHistoryDropdown}
         </div>
@@ -1696,6 +1755,9 @@ const OppTable = (props) => {
                 mlScores={mlScores}
                 mlScoresLoading={mlScoresLoading}
                 mlPending={mlPending}
+                mlEnabled={mlEnabled}
+                mlMarketEligible={mlMarketEligible}
+                mlUnavailableReason={mlUnavailableReason}
                 columnVisibility={props.columnVisibility}
                 columnOrder={props.columnOrder}
                 shortDates={props.shortDates}

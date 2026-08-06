@@ -542,16 +542,52 @@ Reads your TradeWave outputs instantly and turns them into plain-English researc
 - "Summarize how much of the return happens early vs late in the window."
 
 For eligible US-stock/ETF setups, a loaded-pattern brief separates the observed seasonal record
-from the current-condition ML read. On a 10-90-calendar-day pattern it states the directly
-interpretable AI Win Probability, PredR, and PMFE and compares AI Win Probability with the
-historical win rate for that same exact window. Tara deliberately omits the opaque composite AIS
-number from analysis prose; AIS remains available in the opportunity table and its explainer. For a
-pattern longer than 90 calendar days, Tara presents separate 30/60/90-calendar-day
-AI-calibrated outlooks from the same entry and direction, then explains which horizon has the highest
-probability and predicted return. The complete-window historical analysis remains alongside that
-current-condition view. Questions about the 90-day horizon receive a deterministic explanation of
-the model's trained and calibrated 10-90-day range instead of a provider-generated answer. Model
-estimates never become extra historical observations, and missing scores are never treated as zero.
+from the current-condition V3 model read. V3 uses 62 inputs across pattern robustness, technical and
+security context, market regime, calendar context, and interactions. Three regression estimates are
+averaged for direction-adjusted close-to-close PredR, and a separate three-model ensemble estimates
+direction-adjusted PMFE inside the horizon. Win% is the empirical profitable share in the matching
+walk-forward PredR calibration group. AIS is PredR's 0-100 percentile position within that horizon
+tier's walk-forward calibration distribution, not a probability or universal confidence grade.
+
+For a pattern from 10 through 30 calendar days, Tara states only the current-duration AI Win
+Probability, PredR, and PMFE. Above 30 days, TradeWave also shows shorter-duration comparisons that
+fit inside the source window: 31-60 days adds 30; 61-90 days adds 30 and 60; and a source above 90
+days uses 30, 60, and 90. The exact current-duration V3 reading remains the primary table value
+through 90 days, so an 85-day source shows 30, 60, and the current 85 days and never invents a
+90-day extension. Above 90 days the table displays 90 as the bounded model reading while the
+complete source duration remains visible as historical context. Tara deliberately omits AIS from
+the headline because an unexplained relative rank is less useful than probability and estimated
+return; AIS remains available in the opportunity table and guide.
+
+Every shorter comparison preserves the same symbol, nominal entry date, direction, string
+historical-years selection, and recurrence rule; only duration changes. The entry day is day 1, so
+30, 60, and 90 calendar days end at entry plus 29, 59, and 89 days. Before V3 inference, the scorer
+recalculates the selected historical cohort at that shorter duration. If it does not meet the
+selected recurrence requirement, the scorer skips model inference and returns the actual evidence,
+such as `6 of 10 positive; requires 9`. The UI shows an em dash and **Below threshold**, not a fake
+zero or a prediction. Too little completed history is **Not enough history**; a provider or data
+failure is **Temporarily unavailable**. The learned V3 vector still uses the all-qualifying-combo
+profile on which the 62-feature model was trained; selected recurrence is an eligibility gate and
+explanation, not a substitute feature profile. Model estimates never become extra historical
+observations.
+
+AI sorting and filtering always use the value visibly shown: the current-duration value through 90
+calendar days and the 90-day comparison above 90 days. Unavailable states use an internal null and
+sort below numeric readings; they never become numeric zero. Common default and frequently viewed
+table contexts are recorded without user identity and warmed only after the authoritative EOD
+completion marker. The warmer discards old dates and row snapshots, re-fetches the six standard
+default-year tables plus bounded popular logical views for the marker's target calendar date, and
+gives every eligible default row first use of a 2,500-row global safety budget. Active rows are a
+separate later phase. Manifests disclose eligible, warmed, and truncated coverage. Eligible table
+windows are 10-367 inclusive calendar days, and scorer data must be from the exact EOD session
+proven by the marker. Candidate scores stay
+in generation-scoped staging records until every selected row has a terminal durable result; one
+transaction then publishes all score values and pointers with the complete generation. A failed or
+partial run exposes or replaces no live warmed score. Model release, feature/context schema, data-as-of date,
+resource namespace, horizon, direction, entry, string `years`, and statistical recurrence selection
+are part of the cache identity. Caller origin is telemetry only, so scanner warming, the table, and
+Tara share one score for identical statistical inputs. On-demand scoring remains a bounded fallback for genuine misses. Loading, profile
+unavailable, unsupported market/date, volatility block, and provider failure are distinct states.
 
 Tara can also demonstrate why this differs from a conventional technical-indicator workflow.
 Traditional indicators summarize recent price state; TradeWave aligns the same inclusive calendar

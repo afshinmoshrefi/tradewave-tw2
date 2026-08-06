@@ -708,16 +708,32 @@ def ml_scores(market, items):
     appserver could not score, e.g. days_out out of the 10-90 range).
     """
     # Build the appserver request body (internal uses elapsed daysOut + raw l/s direction).
+    # The public v1 contract remains exact-window-only through 90 inclusive
+    # calendar days. Duration-comparison bundles require recurrence context
+    # that v1 does not carry, so they stay unsupported/refundable here.
     norm = []
-    for it in items:
+    norm_positions = []
+    out = [None] * len(items)
+    for index, it in enumerate(items):
+        display_days = int(it["days_out"])
+        if display_days > 90:
+            continue
         norm.append({
             "symbol": it["symbol"],
             "date": it["date"],
-            "daysOut": _display_days_to_engine(it["days_out"]),
+            "daysOut": _display_days_to_engine(display_days),
             "direction": _dir_to_internal(it["direction"]),
         })
+        norm_positions.append(index)
 
-    scores = {}  # ui_key 'SYMBOL|daysOut|dir' -> {ml_score, win_prob, pred_return, pred_mfe}
+    if not norm:
+        return out
+
+    # New appserver releases publish an unambiguous date-qualified key alongside
+    # the original alias. Prefer it so two otherwise-identical windows with
+    # different entry dates cannot overwrite one another in the response map;
+    # retain the alias fallback for rolling deploys and older appservers.
+    scores = {}
 
     batch = post(f"/MLScoreBatch/{_seg(market)}", {"opportunities": norm})
     scores.update(batch.get("scores", {}) or {})
@@ -737,19 +753,27 @@ def ml_scores(market, items):
             break
         pending = new_pending
 
-    out = []
-    for it in norm:
-        ui_key = f"{it['symbol']}|{it['daysOut']}|{it['direction']}"
-        s = scores.get(ui_key)
+    for output_index, it in zip(norm_positions, norm):
+        qualified_key = (
+            f"{it['symbol']}|{it['date']}|{it['daysOut']}|{it['direction']}"
+        )
+        legacy_key = f"{it['symbol']}|{it['daysOut']}|{it['direction']}"
+        s = scores.get(qualified_key)
+        if s is None:
+            s = scores.get(legacy_key)
         if not s:
-            out.append(None)
             continue
-        out.append({
+        mapped = {
             "ml_score": s.get("ml_score"),
             "win_prob": s.get("win_prob"),
             "pred_return": s.get("pred_return"),
             "pred_mfe": s.get("pred_mfe"),
-        })
+        }
+        # Structured unavailable/VIX states are useful to the TradeWave UI but
+        # do not count as a delivered public API score or consume quota.
+        if any(_num(value) is None for value in mapped.values()):
+            continue
+        out[output_index] = mapped
     return out
 
 

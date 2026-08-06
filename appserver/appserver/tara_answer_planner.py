@@ -1851,7 +1851,7 @@ def build_opportunity_row_load_command(
     if (
         not re.fullmatch(r"[A-Z0-9.-]{1,15}", symbol)
         or _month_day(entry_date) is None
-        or not 1 <= days <= 366
+        or not 1 <= days <= 367
     ):
         return {
             "rank": rank,
@@ -2007,7 +2007,7 @@ def _inclusive_end_date(start_date: str, days: str) -> Optional[str]:
         count = int(days)
     except (TypeError, ValueError):
         return None
-    if count < 1 or count > 366:
+    if count < 1 or count > 367:
         return None
     return (start + _datetime.timedelta(days=count - 1)).strftime("%Y-%m-%d")
 
@@ -2955,17 +2955,18 @@ def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
     mode = str(raw.get("mode") or "").strip().lower()
     if status not in {
         "available",
+        "below_threshold",
         "unavailable",
         "too_early",
         "after_entry",
         "unsupported_duration",
-    } or mode not in {"pattern", "checkpoints"}:
+    } or mode not in {"pattern", "checkpoints", "duration_comparison"}:
         return None
     full_days_number = _number(raw.get("full_pattern_calendar_days"))
     if full_days_number is None or not full_days_number.is_integer():
         return None
     full_days = int(full_days_number)
-    if not 1 <= full_days <= 366:
+    if not 1 <= full_days <= 367:
         return None
     result: Dict[str, Any] = {
         "status": status,
@@ -2987,6 +2988,8 @@ def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
         if not 1 <= horizon <= 90:
             continue
         cleaned: Dict[str, Any] = {"calendar_days": horizon}
+        if item.get("is_current") is True:
+            cleaned["is_current"] = True
         ai_score = _number(item.get("ai_score"))
         win_probability = _number(item.get("win_probability"))
         predicted_return = _number(item.get("predicted_return_pct"))
@@ -2999,6 +3002,31 @@ def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
             cleaned["predicted_return_pct"] = predicted_return
         if predicted_mfe is not None and -1000 <= predicted_mfe <= 1000:
             cleaned["predicted_mfe_pct"] = predicted_mfe
+        item_status = str(item.get("status") or "").strip().lower()
+        if item_status == "below_threshold":
+            positive_years = _number(item.get("positive_years"))
+            sample_size = _number(item.get("sample_size"))
+            required_years = _number(item.get("required_positive_years"))
+            if all(
+                value is not None and value.is_integer()
+                for value in (positive_years, sample_size, required_years)
+            ):
+                cleaned.update({
+                    "status": "below_threshold",
+                    "positive_years": int(positive_years),
+                    "sample_size": int(sample_size),
+                    "required_positive_years": int(required_years),
+                })
+        elif item_status == "unavailable":
+            cleaned["status"] = "unavailable"
+            error_code = str(item.get("error_code") or "")[:80]
+            unavailable_reason = str(item.get("unavailable_reason") or "")[:240]
+            if error_code:
+                cleaned["error_code"] = error_code
+            if unavailable_reason:
+                cleaned["unavailable_reason"] = unavailable_reason
+        elif len(cleaned) > 1:
+            cleaned["status"] = "available"
         if len(cleaned) > 1:
             horizons.append(cleaned)
     if horizons:
@@ -3080,13 +3108,58 @@ def _analysis_ai_context_line(
             "<b>AI context:</b> This duration is outside the model's supported range, so no AI estimate is shown."
         )
     horizons = context.get("horizons") or []
+    below_threshold = [
+        item for item in horizons if item.get("status") == "below_threshold"
+    ]
+    if status == "below_threshold" and below_threshold:
+        readings = "; ".join(
+            f"{item['calendar_days']} days: {item['positive_years']} of "
+            f"{item['sample_size']} positive, requires "
+            f"{item['required_positive_years']}"
+            for item in below_threshold
+        )
+        return (
+            "<b>AI context:</b> " + readings
+            + ". The recalculated pattern is below its selected historical requirement, "
+            "so TradeWave did not assign an AI prediction or treat it as zero."
+        )
     if status != "available" or not horizons:
+        unavailable = [
+            item for item in horizons if item.get("status") == "unavailable"
+        ]
+        if unavailable:
+            if any(item.get("error_code") == "vix_blocked" for item in unavailable):
+                blocked_scope = (
+                    "this window"
+                    if context.get("mode") == "pattern"
+                    else "these duration readings"
+                )
+                reason = (
+                    "The model's volatility safety gate blocked the current-condition "
+                    f"reading for {blocked_scope}"
+                )
+            else:
+                named_reason = next(
+                    (
+                        item.get("unavailable_reason")
+                        for item in unavailable
+                        if item.get("unavailable_reason")
+                    ),
+                    None,
+                )
+                reason = (
+                    named_reason or "The recalculated checkpoint profile is unavailable"
+                ).rstrip(".")
+            return (
+                f"<b>AI context:</b> {reason}. Tara is not treating the missing "
+                "values as zero."
+            )
         return (
             "<b>AI context:</b> The current-condition model reading is unavailable, and Tara is not treating "
             "the missing values as zero."
         )
 
-    if context["mode"] == "checkpoints":
+    if context["mode"] in {"checkpoints", "duration_comparison"}:
         readings = []
         for item in horizons:
             metrics = []
@@ -3101,6 +3174,21 @@ def _analysis_ai_context_line(
                 readings.append(
                     f"&bull; <b>{item['calendar_days']} days:</b> "
                     + "; ".join(metrics)
+                )
+            elif item.get("status") == "unavailable":
+                reason = (
+                    "volatility safety gate"
+                    if item.get("error_code") == "vix_blocked"
+                    else item.get("unavailable_reason") or "recalculated profile unavailable"
+                ).rstrip(".")
+                readings.append(
+                    f"&bull; <b>{item['calendar_days']} days:</b> unavailable ({reason})"
+                )
+            elif item.get("status") == "below_threshold":
+                readings.append(
+                    f"&bull; <b>{item['calendar_days']} days:</b> below threshold "
+                    f"({item['positive_years']} of {item['sample_size']} positive; "
+                    f"requires {item['required_positive_years']})"
                 )
         if not readings:
             return None
@@ -3171,7 +3259,11 @@ def _analysis_ai_context_line(
             + "."
             + "<br><br><b>What stands out:</b> "
             + standout
-            + f"The historical analysis above describes the complete {full_days}-day pattern."
+            + (
+                f"The current {full_days}-day score remains the table reading; shorter rows are comparisons."
+                if full_days <= 90
+                else f"The historical analysis above describes the complete {full_days}-day pattern."
+            )
         )
 
     item = horizons[0]
@@ -3565,6 +3657,7 @@ def _guide_link(action: str, label: str) -> str:
     """Render one allowlisted client-handled educational link."""
 
     allowed = {
+        "open-aiscores-popup",
         "open-filtering-popup",
         "open-seasonal-popup",
         "open-years-popup",
@@ -3637,6 +3730,17 @@ def build_ai_horizon_explanation_reply(
             "and 90-day AI-calibrated outlooks from the same entry date and direction. The "
             f"historical analysis evaluates the complete {full_days}-day pattern."
         )
+    elif full_days > 60:
+        longer_pattern_line = (
+            f"<b>For this {full_days}-calendar-day pattern:</b> The current {full_days}-day "
+            "reading remains primary, with separate 30- and 60-day comparisons. TradeWave "
+            "does not extend the comparison beyond the original pattern."
+        )
+    elif full_days > 30:
+        longer_pattern_line = (
+            f"<b>For this {full_days}-calendar-day pattern:</b> The current {full_days}-day "
+            "reading remains primary, with a separate 30-day comparison."
+        )
     else:
         longer_pattern_line = (
             "<b>For longer patterns:</b> Tara provides separate 30-, 60-, and 90-day "
@@ -3655,6 +3759,10 @@ def build_ai_horizon_explanation_reply(
             "<b>How the evidence fits together:</b> AI Win Probability and predicted return add "
             "current-condition context for each named horizon. Historical hit rate, average and "
             "median return, MFE, and MAE describe the pattern across completed years."
+        ),
+        (
+            "<b>Learn more:</b> "
+            + _guide_link("open-aiscores-popup", "Open the AI Scores guide")
         ),
     ]
     return _render_analysis_sections(lines)

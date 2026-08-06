@@ -16,6 +16,24 @@ export const parseOptionalNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+// Keep Tara's server-side AI read on the same recurrence identity that produced
+// the loaded opportunity row. The minimum-winning-years selection is provenance,
+// not a model feature, but it must remain byte-for-byte consistent between the
+// table request and Tara's later checkpoint request for both recurrence modes.
+export const buildWaveViewerRecurrenceContext = (props = {}) => {
+  const cycle = String(props.PEselected || 'cons').trim().toLowerCase();
+  const mode = cycle.startsWith('pe') ? 'pe' : 'consecutive';
+  const partialYears = String(props.oppTablePartialYears ?? '').trim();
+  const context = { mode };
+  if (/^[1-9]\d*$/.test(partialYears)) {
+    context.partial_years = {
+      min_winning_years: partialYears,
+      mode,
+    };
+  }
+  return context;
+};
+
 // Loading another setup in the same market must leave the opportunity list intact.
 // OppTable deduplicates identical query URLs, so clearing same-market rows cannot
 // trigger a replacement fetch and strands the table on "Loading ...". A real market
@@ -85,7 +103,7 @@ export const deriveDirectionFromBars = (bars, fallback = 'long') => {
 export const deriveSeasonalWindowPath = (cycle, startDate, daysOut, direction = 'long') => {
   if (!Array.isArray(cycle) || cycle.length < 2) return 'unknown';
   const days = Number.parseInt(String(daysOut), 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(startDate || '')) || !Number.isInteger(days) || days < 1 || days > 366) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(startDate || '')) || !Number.isInteger(days) || days < 1 || days > 367) {
     return 'unknown';
   }
 

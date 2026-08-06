@@ -14,12 +14,43 @@ import datetime as _datetime
 import math
 import re
 from typing import Any, Dict, Mapping, Optional, Sequence
+from zoneinfo import ZoneInfo
 
 
 AI_MIN_CALENDAR_DAYS = 10
 AI_MAX_CALENDAR_DAYS = 90
 AI_CHECKPOINT_CALENDAR_DAYS = (30, 60, 90)
 AI_MAX_DAYS_BEFORE_ENTRY = 5
+_MARKET_TZ = ZoneInfo("America/New_York")
+
+# Only these provider states may enter Tara's factual ledger. Provider messages
+# can contain operational detail (and are not a trusted prose source), so each
+# code maps to release-owned copy. Unknown codes collapse to the generic state.
+_UNAVAILABLE_REASON_BY_CODE = {
+    "vix_blocked": "Volatility safety gate is active.",
+    "pattern_profile_unavailable": (
+        "No qualifying, complete recalculated pattern profile is available for this horizon."
+    ),
+    "pattern_definitions_unavailable": (
+        "The recalculated pattern profile is unavailable for this horizon."
+    ),
+    "selected_recurrence_insufficient_history": (
+        "The selected recurrence does not have enough completed history at this horizon."
+    ),
+    "nonfinite_pattern_profile": (
+        "The recalculated pattern profile is unavailable for this horizon."
+    ),
+    "prebuilt_profile_mismatch": (
+        "The recalculated pattern profile is unavailable for this horizon."
+    ),
+    "target_entry_unavailable": (
+        "A valid price entry could not be established for this horizon."
+    ),
+    "invalid_checkpoint_context": "The AI context is unavailable for this pattern.",
+    "tier_unavailable": "The matching model tier is temporarily unavailable.",
+    "context_scoring_failed": "Current-condition scoring is temporarily unavailable.",
+    "provider_unavailable": "Current-condition scoring is temporarily unavailable.",
+}
 
 
 def _integer(value: Any) -> Optional[int]:
@@ -48,6 +79,17 @@ def _score_key(symbol: str, engine_days_out: int, direction: str) -> str:
     return f"{symbol}|{engine_days_out}|{direction}"
 
 
+def _market_today(
+    now: Optional[_datetime.datetime] = None,
+) -> _datetime.date:
+    """Return the New York market date, independent of the server timezone."""
+
+    instant = now or _datetime.datetime.now(_datetime.timezone.utc)
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=_datetime.timezone.utc)
+    return instant.astimezone(_MARKET_TZ).date()
+
+
 def build_analysis_score_plan(
     wave_viewer: Any,
     *,
@@ -55,10 +97,9 @@ def build_analysis_score_plan(
 ) -> Optional[Dict[str, Any]]:
     """Return a validated score plan for one loaded pattern.
 
-    A pattern of 10-90 displayed calendar days receives one like-for-like score.  A
-    longer pattern receives 30/60/90-calendar-day checkpoints from the same entry and
-    in the same direction.  Those checkpoints are deliberately not represented as a
-    score of the full long-duration pattern.
+    The current like-for-like score remains primary through 90 displayed calendar
+    days. Patterns over 30 days also receive supported shorter comparisons. A longer
+    pattern receives 30/60/90 checkpoints, none labeled as its full-window score.
     """
 
     if not isinstance(wave_viewer, Mapping):
@@ -70,7 +111,7 @@ def build_analysis_score_plan(
     if (
         not re.fullmatch(r"[A-Z0-9.$^-]{1,15}", symbol)
         or calendar_days is None
-        or not 1 <= calendar_days <= 366
+        or not 1 <= calendar_days <= 367
         or direction_text not in {"long", "short"}
     ):
         return None
@@ -79,13 +120,13 @@ def build_analysis_score_plan(
     except (TypeError, ValueError):
         return None
 
-    mode = "checkpoints" if calendar_days > AI_MAX_CALENDAR_DAYS else "pattern"
+    mode = "duration_comparison" if calendar_days > 30 else "pattern"
     base = {
         "mode": mode,
         "full_pattern_calendar_days": calendar_days,
         "entry_date": entry_text,
     }
-    current_date = today or _datetime.date.today()
+    current_date = today or _market_today()
     days_to_entry = (entry_date - current_date).days
     if days_to_entry > AI_MAX_DAYS_BEFORE_ENTRY:
         return {**base, "status": "too_early", "days_to_entry": days_to_entry}
@@ -95,8 +136,12 @@ def build_analysis_score_plan(
         return {**base, "status": "unsupported_duration"}
 
     horizons: Sequence[int]
-    if mode == "checkpoints":
+    if mode == "duration_comparison" and calendar_days > AI_MAX_CALENDAR_DAYS:
         horizons = AI_CHECKPOINT_CALENDAR_DAYS
+    elif mode == "duration_comparison":
+        # The context scorer supplies the shorter standard horizons; this exact
+        # opportunity keeps the current duration as Tara's primary reading.
+        horizons = (calendar_days,)
     else:
         horizons = (calendar_days,)
     scorer_direction = "s" if direction_text == "short" else "l"
@@ -146,6 +191,28 @@ def _clean_score(raw: Any) -> Optional[Dict[str, float]]:
     return cleaned or None
 
 
+def _clean_unavailable(raw: Any) -> Optional[Dict[str, str]]:
+    """Return a bounded, release-owned unavailable reason from a scorer result."""
+
+    if not isinstance(raw, Mapping):
+        return None
+    error = raw.get("error")
+    error = error if isinstance(error, Mapping) else {}
+    raw_status = str(raw.get("status") or "").strip().lower()
+    if raw_status != "unavailable" and not error and raw.get("vix_blocked") is not True:
+        return None
+    code = str(error.get("code") or "").strip().lower()
+    if raw.get("vix_blocked") is True:
+        code = "vix_blocked"
+    if code not in _UNAVAILABLE_REASON_BY_CODE:
+        code = "provider_unavailable"
+    return {
+        "status": "unavailable",
+        "error_code": code,
+        "unavailable_reason": _UNAVAILABLE_REASON_BY_CODE[code],
+    }
+
+
 def finalize_analysis_score_context(
     plan: Any,
     scores_by_key: Any = None,
@@ -157,7 +224,7 @@ def finalize_analysis_score_context(
     status = str(plan.get("status") or "")
     mode = str(plan.get("mode") or "")
     full_days = _integer(plan.get("full_pattern_calendar_days"))
-    if mode not in {"pattern", "checkpoints"} or full_days is None:
+    if mode not in {"pattern", "duration_comparison", "checkpoints"} or full_days is None:
         return None
     public = {
         "status": status,
@@ -174,17 +241,108 @@ def finalize_analysis_score_context(
 
     score_map = scores_by_key if isinstance(scores_by_key, Mapping) else {}
     horizons = []
+    available_count = 0
     for opportunity in plan.get("opportunities") or ():
         if not isinstance(opportunity, Mapping):
             continue
         calendar_days = _integer(opportunity.get("calendar_days"))
         score_key = str(opportunity.get("score_key") or "")
-        score = _clean_score(score_map.get(score_key))
-        if calendar_days is None or score is None:
+        raw_score = score_map.get(score_key)
+        score = _clean_score(raw_score)
+        if calendar_days is None:
             continue
-        horizons.append({"calendar_days": calendar_days, **score})
+        if score is not None:
+            horizons.append({"calendar_days": calendar_days, **score})
+            available_count += 1
+            continue
+        unavailable = _clean_unavailable(raw_score)
+        if unavailable is not None:
+            horizons.append({"calendar_days": calendar_days, **unavailable})
 
-    public["status"] = "available" if horizons else "unavailable"
+    public["status"] = "available" if available_count else "unavailable"
     if horizons:
         public["horizons"] = horizons
+    return public
+
+
+def finalize_analysis_checkpoint_bundle(
+    plan: Any,
+    bundle: Any,
+) -> Optional[Dict[str, Any]]:
+    """Allowlist a recalculated scorer bundle without discarding horizon errors."""
+
+    if not isinstance(plan, Mapping) or not isinstance(bundle, Mapping):
+        return finalize_analysis_score_context(plan)
+    mode = str(plan.get("mode") or "")
+    full_days = _integer(plan.get("full_pattern_calendar_days"))
+    if mode not in {"duration_comparison", "checkpoints"} or full_days is None:
+        return finalize_analysis_score_context(plan)
+
+    horizons = []
+    available_count = 0
+    for raw in bundle.get("horizons") or ():
+        if not isinstance(raw, Mapping):
+            continue
+        calendar_days = _integer(raw.get("calendar_days"))
+        allowed_days = set(AI_CHECKPOINT_CALENDAR_DAYS)
+        if full_days <= AI_MAX_CALENDAR_DAYS:
+            allowed_days.add(full_days)
+        if calendar_days not in allowed_days or calendar_days > full_days:
+            continue
+        item: Dict[str, Any] = {"calendar_days": calendar_days}
+        if raw.get("is_current") is True:
+            item["is_current"] = True
+        raw_status = str(raw.get("status") or "").lower()
+        if raw_status == "available":
+            cleaned = _clean_score(raw)
+            if cleaned is None:
+                continue
+            item.update(cleaned)
+            item["status"] = "available"
+            available_count += 1
+        elif raw_status == "below_threshold":
+            recurrence = raw.get("selected_recurrence")
+            if not isinstance(recurrence, Mapping):
+                continue
+            sample_size = _integer(recurrence.get("sample_size"))
+            positive_years = _integer(recurrence.get("positive_years"))
+            required_years = _integer(recurrence.get("required_positive_years"))
+            if (
+                sample_size is None or sample_size <= 0
+                or positive_years is None or positive_years < 0
+                or required_years is None or required_years <= positive_years
+            ):
+                continue
+            item.update({
+                "status": "below_threshold",
+                "positive_years": positive_years,
+                "sample_size": sample_size,
+                "required_positive_years": required_years,
+            })
+        elif raw_status == "unavailable":
+            unavailable = _clean_unavailable(raw)
+            if unavailable is None:
+                continue
+            item.update(unavailable)
+        else:
+            continue
+        horizons.append(item)
+
+    public: Dict[str, Any] = {
+        "status": (
+            "available"
+            if available_count
+            else "below_threshold"
+            if any(item.get("status") == "below_threshold" for item in horizons)
+            else "unavailable"
+        ),
+        "mode": "duration_comparison",
+        "basis": "duration_comparison",
+        "checkpoint_status": str(bundle.get("status") or "unavailable"),
+        "full_pattern_calendar_days": full_days,
+    }
+    if horizons:
+        public["horizons"] = sorted(
+            horizons, key=lambda item: item["calendar_days"]
+        )
     return public

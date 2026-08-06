@@ -150,7 +150,7 @@ TOOLS = [
                 "market": {"type": "string", "description": "resource id '0'..'16' of the security's market"},
                 "symbol": {"type": "string"},
                 "entry_date": {"type": "string", "description": "YYYY-MM-DD"},
-                "days_out": {"type": "integer", "description": "1-366"},
+                "days_out": {"type": "integer", "description": "1-367"},
                 "years": {"type": "integer", "description": "lookback 1-99"},
                 "pe_cycle": {"type": "string", "enum": ["consecutive", "pe0", "pe1", "pe2", "pe3"],
                              "description": "wave-viewer cycle selector; consecutive = normal years"},
@@ -379,7 +379,7 @@ def _validate_view_spec(spec):
         except ValueError:
             pass
     do = spec.get("days_out")
-    if isinstance(do, int) and not isinstance(do, bool) and 1 <= do <= 366:
+    if isinstance(do, int) and not isinstance(do, bool) and 1 <= do <= 367:
         out["days_out"] = do
     yr = spec.get("years")
     if isinstance(yr, int) and not isinstance(yr, bool) and 1 <= yr <= 99:

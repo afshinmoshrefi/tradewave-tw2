@@ -2,6 +2,7 @@ import {
   applyTooltipPreference,
   buildChatbotScreenContext,
   buildOpportunityTableContext,
+  buildWaveViewerRecurrenceContext,
   deriveDirectionFromBars,
   deriveSeasonalWindowPath,
   parseOptionalNumber,
@@ -31,6 +32,31 @@ test('preserves real zero excursions but keeps missing values null', () => {
   expect(parseOptionalNumber('')).toBeNull();
   expect(parseOptionalNumber(undefined)).toBeNull();
   expect(parseOptionalNumber('not-a-number')).toBeNull();
+});
+
+test('carries the table recurrence selection into Tara checkpoint context', () => {
+  expect(buildWaveViewerRecurrenceContext({
+    PEselected: 'cons',
+    oppTablePartialYears: '9',
+  })).toEqual({
+    mode: 'consecutive',
+    partial_years: { min_winning_years: '9', mode: 'consecutive' },
+  });
+
+  expect(buildWaveViewerRecurrenceContext({
+    PEselected: 'pe2',
+    oppTablePartialYears: 6,
+  })).toEqual({
+    mode: 'pe',
+    partial_years: { min_winning_years: '6', mode: 'pe' },
+  });
+});
+
+test('does not invent a minimum-winning-years identity before metadata resolves', () => {
+  expect(buildWaveViewerRecurrenceContext({
+    PEselected: 'cons',
+    oppTablePartialYears: '-1',
+  })).toEqual({ mode: 'consecutive' });
 });
 
 test('preserves opportunity rows for a same-market Tara chart load', () => {
@@ -228,6 +254,17 @@ test('summarizes normalized seasonal curves by direction without sending curve v
   expect(context.full_history_window_path).toBe('against');
   expect(JSON.stringify(context)).not.toContain('72');
   expect(JSON.stringify(context)).not.toContain('64');
+});
+
+test('keeps the 367-calendar-day boundary inclusive without extending its end date', () => {
+  const cycle = [
+    ['2026-01-01', 50],
+    ['2027-01-02', 60],
+    // A 367-day window ends Jan 2; this next row must not reverse the result.
+    ['2027-01-03', 10],
+  ];
+
+  expect(deriveSeasonalWindowPath(cycle, '2026-01-01', 367, 'long')).toBe('supports');
 });
 
 test('uses the derived arbitrary-window direction for the seasonal path summary', () => {
