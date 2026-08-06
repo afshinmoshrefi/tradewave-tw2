@@ -31,7 +31,7 @@ import TestGIS from './TestGIS';
 import './styles/DesktopLayout.css';
 import { UserContext } from './UserContext';
 import { AiOutlineDollarCircle } from "react-icons/ai";
-import { BsFillCircleFill, BsSun, BsMoon, BsListUl } from "react-icons/bs";
+import { BsSun, BsMoon, BsListUl } from "react-icons/bs";
 import { SlSettings } from "react-icons/sl";
 import { toggle_off_64, toggle_on_64 } from './Common';
 import { settings_dialog_content } from './Common';

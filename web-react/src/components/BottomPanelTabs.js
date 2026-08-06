@@ -1,4 +1,5 @@
 import React, { useRef } from 'react'
+import Tippy from '@tippyjs/react'
 
 const BOTTOM_PANEL_LABELS = Object.freeze({
   trend_chart: 'Trend Chart',
@@ -48,22 +49,29 @@ const BottomPanelTabs = ({ slides, activeSlide, onSelect }) => {
       >
         {availableSlides.map((slide, index) => {
           const selected = selectedSlide === slide
+          const label = BOTTOM_PANEL_LABELS[slide] || slide
           return (
-            <button
+            <Tippy
               key={slide}
-              ref={element => { tabRefs.current[index] = element }}
-              id={getBottomPanelTabId(slide)}
-              type="button"
-              role="tab"
-              aria-controls={getBottomPanelId(slide)}
-              aria-selected={selected}
-              tabIndex={selected ? 0 : -1}
-              className={`bottom-panel-tabs__tab${selected ? ' bottom-panel-tabs__tab--active' : ''}${slide === 'ai_scores' ? ' bottom-panel-tabs__tab--ai' : ''}`}
-              onClick={() => onSelect && onSelect(slide)}
-              onKeyDown={event => handleKeyDown(event, index)}
+              placement="top"
+              content={<div theme="tw">{label}</div>}
             >
-              {BOTTOM_PANEL_LABELS[slide] || slide}
-            </button>
+              <button
+                ref={element => { tabRefs.current[index] = element }}
+                id={getBottomPanelTabId(slide)}
+                type="button"
+                role="tab"
+                aria-controls={getBottomPanelId(slide)}
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                className={`bottom-panel-tabs__tab${selected ? ' bottom-panel-tabs__tab--active' : ''}`}
+                onClick={() => onSelect && onSelect(slide)}
+                onKeyDown={event => handleKeyDown(event, index)}
+              >
+                <span className="bottom-panel-tabs__dot" aria-hidden="true" />
+                <span className="bottom-panel-tabs__label">{label}</span>
+              </button>
+            </Tippy>
           )
         })}
       </div>

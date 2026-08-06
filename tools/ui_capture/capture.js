@@ -514,8 +514,8 @@ async function main() {
 
     // ---- Step 7: select the requested semantic panel ----
     // AI Scores is inserted only for eligible U.S. stock/ETF markets, so Price
-    // Chart can be numeric index 2 or 3. Use the visible labeled tab instead of
-    // encoding either index in capture automation.
+    // Chart can be numeric index 2 or 3. Use the accessible semantic dot instead
+    // of encoding either index in capture automation.
     await selectBottomPanel(page, DISPLAY_BOTTOM_PANEL[spec.display].label, consoleErrors);
 
     // Wait for the target display's own ready flag (may already be true).
@@ -759,7 +759,7 @@ async function selectBottomPanel(page, label, consoleErrors) {
     tab.click();
     return true;
   }, label);
-  if (!clicked) fail(`bottom panel tab "${label}" not found - lower navigation may have changed`);
+  if (!clicked) fail(`bottom panel dot "${label}" not found - lower navigation may have changed`);
   await page.waitForFunction(
     (targetLabel) => Array.from(document.querySelectorAll('.bottom-panel-tabs [role="tab"]'))
       .some(item => item.textContent.trim() === targetLabel && item.getAttribute('aria-selected') === 'true'),

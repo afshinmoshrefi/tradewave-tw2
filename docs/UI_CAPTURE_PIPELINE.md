@@ -487,7 +487,7 @@ simply now accepts one more optional field). `spec_version` stays `1`.
 |---|---|---|---|
 | `spec_version` | yes | `1` | Schema version guard |
 | `theme` | no (default `"dark"`) | `"dark"` \| `"light"` | Seeds `UITheme` |
-| `display` | yes | `"seasonal"` \| `"tradeDetail"` \| `"price"` | Which lower display to capture. The harness selects the labeled semantic tab because Price Chart may be index 2 or 3 when AI Scores is available. |
+| `display` | yes | `"seasonal"` \| `"tradeDetail"` \| `"price"` | Which lower display to capture. The harness selects the accessible semantic dot because Price Chart may be index 2 or 3 when AI Scores is available. |
 | `market` | yes if `pattern` is set | one of the names in section 4 | Which resource group to select |
 | `symbol` | yes if `pattern` is set | ticker string, e.g. `"AAPL"` | Which symbol the deep link targets |
 | `pattern` | no | object: `{startDate, daysOut, years, pe}` | If present, builds a `?o=` deep link (see Layer 5 above). Omit entirely to capture the app's default/no-pattern state |

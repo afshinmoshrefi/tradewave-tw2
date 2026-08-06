@@ -18,7 +18,7 @@ const StatefulTabs = ({ initialSlide = 'wave_stats', onSelect = () => {} }) => {
   )
 }
 
-test('renders labeled, keyboard-focusable tabs and marks the active panel', () => {
+test('renders compact accessible dots and marks the active panel', () => {
   render(
     <BottomPanelTabs
       slides={slides}
@@ -33,6 +33,9 @@ test('renders labeled, keyboard-focusable tabs and marks the active panel', () =
   expect(screen.getByRole('tablist')).toHaveAttribute('aria-orientation', 'horizontal')
 
   const aiTab = screen.getByRole('tab', { name: 'AI Scores' })
+  expect(aiTab.querySelector('.bottom-panel-tabs__dot')).toBeInTheDocument()
+  expect(aiTab).toHaveClass('bottom-panel-tabs__tab--active')
+  expect(screen.getByRole('tab', { name: 'Price Chart' })).not.toHaveClass('bottom-panel-tabs__tab--active')
   expect(aiTab).toHaveAttribute('tabindex', '0')
   expect(aiTab).toHaveAttribute('id', getBottomPanelTabId('ai_scores'))
   expect(aiTab).toHaveAttribute('aria-controls', getBottomPanelId('ai_scores'))

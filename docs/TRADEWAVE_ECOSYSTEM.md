@@ -568,7 +568,10 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   Selected recurrence is explanation, not a rewritten feature vector or inference gate.
   The desktop lower viewer is semantic, not index-owned. Eligible users in supported
   markets see `Trend Chart -> Wave Stats -> AI Scores -> Price Chart`; unsupported markets
-  retain the three non-AI panels. The selected row's normalized bundle is published from
+  retain the three non-AI panels. Navigation keeps the original compact red/white dots in
+  the chart header: the active panel is red, the others are white, and the fourth dot exists
+  only when the AI Scores panel is available. It does not add a separate tab or button banner.
+  The selected row's normalized bundle is published from
   `OppTable` to the AI panel, so its main value and 10/full/30/60/90-day comparison are the
   same values used by table display, filters, and sorting. The panel shows plain-language
   metric definitions, selected-pattern context, available selected-recurrence evidence with
