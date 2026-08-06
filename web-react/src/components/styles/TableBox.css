@@ -108,9 +108,10 @@ tr {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
+  flex-direction: row;
   gap: 2px;
   min-width: 0;
+  white-space: nowrap;
   padding: 3px 2px;
   border: 0;
   background: transparent;
