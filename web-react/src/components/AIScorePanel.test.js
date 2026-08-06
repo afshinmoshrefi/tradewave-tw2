@@ -75,8 +75,8 @@ test('presents a long selected pattern as compact stats-style decision tables', 
 
   const panel = screen.getByRole('region', { name: 'AI Scores' })
   expect(panel).toHaveTextContent(/AI Scores for MSFT.*Data through Aug 4, 2026/i)
-  expect(panel).toHaveTextContent(/Short.*price drop helps this setup.*Starts Aug 5, 2026.*120-day historical pattern.*90-day AI checkpoint used by table/i)
-  expect(panel).toHaveTextContent(/Quick read.*90-day table checkpoint.*73% AI win chance.*\+4.0% estimated end return.*8 of 10 historical years profitable.*below your 9-of-10 history filter/i)
+  expect(panel).toHaveTextContent(/Short.*price drop helps this setup.*Starts Aug 5, 2026.*120-day historical pattern.*Opportunity Table uses the 90-day AI score/i)
+  expect(panel).toHaveTextContent(/Quick read.*Opportunity Table AI score \(90 days\).*73% AI win chance.*\+4.0% estimated end return.*8 of 10 historical years profitable.*Shortened 90-day history missed your 9-of-10 filter.*selected 120-day pattern passed/i)
   expect(panel).toHaveTextContent(/History reports past years.*latest completed stock and market conditions/i)
   expect(panel).toHaveTextContent(/Each checkpoint ends on a different date.*numbers can differ/i)
 
@@ -89,9 +89,9 @@ test('presents a long selected pattern as compact stats-style decision tables', 
   expect(within(thirty).getByRole('row', { name: /Estimated Best Move.*Not a target.*3.0%/i })).toBeInTheDocument()
   expect(within(thirty).getByRole('row', { name: /AI Return Rank.*Higher than 51.0%.*similar AI estimates/i })).toBeInTheDocument()
 
-  const mainView = within(panel).getByRole('region', { name: '90-day AI checkpoint (used by Opportunity Table)' })
+  const mainView = within(panel).getByRole('region', { name: '90-day AI checkpoint (shown in Opportunity Table)' })
   expect(mainView).toHaveClass('ai-score-panel__view--table')
-  expect(mainView).toHaveTextContent(/90-Day Checkpoint.*Used by table/i)
+  expect(mainView).toHaveTextContent(/90-Day Checkpoint.*Shown in Opportunity Table/i)
   expect(mainView).toHaveTextContent(/8 of 10 years profitable/i)
   expect(mainView).toHaveTextContent(/Below filter: needs 9 of 10/i)
   expect(mainView).toHaveTextContent(/AI Win Chance73%/i)
@@ -129,12 +129,12 @@ test('explains the separate 10-day AI minimum without changing a short historica
   renderPanel({ selected: { symbol: 'AAPL' }, bundle: minimumBundle })
 
   const panel = screen.getByRole('region', { name: 'AI Scores' })
-  expect(panel).toHaveTextContent(/Long.*price rise helps this setup.*6-day historical pattern.*10-day AI checkpoint used by table/i)
+  expect(panel).toHaveTextContent(/Long.*price rise helps this setup.*6-day historical pattern.*Opportunity Table uses the 10-day AI score/i)
   expect(panel).toHaveTextContent(/History stays 6 days.*AI starts at its 10-day minimum/i)
   expect(panel).toHaveTextContent(/History reports past years.*latest completed stock and market conditions/i)
   const table = within(panel).getByRole('table', { name: '10-day AI scores' })
   expect(within(table).getByRole('row', { name: /AI Win Chance.*69%/i })).toBeInTheDocument()
-  expect(within(panel).getByRole('region', { name: '10-day AI checkpoint (used by Opportunity Table)' })).toHaveClass('ai-score-panel__view--table')
+  expect(within(panel).getByRole('region', { name: '10-day AI checkpoint (shown in Opportunity Table)' })).toHaveClass('ai-score-panel__view--table')
 })
 
 test('quick read says when no historical years are complete without creating an impossible filter message', () => {

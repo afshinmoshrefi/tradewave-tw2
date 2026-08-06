@@ -176,12 +176,12 @@ const AIViewTable = ({ view, displayDays }) => {
   const days = Number(view && view.calendarDays)
   const isTableView = days === Number(displayDays)
   const status = view && view.status === 'available' ? '' : opportunityAICompactStatus(view)
-  const titleSuffix = isTableView ? ' • Used by table' : ''
+  const titleSuffix = isTableView ? ' • Shown in Opportunity Table' : ''
 
   return (
     <section
       className={`ai-score-panel__view${isTableView ? ' ai-score-panel__view--table' : ''}`}
-      aria-label={`${days}-day AI checkpoint${isTableView ? ' (used by Opportunity Table)' : ''}`}
+      aria-label={`${days}-day AI checkpoint${isTableView ? ' (shown in Opportunity Table)' : ''}`}
     >
       <div className="ai-score-panel__view-title">
         <span>{days}-Day Checkpoint{titleSuffix}</span>
@@ -220,7 +220,7 @@ const AIViewTable = ({ view, displayDays }) => {
   )
 }
 
-const QuickRead = ({ view }) => {
+const QuickRead = ({ view, fullDays }) => {
   if (!view || view.status !== 'available') return null
   const days = Number(view.calendarDays)
   const winChance = metricDisplay(view, 'win_prob')
@@ -229,9 +229,9 @@ const QuickRead = ({ view }) => {
   const history = recurrenceDetails(view.selectedRecurrence)
 
   return (
-    <div className="ai-score-panel__quick-read" aria-label="Quick read for the AI checkpoint used by the Opportunity Table">
+    <div className="ai-score-panel__quick-read" aria-label="Quick read for the Opportunity Table AI checkpoint">
       <strong>Quick read</strong>
-      <span>{days}-day table checkpoint:</span>
+      <span>Opportunity Table AI score ({days} days):</span>
       <b>{winChance} AI win chance</b>
       <span aria-hidden="true">•</span>
       <b className={metricTone(view, 'pred_return')}>
@@ -244,7 +244,9 @@ const QuickRead = ({ view }) => {
             ? 'No completed historical years'
             : `${history.positiveYears} of ${history.sampleSize} historical years profitable`}</b>
           {history.sampleSize > 0 && history.filterMissed && history.required !== null && (
-            <em>— below your {history.required}-of-{history.sampleSize} history filter</em>
+            <em>{Number(fullDays) > days
+              ? `— Shortened ${days}-day history missed your ${history.required}-of-${history.sampleSize} filter; the selected ${fullDays}-day pattern passed.`
+              : `— This history missed your ${history.required}-of-${history.sampleSize} filter.`}</em>
           )}
         </>
       )}
@@ -386,7 +388,7 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
     directionSummary(direction),
     entryDate ? `Starts ${formatDate(entryDate)}` : '',
     fullDays !== null ? `${fullDays}-day historical pattern` : '',
-    displayDays !== null ? `${displayDays}-day AI checkpoint used by table` : '',
+    displayDays !== null ? `Opportunity Table uses the ${displayDays}-day AI score` : '',
   ].filter(Boolean)
 
   return (
@@ -397,7 +399,7 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
           {contextItems.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}
         </div>
 
-        {displayIsAvailable && <QuickRead view={tableView} />}
+        {displayIsAvailable && <QuickRead view={tableView} fullDays={fullDays} />}
 
         <div className="ai-score-panel__explanation-line">{comparisonExplanation(bundle, views)}</div>
 

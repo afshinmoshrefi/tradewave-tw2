@@ -581,7 +581,7 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   changing the stored `ml_score` field. Rank values are written as `Higher than N% of similar
   AI estimates` so they cannot be mistaken for a confidence grade. The checkpoint whose value
   the Opportunity Table uses for AI columns, filtering, and sorting is outlined and explicitly
-  labeled `Used by table`, not `Main`. A compact Quick Read keeps that checkpoint's AI Win Chance, Estimated End Return,
+  labeled `Shown in Opportunity Table`, not `Main`. A compact Quick Read keeps that checkpoint's AI Win Chance, Estimated End Return,
   historical record, sample size, and any history-filter miss in one stable scan line. The only
   persistent teaching sentence explains that history reports past years, AI also uses the latest
   completed stock and market conditions, and separate checkpoints have separate ending dates;
