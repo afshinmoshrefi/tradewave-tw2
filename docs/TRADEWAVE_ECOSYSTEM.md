@@ -579,7 +579,11 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   `Historical Record`, `AI Win Chance`, `Estimated End Return`, `Estimated Best Move`, and
   `AI Return Rank`; the last label replaces the ambiguous visible `AI Score` wording without
   changing the stored `ml_score` field. Rank values are written as `Higher than N% of similar
-  AI estimates` so they cannot be mistaken for a confidence grade. The checkpoint whose value
+  AI estimates` so they cannot be mistaken for a confidence grade. The control strip reuses
+  the other lower panels' Portfolio Manager and Wave Viewer JPEG
+  snapshot actions. The score-table grid reserves equal left and right arrow gutters so the
+  shared Swiper navigation never covers the outside cards.
+  The checkpoint whose value
   the Opportunity Table uses for AI columns, filtering, and sorting is outlined and explicitly
   labeled `Shown in Opportunity Table`, not `Main`. A compact Quick Read keeps that checkpoint's AI Win Chance, Estimated End Return,
   historical record, sample size, and any history-filter miss in one stable scan line. The only

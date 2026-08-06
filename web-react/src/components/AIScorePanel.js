@@ -1,6 +1,6 @@
 import React, { useContext, useEffect } from 'react'
 import Tippy from '@tippyjs/react'
-import { BsInfoCircle } from 'react-icons/bs'
+import { BsDownload, BsInfoCircle, BsPencilSquare } from 'react-icons/bs'
 import { UserContext } from './UserContext'
 import { themeColors } from './Common'
 import {
@@ -134,9 +134,45 @@ const availableViews = (bundle, display) => {
   return Array.from(byDays.values()).sort((a, b) => Number(a.calendarDays) - Number(b.calendarDays))
 }
 
-const PanelToolbar = ({ title = '', onOpenGuide, infoTextSize }) => (
+const ToolbarAction = ({ label, tooltip, tooltipsEnabled, onClick, children }) => (
+  <Tippy disabled={!tooltipsEnabled} placement="bottom" content={<div theme="tw">{tooltip}</div>}>
+    <button type="button" className="ai-score-panel__toolbar-action" aria-label={label} onClick={onClick}>
+      {children}
+    </button>
+  </Tippy>
+)
+
+const PanelToolbar = ({
+  title = '',
+  onOpenGuide,
+  onOpenPortfolio,
+  onExportSnapshot,
+  showSnapshot = false,
+  tooltipsEnabled = false,
+  infoTextSize,
+}) => (
   <header className="ai-score-panel__toolbar">
     <div className="ai-score-panel__toolbar-left">
+      {typeof onOpenPortfolio === 'function' && (
+        <ToolbarAction
+          label="Open Portfolio Manager"
+          tooltip="Portfolio Manager"
+          tooltipsEnabled={tooltipsEnabled}
+          onClick={onOpenPortfolio}
+        >
+          <BsPencilSquare aria-hidden="true" />
+        </ToolbarAction>
+      )}
+      {showSnapshot && typeof onExportSnapshot === 'function' && (
+        <ToolbarAction
+          label="Save Wave Viewer snapshot"
+          tooltip="Download Wave Viewer snapshot as JPEG"
+          tooltipsEnabled={tooltipsEnabled}
+          onClick={onExportSnapshot}
+        >
+          <BsDownload aria-hidden="true" />
+        </ToolbarAction>
+      )}
       {typeof onOpenGuide === 'function' && (
         <Tippy placement="top" content={<div theme="tw">Why AI Scores, what they mean, and how to use them</div>}>
           <button type="button" className="ai-score-panel__info-button" aria-label="How to read AI Scores" onClick={onOpenGuide}>
@@ -273,7 +309,14 @@ const comparisonExplanation = (bundle, views) => {
   return 'History reports past years; AI also uses the latest completed stock and market conditions, so the two readings can differ.'
 }
 
-const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
+const AIScorePanel = ({
+  viewModel = {},
+  onOpenGuide,
+  onOpenPortfolio,
+  onExportSnapshot,
+  tooltipsEnabled = false,
+  active = false,
+}) => {
   const userContext = useContext(UserContext) || {}
   const UITheme = userContext.UITheme || 'light'
   const loggedinUser = userContext.loggedinUser
@@ -341,7 +384,11 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
   if (!hasSelection) {
     return (
       <section className="ai-score-panel ai-score-panel--empty" data-theme={UITheme === 'dark' ? 'dark' : 'light'} style={themeStyle} aria-label="AI Scores">
-        <PanelToolbar infoTextSize={infoTextSize} />
+        <PanelToolbar
+          onOpenPortfolio={onOpenPortfolio}
+          tooltipsEnabled={tooltipsEnabled}
+          infoTextSize={infoTextSize}
+        />
         <div className="ai-score-panel__empty-body">
           <div className="barchart-background">
             <span className="ai-score-panel__empty-label" style={{ fontSize: svFont, color: tc.watermark }}>AI Scores</span>
@@ -356,7 +403,15 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
   if (!eligible || !enabled) {
     return (
       <section className="ai-score-panel" data-theme={UITheme === 'dark' ? 'dark' : 'light'} style={themeStyle} aria-label="AI Scores">
-        <PanelToolbar title={toolbarTitle} onOpenGuide={onOpenGuide} infoTextSize={infoTextSize} />
+        <PanelToolbar
+          title={toolbarTitle}
+          onOpenGuide={onOpenGuide}
+          onOpenPortfolio={onOpenPortfolio}
+          onExportSnapshot={onExportSnapshot}
+          showSnapshot
+          tooltipsEnabled={tooltipsEnabled}
+          infoTextSize={infoTextSize}
+        />
         <div className="ai-score-panel__simple-body">
           <StateMessage title={eligible ? 'AI Scores are not available here' : 'AI Scores are not available for this market'}>
             {eligible
@@ -371,7 +426,15 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
   if (displayIsLoading || !bundle) {
     return (
       <section className="ai-score-panel" data-theme={UITheme === 'dark' ? 'dark' : 'light'} style={themeStyle} aria-label="AI Scores">
-        <PanelToolbar title={`AI Scores for ${symbol}`} onOpenGuide={onOpenGuide} infoTextSize={infoTextSize} />
+        <PanelToolbar
+          title={`AI Scores for ${symbol}`}
+          onOpenGuide={onOpenGuide}
+          onOpenPortfolio={onOpenPortfolio}
+          onExportSnapshot={onExportSnapshot}
+          showSnapshot
+          tooltipsEnabled={tooltipsEnabled}
+          infoTextSize={infoTextSize}
+        />
         <div className="ai-score-panel__simple-body">
           <StateMessage kind="loading" title={`Loading AI Scores for ${symbol}...`}>
             Historical results remain available while this finishes.
@@ -393,7 +456,15 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
 
   return (
     <section className="ai-score-panel" data-theme={UITheme === 'dark' ? 'dark' : 'light'} style={themeStyle} aria-label="AI Scores">
-      <PanelToolbar title={toolbarTitle} onOpenGuide={onOpenGuide} infoTextSize={infoTextSize} />
+      <PanelToolbar
+        title={toolbarTitle}
+        onOpenGuide={onOpenGuide}
+        onOpenPortfolio={onOpenPortfolio}
+        onExportSnapshot={onExportSnapshot}
+        showSnapshot
+        tooltipsEnabled={tooltipsEnabled}
+        infoTextSize={infoTextSize}
+      />
       <div className="ai-score-panel__content">
         <div className="ai-score-panel__pattern-line" aria-label="Selected pattern">
           {contextItems.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}

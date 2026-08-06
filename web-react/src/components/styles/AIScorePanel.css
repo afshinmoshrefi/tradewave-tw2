@@ -34,6 +34,7 @@
 
 .ai-score-panel__toolbar-left {
   padding-left: 10px;
+  gap: 6px;
 }
 
 .ai-score-panel__toolbar-title {
@@ -45,6 +46,7 @@
   white-space: nowrap;
 }
 
+.ai-score-panel__toolbar-action,
 .ai-score-panel__info-button {
   display: inline-grid;
   width: 26px;
@@ -57,11 +59,17 @@
   cursor: pointer;
 }
 
+.ai-score-panel__toolbar-action svg {
+  width: 19px;
+  height: 19px;
+}
+
 .ai-score-panel__info-button svg {
   width: 16px;
   height: 16px;
 }
 
+.ai-score-panel__toolbar-action:focus-visible,
 .ai-score-panel__info-button:focus-visible {
   outline: 2px solid #93c5fd;
   outline-offset: 1px;
@@ -160,6 +168,7 @@
 .ai-score-panel__views {
   display: grid;
   min-height: 165px;
+  padding-inline: clamp(48px, 3vw, 64px);
   flex: 1 1 auto;
   grid-template-columns: repeat(var(--ai-view-count), minmax(0, 1fr));
   gap: 1vw;

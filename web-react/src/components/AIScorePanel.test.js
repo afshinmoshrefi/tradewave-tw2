@@ -12,6 +12,9 @@ const renderPanel = (viewModel, options = {}) => render(
     <AIScorePanel
       viewModel={viewModel}
       onOpenGuide={options.onOpenGuide}
+      onOpenPortfolio={options.onOpenPortfolio}
+      onExportSnapshot={options.onExportSnapshot}
+      tooltipsEnabled={options.tooltipsEnabled}
       active={options.active}
     />
   </UserContext.Provider>
@@ -103,6 +106,37 @@ test('presents a long selected pattern as compact stats-style decision tables', 
 
   fireEvent.click(screen.getByRole('button', { name: 'How to read AI Scores' }))
   expect(onOpenGuide).toHaveBeenCalledTimes(1)
+})
+
+test('offers the same Portfolio Manager and Wave Viewer snapshot actions as the other lower panels', () => {
+  const onOpenPortfolio = jest.fn()
+  const onExportSnapshot = jest.fn()
+  renderPanel({
+    eligible: true,
+    enabled: true,
+    selected: { symbol: 'MSFT' },
+    bundle: longBundle,
+  }, { onOpenPortfolio, onExportSnapshot })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open Portfolio Manager' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save Wave Viewer snapshot' }))
+
+  expect(onOpenPortfolio).toHaveBeenCalledTimes(1)
+  expect(onExportSnapshot).toHaveBeenCalledTimes(1)
+})
+
+test('keeps Portfolio Manager available but hides snapshot until a pattern is selected', () => {
+  const onOpenPortfolio = jest.fn()
+  renderPanel({
+    eligible: true,
+    enabled: true,
+    selected: { symbol: '' },
+    bundle: null,
+  }, { onOpenPortfolio, onExportSnapshot: jest.fn() })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open Portfolio Manager' }))
+  expect(onOpenPortfolio).toHaveBeenCalledTimes(1)
+  expect(screen.queryByRole('button', { name: 'Save Wave Viewer snapshot' })).not.toBeInTheDocument()
 })
 
 test('explains the separate 10-day AI minimum without changing a short historical pattern', () => {

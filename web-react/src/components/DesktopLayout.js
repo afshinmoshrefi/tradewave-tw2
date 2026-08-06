@@ -33,7 +33,7 @@ import { UserContext } from './UserContext';
 import { AiOutlineDollarCircle } from "react-icons/ai";
 import { BsSun, BsMoon, BsListUl } from "react-icons/bs";
 import { SlSettings } from "react-icons/sl";
-import { toggle_off_64, toggle_on_64 } from './Common';
+import { opp_dashboard_dialog_content, toggle_off_64, toggle_on_64 } from './Common';
 import { settings_dialog_content } from './Common';
 import { incrementDate } from './Common';
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -359,6 +359,21 @@ const DesktopLayout = (props) => {
             localStorage.setItem('UITheme', 'dark');
         }
     }
+
+    const handleAIScorePortfolio = () => {
+        if (props.loggedinUser === '0') {
+            props.SetDialogType('info-box');
+            props.SetDialogProp({ title: 'Portfolio Manager', contentText: opp_dashboard_dialog_content, button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' });
+            props.SetInfoBoxVisible(true);
+            return;
+        }
+        props.SetReportsDashVisible(true);
+    };
+
+    const handleAIScoreSnapshot = () => {
+        props.SetShowWatermark(true);
+        props.SetExportImage(true);
+    };
 
     useEffect(() => {
         if (props.exportImage) {
@@ -1762,6 +1777,9 @@ const DesktopLayout = (props) => {
                                     viewModel={aiPanelViewModel}
                                     active={activeBottomSlide === 'ai_scores'}
                                     onOpenGuide={() => SetShowAIScoresGuide(true)}
+                                    onOpenPortfolio={handleAIScorePortfolio}
+                                    onExportSnapshot={handleAIScoreSnapshot}
+                                    tooltipsEnabled={props.tooltipSW}
                                 />
                             </SwiperSlide>
                         )}
