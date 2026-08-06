@@ -44,28 +44,31 @@ const formatDate = value => {
   }).format(date)
 }
 
-const recurrenceIsValid = recurrence => {
+const recurrenceDetails = recurrence => {
   const sampleSize = integerOrNull(recurrence && (recurrence.sample_size ?? recurrence.sampleSize))
   const positiveYears = integerOrNull(recurrence && (recurrence.positive_years ?? recurrence.positiveYears))
-  return sampleSize !== null && positiveYears !== null && sampleSize >= 0 && positiveYears >= 0 && positiveYears <= sampleSize
-}
-
-const HistoricalRecord = ({ recurrence }) => {
-  if (!recurrenceIsValid(recurrence)) {
-    return <span className="ai-score-panel__muted">Not provided</span>
+  if (sampleSize === null || positiveYears === null || sampleSize < 0 || positiveYears < 0 || positiveYears > sampleSize) {
+    return null
   }
-
-  const sampleSize = Number(recurrence.sample_size ?? recurrence.sampleSize)
-  const positiveYears = Number(recurrence.positive_years ?? recurrence.positiveYears)
   const required = integerOrNull(recurrence.required_positive_years ?? recurrence.requiredPositiveYears)
   const filterMissed = String(recurrence.status || '').toLowerCase() === 'below_threshold' || (
     required !== null && positiveYears < required
   )
+  return { sampleSize, positiveYears, required, filterMissed }
+}
+
+const HistoricalRecord = ({ recurrence }) => {
+  const details = recurrenceDetails(recurrence)
+  if (!details) {
+    return <span className="ai-score-panel__muted">Not provided</span>
+  }
+
+  const { sampleSize, positiveYears, required, filterMissed } = details
 
   return (
     <span className="ai-score-panel__history-record">
       <span>{sampleSize === 0 ? 'No completed years' : `${positiveYears} of ${sampleSize} years profitable`}</span>
-      {filterMissed && required !== null && <small>Your filter needs {required} profitable years</small>}
+      {filterMissed && required !== null && <small>Below filter: needs {required} of {sampleSize}</small>}
     </span>
   )
 }
@@ -115,36 +118,6 @@ const statusDetails = (display, fallbackReason) => {
   }
 }
 
-const joinDayLengths = days => {
-  const values = days.filter(Number.isFinite)
-  if (values.length < 2) return values.join('')
-  if (values.length === 2) return `${values[0]} and ${values[1]}`
-  return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`
-}
-
-const timeLengthExplanation = (bundle, views) => {
-  const fullDays = Number(bundle && bundle.fullPatternCalendarDays)
-  const days = views.map(view => Number(view && view.calendarDays)).filter(Number.isFinite)
-  const dayList = joinDayLengths(days)
-
-  if (bundle && (bundle.basis === 'minimum_horizon' || (Number.isFinite(fullDays) && fullDays < 10))) {
-    return `This is a ${fullDays}-day historical pattern. AI uses 10 days because 10 days is its shortest view. The historical pattern stays ${fullDays} days.`
-  }
-  if (days.length > 1 && Number.isFinite(fullDays) && fullDays > 90) {
-    return `Why several views? This ${fullDays}-day pattern is checked at ${dayList} days because the AI model stops at 90 days. Each view has a different ending date—not another vote on the same result.`
-  }
-  if (days.length === 1 && Number.isFinite(fullDays) && fullDays > 90) {
-    return `This ${fullDays}-day pattern uses a ${days[0]}-day AI view because the AI model stops at 90 days.`
-  }
-  if (days.length > 1) {
-    return `Why several views? The same start date is checked at ${dayList} days. Each view has a different ending date—not another vote on the same result.`
-  }
-  if (Number.isFinite(fullDays)) {
-    return `This AI view checks the full ${fullDays}-day pattern.`
-  }
-  return 'Each AI view checks one calendar-day ending date for the selected pattern.'
-}
-
 const availableViews = (bundle, display) => {
   const candidates = bundle && Array.isArray(bundle.horizons) && bundle.horizons.length > 0
     ? bundle.horizons
@@ -165,7 +138,7 @@ const PanelToolbar = ({ title = '', onOpenGuide, infoTextSize }) => (
   <header className="ai-score-panel__toolbar">
     <div className="ai-score-panel__toolbar-left">
       {typeof onOpenGuide === 'function' && (
-        <Tippy placement="top" content={<div theme="tw">How to read AI Scores</div>}>
+        <Tippy placement="top" content={<div theme="tw">Why AI Scores, what they mean, and how to use them</div>}>
           <button type="button" className="ai-score-panel__info-button" aria-label="How to read AI Scores" onClick={onOpenGuide}>
             <BsInfoCircle aria-hidden="true" />
           </button>
@@ -181,7 +154,15 @@ const metricDisplay = (view, metric) => {
   if (!view || view.status !== 'available') return '—'
   const value = view.metrics && view.metrics[metric]
   const formatted = formatOpportunityAIMetric(metric, value)
-  return metric === 'ml_score' && formatted !== 'N/A' ? `${formatted} / 100` : formatted
+  if (metric === 'ml_score' && formatted !== 'N/A') {
+    return (
+      <span className="ai-score-panel__rank-value">
+        <span>Higher than {formatted}%</span>
+        <small>of similar AI estimates</small>
+      </span>
+    )
+  }
+  return formatted
 }
 
 const metricTone = (view, metric) => {
@@ -191,20 +172,19 @@ const metricTone = (view, metric) => {
   return value > 0 ? ' ai-score-panel__value--positive' : ' ai-score-panel__value--negative'
 }
 
-const AIViewTable = ({ view, displayDays, fullDays }) => {
+const AIViewTable = ({ view, displayDays }) => {
   const days = Number(view && view.calendarDays)
-  const isMain = days === Number(displayDays)
-  const isFullPattern = days === Number(fullDays)
+  const isTableView = days === Number(displayDays)
   const status = view && view.status === 'available' ? '' : opportunityAICompactStatus(view)
-  const titleSuffix = isMain ? ' • Main' : isFullPattern ? ' • Full pattern' : ''
+  const titleSuffix = isTableView ? ' • Used by table' : ''
 
   return (
     <section
-      className={`ai-score-panel__view${isMain ? ' ai-score-panel__view--main' : ''}`}
-      aria-label={`${days}-day AI view${isMain ? ' (main)' : ''}`}
+      className={`ai-score-panel__view${isTableView ? ' ai-score-panel__view--table' : ''}`}
+      aria-label={`${days}-day AI checkpoint${isTableView ? ' (used by Opportunity Table)' : ''}`}
     >
       <div className="ai-score-panel__view-title">
-        <span>{days}-Day View{titleSuffix}</span>
+        <span>{days}-Day Checkpoint{titleSuffix}</span>
         {status && <small>{status}</small>}
       </div>
       <table aria-label={`${days}-day AI scores`}>
@@ -213,16 +193,21 @@ const AIViewTable = ({ view, displayDays, fullDays }) => {
             <th scope="row">Historical Record</th>
             <td><HistoricalRecord recurrence={view && view.selectedRecurrence} /></td>
           </tr>
-          <tr>
+          <tr className="ai-score-panel__metric-row--primary">
             <th scope="row">AI Win Chance</th>
             <td>{metricDisplay(view, 'win_prob')}</td>
           </tr>
-          <tr>
+          <tr className="ai-score-panel__metric-row--primary">
             <th scope="row">Estimated End Return</th>
             <td className={metricTone(view, 'pred_return')}>{metricDisplay(view, 'pred_return')}</td>
           </tr>
           <tr>
-            <th scope="row">Estimated Best Move</th>
+            <th scope="row">
+              <span className="ai-score-panel__metric-label">
+                <span>Estimated Best Move</span>
+                <small>Not a target</small>
+              </span>
+            </th>
             <td>{metricDisplay(view, 'pred_mfe')}</td>
           </tr>
           <tr>
@@ -233,6 +218,57 @@ const AIViewTable = ({ view, displayDays, fullDays }) => {
       </table>
     </section>
   )
+}
+
+const QuickRead = ({ view }) => {
+  if (!view || view.status !== 'available') return null
+  const days = Number(view.calendarDays)
+  const winChance = metricDisplay(view, 'win_prob')
+  const endReturn = metricDisplay(view, 'pred_return')
+  const endReturnNumber = Number(view.metrics && view.metrics.pred_return)
+  const history = recurrenceDetails(view.selectedRecurrence)
+
+  return (
+    <div className="ai-score-panel__quick-read" aria-label="Quick read for the AI checkpoint used by the Opportunity Table">
+      <strong>Quick read</strong>
+      <span>{days}-day table checkpoint:</span>
+      <b>{winChance} AI win chance</b>
+      <span aria-hidden="true">•</span>
+      <b className={metricTone(view, 'pred_return')}>
+        {Number.isFinite(endReturnNumber) && endReturnNumber > 0 ? '+' : ''}{endReturn} estimated end return
+      </b>
+      {history && (
+        <>
+          <span aria-hidden="true">•</span>
+          <b>{history.sampleSize === 0
+            ? 'No completed historical years'
+            : `${history.positiveYears} of ${history.sampleSize} historical years profitable`}</b>
+          {history.sampleSize > 0 && history.filterMissed && history.required !== null && (
+            <em>— below your {history.required}-of-{history.sampleSize} history filter</em>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+const directionSummary = direction => {
+  const value = firstText(direction)
+  if (!value) return ''
+  if (value.toLowerCase().startsWith('s')) return 'Short — a price drop helps this setup'
+  if (value.toLowerCase().startsWith('l')) return 'Long — a price rise helps this setup'
+  return value
+}
+
+const comparisonExplanation = (bundle, views) => {
+  const fullDays = Number(bundle && bundle.fullPatternCalendarDays)
+  if (bundle && (bundle.basis === 'minimum_horizon' || (Number.isFinite(fullDays) && fullDays < 10))) {
+    return `History stays ${fullDays} days; AI starts at its 10-day minimum. History reports past years, while AI also uses the latest completed stock and market conditions.`
+  }
+  if (views.length > 1) {
+    return 'History reports past years; AI also uses the latest completed stock and market conditions. Each checkpoint ends on a different date, so the numbers can differ.'
+  }
+  return 'History reports past years; AI also uses the latest completed stock and market conditions, so the two readings can differ.'
 }
 
 const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
@@ -284,7 +320,10 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
     '--ai-stat-label': tc.statLabelBg,
     '--ai-stat-value': tc.statValueBg,
     '--ai-watermark': tc.watermark,
-    '--ai-main-border': UITheme === 'dark' ? '#60a5fa' : '#2563eb',
+    '--ai-table-border': UITheme === 'dark' ? '#60a5fa' : '#2563eb',
+    '--ai-positive': UITheme === 'dark' ? '#22c55e' : '#15803d',
+    '--ai-negative': UITheme === 'dark' ? '#f87171' : '#b91c1c',
+    '--ai-warning': UITheme === 'dark' ? '#f59e0b' : '#b45309',
   }
 
   const hasRealScoreData = hasAvailableOpportunityAIScores({ panel: bundle })
@@ -341,12 +380,13 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
   }
 
   const views = availableViews(bundle, display)
+  const tableView = views.find(view => Number(view && view.calendarDays) === Number(displayDays)) || display
   const unavailable = !displayIsAvailable ? statusDetails(display, unavailableReason) : null
   const contextItems = [
-    direction,
+    directionSummary(direction),
     entryDate ? `Starts ${formatDate(entryDate)}` : '',
     fullDays !== null ? `${fullDays}-day historical pattern` : '',
-    displayDays !== null ? `${displayDays}-day main AI view` : '',
+    displayDays !== null ? `${displayDays}-day AI checkpoint used by table` : '',
   ].filter(Boolean)
 
   return (
@@ -357,37 +397,28 @@ const AIScorePanel = ({ viewModel = {}, onOpenGuide, active = false }) => {
           {contextItems.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}
         </div>
 
-        <div className="ai-score-panel__why-line">
-          <strong>Why AI?</strong>
-          <span>It adds the latest completed stock and market data as a second check beside this pattern's history.</span>
-        </div>
+        {displayIsAvailable && <QuickRead view={tableView} />}
 
-        <div className="ai-score-panel__length-line">
-          {timeLengthExplanation(bundle, views)}
-        </div>
+        <div className="ai-score-panel__explanation-line">{comparisonExplanation(bundle, views)}</div>
 
         {unavailable && (
           <StateMessage kind={unavailable.kind} title={unavailable.title}>{unavailable.copy}</StateMessage>
         )}
 
-        <div className="ai-score-panel__views" style={{ '--ai-view-count': Math.max(views.length, 1) }}>
+        <div
+          className="ai-score-panel__views"
+          style={{
+            '--ai-view-count': Math.max(views.length, 1),
+            '--ai-stack-height': `${Math.max(views.length, 1) * 185}px`,
+          }}
+        >
           {views.map(view => (
             <AIViewTable
               key={view.calendarDays}
               view={view}
               displayDays={displayDays}
-              fullDays={fullDays}
             />
           ))}
-        </div>
-
-        <div className="ai-score-panel__decision-line">
-          <strong>How to use it:</strong>
-          <span>Start with the historical record. Then compare AI Win Chance and Estimated End Return across the views. Mixed results mean timing matters—review losing years and the Price Chart.</span>
-        </div>
-
-        <div className="ai-score-panel__footnote">
-          Calendar days; the start date is day 1. AI is an estimate, not a guarantee. Do not average historical results with AI Win Chance.
         </div>
       </div>
     </section>

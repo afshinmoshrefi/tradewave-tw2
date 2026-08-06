@@ -139,22 +139,23 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         </div>
                         <p style={{ marginTop: 0 }}>
                             <strong>History tells you what this pattern did in past years.</strong>{' '}
-                            AI uses the latest completed stock and market information to estimate what may happen this
-                            time. Use both views together. AI does not replace history or guarantee a profit.
+                            AI uses the latest completed stock and market conditions to estimate today's setup. Compare
+                            them to see where current conditions support or conflict with the past results. AI does not
+                            replace history or guarantee a profit.
                         </p>
                         <p>
-                            TradeWave checks older AI estimates against what really happened and corrects the
-                            percentages so AI Win Chance is more realistic. This check is called calibration.
+                            TradeWave checks older AI estimates against what really happened and adjusts AI Win Chance
+                            using those real results. This reality check is called calibration.
                         </p>
 
                         <div style={{ fontSize: '16px', fontWeight: 700, margin: '16px 0 8px' }}>
                             How to read the numbers
                         </div>
                         <ul style={{ paddingLeft: '20px', margin: '8px 0 14px' }}>
-                            <li style={{ marginBottom: '6px' }}><strong>AI Win Chance:</strong> estimated chance that the pattern finishes with a profit.</li>
+                            <li style={{ marginBottom: '6px' }}><strong>AI Win Chance:</strong> estimated chance that this checkpoint ends with a profit in the shown Long or Short direction.</li>
                             <li style={{ marginBottom: '6px' }}><strong>Estimated End Return:</strong> estimated gain or loss when this time length ends.</li>
-                            <li style={{ marginBottom: '6px' }}><strong>Estimated Best Move:</strong> largest helpful move AI expects before the end. It is not a target.</li>
-                            <li><strong>AI Return Rank:</strong> how the estimated end return compares with AI readings for similar time lengths. It is not a win chance or grade.</li>
+                            <li style={{ marginBottom: '6px' }}><strong>Estimated Best Move:</strong> largest helpful move AI expects before the checkpoint ends. It is not a target.</li>
+                            <li><strong>AI Return Rank:</strong> “Higher than 75%” means the estimated end return ranks above 75% of similar AI estimates. It is not a win chance or grade.</li>
                         </ul>
 
                         <div style={{ fontSize: '16px', fontWeight: 700, margin: '16px 0 8px' }}>
@@ -178,17 +179,17 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#3b82f6' }}></span>
-                        Why history and AI Win% can differ
+                        Why history and AI Win Chance can differ
                     </div>
                     <p>
-                        AI Win% does not change the historical record. If history says 9 of 10 years were profitable,
-                        it stays 9 of 10 (<strong>n=10</strong>).
+                        AI Win Chance does not change the historical record. If history says 9 of 10 years were
+                        profitable, it stays 9 of 10 years.
                     </p>
                     <p>
-                        To create AI Win%, TradeWave looks at older AI estimates like this one and checks what happened
-                        next. If about 7 of 10 similar cases were profitable in the selected direction, AI Win% is
-                        about 70%. This check against real outcomes is called <strong>calibration</strong>. It creates a
-                        separate estimate; it does not add years to the historical sample or rewrite its win rate.
+                        To create AI Win Chance, TradeWave looks at older AI estimates like this one and checks what
+                        happened next. If about 7 of 10 similar cases were profitable in the selected direction, AI
+                        Win Chance is about 70%. This check creates a separate estimate; it does not add years to the
+                        historical sample or rewrite the past results.
                     </p>
 
                     <div className="ts-section-title">
@@ -231,12 +232,12 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#f59e0b' }}></span>
-                        How to read AIS
+                        How to read AI Return Rank
                     </div>
                     <p>
-                        AIS compares this predicted ending return with other AI return estimates for similar time
-                        lengths. An AIS of 80 ranks above about 80% of those comparable readings. It does not mean an
-                        80% chance of profit. Use Win% for the estimated chance of a profitable result.
+                        AI Return Rank compares this estimated ending return with other AI estimates for similar time
+                        lengths. “Higher than 80%” means it ranks above about 80% of those comparable estimates. It
+                        does not mean an 80% chance of profit. Use AI Win Chance for that estimate.
                     </p>
 
                     <div className="ts-section-title">
@@ -263,9 +264,9 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         Long and Short
                     </div>
                     <p>
-                        Long means the setup benefits if price rises. Short means it benefits if price falls. A positive
-                        PredR means the estimated move helps the direction shown in the table. Win% also measures a
-                        profitable result in that direction.
+                        Long means a price rise helps the setup. Short means a price drop helps the setup. A positive
+                        Estimated End Return means the estimate helps the direction shown. AI Win Chance also measures
+                        a profitable result in that direction.
                     </p>
 
                     <div className="ts-section-title">

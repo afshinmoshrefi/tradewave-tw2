@@ -37,7 +37,7 @@ const longBundle = {
     status: 'available',
     reason: '',
     metrics: { ml_score: 78, win_prob: 0.73, pred_return: 4, pred_mfe: 8 },
-    selectedRecurrence: recurrence(8, 10),
+    selectedRecurrence: recurrence(8, 10, { status: 'below_threshold', required_positive_years: 9 }),
   },
   horizons: [
     {
@@ -59,7 +59,7 @@ const longBundle = {
       status: 'available',
       reason: '',
       metrics: { ml_score: 78, win_prob: 0.73, pred_return: 4, pred_mfe: 8 },
-      selectedRecurrence: recurrence(8, 10),
+      selectedRecurrence: recurrence(8, 10, { status: 'below_threshold', required_positive_years: 9 }),
     },
   ],
 }
@@ -75,10 +75,10 @@ test('presents a long selected pattern as compact stats-style decision tables', 
 
   const panel = screen.getByRole('region', { name: 'AI Scores' })
   expect(panel).toHaveTextContent(/AI Scores for MSFT.*Data through Aug 4, 2026/i)
-  expect(panel).toHaveTextContent(/Short.*Starts Aug 5, 2026.*120-day historical pattern.*90-day main AI view/i)
-  expect(panel).toHaveTextContent(/Why AI.*latest completed stock and market data.*second check.*history/i)
-  expect(panel).toHaveTextContent(/checked at 30, 60, and 90 days.*model stops at 90 days/i)
-  expect(panel).toHaveTextContent(/different ending date.*not another vote/i)
+  expect(panel).toHaveTextContent(/Short.*price drop helps this setup.*Starts Aug 5, 2026.*120-day historical pattern.*90-day AI checkpoint used by table/i)
+  expect(panel).toHaveTextContent(/Quick read.*90-day table checkpoint.*73% AI win chance.*\+4.0% estimated end return.*8 of 10 historical years profitable.*below your 9-of-10 history filter/i)
+  expect(panel).toHaveTextContent(/History reports past years.*latest completed stock and market conditions/i)
+  expect(panel).toHaveTextContent(/Each checkpoint ends on a different date.*numbers can differ/i)
 
   const views = within(panel).getAllByRole('table')
   expect(views).toHaveLength(3)
@@ -86,23 +86,20 @@ test('presents a long selected pattern as compact stats-style decision tables', 
   expect(within(thirty).getByRole('row', { name: /Historical Record.*6 of 10 years profitable/i })).toBeInTheDocument()
   expect(within(thirty).getByRole('row', { name: /AI Win Chance.*52%/i })).toBeInTheDocument()
   expect(within(thirty).getByRole('row', { name: /Estimated End Return.*1.0%/i })).toBeInTheDocument()
-  expect(within(thirty).getByRole('row', { name: /Estimated Best Move.*3.0%/i })).toBeInTheDocument()
-  expect(within(thirty).getByRole('row', { name: /AI Return Rank.*51.0.*100/i })).toBeInTheDocument()
+  expect(within(thirty).getByRole('row', { name: /Estimated Best Move.*Not a target.*3.0%/i })).toBeInTheDocument()
+  expect(within(thirty).getByRole('row', { name: /AI Return Rank.*Higher than 51.0%.*similar AI estimates/i })).toBeInTheDocument()
 
-  const mainView = within(panel).getByRole('region', { name: '90-day AI view (main)' })
-  expect(mainView).toHaveClass('ai-score-panel__view--main')
-  expect(mainView).toHaveTextContent(/90-Day View.*Main/i)
+  const mainView = within(panel).getByRole('region', { name: '90-day AI checkpoint (used by Opportunity Table)' })
+  expect(mainView).toHaveClass('ai-score-panel__view--table')
+  expect(mainView).toHaveTextContent(/90-Day Checkpoint.*Used by table/i)
   expect(mainView).toHaveTextContent(/8 of 10 years profitable/i)
+  expect(mainView).toHaveTextContent(/Below filter: needs 9 of 10/i)
   expect(mainView).toHaveTextContent(/AI Win Chance73%/i)
   expect(mainView).toHaveTextContent(/Estimated End Return4.0%/i)
-  expect(mainView).toHaveTextContent(/Estimated Best Move8.0%/i)
-  expect(mainView).toHaveTextContent(/AI Return Rank78.0.*100/i)
+  expect(mainView).toHaveTextContent(/Estimated Best MoveNot a target8.0%/i)
+  expect(mainView).toHaveTextContent(/AI Return RankHigher than 78.0%of similar AI estimates/i)
 
-  expect(panel).toHaveTextContent(/Start with the historical record.*compare AI Win Chance and Estimated End Return/i)
-  expect(panel).toHaveTextContent(/Mixed results mean timing matters.*losing years.*Price Chart/i)
-  expect(panel).toHaveTextContent(/Calendar days.*start date is day 1/i)
-  expect(panel).toHaveTextContent(/Do not average historical results with AI Win Chance/i)
-  expect(panel).not.toHaveTextContent(/Quick read|calibrated|AI Score78|PredR|PMFE/i)
+  expect(panel).not.toHaveTextContent(/Why AI\?|How to use it|Calendar days|AI Score78|PredR|PMFE|\/ 100/i)
 
   fireEvent.click(screen.getByRole('button', { name: 'How to read AI Scores' }))
   expect(onOpenGuide).toHaveBeenCalledTimes(1)
@@ -132,13 +129,36 @@ test('explains the separate 10-day AI minimum without changing a short historica
   renderPanel({ selected: { symbol: 'AAPL' }, bundle: minimumBundle })
 
   const panel = screen.getByRole('region', { name: 'AI Scores' })
-  expect(panel).toHaveTextContent(/Long.*6-day historical pattern.*10-day main AI view/i)
-  expect(panel).toHaveTextContent(/This is a 6-day historical pattern/i)
-  expect(panel).toHaveTextContent(/AI uses 10 days because 10 days is its shortest view/i)
-  expect(panel).toHaveTextContent(/historical pattern stays 6 days/i)
+  expect(panel).toHaveTextContent(/Long.*price rise helps this setup.*6-day historical pattern.*10-day AI checkpoint used by table/i)
+  expect(panel).toHaveTextContent(/History stays 6 days.*AI starts at its 10-day minimum/i)
+  expect(panel).toHaveTextContent(/History reports past years.*latest completed stock and market conditions/i)
   const table = within(panel).getByRole('table', { name: '10-day AI scores' })
   expect(within(table).getByRole('row', { name: /AI Win Chance.*69%/i })).toBeInTheDocument()
-  expect(within(panel).getByRole('region', { name: '10-day AI view (main)' })).toHaveClass('ai-score-panel__view--main')
+  expect(within(panel).getByRole('region', { name: '10-day AI checkpoint (used by Opportunity Table)' })).toHaveClass('ai-score-panel__view--table')
+})
+
+test('quick read says when no historical years are complete without creating an impossible filter message', () => {
+  const zeroHistoryView = {
+    calendarDays: 30,
+    status: 'available',
+    reason: '',
+    metrics: { ml_score: 50, win_prob: 0.55, pred_return: 1.2, pred_mfe: 2.4 },
+    selectedRecurrence: recurrence(0, 0),
+  }
+  renderPanel({
+    selected: { symbol: 'AAPL' },
+    bundle: {
+      fullPatternCalendarDays: 30,
+      displayCalendarDays: 30,
+      direction: 'Long',
+      display: zeroHistoryView,
+      horizons: [zeroHistoryView],
+    },
+  })
+
+  const panel = screen.getByRole('region', { name: 'AI Scores' })
+  expect(panel).toHaveTextContent(/Quick read.*No completed historical years/i)
+  expect(panel).not.toHaveTextContent(/0 of 0 historical years|below your 6-of-0/i)
 })
 
 test('records a real score only while the panel is active and the user is signed in', () => {
@@ -279,6 +299,7 @@ test('distinguishes a service failure from a failed history filter', () => {
 
   expect(screen.getByText('This time length did not pass your history filter')).toBeInTheDocument()
   expect(screen.getByText(/7 of 10 years profitable/i)).toBeInTheDocument()
-  expect(screen.getByText(/Your filter needs 9 profitable years/i)).toBeInTheDocument()
+  expect(screen.getByText(/Below filter: needs 9 of 10/i)).toBeInTheDocument()
   expect(screen.getByRole('region', { name: 'AI Scores' })).toHaveAttribute('data-theme', 'dark')
+  expect(screen.getByRole('region', { name: 'AI Scores' })).toHaveStyle({ '--ai-negative': '#f87171' })
 })

@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "theme": "dark",
+  "display": "aiScores",
+  "market": "S&P 500 STOCKS",
+  "oppTable": {
+    "selectRow": "firstAvailableAI",
+    "columnVisibility": { "win_prob": true }
+  },
+  "aiScores": { "openGuide": true },
+  "scale": 2,
+  "viewport": { "width": 1920, "height": 1080 },
+  "crops": ["full"],
+  "out": "out/demo/first_opportunity_ai_guide_dark"
+}

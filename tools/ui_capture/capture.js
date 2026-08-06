@@ -504,6 +504,49 @@ async function main() {
       { timeout: 60000 }
     ).catch(() => fail('timed out waiting for __twCapture.ready.oppTable - opp table never rendered non-empty data. Console errors: ' + JSON.stringify(consoleErrors)));
 
+    // A populated AI panel is tied to an actual Opportunity Table selection,
+    // not merely to an arbitrary ?o= Wave Viewer deep link. A capture can
+    // therefore reproduce the normal user flow by selecting a zero-based
+    // visible row after the table is ready.
+    const requestedOpportunityRow = spec.oppTable && spec.oppTable.selectRow;
+    const selectedOpportunityRow = Number.isInteger(requestedOpportunityRow) || requestedOpportunityRow === 'firstAvailableAI'
+      ? requestedOpportunityRow
+      : null;
+    if (selectedOpportunityRow !== null) {
+      log(`selecting Opportunity Table row ${selectedOpportunityRow}...`);
+      if (selectedOpportunityRow === 'firstAvailableAI') {
+        await page.waitForSelector('.opp-table .opp-ai-cell--available', { timeout: 60000 })
+          .catch(() => fail(`no visible Opportunity Table row received an available AI value. Console errors: ` + JSON.stringify(consoleErrors)));
+      }
+      const selected = await page.evaluate((rowRequest) => {
+        const rows = Array.from(document.querySelectorAll('.opp-table tbody tr.stripes, .opp-table tbody tr.selected'));
+        const availableCell = rowRequest === 'firstAvailableAI'
+          ? document.querySelector('.opp-table .opp-ai-cell--available')
+          : null;
+        const row = availableCell ? availableCell.closest('tr') : rows[rowRequest];
+        if (!row) return { clicked: false, count: rows.length, symbol: '' };
+        const availableLabel = availableCell ? availableCell.getAttribute('aria-label') || '' : '';
+        const symbolMatch = availableLabel.match(/ for (.+?)\. Select/);
+        row.click();
+        return { clicked: true, count: rows.length, symbol: symbolMatch ? symbolMatch[1] : '' };
+      }, selectedOpportunityRow);
+      if (!selected.clicked) {
+        fail(`Opportunity Table row ${selectedOpportunityRow} does not exist (${selected.count} visible data rows)`);
+      }
+      await page.waitForFunction(
+        () => Boolean(document.querySelector('.opp-table tbody tr.selected')),
+        { timeout: 30000 }
+      ).catch(() => fail(`Opportunity Table row ${selectedOpportunityRow} did not become selected. Console errors: ` + JSON.stringify(consoleErrors)));
+      await page.waitForFunction(
+        (expectedSymbol) => {
+          const symbol = window.__twCapture && window.__twCapture.meta && window.__twCapture.meta.seasonal && window.__twCapture.meta.seasonal.symbol;
+          return expectedSymbol ? symbol === expectedSymbol : Boolean(symbol);
+        },
+        { timeout: 60000 },
+        selected.symbol
+      ).catch(() => fail(`Opportunity Table row ${selectedOpportunityRow}${selected.symbol ? ` (${selected.symbol})` : ''} did not load into the Wave Viewer. Console errors: ` + JSON.stringify(consoleErrors)));
+    }
+
     if (deepLink) {
       log(`waiting for deep link to apply (meta.seasonal.symbol === "${spec.symbol}")...`);
       await page.waitForFunction(
@@ -536,11 +579,26 @@ async function main() {
           if (!active) return false;
           return expectedState === 'empty'
             ? Boolean(active.querySelector('.ai-score-panel--empty .ai-score-panel__empty-label'))
-            : Boolean(active.querySelector('.ai-score-panel__view'));
+            : Boolean(active.querySelector('.ai-score-panel__quick-read'));
         },
         { timeout: 60000 },
         expectedAIState
       ).catch(() => fail(`timed out waiting for ${expectedAIState} AI Scores after slide switch. Console errors: ` + JSON.stringify(consoleErrors)));
+
+      if (spec.aiScores && spec.aiScores.openGuide === true) {
+        if (expectedAIState === 'empty') fail('aiScores.openGuide requires a populated AI Scores state');
+        log('opening the AI Scores guide...');
+        const opened = await page.evaluate(() => {
+          const active = document.querySelector('.stock-linechart-parent .swiper-slide-active');
+          const button = active && active.querySelector('.ai-score-panel__info-button');
+          if (!button) return false;
+          button.click();
+          return true;
+        });
+        if (!opened) fail('AI Scores guide button was not found in the active panel');
+        await page.waitForSelector('[role="dialog"][aria-labelledby="ai-scores-popup-title"]', { timeout: 30000 })
+          .catch(() => fail(`AI Scores guide did not open. Console errors: ` + JSON.stringify(consoleErrors)));
+      }
     } else {
       log(`waiting for __twCapture.ready.${readyFlagName}...`);
       await page.waitForFunction(

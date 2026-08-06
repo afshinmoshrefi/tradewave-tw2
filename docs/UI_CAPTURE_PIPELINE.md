@@ -488,7 +488,7 @@ simply now accepts one more optional field). `spec_version` stays `1`.
 | `spec_version` | yes | `1` | Schema version guard |
 | `theme` | no (default `"dark"`) | `"dark"` \| `"light"` | Seeds `UITheme` |
 | `display` | yes | `"seasonal"` \| `"tradeDetail"` \| `"aiScores"` \| `"price"` | Which lower display to capture. The harness selects the accessible semantic dot because Price Chart may be index 2 or 3 when AI Scores is available. `aiScores` waits for a populated stats view by default and therefore requires an eligible U.S. stock/ETF account and market. |
-| `aiScores.expectedState` | no (default `"populated"`) | `"populated"` \| `"empty"` | AI-panel ready state. Use `"empty"` with no `pattern` to verify the selected-market/no-Wave-Viewer-pattern watermark state. |
+| `aiScores` | no | object with optional `expectedState` and `openGuide` | `expectedState` defaults to `"populated"`; use `"empty"` with no `pattern` to verify the selected-market/no-Wave-Viewer-pattern watermark. `openGuide: true` opens the information guide after a populated panel is ready. |
 | `market` | yes if `pattern` is set | one of the names in section 4 | Which resource group to select |
 | `symbol` | yes if `pattern` is set | ticker string, e.g. `"AAPL"` | Which symbol the deep link targets |
 | `pattern` | no | object: `{startDate, daysOut, years, pe}` | If present, builds a `?o=` deep link (see Layer 5 above). Omit entirely to capture the app's default/no-pattern state |
@@ -500,7 +500,7 @@ simply now accepts one more optional field). `spec_version` stays `1`.
 | `viewport` | no (default `{width:1920, height:1080}`) | `{width, height}` | Browser viewport size in CSS pixels (actual PNG pixels = viewport * scale) |
 | `priceChart` | no | object, all fields optional | Seeds price-chart localStorage options: `showProjection`, `showMaxProjection`, `projectionPeriod`, `showVolume`, `maConfig`, `bbConfig`, `timeframe`, `chartRange`, `showEarnings` (see the full table in Layer 3) |
 | `seasonal` | no | `{showMFE, showMAE}` (booleans, default both `true`) | Seeds the `MFE`/`MAE` cookies controlling seasonal-chart overlays |
-| `oppTable` | no | object, all fields optional | `columnVisibility`, `columnOrder` (localStorage), `yearsPerGroup`, `yearsPerGroupPE` (cookies, JSON-stringified), `cropRows` (integer, crop-sizing only - see section 6) |
+| `oppTable` | no | object, all fields optional | `columnVisibility`, `columnOrder` (localStorage), `yearsPerGroup`, `yearsPerGroupPE` (cookies, JSON-stringified), `cropRows` (integer, crop-sizing only - see section 6), and `selectRow` (zero-based visible row or `"firstAvailableAI"`). Use `selectRow` to populate the viewer exactly as a user does; `"firstAvailableAI"` requires one visible AI column and verifies that row's symbol loads. The AI Scores panel requires a real table selection rather than an arbitrary viewer deep link. |
 | `crops` | no (default `["full"]`) | array of `"full"` \| `"waveViewer"` \| `"viewerPlusDisplay"` \| `"appNoBanner"` \| `"display"` \| `"oppTable"` | Which screenshots to take (see section 6) |
 | `out` | no (default `"out/capture"`) | path prefix string | Output files are written as `<out>.<crop>.png` and `<out>.meta.json` |
 
@@ -621,13 +621,24 @@ Six working specs live in `specs/`, all targeting AAPL with the same pattern
 - `aapl_seasonal_dark_4x.json` - same as `aapl_seasonal_dark` but at `scale: 4`
   and only `full` + `display` crops, for testing extra-high-density output.
 
-The later `aapl_ai_scores_dark.json` regression spec uses a current-date 120-calendar-day
-AAPL pattern and the semantic `aiScores` display. It waits for the asynchronous AI stats
-tables before taking `full` and `display` crops.
+The later `first_opportunity_ai_scores_dark.json` regression spec selects the first
+visible S&P 500 opportunity with an available AI value and the semantic `aiScores`
+display. It verifies that row's symbol reaches the Wave Viewer and waits for the numeric
+Quick Read before taking `full` and `display` crops. Selecting a real Opportunity Table
+row matters: an arbitrary Wave Viewer deep link does not publish the row-bound AI bundle
+used by the panel.
 
 `dow_ai_scores_empty_dark.json` selects DOW 30 without a pattern and waits for the
 empty AI Scores watermark. This protects the market-selected/no-Wave-Viewer-pattern
 case from regressing into a loading or instruction card.
+
+`first_opportunity_ai_guide_dark.json` follows the same real-row selection as the
+populated panel spec, opens the information guide, and captures the full app so its
+plain-language first screen can be reviewed visually.
+
+`first_opportunity_ai_scores_1366_dark.json` repeats the real-row populated-panel
+capture at a 1366x768 viewport. It is the compact-desktop release gate for internal
+scrolling, cramped checkpoint columns, and title/dot overlap.
 
 ## 6. Reading `meta.json`
 

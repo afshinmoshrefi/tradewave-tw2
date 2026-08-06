@@ -6,6 +6,7 @@
   overflow: hidden;
   color: var(--ai-panel-text);
   background: var(--ai-panel-bg);
+  container-type: inline-size;
 }
 
 .ai-score-panel *,
@@ -92,15 +93,15 @@
 
 .ai-score-panel__content {
   display: flex;
-  padding: 0.65vh 1vw 0.55vh;
-  gap: 0.55vh;
+  padding: 0.55vh 1vw;
+  gap: 0.45vh;
   overflow: auto;
   flex-direction: column;
 }
 
 .ai-score-panel__pattern-line {
   display: flex;
-  min-height: 22px;
+  min-height: 20px;
   align-items: center;
   justify-content: center;
   color: var(--ai-panel-muted);
@@ -115,40 +116,50 @@
   content: '•';
 }
 
-.ai-score-panel__why-line,
-.ai-score-panel__length-line,
-.ai-score-panel__decision-line,
-.ai-score-panel__footnote {
+.ai-score-panel__quick-read,
+.ai-score-panel__explanation-line {
   width: 100%;
   font-size: clamp(10px, 0.7vw, 13px);
   line-height: 1.35;
 }
 
-.ai-score-panel__why-line,
-.ai-score-panel__decision-line {
+.ai-score-panel__quick-read {
   display: flex;
-  padding: 0.45vh 0.7vw;
+  min-height: 30px;
+  padding: 0.35vh 0.7vw;
   align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 0.45rem;
   border: 1px solid var(--ai-panel-border);
   background: var(--ai-stat-value);
 }
 
-.ai-score-panel__why-line span,
-.ai-score-panel__decision-line span,
-.ai-score-panel__length-line,
-.ai-score-panel__footnote {
+.ai-score-panel__quick-read > span,
+.ai-score-panel__quick-read > em,
+.ai-score-panel__explanation-line {
   color: var(--ai-panel-muted);
 }
 
-.ai-score-panel__length-line {
-  padding: 0.1vh 0.25vw;
+.ai-score-panel__quick-read > b {
+  font-variant-numeric: tabular-nums;
+  font-style: normal;
+}
+
+.ai-score-panel__quick-read > em {
+  color: var(--ai-warning);
+  font-style: normal;
+  font-weight: 650;
+}
+
+.ai-score-panel__explanation-line {
+  padding: 0.05vh 0.25vw;
   text-align: center;
 }
 
 .ai-score-panel__views {
   display: grid;
-  min-height: 185px;
+  min-height: 165px;
   flex: 1 1 auto;
   grid-template-columns: repeat(var(--ai-view-count), minmax(0, 1fr));
   gap: 1vw;
@@ -164,8 +175,8 @@
   grid-template-rows: minmax(30px, 19%) 1fr;
 }
 
-.ai-score-panel__view--main {
-  border: 2px solid var(--ai-main-border);
+.ai-score-panel__view--table {
+  border: 2px solid var(--ai-table-border);
 }
 
 .ai-score-panel__view-title {
@@ -177,7 +188,7 @@
   overflow: hidden;
   color: var(--ai-panel-text);
   background: var(--ai-stats-bar);
-  font-size: clamp(11px, 0.9vw, 16px);
+  font-size: clamp(11px, 0.84vw, 15px);
   font-weight: 700;
   text-align: center;
   white-space: nowrap;
@@ -235,6 +246,33 @@
   text-align: left;
 }
 
+.ai-score-panel__metric-row--primary th,
+.ai-score-panel__metric-row--primary td {
+  font-size: clamp(12px, 0.88vw, 16px);
+  font-weight: 750;
+}
+
+.ai-score-panel__metric-label,
+.ai-score-panel__metric-label > span,
+.ai-score-panel__metric-label > small,
+.ai-score-panel__rank-value,
+.ai-score-panel__rank-value > span,
+.ai-score-panel__rank-value > small {
+  display: block;
+}
+
+.ai-score-panel__metric-label > small,
+.ai-score-panel__rank-value > small {
+  margin-top: 2px;
+  color: var(--ai-panel-muted);
+  font-size: clamp(8px, 0.5vw, 10px);
+  font-weight: 600;
+}
+
+.ai-score-panel__rank-value > span {
+  font-size: clamp(9px, 0.66vw, 12px);
+}
+
 .ai-score-panel__history-record,
 .ai-score-panel__history-record > span,
 .ai-score-panel__history-record > small {
@@ -247,7 +285,7 @@
 
 .ai-score-panel__history-record > small {
   margin-top: 2px;
-  color: #d97706;
+  color: var(--ai-warning);
   font-size: clamp(8px, 0.52vw, 10px);
   font-weight: 650;
 }
@@ -258,16 +296,11 @@
 }
 
 .ai-score-panel__value--positive {
-  color: #16a34a !important;
+  color: var(--ai-positive) !important;
 }
 
 .ai-score-panel__value--negative {
-  color: #dc2626 !important;
-}
-
-.ai-score-panel__footnote {
-  padding-top: 0.05vh;
-  text-align: center;
+  color: var(--ai-negative) !important;
 }
 
 .ai-score-panel__state {
@@ -307,7 +340,7 @@
   }
 
   .ai-score-panel__views {
-    min-height: 175px;
+    min-height: 160px;
     gap: 0.55vw;
   }
 
@@ -317,21 +350,25 @@
   }
 }
 
-@media (max-width: 760px) {
-  .ai-score-panel__pattern-line {
-    flex-wrap: wrap;
+@container (max-width: 760px) {
+  .ai-score-panel__pattern-line,
+  .ai-score-panel__quick-read {
     white-space: normal;
   }
 
   .ai-score-panel__views {
-    min-height: 420px;
+    min-height: var(--ai-stack-height);
     grid-template-columns: 1fr;
   }
 
-  .ai-score-panel__why-line,
-  .ai-score-panel__decision-line {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.15rem;
+  .ai-score-panel__view {
+    min-height: 185px;
+  }
+}
+
+@media (max-width: 760px) {
+  .ai-score-panel__pattern-line {
+    flex-wrap: wrap;
+    white-space: normal;
   }
 }

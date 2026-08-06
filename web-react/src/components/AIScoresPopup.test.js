@@ -47,15 +47,16 @@ test('guide starts with four plain-English questions a new user needs answered',
   const guide = screen.getByRole('region', { name: 'AI Scores guide content' })
   expect(guide.textContent.trim()).toMatch(/^Why use AI Scores\?/)
   expect(guide).toHaveTextContent(/History tells you what this pattern did in past years/i)
-  expect(guide).toHaveTextContent(/latest completed stock and market information.*what may happen this time/i)
+  expect(guide).toHaveTextContent(/latest completed stock and market conditions.*today's setup/i)
+  expect(guide).toHaveTextContent(/current conditions support or conflict with the past results/i)
   expect(guide).toHaveTextContent(/does not replace history or guarantee a profit/i)
-  expect(guide).toHaveTextContent(/older AI estimates.*what really happened.*AI Win Chance is more realistic/i)
+  expect(guide).toHaveTextContent(/older AI estimates.*what really happened.*adjusts AI Win Chance.*real results/i)
 
   expect(guide).toHaveTextContent(/How to read the numbers/i)
-  expect(guide).toHaveTextContent(/AI Win Chance: estimated chance.*finishes with a profit/i)
+  expect(guide).toHaveTextContent(/AI Win Chance: estimated chance.*checkpoint ends with a profit.*Long or Short direction/i)
   expect(guide).toHaveTextContent(/Estimated End Return: estimated gain or loss/i)
   expect(guide).toHaveTextContent(/Estimated Best Move: largest helpful move.*not a target/i)
-  expect(guide).toHaveTextContent(/AI Return Rank:.*similar time lengths.*not a win chance or grade/i)
+  expect(guide).toHaveTextContent(/AI Return Rank:.*Higher than 75%.*similar AI estimates.*not a win chance or grade/i)
 
   expect(guide).toHaveTextContent(/Why are there several time views/i)
   expect(guide).toHaveTextContent(/30, 60, or 90 calendar days/i)
@@ -68,21 +69,21 @@ test('guide starts with four plain-English questions a new user needs answered',
   view.unmount()
 })
 
-test('guide keeps history and calibrated AI Win% separate and explains model limits', () => {
+test('guide keeps history and calibrated AI Win Chance separate and explains model limits', () => {
   const view = renderGuide(jest.fn())
   const guide = screen.getByRole('region', { name: 'AI Scores guide content' })
 
-  expect(guide).toHaveTextContent(/AI Win% does not change the historical record/i)
-  expect(guide).toHaveTextContent(/history says 9 of 10 years were profitable.*stays 9 of 10.*n=10/i)
+  expect(guide).toHaveTextContent(/AI Win Chance does not change the historical record/i)
+  expect(guide).toHaveTextContent(/history says 9 of 10 years were profitable.*stays 9 of 10 years/i)
   expect(guide).toHaveTextContent(/older AI estimates.*checks what happened next/i)
-  expect(guide).toHaveTextContent(/7 of 10 similar cases were profitable.*AI Win% is about 70%/i)
-  expect(screen.getByText('calibration')).toBeInTheDocument()
-  expect(guide).toHaveTextContent(/separate estimate.*does not add years.*or rewrite its win rate/i)
+  expect(guide).toHaveTextContent(/7 of 10 similar cases were profitable.*AI Win Chance is about 70%/i)
+  expect(guide).toHaveTextContent(/reality check is called calibration/i)
+  expect(guide).toHaveTextContent(/separate estimate.*does not add years.*or rewrite the past results/i)
 
   expect(guide).toHaveTextContent(/62 pieces of information/i)
   expect(guide).toHaveTextContent(/uses only information that was available at that time/i)
   expect(guide).toHaveTextContent(/keeps future information out of the test/i)
-  expect(guide).toHaveTextContent(/AIS of 80 ranks above about 80%/i)
+  expect(guide).toHaveTextContent(/Higher than 80%.*ranks above about 80%/i)
   expect(guide).toHaveTextContent(/does not mean an 80% chance of profit/i)
 
   view.unmount()
@@ -99,7 +100,7 @@ test('guide explains calendar-day comparisons, availability, and what to do befo
   expect(guide).toHaveTextContent(/More than 90 days: compare 30, 60, and 90 days; the table shows 90 days/i)
   expect(guide).toHaveTextContent(/AI Scores window shows every applicable reading together/i)
   expect(guide).toHaveTextContent(/AI estimate and history check answer different questions/i)
-  expect(guide).toHaveTextContent(/Long means the setup benefits if price rises.*Short means it benefits if price falls/i)
+  expect(guide).toHaveTextContent(/Long means a price rise helps the setup.*Short means a price drop helps the setup/i)
 
   expect(guide).toHaveTextContent(/US stocks and ETFs/i)
   expect(guide).toHaveTextContent(/stock and market data from the latest completed market day/i)
