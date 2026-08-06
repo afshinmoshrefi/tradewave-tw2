@@ -64,7 +64,7 @@ const longBundle = {
   ],
 }
 
-test('presents a long selected pattern as a clear decision-support summary', () => {
+test('presents a long selected pattern as compact stats-style decision tables', () => {
   const onOpenGuide = jest.fn()
   renderPanel({
     eligible: true,
@@ -74,34 +74,37 @@ test('presents a long selected pattern as a clear decision-support summary', () 
   }, { onOpenGuide })
 
   const panel = screen.getByRole('region', { name: 'AI Scores' })
-  expect(panel).toHaveTextContent(/A clear second opinion for the pattern you selected/i)
-  expect(panel).toHaveTextContent(/MSFT/)
-  expect(panel).toHaveTextContent(/Short.*benefits if price falls/i)
-  expect(panel).toHaveTextContent(/Starts Aug 5, 2026/i)
-  expect(panel).toHaveTextContent(/120 calendar days/i)
-  expect(within(panel).getByLabelText('90 calendar days')).toHaveTextContent('90')
+  expect(panel).toHaveTextContent(/AI Scores for MSFT.*Data through Aug 4, 2026/i)
+  expect(panel).toHaveTextContent(/Short.*Starts Aug 5, 2026.*120-day historical pattern.*90-day main AI view/i)
+  expect(panel).toHaveTextContent(/Why AI.*latest completed stock and market data.*second check.*history/i)
+  expect(panel).toHaveTextContent(/checked at 30, 60, and 90 days.*model stops at 90 days/i)
+  expect(panel).toHaveTextContent(/different ending date.*not another vote/i)
 
-  expect(panel).toHaveTextContent(/History shows what happened in the years you selected/i)
-  expect(panel).toHaveTextContent(/separate second opinion/i)
-  expect(panel).toHaveTextContent(/do not replace the historical record or guarantee the next result/i)
-  expect(panel).toHaveTextContent(/AI Win% is calibrated with older results/i)
+  const views = within(panel).getAllByRole('table')
+  expect(views).toHaveLength(3)
+  const thirty = within(panel).getByRole('table', { name: '30-day AI scores' })
+  expect(within(thirty).getByRole('row', { name: /Historical Record.*6 of 10 years profitable/i })).toBeInTheDocument()
+  expect(within(thirty).getByRole('row', { name: /AI Win Chance.*52%/i })).toBeInTheDocument()
+  expect(within(thirty).getByRole('row', { name: /Estimated End Return.*1.0%/i })).toBeInTheDocument()
+  expect(within(thirty).getByRole('row', { name: /Estimated Best Move.*3.0%/i })).toBeInTheDocument()
+  expect(within(thirty).getByRole('row', { name: /AI Return Rank.*51.0.*100/i })).toBeInTheDocument()
 
-  const mainReading = within(panel).getByRole('region', { name: '90-calendar-day view' })
-  expect(mainReading).toHaveTextContent(/AI Win%73%Estimated chance/i)
-  expect(mainReading).toHaveTextContent(/Predicted Ending Return4.0%Estimated result/i)
-  expect(mainReading).toHaveTextContent(/Estimated Best Move8.0%.*not a target/i)
-  expect(mainReading).toHaveTextContent(/AI Score78.0.*not a win chance/i)
+  const mainView = within(panel).getByRole('region', { name: '90-day AI view (main)' })
+  expect(mainView).toHaveClass('ai-score-panel__view--main')
+  expect(mainView).toHaveTextContent(/90-Day View.*Main/i)
+  expect(mainView).toHaveTextContent(/8 of 10 years profitable/i)
+  expect(mainView).toHaveTextContent(/AI Win Chance73%/i)
+  expect(mainView).toHaveTextContent(/Estimated End Return4.0%/i)
+  expect(mainView).toHaveTextContent(/Estimated Best Move8.0%/i)
+  expect(mainView).toHaveTextContent(/AI Return Rank78.0.*100/i)
 
-  expect(panel).toHaveTextContent(/recalculates separate 30-, 60-, and 90-calendar-day versions/i)
-  const table = within(panel).getByRole('table')
-  expect(within(table).getByRole('row', { name: /30 days.*6 of 10 profitable.*n=10.*52%.*1.0%.*3.0%.*51.0/i })).toBeInTheDocument()
-  expect(within(table).getByRole('row', { name: /60 days.*7 of 10 profitable.*n=10.*64%.*2.0%.*5.0%.*63.0/i })).toBeInTheDocument()
-  expect(within(table).getByRole('row', { name: /90 days.*Main reading.*8 of 10 profitable.*n=10.*73%.*4.0%.*8.0%.*78.0/i })).toBeInTheDocument()
-  expect(panel).toHaveTextContent(/All lengths use calendar days.*start date is day 1/i)
-  expect(panel).toHaveTextContent(/Do not average historical win rate with AI Win%/i)
-  expect(panel).toHaveTextContent(/data through Aug 4, 2026.*does not update during the market day/i)
+  expect(panel).toHaveTextContent(/Start with the historical record.*compare AI Win Chance and Estimated End Return/i)
+  expect(panel).toHaveTextContent(/Mixed results mean timing matters.*losing years.*Price Chart/i)
+  expect(panel).toHaveTextContent(/Calendar days.*start date is day 1/i)
+  expect(panel).toHaveTextContent(/Do not average historical results with AI Win Chance/i)
+  expect(panel).not.toHaveTextContent(/Quick read|calibrated|AI Score78|PredR|PMFE/i)
 
-  fireEvent.click(screen.getByRole('button', { name: 'How AI Scores work' }))
+  fireEvent.click(screen.getByRole('button', { name: 'How to read AI Scores' }))
   expect(onOpenGuide).toHaveBeenCalledTimes(1)
 })
 
@@ -129,13 +132,13 @@ test('explains the separate 10-day AI minimum without changing a short historica
   renderPanel({ selected: { symbol: 'AAPL' }, bundle: minimumBundle })
 
   const panel = screen.getByRole('region', { name: 'AI Scores' })
-  expect(panel).toHaveTextContent(/6 calendar days/i)
-  expect(panel).toHaveTextContent(/History keeps this 6-calendar-day pattern/i)
-  expect(panel).toHaveTextContent(/AI uses 10 calendar days because 10 days is the model's shortest supported time length/i)
-  expect(panel).toHaveTextContent(/10-day historical check below applies only to the AI calculation/i)
-  expect(panel).toHaveTextContent(/10-calendar-day view/i)
-  expect(within(panel).getByLabelText('10 calendar days')).toHaveTextContent('10')
-  expect(panel).toHaveTextContent(/Long.*benefits if price rises/i)
+  expect(panel).toHaveTextContent(/Long.*6-day historical pattern.*10-day main AI view/i)
+  expect(panel).toHaveTextContent(/This is a 6-day historical pattern/i)
+  expect(panel).toHaveTextContent(/AI uses 10 days because 10 days is its shortest view/i)
+  expect(panel).toHaveTextContent(/historical pattern stays 6 days/i)
+  const table = within(panel).getByRole('table', { name: '10-day AI scores' })
+  expect(within(table).getByRole('row', { name: /AI Win Chance.*69%/i })).toBeInTheDocument()
+  expect(within(panel).getByRole('region', { name: '10-day AI view (main)' })).toHaveClass('ai-score-panel__view--main')
 })
 
 test('records a real score only while the panel is active and the user is signed in', () => {
@@ -201,21 +204,32 @@ test('does not record an active panel when every AI reading is unavailable', () 
   delete global.fetch
 })
 
-test('shows clear empty, loading, and unsupported-market states', () => {
-  const view = renderPanel({ eligible: true, enabled: true, selected: null, bundle: null })
-  expect(screen.getByText('Select a pattern to see its AI Scores')).toBeInTheDocument()
-  expect(screen.getByText(/Choose an opportunity from the table/i)).toBeInTheDocument()
+test('matches the other lower windows when the viewer is empty, including stale placeholder state', () => {
+  const view = renderPanel({
+    eligible: true,
+    enabled: true,
+    selected: { symbol: '', date: '', daysOut: 30 },
+    loading: true,
+    bundle: null,
+  })
+  const emptyLabel = screen.getByText('AI Scores')
+  expect(emptyLabel).toHaveClass('ai-score-panel__empty-label')
+  expect(emptyLabel).toHaveStyle({ fontSize: '7vw' })
+  expect(screen.getByRole('region', { name: 'AI Scores' })).toHaveClass('ai-score-panel--empty')
+  expect(screen.queryByRole('button', { name: 'How to read AI Scores' })).not.toBeInTheDocument()
+  expect(screen.queryByText(/Select a pattern|Choose an opportunity|Loading AI Scores/i)).not.toBeInTheDocument()
 
   view.rerender(
     <UserContext.Provider value={{ UITheme: 'light' }}>
       <AIScorePanel viewModel={{ eligible: true, enabled: true, selected: { symbol: 'AAPL' }, loading: true }} />
     </UserContext.Provider>
   )
-  expect(screen.getByRole('status')).toHaveTextContent(/Checking this pattern/i)
+  expect(screen.getByRole('status')).toHaveTextContent(/Loading AI Scores for AAPL/i)
+  expect(screen.getByRole('status')).toHaveTextContent(/Historical results remain available/i)
 
   view.rerender(
     <UserContext.Provider value={{ UITheme: 'light' }}>
-      <AIScorePanel viewModel={{ eligible: false, enabled: true }} />
+      <AIScorePanel viewModel={{ eligible: false, enabled: true, selected: { symbol: 'EURUSD' } }} />
     </UserContext.Provider>
   )
   expect(screen.getByText('AI Scores are not available for this market')).toBeInTheDocument()
@@ -264,7 +278,7 @@ test('distinguishes a service failure from a failed history filter', () => {
   )
 
   expect(screen.getByText('This time length did not pass your history filter')).toBeInTheDocument()
-  expect(screen.getByText(/7 of 10 profitable/i)).toBeInTheDocument()
-  expect(screen.getByText(/Needs 9 profitable years for your filter/i)).toBeInTheDocument()
+  expect(screen.getByText(/7 of 10 years profitable/i)).toBeInTheDocument()
+  expect(screen.getByText(/Your filter needs 9 profitable years/i)).toBeInTheDocument()
   expect(screen.getByRole('region', { name: 'AI Scores' })).toHaveAttribute('data-theme', 'dark')
 })

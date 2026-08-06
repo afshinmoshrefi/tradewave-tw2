@@ -573,11 +573,22 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   only when the AI Scores panel is available. It does not add a separate tab or button banner.
   The selected row's normalized bundle is published from
   `OppTable` to the AI panel, so its main value and 10/full/30/60/90-day comparison are the
-  same values used by table display, filters, and sorting. The panel shows plain-language
-  metric definitions, selected-pattern context, available selected-recurrence evidence with
-  sample size `n`, latest completed data date, and distinct loading/history-filter/service
-  states. Detailed AI cell/header popovers, outlined values, and the first-use coachmark were
-  removed. AI cells are quiet scan values; all four AI columns default off through a one-time
+  same values used by table display, filters, and sorting. The panel uses the established
+  Wave Stats visual language: an 8% control strip, flat bordered tables, stats title bars,
+  alternating stat rows, and one stable table per available time view. Its visible rows are
+  `Historical Record`, `AI Win Chance`, `Estimated End Return`, `Estimated Best Move`, and
+  `AI Return Rank`; the last label replaces the ambiguous visible `AI Score` wording without
+  changing the stored `ml_score` field. The main time view is outlined, and a short line says
+  that 30/60/90-day readings are different ending-date checkpoints, not repeated votes on the
+  same result. Selected-recurrence evidence retains the historical sample size, and loading,
+  history-filter, and service failures remain distinct. When no viewer pattern is loaded, the
+  panel matches the other lower windows exactly: a blank 8% control strip and only a centered
+  7vw `AI Scores` watermark in the remaining body. The empty decision is based on a nonblank
+  selected symbol, not the truthiness of a stale placeholder object. One information icon opens
+  the plain-language guide for why AI helps, calibration, metric definitions, time views, and
+  next steps; those teaching paragraphs are not repeated in every selected-pattern view.
+  Detailed AI cell/header popovers, outlined values, and the first-use coachmark were removed.
+  AI cells are quiet scan values; all four AI columns default off through a one-time
   versioned per-user migration and remain individually opt-in through the desktop and shared
   mobile/tablet Settings. A saved `ai_scores` panel destination is preserved while the current
   market's eligibility is unresolved, then restored or replaced only after that result is known.

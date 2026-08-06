@@ -63,11 +63,12 @@ const RESOURCE_GROUP_IDS = Object.fromEntries(
 
 // Slide index within the lower-display Swiper (DesktopLayout.js:1504-1531).
 // Order is fixed by JSX order: SeasonalChart, TradeDetail, StockLineChart.
-const DISPLAY_SLIDE_INDEX = { seasonal: 0, tradeDetail: 1, price: 2 };
+const DISPLAY_SLIDE_INDEX = { seasonal: 0, tradeDetail: 1, aiScores: 1, price: 2 };
 const SLIDE_INDEX_DISPLAY = ['seasonal', 'tradeDetail', 'price'];
 const DISPLAY_BOTTOM_PANEL = {
   seasonal: { semantic: 'trend_chart', label: 'Trend Chart' },
   tradeDetail: { semantic: 'wave_stats', label: 'Wave Stats' },
+  aiScores: { semantic: 'ai_scores', label: 'AI Scores' },
   price: { semantic: 'price_chart', label: 'Price Chart' },
 };
 
@@ -227,7 +228,7 @@ function buildCookieSeed(spec, deepLink) {
   // deep link (or a future no-pattern spec) still lands correctly, and we
   // handle the forced-slide-2 case explicitly after boot (see switchSlide()).
   const wantSlideIdx = DISPLAY_SLIDE_INDEX[spec.display];
-  if (wantSlideIdx === undefined) fail(`spec.display "${spec.display}" must be one of seasonal|tradeDetail|price`);
+  if (wantSlideIdx === undefined) fail(`spec.display "${spec.display}" must be one of seasonal|tradeDetail|aiScores|price`);
   push('WindowNumber', wantSlideIdx);
   push('BottomWindowName', DISPLAY_BOTTOM_PANEL[spec.display].semantic);
 
@@ -518,14 +519,36 @@ async function main() {
     // of encoding either index in capture automation.
     await selectBottomPanel(page, DISPLAY_BOTTOM_PANEL[spec.display].label, consoleErrors);
 
-    // Wait for the target display's own ready flag (may already be true).
-    const readyFlagName = spec.display; // 'seasonal' | 'tradeDetail' | 'price'
-    log(`waiting for __twCapture.ready.${readyFlagName}...`);
-    await page.waitForFunction(
-      (name) => window.__twCapture && window.__twCapture.ready && window.__twCapture.ready[name] === true,
-      { timeout: 60000 },
-      readyFlagName
-    ).catch(() => fail(`timed out waiting for __twCapture.ready.${readyFlagName} after slide switch. Console errors: ` + JSON.stringify(consoleErrors)));
+    // Wait for the target display's own ready signal (may already be true).
+    // AI Scores is asynchronous but does not render a chart/captureReady marker;
+    // its populated tables or explicit empty watermark are the honest visible
+    // ready states. Empty-state specs let us regression-test the exact user flow
+    // where a market is selected but no Wave Viewer pattern is loaded.
+    const readyFlagName = spec.display;
+    if (readyFlagName === 'aiScores') {
+      const expectedAIState = spec.aiScores && spec.aiScores.expectedState === 'empty'
+        ? 'empty'
+        : 'populated';
+      log(`waiting for ${expectedAIState} AI Scores state...`);
+      await page.waitForFunction(
+        (expectedState) => {
+          const active = document.querySelector('.stock-linechart-parent .swiper-slide-active');
+          if (!active) return false;
+          return expectedState === 'empty'
+            ? Boolean(active.querySelector('.ai-score-panel--empty .ai-score-panel__empty-label'))
+            : Boolean(active.querySelector('.ai-score-panel__view'));
+        },
+        { timeout: 60000 },
+        expectedAIState
+      ).catch(() => fail(`timed out waiting for ${expectedAIState} AI Scores after slide switch. Console errors: ` + JSON.stringify(consoleErrors)));
+    } else {
+      log(`waiting for __twCapture.ready.${readyFlagName}...`);
+      await page.waitForFunction(
+        (name) => window.__twCapture && window.__twCapture.ready && window.__twCapture.ready[name] === true,
+        { timeout: 60000 },
+        readyFlagName
+      ).catch(() => fail(`timed out waiting for __twCapture.ready.${readyFlagName} after slide switch. Console errors: ` + JSON.stringify(consoleErrors)));
+    }
 
     // Slide 0 (seasonal) renders TWO independently-fetched things: the bar
     // chart itself ('seasonal', waited above) and the lower trend-line chart

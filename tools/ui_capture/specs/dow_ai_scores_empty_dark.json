@@ -1,0 +1,11 @@
+{
+  "spec_version": 1,
+  "theme": "dark",
+  "display": "aiScores",
+  "market": "DOW 30 STOCKS",
+  "aiScores": { "expectedState": "empty" },
+  "scale": 2,
+  "viewport": { "width": 1920, "height": 1080 },
+  "crops": ["full", "display"],
+  "out": "out/demo/dow_ai_scores_empty_dark"
+}

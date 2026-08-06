@@ -487,7 +487,8 @@ simply now accepts one more optional field). `spec_version` stays `1`.
 |---|---|---|---|
 | `spec_version` | yes | `1` | Schema version guard |
 | `theme` | no (default `"dark"`) | `"dark"` \| `"light"` | Seeds `UITheme` |
-| `display` | yes | `"seasonal"` \| `"tradeDetail"` \| `"price"` | Which lower display to capture. The harness selects the accessible semantic dot because Price Chart may be index 2 or 3 when AI Scores is available. |
+| `display` | yes | `"seasonal"` \| `"tradeDetail"` \| `"aiScores"` \| `"price"` | Which lower display to capture. The harness selects the accessible semantic dot because Price Chart may be index 2 or 3 when AI Scores is available. `aiScores` waits for a populated stats view by default and therefore requires an eligible U.S. stock/ETF account and market. |
+| `aiScores.expectedState` | no (default `"populated"`) | `"populated"` \| `"empty"` | AI-panel ready state. Use `"empty"` with no `pattern` to verify the selected-market/no-Wave-Viewer-pattern watermark state. |
 | `market` | yes if `pattern` is set | one of the names in section 4 | Which resource group to select |
 | `symbol` | yes if `pattern` is set | ticker string, e.g. `"AAPL"` | Which symbol the deep link targets |
 | `pattern` | no | object: `{startDate, daysOut, years, pe}` | If present, builds a `?o=` deep link (see Layer 5 above). Omit entirely to capture the app's default/no-pattern state |
@@ -619,6 +620,14 @@ Six working specs live in `specs/`, all targeting AAPL with the same pattern
   stats + cumulative-return panel), `full` + `display` crops.
 - `aapl_seasonal_dark_4x.json` - same as `aapl_seasonal_dark` but at `scale: 4`
   and only `full` + `display` crops, for testing extra-high-density output.
+
+The later `aapl_ai_scores_dark.json` regression spec uses a current-date 120-calendar-day
+AAPL pattern and the semantic `aiScores` display. It waits for the asynchronous AI stats
+tables before taking `full` and `display` crops.
+
+`dow_ai_scores_empty_dark.json` selects DOW 30 without a pattern and waits for the
+empty AI Scores watermark. This protects the market-selected/no-Wave-Viewer-pattern
+case from regressing into a loading or instruction card.
 
 ## 6. Reading `meta.json`
 

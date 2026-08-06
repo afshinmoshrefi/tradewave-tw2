@@ -90,9 +90,15 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
         popupStyle.left = 'auto'
     }
 
+    const plainMetricNames = {
+        ml_score: 'AI Return Rank',
+        win_prob: 'AI Win Chance',
+        pred_return: 'Estimated End Return',
+        pred_mfe: 'Estimated Best Move',
+    }
     const columns = AI_COLUMNS.map(key => ({
         col: AI_METRICS[key].shortLabel,
-        full: AI_METRICS[key].label,
+        full: plainMetricNames[key] || AI_METRICS[key].label,
         desc: AI_METRICS[key].description,
         color: '#818cf8',
     }))
@@ -129,61 +135,45 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         marginBottom: '16px',
                     }}>
                         <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>
-                            Start in the AI Scores window
+                            Why use AI Scores?
                         </div>
                         <p style={{ marginTop: 0 }}>
-                            <strong>Select an opportunity, then open AI Scores after Wave Stats.</strong>{' '}
-                            That window explains the selected pattern, shows all available time lengths, and keeps the
-                            historical sample size beside the AI readings.
+                            <strong>History tells you what this pattern did in past years.</strong>{' '}
+                            AI uses the latest completed stock and market information to estimate what may happen this
+                            time. Use both views together. AI does not replace history or guarantee a profit.
                         </p>
                         <p>
-                            The Opportunity Table is meant for quick scanning. Its four AI columns are off by default,
-                            but you can turn on any of them in Settings. You can also sort by an AI value without showing
-                            that column.
+                            TradeWave checks older AI estimates against what really happened and corrects the
+                            percentages so AI Win Chance is more realistic. This check is called calibration.
                         </p>
 
                         <div style={{ fontSize: '16px', fontWeight: 700, margin: '16px 0 8px' }}>
-                            AI Scores in plain English
+                            How to read the numbers
                         </div>
-                        <p>
-                            <strong>History shows what happened during this calendar pattern in the years you selected.</strong>{' '}
-                            AI Scores add a separate second opinion using the latest completed stock and market data.
-                            Keep both views side by side; neither one guarantees what happens next.
-                        </p>
                         <ul style={{ paddingLeft: '20px', margin: '8px 0 14px' }}>
-                            <li style={{ marginBottom: '6px' }}><strong>Win%:</strong> estimated chance of a profitable result: price rising for Long or falling for Short.</li>
-                            <li style={{ marginBottom: '6px' }}><strong>PredR:</strong> estimated return when the time window ends.</li>
-                            <li style={{ marginBottom: '6px' }}><strong>PMFE:</strong> estimated best move before the window ends; it is not a target.</li>
-                            <li><strong>AIS:</strong> 0-100 rank of the estimated ending return; it is not a win chance.</li>
+                            <li style={{ marginBottom: '6px' }}><strong>AI Win Chance:</strong> estimated chance that the pattern finishes with a profit.</li>
+                            <li style={{ marginBottom: '6px' }}><strong>Estimated End Return:</strong> estimated gain or loss when this time length ends.</li>
+                            <li style={{ marginBottom: '6px' }}><strong>Estimated Best Move:</strong> largest helpful move AI expects before the end. It is not a target.</li>
+                            <li><strong>AI Return Rank:</strong> how the estimated end return compares with AI readings for similar time lengths. It is not a win chance or grade.</li>
                         </ul>
 
                         <div style={{ fontSize: '16px', fontWeight: 700, margin: '16px 0 8px' }}>
-                            How to use them
+                            Why are there several time views?
                         </div>
-                        <ol style={{ paddingLeft: '22px', margin: '8px 0 0' }}>
-                            <li style={{ marginBottom: '8px' }}>
-                                <strong>Start with history.</strong> Check how many past results were profitable and the
-                                sample size. A record of 9 out of 10 means the sample is <strong>n=10</strong>.
-                            </li>
-                            <li style={{ marginBottom: '8px' }}>
-                                <strong>Compare AI Win%.</strong> When history and AI agree, the evidence points in the
-                                same direction, but it is still not proof. A large difference is a reason to inspect
-                                the chart, losing years, and risk. It is not an automatic buy or sell signal. Do not
-                                average the two percentages together.
-                            </li>
-                            <li style={{ marginBottom: '8px' }}>
-                                <strong>Check move size.</strong> PredR estimates the ending result. PMFE estimates the
-                                best favorable move during the window, but it does not set a target.
-                            </li>
-                            <li style={{ marginBottom: '8px' }}>
-                                <strong>Compare time lengths.</strong> A large change between rows tells you timing may
-                                matter and deserves a closer look. It does not choose an entry or exit for you.
-                            </li>
-                            <li>
-                                <strong>Use AIS last.</strong> AIS helps rank estimated returns. It is not Win%, a
-                                confidence grade, or a final answer.
-                            </li>
-                        </ol>
+                        <p>
+                            A pattern can look different after 30, 60, or 90 calendar days. TradeWave scores each
+                            ending date separately. These are checkpoints for different holding lengths, not extra
+                            votes on the same result.
+                        </p>
+
+                        <div style={{ fontSize: '16px', fontWeight: 700, margin: '16px 0 8px' }}>
+                            What should I do next?
+                        </div>
+                        <p style={{ marginBottom: 0 }}>
+                            Start with the historical record. Then compare AI Win Chance and Estimated End Return.
+                            If the views disagree, slow down and review the losing years, Price Chart, and risk. Do not
+                            average the historical percentage with AI Win Chance.
+                        </p>
                     </div>
 
                     <div className="ts-section-title">

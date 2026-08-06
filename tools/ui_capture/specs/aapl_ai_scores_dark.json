@@ -1,0 +1,12 @@
+{
+  "spec_version": 1,
+  "theme": "dark",
+  "display": "aiScores",
+  "market": "S&P 500 STOCKS",
+  "symbol": "AAPL",
+  "pattern": { "startDate": "2026-08-06", "daysOut": 120, "years": "10", "pe": null },
+  "scale": 2,
+  "viewport": { "width": 1920, "height": 1080 },
+  "crops": ["full", "display"],
+  "out": "out/demo/aapl_ai_scores_dark"
+}
