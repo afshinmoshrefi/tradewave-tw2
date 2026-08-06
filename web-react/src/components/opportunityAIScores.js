@@ -11,35 +11,35 @@ export const AI_METRICS = Object.freeze({
   ml_score: Object.freeze({
     shortLabel: 'AIS',
     label: 'AI Score',
-    shortDescription: 'AI strength rank from 0 to 100.',
-    description: 'A 0-100 rank showing how strong PredR is compared with other model readings in the same time range. It is not a chance of winning.',
+    shortDescription: '0-100 rank of the AI-estimated ending return. Not a win chance.',
+    description: 'Ranks this estimated ending return against other AI readings for similar time lengths. Higher means it ranks above more readings in that group. AIS is not Win%, a confidence grade, or a promise.',
   }),
   win_prob: Object.freeze({
     shortLabel: 'Win%',
-    label: 'AI Win Probability',
-    shortDescription: 'AI-calibrated win probability.',
-    description: 'How often past cases with similar model readings later finished profitable in the selected direction. This percentage is checked against real results.',
+    label: 'AI Win%',
+    shortDescription: 'AI-calibrated chance of a profitable result.',
+    description: 'Among older cases with similar AI estimates, this is the share that later finished profitable in the Long or Short direction shown. TradeWave checks it against real outcomes, but it cannot predict the next result with certainty.',
   }),
   pred_return: Object.freeze({
     shortLabel: 'PredR',
-    label: 'Predicted Return',
-    shortDescription: 'AI-predicted return at the end of this time window.',
-    description: 'The model estimate for the return at the end of this time window. A positive number favors the selected Long or Short direction.',
+    label: 'Predicted Ending Return',
+    shortDescription: 'Estimated return when this time window ends.',
+    description: 'The AI-estimated percentage return at the end of this time window. A positive number favors the selected direction: a rise for Long or a decline for Short. It is an estimate, not a promised return.',
   }),
   pred_mfe: Object.freeze({
     shortLabel: 'PMFE',
-    label: 'Predicted MFE',
-    shortDescription: 'AI-predicted best favorable move during this time window.',
-    description: 'The model estimate for the best move in the selected direction at any point during this time window. It is not a price target or exit instruction.',
+    label: 'Estimated Best Move',
+    shortDescription: 'Estimated best move during this time window. Not a target.',
+    description: 'The AI-estimated best move in the selected Long or Short direction before the window ends. It does not say when that move may happen, and it is not a price target or exit instruction.',
   }),
 })
 
-export const AI_DURATION_OUTLINE_DESCRIPTION = 'An outlined AI value means that pattern has more than one AI duration to view. Open it to compare them. The outline does not mean the score is better or worse, and it is not a warning.'
+export const AI_DURATION_OUTLINE_DESCRIPTION = 'An outline means you can open the value and compare more than one AI time length. It is not a warning or a quality grade.'
 
 export const opportunityAIHeaderTooltip = metric => {
   const metadata = AI_METRICS[metric]
   if (!metadata) return ''
-  return `${metadata.label} (${metadata.shortLabel}). ${metadata.description} ${AI_DURATION_OUTLINE_DESCRIPTION} For a 1-9-day historical pattern, AI uses the model's 10-day minimum. Click to sort.`
+  return `${AI_DURATION_OUTLINE_DESCRIPTION} ${metadata.label} (${metadata.shortLabel}). ${metadata.description} Patterns shorter than 10 days use a 10-day AI reading while history keeps the real length. Patterns longer than 90 days show 90 days in the table. Select the heading to sort.`
 }
 
 export const opportunityAIShortHeaderTooltip = metric => (
@@ -366,27 +366,27 @@ export const formatOpportunityAIMetric = (metric, value) => {
 }
 
 const AI_REASON_COPY = Object.freeze({
-  after_entry: 'This current-condition score is unavailable after the pattern entry.',
+  after_entry: 'This pattern has already started, so a new AI reading is not available.',
   context_scoring_failed: 'AI scoring is temporarily unavailable. Try again shortly.',
-  incomplete_feature_vector: 'The recalculated historical profile is incomplete for this horizon.',
-  invalid_checkpoint_context: 'This checkpoint request does not contain a valid pattern identity.',
-  nonfinite_pattern_profile: 'The recalculated historical profile is incomplete for this horizon.',
-  pattern_profile_unavailable: 'No qualifying historical profile was available for this horizon.',
-  pattern_definitions_unavailable: 'Historical pattern definitions are not available for this ticker and horizon.',
-  prebuilt_profile_mismatch: 'The recalculated historical profile could not be verified for this horizon.',
-  selected_recurrence_below_threshold: 'The recalculated pattern is below its selected historical requirement.',
-  selected_recurrence_insufficient_history: 'The selected recurrence does not have enough completed history at this horizon.',
+  incomplete_feature_vector: 'TradeWave does not have all the data needed to score this time length.',
+  invalid_checkpoint_context: 'TradeWave could not verify the data for this time length.',
+  nonfinite_pattern_profile: 'TradeWave does not have all the data needed to score this time length.',
+  pattern_profile_unavailable: 'There is not enough usable history to score this time length.',
+  pattern_definitions_unavailable: 'TradeWave does not have the historical pattern data needed for this ticker and time length.',
+  prebuilt_profile_mismatch: 'TradeWave could not verify the data for this time length.',
+  selected_recurrence_below_threshold: 'This time length does not pass your history filter.',
+  selected_recurrence_insufficient_history: 'There is not enough completed history to check this time length.',
   provider_unavailable: 'AI scoring is temporarily unavailable. Try again shortly.',
   service_unavailable: 'AI scoring is temporarily unavailable. Try again shortly.',
-  target_entry_unavailable: 'A valid price entry could not be established for this date.',
-  target_price_unavailable: 'Price history is not available for this ticker.',
-  tier_unavailable: 'The model for this checkpoint is temporarily unavailable.',
-  too_early: 'AI scores become available closer to the pattern entry date.',
-  too_far_ahead: 'AI scores become available closer to the pattern entry date.',
-  unavailable: 'No AI score is available for this horizon.',
-  unsupported_duration: 'This full-window duration is outside the calibrated AI range.',
-  unsupported_market: 'AI scores are currently available for supported U.S. stocks and ETFs.',
-  vix_blocked: 'AI scoring is paused while volatility is outside the model operating range.',
+  target_entry_unavailable: 'A starting price is not available for this date.',
+  target_price_unavailable: 'TradeWave does not have enough price history for this ticker.',
+  tier_unavailable: 'The AI model for this time length is temporarily unavailable.',
+  too_early: 'This score will appear closer to the pattern start date.',
+  too_far_ahead: 'This score will appear closer to the pattern start date.',
+  unavailable: 'No AI score is available for this time length.',
+  unsupported_duration: 'AI models cover time lengths from 10 through 90 calendar days.',
+  unsupported_market: 'AI Scores are available only for U.S. stocks and ETFs.',
+  vix_blocked: 'Market price swings are outside the range this AI was tested for, so no score is shown.',
 })
 
 export const advanceOpportunityAIPollBudget = ({
@@ -410,16 +410,15 @@ export const advanceOpportunityAIPollBudget = ({
 
 export const opportunityAIReasonCopy = reason => {
   const value = String(reason || '').trim()
-  if (!value) return 'No AI score is available for this horizon.'
+  if (!value) return 'No AI score is available for this time length.'
   const key = value.toLowerCase()
   if (AI_REASON_COPY[key]) return AI_REASON_COPY[key]
-  if (value.includes(' ')) return value
   return 'AI scoring is temporarily unavailable. Try again shortly.'
 }
 
 export const opportunityAICompactStatus = horizon => {
   if (!horizon) return 'Temporarily unavailable'
-  if (horizon.status === 'below_threshold') return 'Below threshold'
+  if (horizon.status === 'below_threshold') return 'History filter not met'
   const reason = String(horizon.reason || '').toLowerCase()
   if (reason.includes('insufficient_history') || reason.includes('not enough')) return 'Not enough history'
   if (reason === 'too_early' || reason === 'too_far_ahead') return 'Not available yet'

@@ -111,6 +111,23 @@ const longBundle = {
   ],
 }
 
+const midLengthComparisonBundle = {
+  ...longBundle,
+  key: 'MSFT|44|s',
+  fullPatternCalendarDays: 45,
+  displayCalendarDays: 45,
+  display: {
+    calendarDays: 45,
+    status: 'available',
+    reason: '',
+    metrics: { ml_score: 66, win_prob: 0.61, pred_return: 2.2, pred_mfe: 4.6 },
+  },
+  horizons: [
+    { calendarDays: 30, status: 'available', reason: '', metrics: { ml_score: 51, win_prob: 0.52, pred_return: 1, pred_mfe: 3 } },
+    { calendarDays: 45, status: 'available', reason: '', metrics: { ml_score: 66, win_prob: 0.61, pred_return: 2.2, pred_mfe: 4.6 } },
+  ],
+}
+
 const fullBundle = {
   key: 'AAPL|44|l',
   basis: 'full_pattern',
@@ -155,7 +172,7 @@ const minimumBundle = {
   }],
 }
 
-test('checkpoint cell has no visible 90d badge and exposes 30/60/90 detail on click', () => {
+test('outlined cell has no visible 90d badge and explains its 30/60/90 comparison on click', () => {
   const parentClick = jest.fn()
   render(
     <div onClick={parentClick}>
@@ -163,32 +180,35 @@ test('checkpoint cell has no visible 90d badge and exposes 30/60/90 detail on cl
     </div>
   )
 
-  const button = screen.getByRole('button', { name: /AI Win Probability 73%.*90-day displayed horizon with duration comparison/i })
+  const button = screen.getByRole('button', { name: /AI Win% 73%.*90-day table value; more time lengths available/i })
   expect(button).toHaveClass('opp-ai-cell--checkpoint')
   expect(screen.queryByText('90d')).not.toBeInTheDocument()
 
   fireEvent.click(button)
   expect(parentClick).not.toHaveBeenCalled()
-  expect(screen.getByRole('dialog', { name: 'AI Win Probability details' })).toBeInTheDocument()
+  const detail = screen.getByRole('dialog', { name: 'AI Win% details' })
+  expect(detail).toBeInTheDocument()
   expect(screen.getByText('30')).toBeInTheDocument()
   expect(screen.getByText('60')).toBeInTheDocument()
   expect(screen.getByText('90')).toBeInTheDocument()
-  expect(screen.getByText('shown')).toBeInTheDocument()
-  expect(screen.getByText(/Entry 2026-08-05.*Short/)).toBeInTheDocument()
-  expect(screen.getByText(/V3 scores each recalculated duration/i)).toBeInTheDocument()
+  expect(screen.getByText('table value')).toBeInTheDocument()
+  expect(screen.getByText(/Pattern starts 2026-08-05.*Short \(benefits if price falls\)/)).toBeInTheDocument()
+  expect(screen.getByText(/Each row is recalculated and scored for that many calendar days/i)).toBeInTheDocument()
+  expect(detail).toHaveTextContent(/Compare the rows to see how the AI view changes over time/i)
+  expect(detail).not.toHaveTextContent(/V3|horizon|recurrence|feature vector|profile/i)
 })
 
 test('focus opens metric detail and Escape closes it while retaining a keyboard focus target', () => {
   render(<OpportunityAICell bundle={longBundle} metric="pred_return" symbol="MSFT" cellId="long-return" />)
-  const button = screen.getByRole('button', { name: /Predicted Return 4.0%/i })
+  const button = screen.getByRole('button', { name: /Predicted Ending Return 4.0%/i })
 
   button.focus()
   expect(button).toHaveAttribute('aria-expanded', 'true')
-  expect(screen.getByRole('dialog', { name: 'Predicted Return details' })).toBeInTheDocument()
+  expect(screen.getByRole('dialog', { name: 'Predicted Ending Return details' })).toBeInTheDocument()
 
   fireEvent.keyDown(button, { key: 'Escape' })
   expect(button).toHaveAttribute('aria-expanded', 'false')
-  expect(screen.queryByRole('dialog', { name: 'Predicted Return details' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('dialog', { name: 'Predicted Ending Return details' })).not.toBeInTheDocument()
   expect(button).toHaveFocus()
 })
 
@@ -203,11 +223,11 @@ test('portaled detail preserves Tab, Shift+Tab, and Escape focus flow', () => {
       onOpenHelp={jest.fn()}
     />
   )
-  const cellButton = screen.getByRole('button', { name: /Predicted Return 4.0%/i })
+  const cellButton = screen.getByRole('button', { name: /Predicted Ending Return 4.0%/i })
   cellButton.focus()
 
   fireEvent.keyDown(cellButton, { key: 'Tab' })
-  const helpButton = screen.getByRole('button', { name: 'About AI scores' })
+  const helpButton = screen.getByRole('button', { name: 'How to use AI Scores' })
   expect(helpButton).toHaveFocus()
 
   fireEvent.keyDown(helpButton, { key: 'Tab', shiftKey: true })
@@ -221,10 +241,10 @@ test('portaled detail preserves Tab, Shift+Tab, and Escape focus flow', () => {
   fireEvent.keyDown(cellButton, { key: 'Tab' })
   expect(helpButton).toHaveFocus()
   fireEvent.keyDown(helpButton, { key: 'Escape' })
-  expect(screen.queryByRole('dialog', { name: 'Predicted Return details' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('dialog', { name: 'Predicted Ending Return details' })).not.toBeInTheDocument()
   expect(cellButton).toHaveFocus()
   act(() => { jest.advanceTimersByTime(200) })
-  expect(screen.queryByRole('dialog', { name: 'Predicted Return details' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('dialog', { name: 'Predicted Ending Return details' })).not.toBeInTheDocument()
 })
 
 test('detail and coachmark portal outside table clips with viewport-aware placement', () => {
@@ -263,13 +283,13 @@ test('Escape from an interactive popover control closes details and returns focu
       onOpenHelp={jest.fn()}
     />
   )
-  const cellButton = screen.getByRole('button', { name: /Predicted Return 4.0%/i })
+  const cellButton = screen.getByRole('button', { name: /Predicted Ending Return 4.0%/i })
   fireEvent.click(cellButton)
-  const helpButton = screen.getByRole('button', { name: 'About AI scores' })
+  const helpButton = screen.getByRole('button', { name: 'How to use AI Scores' })
   helpButton.focus()
   fireEvent.keyDown(helpButton, { key: 'Escape' })
 
-  expect(screen.queryByRole('dialog', { name: 'Predicted Return details' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('dialog', { name: 'Predicted Ending Return details' })).not.toBeInTheDocument()
   expect(cellButton).toHaveFocus()
 })
 
@@ -287,7 +307,7 @@ test('unavailable checkpoint shows a dash, compact state, and stable backend rea
   expect(button).toHaveTextContent('—')
   expect(button).toHaveTextContent('Temporarily unavailable')
   fireEvent.click(button)
-  expect(screen.getByText('No qualifying historical profile was available for this horizon.')).toBeInTheDocument()
+  expect(screen.getByText('There is not enough usable history to score this time length.')).toBeInTheDocument()
 })
 
 test('loading uses an accessible spinner instead of ambiguous dots', () => {
@@ -300,19 +320,19 @@ test('loading uses an accessible spinner instead of ambiguous dots', () => {
   }
   render(<OpportunityAICell bundle={bundle} metric="ml_score" symbol="MSFT" cellId="long-ais-loading" />)
 
-  const button = screen.getByRole('button', { name: /Loading AI Score.*90-day displayed horizon with duration comparison/i })
+  const button = screen.getByRole('button', { name: /Loading AI Score.*90-day table value; more time lengths available/i })
   expect(button).not.toHaveTextContent('…')
   expect(button).not.toBeEmptyDOMElement()
 })
 
-test('full-window score keeps the legacy numeric appearance and labels the complete window', () => {
+test('full-pattern score keeps the numeric appearance and names the time length plainly', () => {
   render(<OpportunityAICell bundle={fullBundle} metric="ml_score" symbol="AAPL" cellId="full-ais" />)
-  const button = screen.getByRole('button', { name: /AI Score 70.0.*full 45-day window/i })
+  const button = screen.getByRole('button', { name: /AI Score 70.0.*full 45-day pattern/i })
 
   expect(button).not.toHaveClass('opp-ai-cell--checkpoint')
   expect(button).toHaveTextContent('70.0')
   fireEvent.mouseEnter(button)
-  expect(screen.getByText('Full 45-day pattern window')).toBeInTheDocument()
+  expect(screen.getByText('AI uses the full 45-day pattern')).toBeInTheDocument()
 })
 
 test('short pattern explains the ten-day minimum in details without adding a cell tag', () => {
@@ -325,25 +345,28 @@ test('short pattern explains the ten-day minimum in details without adding a cel
     />
   )
   const button = screen.getByRole('button', {
-    name: /AI Score 73.0.*10-day AI model minimum for a 6-day historical pattern/i,
+    name: /AI Score 73.0.*10-day AI minimum for a 6-day historical pattern/i,
   })
 
   expect(button).not.toHaveClass('opp-ai-cell--checkpoint')
   expect(button).toHaveTextContent('73.0')
   expect(button).not.toHaveTextContent('10d')
   fireEvent.click(button)
-  expect(screen.getByText('10-day AI reading for a shorter pattern')).toBeInTheDocument()
-  expect(screen.getByText(/6-day historical pattern; AI uses the 10-day model minimum/i)).toBeInTheDocument()
-  expect(screen.getByText(/historical pattern and its statistics stay at 6 calendar days/i)).toBeInTheDocument()
-  expect(screen.getByText('model minimum')).toBeInTheDocument()
+  const detail = screen.getByRole('dialog', { name: 'AI Score details' })
+  expect(screen.getByText('Why AI uses 10 days here')).toBeInTheDocument()
+  expect(screen.getByText(/History uses the real 6-day pattern; this AI reading uses 10 days/i)).toBeInTheDocument()
+  expect(screen.getByText(/AI's shortest supported length is 10 days.*historical results still use 6 days/i)).toBeInTheDocument()
+  expect(screen.getByText('AI minimum')).toBeInTheDocument()
   expect(screen.queryByText('current')).not.toBeInTheDocument()
+  expect(detail).not.toHaveTextContent(/horizon|feature vector|recurrence|profile/i)
 })
 
-test('first-use coachmark uses the checkpoint wording and remains actionable', () => {
+test('first-use coachmark accurately covers a mid-length comparison and stays until dismissed', () => {
+  jest.useFakeTimers()
   const dismiss = jest.fn()
   render(
     <OpportunityAICell
-      bundle={longBundle}
+      bundle={midLengthComparisonBundle}
       metric="ml_score"
       symbol="MSFT"
       cellId="coachmark"
@@ -353,9 +376,19 @@ test('first-use coachmark uses the checkpoint wording and remains actionable', (
     />
   )
 
-  expect(screen.getByText(/table keeps the current pattern score through 90 days/i)).toBeInTheDocument()
+  expect(screen.getByText('Compare time lengths')).toBeInTheDocument()
+  const coachmark = screen.getByRole('dialog', { name: 'AI time-length comparison guide' })
+  expect(coachmark).toHaveTextContent(/An outline means more than one AI time length is available/i)
+  expect(coachmark).toHaveTextContent(/compare all the time lengths scored for this pattern/i)
+  expect(coachmark).toHaveTextContent(/not a warning or a better\/worse rating/i)
+  expect(coachmark).not.toHaveTextContent(/30-|60-|90-day views/i)
+
+  act(() => { jest.advanceTimersByTime(10001) })
+  expect(dismiss).not.toHaveBeenCalled()
+  expect(screen.getByRole('dialog', { name: 'AI time-length comparison guide' })).toBeInTheDocument()
+
   fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
-  expect(dismiss).toHaveBeenCalled()
+  expect(dismiss).toHaveBeenCalledTimes(1)
 })
 
 test('portaled coachmark owns keyboard focus until dismissal and suppresses inner detail', () => {
@@ -436,11 +469,11 @@ test('an 85-day pattern keeps its current score and compares only 30 and 60 days
   }
   render(<OpportunityAICell bundle={bundle} metric="ml_score" symbol="AAPL" cellId="85-day" />)
 
-  const button = screen.getByRole('button', { name: /AI Score 74.0.*85-day displayed horizon/i })
+  const button = screen.getByRole('button', { name: /AI Score 74.0.*85-day table value/i })
   fireEvent.click(button)
-  expect(screen.getByText('current')).toBeInTheDocument()
+  expect(screen.getByText('table value')).toBeInTheDocument()
   expect(screen.getByText('63.0')).toBeInTheDocument()
   expect(screen.queryByText('Below threshold')).not.toBeInTheDocument()
-  expect(screen.getByText(/Does not meet screen: 7 of 10 positive; requires 9.*Historical average return \+0.4%/i)).toBeInTheDocument()
+  expect(screen.getByText(/History filter not met: 7 of 10 past results were profitable in this direction \(needs 9\).*Average historical result: \+0.4%/i)).toBeInTheDocument()
   expect(screen.queryByText('90')).not.toBeInTheDocument()
 })

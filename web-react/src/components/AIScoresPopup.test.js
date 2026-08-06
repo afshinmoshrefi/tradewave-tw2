@@ -41,29 +41,73 @@ test('AI Scores guide traps focus, makes long content keyboard-scrollable, and c
   jest.useRealTimers()
 })
 
-test('guide explains current-score priority, shorter comparisons, screen evidence, and model scope', () => {
+test('guide starts with the outline and gives a plain-English decision checklist', () => {
   const view = renderGuide(jest.fn())
 
   const guide = screen.getByRole('region', { name: 'AI Scores guide content' })
-  expect(guide.textContent.trim()).toMatch(/^First: What the outline means/)
-  expect(screen.getByText(/outlined AI value means that pattern has more than one AI duration/i)).toBeInTheDocument()
-  expect(screen.getByText(/outline does not mean the score is better or worse.*not a warning/i)).toBeInTheDocument()
-  expect(guide).toHaveTextContent(/For a 1-9-day pattern.*changes only the AI window to 10 calendar days/i)
-  expect(guide).toHaveTextContent(/historical pattern and its historical stats stay at the real length/i)
-  expect(screen.getByText(/Quick summary: Why this helps/i)).toBeInTheDocument()
-  expect(screen.getByText(/history tells you what usually happened.*AI Scores add a second check/i)).toBeInTheDocument()
-  expect(screen.getByText(/The two belong side by side/i)).toBeInTheDocument()
+  expect(guide.textContent.trim()).toMatch(/^First: what the outline means/)
+  expect(guide).toHaveTextContent(/An outline means this value has more than one AI time length to view/i)
+  expect(guide).toHaveTextContent(/outline is not a better\/worse rating or a warning/i)
+  expect(guide).toHaveTextContent(/1-9-day pattern.*history keeps the real pattern length while AI uses 10 days/i)
+
+  expect(guide).toHaveTextContent(/AI Scores in plain English/i)
+  expect(guide).toHaveTextContent(/History shows what happened.*years you selected/i)
+  expect(guide).toHaveTextContent(/separate second opinion using the latest completed stock and market data/i)
+  expect(guide).toHaveTextContent(/neither one guarantees what happens next/i)
+  expect(guide).toHaveTextContent(/Win%: estimated chance of a profitable result/i)
+  expect(guide).toHaveTextContent(/PredR: estimated return when the time window ends/i)
+  expect(guide).toHaveTextContent(/PMFE: estimated best move.*not a target/i)
+  expect(guide).toHaveTextContent(/AIS: 0-100 rank.*not a win chance/i)
+
+  expect(guide).toHaveTextContent(/Start with history.*sample size.*n=10/i)
+  expect(guide).toHaveTextContent(/Compare AI Win%.*history and AI agree.*evidence points in the same direction.*still not proof/i)
+  expect(guide).toHaveTextContent(/large difference.*inspect the chart, losing years, and risk.*not an automatic buy or sell signal.*Do not average the two percentages together/i)
+  expect(guide).toHaveTextContent(/Check move size.*PredR estimates the ending result.*PMFE estimates the best favorable move/i)
+  expect(guide).toHaveTextContent(/Compare time lengths.*timing may matter.*does not choose an entry or exit/i)
+  expect(guide).toHaveTextContent(/Use AIS last.*not Win%, a confidence grade, or a final answer/i)
+
+  view.unmount()
+})
+
+test('guide keeps history and calibrated AI Win% separate and explains model limits', () => {
+  const view = renderGuide(jest.fn())
+  const guide = screen.getByRole('region', { name: 'AI Scores guide content' })
+
+  expect(guide).toHaveTextContent(/AI Win% does not change the historical record/i)
+  expect(guide).toHaveTextContent(/history says 9 of 10 years were profitable.*stays 9 of 10.*n=10/i)
+  expect(guide).toHaveTextContent(/older AI estimates.*checks what happened next/i)
+  expect(guide).toHaveTextContent(/7 of 10 similar cases were profitable.*AI Win% is about 70%/i)
   expect(screen.getByText('calibration')).toBeInTheDocument()
-  expect(screen.getByText(/calibrated AI Win% would be about 70%/i)).toBeInTheDocument()
-  expect(screen.getByText(/a 0-100 relative rank/i)).toBeInTheDocument()
-  expect(screen.getByText(/Patterns from 10 through 90 calendar days keep their current full-window reading/i)).toBeInTheDocument()
-  expect(guide).toHaveTextContent(/For a 10-90-day pattern, the current duration stays highlighted/i)
-  expect(screen.getByText(/patterns over 30 days add 30 days/i)).toBeInTheDocument()
-  expect(screen.getByText(/neutral violet outline and dotted underline/)).toBeInTheDocument()
-  expect(screen.getByText(/screen result is evidence beside the AI reading, not a reason to erase it/i)).toBeInTheDocument()
-  expect(screen.getByText(/validated for near-term horizons through 90 calendar days/)).toBeInTheDocument()
-  expect(screen.getByText(/9 profitable years out of 10 \(n=10\)/)).toBeInTheDocument()
-  expect(screen.getByText(/US stocks and ETFs/)).toBeInTheDocument()
+  expect(guide).toHaveTextContent(/separate estimate.*does not add years.*or rewrite its win rate/i)
+
+  expect(guide).toHaveTextContent(/62 pieces of information/i)
+  expect(guide).toHaveTextContent(/uses only information that was available at that time/i)
+  expect(guide).toHaveTextContent(/keeps future information out of the test/i)
+  expect(guide).toHaveTextContent(/AIS of 80 ranks above about 80%/i)
+  expect(guide).toHaveTextContent(/does not mean an 80% chance of profit/i)
+
+  view.unmount()
+})
+
+test('guide explains calendar-day comparisons, availability, and what to do before acting', () => {
+  const view = renderGuide(jest.fn())
+  const guide = screen.getByRole('region', { name: 'AI Scores guide content' })
+
+  expect(guide).toHaveTextContent(/Every time length uses calendar days.*start date is day 1.*weekends and holidays count/i)
+  expect(guide).toHaveTextContent(/10-30 days: AI scores the full pattern/i)
+  expect(guide).toHaveTextContent(/31-60 days: compare 30 days with the full pattern/i)
+  expect(guide).toHaveTextContent(/61-90 days: compare 30 and 60 days with the full pattern/i)
+  expect(guide).toHaveTextContent(/More than 90 days: compare 30, 60, and 90 days; the table shows 90 days/i)
+  expect(guide).toHaveTextContent(/AI estimate and history check answer different questions/i)
+  expect(guide).toHaveTextContent(/Long means the setup benefits if price rises.*Short means it benefits if price falls/i)
+
+  expect(guide).toHaveTextContent(/US stocks and ETFs/i)
+  expect(guide).toHaveTextContent(/stock and market data from the latest completed market day/i)
+  expect(guide).toHaveTextContent(/does not update during the trading day \(intraday\)/i)
+  expect(guide).toHaveTextContent(/spinner means AI is still calculating.*dash means no score was assigned.*Zero is a real AI value/i)
+  expect(guide).toHaveTextContent(/Review the historical sample, expected return, possible loss, and your own risk limits before acting/i)
+
+  expect(guide).not.toHaveTextContent(/ensemble|horizon tier|walk-forward|feature vector|pattern profile|recurrence|direction-adjusted|today's conditions/i)
 
   view.unmount()
 })

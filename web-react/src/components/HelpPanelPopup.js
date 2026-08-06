@@ -32,7 +32,7 @@ const guides = [
     { key: 'sharpe', label: 'Sharpe Ratio', desc: 'Risk-adjusted consistency, formula, how to compare', icon: '⚖️', color: '#22c55e', category: 'metrics' },
     { key: 'twr', label: 'TradeWave Ratio (TWR)', desc: 'Peak-profit consistency, when TWR > SR matters', icon: '💎', color: '#3b82f6', category: 'metrics' },
     { key: 'trendscore', label: 'Trend Score', desc: '0-100 real-time trend reading, 10 technical components', icon: '🧭', color: '#a78bfa', category: 'metrics' },
-    { key: 'aiscores', label: 'AI Scores', desc: 'Calibrated Win%, return and MFE estimates, plus the relative AIS rank', icon: '🤖', color: '#818cf8', category: 'metrics' },
+    { key: 'aiscores', label: 'AI Scores', desc: 'Estimated win chance, ending return, best move, and AIS rank', icon: '🤖', color: '#818cf8', category: 'metrics' },
     { key: 'mfemae', label: 'MFE and MAE', desc: 'Best and worst points during a trade, risk management', icon: '📐', color: '#ef4444', category: 'metrics' },
     { key: 'pecycle', label: 'Presidential Election Cycle', desc: 'The 4-year market rhythm, PE filtering in TradeWave', icon: '🏛️', color: '#a78bfa', category: 'advanced' },
     { key: 'daysout', label: 'Days Out and Dates', desc: 'Holding period, start date, days range filter behavior', icon: '📅', color: '#f59e0b', category: 'advanced' },

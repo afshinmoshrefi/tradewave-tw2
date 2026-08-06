@@ -110,19 +110,24 @@ test('shows a pending short row at the ten-day minimum before a score arrives', 
   })
 })
 
-test('all AI heading tooltips explain the outline and short-pattern minimum', () => {
+test('all AI heading tooltips explain the outline and short-pattern minimum in plain language', () => {
   AI_COLUMNS.forEach(metric => {
     const tooltip = opportunityAIHeaderTooltip(metric)
     expect(tooltip).toContain(AI_DURATION_OUTLINE_DESCRIPTION)
-    expect(tooltip).toMatch(/1-9-day historical pattern.*10-day minimum/i)
+    expect(tooltip).toMatch(/shorter than 10 days.*10-day AI reading/i)
+    expect(tooltip).not.toMatch(/horizon|feature vector|recurrence|profile/i)
   })
 })
 
-test('AI headings have compact always-available explanations', () => {
-  expect(opportunityAIShortHeaderTooltip('ml_score')).toBe('AI strength rank from 0 to 100.')
-  expect(opportunityAIShortHeaderTooltip('win_prob')).toBe('AI-calibrated win probability.')
-  expect(opportunityAIShortHeaderTooltip('pred_return')).toMatch(/AI-predicted return/i)
-  expect(opportunityAIShortHeaderTooltip('pred_mfe')).toMatch(/best favorable move/i)
+test('AI headings give compact explanations that say how to read each number', () => {
+  expect(opportunityAIShortHeaderTooltip('ml_score'))
+    .toBe('0-100 rank of the AI-estimated ending return. Not a win chance.')
+  expect(opportunityAIShortHeaderTooltip('win_prob'))
+    .toBe('AI-calibrated chance of a profitable result.')
+  expect(opportunityAIShortHeaderTooltip('pred_return'))
+    .toBe('Estimated return when this time window ends.')
+  expect(opportunityAIShortHeaderTooltip('pred_mfe'))
+    .toBe('Estimated best move during this time window. Not a target.')
 })
 
 test('normalizes long-pattern checkpoints and always displays the 90-day reading', () => {
@@ -389,11 +394,23 @@ test('polling becomes a terminal unavailable state after bounded no-progress res
   expect(recovered).toMatchObject({ attempts: 5, noProgressRounds: 0, exhausted: false })
 })
 
-test('stable unavailable codes distinguish profile, data, validation, and retryable failures', () => {
-  expect(opportunityAIReasonCopy('pattern_definitions_unavailable')).toMatch(/definitions/i)
-  expect(opportunityAIReasonCopy('prebuilt_profile_mismatch')).toMatch(/could not be verified/i)
-  expect(opportunityAIReasonCopy('target_entry_unavailable')).toMatch(/valid price entry/i)
-  expect(opportunityAIReasonCopy('target_price_unavailable')).toMatch(/Price history/i)
-  expect(opportunityAIReasonCopy('invalid_checkpoint_context')).toMatch(/valid pattern identity/i)
+test('stable unavailable codes become useful plain-language explanations without backend jargon', () => {
+  expect(opportunityAIReasonCopy('pattern_definitions_unavailable')).toMatch(/historical pattern data/i)
+  expect(opportunityAIReasonCopy('prebuilt_profile_mismatch')).toMatch(/could not verify the data/i)
+  expect(opportunityAIReasonCopy('target_entry_unavailable')).toMatch(/starting price/i)
+  expect(opportunityAIReasonCopy('target_price_unavailable')).toMatch(/price history/i)
+  expect(opportunityAIReasonCopy('invalid_checkpoint_context')).toMatch(/could not verify the data/i)
   expect(opportunityAIReasonCopy('context_scoring_failed')).toMatch(/temporarily unavailable/i)
+
+  const userFacingReasons = [
+    'incomplete_feature_vector',
+    'nonfinite_pattern_profile',
+    'prebuilt_profile_mismatch',
+    'selected_recurrence_below_threshold',
+    'invalid_checkpoint_context',
+  ].map(opportunityAIReasonCopy).join(' ')
+  expect(userFacingReasons).not.toMatch(/feature vector|nonfinite|profile|recurrence|checkpoint/i)
+  expect(opportunityAIReasonCopy('opaque_internal_failure_detail')).toBe(
+    'AI scoring is temporarily unavailable. Try again shortly.'
+  )
 })

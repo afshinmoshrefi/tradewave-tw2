@@ -12,7 +12,7 @@ test('shows a compact explanation and keeps help inside the AI header tooltip', 
     />
   )
 
-  expect(screen.getByText('AI-calibrated win probability.')).toBeInTheDocument()
+  expect(screen.getByText('AI-calibrated chance of a profitable result.')).toBeInTheDocument()
   const help = screen.getByRole('button', { name: 'Open the AI Scores guide' })
   expect(help).toHaveTextContent('?')
   fireEvent.click(help)
@@ -28,7 +28,12 @@ test('shows the full AI explanation when detailed tooltips are enabled', () => {
     />
   )
 
-  expect(screen.getByText(/How often past cases with similar model readings/i)).toBeInTheDocument()
-  expect(screen.getByText(/outlined AI value means that pattern has more than one AI duration/i)).toBeInTheDocument()
+  const explanation = screen.getByText(/An outline means you can open the value/i)
+  expect(explanation.textContent).toMatch(/^An outline means/i)
+  expect(explanation).toHaveTextContent(/not a warning or a quality grade/i)
+  expect(explanation).toHaveTextContent(/older cases with similar AI estimates.*share that later finished profitable/i)
+  expect(explanation).toHaveTextContent(/checks it against real outcomes/i)
+  expect(explanation).toHaveTextContent(/shorter than 10 days use a 10-day AI reading/i)
+  expect(explanation).not.toHaveTextContent(/horizon|feature vector|recurrence|profile/i)
   expect(screen.getByRole('button', { name: 'Open the AI Scores guide' })).toHaveTextContent('?')
 })

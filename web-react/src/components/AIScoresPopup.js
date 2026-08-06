@@ -105,7 +105,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                 aria-modal="true"
                 aria-labelledby="ai-scores-popup-title"
                 tabIndex="-1"
-                className={`trend-score-popup${closing ? ' closing' : ''}${UITheme === 'dark' ? ' dark-scroll' : ''}`}
+                className={`trend-score-popup ai-scores-popup${closing ? ' closing' : ''}${UITheme === 'dark' ? ' dark-scroll' : ''}`}
                 style={popupStyle}
             >
 
@@ -115,7 +115,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                 </div>
 
                 <div
-                    className="ts-body"
+                    className="ts-body ai-scores-body"
                     role="region"
                     aria-label="AI Scores guide content"
                     tabIndex="0"
@@ -128,86 +128,95 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         padding: '14px 16px',
                         marginBottom: '16px',
                     }}>
-                        <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '8px' }}>
-                            First: What the outline means
+                        <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>
+                            First: what the outline means
                         </div>
                         <p style={{ marginTop: 0 }}>
-                            <strong>An outlined AI value means that pattern has more than one AI duration to view.</strong>{' '}
-                            Open it to compare them. The outline does not mean the score is better or worse, and it is
-                            not a warning.
+                            <strong>An outline means this value has more than one AI time length to view.</strong>{' '}
+                            Open it to compare them. The outline is not a better/worse rating or a warning.
                         </p>
                         <p>
-                            For a <strong>1-9-day pattern</strong>, TradeWave changes only the AI window to 10 calendar
-                            days, the shortest duration the model scores. The historical pattern and its historical
-                            stats stay at the real length. This single AI reading is not outlined because there is no
-                            second duration to compare. Hover over, tap, or focus the AI value to see that it uses the
-                            10-day model minimum.
+                            No outline means only one AI time length is available. For a <strong>1-9-day pattern</strong>,
+                            history keeps the real pattern length while AI uses 10 days, its shortest supported length.
                         </p>
-                        <div style={{ fontSize: '15px', fontWeight: 700, margin: '14px 0 8px' }}>
-                            Quick summary: Why this helps
+
+                        <div style={{ fontSize: '16px', fontWeight: 700, margin: '16px 0 8px' }}>
+                            AI Scores in plain English
                         </div>
                         <p>
-                            <strong>TradeWave history tells you what usually happened. AI Scores add a second check:
-                            does this pattern still look favorable under today's stock and market conditions?</strong>
-                            The two belong side by side. History shows how repeatable the pattern was, while AI adds
-                            current context.
+                            <strong>History shows what happened during this calendar pattern in the years you selected.</strong>{' '}
+                            AI Scores add a separate second opinion using the latest completed stock and market data.
+                            Keep both views side by side; neither one guarantees what happens next.
                         </p>
-                        <p>
-                            <strong>Why it matters:</strong> a pattern may have risen in 9 of 10 past years, but today's
-                            setup can be different. The historical result stays 9 of 10. AI then reality-checks that raw
-                            historical probability for today's conditions by comparing older model readings with what
-                            actually happened next. If similar readings made money 7 out of 10 times, the calibrated AI
-                            Win% would be about 70%. That is <strong>calibration</strong>: checking a model percentage
-                            against real results and adjusting it instead of leaving it as a raw guess.
-                        </p>
-                        <ul style={{ paddingLeft: '20px', margin: '8px 0' }}>
-                            <li style={{ marginBottom: '5px' }}><strong>Win%:</strong> how often similar model readings later made money.</li>
-                            <li style={{ marginBottom: '5px' }}><strong>PredR:</strong> the estimated return at the end of the shown time window.</li>
-                            <li style={{ marginBottom: '5px' }}><strong>PMFE:</strong> the estimated best favorable move during the window.</li>
-                            <li><strong>AIS:</strong> a 0-100 relative rank; it is not a win probability.</li>
+                        <ul style={{ paddingLeft: '20px', margin: '8px 0 14px' }}>
+                            <li style={{ marginBottom: '6px' }}><strong>Win%:</strong> estimated chance of a profitable result: price rising for Long or falling for Short.</li>
+                            <li style={{ marginBottom: '6px' }}><strong>PredR:</strong> estimated return when the time window ends.</li>
+                            <li style={{ marginBottom: '6px' }}><strong>PMFE:</strong> estimated best move before the window ends; it is not a target.</li>
+                            <li><strong>AIS:</strong> 0-100 rank of the estimated ending return; it is not a win chance.</li>
                         </ul>
-                        <p style={{ marginBottom: 0 }}>
-                            <strong>How to use it:</strong> compare historical Win% with AI Win%. Agreement adds support.
-                            A large difference tells you to inspect the setup more closely; it is not an automatic buy
-                            or sell signal. Then use PredR and PMFE to understand the possible size of the move.
-                        </p>
+
+                        <div style={{ fontSize: '16px', fontWeight: 700, margin: '16px 0 8px' }}>
+                            How to use them
+                        </div>
+                        <ol style={{ paddingLeft: '22px', margin: '8px 0 0' }}>
+                            <li style={{ marginBottom: '8px' }}>
+                                <strong>Start with history.</strong> Check how many past results were profitable and the
+                                sample size. A record of 9 out of 10 means the sample is <strong>n=10</strong>.
+                            </li>
+                            <li style={{ marginBottom: '8px' }}>
+                                <strong>Compare AI Win%.</strong> When history and AI agree, the evidence points in the
+                                same direction, but it is still not proof. A large difference is a reason to inspect
+                                the chart, losing years, and risk. It is not an automatic buy or sell signal. Do not
+                                average the two percentages together.
+                            </li>
+                            <li style={{ marginBottom: '8px' }}>
+                                <strong>Check move size.</strong> PredR estimates the ending result. PMFE estimates the
+                                best favorable move during the window, but it does not set a target.
+                            </li>
+                            <li style={{ marginBottom: '8px' }}>
+                                <strong>Compare time lengths.</strong> A large change between rows tells you timing may
+                                matter and deserves a closer look. It does not choose an entry or exit for you.
+                            </li>
+                            <li>
+                                <strong>Use AIS last.</strong> AIS helps rank estimated returns. It is not Win%, a
+                                confidence grade, or a final answer.
+                            </li>
+                        </ol>
                     </div>
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#3b82f6' }}></span>
-                        More Detail: Why AI Scores Exist
+                        Why history and AI Win% can differ
                     </div>
                     <p>
-                        TradeWave finds seasonal patterns by looking at history: windows where a stock has
-                        moved in the same direction year after year. That historical track record is powerful,
-                        but it does not account for what is happening in the market <em>right now</em>.
+                        AI Win% does not change the historical record. If history says 9 of 10 years were profitable,
+                        it stays 9 of 10 (<strong>n=10</strong>).
                     </p>
                     <p>
-                        The AI scoring layer adds separate current-condition estimates alongside each historical
-                        pattern. The historical statistics remain unchanged, so you can compare the past record with
-                        a model view built from the latest available inputs.
+                        To create AI Win%, TradeWave looks at older AI estimates like this one and checks what happened
+                        next. If about 7 of 10 similar cases were profitable in the selected direction, AI Win% is
+                        about 70%. This check against real outcomes is called <strong>calibration</strong>. It creates a
+                        separate estimate; it does not add years to the historical sample or rewrite its win rate.
                     </p>
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#22c55e' }}></span>
-                        How Calibration Works
+                        What the AI looks at
                     </div>
                     <p>
-                        TradeWave V3 uses <strong>62 inputs</strong> about the pattern, the stock, the market, and the
-                        calendar. Separate models estimate the ending return and the best favorable move for the
-                        selected direction and time window.
+                        The model uses <strong>62 pieces of information</strong> about the pattern, stock, broad market,
+                        and calendar. It estimates the ending return and the best favorable move for the shown Long or
+                        Short direction.
                     </p>
                     <p>
-                        For calibration, older model readings are kept in time order and compared with what happened
-                        afterward. Similar PredR readings are grouped together, and Win% reports the share of that
-                        group that really finished profitable. AIS reports where PredR ranks within the matching time
-                        range. This is why AI Win% can be different from the pattern's historical win rate: they answer
-                        related but different questions.
+                        When TradeWave checks older cases, it uses only information that was available at that time and
+                        then compares the estimate with what happened later. That keeps future information out of the
+                        test.
                     </p>
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#a78bfa' }}></span>
-                        The Four Columns
+                        The four columns
                     </div>
                     <table className="ts-range-table">
                         <thead>
@@ -230,89 +239,46 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#f59e0b' }}></span>
-                        Reading the AI Score (AIS)
+                        How to read AIS
                     </div>
                     <p>
-                        AIS is the 0-100 percentile position of the ensemble's direction-adjusted PredR within that
-                        horizon tier's 20-bin walk-forward calibration distribution. It is a <strong>relative rank</strong>,
-                        not a probability, an overall confidence score, or a classifier output. Win% is the probability
-                        field; an AIS of 80 does not mean an 80% chance of profit.
+                        AIS compares this predicted ending return with other AI return estimates for similar time
+                        lengths. An AIS of 80 ranks above about 80% of those comparable readings. It does not mean an
+                        80% chance of profit. Use Win% for the estimated chance of a profitable result.
                     </p>
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#818cf8' }}></span>
-                        Current Score and Duration Comparison
+                        Time lengths and outlined values
                     </div>
-                    <p>
-                        Patterns from 10 through 90 calendar days keep their current full-window reading in the table.
-                        Open an outlined value to compare supported shorter durations: patterns over 30 days add 30
-                        days, patterns over 60 days also add 60 days, and patterns over 90 days add the bounded 90-day
-                        checkpoint. A longer pattern therefore shows the <strong>90-calendar-day checkpoint</strong> in
-                        the table, not a score of its complete historical window. The one exception at the lower end is
-                        a 1-9-day pattern, which uses the 10-day AI model minimum while its historical statistics stay
-                        at the real pattern length. Its AI value tooltip explains that minimum.
-                    </p>
-                    <p>
-                        TradeWave windows are inclusive calendar days: the entry day counts as day 1.
-                    </p>
-                    <p>
-                        The neutral violet outline and dotted underline identify a duration comparison. They do not mean the
-                        reading is good, bad, bullish, or bearish. At each shorter duration, TradeWave recalculates the
-                        same selected historical recurrence and shows whether it still meets your table screen. That
-                        screen result is evidence beside the AI reading, not a reason to erase it. A shorter duration
-                        can still have an AI score when it does not pass your historical screen because the two readings
-                        answer different questions. TradeWave stops at
-                        90 days because these models were
-                        validated for near-term horizons through 90 calendar days, where current conditions are most
-                        useful. Patterns above 90 days are summarized at the 30-, 60-, and 90-day checkpoints.
-                    </p>
-
-                    <div className="ts-section-title">
-                        <span className="ts-dot" style={{ backgroundColor: '#818cf8' }}></span>
-                        Long and Short Examples
-                    </div>
-                    <p>
-                        For a long pattern, a positive PredR means the model estimates a price gain in the long
-                        direction. For a short pattern, a positive direction-adjusted PredR means a price decline would
-                        favor the short direction. Win% also follows the selected direction, so it estimates how often
-                        that direction was profitable in the matching calibration group.
-                    </p>
-
-                    <div className="ts-section-title">
-                        <span className="ts-dot" style={{ backgroundColor: '#14b8a6' }}></span>
-                        How to Use AI Scores
-                    </div>
+                    <p>Every time length uses calendar days. The start date is day 1, and weekends and holidays count.</p>
                     <ul style={{ paddingLeft: '20px', margin: '8px 0 12px' }}>
-                        <li style={{ marginBottom: '6px' }}>
-                            <strong>Pair with historical stats.</strong> Use the model outputs alongside Sharpe Ratio,
-                            sample size, median, MFE/MAE, and outlier dependence rather than treating AIS as a verdict.
-                        </li>
-                        <li style={{ marginBottom: '6px' }}>
-                            <strong>Compare Win% to historical win rate.</strong> If the historical record is
-                            9 profitable years out of 10 (n=10) but AI Win% is 55%, the AI is seeing something in current
-                            conditions that makes this year's estimate less favorable. That discrepancy is a useful
-                            prompt to inspect the inputs and the historical distribution.
-                        </li>
-                        <li style={{ marginBottom: '6px' }}>
-                            <strong>Compare PMFE with PredR.</strong> A higher PMFE suggests the model estimates a
-                            larger favorable intrawindow move than the ending return. It does not show when that move
-                            might occur or prescribe a target, partial sale, or early exit.
-                        </li>
-                        <li style={{ marginBottom: '6px' }}>
-                            <strong>Compare durations.</strong> For a 10-90-day pattern, the current duration stays
-                            highlighted. Shorter readings show whether the seasonal edge appears quickly, develops
-                            later, or falls below its selected historical requirement.
-                        </li>
-                        <li style={{ marginBottom: '6px' }}>
-                            <strong>Scores update with completed data.</strong> The AI uses the latest completed
-                            end-of-day inputs. On weekends, holidays, or before an update finishes, that data may be
-                            from the prior market session.
-                        </li>
+                        <li style={{ marginBottom: '6px' }}><strong>1-9 days:</strong> history uses the real length; AI uses 10 days.</li>
+                        <li style={{ marginBottom: '6px' }}><strong>10-30 days:</strong> AI scores the full pattern.</li>
+                        <li style={{ marginBottom: '6px' }}><strong>31-60 days:</strong> compare 30 days with the full pattern.</li>
+                        <li style={{ marginBottom: '6px' }}><strong>61-90 days:</strong> compare 30 and 60 days with the full pattern.</li>
+                        <li><strong>More than 90 days:</strong> compare 30, 60, and 90 days; the table shows 90 days.</li>
                     </ul>
+                    <p>
+                        An outline appears when there is more than one reading. TradeWave recalculates the same
+                        opportunity at each shown length. A shorter AI estimate can still appear when that shorter
+                        length does not pass your history filter because the AI estimate and history check answer
+                        different questions.
+                    </p>
+
+                    <div className="ts-section-title">
+                        <span className="ts-dot" style={{ backgroundColor: '#818cf8' }}></span>
+                        Long and Short
+                    </div>
+                    <p>
+                        Long means the setup benefits if price rises. Short means it benefits if price falls. A positive
+                        PredR means the estimated move helps the direction shown in the table. Win% also measures a
+                        profitable result in that direction.
+                    </p>
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#9ca3af' }}></span>
-                        Good to Know
+                        Good to know
                     </div>
                     <ul style={{ paddingLeft: '20px', margin: '8px 0 12px' }}>
                         <li style={{ marginBottom: '6px' }}>
@@ -320,21 +286,13 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             (futures, indices, crypto, FX) are not scored at this time.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            A pattern of 31-60 days compares 30 days with the current duration. A pattern of 61-90 days
-                            compares 30 and 60 days with the current duration. Those comparisons never extend beyond
-                            the original pattern. The separate 1-9-day minimum-horizon rule is the only exception: its
-                            AI reading uses 10 days while its historical statistics remain unchanged. The AI value
-                            tooltip identifies it as the 10-day model minimum.
+                            AI uses stock and market data from the latest completed market day. On weekends, holidays,
+                            or while an update is still finishing, it may use the previous market day. It does not
+                            update during the trading day (intraday).
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            Patterns longer than <strong>90 calendar days</strong> show the 90-day checkpoint in the
-                            table. Open the value to see all three bounded checkpoint readings.
-                        </li>
-                        <li style={{ marginBottom: '6px' }}>
-                            A loading marker means calculation is in progress. A dash with a clear data or service
-                            message explains why no AI reading was assigned. Failing the selected historical screen does
-                            not erase a valid model reading. Numeric zero remains a valid model value and is never used
-                            as an unavailable marker.
+                            A spinner means AI is still calculating. A dash means no score was assigned; open it to see
+                            why. Zero is a real AI value, not an unavailable sign.
                         </li>
                     </ul>
 
@@ -345,22 +303,20 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         padding: '12px 16px',
                         marginTop: '8px',
                     }}>
-                        <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
                             Don't see the AI columns?
                         </div>
-                        <div style={{ fontSize: '11px', opacity: 0.8, lineHeight: 1.5 }}>
+                        <div style={{ fontSize: '13px', opacity: 0.8, lineHeight: 1.5 }}>
                             AI scoring is available to TradeWave subscribers with an eligible plan. If you
                             are viewing US stocks or ETFs and do not see the AIS, Win%, PredR, and PMFE
-                            columns, your current plan may not include this feature. Upgrading your
-                            subscription gives you access to AI-calibrated scores that can help you
-                            make more informed decisions alongside the historical data you already use.
+                            columns, your current plan may not include this feature.
                         </div>
                     </div>
 
                     <div className="ts-footer-note">
-                        AI scores are calibrated estimates based on machine learning models and current market
-                        data. They are not guarantees. Past performance and AI predictions do not guarantee
-                        future results. They are research inputs, not individualized recommendations.
+                        AI Scores are research evidence, not guarantees or personal recommendations. They cannot
+                        predict unexpected news or every market change. Review the historical sample, expected return,
+                        possible loss, and your own risk limits before acting.
                     </div>
                 </div>
 

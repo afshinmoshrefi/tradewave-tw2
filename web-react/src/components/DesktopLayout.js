@@ -1243,10 +1243,10 @@ const DesktopLayout = (props) => {
                                         sharpe_ratio2:{ label: 'TWR',    desc: 'TradeWave Ratio',     required: false },
                                         TL:           { label: 'TL',     desc: 'Trend Long Score',    required: false },
                                         price:        { label: 'Price',  desc: 'Real-time Price',     required: false },
-                                        ml_score:     { label: 'AIS',    desc: 'AI Score',            required: false },
-                                        win_prob:     { label: 'Win%',   desc: 'Win Probability',     required: false },
-                                        pred_return:  { label: 'PredR',  desc: 'Predicted Return',    required: false },
-                                        pred_mfe:     { label: 'PMFE',   desc: 'Predicted MFE',       required: false },
+                                        ml_score:     { label: 'AIS',    desc: 'AI return rank (0-100)', required: false },
+                                        win_prob:     { label: 'Win%',   desc: 'AI chance of profit',   required: false },
+                                        pred_return:  { label: 'PredR',  desc: 'Estimated ending return', required: false },
+                                        pred_mfe:     { label: 'PMFE',   desc: 'Estimated best move',    required: false },
                                     };
                                     const order = props.columnOrder || Object.keys(COL_META);
                                     const AI_COLS = ['ml_score', 'win_prob', 'pred_return', 'pred_mfe'];

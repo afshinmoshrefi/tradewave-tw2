@@ -123,9 +123,9 @@ tr {
   max-width: 64px;
   margin-top: 2px;
   color: #b45309;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 650;
-  line-height: 1.05;
+  line-height: 1.15;
   text-align: center;
   white-space: normal;
 }
@@ -145,6 +145,7 @@ tr {
   max-width: 330px;
   align-items: flex-start;
   gap: 8px;
+  font-size: 13px;
   line-height: 1.4;
   text-align: left;
   white-space: normal;
@@ -152,11 +153,11 @@ tr {
 
 .opp-ai-tooltip-help {
   display: inline-flex;
-  flex: 0 0 20px;
+  flex: 0 0 24px;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 1px solid var(--opp-ai-border, #818cf8);
   border-radius: 50%;
@@ -248,7 +249,7 @@ tr {
 }
 
 .opp-ai-detail__title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #c7d2fe;
 }
@@ -256,7 +257,7 @@ tr {
 .opp-ai-detail__metric {
   margin-top: 2px;
   color: #c7d2fe;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -265,8 +266,8 @@ tr {
 .opp-ai-detail__context,
 .opp-ai-detail__checkpoint-note {
   margin-top: 4px;
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.45;
   opacity: 0.86;
 }
 
@@ -280,7 +281,7 @@ tr {
 
 .opp-ai-detail__basis {
   margin-top: 8px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -289,7 +290,7 @@ tr {
   margin-top: 6px;
   border-collapse: collapse;
   color: inherit;
-  font-size: 11px;
+  font-size: 12px;
   text-align: left;
 }
 
@@ -309,7 +310,7 @@ tr {
   border: 1px dotted #a5b4fc;
   border-radius: 4px;
   color: #c7d2fe;
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -331,16 +332,16 @@ tr {
   display: block;
   margin-top: 2px;
   color: #fbbf24;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 650;
 }
 
 .opp-ai-detail__reason {
   display: block;
   margin-top: 2px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 .opp-ai-detail__help {
@@ -351,6 +352,7 @@ tr {
   color: #c7d2fe;
   cursor: pointer;
   font: inherit;
+  font-size: 13px;
   font-weight: 650;
   text-decoration: underline;
 }
@@ -364,7 +366,7 @@ tr {
   overscroll-behavior: contain;
   box-sizing: border-box;
   color: inherit;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
   text-align: left;
   white-space: normal;
@@ -373,6 +375,7 @@ tr {
 .opp-ai-coachmark__title {
   margin-bottom: 4px;
   color: #c7d2fe;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -392,16 +395,26 @@ tr {
   font: inherit;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  [data-tippy-root]:has(.opp-ai-header-tooltip),
+  [data-tippy-root]:has(.opp-ai-detail),
+  [data-tippy-root]:has(.opp-ai-coachmark),
+  [data-tippy-root]:has(.opp-ai-header-tooltip) .tippy-box,
+  [data-tippy-root]:has(.opp-ai-detail) .tippy-box,
+  [data-tippy-root]:has(.opp-ai-coachmark) .tippy-box,
+  .opp-ai-header-tooltip,
+  .opp-ai-detail,
+  .opp-ai-coachmark {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+
 @media (pointer: coarse) {
   .opp-ai-cell,
   .opp-ai-locked-cell {
     min-width: 38px;
     min-height: 30px;
-  }
-
-  .opp-ai-tooltip-help {
-    width: 24px;
-    height: 24px;
-    flex-basis: 24px;
   }
 }

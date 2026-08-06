@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import Tippy from '@tippyjs/react'
 import { CellSpinner } from './Common'
 import {
@@ -74,16 +74,15 @@ const recurrenceEvidence = horizon => {
   const meetsRequirement = recurrenceStatus !== 'below_threshold' && !incomplete && positive >= required
   let summary
   if (incomplete) {
-    summary = `Screen check incomplete: ${sample} of ${requested} observations available; ${positive} positive; requires ${required}.`
+    summary = `History filter needs more data: ${sample} of ${requested} requested past results were available; ${positive} were profitable (needs ${required}).`
   } else if (meetsRequirement) {
-    summary = `Meets screen: ${positive} of ${sample} positive; requires ${required}.`
+    summary = `History filter passed: ${positive} of ${sample} past results were profitable in this direction (needs ${required}).`
   } else {
-    summary = `Does not meet screen: ${positive} of ${sample} positive; requires ${required}.`
+    summary = `History filter not met: ${positive} of ${sample} past results were profitable in this direction (needs ${required}).`
   }
   return {
     summary,
-    average: Number.isFinite(average) ? ` Historical average return ${average >= 0 ? '+' : ''}${average.toFixed(1)}%.` : '',
-    meetsRequirement,
+    average: Number.isFinite(average) ? ` Average historical result: ${average >= 0 ? '+' : ''}${average.toFixed(1)}%.` : '',
   }
 }
 
@@ -93,6 +92,12 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, onTabBounda
     bundle.basis === 'duration_comparison' || bundle.basis === 'checkpoint'
   ) && Array.isArray(bundle.horizons) && bundle.horizons.length > 1
   const isMinimumHorizon = bundle.basis === 'minimum_horizon'
+  const direction = String(bundle.direction || '').toLowerCase()
+  const directionText = direction.startsWith('s')
+    ? 'Short (benefits if price falls)'
+    : direction.startsWith('l')
+      ? 'Long (benefits if price rises)'
+      : 'unavailable'
   return (
     <div
       id={detailId}
@@ -111,9 +116,9 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, onTabBounda
     >
       <div className="opp-ai-detail__title">
         {isDurationComparison
-          ? 'How this pattern changes by duration'
+          ? `${metadata.label} by time length`
           : isMinimumHorizon
-            ? '10-day AI reading for a shorter pattern'
+            ? 'Why AI uses 10 days here'
             : metadata.label}
       </div>
       {(isDurationComparison || isMinimumHorizon) && (
@@ -122,27 +127,29 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, onTabBounda
       <div className="opp-ai-detail__description">{metadata.description}</div>
       <div className="opp-ai-detail__basis">
         {isDurationComparison
-          ? `${bundle.fullPatternCalendarDays}-day pattern duration comparison`
+          ? bundle.fullPatternCalendarDays > 90
+            ? `${bundle.fullPatternCalendarDays}-day pattern; the table shows the 90-day AI reading`
+            : `${bundle.fullPatternCalendarDays}-day pattern; the table shows the full-pattern AI reading`
           : isMinimumHorizon
-            ? `${bundle.fullPatternCalendarDays}-day historical pattern; AI uses the 10-day model minimum`
-            : `Full ${bundle.fullPatternCalendarDays}-day pattern window`}
+            ? `History uses the real ${bundle.fullPatternCalendarDays}-day pattern; this AI reading uses 10 days`
+            : `AI uses the full ${bundle.fullPatternCalendarDays}-day pattern`}
       </div>
       <div className="opp-ai-detail__context">
-        Entry {bundle.entryDate || 'date unavailable'} · {bundle.direction || 'Direction unavailable'}
+        Pattern starts {bundle.entryDate || 'date unavailable'} · Direction: {directionText}
       </div>
       {isDurationComparison && (
         <div className="opp-ai-detail__checkpoint-note">
-          V3 scores each recalculated duration. The recurrence line separately shows whether that duration still meets your selected historical screen.
+          Each row is recalculated and scored for that many calendar days. Compare the rows to see how the AI view changes over time. The history filter is shown separately because it answers a different question.
         </div>
       )}
       {isMinimumHorizon && (
         <div className="opp-ai-detail__checkpoint-note">
-          The historical pattern and its statistics stay at {bundle.fullPatternCalendarDays} calendar days. V3's shortest AI horizon is 10 calendar days, so only this separate AI reading covers 10 days.
+          This historical pattern is {bundle.fullPatternCalendarDays} days. The AI's shortest supported length is 10 days, so this AI estimate covers 10 days. The historical results still use {bundle.fullPatternCalendarDays} days.
         </div>
       )}
       <table className="opp-ai-detail__table">
         <thead>
-          <tr><th>Calendar days</th><th>{metadata.shortLabel}</th></tr>
+          <tr><th>Time length</th><th>{metadata.shortLabel}</th></tr>
         </thead>
         <tbody>
           {bundle.horizons.map(horizon => {
@@ -150,15 +157,11 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, onTabBounda
             return <tr key={horizon.calendarDays}>
               <td>
                 {horizon.calendarDays}
-                {horizon.isCurrent && (
-                  <span className="opp-ai-detail__shown">current</span>
-                )}
-                {!horizon.isCurrent && bundle.fullPatternCalendarDays > 90 && horizon.calendarDays === bundle.displayCalendarDays && (
-                  <span className="opp-ai-detail__shown">shown</span>
-                )}
-                {isMinimumHorizon && horizon.calendarDays === bundle.displayCalendarDays && (
-                  <span className="opp-ai-detail__shown">model minimum</span>
-                )}
+                {isMinimumHorizon && horizon.calendarDays === bundle.displayCalendarDays
+                  ? <span className="opp-ai-detail__shown">AI minimum</span>
+                  : horizon.calendarDays === bundle.displayCalendarDays && (
+                    <span className="opp-ai-detail__shown">table value</span>
+                  )}
               </td>
               <td>
                 <span className={`opp-ai-detail__value opp-ai-detail__value--${horizon.status}`}>
@@ -170,7 +173,7 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, onTabBounda
                 {evidence && (
                   <span className="opp-ai-detail__reason">
                     {evidence.summary}
-                    {!evidence.meetsRequirement ? evidence.average : ''}
+                    {evidence.average}
                   </span>
                 )}
                 {horizon.status === 'unavailable' && !evidence && (
@@ -181,29 +184,24 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, onTabBounda
           })}
         </tbody>
       </table>
-      <div className="opp-ai-detail__calendar-note">Calendar days; the entry day counts as day 1.</div>
+      <div className="opp-ai-detail__calendar-note">All time lengths use calendar days. The start day is day 1, and weekends and holidays count.</div>
       {typeof onOpenHelp === 'function' && (
         <button
           type="button"
           className="opp-ai-detail__help"
           onClick={onOpenHelp}
-        >About AI scores</button>
+        >How to use AI Scores</button>
       )}
     </div>
   )
 }
 
 const CheckpointCoachmark = ({ onDismiss, onOpenHelp, onEscape, onTabBoundary }) => {
-  useEffect(() => {
-    const timer = window.setTimeout(onDismiss, 10000)
-    return () => window.clearTimeout(timer)
-  }, [onDismiss])
-
   return (
     <div
       className="opp-ai-coachmark"
       role="dialog"
-      aria-label="AI duration comparison guide"
+      aria-label="AI time-length comparison guide"
       tabIndex={-1}
       onClick={event => event.stopPropagation()}
       onKeyDown={event => {
@@ -214,8 +212,8 @@ const CheckpointCoachmark = ({ onDismiss, onOpenHelp, onEscape, onTabBoundary })
         }
       }}
     >
-      <div className="opp-ai-coachmark__title">Duration comparison</div>
-      <div>The table keeps the current pattern score through 90 days. Hover or tap to compare the shorter 30- and 60-day readings; longer patterns also include 90 days.</div>
+      <div className="opp-ai-coachmark__title">Compare time lengths</div>
+      <div>An outline means more than one AI time length is available. Open the value to compare all the time lengths scored for this pattern. The outline is not a warning or a better/worse rating.</div>
       <div className="opp-ai-coachmark__actions">
         <button type="button" onClick={() => { onDismiss(); if (onOpenHelp) onOpenHelp() }}>Learn more</button>
         <button type="button" onClick={onDismiss}>Got it</button>
@@ -361,10 +359,10 @@ const OpportunityAICell = ({
     ? ''
     : opportunityAICompactStatus(display)
   const horizonCopy = isDurationComparison
-    ? `${bundle.displayCalendarDays}-day displayed horizon with duration comparison`
+    ? `${bundle.displayCalendarDays}-day table value; more time lengths available`
     : isMinimumHorizon
-      ? `10-day AI model minimum for a ${bundle.fullPatternCalendarDays}-day historical pattern`
-      : `full ${bundle ? bundle.fullPatternCalendarDays : ''}-day window`
+      ? `10-day AI minimum for a ${bundle.fullPatternCalendarDays}-day historical pattern`
+      : `full ${bundle ? bundle.fullPatternCalendarDays : ''}-day pattern`
   const detailId = `opp-ai-detail-${safeIdPart(cellId || `${symbol}-${metric}-${bundle && bundle.key}`)}`
   const ariaLabel = state === 'loading'
     ? `Loading ${metadata.label} for ${symbol}, ${horizonCopy}`

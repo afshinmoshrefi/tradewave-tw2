@@ -98,8 +98,8 @@ const TableBox = ({
   const hasAI = tierHasAI(wpUserLevels)
   const openAILockDialog = () => {
     SetDialogProp({
-      title: 'See the AI Score',
-      contentText: "AI scoring adds current-condition AIS, Win%, PredR, and PMFE readings to supported U.S. stocks and ETFs. It starts at the Analyst plan.",
+      title: 'See AI Scores',
+      contentText: 'AI Scores use the latest completed stock and market data to estimate win chance, ending return, and the best move during the AI time window. They also include a 0-100 return rank. Available for U.S. stocks and ETFs on the Analyst plan and above.',
       button1Text: 'See Plans', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)'
     })
     SetDialogType('info-box')
@@ -187,9 +187,9 @@ const TableBox = ({
   const aiFilterPending = isOpportunityFilterPending(filterText, mlScoresLoading)
 
   const currentFilterRows = useMemo(() => {
-    // Copy the original table data and inject TL plus the displayed AI horizon.
-    // The current full-window score remains displayed through 90 days; longer
-    // patterns deliberately use only the 90-day bounded checkpoint.
+    // Copy the original table data and inject TL plus the displayed AI time length.
+    // The full-pattern score remains displayed through 90 days; longer patterns
+    // deliberately use only the 90-day reading.
     let tmp = [...table_data].map(row => {
       const score = stockScores && stockScores[row.symbol]
       const aiBundle = normalizeOpportunityAIScore({
@@ -475,12 +475,12 @@ const TableBox = ({
                         className="opp-table-sort-button"
                         onClick={(!hasAI && isAIColumn) ? openAILockDialog : handleTitleClicked(title)}
                         aria-label={(!hasAI && isAIColumn)
-                          ? `${tableTitleDict[title]} is locked. Learn about AI scoring plans.`
+                          ? `${tableTitleDict[title]} is locked. Learn about plans with AI Scores.`
                           : `Sort by ${tableTitleDict[title]}${title === colSorted ? `, currently ${sortedDir === 'a' ? 'ascending' : 'descending'}` : ''}`}
                       >
                         <span>{tableTitleDict[title]}</span>
                         {(!hasAI && isAIColumn)
-                          ? <span title="AI scoring starts at Analyst" aria-hidden="true">🔒</span>
+                          ? <span title="AI Scores start at Analyst" aria-hidden="true">🔒</span>
                           : (title === colSorted
                               ? (sortedDir === 'a' ? <BsChevronDown aria-hidden="true" /> : <BsChevronUp aria-hidden="true" />)
                               : <BsChevronExpand aria-hidden="true" />)}
@@ -529,7 +529,7 @@ const TableBox = ({
                     ? <button
                         type="button"
                         className="opp-ai-locked-cell"
-                        aria-label="AI score is locked. Learn about AI scoring plans."
+                        aria-label="AI Scores are locked. Learn about plans with AI Scores."
                         onClick={event => { event.stopPropagation(); openAILockDialog() }}
                       >· · ·</button>
                     : key === 'TL' && row[key] === null

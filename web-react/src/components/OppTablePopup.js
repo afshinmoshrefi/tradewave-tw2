@@ -62,12 +62,12 @@ const OppTablePopup = ({ onClose, iconRect }) => {
     // Column guide cards
     const columnCards = [
         { title: 'Date & Ticker', color: accentBlue, text: 'The pattern start date and the security symbol. Click any row to load it.' },
-        { title: 'Days & Dir', color: accentGreen, text: 'How many calendar days the pattern holds, and whether it is Long (bullish) or Short (bearish).' },
+        { title: 'Days & Dir', color: accentGreen, text: 'How many calendar days the pattern lasts. Long benefits if price rises; Short benefits if price falls.' },
         { title: 'AvgP (Average Profit)', color: accentAmber, text: 'The average percent return across all years in the sample.' },
         { title: 'SR (Sharpe Ratio)', color: accentGreen, text: 'Risk-adjusted consistency. Higher = more reliable. The table is sorted by SR by default.' },
         { title: 'TWA & TWR', color: accentPurple, text: 'TradeWave Average and TradeWave Ratio. Additional quality metrics. TWR uses peak profit (MFE) instead of final return.' },
         { title: 'TL & Price', color: accentBlue, text: 'Real-time trend score and current stock price. TL shows current price momentum (0-100).' },
-        { title: 'AIS, Win%, PredR & PMFE', color: '#818cf8', text: 'Current-condition model readings. Patterns under 10 days use the 10-day model minimum, which is explained in the AI value tooltip. Patterns from 10 through 90 days use their current duration. An outline means more durations are available to compare, and longer rows show the bounded 90-day checkpoint.' },
+        { title: 'AIS, Win%, PredR & PMFE', color: '#818cf8', text: 'An outline means you can open a value to compare more than one AI time length. It is not a warning or a quality rating. AI Scores use the latest completed stock and market data as a separate second opinion. Win% estimates the chance of profit. PredR estimates the ending result. PMFE estimates the best move before the end, not a target. AIS ranks the estimated ending result from 0 to 100; it is not a win chance. For 1-9-day patterns, AI uses 10 days while history keeps the real length. For 10-90-day patterns, the table shows the full length; outlined values may also include 30 and/or 60 days. For patterns over 90 days, the table shows 90 days and the outline opens 30, 60, and 90 days.' },
     ]
 
     const headerBg = dark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.08)'
@@ -209,7 +209,7 @@ const OppTablePopup = ({ onClose, iconRect }) => {
                     </div>
 
                     <div className="ts-footer-note">
-                        Historical columns describe the complete seasonal pattern; AI columns add current-condition readings for their labeled horizon. Patterns are ranked by consistency, not by profit alone.
+                        Historical columns describe the complete seasonal pattern. AI columns add separate estimates using the latest completed stock and market data for the time length shown. Patterns are ranked by consistency, not by profit alone.
                         Always combine seasonal analysis with your own research and risk management.
                     </div>
                 </div>
