@@ -207,19 +207,21 @@ for the marker's explicit `target_table_date` and selects every eligible default
 row first. It then adds up to eight commonly viewed logical table contexts from
 the prior 14 days; their old dates/row snapshots are discarded and OppList4 is
 re-fetched for the same target date. Standard rows only are warmed; active rows
-remain a separately deferred feature. Popular views remain capped at 20 rows per
-context and 180 rows in aggregate, while a 2,500-row global safety fence bounds
+remain a separately deferred feature. A selected popular view keeps up to 100 rows
+so a normal table is not partly warm; popular views remain capped at 180 rows in
+aggregate, while a 2,500-row global safety fence bounds
 the complete job (the measured six defaults total 1,739 rows). Exact-window
 legacy requests batch at 25; comparison rows batch at 10, which becomes at most 30
-scorer horizon items. Only raw appserver offsets `9..366` are eligible (displayed
-10-367 inclusive calendar days), and past-entry rows are excluded. Optional
+scorer horizon items. Raw appserver source offsets `0..366` are eligible (displayed
+1-367 inclusive calendar days), and past-entry rows are excluded. A source offset
+`0..8` keeps its real duration while reusing the model's raw 9 (10-day) cache identity. Optional
 environment overrides, all positively bounded by the script, are:
 
 ```
 TW2_ML_PREFETCH_TTL_SECONDS=172800
 TW2_ML_PREFETCH_POPULAR_CONTEXTS=8
 TW2_ML_PREFETCH_USAGE_DAYS=14
-TW2_ML_PREFETCH_ROWS_PER_CONTEXT=20
+TW2_ML_PREFETCH_ROWS_PER_CONTEXT=100
 TW2_ML_PREFETCH_POPULAR_MAX_ROWS=180
 TW2_ML_PREFETCH_GLOBAL_MAX_ROWS=2500
 # Legacy TW2_ML_PREFETCH_MAX_ROWS, when present, is a popular-max fallback only.
