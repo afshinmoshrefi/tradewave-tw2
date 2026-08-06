@@ -516,6 +516,25 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   migration must provision the new ticker's verified price history and update its
   resource symbol manifests; copying or silently aliasing the retired ticker is not
   an acceptable substitute.
+- **US share-class symbol identity:** `BRK-B` is the canonical Berkshire Class B
+  symbol in opportunity keys, supported resource manifests, update-server routes,
+  local CSV filenames, scorer requests, and cache identities. During the mutable
+  manifest migration, `data_updater/update_client2.py` accepts the legacy `BRK.B`
+  spelling only at manifest ingestion and immediately converts it to `BRK-B`.
+  Neither the appserver nor the scorer performs punctuation aliasing, and other
+  unsupported dotted symbols remain skipped. The central EOD producer remains the
+  primary source and should hold canonical `US/BRK-B.csv`. Until that producer is
+  provisioned, the nightly updater has a temporary, literal BRK-B-only recovery:
+  only after the central server reports the canonical file missing, it requests
+  ascending `BRK-B.US` rows directly from EODHD through the latest completed US
+  session. It accepts either an already-provisioned local history or a bounded
+  full-history bootstrap, strictly validates dates, terminal coverage, adjusted
+  OHLC, volume, and adjustment factors, then atomically writes `US/BRK-B.csv`.
+  Invalid or incomplete recovery fails the nightly run. This recovery is never
+  available in an appserver request path or in the scorer, never applies a generic
+  punctuation rule, and automatically yields to the central feed once its canonical
+  file exists. The dedicated scorer receives the same canonical file through its
+  existing development data sync.
 - **Opportunity AI duration comparisons (V3, 2026-08-06):** `OppList4` returns the
   additive `ml_market_eligible` bit separately from the entitlement-aware
   `ml_enabled` bit. AI targets remain limited to US stocks and ETFs in resource

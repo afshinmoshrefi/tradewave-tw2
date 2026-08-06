@@ -236,7 +236,12 @@ tr {
 
 .opp-ai-detail {
   width: min(300px, 78vw);
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   padding: 3px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
   color: inherit;
   text-align: left;
   white-space: normal;
@@ -352,7 +357,12 @@ tr {
 
 .opp-ai-coachmark {
   width: min(320px, 78vw);
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   padding: 5px 3px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
   color: inherit;
   font-size: 12px;
   line-height: 1.45;

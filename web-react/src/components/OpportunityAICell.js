@@ -10,6 +10,39 @@ import {
 
 const safeIdPart = value => String(value || '').replace(/[^a-zA-Z0-9_-]/g, '-')
 
+const appendToDocumentBody = () => document.body
+
+const viewportPopperOptions = fallbackPlacements => ({
+  strategy: 'fixed',
+  modifiers: [
+    {
+      name: 'flip',
+      options: {
+        fallbackPlacements,
+        rootBoundary: 'viewport',
+        padding: 8,
+      },
+    },
+    {
+      name: 'preventOverflow',
+      options: {
+        rootBoundary: 'viewport',
+        mainAxis: true,
+        altAxis: true,
+        tether: true,
+        padding: 8,
+      },
+    },
+  ],
+})
+
+const DETAIL_POPPER_OPTIONS = viewportPopperOptions(['top', 'right', 'left'])
+const COACHMARK_POPPER_OPTIONS = viewportPopperOptions(['top-start', 'bottom-end', 'top-end'])
+
+const focusableControls = root => root
+  ? Array.from(root.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+  : []
+
 const finiteNumberOrNull = value => {
   if (value === null || value === undefined || value === '') return null
   const parsed = Number(value)
@@ -54,7 +87,7 @@ const recurrenceEvidence = horizon => {
   }
 }
 
-const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId }) => {
+const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, onTabBoundary, detailId }) => {
   const metadata = AI_METRICS[metric]
   const isDurationComparison = (
     bundle.basis === 'duration_comparison' || bundle.basis === 'checkpoint'
@@ -66,9 +99,14 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId })
       className="opp-ai-detail"
       role="dialog"
       aria-label={`${metadata.label} details`}
+      tabIndex={-1}
       onClick={event => event.stopPropagation()}
       onKeyDown={event => {
-        if (event.key === 'Escape' && onEscape) onEscape(event)
+        if (event.key === 'Escape' && onEscape) {
+          onEscape(event)
+        } else if (event.key === 'Tab' && onTabBoundary) {
+          onTabBoundary(event)
+        }
       }}
     >
       <div className="opp-ai-detail__title">
@@ -149,23 +187,33 @@ const OpportunityAIDetail = ({ bundle, metric, onOpenHelp, onEscape, detailId })
           type="button"
           className="opp-ai-detail__help"
           onClick={onOpenHelp}
-          onKeyDown={event => {
-            if (event.key === 'Escape' && onEscape) onEscape(event)
-          }}
         >About AI scores</button>
       )}
     </div>
   )
 }
 
-const CheckpointCoachmark = ({ onDismiss, onOpenHelp }) => {
+const CheckpointCoachmark = ({ onDismiss, onOpenHelp, onEscape, onTabBoundary }) => {
   useEffect(() => {
     const timer = window.setTimeout(onDismiss, 10000)
     return () => window.clearTimeout(timer)
   }, [onDismiss])
 
   return (
-    <div className="opp-ai-coachmark" role="status" onClick={event => event.stopPropagation()}>
+    <div
+      className="opp-ai-coachmark"
+      role="dialog"
+      aria-label="AI duration comparison guide"
+      tabIndex={-1}
+      onClick={event => event.stopPropagation()}
+      onKeyDown={event => {
+        if (event.key === 'Escape' && onEscape) {
+          onEscape(event)
+        } else if (event.key === 'Tab' && onTabBoundary) {
+          onTabBoundary(event)
+        }
+      }}
+    >
       <div className="opp-ai-coachmark__title">Duration comparison</div>
       <div>The table keeps the current pattern score through 90 days. Hover or tap to compare the shorter 30- and 60-day readings; longer patterns also include 90 days.</div>
       <div className="opp-ai-coachmark__actions">
@@ -187,6 +235,7 @@ const OpportunityAICell = ({
 }) => {
   const metadata = AI_METRICS[metric]
   const tippyRef = useRef(null)
+  const coachmarkTippyRef = useRef(null)
   const buttonRef = useRef(null)
   const [open, setOpen] = useState(false)
 
@@ -196,14 +245,90 @@ const OpportunityAICell = ({
   const handleTippyShow = useCallback(() => setOpen(true), [])
   const handleTippyHide = useCallback(() => setOpen(false), [])
 
+  const focusCellAndClearTippyDelays = useCallback(() => {
+    if (buttonRef.current) buttonRef.current.focus()
+    ;[tippyRef.current, coachmarkTippyRef.current].forEach(instance => {
+      if (instance && typeof instance.clearDelayTimeouts === 'function') {
+        instance.clearDelayTimeouts()
+      }
+    })
+  }, [])
+
+  const focusDetail = useCallback(() => {
+    const popper = tippyRef.current && tippyRef.current.popper
+    const detail = popper && popper.querySelector('.opp-ai-detail')
+    if (!detail) return false
+    const controls = focusableControls(detail)
+    ;(controls[0] || detail).focus()
+    return true
+  }, [])
+
+  const focusCoachmark = useCallback(() => {
+    const popper = coachmarkTippyRef.current && coachmarkTippyRef.current.popper
+    const coachmark = popper && popper.querySelector('.opp-ai-coachmark')
+    if (!coachmark) return false
+    const controls = focusableControls(coachmark)
+    ;(controls[0] || coachmark).focus()
+    return true
+  }, [])
+
   const handleKeyDown = useCallback(event => {
     event.stopPropagation()
     if (event.key === 'Escape' && tippyRef.current) {
       event.preventDefault()
+      focusCellAndClearTippyDelays()
       tippyRef.current.hide()
-      if (buttonRef.current) buttonRef.current.focus()
+    } else if (event.key === 'Tab' && !event.shiftKey && showCoachmark && focusCoachmark()) {
+      event.preventDefault()
+    } else if (event.key === 'Tab' && !event.shiftKey && open && focusDetail()) {
+      // Interactive Tippy content is portaled to document.body to escape the
+      // table's scroll clips, so move focus into it explicitly.
+      event.preventDefault()
     }
-  }, [])
+  }, [focusCellAndClearTippyDelays, focusCoachmark, focusDetail, open, showCoachmark])
+
+  const handleDetailTabBoundary = useCallback(event => {
+    const detail = event.currentTarget
+    const controls = focusableControls(detail)
+    const currentIndex = controls.indexOf(event.target)
+    event.preventDefault()
+    event.stopPropagation()
+    if (controls.length === 0 || currentIndex < 0) {
+      focusCellAndClearTippyDelays()
+    } else if (event.shiftKey && currentIndex > 0) {
+      controls[currentIndex - 1].focus()
+    } else if (!event.shiftKey && currentIndex < controls.length - 1) {
+      controls[currentIndex + 1].focus()
+    } else {
+      focusCellAndClearTippyDelays()
+    }
+  }, [focusCellAndClearTippyDelays])
+
+  const handleCoachmarkTabBoundary = useCallback(event => {
+    const coachmark = event.currentTarget
+    const controls = focusableControls(coachmark)
+    const currentIndex = controls.indexOf(event.target)
+    event.preventDefault()
+    event.stopPropagation()
+    if (controls.length === 0 || currentIndex < 0) {
+      focusCellAndClearTippyDelays()
+    } else if (event.shiftKey && currentIndex > 0) {
+      controls[currentIndex - 1].focus()
+    } else if (!event.shiftKey && currentIndex < controls.length - 1) {
+      controls[currentIndex + 1].focus()
+    } else {
+      focusCellAndClearTippyDelays()
+    }
+  }, [focusCellAndClearTippyDelays])
+
+  const dismissCoachmark = useCallback(event => {
+    if (event && typeof event.preventDefault === 'function') {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    focusCellAndClearTippyDelays()
+    if (typeof onDismissCoachmark === 'function') onDismissCoachmark()
+  }, [focusCellAndClearTippyDelays, onDismissCoachmark])
 
   const closeDetail = useCallback(event => {
     if (event) {
@@ -212,9 +337,9 @@ const OpportunityAICell = ({
     }
     // Focus while the popover is still open, then hide it. Focusing after hide
     // would immediately fire Tippy's focus trigger and reopen the detail.
-    if (buttonRef.current) buttonRef.current.focus()
+    focusCellAndClearTippyDelays()
     if (tippyRef.current) tippyRef.current.hide()
-  }, [])
+  }, [focusCellAndClearTippyDelays])
 
   const openHelpFromCell = useCallback(() => {
     if (tippyRef.current) tippyRef.current.hide()
@@ -250,10 +375,13 @@ const OpportunityAICell = ({
   const cell = (
     <span className="opp-ai-cell-wrap">
       <Tippy
-        content={<OpportunityAIDetail bundle={bundle} metric={metric} onOpenHelp={openHelpFromCell} onEscape={closeDetail} detailId={detailId} />}
-        placement="top"
+        content={<OpportunityAIDetail bundle={bundle} metric={metric} onOpenHelp={openHelpFromCell} onEscape={closeDetail} onTabBoundary={handleDetailTabBoundary} detailId={detailId} />}
+        appendTo={appendToDocumentBody}
+        placement="bottom"
+        popperOptions={DETAIL_POPPER_OPTIONS}
         trigger="mouseenter focus click"
         interactive
+        disabled={showCoachmark}
         maxWidth={340}
         delay={[120, 80]}
         onCreate={handleTippyCreate}
@@ -287,11 +415,14 @@ const OpportunityAICell = ({
       <Tippy
         visible
         interactive
+        appendTo={appendToDocumentBody}
         placement="bottom-start"
+        popperOptions={COACHMARK_POPPER_OPTIONS}
         maxWidth={360}
         hideOnClick={false}
-        content={<CheckpointCoachmark onDismiss={onDismissCoachmark} onOpenHelp={openHelpFromCell} />}
-        onClickOutside={onDismissCoachmark}
+        content={<CheckpointCoachmark onDismiss={dismissCoachmark} onOpenHelp={openHelpFromCell} onEscape={dismissCoachmark} onTabBoundary={handleCoachmarkTabBoundary} />}
+        onCreate={instance => { coachmarkTippyRef.current = instance }}
+        onClickOutside={dismissCoachmark}
       >
         {cell}
       </Tippy>

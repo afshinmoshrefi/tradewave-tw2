@@ -3,6 +3,7 @@
 # The client's IP should be enabled in nginx conf file like it was on keyprovider
 # Run this daily or weekdays with crontab on appservers
 #
+# Version 1.6 - Added fail-closed BRK-B-only EODHD recovery for a missing central file
 # Version 1.5 - Added holiday-aware US/ETF population readiness proof
 # Version 1.4 - Added post-market timestamp adjustment (file date set to next day if run 4:01 PM - 11:59 PM NY)
 # Version 1.3 - Added retry logic, timeout, error handling, summary
@@ -11,7 +12,9 @@
 import requests
 import argparse
 import json
+import math
 import os
+import re
 import subprocess
 import sys
 import time
@@ -43,6 +46,31 @@ csv_columns = ['date', 'open', 'high', 'low', 'close','volume', 'adj_factor']
 REQUEST_TIMEOUT = 30  # seconds
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2  # exponential backoff base
+LEGACY_RESOURCE_SYMBOLS = {
+    # Some mutable resource CSVs still use the old dotted spelling.  TradeWave
+    # filenames and update-server routes use the canonical hyphenated symbol.
+    'BRK.B': 'BRK-B',
+}
+# Recovery is deliberately narrower than manifest normalization.  Adding a
+# future legacy spelling must not silently authorize a direct vendor fallback.
+CANONICAL_MIGRATION_SYMBOLS = frozenset({'BRK-B'})
+EODHD_RECOVERY_BOOTSTRAP_POLICY = {
+    # The verified BRK-B corpus begins in 1997 and contains more than 7,000
+    # daily rows.  These looser floors reject a partial response without tying
+    # the bridge to an exact vendor row count.
+    'BRK-B': {
+        'minimum_rows': 5000,
+        'latest_first_date': '2000-01-01',
+    },
+}
+if not CANONICAL_MIGRATION_SYMBOLS.issubset(
+    frozenset(LEGACY_RESOURCE_SYMBOLS.values())
+) or set(EODHD_RECOVERY_BOOTSTRAP_POLICY) != set(CANONICAL_MIGRATION_SYMBOLS):
+    raise RuntimeError('canonical recovery scope is not explicitly configured')
+EODHD_RECOVERY_BASE_URL = 'https://eodhistoricaldata.com/api/eod'
+EODHD_RECOVERY_TIMEOUT = (5, 30)
+EODHD_RECOVERY_RETRIES = 3
+_STRICT_ISO_DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 STATUS_FILE = os.environ.get(
     'TW2_EOD_UPDATE_STATUS_FILE',
     '/var/lib/tradewave/eod/update_status.json',
@@ -56,6 +84,164 @@ def market_date(now=None):
     if current.tzinfo is None:
         current = NY_TZ.localize(current)
     return current.astimezone(NY_TZ).date().isoformat()
+
+
+def canonical_resource_symbol(value):
+    """Return the canonical TradeWave symbol for one resource-manifest value."""
+
+    symbol = str(value).strip().upper()
+    return LEGACY_RESOURCE_SYMBOLS.get(symbol, symbol)
+
+
+def symbol_csv_path(exchange_csv_folder, symbol):
+    """Build a local CSV path without leaking a legacy manifest spelling."""
+
+    canonical_symbol = canonical_resource_symbol(symbol)
+    return os.path.join(exchange_csv_folder, f'{canonical_symbol}.csv')
+
+
+def request_symbol_update(resource_id, symbol, last_date):
+    """Request an update-server payload under the canonical TradeWave symbol."""
+
+    canonical_symbol = canonical_resource_symbol(symbol)
+    url = (
+        f'{config.update_server}update/{resource_id}/'
+        f'{canonical_symbol}/{last_date}'
+    )
+    return get_update_with_retry(url)
+
+
+def write_symbol_csv(frame, exchange_csv_folder, symbol):
+    """Write one symbol frame to its canonical TradeWave filename."""
+
+    csv_path = symbol_csv_path(exchange_csv_folder, symbol)
+    temporary = f'{csv_path}.tmp.{os.getpid()}'
+    try:
+        frame.to_csv(temporary)
+        os.replace(temporary, csv_path)
+        set_file_date_tomorrow_if_post_market(csv_path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return csv_path
+
+
+class RecoveryValidationError(ValueError):
+    """A secret-free validation failure for a bounded EODHD recovery."""
+
+
+def _recovery_date(value, field_name):
+    if not isinstance(value, str) or not _STRICT_ISO_DATE.fullmatch(value):
+        raise RecoveryValidationError(f'{field_name} must be a strict ISO date')
+    try:
+        parsed = datetime.date.fromisoformat(value)
+    except ValueError as exc:
+        raise RecoveryValidationError(
+            f'{field_name} must be a valid ISO date'
+        ) from exc
+    if parsed.isoformat() != value:
+        raise RecoveryValidationError(f'{field_name} must be a strict ISO date')
+    return parsed
+
+
+def _recovery_number(value, field_name, *, allow_zero=False):
+    if isinstance(value, bool):
+        raise RecoveryValidationError(f'{field_name} must be finite numeric data')
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise RecoveryValidationError(
+            f'{field_name} must be finite numeric data'
+        ) from exc
+    if not math.isfinite(number):
+        raise RecoveryValidationError(f'{field_name} must be finite numeric data')
+    if number < 0 or (number == 0 and not allow_zero):
+        qualifier = 'nonnegative' if allow_zero else 'positive'
+        raise RecoveryValidationError(f'{field_name} must be {qualifier}')
+    return number
+
+
+def validate_eodhd_recovery_rows(payload, last_date, completed_session):
+    """Validate and adjust a bounded canonical-symbol EODHD response.
+
+    The response is rejected as a whole.  It is never sorted, deduplicated, or
+    clipped because doing so could hide a stale, malformed, or future row.
+    """
+
+    last_day = _recovery_date(str(last_date), 'local last_date')
+    completed_day = (
+        completed_session
+        if isinstance(completed_session, datetime.date)
+        else _recovery_date(str(completed_session), 'completed_session')
+    )
+    if not isinstance(payload, list) or not payload:
+        raise RecoveryValidationError('response must contain at least one row')
+
+    adjusted_rows = []
+    previous_day = None
+    for row in payload:
+        if not isinstance(row, dict):
+            raise RecoveryValidationError('each response row must be an object')
+        day = _recovery_date(row.get('date'), 'row date')
+        if day <= last_day:
+            raise RecoveryValidationError('row date is not after local last_date')
+        if day > completed_day:
+            raise RecoveryValidationError('row date is after completed_session')
+        if previous_day is not None and day <= previous_day:
+            raise RecoveryValidationError(
+                'row dates must be strictly ascending and unique'
+            )
+
+        raw_open = _recovery_number(row.get('open'), 'open')
+        raw_high = _recovery_number(row.get('high'), 'high')
+        raw_low = _recovery_number(row.get('low'), 'low')
+        raw_close = _recovery_number(row.get('close'), 'close')
+        adjusted_close = _recovery_number(
+            row.get('adjusted_close'),
+            'adjusted_close',
+        )
+        volume = _recovery_number(
+            row.get('volume'),
+            'volume',
+            allow_zero=True,
+        )
+        if not volume.is_integer():
+            raise RecoveryValidationError('volume must be an integer')
+        if not (
+            raw_low <= raw_open <= raw_high
+            and raw_low <= raw_close <= raw_high
+        ):
+            raise RecoveryValidationError('OHLC values are not internally ordered')
+        adjustment_factor = adjusted_close / raw_close
+        adjusted_ohlc = [
+            raw_open * adjustment_factor,
+            raw_high * adjustment_factor,
+            raw_low * adjustment_factor,
+            adjusted_close,
+        ]
+        if (
+            not math.isfinite(adjustment_factor)
+            or adjustment_factor <= 0
+            or any(not math.isfinite(value) or value <= 0 for value in adjusted_ohlc)
+        ):
+            raise RecoveryValidationError('adjusted OHLC data is invalid')
+
+        adjusted_rows.append(
+            [
+                day.isoformat(),
+                *adjusted_ohlc,
+                int(volume),
+                adjustment_factor,
+            ]
+        )
+        previous_day = day
+
+    if previous_day != completed_day:
+        raise RecoveryValidationError(
+            'terminal row date does not equal completed_session'
+        )
+
+    return adjusted_rows
 
 
 def read_success_marker(
@@ -186,6 +372,153 @@ def get_update_with_retry(url, retries=MAX_RETRIES):
     
     return None
 
+
+def fetch_eodhd_recovery_rows(symbol, last_date, completed_session):
+    """Fetch one explicitly canonical migration symbol from EODHD.
+
+    The token is passed only as a request parameter and neither the request URL,
+    parameters, response body, nor exception text is logged.
+    """
+
+    if symbol not in CANONICAL_MIGRATION_SYMBOLS:
+        return None
+    token = str(getattr(config, 'EOD_token', '') or '').strip()
+    if not token:
+        print(f'  EODHD recovery unavailable for {symbol}: credential not configured')
+        return None
+
+    try:
+        last_day = _recovery_date(str(last_date), 'local last_date')
+        completed_day = (
+            completed_session
+            if isinstance(completed_session, datetime.date)
+            else _recovery_date(str(completed_session), 'completed_session')
+        )
+    except RecoveryValidationError as exc:
+        print(f'  EODHD recovery rejected for {symbol}: {exc}')
+        return None
+
+    if last_day > completed_day:
+        print(f'  EODHD recovery rejected for {symbol}: local date is in the future')
+        return None
+    if last_day == completed_day:
+        return []
+
+    url = f'{EODHD_RECOVERY_BASE_URL}/{symbol}.US'
+    params = {
+        'api_token': token,
+        'period': 'd',
+        'fmt': 'json',
+        'order': 'a',
+        'from': (last_day + datetime.timedelta(days=1)).isoformat(),
+        'to': completed_day.isoformat(),
+    }
+    for attempt in range(EODHD_RECOVERY_RETRIES):
+        try:
+            response = requests.get(
+                url,
+                params=params,
+                timeout=EODHD_RECOVERY_TIMEOUT,
+                allow_redirects=False,
+            )
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+            print(
+                f'  EODHD recovery request failed for {symbol} '
+                f'({type(exc).__name__}) attempt '
+                f'{attempt + 1}/{EODHD_RECOVERY_RETRIES}'
+            )
+            if attempt < EODHD_RECOVERY_RETRIES - 1:
+                time.sleep(RETRY_BACKOFF ** (attempt + 1))
+            continue
+        except requests.exceptions.RequestException as exc:
+            print(
+                f'  EODHD recovery request failed for {symbol} '
+                f'({type(exc).__name__}); not retrying'
+            )
+            return None
+
+        try:
+            status_code = int(response.status_code)
+        except (AttributeError, TypeError, ValueError):
+            print(f'  EODHD recovery rejected for {symbol}: invalid HTTP status')
+            return None
+        if status_code == 429 or 500 <= status_code <= 599:
+            print(
+                f'  EODHD recovery request failed for {symbol} '
+                f'(HTTP {status_code}) attempt '
+                f'{attempt + 1}/{EODHD_RECOVERY_RETRIES}'
+            )
+            if attempt < EODHD_RECOVERY_RETRIES - 1:
+                time.sleep(RETRY_BACKOFF ** (attempt + 1))
+            continue
+        if not 200 <= status_code <= 299:
+            print(
+                f'  EODHD recovery rejected for {symbol}: '
+                f'HTTP {status_code}; not retrying'
+            )
+            return None
+        try:
+            payload = response.json()
+        except ValueError:
+            print(f'  EODHD recovery rejected for {symbol}: invalid JSON response')
+            return None
+
+        try:
+            rows = validate_eodhd_recovery_rows(
+                payload,
+                last_day.isoformat(),
+                completed_day,
+            )
+        except RecoveryValidationError as exc:
+            print(f'  EODHD recovery rejected for {symbol}: {exc}')
+            return None
+
+        if last_day.isoformat() == '1800-01-01':
+            policy = EODHD_RECOVERY_BOOTSTRAP_POLICY.get(symbol)
+            first_day = datetime.date.fromisoformat(rows[0][0])
+            if (
+                policy is None
+                or len(rows) < int(policy['minimum_rows'])
+                or first_day
+                > datetime.date.fromisoformat(policy['latest_first_date'])
+            ):
+                print(
+                    f'  EODHD recovery rejected for {symbol}: '
+                    'full-history bootstrap proof failed'
+                )
+                return None
+        return rows
+
+    return None
+
+
+def recover_source_missing_update(
+    update_server_result,
+    *,
+    symbol,
+    exchange,
+    last_date,
+    completed_session,
+):
+    """Recover only an explicit canonical symbol after a source-missing reply.
+
+    Returns ``(attempted, rows)``.  ``rows is None`` means an attempted
+    recovery failed validation or transport and must fail the nightly run.
+    """
+
+    if not isinstance(update_server_result, dict):
+        return False, None
+    update_value = update_server_result.get('update')
+    if not (
+        isinstance(update_value, str)
+        and update_value.lower().startswith('file missing:')
+    ):
+        return False, None
+    if exchange != 'US' or symbol not in CANONICAL_MIGRATION_SYMBOLS:
+        return False, None
+    rows = fetch_eodhd_recovery_rows(symbol, last_date, completed_session)
+    return True, rows
+
 #-----------------------------------------------------------------------------
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -220,7 +553,7 @@ if __name__ == "__main__":
             raise SystemExit(0)
 
     started_at = run_now.isoformat()
-    print('update client version 1.5')
+    print('update client version 1.6')
     print(f'Started at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'Expected completed US session: {completed_session_iso}')
     print(f'Target opportunity-table date: {current_target_table_date}')
@@ -229,6 +562,7 @@ if __name__ == "__main__":
     # Counters for summary
     total_symbols = 0
     updated_count = 0
+    recovered_count = 0
     skipped_count = 0
     failed_count = 0
     missing_count = 0  # symbol not on server
@@ -253,7 +587,7 @@ if __name__ == "__main__":
                     config.available_resources_path[resource_id]
                 )
                 resource_symbols = [
-                    str(item).strip().upper()
+                    canonical_resource_symbol(item)
                     for item in resource_frame['symbols'].tolist()
                     if str(item).strip()
                 ]
@@ -280,11 +614,14 @@ if __name__ == "__main__":
             is_readiness_target = s in readiness_target_set
             observation_key = f'{exchange}:{s}'
 
-            if '.' in s:  # skipping symbols like BRK.B for now
+            # Known supported share classes (currently BRK-B) are canonicalized
+            # when the resource manifest is read.  Other dotted source symbols
+            # remain outside this updater's supported target set.
+            if '.' in s:
                 skipped_count += 1
                 continue
 
-            csv_path = exchange_csv_folder + s + '.csv'
+            csv_path = symbol_csv_path(exchange_csv_folder, s)
             exists = os.path.isfile(csv_path)
             last_date = '1800-01-01'  # get all data from 1800 if available
             df_existing = None
@@ -311,8 +648,7 @@ if __name__ == "__main__":
                         }
                     continue
 
-            url = f'{config.update_server}update/{resource_id}/{s}/{last_date}'
-            result = get_update_with_retry(url)
+            result = request_symbol_update(resource_id, s, last_date)
 
             if result is None:
                 print(f'  FAILED: {s} - could not fetch from server')
@@ -337,14 +673,38 @@ if __name__ == "__main__":
                 continue
 
             update_rows = result['update']
-            if 'missing' in str(update_rows):
+            recovered_update = False
+            if isinstance(update_rows, str) and update_rows.lower().startswith(
+                'file missing:'
+            ):
                 missing_count += 1
-                if is_readiness_target:
-                    observations[observation_key] = terminal_observation(
-                        df_existing,
-                        'source_missing',
-                    )
-                continue
+                recovery_attempted, recovery_rows = recover_source_missing_update(
+                    result,
+                    symbol=s,
+                    exchange=exchange,
+                    last_date=last_date,
+                    completed_session=completed_session,
+                )
+                if recovery_attempted and recovery_rows is None:
+                    print(f'  FAILED: {s} - canonical recovery was not verified')
+                    failed_count += 1
+                    exchange_failed += 1
+                    if is_readiness_target:
+                        observations[observation_key] = terminal_observation(
+                            df_existing,
+                            'recovery_failed',
+                        )
+                    continue
+                if recovery_attempted:
+                    update_rows = recovery_rows
+                    recovered_update = bool(recovery_rows)
+                else:
+                    if is_readiness_target:
+                        observations[observation_key] = terminal_observation(
+                            df_existing,
+                            'source_missing',
+                        )
+                    continue
 
             if not isinstance(update_rows, list):
                 print(f'  FAILED: {s} - update rows are not a list')
@@ -371,16 +731,18 @@ if __name__ == "__main__":
                     df_final = pd.concat([df_existing, dfu]).reset_index(drop=True)
                 else:
                     df_final = dfu
-                df_final.to_csv(csv_path)
-                set_file_date_tomorrow_if_post_market(csv_path)
+                write_symbol_csv(df_final, exchange_csv_folder, s)
                 if is_readiness_target:
                     observations[observation_key] = terminal_observation(
                         df_final,
                         'verified',
                     )
                 updated_count += 1
+                if recovered_update:
+                    recovered_count += 1
                 exchange_updated += 1
-                print(f'  {c}/{len(slist)} Updated: {s} (+{len(dfu)} rows)')
+                action = 'Recovered' if recovered_update else 'Updated'
+                print(f'  {c}/{len(slist)} {action}: {s} (+{len(dfu)} rows)')
             except Exception as e:
                 print(f'  Error saving {s}: {e}')
                 failed_count += 1
@@ -422,6 +784,7 @@ if __name__ == "__main__":
     print('=' * 50)
     print(f'Total unique symbols processed: {total_symbols}')
     print(f'Updated:  {updated_count}')
+    print(f'Recovered: {recovered_count} (bounded canonical EODHD fallback)')
     print(f'Skipped:  {skipped_count}')
     print(f'Missing:  {missing_count} (not on server)')
     print(f'Failed:   {failed_count}')

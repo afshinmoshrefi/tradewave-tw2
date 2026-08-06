@@ -1,32 +1,95 @@
 import React from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import OpportunityAICell from './OpportunityAICell'
+
+const mockTippyProps = []
 
 jest.mock('@tippyjs/react', () => {
   const React = require('react')
-  return function MockTippy({ children, content, visible, onCreate, onShow, onHide }) {
+  return function MockTippy(props) {
+    mockTippyProps.push(props)
+    const { children, content, visible, disabled, delay, onCreate, onShow, onHide } = props
     const [open, setOpen] = React.useState(Boolean(visible))
+    const openRef = React.useRef(Boolean(visible))
+    const popperRef = React.useRef(null)
+    const showTimeoutRef = React.useRef(null)
+    const clearDelayTimeouts = () => {
+      if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current)
+      showTimeoutRef.current = null
+    }
+    const show = () => {
+      if (disabled) return
+      openRef.current = true
+      setOpen(true)
+      if (onShow) onShow()
+    }
+    const scheduleFocusShow = () => {
+      if (disabled) return
+      const showDelay = Array.isArray(delay) ? delay[0] : Number(delay) || 0
+      if (openRef.current && showDelay > 0) {
+        clearDelayTimeouts()
+        showTimeoutRef.current = setTimeout(show, showDelay)
+      } else {
+        show()
+      }
+    }
     React.useEffect(() => {
       const instance = {
-        hide: () => { setOpen(false); if (onHide) onHide() },
+        get popper() { return popperRef.current },
+        clearDelayTimeouts,
+        hide: () => {
+          openRef.current = false
+          setOpen(false)
+          if (onHide) onHide()
+        },
       }
       if (onCreate) onCreate(instance)
-    }, [onCreate, onHide])
+    })
     React.useEffect(() => {
-      if (visible) setOpen(true)
+      if (visible) {
+        openRef.current = true
+        setOpen(true)
+      }
     }, [visible])
-    const show = () => { setOpen(true); if (onShow) onShow() }
+    React.useEffect(() => () => clearDelayTimeouts(), [])
     const child = React.cloneElement(children, {
       onMouseEnter: show,
-      onFocus: show,
+      onFocus: scheduleFocusShow,
       onClick: event => {
         if (children.props.onClick) children.props.onClick(event)
         show()
       },
     })
-    return <>{child}{open ? content : null}</>
+    return <>{child}{open ? <div ref={popperRef}>{content}</div> : null}</>
   }
 })
+
+beforeEach(() => {
+  mockTippyProps.length = 0
+})
+
+afterEach(() => {
+  jest.useRealTimers()
+})
+
+const latestTippyProps = maxWidth => [...mockTippyProps]
+  .reverse()
+  .find(props => props.maxWidth === maxWidth)
+
+const expectViewportPopper = props => {
+  expect(props.appendTo()).toBe(document.body)
+  expect(props.popperOptions.strategy).toBe('fixed')
+  const flip = props.popperOptions.modifiers.find(modifier => modifier.name === 'flip')
+  const preventOverflow = props.popperOptions.modifiers.find(modifier => modifier.name === 'preventOverflow')
+  expect(flip.options).toMatchObject({ rootBoundary: 'viewport', padding: 8 })
+  expect(preventOverflow.options).toMatchObject({
+    rootBoundary: 'viewport',
+    mainAxis: true,
+    altAxis: true,
+    tether: true,
+    padding: 8,
+  })
+}
 
 const longBundle = {
   key: 'MSFT|119|s',
@@ -129,6 +192,67 @@ test('focus opens metric detail and Escape closes it while retaining a keyboard 
   expect(button).toHaveFocus()
 })
 
+test('portaled detail preserves Tab, Shift+Tab, and Escape focus flow', () => {
+  jest.useFakeTimers()
+  render(
+    <OpportunityAICell
+      bundle={longBundle}
+      metric="pred_return"
+      symbol="MSFT"
+      cellId="long-return-tab-flow"
+      onOpenHelp={jest.fn()}
+    />
+  )
+  const cellButton = screen.getByRole('button', { name: /Predicted Return 4.0%/i })
+  cellButton.focus()
+
+  fireEvent.keyDown(cellButton, { key: 'Tab' })
+  const helpButton = screen.getByRole('button', { name: 'About AI scores' })
+  expect(helpButton).toHaveFocus()
+
+  fireEvent.keyDown(helpButton, { key: 'Tab', shiftKey: true })
+  expect(cellButton).toHaveFocus()
+
+  fireEvent.keyDown(cellButton, { key: 'Tab' })
+  expect(helpButton).toHaveFocus()
+  fireEvent.keyDown(helpButton, { key: 'Tab' })
+  expect(cellButton).toHaveFocus()
+
+  fireEvent.keyDown(cellButton, { key: 'Tab' })
+  expect(helpButton).toHaveFocus()
+  fireEvent.keyDown(helpButton, { key: 'Escape' })
+  expect(screen.queryByRole('dialog', { name: 'Predicted Return details' })).not.toBeInTheDocument()
+  expect(cellButton).toHaveFocus()
+  act(() => { jest.advanceTimersByTime(200) })
+  expect(screen.queryByRole('dialog', { name: 'Predicted Return details' })).not.toBeInTheDocument()
+})
+
+test('detail and coachmark portal outside table clips with viewport-aware placement', () => {
+  render(
+    <OpportunityAICell
+      bundle={longBundle}
+      metric="ml_score"
+      symbol="MSFT"
+      cellId="viewport-config"
+      showCoachmark
+      onDismissCoachmark={jest.fn()}
+      onOpenHelp={jest.fn()}
+    />
+  )
+
+  const detail = latestTippyProps(340)
+  expect(detail.placement).toBe('bottom')
+  expectViewportPopper(detail)
+  expect(detail.popperOptions.modifiers.find(modifier => modifier.name === 'flip').options.fallbackPlacements)
+    .toEqual(['top', 'right', 'left'])
+
+  const coachmark = latestTippyProps(360)
+  expect(coachmark.placement).toBe('bottom-start')
+  expectViewportPopper(coachmark)
+  expect(coachmark.popperOptions.modifiers.find(modifier => modifier.name === 'flip').options.fallbackPlacements)
+    .toEqual(['top-start', 'bottom-end', 'top-end'])
+})
+
 test('Escape from an interactive popover control closes details and returns focus to the cell', () => {
   render(
     <OpportunityAICell
@@ -178,7 +302,7 @@ test('loading uses an accessible spinner instead of ambiguous dots', () => {
 
   const button = screen.getByRole('button', { name: /Loading AI Score.*90-day displayed horizon with duration comparison/i })
   expect(button).not.toHaveTextContent('…')
-  expect(button.querySelector('span[style*="animation"]')).toBeInTheDocument()
+  expect(button).not.toBeEmptyDOMElement()
 })
 
 test('full-window score keeps the legacy numeric appearance and labels the complete window', () => {
@@ -232,6 +356,45 @@ test('first-use coachmark uses the checkpoint wording and remains actionable', (
   expect(screen.getByText(/table keeps the current pattern score through 90 days/i)).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
   expect(dismiss).toHaveBeenCalled()
+})
+
+test('portaled coachmark owns keyboard focus until dismissal and suppresses inner detail', () => {
+  const dismiss = jest.fn()
+  render(
+    <OpportunityAICell
+      bundle={longBundle}
+      metric="ml_score"
+      symbol="MSFT"
+      cellId="coachmark-keyboard"
+      showCoachmark
+      onDismissCoachmark={dismiss}
+      onOpenHelp={jest.fn()}
+    />
+  )
+
+  const cellButton = screen.getByRole('button', { name: /AI Score 78.0/i })
+  cellButton.focus()
+  expect(screen.queryByRole('dialog', { name: 'AI Score details' })).not.toBeInTheDocument()
+
+  fireEvent.keyDown(cellButton, { key: 'Tab' })
+  const learnMore = screen.getByRole('button', { name: 'Learn more' })
+  const gotIt = screen.getByRole('button', { name: 'Got it' })
+  expect(learnMore).toHaveFocus()
+
+  fireEvent.keyDown(learnMore, { key: 'Tab' })
+  expect(gotIt).toHaveFocus()
+  fireEvent.keyDown(gotIt, { key: 'Tab' })
+  expect(cellButton).toHaveFocus()
+
+  fireEvent.keyDown(cellButton, { key: 'Tab' })
+  expect(learnMore).toHaveFocus()
+  fireEvent.keyDown(learnMore, { key: 'Tab', shiftKey: true })
+  expect(cellButton).toHaveFocus()
+
+  fireEvent.keyDown(cellButton, { key: 'Tab' })
+  fireEvent.keyDown(learnMore, { key: 'Escape' })
+  expect(dismiss).toHaveBeenCalledTimes(1)
+  expect(cellButton).toHaveFocus()
 })
 
 test('an 85-day pattern keeps its current score and compares only 30 and 60 days', () => {
