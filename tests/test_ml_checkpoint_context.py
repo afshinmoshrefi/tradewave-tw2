@@ -35,6 +35,7 @@ from ml_checkpoint_context import (  # noqa: E402
     ranked_usage_contexts,
     read_cached_checkpoint,
     record_usage_context,
+    should_record_table_usage,
     write_cached_checkpoint,
     write_cached_legacy_score,
 )
@@ -918,6 +919,14 @@ def test_usage_context_retains_short_rows_inside_displayed_one_to_nine_range():
         "FIRST",
         "SHORT",
     ]
+
+
+def test_wave_viewer_score_requests_do_not_count_as_viewed_tables():
+    assert should_record_table_usage({"request_origin": "wave_viewer"}) is False
+    assert should_record_table_usage({"request_origin": "WAVE_VIEWER"}) is False
+    assert should_record_table_usage({}) is True
+    assert should_record_table_usage({"request_origin": "opportunity_table"}) is True
+    assert should_record_table_usage({"request_origin": "unknown"}) is True
 
 
 def test_usage_registry_is_full_identity_default_first_then_view_count():

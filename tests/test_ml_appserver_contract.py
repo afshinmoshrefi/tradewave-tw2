@@ -210,6 +210,27 @@ def test_request_shape_and_hard_row_ceiling_are_bounded(monkeypatch):
     assert appserver_module._ml_valid_request_items([{}] * limit, "pending")[1] is None
 
 
+def test_wave_viewer_batch_skips_only_table_popularity_telemetry(monkeypatch):
+    _configure(monkeypatch)
+    recorded = []
+    monkeypatch.setattr(
+        appserver_module,
+        "_ml_record_table_usage",
+        lambda resource, body: recorded.append((resource, body)),
+    )
+
+    viewer_body = {
+        "request_origin": "wave_viewer",
+        "opportunities": [_opportunity("VIEWER", 149)],
+    }
+    table_body = {"opportunities": [_opportunity("TABLE", 29)]}
+
+    assert _post("/MLScoreBatch/2", viewer_body).status_code == 200
+    assert recorded == []
+    assert _post("/MLScoreBatch/2", table_body).status_code == 200
+    assert recorded == [("2", table_body)]
+
+
 def test_500_row_collapsed_table_is_accepted(monkeypatch):
     _configure(monkeypatch)
     opportunities = [

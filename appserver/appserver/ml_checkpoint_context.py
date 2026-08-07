@@ -1525,6 +1525,22 @@ def is_default_table_context(
     return selected == DEFAULT_CONSECUTIVE_CONTEXTS.get(str(resource_id))
 
 
+def should_record_table_usage(request_body: Any) -> bool:
+    """Keep one-off Wave Viewer scoring out of table-prefetch popularity data.
+
+    The field is additive: older clients omit it and retain the established
+    Opportunity Table telemetry behavior. Unknown values also fail back to the
+    table behavior instead of silently disabling usage tracking.
+    """
+
+    if not isinstance(request_body, Mapping):
+        return False
+    request_origin = str(
+        request_body.get("request_origin") or "opportunity_table"
+    ).strip().lower()
+    return request_origin != "wave_viewer"
+
+
 def build_usage_context(
     resource_id: Any,
     request_body: Mapping[str, Any],

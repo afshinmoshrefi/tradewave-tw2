@@ -208,19 +208,22 @@ const metricTone = (view, metric) => {
   return value > 0 ? ' ai-score-panel__value--positive' : ' ai-score-panel__value--negative'
 }
 
-const AIViewTable = ({ view, displayDays }) => {
+const AIViewTable = ({ view, displayDays, selectionOrigin }) => {
   const days = Number(view && view.calendarDays)
   const isTableView = days === Number(displayDays)
   const status = view && view.status === 'available' ? '' : opportunityAICompactStatus(view)
+  const isViewerReading = selectionOrigin === 'wave_viewer'
+  const primaryLabel = isViewerReading ? 'Used for Wave Viewer' : 'Shown in Opportunity Table'
+  const primaryAriaLabel = isViewerReading ? 'used for Wave Viewer' : 'shown in Opportunity Table'
 
   return (
     <section
       className={`ai-score-panel__view${isTableView ? ' ai-score-panel__view--table' : ''}`}
-      aria-label={`${days}-day AI checkpoint${isTableView ? ' (shown in Opportunity Table)' : ''}`}
+      aria-label={`${days}-day AI checkpoint${isTableView ? ` (${primaryAriaLabel})` : ''}`}
     >
       <div className="ai-score-panel__view-title">
         <span>{days}-Day Checkpoint</span>
-        {isTableView && <small>Shown in Opportunity Table</small>}
+        {isTableView && <small>{primaryLabel}</small>}
         {status && <small>{status}</small>}
       </div>
       <table aria-label={`${days}-day AI scores`}>
@@ -256,18 +259,22 @@ const AIViewTable = ({ view, displayDays }) => {
   )
 }
 
-const QuickRead = ({ view, fullDays }) => {
+const QuickRead = ({ view, fullDays, selectionOrigin }) => {
   if (!view || view.status !== 'available') return null
   const days = Number(view.calendarDays)
   const winChance = metricDisplay(view, 'win_prob')
   const endReturn = metricDisplay(view, 'pred_return')
   const endReturnNumber = Number(view.metrics && view.metrics.pred_return)
   const history = recurrenceDetails(view.selectedRecurrence)
+  const isViewerReading = selectionOrigin === 'wave_viewer'
 
   return (
-    <div className="ai-score-panel__quick-read" aria-label="Quick read for the Opportunity Table AI checkpoint">
+    <div
+      className="ai-score-panel__quick-read"
+      aria-label={`Quick read for the ${isViewerReading ? 'Wave Viewer' : 'Opportunity Table'} AI checkpoint`}
+    >
       <strong>Quick read</strong>
-      <span>Opportunity Table AI score ({days} days):</span>
+      <span>{isViewerReading ? 'Wave Viewer AI reading' : 'Opportunity Table AI score'} ({days} days):</span>
       <b>{winChance} AI win chance</b>
       <span aria-hidden="true">•</span>
       <b className={metricTone(view, 'pred_return')}>
@@ -329,6 +336,7 @@ const AIScorePanel = ({
     eligible = true,
     enabled = true,
     selected,
+    selectionOrigin = '',
     loading = false,
     unavailableReason = '',
     bundle,
@@ -338,6 +346,7 @@ const AIScorePanel = ({
   const selectedSymbol = firstText(selectedRow.symbol, selectedRow.ticker, viewModel.symbol, bundle && bundle.symbol)
   const hasSelection = Boolean(selectedSymbol)
   const display = bundle && bundle.display
+  const isViewerReading = selectionOrigin === 'wave_viewer'
   const displayIsLoading = Boolean(loading || (display && display.status === 'loading'))
   const displayIsAvailable = Boolean(display && display.status === 'available')
   const symbol = selectedSymbol || 'Selected pattern'
@@ -451,7 +460,11 @@ const AIScorePanel = ({
     directionSummary(direction),
     entryDate ? `Starts ${formatDate(entryDate)}` : '',
     fullDays !== null ? `${fullDays}-day historical pattern` : '',
-    displayDays !== null ? `Opportunity Table uses the ${displayDays}-day AI score` : '',
+    displayDays !== null
+      ? (isViewerReading
+          ? `Wave Viewer uses the ${displayDays}-day AI reading`
+          : `Opportunity Table uses the ${displayDays}-day AI score`)
+      : '',
   ].filter(Boolean)
 
   return (
@@ -470,7 +483,13 @@ const AIScorePanel = ({
           {contextItems.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}
         </div>
 
-        {displayIsAvailable && <QuickRead view={tableView} fullDays={fullDays} />}
+        {displayIsAvailable && (
+          <QuickRead
+            view={tableView}
+            fullDays={fullDays}
+            selectionOrigin={selectionOrigin}
+          />
+        )}
 
         <div className="ai-score-panel__explanation-line">{comparisonExplanation(bundle, views)}</div>
 
@@ -490,6 +509,7 @@ const AIScorePanel = ({
               key={view.calendarDays}
               view={view}
               displayDays={displayDays}
+              selectionOrigin={selectionOrigin}
             />
           ))}
         </div>

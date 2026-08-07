@@ -2,7 +2,7 @@
 // first 2 characters of tooltip content define the position.  
 // l, is left tooltip while b, is bottom tooltip
 
-import React, { useState, useEffect, useContext, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useContext, useRef, useCallback, useMemo } from 'react'
 import ReactDOM from 'react-dom'
 import TableBox from './TableBox'
 import SelectBox from './SelectBox'
@@ -44,6 +44,13 @@ import { resolveOpportunityRecurrence } from './opportunityRecurrence'
 import { normalizeRealtimeQuote } from './realtimePrices'
 import { advanceOpportunityAIPollBudget, normalizeOpportunityAIScore } from './opportunityAIScores'
 import {
+  buildOpportunityViewerAIRequest,
+  createOpportunityAISelectionAnchor,
+  selectOpportunityAIPanelSelection,
+  shouldInvalidateOpportunityAIAnchor,
+  terminalizeOpportunityViewerScores,
+} from './opportunityViewerAIScore'
+import {
   DEFAULT_OPPORTUNITY_SORT,
   buildOpportunitySortOptions,
   opportunitySortValue,
@@ -72,6 +79,14 @@ const mlPendingKey = opportunity => {
 
   return `${symbol}|${opportunity && opportunity.date}|${engineDays}|${direction}`
 }
+
+const emptyViewerMLState = () => ({
+  requestKey: '',
+  scores: {},
+  pendingKeys: new Set(),
+  loading: false,
+  unavailableReason: '',
+})
 
 const OppTable = (props) => {
   const tc = themeColors(props.UITheme)
@@ -116,6 +131,8 @@ const OppTable = (props) => {
   const [mlPending, SetMLPending] = useState(new Set())        // keys still waiting for scores
   const [mlUnavailableReason, SetMLUnavailableReason] = useState('')
   const mlFetchIdRef = useRef(0)                               // prevents stale ML fetches from writing state
+  const [viewerMLState, SetViewerMLState] = useState(emptyViewerMLState)
+  const viewerMLFetchIdRef = useRef(0)                         // independent generation for one changed Wave Viewer duration
   const mlBaselineOppsRef = useRef({ contextKey: '', rows: [] })
   const mlPublishedPanelSignatureRef = useRef('')
   const selectedAIRowIdentityRef = useRef(null)
@@ -127,6 +144,7 @@ const OppTable = (props) => {
   // stock and ETF resources.
   useEffect(() => {
     mlFetchIdRef.current += 1
+    viewerMLFetchIdRef.current += 1
     SetMLScores({})
     SetMLScoresLoading(false)
     SetMLEnabled(false)
@@ -134,6 +152,7 @@ const OppTable = (props) => {
     SetMLEligibilityResolved(false)
     SetMLPending(new Set())
     SetMLUnavailableReason('')
+    SetViewerMLState(emptyViewerMLState())
     selectedAIRowIdentityRef.current = null
     if (typeof setOpportunityAIState === 'function') {
       const clearedState = {
@@ -150,6 +169,23 @@ const OppTable = (props) => {
       setOpportunityAIState(clearedState)
     }
   }, [selectedSecurityForAI, setOpportunityAIState])
+
+  // Leaving the selected opportunity permanently retires its AI anchor. If a
+  // user later types the old symbol/date again, it must not silently recover
+  // stale direction or recurrence from an earlier table click.
+  useEffect(() => {
+    const anchor = selectedAIRowIdentityRef.current
+    if (!shouldInvalidateOpportunityAIAnchor({
+      anchor,
+      market: props.selectedSecurity,
+      symbol: props.symbol,
+      date: props.startDate,
+    })) return
+
+    selectedAIRowIdentityRef.current = null
+    viewerMLFetchIdRef.current += 1
+    SetViewerMLState(emptyViewerMLState())
+  }, [props.selectedSecurity, props.symbol, props.startDate])
 
   const [dayRange, SetDayRange] = useState(EMPTY_DAY_RANGE)
   const [curText, SetCurText] = useState('')
@@ -842,30 +878,245 @@ const OppTable = (props) => {
   mlBaselineOppsRef.current = mlSourceSelection.snapshot
   const mlScoreSource = mlSourceSelection.scoreSource
 
-  // Publish only the selected pattern's normalized view model. This keeps the
-  // panel on exactly the same 10/full/30/60/90-day interpretation used by table
-  // display, filters, and sorting without lifting the entire score cache.
+  const selectedAIAnchor = selectedAIRowIdentityRef.current
+  const panelAISelection = useMemo(() => selectOpportunityAIPanelSelection({
+    scoreSource: mlScoreSource,
+    anchor: selectedAIAnchor,
+    market: props.selectedSecurity,
+    symbol: props.symbol,
+    date: props.startDate,
+    calendarDays: props.daysOut,
+  }), [mlScoreSource, selectedAIAnchor, props.selectedSecurity, props.symbol, props.startDate, props.daysOut])
+  const mlResourceId = getSelectedIDFromSecuritiesList2(
+    props.securityTypeList,
+    props.selectedSecurity,
+  )
+  const viewerAIRequest = useMemo(() => buildOpportunityViewerAIRequest({
+    selection: panelAISelection,
+    resourceId: mlResourceId,
+  }), [panelAISelection, mlResourceId])
+  const viewerAIRequestKey = viewerAIRequest ? viewerAIRequest.requestKey : ''
+  const viewerAIRequestRef = useRef(null)
+  viewerAIRequestRef.current = viewerAIRequest
+
+  // A changed Wave Viewer duration is not an Opportunity Table row. Score that
+  // one pattern on an isolated channel so the table cache, sorting, and pending
+  // queue remain stable. The desired request key is also the publication guard:
+  // an old duration can never overwrite a newer selection.
+  useEffect(() => {
+    const fetchId = ++viewerMLFetchIdRef.current
+    // The object is rebuilt when OppList refreshes, but its stable key contains
+    // every scoring input. Read the latest body from a ref so an equivalent
+    // source-array refresh does not abort and duplicate this isolated request.
+    const requestSpec = viewerAIRequestRef.current
+    if (
+      !requestSpec ||
+      !mlEnabled ||
+      !mlMarketEligible ||
+      !mlEligibilityResolved
+    ) {
+      SetViewerMLState(previous => previous.requestKey ? emptyViewerMLState() : previous)
+      return undefined
+    }
+
+    const requestKey = requestSpec.requestKey
+    const asURL = appserverURL()
+    const controller = new AbortController()
+    let cancelled = false
+    let pollTimer = null
+
+    const isCurrent = () => (
+      !cancelled &&
+      fetchId === viewerMLFetchIdRef.current &&
+      !controller.signal.aborted
+    )
+    const updateCurrent = updater => {
+      if (!isCurrent()) return
+      SetViewerMLState(previous => {
+        if (previous.requestKey !== requestKey) return previous
+        return typeof updater === 'function' ? updater(previous) : updater
+      })
+    }
+
+    SetViewerMLState({
+      requestKey,
+      scores: {},
+      pendingKeys: new Set(),
+      loading: true,
+      unavailableReason: '',
+    })
+
+    twFetch(`${asURL}/MLScoreBatch/${requestSpec.resourceId}?token=${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestSpec.body),
+      signal: controller.signal,
+    })
+      .then(res => { if (res.ok) return res.json(); throw new Error('Wave Viewer MLScoreBatch failed') })
+      .then(data => {
+        if (!isCurrent()) return
+        let pendingList = Array.isArray(data && data.pending) ? data.pending : []
+        const initialScores = data && data.scores && typeof data.scores === 'object'
+          ? data.scores
+          : {}
+        const hasInitialResult = Object.keys(initialScores).length > 0
+        SetViewerMLState({
+          requestKey,
+          scores: initialScores,
+          pendingKeys: new Set(pendingList.map(mlPendingKey)),
+          loading: pendingList.length > 0,
+          unavailableReason: pendingList.length === 0 && !hasInitialResult
+            ? 'service_unavailable'
+            : '',
+        })
+
+        if (pendingList.length === 0) return
+
+        let errorCount = 0
+        let pollAttempts = 0
+        let noProgressRounds = 0
+        const MAX_RETRIES = 3
+
+        const pollPending = () => {
+          if (!isCurrent()) return
+          if (document.visibilityState === 'hidden') {
+            pollTimer = setTimeout(pollPending, 10000)
+            return
+          }
+
+          twFetch(`${asURL}/MLScorePending/${requestSpec.resourceId}?token=${token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pending: pendingList,
+              table_context: requestSpec.body.table_context,
+            }),
+            signal: controller.signal,
+          })
+            .then(res => { if (res.ok) return res.json(); throw new Error('Wave Viewer MLScorePending failed') })
+            .then(result => {
+              if (!isCurrent()) return
+              errorCount = 0
+              const receivedScores = result && result.scores && typeof result.scores === 'object'
+                ? result.scores
+                : {}
+              const previousPendingCount = pendingList.length
+              const nextPendingList = Array.isArray(result && result.still_pending)
+                ? result.still_pending
+                : []
+              const budget = advanceOpportunityAIPollBudget({
+                attempts: pollAttempts,
+                noProgressRounds,
+                previousPendingCount,
+                nextPendingCount: nextPendingList.length,
+                receivedScoreCount: Object.keys(receivedScores).length,
+              })
+              pollAttempts = budget.attempts
+              noProgressRounds = budget.noProgressRounds
+              const terminalWithResult = nextPendingList.length === 0 &&
+                Object.keys(receivedScores).length > 0
+              const exhaustedWithoutResult = budget.exhausted && !terminalWithResult
+              pendingList = exhaustedWithoutResult ? [] : nextPendingList
+
+              updateCurrent(previous => {
+                const terminalWithoutResult = pendingList.length === 0 &&
+                  Object.keys(receivedScores).length === 0
+                const terminal = exhaustedWithoutResult || terminalWithoutResult
+                const mergedScores = { ...previous.scores, ...receivedScores }
+                return {
+                  ...previous,
+                  scores: terminal
+                    ? terminalizeOpportunityViewerScores(mergedScores)
+                    : mergedScores,
+                  pendingKeys: new Set(pendingList.map(mlPendingKey)),
+                  loading: pendingList.length > 0,
+                  unavailableReason: terminal && Object.keys(mergedScores).length === 0
+                    ? 'service_unavailable'
+                    : '',
+                }
+              })
+
+              if (pendingList.length > 0) {
+                pollTimer = setTimeout(pollPending, 3000)
+              }
+            })
+            .catch(err => {
+              if (!isCurrent() || err.name === 'AbortError') return
+              errorCount += 1
+              console.log(`Wave Viewer MLScorePending error (${errorCount}/${MAX_RETRIES}):`, err)
+              if (errorCount < MAX_RETRIES) {
+                pollTimer = setTimeout(pollPending, 5000)
+              } else {
+                updateCurrent(previous => ({
+                  ...previous,
+                  scores: terminalizeOpportunityViewerScores(previous.scores),
+                  pendingKeys: new Set(),
+                  loading: false,
+                  unavailableReason: Object.keys(previous.scores).length === 0
+                    ? 'service_unavailable'
+                    : '',
+                }))
+              }
+            })
+        }
+
+        pollTimer = setTimeout(pollPending, 1000)
+      })
+      .catch(err => {
+        if (!isCurrent() || err.name === 'AbortError') return
+        console.log('Wave Viewer MLScoreBatch error:', err)
+        SetViewerMLState({
+          requestKey,
+          scores: {},
+          pendingKeys: new Set(),
+          loading: false,
+          unavailableReason: 'service_unavailable',
+        })
+      })
+
+    return () => {
+      cancelled = true
+      controller.abort()
+      if (pollTimer) clearTimeout(pollTimer)
+    }
+  }, [viewerAIRequestKey, mlEnabled, mlMarketEligible, mlEligibilityResolved, token])
+
+  // Publish only the selected pattern's normalized view model. Exact table
+  // identities use the complete table snapshot; a changed duration uses only
+  // the independent viewer request above. One publisher prevents a table poll
+  // from clearing or replacing the current viewer result.
   useEffect(() => {
     if (typeof setOpportunityAIState !== 'function') return
-    const identityMatchesViewer = row => (
-      String(row && row.symbol) === String(props.symbol || '') &&
-      String(row && row.date) === String(props.startDate || '') &&
-      parseInt(row && row.daysOut, 10) === parseInt(props.daysOut, 10)
+    const selectedRow = panelAISelection ? panelAISelection.row : null
+    const usesViewerRequest = Boolean(
+      selectedRow && panelAISelection.origin === 'wave_viewer'
     )
-    const clickedIdentity = selectedAIRowIdentityRef.current
-    const selectedCandidates = mlScoreSource.filter(identityMatchesViewer)
-    const selectedRow = selectedCandidates.find(row => (
-      clickedIdentity &&
-      identityMatchesViewer(clickedIdentity) &&
-      String(row && row.lOrS) === String(clickedIdentity.lOrS)
-    )) || selectedCandidates[0] || null
+    const viewerStateMatches = Boolean(
+      usesViewerRequest &&
+      viewerAIRequestKey &&
+      viewerMLState.requestKey === viewerAIRequestKey
+    )
+    const selectedScores = usesViewerRequest
+      ? (viewerStateMatches ? viewerMLState.scores : {})
+      : mlScores
+    const selectedPending = usesViewerRequest
+      ? (viewerStateMatches ? viewerMLState.pendingKeys : new Set())
+      : mlPending
+    const selectedLoading = usesViewerRequest
+      ? Boolean(viewerAIRequestKey && (!viewerStateMatches || viewerMLState.loading))
+      : mlScoresLoading
+    const selectedUnavailableReason = usesViewerRequest
+      ? (viewerAIRequestKey
+          ? (viewerStateMatches ? viewerMLState.unavailableReason : '')
+          : 'service_unavailable')
+      : mlUnavailableReason
     const bundle = selectedRow
       ? normalizeOpportunityAIScore({
           row: selectedRow,
-          scores: mlScores,
-          pendingKeys: mlPending,
-          loading: mlScoresLoading,
-          unavailableReason: mlUnavailableReason,
+          scores: selectedScores,
+          pendingKeys: selectedPending,
+          loading: selectedLoading,
+          unavailableReason: selectedUnavailableReason,
         })
       : null
     const nextState = {
@@ -873,6 +1124,7 @@ const OppTable = (props) => {
       resolved: mlEligibilityResolved,
       eligible: Boolean(mlMarketEligible),
       enabled: Boolean(mlEnabled),
+      selectionOrigin: panelAISelection ? panelAISelection.origin : '',
       selected: selectedRow ? {
         symbol: selectedRow.symbol,
         date: selectedRow.date,
@@ -882,7 +1134,7 @@ const OppTable = (props) => {
         sharpeRatio: selectedRow.sharpe_ratio,
       } : null,
       loading: Boolean(bundle && bundle.display && bundle.display.status === 'loading'),
-      unavailableReason: mlUnavailableReason,
+      unavailableReason: selectedUnavailableReason,
       bundle,
     }
     const signature = JSON.stringify(nextState)
@@ -890,7 +1142,7 @@ const OppTable = (props) => {
       mlPublishedPanelSignatureRef.current = signature
       setOpportunityAIState(nextState)
     }
-  }, [mlScoreSource, mlScores, mlPending, mlScoresLoading, mlUnavailableReason, mlEnabled, mlMarketEligible, mlEligibilityResolved, props.selectedSecurity, props.symbol, props.startDate, props.daysOut, setOpportunityAIState])
+  }, [panelAISelection, viewerAIRequestKey, viewerMLState, mlScores, mlPending, mlScoresLoading, mlUnavailableReason, mlEnabled, mlMarketEligible, mlEligibilityResolved, props.selectedSecurity, setOpportunityAIState])
 
   useEffect(() => {
     // OppList supplies the authoritative ISO entry date for every row. The
@@ -1080,52 +1332,63 @@ const OppTable = (props) => {
   const handlerRowClicked = useCallback((rowIndex, row) => () => { // this is to handleRowClicked in TableBox
     const current = rowClickStateRef.current
     const currentProps = current.props
-    selectedAIRowIdentityRef.current = row
-    const sameOpportunity =
-      currentProps.rowIndexClicked === rowIndex &&
-      currentProps.symbol === row.symbol &&
-      currentProps.startDate === row.date &&
-      parseInt(currentProps.daysOut, 10) === parseInt(row.daysOut, 10)
-    if (!sameOpportunity) {
-      const opp_start_date = row.date;
+    // This callback is also invoked by a native lesson event. React 17 does
+    // not batch that path automatically, so keep the new anchor and all Wave
+    // Viewer identity setters in one render transaction.
+    ReactDOM.unstable_batchedUpdates(() => {
+      selectedAIRowIdentityRef.current = createOpportunityAISelectionAnchor({
+        row,
+        market: currentProps.selectedSecurity,
+        years: currentProps.oppTableYears,
+        partialYears: currentProps.oppTablePartialYears,
+        mode: currentProps.showPEOpps ? 'pe' : 'consecutive',
+      })
+      const sameOpportunity =
+        currentProps.rowIndexClicked === rowIndex &&
+        currentProps.symbol === row.symbol &&
+        currentProps.startDate === row.date &&
+        parseInt(currentProps.daysOut, 10) === parseInt(row.daysOut, 10)
+      if (!sameOpportunity) {
+        const opp_start_date = row.date;
 
-      // Invalidate every payload that belongs to the previously selected
-      // opportunity in this same click transaction. Leaving those objects in
-      // state until ChartData4 returns makes the new ticker/date temporarily
-      // display the prior row's statistics.
-      currentProps.SetSeasonalBarChartData([])
-      currentProps.SetTradeDetailData([])
-      currentProps.SetConsolidatedSeasonalData([])
-      currentProps.SetMaxYearsConsolidatedSeasonalData([])
-      currentProps.SetCompareSecurityBarChartData([])
-      currentProps.SetCompareSecurityTradeDetailData([])
-      currentProps.SetSecurityBHstats([])
-      currentProps.SetLineChartYear(0)
-      if (currentProps.symbol !== row.symbol) currentProps.SetCompany('')
+        // Invalidate every payload that belongs to the previously selected
+        // opportunity in this same click transaction. Leaving those objects in
+        // state until ChartData4 returns makes the new ticker/date temporarily
+        // display the prior row's statistics.
+        currentProps.SetSeasonalBarChartData([])
+        currentProps.SetTradeDetailData([])
+        currentProps.SetConsolidatedSeasonalData([])
+        currentProps.SetMaxYearsConsolidatedSeasonalData([])
+        currentProps.SetCompareSecurityBarChartData([])
+        currentProps.SetCompareSecurityTradeDetailData([])
+        currentProps.SetSecurityBHstats([])
+        currentProps.SetLineChartYear(0)
+        if (currentProps.symbol !== row.symbol) currentProps.SetCompany('')
 
-      currentProps.SetStartDate(opp_start_date);
-      currentProps.SetLastPrice(['', 0]) // reset last price 6/23/2022
-      currentProps.SetSymbol(row.symbol);
-      currentProps.SetDaysOut(row.daysOut);
+        currentProps.SetStartDate(opp_start_date);
+        currentProps.SetLastPrice(['', 0]) // reset last price 6/23/2022
+        currentProps.SetSymbol(row.symbol);
+        currentProps.SetDaysOut(row.daysOut);
 
-      // PE cycle opplist type is selected
-      if (currentProps.showPEOpps === true) {
-        let t = current.PELabel.toLocaleLowerCase().replace('+', '');
-        if (t === 'pe') t = 'pe0';
-        currentProps.SetPEselected(t)
-        currentProps.SetSeasonalYears(currentProps.oppTableYears);
+        // PE cycle opplist type is selected
+        if (currentProps.showPEOpps === true) {
+          let t = current.PELabel.toLocaleLowerCase().replace('+', '');
+          if (t === 'pe') t = 'pe0';
+          currentProps.SetPEselected(t)
+          currentProps.SetSeasonalYears(currentProps.oppTableYears);
+        }
+        else {
+          currentProps.SetSeasonalYears(currentProps.oppTableYears)
+          currentProps.SetPEselected('cons')
+        }
+
+        currentProps.SetMonthsAndQtrs('Months & Qtrs')
+
+        const trend_chart_start_date = incrementDate(opp_start_date, -trend_chart_left_gap_days);
+        currentProps.SetTrendChartStartDate(trend_chart_start_date)
+        currentProps.SetRowIndexClicked(rowIndex);
       }
-      else {
-        currentProps.SetSeasonalYears(currentProps.oppTableYears)
-        currentProps.SetPEselected('cons')
-      }
-
-      currentProps.SetMonthsAndQtrs('Months & Qtrs')
-
-      const trend_chart_start_date = incrementDate(opp_start_date, -trend_chart_left_gap_days);
-      currentProps.SetTrendChartStartDate(trend_chart_start_date)
-      currentProps.SetRowIndexClicked(rowIndex);
-    }
+    })
   }, [])
 
   // The Day-3 lesson can ask us to load the first opportunity when nothing is on the

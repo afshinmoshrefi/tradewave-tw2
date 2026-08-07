@@ -125,6 +125,7 @@ from ml_checkpoint_context import (
     read_cached_legacy_score,
     record_usage_context,
     scorer_metadata_matches,
+    should_record_table_usage,
     valid_scorer_metadata,
     write_cached_legacy_score,
 )
@@ -2447,7 +2448,8 @@ def MLScoreBatch(resourceID):
         }), 400
     if not opps:
         return jsonify({'scores': {}, 'pending': []})
-    _ml_record_table_usage(resourceID, data)
+    if should_record_table_usage(data):
+        _ml_record_table_usage(resourceID, data)
 
     scores = {}
     pending = []

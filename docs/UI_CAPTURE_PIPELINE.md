@@ -488,7 +488,7 @@ simply now accepts one more optional field). `spec_version` stays `1`.
 | `spec_version` | yes | `1` | Schema version guard |
 | `theme` | no (default `"dark"`) | `"dark"` \| `"light"` | Seeds `UITheme` |
 | `display` | yes | `"seasonal"` \| `"tradeDetail"` \| `"aiScores"` \| `"price"` | Which lower display to capture. The harness selects the accessible semantic dot because Price Chart may be index 2 or 3 when AI Scores is available. `aiScores` waits for a populated stats view by default and therefore requires an eligible U.S. stock/ETF account and market. |
-| `aiScores` | no | object with optional `expectedState` and `openGuide` | `expectedState` defaults to `"populated"`; use `"empty"` with no `pattern` to verify the selected-market/no-Wave-Viewer-pattern watermark. `openGuide: true` opens the information guide after a populated panel is ready. |
+| `aiScores` | no | object with optional `expectedState`, `openGuide`, `changeDaysTo`, and `changeDaysBy` | `expectedState` defaults to `"populated"`; use `"empty"` with no `pattern` to verify the selected-market/no-Wave-Viewer-pattern watermark. `openGuide: true` opens the information guide after a populated panel is ready. `changeDaysTo: N` or `changeDaysBy: D` (mutually exclusive integers) changes the visible Wave Viewer duration after the initial populated selection, then requires exactly one isolated `request_origin: "wave_viewer"` ML score batch and a populated panel for the new duration. A relative change reverses its delta only when the requested value is beyond the selector boundary, keeping boundary-row captures useful. TradeWave windows are measured in calendar days: the harness verifies the request's raw `daysOut` equals the displayed target minus 1 and that `years` remains a string. |
 | `market` | yes if `pattern` is set | one of the names in section 4 | Which resource group to select |
 | `symbol` | yes if `pattern` is set | ticker string, e.g. `"AAPL"` | Which symbol the deep link targets |
 | `pattern` | no | object: `{startDate, daysOut, years, pe}` | If present, builds a `?o=` deep link (see Layer 5 above). Omit entirely to capture the app's default/no-pattern state |
@@ -629,6 +629,15 @@ Quick Read before taking `full` and `display` crops. Selecting a real Opportunit
 row matters: an arbitrary Wave Viewer deep link does not publish the row-bound AI bundle
 used by the panel.
 
+`first_opportunity_ai_scores_duration_change_dark.json` extends that real-row flow by
+moving the Wave Viewer one calendar day shorter after the initial AI Scores panel is
+populated (or one day longer if the selected row is already at the lower boundary). It
+captures only sanitized MLScoreBatch fields--never the token-bearing request URL--and
+fails unless the change sends exactly one top-level `request_origin: "wave_viewer"`
+batch containing one opportunity, raw `daysOut = displayed days - 1`, and string
+`years`. It then waits for both the new `N-day historical pattern` line and the
+`Wave Viewer AI reading` Quick Read before allowing a screenshot.
+
 `dow_ai_scores_empty_dark.json` selects DOW 30 without a pattern and waits for the
 empty AI Scores watermark. This protects the market-selected/no-Wave-Viewer-pattern
 case from regressing into a loading or instruction card.
@@ -658,6 +667,11 @@ Every capture run writes `<out>.meta.json`. Fields:
 - `resolved.deep_link_o` / `resolved.deep_link_decoded` / `resolved.querystring_used`
   - the actual base64 deep link built and the querystring navigated to, decoded for
   human readability.
+- `resolved.ai_score_duration_change` - `null` for ordinary captures; for an AI
+  duration-change capture, the requested and resolved calendar-day change plus a
+  sanitized proof that exactly one Wave Viewer batch used one opportunity, the
+  correct engine-day offset, and a string `years` value. Tokens and raw request
+  bodies are never written here.
 - `bot_uuid` - the capture-bot's UUID as discovered at runtime (see Layer 1 - never
   hardcode this elsewhere; read it from here if you need it for manual debugging).
 - `bundle_hash` - the React bundle's content hash, extracted from the

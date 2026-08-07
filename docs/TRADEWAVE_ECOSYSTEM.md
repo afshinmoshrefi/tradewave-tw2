@@ -573,7 +573,21 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   only when the AI Scores panel is available. It does not add a separate tab or button banner.
   The selected row's normalized bundle is published from
   `OppTable` to the AI panel, so its main value and 10/full/30/60/90-day comparison are the
-  same values used by table display, filters, and sorting. The panel uses the established
+  same values used by table display, filters, and sorting. If the user then changes only
+  that selected pattern's Wave Viewer duration, the clicked row remains the anchor for
+  market, symbol, entry date, direction, string `years`, and recurrence selection.
+  `OppTable` immediately publishes a loading view and sends one isolated authenticated
+  `MLScoreBatch` request for the changed inclusive duration; only the network tuple converts
+  it to `daysOut = calendar_days - 1`. This viewer channel has an independent generation,
+  abort, pending queue, and bounded poll budget, so rapid duration changes cannot expose a
+  stale bundle and do not clear, re-request, or reorder the Opportunity Table score snapshot.
+  The additive top-level `request_origin=wave_viewer` suppresses only table-popularity
+  telemetry for this one-off request; omitted and unknown origins retain the prior table
+  telemetry behavior. Per-row `selection_origin=user_defined` remains provenance only and
+  does not alter scorer/cache identity. The panel labels the primary value as a Wave Viewer
+  reading rather than falsely claiming that the custom duration is shown in the Opportunity
+  Table. A symbol, entry-date, or market change invalidates the anchor instead of reusing its
+  direction or recurrence for a different pattern. The panel uses the established
   Wave Stats visual language: an 8% control strip, flat bordered tables, stats title bars,
   alternating stat rows, and one stable table per available time view. Its visible rows are
   `Historical Record`, `AI Win Chance`, `Estimated End Return`, `Estimated Best Move`, and

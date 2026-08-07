@@ -90,6 +90,110 @@ function fail(msg) {
   process.exit(1);
 }
 
+// AI Scores duration-change captures exercise a real Wave Viewer control after
+// the initially selected Opportunity Table row has populated the panel. The
+// two controls are additive to spec_version 1 and intentionally mutually
+// exclusive: changeDaysTo names an exact displayed calendar-day duration,
+// while changeDaysBy derives one from the currently selected row.
+function getAIScoreDurationChange(spec) {
+  const aiScores = spec.aiScores || {};
+  const hasTarget = Object.prototype.hasOwnProperty.call(aiScores, 'changeDaysTo');
+  const hasDelta = Object.prototype.hasOwnProperty.call(aiScores, 'changeDaysBy');
+  if (!hasTarget && !hasDelta) return null;
+  if (spec.display !== 'aiScores') {
+    fail('aiScores.changeDaysTo/changeDaysBy requires display="aiScores"');
+  }
+  if (aiScores.expectedState === 'empty') {
+    fail('aiScores.changeDaysTo/changeDaysBy requires a populated AI Scores state');
+  }
+  if (hasTarget && hasDelta) {
+    fail('aiScores.changeDaysTo and aiScores.changeDaysBy are mutually exclusive');
+  }
+  if (hasTarget) {
+    if (!Number.isInteger(aiScores.changeDaysTo) || aiScores.changeDaysTo <= 0) {
+      fail('aiScores.changeDaysTo must be a positive integer');
+    }
+    return { mode: 'target', value: aiScores.changeDaysTo };
+  }
+  if (!Number.isInteger(aiScores.changeDaysBy) || aiScores.changeDaysBy === 0) {
+    fail('aiScores.changeDaysBy must be a non-zero integer');
+  }
+  return { mode: 'delta', value: aiScores.changeDaysBy };
+}
+
+// Keep only the fields needed by the regression. In particular, never retain
+// or print the intercepted URL because MLScoreBatch authenticates via a token
+// query parameter. The request body itself has no credential, but whitelisting
+// its shape prevents a future unrelated field from leaking into logs/metadata.
+function sanitizeMLScoreBatchBody(rawBody) {
+  let parsed;
+  try {
+    parsed = JSON.parse(rawBody || '');
+  } catch (e) {
+    return { parse_error: true };
+  }
+  const opportunities = Array.isArray(parsed.opportunities)
+    ? parsed.opportunities.map((item) => ({
+      daysOut: item && item.daysOut,
+      years: item && item.years,
+    }))
+    : null;
+  return {
+    request_origin: parsed.request_origin,
+    opportunities,
+  };
+}
+
+function viewerBatchesSince(requests, startIndex) {
+  return requests
+    .slice(startIndex)
+    .filter((body) => body.request_origin === 'wave_viewer');
+}
+
+async function waitForOneViewerBatch(requests, startIndex, timeoutMs = 60000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const recent = requests.slice(startIndex);
+    if (recent.some((body) => body.parse_error === true)) {
+      throw new Error('an MLScoreBatch request after the duration change did not contain valid JSON (body intentionally not logged)');
+    }
+    const viewerBatches = viewerBatchesSince(requests, startIndex);
+    if (viewerBatches.length > 1) {
+      throw new Error(`duration change sent ${viewerBatches.length} Wave Viewer MLScoreBatch requests; expected exactly one`);
+    }
+    if (viewerBatches.length === 1) return viewerBatches[0];
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error('timed out waiting for the Wave Viewer MLScoreBatch request after changing duration');
+}
+
+function assertViewerDurationBatch(requests, startIndex, targetDays) {
+  const viewerBatches = viewerBatchesSince(requests, startIndex);
+  if (viewerBatches.length !== 1) {
+    fail(`duration change sent ${viewerBatches.length} Wave Viewer MLScoreBatch requests; expected exactly one`);
+  }
+  const batch = viewerBatches[0];
+  if (!Array.isArray(batch.opportunities) || batch.opportunities.length !== 1) {
+    fail(`Wave Viewer MLScoreBatch contained ${Array.isArray(batch.opportunities) ? batch.opportunities.length : 'an invalid opportunities field'}; expected exactly one opportunity`);
+  }
+  const opportunity = batch.opportunities[0];
+  // TradeWave windows are measured in CALENDAR days. The displayed target
+  // includes the entry date as day 1; only the scoring-engine request uses
+  // the raw offset, so it must be targetDays - 1.
+  if (opportunity.daysOut !== targetDays - 1) {
+    fail(`Wave Viewer MLScoreBatch daysOut was ${JSON.stringify(opportunity.daysOut)}; expected displayed ${targetDays} calendar days minus 1`);
+  }
+  if (typeof opportunity.years !== 'string') {
+    fail(`Wave Viewer MLScoreBatch years must remain a string; got ${typeof opportunity.years}`);
+  }
+  return {
+    request_origin: batch.request_origin,
+    opportunity_count: batch.opportunities.length,
+    engine_days_out: opportunity.daysOut,
+    years_type: typeof opportunity.years,
+  };
+}
+
 // -----------------------------------------------------------------------
 // Fetch the internal capture-shell HTML server-side (node http, not the
 // browser). Two uses:
@@ -377,6 +481,7 @@ async function main() {
   if (!specPath) fail('usage: node capture.js <spec.json>');
   const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
   if (spec.spec_version !== 1) fail(`unsupported spec_version ${spec.spec_version}, expected 1`);
+  const aiScoreDurationChange = getAIScoreDurationChange(spec);
 
   const startWall = Date.now();
   const consoleErrors = [];
@@ -417,6 +522,9 @@ async function main() {
   let exitCode = 0;
   try {
     const page = await browser.newPage();
+    const mlScoreBatchRequests = [];
+    let aiScoreDurationChangeEvidence = null;
+    let aiScoreDurationRequestStart = null;
     page.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
@@ -473,6 +581,11 @@ async function main() {
     page.on('request', async (req) => {
       const isMainDoc = req.isNavigationRequest() && req.frame() === page.mainFrame();
       const url = req.url();
+      let pathname = '';
+      try { pathname = new URL(url).pathname; } catch (e) { /* malformed URL: not an API request we can inspect */ }
+      if (req.method() === 'POST' && /\/MLScoreBatch\/[^/]+\/?$/.test(pathname)) {
+        mlScoreBatchRequests.push(sanitizeMLScoreBatchBody(req.postData()));
+      }
       if (isMainDoc && (url === `${APP_ORIGIN}${APP_PATH}` || url.startsWith(`${APP_ORIGIN}${APP_PATH}?`))) {
         try {
           const html = await fetchInternalShell();
@@ -597,6 +710,93 @@ async function main() {
         { timeout: 60000 },
         expectedAIState
       ).catch(() => fail(`timed out waiting for ${expectedAIState} AI Scores after slide switch. Console errors: ` + JSON.stringify(consoleErrors)));
+
+      if (aiScoreDurationChange) {
+        if (expectedAIState !== 'populated') {
+          fail('AI Scores duration change cannot run from an empty panel');
+        }
+        aiScoreDurationRequestStart = mlScoreBatchRequests.length;
+        const changed = await page.evaluate((change) => {
+          const selects = Array.from(document.querySelectorAll('select#daysout'));
+          const select = selects.find((candidate) => {
+            const rect = candidate.getBoundingClientRect();
+            const style = window.getComputedStyle(candidate);
+            return candidate.getClientRects().length > 0 && rect.width > 0 && rect.height > 0 &&
+              style.display !== 'none' && style.visibility !== 'hidden';
+          });
+          if (!select) return { error: 'no visible Wave Viewer days selector was found' };
+
+          const currentDays = Number.parseInt(select.value, 10);
+          const available = Array.from(select.options)
+            .filter((option) => !option.disabled && !option.hidden)
+            .map((option) => Number.parseInt(option.value, 10))
+            .filter(Number.isInteger);
+          if (!Number.isInteger(currentDays)) {
+            return { error: `visible Wave Viewer days selector has invalid value ${JSON.stringify(select.value)}` };
+          }
+
+          let targetDays = change.mode === 'target'
+            ? change.value
+            : currentDays + change.value;
+          let usedBoundaryFallback = false;
+          if (change.mode === 'delta' && (!available.includes(targetDays) || targetDays === currentDays)) {
+            const reversedTarget = currentDays - change.value;
+            if (available.includes(reversedTarget) && reversedTarget !== currentDays) {
+              targetDays = reversedTarget;
+              usedBoundaryFallback = true;
+            }
+          }
+          if (!available.includes(targetDays)) {
+            return { error: `requested ${targetDays}-day duration is not available in the Wave Viewer selector` };
+          }
+          if (targetDays === currentDays) {
+            return { error: `requested duration ${targetDays} days is already selected and would not exercise a change` };
+          }
+
+          const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value');
+          if (!valueSetter || typeof valueSetter.set !== 'function') {
+            return { error: 'native Wave Viewer days selector setter was not available' };
+          }
+          valueSetter.set.call(select, String(targetDays));
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          return { currentDays, targetDays, usedBoundaryFallback };
+        }, aiScoreDurationChange);
+        if (changed.error) fail(changed.error);
+        log(`changing Wave Viewer duration from ${changed.currentDays} to ${changed.targetDays} calendar days...`);
+
+        await waitForOneViewerBatch(mlScoreBatchRequests, aiScoreDurationRequestStart);
+        await page.waitForFunction(
+          (targetDays) => {
+            const active = document.querySelector('.stock-linechart-parent .swiper-slide-active');
+            if (!active) return false;
+            const patternLine = active.querySelector('.ai-score-panel__pattern-line');
+            const quickRead = active.querySelector('.ai-score-panel__quick-read');
+            return Boolean(
+              patternLine && patternLine.textContent.includes(`${targetDays}-day historical pattern`) &&
+              quickRead && quickRead.textContent.includes('Wave Viewer AI reading')
+            );
+          },
+          { timeout: 90000 },
+          changed.targetDays
+        ).catch(() => fail(`AI Scores did not load the ${changed.targetDays}-day Wave Viewer reading after the duration change. Console errors: ` + JSON.stringify(consoleErrors)));
+
+        // Give React one quiet second after the successful panel update, then
+        // enforce that request-key stability prevented an accidental duplicate.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const batchEvidence = assertViewerDurationBatch(
+          mlScoreBatchRequests,
+          aiScoreDurationRequestStart,
+          changed.targetDays
+        );
+        aiScoreDurationChangeEvidence = {
+          requested_mode: aiScoreDurationChange.mode,
+          requested_value: aiScoreDurationChange.value,
+          from_calendar_days: changed.currentDays,
+          target_calendar_days: changed.targetDays,
+          used_boundary_fallback: changed.usedBoundaryFallback,
+          batch: batchEvidence,
+        };
+      }
 
       if (spec.aiScores && spec.aiScores.openGuide === true) {
         if (expectedAIState === 'empty') fail('aiScores.openGuide requires a populated AI Scores state');
@@ -745,6 +945,15 @@ async function main() {
     if (!twCapture.meta.oppTable || !(twCapture.meta.oppTable.rows > 0)) {
       fail(`sanity check failed: meta.oppTable.rows is not > 0 (got ${JSON.stringify(twCapture.meta.oppTable)})`);
     }
+    if (aiScoreDurationChangeEvidence) {
+      // Recheck after the paint/stability/capture waits too, so a delayed
+      // duplicate request cannot slip past the immediate post-load assertion.
+      aiScoreDurationChangeEvidence.batch = assertViewerDurationBatch(
+        mlScoreBatchRequests,
+        aiScoreDurationRequestStart,
+        aiScoreDurationChangeEvidence.target_calendar_days
+      );
+    }
 
     for (const w of written) {
       if (w.bytes <= 20000) {
@@ -781,6 +990,7 @@ async function main() {
         deep_link_o: deepLink ? deepLink.b64 : null,
         deep_link_decoded: deepLink ? deepLink.paramStr : null,
         querystring_used: qs,
+        ai_score_duration_change: aiScoreDurationChangeEvidence,
       },
       bot_uuid: uuid,
       bundle_hash: bundleHash,

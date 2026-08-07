@@ -108,6 +108,23 @@ test('presents a long selected pattern as compact stats-style decision tables', 
   expect(onOpenGuide).toHaveBeenCalledTimes(1)
 })
 
+test('labels a changed duration as the current Wave Viewer reading', () => {
+  renderPanel({
+    eligible: true,
+    enabled: true,
+    selectionOrigin: 'wave_viewer',
+    selected: { symbol: 'MSFT', date: '2026-08-05', daysOut: 120, direction: 'Short' },
+    bundle: longBundle,
+  })
+
+  const panel = screen.getByRole('region', { name: 'AI Scores' })
+  expect(panel).toHaveTextContent(/120-day historical pattern.*Wave Viewer uses the 90-day AI reading/i)
+  expect(panel).toHaveTextContent(/Quick read.*Wave Viewer AI reading \(90 days\)/i)
+  expect(within(panel).getByRole('region', { name: /90-day AI checkpoint \(used for Wave Viewer\)/i }))
+    .toHaveTextContent(/90-Day Checkpoint.*Used for Wave Viewer/i)
+  expect(panel).not.toHaveTextContent(/Shown in Opportunity Table|Opportunity Table uses/i)
+})
+
 test('offers the same Portfolio Manager and Wave Viewer snapshot actions as the other lower panels', () => {
   const onOpenPortfolio = jest.fn()
   const onExportSnapshot = jest.fn()
