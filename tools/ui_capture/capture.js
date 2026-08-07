@@ -71,6 +71,7 @@ const DISPLAY_BOTTOM_PANEL = {
   aiScores: { semantic: 'ai_scores', label: 'AI Scores' },
   price: { semantic: 'price_chart', label: 'Price Chart' },
 };
+const AI_BOTTOM_PANEL_LABELS = ['Trend Chart', 'Wave Stats', 'AI Scores', 'Price Chart'];
 
 // Internal dev-only route that renders the authenticated app shell for the
 // capture-bot service account (web/app.py:1718, capture_app()). Only live
@@ -192,6 +193,10 @@ function buildLocalStorageSeed(uuid, spec) {
   // "already opened today" branch (collapsed, no auto-open) is always taken.
   scoped['tw_lesson_enrolled'] = '1';
   scoped['tw_lesson_lastopened'] = 7;
+
+  if ('leftPanelCollapsed' in spec) {
+    scoped['leftPanelCollapsed'] = spec.leftPanelCollapsed === true;
+  }
 
   const oppTable = spec.oppTable || {};
   if (oppTable.columnVisibility) {
@@ -556,6 +561,14 @@ async function main() {
       ).catch(() => fail(`timed out waiting for deep link to apply for symbol "${spec.symbol}". Console errors: ` + JSON.stringify(consoleErrors)));
     }
 
+    if ('leftPanelCollapsed' in spec) {
+      await assertLeftPanelState(page, spec.leftPanelCollapsed === true, consoleErrors);
+    }
+
+    if (spec.display === 'aiScores') {
+      await assertBottomPanelOrder(page, AI_BOTTOM_PANEL_LABELS, consoleErrors);
+    }
+
     // ---- Step 7: select the requested semantic panel ----
     // AI Scores is inserted only for eligible U.S. stock/ETF markets, so Price
     // Chart can be numeric index 2 or 3. Use the accessible semantic dot instead
@@ -848,6 +861,35 @@ async function selectBottomPanel(page, label, consoleErrors) {
     label
   ).catch(() => fail(`bottom panel "${label}" did not become active. Console errors: ` + JSON.stringify(consoleErrors)));
   await new Promise((resolve) => setTimeout(resolve, 300));
+}
+
+async function assertLeftPanelState(page, expectedCollapsed, consoleErrors) {
+  await page.waitForFunction(
+    (collapsed) => {
+      const panel = document.querySelector('#opportunity-side-panel.tw-left-panel');
+      const rail = document.querySelector('.tw-left-panel-rail');
+      if (!panel || !rail) return false;
+      const panelCollapsed = panel.classList.contains('tw-left-panel--collapsed');
+      const railVisible = rail.classList.contains('tw-left-panel-rail--visible');
+      return collapsed
+        ? panelCollapsed && railVisible
+        : !panelCollapsed && !railVisible;
+    },
+    { timeout: 30000 },
+    expectedCollapsed
+  ).catch(() => fail(`left panel did not reach the requested ${expectedCollapsed ? 'collapsed' : 'expanded'} state. Console errors: ` + JSON.stringify(consoleErrors)));
+}
+
+async function assertBottomPanelOrder(page, expectedLabels, consoleErrors) {
+  await page.waitForFunction(
+    (labels) => {
+      const actual = Array.from(document.querySelectorAll('.bottom-panel-tabs [role="tab"]'))
+        .map(item => item.textContent.trim());
+      return actual.length === labels.length && actual.every((label, index) => label === labels[index]);
+    },
+    { timeout: 30000 },
+    expectedLabels
+  ).catch(() => fail(`expected lower panels in order ${expectedLabels.join(' > ')}. Console errors: ` + JSON.stringify(consoleErrors)));
 }
 
 // -----------------------------------------------------------------------

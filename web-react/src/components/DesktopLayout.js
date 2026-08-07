@@ -31,7 +31,7 @@ import TestGIS from './TestGIS';
 import './styles/DesktopLayout.css';
 import { UserContext } from './UserContext';
 import { AiOutlineDollarCircle } from "react-icons/ai";
-import { BsSun, BsMoon, BsListUl } from "react-icons/bs";
+import { BsSun, BsMoon, BsListUl, BsChevronLeft, BsChevronRight, BsChatDots, BsChatDotsFill } from "react-icons/bs";
 import { SlSettings } from "react-icons/sl";
 import { opp_dashboard_dialog_content, toggle_off_64, toggle_on_64 } from './Common';
 import { settings_dialog_content } from './Common';
@@ -46,7 +46,8 @@ import { getCookie, setCookie, appserverURL } from './Common';
 import { LiaToggleOffSolid, LiaToggleOnSolid } from "react-icons/lia";
 import { DarkBGColor, LightBGColor, themeColors } from './Common'
 import { tierHasAI } from './Common'
-import { lsSet } from './Common'
+import { lsGet, lsSet } from './Common'
+import { LEFT_PANEL_COLLAPSED_KEY, resolveLeftPanelCollapsed } from './leftPanelState'
 import { BAR_CHART_EXCURSION_STYLES } from './barChartExcursion'
 import { BsPlus, BsTrash3 } from "react-icons/bs";
 import { GrEdit } from "react-icons/gr";
@@ -105,6 +106,9 @@ const DesktopLayout = (props) => {
         } catch (e) {}
         return DEFAULT_LEFT_NAV_PCT;
     });
+    const [leftNavCollapsePreference, SetLeftNavCollapsePreference] = useState(() => (
+        lsGet(LEFT_PANEL_COLLAPSED_KEY, false)
+    ));
     const isResizingNav = useRef(false);
     const navWidthRef = useRef(leftNavWidthPct); // tracks latest value across closure
     const appContainerRef = useRef(null);
@@ -158,6 +162,19 @@ const DesktopLayout = (props) => {
 
     const { seasonalAppDivH, seasonalAppDivH2, rdd, loggedinUser, wpUserLevels, token } = useContext(UserContext);
     const tc = themeColors(props.UITheme);
+    const isLeftNavCollapsed = resolveLeftPanelCollapsed({
+        storedPreference: leftNavCollapsePreference,
+        isMobile: rdd.isMobile,
+    });
+
+    const setLeftNavCollapsed = useCallback((collapsed) => {
+        SetLeftNavCollapsePreference(collapsed);
+        lsSet(LEFT_PANEL_COLLAPSED_KEY, collapsed);
+        if (collapsed) {
+            isResizingNav.current = false;
+            SetShowLeftNavSettings(false);
+        }
+    }, []);
     const userHasAITier = tierHasAI(wpUserLevels);
     const opportunityAIStateMatchesMarket = Boolean(
         props.opportunityAIState &&
@@ -727,7 +744,17 @@ const DesktopLayout = (props) => {
 
 
 
-            <div className='left-nav' style={{ width: `${leftNavWidthPct}%`, position: 'relative' }}>
+            <div
+                id="opportunity-side-panel"
+                className={`left-nav tw-left-panel${isLeftNavCollapsed ? ' tw-left-panel--collapsed' : ''}`}
+                aria-hidden={isLeftNavCollapsed}
+                style={{
+                    width: isLeftNavCollapsed ? '0px' : `${leftNavWidthPct}%`,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    backgroundColor: tc.panelBg,
+                }}
+            >
                 <div className='security-selection' style={{ backgroundColor: tc.securitySelectionBg, overflow: 'hidden' }} onClick={handleSecurityDivClicked}>
                     {/* left side: shrinks and clips as left-nav narrows; font scales with container width */}
                     <div style={{ flex: 1, minWidth: 0, height: "100%", backgroundColor: 'transparent', display: "flex", alignItems: 'center', overflow: 'hidden', userSelect: 'none', fontSize: `${Math.min(0.85, Math.max(0.55, leftNavWidthPct * 0.028))}vw` }}>
@@ -779,9 +806,22 @@ const DesktopLayout = (props) => {
                         </div>
                     </div>
 
-                    {/* right side: SelectBox, never shrinks away */}
-                    <div style={{ flexShrink: 0, marginRight: "12px", display: "flex", alignItems: "center", justifyContent: 'flex-end', userSelect: 'none' }}>
+                    {/* right side: security group plus the persistent panel control */}
+                    <div style={{ flexShrink: 0, marginRight: "4px", display: "flex", gap: '4px', alignItems: "center", justifyContent: 'flex-end', userSelect: 'none' }}>
                         <SelectBox tooltipContent={props.tooltipSW ? 'r,Set Securities Group' : ''} optionList={props.securityTypeList} name="securityTypeList" value={props.selectedSecurityDisplay || props.selectedSecurity} sbChanged={props.selectboxChanged} />
+                        <Tippy disabled={!props.tooltipSW} placement="bottom" content="Hide the Opportunity Table and Tara to make more room for the charts.">
+                            <button
+                                type="button"
+                                className="tw-left-panel-toggle"
+                                aria-label="Hide opportunity panel"
+                                aria-controls="opportunity-side-panel"
+                                aria-expanded="true"
+                                onClick={(e) => { e.stopPropagation(); setLeftNavCollapsed(true); }}
+                                style={{ color: tc.textOnControl, borderColor: tc.border }}
+                            >
+                                <BsChevronLeft size={16} />
+                            </button>
+                        </Tippy>
                     </div>
                 </div>
 
@@ -1686,20 +1726,63 @@ const DesktopLayout = (props) => {
 
 
             <div
-                onMouseDown={handleNavResizerMouseDown}
+                className={`tw-left-panel-rail${isLeftNavCollapsed ? ' tw-left-panel-rail--visible' : ''}`}
+                aria-hidden={!isLeftNavCollapsed}
+                style={{ backgroundColor: tc.panelBg, borderColor: tc.border }}
+            >
+                <Tippy disabled={!props.tooltipSW} placement="right" content="Show the Opportunity Table and Tara.">
+                    <button
+                        type="button"
+                        className="tw-left-panel-rail-button"
+                        aria-label="Show opportunity panel"
+                        aria-controls="opportunity-side-panel"
+                        aria-expanded="false"
+                        onClick={() => setLeftNavCollapsed(false)}
+                        style={{ color: tc.text, borderColor: tc.border, backgroundColor: tc.statValueBg }}
+                    >
+                        <BsChevronRight size={18} />
+                    </button>
+                </Tippy>
+                {props.chatbotEnabled &&
+                    <Tippy disabled={!props.tooltipSW} placement="right" content="Open Tara in the side panel.">
+                        <button
+                            type="button"
+                            className={`tw-left-panel-rail-button tw-left-panel-tara-button${props.chatbotIconBlink ? ' chatbot-icon-blink' : ''}`}
+                            aria-label="Open Tara in opportunity panel"
+                            onClick={() => {
+                                setLeftNavCollapsed(false);
+                                props.SetShowChatbot(true);
+                                if (props.onChatbotIconClick) props.onChatbotIconClick();
+                            }}
+                            style={{ color: props.showChatbot ? '#f5c842' : tc.text, borderColor: tc.border, backgroundColor: tc.statValueBg }}
+                        >
+                            {props.showChatbot ? <BsChatDotsFill size={19} /> : <BsChatDots size={19} />}
+                        </button>
+                    </Tippy>
+                }
+            </div>
+
+
+            <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize opportunity panel"
+                aria-hidden={isLeftNavCollapsed}
+                onMouseDown={isLeftNavCollapsed ? undefined : handleNavResizerMouseDown}
                 style={{
-                    width: '5px',
+                    width: isLeftNavCollapsed ? '0px' : '5px',
                     height: '100%',
-                    cursor: 'ew-resize',
+                    cursor: isLeftNavCollapsed ? 'default' : 'ew-resize',
                     backgroundColor: tc.titleBar,
                     flexShrink: 0,
                     userSelect: 'none',
+                    transition: 'width 180ms ease',
                 }}
             />
 
             <div ref={rightContentRef} id='right-content' style={{ backgroundColor: tc.panelBg, flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <div className='seasonal-barchart-parent' style={{ height: `${topChartHeightPct}%`, flexShrink: 0 }}>
-                    <SeasonalBarChart {...props} chartTo={chartTo} leftNavWidthPct={leftNavWidthPct} />
+                    <SeasonalBarChart {...props} chartTo={chartTo} leftNavWidthPct={isLeftNavCollapsed ? 0 : leftNavWidthPct} />
                 </div>
 
                 <div

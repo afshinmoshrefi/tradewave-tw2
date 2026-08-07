@@ -498,6 +498,7 @@ simply now accepts one more optional field). `spec_version` stays `1`.
 | `pattern.pe` | no | string or `null` | If set (e.g. `"pe2"`), builds PE-cycle mode years field as `"pe2-<years>"` instead of plain `"<years>"` |
 | `scale` | no (default `2`) | `2` \| `4` | `deviceScaleFactor` - 2 = Retina-equivalent, 4 = extra-high-density |
 | `viewport` | no (default `{width:1920, height:1080}`) | `{width, height}` | Browser viewport size in CSS pixels (actual PNG pixels = viewport * scale) |
+| `leftPanelCollapsed` | no (default `false`) | boolean | Seeds the saved desktop Opportunity Table/Tara panel state before the app starts. Use `true` to verify a requested lower display still renders correctly with the narrow reopen rail visible. |
 | `priceChart` | no | object, all fields optional | Seeds price-chart localStorage options: `showProjection`, `showMaxProjection`, `projectionPeriod`, `showVolume`, `maConfig`, `bbConfig`, `timeframe`, `chartRange`, `showEarnings` (see the full table in Layer 3) |
 | `seasonal` | no | `{showMFE, showMAE}` (booleans, default both `true`) | Seeds the `MFE`/`MAE` cookies controlling seasonal-chart overlays |
 | `oppTable` | no | object, all fields optional | `columnVisibility`, `columnOrder` (localStorage), `yearsPerGroup`, `yearsPerGroupPE` (cookies, JSON-stringified), `cropRows` (integer, crop-sizing only - see section 6), and `selectRow` (zero-based visible row or `"firstAvailableAI"`). Use `selectRow` to populate the viewer exactly as a user does; `"firstAvailableAI"` requires one visible AI column and verifies that row's symbol loads. The AI Scores panel requires a real table selection rather than an arbitrary viewer deep link. |
@@ -639,6 +640,14 @@ plain-language first screen can be reviewed visually.
 `first_opportunity_ai_scores_1366_dark.json` repeats the real-row populated-panel
 capture at a 1366x768 viewport. It is the compact-desktop release gate for internal
 scrolling, cramped checkpoint columns, and title/dot overlap.
+
+`first_opportunity_ai_scores_collapsed_dark.json` repeats the populated AI Scores
+capture with the Opportunity Table/Tara panel collapsed. Its full crop verifies the
+narrow reopen rail while its display crop verifies that the semantic fourth window
+and populated AI content remain available after the surrounding layout changes width.
+Both expanded and collapsed AI captures require the exact semantic panel order
+`Trend Chart`, `Wave Stats`, `AI Scores`, `Price Chart`; the harness fails if one is
+missing, duplicated, or replaced.
 
 ## 6. Reading `meta.json`
 
