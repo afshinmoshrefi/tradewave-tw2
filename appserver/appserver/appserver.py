@@ -3499,10 +3499,60 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         year = date[:4]
         date = f'{year}-01-02'
 
+    # Echo the canonical inputs actually used for this computation. Report
+    # callers use this to reject a response that was adjusted by tier/date
+    # enforcement instead of comparing unlike chart requests.
+    _effective_pe = 'cons'
+    _effective_years = None
+    _yrs_text = str(yrs)
+    if _yrs_text.isdigit():
+        _effective_years = int(_yrs_text)
+    elif '-' in _yrs_text:
+        _pe_text, _year_text = _yrs_text.split('-', 1)
+        if _pe_text in ('pe0', 'pe1', 'pe2', 'pe3') and _year_text.isdigit():
+            _effective_pe = _pe_text
+            _effective_years = int(_year_text)
+
+    # Comparison reports keep one strategy direction across every symbol.
+    # Existing Wave Viewer requests omit this option and retain the legacy
+    # automatic direction selection exactly.
+    _comparison_direction = str(request.args.get('comparison_direction', '')).lower()
+    if _comparison_direction not in ('long', 'short'):
+        _comparison_direction = ''
+
+    # Reports compare completed historical occurrences only. Clamp the optional
+    # count to the entitlement-adjusted years value established above.
+    try:
+        _report_completed_years = int(request.args.get('report_completed_years', 0))
+    except (TypeError, ValueError):
+        _report_completed_years = 0
+    if _report_completed_years < 1 or _effective_years is None:
+        _report_completed_years = 0
+    else:
+        _report_completed_years = min(_report_completed_years, _effective_years)
+
+    _effective_request = {
+        'market': str(resourceID),
+        'symbol': str(symbol).upper(),
+        'entry_date': date,
+        'days_out': int(daysOut) + 1,
+        'years': _effective_years,
+        'pe_cycle': _effective_pe,
+        'cut_off_year': int(cut_off_year or 0),
+    }
+    if _comparison_direction:
+        _effective_request['comparison_direction'] = _comparison_direction
+    if _report_completed_years:
+        _effective_request['report_completed_years'] = _report_completed_years
+
     # ----------------------------------------------
     # Redis cache key
     # ----------------------------------------------
     redis_key_chartdata = f'chartdata_{resourceID}_{symbol}_{date}_{daysOut}_{yrs}_{cut_off_year}'
+    if _comparison_direction:
+        redis_key_chartdata += f'_comparison_{_comparison_direction}'
+    if _report_completed_years:
+        redis_key_chartdata += f'_report_completed_{_report_completed_years}'
 
     # Activity logging
     token = request.args.get("token")
@@ -3514,6 +3564,9 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     chartdata_redis = _singleflight_cache_values([redis_key_chartdata])[0]
     if chartdata_redis is not None:
         chartData = json.loads(chartdata_redis)
+        if isinstance(chartData, dict):
+            chartData = dict(chartData)
+            chartData['request'] = _effective_request
         return jsonify(chartData)
 
     lscore, sscore, lscore1, sscore1, trend_score_available = stockscore_with_availability(
@@ -3529,13 +3582,17 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     result = get_symbol_csv(symbol, exchange)
 
     if isinstance(result, str) and 'Not Traded' in result:
-        return jsonify({'ChartData4': [], 'stats': {}})
+        return jsonify({'ChartData4': [], 'stats': {}, 'request': _effective_request})
     else:
         df = result
 
     num_years_in_data = num_years_in_df(df)
     if num_years_in_data < config.min_required_years:
-        return jsonify({'ChartData4': 'Not Enough Data', 'stats': {}})
+        return jsonify({
+            'ChartData4': 'Not Enough Data',
+            'stats': {},
+            'request': _effective_request,
+        })
 
     # ----------------------------------------------
     # Parse yrs parameter
@@ -3719,7 +3776,21 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     # The loop processes oldest to newest, so chartData is in chronological order
     # We want the LAST (most recent) max_filtered_years entries
     # ----------------------------------------------
-    if custom_years and max_filtered_years is not None:
+    if _report_completed_years:
+        # Use the active release's existing completion flags. This removes only
+        # an occurrence explicitly identified as the live partial range, then
+        # keeps the most recent requested completed rows. Reverse Date Range
+        # arithmetic is not derived or changed here.
+        completed_indices = [
+            index for index, is_completed in enumerate(completed_flags) if is_completed
+        ]
+        ordered_keep = completed_indices[-_report_completed_years:]
+        chartData = [chartData[index] for index in ordered_keep]
+        pctArray = [pctArray[index] for index in ordered_keep]
+        pctArray_low = [pctArray_low[index] for index in ordered_keep]
+        pctArray_high = [pctArray_high[index] for index in ordered_keep]
+        completed_flags = [completed_flags[index] for index in ordered_keep]
+    elif custom_years and max_filtered_years is not None:
         # N means N completed PE observations. Keep an active partial row alongside
         # those N rows instead of letting it displace the oldest completed observation.
         completed_indices = [
@@ -3754,7 +3825,12 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     if custom_years:
         current_year_filter_valid = custom_year_filter(currentYear, pe_filter, '', '')
 
-    if current_year_filter_valid and len(chartData) > 0 and currentYear > chartData[-1]['year']:
+    if (
+        not _report_completed_years
+        and current_year_filter_valid
+        and len(chartData) > 0
+        and currentYear > chartData[-1]['year']
+    ):
         yearDict = {'year': currentYear, 'pct': '0,0,0', 'price': '0,0'}
         chartData.append(yearDict)
 
@@ -3762,7 +3838,11 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     # Calculate statistics
     # ----------------------------------------------
     if len(pctArray) == 0:
-        return jsonify({'ChartData4': chartData, 'stats': {}})
+        return jsonify({
+            'ChartData4': chartData,
+            'stats': {},
+            'request': _effective_request,
+        })
 
     pos = sum(x >= 0 for x in pctArray)
     neg = sum(x < 0 for x in pctArray)
@@ -3772,6 +3852,11 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     if len(d_start_0) > 5 and len(d_start_1) > 5:
         if d_start_0[5:] == d_start_1[5:]:
             longOrShort = 'long'
+
+    # Report-only override, applied after the Buy & Hold convention. Existing
+    # requests cannot reach this branch without the explicit query option.
+    if _comparison_direction:
+        longOrShort = _comparison_direction
 
     if longOrShort == 'short':
         # Swap pos/neg counts
@@ -3866,12 +3951,16 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     if earnings:
         detailDict.update(earnings)
 
-    combineDict = {'ChartData4': chartData, 'stats': detailDict}
+    combineDict = {
+        'ChartData4': chartData,
+        'stats': detailDict,
+        'request': _effective_request,
+    }
 
     redis_client.set(redis_key_chartdata, json.dumps(combineDict))
     redis_client.expire(redis_key_chartdata, config.chart_data_expire_time)
 
-    return jsonify({'ChartData4': chartData, 'stats': detailDict})
+    return jsonify(combineDict)
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 

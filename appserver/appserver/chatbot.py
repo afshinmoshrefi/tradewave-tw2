@@ -6,6 +6,7 @@ import sys
 import os
 import json
 import logging
+import math
 from functools import wraps
 import jwt
 import config
@@ -36,6 +37,10 @@ from tara_gateway import (
     run_chat_with_openai_tools,
     run_chat_with_tools,
 )
+try:
+    from tara_gateway import response_violates_view_contract as _gateway_response_violates_view_contract
+except ImportError:
+    _gateway_response_violates_view_contract = None
 from tara_answer_planner import (
     build_bottom_slide_command,
     build_excursion_overlay_command,
@@ -661,7 +666,7 @@ def log_question(user_id, question, response, wave_viewer, provider="unknown"):
 #-------------------------------------------------------------------------------------------------------------------
 def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                         opp_table_market=None, opp_table_market_name=None,
-                        screen_context=None, user_message=""):
+                        screen_context=None, user_message="", analysis_report=None):
     """Build stable, topic-selected and live-data system blocks for the current turn."""
     parts = [
         "You are Tara, the AI assistant for TradeWave, a seasonal trading pattern analysis platform by Tara Data Research.",
@@ -726,7 +731,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
     # contract at the end of the same stable prefix, then place Anthropic's cache breakpoint here.
     # Topic-selected KB and live pattern/table facts are deliberately built in suffix blocks below.
     static_parts = list(parts)
-    if TARA_TOOLS_ENABLED:
+    if TARA_TOOLS_ENABLED and not analysis_report:
         static_parts.append("\n" + TOOL_INSTRUCTION)
     static_parts.append(
         "\n=== EXPLICIT SYMBOL, PATH METRICS, AND LOWER-PANEL OVERRIDES ===\n"
@@ -985,6 +990,11 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
             )
     parts.append("\n" + "\n".join(verified_lines))
 
+    if analysis_report:
+        # Keep the report contract in the live suffix, after ordinary screen
+        # facts, so the immutable snapshot is the highest-recency authority.
+        parts.append("\n" + _analysis_report_prompt(analysis_report))
+
     knowledge = select_topic_knowledge(user_message, _KNOWLEDGE_SECTIONS)
     blocks = segmented_system_blocks(
         "\n".join(static_parts),
@@ -1043,6 +1053,454 @@ def _ensure_strength_answered(user_message, wave_viewer, reply):
         return (reply or "").rstrip() + sep + line
     except Exception:
         return reply
+
+
+_ANALYSIS_REPORT_TYPES = {'symbol_comparison', 'range_comparison'}
+_ANALYSIS_REPORT_METRICS = {
+    'average_return_pct', 'median_return_pct', 'profitable_pct',
+    'best_return_pct', 'worst_return_pct', 'average_mfe_pct',
+    'average_mae_pct', 'sharpe_ratio', 'cumulative_return_pct',
+    'annualized_return_pct', 'winners', 'losers',
+}
+
+
+def _analysis_report_response_violates_view_contract(text, current_view=None):
+    """Reject report prose that could be mistaken for a viewer action.
+
+    Older deployed Tara gateways do not expose the shared public guard. Keep
+    report mode fail-closed without requiring a gateway upgrade, and use the
+    shared implementation automatically when it is available.
+    """
+    if _gateway_response_violates_view_contract is not None:
+        return _gateway_response_violates_view_contract(
+            text,
+            actions=[],
+            current_view=current_view,
+        )
+
+    plain = re.sub(r'<[^>]*>', ' ', str(text or ''))
+    if re.search(r'<\s*/?\s*(?:function_calls?|invoke|parameter)\b', str(text or ''), re.I):
+        return True
+    surface = re.search(r'\b(?:chart|view|viewer|screen)\b', plain, re.I)
+    action = re.search(
+        r"\b(?:load(?:ed|ing)?|reload(?:ed|ing)?|open(?:ed|ing)?|display(?:ed|ing)?|"
+        r"show(?:n|ing)?|change(?:d|ing)?|update(?:d|ing)?|switch(?:ed|ing)?|"
+        r"refresh(?:ed|ing)?|pull(?:ed|ing)?\s+up|bring(?:ing)?\s+up)\b",
+        plain,
+        re.I,
+    )
+    promise = re.search(
+        r"\b(?:(?:i|we)\s*(?:'ll|will|am\s+going\s+to|are\s+going\s+to)|let\s+me)\s+"
+        r"(?:try\s+to\s+)?(?:load|reload|open|display|show|change|update|switch|pull\s+up|bring\s+up)\b",
+        plain,
+        re.I,
+    )
+    return bool(promise or (surface and action))
+
+
+def _analysis_report_symbol(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9.\-]{1,15}', value):
+        raise ValueError('invalid report symbol')
+    return value.upper()
+
+
+def _analysis_report_date(value):
+    if not isinstance(value, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
+        raise ValueError('invalid report date')
+    try:
+        datetime.datetime.strptime(value, '%Y-%m-%d')
+    except ValueError as exc:
+        raise ValueError('invalid report date') from exc
+    return value
+
+
+def _analysis_report_int(value, low, high, label):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError('invalid ' + label)
+    numeric = float(value)
+    if not math.isfinite(numeric) or not numeric.is_integer():
+        raise ValueError('invalid ' + label)
+    result = int(numeric)
+    if not low <= result <= high:
+        raise ValueError('invalid ' + label)
+    return result
+
+
+def _analysis_report_number(value, label, low=-1000000.0, high=1000000.0):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError('invalid ' + label)
+    result = float(value)
+    if not math.isfinite(result) or not low <= result <= high:
+        raise ValueError('invalid ' + label)
+    return result
+
+
+def _clean_analysis_report(value):
+    """Validate every cross-field invariant before a report is called validated.
+
+    Reverse/outside dates are treated as opaque results from the protected Wave
+    Viewer action. This validator verifies their shape and provenance marker but
+    intentionally performs no date-complement arithmetic.
+    """
+    if value in (None, {}):
+        return None
+    if not isinstance(value, dict) or value.get('schema_version') != 1:
+        raise ValueError('invalid analysis report schema')
+
+    report_type = value.get('report_type')
+    if report_type not in _ANALYSIS_REPORT_TYPES:
+        raise ValueError('invalid analysis report type')
+    report_id = value.get('report_id')
+    if not isinstance(report_id, str) or not re.fullmatch(r'[A-Za-z0-9._:\-]{1,120}', report_id):
+        raise ValueError('invalid analysis report id')
+
+    generated_at = value.get('generated_at')
+    if not isinstance(generated_at, str) or len(generated_at) > 40:
+        raise ValueError('invalid report timestamp')
+    try:
+        datetime.datetime.fromisoformat(generated_at.replace('Z', '+00:00'))
+    except ValueError as exc:
+        raise ValueError('invalid report timestamp') from exc
+
+    context_in = value.get('context')
+    if not isinstance(context_in, dict):
+        raise ValueError('invalid analysis report context')
+    context = {
+        'start_date': _analysis_report_date(context_in.get('start_date')),
+        'end_date': _analysis_report_date(context_in.get('end_date')),
+        'requested_years': _analysis_report_int(
+            context_in.get('requested_years'), 1, 99, 'requested report years'
+        ),
+        'years_used': _analysis_report_int(
+            context_in.get('years_used'), 1, 99, 'report years used'
+        ),
+        'cut_off_year': _analysis_report_int(
+            context_in.get('cut_off_year'), 0, 2200, 'report cut-off year'
+        ),
+    }
+    pe_cycle = context_in.get('pe_cycle')
+    if pe_cycle not in {'cons', 'pe0', 'pe1', 'pe2', 'pe3'}:
+        raise ValueError('invalid report PE cycle')
+    context['pe_cycle'] = pe_cycle
+    context['history_adjusted'] = context_in.get('history_adjusted') is True
+    context['history_adjustment_approved'] = (
+        context_in.get('history_adjustment_approved') is True
+    )
+
+    common_years_in = context_in.get('common_years')
+    if not isinstance(common_years_in, list) or not common_years_in:
+        raise ValueError('invalid report common years')
+    common_years = [
+        _analysis_report_int(year, 1900, 2200, 'report year')
+        for year in common_years_in
+    ]
+    if common_years != sorted(common_years) or len(common_years) != len(set(common_years)):
+        raise ValueError('invalid report common years')
+    context['common_years'] = common_years
+
+    requested_years = context['requested_years']
+    years_used = context['years_used']
+    if years_used > requested_years or len(common_years) != years_used:
+        raise ValueError('invalid report history')
+    if context['history_adjusted']:
+        if not context['history_adjustment_approved'] or years_used >= requested_years:
+            raise ValueError('invalid history adjustment')
+    elif years_used != requested_years:
+        raise ValueError('unreported history adjustment')
+
+    rows_in = value.get('rows')
+    expected_count = 3 if report_type == 'range_comparison' else None
+    if not isinstance(rows_in, list):
+        raise ValueError('invalid analysis report rows')
+    if report_type == 'symbol_comparison' and not 2 <= len(rows_in) <= 4:
+        raise ValueError('invalid symbol report size')
+    if expected_count is not None and len(rows_in) != expected_count:
+        raise ValueError('invalid range report size')
+
+    allowed_roles = (
+        {'baseline', 'comparison'}
+        if report_type == 'symbol_comparison'
+        else {'selected_range', 'remaining_range', 'buy_hold'}
+    )
+    rows = []
+    for item in rows_in:
+        if not isinstance(item, dict) or item.get('role') not in allowed_roles:
+            raise ValueError('invalid analysis report row')
+        direction = item.get('direction')
+        if direction not in {'long', 'short'}:
+            raise ValueError('invalid report direction')
+        sample_years = _analysis_report_int(
+            item.get('sample_years'), 1, 99, 'report sample years'
+        )
+        if sample_years != years_used:
+            raise ValueError('mismatched report sample')
+
+        metrics_in = item.get('metrics')
+        if not isinstance(metrics_in, dict) or not _ANALYSIS_REPORT_METRICS.issubset(metrics_in):
+            raise ValueError('incomplete report metrics')
+        metrics = {}
+        for metric in _ANALYSIS_REPORT_METRICS:
+            if metric == 'profitable_pct':
+                metrics[metric] = _analysis_report_number(
+                    metrics_in.get(metric), metric, 0.0, 100.0
+                )
+            elif metric in {'winners', 'losers'}:
+                metrics[metric] = _analysis_report_int(
+                    metrics_in.get(metric), 0, 99, metric
+                )
+            else:
+                metrics[metric] = _analysis_report_number(metrics_in.get(metric), metric)
+        if metrics['winners'] + metrics['losers'] != years_used:
+            raise ValueError('invalid profitable-year counts')
+
+        yearly_in = item.get('yearly_results')
+        if not isinstance(yearly_in, list) or len(yearly_in) != years_used:
+            raise ValueError('invalid report yearly results')
+        yearly = []
+        for result in yearly_in:
+            if not isinstance(result, dict):
+                raise ValueError('invalid report yearly result')
+            clean_result = {
+                'year': _analysis_report_int(result.get('year'), 1900, 2200, 'report year'),
+                'return_pct': _analysis_report_number(
+                    result.get('return_pct'), 'yearly return'
+                ),
+            }
+            for metric in ('mfe_pct', 'mae_pct'):
+                if metric in result and result.get(metric) is not None:
+                    clean_result[metric] = _analysis_report_number(result.get(metric), metric)
+            yearly.append(clean_result)
+        row_years = [result['year'] for result in yearly]
+        if row_years != common_years:
+            raise ValueError('mismatched report cohort')
+        returns = [result['return_pct'] for result in yearly]
+        if abs(max(returns) - metrics['best_return_pct']) > 0.02:
+            raise ValueError('mismatched best report return')
+        if abs(min(returns) - metrics['worst_return_pct']) > 0.02:
+            raise ValueError('mismatched worst report return')
+
+        rows.append({
+            'role': item['role'],
+            'symbol': _analysis_report_symbol(item.get('symbol')),
+            'start_date': _analysis_report_date(item.get('start_date')),
+            'end_date': _analysis_report_date(item.get('end_date')),
+            'direction': direction,
+            'sample_years': sample_years,
+            'metrics': metrics,
+            'yearly_results': yearly,
+        })
+
+    symbols = [row['symbol'] for row in rows]
+    if report_type == 'symbol_comparison':
+        expected_roles = ['baseline'] + ['comparison'] * (len(rows) - 1)
+        if [row['role'] for row in rows] != expected_roles:
+            raise ValueError('invalid symbol comparison order')
+        if len(set(symbols)) != len(symbols):
+            raise ValueError('duplicate report symbols')
+        baseline_symbol = _analysis_report_symbol(context_in.get('baseline_symbol'))
+        direction = context_in.get('direction')
+        if direction not in {'long', 'short'}:
+            raise ValueError('invalid report direction')
+        if rows[0]['symbol'] != baseline_symbol:
+            raise ValueError('invalid baseline symbol')
+        for row in rows:
+            if row['start_date'] != context['start_date'] or row['end_date'] != context['end_date']:
+                raise ValueError('mismatched comparison dates')
+            if row['direction'] != direction:
+                raise ValueError('mismatched comparison direction')
+        availability_in = context_in.get('history_availability')
+        if not isinstance(availability_in, list) or len(availability_in) != len(rows):
+            raise ValueError('invalid history availability')
+        availability = []
+        for item in availability_in:
+            if not isinstance(item, dict):
+                raise ValueError('invalid history availability')
+            availability.append({
+                'symbol': _analysis_report_symbol(item.get('symbol')),
+                'years': _analysis_report_int(
+                    item.get('years'), 0, 200, 'available report years'
+                ),
+            })
+        if [item['symbol'] for item in availability] != symbols:
+            raise ValueError('invalid history availability')
+        if any(item['years'] < years_used for item in availability):
+            raise ValueError('insufficient report history')
+        context.update({
+            'baseline_symbol': baseline_symbol,
+            'direction': direction,
+            'history_availability': availability,
+        })
+        if 'days_out' in context_in:
+            context['days_out'] = _analysis_report_int(
+                context_in.get('days_out'), 1, 367, 'report days out'
+            )
+        for index, row in enumerate(rows):
+            row['label'] = (
+                f"{row['symbol']} (Current)" if index == 0 else row['symbol']
+            )
+        title = f'{baseline_symbol} Symbol Comparison'
+    else:
+        expected_roles = ['selected_range', 'remaining_range', 'buy_hold']
+        if [row['role'] for row in rows] != expected_roles:
+            raise ValueError('invalid range comparison order')
+        symbol = _analysis_report_symbol(context_in.get('symbol'))
+        if any(row['symbol'] != symbol for row in rows):
+            raise ValueError('mismatched range symbol')
+        if rows[0]['start_date'] != context['start_date'] or rows[0]['end_date'] != context['end_date']:
+            raise ValueError('mismatched selected range')
+        if rows[2]['direction'] != 'long':
+            raise ValueError('invalid buy and hold direction')
+        if context_in.get('reverse_source') != 'wave_viewer_legacy_reverse_date_range':
+            raise ValueError('invalid outside-range source')
+        context.update({
+            'symbol': symbol,
+            'reverse_source': 'wave_viewer_legacy_reverse_date_range',
+        })
+        labels = ['Selected Range', 'Outside Selected Range', 'Buy & Hold']
+        for row, label in zip(rows, labels):
+            row['label'] = label
+        title = f'{symbol} Range Comparison'
+
+    # The client may provide display findings, but Tara receives only leaders
+    # rebuilt from the validated metrics. Range leaders use row roles because
+    # all three rows intentionally have the same ticker.
+    identifiers = (
+        symbols if report_type == 'symbol_comparison'
+        else [row['role'] for row in rows]
+    )
+    findings = {}
+    for finding_key, metric_key in (
+        ('highest_average_return', 'average_return_pct'),
+        ('highest_profitable_rate', 'profitable_pct'),
+        ('highest_sharpe_ratio', 'sharpe_ratio'),
+        ('smallest_average_mae', 'average_mae_pct'),
+    ):
+        values = [row['metrics'][metric_key] for row in rows]
+        target = max(values)
+        findings[finding_key] = [
+            identifier
+            for identifier, row in zip(identifiers, rows)
+            if row['metrics'][metric_key] == target
+        ]
+    context['findings'] = findings
+
+    return {
+        'schema_version': 1,
+        'report_id': report_id,
+        'report_type': report_type,
+        'title': title,
+        'generated_at': generated_at,
+        'context': context,
+        'rows': rows,
+    }
+
+
+def _analysis_report_prompt(report):
+    """Render only server-validated, allowlisted report fields into the system prompt."""
+    if not report:
+        return ''
+    lines = [
+        '<b>ACTIVE VALIDATED ANALYSIS REPORT</b>',
+        (
+            'REPORT CONTRACT (OVERRIDES ORDINARY VIEW, COMPARISON, AND TOOL RULES): '
+            'Explain only this supplied immutable report snapshot. Do not call tools, fetch '
+            'symbols, recalculate metrics, independently re-rank rows, or change/load the Wave '
+            'Viewer. Return no actions and never say or imply that a chart, symbol, control, or '
+            'date range was changed. Use the supplied deterministic findings when naming a '
+            'leader. Write for a 10th-grade reader in 3-6 short sentences or at most 4 short '
+            "bullets. Say 'historically stronger', never predict a future winner. Mention a "
+            'shortened common-history adjustment when history_adjusted is true.'
+        ),
+        (
+            f"Report: {report['title']} | id={report['report_id']} | "
+            f"type={report['report_type']} | generated={report['generated_at']}"
+        ),
+        'Context: ' + json.dumps(report['context'], sort_keys=True, separators=(',', ':')),
+    ]
+    if report['report_type'] == 'range_comparison':
+        lines.append(
+            'The Outside Selected Range dates are the exact output of the longstanding Wave '
+            'Viewer Reverse Date Range action. Never derive, adjust, or second-guess those '
+            'dates. Selected Range, Outside Selected Range, and Buy & Hold can have different '
+            'Long/Short badges; explain that clearly. Buy & Hold is always Long.'
+        )
+    else:
+        lines.append(
+            'Every symbol in this report uses the same displayed date window, direction, and '
+            'completed historical cohort. The Wave Viewer itself was not changed if report '
+            'history was shortened.'
+        )
+    for row in report['rows']:
+        lines.append(
+            'Report row: ' + json.dumps({
+                'role': row['role'],
+                'label': row['label'],
+                'symbol': row['symbol'],
+                'start_date': row['start_date'],
+                'end_date': row['end_date'],
+                'direction': row['direction'],
+                'sample_years': row['sample_years'],
+                'metrics': row['metrics'],
+                'yearly_results': row['yearly_results'],
+            }, sort_keys=True, separators=(',', ':'))
+        )
+    lines.append(
+        'FINAL REPORT OVERRIDE: answer only from the validated report above. Return no actions '
+        'and make no claim that the Wave Viewer changed.'
+    )
+    return '\n'.join(lines)
+
+
+def _send_analysis_report_explanation(messages, system_prompt, user_id):
+    """Use the active Luna/OpenAI route and Anthropic fallback, without tools."""
+    provider = select_tara_provider()
+    logging.info(
+        'Tara model turn phase=start provider=%s model=%s tools=false report=true',
+        provider,
+        PRIMARY_MODEL,
+    )
+    try:
+        reply = send_openai_messages(
+            messages,
+            model=OPENAI_CHATBOT_MODEL,
+            system=system_prompt,
+            user_id=user_id,
+        )
+        logging.info(
+            'Tara model turn phase=complete provider=%s model=%s status=success report=true',
+            PRIMARY_PROVIDER,
+            PRIMARY_MODEL,
+        )
+        return reply, provider
+    except OpenAIConfigurationError:
+        # Match the active runtime policy: deployment misconfiguration must not
+        # silently select a different provider.
+        raise
+    except Exception as exc:
+        category = failure_category(exc)
+        logging.warning(
+            'Tara model fallback primary_provider=%s primary_model=%s '
+            'fallback_provider=%s fallback_model=%s category=%s report=true',
+            PRIMARY_PROVIDER,
+            PRIMARY_MODEL,
+            FALLBACK_PROVIDER,
+            FALLBACK_MODEL,
+            category,
+        )
+        reply = send_claude_messages(
+            messages,
+            model=CHATBOT_MODEL,
+            system=system_prompt,
+            cache_system=True,
+            cache_ttl=CACHE_TTL,
+        )
+        logging.info(
+            'Tara model turn phase=complete provider=%s model=%s '
+            'status=fallback_success report=true',
+            FALLBACK_PROVIDER,
+            FALLBACK_MODEL,
+        )
+        return reply, 'anthropic_fallback'
 
 
 def _loaded_full_history_request(years, wave_viewer, market):
@@ -1111,6 +1569,18 @@ def chat():
     opp_table_pe_cycle = incoming_data.get("opp_table_pe_cycle")
     user_token = incoming_data.get("token")                  # user's LTK - reused for the loopback OppList4 fetch
 
+    try:
+        analysis_report = _clean_analysis_report(incoming_data.get('analysis_report'))
+    except ValueError:
+        return jsonify({
+            'reply': (
+                "I couldn't validate that report. Please close it and select "
+                'Explain with Tara again.'
+            ),
+            'actions': [],
+        })
+    report_grounded_turn = analysis_report is not None
+
     # Blank-message guard: an empty message must never dead-end on the generic 500
     # envelope; return a warm, concrete nudge instead. (Tara-peak loop, 2026-06-21)
     if not (user_message or "").strip():
@@ -1121,6 +1591,58 @@ def chat():
     user_id = getattr(g, 'chatbot_user_id', 'unknown')
 
     try:
+        if report_grounded_turn:
+            # A report conversation is an immutable, report-only mode. It must
+            # bypass deterministic UI commands, ML enrichment, live gateway
+            # tools, and ordinary loaded-pattern postprocessors.
+            system_prompt = build_system_prompt(
+                wave_viewer,
+                opportunities,
+                opp_table_length,
+                opp_table_market,
+                opp_table_market_name,
+                screen_context,
+                user_message=user_message,
+                analysis_report=analysis_report,
+            )
+            messages = []
+            safe_history = history if isinstance(history, list) else []
+            for item in safe_history[:-1]:
+                if not isinstance(item, dict):
+                    continue
+                content = item.get('content')
+                if not isinstance(content, str):
+                    continue
+                role = 'assistant' if item.get('role') == 'assistant' else 'user'
+                messages.append({'role': role, 'content': content[:4000]})
+            messages.append({'role': 'user', 'content': str(user_message)[:2000]})
+
+            bot_reply, response_provider = _send_analysis_report_explanation(
+                messages,
+                system_prompt,
+                user_id,
+            )
+            if _analysis_report_response_violates_view_contract(
+                bot_reply,
+                current_view=wave_viewer,
+            ):
+                logging.warning(
+                    'Tara report response rejected report_id=%s reason=false_view_action',
+                    analysis_report['report_id'],
+                )
+                bot_reply = (
+                    "I couldn't explain this report safely without implying that I changed "
+                    'the chart. Please select Explain with Tara again.'
+                )
+            log_question(
+                user_id,
+                user_message,
+                bot_reply,
+                wave_viewer,
+                provider=response_provider,
+            )
+            return jsonify({'reply': bot_reply, 'actions': []})
+
         # Resolve the public book/signature pattern before provider routing so every
         # model and subscription tier receives the same exact load parameters.
         hundred_year_command = build_hundred_year_pattern_command(user_message)

@@ -391,7 +391,7 @@ Examples visible in the UI include:
 - Months (January to December)
 - Quarters (1st Qtr, 2nd Qtr, 3rd Qtr, 4th Qtr)
 - Seasons (Spring, Summer)
-- Reverse Date Range (used to find best or worst periods in reverse style scans)
+- Exclude Current Range (legacy internal name: Reverse Date Range) switches the Wave Viewer to the dates outside the currently selected range
 
 Tara should not list all options. Tara should instruct the user to open Months & Qtrs and pick the specific month or quarter they want.
 
@@ -806,7 +806,9 @@ After releasing the drag, the bar chart and all stats update to reflect the new 
 Note: free users cannot drag the window (start date editing is restricted).
 
 ## Reverse Date Range
-In the Months & Qtrs dropdown, there is a Reverse Date Range option. Instead of asking "what are the best patterns starting in January?", Reverse asks "what are the best patterns for each security across the entire year?" It scans all possible start dates and days to find the single best seasonal window for each ticker, regardless of when it occurs. This is useful for finding the strongest overall pattern for a security rather than filtering by a specific time period.
+In the Analysis menu, the user-facing action is Exclude Current Range. Its legacy internal name is Reverse Date Range. It switches the Wave Viewer from the selected seasonal date range to the dates outside that range. It does NOT scan all dates to find a best window.
+
+The date result must always come from the existing Wave Viewer action. Tara must never calculate, correct, or infer the outside dates herself. In a Range Comparison Report, the supplied Outside Selected Range is the exact output that the Wave Viewer successfully loaded.
 
 ## Trend Chart Details (Slide 1, Lower Panel)
 The Trend Chart shows the seasonal price curve for the loaded security. The curve represents the average historical price behavior across all years in the sample, normalized to show the typical seasonal pattern over the chart period.
@@ -1167,6 +1169,38 @@ There are two sub-tabs inside Securities Groups:
 If a user asks how to filter the opportunity table to a specific set of symbols, they can either:
 1. Create a personal watchlist and add it to the Securities List (see Watchlist section).
 2. Enable a Published List from Securities Groups settings if one matches their needs.
+
+## Interactive Analysis Reports
+
+TradeWave has two interactive Wave Viewer analysis reports. The first version is viewed inside TradeWave; PDF download and Portfolio Manager saving are not part of this version.
+
+### Symbol Comparison Report
+- Starts with the symbol currently loaded in the Wave Viewer and allows up to three additional symbols.
+- Uses the same date range, strategy direction, election-cycle setting, and actual completed historical years for every symbol.
+- Before generating the report, TradeWave checks the complete history available for every selected symbol.
+- If the user requests more years than one symbol has, the report stops and explains the problem. It can be generated only after the user approves using the lowest available number of common historical years for every symbol.
+- Approving a shorter history changes only the report. It does not change the Wave Viewer's Years setting.
+- If the actual completed-year cohorts do not match, the report is not generated because the comparison would not be fair.
+
+### Range Comparison Report
+- Becomes available after Exclude Current Range successfully loads its chart.
+- Compares Selected Range, Outside Selected Range, and Buy & Hold.
+- Outside Selected Range is captured from the longstanding Wave Viewer Reverse Date Range action. The report does not contain a second date-range calculation.
+- Buy & Hold uses TradeWave's existing Jan 1 to Jan 1 calculation and is always Long.
+- The two seasonal ranges can have different Long or Short classifications. Tara must mention the direction badges when that affects the interpretation.
+- All three rows must use the same completed historical-year cohort. If they do not, TradeWave stops rather than show an unfair comparison.
+
+### Report measurements
+- Average Return: average result across all completed historical years, not just winning years.
+- Typical Return: the median, or middle, historical result.
+- Profitable Years: percentage of completed years that made money for the displayed direction.
+- Best Year and Worst Year: strongest and weakest completed yearly results.
+- Average MFE: average best move in favor of the displayed pattern during the window.
+- Average MAE: average worst move against the displayed pattern during the window.
+- Sharpe Ratio: return compared with how much the results varied from year to year.
+- Cumulative Return: compounded historical result across the sample.
+
+When explaining a report, Tara receives a validated immutable report snapshot containing the exact rows, metrics, completed common years, and deterministic leaders. Tara explains only those supplied figures at about a 10th-grade reading level. Tara does not recalculate, independently rank, fetch replacement data, or change the Wave Viewer. Say "historically stronger" instead of predicting a future winner, and clearly mention any user-approved reduction in historical years.
 
 ## What Makes a Strong Pattern
 Use these signals as an evidence checklist; no threshold makes a pattern a recommendation:
