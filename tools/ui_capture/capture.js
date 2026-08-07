@@ -121,6 +121,52 @@ function getAIScoreDurationChange(spec) {
   return { mode: 'delta', value: aiScores.changeDaysBy };
 }
 
+// Reproduce the exact user-defined Buy & Hold flow that previously cleared the
+// AI panel: load a real Opportunity Table symbol, apply Buy & Hold, then change
+// the Wave Viewer history depth. This is additive to the duration-change mode;
+// keeping the two mutually exclusive makes each capture's network proof easy to
+// interpret.
+function getAIScoreBuyAndHoldChange(spec) {
+  const aiScores = spec.aiScores || {};
+  if (!Object.prototype.hasOwnProperty.call(aiScores, 'buyAndHold')) return null;
+  if (spec.display !== 'aiScores') {
+    fail('aiScores.buyAndHold requires display="aiScores"');
+  }
+  if (aiScores.expectedState === 'empty') {
+    fail('aiScores.buyAndHold requires an initially populated AI Scores state');
+  }
+  if (getAIScoreDurationChange(spec)) {
+    fail('aiScores.buyAndHold cannot be combined with changeDaysTo/changeDaysBy');
+  }
+  const change = aiScores.buyAndHold;
+  if (!change || typeof change !== 'object' || Array.isArray(change)) {
+    fail('aiScores.buyAndHold must be an object');
+  }
+  if (typeof change.years !== 'string' || !/^[1-9]\d*$/.test(change.years)) {
+    fail('aiScores.buyAndHold.years must be a positive integer string');
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(change.expectedStartDate || ''))) {
+    fail('aiScores.buyAndHold.expectedStartDate must be YYYY-MM-DD');
+  }
+  if (!Number.isInteger(change.expectedCalendarDays) || change.expectedCalendarDays < 1 || change.expectedCalendarDays > 367) {
+    fail('aiScores.buyAndHold.expectedCalendarDays must be an integer from 1 through 367');
+  }
+  if (change.expectedReason !== 'after_entry') {
+    fail('aiScores.buyAndHold.expectedReason must be "after_entry"');
+  }
+  const selectedSymbol = String(spec.oppTable && spec.oppTable.selectSymbol || '').trim().toUpperCase();
+  if (!/^[A-Z0-9.$^-]{1,15}$/.test(selectedSymbol)) {
+    fail('aiScores.buyAndHold requires oppTable.selectSymbol');
+  }
+  return {
+    symbol: selectedSymbol,
+    years: change.years,
+    expectedStartDate: change.expectedStartDate,
+    expectedCalendarDays: change.expectedCalendarDays,
+    expectedReason: change.expectedReason,
+  };
+}
+
 // Keep only the fields needed by the regression. In particular, never retain
 // or print the intercepted URL because MLScoreBatch authenticates via a token
 // query parameter. The request body itself has no credential, but whitelisting
@@ -133,15 +179,134 @@ function sanitizeMLScoreBatchBody(rawBody) {
     return { parse_error: true };
   }
   const opportunities = Array.isArray(parsed.opportunities)
-    ? parsed.opportunities.map((item) => ({
-      daysOut: item && item.daysOut,
-      years: item && item.years,
-    }))
+    ? parsed.opportunities.map((item) => {
+      const hasPartial = item && Object.prototype.hasOwnProperty.call(item, 'partial');
+      const rawPartial = hasPartial ? item.partial : undefined;
+      const partial = rawPartial === null
+        ? null
+        : (rawPartial && typeof rawPartial === 'object'
+            ? {
+                min_winning_years: rawPartial.min_winning_years,
+                mode: rawPartial.mode,
+              }
+            : undefined);
+      return {
+        symbol: item && item.symbol,
+        date: item && item.date,
+        daysOut: item && item.daysOut,
+        direction: item && item.direction,
+        years: item && item.years,
+        partial,
+        mode: item && item.mode,
+        selection_origin: item && item.selection_origin,
+      };
+    })
     : null;
   return {
     request_origin: parsed.request_origin,
     opportunities,
   };
+}
+
+function viewerBatchIdentity(opportunity) {
+  if (!opportunity || typeof opportunity !== 'object') return null;
+  return {
+    symbol: opportunity.symbol,
+    date: opportunity.date,
+    daysOut: opportunity.daysOut,
+    direction: opportunity.direction,
+    years: opportunity.years,
+    partial: opportunity.partial,
+    mode: opportunity.mode,
+    selection_origin: opportunity.selection_origin,
+  };
+}
+
+function viewerBatchIdentityKey(opportunity) {
+  return JSON.stringify(viewerBatchIdentity(opportunity));
+}
+
+function expectedBuyAndHoldBatchIdentity(change) {
+  return {
+    symbol: change.symbol,
+    date: change.expectedStartDate,
+    // TradeWave counts the entry date as day 1. Only the network tuple uses
+    // the analytics/scorer offset, so 366 displayed calendar days means 365.
+    daysOut: change.expectedCalendarDays - 1,
+    direction: 'l',
+    years: change.years,
+    partial: null,
+    mode: 'consecutive',
+    selection_origin: 'user_defined',
+  };
+}
+
+function assertViewerBuyAndHoldBatches(requests, startIndex, change) {
+  const recent = requests.slice(startIndex);
+  if (recent.some((body) => body.parse_error === true)) {
+    fail('a Buy & Hold MLScoreBatch request did not contain valid JSON (body intentionally not logged)');
+  }
+  const batches = viewerBatchesSince(requests, startIndex);
+  if (batches.length === 0) {
+    fail('Buy & Hold history change sent no Wave Viewer MLScoreBatch request');
+  }
+  const identities = [];
+  for (const batch of batches) {
+    if (batch.parse_error === true) {
+      fail('a Buy & Hold MLScoreBatch request did not contain valid JSON (body intentionally not logged)');
+    }
+    if (!Array.isArray(batch.opportunities) || batch.opportunities.length !== 1) {
+      fail(`Buy & Hold MLScoreBatch contained ${Array.isArray(batch.opportunities) ? batch.opportunities.length : 'an invalid opportunities field'}; expected exactly one opportunity`);
+    }
+    const identity = viewerBatchIdentity(batch.opportunities[0]);
+    if (
+      identity.symbol !== change.symbol ||
+      identity.date !== change.expectedStartDate ||
+      identity.daysOut !== change.expectedCalendarDays - 1 ||
+      identity.direction !== 'l' ||
+      typeof identity.years !== 'string' ||
+      identity.partial !== null ||
+      identity.mode !== 'consecutive' ||
+      identity.selection_origin !== 'user_defined'
+    ) {
+      fail(`Buy & Hold MLScoreBatch used an unexpected sanitized identity: ${JSON.stringify(identity)}`);
+    }
+    identities.push(identity);
+  }
+
+  const keys = identities.map(viewerBatchIdentityKey);
+  if (new Set(keys).size !== keys.length) {
+    fail('Buy & Hold history change repeated a Wave Viewer request identity');
+  }
+  const expected = expectedBuyAndHoldBatchIdentity(change);
+  const finalIdentity = identities[identities.length - 1];
+  if (viewerBatchIdentityKey(finalIdentity) !== viewerBatchIdentityKey(expected)) {
+    fail(`final Buy & Hold MLScoreBatch identity was ${JSON.stringify(finalIdentity)}; expected ${JSON.stringify(expected)}`);
+  }
+  return {
+    request_count: batches.length,
+    unique_request_count: new Set(keys).size,
+    final: finalIdentity,
+  };
+}
+
+async function waitForBuyAndHoldBatch(requests, startIndex, change, timeoutMs = 60000) {
+  const expectedKey = viewerBatchIdentityKey(expectedBuyAndHoldBatchIdentity(change));
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const recent = requests.slice(startIndex);
+    if (recent.some((body) => body.parse_error === true)) {
+      throw new Error('a Buy & Hold MLScoreBatch request did not contain valid JSON (body intentionally not logged)');
+    }
+    const batches = viewerBatchesSince(requests, startIndex);
+    if (batches.some((batch) => (
+      Array.isArray(batch.opportunities) &&
+      batch.opportunities.length === 1 &&
+      viewerBatchIdentityKey(batch.opportunities[0]) === expectedKey
+    ))) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`timed out waiting for the ${change.years}-year Buy & Hold Wave Viewer MLScoreBatch request`);
 }
 
 function viewerBatchesSince(requests, startIndex) {
@@ -482,6 +647,7 @@ async function main() {
   const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
   if (spec.spec_version !== 1) fail(`unsupported spec_version ${spec.spec_version}, expected 1`);
   const aiScoreDurationChange = getAIScoreDurationChange(spec);
+  const aiScoreBuyAndHoldChange = getAIScoreBuyAndHoldChange(spec);
 
   const startWall = Date.now();
   const consoleErrors = [];
@@ -525,6 +691,8 @@ async function main() {
     const mlScoreBatchRequests = [];
     let aiScoreDurationChangeEvidence = null;
     let aiScoreDurationRequestStart = null;
+    let aiScoreBuyAndHoldEvidence = null;
+    let aiScoreBuyAndHoldRequestStart = null;
     page.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
@@ -627,29 +795,55 @@ async function main() {
     // therefore reproduce the normal user flow by selecting a zero-based
     // visible row after the table is ready.
     const requestedOpportunityRow = spec.oppTable && spec.oppTable.selectRow;
+    const requestedOpportunitySymbol = String(
+      spec.oppTable && spec.oppTable.selectSymbol || ''
+    ).trim().toUpperCase();
+    if (requestedOpportunityRow !== undefined && requestedOpportunitySymbol) {
+      fail('oppTable.selectRow and oppTable.selectSymbol are mutually exclusive');
+    }
     const selectedOpportunityRow = Number.isInteger(requestedOpportunityRow) || requestedOpportunityRow === 'firstAvailableAI'
       ? requestedOpportunityRow
       : null;
-    if (selectedOpportunityRow !== null) {
-      log(`selecting Opportunity Table row ${selectedOpportunityRow}...`);
+    if (selectedOpportunityRow !== null || requestedOpportunitySymbol) {
+      const selectionDescription = requestedOpportunitySymbol
+        ? `symbol ${requestedOpportunitySymbol}`
+        : `row ${selectedOpportunityRow}`;
+      log(`selecting Opportunity Table ${selectionDescription}...`);
       if (selectedOpportunityRow === 'firstAvailableAI') {
         await page.waitForSelector('.opp-table .opp-ai-cell--available', { timeout: 60000 })
           .catch(() => fail(`no visible Opportunity Table row received an available AI value. Console errors: ` + JSON.stringify(consoleErrors)));
       }
-      const selected = await page.evaluate((rowRequest) => {
+      if (requestedOpportunitySymbol) {
+        await page.waitForFunction(
+          (targetSymbol) => Array.from(document.querySelectorAll('.opp-table tbody tr.stripes, .opp-table tbody tr.selected'))
+            .some(row => Array.from(row.querySelectorAll('td'))
+              .some(cell => cell.textContent.trim().toUpperCase() === targetSymbol)),
+          { timeout: 60000 },
+          requestedOpportunitySymbol
+        ).catch(() => fail(`Opportunity Table has no ${requestedOpportunitySymbol} row. Console errors: ` + JSON.stringify(consoleErrors)));
+      }
+      const selected = await page.evaluate((rowRequest, symbolRequest) => {
         const rows = Array.from(document.querySelectorAll('.opp-table tbody tr.stripes, .opp-table tbody tr.selected'));
         const availableCell = rowRequest === 'firstAvailableAI'
           ? document.querySelector('.opp-table .opp-ai-cell--available')
           : null;
-        const row = availableCell ? availableCell.closest('tr') : rows[rowRequest];
+        const symbolRow = symbolRequest
+          ? rows.find(candidate => Array.from(candidate.querySelectorAll('td'))
+            .some(cell => cell.textContent.trim().toUpperCase() === symbolRequest))
+          : null;
+        const row = availableCell ? availableCell.closest('tr') : (symbolRow || rows[rowRequest]);
         if (!row) return { clicked: false, count: rows.length, symbol: '' };
         const availableLabel = availableCell ? availableCell.getAttribute('aria-label') || '' : '';
         const symbolMatch = availableLabel.match(/ for (.+?)\. Select/);
         row.click();
-        return { clicked: true, count: rows.length, symbol: symbolMatch ? symbolMatch[1] : '' };
-      }, selectedOpportunityRow);
+        return {
+          clicked: true,
+          count: rows.length,
+          symbol: symbolRequest || (symbolMatch ? symbolMatch[1] : ''),
+        };
+      }, selectedOpportunityRow, requestedOpportunitySymbol);
       if (!selected.clicked) {
-        fail(`Opportunity Table row ${selectedOpportunityRow} does not exist (${selected.count} visible data rows)`);
+        fail(`Opportunity Table ${selectionDescription} does not exist (${selected.count} visible data rows)`);
       }
       await page.waitForFunction(
         () => Boolean(document.querySelector('.opp-table tbody tr.selected')),
@@ -662,7 +856,7 @@ async function main() {
         },
         { timeout: 60000 },
         selected.symbol
-      ).catch(() => fail(`Opportunity Table row ${selectedOpportunityRow}${selected.symbol ? ` (${selected.symbol})` : ''} did not load into the Wave Viewer. Console errors: ` + JSON.stringify(consoleErrors)));
+      ).catch(() => fail(`Opportunity Table ${selectionDescription}${selected.symbol ? ` (${selected.symbol})` : ''} did not load into the Wave Viewer. Console errors: ` + JSON.stringify(consoleErrors)));
     }
 
     if (deepLink) {
@@ -795,6 +989,136 @@ async function main() {
           target_calendar_days: changed.targetDays,
           used_boundary_fallback: changed.usedBoundaryFallback,
           batch: batchEvidence,
+        };
+      }
+
+      if (aiScoreBuyAndHoldChange) {
+        if (expectedAIState !== 'populated') {
+          fail('AI Scores Buy & Hold change cannot run from an empty panel');
+        }
+        aiScoreBuyAndHoldRequestStart = mlScoreBatchRequests.length;
+        const buyAndHoldStarted = await page.evaluate(() => {
+          const visible = candidate => {
+            const rect = candidate.getBoundingClientRect();
+            const style = window.getComputedStyle(candidate);
+            return candidate.getClientRects().length > 0 && rect.width > 0 && rect.height > 0 &&
+              style.display !== 'none' && style.visibility !== 'hidden';
+          };
+          const button = Array.from(document.querySelectorAll('button[aria-label="Buy and Hold"]')).find(visible);
+          const years = Array.from(document.querySelectorAll('.seasonal-barchart-container select#years')).find(visible);
+          if (!button) return { error: 'no visible Buy & Hold button was found' };
+          if (!years) return { error: 'no visible Wave Viewer years selector was found' };
+          if (button.getAttribute('aria-pressed') === 'true') {
+            return { error: 'Buy & Hold was already active before the regression action' };
+          }
+          const previousYears = years.value;
+          button.click();
+          return { previousYears };
+        });
+        if (buyAndHoldStarted.error) fail(buyAndHoldStarted.error);
+        log(`applying Buy & Hold to ${aiScoreBuyAndHoldChange.symbol}...`);
+
+        await page.waitForFunction(
+          (change) => {
+            const visible = candidate => candidate && candidate.getClientRects().length > 0;
+            const root = document.querySelector('.seasonal-barchart-container');
+            if (!root) return false;
+            const date = Array.from(root.querySelectorAll('input#date')).find(visible);
+            const days = Array.from(root.querySelectorAll('select#daysout')).find(visible);
+            const button = Array.from(root.querySelectorAll('button[aria-label="Buy and Hold"]')).find(visible);
+            return Boolean(
+              date && date.value === change.expectedStartDate &&
+              days && Number.parseInt(days.value, 10) === change.expectedCalendarDays &&
+              button && button.getAttribute('aria-pressed') === 'true'
+            );
+          },
+          { timeout: 60000 },
+          aiScoreBuyAndHoldChange
+        ).catch(() => fail(`Buy & Hold did not reach ${aiScoreBuyAndHoldChange.expectedStartDate} / ${aiScoreBuyAndHoldChange.expectedCalendarDays} calendar days. Console errors: ` + JSON.stringify(consoleErrors)));
+
+        await page.waitForFunction(
+          (targetYears) => {
+            const select = Array.from(document.querySelectorAll('.seasonal-barchart-container select#years'))
+              .find(candidate => candidate.getClientRects().length > 0);
+            return Boolean(select && Array.from(select.options).some(option => option.value === targetYears));
+          },
+          { timeout: 60000 },
+          aiScoreBuyAndHoldChange.years
+        ).catch(() => fail(`Wave Viewer never offered ${aiScoreBuyAndHoldChange.years} years for ${aiScoreBuyAndHoldChange.symbol}`));
+
+        const yearsChanged = await page.evaluate((targetYears) => {
+          const select = Array.from(document.querySelectorAll('.seasonal-barchart-container select#years'))
+            .find(candidate => candidate.getClientRects().length > 0);
+          if (!select) return { error: 'no visible Wave Viewer years selector was found' };
+          const previousYears = select.value;
+          if (previousYears === targetYears) {
+            return { error: `Wave Viewer was already using ${targetYears} years` };
+          }
+          const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value');
+          if (!valueSetter || typeof valueSetter.set !== 'function') {
+            return { error: 'native Wave Viewer years selector setter was not available' };
+          }
+          valueSetter.set.call(select, targetYears);
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          return { previousYears, targetYears };
+        }, aiScoreBuyAndHoldChange.years);
+        if (yearsChanged.error) fail(yearsChanged.error);
+        log(`changing Buy & Hold history from ${yearsChanged.previousYears} to ${yearsChanged.targetYears} years...`);
+
+        await waitForBuyAndHoldBatch(
+          mlScoreBatchRequests,
+          aiScoreBuyAndHoldRequestStart,
+          aiScoreBuyAndHoldChange
+        );
+        await page.waitForFunction(
+          (change) => {
+            const visible = candidate => candidate && candidate.getClientRects().length > 0;
+            const root = document.querySelector('.seasonal-barchart-container');
+            const active = document.querySelector('.stock-linechart-parent .swiper-slide-active');
+            const panel = active && active.querySelector('.ai-score-panel:not(.ai-score-panel--empty)');
+            if (!root || !panel) return false;
+            const date = Array.from(root.querySelectorAll('input#date')).find(visible);
+            const days = Array.from(root.querySelectorAll('select#daysout')).find(visible);
+            const years = Array.from(root.querySelectorAll('select#years')).find(visible);
+            const buyAndHold = Array.from(root.querySelectorAll('button[aria-label="Buy and Hold"]')).find(visible);
+            const patternText = panel.querySelector('.ai-score-panel__pattern-line')?.textContent || '';
+            const stateText = panel.querySelector('.ai-score-panel__state')?.textContent || '';
+            const toolbarText = panel.querySelector('.ai-score-panel__toolbar')?.textContent || '';
+            const chartMeta = window.__twCapture && window.__twCapture.meta && window.__twCapture.meta.seasonal;
+            return Boolean(
+              date && date.value === change.expectedStartDate &&
+              days && Number.parseInt(days.value, 10) === change.expectedCalendarDays &&
+              years && years.value === change.years &&
+              buyAndHold && buyAndHold.getAttribute('aria-pressed') === 'true' &&
+              chartMeta && chartMeta.symbol === change.symbol && String(chartMeta.years) === change.years &&
+              toolbarText.includes(`AI Scores for ${change.symbol}`) &&
+              patternText.includes('Buy & Hold') &&
+              patternText.includes('Long') &&
+              patternText.includes(`${change.expectedCalendarDays}-day historical pattern`) &&
+              patternText.includes(`${change.years}-year history`) &&
+              stateText.includes('This pattern has already started') &&
+              stateText.includes('a new AI reading is not available')
+            );
+          },
+          { timeout: 90000 },
+          aiScoreBuyAndHoldChange
+        ).catch(() => fail(`AI Scores did not retain the nonblank ${aiScoreBuyAndHoldChange.expectedCalendarDays}-day / ${aiScoreBuyAndHoldChange.years}-year Buy & Hold context and after-entry explanation. Console errors: ` + JSON.stringify(consoleErrors)));
+
+        // Let any delayed React effect run before enforcing request-key
+        // uniqueness. A legitimate transition can produce one intermediate
+        // history-depth request, but the same identity must never be repeated.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        aiScoreBuyAndHoldEvidence = {
+          from_years: yearsChanged.previousYears,
+          target_years: yearsChanged.targetYears,
+          expected_start_date: aiScoreBuyAndHoldChange.expectedStartDate,
+          expected_calendar_days: aiScoreBuyAndHoldChange.expectedCalendarDays,
+          expected_reason: aiScoreBuyAndHoldChange.expectedReason,
+          batches: assertViewerBuyAndHoldBatches(
+            mlScoreBatchRequests,
+            aiScoreBuyAndHoldRequestStart,
+            aiScoreBuyAndHoldChange
+          ),
         };
       }
 
@@ -954,6 +1278,15 @@ async function main() {
         aiScoreDurationChangeEvidence.target_calendar_days
       );
     }
+    if (aiScoreBuyAndHoldEvidence) {
+      // Recheck after paint/stability/capture waits so a delayed duplicate of
+      // either the intermediate or final viewer identity cannot escape the gate.
+      aiScoreBuyAndHoldEvidence.batches = assertViewerBuyAndHoldBatches(
+        mlScoreBatchRequests,
+        aiScoreBuyAndHoldRequestStart,
+        aiScoreBuyAndHoldChange
+      );
+    }
 
     for (const w of written) {
       if (w.bytes <= 20000) {
@@ -991,6 +1324,7 @@ async function main() {
         deep_link_decoded: deepLink ? deepLink.paramStr : null,
         querystring_used: qs,
         ai_score_duration_change: aiScoreDurationChangeEvidence,
+        ai_score_buy_and_hold_change: aiScoreBuyAndHoldEvidence,
       },
       bot_uuid: uuid,
       bundle_hash: bundleHash,

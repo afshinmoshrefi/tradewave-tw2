@@ -1,0 +1,23 @@
+{
+  "spec_version": 1,
+  "theme": "dark",
+  "display": "aiScores",
+  "market": "S&P 500 STOCKS",
+  "leftPanelCollapsed": false,
+  "oppTable": {
+    "selectSymbol": "MRK",
+    "columnVisibility": { "win_prob": true }
+  },
+  "aiScores": {
+    "buyAndHold": {
+      "years": "63",
+      "expectedStartDate": "2026-01-01",
+      "expectedCalendarDays": 366,
+      "expectedReason": "after_entry"
+    }
+  },
+  "scale": 2,
+  "viewport": { "width": 1920, "height": 1080 },
+  "crops": ["full", "display"],
+  "out": "out/demo/mrk_buy_hold_63_year_ai_scores_dark"
+}

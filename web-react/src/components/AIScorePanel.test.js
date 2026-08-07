@@ -125,6 +125,52 @@ test('labels a changed duration as the current Wave Viewer reading', () => {
   expect(panel).not.toHaveTextContent(/Shown in Opportunity Table|Opportunity Table uses/i)
 })
 
+test('keeps a 63-year Buy & Hold selection visible with the honest after-entry explanation', () => {
+  const unavailable = {
+    calendarDays: 90,
+    status: 'unavailable',
+    reason: 'after_entry',
+    metrics: { ml_score: null, win_prob: null, pred_return: null, pred_mfe: null },
+  }
+  renderPanel({
+    eligible: true,
+    enabled: true,
+    selectionOrigin: 'wave_viewer',
+    selected: {
+      symbol: 'MRK',
+      date: '2026-01-01',
+      daysOut: 366,
+      direction: 'Long',
+      years: '63',
+      yearCount: '63',
+      mode: 'consecutive',
+      cycle: 'cons',
+      isBuyAndHold: true,
+    },
+    bundle: {
+      basis: 'duration_comparison',
+      fullPatternCalendarDays: 366,
+      entryDate: '2026-01-01',
+      direction: 'Long',
+      displayCalendarDays: 90,
+      display: unavailable,
+      horizons: [
+        { ...unavailable, calendarDays: 30 },
+        { ...unavailable, calendarDays: 60 },
+        unavailable,
+      ],
+    },
+  })
+
+  const panel = screen.getByRole('region', { name: 'AI Scores' })
+  expect(panel).toHaveTextContent(/Buy & Hold.*Long.*Starts Jan 1, 2026.*366-day historical pattern.*63-year history.*Wave Viewer uses the 90-day AI reading/i)
+  expect(panel).toHaveTextContent(/This pattern has already started.*new AI reading is not available/i)
+  expect(panel).toHaveTextContent(/Pattern already started/i)
+  expect(panel).not.toHaveTextContent(/Temporarily unavailable/i)
+  expect(panel).not.toHaveClass('ai-score-panel--empty')
+  expect(panel).not.toHaveTextContent(/Loading AI Scores/i)
+})
+
 test('offers the same Portfolio Manager and Wave Viewer snapshot actions as the other lower panels', () => {
   const onOpenPortfolio = jest.fn()
   const onExportSnapshot = jest.fn()

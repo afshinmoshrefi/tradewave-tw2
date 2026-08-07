@@ -49,6 +49,7 @@ import { tierHasAI } from './Common'
 import { lsGet, lsSet } from './Common'
 import { LEFT_PANEL_COLLAPSED_KEY, resolveLeftPanelCollapsed } from './leftPanelState'
 import { BAR_CHART_EXCURSION_STYLES } from './barChartExcursion'
+import { opportunityAISelectionMatchesViewer } from './opportunityViewerAIScore'
 import { BsPlus, BsTrash3 } from "react-icons/bs";
 import { GrEdit } from "react-icons/gr";
 import Tippy from '@tippyjs/react'
@@ -200,12 +201,17 @@ const DesktopLayout = (props) => {
     const visibleBottomSlide = bottomSlidePresentation.visibleSlide;
     const preserveRequestedBottomSlide = bottomSlidePresentation.preserveRequestedSlide;
     const publishedAISelection = props.opportunityAIState && props.opportunityAIState.selected;
-    const publishedAISelectionMatchesViewer = Boolean(
-        publishedAISelection &&
-        String(publishedAISelection.symbol || '') === String(props.symbol || '') &&
-        String(publishedAISelection.date || '') === String(props.startDate || '') &&
-        Number.parseInt(publishedAISelection.daysOut, 10) === Number.parseInt(props.daysOut, 10)
-    );
+    const viewerCycleForAI = String(props.PEselected || 'cons').trim().toLowerCase();
+    const publishedAISelectionMatchesViewer = opportunityAISelectionMatchesViewer({
+        selection: publishedAISelection,
+        symbol: props.symbol,
+        date: props.startDate,
+        calendarDays: props.daysOut,
+        years: props.seasonalYears,
+        mode: viewerCycleForAI.startsWith('pe') ? 'pe' : 'consecutive',
+        cycle: viewerCycleForAI,
+        isBuyAndHold: props.monthsAndQtrs === 'Buy & Hold',
+    });
     const aiPanelViewModel = publishedAISelection && !publishedAISelectionMatchesViewer
         ? {
             ...props.opportunityAIState,
@@ -214,6 +220,13 @@ const DesktopLayout = (props) => {
                 date: props.startDate,
                 daysOut: props.daysOut,
                 direction: props.barChartLongOrShort,
+                years: viewerCycleForAI.startsWith('pe')
+                    ? `${viewerCycleForAI}-${props.seasonalYears}`
+                    : String(props.seasonalYears || ''),
+                yearCount: String(props.seasonalYears || ''),
+                mode: viewerCycleForAI.startsWith('pe') ? 'pe' : 'consecutive',
+                cycle: viewerCycleForAI,
+                isBuyAndHold: props.monthsAndQtrs === 'Buy & Hold',
             },
             loading: true,
             bundle: null,

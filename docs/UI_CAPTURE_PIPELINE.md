@@ -488,7 +488,7 @@ simply now accepts one more optional field). `spec_version` stays `1`.
 | `spec_version` | yes | `1` | Schema version guard |
 | `theme` | no (default `"dark"`) | `"dark"` \| `"light"` | Seeds `UITheme` |
 | `display` | yes | `"seasonal"` \| `"tradeDetail"` \| `"aiScores"` \| `"price"` | Which lower display to capture. The harness selects the accessible semantic dot because Price Chart may be index 2 or 3 when AI Scores is available. `aiScores` waits for a populated stats view by default and therefore requires an eligible U.S. stock/ETF account and market. |
-| `aiScores` | no | object with optional `expectedState`, `openGuide`, `changeDaysTo`, and `changeDaysBy` | `expectedState` defaults to `"populated"`; use `"empty"` with no `pattern` to verify the selected-market/no-Wave-Viewer-pattern watermark. `openGuide: true` opens the information guide after a populated panel is ready. `changeDaysTo: N` or `changeDaysBy: D` (mutually exclusive integers) changes the visible Wave Viewer duration after the initial populated selection, then requires exactly one isolated `request_origin: "wave_viewer"` ML score batch and a populated panel for the new duration. A relative change reverses its delta only when the requested value is beyond the selector boundary, keeping boundary-row captures useful. TradeWave windows are measured in calendar days: the harness verifies the request's raw `daysOut` equals the displayed target minus 1 and that `years` remains a string. |
+| `aiScores` | no | object with optional `expectedState`, `openGuide`, `changeDaysTo`, `changeDaysBy`, and `buyAndHold` | `expectedState` defaults to `"populated"`; use `"empty"` with no `pattern` to verify the selected-market/no-Wave-Viewer-pattern watermark. `openGuide: true` opens the information guide after a populated panel is ready. `changeDaysTo: N` or `changeDaysBy: D` (mutually exclusive integers) changes the visible Wave Viewer duration after the initial populated selection, then requires exactly one isolated `request_origin: "wave_viewer"` ML score batch and a populated panel for the new duration. A relative change reverses its delta only when the requested value is beyond the selector boundary, keeping boundary-row captures useful. `buyAndHold: {years, expectedStartDate, expectedCalendarDays, expectedReason}` clicks the visible Buy & Hold control and then changes the visible history selector; it requires `oppTable.selectSymbol`, string `years`, and currently supports the honest `after_entry` state. It accepts one or more unique transition batches but requires the final sanitized identity to match the requested symbol, date, inclusive duration minus 1, Long direction, years, null partial filter, consecutive mode, and `user_defined` provenance. It cannot be combined with a duration change. TradeWave windows are measured in calendar days: the harness verifies every request's raw `daysOut` equals the displayed target minus 1 and that `years` remains a string. |
 | `market` | yes if `pattern` is set | one of the names in section 4 | Which resource group to select |
 | `symbol` | yes if `pattern` is set | ticker string, e.g. `"AAPL"` | Which symbol the deep link targets |
 | `pattern` | no | object: `{startDate, daysOut, years, pe}` | If present, builds a `?o=` deep link (see Layer 5 above). Omit entirely to capture the app's default/no-pattern state |
@@ -501,7 +501,7 @@ simply now accepts one more optional field). `spec_version` stays `1`.
 | `leftPanelCollapsed` | no (default `false`) | boolean | Seeds the saved desktop Opportunity Table/Tara panel state before the app starts. Use `true` to verify a requested lower display still renders correctly with the narrow reopen rail visible. |
 | `priceChart` | no | object, all fields optional | Seeds price-chart localStorage options: `showProjection`, `showMaxProjection`, `projectionPeriod`, `showVolume`, `maConfig`, `bbConfig`, `timeframe`, `chartRange`, `showEarnings` (see the full table in Layer 3) |
 | `seasonal` | no | `{showMFE, showMAE}` (booleans, default both `true`) | Seeds the `MFE`/`MAE` cookies controlling seasonal-chart overlays |
-| `oppTable` | no | object, all fields optional | `columnVisibility`, `columnOrder` (localStorage), `yearsPerGroup`, `yearsPerGroupPE` (cookies, JSON-stringified), `cropRows` (integer, crop-sizing only - see section 6), and `selectRow` (zero-based visible row or `"firstAvailableAI"`). Use `selectRow` to populate the viewer exactly as a user does; `"firstAvailableAI"` requires one visible AI column and verifies that row's symbol loads. The AI Scores panel requires a real table selection rather than an arbitrary viewer deep link. |
+| `oppTable` | no | object, all fields optional | `columnVisibility`, `columnOrder` (localStorage), `yearsPerGroup`, `yearsPerGroupPE` (cookies, JSON-stringified), `cropRows` (integer, crop-sizing only - see section 6), `selectRow` (zero-based visible row or `"firstAvailableAI"`), and `selectSymbol` (exact ticker string). Use `selectRow` or `selectSymbol`, never both, to populate the viewer exactly as a user does; `"firstAvailableAI"` requires one visible AI column and verifies that row's symbol loads. The AI Scores panel requires a real table selection rather than an arbitrary viewer deep link. |
 | `crops` | no (default `["full"]`) | array of `"full"` \| `"waveViewer"` \| `"viewerPlusDisplay"` \| `"appNoBanner"` \| `"display"` \| `"oppTable"` | Which screenshots to take (see section 6) |
 | `out` | no (default `"out/capture"`) | path prefix string | Output files are written as `<out>.<crop>.png` and `<out>.meta.json` |
 
@@ -638,6 +638,18 @@ batch containing one opportunity, raw `daysOut = displayed days - 1`, and string
 `years`. It then waits for both the new `N-day historical pattern` line and the
 `Wave Viewer AI reading` Quick Read before allowing a screenshot.
 
+`mrk_buy_hold_63_year_ai_scores_dark.json` locks the exact 2026 MRK regression:
+select the MRK Opportunity Table row, wait for its initial AI panel, click Buy & Hold,
+and change the visible Wave Viewer history to 63 years. It requires the final viewer
+batch to contain one sanitized `MRK | 2026-01-01 | 365 | l | "63"` opportunity with
+`partial: null`, consecutive mode, and `selection_origin: "user_defined"`. TradeWave's
+entry day counts as day 1, so that raw offset is the correct network form of the visible
+366-calendar-day Buy & Hold pattern. The capture does not expect an invented numeric
+forecast after January 1: it requires a nonblank panel that keeps `Buy & Hold`, the
+366-day pattern, and `63-year history` visible alongside the plain after-entry
+explanation. The explicit date and duration make this a 2026 incident regression; update
+those spec values deliberately for a later calendar year's Buy & Hold contract.
+
 `dow_ai_scores_empty_dark.json` selects DOW 30 without a pattern and waits for the
 empty AI Scores watermark. This protects the market-selected/no-Wave-Viewer-pattern
 case from regressing into a loading or instruction card.
@@ -672,6 +684,10 @@ Every capture run writes `<out>.meta.json`. Fields:
   sanitized proof that exactly one Wave Viewer batch used one opportunity, the
   correct engine-day offset, and a string `years` value. Tokens and raw request
   bodies are never written here.
+- `resolved.ai_score_buy_and_hold_change` - `null` for ordinary captures; for the
+  Buy & Hold/history regression, the resolved year transition and sanitized unique
+  request count plus final request identity. It contains no request URL, token, or
+  unallowlisted request-body field.
 - `bot_uuid` - the capture-bot's UUID as discovered at runtime (see Layer 1 - never
   hardcode this elsewhere; read it from here if you need it for manual debugging).
 - `bundle_hash` - the React bundle's content hash, extracted from the

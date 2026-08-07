@@ -573,21 +573,32 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   only when the AI Scores panel is available. It does not add a separate tab or button banner.
   The selected row's normalized bundle is published from
   `OppTable` to the AI panel, so its main value and 10/full/30/60/90-day comparison are the
-  same values used by table display, filters, and sorting. If the user then changes only
-  that selected pattern's Wave Viewer duration, the clicked row remains the anchor for
-  market, symbol, entry date, direction, string `years`, and recurrence selection.
+  same values used by table display, filters, and sorting. The selected row starts a
+  Wave Viewer scoring session scoped to that market and symbol. A duration-only change
+  preserves the clicked entry date, direction, string `years`, and table recurrence filter.
+  The controlled Buy & Hold preset may change the entry date to January 1 and the inclusive
+  duration to the full year without destroying the session; Buy & Hold is always Long. A
+  Buy & Hold history-depth change uses the current Wave Viewer years and does not carry the
+  old table threshold (for example, 9-of-10 does not become 9-of-63). Other history/cycle/date
+  changes fail closed instead of reusing a direction from a different historical cohort.
   `OppTable` immediately publishes a loading view and sends one isolated authenticated
-  `MLScoreBatch` request for the changed inclusive duration; only the network tuple converts
-  it to `daysOut = calendar_days - 1`. This viewer channel has an independent generation,
-  abort, pending queue, and bounded poll budget, so rapid duration changes cannot expose a
+  `MLScoreBatch` request for the current viewer identity; only the network tuple converts
+  its duration to `daysOut = calendar_days - 1`. This viewer channel has an independent generation,
+  abort, pending queue, and bounded poll budget, so rapid viewer changes cannot expose a
   stale bundle and do not clear, re-request, or reorder the Opportunity Table score snapshot.
   The additive top-level `request_origin=wave_viewer` suppresses only table-popularity
   telemetry for this one-off request; omitted and unknown origins retain the prior table
   telemetry behavior. Per-row `selection_origin=user_defined` remains provenance only and
   does not alter scorer/cache identity. The panel labels the primary value as a Wave Viewer
   reading rather than falsely claiming that the custom duration is shown in the Opportunity
-  Table. A symbol, entry-date, or market change invalidates the anchor instead of reusing its
-  direction or recurrence for a different pattern. The panel uses the established
+  Table. Exact table reuse requires symbol, date, duration, direction, years, and cycle to
+  remain the same. A market/symbol change or an arbitrary non-Buy-&-Hold entry-date change
+  invalidates the session. Current-year Buy & Hold begins January 1; after that date, the
+  pre-entry model intentionally returns `after_entry`, and the panel must keep the selected
+  63-year (or other) context visible with a plain explanation instead of becoming blank or
+  inventing a numeric forecast. Changing Buy & Hold historical years refreshes recurrence
+  evidence and cache/provenance identity; V3 numeric estimates may legitimately remain
+  unchanged because the selected year count is not one of its learned features. The panel uses the established
   Wave Stats visual language: an 8% control strip, flat bordered tables, stats title bars,
   alternating stat rows, and one stable table per available time view. Its visible rows are
   `Historical Record`, `AI Win Chance`, `Estimated End Return`, `Estimated Best Move`, and

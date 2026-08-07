@@ -92,6 +92,9 @@ const OppTable = (props) => {
   const tc = themeColors(props.UITheme)
   const setOpportunityAIState = props.SetOpportunityAIState
   const selectedSecurityForAI = props.selectedSecurity
+  const viewerCycleForAI = String(props.PEselected || 'cons').trim().toLowerCase()
+  const viewerModeForAI = viewerCycleForAI.startsWith('pe') ? 'pe' : 'consecutive'
+  const viewerIsBuyAndHold = props.monthsAndQtrs === 'Buy & Hold'
   const taraLauncherCopy = props.showChatbot
     ? TARA_LAUNCHER_TOOLTIP_COPY.open
     : TARA_LAUNCHER_TOOLTIP_COPY.closed;
@@ -132,7 +135,7 @@ const OppTable = (props) => {
   const [mlUnavailableReason, SetMLUnavailableReason] = useState('')
   const mlFetchIdRef = useRef(0)                               // prevents stale ML fetches from writing state
   const [viewerMLState, SetViewerMLState] = useState(emptyViewerMLState)
-  const viewerMLFetchIdRef = useRef(0)                         // independent generation for one changed Wave Viewer duration
+  const viewerMLFetchIdRef = useRef(0)                         // independent generation for one changed Wave Viewer identity
   const mlBaselineOppsRef = useRef({ contextKey: '', rows: [] })
   const mlPublishedPanelSignatureRef = useRef('')
   const selectedAIRowIdentityRef = useRef(null)
@@ -170,9 +173,9 @@ const OppTable = (props) => {
     }
   }, [selectedSecurityForAI, setOpportunityAIState])
 
-  // Leaving the selected opportunity permanently retires its AI anchor. If a
-  // user later types the old symbol/date again, it must not silently recover
-  // stale direction or recurrence from an earlier table click.
+  // Leaving the selected market/symbol (or manually replacing its entry date)
+  // permanently retires the AI anchor. Buy & Hold is the controlled exception:
+  // it intentionally moves the same selected symbol to January 1.
   useEffect(() => {
     const anchor = selectedAIRowIdentityRef.current
     if (!shouldInvalidateOpportunityAIAnchor({
@@ -180,12 +183,14 @@ const OppTable = (props) => {
       market: props.selectedSecurity,
       symbol: props.symbol,
       date: props.startDate,
+      calendarDays: props.daysOut,
+      isBuyAndHold: viewerIsBuyAndHold,
     })) return
 
     selectedAIRowIdentityRef.current = null
     viewerMLFetchIdRef.current += 1
     SetViewerMLState(emptyViewerMLState())
-  }, [props.selectedSecurity, props.symbol, props.startDate])
+  }, [props.selectedSecurity, props.symbol, props.startDate, props.daysOut, viewerIsBuyAndHold])
 
   const [dayRange, SetDayRange] = useState(EMPTY_DAY_RANGE)
   const [curText, SetCurText] = useState('')
@@ -886,7 +891,11 @@ const OppTable = (props) => {
     symbol: props.symbol,
     date: props.startDate,
     calendarDays: props.daysOut,
-  }), [mlScoreSource, selectedAIAnchor, props.selectedSecurity, props.symbol, props.startDate, props.daysOut])
+    years: props.seasonalYears,
+    mode: viewerModeForAI,
+    cycle: viewerCycleForAI,
+    isBuyAndHold: viewerIsBuyAndHold,
+  }), [mlScoreSource, selectedAIAnchor, props.selectedSecurity, props.symbol, props.startDate, props.daysOut, props.seasonalYears, viewerModeForAI, viewerCycleForAI, viewerIsBuyAndHold])
   const mlResourceId = getSelectedIDFromSecuritiesList2(
     props.securityTypeList,
     props.selectedSecurity,
@@ -899,10 +908,10 @@ const OppTable = (props) => {
   const viewerAIRequestRef = useRef(null)
   viewerAIRequestRef.current = viewerAIRequest
 
-  // A changed Wave Viewer duration is not an Opportunity Table row. Score that
+  // A changed Wave Viewer identity is not an Opportunity Table row. Score that
   // one pattern on an isolated channel so the table cache, sorting, and pending
   // queue remain stable. The desired request key is also the publication guard:
-  // an old duration can never overwrite a newer selection.
+  // an old request can never overwrite a newer selection.
   useEffect(() => {
     const fetchId = ++viewerMLFetchIdRef.current
     // The object is rebuilt when OppList refreshes, but its stable key contains
@@ -1082,7 +1091,7 @@ const OppTable = (props) => {
   }, [viewerAIRequestKey, mlEnabled, mlMarketEligible, mlEligibilityResolved, token])
 
   // Publish only the selected pattern's normalized view model. Exact table
-  // identities use the complete table snapshot; a changed duration uses only
+  // identities use the complete table snapshot; a changed viewer setup uses only
   // the independent viewer request above. One publisher prevents a table poll
   // from clearing or replacing the current viewer result.
   useEffect(() => {
@@ -1132,6 +1141,13 @@ const OppTable = (props) => {
         direction: selectedRow.lOrS,
         averageProfit: selectedRow.avg_profit,
         sharpeRatio: selectedRow.sharpe_ratio,
+        years: panelAISelection.context && panelAISelection.context.years,
+        yearCount: panelAISelection.context && panelAISelection.context.yearCount,
+        mode: panelAISelection.context && panelAISelection.context.mode,
+        cycle: panelAISelection.context && panelAISelection.context.cycle,
+        isBuyAndHold: Boolean(
+          panelAISelection.context && panelAISelection.context.isBuyAndHold
+        ),
       } : null,
       loading: Boolean(bundle && bundle.display && bundle.display.status === 'loading'),
       unavailableReason: selectedUnavailableReason,
@@ -1336,12 +1352,18 @@ const OppTable = (props) => {
     // not batch that path automatically, so keep the new anchor and all Wave
     // Viewer identity setters in one render transaction.
     ReactDOM.unstable_batchedUpdates(() => {
+      let selectedCycle = 'cons'
+      if (currentProps.showPEOpps === true) {
+        selectedCycle = String(current.PELabel || 'PE').toLocaleLowerCase().replace('+', '')
+        if (selectedCycle === 'pe') selectedCycle = 'pe0'
+      }
       selectedAIRowIdentityRef.current = createOpportunityAISelectionAnchor({
         row,
         market: currentProps.selectedSecurity,
         years: currentProps.oppTableYears,
         partialYears: currentProps.oppTablePartialYears,
         mode: currentProps.showPEOpps ? 'pe' : 'consecutive',
+        cycle: selectedCycle,
       })
       const sameOpportunity =
         currentProps.rowIndexClicked === rowIndex &&
@@ -1372,9 +1394,7 @@ const OppTable = (props) => {
 
         // PE cycle opplist type is selected
         if (currentProps.showPEOpps === true) {
-          let t = current.PELabel.toLocaleLowerCase().replace('+', '');
-          if (t === 'pe') t = 'pe0';
-          currentProps.SetPEselected(t)
+          currentProps.SetPEselected(selectedCycle)
           currentProps.SetSeasonalYears(currentProps.oppTableYears);
         }
         else {

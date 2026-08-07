@@ -419,6 +419,7 @@ export const opportunityAICompactStatus = horizon => {
   if (!horizon) return 'Temporarily unavailable'
   if (horizon.status === 'below_threshold') return 'History filter not met'
   const reason = String(horizon.reason || '').toLowerCase()
+  if (reason === 'after_entry') return 'Pattern already started'
   if (reason.includes('insufficient_history') || reason.includes('not enough')) return 'Not enough history'
   if (reason === 'too_early' || reason === 'too_far_ahead') return 'Not available yet'
   return 'Temporarily unavailable'

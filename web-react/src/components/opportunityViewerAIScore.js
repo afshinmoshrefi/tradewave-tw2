@@ -15,12 +15,56 @@ const recurrenceMode = value => (
 
 const sameText = (left, right) => String(left || '') === String(right || '')
 
+const PE_YEARS_RE = /^pe([0-3])-(\d+)$/
+
+const positiveYearCountOrNull = value => {
+  const normalized = String(value == null ? '' : value).trim().toLowerCase()
+  const peMatch = normalized.match(PE_YEARS_RE)
+  const count = peMatch ? peMatch[2] : normalized
+  return /^\d+$/.test(count) && Number.parseInt(count, 10) > 0 ? count : null
+}
+
+const cycleFromDate = date => {
+  const year = Number.parseInt(String(date || '').substring(0, 4), 10)
+  return Number.isInteger(year) ? `pe${year % 4}` : ''
+}
+
+const normalizeCycle = (value, date) => {
+  const normalized = String(value || '').trim().toLowerCase()
+  return /^pe[0-3]$/.test(normalized) ? normalized : cycleFromDate(date)
+}
+
+const viewerHistoryContext = ({ years, mode, cycle, date }) => {
+  const rawYears = String(years == null ? '' : years).trim().toLowerCase()
+  const peMatch = rawYears.match(PE_YEARS_RE)
+  const normalizedMode = peMatch ? 'pe' : recurrenceMode(mode)
+  const yearCount = positiveYearCountOrNull(rawYears)
+  if (!yearCount) return null
+  if (normalizedMode === 'pe') {
+    const normalizedCycle = peMatch ? `pe${peMatch[1]}` : normalizeCycle(cycle, date)
+    if (!normalizedCycle) return null
+    return {
+      years: `${normalizedCycle}-${yearCount}`,
+      yearCount,
+      mode: 'pe',
+      cycle: normalizedCycle,
+    }
+  }
+  return {
+    years: yearCount,
+    yearCount,
+    mode: 'consecutive',
+    cycle: 'cons',
+  }
+}
+
 export const createOpportunityAISelectionAnchor = ({
   row,
   market,
   years,
   partialYears,
   mode,
+  cycle,
 }) => {
   const calendarDays = calendarDaysOrNull(row && row.daysOut)
   const symbol = String((row && row.symbol) || '')
@@ -30,6 +74,9 @@ export const createOpportunityAISelectionAnchor = ({
   }
 
   const selectedDirection = directionLabel(row.lOrS || row.direction)
+  const history = viewerHistoryContext({ years, mode, cycle, date })
+  if (!history) return null
+  const selectedPartialYears = positiveYearCountOrNull(partialYears)
   return {
     market: String(market || ''),
     symbol,
@@ -37,31 +84,63 @@ export const createOpportunityAISelectionAnchor = ({
     calendarDays,
     direction: selectedDirection,
     directionKey: directionKey(selectedDirection),
-    years: String(years == null ? '' : years),
-    partialYears: String(partialYears == null ? '' : partialYears),
-    mode: recurrenceMode(mode),
+    // Keep the exact table request value for duration-only recalculations.
+    // PE table requests may use plain years plus mode while the Wave Viewer
+    // exposes the concrete cycle separately.
+    years: String(years == null ? '' : years).trim().toLowerCase(),
+    yearCount: history.yearCount,
+    partialYears: selectedPartialYears,
+    mode: history.mode,
+    cycle: history.cycle,
     row,
   }
 }
 
-const anchorMatchesViewer = ({ anchor, market, symbol, date }) => Boolean(
+const anchorMatchesViewerSymbol = ({ anchor, market, symbol }) => Boolean(
   anchor &&
   sameText(anchor.market, market) &&
-  sameText(anchor.symbol, symbol) &&
-  sameText(anchor.date, date)
+  sameText(anchor.symbol, symbol)
 )
 
-export const shouldInvalidateOpportunityAIAnchor = ({ anchor, market, symbol, date }) => (
-  Boolean(anchor) && !anchorMatchesViewer({ anchor, market, symbol, date })
+const isCanonicalBuyAndHoldViewer = ({ date, calendarDays, isBuyAndHold }) => {
+  if (!isBuyAndHold) return false
+  const match = String(date || '').match(/^(\d{4})-01-01$/)
+  const days = calendarDaysOrNull(calendarDays)
+  if (!match || days === null) return false
+  const year = Number.parseInt(match[1], 10)
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+  return days === (leapYear ? 367 : 366)
+}
+
+export const shouldInvalidateOpportunityAIAnchor = ({
+  anchor,
+  market,
+  symbol,
+  date,
+  calendarDays,
+  isBuyAndHold = false,
+}) => Boolean(
+  anchor && (
+    !anchorMatchesViewerSymbol({ anchor, market, symbol }) ||
+    (
+      isBuyAndHold &&
+      !isCanonicalBuyAndHoldViewer({ date, calendarDays, isBuyAndHold })
+    ) ||
+    (
+      !sameText(anchor.date, date) &&
+      !isCanonicalBuyAndHoldViewer({ date, calendarDays, isBuyAndHold })
+    )
+  )
 )
 
 /**
  * Select the score source for the lower AI panel.
  *
- * An exact Opportunity Table row keeps using the table snapshot. If only the
- * inclusive calendar-day length changed, the clicked row remains the pattern
- * anchor and a synthetic viewer row changes that one value only. Symbol, date,
- * market, direction, years, and recurrence remain fixed to the selected setup.
+ * An exact Opportunity Table identity keeps using the table snapshot. Viewer
+ * changes use an isolated score request. A duration-only change preserves the
+ * table recurrence filter. Canonical Buy & Hold may use a different history
+ * depth, always forces Long, and does not carry an unrelated table filter.
+ * Other history/cycle/date changes fail closed until a table row is selected.
  */
 export const selectOpportunityAIPanelSelection = ({
   scoreSource,
@@ -70,6 +149,10 @@ export const selectOpportunityAIPanelSelection = ({
   symbol,
   date,
   calendarDays,
+  years,
+  mode,
+  cycle,
+  isBuyAndHold = false,
 }) => {
   const days = calendarDaysOrNull(calendarDays)
   const currentSymbol = String(symbol || '')
@@ -78,44 +161,95 @@ export const selectOpportunityAIPanelSelection = ({
     return null
   }
 
+  const matchingSymbol = anchorMatchesViewerSymbol({
+    anchor,
+    market,
+    symbol: currentSymbol,
+  })
+  const sameDate = Boolean(matchingSymbol && sameText(anchor.date, currentDate))
+  const canonicalBuyAndHold = isCanonicalBuyAndHoldViewer({
+    date: currentDate,
+    calendarDays: days,
+    isBuyAndHold,
+  })
+  if (isBuyAndHold && !canonicalBuyAndHold) return null
+  if (!matchingSymbol || (!sameDate && !canonicalBuyAndHold)) return null
+
+  const history = years == null
+    ? {
+        years: anchor.years,
+        yearCount: anchor.yearCount,
+        mode: anchor.mode,
+        cycle: anchor.cycle,
+      }
+    : viewerHistoryContext({ years, mode, cycle, date: currentDate })
+  if (!history) return null
+
+  const selectedDirection = canonicalBuyAndHold ? 'Long' : anchor.direction
+  const sameHistory = (
+    sameText(anchor.yearCount, history.yearCount) &&
+    sameText(anchor.mode, history.mode) &&
+    (history.mode !== 'pe' || sameText(anchor.cycle, history.cycle))
+  )
+  const sameRecurrenceFamily = (
+    sameText(anchor.mode, history.mode) &&
+    (history.mode !== 'pe' || sameText(anchor.cycle, history.cycle))
+  )
+  if (canonicalBuyAndHold ? !sameRecurrenceFamily : !sameHistory) return null
+
+  const sourceContextMatches = (
+    !canonicalBuyAndHold &&
+    sameDate &&
+    sameHistory &&
+    directionKey(selectedDirection) === anchor.directionKey
+  )
+
   const rows = Array.isArray(scoreSource) ? scoreSource : []
   const exactRows = rows.filter(row => (
     sameText(row && row.symbol, currentSymbol) &&
     sameText(row && row.date, currentDate) &&
     calendarDaysOrNull(row && row.daysOut) === days
   ))
-  const matchingAnchor = anchorMatchesViewer({
-    anchor,
-    market,
-    symbol: currentSymbol,
-    date: currentDate,
-  })
-
-  if (exactRows.length > 0) {
-    const exactDirection = matchingAnchor
-      ? exactRows.find(row => directionKey(row && (row.lOrS || row.direction)) === anchor.directionKey)
-      : null
-    const exactRow = exactDirection || (!matchingAnchor ? exactRows[0] : null)
+  if (sourceContextMatches && exactRows.length > 0) {
+    const exactRow = exactRows.find(row => (
+      directionKey(row && (row.lOrS || row.direction)) === anchor.directionKey
+    ))
     if (exactRow) {
       return {
         origin: 'opportunity_table',
         row: exactRow,
         anchor,
+        context: {
+          years: anchor.years,
+          yearCount: anchor.yearCount,
+          partialYears: anchor.partialYears,
+          mode: anchor.mode,
+          cycle: anchor.cycle,
+          isBuyAndHold: canonicalBuyAndHold,
+        },
       }
     }
   }
 
-  if (!matchingAnchor) return null
+  const preserveTableRecurrence = !canonicalBuyAndHold && sourceContextMatches
 
   return {
     origin: 'wave_viewer',
     anchor,
+    context: {
+      years: preserveTableRecurrence ? anchor.years : history.years,
+      yearCount: history.yearCount,
+      partialYears: preserveTableRecurrence ? anchor.partialYears : null,
+      mode: history.mode,
+      cycle: history.cycle,
+      isBuyAndHold: canonicalBuyAndHold,
+    },
     row: {
       ...anchor.row,
       symbol: currentSymbol,
       date: currentDate,
       daysOut: days,
-      lOrS: anchor.direction,
+      lOrS: selectedDirection,
       // These statistics belong to the original table duration. The viewer
       // bundle supplies recalculated recurrence evidence for the new length.
       avg_profit: null,
@@ -128,28 +262,26 @@ export const buildOpportunityViewerAIRequest = ({ selection, resourceId }) => {
   if (!selection || selection.origin !== 'wave_viewer' || !selection.anchor) return null
 
   const row = selection.row || {}
-  const anchor = selection.anchor
+  const context = selection.context || {}
   const calendarDays = calendarDaysOrNull(row.daysOut)
   const resource = String(resourceId == null ? '' : resourceId)
   const symbol = String(row.symbol || '')
   const date = String(row.date || '')
-  const years = String(anchor.years == null ? '' : anchor.years)
-  const partialYears = String(anchor.partialYears == null ? '' : anchor.partialYears)
-  const mode = recurrenceMode(anchor.mode)
+  const years = String(context.years == null ? '' : context.years)
+  const partialYears = positiveYearCountOrNull(context.partialYears)
+  const mode = recurrenceMode(context.mode)
   if (
     !resource || resource === '-1' || !symbol ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(date) || calendarDays === null ||
-    !years || !partialYears
+    !/^\d{4}-\d{2}-\d{2}$/.test(date) || calendarDays === null || !years
   ) {
     return null
   }
 
   const engineDays = calendarDays - 1
-  const direction = directionKey(anchor.direction)
-  const partial = {
-    min_winning_years: partialYears,
-    mode,
-  }
+  const direction = directionKey(row.lOrS || row.direction)
+  const partial = partialYears
+    ? { min_winning_years: partialYears, mode }
+    : null
   const opportunity = {
     symbol,
     date,
@@ -169,7 +301,7 @@ export const buildOpportunityViewerAIRequest = ({ selection, resourceId }) => {
   }
 
   return {
-    requestKey: [resource, symbol, date, engineDays, direction, years, partialYears, mode].join('|'),
+    requestKey: [resource, symbol, date, engineDays, direction, years, partialYears || 'none', mode].join('|'),
     resourceId: resource,
     row,
     body: {
@@ -178,6 +310,33 @@ export const buildOpportunityViewerAIRequest = ({ selection, resourceId }) => {
       table_context: tableContext,
     },
   }
+}
+
+export const opportunityAISelectionMatchesViewer = ({
+  selection,
+  symbol,
+  date,
+  calendarDays,
+  years,
+  mode,
+  cycle,
+  isBuyAndHold = false,
+}) => {
+  if (!selection || typeof selection !== 'object') return false
+  const history = viewerHistoryContext({ years, mode, cycle, date })
+  if (!history) return false
+  const selectedYearCount = positiveYearCountOrNull(
+    selection.yearCount == null ? selection.years : selection.yearCount,
+  )
+  return Boolean(
+    sameText(selection.symbol, symbol) &&
+    sameText(selection.date, date) &&
+    calendarDaysOrNull(selection.daysOut) === calendarDaysOrNull(calendarDays) &&
+    sameText(selectedYearCount, history.yearCount) &&
+    sameText(recurrenceMode(selection.mode), history.mode) &&
+    (history.mode !== 'pe' || sameText(selection.cycle, history.cycle)) &&
+    Boolean(selection.isBuyAndHold) === Boolean(isBuyAndHold)
+  )
 }
 
 const isLoadingStatus = value => ['loading', 'pending', 'queued'].includes(

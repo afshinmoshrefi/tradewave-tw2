@@ -97,6 +97,13 @@ const statusDetails = (display, fallbackReason) => {
     reason.includes('failed') ||
     reason.includes('error')
 
+  if (reason === 'after_entry') {
+    return {
+      kind: 'neutral',
+      title: 'This pattern has already started',
+      copy: opportunityAIReasonCopy(reason),
+    }
+  }
   if (historyFilterFailed) {
     return {
       kind: 'history',
@@ -350,6 +357,16 @@ const AIScorePanel = ({
   const displayIsLoading = Boolean(loading || (display && display.status === 'loading'))
   const displayIsAvailable = Boolean(display && display.status === 'available')
   const symbol = selectedSymbol || 'Selected pattern'
+  const selectedYearCount = integerOrNull(selectedRow.yearCount)
+  const selectedMode = firstText(selectedRow.mode).toLowerCase()
+  const selectedCycle = firstText(selectedRow.cycle).toLowerCase()
+  const selectedCycleLabel = ({ pe0: 'PE', pe1: 'PE+1', pe2: 'PE+2', pe3: 'PE+3' })[selectedCycle]
+  const historyLabel = selectedYearCount === null
+    ? ''
+    : selectedMode === 'pe'
+      ? `${selectedYearCount} matching ${selectedCycleLabel || 'cycle'} years`
+      : `${selectedYearCount}-year history`
+  const isBuyAndHold = selectedRow.isBuyAndHold === true
   const direction = firstText(bundle && bundle.direction, selectedRow.direction, selectedRow.lOrS)
   const entryDate = firstText(bundle && bundle.entryDate, selectedRow.date, selectedRow.entryDate)
   const fullDays = integerOrNull(bundle && bundle.fullPatternCalendarDays)
@@ -457,9 +474,11 @@ const AIScorePanel = ({
   const tableView = views.find(view => Number(view && view.calendarDays) === Number(displayDays)) || display
   const unavailable = !displayIsAvailable ? statusDetails(display, unavailableReason) : null
   const contextItems = [
+    isBuyAndHold ? 'Buy & Hold' : '',
     directionSummary(direction),
     entryDate ? `Starts ${formatDate(entryDate)}` : '',
     fullDays !== null ? `${fullDays}-day historical pattern` : '',
+    historyLabel,
     displayDays !== null
       ? (isViewerReading
           ? `Wave Viewer uses the ${displayDays}-day AI reading`
