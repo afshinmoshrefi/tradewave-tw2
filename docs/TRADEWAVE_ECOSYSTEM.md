@@ -1792,6 +1792,20 @@ runs the release tests/build, and pushes a tested release commit. That commit ad
 the target boxes. `/home/flask` is the operational checkout, not a shared development
 scratchpad. Canonical procedure: `.claude/skills/tw-git-release-workflow/SKILL.md`.
 
+**Standalone development scorer release invariant (2026-08-07):** on
+`192.168.1.215`, `/home/flask/ml_scorer` is an active symlink and must never be a
+copy destination. Scorer deployment starts from a clean committed ML-scorer
+worktree, packages every tracked service file into a new commit-named directory
+under `/home/flask/.ml-scorer-releases/`, and copies model/calibration artifacts
+only from an explicitly verified release. `ml_scorer/deploy.sh` serializes both
+code deployment and the development data-sync lock, runs the context/parity suite,
+checks model provenance, feature order, live feature ranges and prediction levels,
+then atomically changes the symlink. Post-activation gates require `/health`,
+`/metadata`, legacy `/score`, and a real `/score/context` response. A failed
+restart or contract check atomically restores an explicitly selected clean context
+rollback and validates it live. Health alone is insufficient because a mixed
+release can still report 62 features while omitting the additive context route.
+
 **Tara immutable app release invariant (2026-08-04):** a scoped Tara-only backend promotion uses
 a clean detached worktree under `/home/flask/.tw2-releases/<sha>` and atomically points
 `/home/flask/.tw2-app-current` at it. Systemd drop-ins make both `tradewave-appserver` and its coupled
