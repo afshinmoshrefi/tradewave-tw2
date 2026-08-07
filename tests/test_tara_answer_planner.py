@@ -1414,9 +1414,12 @@ def test_ai_horizon_explanation_is_deterministic_positive_and_pattern_specific()
     assert "trained and calibrated for seasonal windows from 10 to 90 calendar days" in reply
     assert "current market conditions provide useful predictive context" in reply.lower()
     assert "For this 133-calendar-day pattern" in reply
+    assert "AI Scores window shows" in reply
     assert "30-, 60-, and 90-day AI-calibrated outlooks" in reply
     assert "same entry date and direction" in reply
-    assert "historical analysis evaluates the complete 133-day pattern" in reply
+    assert "Opportunity Table uses the 90-day reading" in reply
+    assert "original Wave Stats still describe the complete 133-day pattern" in reply
+    assert "Each checkpoint recalculates its own end date and count of profitable years" in reply
     assert "AI Win Probability and predicted return" in reply
     assert 'data-action="open-aiscores-popup"' in reply
     assert "Open the AI Scores guide" in reply
@@ -1714,11 +1717,11 @@ def test_loaded_advice_ask_gets_evidence_without_a_trade_recommendation():
     assert "yes, trade" not in reply.lower()
 
 
-def test_rank_reply_uses_exact_loaded_row_and_neighboring_sharpe_values():
+def test_rank_reply_uses_exact_visible_order_without_assuming_sharpe_sort():
     opportunities = [
-        {"date": "2026-07-30", "symbol": "AAA", "days_out": "8", "direction": "long", "sharpe_ratio": "1.10"},
+        {"date": "2026-07-30", "symbol": "AAA", "days_out": "8", "direction": "long", "sharpe_ratio": "0.50"},
         {"date": "2026-07-31", "symbol": "PEG", "days_out": "6", "direction": "short", "sharpe_ratio": "0.82"},
-        {"date": "2026-08-01", "symbol": "BBB", "days_out": "10", "direction": "long", "sharpe_ratio": "0.77"},
+        {"date": "2026-08-01", "symbol": "BBB", "days_out": "10", "direction": "long", "sharpe_ratio": "1.40"},
     ]
     reply = build_rank_reply(
         "Why does this setup rank here?",
@@ -1728,11 +1731,15 @@ def test_rank_reply_uses_exact_loaded_row_and_neighboring_sharpe_values():
         current_year=2026,
     )
 
-    assert "PEG is #2 of 23 with Sharpe 0.82" in reply
-    assert "above: AAA at 1.10" in reply
-    assert "below: BBB at 0.77" in reply
+    assert "PEG is #2 of 23 in the visible table" in reply
+    assert "Its Sharpe is 0.82" in reply
+    assert "current Sort by choice" in reply
+    assert "hidden column" in reply
+    assert "above: AAA" in reply
+    assert "below: BBB" in reply
     assert "14 profitable outcomes in 17 completed years (82%)" in reply
-    assert "Sharpe determines this table position" in reply
+    assert "does not identify the active sort field" in reply
+    assert "ranks this view by Sharpe" not in reply
 
 
 def test_pe_cycle_analysis_names_cycle_observations_not_consecutive_years():

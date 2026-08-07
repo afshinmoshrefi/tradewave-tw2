@@ -708,7 +708,16 @@ def test_chat_route_moves_lower_panel_without_calling_a_provider(
     assert expected_reply in payload["reply"]
 
 
-def test_chat_route_explains_when_ai_scores_panel_is_not_available(monkeypatch):
+@pytest.mark.parametrize(
+    "symbol, market",
+    [
+        ("BTCUSD", "16"),
+        ("AAPL", "2"),
+    ],
+)
+def test_chat_route_explains_when_ai_scores_panel_is_not_available(
+    monkeypatch, symbol, market
+):
     from flask import Flask, g
     import chatbot as chatbot_module
 
@@ -718,7 +727,7 @@ def test_chat_route_explains_when_ai_scores_panel_is_not_available(monkeypatch):
     body = {
         "message": "show me AI Scores",
         "history": [],
-        "wave_viewer": {"symbol": "BTCUSD", "market": "16"},
+        "wave_viewer": {"symbol": symbol, "market": market},
         "screen_context": {"ai_scores_available": False},
         "opportunities": [],
     }
@@ -728,7 +737,8 @@ def test_chat_route_explains_when_ai_scores_panel_is_not_available(monkeypatch):
 
     payload = response.get_json()
     assert payload["actions"] == []
-    assert "not available for this market" in payload["reply"]
+    assert "not available in this view" in payload["reply"]
+    assert "eligible accounts" in payload["reply"]
     assert "supported US stocks and ETFs" in payload["reply"]
 
 

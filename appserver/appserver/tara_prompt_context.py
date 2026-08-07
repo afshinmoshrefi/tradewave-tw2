@@ -75,11 +75,46 @@ _TOPIC_ROUTES: Sequence[Tuple[re.Pattern[str], Tuple[str, ...]]] = (
         ("Seasonal Projection on Price Chart", "Chart Range (Current Price Chart)"),
     ),
     (
-        re.compile(r"\b(?:ai score|ai columns?|\bais\b|predr|pmfe|win probability|machine learning scor)\w*\b", re.I),
+        re.compile(
+            r"\b(?:fourth|4th)\s+(?:lower[- ]viewer\s+)?(?:window|panel|dot)\b|"
+            r"\b(?:window|panel|dot)\s+(?:number\s+)?(?:four|4|fourth|4th)\b",
+            re.I,
+        ),
+        (
+            "AI Scores (AIS, Win%, PredR, PMFE)",
+            "Lower Panel Views (below the Gain-Loss Bar Chart)",
+        ),
+    ),
+    (
+        re.compile(
+            r"\b(?:ai scores?|ai)\s+(?:window|panel|dot)\b|"
+            r"\b(?:ai score|ai columns?|\bais\b|predr|pmfe|win probability|machine learning scor)\w*\b|"
+            r"\b(?:score|scoring)\b.{0,40}\b(?:u\.?s\.? stocks?|etfs?|indices?|futures?|commodit\w*|"
+            r"forex|currenc\w*|crypto\w*|government bonds?|international stocks?)\b|"
+            r"\b(?:u\.?s\.? stocks?|etfs?|indices?|futures?|commodit\w*|forex|currenc\w*|crypto\w*|"
+            r"government bonds?|international stocks?)\b.{0,40}\b(?:score|scoring)\b",
+            re.I,
+        ),
         ("AI Scores (AIS, Win%, PredR, PMFE)",),
     ),
     (
-        re.compile(r"\b(?:opportunity table|opp table|filter syntax|required winning years|\bavgp\b|\btwa\b|expand(?:ed)? (?:table|view))\b", re.I),
+        re.compile(
+            r"\b(?:collapse|collapsing|hide|hiding|show|reopen|restore|open|opening|unhide|bring\s+back)\b.{0,35}"
+            r"\b(?:left side|left panel|side panel|sidebar|opportunity panel|opportunity table and tara|opportunity table)\b|"
+            r"\b(?:left side|left panel|side panel|sidebar|opportunity panel|opportunity table and tara|opportunity table)\b.{0,35}"
+            r"\b(?:collapse|collapsing|hide|hiding|show|reopen|restore|open|opening|unhide|bring\s+back|gone)\b|"
+            r"\bwhere (?:did|is|has)\b.{0,35}\b(?:left side|left panel|side panel|sidebar|opportunity panel|opportunity table)\b",
+            re.I,
+        ),
+        ("Desktop Left Panel Collapse",),
+    ),
+    (
+        re.compile(
+            r"\b(?:sort by|sort(?:ing)? (?:by|on|with|a|an|the|hidden)|hidden column|"
+            r"opportunity table|opp table|filter syntax|required winning years|\bavgp\b|\btwa\b|"
+            r"expand(?:ed)? (?:table|view))\b",
+            re.I,
+        ),
         ("The Opportunity Table (Left Panel)",),
     ),
     (

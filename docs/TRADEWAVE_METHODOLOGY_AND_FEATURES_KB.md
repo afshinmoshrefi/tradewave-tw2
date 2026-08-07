@@ -383,7 +383,8 @@ Two architectural facts gate the entire product:
 | **PE+2 checkbox / Regime toggle** | THE master dial. Unchecked = **Consecutive mode** (last N calendar years). Checked = **Presidential-cycle mode** (scan ONLY years matching the current election-cycle regime; 2026 = midterm = PE+2). "Not a cosmetic checkbox — a switch that changes the dataset." The label changes with the calendar year. |
 | **Consistency / hit-rate selector** (e.g. `9 of 10 years`) | Requires the tendency to have held in at least N of M sampled years. |
 | **Filter field** (text box) | A semicolon-separated, NO-SPACES filter string combining a day-range and metric thresholds. |
-| **Column-header sorting** | Click `SR` or `TWR` to sort by the quality you care about. Direction is read off `DIR` (sorting handles it since patterns are usually all-Long or all-Short). |
+| **Sort by** | A visible pulldown ranks by any available metric, even if that column is hidden. Default = Sharpe Ratio, highest first. Eligible AI users can sort by AI Score, AI Win%, Predicted Ending Return, or Estimated Best Move without widening the table. |
+| **AI columns in Settings** | AIS, Win%, PredR, and PMFE start hidden. Eligible users can add any of them under Settings > AI Scores in Opportunity Table. These choices affect the table only; detailed AI evidence remains in the AI Scores window. |
 | **tooltips ON/OFF toggle** (top-left) | Turns interface tooltips on/off. |
 
 ### Columns
@@ -397,6 +398,9 @@ Two architectural facts gate the entire product:
 
 ### Footer
 Summarizes the result set, e.g. `236 opportunities, 226 Longs, 18 Shorts, 95%, no filter` or `13 opportunities, 13 Longs, 0 Shorts, 100%`.
+
+### Desktop workspace control
+The left-chevron in the Opportunity Table header hides both the Opportunity Table and Tara so the Wave Viewer can use more width. A narrow rail remains: its right-chevron restores the side panel, and its Tara button restores the panel and opens chat. The user-scoped preference persists. This layout control is separate from Expand, which changes table membership rather than panel visibility.
 
 ### A second, advanced use: the Opportunity Table as a REGIME DETECTOR
 Hold time-of-year, sample depth, and horizon (e.g. `filter by 5-60`) constant; toggle **only** the regime lens; read whether the longs/shorts/percent stays bullish or **flips**. A "regime flip" (e.g. Jan 5 2026 S&P 500, 5–60 day: Consecutive 10-Year = 85 opps / 79 Longs / 6 Shorts / **93% bullish** vs PE+2 10-Year = 30 opps / 5 Longs / 25 Shorts / **83% bearish**) tells you what *kind* of market you're measuring — "not a trading signal." When two lenses disagree, that disagreement is the signal, and the clearer/more-consistent lens is the **dominant regime** you should refine inside.
@@ -424,6 +428,8 @@ Reads back the loaded pattern as a label like `20-Year NVDA 01-22 to 02-18` or `
 
 ### 2.2 The THREE validation views (used in a fixed sequence)
 The prescribed order: **Profit Bar Chart → Trend Chart → Stats Table.** All three are **regime-aware** (they recompute for Consecutive vs PE+2, so the same row legitimately looks different per regime — by design).
+
+The desktop lower viewer itself uses semantic windows in this order: **Trend Chart -> Wave Stats -> AI Scores -> Price Chart** when the user and selected market support AI. AI Scores is a supplemental current-condition window after the core historical validation views. For unsupported securities and markets, the AI Scores window and navigation dot are absent, leaving **Trend Chart -> Wave Stats -> Price Chart** with no empty placeholder.
 
 **(A) Profit Bar Chart / Year Bars** — distribution & consistency.
 One vertical bar per analyzed year showing the underlying price return inside the window. **Green/up = price rose; red/down = price fell; bar height = raw price-return magnitude. A green/up year wins for a Long, while a red/down year wins for a Short.** With MFE/MAE on, each bar splits into a solid segment (realized/MFE) plus a lighter cap (MFE upside above the close) and salmon/pink bars below zero (MAE drawdown). Purpose: "Seasonality is not one number — it is a distribution." It's the fastest way to see whether the edge is broad-based or carried by one **"hero year"** outlier, and whether losing years are small/contained.
@@ -558,22 +564,31 @@ current-condition question. Win% is the quickest probability summary, PredR esti
 return, PMFE estimates the best favorable move inside the window, and AIS is only a 0-100 relative
 PredR rank, not a probability. Use them as a second opinion beside history, not as a replacement.
 
+The dedicated AI Scores window appears after Wave Stats and before Price Chart only for eligible
+users viewing supported US stocks or ETFs. Unsupported targets, including indices, futures and
+commodities, forex, crypto, government bonds, and international stocks, have no AI window or fourth
+navigation dot. Each duration table presents its recalculated historical record, AI Win Chance,
+Estimated End Return, Estimated Best Move, AI Return Rank, duration-specific screen evidence, and
+unavailable reasons in consistent tables. The Opportunity Table's four AI columns start hidden and
+can be added independently under Settings > AI Scores in Opportunity Table. Column visibility does
+not control the panel. The visible Sort by pulldown can rank on any available hidden metric without
+turning its column on.
+
 For a 1-9-calendar-day pattern, the historical pattern and every historical statistic remain at
 the real source length. V3 does not have a shorter AI model, so the separate AI reading uses the
-10-calendar-day minimum (`daysOut=9`, ending at entry plus 9 days). The AI value tooltip/detail
-explains that minimum. It is not outlined because only one AI duration is present, and it is never
-called an exact score for the shorter historical window.
-
-An outlined AI value means that row has more than one AI duration to view. Open it to compare
-them. The outline does not mean the score is better or worse, and it is not a warning.
+10-calendar-day minimum (`daysOut=9`, ending at entry plus 9 days). The AI Scores window clearly
+labels that minimum, and it is never called an exact score for the shorter historical window.
+Detailed AI cell popovers and outlined-value signals are no longer part of the table. The compact
+columns are for scanning; detailed duration comparisons live in the AI Scores window.
 
 For a pattern from 10 through 30 calendar days, Tara states only the current-duration AI Win
 Probability, PredR, and PMFE. Above 30 days, TradeWave also shows shorter-duration comparisons that
 fit inside the source window: 31-60 days adds 30; 61-90 days adds 30 and 60; and a source above 90
 days uses 30, 60, and 90. The exact current-duration V3 reading remains the primary table value
 through 90 days, so an 85-day source shows 30, 60, and the current 85 days and never invents a
-90-day extension. Above 90 days the table displays 90 as the bounded model reading while the
-complete source duration remains visible as historical context. Tara deliberately omits AIS from
+90-day extension. Above 90 days the table displays 90 as the bounded model reading. The original
+Wave Stats remain at the complete source duration, while every AI checkpoint table shows its own
+recalculated historical x-of-n record. Tara deliberately omits AIS from
 the headline because an unexplained relative rank is less useful than probability and estimated
 return; AIS remains available in the opportunity table and guide.
 

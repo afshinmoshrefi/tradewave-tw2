@@ -810,6 +810,12 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
 - Features: PE-cycle overlays/filters (`mode=pe`), years selectors, securities
   groups + published lists + watchlists, the `?o=BASE64` shareable pattern param,
   the "Tara" chatbot, wave-viewer charts (bar/cumulative/price).
+- **Desktop left-workspace collapse:** `DesktopLayout.js` treats the Opportunity
+  Table and Tara as one side panel. Its header left-chevron hides both to give the
+  Wave Viewer more width. A narrow rail remains with a right-chevron that restores
+  the side panel and a Tara button that restores it and opens chat. The user-scoped
+  `leftPanelCollapsed` preference persists through `Common.js:lsGet/lsSet`. This is
+  a layout control, separate from the Opportunity Table's Expand mode.
 - **Chart canvas resolution invariant (2026-08-04):** never force a fractional
   Chart.js `devicePixelRatio`. The seasonal bar chart and its canvas-rendered
   tooltip must use the browser's native device-pixel ratio. A forced `0.5`

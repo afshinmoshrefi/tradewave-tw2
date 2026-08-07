@@ -2381,7 +2381,7 @@ def build_screen_overview_reply(
         count = screen.get("opportunity_rows")
         count_text = f" {count}" if isinstance(count, int) and count > 0 else ""
         return (
-            f"<b>Opportunity Table:</b> the left panel currently ranks{count_text} seasonal setups by Sharpe. "
+            f"<b>Opportunity Table:</b> the left panel currently shows{count_text} seasonal setups in its selected Sort by order. "
             "No pattern is loaded yet, so the chart panels do not have a specific trade to explain."
         )
 
@@ -2393,7 +2393,7 @@ def build_screen_overview_reply(
             count = len(opportunities) if isinstance(opportunities, list) else 0
         count_text = f" shows {count} rows and" if count > 0 else ""
         lines.append(
-            f"<b>Left Opportunity Table:</b> it{count_text} ranks the available setups by Sharpe, best first."
+            f"<b>Left Opportunity Table:</b> it{count_text} orders the available setups using the visible Sort by choice."
         )
 
     return "<br>".join(lines)
@@ -3834,9 +3834,11 @@ def build_ai_horizon_explanation_reply(
         )
     elif full_days > 90:
         longer_pattern_line = (
-            f"<b>For this {full_days}-calendar-day pattern:</b> Tara provides separate 30-, 60-, "
-            "and 90-day AI-calibrated outlooks from the same entry date and direction. The "
-            f"historical analysis evaluates the complete {full_days}-day pattern."
+            f"<b>For this {full_days}-calendar-day pattern:</b> The AI Scores window shows "
+            "separate 30-, 60-, and 90-day AI-calibrated outlooks from the same entry date "
+            "and direction. The Opportunity Table uses the 90-day reading, while the "
+            f"original Wave Stats still describe the complete {full_days}-day pattern. Each "
+            "checkpoint recalculates its own end date and count of profitable years in the sample."
         )
     elif full_days > 60:
         longer_pattern_line = (
@@ -4353,7 +4355,7 @@ def build_rank_reply(
     *,
     current_year: Optional[int] = None,
 ) -> Optional[str]:
-    """Explain the loaded row's exact visible rank and the neighboring Sharpe gap."""
+    """Explain the loaded row's exact position in the current visible sort order."""
 
     if not is_pattern_rank_question(message, wave_viewer) or not isinstance(opportunities, list):
         return None
@@ -4387,23 +4389,21 @@ def build_rank_reply(
     if sr is None:
         sr = facts.get("sharpe_ratio")
     rank_text = f"#{rank} of {total}" if total else f"#{rank}"
-    sr_text = f" with Sharpe {sr:.2f}" if sr is not None else ""
+    sr_text = f" Its Sharpe is {sr:.2f}." if sr is not None else ""
     lines = [
-        f"<b>{html.escape(symbol)} is {rank_text}{sr_text} in the visible table.</b> "
-        "TradeWave ranks this view by Sharpe, so the position reflects risk-adjusted consistency, not win rate alone."
+        f"<b>{html.escape(symbol)} is {rank_text} in the visible table.</b>{sr_text} "
+        "Its position follows the table's current Sort by choice, which can use a hidden column."
     ]
 
     neighbors = []
     if index > 0 and isinstance(opportunities[index - 1], Mapping):
         above = opportunities[index - 1]
-        above_sr = _number(above.get("sharpe_ratio"))
         label = html.escape(str(above.get("symbol") or "the row above"))
-        neighbors.append(f"above: {label}" + (f" at {above_sr:.2f}" if above_sr is not None else ""))
+        neighbors.append(f"above: {label}")
     if index + 1 < len(opportunities) and isinstance(opportunities[index + 1], Mapping):
         below = opportunities[index + 1]
-        below_sr = _number(below.get("sharpe_ratio"))
         label = html.escape(str(below.get("symbol") or "the row below"))
-        neighbors.append(f"below: {label}" + (f" at {below_sr:.2f}" if below_sr is not None else ""))
+        neighbors.append(f"below: {label}")
     if neighbors:
         lines.append("<b>Nearest comparison:</b> " + "; ".join(neighbors) + ".")
 
@@ -4411,8 +4411,8 @@ def build_rank_reply(
     if n:
         lines.append(
             f"Its supporting record is {facts['profitable_years']} profitable outcomes in "
-            f"{_observation_label(facts, n)} ({_pct(facts.get('win_rate_pct'))}); that record is context, "
-            "while Sharpe determines this table position."
+            f"{_observation_label(facts, n)} ({_pct(facts.get('win_rate_pct'))}); that record is supporting "
+            "context and does not identify the active sort field."
         )
     return "<br>".join(lines)
 
