@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useContext, useRef, useMemo } from 'react'
+import React, { useEffect, useContext, useRef, useMemo } from 'react'
 import { UserContext } from './UserContext'
 import { themeColors, tierHasAI } from './Common'
 import { BsChevronExpand, BsChevronDown, BsChevronUp } from "react-icons/bs"
@@ -31,9 +31,6 @@ const PENDING_CELL = <span title="Loading" aria-label="Loading">…</span>
 
 const REQUIRED_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])
 const MOBILE_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio', 'lOrS', 'date', 'price', 'sharpe_ratio2'])
-const AI_COLS = ['ml_score', 'win_prob', 'pred_return', 'pred_mfe']
-const DEFAULT_COLUMN_ORDER = ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'avg_profit', 'avg_profit2', 'sharpe_ratio2', 'TL', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe']
-const PENDING_CELL = <span title="Loading" aria-label="Loading">…</span>
 
 const TableBox = ({
   table_data,
