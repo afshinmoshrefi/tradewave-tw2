@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useRef, useCallback } from "react";
+﻿import React, { useContext, useEffect, useState, useRef, useCallback } from "react";
 import PopulatePortfolio from './PopulatePortfolio';
 import PortfolioSettings from './PortfolioSettings';
 import WatchlistSettings from './WatchlistSettings';
@@ -7,6 +7,8 @@ import TradeInstrument from './TradeInstrument';
 import StockLineChart from './StockLineChart';
 import SeasonalChart from './SeasonalChart';
 import TradeDetail from './TradeDetail';
+import AIScorePanel from './AIScorePanel';
+import AIScoresPopup from './AIScoresPopup';
 import InfoPopup from './InfoPopup';
 import OppTable from './OppTable';
 import AddGC from './AddGC';
@@ -19,7 +21,6 @@ import SelectBox from './SelectBox';
 import CheckBox from './CheckBox';
 import Settings from './Settings';
 import SecuritiesGroupSettings from './SecuritiesGroupSettings';
-import Chatbot from './Chatbot';
 import OppNote from "./OppNote";
 import AutoTrade from "./AutoTrade";
 import TradeReport from "./PortfolioTradeReport";
@@ -28,32 +29,47 @@ import TestGIS from './TestGIS';
 import './styles/DesktopLayout.css';
 import { UserContext } from './UserContext';
 import { AiOutlineDollarCircle } from "react-icons/ai";
-import { BsFillCircleFill, BsSun, BsMoon, BsListUl } from "react-icons/bs";
+import { BsFillCircleFill, BsSun, BsMoon, BsListUl, BsChevronLeft, BsChevronRight, BsChatDots, BsChatDotsFill } from "react-icons/bs";
 import { SlSettings } from "react-icons/sl";
-import { toggle_off_64, toggle_on_64 } from './Common';
+import { opp_dashboard_dialog_content, toggle_off_64, toggle_on_64 } from './Common';
 import { settings_dialog_content } from './Common';
 import { incrementDate } from './Common';
 import { Swiper, SwiperSlide } from "swiper/react";
-import html2canvas from "html2canvas";
 import "swiper/swiper.min.css";
 import "swiper/components/pagination/pagination.min.css";
 import "swiper/components/navigation/navigation.min.css";
 import SwiperCore, { Pagination, Navigation, Virtual } from 'swiper/core';
-import { getCookie, setCookie, appserverURL } from './Common';
+import { getCookie, setCookie, appserverURL, lsGet, lsSet } from './Common';
+import { LEFT_PANEL_COLLAPSED_KEY, resolveLeftPanelCollapsed } from './leftPanelState';
 import { LiaToggleOffSolid, LiaToggleOnSolid } from "react-icons/lia";
 import { DarkBGColor, LightBGColor, themeColors } from './Common'
 import { tierHasAI } from './Common'
-import { lsSet } from './Common'
 import { BAR_CHART_EXCURSION_STYLES } from './barChartExcursion'
+import { opportunityAISelectionMatchesViewer } from './opportunityViewerAIScore'
 import { BsPlus, BsTrash3 } from "react-icons/bs";
 import { GrEdit } from "react-icons/gr";
 import Tippy from '@tippyjs/react'
+import {
+    getBottomSlideIndex,
+    getBottomSlideName,
+    resolveBottomSlidePresentation,
+    supportsAIScoreSlide,
+} from './bottomSlides';
+import { downloadCanvasAsJpeg } from './imageDownload';
 
 
 
 
 
 const SWIPE_WITH_MOUSE = false;
+const Chatbot = React.lazy(() => import('./Chatbot'));
+
+const legacyBottomSlideName = value => {
+    const index = Number.parseInt(value, 10);
+    if (index === 1) return 'wave_stats';
+    if (index === 2) return 'price_chart';
+    return 'trend_chart';
+};
 
 SwiperCore.use([Pagination, Navigation, Virtual]);
 
@@ -63,14 +79,28 @@ const DesktopLayout = (props) => {
         // if (bottomWindowNumber === null) return "1";
         // return bottomWindowNumber;
     });
+    const [activeBottomSlide, SetActiveBottomSlide] = useState(() => {
+        if (window.location.search && window.location.search !== '?set=on') {
+            return legacyBottomSlideName(props.initialWindowNum);
+        }
+        const semantic = getCookie('BottomWindowName');
+        if (['trend_chart', 'wave_stats', 'ai_scores', 'price_chart'].includes(semantic)) return semantic;
+        return legacyBottomSlideName(props.initialWindowNum);
+    });
+    const [showAIScoresGuide, SetShowAIScoresGuide] = useState(false);
 
     const [coverOpp, SetCoverOpp] = useState(false);
     const [coverBottomCharts, SetCoverBottomCharts] = useState(false);
     const [coverTopCharts, SetCoverTopCharts] = useState(false);
 
     const [chatbotHeightPct, SetChatbotHeightPct] = useState(30);
+    const [chatbotHasOpened, SetChatbotHasOpened] = useState(() => !!props.showChatbot);
     const isDragging = useRef(false);
     const oppChatContainerRef = useRef(null);
+
+    useEffect(() => {
+        if (props.showChatbot) SetChatbotHasOpened(true);
+    }, [props.showChatbot]);
 
     const DEFAULT_LEFT_NAV_PCT = 30;
     const [leftNavWidthPct, SetLeftNavWidthPct] = useState(() => {
@@ -80,10 +110,14 @@ const DesktopLayout = (props) => {
         } catch (e) {}
         return DEFAULT_LEFT_NAV_PCT;
     });
+    const [leftNavCollapsePreference, SetLeftNavCollapsePreference] = useState(() => (
+        lsGet(LEFT_PANEL_COLLAPSED_KEY, false)
+    ));
     const isResizingNav = useRef(false);
     const navWidthRef = useRef(leftNavWidthPct); // tracks latest value across closure
     const appContainerRef = useRef(null);
     const swiperRef = useRef(null); // ref so onMouseUp closure can call swiper.update()
+    const lastInitialWindowNumRef = useRef(props.initialWindowNum);
 
     const DEFAULT_TOP_CHART_PCT = 50;
     const [topChartHeightPct, SetTopChartHeightPct] = useState(DEFAULT_TOP_CHART_PCT);
@@ -132,6 +166,69 @@ const DesktopLayout = (props) => {
 
     const { seasonalAppDivH, seasonalAppDivH2, rdd, loggedinUser, wpUserLevels, token } = useContext(UserContext);
     const tc = themeColors(props.UITheme);
+    const isLeftNavCollapsed = resolveLeftPanelCollapsed({
+        storedPreference: leftNavCollapsePreference,
+        isMobile: rdd.isMobile,
+    });
+
+    const setLeftNavCollapsed = useCallback((collapsed) => {
+        SetLeftNavCollapsePreference(collapsed);
+        lsSet(LEFT_PANEL_COLLAPSED_KEY, collapsed);
+        if (collapsed) {
+            isResizingNav.current = false;
+            SetShowLeftNavSettings(false);
+        }
+    }, []);
+    const opportunityAIStateMatchesMarket = Boolean(
+        props.opportunityAIState &&
+        props.opportunityAIState.market === props.selectedSecurity
+    );
+    const aiEligibilityResolved = Boolean(
+        opportunityAIStateMatchesMarket &&
+        props.opportunityAIState.resolved === true
+    );
+    const hasAIScores = supportsAIScoreSlide(props.selectedSecurity);
+    const bottomSlidePresentation = resolveBottomSlidePresentation(activeBottomSlide, {
+        hasAIScores,
+        aiEligibilityResolved,
+        fallback: 'wave_stats',
+    });
+    const visibleBottomSlide = bottomSlidePresentation.visibleSlide;
+    const preserveRequestedBottomSlide = bottomSlidePresentation.preserveRequestedSlide;
+    const publishedAISelection = props.opportunityAIState && props.opportunityAIState.selected;
+    const viewerCycleForAI = String(props.PEselected || 'cons').trim().toLowerCase();
+    const publishedAISelectionMatchesViewer = opportunityAISelectionMatchesViewer({
+        selection: publishedAISelection,
+        symbol: props.symbol,
+        date: props.startDate,
+        calendarDays: props.daysOut,
+        years: props.seasonalYears,
+        mode: viewerCycleForAI.startsWith('pe') ? 'pe' : 'consecutive',
+        cycle: viewerCycleForAI,
+        direction: props.barChartLongOrShort,
+        isBuyAndHold: props.monthsAndQtrs === 'Buy & Hold',
+    });
+    const aiPanelViewModel = publishedAISelection && !publishedAISelectionMatchesViewer
+        ? {
+            ...props.opportunityAIState,
+            selected: {
+                symbol: props.symbol,
+                date: props.startDate,
+                daysOut: props.daysOut,
+                direction: props.barChartLongOrShort,
+                years: viewerCycleForAI.startsWith('pe')
+                    ? `${viewerCycleForAI}-${props.seasonalYears}`
+                    : String(props.seasonalYears || ''),
+                yearCount: String(props.seasonalYears || ''),
+                mode: viewerCycleForAI.startsWith('pe') ? 'pe' : 'consecutive',
+                cycle: viewerCycleForAI,
+                isBuyAndHold: props.monthsAndQtrs === 'Buy & Hold',
+            },
+            loading: true,
+            bundle: null,
+            unavailableReason: '',
+        }
+        : props.opportunityAIState;
 
     const toggle_width = '2.2vw';
     const settingsSize = 18;
@@ -198,9 +295,60 @@ const DesktopLayout = (props) => {
         return () => clearTimeout(timer);
     }, []);
 
-    const chartTo = (idx) => {
-        props.swiper.slideTo(idx);
-    };
+    const goToBottomSlide = useCallback((requestedSlide) => {
+        const presentation = resolveBottomSlidePresentation(requestedSlide, {
+            hasAIScores,
+            aiEligibilityResolved,
+            fallback: requestedSlide === 'ai_scores' ? 'wave_stats' : 'trend_chart',
+        });
+        const target = presentation.visibleSlide;
+        const savedTarget = presentation.preserveRequestedSlide ? requestedSlide : target;
+        const index = getBottomSlideIndex(target, { hasAIScores });
+        const targetSwiper = swiperRef.current || props.swiper;
+        if (index >= 0 && targetSwiper && typeof targetSwiper.slideTo === 'function') {
+            targetSwiper.slideTo(index);
+        }
+        SetActiveBottomSlide(savedTarget);
+        setCookie('BottomWindowName', savedTarget, 300);
+        // Preserve rollback compatibility. Legacy builds know only 0/1/2.
+        const legacyIndex = savedTarget === 'wave_stats' || savedTarget === 'ai_scores'
+            ? 1
+            : savedTarget === 'price_chart' ? 2 : 0;
+        setCookie('WindowNumber', String(legacyIndex), 300);
+    }, [hasAIScores, aiEligibilityResolved, props.swiper]);
+
+    // Existing chart headers still call chartTo(0/1/2). Treat those numbers as
+    // their old semantic destinations so "2" remains Price Chart after AI is inserted.
+    const chartTo = useCallback((destination) => {
+        const semantic = typeof destination === 'number'
+            ? ['trend_chart', 'wave_stats', 'price_chart'][destination]
+            : destination;
+        goToBottomSlide(semantic);
+    }, [goToBottomSlide]);
+
+    useEffect(() => {
+        const target = visibleBottomSlide;
+        const index = getBottomSlideIndex(target, { hasAIScores });
+        if (!preserveRequestedBottomSlide && target !== activeBottomSlide) {
+            SetActiveBottomSlide(target);
+            setCookie('BottomWindowName', target, 300);
+        }
+        const targetSwiper = swiperRef.current || props.swiper;
+        if (index >= 0 && targetSwiper && targetSwiper.activeIndex !== index) {
+            targetSwiper.slideTo(index);
+        }
+    }, [hasAIScores, activeBottomSlide, visibleBottomSlide, preserveRequestedBottomSlide, props.swiper]);
+
+    useEffect(() => {
+        if (
+            props.initialWindowNum === undefined ||
+            props.initialWindowNum === null ||
+            lastInitialWindowNumRef.current === props.initialWindowNum
+        ) return;
+        lastInitialWindowNumRef.current = props.initialWindowNum;
+        const requested = legacyBottomSlideName(props.initialWindowNum);
+        if (window.location.search) goToBottomSlide(requested);
+    }, [props.initialWindowNum, goToBottomSlide]);
 
     const handleDollarClicked = () => {
         window.open('/#pricing', '_blank');
@@ -238,41 +386,63 @@ const DesktopLayout = (props) => {
         }
     }
 
+    const handleAIScorePortfolio = () => {
+        if (props.loggedinUser === '0') {
+            props.SetDialogType('info-box');
+            props.SetDialogProp({ title: 'Portfolio Manager', contentText: opp_dashboard_dialog_content, button1Text: '', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)' });
+            props.SetInfoBoxVisible(true);
+            return;
+        }
+        props.SetReportsDashVisible(true);
+    };
+
+    const handleAIScoreSnapshot = () => {
+        props.SetShowWatermark(true);
+        props.SetExportImage(true);
+    };
+
     useEffect(() => {
         if (props.exportImage) {
-            const timeoutid = setTimeout(() => {
-                html2canvas(document.getElementById("right-content"), {
-                    allowTaint: true,
-                    useCORS: true
-                }).then(canvas => {
-                    const imgData = canvas.toDataURL('image/jpeg');
-                    var link = document.createElement('a');
-                    link.download = props.downloadImageName;
-                    link.href = imgData;
-                    link.click();
-                    props.SetShowWatermark(false);
-                }).catch(err => {
-                    console.log('Export image error:', err);
-                    props.SetShowWatermark(false);
-                });
+            setTimeout(() => {
+                import("html2canvas")
+                    .then(module => {
+                        const captureElement = module.default || module;
+                        return captureElement(document.getElementById("right-content"), {
+                            allowTaint: true,
+                            useCORS: true
+                        });
+                    })
+                    .then(canvas => {
+                        return downloadCanvasAsJpeg(canvas, props.downloadImageName);
+                    })
+                    .then(() => {
+                        props.SetShowWatermark(false);
+                    })
+                    .catch(err => {
+                        console.log('Export image error:', err);
+                        props.SetShowWatermark(false);
+                    });
             }, 2000);
         }
         props.SetExportImage(false);
     }, [props.exportImage]);
 
     useEffect(() => {
-        const onMouseMove = (e) => {
+        let resizeFrame = null;
+        let latestPointer = null;
+
+        const applyResize = ({ clientX, clientY }) => {
             // chatbot vertical resize
             if (isDragging.current && oppChatContainerRef.current) {
                 const rect = oppChatContainerRef.current.getBoundingClientRect();
-                const mouseY = e.clientY - rect.top;
+                const mouseY = clientY - rect.top;
                 const pct = ((rect.height - mouseY) / rect.height) * 100;
                 SetChatbotHeightPct(Math.min(75, Math.max(15, pct)));
             }
             // left-nav horizontal resize
             if (isResizingNav.current && appContainerRef.current) {
                 const rect = appContainerRef.current.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
+                const mouseX = clientX - rect.left;
                 const pct = Math.min(40, Math.max(20, (mouseX / rect.width) * 100));
                 navWidthRef.current = pct;
                 SetLeftNavWidthPct(pct);
@@ -280,13 +450,36 @@ const DesktopLayout = (props) => {
             // right-side top/bottom chart vertical resize
             if (isResizingTopChart.current && rightContentRef.current) {
                 const rect = rightContentRef.current.getBoundingClientRect();
-                const mouseY = e.clientY - rect.top;
+                const mouseY = clientY - rect.top;
                 const pct = Math.min(80, Math.max(20, (mouseY / rect.height) * 100));
                 topChartHeightRef.current = pct;
                 SetTopChartHeightPct(pct);
             }
         };
+
+        const flushResize = () => {
+            resizeFrame = null;
+            if (!latestPointer) return;
+            const pointer = latestPointer;
+            latestPointer = null;
+            applyResize(pointer);
+        };
+
+        const onMouseMove = (e) => {
+            if (!isDragging.current && !isResizingNav.current && !isResizingTopChart.current) return;
+            latestPointer = { clientX: e.clientX, clientY: e.clientY };
+            if (resizeFrame === null) {
+                resizeFrame = window.requestAnimationFrame(flushResize);
+            }
+        };
+
         const onMouseUp = () => {
+            if (resizeFrame !== null) {
+                window.cancelAnimationFrame(resizeFrame);
+                resizeFrame = null;
+            }
+            if (latestPointer) flushResize();
+
             isDragging.current = false;
             if (isResizingNav.current) {
                 isResizingNav.current = false;
@@ -302,6 +495,7 @@ const DesktopLayout = (props) => {
         return () => {
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
+            if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
         };
     }, []);
 
@@ -310,11 +504,19 @@ const DesktopLayout = (props) => {
     useEffect(() => {
         const rightContent = document.getElementById('right-content');
         if (!rightContent) return;
+        let resizeFrame = null;
         const observer = new ResizeObserver(() => {
-            swiperRef.current?.update();
+            if (resizeFrame !== null) return;
+            resizeFrame = window.requestAnimationFrame(() => {
+                resizeFrame = null;
+                swiperRef.current?.update();
+            });
         });
         observer.observe(rightContent);
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
+        };
     }, []);
 
     const handleResizerMouseDown = (e) => {
@@ -590,7 +792,17 @@ const DesktopLayout = (props) => {
 
 
 
-            <div className='left-nav' style={{ width: `${leftNavWidthPct}%`, position: 'relative' }}>
+            <div
+                id="opportunity-side-panel"
+                className={`left-nav tw-left-panel${isLeftNavCollapsed ? ' tw-left-panel--collapsed' : ''}`}
+                aria-hidden={isLeftNavCollapsed}
+                style={{
+                    width: isLeftNavCollapsed ? '0px' : `${leftNavWidthPct}%`,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    backgroundColor: tc.panelBg,
+                }}
+            >
                 <div className='security-selection' style={{ backgroundColor: tc.securitySelectionBg, overflow: 'hidden' }} onClick={handleSecurityDivClicked}>
                     {/* left side: shrinks and clips as left-nav narrows; font scales with container width */}
                     <div style={{ flex: 1, minWidth: 0, height: "100%", backgroundColor: 'transparent', display: "flex", alignItems: 'center', overflow: 'hidden', userSelect: 'none', fontSize: `${Math.min(0.85, Math.max(0.55, leftNavWidthPct * 0.028))}vw` }}>
@@ -642,9 +854,22 @@ const DesktopLayout = (props) => {
                         </div>
                     </div>
 
-                    {/* right side: SelectBox, never shrinks away */}
-                    <div style={{ flexShrink: 0, marginRight: "12px", display: "flex", alignItems: "center", justifyContent: 'flex-end', userSelect: 'none' }}>
+                    {/* right side: security group plus the persistent panel control */}
+                    <div style={{ flexShrink: 0, marginRight: "4px", display: "flex", gap: '4px', alignItems: "center", justifyContent: 'flex-end', userSelect: 'none' }}>
                         <SelectBox tooltipContent={props.tooltipSW ? 'r,Set Securities Group' : ''} optionList={props.securityTypeList} name="securityTypeList" value={props.selectedSecurityDisplay || props.selectedSecurity} sbChanged={props.selectboxChanged} />
+                        <Tippy disabled={!props.tooltipSW} placement="bottom" content="Hide the Opportunity Table and Tara to make more room for the charts.">
+                            <button
+                                type="button"
+                                className="tw-left-panel-toggle"
+                                aria-label="Hide opportunity panel"
+                                aria-controls="opportunity-side-panel"
+                                aria-expanded="true"
+                                onClick={(e) => { e.stopPropagation(); setLeftNavCollapsed(true); }}
+                                style={{ color: tc.textOnControl, borderColor: tc.border }}
+                            >
+                                <BsChevronLeft size={16} />
+                            </button>
+                        </Tippy>
                     </div>
                 </div>
 
@@ -1243,10 +1468,10 @@ const DesktopLayout = (props) => {
                                         sharpe_ratio2:{ label: 'TWR',    desc: 'TradeWave Ratio',     required: false },
                                         TL:           { label: 'TL',     desc: 'Trend Long Score',    required: false },
                                         price:        { label: 'Price',  desc: 'Real-time Price',     required: false },
-                                        ml_score:     { label: 'AIS',    desc: 'AI Score',            required: false },
-                                        win_prob:     { label: 'Win%',   desc: 'Win Probability',     required: false },
-                                        pred_return:  { label: 'PredR',  desc: 'Predicted Return',    required: false },
-                                        pred_mfe:     { label: 'PMFE',   desc: 'Predicted MFE',       required: false },
+                                        ml_score:     { label: 'AIS',    desc: 'AI return rank (0-100)', required: false },
+                                        win_prob:     { label: 'Win%',   desc: 'AI chance of profit',   required: false },
+                                        pred_return:  { label: 'PredR',  desc: 'Estimated ending return', required: false },
+                                        pred_mfe:     { label: 'PMFE',   desc: 'Estimated best move',    required: false },
                                     };
                                     const order = props.columnOrder || Object.keys(COL_META);
                                     const AI_COLS = ['ml_score', 'win_prob', 'pred_return', 'pred_mfe'];
@@ -1302,7 +1527,9 @@ const DesktopLayout = (props) => {
                                                             const newVis = { ...props.columnVisibility, [key]: !props.columnVisibility[key] };
                                                             props.SetColumnVisibility(newVis);
                                                         }}
-                                                        checked={col.required || props.columnVisibility[key] !== false}
+                                                        checked={col.required || (AI_COLS.includes(key)
+                                                            ? props.columnVisibility[key] === true
+                                                            : props.columnVisibility[key] !== false)}
                                                         textSide="right"
                                                         textColor={tc.text}
                                                         disabled={col.required}
@@ -1523,7 +1750,7 @@ const DesktopLayout = (props) => {
                         <OppTable {...props} onChatbotResizeMouseDown={handleResizerMouseDown} />
                     </div>
 
-                    {props.showChatbot && <>
+                    {props.showChatbot && (
                         <div
                             role="separator"
                             aria-orientation="horizontal"
@@ -1537,30 +1764,86 @@ const DesktopLayout = (props) => {
                                 flexShrink: 0,
                             }}
                         />
-                        <div style={{ flex: chatbotHeightPct, minHeight: 0, width: '100%', overflow: 'hidden' }}>
-                            <Chatbot {...props} />
-                        </div>
-                    </>}
+                    )}
+                    <div
+                        style={{
+                            flex: props.showChatbot ? chatbotHeightPct : '0 0 0px',
+                            minHeight: 0,
+                            width: '100%',
+                            overflow: 'hidden',
+                            display: props.showChatbot ? 'block' : 'none',
+                        }}
+                    >
+                        {/* Load Tara on first use, then keep it mounted while hidden so
+                            history and in-flight chart transactions survive closing. */}
+                        {(chatbotHasOpened || props.showChatbot) && (
+                            <React.Suspense fallback={null}>
+                                <Chatbot {...props} hasAIScores={hasAIScores} />
+                            </React.Suspense>
+                        )}
+                    </div>
                 </div>
 
             </div>
 
+            <div
+                className={`tw-left-panel-rail${isLeftNavCollapsed ? ' tw-left-panel-rail--visible' : ''}`}
+                aria-hidden={!isLeftNavCollapsed}
+                style={{ backgroundColor: tc.panelBg, borderColor: tc.border }}
+            >
+                <Tippy disabled={!props.tooltipSW} placement="right" content="Show the Opportunity Table and Tara.">
+                    <button
+                        type="button"
+                        className="tw-left-panel-rail-button"
+                        aria-label="Show opportunity panel"
+                        aria-controls="opportunity-side-panel"
+                        aria-expanded="false"
+                        onClick={() => setLeftNavCollapsed(false)}
+                        style={{ color: tc.text, borderColor: tc.border, backgroundColor: tc.statValueBg }}
+                    >
+                        <BsChevronRight size={18} />
+                    </button>
+                </Tippy>
+                {props.chatbotEnabled &&
+                    <Tippy disabled={!props.tooltipSW} placement="right" content="Open Tara in the side panel.">
+                        <button
+                            type="button"
+                            className={`tw-left-panel-rail-button tw-left-panel-tara-button${props.chatbotIconBlink ? ' chatbot-icon-blink' : ''}`}
+                            aria-label="Open Tara in opportunity panel"
+                            onClick={() => {
+                                setLeftNavCollapsed(false);
+                                props.SetShowChatbot(true);
+                                if (props.onChatbotIconClick) props.onChatbotIconClick();
+                            }}
+                            style={{ color: props.showChatbot ? '#f5c842' : tc.text, borderColor: tc.border, backgroundColor: tc.statValueBg }}
+                        >
+                            {props.showChatbot ? <BsChatDotsFill size={19} /> : <BsChatDots size={19} />}
+                        </button>
+                    </Tippy>
+                }
+            </div>
+
 
             <div
-                onMouseDown={handleNavResizerMouseDown}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize opportunity panel"
+                aria-hidden={isLeftNavCollapsed}
+                onMouseDown={isLeftNavCollapsed ? undefined : handleNavResizerMouseDown}
                 style={{
-                    width: '5px',
+                    width: isLeftNavCollapsed ? '0px' : '5px',
                     height: '100%',
-                    cursor: 'ew-resize',
+                    cursor: isLeftNavCollapsed ? 'default' : 'ew-resize',
                     backgroundColor: tc.titleBar,
                     flexShrink: 0,
                     userSelect: 'none',
+                    transition: 'width 180ms ease',
                 }}
             />
 
             <div ref={rightContentRef} id='right-content' style={{ backgroundColor: tc.panelBg, flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <div className='seasonal-barchart-parent' style={{ height: `${topChartHeightPct}%`, flexShrink: 0 }}>
-                    <SeasonalBarChart {...props} chartTo={chartTo} leftNavWidthPct={leftNavWidthPct} />
+                    <SeasonalBarChart {...props} chartTo={chartTo} leftNavWidthPct={isLeftNavCollapsed ? 0 : leftNavWidthPct} />
                 </div>
 
                 <div
@@ -1575,15 +1858,23 @@ const DesktopLayout = (props) => {
                     }}
                 />
 
-                <div className='stock-linechart-parent' style={{ backgroundColor: tc.panelBg, flex: 1, minHeight: 0 }}>
+                <div className='stock-linechart-parent' style={{ backgroundColor: tc.panelBg, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                     <Swiper
                         onSwiper={(s) => { props.setSwiper(s); swiperRef.current = s; }}
                         navigation={true}
                         className={`mySwiper ${SWIPE_WITH_MOUSE ? '' : 'no-mouse-drag'}`}
-                        initialSlide={props.initialWindowNum}
+                        style={{ flex: 1, minHeight: 0, width: '100%' }}
+                        initialSlide={getBottomSlideIndex(visibleBottomSlide, { hasAIScores })}
                         onSlideChange={(swiperCore) => {
                             const { activeIndex } = swiperCore;
-                            setCookie('WindowNumber', activeIndex.toString(), 300);
+                            const semantic = getBottomSlideName(activeIndex, { hasAIScores, fallback: 'wave_stats' });
+                            if (preserveRequestedBottomSlide && semantic === visibleBottomSlide) return;
+                            SetActiveBottomSlide(semantic);
+                            setCookie('BottomWindowName', semantic, 300);
+                            const legacyIndex = semantic === 'wave_stats' || semantic === 'ai_scores'
+                                ? 1
+                                : semantic === 'price_chart' ? 2 : 0;
+                            setCookie('WindowNumber', String(legacyIndex), 300);
                         }}
                         allowSlideNext={true}
                         allowSlidePrev={true}
@@ -1593,21 +1884,43 @@ const DesktopLayout = (props) => {
                             <SeasonalChart
                                 {...props}
                                 chartTo={chartTo}
+                                showAIScoreNavigation={hasAIScores}
                                 chartTitle="Seasonal Chart"
                                 chartData={props.consolidatedSeasonalData}
                             />
                         </SwiperSlide>
                         <SwiperSlide>
-                            <TradeDetail {...props} chartTo={chartTo} />
+                            <TradeDetail {...props} chartTo={chartTo} showAIScoreNavigation={hasAIScores} />
                         </SwiperSlide>
+                        {hasAIScores && (
+                            <SwiperSlide>
+                                <AIScorePanel
+                                    viewModel={aiPanelViewModel}
+                                    active={activeBottomSlide === 'ai_scores'}
+                                    onOpenGuide={() => SetShowAIScoresGuide(true)}
+                                    onOpenPortfolio={handleAIScorePortfolio}
+                                    onExportSnapshot={handleAIScoreSnapshot}
+                                    tooltipsEnabled={props.tooltipSW}
+                                    onNavigate={chartTo}
+                                />
+                            </SwiperSlide>
+                        )}
                         <SwiperSlide>
-                            <StockLineChart {...props} chartTo={chartTo} priceChartType={priceChartType} />
+                            <StockLineChart
+                                {...props}
+                                chartTo={chartTo}
+                                priceChartType={priceChartType}
+                                showAIScoreNavigation={hasAIScores}
+                            />
                         </SwiperSlide>
                     </Swiper>
                 </div>
 
 
             </div>
+            {showAIScoresGuide && (
+                <AIScoresPopup onClose={() => SetShowAIScoresGuide(false)} iconRect={null} />
+            )}
         </div>
     );
 };

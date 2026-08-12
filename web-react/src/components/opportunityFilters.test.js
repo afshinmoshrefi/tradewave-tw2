@@ -1,4 +1,4 @@
-const {
+﻿const {
   analyzeOpportunityFilter,
   EMPTY_DAY_RANGE,
   filterOpportunityRows,
@@ -6,7 +6,12 @@ const {
   isOpportunityFilterPending,
   opportunityFilterUsesAI,
   sortOpportunityRows,
+  toOpportunityEngineDayRange,
 } = require('./opportunityFilters')
+const {
+  normalizeOpportunityAIScore,
+  opportunityAIFlatFields,
+} = require('./opportunityAIScores')
 
 const rows = [
   {
@@ -76,6 +81,13 @@ test('extracts the server day range independently from client-only predicates', 
   expect(getOpportunityDayRange('90-10')).toBe(EMPTY_DAY_RANGE)
 })
 
+test('converts displayed inclusive calendar-day ranges only at the engine boundary', () => {
+  expect(toOpportunityEngineDayRange('10-90')).toBe('9-89')
+  expect(toOpportunityEngineDayRange('91-150')).toBe('90-149')
+  expect(toOpportunityEngineDayRange('1-367')).toBe('0-366')
+  expect(toOpportunityEngineDayRange(EMPTY_DAY_RANGE)).toBe(EMPTY_DAY_RANGE)
+})
+
 test('restores the range rows when avgp is deleted from a compound filter', () => {
   const rangeOnly = filterOpportunityRows(rows, '10-90')
   expect(rangeOnly.map(row => row.symbol)).toEqual(['LOW', 'GOOD', 'EDGE'])
@@ -141,6 +153,93 @@ test('sorting changes order without adding or removing filtered opportunities', 
   expect(ascending.map(row => row.symbol).sort()).toEqual(originalMembership)
   expect(descending.map(row => row.symbol).sort()).toEqual(originalMembership)
   expect(filtered.map(row => row.symbol)).toEqual(['LOW', 'GOOD', 'EDGE'])
+})
+
+test('sorting a hidden field keeps missing values last in both directions', () => {
+  const hiddenFieldRows = [
+    { date: '2026-08-05', symbol: 'MISSING', daysOut: 40, lOrS: 'Long', pred_return: null },
+    { date: '2026-08-05', symbol: 'LOWER', daysOut: 40, lOrS: 'Long', pred_return: -2 },
+    { date: '2026-08-05', symbol: 'HIGHER', daysOut: 40, lOrS: 'Long', pred_return: 4 },
+  ]
+
+  expect(sortOpportunityRows(hiddenFieldRows, 'pred_return', 'a').map(row => row.symbol))
+    .toEqual(['LOWER', 'HIGHER', 'MISSING'])
+  expect(sortOpportunityRows(hiddenFieldRows, 'pred_return', 'd').map(row => row.symbol))
+    .toEqual(['HIGHER', 'LOWER', 'MISSING'])
+})
+
+test('long-pattern AI sort and filters use the displayed 90-day checkpoint, not a stronger shorter checkpoint', () => {
+  const longRow = { symbol: 'LONG', date: '2026-08-05', daysOut: 120, lOrS: 'Long' }
+  const longBundle = normalizeOpportunityAIScore({
+    row: longRow,
+    scores: {
+      'LONG|2026-08-05|119|l': {
+        basis: 'recalculated_checkpoints',
+        horizons: [
+          { calendar_days: 30, ml_score: 99, win_prob: 0.95, pred_return: 12, pred_mfe: 18 },
+          { calendar_days: 60, ml_score: 80, win_prob: 0.8, pred_return: 8, pred_mfe: 12 },
+          { calendar_days: 90, ml_score: 40, win_prob: 0.45, pred_return: 1, pred_mfe: 3 },
+        ],
+      },
+    },
+  })
+  const displayedLong = { ...longRow, ...opportunityAIFlatFields(longBundle) }
+  const fullWindow = { symbol: 'FULL', daysOut: 60, ml_score: 70, win_prob: 0.7, pred_return: 5, pred_mfe: 7 }
+
+  expect(filterOpportunityRows([displayedLong, fullWindow], 'ais>60').map(row => row.symbol)).toEqual(['FULL'])
+  expect(sortOpportunityRows([displayedLong, fullWindow], 'ml_score', 'd').map(row => row.symbol)).toEqual(['FULL', 'LONG'])
+})
+
+test('short-pattern AI sort and filters use the displayed ten-day model minimum', () => {
+  const source = { symbol: 'SHORT', date: '2026-08-05', daysOut: 6, lOrS: 'Long' }
+  const bundle = normalizeOpportunityAIScore({
+    row: source,
+    scores: {
+      'SHORT|2026-08-05|5|l': {
+        basis: 'minimum_model_horizon',
+        horizons: [{
+          calendar_days: 10,
+          status: 'available',
+          ml_score: 82,
+          win_prob: 0.71,
+          pred_return: 3.4,
+          pred_mfe: 6.2,
+        }],
+      },
+    },
+  })
+  const displayedShort = { ...source, ...opportunityAIFlatFields(bundle) }
+  const lower = { symbol: 'LOWER', daysOut: 20, ml_score: 70, win_prob: 0.6, pred_return: 2, pred_mfe: 4 }
+
+  expect(filterOpportunityRows([displayedShort, lower], 'ais>80').map(row => row.symbol)).toEqual(['SHORT'])
+  expect(sortOpportunityRows([displayedShort, lower], 'ml_score', 'd').map(row => row.symbol)).toEqual(['SHORT', 'LOWER'])
+})
+
+test('below-threshold AI readings remain null and sort below real zero in both directions', () => {
+  const source = { symbol: 'BELOW', date: '2026-08-05', daysOut: 120, lOrS: 'Long' }
+  const bundle = normalizeOpportunityAIScore({
+    row: source,
+    scores: {
+      'BELOW|2026-08-05|119|l': {
+        basis: 'duration_comparison',
+        horizons: [
+          { calendar_days: 30, status: 'available', ml_score: 75, win_prob: 0.7, pred_return: 4, pred_mfe: 7 },
+          { calendar_days: 60, status: 'below_threshold' },
+          { calendar_days: 90, status: 'below_threshold' },
+        ],
+      },
+    },
+  })
+  const below = { ...source, ...opportunityAIFlatFields(bundle) }
+  const realZero = {
+    symbol: 'ZERO', date: '2026-08-05', daysOut: 30, lOrS: 'Long',
+    ml_score: 0, win_prob: 0, pred_return: 0, pred_mfe: 0,
+  }
+
+  expect(below.ml_score).toBeNull()
+  expect(filterOpportunityRows([below, realZero], 'ais<1').map(row => row.symbol)).toEqual(['ZERO'])
+  expect(sortOpportunityRows([below, realZero], 'ml_score', 'a').map(row => row.symbol)).toEqual(['ZERO', 'BELOW'])
+  expect(sortOpportunityRows([below, realZero], 'ml_score', 'd').map(row => row.symbol)).toEqual(['ZERO', 'BELOW'])
 })
 
 test('distinguishes incomplete and invalid commands from valid empty results', () => {

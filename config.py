@@ -1,4 +1,4 @@
-import os  # for env-loaded secrets — see /etc/tradewave/secrets.env
+﻿import os  # for env-loaded secrets — see /etc/tradewave/secrets.env
 
 WORKOS_CLIENT_ID = os.environ.get('WORKOS_CLIENT_ID', '')  # set in /etc/tradewave/secrets.env (per-env: staging vs prod client)
 WORKOS_API_KEY   = os.environ.get('WORKOS_API_KEY', '')  # set in /etc/tradewave/secrets.env
@@ -119,15 +119,6 @@ X_ACCESS_TOKEN_SECRET = os.environ.get('X_ACCESS_TOKEN_SECRET', '')
 X_POSTING_ENABLED = (
     os.environ.get('TW2_X_POSTING_ENABLED', '').strip().lower()
     in ('1', 'true', 'yes', 'on')
-)
-# Close-ledger posts inherit the verified global X switch unless explicitly
-# overridden. This avoids a second required production secret while preserving
-# an independent emergency off switch.
-_X_CLOSE_POSTING_RAW = os.environ.get('TW2_X_CLOSE_POSTING_ENABLED', '').strip()
-X_CLOSE_POSTING_ENABLED = (
-    _X_CLOSE_POSTING_RAW.lower() in ('1', 'true', 'yes', 'on')
-    if _X_CLOSE_POSTING_RAW
-    else X_POSTING_ENABLED
 )
 
 #------------------------------------------
@@ -639,14 +630,18 @@ rate_limit_mlscore         = ['100/second','600/minute' ,'6000/hour','40000/day'
 
 #############################################################################
 ## redis expiration in seconds
-opp_expire_time            = 51       # of seconds
-chart_data_expire_time     = 51
-years_metadata_expire_time = 51
-history_expire_time        = 51
-stock_metadata_expire_time = 51
-stockscore_expire_time     = 51
-stocklastprice_expire_time = 51
-seasonal_chart_expire_time = 51
+# Most of these datasets change only when the analytics/data refresh runs.  The
+# old 51-second TTL made normal viewer navigation repeatedly rebuild the same
+# Pandas results. Keep live prices short-lived, but retain analytical results
+# long enough for navigation and concurrent users to share warm cache entries.
+opp_expire_time            = 300      # opportunities: 5 minutes
+chart_data_expire_time     = 300      # wave chart statistics: 5 minutes
+years_metadata_expire_time = 3600     # available history changes with data refreshes
+history_expire_time        = 3600     # historical bars change only with the data refresh
+stock_metadata_expire_time = 3600
+stockscore_expire_time     = 300
+stocklastprice_expire_time = 51       # preserve near-real-time price freshness
+seasonal_chart_expire_time = 300
 spbd_static_expire_time    = 993600  # 11.5 days - Security Price By Date (historical prices never change)
 opp_by_symbol_expire_time  = 3600   # 1 hour - opp_by_symbol data changes only when analytics re-runs
 spdd_active_expire_time    = 20160  # 5.6 hours - end date price for active trades (updates daily)

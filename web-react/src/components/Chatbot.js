@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+﻿import React, { useState, useEffect, useRef, useContext } from 'react';
 import { UserContext } from './UserContext';
 import { appserverURL, trend_chart_left_gap_days, incrementDate, themeColors, getSelectedIDFromSecuritiesList2, setCookie } from './Common';
 import TrendScorePopup from './TrendScorePopup';
@@ -17,25 +17,22 @@ import DaysOutPopup from './DaysOutPopup';
 import YearsRangePopup from './YearsRangePopup';
 import FilteringPopup from './FilteringPopup';
 import AIScoresPopup from './AIScoresPopup';
-import './styles/Chatbot.css';
 import {
-  applyTooltipPreference,
-  buildChatbotScreenContext,
-  buildOpportunityTableContext,
-  deriveDirectionFromBars,
-  parseOptionalNumber,
-  showBottomSlide,
-  shouldClearOpportunityTable,
-} from './chatbotScreenContext';
-import { VIEWER_CYCLE_CHANGE_EVENT, isViewerCycle } from './viewerCycleState';
+  containsInternalToolMarkup,
+  taraTrendFailureHasPrimaryData,
+  taraViewKey,
+} from './taraActionContract';
+import {
+  formatTaraPatternLabel,
+  normalizeTaraPatternContext,
+  resolveTaraActionPatternContext,
+  taraConversationHasUserWork,
+  taraPatternChangeWasChatDriven,
+  taraPatternContextKey,
+  taraPatternResetMessage,
+} from './taraConversationContext';
 
-const CHATBOT_DERIVED_STAT_KEYS = [
-  'Trade Dir', 'Num Winners', 'Num Losers', 'Percent Profitable',
-  'Avg Profit - All', 'Avg Profit', 'Avg Loss', 'Median Profit',
-  'Annualized Return', 'Cumulative Return', 'Std Dev', 'Sharpe Ratio',
-  'Sharpe Ratio2', 'Trend Long', 'Trend Short', 'Trend Long1', 'Trend Short1',
-  'Trend Score Available', 'next_earnings_est', 'days_to_earnings',
-];
+const TARA_INTRO_MESSAGE = "Hi, I'm <b>Tara</b>. Ask me for today's best setups, any stock's seasonal pattern, or a concept like <b>what is a Sharpe ratio</b> - I'll pull it up on the chart and explain it.";
 
 //--------------------------------------------------------------------------------------------------------
 // The bot reply is model-generated HTML rendered via dangerouslySetInnerHTML; with Tara now
@@ -62,6 +59,33 @@ const sanitizeBotHtml = (html) => {
   return s;
 };
 
+const botHtmlToPlainText = (html) => {
+  const safe = sanitizeBotHtml(html).replace(/<br\s*\/?>/gi, '\n');
+  if (typeof document !== 'undefined') {
+    const node = document.createElement('div');
+    node.innerHTML = safe;
+    return String(node.textContent || '').trim();
+  }
+  return safe.replace(/<[^>]*>/g, '').trim();
+};
+
+const taraFailureDetail = (reason) => {
+  if (reason === 'rate_limited') return 'the chart service is temporarily rate-limited';
+  if (reason === 'not_enough_data') return 'there is not enough history for that setup';
+  if (reason === 'empty_or_malformed_chart_data') return 'the server returned no usable chart data';
+  if (reason === 'server_normalized_or_unverified_request') {
+    return 'the server adjusted the requested date or lookback';
+  }
+  if (reason === 'view_superseded') return 'the view changed before the request finished';
+  if (reason === 'chart_load_timeout') return 'the chart request timed out';
+  if (reason === 'network_error') return 'the chart service could not be reached';
+  if (String(reason || '').startsWith('trend_')) {
+    return 'the lower seasonal graph could not be verified';
+  }
+  if (String(reason || '').startsWith('http_')) return 'the chart service returned an error';
+  return 'the chart request did not complete';
+};
+
 //--------------------------------------------------------------------------------------------------------
 function Chatbot(props) {
   const { token, resourceObj } = useContext(UserContext);
@@ -73,6 +97,9 @@ function Chatbot(props) {
   const [history, setHistory] = useState([]);        // { role, content } for API context
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingViewTransaction, setPendingViewTransaction] = useState(null);
+  const [previousChat, setPreviousChat] = useState(null);
+  const [showPreviousChat, setShowPreviousChat] = useState(false);
   const [showTrendPopup, setShowTrendPopup] = useState(false);
   const [showSharpePopup, setShowSharpePopup] = useState(false);
   const [showSeasonalPopup, setShowSeasonalPopup] = useState(false);
@@ -90,10 +117,102 @@ function Chatbot(props) {
   const [showFilteringPopup, setShowFilteringPopup] = useState(false);
   const [showAIScoresPopup, setShowAIScoresPopup] = useState(false);
   const chatboxRef = useRef(null);
+  const actionAuditAfterRenderRef = useRef(null);
+  const activeChatRequestRef = useRef(null);
+  const conversationGenerationRef = useRef(0);
+  const lastPatternKeyRef = useRef('');
+  const lastPatternContextRef = useRef(null);
+  const taraDrivenPatternKeyRef = useRef('');
+  const lastReportExplainRequestRef = useRef('');
+  const activeReportIdRef = useRef('');
+  const activeReportTitleRef = useRef('');
+  const messagesRef = useRef(messages);
+  const historyRef = useRef(history);
+  messagesRef.current = messages;
+  historyRef.current = history;
+
+  const patternMarketIdRaw = getSelectedIDFromSecuritiesList2(
+    props.securityTypeList || [],
+    props.selectedSecurity || '',
+  );
+  const currentPatternContext = normalizeTaraPatternContext({
+    market: (
+      patternMarketIdRaw !== undefined
+      && patternMarketIdRaw !== null
+      && String(patternMarketIdRaw) !== '-1'
+    ) ? String(patternMarketIdRaw) : '',
+    symbol: props.symbol,
+    entry_date: props.startDate,
+    days_out: props.daysOut,
+    years: props.seasonalYears,
+    pe_cycle: props.PEselected,
+    cut_off_year: props.trimYear,
+  });
+  const currentPatternKey = taraPatternContextKey(currentPatternContext);
 
   // Intro greeting on first open.
   useEffect(() => {
-    setMessages([{ role: 'bot', text: "Hi, I'm <b>Tara</b>. Ask me for today's best setups, any stock's seasonal pattern, or a concept like <b>what is a Sharpe ratio</b> - I'll pull it up on the chart and explain it." }]);
+    setMessages([{ role: 'bot', text: TARA_INTRO_MESSAGE }]);
+  }, []);
+
+  // A Tara conversation belongs to one analysis-defining chart. A manual
+  // symbol/date/days/years/cycle change starts a clean, beginner-friendly chat,
+  // while a chart change requested by Tara keeps the conversation that explains it.
+  useEffect(() => {
+    if (!currentPatternKey || !currentPatternContext) return;
+    const previousKey = lastPatternKeyRef.current;
+    if (!previousKey) {
+      lastPatternKeyRef.current = currentPatternKey;
+      lastPatternContextRef.current = currentPatternContext;
+      return;
+    }
+    if (previousKey === currentPatternKey) {
+      lastPatternContextRef.current = currentPatternContext;
+      return;
+    }
+
+    const chatDroveChange = taraPatternChangeWasChatDriven({
+      currentKey: currentPatternKey,
+      pendingTargetKey: taraDrivenPatternKeyRef.current,
+      actionState: props.taraActionState,
+    });
+    lastPatternKeyRef.current = currentPatternKey;
+    const previousContext = lastPatternContextRef.current;
+    lastPatternContextRef.current = currentPatternContext;
+
+    if (chatDroveChange) {
+      if (taraDrivenPatternKeyRef.current === currentPatternKey) {
+        taraDrivenPatternKeyRef.current = '';
+      }
+      return;
+    }
+
+    if (taraConversationHasUserWork(messagesRef.current, historyRef.current)) {
+      setPreviousChat({
+        label: activeReportIdRef.current
+          ? (activeReportTitleRef.current || 'Previous report')
+          : (formatTaraPatternLabel(previousContext, true) || 'Previous chart'),
+        messages: [...messagesRef.current],
+      });
+    }
+    setShowPreviousChat(false);
+    if (activeChatRequestRef.current) {
+      activeChatRequestRef.current.abort();
+      activeChatRequestRef.current = null;
+    }
+    conversationGenerationRef.current += 1;
+    setMessages([{ role: 'bot', text: taraPatternResetMessage(currentPatternContext) }]);
+    setHistory([]);
+    activeReportIdRef.current = '';
+    activeReportTitleRef.current = '';
+    if (props.SetActiveAnalysisReport) props.SetActiveAnalysisReport(null);
+    if (props.SetTaraReportExplainRequest) props.SetTaraReportExplainRequest(null);
+    setUserInput('');
+    setIsLoading(false);
+  }, [currentPatternKey, props.taraActionState]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => () => {
+    if (activeChatRequestRef.current) activeChatRequestRef.current.abort();
   }, []);
 
   // Consume a pending tip (daily onboarding card / legacy tip) WHENEVER one is set - keyed on
@@ -135,21 +254,154 @@ function Chatbot(props) {
     setMessages((prev) => [...prev, { role, text }]);
   };
 
+  const postActionResult = (pending, actionState, status, reason, displayedResponse) => {
+    const payload = {
+      token,
+      turn_id: pending.turnId,
+      actions: pending.actionProofs,
+      status,
+      reason: reason || '',
+      observed_view: actionState?.observed_view || null,
+      data_points: actionState?.data_points || 0,
+      displayed_response: displayedResponse || '',
+    };
+    const send = (attempt) => {
+      fetch(`${asURL}/chatbot/action_result`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).then(response => {
+        if (response.ok) return;
+        const err = new Error(`HTTP ${response.status}`);
+        err.retryable = response.status === 429 || response.status >= 500;
+        throw err;
+      }).catch(err => {
+        if (attempt < 2 && err?.retryable !== false) {
+          setTimeout(() => send(attempt + 1), 750 * (attempt + 1));
+          return;
+        }
+        // The chart result remains authoritative even if audit transport fails.
+        console.warn('Tara action audit failed:', err?.message || err);
+      });
+    };
+    send(0);
+  };
+
+  // Post only after React has committed the sanitized reply into Tara's
+  // message list. Keeping Chatbot mounted while hidden guarantees this effect
+  // also runs when the user closes the panel mid-load.
+  useEffect(() => {
+    const queued = actionAuditAfterRenderRef.current;
+    if (!queued) return;
+    actionAuditAfterRenderRef.current = null;
+    postActionResult(
+      queued.pending,
+      queued.actionState,
+      queued.status,
+      queued.reason,
+      queued.displayedResponse,
+    );
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The model's prose is held back while a view action is pending. Only this
+  // client-side terminal state may append a completion statement.
+  useEffect(() => {
+    if (!pendingViewTransaction || !props.taraActionState) return;
+    const state = props.taraActionState;
+    const sameActions = (
+      Array.isArray(state.action_ids)
+      && state.action_ids.join('|') === pendingViewTransaction.actionIds.join('|')
+    );
+    if (!sameActions || !['succeeded', 'failed'].includes(state.status)) return;
+
+    // The user may have manually loaded another chart while a Tara-driven
+    // chart transaction was still finishing. Audit that terminal result, but
+    // never let its old prose reappear in the new chart's clean conversation.
+    if (pendingViewTransaction.sessionGeneration !== conversationGenerationRef.current) {
+      postActionResult(
+        pendingViewTransaction,
+        state,
+        state.status,
+        state.reason || 'view_superseded',
+        '',
+      );
+      setPendingViewTransaction(null);
+      return;
+    }
+
+    let finalReply;
+    let auditStatus;
+    if (state.status === 'succeeded') {
+      const requested = state.requested_spec || {};
+      const symbol = state.target?.symbol;
+      const confirmation = state.requires_chart_data
+        ? `${symbol ? `<b>${symbol}</b> ` : ''}pattern and seasonal graph loaded in the Wave Viewer.`
+        : (requested.market ? 'Market selection updated.' : 'View settings updated.');
+      finalReply = `${pendingViewTransaction.reply || ''}${pendingViewTransaction.reply ? '<br><br>' : ''}${confirmation}`;
+      auditStatus = 'succeeded';
+    } else {
+      const symbol = state.target?.symbol;
+      const detail = taraFailureDetail(state.reason);
+      finalReply = taraTrendFailureHasPrimaryData(state)
+        ? (
+          `The pattern data for${symbol ? ` <b>${symbol}</b>` : ' that view'} arrived, `
+          + `but ${detail}. I have not marked the full view as loaded; please try again.`
+        )
+        : (
+          `I couldn't load${symbol ? ` <b>${symbol}</b>` : ' that view'} because ${detail}. `
+          + 'I have not marked it as loaded; please try again.'
+        );
+      auditStatus = 'failed';
+    }
+
+    const plainReply = botHtmlToPlainText(finalReply);
+    actionAuditAfterRenderRef.current = {
+      pending: pendingViewTransaction,
+      actionState: state,
+      status: auditStatus,
+      reason: state.reason || '',
+      displayedResponse: plainReply,
+    };
+    displayMessage('bot', finalReply);
+    setHistory([
+      ...pendingViewTransaction.updatedHistory,
+      { role: 'assistant', content: plainReply },
+    ]);
+    setPendingViewTransaction(null);
+    setIsLoading(false);
+  }, [pendingViewTransaction, props.taraActionState]); // eslint-disable-line react-hooks/exhaustive-deps
+
   //--------------------------------------------------------------------------------------------------------
   // Build wave viewer context from props
   const buildWaveViewerContext = () => {
-    const isArbitraryWindow = props.rowIndexClicked === -1;
-    const direction = isArbitraryWindow
-      ? deriveDirectionFromBars(props.seasonalBarChartData, props.barChartLongOrShort)
-      : (props.barChartLongOrShort || 'long');
     const marketIdRaw = getSelectedIDFromSecuritiesList2(
       props.securityTypeList || [],
-      props.selectedSecurity || '',
+      props.selectedSecurity || ''
+    );
+    const currentView = {
+      market: (
+        marketIdRaw !== undefined
+        && marketIdRaw !== null
+        && String(marketIdRaw) !== '-1'
+      ) ? String(marketIdRaw) : '',
+      symbol: String(props.symbol || '').toUpperCase(),
+      entry_date: props.startDate || '',
+      days_out: parseInt(props.daysOut, 10),
+      years: parseInt(props.seasonalYears, 10),
+      pe_cycle: props.PEselected || 'cons',
+      cut_off_year: Number(props.trimYear || 0),
+    };
+    const viewReady = (
+      props.viewerDataState
+      && props.viewerDataState.status === 'succeeded'
+      && props.viewerDataState.request_key === taraViewKey(currentView)
     );
     const ctx = {
+      market: currentView.market,
       symbol: props.symbol || '',
-      company: props.company || '',
       start_date: props.startDate || '',
+      entry_date: props.startDate || '',
       days_out: props.daysOut || '',
       years: props.seasonalYears || '',
       pe_cycle: props.PEselected || 'cons',
@@ -157,23 +409,28 @@ function Chatbot(props) {
       selection_origin: isArbitraryWindow ? 'user_defined' : 'scanner',
       mfe_enabled: props.showMFE === true,
       mae_enabled: props.showMAE === true,
+      view_ready: viewReady,
+      view_request_key: viewReady ? props.viewerDataState.request_key : '',
     };
-    if (marketIdRaw !== -1 && marketIdRaw !== '-1' && marketIdRaw != null) {
-      ctx.market = String(marketIdRaw);
+    // Include last known price for the security
+    if (viewReady && props.company) ctx.company = props.company;
+    if (
+      viewReady
+      && Array.isArray(props.lastPrice)
+      && props.lastPriceIdentity === `${currentView.market}|${currentView.symbol}`
+      && props.lastPrice[0]
+      && props.lastPrice[1]
+    ) {
+      ctx.last_price = props.lastPrice[1];
+      ctx.last_price_date = props.lastPrice[0];
     }
-    // Send only derived percentages/scores and the compact next-earnings estimate. Raw
-    // prices, moving averages, volume, and nested filing history do not belong in Tara's
-    // context; the server repeats this allowlist as a trust-boundary check.
-    if (props.tradeDetailData && Object.keys(props.tradeDetailData).length > 0) {
-      const selectedStats = {};
-      CHATBOT_DERIVED_STAT_KEYS.forEach(key => {
-        const value = props.tradeDetailData[key];
-        if (value !== undefined && value !== null && value !== '') selectedStats[key] = value;
-      });
-      if (Object.keys(selectedStats).length > 0) ctx.stats = selectedStats;
+    // Include stats if available (tradeDetailData is an object with keys like
+    // 'Percent Profitable', 'Avg Profit', 'Sharpe Ratio', etc.)
+    if (viewReady && props.tradeDetailData && Object.keys(props.tradeDetailData).length > 0) {
+      ctx.stats = props.tradeDetailData;
     }
     // Include year-by-year bar chart data so the bot can discuss specific years
-    if (Array.isArray(props.seasonalBarChartData) && props.seasonalBarChartData.length > 0) {
+    if (viewReady && Array.isArray(props.seasonalBarChartData) && props.seasonalBarChartData.length > 0) {
       ctx.yearly_results = props.seasonalBarChartData.map(r => {
         const plist = String(r['pct'] || '').split(',');
         return {
@@ -205,16 +462,35 @@ function Chatbot(props) {
     // textArg lets a caller (e.g. the home-page prefill) pass the message explicitly;
     // normal typing calls handleSend() with no args and uses the userInput state.
     const text = (typeof textArg === 'string' ? textArg : userInput);
-    if (!text.trim() || isLoading) return;
+    if (!text.trim() || (isLoading && !opts.replaceConversation)) return;
 
     setUserInput('');
 
     // Clear command
     if (text.trim().toLowerCase() === 'clear') {
-      setMessages([]);
+      if (activeChatRequestRef.current) activeChatRequestRef.current.abort();
+      activeChatRequestRef.current = null;
+      conversationGenerationRef.current += 1;
+      setMessages([{ role: 'bot', text: TARA_INTRO_MESSAGE }]);
       setHistory([]);
+      setPreviousChat(null);
+      setShowPreviousChat(false);
+      activeReportIdRef.current = '';
+      activeReportTitleRef.current = '';
+      if (props.SetActiveAnalysisReport) props.SetActiveAnalysisReport(null);
+      if (props.SetTaraReportExplainRequest) props.SetTaraReportExplainRequest(null);
+      setIsLoading(false);
       return;
     }
+
+    const requestGeneration = conversationGenerationRef.current;
+    const requestController = new AbortController();
+    activeChatRequestRef.current = requestController;
+    const finishRequest = () => {
+      if (activeChatRequestRef.current === requestController) {
+        activeChatRequestRef.current = null;
+      }
+    };
 
     displayMessage('user', text);
 
@@ -228,7 +504,8 @@ function Chatbot(props) {
     // for the home-page prefill path.)
 
     // Add user message to history
-    const updatedHistory = [...history, { role: 'user', content: text }];
+    const baseHistory = Array.isArray(opts.historyOverride) ? opts.historyOverride : history;
+    const updatedHistory = [...baseHistory, { role: 'user', content: text }];
 
     // Which market/group the opportunity table is CURRENTLY showing. Tara needs this to know
     // whether the table already matches the group the user is asking about ("which tech
@@ -237,8 +514,11 @@ function Chatbot(props) {
     // it she ran an independent, divergent scan whose names didn't match the visible table.
     const oppMarketName = props.selectedSecurity || '';
     const oppMarketIdRaw = getSelectedIDFromSecuritiesList2(props.securityTypeList || [], oppMarketName);
-    const oppMarketId = (oppMarketIdRaw !== -1 && oppMarketIdRaw !== '-1') ? String(oppMarketIdRaw) : '';
-    const oppTablePECycle = props.showPEOpps ? `pe${new Date().getFullYear() % 4}` : 'cons';
+    const oppMarketId = (
+      oppMarketIdRaw !== undefined
+      && oppMarketIdRaw !== null
+      && String(oppMarketIdRaw) !== '-1'
+    ) ? String(oppMarketIdRaw) : '';
 
     const postData = {
       message: text,
@@ -250,7 +530,7 @@ function Chatbot(props) {
       opp_table_market: oppMarketId,
       opp_table_market_name: oppMarketName,
       opp_table_years: props.oppTableYears,
-      opp_table_pe_cycle: oppTablePECycle,
+      analysis_report: opts.analysisReport || props.activeAnalysisReport || null,
       token: token,
     };
 
@@ -260,14 +540,26 @@ function Chatbot(props) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(postData),
+      signal: requestController.signal,
     })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         return response.json();
       })
       .then((data) => {
+        if (requestGeneration !== conversationGenerationRef.current) return;
         const reply = data.reply || '';
-        displayMessage('bot', reply);
+        if (containsInternalToolMarkup(reply)) {
+          const safeReply = (
+            "I couldn't produce a valid chart action, so I haven't changed the chart. "
+            + 'Please try that request again.'
+          );
+          displayMessage('bot', safeReply);
+          setHistory([...updatedHistory, { role: 'assistant', content: safeReply }]);
+          setIsLoading(false);
+          finishRequest();
+          return;
+        }
         // Auto-open popups: check LLM response first, then fall back to keyword matching on the user question
         const hasAction = reply.includes('data-action=');
         const hasMFEMAEViewAction = Array.isArray(data.actions) && data.actions.some(action => (
@@ -319,32 +611,142 @@ function Chatbot(props) {
             }
           }
         }
-        // Phase 2: apply any wave-viewer actions Tara requested (load a symbol/setup, change knobs)
-        if (Array.isArray(data.actions)) {
-          for (const action of data.actions) {
-            if (action && action.type === 'set_view' && action.spec) {
-              applyViewSpec(action.spec);
-            } else if (action && action.type === 'load_opportunity' && action.spec) {
-              // This is the deterministic equivalent of clicking the visible row. Keep the
-              // table's string lookback and row highlight aligned with the loaded chart.
-              applyViewSpec(action.spec);
-              props.SetSeasonalYears(String(props.oppTableYears));
-              if (Number.isInteger(action.rank) && action.rank >= 1) {
-                props.SetRowIndexClicked(action.rank - 1);
-              }
-            }
+        const viewActions = Array.isArray(data.actions)
+          ? data.actions.filter(action => action && action.type === 'set_view')
+          : [];
+        if (viewActions.length > 0) {
+          if (typeof props.BeginTaraViewAction !== 'function') {
+            const safeReply = "I couldn't connect that request to the chart, so nothing was marked as loaded.";
+            displayMessage('bot', safeReply);
+            setHistory([...updatedHistory, { role: 'assistant', content: safeReply }]);
+            setIsLoading(false);
+            finishRequest();
+            return;
           }
+          const accepted = props.BeginTaraViewAction(viewActions, data.turn_id || '');
+          if (!accepted || !accepted.ok) {
+            const safeReply = "I couldn't validate that chart request, so I haven't changed the chart.";
+            if (accepted?.audit) {
+              actionAuditAfterRenderRef.current = {
+                pending: {
+                  turnId: accepted.audit.turn_id,
+                  actionProofs: accepted.audit.action_proofs,
+                },
+                actionState: null,
+                status: 'failed',
+                reason: accepted.reason || 'client_validation_failed',
+                displayedResponse: botHtmlToPlainText(safeReply),
+              };
+            }
+            displayMessage('bot', safeReply);
+            setHistory([...updatedHistory, { role: 'assistant', content: safeReply }]);
+            setIsLoading(false);
+            finishRequest();
+            return;
+          }
+          taraDrivenPatternKeyRef.current = (
+            accepted.transaction.request_key !== currentPatternKey
+              ? accepted.transaction.request_key
+              : ''
+          );
+          setPendingViewTransaction({
+            turnId: data.turn_id || '',
+            actionIds: accepted.transaction.action_ids,
+            actionProofs: accepted.transaction.action_proofs,
+            reply,
+            updatedHistory,
+            sessionGeneration: requestGeneration,
+          });
+          finishRequest();
+          // Keep the loading indicator active. The terminal ChartData4 result
+          // effect displays either the model prose + deterministic success, or
+          // a deterministic failure with no success language.
+          return;
         }
+
+        displayMessage('bot', reply);
         // Keep history in plain text (strip HTML tags for history context)
         const plainReply = reply.replace(/<[^>]*>/g, '');
         setHistory([...updatedHistory, { role: 'assistant', content: plainReply }]);
         setIsLoading(false);
+        finishRequest();
       })
       .catch((err) => {
+        finishRequest();
+        if (
+          err?.name === 'AbortError'
+          || requestGeneration !== conversationGenerationRef.current
+        ) return;
         displayMessage('bot', `Error: ${err.message}`);
         setHistory(updatedHistory);
         setIsLoading(false);
       });
+  };
+
+  // A report explanation is an atomic command: the unique request, immutable
+  // snapshot, and prompt are consumed together. This is separate from the
+  // lifetime one-shot home-page prefill path.
+  useEffect(() => {
+    const request = props.taraReportExplainRequest;
+    if (!request || !request.request_id || !request.snapshot || !token) return;
+    if (lastReportExplainRequestRef.current === request.request_id) return;
+    lastReportExplainRequestRef.current = request.request_id;
+
+    if (taraConversationHasUserWork(messagesRef.current, historyRef.current)) {
+      setPreviousChat({
+        label: activeReportIdRef.current
+          ? (activeReportTitleRef.current || 'Previous report')
+          : (formatTaraPatternLabel(currentPatternContext, true) || 'Previous chart'),
+        messages: [...messagesRef.current],
+      });
+    }
+    if (activeChatRequestRef.current) {
+      activeChatRequestRef.current.abort();
+      activeChatRequestRef.current = null;
+    }
+    conversationGenerationRef.current += 1;
+    activeReportIdRef.current = request.snapshot.report_id;
+    activeReportTitleRef.current = request.snapshot.title || 'TradeWave report';
+    setShowPreviousChat(false);
+    setHistory([]);
+    setMessages([{
+      role: 'bot',
+      text: `I’m looking at <b>${request.snapshot.title || 'this TradeWave report'}</b>. I’ll explain the report’s supplied results without changing the Wave Viewer.`,
+    }]);
+    setUserInput('');
+    setIsLoading(false);
+    handleSend(request.prompt || 'Explain this report in plain language.', {
+      analysisReport: request.snapshot,
+      historyOverride: [],
+      replaceConversation: true,
+    });
+    if (props.SetTaraReportExplainRequest) props.SetTaraReportExplainRequest(null);
+  }, [props.taraReportExplainRequest, token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const exitAnalysisReport = () => {
+    if (taraConversationHasUserWork(messagesRef.current, historyRef.current)) {
+      setPreviousChat({
+        label: activeReportTitleRef.current || 'Previous report',
+        messages: [...messagesRef.current],
+      });
+    }
+    if (activeChatRequestRef.current) {
+      activeChatRequestRef.current.abort();
+      activeChatRequestRef.current = null;
+    }
+    conversationGenerationRef.current += 1;
+    activeReportIdRef.current = '';
+    activeReportTitleRef.current = '';
+    if (props.SetActiveAnalysisReport) props.SetActiveAnalysisReport(null);
+    if (props.SetTaraReportExplainRequest) props.SetTaraReportExplainRequest(null);
+    setShowPreviousChat(false);
+    setHistory([]);
+    setMessages([{
+      role: 'bot',
+      text: `Report closed. I’m back to the <b>${formatTaraPatternLabel(currentPatternContext, true) || 'current pattern'}</b> in the Wave Viewer.`,
+    }]);
+    setUserInput('');
+    setIsLoading(false);
   };
 
   //--------------------------------------------------------------------------------------------------------
@@ -355,10 +757,19 @@ function Chatbot(props) {
   //--------------------------------------------------------------------------------------------------------
   // Loads opportunity to the wave-viewer operated from the chatbot
   const loadOppWV = (rid, date, tcsd, symbol, days, years) => {
-    const resource_group = resourceObj[parseInt(rid)];
-    if (shouldClearOpportunityTable(props.selectedSecurity, resource_group)) {
-      props.SetOpportunities([]);
-    }
+    const targetContext = resolveTaraActionPatternContext(currentPatternContext, [{
+      type: 'set_view',
+      spec: {
+        market: String(rid),
+        symbol,
+        entry_date: date,
+        days_out: Number.parseInt(String(days), 10),
+        years: Number.parseInt(String(years), 10),
+      },
+    }]);
+    const targetKey = taraPatternContextKey(targetContext);
+    taraDrivenPatternKeyRef.current = targetKey !== currentPatternKey ? targetKey : '';
+    props.SetOpportunities([]);
     props.SetStartDate(date);
     let trend_chart_start_date = incrementDate(date, -trend_chart_left_gap_days);
     props.SetTrendChartStartDate(trend_chart_start_date);
@@ -369,66 +780,6 @@ function Chatbot(props) {
     props.SetMonthsAndQtrs('Months & Qtrs');
     props.SetReportsDashVisible(false);
     props.SetSelectedSecurity(resource_group);
-  };
-
-  //--------------------------------------------------------------------------------------------------------
-  // Phase 2: apply a validated ViewSpec from Tara (update_view) to DRIVE the wave-viewer. The
-  // server already allowlists + range-checks the spec; we re-check each field here (defense in
-  // depth) before touching state. Loading a symbol mirrors loadOppWV (clear stale state first).
-  const applyViewSpec = (spec) => {
-    if (!spec || typeof spec !== 'object') return;
-    if (spec.market != null && resourceObj && resourceObj[parseInt(spec.market)]) {
-      const targetMarket = resourceObj[parseInt(spec.market)];
-      if (shouldClearOpportunityTable(props.selectedSecurity, targetMarket)) {
-        props.SetOpportunities([]);
-      }
-      props.SetSelectedSecurity(targetMarket);
-    }
-    // Only a CHANGE of symbol is a fresh load (clear stale chart/report state); when the model
-    // re-asserts the already-loaded symbol alongside a knob change, leave the chart in place.
-    if (typeof spec.symbol === 'string' && /^[A-Za-z0-9.-]{1,15}$/.test(spec.symbol)) {
-      const sym = spec.symbol.toUpperCase();
-      if (sym !== (props.symbol || '').toUpperCase()) {
-        props.SetConsolidatedSeasonalData([]);
-        props.SetReportsDashVisible(false);
-        props.SetMonthsAndQtrs('Months & Qtrs');
-        props.SetSymbol(sym);
-      }
-    }
-    if (typeof spec.entry_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(spec.entry_date)) {
-      props.SetStartDate(spec.entry_date);
-      props.SetTrendChartStartDate(incrementDate(spec.entry_date, -trend_chart_left_gap_days));
-    }
-    if (Number.isInteger(spec.days_out) && spec.days_out >= 1 && spec.days_out <= 366) {
-      props.SetDaysOut(spec.days_out);
-    }
-    if (Number.isInteger(spec.years) && spec.years >= 1 && spec.years <= 99) {
-      let years = spec.years;
-      const targetCycle = typeof spec.pe_cycle === 'string' ? spec.pe_cycle : props.PEselected;
-      const maxAvailable = Number.parseInt(String(props.maxAvailableYears), 10);
-      // The model/API schema permits 1..99, but 99 is not a "max history" sentinel.
-      // In consecutive mode, never let an out-of-range action put a controlled select
-      // into a value it cannot display (the browser otherwise shows its first option).
-      if (targetCycle === 'cons' && Number.isInteger(maxAvailable) && maxAvailable > 0) {
-        years = Math.min(years, maxAvailable);
-      }
-      props.SetSeasonalYears(String(years));
-    }
-    if (typeof spec.pe_cycle === 'string' && ['cons', 'pe0', 'pe1', 'pe2', 'pe3'].includes(spec.pe_cycle)) {
-      if (props.SetPEselected) props.SetPEselected(spec.pe_cycle);
-    }
-    if (typeof spec.show_mfe === 'boolean' && typeof props.setShowMFE === 'function') {
-      props.setShowMFE(spec.show_mfe);
-      setCookie('MFE', spec.show_mfe.toString(), 300);
-    }
-    if (typeof spec.show_mae === 'boolean' && typeof props.setShowMAE === 'function') {
-      props.setShowMAE(spec.show_mae);
-      setCookie('MAE', spec.show_mae.toString(), 300);
-    }
-    applyTooltipPreference(spec, props.SetTooltipSW);
-    if (typeof spec.bottom_slide === 'string') {
-      showBottomSlide(props.swiper, spec.bottom_slide);
-    }
   };
 
   //--------------------------------------------------------------------------------------------------------
@@ -506,6 +857,106 @@ function Chatbot(props) {
         }}
         onClick={handleRowClick}
       >
+        {props.activeAnalysisReport && (
+          <div
+            style={{
+              marginBottom: '8px',
+              border: '1px solid ' + tc.inputBorder,
+              borderLeft: '4px solid #6f8dff',
+              borderRadius: '4px',
+              padding: '6px 8px',
+              color: tc.text,
+              backgroundColor: tc.panelBg,
+              fontSize: '0.72vw',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ flex: 1 }}>
+                <strong>Explaining:</strong> {props.activeAnalysisReport.title}
+                {props.activeAnalysisReport.context?.years_used
+                  ? ` · ${props.activeAnalysisReport.context.years_used} ${['range_comparison', 'date_range_comparison'].includes(props.activeAnalysisReport.report_type) ? 'completed years compared' : 'historical years'}`
+                  : ''}
+              </span>
+              <button
+                type="button"
+                onClick={exitAnalysisReport}
+                style={{
+                  border: '1px solid ' + tc.inputBorder,
+                  borderRadius: '4px',
+                  padding: '2px 6px',
+                  cursor: 'pointer',
+                  color: tc.text,
+                  backgroundColor: tc.statValueBg,
+                  whiteSpace: 'nowrap',
+                }}
+              >Back to pattern</button>
+            </div>
+          </div>
+        )}
+        {previousChat && (
+          <div
+            style={{
+              marginBottom: '8px',
+              border: '1px solid ' + tc.inputBorder,
+              borderRadius: '4px',
+              backgroundColor: tc.panelBg,
+            }}
+          >
+            <button
+              type="button"
+              aria-expanded={showPreviousChat}
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowPreviousChat(value => !value);
+              }}
+              style={{
+                width: '100%',
+                padding: '5px 7px',
+                textAlign: 'left',
+                border: 0,
+                backgroundColor: 'transparent',
+                color: tc.textSecondary,
+                cursor: 'pointer',
+                fontSize: '0.72vw',
+              }}
+            >
+              {showPreviousChat ? 'Hide previous chat' : `Previous chat: ${previousChat.label}`}
+            </button>
+            {showPreviousChat && (
+              <div
+                aria-label={`Previous Tara chat for ${previousChat.label}`}
+                style={{
+                  maxHeight: '220px',
+                  overflowY: 'auto',
+                  padding: '7px',
+                  borderTop: '1px solid ' + tc.inputBorder,
+                  opacity: 0.82,
+                }}
+              >
+                <div
+                  style={{
+                    marginBottom: '7px',
+                    fontWeight: 600,
+                    color: tc.textSecondary,
+                  }}
+                >
+                  Previous chat: {previousChat.label} (read only)
+                </div>
+                {previousChat.messages.map((msg, index) => (
+                  <div key={index} style={{ marginBottom: '6px' }}>
+                    <strong style={{ color: msg.role === 'user' ? userLabelColor : botLabelColor }}>
+                      {msg.role === 'user' ? 'You' : 'Tara'}:
+                    </strong>
+                    <div
+                      style={{ pointerEvents: 'none' }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeBotHtml(msg.text) }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {messages.map((msg, index) => (
           <div
             key={index}
@@ -541,7 +992,9 @@ function Chatbot(props) {
       >
         <input
           type="text"
-          placeholder="Ask about the current pattern or opportunities..."
+          placeholder={currentPatternContext
+            ? `Ask Tara about ${currentPatternContext.symbol} or today's opportunities...`
+            : 'Ask about the current pattern or opportunities...'}
           style={{
             flex: 1,
             padding: '5px',

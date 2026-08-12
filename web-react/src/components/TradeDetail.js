@@ -416,10 +416,10 @@ const TradeDetail = (props) => {
                                 {props.tooltipSW ? 'Export Strategy barchart and Strategy Report as Jpeg' : ''}
                             </div>
                         }>
-                            <div style={{ backgroundColor: 'transparent', color: 'white', paddingLeft: '3px', paddingRight: '10px', display: 'flex', alignItems: 'center' }} >
+                            <div role="button" aria-label="Download Wave Viewer screenshot" tabIndex={0} onClick={handleExport} style={{ backgroundColor: 'transparent', color: 'white', paddingLeft: '3px', paddingRight: '10px', display: 'flex', alignItems: 'center', cursor: 'pointer' }} >
                                 {/* import {csvIcon, downloadIcon ,jpgIcon , listIcon,list2Icon,list3Icon} from './svg'; */}
 
-                                <BsDownload size={20} style={{ fill: "white" }} onClick={handleExport} />
+                                <BsDownload size={20} style={{ fill: "white" }} aria-hidden="true" />
                             </div>
                         </Tippy>
                     }
@@ -482,6 +482,18 @@ const TradeDetail = (props) => {
                     </Tippy>
 
 
+
+                    {props.showAIScoreNavigation &&
+                        <Tippy placement={'top'} content={
+                            <div theme="tw" >
+                                {'AI Scores'}
+                            </div>
+                        }>
+                            <div style={{ marginLeft: '1vw', display: 'flex', alignItems: 'center', width: '20%' }}>
+                                <BsFillCircleFill size={12} style={{ fill: "white" }} onClick={() => props.chartTo('ai_scores')} />
+                            </div>
+                        </Tippy>
+                    }
 
                     <Tippy placement={'top'} content={
                         <div theme="tw" >

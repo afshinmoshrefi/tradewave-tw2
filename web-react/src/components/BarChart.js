@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from 'react';
+﻿import React, { useMemo, useContext, useRef } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { UserContext } from './UserContext';
 import { UIcolors, themeColors } from './Common';
@@ -10,46 +10,46 @@ import {
     normalizeBarChartExcursionStyle,
 } from './barChartExcursion';
 
-const formatPercent = (value) => {
-    const rounded = Number.parseFloat(Number(value).toFixed(2));
-    return `${rounded > 0 ? '+' : ''}${rounded}%`;
-};
+const BarChart = ({ seasonalBarChartData, showMFE, showMAE, barClicked, barChartLongOrShort, UITheme }) => {
+    const { rdd, loggedinUser } = useContext(UserContext);
+    const tc = useMemo(() => themeColors(UITheme), [UITheme]);
+    const chartBackgroundColor = useMemo(
+        () => UIcolors(loggedinUser, UITheme)['background_barchart'],
+        [loggedinUser, UITheme]
+    );
+    const barClickedRef = useRef(barClicked);
+    barClickedRef.current = barClicked;
 
-const excursionOverlayPlugin = {
-    id: 'tradeWaveExcursionOverlay',
-    afterDatasetsDraw(chart, args, pluginOptions) {
-        const {
-            style,
-            highs = [],
-            lows = [],
-            showHigh,
-            showLow,
-            highColor,
-            lowColor,
-            needleColor,
-        } = pluginOptions || {};
+    const {
+        dataMain,
+        dataMainColors,
+        dataMax,
+        maxColor,
+        dataMin,
+        minColor,
+        labels,
+    } = useMemo(() => {
+        const tmpLevels = [];
+        const tmpColors = [];
+        const tmpMin = [];
+        const tmpMax = [];
+        const tmpLabels = [];
 
-        if (!style || style === BAR_CHART_EXCURSION_STYLES.FILLED) return;
+        seasonalBarChartData.forEach((r) => {
+            const plist = r['pct'].split(',');
+            tmpLabels.push(r['year']);
+            tmpLevels.push(plist[0]);
 
-        const bars = chart.getDatasetMeta(0)?.data || [];
-        const yScale = chart.scales?.y;
-        if (!yScale || bars.length === 0) return;
+            if (plist[0] >= 0) {
+                tmpColors.push(tc.barGreen);
+            }
+            if (plist[0] < 0) {
+                tmpColors.push(tc.barRed);
+            }
 
-        const ctx = chart.ctx;
-        ctx.save();
-        ctx.lineCap = style === BAR_CHART_EXCURSION_STYLES.TICKS ? 'butt' : 'round';
-
-        bars.forEach((bar, index) => {
-            const high = highs[index];
-            const low = lows[index];
-            const x = bar.x;
-            const barWidth = Number.isFinite(bar.width) ? bar.width : 12;
-            const hasHigh = Number.isFinite(high) && high > 0;
-            const hasLow = Number.isFinite(low) && low < 0;
-
-            if (style === BAR_CHART_EXCURSION_STYLES.TICKS) {
-                const halfWidth = barWidth / 2;
-                ctx.lineWidth = Math.max(2, Math.min(3, barWidth * 0.08));
+            const close = plist[0];
+            const high = plist[1];
+            const low = plist[2];
 
                 if (showHigh && hasHigh) {
                     const highY = yScale.getPixelForValue(high);
@@ -90,59 +90,29 @@ const excursionOverlayPlugin = {
             ctx.stroke();
         });
 
-        ctx.restore();
-    },
-};
-
-const BarChart = ({
-    seasonalBarChartData,
-    showMFE,
-    showMAE,
-    barClicked,
-    barChartLongOrShort,
-    UITheme,
-    barChartExcursionStyle,
-}) => {
-    const { rdd, loggedinUser } = useContext(UserContext);
-    const tc = themeColors(UITheme);
-    const excursionStyle = normalizeBarChartExcursionStyle(barChartExcursionStyle);
-    const excursionVisibility = getExcursionVisibility(
-        barChartLongOrShort,
-        showMFE,
-        showMAE
-    );
-
-    // Derive the complete Chart.js payload during render. Effect-backed state
-    // briefly painted the previous ticker after a fast row change.
-    const {
-        dataMain,
-        dataMainColors,
-        dataHigh,
-        dataLow,
-        dataMax,
-        dataMin,
-        labels,
-    } = useMemo(() => {
-        const series = buildBarChartSeries(seasonalBarChartData, {
-            green: tc.barGreen,
-            red: tc.barRed,
-        });
+        const showMax = (barChartLongOrShort === 'long' && showMFE)
+            || (barChartLongOrShort === 'short' && showMAE);
+        const showMin = (barChartLongOrShort === 'long' && showMAE)
+            || (barChartLongOrShort === 'short' && showMFE);
 
         return {
-            dataMain: series.main,
-            dataMainColors: series.mainColors,
-            dataHigh: series.highs,
-            dataLow: series.lows,
-            dataMax: excursionVisibility.showHigh ? series.upperRemainders : [],
-            dataMin: excursionVisibility.showLow ? series.lowerRemainders : [],
-            labels: series.labels,
+            dataMain: tmpLevels,
+            dataMainColors: tmpColors,
+            dataMax: showMax ? tmpMax : [],
+            maxColor: tc.barMFE,
+            dataMin: showMin ? tmpMin : [],
+            minColor: tc.barMAE,
+            labels: tmpLabels,
         };
     }, [
         seasonalBarChartData,
-        excursionVisibility.showHigh,
-        excursionVisibility.showLow,
+        showMFE,
+        showMAE,
+        barChartLongOrShort,
         tc.barGreen,
         tc.barRed,
+        tc.barMFE,
+        tc.barMAE,
     ]);
 
     let axisFontSize = '20vw';
@@ -163,13 +133,14 @@ const BarChart = ({
         axisFontSize = '17vw';
     }
 
-    const datasets = [{
-        label: 'dataMain',
-        data: dataMain,
-        backgroundColor: dataMainColors,
-    }];
-    if (excursionStyle === BAR_CHART_EXCURSION_STYLES.FILLED) {
-        datasets.push(
+    const data = useMemo(() => ({
+        labels,
+        datasets: [
+            {
+                label: 'dataMain',
+                data: dataMain,
+                backgroundColor: dataMainColors,
+            },
             {
                 label: 'dataMax',
                 data: dataMax,
@@ -178,38 +149,15 @@ const BarChart = ({
             {
                 label: 'dataMin',
                 data: dataMin,
-                backgroundColor: tc.barMAE,
-            }
-        );
-    }
+                backgroundColor: minColor,
+            },
+        ]
+    }), [labels, dataMain, dataMainColors, dataMax, maxColor, dataMin, minColor]);
 
-    const data = { labels, datasets };
-    const scaleValues = [0, ...dataMain].filter(Number.isFinite);
-    if (excursionStyle !== BAR_CHART_EXCURSION_STYLES.FILLED) {
-        if (excursionVisibility.showHigh) {
-            scaleValues.push(...dataHigh.filter(value => Number.isFinite(value) && value > 0));
-        }
-        if (excursionVisibility.showLow) {
-            scaleValues.push(...dataLow.filter(value => Number.isFinite(value) && value < 0));
-        }
-    }
-    const scaleBounds = excursionStyle === BAR_CHART_EXCURSION_STYLES.FILLED
-        ? {}
-        : {
-            suggestedMin: Math.min(...scaleValues),
-            suggestedMax: Math.max(...scaleValues),
-        };
-    const highColor = excursionVisibility.highKind === 'MFE' ? tc.barMFE : tc.barMAE;
-    const lowColor = excursionVisibility.lowKind === 'MFE' ? tc.barMFE : tc.barMAE;
-    const needleColor = UITheme === 'dark'
-        ? 'rgba(220, 225, 232, 0.92)'
-        : 'rgba(25, 30, 35, 0.82)';
-
-    const options = {
-        animation: false,
+    const options = useMemo(() => ({
         onClick: function (event, item) {
             if (item.length > 0) {
-                barClicked(labels[item[0].index]);
+                barClickedRef.current(labels[item[0]['index']]);
             }
         },
         normalized: true,
@@ -315,10 +263,10 @@ const BarChart = ({
                 },
             },
         },
-    };
+    }), [labels, axisFontSize, tc.tickColor, tooltipEnabled, barChartLongOrShort]);
 
     return (
-        <div style={{ backgroundColor: UIcolors(loggedinUser, UITheme)['background_barchart'], height: '100%' }}>
+        <div style={{ backgroundColor: chartBackgroundColor, height: "100%" }}>
             <Bar
                 key={`${UITheme}`}
                 data={data}

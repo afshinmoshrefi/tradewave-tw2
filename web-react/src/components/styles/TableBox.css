@@ -56,6 +56,338 @@ table thead th {
   top: 0;
 }
 
+/* AI score table controls. These rules were part of the working AI Score UI.
+   Keep every control transparent so the existing theme-owned table header
+   background remains visible. */
+.opp-table-box .table-striped > thead > tr > th {
+  z-index: 3;
+}
+
+.opp-table-header-actions {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.opp-ai-cell,
+.opp-ai-locked-cell,
+.opp-table-sort-button {
+  color: inherit;
+  font: inherit;
+}
+
+.opp-table-sort-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: row;
+  gap: 2px;
+  justify-content: center;
+  min-width: 0;
+  padding: 3px 2px;
+  white-space: nowrap;
+}
+
+.opp-ai-cell__status {
+  color: #b45309;
+  display: block;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.15;
+  margin-top: 2px;
+  max-width: 64px;
+  text-align: center;
+  white-space: normal;
+}
+
+.opp-ai-cell:focus-visible,
+.opp-ai-coachmark button:focus-visible,
+.opp-ai-detail__help:focus-visible,
+.opp-ai-locked-cell:focus-visible,
+.opp-ai-tooltip-help:focus-visible,
+.opp-table-sort-button:focus-visible {
+  outline: 2px solid var(--opp-ai-focus, #818cf8);
+  outline-offset: 2px;
+}
+
+.opp-ai-header-tooltip {
+  align-items: flex-start;
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+  line-height: 1.4;
+  max-width: 330px;
+  text-align: left;
+  white-space: normal;
+}
+
+.opp-ai-tooltip-help {
+  align-items: center;
+  background: var(--opp-ai-bg, #eef2ff);
+  border: 1px solid var(--opp-ai-border, #818cf8);
+  border-radius: 50%;
+  color: var(--opp-ai-text, #3730a3);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 24px;
+  font-weight: 700;
+  height: 24px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 24px;
+}
+
+.opp-ai-cell-wrap {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+}
+
+.opp-ai-cell {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: default;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1.15;
+  min-height: 26px;
+  min-width: 34px;
+  padding: 2px 5px;
+}
+
+.opp-ai-cell--checkpoint.opp-ai-cell--available {
+  background: var(--opp-ai-bg, #eef2ff);
+  border-bottom-style: dotted;
+  border-color: var(--opp-ai-border, #818cf8);
+  color: var(--opp-ai-text, #3730a3);
+  font-weight: 650;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.opp-ai-cell--loading {
+  cursor: progress;
+  opacity: 0.72;
+  text-decoration: none;
+}
+
+.opp-ai-cell--unavailable {
+  cursor: default;
+  font-size: 0.9em;
+}
+
+.opp-ai-cell--below_threshold,
+.opp-ai-cell--unavailable {
+  color: var(--opp-ai-muted, #6b7280);
+}
+
+.opp-ai-cell--below_threshold.opp-ai-cell--checkpoint,
+.opp-ai-cell--unavailable.opp-ai-cell--checkpoint {
+  background: rgba(245, 158, 11, 0.08);
+  border-bottom-style: dotted;
+  border-color: rgba(180, 83, 9, 0.42);
+}
+
+.opp-ai-locked-cell {
+  background: transparent;
+  border: 1px dotted;
+  border-radius: 5px;
+  color: var(--opp-ai-muted, #9ca3af);
+  cursor: pointer;
+  letter-spacing: 2px;
+  min-height: 26px;
+  min-width: 34px;
+}
+
+.opp-ai-detail {
+  box-sizing: border-box;
+  color: inherit;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 3px;
+  text-align: left;
+  white-space: normal;
+  width: min(300px, 78vw);
+}
+
+.opp-ai-detail__title {
+  color: #c7d2fe;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.opp-ai-detail__metric {
+  color: #c7d2fe;
+  font-size: 13px;
+  font-weight: 650;
+  margin-top: 2px;
+}
+
+.opp-ai-detail__calendar-note,
+.opp-ai-detail__checkpoint-note,
+.opp-ai-detail__context,
+.opp-ai-detail__description {
+  font-size: 13px;
+  line-height: 1.45;
+  margin-top: 4px;
+  opacity: 0.86;
+}
+
+.opp-ai-detail__context {
+  font-weight: 650;
+}
+
+.opp-ai-detail__checkpoint-note {
+  margin-top: 7px;
+}
+
+.opp-ai-detail__basis {
+  font-size: 13px;
+  font-weight: 650;
+  margin-top: 8px;
+}
+
+.opp-ai-detail__table {
+  border-collapse: collapse;
+  color: inherit;
+  font-size: 12px;
+  margin-top: 6px;
+  text-align: left;
+  width: 100%;
+}
+
+.opp-ai-detail__table td,
+.opp-ai-detail__table th {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  height: auto;
+  padding: 5px 4px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.opp-ai-detail__shown {
+  border: 1px dotted #a5b4fc;
+  border-radius: 4px;
+  color: #c7d2fe;
+  display: inline-block;
+  font-size: 10px;
+  margin-left: 5px;
+  padding: 1px 4px;
+  text-transform: uppercase;
+}
+
+.opp-ai-detail__value {
+  display: block;
+  font-weight: 650;
+}
+
+.opp-ai-detail__reason,
+.opp-ai-detail__value--loading,
+.opp-ai-detail__value--unavailable {
+  opacity: 0.72;
+}
+
+.opp-ai-detail__state {
+  color: #fbbf24;
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  margin-top: 2px;
+}
+
+.opp-ai-detail__reason {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.opp-ai-detail__help {
+  background: transparent;
+  border: 0;
+  color: #c7d2fe;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  margin-top: 8px;
+  padding: 3px 0;
+  text-decoration: underline;
+}
+
+.opp-ai-coachmark {
+  box-sizing: border-box;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 5px 3px;
+  text-align: left;
+  white-space: normal;
+  width: min(320px, 78vw);
+}
+
+.opp-ai-coachmark__title {
+  color: #c7d2fe;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.opp-ai-coachmark__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.opp-ai-coachmark button {
+  background: rgba(99, 102, 241, 0.22);
+  border: 1px solid #818cf8;
+  border-radius: 5px;
+  color: #eef2ff;
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .opp-ai-coachmark,
+  .opp-ai-detail,
+  .opp-ai-header-tooltip,
+  [data-tippy-root]:has(.opp-ai-coachmark),
+  [data-tippy-root]:has(.opp-ai-coachmark) .tippy-box,
+  [data-tippy-root]:has(.opp-ai-detail),
+  [data-tippy-root]:has(.opp-ai-detail) .tippy-box,
+  [data-tippy-root]:has(.opp-ai-header-tooltip),
+  [data-tippy-root]:has(.opp-ai-header-tooltip) .tippy-box {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+
+@media (pointer: coarse) {
+  .opp-ai-cell,
+  .opp-ai-locked-cell {
+    min-height: 30px;
+    min-width: 38px;
+  }
+}
+
 .selected {
   background-color: rgba(173,216,230,0.5);
 }

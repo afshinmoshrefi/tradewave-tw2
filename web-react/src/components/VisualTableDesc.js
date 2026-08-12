@@ -1,4 +1,4 @@
-// filters are in visual table used for selecting and ordering the data passed to the table
+﻿// filters are in visual table used for selecting and ordering the data passed to the table
 // starts from index 0
 
 import React, { useState, useEffect, useContext } from 'react'
@@ -37,67 +37,62 @@ const VisualTableDesc = (props) => {
     }, [props.seasonalYears,props.PEselected]);
     //---------------------------------------------
     useEffect(() => {
-
-        SetLastPriceDisplay('Not Traded')
-
-        const realtimeLastPrice = getCurrentRealtimeLastPrice(
-            props.symbol,
-            getTodayDate(),
-            props.opportunities,
-            props.activeOpportunities,
+        const id = getSelectedIDFromSecuritiesList2(
+            props.securityTypeList,
+            props.selectedSecurity
         )
-        if (realtimeLastPrice) {
-            props.SetLastPrice(realtimeLastPrice)
-            SetLastPriceDisplay(realtimeLastPrice[1])
+        const symbol = String(props.symbol || '').toUpperCase()
+        if (
+            !token
+            || !symbol
+            || id === undefined
+            || id === null
+            || String(id) === '-1'
+        ) {
+            props.SetLastPrice(['', 0])
+            if (props.SetLastPriceIdentity) props.SetLastPriceIdentity('')
+            SetLastPriceDisplay('Not Traded')
             return
         }
+        const requestIdentity = `${String(id)}|${symbol}`
+        const controller = new AbortController()
+        const asURL = appserverURL()
+        const url = `${asURL}/StockLastPrice/${id}/${symbol}?token=${token}`
 
-        let cancelled = false
+        props.SetLastPrice(['', 0])
+        if (props.SetLastPriceIdentity) props.SetLastPriceIdentity('')
+        SetLastPriceDisplay('Not Traded')
 
-
-        var id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity)
-        var asURL = appserverURL()
-        var url = `${asURL}/StockLastPrice/${id}/${props.symbol}?token=${token}`
-
-
-        fetch(url)
+        fetch(url, { signal: controller.signal })
             .then((res) => {
-                return res.json();
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                return res.json()
             })
             .then((g) => {
-
-                if (cancelled) return
-
-
-                if (g['StockLastPrice'][0] !== 0) { // this symbol is not traded
-
-
-
-                    props.SetLastPrice(g['StockLastPrice'])
-
+                const price = g?.StockLastPrice
+                if (!Array.isArray(price) || price.length < 2) {
+                    throw new Error('malformed StockLastPrice response')
+                }
+                props.SetLastPrice(price)
+                if (props.SetLastPriceIdentity) {
+                    props.SetLastPriceIdentity(requestIdentity)
+                }
+                if (price[0] !== 0) {
                     let td = new Date(getTodayDate() + 'T00:00:00')
-                    let sd = new Date(g['StockLastPrice'][0] + 'T00:00:00')
+                    let sd = new Date(price[0] + 'T00:00:00')
                     let days_since_last_price = Math.floor((td - sd) / 86400000)
 
-                    if (days_since_last_price < 7) SetLastPriceDisplay(g['StockLastPrice'][1])
+                    if (days_since_last_price < 7) SetLastPriceDisplay(price[1])
                     else SetLastPriceDisplay('Not Traded')
                 }
             })
             .catch(err => {
-                if (!cancelled) console.log('error retrieving stockLastPrice', err)
+                if (err?.name === 'AbortError') return
+                console.log('error retrieving stockLastPrice', err)
             })
 
-        return () => { cancelled = true }
-
-    }, [
-        props.symbol,
-        props.opportunities,
-        props.activeOpportunities,
-        props.securityTypeList,
-        props.selectedSecurity,
-        props.SetLastPrice,
-        token,
-    ]);
+        return () => controller.abort()
+    }, [props.symbol, props.selectedSecurity, props.securityTypeList, token]);
 
 
     // yearsFilterDesc

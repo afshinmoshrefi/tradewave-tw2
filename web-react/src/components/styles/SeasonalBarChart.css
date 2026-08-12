@@ -13,6 +13,7 @@
     background-color: lightblue;
     /* height: 92%; */
     width: 100%;
+    position: relative;
     
 }
 
@@ -147,4 +148,93 @@
 .watchlist-dropdown::-webkit-scrollbar-thumb {
   background: #888;
   border-radius: 3px;
+}
+
+.tw-range-comparison-notice {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(620px, calc(100% - 24px));
+    border: 1px solid var(--range-notice-border, rgba(55, 80, 125, 0.5));
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--range-notice-text, #10213e);
+    background: var(--range-notice-bg, rgba(234, 242, 255, 0.96));
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    font-size: 13px;
+}
+
+.tw-date-range-comparison-session {
+    max-width: min(620px, calc(100% - 24px));
+}
+
+.tw-range-comparison-notice.is-failed {
+    border-color: rgba(150, 40, 40, 0.55);
+    color: #741818;
+    background: rgba(255, 235, 235, 0.97);
+}
+
+.tw-range-comparison-notice > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tw-range-comparison-notice > div {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.tw-range-comparison-notice button {
+    border: 1px solid var(--range-notice-border, rgba(55, 80, 125, 0.5));
+    border-radius: 5px;
+    padding: 4px 8px;
+    color: var(--range-notice-text, #17325f);
+    background: var(--range-notice-button-bg, white);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.tw-range-comparison-notice button.is-primary {
+    border-color: #355fd3;
+    color: white;
+    background: #355fd3;
+}
+
+.tw-range-comparison-notice button.is-close {
+    display: inline-flex;
+    width: 26px;
+    height: 26px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.tw-range-comparison-notice button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+@media (max-width: 700px) {
+    .tw-range-comparison-notice {
+        left: 7px;
+        right: 7px;
+        top: 7px;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    .tw-range-comparison-notice > div {
+        justify-content: flex-end;
+    }
 }

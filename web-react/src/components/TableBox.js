@@ -1,10 +1,21 @@
-import React, { useEffect, useState, useContext, useRef, useMemo } from 'react'
+﻿import React, { useEffect, useContext, useRef, useMemo } from 'react'
 import { UserContext } from './UserContext'
 import { themeColors, tierHasAI } from './Common'
 import { BsChevronExpand, BsChevronDown, BsChevronUp } from "react-icons/bs"
 import Tippy from '@tippyjs/react'
 import './styles/TableBox.css'
 import jwt_decode from 'jwt-decode'
+import OpportunityAICell from './OpportunityAICell'
+import {
+  AI_COLUMNS,
+  AI_METRICS,
+  hasAvailableOpportunityAIScores,
+  normalizeOpportunityAIScore,
+  opportunityAIFlatFields,
+  opportunityAIHeaderColor,
+  opportunityTableMinimumWidth,
+  selectOpportunityVisibleColumns,
+} from './opportunityAIScores'
 import {
   analyzeOpportunityFilter,
   filterOpportunityRows,
@@ -12,14 +23,11 @@ import {
   sortOpportunityRows,
 } from './opportunityFilters'
 import { hasUsableBatchTrendScore } from './trendScoreState'
+import { recordAIScoreViewed } from './aiScoreActivation'
 
-// GTM playbook CARD W1.4 - fire once per browser session, the first time an
-// AI-eligible user actually sees real AI-score data in the table. Module-level
-// (not per-mount) so remounting TableBox (tab switches, filters) never re-fires
-// within the same session; the server-side handler is ALSO idempotent
-// (users.first_ai_score_viewed_at first-touch-only), so this is a courtesy
-// dedupe, not the source of truth.
-let _aiScoreViewedFiredThisSession = false
+const AI_COLS = AI_COLUMNS
+const DEFAULT_COLUMN_ORDER = ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'avg_profit', 'avg_profit2', 'sharpe_ratio2', 'TL', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe']
+const PENDING_CELL = <span title="Loading" aria-label="Loading">…</span>
 
 const REQUIRED_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])
 const MOBILE_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio', 'lOrS', 'date', 'price', 'sharpe_ratio2'])
@@ -52,9 +60,16 @@ const TableBox = ({
   mlScores,
   mlScoresLoading,
   mlPending,
+  mlEnabled,
+  mlMarketEligible,
+  mlUnavailableReason,
   columnVisibility,
   columnOrder,
-  shortDates
+  shortDates,
+  colSorted = 'sharpe_ratio',
+  sortedDir = 'd',
+  SetColSorted = () => {},
+  SetSortedDir = () => {},
 }) => {
 
   const { tableTextSize, tableTitleTextSize, wpUserLevels, loggedinUser, token, rdd, UITheme, SetDialogType, SetDialogProp, SetInfoBoxVisible } = useContext(UserContext)
@@ -63,16 +78,14 @@ const TableBox = ({
   const hasAI = tierHasAI(wpUserLevels)
   const openAILockDialog = () => {
     SetDialogProp({
-      title: 'See the AI Score',
-      contentText: "The AI Score ranks these opportunities by win-probability - it starts at the Analyst plan. Upgrade to turn it on across all U.S. stocks and ETFs.\n\nPrefer not to see this column? Go to Settings -> Opp Table and uncheck the AI scoring columns.",
+      title: 'See AI Scores',
+      contentText: 'AI Scores use the latest completed stock and market data to estimate win chance, ending return, and the best move during the AI time window. They also include a 0-100 return rank. Available for U.S. stocks and ETFs on the Analyst plan and above.',
       button1Text: 'See Plans', button2Text: 'Close', coverDivColor: 'rgb(222,222,222,0)'
     })
     SetDialogType('info-box')
     SetInfoBoxVisible(true)
   }
 
-  const [colSorted, SetColSorted] = useState('sharpe_ratio')
-  const [sortedDir, SetSortedDir] = useState('d') // ascending or descending
   const prevDataDepsRef = useRef('')
   const lastValidRowsRef = useRef([])
   const lastSourceRowsRef = useRef(table_data)
@@ -97,95 +110,77 @@ const TableBox = ({
   }
 
   // Build visible columns list based on user-defined order and columnVisibility
-  const hasMLData = mlScores && Object.keys(mlScores).length > 0;
-  const allColumns = useMemo(() => (columnOrder || DEFAULT_COLUMN_ORDER)
-    .filter(col => {
-      if (!showSR2 && (col === 'avg_profit2' || col === 'sharpe_ratio2')) return false;
-      if (['ml_score', 'win_prob', 'pred_return', 'pred_mfe'].includes(col)) {
-        // AI tier: keep AI columns only when there is data (drop on a non-ML market). Non-AI tier:
-        // keep ONLY ml_score as the single locked "AI Score" teaser column (drop the sub-metrics).
-        if (hasAI) { if (!hasMLData) return false; }
-        else if (col !== 'ml_score') return false;
-      }
-      return true;
-    }), [columnOrder, showSR2, hasAI, hasMLData]);
-
+  const hasMLData = hasAvailableOpportunityAIScores(mlScores)
+  const hasOptedInAIColumn = AI_COLS.some(column => columnVisibility && columnVisibility[column] === true)
   // GTM playbook CARD W1.4 - Postgres activation signal. The first time this AI-eligible
   // user actually has real AI-score data on screen, tell the server (which stamps
   // users.first_ai_score_viewed_at idempotently, logs an onboarding_events row, and
   // fires the GA4 ai_score_viewed event - all in ONE handler, per the strategy §2
   // persistence rule). Fire-and-forget, same-origin authed fetch; never throws.
   useEffect(() => {
-    if (!hasAI || !hasMLData || _aiScoreViewedFiredThisSession) return;
-    if (loggedinUser === '0') return;
-    _aiScoreViewedFiredThisSession = true;
+    if (!hasAI || !hasMLData || !hasOptedInAIColumn) return;
     const firstScoredRow = (table_data || []).find(r => r && r.symbol);
-    try {
-      fetch('/api/activation/ai-score-viewed', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          detail: {
-            symbol: firstScoredRow ? firstScoredRow.symbol : undefined,
-            horizon: firstScoredRow ? firstScoredRow.daysOut : undefined,
-          },
-        }),
-        keepalive: true,
-      }).catch(() => { /* fire-and-forget */ });
-    } catch (e) { /* never throw from telemetry */ }
-  }, [hasAI, hasMLData, loggedinUser, table_data]);
+    recordAIScoreViewed({
+      loggedinUser,
+      symbol: firstScoredRow ? firstScoredRow.symbol : undefined,
+      horizon: firstScoredRow ? firstScoredRow.daysOut : undefined,
+    });
+  }, [hasAI, hasMLData, hasOptedInAIColumn, loggedinUser, table_data]);
 
   // On mobile portrait, limit columns to avoid cramped table
   const isMobilePortrait = rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth;
-  const visibleColumns = useMemo(() => allColumns.filter(col => {
-    if (isMobilePortrait) return MOBILE_COLS.has(col);
-    if (REQUIRED_COLS.has(col)) return true;
-    if (columnVisibility && columnVisibility[col] === false) return false;
-    return true;
-  }), [allColumns, isMobilePortrait, columnVisibility]);
+  const visibleColumns = useMemo(() => selectOpportunityVisibleColumns({
+    columnOrder: columnOrder || DEFAULT_COLUMN_ORDER,
+    showSR2,
+    hasAI,
+    mlEnabled,
+    marketEligible: mlMarketEligible,
+    isMobilePortrait,
+    columnVisibility,
+  }), [columnOrder, showSR2, hasAI, mlEnabled, mlMarketEligible, isMobilePortrait, columnVisibility]);
 
-  // If colSorted is not in visibleColumns, reset to sharpe_ratio
-  useEffect(() => {
-    if (colSorted !== '' && !visibleColumns.includes(colSorted)) {
-      SetColSorted('sharpe_ratio');
-      SetSortedDir('d');
-    }
-  }, [colSorted, visibleColumns])
+  const aiSortPending = AI_COLS.includes(colSorted) && mlScoresLoading
 
   const filterAnalysis = useMemo(() => analyzeOpportunityFilter(filterText), [filterText])
   const aiFilterPending = isOpportunityFilterPending(filterText, mlScoresLoading)
 
   const currentFilterRows = useMemo(() => {
-    // Copy the original table data and inject TL + ML columns
+    // Copy the original table data and inject TL plus the displayed AI time length.
+    // The full-pattern score remains displayed through 90 days; longer patterns
+    // deliberately use only the 90-day reading.
     let tmp = [...table_data].map(row => {
       const score = stockScores && stockScores[row.symbol]
-      const lor_s = String(row.lOrS).startsWith('L') ? 'l' : 's'
-      const rawDays = parseInt(row.daysOut) - 1
-      const mlKey = `${row.symbol}|${rawDays}|${lor_s}`
-      const ml = mlScores && mlScores[mlKey]
-      const isPending = mlPending && mlPending.has(mlKey)
+      const aiBundle = normalizeOpportunityAIScore({
+        row,
+        scores: mlScores,
+        pendingKeys: mlPending,
+        loading: mlScoresLoading,
+        unavailableReason: mlUnavailableReason,
+      })
       return {
         ...row,
         TL: hasUsableBatchTrendScore(score) ? score.lscore : null,
-        ml_score: ml ? ml.ml_score : null,
-        win_prob: ml ? ml.win_prob : null,
-        pred_return: ml ? ml.pred_return : null,
-        pred_mfe: ml ? ml.pred_mfe : null,
-        ml_pending: isPending,  // true = spinner, false + null = '---'
+        aiBundle,
+        ...opportunityAIFlatFields(aiBundle),
       }
     })
 
     if (filterAnalysis.status !== 'valid' || aiFilterPending) return []
 
-    return sortOpportunityRows(filterOpportunityRows(tmp, filterText), colSorted, sortedDir)
-  }, [table_data, sortedDir, colSorted, filterText, stockScores, mlScores, mlPending, filterAnalysis.status, aiFilterPending])
+    const filtered = filterOpportunityRows(tmp, filterText)
+    // AI values arrive in batches. Keep the current order stable until the whole
+    // score snapshot is ready instead of making rows jump after every poll.
+    if (aiSortPending) return lastValidRowsRef.current.length > 0
+      ? lastValidRowsRef.current
+      : sortOpportunityRows(filtered, 'sharpe_ratio', 'd')
+    return sortOpportunityRows(filtered, colSorted, sortedDir)
+  }, [table_data, sortedDir, colSorted, filterText, stockScores, mlScores, mlPending, mlScoresLoading, mlUnavailableReason, filterAnalysis.status, aiFilterPending, aiSortPending])
 
   // Incomplete or invalid text is a typing state, not a new empty result.
   // Preserve the last valid membership while the status row explains what is
   // unfinished. A valid AI filter still masks rows while its complete score
   // snapshot is loading, so stale AI membership is never presented as final.
-  if (filterAnalysis.status === 'valid' && !aiFilterPending) {
+  if (filterAnalysis.status === 'valid' && !aiFilterPending && !aiSortPending) {
     lastValidRowsRef.current = currentFilterRows
   }
   const tableDataProcessed =
@@ -200,6 +195,8 @@ const TableBox = ({
         ? `Invalid filter: ${filterAnalysis.message}`
         : aiFilterPending
           ? 'Loading AI scores before applying this filter...'
+          : aiSortPending
+            ? 'Finishing AI scores before sorting. The table will stay still until they are ready.'
           : tableDataProcessed.length === 0 && String(filterText || '').trim().length > 0
             ? 'No opportunities match this filter.'
             : ''
@@ -279,19 +276,19 @@ const TableBox = ({
         tmpDict_tt['TL'] = 'Trend Long (0-100) - how bullish the current price trend is. Higher means price is above key moving averages with upward momentum. Click to sort.'
       } else if (k === 'price') {
         tmpDict['price'] = 'Price'
-        tmpDict_tt['price'] = 'Current real-time price. Green = up today, Red = down today. Hover for % change. Click to sort.'
+        tmpDict_tt['price'] = 'Latest available price. Real-time when available; otherwise the latest completed daily close is clearly labeled. Green = up, Red = down. Hover for details. Click to sort.'
       } else if (k === 'ml_score') {
         tmpDict['ml_score'] = 'AIS'
-        tmpDict_tt['ml_score'] = 'AI Score (0-100) - the AI models rank how well current conditions support this pattern. Higher is a stronger reading. Patterns longer than 90 days are not scored. Click to sort.'
+        tmpDict_tt['ml_score'] = AI_METRICS.ml_score.shortDescription
       } else if (k === 'win_prob') {
         tmpDict['win_prob'] = 'Win%'
-        tmpDict_tt['win_prob'] = 'Win Probability - calibrated AI estimate of the chance the pattern ends profitable (return above zero). Patterns longer than 90 days are not scored. Click to sort.'
+        tmpDict_tt['win_prob'] = AI_METRICS.win_prob.shortDescription
       } else if (k === 'pred_return') {
         tmpDict['pred_return'] = 'PredR'
-        tmpDict_tt['pred_return'] = 'Predicted Return (%) - AI ensemble predicted close-to-close return. Patterns longer than 90 days are not scored. Click to sort.'
+        tmpDict_tt['pred_return'] = AI_METRICS.pred_return.shortDescription
       } else if (k === 'pred_mfe') {
         tmpDict['pred_mfe'] = 'PMFE'
-        tmpDict_tt['pred_mfe'] = 'Predicted Max Favorable Excursion (%) - AI estimated max upside during the hold period. Patterns longer than 90 days are not scored. Click to sort.'
+        tmpDict_tt['pred_mfe'] = AI_METRICS.pred_mfe.shortDescription
       } else {
         tmpDict[k] = k
       }
@@ -329,16 +326,26 @@ const TableBox = ({
 
   //-------------------------------------------------------------------------------------------------------------------
   // Min-width per column - when total exceeds container, horizontal scrollbar appears
-  const COL_MIN_W = { symbol: 70, date: shortDates ? 55 : 80, daysOut: 60, price: 65, avg_profit: 65, win_prob: 60, pred_return: 65, pred_mfe: 65, ml_score: 55 };
-  const DEFAULT_COL_MIN = 55;
-  const tableMinWidth = visibleColumns.reduce((sum, c) => sum + (COL_MIN_W[c] || DEFAULT_COL_MIN), 0);
+  const tableMinWidth = opportunityTableMinimumWidth({
+    columns: visibleColumns,
+    isMobilePortrait,
+    shortDates,
+  });
 
   const firstAICol = visibleColumns.find(c => AI_COLS.includes(c));
 
   //-------------------------------------------------------------------------------------------------------------------
   return (
-    <div tabIndex="0" onKeyDown={handlerKeyDown}>
-      <table className="table-striped" style={{ ...tableStyle, minWidth: isMobilePortrait ? undefined : tableMinWidth }} >
+    <div className="opp-table-box" tabIndex="0" onKeyDown={handlerKeyDown} style={{
+      '--opp-ai-text': tc.aiCheckpointText,
+      '--opp-ai-bg': tc.aiCheckpointBg,
+      '--opp-ai-border': tc.aiCheckpointBorder,
+      '--opp-ai-focus': tc.aiCheckpointFocus,
+      '--opp-ai-panel': tc.panelBg,
+      '--opp-ai-muted': tc.textSecondary,
+      '--opp-ai-main-text': tc.text,
+    }}>
+      <table className="table-striped" style={{ ...tableStyle, minWidth: tableMinWidth }} >
 
         <colgroup>
           {(() => {
@@ -354,42 +361,53 @@ const TableBox = ({
 
         <thead>
           <tr style={{ fontSize: tableTitleTextSize, borderBottom: 'none' }}>
-            {visibleColumns.map((title) => (
-              <Tippy
-                disabled={!tooltipSW}
-                key={title}
-                placement={'bottom'}
-                content={
-                  <div theme="tw" >
-                    {tooltipSW ? tableTitleTooltip[title] : ''}
-                  </div>
-                }
-              >
-                <th
+            {visibleColumns.map((title) => {
+              const isAIColumn = AI_COLS.includes(title)
+              return (
+                <Tippy
+                  disabled={!tooltipSW || isAIColumn}
                   key={title}
-                  style={{
-                    height: rowHeight,
-                    whiteSpace: 'nowrap',
-                    backgroundColor: title === colSorted ? tc.statLabelBg : tc.tableHeaderBg,
-                    color: showAciveOpps
-                      ? 'blue'
-                      : (['ml_score', 'win_prob', 'pred_return', 'pred_mfe'].includes(title)
-                          ? (UITheme === 'dark' ? 'rgb(100, 220, 140)' : 'rgb(22, 163, 74)')
-                          : tc.text),
-                    ...(title === firstAICol ? { borderLeft: '2px solid #6366f1' } : {}),
-                    ...(title === 'symbol' && !isMobilePortrait ? { position: 'sticky', left: 0, zIndex: 2 } : {})
-                  }}
-                  onClick={(!hasAI && AI_COLS.includes(title)) ? openAILockDialog : handleTitleClicked(title)}
+                  placement={'bottom'}
+                  maxWidth={350}
+                  content={<div theme="tw">{tooltipSW ? tableTitleTooltip[title] : ''}</div>}
                 >
-                  {tableTitleDict[title]}{' '}
-                  {(!hasAI && AI_COLS.includes(title))
-                    ? <span title="AI scoring starts at Analyst" style={{ cursor: 'pointer' }}>🔒</span>
-                    : (title === colSorted
-                        ? (sortedDir === 'a' ? <BsChevronDown /> : <BsChevronUp />)
-                        : <BsChevronExpand />)}
-                </th>
-              </Tippy>
-            ))}
+                  <th
+                    key={title}
+                    aria-sort={title === colSorted ? (sortedDir === 'a' ? 'ascending' : 'descending') : 'none'}
+                    style={{
+                      height: rowHeight,
+                      whiteSpace: 'nowrap',
+                      backgroundColor: title === colSorted ? tc.statLabelBg : tc.tableHeaderBg,
+                      color: showAciveOpps
+                        ? 'blue'
+                        : (AI_COLS.includes(title)
+                            ? opportunityAIHeaderColor(UITheme)
+                            : tc.text),
+                      ...(title === firstAICol ? { borderLeft: `2px solid ${tc.aiCheckpointBorder || '#6366f1'}` } : {}),
+                      ...(title === 'symbol' && !isMobilePortrait ? { position: 'sticky', left: 0, zIndex: 4 } : {})
+                    }}
+                  >
+                    <div className="opp-table-header-actions">
+                      <button
+                        type="button"
+                        className="opp-table-sort-button"
+                        onClick={(!hasAI && isAIColumn) ? openAILockDialog : handleTitleClicked(title)}
+                        aria-label={(!hasAI && isAIColumn)
+                          ? `${tableTitleDict[title]} is locked. Learn about plans with AI Scores.`
+                          : `Sort by ${tableTitleDict[title]}${title === colSorted ? `, currently ${sortedDir === 'a' ? 'ascending' : 'descending'}` : ''}`}
+                      >
+                        <span>{tableTitleDict[title]}</span>
+                        {(!hasAI && isAIColumn)
+                          ? <span title="AI Scores start at Analyst" aria-hidden="true">🔒</span>
+                          : (title === colSorted
+                              ? (sortedDir === 'a' ? <BsChevronDown aria-hidden="true" /> : <BsChevronUp aria-hidden="true" />)
+                              : <BsChevronExpand aria-hidden="true" />)}
+                      </button>
+                    </div>
+                  </th>
+                </Tippy>
+              )
+            })}
           </tr>
         </thead>
 
@@ -417,7 +435,7 @@ const TableBox = ({
                 <td key={`${key}-${index}`} style={{
                   height: rowHeight,
                   whiteSpace: 'nowrap',
-                  ...(key === firstAICol ? { borderLeft: '2px solid #6366f1' } : {}),
+                  ...(key === firstAICol ? { borderLeft: `2px solid ${tc.aiCheckpointBorder || '#6366f1'}` } : {}),
                   ...(key === 'symbol' && !isMobilePortrait ? {
                     position: 'sticky',
                     left: 0,
@@ -426,7 +444,12 @@ const TableBox = ({
                   } : {})
                 }}>
                   {(!hasAI && AI_COLS.includes(key))
-                    ? <span style={{ color: '#bbb', letterSpacing: '2px' }}>· · ·</span>
+                    ? <button
+                        type="button"
+                        className="opp-ai-locked-cell"
+                        aria-label="AI Scores are locked. Learn about plans with AI Scores."
+                        onClick={event => { event.stopPropagation(); openAILockDialog() }}
+                      >· · ·</button>
                     : key === 'TL' && row[key] === null
                     ? PENDING_CELL
                     : key === 'price'
@@ -435,10 +458,16 @@ const TableBox = ({
                             placement="top"
                             content={
                               <div style={{ fontSize: '11px' }}>
-                                <span style={{ color: row.change_p > 0 ? '#4caf50' : row.change_p < 0 ? '#f44336' : 'inherit' }}>
-                                  {row.change_p > 0 ? '▲' : row.change_p < 0 ? '▼' : '–'}
-                                </span>{' '}
-                                {Number.isFinite(row.change_p) ? `${row.change_p > 0 ? '+' : ''}${row.change_p.toFixed(2)}%` : '0.00%'}
+                                {row.realtimeQuote && row.realtimeQuote.source === 'eod_close' && (
+                                  <div>Latest completed close, {row.realtimeQuote.date || 'date unavailable'}</div>
+                                )}
+                                <div>
+                                  <span style={{ color: row.change_p > 0 ? '#4caf50' : row.change_p < 0 ? '#f44336' : 'inherit' }}>
+                                    {row.change_p > 0 ? '▲' : row.change_p < 0 ? '▼' : '–'}
+                                  </span>{' '}
+                                  {Number.isFinite(row.change_p) ? `${row.change_p > 0 ? '+' : ''}${row.change_p.toFixed(2)}%` : '0.00%'}
+                                  {row.realtimeQuote && row.realtimeQuote.source === 'eod_close' ? ' from previous close' : ''}
+                                </div>
                               </div>
                             }
                           >
@@ -447,15 +476,13 @@ const TableBox = ({
                             </span>
                           </Tippy>
                         : ' - ')
-                      : key === 'ml_score'
-                        ? (row.ml_score != null ? row.ml_score.toFixed(1) : row.ml_pending ? PENDING_CELL : '---')
-                        : key === 'win_prob'
-                          ? (row.win_prob != null ? (row.win_prob * 100).toFixed(0) + '%' : row.ml_pending ? PENDING_CELL : '---')
-                          : key === 'pred_return'
-                            ? (row.pred_return != null ? row.pred_return.toFixed(1) + '%' : row.ml_pending ? PENDING_CELL : '---')
-                            : key === 'pred_mfe'
-                              ? (row.pred_mfe != null ? row.pred_mfe.toFixed(1) + '%' : row.ml_pending ? PENDING_CELL : '---')
-                              : (key === 'date' && shortDates && row[key] && row[key].length > 5)
+                      : AI_COLS.includes(key)
+                        ? <OpportunityAICell
+                            bundle={row.aiBundle}
+                            metric={key}
+                            symbol={row.symbol}
+                          />
+                        : (key === 'date' && shortDates && row[key] && row[key].length > 5)
                                 ? row[key].substring(5)
                                 : row[key]
                   }

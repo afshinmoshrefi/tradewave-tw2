@@ -1,4 +1,4 @@
-export const EMPTY_DAY_RANGE = '-'
+﻿export const EMPTY_DAY_RANGE = '-'
 
 const splitFilterSegments = (filterText) => String(filterText || '')
   .split(';')
@@ -130,6 +130,20 @@ export const getOpportunityDayRange = (filterText) => {
   }
 
   return EMPTY_DAY_RANGE
+}
+
+// The table label is an inclusive calendar-day count (entry day is day 1),
+// while OppList4 stores the analytics engine's zero-based daysOut value.
+// Convert only at that server boundary; client filtering and telemetry keep
+// the displayed calendar-day range.
+export const toOpportunityEngineDayRange = (displayRange) => {
+  if (displayRange === EMPTY_DAY_RANGE) return EMPTY_DAY_RANGE
+  const match = String(displayRange || '').match(/^(\d+)-(\d+)$/)
+  if (!match) return EMPTY_DAY_RANGE
+  const start = parseInt(match[1], 10)
+  const end = parseInt(match[2], 10)
+  if (start < 1 || end <= start) return EMPTY_DAY_RANGE
+  return `${start - 1}-${end - 1}`
 }
 
 export const filterOpportunityRows = (rows, filterText) => {

@@ -1,4 +1,4 @@
-import { finiteQuoteNumber, normalizeRealtimeQuote } from './realtimePrices';
+﻿import { finiteQuoteNumber, normalizeRealtimeQuote } from './realtimePrices';
 
 test('accepts finite numeric quote values', () => {
   expect(normalizeRealtimeQuote({ price: '137.16', change_p: '-0.25' })).toEqual({
@@ -53,5 +53,19 @@ test('preserves a complete valid quote for price-chart and stats consumers', () 
     volume: 1250000,
     timestamp: 1785859200,
     date: '2026-08-04',
+  });
+});
+
+test('preserves a completed-close source label without treating it as realtime', () => {
+  expect(normalizeRealtimeQuote({
+    price: '159.12',
+    change_p: '0.8',
+    date: '2026-08-05',
+    source: 'eod_close',
+  })).toMatchObject({
+    price: 159.12,
+    change_p: 0.8,
+    date: '2026-08-05',
+    source: 'eod_close',
   });
 });

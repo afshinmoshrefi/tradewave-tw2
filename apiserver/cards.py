@@ -817,6 +817,7 @@ def compact_setup(opp):
     """A compact setup+stats row for other_setups[] (no full receipts/next_step)."""
     return {
         "symbol": opp.get("symbol"),
+        "market": str(opp.get("market")) if opp.get("market") is not None else None,
         "direction": opp.get("direction"),
         "entry_date": opp.get("entry_date"),
         "hold_days": opp.get("days_out"),

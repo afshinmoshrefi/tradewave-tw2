@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useRef } from 'react';
+﻿import React, { useContext, useEffect, useState, useRef } from 'react';
 import { unstable_batchedUpdates } from 'react-dom';
 import { Line } from 'react-chartjs-2';
 import { UserContext } from './UserContext';
@@ -19,7 +19,7 @@ import { UIcolors, themeColors } from './Common';
 import { opp_dashboard_dialog_content } from './Common';
 import { BsFillCircleFill } from "react-icons/bs";
 import { brand, trend_chart_left_gap_days } from './Common'
-import { getTrendChartResizeTooltips } from './trendChartResizeTooltips';
+import { peCycleAfterYearDelta } from './viewerCycleState'
 
 const SeasonalChart = (props) => {
 
@@ -767,9 +767,7 @@ const SeasonalChart = (props) => {
             let pendingPEKey = null;
 
             if (yearDelta !== 0 && props.PEselected && props.PEselected !== 'cons') {
-                const cur = parseInt(props.PEselected.substring(2), 10);   // "pe2" -> 2
-                const next = Math.max(0, Math.min(3, cur + yearDelta));
-                const nextKey = `pe${next}`;
+                const nextKey = peCycleAfterYearDelta(props.PEselected, yearDelta);
                 if (nextKey !== props.PEselected) {
                     pendingPEKey = nextKey;
                 }
@@ -1052,8 +1050,8 @@ const SeasonalChart = (props) => {
                                     {props.tooltipSW ? 'Export Strategy Barchart and the Trend Chart as Jpeg' : ''}
                                 </div>
                             }>
-                                <div style={{ height: '100%', width: '10%', display: 'flex', alignItems: 'center', justifyContent: 'left', marginLeft: '10px' }} onClick={doubleLeftArrow} >
-                                    <BsDownload size={20} style={{ fill: "white" }} onClick={handleExport} />
+                                <div role="button" aria-label="Download Wave Viewer screenshot" tabIndex={0} style={{ height: '100%', width: '10%', display: 'flex', alignItems: 'center', justifyContent: 'left', marginLeft: '10px', cursor: 'pointer' }} onClick={handleExport} >
+                                    <BsDownload size={20} style={{ fill: "white" }} aria-hidden="true" />
                                 </div>
                             </Tippy>
                             :
@@ -1123,6 +1121,18 @@ const SeasonalChart = (props) => {
                                 <BsFillCircleFill size={12} style={{ fill: "white" }} />
                             </div>
                         </Tippy>
+
+                        {props.showAIScoreNavigation &&
+                            <Tippy placement={'top'} content={
+                                <div theme="tw" >
+                                    {'AI Scores'}
+                                </div>
+                            }>
+                                <div style={{ marginLeft: '1vw', display: 'flex', alignItems: 'center', width: '20%' }} onClick={() => props.chartTo('ai_scores')}>
+                                    <BsFillCircleFill size={12} style={{ fill: "white" }} />
+                                </div>
+                            </Tippy>
+                        }
 
                         <Tippy placement={'top'} content={
                             <div theme="tw" >

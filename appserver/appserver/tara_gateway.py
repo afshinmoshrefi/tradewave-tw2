@@ -1,4 +1,4 @@
-"""Tara -> v1 API gateway client (Phase 1: read-client).
+﻿"""Tara -> v1 API gateway client (Phase 1: read-client).
 
 The in-product assistant ("Tara", chatbot.py) calls the SAME public v1 gateway the API +
 MCP server use, so the numbers it narrates are the gateway's server-composed PatternCards -
@@ -18,6 +18,7 @@ import json
 import logging
 import re
 import sys
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
@@ -136,13 +137,12 @@ TOOLS = [
         "description": (
             "DRIVE THE WAVE-VIEWER: load a symbol/setup or change a knob so the user actually "
             "SEES it on screen, instead of telling them where to click. Call this when the user "
-            "says show me / load / pull up / open / change the years / switch to the PE cycle, "
-            "asks to show/hide the MFE or MAE overlays, or asks to show the Trend Chart, "
-            "Wave Stats, or Price Chart in the lower carousel. It can also show or hide the global "
-            "guidance tooltips. "
-            "Pass concrete fields. To show a date-range PRESET (a month/quarter/season), FIRST "
-            "call analyze_symbol with period= to get the resolved entry_date + days_out, THEN "
-            "pass those here. Usually pair this with a read tool so you can also narrate the setup."
+            "says show me / load / pull up / open / change the years / switch to the PE cycle. "
+            "For any new or different symbol/setup, FIRST use a read tool and copy its exact "
+            "symbol + market id + entry_date + hold_days/days_out here; invented or partial "
+            "setups are rejected. For a date-range preset (month/quarter/season), call "
+            "analyze_symbol with period= first. A knob-only change or exact confirmed-view refresh "
+            "may omit the setup fields."
         ),
         "input_schema": {
             "type": "object",
@@ -248,7 +248,7 @@ def _mini(item):
     st = item.get("stats") if isinstance(item.get("stats"), dict) else item
     setup = item.get("setup") if isinstance(item.get("setup"), dict) else item
     out = {}
-    for k in ("rank", "symbol", "direction", "bias", "headline"):
+    for k in ("rank", "symbol", "market", "direction", "bias", "headline"):
         if item.get(k) is not None:
             out[k] = item[k]
     for k in (
@@ -260,7 +260,7 @@ def _mini(item):
     ):
         if st.get(k) is not None:
             out[k] = st[k]
-    for k in ("entry_date", "hold_days"):
+    for k in ("entry_date", "hold_days", "days_out"):
         if setup.get(k) is not None:
             out[k] = setup[k]
     return out
@@ -353,52 +353,651 @@ def _bounded_json(out):
 # Allowlist + range-check every field server-side before it can become a client action. The
 # client re-validates too (defense in depth). Only these fields can ever drive the UI.
 _VS_SYMBOL_RE = re.compile(r"^[A-Za-z0-9.\-]{1,15}$")
+_VS_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _VS_MARKETS = {str(i) for i in range(17) if i not in (14, 15)}   # 14/15 (Korea) removed; never renumber
 _VS_PE = {"consecutive": "cons", "cons": "cons", "pe0": "pe0", "pe1": "pe1", "pe2": "pe2", "pe3": "pe3"}
-_VS_BOTTOM_SLIDES = {"trend_chart", "wave_stats", "price_chart"}
+_VS_FIELDS = {"symbol", "market", "entry_date", "days_out", "years", "pe_cycle"}
 
 
-def _validate_view_spec(spec):
-    """Return a cleaned ViewSpec containing ONLY valid, in-range fields (drops the rest).
-    A field that fails validation is silently omitted so a partial/garbled spec still applies
-    the good parts. Returns {} if nothing is valid (the loop then reports ok:false to the model)."""
-    if not isinstance(spec, dict):
+def _confirmed_view_setup(current_view):
+    """Return the complete setup identity for an actually confirmed browser view.
+
+    A symbol plus ``view_ready`` is not enough evidence for a partial refresh:
+    the browser must also identify the exact market, entry date, and duration
+    whose two charts succeeded.
+    """
+    current = current_view or {}
+    if not isinstance(current, dict) or current.get("view_ready") is not True:
+        return None
+    symbol = current.get("symbol")
+    market = current.get("market")
+    entry_date = current.get("entry_date") or current.get("start_date")
+    days_out = current.get("days_out")
+    if not (
+        isinstance(symbol, str)
+        and _VS_SYMBOL_RE.fullmatch(symbol)
+        and market is not None
+        and str(market) in _VS_MARKETS
+        and isinstance(entry_date, str)
+        and _VS_DATE_RE.fullmatch(entry_date)
+        and not isinstance(days_out, bool)
+    ):
+        return None
+    try:
+        datetime.datetime.strptime(entry_date, "%Y-%m-%d")
+        parsed_days = int(days_out)
+    except (TypeError, ValueError):
+        return None
+    if not 1 <= parsed_days <= 366:
+        return None
+    return {
+        "symbol": symbol.upper(),
+        "market": str(market),
+        "entry_date": entry_date,
+        "days_out": parsed_days,
+    }
+
+
+def _validate_view_spec(spec, current_view=None):
+    """Validate one ViewSpec atomically; return {} when any field is invalid.
+
+    Silently applying only the valid subset can produce a different chart than
+    the one Tara described (for example, a new symbol with the previous
+    symbol's dates). A symbol change therefore also requires a resolved
+    entry_date + days_out pair. Same-symbol requests may omit the pair to
+    explicitly refresh the current setup.
+    """
+    if not isinstance(spec, dict) or not spec or set(spec) - _VS_FIELDS:
         return {}
     out = {}
-    sym = spec.get("symbol")
-    if isinstance(sym, str) and _VS_SYMBOL_RE.match(sym):
+    if "symbol" in spec:
+        sym = spec.get("symbol")
+        if not (isinstance(sym, str) and _VS_SYMBOL_RE.fullmatch(sym)):
+            return {}
         out["symbol"] = sym.upper()
-    mk = spec.get("market")
-    if mk is not None and str(mk) in _VS_MARKETS:
+    if "market" in spec:
+        mk = spec.get("market")
+        if mk is None or str(mk) not in _VS_MARKETS:
+            return {}
         out["market"] = str(mk)
-    ed = spec.get("entry_date")
-    if isinstance(ed, str):
+    if "entry_date" in spec:
+        ed = spec.get("entry_date")
+        if not (isinstance(ed, str) and _VS_DATE_RE.fullmatch(ed)):
+            return {}
         try:
             datetime.datetime.strptime(ed, "%Y-%m-%d")
             out["entry_date"] = ed
         except ValueError:
-            pass
-    do = spec.get("days_out")
-    if isinstance(do, int) and not isinstance(do, bool) and 1 <= do <= 366:
+            return {}
+    if "days_out" in spec:
+        do = spec.get("days_out")
+        if not (isinstance(do, int) and not isinstance(do, bool) and 1 <= do <= 366):
+            return {}
         out["days_out"] = do
-    yr = spec.get("years")
-    if isinstance(yr, int) and not isinstance(yr, bool) and 1 <= yr <= 99:
+    if "years" in spec:
+        yr = spec.get("years")
+        if not (isinstance(yr, int) and not isinstance(yr, bool) and 1 <= yr <= 99):
+            return {}
         out["years"] = yr
-    pe = spec.get("pe_cycle")
-    if isinstance(pe, str) and pe.lower() in _VS_PE:
+    if "pe_cycle" in spec:
+        pe = spec.get("pe_cycle")
+        if not (isinstance(pe, str) and pe.lower() in _VS_PE):
+            return {}
         out["pe_cycle"] = _VS_PE[pe.lower()]
-    for field in ("show_mfe", "show_mae", "show_tooltips"):
-        value = spec.get(field)
-        if isinstance(value, bool):
-            out[field] = value
-    bottom_slide = spec.get("bottom_slide")
-    if isinstance(bottom_slide, str) and bottom_slide in _VS_BOTTOM_SLIDES:
-        out["bottom_slide"] = bottom_slide
+
+    has_entry = "entry_date" in out
+    has_days = "days_out" in out
+    if has_entry != has_days:
+        return {}
+    # A date/duration pair changes the actual setup. It must carry the symbol
+    # and market that a read tool resolved; otherwise the browser would fill
+    # in stale current-view fields and an invented setup could slip through.
+    if has_entry and "symbol" not in out:
+        return {}
+    if out.get("symbol"):
+        confirmed_setup = _confirmed_view_setup(current_view)
+        setup_is_current = (
+            not (has_entry and has_days)
+            or (
+                confirmed_setup is not None
+                and out["entry_date"] == confirmed_setup["entry_date"]
+                and out["days_out"] == confirmed_setup["days_out"]
+            )
+        )
+        can_refresh_confirmed_setup = (
+            confirmed_setup is not None
+            and out["symbol"] == confirmed_setup["symbol"]
+            and setup_is_current
+            and (
+                "market" not in out
+                or out["market"] == confirmed_setup["market"]
+            )
+        )
+        if not can_refresh_confirmed_setup:
+            if not (has_entry and has_days and "market" in out):
+                return {}
     return out
 
 
+def _view_action(spec):
+    """Build one client action with a correlation id.
+
+    `validated` means only that the server accepted the ViewSpec. It does NOT
+    mean the browser applied it or that chart data loaded; the client reports
+    that outcome separately.
+    """
+    return {
+        "action_id": uuid.uuid4().hex,
+        "type": "set_view",
+        "status": "validated",
+        "spec": spec,
+    }
+
+
+def _queue_view_action(actions, spec):
+    """Append a ViewSpec once and return the canonical queued action."""
+    for action in actions:
+        if action.get("type") == "set_view" and action.get("spec") == spec:
+            return action
+    action = _view_action(spec)
+    actions.append(action)
+    return action
+
+
+def _view_actions_conflict(actions):
+    """Return True when one turn requests two different values for one view field."""
+    merged = {}
+    for action in actions:
+        if action.get("type") != "set_view" or not isinstance(action.get("spec"), dict):
+            continue
+        for key, value in action["spec"].items():
+            if key in merged and merged[key] != value:
+                return True
+            merged[key] = value
+    return False
+
+
+def _card_market_id(card):
+    if not isinstance(card, dict):
+        return ""
+    market = card.get("market")
+    if isinstance(market, dict):
+        market = market.get("id")
+    if market not in (None, "") and str(market) in _VS_MARKETS:
+        return str(market)
+    wave_viewer = card.get("wave_viewer")
+    pattern = wave_viewer.get("pattern") if isinstance(wave_viewer, dict) else None
+    if isinstance(pattern, dict) and str(pattern.get("market_id")) in _VS_MARKETS:
+        return str(pattern["market_id"])
+    return ""
+
+
+def _view_spec_is_grounded(spec, card_list, current_view=None):
+    """Bind a symbol/setup action to confirmed context or a read result from this turn."""
+    if not spec.get("symbol"):
+        return set(spec).issubset({"market", "years", "pe_cycle"})
+    confirmed_setup = _confirmed_view_setup(current_view)
+    exact_confirmed = (
+        confirmed_setup is not None
+        and spec["symbol"] == confirmed_setup["symbol"]
+        and (
+            "market" not in spec
+            or spec["market"] == confirmed_setup["market"]
+        )
+        and (
+            "entry_date" not in spec
+            or (
+                spec.get("entry_date") == confirmed_setup["entry_date"]
+                and spec.get("days_out") == confirmed_setup["days_out"]
+            )
+        )
+    )
+    if exact_confirmed:
+        return True
+
+    for card in card_list or []:
+        setup = card.get("setup") if isinstance(card, dict) else None
+        if not isinstance(setup, dict):
+            setup = card if isinstance(card, dict) else {}
+        try:
+            setup_days = (
+                setup.get("hold_days")
+                if setup.get("hold_days") is not None
+                else setup.get("days_out")
+            )
+            hold_days = int(setup_days)
+        except (TypeError, ValueError):
+            continue
+        if (
+            str(card.get("symbol") or "").upper() == spec.get("symbol")
+            and setup.get("entry_date") == spec.get("entry_date")
+            and hold_days == spec.get("days_out")
+            and _card_market_id(card) == spec.get("market")
+        ):
+            return True
+    return False
+
+
 def _text_of(blocks):
-    return "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
+    return "".join(
+        b.get("text", "")
+        for b in (blocks or [])
+        if isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str)
+    ).strip()
+
+
+# A model occasionally prints another provider's XML-like function-call
+# notation instead of returning Anthropic's native tool_use blocks. That text
+# is never executable and must never reach the browser as if it were an answer.
+_INTERNAL_TOOL_MARKUP_RE = re.compile(
+    r"<\s*/?\s*(?:function_calls?|invoke|parameter)\b",
+    re.IGNORECASE,
+)
+_VIEW_COMPLETION_RE = re.compile(
+    r"(?:"
+    r"\b(?:is|are|was|were|has\s+been)\s+(?:already\s+|now\s+)?loaded\b"
+    r"|\b(?:i(?:'ve|\s+have)?|we(?:'ve|\s+have)?)\s+loaded\b"
+    r"|\b(?-i:[A-Z][A-Z0-9.\-]{0,14})\s+(?:has\s+)?loaded\s+successfully\b"
+    r"|\bloaded\s+(?:on|in|into)\s+(?:the|your)\s+(?:chart|viewer|screen)\b"
+    r"|^\s*loaded[.!]?\s*$"
+    r"|\breloaded\b"
+    r"|\breload\s+(?:is\s+)?complete\b"
+    r"|\b[A-Za-z0-9.\-]{1,15}\s+is\s+(?:now\s+)?on\s+(?:the|your)\s+(?:chart|viewer|screen)\b"
+    r"|\b[A-Za-z0-9.\-]{1,15}\s+is\s+(?:now\s+)?(?:displayed|shown|showing)\s+"
+    r"(?:on|in)\s+(?:the|your)\s+(?:chart|viewer|screen)\b"
+    r"|\b(?:chart|viewer|screen)\s+(?:now\s+)?(?:shows|displays)\b"
+    r"|\b(?:the\s+)?(?:chart|view|viewer|screen)\s+is\s+(?:now\s+)?showing\b"
+    r"|\b(?:the\s+)?(?:chart|viewer|screen)\s+(?:now\s+)?contains\b"
+    r"|\b(?:the\s+)?(?:chart|view|viewer|screen)\s+(?:has|have)\s+been\s+"
+    r"(?:updated|changed|switched)\b"
+    r"|\b(?:the\s+)?(?:chart|view|viewer|screen)\s+(?:has|have)\s+refreshed\b"
+    r"|\b(?:i(?:'ve|\s+have)?|we(?:'ve|\s+have)?)\s+"
+    r"(?:put|placed|opened|shown)\b.{0,50}\b(?:chart|viewer|screen)\b"
+    r"|\b(?:i(?:'ve|\s+have)?|we(?:'ve|\s+have)?)\s+brought\s+up\s+"
+    r"(?-i:[A-Z][A-Z0-9.\-]{0,14})\b"
+    r"|\b(?:you(?:'re|\s+are)|we(?:'re|\s+are)|i(?:'m|\s+am))\s+"
+    r"(?:now\s+)?viewing\b"
+    r"|\b(?:chart|view|viewer|screen)\s+(?:is\s+)?(?:ready|updated|changed)\b"
+    r"|\b(?:switched|updated|changed)\s+(?:the|your)\s+(?:chart|view|viewer)\b"
+    r"|\b(?:i(?:'ve|\s+have)?|we(?:'ve|\s+have)?)\s+switched\s+to\s+"
+    r"(?-i:[A-Z][A-Z0-9.\-]{0,14})\b"
+    r"|^\s*done(?:\s*[-:–—].*)?[.!]?\s*$"
+    r")",
+    re.IGNORECASE,
+)
+_VIEW_PROMISE_RE = re.compile(
+    r"\b(?:"
+    r"(?:i|we)\s*(?:'ll|’ll|\s+will|\s+(?:am|are)\s+going\s+to)\s+"
+    r"(?:try\s+to\s+)?(?:load|reload|open|display|show|pull\s+up|bring\s+up)"
+    r"|let\s+me\s+(?:load|reload|open|display|show|pull\s+up|bring\s+up)"
+    r"|(?:loading|reloading|opening|displaying|pulling\s+up|bringing\s+up)\s+"
+    r"(?:(?-i:[A-Z][A-Z0-9.\-]{0,14})|it|this|that|(?:the|your)\s+"
+    r"(?:chart|view|viewer|screen))\b.{0,20}\bnow\b"
+    r")\b",
+    re.IGNORECASE,
+)
+_NEGATED_VIEW_COMPLETION_RE = re.compile(
+    r"\b(?:"
+    r"(?:i|we)\s+(?:haven't|have\s+not|didn't|did\s+not|won't|will\s+not)\s+"
+    r"(?:load|loaded|reload|reloaded|change|changed|update|updated|switch|switched)"
+    r"(?:\s+|.{0,25}\b)(?:the|your)?\s*(?:chart|view|viewer|screen)?"
+    r"|(?:the\s+)?(?:chart|view|viewer|screen)\s+"
+    r"(?:wasn't|was\s+not|isn't|is\s+not|hasn't\s+been|has\s+not\s+been)\s+"
+    r"(?:loaded|reloaded|changed|updated|switched|refreshed|ready)"
+    r")\b",
+    re.IGNORECASE,
+)
+_ALREADY_LOADED_SYMBOL_RE = re.compile(
+    r"\b([A-Za-z0-9.\-]{1,15})\s+is\s+already\s+loaded\b",
+    re.IGNORECASE,
+)
+_VIEW_SYMBOL_TOKEN = (
+    r"(?!(?:chart|graph|viewer|screen|trades?|picks?|ideas?|setups?|ones?)\b)"
+    r"[A-Za-z][A-Za-z0-9.\-]{0,14}"
+)
+_DIRECT_VIEW_REQUEST_RE = re.compile(
+    r"(?:"
+    r"\b(?:load|reload|pull\s+up)\b"
+    r"|\b(?:show|open)\s+(?:me\s+)?(?:the\s+)?(?:another|something\s+good|"
+    r"this\s+(?:setup|pattern)|that\s+(?:setup|pattern)|"
+    r"(?!(?:how|what|why|where|guide|help|price|trend|bar|graph|chart|viewer)\b)"
+    r"[A-Za-z][A-Za-z0-9.\-]{0,14})\b"
+    r"|\bput\b.{0,40}\b(?:on|in)\s+(?:the|your)\s+(?:chart|viewer)\b"
+    r"|\b(?:can|could|may)\s+i\s+(?:see|view)\s+(?:the\s+)?"
+    + _VIEW_SYMBOL_TOKEN +
+    r"\b"
+    r"|\bpull\s+(?:me\s+)?"
+    + _VIEW_SYMBOL_TOKEN +
+    r"\s+up\b"
+    r"|\bdisplay\s+(?:me\s+)?(?:the\s+)?"
+    + _VIEW_SYMBOL_TOKEN +
+    r"\b"
+    r"|\btake\s+me\s+to\s+(?:the\s+)?"
+    + _VIEW_SYMBOL_TOKEN +
+    r"\b"
+    r")",
+    re.IGNORECASE,
+)
+_VIEW_KNOB_REQUEST_RE = re.compile(
+    r"\b(?:switch|change|set)\b.{0,50}\b(?:years?|lookback|pe(?:\s+cycle)?|"
+    r"market|group|nasdaq|dow|s&p|etf|futures?|crypto|forex)\b",
+    re.IGNORECASE,
+)
+_NEGATED_VIEW_REQUEST_RE = re.compile(
+    r"\b(?:do\s+not|don't|dont|never|no\s+need\s+to|"
+    r"not\s+want(?:\s+you)?\s+to|without|avoid|stop)\b.{0,45}?"
+    r"\b(?:load(?:ed|ing)?|reload(?:ed|ing)?|display(?:ed|ing)?|"
+    r"show(?:n|ed|ing)?|open(?:ed|ing)?|pull\s+up|switch(?:ed|ing)?|"
+    r"change(?:d|ing)?|put)\b",
+    re.IGNORECASE,
+)
+_DIAGNOSTIC_VIEW_REQUEST_RE = re.compile(
+    r"\b(?:why|how)\b"
+    r"(?=[^;.!?]{0,100}\b(?:did(?:n't|\s+not)|does(?:n't|\s+not)|failed|"
+    r"fail(?:ed|ure)?|not\s+load|wasn't|was\s+not)\b)"
+    r"[^;.!?]{0,140}",
+    re.IGNORECASE,
+)
+_AUTO_VIEW_REQUEST_RE = re.compile(
+    r"(?:"
+    r"\bwhat\s+should\s+i\s+(?:trade|buy|sell)\b"
+    r"|\btoday(?:'s|\s+is)?\s+(?:ai\s+)?pick\b"
+    r"|\b(?:best|top)\s+(?:trade|pick|one)\b"
+    r"|\bshould\s+i\s+(?:trade|buy|sell)\s+[A-Za-z][A-Za-z0-9.\-]{0,14}\b"
+    r"|\bis\s+[A-Za-z][A-Za-z0-9.\-]{0,14}\s+(?:a\s+)?(?:good\s+)?trade\b"
+    r"|\bwhat\s+about\s+(?-i:[A-Z][A-Z0-9.\-]{0,14})\b"
+    r"|\banaly[sz]e\s+(?-i:[A-Z][A-Z0-9.\-]{0,14})\b"
+    r"|\bdoes\s+(?-i:[A-Z][A-Z0-9.\-]{0,14})\s+(?:actually\s+)?make\s+money\b"
+    r"|\b(?:give|recommend)\s+me\s+(?:a|one)\s+trade\b"
+    r")",
+    re.IGNORECASE,
+)
+_PLURAL_TRADE_LIST_REQUEST_RE = re.compile(
+    r"(?:"
+    r"\b(?:show|give|list|rank|find)\s+(?:me\s+)?(?:only\s+)?(?:the\s+)?"
+    r"(?:top\s+\d+(?:\s+(?:seasonal\s+)?(?:trades|setups|ideas|picks|ones|"
+    r"trade\s+(?:setups|ideas|picks)))?"
+    r"|(?:top|best|strongest|high(?:est)?[-\s]+win[-\s]+rate)"
+    r"\s+(?:seasonal\s+)?(?:trades|setups|ideas|picks|ones|"
+    r"trade\s+(?:setups|ideas|picks)))\b"
+    r"|\b(?:what|which)\s+are\b.{0,35}\b"
+    r"(?:best|top|strongest|high(?:est)?[-\s]+win[-\s]+rate)\b.{0,20}\b"
+    r"(?:trades|setups|ideas|picks|ones|trade\s+(?:setups|ideas|picks))\b"
+    r"|\b(?:best|top(?:\s+\d+)?|strongest|high(?:est)?[-\s]+win[-\s]+rate)"
+    r"\s+(?:seasonal\s+)?(?:trades|setups|ideas|picks|ones|"
+    r"trade\s+(?:setups|ideas|picks))\b"
+    r"|\bonly\s+the\s+best\s+ones\b"
+    r")",
+    re.IGNORECASE,
+)
+_LIVE_TIME_CRITERION_RE = re.compile(
+    r"\b(?:today|today's|todays|current|currently|live|right\s+now)\b",
+    re.IGNORECASE,
+)
+_LIVE_MARKET_CRITERION_RE = re.compile(
+    r"\b(?:intraday\s+)?volume\b"
+    r"|\b(?:broad\s+)?market(?:'s)?\s+(?:trend|direction|regime|momentum)\b"
+    r"|\b(?:trend|direction|regime|momentum)\s+(?:and|of|for|in)\s+(?:the\s+)?market\b",
+    re.IGNORECASE,
+)
+_LIVE_DECISION_RE = re.compile(
+    r"\b(?:best|highest|which|what|tell\s+me|should\s+i|"
+    r"long\s+or\s+short|buy|sell|trade|stock|pick)\b",
+    re.IGNORECASE,
+)
+_NO_ACTION_EXPLANATION_RE = re.compile(
+    r"\b(?:"
+    r"can(?:not|'t|’t)|could(?:not|n't|n’t)|unable|won't|will\s+not|"
+    r"not\s+found|isn't\s+available|is\s+not\s+available|unavailable|"
+    r"out[-\s]+of[-\s]+scope|outside\s+(?:my|the|tradeWave's)\s+scope|"
+    r"private(?:ly)?|not\s+publicly\s+traded|no\s+publicly\s+traded|"
+    r"does(?:n't|\s+not)\s+have\b.{0,35}\b(?:ticker|symbol)|"
+    r"(?:haven't|have\s+not|didn't|did\s+not)\s+(?:load|change)|"
+    r"(?:chart|view|viewer)\s+(?:wasn't|was\s+not|hasn't\s+been|has\s+not\s+been)\s+"
+    r"(?:loaded|changed|updated)"
+    r")\b",
+    re.IGNORECASE,
+)
+_NON_ACTIONABLE_RESULT_TEXT_RE = re.compile(
+    r"\b(?:not[-_\s]+found|out[-_\s]+of[-_\s]+scope|non[-_\s]+actionable|"
+    r"not[-_\s]+publicly[-_\s]+traded|private[-_\s]+company|"
+    r"unsupported[-_\s]+symbol|no[-_\s]+such[-_\s]+symbol|"
+    r"symbol\b.{0,40}\b(?:unavailable|unsupported))\b",
+    re.IGNORECASE,
+)
+
+_UNSUPPORTED_LIVE_DATA_RESPONSE = (
+    "I can't verify intraday volume or the broad market's live trend from TradeWave's "
+    "seasonal data, so I won't rank or load a trade on that basis. A seasonal-pattern "
+    "scan is the supported alternative."
+)
+
+
+def _contains_internal_tool_markup(text):
+    return bool(_INTERNAL_TOOL_MARKUP_RE.search(text or ""))
+
+
+def _contains_view_promise(text):
+    plain = re.sub(r"<[^>]*>", " ", text or "")
+    return bool(_VIEW_PROMISE_RE.search(plain))
+
+
+def _view_completion_violation(text, actions, current_view=None):
+    """Return True when prose claims a view action completed without proof.
+
+    A queued action is deliberately *not* proof: only the browser can confirm
+    that the requested state and its chart data loaded. The one no-action case
+    we allow is a literal "SYMBOL is already loaded" statement that agrees
+    with the viewer context supplied on this request.
+    """
+    plain = re.sub(r"<[^>]*>", " ", text or "")
+    # A truthful failure such as "I haven't changed the chart" contains the
+    # same status verbs as a completion claim. Remove only explicit negated
+    # status clauses before evaluating positive completion language.
+    plain = _NEGATED_VIEW_COMPLETION_RE.sub(" ", plain)
+    if not _VIEW_COMPLETION_RE.search(plain):
+        return False
+    if actions:
+        return True
+    current_symbol = str((current_view or {}).get("symbol") or "").upper()
+    current_ready = (current_view or {}).get("view_ready") is True
+    matches = list(_ALREADY_LOADED_SYMBOL_RE.finditer(plain))
+    if matches and current_symbol and current_ready:
+        # Every completion claim must be the narrow, viewer-confirmed form.
+        without_allowed = _ALREADY_LOADED_SYMBOL_RE.sub("", plain)
+        return (
+            any(m.group(1).upper() != current_symbol for m in matches)
+            or bool(_VIEW_COMPLETION_RE.search(without_allowed))
+        )
+    return True
+
+
+def response_violates_view_contract(text, actions=None, current_view=None):
+    """Public guard for callers that run Tara without the native tool loop."""
+    return (
+        _contains_internal_tool_markup(text)
+        or _contains_view_promise(text)
+        or _view_completion_violation(text, actions or [], current_view)
+    )
+
+
+def _unsupported_live_data_request(text):
+    """Return True for live criteria Tara's seasonal tools cannot verify.
+
+    These asks are not ordinary "best seasonal setup" requests. Requiring an
+    update_view action would encourage the model to substitute a Sharpe-ranked
+    seasonal result for the requested intraday-volume or broad-market regime
+    evidence.
+    """
+    return bool(
+        isinstance(text, str)
+        and _LIVE_TIME_CRITERION_RE.search(text)
+        and _LIVE_MARKET_CRITERION_RE.search(text)
+        and _LIVE_DECISION_RE.search(text)
+    )
+
+
+def _overlaps(match, spans):
+    return any(match.start() < span.end() and span.start() < match.end() for span in spans)
+
+
+def _latest_user_view_intent(messages):
+    for message in reversed(messages or []):
+        if message.get("role") != "user":
+            continue
+        content = message.get("content", "")
+        if isinstance(content, str):
+            if _unsupported_live_data_request(content):
+                return "unsupported_live"
+
+            negated = list(_NEGATED_VIEW_REQUEST_RE.finditer(content))
+            diagnostic = list(_DIAGNOSTIC_VIEW_REQUEST_RE.finditer(content))
+            lists = list(_PLURAL_TRADE_LIST_REQUEST_RE.finditer(content))
+            negative_spans = negated + diagnostic
+            events = [
+                (match.start(), match.end(), "forbid")
+                for match in negative_spans
+            ]
+            events.extend(
+                (match.start(), match.end(), "list")
+                for match in lists
+            )
+
+            # Positive directives inside "don't load ..." or inside a plural
+            # list ask are lexical matches, not actuation requests. A later,
+            # separate positive directive remains eligible, so "Don't load
+            # TSLA; load AAPL instead" resolves to the latest directive.
+            for matcher, intent in (
+                (_DIRECT_VIEW_REQUEST_RE, "chart"),
+                (_AUTO_VIEW_REQUEST_RE, "chart"),
+                (_VIEW_KNOB_REQUEST_RE, "view"),
+            ):
+                for match in matcher.finditer(content):
+                    if _overlaps(match, negative_spans) or _overlaps(match, lists):
+                        continue
+                    events.append((match.start(), match.end(), intent))
+
+            if events:
+                latest = max(events, key=lambda item: (item[0], item[1]))
+                return None if latest[2] == "list" else latest[2]
+        return None
+    return None
+
+
+def classify_view_intent(text):
+    """Classify one user turn for callers that cannot run the tool gateway."""
+    if not isinstance(text, str):
+        return None
+    return _latest_user_view_intent([{"role": "user", "content": text}])
+
+
+def unsupported_live_data_response():
+    """Return the deterministic capability boundary used with or without tools."""
+    return _UNSUPPORTED_LIVE_DATA_RESPONSE
+
+
+def _actions_satisfy_view_intent(actions, intent):
+    view_specs = [
+        action.get("spec", {})
+        for action in actions or []
+        if action.get("type") == "set_view" and isinstance(action.get("spec"), dict)
+    ]
+    if intent == "chart":
+        return any(spec.get("symbol") for spec in view_specs)
+    if intent == "view":
+        return bool(view_specs)
+    if intent == "forbid":
+        return not view_specs
+    if intent == "unsupported_live":
+        return not view_specs
+    return True
+
+
+def _read_result_is_explicitly_non_actionable(out):
+    """Accept only an explicit read failure/capability boundary, never an empty guess."""
+    if not isinstance(out, dict):
+        return False
+    if out.get("error"):
+        return True
+    if out.get("non_actionable") is True or out.get("chartable") is False:
+        return True
+    if out.get("ok") is False:
+        return True
+    for key in ("code", "status", "message", "note", "reason", "out_of_scope"):
+        value = out.get(key)
+        if value is not None and _NON_ACTIONABLE_RESULT_TEXT_RE.search(str(value)):
+            return True
+    return False
+
+
+def _user_mentions_symbol(text, symbol):
+    symbol = str(symbol or "").strip()
+    if not symbol or not isinstance(text, str):
+        return False
+    return bool(re.search(
+        r"(?<![A-Za-z0-9])%s(?![A-Za-z0-9])" % re.escape(symbol),
+        text,
+        re.IGNORECASE,
+    ))
+
+
+def _non_actionable_read_allows_no_view_action(
+        candidate, view_intent, actions, latest_user_text, non_actionable_symbols):
+    """Allow a truthful no-action answer only after a matching failed symbol read.
+
+    This is deliberately narrower than "a tool errored": the failed read must be
+    for a symbol named in this user turn, no view action may be queued, and the
+    prose must explicitly explain inability/non-availability without promising a
+    later load.
+    """
+    if view_intent != "chart" or actions or not isinstance(candidate, str):
+        return False
+    if _contains_internal_tool_markup(candidate) or _contains_view_promise(candidate):
+        return False
+    plain = re.sub(r"<[^>]*>", " ", candidate)
+    if not _NO_ACTION_EXPLANATION_RE.search(plain):
+        return False
+    return any(
+        _user_mentions_symbol(latest_user_text, symbol)
+        for symbol in non_actionable_symbols
+    )
+
+
+def _protocol_correction(reason, action_queued=False):
+    if action_queued:
+        return (
+            "A valid view action is already queued. Do NOT call any more view tools. Rewrite only "
+            "the answer/evidence without tool markup and do not say loaded, reloaded, already "
+            "loaded, done, switched, or updated. The browser owns completion status."
+        )
+    if reason == "printed_tool_markup":
+        return (
+            "Your previous response printed tool-call markup instead of using the native tools. "
+            "Use the native tool now. Never print <function_calls>, <invoke>, or <parameter> tags."
+        )
+    if reason == "missing_view_action":
+        return (
+            "The user directly requested a chart/view change, but your response did not call "
+            "update_view. For a symbol/setup, first use a read tool in this turn, then copy its "
+            "exact symbol + market + entry_date + hold_days/days_out into update_view. Do not claim "
+            "completion; the browser confirms it."
+        )
+    if reason == "unconfirmed_view_promise":
+        return (
+            "Do not promise a future chart/view change. Either use the native read tool plus "
+            "update_view now, or, if the requested symbol read explicitly failed or was out of "
+            "scope, explain truthfully why no chart action was sent."
+        )
+    if reason == "invalid_tool_envelope":
+        return (
+            "Your previous tool response was malformed. Send valid native tool_use blocks with "
+            "unique non-empty ids, or answer without tool syntax. Never simulate a tool call in text."
+        )
+    return (
+        "Your previous response claimed the chart was loaded before the browser confirmed it. "
+        "Do not say loaded, reloaded, already loaded, or done. Use update_view when an action is "
+        "needed, state only the evidence/result, and let the client add the completion status."
+    )
 
 
 def _index_cards(out, cards, card_list):
@@ -427,9 +1026,19 @@ def _index_cards(out, cards, card_list):
 # buggy value (it has come back as the LOSS fraction). Parse win count + avg from the headline.
 _HL_WIN_RE   = re.compile(r'won\s*(\d+)\s*/\s*(\d+)', re.I)
 _HL_AVG_RE   = re.compile(r'avg\s*([+-]?\d+(?:\.\d+)?)\s*%', re.I)
+_HL_SHARPE_RE = re.compile(r'\b(?:sharpe(?:\s+ratio)?|sr)\s*[:=]?\s*([+-]?\d+(?:\.\d+)?)', re.I)
 _RPL_WIN_RE  = re.compile(r'(\d+)\s*(?:of|/)\s*(?:the\s*last\s*)?(\d+)\s*year', re.I)  # context-anchored (a conflict)
 _RPL_FRAC_RE = re.compile(r'(\d+)\s*(?:of(?:\s*the\s*last)?|/)\s*(\d+)', re.I)         # lenient (counts as present)
 _RPL_PCT_RE  = re.compile(r'(\d{1,3})\s*%\s*win', re.I)
+_RPL_AVG_RE = re.compile(
+    r'\b(?:avg|average)(?:\s+(?:return|gain|profit))?\s*(?:of|:|is|=)?\s*'
+    r'([+-]?\d+(?:\.\d+)?)\s*%',
+    re.I,
+)
+_RPL_SHARPE_RE = re.compile(
+    r'\b(?:sharpe(?:\s+ratio)?|sr)\s*(?:of|:|is|=)?\s*([+-]?\d+(?:\.\d+)?)',
+    re.I,
+)
 
 
 def _card_headline_stats(card):
@@ -458,15 +1067,169 @@ def _card_headline_stats(card):
     return None
 
 
+def _numeric_stat(value, percent=False):
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, str):
+        return None
+    text = value.strip().replace(",", "")
+    if percent and text.endswith("%"):
+        text = text[:-1].strip()
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _card_sharpe(card):
+    if not isinstance(card, dict):
+        return None
+    headline = card.get("headline")
+    if isinstance(headline, str):
+        match = _HL_SHARPE_RE.search(headline)
+        if match:
+            return float(match.group(1))
+    stats = card.get("stats") if isinstance(card.get("stats"), dict) else card
+    for key in ("sharpe_ratio", "Sharpe Ratio", "sharpe", "sr"):
+        value = _numeric_stat(stats.get(key))
+        if value is not None:
+            return value
+    return None
+
+
 def _card_entry_date(c):
     s = c.get("setup") if isinstance(c, dict) and isinstance(c.get("setup"), dict) else c
     return s.get("entry_date") if isinstance(s, dict) else None
 
 
+def _card_days_out(c):
+    s = c.get("setup") if isinstance(c, dict) and isinstance(c.get("setup"), dict) else c
+    if not isinstance(s, dict):
+        return None
+    value = s.get("hold_days") if s.get("hold_days") is not None else s.get("days_out")
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolved_action_setup(spec, current_view=None):
+    """Resolve a symbol action to one complete setup identity.
+
+    Full actions carry their own identity. Partial actions are valid only when
+    every omitted identity field comes from the same confirmed browser view.
+    """
+    if not isinstance(spec, dict) or not spec.get("symbol"):
+        return None
+    identity_fields = ("symbol", "market", "entry_date", "days_out")
+    if all(field in spec for field in identity_fields):
+        candidate = {
+            "symbol": str(spec.get("symbol") or "").upper(),
+            "market": str(spec.get("market") or ""),
+            "entry_date": spec.get("entry_date"),
+            "days_out": spec.get("days_out"),
+        }
+        if (
+            _VS_SYMBOL_RE.fullmatch(candidate["symbol"])
+            and candidate["market"] in _VS_MARKETS
+            and isinstance(candidate["entry_date"], str)
+            and _VS_DATE_RE.fullmatch(candidate["entry_date"])
+            and isinstance(candidate["days_out"], int)
+            and not isinstance(candidate["days_out"], bool)
+            and 1 <= candidate["days_out"] <= 366
+        ):
+            try:
+                datetime.datetime.strptime(candidate["entry_date"], "%Y-%m-%d")
+                return candidate
+            except ValueError:
+                return None
+        return None
+
+    confirmed = _confirmed_view_setup(current_view)
+    if confirmed is None or str(spec.get("symbol") or "").upper() != confirmed["symbol"]:
+        return None
+    for field in ("market", "entry_date", "days_out"):
+        if field in spec and spec.get(field) != confirmed[field]:
+            return None
+    return confirmed
+
+
+def _current_view_evidence_card(current_view, expected_setup):
+    """Build an exact evidence card from chart rows for a confirmed current view."""
+    if _confirmed_view_setup(current_view) != expected_setup:
+        return None
+    supplied_stats = (
+        current_view.get("stats")
+        if isinstance((current_view or {}).get("stats"), dict)
+        else {}
+    )
+    supplied_wins = _numeric_stat(supplied_stats.get("Num Winners"))
+    supplied_losses = _numeric_stat(supplied_stats.get("Num Losers"))
+    avg_return = _numeric_stat(
+        supplied_stats.get("Avg Profit - All"),
+        percent=True,
+    )
+    sharpe = _numeric_stat(supplied_stats.get("Sharpe Ratio"))
+    wins = None
+    years = None
+    if (
+        supplied_wins is not None
+        and supplied_losses is not None
+        and supplied_wins >= 0
+        and supplied_losses >= 0
+        and supplied_wins.is_integer()
+        and supplied_losses.is_integer()
+        and supplied_wins + supplied_losses > 0
+    ):
+        wins = int(supplied_wins)
+        years = int(supplied_wins + supplied_losses)
+
+    yearly = (current_view or {}).get("yearly_results")
+    if wins is None:
+        if not isinstance(yearly, list) or not yearly:
+            return None
+        returns = []
+        for row in yearly:
+            value = row.get("return_pct") if isinstance(row, dict) else None
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                return None
+            returns.append(float(value))
+        if not returns:
+            return None
+        if str((current_view or {}).get("direction") or "").lower() == "short":
+            returns = [-value for value in returns]
+        wins = sum(value >= 0 for value in returns)
+        years = len(returns)
+        avg_return = sum(returns) / len(returns)
+
+    evidence_stats = {
+        "historical_win_rate": wins / years,
+        "years": years,
+    }
+    if avg_return is not None:
+        evidence_stats["avg_return_pct"] = avg_return
+    if sharpe is not None:
+        evidence_stats["sharpe_ratio"] = sharpe
+    return {
+        "symbol": expected_setup["symbol"],
+        "market": expected_setup["market"],
+        "direction": str((current_view or {}).get("direction") or ""),
+        "setup": {
+            "entry_date": expected_setup["entry_date"],
+            "hold_days": expected_setup["days_out"],
+        },
+        "stats": evidence_stats,
+    }
+
+
 def _announce_line(sym, card):
-    """Compose a compliant one-line load announcement for the LOADED setup: symbol + lookback + the
-    key historical stat, from the card HEADLINE (authoritative), falling back to the stats fields.
-    Past-record framing only ('won X of the last N years') - never a forward claim."""
+    """Compose a status-neutral line for a requested setup.
+
+    The browser appends "Loaded on the chart" only after ChartData4 succeeds.
+    This server-side line therefore contains evidence but no completion claim.
+    """
     hs = _card_headline_stats(card)
     st = card.get("stats") if isinstance(card.get("stats"), dict) else card
     direction = (card.get("direction") or "").strip()
@@ -490,42 +1253,72 @@ def _announce_line(sym, card):
                          else ("%d%% historical win rate" % round(wr * 100)))
         if isinstance(avg, (int, float)) and not isinstance(avg, bool):
             parts.append("avg %+.1f%%" % avg)
+    sharpe = _card_sharpe(card)
+    if sharpe is not None:
+        parts.append("Sharpe %.2f" % sharpe)
     stat = ", ".join(parts) if parts else (card.get("headline") or "the pattern")
     based = (" based on the last %d years" % n) if n else ""
     dirtxt = (" " + direction) if direction else ""
-    return "<b>%s</b>%s%s: %s. Loaded on the chart." % (sym, dirtxt, based, stat)
+    return "<b>%s</b>%s%s: %s." % (sym, dirtxt, based, stat)
 
 
-def _stat_conflicts(text, wins, yrs):
-    """True when the reply asserts a win rate that CONTRADICTS the loaded setup's real record and
-    never states the correct one (a stale/fabricated stat, e.g. 'won 10 of 10' for a 4/10 setup).
-    The correct record in ANY form (lenient) suppresses the flag, so a comparison that also cites
-    other symbols' rates is left alone; only context-anchored ('... years' / '...% win') wrong claims
-    count as conflicts, so dates/ratios don't false-trigger."""
+def _numeric_claim_matches(raw_claim, expected):
+    try:
+        claim = float(raw_claim)
+        decimals = len(str(raw_claim).split(".", 1)[1]) if "." in str(raw_claim) else 0
+        return round(float(expected), decimals) == round(claim, decimals)
+    except (TypeError, ValueError):
+        return False
+
+
+def _stat_conflicts(text, wins, yrs, avg=None, sharpe=None):
+    """Detect any narrated setup statistic that conflicts with exact evidence.
+
+    A correct win count must not mask a fabricated average or Sharpe ratio.
+    Metrics the reply omits are fine; metrics it asserts must match the exact
+    setup card at the precision the reply chose.
+    """
     text = text or ""
-    # PRESENT (lenient): the correct record stated anywhere -> trust the reply, never clobber.
-    for m in _RPL_FRAC_RE.finditer(text):
-        if (int(m.group(1)), int(m.group(2))) == (wins, yrs):
-            return False
-    for m in _RPL_PCT_RE.finditer(text):
-        if yrs and round(int(m.group(1)) / 100.0 * yrs) == wins:
-            return False
-    # CONFLICT (context-anchored): a win-rate claim that is NOT the correct record.
-    for m in _RPL_WIN_RE.finditer(text):
-        a, b = int(m.group(1)), int(m.group(2))
-        if (b == yrs and a != wins) or a == b:   # same lookback / different count, or a perfect 'N of N' claim
-            return True
-    for m in _RPL_PCT_RE.finditer(text):
-        if yrs and round(int(m.group(1)) / 100.0 * yrs) != wins:
-            return True
-    return False
+    correct_win = any(
+        (int(match.group(1)), int(match.group(2))) == (wins, yrs)
+        for match in _RPL_FRAC_RE.finditer(text)
+    ) or any(
+        yrs and round(int(match.group(1)) / 100.0 * yrs) == wins
+        for match in _RPL_PCT_RE.finditer(text)
+    )
+    win_conflict = False
+    if not correct_win:
+        win_conflict = any(
+            (
+                int(match.group(2)) == yrs
+                and int(match.group(1)) != wins
+            )
+            or int(match.group(1)) == int(match.group(2))
+            for match in _RPL_WIN_RE.finditer(text)
+        ) or any(
+            yrs and round(int(match.group(1)) / 100.0 * yrs) != wins
+            for match in _RPL_PCT_RE.finditer(text)
+        )
+
+    avg_claims = [match.group(1) for match in _RPL_AVG_RE.finditer(text)]
+    avg_conflict = bool(avg_claims) and (
+        avg is None
+        or not any(_numeric_claim_matches(claim, avg) for claim in avg_claims)
+    )
+    sharpe_claims = [match.group(1) for match in _RPL_SHARPE_RE.finditer(text)]
+    sharpe_conflict = bool(sharpe_claims) and (
+        sharpe is None
+        or not any(_numeric_claim_matches(claim, sharpe) for claim in sharpe_claims)
+    )
+    return win_conflict or avg_conflict or sharpe_conflict
 
 
-def _ensure_load_named(text, actions, cards, card_list):
+def _ensure_load_named(text, actions, cards, card_list, current_view=None):
     """Guarantee the loaded pick is announced with ITS OWN correct record. Fixes two failures:
     (1) a bare confirmation with no symbol; (2) the right symbol but a STALE/FABRICATED win rate
     carried from an earlier setup (loads the September window but says 'won 10 of 10' from the June
-    setup). The card is matched to the loaded setup by entry_date, and the HEADLINE is authoritative."""
+    setup). The card is matched to the complete loaded setup identity, and the HEADLINE is
+    authoritative."""
     text = text or ""
     loaded = [a.get("spec", {}) for a in actions
               if a.get("type") == "set_view" and isinstance(a.get("spec"), dict) and a["spec"].get("symbol")]
@@ -533,20 +1326,37 @@ def _ensure_load_named(text, actions, cards, card_list):
         return text
     spec = loaded[-1]
     sym = str(spec.get("symbol")).upper()
-    entry = spec.get("entry_date")
-    # Match the card to the LOADED setup (by entry_date) so an earlier same-symbol card can't leak
-    # its stats; fall back to the latest card seen for the symbol.
+    expected = _resolved_action_setup(spec, current_view)
+    # Match evidence to the complete requested setup. Entry date alone is not
+    # unique: the same symbol can have multiple durations or market mappings.
+    # In particular, never use `cards[sym]`: it may be a different setup read
+    # earlier in this turn.
     card = None
-    if entry:
+    if expected is not None:
         for c in card_list:
-            if str(c.get("symbol", "")).upper() == sym and _card_entry_date(c) == entry:
+            if (
+                str(c.get("symbol", "")).upper() == expected["symbol"]
+                and _card_market_id(c) == expected["market"]
+                and _card_entry_date(c) == expected["entry_date"]
+                and _card_days_out(c) == expected["days_out"]
+            ):
                 card = c
-    if card is None:
-        card = cards.get(sym)
+                break
+    if card is None and expected is not None:
+        card = _current_view_evidence_card(current_view, expected)
     if not card:
-        return text
+        # The action may still be valid (for example a confirmed same-view
+        # refresh), but without exact evidence its model-written statistics are
+        # not safe to repeat.
+        return "<b>%s</b> chart request." % sym
     hs = _card_headline_stats(card)
-    if hs and _stat_conflicts(text, hs[0], hs[1]):
+    if hs and _stat_conflicts(
+        text,
+        hs[0],
+        hs[1],
+        avg=hs[2],
+        sharpe=_card_sharpe(card),
+    ):
         # the reply states a win rate that is NOT this loaded setup's record -> replace with truth
         fixed = _announce_line(sym, card)
         dm = re.search(r'<i>.*?</i>', text, re.S)          # preserve a disclaimer if the model added one
@@ -555,8 +1365,7 @@ def _ensure_load_named(text, actions, cards, card_list):
         return text
     line = _announce_line(sym, card)
     if text.strip():
-        # the model wrote its own confirmation; drop our trailing "Loaded on the chart." to avoid a double
-        return line.replace(" Loaded on the chart.", "") + "<br><br>" + text
+        return line + "<br><br>" + text
     return line
 
 
@@ -639,7 +1448,8 @@ def _rows_to_scan_cards(rows, market_id):
             setup["entry_date"] = r["date"]
         if r.get("days_out") is not None:
             setup["hold_days"] = r["days_out"]
-        cards.append({"symbol": r.get("symbol"), "direction": direction,
+        cards.append({"symbol": r.get("symbol"), "market": {"id": str(market_id)},
+                      "direction": direction,
                       "stats": stats, "setup": setup})
     return {"market": market_id, "source": "opportunity_table",
             "note": ("These ARE the rows currently shown in the user's opportunity table for this "
@@ -755,7 +1565,7 @@ def _symbol_max_available_years(market_id, symbol, token):
 def _append_market_switch(actions, target):
     """Queue a market-only set_view (switch the opp table to `target`) unless one is already queued."""
     if not any(a.get("type") == "set_view" and a.get("spec", {}).get("market") == target for a in actions):
-        actions.append({"type": "set_view", "spec": {"market": target}})
+        _queue_view_action(actions, {"market": target})
 
 
 # Haiku often glues a closing call-to-action onto the last list item with just a space ("...29 days
@@ -1006,9 +1816,8 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
 
 def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                         opp_table=None, opp_table_market=None, user_token=None,
-                        opp_table_years=None, full_history_request=None,
-                        named_symbol_override=None, named_symbol_lookback=None,
-                        viewer_entry_year=None):
+                        opp_table_years=None, current_view=None, turn_id=None,
+                        protocol_trace=None):
     """Run the Tara chat with gateway tool-use. `messages` ends with the user turn. Returns
     (final_text, actions): the assistant TEXT plus any UI actions the model requested (Phase 2,
     e.g. [{'type':'set_view','spec':{...}}]). Read tools (scan/analyze/...) are executed as
@@ -1023,14 +1832,122 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
     card_list = []        # every card seen this turn, so the guard can match the loaded setup by entry_date
     table_market = str(opp_table_market) if opp_table_market not in (None, "") else None
     final_text = None
-    for _ in range(_MAX_TOOL_ROUNDS):
+    protocol_failures = 0
+    view_intent = _latest_user_view_intent(messages)
+    latest_user_text = next(
+        (
+            message.get("content", "")
+            for message in reversed(messages or [])
+            if message.get("role") == "user" and isinstance(message.get("content"), str)
+        ),
+        "",
+    )
+    non_actionable_symbols = set()
+
+    def trace(event, **fields):
+        if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
+            protocol_trace.append({"event": event, **fields})
+
+    if view_intent == "unsupported_live":
+        trace("unsupported_live_data_intent")
+        return _UNSUPPORTED_LIVE_DATA_RESPONSE, []
+
+    for round_index in range(_MAX_TOOL_ROUNDS):
         resp = send_claude_messages(convo, model=model, system=system,
                                     cache_system=True, cache_ttl=cache_ttl,
                                     tools=TOOLS, return_raw=True)
         blocks = resp.get("content", []) or []
+        blocks_are_valid = (
+            isinstance(blocks, list)
+            and all(isinstance(block, dict) for block in blocks)
+        )
+        if not isinstance(blocks, list):
+            blocks = []
+        native_tool_blocks = [
+            block for block in blocks
+            if isinstance(block, dict) and block.get("type") == "tool_use"
+        ]
         if resp.get("stop_reason") != "tool_use":
-            final_text = _text_of(blocks)
+            candidate = _text_of(blocks)
+            reason = None
+            if not blocks_are_valid or native_tool_blocks:
+                reason = "invalid_tool_envelope"
+            elif _contains_internal_tool_markup(candidate):
+                reason = "printed_tool_markup"
+            elif _contains_view_promise(candidate):
+                reason = "unconfirmed_view_promise"
+            elif _view_completion_violation(candidate, actions, current_view):
+                reason = "unconfirmed_view_completion"
+            elif (
+                not _actions_satisfy_view_intent(actions, view_intent)
+                and not _non_actionable_read_allows_no_view_action(
+                    candidate,
+                    view_intent,
+                    actions,
+                    latest_user_text,
+                    non_actionable_symbols,
+                )
+            ):
+                reason = "missing_view_action"
+            if reason:
+                protocol_failures += 1
+                # Do not log the model text: it can contain the user's prompt,
+                # raw tool arguments, or other customer data.
+                log.warning(
+                    "tara response protocol violation turn=%s round=%s reason=%s",
+                    turn_id or "-",
+                    round_index + 1,
+                    reason,
+                )
+                trace(
+                    "protocol_violation",
+                    round=round_index + 1,
+                    reason=reason,
+                    stop_reason=str(resp.get("stop_reason") or ""),
+                )
+                convo.append({"role": "assistant", "content": blocks})
+                convo.append({
+                    "role": "user",
+                    "content": _protocol_correction(
+                        reason,
+                        action_queued=bool(actions) and reason != "missing_view_action",
+                    ),
+                })
+                continue
+            final_text = candidate
             break
+        tool_ids = [block.get("id") for block in native_tool_blocks]
+        if (
+            not blocks_are_valid
+            or not native_tool_blocks
+            or any(not isinstance(tool_id, str) or not tool_id for tool_id in tool_ids)
+            or len(tool_ids) != len(set(tool_ids))
+            or any(
+                block.get("name") not in (set(_ALLOWED) | {"update_view"})
+                or not isinstance(block.get("input"), dict)
+                for block in native_tool_blocks
+            )
+        ):
+            protocol_failures += 1
+            log.warning(
+                "tara response protocol violation turn=%s round=%s reason=invalid_tool_envelope",
+                turn_id or "-",
+                round_index + 1,
+            )
+            trace(
+                "protocol_violation",
+                round=round_index + 1,
+                reason="invalid_tool_envelope",
+                stop_reason=str(resp.get("stop_reason") or ""),
+            )
+            convo.append({"role": "assistant", "content": blocks})
+            convo.append({
+                "role": "user",
+                "content": _protocol_correction(
+                    "invalid_tool_envelope", action_queued=bool(actions)
+                ),
+            })
+            continue
         # echo the assistant's tool_use turn back verbatim, then answer each tool call
         convo.append({"role": "assistant", "content": blocks})
         results = []
@@ -1038,20 +1955,75 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             if b.get("type") != "tool_use":
                 continue
             name, inp = b.get("name"), (b.get("input") or {})
-            out = _execute_tara_tool(
-                name,
-                inp,
-                user_id,
-                actions,
-                cards,
-                card_list,
-                table_market=table_market,
-                opp_table=opp_table,
-                user_token=user_token,
-                opp_table_years=opp_table_years,
-                full_history_request=full_history_request,
-                named_symbol_override=named_symbol_override,
-                named_symbol_lookback=named_symbol_lookback,
+            card_count_before = len(card_list)
+            if name == "update_view":                       # client-side UI action, not a gateway call
+                cleaned = _validate_view_spec(inp, current_view=current_view)
+                if view_intent == "forbid":
+                    out = {
+                        "ok": False,
+                        "error": (
+                            "the user negated or is diagnosing a view action; do not change the view"
+                        ),
+                    }
+                elif cleaned and _view_spec_is_grounded(
+                    cleaned, card_list, current_view=current_view
+                ):
+                    _queue_view_action(actions, cleaned)
+                    out = {
+                        "ok": True,
+                        "queued": cleaned,
+                        "status": "pending_client_confirmation",
+                        "instruction": (
+                            "Do not say loaded, reloaded, already loaded, or done. "
+                            "The browser will add completion text only after chart data loads."
+                        ),
+                    }
+                else:
+                    out = {
+                        "ok": False,
+                        "error": (
+                            "invalid or ungrounded view setup; a new/different symbol setup must "
+                            "exactly match symbol + market + entry_date + days_out from a successful "
+                            "read tool result in this turn"
+                        ),
+                    }
+            elif name == "find_best_opportunities":
+                # Screen from OppList4 (the opp-table data path) so the answer == the on-screen table;
+                # /scan is a different path that names different tickers (see _opplist4_rows note).
+                target = _single_market_id(inp.get("markets"))
+                blocking = bool(set(inp.keys()) & _TABLE_BLOCKING_FILTERS)
+                screen_rows = None
+                if target is not None and not blocking:
+                    if table_market == target and opp_table:
+                        screen_rows = _filter_table_rows(opp_table, inp)   # exact on-screen rows
+                    else:
+                        fetched = _opplist4_rows(target, user_token, opp_table_years)
+                        screen_rows = _filter_table_rows(fetched, inp) if fetched else None
+                        if table_market != target:        # switch the table so the screen follows the names
+                            _append_market_switch(actions, target)
+                if screen_rows:
+                    out = _rows_to_scan_cards(screen_rows, target)
+                else:
+                    out = _briefify(run_tool(name, inp, user_id))      # multi-market / blocking-filter / loopback-failed
+                    if target is not None and table_market != target:
+                        _append_market_switch(actions, target)
+                _index_cards(out, cards, card_list)
+            else:
+                out = _briefify(run_tool(name, inp, user_id))
+                _index_cards(out, cards, card_list)
+            if (
+                name in {"analyze_symbol", "get_symbol_patterns"}
+                and len(card_list) == card_count_before
+                and _read_result_is_explicitly_non_actionable(out)
+                and _user_mentions_symbol(latest_user_text, inp.get("symbol"))
+            ):
+                non_actionable_symbols.add(str(inp.get("symbol") or "").upper())
+            trace(
+                "tool_result",
+                round=round_index + 1,
+                tool=str(name or ""),
+                ok=not (isinstance(out, dict) and bool(out.get("error"))),
+                queued=bool(name == "update_view" and isinstance(out, dict) and out.get("ok")),
             )
             results.append({
                 "type": "tool_result",
@@ -1059,24 +2031,93 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                 "content": _bounded_json(out),
             })
         convo.append({"role": "user", "content": results})
-    # If we broke out with the model's final text, use it; else force a final no-tool answer.
-    # (empty string counts as missing - a content-filtered/truncated response otherwise
-    # flows through as a blank chat bubble)
+    if (
+        not _actions_satisfy_view_intent(actions, view_intent)
+        and not _non_actionable_read_allows_no_view_action(
+            final_text,
+            view_intent,
+            actions,
+            latest_user_text,
+            non_actionable_symbols,
+        )
+    ):
+        if actions:
+            log.warning(
+                "tara response protocol violation turn=%s reason=incomplete_view_action",
+                turn_id or "-",
+            )
+        trace("protocol_violation", reason="incomplete_view_action")
+        actions = []
+        final_text = (
+            "I couldn't send the complete chart action, so I haven't changed the chart. "
+            "Please try that load again."
+        )
+
+    # If the model exhausted the loop after at least one valid action, preserve
+    # the action but use deterministic, status-neutral prose. If there was no
+    # valid action, fail closed rather than surfacing tool syntax or a false
+    # success claim.
     if not final_text:
-        final_text = send_claude_messages(convo, model=model, system=system,
-                                          cache_system=True, cache_ttl=cache_ttl)
+        if actions:
+            loaded = [
+                a.get("spec", {}) for a in actions
+                if a.get("type") == "set_view" and isinstance(a.get("spec"), dict)
+            ]
+            latest = loaded[-1] if loaded else {}
+            sym = str(latest.get("symbol") or "").upper()
+            final_text = (
+                "<b>%s</b> chart request." % sym
+                if sym else "Requested view change."
+            )
+        elif protocol_failures:
+            final_text = (
+                "I couldn't send a valid chart action, so I haven't changed the chart. "
+                "Please try that load again."
+            )
+        else:
+            final_text = (
+                "I couldn't complete that request safely, so I haven't changed the chart. "
+                "Please try again."
+            )
+    if _view_actions_conflict(actions):
+        log.warning(
+            "tara response protocol violation turn=%s reason=conflicting_view_actions",
+            turn_id or "-",
+        )
+        trace("protocol_violation", reason="conflicting_view_actions")
+        actions = []
+        final_text = (
+            "I couldn't resolve that into one unambiguous chart setup, so I haven't changed "
+            "the chart. Please try again."
+        )
     # Deterministic guard: guarantee the loaded pick is NAMED (symbol + lookback + stat), since
     # Haiku-4.5 intermittently returns a bare 'Loaded on the chart' with no symbol.
-    _enforce_full_history_action(actions, full_history_request)
-    _enforce_named_symbol_action(
-        actions,
-        cards,
-        named_symbol_override,
-        viewer_entry_year,
-        preferred_years=named_symbol_lookback,
+    final_text = _ensure_load_named(
+        final_text, actions, cards, card_list, current_view=current_view
     )
-    final_text = _ensure_load_named(final_text, actions, cards, card_list)
     final_text = _break_before_cta(final_text)   # closing CTA never runs onto the last list line
+    if response_violates_view_contract(final_text, actions, current_view):
+        log.warning(
+            "tara response protocol violation turn=%s reason=unsafe_final_response",
+            turn_id or "-",
+        )
+        trace("protocol_violation", reason="unsafe_final_response")
+        if actions:
+            final_text = _ensure_load_named(
+                "", actions, cards, card_list, current_view=current_view
+            )
+            if not final_text:
+                latest = actions[-1].get("spec", {})
+                sym = str(latest.get("symbol") or "").upper()
+                final_text = (
+                    "<b>%s</b> chart request." % sym
+                    if sym else "Requested view change."
+                )
+        else:
+            final_text = (
+                "I couldn't complete that chart request safely, so I haven't changed the chart. "
+                "Please try again."
+            )
     return final_text, actions
 
 

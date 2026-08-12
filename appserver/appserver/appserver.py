@@ -1,4 +1,4 @@
-
+﻿
 #     ip_address = flask.request.remote_addr
 #     redis_client2 is being used as a no sql database
 #     redis_client  is being used as a expirable cache
@@ -67,6 +67,7 @@ import json
 from functools import wraps
 import jwt
 from pooled_http import http as requests
+from activity_logger import activity_logger
 from service_auth import has_service_account_role
 import logging
 import redis
@@ -191,8 +192,6 @@ keystoreURL = config.keystoreURL
 # use of variable application is requirement of aws
 application = app = Flask(__name__)
 
-app.register_blueprint(chatbot_bp, url_prefix="/chatbot")
-
 # app.debug = True
 
 # places the client ip in the right place when using cloudflare
@@ -228,6 +227,10 @@ def _request_token_claims():
         return g._tw_token_claims
     claims = None
     token = request.args.get('token')
+    if not token and request.is_json:
+        body = request.get_json(silent=True)
+        if isinstance(body, dict):
+            token = body.get('token')
     if token:
         try:
             claims = jwt.decode(
@@ -269,6 +272,12 @@ limiter = Limiter(
     in_memory_fallback_enabled=True,   # per-worker in-memory caps take over while redis is unreachable
     )
 limiter.init_app(app)
+
+# Tara uses JSON-body tokens. Apply a per-identity blueprint cap now that the
+# limiter key can resolve those tokens, covering both model turns and terminal
+# chart acknowledgements without collapsing users onto the proxy IP.
+limiter.limit("30 per minute")(chatbot_bp)
+app.register_blueprint(chatbot_bp, url_prefix="/chatbot")
 
 
 @limiter.request_filter
@@ -522,15 +531,15 @@ def _clamp_year_int(value, cap):
 
 
 def _clamp_yrs(yrs, cap):
-    """Clamp the getChartData4 `yrs` param to cap. Handles "22" (consecutive) and "pe2:10"
+    """Clamp the getChartData4 `yrs` param to cap. Handles "22" (consecutive) and "pe2-10"
     (N most-recent PE years); leaves legacy "pe2" (all PE years) untouched - no count to cap."""
     if cap is None:
         return yrs
     s = str(yrs)
     try:
-        if ':' in s:
-            pfx, n = s.split(':', 1)
-            return "%s:%d" % (pfx, min(int(n), cap))
+        if '-' in s:
+            pfx, n = s.split('-', 1)
+            return "%s-%d" % (pfx, min(int(n), cap))
         if s.isdigit():
             return str(min(int(s), cap))
     except (ValueError, TypeError):
@@ -572,10 +581,7 @@ def update_activity_log(activityTime, resourceID, wp_userid, ipv4, country_code,
     safe_zip = _urlquote(str(zip), safe='')
     safe_activity = _urlquote(str(activity), safe='')
     activity_request = f'{config.logcollector_url}activity/{serverName}/{activityTime}/{resourceID}/{safe_userid}/{safe_ipv4}/{safe_country}/{safe_zip}/{safe_activity}'
-    try:
-        x = requests.get(activity_request, timeout=5)
-    except Exception:
-        logging.exception("update_activity_log: logcollector unreachable")
+    activity_logger.enqueue(activity_request)
 
     
 
@@ -2377,10 +2383,62 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         year = date[:4]
         date = f'{year}-01-02'
 
+    # Echo the canonical inputs actually used for this computation. The client
+    # must not treat a silently tier/date-normalized response as proof that the
+    # originally requested Tara setup loaded.
+    _effective_pe = 'cons'
+    _effective_years = None
+    _yrs_text = str(yrs)
+    if _yrs_text.isdigit():
+        _effective_years = int(_yrs_text)
+    elif '-' in _yrs_text:
+        _pe_text, _year_text = _yrs_text.split('-', 1)
+        if _pe_text in ('pe0', 'pe1', 'pe2', 'pe3') and _year_text.isdigit():
+            _effective_pe = _pe_text
+            _effective_years = int(_year_text)
+    # Comparison reports keep one strategy direction across every symbol so
+    # the report never compares (for example) a long MSFT hold with an
+    # automatically flipped short NVDA pattern. Normal Wave Viewer calls omit
+    # this query parameter and retain the legacy automatic direction exactly.
+    _comparison_direction = str(request.args.get('comparison_direction', '')).lower()
+    if _comparison_direction not in ('long', 'short'):
+        _comparison_direction = ''
+
+    # Analysis reports compare completed historical windows only. This optional
+    # mode trims the already-calculated ChartData4 rows before the existing
+    # statistics block runs; normal Wave Viewer requests omit it and are
+    # unchanged. Clamp it to the entitlement-adjusted years value above.
+    try:
+        _report_completed_years = int(request.args.get('report_completed_years', 0))
+    except (TypeError, ValueError):
+        _report_completed_years = 0
+    if _report_completed_years < 1 or _effective_years is None:
+        _report_completed_years = 0
+    else:
+        _report_completed_years = min(_report_completed_years, _effective_years)
+
+    _effective_request = {
+        'market': str(resourceID),
+        'symbol': str(symbol).upper(),
+        'entry_date': date,
+        'days_out': int(daysOut) + 1,
+        'years': _effective_years,
+        'pe_cycle': _effective_pe,
+        'cut_off_year': int(cut_off_year or 0),
+    }
+    if _comparison_direction:
+        _effective_request['comparison_direction'] = _comparison_direction
+    if _report_completed_years:
+        _effective_request['report_completed_years'] = _report_completed_years
+
     # ----------------------------------------------
     # Redis cache key
     # ----------------------------------------------
     redis_key_chartdata = f'chartdata_{resourceID}_{symbol}_{date}_{daysOut}_{yrs}_{cut_off_year}'
+    if _comparison_direction:
+        redis_key_chartdata += f'_comparison_{_comparison_direction}'
+    if _report_completed_years:
+        redis_key_chartdata += f'_report_completed_{_report_completed_years}'
 
     # Activity logging
     token = request.args.get("token")
@@ -2392,6 +2450,9 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     chartdata_redis = _singleflight_cache_values([redis_key_chartdata])[0]
     if chartdata_redis is not None:
         chartData = json.loads(chartdata_redis)
+        if isinstance(chartData, dict):
+            chartData = dict(chartData)
+            chartData['request'] = _effective_request
         return jsonify(chartData)
 
     lscore, sscore, lscore1, sscore1, trend_score_available = stockscore_with_availability(
@@ -2407,13 +2468,17 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     result = get_symbol_csv(symbol, exchange)
 
     if isinstance(result, str) and 'Not Traded' in result:
-        return jsonify({'ChartData4': [], 'stats': {}})
+        return jsonify({'ChartData4': [], 'stats': {}, 'request': _effective_request})
     else:
         df = result
 
     num_years_in_data = num_years_in_df(df)
     if num_years_in_data < config.min_required_years:
-        return jsonify({'ChartData4': 'Not Enough Data', 'stats': {}})
+        return jsonify({
+            'ChartData4': 'Not Enough Data',
+            'stats': {},
+            'request': _effective_request,
+        })
 
     # ----------------------------------------------
     # Parse yrs parameter
@@ -2597,33 +2662,33 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     # The loop processes oldest to newest, so chartData is in chronological order
     # We want the LAST (most recent) max_filtered_years entries
     # ----------------------------------------------
-    if custom_years and max_filtered_years is not None:
-        # N means N completed PE observations. Keep an active partial row alongside
-        # those N rows instead of letting it displace the oldest completed observation.
-        completed_indices = [
-            index for index, is_completed in enumerate(completed_flags) if is_completed
-        ]
-        keep_indices = set(completed_indices[-max_filtered_years:])
-        keep_indices.update(
-            index for index, is_completed in enumerate(completed_flags) if not is_completed
-        )
-        ordered_keep = sorted(keep_indices)
-        chartData = [chartData[index] for index in ordered_keep]
-        pctArray = [pctArray[index] for index in ordered_keep]
-        pctArray_low = [pctArray_low[index] for index in ordered_keep]
-        pctArray_high = [pctArray_high[index] for index in ordered_keep]
-        completed_flags = [completed_flags[index] for index in ordered_keep]
-
-    # Keep an active partial row visible while excluding it from completed aggregates.
-    pctArray = [
-        value for index, value in enumerate(pctArray) if completed_flags[index]
-    ]
-    pctArray_low = [
-        value for index, value in enumerate(pctArray_low) if completed_flags[index]
-    ]
-    pctArray_high = [
-        value for index, value in enumerate(pctArray_high) if completed_flags[index]
-    ]
+    if _report_completed_years:
+        # If the current occurrence is still in progress, ChartData4 normally
+        # includes its live partial return. Reports must not call that a
+        # completed historical year. Remove only that known active occurrence,
+        # then keep the most recent requested completed rows. This consumes the
+        # existing range result; it does not derive or alter Reverse Date Range.
+        active_occurrence_year = currentYear - 1 if active_trade_begin_last_year else currentYear
+        if (
+            trade_active
+            and chartData
+            and int(chartData[-1].get('year', -1)) == active_occurrence_year
+        ):
+            chartData.pop()
+            pctArray.pop()
+            pctArray_low.pop()
+            pctArray_high.pop()
+        if len(chartData) > _report_completed_years:
+            chartData = chartData[-_report_completed_years:]
+            pctArray = pctArray[-_report_completed_years:]
+            pctArray_low = pctArray_low[-_report_completed_years:]
+            pctArray_high = pctArray_high[-_report_completed_years:]
+    elif custom_years and max_filtered_years is not None and len(chartData) > max_filtered_years:
+        # Keep only the most recent N entries (last N in the list)
+        chartData = chartData[-max_filtered_years:]
+        pctArray = pctArray[-max_filtered_years:]
+        pctArray_low = pctArray_low[-max_filtered_years:]
+        pctArray_high = pctArray_high[-max_filtered_years:]
 
     # ----------------------------------------------
     # Add current year placeholder if applicable
@@ -2632,7 +2697,12 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     if custom_years:
         current_year_filter_valid = custom_year_filter(currentYear, pe_filter, '', '')
 
-    if current_year_filter_valid and len(chartData) > 0 and currentYear > chartData[-1]['year']:
+    if (
+        not _report_completed_years
+        and current_year_filter_valid
+        and len(chartData) > 0
+        and currentYear > chartData[-1]['year']
+    ):
         yearDict = {'year': currentYear, 'pct': '0,0,0', 'price': '0,0'}
         chartData.append(yearDict)
 
@@ -2640,7 +2710,11 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     # Calculate statistics
     # ----------------------------------------------
     if len(pctArray) == 0:
-        return jsonify({'ChartData4': chartData, 'stats': {}})
+        return jsonify({
+            'ChartData4': chartData,
+            'stats': {},
+            'request': _effective_request,
+        })
 
     pos = sum(x >= 0 for x in pctArray)
     neg = sum(x < 0 for x in pctArray)
@@ -2650,6 +2724,11 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     if len(d_start_0) > 5 and len(d_start_1) > 5:
         if d_start_0[5:] == d_start_1[5:]:
             longOrShort = 'long'
+
+    # Report-only override. This is deliberately applied after the Buy & Hold
+    # convention and is unreachable from existing Wave Viewer requests.
+    if _comparison_direction:
+        longOrShort = _comparison_direction
 
     if longOrShort == 'short':
         # Swap pos/neg counts
@@ -2744,12 +2823,16 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     if earnings:
         detailDict.update(earnings)
 
-    combineDict = {'ChartData4': chartData, 'stats': detailDict}
+    combineDict = {
+        'ChartData4': chartData,
+        'stats': detailDict,
+        'request': _effective_request,
+    }
 
     redis_client.set(redis_key_chartdata, json.dumps(combineDict))
     redis_client.expire(redis_key_chartdata, config.chart_data_expire_time)
 
-    return jsonify({'ChartData4': chartData, 'stats': detailDict})
+    return jsonify(combineDict)
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -3300,11 +3383,22 @@ def get_consolidated_seasonal_chart2(resourceID, symbol, sy, chart_start_date, o
     # Validate date formats (must be YYYY-MM-DD)
     try:
         datetime.datetime.strptime(chart_start_date, '%Y-%m-%d')
+        datetime.datetime.strptime(opp_start_date, '%Y-%m-%d')
     except (ValueError, TypeError):
-        return jsonify({'cons_seas_chart': [], 'error': 'invalid chart_start_date'}), 400
+        return jsonify({'cons_seas_chart': [], 'error': 'invalid chart date'}), 400
+
+    request_meta = {
+        'market': str(resourceID),
+        'symbol': str(symbol).upper(),
+        'sy': str(sy),
+        'chart_start_date': chart_start_date,
+        'opp_start_date': opp_start_date,
+    }
 
     # Construct a unique cache key
-    redis_key_seasonal_chart = f'seasonal_chart_{resourceID}_{symbol}_{sy}_{chart_start_date}'
+    redis_key_seasonal_chart = (
+        f'seasonal_chart_{resourceID}_{symbol}_{sy}_{chart_start_date}_{opp_start_date}'
+    )
     logging.debug(f"Generated cache key: {redis_key_seasonal_chart}")
 
     # Log activity
@@ -3327,7 +3421,7 @@ def get_consolidated_seasonal_chart2(resourceID, symbol, sy, chart_start_date, o
                 logging.debug(f"Cached cons_seas_chart to Redis for key {redis_key_seasonal_chart}")
             except Exception as e:
                 logging.error(f"Redis set failed for key {redis_key_seasonal_chart}: {e}")
-            return jsonify({'cons_seas_chart': cons_seas_chart})
+            return jsonify({'cons_seas_chart': cons_seas_chart, 'request': request_meta})
 
         # If not found in any cache, process the seasonal chart
         exchange = config.exchange_mapping[resourceID]
@@ -3335,13 +3429,13 @@ def get_consolidated_seasonal_chart2(resourceID, symbol, sy, chart_start_date, o
         result = get_symbol_csv(symbol, exchange)
 
         if isinstance(result, str) and 'Not Traded' in result:
-            return jsonify({'cons_seas_chart': []})
+            return jsonify({'cons_seas_chart': [], 'request': request_meta})
         else:
             df = result
 
         num_years_in_data = num_years_in_df(df)
         if num_years_in_data < config.min_required_years:
-            return jsonify({'cons_seas_chart': []})
+            return jsonify({'cons_seas_chart': [], 'request': request_meta})
 
         df = df[['date', 'close']]
 
@@ -3539,7 +3633,7 @@ def get_consolidated_seasonal_chart2(resourceID, symbol, sy, chart_start_date, o
         cons_seas_chart = json.loads(sc_redis)
         logging.debug(f"Retrieved cons_seas_chart from Redis for key {redis_key_seasonal_chart}")
 
-    return jsonify({'cons_seas_chart': cons_seas_chart})
+    return jsonify({'cons_seas_chart': cons_seas_chart, 'request': request_meta})
 #---------------------------------------------------------------------------------------------------
 # this is a supporting function for dr_report_publish to check for duplicates - return boolean
 #---------------------------------------------------------------------------------------------------
