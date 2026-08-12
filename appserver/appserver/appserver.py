@@ -1,4 +1,4 @@
-﻿
+
 #     ip_address = flask.request.remote_addr
 #     redis_client2 is being used as a no sql database
 #     redis_client  is being used as a expirable cache
@@ -67,7 +67,6 @@ import json
 from functools import wraps
 import jwt
 from pooled_http import http as requests
-from activity_logger import activity_logger
 from service_auth import has_service_account_role
 import logging
 import redis
@@ -581,7 +580,10 @@ def update_activity_log(activityTime, resourceID, wp_userid, ipv4, country_code,
     safe_zip = _urlquote(str(zip), safe='')
     safe_activity = _urlquote(str(activity), safe='')
     activity_request = f'{config.logcollector_url}activity/{serverName}/{activityTime}/{resourceID}/{safe_userid}/{safe_ipv4}/{safe_country}/{safe_zip}/{safe_activity}'
-    activity_logger.enqueue(activity_request)
+    try:
+        requests.get(activity_request, timeout=5)
+    except Exception:
+        logging.exception("update_activity_log: logcollector unreachable")
 
     
 
@@ -2663,33 +2665,41 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     # We want the LAST (most recent) max_filtered_years entries
     # ----------------------------------------------
     if _report_completed_years:
-        # If the current occurrence is still in progress, ChartData4 normally
-        # includes its live partial return. Reports must not call that a
-        # completed historical year. Remove only that known active occurrence,
-        # then keep the most recent requested completed rows. This consumes the
-        # existing range result; it does not derive or alter Reverse Date Range.
-        active_occurrence_year = currentYear - 1 if active_trade_begin_last_year else currentYear
-        if (
-            trade_active
-            and chartData
-            and int(chartData[-1].get('year', -1)) == active_occurrence_year
-        ):
-            chartData.pop()
-            pctArray.pop()
-            pctArray_low.pop()
-            pctArray_high.pop()
-        if len(chartData) > _report_completed_years:
-            chartData = chartData[-_report_completed_years:]
-            pctArray = pctArray[-_report_completed_years:]
-            pctArray_low = pctArray_low[-_report_completed_years:]
-            pctArray_high = pctArray_high[-_report_completed_years:]
-    elif custom_years and max_filtered_years is not None and len(chartData) > max_filtered_years:
-        # Keep only the most recent N entries (last N in the list)
-        chartData = chartData[-max_filtered_years:]
-        pctArray = pctArray[-max_filtered_years:]
-        pctArray_low = pctArray_low[-max_filtered_years:]
-        pctArray_high = pctArray_high[-max_filtered_years:]
+        completed_indices = [
+            index for index, is_completed in enumerate(completed_flags) if is_completed
+        ][-_report_completed_years:]
+        chartData = [chartData[index] for index in completed_indices]
+        pctArray = [pctArray[index] for index in completed_indices]
+        pctArray_low = [pctArray_low[index] for index in completed_indices]
+        pctArray_high = [pctArray_high[index] for index in completed_indices]
+        completed_flags = [True] * len(completed_indices)
+    else:
+        if custom_years and max_filtered_years is not None:
+            completed_indices = [
+                index for index, is_completed in enumerate(completed_flags) if is_completed
+            ]
+            keep_indices = set(completed_indices[-max_filtered_years:])
+            keep_indices.update(
+                index for index, is_completed in enumerate(completed_flags) if not is_completed
+            )
+            ordered_keep = sorted(keep_indices)
+            chartData = [chartData[index] for index in ordered_keep]
+            pctArray = [pctArray[index] for index in ordered_keep]
+            pctArray_low = [pctArray_low[index] for index in ordered_keep]
+            pctArray_high = [pctArray_high[index] for index in ordered_keep]
+            completed_flags = [completed_flags[index] for index in ordered_keep]
 
+        # Keep the active partial bar visible while excluding it from every
+        # completed-history statistic and comparison.
+        pctArray = [
+            value for index, value in enumerate(pctArray) if completed_flags[index]
+        ]
+        pctArray_low = [
+            value for index, value in enumerate(pctArray_low) if completed_flags[index]
+        ]
+        pctArray_high = [
+            value for index, value in enumerate(pctArray_high) if completed_flags[index]
+        ]
     # ----------------------------------------------
     # Add current year placeholder if applicable
     # ----------------------------------------------

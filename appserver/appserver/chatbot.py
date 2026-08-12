@@ -1,4 +1,4 @@
-﻿from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
 import datetime
 import re
@@ -6,15 +6,10 @@ import sys
 import os
 import json
 import logging
-import hashlib
-import hmac
-import threading
-import time
-import uuid
 import math
 from functools import wraps
 import jwt
-import redis
+import config
 from AI_tools_appserver import (
     send_claude_messages,
     CLAUDE_HAIKU_35,   # claude-3-5-haiku-20241022 - very cheap, fast
@@ -37,12 +32,43 @@ from tradewave_api_calls_cb import (
 # Phase 1: Tara calls the v1 gateway as a client (one source of truth). Falls back to the
 # plain no-tools chat when the gateway is not configured. See docs/TARA_GATEWAY_INTEGRATION.md.
 from tara_gateway import (
-    classify_view_intent,
-    run_chat_with_tools,
-    response_violates_view_contract,
-    unsupported_live_data_response,
     TARA_TOOLS_ENABLED,
+    _validate_view_spec,
+    run_chat_with_openai_tools,
+    run_chat_with_tools,
 )
+from tara_answer_planner import (
+    build_bottom_slide_command,
+    build_excursion_overlay_command,
+    build_deterministic_reply,
+    build_hundred_year_pattern_command,
+    build_current_table_pick_command,
+    build_opportunity_row_load_command,
+    build_tooltip_preference_command,
+    canonical_pattern_facts,
+    explicit_pattern_symbol,
+    needs_pattern_ai_context,
+    requested_full_history_years,
+    verified_context_lines,
+)
+from featured_patterns import is_hundred_year_view_spec
+from tara_prompt_context import (
+    allowlisted_prompt_stats,
+    needs_opportunity_rows,
+    needs_yearly_results,
+    parse_knowledge_sections,
+    prompt_segment_sizes,
+    segmented_system_blocks,
+    select_topic_knowledge,
+)
+from tara_model_router import select_tara_provider
+from tara_runtime_policy import (
+    FALLBACK_MODEL,
+    FALLBACK_PROVIDER,
+    PRIMARY_MODEL,
+    PRIMARY_PROVIDER,
+)
+from tara_release_fingerprint import runtime_fingerprint
 
 
 # -----------------------------------------------------------------
@@ -71,7 +97,7 @@ def check_for_token(func):
                 token = (request.get_json(silent=True) or {}).get('token')
             except Exception:
                 token = None
-        if not isinstance(token, str) or not token or len(token) > 4096:
+        if not token:
             ip, ua = _client_meta()
             logging.warning("chatbot.check_for_token: missing token ip=%s ua=%s", ip, ua)
             return jsonify({'message': 'Missing token'}), 403
@@ -140,14 +166,17 @@ TOOL_INSTRUCTION = (
     "outlier dependence, and the strongest counter-signal instead of mechanically listing every metric, and "
     "a bare 'Pattern loaded' / 'Loaded on the chart' with no stat is a HARD FAIL here too, even though no "
     "load action fired.\n"
-    "2) When the user asks to LOAD / SHOW / OPEN / PULL UP a symbol or setup, or to CHANGE the years "
-    "or PE cycle, you MUST call update_view and do it yourself. Do NOT tell them to use a dropdown, "
-    "selectbox, or to click a row - you CAN drive the view for them. After update_view, state the "
-    "requested symbol/setup and its evidence, but NEVER say loaded, reloaded, already loaded, or done; "
-    "the browser adds completion text only after the chart data succeeds.\n"
-    "3) For every new/different symbol or setup, first use a read tool and copy its exact symbol + "
-    "market id + entry_date + hold_days (as days_out) into update_view. For a date-range preset "
-    "(a month/quarter/season), call analyze_symbol with period= first. Never invent a setup.\n"
+    "2) When the user asks to LOAD / SHOW / OPEN / PULL UP a symbol or setup, CHANGE the years "
+    "or PE cycle, SHOW/HIDE MFE or MAE, or SHOW the Trend Chart / Wave Stats / Price Chart, "
+    "you MUST call update_view and do it yourself. "
+    "For MFE/MAE use show_mfe/show_mae booleans; for the global guidance tooltips use "
+    "show_tooltips. Do not open a guide for a direct view command. Do NOT tell them to use a dropdown, "
+    "selectbox, or to click a row - you CAN drive the view for them. After update_view, say in one "
+    "short line what you changed. For a lower-panel command use bottom_slide=trend_chart, "
+    "wave_stats, or price_chart; confirm the panel in one line without reloading the symbol or "
+    "adding unrelated statistics.\n"
+    "3) For a date-range preset (a month/quarter/season), first call analyze_symbol with period= to "
+    "get the resolved entry_date + days_out, then pass those to update_view.\n"
     "4) SCREENING / 'which <group> stocks ...' questions (e.g. 'which tech stocks tend to rise this time "
     "of year', 'best energy names now', 'top crypto setups'): MAP the group to its SINGLE market id "
     "(tech / technology = NASDAQ 100 = market 1; see the Securities Groups list above) and call "
@@ -185,12 +214,9 @@ TOOL_INSTRUCTION = (
     "to GET that same window's N-year stats, AND update_view(years=N) to change the "
     "chart, then state the ACTUAL N-year result ('over 20 years: 18 of 20 winners, avg +X%'). NEVER "
     "describe what the chart 'will show' or 'whether it holds further back' - analyze_symbol takes a years "
-    "param, so report what the DATA says over N years, not the bars.\n"
-    "D) ACTION STATUS IS CLIENT-OWNED. update_view returns pending_client_confirmation because it only "
-    "queues a browser request. In your prose, name the requested symbol/setup and evidence but NEVER say "
-    "loaded, reloaded, already loaded, done, now on screen, or fresh data on screen. Do not promise 'I will "
-    "load it' without a native update_view call. The browser appends a deterministic success sentence only "
-    "after the exact ChartData4 request returns current, non-empty data."
+    "param, so report what the DATA says over N years, not the bars. For 'max years', 'all available years', "
+    "or 'full history', use the exact Full-history lookback in VERIFIED CURRENT SCREEN. Never use 99 as a "
+    "sentinel for maximum history; 99 is only the API validation ceiling and can predate the symbol."
 )
 
 # Initialize Blueprint
@@ -589,33 +615,8 @@ def get_opportunities(user_message, context="wordpress"):
 #     except Exception as e:
 #         return jsonify({"reply": f"Error: {str(e)}"})
 
-QUESTION_LOG = os.environ.get(
-    'TARA_QUESTION_LOG',
-    (
-        '/var/log/tradewave/tara_questions.log'
-        if os.name != 'nt'
-        else os.path.join(os.path.dirname(__file__), 'chatbot_questions.log')
-    ),
-)
-ACTION_AUDIT_LOG = os.environ.get(
-    'TARA_ACTION_AUDIT_LOG',
-    (
-        '/var/log/tradewave/tara_actions.log'
-        if os.name != 'nt'
-        else os.path.join(os.path.dirname(__file__), 'tara_actions.log')
-    ),
-)
+QUESTION_LOG    = os.path.join(os.path.dirname(__file__), 'chatbot_questions.log')
 CHATBOT_USERS_FILE = os.path.join(os.path.dirname(__file__), 'chatbot_users.txt')
-ACTION_RECEIPT_TTL_SECONDS = 15 * 60
-_ACTION_AUDIT_REDIS = redis.Redis(
-    host=os.environ.get('REDIS_HOST', 'localhost'),
-    port=int(os.environ.get('REDIS_PORT', '6379')),
-    db=int(os.environ.get('TARA_AUDIT_REDIS_DB', '0')),
-    socket_connect_timeout=0.5,
-    socket_timeout=0.5,
-)
-_ACTION_RESULT_MEMORY = {}
-_ACTION_RESULT_MEMORY_LOCK = threading.Lock()
 
 def _load_chatbot_users():
     """Read allowed user IDs from chatbot_users.txt. File is read fresh each call so no restart needed."""
@@ -641,312 +642,41 @@ def chatbot_access():
     allowed = True
     return jsonify({"allowed": allowed, "user_id": user_id})
 
-def _canonical_action_spec(spec):
-    return json.dumps(spec, sort_keys=True, separators=(',', ':'), ensure_ascii=True)
-
-
-def _action_manifest(actions):
-    rows = sorted(
-        (
-            {
-                'action_id': str(action.get('action_id') or '').lower(),
-                'spec': action.get('spec'),
-            }
-            for action in actions
-        ),
-        key=lambda row: row['action_id'],
-    )
-    canonical = json.dumps(rows, sort_keys=True, separators=(',', ':'), ensure_ascii=True)
-    return hashlib.sha256(canonical.encode('utf-8')).hexdigest()
-
-
-def _action_receipt(user_id, turn_id, action_id, spec, expires_at, manifest):
-    secret = str(current_app.config['SECRET_KEY']).encode('utf-8')
-    payload = (
-        '%s|%s|%s|%s|%s|%s'
-        % (
-            user_id,
-            turn_id,
-            action_id,
-            int(expires_at),
-            manifest,
-            _canonical_action_spec(spec),
-        )
-    ).encode('utf-8')
-    return hmac.new(secret, payload, hashlib.sha256).hexdigest()
-
-
-def log_question(user_id, question, response, wave_viewer, turn_id=None, actions=None,
-                 protocol_trace=None):
+def log_question(user_id, question, response, wave_viewer, provider="unknown"):
     """Append one JSON line per question to chatbot_questions.log."""
     try:
-        action_rows = []
-        for action in actions or []:
-            if not isinstance(action, dict):
-                continue
-            action_rows.append({
-                'action_id': action.get('action_id'),
-                'action_manifest': action.get('action_manifest'),
-                'type': action.get('type'),
-                'status': action.get('status', 'validated'),
-                'spec': action.get('spec') if isinstance(action.get('spec'), dict) else {},
-            })
         entry = {
-            'schema_version': 2,
             'ts':       datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'turn_id':  turn_id or '',
             'user_id':  user_id,
             'provider': provider,
             'symbol':   wave_viewer.get('symbol', ''),
-            'question': str(question or '')[:2000],
-            'response': str(response or '')[:4000],
-            'response_state': 'pending_action' if action_rows else 'complete',
-            'actions': action_rows,
-            'protocol_trace': [
-                event for event in (protocol_trace or [])[:24]
-                if isinstance(event, dict)
-            ],
+            'question': question,
+            'response': response[:500] if response else '',  # truncate long replies
         }
-        parent = os.path.dirname(QUESTION_LOG)
-        if parent:
-            os.makedirs(parent, exist_ok=True)
         with open(QUESTION_LOG, 'a', encoding='utf-8') as f:
             f.write(json.dumps(entry) + '\n')
-        return True
-    except Exception:
-        logging.exception('chatbot question audit write failed')
-        return False
-
-
-_AUDIT_ID_RE = re.compile(r'^[a-f0-9]{32}$')
-_AUDIT_RECEIPT_RE = re.compile(r'^[a-f0-9]{64}$')
-_AUDIT_STATUSES = {'succeeded', 'failed'}
-
-
-def _clean_observed_view(value):
-    if not isinstance(value, dict):
-        return {}
-    out = {}
-    symbol = value.get('symbol')
-    if isinstance(symbol, str) and re.fullmatch(r'[A-Za-z0-9.\-]{1,15}', symbol):
-        out['symbol'] = symbol.upper()
-    market = value.get('market')
-    if market is not None and str(market) in {str(i) for i in range(17) if i not in (14, 15)}:
-        out['market'] = str(market)
-    entry_date = value.get('entry_date')
-    if isinstance(entry_date, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', entry_date):
-        try:
-            datetime.datetime.strptime(entry_date, '%Y-%m-%d')
-            out['entry_date'] = entry_date
-        except ValueError:
-            pass
-    for src, dst, low, high in (
-        ('days_out', 'days_out', 1, 366),
-        ('years', 'years', 1, 99),
-    ):
-        raw = value.get(src)
-        if isinstance(raw, int) and not isinstance(raw, bool) and low <= raw <= high:
-            out[dst] = raw
-    pe = value.get('pe_cycle')
-    if pe in {'cons', 'pe0', 'pe1', 'pe2', 'pe3'}:
-        out['pe_cycle'] = pe
-    return out
-
-
-def _clean_signed_spec(value):
-    if not isinstance(value, dict) or not value:
-        return None
-    allowed = {'symbol', 'market', 'entry_date', 'days_out', 'years', 'pe_cycle'}
-    if set(value) - allowed:
-        return None
-    cleaned = _clean_observed_view(value)
-    if set(cleaned) != set(value) or cleaned != value:
-        return None
-    has_entry = 'entry_date' in cleaned
-    has_days = 'days_out' in cleaned
-    if has_entry != has_days:
-        return None
-    return cleaned
-
-
-def _claim_action_result(event_key, expires_at):
-    """Atomically claim one terminal audit event; Redis spans all workers."""
-    ttl = max(60, min(24 * 60 * 60, int(expires_at) - int(time.time()) + 60))
-    redis_key = 'tara:action-result:' + event_key
-    try:
-        return bool(_ACTION_AUDIT_REDIS.set(redis_key, '1', nx=True, ex=ttl)), 'redis'
-    except redis.RedisError:
-        # A Redis outage must not take down Tara. The bounded in-process fallback
-        # still prevents React re-render duplicates in this worker.
-        now = int(time.time())
-        with _ACTION_RESULT_MEMORY_LOCK:
-            for key, expiry in list(_ACTION_RESULT_MEMORY.items()):
-                if expiry < now:
-                    _ACTION_RESULT_MEMORY.pop(key, None)
-            if event_key in _ACTION_RESULT_MEMORY:
-                return False, 'memory'
-            _ACTION_RESULT_MEMORY[event_key] = now + ttl
-        logging.warning("tara action audit dedupe using in-process fallback")
-        return True, 'memory'
-
-
-def _release_action_result(event_key, backend):
-    try:
-        if backend == 'redis':
-            _ACTION_AUDIT_REDIS.delete('tara:action-result:' + event_key)
-        else:
-            with _ACTION_RESULT_MEMORY_LOCK:
-                _ACTION_RESULT_MEMORY.pop(event_key, None)
-    except redis.RedisError:
-        pass
-
-
-@chatbot_bp.route("/action_result", methods=["POST"])
-@check_for_token
-def chatbot_action_result():
-    """Append a verified browser acknowledgement to the action sidecar log."""
-    from flask import g
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({'ok': False, 'error': 'invalid_action_result'}), 400
-    user_id = getattr(g, 'chatbot_user_id', 'unknown')
-    turn_id = str(data.get('turn_id') or '').lower()
-    status = str(data.get('status') or '').lower()
-    proofs = data.get('actions')
-    if (
-        not _AUDIT_ID_RE.fullmatch(turn_id)
-        or status not in _AUDIT_STATUSES
-        or not isinstance(proofs, list)
-        or not (1 <= len(proofs) <= 8)
-    ):
-        return jsonify({'ok': False, 'error': 'invalid_action_result'}), 400
-
-    action_ids = []
-    action_rows = []
-    expected_spec = {}
-    expirations = []
-    manifests = []
-    now = int(time.time())
-    for proof in proofs:
-        if not isinstance(proof, dict):
-            return jsonify({'ok': False, 'error': 'invalid_action_result'}), 400
-        action_id = str(proof.get('action_id') or '').lower()
-        receipt = str(proof.get('receipt') or '').lower()
-        manifest = str(proof.get('manifest') or '').lower()
-        spec = _clean_signed_spec(proof.get('spec'))
-        expires_at = proof.get('expires_at')
-        if (
-            not _AUDIT_ID_RE.fullmatch(action_id)
-            or not _AUDIT_RECEIPT_RE.fullmatch(receipt)
-            or not _AUDIT_RECEIPT_RE.fullmatch(manifest)
-            or spec is None
-            or not isinstance(expires_at, int)
-            or isinstance(expires_at, bool)
-            or expires_at < now
-            or expires_at > now + ACTION_RECEIPT_TTL_SECONDS + 60
-        ):
-            return jsonify({'ok': False, 'error': 'invalid_action_result'}), 400
-        if action_id in action_ids:
-            return jsonify({'ok': False, 'error': 'invalid_action_result'}), 400
-        expected = _action_receipt(
-            user_id,
-            turn_id,
-            action_id,
-            spec,
-            expires_at,
-            manifest,
-        )
-        if not hmac.compare_digest(receipt, expected):
-            return jsonify({'ok': False, 'error': 'invalid_action_result'}), 400
-        for key, value in spec.items():
-            if key in expected_spec and expected_spec[key] != value:
-                return jsonify({'ok': False, 'error': 'invalid_action_result'}), 400
-            expected_spec[key] = value
-        action_ids.append(action_id)
-        action_rows.append({'action_id': action_id, 'spec': spec})
-        expirations.append(expires_at)
-        manifests.append(manifest)
-
-    if (
-        len(set(manifests)) != 1
-        or _action_manifest(action_rows) != manifests[0]
-    ):
-        return jsonify({'ok': False, 'error': 'invalid_action_result'}), 400
-    action_manifest = manifests[0]
-
-    reason = str(data.get('reason') or '').replace('\r', ' ').replace('\n', ' ')[:160]
-    displayed_response = data.get('displayed_response')
-    if not isinstance(displayed_response, str):
-        return jsonify({'ok': False, 'error': 'invalid_action_result'}), 400
-    displayed_response = displayed_response[:4000]
-    points = data.get('data_points')
-    if not isinstance(points, int) or isinstance(points, bool) or not (0 <= points <= 10000):
-        points = 0
-    observed_view = _clean_observed_view(data.get('observed_view'))
-    if status == 'succeeded':
-        if any(observed_view.get(key) != value for key, value in expected_spec.items()):
-            return jsonify({'ok': False, 'error': 'action_result_mismatch'}), 409
-        chart_backed = bool(observed_view.get('symbol')) and any(
-            key in expected_spec
-            for key in ('symbol', 'entry_date', 'days_out', 'years', 'pe_cycle')
-        )
-        if chart_backed and points <= 0:
-            return jsonify({'ok': False, 'error': 'action_result_mismatch'}), 409
-
-    event_key = hashlib.sha256(
-        ('%s|%s|%s' % (user_id, turn_id, action_manifest)).encode('utf-8')
-    ).hexdigest()
-    claimed, claim_backend = _claim_action_result(event_key, min(expirations))
-    if not claimed:
-        return jsonify({'ok': True, 'duplicate': True})
-
-    entry = {
-        'schema_version': 2,
-        'event': 'tara_action_result',
-        'ts': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'turn_id': turn_id,
-        'action_ids': action_ids,
-        'action_manifest': action_manifest,
-        'user_id': user_id,
-        'status': status,
-        'reason': reason,
-        'expected_spec': expected_spec,
-        'observed_view': observed_view,
-        'data_points': points,
-        'displayed_response': displayed_response,
-    }
-    try:
-        parent = os.path.dirname(ACTION_AUDIT_LOG)
-        if parent:
-            os.makedirs(parent, exist_ok=True)
-        with open(ACTION_AUDIT_LOG, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry) + '\n')
-    except Exception:
-        _release_action_result(event_key, claim_backend)
-        logging.exception("tara action audit write failed")
-        return jsonify({'ok': False, 'error': 'audit_unavailable'}), 503
-    return jsonify({'ok': True})
+    except Exception as e:
+        print(f'[WARN] chatbot log failed: {e}')
 
 #-------------------------------------------------------------------------------------------------------------------
 def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                         opp_table_market=None, opp_table_market_name=None,
-                        analysis_report=None):
-    """Build a system prompt that gives the LLM awareness of the wave viewer and opp table."""
+                        screen_context=None, user_message="", analysis_report=None):
+    """Build stable, topic-selected and live-data system blocks for the current turn."""
     parts = [
         "You are Tara, the AI assistant for TradeWave, a seasonal trading pattern analysis platform by Tara Data Research.",
         "You help traders understand seasonal trading patterns, analyse opportunities, and interpret statistics.",
-        "DATA CAPABILITY BOUNDARY: Never claim a live/current metric unless that exact metric appears in the supplied viewer context or this turn's tool result. Tara's opportunity tools rank seasonal setups; they do NOT provide intraday trading volume, order flow, breaking news, fundamentals, or a broad-market live regime. For 'highest-volume stock today' or 'long versus short based on today's market trend', say briefly that you cannot verify that live criterion from the seasonal dataset, then offer the strongest seasonal long/short setup as a clearly labelled alternative - never substitute a Sharpe-ranked seasonal pick and describe it as volume- or market-trend-ranked. A loaded pattern may include Trend Long/Trend Short for that symbol; label it as the loaded symbol's score, never the overall market trend. Private companies with no publicly traded TradeWave symbol cannot be charted; say that plainly and do not invent a ticker or proxy.",
-        "RESPONSE STYLE: Be very short and confident. A simple/single answer is at most 2 sentences; a list is at most 5 one-liners. Never recite a full card, a year-by-year table, best/worst/median years, an order ticket, position sizing, a pricing-tier breakdown, or a multi-step how-to procedure in chat - that content lives on the screen or in a guide. No bullet-list feature tours. No filler ('Great question', 'Of course', 'I'd be happy to'). Never end with a question like 'is that what you meant?' or a clarifying menu when the answer is inferable. Just answer and drive the view.",
+        "RESPONSE STYLE AND RELEVANCE: Match depth to intent. A simple fact, definition, or view command is at most 2 sentences; a list is at most 5 one-liners. An analysis or evaluation may use 4-7 short labeled lines when the evidence supports them: lead with the bottom line, give the numbers that caused it, identify the strongest counter-signal or limitation, and connect the answer to the user's visible TradeWave context. Do not dump every available metric; select the facts that change the interpretation. Prefer comparisons ('recent 5 vs full sample', 'median vs average', 'selected vs full history') over unsupported adjectives such as strong or reliable. Never give an order ticket, position sizing, or a pricing-tier wall. No filler ('Great question', 'Of course', 'I'd be happy to'). Never end with a clarifying menu when the answer is inferable. Just answer and drive the view.",
         "YOU DRIVE, YOU NEVER TELL THE USER TO CLICK (CORE RULE): Tara is the interface - whenever the answer is a pattern/setup/symbol/stat that has a screen, YOU put it there with update_view and point to it. NEVER say 'click a row', 'click any opportunity', 'use the dropdown', 'select X', 'check the opportunity table', or hand the user a click/configure procedure - that is a hard failure. (A) SINGLE pick / best-trade / a named symbol / 'the best one' / 'show me something good': the read tool returns a ready `headline` (e.g. 'BLDR long - enter ~Jun 22, hold 30d. Won 9/10 years, avg +11.7%, Sharpe 1.1.'). You MUST call update_view to load it AND your reply MUST be that headline verbatim-or-lightly-tidied. A reply that loads the chart but does not NAME the symbol and at least ONE real stat from the tool (win rate OR avg return) is a HARD FAIL - never reply 'Pattern loaded', 'Loaded on the chart', 'Loaded on screen', or any confirmation that omits the symbol+stat. Use the tool's exact numbers, never a rounded '90%'. Do not append a disclaimer unless the user asked whether to trade/buy/sell. (B) LIST / 'best setups' / 'which <group> stocks': up to 5 lines, each symbol + ONE stat, then one short line 'Want me to pull one up?' For a sub-index sector (energy, financials, healthcare), scan the closest market and NAME the matching tickers from the results - never say the scan is 'picking the best overall names' or ask the user to filter.",
-        "INFER, DON'T PUNT: Resolve obvious context yourself and act - do not re-ask. NEVER open with 'I need context', 'I need more info', 'Are you asking...', 'Could you clarify', or restate the question back as a question when a pattern is loaded - the loaded pattern + the opportunity table ARE the context, so just answer. 'The first one' / 'that one' = the #1 item of the list you just gave; 'this pattern' / 'this setup' / 'how did it do in <year>' / 'why this pick' / 'why does this rank here' / 'why is it ranked here' / 'where does it rank' / 'compare this to the S&P' = the currently loaded pattern (use the loaded-pattern context, its stats, its rank in the opportunity table, and yearly_results given to you); for a 'why does this rank here' question name the loaded symbol's Sharpe + its position in the table and the one reason in <=2 sentences (it is Sharpe-ranked, so a higher-Sharpe row outranks it) - do NOT dump a multi-bullet breakdown, do NOT load or re-load anything (it is already on screen), and NEVER reply with a bare 'loaded' / 'pattern loaded on screen' - this is an ANALYTICAL question, so ANSWER it from the loaded stats + the table; 'how strong / how good / how reliable is this' (this window / this setup / this pattern) = an ANALYTICAL STRENGTH question about the ALREADY-LOADED pattern: answer in <=2 sentences straight from the loaded stats - its % profitable (win rate, e.g. won X of Y years), Sharpe, avg return, and how many years (sample size) - do NOT call a tool, do NOT load or re-load (it is already on screen), and a bare 'pattern loaded' / 'loaded on the chart' with no stat is a HARD FAIL; 'this window' / 'now' = the current seasonal window; a global knob ('change years to 20', 'switch to PE+2') applies to whatever is loaded - fire update_view with that one field and state the requested setting without claiming it completed, never ask which symbol. A named ticker with no other detail ('what about apple?') = fetch its top current setup, name one stat, and load it. Only ask a clarifying question when the request is genuinely ambiguous AND nothing reasonable can be loaded - and even then, offer a concrete default ('want today's pick?'), never a 3-way menu. A bare display knob command ('switch to PE+2', 'change years to 20') fires update_view with JUST that field EVEN WITH NOTHING LOADED - it applies when a pattern is next/already loaded; never refuse with 'I need a symbol first'. A date or duration change is a setup change: first resolve it with a read tool, then send the full symbol + market + entry_date + days_out action. For a documented UI-gap where the user NAMED the target ('flip to the price chart tab', 'the stats') give the ONE-line pointer ('Price Chart is slide 3 - swipe to it') and STOP - never dump a numbered 3-slide menu and never end on 'which one?'. For a named sector ETF (XLE, XLF, XLK, SMH) call get_symbol_patterns(symbol) and name its best window + load it - do NOT punt with 'may not be in scope' unless the tool itself returns an out-of-scope nudge.",
+        "INFER, DON'T PUNT: Resolve obvious context yourself and act - do not re-ask. NEVER open with 'I need context', 'I need more info', 'Are you asking...', 'Could you clarify', or restate the question back as a question when a pattern is loaded - the loaded pattern + the opportunity table ARE the context, so just answer. 'The first one' / 'that one' = the #1 item of the list you just gave; 'this pattern' / 'this setup' / 'how did it do in <year>' / 'why this pick' / 'why does this rank here' / 'why is it ranked here' / 'where does it rank' / 'compare this to the S&P' = the currently loaded pattern (use the loaded-pattern context, its stats, its rank in the opportunity table, and yearly_results given to you); for a 'why does this rank here' question name the loaded symbol's Sharpe + its position in the table and the one reason in <=2 sentences (it is Sharpe-ranked, so a higher-Sharpe row outranks it) - do NOT dump a multi-bullet breakdown, do NOT load or re-load anything (it is already on screen), and NEVER reply with a bare 'loaded' / 'pattern loaded on screen' - this is an ANALYTICAL question, so ANSWER it from the loaded stats + the table; 'how strong / how good / how reliable is this' (this window / this setup / this pattern) = an ANALYTICAL STRENGTH question about the ALREADY-LOADED pattern: answer in <=2 sentences straight from the loaded stats - its % profitable (win rate, e.g. won X of Y years), Sharpe, avg return, and how many years (sample size) - do NOT call a tool, do NOT load or re-load (it is already on screen), and a bare 'pattern loaded' / 'loaded on the chart' with no stat is a HARD FAIL; 'this window' / 'now' = the current seasonal window; a global knob ('change years to 20', 'switch to PE+2') applies to whatever is loaded - fire update_view with that one field and confirm in one line, never ask which symbol. A named ticker with no other detail ('what about apple?') = fetch its top current setup, name one stat, and load it. Only ask a clarifying question when the request is genuinely ambiguous AND nothing reasonable can be loaded - and even then, offer a concrete default ('want today's pick?'), never a 3-way menu. A bare knob command ('switch to PE+2', 'change years to 20', 'make it 45 days') fires update_view with JUST that field EVEN WITH NOTHING LOADED - it applies when a pattern is next/already loaded; never refuse with 'I need a symbol first' (you fire years with no symbol, so fire pe_cycle the same way). For a documented UI-gap where the user NAMED the target ('flip to the price chart tab', 'the stats') give the ONE-line pointer ('Price Chart is slide 3 - swipe to it') and STOP - never dump a numbered 3-slide menu and never end on 'which one?'. For a named sector ETF (XLE, XLF, XLK, SMH) call get_symbol_patterns(symbol) and name its best window + load it - do NOT punt with 'may not be in scope' unless the tool itself returns an out-of-scope nudge.",
         "NEVER PROMISE AN ACTION YOU DON'T FIRE, NEVER RE-ASK WHEN INFERABLE: If your reply says you will load / pull up / compare something, the matching update_view MUST be in this turn's actions - 'Let me load each...' with no action is a HARD FAIL. 'pull up the first one' = the #1 row of the most recent scan/list (load it, do not show a menu). 'this window' / 'now' with no date = the current seasonal window (resolve it, do not ask 'which window?'). For a 2-3 symbol comparison, read each with analyze_symbol, NAME the stronger with one stat for each, THEN update_view the winner in the SAME turn. For a proof / skeptic / yes-no question where you have already resolved a concrete symbol+entry (e.g. NVDA's July window, today's pick), ALSO fire update_view so the record is on screen - answering in text without loading the resolved pick is a screen-control fail.",
         "COMPARISON IS A HARD CONTRACT (X vs Y, 'which is better', 2-3 named symbols): you MUST emit, in THIS turn, (1) ONE stat line per named symbol from analyze_symbol - symbol + win rate or avg return + window, (2) a one-line 'X wins because <higher win rate / Sharpe>' verdict, THEN (3) update_view loading the winner. A reply that loads one symbol with no per-symbol stat for the OTHER(S), or a bare 'GDX is now on the chart', or that asks 'which window do you mean' (= the current/now window - resolve it, never ask) is a HARD FAIL. Never claim to put more than one on screen; load only the winner and offer 'say the word and I'll pull up the other.'",
         "DO NOT AUTO-LOAD ON THESE - answer first, load only if asked: a pure DEFINITION ('what is this?', 'what is a seasonal pattern?'), a GREETING ('hi'), a capability ask ('what can you do?'), or a LIST / 'best setups' / 'strongest setups' / 'top N' / 'only high win-rate ones' / 'which <group> stocks' ask. For a definition/greeting/capability: 1-2 plain sentences + offer one concrete next move ('want today's pick or the best setups now?'), and fire NO set_view. For a LIST ask: up to 5 one-liners (symbol + one stat each) + 'Want me to pull one up?' and do NOT LOAD A PATTERN (no symbol set_view). EXCEPTION: a 'which <group> stocks' ask MAY fire a market-only update_view to switch the opportunity table to that group when it is not already there, so your named rows match the screen - switching the table's group is not loading a pattern. A plural 'setups' or any quality floor (high win-rate, only the best ones) is ALWAYS a list - emit up to 5 named one-liners and load no pattern, even if the phrasing sounds singular. Auto-loading a PATTERN (a symbol into the chart) on any of these is a fail. Single-pick / named-symbol / 'show me something good' asks DO load (rule A).",
-        "ANSWER THE QUESTION TOO, NOT JUST LOAD: Requesting the chart does not replace answering. A yes/no ('is NVDA seasonal in July?') gets a direct yes/no + one real stat from the tool. A 'why is this the pick' gets the actual reason (top Sharpe / strongest seasonal edge / forward-tested record). A specific-year question ('how did 2022 do?') is answered directly from yearly_results - never say you can't see the chart or tell the user to read the bars. A proof/skeptic question ('does this actually work / is it just backtested?') gets ~2 confident sentences from the forward-tested record (made-in-advance picks scored later), not a definitions lecture. If a specific-year question names a symbol/window that is NOT yet confirmed, use a read tool for the exact setup, answer from that result if available, and queue the exact grounded update_view action; do not imply the browser finished. If you genuinely lack the year's number, say so in one line and offer to load it - NEVER write 'find the 20XX bar' or 'click the bar'.",
+        "ANSWER THE QUESTION TOO, NOT JUST LOAD: Loading the chart does not replace answering. A yes/no ('is NVDA seasonal in July?') gets a direct yes/no + one real stat from the tool. A 'why is this the pick' gets the actual reason (top Sharpe / strongest seasonal edge / forward-tested record). A specific-year question ('how did 2022 do?') is answered directly from yearly_results - never say you can't see the chart or tell the user to read the bars. A proof/skeptic question ('does this actually work / is it just backtested?') gets ~2 confident sentences from the forward-tested record (made-in-advance picks scored later), not a definitions lecture. If a specific-year question names a symbol/window that is NOT yet loaded (e.g. 'how did NVDA's July setup do in 2022', 'show me the price chart for 2008'), first fire set_view to LOAD that pattern so its yearly_results populate, then answer that year from the data. If you genuinely lack the year's number, say so in one line and offer to load it - NEVER write 'find the 20XX bar' or 'click the bar'.",
         "MISSING-PROJECTION WHY-QUESTION ('why is there no projection line', 'where did the projection go'): if the loaded view uses a PE cycle phase OTHER than the current year's phase, the projection is hidden BY DESIGN - the view shows the next matching FUTURE cycle year, and a future window has no current price to anchor a forward projection to. This is an ANALYTICAL question: answer that reason in 1-2 sentences and STOP. Firing ANY set_view/update_view this turn, changing the user's PE mode uninvited, or reciting the Settings enable-steps is a HARD FAIL - the user chose that PE slice on purpose. End with one short offer ('Want me to flip back to consecutive so the projection returns?') and fire update_view with pe_cycle ONLY after the user says yes. If the PE mode is NOT the cause, check the viewed chart before reciting enable-steps: on a PAST year's historical chart the projection is hidden by design - point the user to the Current button in the price chart title bar (one line); for a pattern whose window already ENDED this year (completed trade) there is no live price to project from - say so in one line and offer to load a live pattern. Give the Settings enable-steps ONLY when the mode is consecutive (or the current year's own phase), the live/current-year chart is showing, and the projection is still absent.",
         "WHEN THERE IS NO DRIVING ACTION (documented UI gaps - slide/tab switch, click a year bar, highlight a year, open watchlist/portfolio): do NOT fall back to 'click a row'. Either answer from the data you already have (e.g. name the worst year + its loss from yearly_results), or point precisely to where it lives in ONE line ('Wave Stats is slide 2, swipe to it' / 'Price Chart is slide 3'), or open the matching guide popup. One honest sentence beats a manual procedure. For how-to questions that HAVE a dedicated guide (watchlist, getting started), open that guide and give a one-line answer - never paste the full step list. Never emit a set_view with a placeholder/empty symbol.",
         "PRICING / TIERS (ground in the knowledge base, stay brief - never recite the full tier wall): one or two sentences. Free Explorer exists (Dow 30, top-5 results, start date locked to today); paid unlocks more. If asked which tier for a capability, state the specific gate from the KB: custom start dates begin at Navigator for Dow/NASDAQ/S&P; Analyst adds all U.S. stocks + ETFs and ML scoring; Strategist adds all 15 markets. Point to tradewave.ai/pricing. Do not invent numbers or features not in the knowledge base. For a vague 'is it free?' give only: yes, there is a free Explorer tier (Dow 30, top-5 results, start date locked); paid unlocks more - point to tradewave.ai/pricing. Do NOT volunteer per-tier dollar amounts or portfolio/track limits unless the user names a tier or capability.",
-        "BLANK / ERROR / OUT-OF-SCOPE: If the message is empty or you hit a tool/rate-limit error, never dead-end - reply with one warm line offering a concrete starting move ('Want today's AI pick, a market scan, or a symbol loaded?'). Stay confident; do not expose 'system overloaded' as the whole answer. A pure KNOB command for the current view (change years to N, switch to PE+X) needs no data tool - fire update_view with only that field and state what was requested without claiming completion. A NEW SYMBOL command (load <symbol>, pull up <sym>) MUST first call analyze_symbol to resolve one real setup, then copy its exact symbol + market id + entry_date + hold_days (as days_out), plus any requested knobs, into update_view; if that read fails, do not queue a partial/stale setup and say honestly that the chart was not changed. On a should-I-trade / 'does it make money' / 'is it a good trade' ask: keep it to 2 sentences max (one stat line + the verdict), fire update_view to put the fully resolved pick on screen, append the disclaimer - do NOT write history/forward/ML as separate paragraphs or a 'Bottom line'.",
+        "BLANK / ERROR / OUT-OF-SCOPE: If the message is empty or you hit a tool/rate-limit error, never dead-end - reply with one warm line offering a concrete starting move ('Want today's AI pick, a market scan, or a symbol loaded?'). Stay confident; do not expose 'system overloaded' as the whole answer. A pure VIEW COMMAND (load <symbol>, change years to N, switch to PE+X, pull up <sym> over N years on the midterm cycle) needs NO data tool - fire update_view with the requested fields and confirm in one line, even if a read tool just errored; never answer a load/knob command with an 'overloaded' message. On a should-I-trade / 'is it a good trade' ask, do NOT give a yes/no verdict or recommendation. State that you can evaluate the evidence, present the strongest historical support and strongest counter-signal with n, load the named setup only when it is not already loaded, and append the disclaimer.",
         "FORMAT: Your output is rendered as HTML. Use <br> for line breaks. Use <b> for bold. When listing items, put each on its own line with <br> between them, INCLUDING a <br> after the LAST item; then put any closing sentence or question (e.g. 'Want me to pull one up?') on its own line after a <br><br> - never let it run onto the last list item. Never output a wall of text with no line breaks. NEVER use the em-dash character (—) anywhere in a reply - write ' - ' (spaced hyphen) instead; date ranges may use the en-dash.",
         "INFO POPUPS: When a user asks about a concept that has a guide panel, give a 1-2 sentence answer and auto-open the guide. End with: I just opened the [Name] guide for you. <a href=\"#\" data-action=\"ACTION\" style=\"font-size:0.85em\">[reopen guide]</a><span data-action=\"ACTION\" style=\"display:none\"></span> "
         "The hidden span triggers the popup. Do NOT output the span as visible text. The [reopen guide] link must always be visible. "
@@ -1028,8 +758,8 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
 
     # Wave viewer context
     symbol = wave_viewer.get("symbol", "")
-    view_ready = wave_viewer.get("view_ready") is True
-    if symbol and view_ready:
+    yearly = []
+    if symbol:
         parts.append("\n<b>Currently Loaded Pattern (Wave Viewer):</b>")
         if is_100_year_pattern(wave_viewer):
             parts.append("*** NAMED PATTERN ALERT: This is 'The 100-Year Pattern' - a famous seasonal pattern on SPX discovered by the TradeWave founder and published in the book 'The 100-Year Pattern' (Amazon: https://www.amazon.com/dp/B0FCX61K4Y). When discussing this pattern, always refer to it by name. ***")
@@ -1176,12 +906,6 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                     parts.append(_completed_year_line(yr, y))
     else:
         parts.append("\n<b>Wave Viewer:</b> No pattern currently loaded.")
-        if symbol:
-            parts.append(
-                f"The controls currently point to {symbol}, but its exact chart request has not "
-                "returned confirmed data. Treat it as NOT loaded; do not use it as analytical "
-                "context and do not claim it is on screen."
-            )
 
     # Opportunity table context
     if opportunities:
@@ -1208,11 +932,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         # when asked "why/where does this rank" (LLMs count list positions unreliably - she said
         # #5 for a row that is #4). The passed order IS the on-screen Sharpe order, so the 1-based
         # index is the visible rank. Hand her the exact number; tell her to use it, not recount.
-        loaded_sym = (
-            str(wave_viewer.get("symbol", "")).upper()
-            if wave_viewer.get("view_ready") is True
-            else ""
-        )
+        loaded_sym = str(wave_viewer.get("symbol", "")).upper()
         if loaded_sym:
             for i, o in enumerate(opportunities):
                 if str(o.get("symbol", "")).upper() == loaded_sym:
@@ -1331,8 +1051,45 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                 }, sort_keys=True, separators=(',', ':'))
             )
 
-    if _KNOWLEDGE:
-        parts.append(f"\n{_KNOWLEDGE}")
+
+    # Append a compact, allowlisted fact ledger last so current UI state and direction semantics
+    # have maximum recency and cannot be contradicted by stale conversation or generic KB prose.
+    verified_lines = verified_context_lines(wave_viewer, screen_context)
+    named_symbol = explicit_pattern_symbol(user_message)
+    loaded_symbol = str(wave_viewer.get("symbol") or "").strip().upper()
+    if named_symbol and loaded_symbol and named_symbol != loaded_symbol:
+        viewer_year = datetime.datetime.now(datetime.timezone.utc).year
+        verified_lines.append(
+            f"- EXPLICIT NAMED-SYMBOL OVERRIDE: the user named {named_symbol}, while {loaded_symbol} "
+            "is currently loaded. The named symbol overrides 'this', 'it', and the loaded screen. "
+            f"Do not answer with or relabel {loaded_symbol}'s statistics. Call analyze_symbol for "
+            f"{named_symbol}; reuse an exact entry date, inclusive calendar-day duration, direction, "
+            "and lookback from recent conversation only when they are explicitly available. Then call "
+            f"update_view with the verified {named_symbol} setup and answer only from {named_symbol} "
+            f"facts. For a recurring setup, update_view must anchor the returned month/day to the "
+            f"current {viewer_year} occurrence unless the user explicitly requested a historical year. "
+            "If the named setup cannot be resolved, say so instead of substituting the loaded symbol."
+        )
+        current_years = str(wave_viewer.get("years") or "")
+        requested_other_lookback = re.search(
+            r"\b(?:max(?:imum)?|all|full)(?:\s+available)?\s+(?:years?|history)\b|"
+            r"\b\d{1,2}\s*(?:-|\s)?years?\b",
+            user_message,
+            re.I,
+        )
+        current_cycle = str(wave_viewer.get("pe_cycle") or "cons").strip().lower()
+        if (
+            current_years.isdigit()
+            and current_cycle in {"cons", "consecutive"}
+            and not requested_other_lookback
+        ):
+            verified_lines.append(
+                f"- LOOKBACK INHERITANCE: the viewer is set to {current_years} years and the "
+                f"user did not request another lookback. Analyze and load {named_symbol} at "
+                f"{current_years} years, not the default 10. If {named_symbol} has fewer "
+                "completed observations, use and name its available maximum."
+            )
+    parts.append("\n" + "\n".join(verified_lines))
 
     knowledge = select_topic_knowledge(user_message, _KNOWLEDGE_SECTIONS)
     blocks = segmented_system_blocks(
@@ -1355,129 +1112,6 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
 # "Pattern loaded on the chart." and NO stat. When that happens on a loaded pattern whose stats we
 # already have, append the strength line straight from those loaded stats - NOT fabricated (the same
 # numbers the prompt already had), confident historical framing, no disclaimer.
-_STRENGTH_Q = re.compile(r'\bhow\s+(?:strong|good|reliable|solid)\b|\bstrength\b|\bhow\s+did\s+(?:it|this)\b|\bis\s+(?:it|this)\s+(?:strong|good|reliable)\b', re.I)
-_REPLY_HAS_STAT = re.compile(r'\d{1,3}\s*%|\bwon\s+\d+|\d+\s+of\s+\d+|sharpe[^\d]{0,12}\d', re.I)
-
-
-def _ensure_strength_answered(user_message, wave_viewer, reply):
-    try:
-        if not _STRENGTH_Q.search(user_message or ""):
-            return reply
-        wv = wave_viewer or {}
-        if wv.get("view_ready") is not True:
-            return reply
-        sym = (wv.get("symbol") or "").strip()
-        stats = wv.get("stats") or {}
-        if not sym or not stats:
-            return reply
-        if _REPLY_HAS_STAT.search(reply or ""):
-            return reply                      # she already stated a real stat - leave it
-        pct = str(stats.get("Percent Profitable") or "").strip()
-        sr = str(stats.get("Sharpe Ratio") or "").strip()
-        avg = str(stats.get("Avg Profit") or "").strip()
-        facts = canonical_pattern_facts(wv)
-        wins = int(facts.get("profitable_years") or 0)
-        tot = int(facts.get("sample_size") or 0)
-        bits = []
-        if pct:
-            bits.append(pct + " profitable" + ((" (won %d of %d years)" % (wins, tot)) if tot else ""))
-        elif tot:
-            bits.append("won %d of %d years" % (wins, tot))
-        if avg:
-            bits.append("avg " + avg)
-        if sr:
-            bits.append("Sharpe " + sr)
-        if not bits:
-            return reply
-        line = "Historically, %s's loaded window has been %s." % (sym, ", ".join(bits))
-        sep = "<br>" if (reply or "").strip() else ""
-        return (reply or "").rstrip() + sep + line
-    except Exception:
-        return reply
-
-
-def _clean_chat_history(value):
-    if not isinstance(value, list) or len(value) > 24:
-        raise ValueError('invalid history')
-    out = []
-    for item in value:
-        if not isinstance(item, dict):
-            raise ValueError('invalid history')
-        role = item.get('role')
-        content = item.get('content')
-        if role not in ('user', 'assistant') or not isinstance(content, str):
-            raise ValueError('invalid history')
-        out.append({'role': role, 'content': content[:4000]})
-    return out
-
-
-def _clean_wave_viewer(value):
-    if not isinstance(value, dict):
-        raise ValueError('invalid wave viewer')
-    out = {}
-    for key in ('company', 'direction', 'view_request_key'):
-        raw = value.get(key)
-        if isinstance(raw, str):
-            out[key] = raw[:200]
-    symbol = value.get('symbol')
-    if isinstance(symbol, str) and re.fullmatch(r'[A-Za-z0-9.\-]{0,15}', symbol):
-        out['symbol'] = symbol.upper()
-    market = value.get('market')
-    if market is not None and str(market) in {str(i) for i in range(17) if i not in (14, 15)}:
-        out['market'] = str(market)
-    for key in ('start_date', 'entry_date'):
-        raw = value.get(key)
-        if isinstance(raw, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', raw):
-            try:
-                datetime.datetime.strptime(raw, '%Y-%m-%d')
-                out[key] = raw
-            except ValueError:
-                pass
-    for key, low, high in (('days_out', 1, 366), ('years', 1, 99)):
-        raw = value.get(key)
-        try:
-            parsed = int(raw)
-        except (TypeError, ValueError):
-            continue
-        if not isinstance(raw, bool) and low <= parsed <= high:
-            out[key] = parsed
-    pe = value.get('pe_cycle')
-    if pe in {'cons', 'pe0', 'pe1', 'pe2', 'pe3'}:
-        out['pe_cycle'] = pe
-    out['view_ready'] = value.get('view_ready') is True
-    out['mae_enabled'] = value.get('mae_enabled') is True
-    last_price = value.get('last_price')
-    if isinstance(last_price, (int, float, str)) and not isinstance(last_price, bool):
-        out['last_price'] = str(last_price)[:40]
-
-    stats = value.get('stats')
-    if isinstance(stats, dict):
-        clean_stats = {}
-        for key, raw in list(stats.items())[:40]:
-            if not isinstance(key, str) or not isinstance(raw, (str, int, float, bool)):
-                continue
-            clean_stats[key[:80]] = raw if not isinstance(raw, str) else raw[:200]
-        if clean_stats:
-            out['stats'] = clean_stats
-
-    yearly = value.get('yearly_results')
-    if isinstance(yearly, list):
-        clean_yearly = []
-        for row in yearly[:99]:
-            if not isinstance(row, dict):
-                continue
-            clean_row = {}
-            for key in ('year', 'return_pct', 'mfe_pct', 'mae_pct'):
-                raw = row.get(key)
-                if isinstance(raw, (int, float)) and not isinstance(raw, bool):
-                    clean_row[key] = raw
-            if 'year' in clean_row and 'return_pct' in clean_row:
-                clean_yearly.append(clean_row)
-        if clean_yearly:
-            out['yearly_results'] = clean_yearly
-    return out
-
-
 def _clean_analysis_report_shape(value):
     """Validate the immutable, API-backed report snapshot supplied by React."""
     if value in (None, {}):
@@ -1824,57 +1458,77 @@ def _clean_analysis_report(value):
     return report
 
 
-def _clean_opportunities(value):
-    if not isinstance(value, list):
-        raise ValueError('invalid opportunities')
-    allowed = {
-        'date', 'symbol', 'days_out', 'direction', 'avg_profit', 'sharpe_ratio',
-    }
-    out = []
-    for row in value[:50]:
-        if not isinstance(row, dict):
-            continue
-        clean = {}
-        for key in allowed:
-            raw = row.get(key)
-            if isinstance(raw, (str, int, float)) and not isinstance(raw, bool):
-                clean[key] = raw if not isinstance(raw, str) else raw[:80]
-        if clean:
-            out.append(clean)
-    return out
+
+_STRENGTH_Q = re.compile(r'\bhow\s+(?:strong|good|reliable|solid)\b|\bstrength\b|\bhow\s+did\s+(?:it|this)\b|\bis\s+(?:it|this)\s+(?:strong|good|reliable)\b', re.I)
+_REPLY_HAS_STAT = re.compile(r'\d{1,3}\s*%|\bwon\s+\d+|\d+\s+of\s+\d+|sharpe[^\d]{0,12}\d', re.I)
 
 
-def _validation_audit_question(incoming_data):
-    """Return a bounded, non-structural question label for rejected payloads."""
-    if not isinstance(incoming_data, dict):
-        return '[invalid request body]'
-    value = incoming_data.get('message')
-    if isinstance(value, str):
-        return value[:2000]
-    if value is None:
-        return ''
-    return '[invalid message type: %s]' % type(value).__name__
+def _ensure_strength_answered(user_message, wave_viewer, reply):
+    try:
+        if not _STRENGTH_Q.search(user_message or ""):
+            return reply
+        wv = wave_viewer or {}
+        sym = (wv.get("symbol") or "").strip()
+        stats = wv.get("stats") or {}
+        if not sym or not stats:
+            return reply
+        if _REPLY_HAS_STAT.search(reply or ""):
+            return reply                      # she already stated a real stat - leave it
+        pct = str(stats.get("Percent Profitable") or "").strip()
+        sr = str(stats.get("Sharpe Ratio") or "").strip()
+        avg = str(stats.get("Avg Profit") or "").strip()
+        facts = canonical_pattern_facts(wv)
+        wins = int(facts.get("profitable_years") or 0)
+        tot = int(facts.get("sample_size") or 0)
+        bits = []
+        if pct:
+            bits.append(pct + " profitable" + ((" (won %d of %d years)" % (wins, tot)) if tot else ""))
+        elif tot:
+            bits.append("won %d of %d years" % (wins, tot))
+        if avg:
+            bits.append("avg " + avg)
+        if sr:
+            bits.append("Sharpe " + sr)
+        if not bits:
+            return reply
+        line = "Historically, %s's loaded window has been %s." % (sym, ", ".join(bits))
+        sep = "<br>" if (reply or "").strip() else ""
+        return (reply or "").rstrip() + sep + line
+    except Exception:
+        return reply
 
 
-def _rejected_chat_response(user_id, turn_id, incoming_data, reply, reason):
-    """Audit an authenticated rejected turn without retaining unsafe context."""
-    log_question(
-        user_id,
-        _validation_audit_question(incoming_data),
-        reply,
-        {},
-        turn_id=turn_id,
-        actions=[],
-        protocol_trace=[{
-            'event': 'validation_failure',
-            'reason': reason,
-        }],
-    )
-    return jsonify({
-        'reply': reply,
-        'actions': [],
-        'turn_id': turn_id,
-    }), 400
+def _loaded_full_history_request(years, wave_viewer, market):
+    """Build the exact loaded-window override used for a full-history tool turn.
+
+    The model still chooses and narrates the tools, but it cannot turn "max" into the
+    API ceiling (99) or silently analyze a different same-symbol setup.  Reuse the
+    established ViewSpec validator for the user-supplied screen fields before they are
+    forwarded to the provider-neutral tool executor.
+    """
+
+    wv = wave_viewer if isinstance(wave_viewer, dict) else {}
+    try:
+        days_out = int(str(wv.get("days_out")))
+    except (TypeError, ValueError):
+        days_out = None
+    cleaned = _validate_view_spec({
+        "symbol": wv.get("symbol"),
+        "market": wv.get("market") if wv.get("market") not in (None, "") else market,
+        "entry_date": wv.get("start_date"),
+        "days_out": days_out,
+        "years": years,
+    })
+    request_spec = {"years": years}
+    for field in ("symbol", "market", "entry_date", "days_out"):
+        if field in cleaned:
+            request_spec[field] = cleaned[field]
+    direction = str(wv.get("direction") or "").strip().lower()
+    if direction in ("long", "short"):
+        request_spec["direction"] = direction
+    # requested_full_history_years only resolves consecutive-mode commands.
+    request_spec["pe_cycle"] = "consecutive"
+    return request_spec
 
 
 #-------------------------------------------------------------------------------------------------------------------
@@ -1890,49 +1544,17 @@ def chat():
     decorator returns 401/403 before this body runs if the token is missing
     or invalid, and the decoded user_id is read from flask.g.
     """
-    # Allocate the authenticated identity and correlation id before body
-    # validation so rejected turns are still observable in the question audit.
-    # The decorator has already verified the token before this route runs.
-    from flask import g
-    user_id = getattr(g, 'chatbot_user_id', 'unknown')
-    turn_id = uuid.uuid4().hex
-
-    incoming_data = request.get_json(silent=True)
-    if not isinstance(incoming_data, dict):
-        return _rejected_chat_response(
-            user_id,
-            turn_id,
-            incoming_data,
-            "I couldn't read that request. Please try again.",
-            'invalid_request_body',
-        )
-    user_message = incoming_data.get("message", "")
-    if not isinstance(user_message, str) or len(user_message) > 2000:
-        return _rejected_chat_response(
-            user_id,
-            turn_id,
-            incoming_data,
-            "That message could not be processed. Please shorten it and try again.",
-            'invalid_message',
-        )
-    try:
-        history = _clean_chat_history(incoming_data.get("history", []))
-        wave_viewer = _clean_wave_viewer(incoming_data.get("wave_viewer", {}))
-        opportunities = _clean_opportunities(incoming_data.get("opportunities", []))
-        analysis_report = _clean_analysis_report(incoming_data.get("analysis_report"))
-    except ValueError:
-        return _rejected_chat_response(
-            user_id,
-            turn_id,
-            incoming_data,
-            "I couldn't validate that request. Please try again.",
-            'invalid_context',
-        )
+    incoming_data = request.json or {}
+    user_message  = incoming_data.get("message", "")
+    history       = incoming_data.get("history", [])   # list of {role, content}
+    incoming_wave = incoming_data.get("wave_viewer", {})
+    wave_viewer = dict(incoming_wave) if isinstance(incoming_wave, dict) else {}
+    # AI analysis is server-derived. Never accept model scores supplied by the browser,
+    # an old tab, or a modified request as verified current-condition evidence.
+    wave_viewer.pop("ai_analysis", None)
+    screen_context = incoming_data.get("screen_context", {})
+    opportunities = incoming_data.get("opportunities", [])
     opp_table_length = incoming_data.get("opp_table_length")
-    if not isinstance(opp_table_length, int) or isinstance(opp_table_length, bool):
-        opp_table_length = None
-    elif not (0 <= opp_table_length <= 10000):
-        opp_table_length = None
     # The market/group the opportunity table is currently showing - lets Tara answer a
     # "which <group> stocks" question FROM the on-screen rows (exact match) when the table is
     # already on that group, instead of an independent scan that diverges from the table.
@@ -1941,61 +1563,275 @@ def chat():
     opp_table_years = incoming_data.get("opp_table_years")   # table lookback, for a cross-market OppList4 screen
     opp_table_pe_cycle = incoming_data.get("opp_table_pe_cycle")
     user_token = incoming_data.get("token")                  # user's LTK - reused for the loopback OppList4 fetch
-    if str(opp_table_market) not in {str(i) for i in range(17) if i not in (14, 15)}:
-        opp_table_market = None
-    else:
-        opp_table_market = str(opp_table_market)
-    if not isinstance(opp_table_market_name, str):
-        opp_table_market_name = None
-    elif len(opp_table_market_name) > 120:
-        opp_table_market_name = opp_table_market_name[:120]
-    try:
-        opp_table_years = int(opp_table_years)
-    except (TypeError, ValueError):
-        opp_table_years = None
-    if opp_table_years is not None and not (1 <= opp_table_years <= 99):
-        opp_table_years = None
-    if not isinstance(user_token, str) or len(user_token) > 4096:
-        user_token = None
 
     # Blank-message guard: an empty message must never dead-end on the generic 500
     # envelope; return a warm, concrete nudge instead. (Tara-peak loop, 2026-06-21)
     if not (user_message or "").strip():
-        blank_reply = (
-            "Hi, I'm Tara. Want today's AI pick, a quick market scan, "
-            "or a specific symbol loaded?"
-        )
-        log_question(
-            user_id,
-            user_message,
-            blank_reply,
-            wave_viewer,
-            turn_id=turn_id,
-            actions=[],
-            protocol_trace=[{'event': 'blank_message'}],
-        )
-        return jsonify({
-            "reply": blank_reply,
-            "actions": [],
-            "turn_id": turn_id,
-        })
+        return jsonify({"reply": "Hi, I'm Tara. Want today's AI pick, a quick market scan, or a specific symbol loaded?", "actions": []})
 
     # SEC-C2 - user_id is the authenticated id from the verified JWT.
-    actions = []
-    protocol_trace = []
+    from flask import g
+    user_id = getattr(g, 'chatbot_user_id', 'unknown')
 
     try:
-        system_prompt = build_system_prompt(
-            wave_viewer,
+        analysis_report = _clean_analysis_report(incoming_data.get("analysis_report"))
+    except ValueError:
+        return jsonify({"reply": "I couldn't validate that report. Please reopen it and try again.", "actions": []}), 400
+
+    if analysis_report is not None:
+        try:
+            report_prompt = build_system_prompt(
+                wave_viewer,
+                opportunities,
+                opp_table_length,
+                opp_table_market,
+                opp_table_market_name,
+                screen_context,
+                user_message=user_message,
+                analysis_report=analysis_report,
+            )
+            report_override = (
+                "FINAL REPORT OVERRIDE: answer from ACTIVE VALIDATED ANALYSIS REPORT only. "
+                "Return no actions and make no claim that the Wave Viewer changed."
+            )
+            if isinstance(report_prompt, list):
+                report_prompt = list(report_prompt) + [{"type": "text", "text": report_override}]
+            else:
+                report_prompt += "\n\n" + report_override
+            messages = []
+            if isinstance(history, list):
+                for item in history[:-1]:
+                    if not isinstance(item, dict):
+                        continue
+                    role = "assistant" if item.get("role") == "assistant" else "user"
+                    content = item.get("content")
+                    if isinstance(content, str):
+                        messages.append({"role": role, "content": content})
+            messages.append({"role": "user", "content": user_message})
+            provider = select_tara_provider()
+            try:
+                bot_reply = send_openai_messages(
+                    messages,
+                    model=OPENAI_CHATBOT_MODEL,
+                    system=report_prompt,
+                    user_id=user_id,
+                )
+            except OpenAIConfigurationError:
+                raise
+            except Exception:
+                provider = "anthropic_fallback"
+                bot_reply = send_claude_messages(
+                    messages,
+                    model=CHATBOT_MODEL,
+                    system=report_prompt,
+                    cache_system=True,
+                    cache_ttl=CACHE_TTL,
+                )
+            log_question(user_id, user_message, bot_reply, wave_viewer, provider=provider)
+            return jsonify({"reply": bot_reply, "actions": []})
+        except Exception:
+            logging.exception("chatbot report explanation failed for user_id=%s", user_id)
+            return jsonify({"reply": "Sorry, I couldn't explain that report right now. Please try again.", "actions": []})
+
+    try:
+        # Resolve the public book/signature pattern before provider routing so every
+        # model and subscription tier receives the same exact load parameters.
+        hundred_year_command = build_hundred_year_pattern_command(user_message)
+        if hundred_year_command is not None:
+            cleaned = _validate_view_spec(hundred_year_command.get("spec"))
+            required = {
+                "market",
+                "symbol",
+                "entry_date",
+                "days_out",
+                "years",
+                "pe_cycle",
+            }
+            actions = []
+            if required.issubset(cleaned):
+                actions.append({"type": "set_view", "spec": cleaned})
+            reply = hundred_year_command["reply"]
+            log_question(
+                user_id,
+                user_message,
+                reply,
+                wave_viewer,
+                provider="deterministic",
+            )
+            return jsonify({"reply": reply, "actions": actions})
+
+        # Ordinal table commands are exact UI actions, not language-model decisions. Resolve
+        # them from the filtered/sorted visible rows supplied by the browser so "load the 3rd
+        # one" cannot count the wrong list, forget the current market, or punt after a refresh.
+        row_command = build_opportunity_row_load_command(
+            user_message,
             opportunities,
-            opp_table_length,
-            opp_table_market,
-            opp_table_market_name,
-            analysis_report,
+            market=opp_table_market,
+            pe_cycle=opp_table_pe_cycle,
         )
-        report_grounded_turn = analysis_report is not None
-        if TARA_TOOLS_ENABLED and not report_grounded_turn:
-            system_prompt = system_prompt + "\n\n" + TOOL_INSTRUCTION
+        if row_command is not None:
+            actions = []
+            cleaned = _validate_view_spec(row_command.get("spec"))
+            required = {"symbol", "entry_date", "days_out"}
+            if required.issubset(cleaned):
+                actions.append({
+                    "type": "load_opportunity",
+                    "rank": row_command["rank"],
+                    "spec": cleaned,
+                })
+            reply = row_command["reply"]
+            log_question(user_id, user_message, reply, wave_viewer, provider="deterministic")
+            return jsonify({"reply": reply, "actions": actions})
+
+        # A discovery request must use the exact filtered/sorted rows on screen.
+        # The visible table's first row is its highest-ranked row, so no model can
+        # substitute a historical or off-screen candidate.
+        table_pick = build_current_table_pick_command(
+            user_message,
+            opportunities,
+            market=opp_table_market,
+            pe_cycle=opp_table_pe_cycle,
+        )
+        if table_pick is not None:
+            actions = []
+            cleaned = _validate_view_spec(table_pick.get("spec"))
+            required = {"symbol", "entry_date", "days_out"}
+            if required.issubset(cleaned):
+                actions.append({
+                    "type": "load_opportunity",
+                    "rank": table_pick["rank"],
+                    "spec": cleaned,
+                })
+            reply = table_pick["reply"]
+            log_question(user_id, user_message, reply, wave_viewer, provider="deterministic")
+            return jsonify({"reply": reply, "actions": actions})
+
+        # Tooltip preference language has a direct, reversible UI meaning. Confusion about
+        # controls enables the guidance; annoyance with the guidance disables it. Tara also
+        # names the visible switch so the user learns how to change the setting later.
+        tooltip_command = build_tooltip_preference_command(user_message)
+        if tooltip_command is not None:
+            cleaned = _validate_view_spec(tooltip_command.get("spec"))
+            if cleaned:
+                reply = tooltip_command["reply"]
+                actions = [{"type": "set_view", "spec": cleaned}]
+                log_question(
+                    user_id,
+                    user_message,
+                    reply,
+                    wave_viewer,
+                    provider="deterministic",
+                )
+                return jsonify({"reply": reply, "actions": actions})
+
+        # Lower-panel navigation is exact UI state, not an analytical/model decision. Move
+        # the desktop carousel immediately for direct commands such as "show me the stats"
+        # instead of answering with a swipe instruction that leaves the screen unchanged.
+        bottom_slide_command = build_bottom_slide_command(user_message)
+        if bottom_slide_command is not None:
+            cleaned = _validate_view_spec(bottom_slide_command.get("spec"))
+            if cleaned:
+                reply = bottom_slide_command["reply"]
+                actions = [{"type": "set_view", "spec": cleaned}]
+                log_question(
+                    user_id,
+                    user_message,
+                    reply,
+                    wave_viewer,
+                    provider="deterministic",
+                )
+                return jsonify({"reply": reply, "actions": actions})
+
+        # A direct show/hide request for MFE/MAE is a reversible chart command, not a
+        # definition request or a request for sample extrema. Keep it provider-independent
+        # so the overlay is changed reliably and no education popup obscures the chart.
+        excursion_command = build_excursion_overlay_command(user_message, wave_viewer)
+        if excursion_command is not None:
+            cleaned = _validate_view_spec(excursion_command.get("spec"))
+            if cleaned:
+                reply = excursion_command["reply"]
+                actions = [{"type": "set_view", "spec": cleaned}]
+                log_question(
+                    user_id,
+                    user_message,
+                    reply,
+                    wave_viewer,
+                    provider="deterministic",
+                )
+                return jsonify({"reply": reply, "actions": actions})
+
+        # Historical chart facts are already in the viewer payload. For a true pattern
+        # analysis/advice turn, enrich them with the gated, daily-cached ML reading before
+        # deterministic planning. The scorer callback is registered by appserver.py at
+        # runtime so this blueprint stays importable without a circular dependency.
+        if needs_pattern_ai_context(user_message, wave_viewer):
+            scorer = current_app.extensions.get("tara_ai_analysis_context")
+            if callable(scorer):
+                try:
+                    ai_analysis = scorer(wave_viewer, user_token, opp_table_market)
+                    if isinstance(ai_analysis, dict):
+                        wave_viewer["ai_analysis"] = ai_analysis
+                except Exception:
+                    # The historical analysis must remain available during an ML outage.
+                    logging.exception("Tara AI analysis enrichment failed; continuing without it")
+
+        # Questions whose answer is completely determined by the loaded data and current UI state
+        # bypass the provider. This prevents direction inversions and guarantees that a broad screen
+        # question covers both the top chart and the bottom panel the user is actually viewing.
+        planned_reply = build_deterministic_reply(
+            user_message,
+            wave_viewer,
+            screen_context,
+            opportunities=opportunities,
+        )
+        if planned_reply is not None:
+            log_question(user_id, user_message, planned_reply, wave_viewer, provider="deterministic")
+            return jsonify({"reply": planned_reply, "actions": []})
+
+        full_history_years = requested_full_history_years(
+            user_message,
+            wave_viewer,
+            screen_context,
+        )
+        full_history_request = (
+            _loaded_full_history_request(full_history_years, wave_viewer, opp_table_market)
+            if full_history_years is not None
+            else None
+        )
+        explicit_named_symbol = explicit_pattern_symbol(user_message)
+        loaded_symbol = str(wave_viewer.get("symbol") or "").strip().upper()
+        named_symbol_override = (
+            explicit_named_symbol
+            if explicit_named_symbol
+            and loaded_symbol
+            and explicit_named_symbol != loaded_symbol
+            else None
+        )
+        named_symbol_lookback = None
+        # A bare symbol change inherits the viewer's current consecutive lookback. An
+        # explicitly requested N-year/max-history comparison remains authoritative.
+        explicit_lookback = re.search(
+            r"\b(?:max(?:imum)?|all|full)(?:\s+available)?\s+(?:years?|history)\b|"
+            r"\b\d{1,2}\s*(?:-|\s)?years?\b",
+            user_message,
+            re.I,
+        )
+        if named_symbol_override and not explicit_lookback:
+            raw_years = wave_viewer.get("years")
+            pe_cycle = str(wave_viewer.get("pe_cycle") or "cons").strip().lower()
+            if pe_cycle in {"cons", "consecutive"} and str(raw_years or "").isdigit():
+                inherited = int(str(raw_years))
+                if 1 <= inherited <= 99:
+                    named_symbol_lookback = inherited
+        viewer_entry_year = (
+            None
+            if re.search(r"\b(?:19|20)\d{2}\b", user_message)
+            else datetime.datetime.now(datetime.timezone.utc).year
+        )
+
+        system_prompt = build_system_prompt(wave_viewer, opportunities, opp_table_length,
+                                            opp_table_market, opp_table_market_name,
+                                            screen_context, user_message=user_message)
 
         # Onboarding / teach-me is handled by the normal behavior rules + the
         # open-gettingstarted-popup guide (INFO POPUPS). The old hardcoded
@@ -2013,162 +1849,103 @@ def chat():
             messages.append({"role": role, "content": h.get("content", "")})
         messages.append({"role": "user", "content": user_message})
 
-        if report_grounded_turn:
-            protocol_trace.append({
-                'event': 'analysis_report_explanation',
-                'report_id': analysis_report.get('report_id'),
-                'report_type': analysis_report.get('report_type'),
-            })
-            report_prompt = (
-                system_prompt
-                + "\n\nFINAL REPORT OVERRIDE: answer from ACTIVE VALIDATED ANALYSIS REPORT only. "
-                  "Return no actions and make no claim that the Wave Viewer changed."
-            )
-            bot_reply = send_claude_messages(
-                messages,
-                model=CHATBOT_MODEL,
-                system=report_prompt,
-                cache_system=True,
-                cache_ttl=CACHE_TTL,
-            )
-        elif TARA_TOOLS_ENABLED:
-            # Tara fetches live data via the gateway tools and narrates the result; `actions`
-            # carries any wave-viewer changes the model requested (Phase 2) for the client to apply.
-            bot_reply, actions = run_chat_with_tools(messages, system_prompt, user_id, CHATBOT_MODEL, CACHE_TTL,
-                                                     opp_table=opportunities, opp_table_market=opp_table_market,
-                                                     user_token=user_token, opp_table_years=opp_table_years,
-                                                     current_view=wave_viewer, turn_id=turn_id,
-                                                     protocol_trace=protocol_trace)
-        else:
-            protocol_trace.append({'event': 'tools_disabled'})
-            # A no-tools model cannot drive the viewer. Fail closed for action
-            # requests instead of asking it to simulate update_view in prose.
-            view_intent = classify_view_intent(user_message)
-            if view_intent == 'unsupported_live':
-                bot_reply = unsupported_live_data_response()
-            elif view_intent in {'chart', 'view'}:
-                bot_reply = (
-                    "Chart controls are temporarily unavailable, so I haven't changed the chart. "
-                    "Please try again in a moment."
+        provider = select_tara_provider()
+        logging.info(
+            "Tara model turn phase=start provider=%s model=%s tools=%s",
+            provider,
+            PRIMARY_MODEL,
+            TARA_TOOLS_ENABLED,
+        )
+        response_provider = provider
+
+        actions = []
+        try:
+            if TARA_TOOLS_ENABLED:
+                bot_reply, actions = run_chat_with_openai_tools(
+                    messages,
+                    system_prompt,
+                    user_id,
+                    OPENAI_CHATBOT_MODEL,
+                    opp_table=opportunities,
+                    opp_table_market=opp_table_market,
+                    user_token=user_token,
+                    opp_table_years=opp_table_years,
+                    full_history_request=full_history_request,
+                    named_symbol_override=named_symbol_override,
+                    named_symbol_lookback=named_symbol_lookback,
+                    viewer_entry_year=viewer_entry_year,
                 )
             else:
-                no_tools_prompt = (
-                    system_prompt
-                    + "\n\nVIEW CONTROL IS UNAVAILABLE. Do not print tool syntax and do not claim "
-                      "anything was loaded, reloaded, changed, or completed."
+                bot_reply = send_openai_messages(
+                    messages,
+                    model=OPENAI_CHATBOT_MODEL,
+                    system=system_prompt,
+                    user_id=user_id,
                 )
+            logging.info(
+                "Tara model turn phase=complete provider=%s model=%s status=success",
+                PRIMARY_PROVIDER,
+                PRIMARY_MODEL,
+            )
+        except OpenAIConfigurationError:
+            # Misconfiguration is a deployment failure, never a reason to silently
+            # choose a different model policy at runtime.
+            raise
+        except Exception as exc:
+            # Tool reads are GET-only and update_view actions are not returned until
+            # the loop completes, so a fresh Haiku retry is safe after a genuine
+            # primary API/connection/adapter failure.
+            category = failure_category(exc)
+            logging.warning(
+                "Tara model fallback primary_provider=%s primary_model=%s "
+                "fallback_provider=%s fallback_model=%s category=%s",
+                PRIMARY_PROVIDER,
+                PRIMARY_MODEL,
+                FALLBACK_PROVIDER,
+                FALLBACK_MODEL,
+                category,
+            )
+            response_provider = "anthropic_fallback"
+            actions = []
+            if TARA_TOOLS_ENABLED:
+                bot_reply, actions = run_chat_with_tools(
+                    messages,
+                    system_prompt,
+                    user_id,
+                    CHATBOT_MODEL,
+                    CACHE_TTL,
+                    opp_table=opportunities,
+                    opp_table_market=opp_table_market,
+                    user_token=user_token,
+                    opp_table_years=opp_table_years,
+                    full_history_request=full_history_request,
+                    named_symbol_override=named_symbol_override,
+                    named_symbol_lookback=named_symbol_lookback,
+                    viewer_entry_year=viewer_entry_year,
+                )
+            else:
                 bot_reply = send_claude_messages(
                     messages,
                     model=CHATBOT_MODEL,
-                    system=no_tools_prompt,
+                    system=system_prompt,
                     cache_system=True,
                     cache_ttl=CACHE_TTL,
                 )
-                if response_violates_view_contract(
-                    bot_reply, actions=[], current_view=wave_viewer
-                ):
-                    bot_reply = (
-                        "I couldn't complete that chart request, so I haven't changed the chart. "
-                        "Please try again."
-                    )
+            logging.info(
+                "Tara model turn phase=complete provider=%s model=%s status=fallback_success",
+                FALLBACK_PROVIDER,
+                FALLBACK_MODEL,
+            )
 
         # Deterministic floor: guarantee a stat on a loaded-pattern strength question
         # (Haiku at temp 0 occasionally punts with a bare "loaded" and no number).
-        if not report_grounded_turn:
-            bot_reply = _ensure_strength_answered(user_message, wave_viewer, bot_reply)
-        if response_violates_view_contract(
-            bot_reply, actions=actions, current_view=wave_viewer
-        ):
-            protocol_trace.append({
-                'event': 'protocol_violation',
-                'reason': 'unsafe_postprocessed_response',
-            })
-            if report_grounded_turn:
-                bot_reply = (
-                    "I couldn't explain this report safely without implying that I changed the chart. "
-                    "Please select Explain with Tara again."
-                )
-            elif actions:
-                symbol_action = next((
-                    action.get('spec', {}).get('symbol')
-                    for action in reversed(actions)
-                    if isinstance(action.get('spec'), dict)
-                    and action.get('spec', {}).get('symbol')
-                ), '')
-                bot_reply = (
-                    '<b>%s</b> chart request.' % str(symbol_action).upper()
-                    if symbol_action else 'Requested view change.'
-                )
-            else:
-                bot_reply = (
-                    "I couldn't complete that chart request safely, so I haven't changed "
-                    "the chart. Please try again."
-                )
+        bot_reply = _ensure_strength_answered(user_message, wave_viewer, bot_reply)
 
-        # Bind every server-validated action to this authenticated user and
-        # turn. The browser must return these receipts before its terminal
-        # chart result is accepted into the audit sidecar.
-        receipt_expires_at = int(time.time()) + ACTION_RECEIPT_TTL_SECONDS
-        prepared_actions = []
-        for action in actions:
-            action_id = str(action.get('action_id') or '').lower()
-            signed_spec = _clean_signed_spec(action.get('spec'))
-            if not _AUDIT_ID_RE.fullmatch(action_id) or signed_spec is None:
-                raise ValueError('invalid Tara action id')
-            prepared_actions.append({
-                'action_id': action_id,
-                'spec': signed_spec,
-            })
-        action_manifest = _action_manifest(prepared_actions) if prepared_actions else ''
-        for action, prepared in zip(actions, prepared_actions):
-            action_id = prepared['action_id']
-            signed_spec = prepared['spec']
-            action['action_id'] = action_id
-            action['spec'] = signed_spec
-            action['turn_id'] = turn_id
-            action['receipt_expires_at'] = receipt_expires_at
-            action['action_manifest'] = action_manifest
-            action['receipt'] = _action_receipt(
-                user_id,
-                turn_id,
-                action_id,
-                signed_spec,
-                receipt_expires_at,
-                action_manifest,
-            )
+        log_question(user_id, user_message, bot_reply, wave_viewer, provider=response_provider)
 
-        if not log_question(
-            user_id,
-            user_message,
-            bot_reply,
-            wave_viewer,
-            turn_id=turn_id,
-            actions=actions,
-            protocol_trace=protocol_trace,
-        ):
-            raise RuntimeError('Tara question audit unavailable')
+        return jsonify({"reply": bot_reply, "actions": actions})
 
-        return jsonify({"reply": bot_reply, "actions": actions, "turn_id": turn_id})
-
-    except Exception:
+    except Exception as e:
         logging.exception("chatbot.chat failed for user_id=%s", user_id)  # detail server-side only
-        safe_reply = "Sorry, something went wrong on my end. Please try again."
-        protocol_trace.append({
-            'event': 'backend_exception',
-            'reason': 'turn_failed',
-        })
-        log_question(
-            user_id,
-            user_message,
-            safe_reply,
-            wave_viewer,
-            turn_id=turn_id,
-            actions=[],
-            protocol_trace=protocol_trace,
-        )
-        return jsonify({"reply": safe_reply,
-                        "actions": [], "turn_id": turn_id})  # generic message; consistent envelope on every path
-
-
-
-
+        return jsonify({"reply": "Sorry, something went wrong on my end. Please try again.",
+                        "actions": []})  # generic message; consistent envelope on every path

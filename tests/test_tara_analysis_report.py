@@ -6,6 +6,14 @@ import chatbot
 pytestmark = pytest.mark.unit
 
 
+def _prompt_text(prompt):
+    if isinstance(prompt, str):
+        return prompt
+    return "\n".join(
+        block.get("text", "") for block in prompt if isinstance(block, dict)
+    )
+
+
 def _row(role, label, symbol='MSFT'):
     return {
         'role': role,
@@ -119,7 +127,7 @@ def test_report_cleaner_rejects_an_unapproved_history_reduction():
 
 def test_report_prompt_forbids_tools_and_recalculation():
     report = chatbot._clean_analysis_report(_symbol_report())
-    prompt = chatbot.build_system_prompt({}, [], analysis_report=report)
+    prompt = _prompt_text(chatbot.build_system_prompt({}, [], analysis_report=report))
     assert 'ACTIVE VALIDATED ANALYSIS REPORT' in prompt
     assert 'Do not call tools' in prompt
     assert 'Do not' in prompt and 'recalculate metrics' in prompt
@@ -129,7 +137,7 @@ def test_report_prompt_forbids_tools_and_recalculation():
 
 def test_symbol_report_prompt_requires_plain_language_tradeoff_explanation():
     report = chatbot._clean_analysis_report(_symbol_report())
-    prompt = chatbot.build_system_prompt({}, [], analysis_report=report)
+    prompt = _prompt_text(chatbot.build_system_prompt({}, [], analysis_report=report))
 
     assert 'SYMBOL COMPARISON PLAIN-LANGUAGE CONTRACT' in prompt
     assert "profitable in X of Y years" in prompt
@@ -190,7 +198,7 @@ def test_range_report_requires_exact_roles_and_rebuilds_prompt_labels():
 
 def test_range_report_prompt_requires_scannable_sections_and_gates_covered_calls():
     report = chatbot._clean_analysis_report(_range_report())
-    prompt = chatbot.build_system_prompt({}, [], analysis_report=report)
+    prompt = _prompt_text(chatbot.build_system_prompt({}, [], analysis_report=report))
 
     assert 'RANGE EXCLUSION PLAIN-LANGUAGE CONTRACT' in prompt
     assert '<b>Bottom line</b>' in prompt
