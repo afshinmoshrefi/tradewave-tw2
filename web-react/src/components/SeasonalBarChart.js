@@ -1,4 +1,5 @@
 ﻿import React, { useMemo, useState, useEffect, useContext, useRef } from 'react'
+import { useCallback } from 'react'
 import ReactDOM from 'react-dom'
 import './styles/SeasonalBarChart.css'
 import SelectBox from './SelectBox'
@@ -36,6 +37,8 @@ import {
 } from './taraActionContract'
 import { resolveTrendChartDateRequest } from './trendChartRequestState'
 import {
+  VIEWER_CYCLE_CHANGE_EVENT,
+  isViewerCycle,
   peCycleAfterYearDelta,
   lineChartYearAfterPatternLoad,
   transitionViewerCycleState,
@@ -1761,6 +1764,71 @@ const SeasonalBarChart = (props) => {
   }
   //-----------------------------------------------------------------------------------------------------------
 
+  // Keep Tara's PE comparison links on the same state transition as the
+  // Wave Viewer selector. The ref gives the native event listener current props.
+  const viewerCyclePropsRef = useRef(props)
+  viewerCyclePropsRef.current = props
+  const changeViewerCycle = useCallback((nextCycle) => {
+    if (!isViewerCycle(nextCycle)) return
+    const currentProps = viewerCyclePropsRef.current
+    const currentCycle = currentProps.PEselected || 'cons'
+    if (nextCycle === currentCycle) return
+
+    const bumpStartDateYearToPE = (startDate, peValue) => {
+      const target = { pe0: 0, pe1: 1, pe2: 2, pe3: 3 }[peValue]
+      if (target === undefined) return startDate
+      const baseYear = parseInt(getTodayDate().substring(0, 4), 10)
+      const [, month, day] = String(startDate).split('-')
+      const delta = (target - (baseYear % 4) + 4) % 4
+      return `${baseYear + delta}-${month}-${day}`
+    }
+
+    const currentView = {
+      startDate: currentProps.startDate,
+      trendChartStartDate: currentProps.trendChartStartDate,
+      seasonalYears: String(currentProps.seasonalYears),
+    }
+    let nextStartDate = currentProps.startDate
+    if (nextCycle !== 'cons') {
+      nextStartDate = bumpStartDateYearToPE(currentProps.startDate, nextCycle)
+    }
+    const defaultNextView = {
+      startDate: nextStartDate,
+      trendChartStartDate: incrementDate(nextStartDate, -trend_chart_left_gap_days),
+      seasonalYears: String(currentProps.seasonalYears),
+    }
+    const transition = transitionViewerCycleState({
+      savedStates: cycleViewStatesRef.current,
+      currentCycle,
+      nextCycle,
+      currentView,
+      defaultNextView,
+    })
+    cycleViewStatesRef.current = transition.savedStates
+
+    ReactDOM.unstable_batchedUpdates(() => {
+      currentProps.SetPEselected(nextCycle)
+      currentProps.SetStartDate(transition.nextView.startDate)
+      currentProps.SetTrendChartStartDate(transition.nextView.trendChartStartDate)
+      currentProps.SetSeasonalYears(transition.nextView.seasonalYears)
+      currentProps.SetLineChartYear(0)
+      currentProps.SetSeasonalBarChartData([])
+      currentProps.SetTradeDetailData([])
+      currentProps.SetConsolidatedSeasonalData([])
+      currentProps.SetMaxYearsConsolidatedSeasonalData([])
+      currentProps.SetCompareSecurityBarChartData([])
+      currentProps.SetCompareSecurityTradeDetailData([])
+      currentProps.SetSecurityBHstats([])
+    })
+    setSelectedOppBySymbol('')
+  }, [])
+
+  useEffect(() => {
+    const handleCycleLink = event => changeViewerCycle(event?.detail?.cycle)
+    window.addEventListener(VIEWER_CYCLE_CHANGE_EVENT, handleCycleLink)
+    return () => window.removeEventListener(VIEWER_CYCLE_CHANGE_EVENT, handleCycleLink)
+  }, [changeViewerCycle])
+
   const openProtectedRangeReport = async () => {
     const pending = protectedReverseReportRef.current
     if (!pending || pending.status !== 'ready' || !pending.original || !pending.remaining) return
@@ -1984,6 +2052,15 @@ const SeasonalBarChart = (props) => {
         //   }
         // }
       }
+    }
+
+    const bumpStartDateYearToPE = (startDate, peValue) => {
+      const target = { pe0: 0, pe1: 1, pe2: 2, pe3: 3 }[peValue]
+      if (target === undefined) return startDate
+      const baseYear = parseInt(getTodayDate().substring(0, 4), 10)
+      const [, month, day] = String(startDate).split('-')
+      const delta = (target - (baseYear % 4) + 4) % 4
+      return `${baseYear + delta}-${month}-${day}`
     }
 
     if (event.target.id === 'PEselection') {

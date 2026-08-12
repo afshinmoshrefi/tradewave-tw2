@@ -20,6 +20,7 @@ import { opp_dashboard_dialog_content } from './Common';
 import { BsFillCircleFill } from "react-icons/bs";
 import { brand, trend_chart_left_gap_days } from './Common'
 import { peCycleAfterYearDelta } from './viewerCycleState'
+import { getTrendChartResizeTooltips } from './trendChartResizeTooltips'
 
 const SeasonalChart = (props) => {
 

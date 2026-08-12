@@ -25,6 +25,7 @@ import {
     shouldShowAllYearsProjectionControl,
 } from './projectionLabels'
 import { isNonCurrentPECycle } from './viewerCycleState'
+import { appendRealtimePriceBar, findRealtimeQuoteForSymbol } from './realtimePriceBar'
 
 
 const StockLineChart = (props) => {

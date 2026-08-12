@@ -17,6 +17,15 @@ import DaysOutPopup from './DaysOutPopup';
 import YearsRangePopup from './YearsRangePopup';
 import FilteringPopup from './FilteringPopup';
 import AIScoresPopup from './AIScoresPopup';
+import './styles/Chatbot.css';
+import {
+  buildChatbotScreenContext,
+  buildOpportunityTableContext,
+  deriveDirectionFromBars,
+  parseOptionalNumber,
+  shouldClearOpportunityTable,
+} from './chatbotScreenContext';
+import { VIEWER_CYCLE_CHANGE_EVENT, isViewerCycle } from './viewerCycleState';
 import {
   containsInternalToolMarkup,
   taraTrendFailureHasPrimaryData,
@@ -33,6 +42,14 @@ import {
 } from './taraConversationContext';
 
 const TARA_INTRO_MESSAGE = "Hi, I'm <b>Tara</b>. Ask me for today's best setups, any stock's seasonal pattern, or a concept like <b>what is a Sharpe ratio</b> - I'll pull it up on the chart and explain it.";
+
+const CHATBOT_DERIVED_STAT_KEYS = [
+  'Trade Dir', 'Num Winners', 'Num Losers', 'Percent Profitable',
+  'Avg Profit - All', 'Avg Profit', 'Avg Loss', 'Median Profit',
+  'Annualized Return', 'Cumulative Return', 'Std Dev', 'Sharpe Ratio',
+  'Sharpe Ratio2', 'Trend Long', 'Trend Short', 'Trend Long1', 'Trend Short1',
+  'Trend Score Available', 'next_earnings_est', 'days_to_earnings',
+];
 
 //--------------------------------------------------------------------------------------------------------
 // The bot reply is model-generated HTML rendered via dangerouslySetInnerHTML; with Tara now
@@ -375,6 +392,10 @@ function Chatbot(props) {
   //--------------------------------------------------------------------------------------------------------
   // Build wave viewer context from props
   const buildWaveViewerContext = () => {
+    const isArbitraryWindow = props.rowIndexClicked === -1;
+    const direction = isArbitraryWindow
+      ? deriveDirectionFromBars(props.seasonalBarChartData, props.barChartLongOrShort)
+      : (props.barChartLongOrShort || 'long');
     const marketIdRaw = getSelectedIDFromSecuritiesList2(
       props.securityTypeList || [],
       props.selectedSecurity || ''
@@ -427,7 +448,14 @@ function Chatbot(props) {
     // Include stats if available (tradeDetailData is an object with keys like
     // 'Percent Profitable', 'Avg Profit', 'Sharpe Ratio', etc.)
     if (viewReady && props.tradeDetailData && Object.keys(props.tradeDetailData).length > 0) {
-      ctx.stats = props.tradeDetailData;
+      const selectedStats = {};
+      CHATBOT_DERIVED_STAT_KEYS.forEach(key => {
+        const value = props.tradeDetailData[key];
+        if (value !== undefined && value !== null && value !== '') {
+          selectedStats[key] = value;
+        }
+      });
+      if (Object.keys(selectedStats).length > 0) ctx.stats = selectedStats;
     }
     // Include year-by-year bar chart data so the bot can discuss specific years
     if (viewReady && Array.isArray(props.seasonalBarChartData) && props.seasonalBarChartData.length > 0) {
@@ -769,7 +797,10 @@ function Chatbot(props) {
     }]);
     const targetKey = taraPatternContextKey(targetContext);
     taraDrivenPatternKeyRef.current = targetKey !== currentPatternKey ? targetKey : '';
-    props.SetOpportunities([]);
+    const resource_group = resourceObj[parseInt(rid, 10)];
+    if (shouldClearOpportunityTable(props.selectedSecurity, resource_group)) {
+      props.SetOpportunities([]);
+    }
     props.SetStartDate(date);
     let trend_chart_start_date = incrementDate(date, -trend_chart_left_gap_days);
     props.SetTrendChartStartDate(trend_chart_start_date);
