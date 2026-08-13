@@ -13,6 +13,13 @@ or deployment, also read FIRST:**
 `.claude/skills/tw-git-release-workflow/SKILL.md` - every task uses a separate branch and
 worktree; handoffs name pushed commit SHAs; releases promote tested commits, not dev files.
 
+**For ANY deploy, promotion, release, rollback, environment-parity check, deployment
+handoff, or deployment-readiness request, also read FIRST without waiting to be asked:**
+`.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md` - one
+manager owns the release; approved dev behavior must be reproduced by a clean commit and
+immutable artifact; staging and production receive that exact artifact; effective systemd
+drop-ins, live process paths, contract checks, and rendered browser behavior are mandatory.
+
 **For product / methodology / copy / onboarding / Tara work, also read FIRST:**
 `docs/TRADEWAVE_METHODOLOGY_AND_FEATURES_KB.md` - what a "pattern" is, the MFE/MAE/TWA/TWR
 metrics, the PE/100-Year cycle, the SCAN -> VALIDATE -> ORGANIZE -> ACT loop, and the two
@@ -40,6 +47,11 @@ replace WP/UMP, keeping the React app and the appserver `/login` handshake.
   `.claude/skills/tw-git-release-workflow/SKILL.md`. Use a dedicated branch + worktree per
   task, commit + push before handoff, and integrate in a clean release worktree. Never treat
   the arbitrary contents of `/home/flask` as the version to promote.
+- ONE RELEASE MANAGER: on any deploy/release/parity request, automatically follow
+  `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
+  Only that manager integrates, builds, activates, promotes, or rolls back. A staging request
+  never authorizes production. A verifier saying CLEAN never overrides active-runtime or
+  browser evidence.
 - SELF-MAINTAINING KNOWLEDGE: at the end of any substantive task, run the `tw-knowledge`
   skill unprompted (see "Keep it current" above) - capture + improve the ecosystem doc +
   memory, update existing files in place, never duplicate, never re-derive twice.

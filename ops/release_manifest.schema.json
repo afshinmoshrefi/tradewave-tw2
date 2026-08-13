@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tradewave.ai/schemas/release-manifest.schema.json",
+  "title": "TradeWave release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "release_id",
+    "manager",
+    "requested_target",
+    "status",
+    "created_at",
+    "updated_at",
+    "git",
+    "artifacts",
+    "environments",
+    "approvals",
+    "events"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "release_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+    "manager": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "session", "state"],
+      "properties": {
+        "agent": { "type": "string", "minLength": 1 },
+        "session": { "type": "string", "minLength": 1 },
+        "state": { "enum": ["active", "handed_off", "released"] }
+      }
+    },
+    "requested_target": { "enum": ["dev", "staging", "prod", "rollback", "parity-audit"] },
+    "status": {
+      "enum": [
+        "inventory",
+        "integrating",
+        "dev_validation",
+        "awaiting_dev_approval",
+        "staging_preflight",
+        "staging_deployed",
+        "awaiting_prod_approval",
+        "prod_preflight",
+        "prod_deployed",
+        "rolling_back",
+        "failed",
+        "complete",
+        "handed_off"
+      ]
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_sha", "release_sha", "release_branch", "remote_main_sha", "handoff_shas"],
+      "properties": {
+        "base_sha": { "$ref": "#/$defs/sha" },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "release_branch": { "type": "string", "minLength": 1 },
+        "remote_main_sha": { "$ref": "#/$defs/sha" },
+        "handoff_shas": { "type": "array", "items": { "$ref": "#/$defs/sha" }, "uniqueItems": true }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frontend", "backend_fingerprint"],
+      "properties": {
+        "frontend": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256", "source_sha"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "$ref": "#/$defs/sha256" },
+              "source_sha": { "$ref": "#/$defs/sha" }
+            }
+          }
+        },
+        "backend_fingerprint": {
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "environments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dev", "staging", "prod"],
+      "properties": {
+        "dev": { "$ref": "#/$defs/environment" },
+        "staging": { "$ref": "#/$defs/environment" },
+        "prod": { "$ref": "#/$defs/environment" }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dev", "staging", "production_snapshots", "production"],
+      "properties": {
+        "dev": { "$ref": "#/$defs/approval" },
+        "staging": { "$ref": "#/$defs/approval" },
+        "production_snapshots": { "$ref": "#/$defs/approval" },
+        "production": { "$ref": "#/$defs/approval" }
+      }
+    },
+    "known_risks": { "type": "array", "items": { "type": "string" } },
+    "rollback": { "type": "array", "items": { "type": "string" } },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["at", "actor", "action", "result"],
+        "properties": {
+          "at": { "type": "string", "format": "date-time" },
+          "actor": { "type": "string", "minLength": 1 },
+          "action": { "type": "string", "minLength": 1 },
+          "result": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "shaOrNull": { "anyOf": [{ "$ref": "#/$defs/sha" }, { "type": "null" }] },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["not_required", "pending", "approved", "rejected"] },
+        "approved_at": { "type": ["string", "null"], "format": "date-time" },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "artifact_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "note": { "type": "string" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "release_sha", "runtime_paths", "checks", "snapshots"],
+      "properties": {
+        "state": { "enum": ["not_started", "preflight", "active", "verified", "failed", "rolled_back"] },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "runtime_paths": { "type": "array", "items": { "type": "string" } },
+        "checks": { "type": "array", "items": { "type": "string" } },
+        "snapshots": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

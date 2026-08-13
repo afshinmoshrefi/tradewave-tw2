@@ -18,7 +18,7 @@ Treat commits as release units. A server filesystem is an environment, not a rel
 7. Deploy the reviewed release commit through `origin/main`; never copy an arbitrary dirty dev tree to staging.
 8. Never use `git reset --hard`, `git clean -fdx`, broad deletion, or worktree removal until every potentially valuable change is classified and preserved.
 9. Do not commit secrets, environment files, caches, temporary files, dependency trees, or ad hoc build backups.
-10. Follow the deployment and knowledge rules in `CLAUDE.md`, `docs/TRADEWAVE_ECOSYSTEM.md`, and the applicable deployment skill.
+10. Follow the deployment and knowledge rules in `CLAUDE.md`, `docs/TRADEWAVE_ECOSYSTEM.md`, and the applicable deployment skill. For every release, promotion, rollback, readiness, or parity request, use `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
 
 ## Start a task
 
@@ -75,6 +75,8 @@ The handoff must state:
 Do not add unrelated changes found in `/home/flask` to make the release "match dev." Preserve them separately and decide their fate as another task.
 
 ## Promote through environments
+
+The designated release manager owns this section. Development sessions stop after their committed, pushed handoff.
 
 TradeWave promotion is:
 

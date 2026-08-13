@@ -43,6 +43,22 @@ Health: `systemctl is-active <svc>`. Logs: `/var/log/tradewave/*.log` (rotated d
 
 ## Deploy a code change
 
+The mandatory cross-agent release policy is `docs/RELEASE_PROCESS.md`, implemented for
+agents by `.claude/skills/tradewave-deployment-manager/SKILL.md`. This section is the command
+and topology runbook; it does not waive release ownership, clean integration, immutable
+artifact, approval, effective-runtime, contract, browser, or rollback gates.
+
+As of 2026-08-13, treat the routine deploy path as fail-closed until the reported
+systemd-drop-in/release-pointer conflict is read-only verified and repaired. A base unit or
+`/home/flask` update does not prove activation when an effective drop-in still points at
+`.tw2-app-current`. `verify_deploy.sh` reporting `CLEAN` is supporting evidence only. Every
+promotion must independently verify effective units and drop-ins, live process paths, the
+active frontend bundle and hash, release-specific contracts, and rendered browser behavior.
+
+The fast path below describes mechanical commands after every release-policy gate passes. It
+does not authorize production, rebuilding between environments, or reporting success without
+independent runtime and product verification.
+
 > **THIS SECTION IS THE SINGLE SOURCE OF TRUTH FOR DEPLOYMENT.** Any change that
 > alters how a deploy works — a new systemd service, a new build artifact, a new
 > env var that must be set on a box, a new cross-tier file, a new generator to

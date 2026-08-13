@@ -1977,6 +1977,9 @@ roadmap memories.)
 
 ## 12. Where the deep detail lives
 
+- `docs/RELEASE_PROCESS.md` - mandatory cross-agent release ownership, Git/artifact,
+  approval, active-runtime, browser/contract, handoff, and rollback policy. It applies
+  automatically whenever Codex, Claude, or a human prepares or performs a deployment.
 - `ops/OPERATIONS.md` - the operational runbook (deploy, restart matrix, box
   rebuild, gotchas, URL-rename procedure). Single source of truth for deploy.
 - `ops/PROD_CUTOVER.md` - the cutover plan + `ops/cutover_repoint.sh`.
