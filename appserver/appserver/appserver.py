@@ -499,6 +499,21 @@ def _market_scope_guard(token, resourceID, empty_payload):
     return None
 
 
+def _market_today():
+    """US market 'today', derived from America/New_York so the value never depends on the
+    host timezone (the stage/prod boxes run Etc/UTC). This MUST agree with the date the
+    opportunity list publishes: the tier date-lock below rewrites entry_date to this value,
+    and the client discards any response whose echoed entry_date differs from the one it
+    requested. Using datetime.date.today() here made every date-locked (free-tier) user see
+    blank charts between 00:00 UTC and the opp-table rollover - i.e. every evening after
+    roughly 20:00 ET, when the UTC date has advanced but the market date has not."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.datetime.now(ZoneInfo('America/New_York')).date()
+    except Exception:
+        return datetime.date.today()
+
+
 def _is_date_locked(userlevel, resourceID, is_admin=False):
     """True if this market is a date-LOCKED (free-registered) teaser for this tier - the
     user may view today's window but 'any start date' is the paid upgrade. Mirrors the
@@ -2329,7 +2344,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     except (ValueError, TypeError):
         return jsonify({'ChartData4': [], 'stats': {}, 'error': 'invalid date format'}), 400
 
-    request_today = datetime.date.today()
+    request_today = _market_today()
     todayDate = request_today.strftime('%Y-%m-%d')
     today_year = request_today.year
     public_hundred_year_pattern = is_hundred_year_chart_request(
