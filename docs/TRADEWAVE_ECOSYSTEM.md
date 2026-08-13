@@ -1595,6 +1595,13 @@ runs the release tests/build, and pushes a tested release commit. That commit ad
 the target boxes. `/home/flask` is the operational checkout, not a shared development
 scratchpad. Canonical procedure: `.claude/skills/tw-git-release-workflow/SKILL.md`.
 
+**Release-state invariant:** durable manager state lives only under
+`/var/lib/tradewave/release-state/`, initialized on dev by
+`ops/init_release_state.sh` as `flask:flask` mode `0750`. The manifest records the
+one-time baseline marker and a shared-dev activation lock. A candidate may not be
+activated on dev until active sessions are notified and the manager atomically owns
+`dev-activation.lock`; the lock remains through runtime and browser verification.
+
 **Tara immutable app release invariant (2026-08-04):** a scoped Tara-only backend promotion uses
 a clean detached worktree under `/home/flask/.tw2-releases/<sha>` and atomically points
 `/home/flask/.tw2-app-current` at it. Systemd drop-ins make both `tradewave-appserver` and its coupled

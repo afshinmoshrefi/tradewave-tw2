@@ -50,6 +50,7 @@ replace WP/UMP, keeping the React app and the appserver `/login` handshake.
 - ONE RELEASE MANAGER: on any deploy/release/parity request, automatically follow
   `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
   Only that manager integrates, builds, activates dev, or authors promotion/rollback commands.
+  The manager announces and atomically locks shared dev before candidate activation.
   Afshin or his designated human operator executes staging and production writes. A staging
   request never authorizes production. A verifier saying CLEAN never overrides active-runtime
   or browser evidence.

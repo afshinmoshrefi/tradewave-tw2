@@ -9,6 +9,8 @@
     "release_id",
     "release_kind",
     "manager",
+    "baseline",
+    "dev_coordination",
     "requested_target",
     "status",
     "created_at",
@@ -23,7 +25,7 @@
     "events"
   ],
   "properties": {
-    "schema_version": { "const": 2 },
+    "schema_version": { "const": 3 },
     "release_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
     "release_kind": {
       "enum": ["baseline-reconciliation", "standard", "hotfix", "rollback", "parity-audit"]
@@ -39,6 +41,8 @@
         "state": { "enum": ["active", "handed_off", "released"] }
       }
     },
+    "baseline": { "$ref": "#/$defs/baseline" },
+    "dev_coordination": { "$ref": "#/$defs/devCoordination" },
     "requested_target": { "enum": ["dev", "staging", "prod", "rollback", "parity-audit"] },
     "status": {
       "enum": [
@@ -89,7 +93,10 @@
       "additionalProperties": false,
       "required": ["manifest_sha256", "frontend", "backend_fingerprint"],
       "properties": {
-        "manifest_sha256": { "$ref": "#/$defs/sha256OrNull" },
+        "manifest_sha256": {
+          "$ref": "#/$defs/sha256OrNull",
+          "description": "Composite release identity hash used for every approval, including backend-only releases; it is not a hash of this release.json file."
+        },
         "frontend": {
           "type": "array",
           "items": {
@@ -149,14 +156,225 @@
     },
     "events": {
       "type": "array",
+      "minItems": 1,
       "items": { "$ref": "#/$defs/event" }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": ["approvals"],
+        "properties": {
+          "approvals": {
+            "anyOf": [
+              { "required": ["dev"], "properties": { "dev": { "required": ["state"], "properties": { "state": { "const": "approved" } } } } },
+              { "required": ["staging"], "properties": { "staging": { "required": ["state"], "properties": { "state": { "const": "approved" } } } } },
+              { "required": ["production_snapshots"], "properties": { "production_snapshots": { "required": ["state"], "properties": { "state": { "const": "approved" } } } } },
+              { "required": ["production"], "properties": { "production": { "required": ["state"], "properties": { "state": { "const": "approved" } } } } }
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "required": ["manifest_sha256"],
+            "properties": { "manifest_sha256": { "$ref": "#/$defs/sha256" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["out_of_band_changes"],
+        "properties": {
+          "out_of_band_changes": {
+            "contains": {
+              "required": ["blocking"],
+              "properties": { "blocking": { "const": true } }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "inventory",
+              "integrating",
+              "dev_validation",
+              "awaiting_dev_approval",
+              "staging_preflight",
+              "rollback_required",
+              "rolling_back",
+              "failed",
+              "handed_off"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["release_kind"],
+        "properties": {
+          "release_kind": { "enum": ["standard", "hotfix", "parity-audit"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "baseline": {
+            "required": ["state"],
+            "properties": { "state": { "const": "complete" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["release_kind", "status"],
+        "properties": {
+          "release_kind": { "const": "baseline-reconciliation" },
+          "status": { "const": "complete" }
+        }
+      },
+      "then": {
+        "properties": {
+          "baseline": {
+            "required": ["state"],
+            "properties": { "state": { "const": "complete" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["environments"],
+        "properties": {
+          "environments": {
+            "required": ["dev"],
+            "properties": {
+              "dev": {
+                "required": ["state"],
+                "properties": { "state": { "const": "active" } }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "dev_coordination": {
+            "required": ["state"],
+            "properties": { "state": { "const": "locked" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["environments"],
+        "properties": {
+          "environments": {
+            "required": ["dev"],
+            "properties": {
+              "dev": {
+                "required": ["state"],
+                "properties": { "state": { "const": "verified" } }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "dev_coordination": {
+            "required": ["state"],
+            "properties": { "state": { "enum": ["locked", "released"] } }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "shaOrNull": { "anyOf": [{ "$ref": "#/$defs/sha" }, { "type": "null" }] },
     "sha256OrNull": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "marker_path", "release_sha", "completed_at", "evidence"],
+      "properties": {
+        "state": { "enum": ["pending", "complete"] },
+        "marker_path": { "const": "/var/lib/tradewave/release-state/baseline.json" },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "completed_at": { "type": ["string", "null"], "format": "date-time" },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["state"], "properties": { "state": { "const": "complete" } } },
+          "then": {
+            "properties": {
+              "release_sha": { "$ref": "#/$defs/sha" },
+              "completed_at": { "type": "string", "format": "date-time" },
+              "evidence": { "minItems": 1 }
+            }
+          },
+          "else": {
+            "properties": {
+              "release_sha": { "type": "null" },
+              "completed_at": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "devCoordination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "lock_path", "lock_owner", "release_sha", "announced_at", "released_at", "evidence"],
+      "properties": {
+        "state": { "enum": ["not_started", "announced", "locked", "released"] },
+        "lock_path": { "const": "/var/lib/tradewave/release-state/dev-activation.lock" },
+        "lock_owner": { "type": ["string", "null"], "minLength": 1 },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "announced_at": { "type": ["string", "null"], "format": "date-time" },
+        "released_at": { "type": ["string", "null"], "format": "date-time" },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["state"],
+            "properties": { "state": { "enum": ["announced", "locked", "released"] } }
+          },
+          "then": {
+            "properties": {
+              "release_sha": { "$ref": "#/$defs/sha" },
+              "announced_at": { "type": "string", "format": "date-time" },
+              "evidence": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["state"],
+            "properties": { "state": { "enum": ["locked", "released"] } }
+          },
+          "then": {
+            "properties": { "lock_owner": { "type": "string", "minLength": 1 } }
+          }
+        },
+        {
+          "if": { "required": ["state"], "properties": { "state": { "const": "released" } } },
+          "then": {
+            "properties": { "released_at": { "type": "string", "format": "date-time" } }
+          }
+        }
+      ]
+    },
     "approval": {
       "type": "object",
       "additionalProperties": false,
@@ -196,6 +414,10 @@
         "evidence": { "type": "array", "items": { "type": "string" } }
       },
       "allOf": [
+        {
+          "if": { "properties": { "required": { "const": true } }, "required": ["required"] },
+          "then": { "properties": { "ran": { "const": true } } }
+        },
         {
           "if": { "properties": { "ran": { "const": true } }, "required": ["ran"] },
           "then": {
@@ -239,7 +461,27 @@
         "effective_units": { "type": "array", "items": { "type": "string" } },
         "checks": { "$ref": "#/$defs/checks" },
         "snapshots": { "type": "array", "items": { "type": "string" } }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["state"], "properties": { "state": { "const": "verified" } } },
+          "then": {
+            "properties": {
+              "release_sha": { "$ref": "#/$defs/sha" },
+              "runtime_paths": { "minItems": 1 },
+              "effective_units": { "minItems": 1 },
+              "checks": {
+                "properties": {
+                  "runtime_identity": { "properties": { "ran": { "const": true }, "passed": { "const": true } } },
+                  "service_routes": { "properties": { "ran": { "const": true }, "passed": { "const": true } } },
+                  "contract_check": { "properties": { "ran": { "const": true }, "passed": { "const": true } } },
+                  "browser_check": { "properties": { "ran": { "const": true }, "passed": { "const": true } } }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "outOfBandChange": {
       "type": "object",
@@ -279,8 +521,22 @@
           "then": {
             "properties": {
               "previous_backend_ref": { "type": "string", "minLength": 1 },
+              "previous_frontend_ref": { "type": "string", "minLength": 1 },
               "commands": { "minItems": 1 },
               "evidence": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "state": { "enum": ["executed", "verified"] } },
+            "required": ["state"]
+          },
+          "then": {
+            "required": ["executed_by", "executed_at"],
+            "properties": {
+              "executed_by": { "type": "string", "minLength": 1 },
+              "executed_at": { "type": "string", "format": "date-time" }
             }
           }
         }

@@ -66,6 +66,14 @@ The fast path below describes mechanical commands after every release-policy gat
 does not authorize production, rebuilding between environments, or reporting success without
 independent runtime and product verification.
 
+On the first release-manager run on dev, initialize durable state with
+`sudo bash /home/flask/ops/init_release_state.sh`. It creates only
+`/var/lib/tradewave/release-state` as `flask:flask` mode `0750` and refuses
+symlink or non-directory collisions. Before activating a candidate on shared dev,
+announce the exact SHA to active sessions and atomically acquire the manifest-recorded
+`/var/lib/tradewave/release-state/dev-activation.lock` directory with `mkdir`, then
+write owner/release metadata inside it and keep it through verification.
+
 Agents inspect staging and production read-only and author exact commands. Afshin or his
 designated human operator executes every staging and production write. An operator-started
 command may perform automatic rollback. Otherwise a failed gate requires the manager to
@@ -380,7 +388,8 @@ from being downgraded or enrolled in winback by an out-of-order Stripe event.
 Prepare rollback before every target write and record it in the release manifest. Backend
 rollback requires the previous immutable release pointer or SHA, the exact activation command,
 and evidence that the previous source still exists. Frontend rollback requires the previous
-build pointer and hashes plus the exact symlink command. If the active backend is an rsynced
+build pointer and hashes plus the exact symlink command. Record both backend and frontend
+references even when one component is unchanged. If the active backend is an rsynced
 `/home/flask` tree with no safe previous pointer or snapshot, the deployment is blocked until a
 recoverable backend rollback is prepared. Do not use `git reset --hard` on a target checkout.
 

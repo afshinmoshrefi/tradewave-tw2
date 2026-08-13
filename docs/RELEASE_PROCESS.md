@@ -17,7 +17,7 @@ approved dev behavior
 
 Dev is the product-behavior source of truth. A dirty dev filesystem is not a release artifact. Before promotion, the release manager must preserve the desired dev changes in Git, rebuild from a clean commit, activate that candidate on dev, and reconfirm the behavior.
 
-The first release under this policy is a one-time `baseline-reconciliation` release. Its job is to inventory `/home/flask` and the active dev runtime, preserve every intended dev-only change on focused task branches, and establish an `origin/main` commit plus immutable artifact that reproduce the approved dev behavior. Record completion in `/var/lib/tradewave/release-state/baseline.json`. Later standard releases start from that baseline and may not reopen the historical dirty-dev inventory; they still perform the normal target out-of-band gate.
+The first release under this policy is a one-time `baseline-reconciliation` release. Its job is to inventory `/home/flask` and the active dev runtime, preserve every intended dev-only change on focused task branches, and establish an `origin/main` commit plus immutable artifact that reproduce the approved dev behavior. Atomically write completion to `/var/lib/tradewave/release-state/baseline.json` and record its path, exact release SHA, completion time, and evidence in the manifest's `baseline` object. Later standard and hotfix releases require that completed marker, start from that baseline, and may not reopen the historical dirty-dev inventory; they still perform the normal target out-of-band gate. An emergency rollback is never blocked merely because the baseline marker is pending, but it must still record exact current and restored pointers and evidence.
 
 ## Roles
 
@@ -56,9 +56,17 @@ Store the current ownership record at:
 /var/lib/tradewave/release-state/active.json
 ```
 
-This durable state directory must never share a parent with release checkouts, builds, worktrees, or cleanup targets. Validate release manifests with `ops/release_manifest.schema.json`. Do not store keys, tokens, secret values, customer content, or credentials.
+Initialize this dev-only state path once with:
 
-The manifest records identity, ownership, included handoffs, source SHA, the locked `main` SHA, artifact hashes, active runtime paths, typed browser/contract/runtime evidence, approvals, out-of-band changes, snapshots, concrete rollback, risks, and append-only events. Every event records who authored it and who executed it. Write manifest updates atomically.
+```text
+sudo bash /home/flask/ops/init_release_state.sh
+```
+
+The script establishes `/var/lib/tradewave/release-state` as `flask:flask` mode `0750` and refuses symlink or non-directory path collisions. It does not create a release or acquire the activation lock. This durable state directory must never share a parent with release checkouts, builds, worktrees, or cleanup targets. Validate release manifests with `ops/release_manifest.schema.json`. Do not store keys, tokens, secret values, customer content, or credentials.
+
+The manifest records identity, ownership, the baseline marker, dev activation coordination, included handoffs, source SHA, the locked `main` SHA, artifact hashes, active runtime paths, typed browser/contract/runtime evidence, approvals, out-of-band changes, snapshots, concrete rollback, risks, and append-only events. Every event records who authored it and who executed it. The first event records release ownership. Write manifest updates atomically.
+
+`artifacts.manifest_sha256` is the composite release hash used at every approval boundary; it is not a self-hash of `release.json`. Compute SHA-256 over UTF-8 canonical JSON with sorted keys and no insignificant whitespace containing `git.release_sha`, `artifacts.backend_fingerprint`, and the frontend artifact records sorted by path, excluding `manifest_sha256` itself. It exists for backend-only releases too; record the unchanged active frontend artifact so the full running product remains bound. Every approved `artifact_sha256` must equal it. A required gate is valid only after it ran, passed, and contains evidence; an environment cannot be `verified` unless all four typed gates passed. Any `blocking:true` out-of-band record prevents a deployed, approved-for-next-stage, or complete release status.
 
 ## Authorization boundaries
 
@@ -88,16 +96,17 @@ If the approved dev behavior cannot be reproduced from the clean release candida
 1. Build React once from the exact clean candidate with `ops/build_react_release.sh`.
 2. Require `.tradewave-source-sha` to equal the release SHA.
 3. Record all active frontend bundle names and SHA-256 hashes.
-4. Activate the candidate on dev through the same documented runtime model used by the service configuration.
-5. Verify effective systemd units and drop-ins, process working directories/command lines, backend fingerprints, frontend symlinks/index, bundle hashes, and nginx routing.
-6. Run release-specific contract checks and rendered browser tests. Tests and bundle-string greps are supporting evidence, not product verification.
-7. Record owner approval against the full SHA and artifact hash.
+4. Before activation, announce the exact SHA and expected interruption to active dev sessions. Atomically create `/var/lib/tradewave/release-state/dev-activation.lock` as a directory lock with `mkdir` and write owner/release metadata inside it; refuse a live lock unless its owner explicitly hands it off, or record evidence and owner approval for a stale-lock override. Record the announcement, lock owner, SHA, and evidence in `dev_coordination`.
+5. Activate the candidate on dev through the same documented runtime model used by the service configuration.
+6. Keep the lock through verification. Verify effective systemd units and drop-ins, process working directories/command lines, backend fingerprints, frontend symlinks/index, bundle hashes, and nginx routing.
+7. Run release-specific contract checks and rendered browser tests. Tests and bundle-string greps are supporting evidence, not product verification. Release only this release's lock afterward and append the release event.
+8. Record owner approval against the full SHA and composite `artifacts.manifest_sha256`.
 
 ## Staging gates
 
 1. Confirm exclusive manager ownership and a complete dev-approved manifest.
 2. Inspect and reconcile target out-of-band state before any write. Compare every tracked target file with its Git object, inspect effective unit fragments and drop-ins for every release-managed service, verify live process paths, and hash the active frontend. Classify and preserve every difference in `out_of_band_changes`. Any unclassified or blocking item stops promotion.
-3. Capture concrete rollback state: previous backend SHA or release pointer, previous frontend pointer and hashes, and exact operator commands. If backend rollback is not safe and executable, stop.
+3. Capture concrete rollback state: previous backend SHA or release pointer, previous frontend pointer and hashes, and exact operator commands. Both references are required even when one component is unchanged. If either affected component lacks a safe executable rollback, stop.
 4. Because `ops/deploy.sh` deploys `origin/main`, require `origin/main` to equal the exact tested release SHA before promotion. Record that SHA as `main_locked_sha`. It must not advance between staging deployment, staging approval, and production promotion.
 5. Promote the exact source SHA and dev-built frontend artifact. Never rebuild or merge between dev approval and staging.
 6. Confirm effective systemd base units and drop-ins resolve to one release model and the intended release. Confirm all release-managed live process paths, not only files copied to `/home/flask`. A conflicting base-unit/release-pointer model must be resolved, not merely observed.

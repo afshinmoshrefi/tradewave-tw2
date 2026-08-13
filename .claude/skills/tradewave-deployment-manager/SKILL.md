@@ -26,7 +26,7 @@ Act as the sole manager for one named release. Treat the working dev product as 
 ## Establish exclusive ownership
 
 1. Assign a release ID such as `tw2-YYYYMMDD-NN`.
-2. Inspect `/var/lib/tradewave/release-state/active.json` and the release manifest if present. Keep durable state separate from disposable release checkouts.
+2. On the first use of this process, initialize the dev-owned state path with `sudo bash ops/init_release_state.sh`. Inspect `/var/lib/tradewave/release-state/active.json` and the release manifest if present. Keep durable state separate from disposable release checkouts.
 3. Do not integrate or deploy when another active manager owns the release. Continue only after an explicit handoff or owner override is recorded.
 4. Record manager identity, task/thread identity when available, requested target, and status. A manager may be replaced; the manifest, commit, artifacts, evidence, and approvals carry the authority, not chat memory.
 5. Development agents may prepare committed task branches and handoffs. Only the release manager may integrate, advance the release branch or `main`, build the release artifact, activate dev, or author staging/production promotion and rollback commands.
@@ -42,13 +42,13 @@ Do not assume Git, `/home/flask`, a bundle, and the running processes match.
 3. Preserve intended dev-only work on focused task branches. Integrate exact reviewed commits in a new clean release worktree based on current `origin/main`.
 4. Resolve combined behavior in source. Do not copy an ad hoc dev bundle or selectively commit files merely because they look relevant.
 5. Build once from the clean release commit with the repository build helper. Record the full source SHA, provenance marker, bundle names, and SHA-256 hashes.
-6. Activate that exact candidate on dev using the documented runtime model. Prove effective systemd configuration, running process paths, nginx/frontend pointers, and reported fingerprints all resolve to the candidate.
+6. Before activation, announce the exact candidate SHA and expected interruption to active dev sessions, then acquire `/var/lib/tradewave/release-state/dev-activation.lock` as an atomic directory lock with `mkdir` and write its owner metadata. Refuse an existing lock unless its owner explicitly hands it off or the owner records a stale-lock override. Record the announcement, lock owner, SHA, and evidence in `dev_coordination`. Activate that exact candidate on dev using the documented runtime model. Keep the lock through runtime and browser verification, then release only the lock owned by this release and record the release event.
 7. Run focused tests, the combined safe suite, required contract checks, and real browser assertions. Exercise the changed behavior, not only feature strings or HTTP 200 responses.
 8. Obtain or reconfirm the user's dev approval against the recorded commit and artifact. “Dev looked right before reconciliation” is not approval of a newly reconstructed release.
 
 If no clean commit and artifact reproduce approved dev behavior, the release is blocked. Do not promote.
 
-For the first release under this policy, declare a one-time `baseline-reconciliation` release. Inventory and preserve all dev-only work, establish one clean `origin/main` commit and artifact that reproduce approved dev behavior, and record the baseline marker. Later standard releases start from that baseline and do not reopen the historical inventory.
+For the first release under this policy, declare a one-time `baseline-reconciliation` release. Inventory and preserve all dev-only work, establish one clean `origin/main` commit and artifact that reproduce approved dev behavior, and atomically write `/var/lib/tradewave/release-state/baseline.json`. Record the marker path, exact release SHA, completion time, and evidence in the manifest's `baseline` object. Later standard releases require that completed marker and do not reopen the historical inventory.
 
 ## Maintain the release manifest
 
@@ -57,16 +57,17 @@ Store state on the dev server at `/var/lib/tradewave/release-state/<release-id>/
 Record at minimum:
 
 - release ID, manager, requested target, status, created/updated times;
+- the baseline marker state and dev activation coordination/lock state;
 - base and release branch, included handoff SHAs, full release SHA, remote ref state;
 - frontend artifact paths and hashes, backend/source fingerprint, effective runtime paths;
 - test, contract, browser, and environment-verification evidence;
-- dev and staging approvals tied to the exact SHA and artifact hash;
+- dev and staging approvals tied to the exact SHA and the composite `artifacts.manifest_sha256`; compute it from canonical JSON containing `git.release_sha`, `artifacts.backend_fingerprint`, and the path-sorted frontend artifact records, excluding the hash field itself; backend-only releases still bind the active frontend record;
 - typed runtime, contract, and browser gates;
 - out-of-band changes and their classification;
-- snapshots, concrete backend/frontend rollback pointers and commands, deployment events, and known risks;
+- snapshots, concrete backend and frontend rollback pointers and commands (record the unchanged pointer when a component is unaffected), deployment events, and known risks;
 - who authored and who executed every state-changing event.
 
-Use atomic writes and keep append-only deployment events. Handoffs update the manifest before the current manager stops.
+Use atomic writes and keep append-only deployment events, starting with the release-ownership event. A required gate is not valid until it ran, passed, and contains evidence. An environment may be `verified` only when all four typed gates passed. A blocking out-of-band item forbids a deployed, approved-for-next-stage, or complete status. Handoffs update the manifest before the current manager stops.
 
 ## Promote the immutable release
 
