@@ -17,6 +17,8 @@ approved dev behavior
 
 Dev is the product-behavior source of truth. A dirty dev filesystem is not a release artifact. Before promotion, the release manager must preserve the desired dev changes in Git, rebuild from a clean commit, activate that candidate on dev, and reconfirm the behavior.
 
+A plain request to "deploy to staging" is intentionally sufficient. It approves the behavior running on dev at request time as the target and authorizes one release manager to automate the complete repository, dev, and staging workflow. The manager must not make the owner restate this document, choose routine commands, or execute staging commands. Production always requires a later explicit request.
+
 The first release under this policy is a one-time `baseline-reconciliation` release. Its job is to inventory `/home/flask` and the active dev runtime, preserve every intended dev-only change on focused task branches, and establish an `origin/main` commit plus immutable artifact that reproduce the approved dev behavior. Atomically write completion to `/var/lib/tradewave/release-state/baseline.json` and record its path, exact release SHA, completion time, and evidence in the manifest's `baseline` object. Later standard and hotfix releases require that completed marker, start from that baseline, and may not reopen the historical dirty-dev inventory; they still perform the normal target out-of-band gate. An emergency rollback is never blocked merely because the baseline marker is pending, but it must still record exact current and restored pointers and evidence.
 
 ## Roles
@@ -33,14 +35,14 @@ The first release under this policy is a one-time `baseline-reconciliation` rele
 - One manager owns one release ID at a time.
 - The manager inventories handoffs and the actual dev runtime, integrates exact commits, builds the immutable release, and owns all promotion evidence.
 - The manager is replaceable only through a recorded handoff. Chat history is not release state.
-- Only the manager may integrate, advance release refs, build artifacts, activate dev, author promotion commands, or author rollback commands.
+- Only the manager may integrate, advance release refs, build artifacts, activate dev, or execute the authorized staging promotion and rollback.
 
 ### Owner
 
-- Approves the reconstructed dev release tied to a full Git SHA and artifact hash.
+- By requesting staging deployment, approves the currently running dev behavior as the target. After exact automated parity is proven, the manager binds that request to the resulting full Git SHA and composite artifact hash without requesting redundant approval.
 - Approves staging before any production action.
 - Confirms current-day production web and appserver snapshots before production promotion.
-- Executes or designates a human operator to execute staging and production write commands authored by the manager.
+- Executes or designates a human operator to execute production write commands. Staging is executed by the release manager under the staging-deploy authorization.
 
 ## Release state
 
@@ -62,7 +64,7 @@ Initialize this dev-only state path once with:
 sudo bash /home/flask/ops/init_release_state.sh
 ```
 
-The script establishes `/var/lib/tradewave/release-state` as `flask:flask` mode `0750` and refuses symlink or non-directory path collisions. It does not create a release or acquire the activation lock. This durable state directory must never share a parent with release checkouts, builds, worktrees, or cleanup targets. Validate release manifests with `ops/release_manifest.schema.json`. Do not store keys, tokens, secret values, customer content, or credentials.
+The script establishes `/var/lib/tradewave/release-state` as `flask:flask` mode `0750` and refuses symlink or non-directory path collisions. It does not create a release or acquire the activation lock. This durable state directory must never share a parent with release checkouts, builds, worktrees, or cleanup targets. Validate release manifests with `ops/validate_release_manifest.py` before every promotion write and terminal status transition. Do not store keys, tokens, secret values, customer content, or credentials.
 
 The manifest records identity, ownership, the baseline marker, dev activation coordination, included handoffs, source SHA, the locked `main` SHA, artifact hashes, active runtime paths, typed browser/contract/runtime evidence, approvals, out-of-band changes, snapshots, concrete rollback, risks, and append-only events. Every event records who authored it and who executed it. The first event records release ownership. Write manifest updates atomically.
 
@@ -71,12 +73,13 @@ The manifest records identity, ownership, the baseline marker, dev activation co
 ## Authorization boundaries
 
 - “Inspect,” “compare,” “diagnose,” and “is this ready?” are read-only.
-- “Deploy to staging” authorizes release preparation and staging only.
+- “Deploy to staging” authorizes the sole manager to perform every required repository, dev, and staging action through verified completion, including preserving and pushing intended work, advancing `origin/main` after validation, and executing automatic staging rollback. It is also approval of the behavior running on dev when requested, conditional on exact automated reconstruction.
+- Do not pause for routine Git, build, test, dev activation, staging execution, or rollback choices. Pause only for an unclassified change requiring an owner decision, inability to prove dev parity, unavailable required authority/credentials, or unsafe/failed rollback.
 - Staging success does not authorize production.
 - Production requires explicit approval for the exact staging-approved release plus confirmation of current-day snapshots of both production servers.
 - Approval never transfers to a different SHA, artifact, target, or later `main`.
-- Agents may write in approved isolated repository worktrees and may activate an approved candidate on dev. They never execute staging or production write commands. The deployment manager performs read-only remote inspection, authors exact commands, and records them; Afshin or his designated human operator executes them.
-- An operator-started deployment command may contain automatic rollback. Otherwise, when a post-write gate fails, the manager immediately authors the exact rollback, marks the release `rollback_required`, records the still-active risk, and stops. The rollback is not complete until the operator confirms execution and the manager verifies the resulting state.
+- The release manager may execute repository, dev, and staging write commands authorized by a staging-deploy request and records itself as executor. Production remains read-only for agents; Afshin or his designated human operator executes production writes.
+- A manager-started staging deployment must contain automatic rollback. If a post-write gate fails, run rollback automatically and verify the restored state. If rollback fails, mark `rollback_required`, record the still-active risk, stop further writes, and report the exact live state. Production retains the operator/automatic-rollback rule.
 
 ## Git and integration gates
 
@@ -100,20 +103,20 @@ If the approved dev behavior cannot be reproduced from the clean release candida
 5. Activate the candidate on dev through the same documented runtime model used by the service configuration.
 6. Keep the lock through verification. Verify effective systemd units and drop-ins, process working directories/command lines, backend fingerprints, frontend symlinks/index, bundle hashes, and nginx routing.
 7. Run release-specific contract checks and rendered browser tests. Tests and bundle-string greps are supporting evidence, not product verification. Release only this release's lock afterward and append the release event.
-8. Record owner approval against the full SHA and composite `artifacts.manifest_sha256`.
+8. If the candidate exactly matches the dev behavior captured when deployment was requested, record the staging-deploy request as owner approval against the full SHA and composite `artifacts.manifest_sha256`; do not ask again. Otherwise stop for an owner decision.
 
 ## Staging gates
 
 1. Confirm exclusive manager ownership and a complete dev-approved manifest.
 2. Inspect and reconcile target out-of-band state before any write. Compare every tracked target file with its Git object, inspect effective unit fragments and drop-ins for every release-managed service, verify live process paths, and hash the active frontend. Classify and preserve every difference in `out_of_band_changes`. Any unclassified or blocking item stops promotion.
-3. Capture concrete rollback state: previous backend SHA or release pointer, previous frontend pointer and hashes, and exact operator commands. Both references are required even when one component is unchanged. If either affected component lacks a safe executable rollback, stop.
+3. Capture concrete rollback state: previous backend SHA or release pointer, previous frontend pointer and hashes, and exact commands. Both references are required even when one component is unchanged. If either affected component lacks a safe executable automatic rollback, stop.
 4. Because `ops/deploy.sh` deploys `origin/main`, require `origin/main` to equal the exact tested release SHA before promotion. Record that SHA as `main_locked_sha`. It must not advance between staging deployment, staging approval, and production promotion.
 5. Promote the exact source SHA and dev-built frontend artifact. Never rebuild or merge between dev approval and staging.
 6. Confirm effective systemd base units and drop-ins resolve to one release model and the intended release. Confirm all release-managed live process paths, not only files copied to `/home/flask`. A conflicting base-unit/release-pointer model must be resolved, not merely observed.
 7. Confirm nginx/index references the expected bundle and its hash matches dev.
 8. Run health/routes, release contracts, and real browser assertions under the required entitlement.
-9. Use automatic rollback only when it is built into the operator-started command. Otherwise author the exact rollback, mark `rollback_required`, and wait for operator execution before verifying the result.
-10. Record results and wait for explicit owner approval before production.
+9. Execute staging autonomously with automatic rollback built into the manager-started command. On failure, verify rollback; if rollback fails, mark `rollback_required` and stop.
+10. Record results and complete the staging request. Explicit owner approval is still required before any later production request.
 
 ## Production gates
 
@@ -123,7 +126,7 @@ If the approved dev behavior cannot be reproduced from the clean release candida
 4. Re-run non-mutating preflights and confirm rollback commands.
 5. Confirm `origin/main` still equals `main_locked_sha`, then promote without rebuilding or re-merging.
 6. Repeat active-runtime, fingerprint, bundle, health, contract, and browser verification.
-7. On failure, follow the same operator/automatic rollback rule as staging and record the actual post-rollback state.
+7. On failure, the operator-started production command performs automatic rollback when available; otherwise the manager immediately authors the exact rollback for operator execution. Record and verify the actual post-rollback state.
 
 ## Required Wave Viewer checks
 

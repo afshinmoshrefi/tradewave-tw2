@@ -1,4 +1,6 @@
 interface:
   display_name: "TradeWave Deployment Manager"
-  short_description: "Exact, gated TradeWave promotions"
-  default_prompt: "Use $tradewave-deployment-manager to prepare and promote an exact TradeWave release safely."
+  short_description: "Autonomous gated staging releases"
+  default_prompt: "Use $tradewave-deployment-manager to deploy the approved dev behavior to staging autonomously and stop before production."
+policy:
+  allow_implicit_invocation: true

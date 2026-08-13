@@ -1913,8 +1913,9 @@ roadmap memories.)
 4. **FREEZE legacy Stripe price cleanup** - never archive a price with an active sub.
 5. **No em-dashes** in TradeWave/SMN content (use ` - `). Date-range LABELS use
    en-dash via `tw_dateformat.py`; prose uses words; slugs stay ASCII.
-6. **Never touch live/staging/prod (or TW1) directly** - author commands, the
-   operator runs them. Read-only inspection of `.151` is allowed.
+6. **A plain staging-deploy request authorizes the sole release manager to execute the
+   complete gated staging workflow.** Never touch production or TW1 directly - author
+   production commands and the operator runs them. Read-only inspection of `.151` is allowed.
 7. **All TW2 hosts are Cloudflare tunnels** - never convert prod to an A record.
 8. **config.py is env-agnostic** - per-env values only via secrets.env. Never use
    `git checkout origin/main -- file` as a deploy mechanism (causes box drift).

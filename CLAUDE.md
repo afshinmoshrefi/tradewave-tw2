@@ -49,16 +49,20 @@ replace WP/UMP, keeping the React app and the appserver `/login` handshake.
   the arbitrary contents of `/home/flask` as the version to promote.
 - ONE RELEASE MANAGER: on any deploy/release/parity request, automatically follow
   `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
-  Only that manager integrates, builds, activates dev, or authors promotion/rollback commands.
+  Only that manager integrates, builds, activates dev, or performs the authorized staging promotion/rollback.
   The manager announces and atomically locks shared dev before candidate activation.
-  Afshin or his designated human operator executes staging and production writes. A staging
-  request never authorizes production. A verifier saying CLEAN never overrides active-runtime
+  A plain staging-deploy request authorizes the manager to automate all repository, dev, and
+  staging writes without asking Afshin to run commands or repeat the workflow. Production remains
+  a separate request and human-executed write boundary. A staging request never authorizes
+  production. A verifier saying CLEAN never overrides active-runtime
   or browser evidence.
 - SELF-MAINTAINING KNOWLEDGE: at the end of any substantive task, run the `tw-knowledge`
   skill unprompted (see "Keep it current" above) - capture + improve the ecosystem doc +
   memory, update existing files in place, never duplicate, never re-derive twice.
-- NEVER touch live/staging/prod (or TW1 `.151`) directly with write commands -
-  author commands; the operator runs them. Read-only inspection of `.151` is OK.
+- NEVER touch production or TW1 `.151` directly with write commands - author production
+  commands; the operator runs them. The sole release manager may execute staging writes only
+  after an explicit staging-deploy request and only through the complete gated release process.
+  Read-only inspection of `.151` is OK.
 - Deploy is dev -> staging -> verify -> prod via `bash ops/deploy.sh {staging|prod}`.
   Staging is the prod gate; never dev->prod direct; never skip/drop staging.
 - No em-dashes in TradeWave/SMN content (use ` - `); date-range labels use the

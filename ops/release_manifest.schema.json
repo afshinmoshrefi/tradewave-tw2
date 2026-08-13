@@ -551,7 +551,7 @@
         "authored_by": { "type": "string", "minLength": 1 },
         "executed_by": { "type": ["string", "null"] },
         "execution_mode": {
-          "enum": ["read-only", "repository-write", "dev-write", "command-authored", "operator-live-write", "automatic-rollback"]
+          "enum": ["read-only", "repository-write", "dev-write", "command-authored", "manager-live-write", "operator-live-write", "automatic-rollback"]
         },
         "action": { "type": "string", "minLength": 1 },
         "result": { "type": "string", "minLength": 1 },
@@ -560,7 +560,7 @@
       "allOf": [
         {
           "if": {
-            "properties": { "execution_mode": { "enum": ["operator-live-write", "automatic-rollback"] } },
+            "properties": { "execution_mode": { "enum": ["manager-live-write", "operator-live-write", "automatic-rollback"] } },
             "required": ["execution_mode"]
           },
           "then": { "properties": { "executed_by": { "type": "string", "minLength": 1 } } }

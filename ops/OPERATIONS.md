@@ -74,10 +74,12 @@ announce the exact SHA to active sessions and atomically acquire the manifest-re
 `/var/lib/tradewave/release-state/dev-activation.lock` directory with `mkdir`, then
 write owner/release metadata inside it and keep it through verification.
 
-Agents inspect staging and production read-only and author exact commands. Afshin or his
-designated human operator executes every staging and production write. An operator-started
-command may perform automatic rollback. Otherwise a failed gate requires the manager to
-author rollback immediately, mark `rollback_required`, and stop until the operator executes it.
+A plain staging-deploy request authorizes the sole release manager to execute the entire
+repository, dev, and staging workflow without asking Afshin to run commands or restate this
+runbook. Every manager-started staging deployment includes automatic rollback and records
+`execution_mode=manager-live-write`. Production remains read-only for agents; Afshin or his
+designated human operator executes production writes. If staging rollback fails, mark
+`rollback_required`, stop further writes, and report the exact live state.
 
 > **THIS SECTION IS THE SINGLE SOURCE OF TRUTH FOR DEPLOYMENT.** Any change that
 > alters how a deploy works — a new systemd service, a new build artifact, a new
@@ -393,8 +395,9 @@ references even when one component is unchanged. If the active backend is an rsy
 `/home/flask` tree with no safe previous pointer or snapshot, the deployment is blocked until a
 recoverable backend rollback is prepared. Do not use `git reset --hard` on a target checkout.
 
-Agents author staging/production rollback commands; the operator executes them. A failed gate
-remains `rollback_required` until the manager verifies the operator's rollback result.
+The release manager executes and verifies staging rollback automatically. For production,
+agents author rollback commands and the operator executes them. A failed rollback remains
+`rollback_required` until the manager verifies the restored state.
 
 ## Deploy gotchas (learned 2026-05-22 - read before debugging a deploy)
 
@@ -454,8 +457,9 @@ The v2 public product (gateway + MCP + developer portal). Map: `docs/TRADEWAVE_E
 §7A/§7B; contract: `api/PATTERNCARD_SPEC.md` + `api/openapi.yaml`; build-state: `api/BUILD_STATE.md`.
 **SIGNALS-ONLY** (no raw prices). These are NEW services additive to the appserver; they live on
 the **app box** (gateway -> appserver over localhost), public via `api-`/`mcp-`/`developers-`
-hostnames. All scripts are run BY the operator on the target box (never auto-run against
-staging/prod). Author them on dev; operator runs them.
+hostnames. The sole release manager may run these scripts against staging as part of an
+explicit staging-deploy request. Production remains operator-executed; author production
+commands on dev and do not auto-run them.
 
 **Hosts per env** (drive `portal_urls.py` via `secrets.env`):
 
