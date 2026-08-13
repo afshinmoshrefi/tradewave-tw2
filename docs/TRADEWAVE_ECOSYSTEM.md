@@ -1595,6 +1595,13 @@ runs the release tests/build, and pushes a tested release commit. That commit ad
 the target boxes. `/home/flask` is the operational checkout, not a shared development
 scratchpad. Canonical procedure: `.claude/skills/tw-git-release-workflow/SKILL.md`.
 
+**Release-state invariant:** durable manager state lives only under
+`/var/lib/tradewave/release-state/`, initialized on dev by
+`ops/init_release_state.sh` as `flask:flask` mode `0750`. The manifest records the
+one-time baseline marker and a shared-dev activation lock. A candidate may not be
+activated on dev until active sessions are notified and the manager atomically owns
+`dev-activation.lock`; the lock remains through runtime and browser verification.
+
 **Tara immutable app release invariant (2026-08-04):** a scoped Tara-only backend promotion uses
 a clean detached worktree under `/home/flask/.tw2-releases/<sha>` and atomically points
 `/home/flask/.tw2-app-current` at it. Systemd drop-ins make both `tradewave-appserver` and its coupled
@@ -1906,8 +1913,9 @@ roadmap memories.)
 4. **FREEZE legacy Stripe price cleanup** - never archive a price with an active sub.
 5. **No em-dashes** in TradeWave/SMN content (use ` - `). Date-range LABELS use
    en-dash via `tw_dateformat.py`; prose uses words; slugs stay ASCII.
-6. **Never touch live/staging/prod (or TW1) directly** - author commands, the
-   operator runs them. Read-only inspection of `.151` is allowed.
+6. **A plain staging-deploy request authorizes the sole release manager to execute the
+   complete gated staging workflow.** Never touch production or TW1 directly - author
+   production commands and the operator runs them. Read-only inspection of `.151` is allowed.
 7. **All TW2 hosts are Cloudflare tunnels** - never convert prod to an A record.
 8. **config.py is env-agnostic** - per-env values only via secrets.env. Never use
    `git checkout origin/main -- file` as a deploy mechanism (causes box drift).
@@ -1977,6 +1985,11 @@ roadmap memories.)
 
 ## 12. Where the deep detail lives
 
+- `docs/RELEASE_PROCESS.md` - mandatory cross-agent release ownership, Git/artifact,
+  approval, active-runtime, browser/contract, handoff, and rollback policy. It applies
+  automatically whenever Codex, Claude, or a human prepares or performs a deployment.
+- `ops/release-risks/` - dated, reverified release hazards and out-of-band environment
+  evidence. These records seed a release manifest but never replace current read-only checks.
 - `ops/OPERATIONS.md` - the operational runbook (deploy, restart matrix, box
   rebuild, gotchas, URL-rename procedure). Single source of truth for deploy.
 - `ops/PROD_CUTOVER.md` - the cutover plan + `ops/cutover_repoint.sh`.

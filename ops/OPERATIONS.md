@@ -34,6 +34,12 @@ To sync staging+prod with the latest code: (React build if `web-react/src` chang
 
 **stage-web** = everything else. gunicorn `app:app` on :5500 behind nginx. cloudflared → `tw2-stage.trxstat.com` + `smn-stage.trxstat.com`. Serves `/var/www/tradewave/` + `/var/www/smn/`. Runs SMN pipeline (blog-queue + article-processor systemd) + all content/email crons. Has `csv/US` for ticker/scorecard generators.
 
+Staging intentionally carries only US and INDX market data to control SSD cost. ETF, COMM,
+FOREX, FOREX_LQ, CC, GBOND, LSE, and TO symbol lists are absent by design. Their eight updater
+failures can make aggregate status `ok:false` even when US and INDX are current. Do not add
+those datasets or storage, rerun an already successful catch-up, or use absent markets for
+staging release contracts.
+
 ## Services (systemd, both boxes auto-restart on failure)
 
 - stage-app: `tradewave-appserver`, postgresql, redis-server, cloudflared, chrony
@@ -43,6 +49,38 @@ Health: `systemctl is-active <svc>`. Logs: `/var/log/tradewave/*.log` (rotated d
 
 ## Deploy a code change
 
+The mandatory cross-agent release policy is `docs/RELEASE_PROCESS.md`, implemented for
+agents by `.claude/skills/tradewave-deployment-manager/SKILL.md`. This section is the command
+and topology runbook; it does not waive release ownership, clean integration, immutable
+artifact, approval, effective-runtime, contract, browser, or rollback gates.
+
+Treat the routine deploy path as fail-closed whenever a dated record under
+`ops/release-risks/` remains unresolved. A base unit or `/home/flask` update does not prove
+activation when an effective drop-in still points at `.tw2-app-current`.
+`verify_deploy.sh` reporting `CLEAN` is supporting evidence only. Every promotion must
+independently verify effective units and drop-ins for all release-managed services, live
+process paths, the active frontend bundle and hash, release-specific contracts, and rendered
+browser behavior. Resolve competing base-unit and release-pointer models before promotion.
+
+The fast path below describes mechanical commands after every release-policy gate passes. It
+does not authorize production, rebuilding between environments, or reporting success without
+independent runtime and product verification.
+
+On the first release-manager run on dev, initialize durable state with
+`sudo bash /home/flask/ops/init_release_state.sh`. It creates only
+`/var/lib/tradewave/release-state` as `flask:flask` mode `0750` and refuses
+symlink or non-directory collisions. Before activating a candidate on shared dev,
+announce the exact SHA to active sessions and atomically acquire the manifest-recorded
+`/var/lib/tradewave/release-state/dev-activation.lock` directory with `mkdir`, then
+write owner/release metadata inside it and keep it through verification.
+
+A plain staging-deploy request authorizes the sole release manager to execute the entire
+repository, dev, and staging workflow without asking Afshin to run commands or restate this
+runbook. Every manager-started staging deployment includes automatic rollback and records
+`execution_mode=manager-live-write`. Production remains read-only for agents; Afshin or his
+designated human operator executes production writes. If staging rollback fails, mark
+`rollback_required`, stop further writes, and report the exact live state.
+
 > **THIS SECTION IS THE SINGLE SOURCE OF TRUTH FOR DEPLOYMENT.** Any change that
 > alters how a deploy works — a new systemd service, a new build artifact, a new
 > env var that must be set on a box, a new cross-tier file, a new generator to
@@ -51,6 +89,12 @@ Health: `systemctl is-active <svc>`. Logs: `/var/log/tradewave/*.log` (rotated d
 > let the real process drift out of this doc.
 
 **Fast path (one command per env):** `bash ops/deploy.sh staging` → verify → `bash ops/deploy.sh prod`. The script runs everything below for one env (pre-flight, pull+restart web/app/SMN, React bundle, nginx) and aborts safely if `TW2_PUBLIC_HOST` is unset. Prereqs: commit+push, and `npm run build` if `web-react/` changed. The steps below are the reference the script implements (and for partial/manual deploys).
+
+Before staging, `origin/main` must equal the exact approved release SHA and the manifest's
+`main_locked_sha`. That ref must not move between staging deployment, staging approval, and
+production promotion. Before either target is changed, classify every target file, effective
+unit/drop-in, live process path, and frontend artifact that differs from its recorded Git or
+release object. Never overwrite an unclassified difference.
 
 The APP pre-flight enforces the supported low-traffic baseline of 2 CPUs / 4 GB
 for both staging and production. Capacity scales above that baseline in response
@@ -342,7 +386,18 @@ from being downgraded or enrolled in winback by an out-of-order Stripe event.
 `tw2-stage.trxstat.com` / `tradewave.ai`: login + logout (same-origin, works on first click), a report page renders, `/app/` loads with the console quiet (consoleGuard), `/api/me` returns the right tier. **Only then promote to the next env.**
 
 ### Rollback
-`ssh root@<box> -p 4369 'sudo -u flask git -C /home/flask reset --hard <prev-sha> && systemctl restart <svc>'` (last resort; prefer fixing forward). React: `cd /home/flask/web-react && ln -sfn "$(readlink build-previous)" build` (instant, above).
+
+Prepare rollback before every target write and record it in the release manifest. Backend
+rollback requires the previous immutable release pointer or SHA, the exact activation command,
+and evidence that the previous source still exists. Frontend rollback requires the previous
+build pointer and hashes plus the exact symlink command. Record both backend and frontend
+references even when one component is unchanged. If the active backend is an rsynced
+`/home/flask` tree with no safe previous pointer or snapshot, the deployment is blocked until a
+recoverable backend rollback is prepared. Do not use `git reset --hard` on a target checkout.
+
+The release manager executes and verifies staging rollback automatically. For production,
+agents author rollback commands and the operator executes them. A failed rollback remains
+`rollback_required` until the manager verifies the restored state.
 
 ## Deploy gotchas (learned 2026-05-22 - read before debugging a deploy)
 
@@ -402,8 +457,9 @@ The v2 public product (gateway + MCP + developer portal). Map: `docs/TRADEWAVE_E
 §7A/§7B; contract: `api/PATTERNCARD_SPEC.md` + `api/openapi.yaml`; build-state: `api/BUILD_STATE.md`.
 **SIGNALS-ONLY** (no raw prices). These are NEW services additive to the appserver; they live on
 the **app box** (gateway -> appserver over localhost), public via `api-`/`mcp-`/`developers-`
-hostnames. All scripts are run BY the operator on the target box (never auto-run against
-staging/prod). Author them on dev; operator runs them.
+hostnames. The sole release manager may run these scripts against staging as part of an
+explicit staging-deploy request. Production remains operator-executed; author production
+commands on dev and do not auto-run them.
 
 **Hosts per env** (drive `portal_urls.py` via `secrets.env`):
 
@@ -518,4 +574,4 @@ storm-breaker activation. Run away from the 02:00 UTC cron burst. Do not use
 2. `ssh <box> 'tail -50 /var/log/tradewave/{web,appserver}.error.log'`
 3. `ssh <box> 'journalctl -u tradewave-<svc> --no-pager -n 50'`
 4. `df -h /` — disk full is the usual culprit if logrotate ever lapses.
-5. Roll back: `git -C /home/flask reset --hard <prev> && systemctl restart …` (last resort; prefer fixing forward).
+5. Use the exact immutable backend/frontend rollback recorded in the release manifest. Do not reset a target checkout or invent rollback after failure.

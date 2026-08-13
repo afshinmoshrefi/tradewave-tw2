@@ -1,0 +1,571 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tradewave.ai/schemas/release-manifest.schema.json",
+  "title": "TradeWave release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "release_id",
+    "release_kind",
+    "manager",
+    "baseline",
+    "dev_coordination",
+    "requested_target",
+    "status",
+    "created_at",
+    "updated_at",
+    "git",
+    "artifacts",
+    "environments",
+    "approvals",
+    "out_of_band_changes",
+    "known_risks",
+    "rollback",
+    "events"
+  ],
+  "properties": {
+    "schema_version": { "const": 3 },
+    "release_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+    "release_kind": {
+      "enum": ["baseline-reconciliation", "standard", "hotfix", "rollback", "parity-audit"]
+    },
+    "manager": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "identity", "state"],
+      "properties": {
+        "agent": { "type": "string", "minLength": 1 },
+        "identity": { "type": "string", "minLength": 1 },
+        "session": { "type": ["string", "null"], "minLength": 1 },
+        "state": { "enum": ["active", "handed_off", "released"] }
+      }
+    },
+    "baseline": { "$ref": "#/$defs/baseline" },
+    "dev_coordination": { "$ref": "#/$defs/devCoordination" },
+    "requested_target": { "enum": ["dev", "staging", "prod", "rollback", "parity-audit"] },
+    "status": {
+      "enum": [
+        "inventory",
+        "integrating",
+        "dev_validation",
+        "awaiting_dev_approval",
+        "staging_preflight",
+        "staging_deployed",
+        "awaiting_prod_approval",
+        "prod_preflight",
+        "prod_deployed",
+        "rollback_required",
+        "rolling_back",
+        "failed",
+        "complete",
+        "handed_off"
+      ]
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_sha",
+        "release_sha",
+        "release_branch",
+        "remote_main_sha",
+        "main_locked_sha",
+        "handoff_shas"
+      ],
+      "properties": {
+        "base_sha": { "$ref": "#/$defs/sha" },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "release_branch": { "type": "string", "minLength": 1 },
+        "remote_main_sha": { "$ref": "#/$defs/sha" },
+        "main_locked_sha": { "$ref": "#/$defs/shaOrNull" },
+        "handoff_shas": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_sha256", "frontend", "backend_fingerprint"],
+      "properties": {
+        "manifest_sha256": {
+          "$ref": "#/$defs/sha256OrNull",
+          "description": "Composite release identity hash used for every approval, including backend-only releases; it is not a hash of this release.json file."
+        },
+        "frontend": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256", "source_sha"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "$ref": "#/$defs/sha256" },
+              "source_sha": { "$ref": "#/$defs/sha" }
+            }
+          }
+        },
+        "backend_fingerprint": {
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "environments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dev", "staging", "prod"],
+      "properties": {
+        "dev": { "$ref": "#/$defs/environment" },
+        "staging": { "$ref": "#/$defs/environment" },
+        "prod": { "$ref": "#/$defs/environment" }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dev", "staging", "production_snapshots", "production"],
+      "properties": {
+        "dev": { "$ref": "#/$defs/approval" },
+        "staging": { "$ref": "#/$defs/approval" },
+        "production_snapshots": { "$ref": "#/$defs/approval" },
+        "production": { "$ref": "#/$defs/approval" }
+      }
+    },
+    "out_of_band_changes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/outOfBandChange" }
+    },
+    "known_risks": { "type": "array", "items": { "type": "string" } },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dev", "staging", "prod"],
+      "properties": {
+        "dev": { "$ref": "#/$defs/rollback" },
+        "staging": { "$ref": "#/$defs/rollback" },
+        "prod": { "$ref": "#/$defs/rollback" }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/event" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["approvals"],
+        "properties": {
+          "approvals": {
+            "anyOf": [
+              { "required": ["dev"], "properties": { "dev": { "required": ["state"], "properties": { "state": { "const": "approved" } } } } },
+              { "required": ["staging"], "properties": { "staging": { "required": ["state"], "properties": { "state": { "const": "approved" } } } } },
+              { "required": ["production_snapshots"], "properties": { "production_snapshots": { "required": ["state"], "properties": { "state": { "const": "approved" } } } } },
+              { "required": ["production"], "properties": { "production": { "required": ["state"], "properties": { "state": { "const": "approved" } } } } }
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "required": ["manifest_sha256"],
+            "properties": { "manifest_sha256": { "$ref": "#/$defs/sha256" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["out_of_band_changes"],
+        "properties": {
+          "out_of_band_changes": {
+            "contains": {
+              "required": ["blocking"],
+              "properties": { "blocking": { "const": true } }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "inventory",
+              "integrating",
+              "dev_validation",
+              "awaiting_dev_approval",
+              "staging_preflight",
+              "rollback_required",
+              "rolling_back",
+              "failed",
+              "handed_off"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["release_kind"],
+        "properties": {
+          "release_kind": { "enum": ["standard", "hotfix", "parity-audit"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "baseline": {
+            "required": ["state"],
+            "properties": { "state": { "const": "complete" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["release_kind", "status"],
+        "properties": {
+          "release_kind": { "const": "baseline-reconciliation" },
+          "status": { "const": "complete" }
+        }
+      },
+      "then": {
+        "properties": {
+          "baseline": {
+            "required": ["state"],
+            "properties": { "state": { "const": "complete" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["environments"],
+        "properties": {
+          "environments": {
+            "required": ["dev"],
+            "properties": {
+              "dev": {
+                "required": ["state"],
+                "properties": { "state": { "const": "active" } }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "dev_coordination": {
+            "required": ["state"],
+            "properties": { "state": { "const": "locked" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["environments"],
+        "properties": {
+          "environments": {
+            "required": ["dev"],
+            "properties": {
+              "dev": {
+                "required": ["state"],
+                "properties": { "state": { "const": "verified" } }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "dev_coordination": {
+            "required": ["state"],
+            "properties": { "state": { "enum": ["locked", "released"] } }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "shaOrNull": { "anyOf": [{ "$ref": "#/$defs/sha" }, { "type": "null" }] },
+    "sha256OrNull": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "marker_path", "release_sha", "completed_at", "evidence"],
+      "properties": {
+        "state": { "enum": ["pending", "complete"] },
+        "marker_path": { "const": "/var/lib/tradewave/release-state/baseline.json" },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "completed_at": { "type": ["string", "null"], "format": "date-time" },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["state"], "properties": { "state": { "const": "complete" } } },
+          "then": {
+            "properties": {
+              "release_sha": { "$ref": "#/$defs/sha" },
+              "completed_at": { "type": "string", "format": "date-time" },
+              "evidence": { "minItems": 1 }
+            }
+          },
+          "else": {
+            "properties": {
+              "release_sha": { "type": "null" },
+              "completed_at": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "devCoordination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "lock_path", "lock_owner", "release_sha", "announced_at", "released_at", "evidence"],
+      "properties": {
+        "state": { "enum": ["not_started", "announced", "locked", "released"] },
+        "lock_path": { "const": "/var/lib/tradewave/release-state/dev-activation.lock" },
+        "lock_owner": { "type": ["string", "null"], "minLength": 1 },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "announced_at": { "type": ["string", "null"], "format": "date-time" },
+        "released_at": { "type": ["string", "null"], "format": "date-time" },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["state"],
+            "properties": { "state": { "enum": ["announced", "locked", "released"] } }
+          },
+          "then": {
+            "properties": {
+              "release_sha": { "$ref": "#/$defs/sha" },
+              "announced_at": { "type": "string", "format": "date-time" },
+              "evidence": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["state"],
+            "properties": { "state": { "enum": ["locked", "released"] } }
+          },
+          "then": {
+            "properties": { "lock_owner": { "type": "string", "minLength": 1 } }
+          }
+        },
+        {
+          "if": { "required": ["state"], "properties": { "state": { "const": "released" } } },
+          "then": {
+            "properties": { "released_at": { "type": "string", "format": "date-time" } }
+          }
+        }
+      ]
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["not_required", "pending", "approved", "rejected"] },
+        "approved_by": { "type": "string", "minLength": 1 },
+        "approved_at": { "type": "string", "format": "date-time" },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "artifact_sha256": { "$ref": "#/$defs/sha256OrNull" },
+        "note": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["state"],
+            "properties": { "state": { "const": "approved" } }
+          },
+          "then": {
+            "required": ["approved_by", "approved_at", "release_sha", "artifact_sha256"],
+            "properties": {
+              "release_sha": { "$ref": "#/$defs/sha" },
+              "artifact_sha256": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        }
+      ]
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "ran", "passed", "evidence"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "ran": { "type": "boolean" },
+        "passed": { "type": ["boolean", "null"] },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "required": { "const": true } }, "required": ["required"] },
+          "then": { "properties": { "ran": { "const": true } } }
+        },
+        {
+          "if": { "properties": { "ran": { "const": true } }, "required": ["ran"] },
+          "then": {
+            "properties": {
+              "passed": { "type": "boolean" },
+              "evidence": { "minItems": 1 }
+            }
+          },
+          "else": { "properties": { "passed": { "type": "null" } } }
+        }
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_identity", "service_routes", "contract_check", "browser_check"],
+      "properties": {
+        "runtime_identity": { "$ref": "#/$defs/gate" },
+        "service_routes": { "$ref": "#/$defs/gate" },
+        "contract_check": { "$ref": "#/$defs/gate" },
+        "browser_check": { "$ref": "#/$defs/gate" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "release_sha",
+        "runtime_paths",
+        "effective_units",
+        "checks",
+        "snapshots"
+      ],
+      "properties": {
+        "state": {
+          "enum": ["not_started", "preflight", "active", "verified", "failed", "rollback_required", "rolled_back"]
+        },
+        "release_sha": { "$ref": "#/$defs/shaOrNull" },
+        "runtime_paths": { "type": "array", "items": { "type": "string" } },
+        "effective_units": { "type": "array", "items": { "type": "string" } },
+        "checks": { "$ref": "#/$defs/checks" },
+        "snapshots": { "type": "array", "items": { "type": "string" } }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["state"], "properties": { "state": { "const": "verified" } } },
+          "then": {
+            "properties": {
+              "release_sha": { "$ref": "#/$defs/sha" },
+              "runtime_paths": { "minItems": 1 },
+              "effective_units": { "minItems": 1 },
+              "checks": {
+                "properties": {
+                  "runtime_identity": { "properties": { "ran": { "const": true }, "passed": { "const": true } } },
+                  "service_routes": { "properties": { "ran": { "const": true }, "passed": { "const": true } } },
+                  "contract_check": { "properties": { "ran": { "const": true }, "passed": { "const": true } } },
+                  "browser_check": { "properties": { "ran": { "const": true }, "passed": { "const": true } } }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "outOfBandChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "surface", "observed", "classification", "blocking", "resolution", "evidence"],
+      "properties": {
+        "environment": { "enum": ["dev", "staging", "prod"] },
+        "surface": { "type": "string", "minLength": 1 },
+        "observed": { "type": "string", "minLength": 1 },
+        "classification": {
+          "enum": ["unclassified", "preserved", "committed", "expected-runtime", "reverted", "resolved"]
+        },
+        "blocking": { "type": "boolean" },
+        "resolution": { "type": "string" },
+        "evidence": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "previous_backend_ref", "previous_frontend_ref", "commands", "evidence"],
+      "properties": {
+        "state": { "enum": ["not_prepared", "ready", "required", "executed", "verified", "unavailable"] },
+        "previous_backend_ref": { "type": ["string", "null"] },
+        "previous_frontend_ref": { "type": ["string", "null"] },
+        "commands": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "type": "array", "items": { "type": "string" } },
+        "executed_by": { "type": ["string", "null"] },
+        "executed_at": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "state": { "enum": ["ready", "required", "executed", "verified"] } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": {
+              "previous_backend_ref": { "type": "string", "minLength": 1 },
+              "previous_frontend_ref": { "type": "string", "minLength": 1 },
+              "commands": { "minItems": 1 },
+              "evidence": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "state": { "enum": ["executed", "verified"] } },
+            "required": ["state"]
+          },
+          "then": {
+            "required": ["executed_by", "executed_at"],
+            "properties": {
+              "executed_by": { "type": "string", "minLength": 1 },
+              "executed_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      ]
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "authored_by", "executed_by", "execution_mode", "action", "result", "evidence"],
+      "properties": {
+        "at": { "type": "string", "format": "date-time" },
+        "authored_by": { "type": "string", "minLength": 1 },
+        "executed_by": { "type": ["string", "null"] },
+        "execution_mode": {
+          "enum": ["read-only", "repository-write", "dev-write", "command-authored", "manager-live-write", "operator-live-write", "automatic-rollback"]
+        },
+        "action": { "type": "string", "minLength": 1 },
+        "result": { "type": "string", "minLength": 1 },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "execution_mode": { "enum": ["manager-live-write", "operator-live-write", "automatic-rollback"] } },
+            "required": ["execution_mode"]
+          },
+          "then": { "properties": { "executed_by": { "type": "string", "minLength": 1 } } }
+        }
+      ]
+    }
+  }
+}

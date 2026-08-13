@@ -18,7 +18,7 @@ Treat commits as release units. A server filesystem is an environment, not a rel
 7. Deploy the reviewed release commit through `origin/main`; never copy an arbitrary dirty dev tree to staging.
 8. Never use `git reset --hard`, `git clean -fdx`, broad deletion, or worktree removal until every potentially valuable change is classified and preserved.
 9. Do not commit secrets, environment files, caches, temporary files, dependency trees, or ad hoc build backups.
-10. Follow the deployment and knowledge rules in `CLAUDE.md`, `docs/TRADEWAVE_ECOSYSTEM.md`, and the applicable deployment skill.
+10. Follow the deployment and knowledge rules in `CLAUDE.md`, `docs/TRADEWAVE_ECOSYSTEM.md`, and the applicable deployment skill. For every release, promotion, rollback, readiness, or parity request, use `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
 
 ## Start a task
 
@@ -76,6 +76,8 @@ Do not add unrelated changes found in `/home/flask` to make the release "match d
 
 ## Promote through environments
 
+The designated release manager owns this section. Development sessions stop after their committed, pushed handoff.
+
 TradeWave promotion is:
 
 ```text
@@ -85,11 +87,12 @@ task commits -> tested release commit -> origin/main -> staging -> verify -> pro
 Before staging:
 
 1. Confirm the tested release is the commit that will advance `origin/main`.
-2. Obtain any required approval for updating `origin/main` and deploying.
+2. Treat a plain staging-deploy request as approval to update `origin/main` to the exact verified candidate and deploy it to staging; do not request redundant intermediate approval.
 3. Confirm `origin/main` points to the intended full SHA after the push.
-4. Run the repository staging deployment procedure from dev.
-5. Verify services, health checks, migrations, static pages, React provenance, and relevant feature behavior.
-6. Record the deployed SHA and verification result.
+4. Lock that exact SHA through staging approval and production promotion; do not advance `main` between environments.
+5. The release manager runs the repository staging deployment from dev, including automatic rollback, and records its executing identity. Production remains a separate human-executed boundary.
+6. Verify target out-of-band state, effective services and drop-ins, live process paths, health checks, migrations, static pages, React provenance, contracts, and rendered feature behavior.
+7. Record the deployed SHA and verification result.
 
 Production remains a separate promotion of the same verified commit and must satisfy the snapshot gate in the production deployment skill.
 

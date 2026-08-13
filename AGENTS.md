@@ -9,11 +9,14 @@ Before planning or changing TradeWave code:
 1. Read `CLAUDE.md` in full. Its repository rules apply to every agent, not only Claude.
 2. Read `docs/TRADEWAVE_ECOSYSTEM.md`; it is the implementation source of truth.
 3. For any code edit, Git operation, multi-session handoff, integration, cleanup, release, or deployment, read and follow `.claude/skills/tw-git-release-workflow/SKILL.md`.
-4. Read the additional domain or deployment skills named by `CLAUDE.md` when they apply.
+4. For any deploy, promotion, release, rollback, environment-parity check, deployment handoff, or deployment-readiness request, read and follow `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md` automatically, even when the user does not name the skill.
+5. Read the additional domain or deployment skills named by `CLAUDE.md` when they apply.
 
 ## Git and release rule
 
 Use a separate branch and worktree for every task. Commit and push the intended work before handoff. Releases promote exact tested commits through `origin/main`; they never promote the arbitrary contents of a dirty dev checkout.
+
+One designated deployment manager owns each release. Development sessions may hand off pushed task commits, but may not integrate, build the release artifact, activate dev, move release pointers, or advance `main`. A plain request to deploy to staging is the complete authorization for that manager to automate preservation, integration, dev activation, staging writes, verification, and rollback without asking the user to restate the process or run commands. The manager announces and locks shared dev before candidate activation. Dev remains the behavior source of truth only after the requested behavior is reproduced by a clean commit and immutable artifact and reactivated on dev. Production remains a separate explicit request and human-executed write boundary.
 
 Run Git as `flask`, never `root`. Do not reset, clean, delete, or remove a worktree until potentially valuable changes are classified and preserved.
 
