@@ -35,7 +35,9 @@ After the snapshot gate passes:
 4. Follow the current command path in `ops/OPERATIONS.md`.
 5. Independently verify effective systemd units and drop-ins, live process paths, backend
    fingerprints, frontend pointers and hashes, contracts, and rendered browser behavior.
-6. Roll back on any mandatory-gate failure and record the resulting live state.
+6. On any mandatory-gate failure, use automatic rollback only inside the operator-started
+   command. Otherwise author the exact rollback, mark `rollback_required`, and wait for the
+   operator to execute it before verifying and recording the resulting live state.
 
 Never use stale server details embedded in a skill as operational authority. Read the current
 runbook and manifest for every production release.

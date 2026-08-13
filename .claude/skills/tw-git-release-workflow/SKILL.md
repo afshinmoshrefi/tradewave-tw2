@@ -89,9 +89,10 @@ Before staging:
 1. Confirm the tested release is the commit that will advance `origin/main`.
 2. Obtain any required approval for updating `origin/main` and deploying.
 3. Confirm `origin/main` points to the intended full SHA after the push.
-4. Run the repository staging deployment procedure from dev.
-5. Verify services, health checks, migrations, static pages, React provenance, and relevant feature behavior.
-6. Record the deployed SHA and verification result.
+4. Lock that exact SHA through staging approval and production promotion; do not advance `main` between environments.
+5. The release manager authors the repository staging deployment command from dev; Afshin or his designated human operator runs it.
+6. Verify target out-of-band state, effective services and drop-ins, live process paths, health checks, migrations, static pages, React provenance, contracts, and rendered feature behavior.
+7. Record the deployed SHA and verification result.
 
 Production remains a separate promotion of the same verified commit and must satisfy the snapshot gate in the production deployment skill.
 

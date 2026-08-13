@@ -16,7 +16,7 @@ Before planning or changing TradeWave code:
 
 Use a separate branch and worktree for every task. Commit and push the intended work before handoff. Releases promote exact tested commits through `origin/main`; they never promote the arbitrary contents of a dirty dev checkout.
 
-One designated deployment manager owns each release. Development sessions may hand off pushed task commits, but may not integrate, deploy, move release pointers, or advance `main`. Dev remains the behavior source of truth only after the exact approved behavior is reproduced by a clean commit and immutable artifact and reactivated on dev.
+One designated deployment manager owns each release. Development sessions may hand off pushed task commits, but may not integrate, build the release artifact, activate dev, author live promotion commands, move release pointers, or advance `main`. Dev remains the behavior source of truth only after the exact approved behavior is reproduced by a clean commit and immutable artifact and reactivated on dev. Agents inspect staging and production and author exact commands; Afshin or his designated human operator executes live writes.
 
 Run Git as `flask`, never `root`. Do not reset, clean, delete, or remove a worktree until potentially valuable changes are classified and preserved.
 

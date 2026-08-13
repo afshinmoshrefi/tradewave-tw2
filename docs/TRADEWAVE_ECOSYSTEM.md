@@ -1980,6 +1980,8 @@ roadmap memories.)
 - `docs/RELEASE_PROCESS.md` - mandatory cross-agent release ownership, Git/artifact,
   approval, active-runtime, browser/contract, handoff, and rollback policy. It applies
   automatically whenever Codex, Claude, or a human prepares or performs a deployment.
+- `ops/release-risks/` - dated, reverified release hazards and out-of-band environment
+  evidence. These records seed a release manifest but never replace current read-only checks.
 - `ops/OPERATIONS.md` - the operational runbook (deploy, restart matrix, box
   rebuild, gotchas, URL-rename procedure). Single source of truth for deploy.
 - `ops/PROD_CUTOVER.md` - the cutover plan + `ops/cutover_repoint.sh`.

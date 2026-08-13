@@ -49,9 +49,10 @@ replace WP/UMP, keeping the React app and the appserver `/login` handshake.
   the arbitrary contents of `/home/flask` as the version to promote.
 - ONE RELEASE MANAGER: on any deploy/release/parity request, automatically follow
   `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
-  Only that manager integrates, builds, activates, promotes, or rolls back. A staging request
-  never authorizes production. A verifier saying CLEAN never overrides active-runtime or
-  browser evidence.
+  Only that manager integrates, builds, activates dev, or authors promotion/rollback commands.
+  Afshin or his designated human operator executes staging and production writes. A staging
+  request never authorizes production. A verifier saying CLEAN never overrides active-runtime
+  or browser evidence.
 - SELF-MAINTAINING KNOWLEDGE: at the end of any substantive task, run the `tw-knowledge`
   skill unprompted (see "Keep it current" above) - capture + improve the ecosystem doc +
   memory, update existing files in place, never duplicate, never re-derive twice.

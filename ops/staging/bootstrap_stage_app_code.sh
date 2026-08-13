@@ -5,7 +5,7 @@
 #   ops/staging/run.sh staging bootstrap_stage_app_code.sh app
 # For prod: run via  ops/staging/run.sh prod bootstrap_stage_app_code.sh app
 #
-# What this does (idempotent):
+# What this does (one-time bootstrap; refuses an existing Git repository):
 #   1. Verify SSH-to-github works with the deploy key
 #   2. git init /home/flask, add origin, fetch+checkout main
 #   3. Configure git (sshCommand using deploy key, user.name/email)
@@ -39,23 +39,23 @@ if ! grep -q "successfully authenticated" /tmp/_gh_test; then
 fi
 echo "GitHub auth OK ($(grep successfully /tmp/_gh_test))."
 
-hdr "2. git init + remote + fetch + checkout"
+hdr "2. fresh git init + remote + fetch + detached checkout"
 # /home/flask already has useradd skeleton (.bashrc, .profile, .ssh/). git
 # leaves those alone; it only writes files that exist in the repo.
 sudo -u flask bash -c "
     cd /home/flask
-    if [ ! -d .git ]; then
-        git init -q -b main
-        git remote add origin '${REPO_SSH}'
-    elif ! git remote get-url origin >/dev/null 2>&1; then
-        git remote add origin '${REPO_SSH}'
+    if [ -d .git ]; then
+        echo 'REFUSING: /home/flask already contains a Git repository.' >&2
+        echo 'This bootstrap is for a new host only; use the release manager for updates.' >&2
+        exit 2
     fi
+    git init -q -b main
+    git remote add origin '${REPO_SSH}'
     git config core.sshCommand '${GIT_SSH}'
     git config user.name 'Afshin Moshrefi'
     git config user.email 'afshinmoshrefi@hotmail.com'
     GIT_SSH_COMMAND='${GIT_SSH}' git fetch --tags origin
-    git checkout -f main
-    git reset --hard origin/main
+    git checkout --detach origin/main
 "
 echo "HEAD: $(sudo -u flask git -C /home/flask rev-parse --short HEAD) $(sudo -u flask git -C /home/flask log -1 --pretty=%s)"
 
