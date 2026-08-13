@@ -53,7 +53,7 @@ import {
 import { CHATBOT_OPEN_KEY, resolveChatbotOpen } from './leftPanelState'
 import { TARA_PANEL_OPEN_KEY, hasTaraPanelLayout, initialTaraPanelOpen } from './taraPanelPreference'
 import { normalizeBarChartExcursionStyle } from './barChartExcursion'
-import { TOOLTIP_ENABLED_KEY, initialTooltipsEnabled } from './tooltipPreference'
+import { LEGACY_TOOLTIP_ENABLED_KEY, TOOLTIP_ENABLED_KEY, initialTooltipsEnabled } from './tooltipPreference'
 import {
   OPPORTUNITY_AI_COLUMN_DEFAULTS_VERSION_KEY,
   OPPORTUNITY_COLUMN_VISIBILITY_KEY,
@@ -250,8 +250,9 @@ const App = () => {
 
 
   // tooltip on/off
-  const [tooltipSW, SetTooltipSW] = useState(() => (
-    initialTooltipsEnabled(lsGet(TOOLTIP_ENABLED_KEY))
+  const [tooltipSW, SetTooltipSW] = useState(() => initialTooltipsEnabled(
+    lsGet(TOOLTIP_ENABLED_KEY),
+    lsGet(LEGACY_TOOLTIP_ENABLED_KEY),
   ))
   useEffect(() => {
     lsSet(TOOLTIP_ENABLED_KEY, tooltipSW)

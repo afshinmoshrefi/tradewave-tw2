@@ -15,4 +15,10 @@ describe('tooltip preference', () => {
     expect(initialTooltipsEnabled(true)).toBe(true);
     expect(initialTooltipsEnabled('true')).toBe(true);
   });
+
+  test('migrates the legacy preference only when the canonical key is absent', () => {
+    expect(initialTooltipsEnabled(null, false)).toBe(false);
+    expect(initialTooltipsEnabled(undefined, 'true')).toBe(true);
+    expect(initialTooltipsEnabled(true, false)).toBe(true);
+  });
 });

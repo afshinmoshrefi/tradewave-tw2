@@ -45,6 +45,7 @@ import { LiaToggleOffSolid, LiaToggleOnSolid } from "react-icons/lia";
 import { DarkBGColor, LightBGColor, themeColors } from './Common'
 import { tierHasAI } from './Common'
 import { BAR_CHART_EXCURSION_STYLES } from './barChartExcursion'
+import { TOOLTIP_ENABLED_KEY } from './tooltipPreference'
 import { opportunityAISelectionMatchesViewer } from './opportunityViewerAIScore'
 import { BsPlus, BsTrash3 } from "react-icons/bs";
 import { GrEdit } from "react-icons/gr";
@@ -369,7 +370,7 @@ const DesktopLayout = (props) => {
     const handleTooltipSW = () => {
         const next = !props.tooltipSW;
         props.SetTooltipSW(next);
-        lsSet('tw_tooltips', next);
+        lsSet(TOOLTIP_ENABLED_KEY, next);
     };
 
     const handleTheme = () => {

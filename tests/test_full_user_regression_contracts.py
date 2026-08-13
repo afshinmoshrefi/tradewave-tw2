@@ -146,9 +146,10 @@ def test_watchlist_names_are_bounded_and_symbol_button_passes_no_event():
 def test_user_scoped_preferences_survive_reload():
     app = APP_JS.read_text(encoding="utf-8")
     desktop = DESKTOP_LAYOUT_JS.read_text(encoding="utf-8")
-    assert "const persisted = lsGet('tw_tooltips');" in app
+    assert "lsGet(TOOLTIP_ENABLED_KEY)" in app
+    assert "lsGet(LEGACY_TOOLTIP_ENABLED_KEY)" in app
     assert "const persisted = lsGet('tw_short_dates');" in app
-    assert "lsSet('tw_tooltips', next);" in desktop
+    assert "lsSet(TOOLTIP_ENABLED_KEY, next);" in desktop
     assert "lsSet('tw_short_dates', next);" in desktop
     assert "localStorage.setItem('tw_short_dates'" not in desktop
 

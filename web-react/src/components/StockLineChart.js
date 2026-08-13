@@ -436,15 +436,15 @@ const StockLineChart = (props) => {
 
         if (props.seasonalBarChartData.length > 0) {
 
-            // let tmp2 = props.seasonalBarChartData[props.seasonalYears];
-            let tmp2 = props.seasonalBarChartData[props.seasonalBarChartData.length - 1];
-
-            // check if linechart shown is the current inactive linechart
-            if (nonCurrentPECycle || (tmp2['pct'] === '0,0,0' && tmp2['year'] === props.lineChartYear)) {
+            // The requested date range is authoritative. A padded end that crosses
+            // today is fetched with the current-range controls even when the latest
+            // seasonal bar already has a realized percentage. Non-current PE phases
+            // also use the up-to-date price chart without a seasonal projection.
+            if (nonCurrentPECycle || currentChartRequest) {
                 SetShowCurrentLineChart(true)
                 SetHeaderTooltip(nonCurrentPECycle
                     ? 'This PE phase is not the current year, so TradeWave shows the up-to-date price chart without a seasonal projection.'
-                    : 'This is the up-to-date daily price chart until the last available date.  There is no active trade for this chart yet.')
+                    : 'This is the up-to-date price chart through the last available date.')
             }
             else {
                 SetShowCurrentLineChart(false)
