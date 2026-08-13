@@ -831,6 +831,7 @@ const SeasonalBarChart = (props) => {
           props.SetSeasonalBarChartData([])
           props.SetTradeDetailData([])
           props.SetConsolidatedSeasonalData([])
+          setPrimaryChartLoading(false)
           reportViewerLoad(
             'primary',
             'failed',
@@ -874,6 +875,7 @@ const SeasonalBarChart = (props) => {
           props.SetSeasonalBarChartData([])
           props.SetTradeDetailData([])
           props.SetConsolidatedSeasonalData([])
+          setPrimaryChartLoading(false)
           reportViewerLoad(
             'primary',
             'failed',
@@ -887,6 +889,7 @@ const SeasonalBarChart = (props) => {
         ReactDOM.unstable_batchedUpdates(() => {
           resolveMissRef.current = ''   // clean load - clear the data-miss cross-market guard
           primaryReadyKeyRef.current = requestKey
+          setPrimaryChartLoading(false)
           props.SetSeasonalBarChartData(cd)
           props.SetTradeDetailData(t["stats"])
           if (cd.length > 0) markCaptureReady('seasonal', { symbol: props.symbol, years: props.seasonalYears, points: cd.length })
