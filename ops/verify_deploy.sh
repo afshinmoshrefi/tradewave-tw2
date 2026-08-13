@@ -21,6 +21,8 @@ case "$ENV" in
   *) echo "usage: $0 {staging|prod}"; exit 2 ;;
 esac
 SSH="ssh -p 4369 -o BatchMode=yes -o ConnectTimeout=10"
+EXPECTED_SHA="${TW2_EXPECTED_SHA:-}"
+EXPECTED_BUNDLE_SHA256="${TW2_EXPECTED_BUNDLE_SHA256:-}"
 fails=0; warns=0
 ok(){   echo "  PASS  $*"; }
 bad(){  echo "  FAIL  $*"; fails=$((fails+1)); }
@@ -40,6 +42,55 @@ else
   $SSH "root@$APP" 'systemctl is-active tradewave-appserver 2>/dev/null' | grep -qvx active \
     && bad "APP appserver not active" || ok "APP: appserver active (api/mcp dark on prod - not checked)"
 fi
+
+echo "-- exact release identity + active runtime --"
+if [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+  for box in "$APP" "$WEB"; do
+    actual_sha=$($SSH "root@$box" "sudo -u flask git -C /home/flask rev-parse HEAD" 2>/dev/null)
+    [ "$actual_sha" = "$EXPECTED_SHA" ] \
+      && ok "$box checkout is exact release $EXPECTED_SHA" \
+      || bad "$box checkout is $actual_sha (want $EXPECTED_SHA)"
+  done
+else
+  bad "TW2_EXPECTED_SHA is missing or invalid; exact release identity cannot be proven"
+fi
+
+check_live_runtime(){ # check_live_runtime <box> <unit> <expected cwd>
+  local box="$1" unit="$2" expected="$3" result
+  result=$($SSH "root@$box" "UNIT='$unit' EXPECTED_CWD='$expected' bash -s" 2>/dev/null <<'REMOTE_RUNTIME_VERIFY'
+set -euo pipefail
+[ "$(systemctl show "$UNIT" -p WorkingDirectory --value)" = "$EXPECTED_CWD" ]
+pid="$(systemctl show "$UNIT" -p MainPID --value)"
+case "$pid" in ''|0|*[!0-9]*) exit 1 ;; esac
+[ "$(readlink -f "/proc/$pid/cwd")" = "$EXPECTED_CWD" ]
+! systemctl cat "$UNIT" | grep -Eq '/home/flask/\.tw2-(app-current|releases)(/|$)'
+printf '%s' "$EXPECTED_CWD"
+REMOTE_RUNTIME_VERIFY
+) || true
+  [ "$result" = "$expected" ] \
+    && ok "$unit runs from $expected" \
+    || bad "$unit is not executing the canonical $expected runtime"
+}
+check_live_runtime "$APP" tradewave-appserver /home/flask/appserver/appserver
+check_live_runtime "$APP" tradewave-apiserver /home/flask
+check_live_runtime "$APP" tradewave-mcpserver /home/flask
+check_live_runtime "$WEB" tradewave-web /home/flask/web
+
+frontend_source_sha=$($SSH "root@$WEB" "tr -d '[:space:]' </home/flask/web-react/build/.tradewave-source-sha 2>/dev/null" 2>/dev/null)
+[ -n "$EXPECTED_SHA" ] && [ "$frontend_source_sha" = "$EXPECTED_SHA" ] \
+  && ok "React provenance matches the exact release" \
+  || bad "React provenance is ${frontend_source_sha:-missing} (want ${EXPECTED_SHA:-an explicit SHA})"
+react_js_path=$($SSH "root@$WEB" "find -L /home/flask/web-react/build/static/js -maxdepth 1 -type f -name 'main.*.js' ! -name '*.map' -print 2>/dev/null | head -1" 2>/dev/null)
+react_js_name="${react_js_path##*/}"
+react_bundle_sha=$($SSH "root@$WEB" "test -n '$react_js_path' && sha256sum '$react_js_path' | awk '{print \$1}'" 2>/dev/null)
+if [[ "$EXPECTED_BUNDLE_SHA256" =~ ^[0-9a-f]{64}$ ]] && [ "$react_bundle_sha" = "$EXPECTED_BUNDLE_SHA256" ]; then
+  ok "React main bundle hash matches the built release artifact"
+else
+  bad "React main bundle hash does not match the built release artifact"
+fi
+$SSH "root@$WEB" "test -n '$react_js_name' && grep -Fq '$react_js_name' /home/flask/web-react/build/index.html" 2>/dev/null \
+  && ok "React index references the verified main bundle" \
+  || bad "React index does not reference the verified main bundle"
 
 if $SSH "root@$WEB" "crontab -u flask -l 2>/dev/null | grep -Fq '/home/flask/site/generate_webinar_page.py --force'"; then
   ok "WEB: hourly webinar schedule refresh cron installed"

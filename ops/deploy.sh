@@ -57,6 +57,11 @@ REMOTE_MAIN="$(git -C "$DEPLOY_REPO" ls-remote origin refs/heads/main | awk '{pr
 [ "$(tr -d '[:space:]' <"$BUILD/.tradewave-source-sha")" = "$EXPECTED_SHA" ] || {
   echo "ABORT: React build provenance does not match the intended release SHA."; exit 1;
 }
+mapfile -t BUNDLE_FILES < <(find "$BUILD/static/js" -maxdepth 1 -type f -name 'main.*.js' ! -name '*.map' -print)
+[ "${#BUNDLE_FILES[@]}" -eq 1 ] || {
+  echo "ABORT: React build must contain exactly one main JavaScript bundle."; exit 1;
+}
+BUNDLE_SHA256="$(sha256sum "${BUNDLE_FILES[0]}" | awk '{print $1}')"
 REL="${EXPECTED_SHA:0:12}"
 
 echo "==> [$ENV] pre-flight: TW2_PUBLIC_HOST == $HOST on BOTH boxes?"
@@ -326,6 +331,29 @@ if not hmac.compare_digest(str(api_tier or ""), "mcp") or not has_service_role:
 print("    MCP service-account identity OK")
 MCP_SERVICE_ACCOUNT_PREFLIGHT
 
+echo "==> [$ENV] pre-flight: systemd uses the canonical /home/flask runtime (no stale release pointer)?"
+check_runtime_unit() { # check_runtime_unit <box> <unit> <expected WorkingDirectory>
+  local box="$1" unit="$2" expected="$3"
+  $SSH "root@$box" "UNIT='$unit' EXPECTED_CWD='$expected' bash -s" <<'REMOTE_RUNTIME_PREFLIGHT'
+set -euo pipefail
+systemctl cat "$UNIT" >/dev/null 2>&1 || { echo "ABORT: $UNIT is not installed"; exit 1; }
+effective_cwd="$(systemctl show "$UNIT" -p WorkingDirectory --value)"
+[ "$effective_cwd" = "$EXPECTED_CWD" ] || {
+  echo "ABORT: $UNIT effective WorkingDirectory is $effective_cwd; expected $EXPECTED_CWD"
+  echo "       Remove or reconcile the competing release-pointer drop-in before deploying."
+  exit 1
+}
+if systemctl cat "$UNIT" | grep -Eq '/home/flask/\.tw2-(app-current|releases)(/|$)'; then
+  echo "ABORT: $UNIT still references the legacy .tw2-app-current/.tw2-releases runtime."
+  exit 1
+fi
+REMOTE_RUNTIME_PREFLIGHT
+}
+check_runtime_unit "$APP" tradewave-appserver /home/flask/appserver/appserver
+check_runtime_unit "$APP" tradewave-apiserver /home/flask
+check_runtime_unit "$APP" tradewave-mcpserver /home/flask
+check_runtime_unit "$WEB" tradewave-web /home/flask/web
+
 echo "==> [$ENV] pre-flight: both target worktrees are clean and see the intended origin/main?"
 for box in "$APP" "$WEB"; do
   $SSH "root@$box" "EXPECTED_SHA='$EXPECTED_SHA' bash -s" <<'REMOTE_PREFLIGHT'
@@ -355,6 +383,24 @@ else
     exit 1
   fi
 fi
+
+assert_live_runtime() { # assert_live_runtime <box> <unit> <expected process cwd>
+  local box="$1" unit="$2" expected="$3"
+  $SSH "root@$box" "UNIT='$unit' EXPECTED_CWD='$expected' bash -s" <<'REMOTE_RUNTIME_ASSERT'
+set -euo pipefail
+systemctl is-active --quiet "$UNIT" || { echo "ABORT: $UNIT is not active"; exit 1; }
+effective_cwd="$(systemctl show "$UNIT" -p WorkingDirectory --value)"
+[ "$effective_cwd" = "$EXPECTED_CWD" ] || { echo "ABORT: $UNIT effective WorkingDirectory is $effective_cwd"; exit 1; }
+pid="$(systemctl show "$UNIT" -p MainPID --value)"
+case "$pid" in ''|0|*[!0-9]*) echo "ABORT: $UNIT has no live MainPID"; exit 1 ;; esac
+process_cwd="$(readlink -f "/proc/$pid/cwd")"
+[ "$process_cwd" = "$EXPECTED_CWD" ] || {
+  echo "ABORT: $UNIT process $pid runs from $process_cwd; expected $EXPECTED_CWD"
+  exit 1
+}
+echo "    $UNIT -> $process_cwd"
+REMOTE_RUNTIME_ASSERT
+}
 app_capacity=$($SSH "root@$APP" 'printf "%s CPU / %s MiB RAM / %s MiB available" "$(nproc)" "$(( $(awk "/^MemTotal:/{print \$2}" /proc/meminfo) / 1024 ))" "$(( $(awk "/^MemAvailable:/{print \$2}" /proc/meminfo) / 1024 ))"')
 echo "    OK - $ENV APP capacity: $app_capacity (scales with traffic)"
 for box in "$APP" "$WEB"; do
@@ -511,6 +557,12 @@ else
   $SSH "root@$WEB" 'systemctl restart tradewave-web && systemctl is-active tradewave-web && for u in tradewave-blog-queue tradewave-article-processor; do if systemctl cat "$u" >/dev/null 2>&1; then systemctl restart "$u"; fi; done'
 fi
 
+echo "==> [$ENV] prove the restarted services are executing the canonical release paths"
+assert_live_runtime "$APP" tradewave-appserver /home/flask/appserver/appserver
+assert_live_runtime "$APP" tradewave-apiserver /home/flask
+assert_live_runtime "$APP" tradewave-mcpserver /home/flask
+assert_live_runtime "$WEB" tradewave-web /home/flask/web
+
 echo "==> [$ENV] web tier ($WEB): regenerate ALL static pages (home, scorecard, insights, learn, research, about, daily-pick, ticker, text, markets)"
 # regen_site.sh runs EVERY main-site generator with secrets.env sourced, so each page
 # bakes the correct per-env host (never the tw2-dev fallback). This closes the historical
@@ -549,7 +601,7 @@ echo "==> [$ENV] code+pages deployed. Running post-deploy verification..."
 # visible one. Non-fatal-but-loud: the deploy already applied; a nonzero verify means the
 # site is live-but-not-clean, so fix + re-run regen before announcing.
 if [ -x "$DEPLOY_REPO/ops/verify_deploy.sh" ]; then
-  if bash "$DEPLOY_REPO/ops/verify_deploy.sh" "$ENV"; then
+  if TW2_EXPECTED_SHA="$EXPECTED_SHA" TW2_EXPECTED_BUNDLE_SHA256="$BUNDLE_SHA256" bash "$DEPLOY_REPO/ops/verify_deploy.sh" "$ENV"; then
     echo "==> [$ENV] DONE + VERIFIED CLEAN. Live: https://$HOST"
   else
     echo "!!! [$ENV] DEPLOYED, but verify_deploy reported BLOCKER(S) above."
@@ -557,5 +609,6 @@ if [ -x "$DEPLOY_REPO/ops/verify_deploy.sh" ]; then
     exit 1
   fi
 else
-  echo "==> [$ENV] DONE. (verify_deploy.sh missing - skipped verification.) Live: https://$HOST"
+  echo "ABORT: verify_deploy.sh is missing or not executable; release verification is mandatory."
+  exit 1
 fi

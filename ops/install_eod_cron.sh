@@ -27,7 +27,7 @@ LINE='5 3-5 * * 2-6 set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask
 [ -f /home/flask/data_updater/update_client2.py ]  || { echo "FAIL: /home/flask/data_updater/update_client2.py missing"; exit 1; }
 us=$(grep -E '^TW2_UPDATE_SERVER=' /etc/tradewave/secrets.env | cut -d= -f2- || true)
 [ -n "$us" ] || { echo "FAIL: TW2_UPDATE_SERVER is empty/unset in secrets.env"; exit 1; }
-echo "TW2_UPDATE_SERVER = $us"
+echo "TW2_UPDATE_SERVER is configured (value intentionally redacted)"
 
 install -d -o flask -g flask -m 0750 /var/log/tradewave /var/lib/tradewave/eod
 touch /var/log/tradewave/update_client.log
