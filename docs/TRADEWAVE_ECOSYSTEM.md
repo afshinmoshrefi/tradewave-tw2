@@ -606,6 +606,19 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
 - Features: PE-cycle overlays/filters (`mode=pe`), years selectors, securities
   groups + published lists + watchlists, the `?o=BASE64` shareable pattern param,
   the "Tara" chatbot, wave-viewer charts (bar/cumulative/price).
+- **AI-score eligibility is a TWO-part server contract (invariant, fixed 2026-08-16):**
+  `OppList4` returns BOTH `ml_enabled` (market AND tier - may this user see AI scores
+  here) and `ml_market_eligible` (market ONLY - `resourceID in
+  config.ml_score_resource_ids`, i.e. US stocks + ETFs `'0','1','2','3','4','11'`).
+  The viewer needs the market half on its own to tell "this market is not scored" apart
+  from "your plan does not include AI scores"; it cannot derive it from the ANDed
+  `ml_enabled`. REGRESSION 2026-08-06 (`37b53ab1`): the client began reading
+  `opps['ml_market_eligible'] || false` while the appserver never emitted the key, so
+  `mlMarketEligible` was permanently false - `selectOpportunityVisibleColumns` dropped
+  all four AI columns on EVERY market and `AIScorePanel` rendered "AI Scores are not
+  available for this market" for US stocks and ETFs. Reading a key the server never
+  sends fails closed and SILENTLY; `tests/test_opplist_response_contract.py` now
+  asserts every `opps['<key>']` read in `OppTable.js` exists in the `OppList4` payload.
 - **Chart canvas resolution invariant (2026-08-04):** never force a fractional
   Chart.js `devicePixelRatio`. The seasonal bar chart and its canvas-rendered
   tooltip must use the browser's native device-pixel ratio. A forced `0.5`
@@ -730,6 +743,19 @@ in `src`. `<Chatbot/>` (Tara) mounts ONLY in `DesktopLayout.js:1452-1464` - neve
 into either mobile layout - so tablet-landscape gets Tara (routes to DesktopLayout) but
 phones in either orientation do not (matches the deferred-by-decision Tara-mobile scope,
 memory `enh_tara_mobile`).
+
+**Phone-portrait opportunity columns live in ONE place (2026-08-16):**
+`opportunityAIScores.js:MOBILE_OPPORTUNITY_COLUMNS` - `symbol, date, daysOut, lOrS,
+avg_profit, sharpe_ratio, price` (Ticker / Date / Days / DIR / AvgP / SR / Price). It is
+MEMBERSHIP only; render order still follows `columnOrder`, which keeps Price last. The
+`37b53ab1` refactor moved column selection out of `TableBox.js` into
+`opportunityAIScores.js` and retyped this set down to 3 columns (`symbol, daysOut,
+sharpe_ratio`) while leaving the correct 7-item `MOBILE_COLS` behind as dead code in
+`TableBox.js` - phones showed only Ticker/Days/SR from 2026-08-06 until 2026-08-16.
+Per-column phone widths live beside it in `MOBILE_COLUMN_MIN_WIDTH`; the 7 core columns
+total 350px and fit a ~390px viewport, and opting AI columns in via Settings
+deliberately exceeds that so the table scrolls horizontally rather than dropping core
+columns.
 
 Full mobile feature-parity audit (Opp/TableBox/chart/TradeDetail/InfoPopup/onboarding/
 conversion/portfolio/trading-dialog components, 27 ranked defects incl. the AI-column gap

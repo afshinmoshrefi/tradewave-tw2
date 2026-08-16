@@ -35,7 +35,9 @@ export const AI_METRICS = Object.freeze({
 
 const CHECKPOINT_DAYS = [30, 60, 90]
 const REQUIRED_OPPORTUNITY_COLUMNS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])
-const MOBILE_OPPORTUNITY_COLUMNS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])
+// Phone portrait shows the decision-grade columns only. Membership, not order -
+// the rendered order still follows columnOrder, which keeps Price last.
+const MOBILE_OPPORTUNITY_COLUMNS = new Set(['symbol', 'date', 'daysOut', 'lOrS', 'avg_profit', 'sharpe_ratio', 'price'])
 const DESKTOP_COLUMN_MIN_WIDTH = Object.freeze({
   symbol: 70,
   date: 80,
@@ -49,8 +51,12 @@ const DESKTOP_COLUMN_MIN_WIDTH = Object.freeze({
 })
 const MOBILE_COLUMN_MIN_WIDTH = Object.freeze({
   symbol: 58,
+  date: 62,
   daysOut: 45,
+  lOrS: 38,
+  avg_profit: 50,
   sharpe_ratio: 45,
+  price: 52,
   ml_score: 58,
   win_prob: 58,
   pred_return: 58,

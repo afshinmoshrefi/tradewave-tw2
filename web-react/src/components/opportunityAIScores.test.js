@@ -281,9 +281,9 @@ test('formats all four metrics and preserves numeric zero', () => {
   expect(formatOpportunityAIMetric('pred_mfe', null)).toBe('N/A')
 })
 
-test('phone portrait keeps a compact core plus explicitly selected Win% and PredR columns', () => {
+test('phone portrait keeps the decision-grade core plus explicitly selected Win% and PredR columns', () => {
   const columns = selectOpportunityVisibleColumns({
-    columnOrder: ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'],
+    columnOrder: ['date', 'symbol', 'daysOut', 'lOrS', 'avg_profit', 'sharpe_ratio', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'],
     showSR2: false,
     hasAI: true,
     mlEnabled: true,
@@ -291,7 +291,22 @@ test('phone portrait keeps a compact core plus explicitly selected Win% and Pred
     columnVisibility: { ml_score: false, win_prob: true, pred_return: true, pred_mfe: false },
   })
 
-  expect(columns).toEqual(['symbol', 'daysOut', 'sharpe_ratio', 'win_prob', 'pred_return'])
+  expect(columns).toEqual(['date', 'symbol', 'daysOut', 'lOrS', 'avg_profit', 'sharpe_ratio', 'price', 'win_prob', 'pred_return'])
+})
+
+test('the phone portrait core fits the compact 390px table on its own', () => {
+  const columns = selectOpportunityVisibleColumns({
+    columnOrder: ['date', 'symbol', 'daysOut', 'lOrS', 'avg_profit', 'sharpe_ratio', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'],
+    showSR2: false,
+    hasAI: true,
+    mlEnabled: true,
+    marketEligible: true,
+    isMobilePortrait: true,
+    columnVisibility: undefined,
+  })
+
+  // Owner-specified phone columns: Date, DIR, AvgP and Price alongside the core.
+  expect(columns).toEqual(['date', 'symbol', 'daysOut', 'lOrS', 'avg_profit', 'sharpe_ratio', 'price'])
   expect(opportunityTableMinimumWidth({ columns, isMobilePortrait: true })).toBeLessThanOrEqual(390)
 })
 
@@ -318,9 +333,9 @@ test('AI columns require an explicit opt-in instead of appearing from a missing 
   })).toEqual(['symbol', 'daysOut', 'sharpe_ratio', 'win_prob'])
 })
 
-test('all four configured AI columns still fit the compact 390px portrait table', () => {
+test('all four opted-in AI columns are kept on phone portrait and widen the table for scrolling', () => {
   const columns = selectOpportunityVisibleColumns({
-    columnOrder: ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'],
+    columnOrder: ['date', 'symbol', 'daysOut', 'lOrS', 'avg_profit', 'sharpe_ratio', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'],
     showSR2: false,
     hasAI: true,
     mlEnabled: true,
@@ -329,8 +344,10 @@ test('all four configured AI columns still fit the compact 390px portrait table'
     columnVisibility: { ml_score: true, win_prob: true, pred_return: true, pred_mfe: true },
   })
 
-  expect(columns).toEqual(['symbol', 'daysOut', 'sharpe_ratio', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'])
-  expect(opportunityTableMinimumWidth({ columns, isMobilePortrait: true })).toBeLessThanOrEqual(390)
+  expect(columns).toEqual(['date', 'symbol', 'daysOut', 'lOrS', 'avg_profit', 'sharpe_ratio', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe'])
+  // Opting every AI column in intentionally exceeds the 390px viewport: minWidth then
+  // drives the table's own horizontal scroll rather than dropping the core columns.
+  expect(opportunityTableMinimumWidth({ columns, isMobilePortrait: true })).toBeGreaterThan(390)
 })
 
 test('market and tier gating preserve the configured locked teaser visibility', () => {

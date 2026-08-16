@@ -29,8 +29,6 @@ const AI_COLS = AI_COLUMNS
 const DEFAULT_COLUMN_ORDER = ['date', 'symbol', 'daysOut', 'lOrS', 'sharpe_ratio', 'avg_profit', 'avg_profit2', 'sharpe_ratio2', 'TL', 'price', 'ml_score', 'win_prob', 'pred_return', 'pred_mfe']
 const PENDING_CELL = <span title="Loading" aria-label="Loading">…</span>
 
-const REQUIRED_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio'])
-const MOBILE_COLS = new Set(['symbol', 'daysOut', 'sharpe_ratio', 'lOrS', 'date', 'price', 'sharpe_ratio2'])
 
 const TableBox = ({
   table_data,

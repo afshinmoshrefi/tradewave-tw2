@@ -1508,15 +1508,20 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
                 if p:
                     opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
 
-    # Check if this user+market qualifies for ML score columns
+    # Check if this user+market qualifies for ML score columns.
+    # ml_market_eligible is the MARKET half on its own (US stocks + ETFs); the React
+    # wave-viewer needs it separately from ml_enabled to tell "this market is not
+    # scored" apart from "your plan does not include AI scores". Without it the client
+    # fails closed on every market - see the AI Score panel's market message.
+    ml_market_eligible = resourceID in config.ml_score_resource_ids
     ml_enabled = False
-    if resourceID in config.ml_score_resource_ids:
+    if ml_market_eligible:
         if config.ml_score_access_mode == 'list' and str(userid) in config.ml_score_userids:
             ml_enabled = True
         elif config.ml_score_access_mode == 'level' and str(userlevel) in config.ml_score_access_levels:
             ml_enabled = True
 
-    return jsonify({'OppList': l,'OppActiveList':la ,'AvailableFilters': available_filters, 'applied_filter': applied_filter, 'prices': opp_prices, 'ml_enabled': ml_enabled})
+    return jsonify({'OppList': l,'OppActiveList':la ,'AvailableFilters': available_filters, 'applied_filter': applied_filter, 'prices': opp_prices, 'ml_enabled': ml_enabled, 'ml_market_eligible': ml_market_eligible})
 # --------end opplist4------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
