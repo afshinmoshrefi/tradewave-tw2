@@ -26,6 +26,8 @@ import TradeInstrument from "./TradeInstrument"
 import PublishArticle from "./PublishArticle";
 import AutoTrade from "./AutoTrade"
 import TradeReport from "./PortfolioTradeReport"
+import AIScorePanel from './AIScorePanel'
+import { supportsAIScoreSlide, resolveMobileSlideIndex } from './bottomSlides'
 
 
 // Import Swiper styles
@@ -74,10 +76,18 @@ const MobileLayoutP = (props) => {
     // const swiperRef = useRef(null);
     // const [swiper, setSwiper] = useState(null);
 
-    // auto switch displayed chart by an event not swipe
-    const chartTo = (idx) => {
-        // idx=0 is barchart idx=1 is linechart
-        props.swiper.slideTo(idx)
+    // AI Scores ride between the bar chart and the price chart, but ONLY on the
+    // markets that are actually scored (US stocks + ETFs). Same allowlist the
+    // desktop lower carousel uses, so the two layouts cannot disagree.
+    const hasAIScores = supportsAIScoreSlide(props.selectedSecurity)
+
+    // auto switch displayed chart by an event not swipe.
+    // Accepts the legacy numbers (0 bar chart, 1 price chart, 2 trade detail) and
+    // semantic names such as 'ai_scores'. Resolving through the slide contract is
+    // what keeps chartTo(1) on the price chart once the AI slide is inserted.
+    const chartTo = (destination) => {
+        const idx = resolveMobileSlideIndex(destination, { hasAIScores })
+        if (idx >= 0 && props.swiper) props.swiper.slideTo(idx)
     }
 
 
@@ -176,6 +186,17 @@ const MobileLayoutP = (props) => {
                     <SwiperSlide>
                         <SeasonalBarChart {...props} chartTo={chartTo} />
                     </SwiperSlide>
+
+                    {hasAIScores && (
+                        <SwiperSlide>
+                            <AIScorePanel
+                                compact
+                                viewModel={props.opportunityAIState}
+                                active={true}
+                                tooltipsEnabled={props.tooltipSW}
+                            />
+                        </SwiperSlide>
+                    )}
 
                     <SwiperSlide>
                         <StockLineChart {...props} chartTo={chartTo} />

@@ -370,3 +370,111 @@
     min-height: 185px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Phone-portrait compact variant (owner request 2026-08-17).
+   Sits between the bar chart and the price chart in MobileLayoutP's carousel,
+   only on AI-eligible markets. One line per checkpoint, two primary metrics.
+   Sized to fit a ~390x844 portrait slide without its own scrollbar.
+--------------------------------------------------------------------------- */
+.ai-score-panel--compact {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 2vw 3vw;
+  gap: 1.4vw;
+  background: var(--ai-panel-bg);
+  color: var(--ai-panel-text);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.ai-compact__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2vw;
+  border-bottom: 1px solid var(--ai-panel-border);
+  padding-bottom: 1.2vw;
+}
+
+.ai-compact__title {
+  font-size: 4vw;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-compact__header small {
+  font-size: 2.7vw;
+  color: var(--ai-panel-muted);
+  white-space: nowrap;
+}
+
+.ai-compact__notice {
+  font-size: 2.9vw;
+  color: var(--ai-warning);
+  background: var(--ai-warning-bg);
+  border-radius: 1vw;
+  padding: 1.2vw 1.6vw;
+}
+
+.ai-compact__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2vw;
+  flex: 1;
+  min-height: 0;
+  justify-content: center;
+}
+
+.ai-compact__row {
+  display: grid;
+  grid-template-columns: 18vw 1fr 1fr;
+  align-items: center;
+  gap: 2vw;
+  padding: 1.8vw 2vw;
+  border: 1px solid var(--ai-table-border);
+  border-radius: 1.4vw;
+  background: var(--ai-stat-value);
+}
+
+/* The checkpoint the Wave Viewer is actually reading gets the emphasis. */
+.ai-compact__row--primary {
+  background: var(--ai-stat-label);
+  border-width: 2px;
+}
+
+.ai-compact__days {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.ai-compact__days span { font-size: 4.2vw; font-weight: 700; }
+.ai-compact__days small { font-size: 2.4vw; color: var(--ai-panel-muted); }
+
+.ai-compact__metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+
+.ai-compact__metric small { font-size: 2.5vw; color: var(--ai-panel-muted); }
+.ai-compact__metric span { font-size: 4.4vw; font-weight: 600; }
+
+.ai-compact__unavailable {
+  grid-column: 2 / -1;
+  text-align: right;
+  font-size: 3vw;
+  color: var(--ai-panel-muted);
+}
+
+.ai-compact__foot {
+  font-size: 2.6vw;
+  color: var(--ai-panel-muted);
+  text-align: center;
+  padding-top: 0.6vw;
+}

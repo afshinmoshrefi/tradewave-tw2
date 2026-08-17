@@ -302,6 +302,44 @@ const AIViewTable = ({ view, displayDays, selectionOrigin }) => {
   )
 }
 
+// Phone portrait variant. One line per checkpoint carrying only the two metrics
+// the full table already marks --primary (AI Win Chance, Estimated End Return).
+// Best Move, Return Rank and the historical-record row stay on desktop: five rows
+// per checkpoint times three checkpoints does not fit a portrait slide, and the
+// two primaries are what a decision actually turns on.
+const AICompactRow = ({ view, displayDays, selectionOrigin }) => {
+  const days = Number(view && view.calendarDays)
+  const isPrimary = days === Number(displayDays)
+  const unavailable = view && view.status === 'available' ? '' : opportunityAICompactStatus(view)
+  const usedLabel = selectionOrigin === 'wave_viewer' ? 'viewer' : 'table'
+
+  return (
+    <div
+      className={`ai-compact__row${isPrimary ? ' ai-compact__row--primary' : ''}`}
+      aria-label={`${days}-day AI checkpoint${isPrimary ? ` (used for ${usedLabel})` : ''}`}
+    >
+      <div className="ai-compact__days">
+        <span>{days}d</span>
+        {isPrimary && <small>{usedLabel}</small>}
+      </div>
+      {unavailable
+        ? <div className="ai-compact__unavailable">{unavailable}</div>
+        : (
+          <>
+            <div className="ai-compact__metric">
+              <small>Win</small>
+              <span>{metricDisplay(view, 'win_prob')}</span>
+            </div>
+            <div className="ai-compact__metric">
+              <small>Return</small>
+              <span className={metricTone(view, 'pred_return')}>{metricDisplay(view, 'pred_return')}</span>
+            </div>
+          </>
+        )}
+    </div>
+  )
+}
+
 const checkpointSummary = views => {
   const days = views
     .map(view => Number(view && view.calendarDays))
@@ -322,6 +360,7 @@ const AIScorePanel = ({
   tooltipsEnabled = false,
   active = false,
   onNavigate,
+  compact = false,
 }) => {
   const userContext = useContext(UserContext) || {}
   const UITheme = userContext.UITheme || 'light'
@@ -485,6 +524,36 @@ const AIScorePanel = ({
             This Buy &amp; Hold period started on {startDate}. AI Scores are calculated before a pattern starts, so a new reading is not available.
           </StateMessage>
         </div>
+      </section>
+    )
+  }
+
+  if (compact) {
+    return (
+      <section
+        className="ai-score-panel ai-score-panel--compact"
+        data-theme={UITheme === 'dark' ? 'dark' : 'light'}
+        style={themeStyle}
+        aria-label="AI Scores"
+      >
+        <div className="ai-compact__header">
+          <span className="ai-compact__title">AI Scores - {symbol}</span>
+          {dataAsOf && <small>Through {formatDate(dataAsOf)}</small>}
+        </div>
+        {unavailable && (
+          <div className="ai-compact__notice">{unavailable.title}</div>
+        )}
+        <div className="ai-compact__rows">
+          {views.map(view => (
+            <AICompactRow
+              key={view.calendarDays}
+              view={view}
+              displayDays={displayDays}
+              selectionOrigin={selectionOrigin}
+            />
+          ))}
+        </div>
+        <div className="ai-compact__foot">{activeWindowCopy || 'Estimates, not targets.'}</div>
       </section>
     )
   }

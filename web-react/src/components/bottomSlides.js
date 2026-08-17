@@ -27,6 +27,54 @@ export const supportsAIScoreSlide = market => (
   AI_SCORE_MARKETS.has(String(market || '').trim().toUpperCase())
 );
 
+// Phone portrait carries its own carousel. Same contract as the desktop lower
+// carousel above: semantic names, so inserting the optional AI panel cannot
+// silently change where an existing chartTo() destination lands. Owner decision
+// 2026-08-17: AI Scores sit between the bar chart and the price chart.
+export const MOBILE_SLIDES = Object.freeze([
+  'bar_chart',
+  'price_chart',
+  'trade_detail',
+  'cumulative_return',
+  'seasonal_chart',
+]);
+
+export const MOBILE_SLIDES_WITH_AI = Object.freeze([
+  'bar_chart',
+  'ai_scores',
+  'price_chart',
+  'trade_detail',
+  'cumulative_return',
+  'seasonal_chart',
+]);
+
+// Chart headers shared with desktop still call chartTo(0/1/2). On phone portrait
+// those numbers have always meant bar chart / price chart / trade detail, so map
+// them to those names rather than to raw indices that the AI slide would shift.
+export const MOBILE_LEGACY_SLIDES = Object.freeze([
+  'bar_chart',
+  'price_chart',
+  'trade_detail',
+]);
+
+export const getMobileSlides = ({ hasAIScores = false } = {}) => (
+  hasAIScores === true ? MOBILE_SLIDES_WITH_AI : MOBILE_SLIDES
+);
+
+export const getMobileSlideIndex = (slide, options = {}) => (
+  getMobileSlides(options).indexOf(slide)
+);
+
+// Accepts a legacy number or a semantic name and returns the index to slide to,
+// or -1 when the destination is not present (e.g. ai_scores on a non-AI market).
+export const resolveMobileSlideIndex = (destination, { hasAIScores = false } = {}) => {
+  const semantic = typeof destination === 'number'
+    ? MOBILE_LEGACY_SLIDES[destination]
+    : destination;
+  if (!semantic) return -1;
+  return getMobileSlideIndex(semantic, { hasAIScores });
+};
+
 export const getBottomSlides = ({ hasAIScores = false } = {}) => (
   hasAIScores === true ? BOTTOM_SLIDES_WITH_AI : BOTTOM_SLIDES
 );

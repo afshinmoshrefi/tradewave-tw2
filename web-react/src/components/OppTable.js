@@ -112,11 +112,13 @@ const OppTable = (props) => {
 
   const { wpUserLevels, browserH, browserW, rdd, token, globalTextSize, debug, loggedinUser } = useContext(UserContext)
 
+  const phonePortrait = isPhonePortrait(rdd, browserH, browserW)
+
   // Resolved once and passed down, so the year label below and TableBox's date
   // cells can never disagree about whether the year is being shown.
   const effectiveShortDates = resolveOpportunityShortDates({
     shortDates: props.shortDates,
-    phonePortrait: isPhonePortrait(rdd, browserH, browserW),
+    phonePortrait,
   })
 
   const [seasonalYearsOptionsList, SetSeasonalYearsOptionsList] = useState([])
@@ -2129,23 +2131,29 @@ const OppTable = (props) => {
             : <div></div>
         }
 
-        <label className="opp-sort-control">
-          <span className="opp-sort-control__label">Sort by</span>
-          <select
-            aria-label="Sort opportunities by"
-            value={effectiveOpportunitySortValue}
-            onChange={handleOpportunitySortChange}
-            style={{
-              backgroundColor: tc.inputBg,
-              color: tc.text,
-              borderColor: tc.inputBorder,
-            }}
-          >
-            {opportunitySortOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-        </label>
+        {/* The Sort by dropdown is too wide for a phone and pushed the controls
+            row out of shape (owner report 2026-08-17). Hidden on phone portrait
+            only - sorting stays fully available there by tapping a column
+            header, and the underlying sort state/preference is untouched. */}
+        {!phonePortrait && (
+          <label className="opp-sort-control">
+            <span className="opp-sort-control__label">Sort by</span>
+            <select
+              aria-label="Sort opportunities by"
+              value={effectiveOpportunitySortValue}
+              onChange={handleOpportunitySortChange}
+              style={{
+                backgroundColor: tc.inputBg,
+                color: tc.text,
+                borderColor: tc.inputBorder,
+              }}
+            >
+              {opportunitySortOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {/* ******************************************* */}
         {/* this is for the active opportunities button */}
         {props.activeOpportunities.length > 0 && loggedinUser !== '0' &&

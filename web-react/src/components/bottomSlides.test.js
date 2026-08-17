@@ -4,7 +4,9 @@ import {
   getBottomSlideIndex,
   getBottomSlideName,
   getBottomSlides,
+  getMobileSlides,
   resolveBottomSlidePresentation,
+  resolveMobileSlideIndex,
   sanitizeBottomSlide,
   supportsAIScoreSlide,
 } from './bottomSlides';
@@ -83,3 +85,47 @@ test('restores AI Scores when eligible and falls back only after an ineligible r
     preserveRequestedSlide: false,
   });
 });
+
+// --- Phone-portrait carousel (owner request 2026-08-17) --------------------
+
+test('the AI slide sits between the bar chart and the price chart, and only on AI markets', () => {
+  expect(getMobileSlides({ hasAIScores: true })).toEqual([
+    'bar_chart', 'ai_scores', 'price_chart', 'trade_detail', 'cumulative_return', 'seasonal_chart',
+  ])
+  expect(getMobileSlides({ hasAIScores: false })).toEqual([
+    'bar_chart', 'price_chart', 'trade_detail', 'cumulative_return', 'seasonal_chart',
+  ])
+  expect(getMobileSlides()).not.toContain('ai_scores')
+})
+
+test('legacy chartTo numbers keep their destinations after the AI slide is inserted', () => {
+  // 0/1/2 have always meant bar chart / price chart / trade detail on a phone.
+  // Inserting ai_scores at index 1 must not silently turn chartTo(1) into it.
+  const withAI = { hasAIScores: true }
+  expect(resolveMobileSlideIndex(0, withAI)).toBe(0)   // bar chart
+  expect(resolveMobileSlideIndex(1, withAI)).toBe(2)   // price chart, shifted
+  expect(resolveMobileSlideIndex(2, withAI)).toBe(3)   // trade detail, shifted
+
+  const noAI = { hasAIScores: false }
+  expect(resolveMobileSlideIndex(0, noAI)).toBe(0)
+  expect(resolveMobileSlideIndex(1, noAI)).toBe(1)
+  expect(resolveMobileSlideIndex(2, noAI)).toBe(2)
+})
+
+test('a semantic phone destination resolves, and ai_scores is unreachable off AI markets', () => {
+  expect(resolveMobileSlideIndex('ai_scores', { hasAIScores: true })).toBe(1)
+  expect(resolveMobileSlideIndex('seasonal_chart', { hasAIScores: true })).toBe(5)
+  // Not present -> -1, so chartTo() no-ops instead of sliding somewhere wrong.
+  expect(resolveMobileSlideIndex('ai_scores', { hasAIScores: false })).toBe(-1)
+  expect(resolveMobileSlideIndex(undefined, { hasAIScores: true })).toBe(-1)
+})
+
+test('phone AI eligibility uses the same market allowlist as the desktop carousel', () => {
+  for (const market of ['DOW 30 STOCKS', 'S&P 500 STOCKS', 'ETFs', 'etfs']) {
+    expect(supportsAIScoreSlide(market)).toBe(true)
+  }
+  for (const market of ['CRYPTO CURRENCIES', 'INDICES ALL', 'FUTURES & COMMODITIES',
+                        'FOREX ALL', 'GOVERNMENT BONDS', 'LONDON EXCHANGE', 'TORONTO STOCKS']) {
+    expect(supportsAIScoreSlide(market)).toBe(false)
+  }
+})
