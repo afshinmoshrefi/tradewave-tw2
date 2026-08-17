@@ -107,14 +107,17 @@ Example: MSFT originally shows a 200-day pattern with SR 2.5 because that is the
 The result: after applying a days filter you may see new tickers appear or existing tickers switch to a different pattern with a lower Sharpe Ratio. This is expected behavior, not a bug. The table always shows the best available pattern for each ticker given the current filter constraints.
 
 The Opportunity Table itself (rows below the controls)
+- A visible Sort by control sorts the table by any available metric, even when that metric's column is hidden. It does not turn the column on or make the table wider. The default is Sharpe Ratio, highest first.
 
 Bottom of left panel: Tara chat input and replies
 
-3) Wave Viewer (Right Side, upper portion)
+On desktop, the left-chevron in the Opportunity Table header hides both the Opportunity Table and Tara to give the charts more room. A narrow rail remains. Its right-chevron restores the side panel, and its Tara button restores the side panel and opens Tara. The choice is remembered for that user.
+
+3) Wave Viewer (Right Side)
 - Gain-Loss Bar Chart: one bar per year for the selected pattern (top of wave viewer)
-- Lower panel may show:
-  - Stats cards plus a small cumulative return chart (Stats view), or
-  - Trend Chart (current price line chart), depending on the view
+- The lower viewer always includes Trend Chart, Wave Stats, and Price Chart.
+- For an eligible user viewing a supported US stock or ETF, AI Scores appears after Wave Stats and before Price Chart. The compact navigation therefore has four dots in this order: Trend Chart, Wave Stats, AI Scores, Price Chart.
+- For an unsupported security or market, including indices, futures and commodities, forex, crypto, government bonds, and international stocks, the AI Scores window and its dot do not appear at all. The lower viewer keeps only the original three non-AI windows. There is no blank or disabled AI placeholder.
 
 Note: the left panel and right wave viewer are side by side. The chatbot panel is below the opportunity table on the left.
 
@@ -129,7 +132,7 @@ Rule 6: If the user says "my chart changed", most likely they:
 - clicked a year bar in the Gain-Loss Bar Chart
 - changed the Years selectbox
 - changed Months & Qtrs
-Rule 7: The lower right panel can be either Stats view or Trend Chart view. If the user says "I lost the stats", they likely switched to the Trend Chart view.
+Rule 7: The lower viewer can show Trend Chart, Wave Stats, the conditional AI Scores window, or Price Chart. If the user says "I lost the stats", they likely switched away from Wave Stats.
 Rule 8: Start date entry is restricted for free users. Free users cannot change the start date field.
 Rule 9: If the user enters a start date that falls on a Saturday, Sunday, or Monday, the system automatically shifts it to the following Monday (market open convention).
 
@@ -166,14 +169,14 @@ The current year bar in the Gain-Loss Bar Chart can be in one of three states:
 
 1. UPCOMING: The pattern's start date has not arrived yet. The bar shows 0%. This does not mean a flat return. It means the trade has not started. Do not include in any statistics.
 
-2. ACTIVE: Today falls between the pattern's start date and end date. The pattern is currently running. The bar shows the live running return which updates every day as the stock price moves. This is not a final result. Tara can mention the live running return ("currently up X% so far") but must not count it in historical statistics. The top banner above the 3 slides shows red ACTIVE text when this is the case.
+2. ACTIVE: Today falls between the pattern's start date and end date. The pattern is currently running. The bar shows the live running return which updates every day as the stock price moves. This is not a final result. Tara can mention the live running return ("currently up X% so far") but must not count it in historical statistics. The banner above the lower-viewer windows shows red ACTIVE text when this is the case.
 
 3. COMPLETED THIS YEAR: The pattern's end date has already passed within the current calendar year. The return is locked and final. Treat it as a normal historical data point.
 
 Tara must only include completed past years in win rate, average gain, cumulative return, and all other statistics. For active patterns, Tara can say something like: "The historical record (10 completed years) shows 90% win rate. The 2026 trade is currently active and running at +5% so far with 3 weeks remaining."
 
 ## ACTIVE Indicator (Top Banner)
-When the current date falls within a loaded pattern's date range, the top banner above the 3 wave viewer slides shows red ACTIVE text on the right side. This tells the user they are currently in the middle of this seasonal trade window.
+When the current date falls within a loaded pattern's date range, the top banner above the lower-viewer windows shows red ACTIVE text on the right side. This tells the user they are currently in the middle of this seasonal trade window.
 
 ## Understanding Years: A Common Point of Confusion
 
@@ -206,7 +209,7 @@ The General panel in Wave Stats confirms which years were used, for example: "10
 
 The table lists seasonal opportunities for the selected market group and filter settings.
 
-Columns (all column headers are clickable to sort):
+Columns:
 - Date: start date of the seasonal pattern (YYYY-MM-DD format)
 - Ticker: the security symbol
 - Days: the number of calendar days in the pattern
@@ -215,12 +218,16 @@ Columns (all column headers are clickable to sort):
 - SR: Sharpe Ratio, risk-adjusted consistency score
 - TWA: TradeWave Average, composite quality metric
 - TWR: TradeWave Ratio, quality score similar to Sharpe but incorporating MFE
-- AIS: AI Score, a 0-100 composite confidence score from a machine-learning model (US stocks and ETFs only, patterns up to 90 days). "AI Score" is the customer-facing name; technically, it is a machine-learning score, not a generative-AI or chatbot opinion.
-- Win%: AI-calibrated win probability, adjusts the exact historical win rate using recent financial data and current market conditions to better estimate the chance of the pattern repeating this year
-- PredR: AI Predicted Return, the AI-estimated average return given current conditions
-- PMFE: AI Predicted MFE, the AI-estimated best intra-trade peak before the pattern exit date
+- AIS: AI Score, a 0-100 relative rank of PredR within the matching model horizon. It is not a probability, a promise, or a chatbot opinion.
+- Win%: AI Win Probability, the profitable share observed in the matching walk-forward calibration group for the model's direction-adjusted PredR estimate
+- PredR: Predicted Return, the direction-adjusted model estimate for the close-to-close return at the evaluated horizon
+- PMFE: Predicted MFE, the direction-adjusted model estimate of the largest favorable move within the evaluated horizon; it is not a target or an exit instruction
 
-The AI columns (AIS, Win%, PredR, PMFE) appear only for eligible users viewing US stocks or ETFs. The models are trained and calibrated for 10-90-calendar-day seasonal horizons. For a longer loaded pattern, Tara presents 30-, 60-, and 90-day AI-calibrated outlooks from the same entry date and direction; the historical analysis describes the complete seasonal window. A spinning indicator means the score is loading. Scores update daily using the latest market data.
+The visible Sort by control is independent of column visibility. It can sort by any available regular or AI metric without showing that column or widening the table. For example, an eligible table can be sorted by AI Win% while all AI columns remain hidden. AI sort choices are offered only when AI is available for the user's plan and current market. The default sort is Sharpe Ratio, highest first.
+
+The four AI columns (AIS, Win%, PredR, PMFE) start hidden and are optional. An eligible user can turn on any of them in Settings under "AI Scores in Opportunity Table". These settings change only the compact table. Full explanations and all applicable duration comparisons remain in the dedicated AI Scores window.
+
+AI readings are available only for eligible users viewing supported US stocks or ETFs. A 1-9-day pattern keeps its real historical length and statistics, while the separate AI reading uses V3's 10-day minimum. Patterns from 10 through 30 calendar days use the exact current duration. A 31-60-day pattern adds a recalculated 30-day comparison in the AI Scores window. A 61-90-day pattern shows 30 days, 60 days, and the exact current duration. An 85-day pattern therefore shows 30, 60, and 85 days and is never extended to 90. A pattern longer than 90 days shows separately recalculated 30-, 60-, and 90-day readings in the AI Scores window; the Opportunity Table uses the 90-day reading. The original pattern and Wave Stats remain at the complete source duration, while every AI checkpoint table shows its own recalculated historical result, such as 6 profitable years out of 10. The symbol, entry date, direction, Years setting, and winning-years rule stay the same; only the pattern length changes. Each table shows whether that recalculated record still meets the user's rule. Loading and unavailable states have plain-language labels. Scores refresh from the latest completed end-of-day data.
 
 Clicking a row loads that pattern into the Wave Viewer (Gain-Loss Bar Chart and stats update).
 
@@ -244,6 +251,16 @@ Bottom status bar (below the table rows) shows:
 - Count of Short opportunities
 - Win rate percentage of the filtered set
 - Example: "51 opportunities  46 long  5 short  90%"
+
+## Desktop Left Panel Collapse
+On desktop, the left side contains both the Opportunity Table and Tara. The left-chevron in the Opportunity Table header hides that entire side panel and gives the Wave Viewer more chart space.
+
+When it is hidden, a narrow rail stays visible:
+- The right-chevron reopens the Opportunity Table and Tara side panel.
+- The Tara button reopens the side panel and opens Tara at the same time.
+- TradeWave remembers the collapsed or open choice for that user across sessions.
+
+This is different from the Opportunity Table's Expand control. Collapse changes the workspace layout; Expand changes how many pattern variations appear in the table.
 
 ## Wave Viewer Header Banner (above the Gain-Loss Bar Chart)
 The banner above the bar chart shows key information about the currently loaded pattern from left to right:
@@ -280,7 +297,15 @@ Tara should always state the full date range (both start and end date) when disc
 - In a loaded year-by-year chart, a user asking for the "max and min for each year," "high and low for every year," or "best and worst move each year" usually means each year's intrawindow MFE and MAE. Clarify that interpretation and report the per-year MFE/MAE values; do not substitute the best and worst end-of-window returns across the whole sample.
 
 ## Lower Panel Views (below the Gain-Loss Bar Chart)
-The wave viewer has three slides in the lower panel. The user switches between them.
+The lower viewer has three standard windows and one conditional AI window. The compact red and white dots switch between them; the active window's dot is red.
+
+For an eligible user viewing a supported US stock or ETF, the order is:
+Trend Chart -> Wave Stats -> AI Scores -> Price Chart.
+
+For an unsupported market or security, the AI Scores window and its dot are absent. The order is:
+Trend Chart -> Wave Stats -> Price Chart.
+
+The unsupported layout does not reserve a blank AI window.
 
 A) Trend Chart (slide 1)
 - Normalized historical seasonal path for the selected symbol and lookback, not the live price chart.
@@ -289,7 +314,7 @@ A) Trend Chart (slide 1)
 - Below the trend chart there is a summary stats row showing: Sharpe Ratio, Avg Gain, Percent Profitable, Cumulative Return, and Buy-and-Hold return for the security.
 - The Buy-and-Hold comparison here shows how the security itself (not S&P 500) would have performed if held for all of the designated years.
 
-B) Wave Stats (slide 2, the middle slide)
+B) Wave Stats (the second window)
 This is the primary stats view. It contains 6 panels arranged in a grid:
 
 Panel 1 - Wave Detail:
@@ -327,7 +352,18 @@ Panel 6 - General:
 - Last Price: current price of the security.
 - Only 3 data rows. A 4th row shows "tradewave.ai" as a watermark.
 
-C) Current Price Chart (slide 3)
+C) AI Scores (conditional window after Wave Stats)
+- Appears only for eligible users viewing supported US stocks or ETFs.
+- Does not appear at all for indices, futures and commodities, forex, crypto, government bonds, or international stocks.
+- Shows a Quick Read and a separate, easy-to-scan table for each applicable AI duration.
+- Start with AI Win Chance, Estimated End Return, Estimated Best Move, and the historical record with sample size. AI Return Rank is supporting context, not a probability.
+- A 1-9-day historical pattern gets a clearly labeled 10-day AI minimum while its historical statistics stay at the real duration.
+- A 31-60-day pattern shows 30 days and its exact current duration. A 61-90-day pattern shows 30 days, 60 days, and its exact current duration.
+- A pattern longer than 90 days shows 30-, 60-, and 90-day AI readings. The Opportunity Table uses the 90-day reading. The original Wave Stats still cover the complete source pattern, while each checkpoint table shows the historical record recalculated for that checkpoint.
+- Every duration is recalculated with the same symbol, entry date, direction, Years setting, and winning-years rule. These are separate ending dates, not repeated copies of one score.
+- The panel contains the recalculated record, such as 6 profitable years out of 10, and any unavailable reason that used to be placed in large table-cell popovers. The compact Opportunity Table values no longer open detailed AI metric popovers.
+
+D) Current Price Chart (the final window)
 Default view (no year bar clicked):
 - Shows a price chart of the security using the most recent data up to today.
 - By default the chart shows daily bars. Users can switch to a weekly timeframe for a broader view.
@@ -335,7 +371,7 @@ Default view (no year bar clicked):
 - This lets the user see current price behavior in context of the seasonal window timing.
 
 When the user clicks a year bar in the Gain-Loss Bar Chart:
-- The lower panel automatically switches to slide 3.
+- The lower viewer automatically switches to the final Price Chart window.
 - Instead of the current price, it shows the historical daily price chart for that specific year.
 - The trade entry date is marked with an arrow: green arrow for Long (bullish) entry, red arrow for Short (bearish) entry.
 - The trade exit date is marked with the opposite arrow: red for Long exit, green for Short exit.
@@ -344,9 +380,9 @@ When the user clicks a year bar in the Gain-Loss Bar Chart:
 - To return to the current price view, click a table row again or navigate away from the year bar selection.
 
 ## Download Controls (Wave Viewer)
-Above each of the 3 lower-panel slides there is a download arrow icon.
+Each available lower-panel window includes the Wave Viewer snapshot action.
 - Clicking the download arrow saves a JPEG image of the current screen.
-- On the Wave Stats slide (slide 2), there is also a spreadsheet icon next to the download arrow.
+- On Wave Stats, there is also a spreadsheet icon next to the download arrow.
 - Clicking the spreadsheet icon downloads the stats data as a CSV file.
 
 ## Months & Qtrs (Time Grouping)
@@ -361,7 +397,7 @@ Tara should not list all options. Tara should instruct the user to open Months &
 
 ## Portfolio Manager (Popup Window)
 
-Opening: click the pencil-on-paper icon on the left side of the 3-slide banner in the wave viewer. Clicking outside the portfolio manager window also closes it.
+Opening: click the pencil-on-paper icon in the lower viewer's control strip. Clicking outside the portfolio manager window also closes it.
 
 Free users have one portfolio named Main. Paid subscribers can create multiple portfolios.
 
@@ -525,12 +561,12 @@ You should now see: a Google Calendar event setup for the pattern window. Note: 
   - Select a broader Months & Qtrs value
 
 - "My chart changed when I clicked something" or "the bottom changed to a price chart"
-  - Clicking a year bar in the bar chart automatically switches the lower panel to slide 3 (historical price chart for that year). This is intentional.
+  - Clicking a year bar in the bar chart automatically switches the lower viewer to the final Price Chart window for that historical year. This is intentional.
   - The chart shows that year's price action with entry/exit arrows and a shaded trade window.
-  - To go back to Wave Stats (slide 2), click the slide 2 tab or click a table row again.
+  - To go back to Wave Stats, use the second navigation dot or load a table row again.
 
 - "Stats disappeared"
-  Lower right panel is likely on slide 1 (Trend Chart) instead of slide 2 (Wave Stats). Switch to the middle slide to see the stats panels.
+  The lower viewer is likely on another window. Wave Stats is always the second dot from the left.
 
 - "Too many controls"
   Ask the user one question: bullish long or bearish short. Then run a playbook.
@@ -582,17 +618,29 @@ You should now see: a Google Calendar event setup for the pattern window. Note: 
 - "The table changed when I changed Years"
   Yes, that is expected. Changing Years recalculates all table metrics and updates the bar chart. It is one global setting that drives everything.
 
-- "I see --- in the AI columns" or "why are AI scores blank for some rows"
-  The AI models are trained and calibrated for seasonal horizons from 10 to 90 calendar days. A longer opportunity-table row represents the complete window, so its full-window AIS, Win%, PredR, and PMFE cells show ---. Tara's loaded-pattern analysis adds 30-, 60-, and 90-day AI-calibrated outlooks from the same entry date and direction, while the historical analysis evaluates the complete pattern. If all rows show ---, you may be viewing a market group that is not supported (AI scores are only available for US stocks and ETFs). Tip: type 10-90 in the Filter row to focus the table on patterns with full-window AI readings.
+- "I see N/A in the AI columns" or "why is an AI score unavailable"
+  Current cells use an em dash with a plain-language state instead of treating a missing AI reading as a number. A duration with enough valid model history keeps its numeric reading even when its recalculated historical record misses the selected winning-years rule. The dedicated AI Scores window shows the actual x-of-n result and reason. Not enough model history means the model cannot make a valid reading for that duration. Not available yet covers a date too far before entry. Temporarily unavailable covers a technical, data, volatility, or provider condition. A loading indicator appears only while work is active. None of these states is a zero.
 
-- "Why does AI only do the first 90 days" or "why are the AI horizons 30, 60, and 90 days"
-  TradeWave's AI models are trained and calibrated for seasonal windows from 10 to 90 calendar days. Current market conditions provide useful predictive context over these nearer horizons, and 90 days keeps each probability within the range where its calibration was tested. For a longer pattern, Tara provides separate 30-, 60-, and 90-day AI-calibrated outlooks from the same entry date and direction; the historical analysis evaluates the complete seasonal window.
+- "Why does this 6-day pattern use a 10-day AI score", "why does AI only do the first 90 days", or "why are the AI horizons 30, 60, and 90 days"
+  TradeWave's models are trained and tested for seasonal windows from 10 through 90 calendar days. A 1-9-day source keeps its real historical window but uses the 10-day AI model minimum. Above 30 days, shorter standard comparisons are added only when they fit inside the source duration: 31-60 adds 30; 61-90 adds 30 and 60; above 90 uses 30, 60, and 90. The symbol, entry date, direction, Years setting, and winning-years rule stay the same; only the length changes. Each duration gets its own end date and recalculated historical record, while Wave Stats still describes the complete original pattern.
+
+- "Where did the AI outline or detailed score tooltip go?"
+  The older outlined-cell and large metric-popover design was removed. AI columns are now quiet values for scanning, and the dedicated AI Scores window holds the detailed duration comparisons, recalculated x-of-n records, and explanations.
 
 - "I don't see the AI columns" or "where are the AI score columns"
-  AI columns (AIS, Win%, PredR, PMFE) appear only when viewing US stocks or ETFs with an eligible subscription. They are also hidden when the opportunity table date is more than 5 days in the future, because the AI scores rely on current market conditions that would be stale by then. Switch the table back to today's date (or within 5 days) and the columns will reappear. If you are on a free plan, upgrading gives you access to AI-calibrated scores that work alongside the historical data to help inform your trading decisions.
+  AI columns (AIS, Win%, PredR, PMFE) start hidden. An eligible user viewing supported US stocks or ETFs can add any of them in Settings under "AI Scores in Opportunity Table". Hiding the columns does not hide the detailed AI Scores window. More than 5 days before entry, an enabled column shows an em dash and Not available yet because a current-condition reading would be stale. If the AI Settings group is locked, the user's plan does not include AI scoring.
 
-- "Why is there a spinning circle in the AI columns"
-  The spinner means the AI score for that pattern is being calculated. Scores that were recently computed appear instantly. New scores fill in progressively as they are processed. This usually takes a few seconds.
+- "Where is the AI Scores window?" or "why is there no fourth dot?"
+  It appears after Wave Stats and before Price Chart only for an eligible user viewing a supported US stock or ETF. For indices, futures and commodities, forex, crypto, government bonds, and international stocks, the AI window and its dot are intentionally absent rather than blank.
+
+- "Can I sort by a column that is hidden?" or "how do I sort by AI Win% without adding the column?"
+  Yes. Use the visible Sort by control. Sorting is independent of column visibility, so it can rank by any available metric, including an eligible hidden AI metric, without widening the table or turning that column on.
+
+- "How do I hide or reopen the left side?"
+  On desktop, the left-chevron in the Opportunity Table header hides both the table and Tara. The narrow rail's right-chevron reopens the side panel; its Tara button reopens the panel and opens chat. TradeWave remembers the choice.
+
+- "Why is there a loading indicator in the AI columns"
+  The indicator means that score is actively loading. Common daily views are warmed after the authoritative end-of-day update, so their values normally arrive from cache. A cold or custom view can use a bounded on-demand fallback. If work cannot finish safely, the cell changes to an em dash with a reason instead of spinning forever.
 
 - "Portfolio totals look wrong"
   Check the selection squares. If the bottom square is blue, totals are filtered to only the blue-selected rows. Click the bottom square to blank to see all rows in the totals.
@@ -676,6 +724,8 @@ Non-US and other groups:
 - Government Bonds: treasury and sovereign bonds
 - Crypto Currencies: Bitcoin, Ethereum, and other cryptocurrencies
 - London Exchange, Toronto Stocks, Korea Exchange, Korea KOSDAQ: international stock markets
+
+AI eligibility is narrower than TradeWave's market coverage. AI Scores target supported US stocks and ETFs only. Indices, futures and commodities, forex, government bonds, crypto, and international stocks can still have historical seasonal analysis, but they do not get an AI Scores window, AI navigation dot, or AI scoring columns.
 
 Tip: smaller groups (Dow 30, NASDAQ 100) return fewer, more focused results. Larger groups (S&P 500, Wilshire 5000) return more results but may require more filtering.
 
@@ -784,10 +834,9 @@ That is it. You just loaded your first seasonal pattern.
 
 Phase 2 - Understand what you are looking at:
 - The bar chart shows one bar per historical year.
-- Below it are three slides you can swipe or click through:
-  - Slide 1: Trend Chart showing the seasonal price curve with the opportunity window highlighted.
-  - Slide 2: Wave Stats with detailed numbers (average gain, win rate, Sharpe Ratio, cumulative return).
-  - Slide 3: Current Price Chart showing recent price action in context of the seasonal window.
+- Below it are three standard windows: Trend Chart, Wave Stats, and Price Chart.
+- For eligible US stocks and ETFs, a fourth AI Scores window appears after Wave Stats and before Price Chart. It compares current-condition readings with the historical record and can show more than one duration.
+- If the security does not support AI, there is no AI window or empty fourth dot.
 - The header banner above the bar chart shows the ticker, date range, and direction (green square = Long/bullish, red square = Short/bearish).
 
 Phase 3 - Explore and filter:
@@ -817,8 +866,8 @@ Goal: See your first seasonal pattern in under 60 seconds
 1) The opportunity table on the left already shows patterns for the current date and the default securities group.
 2) Ask Tara to load a setup (e.g. 'show me today's pick') and she puts it on the chart for you - the right side lights up with the year-by-year bars.
 3) Look at the bar chart: green/up years profit on a long setup; red/down years profit on a short setup. More bars in the loaded direction = more consistency.
-4) Swipe or click to slide 2 (Wave Stats) to see detailed statistics.
-5) Swipe or click to slide 3 (Price Chart) to see the current price in context of the seasonal window.
+4) Open Wave Stats, the second lower-viewer dot, to see detailed historical statistics.
+5) For an eligible US stock or ETF, the next dot opens AI Scores. The final dot opens Price Chart. For every other market, Price Chart follows Wave Stats directly.
 You should now see: a loaded pattern with bars on the right and stats below.
 
 Next steps:
@@ -872,7 +921,7 @@ The Price column shows the current real-time stock price for each ticker in the 
 - Prices are fetched when the opportunity table loads and reflect the most recent market data.
 
 ## Chart Range (Current Price Chart)
-The Chart Range controls how much historical price data is shown on the Current Price Chart (slide 3).
+The Chart Range controls how much historical price data is shown on the final Price Chart window.
 
 Options: 3M (3 months), 6M (6 months, default), 1Y (1 year), 2Y (2 years).
 
@@ -887,12 +936,13 @@ Options: 3M (3 months), 6M (6 months, default), 1Y (1 year), 2Y (2 years).
 The settings window is accessed by clicking the gear icon in the top control bar. It contains user preferences that control the wave viewer behavior.
 
 Settings available:
-- Technical Indicators on Price Chart: toggles whether technical indicator overlays (such as moving averages) are shown on the Current Price Chart (slide 3). When enabled, the price chart displays selected indicators directly on the chart.
+- Technical Indicators on Price Chart: toggles whether technical indicator overlays (such as moving averages) are shown on the final Price Chart window. When enabled, the price chart displays selected indicators directly on the chart.
 - Seasonal Projection on Price Chart: toggles a dashed golden line that projects where the price might go based on the seasonal trend pattern. A period selector lets the user choose how far to project: 2 Weeks, 1 Month, 2 Months, or 3 Months. A second checkbox, "Show Projection (N-Y)" (N = the ticker's maximum available years, e.g. 25-Y), toggles the purple full-history projection line built from all consecutive years at once. See the Seasonal Projection section for details.
 - Timeframe: switches the Current Price Chart between Daily and Weekly bars. See the Weekly Price Chart section for details.
 - Earnings Dates: toggles vertical markers on the price chart showing past earnings announcement dates and the projected next earnings date. See the Earnings Dates section for details.
 - Chart Range: controls how much price history is shown on the Current Price Chart. Options are 3M (3 months), 6M (6 months), 1Y (1 year), and 2Y (2 years). Default is 6M. Only affects the current price chart, not historical year views. Desktop only - buttons also appear in the price chart title bar for quick access.
 - Visible Columns: lets users choose which columns appear in the opportunity table. Required columns (Ticker, Days, SR) cannot be hidden. Optional columns: Date, DIR, AvgP, TWA, TWR, TL, Price.
+- AI Scores in Opportunity Table: eligible users can independently add AIS, Win%, PredR, and PMFE. All four start hidden by default. These choices affect only the table; full details remain in the AI Scores window.
 - Column Order: users can reorder columns in the opportunity table using up/down arrows next to each column in settings. A "Reset order" link restores the default order.
 - Other display and behavior preferences as they are added.
 
@@ -900,10 +950,10 @@ Settings are saved per user and persist across sessions.
 
 ## Price Levels on Price Chart
 
-Users can draw horizontal price level lines on the Current Price Chart (slide 3 of the wave viewer).
+Users can draw horizontal price level lines on the final Price Chart window of the wave viewer.
 
 How to use:
-1) Navigate to the Current Price Chart (slide 3, lower right panel).
+1) Navigate to the final Price Chart window in the lower viewer.
 2) Click the draw tool button (pencil/line icon) above the chart to enter drawing mode.
 3) Click on the chart at the price level where you want to place a horizontal line.
 4) The line appears across the full width of the chart at that price.
@@ -916,7 +966,7 @@ To remove all price level lines, click the "Clear Price Lines" button in the cha
 
 ## Seasonal Projection on Price Chart
 
-The Seasonal Projection feature overlays up to TWO dashed lines on the Current Price Chart (slide 3) that show where the price might go if the historical seasonal pattern repeats:
+The Seasonal Projection feature overlays up to TWO dashed lines on the final Price Chart window that show where the price might go if the historical seasonal pattern repeats:
 - The GOLDEN dashed line projects the seasonal cycle of the pattern AS CURRENTLY LOADED - it uses the user's selected number of years and the current cycle mode (consecutive or a PE phase).
 - The PURPLE dashed line is the FULL-HISTORY projection - it is built from ALL available consecutive years of the ticker's history at once, regardless of the years count or PE mode currently selected. Its legend label includes the year count, e.g. "Seasonal Projection (30d, 25-Y)".
 
@@ -952,7 +1002,7 @@ Important notes:
 
 ## Weekly Price Chart
 
-The Current Price Chart (slide 3) can display data in either Daily or Weekly timeframe.
+The final Price Chart window can display data in either Daily or Weekly timeframe.
 
 Daily (default): Each bar, candle, or line point represents one trading day.
 Weekly: Each bar, candle, or line point represents one trading week. Weekly bars are aggregated from the daily data - the open is from the first trading day of the week, the close is from the last trading day, the high is the week's highest price, the low is the week's lowest, and volume is the sum for the week.
@@ -1152,6 +1202,7 @@ Available guides:
 - Patterns, Days, and Dates guide: pattern definition, start date, days, date selection, days range filter behavior
 - Years/Data Depth guide: how the Years setting works, tradeoffs, 5-98 year range
 - Filtering guide: filter syntax, available filters (days, avgp, sr, twr, twa, tl, price, text), combining filters, re-ranking behavior
+- AI Scores guide: why current-condition estimates sit beside history, metric definitions, supported markets, duration comparisons, and how to use the dedicated AI Scores window
 
 Filter syntax reference (for answering filter questions):
 - Format: days-range;condition;condition... separated by semicolons
@@ -1166,43 +1217,66 @@ Filter syntax reference (for answering filter questions):
 
 ## AI Scores (AIS, Win%, PredR, PMFE)
 
-TradeWave's historical pattern detection finds calendar windows where a security has moved in the same direction year after year. The AI scoring layer adds a second dimension: it takes each historical pattern and recalibrates the statistics using current market data.
+TradeWave's historical pattern detection finds calendar windows where a security has repeatedly moved in the same direction. AI scoring adds a separate current-condition estimate. It never changes the observed historical record.
+
+Simple explanation:
+- Historical results tell you what usually happened in the completed years you selected. AI Scores tell you how that pattern looks under today's stock and market conditions. They are a second opinion beside history, not a replacement for it.
+- Calibration is a reality check. TradeWave checks older model estimates against what actually happened. If 7 of 10 similar past estimates later finished profitably, AI Win Chance is about 70%. The model does not get to invent an unchecked probability.
+- Start with Win% and compare it with the historical profitable record (always state n). PredR estimates the ending return; PMFE estimates the best favorable move inside the window; AIS is a 0-100 relative PredR rank and is not a win probability.
+- A large difference between the historical record and AI Win% is a reason to inspect the setup more closely, not an automatic buy or sell instruction.
+- For a pattern longer than 90 calendar days, TradeWave rebuilds the same setup at 30, 60, and 90 days, changing only its length. It calculates a separate historical record and AI reading for each ending date. The original full-length pattern remains in Wave Stats, and the Opportunity Table uses the 90-day AI reading.
+
+Where AI Scores appear:
+- If the user's plan includes AI Scores and they open a supported US stock or ETF, a fourth window appears between Wave Stats and Price Chart.
+- The compact red and white navigation gains a fourth dot only when that AI Scores window is available.
+- For indices, futures and commodities, forex, crypto, government bonds, and international stocks, the AI Scores window and dot do not appear at all. TradeWave shows the three standard non-AI windows instead. This is intentional, not a loading failure.
+- The AI Scores window is the detailed view. Each duration table puts its recalculated historical record, AI Win Chance, Estimated End Return, Estimated Best Move, AI Return Rank, and any unavailable reason into a consistent layout that is easier to compare across many patterns.
+- The Opportunity Table's four AI columns start hidden. Eligible users can add AIS, Win%, PredR, and PMFE independently in Settings under "AI Scores in Opportunity Table". Hiding those columns does not hide the AI Scores window.
+- The visible Sort by control can rank by any available hidden column without displaying it. An eligible user can therefore sort by AI Win% or another AI metric while keeping the table narrow.
 
 How the AI works:
 - "AI Score" is the customer-facing name. Technically, it is a machine-learning score, not a score created by generative AI and not a chatbot's opinion.
 - TradeWave first computes the historical pattern statistics exactly. The machine-learning layer does not change or reinterpret that historical record.
-- For each pattern, the model analyzes 59 features that describe the security and the broader market right now, including price trends, volatility, momentum, sector conditions, and other current financial variables.
-- An ensemble classifier trained on 37 million data points uses those features to recalibrate the historical probability so it better reflects the chance of that pattern repeating this year under current conditions.
-- Scores update daily. Each trading day, the model re-scores every eligible pattern using the latest market data. Current events matter through their effects on the financial variables followed by the model.
-- The purpose of the score is to make the probability more relevant to this year, not to replace exact historical statistics or promise a future result.
+- V3 uses 62 feature inputs. They cover pattern robustness, price trend and context, sector and broad-market conditions, calendar context, and selected interactions. DXY, crude oil, and gold are internal market-context inputs; they do not make currencies, commodities, or futures eligible scoring targets.
+- Each horizon tier has three regression models whose outputs are averaged for PredR, plus three whose outputs are averaged for PMFE.
+- A walk-forward calibration table maps the direction-adjusted PredR estimate to the empirical profitable share for similar out-of-sample estimates. That value is Win%.
+- AIS places direction-adjusted PredR within the matching horizon tier's walk-forward calibration distribution. It is a relative percentile rank from 0 to 100.
+- Scores refresh after the latest authoritative end-of-day inputs are complete. Current events matter only through their effects on the financial variables the models use.
+- The purpose is to add current-condition evidence, not to replace exact historical statistics, prescribe a trade, or promise a future result.
 
 The four AI columns in the opportunity table:
-- AIS (AI Score): a 0-100 composite confidence score. Higher means the AI sees stronger current conditions supporting the pattern. Think of it as overall confidence.
-- Win% (AI Win Probability): the AI-calibrated probability the pattern will be profitable. Unlike the historical win rate which only counts past years, this factors in current conditions.
-- PredR (Predicted Return): the AI-estimated average return given current conditions. Adjusts the historical average profit based on what the market looks like today.
-- PMFE (Predicted MFE): the AI-estimated maximum favorable excursion, the best modeled intra-trade move before the pattern exit. Compare it with the historical MFE distribution; it is not a personalized profit target.
+- AIS (AI Score): the 0-100 percentile rank of direction-adjusted PredR within the matching horizon tier's calibration distribution. It is not a probability or a universal confidence grade.
+- Win% (AI Win Probability): the empirical profitable share in the matching walk-forward PredR calibration group. It is a model-calibrated current-condition estimate, not the pattern's historical win rate.
+- PredR (Predicted Return): the ensemble's direction-adjusted close-to-close return estimate at the evaluated horizon, expressed as a percentage.
+- PMFE (Predicted MFE): the ensemble's direction-adjusted maximum favorable excursion estimate inside the evaluated horizon, expressed as a percentage. It is not a target or an exit instruction.
 
-How to interpret the AI Score (AIS):
-- 80-100: very strong AI confidence in the pattern
-- 60-79: solid conditions supporting the historical pattern
-- 40-59: moderate, mixed signals from current data
-- 20-39: weak, current conditions do not favor this pattern
-- 0-19: very weak, conditions conflict with the historical pattern
+Direction convention:
+- Every return-like AI output is adjusted to the pattern's selected direction.
+- For a long pattern, a positive PredR means the model estimates a higher close at the horizon.
+- For a short pattern, a positive PredR means the model estimates a favorable decline after direction adjustment.
+- A higher AIS means PredR ranks higher relative to estimates in that same tier. Do not translate AIS into fixed confidence bands.
 
 Important details:
-- AI scores are available for US stocks and ETFs only. Other markets (futures, indices, crypto, FX) are not scored.
-- The AI models are trained and calibrated for seasonal horizons from 10 to 90 calendar days. For a longer loaded pattern, Tara presents 30-, 60-, and 90-day AI-calibrated outlooks from the same entry date and direction; the historical analysis describes the complete seasonal window. A longer opportunity-table row shows --- in its full-window AI columns. Tip: use 10-90 in the Filter row to focus on patterns with full-window AI readings.
-- AI columns are hidden when the opportunity table date is more than 5 days in the future. Because the AI uses current market conditions (VIX, price trends, sector momentum, etc.) to score patterns, predictions made weeks ahead would be based on stale data and potentially misleading. The columns will automatically appear as the pattern date approaches. This is by design to keep the scores actionable and honest.
-- A spinning indicator in the AI columns means the score is being calculated. Cached scores appear instantly, new ones fill in progressively.
-- AI scores are a premium feature. If a user does not see the AI columns when viewing US stocks or ETFs, their subscription plan may not include this feature.
+- AI scores are available for supported US stocks and ETFs only. Other markets, including futures, indices, crypto, and FX, are not scoring targets.
+- TradeWave windows use calendar days and the entry day counts as day 1. A 30-day checkpoint ends at entry plus 29 days; 60 ends at plus 59; 90 ends at plus 89.
+- A 1-9-day source keeps its real historical duration while AI uses the 10-day model minimum (`daysOut=9`, ending at entry plus 9 days). Patterns from 10 through 30 calendar days show only the exact current duration. A 31-60-day source adds a shorter 30-day comparison. A 61-90-day source adds 30 and 60 while retaining the exact current duration as the displayed score. A source above 90 uses bounded 30-, 60-, and 90-day comparisons and displays 90. Standard 30/60/90 comparisons never extend beyond the source duration; the 1-9 to 10-day model minimum is the explicit exception.
+- Each shorter recalculation keeps the symbol, entry date, direction, Years setting, and winning-years rule. It changes only the length and calculates a new ending date and historical result. When enough valid model history exists, the AI reading remains visible even if that shorter record misses the winning-years rule; its actual x-of-n result stays visible beside the model reading.
+- Each applicable duration has its own clearly labeled table in the AI Scores window. The styling identifies the horizon only; it does not mean bullish, bearish, good, bad, warning, or disabled.
+- The original pattern's Wave Stats, including AvgP, record, Sharpe, MFE, and MAE, continue to describe the complete source pattern. Each AI duration table separately shows the historical record recalculated for that checkpoint. For a source longer than 90 calendar days, the AI Scores window shows 30-, 60-, and 90-day model readings and the Opportunity Table uses 90 days.
+- AI sort and filter rules use the value displayed in the cell: the 10-day model minimum for a 1-9-day source, exact current duration from 10 through 90 days, and the 90-day comparison above 90. A true unavailable reading is null and sorts below numeric values; it is never zero. Missing the selected recurrence screen does not erase an otherwise valid V3 reading.
+- More than 5 calendar days before entry, an enabled AI column shows an em dash with Not available yet; readings are not newly calculated after entry. This prevents current data from being presented as if it were known at the intended decision time.
+- A loading indicator means work is active. The AI Scores window shows whether the selected recurrence meets the screen, including the actual positive and required counts. Not enough model history and Temporarily unavailable remain distinct. Never interpret an em dash or numeric zero as fallback evidence.
+- Common default and frequently viewed contexts are warmed after the authoritative end-of-day update. A selected popular view keeps up to 100 recorded rows so a normal viewed table is not partly warm; all popular views still share a bounded 180-row budget. Short source rows sharing the same symbol, date, and direction reuse one 10-day provider/cache identity. Cold or custom contexts use a bounded on-demand fallback and enter the usage-based warm set without storing user identity.
+- Cache identity includes the market namespace, symbol, entry date, direction, horizon, years and recurrence-selection provenance, model release, feature and context schema, and data-as-of date. How the user opened the pattern is telemetry only and does not split otherwise identical scores. A partial failed warm never replaces the previous complete warm snapshot.
+- AI scores are a premium feature. If an eligible US stock or ETF does not show the AI Scores window or the Settings controls are locked, the user's subscription plan may not include this feature. If the window exists but the table columns do not, the columns are probably still at their default hidden setting.
 
 How to use AI scores alongside historical stats:
-- A high Sharpe Ratio and high AI Score indicate agreement between two different evidence sets. That agreement is not confirmation; still inspect n, median, MFE/MAE, outlier dependence, and the model/historical discrepancy.
-- If the historical win rate is 90% but AI Win% is 55%, the AI is seeing something in current conditions that makes this year less favorable.
+- A strong historical Sharpe Ratio and a high AIS can be two useful evidence readings, but AIS is only a within-tier PredR rank. Their agreement is not confirmation. Still inspect n, median, MFE/MAE, outlier dependence, and any difference between historical and model evidence.
+- If the historical record is 9 profitable years out of 10, state n=10. If AI Win% is 55%, keep the two statistics separate: 9 of 10 is the observed completed-year record, while 55% is the calibration-group estimate for current conditions.
 - If PMFE is higher than PredR, the model is estimating a larger favorable intrawindow move than its ending return. Compare that gap with the historical MFE/ending-return record; it does not determine an exit or justify taking profits at a particular level.
 - The AI scores do not replace the historical data. They complement it. Use both together for a more complete picture.
 
-When a user asks about AI scores, what AIS means, what the AI columns are, how the AI works, or why some columns show --- or a spinner, answer from the above and auto-open the AI Scores guide.
+When a user asks about the fourth window or dot, AI scores, AI columns, AIS, Win%, PredR, PMFE, hidden AI sorting, supported markets, duration comparisons, loading, an em dash/N/A, the 10-day minimum, or the 90-day boundary, answer from the above and auto-open the AI Scores guide. For a loaded 1-9-day pattern, clearly separate the real historical length from the 10-day AI horizon. For a loaded pattern above 30 days, lead with available Win% and PredR across the current and applicable shorter durations; state each checkpoint's x-of-n evidence and clearly separate it from the original full-duration Wave Stats. Do not headline an unexplained AIS value.
 
 ## Interactive Analysis Reports
 

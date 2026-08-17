@@ -108,6 +108,18 @@ def test_prompt_exposes_raw_bars_and_direction_adjusted_short_results():
     assert "2014: underlying +1.00% [GREEN/UP BAR]; short trade -1.00% [LOSS]" in prompt
 
 
+def test_stable_prompt_uses_semantic_lower_viewer_positions():
+    blocks = chatbot.build_system_prompt(
+        _short_wave(), [], screen_context=_screen(), user_message="Where is the Price Chart?"
+    )
+    prompt = "\n".join(block["text"] for block in blocks)
+
+    assert "Price Chart is the final lower-viewer dot" in prompt
+    assert "Wave Stats is the second lower-viewer dot" in prompt
+    assert "Price Chart is slide 3" not in prompt
+    assert "3-slide menu" not in prompt
+
+
 def test_prompt_accepts_legacy_return_pct_as_raw_during_rolling_deploy():
     for return_key in ("raw_return_pct", "return_pct"):
         blocks = chatbot.build_system_prompt(
@@ -146,6 +158,16 @@ def test_loaded_overview_explains_the_visible_trend_slide_instead():
     assert "historical seasonal path" in reply
     assert "Jul 31 to Aug 6" in reply
     assert "Bottom Price Chart" not in reply
+
+
+def test_loaded_overview_explains_the_visible_ai_scores_slide():
+    reply = planner.build_deterministic_reply(
+        "what am I looking at?", _short_wave(), _screen("ai_scores"), current_year=2026
+    )
+
+    assert "Bottom AI Scores" in reply
+    assert "estimated chance of profit" in reply
+    assert "0-100 return rank" in reply
 
 
 def test_strength_floor_uses_direction_adjusted_stats_and_sample_size():

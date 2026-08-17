@@ -63,8 +63,15 @@ const RESOURCE_GROUP_IDS = Object.fromEntries(
 
 // Slide index within the lower-display Swiper (DesktopLayout.js:1504-1531).
 // Order is fixed by JSX order: SeasonalChart, TradeDetail, StockLineChart.
-const DISPLAY_SLIDE_INDEX = { seasonal: 0, tradeDetail: 1, price: 2 };
+const DISPLAY_SLIDE_INDEX = { seasonal: 0, tradeDetail: 1, aiScores: 1, price: 2 };
 const SLIDE_INDEX_DISPLAY = ['seasonal', 'tradeDetail', 'price'];
+const DISPLAY_BOTTOM_PANEL = {
+  seasonal: { semantic: 'trend_chart', label: 'Trend Chart' },
+  tradeDetail: { semantic: 'wave_stats', label: 'Wave Stats' },
+  aiScores: { semantic: 'ai_scores', label: 'AI Scores' },
+  price: { semantic: 'price_chart', label: 'Price Chart' },
+};
+const AI_BOTTOM_PANEL_LABELS = ['Trend Chart', 'Wave Stats', 'AI Scores', 'Price Chart'];
 
 // Internal dev-only route that renders the authenticated app shell for the
 // capture-bot service account (web/app.py:1718, capture_app()). Only live
@@ -81,6 +88,275 @@ function log(...args) { console.error('[capture]', ...args); }
 function fail(msg) {
   console.error('[capture] FAIL:', msg);
   process.exit(1);
+}
+
+// AI Scores duration-change captures exercise a real Wave Viewer control after
+// the initially selected Opportunity Table row has populated the panel. The
+// two controls are additive to spec_version 1 and intentionally mutually
+// exclusive: changeDaysTo names an exact displayed calendar-day duration,
+// while changeDaysBy derives one from the currently selected row.
+function getAIScoreDurationChange(spec) {
+  const aiScores = spec.aiScores || {};
+  const hasTarget = Object.prototype.hasOwnProperty.call(aiScores, 'changeDaysTo');
+  const hasDelta = Object.prototype.hasOwnProperty.call(aiScores, 'changeDaysBy');
+  if (!hasTarget && !hasDelta) return null;
+  if (spec.display !== 'aiScores') {
+    fail('aiScores.changeDaysTo/changeDaysBy requires display="aiScores"');
+  }
+  if (aiScores.expectedState === 'empty') {
+    fail('aiScores.changeDaysTo/changeDaysBy requires a populated AI Scores state');
+  }
+  if (hasTarget && hasDelta) {
+    fail('aiScores.changeDaysTo and aiScores.changeDaysBy are mutually exclusive');
+  }
+  if (hasTarget) {
+    if (!Number.isInteger(aiScores.changeDaysTo) || aiScores.changeDaysTo <= 0) {
+      fail('aiScores.changeDaysTo must be a positive integer');
+    }
+    return { mode: 'target', value: aiScores.changeDaysTo };
+  }
+  if (!Number.isInteger(aiScores.changeDaysBy) || aiScores.changeDaysBy === 0) {
+    fail('aiScores.changeDaysBy must be a non-zero integer');
+  }
+  return { mode: 'delta', value: aiScores.changeDaysBy };
+}
+
+// Reproduce the exact user-defined Buy & Hold flow that previously cleared the
+// AI panel: load a real Opportunity Table symbol, apply Buy & Hold, then change
+// the Wave Viewer history depth. This is additive to the duration-change mode;
+// keeping the two mutually exclusive makes each capture's network proof easy to
+// interpret.
+function getAIScoreBuyAndHoldChange(spec) {
+  const aiScores = spec.aiScores || {};
+  if (!Object.prototype.hasOwnProperty.call(aiScores, 'buyAndHold')) return null;
+  if (spec.display !== 'aiScores') {
+    fail('aiScores.buyAndHold requires display="aiScores"');
+  }
+  if (aiScores.expectedState === 'empty') {
+    fail('aiScores.buyAndHold requires an initially populated AI Scores state');
+  }
+  if (getAIScoreDurationChange(spec)) {
+    fail('aiScores.buyAndHold cannot be combined with changeDaysTo/changeDaysBy');
+  }
+  const change = aiScores.buyAndHold;
+  if (!change || typeof change !== 'object' || Array.isArray(change)) {
+    fail('aiScores.buyAndHold must be an object');
+  }
+  if (typeof change.years !== 'string' || !/^[1-9]\d*$/.test(change.years)) {
+    fail('aiScores.buyAndHold.years must be a positive integer string');
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(change.expectedStartDate || ''))) {
+    fail('aiScores.buyAndHold.expectedStartDate must be YYYY-MM-DD');
+  }
+  if (!Number.isInteger(change.expectedCalendarDays) || change.expectedCalendarDays < 1 || change.expectedCalendarDays > 367) {
+    fail('aiScores.buyAndHold.expectedCalendarDays must be an integer from 1 through 367');
+  }
+  if (change.expectedReason !== 'after_entry') {
+    fail('aiScores.buyAndHold.expectedReason must be "after_entry"');
+  }
+  const selectedSymbol = String(spec.oppTable && spec.oppTable.selectSymbol || '').trim().toUpperCase();
+  if (!/^[A-Z0-9.$^-]{1,15}$/.test(selectedSymbol)) {
+    fail('aiScores.buyAndHold requires oppTable.selectSymbol');
+  }
+  return {
+    symbol: selectedSymbol,
+    years: change.years,
+    expectedStartDate: change.expectedStartDate,
+    expectedCalendarDays: change.expectedCalendarDays,
+    expectedReason: change.expectedReason,
+  };
+}
+
+// Keep only the fields needed by the regression. In particular, never retain
+// or print the intercepted URL because MLScoreBatch authenticates via a token
+// query parameter. The request body itself has no credential, but whitelisting
+// its shape prevents a future unrelated field from leaking into logs/metadata.
+function sanitizeMLScoreBatchBody(rawBody) {
+  let parsed;
+  try {
+    parsed = JSON.parse(rawBody || '');
+  } catch (e) {
+    return { parse_error: true };
+  }
+  const opportunities = Array.isArray(parsed.opportunities)
+    ? parsed.opportunities.map((item) => {
+      const hasPartial = item && Object.prototype.hasOwnProperty.call(item, 'partial');
+      const rawPartial = hasPartial ? item.partial : undefined;
+      const partial = rawPartial === null
+        ? null
+        : (rawPartial && typeof rawPartial === 'object'
+            ? {
+                min_winning_years: rawPartial.min_winning_years,
+                mode: rawPartial.mode,
+              }
+            : undefined);
+      return {
+        symbol: item && item.symbol,
+        date: item && item.date,
+        daysOut: item && item.daysOut,
+        direction: item && item.direction,
+        years: item && item.years,
+        partial,
+        mode: item && item.mode,
+        selection_origin: item && item.selection_origin,
+      };
+    })
+    : null;
+  return {
+    request_origin: parsed.request_origin,
+    opportunities,
+  };
+}
+
+function viewerBatchIdentity(opportunity) {
+  if (!opportunity || typeof opportunity !== 'object') return null;
+  return {
+    symbol: opportunity.symbol,
+    date: opportunity.date,
+    daysOut: opportunity.daysOut,
+    direction: opportunity.direction,
+    years: opportunity.years,
+    partial: opportunity.partial,
+    mode: opportunity.mode,
+    selection_origin: opportunity.selection_origin,
+  };
+}
+
+function viewerBatchIdentityKey(opportunity) {
+  return JSON.stringify(viewerBatchIdentity(opportunity));
+}
+
+function expectedBuyAndHoldBatchIdentity(change) {
+  return {
+    symbol: change.symbol,
+    date: change.expectedStartDate,
+    // TradeWave counts the entry date as day 1. Only the network tuple uses
+    // the analytics/scorer offset, so 366 displayed calendar days means 365.
+    daysOut: change.expectedCalendarDays - 1,
+    direction: 'l',
+    years: change.years,
+    partial: null,
+    mode: 'consecutive',
+    selection_origin: 'user_defined',
+  };
+}
+
+function assertViewerBuyAndHoldBatches(requests, startIndex, change) {
+  const recent = requests.slice(startIndex);
+  if (recent.some((body) => body.parse_error === true)) {
+    fail('a Buy & Hold MLScoreBatch request did not contain valid JSON (body intentionally not logged)');
+  }
+  const batches = viewerBatchesSince(requests, startIndex);
+  if (batches.length === 0) {
+    fail('Buy & Hold history change sent no Wave Viewer MLScoreBatch request');
+  }
+  const identities = [];
+  for (const batch of batches) {
+    if (batch.parse_error === true) {
+      fail('a Buy & Hold MLScoreBatch request did not contain valid JSON (body intentionally not logged)');
+    }
+    if (!Array.isArray(batch.opportunities) || batch.opportunities.length !== 1) {
+      fail(`Buy & Hold MLScoreBatch contained ${Array.isArray(batch.opportunities) ? batch.opportunities.length : 'an invalid opportunities field'}; expected exactly one opportunity`);
+    }
+    const identity = viewerBatchIdentity(batch.opportunities[0]);
+    if (
+      identity.symbol !== change.symbol ||
+      identity.date !== change.expectedStartDate ||
+      identity.daysOut !== change.expectedCalendarDays - 1 ||
+      identity.direction !== 'l' ||
+      typeof identity.years !== 'string' ||
+      identity.partial !== null ||
+      identity.mode !== 'consecutive' ||
+      identity.selection_origin !== 'user_defined'
+    ) {
+      fail(`Buy & Hold MLScoreBatch used an unexpected sanitized identity: ${JSON.stringify(identity)}`);
+    }
+    identities.push(identity);
+  }
+
+  const keys = identities.map(viewerBatchIdentityKey);
+  if (new Set(keys).size !== keys.length) {
+    fail('Buy & Hold history change repeated a Wave Viewer request identity');
+  }
+  const expected = expectedBuyAndHoldBatchIdentity(change);
+  const finalIdentity = identities[identities.length - 1];
+  if (viewerBatchIdentityKey(finalIdentity) !== viewerBatchIdentityKey(expected)) {
+    fail(`final Buy & Hold MLScoreBatch identity was ${JSON.stringify(finalIdentity)}; expected ${JSON.stringify(expected)}`);
+  }
+  return {
+    request_count: batches.length,
+    unique_request_count: new Set(keys).size,
+    final: finalIdentity,
+  };
+}
+
+async function waitForBuyAndHoldBatch(requests, startIndex, change, timeoutMs = 60000) {
+  const expectedKey = viewerBatchIdentityKey(expectedBuyAndHoldBatchIdentity(change));
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const recent = requests.slice(startIndex);
+    if (recent.some((body) => body.parse_error === true)) {
+      throw new Error('a Buy & Hold MLScoreBatch request did not contain valid JSON (body intentionally not logged)');
+    }
+    const batches = viewerBatchesSince(requests, startIndex);
+    if (batches.some((batch) => (
+      Array.isArray(batch.opportunities) &&
+      batch.opportunities.length === 1 &&
+      viewerBatchIdentityKey(batch.opportunities[0]) === expectedKey
+    ))) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`timed out waiting for the ${change.years}-year Buy & Hold Wave Viewer MLScoreBatch request`);
+}
+
+function viewerBatchesSince(requests, startIndex) {
+  return requests
+    .slice(startIndex)
+    .filter((body) => body.request_origin === 'wave_viewer');
+}
+
+async function waitForOneViewerBatch(requests, startIndex, timeoutMs = 60000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const recent = requests.slice(startIndex);
+    if (recent.some((body) => body.parse_error === true)) {
+      throw new Error('an MLScoreBatch request after the duration change did not contain valid JSON (body intentionally not logged)');
+    }
+    const viewerBatches = viewerBatchesSince(requests, startIndex);
+    if (viewerBatches.length > 1) {
+      throw new Error(`duration change sent ${viewerBatches.length} Wave Viewer MLScoreBatch requests; expected exactly one`);
+    }
+    if (viewerBatches.length === 1) return viewerBatches[0];
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error('timed out waiting for the Wave Viewer MLScoreBatch request after changing duration');
+}
+
+function assertViewerDurationBatch(requests, startIndex, targetDays) {
+  const viewerBatches = viewerBatchesSince(requests, startIndex);
+  if (viewerBatches.length !== 1) {
+    fail(`duration change sent ${viewerBatches.length} Wave Viewer MLScoreBatch requests; expected exactly one`);
+  }
+  const batch = viewerBatches[0];
+  if (!Array.isArray(batch.opportunities) || batch.opportunities.length !== 1) {
+    fail(`Wave Viewer MLScoreBatch contained ${Array.isArray(batch.opportunities) ? batch.opportunities.length : 'an invalid opportunities field'}; expected exactly one opportunity`);
+  }
+  const opportunity = batch.opportunities[0];
+  // TradeWave windows are measured in CALENDAR days. The displayed target
+  // includes the entry date as day 1; only the scoring-engine request uses
+  // the raw offset, so it must be targetDays - 1.
+  if (opportunity.daysOut !== targetDays - 1) {
+    fail(`Wave Viewer MLScoreBatch daysOut was ${JSON.stringify(opportunity.daysOut)}; expected displayed ${targetDays} calendar days minus 1`);
+  }
+  if (typeof opportunity.years !== 'string') {
+    fail(`Wave Viewer MLScoreBatch years must remain a string; got ${typeof opportunity.years}`);
+  }
+  return {
+    request_origin: batch.request_origin,
+    opportunity_count: batch.opportunities.length,
+    engine_days_out: opportunity.daysOut,
+    years_type: typeof opportunity.years,
+  };
 }
 
 // -----------------------------------------------------------------------
@@ -187,8 +463,18 @@ function buildLocalStorageSeed(uuid, spec) {
   scoped['tw_lesson_enrolled'] = '1';
   scoped['tw_lesson_lastopened'] = 7;
 
+  if ('leftPanelCollapsed' in spec) {
+    scoped['leftPanelCollapsed'] = spec.leftPanelCollapsed === true;
+  }
+
   const oppTable = spec.oppTable || {};
-  if (oppTable.columnVisibility) scoped['oppTableColumnVisibility'] = oppTable.columnVisibility;
+  if (oppTable.columnVisibility) {
+    scoped['oppTableColumnVisibility'] = oppTable.columnVisibility;
+    // The app's version-1 migration intentionally turns legacy AI defaults off.
+    // A capture spec that explicitly chooses visible columns is already an
+    // intentional preference, so mark it migrated before App.js starts.
+    scoped['oppTableAIColumnDefaultsVersion'] = 1;
+  }
   if (oppTable.columnOrder) scoped['oppTableColumnOrder'] = oppTable.columnOrder;
 
   const priceChart = spec.priceChart || {};
@@ -216,8 +502,9 @@ function buildCookieSeed(spec, deepLink) {
   // deep link (or a future no-pattern spec) still lands correctly, and we
   // handle the forced-slide-2 case explicitly after boot (see switchSlide()).
   const wantSlideIdx = DISPLAY_SLIDE_INDEX[spec.display];
-  if (wantSlideIdx === undefined) fail(`spec.display "${spec.display}" must be one of seasonal|tradeDetail|price`);
+  if (wantSlideIdx === undefined) fail(`spec.display "${spec.display}" must be one of seasonal|tradeDetail|aiScores|price`);
   push('WindowNumber', wantSlideIdx);
+  push('BottomWindowName', DISPLAY_BOTTOM_PANEL[spec.display].semantic);
 
   if (spec.market) push('selectedSecurity', spec.market);
   if (deepLink && deepLink.paramStr) {
@@ -359,6 +646,8 @@ async function main() {
   if (!specPath) fail('usage: node capture.js <spec.json>');
   const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
   if (spec.spec_version !== 1) fail(`unsupported spec_version ${spec.spec_version}, expected 1`);
+  const aiScoreDurationChange = getAIScoreDurationChange(spec);
+  const aiScoreBuyAndHoldChange = getAIScoreBuyAndHoldChange(spec);
 
   const startWall = Date.now();
   const consoleErrors = [];
@@ -399,6 +688,11 @@ async function main() {
   let exitCode = 0;
   try {
     const page = await browser.newPage();
+    const mlScoreBatchRequests = [];
+    let aiScoreDurationChangeEvidence = null;
+    let aiScoreDurationRequestStart = null;
+    let aiScoreBuyAndHoldEvidence = null;
+    let aiScoreBuyAndHoldRequestStart = null;
     page.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
@@ -455,6 +749,11 @@ async function main() {
     page.on('request', async (req) => {
       const isMainDoc = req.isNavigationRequest() && req.frame() === page.mainFrame();
       const url = req.url();
+      let pathname = '';
+      try { pathname = new URL(url).pathname; } catch (e) { /* malformed URL: not an API request we can inspect */ }
+      if (req.method() === 'POST' && /\/MLScoreBatch\/[^/]+\/?$/.test(pathname)) {
+        mlScoreBatchRequests.push(sanitizeMLScoreBatchBody(req.postData()));
+      }
       if (isMainDoc && (url === `${APP_ORIGIN}${APP_PATH}` || url.startsWith(`${APP_ORIGIN}${APP_PATH}?`))) {
         try {
           const html = await fetchInternalShell();
@@ -491,6 +790,75 @@ async function main() {
       { timeout: 60000 }
     ).catch(() => fail('timed out waiting for __twCapture.ready.oppTable - opp table never rendered non-empty data. Console errors: ' + JSON.stringify(consoleErrors)));
 
+    // A populated AI panel is tied to an actual Opportunity Table selection,
+    // not merely to an arbitrary ?o= Wave Viewer deep link. A capture can
+    // therefore reproduce the normal user flow by selecting a zero-based
+    // visible row after the table is ready.
+    const requestedOpportunityRow = spec.oppTable && spec.oppTable.selectRow;
+    const requestedOpportunitySymbol = String(
+      spec.oppTable && spec.oppTable.selectSymbol || ''
+    ).trim().toUpperCase();
+    if (requestedOpportunityRow !== undefined && requestedOpportunitySymbol) {
+      fail('oppTable.selectRow and oppTable.selectSymbol are mutually exclusive');
+    }
+    const selectedOpportunityRow = Number.isInteger(requestedOpportunityRow) || requestedOpportunityRow === 'firstAvailableAI'
+      ? requestedOpportunityRow
+      : null;
+    if (selectedOpportunityRow !== null || requestedOpportunitySymbol) {
+      const selectionDescription = requestedOpportunitySymbol
+        ? `symbol ${requestedOpportunitySymbol}`
+        : `row ${selectedOpportunityRow}`;
+      log(`selecting Opportunity Table ${selectionDescription}...`);
+      if (selectedOpportunityRow === 'firstAvailableAI') {
+        await page.waitForSelector('.opp-table .opp-ai-cell--available', { timeout: 60000 })
+          .catch(() => fail(`no visible Opportunity Table row received an available AI value. Console errors: ` + JSON.stringify(consoleErrors)));
+      }
+      if (requestedOpportunitySymbol) {
+        await page.waitForFunction(
+          (targetSymbol) => Array.from(document.querySelectorAll('.opp-table tbody tr.stripes, .opp-table tbody tr.selected'))
+            .some(row => Array.from(row.querySelectorAll('td'))
+              .some(cell => cell.textContent.trim().toUpperCase() === targetSymbol)),
+          { timeout: 60000 },
+          requestedOpportunitySymbol
+        ).catch(() => fail(`Opportunity Table has no ${requestedOpportunitySymbol} row. Console errors: ` + JSON.stringify(consoleErrors)));
+      }
+      const selected = await page.evaluate((rowRequest, symbolRequest) => {
+        const rows = Array.from(document.querySelectorAll('.opp-table tbody tr.stripes, .opp-table tbody tr.selected'));
+        const availableCell = rowRequest === 'firstAvailableAI'
+          ? document.querySelector('.opp-table .opp-ai-cell--available')
+          : null;
+        const symbolRow = symbolRequest
+          ? rows.find(candidate => Array.from(candidate.querySelectorAll('td'))
+            .some(cell => cell.textContent.trim().toUpperCase() === symbolRequest))
+          : null;
+        const row = availableCell ? availableCell.closest('tr') : (symbolRow || rows[rowRequest]);
+        if (!row) return { clicked: false, count: rows.length, symbol: '' };
+        const availableLabel = availableCell ? availableCell.getAttribute('aria-label') || '' : '';
+        const symbolMatch = availableLabel.match(/ for (.+?)\. Select/);
+        row.click();
+        return {
+          clicked: true,
+          count: rows.length,
+          symbol: symbolRequest || (symbolMatch ? symbolMatch[1] : ''),
+        };
+      }, selectedOpportunityRow, requestedOpportunitySymbol);
+      if (!selected.clicked) {
+        fail(`Opportunity Table ${selectionDescription} does not exist (${selected.count} visible data rows)`);
+      }
+      await page.waitForFunction(
+        () => Boolean(document.querySelector('.opp-table tbody tr.selected')),
+        { timeout: 30000 }
+      ).catch(() => fail(`Opportunity Table row ${selectedOpportunityRow} did not become selected. Console errors: ` + JSON.stringify(consoleErrors)));
+      await page.waitForFunction(
+        (expectedSymbol) => {
+          const symbol = window.__twCapture && window.__twCapture.meta && window.__twCapture.meta.seasonal && window.__twCapture.meta.seasonal.symbol;
+          return expectedSymbol ? symbol === expectedSymbol : Boolean(symbol);
+        },
+        { timeout: 60000 },
+        selected.symbol
+      ).catch(() => fail(`Opportunity Table ${selectionDescription}${selected.symbol ? ` (${selected.symbol})` : ''} did not load into the Wave Viewer. Console errors: ` + JSON.stringify(consoleErrors)));
+    }
+
     if (deepLink) {
       log(`waiting for deep link to apply (meta.seasonal.symbol === "${spec.symbol}")...`);
       await page.waitForFunction(
@@ -500,38 +868,282 @@ async function main() {
       ).catch(() => fail(`timed out waiting for deep link to apply for symbol "${spec.symbol}". Console errors: ` + JSON.stringify(consoleErrors)));
     }
 
-    // ---- Step 7: correct the slide if the querystring forced slide 2 ----
-    // GOTCHA (App.js:454-459): ANY querystring except exactly "?set=on"
-    // forces initialWindowNum=2 (price display) at boot, overriding the
-    // WindowNumber cookie we seeded. Since deep-linked specs use ?o=..., we
-    // must detect and correct this post-boot rather than trust the cookie.
-    const wantIdx = DISPLAY_SLIDE_INDEX[spec.display];
-    if (deepLink && wantIdx !== 2) {
-      log(`querystring forced slide 2 (price); navigating swiper to slide ${wantIdx} (${spec.display})...`);
-      await switchSlide(page, 2, wantIdx, consoleErrors);
-    } else if (!deepLink) {
-      // ?set=on does not force slide 2, so the WindowNumber cookie should
-      // have taken effect already - but verify, since App.js's initial-load
-      // branches are intricate and we'd rather actively confirm than assume.
-      const actualIdx = await page.evaluate(() => {
-        const bullets = document.querySelector('.mySwiper');
-        return bullets ? Number(bullets.querySelector('.swiper-slide-active') ?
-          Array.from(bullets.querySelectorAll('.swiper-slide')).indexOf(bullets.querySelector('.swiper-slide-active')) : -1) : -1;
-      });
-      if (actualIdx !== -1 && actualIdx !== wantIdx) {
-        log(`WindowNumber cookie didn't land on slide ${wantIdx} (found ${actualIdx}); correcting via swiper nav...`);
-        await switchSlide(page, actualIdx, wantIdx, consoleErrors);
-      }
+    if ('leftPanelCollapsed' in spec) {
+      await assertLeftPanelState(page, spec.leftPanelCollapsed === true, consoleErrors);
     }
 
-    // Wait for the target display's own ready flag (may already be true).
-    const readyFlagName = spec.display; // 'seasonal' | 'tradeDetail' | 'price'
-    log(`waiting for __twCapture.ready.${readyFlagName}...`);
-    await page.waitForFunction(
-      (name) => window.__twCapture && window.__twCapture.ready && window.__twCapture.ready[name] === true,
-      { timeout: 60000 },
-      readyFlagName
-    ).catch(() => fail(`timed out waiting for __twCapture.ready.${readyFlagName} after slide switch. Console errors: ` + JSON.stringify(consoleErrors)));
+    if (spec.display === 'aiScores') {
+      await assertBottomPanelOrder(page, AI_BOTTOM_PANEL_LABELS, consoleErrors);
+    }
+
+    // ---- Step 7: select the requested semantic panel ----
+    // AI Scores is inserted only for eligible U.S. stock/ETF markets, so Price
+    // Chart can be numeric index 2 or 3. Use the accessible semantic dot instead
+    // of encoding either index in capture automation.
+    await selectBottomPanel(page, DISPLAY_BOTTOM_PANEL[spec.display].label, consoleErrors);
+
+    // Wait for the target display's own ready signal (may already be true).
+    // AI Scores is asynchronous but does not render a chart/captureReady marker;
+    // its populated tables or explicit empty watermark are the honest visible
+    // ready states. Empty-state specs let us regression-test the exact user flow
+    // where a market is selected but no Wave Viewer pattern is loaded.
+    const readyFlagName = spec.display;
+    if (readyFlagName === 'aiScores') {
+      const expectedAIState = spec.aiScores && spec.aiScores.expectedState === 'empty'
+        ? 'empty'
+        : 'populated';
+      log(`waiting for ${expectedAIState} AI Scores state...`);
+      await page.waitForFunction(
+        (expectedState) => {
+          const active = document.querySelector('.stock-linechart-parent .swiper-slide-active');
+          if (!active) return false;
+          return expectedState === 'empty'
+            ? Boolean(active.querySelector('.ai-score-panel--empty .ai-score-panel__empty-label'))
+            : Boolean(active.querySelector('.ai-score-panel__quick-read'));
+        },
+        { timeout: 60000 },
+        expectedAIState
+      ).catch(() => fail(`timed out waiting for ${expectedAIState} AI Scores after slide switch. Console errors: ` + JSON.stringify(consoleErrors)));
+
+      if (aiScoreDurationChange) {
+        if (expectedAIState !== 'populated') {
+          fail('AI Scores duration change cannot run from an empty panel');
+        }
+        aiScoreDurationRequestStart = mlScoreBatchRequests.length;
+        const changed = await page.evaluate((change) => {
+          const selects = Array.from(document.querySelectorAll('select#daysout'));
+          const select = selects.find((candidate) => {
+            const rect = candidate.getBoundingClientRect();
+            const style = window.getComputedStyle(candidate);
+            return candidate.getClientRects().length > 0 && rect.width > 0 && rect.height > 0 &&
+              style.display !== 'none' && style.visibility !== 'hidden';
+          });
+          if (!select) return { error: 'no visible Wave Viewer days selector was found' };
+
+          const currentDays = Number.parseInt(select.value, 10);
+          const available = Array.from(select.options)
+            .filter((option) => !option.disabled && !option.hidden)
+            .map((option) => Number.parseInt(option.value, 10))
+            .filter(Number.isInteger);
+          if (!Number.isInteger(currentDays)) {
+            return { error: `visible Wave Viewer days selector has invalid value ${JSON.stringify(select.value)}` };
+          }
+
+          let targetDays = change.mode === 'target'
+            ? change.value
+            : currentDays + change.value;
+          let usedBoundaryFallback = false;
+          if (change.mode === 'delta' && (!available.includes(targetDays) || targetDays === currentDays)) {
+            const reversedTarget = currentDays - change.value;
+            if (available.includes(reversedTarget) && reversedTarget !== currentDays) {
+              targetDays = reversedTarget;
+              usedBoundaryFallback = true;
+            }
+          }
+          if (!available.includes(targetDays)) {
+            return { error: `requested ${targetDays}-day duration is not available in the Wave Viewer selector` };
+          }
+          if (targetDays === currentDays) {
+            return { error: `requested duration ${targetDays} days is already selected and would not exercise a change` };
+          }
+
+          const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value');
+          if (!valueSetter || typeof valueSetter.set !== 'function') {
+            return { error: 'native Wave Viewer days selector setter was not available' };
+          }
+          valueSetter.set.call(select, String(targetDays));
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          return { currentDays, targetDays, usedBoundaryFallback };
+        }, aiScoreDurationChange);
+        if (changed.error) fail(changed.error);
+        log(`changing Wave Viewer duration from ${changed.currentDays} to ${changed.targetDays} calendar days...`);
+
+        await waitForOneViewerBatch(mlScoreBatchRequests, aiScoreDurationRequestStart);
+        await page.waitForFunction(
+          (targetDays) => {
+            const active = document.querySelector('.stock-linechart-parent .swiper-slide-active');
+            if (!active) return false;
+            const patternLine = active.querySelector('.ai-score-panel__pattern-line');
+            const quickRead = active.querySelector('.ai-score-panel__quick-read');
+            return Boolean(
+              patternLine && patternLine.textContent.includes(`${targetDays}-day historical pattern`) &&
+              quickRead && quickRead.textContent.includes('Wave Viewer AI reading')
+            );
+          },
+          { timeout: 90000 },
+          changed.targetDays
+        ).catch(() => fail(`AI Scores did not load the ${changed.targetDays}-day Wave Viewer reading after the duration change. Console errors: ` + JSON.stringify(consoleErrors)));
+
+        // Give React one quiet second after the successful panel update, then
+        // enforce that request-key stability prevented an accidental duplicate.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const batchEvidence = assertViewerDurationBatch(
+          mlScoreBatchRequests,
+          aiScoreDurationRequestStart,
+          changed.targetDays
+        );
+        aiScoreDurationChangeEvidence = {
+          requested_mode: aiScoreDurationChange.mode,
+          requested_value: aiScoreDurationChange.value,
+          from_calendar_days: changed.currentDays,
+          target_calendar_days: changed.targetDays,
+          used_boundary_fallback: changed.usedBoundaryFallback,
+          batch: batchEvidence,
+        };
+      }
+
+      if (aiScoreBuyAndHoldChange) {
+        if (expectedAIState !== 'populated') {
+          fail('AI Scores Buy & Hold change cannot run from an empty panel');
+        }
+        aiScoreBuyAndHoldRequestStart = mlScoreBatchRequests.length;
+        const buyAndHoldStarted = await page.evaluate(() => {
+          const visible = candidate => {
+            const rect = candidate.getBoundingClientRect();
+            const style = window.getComputedStyle(candidate);
+            return candidate.getClientRects().length > 0 && rect.width > 0 && rect.height > 0 &&
+              style.display !== 'none' && style.visibility !== 'hidden';
+          };
+          const button = Array.from(document.querySelectorAll('button[aria-label="Buy and Hold"]')).find(visible);
+          const years = Array.from(document.querySelectorAll('.seasonal-barchart-container select#years')).find(visible);
+          if (!button) return { error: 'no visible Buy & Hold button was found' };
+          if (!years) return { error: 'no visible Wave Viewer years selector was found' };
+          if (button.getAttribute('aria-pressed') === 'true') {
+            return { error: 'Buy & Hold was already active before the regression action' };
+          }
+          const previousYears = years.value;
+          button.click();
+          return { previousYears };
+        });
+        if (buyAndHoldStarted.error) fail(buyAndHoldStarted.error);
+        log(`applying Buy & Hold to ${aiScoreBuyAndHoldChange.symbol}...`);
+
+        await page.waitForFunction(
+          (change) => {
+            const visible = candidate => candidate && candidate.getClientRects().length > 0;
+            const root = document.querySelector('.seasonal-barchart-container');
+            if (!root) return false;
+            const date = Array.from(root.querySelectorAll('input#date')).find(visible);
+            const days = Array.from(root.querySelectorAll('select#daysout')).find(visible);
+            const button = Array.from(root.querySelectorAll('button[aria-label="Buy and Hold"]')).find(visible);
+            return Boolean(
+              date && date.value === change.expectedStartDate &&
+              days && Number.parseInt(days.value, 10) === change.expectedCalendarDays &&
+              button && button.getAttribute('aria-pressed') === 'true'
+            );
+          },
+          { timeout: 60000 },
+          aiScoreBuyAndHoldChange
+        ).catch(() => fail(`Buy & Hold did not reach ${aiScoreBuyAndHoldChange.expectedStartDate} / ${aiScoreBuyAndHoldChange.expectedCalendarDays} calendar days. Console errors: ` + JSON.stringify(consoleErrors)));
+
+        await page.waitForFunction(
+          (targetYears) => {
+            const select = Array.from(document.querySelectorAll('.seasonal-barchart-container select#years'))
+              .find(candidate => candidate.getClientRects().length > 0);
+            return Boolean(select && Array.from(select.options).some(option => option.value === targetYears));
+          },
+          { timeout: 60000 },
+          aiScoreBuyAndHoldChange.years
+        ).catch(() => fail(`Wave Viewer never offered ${aiScoreBuyAndHoldChange.years} years for ${aiScoreBuyAndHoldChange.symbol}`));
+
+        const yearsChanged = await page.evaluate((targetYears) => {
+          const select = Array.from(document.querySelectorAll('.seasonal-barchart-container select#years'))
+            .find(candidate => candidate.getClientRects().length > 0);
+          if (!select) return { error: 'no visible Wave Viewer years selector was found' };
+          const previousYears = select.value;
+          if (previousYears === targetYears) {
+            return { error: `Wave Viewer was already using ${targetYears} years` };
+          }
+          const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value');
+          if (!valueSetter || typeof valueSetter.set !== 'function') {
+            return { error: 'native Wave Viewer years selector setter was not available' };
+          }
+          valueSetter.set.call(select, targetYears);
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          return { previousYears, targetYears };
+        }, aiScoreBuyAndHoldChange.years);
+        if (yearsChanged.error) fail(yearsChanged.error);
+        log(`changing Buy & Hold history from ${yearsChanged.previousYears} to ${yearsChanged.targetYears} years...`);
+
+        await waitForBuyAndHoldBatch(
+          mlScoreBatchRequests,
+          aiScoreBuyAndHoldRequestStart,
+          aiScoreBuyAndHoldChange
+        );
+        await page.waitForFunction(
+          (change) => {
+            const visible = candidate => candidate && candidate.getClientRects().length > 0;
+            const root = document.querySelector('.seasonal-barchart-container');
+            const active = document.querySelector('.stock-linechart-parent .swiper-slide-active');
+            const panel = active && active.querySelector('.ai-score-panel:not(.ai-score-panel--empty)');
+            if (!root || !panel) return false;
+            const date = Array.from(root.querySelectorAll('input#date')).find(visible);
+            const days = Array.from(root.querySelectorAll('select#daysout')).find(visible);
+            const years = Array.from(root.querySelectorAll('select#years')).find(visible);
+            const buyAndHold = Array.from(root.querySelectorAll('button[aria-label="Buy and Hold"]')).find(visible);
+            const patternText = panel.querySelector('.ai-score-panel__pattern-line')?.textContent || '';
+            const stateText = panel.querySelector('.ai-score-panel__state')?.textContent || '';
+            const toolbarText = panel.querySelector('.ai-score-panel__toolbar')?.textContent || '';
+            const chartMeta = window.__twCapture && window.__twCapture.meta && window.__twCapture.meta.seasonal;
+            return Boolean(
+              date && date.value === change.expectedStartDate &&
+              days && Number.parseInt(days.value, 10) === change.expectedCalendarDays &&
+              years && years.value === change.years &&
+              buyAndHold && buyAndHold.getAttribute('aria-pressed') === 'true' &&
+              chartMeta && chartMeta.symbol === change.symbol && String(chartMeta.years) === change.years &&
+              toolbarText.includes(`AI Scores for ${change.symbol}`) &&
+              patternText.includes('Buy & Hold') &&
+              patternText.includes('Long') &&
+              patternText.includes(`${change.expectedCalendarDays}-day historical pattern`) &&
+              patternText.includes(`${change.years}-year history`) &&
+              stateText.includes('This pattern has already started') &&
+              stateText.includes('a new AI reading is not available')
+            );
+          },
+          { timeout: 90000 },
+          aiScoreBuyAndHoldChange
+        ).catch(() => fail(`AI Scores did not retain the nonblank ${aiScoreBuyAndHoldChange.expectedCalendarDays}-day / ${aiScoreBuyAndHoldChange.years}-year Buy & Hold context and after-entry explanation. Console errors: ` + JSON.stringify(consoleErrors)));
+
+        // Let any delayed React effect run before enforcing request-key
+        // uniqueness. A legitimate transition can produce one intermediate
+        // history-depth request, but the same identity must never be repeated.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        aiScoreBuyAndHoldEvidence = {
+          from_years: yearsChanged.previousYears,
+          target_years: yearsChanged.targetYears,
+          expected_start_date: aiScoreBuyAndHoldChange.expectedStartDate,
+          expected_calendar_days: aiScoreBuyAndHoldChange.expectedCalendarDays,
+          expected_reason: aiScoreBuyAndHoldChange.expectedReason,
+          batches: assertViewerBuyAndHoldBatches(
+            mlScoreBatchRequests,
+            aiScoreBuyAndHoldRequestStart,
+            aiScoreBuyAndHoldChange
+          ),
+        };
+      }
+
+      if (spec.aiScores && spec.aiScores.openGuide === true) {
+        if (expectedAIState === 'empty') fail('aiScores.openGuide requires a populated AI Scores state');
+        log('opening the AI Scores guide...');
+        const opened = await page.evaluate(() => {
+          const active = document.querySelector('.stock-linechart-parent .swiper-slide-active');
+          const button = active && active.querySelector('.ai-score-panel__info-button');
+          if (!button) return false;
+          button.click();
+          return true;
+        });
+        if (!opened) fail('AI Scores guide button was not found in the active panel');
+        await page.waitForSelector('[role="dialog"][aria-labelledby="ai-scores-popup-title"]', { timeout: 30000 })
+          .catch(() => fail(`AI Scores guide did not open. Console errors: ` + JSON.stringify(consoleErrors)));
+      }
+    } else {
+      log(`waiting for __twCapture.ready.${readyFlagName}...`);
+      await page.waitForFunction(
+        (name) => window.__twCapture && window.__twCapture.ready && window.__twCapture.ready[name] === true,
+        { timeout: 60000 },
+        readyFlagName
+      ).catch(() => fail(`timed out waiting for __twCapture.ready.${readyFlagName} after slide switch. Console errors: ` + JSON.stringify(consoleErrors)));
+    }
 
     // Slide 0 (seasonal) renders TWO independently-fetched things: the bar
     // chart itself ('seasonal', waited above) and the lower trend-line chart
@@ -657,6 +1269,24 @@ async function main() {
     if (!twCapture.meta.oppTable || !(twCapture.meta.oppTable.rows > 0)) {
       fail(`sanity check failed: meta.oppTable.rows is not > 0 (got ${JSON.stringify(twCapture.meta.oppTable)})`);
     }
+    if (aiScoreDurationChangeEvidence) {
+      // Recheck after the paint/stability/capture waits too, so a delayed
+      // duplicate request cannot slip past the immediate post-load assertion.
+      aiScoreDurationChangeEvidence.batch = assertViewerDurationBatch(
+        mlScoreBatchRequests,
+        aiScoreDurationRequestStart,
+        aiScoreDurationChangeEvidence.target_calendar_days
+      );
+    }
+    if (aiScoreBuyAndHoldEvidence) {
+      // Recheck after paint/stability/capture waits so a delayed duplicate of
+      // either the intermediate or final viewer identity cannot escape the gate.
+      aiScoreBuyAndHoldEvidence.batches = assertViewerBuyAndHoldBatches(
+        mlScoreBatchRequests,
+        aiScoreBuyAndHoldRequestStart,
+        aiScoreBuyAndHoldChange
+      );
+    }
 
     for (const w of written) {
       if (w.bytes <= 20000) {
@@ -693,6 +1323,8 @@ async function main() {
         deep_link_o: deepLink ? deepLink.b64 : null,
         deep_link_decoded: deepLink ? deepLink.paramStr : null,
         querystring_used: qs,
+        ai_score_duration_change: aiScoreDurationChangeEvidence,
+        ai_score_buy_and_hold_change: aiScoreBuyAndHoldEvidence,
       },
       bot_uuid: uuid,
       bundle_hash: bundleHash,
@@ -755,6 +1387,53 @@ async function switchSlide(page, fromIdx, toIdx, consoleErrors) {
       { timeout: 30000 }
     ).catch(() => fail(`switched swiper to slide ${toIdx} but ready.trendChart never went true. Console errors: ` + JSON.stringify(consoleErrors)));
   }
+}
+
+async function selectBottomPanel(page, label, consoleErrors) {
+  const clicked = await page.evaluate((targetLabel) => {
+    const tabs = Array.from(document.querySelectorAll('.bottom-panel-tabs [role="tab"]'));
+    const tab = tabs.find(item => item.textContent.trim() === targetLabel);
+    if (!tab) return false;
+    tab.click();
+    return true;
+  }, label);
+  if (!clicked) fail(`bottom panel dot "${label}" not found - lower navigation may have changed`);
+  await page.waitForFunction(
+    (targetLabel) => Array.from(document.querySelectorAll('.bottom-panel-tabs [role="tab"]'))
+      .some(item => item.textContent.trim() === targetLabel && item.getAttribute('aria-selected') === 'true'),
+    { timeout: 30000 },
+    label
+  ).catch(() => fail(`bottom panel "${label}" did not become active. Console errors: ` + JSON.stringify(consoleErrors)));
+  await new Promise((resolve) => setTimeout(resolve, 300));
+}
+
+async function assertLeftPanelState(page, expectedCollapsed, consoleErrors) {
+  await page.waitForFunction(
+    (collapsed) => {
+      const panel = document.querySelector('#opportunity-side-panel.tw-left-panel');
+      const rail = document.querySelector('.tw-left-panel-rail');
+      if (!panel || !rail) return false;
+      const panelCollapsed = panel.classList.contains('tw-left-panel--collapsed');
+      const railVisible = rail.classList.contains('tw-left-panel-rail--visible');
+      return collapsed
+        ? panelCollapsed && railVisible
+        : !panelCollapsed && !railVisible;
+    },
+    { timeout: 30000 },
+    expectedCollapsed
+  ).catch(() => fail(`left panel did not reach the requested ${expectedCollapsed ? 'collapsed' : 'expanded'} state. Console errors: ` + JSON.stringify(consoleErrors)));
+}
+
+async function assertBottomPanelOrder(page, expectedLabels, consoleErrors) {
+  await page.waitForFunction(
+    (labels) => {
+      const actual = Array.from(document.querySelectorAll('.bottom-panel-tabs [role="tab"]'))
+        .map(item => item.textContent.trim());
+      return actual.length === labels.length && actual.every((label, index) => label === labels[index]);
+    },
+    { timeout: 30000 },
+    expectedLabels
+  ).catch(() => fail(`expected lower panels in order ${expectedLabels.join(' > ')}. Console errors: ` + JSON.stringify(consoleErrors)));
 }
 
 // -----------------------------------------------------------------------

@@ -156,6 +156,7 @@ def test_tooltip_parser_does_not_steal_unrelated_questions(message):
         ("show me the trend chart", "trend_chart", "Trend Chart"),
         ("Can you show me the stats?", "wave_stats", "Wave Stats"),
         ("open Wave Stats", "wave_stats", "Wave Stats"),
+        ("open the AI Scores panel", "ai_scores", "AI Scores"),
         ("switch me over to the price chart", "price_chart", "Price Chart"),
     ],
 )
@@ -850,6 +851,35 @@ def test_analysis_compares_ai_probability_with_same_window_historical_rate():
     assert "<b>Evidence relationship:</b> agreement" in reply
 
 
+def test_short_pattern_analysis_labels_ten_day_ai_minimum_without_false_rate_comparison():
+    wave = _analysis_context([1.0, -1.0] * 10)
+    wave["days_out"] = "6"
+    wave["ai_analysis"] = {
+        "status": "available",
+        "mode": "minimum_horizon",
+        "full_pattern_calendar_days": 6,
+        "minimum_model_calendar_days": 10,
+        "display_horizon_days": 10,
+        "horizons": [{
+            "calendar_days": 10,
+            "ai_score": 74,
+            "win_probability": 0.67,
+            "predicted_return_pct": 2.6,
+            "predicted_mfe_pct": 5.1,
+        }],
+    }
+
+    reply = build_pattern_analysis_reply(
+        "Analyze this pattern", wave, {}, current_year=2026
+    )
+
+    assert "historical analysis stays based on the real 6-calendar-day pattern" in reply
+    assert "V3's shortest AI horizon is 10 calendar days" in reply
+    assert "AI Win Probability 67%" in reply
+    assert "not an exact score for the shorter pattern" in reply
+    assert "percentage point" not in reply
+
+
 def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_outlook():
     wave = _analysis_context([2.0, -1.0] * 10)
     wave["days_out"] = "133"
@@ -858,7 +888,17 @@ def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_out
         "mode": "checkpoints",
         "full_pattern_calendar_days": 133,
         "horizons": [
-            {"calendar_days": 30, "ai_score": 81, "win_probability": 0.82, "predicted_return_pct": 3.4},
+            {
+                "calendar_days": 30,
+                "ai_score": 81,
+                "win_probability": 0.82,
+                "predicted_return_pct": 3.4,
+                "selected_recurrence_status": "below_threshold",
+                "positive_years": 7,
+                "sample_size": 10,
+                "required_positive_years": 9,
+                "requested_observations": 10,
+            },
             {"calendar_days": 60, "ai_score": 76, "win_probability": 0.77, "predicted_return_pct": 3.8},
             {"calendar_days": 90, "ai_score": 62, "win_probability": 0.60, "predicted_return_pct": 1.4},
         ],
@@ -871,6 +911,7 @@ def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_out
     assert "<b>AI-calibrated outlook:</b>" in reply
     assert "AI-calibrated probabilities for this opportunity over the first 30, 60, and 90 calendar days are as follows" in reply
     assert "&bull; <b>30 days:</b> 82% AI Win Probability; predicted return +3.4%" in reply
+    assert "screen not met: 7 of 10 positive, requires 9" in reply
     assert "&bull; <b>60 days:</b> 77% AI Win Probability; predicted return +3.8%" in reply
     assert "&bull; <b>90 days:</b> 60% AI Win Probability; predicted return +1.4%" in reply
     assert "Each outlook begins on the same entry date and evaluates the same direction" in reply
@@ -883,6 +924,30 @@ def test_long_pattern_analysis_presents_ai_horizons_as_a_positive_calibrated_out
     for negative_phrase in ("outside", "limit", "cannot", "can't", "none is"):
         assert negative_phrase not in ai_section.lower()
     assert "historical rate" not in ai_section
+
+
+def test_367_day_long_pattern_keeps_its_end_date_and_checkpoint_analysis():
+    wave = _analysis_context([2.0, -1.0] * 10)
+    wave["start_date"] = "2026-01-01"
+    wave["days_out"] = "367"
+    wave["ai_analysis"] = {
+        "status": "available",
+        "mode": "checkpoints",
+        "full_pattern_calendar_days": 367,
+        "horizons": [
+            {"calendar_days": 30, "win_probability": 0.70, "predicted_return_pct": 2.0},
+            {"calendar_days": 60, "win_probability": 0.72, "predicted_return_pct": 2.5},
+            {"calendar_days": 90, "win_probability": 0.74, "predicted_return_pct": 3.0},
+        ],
+    }
+
+    reply = build_pattern_analysis_reply(
+        "Analyze this pattern", wave, {}, current_year=2026
+    )
+
+    assert planner._inclusive_end_date("2026-01-01", "367") == "2027-01-02"
+    assert "complete 367-day pattern" in reply
+    assert "30, 60, and 90 calendar days" in reply
 
 
 def test_analysis_explains_why_ai_is_not_shown_too_far_before_entry():
@@ -900,6 +965,31 @@ def test_analysis_explains_why_ai_is_not_shown_too_far_before_entry():
 
     assert "entry is 12 calendar days away" in reply
     assert "within five calendar days of entry so the inputs are not stale" in reply
+
+
+def test_exact_window_analysis_explains_structured_vix_state_without_calling_it_checkpoints():
+    wave = _analysis_context([1.0] * 20)
+    wave["ai_analysis"] = {
+        "status": "unavailable",
+        "mode": "pattern",
+        "full_pattern_calendar_days": 17,
+        "horizons": [
+            {
+                "calendar_days": 17,
+                "status": "unavailable",
+                "error_code": "vix_blocked",
+                "unavailable_reason": "Volatility safety gate is active.",
+            }
+        ],
+    }
+
+    reply = build_pattern_analysis_reply(
+        "Analyze this pattern", wave, {}, current_year=2026
+    )
+
+    assert "volatility safety gate blocked the current-condition reading for this window" in reply
+    assert "for these checkpoints" not in reply
+    assert "not treating the missing values as zero" in reply
 
 
 def test_noncurrent_pe_occurrence_is_identified_and_compared_to_current_phase():
@@ -1290,8 +1380,12 @@ def test_signature_product_intents_are_narrow_and_do_not_wait_for_ai_scoring():
         "Why does AI only do the first 90 days?",
         "Why are the AI models limited to 90 calendar days?",
         "Explain the 30/60/90 AI horizons",
+        "Why are there 30/60/90 AI checkpoints?",
+        "Why are there 30, 60, and 90 day AI scores?",
         "Why doesn't AI score this full pattern?",
         "Why are AI scores blank for a 133-day pattern?",
+        "Why does this 6-day pattern show 10d?",
+        "Explain the 10-day model minimum",
     ):
         assert is_ai_horizon_explanation_question(message)
         assert needs_pattern_ai_context(message, wave) is False
@@ -1299,6 +1393,7 @@ def test_signature_product_intents_are_narrow_and_do_not_wait_for_ai_scoring():
     assert not is_seasonality_value_question("What is seasonality?")
     assert not is_strategy_building_question("Should I trade this pattern?")
     assert not is_ai_horizon_explanation_question("What is the 90-day AI Win Probability?")
+    assert not is_ai_horizon_explanation_question("What is the 10-day AI Win Probability?")
     assert not is_ai_horizon_explanation_question("Analyze this 90-day pattern")
 
 
@@ -1319,13 +1414,35 @@ def test_ai_horizon_explanation_is_deterministic_positive_and_pattern_specific()
     assert "trained and calibrated for seasonal windows from 10 to 90 calendar days" in reply
     assert "current market conditions provide useful predictive context" in reply.lower()
     assert "For this 133-calendar-day pattern" in reply
+    assert "AI Scores window shows" in reply
     assert "30-, 60-, and 90-day AI-calibrated outlooks" in reply
     assert "same entry date and direction" in reply
-    assert "historical analysis evaluates the complete 133-day pattern" in reply
+    assert "Opportunity Table uses the 90-day reading" in reply
+    assert "original Wave Stats still describe the complete 133-day pattern" in reply
+    assert "Each checkpoint recalculates its own end date and count of profitable years" in reply
     assert "AI Win Probability and predicted return" in reply
+    assert 'data-action="open-aiscores-popup"' in reply
+    assert "Open the AI Scores guide" in reply
     assert "Today's AI pick" not in reply
     for negative_phrase in ("can't", "cannot", "outside the model", "no ai score"):
         assert negative_phrase not in reply.lower()
+
+
+def test_ai_horizon_explanation_states_short_pattern_exception_plainly():
+    wave = _analysis_context([2.0, -1.0] * 10)
+    wave["days_out"] = "6"
+
+    reply = build_ai_horizon_explanation_reply(
+        "Why does this 6-day pattern show 10d?",
+        wave,
+        {},
+        current_year=2026,
+    )
+
+    assert "For this 6-calendar-day pattern" in reply
+    assert "historical analysis stays at the real 6-day length" in reply
+    assert "10 calendar days is the model minimum" in reply
+    assert "not presented as an exact score for the shorter historical window" in reply
 
 
 def test_screen_context_is_allowlisted_and_lookback_stays_a_string():
@@ -1352,6 +1469,16 @@ def test_screen_context_is_allowlisted_and_lookback_stays_a_string():
     wave = _peg_short_context()
     wave["years"] = "pe2-10"
     assert canonical_pattern_facts(wave, current_year=2026)["years"] == "pe2-10"
+
+
+def test_screen_context_accepts_the_optional_ai_scores_panel():
+    screen = normalize_screen_context({
+        "active_bottom_slide": "ai_scores",
+        "ai_scores_available": True,
+    })
+
+    assert screen["active_bottom_slide"] == "ai_scores"
+    assert screen["ai_scores_available"] is True
 
 
 def test_max_years_command_resolves_to_exact_loaded_symbol_history():
@@ -1590,11 +1717,11 @@ def test_loaded_advice_ask_gets_evidence_without_a_trade_recommendation():
     assert "yes, trade" not in reply.lower()
 
 
-def test_rank_reply_uses_exact_loaded_row_and_neighboring_sharpe_values():
+def test_rank_reply_uses_exact_visible_order_without_assuming_sharpe_sort():
     opportunities = [
-        {"date": "2026-07-30", "symbol": "AAA", "days_out": "8", "direction": "long", "sharpe_ratio": "1.10"},
+        {"date": "2026-07-30", "symbol": "AAA", "days_out": "8", "direction": "long", "sharpe_ratio": "0.50"},
         {"date": "2026-07-31", "symbol": "PEG", "days_out": "6", "direction": "short", "sharpe_ratio": "0.82"},
-        {"date": "2026-08-01", "symbol": "BBB", "days_out": "10", "direction": "long", "sharpe_ratio": "0.77"},
+        {"date": "2026-08-01", "symbol": "BBB", "days_out": "10", "direction": "long", "sharpe_ratio": "1.40"},
     ]
     reply = build_rank_reply(
         "Why does this setup rank here?",
@@ -1604,11 +1731,15 @@ def test_rank_reply_uses_exact_loaded_row_and_neighboring_sharpe_values():
         current_year=2026,
     )
 
-    assert "PEG is #2 of 23 with Sharpe 0.82" in reply
-    assert "above: AAA at 1.10" in reply
-    assert "below: BBB at 0.77" in reply
+    assert "PEG is #2 of 23 in the visible table" in reply
+    assert "Its Sharpe is 0.82" in reply
+    assert "current Sort by choice" in reply
+    assert "hidden column" in reply
+    assert "above: AAA" in reply
+    assert "below: BBB" in reply
     assert "14 profitable outcomes in 17 completed years (82%)" in reply
-    assert "Sharpe determines this table position" in reply
+    assert "does not identify the active sort field" in reply
+    assert "ranks this view by Sharpe" not in reply
 
 
 def test_pe_cycle_analysis_names_cycle_observations_not_consecutive_years():

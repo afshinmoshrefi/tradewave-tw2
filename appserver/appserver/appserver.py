@@ -81,6 +81,7 @@ import mailerlite as MailerLite
 import re
 from pathlib import Path
 from urllib.parse import quote as _urlquote
+from zoneinfo import ZoneInfo
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
@@ -102,7 +103,36 @@ except ImportError:
     pass
 
 from chatbot import chatbot_bp  # Import the chatbot Blueprint
-from tara_ai_analysis import build_analysis_score_plan, finalize_analysis_score_context
+from tara_ai_analysis import (
+    build_analysis_score_plan,
+    finalize_analysis_checkpoint_bundle,
+    finalize_analysis_score_context,
+)
+from ml_checkpoint_context import (
+    CheckpointContextError,
+    CheckpointProviderError,
+    CheckpointScoringService,
+    assemble_duration_comparison_bundle,
+    assemble_minimum_horizon_bundle,
+    build_checkpoint_plan,
+    build_usage_context,
+    checkpoint_pending_opportunity,
+    legacy_lock_key,
+    legacy_score_keys,
+    model_days_out_for_source,
+    normalize_legacy_score_result,
+    normalize_scorer_metadata,
+    read_cached_legacy_score,
+    record_usage_context,
+    scorer_metadata_matches,
+    should_record_table_usage,
+    valid_scorer_metadata,
+    write_cached_legacy_score,
+)
+from opportunity_table_target import (
+    OpportunityTableTargetError,
+    resolve_opportunity_table_date,
+)
 
 
 # from appserver_apis import get_remote_OppList4, get_remote_chart_data4, get_remote_YearsMetaData2, get_remote_History2, get_remote_StockMetaData, get_remote_ListSymbols, get_remote_StockLastPrice, get_remote_StockPriceByDate, get_remote_consolidated_seasonal_chart2, get_remote_security_price
@@ -1009,6 +1039,7 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
 
     token = request.args.get("token")
     mode = request.args.get("mode", "consecutive")
+    requested_target_date = request.args.get("target_date")
     if mode != "pe":
         mode = "consecutive"
 
@@ -1025,19 +1056,41 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
 
     print('resourceID, month, day, year1, year2,day_range=',resourceID, month, day, year1, year2,day_range,mode)
 
-    today_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    current_year = int(today_date[:4])
-    pe_phase = current_year % 4
-
-    folder_suffix = f"_PE{pe_phase}" if mode == "pe" else ""
-    redis_suffix  = f"_PE{pe_phase}" if mode == "pe" else "_CON"
-
-    resourceFolder = get_resource_folder_from_token(token, resourceID)
-     # get the userid from token
+    # Resolve authorization before honoring the additive target-date override.
+    # Normal browser calls omit target_date and keep the existing current-year
+    # behavior.  The EOD service account may explicitly fetch New York today or
+    # tomorrow, including Jan 1 while the current date is Dec 31.
     data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
     # print('data=',data)
     userid = data['user']            # userid 0 is not logged-in
     userlevel = data['user_level']   # userlevel = '1' is free Ripple
+    try:
+        table_date = resolve_opportunity_table_date(
+            month=month,
+            day=day,
+            requested_target_date=requested_target_date,
+            is_service_account=data.get('is_service_account') is True,
+        )
+    except OpportunityTableTargetError as exc:
+        return jsonify({
+            'OppList': [],
+            'OppActiveList': [],
+            'error': exc.code,
+            'message': str(exc),
+        }), exc.status_code
+
+    today_date = table_date.isoformat()
+    current_year = table_date.year
+    pe_phase = current_year % 4
+
+    folder_suffix = f"_PE{pe_phase}" if mode == "pe" else ""
+    redis_suffix  = f"_PE{pe_phase}" if mode == "pe" else "_CON"
+    if requested_target_date:
+        # The historical cache key did not contain a year.  Isolate service
+        # override rows so Dec 31 -> Jan 1 cannot collide with the prior Jan 1.
+        redis_suffix += f"_TARGET{current_year}"
+
+    resourceFolder = get_resource_folder_from_token(token, resourceID)
 
     # Years cap (2026-06-30): clamp the opp-table lookback to the tier max so it can never
     # exceed what the chart will show (same cap in getChartData4). year2 stays <= year1.
@@ -1062,9 +1115,9 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     # print('opplist4 day_range=',day_range)
 
 
-    month_num = datetime.datetime.strptime(month, '%B').month
+    month_num = table_date.month
     # create the exact selected opp date
-    filter_date = f"{today_date[:4]}-{str(month_num).zfill(2)}-{day.zfill(2)}"
+    filter_date = table_date.isoformat()
     next_trading_day = filter_date # used for weekends and holidays
 
     # should be updated based on user levels
@@ -1179,7 +1232,6 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
         datesListDates.sort() 
 
         
-    current_year = int(today_date[:4])
     for d in datesListDates:
         if int(d[:4])<current_year:
             datesListDates.remove(d)
@@ -1495,18 +1547,7 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     # Merge real-time prices for symbols in the opp lists
     # all_prices format: {symbol: [price, change_p]}
     all_prices = get_realtime_prices_cached()
-    opp_prices = {}
-    if all_prices:
-        for row in l:
-            if len(row) > 1 and row[1] in all_prices:
-                p = validate_realtime_quote_for_resource(resourceID, row[1], all_prices[row[1]])
-                if p:
-                    opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
-        for row in la:
-            if len(row) > 1 and row[1] not in opp_prices and row[1] in all_prices:
-                p = validate_realtime_quote_for_resource(resourceID, row[1], all_prices[row[1]])
-                if p:
-                    opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
+    opp_prices = _opportunity_prices_for_rows(resourceID, l, la, all_prices)
 
     # Check if this user+market qualifies for ML score columns.
     # ml_market_eligible is the MARKET half on its own (US stocks + ETFs); the React
@@ -1774,6 +1815,112 @@ def StockScoreBatch(resourceID):
 # ML Score endpoints - async trickle-in scoring for opportunity table
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+# OppList4 can return 5,000 rows and a ranged view is scored alongside its
+# stable baseline. Keep the authenticated request finite without rejecting a
+# legitimate 500-row collapsed market or the largest two-set union.
+ML_SCORE_MAX_REQUEST_ROWS = 2 * int(config.max_opportunities_returned)
+ML_SCORE_MAX_DAYS_BEFORE_ENTRY = 5
+_ML_MARKET_TZ = ZoneInfo('America/New_York')
+_ML_SYMBOL_RE = re.compile(r'^[A-Z0-9.$^-]{1,15}$')
+
+
+def _ml_valid_request_items(value, field):
+    """Return a bounded object list or a stable request error code."""
+
+    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+        return None, f'{field}_must_be_object_list'
+    if len(value) > ML_SCORE_MAX_REQUEST_ROWS:
+        return None, f'{field}_too_large'
+    return value, None
+
+
+def _ml_normalize_opportunity(value):
+    """Normalize one US stock/ETF row and identify unsupported durations."""
+
+    if not isinstance(value, dict):
+        return None, 'invalid_opportunity', 'Opportunity must be an object.'
+    symbol = str(value.get('symbol') or '').strip().upper()
+    if not _ML_SYMBOL_RE.fullmatch(symbol):
+        return None, 'invalid_symbol', 'Ticker symbol is invalid.'
+    date_text = str(value.get('date') or '').strip()
+    try:
+        parsed_date = datetime.datetime.strptime(date_text, '%Y-%m-%d')
+    except (TypeError, ValueError):
+        return None, 'invalid_date', 'Entry date must use YYYY-MM-DD.'
+    if parsed_date.strftime('%Y-%m-%d') != date_text:
+        return None, 'invalid_date', 'Entry date must use YYYY-MM-DD.'
+    raw_days_out = value.get('daysOut')
+    if isinstance(raw_days_out, bool):
+        return None, 'invalid_duration', 'Pattern duration is invalid.'
+    try:
+        numeric_days_out = float(str(raw_days_out).strip())
+    except (TypeError, ValueError):
+        return None, 'invalid_duration', 'Pattern duration is invalid.'
+    if not math.isfinite(numeric_days_out) or not numeric_days_out.is_integer():
+        return None, 'invalid_duration', 'Pattern duration is invalid.'
+    days_out = int(numeric_days_out)
+    direction_text = str(value.get('direction') or '').strip().lower()
+    if direction_text in {'l', 'long'}:
+        direction = 'l'
+    elif direction_text in {'s', 'short'}:
+        direction = 's'
+    else:
+        return None, 'invalid_direction', 'Direction must be long or short.'
+    normalized = {
+        **value,
+        'symbol': symbol,
+        'date': date_text,
+        'daysOut': days_out,
+        'direction': direction,
+    }
+    if not 0 <= days_out <= 366:
+        return (
+            normalized,
+            'unsupported_duration',
+            'AI scores support patterns from 1 through 367 calendar days.',
+        )
+    return normalized, None, None
+
+
+def _ml_entry_date_state(value, *, today=None):
+    """Enforce the current-condition scoring window for each requested row."""
+
+    try:
+        entry = datetime.datetime.strptime(str(value or ''), '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return (
+            'invalid_score_context',
+            'The pattern entry date is invalid.',
+        )
+    market_today = today or datetime.datetime.now(_ML_MARKET_TZ).date()
+    days_to_entry = (entry - market_today).days
+    if days_to_entry < 0:
+        return (
+            'after_entry',
+            'A new current-condition score is not calculated after entry.',
+        )
+    if days_to_entry > ML_SCORE_MAX_DAYS_BEFORE_ENTRY:
+        return (
+            'too_far_ahead',
+            'AI scores become available within five calendar days of entry.',
+        )
+    return None
+
+
+def _ml_unavailable_legacy_score(code, message):
+    return {
+        'status': 'unavailable',
+        'ml_score': None,
+        'win_prob': None,
+        'pred_return': None,
+        'pred_mfe': None,
+        'error': {
+            'code': str(code),
+            'message': str(message)[:240],
+            'retryable': False,
+        },
+    }
+
 def _ml_ttl_seconds():
     """Seconds until midnight of the next trading day (Mon-Fri).
     Fri/Sat/Sun scores expire at midnight Monday."""
@@ -1818,22 +1965,214 @@ def _ml_redis_key(sym, opp_date, days_out, direction):
 
 def _ml_tier(days_out):
     """Return the ML scorer tier for a given daysOut, or None if out of range."""
-    if days_out <= 30:
+    if 9 <= days_out <= 30:
         return '10_30'
-    elif days_out <= 60:
+    elif 31 <= days_out <= 60:
         return '31_60'
-    elif days_out <= 90:
+    elif 61 <= days_out <= 89:
         return '61_90'
     return None
+
+
+def _ml_add_legacy_score(scores, sym, opp_date, days_out, direction, payload):
+    """Publish a date-qualified key plus the unchanged legacy alias."""
+
+    for key in legacy_score_keys(sym, opp_date, days_out, direction):
+        scores[key] = payload
+
+
+def _ml_scoring_days_out(opportunity):
+    """Return the scorer/cache offset without changing the source row identity."""
+
+    return model_days_out_for_source(opportunity['daysOut'])
+
+
+def _ml_add_source_legacy_score(scores, opportunity, payload):
+    """Publish a score under the source keys with an honest short-horizon label."""
+
+    source_days_out = int(opportunity['daysOut'])
+    if 0 <= source_days_out < 9:
+        payload = assemble_minimum_horizon_bundle(opportunity, payload)
+    _ml_add_legacy_score(
+        scores,
+        opportunity['symbol'],
+        opportunity['date'],
+        source_days_out,
+        opportunity['direction'],
+        payload,
+    )
+
+
+def _ml_wait_for_cached_legacy(items, metadata, scores, *, wait_seconds=2.0):
+    """Briefly join another worker's exact-score single flight."""
+
+    unresolved = list(items)
+    deadline = time.monotonic() + max(float(wait_seconds), 0.0)
+    while unresolved:
+        remaining = []
+        for item in unresolved:
+            scoring_days_out = _ml_scoring_days_out(item)
+            cached = read_cached_legacy_score(
+                redis_client,
+                item['symbol'],
+                item['date'],
+                scoring_days_out,
+                item['direction'],
+                expected_metadata=metadata,
+            )
+            if cached is None:
+                remaining.append(item)
+            else:
+                _ml_add_source_legacy_score(scores, item, cached)
+        unresolved = remaining
+        if not unresolved or time.monotonic() >= deadline:
+            break
+        time.sleep(0.1)
+    return unresolved
+
+
+def _ml_wait_for_cached_legacy_groups(
+    groups, metadata, scores, *, wait_seconds=2.0
+):
+    """Join one single flight per canonical identity and fan out to sources."""
+
+    unresolved = list(groups)
+    deadline = time.monotonic() + max(float(wait_seconds), 0.0)
+    while unresolved:
+        remaining = []
+        for identity, source_items in unresolved:
+            cached = read_cached_legacy_score(
+                redis_client,
+                identity[0],
+                identity[1],
+                identity[2],
+                identity[3],
+                expected_metadata=metadata,
+            )
+            if cached is None:
+                remaining.append((identity, source_items))
+            else:
+                for item in source_items:
+                    _ml_add_source_legacy_score(scores, item, cached)
+        unresolved = remaining
+        if not unresolved or time.monotonic() >= deadline:
+            break
+        time.sleep(0.1)
+    return unresolved
+
+
+def _ml_checkpoint_service():
+    return CheckpointScoringService(
+        redis_client=redis_client,
+        scorer_url=config.ml_scorer_url,
+        http_client=requests,
+        ttl_seconds=_ml_ttl_seconds(),
+        request_timeout=35,
+    )
+
+
+def _ml_checkpoint_plan_from_opp(
+    resource_id,
+    opp,
+    request_data=None,
+    *,
+    selection_origin=None,
+):
+    table_context = {}
+    if isinstance(request_data, dict) and isinstance(
+        request_data.get('table_context'), dict
+    ):
+        table_context = request_data['table_context']
+    return build_checkpoint_plan(
+        resource_id,
+        opp,
+        fallback_years=table_context.get('years'),
+        fallback_partial=table_context.get('partial'),
+        fallback_mode=table_context.get('mode', 'consecutive'),
+        selection_origin=selection_origin,
+    )
+
+
+def _ml_unavailable_checkpoint_bundle(
+    opp,
+    message,
+    *,
+    code='invalid_checkpoint_context',
+):
+    try:
+        full_days = int(opp.get('daysOut', 0)) + 1
+    except (TypeError, ValueError):
+        full_days = None
+    comparison_days = [days for days in (30, 60, 90) if full_days and days < full_days]
+    horizons = [
+        {
+            'status': 'unavailable',
+            'calendar_days': days,
+            'daysOut': days - 1,
+            'basis': 'recalculated_pattern',
+            'pattern_recalculated': False,
+            'is_current': False,
+            'error': {
+                'code': str(code),
+                'message': str(message)[:240],
+                'retryable': False,
+            },
+        }
+        for days in comparison_days
+    ]
+    if full_days and full_days <= 90:
+        horizons.append({
+            'status': 'unavailable',
+            'calendar_days': full_days,
+            'daysOut': full_days - 1,
+            'basis': 'full_pattern',
+            'pattern_recalculated': False,
+            'is_current': True,
+            'error': {
+                'code': str(code),
+                'message': str(message)[:240],
+                'retryable': False,
+            },
+        })
+    display_days = full_days if full_days and full_days <= 90 else 90
+    return {
+        'status': 'unavailable',
+        'basis': 'duration_comparison',
+        'pattern_recalculated': False,
+        'full_pattern_calendar_days': full_days,
+        'display_horizon_days': display_days,
+        'display_status': 'unavailable',
+        'ml_score': None,
+        'win_prob': None,
+        'pred_return': None,
+        'pred_mfe': None,
+        'horizons': sorted(horizons, key=lambda item: item['calendar_days']),
+    }
+
+
+def _ml_invalid_checkpoint_bundle(opp, message):
+    return _ml_unavailable_checkpoint_bundle(opp, message)
+
+
+def _ml_record_table_usage(resource_id, request_data):
+    try:
+        detail = build_usage_context(resource_id, request_data)
+        if detail is not None:
+            record_usage_context(redis_client, detail)
+    except Exception:
+        # Usage telemetry must never block a user's score response. The exact
+        # scoring path remains fail-closed independently of this best-effort write.
+        logging.exception('ML checkpoint usage tracking failed')
 
 
 def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
     """Return current-condition ML context for Tara's loaded-pattern analysis.
 
     The web AI table and Tara share the same entitlement check, Redis keys, provider,
-    and daily cache.  For a chart window longer than 90 displayed calendar days, the
-    returned readings are explicitly bounded 30/60/90-day checkpoints; they are never
-    labeled as a score of the full pattern.
+    and daily cache. A 1-9-day source uses the 10-day model minimum without changing
+    its historical length. Above 30 displayed calendar days, shorter comparisons are added
+    only when they fit inside the source window. Above 90 days the returned readings
+    are explicitly bounded at 30/60/90 and never labeled as a full-pattern score.
     """
 
     userid, _userlevel = _ml_check_access(token)
@@ -1850,20 +2189,73 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
         return finalize_analysis_score_context(plan)
 
     opportunities = list(plan.get('opportunities') or ())
+    checkpoint_plan = None
+    checkpoint_bundle = None
+    if plan.get('mode') in {'duration_comparison', 'checkpoints'}:
+        source_opp = {
+            'symbol': str((wave_viewer or {}).get('symbol') or '').strip().upper(),
+            'date': str((wave_viewer or {}).get('start_date') or ''),
+            'daysOut': int(plan['full_pattern_calendar_days']) - 1,
+            'direction': opportunities[0]['direction'] if opportunities else '',
+            'years': (wave_viewer or {}).get('years'),
+            'partial': (wave_viewer or {}).get(
+                'partial',
+                (wave_viewer or {}).get('partial_years'),
+            ),
+            'mode': (
+                (wave_viewer or {}).get('mode')
+                or (wave_viewer or {}).get('pe_cycle')
+                or 'consecutive'
+            ),
+            'selection_origin': (wave_viewer or {}).get(
+                'selection_origin', 'scanner'
+            ),
+        }
+        try:
+            checkpoint_plan = _ml_checkpoint_plan_from_opp(
+                market,
+                source_opp,
+                selection_origin=source_opp['selection_origin'],
+            )
+        except CheckpointContextError:
+            logging.exception('Tara checkpoint context is invalid')
+            return finalize_analysis_score_context(plan)
+        service = _ml_checkpoint_service()
+        checkpoint_bundle = service.cached_bundle(checkpoint_plan)
+        if checkpoint_bundle is None:
+            checkpoint_bundle = service.score_bundle(checkpoint_plan)
+        if not isinstance(checkpoint_bundle, dict):
+            return finalize_analysis_score_context(plan)
+        if int(plan['full_pattern_calendar_days']) > 90:
+            duration_bundle = assemble_duration_comparison_bundle(
+                checkpoint_plan, checkpoint_bundle
+            )
+            return finalize_analysis_checkpoint_bundle(plan, duration_bundle)
+
     score_map = {}
+    try:
+        legacy_metadata = _ml_checkpoint_service().scorer_metadata()
+    except Exception:
+        legacy_metadata = None
+        logging.exception('Tara AI scorer metadata lookup failed')
     misses = []
     for opp in opportunities:
-        rkey = _ml_redis_key(
-            opp['symbol'], opp['date'], int(opp['daysOut']), opp['direction']
+        cached = (
+            read_cached_legacy_score(
+                redis_client,
+                opp['symbol'],
+                opp['date'],
+                int(opp['daysOut']),
+                opp['direction'],
+                expected_metadata=legacy_metadata,
+            )
+            if legacy_metadata is not None
+            else None
         )
-        cached = redis_client.get(rkey)
         if cached is None:
             misses.append(opp)
             continue
-        try:
-            score_map[opp['score_key']] = json.loads(cached)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            misses.append(opp)
+        score_map[opp['score_key']] = cached
 
     if misses:
         by_tier = {}
@@ -1874,16 +2266,65 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
 
         def score_tier(tier_and_opps):
             tier, tier_opps = tier_and_opps
-            provider_opps = [
-                {
-                    'symbol': opp['symbol'],
-                    'date': opp['date'],
-                    'daysOut': int(opp['daysOut']),
-                    'direction': opp['direction'],
-                }
-                for opp in tier_opps
-            ]
+            if legacy_metadata is None:
+                return {}
+            cleaned = {}
+            owned = []
+            waiting = []
+            acquired_locks = []
             try:
+                for opp in tier_opps:
+                    lock = redis_client.lock(
+                        legacy_lock_key(
+                            opp['symbol'],
+                            opp['date'],
+                            int(opp['daysOut']),
+                            opp['direction'],
+                        ),
+                        timeout=60,
+                        blocking_timeout=0,
+                    )
+                    if lock.acquire(blocking=False):
+                        # Register immediately so a cache-read exception cannot
+                        # strand the distributed lock until its TTL expires.
+                        acquired_locks.append((opp, lock))
+                        cached = read_cached_legacy_score(
+                            redis_client,
+                            opp['symbol'],
+                            opp['date'],
+                            int(opp['daysOut']),
+                            opp['direction'],
+                            expected_metadata=legacy_metadata,
+                        )
+                        if cached is not None:
+                            cleaned[opp['score_key']] = cached
+                        else:
+                            owned.append((opp, lock))
+                    else:
+                        waiting.append(opp)
+
+                if waiting:
+                    waited_scores = {}
+                    _ml_wait_for_cached_legacy(
+                        waiting, legacy_metadata, waited_scores
+                    )
+                    for opp in waiting:
+                        cached = waited_scores.get(opp['score_key'])
+                        if cached is not None:
+                            cleaned[opp['score_key']] = cached
+
+                if not owned:
+                    return cleaned
+
+                provider_opps = [
+                    {
+                        'symbol': opp['symbol'],
+                        'date': opp['date'],
+                        'daysOut': int(opp['daysOut']),
+                        'direction': opp['direction'],
+                    }
+                    for opp, _lock in owned
+                ]
                 response = requests.post(
                     f'{config.ml_scorer_url}/score',
                     json={'opportunities': provider_opps, 'tier': tier},
@@ -1895,68 +2336,103 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
                         response.status_code,
                         tier,
                     )
-                    return {}
-                results = response.json().get('results', [])
+                    return cleaned
+                payload = response.json()
+                provider_metadata = normalize_scorer_metadata(
+                    payload.get('metadata', {}) if isinstance(payload, dict) else {}
+                )
+                if not valid_scorer_metadata(provider_metadata):
+                    logging.warning(
+                        'Tara AI analysis scorer metadata incomplete for tier %s', tier
+                    )
+                    return cleaned
+                if not scorer_metadata_matches(
+                    provider_metadata, legacy_metadata
+                ):
+                    logging.warning(
+                        'Tara AI analysis scorer identity changed for tier %s', tier
+                    )
+                    return cleaned
+                results = payload.get('results', []) if isinstance(payload, dict) else []
+                if not isinstance(results, list):
+                    results = []
                 requested = {
                     (
                         opp['symbol'], opp['date'], int(opp['daysOut']), opp['direction']
-                    )
-                    for opp in tier_opps
+                    ): opp
+                    for opp, _lock in owned
                 }
-                cleaned = {}
+                ttl = _ml_ttl_seconds()
                 for result in results:
-                    if not isinstance(result, dict) or 'error' in result or 'vix_blocked' in result:
+                    if not isinstance(result, dict):
+                        continue
+                    normalized_result, result_code, _message = (
+                        _ml_normalize_opportunity(result)
+                    )
+                    if normalized_result is None or result_code is not None:
                         continue
                     identity = (
-                        str(result.get('symbol') or ''),
-                        str(result.get('date') or ''),
-                        int(result.get('daysOut') or 0),
-                        str(result.get('direction') or ''),
+                        normalized_result['symbol'],
+                        normalized_result['date'],
+                        normalized_result['daysOut'],
+                        normalized_result['direction'],
                     )
-                    if identity not in requested:
+                    matching = requested.get(identity)
+                    if matching is None:
                         continue
-                    ui_key = f'{identity[0]}|{identity[2]}|{identity[3]}'
-                    cleaned[ui_key] = {
-                        'ml_score': result.get('ml_score'),
-                        'win_prob': result.get('win_prob'),
-                        'pred_return': result.get('pred_return'),
-                        'pred_mfe': result.get('pred_mfe'),
-                    }
+                    try:
+                        score = normalize_legacy_score_result(result)
+                    except CheckpointProviderError:
+                        logging.warning(
+                            'Tara AI analysis rejected malformed scorer result for tier %s',
+                            tier,
+                        )
+                        continue
+                    error = score.get('error') if isinstance(score, dict) else None
+                    if not (
+                        score.get('status') == 'unavailable'
+                        and isinstance(error, dict)
+                        and error.get('retryable') is True
+                    ):
+                        write_cached_legacy_score(
+                            redis_client,
+                            matching['symbol'],
+                            matching['date'],
+                            int(matching['daysOut']),
+                            matching['direction'],
+                            score,
+                            metadata=provider_metadata,
+                            ttl_seconds=ttl,
+                        )
+                    cleaned[matching['score_key']] = score
                 return cleaned
             except Exception as exc:
                 logging.warning('Tara AI analysis scorer unavailable for tier %s: %s', tier, exc)
-                return {}
+                return cleaned
+            finally:
+                for _opp, lock in acquired_locks:
+                    try:
+                        lock.release()
+                    except Exception:
+                        logging.warning('Tara AI analysis single-flight lock expired')
 
-        # A long pattern spans three independent scorer tiers. Resolve them in parallel
-        # so adding the checkpoints does not triple Tara's response latency.
+        # Keep independent exact-window tier requests parallel. Duration-comparison
+        # requests have already been resolved by the bounded context endpoint above.
         with ThreadPoolExecutor(max_workers=min(3, len(by_tier))) as executor:
             futures = [executor.submit(score_tier, item) for item in by_tier.items()]
-            ttl = _ml_ttl_seconds()
             for future in as_completed(futures):
-                for ui_key, score in future.result().items():
-                    score_map[ui_key] = score
-                    symbol, engine_days, direction = ui_key.rsplit('|', 2)
-                    matching = next(
-                        (
-                            opp for opp in misses
-                            if opp['symbol'] == symbol
-                            and str(opp['daysOut']) == engine_days
-                            and opp['direction'] == direction
-                        ),
-                        None,
-                    )
-                    if matching is not None:
-                        redis_client.set(
-                            _ml_redis_key(
-                                symbol,
-                                matching['date'],
-                                int(engine_days),
-                                direction,
-                            ),
-                            json.dumps(score),
-                            ex=ttl,
-                        )
+                score_map.update(future.result())
 
+    if checkpoint_plan is not None and checkpoint_bundle is not None:
+        current = None
+        if opportunities:
+            current = score_map.get(opportunities[0].get('score_key'))
+        duration_bundle = assemble_duration_comparison_bundle(
+            checkpoint_plan,
+            checkpoint_bundle,
+            current_score=current,
+        )
+        return finalize_analysis_checkpoint_bundle(plan, duration_bundle)
     return finalize_analysis_score_context(plan, score_map)
 
 
@@ -1973,8 +2449,10 @@ app.extensions['tara_ai_analysis_context'] = _tara_ai_analysis_context
 @limiter.limit(config.rate_limit_mlscore[3])
 def MLScoreBatch(resourceID):
     """Receive opportunity tuples, return cached scores + pending list.
-    POST body: { "opportunities": [ {symbol, date, daysOut, direction}, ... ] }
-    Response:  { "scores": { "AAPL|19|l": {...}, ... }, "pending": [ {symbol,date,daysOut,direction}, ... ] }
+    A 1-9-day source retains its original key while using the 10-day model
+    minimum. The current exact score remains primary from 10 through 90 calendar
+    days. Patterns over 30 days add supported shorter-duration comparisons;
+    longer patterns use bounded 30/60/90 checkpoints.
     """
     token = request.args.get('token')
     userid, userlevel = _ml_check_access(token)
@@ -1987,33 +2465,173 @@ def MLScoreBatch(resourceID):
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "bad_json"}), 400
-    opps = data.get('opportunities', [])
+    opps, items_error = _ml_valid_request_items(
+        data.get('opportunities', []), 'opportunities'
+    )
+    if items_error:
+        return jsonify({
+            'error': items_error,
+            'max_rows': ML_SCORE_MAX_REQUEST_ROWS,
+        }), 400
     if not opps:
         return jsonify({'scores': {}, 'pending': []})
+    if should_record_table_usage(data):
+        _ml_record_table_usage(resourceID, data)
 
     scores = {}
     pending = []
+    checkpoint_service = None
+    legacy_metadata = None
+    legacy_metadata_loaded = False
+    validation_errors = []
 
-    for opp in opps:
-        sym = opp.get('symbol', '')
-        opp_date = opp.get('date', '')
-        days_out = int(opp.get('daysOut', 0))
-        direction = opp.get('direction', '')
-        if not all([sym, opp_date, days_out, direction]):
+    for index, raw_opp in enumerate(opps):
+        opp, validation_code, validation_message = _ml_normalize_opportunity(
+            raw_opp
+        )
+        if opp is None:
+            validation_errors.append({
+                'index': index,
+                'code': validation_code,
+                'message': validation_message,
+            })
             continue
-        if _ml_tier(days_out) is None:
+        sym = opp['symbol']
+        opp_date = opp['date']
+        days_out = opp['daysOut']
+        direction = opp['direction']
+        if validation_code is not None:
+            if days_out >= 30:
+                scores[f'{sym}|{opp_date}|{days_out}|{direction}'] = (
+                    _ml_unavailable_checkpoint_bundle(
+                        opp,
+                        validation_message,
+                        code=validation_code,
+                    )
+                )
+            else:
+                _ml_add_source_legacy_score(
+                    scores,
+                    opp,
+                    _ml_unavailable_legacy_score(
+                        validation_code, validation_message
+                    ),
+                )
             continue
-
-        rkey = _ml_redis_key(sym, opp_date, days_out, direction)
-        cached = redis_client.get(rkey)
         ui_key = f'{sym}|{days_out}|{direction}'
+        date_state = _ml_entry_date_state(opp_date)
+        if date_state is not None:
+            code, message = date_state
+            if days_out >= 30:
+                scores[f'{sym}|{opp_date}|{days_out}|{direction}'] = (
+                    _ml_unavailable_checkpoint_bundle(
+                        opp, message, code=code
+                    )
+                )
+            else:
+                _ml_add_source_legacy_score(
+                    scores,
+                    opp,
+                    _ml_unavailable_legacy_score(code, message),
+                )
+            continue
+        if days_out >= 30:
+            ui_key = f'{sym}|{opp_date}|{days_out}|{direction}'
+            try:
+                checkpoint_plan = _ml_checkpoint_plan_from_opp(
+                    resourceID, opp, data
+                )
+            except CheckpointContextError as exc:
+                scores[ui_key] = _ml_invalid_checkpoint_bundle(opp, exc)
+                continue
+            ui_key = checkpoint_plan['ui_key']
+            if checkpoint_service is None:
+                checkpoint_service = _ml_checkpoint_service()
+            checkpoint_bundle = checkpoint_service.cached_bundle(checkpoint_plan)
+            current_score = None
+            if days_out <= 89:
+                if not legacy_metadata_loaded:
+                    legacy_metadata_loaded = True
+                    try:
+                        legacy_metadata = checkpoint_service.scorer_metadata()
+                    except Exception:
+                        legacy_metadata = None
+                        logging.exception('ML scorer metadata lookup failed')
+                current_score = (
+                    read_cached_legacy_score(
+                        redis_client,
+                        sym,
+                        opp_date,
+                        days_out,
+                        direction,
+                        expected_metadata=legacy_metadata,
+                    )
+                    if legacy_metadata is not None
+                    else None
+                )
+                if current_score is not None:
+                    _ml_add_legacy_score(
+                        scores, sym, opp_date, days_out, direction, current_score
+                    )
 
-        if cached is not None:
-            scores[ui_key] = json.loads(cached)
+            resolved = checkpoint_bundle is not None and (
+                days_out >= 90 or current_score is not None
+            )
+            if resolved:
+                scores[ui_key] = assemble_duration_comparison_bundle(
+                    checkpoint_plan,
+                    checkpoint_bundle,
+                    current_score=current_score,
+                )
+            else:
+                # Preserve the current score while shorter comparisons load.
+                # The date-qualified bundle wins for the new UI; the unchanged
+                # legacy alias above remains available to older clients.
+                scores[ui_key] = assemble_duration_comparison_bundle(
+                    checkpoint_plan,
+                    checkpoint_bundle,
+                    current_score=current_score,
+                    loading=True,
+                )
+                pending.append(
+                    checkpoint_pending_opportunity(opp, checkpoint_plan)
+                )
+            continue
+        scoring_days_out = _ml_scoring_days_out(opp)
+        if _ml_tier(scoring_days_out) is None:
+            continue
+
+        if not legacy_metadata_loaded:
+            legacy_metadata_loaded = True
+            if checkpoint_service is None:
+                checkpoint_service = _ml_checkpoint_service()
+            try:
+                legacy_metadata = checkpoint_service.scorer_metadata()
+            except Exception:
+                legacy_metadata = None
+                logging.exception('ML scorer metadata lookup failed')
+        cached_score = (
+            read_cached_legacy_score(
+                redis_client,
+                sym,
+                opp_date,
+                scoring_days_out,
+                direction,
+                expected_metadata=legacy_metadata,
+            )
+            if legacy_metadata is not None
+            else None
+        )
+        if cached_score is not None:
+            _ml_add_source_legacy_score(scores, opp, cached_score)
         else:
             pending.append({'symbol': sym, 'date': opp_date, 'daysOut': days_out, 'direction': direction})
 
-    return jsonify({'scores': scores, 'pending': pending})
+    return jsonify({
+        'scores': scores,
+        'pending': pending,
+        'validation_errors': validation_errors,
+    })
 
 
 @app.route('/MLScorePending/<string:resourceID>', methods=['POST'])
@@ -2038,82 +2656,466 @@ def MLScorePending(resourceID):
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "bad_json"}), 400
-    pending = data.get('pending', [])
+    pending, items_error = _ml_valid_request_items(data.get('pending', []), 'pending')
+    if items_error:
+        return jsonify({
+            'error': items_error,
+            'max_rows': ML_SCORE_MAX_REQUEST_ROWS,
+        }), 400
     if not pending:
         return jsonify({'scores': {}, 'still_pending': []})
 
-    CHUNK_SIZE = 5
+    LEGACY_CHUNK_SIZE = 5
+    CHECKPOINT_ROW_CHUNK_SIZE = 5  # one provider batch, at most 15 horizon items
     scores = {}
-    still_pending = []
-    to_score = []
+    legacy_to_score = []
+    checkpoint_to_score = []
+    checkpoint_service = None
+    legacy_metadata = None
+    legacy_metadata_loaded = False
+    validation_errors = []
 
-    # First pass: check if any pending items are now cached (skip >90 days)
-    for opp in pending:
-        sym = opp.get('symbol', '')
-        opp_date = opp.get('date', '')
-        days_out = int(opp.get('daysOut', 0))
-        direction = opp.get('direction', '')
-        if _ml_tier(days_out) is None:
+    # First pass: consume scores another worker or the EOD warmer published.
+    for index, raw_opp in enumerate(pending):
+        opp, validation_code, validation_message = _ml_normalize_opportunity(
+            raw_opp
+        )
+        if opp is None:
+            validation_errors.append({
+                'index': index,
+                'code': validation_code,
+                'message': validation_message,
+            })
             continue
-        rkey = _ml_redis_key(sym, opp_date, days_out, direction)
-        cached = redis_client.get(rkey)
+        sym = opp['symbol']
+        opp_date = opp['date']
+        days_out = opp['daysOut']
+        direction = opp['direction']
+        if validation_code is not None:
+            if days_out >= 30:
+                scores[f'{sym}|{opp_date}|{days_out}|{direction}'] = (
+                    _ml_unavailable_checkpoint_bundle(
+                        opp,
+                        validation_message,
+                        code=validation_code,
+                    )
+                )
+            else:
+                _ml_add_source_legacy_score(
+                    scores,
+                    opp,
+                    _ml_unavailable_legacy_score(
+                        validation_code, validation_message
+                    ),
+                )
+            continue
         ui_key = f'{sym}|{days_out}|{direction}'
-
-        if cached is not None:
-            scores[ui_key] = json.loads(cached)
+        date_state = _ml_entry_date_state(opp_date)
+        if date_state is not None:
+            code, message = date_state
+            if days_out >= 30:
+                scores[f'{sym}|{opp_date}|{days_out}|{direction}'] = (
+                    _ml_unavailable_checkpoint_bundle(
+                        opp, message, code=code
+                    )
+                )
+            else:
+                _ml_add_source_legacy_score(
+                    scores,
+                    opp,
+                    _ml_unavailable_legacy_score(code, message),
+                )
+            continue
+        if days_out >= 30:
+            ui_key = f'{sym}|{opp_date}|{days_out}|{direction}'
+            try:
+                checkpoint_plan = _ml_checkpoint_plan_from_opp(
+                    resourceID, opp, data
+                )
+            except CheckpointContextError as exc:
+                scores[ui_key] = _ml_invalid_checkpoint_bundle(opp, exc)
+                continue
+            ui_key = checkpoint_plan['ui_key']
+            if checkpoint_service is None:
+                checkpoint_service = _ml_checkpoint_service()
+            checkpoint_bundle = checkpoint_service.cached_bundle(checkpoint_plan)
+            current_score = None
+            if days_out <= 89:
+                if not legacy_metadata_loaded:
+                    legacy_metadata_loaded = True
+                    try:
+                        legacy_metadata = checkpoint_service.scorer_metadata()
+                    except Exception:
+                        legacy_metadata = None
+                        logging.exception('ML scorer metadata lookup failed')
+                current_score = (
+                    read_cached_legacy_score(
+                        redis_client,
+                        sym,
+                        opp_date,
+                        days_out,
+                        direction,
+                        expected_metadata=legacy_metadata,
+                    )
+                    if legacy_metadata is not None
+                    else None
+                )
+                if current_score is not None:
+                    _ml_add_legacy_score(
+                        scores, sym, opp_date, days_out, direction, current_score
+                    )
+            if checkpoint_bundle is not None and (
+                days_out >= 90 or current_score is not None
+            ):
+                scores[ui_key] = assemble_duration_comparison_bundle(
+                    checkpoint_plan,
+                    checkpoint_bundle,
+                    current_score=current_score,
+                )
+            else:
+                checkpoint_to_score.append(
+                    (dict(opp), checkpoint_plan, checkpoint_bundle, current_score)
+                )
+            continue
+        scoring_days_out = _ml_scoring_days_out(opp)
+        if _ml_tier(scoring_days_out) is None:
+            continue
+        if not legacy_metadata_loaded:
+            legacy_metadata_loaded = True
+            if checkpoint_service is None:
+                checkpoint_service = _ml_checkpoint_service()
+            try:
+                legacy_metadata = checkpoint_service.scorer_metadata()
+            except Exception:
+                legacy_metadata = None
+                logging.exception('ML scorer metadata lookup failed')
+        cached_score = (
+            read_cached_legacy_score(
+                redis_client,
+                sym,
+                opp_date,
+                scoring_days_out,
+                direction,
+                expected_metadata=legacy_metadata,
+            )
+            if legacy_metadata is not None
+            else None
+        )
+        if cached_score is not None:
+            _ml_add_source_legacy_score(scores, opp, cached_score)
         else:
-            to_score.append(opp)
+            legacy_to_score.append(opp)
 
-    # Score a chunk via keyprovider, grouped by tier
-    chunk = to_score[:CHUNK_SIZE]
-    remainder = to_score[CHUNK_SIZE:]
+    checkpoint_chunk = checkpoint_to_score[:CHECKPOINT_ROW_CHUNK_SIZE]
+    comparison_records = []
+    remainder = [
+        item[0] for item in checkpoint_to_score[CHECKPOINT_ROW_CHUNK_SIZE:]
+    ]
+    if checkpoint_chunk:
+        plans = [item[1] for item in checkpoint_chunk]
+        bundles = checkpoint_service.score_bundles(
+            plans,
+            max_request_items=CHECKPOINT_ROW_CHUNK_SIZE * 3,
+        )
+        for original, checkpoint_plan, cached_bundle, current_score in checkpoint_chunk:
+            bundle = bundles.get(checkpoint_plan['ui_key']) or cached_bundle
+            comparison_records.append(
+                (original, checkpoint_plan, bundle, current_score)
+            )
+            if int(original['daysOut']) <= 89 and current_score is None:
+                legacy_to_score.append(original)
 
-    if chunk:
-        # Group chunk items by tier
+    # Chunk by canonical scorer/cache identity, not by source row. Every 1-9-day
+    # source for the same symbol/date/direction shares raw scoring offset 9 and
+    # must resolve in the same poll after that one score is published.
+    legacy_groups = {}
+    for item in legacy_to_score:
+        identity = (
+            item['symbol'],
+            item['date'],
+            _ml_scoring_days_out(item),
+            item['direction'],
+        )
+        legacy_groups.setdefault(identity, []).append(item)
+    selected_legacy_groups = list(legacy_groups.items())[:LEGACY_CHUNK_SIZE]
+    remainder.extend(
+        item
+        for _identity, members in list(legacy_groups.items())[LEGACY_CHUNK_SIZE:]
+        for item in members
+    )
+    if selected_legacy_groups:
         by_tier = {}
-        for o in chunk:
-            tier = _ml_tier(o['daysOut'])
-            by_tier.setdefault(tier, []).append(o)
+        for identity, members in selected_legacy_groups:
+            tier = _ml_tier(identity[2])
+            by_tier.setdefault(tier, []).append((identity, members))
 
         ttl = _ml_ttl_seconds()
-        for tier, tier_opps in by_tier.items():
+        for tier, tier_groups in by_tier.items():
+            if legacy_metadata is None:
+                remainder = [
+                    item
+                    for _identity, members in tier_groups
+                    for item in members
+                ] + remainder
+                continue
+
+            unresolved = {
+                identity: list(members) for identity, members in tier_groups
+            }
+            owned_groups = []
+            waiting_groups = []
+            held_locks = []
             try:
-                scorer_opps = [
-                    {'symbol': o['symbol'], 'date': o['date'], 'daysOut': o['daysOut'], 'direction': o['direction']}
-                    for o in tier_opps
-                ]
-                resp = requests.post(
-                    f'{config.ml_scorer_url}/score',
-                    json={'opportunities': scorer_opps, 'tier': tier},
-                    timeout=30
-                )
-                if resp.status_code == 200:
-                    results = resp.json().get('results', [])
-                    for r in results:
-                        if 'error' in r or 'vix_blocked' in r:
-                            continue
-                        sym = r.get('symbol', '')
-                        days_out = int(r.get('daysOut', 0))
-                        direction = r.get('direction', '')
-                        opp_date = r.get('date', '')
-                        ui_key = f'{sym}|{days_out}|{direction}'
-                        score_data = {
-                            'ml_score': r.get('ml_score'),
-                            'win_prob': r.get('win_prob'),
-                            'pred_return': r.get('pred_return'),
-                            'pred_mfe': r.get('pred_mfe'),
+                for identity, members in tier_groups:
+                    lock = redis_client.lock(
+                        legacy_lock_key(
+                            identity[0],
+                            identity[1],
+                            identity[2],
+                            identity[3],
+                        ),
+                        timeout=60,
+                        blocking_timeout=0,
+                    )
+                    if lock.acquire(blocking=False):
+                        # Track immediately so any exception during the cache
+                        # recheck still releases the acquired distributed lock.
+                        held_locks.append((identity, lock))
+                        # A warmer or another request may have published between
+                        # the first cache read and acquisition of this lock.
+                        cached = read_cached_legacy_score(
+                            redis_client,
+                            identity[0],
+                            identity[1],
+                            identity[2],
+                            identity[3],
+                            expected_metadata=legacy_metadata,
+                        )
+                        if cached is not None:
+                            for item in members:
+                                _ml_add_source_legacy_score(scores, item, cached)
+                            unresolved.pop(identity, None)
+                        else:
+                            owned_groups.append((identity, members))
+                    else:
+                        waiting_groups.append((identity, members))
+
+                if owned_groups:
+                    scorer_opps = [
+                        {
+                            'symbol': identity[0],
+                            'date': identity[1],
+                            'daysOut': identity[2],
+                            'direction': identity[3],
                         }
-                        scores[ui_key] = score_data
-                        rkey = _ml_redis_key(sym, opp_date, days_out, direction)
-                        redis_client.set(rkey, json.dumps(score_data), ex=ttl)
-                else:
-                    remainder = tier_opps + remainder
+                        for identity, _members in owned_groups
+                    ]
+                    resp = requests.post(
+                        f'{config.ml_scorer_url}/score',
+                        json={'opportunities': scorer_opps, 'tier': tier},
+                        timeout=30,
+                    )
+                    if resp.status_code == 200:
+                        payload = resp.json()
+                        provider_metadata = normalize_scorer_metadata(
+                            payload.get('metadata', {})
+                            if isinstance(payload, dict) else {}
+                        )
+                        if not valid_scorer_metadata(provider_metadata):
+                            logging.error(
+                                'MLScorePending scorer metadata was incomplete for tier %s',
+                                tier,
+                            )
+                        elif not scorer_metadata_matches(
+                            provider_metadata, legacy_metadata
+                        ):
+                            logging.error(
+                                'MLScorePending scorer identity changed during tier %s',
+                                tier,
+                            )
+                        else:
+                            results = (
+                                payload.get('results', [])
+                                if isinstance(payload, dict) else []
+                            )
+                            if not isinstance(results, list):
+                                results = []
+                            requested = dict(owned_groups)
+                            for result in results:
+                                if not isinstance(result, dict):
+                                    continue
+                                normalized_result, result_code, _message = (
+                                    _ml_normalize_opportunity(result)
+                                )
+                                if normalized_result is None or result_code is not None:
+                                    continue
+                                identity = (
+                                    normalized_result['symbol'],
+                                    normalized_result['date'],
+                                    normalized_result['daysOut'],
+                                    normalized_result['direction'],
+                                )
+                                matching_items = requested.get(identity)
+                                if matching_items is None:
+                                    logging.warning(
+                                        'MLScorePending ignored mismatched scorer identity for tier %s',
+                                        tier,
+                                    )
+                                    continue
+                                try:
+                                    score_data = normalize_legacy_score_result(result)
+                                except CheckpointProviderError:
+                                    logging.warning(
+                                        'MLScorePending rejected malformed scorer result for tier %s',
+                                        tier,
+                                    )
+                                    continue
+                                error = score_data.get('error')
+                                retryable = (
+                                    score_data.get('status') == 'unavailable'
+                                    and isinstance(error, dict)
+                                    and error.get('retryable') is True
+                                )
+                                if retryable:
+                                    continue
+                                try:
+                                    write_cached_legacy_score(
+                                        redis_client,
+                                        identity[0],
+                                        identity[1],
+                                        identity[2],
+                                        identity[3],
+                                        score_data,
+                                        metadata=provider_metadata,
+                                        ttl_seconds=ttl,
+                                    )
+                                except Exception as exc:
+                                    logging.error(
+                                        'MLScorePending cache write failed for %s: %s',
+                                        identity,
+                                        exc,
+                                    )
+                                    continue
+                                try:
+                                    # Temporary rolling-deploy compatibility.
+                                    redis_client.set(
+                                        _ml_redis_key(*identity),
+                                        json.dumps(score_data),
+                                        ex=ttl,
+                                    )
+                                except Exception:
+                                    logging.warning(
+                                        'MLScorePending legacy compatibility cache write failed'
+                                    )
+                                for matching in matching_items:
+                                    _ml_add_source_legacy_score(
+                                        scores, matching, score_data
+                                    )
+                                unresolved.pop(identity, None)
+                    else:
+                        logging.error(
+                            'MLScorePending scorer returned HTTP %s for tier %s',
+                            resp.status_code,
+                            tier,
+                        )
+
+                if waiting_groups:
+                    still_waiting = _ml_wait_for_cached_legacy_groups(
+                        waiting_groups, legacy_metadata, scores
+                    )
+                    still_waiting_ids = {
+                        identity for identity, _members in still_waiting
+                    }
+                    for identity, _members in waiting_groups:
+                        if identity not in still_waiting_ids:
+                            unresolved.pop(identity, None)
             except Exception as e:
                 logging.error(f'MLScorePending scorer error (tier {tier}): {e}')
-                remainder = tier_opps + remainder
+            finally:
+                for _identity, lock in held_locks:
+                    try:
+                        lock.release()
+                    except Exception:
+                        logging.warning('MLScorePending single-flight lock expired')
+            remainder = [
+                item for members in unresolved.values() for item in members
+            ] + remainder
 
-    still_pending = remainder
-    return jsonify({'scores': scores, 'still_pending': still_pending})
+    # A 31-90-day comparison is complete only when both its unchanged current
+    # score and every shorter checkpoint are terminal.  Publish the combined
+    # date-qualified bundle while retaining the legacy alias for older clients.
+    resolved_comparisons = set()
+    for original, checkpoint_plan, checkpoint_bundle, current_score in comparison_records:
+        if checkpoint_bundle is None:
+            checkpoint_bundle = checkpoint_service.cached_bundle(checkpoint_plan)
+        if int(original['daysOut']) <= 89 and current_score is None:
+            current_score = (
+                read_cached_legacy_score(
+                    redis_client,
+                    original['symbol'],
+                    original['date'],
+                    original['daysOut'],
+                    original['direction'],
+                    expected_metadata=legacy_metadata,
+                )
+                if legacy_metadata is not None
+                else None
+            )
+        identity = (
+            original['symbol'], original['date'],
+            int(original['daysOut']), original['direction'],
+        )
+        complete = checkpoint_bundle is not None and (
+            int(original['daysOut']) >= 90 or current_score is not None
+        )
+        if complete:
+            if current_score is not None:
+                _ml_add_legacy_score(
+                    scores,
+                    original['symbol'],
+                    original['date'],
+                    original['daysOut'],
+                    original['direction'],
+                    current_score,
+                )
+            scores[checkpoint_plan['ui_key']] = assemble_duration_comparison_bundle(
+                checkpoint_plan,
+                checkpoint_bundle,
+                current_score=current_score,
+            )
+            resolved_comparisons.add(identity)
+        else:
+            # Do not let a temporary flat current score hide that its shorter
+            # comparison is still pending. The legacy alias remains intact.
+            scores.pop(checkpoint_plan['ui_key'], None)
+            remainder.append(original)
+
+    def _pending_identity(item):
+        try:
+            return (
+                str(item.get('symbol') or '').upper(),
+                str(item.get('date') or ''),
+                int(item.get('daysOut')),
+                str(item.get('direction') or '').lower()[:1],
+            )
+        except (AttributeError, TypeError, ValueError):
+            return None
+
+    deduped_remainder = []
+    seen_remainder = set()
+    for item in remainder:
+        identity = _pending_identity(item)
+        if identity in resolved_comparisons or identity in seen_remainder:
+            continue
+        if identity is not None:
+            seen_remainder.add(identity)
+        deduped_remainder.append(item)
+
+    return jsonify({
+        'scores': scores,
+        'still_pending': deduped_remainder,
+        'validation_errors': validation_errors,
+    })
 
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2218,6 +3220,10 @@ def _sanitize_realtime_prices(prices):
 
 _commodity_symbols = None
 _equity_close_cache = {}
+_local_eod_quote_cache = {}
+_LOCAL_EOD_QUOTE_RESOURCES = frozenset({'0', '1', '2', '3', '4', '11'})
+_LOCAL_EOD_QUOTE_CACHE_MAX = 128
+_LOCAL_EOD_FALLBACK_MAX_SYMBOLS = 12
 
 
 def _load_commodity_symbols():
@@ -2266,6 +3272,121 @@ def validate_realtime_quote_for_resource(resource_id, symbol, pair):
             if reference and not (0.5 * reference <= normalized[0] <= 2.0 * reference):
                 return None
     return normalized
+
+
+def _latest_local_eod_quote(resource_id, symbol, *, today=None):
+    """Return a clearly labeled completed-close fallback without downloading.
+
+    This is used only for isolated gaps in an otherwise healthy realtime price
+    response. It never aliases tickers and never invokes ``get_symbol_csv`` in
+    the Opportunity Table request path.
+    """
+
+    resource_id = str(resource_id)
+    normalized_symbol = str(symbol or '').strip().upper()
+    if (
+        resource_id not in _LOCAL_EOD_QUOTE_RESOURCES
+        or not _ML_SYMBOL_RE.fullmatch(normalized_symbol)
+    ):
+        return None
+    exchange = config.exchange_mapping.get(resource_id)
+    if exchange not in {'US', 'ETF'}:
+        return None
+    exchange_root = os.path.realpath(os.path.join(config.csv_folder, exchange))
+    price_path = os.path.realpath(
+        os.path.join(exchange_root, f'{normalized_symbol}.csv')
+    )
+    if os.path.dirname(price_path) != exchange_root or not os.path.isfile(price_path):
+        return None
+    try:
+        current_date = today or datetime.date.today()
+        if isinstance(current_date, datetime.datetime):
+            current_date = current_date.date()
+        if not isinstance(current_date, datetime.date):
+            return None
+        file_stat = os.stat(price_path)
+        cache_identity = (file_stat.st_mtime_ns, file_stat.st_size)
+        cached = _local_eod_quote_cache.get(price_path)
+        if cached and cached[0] == cache_identity:
+            cached_date = datetime.datetime.strptime(
+                cached[1]['date'], '%Y-%m-%d'
+            ).date()
+            cached_age_days = (current_date - cached_date).days
+            if 0 <= cached_age_days <= int(config.max_days_missing):
+                return dict(cached[1])
+            return None
+
+        frame = pd.read_csv(price_path, usecols=['date', 'close']).tail(2)
+        if frame.shape[0] != 2:
+            return None
+        dates = frame['date'].astype(str).tolist()
+        try:
+            parsed_date = datetime.datetime.strptime(dates[-1], '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            return None
+        if parsed_date.isoformat() != dates[-1]:
+            return None
+        age_days = (current_date - parsed_date).days
+        if age_days < 0 or age_days > int(config.max_days_missing):
+            return None
+        closes = pd.to_numeric(frame['close'], errors='coerce').tolist()
+        previous_close, latest_close = (
+            _finite_number(value, positive=True) for value in closes
+        )
+        if previous_close is None or latest_close is None:
+            return None
+        quote = {
+            'price': latest_close,
+            'change_p': 100.0 * (latest_close / previous_close - 1.0),
+            'date': dates[-1],
+            'source': 'eod_close',
+        }
+        if len(_local_eod_quote_cache) >= _LOCAL_EOD_QUOTE_CACHE_MAX:
+            _local_eod_quote_cache.pop(next(iter(_local_eod_quote_cache)))
+        _local_eod_quote_cache[price_path] = (cache_identity, quote)
+        return dict(quote)
+    except (OSError, ValueError, KeyError, pd.errors.ParserError):
+        return None
+
+
+def _opportunity_prices_for_rows(resource_id, regular_rows, active_rows, all_prices):
+    """Merge central quotes and a bounded, explicitly labeled local fallback."""
+
+    if not all_prices:
+        return {}
+    prices = {}
+    rows = list(regular_rows or []) + list(active_rows or [])
+    for row in rows:
+        if len(row) <= 1:
+            continue
+        symbol = str(row[1]).strip().upper()
+        if not symbol or symbol in prices or symbol not in all_prices:
+            continue
+        realtime = validate_realtime_quote_for_resource(
+            resource_id, symbol, all_prices[symbol]
+        )
+        if realtime:
+            prices[symbol] = {
+                'price': realtime[0],
+                'change_p': realtime[1],
+            }
+
+    # A healthy central response can still omit one newly renamed ticker.
+    # Fill only small, isolated gaps from an already-provisioned local EOD
+    # file, and label the source so the browser never calls it realtime.
+    displayed_symbols = {
+        str(row[1]).strip().upper()
+        for row in rows
+        if len(row) > 1 and row[1]
+    }
+    missing_symbols = sorted(displayed_symbols.difference(prices))
+    if len(missing_symbols) > _LOCAL_EOD_FALLBACK_MAX_SYMBOLS:
+        return prices
+    for missing_symbol in missing_symbols:
+        fallback = _latest_local_eod_quote(resource_id, missing_symbol)
+        if fallback:
+            prices[missing_symbol] = fallback
+    return prices
 
 
 def get_realtime_prices_cached():

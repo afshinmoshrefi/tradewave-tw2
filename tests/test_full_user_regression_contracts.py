@@ -1,7 +1,11 @@
 """Regression contracts for defects found in the 2026-07-25 user-flow exercise."""
+import pytest
 
 import ast
+import datetime
 import math
+import os
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,6 +23,7 @@ PORTFOLIO_SETTINGS_JS = ROOT / "web-react" / "src" / "components" / "PortfolioSe
 CHATBOT_JS = ROOT / "web-react" / "src" / "components" / "Chatbot.js"
 CHATBOT_PY = ROOT / "appserver" / "appserver" / "chatbot.py"
 CONFIG_PY = ROOT / "config.py"
+UI_CAPTURE_JS = ROOT / "tools" / "ui_capture" / "capture.js"
 
 
 def _functions(*names):
@@ -63,6 +68,105 @@ def test_equity_quote_guard_rejects_a_futures_namespace_collision():
     validate = ns["validate_realtime_quote_for_resource"]
     assert validate("2", "ES", [7442.5, 0.1]) is None
     assert validate("7", "ES", [7442.5, 0.1]) == [7442.5, 0.1]
+
+
+def _local_eod_quote_namespace(tmp_path):
+    ns = _functions("_finite_number", "_latest_local_eod_quote")
+    ns.update({
+        "config": SimpleNamespace(
+            csv_folder=f"{tmp_path}/",
+            exchange_mapping={"2": "US", "11": "ETF", "7": "COMM"},
+            max_days_missing=14,
+        ),
+        "datetime": datetime,
+        "os": os,
+        "pd": pd,
+        "_ML_SYMBOL_RE": re.compile(r"^[A-Z0-9.$^-]{1,15}$"),
+        "_LOCAL_EOD_QUOTE_RESOURCES": frozenset({"0", "1", "2", "3", "4", "11"}),
+        "_LOCAL_EOD_QUOTE_CACHE_MAX": 128,
+        "_local_eod_quote_cache": {},
+    })
+    (tmp_path / "US").mkdir()
+    (tmp_path / "ETF").mkdir()
+    return ns
+
+
+def test_local_eod_quote_is_current_labeled_and_cache_tracks_file_replacement(tmp_path):
+    ns = _local_eod_quote_namespace(tmp_path)
+    quote = ns["_latest_local_eod_quote"]
+    path = tmp_path / "US" / "BNY.csv"
+    pd.DataFrame({
+        "date": ["2026-08-04", "2026-08-05"],
+        "close": [150.0, 159.0],
+    }).to_csv(path, index=False)
+
+    first = quote("2", "bny", today=datetime.date(2026, 8, 6))
+    assert first["price"] == 159.0
+    assert math.isclose(first["change_p"], 6.0)
+    assert first["date"] == "2026-08-05"
+    assert first["source"] == "eod_close"
+    first["price"] = 1
+    assert quote("2", "BNY", today=datetime.date(2026, 8, 6))["price"] == 159.0
+    assert quote("2", "BNY", today=datetime.date(2026, 9, 1)) is None
+
+    pd.DataFrame({
+        "date": ["2026-08-05", "2026-08-06"],
+        "close": [159.0, 160.0],
+    }).to_csv(path, index=False)
+    refreshed = quote("2", "BNY", today=datetime.date(2026, 8, 6))
+    assert refreshed["price"] == 160.0
+    assert refreshed["date"] == "2026-08-06"
+
+
+def test_local_eod_quote_rejects_unsafe_stale_or_incomplete_data(tmp_path):
+    ns = _local_eod_quote_namespace(tmp_path)
+    quote = ns["_latest_local_eod_quote"]
+    path = tmp_path / "US" / "BAD.csv"
+
+    pd.DataFrame({"date": ["2026-08-05"], "close": [10]}).to_csv(path, index=False)
+    assert quote("2", "BAD", today=datetime.date(2026, 8, 6)) is None
+
+    pd.DataFrame({
+        "date": ["2026-08-04", "not-a-date"],
+        "close": [10, 11],
+    }).to_csv(path, index=False)
+    assert quote("2", "BAD", today=datetime.date(2026, 8, 6)) is None
+
+    pd.DataFrame({
+        "date": ["2026-07-01", "2026-07-02"],
+        "close": [10, 11],
+    }).to_csv(path, index=False)
+    assert quote("2", "BAD", today=datetime.date(2026, 8, 6)) is None
+    assert quote("2", "../BAD", today=datetime.date(2026, 8, 6)) is None
+    assert quote("7", "BAD", today=datetime.date(2026, 8, 6)) is None
+
+
+def test_opportunity_price_merge_prefers_realtime_and_bounds_local_fallback():
+    ns = _functions("_opportunity_prices_for_rows")
+    fallback_calls = []
+    ns.update({
+        "_LOCAL_EOD_FALLBACK_MAX_SYMBOLS": 2,
+        "validate_realtime_quote_for_resource": lambda _rid, _sym, pair: pair,
+        "_latest_local_eod_quote": lambda _rid, sym: (
+            fallback_calls.append(sym)
+            or {"price": 20.0, "change_p": 1.0, "date": "2026-08-05", "source": "eod_close"}
+        ),
+    })
+    merge = ns["_opportunity_prices_for_rows"]
+    regular = [["2026-08-06", "AAPL"], ["2026-08-06", "BNY"]]
+    active = [["2026-08-06", "BNY"]]
+
+    assert merge("2", regular, active, {}) == {}
+    assert fallback_calls == []
+    merged = merge("2", regular, active, {"AAPL": [200.0, 2.0]})
+    assert merged["AAPL"] == {"price": 200.0, "change_p": 2.0}
+    assert merged["BNY"]["source"] == "eod_close"
+    assert fallback_calls == ["BNY"]
+
+    fallback_calls.clear()
+    broad_rows = [["2026-08-06", symbol] for symbol in ("A", "B", "C")]
+    assert merge("2", broad_rows, [], {"AAPL": [200.0, 2.0]}) == {}
+    assert fallback_calls == []
 
 
 def test_selected_equity_resource_is_preserved_for_overlapping_ticker():
@@ -178,3 +282,32 @@ def test_retired_symbols_are_filtered_after_cache_loading():
     assert source.count("_drop_disabled_market_symbols(") == 3
     assert "'2':  ['CTRA']" in config
     assert "'3':  ['CTRA']" in config
+
+
+@pytest.mark.skip(
+    reason="AI-branch React (DesktopLayout tabpanel wiring + opportunityAIColumnControls) is "
+    "NOT part of this release. This release restores the appserver AI-scoring/checkpoint "
+    "engine only; the React client on this line is already checkpoint-ready. Re-enable when "
+    "the deferred React integration from codex/ai-score-panel-20260806 lands."
+)
+def test_optional_ai_bottom_panel_keeps_semantic_state_and_accessible_panel_links():
+    desktop = DESKTOP_LAYOUT_JS.read_text(encoding="utf-8")
+
+    assert "preserveRequestedBottomSlide" in desktop
+    assert "if (preserveRequestedBottomSlide && semantic === visibleBottomSlide) return;" in desktop
+    assert desktop.count('role="tabpanel"') == 4
+    for slide in ("trend_chart", "wave_stats", "ai_scores", "price_chart"):
+        assert f"id={{getBottomPanelId('{slide}')}}" in desktop
+        assert f"aria-labelledby={{getBottomPanelTabId('{slide}')}}" in desktop
+    assert "active={activeBottomSlide === 'ai_scores'}" in desktop
+
+
+def test_capture_explicit_column_visibility_bypasses_the_legacy_ai_default_migration():
+    capture = UI_CAPTURE_JS.read_text(encoding="utf-8")
+
+    visibility_block = capture[
+        capture.index("if (oppTable.columnVisibility) {"):
+        capture.index("if (oppTable.columnOrder)")
+    ]
+    assert "scoped['oppTableColumnVisibility'] = oppTable.columnVisibility;" in visibility_block
+    assert "scoped['oppTableAIColumnDefaultsVersion'] = 1;" in visibility_block

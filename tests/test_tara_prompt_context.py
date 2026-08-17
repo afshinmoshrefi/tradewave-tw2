@@ -88,6 +88,109 @@ def test_tooltip_questions_load_the_small_guidance_section():
     assert "## TradeWave UI Map" not in selection.text
 
 
+def test_ai_scores_ui_knowledge_describes_conditional_fourth_window_and_long_horizons():
+    _, sections = _sections()
+
+    selection = select_topic_knowledge("What is the fourth window?", sections)
+
+    assert selection.headings[0] == "AI Scores (AIS, Win%, PredR, PMFE)"
+    assert "a fourth window appears between Wave Stats and Price Chart" in selection.text
+    assert "AI Scores window and dot do not appear at all" in selection.text
+    assert "source longer than 90 calendar days" in selection.text
+    assert "30-, 60-, and 90-day model readings" in selection.text
+    assert "Opportunity Table uses 90 days" in selection.text
+    assert "original pattern's Wave Stats" in selection.text
+    assert "complete source pattern" in selection.text
+    assert "historical record recalculated for that checkpoint" in selection.text
+
+
+def test_ai_columns_start_hidden_and_can_be_enabled_in_settings():
+    _, sections = _sections()
+
+    selection = select_topic_knowledge(
+        "How do I add the AI score columns in Settings?", sections
+    )
+
+    assert selection.headings == (
+        "AI Scores (AIS, Win%, PredR, PMFE)",
+        "Settings Window",
+    )
+    assert "The Opportunity Table's four AI columns start hidden" in selection.text
+    assert 'Settings under "AI Scores in Opportunity Table"' in selection.text
+    assert "Hiding those columns does not hide the AI Scores window" in selection.text
+    assert "AIS, Win%, PredR, and PMFE" in selection.text
+
+
+def test_sort_by_can_use_an_available_hidden_column_without_showing_it():
+    _, sections = _sections()
+
+    selection = select_topic_knowledge(
+        "Can I sort by AI Win% while that column is hidden?", sections
+    )
+
+    assert "The Opportunity Table (Left Panel)" in selection.headings
+    assert "visible Sort by control is independent of column visibility" in selection.text
+    assert "sorted by AI Win% while all AI columns remain hidden" in selection.text
+    assert "without showing that column or widening the table" in selection.text
+
+
+def test_left_panel_collapse_knowledge_explains_restore_controls():
+    _, sections = _sections()
+
+    selection = select_topic_knowledge(
+        "How do I collapse and reopen the left side?", sections
+    )
+
+    assert selection.headings == ("Desktop Left Panel Collapse",)
+    assert "hides that entire side panel" in selection.text
+    assert "right-chevron reopens the Opportunity Table and Tara" in selection.text
+    assert "Tara button reopens the side panel and opens Tara" in selection.text
+    assert "remembers the collapsed or open choice" in selection.text
+    assert "different from the Opportunity Table's Expand control" in selection.text
+
+
+def test_left_panel_restore_wording_routes_to_collapse_knowledge():
+    _, sections = _sections()
+
+    for message in (
+        "How do I open the left side?",
+        "How do I bring back the left panel?",
+        "Where did the Opportunity Table go?",
+    ):
+        selection = select_topic_knowledge(message, sections)
+        assert "Desktop Left Panel Collapse" in selection.headings
+
+
+def test_plain_ai_window_wording_routes_to_ai_knowledge():
+    _, sections = _sections()
+
+    for message in (
+        "Where is the AI window?",
+        "Why is the AI panel missing?",
+        "Why is there no AI window for forex?",
+    ):
+        selection = select_topic_knowledge(message, sections)
+        assert "AI Scores (AIS, Win%, PredR, PMFE)" in selection.headings
+        assert "supported US stock or ETF" in selection.text
+
+
+def test_ai_market_scope_routes_generic_scoring_question_to_exact_eligibility():
+    _, sections = _sections()
+
+    selection = select_topic_knowledge(
+        "Does TradeWave score futures, commodities, forex, or crypto?", sections
+    )
+
+    assert selection.headings == (
+        "AI Scores (AIS, Win%, PredR, PMFE)",
+        "Securities Groups (Markets) Explained",
+    )
+    assert "AI scores are available for supported US stocks and ETFs only" in selection.text
+    assert "futures and commodities, forex, crypto" in selection.text
+    assert "AI Scores target supported US stocks and ETFs only" in selection.text
+    assert "do not get an AI Scores window, AI navigation dot, or AI scoring columns" in selection.text
+
+
 def test_trend_arrow_question_loads_the_change_and_alignment_contract():
     _, sections = _sections()
 

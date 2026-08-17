@@ -159,8 +159,8 @@ def _clean_chart_args(entry_date, days_out, years, symbol=None):
         d = int(days_out)
     except (ValueError, TypeError):
         raise ValueError("days_out must be an integer")
-    if not (1 <= d <= 366):
-        raise ValueError("days_out must be between 1 and 366")
+    if not (1 <= d <= 367):
+        raise ValueError("days_out must be between 1 and 367")
     if not str(years).isdigit() or not (1 <= int(years) <= 99):
         raise ValueError("years must be an integer between 1 and 99")
     if symbol is not None and not _SYMBOL_RE.match(symbol):
@@ -614,7 +614,7 @@ def _resolve_period(period, reverse, base_entry, base_days):
             rd1 = rd1.replace(year=rd1.year + 1)
         d0, d1 = rd0, rd1
     days_out = (d1 - d0).days + 1
-    if not (1 <= days_out <= 366):
+    if not (1 <= days_out <= 367):
         raise ValueError("the computed window is out of range")
     return d0.isoformat(), days_out
 
@@ -1444,8 +1444,8 @@ def analyze_symbol(symbol):
                 datetime.datetime.strptime(pin_entry, "%Y-%m-%d")
             except (ValueError, TypeError):
                 raise ValueError("entry_date must be in YYYY-MM-DD format")
-        if pin_days is not None and not (1 <= pin_days <= 366):
-            raise ValueError("days_out must be an integer between 1 and 366")
+        if pin_days is not None and not (1 <= pin_days <= 367):
+            raise ValueError("days_out must be an integer between 1 and 367")
         if period or reverse:
             pin_entry, pin_days = _resolve_period(period, reverse, pin_entry or _today(), pin_days or 30)
     except ValueError as e:

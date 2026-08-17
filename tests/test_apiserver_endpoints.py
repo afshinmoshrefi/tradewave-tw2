@@ -1025,3 +1025,15 @@ def test_strategist_with_explicit_dev_sub_resolves_pro():
 
 def test_explorer_with_explicit_dev_sub_resolves_dev():
     assert tiers.api_tier_from_user({"tier": "explorer", "api_tier": "dev"}) == "dev"
+
+
+def test_chart_argument_validation_keeps_367_calendar_days_inclusive():
+    from apiserver.routes import _clean_chart_args
+
+    assert _clean_chart_args("2026-01-01", "367", "20", "AAPL") == (
+        "2026-01-01",
+        "367",
+        "20",
+    )
+    with pytest.raises(ValueError, match="between 1 and 367"):
+        _clean_chart_args("2026-01-01", "368", "20", "AAPL")

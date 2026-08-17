@@ -50,7 +50,7 @@ RECEIPTS_UNAVAILABLE_NOTE = (
 _ML_NOTES = {
     "shown": "ML score shown.",
     "quota": "Daily ML limit reached on your plan - upgrade for unlimited ML scoring.",
-    "market": "ML not available for this market (ML covers US stocks, indices and ETFs).",
+    "market": "ML not available for this market (ML covers US stocks and ETFs).",
     "unavailable": "ML score not available for this setup - the ML model covers shorter seasonal holds (up to about 90 days).",
     "na": "ML not available.",
 }

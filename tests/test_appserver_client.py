@@ -174,6 +174,111 @@ def test_ml_scoring_converts_display_days_to_engine_offset(monkeypatch):
     assert result[0]["ml_score"] == 70
 
 
+def test_ml_scoring_prefers_date_qualified_keys_for_same_duration_rows(monkeypatch):
+    """A legacy alias collision must not give both entry dates the same score."""
+
+    def fake_post(path, body, params=None):
+        assert path == "/MLScoreBatch/2"
+        return {
+            "scores": {
+                "ROST|2026-08-03|16|l": {
+                    "ml_score": 71,
+                    "win_prob": 0.71,
+                    "pred_return": 2.1,
+                    "pred_mfe": 4.1,
+                },
+                "ROST|2026-09-03|16|l": {
+                    "ml_score": 83,
+                    "win_prob": 0.83,
+                    "pred_return": 3.3,
+                    "pred_mfe": 5.3,
+                },
+                # Both dates necessarily share this rolling-deploy alias. If the
+                # client reads it first, the collision recreates the old bug.
+                "ROST|16|l": {
+                    "ml_score": 99,
+                    "win_prob": 0.99,
+                    "pred_return": 9.9,
+                    "pred_mfe": 9.9,
+                },
+            },
+            "pending": [],
+        }
+
+    monkeypatch.setattr(ac, "post", fake_post)
+
+    result = ac.ml_scores(
+        "2",
+        [
+            {
+                "symbol": "ROST",
+                "date": "2026-08-03",
+                "days_out": 17,
+                "direction": "long",
+            },
+            {
+                "symbol": "ROST",
+                "date": "2026-09-03",
+                "days_out": 17,
+                "direction": "long",
+            },
+        ],
+    )
+
+    assert [item["ml_score"] for item in result] == [71, 83]
+
+
+def test_public_scoring_keeps_long_checkpoint_contract_unsupported_and_refundable(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ac, "post", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    result = ac.ml_scores(
+        "2",
+        [{"symbol": "AAPL", "date": "2026-08-05", "days_out": 150, "direction": "long"}],
+    )
+
+    assert result == [None]
+    assert calls == []
+
+
+def test_public_scoring_keeps_sub_ten_minimum_horizon_out_of_exact_api_contract(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ac, "post", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    result = ac.ml_scores(
+        "2",
+        [{"symbol": "AAPL", "date": "2026-08-05", "days_out": 6, "direction": "long"}],
+    )
+
+    assert result == [None]
+    assert calls == []
+
+
+def test_structured_unavailable_score_is_not_counted_as_api_delivery(monkeypatch):
+    monkeypatch.setattr(
+        ac,
+        "post",
+        lambda *_args, **_kwargs: {
+            "scores": {
+                "AAPL|2026-08-05|29|l": {
+                    "status": "unavailable",
+                    "ml_score": None,
+                    "win_prob": None,
+                    "pred_return": None,
+                    "pred_mfe": None,
+                    "error": {"code": "vix_blocked", "retryable": False},
+                }
+            },
+            "pending": [],
+        },
+    )
+
+    assert ac.ml_scores(
+        "2",
+        [{"symbol": "AAPL", "date": "2026-08-05", "days_out": 30, "direction": "long"}],
+    ) == [None]
+
+
 def test_stored_daily_pick_offset_is_exposed_as_inclusive_days(monkeypatch):
     stored = {
         "symbol": "ROST",
