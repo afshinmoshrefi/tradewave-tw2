@@ -13,6 +13,7 @@ import {
   normalizeOpportunityAIScore,
   opportunityAIFlatFields,
   opportunityAIHeaderColor,
+  isPhonePortrait,
   opportunityTableMinimumWidth,
   selectOpportunityVisibleColumns,
 } from './opportunityAIScores'
@@ -123,7 +124,7 @@ const TableBox = ({
   }, [hasAI, hasMLData, hasOptedInAIColumn, loggedinUser, table_data]);
 
   // On mobile portrait, limit columns to avoid cramped table
-  const isMobilePortrait = rdd.isMobile && !rdd.isTablet && window.innerHeight > window.innerWidth;
+  const isMobilePortrait = isPhonePortrait(rdd, window.innerHeight, window.innerWidth);
   const visibleColumns = useMemo(() => selectOpportunityVisibleColumns({
     columnOrder: columnOrder || DEFAULT_COLUMN_ORDER,
     showSR2,

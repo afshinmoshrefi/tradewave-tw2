@@ -3,6 +3,7 @@ const {
   advanceOpportunityAIPollBudget,
   findOpportunityAIScore,
   formatOpportunityAIMetric,
+  isPhonePortrait,
   normalizeOpportunityAIScore,
   opportunityAIFlatFields,
   opportunityAIHeaderColor,
@@ -11,6 +12,7 @@ const {
   opportunityAIRetryDelayMs,
   opportunityAIScoreProgressSignature,
   opportunityTableMinimumWidth,
+  resolveOpportunityShortDates,
   selectOpportunityVisibleColumns,
 } = require('./opportunityAIScores')
 
@@ -308,6 +310,23 @@ test('the phone portrait core fits the compact 390px table on its own', () => {
   // Owner-specified phone columns: Date, DIR, AvgP and Price alongside the core.
   expect(columns).toEqual(['date', 'symbol', 'daysOut', 'lOrS', 'avg_profit', 'sharpe_ratio', 'price'])
   expect(opportunityTableMinimumWidth({ columns, isMobilePortrait: true })).toBeLessThanOrEqual(390)
+})
+
+test('phone portrait drops the year from dates even when the saved preference is off', () => {
+  const rdd = { isMobile: true, isTablet: false }
+
+  // The "Short Dates" toggle only exists in DesktopLayout, which never mounts on a
+  // phone - so a phone must not depend on the persisted preference to fit its dates.
+  expect(isPhonePortrait(rdd, 844, 390)).toBe(true)
+  expect(resolveOpportunityShortDates({ shortDates: false, phonePortrait: true })).toBe(true)
+  expect(resolveOpportunityShortDates({ shortDates: undefined, phonePortrait: true })).toBe(true)
+
+  // Everything else still honours the preference exactly as before.
+  expect(isPhonePortrait(rdd, 390, 844)).toBe(false)          // phone landscape
+  expect(isPhonePortrait({ isMobile: true, isTablet: true }, 1180, 820)).toBe(false)  // tablet portrait
+  expect(isPhonePortrait({ isMobile: false, isTablet: false }, 1080, 1920)).toBe(false)
+  expect(resolveOpportunityShortDates({ shortDates: false, phonePortrait: false })).toBe(false)
+  expect(resolveOpportunityShortDates({ shortDates: true, phonePortrait: false })).toBe(true)
 })
 
 test('AI columns require an explicit opt-in instead of appearing from a missing preference', () => {

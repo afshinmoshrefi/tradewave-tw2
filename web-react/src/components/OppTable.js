@@ -44,9 +44,11 @@ import { resolveOpportunityRecurrence } from './opportunityRecurrence'
 import { normalizeRealtimeQuote } from './realtimePrices'
 import {
   advanceOpportunityAIPollBudget,
+  isPhonePortrait,
   normalizeOpportunityAIScore,
   opportunityAIRetryDelayMs,
   opportunityAIScoreProgressSignature,
+  resolveOpportunityShortDates,
 } from './opportunityAIScores'
 import {
   buildOpportunityViewerAIRequest,
@@ -109,6 +111,13 @@ const OppTable = (props) => {
 
 
   const { wpUserLevels, browserH, browserW, rdd, token, globalTextSize, debug, loggedinUser } = useContext(UserContext)
+
+  // Resolved once and passed down, so the year label below and TableBox's date
+  // cells can never disagree about whether the year is being shown.
+  const effectiveShortDates = resolveOpportunityShortDates({
+    shortDates: props.shortDates,
+    phonePortrait: isPhonePortrait(rdd, browserH, browserW),
+  })
 
   const [seasonalYearsOptionsList, SetSeasonalYearsOptionsList] = useState([])
   const [partialSeasonalYearsOptionsList, SetPartialSeasonalYearsOptionsList] = useState([])
@@ -2076,7 +2085,7 @@ const OppTable = (props) => {
         )}
 
         {/* Short dates year label */}
-        {props.shortDates && props.opportunities.length > 0 && props.opportunities[0].date && (
+        {effectiveShortDates && props.opportunities.length > 0 && props.opportunities[0].date && (
           <div className='opp-table-controls-items' style={{ backgroundColor: 'transparent', opacity: 0.7 }}>
             <span style={{ fontSize: '11px', color: 'white' }}>{props.opportunities[0].date.substring(0, 4)}</span>
           </div>
@@ -2243,7 +2252,7 @@ const OppTable = (props) => {
                 mlUnavailableReason={mlUnavailableReason}
                 columnVisibility={props.columnVisibility}
                 columnOrder={props.columnOrder}
-                shortDates={props.shortDates}
+                shortDates={effectiveShortDates}
                 colSorted={effectiveOpportunitySort.column}
                 sortedDir={effectiveOpportunitySort.direction}
                 SetColSorted={SetOpportunitySortColumn}

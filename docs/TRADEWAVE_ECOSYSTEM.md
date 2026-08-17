@@ -753,9 +753,22 @@ MEMBERSHIP only; render order still follows `columnOrder`, which keeps Price las
 sharpe_ratio`) while leaving the correct 7-item `MOBILE_COLS` behind as dead code in
 `TableBox.js` - phones showed only Ticker/Days/SR from 2026-08-06 until 2026-08-16.
 Per-column phone widths live beside it in `MOBILE_COLUMN_MIN_WIDTH`; the 7 core columns
-total 350px and fit a ~390px viewport, and opting AI columns in via Settings
+total 336px and fit a ~390px viewport, and opting AI columns in via Settings
 deliberately exceeds that so the table scrolls horizontally rather than dropping core
 columns.
+
+**Phone portrait ALWAYS uses short dates (MM-DD).** `resolveOpportunityShortDates()` ORs
+the persisted `tw_short_dates` preference with phone-portrait; `OppTable` resolves it
+once and passes the result to `TableBox`, so the date cells and the controls-row year
+label (`OppTable.js`, shown once beside the month/day pickers) can never disagree. The
+preference itself is never mutated. Rationale: the full `YYYY-MM-DD` does not fit beside
+six other columns, and the "Short Dates" checkbox lives ONLY in `DesktopLayout`'s
+settings panel - which never mounts on a phone (§7.2 routing), so a phone user cannot
+reach the toggle at all. `isPhonePortrait(rdd, height, width)` in
+`opportunityAIScores.js` is the single definition of phone-portrait for the table;
+`TableBox` and `OppTable` both call it rather than re-deriving the orientation test,
+which is exactly how the mobile column set and the column selector drifted apart in
+`37b53ab1`.
 
 Full mobile feature-parity audit (Opp/TableBox/chart/TradeDetail/InfoPopup/onboarding/
 conversion/portfolio/trading-dialog components, 27 ranked defects incl. the AI-column gap

@@ -38,6 +38,22 @@ const REQUIRED_OPPORTUNITY_COLUMNS = new Set(['symbol', 'daysOut', 'sharpe_ratio
 // Phone portrait shows the decision-grade columns only. Membership, not order -
 // the rendered order still follows columnOrder, which keeps Price last.
 const MOBILE_OPPORTUNITY_COLUMNS = new Set(['symbol', 'date', 'daysOut', 'lOrS', 'avg_profit', 'sharpe_ratio', 'price'])
+
+// One definition of "phone portrait" for the opportunity table. Re-deriving this
+// inline per component is what let the mobile column set and the column selector
+// drift apart in the first place.
+export const isPhonePortrait = (rdd, height, width) => Boolean(
+  rdd && rdd.isMobile && !rdd.isTablet && height > width
+)
+
+// Phone portrait always drops the year (MM-DD): the full YYYY-MM-DD does not fit
+// beside six other columns, the "Short Dates" toggle lives only in DesktopLayout
+// (never mounted on a phone, so a phone user cannot reach it), and the opportunity
+// table's controls row already prints the year once. The persisted preference is
+// never mutated - this only widens where it applies.
+export const resolveOpportunityShortDates = ({ shortDates, phonePortrait }) => (
+  Boolean(shortDates) || Boolean(phonePortrait)
+)
 const DESKTOP_COLUMN_MIN_WIDTH = Object.freeze({
   symbol: 70,
   date: 80,
@@ -51,7 +67,7 @@ const DESKTOP_COLUMN_MIN_WIDTH = Object.freeze({
 })
 const MOBILE_COLUMN_MIN_WIDTH = Object.freeze({
   symbol: 58,
-  date: 62,
+  date: 48, // always MM-DD on a phone, see resolveOpportunityShortDates
   daysOut: 45,
   lOrS: 38,
   avg_profit: 50,
