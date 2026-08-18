@@ -82,24 +82,31 @@ screen.
 
 ### "How does Buy & Hold help a long-term investor?"
 
-Tara explains TradeWave's long-term research path explicitly:
+Tara leads with Buy & Hold as the main long-term feature and explains the path
+in short, numbered sections:
 
-1. Select a ticker only after considering diversification, holdings, fees,
-   valuation, liquidity, taxes, news, and personal risk needs outside TradeWave.
-2. Use **Analysis -> Buy & Hold** to establish TradeWave's Jan-1-to-Jan-1,
-   always-invested historical baseline and inspect cumulative and yearly
-   results.
-3. Identify a precise recurring weak range from the Trend Chart and yearly
-   evidence.
-4. Load that shorter range and use **Analysis -> Exclude Current Range**.
-5. Open the validated Date Range Exclusion Report and compare excluded dates,
-   remaining invested dates, and Buy & Hold over the same completed years.
-6. Ask Tara to explain improvement, deterioration, losing years, cohort limits,
-   taxes, costs, time out of market, and pattern-failure risk.
+1. In the Wave Viewer, enter a ticker and wait for its chart to load. Open
+   **Analysis -> Buy & Hold** to establish TradeWave's Jan-1-to-Jan-1,
+   always-invested historical baseline.
+2. Read the green/red yearly bars for each completed year's gain or loss, the
+   Trend Chart for the typical path through the calendar, and Cumulative Return
+   for the compounded result across the selected history.
+3. With Buy & Hold still loaded, open **Analysis -> Compare Symbols...**. Start
+   with MSFT, for example, then add WMT and AVGO. The report uses the same
+   full-year dates, direction, and common completed years for every symbol.
+4. As an advanced study, identify and set a precise recurring weak date range
+   from the Trend Chart and yearly evidence, then use
+   **Analysis -> Exclude Current Range**.
+5. After the outside dates load, select **View Exclusion Report** and compare
+   the exclusion model with Buy & Hold over the same completed years.
+6. Keep suitability factors outside TradeWave concise: it does not evaluate
+   personal goals, diversification, holdings, fees, valuation, liquidity,
+   taxes, news, or risk needs.
 
 Tara never claims the timed model will beat Buy & Hold. She treats Buy & Hold as
-the baseline that every long-term timing hypothesis must earn the right to beat
-in the historical record.
+the primary baseline, symbol comparison as the next research step, and date
+exclusion as an advanced test that must earn the right to beat the baseline in
+the historical record.
 
 ### “Find bullish ETFs this time of year.”
 

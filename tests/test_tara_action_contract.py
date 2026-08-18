@@ -467,11 +467,12 @@ def test_capability_guide_is_deterministic_and_outcome_oriented(monkeypatch):
     assert "Find opportunities" in text
     assert "Research a ticker" in text
     assert "Study downside" in text
-    assert "Research long-term timing" in text
+    assert "Research long-term investing" in text
+    assert "compare symbols" in text
     assert "guided questions below" in text
 
 
-def test_long_term_followup_makes_seasonality_an_overlay_without_model(monkeypatch):
+def test_long_term_followup_teaches_buy_hold_comparison_and_access_without_model(monkeypatch):
     calls = []
     monkeypatch.setattr(
         tara_gateway,
@@ -491,11 +492,20 @@ def test_long_term_followup_makes_seasonality_an_overlay_without_model(monkeypat
 
     assert calls == []
     assert actions == []
-    assert "timing overlay" in text
-    assert "diversification" in text
-    assert "historical patterns are not forecasts" in text
+    assert text.index("Start with Buy &amp; Hold") < text.index("Compare investments")
+    assert text.index("Compare investments") < text.index("Advanced: test weak dates")
+    assert "enter a ticker such as MSFT" in text
     assert "Analysis &rarr; Buy &amp; Hold" in text
-    assert "Date Range Exclusion Report" in text
+    assert "green and red yearly bars" in text
+    assert "Trend Chart" in text
+    assert "Cumulative Return" in text
+    assert "Analysis &rarr; Compare Symbols&hellip;" in text
+    assert "WMT and AVGO" in text
+    assert "same full-year dates" in text
+    assert "Analysis &rarr; Exclude Current Range" in text
+    assert "View Exclusion Report" in text
+    assert text.count("<br>") >= 8
+    assert len(text) < 1800
 
 
 def test_buy_hold_workflow_is_deterministic_and_uses_comparable_years(monkeypatch):
@@ -517,9 +527,18 @@ def test_buy_hold_workflow_is_deterministic_and_uses_comparable_years(monkeypatc
 
     assert calls == []
     assert actions == []
-    assert "Jan 1 to Jan 1" in text
-    assert "same completed-year cohort" in text
-    assert "not a claim that market timing will beat" in text
+    assert "Jan 1-to-Jan 1" in text
+    assert "Read historical growth" in text
+    assert "each year's gain or loss" in text
+    assert "Analysis &rarr; Compare Symbols&hellip;" in text
+    assert "MSFT first and enter WMT and AVGO" in text
+    assert "common historical years" in text
+    assert "Analysis &rarr; Exclude Current Range" in text
+    assert "View Exclusion Report" in text
+    assert "same completed years" in text
+    assert "not a promise that timing will outperform" in text
+    assert text.count("<br>") >= 10
+    assert len(text) < 1800
 
 
 def test_guided_questions_follow_the_investor_research_stage():
