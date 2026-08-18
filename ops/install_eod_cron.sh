@@ -7,7 +7,9 @@
 #   sudo bash /home/flask/ops/install_eod_cron.sh
 #
 # What it installs (TW1's canonical job, per the deployment runbook):
-#   The immutable /home/flask/.tw2-app-current release pointer owns the job code.
+#   Dev uses the immutable /home/flask/.tw2-app-current release pointer. Staging
+#   and production use the canonical /home/flask checkout, matching their
+#   effective systemd WorkingDirectory and the deployment contract.
 #   data_updater/update_client2.py pulls EOD deltas from config.update_server
 #   (TW2_UPDATE_SERVER in secrets.env) into /home/flask/data/csv/. Runs as
 #   flask (the data dir is flask-owned) with secrets sourced. The production
@@ -22,11 +24,22 @@
 # with secrets sourced so it picks up the per-env TW2_UPDATE_SERVER.
 set -euo pipefail
 
-RELEASE_ROOT='/home/flask/.tw2-app-current'
-LINE='5 3-5 * * 2-6 set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask/.tw2-app-current/data_updater && flock -n /var/lib/tradewave/eod/update.lock /home/flask/venv/bin/python update_client2.py >> /var/log/tradewave/update_client.log 2>&1'
+[ -r /etc/tradewave/secrets.env ] || { echo "FAIL: /etc/tradewave/secrets.env not readable"; exit 1; }
+tw2_env=$(grep -m1 '^TW2_ENV=' /etc/tradewave/secrets.env 2>/dev/null | cut -d= -f2-)
+case "$tw2_env" in
+  dev)
+    RELEASE_ROOT='/home/flask/.tw2-app-current'
+    ;;
+  staging|prod)
+    RELEASE_ROOT='/home/flask'
+    ;;
+  *)
+    echo "FAIL: TW2_ENV must be dev, staging, or prod"; exit 1
+    ;;
+esac
+LINE="5 3-5 * * 2-6 set -a; . /etc/tradewave/secrets.env; set +a; cd $RELEASE_ROOT/data_updater && flock -n /var/lib/tradewave/eod/update.lock /home/flask/venv/bin/python update_client2.py >> /var/log/tradewave/update_client.log 2>&1"
 
 # Sanity: every piece the cron needs must exist on THIS box.
-[ -r /etc/tradewave/secrets.env ]                  || { echo "FAIL: /etc/tradewave/secrets.env not readable"; exit 1; }
 [ -x /home/flask/venv/bin/python ]                 || { echo "FAIL: /home/flask/venv/bin/python missing"; exit 1; }
 [ -d "$RELEASE_ROOT/data_updater" ]                 || { echo "FAIL: $RELEASE_ROOT/data_updater missing"; exit 1; }
 [ -f "$RELEASE_ROOT/data_updater/update_client2.py" ] || { echo "FAIL: release update_client2.py missing"; exit 1; }
