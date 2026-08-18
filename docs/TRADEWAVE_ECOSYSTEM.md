@@ -1232,6 +1232,9 @@ and use **Analysis -> Compare Symbols...** for a common-history comparison. Only
 steps does she teach **Analysis -> Exclude Current Range** and **View Exclusion Report** as an
 advanced weak-period study. She avoids personalized buy or allocation recommendations. Proactive
 starter and follow-up questions show users what Tara can do.
+The suggested-question cards sit in a compact tray below the conversation. Its header chevron
+slides only those cards closed or open, never the conversation or message input, and the choice is
+stored with the existing user-scoped localStorage helpers so each user keeps their own preference.
 Every viewer change is a signed, allowlisted action; success requires matching observed UI state and
 non-empty primary and trend chart sources. Question events and browser action receipts share
 `turn_id`/`action_id` values so failures and displayed responses are auditable. The full behavioral,

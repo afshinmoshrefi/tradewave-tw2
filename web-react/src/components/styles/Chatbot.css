@@ -3,6 +3,62 @@
   overflow-wrap: anywhere;
 }
 
+.tara-guided-questions {
+  padding: 3px 8px 2px;
+}
+
+.tara-guided-questions-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 28px;
+  padding: 3px 1px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  font: inherit;
+  font-size: clamp(11px, 0.68vw, 13px);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tara-guided-questions-toggle:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.tara-guided-questions-chevron {
+  margin-left: 8px;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.tara-guided-questions-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 180ms ease, opacity 140ms ease;
+}
+
+.tara-guided-questions-body.is-collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tara-guided-questions-inner {
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tara-guided-questions-body {
+    transition: none;
+  }
+}
+
 .tara-analysis {
   display: flex;
   flex-direction: column;
