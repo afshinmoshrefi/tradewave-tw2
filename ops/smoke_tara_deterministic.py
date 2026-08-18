@@ -10,8 +10,9 @@ import jwt
 import requests
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-QUESTION_LOG = REPO_ROOT / "appserver" / "appserver" / "chatbot_questions.log"
+QUESTION_LOG = Path(
+    os.environ.get("TARA_QUESTION_LOG", "/var/log/tradewave/tara_questions.log")
+)
 MESSAGE = "explain this chart"
 USER_ID = "tara-parity-deterministic-smoke"
 
