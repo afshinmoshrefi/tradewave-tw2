@@ -923,6 +923,53 @@ def test_chat_route_passes_loaded_lookback_to_a_different_named_symbol(monkeypat
     assert seen["named_symbol_lookback"] == 16
 
 
+def test_chat_route_preserves_named_symbol_action_when_viewer_is_empty(monkeypatch):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    seen = {}
+    monkeypatch.setattr(chatbot_module, "build_deterministic_reply", lambda *args, **kwargs: None)
+    monkeypatch.setattr(chatbot_module, "build_system_prompt", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: OPENAI_PROVIDER,
+    )
+    monkeypatch.setattr(chatbot_module, "TARA_TOOLS_ENABLED", True)
+
+    def fake_openai(*args, **kwargs):
+        seen.update(kwargs)
+        return "AAPL chart request.", [{
+            "type": "set_view",
+            "spec": {
+                "symbol": "AAPL",
+                "market": "2",
+                "entry_date": "2026-08-18",
+                "days_out": 21,
+            },
+        }]
+
+    monkeypatch.setattr(chatbot_module, "run_chat_with_openai_tools", fake_openai)
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+
+    app = Flask(__name__)
+    message = "Load AAPL and show me its current seasonal pattern."
+    body = {
+        "message": message,
+        "history": [{"role": "user", "content": message}],
+        "wave_viewer": {},
+        "screen_context": {},
+        "opportunities": [],
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "empty-view-named-symbol-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    assert response.status_code == 200
+    assert seen["named_symbol_override"] == "AAPL"
+    assert seen["named_symbol_lookback"] is None
+
+
 @pytest.mark.parametrize("analysis_message", ["Analyze", "Analyze this", "Analyze this pattern"])
 def test_chat_route_replaces_client_ai_values_with_server_analysis_context(
     monkeypatch, analysis_message

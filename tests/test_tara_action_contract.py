@@ -292,6 +292,7 @@ def test_negated_load_cannot_queue_an_action(monkeypatch):
         "pull AAPL up",
         "display AAPL",
         "take me to AAPL",
+        "Load AAPL and show me its current seasonal pattern.",
     ],
 )
 def test_single_pick_requests_require_a_chart_action(text):
@@ -353,6 +354,9 @@ def test_investor_funnel_classifies_horizon_universe_and_weak_periods():
     assert tara_gateway.classify_investor_intent(
         "What can I research with Tara right now?"
     ) == "capabilities"
+    assert tara_gateway.classify_investor_intent(
+        "Load AAPL and show me its current seasonal pattern."
+    ) is None
     assert tara_gateway.classify_investor_intent([
         {"role": "user", "content": "I want to invest. What should I buy?"},
         {"role": "assistant", "content": "Long term or seasonal?"},

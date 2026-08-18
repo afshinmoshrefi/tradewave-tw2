@@ -937,6 +937,12 @@ def classify_investor_intent(messages_or_text):
         return "named_security"
     if _PERSONAL_TRADE_DECISION_RE.search(latest):
         return "trade_suitability"
+    if _explicit_ticker(latest) and _DIRECT_VIEW_REQUEST_RE.search(latest):
+        # An explicit symbol plus a direct viewer verb is an actuation request,
+        # even when the user also says "seasonal pattern". Let the chart-action
+        # path read that symbol's evidence and queue a verified UI transaction;
+        # the general investor funnel below is only for discovery questions.
+        return None
     if _BUY_HOLD_STUDY_RE.search(latest):
         return "buy_hold_study"
     if _EXCLUSION_STUDY_RE.search(latest):

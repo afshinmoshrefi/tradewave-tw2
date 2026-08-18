@@ -2605,7 +2605,6 @@ def chat():
         named_symbol_override = (
             explicit_named_symbol
             if explicit_named_symbol
-            and loaded_symbol
             and explicit_named_symbol != loaded_symbol
             else None
         )
