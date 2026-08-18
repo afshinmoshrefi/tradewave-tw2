@@ -1633,34 +1633,31 @@ cache-breakpoint, and shared-tool-loop behavior.
 
 ## 8. Deploy / ops / cron
 
-**Routine deploy = `bash ops/deploy.sh {staging|prod}`** from dev. Per env:
-pre-flight (`TW2_PUBLIC_HOST` set on both boxes, else abort) -> per tier
-`git pull --ff-only` + `pip install -r requirements.txt` (mandatory - a missing
-dep crash-loops workers into a 502) + web-box `ops/migrate.sh` + idempotent
-`ops/install_mailerlite_lifecycle_cron.sh` + restart (`tradewave-appserver` on app;
-`tradewave-web` + `tradewave-blog-queue` + `tradewave-article-processor` on web)
-+ `is-active` -> React symlink-swap -> nginx CSP reload. Full detail +
-restart-matrix: `ops/OPERATIONS.md`.
+**Staging/production deploy = `bash ops/deploy.sh {staging|prod}`** from dev after
+full release qualification. Per env: pre-flight (`TW2_PUBLIC_HOST` set on both
+boxes, else abort) -> per tier `git pull --ff-only` + `pip install -r
+requirements.txt` (mandatory - a missing dep crash-loops workers into a 502) +
+web-box `ops/migrate.sh` + idempotent lifecycle cron install + affected service
+restarts + `is-active` -> exact React symlink-swap -> nginx reload. Full detail
++ restart-matrix: `ops/OPERATIONS.md`.
 
-**Git release invariant:** deployments promote exact commits, not the current contents of
-the dev server. Every Codex or Claude task uses a dedicated branch and worktree; the task
-uses current `origin/main` as its base, and preserves intended changes as an exact pushed
-commit. For substantive application/runtime work, the task is not complete at that point.
-The coding session may become the recorded dev-completion manager and, under the dev lock,
-combine its task with every completed change in a clean integration worktree, build one
-immutable candidate, activate and live-verify it on dev, and leave freshly fetched
-`origin/main` equal to the exact active dev SHA. Claude and Codex may develop concurrently,
-but final integration and dev activation are serialized. `/home/flask` is the operational
-checkout, not a development scratchpad. Canonical procedure:
-`.claude/skills/tw-git-release-workflow/SKILL.md`.
+**Git/dev invariant:** agents promote commits, never arbitrary dirty files. Every Codex
+or Claude task uses a dedicated current-main branch/worktree and pushes its intended
+commit. Ordinary completion uses the fast dev loop: focused affected-surface tests, one
+required build, a short final activation lock, a live smoke of the changed behavior, and
+a non-forced main update. Full regression, release manifest, staging inventory, broad
+account-tier gates, snapshots, and rollback rehearsal begin only when staging is requested.
+Claude and Codex may develop concurrently; only the brief dev activation and environment
+promotions are serialized. `/home/flask` is operational, not a scratchpad. Canonical
+procedure: `.claude/skills/tw-git-release-workflow/SKILL.md`.
 
-**Release-state invariant:** durable manager state lives only under
-`/var/lib/tradewave/release-state/`, initialized on dev by
-`ops/init_release_state.sh` as `flask:flask` mode `0750`. The manifest records the
-one-time baseline marker and a dev integration/activation lock. A manager acquires
-`dev-activation.lock` before final integration, refetches current `origin/main`, and keeps
-the lock through build, activation, runtime/browser verification, and the final proof that
-the active dev SHA equals `origin/main`.
+**Coordination/release-state invariant:** `/var/lib/tradewave/release-state/` is
+initialized by `ops/init_release_state.sh` as `flask:flask` mode `0750`.
+Routine dev uses only the atomic `dev-activation.lock`, acquired after testing/building
+and held through the brief ref check, activation, changed-behavior smoke, main update, and
+parity proof. A full named manifest is created only for staging/production qualification
+and then records ownership, immutable artifacts, broad gates, target drift, approvals,
+snapshots, and rollback.
 
 **Tara immutable app release invariant (2026-08-04):** a scoped Tara-only backend promotion uses
 a clean detached worktree under `/home/flask/.tw2-releases/<sha>` and atomically points
@@ -1973,10 +1970,12 @@ roadmap memories.)
 4. **FREEZE legacy Stripe price cleanup** - never archive a price with an active sub.
 5. **No em-dashes** in TradeWave/SMN content (use ` - `). Date-range LABELS use
    en-dash via `tw_dateformat.py`; prose uses words; slugs stay ASCII.
-6. **A substantive application-change request includes clean integration and verified dev
-   activation unless the owner explicitly says local-only or do-not-deploy.** A plain
-   staging-deploy request authorizes the sole release manager to execute the complete gated
-   staging workflow. Never touch production or TW1 directly - author
+6. **A substantive application-change request includes fast clean integration and verified
+   dev activation unless the owner explicitly says local-only or do-not-deploy.** Focused
+   tests, the affected build, a short lock, and a changed-behavior smoke finish dev.
+   Full regression and release-manifest gates start only on a plain staging-deploy request,
+   which authorizes the sole manager to execute the complete gated staging workflow.
+   Never touch production or TW1 directly - author
    production commands and the operator runs them. Read-only inspection of `.151` is allowed.
 7. **All TW2 hosts are Cloudflare tunnels** - never convert prod to an A record.
 8. **config.py is env-agnostic** - per-env values only via secrets.env. Never use
@@ -2047,9 +2046,9 @@ roadmap memories.)
 
 ## 12. Where the deep detail lives
 
-- `docs/RELEASE_PROCESS.md` - mandatory cross-agent release ownership, Git/artifact,
-  approval, active-runtime, browser/contract, handoff, and rollback policy. It applies
-  automatically whenever Codex, Claude, or a human prepares or performs a deployment.
+- `docs/RELEASE_PROCESS.md` - mandatory cross-agent fast-dev and qualified-release
+  policy: focused dev completion by default, then full artifact, approval, runtime,
+  browser/contract, handoff, and rollback gates when staging/production is requested.
 - `ops/release-risks/` - dated, reverified release hazards and out-of-band environment
   evidence. These records seed a release manifest but never replace current read-only checks.
 - `ops/OPERATIONS.md` - the operational runbook (deploy, restart matrix, box

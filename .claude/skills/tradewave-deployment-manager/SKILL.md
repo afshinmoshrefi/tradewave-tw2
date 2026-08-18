@@ -1,135 +1,125 @@
 ---
 name: tradewave-deployment-manager
-description: Manage TradeWave application completion, dev activation, releases, and environment parity across Codex and Claude. Use automatically for any substantive TradeWave application or runtime-visible code change; whenever the user asks to fix, change, build, or update product behavior; when work must become live and verified on dev; when multiple agents are working concurrently; or when the user asks to deploy, promote, release, ship, roll back, prepare a release, compare environments, determine readiness, continue a handoff, or diagnose drift. A normal application-change request includes clean Git integration and verified dev activation unless the user says local-only or do-not-deploy. A plain staging-deploy request authorizes the complete gated staging workflow. Enforce one mutation owner, current-main worktrees, immutable artifacts, active-runtime verification, browser smoke tests, and recorded rollback.
+description: Manage TradeWave fast dev completion and gated staging/production releases across Codex and Claude. Use automatically for any substantive application or runtime-visible change; whenever the user asks to fix, change, build, update, activate dev, deploy, promote, release, ship, roll back, compare environments, determine readiness, continue a handoff, or diagnose drift; and whenever multiple agents work concurrently. Ordinary changes use the focused fast dev loop unless the user says local-only or do-not-deploy. A plain staging-deploy request starts the full manifest, regression, immutable-artifact, target-audit, browser/contract, and automatic-rollback workflow.
 ---
 
 # TradeWave deployment manager
 
-Act as the sole mutation manager for one named release. A coding session may assume this role; a separate deployment conversation is not required. Treat the live dev product plus the requested change as behavior to preserve, then make the combined behavior reproducible as a clean commit and immutable artifact. "One manager" means exclusive ownership of final integration and activation, not one permanent agent.
+Use one of two modes:
+
+- **Fast dev completion** is the default for ordinary application changes. It makes the requested behavior live, verified, committed, pushed, and staging-ready without running staging's release machinery.
+- **Qualified release** begins only when the user asks to deploy to staging or production. It creates the named release and full manifest, qualifies one immutable artifact, audits the target, promotes, verifies, and rolls back automatically when required.
+
+One manager means exclusive ownership of an environment mutation window, not one permanent agent or a separate conversation.
 
 ## Load the authority
 
-1. Locate the TradeWave repository.
-2. Read `AGENTS.md`, `CLAUDE.md`, `docs/RELEASE_PROCESS.md`, `docs/TRADEWAVE_ECOSYSTEM.md`, `ops/OPERATIONS.md`, and `.claude/skills/tw-git-release-workflow/SKILL.md` completely.
-3. For production, also read `.claude/skills/prod-deploy/SKILL.md` and enforce its current-day snapshot gate.
-4. Treat `docs/RELEASE_PROCESS.md` as the cross-agent release policy and `ops/OPERATIONS.md` as the command/runbook authority. If a required file is missing from the current worktree, fetch and inspect it from current `origin/main` before concluding that the control is unavailable. Stop before changing an environment only if the authority is also missing from current `origin/main` or the authorities conflict materially.
+1. Locate the TradeWave repository and fetch current remote refs using the repository's required Git user.
+2. Read AGENTS.md, CLAUDE.md, docs/RELEASE_PROCESS.md, docs/TRADEWAVE_ECOSYSTEM.md, ops/OPERATIONS.md, and .claude/skills/tw-git-release-workflow/SKILL.md completely.
+3. For production, also read .claude/skills/prod-deploy/SKILL.md and enforce its current-day snapshot gate.
+4. If a required file is missing from the current worktree, inspect it from current origin/main before declaring it unavailable. Stop before changing an environment only when current-main authority is also missing or materially conflicting.
 
-## Interpret authorization narrowly
+## Interpret authorization
 
-- A request to inspect, compare, explain, diagnose, or check readiness authorizes read-only work only.
-- A request to fix, change, build, or update substantive TradeWave application behavior authorizes routine branch/worktree creation, commit and push, clean integration, build, dev-only activation, rollback-on-failure, and live verification needed to leave the change complete on dev and staging-ready. It does not authorize staging or production. An explicit `local only` or `do not deploy` instruction overrides this default.
-- A request to deploy to staging is the complete authorization for the sole release manager to preserve work, integrate and push the clean release, advance `origin/main` after validation, build and activate dev, execute staging writes, verify staging, and automatically roll back staging on failure. It approves the behavior running on dev when the request is made as the release target. It never authorizes production.
-- Do not ask the user to restate the workflow, select routine commands, run staging commands, or approve intermediate steps. Proceed autonomously while the captured dev behavior is reproduced exactly and every gate passes. Ask only when an unclassified change requires an owner decision, exact dev parity cannot be proven, required credentials/authority are unavailable, or rollback cannot be made safe.
-- A request to deploy to production requires the same release to have passed staging, explicit production approval, and current-day web and appserver snapshots.
-- Never treat an earlier approval as approval of a different commit, artifact, target, or release.
-- The release manager executes approved repository, dev, and staging writes. Record `execution_mode=manager-live-write` and the executing agent identity for staging mutations. Production remains separate: agents inspect and author commands, and Afshin or his designated human operator executes production writes unless a later explicit policy change says otherwise.
-- Every staging activation must include automatic rollback in the manager-started command. If automatic rollback fails, mark the release `rollback_required`, record the target as at risk, stop further writes, and report the exact state. For production, retain the operator/automatic-rollback rule in the production skill.
+- Inspect, compare, explain, diagnose, and readiness questions are read-only.
+- Fix, change, build, or update substantive application behavior authorizes routine branch/worktree creation, focused testing, commit/push, clean integration, required build, dev-only activation, rollback-on-failure, and live verification. It does not authorize staging or production. local only or do not deploy overrides the default.
+- Deploy to staging is complete authorization to qualify the behavior running on dev at request time and execute every required repository, dev, and staging action through verified completion, including automatic staging rollback. Do not ask the user to restate the process, choose routine commands, or run staging commands.
+- Production requires the same staging-approved release, a separate explicit production request, and current-day snapshots of both production servers. Agents inspect and author production commands; Afshin or his designated operator executes production writes unless policy explicitly changes.
+- Never transfer approval to a different SHA, artifact, target, or later release.
 
-## Establish exclusive ownership
+## Coordinate concurrent work
 
-1. Assign a release ID such as `tw2-YYYYMMDD-NN`.
-2. On the first use of this process, initialize the dev-owned state path with `sudo bash ops/init_release_state.sh`. Inspect `/var/lib/tradewave/release-state/active.json` and the release manifest if present. Keep durable state separate from disposable release checkouts.
-3. Do not integrate or deploy when another active manager owns the release. Continue only after an explicit handoff or owner override is recorded.
-4. Record manager identity, task/thread identity when available, requested target, and status. A manager may be replaced; the manifest, commit, artifacts, evidence, and approvals carry the authority, not chat memory.
-5. Development agents work in isolated task branches. To finish application work, the coding session either becomes the recorded dev-completion manager or hands the exact pushed commit to the manager already holding the mutation window. Only the recorded manager may perform final integration, advance the release branch or `main`, build the release artifact, activate dev, execute the authorized staging promotion and rollback, or author production promotion and rollback commands.
+- Claude and Codex may edit the same repository concurrently only in separate clean branches/worktrees based on current origin/main.
+- Each task owns one concern and pushes its exact commit. Do not mix arbitrary files from another checkout.
+- Serialize only the brief final dev activation and all staging/production mutations. Do not hold the dev lock while coding, running ordinary tests, or performing the first build.
+- The lock is /var/lib/tradewave/release-state/dev-activation.lock, created atomically with mkdir and containing owner/task metadata. Refuse a live lock unless handed off or explicitly proven stale.
+- If another session owns the activation window, preserve the exact pushed commit and wait or hand it off internally. Never ask Afshin to sequence branches or locks.
+- Never print secrets in state, logs, or responses.
 
-Never print secrets in a manifest, log excerpt, or response.
+## Fast dev completion - default
 
-## Complete application work on dev
+Do this automatically for application/runtime work unless the owner requested local-only work:
 
-For substantive application or runtime-visible work, do not stop after editing, local tests, a commit, or a handoff unless the owner explicitly requested local-only work. Branches, commits, worktrees, handoffs, locks, and routine conflict resolution are internal agent responsibilities.
+1. Fetch origin/main. If the current worktree is stale, dirty with unrelated work, or lacks current controls, preserve task-owned changes and move them to a fresh task worktree from current main.
+2. Review the complete task diff. Run focused tests for the changed behavior plus cheap, directly relevant compile/lint checks. Use proportional extra gates for migrations, auth, billing, security, destructive data paths, or deployment infrastructure.
+3. Commit and push only the task-owned change.
+4. Integrate the exact task commit in a clean worktree on current origin/main. Build only affected runtime artifacts:
+   - React changes: run npm run build once through the documented build path and stamp provenance.
+   - Backend-only changes: do not rebuild React.
+   - Static-generator changes: run only the affected generator after activation.
+   - Documentation/policy-only changes: do not rebuild or activate the application when its runtime tree is unchanged.
+5. After the candidate is tested and built, acquire the dev activation lock and immediately refetch origin/main. If main moved, release the lock, integrate the new commits, rerun only checks/builds affected by that integration, and retry. Do not start the full suite merely because another task completed.
+6. Record the current backend and frontend pointers, activate the candidate through the actual runtime mechanism, and restart only affected services. A copied file is not active when systemd or nginx follows a release pointer.
+7. Run one live smoke that proves the changed behavior:
+   - UI behavior: rendered browser assertion of the affected interaction.
+   - Backend/API behavior: relevant live route or contract assertion.
+   - Static page: public/origin content assertion for the changed page.
+   Feature-marker greps, build success, and HTTP 200 alone are insufficient.
+8. Advance origin/main to the verified candidate with a non-forced concurrency-safe push. If the push fails because main moved, roll dev back to the recorded pointers, release coordination, integrate the newer main, and retry.
+9. Refetch and prove that current main's application tree, live backend source, and affected artifact provenance match. Release the lock promptly.
+10. Report the exact SHA and live evidence. **Staging-ready** means clean, pushed, live on dev, and focused-tested. It does not mean the full staging qualification has run.
 
-1. Before editing, fetch current remote refs. If the current worktree is stale, dirty with unrelated work, or predates the policy files, preserve task-owned changes and move them to a fresh task worktree based on current `origin/main`. Check required policy files in `origin/main` before declaring them missing.
-2. Commit and push only the task-owned change. Record its exact SHA and tests.
-3. Inspect release state. If another Claude or Codex manager owns the dev mutation window, preserve the handoff and wait or coordinate with that manager; do not ask the owner to order branches and do not claim the change is done.
-4. Acquire `/var/lib/tradewave/release-state/dev-activation.lock` before final integration. Refetch `origin/main` while holding the lock, create a clean integration worktree, and combine the task with every already completed change.
-5. Run focused tests, the combined safe suite, and the release build. Activate that immutable candidate on dev and verify the actual changed behavior, including a rendered browser assertion for UI behavior.
-6. After live verification, advance `origin/main` to the exact candidate with a non-forced, concurrency-safe update. If the remote ref changed unexpectedly, roll dev back to its recorded previous release, integrate the newer main, rebuild, and repeat. Never force-push or overwrite another completed change.
-7. Re-fetch and prove `origin/main`, the live backend source, frontend provenance, and release manifest identify the same full SHA. Release the lock only after this proof.
-8. Report the application change complete only with the live dev verification and exact SHA. State that it is staging-ready. Do not use "fixed," "done," "complete," or "live" for work that exists only in a private worktree.
+Routine dev completion does **not** require a release ID, full release manifest, full regression suite, staging inventory, broad account-tier matrix, snapshots, or rollback rehearsal. A high-risk change adds relevant gates in step 2; it does not automatically inherit every staging gate.
 
-## Reconcile dev before promotion
+## Begin a qualified staging release
 
-Do not assume Git, `/home/flask`, a bundle, and the running processes match.
+Only after the user asks to deploy to staging:
 
-1. Inspect the exact dev Git HEAD, branch, status, task worktrees, active backend process paths, effective systemd base units and drop-ins for every release-managed service, frontend build pointer, referenced bundle, and bundle hash.
-2. Inventory every difference needed to reproduce the behavior the user approves on dev. Do not guess which dirty files are junk and do not reset, stash, clean, delete, or overwrite unclassified work.
-3. Preserve intended dev-only work on focused task branches. Integrate exact reviewed commits in a new clean release worktree based on current `origin/main`.
-4. Resolve combined behavior in source. Do not copy an ad hoc dev bundle or selectively commit files merely because they look relevant.
-5. Build once from the clean release commit with the repository build helper. Record the full source SHA, provenance marker, bundle names, and SHA-256 hashes.
-6. Before final integration, announce the expected interruption, then acquire `/var/lib/tradewave/release-state/dev-activation.lock` as an atomic directory lock with `mkdir` and write its owner metadata. Refuse an existing lock unless its owner explicitly hands it off or the owner records a stale-lock override. Refetch `origin/main`, integrate, and record the exact candidate SHA and evidence in `dev_coordination`. Activate that exact candidate on dev using the documented runtime model. Keep the lock through runtime/browser verification and the final `origin/main` identity check, then release only the lock owned by this release and record the release event.
-7. Run focused tests, the combined safe suite, required contract checks, and real browser assertions. Exercise the changed behavior, not only feature strings or HTTP 200 responses.
-8. When the clean candidate exactly reproduces the captured dev behavior and all required gates pass, bind the user's staging-deploy request as dev approval against the recorded commit and composite artifact hash. Do not request redundant approval. If parity is not proven, do not bind approval or promote.
+1. Capture the behavior currently running on dev as the target. Assign a release ID such as tw2-YYYYMMDD-NN, claim manager ownership in release state, and create the manifest.
+2. Confirm current origin/main has the same application tree as live dev. A docs-only main advance is allowed; the qualified artifact must still be built from the exact final main SHA.
+3. Inventory all completed task SHAs and actual dev runtime pointers. Preserve unclassified dev work; never reset, stash, clean, delete, or overwrite it.
+4. In a clean current-main release worktree, run focused integration checks, the complete safe regression suite, release-specific contracts, and the required release build. Build once and record source provenance, backend fingerprint, frontend paths/hashes, and the composite artifact hash.
+5. Reconcile live dev with that exact qualified artifact. Run all required dev runtime, contract, entitlement, and browser gates. Bind the user's staging request to that exact SHA and composite artifact hash.
+6. Lock main_locked_sha. Do not advance main, rebuild, re-merge, or substitute another artifact between staging qualification and production.
 
-If no clean commit and artifact reproduce approved dev behavior, the release is blocked. Do not promote.
-
-For the first release under this policy, declare a one-time `baseline-reconciliation` release. Inventory and preserve all dev-only work, establish one clean `origin/main` commit and artifact that reproduce approved dev behavior, and atomically write `/var/lib/tradewave/release-state/baseline.json`. Record the marker path, exact release SHA, completion time, and evidence in the manifest's `baseline` object. Later standard releases require that completed marker and do not reopen the historical inventory.
+If dev behavior cannot be reproduced exactly from a clean commit and artifact, stop before staging.
 
 ## Maintain the release manifest
 
-Store state on the dev server at `/var/lib/tradewave/release-state/<release-id>/release.json`, with `/var/lib/tradewave/release-state/active.json` identifying the active release. Never share this parent with release checkouts, builds, worktrees, or cleanup targets. Validate it with `ops/validate_release_manifest.py` before every promotion write and terminal status transition.
+Store release manifests on dev at /var/lib/tradewave/release-state/<release-id>/release.json, with /var/lib/tradewave/release-state/active.json identifying the active qualified release. Initialize the state directory once with ops/init_release_state.sh. Keep it separate from disposable checkouts and validate manifests with ops/validate_release_manifest.py.
 
-Record at minimum:
+The full manifest starts at staging qualification, not during routine dev completion. It records:
 
-- release ID, manager, requested target, status, created/updated times;
-- the baseline marker state and dev activation coordination/lock state;
-- base and release branch, included handoff SHAs, full release SHA, remote ref state;
-- frontend artifact paths and hashes, backend/source fingerprint, effective runtime paths;
-- test, contract, browser, and environment-verification evidence;
-- dev and staging approvals tied to the exact SHA and the composite `artifacts.manifest_sha256`; compute it from canonical JSON containing `git.release_sha`, `artifacts.backend_fingerprint`, and the path-sorted frontend artifact records, excluding the hash field itself; backend-only releases still bind the active frontend record;
-- typed runtime, contract, and browser gates;
-- out-of-band changes and their classification;
-- snapshots, concrete backend and frontend rollback pointers and commands (record the unchanged pointer when a component is unaffected), deployment events, and known risks;
-- who authored and who executed every state-changing event.
+- release/manager identity, target, status, timestamps, included task SHAs, exact release SHA, and locked main SHA;
+- frontend paths/hashes, backend fingerprint, live process paths, and canonical composite artifact hash;
+- test, runtime, contract, entitlement/browser, target-drift, and environment evidence;
+- approvals bound to the exact SHA and artifact hash;
+- out-of-band classifications, migrations/configuration, snapshots, risks, and concrete backend/frontend rollback pointers and commands;
+- append-only events naming author and executor.
 
-Use atomic writes and keep append-only deployment events, starting with the release-ownership event. A required gate is not valid until it ran, passed, and contains evidence. An environment may be `verified` only when all four typed gates passed. A blocking out-of-band item forbids a deployed, approved-for-next-stage, or complete status. Handoffs update the manifest before the current manager stops.
+Write atomically. A required gate needs passed evidence. A blocking out-of-band item forbids deployment, approval, or completion.
 
-## Promote the immutable release
+## Promote the qualified artifact
 
-For each environment, in order:
+For staging, then production:
 
-1. Verify preconditions before any write. Snapshot or capture rollback state as required. For staging, perform these actions autonomously under the staging-deploy authorization.
-2. Reconcile target out-of-band state. Compare tracked files with their Git objects, effective systemd configuration and all release-managed process paths with the intended runtime model, and the active frontend hash with its provenance. Classify and preserve every difference. Any unclassified or blocking difference stops promotion; never overwrite it silently.
-3. Require `origin/main` to equal the exact release SHA before staging. Lock that SHA in the manifest and require it to remain unchanged through staging approval and production promotion.
-4. Promote the exact dev-approved source SHA and exact frontend artifact. Do not rebuild, re-merge, or substitute a later `main`.
-5. Confirm target Git cleanliness and ownership without discarding target data.
-6. Apply migrations/configuration only when listed in the manifest and approved by the runbook.
-7. Activate the release through the actual runtime mechanism. Copying files to `/home/flask` is not activation when systemd uses a release pointer.
-8. Inspect effective unit configuration, including drop-ins, and verify the running processes' working directories and command lines. Resolve conflicting base-unit and drop-in deployment models before promotion; detection alone is insufficient.
-9. Verify nginx/index references the expected frontend bundle and hash. Confirm backend/source fingerprints.
-10. Run service and route checks, the release-specific contract checks, and at least one real browser assertion for affected UI workflows.
-11. On staging failure, automatically roll back inside the manager-started deployment command and verify the restored state. If rollback fails, mark `rollback_required`, stop, and report the exact live state. For production, follow the separate operator rule. Never report success because another verifier printed `CLEAN`.
-12. Record results. Complete a requested staging release after verification without asking for another approval; any later production promotion remains a new explicit request.
+1. Verify authorization and preconditions before any write. Capture executable rollback state.
+2. Audit target tracked files, effective systemd base units/drop-ins, every release-managed process path, nginx/docroots, and active frontend hashes. Classify and preserve every difference; blocking or unknown drift stops promotion.
+3. Require origin/main to equal main_locked_sha.
+4. Promote the exact dev-qualified source SHA and artifact. Never rebuild or merge between environments.
+5. Apply only recorded migrations/configuration and activate through the real runtime pointers.
+6. Verify effective units/drop-ins, process working directories/commands, backend fingerprint, frontend index/bundle/hash, nginx route, health, contracts, and affected rendered behavior.
+7. Staging commands must contain automatic rollback. On a failed post-write gate, roll back and verify restoration. If rollback fails, mark rollback_required, stop writes, and report the exact live state.
+8. Record final evidence. Complete staging without another approval request. Production remains a later explicit request and human-executed write boundary.
 
-Staging is mandatory before production. Production must use the same SHA and artifacts that passed staging.
+Staging is mandatory before production. Production uses the same staging-approved SHA and artifacts and must pass the snapshot gate.
 
-## Required Wave Viewer regression gates
+## Required Wave Viewer staging gates
 
-Until superseded by a tested repository gate, include both:
+Until replaced by a proven repository gate, every affected **staging or production release** includes:
 
-1. A level-1/free-tier contract check that loads a real US or INDX pattern, requires non-empty `ChartData4`, and proves the echoed `request.entry_date` matches the requested US market date. Include UTC/US-evening coverage when date behavior is relevant.
-2. A browser check that signs in as a level-1/date-locked user, loads the app, clicks an opportunity row, verifies a canvas exists in `.seasonal-barchart-parent`, and verifies the `.barchart-background` loading/empty watermark is gone after success.
+1. A level-1/date-locked real US or INDX pattern with non-empty ChartData4 and echoed request.entry_date equal to the requested US market date. Include ordinary and UTC/US-evening coverage when date behavior is relevant.
+2. A signed-in level-1 browser flow that clicks an opportunity row, finds a canvas in .seasonal-barchart-parent, and proves .barchart-background disappears after load.
 
-For any release touching current-date logic, require both ordinary-time and UTC/US-evening contract evidence. Do not pass until application code derives the US market date explicitly from `America/New_York`, independent of host timezone. Changing a box timezone or relaxing the frontend response guard is not an acceptable repair.
+For current-date changes, derive US market date from America/New_York; changing host timezone or weakening the response guard is not a repair. Staging intentionally has only US and INDX data. Do not add absent datasets or select absent markets for contracts.
 
-Staging intentionally contains only US and INDX market data. Missing ETF, COMM, FOREX, FOREX_LQ, CC, GBOND, LSE, and TO symbol lists and the updater's corresponding aggregate `ok:false` are expected. Do not add those datasets or storage, and do not choose them for staging contract tests.
+These broad gates belong to staging qualification. During fast dev completion, exercise the changed behavior and only the entitlements/timing conditions directly affected by it.
 
-Feature-marker greps, unit tests, build success, and HTTP 200 checks do not replace these gates.
+## Risks, rollback, and handoff
 
-## Release risk records
+- Read unresolved records under ops/release-risks/ when qualifying a staging/production release and reverify current status. Do not burden unrelated fast dev changes with a full target-risk audit.
+- Before any activation, know the previous affected pointers. Routine dev may use the documented pointer rollback; staging/production records complete executable rollback in the manifest.
+- Before handing a qualified release to another manager, atomically update the manifest with exact pointers, SHAs/hashes, completed/pending gates, approvals, risks, and rollback.
+- Before handing unfinished dev work, push the exact task commit and state focused tests and remaining work; a full release manifest is unnecessary.
 
-Read every unresolved dated record under `ops/release-risks/` and seed its still-current items into the manifest's `known_risks` and `out_of_band_changes`. Reverify rather than copying old status forward. Do not embed changing environment state in this skill.
-
-Do not silently repair a risk while asked only to inspect or create policy. Record proposed code changes separately.
-
-## Handoff and completion
-
-Before handing to another Codex, Claude, or human manager:
-
-1. Stop new mutations.
-2. Update the manifest atomically with the last completed gate, exact active pointers, pending steps, approvals still required, risks, and rollback commands.
-3. Commit and push any repository work from a clean worktree.
-4. Name the full commit SHAs and artifact hashes. Do not rely on prose such as “latest dev.”
-5. Require the next manager to independently re-read the manifest and verify live pointers before continuing.
-
-Call application work complete only when dev runs the exact recorded release, freshly fetched `origin/main` equals that SHA, the changed behavior is live-verified, rollback is documented, and the artifact is staging-ready. Call a staging or production release complete only when the requested environment runs the exact recorded release, every required gate passes, rollback is documented, the manifest is final, and no further authorized work remains.
+Call application work complete when it is committed, pushed, running on dev, and live-verified under the fast loop. Call a staging or production release complete only when the requested environment runs the exact qualified release, all mandatory gates pass, rollback is documented, and the manifest is final.

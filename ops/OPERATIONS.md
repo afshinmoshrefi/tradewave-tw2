@@ -9,7 +9,7 @@ All run from dev (`.176`). An env = 2 boxes (web + app).
 | Operation | Command | Touches | When |
 |---|---|---|---|
 | **Deploy code** | `bash ops/deploy.sh {staging\|prod}` | both web+app in one command: pull, restart, ship React, reload nginx | every code update - the normal flow |
-| **Compile React** | `sudo -u flask bash -lc 'cd <clean-release-worktree>/web-react && npm run build'` | nothing (builds the immutable candidate on dev) | during dev completion, ONLY if `web-react/src` changed |
+| **Compile React** | `sudo -u flask bash -lc 'cd <clean-current-main-worktree>/web-react && npm run build'` | nothing (builds the dev candidate or qualified artifact) | once when `web-react/src` changed; never for backend/docs-only work |
 | **Build a box** | `ops/staging/run.sh {staging\|prod} <script>` | one script -> one box (or runs on dev + reaches out); run the ordered sequence under "Rebuild a box from scratch" | rare - new box / full rebuild from bare metal |
 
 To sync staging+prod with the latest code: (React build if `web-react/src` changed) -> `deploy.sh staging` -> verify -> `deploy.sh prod`. `run.sh` is NOT part of a routine deploy.
@@ -49,40 +49,31 @@ Health: `systemctl is-active <svc>`. Logs: `/var/log/tradewave/*.log` (rotated d
 
 ## Deploy a code change
 
-The mandatory cross-agent release policy is `docs/RELEASE_PROCESS.md`, implemented for
-agents by `.claude/skills/tradewave-deployment-manager/SKILL.md`. This section is the command
-and topology runbook; it does not waive release ownership, clean integration, immutable
-artifact, approval, effective-runtime, contract, browser, or rollback gates.
+The mandatory cross-agent policy is `docs/RELEASE_PROCESS.md`, implemented for agents by
+`.claude/skills/tradewave-deployment-manager/SKILL.md`. It separates fast dev completion
+from qualified staging/production release.
 
-For substantive application/runtime work, a normal change request includes completion on
-the live dev site. The coding session handles its task branch and may become the recorded
-dev-completion manager. It serializes final integration with other Claude/Codex sessions,
-builds and activates one immutable combined candidate, verifies the changed behavior live,
-and leaves `origin/main` equal to the exact active dev SHA. Afshin does not manage branches,
-commits, worktrees, handoffs, or locks. `local only` or `do not deploy` explicitly disables
-this default. Staging and production still require their separate requests.
+For substantive application/runtime work, a normal change request includes the **fast dev
+loop**: task isolation, focused affected-surface tests, one affected build when required, a short activation
+lock, a live changed-behavior smoke, commit/push, and main/dev application parity. Afshin does
+not manage branches, commits, worktrees, handoffs, builds, or locks. `local only` or
+`do not deploy` disables dev activation. Documentation/policy-only commits need no runtime
+activation when the application tree is unchanged.
 
-Treat the routine deploy path as fail-closed whenever a dated record under
-`ops/release-risks/` remains unresolved. A base unit or `/home/flask` update does not prove
-activation when an effective drop-in still points at `.tw2-app-current`.
-`verify_deploy.sh` reporting `CLEAN` is supporting evidence only. Every promotion must
-independently verify effective units and drop-ins for all release-managed services, live
-process paths, the active frontend bundle and hash, release-specific contracts, and rendered
-browser behavior. Resolve competing base-unit and release-pointer models before promotion.
+The full regression, named release/manifest, dated release-risk audit, immutable artifact
+qualification, target inventory, broad account-tier/browser gates, snapshots, and complete
+rollback rehearsal begin when staging is requested. A base unit or `/home/flask` update
+still does not prove activation when a drop-in points at `.tw2-app-current`.
+`verify_deploy.sh` reporting `CLEAN` is supporting evidence only.
 
-The fast path below describes mechanical commands after every release-policy gate passes. It
-does not authorize production, rebuilding between environments, or reporting success without
-independent runtime and product verification.
-
-On the first release-manager run on dev, initialize durable state with
+Initialize durable coordination/release state once with
 `sudo bash /home/flask/ops/init_release_state.sh`. It creates only
 `/var/lib/tradewave/release-state` as `flask:flask` mode `0750` and refuses
-symlink or non-directory collisions. Before final integration and activation on dev,
-announce the integration/activation window to active sessions and atomically acquire the
-manifest-recorded `/var/lib/tradewave/release-state/dev-activation.lock` directory with
-`mkdir` before final integration. Refetch `origin/main` while holding it, write
-owner/release metadata inside it, and keep it through build, activation, verification, and
-the final proof that active dev equals freshly fetched `origin/main`.
+symlink or non-directory collisions. For routine dev, test and build first. Then atomically
+acquire `/var/lib/tradewave/release-state/dev-activation.lock` with `mkdir`, write
+owner/task metadata, refetch `origin/main`, activate, smoke-test, update main without force,
+prove application parity, and release promptly. If main moved, release, integrate, rerun only
+affected checks/builds, and retry.
 
 A plain staging-deploy request authorizes the sole release manager to execute the entire
 repository, dev, and staging workflow without asking Afshin to run commands or restate this
@@ -98,7 +89,11 @@ designated human operator executes production writes. If staging rollback fails,
 > If you deploy something in a way that isn't written here, write it here. Do not
 > let the real process drift out of this doc.
 
-**Fast path (one command per env):** `bash ops/deploy.sh staging` → verify → `bash ops/deploy.sh prod`. The script runs everything below for one env (pre-flight, pull+restart web/app/SMN, React bundle, nginx) and aborts safely if `TW2_PUBLIC_HOST` is unset. Prereqs: commit+push, and `npm run build` if `web-react/` changed. The steps below are the reference the script implements (and for partial/manual deploys).
+**Qualified promotion command (one per env):** `bash ops/deploy.sh staging` → verify →
+`bash ops/deploy.sh prod`. Use it only after the staging/production gates in
+`docs/RELEASE_PROCESS.md` have qualified and locked the exact source/artifact. The script
+runs the mechanical pre-flight, pull/restart, React, and nginx steps and aborts if
+`TW2_PUBLIC_HOST` is unset.
 
 Before staging, `origin/main` must equal the exact approved release SHA and the manifest's
 `main_locked_sha`. That ref must not move between staging deployment, staging approval, and
@@ -160,19 +155,23 @@ idempotent and avoids cross-tier "which box needs this file" puzzles.
 
 ### 0. Complete the change on dev
 
-Agents perform this sequence automatically; it is not an owner checklist:
+Agents perform this fast sequence automatically; it is not an owner checklist:
 
-1. Fetch current `origin/main` as `flask` and work in a dedicated task worktree.
-2. Commit and push only the task-owned changes.
-3. Acquire the dev coordination lock, refetch `origin/main`, and integrate the task on top
-   of every already completed change in a clean release worktree.
-4. Run focused and combined tests. Build React with `npm run build` when required.
-5. Activate the immutable candidate on dev and run runtime, contract, and rendered browser
-   verification for the changed behavior.
-6. Advance `origin/main` without force to the exact verified candidate. If the ref moved,
-   roll dev back to the recorded prior release, integrate the newer main, rebuild, and retry.
-7. Verify active dev source/provenance equals freshly fetched `origin/main`, then release the
-   lock and report the exact SHA as staging-ready.
+1. Fetch current `origin/main` as `flask` and use a dedicated task worktree.
+2. Run focused affected-surface tests, then commit and push only the task-owned change.
+3. Integrate it into a clean current-main worktree. Build only affected artifacts once.
+4. Acquire the dev lock after testing/building and immediately refetch main. If main moved,
+   release, integrate, and repeat only affected checks/builds.
+5. Record previous pointers, activate through the actual runtime mechanism, restart only
+   affected services, and live-smoke the changed behavior. UI changes require a rendered
+   interaction assertion; backend/static changes require their relevant live assertion.
+6. Advance `origin/main` without force. On a concurrency failure, roll dev back and retry
+   from newer main.
+7. Prove current main's application tree, active source, and affected provenance match,
+   release the lock, and report the SHA as staging-ready.
+
+Staging-ready means clean, pushed, live on dev, and focused-tested. The full suite, release
+manifest, target audit, snapshots, and broad release gates have not run yet.
 
 All Git/build/file operations on every box run as **`sudo -u flask`**. Root ownership in
 `/home/flask` breaks later fetches and builds. Never edit or commit from the operational
@@ -502,7 +501,9 @@ from being downgraded or enrolled in winback by an out-of-order Stripe event.
 
 ### Rollback
 
-Prepare rollback before every target write and record it in the release manifest. Backend
+For routine dev activation, record the previous affected backend/frontend pointers before
+the write and use the documented pointer rollback on failure. For staging/production, prepare
+complete rollback before every target write and record it in the release manifest. Backend
 rollback requires the previous immutable release pointer or SHA, the exact activation command,
 and evidence that the previous source still exists. Frontend rollback requires the previous
 build pointer and hashes plus the exact symlink command. Record both backend and frontend
@@ -689,4 +690,4 @@ storm-breaker activation. Run away from the 02:00 UTC cron burst. Do not use
 2. `ssh <box> 'tail -50 /var/log/tradewave/{web,appserver}.error.log'`
 3. `ssh <box> 'journalctl -u tradewave-<svc> --no-pager -n 50'`
 4. `df -h /` — disk full is the usual culprit if logrotate ever lapses.
-5. Use the exact immutable backend/frontend rollback recorded in the release manifest. Do not reset a target checkout or invent rollback after failure.
+5. Use the recorded dev pointer rollback or, for a qualified release, the exact immutable backend/frontend rollback in its manifest. Do not reset a target checkout or invent rollback after failure.

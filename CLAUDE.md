@@ -16,11 +16,10 @@ worktree; handoffs name pushed commit SHAs; releases promote tested commits, not
 **For ANY application change, dev activation, deploy, promotion, release, rollback,
 environment-parity check, deployment handoff, or deployment-readiness request, also read
 FIRST without waiting to be asked:**
-`.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md` - one
-manager owns each integration/activation window; application changes are not complete until
-the exact combined commit is live and verified on dev and equals `origin/main`; staging and
-production receive that exact artifact; effective systemd drop-ins, live process paths,
-contract checks, and rendered browser behavior are mandatory.
+`.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md` - ordinary
+application work uses the fast dev loop; the full release manifest, regression, target audit,
+and broad browser/account-tier gates begin only when staging is requested. Staging and
+production still promote one exact qualified artifact with runtime and rollback evidence.
 
 **For product / methodology / copy / onboarding / Tara work, also read FIRST:**
 `docs/TRADEWAVE_METHODOLOGY_AND_FEATURES_KB.md` - what a "pattern" is, the MFE/MAE/TWA/TWR
@@ -52,17 +51,19 @@ replace WP/UMP, keeping the React app and the appserver `/login` handshake.
 - DEV IS PART OF DONE: a substantive application or runtime-visible change implicitly includes
   clean Git integration and verified activation on the live dev site unless Afshin explicitly says
   `local only`, `do not deploy`, or asks only for analysis/documentation. Do not say "fixed,"
-  "complete," "done," or "live" while the change exists only in a task worktree. After completion,
-  the active dev source SHA and `origin/main` must be identical and the artifact must be ready for
-  the one-line staging promotion. Branches, commits, worktrees, handoffs, and locks are agent work,
-  not owner instructions.
+  "complete," "done," or "live" while the change exists only in a task worktree. Routine dev
+  completion means focused tests, one affected build when required, a short activation lock, a live smoke of the
+  affected behavior, and a non-forced main update. It does NOT require a release ID, full manifest,
+  full regression, target audit, snapshot, or staging entitlement matrix. "Staging-ready" means
+  clean, pushed, live on dev, and focused-tested; staging qualification has not yet run. Branches,
+  commits, worktrees, handoffs, and locks are agent work, not owner instructions.
 - ONE RELEASE MANAGER: on any application-change/dev/deploy/release/parity request, automatically follow
   `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
-  A coding session may become the recorded dev-completion manager; "one manager" means exclusive
-  ownership, not another chat. Claude and Codex work concurrently only in separate worktrees, then
-  serialize final integration and dev activation. The manager acquires the dev lock before final
-  integration, refetches current `origin/main`, preserves already completed changes, and keeps the
-  lock through activation and live verification.
+  Claude and Codex work concurrently only in separate worktrees, then serialize the brief final dev
+  activation. Acquire the lock only after the candidate is tested and built; refetch current
+  `origin/main`, preserve completed changes, activate, smoke-test, update main without force, prove
+  parity, and release it promptly. A full named release manager and manifest begin when staging is
+  requested, not for each ordinary dev edit.
   A plain staging-deploy request authorizes the manager to automate all repository, dev, and
   staging writes without asking Afshin to run commands or repeat the workflow. Production remains
   a separate request and human-executed write boundary. A staging request never authorizes

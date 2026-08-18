@@ -1,6 +1,6 @@
 ---
 name: tw-git-release-workflow
-description: Enforce TradeWave Git isolation, automatic dev completion, handoffs, integration, cleanup, and deterministic promotion. Use before starting or continuing any TradeWave code change; when multiple Codex or Claude sessions are involved; when a checkout is stale or dirty; when completing a change on the live dev site; when creating a handoff; or when preparing, merging, cleaning, deploying, or promoting a release through dev, staging, or production.
+description: Enforce TradeWave Git isolation, fast automatic dev completion, handoffs, integration, cleanup, and deterministic staging/production promotion. Use before starting or continuing any TradeWave code change; when multiple Codex or Claude sessions are involved; when a checkout is stale or dirty; when completing a change on the live dev site; when creating a handoff; or when preparing, merging, cleaning, deploying, or promoting through dev, staging, or production.
 ---
 
 # TradeWave Git release workflow
@@ -19,7 +19,7 @@ Treat commits as release units. A server filesystem is an environment, not a rel
 8. Never use `git reset --hard`, `git clean -fdx`, broad deletion, or worktree removal until every potentially valuable change is classified and preserved.
 9. Do not commit secrets, environment files, caches, temporary files, dependency trees, or ad hoc build backups.
 10. Follow the deployment and knowledge rules in `CLAUDE.md`, `docs/TRADEWAVE_ECOSYSTEM.md`, and the applicable deployment skill. For every release, promotion, rollback, readiness, or parity request, use `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
-11. For a substantive application or runtime-visible change, completion includes clean integration, activation, and live verification on dev unless the owner explicitly says `local only` or `do not deploy`. The active dev SHA and `origin/main` must match at completion.
+11. For a substantive application or runtime-visible change, completion includes clean integration, activation, and live verification on dev unless the owner explicitly says `local only` or `do not deploy`. Use the fast dev loop; staging's full release qualification begins only when staging is requested.
 
 ## Start a task
 
@@ -63,25 +63,28 @@ The handoff must state:
 - known risks, conflicts, and rollback notes;
 - paths intentionally left untracked, if any, with a reason.
 
-## Complete an application change on dev
+## Complete an application change on dev - fast loop
 
-The coding session may become the recorded dev-completion manager. A separate conversation is not required. If another Claude or Codex manager owns the dev mutation window, preserve the commit and coordinate through release state/handoff; do not make the owner manage branches and do not call the task complete while it is waiting.
+This is the default path for small, medium, and large application changes. A separate deployment conversation is not required. It deliberately does not create a release ID or manifest, run the full regression suite, inventory staging, take snapshots, or execute broad account-tier/browser matrices. Those are staging-qualification work.
 
-1. Acquire the dev coordination lock before final integration and keep it through live verification and the final `origin/main` identity check.
-2. Refetch `origin/main` after acquiring the lock. Create a new clean integration worktree from it and integrate the exact task commit on top of every already completed change.
-3. Resolve conflicts by preserving both intended behaviors where possible. Ask the owner only when the product intentions truly conflict, not for routine Git choices.
-4. Run focused tests, the combined safe suite, and the release build from the clean candidate.
-5. Activate the immutable candidate on dev and verify the changed behavior in the live product, including a rendered browser assertion when UI behavior changed.
-6. Advance `origin/main` to the exact verified candidate without force-pushing. If the ref changed concurrently, roll dev back to its recorded previous release, integrate the new main, rebuild, and repeat.
-7. Verify the freshly fetched `origin/main`, active backend source, and frontend provenance all identify the same full SHA. Only then report the change done and staging-ready.
+1. Fetch `origin/main`, integrate the exact task commit in a clean current-main worktree, and resolve routine conflicts without involving Afshin. Preserve every completed change.
+2. Run focused tests for the affected behavior and cheap directly relevant compile/lint checks. Add proportional gates for migrations, auth, billing, security, destructive data paths, or deployment infrastructure; do not automatically substitute the entire staging checklist.
+3. Build only the affected runtime artifact, once. For React changes, use `npm run build` and stamp provenance. Backend-only changes do not rebuild React. Documentation/policy-only changes do not activate dev when the application tree is unchanged.
+4. Push the task/candidate branch, then acquire `/var/lib/tradewave/release-state/dev-activation.lock` only when the tested candidate is ready to activate. Refetch `origin/main` immediately. If it moved, release the lock, integrate the new commits, rerun only affected checks/builds, and retry.
+5. Record the previous backend/frontend pointers, activate the candidate on dev through the real runtime mechanism, and run one live smoke that proves the changed behavior. A UI change requires a rendered browser check of that behavior; backend work requires the relevant live contract or route check. Do not replace the smoke with feature-string greps or HTTP 200 alone.
+6. Advance `origin/main` to the verified candidate with a non-forced, concurrency-safe push. If it unexpectedly fails, roll dev back to the recorded pointers and retry from the newer main.
+7. Refetch and prove that current main's application tree, the live backend source, and affected artifact provenance match. Release the lock promptly.
+8. Report the change complete with its SHA and live evidence. "Staging-ready" means clean, pushed, live on dev, and focused-tested; full staging qualification has not yet run.
 
-## Integrate a release
+If another Claude or Codex session owns the short activation window, preserve the exact pushed commit and wait or hand it off internally. Never make Afshin order branches or locks.
+
+## Qualify a staging release
 
 1. Use a new clean integration worktree or clone based on current `origin/main`.
 2. Fetch all task branches and verify every handoff SHA exists on the remote.
 3. Review each task diff independently before merging it.
 4. Merge or cherry-pick the exact handoff SHAs. Resolve conflicts against current behavior; do not choose an entire older side blindly.
-5. Run focused tests after each risky merge, then the combined regression suite and release build.
+5. Capture the current live-dev behavior as the approved target. Run focused tests after each risky merge, then the combined regression suite and release build.
 6. Review `origin/main..HEAD`, confirm the worktree is clean, and push a release branch.
 7. Record the tested full SHA. That exact SHA is the promotion candidate.
 
@@ -91,21 +94,19 @@ Do not add unrelated changes found in `/home/flask` to make the release "match d
 
 The designated release manager owns this section. A coding session may already be that manager after completing dev; otherwise the recorded handoff transfers exact state without owner coordination.
 
-TradeWave promotion is:
+TradeWave flow is:
 
 ```text
-task commits -> tested combined commit -> live dev == origin/main -> staging -> verify -> production
+task commits -> fast live dev completion -> full staging qualification -> staging -> verify -> production
 ```
 
-Before staging:
+Only after the user says `Deploy to staging`:
 
-1. Confirm the tested release is the commit that will advance `origin/main`.
-2. Treat a plain staging-deploy request as approval to update `origin/main` to the exact verified candidate and deploy it to staging; do not request redundant intermediate approval.
-3. Confirm `origin/main` points to the intended full SHA after the push.
-4. Lock that exact SHA through staging approval and production promotion; do not advance `main` between environments.
-5. The release manager runs the repository staging deployment from dev, including automatic rollback, and records its executing identity. Production remains a separate human-executed boundary.
-6. Verify target out-of-band state, effective services and drop-ins, live process paths, health checks, migrations, static pages, React provenance, contracts, and rendered feature behavior.
-7. Record the deployed SHA and verification result.
+1. Assign the release ID and create the manifest; this is where full release ownership begins.
+2. Confirm live dev and current `origin/main` have the same application tree. A docs-only main advance is allowed, but build the qualified artifact from the exact final main SHA.
+3. Run the complete safe regression, required release-specific contracts, entitlement/browser gates, and provenance-stamped release build. Bind approval to the exact SHA and composite artifact hash.
+4. Audit staging out-of-band state, effective services/drop-ins, live paths, data/migration/config requirements, and executable rollback. Lock the SHA through staging approval and production promotion.
+5. The release manager deploys the exact qualified artifact to staging with automatic rollback, verifies it, and records the result. Production remains a separate human-executed boundary.
 
 Production remains a separate promotion of the same verified commit and must satisfy the snapshot gate in the production deployment skill.
 
@@ -131,4 +132,5 @@ A development or release session is complete only when:
 - no unrelated files were swept into the commit;
 - deployment, migration, configuration, and rollback requirements are recorded;
 - canonical TradeWave knowledge has been updated when required.
-- for application/runtime work not explicitly kept local, the exact combined SHA is running and verified on dev, freshly fetched `origin/main` equals it, and the artifact is staging-ready.
+- for application/runtime work not explicitly kept local, the current-main application tree is running and verified on dev, and the change is staging-ready under the lightweight definition above;
+- for staging/production, the full release manifest and every required qualification gate are complete for the exact promoted SHA and artifact.
