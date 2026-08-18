@@ -13,12 +13,14 @@ or deployment, also read FIRST:**
 `.claude/skills/tw-git-release-workflow/SKILL.md` - every task uses a separate branch and
 worktree; handoffs name pushed commit SHAs; releases promote tested commits, not dev files.
 
-**For ANY deploy, promotion, release, rollback, environment-parity check, deployment
-handoff, or deployment-readiness request, also read FIRST without waiting to be asked:**
+**For ANY application change, dev activation, deploy, promotion, release, rollback,
+environment-parity check, deployment handoff, or deployment-readiness request, also read
+FIRST without waiting to be asked:**
 `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md` - one
-manager owns the release; approved dev behavior must be reproduced by a clean commit and
-immutable artifact; staging and production receive that exact artifact; effective systemd
-drop-ins, live process paths, contract checks, and rendered browser behavior are mandatory.
+manager owns each integration/activation window; application changes are not complete until
+the exact combined commit is live and verified on dev and equals `origin/main`; staging and
+production receive that exact artifact; effective systemd drop-ins, live process paths,
+contract checks, and rendered browser behavior are mandatory.
 
 **For product / methodology / copy / onboarding / Tara work, also read FIRST:**
 `docs/TRADEWAVE_METHODOLOGY_AND_FEATURES_KB.md` - what a "pattern" is, the MFE/MAE/TWA/TWR
@@ -47,10 +49,20 @@ replace WP/UMP, keeping the React app and the appserver `/login` handshake.
   `.claude/skills/tw-git-release-workflow/SKILL.md`. Use a dedicated branch + worktree per
   task, commit + push before handoff, and integrate in a clean release worktree. Never treat
   the arbitrary contents of `/home/flask` as the version to promote.
-- ONE RELEASE MANAGER: on any deploy/release/parity request, automatically follow
+- DEV IS PART OF DONE: a substantive application or runtime-visible change implicitly includes
+  clean Git integration and verified activation on the live dev site unless Afshin explicitly says
+  `local only`, `do not deploy`, or asks only for analysis/documentation. Do not say "fixed,"
+  "complete," "done," or "live" while the change exists only in a task worktree. After completion,
+  the active dev source SHA and `origin/main` must be identical and the artifact must be ready for
+  the one-line staging promotion. Branches, commits, worktrees, handoffs, and locks are agent work,
+  not owner instructions.
+- ONE RELEASE MANAGER: on any application-change/dev/deploy/release/parity request, automatically follow
   `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
-  Only that manager integrates, builds, activates dev, or performs the authorized staging promotion/rollback.
-  The manager announces and atomically locks shared dev before candidate activation.
+  A coding session may become the recorded dev-completion manager; "one manager" means exclusive
+  ownership, not another chat. Claude and Codex work concurrently only in separate worktrees, then
+  serialize final integration and dev activation. The manager acquires the dev lock before final
+  integration, refetches current `origin/main`, preserves already completed changes, and keeps the
+  lock through activation and live verification.
   A plain staging-deploy request authorizes the manager to automate all repository, dev, and
   staging writes without asking Afshin to run commands or repeat the workflow. Production remains
   a separate request and human-executed write boundary. A staging request never authorizes

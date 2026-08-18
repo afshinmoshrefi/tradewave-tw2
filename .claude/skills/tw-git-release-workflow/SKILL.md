@@ -1,6 +1,6 @@
 ---
 name: tw-git-release-workflow
-description: Enforce TradeWave Git isolation, handoffs, integration, cleanup, and deterministic promotion. Use before starting or continuing any TradeWave code change; when multiple Codex or Claude sessions are involved; when a checkout is dirty; when creating a handoff; or when preparing, merging, cleaning, deploying, or promoting a release through dev, staging, or production.
+description: Enforce TradeWave Git isolation, automatic dev completion, handoffs, integration, cleanup, and deterministic promotion. Use before starting or continuing any TradeWave code change; when multiple Codex or Claude sessions are involved; when a checkout is stale or dirty; when completing a change on the live dev site; when creating a handoff; or when preparing, merging, cleaning, deploying, or promoting a release through dev, staging, or production.
 ---
 
 # TradeWave Git release workflow
@@ -19,12 +19,13 @@ Treat commits as release units. A server filesystem is an environment, not a rel
 8. Never use `git reset --hard`, `git clean -fdx`, broad deletion, or worktree removal until every potentially valuable change is classified and preserved.
 9. Do not commit secrets, environment files, caches, temporary files, dependency trees, or ad hoc build backups.
 10. Follow the deployment and knowledge rules in `CLAUDE.md`, `docs/TRADEWAVE_ECOSYSTEM.md`, and the applicable deployment skill. For every release, promotion, rollback, readiness, or parity request, use `.claude/skills/tradewave-deployment-manager/SKILL.md` and `docs/RELEASE_PROCESS.md`.
+11. For a substantive application or runtime-visible change, completion includes clean integration, activation, and live verification on dev unless the owner explicitly says `local only` or `do not deploy`. The active dev SHA and `origin/main` must match at completion.
 
 ## Start a task
 
-1. Read `CLAUDE.md` and `docs/TRADEWAVE_ECOSYSTEM.md` first.
-2. Fetch `origin` as `flask`.
-3. Create a task branch from the intended base, normally current `origin/main`.
+1. Fetch `origin` as `flask` before trusting the age or completeness of the current worktree. If local policy files are absent, read them from current `origin/main` before declaring them missing.
+2. Read `AGENTS.md`, `CLAUDE.md`, `docs/RELEASE_PROCESS.md`, and `docs/TRADEWAVE_ECOSYSTEM.md` from the current policy source.
+3. Create a task branch from current `origin/main`. Do not start new application work from a previously opened stale branch.
 4. Create a dedicated worktree under `/home/tradewave-worktrees/` or another task-specific path.
 5. Confirm the new worktree is clean before editing.
 
@@ -40,16 +41,16 @@ sudo -u flask git -C /home/flask worktree add \
 
 Claude may use a `claude/` branch prefix. Preserve an existing branch name when continuing a task.
 
-## Finish and hand off a task
+## Preserve the task commit
 
-Before declaring the session done:
+Before dev integration:
 
 1. Inspect `git status` and the complete diff.
 2. Remove or ignore generated artifacts; do not hide real source files with broad ignore rules.
 3. Run tests appropriate to the change.
 4. Update canonical documentation in the same commit when architecture, data flow, invariants, paths, or deployment behavior changed.
 5. Commit only the task's intended changes and push the branch.
-6. Write a handoff on the dev server under `/home/tradewave-handoffs/<release-or-date>/`.
+6. Write or update a handoff on the dev server under `/home/tradewave-handoffs/<release-or-date>/` when another manager must consume the commit.
 7. Leave the task worktree clean. A WIP branch may be non-deployable, but it must still be preserved and identified.
 
 The handoff must state:
@@ -61,6 +62,18 @@ The handoff must state:
 - migrations, dependencies, configuration, nginx, service, or build requirements;
 - known risks, conflicts, and rollback notes;
 - paths intentionally left untracked, if any, with a reason.
+
+## Complete an application change on dev
+
+The coding session may become the recorded dev-completion manager. A separate conversation is not required. If another Claude or Codex manager owns the dev mutation window, preserve the commit and coordinate through release state/handoff; do not make the owner manage branches and do not call the task complete while it is waiting.
+
+1. Acquire the dev coordination lock before final integration and keep it through live verification and the final `origin/main` identity check.
+2. Refetch `origin/main` after acquiring the lock. Create a new clean integration worktree from it and integrate the exact task commit on top of every already completed change.
+3. Resolve conflicts by preserving both intended behaviors where possible. Ask the owner only when the product intentions truly conflict, not for routine Git choices.
+4. Run focused tests, the combined safe suite, and the release build from the clean candidate.
+5. Activate the immutable candidate on dev and verify the changed behavior in the live product, including a rendered browser assertion when UI behavior changed.
+6. Advance `origin/main` to the exact verified candidate without force-pushing. If the ref changed concurrently, roll dev back to its recorded previous release, integrate the new main, rebuild, and repeat.
+7. Verify the freshly fetched `origin/main`, active backend source, and frontend provenance all identify the same full SHA. Only then report the change done and staging-ready.
 
 ## Integrate a release
 
@@ -76,12 +89,12 @@ Do not add unrelated changes found in `/home/flask` to make the release "match d
 
 ## Promote through environments
 
-The designated release manager owns this section. Development sessions stop after their committed, pushed handoff.
+The designated release manager owns this section. A coding session may already be that manager after completing dev; otherwise the recorded handoff transfers exact state without owner coordination.
 
 TradeWave promotion is:
 
 ```text
-task commits -> tested release commit -> origin/main -> staging -> verify -> production
+task commits -> tested combined commit -> live dev == origin/main -> staging -> verify -> production
 ```
 
 Before staging:
@@ -118,3 +131,4 @@ A development or release session is complete only when:
 - no unrelated files were swept into the commit;
 - deployment, migration, configuration, and rollback requirements are recorded;
 - canonical TradeWave knowledge has been updated when required.
+- for application/runtime work not explicitly kept local, the exact combined SHA is running and verified on dev, freshly fetched `origin/main` equals it, and the artifact is staging-ready.

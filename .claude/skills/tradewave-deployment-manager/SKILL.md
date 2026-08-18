@@ -1,22 +1,23 @@
 ---
 name: tradewave-deployment-manager
-description: Manage and enforce TradeWave releases and environment parity. Use automatically whenever the user says "deploy to staging" or otherwise asks to deploy, promote, release, ship, roll back, prepare a release, synchronize or compare dev/staging/production, determine deployment readiness, continue a deployment handoff, or diagnose deployment drift. A plain staging-deploy request is the complete instruction to automate preparation, Git integration, dev reconciliation, staging writes, verification, and rollback without asking the user to restate the process. Enforce one release manager, immutable artifacts, active-runtime verification, browser smoke tests, and recorded rollback.
+description: Manage TradeWave application completion, dev activation, releases, and environment parity across Codex and Claude. Use automatically for any substantive TradeWave application or runtime-visible code change; whenever the user asks to fix, change, build, or update product behavior; when work must become live and verified on dev; when multiple agents are working concurrently; or when the user asks to deploy, promote, release, ship, roll back, prepare a release, compare environments, determine readiness, continue a handoff, or diagnose drift. A normal application-change request includes clean Git integration and verified dev activation unless the user says local-only or do-not-deploy. A plain staging-deploy request authorizes the complete gated staging workflow. Enforce one mutation owner, current-main worktrees, immutable artifacts, active-runtime verification, browser smoke tests, and recorded rollback.
 ---
 
 # TradeWave deployment manager
 
-Act as the sole manager for one named release. Treat the working dev product as the behavior to preserve, then make that behavior reproducible as a clean commit and immutable artifact before promotion.
+Act as the sole mutation manager for one named release. A coding session may assume this role; a separate deployment conversation is not required. Treat the live dev product plus the requested change as behavior to preserve, then make the combined behavior reproducible as a clean commit and immutable artifact. "One manager" means exclusive ownership of final integration and activation, not one permanent agent.
 
 ## Load the authority
 
 1. Locate the TradeWave repository.
 2. Read `AGENTS.md`, `CLAUDE.md`, `docs/RELEASE_PROCESS.md`, `docs/TRADEWAVE_ECOSYSTEM.md`, `ops/OPERATIONS.md`, and `.claude/skills/tw-git-release-workflow/SKILL.md` completely.
 3. For production, also read `.claude/skills/prod-deploy/SKILL.md` and enforce its current-day snapshot gate.
-4. Treat `docs/RELEASE_PROCESS.md` as the cross-agent release policy and `ops/OPERATIONS.md` as the command/runbook authority. If either is missing or they conflict materially, stop before changing an environment and report the conflict.
+4. Treat `docs/RELEASE_PROCESS.md` as the cross-agent release policy and `ops/OPERATIONS.md` as the command/runbook authority. If a required file is missing from the current worktree, fetch and inspect it from current `origin/main` before concluding that the control is unavailable. Stop before changing an environment only if the authority is also missing from current `origin/main` or the authorities conflict materially.
 
 ## Interpret authorization narrowly
 
 - A request to inspect, compare, explain, diagnose, or check readiness authorizes read-only work only.
+- A request to fix, change, build, or update substantive TradeWave application behavior authorizes routine branch/worktree creation, commit and push, clean integration, build, dev-only activation, rollback-on-failure, and live verification needed to leave the change complete on dev and staging-ready. It does not authorize staging or production. An explicit `local only` or `do not deploy` instruction overrides this default.
 - A request to deploy to staging is the complete authorization for the sole release manager to preserve work, integrate and push the clean release, advance `origin/main` after validation, build and activate dev, execute staging writes, verify staging, and automatically roll back staging on failure. It approves the behavior running on dev when the request is made as the release target. It never authorizes production.
 - Do not ask the user to restate the workflow, select routine commands, run staging commands, or approve intermediate steps. Proceed autonomously while the captured dev behavior is reproduced exactly and every gate passes. Ask only when an unclassified change requires an owner decision, exact dev parity cannot be proven, required credentials/authority are unavailable, or rollback cannot be made safe.
 - A request to deploy to production requires the same release to have passed staging, explicit production approval, and current-day web and appserver snapshots.
@@ -30,9 +31,22 @@ Act as the sole manager for one named release. Treat the working dev product as 
 2. On the first use of this process, initialize the dev-owned state path with `sudo bash ops/init_release_state.sh`. Inspect `/var/lib/tradewave/release-state/active.json` and the release manifest if present. Keep durable state separate from disposable release checkouts.
 3. Do not integrate or deploy when another active manager owns the release. Continue only after an explicit handoff or owner override is recorded.
 4. Record manager identity, task/thread identity when available, requested target, and status. A manager may be replaced; the manifest, commit, artifacts, evidence, and approvals carry the authority, not chat memory.
-5. Development agents may prepare committed task branches and handoffs. Only the release manager may integrate, advance the release branch or `main`, build the release artifact, activate dev, execute the authorized staging promotion and rollback, or author production promotion and rollback commands.
+5. Development agents work in isolated task branches. To finish application work, the coding session either becomes the recorded dev-completion manager or hands the exact pushed commit to the manager already holding the mutation window. Only the recorded manager may perform final integration, advance the release branch or `main`, build the release artifact, activate dev, execute the authorized staging promotion and rollback, or author production promotion and rollback commands.
 
 Never print secrets in a manifest, log excerpt, or response.
+
+## Complete application work on dev
+
+For substantive application or runtime-visible work, do not stop after editing, local tests, a commit, or a handoff unless the owner explicitly requested local-only work. Branches, commits, worktrees, handoffs, locks, and routine conflict resolution are internal agent responsibilities.
+
+1. Before editing, fetch current remote refs. If the current worktree is stale, dirty with unrelated work, or predates the policy files, preserve task-owned changes and move them to a fresh task worktree based on current `origin/main`. Check required policy files in `origin/main` before declaring them missing.
+2. Commit and push only the task-owned change. Record its exact SHA and tests.
+3. Inspect release state. If another Claude or Codex manager owns the dev mutation window, preserve the handoff and wait or coordinate with that manager; do not ask the owner to order branches and do not claim the change is done.
+4. Acquire `/var/lib/tradewave/release-state/dev-activation.lock` before final integration. Refetch `origin/main` while holding the lock, create a clean integration worktree, and combine the task with every already completed change.
+5. Run focused tests, the combined safe suite, and the release build. Activate that immutable candidate on dev and verify the actual changed behavior, including a rendered browser assertion for UI behavior.
+6. After live verification, advance `origin/main` to the exact candidate with a non-forced, concurrency-safe update. If the remote ref changed unexpectedly, roll dev back to its recorded previous release, integrate the newer main, rebuild, and repeat. Never force-push or overwrite another completed change.
+7. Re-fetch and prove `origin/main`, the live backend source, frontend provenance, and release manifest identify the same full SHA. Release the lock only after this proof.
+8. Report the application change complete only with the live dev verification and exact SHA. State that it is staging-ready. Do not use "fixed," "done," "complete," or "live" for work that exists only in a private worktree.
 
 ## Reconcile dev before promotion
 
@@ -43,7 +57,7 @@ Do not assume Git, `/home/flask`, a bundle, and the running processes match.
 3. Preserve intended dev-only work on focused task branches. Integrate exact reviewed commits in a new clean release worktree based on current `origin/main`.
 4. Resolve combined behavior in source. Do not copy an ad hoc dev bundle or selectively commit files merely because they look relevant.
 5. Build once from the clean release commit with the repository build helper. Record the full source SHA, provenance marker, bundle names, and SHA-256 hashes.
-6. Before activation, announce the exact candidate SHA and expected interruption to active dev sessions, then acquire `/var/lib/tradewave/release-state/dev-activation.lock` as an atomic directory lock with `mkdir` and write its owner metadata. Refuse an existing lock unless its owner explicitly hands it off or the owner records a stale-lock override. Record the announcement, lock owner, SHA, and evidence in `dev_coordination`. Activate that exact candidate on dev using the documented runtime model. Keep the lock through runtime and browser verification, then release only the lock owned by this release and record the release event.
+6. Before final integration, announce the expected interruption, then acquire `/var/lib/tradewave/release-state/dev-activation.lock` as an atomic directory lock with `mkdir` and write its owner metadata. Refuse an existing lock unless its owner explicitly hands it off or the owner records a stale-lock override. Refetch `origin/main`, integrate, and record the exact candidate SHA and evidence in `dev_coordination`. Activate that exact candidate on dev using the documented runtime model. Keep the lock through runtime/browser verification and the final `origin/main` identity check, then release only the lock owned by this release and record the release event.
 7. Run focused tests, the combined safe suite, required contract checks, and real browser assertions. Exercise the changed behavior, not only feature strings or HTTP 200 responses.
 8. When the clean candidate exactly reproduces the captured dev behavior and all required gates pass, bind the user's staging-deploy request as dev approval against the recorded commit and composite artifact hash. Do not request redundant approval. If parity is not proven, do not bind approval or promote.
 
@@ -118,4 +132,4 @@ Before handing to another Codex, Claude, or human manager:
 4. Name the full commit SHAs and artifact hashes. Do not rely on prose such as “latest dev.”
 5. Require the next manager to independently re-read the manifest and verify live pointers before continuing.
 
-Call a release complete only when the requested environment runs the exact recorded release, every required gate passes, rollback is documented, the manifest is final, and no further authorized work remains.
+Call application work complete only when dev runs the exact recorded release, freshly fetched `origin/main` equals that SHA, the changed behavior is live-verified, rollback is documented, and the artifact is staging-ready. Call a staging or production release complete only when the requested environment runs the exact recorded release, every required gate passes, rollback is documented, the manifest is final, and no further authorized work remains.

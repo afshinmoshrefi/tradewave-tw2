@@ -1640,19 +1640,23 @@ restart-matrix: `ops/OPERATIONS.md`.
 
 **Git release invariant:** deployments promote exact commits, not the current contents of
 the dev server. Every Codex or Claude task uses a dedicated branch and worktree; the task
-ends with intended changes committed and pushed, and its handoff names the full SHA. A
-clean integration worktree based on current `origin/main` combines the exact handoff SHAs,
-runs the release tests/build, and pushes a tested release commit. That commit advances
-`origin/main` before `ops/deploy.sh` runs because the deploy script pulls `origin/main` on
-the target boxes. `/home/flask` is the operational checkout, not a shared development
-scratchpad. Canonical procedure: `.claude/skills/tw-git-release-workflow/SKILL.md`.
+uses current `origin/main` as its base, and preserves intended changes as an exact pushed
+commit. For substantive application/runtime work, the task is not complete at that point.
+The coding session may become the recorded dev-completion manager and, under the dev lock,
+combine its task with every completed change in a clean integration worktree, build one
+immutable candidate, activate and live-verify it on dev, and leave freshly fetched
+`origin/main` equal to the exact active dev SHA. Claude and Codex may develop concurrently,
+but final integration and dev activation are serialized. `/home/flask` is the operational
+checkout, not a development scratchpad. Canonical procedure:
+`.claude/skills/tw-git-release-workflow/SKILL.md`.
 
 **Release-state invariant:** durable manager state lives only under
 `/var/lib/tradewave/release-state/`, initialized on dev by
 `ops/init_release_state.sh` as `flask:flask` mode `0750`. The manifest records the
-one-time baseline marker and a shared-dev activation lock. A candidate may not be
-activated on dev until active sessions are notified and the manager atomically owns
-`dev-activation.lock`; the lock remains through runtime and browser verification.
+one-time baseline marker and a dev integration/activation lock. A manager acquires
+`dev-activation.lock` before final integration, refetches current `origin/main`, and keeps
+the lock through build, activation, runtime/browser verification, and the final proof that
+the active dev SHA equals `origin/main`.
 
 **Tara immutable app release invariant (2026-08-04):** a scoped Tara-only backend promotion uses
 a clean detached worktree under `/home/flask/.tw2-releases/<sha>` and atomically points
@@ -1965,8 +1969,10 @@ roadmap memories.)
 4. **FREEZE legacy Stripe price cleanup** - never archive a price with an active sub.
 5. **No em-dashes** in TradeWave/SMN content (use ` - `). Date-range LABELS use
    en-dash via `tw_dateformat.py`; prose uses words; slugs stay ASCII.
-6. **A plain staging-deploy request authorizes the sole release manager to execute the
-   complete gated staging workflow.** Never touch production or TW1 directly - author
+6. **A substantive application-change request includes clean integration and verified dev
+   activation unless the owner explicitly says local-only or do-not-deploy.** A plain
+   staging-deploy request authorizes the sole release manager to execute the complete gated
+   staging workflow. Never touch production or TW1 directly - author
    production commands and the operator runs them. Read-only inspection of `.151` is allowed.
 7. **All TW2 hosts are Cloudflare tunnels** - never convert prod to an A record.
 8. **config.py is env-agnostic** - per-env values only via secrets.env. Never use

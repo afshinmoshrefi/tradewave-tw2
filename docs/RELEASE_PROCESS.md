@@ -4,18 +4,24 @@ This is the shared release policy for Codex, Claude, and human operators. `ops/O
 
 ## Core invariant
 
-The version approved on dev must become one reproducible release:
+Every requested application change must become part of one reproducible dev release before it is called complete:
 
 ```text
-approved dev behavior
-  -> clean Git commit
+requested application change
+  -> isolated task commit
+  -> clean integration on the newest origin/main
   -> one provenance-stamped frontend artifact
-  -> exact activation on dev
+  -> exact activation and live verification on dev
+  -> origin/main equals the active dev SHA
   -> staging promotion of the same commit and artifact
   -> production promotion of the same commit and artifact
 ```
 
-Dev is the product-behavior source of truth. A dirty dev filesystem is not a release artifact. Before promotion, the release manager must preserve the desired dev changes in Git, rebuild from a clean commit, activate that candidate on dev, and reconfirm the behavior.
+The live dev site is the product-behavior source of truth. A dirty filesystem or a private task worktree is not dev and is not a release artifact. For a substantive application or runtime-visible change, the original change request implicitly authorizes routine Git integration, build, dev activation, and live verification. The session must not call the work fixed, complete, done, or live until the exact combined commit is running on dev, verified there, and equals `origin/main`. The exceptions are an explicit `local only` / `do not deploy` instruction and analysis- or documentation-only work.
+
+This completion rule applies equally to Codex and Claude. They may develop concurrently in separate worktrees, but final integration and dev activation are serialized. The session finishing a change may become the recorded dev-completion manager; one manager means one exclusive mutation owner, not a separate conversation. If another manager owns the window, the finishing session preserves and hands off its exact commit and continues or waits for integration without making the owner coordinate branches.
+
+The cross-agent bootstrap source is `ops/agent-bootstrap/TRADEWAVE_GLOBAL.md`. Install its content as Codex's global TradeWave skill and as Claude Code user memory (`~/.claude/CLAUDE.md`) so a stale worktree cannot hide the current repository controls. Repository policy remains authoritative after bootstrap.
 
 A plain request to "deploy to staging" is intentionally sufficient. It approves the behavior running on dev at request time as the target and authorizes one release manager to automate the complete repository, dev, and staging workflow. The manager must not make the owner restate this document, choose routine commands, or execute staging commands. Production always requires a later explicit request.
 
@@ -25,20 +31,22 @@ The first release under this policy is a one-time `baseline-reconciliation` rele
 
 ### Development session
 
-- Use one task branch and isolated worktree.
-- Commit and push only the task's intended changes.
-- Provide the full SHA, tests, risks, configuration/migration requirements, and rollback notes in a handoff.
-- Do not integrate, update `main`, build the release artifact, deploy, or move environment pointers.
+- Start from freshly fetched `origin/main` in one task branch and isolated worktree. Never continue application work in an old dirty worktree merely because it was already open.
+- Commit and push only the task's intended changes and record the full SHA, tests, risks, configuration/migration requirements, and rollback notes.
+- For an application/runtime change, continue through dev completion by becoming the recorded manager or handing the commit to the current manager internally. Do not stop at a local test or handoff and call the task complete.
+- Do not touch staging or production without their separate explicit authorization.
 
 ### Deployment manager
 
 - One manager owns one release ID at a time.
-- The manager inventories handoffs and the actual dev runtime, integrates exact commits, builds the immutable release, and owns all promotion evidence.
+- A development session may assume this role for dev completion when no other manager owns the mutation window.
+- The manager inventories handoffs and the actual dev runtime, integrates exact commits on the newest `origin/main`, builds the immutable release, and owns all activation and promotion evidence.
 - The manager is replaceable only through a recorded handoff. Chat history is not release state.
-- Only the manager may integrate, advance release refs, build artifacts, activate dev, or execute the authorized staging promotion and rollback.
+- Only the manager may perform final integration, advance release refs, build artifacts, activate dev, or execute the authorized staging promotion and rollback.
 
 ### Owner
 
+- By requesting a substantive application change, authorizes the agents to handle branches, commits, pushes, clean integration, and dev-only activation and verification required to leave the change live on dev and staging-ready. The owner does not manage these technical steps.
 - By requesting staging deployment, approves the currently running dev behavior as the target. After exact automated parity is proven, the manager binds that request to the resulting full Git SHA and composite artifact hash without requesting redundant approval.
 - Approves staging before any production action.
 - Confirms current-day production web and appserver snapshots before production promotion.
@@ -72,6 +80,8 @@ The manifest records identity, ownership, the baseline marker, dev activation co
 
 ## Authorization boundaries
 
+- A request to fix, change, build, or update TradeWave application behavior authorizes the routine repository writes and dev-only activation necessary to finish that change on the live dev site. It does not authorize staging or production. An explicit `local only` or `do not deploy` instruction overrides this default.
+
 - “Inspect,” “compare,” “diagnose,” and “is this ready?” are read-only.
 - “Deploy to staging” authorizes the sole manager to perform every required repository, dev, and staging action through verified completion, including preserving and pushing intended work, advancing `origin/main` after validation, and executing automatic staging rollback. It is also approval of the behavior running on dev when requested, conditional on exact automated reconstruction.
 - Do not pause for routine Git, build, test, dev activation, staging execution, or rollback choices. Pause only for an unclassified change requiring an owner decision, inability to prove dev parity, unavailable required authority/credentials, or unsafe/failed rollback.
@@ -86,24 +96,24 @@ The manifest records identity, ownership, the baseline marker, dev activation co
 1. Never develop in the shared active `/home/flask` checkout.
 2. Run server Git operations as `flask`, not `root`.
 3. Never reset, stash, clean, delete, or overwrite unclassified dirty dev work.
-4. Fetch current remote refs and create a clean integration worktree from `origin/main`.
+4. Before planning or editing, fetch current remote refs. If required policy files are absent locally, inspect them from current `origin/main` (for example with `git show`) before declaring them missing; then create a fresh task worktree from that ref.
 5. Verify every handoff SHA exists remotely and review each task diff independently.
-6. Reconcile the combined source against the behavior the owner approves on dev. Preserve missing dev changes as explicit task commits; do not sweep unrelated files into the release.
-7. Run focused tests after risky merges and the combined safe suite before building.
-8. Commit and push the clean release candidate. Record its full SHA.
+6. Acquire the dev coordination lock before final integration, refetch `origin/main`, and integrate the task on top of every already completed change. Never overwrite a newer dev completion with an older branch.
+7. Reconcile the combined source against the requested behavior. Preserve missing dev changes as explicit task commits; do not sweep unrelated files into the release.
+8. Run focused tests after risky merges and the combined safe suite before building. Record the full candidate SHA.
 
 If the approved dev behavior cannot be reproduced from the clean release candidate, stop. Do not promote the dirty checkout or its ad hoc bundle.
 
 ## Build and dev-approval gates
 
-1. Build React once from the exact clean candidate with `ops/build_react_release.sh`.
-2. Require `.tradewave-source-sha` to equal the release SHA.
-3. Record all active frontend bundle names and SHA-256 hashes.
-4. Before activation, announce the exact SHA and expected interruption to active dev sessions. Atomically create `/var/lib/tradewave/release-state/dev-activation.lock` as a directory lock with `mkdir` and write owner/release metadata inside it; refuse a live lock unless its owner explicitly hands it off, or record evidence and owner approval for a stale-lock override. Record the announcement, lock owner, SHA, and evidence in `dev_coordination`.
-5. Activate the candidate on dev through the same documented runtime model used by the service configuration.
-6. Keep the lock through verification. Verify effective systemd units and drop-ins, process working directories/command lines, backend fingerprints, frontend symlinks/index, bundle hashes, and nginx routing.
-7. Run release-specific contract checks and rendered browser tests. Tests and bundle-string greps are supporting evidence, not product verification. Release only this release's lock afterward and append the release event.
-8. If the candidate exactly matches the dev behavior captured when deployment was requested, record the staging-deploy request as owner approval against the full SHA and composite `artifacts.manifest_sha256`; do not ask again. Otherwise stop for an owner decision.
+1. Atomically create `/var/lib/tradewave/release-state/dev-activation.lock` with `mkdir` before final integration and write owner/release metadata inside it. Refuse a live lock unless its owner explicitly hands it off, or record evidence and owner approval for a stale-lock override. Hold the lock through activation, verification, and the final remote-ref check. A competing Claude or Codex completion waits; it does not ask the owner to order branches.
+2. Build React once from the exact clean candidate with `ops/build_react_release.sh`.
+3. Require `.tradewave-source-sha` to equal the release SHA and record all active frontend bundle names and SHA-256 hashes.
+4. Announce the exact SHA and expected interruption to active dev sessions. Record the lock owner, SHA, and evidence in `dev_coordination`.
+5. Activate the candidate on dev through the documented runtime model and verify effective units/drop-ins, process working directories/command lines, backend fingerprints, frontend symlinks/index, bundle hashes, nginx routing, release contracts, and rendered browser behavior.
+6. After live verification, advance `origin/main` to the exact candidate using a non-forced, concurrency-safe update. If the remote ref changed unexpectedly, roll dev back to its recorded previous release, integrate the newly completed work, rebuild, and retry while retaining coordination. Never force-push or leave a completed dev state that differs from `origin/main`.
+7. Verify the active dev source SHA, artifact provenance, and freshly fetched `origin/main` are identical. Only then release the lock and call the application change complete and staging-ready.
+8. If a staging deployment was requested, bind that request as owner approval against the same full SHA and composite `artifacts.manifest_sha256`; do not ask again. Otherwise stop after reporting the verified dev SHA and staging readiness.
 
 ## Staging gates
 
