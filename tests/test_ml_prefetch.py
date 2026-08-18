@@ -1434,7 +1434,7 @@ def test_failed_atomic_publish_keeps_staged_checkpoint_out_of_read_path(
     assert manifests[0]["status"] == "failed"
 
 
-def test_eod_cron_and_imports_follow_the_immutable_release_pointer():
+def test_eod_cron_and_imports_follow_the_environment_runtime_model():
     repo_root = Path(__file__).resolve().parents[1]
     installer = (repo_root / "ops" / "install_eod_cron.sh").read_text(
         encoding="utf-8"
@@ -1443,8 +1443,12 @@ def test_eod_cron_and_imports_follow_the_immutable_release_pointer():
         encoding="utf-8"
     )
 
-    assert "cd /home/flask/.tw2-app-current/data_updater" in installer
-    assert "cd /home/flask/data_updater" not in installer
+    assert "dev)" in installer
+    assert "RELEASE_ROOT='/home/flask/.tw2-app-current'" in installer
+    assert "staging|prod)" in installer
+    assert "RELEASE_ROOT='/home/flask'" in installer
+    assert "cd $RELEASE_ROOT/data_updater" in installer
+    assert "TW2_ENV must be dev, staging, or prod" in installer
     assert "REPO_ROOT = os.path.dirname" in updater
     forbidden_live_import = "sys.path.insert(0, " + repr("/home/flask") + ")"
     assert forbidden_live_import not in updater
