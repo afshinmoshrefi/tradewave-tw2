@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useContext } from 'react';
 import { UserContext } from './UserContext';
-import { appserverURL, trend_chart_left_gap_days, incrementDate, themeColors, getSelectedIDFromSecuritiesList2, setCookie } from './Common';
+import { appserverURL, trend_chart_left_gap_days, incrementDate, themeColors, getSelectedIDFromSecuritiesList2, setCookie, lsGet, lsSet } from './Common';
 import TrendScorePopup from './TrendScorePopup';
 import SharpeRatioPopup from './SharpeRatioPopup';
 import SeasonalPatternsPopup from './SeasonalPatternsPopup';
@@ -47,6 +47,7 @@ import {
 } from './taraGuidedQuestions';
 
 const TARA_INTRO_MESSAGE = "Hi, I'm <b>Tara</b>. Tell me what you want to accomplish, or choose a guided question below. I can help you find historical seasonal opportunities, study a ticker's evidence and weak periods, or learn the long-term Buy &amp; Hold workflow.";
+const TARA_GUIDED_QUESTIONS_EXPANDED_KEY = 'taraGuidedQuestionsExpanded';
 
 const CHATBOT_DERIVED_STAT_KEYS = [
   'Trade Dir', 'Num Winners', 'Num Losers', 'Percent Profitable',
@@ -121,6 +122,9 @@ function Chatbot(props) {
   const [guidedQuestions, setGuidedQuestions] = useState(
     () => taraStarterQuestions(props.symbol),
   );
+  const [guidedQuestionsExpanded, setGuidedQuestionsExpanded] = useState(
+    () => lsGet(TARA_GUIDED_QUESTIONS_EXPANDED_KEY, true) !== false,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [pendingViewTransaction, setPendingViewTransaction] = useState(null);
   const [previousChat, setPreviousChat] = useState(null);
@@ -173,6 +177,14 @@ function Chatbot(props) {
     pe_cycle: props.PEselected,
     cut_off_year: props.trimYear,
   });
+
+  const toggleGuidedQuestions = () => {
+    setGuidedQuestionsExpanded((current) => {
+      const next = !current;
+      lsSet(TARA_GUIDED_QUESTIONS_EXPANDED_KEY, next);
+      return next;
+    });
+  };
   const currentPatternKey = taraPatternContextKey(currentPatternContext);
 
   // Intro greeting on first open.
@@ -1043,59 +1055,82 @@ function Chatbot(props) {
       {guidedQuestions.length > 0 && !isLoading && (
         <div
           aria-label="Suggested questions for Tara"
+          className="tara-guided-questions"
           style={{
-            padding: '7px 8px 2px',
             backgroundColor: tc.panelBg,
             borderLeft: '1px solid ' + tc.inputBorder,
             borderRight: '1px solid ' + tc.inputBorder,
           }}
         >
-          <div style={{
-            marginBottom: '5px',
-            color: tc.textSecondary,
-            fontSize: 'clamp(11px, 0.68vw, 13px)',
-            fontWeight: 600,
-          }}>
-            What would you like to accomplish next?
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-            {guidedQuestions.map((question) => (
-              <button
-                key={`${question.label}|${question.prompt}`}
-                type="button"
-                onClick={() => handleSend(question.prompt, { guided: true })}
-                disabled={isLoading}
-                title={question.prompt}
-                style={{
-                  flex: '1 1 150px',
-                  minWidth: 0,
-                  padding: '5px 7px',
-                  textAlign: 'left',
-                  cursor: isLoading ? 'default' : 'pointer',
-                  color: tc.text,
-                  backgroundColor: tc.statValueBg,
-                  border: '1px solid ' + tc.inputBorder,
-                  borderRadius: '5px',
-                }}
-              >
-                <span style={{
-                  display: 'block',
-                  fontWeight: 700,
-                  fontSize: 'clamp(11px, 0.68vw, 13px)',
-                }}>
-                  {question.label}
-                </span>
-                <span style={{
-                  display: 'block',
-                  marginTop: '2px',
-                  color: tc.textSecondary,
-                  fontSize: 'clamp(10px, 0.62vw, 12px)',
-                  lineHeight: 1.25,
-                }}>
-                  {`"${question.prompt}"`}
-                </span>
-              </button>
-            ))}
+          <button
+            type="button"
+            className="tara-guided-questions-toggle"
+            onClick={toggleGuidedQuestions}
+            aria-expanded={guidedQuestionsExpanded}
+            aria-controls="tara-guided-questions-body"
+            title={guidedQuestionsExpanded ? 'Hide suggested questions' : 'Show suggested questions'}
+            style={{
+              color: tc.textSecondary,
+              borderColor: tc.inputBorder,
+              backgroundColor: tc.panelBg,
+            }}
+          >
+            <span>
+              {guidedQuestionsExpanded
+                ? 'What would you like to accomplish next?'
+                : `Suggested questions (${guidedQuestions.length})`}
+            </span>
+            <span className="tara-guided-questions-chevron" aria-hidden="true">
+              {guidedQuestionsExpanded ? '▲' : '▼'}
+            </span>
+          </button>
+          <div
+            id="tara-guided-questions-body"
+            className={`tara-guided-questions-body${guidedQuestionsExpanded ? ' is-expanded' : ' is-collapsed'}`}
+            aria-hidden={!guidedQuestionsExpanded}
+          >
+            <div className="tara-guided-questions-inner">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                {guidedQuestions.map((question) => (
+                  <button
+                    key={`${question.label}|${question.prompt}`}
+                    type="button"
+                    onClick={() => handleSend(question.prompt, { guided: true })}
+                    disabled={isLoading}
+                    tabIndex={guidedQuestionsExpanded ? 0 : -1}
+                    title={question.prompt}
+                    style={{
+                      flex: '1 1 150px',
+                      minWidth: 0,
+                      padding: '5px 7px',
+                      textAlign: 'left',
+                      cursor: isLoading ? 'default' : 'pointer',
+                      color: tc.text,
+                      backgroundColor: tc.statValueBg,
+                      border: '1px solid ' + tc.inputBorder,
+                      borderRadius: '5px',
+                    }}
+                  >
+                    <span style={{
+                      display: 'block',
+                      fontWeight: 700,
+                      fontSize: 'clamp(11px, 0.68vw, 13px)',
+                    }}>
+                      {question.label}
+                    </span>
+                    <span style={{
+                      display: 'block',
+                      marginTop: '2px',
+                      color: tc.textSecondary,
+                      fontSize: 'clamp(10px, 0.62vw, 12px)',
+                      lineHeight: 1.25,
+                    }}>
+                      {`"${question.prompt}"`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
