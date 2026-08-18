@@ -1225,9 +1225,13 @@ gateway is unconfigured. Full spec + the proposed Phase 2 (chat drives the wave-
 turns broad questions such as “I have $2,000—what should I buy?” and “How do I figure out what to
 invest in?” into an educational research funnel: clarify horizon and investable universe, screen
 mathematical seasonal candidates, compare recurrence/sample size/upside/downside and path risk,
-then deep-dive a user-chosen setup. She teaches Buy & Hold as the long-horizon baseline and uses
-exclude-date-range studies to expose historically weak windows, while avoiding personalized buy or
-allocation recommendations. Proactive starter and follow-up questions show users what Tara can do.
+then deep-dive a user-chosen setup. She teaches Buy & Hold as the long-horizon baseline with short
+numbered guidance: enter a ticker in the Wave Viewer, use **Analysis -> Buy & Hold** to read yearly
+gains/losses, the typical calendar path, and compounded growth, then keep that full-year study loaded
+and use **Analysis -> Compare Symbols...** for a common-history comparison. Only after those main
+steps does she teach **Analysis -> Exclude Current Range** and **View Exclusion Report** as an
+advanced weak-period study. She avoids personalized buy or allocation recommendations. Proactive
+starter and follow-up questions show users what Tara can do.
 Every viewer change is a signed, allowlisted action; success requires matching observed UI state and
 non-empty primary and trend chart sources. Question events and browser action receipts share
 `turn_id`/`action_id` values so failures and displayed responses are auditable. The full behavioral,

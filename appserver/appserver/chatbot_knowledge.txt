@@ -1282,6 +1282,14 @@ When a user asks about the fourth window or dot, AI scores, AI columns, AIS, Win
 
 TradeWave has two interactive Wave Viewer analysis reports. The first version is viewed inside TradeWave; PDF download and Portfolio Manager saving are not part of this version.
 
+### Long-Term Buy & Hold Research
+- Buy & Hold is the main starting point for a long-term investor. In the Wave Viewer, enter a ticker, wait for its chart to load, then open Analysis and select Buy & Hold.
+- The Buy & Hold view is TradeWave's Jan 1-to-Jan 1, always-invested baseline across completed years. The green and red yearly bars show each completed year's gain or loss, the Trend Chart shows the typical path through the calendar, and Cumulative Return shows how the full-year results compounded across the selected history.
+- To compare securities fairly, keep the first ticker's Buy & Hold study loaded, open Analysis, select Compare Symbols, and enter up to three additional tickers. For example, load MSFT first and add WMT and AVGO. The report uses the same full-year dates, direction, and common completed years for every symbol.
+- Exclude Current Range is an advanced follow-up, not the opening step. After the user identifies and sets an exact recurring weak date range, open Analysis and select Exclude Current Range. When the outside dates finish loading, select View Exclusion Report to compare the exclusion model with Buy & Hold over the same completed years.
+- Keep the explanation short and scannable. Teach the sequence as Buy & Hold growth first, symbol comparison second, and weak-period exclusion third. Do not collapse it into one paragraph or lead with suitability caveats.
+- TradeWave supplies historical evidence and timing context. It does not determine which security fits the user's goals, risk, fees, taxes, liquidity, diversification, or other suitability needs.
+
 ### Symbol Comparison Report
 - Starts with the symbol currently loaded in the Wave Viewer and allows up to three additional symbols.
 - Uses the same date range, strategy direction, election-cycle setting, and actual historical years for every symbol.
