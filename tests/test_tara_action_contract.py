@@ -367,6 +367,12 @@ def test_investor_funnel_classifies_horizon_universe_and_weak_periods():
         {"role": "assistant", "content": "Long term or seasonal?"},
         {"role": "user", "content": "long"},
     ]) == "long_term"
+    assert tara_gateway.classify_investor_intent("long") is None
+    assert tara_gateway.classify_investor_intent([
+        {"role": "user", "content": "Is this pattern long or short?"},
+        {"role": "assistant", "content": "It is a historical Long pattern."},
+        {"role": "user", "content": "long"},
+    ]) is None
     assert tara_gateway.classify_investor_intent([
         {"role": "user", "content": "What should I trade?"},
         {"role": "assistant", "content": "Stocks or ETFs?"},
