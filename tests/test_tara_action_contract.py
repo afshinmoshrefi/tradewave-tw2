@@ -1457,11 +1457,11 @@ def test_backend_turn_exception_is_written_to_question_audit(
     audit_app, monkeypatch
 ):
     monkeypatch.setattr(chatbot, "TARA_TOOLS_ENABLED", True)
-    monkeypatch.setattr(
-        chatbot,
-        "run_chat_with_tools",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
-    )
+    def fail_provider(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(chatbot, "run_chat_with_openai_tools", fail_provider)
+    monkeypatch.setattr(chatbot, "run_chat_with_tools", fail_provider)
     response = audit_app.test_client().post("/chatbot/chat", json={
         "token": _token(audit_app),
         "message": "load TSLA",
