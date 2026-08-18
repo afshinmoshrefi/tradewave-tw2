@@ -73,7 +73,7 @@ afterEach(() => {
 
 test('collapses suggested questions without hiding Tara input and remembers the choice', () => {
   const view = renderTara(jest.fn());
-  const toggle = screen.getByRole('button', { name: /what would you like to accomplish next/i });
+  const toggle = screen.getByRole('button', { name: /hide suggested questions/i });
   const body = document.getElementById('tara-guided-questions-body');
 
   expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -82,14 +82,14 @@ test('collapses suggested questions without hiding Tara input and remembers the 
 
   fireEvent.click(toggle);
 
-  expect(screen.getByRole('button', { name: /suggested questions \(3\)/i })).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.getByRole('button', { name: /show suggested questions/i })).toHaveAttribute('aria-expanded', 'false');
   expect(body).toHaveAttribute('aria-hidden', 'true');
   expect(screen.getByTitle("Analyze AAPL's current seasonal pattern")).toHaveAttribute('tabindex', '-1');
   expect(screen.getByPlaceholderText(/ask tara about aapl/i)).toBeInTheDocument();
 
   view.unmount();
   renderTara(jest.fn());
-  expect(screen.getByRole('button', { name: /suggested questions \(3\)/i })).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.getByRole('button', { name: /show suggested questions/i })).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('reveals server guidance only after the requested graph is verified', async () => {
