@@ -20,6 +20,23 @@ from tara_model_router import OPENAI_PROVIDER, select_tara_provider  # noqa: E40
 from tara_runtime_policy import FALLBACK_MODEL, PRIMARY_MODEL, public_policy  # noqa: E402
 
 
+def _assert_signed_route_action(payload, expected_spec, *, rank=None):
+    assert len(payload["turn_id"]) == 32
+    assert isinstance(payload["suggestions"], list)
+    assert len(payload["actions"]) == 1
+    action = payload["actions"][0]
+    assert action["type"] == "set_view"
+    assert action["status"] == "validated"
+    assert action["spec"] == expected_spec
+    assert len(action["action_id"]) == 32
+    assert len(action["action_manifest"]) == 64
+    assert len(action["receipt"]) == 64
+    assert action["turn_id"] == payload["turn_id"]
+    if rank is not None:
+        assert action["rank"] == rank
+    return action
+
+
 def test_provider_selection_is_release_owned_and_has_no_user_bucket():
     assert select_tara_provider() == OPENAI_PROVIDER
     assert PRIMARY_MODEL == "gpt-5.6-luna"
@@ -174,7 +191,7 @@ def test_openai_tool_loop_reuses_the_validated_view_action_path(monkeypatch):
                     "content": [
                         {
                             "type": "output_text",
-                            "text": "PEG short loaded; its completed sample is 14 profitable years out of n=17.",
+                            "text": "PEG short has 14 profitable completed years out of n=17.",
                         }
                     ],
                 }
@@ -187,22 +204,32 @@ def test_openai_tool_loop_reuses_the_validated_view_action_path(monkeypatch):
         [{"type": "text", "text": "stable", "cache_control": {"type": "ephemeral"}}],
         "user-42",
         "gpt-5.6-luna",
+        current_view={
+            "view_ready": True,
+            "symbol": "PEG",
+            "market": "3",
+            "entry_date": "2026-07-31",
+            "days_out": 6,
+            "stats": {
+                "Num Winners": "14",
+                "Num Losers": "3",
+            },
+        },
     )
 
-    assert reply.startswith("PEG short loaded")
-    assert actions == [
-        {
-            "type": "set_view",
-            "spec": {
-                "symbol": "PEG",
-                "market": "3",
-                "entry_date": "2026-07-31",
-                "days_out": 6,
-                "show_mfe": True,
-                "show_mae": False,
-            },
-        }
-    ]
+    assert reply.startswith("PEG short has")
+    assert len(actions) == 1
+    assert actions[0]["type"] == "set_view"
+    assert actions[0]["status"] == "validated"
+    assert len(actions[0]["action_id"]) == 32
+    assert actions[0]["spec"] == {
+        "symbol": "PEG",
+        "market": "3",
+        "entry_date": "2026-07-31",
+        "days_out": 6,
+        "show_mfe": True,
+        "show_mae": False,
+    }
     function_outputs = [
         item for item in seen_inputs[1] if item.get("type") == "function_call_output"
     ]
@@ -210,7 +237,7 @@ def test_openai_tool_loop_reuses_the_validated_view_action_path(monkeypatch):
     assert json.loads(function_outputs[0]["output"])["ok"] is True
 
 
-def test_view_spec_accepts_only_real_boolean_excursion_controls():
+def test_view_spec_rejects_unknown_fields_atomically():
     cleaned = tara_gateway._validate_view_spec(
         {
             "show_mfe": True,
@@ -219,7 +246,11 @@ def test_view_spec_accepts_only_real_boolean_excursion_controls():
         }
     )
 
-    assert cleaned == {"show_mfe": True, "show_mae": False}
+    assert cleaned == {}
+    assert tara_gateway._validate_view_spec({"show_mfe": True, "show_mae": False}) == {
+        "show_mfe": True,
+        "show_mae": False,
+    }
     assert tara_gateway._validate_view_spec({"show_mfe": "true", "show_mae": 0}) == {}
 
 
@@ -298,7 +329,11 @@ def test_full_history_command_overrides_model_sentinel_and_pins_loaded_window(mo
     )
 
     assert captured["tool_input"] == request_spec
-    assert actions == [{"type": "set_view", "spec": {"years": 40}}]
+    assert len(actions) == 1
+    assert actions[0]["type"] == "set_view"
+    assert actions[0]["status"] == "validated"
+    assert len(actions[0]["action_id"]) == 32
+    assert actions[0]["spec"] == {"years": 40}
 
 
 def test_full_history_action_is_added_when_provider_omits_update_view():
@@ -484,8 +519,8 @@ def test_chat_route_retries_haiku_when_luna_fails(monkeypatch, caplog):
 
     app = Flask(__name__)
     body = {
-        "message": "What can you do?",
-        "history": [{"role": "user", "content": "What can you do?"}],
+        "message": "Explain risk-adjusted return.",
+        "history": [{"role": "user", "content": "Explain risk-adjusted return."}],
         "wave_viewer": {},
         "screen_context": {},
         "opportunities": [],
@@ -494,7 +529,11 @@ def test_chat_route_retries_haiku_when_luna_fails(monkeypatch, caplog):
         g.chatbot_user_id = "fallback-test"
         response = chatbot_module.chat.__wrapped__()
 
-    assert response.get_json() == {"reply": "Haiku recovered the turn.", "actions": []}
+    payload = response.get_json()
+    assert payload["reply"] == "Haiku recovered the turn."
+    assert payload["actions"] == []
+    assert len(payload["turn_id"]) == 32
+    assert isinstance(payload["suggestions"], list)
     assert seen == {"provider": "anthropic_fallback", "response": "Haiku recovered the turn."}
     assert "primary_provider=openai" in caplog.text
     assert "primary_model=gpt-5.6-luna" in caplog.text
@@ -527,8 +566,8 @@ def test_chat_route_does_not_fallback_for_missing_primary_configuration(monkeypa
 
     app = Flask(__name__)
     body = {
-        "message": "What can you do?",
-        "history": [{"role": "user", "content": "What can you do?"}],
+        "message": "Explain risk-adjusted return.",
+        "history": [{"role": "user", "content": "Explain risk-adjusted return."}],
         "wave_viewer": {},
         "screen_context": {},
         "opportunities": [],
@@ -584,19 +623,13 @@ def test_chat_route_loads_visible_ordinal_row_without_calling_a_provider(monkeyp
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
-    assert payload["actions"] == [
-        {
-            "type": "load_opportunity",
-            "rank": 3,
-            "spec": {
-                "symbol": "PEG",
-                "market": "2",
-                "entry_date": "2026-08-06",
-                "days_out": 6,
-                "pe_cycle": "cons",
-            },
-        }
-    ]
+    _assert_signed_route_action(payload, {
+        "symbol": "PEG",
+        "market": "2",
+        "entry_date": "2026-08-06",
+        "days_out": 6,
+        "pe_cycle": "cons",
+    }, rank=3)
     assert "Loaded row #3: PEG short" in payload["reply"]
     assert seen["provider"] == "deterministic"
 
@@ -650,19 +683,13 @@ def test_chat_route_uses_current_visible_googl_row_not_stale_history(monkeypatch
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
-    assert payload["actions"] == [
-        {
-            "type": "load_opportunity",
-            "rank": 1,
-            "spec": {
-                "symbol": "GOOGL",
-                "market": "2",
-                "entry_date": "2026-08-07",
-                "days_out": 21,
-                "pe_cycle": "cons",
-            },
-        }
-    ]
+    _assert_signed_route_action(payload, {
+        "symbol": "GOOGL",
+        "market": "2",
+        "entry_date": "2026-08-07",
+        "days_out": 21,
+        "pe_cycle": "cons",
+    }, rank=1)
     assert "highest-ranked visible row (#1): GOOGL long" in payload["reply"]
     assert "July" not in payload["reply"]
 
@@ -702,9 +729,7 @@ def test_chat_route_moves_lower_panel_without_calling_a_provider(
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
-    assert payload["actions"] == [
-        {"type": "set_view", "spec": {"bottom_slide": expected_slide}}
-    ]
+    _assert_signed_route_action(payload, {"bottom_slide": expected_slide})
     assert expected_reply in payload["reply"]
 
 
@@ -801,9 +826,7 @@ def test_chat_route_changes_tooltips_without_calling_a_provider(
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
-    assert payload["actions"] == [
-        {"type": "set_view", "spec": {"show_tooltips": expected}}
-    ]
+    _assert_signed_route_action(payload, {"show_tooltips": expected})
     assert "upper-left toolbar" in payload["reply"]
 
 
@@ -954,7 +977,11 @@ def test_chat_route_replaces_client_ai_values_with_server_analysis_context(
         g.chatbot_user_id = "ai-context-test"
         response = chatbot_module.chat.__wrapped__()
 
-    assert response.get_json() == {"reply": "verified analysis", "actions": []}
+    payload = response.get_json()
+    assert payload["reply"] == "verified analysis"
+    assert payload["actions"] == []
+    assert len(payload["turn_id"]) == 32
+    assert isinstance(payload["suggestions"], list)
     assert captured["wave"]["ai_analysis"]["horizons"][0]["ai_score"] == 72
 
 

@@ -1810,7 +1810,8 @@ def _percent_number(value: Any) -> Optional[float]:
 
 def _month_day(date_text: str) -> Optional[str]:
     try:
-        return _datetime.datetime.strptime(date_text, "%Y-%m-%d").strftime("%b %-d")
+        value = _datetime.datetime.strptime(date_text, "%Y-%m-%d")
+        return f"{value.strftime('%b')} {value.day}"
     except (TypeError, ValueError):
         return None
 

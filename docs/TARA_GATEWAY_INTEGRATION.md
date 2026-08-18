@@ -47,22 +47,21 @@ semantics, link to the existing Years/Seasonality/Filtering guides, and avoid ne
 marketing language.
 
 Phase 2 as built: an `update_view` tool lets the model DRIVE the wave-viewer. Both tool loops
-in `tara_gateway.py` return (text, actions); an update_view call is
-validated server-side (`_validate_view_spec`: allowlist + range-check symbol/market/entry_date/
-days_out/years/pe_cycle/show_mfe/show_mae/show_tooltips/bottom_slide, dropping invalid fields) and queued as `{type:'set_view', spec}` -
-it never hits the gateway. `chat()` returns `{reply, actions}` (additive; old bundles ignore it).
-`Chatbot.js applyViewSpec` re-validates each field then calls the React setters (mirrors
-`loadOppWV`; a fresh load only on a symbol CHANGE), and `SetPEselected` was added to
-`App.js chartSetProps`. The TOOL_INSTRUCTION is appended (recency) and forcefully tells the model
-to drive the view rather than tell the user where to click. Verified live: "load NVDA, 20 years"
--> action `{market:'1',symbol:'NVDA',years:20}`; "change lookback to 15" -> `years:15`; "switch
-to PE+2" -> `pe_cycle:'pe2'`. React bundle rebuilt (served from web-react/build on dev). Blast
-radius of the actuation = which chart/knobs the user sees (no code exec, no data beyond the
-derived-data-only gateway, no auth/billing).
+in `tara_gateway.py` return (text, actions); an update_view call is validated server-side
+(`_validate_view_spec`: strict allowlist plus value/range checks) and queued as a signed
+`{type:'set_view', spec}` action. It never executes arbitrary code or reaches account, billing, or
+trade-execution state. `chat()` returns `{reply, actions}` additively. The browser re-validates the
+signed manifest, and `App.js` applies the complete ViewSpec as one transaction through the same
+setters used by the viewer. `DesktopLayout.js` owns lower-carousel movement and reports its exact
+semantic destination back to `App.js`. Tara does not say a chart loaded until both the primary and
+trend chart sources are non-empty and every requested chart/UI field is observed. The browser then
+posts the signed action result to the appserver audit endpoint; failure leaves the old view intact
+where possible and produces a truthful retry response.
 
 Direct lower-panel requests bypass both model providers. `tara_answer_planner.py` maps Trend Chart,
-Wave Stats (including “the stats”), and Price Chart to a validated `bottom_slide`; React calls the
-desktop Swiper's stable `slideTo(0|1|2)` contract. Explanatory questions remain explanations.
+Wave Stats (including “the stats”), AI Scores, and Price Chart to a validated semantic
+`bottom_slide`; the desktop owns the index mapping and acknowledges the applied slide. Explanatory
+questions remain explanations.
 
 An explicitly named ticker also outranks the loaded chart and conversation pronouns. When a user
 changes symbols without naming a new lookback, Tara carries the current consecutive lookback to the
@@ -135,25 +134,22 @@ React state and the API contract use the same vocabulary. So there is one object
 - the backend **sends to the gateway** to fetch + narrate a card (Phase 1), and
 - the frontend **applies to the wave-viewer** to drive the on-screen view (Phase 2).
 
-Because narration and the on-screen chart are driven by the *same* ViewSpec, they are in
-sync by construction - Tara can never describe numbers that differ from what is plotted.
+Narration and the requested on-screen chart are driven by the *same* ViewSpec. Completion is still
+an observed browser fact: Tara claims success only after the requested state and non-empty primary
+and trend chart sources match, otherwise she reports that the view did not load.
 
 ```
 ViewSpec = {
   market?:     string,   // market name or permanent id '0'..'16'
   symbol?:     string,
   entry_date?: string,   // 'YYYY-MM-DD'
-  days_out?:   integer,  // 1..366
+  days_out?:   integer,  // 1..367 inclusive calendar days
   years?:      integer,  // 1..99 (lookback)
   pe_cycle?:   'consecutive'|'pe'|'pe0'|'pe1'|'pe2'|'pe3',
   show_mfe?:   boolean,  // best-move overlay on the year-by-year chart
   show_mae?:   boolean,  // worst-move overlay on the year-by-year chart
   show_tooltips?: boolean, // global guidance tooltips across TradeWave
-  bottom_slide?: 'trend_chart'|'wave_stats'|'price_chart', // lower carousel destination
-  period?:     'jan'..'dec'|'q1'..'q4'|'spring'|'summer'|'fall'|'winter'|'ytd'|'year_end'|'buy_hold',
-  reverse?:    boolean,
-  direction?:  'long'|'short',
-  filter?:     string    // the opp-table filter expression
+  bottom_slide?: 'trend_chart'|'wave_stats'|'ai_scores'|'price_chart' // lower carousel destination
 }
 ```
 
@@ -171,20 +167,17 @@ Phase 2 generalizes that existing write-channel.
 | `entry_date` | `SetStartDate('YYYY-MM-DD')` | `entry_date` | direct |
 | `days_out` | `SetDaysOut(n)` | `days_out` | direct (UI shows +1 internally) |
 | `years` | `SetSeasonalYears('10')` | `years` | wave-viewer lookback |
-| `period` | `SetMonthsAndQtrs(label)` | `period` | SeasonalBarChart derives date0/date1 -> SetStartDate/SetDaysOut |
-| `reverse` | `SetMonthsAndQtrs('Reverse Date Range')` | `reverse` | re-derives the complement window |
 | `pe_cycle` | `SetShowPEOpps(bool)` + `SetPEselected('cons'|'pe0..3')` | `pe_cycle` | table mode is boolean; per-security is the pe0..3 selector |
-| `filter` | `SetAppliedFilter(str)` | `filter` | direct |
 | `market` | `SetSelectedSecurity(name)` | `market` | name resolved to id via `getSelectedIDFromSecuritiesList2` |
-| `direction` | `SetBarChartLongOrShort('long'\|'short')` | `direction` | usually inferred from ChartData4; settable but normally let the setup decide |
 | `show_mfe` | `setShowMFE(bool)` | local view only | shows/hides the direction-aware MFE overlay; persisted in the existing `MFE` cookie |
 | `show_mae` | `setShowMAE(bool)` | local view only | shows/hides the direction-aware MAE overlay; persisted in the existing `MAE` cookie |
 | `show_tooltips` | `SetTooltipSW(bool)` | local view only | shows/hides global guidance tooltips through the same state as the upper-left toolbar switch |
-| `bottom_slide` | `swiper.slideTo(0\|1\|2)` | local view only | shows Trend Chart, Wave Stats, or Price Chart immediately; Tara is desktop-only |
+| `bottom_slide` | semantic request to `DesktopLayout` | local view only | shows Trend Chart, Wave Stats, AI Scores, or Price Chart; desktop reports the applied semantic slide |
 
-A single `applyViewSpec(spec)` helper in `Chatbot.js` walks these keys and calls the
-matching `props.Set*` from `chartSetProps`. No new state is introduced - it drives the
-exact setters the dropdowns/sliders/row-clicks already use.
+`Chatbot.js` validates the signed envelope and dispatches it to `App.js`. `App.js` applies the
+allowlisted fields through the exact setters used by dropdowns, sliders, overlays, tooltips, and row
+clicks, then waits for observed chart/UI state. `DesktopLayout.js` separately acknowledges semantic
+lower-slide navigation. Only the matching action id can complete the pending action.
 
 Direct lower-panel commands are resolved deterministically before provider selection. Thus
 "show me the stats" produces `bottom_slide:'wave_stats'` and actually moves the carousel; Tara
@@ -218,8 +211,8 @@ actions: [
 
 Guardrails (defense in depth):
 - **Allowlist, both ends.** Backend validates every action: `type` in {open_guide,set_view},
-  `guide` in the known 17, ViewSpec keys in the table above, values range-checked (reuse the
-  gateway's existing validators: days_out 1-366, years 1-99, period enum, pe_cycle enum).
+  `guide` in the known guide vocabulary, ViewSpec keys in the table above, values range-checked
+  (`days_out` 1-367, `years` 1-99, strict `entry_date`, `pe_cycle`, booleans, and semantic slides).
   Frontend re-validates against the same allowlist before applying. Never `eval`, never a
   dynamic setter name.
 - **View/navigation only.** Every setter in the allowlist is reversible view state. Tara
@@ -390,22 +383,20 @@ and concision blindly. Record quality, tool rounds, latency, input/cache-write/c
 reasoning tokens, fallback rate, and estimated cost. Establish the current Luna-low baseline
 before changing behavior and evaluate one material change at a time.
 
-### Question-log reality and analytics gap
+### Versioned question and action audit
 
-The current per-environment file is
-`/home/flask/appserver/appserver/chatbot_questions.log`. It is JSONL with `ts`, `user_id`,
-`provider`, loaded `symbol`, full `question`, and only the first 500 characters of `response`.
-It has no conversation/session id, turn id, actions, tools, intent, model settings, prompt
-version, latency, token/cache usage, error/fallback detail, user feedback, rotation, or retention
-policy. It is useful for spot review but is not a complete future quality-analysis dataset.
+The appserver writes environment-configurable JSONL question events to
+`TARA_QUESTION_LOG` (default `/var/log/tradewave/tara_questions.log`). Schema v2 records the
+pseudonymous user identity already available to Tara, provider, question, bounded response,
+conversation/turn identifiers, validated action envelopes, and a bounded protocol/tool trace.
+It does not record auth tokens, API keys, raw price payloads, or the hidden system prompt.
 
-Before relying on logs for product analysis, add a versioned, access-controlled event schema
-with a conversation id and turn id; provider/model/reasoning/verbosity; routed intent; a
-non-price pattern fingerprint; question and complete bounded response; validated actions and
-tool names/status; latency; cache/token/cost fields; fallback/error class; prompt/analysis-brief
-version; and explicit user feedback. Never log auth tokens, API keys, raw price payloads, or the
-full hidden prompt. Add rotation, a declared retention period, and a pseudonymous user key before
-opening this analysis beyond the owner.
+Chart completion is written separately to `TARA_ACTION_AUDIT_LOG` (default
+`/var/log/tradewave/tara_actions.log`). The signed `turn_id` and `action_id` join requested actions
+to browser receipts containing status, expected and observed allowlisted state, chart point counts,
+and the response actually displayed after success or failure. This makes the former false-success
+case auditable instead of inferring completion from the model reply. File permissions, rotation,
+retention, and access remain release/operations responsibilities for each environment.
 
 ## 12. Tara awareness of consumer MCP (2026-08-04)
 

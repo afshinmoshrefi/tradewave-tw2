@@ -109,6 +109,34 @@ def _range_report():
     }
 
 
+def _date_range_report():
+    first = _row('date_range', 'forged first label')
+    second = _row('date_range', 'forged second label')
+    second.update({'start_date': '2026-09-01', 'end_date': '2026-12-31'})
+    buy_hold = _row('buy_hold', 'forged buy hold label')
+    buy_hold.update({'start_date': '2026-01-01', 'end_date': '2027-01-01'})
+    return {
+        'schema_version': 1,
+        'report_id': 'date-range-report-1',
+        'report_type': 'date_range_comparison',
+        'title': 'forged title',
+        'generated_at': '2026-08-07T12:00:00Z',
+        'context': {
+            'symbol': 'MSFT',
+            'requested_years': 10,
+            'years_used': 10,
+            'history_adjusted': False,
+            'common_years': list(range(2016, 2026)),
+            'pe_cycle': 'cons',
+            'cut_off_year': 0,
+            'direction': 'long',
+            'range_count': 2,
+            'includes_buy_hold': True,
+        },
+        'rows': [first, second, buy_hold],
+    }
+
+
 def test_report_cleaner_accepts_approved_common_history_snapshot():
     cleaned = chatbot._clean_analysis_report(_symbol_report())
     assert cleaned['report_id'] == 'symbol-report-1'
@@ -223,3 +251,43 @@ def test_range_report_rejects_short_trade_results():
     report['rows'][0]['direction'] = 'short'
     with pytest.raises(ValueError, match='invalid range report direction'):
         chatbot._clean_analysis_report(report)
+
+
+def test_date_range_report_is_validated_and_explainable_by_tara():
+    cleaned = chatbot._clean_analysis_report(_date_range_report())
+
+    assert cleaned['title'] == 'MSFT Date Range Comparison'
+    assert [row['label'] for row in cleaned['rows']] == [
+        'Date Range 1', 'Date Range 2', 'Buy & Hold',
+    ]
+    assert cleaned['context']['range_count'] == 2
+    assert cleaned['context']['includes_buy_hold'] is True
+    prompt = _prompt_text(chatbot.build_system_prompt({}, [], analysis_report=cleaned))
+    assert 'DATE RANGE COMPARISON PLAIN-LANGUAGE CONTRACT' in prompt
+    assert 'same completed-year cohort' in prompt
+    assert 'this is not the Date Range Exclusion Model' in prompt
+    assert 'worst historical result with Buy & Hold' in prompt
+    assert 'not a prediction or personal recommendation' in prompt
+
+
+def test_date_range_report_rejects_duplicate_ranges_and_bad_reference():
+    report = _date_range_report()
+    report['rows'][1]['start_date'] = report['rows'][0]['start_date']
+    report['rows'][1]['end_date'] = report['rows'][0]['end_date']
+    with pytest.raises(ValueError, match='invalid comparison date range'):
+        chatbot._clean_analysis_report(report)
+
+    report = _date_range_report()
+    report['rows'][-1]['start_date'] = '2026-02-01'
+    with pytest.raises(ValueError, match='invalid buy and hold range'):
+        chatbot._clean_analysis_report(report)
+
+
+def test_date_range_report_allows_transparent_common_cohort_alignment():
+    report = _date_range_report()
+    report['context']['requested_years'] = 20
+    report['context']['history_adjusted'] = True
+    cleaned = chatbot._clean_analysis_report(report)
+
+    assert cleaned['context']['years_used'] == 10
+    assert cleaned['context']['history_adjusted'] is True

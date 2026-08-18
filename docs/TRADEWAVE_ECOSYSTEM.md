@@ -1221,6 +1221,18 @@ gateway is `:8088` dev, `:80` staging/prod). Falls back to the old no-tools chat
 gateway is unconfigured. Full spec + the proposed Phase 2 (chat drives the wave-viewer setters):
 `docs/TARA_GATEWAY_INTEGRATION.md`.
 
+**Investor discovery, proactive guidance, and chart-completion truth (2026-08-18).** Tara now
+turns broad questions such as “I have $2,000—what should I buy?” and “How do I figure out what to
+invest in?” into an educational research funnel: clarify horizon and investable universe, screen
+mathematical seasonal candidates, compare recurrence/sample size/upside/downside and path risk,
+then deep-dive a user-chosen setup. She teaches Buy & Hold as the long-horizon baseline and uses
+exclude-date-range studies to expose historically weak windows, while avoiding personalized buy or
+allocation recommendations. Proactive starter and follow-up questions show users what Tara can do.
+Every viewer change is a signed, allowlisted action; success requires matching observed UI state and
+non-empty primary and trend chart sources. Question events and browser action receipts share
+`turn_id`/`action_id` values so failures and displayed responses are auditable. The full behavioral,
+safety, action, audit, and evaluation contract is in `docs/TARA_INVESTOR_DISCOVERY_DESIGN.md`.
+
 **Screening answers must match the on-screen opportunity table - Tara screens from OppList4, NOT
 /scan (fix 2026-06-21).** The wave-viewer opp table (`OppList4`) and the gateway `/scan` are
 DIFFERENT data paths that pick DIFFERENT setups per symbol (verified live: scan top = FAST/TXN/CDNS...;
@@ -1541,10 +1553,11 @@ entry-year row is present in the completed `n`. Occurrence status never shifts a
 Monday. Reminder delivery may move separately, but the analytical window does not.
 
 Direct lower-carousel commands are deterministic UI actions: Trend Chart, Wave Stats (including
-“show me the stats”), and Price Chart map to `bottom_slide=trend_chart|wave_stats|price_chart`, and
-React moves the existing desktop Swiper to indices 0/1/2. These commands do not reload the symbol or
-clear the opportunity table. Concept questions such as “what does the Trend Chart show?” remain
-explanations and do not move the viewer.
+“show me the stats”), AI Scores, and Price Chart map to the semantic
+`bottom_slide=trend_chart|wave_stats|ai_scores|price_chart` contract. `DesktopLayout` owns the
+physical Swiper indices and acknowledges the exact semantic slide before the signed action can
+complete. These commands do not reload the symbol or clear the opportunity table. Concept questions
+such as “what does the Trend Chart show?” remain explanations and do not move the viewer.
 
 PE context is anchored to the occurrence's ENTRY year, including a cross-year window that remains
 active in January. With consecutive years loaded, Tara identifies that occurrence phase and suggests

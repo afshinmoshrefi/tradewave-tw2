@@ -316,7 +316,27 @@ const DesktopLayout = (props) => {
             ? 1
             : savedTarget === 'price_chart' ? 2 : 0;
         setCookie('WindowNumber', String(legacyIndex), 300);
+        return savedTarget;
     }, [hasAIScores, aiEligibilityResolved, props.swiper]);
+
+    const taraBottomSlideRequest = props.taraBottomSlideRequest;
+    const reportTaraBottomSlideApplied = props.ReportTaraBottomSlideApplied;
+    useEffect(() => {
+        const request = taraBottomSlideRequest;
+        if (
+            !request
+            || typeof request.turn_id !== 'string'
+            || typeof request.slide !== 'string'
+        ) return;
+        const applied = goToBottomSlide(request.slide);
+        if (typeof reportTaraBottomSlideApplied === 'function') {
+            reportTaraBottomSlideApplied(request.turn_id, applied);
+        }
+    }, [
+        taraBottomSlideRequest,
+        reportTaraBottomSlideApplied,
+        goToBottomSlide,
+    ]);
 
     // Existing chart headers still call chartTo(0/1/2). Treat those numbers as
     // their old semantic destinations so "2" remains Price Chart after AI is inserted.

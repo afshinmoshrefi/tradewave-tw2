@@ -602,6 +602,8 @@ const App = () => {
     source_points: {},
   });
   const [taraLoadGeneration, SetTaraLoadGeneration] = useState(0);
+  const [taraBottomSlideRequest, SetTaraBottomSlideRequest] = useState(null);
+  const [taraBottomSlideApplied, SetTaraBottomSlideApplied] = useState(null);
   const taraAbortersRef = useRef(new Map());
   const chatbotTipTimerRef = useRef(null);
   const queryStringLoadedRef = useRef(false);
@@ -1124,6 +1126,24 @@ const App = () => {
       if (requested.days_out) SetDaysOut(requested.days_out);
       if (requested.years) SetSeasonalYears(String(requested.years));
       if (requested.pe_cycle) SetPEselected(requested.pe_cycle);
+      if (Object.prototype.hasOwnProperty.call(requested, 'show_mfe')) {
+        setShowMFE(requested.show_mfe);
+        setCookie('MFE', String(requested.show_mfe), 300);
+      }
+      if (Object.prototype.hasOwnProperty.call(requested, 'show_mae')) {
+        setShowMAE(requested.show_mae);
+        setCookie('MAE', String(requested.show_mae), 300);
+      }
+      if (Object.prototype.hasOwnProperty.call(requested, 'show_tooltips')) {
+        SetTooltipSW(requested.show_tooltips);
+      }
+      if (requested.bottom_slide) {
+        SetTaraBottomSlideApplied(null);
+        SetTaraBottomSlideRequest({
+          turn_id: normalizedTurnId,
+          slide: requested.bottom_slide,
+        });
+      }
 
       if (requiresChartData) {
         // Also makes an identical same-spec "reload" a real new ChartData4
@@ -1133,6 +1153,15 @@ const App = () => {
     });
     return { ok: true, transaction };
   };
+
+  const reportTaraBottomSlideApplied = useCallback((turnId, slide) => {
+    if (
+      typeof turnId !== 'string'
+      || !/^[a-f0-9]{32}$/.test(turnId.toLowerCase())
+      || !['trend_chart', 'wave_stats', 'ai_scores', 'price_chart'].includes(slide)
+    ) return;
+    SetTaraBottomSlideApplied({ turn_id: turnId.toLowerCase(), slide });
+  }, []);
 
   const reportViewerDataState = (report) => {
     if (!report || typeof report !== 'object' || !report.request_key) return;
@@ -1151,7 +1180,34 @@ const App = () => {
       reason: String(report.reason || '').slice(0, 160),
     };
     SetViewerDataState(prev => advanceTaraViewerDataState(prev, next));
-    SetTaraActionState(prev => advanceTaraActionFromViewerReport(prev, next));
+    SetTaraActionState(prev => {
+      if (!prev) return prev;
+      const requested = prev.requested_spec || {};
+      const observed = { ...(next.view || {}) };
+      if (Object.prototype.hasOwnProperty.call(requested, 'show_mfe')) {
+        observed.show_mfe = showMFE;
+      }
+      if (Object.prototype.hasOwnProperty.call(requested, 'show_mae')) {
+        observed.show_mae = showMAE;
+      }
+      if (Object.prototype.hasOwnProperty.call(requested, 'show_tooltips')) {
+        observed.show_tooltips = tooltipSW;
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(requested, 'bottom_slide')
+        && taraBottomSlideApplied?.turn_id === prev.turn_id
+      ) {
+        observed.bottom_slide = taraBottomSlideApplied.slide;
+      }
+      const advanced = advanceTaraActionFromViewerReport(prev, { ...next, view: observed });
+      if (
+        advanced?.status === 'succeeded'
+        && !taraRequestedSpecMatches(observed, requested)
+      ) {
+        return { ...advanced, status: 'loading', finished_at: null };
+      }
+      return advanced;
+    });
   };
 
   // State-only actions (for example, switch the opportunity-table market with
@@ -1167,6 +1223,14 @@ const App = () => {
       years: parseInt(seasonalYears, 10),
       pe_cycle: PEselected || 'cons',
       cut_off_year: Number(trimYear || 0),
+      show_mfe: showMFE,
+      show_mae: showMAE,
+      show_tooltips: tooltipSW,
+      bottom_slide: (
+        taraBottomSlideApplied?.turn_id === taraActionState.turn_id
+          ? taraBottomSlideApplied.slide
+          : ''
+      ),
     };
     if (taraRequestedSpecMatches(observed, taraActionState.requested_spec)) {
       SetTaraActionState(prev => (
@@ -1185,6 +1249,48 @@ const App = () => {
     seasonalYears,
     PEselected,
     trimYear,
+    showMFE,
+    showMAE,
+    tooltipSW,
+    taraBottomSlideApplied,
+  ]);
+
+  // Chart data can finish a moment before a requested state-only control
+  // (for example, the lower slide) reports its applied state. Keep the
+  // transaction pending until both the two chart sources and every requested
+  // UI field match the signed spec.
+  useEffect(() => {
+    if (
+      !taraActionState
+      || taraActionState.status !== 'loading'
+      || !taraActionState.requires_chart_data
+      || !taraActionState.required_sources?.every(
+        source => taraActionState.source_states?.[source] === 'succeeded'
+      )
+    ) return;
+    const observed = {
+      ...(taraActionState.observed_view || taraActionState.target || {}),
+      show_mfe: showMFE,
+      show_mae: showMAE,
+      show_tooltips: tooltipSW,
+      bottom_slide: (
+        taraBottomSlideApplied?.turn_id === taraActionState.turn_id
+          ? taraBottomSlideApplied.slide
+          : ''
+      ),
+    };
+    if (!taraRequestedSpecMatches(observed, taraActionState.requested_spec)) return;
+    SetTaraActionState(prev => (
+      prev && prev.status === 'loading'
+        ? { ...prev, status: 'succeeded', finished_at: Date.now(), observed_view: observed }
+        : prev
+    ));
+  }, [
+    taraActionState,
+    showMFE,
+    showMAE,
+    tooltipSW,
+    taraBottomSlideApplied,
   ]);
 
   // Once the exact chart request has started, any manual change to its inputs
@@ -1800,6 +1906,7 @@ const App = () => {
     taraActionState,
     viewerDataState,
     taraLoadGeneration,
+    taraBottomSlideRequest,
     refreshKey,
     showArticlePublish,
     PEselected,
@@ -1963,6 +2070,7 @@ const App = () => {
     SetTaraReportExplainRequest,
     RequestTaraReportExplanation: requestTaraReportExplanation,
     BeginTaraViewAction: beginTaraViewAction,
+    ReportTaraBottomSlideApplied: reportTaraBottomSlideApplied,
     ReportViewerDataState: reportViewerDataState,
     RegisterTaraLoadAbort: registerTaraLoadAbort,
     SetTaraActionState,

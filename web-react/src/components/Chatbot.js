@@ -40,8 +40,13 @@ import {
   taraPatternContextKey,
   taraPatternResetMessage,
 } from './taraConversationContext';
+import {
+  normalizeTaraGuidedQuestions,
+  taraRetryQuestions,
+  taraStarterQuestions,
+} from './taraGuidedQuestions';
 
-const TARA_INTRO_MESSAGE = "Hi, I'm <b>Tara</b>. Ask me for today's best setups, any stock's seasonal pattern, or a concept like <b>what is a Sharpe ratio</b> - I'll pull it up on the chart and explain it.";
+const TARA_INTRO_MESSAGE = "Hi, I'm <b>Tara</b>. Tell me what you want to accomplish, or choose a guided question below. I can help you find historical seasonal opportunities, study a ticker's evidence and weak periods, or learn the long-term Buy &amp; Hold workflow.";
 
 const CHATBOT_DERIVED_STAT_KEYS = [
   'Trade Dir', 'Num Winners', 'Num Losers', 'Percent Profitable',
@@ -113,6 +118,9 @@ function Chatbot(props) {
   const [messages, setMessages] = useState([]);     // { role, text } for display
   const [history, setHistory] = useState([]);        // { role, content } for API context
   const [userInput, setUserInput] = useState('');
+  const [guidedQuestions, setGuidedQuestions] = useState(
+    () => taraStarterQuestions(props.symbol),
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [pendingViewTransaction, setPendingViewTransaction] = useState(null);
   const [previousChat, setPreviousChat] = useState(null);
@@ -219,6 +227,7 @@ function Chatbot(props) {
     }
     conversationGenerationRef.current += 1;
     setMessages([{ role: 'bot', text: taraPatternResetMessage(currentPatternContext) }]);
+    setGuidedQuestions(taraStarterQuestions(currentPatternContext.symbol));
     setHistory([]);
     activeReportIdRef.current = '';
     activeReportTitleRef.current = '';
@@ -357,6 +366,7 @@ function Chatbot(props) {
         : (requested.market ? 'Market selection updated.' : 'View settings updated.');
       finalReply = `${pendingViewTransaction.reply || ''}${pendingViewTransaction.reply ? '<br><br>' : ''}${confirmation}`;
       auditStatus = 'succeeded';
+      setGuidedQuestions(pendingViewTransaction.guidedQuestions || []);
     } else {
       const symbol = state.target?.symbol;
       const detail = taraFailureDetail(state.reason);
@@ -370,6 +380,10 @@ function Chatbot(props) {
           + 'I have not marked it as loaded; please try again.'
         );
       auditStatus = 'failed';
+      setGuidedQuestions(taraRetryQuestions(
+        symbol,
+        pendingViewTransaction.userPrompt,
+      ));
     }
 
     const plainReply = botHtmlToPlainText(finalReply);
@@ -500,6 +514,7 @@ function Chatbot(props) {
       activeChatRequestRef.current = null;
       conversationGenerationRef.current += 1;
       setMessages([{ role: 'bot', text: TARA_INTRO_MESSAGE }]);
+      setGuidedQuestions(taraStarterQuestions(props.symbol));
       setHistory([]);
       setPreviousChat(null);
       setShowPreviousChat(false);
@@ -510,6 +525,10 @@ function Chatbot(props) {
       setIsLoading(false);
       return;
     }
+
+    // Hide stale paths while Tara is answering. For chart actions, the new
+    // suggestions are revealed only after the viewer confirms success.
+    setGuidedQuestions([]);
 
     const requestGeneration = conversationGenerationRef.current;
     const requestController = new AbortController();
@@ -577,12 +596,14 @@ function Chatbot(props) {
       .then((data) => {
         if (requestGeneration !== conversationGenerationRef.current) return;
         const reply = data.reply || '';
+        const nextGuidedQuestions = normalizeTaraGuidedQuestions(data.suggestions);
         if (containsInternalToolMarkup(reply)) {
           const safeReply = (
             "I couldn't produce a valid chart action, so I haven't changed the chart. "
             + 'Please try that request again.'
           );
           displayMessage('bot', safeReply);
+          setGuidedQuestions(taraRetryQuestions('', text));
           setHistory([...updatedHistory, { role: 'assistant', content: safeReply }]);
           setIsLoading(false);
           finishRequest();
@@ -646,6 +667,7 @@ function Chatbot(props) {
           if (typeof props.BeginTaraViewAction !== 'function') {
             const safeReply = "I couldn't connect that request to the chart, so nothing was marked as loaded.";
             displayMessage('bot', safeReply);
+            setGuidedQuestions(taraRetryQuestions('', text));
             setHistory([...updatedHistory, { role: 'assistant', content: safeReply }]);
             setIsLoading(false);
             finishRequest();
@@ -667,6 +689,7 @@ function Chatbot(props) {
               };
             }
             displayMessage('bot', safeReply);
+            setGuidedQuestions(taraRetryQuestions('', text));
             setHistory([...updatedHistory, { role: 'assistant', content: safeReply }]);
             setIsLoading(false);
             finishRequest();
@@ -682,6 +705,8 @@ function Chatbot(props) {
             actionIds: accepted.transaction.action_ids,
             actionProofs: accepted.transaction.action_proofs,
             reply,
+            guidedQuestions: nextGuidedQuestions,
+            userPrompt: text,
             updatedHistory,
             sessionGeneration: requestGeneration,
           });
@@ -693,6 +718,7 @@ function Chatbot(props) {
         }
 
         displayMessage('bot', reply);
+        setGuidedQuestions(nextGuidedQuestions);
         // Keep history in plain text (strip HTML tags for history context)
         const plainReply = reply.replace(/<[^>]*>/g, '');
         setHistory([...updatedHistory, { role: 'assistant', content: plainReply }]);
@@ -706,6 +732,7 @@ function Chatbot(props) {
           || requestGeneration !== conversationGenerationRef.current
         ) return;
         displayMessage('bot', `Error: ${err.message}`);
+        setGuidedQuestions(taraRetryQuestions('', text));
         setHistory(updatedHistory);
         setIsLoading(false);
       });
@@ -741,6 +768,7 @@ function Chatbot(props) {
       role: 'bot',
       text: `I’m looking at <b>${request.snapshot.title || 'this TradeWave report'}</b>. I’ll explain the report’s supplied results without changing the Wave Viewer.`,
     }]);
+    setGuidedQuestions([]);
     setUserInput('');
     setIsLoading(false);
     handleSend(request.prompt || 'Explain this report in plain language.', {
@@ -773,6 +801,7 @@ function Chatbot(props) {
       role: 'bot',
       text: `Report closed. I’m back to the <b>${formatTaraPatternLabel(currentPatternContext, true) || 'current pattern'}</b> in the Wave Viewer.`,
     }]);
+    setGuidedQuestions(taraStarterQuestions(currentPatternContext?.symbol));
     setUserInput('');
     setIsLoading(false);
   };
@@ -1010,6 +1039,66 @@ function Chatbot(props) {
           <div style={{ color: mutedColor, fontStyle: 'italic' }}>Tara is thinking...</div>
         )}
       </div>
+
+      {guidedQuestions.length > 0 && !isLoading && (
+        <div
+          aria-label="Suggested questions for Tara"
+          style={{
+            padding: '7px 8px 2px',
+            backgroundColor: tc.panelBg,
+            borderLeft: '1px solid ' + tc.inputBorder,
+            borderRight: '1px solid ' + tc.inputBorder,
+          }}
+        >
+          <div style={{
+            marginBottom: '5px',
+            color: tc.textSecondary,
+            fontSize: 'clamp(11px, 0.68vw, 13px)',
+            fontWeight: 600,
+          }}>
+            What would you like to accomplish next?
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+            {guidedQuestions.map((question) => (
+              <button
+                key={`${question.label}|${question.prompt}`}
+                type="button"
+                onClick={() => handleSend(question.prompt, { guided: true })}
+                disabled={isLoading}
+                title={question.prompt}
+                style={{
+                  flex: '1 1 150px',
+                  minWidth: 0,
+                  padding: '5px 7px',
+                  textAlign: 'left',
+                  cursor: isLoading ? 'default' : 'pointer',
+                  color: tc.text,
+                  backgroundColor: tc.statValueBg,
+                  border: '1px solid ' + tc.inputBorder,
+                  borderRadius: '5px',
+                }}
+              >
+                <span style={{
+                  display: 'block',
+                  fontWeight: 700,
+                  fontSize: 'clamp(11px, 0.68vw, 13px)',
+                }}>
+                  {question.label}
+                </span>
+                <span style={{
+                  display: 'block',
+                  marginTop: '2px',
+                  color: tc.textSecondary,
+                  fontSize: 'clamp(10px, 0.62vw, 12px)',
+                  lineHeight: 1.25,
+                }}>
+                  {`"${question.prompt}"`}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Input Field and Button */}
       <div

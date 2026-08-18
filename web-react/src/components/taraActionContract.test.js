@@ -65,11 +65,29 @@ test('normalizes a strict complete view spec', () => {
 
 test.each([
   { entry_date: '2026-07-24' },
-  { days_out: 21 },
   { entry_date: '2026-02-30', days_out: 21 },
   { symbol: 'TSLA', unexpected: true },
 ])('rejects partial, impossible, or unknown view fields: %p', spec => {
   expect(normalizeTaraViewSpec(spec)).toEqual({});
+});
+
+
+test('accepts bounded duration and exact state-only controls', () => {
+  expect(normalizeTaraViewSpec({ days_out: 367 })).toEqual({ days_out: 367 });
+  expect(normalizeTaraViewSpec({ days_out: 368 })).toEqual({});
+  expect(normalizeTaraViewSpec({
+    show_mfe: true,
+    show_mae: false,
+    show_tooltips: true,
+    bottom_slide: 'wave_stats',
+  })).toEqual({
+    show_mfe: true,
+    show_mae: false,
+    show_tooltips: true,
+    bottom_slide: 'wave_stats',
+  });
+  expect(normalizeTaraViewSpec({ show_mfe: 'true' })).toEqual({});
+  expect(normalizeTaraViewSpec({ bottom_slide: 'settings' })).toEqual({});
 });
 
 

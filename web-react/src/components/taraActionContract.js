@@ -6,7 +6,11 @@ const VALID_PE = new Set(['cons', 'consecutive', 'pe0', 'pe1', 'pe2', 'pe3']);
 const VALID_MARKETS = new Set(
   Array.from({ length: 17 }, (_, i) => String(i)).filter(id => id !== '14' && id !== '15')
 );
-const VALID_FIELDS = new Set(['symbol', 'market', 'entry_date', 'days_out', 'years', 'pe_cycle']);
+const VALID_BOTTOM_SLIDES = new Set(['trend_chart', 'wave_stats', 'ai_scores', 'price_chart']);
+const VALID_FIELDS = new Set([
+  'symbol', 'market', 'entry_date', 'days_out', 'years', 'pe_cycle',
+  'show_mfe', 'show_mae', 'show_tooltips', 'bottom_slide',
+]);
 
 export const TARA_ACTION_TIMEOUT_MS = 30000;
 
@@ -226,7 +230,7 @@ export const normalizeTaraViewSpec = (spec) => {
     out.entry_date = spec.entry_date;
   }
   if (Object.prototype.hasOwnProperty.call(spec, 'days_out')) {
-    if (!Number.isInteger(spec.days_out) || spec.days_out < 1 || spec.days_out > 366) return {};
+    if (!Number.isInteger(spec.days_out) || spec.days_out < 1 || spec.days_out > 367) return {};
     out.days_out = spec.days_out;
   }
   if (Object.prototype.hasOwnProperty.call(spec, 'years')) {
@@ -239,9 +243,23 @@ export const normalizeTaraViewSpec = (spec) => {
       ? 'cons'
       : spec.pe_cycle.toLowerCase();
   }
+  for (const field of ['show_mfe', 'show_mae', 'show_tooltips']) {
+    if (Object.prototype.hasOwnProperty.call(spec, field)) {
+      if (typeof spec[field] !== 'boolean') return {};
+      out[field] = spec[field];
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(spec, 'bottom_slide')) {
+    if (typeof spec.bottom_slide !== 'string' || !VALID_BOTTOM_SLIDES.has(spec.bottom_slide)) {
+      return {};
+    }
+    out.bottom_slide = spec.bottom_slide;
+  }
   const hasEntry = Object.prototype.hasOwnProperty.call(out, 'entry_date');
   const hasDays = Object.prototype.hasOwnProperty.call(out, 'days_out');
-  if (hasEntry !== hasDays) return {};
+  if (hasEntry !== hasDays && (hasEntry || Object.prototype.hasOwnProperty.call(out, 'symbol'))) {
+    return {};
+  }
   return out;
 };
 
