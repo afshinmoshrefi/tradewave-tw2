@@ -94,7 +94,7 @@ const DesktopLayout = (props) => {
     const [coverBottomCharts, SetCoverBottomCharts] = useState(false);
     const [coverTopCharts, SetCoverTopCharts] = useState(false);
 
-    const [chatbotHeightPct, SetChatbotHeightPct] = useState(30);
+    const [chatbotHeightPct, SetChatbotHeightPct] = useState(40);
     const [chatbotHasOpened, SetChatbotHasOpened] = useState(() => !!props.showChatbot);
     const isDragging = useRef(false);
     const oppChatContainerRef = useRef(null);
