@@ -9,7 +9,7 @@ All run from dev (`.176`). An env = 2 boxes (web + app).
 | Operation | Command | Touches | When |
 |---|---|---|---|
 | **Deploy code** | `bash ops/deploy.sh {staging\|prod}` | both web+app in one command: pull, restart, ship React, reload nginx | every code update - the normal flow |
-| **Compile React** | `sudo -u flask bash -lc 'cd /home/flask/web-react && npm run build'` | nothing (builds the bundle on dev) | once before a deploy, ONLY if `web-react/src` changed |
+| **Compile React** | `sudo -u flask bash -lc 'cd <clean-release-worktree>/web-react && npm run build'` | nothing (builds the immutable candidate on dev) | during dev completion, ONLY if `web-react/src` changed |
 | **Build a box** | `ops/staging/run.sh {staging\|prod} <script>` | one script -> one box (or runs on dev + reaches out); run the ordered sequence under "Rebuild a box from scratch" | rare - new box / full rebuild from bare metal |
 
 To sync staging+prod with the latest code: (React build if `web-react/src` changed) -> `deploy.sh staging` -> verify -> `deploy.sh prod`. `run.sh` is NOT part of a routine deploy.
@@ -54,6 +54,14 @@ agents by `.claude/skills/tradewave-deployment-manager/SKILL.md`. This section i
 and topology runbook; it does not waive release ownership, clean integration, immutable
 artifact, approval, effective-runtime, contract, browser, or rollback gates.
 
+For substantive application/runtime work, a normal change request includes completion on
+the live dev site. The coding session handles its task branch and may become the recorded
+dev-completion manager. It serializes final integration with other Claude/Codex sessions,
+builds and activates one immutable combined candidate, verifies the changed behavior live,
+and leaves `origin/main` equal to the exact active dev SHA. Afshin does not manage branches,
+commits, worktrees, handoffs, or locks. `local only` or `do not deploy` explicitly disables
+this default. Staging and production still require their separate requests.
+
 Treat the routine deploy path as fail-closed whenever a dated record under
 `ops/release-risks/` remains unresolved. A base unit or `/home/flask` update does not prove
 activation when an effective drop-in still points at `.tw2-app-current`.
@@ -69,10 +77,12 @@ independent runtime and product verification.
 On the first release-manager run on dev, initialize durable state with
 `sudo bash /home/flask/ops/init_release_state.sh`. It creates only
 `/var/lib/tradewave/release-state` as `flask:flask` mode `0750` and refuses
-symlink or non-directory collisions. Before activating a candidate on shared dev,
-announce the exact SHA to active sessions and atomically acquire the manifest-recorded
-`/var/lib/tradewave/release-state/dev-activation.lock` directory with `mkdir`, then
-write owner/release metadata inside it and keep it through verification.
+symlink or non-directory collisions. Before final integration and activation on dev,
+announce the integration/activation window to active sessions and atomically acquire the
+manifest-recorded `/var/lib/tradewave/release-state/dev-activation.lock` directory with
+`mkdir` before final integration. Refetch `origin/main` while holding it, write
+owner/release metadata inside it, and keep it through build, activation, verification, and
+the final proof that active dev equals freshly fetched `origin/main`.
 
 A plain staging-deploy request authorizes the sole release manager to execute the entire
 repository, dev, and staging workflow without asking Afshin to run commands or restate this
@@ -148,16 +158,25 @@ Each box holds the full repo at `/home/flask`, so the rule is simple:
 whose code changed** (gunicorn does NOT auto-reload). Pulling everywhere is
 idempotent and avoids cross-tier "which box needs this file" puzzles.
 
-### 0. On dev (edit → test → commit → push)
-```
-sudo -u flask git -C /home/flask add <files>
-sudo -u flask git -C /home/flask commit -m "…"
-sudo -u flask git -C /home/flask push
-# if web-react/ changed, build the bundle (plain build — NOT CI=true, which fails on pre-existing lint warnings):
-sudo -u flask bash -lc 'cd /home/flask/web-react && npm run build'
-# restart the relevant dev service(s) to test locally before promoting
-```
-All git/build/file ops on every box run as **`sudo -u flask`** (root ownership in `/home/flask` breaks `git pull` and the build — keep it flask:flask).
+### 0. Complete the change on dev
+
+Agents perform this sequence automatically; it is not an owner checklist:
+
+1. Fetch current `origin/main` as `flask` and work in a dedicated task worktree.
+2. Commit and push only the task-owned changes.
+3. Acquire the dev coordination lock, refetch `origin/main`, and integrate the task on top
+   of every already completed change in a clean release worktree.
+4. Run focused and combined tests. Build React with `npm run build` when required.
+5. Activate the immutable candidate on dev and run runtime, contract, and rendered browser
+   verification for the changed behavior.
+6. Advance `origin/main` without force to the exact verified candidate. If the ref moved,
+   roll dev back to the recorded prior release, integrate the newer main, rebuild, and retry.
+7. Verify active dev source/provenance equals freshly fetched `origin/main`, then release the
+   lock and report the exact SHA as staging-ready.
+
+All Git/build/file operations on every box run as **`sudo -u flask`**. Root ownership in
+`/home/flask` breaks later fetches and builds. Never edit or commit from the operational
+`/home/flask` checkout.
 
 ### 1. Pre-flight on the target env (before restarting)
 The app derives `domain_root`/`tw2_public_url` from **`TW2_PUBLIC_HOST`**; if unset/wrong, all URLs fall back to `tw2-dev`. Check BOTH boxes of the target:
