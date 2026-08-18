@@ -724,27 +724,6 @@ body{background-image:none !important;}
   </div>
 </div>
 
-{% if content.home_100_year_pattern_enabled %}
-<!-- TW100 HOME COUNTDOWN START -->
-<div class="wrap">
-  <aside class="tw100-home-card" aria-labelledby="tw100-home-title">
-    <div class="tw100-home-copy">
-      <div class="tw100-home-kicker">The 100-Year Pattern</div>
-      <h2 id="tw100-home-title">The next recorded window begins September 27, 2026</h2>
-      <p>The rule and all 24 completed cycles are public before the next occurrence.</p>
-      <a class="tw100-home-link" href="/100-year-pattern">See the full 24-cycle record <span aria-hidden="true">&rarr;</span></a>
-    </div>
-    <div class="tw100-home-timer" id="tw100-home-countdown" role="timer" aria-label="Time remaining until September 27, 2026 at midnight Eastern Time">
-      <div class="tw100-home-unit"><strong data-tw100-days>--</strong><span>Days</span></div>
-      <div class="tw100-home-unit"><strong data-tw100-hours>--</strong><span>Hours</span></div>
-      <div class="tw100-home-unit"><strong data-tw100-minutes>--</strong><span>Minutes</span></div>
-    </div>
-    <p class="tw100-home-basis">Countdown to 12:00 a.m. Eastern Time on the nominal calendar date. September 27 and July 18 both fall on Sunday; TradeWave uses the next trading day for analytics.</p>
-  </aside>
-</div>
-<!-- TW100 HOME COUNTDOWN END -->
-{% endif %}
-
 <!-- 02 / TARA (the beginner hook - moved directly after the hero per the June-30
      owner+Michael directive; id stays #tara for deep links). Copy is bound via
      content.tara: the "You're in complete control" trust frame. The ask form's
@@ -779,6 +758,27 @@ body{background-image:none !important;}
     </div>
   </div>
 </div></section>
+
+{% if content.home_100_year_pattern_enabled %}
+<!-- TW100 HOME COUNTDOWN START -->
+<div class="wrap">
+  <aside class="tw100-home-card" aria-labelledby="tw100-home-title">
+    <div class="tw100-home-copy">
+      <div class="tw100-home-kicker">The 100-Year Pattern</div>
+      <h2 id="tw100-home-title">The next recorded window begins September 27, 2026</h2>
+      <p>The rule and all 24 completed cycles are public before the next occurrence.</p>
+      <a class="tw100-home-link" href="/100-year-pattern">See the full 24-cycle record <span aria-hidden="true">&rarr;</span></a>
+    </div>
+    <div class="tw100-home-timer" id="tw100-home-countdown" role="timer" aria-label="Time remaining until September 27, 2026 at midnight Eastern Time">
+      <div class="tw100-home-unit"><strong data-tw100-days>--</strong><span>Days</span></div>
+      <div class="tw100-home-unit"><strong data-tw100-hours>--</strong><span>Hours</span></div>
+      <div class="tw100-home-unit"><strong data-tw100-minutes>--</strong><span>Minutes</span></div>
+    </div>
+    <p class="tw100-home-basis">Countdown to 12:00 a.m. Eastern Time on the nominal calendar date. September 27 and July 18 both fall on Sunday; TradeWave uses the next trading day for analytics.</p>
+  </aside>
+</div>
+<!-- TW100 HOME COUNTDOWN END -->
+{% endif %}
 
 <!-- 03 / PRODUCT WORKFLOW (the six alternating product stories supplied in the
      homepage mockup, rendered as responsive HTML rather than a spreadsheet). -->
