@@ -363,6 +363,11 @@ def test_investor_funnel_classifies_horizon_universe_and_weak_periods():
         {"role": "user", "content": "long term"},
     ]) == "long_term"
     assert tara_gateway.classify_investor_intent([
+        {"role": "user", "content": "I want to invest. What should I buy?"},
+        {"role": "assistant", "content": "Long term or seasonal?"},
+        {"role": "user", "content": "long"},
+    ]) == "long_term"
+    assert tara_gateway.classify_investor_intent([
         {"role": "user", "content": "What should I trade?"},
         {"role": "assistant", "content": "Stocks or ETFs?"},
         {"role": "user", "content": "ETFs"},
@@ -483,7 +488,7 @@ def test_long_term_followup_teaches_buy_hold_comparison_and_access_without_model
         [
             {"role": "user", "content": "I want to invest. What should I buy?"},
             {"role": "assistant", "content": "Long term or seasonal?"},
-            {"role": "user", "content": "long term"},
+            {"role": "user", "content": "long"},
         ],
         "system",
         "user-1",

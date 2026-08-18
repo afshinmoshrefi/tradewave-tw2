@@ -814,7 +814,7 @@ _SEASONAL_HORIZON_REPLY_RE = re.compile(
     re.IGNORECASE,
 )
 _LONG_TERM_HORIZON_REPLY_RE = re.compile(
-    r"^\s*(?:long[-\s]+term|years?|retirement|buy\s+and\s+hold)\s*[.!]?\s*$",
+    r"^\s*(?:long|long[-\s]+term|years?|retirement|buy\s+and\s+hold)\s*[.!]?\s*$",
     re.IGNORECASE,
 )
 _ETF_UNIVERSE_RE = re.compile(r"\b(?:etfs?|exchange[-\s]+traded\s+funds?)\b", re.IGNORECASE)
