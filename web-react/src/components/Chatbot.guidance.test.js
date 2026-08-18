@@ -81,7 +81,7 @@ test('reveals server guidance only after the requested graph is verified', async
   });
   const view = renderTara(beginAction);
 
-  fireEvent.click(screen.getByRole('button', { name: /Study AAPL/i }));
+  fireEvent.click(screen.getByTitle("Analyze AAPL's current seasonal pattern"));
   await waitFor(() => expect(beginAction).toHaveBeenCalledTimes(1));
 
   expect(screen.queryByText('Judge reliability')).not.toBeInTheDocument();
@@ -112,7 +112,7 @@ test('a failed graph load offers retry guidance instead of advancing', async () 
   });
   const view = renderTara(beginAction);
 
-  fireEvent.click(screen.getByRole('button', { name: /Study AAPL/i }));
+  fireEvent.click(screen.getByTitle("Analyze AAPL's current seasonal pattern"));
   await waitFor(() => expect(beginAction).toHaveBeenCalledTimes(1));
 
   view.rerenderWithAction({
