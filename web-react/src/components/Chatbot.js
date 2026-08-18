@@ -1068,6 +1068,7 @@ function Chatbot(props) {
             onClick={toggleGuidedQuestions}
             aria-expanded={guidedQuestionsExpanded}
             aria-controls="tara-guided-questions-body"
+            aria-label={guidedQuestionsExpanded ? 'Hide suggested questions' : 'Show suggested questions'}
             title={guidedQuestionsExpanded ? 'Hide suggested questions' : 'Show suggested questions'}
             style={{
               color: tc.textSecondary,
