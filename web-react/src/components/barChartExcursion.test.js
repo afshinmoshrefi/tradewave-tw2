@@ -1,5 +1,6 @@
 import {
   BAR_CHART_EXCURSION_STYLES,
+  getCappedNeedleCapHalfWidth,
   getExcursionVisibility,
   getNeedleRange,
   normalizeBarChartExcursionStyle,
@@ -36,5 +37,11 @@ describe('bar chart excursion rendering helpers', () => {
     expect(getNeedleRange(12, -5, true, false)).toEqual({ from: 0, to: 12 });
     expect(getNeedleRange(12, -5, false, true)).toEqual({ from: -5, to: 0 });
     expect(getNeedleRange(12, -5, false, false)).toBeNull();
+  });
+
+  test('makes each capped-needle cap half as wide as its bar', () => {
+    expect(getCappedNeedleCapHalfWidth(40)).toBe(10);
+    expect(getCappedNeedleCapHalfWidth(24) * 2).toBe(12);
+    expect(getCappedNeedleCapHalfWidth(undefined) * 2).toBe(6);
   });
 });

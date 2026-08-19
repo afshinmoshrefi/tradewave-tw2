@@ -25,3 +25,8 @@ export const getNeedleRange = (high, low, showHigh, showLow) => {
   if (showLow) return { from: low, to: 0 };
   return null;
 };
+
+export const getCappedNeedleCapHalfWidth = (barWidth) => {
+  const safeBarWidth = Number.isFinite(barWidth) && barWidth > 0 ? barWidth : 12;
+  return safeBarWidth / 4;
+};
