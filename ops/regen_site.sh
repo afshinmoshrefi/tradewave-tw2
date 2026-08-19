@@ -16,12 +16,21 @@ set -uo pipefail   # NOT -e: attempt every generator, report failures, never hal
 PY=/home/flask/venv/bin/python
 SITE=/home/flask/site
 SECRETS=/etc/tradewave/secrets.env
+FAVICON_HELPER=/home/flask/ops/lib/tradewave_favicon.sh
 
 # --- env: bake with the correct public host or refuse -------------------------
 [ -r "$SECRETS" ] || { echo "FATAL: $SECRETS not readable"; exit 2; }
 set -a; . "$SECRETS"; set +a
 [ -n "${TW2_PUBLIC_HOST:-}" ] || { echo "FATAL: TW2_PUBLIC_HOST is unset -> pages would bake the tw2-dev fallback. Refusing."; exit 2; }
+[ -n "${TW2_ENV:-}" ] || { echo "FATAL: TW2_ENV is unset -> environment favicon cannot be selected. Refusing."; exit 2; }
 [ -x "$PY" ] || { echo "FATAL: $PY missing"; exit 2; }
+[ -r "$FAVICON_HELPER" ] || { echo "FATAL: $FAVICON_HELPER missing"; exit 2; }
+
+# /favicon.png is shared by the static site and the React shell. Publish the
+# environment marker independently of the env-agnostic React bundle:
+# dev = white, staging = black, prod = brand colour.
+. "$FAVICON_HELPER"
+tw_publish_environment_favicon "$TW2_ENV" "$SITE/static" "/var/www/tradewave/favicon.png" || exit 2
 
 echo "== regen_site on $(hostname) | TW2_PUBLIC_HOST=$TW2_PUBLIC_HOST =="
 fails=0

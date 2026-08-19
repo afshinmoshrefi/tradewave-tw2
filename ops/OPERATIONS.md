@@ -351,6 +351,12 @@ code. Deleting them during an incident would remove useful evidence and is not
 part of the rollback.
 
 ### 3. Post-deploy (only if relevant)
+- **Environment favicon** (`site/static/favicon-{white,black,colour}.png`):
+  `ops/regen_site.sh` publishes `/var/www/tradewave/favicon.png` from the explicit
+  `TW2_ENV` mapping - white on dev, black on staging, and brand colour on production.
+  `ops/assemble_developer_portal.sh` uses the same mapping for the developer portal.
+  The React shell already links the root `/favicon.png`, so this does not require an
+  environment-specific React build.
 - **nginx** (CSP/headers in `ops/nginx/` changed): re-apply via `ops/staging/apply_audit_hardening.sh` (or copy the snippet into the site config), then `ssh root@<web> -p 4369 'nginx -t && systemctl reload nginx'` (a gunicorn restart does NOT pick up nginx config).
 - **Home page / static site** (`site/templates/` or `site/generate_*` changed): re-run on the web box —
   ```
