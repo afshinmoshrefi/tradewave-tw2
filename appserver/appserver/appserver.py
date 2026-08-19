@@ -2088,6 +2088,80 @@ def _ml_scorer_is_v2(metadata):
     )
 
 
+V2_LONG_CHECKPOINT_DAYS_OUT = (29, 59, 89)
+
+
+def _ml_v2_long_cached_scores(opp, metadata):
+    """Read the bounded 30/60/90 V2 scores for a source over 90 days."""
+
+    return {
+        days_out: read_cached_legacy_score(
+            redis_client,
+            opp['symbol'],
+            opp['date'],
+            days_out,
+            opp['direction'],
+            expected_metadata=metadata,
+        )
+        for days_out in V2_LONG_CHECKPOINT_DAYS_OUT
+    }
+
+
+def _ml_v2_long_bundle(opp, checkpoint_scores, metadata):
+    """Build the long-pattern UI bundle from exact V2 checkpoint readings."""
+
+    if any(checkpoint_scores.get(days_out) is None for days_out in V2_LONG_CHECKPOINT_DAYS_OUT):
+        return None
+    horizons = []
+    for days_out in V2_LONG_CHECKPOINT_DAYS_OUT:
+        score = normalize_legacy_score_result(checkpoint_scores[days_out])
+        horizons.append({
+            **score,
+            'calendar_days': days_out + 1,
+            'daysOut': days_out,
+            'basis': 'recalculated_pattern',
+            'pattern_recalculated': True,
+            'is_current': False,
+        })
+    display = horizons[-1]
+    available = [item for item in horizons if item.get('status') == 'available']
+    terminal = [
+        item for item in horizons
+        if item.get('status') in {'available', 'below_threshold', 'unavailable'}
+    ]
+    status = (
+        'available'
+        if len(available) == len(horizons)
+        else 'partial'
+        if available
+        else 'unavailable'
+        if len(terminal) == len(horizons)
+        else 'loading'
+    )
+    return {
+        'status': status,
+        'basis': 'duration_comparison',
+        'pattern_recalculated': True,
+        'full_pattern_calendar_days': int(opp['daysOut']) + 1,
+        'display_horizon_days': 90,
+        'display_status': str(display.get('status') or 'unavailable'),
+        'ml_score': display.get('ml_score'),
+        'win_prob': display.get('win_prob'),
+        'pred_return': display.get('pred_return'),
+        'pred_mfe': display.get('pred_mfe'),
+        'horizons': horizons,
+        'source': {
+            'symbol': opp['symbol'],
+            'date': opp['date'],
+            'daysOut': int(opp['daysOut']),
+            'calendar_days': int(opp['daysOut']) + 1,
+            'direction': opp['direction'],
+        },
+        'scorer': normalize_scorer_metadata(metadata),
+        'mixed_scorer_identity': False,
+    }
+
+
 def _ml_checkpoint_plan_from_opp(
     resource_id,
     opp,
@@ -2559,14 +2633,15 @@ def MLScoreBatch(resourceID):
                 logging.exception('ML scorer metadata lookup failed')
         v2_mode = _ml_scorer_is_v2(legacy_metadata)
         if v2_mode and days_out > 89:
-            _ml_add_source_legacy_score(
-                scores,
+            bundle = _ml_v2_long_bundle(
                 opp,
-                _ml_unavailable_legacy_score(
-                    'unsupported_duration',
-                    'V2 supports patterns through 90 calendar days.',
-                ),
+                _ml_v2_long_cached_scores(opp, legacy_metadata),
+                legacy_metadata,
             )
+            if bundle is not None:
+                _ml_add_source_legacy_score(scores, opp, bundle)
+            else:
+                pending.append(dict(opp))
             continue
         if days_out >= 30 and not v2_mode:
             ui_key = f'{sym}|{opp_date}|{days_out}|{direction}'
@@ -2691,6 +2766,7 @@ def MLScorePending(resourceID):
     legacy_metadata = None
     legacy_metadata_loaded = False
     validation_errors = []
+    v2_long_records = []
 
     # First pass: consume scores another worker or the EOD warmer published.
     for index, raw_opp in enumerate(pending):
@@ -2754,14 +2830,26 @@ def MLScorePending(resourceID):
                 logging.exception('ML scorer metadata lookup failed')
         v2_mode = _ml_scorer_is_v2(legacy_metadata)
         if v2_mode and days_out > 89:
-            _ml_add_source_legacy_score(
-                scores,
-                opp,
-                _ml_unavailable_legacy_score(
-                    'unsupported_duration',
-                    'V2 supports patterns through 90 calendar days.',
-                ),
+            cached_checkpoints = _ml_v2_long_cached_scores(
+                opp, legacy_metadata
             )
+            bundle = _ml_v2_long_bundle(
+                opp, cached_checkpoints, legacy_metadata
+            )
+            if bundle is not None:
+                _ml_add_source_legacy_score(scores, opp, bundle)
+            else:
+                source = dict(opp)
+                v2_long_records.append(source)
+                for checkpoint_days_out, cached in cached_checkpoints.items():
+                    if cached is None:
+                        legacy_to_score.append({
+                            'symbol': opp['symbol'],
+                            'date': opp['date'],
+                            'daysOut': checkpoint_days_out,
+                            'direction': opp['direction'],
+                            '_v2_long_source': source,
+                        })
             continue
         if days_out >= 30 and not v2_mode:
             ui_key = f'{sym}|{opp_date}|{days_out}|{direction}'
@@ -3103,6 +3191,24 @@ def MLScorePending(resourceID):
             scores.pop(checkpoint_plan['ui_key'], None)
             remainder.append(original)
 
+    # V2 has no context endpoint, but its three exact model tiers can still
+    # provide the bounded 30/60/90 comparison promised for longer patterns.
+    for original in v2_long_records:
+        bundle = _ml_v2_long_bundle(
+            original,
+            _ml_v2_long_cached_scores(original, legacy_metadata),
+            legacy_metadata,
+        )
+        identity = (
+            original['symbol'], original['date'],
+            int(original['daysOut']), original['direction'],
+        )
+        if bundle is not None:
+            _ml_add_source_legacy_score(scores, original, bundle)
+            resolved_comparisons.add(identity)
+        else:
+            remainder.append(original)
+
     def _pending_identity(item):
         try:
             return (
@@ -3117,6 +3223,10 @@ def MLScorePending(resourceID):
     deduped_remainder = []
     seen_remainder = set()
     for item in remainder:
+        if isinstance(item, dict) and isinstance(
+            item.get('_v2_long_source'), dict
+        ):
+            item = dict(item['_v2_long_source'])
         identity = _pending_identity(item)
         if identity in resolved_comparisons or identity in seen_remainder:
             continue

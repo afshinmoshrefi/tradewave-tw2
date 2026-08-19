@@ -423,6 +423,56 @@ def test_v2_metadata_free_score_response_resolves_without_context_calls(monkeypa
     assert redis.locks == set()
 
 
+def test_v2_long_pattern_returns_30_60_90_checkpoint_scores(monkeypatch):
+    redis = _configure(monkeypatch)
+    monkeypatch.setattr(
+        appserver_module, "_ml_checkpoint_service", lambda: _V2MetadataService()
+    )
+    opportunity = _opportunity("AAPL", 180)
+
+    initial = _post(
+        "/MLScoreBatch/2", {"opportunities": [opportunity]}
+    ).get_json()
+    assert initial["scores"] == {}
+    assert initial["pending"] == [opportunity]
+
+    requested_days = []
+
+    def provider(url, json, timeout):
+        assert url.endswith("/score")
+        assert timeout == 30
+        item = json["opportunities"][0]
+        requested_days.append(item["daysOut"])
+        return _Response({
+            "results": [{
+                **item,
+                "ml_score": 60 + item["daysOut"] / 10,
+                "win_prob": 0.60 + item["daysOut"] / 1000,
+                "pred_return": 1 + item["daysOut"] / 100,
+                "pred_mfe": 2 + item["daysOut"] / 100,
+            }],
+        })
+
+    monkeypatch.setattr(appserver_module.requests, "post", provider)
+    final = _post(
+        "/MLScorePending/2", {"pending": initial["pending"]}
+    ).get_json()
+
+    key = f"AAPL|{_market_date()}|180|l"
+    bundle = final["scores"][key]
+    assert final["still_pending"] == []
+    assert sorted(requested_days) == [29, 59, 89]
+    assert bundle["basis"] == "duration_comparison"
+    assert bundle["full_pattern_calendar_days"] == 181
+    assert bundle["display_horizon_days"] == 90
+    assert [item["calendar_days"] for item in bundle["horizons"]] == [30, 60, 90]
+    assert [item["status"] for item in bundle["horizons"]] == [
+        "available", "available", "available"
+    ]
+    assert bundle["ml_score"] == 68.9
+    assert redis.locks == set()
+
+
 def test_85_day_row_keeps_current_score_and_adds_only_30_60_comparisons(monkeypatch):
     redis = _configure(monkeypatch)
     service = _ComparisonService()
