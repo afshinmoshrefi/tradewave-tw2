@@ -24,6 +24,7 @@ test('starter questions surface opportunity, current-pattern, and Buy & Hold pat
 
   expect(questions).toHaveLength(3);
   expect(questions[0].label).toBe('Find opportunities');
+  expect(questions[0].prompt).toBe('Show me bullish S&P 500 stock patterns this time of year');
   expect(questions[1]).toEqual({
     label: 'Study AAPL',
     prompt: "Analyze AAPL's current seasonal pattern",

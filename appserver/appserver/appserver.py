@@ -1606,6 +1606,13 @@ def OppBySymbol(resourceID, symbol, year1, year2, day_range, top_pct):
     if _yc is not None:
         year1 = _clamp_year_int(year1, _yc)
         year2 = _clamp_year_int(year2, int(year1) if str(year1).isdigit() else _yc)
+    _effective_request = {
+        'market': str(resourceID),
+        'symbol': str(symbol).upper(),
+        'years': int(year1) if str(year1).isdigit() else None,
+        'minimum_profitable_years': int(year2) if str(year2).isdigit() else None,
+        'mode': mode,
+    }
 
     day_range_n1 = 0
     day_range_n2 = 0
@@ -1625,7 +1632,11 @@ def OppBySymbol(resourceID, symbol, year1, year2, day_range, top_pct):
         opp_path = f'{opp_by_symbol_dir}/{symbol}/{year1}_{year2}{folder_suffix}.csv.gz'
 
         if not os.path.isdir(opp_by_symbol_dir) or not os.path.isfile(opp_path):
-            return jsonify({'OppBySymbol': [], 'status': 'feature_not_available'})
+            return jsonify({
+                'OppBySymbol': [],
+                'status': 'feature_not_available',
+                'request': _effective_request,
+            })
 
         opp = pd.read_csv(opp_path, compression='gzip')
 
@@ -1658,7 +1669,11 @@ def OppBySymbol(resourceID, symbol, year1, year2, day_range, top_pct):
     update_activity_log(atime, resourceID, wp_userid, ipv4, country_code, zip, redis_key)
 
     if opp.empty:
-        return jsonify({'OppBySymbol': [], 'status': 'ok'})
+        return jsonify({
+            'OppBySymbol': [],
+            'status': 'ok',
+            'request': _effective_request,
+        })
 
     # apply top_pct slice after cache read - keeps cache generic across different top_pct values
     import math
@@ -1671,7 +1686,11 @@ def OppBySymbol(resourceID, symbol, year1, year2, day_range, top_pct):
 
     l = opp.values.tolist()
 
-    return jsonify({'OppBySymbol': l, 'status': 'ok'})
+    return jsonify({
+        'OppBySymbol': l,
+        'status': 'ok',
+        'request': _effective_request,
+    })
 # --------end OppBySymbol---------------------------------------------------------------------------------------------------------------------------------------------------------
 
 

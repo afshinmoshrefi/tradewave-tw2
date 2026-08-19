@@ -1505,6 +1505,21 @@ def test_consecutive_full_history_value_is_not_substituted_for_a_pe_cycle_maximu
     ) is None
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        "show me all years for this pattern",
+        "now show me all consecutive years for this pattern",
+        "show me 98 years of history for SPX for all presidential years",
+    ],
+)
+def test_explicit_all_years_switches_a_pe_chart_to_verified_consecutive_history(message):
+    wave = _peg_short_context()
+    wave["pe_cycle"] = "pe2"
+
+    assert requested_full_history_years(message, wave, _price_screen()) == 40
+
+
 def test_verified_prompt_facts_state_short_semantics_positively():
     lines = verified_context_lines(
         _peg_short_context(), _price_screen(), current_year=2026
