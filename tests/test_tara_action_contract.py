@@ -79,6 +79,35 @@ def test_unqualified_standard_ticker_prefers_us_stock_over_foreign_receipt(monke
     assert result["market"] == "2"
 
 
+def test_unqualified_spx_prefers_canonical_index_over_foreign_stock(monkeypatch):
+    monkeypatch.setattr(
+        tara_gateway,
+        "_loopback_json",
+        lambda *args, **kwargs: (200, {
+            "symbol": "SPX",
+            "matches": [
+                {
+                    "resourceID": "5",
+                    "label": "INDICES COMMON",
+                    "name": "S&P 500",
+                },
+                {
+                    "resourceID": "14",
+                    "label": "LONDON EXCHANGE",
+                    "name": "Spirax Group plc",
+                },
+            ],
+        }),
+    )
+
+    result = tara_gateway._resolve_question_symbol(
+        "SPX", "When is SPX historically weak?", "token", {}
+    )
+
+    assert result["status"] == "ok"
+    assert result["market"] == "5"
+
+
 def test_hundred_year_dates_analyze_named_security_and_queue_exact_chart(monkeypatch):
     monkeypatch.setattr(
         tara_gateway,

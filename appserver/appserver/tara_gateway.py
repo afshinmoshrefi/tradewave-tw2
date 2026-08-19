@@ -2370,6 +2370,11 @@ def _symbol_resolution_score(question, match):
     return score
 
 
+_CANONICAL_INDEX_SYMBOLS = frozenset({
+    "COMP", "DJI", "DJIA", "NDX", "NYA", "OEX", "RUT", "SPX", "VIX",
+})
+
+
 def _resolve_question_symbol(symbol, question, token, current_view=None):
     status, payload = _loopback_json(
         "/ResolveSymbol/%s" % quote(str(symbol).upper()), token, timeout=(5, 15)
@@ -2396,6 +2401,15 @@ def _resolve_question_symbol(symbol, question, token, current_view=None):
         ]
         if len(current_match) == 1:
             selected = current_match[0]
+        elif best_score == 0 and str(symbol).upper() in _CANONICAL_INDEX_SYMBOLS and len(
+            index_matches := [
+                item for item in matches
+                if str(item.get("resourceID") or "") == "5"
+            ]
+        ) == 1:
+            # TradeWave's canonical index symbols should not be displaced by
+            # an unrelated foreign security that happens to reuse the ticker.
+            selected = index_matches[0]
         elif best_score == 0 and len(
             us_matches := [
                 item for item in matches
