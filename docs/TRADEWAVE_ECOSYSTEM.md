@@ -1419,6 +1419,23 @@ from completed aggregates until its inclusive window ends. Tara resolves book/si
 requests deterministically before either model provider, loads that same canonical ViewSpec, and
 states the completed `n`, entry-year range, historical record, and current-row status.
 
+Tara can also compare any explicitly named security with the 100-Year Pattern's dates and PE+2
+position. This does not widen the public SPX entitlement. Tara resolves the ticker through the local
+`ResolveSymbol` contract, uses descriptive words such as `index` or `crude oil` to disambiguate
+cross-market duplicates, and defaults an otherwise unqualified duplicate ticker to the representative
+US-stock market when exactly one such match exists. It derives the security's completed PE+2 count
+from `StockMetaData` and calls
+`ChartData4` with September 27 through July 18 and `comparison_direction=long`. The reply and signed
+view action are built only from the effective request and statistics echoed by that response.
+
+Best-time-to-buy and named-symbol historical-weakness questions use the exact `OppBySymbol` data
+behind the desktop Best Waves selector. `OppBySymbol` now echoes the effective market, symbol,
+lookback, minimum profitable years, and mode after entitlement clamping. Tara searches Long rows
+from one week ago through year-end for buy-timing research and uses the strongest Short row for a
+weak-period question, then preflights the selected row with `ChartData4`. A mismatched effective
+request produces no action or success claim, and an empty selector is reported as no qualifying
+Best Wave at that setting.
+
 **Segmented prompt loading + verified loaded-pattern analysis (2026-07-31).** The previous prompt
 path appended the entire roughly 89,000-character `chatbot_knowledge.txt` plus up to 30 opportunity rows,
 every yearly row, and every `ChartData4.stats` field to every model call. Worse, Anthropic caching

@@ -1109,3 +1109,49 @@ def test_signature_product_questions_bypass_models_and_live_ai_scorer(
     assert 'class="tara-analysis"' in payload["reply"]
     assert payload["actions"] == []
     assert seen["provider"] == "deterministic"
+
+
+def test_named_security_hundred_year_research_bypasses_model_and_signs_exact_action(monkeypatch):
+    from flask import Flask, g
+    import chatbot as chatbot_module
+
+    expected = {
+        "market": "7",
+        "symbol": "CL",
+        "entry_date": "2026-09-27",
+        "days_out": 295,
+        "years": 10,
+        "pe_cycle": "pe2",
+    }
+    monkeypatch.setattr(
+        chatbot_module,
+        "build_hundred_year_security_command",
+        lambda *args, **kwargs: {
+            "reply": "<b>CL during the 100-Year Pattern dates</b> verified result.",
+            "spec": expected,
+        },
+    )
+    monkeypatch.setattr(
+        chatbot_module,
+        "select_tara_provider",
+        lambda *args, **kwargs: pytest.fail("exact 100-Year date research must bypass providers"),
+    )
+    monkeypatch.setattr(chatbot_module, "log_question", lambda *args, **kwargs: None)
+
+    message = "How did CL crude oil do during the 100 year pattern?"
+    app = Flask(__name__)
+    body = {
+        "message": message,
+        "history": [{"role": "user", "content": message}],
+        "token": "browser-token",
+        "wave_viewer": {},
+        "screen_context": {},
+        "opportunities": [],
+    }
+    with app.test_request_context("/chatbot/chat", method="POST", json=body):
+        g.chatbot_user_id = "hundred-year-security-test"
+        response = chatbot_module.chat.__wrapped__()
+
+    payload = response.get_json()
+    _assert_signed_route_action(payload, expected)
+    assert "CL during the 100-Year Pattern dates" in payload["reply"]

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
 import datetime
+import html
 import re
 import sys
 import os
@@ -38,6 +39,8 @@ from tradewave_api_calls_cb import (
 # Phase 1: Tara calls the v1 gateway as a client (one source of truth). Falls back to the
 # plain no-tools chat when the gateway is not configured. See docs/TARA_GATEWAY_INTEGRATION.md.
 from tara_gateway import (
+    build_best_waves_command,
+    build_hundred_year_security_command,
     classify_investor_intent,
     classify_view_intent,
     guided_next_questions,
@@ -2431,6 +2434,51 @@ def chat():
                 [],
                 messages_or_text=investor_messages,
             )
+
+        # These questions map to exact TradeWave data and an exact chart transaction.
+        # Resolve them before general guidance or provider routing so the prose and UI
+        # action are always based on the same verified response.
+        hundred_year_security = build_hundred_year_security_command(
+            user_message,
+            wave_viewer,
+            user_token,
+        )
+        if hundred_year_security is not None:
+            actions = []
+            cleaned = _validate_view_spec(hundred_year_security.get("spec"))
+            if cleaned:
+                actions.append({"type": "set_view", "spec": cleaned})
+            protocol_trace.append({
+                'event': 'hundred_year_security_research',
+                'action_queued': bool(actions),
+            })
+            return finish(
+                hundred_year_security["reply"],
+                actions,
+                messages_or_text=investor_messages,
+            )
+
+        best_waves_command = build_best_waves_command(
+            user_message,
+            wave_viewer,
+            user_token,
+            default_years=opp_table_years,
+        )
+        if best_waves_command is not None:
+            actions = []
+            cleaned = _validate_view_spec(best_waves_command.get("spec"))
+            if cleaned:
+                actions.append({"type": "set_view", "spec": cleaned})
+            protocol_trace.append({
+                'event': 'best_waves_research',
+                'action_queued': bool(actions),
+            })
+            return finish(
+                best_waves_command["reply"],
+                actions,
+                messages_or_text=investor_messages,
+            )
+
         guidance_reply = investor_guidance_response(investor_intent)
         if guidance_reply:
             protocol_trace.append({'event': 'investor_guidance', 'intent': investor_intent})
@@ -2600,6 +2648,32 @@ def chat():
             if full_history_years is not None
             else None
         )
+        if full_history_request is not None:
+            action_spec = {
+                key: full_history_request[key]
+                for key in ("market", "symbol", "entry_date", "days_out", "years")
+                if key in full_history_request
+            }
+            action_spec["pe_cycle"] = "cons"
+            cleaned = _validate_view_spec(action_spec)
+            if cleaned:
+                symbol = html.escape(str(cleaned.get("symbol") or "the loaded symbol"))
+                current_cycle = str(wave_viewer.get("pe_cycle") or "cons").lower()
+                cohort_text = (
+                    "switching from the presidential-election cohort to all consecutive years"
+                    if current_cycle not in {"cons", "consecutive"}
+                    else "using all consecutive years"
+                )
+                reply = (
+                    "<b>Loading the full available history for %s.</b> TradeWave has "
+                    "%s selectable consecutive years for this security, so I am keeping "
+                    "the same date range and %s."
+                ) % (symbol, cleaned["years"], cohort_text)
+                protocol_trace.append({
+                    'event': 'full_history_view',
+                    'years': cleaned["years"],
+                })
+                return finish(reply, [{"type": "set_view", "spec": cleaned}])
         explicit_named_symbol = explicit_pattern_symbol(user_message)
         loaded_symbol = str(wave_viewer.get("symbol") or "").strip().upper()
         named_symbol_override = (

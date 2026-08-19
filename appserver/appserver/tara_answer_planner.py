@@ -350,7 +350,8 @@ _TREND_ARROW_PATTERN = re.compile(
 _FULL_HISTORY_COMMAND_PATTERN = re.compile(
     r"\b(?:load|show(?:\s+me)?|use|set|change|switch|expand|extend|run|"
     r"analy[sz]e|review|look)\b.{0,60}\b(?:max(?:imum)?(?:\s+available)?\s+years?|"
-    r"all(?:\s+available)?\s+years?|full(?:\s+available)?\s+history)\b",
+    r"all(?:\s+(?:available|consecutive|presidential))?\s+years?|"
+    r"full(?:\s+available)?\s+history)\b",
     re.I,
 )
 
@@ -1071,8 +1072,9 @@ def requested_full_history_years(
     "load max years for this" so the read tool and the chart use the same real lookback.
 
     PE-cycle selectors have a different maximum (the count of observations in one cycle
-    position), while ``full_history_years`` is intentionally the consecutive-history value
-    used by the second price-chart projection.  Do not substitute it for a PE lookback.
+    position). An explicit "all years" command means switch to the verified consecutive
+    history limit, even when the currently loaded chart is PE0-PE3. This is a cohort change,
+    not an attempt to substitute consecutive years into the current PE selector.
     """
 
     if not _has_loaded_pattern(wave_viewer):
@@ -1084,7 +1086,16 @@ def requested_full_history_years(
     wv = wave_viewer if isinstance(wave_viewer, Mapping) else {}
     pe_cycle = str(wv.get("pe_cycle") or "cons").strip().lower()
     if pe_cycle not in ("cons", "consecutive"):
-        return None
+        explicitly_all_years = bool(
+            re.search(
+                r"\b(?:all(?:\s+available|\s+consecutive|\s+presidential)?\s+years?|"
+                r"full(?:\s+available)?\s+history)\b",
+                text,
+                re.I,
+            )
+        )
+        if not explicitly_all_years:
+            return None
 
     raw = normalize_screen_context(screen_context).get("full_history_years")
     if isinstance(raw, bool) or not str(raw or "").isdigit():

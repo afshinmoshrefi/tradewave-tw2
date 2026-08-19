@@ -1,5 +1,6 @@
 import json
 import time
+import datetime
 
 import jwt
 import pytest
@@ -10,6 +11,239 @@ import tara_gateway
 
 
 pytestmark = pytest.mark.unit
+
+
+@pytest.mark.parametrize(
+    ("question", "matches", "expected_market"),
+    [
+        (
+            "How did DJI index do during the 100 year pattern?",
+            [
+                {"resourceID": "2", "label": "S&P 500 STOCKS", "name": "DJI Holdings"},
+                {"resourceID": "5", "label": "INDICES", "name": "Dow Jones Industrial Average"},
+            ],
+            "5",
+        ),
+        (
+            "How did CL crude oil do during the 100 year pattern?",
+            [
+                {"resourceID": "2", "label": "US STOCKS", "name": "Colgate-Palmolive"},
+                {"resourceID": "7", "label": "COMMODITY FUTURES", "name": "Crude Oil WTI"},
+            ],
+            "7",
+        ),
+    ],
+)
+def test_security_qualifier_resolves_cross_market_ticker(
+    monkeypatch, question, matches, expected_market
+):
+    monkeypatch.setattr(
+        tara_gateway,
+        "_loopback_json",
+        lambda *args, **kwargs: (200, {"symbol": "X", "matches": matches}),
+    )
+
+    symbol = "DJI" if "DJI" in question else "CL"
+    result = tara_gateway._resolve_question_symbol(symbol, question, "token", {})
+
+    assert result["status"] == "ok"
+    assert result["market"] == expected_market
+
+
+def test_unqualified_standard_ticker_prefers_us_stock_over_foreign_receipt(monkeypatch):
+    monkeypatch.setattr(
+        tara_gateway,
+        "_loopback_json",
+        lambda *args, **kwargs: (200, {
+            "symbol": "MSFT",
+            "matches": [
+                {
+                    "resourceID": "2",
+                    "label": "S&P 500 STOCKS",
+                    "name": "Microsoft Corporation",
+                },
+                {
+                    "resourceID": "12",
+                    "label": "TORONTO STOCKS",
+                    "name": "Microsoft CDR (CAD Hedged)",
+                },
+            ],
+        }),
+    )
+
+    result = tara_gateway._resolve_question_symbol(
+        "MSFT", "How did MSFT do during the 100 year pattern?", "token", {}
+    )
+
+    assert result["status"] == "ok"
+    assert result["market"] == "2"
+
+
+def test_hundred_year_dates_analyze_named_security_and_queue_exact_chart(monkeypatch):
+    monkeypatch.setattr(
+        tara_gateway,
+        "_resolve_question_symbol",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "symbol": "MSFT",
+            "market": "2",
+            "label": "S&P 500 STOCKS",
+            "name": "Microsoft Corp",
+        },
+    )
+    monkeypatch.setattr(
+        tara_gateway,
+        "_symbol_metadata_dates",
+        lambda *args, **kwargs: (
+            datetime.date(1986, 3, 13),
+            datetime.date(2026, 8, 19),
+        ),
+    )
+    seen = {}
+
+    def fake_chart(market, symbol, entry_date, days_out, years_value, token, *, direction):
+        seen.update(
+            market=market,
+            symbol=symbol,
+            entry_date=entry_date,
+            days_out=days_out,
+            years_value=years_value,
+            direction=direction,
+        )
+        return 200, {
+            "request": {
+                "market": "2",
+                "symbol": "MSFT",
+                "entry_date": "2026-09-27",
+                "days_out": 295,
+                "years": 10,
+                "pe_cycle": "pe2",
+            },
+            "stats": {
+                "Num Winners": "8",
+                "Num Losers": "2",
+                "Avg Profit - All": "12%",
+                "Median Profit": "10.5%",
+                "Sharpe Ratio": "0.81",
+            },
+            "ChartData4": [
+                {"year": 1986, "pct": "-11.2,5,-15", "price": "1,2"},
+                {"year": 2022, "pct": "18.5,20,-3", "price": "1,2"},
+                {"year": 2026, "pct": "0,0,0", "price": "0,0"},
+            ],
+        }
+
+    monkeypatch.setattr(tara_gateway, "_chart_data4", fake_chart)
+
+    command = tara_gateway.build_hundred_year_security_command(
+        "How did MSFT do during the 100 year pattern?",
+        {},
+        "browser-token",
+        today=datetime.date(2026, 8, 19),
+    )
+
+    assert command["spec"] == {
+        "market": "2",
+        "symbol": "MSFT",
+        "entry_date": "2026-09-27",
+        "days_out": 295,
+        "years": 10,
+        "pe_cycle": "pe2",
+    }
+    assert seen["years_value"] == "pe2-10"
+    assert seen["direction"] == "long"
+    assert "8 of 10 completed PE+2 observations" in command["reply"]
+    assert "1986 at -11.2%" in command["reply"]
+    assert "named 100-Year Pattern in the book is the SPX study" in command["reply"]
+
+
+def test_best_time_to_buy_uses_recent_long_best_wave_and_exact_chart(monkeypatch):
+    monkeypatch.setattr(
+        tara_gateway,
+        "_resolve_question_symbol",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "symbol": "SPY",
+            "market": "11",
+            "label": "ETFS",
+            "name": "SPDR S&P 500 ETF Trust",
+        },
+    )
+    monkeypatch.setattr(
+        tara_gateway,
+        "_best_waves_rows",
+        lambda *args, **kwargs: (
+            200,
+            "ok",
+            [
+                ["2026-08-17", "SPY", 25, "Long", 1.52, 3.24, 2.8, 0, 0],
+                ["2026-10-02", "SPY", 14, "Long", 1.80, 2.5, 2.1, 0, 0],
+                ["2026-09-01", "SPY", 20, "Short", 2.0, 4.0, 3.0, 0, 0],
+            ],
+            20,
+        ),
+    )
+    monkeypatch.setattr(
+        tara_gateway,
+        "_chart_data4",
+        lambda *args, **kwargs: (200, {
+            "request": {
+                "market": "11",
+                "symbol": "SPY",
+                "entry_date": "2026-08-17",
+                "days_out": 26,
+                "years": 20,
+                "pe_cycle": "cons",
+            },
+            "stats": {"Num Winners": "20", "Num Losers": "0"},
+            "ChartData4": [{"year": 2025, "pct": "2,3,-1"}],
+        }),
+    )
+
+    command = tara_gateway.build_best_waves_command(
+        "When is the best time to buy SPY through the remainder of the year?",
+        {"years": 20, "pe_cycle": "cons"},
+        "browser-token",
+        today=datetime.date(2026, 8, 19),
+    )
+
+    assert command["spec"] == {
+        "market": "11",
+        "symbol": "SPY",
+        "entry_date": "2026-08-17",
+        "days_out": 26,
+        "years": 20,
+        "pe_cycle": "cons",
+    }
+    assert "already started" in command["reply"]
+    assert "Best Waves</b> dropdown above the bar chart" in command["reply"]
+    assert "empty or hidden" in command["reply"]
+
+
+def test_best_waves_empty_result_is_an_answer_not_a_chart_failure(monkeypatch):
+    monkeypatch.setattr(
+        tara_gateway,
+        "_resolve_question_symbol",
+        lambda *args, **kwargs: {
+            "status": "ok", "symbol": "SPY", "market": "11", "label": "ETFS", "name": "SPY"
+        },
+    )
+    monkeypatch.setattr(
+        tara_gateway,
+        "_best_waves_rows",
+        lambda *args, **kwargs: (200, "ok", [], 10),
+    )
+
+    command = tara_gateway.build_best_waves_command(
+        "When is the best time to buy SPY?",
+        {"years": 10, "pe_cycle": "cons"},
+        "browser-token",
+        today=datetime.date(2026, 8, 19),
+    )
+
+    assert command["spec"] is None
+    assert "No qualifying upcoming Long Best Wave" in command["reply"]
+    assert "No pattern passed" in command["reply"]
 
 
 def _text_response(text):

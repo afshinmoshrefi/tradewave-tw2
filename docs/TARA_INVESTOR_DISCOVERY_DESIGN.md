@@ -135,9 +135,36 @@ downside evidence, and contains no buy/sell/hold, allocation, or return forecast
 
 ### “When is AAPL historically weak?”
 
-Tara requests AAPL's best short-direction seasonal study and translates it into
-plain language as recurring weakness in the underlying. It is never framed as a
-sell, short, or avoid instruction.
+Tara reads AAPL's exact Best Waves rows for the active lookback, selects the
+highest-Sharpe qualifying Short row, confirms the same setup through ChartData4,
+and translates it into plain language as recurring weakness in the underlying.
+It is never framed as a sell, short, or avoid instruction. An empty Best Waves
+result is explained as no qualifying weak row at that setting, not as a tool
+failure.
+
+### "When is the best time to buy SPY?"
+
+Tara uses the Wave Viewer's Best Waves dataset rather than the currently loaded
+window. She searches qualifying Long rows with entry dates from one week before
+the current market date through December 31. A recently started qualifying row
+is preferred; otherwise she selects the next upcoming row. The answer names the
+exact date range, effective lookback, average, median, and Sharpe Ratio, explains
+where to find the Best Waves dropdown above the desktop bar chart, and notes that
+the dropdown is empty or hidden when no row passes the criteria. Tara loads the
+chart only after ChartData4 echoes the same symbol, market, date, duration, and
+cycle.
+
+### "How did MSFT do during the 100-Year Pattern?"
+
+Tara resolves the named security and applies the canonical September 27 through
+July 18 window in PE+2 to that security's actual available completed history.
+The same workflow applies to other markets, including "DJI index" and "CL crude
+oil". Descriptive words disambiguate shared tickers; unresolved ambiguity is
+shown to the user rather than guessed. The answer reports the verified wins,
+losses, average, median, Sharpe Ratio, and worst completed observation, then
+loads the exact confirmed chart. It also states that the named book pattern is
+the canonical SPX study; other securities are comparisons over its dates and
+cycle position.
 
 ### “What if I exclude this date range?”
 

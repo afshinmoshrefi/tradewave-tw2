@@ -3440,7 +3440,7 @@ const App = () => {
             {_ts.onTrial && _ts.daysRemaining != null && (
               <div style={{ position: 'fixed', bottom: '86px', right: '18px', zIndex: 9000 }}>
                 <DaysRemainingPill UITheme={UITheme} daysRemaining={_ts.daysRemaining} totalDays={7}
-                  onClick={() => { SetShowChatbot(true); SetChatbotPrefill('Show me my usage so far and which plan actually fits - including if free Explorer is enough.'); }} />
+                  onClick={() => setConvCard({ nonConverter: false })} />
               </div>
             )}
             {convCard && !infoBoxVisible && (

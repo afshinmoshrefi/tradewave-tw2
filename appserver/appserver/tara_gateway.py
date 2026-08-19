@@ -14,6 +14,7 @@ it must never raise into the chat handler. When the gateway is not configured (n
 TARA_TOOLS_ENABLED is False and chatbot.py falls back to the plain no-tools chat.
 """
 import datetime
+import html
 import json
 import logging
 import re
@@ -21,6 +22,7 @@ import sys
 import uuid
 from pathlib import Path
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from pooled_http import http as requests
 
@@ -28,6 +30,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 import config
+
+from featured_patterns import (
+    HUNDRED_YEAR_DISPLAY_DAYS,
+    hundred_year_end_date,
+    hundred_year_occurrence_start,
+)
 
 from AI_tools_appserver import send_claude_messages
 from openai_tools_appserver import (
@@ -943,6 +951,15 @@ def classify_investor_intent(messages_or_text):
         # path read that symbol's evidence and queue a verified UI transaction;
         # the general investor funnel below is only for discovery questions.
         return None
+    if _explicit_ticker(latest) and re.search(
+        r"\b(?:analy[sz]e|evaluate|assess|review|explain|reliab(?:le|ility)|"
+        r"how\s+(?:strong|good|consistent))\b",
+        latest,
+        re.IGNORECASE,
+    ):
+        # A named-security research question is not a broad market-discovery
+        # request just because it also contains "current seasonal pattern".
+        return None
     if _BUY_HOLD_STUDY_RE.search(latest):
         return "buy_hold_study"
     if _EXCLUSION_STUDY_RE.search(latest):
@@ -1275,7 +1292,7 @@ def guided_next_questions(messages_or_text=None, reply="", actions=None,
     return [
         _guided_question(
             "Find opportunities",
-            "Show me today's strongest seasonal setups",
+            "Show me bullish S&P 500 stock patterns this time of year",
         ),
         _guided_question(
             "Learn the method",
@@ -2249,6 +2266,572 @@ def _symbol_max_available_years(market_id, symbol, token):
         return None
     available = last_year - first_year
     return min(available, 99) if available > 0 else None
+
+
+_HUNDRED_YEAR_SECURITY_RE = re.compile(
+    r"\b(?:100|hundred)[- ]year(?:\s+seasonal)?\s+pattern\b", re.IGNORECASE
+)
+_BEST_TIME_BUY_RE = re.compile(
+    r"\b(?:best|strongest|good)\s+(?:historical\s+)?(?:time|date|window|period)\s+"
+    r"(?:to|for)\s+(?:buy(?:ing)?|enter(?:ing)?|invest(?:ing)?(?:\s+in)?)\b|"
+    r"\bwhen\b.{0,45}\b(?:buy|enter|invest\s+in)\b",
+    re.IGNORECASE,
+)
+_HISTORICAL_WEAK_SYMBOL_RE = re.compile(
+    r"\bwhen\b.{0,45}\b(?:historically\s+)?weak\b|"
+    r"\b(?:historically\s+weak|weakest|bearish)\b.{0,45}"
+    r"\b(?:time|date|window|period|season)\b",
+    re.IGNORECASE,
+)
+_QUESTION_SYMBOL_STOPWORDS = _ADVICE_SYMBOL_STOPWORDS | {
+    "BEST", "BUY", "DID", "DO", "DOES", "DURING", "FOR", "HISTORICALLY",
+    "HOW", "IN", "INDEX", "INVEST", "LONG", "OIL", "PATTERN", "SHORT",
+    "TIME", "WHEN", "WEAK", "YEAR",
+}
+
+
+def _market_today():
+    """Return the same US-market calendar date Tara uses for date-sensitive research."""
+
+    return datetime.datetime.now(ZoneInfo("America/New_York")).date()
+
+
+def _question_symbol(text, current_view=None):
+    """Extract a ticker from a research question, with loaded-view pronoun support."""
+
+    value = str(text or "")
+    for token in re.findall(
+        r"(?<![A-Za-z0-9.\-])([A-Z][A-Z0-9.\-]{0,14})(?![A-Za-z0-9.\-])",
+        value,
+    ):
+        if token not in _QUESTION_SYMBOL_STOPWORDS and len(token) > 1:
+            return token
+    patterns = (
+        r"\b(?:buy|enter|invest\s+in)\s+(?:the\s+)?([A-Za-z][A-Za-z0-9.\-]{0,14})\b",
+        r"\bwhen\s+is\s+([A-Za-z][A-Za-z0-9.\-]{0,14})\b",
+        r"\bhow\s+did\s+([A-Za-z][A-Za-z0-9.\-]{0,14})\b",
+        r"\bshow(?:\s+me)?\s+([A-Za-z][A-Za-z0-9.\-]{0,14})\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, value, re.IGNORECASE)
+        if not match:
+            continue
+        token = match.group(1).upper()
+        if token not in _QUESTION_SYMBOL_STOPWORDS and len(token) > 1:
+            return token
+    if re.search(r"\b(?:this|current|loaded)\s+(?:stock|security|ticker|symbol|chart)\b", value, re.I):
+        view = current_view if isinstance(current_view, dict) else {}
+        symbol = str(view.get("symbol") or "").strip().upper()
+        if _VS_SYMBOL_RE.fullmatch(symbol):
+            return symbol
+    return None
+
+
+def _loopback_json(path, token, *, params=None, timeout=(5, 20)):
+    base = (config.appserver_url or "").rstrip("/")
+    if not base or not token:
+        return None, None
+    query = dict(params or {})
+    query["token"] = token
+    try:
+        response = requests.get(base + path, params=query, timeout=timeout)
+    except requests.RequestException as exc:
+        log.warning("tara loopback %s failed: %s", path, exc)
+        return None, None
+    try:
+        payload = response.json()
+    except (AttributeError, ValueError):
+        payload = None
+    return response.status_code, payload if isinstance(payload, dict) else None
+
+
+def _symbol_resolution_score(question, match):
+    haystack = " ".join(
+        str(match.get(key) or "").lower() for key in ("label", "name")
+    )
+    query = str(question or "").lower()
+    hints = (
+        (("index", "indices"), ("index", "indices")),
+        (("crude", "oil"), ("crude", "oil")),
+        (("future", "futures"), ("future", "futures")),
+        (("commodity", "commodities"), ("commodity", "commodities")),
+        (("etf", "fund"), ("etf", "fund")),
+        (("stock", "equity"), ("stock", "stocks", "equity", "equities")),
+    )
+    score = 0
+    for question_terms, match_terms in hints:
+        if any(term in query for term in question_terms) and any(
+            term in haystack for term in match_terms
+        ):
+            score += 4
+    for token in set(re.findall(r"[a-z]{3,}", query)):
+        if token not in {"during", "hundred", "pattern", "year", "years", "historically"} and token in haystack:
+            score += 1
+    return score
+
+
+def _resolve_question_symbol(symbol, question, token, current_view=None):
+    status, payload = _loopback_json(
+        "/ResolveSymbol/%s" % quote(str(symbol).upper()), token, timeout=(5, 15)
+    )
+    if status != 200 or payload is None:
+        return {"status": "unavailable", "symbol": str(symbol).upper()}
+    matches = [item for item in payload.get("matches", []) if isinstance(item, dict)]
+    if not matches:
+        return {"status": "not_found", "symbol": str(symbol).upper()}
+
+    scored = [(item, _symbol_resolution_score(question, item)) for item in matches]
+    best_score = max(score for _, score in scored)
+    best = [item for item, score in scored if score == best_score and score > 0]
+    if len(best) == 1:
+        selected = best[0]
+    else:
+        view = current_view if isinstance(current_view, dict) else {}
+        current_market = str(view.get("market") or "")
+        current_symbol = str(view.get("symbol") or "").upper()
+        current_match = [
+            item for item in matches
+            if current_symbol == str(symbol).upper()
+            and str(item.get("resourceID") or "") == current_market
+        ]
+        if len(current_match) == 1:
+            selected = current_match[0]
+        elif best_score == 0 and len(
+            us_matches := [
+                item for item in matches
+                if str(item.get("resourceID") or "") == "2"
+            ]
+        ) == 1:
+            # For an unqualified ticker such as MSFT, prefer TradeWave's
+            # representative US-stock market over a foreign receipt with the
+            # same code. Explicit words such as CDR, index, ETF, or crude oil
+            # score first and therefore remain authoritative.
+            selected = us_matches[0]
+        elif len(matches) == 1:
+            selected = matches[0]
+        else:
+            return {
+                "status": "ambiguous",
+                "symbol": str(symbol).upper(),
+                "matches": matches,
+            }
+    return {
+        "status": "ok",
+        "symbol": str(symbol).upper(),
+        "market": str(selected.get("resourceID") or ""),
+        "label": str(selected.get("label") or ""),
+        "name": str(selected.get("name") or ""),
+    }
+
+
+def _resolution_boundary(resolution):
+    symbol = html.escape(str(resolution.get("symbol") or "the symbol"))
+    status = resolution.get("status")
+    if status == "not_found":
+        return "I could not find <b>%s</b> in TradeWave's supported security lists." % symbol
+    if status == "ambiguous":
+        options = []
+        for item in resolution.get("matches", [])[:5]:
+            label = html.escape(str(item.get("label") or item.get("resourceID") or "market"))
+            name = html.escape(str(item.get("name") or symbol))
+            options.append("%s (%s)" % (name, label))
+        return (
+            "<b>%s is ambiguous.</b> Please name the market or security, such as "
+            "%s, so I do not load the wrong chart." % (symbol, "; ".join(options))
+        )
+    return (
+        "I could not verify <b>%s</b> against TradeWave's security list right now, "
+        "so I have not changed the chart." % symbol
+    )
+
+
+def _symbol_metadata_dates(market, symbol, token):
+    status, payload = _loopback_json(
+        "/StockMetaData/%s/%s" % (quote(str(market)), quote(str(symbol))),
+        token,
+        timeout=(5, 15),
+    )
+    metadata = payload.get("StockMetaData") if status == 200 and payload else None
+    if not isinstance(metadata, list) or len(metadata) < 2:
+        return None
+    try:
+        return (
+            datetime.date.fromisoformat(str(metadata[0])[:10]),
+            datetime.date.fromisoformat(str(metadata[-1])[:10]),
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _completed_pe2_count(bounds, today):
+    if not bounds:
+        return None
+    first_date, last_date = bounds
+    available_through = min(last_date, today)
+    count = 0
+    for year in range(first_date.year, available_through.year + 1):
+        if year % 4 != 2:
+            continue
+        start = datetime.date(year, 9, 27)
+        if start >= first_date and hundred_year_end_date(start) <= available_through:
+            count += 1
+    return min(count, 99) if count > 0 else None
+
+
+def _chart_data4(market, symbol, entry_date, days_out, years_value, token, *, direction="long"):
+    try:
+        engine_days = int(days_out) - 1
+    except (TypeError, ValueError):
+        return None, None
+    return _loopback_json(
+        "/ChartData4/%s/%s/%s/%s/%s" % (
+            quote(str(market)),
+            quote(str(entry_date)),
+            quote(str(symbol).upper()),
+            engine_days,
+            quote(str(years_value)),
+        ),
+        token,
+        params={"comparison_direction": direction},
+        timeout=(5, 30),
+    )
+
+
+def _stat_number(stats, key):
+    if not isinstance(stats, dict):
+        return None
+    raw = str(stats.get(key) or "").replace("%", "").replace(",", "").strip()
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _fmt_pct(value, *, digits=1):
+    if value is None:
+        return "unavailable"
+    rounded = round(float(value), digits)
+    rendered = ("%.*f" % (digits, abs(rounded))).rstrip("0").rstrip(".")
+    return ("+" if rounded >= 0 else "-") + rendered + "%"
+
+
+def _verified_chart_spec(payload, expected):
+    request_used = payload.get("request") if isinstance(payload, dict) else None
+    if not isinstance(request_used, dict):
+        return None
+    try:
+        spec = {
+            "market": str(request_used.get("market")),
+            "symbol": str(request_used.get("symbol") or "").upper(),
+            "entry_date": str(request_used.get("entry_date") or ""),
+            "days_out": int(request_used.get("days_out")),
+            "years": int(request_used.get("years")),
+            "pe_cycle": str(request_used.get("pe_cycle") or "cons"),
+        }
+    except (TypeError, ValueError):
+        return None
+    cleaned = _validate_view_spec(spec)
+    for field in ("market", "symbol", "entry_date", "days_out", "pe_cycle"):
+        if cleaned.get(field) != expected.get(field):
+            return None
+    return cleaned
+
+
+def build_hundred_year_security_command(message, current_view, user_token, *, today=None):
+    """Analyze any explicitly named security over the 100-Year Pattern dates and PE+2 cohort."""
+
+    text = str(message or "").strip()
+    if not text or not _HUNDRED_YEAR_SECURITY_RE.search(text):
+        return None
+    symbol = _question_symbol(text, current_view)
+    if not symbol:
+        return None
+    resolution = _resolve_question_symbol(symbol, text, user_token, current_view)
+    if resolution.get("status") != "ok":
+        return {"reply": _resolution_boundary(resolution), "spec": None}
+
+    current = today or _market_today()
+    bounds = _symbol_metadata_dates(
+        resolution["market"], resolution["symbol"], user_token
+    )
+    pe2_count = _completed_pe2_count(bounds, current)
+    if not pe2_count:
+        return {
+            "reply": (
+                "TradeWave does not have enough completed PE+2 history to evaluate "
+                "<b>%s</b> over the 100-Year Pattern dates, so I have not changed the chart."
+                % html.escape(resolution["symbol"])
+            ),
+            "spec": None,
+        }
+
+    entry_date = hundred_year_occurrence_start(current).isoformat()
+    expected = {
+        "market": resolution["market"],
+        "symbol": resolution["symbol"],
+        "entry_date": entry_date,
+        "days_out": HUNDRED_YEAR_DISPLAY_DAYS,
+        "pe_cycle": "pe2",
+    }
+    status, payload = _chart_data4(
+        resolution["market"],
+        resolution["symbol"],
+        entry_date,
+        HUNDRED_YEAR_DISPLAY_DAYS,
+        "pe2-%s" % pe2_count,
+        user_token,
+        direction="long",
+    )
+    if status == 403:
+        return {
+            "reply": (
+                "<b>%s is outside this account's available markets.</b> I cannot load or "
+                "summarize that chart without the required market access."
+                % html.escape(resolution["symbol"])
+            ),
+            "spec": None,
+        }
+    if status != 200 or not isinstance(payload, dict):
+        return {
+            "reply": "I could not retrieve the verified %s chart, so I have not changed the view."
+            % html.escape(resolution["symbol"]),
+            "spec": None,
+        }
+    spec = _verified_chart_spec(payload, expected)
+    stats = payload.get("stats")
+    rows = payload.get("ChartData4")
+    if spec is None or not isinstance(stats, dict) or not isinstance(rows, list) or not stats:
+        return {
+            "reply": (
+                "TradeWave could not produce the exact <b>%s</b> PE+2 chart for the "
+                "100-Year Pattern dates. I have not claimed a result or changed the chart."
+                % html.escape(resolution["symbol"])
+            ),
+            "spec": None,
+        }
+
+    winners = int(_stat_number(stats, "Num Winners") or 0)
+    losers = int(_stat_number(stats, "Num Losers") or 0)
+    completed = winners + losers
+    worst = None
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            year = int(row.get("year"))
+            value = float(str(row.get("pct") or "").split(",", 1)[0])
+            row_end = hundred_year_end_date(datetime.date(year, 9, 27))
+        except (TypeError, ValueError):
+            continue
+        if row_end <= current and (worst is None or value < worst[1]):
+            worst = (year, value)
+
+    symbol_html = html.escape(resolution["symbol"])
+    name_html = html.escape(resolution.get("name") or resolution.get("label") or "")
+    end = hundred_year_end_date(datetime.date.fromisoformat(entry_date))
+    avg = _stat_number(stats, "Avg Profit - All")
+    median = _stat_number(stats, "Median Profit")
+    sharpe = _stat_number(stats, "Sharpe Ratio")
+    worst_text = (
+        " Worst completed observation: %s at %s." % (worst[0], _fmt_pct(worst[1]))
+        if worst is not None else ""
+    )
+    reply = (
+        "<b>%s during the 100-Year Pattern dates</b><br>"
+        "%s%s was profitable in %s of %s completed PE+2 observations. Average return: "
+        "%s; median: %s; Sharpe Ratio: %s.%s<br><br>"
+        "I am loading %s from Sep 27, %s through Jul 18, %s on PE+2 using its "
+        "actual available history. This applies the pattern's dates and presidential-cycle "
+        "position to %s; the named 100-Year Pattern in the book is the SPX study. "
+        "Historical results are not forecasts."
+    ) % (
+        symbol_html,
+        (name_html + " (" if name_html else ""),
+        (symbol_html + ")" if name_html else symbol_html),
+        winners,
+        completed,
+        _fmt_pct(avg),
+        _fmt_pct(median),
+        ("%.2f" % sharpe if sharpe is not None else "unavailable"),
+        worst_text,
+        symbol_html,
+        entry_date[:4],
+        end.year,
+        symbol_html,
+    )
+    return {"reply": reply, "spec": spec}
+
+
+def _best_waves_rows(market, symbol, years, token):
+    status, payload = _loopback_json(
+        "/OppBySymbol/%s/%s/%s/%s/-/100" % (
+            quote(str(market)), quote(str(symbol)), years, years
+        ),
+        token,
+        params={"mode": "consecutive"},
+        timeout=(5, 25),
+    )
+    if status != 200 or not isinstance(payload, dict):
+        return status, None, None, None
+    request_used = payload.get("request") if isinstance(payload.get("request"), dict) else {}
+    try:
+        effective_years = int(request_used.get("years"))
+    except (TypeError, ValueError):
+        effective_years = None
+    return status, payload.get("status"), payload.get("OppBySymbol"), effective_years
+
+
+def build_best_waves_command(
+    message,
+    current_view,
+    user_token,
+    *,
+    default_years=None,
+    today=None,
+):
+    """Answer buy-timing and weak-window questions from the exact desktop Best Waves rows."""
+
+    text = str(message or "").strip()
+    is_buy = bool(_BEST_TIME_BUY_RE.search(text))
+    is_weak = bool(_HISTORICAL_WEAK_SYMBOL_RE.search(text))
+    if not (is_buy or is_weak):
+        return None
+    symbol = _question_symbol(text, current_view)
+    if not symbol:
+        return None
+    resolution = _resolve_question_symbol(symbol, text, user_token, current_view)
+    if resolution.get("status") != "ok":
+        return {"reply": _resolution_boundary(resolution), "spec": None}
+
+    view = current_view if isinstance(current_view, dict) else {}
+    raw_years = view.get("years") if str(view.get("pe_cycle") or "cons").lower() in {"cons", "consecutive"} else None
+    try:
+        years = int(raw_years if raw_years is not None else default_years)
+    except (TypeError, ValueError):
+        years = 10
+    years = min(max(years, 1), 99)
+    status, feature_status, raw_rows, effective_years = _best_waves_rows(
+        resolution["market"], resolution["symbol"], years, user_token
+    )
+    if effective_years is not None:
+        years = effective_years
+    if status == 403:
+        return {
+            "reply": "<b>%s is outside this account's available markets.</b> I cannot scan its Best Waves."
+            % html.escape(resolution["symbol"]),
+            "spec": None,
+        }
+    if status != 200 or raw_rows is None:
+        return {
+            "reply": "I could not retrieve %s's verified Best Waves, so I have not changed the chart."
+            % html.escape(resolution["symbol"]),
+            "spec": None,
+        }
+    direction = "Long" if is_buy else "Short"
+    current = today or _market_today()
+    candidates = []
+    for row in raw_rows if isinstance(raw_rows, list) else []:
+        if not isinstance(row, list) or len(row) < 7 or str(row[3]).lower() != direction.lower():
+            continue
+        try:
+            entry = datetime.date.fromisoformat(str(row[0])[:10])
+            display_days = int(row[2]) + 1
+            end = entry + datetime.timedelta(days=display_days - 1)
+            sharpe = float(row[4])
+            avg = float(row[5])
+            median = float(row[6])
+        except (TypeError, ValueError):
+            continue
+        if is_buy:
+            if not current - datetime.timedelta(days=7) <= entry <= datetime.date(current.year, 12, 31):
+                continue
+            if end < current:
+                continue
+        candidates.append({
+            "entry": entry,
+            "end": end,
+            "days_out": display_days,
+            "sharpe": sharpe,
+            "avg": avg,
+            "median": median,
+        })
+    if not candidates:
+        purpose = "upcoming Long" if is_buy else "Short"
+        feature_note = (
+            "Best Waves data is not available for this symbol and setting."
+            if feature_status == "feature_not_available"
+            else "No pattern passed TradeWave's Best Waves threshold for this request."
+        )
+        return {
+            "reply": (
+                "<b>No qualifying %s Best Wave was found for %s at the %s-year setting.</b> "
+                "%s On desktop paid plans, the Best Waves dropdown above the bar chart is "
+                "hidden or empty when nothing qualifies."
+                % (purpose, html.escape(resolution["symbol"]), years, feature_note)
+            ),
+            "spec": None,
+        }
+    if is_buy:
+        recent = sorted(
+            (item for item in candidates if item["entry"] <= current),
+            key=lambda item: (item["entry"], item["sharpe"]),
+            reverse=True,
+        )
+        upcoming = sorted(
+            (item for item in candidates if item["entry"] > current),
+            key=lambda item: (item["entry"], -item["sharpe"]),
+        )
+        selected = recent[0] if recent else upcoming[0]
+    else:
+        selected = max(candidates, key=lambda item: item["sharpe"])
+
+    expected = {
+        "market": resolution["market"],
+        "symbol": resolution["symbol"],
+        "entry_date": selected["entry"].isoformat(),
+        "days_out": selected["days_out"],
+        "pe_cycle": "cons",
+    }
+    chart_status, chart_payload = _chart_data4(
+        resolution["market"], resolution["symbol"], selected["entry"].isoformat(),
+        selected["days_out"], str(years), user_token,
+        direction="long" if is_buy else "short",
+    )
+    spec = _verified_chart_spec(chart_payload or {}, expected) if chart_status == 200 else None
+    if spec is not None:
+        years = spec["years"]
+    symbol_html = html.escape(resolution["symbol"])
+    start_label = selected["entry"].strftime("%b %d, %Y").replace(" 0", " ")
+    end_label = selected["end"].strftime("%b %d, %Y").replace(" 0", " ")
+    if is_buy:
+        timing = "already started" if selected["entry"] <= current else "is upcoming"
+        heading = "Next qualifying Long Best Wave for %s" % symbol_html
+        lead = "%s %s and runs %s through %s." % (symbol_html, timing, start_label, end_label)
+    else:
+        heading = "Strongest qualifying weak window for %s" % symbol_html
+        lead = "%s's Short Best Wave runs %s through %s." % (symbol_html, start_label, end_label)
+    action_text = (
+        "I am loading that exact chart."
+        if spec is not None else
+        "This account did not return the exact requested chart, so I have not claimed that it loaded."
+    )
+    reply = (
+        "<b>%s</b><br>%s Across the exact %s-year Best Waves setting, average "
+        "direction-adjusted return was %s, median was %s, and Sharpe Ratio was %.2f.<br><br>"
+        "%s On desktop paid plans, open the <b>Best Waves</b> dropdown above the bar chart "
+        "to see every qualifying wave for %s. If no wave passes the minimum criteria, the list "
+        "is empty or hidden. This is historical timing research, not a recommendation to buy or short."
+    ) % (
+        heading,
+        lead,
+        years,
+        _fmt_pct(selected["avg"]),
+        _fmt_pct(selected["median"]),
+        selected["sharpe"],
+        action_text,
+        symbol_html,
+    )
+    return {"reply": reply, "spec": spec}
 
 
 def _append_market_switch(actions, target):

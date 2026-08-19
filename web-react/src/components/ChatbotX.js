@@ -121,7 +121,7 @@ const Chatbot = (props) => {
         <input
           type="text"
           id="userInput"
-          placeholder="Ask TradeWave Chatbot any questions about TradeWave"
+          placeholder="Ask about TradeWave research or the current chart"
           style={{
             flex: 1,
             padding: '5px',

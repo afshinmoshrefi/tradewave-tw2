@@ -65,7 +65,7 @@ const GettingStartedPopup = ({ onClose, iconRect }) => {
         { icon: '📅', title: 'Filter by Month', text: 'Use Months & Qtrs to see patterns starting in a specific month or quarter.' },
         { icon: '📊', title: 'Adjust History', text: 'The Years setting controls how many years of data are analyzed. More years = larger sample.' },
         { icon: '💾', title: 'Save a Pattern', text: 'Click the + icon above the bar chart to save a pattern to your portfolio.' },
-        { icon: '💬', title: 'Ask Tara', text: 'Type any question in the chat. Tara can explain what you see, teach concepts, and guide you step by step.' },
+        { icon: '💬', title: 'Ask Tara', text: "Ask about TradeWave's research or the chart on screen. Tara can explain the evidence, teach concepts, and guide you step by step." },
     ]
 
     // Key terms

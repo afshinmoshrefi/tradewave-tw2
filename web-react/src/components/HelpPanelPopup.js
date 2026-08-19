@@ -182,7 +182,7 @@ const HelpPanelPopup = ({ onClose }) => {
                             fontSize: '10px', opacity: 0.5, textAlign: 'center',
                             marginTop: '4px', paddingBottom: '4px',
                         }}>
-                            You can also ask Tara any question in the chat and she will open the relevant guide automatically.
+                            You can also ask Tara about TradeWave's research or the chart on screen, and she will open the relevant guide automatically.
                         </div>
 
                     </div>

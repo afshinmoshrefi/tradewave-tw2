@@ -27,7 +27,7 @@ export const taraStarterQuestions = (currentSymbol) => {
   return normalizeTaraGuidedQuestions([
     {
       label: 'Find opportunities',
-      prompt: "Show me today's strongest seasonal setups",
+      prompt: 'Show me bullish S&P 500 stock patterns this time of year',
     },
     symbol ? {
       label: `Study ${symbol}`,
