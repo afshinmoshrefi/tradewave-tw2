@@ -1708,6 +1708,12 @@ symlink to `releases/build-<commit>`; deploy rsyncs to a new release dir then
 `ln -sfn`; `build-previous` = instant rollback (`ln -sfn "$(readlink build-previous)" build`).
 (`ops/deploy.sh`, `project_tw2_react_deploy.md`.)
 
+**Environment favicon = a root static artifact, not an environment-specific React
+bundle.** `ops/regen_site.sh` publishes `/var/www/tradewave/favicon.png` from the
+explicit `TW2_ENV` mapping (dev white, staging black, production brand colour), and
+`ops/assemble_developer_portal.sh` applies the same mapping to the developer portal.
+Every surface already links the root-relative `/favicon.png`.
+
 **TW1->TW2 sync = temp-key pattern:** dev pushes its TW1-authorized key to the
 target web box, the target rsyncs FROM TW1 prod (`10.0.0.40`) over the VLAN, key
 is shredded on exit. Used by `migrate_smn_content_from_tw1.sh` (`/var/www/smn/`),

@@ -47,11 +47,13 @@ PY="$REPO/venv/bin/python"
 SITE="$REPO/site"
 DOCROOT=/var/www/developers
 GENERATOR_USER=flask
+FAVICON_HELPER="$REPO/ops/lib/tradewave_favicon.sh"
 
 hdr(){ printf '\n=== %s ===\n' "$*"; }
 
 [[ -x "$PY" ]] || { echo "ERROR: python not found at $PY"; exit 1; }
 [[ -d "$SITE" ]] || { echo "ERROR: site dir not found at $SITE"; exit 1; }
+[[ -r "$FAVICON_HELPER" ]] || { echo "ERROR: favicon helper not found: $FAVICON_HELPER"; exit 1; }
 
 hdr "0/4  portal hosts (from env / secrets.env; dev defaults if unset)"
 echo "  TW2_PUBLIC_HOST=${TW2_PUBLIC_HOST:-<unset -> dev default>}"
@@ -105,25 +107,12 @@ echo "--- marketing -> $DOCROOT/ ---"
 rsync -a "$SITE/api_marketing/out/" "$DOCROOT/"
 
 # Favicon: every generated page links /favicon.png but no generator emits one.
-# Prefer the box's LIVE main-site favicon (/var/www/tradewave/favicon.png) so the
-# portal always matches the main site (covers dev, where web+app share one box and
-# the per-env favicon rule is already applied there). On an app-only box (staging/
-# prod app tier has no /var/www/tradewave) fall back to the repo variant by env:
-# TW2_ENV=prod -> colour, else black (house rule: black on dev/staging, colour on prod).
+# Use the same explicit environment mapping as the main site, even on split app
+# boxes where /var/www/tradewave is absent: dev white, staging black, prod colour.
 echo "--- favicon.png -> $DOCROOT/ ---"
-if [[ -f /var/www/tradewave/favicon.png ]]; then
-  install -m 0644 /var/www/tradewave/favicon.png "$DOCROOT/favicon.png"
-  echo "  copied the live main-site favicon"
-else
-  TW2ENV="${TW2_ENV:-}"
-  if [[ -z "$TW2ENV" && -r /etc/tradewave/secrets.env ]]; then
-    TW2ENV="$(sed -n 's/^TW2_ENV=//p' /etc/tradewave/secrets.env | tail -1)"
-  fi
-  if [[ "$TW2ENV" == "prod" ]]; then FV="$SITE/static/favicon-colour.png"; else FV="$SITE/static/favicon-black.png"; fi
-  [[ -f "$FV" ]] || { echo "ERROR: favicon source missing: $FV"; exit 1; }
-  install -m 0644 "$FV" "$DOCROOT/favicon.png"
-  echo "  copied $(basename "$FV") (TW2_ENV=${TW2ENV:-unset})"
-fi
+. "$FAVICON_HELPER"
+TW2ENV="${TW2_ENV:-dev}"
+tw_publish_environment_favicon "$TW2ENV" "$SITE/static" "$DOCROOT/favicon.png"
 
 # API docs -> docs/ . EXCLUDE the generators + caches so we never publish .py.
 # --delete is scoped strictly to $DOCROOT/docs/.
