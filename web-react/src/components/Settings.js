@@ -460,7 +460,7 @@ const Settings = (props) => {
                                         onChange={(event) => props.SetBarChartExcursionStyle(event.target.value)}
                                     >
                                         <option value="filled">Filled Extensions</option>
-                                        <option value="ticks">High / Low Ticks</option>
+                                        <option value="ticks">Capped Needles</option>
                                         <option value="needle">Range Needles</option>
                                     </select>
                                 </div>

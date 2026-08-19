@@ -5,6 +5,7 @@ import { UIcolors, themeColors } from './Common';
 import { buildBarChartSeries } from './barChartSeries';
 import {
     BAR_CHART_EXCURSION_STYLES,
+    getCappedNeedleCapHalfWidth,
     getExcursionVisibility,
     getNeedleRange,
     normalizeBarChartExcursionStyle,
@@ -48,24 +49,43 @@ const excursionOverlayPlugin = {
             const hasLow = Number.isFinite(low) && low < 0;
 
             if (style === BAR_CHART_EXCURSION_STYLES.TICKS) {
-                const halfWidth = barWidth / 2;
+                const drawHigh = showHigh && hasHigh;
+                const drawLow = showLow && hasLow;
+                if (!drawHigh && !drawLow) return;
+
+                const range = getNeedleRange(
+                    hasHigh ? high : 0,
+                    hasLow ? low : 0,
+                    drawHigh,
+                    drawLow
+                );
+                if (!range) return;
+
+                ctx.beginPath();
+                ctx.strokeStyle = needleColor;
+                ctx.lineWidth = 1.5;
+                ctx.moveTo(x, yScale.getPixelForValue(range.from));
+                ctx.lineTo(x, yScale.getPixelForValue(range.to));
+                ctx.stroke();
+
+                const capHalfWidth = getCappedNeedleCapHalfWidth(barWidth);
                 ctx.lineWidth = Math.max(2, Math.min(3, barWidth * 0.08));
 
-                if (showHigh && hasHigh) {
+                if (drawHigh) {
                     const highY = yScale.getPixelForValue(high);
                     ctx.beginPath();
                     ctx.strokeStyle = highColor;
-                    ctx.moveTo(x - halfWidth, highY);
-                    ctx.lineTo(x + halfWidth, highY);
+                    ctx.moveTo(x - capHalfWidth, highY);
+                    ctx.lineTo(x + capHalfWidth, highY);
                     ctx.stroke();
                 }
 
-                if (showLow && hasLow) {
+                if (drawLow) {
                     const lowY = yScale.getPixelForValue(low);
                     ctx.beginPath();
                     ctx.strokeStyle = lowColor;
-                    ctx.moveTo(x - halfWidth, lowY);
-                    ctx.lineTo(x + halfWidth, lowY);
+                    ctx.moveTo(x - capHalfWidth, lowY);
+                    ctx.lineTo(x + capHalfWidth, lowY);
                     ctx.stroke();
                 }
                 return;

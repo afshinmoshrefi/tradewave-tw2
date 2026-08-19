@@ -1070,8 +1070,8 @@ const DesktopLayout = (props) => {
                                                 },
                                                 {
                                                     key: BAR_CHART_EXCURSION_STYLES.TICKS,
-                                                    label: 'High / Low Ticks',
-                                                    description: 'Thin green and pink marks at the exact extreme levels.',
+                                                    label: 'Capped Needles',
+                                                    description: 'A vertical line with compact green and pink caps at the exact extremes.',
                                                 },
                                                 {
                                                     key: BAR_CHART_EXCURSION_STYLES.NEEDLE,
