@@ -4,6 +4,7 @@
   filterOpportunityRows,
   getOpportunityDayRange,
   isOpportunityFilterPending,
+  normalizeOpportunityFilterText,
   opportunityFilterUsesAI,
   sortOpportunityRows,
   toOpportunityEngineDayRange,
@@ -71,6 +72,23 @@ const rows = [
     pred_mfe: 18,
   },
 ]
+
+test('normalizes common pasted dash characters to the documented hyphen', () => {
+  expect(normalizeOpportunityFilterText('10–90')).toBe('10-90')
+  expect(normalizeOpportunityFilterText('10—90')).toBe('10-90')
+  expect(normalizeOpportunityFilterText('10−90')).toBe('10-90')
+  expect(normalizeOpportunityFilterText('10‑90; sr>1')).toBe('10-90; sr>1')
+})
+
+test.each(['10‐90', '10‑90', '10‒90', '10–90', '10—90', '10―90', '10−90'])(
+  'accepts a pasted typographic day range: %s',
+  (filterText) => {
+    expect(analyzeOpportunityFilter(filterText)).toMatchObject({ status: 'valid' })
+    expect(getOpportunityDayRange(filterText)).toBe('10-90')
+    expect(filterOpportunityRows(rows, filterText).map(row => row.symbol))
+      .toEqual(['LOW', 'GOOD', 'EDGE'])
+  }
+)
 
 test('extracts the server day range independently from client-only predicates', () => {
   expect(getOpportunityDayRange('10-90')).toBe('10-90')

@@ -33,6 +33,7 @@ import {
   analyzeOpportunityFilter,
   EMPTY_DAY_RANGE,
   getOpportunityDayRange,
+  normalizeOpportunityFilterText,
   toOpportunityEngineDayRange,
 } from './opportunityFilters'
 import {
@@ -1647,7 +1648,7 @@ const OppTable = (props) => {
   //-------------------------------------------------------------------------------------------------------
 
   const handleOnChange = (event) => {
-    const newText = event.target.value
+    const newText = normalizeOpportunityFilterText(event.target.value)
     const nextDayRange = getOpportunityDayRange(newText)
 
     // Range transitions intentionally request the server's re-ranked source.

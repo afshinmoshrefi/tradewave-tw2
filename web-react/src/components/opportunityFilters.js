@@ -1,6 +1,11 @@
 ﻿export const EMPTY_DAY_RANGE = '-'
 
-const splitFilterSegments = (filterText) => String(filterText || '')
+const TYPOGRAPHIC_DASH_PATTERN = /[\u2010-\u2015\u2212]/g
+
+export const normalizeOpportunityFilterText = (filterText) => String(filterText || '')
+  .replace(TYPOGRAPHIC_DASH_PATTERN, '-')
+
+const splitFilterSegments = (filterText) => normalizeOpportunityFilterText(filterText)
   .split(';')
   .map(segment => segment.trim())
   .filter(segment => segment.length > 0)
