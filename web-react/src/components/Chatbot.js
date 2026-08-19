@@ -589,6 +589,7 @@ function Chatbot(props) {
       opp_table_market: oppMarketId,
       opp_table_market_name: oppMarketName,
       opp_table_years: props.oppTableYears,
+      opp_table_pe_cycle: props.PEselected || 'cons',
       analysis_report: opts.analysisReport || props.activeAnalysisReport || null,
       token: token,
     };

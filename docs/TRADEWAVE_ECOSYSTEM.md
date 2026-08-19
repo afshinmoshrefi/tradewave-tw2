@@ -1430,8 +1430,9 @@ view action are built only from the effective request and statistics echoed by t
 
 Best-time-to-buy and named-symbol historical-weakness questions use the exact `OppBySymbol` data
 behind the desktop Best Waves selector. `OppBySymbol` now echoes the effective market, symbol,
-lookback, minimum profitable years, and mode after entitlement clamping. Tara searches Long rows
-from one week ago through year-end for buy-timing research and uses the strongest Short row for a
+lookback, minimum profitable years, and mode after entitlement clamping. Tara uses the exact Wave
+Viewer lookback and cycle mode when querying those rows. She searches Long rows from one week ago
+through year-end and selects the highest-Sharpe qualifying row for buy-timing research, and uses the strongest Short row for a
 weak-period question, then preflights the selected row with `ChartData4`. A mismatched effective
 request produces no action or success claim, and an empty selector is reported as no qualifying
 Best Wave at that setting.

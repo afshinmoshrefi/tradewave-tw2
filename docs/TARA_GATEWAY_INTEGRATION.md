@@ -76,7 +76,9 @@ Best-time-to-buy and named-symbol weak-period questions bypass both model provid
 the security through `ResolveSymbol`, reads the exact `OppBySymbol` rows used by the desktop Best
 Waves selector, and preflights the selected row through `ChartData4` before queueing a view action.
 The OppBySymbol response echoes its entitlement-adjusted lookback, so Tara never labels a clamped
-10-year result as 20 years. Buy timing searches Long entries from one week ago through year-end;
+10-year result as 20 years. Tara sends the exact Wave Viewer lookback and cycle mode used by the
+desktop Best Waves selector. Buy timing searches Long entries from one week ago through year-end
+and selects the highest-Sharpe row in that range;
 historical weakness selects the highest-Sharpe Short row. Empty or unavailable Best Waves data is a
 truthful no-result answer, not an incomplete chart action.
 

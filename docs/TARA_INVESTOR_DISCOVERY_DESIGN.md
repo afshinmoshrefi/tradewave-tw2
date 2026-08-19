@@ -146,9 +146,10 @@ failure.
 
 Tara uses the Wave Viewer's Best Waves dataset rather than the currently loaded
 window. She searches qualifying Long rows with entry dates from one week before
-the current market date through December 31. A recently started qualifying row
-is preferred; otherwise she selects the next upcoming row. The answer names the
-exact date range, effective lookback, average, median, and Sharpe Ratio, explains
+the current market date through December 31 using the exact Wave Viewer lookback
+and cycle mode. She selects the highest-Sharpe qualifying row in that range, matching
+the Best Waves dropdown ranking. The answer names the exact date range, effective
+lookback and cycle, average, median, and Sharpe Ratio, explains
 where to find the Best Waves dropdown above the desktop bar chart, and notes that
 the dropdown is empty or hidden when no row passes the criteria. Tara loads the
 chart only after ChartData4 echoes the same symbol, market, date, duration, and

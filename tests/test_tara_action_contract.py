@@ -1,6 +1,7 @@
 import json
 import time
 import datetime
+from pathlib import Path
 
 import jwt
 import pytest
@@ -11,6 +12,41 @@ import tara_gateway
 
 
 pytestmark = pytest.mark.unit
+
+
+def test_chatbot_posts_current_best_waves_cycle_context():
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "web-react"
+        / "src"
+        / "components"
+        / "Chatbot.js"
+    ).read_text(encoding="utf-8")
+
+    assert "opp_table_pe_cycle: props.PEselected || 'cons'" in source
+
+
+@pytest.mark.parametrize(
+    ("pe_cycle", "expected_mode"),
+    [("cons", "consecutive"), ("pe2", "pe")],
+)
+def test_best_waves_query_matches_selected_cycle(monkeypatch, pe_cycle, expected_mode):
+    seen = {}
+
+    def fake_loopback(path, token, **kwargs):
+        seen.update(path=path, params=kwargs.get("params"))
+        return 200, {
+            "status": "ok",
+            "request": {"years": 5, "mode": expected_mode},
+            "OppBySymbol": [],
+        }
+
+    monkeypatch.setattr(tara_gateway, "_loopback_json", fake_loopback)
+
+    tara_gateway._best_waves_rows("2", "MSFT", 5, pe_cycle, "token")
+
+    assert seen["path"] == "/OppBySymbol/2/MSFT/5/5/-/100"
+    assert seen["params"] == {"mode": expected_mode}
 
 
 @pytest.mark.parametrize(
@@ -186,7 +222,7 @@ def test_hundred_year_dates_analyze_named_security_and_queue_exact_chart(monkeyp
     assert "named 100-Year Pattern in the book is the SPX study" in command["reply"]
 
 
-def test_best_time_to_buy_uses_recent_long_best_wave_and_exact_chart(monkeypatch):
+def test_best_time_to_buy_uses_highest_ranked_future_long_best_wave(monkeypatch):
     monkeypatch.setattr(
         tara_gateway,
         "_resolve_question_symbol",
@@ -219,8 +255,8 @@ def test_best_time_to_buy_uses_recent_long_best_wave_and_exact_chart(monkeypatch
             "request": {
                 "market": "11",
                 "symbol": "SPY",
-                "entry_date": "2026-08-17",
-                "days_out": 26,
+                "entry_date": "2026-10-02",
+                "days_out": 15,
                 "years": 20,
                 "pe_cycle": "cons",
             },
@@ -239,14 +275,86 @@ def test_best_time_to_buy_uses_recent_long_best_wave_and_exact_chart(monkeypatch
     assert command["spec"] == {
         "market": "11",
         "symbol": "SPY",
-        "entry_date": "2026-08-17",
-        "days_out": 26,
+        "entry_date": "2026-10-02",
+        "days_out": 15,
         "years": 20,
         "pe_cycle": "cons",
     }
-    assert "already started" in command["reply"]
+    assert "is upcoming" in command["reply"]
     assert "Best Waves</b> dropdown above the bar chart" in command["reply"]
     assert "empty or hidden" in command["reply"]
+
+
+def test_best_time_to_buy_matches_loaded_pe2_best_waves_setting(monkeypatch):
+    monkeypatch.setattr(
+        tara_gateway,
+        "_resolve_question_symbol",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "symbol": "MSFT",
+            "market": "2",
+            "label": "S&P 500 STOCKS",
+            "name": "Microsoft Corporation",
+        },
+    )
+    seen = {}
+
+    def fake_best_waves(market, symbol, years, pe_cycle, token):
+        seen.update(
+            market=market,
+            symbol=symbol,
+            years=years,
+            pe_cycle=pe_cycle,
+        )
+        return 200, "ok", [
+            ["2026-10-11", "MSFT", 53, "Long", 3.59, 9.17, 10.56, 0, 0],
+            ["2026-08-28", "MSFT", 243, "Long", 2.10, 15.34, 16.17, 0, 0],
+        ], 5
+
+    def fake_chart(market, symbol, entry_date, days_out, years_value, token, **kwargs):
+        seen["years_value"] = years_value
+        return 200, {
+            "request": {
+                "market": "2",
+                "symbol": "MSFT",
+                "entry_date": "2026-10-11",
+                "days_out": 54,
+                "years": 5,
+                "pe_cycle": "pe2",
+            },
+            "stats": {"Num Winners": "5", "Num Losers": "0"},
+            "ChartData4": [{"year": 2022, "pct": "9,10,-1"}],
+        }
+
+    monkeypatch.setattr(tara_gateway, "_best_waves_rows", fake_best_waves)
+    monkeypatch.setattr(tara_gateway, "_chart_data4", fake_chart)
+
+    command = tara_gateway.build_best_waves_command(
+        "When should I buy MSFT?",
+        {"years": 5, "pe_cycle": "pe2"},
+        "browser-token",
+        default_years=10,
+        default_pe_cycle="pe2",
+        today=datetime.date(2026, 8, 19),
+    )
+
+    assert seen == {
+        "market": "2",
+        "symbol": "MSFT",
+        "years": 5,
+        "pe_cycle": "pe2",
+        "years_value": "pe2-5",
+    }
+    assert command["spec"] == {
+        "market": "2",
+        "symbol": "MSFT",
+        "entry_date": "2026-10-11",
+        "days_out": 54,
+        "years": 5,
+        "pe_cycle": "pe2",
+    }
+    assert "Oct 11, 2026" in command["reply"]
+    assert "5 PE+2 samples" in command["reply"]
 
 
 def test_best_waves_empty_result_is_an_answer_not_a_chart_failure(monkeypatch):

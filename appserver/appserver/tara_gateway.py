@@ -2676,13 +2676,14 @@ def build_hundred_year_security_command(message, current_view, user_token, *, to
     return {"reply": reply, "spec": spec}
 
 
-def _best_waves_rows(market, symbol, years, token):
+def _best_waves_rows(market, symbol, years, pe_cycle, token):
+    mode = "consecutive" if pe_cycle == "cons" else "pe"
     status, payload = _loopback_json(
         "/OppBySymbol/%s/%s/%s/%s/-/100" % (
             quote(str(market)), quote(str(symbol)), years, years
         ),
         token,
-        params={"mode": "consecutive"},
+        params={"mode": mode},
         timeout=(5, 25),
     )
     if status != 200 or not isinstance(payload, dict):
@@ -2692,7 +2693,21 @@ def _best_waves_rows(market, symbol, years, token):
         effective_years = int(request_used.get("years"))
     except (TypeError, ValueError):
         effective_years = None
+    if request_used and request_used.get("mode") != mode:
+        return status, "request_mismatch", None, effective_years
     return status, payload.get("status"), payload.get("OppBySymbol"), effective_years
+
+
+def _best_waves_setting_label(years, pe_cycle):
+    if pe_cycle == "cons":
+        return "%s consecutive years" % years
+    cycle_label = {
+        "pe0": "PE",
+        "pe1": "PE+1",
+        "pe2": "PE+2",
+        "pe3": "PE+3",
+    }.get(pe_cycle, pe_cycle.upper())
+    return "%s %s samples" % (years, cycle_label)
 
 
 def build_best_waves_command(
@@ -2701,6 +2716,7 @@ def build_best_waves_command(
     user_token,
     *,
     default_years=None,
+    default_pe_cycle=None,
     today=None,
 ):
     """Answer buy-timing and weak-window questions from the exact desktop Best Waves rows."""
@@ -2718,14 +2734,19 @@ def build_best_waves_command(
         return {"reply": _resolution_boundary(resolution), "spec": None}
 
     view = current_view if isinstance(current_view, dict) else {}
-    raw_years = view.get("years") if str(view.get("pe_cycle") or "cons").lower() in {"cons", "consecutive"} else None
+    pe_cycle = str(view.get("pe_cycle") or default_pe_cycle or "cons").strip().lower()
+    if pe_cycle == "consecutive":
+        pe_cycle = "cons"
+    if pe_cycle not in {"cons", "pe0", "pe1", "pe2", "pe3"}:
+        pe_cycle = "cons"
+    raw_years = view.get("years")
     try:
         years = int(raw_years if raw_years is not None else default_years)
     except (TypeError, ValueError):
         years = 10
     years = min(max(years, 1), 99)
     status, feature_status, raw_rows, effective_years = _best_waves_rows(
-        resolution["market"], resolution["symbol"], years, user_token
+        resolution["market"], resolution["symbol"], years, pe_cycle, user_token
     )
     if effective_years is not None:
         years = effective_years
@@ -2771,6 +2792,7 @@ def build_best_waves_command(
         })
     if not candidates:
         purpose = "upcoming Long" if is_buy else "Short"
+        setting = _best_waves_setting_label(years, pe_cycle)
         feature_note = (
             "Best Waves data is not available for this symbol and setting."
             if feature_status == "feature_not_available"
@@ -2778,24 +2800,18 @@ def build_best_waves_command(
         )
         return {
             "reply": (
-                "<b>No qualifying %s Best Wave was found for %s at the %s-year setting.</b> "
+                "<b>No qualifying %s Best Wave was found for %s at the %s setting.</b> "
                 "%s On desktop paid plans, the Best Waves dropdown above the bar chart is "
                 "hidden or empty when nothing qualifies."
-                % (purpose, html.escape(resolution["symbol"]), years, feature_note)
+                % (purpose, html.escape(resolution["symbol"]), setting, feature_note)
             ),
             "spec": None,
         }
     if is_buy:
-        recent = sorted(
-            (item for item in candidates if item["entry"] <= current),
-            key=lambda item: (item["entry"], item["sharpe"]),
-            reverse=True,
+        selected = max(
+            candidates,
+            key=lambda item: (item["sharpe"], -item["entry"].toordinal()),
         )
-        upcoming = sorted(
-            (item for item in candidates if item["entry"] > current),
-            key=lambda item: (item["entry"], -item["sharpe"]),
-        )
-        selected = recent[0] if recent else upcoming[0]
     else:
         selected = max(candidates, key=lambda item: item["sharpe"])
 
@@ -2804,11 +2820,12 @@ def build_best_waves_command(
         "symbol": resolution["symbol"],
         "entry_date": selected["entry"].isoformat(),
         "days_out": selected["days_out"],
-        "pe_cycle": "cons",
+        "pe_cycle": pe_cycle,
     }
+    years_value = str(years) if pe_cycle == "cons" else "%s-%s" % (pe_cycle, years)
     chart_status, chart_payload = _chart_data4(
         resolution["market"], resolution["symbol"], selected["entry"].isoformat(),
-        selected["days_out"], str(years), user_token,
+        selected["days_out"], years_value, user_token,
         direction="long" if is_buy else "short",
     )
     spec = _verified_chart_spec(chart_payload or {}, expected) if chart_status == 200 else None
@@ -2829,8 +2846,9 @@ def build_best_waves_command(
         if spec is not None else
         "This account did not return the exact requested chart, so I have not claimed that it loaded."
     )
+    setting_label = _best_waves_setting_label(years, pe_cycle)
     reply = (
-        "<b>%s</b><br>%s Across the exact %s-year Best Waves setting, average "
+        "<b>%s</b><br>%s Across the exact %s Best Waves setting, average "
         "direction-adjusted return was %s, median was %s, and Sharpe Ratio was %.2f.<br><br>"
         "%s On desktop paid plans, open the <b>Best Waves</b> dropdown above the bar chart "
         "to see every qualifying wave for %s. If no wave passes the minimum criteria, the list "
@@ -2838,7 +2856,7 @@ def build_best_waves_command(
     ) % (
         heading,
         lead,
-        years,
+        setting_label,
         _fmt_pct(selected["avg"]),
         _fmt_pct(selected["median"]),
         selected["sharpe"],

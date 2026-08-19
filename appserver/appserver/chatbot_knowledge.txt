@@ -1123,9 +1123,10 @@ Key details:
   is empty or hidden; this is a valid research result, not a system error.
 
 When a user asks for the best historical time to buy or enter a named security, Tara scans Long Best
-Waves whose entry is between one week ago and the end of the current year. A qualifying wave that
-recently started is shown first; otherwise Tara shows the next upcoming qualifying wave. Tara gives
-the exact entry and end dates, current effective lookback, average, median, and Sharpe Ratio, loads
+Waves whose entry is between one week ago and the end of the current year. Tara uses the exact
+lookback and cycle mode selected in the Wave Viewer, matching the Best Waves dropdown, and shows
+the highest-Sharpe qualifying row in that date range. Tara gives the exact entry and end dates,
+current effective lookback and cycle, average, median, and Sharpe Ratio, loads
 that exact chart only when ChartData4 confirms the same request, and points desktop paid users to the
 Best Waves dropdown above the bar chart for the full list. This is historical timing research, never
 a recommendation to buy.

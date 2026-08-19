@@ -2463,6 +2463,7 @@ def chat():
             wave_viewer,
             user_token,
             default_years=opp_table_years,
+            default_pe_cycle=opp_table_pe_cycle,
         )
         if best_waves_command is not None:
             actions = []
