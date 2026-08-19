@@ -931,6 +931,33 @@ def test_prefetch_metadata_accepts_complete_v3_62_identity():
     assert prefetch._valid_prefetch_metadata(METADATA) is True
 
 
+def test_prefetch_defers_cleanly_for_v2(tmp_path, monkeypatch):
+    status_path = tmp_path / "status.json"
+    _write_valid_status(status_path)
+    monkeypatch.setattr(
+        prefetch.CheckpointScoringService,
+        "scorer_metadata",
+        lambda _self: None,
+    )
+    monkeypatch.setattr(
+        prefetch.CheckpointScoringService,
+        "legacy_scorer_metadata",
+        lambda _self: {
+            "scorer_mode": "v2",
+            "model_release": "v2-legacy-59",
+            "feature_schema_version": "v2-59",
+        },
+    )
+    monkeypatch.setattr(prefetch.config, "ml_scorer_url", "http://scorer")
+
+    assert prefetch.run_prefetch(
+        status_file=str(status_path),
+        redis_client=FakeRedis(),
+        http_client=object(),
+        now=FIXED_NOW,
+    ) == 0
+
+
 @pytest.mark.parametrize("data_as_of", ["2026-08-04", "2026-08-06"])
 def test_prefetch_rejects_scorer_data_not_aligned_to_eod_session(
     tmp_path, monkeypatch, data_as_of

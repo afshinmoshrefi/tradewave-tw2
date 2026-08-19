@@ -1100,12 +1100,22 @@ def run_prefetch(
         http_client=http_client,
         ttl_seconds=ttl_seconds,
         request_timeout=60,
+        scorer_mode=config.ml_scorer_mode,
     )
     try:
         metadata = metadata_service.scorer_metadata()
     except Exception as exc:
         print(f"ML prefetch failed: scorer metadata unavailable ({type(exc).__name__}).")
         return 1
+    if metadata is None:
+        try:
+            legacy_metadata = metadata_service.legacy_scorer_metadata()
+        except Exception as exc:
+            print(f"ML prefetch failed: scorer metadata unavailable ({type(exc).__name__}).")
+            return 1
+        if normalize_scorer_metadata(legacy_metadata).get("scorer_mode") == "v2":
+            print("ML prefetch deferred: V2 supports live exact scoring but not V3 context warming.")
+            return 0
     if not _valid_prefetch_metadata(metadata):
         print("ML prefetch failed: scorer metadata is incomplete or not V3/62.")
         return 1
@@ -1269,6 +1279,7 @@ def run_prefetch(
             http_client=http_client,
             ttl_seconds=ttl_seconds,
             request_timeout=60,
+            scorer_mode=config.ml_scorer_mode,
         )
         legacy_rows = [
             opportunity

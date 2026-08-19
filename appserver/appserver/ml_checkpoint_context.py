@@ -1,4 +1,4 @@
-"""V3 scorer orchestration for recalculated duration comparisons.
+"""V2/V3 scorer orchestration and V3 duration comparisons.
 
 The V3 scorer owns model-faithful pattern-profile construction. TradeWave sends
 only an immutable pattern identity plus UI provenance. In particular, this
@@ -20,6 +20,7 @@ import math
 import re
 import time
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from zoneinfo import ZoneInfo
 
 
 CACHE_SCHEMA_VERSION = "ml6"
@@ -46,6 +47,7 @@ _PE_YEARS_RE = re.compile(r"^pe([0-3])-([1-9][0-9]*)$", re.I)
 _DAY_RANGE_RE = re.compile(r"^([1-9][0-9]{0,2})-([1-9][0-9]{0,2})$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _METADATA_FIELDS = (
+    "scorer_mode",
     "model_release",
     "feature_schema_version",
     "feature_schema_hash",
@@ -557,6 +559,7 @@ def build_checkpoint_plan(
 def normalize_scorer_metadata(value: Any) -> Dict[str, str]:
     source = value if isinstance(value, Mapping) else {}
     aliases = {
+        "scorer_mode": ("scorer_mode", "mode"),
         "model_release": ("model_release", "model_version"),
         "feature_schema_version": ("feature_schema_version", "feature_schema"),
         "feature_schema_hash": ("feature_schema_hash",),
@@ -577,7 +580,43 @@ def normalize_scorer_metadata(value: Any) -> Dict[str, str]:
                 selected = str(candidate_value)
                 break
         result[target] = selected or "unknown"
+    if result["scorer_mode"] == "unknown":
+        feature_schema = result["feature_schema_version"].lower()
+        model_release = result["model_release"].lower()
+        if "v3" in feature_schema or "v3" in model_release:
+            result["scorer_mode"] = "v3"
+        elif "v2" in feature_schema or "v2" in model_release:
+            result["scorer_mode"] = "v2"
     return result
+
+
+def _legacy_v2_metadata(health: Mapping[str, Any], scorer_url: str) -> Dict[str, str]:
+    """Build a stable cache identity for V2, whose health has no provenance."""
+
+    contract = {
+        "feature_count": 59,
+        "scorer_url_hash": hashlib.sha256(
+            str(scorer_url or "").encode("utf-8")
+        ).hexdigest(),
+        "tiers": sorted(str(item) for item in (health.get("tiers") or [])),
+        "vix_cutoff": health.get("vix_cutoff"),
+    }
+    contract_hash = _hash_payload(contract)
+    market_date = dt.datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+    data_hash = _hash_payload({"contract": contract_hash, "date": market_date})
+    return normalize_scorer_metadata({
+        "scorer_mode": "v2",
+        "model_release": "v2-legacy-59",
+        "feature_schema_version": "v2-59",
+        "feature_schema_hash": _hash_payload({"feature_count": 59}),
+        "context_schema_version": "not-supported",
+        "pattern_profile_schema_version": "not-reported",
+        "model_manifest_hash": contract_hash,
+        "data_as_of": market_date,
+        "data_generation_hash": data_hash,
+        "data_source_manifest_hash": data_hash,
+        "context_data_complete": "false",
+    })
 
 
 def metadata_fingerprint(metadata: Mapping[str, Any]) -> str:
@@ -620,6 +659,35 @@ def valid_scorer_metadata(value: Any) -> bool:
     return True
 
 
+def valid_legacy_scorer_metadata(value: Any) -> bool:
+    """Accept a cache-safe exact-score identity for either supported scorer."""
+
+    metadata = normalize_scorer_metadata(value)
+    if valid_scorer_metadata(metadata):
+        return True
+    if metadata.get("scorer_mode") != "v2":
+        return False
+    if "v2" not in metadata.get("model_release", "").lower():
+        return False
+    feature_schema = metadata.get("feature_schema_version", "").lower()
+    if "v2" not in feature_schema or "59" not in feature_schema:
+        return False
+    required = (
+        "feature_schema_hash",
+        "model_manifest_hash",
+        "data_as_of",
+        "data_generation_hash",
+        "data_source_manifest_hash",
+    )
+    if any(metadata.get(field, "").lower() == "unknown" for field in required):
+        return False
+    try:
+        _entry_date(metadata.get("data_as_of"))
+    except CheckpointContextError:
+        return False
+    return True
+
+
 def scorer_metadata_matches(left: Any, right: Any) -> bool:
     """Compare two complete scorer identities without wildcard/unknown semantics."""
 
@@ -631,6 +699,27 @@ def scorer_metadata_matches(left: Any, right: Any) -> bool:
         normalized_left[field] == normalized_right[field]
         for field in _METADATA_FIELDS
     )
+
+
+def legacy_response_metadata(
+    payload: Any,
+    expected_metadata: Mapping[str, Any],
+) -> Optional[Dict[str, str]]:
+    """Validate V3 response provenance or bind metadata-free V2 to its health."""
+
+    expected = normalize_scorer_metadata(expected_metadata)
+    if not valid_legacy_scorer_metadata(expected):
+        return None
+    if expected.get("scorer_mode") == "v2":
+        source = payload if isinstance(payload, Mapping) else {}
+        if isinstance(source.get("metadata"), Mapping) and source["metadata"]:
+            return None
+        return expected
+    source = payload if isinstance(payload, Mapping) else {}
+    provider = normalize_scorer_metadata(source.get("metadata", {}))
+    if not scorer_metadata_matches(provider, expected):
+        return None
+    return provider
 
 
 def _legacy_cache_identity(
@@ -695,7 +784,7 @@ def read_cached_legacy_score(
 ) -> Optional[Dict[str, Any]]:
     """Read an exact-window score only for the current model/data generation."""
 
-    if not valid_scorer_metadata(expected_metadata):
+    if not valid_legacy_scorer_metadata(expected_metadata):
         return None
     identity = _legacy_cache_identity(symbol, entry_date, days_out, direction)
     pointer = _redis_json(
@@ -738,7 +827,7 @@ def write_cached_legacy_score(
     """Atomically publish a versioned exact-window value and its live pointer."""
 
     normalized_metadata = normalize_scorer_metadata(metadata)
-    if not valid_scorer_metadata(normalized_metadata):
+    if not valid_legacy_scorer_metadata(normalized_metadata):
         raise CheckpointProviderError("legacy scorer metadata is incomplete")
     identity = _legacy_cache_identity(symbol, entry_date, days_out, direction)
     normalized_score = normalize_legacy_score_result(score)
@@ -1284,22 +1373,27 @@ class CheckpointScoringService:
         http_client: Any,
         ttl_seconds: int,
         request_timeout: int = 35,
+        scorer_mode: str = "auto",
     ) -> None:
         self.redis = redis_client
         self.scorer_url = str(scorer_url or "").rstrip("/")
         self.http = http_client
         self.ttl_seconds = max(int(ttl_seconds), 60)
         self.request_timeout = max(int(request_timeout), 1)
+        self.scorer_mode = str(scorer_mode or "auto").strip().lower()
+        if self.scorer_mode not in {"auto", "v2", "v3"}:
+            raise ValueError("scorer_mode must be auto, v2, or v3")
         self._metadata_key = (
             f"{CACHE_SCHEMA_VERSION}:scorer:metadata:"
+            f"{self.scorer_mode}:"
             f"{hashlib.sha256(self.scorer_url.encode('utf-8')).hexdigest()[:20]}"
         )
 
-    def scorer_metadata(self) -> Optional[Dict[str, str]]:
+    def legacy_scorer_metadata(self) -> Optional[Dict[str, str]]:
         cached = _redis_json(self.redis.get(self._metadata_key))
         if isinstance(cached, Mapping):
             normalized = normalize_scorer_metadata(cached)
-            if valid_scorer_metadata(normalized):
+            if valid_legacy_scorer_metadata(normalized):
                 return normalized
         if not self.scorer_url:
             return None
@@ -1309,11 +1403,29 @@ class CheckpointScoringService:
         payload = response.json()
         if not isinstance(payload, Mapping):
             return None
-        metadata = normalize_scorer_metadata(payload.get("metadata", payload))
-        if not valid_scorer_metadata(metadata):
+        try:
+            feature_count = int(payload.get("feature_count"))
+        except (TypeError, ValueError):
             return None
+        detected_mode = "v2" if feature_count == 59 else "v3" if feature_count == 62 else None
+        if detected_mode is None:
+            return None
+        if self.scorer_mode != "auto" and self.scorer_mode != detected_mode:
+            return None
+        if detected_mode == "v2":
+            metadata = _legacy_v2_metadata(payload, self.scorer_url)
+        else:
+            metadata = normalize_scorer_metadata(payload.get("metadata", payload))
+            if not valid_scorer_metadata(metadata):
+                return None
         self.redis.set(self._metadata_key, _canonical_json(metadata), ex=60)
         return metadata
+
+    def scorer_metadata(self) -> Optional[Dict[str, str]]:
+        """Return metadata only when the V3 context contract is available."""
+
+        metadata = self.legacy_scorer_metadata()
+        return metadata if valid_scorer_metadata(metadata) else None
 
     def cached_bundle(self, plan: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
         try:
@@ -1354,6 +1466,8 @@ class CheckpointScoringService:
         except Exception as exc:
             logging.warning("ML checkpoint metadata lookup failed: %s", exc)
             expected = None
+        if expected is None:
+            return output
 
         unique_requests: Dict[str, Mapping[str, Any]] = {}
         for plan in plans:

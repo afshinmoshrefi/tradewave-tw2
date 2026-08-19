@@ -164,6 +164,9 @@ articles_redis_db = 3
 # so the UMP branches were dead code.
 
 ml_scorer_url = os.environ.get('TW2_ML_SCORER_URL', '')  # set in /etc/tradewave/secrets.env (ML pattern scorer on keyprovider)
+ml_scorer_mode = os.environ.get('TW2_ML_SCORER_MODE', 'auto').strip().lower() or 'auto'
+if ml_scorer_mode not in {'auto', 'v2', 'v3'}:
+    raise ValueError('TW2_ML_SCORER_MODE must be auto, v2, or v3')
 x_profile_url = os.environ.get('TW2_X_PROFILE_URL', '')  # set in /etc/tradewave/secrets.env (X/Twitter profile per env)
 
 # === CONTACT FORM / TIER-1 SUPPORT ===

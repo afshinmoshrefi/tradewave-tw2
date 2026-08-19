@@ -31,6 +31,7 @@ from ml_checkpoint_context import (  # noqa: E402
     model_days_out_for_source,
     normalize_checkpoint_response,
     normalize_legacy_score_result,
+    normalize_scorer_metadata,
     read_cached_legacy_score,
     ranked_usage_contexts,
     read_cached_checkpoint,
@@ -175,7 +176,7 @@ class FakeScorerHTTP:
         assert url.endswith("/health")
         assert timeout == 3
         self.gets += 1
-        return FakeResponse(METADATA)
+        return FakeResponse({"feature_count": 62, **METADATA})
 
     def post(self, url, json, timeout):
         assert url.endswith("/score/context")
@@ -630,7 +631,7 @@ def test_provider_identity_and_all_four_scores_are_validated():
         checkpoint[field]
         for field in ("ml_score", "win_prob", "pred_return", "pred_mfe")
     ] == [0.0, 0.0, -2.5, 0.0]
-    assert checkpoint["scorer"] == METADATA
+    assert checkpoint["scorer"] == normalize_scorer_metadata(METADATA)
 
 
 def test_validated_empty_profile_keeps_the_manual_duration_score():
@@ -873,6 +874,49 @@ def test_cold_multiple_rows_use_one_bounded_context_post_then_hit_cache():
     second = service.score_bundles(plans, max_request_items=6)
     assert len(http.posts) == 1
     assert second == first
+
+
+def test_scorer_mode_detects_v2_and_keeps_context_path_disabled():
+    class V2HTTP:
+        def get(self, url, timeout):
+            assert url.endswith("/health")
+            assert timeout == 3
+            return FakeResponse({
+                "status": "ok",
+                "tiers": ["10_30", "31_60", "61_90"],
+                "feature_count": 59,
+                "vix_cutoff": 35,
+            })
+
+    service = CheckpointScoringService(
+        redis_client=FakeRedis(),
+        scorer_url="http://v2-scorer",
+        http_client=V2HTTP(),
+        ttl_seconds=300,
+        scorer_mode="auto",
+    )
+
+    metadata = service.legacy_scorer_metadata()
+    assert metadata["scorer_mode"] == "v2"
+    assert metadata["feature_schema_version"] == "v2-59"
+    assert service.scorer_metadata() is None
+
+
+def test_explicit_scorer_mode_rejects_a_mismatched_feature_contract():
+    class V2HTTP:
+        def get(self, _url, timeout):
+            assert timeout == 3
+            return FakeResponse({"status": "ok", "feature_count": 59})
+
+    service = CheckpointScoringService(
+        redis_client=FakeRedis(),
+        scorer_url="http://v2-scorer",
+        http_client=V2HTTP(),
+        ttl_seconds=300,
+        scorer_mode="v3",
+    )
+
+    assert service.legacy_scorer_metadata() is None
 
 
 def test_usage_context_retains_short_rows_inside_displayed_one_to_nine_range():

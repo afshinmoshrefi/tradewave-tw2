@@ -33,6 +33,20 @@ METADATA = {
     "context_data_complete": "True",
 }
 
+V2_METADATA = {
+    "scorer_mode": "v2",
+    "model_release": "v2-legacy-59",
+    "feature_schema_version": "v2-59",
+    "feature_schema_hash": "v2-features-route-test",
+    "context_schema_version": "not-supported",
+    "pattern_profile_schema_version": "not-reported",
+    "model_manifest_hash": "v2-model-route-test",
+    "data_as_of": "2026-08-05",
+    "data_generation_hash": "v2-generation-route-test",
+    "data_source_manifest_hash": "v2-sources-route-test",
+    "context_data_complete": "False",
+}
+
 
 class _Pipeline:
     def __init__(self, redis):
@@ -133,6 +147,11 @@ class _ComparisonService(_MetadataService):
             }
             for plan in plans
         }
+
+
+class _V2MetadataService:
+    def legacy_scorer_metadata(self):
+        return dict(V2_METADATA)
 
 
 class _Response:
@@ -351,6 +370,55 @@ def test_short_sources_share_one_ten_day_provider_score_and_keep_source_keys(mon
         "win_prob": 0.69,
         "pred_return": 2.5,
         "pred_mfe": 4.9,
+    }
+    assert redis.locks == set()
+
+
+def test_v2_metadata_free_score_response_resolves_without_context_calls(monkeypatch):
+    redis = _configure(monkeypatch)
+    monkeypatch.setattr(
+        appserver_module, "_ml_checkpoint_service", lambda: _V2MetadataService()
+    )
+    opportunity = _opportunity("AAPL", 44)
+
+    initial = _post(
+        "/MLScoreBatch/2", {"opportunities": [opportunity]}
+    ).get_json()
+    assert initial["scores"] == {}
+    assert initial["pending"] == [{
+        "symbol": "AAPL",
+        "date": _market_date(),
+        "daysOut": 44,
+        "direction": "l",
+    }]
+
+    def provider(url, json, timeout):
+        assert url.endswith("/score")
+        assert json["tier"] == "31_60"
+        assert timeout == 30
+        return _Response({
+            "results": [{
+                **json["opportunities"][0],
+                "ml_score": 81,
+                "win_prob": 0.77,
+                "pred_return": 3.1,
+                "pred_mfe": 5.4,
+            }],
+        })
+
+    monkeypatch.setattr(appserver_module.requests, "post", provider)
+    final = _post(
+        "/MLScorePending/2", {"pending": initial["pending"]}
+    ).get_json()
+
+    key = f"AAPL|{_market_date()}|44|l"
+    assert final["still_pending"] == []
+    assert final["scores"][key] == {
+        "status": "available",
+        "ml_score": 81.0,
+        "win_prob": 0.77,
+        "pred_return": 3.1,
+        "pred_mfe": 5.4,
     }
     assert redis.locks == set()
 

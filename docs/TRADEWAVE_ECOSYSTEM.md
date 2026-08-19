@@ -331,6 +331,8 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
   `SUPPORT_EMAIL_TO/FROM`, `SUPPORT_IP_HASH_SALT` - see §5A),
   service URLs `TW2_ML_SCORER_URL/STOCKSCORE_URL/REALTIME_SERVICE_URL/EDGAR_SERVICE_URL/
   UPDATE_SERVER/KEYSTORE_URL/MASTER_APPSERVER/BLOG_QUEUE_SERVER/NEWS_WEBSITE_URL`).
+  `TW2_ML_SCORER_MODE` selects `auto`, `v2`, or `v3`; `auto` detects the scorer
+  contract from `/health` (`feature_count=59` for V2, `62` for V3).
 - MailerLite application lifecycle configuration is explicit and fail-closed:
   `MAILERLITE_OUTBOUND_ENABLED`, `MAILERLITE_TRIAL_STARTED_GROUP_ID`,
   `MAILERLITE_TRIAL_ENDED_EXPLORER_GROUP_ID`, and
@@ -1466,6 +1468,12 @@ remains available in the opportunity table and its dedicated explainer. Tara com
 Probability with the historical win rate only because both describe the exact same window. These
 names remain distinct: the former is a current-condition model estimate and the latter is the
 observed share of profitable completed years.
+
+TradeWave supports both scorer contracts. V2 provides exact-window scores through 90 calendar
+days using its 59-feature models and metadata-free `/score` response. V3 provides the 62-feature
+contract, complete scorer provenance, and recalculated duration comparisons. Feature construction
+remains entirely inside the scorer. In `auto` mode TradeWave detects the contract from `/health`;
+operators can pin either version with `TW2_ML_SCORER_MODE=v2|v3`.
 
 For a window longer than 90 calendar days, Tara requests bounded 30-, 60-, and 90-calendar-day
 readings from the same entry date and direction and presents them as an `AI-calibrated outlook`.

@@ -118,14 +118,15 @@ from ml_checkpoint_context import (
     build_usage_context,
     checkpoint_pending_opportunity,
     legacy_lock_key,
+    legacy_response_metadata,
     legacy_score_keys,
     model_days_out_for_source,
     normalize_legacy_score_result,
     normalize_scorer_metadata,
     read_cached_legacy_score,
     record_usage_context,
-    scorer_metadata_matches,
     should_record_table_usage,
+    valid_legacy_scorer_metadata,
     valid_scorer_metadata,
     write_cached_legacy_score,
 )
@@ -2068,6 +2069,22 @@ def _ml_checkpoint_service():
         http_client=requests,
         ttl_seconds=_ml_ttl_seconds(),
         request_timeout=35,
+        scorer_mode=config.ml_scorer_mode,
+    )
+
+
+def _ml_legacy_scorer_metadata(service):
+    """Read either scorer contract while keeping older test doubles compatible."""
+
+    method = getattr(service, 'legacy_scorer_metadata', None)
+    return method() if callable(method) else service.scorer_metadata()
+
+
+def _ml_scorer_is_v2(metadata):
+    normalized = normalize_scorer_metadata(metadata)
+    return (
+        valid_legacy_scorer_metadata(normalized)
+        and normalized.get('scorer_mode') == 'v2'
     )
 
 
@@ -2189,9 +2206,17 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
         return finalize_analysis_score_context(plan)
 
     opportunities = list(plan.get('opportunities') or ())
+    try:
+        legacy_metadata = _ml_legacy_scorer_metadata(_ml_checkpoint_service())
+    except Exception:
+        legacy_metadata = None
+        logging.exception('Tara AI scorer metadata lookup failed')
     checkpoint_plan = None
     checkpoint_bundle = None
-    if plan.get('mode') in {'duration_comparison', 'checkpoints'}:
+    if (
+        plan.get('mode') in {'duration_comparison', 'checkpoints'}
+        and valid_scorer_metadata(legacy_metadata)
+    ):
         source_opp = {
             'symbol': str((wave_viewer or {}).get('symbol') or '').strip().upper(),
             'date': str((wave_viewer or {}).get('start_date') or ''),
@@ -2233,11 +2258,6 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
             return finalize_analysis_checkpoint_bundle(plan, duration_bundle)
 
     score_map = {}
-    try:
-        legacy_metadata = _ml_checkpoint_service().scorer_metadata()
-    except Exception:
-        legacy_metadata = None
-        logging.exception('Tara AI scorer metadata lookup failed')
     misses = []
     for opp in opportunities:
         cached = (
@@ -2338,19 +2358,12 @@ def _tara_ai_analysis_context(wave_viewer, token, fallback_market=None):
                     )
                     return cleaned
                 payload = response.json()
-                provider_metadata = normalize_scorer_metadata(
-                    payload.get('metadata', {}) if isinstance(payload, dict) else {}
+                provider_metadata = legacy_response_metadata(
+                    payload, legacy_metadata
                 )
-                if not valid_scorer_metadata(provider_metadata):
+                if provider_metadata is None:
                     logging.warning(
-                        'Tara AI analysis scorer metadata incomplete for tier %s', tier
-                    )
-                    return cleaned
-                if not scorer_metadata_matches(
-                    provider_metadata, legacy_metadata
-                ):
-                    logging.warning(
-                        'Tara AI analysis scorer identity changed for tier %s', tier
+                        'Tara AI analysis scorer contract changed for tier %s', tier
                     )
                     return cleaned
                 results = payload.get('results', []) if isinstance(payload, dict) else []
@@ -2535,7 +2548,27 @@ def MLScoreBatch(resourceID):
                     _ml_unavailable_legacy_score(code, message),
                 )
             continue
-        if days_out >= 30:
+        if not legacy_metadata_loaded:
+            legacy_metadata_loaded = True
+            if checkpoint_service is None:
+                checkpoint_service = _ml_checkpoint_service()
+            try:
+                legacy_metadata = _ml_legacy_scorer_metadata(checkpoint_service)
+            except Exception:
+                legacy_metadata = None
+                logging.exception('ML scorer metadata lookup failed')
+        v2_mode = _ml_scorer_is_v2(legacy_metadata)
+        if v2_mode and days_out > 89:
+            _ml_add_source_legacy_score(
+                scores,
+                opp,
+                _ml_unavailable_legacy_score(
+                    'unsupported_duration',
+                    'V2 supports patterns through 90 calendar days.',
+                ),
+            )
+            continue
+        if days_out >= 30 and not v2_mode:
             ui_key = f'{sym}|{opp_date}|{days_out}|{direction}'
             try:
                 checkpoint_plan = _ml_checkpoint_plan_from_opp(
@@ -2550,13 +2583,6 @@ def MLScoreBatch(resourceID):
             checkpoint_bundle = checkpoint_service.cached_bundle(checkpoint_plan)
             current_score = None
             if days_out <= 89:
-                if not legacy_metadata_loaded:
-                    legacy_metadata_loaded = True
-                    try:
-                        legacy_metadata = checkpoint_service.scorer_metadata()
-                    except Exception:
-                        legacy_metadata = None
-                        logging.exception('ML scorer metadata lookup failed')
                 current_score = (
                     read_cached_legacy_score(
                         redis_client,
@@ -2601,15 +2627,6 @@ def MLScoreBatch(resourceID):
         if _ml_tier(scoring_days_out) is None:
             continue
 
-        if not legacy_metadata_loaded:
-            legacy_metadata_loaded = True
-            if checkpoint_service is None:
-                checkpoint_service = _ml_checkpoint_service()
-            try:
-                legacy_metadata = checkpoint_service.scorer_metadata()
-            except Exception:
-                legacy_metadata = None
-                logging.exception('ML scorer metadata lookup failed')
         cached_score = (
             read_cached_legacy_score(
                 redis_client,
@@ -2726,7 +2743,27 @@ def MLScorePending(resourceID):
                     _ml_unavailable_legacy_score(code, message),
                 )
             continue
-        if days_out >= 30:
+        if not legacy_metadata_loaded:
+            legacy_metadata_loaded = True
+            if checkpoint_service is None:
+                checkpoint_service = _ml_checkpoint_service()
+            try:
+                legacy_metadata = _ml_legacy_scorer_metadata(checkpoint_service)
+            except Exception:
+                legacy_metadata = None
+                logging.exception('ML scorer metadata lookup failed')
+        v2_mode = _ml_scorer_is_v2(legacy_metadata)
+        if v2_mode and days_out > 89:
+            _ml_add_source_legacy_score(
+                scores,
+                opp,
+                _ml_unavailable_legacy_score(
+                    'unsupported_duration',
+                    'V2 supports patterns through 90 calendar days.',
+                ),
+            )
+            continue
+        if days_out >= 30 and not v2_mode:
             ui_key = f'{sym}|{opp_date}|{days_out}|{direction}'
             try:
                 checkpoint_plan = _ml_checkpoint_plan_from_opp(
@@ -2741,13 +2778,6 @@ def MLScorePending(resourceID):
             checkpoint_bundle = checkpoint_service.cached_bundle(checkpoint_plan)
             current_score = None
             if days_out <= 89:
-                if not legacy_metadata_loaded:
-                    legacy_metadata_loaded = True
-                    try:
-                        legacy_metadata = checkpoint_service.scorer_metadata()
-                    except Exception:
-                        legacy_metadata = None
-                        logging.exception('ML scorer metadata lookup failed')
                 current_score = (
                     read_cached_legacy_score(
                         redis_client,
@@ -2780,15 +2810,6 @@ def MLScorePending(resourceID):
         scoring_days_out = _ml_scoring_days_out(opp)
         if _ml_tier(scoring_days_out) is None:
             continue
-        if not legacy_metadata_loaded:
-            legacy_metadata_loaded = True
-            if checkpoint_service is None:
-                checkpoint_service = _ml_checkpoint_service()
-            try:
-                legacy_metadata = checkpoint_service.scorer_metadata()
-            except Exception:
-                legacy_metadata = None
-                logging.exception('ML scorer metadata lookup failed')
         cached_score = (
             read_cached_legacy_score(
                 redis_client,
@@ -2917,20 +2938,12 @@ def MLScorePending(resourceID):
                     )
                     if resp.status_code == 200:
                         payload = resp.json()
-                        provider_metadata = normalize_scorer_metadata(
-                            payload.get('metadata', {})
-                            if isinstance(payload, dict) else {}
+                        provider_metadata = legacy_response_metadata(
+                            payload, legacy_metadata
                         )
-                        if not valid_scorer_metadata(provider_metadata):
+                        if provider_metadata is None:
                             logging.error(
-                                'MLScorePending scorer metadata was incomplete for tier %s',
-                                tier,
-                            )
-                        elif not scorer_metadata_matches(
-                            provider_metadata, legacy_metadata
-                        ):
-                            logging.error(
-                                'MLScorePending scorer identity changed during tier %s',
+                                'MLScorePending scorer contract changed during tier %s',
                                 tier,
                             )
                         else:

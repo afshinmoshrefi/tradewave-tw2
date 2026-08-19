@@ -321,6 +321,15 @@ session; the next retry publishes after the scorer sync. Staging and production
 must use their own authoritative data distribution and do not use this `.176` to
 `.215` bridge.
 
+TradeWave accepts ML scorer V2 (59 features) and V3 (62 features). Set
+`TW2_ML_SCORER_MODE=auto` to detect the contract from `/health`, or pin `v2`/`v3`
+in `/etc/tradewave/secrets.env`. A mode change takes effect after restarting the
+appserver processes. V2 serves live exact-window scores through 90 calendar days;
+the V3-only context warmer exits successfully without publishing when V2 is active.
+Pin production to `v2` until the V3 scorer release is ready, then change the value
+to `v3` and restart after confirming `/health` reports `feature_count=62` and the
+complete V3 metadata below.
+
 The last command is expected to be empty before the first authoritative warm. A
 published pointer names `ml6:prefetch:generation:<sha>`; that manifest must say
 `status=complete`. A failed generation remains inspectable but never replaces
