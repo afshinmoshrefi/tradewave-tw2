@@ -77,12 +77,16 @@ test('collapses suggested questions without hiding Tara input and remembers the 
   const body = document.getElementById('tara-guided-questions-body');
 
   expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  expect(toggle).toHaveTextContent('▼');
   expect(body).toHaveAttribute('aria-hidden', 'false');
   expect(screen.getByPlaceholderText(/ask tara about aapl/i)).toBeInTheDocument();
 
   fireEvent.click(toggle);
 
-  expect(screen.getByRole('button', { name: /show suggested questions/i })).toHaveAttribute('aria-expanded', 'false');
+  const reopen = screen.getByRole('button', { name: /show suggested questions/i });
+  expect(reopen).toHaveAttribute('aria-expanded', 'false');
+  expect(reopen).toHaveTextContent('▲');
+  expect(reopen).not.toHaveTextContent(/suggested questions/i);
   expect(body).toHaveAttribute('aria-hidden', 'true');
   expect(screen.getByTitle("Analyze AAPL's current seasonal pattern")).toHaveAttribute('tabindex', '-1');
   expect(screen.getByPlaceholderText(/ask tara about aapl/i)).toBeInTheDocument();

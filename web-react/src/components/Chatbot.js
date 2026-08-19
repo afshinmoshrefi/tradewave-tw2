@@ -1064,7 +1064,7 @@ function Chatbot(props) {
         >
           <button
             type="button"
-            className="tara-guided-questions-toggle"
+            className={`tara-guided-questions-toggle${guidedQuestionsExpanded ? ' is-expanded' : ' is-collapsed'}`}
             onClick={toggleGuidedQuestions}
             aria-expanded={guidedQuestionsExpanded}
             aria-controls="tara-guided-questions-body"
@@ -1076,13 +1076,11 @@ function Chatbot(props) {
               backgroundColor: tc.panelBg,
             }}
           >
-            <span>
-              {guidedQuestionsExpanded
-                ? 'What would you like to accomplish next?'
-                : `Suggested questions (${guidedQuestions.length})`}
-            </span>
+            {guidedQuestionsExpanded && (
+              <span>What would you like to accomplish next?</span>
+            )}
             <span className="tara-guided-questions-chevron" aria-hidden="true">
-              {guidedQuestionsExpanded ? '▲' : '▼'}
+              {guidedQuestionsExpanded ? '▼' : '▲'}
             </span>
           </button>
           <div
