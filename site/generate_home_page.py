@@ -1115,7 +1115,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             "ask_button": "See the Evidence",
             "control_points": [
                 {"lead": "You ask.",
-                 "text": "Any market, any question, in your own words."},
+                 "text": "Ask Tara about TradeWave's research, charts, and methods."},
                 {"lead": "You set the parameters.",
                  "text": ("Markets, test period, election cycle - "
                           "the analysis runs on your choices.")},

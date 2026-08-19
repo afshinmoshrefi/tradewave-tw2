@@ -72,6 +72,21 @@ to the current occurrence year. `/v1/analyze/<symbol>` supplies the matching mar
 grid. Tara's brief card retains `sharpe_ratio_mfe`; TWR is described as the Sharpe-style calculation
 on MFE, and losing-year MFE/giveback is surfaced when it changes the endpoint-only interpretation.
 
+Best-time-to-buy and named-symbol weak-period questions bypass both model providers. Tara resolves
+the security through `ResolveSymbol`, reads the exact `OppBySymbol` rows used by the desktop Best
+Waves selector, and preflights the selected row through `ChartData4` before queueing a view action.
+The OppBySymbol response echoes its entitlement-adjusted lookback, so Tara never labels a clamped
+10-year result as 20 years. Buy timing searches Long entries from one week ago through year-end;
+historical weakness selects the highest-Sharpe Short row. Empty or unavailable Best Waves data is a
+truthful no-result answer, not an incomplete chart action.
+
+A question about a named security "during the 100-Year Pattern" is also deterministic. The symbol
+resolver uses descriptive market words such as index, crude oil, futures, ETF, or stock to resolve
+cross-market duplicates. Tara applies September 27 through July 18 in PE+2 to that security's actual
+available completed history, reports only returned ChartData4 statistics, and queues only the echoed
+exact view. The public named/book pattern remains the canonical SPX exhibit; every other security is
+subject to normal market and plan access.
+
 Screening fix (2026-06-21): a "which <group> stocks" answer must match the on-screen opp table, but
 the table (`OppList4`) and the gateway `/scan` are DIFFERENT data paths that pick different setups per
 symbol (verified live: scan = FAST/TXN/CDNS...; the real NASDAQ table = AAPL/AMZN/CHTR... - AAPL is #1
