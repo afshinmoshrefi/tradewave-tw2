@@ -1103,7 +1103,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         #    next line, closing the "who is Tara?" gap immediately.
         "tara": {
             "eyebrow": "You're in Complete Control",
-            "headline": "Tell TradeWave What You Want to See. Let Tara Do the Rest",
+            "headline": "Ask Your Market Question. Tara Will Analyze the Data.",
             # First mention on the page (the hero pill renders only when
             # MCP is live) - so this line must introduce her.
             "intro": (
