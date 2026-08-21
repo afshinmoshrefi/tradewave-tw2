@@ -69,3 +69,17 @@ test('preserves a completed-close source label without treating it as realtime',
     source: 'eod_close',
   });
 });
+
+test('preserves a last-known-good source so the UI can label an older quote', () => {
+  expect(normalizeRealtimeQuote({
+    price: 137.16,
+    change_p: -0.25,
+    timestamp: 1787255100,
+    source: 'realtime_stale',
+  })).toMatchObject({
+    price: 137.16,
+    change_p: -0.25,
+    timestamp: 1787255100,
+    source: 'realtime_stale',
+  });
+});

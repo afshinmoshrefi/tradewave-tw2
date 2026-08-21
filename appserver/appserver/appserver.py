@@ -1545,9 +1545,11 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     # dfx.to_csv('dfx.csv')
     # print(dfx)
 
-    # Merge real-time prices for symbols in the opp lists
-    # all_prices format: {symbol: [price, change_p]}
-    all_prices = get_realtime_prices_cached()
+    # Fetch only the quotes this response can display.  The former /prices/all
+    # dependency made one oversized response a single point of failure for the
+    # entire Price column.
+    requested_price_symbols = _opportunity_price_symbols(l, la)
+    all_prices = get_realtime_prices_cached(requested_price_symbols)
     opp_prices = _opportunity_prices_for_rows(resourceID, l, la, all_prices)
 
     # Check if this user+market qualifies for ML score columns.
@@ -3366,6 +3368,12 @@ _local_eod_quote_cache = {}
 _LOCAL_EOD_QUOTE_RESOURCES = frozenset({'0', '1', '2', '3', '4', '11'})
 _LOCAL_EOD_QUOTE_CACHE_MAX = 128
 _LOCAL_EOD_FALLBACK_MAX_SYMBOLS = 12
+_REALTIME_PRICE_FRESH_SECONDS = 3300
+_REALTIME_PRICE_STALE_SECONDS = 7 * 86400
+_REALTIME_PRICE_BULK_CHUNK_SIZE = 100
+_REALTIME_PRICE_CACHE_PREFIX = 'realtime_price:v2:'
+_REALTIME_PRICE_REFRESH_LOCK_SECONDS = 15
+_REALTIME_PRICE_SYMBOL_RE = re.compile(r'^[A-Z0-9.^=$_-]{1,32}$')
 
 
 def _load_commodity_symbols():
@@ -3494,8 +3502,6 @@ def _latest_local_eod_quote(resource_id, symbol, *, today=None):
 def _opportunity_prices_for_rows(resource_id, regular_rows, active_rows, all_prices):
     """Merge central quotes and a bounded, explicitly labeled local fallback."""
 
-    if not all_prices:
-        return {}
     prices = {}
     rows = list(regular_rows or []) + list(active_rows or [])
     for row in rows:
@@ -3512,6 +3518,13 @@ def _opportunity_prices_for_rows(resource_id, regular_rows, active_rows, all_pri
                 'price': realtime[0],
                 'change_p': realtime[1],
             }
+            if isinstance(all_prices[symbol], dict):
+                source = all_prices[symbol].get('source')
+                if source in {'realtime', 'realtime_stale'}:
+                    prices[symbol]['source'] = source
+                quote_timestamp = _finite_number(all_prices[symbol].get('timestamp'))
+                if quote_timestamp is not None:
+                    prices[symbol]['timestamp'] = quote_timestamp
 
     # A healthy central response can still omit one newly renamed ticker.
     # Fill only small, isolated gaps from an already-provisioned local EOD
@@ -3531,33 +3544,223 @@ def _opportunity_prices_for_rows(resource_id, regular_rows, active_rows, all_pri
     return prices
 
 
-def get_realtime_prices_cached():
-    """Get all real-time prices from the realtime service, cached in Redis for 55 min.
-    Returns dict of {symbol: [price, change_p]} - compact format to minimize Redis payload.
-    Full /prices/all response is ~3MB; we trim to only price+change_p (~400KB)."""
-    if not getattr(config, 'realtime_service_url', ''):
-        return {}
+def _opportunity_price_symbols(regular_rows, active_rows):
+    """Return the unique, safe symbols that can appear in an opportunity response."""
 
-    redis_key = 'realtime_prices'
-    cached = redis_client.get(redis_key)
-    if cached is not None:
-        return _sanitize_realtime_prices(json.loads(cached))
+    symbols = set()
+    for row in list(regular_rows or []) + list(active_rows or []):
+        if len(row) <= 1:
+            continue
+        symbol = str(row[1] or '').strip().upper()
+        if _REALTIME_PRICE_SYMBOL_RE.fullmatch(symbol):
+            symbols.add(symbol)
+    return sorted(symbols)
 
+
+def _realtime_price_cache_key(symbol):
+    return f'{_REALTIME_PRICE_CACHE_PREFIX}{symbol}'
+
+
+def _read_realtime_price_cache(symbols, now_ts=None):
+    """Read fresh and last-known-good quotes without allowing cache errors to break OppList4."""
+
+    if not symbols:
+        return {}, {}
+    now_ts = float(now_ts if now_ts is not None else time.time())
     try:
-        url = f'{config.realtime_service_url}prices/all'
-        resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
-            return {}
-        data = resp.json()
-        prices = data.get('prices', {})
-        # Trim to [price, change_p] arrays - reduces ~3MB to ~400KB
-        trimmed = _sanitize_realtime_prices(prices)
-        redis_client.set(redis_key, json.dumps(trimmed))
-        redis_client.expire(redis_key, 3300)  # 55 min - slightly less than the 60 min refresh interval
-        return trimmed
-    except Exception as e:
-        logging.warning(f'Realtime price service error: {e}')
+        cached_values = redis_client.mget([
+            _realtime_price_cache_key(symbol) for symbol in symbols
+        ])
+    except Exception as exc:
+        logging.warning('Realtime price cache read error: %s', exc)
+        return {}, {}
+
+    fresh = {}
+    stale = {}
+    for symbol, cached in zip(symbols, cached_values):
+        if not cached:
+            continue
+        try:
+            record = json.loads(cached)
+            fetched_at = float(record.get('fetched_at'))
+            normalized = _sanitize_realtime_prices({symbol: record}).get(symbol)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if not normalized:
+            continue
+        quote = {
+            'price': normalized[0],
+            'change_p': normalized[1],
+            'timestamp': _finite_number(record.get('timestamp')),
+        }
+        age = max(0.0, now_ts - fetched_at)
+        if age <= _REALTIME_PRICE_FRESH_SECONDS:
+            quote['source'] = 'realtime'
+            fresh[symbol] = quote
+        elif age <= _REALTIME_PRICE_STALE_SECONDS:
+            quote['source'] = 'realtime_stale'
+            stale[symbol] = quote
+
+    # One-release compatibility bridge: older deployments stored one compact
+    # aggregate cache. Use it only as last-known-good data while v2 warms up.
+    missing = [symbol for symbol in symbols if symbol not in fresh and symbol not in stale]
+    if missing:
+        try:
+            legacy = _sanitize_realtime_prices(json.loads(
+                redis_client.get('realtime_prices') or '{}'
+            ))
+            for symbol in missing:
+                if symbol in legacy:
+                    stale[symbol] = {
+                        'price': legacy[symbol][0],
+                        'change_p': legacy[symbol][1],
+                        'timestamp': None,
+                        'source': 'realtime_stale',
+                    }
+        except Exception as exc:
+            logging.warning('Legacy realtime price cache read error: %s', exc)
+    return fresh, stale
+
+
+def _write_realtime_price_cache(prices, fetched_at=None):
+    """Persist validated quotes individually so partial refreshes cannot erase good data."""
+
+    if not prices:
+        return
+    fetched_at = float(fetched_at if fetched_at is not None else time.time())
+    try:
+        pipeline = redis_client.pipeline()
+        for symbol, pair in prices.items():
+            normalized = _sanitize_realtime_prices({symbol: pair}).get(symbol)
+            if not normalized:
+                continue
+            record = {
+                'price': normalized[0],
+                'change_p': normalized[1],
+                'timestamp': _finite_number(pair.get('timestamp')) if isinstance(pair, dict) else None,
+                'fetched_at': fetched_at,
+            }
+            pipeline.set(
+                _realtime_price_cache_key(symbol),
+                json.dumps(record),
+                ex=_REALTIME_PRICE_STALE_SECONDS,
+            )
+        pipeline.execute()
+    except Exception as exc:
+        logging.warning('Realtime price cache write error: %s', exc)
+
+
+def _fetch_realtime_prices_bulk(symbols):
+    """Fetch small validated quote batches; a failed batch does not discard other batches."""
+
+    fetched = {}
+    url = f'{config.realtime_service_url}prices/bulk'
+    for offset in range(0, len(symbols), _REALTIME_PRICE_BULK_CHUNK_SIZE):
+        chunk = symbols[offset:offset + _REALTIME_PRICE_BULK_CHUNK_SIZE]
+        last_error = None
+        for attempt in range(2):
+            try:
+                response = requests.get(
+                    url,
+                    params={'symbols': ','.join(chunk)},
+                    timeout=(3, 10),
+                )
+                if response.status_code != 200:
+                    raise RuntimeError(f'HTTP {response.status_code}')
+                payload = response.json()
+                raw_prices = payload.get('prices', {}) if isinstance(payload, dict) else {}
+                normalized = _sanitize_realtime_prices(raw_prices)
+                for symbol, pair in normalized.items():
+                    if symbol not in chunk:
+                        continue
+                    raw_pair = raw_prices.get(symbol, {})
+                    fetched[symbol] = {
+                        'price': pair[0],
+                        'change_p': pair[1],
+                        'timestamp': _finite_number(raw_pair.get('timestamp')) if isinstance(raw_pair, dict) else None,
+                    }
+                missing_count = len(set(chunk).difference(normalized))
+                if missing_count:
+                    logging.warning(
+                        'Realtime price bulk response omitted %s of %s requested symbols',
+                        missing_count,
+                        len(chunk),
+                    )
+                last_error = None
+                break
+            except Exception as exc:
+                last_error = exc
+                if attempt == 0:
+                    time.sleep(0.15)
+        if last_error is not None:
+            logging.warning(
+                'Realtime price bulk request failed for %s symbols: %s',
+                len(chunk),
+                last_error,
+            )
+            # A transport/JSON failure is service-wide in practice. Stop here
+            # so an outage cannot multiply into one timeout per remaining chunk.
+            break
+    return fetched
+
+
+def get_realtime_prices_cached(symbols):
+    """Return requested quotes with fresh-cache, bulk-fetch, and stale-cache resilience."""
+
+    symbols = sorted({
+        str(symbol).strip().upper()
+        for symbol in (symbols or [])
+        if _REALTIME_PRICE_SYMBOL_RE.fullmatch(str(symbol).strip().upper())
+    })
+    if not symbols:
         return {}
+
+    fresh, stale = _read_realtime_price_cache(symbols)
+    missing = [symbol for symbol in symbols if symbol not in fresh]
+    if not missing or not getattr(config, 'realtime_service_url', ''):
+        result = dict(stale)
+        result.update(fresh)
+        return result
+
+    lock_digest = hashlib.sha256(','.join(missing).encode('utf-8')).hexdigest()[:20]
+    lock_key = f'realtime_prices:v2:refresh:{lock_digest}'
+    lock_acquired = True
+    try:
+        lock_acquired = bool(redis_client.set(
+            lock_key, '1', nx=True, ex=_REALTIME_PRICE_REFRESH_LOCK_SECONDS
+        ))
+    except Exception as exc:
+        logging.warning('Realtime price refresh lock error: %s', exc)
+
+    fetched = {}
+    try:
+        if lock_acquired:
+            fetched = _fetch_realtime_prices_bulk(missing)
+            _write_realtime_price_cache(fetched)
+        else:
+            # A matching request is already refreshing. Give it one brief chance
+            # to populate the cache, then continue with last-known-good values.
+            time.sleep(0.15)
+            concurrent_fresh, concurrent_stale = _read_realtime_price_cache(missing)
+            fetched.update(concurrent_stale)
+            fetched.update(concurrent_fresh)
+    finally:
+        if lock_acquired:
+            try:
+                redis_client.delete(lock_key)
+            except Exception:
+                pass
+
+    result = dict(stale)
+    result.update(fresh)
+    if lock_acquired:
+        result.update({
+            symbol: dict(quote, source='realtime')
+            for symbol, quote in fetched.items()
+        })
+    else:
+        result.update(fetched)
+    return result
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # This API returns the securiy name based on the resourceID and symbol

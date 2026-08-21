@@ -583,7 +583,20 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   IP-keyed (anonymous path) and is sized for the whole base sharing one bucket.
   The React app pairs this with `web-react/src/components/twFetch.js` (retry +
   backoff + single-flight 401 re-login + visible retrying states).
-(Source: `appserver/appserver/appserver.py`, `web/app.py:616`, `config.py`.)
+- **Opportunity Table quote resilience (2026-08-21):** `OppList4` extracts only the
+  symbols present in its regular and active rows, then calls the real-time service's
+  bounded `/prices/bulk?symbols=...` route in chunks of 100. It must never call the
+  multi-megabyte `/prices/all` route: that response can truncate while still starting
+  with HTTP 200, which formerly left Redis empty and blanked the whole Price column.
+  Validated quotes are cached per symbol in Redis for seven days, with a 55-minute
+  fresh window. Refresh writes are per-symbol and occur only after validation, so a
+  partial or failed refresh cannot erase last-known-good quotes. Matching refreshes
+  use a short Redis lock to avoid request stampedes. `OppList4` returns older cached
+  quotes with `source=realtime_stale` and their provider timestamp; the Price tooltip
+  labels them as the last available real-time quote. Supported US/ETF rows retain the
+  explicitly labeled completed-close fallback for small isolated quote gaps.
+(Source: `appserver/appserver/appserver.py`, `web-react/src/components/TableBox.js`,
+`web-react/src/components/realtimePrices.js`, `web/app.py:616`, `config.py`.)
 
 ---
 
@@ -2241,8 +2254,7 @@ fails), `npm run build` clean. What was hardened (details in git diff of that da
   chartProps bag defeats child memoization, TradeInstrument `process_streaming_line`
   closes over stale state (deps gap); (3) NaN can leak into ChartData4/consolidated stats
   JSON on short/flat histories (strict JSON.parse rejects it); (4) `set()`+`expire()`
-  non-atomic pairs remain in ~20 cache writes (orphan-key risk only); (5) OppList4
-  realtime-prices cache has a small stampede window on expiry. Dead-file inventory:
+  non-atomic pairs remain in ~20 cache writes (orphan-key risk only). Dead-file inventory:
   `appserver_apis.py` fully dead; `highest_volume_stocks.py` + `appserver_async.py` +
   `appserver_autotrade_funcs.py` + `reconcile_trade_data.py` have NO systemd/cron entry
   point (autotrade reconciliation is manual-only today); `tara_truth_eval.py` = manual CLI.

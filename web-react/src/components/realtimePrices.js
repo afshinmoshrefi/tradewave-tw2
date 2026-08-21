@@ -20,6 +20,8 @@ export const normalizeRealtimeQuote = (quote) => {
     timestamp: finiteQuoteNumber(quote.timestamp),
     date: typeof quote.date === 'string' ? quote.date : '',
   };
-  if (quote.source === 'eod_close') normalized.source = 'eod_close';
+  if (['realtime', 'realtime_stale', 'eod_close'].includes(quote.source)) {
+    normalized.source = quote.source;
+  }
   return normalized;
 };

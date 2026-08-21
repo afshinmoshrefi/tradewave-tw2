@@ -457,6 +457,14 @@ const TableBox = ({
                                 {row.realtimeQuote && row.realtimeQuote.source === 'eod_close' && (
                                   <div>Latest completed close, {row.realtimeQuote.date || 'date unavailable'}</div>
                                 )}
+                                {row.realtimeQuote && row.realtimeQuote.source === 'realtime_stale' && (
+                                  <div>
+                                    Last available real-time quote
+                                    {Number.isFinite(row.realtimeQuote.timestamp)
+                                      ? `, ${new Date(row.realtimeQuote.timestamp * 1000).toLocaleString()}`
+                                      : ''}
+                                  </div>
+                                )}
                                 <div>
                                   <span style={{ color: row.change_p > 0 ? '#4caf50' : row.change_p < 0 ? '#f44336' : 'inherit' }}>
                                     {row.change_p > 0 ? '▲' : row.change_p < 0 ? '▼' : '–'}

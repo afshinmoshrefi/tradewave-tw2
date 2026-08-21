@@ -156,8 +156,11 @@ def test_opportunity_price_merge_prefers_realtime_and_bounds_local_fallback():
     regular = [["2026-08-06", "AAPL"], ["2026-08-06", "BNY"]]
     active = [["2026-08-06", "BNY"]]
 
-    assert merge("2", regular, active, {}) == {}
-    assert fallback_calls == []
+    fallback_only = merge("2", regular, active, {})
+    assert set(fallback_only) == {"AAPL", "BNY"}
+    assert all(quote["source"] == "eod_close" for quote in fallback_only.values())
+    assert fallback_calls == ["AAPL", "BNY"]
+    fallback_calls.clear()
     merged = merge("2", regular, active, {"AAPL": [200.0, 2.0]})
     assert merged["AAPL"] == {"price": 200.0, "change_p": 2.0}
     assert merged["BNY"]["source"] == "eod_close"
@@ -167,6 +170,173 @@ def test_opportunity_price_merge_prefers_realtime_and_bounds_local_fallback():
     broad_rows = [["2026-08-06", symbol] for symbol in ("A", "B", "C")]
     assert merge("2", broad_rows, [], {"AAPL": [200.0, 2.0]}) == {}
     assert fallback_calls == []
+
+
+class _RealtimePricePipeline:
+    def __init__(self, redis):
+        self.redis = redis
+        self.pending = []
+
+    def set(self, key, value, **kwargs):
+        self.pending.append((key, value, kwargs))
+        return self
+
+    def execute(self):
+        for key, value, kwargs in self.pending:
+            self.redis.set(key, value, **kwargs)
+
+
+class _RealtimePriceRedis:
+    def __init__(self):
+        self.data = {}
+
+    def mget(self, keys):
+        return [self.data.get(key) for key in keys]
+
+    def get(self, key):
+        return self.data.get(key)
+
+    def set(self, key, value, nx=False, **_kwargs):
+        if nx and key in self.data:
+            return False
+        self.data[key] = value
+        return True
+
+    def delete(self, key):
+        self.data.pop(key, None)
+
+    def pipeline(self):
+        return _RealtimePricePipeline(self)
+
+
+def _realtime_price_namespace():
+    ns = _functions(
+        "_finite_number",
+        "_sanitize_realtime_prices",
+        "_realtime_price_cache_key",
+        "_read_realtime_price_cache",
+        "_write_realtime_price_cache",
+        "get_realtime_prices_cached",
+    )
+    ns.update({
+        "config": SimpleNamespace(realtime_service_url="http://quotes/"),
+        "hashlib": __import__("hashlib"),
+        "json": __import__("json"),
+        "logging": __import__("logging"),
+        "time": __import__("time"),
+        "redis_client": _RealtimePriceRedis(),
+        "_REALTIME_PRICE_CACHE_PREFIX": "realtime_price:v2:",
+        "_REALTIME_PRICE_FRESH_SECONDS": 3300,
+        "_REALTIME_PRICE_STALE_SECONDS": 7 * 86400,
+        "_REALTIME_PRICE_REFRESH_LOCK_SECONDS": 15,
+        "_REALTIME_PRICE_SYMBOL_RE": re.compile(r"^[A-Z0-9.^=$_-]{1,32}$"),
+    })
+    return ns
+
+
+def test_realtime_price_cache_returns_last_known_good_when_refresh_fails():
+    ns = _realtime_price_namespace()
+    now = ns["time"].time()
+    ns["_write_realtime_price_cache"]({
+        "AAPL": {"price": 225.5, "change_p": 1.25, "timestamp": now - 3600},
+    }, fetched_at=now - 4000)
+    ns["_fetch_realtime_prices_bulk"] = lambda _symbols: {}
+
+    result = ns["get_realtime_prices_cached"](["aapl"])
+
+    assert result["AAPL"]["price"] == 225.5
+    assert result["AAPL"]["source"] == "realtime_stale"
+
+
+def test_realtime_price_cache_uses_legacy_cache_during_v2_warmup():
+    ns = _realtime_price_namespace()
+    ns["redis_client"].data["realtime_prices"] = ns["json"].dumps({
+        "KMB": [109.08, -0.73],
+    })
+    ns["_fetch_realtime_prices_bulk"] = lambda _symbols: {}
+
+    result = ns["get_realtime_prices_cached"](["KMB"])
+
+    assert result["KMB"] == {
+        "price": 109.08,
+        "change_p": -0.73,
+        "timestamp": None,
+        "source": "realtime_stale",
+    }
+
+
+def test_realtime_price_cache_refreshes_only_missing_symbols_and_keeps_stale_values():
+    ns = _realtime_price_namespace()
+    now = ns["time"].time()
+    ns["_write_realtime_price_cache"]({
+        "AAPL": {"price": 225.5, "change_p": 1.25, "timestamp": now},
+        "MSFT": {"price": 510.0, "change_p": -0.5, "timestamp": now - 3600},
+    }, fetched_at=now)
+    stale_record = {
+        "price": 510.0,
+        "change_p": -0.5,
+        "timestamp": now - 3600,
+        "fetched_at": now - 4000,
+    }
+    ns["redis_client"].data["realtime_price:v2:MSFT"] = ns["json"].dumps(stale_record)
+    requested = []
+
+    def fetch(symbols):
+        requested.extend(symbols)
+        return {"NVDA": {"price": 190.0, "change_p": 2.0, "timestamp": now}}
+
+    ns["_fetch_realtime_prices_bulk"] = fetch
+    result = ns["get_realtime_prices_cached"](["AAPL", "MSFT", "NVDA"])
+
+    assert requested == ["MSFT", "NVDA"]
+    assert result["AAPL"]["source"] == "realtime"
+    assert result["MSFT"]["source"] == "realtime_stale"
+    assert result["NVDA"]["source"] == "realtime"
+
+
+def test_realtime_price_fetch_uses_small_symbol_scoped_bulk_requests():
+    ns = _functions(
+        "_finite_number",
+        "_sanitize_realtime_prices",
+        "_fetch_realtime_prices_bulk",
+    )
+    calls = []
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {
+                "prices": {
+                    "AAPL": {
+                        "price": 225.5,
+                        "change_p": 1.25,
+                        "timestamp": 1787255100,
+                    },
+                },
+            }
+
+    def get(url, **kwargs):
+        calls.append((url, kwargs))
+        return Response()
+
+    ns.update({
+        "config": SimpleNamespace(realtime_service_url="http://quotes/"),
+        "logging": __import__("logging"),
+        "requests": SimpleNamespace(get=get),
+        "time": SimpleNamespace(sleep=lambda _seconds: None),
+        "_REALTIME_PRICE_BULK_CHUNK_SIZE": 100,
+    })
+
+    result = ns["_fetch_realtime_prices_bulk"](["AAPL", "MSFT"])
+
+    assert calls == [(
+        "http://quotes/prices/bulk",
+        {"params": {"symbols": "AAPL,MSFT"}, "timeout": (3, 10)},
+    )]
+    assert result["AAPL"]["price"] == 225.5
+    assert "MSFT" not in result
 
 
 def test_selected_equity_resource_is_preserved_for_overlapping_ticker():
