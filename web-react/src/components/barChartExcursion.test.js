@@ -1,5 +1,6 @@
 import {
   BAR_CHART_EXCURSION_STYLES,
+  getBarChartZeroLineColor,
   getCappedNeedleCapHalfWidth,
   getPositionalExcursionColors,
   getExcursionVisibility,
@@ -40,6 +41,11 @@ describe('bar chart excursion rendering helpers', () => {
       highColor: 'light-green',
       lowColor: 'pink',
     });
+  });
+
+  test('uses a subtle zero baseline color in dark and light themes', () => {
+    expect(getBarChartZeroLineColor('dark')).toBe('rgba(220, 225, 232, 0.28)');
+    expect(getBarChartZeroLineColor('light')).toBe('rgba(25, 30, 35, 0.24)');
   });
 
   test('builds a full needle or a zero-anchored one-sided needle', () => {

@@ -35,3 +35,9 @@ export const getPositionalExcursionColors = (mfeColor, maeColor) => ({
   highColor: mfeColor,
   lowColor: maeColor,
 });
+
+export const getBarChartZeroLineColor = (theme) => (
+  theme === 'dark'
+    ? 'rgba(220, 225, 232, 0.28)'
+    : 'rgba(25, 30, 35, 0.24)'
+);

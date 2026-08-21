@@ -5,6 +5,7 @@ import { UIcolors, themeColors } from './Common';
 import { buildBarChartSeries } from './barChartSeries';
 import {
     BAR_CHART_EXCURSION_STYLES,
+    getBarChartZeroLineColor,
     getCappedNeedleCapHalfWidth,
     getPositionalExcursionColors,
     getExcursionVisibility,
@@ -19,6 +20,26 @@ const formatPercent = (value) => {
 
 const excursionOverlayPlugin = {
     id: 'tradeWaveExcursionOverlay',
+    beforeDatasetsDraw(chart, args, pluginOptions) {
+        const yScale = chart.scales?.y;
+        const chartArea = chart.chartArea;
+        const zeroLineColor = pluginOptions?.zeroLineColor;
+        if (!yScale || !chartArea || !zeroLineColor) return;
+
+        const zeroY = yScale.getPixelForValue(0);
+        if (!Number.isFinite(zeroY) || zeroY < chartArea.top || zeroY > chartArea.bottom) return;
+
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.beginPath();
+        ctx.strokeStyle = zeroLineColor;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([]);
+        ctx.moveTo(chartArea.left, zeroY);
+        ctx.lineTo(chartArea.right, zeroY);
+        ctx.stroke();
+        ctx.restore();
+    },
     afterDatasetsDraw(chart, args, pluginOptions) {
         const {
             style,
@@ -227,6 +248,7 @@ const BarChart = ({
     const needleColor = UITheme === 'dark'
         ? 'rgba(220, 225, 232, 0.92)'
         : 'rgba(25, 30, 35, 0.82)';
+    const zeroLineColor = getBarChartZeroLineColor(UITheme);
 
     const options = {
         animation: false,
@@ -280,6 +302,7 @@ const BarChart = ({
                 highColor,
                 lowColor,
                 needleColor,
+                zeroLineColor,
             },
             tooltip: {
                 enabled: tooltipEnabled,
