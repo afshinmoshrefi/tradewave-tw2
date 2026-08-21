@@ -456,7 +456,7 @@ const Settings = (props) => {
                                 <div style={controlRightCell}>
                                     <select
                                         id="bar-chart-excursion-style"
-                                        value={props.barChartExcursionStyle || 'filled'}
+                                        value={props.barChartExcursionStyle || 'ticks'}
                                         onChange={(event) => props.SetBarChartExcursionStyle(event.target.value)}
                                     >
                                         <option value="filled">Filled Extensions</option>

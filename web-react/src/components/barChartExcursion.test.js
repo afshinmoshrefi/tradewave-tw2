@@ -1,15 +1,18 @@
 import {
   BAR_CHART_EXCURSION_STYLES,
   getCappedNeedleCapHalfWidth,
+  getPositionalExcursionColors,
   getExcursionVisibility,
   getNeedleRange,
   normalizeBarChartExcursionStyle,
 } from './barChartExcursion';
 
 describe('bar chart excursion rendering helpers', () => {
-  test('keeps the current filled rendering as the safe default', () => {
-    expect(normalizeBarChartExcursionStyle(null)).toBe(BAR_CHART_EXCURSION_STYLES.FILLED);
-    expect(normalizeBarChartExcursionStyle('unknown')).toBe(BAR_CHART_EXCURSION_STYLES.FILLED);
+  test('uses capped needles when no valid saved preference exists', () => {
+    expect(normalizeBarChartExcursionStyle(null)).toBe(BAR_CHART_EXCURSION_STYLES.TICKS);
+    expect(normalizeBarChartExcursionStyle('unknown')).toBe(BAR_CHART_EXCURSION_STYLES.TICKS);
+    expect(normalizeBarChartExcursionStyle(BAR_CHART_EXCURSION_STYLES.FILLED))
+      .toBe(BAR_CHART_EXCURSION_STYLES.FILLED);
     expect(normalizeBarChartExcursionStyle(BAR_CHART_EXCURSION_STYLES.NEEDLE))
       .toBe(BAR_CHART_EXCURSION_STYLES.NEEDLE);
   });
@@ -29,6 +32,13 @@ describe('bar chart excursion rendering helpers', () => {
       showLow: true,
       highKind: 'MAE',
       lowKind: 'MFE',
+    });
+  });
+
+  test('keeps upper green and lower pink for short and long chart positions', () => {
+    expect(getPositionalExcursionColors('light-green', 'pink')).toEqual({
+      highColor: 'light-green',
+      lowColor: 'pink',
     });
   });
 

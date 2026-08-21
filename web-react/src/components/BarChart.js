@@ -6,6 +6,7 @@ import { buildBarChartSeries } from './barChartSeries';
 import {
     BAR_CHART_EXCURSION_STYLES,
     getCappedNeedleCapHalfWidth,
+    getPositionalExcursionColors,
     getExcursionVisibility,
     getNeedleRange,
     normalizeBarChartExcursionStyle,
@@ -219,8 +220,10 @@ const BarChart = ({
             suggestedMin: Math.min(...scaleValues),
             suggestedMax: Math.max(...scaleValues),
         };
-    const highColor = excursionVisibility.highKind === 'MFE' ? tc.barMFE : tc.barMAE;
-    const lowColor = excursionVisibility.lowKind === 'MFE' ? tc.barMFE : tc.barMAE;
+    // Match Filled Extensions: colors stay tied to chart position for both
+    // directions. The upper extreme is green and the lower extreme is pink;
+    // only the MFE/MAE meaning changes for a short pattern.
+    const { highColor, lowColor } = getPositionalExcursionColors(tc.barMFE, tc.barMAE);
     const needleColor = UITheme === 'dark'
         ? 'rgba(220, 225, 232, 0.92)'
         : 'rgba(25, 30, 35, 0.82)';

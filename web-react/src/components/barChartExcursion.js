@@ -6,7 +6,7 @@ export const BAR_CHART_EXCURSION_STYLES = Object.freeze({
 
 export const normalizeBarChartExcursionStyle = (style) => {
   const validStyles = Object.values(BAR_CHART_EXCURSION_STYLES);
-  return validStyles.includes(style) ? style : BAR_CHART_EXCURSION_STYLES.FILLED;
+  return validStyles.includes(style) ? style : BAR_CHART_EXCURSION_STYLES.TICKS;
 };
 
 export const getExcursionVisibility = (direction, showMFE, showMAE) => {
@@ -30,3 +30,8 @@ export const getCappedNeedleCapHalfWidth = (barWidth) => {
   const safeBarWidth = Number.isFinite(barWidth) && barWidth > 0 ? barWidth : 12;
   return safeBarWidth / 4;
 };
+
+export const getPositionalExcursionColors = (mfeColor, maeColor) => ({
+  highColor: mfeColor,
+  lowColor: maeColor,
+});
