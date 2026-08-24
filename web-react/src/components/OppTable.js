@@ -2178,7 +2178,7 @@ const OppTable = (props) => {
           </Tippy>
         }
 
-        <div className='opp-table-controls-items noselect' >  <span style={{ fontSize: globalTextSize, color: tc.text }}  >Filter&nbsp;</span>    </div>
+        <div className='opp-table-controls-items noselect opp-filter-control__label' >  <span style={{ fontSize: globalTextSize, color: tc.text }}  >Filter&nbsp;</span>    </div>
         <div ref={filterWrapperRef} className='opp-table-controls-items opp-filter-search-control' style={{ marginRight: "5px" }} >
           {/* <TextBoxS tooltipContent={props.tooltipSW ? 'b,Search and Filter the Opportunities Table by all cells. \n Days can be filtered by a range of days; to filter a range of 30 to 60 days enter the range in the search as: 30-60.  You can also filter the Sharpe Ratio, (SR) by entering > sign and a number.  For example, enter ">2.0" in the filter text box.  Opportunities table is filtered to show only opportunities with Sharpe Ratio > 2.0 ' : ''} handleOnChange={handleOnChange} curText={curText} name='Filter' /> */}
           <TextBoxS

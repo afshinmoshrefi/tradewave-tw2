@@ -44,7 +44,57 @@
     align-items:center;
     display: flex;
     justify-content: flex-end;
-    
+    min-width: 0;
+    overflow: hidden;
+    container-name: opp-table-search;
+    container-type: inline-size;
+}
+
+.opp-sort-control {
+    display: flex;
+    align-items: center;
+    flex: 1 1 205px;
+    gap: 4px;
+    margin-left: 2px;
+    margin-right: 2px;
+    min-width: 0;
+    max-width: 205px;
+    white-space: nowrap;
+}
+
+.opp-sort-control__label {
+    flex: 0 0 auto;
+}
+
+.opp-sort-control select {
+    flex: 1 1 0;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    text-overflow: ellipsis;
+}
+
+.opp-filter-search-control {
+    flex: 1 1 190px;
+    min-width: 0;
+    max-width: 200px;
+}
+
+.opp-filter-search-control > div,
+.opp-filter-search-control input[type="text"] {
+    width: 100%;
+    min-width: 0;
+}
+
+.opp-filter-search-control input[type="text"] {
+    box-sizing: border-box;
+}
+
+@container opp-table-search (max-width: 360px) {
+    .opp-sort-control__label,
+    .opp-filter-control__label {
+        display: none;
+    }
 }
 
 .opp-table {
