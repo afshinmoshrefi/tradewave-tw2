@@ -23,7 +23,7 @@ import MobileLayoutL from './MobileLayoutL'
 import { BrowserView, MobileView } from 'react-device-detect';
 import { UserContext } from './UserContext'
 import 'tippy.js/dist/tippy.css';
-import { BsCameraVideoFill } from 'react-icons/bs';
+import { MdOndemandVideo } from 'react-icons/md';
 
 // import { flaskServerIP } from './Common'   // for login
 import { freeYears, startingSecurity, startingSecurityName } from './Common' // for free users
@@ -3480,7 +3480,7 @@ const App = () => {
                 title="Watch Getting Started video"
                 onClick={() => SetShowGettingStartedVideo(true)}
               >
-                <BsCameraVideoFill aria-hidden="true" />
+                <MdOndemandVideo aria-hidden="true" />
               </button>
             )}
             {_ts.onTrial && _ts.daysRemaining != null && (

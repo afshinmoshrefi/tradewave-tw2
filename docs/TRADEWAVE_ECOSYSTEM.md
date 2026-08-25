@@ -796,9 +796,10 @@ toolbar bulb, callouts, and Tara-tip suppression dormant. Every signed-in custom
 the Getting Started video automatically once per browser and account under the versioned,
 user-scoped localStorage key `tw_getting_started_video_seen_v2`. Version 2 reset the
 first-run view for the corrected, redesigned onboarding panel on 2026-08-25. Closing by
-any route records the view and unmounts the iframe, which also stops playback. A video-camera
-icon in the desktop toolbar and a floating mobile video button always reopen it without
-changing the saved state. `App.js` owns the modal state; subscription welcome hands off
+any route records the view and unmounts the iframe, which also stops playback. The
+`MdOndemandVideo` screen-and-play icon appears in the desktop toolbar, mobile button, and panel
+header. Each icon reopens the video without changing the saved state. `App.js` owns the modal
+state; subscription welcome hands off
 through `tw-getting-started-video-open`. The player uses the privacy-enhanced
 `youtube-nocookie.com` embed without autoplay, and nginx allows that origin only in
 `frame-src`. The embed requests captions off, but the external player can still honor a

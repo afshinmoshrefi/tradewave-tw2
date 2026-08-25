@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { BsCameraVideoFill } from 'react-icons/bs';
+import { MdOndemandVideo } from 'react-icons/md';
 import {
   GETTING_STARTED_VIDEO_EMBED_URL,
   GETTING_STARTED_VIDEO_URL,
@@ -34,7 +34,7 @@ const GettingStartedVideoModal = ({ UITheme, onClose }) => {
       >
         <header className="tw-getting-started-video-header">
           <div className="tw-getting-started-video-heading-icon" aria-hidden="true">
-            <BsCameraVideoFill />
+            <MdOndemandVideo />
           </div>
           <div className="tw-getting-started-video-copy">
             <div className="tw-getting-started-video-eyebrow">Getting Started Video</div>

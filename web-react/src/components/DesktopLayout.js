@@ -29,7 +29,8 @@ import TestGIS from './TestGIS';
 import './styles/DesktopLayout.css';
 import { UserContext } from './UserContext';
 import { AiOutlineDollarCircle } from "react-icons/ai";
-import { BsFillCircleFill, BsSun, BsMoon, BsListUl, BsChevronLeft, BsChevronRight, BsChatDots, BsChatDotsFill, BsCameraVideoFill } from "react-icons/bs";
+import { BsFillCircleFill, BsSun, BsMoon, BsListUl, BsChevronLeft, BsChevronRight, BsChatDots, BsChatDotsFill } from "react-icons/bs";
+import { MdOndemandVideo } from "react-icons/md";
 import { SlSettings } from "react-icons/sl";
 import { opp_dashboard_dialog_content, toggle_off_64, toggle_on_64 } from './Common';
 import { settings_dialog_content } from './Common';
@@ -869,7 +870,7 @@ const DesktopLayout = (props) => {
                                         onClick={(e) => { e.stopPropagation(); props.SetShowGettingStartedVideo(true); }}
                                         style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 0 0 8px', border: 0, background: 'transparent', color: '#f2eff8', cursor: 'pointer' }}
                                     >
-                                        <BsCameraVideoFill size={settingsSize + 2} style={{ filter: 'drop-shadow(0 0 4px rgba(126,96,255,0.65))' }} />
+                                        <MdOndemandVideo size={settingsSize + 3} style={{ filter: 'drop-shadow(0 0 4px rgba(126,96,255,0.65))' }} />
                                     </button>
                                 </Tippy>
                             }
