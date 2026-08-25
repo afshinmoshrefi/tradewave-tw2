@@ -66,6 +66,16 @@ rollback rehearsal begin when staging is requested. A base unit or `/home/flask`
 still does not prove activation when a drop-in points at `.tw2-app-current`.
 `verify_deploy.sh` reporting `CLEAN` is supporting evidence only.
 
+Static-site regeneration remains fail-closed for generator, authentication, and
+write failures. `home_opportunities.py` has one explicit data-empty outcome: when
+there are no qualifying Long patterns it exits `2` and promises to leave the
+existing CSV unchanged. `regen_site.sh` treats only that exact log marker plus an
+unchanged, non-empty, schema-headed CSV checksum as `PRESERVE`; every other nonzero
+result remains a deployment failure. This prevents a day when the configured
+7-60-day homepage slice contains only Short patterns from blocking an unrelated
+application release without allowing stale-data writes or hiding a real generator
+error. It does not change or reclassify the broader opportunity table.
+
 Initialize durable coordination/release state once with
 `sudo bash /home/flask/ops/init_release_state.sh`. It creates only
 `/var/lib/tradewave/release-state` as `flask:flask` mode `0750` and refuses

@@ -43,6 +43,38 @@ run() {  # run <label> <workdir> <cmd...>
   fi
 }
 
+run_home_opportunities() {
+  local label=home_opp
+  local log="/tmp/regen_${label}.log"
+  local csv="$SITE/data/home_opportunities.csv"
+  local before_sha=""
+  local after_sha=""
+
+  if [ -s "$csv" ]; then
+    before_sha=$(sha256sum "$csv" | awk '{print $1}')
+  fi
+  local rc=0
+  if ( cd "$SITE" && "$PY" home_opportunities.py ) >"$log" 2>&1; then
+    echo "  OK    $label"
+    return
+  else
+    rc=$?
+  fi
+  if [ -s "$csv" ]; then
+    after_sha=$(sha256sum "$csv" | awk '{print $1}')
+  fi
+  if [ "$rc" -eq 2 ] \
+    && [ -n "$before_sha" ] \
+    && [ "$after_sha" = "$before_sha" ] \
+    && grep -Fq 'ERROR: no opportunities collected' "$log" \
+    && head -n 1 "$csv" | grep -Fq 'start_date,symbol,company_name,days,direction'; then
+    echo "  PRESERVE $label - no qualifying Long patterns; validated existing CSV is unchanged"
+    return
+  fi
+  echo "  FAIL  $label  (tail $log)"
+  fails=$((fails+1))
+}
+
 # Full DATA-compute-then-RENDER sequence. Order matters where a render reads data that an
 # earlier step writes (verified against the code + the flask crontab):
 #  - insights_charts emits the embedded /insights/charts/*.svg assets BEFORE insights renders them.
@@ -62,7 +94,7 @@ run webinars  "$SITE"               "$PY" generate_webinar_page.py
 run insights  "$SITE"               "$PY" generate_insights.py
 run learn     "$SITE"               "$PY" generate_learn.py
 run ticker    "$SITE/ticker_pages"  "$PY" generate_ticker_pages.py     # appserver; also emits the OG share images
-run home_opp  "$SITE"               "$PY" home_opportunities.py         # DATA: refresh Top Patterns CSV (appserver; fail-closed, atomic os.replace)
+run_home_opportunities                                                  # DATA: refresh Top Patterns CSV; exact empty-set result preserves validated prior CSV
 run home      "$SITE"               "$PY" generate_home_page.py         # appserver + ML scorer + live Stripe; SOLE writer of the new featured-pick row
 run scorecard "$SITE"               "$PY" generate_scorecard.py         # appserver; reads the fresh pick row + recomputes outcomes live (MUST be after home)
 run dailypick "$SITE"               "$PY" generate_daily_ai_pick.py     # appserver; self-contained (no on-disk store)
