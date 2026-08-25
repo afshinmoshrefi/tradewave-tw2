@@ -794,14 +794,17 @@ The complete seven-day lesson implementation remains in the repository, but
 `onboarding.js:LEGACY_SEVEN_DAY_LESSONS_ENABLED` keeps its auto-enrollment, LessonBox,
 toolbar bulb, callouts, and Tara-tip suppression dormant. Every signed-in customer sees
 the Getting Started video automatically once per browser and account under the versioned,
-user-scoped localStorage key `tw_getting_started_video_seen_v1`. Closing by any route
-records the view and unmounts the iframe, which also stops playback. A purple video icon
-in the desktop toolbar and a floating mobile video button always reopen it without
+user-scoped localStorage key `tw_getting_started_video_seen_v2`. Version 2 reset the
+first-run view for the corrected, redesigned onboarding panel on 2026-08-25. Closing by
+any route records the view and unmounts the iframe, which also stops playback. A video-camera
+icon in the desktop toolbar and a floating mobile video button always reopen it without
 changing the saved state. `App.js` owns the modal state; subscription welcome hands off
 through `tw-getting-started-video-open`. The player uses the privacy-enhanced
 `youtube-nocookie.com` embed without autoplay, and nginx allows that origin only in
-`frame-src`. Increment the key version only when every customer should automatically see
-a replacement onboarding video.
+`frame-src`. The embed requests captions off, but the external player can still honor a
+viewer's saved caption preference; only a TradeWave-hosted video can guarantee captions
+stay off. Increment the key version only when every customer should automatically see a
+replacement onboarding video.
 
 ### 7.3 "Remind me" bell (one-click Google Calendar reminders; stateful pill)
 Shipped 2026-07-04 as "Notify me" (auto-created a dedicated "Notifications" portfolio);
@@ -1706,6 +1709,13 @@ account-tier gates, snapshots, and rollback rehearsal begin only when staging is
 Claude and Codex may develop concurrently; only the brief dev activation and environment
 promotions are serialized. `/home/flask` is operational, not a scratchpad. Canonical
 procedure: `.claude/skills/tw-git-release-workflow/SKILL.md`.
+
+**Dev React activation invariant:** the Flask app resolves its React index from the
+repository root selected by `/home/flask/.tw2-app-current`. A fast-dev activation must
+therefore point `.tw2-app-current` at the complete candidate root and restart
+`tradewave-web`; changing only `/home/flask/web-react/build` can leave the running app
+serving an index that references missing or stale bundles. Keep the convenience build
+symlink aligned with the candidate, but never treat it as the runtime switch by itself.
 
 **Coordination/release-state invariant:** `/var/lib/tradewave/release-state/` is
 initialized by `ops/init_release_state.sh` as `flask:flask` mode `0750`.

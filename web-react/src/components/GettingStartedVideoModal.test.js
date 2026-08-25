@@ -15,7 +15,7 @@ describe('GettingStartedVideoModal', () => {
     const onClose = jest.fn();
     render(<GettingStartedVideoModal UITheme="light" onClose={onClose} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start Exploring' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Wave Viewer' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

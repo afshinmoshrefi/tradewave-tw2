@@ -29,7 +29,7 @@ import TestGIS from './TestGIS';
 import './styles/DesktopLayout.css';
 import { UserContext } from './UserContext';
 import { AiOutlineDollarCircle } from "react-icons/ai";
-import { BsFillCircleFill, BsSun, BsMoon, BsListUl, BsChevronLeft, BsChevronRight, BsChatDots, BsChatDotsFill, BsPlayCircleFill } from "react-icons/bs";
+import { BsFillCircleFill, BsSun, BsMoon, BsListUl, BsChevronLeft, BsChevronRight, BsChatDots, BsChatDotsFill, BsCameraVideoFill } from "react-icons/bs";
 import { SlSettings } from "react-icons/sl";
 import { opp_dashboard_dialog_content, toggle_off_64, toggle_on_64 } from './Common';
 import { settings_dialog_content } from './Common';
@@ -867,9 +867,9 @@ const DesktopLayout = (props) => {
                                         type="button"
                                         aria-label="Watch Getting Started video"
                                         onClick={(e) => { e.stopPropagation(); props.SetShowGettingStartedVideo(true); }}
-                                        style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 0 0 8px', border: 0, background: 'transparent', color: '#a78bfa', cursor: 'pointer' }}
+                                        style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 0 0 8px', border: 0, background: 'transparent', color: '#f2eff8', cursor: 'pointer' }}
                                     >
-                                        <BsPlayCircleFill size={settingsSize} style={{ filter: 'drop-shadow(0 0 5px rgba(167,139,250,0.72))' }} />
+                                        <BsCameraVideoFill size={settingsSize + 2} style={{ filter: 'drop-shadow(0 0 4px rgba(126,96,255,0.65))' }} />
                                     </button>
                                 </Tippy>
                             }
