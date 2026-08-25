@@ -12,10 +12,11 @@ import ReactDOM from 'react-dom'
 import { getTodayDate, monthsOptionsList, DarkBGColor, LightBGColor } from './Common'
 import * as rdd from 'react-device-detect';
 import LessonBox from './LessonBox'
+import GettingStartedVideoModal from './GettingStartedVideoModal'
 import SubscriptionWelcomeModal, { decideSubscriptionWelcome, markSubscriptionWelcomed } from './SubscriptionWelcomeModal'
 import DaysRemainingPill from './DaysRemainingPill'
 import TrialConversionCard from './TrialConversionCard'
-import { getOnboardingDay, getTrialState, logEvent, hasWelcomed, setWelcomed, hasConversionShown, setConversionShown, isOnboardingArcActive, isAutoArcEligible, isEnrolled, enrollNow, isTipsDismissed } from './onboarding'
+import { getOnboardingDay, getTrialState, logEvent, hasWelcomed, setWelcomed, hasConversionShown, setConversionShown, isOnboardingArcActive, isAutoArcEligible, isEnrolled, enrollNow, isTipsDismissed, LEGACY_SEVEN_DAY_LESSONS_ENABLED } from './onboarding'
 import DesktopLayout from './DesktopLayout'
 import MobileLayoutP from './MobileLayoutP'
 import MobileLayoutL from './MobileLayoutL'
@@ -54,6 +55,7 @@ import { CHATBOT_OPEN_KEY, resolveChatbotOpen } from './leftPanelState'
 import { TARA_PANEL_OPEN_KEY, hasTaraPanelLayout, initialTaraPanelOpen } from './taraPanelPreference'
 import { normalizeBarChartExcursionStyle } from './barChartExcursion'
 import { LEGACY_TOOLTIP_ENABLED_KEY, TOOLTIP_ENABLED_KEY, initialTooltipsEnabled } from './tooltipPreference'
+import { GETTING_STARTED_VIDEO_SEEN_KEY, shouldAutoOpenGettingStartedVideo } from './gettingStartedVideo'
 import {
   OPPORTUNITY_AI_COLUMN_DEFAULTS_VERSION_KEY,
   OPPORTUNITY_COLUMN_VISIBILITY_KEY,
@@ -96,6 +98,7 @@ const App = () => {
   const [infoBoxVisible, SetInfoBoxVisible] = useState(false); //default of next 3 should be false
   const [helpBoxVisible, SetHelpBoxVisible] = useState(false);
   const [videosBoxVisible, SetVideosBoxVisible] = useState(false);
+  const [showGettingStartedVideo, SetShowGettingStartedVideo] = useState(false);
   const [reportsDashVisible, SetReportsDashVisible] = useState(false);
   const [sessionExpired, SetSessionExpired] = useState(false);
 
@@ -1840,6 +1843,7 @@ const App = () => {
     janDecDateRange, // 8/6/2022
     oppTableLength, // 8/28/2022
     videosBoxVisible, // 9/14/2022
+    showGettingStartedVideo,
     reportsDashVisible, // 3/8/2023
     reportsList, // 3/10/2023
     numReportsCreated,
@@ -2006,6 +2010,7 @@ const App = () => {
     SetJanDecDateRange, //8/6/2022
     SetOppTableLength, // 8/28/2022
     SetVideosBoxVisible, // 9/14/2022
+    SetShowGettingStartedVideo,
     SetReportsDashVisible, // 3/8/2023
     SetReportsList, // 3/10/2023
     SetNumReportsCreated,
@@ -2716,23 +2721,47 @@ const App = () => {
     return () => { if (chatbotTipTimerRef.current) clearTimeout(chatbotTipTimerRef.current); };
   }, [chatbotEnabled])
 
-  // Onboarding: auto-enroll a GENUINE new user into the 7-day lesson arc on login
-  // (Gating v2, 2026-07-04 - see onboarding.js). This replaced a blind
+  const closeGettingStartedVideo = useCallback(() => {
+    lsSet(GETTING_STARTED_VIDEO_SEEN_KEY, true);
+    SetShowGettingStartedVideo(false);
+  }, []);
+
+  // The video replaces the legacy lesson arc as the default onboarding surface.
+  // The new versioned key intentionally starts empty for every existing and new
+  // customer, while Common.js keeps the preference scoped to the signed-in account.
+  useEffect(() => {
+    if (loggedinUser === '0' || !token || token.length === 0) return;
+    if (shouldAutoOpenGettingStartedVideo(lsGet(GETTING_STARTED_VIDEO_SEEN_KEY, null))) {
+      SetShowGettingStartedVideo(true);
+    }
+  }, [loggedinUser, token]);
+
+  // SubscriptionWelcomeModal and any future in-app entry point use the same event,
+  // so the player has one owner and always unmounts when closed.
+  useEffect(() => {
+    const handleOpenGettingStartedVideo = () => SetShowGettingStartedVideo(true);
+    window.addEventListener('tw-getting-started-video-open', handleOpenGettingStartedVideo);
+    return () => window.removeEventListener('tw-getting-started-video-open', handleOpenGettingStartedVideo);
+  }, []);
+
+  // Legacy onboarding implementation (dormant while
+  // LEGACY_SEVEN_DAY_LESSONS_ENABLED is false): auto-enroll a GENUINE new user
+  // into the 7-day lesson arc on login (Gating v2, 2026-07-04 - see
+  // onboarding.js). This replaced a blind
   // getOnboardingDay() call that seeded tw_onboard_started_at for ANY logged-in
   // user missing the key - which silently re-enrolled every pre-existing account
   // as a brand-new Day-1 user. Now: only a genuinely new account (server-injected
   // window.current_user_created_at <= 7 days old) that is not already enrolled
   // and has not muted tips gets auto-enrolled here. Existing users instead get a
   // one-time, non-blocking invite from LessonBox itself (never auto-opened).
-  // The LessonBox is the welcome now (it self-opens on day 1 once enrolled), so we
-  // just mark "welcomed" here to keep the conversion-card gate (which requires
+  // We still mark "welcomed" to keep the conversion-card gate (which requires
   // hasWelcomed) firing. Homepage-Tara (?ask=) arrivals also get the arrival banner.
   useEffect(() => {
     if (loggedinUser === '0' || !token || token.length === 0) return;
-    if (isAutoArcEligible() && !isEnrolled() && !isTipsDismissed()) {
+    if (LEGACY_SEVEN_DAY_LESSONS_ENABLED && isAutoArcEligible() && !isEnrolled() && !isTipsDismissed()) {
       enrollNow();
     }
-    setWelcomed();      // LessonBox replaces the welcome modal; keep the conversion-card gate alive
+    setWelcomed();      // Keep the conversion-card gate alive while video onboarding owns first-run guidance
     const hasAsk = new URLSearchParams(window.location.search).get('ask');
     if (hasAsk) setAskBanner(true);
   }, [loggedinUser, token])
@@ -3436,7 +3465,23 @@ const App = () => {
               <SubscriptionWelcomeModal UITheme={UITheme} rdd={rdd} tier={subWelcome.tier} subscriptionEvent={subWelcome.event}
                 onClose={() => { try { markSubscriptionWelcomed(); } catch (e) { /* noop */ } setSubWelcome(null); }} />
             )}
-            <LessonBox UITheme={UITheme} rdd={rdd} hidden={infoBoxVisible || !!subWelcome} dateRangeLabel={_lessonRange} onHighlightChatbot={handleLessonHighlightChatbot} onOpenChatbot={handleLessonOpenChatbot} />
+            {LEGACY_SEVEN_DAY_LESSONS_ENABLED && (
+              <LessonBox UITheme={UITheme} rdd={rdd} hidden={infoBoxVisible || !!subWelcome} dateRangeLabel={_lessonRange} onHighlightChatbot={handleLessonHighlightChatbot} onOpenChatbot={handleLessonOpenChatbot} />
+            )}
+            {showGettingStartedVideo && !subWelcome && !infoBoxVisible && !convCard && (
+              <GettingStartedVideoModal UITheme={UITheme} onClose={closeGettingStartedVideo} />
+            )}
+            {rdd.isMobile && !(rdd.isTablet && browserH < browserW) && !showGettingStartedVideo && (
+              <button
+                type="button"
+                className="tw-getting-started-video-mobile-button"
+                aria-label="Watch Getting Started video"
+                title="Watch Getting Started video"
+                onClick={() => SetShowGettingStartedVideo(true)}
+              >
+                <span aria-hidden="true">&#9654;</span>
+              </button>
+            )}
             {_ts.onTrial && _ts.daysRemaining != null && (
               <div style={{ position: 'fixed', bottom: '86px', right: '18px', zIndex: 9000 }}>
                 <DaysRemainingPill UITheme={UITheme} daysRemaining={_ts.daysRemaining} totalDays={7}

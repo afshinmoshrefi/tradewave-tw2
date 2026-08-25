@@ -15,6 +15,7 @@ jest.mock('./Common', () => ({
 const {
   getOnboardingDay, getTrialState, ONBOARDING_DAYS, isOnboardingArcActive,
   getAccountAgeDays, isAutoArcEligible, isEnrolled, setEnrolled, enrollNow,
+  LEGACY_SEVEN_DAY_LESSONS_ENABLED,
 } = require('./onboarding');
 
 beforeEach(() => {
@@ -81,38 +82,14 @@ describe('getTrialState', () => {
   });
 });
 
-describe('isOnboardingArcActive (Gating v2 - enrollment is the master switch)', () => {
-  test('NOT enrolled, brand-new (no start) -> NOT active', () => {
-    expect(isOnboardingArcActive()).toBe(false);
+describe('isOnboardingArcActive (legacy lessons are dormant)', () => {
+  test('keeps the full lesson implementation behind an explicit disabled switch', () => {
+    expect(LEGACY_SEVEN_DAY_LESSONS_ENABLED).toBe(false);
   });
-  test('NOT enrolled but has a stale start date (the retroactive-cleanup case: a user wrongly '
-    + 'auto-enrolled before this fix) -> still NOT active', () => {
-    mockLs['tw_onboard_started_at'] = '2026-06-25';
-    expect(isOnboardingArcActive()).toBe(false);
-  });
-  test('enrolled, brand-new (no start yet) -> active', () => {
-    mockLs['tw_lesson_enrolled'] = '1';
-    expect(isOnboardingArcActive()).toBe(true);
-  });
-  test('enrolled, started today -> active', () => {
+
+  test('does not reactivate the lesson arc from old enrollment state', () => {
     mockLs['tw_lesson_enrolled'] = '1';
     mockLs['tw_onboard_started_at'] = '2026-06-25';
-    expect(isOnboardingArcActive()).toBe(true);
-  });
-  test('enrolled, Day 7 (6 days ago) -> still active', () => {
-    mockLs['tw_lesson_enrolled'] = '1';
-    mockLs['tw_onboard_started_at'] = '2026-06-19';
-    expect(isOnboardingArcActive()).toBe(true);
-  });
-  test('enrolled, Day 8 (7 days ago) -> arc done', () => {
-    mockLs['tw_lesson_enrolled'] = '1';
-    mockLs['tw_onboard_started_at'] = '2026-06-18';
-    expect(isOnboardingArcActive()).toBe(false);
-  });
-  test('enrolled but dismissed -> done regardless of day', () => {
-    mockLs['tw_lesson_enrolled'] = '1';
-    mockLs['tw_onboard_started_at'] = '2026-06-25';
-    mockCk['tw_onboard_dismissed_0'] = '1';
     expect(isOnboardingArcActive()).toBe(false);
   });
 });

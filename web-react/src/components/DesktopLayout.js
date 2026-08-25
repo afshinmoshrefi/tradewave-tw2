@@ -29,7 +29,7 @@ import TestGIS from './TestGIS';
 import './styles/DesktopLayout.css';
 import { UserContext } from './UserContext';
 import { AiOutlineDollarCircle } from "react-icons/ai";
-import { BsFillCircleFill, BsSun, BsMoon, BsListUl, BsChevronLeft, BsChevronRight, BsChatDots, BsChatDotsFill } from "react-icons/bs";
+import { BsFillCircleFill, BsSun, BsMoon, BsListUl, BsChevronLeft, BsChevronRight, BsChatDots, BsChatDotsFill, BsPlayCircleFill } from "react-icons/bs";
 import { SlSettings } from "react-icons/sl";
 import { opp_dashboard_dialog_content, toggle_off_64, toggle_on_64 } from './Common';
 import { settings_dialog_content } from './Common';
@@ -57,6 +57,7 @@ import {
     supportsAIScoreSlide,
 } from './bottomSlides';
 import { downloadCanvasAsJpeg } from './imageDownload';
+import { LEGACY_SEVEN_DAY_LESSONS_ENABLED } from './onboarding';
 
 
 
@@ -255,6 +256,7 @@ const DesktopLayout = (props) => {
     //   tw-lessonbox-invite  - Gating v2: unenrolled, undismissed user gets a one-time opt-in.
     //   tw-lessonbox-muted   - Gating v2: confirms "Stop daily pop-ups" just fired.
     useEffect(() => {
+        if (!LEGACY_SEVEN_DAY_LESSONS_ENABLED) return undefined;
         const onClosed = () => showLbCallout('reopen', 7000);
         const onInvite = () => showLbCallout('invite', 9000);
         const onMuted = () => showLbCallout('muted', 7000);
@@ -742,7 +744,7 @@ const DesktopLayout = (props) => {
             {/* Anchored lightbulb callout - sits just BELOW the toolbar lightbulb (never covers it).
                 Kind-switched: 'reopen' (existing), 'invite' (Gating v2 one-time opt-in, two actions),
                 'muted' (Gating v2 mute confirmation). Same position/styling for all three. */}
-            {lbCalloutKind && lbPos &&
+            {LEGACY_SEVEN_DAY_LESSONS_ENABLED && lbCalloutKind && lbPos &&
                 <div
                     style={{ position: 'fixed', top: lbPos.top + 'px', left: lbPos.left + 'px', zIndex: 100000, maxWidth: '250px', background: 'linear-gradient(180deg,#1F1A2C,#1A1626)', color: '#F2EFF8', border: '1px solid rgba(167,139,250,0.4)', borderRadius: '10px', padding: '10px 13px', fontSize: '12.5px', lineHeight: 1.45, boxShadow: '0 12px 34px rgba(0,0,0,0.6)' }}
                 >
@@ -848,7 +850,7 @@ const DesktopLayout = (props) => {
                             }
                             {/* Lessons lightbulb - reopens the onboarding LessonBox (it docks here on desktop
                                 instead of a bottom bulb so it never covers the charts). */}
-                            {loggedinUser !== '0' &&
+                            {loggedinUser !== '0' && LEGACY_SEVEN_DAY_LESSONS_ENABLED &&
                                 <Tippy content="Open your lessons" placement="bottom">
                                     <div
                                         style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: '8px', cursor: 'pointer' }}
@@ -857,6 +859,18 @@ const DesktopLayout = (props) => {
                                         <style>{'@keyframes twTbBulb{0%{transform:scale(1);filter:drop-shadow(0 0 4px rgba(167,139,250,0.6))}50%{transform:scale(1.3);filter:drop-shadow(0 0 14px rgba(167,139,250,1))}100%{transform:scale(1);filter:drop-shadow(0 0 4px rgba(167,139,250,0.6))}}'}</style>
                                         <span ref={bulbRef} role="img" aria-label="Open your lessons" style={{ fontSize: '1.1vw', lineHeight: 1, display: 'inline-block', filter: 'drop-shadow(0 0 5px rgba(167,139,250,0.85))', animation: lbPulse ? 'twTbBulb 1.3s ease-in-out 5' : 'none' }}>&#128161;</span>
                                     </div>
+                                </Tippy>
+                            }
+                            {loggedinUser !== '0' && !LEGACY_SEVEN_DAY_LESSONS_ENABLED &&
+                                <Tippy disabled={!props.tooltipSW} content="Watch Getting Started video" placement="bottom">
+                                    <button
+                                        type="button"
+                                        aria-label="Watch Getting Started video"
+                                        onClick={(e) => { e.stopPropagation(); props.SetShowGettingStartedVideo(true); }}
+                                        style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 0 0 8px', border: 0, background: 'transparent', color: '#a78bfa', cursor: 'pointer' }}
+                                    >
+                                        <BsPlayCircleFill size={settingsSize} style={{ filter: 'drop-shadow(0 0 5px rgba(167,139,250,0.72))' }} />
+                                    </button>
                                 </Tippy>
                             }
                             <div style={{ paddingLeft: '4px', display: "flex", alignItems: "center", flexShrink: 0, backgroundColor: 'transparent' }} onClick={handle_Settings_clicks}>

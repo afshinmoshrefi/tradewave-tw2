@@ -789,6 +789,20 @@ Full mobile feature-parity audit (Opp/TableBox/chart/TradeDetail/InfoPopup/onboa
 conversion/portfolio/trading-dialog components, 27 ranked defects incl. the AI-column gap
 above): memory `project_mobile_parity_audit_2026_07`.
 
+**Getting Started video onboarding is the active first-run experience (2026-08-25).**
+The complete seven-day lesson implementation remains in the repository, but
+`onboarding.js:LEGACY_SEVEN_DAY_LESSONS_ENABLED` keeps its auto-enrollment, LessonBox,
+toolbar bulb, callouts, and Tara-tip suppression dormant. Every signed-in customer sees
+the Getting Started video automatically once per browser and account under the versioned,
+user-scoped localStorage key `tw_getting_started_video_seen_v1`. Closing by any route
+records the view and unmounts the iframe, which also stops playback. A purple video icon
+in the desktop toolbar and a floating mobile video button always reopen it without
+changing the saved state. `App.js` owns the modal state; subscription welcome hands off
+through `tw-getting-started-video-open`. The player uses the privacy-enhanced
+`youtube-nocookie.com` embed without autoplay, and nginx allows that origin only in
+`frame-src`. Increment the key version only when every customer should automatically see
+a replacement onboarding video.
+
 ### 7.3 "Remind me" bell (one-click Google Calendar reminders; stateful pill)
 Shipped 2026-07-04 as "Notify me" (auto-created a dedicated "Notifications" portfolio);
 reworked + renamed 2026-07-08 (owner decisions: stateful BUTTON not a toggle switch -

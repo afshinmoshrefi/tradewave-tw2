@@ -60,6 +60,11 @@
 
 import { lsGet, lsSet, getCookie, setCookie } from './Common';
 
+// The complete seven-day implementation remains available for a future redesign,
+// but it is intentionally dormant. GettingStartedVideoModal is the active onboarding
+// surface as of 2026-08-25.
+export const LEGACY_SEVEN_DAY_LESSONS_ENABLED = false;
+
 // ---------------------------------------------------------------------
 // Per-user cookie helpers.
 //
@@ -440,6 +445,7 @@ export function setLessonDay(day) {
 // cards fire and whether the legacy Tara tips stay suppressed (vs the old approach of
 // permanently pinning tw_tara_tip_index, which killed the generic tips forever).
 export function isOnboardingArcActive() {
+  if (!LEGACY_SEVEN_DAY_LESSONS_ENABLED) return false;
   if (!isEnrolled()) return false; // Gating v2: enrollment is the master switch
   if (isTipsDismissed()) return false;
   const startedAt = lsGet('tw_onboard_started_at', null);

@@ -65,6 +65,13 @@ What she must NOT do (critical onboarding framing): she does not predict, does n
 
 Principles (not screens) for designing new-user onboarding, derived from the methodology and capability surface:
 
+**Current product decision (2026-08-25):** TradeWave uses a short Getting Started video as
+the active first-run guide. It appears automatically once for every signed-in customer in
+each browser, and a permanent video icon lets the customer reopen it at any time. The
+seven-day learning path below remains the curriculum reference, but its daily LessonBox
+experience is deprecated and dormant. This keeps the first visit focused while preserving
+the deeper teaching material for future use.
+
 1. TEACH THE MENTAL MODEL BEFORE THE BUTTONS. The product's entire value is a way of thinking ("is this move normal for this calendar point and cycle?"). A user who learns clicks without the model will misread every number. Onboarding must front-load: probability not prediction, the SCAN→VALIDATE loop, and the rule "ranked highly ≠ approved trade." The biggest failure mode to design against is treating the Opportunity Table as a buy list.
 
 2. MAKE THE FIVE-PART PATTERN DEFINITION CONCRETE EARLY. Because a pattern = symbol + start date + days held + year set + direction, and because "8 years ≠ 8 PE2 years," the single most dangerous misconception is ambiguity about what dataset a number describes. Onboarding should make the user feel that changing the Years dropdown or the PE+2 toggle changes the underlying data, not the display.

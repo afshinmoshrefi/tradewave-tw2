@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
 import { themeColors, lsGet, lsSet } from './Common';
+import { LEGACY_SEVEN_DAY_LESSONS_ENABLED } from './onboarding';
 
 // =====================================================================
 // SubscriptionWelcomeModal - the subscription-aware welcome dialog for the
 // TradeWave wave-viewer. It is THE first screen after a subscription event
 // (new signup / upgrade / downgrade), rendered OVER everything (z-index
-// 10000, above the LessonBox), and on close it hands off to the 7-day
-// LessonBox arc via the 'tw-lessonbox-open' window event.
+// 10000, above other onboarding surfaces), and its primary action hands off
+// to the active Getting Started surface.
 //
 // Visual language mirrors LessonBox.js (the dark "Instrument" surface) and
 // reuses OnboardingWelcome.js's scrim/card modal pattern.
@@ -324,12 +325,15 @@ const SubscriptionWelcomeModal = (props) => {
       '@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}';
 
     // ---- handlers ----
-    // PRIMARY for new_signup/upgrade hands off to the LessonBox arc.
+    // PRIMARY for new_signup/upgrade hands off to the active onboarding surface.
     const onPrimary = () => {
       try {
         onClose();
         if (!isDowngrade && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-          window.dispatchEvent(new CustomEvent('tw-lessonbox-open'));
+          const eventName = LEGACY_SEVEN_DAY_LESSONS_ENABLED
+            ? 'tw-lessonbox-open'
+            : 'tw-getting-started-video-open';
+          window.dispatchEvent(new CustomEvent(eventName));
         }
       } catch (e) { /* no-op */ }
     };
@@ -337,7 +341,7 @@ const SubscriptionWelcomeModal = (props) => {
 
     const primaryLabel = isDowngrade
       ? 'Got It'
-      : (event === 'new_signup' && tier === 'explorer-trial' ? 'Start the 7-Day Lessons' : 'Show Me Around');
+      : (LEGACY_SEVEN_DAY_LESSONS_ENABLED ? 'Start the 7-Day Lessons' : 'Watch Getting Started');
 
     // ---- styles ----
     const coverStyle = {
