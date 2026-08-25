@@ -12,6 +12,7 @@
 
 .tw-getting-started-video-modal {
   position: relative;
+  box-sizing: border-box;
   width: min(900px, calc(100vw - 40px));
   max-height: calc(100vh - 40px);
   overflow-y: auto;
@@ -21,6 +22,10 @@
   background: #1d1929;
   color: #f4f1fa;
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.58);
+}
+
+.tw-getting-started-video-modal * {
+  box-sizing: border-box;
 }
 
 .tw-getting-started-video-overlay--light .tw-getting-started-video-modal {
