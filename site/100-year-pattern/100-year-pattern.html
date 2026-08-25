@@ -179,14 +179,11 @@ body.calendar-dialog-open { overflow: hidden; }
 .rule-note strong { color: #a9b7ca; }
 
 .discovery-section { border-bottom: 1px solid var(--line); padding: 100px 0 54px; background: rgba(7, 13, 24, 0.42); }
-.discovery-heading { align-items: end; }
-.discovery-heading > div { max-width: 780px; }
-.discovery-aside { max-width: 330px; margin: 0; border-left: 2px solid rgba(124, 92, 255, 0.48); padding-left: 16px; color: var(--muted); font-size: 12px; }
-.discovery-logic { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.discovery-logic article { min-height: 154px; border: 1px solid var(--line); border-radius: 14px; padding: 22px; background: var(--panel); }
-.discovery-logic span, .trend-chart-labels span, .discovery-reuse span { display: block; color: #907cff; font-family: var(--mono); font-size: 9px; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
-.discovery-logic h3 { margin: 17px 0 7px; font-size: 18px; line-height: 1.3; }
-.discovery-logic p { margin: 0; color: var(--muted); font-size: 12px; }
+.discovery-heading { display: block; }
+.discovery-attribution { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; max-width: 1120px; margin-top: 24px; }
+.discovery-attribution p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.75; }
+.discovery-attribution p:last-child { border-left: 2px solid rgba(124, 92, 255, 0.48); padding-left: 18px; color: #b8c5d7; }
+.trend-chart-labels span, .discovery-reuse span { display: block; color: #907cff; font-family: var(--mono); font-size: 9px; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
 .trend-chart-figure { margin: 18px 0 0; border: 1px solid rgba(124, 92, 255, 0.3); border-radius: 16px; overflow: hidden; background: #090f1c; }
 .trend-chart-labels { display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); padding: 14px 18px; background: rgba(124, 92, 255, 0.07); }
 .trend-chart-labels span:last-child { color: #6bd6a6; text-align: right; }
@@ -335,8 +332,6 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
   .public-record-card { max-width: 760px; }
   .scope-strip { grid-template-columns: 1fr 1fr 1fr; }
   .pattern-timeline { grid-template-columns: minmax(0, 1fr) 190px minmax(0, 1fr); }
-  .discovery-heading { display: block; }
-  .discovery-aside { max-width: 760px; margin-top: 22px; }
   .stat-grid { grid-template-columns: repeat(3, 1fr); }
   .stat-grid article { min-height: 138px; }
   .evidence-callouts { grid-template-columns: 1fr; }
@@ -391,8 +386,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
   .timeline-duration { min-height: 140px; border-inline: 0; border-block: 1px solid var(--line); }
   .timeline-duration::after { right: auto; top: auto; bottom: -7px; left: 50%; transform: translateX(-50%) rotate(135deg); }
   .trading-adjustment, .midterm-explainer { min-height: 0; }
-  .discovery-logic { grid-template-columns: 1fr; }
-  .discovery-logic article { min-height: 0; }
+  .discovery-attribution { grid-template-columns: 1fr; gap: 18px; }
   .trend-chart-labels { align-items: flex-start; flex-direction: column; gap: 6px; }
   .trend-chart-labels span:last-child { text-align: left; }
   .trend-chart-frame img { width: 820px; max-width: none; }
@@ -466,7 +460,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
   <header class="site-header">
     <div class="page-width header-inner">
       <a class="wordmark" href="/" aria-label="TradeWave home">Trade<span>Wave</span></a>
-      <nav aria-label="Page navigation"><a href="#why-it-matters">Why It Matters</a><a href="#rule">Exact Rule</a><a href="#discovery">How It Was Found</a><a href="#evidence">24 Midterm Cycles</a><a href="#methodology">Methodology</a></nav>
+      <nav aria-label="Page navigation"><a href="#why-it-matters">Why It Matters</a><a href="#rule">Exact Rule</a><a href="#discovery">Prior Work</a><a href="#evidence">24 Midterm Cycles</a><a href="#methodology">Methodology</a></nav>
       <div class="header-actions"><a class="button button-quiet" href="/app/">Wave Viewer</a></div>
     </div>
   </header>
@@ -572,17 +566,12 @@ a:focus-visible, button:focus-visible { outline: 2px solid #a996ff; outline-offs
   <section class="discovery-section" id="discovery">
     <div class="page-width">
       <div class="section-heading discovery-heading">
-        <div>
-          <p class="section-kicker">How September 27 was found</p>
-          <h2>The pattern appeared visually. The dates were confirmed mathematically.</h2>
-          <p class="section-intro">TradeWave aligned all 24 completed S&amp;P 500 midterm-year histories on one calendar. The Trend Chart revealed a recurring bottom area in late September.</p>
+        <p class="section-kicker">Prior work and exact dates</p>
+        <h2>This season was documented before TradeWave.</h2>
+        <div class="discovery-attribution">
+          <p>A favorable stretch of the four-year presidential cycle running from the midterm year into the pre-election year is documented in the <em>Stock Trader's Almanac</em>, where Jeffrey Hirsch calls it the Sweet Spot and defines it in quarters: Q4 of the midterm year through Q2 of the pre-election year. The season is not a TradeWave finding and is not claimed as one here.</p>
+          <p>What this page adds is resolution and a different boundary. The Almanac's Sweet Spot begins in Q4. This record begins September 27, before Q4 opens, and runs to July 18, past Q2's close. Those two dates are fixed, scored across all 24 completed cycles, published with the drawdown inside each one, and downloadable as raw data.</p>
         </div>
-        <p class="discovery-aside">September 27 was selected from the historical data - not because of an election result, crisis, celebration, or forecast.</p>
-      </div>
-
-      <div class="discovery-logic">
-        <article><span>Visual discovery</span><h3>The Trend Chart exposed the late-September bottom area.</h3><p>With the 24 PE+2 histories aligned by calendar date, the combined historical path turns higher from the area around September 27.</p></article>
-        <article><span>Mathematical confirmation</span><h3>September 27 to July 18 produced the highest cumulative return.</h3><p>Testing the fixed dates confirmed this as the highest cumulative-return window in the historical date-window analysis.</p></article>
       </div>
 
       <figure class="trend-chart-figure">

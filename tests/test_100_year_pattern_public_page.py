@@ -56,7 +56,8 @@ def test_static_evidence_page_contains_the_complete_record():
     assert "July 1 through July 31 is 31 days" in html
     assert "data-countdown-minutes" in html
     assert "decay" not in html.lower()
-    assert "almanac" not in html.lower()
+    assert "Stock Trader's Almanac" in html
+    assert "Jeffrey Hirsch calls it the Sweet Spot" in html
     assert (
         '<h1><span>The 100-Year Pattern</span><span>24 completed cycles.</span>'
         '<span class="hero-result">96% finished positive.</span></h1>'
@@ -78,7 +79,11 @@ def test_static_evidence_page_contains_the_complete_record():
     assert "U.S. midterm years only" in html
     assert "One cycle every four years" in html
     assert "A positive result means the exit close is higher than the entry close." in html
-    assert "The pattern appeared visually. The dates were confirmed mathematically." in html
+    assert "This season was documented before TradeWave." in html
+    assert "The season is not a TradeWave finding and is not claimed as one here." in html
+    assert "This record begins September 27, before Q4 opens" in html
+    assert "How It Was Found" not in html
+    assert "Visual discovery" not in html
     assert "100-year-pattern-trend-chart.webp" in html
     assert "We do not ask for trust - we publish the proof" not in html
     assert "One failure." not in html
