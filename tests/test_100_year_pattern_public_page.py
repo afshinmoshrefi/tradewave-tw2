@@ -82,6 +82,9 @@ def test_static_evidence_page_contains_the_complete_record():
     assert "This season was documented before TradeWave." in html
     assert "The season is not a TradeWave finding and is not claimed as one here." in html
     assert "This record begins September 27, before Q4 opens" in html
+    assert "September 27 to July 18 produced the highest cumulative return in the date-window test." in html
+    assert "testing fixed date pairs against all 24 completed cycles selected the exact days." in html
+    assert "The same two-step process can be used" not in html
     assert "How It Was Found" not in html
     assert "Visual discovery" not in html
     assert "100-year-pattern-trend-chart.webp" in html
