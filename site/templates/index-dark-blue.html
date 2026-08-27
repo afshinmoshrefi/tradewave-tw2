@@ -1491,7 +1491,7 @@ document.addEventListener('click', function(e){
   function openLM(source){
     var aliases={hero:'homepage_hero_report',pricing:'homepage_pricing_report',sticky:'homepage_sticky_report'};
     window.__twLeadSource=aliases[source]||source||'homepage_direct_report';
-    if(typeof gtag==='function') gtag('event','free_report_open',{source:window.__twLeadSource,cta_id:window.__twLeadSource,surface:'homepage'});
+    try{ if(typeof gtag==='function') gtag('event','free_report_open',{source:window.__twLeadSource,cta_id:window.__twLeadSource,surface:'homepage'}); }catch(e){}
     prevFocus=document.activeElement; ov.classList.add('open'); lm.className='lm state-form'; document.body.style.overflow='hidden';
     if(location.hash!=='#free-report'){ history.replaceState(null,'','#free-report'); }
     try{ var L=JSON.parse(localStorage.getItem('tw_lead')||'{}');

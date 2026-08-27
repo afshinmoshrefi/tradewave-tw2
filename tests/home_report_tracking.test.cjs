@@ -38,3 +38,20 @@ test('no analytics or observer never blocks the page', () => {
   runInNewContext('/* conversion analytics:'+script,{window:{},document:{getElementById:()=>({}),querySelectorAll:()=>[]},
     location:{origin:'https://example.test',search:''},URL,URLSearchParams});
 });
+
+test('a throwing analytics adapter cannot block the report modal', () => {
+  const openFunction = 'function openLM(source){' + html.split('  function openLM(source){')[1].split('\n  function closeLM')[0];
+  let opened = false, focused = false;
+  const document = {activeElement:{},body:{style:{}}}, lm = {}, window = {};
+  runInNewContext(openFunction + "\nopenLM('hero');", {
+    document, lm, window, prevFocus:null,
+    ov:{classList:{add(value){opened=value==='open';}}},
+    form:{querySelector(){return {focus(){focused=true;}}}},
+    location:{hash:'#free-report'},localStorage:{getItem(){return null;}},
+    setTimeout(fn){fn();},gtag(){throw new Error('analytics unavailable');}
+  });
+  assert.equal(opened,true);
+  assert.equal(focused,true);
+  assert.equal(lm.className,'lm state-form');
+  assert.equal(window.__twLeadSource,'homepage_hero_report');
+});
