@@ -1890,7 +1890,49 @@ bulletproof). See `OPERATIONS.md`.
   `status:"active"` to avoid MailerLite double opt-in; the public SMN form keeps
   its own confirmation behavior. The older one-time level audit remains
   `ops/migrate/reconcile_mailerlite.py` (dry-run default, `--apply`).
-- **GA4 server-side tracking (Measurement Protocol, built and verified in the integration branch; not yet deployed):** `web/ga4_mp.py` fires `begin_checkout`/`purchase`/
+- **Free-report acquisition and attribution (2026-08-27):** the hero's visible
+  `#hero-report` card is a separate no-account path alongside the platform trial.
+  It opens the existing 1-required/2-optional ticker modal; report math, opt-in,
+  quotas, account-adaptive email CTA and other homepage sections are unchanged.
+  `web/lead_attribution.py` normalizes `homepage_hero_report`, pricing, sticky,
+  direct and external-channel source IDs. Only four bounded UTM labels and a
+  server-parsed numeric GA client ID enter `email_leads.detail.attribution`.
+  `_update_lead` merges detail under a row lock so delivery updates never erase
+  attribution. No new database schema is required.
+
+  Funnel definitions (do not treat these stages as interchangeable):
+  - Browser `free_report_view`: hero card at least 50% visible, once per load.
+    `free_report_open`: actual modal open, with its placement source. Existing
+    `free_report_success` means POST accepted, NOT confirmed or sent.
+  - Server `free_report_submitted`: accepted lead committed. `free_report_confirmed`:
+    first valid opt-in committed under a row lock. `free_report_sent`: report
+    accepted by the email provider, NOT proven inbox delivery or open. All three
+    are best-effort GA mirrors of durable `email_leads` status/timestamps; event
+    payloads contain source and ticker count, not email or ticker symbols.
+  - Email CTA URLs retain `utm_source=lead_report` and use `utm_content` for the
+    originating report source in signup/open-app/upgrade modes. `/signup` emits
+    `report_cta_landed` for the signup email CTA only; scanners can trigger this,
+    and open-app/upgrade landings are not new click events in this patch.
+  - Homepage signup links carry bounded `tw_cta` IDs. `/signup` stores the CTA and
+    UTM context in the signed session; successful auth consumes it. New accounts
+    get a durable `signup_attributed` audit entry and enriched GA `sign_up`.
+    Only WorkOS-verified email can link confirmed, unowned leads to that exact
+    account, in a separate transaction. The earliest pre-account lead supplies
+    `report_source`/`report_assisted`; this is association, not causal attribution.
+    If signup precedes report confirmation, linkage waits for a later verified
+    login. No historical backfill runs automatically.
+  - Existing first-AI-score timestamp and subscriber/Stripe records remain the
+    authority for activation and paid conversion. GA `purchase` below records
+    checkout completion, which may be a zero-dollar trial; it is not paid-invoice
+    revenue. No new billing, trial-start, email-open or stock-prefill flow is
+    claimed here. The signup default remains `/account`.
+
+  Analytics failures never block reports, authentication, or billing. DEV/staging
+  intentionally keep production GA credentials absent. Production prerequisites,
+  CSP deployment and content-only regeneration: `ops/OPERATIONS.md`, "Homepage
+  Content and Report-Funnel Changes". Focused coverage:
+  `tests/test_lead_attribution.py`, `tests/home_report_tracking.test.cjs`.
+- **GA4 server-side tracking (Measurement Protocol; collection requires production configuration):** `web/ga4_mp.py` fires `begin_checkout`/`purchase`/
   `sign_up` server-side so they don't depend on the browser tab staying open or
   gtag.js loading. `parse_ga_client_id(request)` reads the `_ga` cookie
   (`GA1.<ver>.<p1>.<p2>` -> client_id `"<p1>.<p2>"`, else `None`);

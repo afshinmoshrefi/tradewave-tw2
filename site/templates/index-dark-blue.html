@@ -529,6 +529,14 @@ footer{border-top:1px solid var(--line);padding:56px 0 64px;color:var(--faint);f
 .frcard.quiet{background:transparent;border-color:var(--line);box-shadow:none}
 .frcard.quiet:hover{border-color:var(--line2);box-shadow:none;transform:none}
 .frcard.quiet .go{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(124,92,255,.35);box-shadow:none}
+.hero-report{max-width:720px;margin:32px auto 0;padding:24px 28px;border:1px solid rgba(145,119,255,.65);border-radius:18px;background:linear-gradient(135deg,rgba(124,92,255,.15),rgba(17,28,47,.92));box-shadow:0 10px 40px rgba(76,48,160,.12);text-align:center}
+.hero-report .eyebrow{color:#bbabff;font-size:.69rem;margin-bottom:8px}
+.hero-report h2{font-size:clamp(1.35rem,2.4vw,1.65rem);line-height:1.25;margin:0}
+.hero-report p{max-width:620px;margin:12px auto 18px;color:var(--muted);font-size:.94rem;line-height:1.6}
+.hero-report .btn{font-size:.96rem;padding:13px 24px}
+.hero-report .micro{margin-top:12px;color:var(--muted);font-size:.76rem;line-height:1.5}
+.hero-report .btn:focus-visible{outline:3px solid #c7baff;outline-offset:4px}
+@media(max-width:600px){.hero{padding-top:32px}.hero .section-sub{margin-top:24px}.hero .cta-row{margin-top:26px}.hero-report{margin-top:26px;padding:20px 18px;display:flex;flex-direction:column;align-items:center}.hero-report .eyebrow{order:0}.hero-report h2{order:1}.hero-report .btn{order:2;width:100%;margin-top:16px}.hero-report p{order:3;font-size:.88rem;margin:16px 0 0}.hero-report .micro{order:4}}
 @media(max-width:520px){.frcard{flex-wrap:wrap}.frcard .em{flex-basis:100%;order:5}.frcard .go{flex-basis:100%;text-align:center;order:6;margin-top:4px}}
 .lm-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,18,32,.72);backdrop-filter:blur(8px)}
 .lm-overlay.open{display:flex}
@@ -695,7 +703,7 @@ body{background-image:none !important;}
     <a class="lk" href="#pricing">Pricing</a>
     <a class="lk" href="https://seasonalmarketnews.com/">News</a>
     <a href="{{ content.nav.login_url }}" id="tw-auth-link" class="btn ghost">Sign In</a>
-    <a href="{{ content.hero.cta_primary_url }}" class="btn nav-cta">Start Free</a>
+    <a href="{{ content.hero.cta_primary_url }}" class="btn nav-cta" data-cta-id="homepage_header_start_free">Start Free</a>
   </nav>
 </div></header>
 
@@ -707,15 +715,17 @@ body{background-image:none !important;}
   <h1 class="reveal d1">{{ content.hero.headline }}</h1>
   <p class="section-sub reveal d1" style="max-width:740px">{{ content.hero.subheadline }}</p>
   <div class="cta-row reveal d2">
-    <a href="{{ content.hero.cta_primary_url }}" class="btn" style="font-size:1.08rem;padding:16px 32px">{{ content.hero.cta_primary }}</a>
+    <a href="{{ content.hero.cta_primary_url }}" class="btn" data-cta-id="homepage_hero_start_free" style="font-size:1.08rem;padding:16px 32px">{{ content.hero.cta_primary }}</a>
   </div>
   <div class="micro reveal d2" style="margin-top:12px;color:var(--muted)">{{ content.hero.cta_micro }}</div>
-  <div class="reveal d3" style="margin:44px auto 0;max-width:520px">
-    <div class="micro" style="margin-bottom:16px">{{ content.hero.report_lead }}</div>
-    <button type="button" class="frcard quiet" data-lm-open data-lm-source="hero" aria-label="Open the free seasonal report form">
-      <span class="em">Enter your 3 stocks here</span>
-      <span class="go">Email Me My Free Report</span>
+  <div class="hero-report" id="hero-report" aria-labelledby="hero-report-title">
+    <div class="eyebrow">Free Personalized Report</div>
+    <h2 id="hero-report-title">Start With Stocks You Already Follow</h2>
+    <p>{{ content.hero.report_lead }}</p>
+    <button type="button" class="btn" data-lm-open data-lm-source="homepage_hero_report" data-cta-id="homepage_hero_report">
+      Email Me My Free Report
     </button>
+    <div class="micro">No account. No credit card. Confirm your email, and the report usually arrives within minutes.</div>
   </div>
 </div></section>
 <div class="market-strip" aria-label="Markets available in TradeWave">
@@ -1235,7 +1245,7 @@ document.addEventListener('click', function(e){
     if (!a) return;
     var href = a.getAttribute('href') || '';
     if (href.indexOf('/signup') === 0 || href.indexOf('/app/') === 0 || href.indexOf('/pricing') === 0 || href.indexOf('/api/stripe/create-checkout') === 0) {
-        gtag('event', 'cta_click', { link_url: href, link_text: (a.textContent || '').trim().slice(0, 80) });
+        gtag('event', 'cta_click', { link_url: href.split('?')[0], link_text: (a.textContent || '').trim().slice(0, 80), cta_id: a.getAttribute('data-cta-id') || 'homepage_other_cta', surface: 'homepage', transport_type: 'beacon' });
     }
 }, true);
 
@@ -1478,7 +1488,11 @@ document.addEventListener('click', function(e){
 (function(){
   var ov=document.getElementById('lmOverlay'), lm=document.getElementById('lm'),
       form=document.getElementById('lmForm'), err=document.getElementById('lmErr'), prevFocus=null;
-  function openLM(){ prevFocus=document.activeElement; ov.classList.add('open'); lm.className='lm state-form'; document.body.style.overflow='hidden';
+  function openLM(source){
+    var aliases={hero:'homepage_hero_report',pricing:'homepage_pricing_report',sticky:'homepage_sticky_report'};
+    window.__twLeadSource=aliases[source]||source||'homepage_direct_report';
+    if(typeof gtag==='function') gtag('event','free_report_open',{source:window.__twLeadSource,cta_id:window.__twLeadSource,surface:'homepage'});
+    prevFocus=document.activeElement; ov.classList.add('open'); lm.className='lm state-form'; document.body.style.overflow='hidden';
     if(location.hash!=='#free-report'){ history.replaceState(null,'','#free-report'); }
     try{ var L=JSON.parse(localStorage.getItem('tw_lead')||'{}');
       if(L.tickers){ ['t1','t2','t3'].forEach(function(n,i){ if(form[n] && !form[n].value && L.tickers[i]){ form[n].value=L.tickers[i]; } }); }
@@ -1487,7 +1501,7 @@ document.addEventListener('click', function(e){
   function closeLM(){ ov.classList.remove('open'); document.body.style.overflow='';
     if(location.hash==='#free-report'){ history.replaceState(null,'',location.pathname+location.search); }
     if(prevFocus && prevFocus.focus){ try{ prevFocus.focus(); }catch(e){} } }
-  document.querySelectorAll('[data-lm-open]').forEach(function(el){ el.addEventListener('click',function(e){ e.preventDefault(); openLM(); }); });
+  document.querySelectorAll('[data-lm-open]').forEach(function(el){ el.addEventListener('click',function(e){ e.preventDefault(); openLM(el.getAttribute('data-lm-source')); }); });
   document.getElementById('lmClose').addEventListener('click', closeLM);
   document.getElementById('lmDismiss').addEventListener('click', closeLM);
   ov.addEventListener('click', function(e){ if(e.target===ov){ closeLM(); } });
@@ -1503,7 +1517,7 @@ document.addEventListener('click', function(e){
       else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
     }
   });
-  if(location.hash==='#free-report'){ openLM(); }
+  if(location.hash==='#free-report'){ openLM('homepage_direct_report'); }
   function flag(input,msg){ input.parentNode.classList.add('invalid'); err.textContent=msg; input.focus(); }
   form.addEventListener('submit', function(e){
     e.preventDefault(); err.textContent='';
@@ -1525,7 +1539,7 @@ document.addEventListener('click', function(e){
     }
     var GEN='Something on our end hiccuped and the report did not go out. Try once more, or email support@tradewave.ai and we will run it by hand.';
     fetch('/api/lead-report',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({tickers:clean,email:email,company:'',source:(window.__twLeadSource||'home_free_report')})})
+      body:JSON.stringify({tickers:clean,email:email,company:'',source:(window.__twLeadSource||'homepage_direct_report'),attribution:window.__twReportAttribution||{}})})
       .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(b){ return {ok:r.ok,body:b}; }); })
       .then(function(res){
         if(res.ok && res.body.ok){ done(); return; }
@@ -1548,11 +1562,29 @@ document.addEventListener('click', function(e){
   var p=new URLSearchParams(location.search), keys=['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','msclkid'], pass=new URLSearchParams();
   keys.forEach(function(k){ var v=p.get(k); if(v) pass.set(k,v); });
   var qs=pass.toString(); window.__twUTM=qs;
+  document.querySelectorAll('a[href]').forEach(function(a){
+    var h=a.getAttribute('href')||'';
+    if(/^\/signup(\?|$)/.test(h)){
+      var u=new URL(h,location.origin);u.searchParams.set('tw_cta',a.getAttribute('data-cta-id')||'homepage_other_cta');
+      a.setAttribute('href',u.pathname+u.search+u.hash);
+    }
+  });
+  window.__twReportAttribution={};
+  ['utm_source','utm_medium','utm_campaign','utm_content'].forEach(function(k){var v=p.get(k);if(v && /^[a-zA-Z0-9 _.-]{1,100}$/.test(v)) window.__twReportAttribution[k]=v;});
   if(qs){
     document.querySelectorAll('a[href]').forEach(function(a){ var h=a.getAttribute('href')||''; if(/^\/(signup|app)(\/|\?|$)/.test(h)){ a.setAttribute('href', h+(h.indexOf('?')>-1?'&':'?')+qs); } });
     document.querySelectorAll('form[action*="create-checkout"]').forEach(function(f){ pass.forEach(function(v,k){ var i=document.createElement('input'); i.type='hidden'; i.name=k; i.value=v; f.appendChild(i); }); });
   }
-  document.querySelectorAll('[data-lm-open]').forEach(function(el){ el.addEventListener('click', function(){ var s=el.getAttribute('data-lm-source'); if(s){ window.__twLeadSource=s; } if(typeof gtag==='function') gtag('event','free_report_open',{source:s||'card'}); }, true); });
+  var card=document.getElementById('hero-report');
+  if(card && 'IntersectionObserver' in window){
+    var viewed=false, observer=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){if(!viewed && entry.isIntersecting && entry.intersectionRatio>=.5){
+        viewed=true; observer.disconnect();
+        if(typeof gtag==='function') gtag('event','free_report_view',{source:'homepage_hero_report',cta_id:'homepage_hero_report',surface:'homepage'});
+      }});
+    },{threshold:[.5]});
+    observer.observe(card);
+  }
 } catch(e){} })();
 </script>
 

@@ -1062,11 +1062,11 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # FREE-path reassurance (June-30 directive). The free signup is
             # genuinely card-free; never reuse this line on a paid path.
             "cta_micro": "Full Access for 7 Days",
-            # Lead-in to the hero's quiet free-report card (the card is styled
-            # subordinate to the primary CTA; capture stays strong in 03/08).
+            # A visible, no-account research entry point beside the trial path.
             "report_lead": (
-                "Prefer to start smaller? Enter up to 3 of your favorite "
-                "stocks below and get a free report. No account needed."
+                "Enter 1 to 3 U.S. stocks or ETFs. We'll email their 30-, 60-, and "
+                "90-day seasonal history across the last 10 completed years and "
+                "matching election-cycle years, wins and losses included."
             ),
             # Hero disclaimer micro-line removed 2026-07-06 (owner: keep the hero
             # clean). The full legal disclaimer still lives in the footer.
@@ -1720,13 +1720,18 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 # =============================================================================
 
 def main():
-    global ALLOW_PRICE_FALLBACK
+    global ALLOW_PRICE_FALLBACK, OUTPUT_DIR
     parser = argparse.ArgumentParser(description="TradeWave homepage generator")
+    parser.add_argument('--content-only', action='store_true',
+                        help="Regenerate the page using the latest logged pick without selecting or logging a new one.")
+    parser.add_argument('--output-dir', default=OUTPUT_DIR,
+                        help="Output directory for an isolated content preview (defaults to the live docroot).")
     parser.add_argument('--allow-price-fallback', action='store_true',
                         help="Publish the hardcoded fallback prices if the Stripe lookup "
                              "fails (default: refuse and exit nonzero - a stale page "
                              "beats a wrong-price page).")
     args = parser.parse_args()
+    OUTPUT_DIR = args.output_dir
     ALLOW_PRICE_FALLBACK = args.allow_price_fallback
 
     print("TradeWave Homepage Generator")
@@ -1766,7 +1771,12 @@ def main():
 
     # 4. Select featured pattern via ML scorer and generate SVG
     featured_data = None
-    featured = select_featured_from_ml_scorer()
+    if args.content_only:
+        history = load_featured_history()
+        featured = dict(history[-1]) if history else None
+        print("   Content-only: preserving the existing daily-pick ledger.")
+    else:
+        featured = select_featured_from_ml_scorer()
     if not featured:
         # Pipeline failed (login/ML/OppList4). Reuse the most recent pick from
         # history so the homepage still renders, but log LOUDLY and mark the

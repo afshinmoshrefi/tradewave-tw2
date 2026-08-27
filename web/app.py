@@ -624,6 +624,16 @@ def healthz():
 @app.route("/signup")
 def signup():
     """Send user to WorkOS AuthKit hosted SIGNUP screen."""
+    try:
+        from lead_attribution import signup_context
+        flask_session["signup_attribution"] = signup_context(request.args)
+        # Email CTA navigation has no homepage click handler. This is a landing
+        # event, not a human-only click (email-security scanners may follow it).
+        if flask_session["signup_attribution"].get("cta_id") == "report_email_start_free":
+            send_event(parse_ga_client_id(request), "report_cta_landed",
+                       {"source": flask_session["signup_attribution"].get("report_source")})
+    except Exception:
+        log.warning("Signup-entry attribution unavailable; signup continues")
     state = request.args.get("next") or "/account"
     url = _get_authorization_url(state=state, screen_hint="sign-up")
     return redirect(url)
@@ -706,9 +716,33 @@ def auth_callback():
     # client_id comes from the browser's own _ga cookie on this request (the
     # WorkOS-hosted-UI redirect back to us); send_event no-ops safely if it's
     # absent or GA isn't configured (dev/staging).
+    report_signup_context = {}
+    try:
+        if bool(getattr(result.user, "email_verified", False)):
+            from lead_attribution import link_confirmed_leads
+            report_signup_context = link_confirmed_leads(db_user.id, result.user.email)
+    except Exception:
+        log.warning("Report-to-account attribution unavailable; authentication continues")
+    acquisition = {}
+    try:
+        # Consume on every successful login, not just signup, so an old CTA
+        # cannot accidentally be attributed to a later account on this browser.
+        acquisition = flask_session.pop("signup_attribution", {})
+    except Exception:
+        log.warning("Signup-entry attribution unavailable; authentication continues")
     if getattr(db_user, "_tw_new_signup", False):
-        send_event(parse_ga_client_id(request), "sign_up", {"method": "workos"},
-                   user_id=str(db_user.id))
+        try:
+            if acquisition or report_signup_context:
+                write_audit(actor_label="signup_attribution", action="signup_attributed",
+                            target_user_id=db_user.id,
+                            details={**acquisition, **report_signup_context})
+        except Exception:
+            log.warning("Signup attribution unavailable; authentication continues")
+        try:
+            send_event(parse_ga_client_id(request), "sign_up",
+                       {"method": "workos", **acquisition, **report_signup_context}, user_id=str(db_user.id))
+        except Exception:
+            log.warning("Signup analytics unavailable; authentication continues")
 
     # F2.1 - Build redirect with strict same-origin path validation. Rejects:
     #   "//evil.com/x"   protocol-relative
@@ -1399,12 +1433,12 @@ def _update_lead(lead_id, status, detail=None, sent=False):
     from models import EmailLead
     s = DBSession()
     try:
-        lead = s.get(EmailLead, _uuid.UUID(str(lead_id)))
+        lead = s.get(EmailLead, _uuid.UUID(str(lead_id)), with_for_update=True)
         if not lead:
             return
         lead.status = status
         if detail is not None:
-            lead.detail = detail
+            lead.detail = {**(lead.detail or {}), **detail}
         if sent:
             lead.sent_at = func.now()
         s.commit()
@@ -1434,7 +1468,9 @@ def api_lead_report():
     raw    = data.get("tickers") or []
     if isinstance(raw, str):
         raw = [raw]
-    source = (data.get("source") or "home_free_report").strip()[:60]
+    from lead_attribution import normalize_source, report_context, report_event
+    source = normalize_source(data.get("source") or "home_free_report")
+    attribution = report_context(request, data)
 
     # Normalize: uppercase, ticker-safe chars only, dedupe, cap at 3.
     seen, tickers = set(), []
@@ -1518,6 +1554,7 @@ def api_lead_report():
     try:
         lead = EmailLead(email=email, tickers=tickers, source=source,
                          status="pending_confirm", confirm_token=confirm_token,
+                         detail={"attribution": attribution},
                          user_agent=ua, ip_hash=ip_hashed,
                          user_id=(user.id if user is not None else None))
         s.add(lead); s.commit()
@@ -1544,6 +1581,7 @@ def api_lead_report():
         except Exception as e:
             log.exception("api_lead_report confirm-email send failed: %s", e)
 
+    report_event("free_report_submitted", source, attribution, len(tickers))
     threading.Thread(target=_send_confirm, args=(email, confirm_url, tickers, sender),
                      daemon=True).start()
     return jsonify({"ok": True}), 200
@@ -1566,7 +1604,7 @@ def api_lead_report_confirm():
     tickers = []
     try:
         lead = s.execute(
-            select(EmailLead).where(EmailLead.confirm_token == token)
+            select(EmailLead).where(EmailLead.confirm_token == token).with_for_update()
         ).scalar_one_or_none()
         if lead is None:
             return seasonal_report.render_confirm_landing("invalid"), 404
@@ -1578,6 +1616,8 @@ def api_lead_report_confirm():
         lead.confirmed_at = func.now()
         s.commit()
         lead_id = str(lead.id); email = lead.email; tickers = list(lead.tickers or [])
+        source = lead.source
+        attribution = (lead.detail or {}).get("attribution", {})
     except Exception as e:
         s.rollback()
         log.exception("api_lead_report_confirm failed: %s", e)
@@ -1586,6 +1626,9 @@ def api_lead_report_confirm():
         s.close()
 
     sender = getattr(config, "LEAD_EMAIL_FROM", "") or getattr(config, "SUPPORT_EMAIL_FROM", "")
+
+    from lead_attribution import report_event
+    report_event("free_report_confirmed", source, attribution, len(tickers))
 
     # Now (and only now) build + send the full report, off the request path.
     def _worker(lead_id, tickers, email):
@@ -1604,8 +1647,8 @@ def api_lead_report_confirm():
                 return
             unsub = _unsub_url(email)
             cta_mode = account_cta_mode(email)   # adapt the CTA if they already have an account
-            html = seasonal_report.render_email_html(rep, unsubscribe_url=unsub, cta_mode=cta_mode)
-            text = seasonal_report.render_email_text(rep, unsubscribe_url=unsub, cta_mode=cta_mode)
+            html = seasonal_report.render_email_html(rep, unsubscribe_url=unsub, cta_mode=cta_mode, source=source)
+            text = seasonal_report.render_email_text(rep, unsubscribe_url=unsub, cta_mode=cta_mode, source=source)
             subj = "Your Seasonal Report: " + ", ".join(t["symbol"] for t in rep["tickers"])
             ok = resend_send_email(to=email, subject=subj, body_text=text, html=html,
                                    from_addr=sender, reply_to="hello@tradewave.ai",
@@ -1620,6 +1663,8 @@ def api_lead_report_confirm():
                          {"covered": [t["symbol"] for t in rep["tickers"]],
                           "not_covered": rep["not_covered"], "as_of": rep["as_of"].isoformat()},
                          sent=ok)
+            if ok:
+                report_event("free_report_sent", source, attribution, len(rep["tickers"]))
         except Exception as e:
             log.exception("api_lead_report_confirm worker failed lead=%s: %s", lead_id, e)
             _update_lead(lead_id, "failed", {"error": str(e)[:200]})

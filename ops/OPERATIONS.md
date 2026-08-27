@@ -66,6 +66,48 @@ rollback rehearsal begin when staging is requested. A base unit or `/home/flask`
 still does not prove activation when a drop-in points at `.tw2-app-current`.
 `verify_deploy.sh` reporting `CLEAN` is supporting evidence only.
 
+### Homepage Content and Report-Funnel Changes
+
+For a homepage content-only edit, run the candidate's
+`site/generate_home_page.py --content-only` with the environment loaded. This
+reuses the latest logged daily pick instead of invoking the pick selector/writer.
+`--output-dir <isolated-preview-dir>` emits a review page and its assets without
+replacing live `home.html`. It still reads quotes/prices and refreshes the derived
+featured-chart SVG; it is not an offline render. Never use the ordinary daily-pick
+writer merely to publish copy. Keep the existing ledger checksum unchanged.
+
+Before activation, retain the actual served `/var/www/tradewave/home.html`, active
+source template/generator, effective nginx snippet and resolved application/build
+pointers. The 2026-08-27 report-card change's exact pre-change copy is in
+`/var/lib/tradewave/homepage-backups/20260827-report-funnel` on DEV; its
+`rollback.sh` restores the page, web runtime pointer and nginx snippet without
+touching the database or unrelated application files. The saved page is a point-in-time
+snapshot, including its then-current prices/track record. For a later design-only
+rollback, restore the saved source in a new task and regenerate current data using
+`--content-only`; do not restore an old application pointer over subsequent releases.
+
+Report-funnel backend changes restart only `tradewave-web`; homepage-only changes
+need regeneration, not a React build. GA4 browser collection requires the canonical
+`ops/nginx/snippets/security_headers.conf`: Google Tag Manager in `script-src`,
+GA/Analytics collection origins in `connect-src`. Both staging bootstrap paths
+carry the same policy. `ops/deploy.sh` already installs this snippet, so qualified
+staging/production promotion needs no manual generated-page patch. Validate nginx
+before reload. Reference: https://developers.google.com/tag-platform/security/guides/csp
+
+Production collection additionally requires `TW2_GA_MEASUREMENT_ID` and
+`GA4_MP_API_SECRET` in the web service environment, followed by a web restart and
+fresh homepage generation. The 2026-08-27 read-only audit found the measurement ID
+present but the MP secret absent, and the live CSP still blocked collection.
+An authorized human operator must enable the secret during production promotion;
+never print it or route it through chat. Keep DEV/staging off the production GA
+property. Verify accepted browser/server events in GA after promotion before
+claiming collection is live; the DEV tests use mocks and the test database only.
+Durable stage definitions and known limits live in the ecosystem doc's
+"Free-report acquisition and attribution" entry. No report email, billing event,
+production configuration change, or historical backfill is part of the DEV smoke.
+
+### Static Regeneration and Release Coordination
+
 Static-site regeneration remains fail-closed for generator, authentication, and
 write failures. `home_opportunities.py` has one explicit data-empty outcome: when
 there are no qualifying Long patterns it exits `2` and promises to leave the

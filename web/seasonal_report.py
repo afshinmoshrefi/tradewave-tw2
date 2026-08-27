@@ -413,7 +413,14 @@ def _cta_button(label, url):
 #  upgrade  = free Explorer (no score) -> unlock it.
 # Copy is compliance-clean: the score is per-stock (singular), present-tense ("how strong now"),
 # explicitly "never predicts the outcome" - no forward/"this year" claim.
-def _cta_band(mode, signup_url):
+def _attributed_url(url, source):
+    if not source:
+        return url
+    from lead_attribution import normalize_source
+    return url + "&utm_content=" + quote(normalize_source(source), safe="")
+
+
+def _cta_band(mode, signup_url, source=None):
     modes = {
         "signup": ("Signal or Noise",
             "The Receipts Show What Happened. The Score Shows How Strong the Pattern Is Now",
@@ -429,14 +436,14 @@ def _cta_band(mode, signup_url):
             "You have a TradeWave account, so the AI calibration on these patterns is already yours. Open "
             "them live, change the window, stretch the lookback, and ask Tara which of your stocks looks "
             "strongest right now.",
-            "Open in TradeWave", APP_URL,
+            "Open in TradeWave", _attributed_url(APP_URL, source),
             "Signed in already? This opens straight to your stocks."),
         "upgrade": ("Signal or Noise",
             "You Have the Receipts. Unlock the Calibrated Score on Your Stocks",
             "Your free plan shows the historical record above. The AI calibration - how strong each pattern "
             "looks now against its own history, signal or noise - is on Analyst and up, and it never "
             "predicts the outcome. Unlock it and ask Tara which of your stocks looks strongest right now.",
-            "Unlock the Calibrated Score", UPGRADE_URL,
+            "Unlock the Calibrated Score", _attributed_url(UPGRADE_URL, source),
             "Cancel anytime."),
     }
     eyebrow, headline, body, btn, url, micro = modes.get(mode, modes["signup"])
@@ -463,12 +470,12 @@ _EMAIL_STYLE = (
 
 def render_email_html(data, unsubscribe_url="{{ unsubscribe_url }}",
                       mailing_address="1 Washington Mall #1129, Boston, MA 02108",
-                      cta_mode="signup"):
+                      cta_mode="signup", source=None):
     syms = [t["symbol"] for t in data["tickers"]]
     sym_list = ", ".join(syms) if syms else "your stocks"
     # carry their tickers into signup so the FIRST post-signup screen can deliver the
     # promised payoff (their calibrated scores) instead of dumping them in a blank app.
-    signup_url = SIGNUP_URL + (("&tickers=" + quote(",".join(syms), safe="")) if syms else "")
+    signup_url = _attributed_url(SIGNUP_URL, source) + (("&tickers=" + quote(",".join(syms), safe="")) if syms else "")
     cards = "".join(_ticker_card(t, data["as_of_label"]) for t in data["tickers"])
     notcov = ""
     if data.get("not_covered"):
@@ -528,13 +535,13 @@ def render_email_html(data, unsubscribe_url="{{ unsubscribe_url }}",
         SANS=SANS, MONO=MONO, style=_EMAIL_STYLE, pre=preheader,
         syms=_html.escape(sym_list), asof=data["as_of_label"], notcov=notcov,
         cards=cards, howto=_how_to_read(),
-        cta_block=_cta_band(cta_mode, signup_url),
+        cta_block=_cta_band(cta_mode, signup_url, source),
         disc=_DISCLAIMER, unsub=unsubscribe_url, addr=mailing_address)
 
 
 def render_email_text(data, unsubscribe_url="{{ unsubscribe_url }}",
                       mailing_address="1 Washington Mall #1129, Boston, MA 02108",
-                      cta_mode="signup"):
+                      cta_mode="signup", source=None):
     lines = ["TradeWave - Your Seasonal Report", "As of %s" % data["as_of_label"], ""]
     lines.append("Historical seasonal record for the symbols you entered. Educational "
                  "research only, not advice. Past results never guarantee future ones.")
@@ -552,10 +559,10 @@ def render_email_text(data, unsubscribe_url="{{ unsubscribe_url }}",
         lines.append("Not in our 15 markets yet: %s" % ", ".join(data["not_covered"]))
         lines.append("")
     _syms = [t["symbol"] for t in data["tickers"]]
-    _su = SIGNUP_URL + (("&tickers=" + quote(",".join(_syms), safe="")) if _syms else "")
+    _su = _attributed_url(SIGNUP_URL, source) + (("&tickers=" + quote(",".join(_syms), safe="")) if _syms else "")
     lines.append({
-        "open_app": "You already have a TradeWave account - open these in your app: %s" % APP_URL,
-        "upgrade":  "Unlock the AI calibration on your stocks (Analyst and up): %s" % UPGRADE_URL,
+        "open_app": "You already have a TradeWave account - open these in your app: %s" % _attributed_url(APP_URL, source),
+        "upgrade":  "Unlock the AI calibration on your stocks (Analyst and up): %s" % _attributed_url(UPGRADE_URL, source),
     }.get(cta_mode,
           "See the calibrated score on your stocks - full access free for 7 days, no card: %s" % _su))
     lines.append("")
