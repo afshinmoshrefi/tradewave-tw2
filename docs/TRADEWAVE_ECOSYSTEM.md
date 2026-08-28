@@ -524,6 +524,23 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   (unfixed root, symptom neutralized by the years snap): the opp-years cookie slot is keyed
   on the WAVE-VIEWER's `PEselected`, not the opp table's own `showPEOpps` toggle, so a
   PE-slot years value can be restored into cons mode (`App.js getOppYearsForGroup` callers).
+- **Start-date / trend-start pairing (fixed 2026-08-28):** the trend chart is fetched at
+  `chart_start_date = startDate - trend_chart_left_gap_days` (14, `Common.js`), and
+  `resolveTrendChartDateRequest` (`trendChartRequestState.js`) REFUSES to build the URL unless
+  the stored `trendChartStartDate` still equals that derived value - a deliberate guard against
+  pairing a stale trend start with a new symbol/date mid-transition. INVARIANT: every control
+  that moves the opportunity start MUST move the trend start in the same update. Two controls
+  did not, and both stranded the viewer: `SeasonalBarChart.handleDateNudge` (the start-date
+  arrows) never set it at all, and `SeasonalChart`'s left-edge drag set it only when the new
+  start fell outside the loaded seasonal data. The failure is DELAYED and therefore confusing -
+  nothing breaks at the moment of the nudge, because the already-rendered chart stays up; the
+  next action that clears `consolidatedSeasonalData` and needs a refetch (a years change, a PE
+  cycle change) is gated off, so the trend chart never returns AND every stat reading the same
+  data goes blank. Server-side is NOT involved: `/consolidated_seasonal_chart2` returns 365
+  points for both `pe2-12` and `pe2-6` on the same cross-year window. Both controls now derive
+  the pair through `startDateNudge.js` (`resolveStartDateNudge` / `trendChartStartDateFor`); the
+  drag still skips blanking the seasonal data when the window stays inside the loaded range, and
+  because it updates on mouse-up it costs one trend fetch per drag, not one per pixel.
 - **Wave-viewer years selector overflow clamp (`SeasonalBarChart.js` ~283-297, fixed
   2026-07-09):** the years `<select>` is CONTROLLED; if `seasonalYears` exceeds every
   option (e.g. cons 95yr then switch regime to PE+2 whose list is 3..24), the browser

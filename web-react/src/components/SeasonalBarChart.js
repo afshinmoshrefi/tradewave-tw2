@@ -36,6 +36,7 @@ import {
   taraViewKey,
 } from './taraActionContract'
 import { resolveTrendChartDateRequest } from './trendChartRequestState'
+import { resolveStartDateNudge } from './startDateNudge'
 import {
   VIEWER_CYCLE_CHANGE_EVENT,
   isViewerCycle,
@@ -1757,12 +1758,18 @@ const SeasonalBarChart = (props) => {
   // describes the exact currently displayed view.
   //-----------------------------------------------------------------------------------------------------------
   const handleDateNudge = (direction) => {
-    const newDaysOut = parseInt(props.daysOut) - direction
-    if (newDaysOut < 2 || newDaysOut > 366) return
-    const newDate = incrementDate(props.startDate, direction)
-    if (direction < 0 && props.consolidatedSeasonalData.length > 0 && newDate < props.consolidatedSeasonalData[0][0]) return
-    props.SetStartDate(newDate)
-    props.SetDaysOut(String(newDaysOut))
+    const nudge = resolveStartDateNudge({
+      startDate: props.startDate,
+      daysOut: props.daysOut,
+      direction,
+      consolidatedSeasonalData: props.consolidatedSeasonalData,
+    })
+    if (!nudge.ok) return
+    props.SetStartDate(nudge.startDate)
+    props.SetDaysOut(nudge.daysOut)
+    // The trend start must move with the opportunity start or every later trend
+    // request is gated off as an unsettled pair - see startDateNudge.js.
+    props.SetTrendChartStartDate(nudge.trendChartStartDate)
     setSelectedOppBySymbol('')
   }
   //-----------------------------------------------------------------------------------------------------------

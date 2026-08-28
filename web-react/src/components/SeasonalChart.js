@@ -21,6 +21,7 @@ import { BsFillCircleFill } from "react-icons/bs";
 import { brand, trend_chart_left_gap_days } from './Common'
 import { peCycleAfterYearDelta } from './viewerCycleState'
 import { getTrendChartResizeTooltips } from './trendChartResizeTooltips'
+import { trendChartStartDateFor } from './startDateNudge'
 
 const SeasonalChart = (props) => {
 
@@ -810,14 +811,20 @@ const SeasonalChart = (props) => {
                     props.SetDaysOut(days);
                     props.SetMonthsAndQtrs('Months & Qtrs');
 
-                    // Only refresh the trend chart if the new start date falls outside
-                    // the existing chart data range, otherwise just let the window move
+                    // The trend start is derived from the opportunity start, and the
+                    // trend request is gated off unless the two still match, so it has
+                    // to move on EVERY drag - not only the ones that refetch. Leaving it
+                    // behind used to strand the trend chart and the stats that read the
+                    // same data until the symbol changed. This runs on mouse-up, so it
+                    // costs one trend fetch per drag, not one per pixel.
+                    props.SetTrendChartStartDate(trendChartStartDateFor(new_opp_date));
+
+                    // Only blank the loaded seasonal data when the new start falls
+                    // outside it; inside the loaded range the window just moves.
                     const chartData = props.consolidatedSeasonalData;
                     const needsRefresh = !chartData || chartData.length === 0
                         || new_opp_date < chartData[0][0];
                     if (needsRefresh) {
-                        const trend_start = incrementDate(new_opp_date, -trend_chart_left_gap_days);
-                        props.SetTrendChartStartDate(trend_start);
                         props.SetConsolidatedSeasonalData([]);
                     }
 
