@@ -1,9 +1,29 @@
 ﻿export const EMPTY_DAY_RANGE = '-'
 
-const TYPOGRAPHIC_DASH_PATTERN = /[\u2010-\u2015\u2212]/g
+// Filter text is frequently pasted (from the filtering help popup, a chat
+// reply, a doc, a spreadsheet) rather than typed. Pasted text carries dash
+// look-alikes and invisible formatting characters that render exactly like the
+// documented ASCII form, so "10-90" can look correct on screen and still miss
+// every filter pattern. Fold those to their ASCII equivalent BEFORE parsing:
+// otherwise the segment falls through to the ticker-shape check and is
+// reported as an unknown filter the user cannot see anything wrong with.
+
+// Zero-width and joiner characters carry no meaning here - drop them outright.
+const INVISIBLE_PATTERN = /[\u200B-\u200D\u2060\uFEFF]/g
+
+// Every hyphen/dash/minus look-alike, plus the soft hyphen (U+00AD), which is
+// invisible on screen but sits exactly where a user believes a hyphen is.
+const TYPOGRAPHIC_DASH_PATTERN =
+  /[\u00AD\u058A\u05BE\u1400\u1806\u2010-\u2015\u2043\u2212\u2E17\u2E1A\u2E3A\u2E3B\u2E40\u301C\u3030\u30A0\uFE31\uFE32\uFE58\uFE63\uFF0D]/g
+
+// Full-width forms arrive from IME keyboards and from spreadsheet exports.
+const FULLWIDTH_PATTERN = /[\uFF01-\uFF5E]/g
+const foldFullwidth = (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0)
 
 export const normalizeOpportunityFilterText = (filterText) => String(filterText || '')
+  .replace(INVISIBLE_PATTERN, '')
   .replace(TYPOGRAPHIC_DASH_PATTERN, '-')
+  .replace(FULLWIDTH_PATTERN, foldFullwidth)
 
 const splitFilterSegments = (filterText) => normalizeOpportunityFilterText(filterText)
   .split(';')

@@ -524,6 +524,25 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   (unfixed root, symptom neutralized by the years snap): the opp-years cookie slot is keyed
   on the WAVE-VIEWER's `PEselected`, not the opp table's own `showPEOpps` toggle, so a
   PE-slot years value can be restored into cons mode (`App.js getOppYearsForGroup` callers).
+- **Opp-table filter parsing (`web-react/src/components/opportunityFilters.js`):** the filter
+  box is parsed CLIENT-side only; `analyzeOpportunityFilter` classifies each `;`-separated
+  segment as valid / incomplete / invalid, and `TableBox.js` renders an invalid one as
+  `Invalid filter: <message>`. Order matters: documented command patterns are tested first,
+  then the day range `\d+-\d+`, then command prefixes, and ONLY THEN the catch-all
+  `TICKER_SEARCH_PATTERN` (`/^[a-z][a-z0-9.-]{0,4}$/i`). Anything reaching that last check and
+  failing it is reported as `Unknown filter "<segment>"`. INVARIANT: because that fallback is
+  strict, ALL text normalization must happen up front in `normalizeOpportunityFilterText`,
+  which runs inside `splitFilterSegments` before any pattern is tested. Filter text is usually
+  PASTED (the filtering help popup documents `10-90` verbatim), so it carries characters that
+  render identically to the ASCII form: soft hyphen U+00AD, zero-width spaces U+200B-U+200D /
+  U+2060 / U+FEFF, hyphen look-alikes (U+2043, U+FE63, U+FF0D, U+058A, U+2E3A ...), and
+  full-width digits/operators U+FF01-U+FF5E. Before 2026-08-28 normalization folded only
+  U+2010-U+2015 and U+2212, so a pasted `10-90` could fail while looking perfectly correct on
+  screen AND in the error message - the invisible character is echoed back invisibly. Fixed by
+  widening the normalizer (drop zero-width, fold every dash look-alike, fold full-width forms);
+  regression tests live in `opportunityFilters.test.js`. DIAGNOSTIC NOTE: this class of report
+  presents as "works on dev, fails on production" even though dev and prod serve the SAME
+  bundle - always compare the deployed bundles by checksum before assuming a code difference.
 - **Wave-viewer years selector overflow clamp (`SeasonalBarChart.js` ~283-297, fixed
   2026-07-09):** the years `<select>` is CONTROLLED; if `seasonalYears` exceeds every
   option (e.g. cons 95yr then switch regime to PE+2 whose list is 3..24), the browser

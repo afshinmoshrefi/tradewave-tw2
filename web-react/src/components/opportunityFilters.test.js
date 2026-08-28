@@ -80,6 +80,37 @@ test('normalizes common pasted dash characters to the documented hyphen', () => 
   expect(normalizeOpportunityFilterText('10‑90; sr>1')).toBe('10-90; sr>1')
 })
 
+test('strips invisible characters that make a correct-looking filter fail', () => {
+  // These render as "10-90" (or hide entirely) but are not ASCII, so the
+  // parser used to reject them as an unknown filter.
+  expect(normalizeOpportunityFilterText('10\u00AD90')).toBe('10-90')
+  expect(normalizeOpportunityFilterText('10\u200B-\u200B90')).toBe('10-90')
+  expect(normalizeOpportunityFilterText('10\uFEFF-90')).toBe('10-90')
+  expect(normalizeOpportunityFilterText('10\uFF0D90')).toBe('10-90')
+  expect(normalizeOpportunityFilterText('10\uFE6390')).toBe('10-90')
+  expect(normalizeOpportunityFilterText('10\u204390')).toBe('10-90')
+})
+
+test('folds full-width digits and operators to the documented ASCII form', () => {
+  expect(normalizeOpportunityFilterText('\uFF11\uFF10-\uFF19\uFF10')).toBe('10-90')
+  expect(normalizeOpportunityFilterText('sr\uFF1E1')).toBe('sr>1')
+  expect(normalizeOpportunityFilterText('10-90\uFF1Bavgp>4')).toBe('10-90;avgp>4')
+})
+
+test.each([
+  '10\u00AD90',
+  '10\u200B-\u200B90',
+  '10\uFF0D90',
+  '10\uFE6390',
+  '10\u204390',
+  '\uFF11\uFF10-\uFF19\uFF10',
+])('accepts a day range carrying invisible or full-width characters: %j', (filterText) => {
+  expect(analyzeOpportunityFilter(filterText)).toMatchObject({ status: 'valid' })
+  expect(getOpportunityDayRange(filterText)).toBe('10-90')
+  expect(filterOpportunityRows(rows, filterText).map(row => row.symbol))
+    .toEqual(['LOW', 'GOOD', 'EDGE'])
+})
+
 test.each(['10‐90', '10‑90', '10‒90', '10–90', '10—90', '10―90', '10−90'])(
   'accepts a pasted typographic day range: %s',
   (filterText) => {
