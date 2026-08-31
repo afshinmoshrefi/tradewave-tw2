@@ -754,7 +754,7 @@ const SeasonalBarChart = (props) => {
       controller.abort()
     }
     const unregisterAbort = typeof props.RegisterTaraLoadAbort === 'function'
-      ? props.RegisterTaraLoadAbort(loadGeneration, abortRequest)
+      ? props.RegisterTaraLoadAbort(loadGeneration, abortRequest, requestKey)
       : () => {}
     clearCaptureReady('seasonal')
     reportViewerLoad('primary', 'loading', requestView, loadGeneration)
@@ -1229,7 +1229,7 @@ const SeasonalBarChart = (props) => {
     }
     const unregisterAbort = (
       typeof props.RegisterTaraLoadAbort === 'function'
-        ? props.RegisterTaraLoadAbort(loadGeneration, abortRequest)
+        ? props.RegisterTaraLoadAbort(loadGeneration, abortRequest, taraViewKey(requestView))
         : null
     ) || (() => {})
     clearCaptureReady('trendChart')

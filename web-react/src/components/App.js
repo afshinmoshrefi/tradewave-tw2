@@ -52,6 +52,7 @@ import {
   taraViewKey,
   TARA_ACTION_TIMEOUT_MS,
 } from './taraActionContract'
+import { createTaraLoadAborters } from './taraLoadAborters'
 import { CHATBOT_OPEN_KEY, resolveChatbotOpen } from './leftPanelState'
 import { TARA_PANEL_OPEN_KEY, hasTaraPanelLayout, initialTaraPanelOpen } from './taraPanelPreference'
 import { normalizeBarChartExcursionStyle } from './barChartExcursion'
@@ -608,7 +609,7 @@ const App = () => {
   const [taraLoadGeneration, SetTaraLoadGeneration] = useState(0);
   const [taraBottomSlideRequest, SetTaraBottomSlideRequest] = useState(null);
   const [taraBottomSlideApplied, SetTaraBottomSlideApplied] = useState(null);
-  const taraAbortersRef = useRef(new Map());
+  const taraAbortersRef = useRef(createTaraLoadAborters());
   const chatbotTipTimerRef = useRef(null);
   const queryStringLoadedRef = useRef(false);
   const askHandledRef = useRef(false);  // one-shot guard for home-page ?ask= deep-link
@@ -964,32 +965,14 @@ const App = () => {
     return match ? String(match[0]) : '';
   }, [resourceObj]);
 
-  const registerTaraLoadAbort = useCallback((generation, abortLoad) => {
-    if (!Number.isInteger(generation) || typeof abortLoad !== 'function') {
-      return () => {};
-    }
-    if (!taraAbortersRef.current.has(generation)) {
-      taraAbortersRef.current.set(generation, new Set());
-    }
-    const aborters = taraAbortersRef.current.get(generation);
-    aborters.add(abortLoad);
-    return () => {
-      aborters.delete(abortLoad);
-      if (aborters.size === 0) taraAbortersRef.current.delete(generation);
-    };
-  }, []);
+  // requestKey scopes both calls to one transaction's own loads - see
+  // taraLoadAborters.js for why the generation alone is not specific enough.
+  const registerTaraLoadAbort = useCallback((generation, abortLoad, requestKey) => (
+    taraAbortersRef.current.register(generation, abortLoad, requestKey)
+  ), []);
 
-  const cancelTaraLoadGeneration = useCallback((generation) => {
-    const aborters = taraAbortersRef.current.get(generation);
-    if (!aborters) return;
-    for (const abortLoad of aborters) {
-      try {
-        abortLoad();
-      } catch (err) {
-        console.warn('Tara load cancellation failed:', err?.message || err);
-      }
-    }
-    taraAbortersRef.current.delete(generation);
+  const cancelTaraLoadGeneration = useCallback((generation, requestKey) => {
+    taraAbortersRef.current.cancel(generation, requestKey);
   }, []);
 
   // Accept and apply a server-validated Tara transaction. This function
@@ -1345,8 +1328,9 @@ const App = () => {
   useEffect(() => {
     if (!taraActionState || taraActionState.status !== 'loading') return undefined;
     const generation = taraActionState.load_generation;
+    const requestKey = taraActionState.request_key;
     const timer = setTimeout(() => {
-      if (Number.isInteger(generation)) cancelTaraLoadGeneration(generation);
+      if (Number.isInteger(generation)) cancelTaraLoadGeneration(generation, requestKey);
       SetTaraActionState(prev => (
         prev && prev.status === 'loading'
           ? { ...prev, status: 'failed', reason: 'chart_load_timeout', finished_at: Date.now() }
@@ -1366,9 +1350,12 @@ const App = () => {
       || !Number.isInteger(taraActionState.load_generation)
     ) return;
     if (taraActionState.status === 'failed') {
-      cancelTaraLoadGeneration(taraActionState.load_generation);
+      cancelTaraLoadGeneration(
+        taraActionState.load_generation,
+        taraActionState.request_key,
+      );
     } else {
-      taraAbortersRef.current.delete(taraActionState.load_generation);
+      taraAbortersRef.current.release(taraActionState.load_generation);
     }
   }, [
     taraActionState,

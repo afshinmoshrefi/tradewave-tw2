@@ -543,6 +543,27 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   regression tests live in `opportunityFilters.test.js`. DIAGNOSTIC NOTE: this class of report
   presents as "works on dev, fails on production" even though dev and prod serve the SAME
   bundle - always compare the deployed bundles by checksum before assuming a code difference.
+- **Tara load generations are NOT request identity (fixed 2026-08-31):** every viewer fetch
+  registers an abort callback under `taraLoadGeneration`, and a terminating Tara transaction
+  cancels that generation so a late response cannot repaint a chart it no longer owns. The
+  generation is bumped ONLY by a Tara action, so a request the USER starts after the
+  transaction reaches a terminal state reuses the same generation. Cancelling generation-wide
+  therefore aborted the user's own next chart load: after Tara's 100-Year Pattern view
+  (`market 5 / SPX / pe2`), the FIRST manual change (a Months & Qtrs month, a date, a years
+  value) was aborted before its request left the browser, and because an aborted fetch hits
+  `if (err?.name === 'AbortError') return` WITHOUT reporting a terminal state, the viewer stayed
+  pinned at `{primary:'loading', trend:'loading'}` forever - the bar chart and every stat reading
+  the same payload never returned. The SECOND change always worked, because the teardown fires
+  once. INVARIANT: a cancel must be scoped to the transaction's `request_key`, not just its
+  generation (`taraLoadAborters.js`). This does not weaken stale-response protection: while a
+  transaction is loading, `taraActionAllowsViewerRequest` admits a request only when its key
+  already equals the transaction's key, so a scoped cancel covers exactly the same loads; and a
+  late response is independently dropped by the `reqId` staleness guard and by
+  `advanceTaraActionFromViewerReport`, which ignores any report whose key or generation differs.
+  DIAGNOSTIC NOTE: the appserver is not involved - `ChartData4` and `consolidated_seasonal_chart2`
+  both return full payloads for the superseded view. Reproduce in a real browser with the
+  Puppeteer harness (`docs/UI_CAPTURE_PIPELINE.md`) and read the live state out of the React
+  fiber tree; the tell is a viewer request that reports `loading` but never appears on the wire.
 - **Start-date / trend-start pairing (fixed 2026-08-28):** the trend chart is fetched at
   `chart_start_date = startDate - trend_chart_left_gap_days` (14, `Common.js`), and
   `resolveTrendChartDateRequest` (`trendChartRequestState.js`) REFUSES to build the URL unless
