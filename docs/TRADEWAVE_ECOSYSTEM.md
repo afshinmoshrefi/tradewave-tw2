@@ -581,6 +581,22 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   response actually puts rows back (`oppStrandedRecoveryRef`). Bounding it per-URL-forever is not
   enough - a second no-op clear on the same URL strands permanently - and leaving it unbounded
   turns a legitimately empty response into a fetch loop.
+- **An EMPTY opp table used to spin the viewer at ~350 renders/sec (fixed 2026-09-02):** this is
+  what "the controls are locked" actually was. `selectOpportunityMLScoreSource` skips its union
+  cache when either side is empty, so with no visible rows it returned a NEW array every render.
+  That array is a dependency of the ML-score effect, whose empty branch wrote a bare `{}` and a
+  `new Set()` - both fresh identities - which re-rendered, which produced a new array, for ever.
+  Nothing in the UI looked wrong: the table just said it had no patterns. But React flushes a
+  pending update at the start of every DISCRETE event, so each click and keypress first snapped
+  every controlled `<select>` back to its old value and swallowed the checkbox toggle - the PE
+  checkbox, the years and partial-years dropdowns and the date controls all went dead together,
+  and only clearing the filter (which refills the table) released them. Fixed at both ends: the
+  selector returns the snapshot's own array when there is nothing to union, and the effect's empty
+  branch keeps the previous identity. INVARIANT: any value derived during render that feeds an
+  effect's dependency array must be identity-stable, and an effect that "resets" state must never
+  write a fresh object or Set unconditionally. DIAGNOSTIC: measure renders per second before
+  believing a control is inert - a render loop mimics a dead UI exactly, and synthetic events
+  (`page.select`, `el.click()`) mimic it too, so drive real keystrokes and count renders.
 - **The auto-step-down must not overrule the user (2026-09-02):** it exists to rescue a saved or
   derived recurrence that yields nothing. Two guards keep it in its lane. (a) An EXPLICIT pick is
   refused for as long as that value is still selected (`userPickedPYearsRef` holds the value, not

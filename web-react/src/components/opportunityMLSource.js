@@ -72,6 +72,17 @@ export const selectOpportunityMLScoreSource = ({
     nextSnapshot.rows.length > 0 &&
     rows.length > 0 &&
     nextSnapshot.rows !== rows
+  // Nothing visible to union in: hand back the snapshot's own array. Building a
+  // fresh one here returned a NEW identity on every render, and this value is a
+  // dependency of the ML-score effect, whose empty branch writes a fresh {} and
+  // a fresh Set - so an empty table rendered, re-ran the effect, re-rendered,
+  // for ever. A render loop reads as "the controls are locked": React flushes
+  // the pending update at the start of every click and keypress, which snaps a
+  // controlled <select> back to its old value and swallows the change.
+  if (rows.length === 0) {
+    return { snapshot: nextSnapshot, scoreSource: nextSnapshot.rows }
+  }
+
   if (canCacheUnion) {
     const cached = rangedUnionCache.get(nextSnapshot)
     if (

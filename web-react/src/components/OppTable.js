@@ -1292,9 +1292,12 @@ const OppTable = (props) => {
     const tableDate = authoritativeOpportunityTableDate(mlScoreSource)
 
     if (mlScoreSource.length === 0 || !mlEnabled) {
-      SetMLScores({})
+      // Keep the previous identity when it is already empty. A bare {} / new Set()
+      // is a fresh object every time, and this effect depends on a value derived
+      // from the rows - so writing one unconditionally spun the component.
+      SetMLScores(previous => (Object.keys(previous).length === 0 ? previous : {}))
       SetMLScoresLoading(false)
-      SetMLPending(new Set())
+      SetMLPending(previous => (previous.size === 0 ? previous : new Set()))
       SetMLUnavailableReason(!mlEnabled ? 'unsupported_market' : '')
       return
     }

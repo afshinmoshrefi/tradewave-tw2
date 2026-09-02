@@ -126,3 +126,13 @@ test('does not reuse another table context baseline', () => {
     rows: [],
   })
 })
+
+test('keeps a stable score-source identity when the table is empty', () => {
+  // A fresh array here re-ran the ML-score effect, which wrote a fresh {} and a
+  // fresh Set, which re-rendered - a render loop that froze every control.
+  const snapshot = { contextKey: 'k', rows: [{ symbol: 'AAA', date: '2026-09-02', daysOut: 10, lOrS: 'Long' }] }
+  const first = selectOpportunityMLScoreSource({ snapshot, contextKey: 'k', dayRange: '1-30', opportunities: [] })
+  const second = selectOpportunityMLScoreSource({ snapshot: first.snapshot, contextKey: 'k', dayRange: '1-30', opportunities: [] })
+  expect(second.scoreSource).toBe(first.scoreSource)
+  expect(second.snapshot).toBe(first.snapshot)
+})
