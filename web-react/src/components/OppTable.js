@@ -217,13 +217,13 @@ const OppTable = (props) => {
   //  fetch effect, and a deps array that references a const declared later in the file
   //  is a temporal-dead-zone ReferenceError at render - it blanked the whole panel)
 
-  const userChangedPYearsRef = useRef(false)  // true when user explicitly picks a partial years value
+  const userPickedPYearsRef = useRef('')  // the partial-years value the USER explicitly picked, while it is still selected
   const lastOppUrlRef = useRef('')  // last OppList4 URL actually fetched — fetch when the resolved query changes, not when opportunities happens to be empty
   const metaReqRef = useRef(0)      // ordering guard: only the LATEST YearsMetaData2 response may write state (stale/empty responses clobbered the metadata)
   const metaLoadingRef = useRef(false) // synchronous guard: do not validate against metadata from the previous request
   const oppReqRef = useRef(0)       // ordering guard: only the LATEST OppList4 response may write opportunities/activeOpportunities state
   const oppInFlightRef = useRef(false) // true while an OppList4 request is out - lets the dedupe tell "already fetched" from "cleared, nothing coming"
-  const oppStrandedRecoveryRef = useRef('') // last query the stranded-table escape below already retried - bounds it to one attempt
+  const oppStrandedRecoveryRef = useRef('') // query the stranded-table escape already retried - one attempt per populated-then-cleared cycle
 
   // True when moving to nextDayRange actually changes the OppList4 query. The
   // displayed range is not that query: it is converted at the engine boundary,
@@ -556,10 +556,12 @@ const OppTable = (props) => {
       // Safety net for the whole "cleared but never refetched" class: the table
       // is empty, it says it is loading, and no request is actually out. That
       // state can only end in a permanent spinner, so refetch even though the
-      // resolved query is unchanged. ONE attempt per query - a response can
-      // legitimately leave the table empty while this message still reads
-      // "Loading ..." (a watchlist filter that matches none of the returned
-      // rows), and retrying that forever would be a fetch loop.
+      // resolved query is unchanged. ONE attempt per populated-then-cleared
+      // cycle: the budget below is spent here and only given back when a
+      // response actually repopulates the table. A response can legitimately
+      // leave the table empty while this message still reads "Loading ..."
+      // (a watchlist filter matching none of the returned rows) - that never
+      // refunds the budget, so it cannot become a fetch loop.
       const strandedEmptyTable =
         fetchKey === lastOppUrlRef.current &&
         !oppInFlightRef.current &&
@@ -750,6 +752,12 @@ const OppTable = (props) => {
                 tbl_col_reordered_active = tbl_col_reordered_active.filter(row => props.activeWatchlistFilter.symbols.has(row.symbol));
               }
 
+              // Rows are on screen again, so the next time something clears the
+              // table without changing the query, the escape above may run once
+              // more. Every "cleared with nothing coming" gets a recovery; a
+              // response that returns nothing does not, which is what keeps the
+              // escape from looping.
+              if (tbl_col_reordered.length > 0) oppStrandedRecoveryRef.current = ''
               props.SetOpportunities(tbl_col_reordered)
               props.SetActiveOpportunities(tbl_col_reordered_active)
               if (tbl_col_reordered.length > 0) markCaptureReady('oppTable', { rows: tbl_col_reordered.length, month: props.oppTableMonth, day: props.dayOfTheMonth, years: props.oppTableYears })
@@ -815,14 +823,21 @@ const OppTable = (props) => {
 
     if (oppLoadFailed) return; // load failed, not "no results" - don't step down partial years
 
-    if (userChangedPYearsRef.current) {
-      userChangedPYearsRef.current = false; // reset for next context change
-      return;
-    }
+    // An EXPLICIT pick is never auto-overridden. Hold the refusal for as long as
+    // that value is still selected, rather than consuming it on the first pass:
+    // this effect re-runs on every rebuild of the options list, so a one-shot
+    // flag was always spent before the fetch it was meant to protect came back,
+    // and the user's choice silently flipped down a step.
+    if (String(props.oppTablePartialYears) === userPickedPYearsRef.current) return;
 
     // A partially typed or invalid filter is not an empty settled result and
     // must never change recurrence while the user is editing it.
     if (analyzeOpportunityFilter(curText).status !== 'valid') return;
+
+    // Step down only when the SERVER returned no patterns. Rows in hand with
+    // nothing visible means the user's own client-side filter hid them, and
+    // their recurrence setting is not what needs changing.
+    if (props.opportunities.length > 0) return;
 
     // oppTableLength is the visible count after TableBox client-side filtering
     if (props.oppTableLength > 0) return; // user sees results, no step-down needed
@@ -847,7 +862,7 @@ const OppTable = (props) => {
     const nextPY = lowerValid[0]; // DESC order -> closest valid below current
     props.SetOpportunities([]);
     props.SetOppTablePartialYears(String(nextPY));
-  }, [props.oppTableLength, props.oppTablePartialYears, partialSeasonalYearsOptionsList, curText])
+  }, [props.oppTableLength, props.oppTablePartialYears, partialSeasonalYearsOptionsList, curText, props.opportunities.length])
 
   //-------------------------------------------------------------------------------------------------------
   // Fetch stockscores in batch AFTER opportunities load (async - does not block table render)
@@ -2145,7 +2160,7 @@ const OppTable = (props) => {
 
         {/* number of partial years selection  */}
         <div className='opp-table-controls-items' style={{ marginRight: "12px" }} >
-          <SelectBox tooltipContent={'r,' + (props.tooltipSW ? 'TradeWave Probability: Select minimum # of years to filter opportunities in the list. This changes the probability of profitability in the list of opportunities. Currently set to : ' : '') + (parseInt(props.oppTablePartialYears) > 0 && parseInt(props.oppTableYears) > 0 ? Math.round((100 * parseInt(props.oppTablePartialYears) / parseInt(props.oppTableYears))).toString() + '%' : '')} optionList={partialSeasonalYearsOptionsList} value={props.oppTablePartialYears} suffix={oppTablePartialYearsSuffix} name="partialYears" sbChanged={(e) => { userChangedPYearsRef.current = true; props.selectboxChanged(e); }} />
+          <SelectBox tooltipContent={'r,' + (props.tooltipSW ? 'TradeWave Probability: Select minimum # of years to filter opportunities in the list. This changes the probability of profitability in the list of opportunities. Currently set to : ' : '') + (parseInt(props.oppTablePartialYears) > 0 && parseInt(props.oppTableYears) > 0 ? Math.round((100 * parseInt(props.oppTablePartialYears) / parseInt(props.oppTableYears))).toString() + '%' : '')} optionList={partialSeasonalYearsOptionsList} value={props.oppTablePartialYears} suffix={oppTablePartialYearsSuffix} name="partialYears" sbChanged={(e) => { userPickedPYearsRef.current = String(e.target.value); props.selectboxChanged(e); }} />
         </div>
 
         <div style={{ paddingRight: '0%', display: questionDisplay, width: '10%', alignItems: 'center' }}>

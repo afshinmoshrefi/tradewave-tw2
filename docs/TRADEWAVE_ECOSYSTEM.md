@@ -571,6 +571,24 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   later one 500s off the cache, so any day range matching no pattern intermittently showed
   "Data temporarily unavailable". `appserver.py` now restores `opp3columns + opp3_computed_columns`.
   `OppBySymbol` was never affected - it returns early on `opp.empty`.
+- **Clearing the opp table is only safe when the QUERY changes (invariant, 2026-09-02):**
+  `App.js selectboxChanged` calls `SetOpportunities([])` on every years / partial-years pick so
+  a new setting is never shown over old rows, but a pick can resolve to the SAME `OppList4` URL
+  (re-picking the value already selected; a years pick that `resolveOpportunityRecurrence` maps
+  back to the same pair). Cleared rows + a deduped URL = the table strands on `Loading ...` with
+  nothing in flight. The stranded-table escape in the fetch effect is the general cure, and its
+  BUDGET is the subtle part: one attempt per populated-then-cleared cycle, refunded only when a
+  response actually puts rows back (`oppStrandedRecoveryRef`). Bounding it per-URL-forever is not
+  enough - a second no-op clear on the same URL strands permanently - and leaving it unbounded
+  turns a legitimately empty response into a fetch loop.
+- **The auto-step-down must not overrule the user (2026-09-02):** it exists to rescue a saved or
+  derived recurrence that yields nothing. Two guards keep it in its lane. (a) An EXPLICIT pick is
+  refused for as long as that value is still selected (`userPickedPYearsRef` holds the value, not
+  a one-shot boolean - the effect re-runs on every rebuild of `partialSeasonalYearsOptionsList`,
+  so a one-shot flag is always spent before the fetch it was protecting returns, and the user's
+  choice flips down a step on its own). (b) It fires only when the SERVER returned no patterns
+  (`props.opportunities.length > 0` -> return); rows in hand with nothing visible means a
+  client-side filter hid them, which is not a reason to change recurrence.
 - **Tara load generations are NOT request identity (fixed 2026-08-31):** every viewer fetch
   registers an abort callback under `taraLoadGeneration`, and a terminating Tara transaction
   cancels that generation so a late response cannot repaint a chart it no longer owns. The
