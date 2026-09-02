@@ -223,7 +223,8 @@ const OppTable = (props) => {
   const metaLoadingRef = useRef(false) // synchronous guard: do not validate against metadata from the previous request
   const oppReqRef = useRef(0)       // ordering guard: only the LATEST OppList4 response may write opportunities/activeOpportunities state
   const oppInFlightRef = useRef(false) // true while an OppList4 request is out - lets the dedupe tell "already fetched" from "cleared, nothing coming"
-  const oppStrandedRecoveryRef = useRef('') // query the stranded-table escape already retried - one attempt per populated-then-cleared cycle
+  const oppSettledKeyRef = useRef('')   // the OppList4 query whose response has already landed
+  const oppSettledRowsRef = useRef(0)   // how many rows that response produced - 0 means the query itself is empty
 
   // True when moving to nextDayRange actually changes the OppList4 query. The
   // displayed range is not that query: it is converted at the engine boundary,
@@ -553,23 +554,25 @@ const OppTable = (props) => {
         ? `|wl=${props.activeWatchlistFilter.name}:${props.activeWatchlistFilter.symbols ? props.activeWatchlistFilter.symbols.size : 'pending'}`
         : ''
       const fetchKey = url + wlSig
-      // Safety net for the whole "cleared but never refetched" class: the table
-      // is empty, it says it is loading, and no request is actually out. That
-      // state can only end in a permanent spinner, so refetch even though the
-      // resolved query is unchanged. ONE attempt per populated-then-cleared
-      // cycle: the budget below is spent here and only given back when a
-      // response actually repopulates the table. A response can legitimately
-      // leave the table empty while this message still reads "Loading ..."
-      // (a watchlist filter matching none of the returned rows) - that never
-      // refunds the budget, so it cannot become a fetch loop.
+      // Safety net for the whole "cleared but never refetched" class. Several
+      // controls clear the rows to avoid showing a new setting over old data
+      // (App.js selectboxChanged, the PE toggle, the filter handlers), but a
+      // control can resolve to the query that is ALREADY loaded - re-picking
+      // the selected value, a years pick that maps back to the same pair, a PE
+      // round trip. The dedupe then skips the request meant to refill the table
+      // and the panel is stuck with a dead-looking control.
+      //
+      // The test is exact, so it needs no retry budget and cannot loop: this
+      // very query has already completed AND it returned rows, yet the table is
+      // empty - so something cleared it and nothing is coming. A query that
+      // legitimately returns nothing records 0 rows and is never refetched.
       const strandedEmptyTable =
         fetchKey === lastOppUrlRef.current &&
         !oppInFlightRef.current &&
-        oppStrandedRecoveryRef.current !== fetchKey &&
-        props.opportunities.length === 0 &&
-        initialMessage === 'Loading ...'
+        oppSettledKeyRef.current === fetchKey &&
+        oppSettledRowsRef.current > 0 &&
+        props.opportunities.length === 0
       if (token.length > 0 && (fetchKey !== lastOppUrlRef.current || strandedEmptyTable)) {
-        if (strandedEmptyTable) oppStrandedRecoveryRef.current = fetchKey
         lastOppUrlRef.current = fetchKey
         oppInFlightRef.current = true
         const oppReqId = ++oppReqRef.current // ordering guard: a slow older response must not clobber a newer one
@@ -606,7 +609,15 @@ const OppTable = (props) => {
             if (oppReqId !== oppReqRef.current) return; // a newer OppList4 request has since started - drop this stale response
             if (opps !== undefined) {
               if (opps['OppList'].length === 0 || opps['OppList'].includes('-1')) {
-                SetInitialMessage('* No seasonal patterns found for the current selection');
+                // Name the day range when one is active. The server applies it
+                // before ranking, so it - not the market/date/recurrence - is
+                // usually why nothing came back, and "no patterns for the
+                // current selection" sent people hunting through the dropdowns.
+                SetInitialMessage(
+                  dayRange !== EMPTY_DAY_RANGE
+                    ? `* No patterns between ${dayRange.replace('-', ' and ')} days for the current selection - widen or clear the day filter`
+                    : '* No seasonal patterns found for the current selection'
+                );
               }
               else SetInitialMessage('Loading ...')
 
@@ -617,6 +628,8 @@ const OppTable = (props) => {
               // on the string and the catch mislabels it "Data temporarily
               // unavailable" instead of showing the no-patterns message above.
               if (!Array.isArray(opps['OppList'])) {
+                oppSettledKeyRef.current = fetchKey
+                oppSettledRowsRef.current = 0
                 props.SetOpportunities([]);
                 props.SetActiveOpportunities([]);
                 return;
@@ -752,12 +765,11 @@ const OppTable = (props) => {
                 tbl_col_reordered_active = tbl_col_reordered_active.filter(row => props.activeWatchlistFilter.symbols.has(row.symbol));
               }
 
-              // Rows are on screen again, so the next time something clears the
-              // table without changing the query, the escape above may run once
-              // more. Every "cleared with nothing coming" gets a recovery; a
-              // response that returns nothing does not, which is what keeps the
-              // escape from looping.
-              if (tbl_col_reordered.length > 0) oppStrandedRecoveryRef.current = ''
+              // Record what this query actually yielded - the escape above reads
+              // it to tell "the query is empty" from "something cleared rows we
+              // had".
+              oppSettledKeyRef.current = fetchKey
+              oppSettledRowsRef.current = tbl_col_reordered.length
               props.SetOpportunities(tbl_col_reordered)
               props.SetActiveOpportunities(tbl_col_reordered_active)
               if (tbl_col_reordered.length > 0) markCaptureReady('oppTable', { rows: tbl_col_reordered.length, month: props.oppTableMonth, day: props.dayOfTheMonth, years: props.oppTableYears })
@@ -809,8 +821,7 @@ const OppTable = (props) => {
     props.activeWatchlistFilter,
     oppRetryNonce,
     dayRange,
-    metaLoading,
-    initialMessage
+    metaLoading
   ])
   // 10/27/2021 added dayofthemonth after replacing opplist2 with opplist3
   // 8/22/2021 added length of opportunities array which is better than other dependencies - could probably remove some of the others
