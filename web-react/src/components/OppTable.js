@@ -222,6 +222,15 @@ const OppTable = (props) => {
   const metaReqRef = useRef(0)      // ordering guard: only the LATEST YearsMetaData2 response may write state (stale/empty responses clobbered the metadata)
   const metaLoadingRef = useRef(false) // synchronous guard: do not validate against metadata from the previous request
   const oppReqRef = useRef(0)       // ordering guard: only the LATEST OppList4 response may write opportunities/activeOpportunities state
+  const oppInFlightRef = useRef(false) // true while an OppList4 request is out - lets the dedupe tell "already fetched" from "cleared, nothing coming"
+  const oppStrandedRecoveryRef = useRef('') // last query the stranded-table escape below already retried - bounds it to one attempt
+
+  // True when moving to nextDayRange actually changes the OppList4 query. The
+  // displayed range is not that query: it is converted at the engine boundary,
+  // and several displayed ranges map to one engine range. Only a real query
+  // change may clear the rows, because only a real query change refetches them.
+  const oppQueryDayRangeChanged = (nextDayRange) =>
+    toOpportunityEngineDayRange(nextDayRange) !== toOpportunityEngineDayRange(dayRange)
   const [metaLoading, SetMetaLoading] = useState(false)
 
   const [PELabel, SetPELabel] = useState(() => {
@@ -544,8 +553,23 @@ const OppTable = (props) => {
         ? `|wl=${props.activeWatchlistFilter.name}:${props.activeWatchlistFilter.symbols ? props.activeWatchlistFilter.symbols.size : 'pending'}`
         : ''
       const fetchKey = url + wlSig
-      if (token.length > 0 && fetchKey !== lastOppUrlRef.current) {
+      // Safety net for the whole "cleared but never refetched" class: the table
+      // is empty, it says it is loading, and no request is actually out. That
+      // state can only end in a permanent spinner, so refetch even though the
+      // resolved query is unchanged. ONE attempt per query - a response can
+      // legitimately leave the table empty while this message still reads
+      // "Loading ..." (a watchlist filter that matches none of the returned
+      // rows), and retrying that forever would be a fetch loop.
+      const strandedEmptyTable =
+        fetchKey === lastOppUrlRef.current &&
+        !oppInFlightRef.current &&
+        oppStrandedRecoveryRef.current !== fetchKey &&
+        props.opportunities.length === 0 &&
+        initialMessage === 'Loading ...'
+      if (token.length > 0 && (fetchKey !== lastOppUrlRef.current || strandedEmptyTable)) {
+        if (strandedEmptyTable) oppStrandedRecoveryRef.current = fetchKey
         lastOppUrlRef.current = fetchKey
+        oppInFlightRef.current = true
         const oppReqId = ++oppReqRef.current // ordering guard: a slow older response must not clobber a newer one
         SetOppLoadFailed(false)
         SetInitialMessage('Loading ...')   // in-flight marker: gates the auto-step-down until THIS fetch's real result lands (a stale 'no patterns' message otherwise lets it fire mid-fetch)
@@ -754,6 +778,9 @@ const OppTable = (props) => {
             SetOppLoadFailed(true)
             lastOppUrlRef.current = ''
           })
+          .finally(() => {
+            if (oppReqId === oppReqRef.current) oppInFlightRef.current = false
+          })
       }
     }
     // }, [props.dayOfTheMonth, props.oppTablePartialYears, props.appliedFilter, token, props.selectedSecurity, props.opportunities.length, props.oppTableYears, yearsMetaData, oppListExpanded]) //removed dependency of oppTableMontha and oppTableYears because oppTablePartialYears will be the last to change
@@ -774,7 +801,8 @@ const OppTable = (props) => {
     props.activeWatchlistFilter,
     oppRetryNonce,
     dayRange,
-    metaLoading
+    metaLoading,
+    initialMessage
   ])
   // 10/27/2021 added dayofthemonth after replacing opplist2 with opplist3
   // 8/22/2021 added length of opportunities array which is better than other dependencies - could probably remove some of the others
@@ -1590,7 +1618,7 @@ const OppTable = (props) => {
 
   const handleClearFilter = (e) => {
     e.preventDefault()
-    if (dayRange !== EMPTY_DAY_RANGE) {
+    if (oppQueryDayRangeChanged(EMPTY_DAY_RANGE)) {
       props.SetOpportunities([])
       SetInitialMessage('Loading ...')
     }
@@ -1602,7 +1630,7 @@ const OppTable = (props) => {
   const handleSelectHistoryItem = (item) => {
     if (filterBlurTimer.current) clearTimeout(filterBlurTimer.current)
     const nextDayRange = getOpportunityDayRange(item)
-    if (nextDayRange !== dayRange) {
+    if (oppQueryDayRangeChanged(nextDayRange)) {
       props.SetOpportunities([])
       SetInitialMessage('Loading ...')
     }
@@ -1654,7 +1682,11 @@ const OppTable = (props) => {
     // Range transitions intentionally request the server's re-ranked source.
     // Clear the old source in the same input transaction so the textbox can
     // never display a new expression over stale rows while that request runs.
-    if (nextDayRange !== dayRange) {
+    // Compare the ENGINE range, because that - not the displayed range - is
+    // what the OppList4 URL carries. Two displayed ranges can resolve to the
+    // same query ("0-30" and "1-30"); clearing on those left the rows gone
+    // with no request to replace them.
+    if (oppQueryDayRangeChanged(nextDayRange)) {
       props.SetOpportunities([])
       SetInitialMessage('Loading ...')
     }

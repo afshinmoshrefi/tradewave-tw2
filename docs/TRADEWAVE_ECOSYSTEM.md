@@ -543,6 +543,34 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   regression tests live in `opportunityFilters.test.js`. DIAGNOSTIC NOTE: this class of report
   presents as "works on dev, fails on production" even though dev and prod serve the SAME
   bundle - always compare the deployed bundles by checksum before assuming a code difference.
+- **Opp-table day range is the ONLY filter that hits the server (invariant, fixed 2026-09-02):**
+  every other filter segment (`SR>`, `AP>`, `WIN>`, a ticker) is applied client-side to the rows
+  already loaded, but a day range re-ranks on the appserver, so `OppTable.js` puts it in the
+  `OppList4` URL. It crosses TWO boundaries, and both were wrong for a `0-30` filter:
+  (a) DISPLAY vs ENGINE. The table labels an inclusive calendar-day count (entry day is day 1)
+  while `OppList4` stores the engine's zero-based `daysOut`, so `toOpportunityEngineDayRange`
+  converts at that one boundary. It used to reject any start below 1 by returning the
+  `EMPTY_DAY_RANGE` sentinel, which made `0-30` resolve to the SAME URL as no filter at all.
+  (b) CLEAR vs REFETCH. The filter handlers clear the rows on a range change so a new expression
+  is never shown over stale rows - but the fetch is deduped on the resolved URL
+  (`lastOppUrlRef`). Unchanged URL + cleared rows = the table sits on `Loading ...` forever with
+  nothing in flight. INVARIANTS: normalize a 0 start to 1 in `getOpportunityDayRange`, where the
+  query range is DERIVED, so every consumer agrees (the engine converter, the ML checkpoint
+  context in `ml_checkpoint_context._sanitized_table_context`, which rejects a zero start
+  outright, and the change detection); decide "clear the rows" on the ENGINE range, never the
+  displayed one, because only a real query change refetches them; and keep the bounded
+  stranded-table escape in the fetch effect (empty table + `Loading ...` + nothing in flight ->
+  refetch ONCE per query) so this whole class self-heals. A response can legitimately leave the
+  table empty under that message (a watchlist filter matching none of the returned rows), which
+  is why the escape is one attempt per query and not a retry loop.
+- **`OppList4` 500'd on every CACHED empty result (fixed 2026-09-02):** a 0-length opportunity
+  frame loses its column names through the Redis round-trip, and the restore re-added only
+  `opp3columns` - which omits the four COMPUTED columns (`avg_profit`, `median_profit`,
+  `avg_profit2`, `sharpe_ratio2`) the response then selects, raising `KeyError`. The tell is
+  distinctive: the FIRST request computes and answers 200 with an empty `OppList`, and every
+  later one 500s off the cache, so any day range matching no pattern intermittently showed
+  "Data temporarily unavailable". `appserver.py` now restores `opp3columns + opp3_computed_columns`.
+  `OppBySymbol` was never affected - it returns early on `opp.empty`.
 - **Tara load generations are NOT request identity (fixed 2026-08-31):** every viewer fetch
   registers an abort callback under `taraLoadGeneration`, and a terminating Tara transaction
   cancels that generation so a late response cannot repaint a chart it no longer owns. The

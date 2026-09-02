@@ -128,6 +128,8 @@ test('extracts the server day range independently from client-only predicates', 
   expect(getOpportunityDayRange('avgp>4; 20 - 60 ;sr>1')).toBe('20-60')
   expect(getOpportunityDayRange('avgp>4')).toBe(EMPTY_DAY_RANGE)
   expect(getOpportunityDayRange('90-10')).toBe(EMPTY_DAY_RANGE)
+  // The entry day is day 1, so "0-30" names the same window as "1-30".
+  expect(getOpportunityDayRange('0-30')).toBe('1-30')
 })
 
 test('converts displayed inclusive calendar-day ranges only at the engine boundary', () => {
@@ -135,6 +137,16 @@ test('converts displayed inclusive calendar-day ranges only at the engine bounda
   expect(toOpportunityEngineDayRange('91-150')).toBe('90-149')
   expect(toOpportunityEngineDayRange('1-367')).toBe('0-366')
   expect(toOpportunityEngineDayRange(EMPTY_DAY_RANGE)).toBe(EMPTY_DAY_RANGE)
+})
+
+test('clamps a zero start so a "0-30" filter still changes the engine query', () => {
+  // The entry day is day 1. "0-30" therefore means the same window as "1-30".
+  // Rejecting it left the OppList4 URL unchanged, the fetch dedupe skipped the
+  // request, and the already-cleared table sat on "Loading ..." forever.
+  expect(toOpportunityEngineDayRange('0-30')).toBe('0-29')
+  expect(toOpportunityEngineDayRange('0-30')).toBe(toOpportunityEngineDayRange('1-30'))
+  expect(toOpportunityEngineDayRange('0-1')).toBe('0-0')
+  expect(toOpportunityEngineDayRange('0-30')).not.toBe(EMPTY_DAY_RANGE)
 })
 
 test('restores the range rows when avgp is deleted from a compound filter', () => {

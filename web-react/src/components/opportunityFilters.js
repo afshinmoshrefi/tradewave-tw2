@@ -150,7 +150,12 @@ export const getOpportunityDayRange = (filterText) => {
 
     const [start, end] = segment.split('-').map(value => parseInt(value.trim(), 10))
     if (!Number.isNaN(start) && !Number.isNaN(end) && end > start) {
-      return `${start}-${end}`
+      // The entry day is day 1, so a typed "0-30" names the same window as
+      // "1-30". Normalise it HERE, at the one place the query range is derived,
+      // so every consumer sees a legal range: the engine converter, the ML
+      // checkpoint context (which rejects a zero start outright), and the
+      // change detection that decides whether to refetch.
+      return `${Math.max(start, 1)}-${end}`
     }
   }
 
@@ -165,9 +170,14 @@ export const toOpportunityEngineDayRange = (displayRange) => {
   if (displayRange === EMPTY_DAY_RANGE) return EMPTY_DAY_RANGE
   const match = String(displayRange || '').match(/^(\d+)-(\d+)$/)
   if (!match) return EMPTY_DAY_RANGE
-  const start = parseInt(match[1], 10)
+  // The entry day is day 1, so a typed "0-30" means the same window as "1-30".
+  // CLAMP that start instead of rejecting the range: returning the empty
+  // sentinel left the OppList4 URL identical to the unfiltered one, the fetch
+  // dedupe then skipped the request the filter had already cleared the rows
+  // for, and the table sat on "Loading ..." forever.
+  const start = Math.max(parseInt(match[1], 10), 1)
   const end = parseInt(match[2], 10)
-  if (start < 1 || end <= start) return EMPTY_DAY_RANGE
+  if (end < start) return EMPTY_DAY_RANGE
   return `${start - 1}-${end - 1}`
 }
 

@@ -162,6 +162,14 @@ from get_name_from_ticker import get_security_name_from_ticker  # use get_securi
 opp3columns = ['LorS', 'date', 'daysOut', 'sym', 'stddev', 'sharpe_ratio', '1%', '2%',
                '3%', '4%', '5%', '6%', '7%', '8%', '9%', '10%', '15%', '20%', '25%', '35%', '50%']
 
+# These four are COMPUTED onto the opportunity frame, so they are not in opp3columns
+# above - but OppList4 selects them on the way out. A 0-length frame restored from
+# redis carries no column names at all, and restoring only opp3columns left those
+# four missing: selecting them raised KeyError -> 500. That hit every cached
+# empty result (e.g. a day-range filter that matches no pattern): the first request
+# computed and answered 200, every later one 500'd off the cache.
+opp3_computed_columns = ['avg_profit', 'median_profit', 'avg_profit2', 'sharpe_ratio2']
+
 # used for trading - it's the custom keys for custom exits
 custom_exit_fields =['exitStockGain','exitOptionGain', 'daysAfter' ,'daysAfterGain', 'daysBefore','waveEndAction','earlyExcerciseAction']
 
@@ -1520,7 +1528,7 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     
     # ------------------------------------------------------------------------------------------------
     if opp.shape[0] == 0:  # dictionary length 0 loses column names when converted to dataframe. redis storage
-        for c in opp3columns:
+        for c in opp3columns + opp3_computed_columns:
             opp[c] = ''
     # ------------------------------------------------------------------------------------------------
 
