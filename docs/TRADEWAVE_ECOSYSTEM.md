@@ -84,23 +84,58 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `_static/scorecard.html`. Reads `featured_history.json` + live prices.
 - **Tickers** (`blog/generate_top10_AI.py` / `top10_jobs_today_to_queue_cron.py`)
   - "AI" here = Sharpe-ranked OppList4, NOT an LLM.
-- **SMN articles** (cron: `select_news_articles.py` 02:00 -> `daily_article_queue.py`
-  03:00 -> always-running `article_processor.py`). THIS pipeline DOES use LLMs:
-  Grok (`grok-3-mini`) for news extraction + research synthesis (Tavily search
-  restricted to `WHITELISTED_SOURCE_DOMAINS`, `smn/article_prompt.py`), OpenAI
-  `gpt-5.1` for article writing AND SEO titles (`smn/article_title.py` calls
-  `send_openai_prompt` - the earlier "Claude for titles" note was stale, corrected
-  2026-07-02), hero images via Replicate (SDXL standard / SD 3.5 Large premium
-  router, `smn/article_hero_image.py`). Volume knob:
-  `smn/daily_article_queue.py:ARTICLES_PER_DAY` (repo/dev = 2; per-box value may
-  differ - read it off the box, don't recall). Publishes PUBLIC static HTML (NO
-  gating anywhere, verified 2026-07-02) to `/var/www/smn/articles/` + `posts.json`
-  index + sitemap.xml / sitemap-news.xml / rss.xml / `llms.txt` / IndexNow; every
-  article embeds the MailerLite signup form (groups SMN-DAILY / SMN-WEEKLY) and the
-  required `transition_to_tradewave` bridge paragraph (rule: no TradeWave mention in
-  body before that bridge). Emails: `smn/send_smn_emails.py` - Mon-Fri 07:00 UTC
-  daily blast + Sun 09:00 UTC weekly recap. SMN monetization strategy + external
-  research (2026-07-02, owner decision pending): `docs/marketing/SMN_STRATEGY.md`.
+- **SMN articles - existing service and source ownership.** SMN runs from its
+  own repository, [`afshinmoshrefi/SMN`](https://github.com/afshinmoshrefi/SMN),
+  at `/home/flask/blog` on standalone SMN Dev (`192.168.1.180`) and Prod
+  (`209.182.216.112`, SSH port 4369). The older untracked TW2 `smn/` mirror is
+  not the current SMN development source. The existing generation flow is
+  `select_news_articles.py` -> `daily_article_queue.py` -> Redis queue ->
+  `article_processor.py`; publication writes public static HTML, `posts.json`,
+  search/sitemaps/RSS and related distribution artifacts. Earlier recorded
+  schedules/volume and public-access observations are historical per-box facts,
+  not evidence that a new branch or access policy is active. Recheck live
+  services/configuration before a future activation. The preexisting Dev source
+  reviewed on **2026-09-05** is `deterministic-sources` at `57055c2b905f4749de5938b11a0289d1e33eeeba`,
+  including the angle pipeline and its unpublished enhancements; it must not be
+  replaced by the older SMN `main` or TW2 mirror. Dev research already uses
+  OpenAI; the earlier Grok description here was stale.
+
+  **First pass, explicitly UNDEPLOYED (2026-09-05).** Implementation is on
+  [`codex/smn-first-pass-20260905`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-first-pass-20260905),
+  preserving that Dev base. Details and preview procedure:
+  [`blog/SMN_FIRST_PASS.md`](https://github.com/afshinmoshrefi/SMN/blob/codex/smn-first-pass-20260905/blog/SMN_FIRST_PASS.md).
+  This branch is not running on SMN Dev or Prod; no scheduler, service,
+  publication, entitlement or live configuration activation is part of this pass.
+  Its implemented boundaries are:
+  - `article_llm.py`: article-stage default `gpt-6-astra`, reasoning effort
+    `low`, bounded calls and actual model/token-usage provenance; Astra-incompatible
+    sampling options removed. Development-agent effort is a separate setting.
+  - Angle Card schema 2 / `article_evidence.py`: inclusive endpoint
+    `start + days - 1`, actual sampled years and n, disjoint recent-five versus
+    earlier comparisons, risk and outlier sensitivity. Giveback is the median
+    of each matched observation's `MFE - net`, in entry-price percentage points
+    (JPM fixture: 3.79 pp, not 6.18). Missing/nonfinite observations are not
+    manufactured as zeros; extrema do not establish timing. Deterministic gates
+    recompute evidence and validate selected-chart sample/window identity.
+  - Planning receives retrieved source passages, subject/date attribution and
+    a reader question. Writing and editorial checks enforce Michael's concise,
+    nonrepetitive, supported analysis; material issues get one bounded edit and
+    the same checks again. Hero/summary placement and final-title checks belong
+    to assembly/validation, rather than relying on writer compliance alone.
+  - `news_discovery.py`, `news_selection.py`, `news_pipeline.py`: explicit,
+    bounded news scans and private drafts with source/event-date validation,
+    importance/relevance scoring, duplicate/development identity and update
+    decisions. Ordinary capacity is one main story plus an optional second;
+    major events can qualify beyond that. Seasonality is optional. The new
+    workflow has no installed monitor or auto-publisher and remains off by default.
+  - `article_preview.py`: local full/visitor previews, with access controls
+    disabled. Proposed first access policy is public general news and full
+    seasonal articles for registered TradeWave users, including free accounts;
+    review previews before enabling anything. Paid access and displaying
+    calibrated probabilities in articles are deferred. Internal use of the
+    TradeWave prediction score remains an evaluation topic, not a public claim
+    or a gate on major-news coverage. The older monetization recommendations in
+    `docs/marketing/SMN_STRATEGY.md` are historical proposals, not activated rules.
 - **Info / legal pages** (`site/generate_text_pages.py`, authored - run MANUALLY,
   no cron) -> `/var/www/tradewave/{terms,privacy,disclaimer,contact,learn,affiliate}.html`.
   Static, zero backend; nginx serves clean URLs via the catch-all `try_files $uri $uri/ $uri.html`
