@@ -168,6 +168,12 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   analyst mentions and unsupported mechanisms must not be restored as facts.
   A manually authored JPM editorial prototype demonstrates a proposed correction;
   it is not a new automated benchmark or an implemented generator correction.
+  Subsequent owner feedback accepted the company-context prototype as much better
+  and strongly endorsed its revised profit-led opening. Future openings should
+  establish a concrete fact, an investor-relevant tension and a reason to keep
+  reading before event logistics and accounting detail. Preserve narrative variety;
+  this is an editorial principle, not a mandatory profit-led template. The generator
+  still requires implementation and real-output validation of this accepted direction.
   The implementation continues the preserved SMN Dev lineage on
   [`codex/smn-second-pass-20260906`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-second-pass-20260906).
   Exact reviewed source: `9787c5573c3e579103e9cb7f49f90ac236eee464`; module-level procedure
