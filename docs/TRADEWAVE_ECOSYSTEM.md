@@ -128,6 +128,19 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     decisions. Ordinary capacity is one main story plus an optional second;
     major events can qualify beyond that. Seasonality is optional. The new
     workflow has no installed monitor or auto-publisher and remains off by default.
+    September 6 validation (still undeployed) found zero selected events in both
+    the live default scan and its same-search replay. Corrections `5452c2b` /
+    `3ab7d43` on the SMN feature branch extract substantive article bodies,
+    preserve raw/body/excerpt offsets and hashes, reject bodyless retrievals and
+    allocate context across domains. Equal-date updates require changed known
+    source bodies and grounded claims not already covered; legacy rows without
+    evidence snapshots skip conservatively. These prove changed supporting
+    evidence, not semantic materiality. All 52 focused news tests pass. The
+    unchanged full-event-date/48-hour rules and missing topic coverage still
+    block the coverage acceptance goal; an independent OPEC+ story was missed.
+    No auto-discovered article was generated. The three seasonal generation/
+    editorial pairs (JPM/WMT/JNJ) all completed using frozen August 21 inputs;
+    this did not retest seasonal selection, fresh research or image generation.
   - `article_preview.py`: local full/visitor previews, with access controls
     disabled. Proposed first access policy is public general news and full
     seasonal articles for registered TradeWave users, including free accounts;
