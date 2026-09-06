@@ -185,6 +185,44 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   Dev/Prod checkout, service, schedule, public feed or access rule is activated.
   Calibrated probabilities remain shelved in both selection and reader copy.
 
+  **Timely-story and discovery extension completed privately (2026-09-06).**
+  The owner authorized implementation with "go" after discussing seasonal/news
+  connections, unusual stock volume and optional history in news. No deployment
+  is authorized. Source is on
+  [`codex/smn-story-discovery-20260906`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-story-discovery-20260906),
+  exact commit `84e05cab36881876b07515713214a7b5f336948a`; contract:
+  [`blog/SMN_STORY_DISCOVERY.md`](https://github.com/afshinmoshrefi/SMN/blob/84e05cab36881876b07515713214a7b5f336948a/blog/SMN_STORY_DISCOVERY.md).
+  Commissioning requires a bound publication reason. The first two paragraphs
+  must connect concrete timing to the investor's question. Old earnings remain
+  useful context without being relabeled current news. `stock_activity.py`
+  calculates completed-session volume against prior sessions; its provisional
+  2x/95th-percentile filter feeds research and the existing private lineup.
+  EODHD volume is already split adjusted; do not apply the OHLC adjustment ratio
+  to it again. A read-only scan found four candidates among 500 S&P 500 CSVs;
+  three list members had no file and four supplied series were held.
+  `news_seasonality.py` recomputes relevant fixed-window history, retains actual
+  counts and contrary samples, and requires an include/omit reason. News can
+  qualify independently of a pattern. Missing research means unavailable, not
+  evidence of no pattern. Review checks one connected historical paragraph;
+  code renders the fuller comparison tables separately. An explicitly selected
+  question about history must be answered or held. Calibrated probabilities
+  remain shelved. Astra remains the article model at low article effort.
+  The private examples are JPM with a dated earnings connection, LULU discovered
+  through volume and written without forced history, and a jobs/Fed follow-up
+  with SPY/TLT context. A stale US/SPY copy was held; current ETF/SPY was verified
+  separately. The jobs follow-up uses an explicit private 72-hour allowance;
+  normal news discovery stays at 48 hours. OCC's public options-volume endpoint
+  returned real LULU rows, but no options scanner or directional claims were
+  implemented. Tavily can find attributed reports; it is not a complete tape.
+  Review hub: `smn-review-20260905/story-discovery-20260906/report.html` in the
+  owner's local workspace. 499 tests passed, followed by 61 focused news tests
+  after prompt refinements; eight desktop/mobile layout checks passed. Final
+  prose is model-generated, read and independently reviewed. Earlier held
+  attempts, exact inputs, model responses and source hashes are retained.
+  The live SMN Dev checkout remains `57055c2b905f4749de5938b11a0289d1e33eeeba`,
+  and both article services retain their August 21 start times. No runtime,
+  publisher, access tier or schedule was activated. Owner review remains pending.
+
   **Current-context correction completed privately (2026-09-06).** The new branch
   [`codex/smn-editorial-context-20260906`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-editorial-context-20260906)
   preserves the second-pass calculations and unpublished Dev lineage. Exact
