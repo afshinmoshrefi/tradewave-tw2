@@ -151,6 +151,23 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     `docs/marketing/SMN_STRATEGY.md` are historical proposals, not activated rules.
 
   **Second Pass: Private Selection and Reader-Value Pilot (2026-09-06).**
+  **Owner review: editorial direction rejected later on September 6.** Afshin
+  found the examples dry, written for seasonal specialists and missing current
+  company context; the claimed reader upgrade was not accepted. The 466-test
+  result below establishes technical validation, not editorial acceptance.
+  The source diagnosis is specific: the replay supplied `research={}` and
+  methodological questions, while `private_selection.prepare_candidate`
+  hardcodes `SEASONAL_CONTEXT` for every seasonal candidate. This bypassed
+  narrative variety and let history-comparison requirements become the subject.
+  Preserve the verified calculation and comparison safeguards. The next generator
+  correction must restore verified current asset research, choose a consequential
+  ordinary-investor question and varied editorial angle, explain history as useful
+  context, and judge the whole article for timely understanding and readability.
+  Missing reliable research calls for better retrieval, not silent removal of
+  current context from a normal company article. The earlier drafts' unrelated
+  analyst mentions and unsupported mechanisms must not be restored as facts.
+  A manually authored JPM editorial prototype demonstrates a proposed correction;
+  it is not a new automated benchmark or an implemented generator correction.
   The implementation continues the preserved SMN Dev lineage on
   [`codex/smn-second-pass-20260906`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-second-pass-20260906).
   Exact reviewed source: `9787c5573c3e579103e9cb7f49f90ac236eee464`; module-level procedure
