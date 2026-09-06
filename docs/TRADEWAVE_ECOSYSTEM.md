@@ -172,8 +172,9 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   and strongly endorsed its revised profit-led opening. Future openings should
   establish a concrete fact, an investor-relevant tension and a reason to keep
   reading before event logistics and accounting detail. Preserve narrative variety;
-  this is an editorial principle, not a mandatory profit-led template. The generator
-  still requires implementation and real-output validation of this accepted direction.
+  this is an editorial principle, not a mandatory profit-led template. At that point
+  the generator still required implementation and real-output validation; the
+  subsequent private correction is recorded below.
   The implementation continues the preserved SMN Dev lineage on
   [`codex/smn-second-pass-20260906`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-second-pass-20260906).
   Exact reviewed source: `9787c5573c3e579103e9cb7f49f90ac236eee464`; module-level procedure
@@ -183,6 +184,51 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   selector. Afshin's **do not deploy** instruction remains controlling: no SMN
   Dev/Prod checkout, service, schedule, public feed or access rule is activated.
   Calibrated probabilities remain shelved in both selection and reader copy.
+
+  **Current-context correction completed privately (2026-09-06).** The new branch
+  [`codex/smn-editorial-context-20260906`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-editorial-context-20260906)
+  preserves the second-pass calculations and unpublished Dev lineage. Exact
+  pushed source: `b3e69c7413e9463f4ccd06a522af2d965626978f`. The procedure and
+  research contract are documented in
+  [`blog/SMN_EDITORIAL_CONTEXT.md`](https://github.com/afshinmoshrefi/SMN/blob/b3e69c7413e9463f4ccd06a522af2d965626978f/blog/SMN_EDITORIAL_CONTEXT.md).
+  Normal private seasonal candidates now require dated, subject-bound current
+  research before any paid call. An explicit `historical_review` mode preserves
+  intentional old replays. Commissioning selects a current investor question and
+  suitable angle before planning, without changing the instrument, historical
+  window or baseline. The adapter no longer needs to prewrite the question.
+  Missing research holds; it cannot silently become an evergreen comparison.
+
+  Current-context articles receive a focused writing brief instead of the stacked
+  legacy seasonal writing template. Material historical disagreements remain at
+  the first historical claim, while supporting dates/counts/medians and overlap
+  explanations can expand in a detail panel. The reader gate checks the opening,
+  current company understanding and useful next question, including that the
+  opening comes first and the first historical claim is outside closed details.
+  The Astra article default remains `gpt-6-astra` / `low`. Commissioning adds one
+  call without retries; the whole private seasonal flow is bounded at seven calls.
+
+  Actual JPM, Costco and Ford previews use newly verified primary-source context
+  and the unchanged audited historical inputs. No approved prototype paragraphs
+  were supplied to the writer and no final generated prose was manually edited.
+  The first JPM attempt still sounded too technical despite automated approval;
+  the correction was tested again on real output. The final copy pass reused
+  source-bound commissioning decisions and ran actual planning, writing and
+  independent review again, taking three calls per article at that stage. All
+  three pass the final factual/reader checks; 480 offline tests and six desktop/
+  mobile layout checks pass. These are three curated equity examples, not proof
+  of universal editorial superiority or a new owner acceptance. Owner review
+  of the generated articles remains pending.
+
+  Review artifact: `smn-review-20260905/editorial-generator-20260906/report.html`
+  in the owner's local orchestrator workspace. Earlier attempts, exact prompts,
+  responses, source/input hashes and final checks are retained there. Research
+  retrieval and factual verification were performed for these packets; this
+  branch does not activate an autonomous daily research service. Hero images
+  are deliberately omitted from this copy review, so image approval remains
+  pending. SMN Dev's live HEAD remains
+  `57055c2b905f4749de5938b11a0289d1e33eeeba`; the checkout status and service start
+  times match the before/after audit. No Dev/Prod deployment, scheduler, feed,
+  access rule or calibrated-probability feature was activated.
 
   The reason for this pass is to answer the reader's chosen question without
   silently promoting whichever historical sample happens to look strongest.
