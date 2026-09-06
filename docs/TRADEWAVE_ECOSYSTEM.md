@@ -84,23 +84,175 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `_static/scorecard.html`. Reads `featured_history.json` + live prices.
 - **Tickers** (`blog/generate_top10_AI.py` / `top10_jobs_today_to_queue_cron.py`)
   - "AI" here = Sharpe-ranked OppList4, NOT an LLM.
-- **SMN articles** (cron: `select_news_articles.py` 02:00 -> `daily_article_queue.py`
-  03:00 -> always-running `article_processor.py`). THIS pipeline DOES use LLMs:
-  Grok (`grok-3-mini`) for news extraction + research synthesis (Tavily search
-  restricted to `WHITELISTED_SOURCE_DOMAINS`, `smn/article_prompt.py`), OpenAI
-  `gpt-5.1` for article writing AND SEO titles (`smn/article_title.py` calls
-  `send_openai_prompt` - the earlier "Claude for titles" note was stale, corrected
-  2026-07-02), hero images via Replicate (SDXL standard / SD 3.5 Large premium
-  router, `smn/article_hero_image.py`). Volume knob:
-  `smn/daily_article_queue.py:ARTICLES_PER_DAY` (repo/dev = 2; per-box value may
-  differ - read it off the box, don't recall). Publishes PUBLIC static HTML (NO
-  gating anywhere, verified 2026-07-02) to `/var/www/smn/articles/` + `posts.json`
-  index + sitemap.xml / sitemap-news.xml / rss.xml / `llms.txt` / IndexNow; every
-  article embeds the MailerLite signup form (groups SMN-DAILY / SMN-WEEKLY) and the
-  required `transition_to_tradewave` bridge paragraph (rule: no TradeWave mention in
-  body before that bridge). Emails: `smn/send_smn_emails.py` - Mon-Fri 07:00 UTC
-  daily blast + Sun 09:00 UTC weekly recap. SMN monetization strategy + external
-  research (2026-07-02, owner decision pending): `docs/marketing/SMN_STRATEGY.md`.
+- **SMN articles - existing service and source ownership.** SMN runs from its
+  own repository, [`afshinmoshrefi/SMN`](https://github.com/afshinmoshrefi/SMN),
+  at `/home/flask/blog` on standalone SMN Dev (`192.168.1.180`) and Prod
+  (`209.182.216.112`, SSH port 4369). The older untracked TW2 `smn/` mirror is
+  not the current SMN development source. The existing generation flow is
+  `select_news_articles.py` -> `daily_article_queue.py` -> Redis queue ->
+  `article_processor.py`; publication writes public static HTML, `posts.json`,
+  search/sitemaps/RSS and related distribution artifacts. Earlier recorded
+  schedules/volume and public-access observations are historical per-box facts,
+  not evidence that a new branch or access policy is active. Recheck live
+  services/configuration before a future activation. The preexisting Dev source
+  reviewed on **2026-09-05** is `deterministic-sources` at `57055c2b905f4749de5938b11a0289d1e33eeeba`,
+  including the angle pipeline and its unpublished enhancements; it must not be
+  replaced by the older SMN `main` or TW2 mirror. Dev research already uses
+  OpenAI; the earlier Grok description here was stale.
+
+  **First pass, explicitly UNDEPLOYED (2026-09-05).** Implementation is on
+  [`codex/smn-first-pass-20260905`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-first-pass-20260905),
+  preserving that Dev base. Details and preview procedure:
+  [`blog/SMN_FIRST_PASS.md`](https://github.com/afshinmoshrefi/SMN/blob/codex/smn-first-pass-20260905/blog/SMN_FIRST_PASS.md).
+  This branch is not running on SMN Dev or Prod; no scheduler, service,
+  publication, entitlement or live configuration activation is part of this pass.
+  Its implemented boundaries are:
+  - `article_llm.py`: article-stage default `gpt-6-astra`, reasoning effort
+    `low`, bounded calls and actual model/token-usage provenance; Astra-incompatible
+    sampling options removed. Development-agent effort is a separate setting.
+  - Angle Card schema 2 / `article_evidence.py`: inclusive endpoint
+    `start + days - 1`, actual sampled years and n, disjoint recent-five versus
+    earlier comparisons, risk and outlier sensitivity. Giveback is the median
+    of each matched observation's `MFE - net`, in entry-price percentage points
+    (JPM fixture: 3.79 pp, not 6.18). Missing/nonfinite observations are not
+    manufactured as zeros; extrema do not establish timing. Deterministic gates
+    recompute evidence and validate selected-chart sample/window identity.
+  - Planning receives retrieved source passages, subject/date attribution and
+    a reader question. Writing and editorial checks enforce Michael's concise,
+    nonrepetitive, supported analysis; material issues get one bounded edit and
+    the same checks again. Hero/summary placement and final-title checks belong
+    to assembly/validation, rather than relying on writer compliance alone.
+  - `news_discovery.py`, `news_selection.py`, `news_pipeline.py`: explicit,
+    bounded news scans and private drafts with source/event-date validation,
+    importance/relevance scoring, duplicate/development identity and update
+    decisions. Ordinary capacity is one main story plus an optional second;
+    major events can qualify beyond that. Seasonality is optional. The new
+    workflow has no installed monitor or auto-publisher and remains off by default.
+    September 6 validation (still undeployed) found zero selected events in both
+    the live default scan and its same-search replay. Corrections `5452c2b` /
+    `3ab7d43` on the SMN feature branch extract substantive article bodies,
+    preserve raw/body/excerpt offsets and hashes, reject bodyless retrievals and
+    allocate context across domains. Equal-date updates require changed known
+    source bodies and grounded claims not already covered; legacy rows without
+    evidence snapshots skip conservatively. These prove changed supporting
+    evidence, not semantic materiality. All 52 focused news tests pass. The
+    unchanged full-event-date/48-hour rules and missing topic coverage still
+    block the coverage acceptance goal; an independent OPEC+ story was missed.
+    No auto-discovered article was generated. The three seasonal generation/
+    editorial pairs (JPM/WMT/JNJ) all completed using frozen August 21 inputs;
+    this did not retest seasonal selection, fresh research or image generation.
+  - `article_preview.py`: local full/visitor previews, with access controls
+    disabled. Proposed first access policy is public general news and full
+    seasonal articles for registered TradeWave users, including free accounts;
+    review previews before enabling anything. Paid access and displaying
+    calibrated probabilities in articles are deferred. Internal use of the
+    TradeWave prediction score remains an evaluation topic, not a public claim
+    or a gate on major-news coverage. The older monetization recommendations in
+    `docs/marketing/SMN_STRATEGY.md` are historical proposals, not activated rules.
+
+  **Second Pass: Private Selection and Reader-Value Pilot (2026-09-06).**
+  The implementation continues the preserved SMN Dev lineage on
+  [`codex/smn-second-pass-20260906`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-second-pass-20260906).
+  Exact reviewed source: `9787c5573c3e579103e9cb7f49f90ac236eee464`; module-level procedure
+  and limitations live in
+  [`blog/SMN_SECOND_PASS.md`](https://github.com/afshinmoshrefi/SMN/blob/codex/smn-second-pass-20260906/blog/SMN_SECOND_PASS.md).
+  This is an explicit private preview path, not a replacement of the running
+  selector. Afshin's **do not deploy** instruction remains controlling: no SMN
+  Dev/Prod checkout, service, schedule, public feed or access rule is activated.
+  Calibrated probabilities remain shelved in both selection and reader copy.
+
+  The reason for this pass is to answer the reader's chosen question without
+  silently promoting whichever historical sample happens to look strongest.
+  The implemented boundaries are:
+  - `private_selection.py` freezes the instrument, anchor, inclusive calendar
+    duration and selected reader question before drafting. It rebuilds the
+    cohort and market gates from the supplied packet, rather than trusting
+    supplied eligible/score flags. `angle_pipeline`'s explicit `private_preview`
+    branch runs before legacy discovery, queues or publication and rejects
+    `publish=True` and alternate-angle indexes. Every result is
+    `publishable=False`; a writer veto holds the premise without trying another
+    window, lookback or stronger comparison cell. Legacy defaults stay intact.
+  - `cohort_policy.py` uses a fixed twenty-year span of completed annual windows
+    as the main reference, with actual observed years and n. It never searches
+    farther back to replace missing years or lead with the best twenty outcomes.
+    Recent five/ten versus preceding annual observations and matching cycle
+    versus noncycle years provide separately identified context. Full-cycle,
+    within-baseline and earlier-cycle samples retain their dates and overlap.
+    Descriptive consistency/period-sensitivity/contrast labels do not establish
+    causality or a forecast. The twenty-year reference and minimum counts of
+    eight annual/six cycle observations are provisional editorial controls,
+    not validated optimal thresholds. A checked sparse cycle record may qualify
+    an otherwise eligible annual lead; unchecked coverage and unresolved data
+    defects hold it. Medians, counts, paired giveback and display rounding are
+    computed consistently in Python, with missing evidence kept missing.
+  - `private_history.py` computes each window from supplied adjusted OHLC and
+    a reviewed session calendar. Entry is the first in-window session close;
+    exit is the last session on or before the inclusive end. Entry-session
+    highs/lows are excluded from excursions because entry occurs at its close.
+    The audit reproduced all 100 cached JPM/WMT/F/COST net/MFE/MAE triples:
+    SMN already sends `days - 1`, but the legacy TradeWave endpoint can snap a
+    non-session end forward beyond the window. The private helper corrects this
+    without changing the live endpoint. Retrospective September 4 adjusted
+    snapshots support the examples, not a point-in-time August reconstruction.
+  - `market_policy.py` binds resource, provider, exchange, symbol and series to
+    reviewed measurement, return basis, adjustment and calendar conventions.
+    Historical quality and current completed-session coverage must pass.
+    Unknown semantics, unsupported specialized measurements and incomplete
+    futures/roll definitions remain held. Manifest/dataset hashes detect changed
+    inputs; they do not authenticate the assertions of an untrusted source or
+    an LLM. The caller supplies reviewed source semantics and data-quality
+    evidence; the selector cannot manufacture those assurances.
+  - The private lineup consolidates repeated reader answers using canonical
+    event/development, question, answer-evidence and exposure identities.
+    Reviewed consequence, timeliness, relevance and completeness determine
+    order. Plain stocks/ETFs have only a provisional final tiebreak preference;
+    there is no mandatory market quota or inherited four-day ticker blackout.
+    Major news uses its own dated source gate and needs no seasonal setup.
+    Omitted material events remain visible with reasons at the private ceiling.
+    A supplied news example proves that packet's selection/writing flow, not
+    automatic discovery coverage of all major financial events.
+  - `reader_promise.py` rebuilds the canonical brief from fixed evidence and the
+    selected question. Plans and final editorial reviews bind its question ID;
+    the independent editor must also judge whether the answer resolves that
+    question's meaning. Each article needs one useful answer, a supported
+    reason to read now, exact headline support, one consequential risk and all
+    material contrary evidence at its required prominence. A generic warning
+    or recognized evidence ID alone is insufficient. The existing editorial
+    call checks actual visible passages against the final HTML/brief hashes;
+    unmet promises use the same single bounded revision and recheck.
+    Fresh editor responses receive authoritative request hashes from the
+    transport, preserving the raw model echoes for audit; imported reviews
+    retain the strict digest gate. The reviewer must quote an existing opening
+    passage for a prominent qualification while checking its detailed body
+    evidence. Neither hash bookkeeping nor recognized IDs replace semantic review.
+  - Text and visuals have separate readiness. `text_ready` never implies
+    `visual_ready`: missing/unreviewed heroes remain pending, even for a good
+    news draft. Visual approval requires local image bytes, provenance, a
+    caller-trusted reviewer with actual lettering/identity/crop/implication
+    observations, and desktop/mobile screenshots bound to the final HTML.
+    Writer booleans, alt text and image concepts cannot approve unseen pixels.
+    Unknown provenance requires a visible illustration label. Private chart
+    gates bind the exact percent-return observations and actual artifact bytes;
+    raw-price and projected-price context are outside this private chart path.
+    Readiness records do not publish or enable access.
+    Comparison heroes have matching desktop and portrait mobile variants;
+    approval binds both assets and the screenshot for the actually displayed
+    variant. Per-year bar charts retain fractional percentage tick labels.
+
+  The first-pass article transport remains `gpt-6-astra` with `low` effort;
+  development-agent effort is independent. Private batches use explicit frozen
+  `as_of` inputs and a generation-started marker to prevent automatic paid
+  reruns. Historical examples must retain their replay date. Reader
+  comprehension and repeat usefulness require actual pilot observation; no
+  audience metric, improved click-through claim, access rollout or deployment
+  is established by this development pass.
+  Final isolated validation passed 466 tests; all 194 packaged source/test files
+  matched the tested bytes. Five article examples passed desktop/mobile browser
+  checks. The four seasonal drafts' counts, returns and contrast claims received
+  independent numerical review; the news draft retained its verified September 5
+  source packet. The original and final model reviews are preserved, including
+  Costco's separately adjudicated minor repetition and metadata truncation note.
+  SMN Dev's live HEAD and service start times were unchanged after the work.
 - **Info / legal pages** (`site/generate_text_pages.py`, authored - run MANUALLY,
   no cron) -> `/var/www/tradewave/{terms,privacy,disclaimer,contact,learn,affiliate}.html`.
   Static, zero backend; nginx serves clean URLs via the catch-all `try_files $uri $uri/ $uri.html`
