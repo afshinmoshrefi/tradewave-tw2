@@ -185,6 +185,38 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   Dev/Prod checkout, service, schedule, public feed or access rule is activated.
   Calibrated probabilities remain shelved in both selection and reader copy.
 
+  **Visual financial-news editing completed privately (2026-09-07 UTC).**
+  Afshin requested source-backed charts and compelling heroes after finding the
+  jobs preview too numerically dense. Source is preserved on
+  [`codex/smn-visual-editorial-20260907`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-visual-editorial-20260907),
+  exact commit `3f2bd41227b7585879f36481c3259118d33bd8be`; contract:
+  [`blog/VISUAL_EDITORIAL_CONTRACT.md`](https://github.com/afshinmoshrefi/SMN/blob/3f2bd41227b7585879f36481c3259118d33bd8be/blog/VISUAL_EDITORIAL_CONTRACT.md).
+  `generate_visual_private_article` retains existing upstream selection and text
+  gates, then edits around one early source-backed comparison and at most one
+  complementary chart. `run_visual_edition` can upgrade a text-qualified frozen
+  result. The writer selects numeric record IDs; Python renders and rounds the
+  values. Comparison bars and completed-session stock-volume bars have separate
+  mobile assets, accessible tables, CSV/SVG exports and exact evidence hashes.
+  Macro news gets one short seasonal paragraph when relevant; full cohort
+  inventories stay behind the evidence link. Hero requests use story-specific
+  art direction and an explicit image-provider bridge or supplied asset. The
+  worked examples used built-in image generation and visibly identify the art
+  as illustration. No live image provider or unattended retrieval was activated.
+  Four editorial calls maximum; absent images and uninspected pixels stay
+  pending. A trusted final inspection binds actual desktop/mobile views, hero
+  provenance, every selected chart, article HTML and exported bytes.
+  Fourteen focused offline tests passed. Final JOBS-v3, JPM-v3 and LULU-v2 each
+  passed independent Astra editorial review, all six browser layout checks and
+  actual image inspection: five charts and three heroes. Review artifacts are
+  under local `smn-review-20260905/visual-editorial-20260907/report.html`.
+  The final committed renderer reproduced all three reviewed HTML files exactly.
+  This remains a private reusable finishing stage with explicit source adapters;
+  no claim of newsroom-equivalent original reporting or measured retention is
+  established. **No deployment:** live SMN Dev still has
+  `57055c2b905f4749de5938b11a0289d1e33eeeba`; article/queue service start times
+  remain 2026-08-21 12:10:38 UTC. Production was not changed. Access tiers and
+  calibrated probabilities remain shelved.
+
   **Timely-story and discovery extension completed privately (2026-09-06).**
   The owner authorized implementation with "go" after discussing seasonal/news
   connections, unusual stock volume and optional history in news. No deployment
