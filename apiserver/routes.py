@@ -9,7 +9,6 @@ EVERY tier but METERED PER DAY (ml_quota.py; free 5/day, unlimited on Pro) and o
 ML-eligible markets (ids 0-4, 11). Fail-fast: real errors surface as the contract Error
 JSON via the app error handlers; only genuine data gaps fail soft.
 """
-import concurrent.futures
 import datetime
 import logging
 import math
@@ -21,6 +20,7 @@ from flask import Blueprint, g, jsonify, request
 
 from . import appserver_client, cards, market_bands, ml_quota, scan_cache, tiers
 from .auth import require_api_key
+from .upstream_budget import parallel_map
 
 log = logging.getLogger("apiserver.routes")
 v1 = Blueprint("v1", __name__)
@@ -1166,8 +1166,7 @@ def scan():
 
         records = []
         if selected:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-                records = list(executor.map(_fetch_receipts, selected))
+            records = parallel_map(_fetch_receipts, selected, max_workers=4)
         degraded = any(record["receipts_unavailable"] for record in records)
         value = {
             "evaluated_count": evaluated,
@@ -1272,14 +1271,13 @@ def scan():
         return card
 
     built = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
-        for card in _ex.map(_build_card, filtered_records):
-            # Unknown evidence cannot satisfy a caller's minimum-history requirement.
-            yt = card["receipts"].get("years_tested")
-            if min_years is not None and (yt is None or yt < min_years):
-                continue
-            card["_sortkey"] = _scan_sortkey(card, rank_by)
-            built.append(card)
+    for card in parallel_map(_build_card, filtered_records, max_workers=4):
+        # Unknown evidence cannot satisfy a caller's minimum-history requirement.
+        yt = card["receipts"].get("years_tested")
+        if min_years is not None and (yt is None or yt < min_years):
+            continue
+        card["_sortkey"] = _scan_sortkey(card, rank_by)
+        built.append(card)
 
     built.sort(key=lambda c: c["_sortkey"], reverse=True)
     pre_cap_count = len(built)
@@ -1319,8 +1317,7 @@ def scan():
         if include_chart and card is primary:
             cards.attach_chart_evidence(
                 card, curve, card.get("_chart_entries") or [], o.get("direction"))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
-        list(_ex.map(_add_curve, built))
+    parallel_map(_add_curve, built, max_workers=4)
 
     # Even when the optional seasonal curve fetch fails, keep the winner's per-year
     # evidence chart. A partial evidence pack is more useful than silently dropping both.

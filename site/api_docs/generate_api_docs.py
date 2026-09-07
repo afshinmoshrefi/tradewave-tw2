@@ -1421,6 +1421,10 @@ def build_api_reference() -> str:
 }}</code></pre>
 
 <p>See <a href="rate-limits.html">Rate Limits &amp; Errors</a> for the full list of codes.</p>
+<p>Temporary database, cache, or upstream unavailability returns a safe <strong>503</strong> response.
+Infrastructure failures include <code class="inline-code">Retry-After</code>. Authenticated
+failures retain rate-limit headers. Retries and parallel market work share one upstream
+time budget; a retry does not restart that budget.</p>
 """
     return page(
         title="API Reference",
@@ -1527,11 +1531,13 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Puts two or more setups side by side on the same yardstick - edge score, win rate, Sharpe, avg/median return, ML basis - so the assistant can reason about which is stronger. Use when the user is choosing between candidates.</p>
+    <p>Compares 2-10 symbols by edge score, win rate, Sharpe, avg/median return and ML basis. Invalid list sizes are rejected before analysis. Individual unavailable symbols retain an explicit error row.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">symbols</code> (required, a list of ticker symbols, e.g. <code class="inline-code">["GLD", "SLV", "GDX"]</code>), <code class="inline-code">market</code> (optional, applied to every symbol), <code class="inline-code">view</code></p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (per symbol)</p>
   </div>
 </div>
+
+<p>Gateway failures use MCP <code class="inline-code">isError=true</code>. Incomplete scans include their limitations in ordinary text and structured content. A partial empty result is not proof that no patterns match. Remote requests never inherit a local stdio key.</p>
 
 <h2>Primitive tools</h2>
 <p>Lower-level building blocks for clients that want to compose their own flow.</p>

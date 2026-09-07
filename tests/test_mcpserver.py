@@ -37,6 +37,114 @@ def _run(awaitable):
     return asyncio.run(awaitable)
 
 
+@pytest.mark.parametrize('name', ['get_pick_track_record', 'list_markets'])
+def test_primitive_failures_use_the_mcp_error_flag(monkeypatch, name):
+    async def unavailable(*a, **k):
+        raise server.GatewayError('Data temporarily unavailable')
+    monkeypatch.setattr(server, '_get', unavailable)
+    result = _run(server.mcp.call_tool(name, {}))
+    assert isinstance(result, server.CallToolResult)
+    assert result.isError is True
+    assert result.content[0].text == 'Data temporarily unavailable'
+
+
+@pytest.mark.parametrize('tool', ['find_best_opportunities', 'whats_seasonal_now'])
+def test_incomplete_empty_scan_cannot_be_introduced_as_no_patterns(monkeypatch, tool):
+    async def incomplete(*a, **k):
+        return {'count': 0, 'opportunities': [], 'evidence_failures': 1,
+                'summary': 'Scan incomplete: data unavailable. Retry shortly.'}
+    monkeypatch.setattr(server, '_get', incomplete)
+    result = _run(getattr(server, tool)(ctx=None))
+    lead = result.content[0].text if isinstance(result, server.CallToolResult) else result
+    first = lead.split('\n\n')[0].lower()
+    assert 'incomplete' in first and 'nothing' not in first and 'no high' not in first
+
+
+def test_widget_text_includes_partial_scan_warning(monkeypatch):
+    async def incomplete(*a, **k):
+        return {'count': 1, 'opportunities': [{'symbol': 'AAPL'}], 'evidence_failures': 3,
+                'market_failures': ['11'], 'summary': 'Scan incomplete: 3 candidates unavailable.'}
+    monkeypatch.setattr(server, '_get', incomplete)
+    result = _run(server.find_best_opportunities(ctx=None))
+    assert 'incomplete' in result.content[0].text.lower()
+    assert '3 candidates unavailable' in result.content[0].text
+
+
+def test_explain_pick_never_calls_stale_pick_todays(monkeypatch):
+    async def stale(*a, **k):
+        return {'card': {'symbol': 'AAPL'}, 'featured_date': '2026-08-20',
+                'stale_note': 'Latest available pick; no new pick today.', 'as_of': '2026-09-07'}
+    monkeypatch.setattr(server, '_get', stale)
+    result = _run(server.explain_pick(ctx=None))
+    lead = result.split('\n\n')[0].lower()
+    assert "today's" not in lead and '2026-08-20' in lead
+
+
+def test_comparison_input_is_bounded_before_fanout(monkeypatch):
+    calls = []
+    async def lookup(path, params=None):
+        calls.append(path)
+        return {'card': {'symbol': 'AAPL'}}
+    monkeypatch.setattr(server, '_get', lookup)
+    from mcp.server.fastmcp.exceptions import ToolError
+    with pytest.raises(ToolError):
+        _run(server.mcp.call_tool('compare_opportunities', {'symbols': ['AAPL'] * 11}))
+    assert calls == []
+
+
+def test_gateway_queue_wait_is_part_of_request_timeout(monkeypatch):
+    async def check():
+        network_calls = []
+        async def transport(request):
+            network_calls.append(request)
+            return httpx.Response(200, json={'ok': True})
+        async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+            monkeypatch.setattr(server, '_gateway_client', client)
+            monkeypatch.setattr(server, '_gateway_slots', asyncio.Semaphore(0))
+            monkeypatch.setattr(server, '_GATEWAY_TIMEOUT', .02)
+            with pytest.raises(server.GatewayError):
+                await asyncio.wait_for(server._get('/me'), timeout=.3)
+        assert network_calls == []
+    _run(check())
+
+
+def test_concurrent_mcp_calls_keep_their_own_credentials(monkeypatch):
+    async def check():
+        observed = {}
+        async def transport(request):
+            await asyncio.sleep(0)
+            observed[request.url.path] = request.headers.get('authorization')
+            return httpx.Response(200, json={'ok': True})
+        async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+            monkeypatch.setattr(server, '_gateway_client', client)
+            monkeypatch.setattr(server, '_gateway_slots', asyncio.Semaphore(1))
+            async def call(name):
+                token = server._request_principal.set({'mode': 'byok', 'key': name})
+                try:
+                    await server._get('/' + name)
+                finally:
+                    server._request_principal.reset(token)
+            await asyncio.gather(call('customer-one'), call('customer-two'))
+        assert observed == {'/v1/customer-one': 'Bearer customer-one', '/v1/customer-two': 'Bearer customer-two'}
+    _run(check())
+
+
+@pytest.mark.parametrize('headers', [{}, {'authorization': 'Basic invalid'}])
+def test_remote_request_cannot_inherit_local_stdio_key(monkeypatch, headers):
+    from types import SimpleNamespace
+    monkeypatch.setattr(server, 'OAUTH_ENABLED', False)
+    monkeypatch.setattr(server, 'TRADEWAVE_API_KEY', 'tw_live_local_only')
+    ctx = SimpleNamespace(request_context=SimpleNamespace(request=SimpleNamespace(headers=headers)))
+    token = server._request_principal.set(None)
+    try:
+        server._bind_request_key(ctx)
+        assert 'Authorization' not in server._headers()
+        server._bind_request_key(None)
+        assert server._headers()['Authorization'] == 'Bearer tw_live_local_only'
+    finally:
+        server._request_principal.reset(token)
+
+
 def test_morning_briefing_preserves_stale_pick_and_incomplete_scan_context(monkeypatch):
     import json
     async def fake_get(path, params=None):

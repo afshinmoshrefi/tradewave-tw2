@@ -44,6 +44,14 @@ or re-rank cards client-side. See `api/PATTERNCARD_SPEC.md` for the card shape.
 Both paths are resolved independently on every call. Every tool invokes
 `_bind_request_key(ctx)` at entry; `ctx` is a FastMCP `Context` and is stripped from the
 published input schema by FastMCP. Missing or invalid credentials fail authentication.
+Remote calls never inherit the process's stdio environment key, even when OAuth is disabled.
+
+**Failure and recovery contract:** gateway failures return MCP `isError=true` and a safe
+message. Queue wait is included in the 110-second gateway timeout. The API shares a
+90-second upstream budget across retries and parallel market work, refreshes a rejected
+internal service token once, and reports infrastructure unavailability with a retryable
+503. An incomplete scan retains its warning in both model-readable text and structured
+content; it must never be presented as proof that no matching patterns exist.
 
 **Safety contract (same as the API):** patterns only - no raw OHLCV / last price /
 price-by-date. Returns are percentages, never price levels; the seasonal curve is a
@@ -70,21 +78,21 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
 |---|---|---|---|---|
 | `find_best_opportunities` | `markets?`, `window?`, `direction?`, `min_win_rate?`, `min_years?`, `min_days?`, `max_days?`, `min_avg_return?`, `min_median_return?`, `min_sharpe?`, `pe_cycle?`, `years?`, `min_winning_years?`, `rank_by?` (default: `sharpe`), `limit?`, `view?` (full\|evidence\|decision\|table; default `evidence`), `include_chart?` (default true) | ranked PatternCards across the in-scope markets, pre-sorted by Sharpe ratio. The default evidence view returns the winner in full, lean runners, chart data/specifications, and its exact Wave Viewer link. MCP Apps hosts render the ranked component; other hosts receive text evidence. `min_days`/`max_days` filter pattern length; return filters are percentages/ratios. | `GET /v1/scan` | all (ML metered daily; count gated by tier) |
 | `analyze_symbol` | `symbol`, `market?`, `direction?`, `days_out?`, `entry_date?`, `pe_cycle?`, `years?`, `period?`, `reverse?`, `view?` (full\|evidence\|decision\|table; default `evidence`), `include_chart?` (default true) | one full PatternCard plus other setups. `days_out` is inclusive CALENDAR days: entry is day 1 and end = entry + (`days_out` - 1). PIN a specific setup with `entry_date` (+`days_out`) or a `period`/`reverse` preset. By default the MCP response includes year-by-year MFE/MAE evidence, normalized seasonal trend data/specifications, a compatible evidence widget, a text fallback, and a server-generated link that opens the exact setup in Wave Viewer. | `GET /v1/analyze/{symbol}` | all (ML metered daily) |
-| `explain_pick` | - | today's daily pick as a PatternCard WITH its live forward-tested track record (the strongest receipt) | `GET /v1/daily-pick` | all |
-| `morning_briefing` | - | the one-call MORNING BRIEFING: today's pick (decision view), the live track-record summary with the last 5 outcomes, and the top setups entering their window now; sections fail-soft (a degraded briefing beats no briefing) | `GET /v1/daily-pick` + `GET /v1/daily-pick/track-record` + `GET /v1/scan` (composed, parallel) | all |
-| `whats_seasonal_now` | `markets?`, `min_win_rate?`, `view?` (full\|decision\|table; default `decision`) | setups entering their window in the next ~10 trading days, as ranked PatternCards (weekly digest) | `GET /v1/scan` with `window="now"` | all |
-| `compare_opportunities` | `symbols[]`, `market?`, `view?` (full\|decision\|table; default `decision`) | N symbols deep-dived and returned side-by-side for head-to-head ranking | N x `GET /v1/analyze/{symbol}` | all (ML metered daily) |
+| `explain_pick` | - | the latest published pick, with its featured date and staleness note, as a PatternCard WITH its live forward-tested track record (the strongest receipt) | `GET /v1/daily-pick` | all |
+| `morning_briefing` | - | the one-call MORNING BRIEFING: the latest published pick (decision view), the live track-record summary with the last 5 outcomes, and the top setups entering their window now; sections fail-soft (a degraded briefing beats no briefing) | `GET /v1/daily-pick` + `GET /v1/daily-pick/track-record` + `GET /v1/scan` (composed, parallel) | all |
+| `whats_seasonal_now` | `markets?`, `min_win_rate?`, `view?` (full\|decision\|table; default `decision`) | setups entering their window in the next 14 calendar days, as ranked PatternCards (weekly digest) | `GET /v1/scan` with `window="now"` | all |
+| `compare_opportunities` | `symbols[]` (2-10), `market?`, `view?` (full\|decision\|table; default `decision`) | N symbols deep-dived and returned side-by-side for head-to-head ranking | N x `GET /v1/analyze/{symbol}` | all (ML metered daily) |
 
 - `find_best_opportunities` is THE "what should I trade right now" entry point; the
   description is opinionated so the model reaches for it on "find me / what's good /
   anything seasonal in X". `whats_seasonal_now` is kept a SEPARATE named tool (a thin
   `window="now"` alias over scan) because the NAME is the routing signal for
   "what is entering its window this week / weekly digest" prompts.
-- `compare_opportunities` fans out per symbol and fails SOFT per row: a per-symbol
+- `compare_opportunities` accepts 2-10 symbols and fails SOFT per row: a per-symbol
   HTTP error degrades only that row (`{symbol, error, card:null}`); an upgrade stub
   (requires:'pro' or requires:'upgrade') becomes `{symbol, requires, message, upgrade_url}` -
   the comparison never breaks.
-- Empty scans return the structured payload (`count:0`) plus a lead that suggests
+- Complete empty scans return the structured payload (`count:0`) plus a lead that suggests
   widening markets/window/min_win_rate, so "nothing now" is never a dead end.
 - **Progressive disclosure (`view`):** the flagship discovery/deep-dive tools take
   `view=full|evidence|decision|table`. MCP defaults to `evidence`: rank 1 is complete,

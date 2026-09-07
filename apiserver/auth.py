@@ -182,6 +182,7 @@ def require_api_key(fn):
             resp.headers.update(headers)
             return resp, 429
         g.customer = cust
+        g.rate_limit_headers = headers
         record_usage(cust, request.path)
         resp = make_response(fn(*args, **kwargs))
         # Normalize tuple/dict returns too, so authenticated errors and quota stubs

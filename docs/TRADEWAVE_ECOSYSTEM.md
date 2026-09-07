@@ -1160,6 +1160,29 @@ supports `X-API-Key`; rate headers are exposed and retained on authenticated err
 responses. Every CORS variant varies by Origin. MCP daily-limit errors name the daily
 reset rather than encouraging retries seconds later.
 
+**API/MCP recovery and access hardening (2026-09-07):** expired internal engine JWTs
+receive one refresh-and-retry after HTTP 401, including POST bodies, without retaining
+credential-bearing request/response objects in errors. API requests carry a shared
+90-second upstream budget across HTTP connection-queue wait, retries and sequential/parallel
+market work; workers inherit only the deadline, never Flask customer state. A new upstream call cannot start
+after that budget expires. MCP bounds gateway calls, including semaphore queue wait, to
+110 seconds. These are upstream I/O budgets, not a hard deadline for database or CPU work.
+
+Redis connection failures and PostgreSQL connection/pool failures return a generic
+retryable 503 with Retry-After, and authenticated failures retain rate-limit headers.
+MCP gateway failures use the protocol's `isError=true` flag, with a schema-compatible
+structured result. Empty incomplete scans cannot claim no patterns were found; partial
+warnings appear in model-readable text as well as structured content. Briefings retain
+evidence failures, and pick explanations name the latest publication date/staleness.
+Comparisons accept 2-10 symbols before fan-out; tool descriptions defer ML access to
+the connected plan rather than promising ML to every consumer tier.
+
+Without OAuth, remote calls use only their own incoming bearer credential. A missing or
+malformed bearer can never inherit TRADEWAVE_API_KEY; that fallback is restricted to
+stdio/direct calls without an HTTP request. Tests cover concurrent principal isolation.
+The hosted production OAuth connection is a separate path; reproducing this BYOK-only
+configuration flaw does not establish a production OAuth exposure.
+
 **API contract hardening (2026-09-07):** the owner prioritized API correctness before
 the reported generated-link failure; do not treat these as evidence that the ordinary
 website UI produces the same errors. A live request for `from=2027-09-01` returned

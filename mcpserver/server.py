@@ -7,8 +7,8 @@ bring-your-own-key (BYOK) and resolved PER CALL:
   1. The API key from the INCOMING MCP request's `Authorization: Bearer <key>`
      header, if present (remote transports - sse, streamable-http). Each
      connection thus acts as its own customer; one remote server serves many.
-  2. Otherwise the env var TRADEWAVE_API_KEY (stdio - each user runs their own
-     local server with their own key).
+  2. Only for stdio (no HTTP request), the env var TRADEWAVE_API_KEY - each user
+     runs their own local server with their own key.
   3. Otherwise no auth is sent (the gateway returns 401 - correct BYOK).
 
 No data logic lives here; the gateway enforces all tier/access rules.
@@ -208,6 +208,16 @@ if OAUTH_ENABLED:
                                claims={"mode": "oauth", "workos_sub": sub})
 
 
+def _http_request_from_context(ctx: Optional[Context]):
+    """Return the transport request; stdio and direct calls have no HTTP request."""
+    if ctx is None:
+        return None
+    try:
+        return ctx.request_context.request
+    except (LookupError, AttributeError, ValueError):
+        return None
+
+
 def _bearer_from_request(ctx: Optional[Context]) -> Optional[str]:
     """Extract the Bearer token from the incoming MCP request, if any.
 
@@ -215,15 +225,7 @@ def _bearer_from_request(ctx: Optional[Context]) -> Optional[str]:
     SDK exposes the Starlette Request on the RequestContext. Returns None for
     stdio (no HTTP request) or when no usable Authorization header is present.
     """
-    if ctx is None:
-        return None
-    try:
-        request = ctx.request_context.request
-    except (LookupError, AttributeError, ValueError):
-        # No active request context (e.g. stdio, or a direct in-process call) - the SDK
-        # raises ValueError("Context is not available outside of a request"); treat all of
-        # these as "no HTTP request" and fall back to the env key.
-        return None
+    request = _http_request_from_context(ctx)
     if request is None:
         return None
     headers = getattr(request, "headers", None)
@@ -241,7 +243,7 @@ def _bearer_from_request(ctx: Optional[Context]) -> Optional[str]:
 def _bind_request_key(ctx: Optional[Context]) -> None:
     """Resolve this call's principal into the ContextVar. With OAuth ON, read the token the SDK
     already validated (get_access_token) and route by its mode; otherwise fall back to the BYOK
-    header / env key. Each tool calls this once at entry."""
+    header, or the env key for stdio only. Each tool calls this once at entry."""
     if OAUTH_ENABLED:
         at = None
         try:
@@ -257,7 +259,8 @@ def _bind_request_key(ctx: Optional[Context]) -> None:
         else:
             _request_principal.set(None)
         return
-    key = _bearer_from_request(ctx) or (TRADEWAVE_API_KEY or None)
+    key = (_bearer_from_request(ctx) if _http_request_from_context(ctx) is not None
+           else (TRADEWAVE_API_KEY or None))
     _request_principal.set({"mode": "byok", "key": key} if key else None)
 
 
@@ -296,8 +299,8 @@ _gateway_client: Optional[httpx.AsyncClient] = None
 _gateway_slots: Optional[asyncio.Semaphore] = None
 
 _TIMEOUT_RESULT = (
-    "This large scan is still computing on the gateway - retry in a moment; the result "
-    "will be cached and come back quickly."
+    "TradeWave did not finish within the request time limit. The result is unavailable; "
+    "retry shortly."
 )
 _UNREACHABLE_RESULT = "The TradeWave gateway is temporarily unreachable. Try again in a moment."
 
@@ -387,11 +390,11 @@ async def _request(method: str, path: str, *, params: dict[str, Any] | None = No
     try:
         if _gateway_client is None:
             async with _new_gateway_client() as client:
-                resp = await send(client)
+                resp = await asyncio.wait_for(send(client), timeout=_GATEWAY_TIMEOUT)
         else:
-            resp = await send(_gateway_client)
+            resp = await asyncio.wait_for(send(_gateway_client), timeout=_GATEWAY_TIMEOUT)
         resp.raise_for_status()
-    except httpx.TimeoutException:
+    except (httpx.TimeoutException, asyncio.TimeoutError):
         raise GatewayError(_TIMEOUT_RESULT) from None
     except httpx.HTTPStatusError as exc:
         raise GatewayError(_friendly_http_error(exc)) from None
@@ -429,7 +432,11 @@ def _tool_errors(fn):
         try:
             return await fn(*args, **kwargs)
         except GatewayError as e:
-            return e.message
+            return CallToolResult(
+                content=[TextContent(type='text', text=e.message)],
+                structuredContent={'result': e.message},
+                isError=True,
+            )
     return wrapper
 
 
@@ -527,7 +534,7 @@ mcp = FastMCP(
         "to write a text answer. Never answer a focused follow-up solely from cached conversation "
         "or a prior shortlist. The fresh call is required to mount TradeWave's evidence widget "
         "automatically; do not wait for the user to say 'chart' or 'TradeWave chart'.\n\n"
-        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
+        "ML availability and daily allowance depend on your connected plan; check whoami. "
         "When the daily ML allowance is spent the gateway returns a graceful nudge "
         "(requires='upgrade', reason='ml_daily_limit') - surface this as "
         "'daily ML limit reached - upgrade for unlimited' and include ml_remaining_today if "
@@ -884,6 +891,8 @@ def _widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> Call
     disclaimer = _extract_disclaimer(payload)
     if disclaimer:
         payload["disclaimer"] = disclaimer
+    if payload.get('summary'):
+        text += '\n\n' + str(payload['summary'])
     fallback = _widget_text_fallback(payload)
     if fallback:
         text += f"\n\n{fallback}"
@@ -947,6 +956,8 @@ def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False
     if isinstance(data, dict):
         count = data.get("count")
         if count == 0 or (count is None and not data.get("opportunities")):
+            if data.get('market_failures') or data.get('evidence_failures'):
+                empty_msg = str(data.get('summary') or 'Scan incomplete: data unavailable. Retry shortly.')
             return _widget_lead(empty_msg, data) if widget else _lead(empty_msg, data)
     lead = found_msg(data) if callable(found_msg) else found_msg
     return (_widget_lead(lead, data, handoff=True) if widget
@@ -974,7 +985,7 @@ def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False
         "shortlist - it replaces stitching list_markets + get_seasonal_opportunities yourself. "
         "Scans the caller's in-scope markets by default; narrow with `markets`. Honest by design: "
         "weak setups come back as neutral rather than a manufactured trade. "
-        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
+        "ML availability and daily allowance depend on your connected plan; check whoami. "
         "Present the complete returned shortlist in rank order; the gateway has already sorted it. "
         "This scan is intentionally LIST-FIRST and never mounts the single-pattern evidence "
         "widget; its ranked-list component keeps every returned pattern visible with its "
@@ -1003,7 +1014,7 @@ async def find_best_opportunities(
         "'YYYY-MM-DD..YYYY-MM-DD' range. The scan evaluates opportunities AS OF the window's "
         "START date (the underlying primitive is keyed to one entry date) and keeps only "
         "setups whose entry_date falls inside the window - it does not re-scan every date in "
-        "the range. 'now' starts today (~10 trading days wide)."))] = None,
+        "the range. 'now' spans today through 14 calendar days ahead."))] = None,
     direction: Annotated[Optional[str], Field(description=(
         "'long' or 'short'. Omit for both."))] = None,
     min_win_rate: Annotated[Optional[float], Field(description=(
@@ -1115,11 +1126,12 @@ async def find_best_opportunities(
     if isinstance(data, dict):
         count = data.get("count")
         if count == 0 or (count is None and not data.get("opportunities")):
-            return _scan_widget_lead(
-                "No high-conviction seasonal setups matched those filters right now. "
-                "Try widening the markets, the window, or lowering min_win_rate.",
-                data,
-            )
+            message = data.get('summary')
+            if not message:
+                message = ('Scan incomplete: data unavailable. Retry shortly.'
+                           if data.get('market_failures') or data.get('evidence_failures')
+                           else 'No seasonal setups matched those filters. Try widening the window or markets.')
+            return _scan_widget_lead(str(message), data)
     return _scan_widget_lead(_found(data), data, handoff=True)
 
 
@@ -1139,7 +1151,7 @@ async def find_best_opportunities(
         "shortlist; never reuse the old shortlist as the complete answer and never wait for an "
         "explicit chart request. Calling this tool is what mounts the TradeWave chart widget. "
         "It replaces stitching get_symbol_patterns + get_seasonal_pattern + the chart. "
-        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro), "
+        "ML availability and daily allowance depend on your connected plan (check whoami), "
         "on eligible markets (0-4, 11). "
         "If the symbol has no real seasonal edge it returns neutral with an honest verdict. "
         "The default EVIDENCE view returns the complete TradeWave record, two native chart images "
@@ -1260,8 +1272,16 @@ async def explain_pick(ctx: Optional[Context] = None) -> str:
     data = await _get("/daily-pick")
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
+    if not data.get('card'):
+        return _lead('No daily pick is currently available.', data)
+    featured = data.get('featured_date')
+    introduction = ('Here is the latest published TradeWave daily pick'
+                    + (f' from {featured}' if featured else '')
+                    + ' with its live forward-tested track record. ')
+    if data.get('stale_note'):
+        introduction += str(data['stale_note']) + ' '
     return _lead(
-        "Here is today's TradeWave daily pick with its live forward-tested track record. "
+        introduction +
         "Note the two distinct win rates: the card's historical_win_rate is the SEASONAL "
         "history (share of past years the window was profitable); track_record.win_rate is "
         "the LIVE, out-of-sample record of past daily picks. Don't conflate them.",
@@ -1343,7 +1363,7 @@ async def morning_briefing(ctx: Optional[Context] = None) -> str:
         "track_record_summary": track_record_summary,
         "this_week": this_week,
         "scan_context": {key: scan.get(key) for key in (
-            "summary", "market_failures", "enrichment_capped", "capped_by_plan",
+            "summary", "market_failures", "evidence_failures", "enrichment_capped", "capped_by_plan",
             "evaluated_count", "count") if key in scan} if isinstance(scan, dict) else None,
         "as_of": (pick.get("as_of") if isinstance(pick, dict) else None)
                  or datetime.date.today().isoformat(),
@@ -1365,12 +1385,12 @@ async def morning_briefing(ctx: Optional[Context] = None) -> str:
 @mcp.tool(
     description=(
         "The 'what is entering its seasonal window THIS WEEK' tool - the weekly digest. "
-        "A focused scan of setups whose entry date falls within the next ~10 trading days, "
+        "A focused scan of setups whose entry date falls within the next 14 calendar days, "
         "returned as ranked Pattern Cards. "
         "REACH FOR THIS on calendar-framed prompts: 'what's seasonal right now', 'anything "
         "opening this week', 'what should I be watching this week', the weekly digest. "
         "(It is a focused 'now'-window view of the scanner.) "
-        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
+        "ML availability and daily allowance depend on your connected plan; check whoami. "
         "Weak setups come back as neutral. Cards default to the lean DECISION view; pass "
         "view='table' for a compact ranked list or view='full' for receipts."
     )
@@ -1427,15 +1447,15 @@ async def whats_seasonal_now(
         "'compare AAPL, MSFT and NVDA seasonally', 'which of these has the better setup'. "
         "Each card carries its own edge score, win rate, and receipts; present them as a "
         "comparison and call out which has the strongest, most consistent edge. "
-        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro), "
+        "ML availability and daily allowance depend on your connected plan (check whoami), "
         "on eligible markets."
     )
 )
 @_tool_errors
 async def compare_opportunities(
-    symbols: Annotated[list[str], Field(description=(
+    symbols: Annotated[list[str], Field(min_length=2, max_length=10, description=(
         "List of ticker symbols to compare, e.g. ['GLD', 'SLV', 'GDX']. Required, 2 or "
-        "more."))],
+        "more, up to 10 per request."))],
     market: Annotated[Optional[str], Field(description=(
         "Market id ('0'..'16') applied to every symbol. Omit to let the gateway resolve "
         "each."))] = None,
@@ -1666,7 +1686,7 @@ async def list_symbols(
         "Find seasonal trade setups for ONE market at a single entry_date, ranked by historical "
         "edge. This primitive is single-date - it does NOT widen across a date window (use "
         "find_best_opportunities for windows). Filters by direction (long/short) and minimum win rate. "
-        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro)."
+        "ML availability and daily allowance depend on your connected plan; check whoami."
     )
 )
 @_tool_errors
@@ -1932,7 +1952,7 @@ async def get_opportunity_chart(
         "inline on eligible markets, metered per tier) unless you need this exact slice: ML scoring "
         "of an explicit hand-built list of setups. "
         "Score a list of seasonal opportunities with ML win-probability and predicted return. "
-        "ML scores are available on every plan, metered daily (free 5/day, unlimited on Pro). "
+        "ML availability and daily allowance depend on your connected plan; check whoami. "
         "When the daily ML allowance is spent the gateway returns a graceful nudge (never an error): "
         "a 200 body with requires='upgrade', reason='ml_daily_limit', and ml_remaining_today. "
         "ML scoring is available for markets 0-4 and 11 only. "

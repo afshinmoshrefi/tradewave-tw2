@@ -8,7 +8,6 @@ The gateway agent extends the mapped accessors below. Internal endpoint paths/pa
 exact response keys must be confirmed against appserver/appserver/appserver.py
 (marked x-verify) - e.g. OppList4, ChartData4, MLScoreBatch, getResourcesObj.
 """
-import concurrent.futures
 import datetime
 import importlib.util
 import json
@@ -23,9 +22,11 @@ from urllib.parse import quote
 
 import requests
 from requests.adapters import HTTPAdapter
+from urllib3.util import Timeout
 
 from . import settings
 from .gateway_redis import create_client
+from .upstream_budget import current_deadline, parallel_map
 
 log = logging.getLogger("apiserver.appserver_client")
 
@@ -34,6 +35,9 @@ log = logging.getLogger("apiserver.appserver_client")
 _http = requests.Session()
 _http.mount("http://", HTTPAdapter(pool_connections=32, pool_maxsize=64, pool_block=True))
 _http.mount("https://", HTTPAdapter(pool_connections=32, pool_maxsize=64, pool_block=True))
+# requests does not apply its timeout while waiting for a pooled connection.
+# Bound that wait explicitly before entering the equally sized HTTP pool.
+_http_slots = threading.BoundedSemaphore(64)
 
 # Timeouts sit just under gunicorn's 120s worker timeout so a slow appserver surfaces as a
 # clean RequestException (degraded card / structured 503) instead of a killed worker.
@@ -96,11 +100,29 @@ def _request(method, url, **kwargs):
     window so bulk fan-outs degrade fast instead of sleeping past the worker timeout.
     Every raised RequestException has token/key material scrubbed from its message."""
     attempts = 1 if time.time() < _rl_state["until"] else _RETRY_ATTEMPTS
+    per_call_timeout = float(kwargs.get('timeout') or GET_TIMEOUT)
+    deadline = current_deadline()
+    call_deadline = time.monotonic() + per_call_timeout
+    deadline = min(deadline, call_deadline) if deadline is not None else call_deadline
     try:
         for attempt in range(attempts):
-            r = _http.request(method, url, **kwargs)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise requests.Timeout('market-data request time budget exhausted')
+            if not _http_slots.acquire(timeout=remaining):
+                raise requests.Timeout('market-data connection queue time budget exhausted')
+            try:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise requests.Timeout('market-data request time budget exhausted')
+                kwargs['timeout'] = Timeout(total=remaining, connect=min(5.0, remaining), read=remaining)
+                r = _http.request(method, url, **kwargs)
+            finally:
+                _http_slots.release()
             if r.status_code == 429 and attempt < attempts - 1:
                 wait = _retry_sleep_seconds(r, attempt)
+                if wait >= deadline - time.monotonic():
+                    raise requests.Timeout('market-data request time budget exhausted')
                 log.warning("appserver 429 (attempt %d/%d), retrying in %.1fs: %s",
                             attempt + 1, attempts, wait, _scrub(url))
                 time.sleep(wait)
@@ -121,6 +143,11 @@ def _request(method, url, **kwargs):
             # Exotic subclass init (e.g. JSONDecodeError): preserve the catchable
             # requests base type without retaining credential-bearing attributes.
             scrubbed = requests.RequestException(_scrub(e))
+        # Retain only the status needed for bounded reauthentication, never the
+        # credential-bearing request/response attached to requests.HTTPError.
+        status = getattr(getattr(e, 'response', None), 'status_code', None)
+        if isinstance(status, int):
+            scrubbed.status_code = status
         raise scrubbed from None
 
 
@@ -152,18 +179,28 @@ def _get_token():
         return tok
 
 
+def _authenticated_request(method, path, params=None, **kwargs):
+    token = _get_token()
+    for attempt in range(2):
+        query = {**(params or {}), 'token': token}
+        try:
+            return _request(method, f'{settings.APPSERVER_URL}{path}', params=query, **kwargs)
+        except requests.HTTPError as error:
+            if getattr(error, 'status_code', None) != 401 or attempt:
+                raise
+            # Another request may already have replaced the rejected token.
+            with _lock:
+                if _token['value'] == token:
+                    _token.update(value=None, exp=0.0)
+            token = _get_token()
+
+
 def get(path, params=None):
-    params = dict(params or {})
-    params["token"] = _get_token()
-    return _request("GET", f"{settings.APPSERVER_URL}{path}", params=params,
-                    timeout=GET_TIMEOUT)
+    return _authenticated_request('GET', path, params=params, timeout=GET_TIMEOUT)
 
 
 def post(path, json_body, params=None):
-    params = dict(params or {})
-    params["token"] = _get_token()
-    return _request("POST", f"{settings.APPSERVER_URL}{path}", params=params,
-                    json=json_body, timeout=POST_TIMEOUT)
+    return _authenticated_request('POST', path, params=params, json=json_body, timeout=POST_TIMEOUT)
 
 
 # ---------------------------------------------------------------------------
@@ -367,12 +404,11 @@ def resolve_market_for_symbol(symbol, candidate_markets):
 
     if not candidate_markets:
         return []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(candidate_markets))) as ex:
-        for market, unavailable in ex.map(_has, candidate_markets):
-            if unavailable:
-                failed.append(market)
-            elif market is not None:
-                found.append(market)
+    for market, unavailable in parallel_map(_has, candidate_markets, max_workers=min(8, len(candidate_markets))):
+        if unavailable:
+            failed.append(market)
+        elif market is not None:
+            found.append(market)
     if failed:
         # An unseen market can change instrument identity or primary-listing choice.
         # Let callers retry or select an explicit market, never claim a false 404.
@@ -616,11 +652,10 @@ def opportunities_multi(markets, entry_date, year1="10", year2="9", direction=No
 
     if not markets:
         return (results, failures) if return_failures else results
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_workers, len(markets))) as ex:
-        for rows, failed_market in ex.map(_one, markets):
-            results.extend(rows)
-            if failed_market is not None:
-                failures.append(failed_market)
+    for rows, failed_market in parallel_map(_one, markets, max_workers=min(max_workers, len(markets))):
+        results.extend(rows)
+        if failed_market is not None:
+            failures.append(failed_market)
     return (results, failures) if return_failures else results
 
 

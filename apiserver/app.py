@@ -7,6 +7,9 @@ tunnel front it (api-dev.trxstat.com -> :80 -> nginx -> this).
 import logging
 import time
 import requests
+import psycopg2
+import redis
+from psycopg2.pool import PoolError
 
 from flask import Flask, g, jsonify, request
 from werkzeug.exceptions import HTTPException
@@ -34,9 +37,12 @@ def create_app():
     @app.before_request
     def _start_request_timer():
         g.request_started_at = time.perf_counter()
+        # Leave time for error projection/refunds before MCP/edge/worker timeouts.
+        g.upstream_deadline = time.monotonic() + 90.0
 
     @app.after_request
     def _add_cors(resp):
+        resp.headers.update(getattr(g, 'rate_limit_headers', {}))
         # The browser playground calls /v1 cross-origin. Flask's automatic OPTIONS response
         # passes through here too, so preflight gets these headers (and needs no auth).
         allow = _cors_allow_origin(request.headers.get("Origin"))
@@ -94,6 +100,18 @@ def create_app():
         }})
         response.status_code = 503
         response.headers["Retry-After"] = "5"
+        return response
+
+    @app.errorhandler(redis.RedisError)
+    @app.errorhandler(psycopg2.OperationalError)
+    @app.errorhandler(psycopg2.InterfaceError)
+    @app.errorhandler(PoolError)
+    def infrastructure_unavailable(e):
+        logging.getLogger('apiserver.app').warning('request dependency unavailable (%s)', type(e).__name__)
+        response = jsonify({'error': {'code': 'service_unavailable',
+                                     'message': 'service temporarily unavailable - retry shortly'}})
+        response.status_code = 503
+        response.headers['Retry-After'] = '5'
         return response
 
     @app.errorhandler(HTTPException)
