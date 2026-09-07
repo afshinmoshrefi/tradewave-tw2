@@ -55,6 +55,11 @@ paths:
         final ranking, and the requested result limit. ML scores omitted from the returned
         page are refunded. evaluated_count + enrichment_capped are surfaced,
         and any partial market failure is explicit in market_failures.
+        Unavailable evidence cannot satisfy minimum return, Sharpe, win-rate or history
+        filters. evidence_failures counts failed candidate records even when filtering
+        removes them; an incomplete scan must not be interpreted as verified absence.
+        Discovery starts must be in the current US market year, or tomorrow at the New
+        Year boundary. Other years return 400; use pinned /analyze for exact-window research.
       parameters:
         - { name: markets, in: query, schema: { type: string }, description: "csv of ids, list_markets names, or common aliases ('sp500', 'crypto', 'europe'), e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are reported in markets_note; out-of-scope markets are skipped with an upgrade note. Default (omitted) = a liquid equities core (DOW 30, NASDAQ 100, S&P 500, ETFs) intersected with your scope, NOT every in-scope market - pass markets explicitly to scan others." }
         - { name: window, in: query, schema: { type: string, default: now }, description: "'now' | 'next_2_weeks' | 'next_month' | a 'from..to' range. The underlying primitive (OppList4) is keyed to a SINGLE entry date, so the scan evaluates opportunities AS OF the window's start date and then keeps only setups whose entry_date falls inside the window - it does not re-scan every date in the range. 'now' starts today (~10 trading days wide). Default 'now'." }
@@ -196,9 +201,11 @@ paths:
         statistical filters and final Sharpe ordering run after this refresh. Rows past
         the cap have null historical fields and evidence_status=not_evaluated. Outages
         use evidence_status=unavailable; a valid empty cohort uses no_data.
+        Entry dates must be in the current US market year, or tomorrow at the New Year
+        boundary. Unsupported years return 400 rather than substitute current-year patterns.
       parameters:
         - { name: market, in: query, required: true, schema: { type: string }, description: "market id '0'..'16'" }
-        - { name: from, in: query, schema: { type: string, format: date }, description: "entry_date to evaluate; defaults to today" }
+        - { name: from, in: query, schema: { type: string, format: date }, description: "entry_date to evaluate in the current US market year (or tomorrow); defaults to today. Other years require exact-window analysis." }
         - { name: to, in: query, schema: { type: string, format: date }, description: "ACCEPTED but ignored - does not widen the window (window_supported:false). Use /scan for windows." }
         - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
         - { name: min_win_rate, in: query, schema: { type: number, minimum: 0, maximum: 1 }, description: "filter on the REAL historical win_rate (share of profitable years), not the ML win_prob. Rows are enriched per symbol from ChartData4 'Percent Profitable', capped at the first 50 rows; rows past the cap (unknown win_rate) are excluded when this filter is set." }
@@ -328,6 +335,10 @@ paths:
         allowance appear in scores[] unscored with note:"daily ML limit reached - upgrade
         for unlimited". When the allowance is already fully spent the response is a 200
         with requires:"upgrade" and reason:"ml_daily_limit" instead of a scores array.
+        Exact-window ML supports 10-90 calendar days. Unsupported windows are excluded
+        before reserving allowance and remain unscored in their original positions with
+        a duration note. A batch containing only unsupported windows returns granted:0
+        and a scores array without a quota-exhaustion upgrade prompt.
       requestBody:
         required: true
         content:
@@ -732,6 +743,7 @@ components:
         window: { type: string, description: "the resolved window (e.g. 'now')" }
         markets_scanned: { type: array, items: { type: string }, description: "the requested in-scope market ids; check market_failures before treating the scan as complete" }
         market_failures: { type: array, items: { type: string }, description: "market ids whose upstream request failed and whose results were omitted; normally empty" }
+        evidence_failures: { type: integer, description: "candidate evidence fetches that failed, including candidates excluded by filters; nonzero means the scan is incomplete" }
         rank_by: { type: string, enum: [edge, win_rate, sharpe, ml, avg_return] }
         view: { type: string, enum: [full, evidence, decision, table], description: "the verbosity applied (echoes the request)" }
         lookback: { type: object, description: "the resolved detection knobs (year1, year2)", properties: { years: { type: integer }, min_winning_years: { type: integer } } }

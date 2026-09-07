@@ -1120,7 +1120,7 @@ actual `years_tested` survives every card projection and is what MCP text report
 before listing cannot snap to the first quote and fabricate history. Engine excursions
 include entry zero, including one-interval holds; averages and compounded returns retain
 fractional percentage points. Cache versions are `chartdata_v2`, `gw:opp-evidence:v3`, and
-`tw:api:scan-core:v4` so older semantics cannot return after deployment.
+`tw:api:scan-core:v5` so older semantics cannot return after deployment.
 
 **Expanded MCP/API audit (2026-09-07):** daily-pick track records now consume the
 canonical `site/lib/pick_stats.py` directly. The former gateway copy trusted stale
@@ -1159,6 +1159,30 @@ and counter-outage recovery from decrementing other requests' usage. Browser pre
 supports `X-API-Key`; rate headers are exposed and retained on authenticated error
 responses. Every CORS variant varies by Origin. MCP daily-limit errors name the daily
 reset rather than encouraging retries seconds later.
+
+**API contract hardening (2026-09-07):** the owner prioritized API correctness before
+the reported generated-link failure; do not treat these as evidence that the ordinary
+website UI produces the same errors. A live request for `from=2027-09-01` returned
+2026 patterns while echoing 2027. Discovery now rejects entry dates outside the current
+New York year, except the engine's explicitly supported tomorrow override. That override
+passes `target_date` and retains the target year's PE phase. Pinned analysis remains the
+exact-window path for other years; this does not add historical detector snapshots.
+
+Catalog/discovery response envelopes and row identities are validated before use or
+cache publication. Missing detector files (`OppList=-1:...`) and legitimate empty lists
+remain data gaps; malformed payloads become upstream failures. Failed catalog resolution
+cannot become a false unknown-symbol result or subscription upgrade error. Unhandled
+upstream request failures receive a credential-safe 503 envelope. Daily-pick source
+rows reject non-numeric/non-finite returns and invalid ML score ranges before computing
+the canonical track record; they are never silently skipped to publish a partial record.
+
+Unavailable scan evidence has no published detector statistics and cannot satisfy
+minimum return/Sharpe/win-rate/history filters. `evidence_failures` counts failed candidates
+even when filters remove them; an empty incomplete scan says data is unavailable.
+Only exact-model-supported 10-90 calendar-day windows reserve ML allowance. Unsupported
+rows retain their original positions in `/score`, with null values and an explicit
+duration note, so a leading unsupported row cannot deprive a later valid row of the
+remaining allowance or manufacture a quota-exhaustion upgrade prompt.
 
 Pinned `analyze_symbol` calls (entry date or period/reverse) bypass detection and accept
 analysis lookbacks 1-99; they never substitute a detected hold with the same entry date.

@@ -61,6 +61,112 @@ def _hdr():
     return {"Authorization": "Bearer tw_live_test"}
 
 
+@pytest.mark.parametrize("path", [
+    "/v1/opportunities?market=2&from=2027-09-01",
+    "/v1/scan?markets=2&window=2027-09-01..2027-09-30",
+])
+def test_discovery_cannot_silently_substitute_a_different_year(client, monkeypatch, path):
+    import datetime
+    from apiserver import appserver_client as ac, cards
+    monkeypatch.setattr(cards, "market_today", lambda: datetime.date(2026, 9, 7))
+    def unexpected(*a, **k):
+        pytest.fail("unsupported date reached the discovery engine")
+    _patch_appsrv(monkeypatch, opportunities=unexpected, opportunities_multi=unexpected)
+    response = client.get(path, headers=_hdr())
+    assert response.status_code == 400
+    assert 'year' in response.json['error']['message']
+
+
+def test_upstream_failure_returns_retryable_api_error(client, monkeypatch):
+    import requests
+    from apiserver import appserver_client as ac
+    def fail():
+        raise requests.ConnectionError("http://private/?token=must-not-appear")
+    monkeypatch.setattr(ac, "list_markets", fail)
+    response = client.get('/v1/markets', headers=_hdr())
+    assert response.status_code == 503
+    assert response.json['error']['code'] == 'upstream_unavailable'
+    assert 'must-not-appear' not in response.get_data(as_text=True)
+
+
+def test_catalog_outage_does_not_turn_market_names_into_upgrade_errors(client, monkeypatch):
+    import requests
+    from apiserver import appserver_client as ac
+    def fail():
+        raise requests.ConnectionError('catalog unavailable')
+    monkeypatch.setattr(ac, 'market_name_map', fail)
+    response = client.get('/v1/opportunities?market=S%26P%20500%20STOCKS', headers=_hdr())
+    assert response.status_code == 503
+    assert response.json['error']['code'] == 'upstream_unavailable'
+
+
+def test_unsupported_window_cannot_starve_scoreable_rows_of_remaining_quota(client, monkeypatch):
+    from apiserver import appserver_client as ac, ml_quota
+    _patch_appsrv(monkeypatch)
+    requests_seen = []
+    grants = []
+    monkeypatch.setattr(ml_quota, 'consume', lambda cust, n: grants.append(n) or min(n, 1))
+    def score(market, items):
+        requests_seen.extend(items)
+        return [{'ml_score': 80, 'win_prob': .8, 'pred_return': 5, 'pred_mfe': 7}
+                if 10 <= item['days_out'] <= 90 else None for item in items]
+    monkeypatch.setattr(ac, 'ml_scores', score)
+    body = {'market': '2', 'opportunities': [
+        {'symbol': 'AAPL', 'date': '2026-09-01', 'days_out': days, 'direction': 'long'}
+        for days in (1, 30)]}
+    response = client.post('/v1/score', json=body, headers=_hdr())
+    assert response.status_code == 200
+    assert response.json['granted'] == 1
+    assert response.json['scores'][0]['ml_score'] is None
+    assert response.json['scores'][1]['ml_score'] == 80
+    assert grants == [1] and [row['days_out'] for row in requests_seen] == [30]
+
+
+def test_all_unsupported_score_windows_do_not_reserve_or_claim_exhausted_quota(client, monkeypatch):
+    from apiserver import ml_quota
+    _patch_appsrv(monkeypatch)
+    def unexpected(*args):
+        pytest.fail('unsupported windows must not reserve quota')
+    monkeypatch.setattr(ml_quota, 'consume', unexpected)
+    response = client.post('/v1/score', headers=_hdr(), json={
+        'market': '2', 'opportunities': [{'symbol': 'AAPL', 'date': '2026-09-01',
+                                        'days_out': 1, 'direction': 'long'}]})
+    assert response.status_code == 200
+    assert response.json['granted'] == 0 and 'requires' not in response.json
+    assert '10-90' in response.json['scores'][0]['note']
+
+
+@pytest.mark.parametrize('path', ['/v1/opportunities?market=2', '/v1/opportunities/AAPL?market=2'])
+def test_discovery_reserves_ml_only_for_supported_windows(client, monkeypatch, path):
+    from apiserver import appserver_client as ac, ml_quota
+    rows = [{**_opp(symbol='LONGHOLD'), 'days_out': 150, 'ml': None},
+            {**_opp(symbol='SCOREABLE'), 'ml': None}]
+    _patch_appsrv(monkeypatch, opportunities=lambda *a, **k: copy.deepcopy(rows),
+                  opportunities_by_symbol=lambda *a, **k: copy.deepcopy(rows))
+    monkeypatch.setattr(ac, '_win_rate_for_opp', lambda obj: .8)
+    requested = []
+    monkeypatch.setattr(ml_quota, 'consume', lambda cust, n: requested.append(n) or min(n, 1))
+    monkeypatch.setattr(ac, 'ml_scores', lambda market, items: [
+        {'ml_score': 80, 'win_prob': .8, 'pred_return': 5, 'pred_mfe': 7} for item in items])
+    response = client.get(path, headers=_hdr())
+    assert response.status_code == 200
+    scores = {row['symbol']: row['ml'] for row in response.json['opportunities']}
+    assert scores['LONGHOLD'] is None and scores['SCOREABLE']['ml_score'] == 80
+    assert requested == [1]
+
+
+@pytest.mark.parametrize("query", ['min_avg_return=1', 'min_median_return=1', 'min_sharpe=1', 'min_years=5'])
+def test_unverified_scan_row_cannot_satisfy_an_evidence_filter(client, monkeypatch, query):
+    from apiserver import appserver_client as ac
+    _mock_card_chain(monkeypatch, multi=[_opp()])
+    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *a, **k: (None, None))
+    response = client.get(f'/v1/scan?{_WIN}&markets=2&{query}', headers=_hdr())
+    assert response.status_code == 200
+    assert response.json['count'] == 0
+    assert response.json['evidence_failures'] == 1
+    assert 'unavailable' in response.json['summary']
+
+
 def test_browser_preflight_allows_supported_api_key_and_exposes_limits(app, monkeypatch):
     from apiserver import app as appmod
     monkeypatch.setattr(appmod, "CORS_ORIGINS", ["https://test.example"])

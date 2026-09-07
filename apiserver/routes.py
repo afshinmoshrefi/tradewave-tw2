@@ -268,16 +268,11 @@ def _market_arg(raw):
     unambiguous fragment, case-insensitive). Returns (market_id, None) on success or
     (None, error_response). Unknown -> a 400 with guidance, kept DISTINCT from the
     out-of-scope 403 (_require_scope, applied after) so a paying user passing a real
-    catalog name never sees a false 'upgrade for market access'. If the catalog itself
-    is unreachable, falls back to the raw value (pre-resolution behavior) rather than
-    failing the request."""
+    catalog name never sees a false 'upgrade for market access'. Catalog failures
+    propagate as upstream-unavailable errors, never as subscription decisions."""
     if raw is None or str(raw).strip() == "":
         return None, _err("invalid_request", "query param 'market' is required", 400)
-    try:
-        name_map = appserver_client.market_name_map()
-    except requests.RequestException as e:
-        log.warning("market catalog unavailable for resolution; using raw value: %s", e)
-        return str(raw).strip(), None
+    name_map = appserver_client.market_name_map()
     mid = _resolve_market_token(raw, name_map)
     if mid is None:
         return None, _err(
@@ -726,6 +721,7 @@ def opportunities():
         keep_window = _column_filters_from_args(evidence=False)
         req_limit = _numeric_arg("limit", integer=True, default=25, minimum=0)
         entry_date, _, _ = _clean_chart_args(entry_date, "1", "1")
+        appserver_client.validate_discovery_date(entry_date, today=cards.market_today())
         min_win_rate, mwr_note = _min_win_rate_arg()
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # consecutive | pe (current cycle)
         year1, year2 = _lookback_args(market=market, path="scan",
@@ -772,8 +768,9 @@ def opportunities():
     # an upstream ML blip) so a metered customer is only ever charged for scores delivered;
     # ML is best-effort enrichment here and never fails the request.
     if opps and _ml_eligible(market):
-        granted = ml_quota.consume(g.customer, len(opps))
-        score_rows = opps[:granted]
+        scoreable = [o for o in opps if _ml_window_supported(o)]
+        granted = ml_quota.consume(g.customer, len(scoreable)) if scoreable else 0
+        score_rows = scoreable[:granted]
         if score_rows:
             items = [
                 {"symbol": o["symbol"], "date": o["entry_date"],
@@ -845,8 +842,9 @@ def _symbol_patterns_response(symbol):
     opps = opps[:tier_cap]
 
     if opps and _ml_eligible(market):
-        granted = ml_quota.consume(g.customer, len(opps))
-        score_rows = opps[:granted]
+        scoreable = [o for o in opps if _ml_window_supported(o)]
+        granted = ml_quota.consume(g.customer, len(scoreable)) if scoreable else 0
+        score_rows = scoreable[:granted]
         if score_rows:
             items = [
                 {"symbol": o["symbol"], "date": o["entry_date"],
@@ -975,6 +973,11 @@ def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank
         receipts_unavailable=receipts_unavailable)
 
 
+def _ml_window_supported(opp):
+    days = opp.get("days_out")
+    return isinstance(days, int) and not isinstance(days, bool) and 10 <= days <= 90
+
+
 def _ml_state_for(opp, ml_available):
     """Map an opp's ML outcome to a card ml_state for tier_notes:
       'shown'       - the model scored it.
@@ -990,6 +993,8 @@ def _ml_state_for(opp, ml_available):
         return "shown"
     if not _ml_eligible(opp.get("market")):
         return "market"
+    if not _ml_window_supported(opp):
+        return "unavailable"
     if opp.get("_ml_attempted"):
         return "unavailable"
     return "quota"
@@ -1054,6 +1059,7 @@ def scan():
     if rank_by not in _RANK_KEYS:
         rank_by = "sharpe"
     try:
+        appserver_client.validate_discovery_date(entry_lo, today=cards.market_today())
         min_years = _numeric_arg("min_years", integer=True, minimum=0)
         req_limit = _numeric_arg("limit", integer=True, default=25, minimum=0)
         keep = _column_filters_from_args()
@@ -1128,6 +1134,7 @@ def scan():
             unavailable = stats is None and entries is None
             if unavailable:
                 stats, entries = {}, []
+                appserver_client._clear_opportunity_evidence(opp, "unavailable")
             safe_stats, safe_entries = _price_safe_scan_receipts(stats, entries)
             if not unavailable:
                 opp["win_rate"] = appserver_client._win_rate_from_stats(safe_stats)
@@ -1176,6 +1183,7 @@ def scan():
     enrichment_capped = bool(core.get("enrichment_capped"))
     failed_markets = [str(market) for market in (core.get("failed_markets") or [])]
     records = list(core.get("candidates") or [])
+    evidence_failures = sum(bool(record.get("receipts_unavailable")) for record in records)
     head = [record.get("opp") or {} for record in records]
 
     # Trust filters are customer/query overlays and are never cached into shared data.
@@ -1197,8 +1205,8 @@ def scan():
     scoring_records = filtered_records
     if min_years is not None:
         scoring_records = [record for record in scoring_records
-                           if record.get("receipts_unavailable")
-                           or len(record.get("chart_entries") or []) >= min_years]
+                           if not record.get("receipts_unavailable")
+                           and len(record.get("chart_entries") or []) >= min_years]
     if rank_by in ("sharpe", "win_rate", "avg_return"):
         field = {"sharpe": "sharpe_ratio", "win_rate": "win_rate",
                  "avg_return": "avg_profit_pct"}[rank_by]
@@ -1207,7 +1215,7 @@ def scan():
             return value if value is not None else -math.inf
         scoring_records = sorted(scoring_records, key=receipt_rank, reverse=True)[:effective_limit]
     eligible = [record["opp"] for record in scoring_records
-                if _ml_eligible(record["opp"]["market"])]
+                if _ml_eligible(record["opp"]["market"]) and _ml_window_supported(record["opp"])]
     granted = ml_quota.consume(g.customer, len(eligible)) if eligible else 0
     attempted = eligible[:granted]
     by_market = {}
@@ -1250,10 +1258,9 @@ def scan():
     built = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as _ex:
         for card in _ex.map(_build_card, filtered_records):
-            # years_tested is None on a receipts_unavailable card: an unverifiable record
-            # is kept (with its explicit flag), never silently dropped by a trust filter.
+            # Unknown evidence cannot satisfy a caller's minimum-history requirement.
             yt = card["receipts"].get("years_tested")
-            if min_years is not None and yt is not None and yt < min_years:
+            if min_years is not None and (yt is None or yt < min_years):
                 continue
             card["_sortkey"] = _scan_sortkey(card, rank_by)
             built.append(card)
@@ -1324,8 +1331,11 @@ def scan():
         or (c.get("stats") or {}).get("historical_win_rate") is None)
     cand = "candidate" if evaluated_count == 1 else "candidates"
     if shown == 0:
-        summary = ("Evaluated %d %s - none matched the filters. Try widening the "
-                   "window or markets, or relaxing the filters." % (evaluated_count, cand))
+        if evidence_failures or failed_markets:
+            summary = "Scan incomplete: data unavailable, so no verified matches can be reported. Retry shortly."
+        else:
+            summary = ("Evaluated %d %s - none matched the filters. Try widening the "
+                       "window or markets, or relaxing the filters." % (evaluated_count, cand))
     elif high_conviction == 0:
         summary = ("Evaluated %d %s - 0 have a high-conviction edge right now; the "
                    "%d shown are neutral (listed for transparency, nothing to act on)."
@@ -1336,6 +1346,9 @@ def scan():
     if degraded_rows:
         summary += (" Win-rate data unavailable for %d row(s) (upstream rate limit/outage) - "
                     "those rows are shown unverified; retry shortly." % degraded_rows)
+    if evidence_failures > degraded_rows:
+        summary += (" Evidence was unavailable for %d candidate(s), including rows excluded "
+                    "by evidence filters; retry before treating the scan as complete." % evidence_failures)
     if failed_markets:
         summary += (
             " Data was unavailable for market(s) %s; their results are omitted, so retry "
@@ -1365,6 +1378,7 @@ def scan():
         "window": window_label,
         "markets_scanned": market_ids,
         "market_failures": failed_markets,
+        "evidence_failures": evidence_failures,
         "rank_by": rank_by,
         "view": view,
         "lookback": {"years": int(year1), "min_winning_years": int(year2)},
@@ -1534,7 +1548,7 @@ def analyze_symbol(symbol):
     # ML metered by the daily allowance (free 5/day, unlimited Pro); spend 1 on the best.
     # Reserve, try, and REFUND if the model returns no score for this setup, so a metered
     # customer is only charged for ML actually delivered (and never sees a false upsell).
-    granted = ml_quota.consume(g.customer, 1) if _ml_eligible(market) else 0
+    granted = ml_quota.consume(g.customer, 1) if _ml_eligible(market) and _ml_window_supported(best) else 0
     if granted:
         best["_ml_attempted"] = True
         try:
@@ -1710,8 +1724,9 @@ def score():
     # ML is offered on every tier but METERED PER DAY (free 5/day, unlimited Pro). Grant
     # up to the remaining allowance; score that many; the rest come back unscored with a
     # quota note. A zero grant returns a graceful upgrade nudge (HTTP 200, not an error).
-    granted = ml_quota.consume(g.customer, len(norm))
-    if granted == 0:
+    scoreable_indices = [index for index, item in enumerate(norm) if _ml_window_supported(item)]
+    granted = ml_quota.consume(g.customer, len(scoreable_indices)) if scoreable_indices else 0
+    if granted == 0 and scoreable_indices:
         lim = g.customer["entitlements"].get("ml_daily_limit")
         return jsonify({
             "requires": "upgrade", "reason": "ml_daily_limit",
@@ -1721,16 +1736,18 @@ def score():
 
     # ML is best-effort: an upstream blip must REFUND the reserved allowance and degrade
     # soft (rows come back unscored), never 500 and never silently drop reserved rows.
+    attempted_indices = scoreable_indices[:granted]
     try:
-        ml = appserver_client.ml_scores(market, norm[:granted])
+        ml = appserver_client.ml_scores(market, [norm[index] for index in attempted_indices]) if granted else []
     except Exception as e:  # noqa: BLE001 - ML enrichment, never fatal
         log.warning("score ML scoring failed for market %s: %s", market, e)
         ml = []
     scores = []
     delivered = 0
-    attempted = norm[:granted]
-    for i, it in enumerate(attempted):
-        score = ml[i] if i < len(ml) else None
+    returned = {index: ml[position] if position < len(ml) else None
+                for position, index in enumerate(attempted_indices)}
+    for index, it in enumerate(norm):
+        score = returned.get(index)
         row = {
             "symbol": it["symbol"],
             "date": it["date"],
@@ -1741,21 +1758,17 @@ def score():
             row.update(score)
             delivered += 1
         else:
-            # appserver could not score it (e.g. days_out outside the 10-90 range) or an
-            # upstream ML blip - the reserved allowance for this row is refunded below.
             row.update({"ml_score": None, "win_prob": None,
                         "pred_return": None, "pred_mfe": None})
+            if not _ml_window_supported(it):
+                row["note"] = "exact-window ML scoring supports 10-90 calendar days"
+            elif index not in returned:
+                row["note"] = "daily ML limit reached - upgrade for unlimited"
+            else:
+                row["note"] = "ML score temporarily unavailable; reserved allowance refunded"
         scores.append(row)
     # only ever charge for ML scores actually delivered.
     ml_quota.refund(g.customer, granted - delivered)
-    # requested beyond today's allowance: unscored, with a quota note (no error).
-    for it in norm[granted:]:
-        scores.append({
-            "symbol": it["symbol"], "date": it["date"], "days_out": it["days_out"],
-            "direction": appserver_client._dir_to_public(it["direction"]),
-            "ml_score": None, "win_prob": None, "pred_return": None, "pred_mfe": None,
-            "note": "daily ML limit reached - upgrade for unlimited",
-        })
     return jsonify({
         "scores": scores,
         "granted": delivered,

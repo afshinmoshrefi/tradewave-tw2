@@ -145,9 +145,9 @@ def _get_token():
             headers={"X-Service-Key": settings.SERVICE_API_KEY or ""},
             timeout=10,
         )
-        tok = data.get("token") or data.get("session_token")  # x-verify exact key
-        if not tok:
-            raise RuntimeError("appserver /login/api returned no token")
+        tok = (data.get("token") or data.get("session_token")) if isinstance(data, dict) else None
+        if not isinstance(tok, str) or not tok.strip():
+            raise requests.RequestException("appserver authentication is temporarily unavailable")
         _token.update(value=tok, exp=time.time() + 20 * 3600)
         return tok
 
@@ -326,7 +326,7 @@ def _opp_row_to_obj(row, market, years, win_rate=None):
 def list_markets():
     """Maps getResourcesObj -> [{id, name}]. id is the permanent resource key."""
     data = get("/getResourcesObj")
-    resources = data.get("resources", {}) if isinstance(data, dict) else {}
+    resources = _catalog_mapping(data, "resources", allow_empty=False)
     out = []
     for rid, name in resources.items():
         out.append({"id": str(rid), "name": name})
@@ -355,21 +355,28 @@ def resolve_market_for_symbol(symbol, candidate_markets):
     resolve an omitted market. Parallelized over the candidate markets."""
     sym = str(symbol).strip().upper()
     found = []
+    failed = []
 
     def _has(m):
         try:
             syms = {str(s["symbol"]).upper() for s in list_symbols(m)}
-            return m if sym in syms else None
-        except Exception as e:  # noqa: BLE001
-            log.warning("resolve_market_for_symbol: market %s lookup failed: %s", m, e)
-            return None
+            return (m if sym in syms else None), False
+        except requests.RequestException as e:
+            log.warning("resolve_market_for_symbol: market %s lookup failed (%s)", m, type(e).__name__)
+            return m, True
 
     if not candidate_markets:
         return []
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(candidate_markets))) as ex:
-        for r in ex.map(_has, candidate_markets):
-            if r is not None:
-                found.append(r)
+        for market, unavailable in ex.map(_has, candidate_markets):
+            if unavailable:
+                failed.append(market)
+            elif market is not None:
+                found.append(market)
+    if failed:
+        # An unseen market can change instrument identity or primary-listing choice.
+        # Let callers retry or select an explicit market, never claim a false 404.
+        raise requests.RequestException("symbol market resolution is temporarily unavailable; specify a market")
     return found
 
 
@@ -377,10 +384,55 @@ def list_symbols(market):
     """Maps GetListSymbols -> [{symbol, name}]. Internal returns
     {'AllowedSymbols': {symbol: name}}."""
     data = get(f"/GetListSymbols/{_seg(market)}")
-    allowed = data.get("AllowedSymbols", {}) if isinstance(data, dict) else {}
-    if not isinstance(allowed, dict):
-        return []
+    allowed = _catalog_mapping(data, "AllowedSymbols")
     return [{"symbol": str(sym), "name": name} for sym, name in allowed.items()]
+
+
+def _catalog_mapping(data, field, *, allow_empty=True):
+    value = data.get(field) if isinstance(data, dict) else None
+    if (not isinstance(value, dict) or (not allow_empty and not value)
+            or any(not isinstance(key, str) or not key.strip()
+                   or not isinstance(name, str) or not name.strip() for key, name in value.items())):
+        raise requests.RequestException("market-data catalog returned an invalid response")
+    return value
+
+
+def validate_discovery_date(entry_date, *, today=None):
+    """The detector supports the current NY year and the service warmer's tomorrow.
+    Exact-window research in other years belongs to analyze/patterns/seasonal-chart.
+    """
+    from .seasonal_evidence import market_today
+    today = today or market_today()
+    target = datetime.date.fromisoformat(str(entry_date))
+    if target.year != today.year and target != today + datetime.timedelta(days=1):
+        raise ValueError("discovery entry dates must be in the current US market year "
+                         "(or tomorrow); use an exact-window analysis for other years")
+    return target
+
+
+def _discovery_rows(data, field):
+    if not isinstance(data, dict) or field not in data:
+        raise requests.RequestException("discovery engine returned an invalid response")
+    rows = data[field]
+    if field == "OppList" and isinstance(rows, str) and rows.startswith("-1:"):
+        return []  # documented missing detector file, not a transport failure
+    if not isinstance(rows, list):
+        raise requests.RequestException("discovery engine returned invalid rows")
+    for row in rows:
+        if not isinstance(row, list) or len(row) < len(_OPP_COLS):
+            raise requests.RequestException("discovery engine returned an invalid row")
+        try:
+            days = int(row[2])
+            valid = (isinstance(row[0], str) and datetime.date.fromisoformat(row[0]).isoformat() == row[0]
+                     and isinstance(row[1], str) and bool(row[1].strip())
+                     and type(row[2]) in (int, float, str) and float(row[2]) == days
+                     and 0 <= days <= 366
+                     and _dir_to_public(row[3]) in ("long", "short"))
+        except (TypeError, ValueError, OverflowError):
+            valid = False
+        if not valid:
+            raise requests.RequestException("discovery engine returned an invalid pattern identity")
+    return rows
 
 
 # ------------------------------ opportunities ------------------------------
@@ -423,9 +475,10 @@ def _valid_cached_evidence(evidence):
             and (evidence["win_rate"] is None or 0 <= evidence["win_rate"] <= 1))
 
 
-def _opportunity_years(years, mode):
+def _opportunity_years(years, mode, *, entry_year=None):
     from .seasonal_evidence import market_today
-    return f"pe{market_today().year % 4}-{years}" if mode == "pe" else str(years)
+    year = market_today().year if entry_year is None else entry_year
+    return f"pe{year % 4}-{years}" if mode == "pe" else str(years)
 
 
 def _win_rate_for_opp(obj):
@@ -494,27 +547,23 @@ def opportunities(market, entry_date, year1="10", year2="9", day_range="-",
     rows for the scanner's own evidence pass. The public route clears unverified
     headline fields past its cap and applies statistical filters after enrichment.
     """
-    dt = datetime.datetime.strptime(entry_date, "%Y-%m-%d")
+    dt = validate_discovery_date(entry_date)
     month_name = dt.strftime("%B")
     day_num = str(dt.day)
     path = (f"/OppList4/{_seg(market)}/{_seg(month_name)}/{_seg(day_num)}/{_seg(year1)}"
             f"/{_seg(year2)}/{_seg(day_range)}/{_seg(opp_list_expanded)}/0")
     # mode='pe' loads the presidential-election-cycle dataset (the current cycle position);
     # 'consecutive' (default) is the standard consecutive-years dataset.
-    params = {"mode": mode} if mode and mode != "consecutive" else None
-    data = get(path, params=params)
-    rows = data.get("OppList", []) if isinstance(data, dict) else []
-    # appserver sentinel: OppList can be a string like '-1:<path>' when the opp file
-    # is missing. Treat any non-list as "no opportunities" (fail-soft on data gaps,
-    # not on errors).
-    if not isinstance(rows, list):
-        return []
+    params = {"mode": mode} if mode and mode != "consecutive" else {}
+    from .seasonal_evidence import market_today
+    if dt.year != market_today().year:
+        params["target_date"] = dt.isoformat()
+    data = get(path, params=params or None)
+    rows = _discovery_rows(data, "OppList")
     out = []
     want_dir = _dir_to_public(direction) if direction else None
     for row in rows:
-        if not isinstance(row, list) or len(row) < len(_OPP_COLS):
-            continue
-        obj = _opp_row_to_obj(row, market, _opportunity_years(year1, mode))
+        obj = _opp_row_to_obj(row, market, _opportunity_years(year1, mode, entry_year=dt.year))
         if want_dir and obj["direction"] != want_dir:
             continue
         out.append(obj)
@@ -535,13 +584,9 @@ def opportunities_by_symbol(market, symbol, year1="10", year2="9", day_range="-"
             f"/{_seg(day_range)}/{int(top_pct)}")
     params = {"mode": mode} if mode and mode != "consecutive" else None
     data = get(path, params=params)
-    rows = data.get("OppBySymbol", []) if isinstance(data, dict) else []
-    if not isinstance(rows, list):
-        return []
+    rows = _discovery_rows(data, "OppBySymbol")
     out = []
     for row in rows:
-        if not isinstance(row, list) or len(row) < len(_OPP_COLS):
-            continue
         out.append(_opp_row_to_obj(row, market, _opportunity_years(year1, mode)))
     if enrich_win_rate:
         for obj in out:
@@ -903,6 +948,18 @@ def _load_featured_history():
         raise FeaturedHistoryUnavailable("daily-pick source not configured")
     if not isinstance(data, list):
         raise FeaturedHistoryUnavailable("daily-pick feed has invalid shape")
+    fields = ("actual_return", "current_return", "peak_return", "pred_return", "pred_mfe",
+              "ml_score", "win_prob", "sharpe_ratio", "avg_profit", "median_profit")
+    for entry in data:
+        if not isinstance(entry, dict):
+            raise FeaturedHistoryUnavailable("daily-pick feed has an invalid row")
+        for field in fields:
+            value = entry.get(field)
+            if value is not None and (type(value) not in (int, float) or _num(value) is None):
+                raise FeaturedHistoryUnavailable("daily-pick feed has invalid numeric data")
+        for field, upper in (("ml_score", 100), ("win_prob", 1)):
+            if entry.get(field) is not None and not 0 <= entry[field] <= upper:
+                raise FeaturedHistoryUnavailable("daily-pick feed has an invalid score")
     return data
 
 

@@ -1728,6 +1728,7 @@ def build_data_dictionary() -> str:
 
 <h2>Core opportunity fields</h2>
 <p>Win rate, average/median return and Sharpe use the same completed, direction-aware history. Historical numbers are null when evidence is unavailable or was not evaluated within the bulk endpoint's 50-candidate cap.</p>
+<p>Discovery entry dates use the current US market year, with tomorrow also supported at the New Year boundary. Use exact-window analysis for other years. A scan's <code class="inline-code">evidence_failures</code> counts unavailable candidate records even if filters remove them; an incomplete empty scan is not proof that no patterns exist.</p>
 <table>
   <thead>
     <tr><th>Field</th><th>Type</th><th>Definition</th></tr>
@@ -1797,6 +1798,7 @@ def build_data_dictionary() -> str:
 </table>
 
 <h2>ML fields (all tiers, metered per day)</h2>
+<p>Exact-window ML supports 10-90 calendar days. Unsupported windows do not reserve daily allowance and remain unscored with a duration note, preserving their original positions in batch responses.</p>
 <p>ML fields are available on every tier, metered per day: free 5/day, Dev 100/day, Pro/Business unlimited. ML fields are <code class="inline-code">null</code> when the daily limit is exhausted or the market is not ML-eligible. ML-eligible markets are ids 0, 1, 2, 3, 4, and 11; all other markets (ids 5, 6, 7, 8, 9, 10, 12, 13, and 16) are not ML-eligible.</p>
 <table>
   <thead>

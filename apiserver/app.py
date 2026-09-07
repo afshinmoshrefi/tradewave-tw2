@@ -6,6 +6,7 @@ tunnel front it (api-dev.trxstat.com -> :80 -> nginx -> this).
 """
 import logging
 import time
+import requests
 
 from flask import Flask, g, jsonify, request
 from werkzeug.exceptions import HTTPException
@@ -83,6 +84,17 @@ def create_app():
             "code": "daily_pick_unavailable",
             "message": "daily-pick data is temporarily unavailable",
         }}), 503
+
+    @app.errorhandler(requests.RequestException)
+    def upstream_unavailable(e):
+        # Keep upstream payloads, URLs and credential-bearing exception text private.
+        logging.getLogger("apiserver.app").warning("upstream request unavailable (%s)", type(e).__name__)
+        response = jsonify({"error": {
+            "code": "upstream_unavailable", "message": "market data temporarily unavailable - retry shortly",
+        }})
+        response.status_code = 503
+        response.headers["Retry-After"] = "5"
+        return response
 
     @app.errorhandler(HTTPException)
     def http_exception(e):

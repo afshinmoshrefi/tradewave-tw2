@@ -12,6 +12,70 @@ from apiserver import appserver_client as ac
 pytestmark = pytest.mark.unit
 
 
+@pytest.mark.parametrize("payload", [None, [], {}, {"resources": []}, {"resources": {"2": None}}])
+def test_bad_catalog_is_unavailable_not_an_empty_catalog(monkeypatch, payload):
+    monkeypatch.setattr(ac, "get", lambda *a, **k: payload)
+    with pytest.raises(requests.RequestException):
+        ac.list_markets()
+
+
+@pytest.mark.parametrize("payload", [None, [], {}, {"AllowedSymbols": []}])
+def test_bad_symbol_catalog_is_unavailable_not_no_symbols(monkeypatch, payload):
+    monkeypatch.setattr(ac, "get", lambda *a, **k: payload)
+    with pytest.raises(requests.RequestException):
+        ac.list_symbols("2")
+
+
+@pytest.mark.parametrize("payload", [None, {}, {"OppList": "temporary failure"}, {"OppList": [None]},
+    {"OppList": [['2026-09-01', 'AAPL', '29.0', 'Long', 1, 2, 3, None, None]]},
+    {"OppList": [['2026-09-01', 'AAPL', 29.5, 'Long', 1, 2, 3, None, None]]}])
+def test_bad_discovery_cannot_be_cached_as_a_successful_empty_scan(monkeypatch, payload):
+    monkeypatch.setattr(ac, "get", lambda *a, **k: payload)
+    rows, failures = ac.opportunities_multi(["2"], "2026-09-01", return_failures=True)
+    assert rows == [] and failures == ["2"]
+
+
+def test_discovery_keeps_documented_empty_data_cases(monkeypatch):
+    for payload in ({'OppList': []}, {'OppList': '-1:missing-detector-file'}):
+        monkeypatch.setattr(ac, 'get', lambda *a, **k: payload)
+        assert ac.opportunities('2', '2026-09-01') == []
+    monkeypatch.setattr(ac, 'get', lambda *a, **k: {'OppBySymbol': [], 'status': 'feature_not_available'})
+    assert ac.opportunities_by_symbol('2', 'AAPL') == []
+
+
+def test_new_year_tomorrow_uses_service_target_date_and_matching_cycle(monkeypatch):
+    import datetime
+    from apiserver import seasonal_evidence
+    monkeypatch.setattr(seasonal_evidence, 'market_today', lambda: datetime.date(2026, 12, 31))
+    calls = []
+    def get(path, params=None):
+        calls.append(params)
+        return {'OppList': [['2027-01-01', 'AAPL', 29, 'Long', 1, 2, 3, None, None]]}
+    monkeypatch.setattr(ac, 'get', get)
+    result = ac.opportunities('2', '2027-01-01', mode='pe')
+    assert calls == [{'mode': 'pe', 'target_date': '2027-01-01'}]
+    assert result[0]['years'] == 'pe3-10'
+
+
+def test_symbol_resolution_cannot_claim_absence_when_a_market_failed(monkeypatch):
+    def symbols(market):
+        if market == "2":
+            raise requests.ConnectionError("unavailable")
+        return []
+    monkeypatch.setattr(ac, "list_symbols", symbols)
+    with pytest.raises(requests.RequestException):
+        ac.resolve_market_for_symbol("AAPL", ["2", "11"])
+
+
+@pytest.mark.parametrize("record", [None, {"symbol": "AAPL", "actual_return": float('nan')},
+    {"symbol": "AAPL", "pred_return": "4"}, {"symbol": "AAPL", "win_prob": 75}])
+def test_corrupt_daily_history_is_503_instead_of_invalid_or_partial_evidence(monkeypatch, record):
+    monkeypatch.setattr(ac.settings, "FEATURED_HISTORY_URL", "http://feed")
+    monkeypatch.setattr(ac, "_request", lambda *a, **k: [record])
+    with pytest.raises(ac.FeaturedHistoryUnavailable):
+        ac._load_featured_history()
+
+
 @pytest.mark.parametrize("payload", [None, [], {}, {"ChartData4": "broken", "stats": {}},
     {"ChartData4": [], "stats": []}, {"ChartData4": [None], "stats": {}},
     {"ChartData4": [{"year": 2025, "pct": "NaN"}], "stats": {}}])
