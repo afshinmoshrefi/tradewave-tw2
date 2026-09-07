@@ -274,13 +274,21 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   discovery. Automated research synthesis, fixed subscriptions/hosting and
   primary-editor/Codex session work were not invoked or costed as article APIs.
 
-  **Do not call the full figure invoice-confirmed:** the 12:32 UTC export
-  increased from $9.8276554 to $11.8069754, matching the four final-edition calls
-  and their $1.97932/134,180 input tokens exactly. The six upstream receipts
-  ($2.7164175) remain unmatched in that export despite distinct September 7
-  timestamps and no duplicate response IDs in earlier artifacts. Billing delay
-  is possible, not established. A full reconciliation would total $14.5233929
-  absent unrelated usage. Preserve this qualification until an export matches.
+  **Dashboard billing reconciliation completed September 7, 13:42 UTC.** The
+  owner requested verification against the open OpenAI dashboard. Its fresh
+  Default-project cost export exactly matches every model input/cache/output
+  token and dollar delta for both measured runs. The day's $15.24512385 total
+  is $9.8276554 before testing + $4.6957375 expensive attempt + $0.63125095 new
+  article + $0.09048 comparison. The visible 68 requests and 1,091,593 input
+  tokens also match exactly. Other model costs are unchanged; no unexplained
+  difference remains. The six upstream expensive-run calls absent from the
+  12:32 export now reconcile, resolving the previous partial check. Their
+  internal posting delay/cause was not established. This confirms the daily
+  dashboard billing export, not a final monthly invoice. OpenAI cannot confirm
+  the separately allocated Tavily/Replicate costs. Evidence and line-item match:
+  `smn-review-20260905/hybrid-article-20260907/dashboard-reconciliation.json`,
+  `billing-confirmed.csv`, and `dashboard-verification.md`. No paid calls were
+  made during this billing audit.
   The draft remains **on editorial hold**: final review flagged cumulative
   source wording over its configured 190-word allowance. No extra paid retry
   or manual approval was performed. Both browser layouts and actual chart
@@ -309,8 +317,8 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   The separate model/cost-label-hidden Astra comparison cost $0.09048; actual
   new paid API usage was $0.72173095, and the whole test including external
   allocation was $0.79773095, within the owner's $1 ceiling. No new Tavily or
-  image call. These are independently recomputed token costs, not a confirmed
-  invoice or an average cost per approved article. Market-wide discovery,
+  image call. These token costs now match the dashboard export as documented
+  above; they are not an average cost per approved article. Market-wide discovery,
   existing subscriptions and human/Codex work remain excluded.
 
   **Quality is not yet established for rollout.** The paired text judge found
