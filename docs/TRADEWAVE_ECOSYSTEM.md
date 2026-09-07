@@ -292,6 +292,65 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `report.html`. No app change or deployment; live Dev remains `57055c2`, with
   both article/queue services still active since August 21 12:10:38 UTC.
 
+  **Bounded Astra/Luna comparison, September 7 (private, still held).**
+  The owner authorized a new draft using Astra to direct a cheaper evidence
+  worker and asked for a quality comparison with the measured $4.77 attempt.
+  The isolated harness at
+  `smn-review-20260905/hybrid-article-20260907/run_hybrid.py` reuses the same
+  frozen COST packet and recomputes candidate/history gates before and after
+  a fresh Astra commission. It uses unchanged `569c7fc` SMN numerical/chart
+  and rendering modules; no application activation or deployment occurred.
+
+  Actual generation receipts: five Astra calls **$0.626675** and two Luna
+  calls **$0.00457595**, totaling **$0.63125095 OpenAI**. Allocate the original
+  $0.016 search and $0.06 hero, reused for comparability: **$0.70725095 per
+  attempt**, 85.2% below $4.7717375. This includes a worker retry, one targeted
+  Astra editorial repair requested by the primary editor, and its recheck.
+  The separate model/cost-label-hidden Astra comparison cost $0.09048; actual
+  new paid API usage was $0.72173095, and the whole test including external
+  allocation was $0.79773095, within the owner's $1 ceiling. No new Tavily or
+  image call. These are independently recomputed token costs, not a confirmed
+  invoice or an average cost per approved article. Market-wide discovery,
+  existing subscriptions and human/Codex work remain excluded.
+
+  **Quality is not yet established for rollout.** The paired text judge found
+  an overall tie: the expensive version has a smoother opening; the new one
+  gives a more concrete same-quarter profit-versus-sales question. Primary
+  editing still finds the new opening awkward and its headline too focused
+  on statistics. Final independent review held the new draft for omitting
+  the already available 11.3% Q4 net-sales benchmark and quantified August
+  Labor Day drag. Factual/structural/source-word checks passed; a comparative
+  preference cannot override an omission-based hold. The expensive comparator
+  also remains held, so neither is an approved publishing benchmark. Native
+  chart/hero raster bytes and CSV data are identical between arms; only the
+  additional chart's surrounding title/subtitle/note were shortened. Both
+  browser layouts passed with exact study links. The shared hero retains its
+  previously disclosed unwanted wordmark, without new approval.
+
+  **Design lessons:** A worker task must bind metric, scope, reporting-period
+  length and end, units and source. The initial brief omitted explicit period
+  assignments, so Luna returned valid quarterly values for intended August
+  fields; exact checks rejected them and one clarified call passed all eight
+  required facts/passages/missing-data checks. Preserve material evidence
+  obligations for the commissioned question when compressing prompts; retain
+  original passages and actual chart values for the independent reviewer.
+  The initial automatic review passed a dry opening that primary editing
+  rejected. Apply the accepted headline/lead standard to targeted repairs too.
+  An oversized recheck was blocked before transmission; eliminating duplicate
+  worker summaries and briefing text, while retaining primary passages and
+  all annual observations, made the full recheck fit. No budget or quality
+  threshold was relaxed. All corrections, holds and model receipts are saved.
+
+  Most savings come from eliminating duplicated article passes and evidence,
+  not from proven cheaper-worker quality. On the same observed worker token
+  counts, a pricing-only Astra substitution would put the attempt at about
+  $0.9061 including external allocation; that is not a tested all-Astra run.
+  The one-story experiment supports further work on the compact architecture,
+  not a claim of autonomous quality equivalence or authorization to deploy.
+  Full findings, both articles and costs:
+  `smn-review-20260905/hybrid-article-20260907/findings.md` and `report.html`.
+  Live Dev remains `57055c2`; the accepted application branch is unchanged.
+
   **Visual financial-news editing completed privately (2026-09-07 UTC).**
   **Owner review: seasonal product continuity rejected.** The JPM-v3 layout
   below passed technical checks but failed the owner's SMN identity requirement.
