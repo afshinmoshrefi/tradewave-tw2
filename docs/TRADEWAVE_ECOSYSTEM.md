@@ -359,6 +359,55 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `smn-review-20260905/hybrid-article-20260907/findings.md` and `report.html`.
   Live Dev remains `57055c2`; the accepted application branch is unchanged.
 
+  **Subscription-authenticated article pilot, September 7 (private).** The
+  owner asked to test the existing ChatGPT account before buying a dedicated
+  account and to explain server logistics. A separate SMN branch,
+  `codex/smn-subscription-worker-20260907`, continues private base `569c7fc`;
+  pushed source is `8eeaccda3a6a6344f98613b9c1f6693eaae81743`. The new
+  `blog/subscription_writer.py` prepared-job adapter uses official Codex CLI
+  0.153.1 with saved ChatGPT auth and Astra Extra High. The companion receiver
+  validates returned/evidence hashes and preserves the existing SMN renderer,
+  native TradeWave charts, exact study links, supplementary charts and hero.
+  It has no live queue, publisher or API-writer imports. Eleven focused tests
+  cover changed/expired inputs, login failure and duplicate/concurrent jobs.
+
+  One newly written COST article reused the frozen September 7 evidence and
+  identical visual assets from the earlier comparison. The first writer was
+  not supplied previous article prose. Four subscription turns (write, review,
+  one targeted repair and re-review) consumed 65,801 input and 19,282 output
+  tokens, including 15,040 reasoning tokens, in 699.906 worker seconds. No new
+  paid OpenAI API, research or image calls occurred. After all turns, the
+  refreshed API dashboard remained **$15.25 / 68 requests / 1,091,593 input
+  tokens**, matching the previous reconciled baseline. The account-wide weekly
+  meter moved 48% to 52% while the coordinating session was also active; that
+  rounded change does not measure this article alone or a $20 plan's capacity.
+
+  The final 458-word text passed all seven independent editorial checks,
+  source allowances and desktop/mobile checks. It includes the quarterly
+  sales benchmark and holiday-drag detail missing from the cheaper draft.
+  Primary editing still finds the expensive draft's opening smoother and the
+  cycle paragraph dense; this is not proof of universal quality parity. The
+  inherited hero's unwanted wordmark remains a separate asset item. Fixes
+  learned: keep angle IDs fixed, show reviewers the actual rendered stats
+  table, and describe the exact annual-study link destination accurately.
+  No reader prose was manually rewritten. Evidence and private article:
+  `smn-review-20260905/subscription-article-20260907/report.html`,
+  `findings.md`, `pilot-summary.json`, and `results/COST/article.html`.
+
+  Future logistics: one dedicated OS user and persistent ChatGPT login on an
+  always-on private worker; owner completes browser/device sign-in once; SMN
+  marks data/brief/chart jobs ready, a serialized Codex worker returns drafts,
+  and SMN validates/renders previews. CLI owns session refresh. No automatic
+  API billing fallback. Grokbot/Hermes are optional launchers, not required or
+  tested here. Server provisioning, real queue/preview integration, account
+  capacity measurement and any publishing activation remain future work.
+  This pilot ran locally on Windows and did not change either live environment,
+  the existing account login, global CLI, scheduler, or production configuration.
+  Official references: `https://learn.chatgpt.com/docs/non-interactive-mode`,
+  `/docs/auth`, and `/docs/auth/ci-cd-auth` on the same host. API auth is the
+  general CI/CD recommendation; trusted private account-auth automation is
+  documented for workflows specifically requiring the Codex account.
+
   **Visual financial-news editing completed privately (2026-09-07 UTC).**
   **Owner review: seasonal product continuity rejected.** The JPM-v3 layout
   below passed technical checks but failed the owner's SMN identity requirement.
