@@ -768,7 +768,7 @@ def opportunities():
     # an upstream ML blip) so a metered customer is only ever charged for scores delivered;
     # ML is best-effort enrichment here and never fails the request.
     if opps and _ml_eligible(market):
-        scoreable = [o for o in opps if _ml_window_supported(o)]
+        scoreable = [o for o in opps if _ml_request_supported(o)]
         granted = ml_quota.consume(g.customer, len(scoreable)) if scoreable else 0
         score_rows = scoreable[:granted]
         if score_rows:
@@ -842,7 +842,7 @@ def _symbol_patterns_response(symbol):
     opps = opps[:tier_cap]
 
     if opps and _ml_eligible(market):
-        scoreable = [o for o in opps if _ml_window_supported(o)]
+        scoreable = [o for o in opps if _ml_request_supported(o)]
         granted = ml_quota.consume(g.customer, len(scoreable)) if scoreable else 0
         score_rows = scoreable[:granted]
         if score_rows:
@@ -973,9 +973,25 @@ def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank
         receipts_unavailable=receipts_unavailable)
 
 
-def _ml_window_supported(opp):
+def _ml_unavailability_note(opp):
+    """Match the engine's current-condition scoring contract before reserving quota."""
     days = opp.get("days_out")
-    return isinstance(days, int) and not isinstance(days, bool) and 10 <= days <= 90
+    if not isinstance(days, int) or isinstance(days, bool) or not 10 <= days <= 90:
+        return "exact-window ML scoring supports 10-90 calendar days"
+    try:
+        entry = datetime.date.fromisoformat(str(opp.get("entry_date") or opp.get("date")))
+    except (TypeError, ValueError):
+        return "ML scoring requires a valid entry date"
+    distance = (entry - cards.market_today()).days
+    if distance < 0:
+        return "a new current-condition ML score is not calculated after entry"
+    if distance > 5:
+        return "ML scores become available within five calendar days of entry"
+    return None
+
+
+def _ml_request_supported(opp):
+    return _ml_unavailability_note(opp) is None
 
 
 def _ml_state_for(opp, ml_available):
@@ -993,7 +1009,7 @@ def _ml_state_for(opp, ml_available):
         return "shown"
     if not _ml_eligible(opp.get("market")):
         return "market"
-    if not _ml_window_supported(opp):
+    if not _ml_request_supported(opp):
         return "unavailable"
     if opp.get("_ml_attempted"):
         return "unavailable"
@@ -1215,7 +1231,7 @@ def scan():
             return value if value is not None else -math.inf
         scoring_records = sorted(scoring_records, key=receipt_rank, reverse=True)[:effective_limit]
     eligible = [record["opp"] for record in scoring_records
-                if _ml_eligible(record["opp"]["market"]) and _ml_window_supported(record["opp"])]
+                if _ml_eligible(record["opp"]["market"]) and _ml_request_supported(record["opp"])]
     granted = ml_quota.consume(g.customer, len(eligible)) if eligible else 0
     attempted = eligible[:granted]
     by_market = {}
@@ -1548,7 +1564,7 @@ def analyze_symbol(symbol):
     # ML metered by the daily allowance (free 5/day, unlimited Pro); spend 1 on the best.
     # Reserve, try, and REFUND if the model returns no score for this setup, so a metered
     # customer is only charged for ML actually delivered (and never sees a false upsell).
-    granted = ml_quota.consume(g.customer, 1) if _ml_eligible(market) and _ml_window_supported(best) else 0
+    granted = ml_quota.consume(g.customer, 1) if _ml_eligible(market) and _ml_request_supported(best) else 0
     if granted:
         best["_ml_attempted"] = True
         try:
@@ -1724,7 +1740,7 @@ def score():
     # ML is offered on every tier but METERED PER DAY (free 5/day, unlimited Pro). Grant
     # up to the remaining allowance; score that many; the rest come back unscored with a
     # quota note. A zero grant returns a graceful upgrade nudge (HTTP 200, not an error).
-    scoreable_indices = [index for index, item in enumerate(norm) if _ml_window_supported(item)]
+    scoreable_indices = [index for index, item in enumerate(norm) if _ml_request_supported(item)]
     granted = ml_quota.consume(g.customer, len(scoreable_indices)) if scoreable_indices else 0
     if granted == 0 and scoreable_indices:
         lim = g.customer["entitlements"].get("ml_daily_limit")
@@ -1760,8 +1776,9 @@ def score():
         else:
             row.update({"ml_score": None, "win_prob": None,
                         "pred_return": None, "pred_mfe": None})
-            if not _ml_window_supported(it):
-                row["note"] = "exact-window ML scoring supports 10-90 calendar days"
+            unavailable_note = _ml_unavailability_note(it)
+            if unavailable_note:
+                row["note"] = unavailable_note
             elif index not in returned:
                 row["note"] = "daily ML limit reached - upgrade for unlimited"
             else:

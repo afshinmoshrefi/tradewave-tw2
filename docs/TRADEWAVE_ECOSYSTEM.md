@@ -1183,6 +1183,11 @@ Only exact-model-supported 10-90 calendar-day windows reserve ML allowance. Unsu
 rows retain their original positions in `/score`, with null values and an explicit
 duration note, so a leading unsupported row cannot deprive a later valid row of the
 remaining allowance or manufacture a quota-exhaustion upgrade prompt.
+The engine also limits new current-condition scoring to entry dates from New York
+today through five calendar days ahead. The API checks that same date range before
+reservation; past/far-future rows cannot starve valid rows. `/score` names the permanent
+after-entry restriction or five-day eligibility window instead of calling it a
+temporary model outage. Historical seasonal analysis remains available without ML.
 
 Pinned `analyze_symbol` calls (entry date or period/reverse) bypass detection and accept
 analysis lookbacks 1-99; they never substitute a detected hold with the same entry date.

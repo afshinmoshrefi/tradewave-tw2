@@ -339,6 +339,9 @@ paths:
         before reserving allowance and remain unscored in their original positions with
         a duration note. A batch containing only unsupported windows returns granted:0
         and a scores array without a quota-exhaustion upgrade prompt.
+        Current-condition scores also require an entry date from today through five
+        calendar days ahead in America/New_York. After-entry and farther-ahead rows
+        remain unscored with an explicit date note and do not reserve allowance.
       requestBody:
         required: true
         content:

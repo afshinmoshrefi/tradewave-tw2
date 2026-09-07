@@ -1799,6 +1799,7 @@ def build_data_dictionary() -> str:
 
 <h2>ML fields (all tiers, metered per day)</h2>
 <p>Exact-window ML supports 10-90 calendar days. Unsupported windows do not reserve daily allowance and remain unscored with a duration note, preserving their original positions in batch responses.</p>
+<p>New current-condition scores are available from five calendar days before entry through the entry date, using the New York date. Outside that interval, batch rows receive a date note and do not reserve allowance; historical seasonal analysis remains available without ML.</p>
 <p>ML fields are available on every tier, metered per day: free 5/day, Dev 100/day, Pro/Business unlimited. ML fields are <code class="inline-code">null</code> when the daily limit is exhausted or the market is not ML-eligible. ML-eligible markets are ids 0, 1, 2, 3, 4, and 11; all other markets (ids 5, 6, 7, 8, 9, 10, 12, 13, and 16) are not ML-eligible.</p>
 <table>
   <thead>

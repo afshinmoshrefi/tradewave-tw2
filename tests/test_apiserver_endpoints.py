@@ -4,6 +4,7 @@ the educational-only disclaimer on every pattern-bearing response, the per-marke
 ~90% default, and the view param. Runs under /home/flask/venv (has flask+pytest+apiserver).
 """
 import copy
+import datetime
 
 import pytest
 
@@ -13,6 +14,12 @@ pytestmark = pytest.mark.unit  # no real external state - auth, redis, and the a
 
 _ENT = tiers.tier_for("dev")
 _CUSTOMER = {"user_id": "test-user", "email": "t@example.com", "tier": "dev", "entitlements": _ENT}
+
+
+@pytest.fixture(autouse=True)
+def _fixed_market_day(monkeypatch):
+    from apiserver import cards
+    monkeypatch.setattr(cards, 'market_today', lambda: datetime.date(2026, 7, 1))
 
 
 @pytest.fixture(autouse=True)
@@ -101,7 +108,8 @@ def test_catalog_outage_does_not_turn_market_names_into_upgrade_errors(client, m
 
 
 def test_unsupported_window_cannot_starve_scoreable_rows_of_remaining_quota(client, monkeypatch):
-    from apiserver import appserver_client as ac, ml_quota
+    from apiserver import appserver_client as ac, cards, ml_quota
+    monkeypatch.setattr(cards, 'market_today', lambda: datetime.date(2026, 9, 1))
     _patch_appsrv(monkeypatch)
     requests_seen = []
     grants = []
@@ -120,6 +128,41 @@ def test_unsupported_window_cannot_starve_scoreable_rows_of_remaining_quota(clie
     assert response.json['scores'][0]['ml_score'] is None
     assert response.json['scores'][1]['ml_score'] == 80
     assert grants == [1] and [row['days_out'] for row in requests_seen] == [30]
+
+
+@pytest.mark.parametrize('ineligible_date', ['2026-06-30', '2026-07-07'])
+def test_ineligible_scoring_date_cannot_starve_valid_rows(client, monkeypatch, ineligible_date):
+    from apiserver import appserver_client as ac, ml_quota
+    _patch_appsrv(monkeypatch)
+    requested = []
+    monkeypatch.setattr(ml_quota, 'consume', lambda customer, n: requested.append(n) or min(n, 1))
+    monkeypatch.setattr(ac, 'ml_scores', lambda market, items: [
+        {'ml_score': 80, 'win_prob': .8, 'pred_return': 5, 'pred_mfe': 7}
+        if item['date'] == '2026-07-06' else None for item in items])
+    response = client.post('/v1/score', headers=_hdr(), json={'market': '2', 'opportunities': [
+        {'symbol': 'AAPL', 'date': date, 'days_out': 30, 'direction': 'long'}
+        for date in [ineligible_date, '2026-07-06']]})
+    assert response.status_code == 200
+    assert response.json['granted'] == 1 and requested == [1]
+    assert response.json['scores'][1]['ml_score'] == 80
+    note = response.json['scores'][0]['note']
+    assert 'temporarily' not in note and 'daily ML limit' not in note
+
+
+@pytest.mark.parametrize('offset,expected_grant', [(-1, 0), (0, 1), (5, 1), (6, 0)])
+def test_scoring_date_eligibility_matches_engine_calendar_window(client, monkeypatch, offset, expected_grant):
+    from apiserver import appserver_client as ac, ml_quota
+    _patch_appsrv(monkeypatch)
+    requested = []
+    monkeypatch.setattr(ml_quota, 'consume', lambda customer, n: requested.append(n) or n)
+    monkeypatch.setattr(ac, 'ml_scores', lambda market, items: [
+        {'ml_score': 80, 'win_prob': .8, 'pred_return': 5, 'pred_mfe': 7} for item in items])
+    date = (datetime.date(2026, 7, 1) + datetime.timedelta(days=offset)).isoformat()
+    response = client.post('/v1/score', headers=_hdr(), json={'market': '2', 'opportunities': [
+        {'symbol': 'AAPL', 'date': date, 'days_out': 30, 'direction': 'long'}]})
+    assert response.status_code == 200 and 'requires' not in response.json
+    assert response.json['granted'] == expected_grant
+    assert requested == ([1] if expected_grant else [])
 
 
 def test_all_unsupported_score_windows_do_not_reserve_or_claim_exhausted_quota(client, monkeypatch):
@@ -247,7 +290,8 @@ def test_score_refuses_an_item_from_a_different_market(client, monkeypatch):
 
 
 def test_score_accepts_numeric_zero_market_without_replacing_it(client, monkeypatch):
-    from apiserver import appserver_client as ac, ml_quota
+    from apiserver import appserver_client as ac, cards, ml_quota
+    monkeypatch.setattr(cards, 'market_today', lambda: datetime.date(2026, 9, 1))
     _mock_card_chain(monkeypatch)
     monkeypatch.setattr(ml_quota, "consume", lambda customer, n: n)
     called = []
