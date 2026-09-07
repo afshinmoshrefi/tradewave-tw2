@@ -12,6 +12,39 @@ from apiserver import appserver_client as ac
 pytestmark = pytest.mark.unit
 
 
+def test_ml_legacy_alias_cannot_fill_a_different_dates_missing_score(monkeypatch):
+    score = {"ml_score": 70, "win_prob": 0.7, "pred_return": 2, "pred_mfe": 4}
+    monkeypatch.setattr(ac, "post", lambda *a, **k: {"scores": {
+        "AAPL|2026-09-01|29|l": score, "AAPL|29|l": score}, "pending": []})
+    results = ac.ml_scores("2", [
+        {"symbol": "AAPL", "date": date, "days_out": 30, "direction": "long"}
+        for date in ("2026-09-01", "2026-10-01")])
+    assert results[0] == score
+    assert results[1] is None
+
+
+def test_track_record_obeys_published_target_exit_and_keeps_close_transparency(monkeypatch):
+    monkeypatch.setattr(ac, "_load_featured_history", lambda: [
+        {"symbol": "HIT", "status": "closed", "peak_return": 8, "pred_return": 6.8,
+         "actual_return": -27.3, "win": False},
+        {"symbol": "OPENHIT", "status": "open", "peak_return": 5, "pred_return": 4,
+         "current_return": -2},
+        {"symbol": "LOSS", "status": "closed", "peak_return": 1, "pred_return": 3,
+         "actual_return": -2, "win": True},
+        {"symbol": "PENDING", "status": "closed", "actual_return": None,
+         "current_return": 3, "win": True},
+    ])
+    data = ac.track_record()
+    assert [p["result"] for p in data["picks"]] == ["win", "win", "loss", "open"]
+    assert [p["return_pct"] for p in data["picks"]] == [6.8, 4, -2, None]
+    assert data["picks"][0]["held_to_close_return_pct"] == -27.3
+    assert data["summary"]["judged_count"] == 3
+    assert data["summary"]["pending_count"] == 1
+    assert data["summary"]["win_count"] == 2
+    assert data["summary"]["win_rate"] == 0.6667
+    assert data["summary"]["avg_return_pct"] == 2.93
+
+
 class _Resp:
     def __init__(self, status, body=None, headers=None):
         self.status_code = status

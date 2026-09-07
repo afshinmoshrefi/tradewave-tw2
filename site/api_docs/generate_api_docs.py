@@ -1503,7 +1503,7 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>The one-call morning briefing: today's daily pick (decision view), the live forward-tested track-record summary with the last five outcomes, and the top setups entering their seasonal window now. Use on "good morning", "my briefing", or any open-ended start-of-day prompt. Sections degrade gracefully - a partial briefing beats no briefing.</p>
+    <p>The one-call morning briefing: the latest published pick (decision view), its featured date and any staleness note, the live forward-tested track-record summary with the last five outcomes, and the top setups entering their seasonal window now. Scan context preserves incomplete-market and candidate-limit notes. Use on "good morning", "my briefing", or any open-ended start-of-day prompt.</p>
     <p><strong>Inputs:</strong> none</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/daily-pick</code> + <code class="inline-code">GET /v1/daily-pick/track-record</code> + <code class="inline-code">GET /v1/scan</code> (composed, fetched in parallel)</p>
   </div>
@@ -1640,7 +1640,7 @@ def build_mcp_reference() -> str:
   </div>
   <div class="tool-card-body">
     <p>Runs the ML model on a list of opportunities and returns <code class="inline-code">ml_score</code>, <code class="inline-code">win_prob</code>, <code class="inline-code">pred_return</code>, and <code class="inline-code">pred_mfe</code> for each. Availability and daily allowance follow the connected TradeWave account's web plan or the developer key's API plan. If ML is unavailable or the daily allowance is spent, the response returns a graceful upgrade stub instead of failing.</p>
-    <p><strong>Inputs:</strong> list of <code class="inline-code">{{symbol, date, days_out, direction}}</code></p>
+    <p><strong>Inputs:</strong> list of <code class="inline-code">{{symbol, date, days_out, direction}}</code>, plus optional <code class="inline-code">market</code> for the whole batch (default S&amp;P 500, id 2). Split different markets into separate calls. Invalid dates, symbols, directions, or non-integer durations return a validation error before ML quota is reserved.</p>
     <p><strong>Maps to:</strong> <code class="inline-code">POST /v1/score</code></p>
   </div>
 </div>
@@ -1833,12 +1833,12 @@ def build_data_dictionary() -> str:
     <tr>
       <td class="field-name">return_pct</td>
       <td class="field-type">number | null</td>
-      <td>Realized return in percent at the exit date. Null while the trade is still open (result = "open").</td>
+      <td>Daily-pick result under the published target-exit rule: the predicted gain when its target was reached, otherwise the actual closing return. Null while unjudged. The separate <code class="inline-code">held_to_close_return_pct</code> and <code class="inline-code">current_return_pct</code> fields preserve closing and open-window transparency.</td>
     </tr>
     <tr>
       <td class="field-name">result</td>
       <td class="field-type">string</td>
-      <td>"win", "loss", or "open". "open" means the holding period has not yet elapsed.</td>
+      <td>"win", "loss", or "open". A target hit wins permanently; otherwise a profitable close wins. "open" means the pick is not yet judged. Win rate divides by <code class="inline-code">judged_count</code>, excluding <code class="inline-code">pending_count</code>.</td>
     </tr>
   </tbody>
 </table>

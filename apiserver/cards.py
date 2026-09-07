@@ -529,7 +529,7 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
     # returns the curve starting at the entry date, so the first hold_days points are the
     # entry -> exit section. curve_summary describes the TREND of that section, not the year.
     section_curve = seasonal_curve
-    if seasonal_curve and isinstance(hold_days, int) and hold_days > 1:
+    if seasonal_curve and isinstance(hold_days, int) and hold_days > 0:
         section_curve = seasonal_curve[:hold_days]
     csum = curve_summary(section_curve)
 

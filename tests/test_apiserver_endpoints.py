@@ -61,6 +61,137 @@ def _hdr():
     return {"Authorization": "Bearer tw_live_test"}
 
 
+@pytest.mark.parametrize("field,value", [
+    ("symbol", ["AAPL"]), ("symbol", "AAPL/other"), ("symbol", 12),
+    ("date", "2026-02-30"), ("date", "2026-9-1"), ("date", {"day": 1}),
+    ("days_out", 20.9), ("days_out", True), ("days_out", float("inf")),
+    ("days_out", 0), ("days_out", -1), ("days_out", 368), ("direction", " "),
+])
+def test_score_invalid_identity_never_reserves_quota(client, monkeypatch, field, value):
+    from apiserver import ml_quota
+    _patch_appsrv(monkeypatch)
+    def forbidden(*args):
+        pytest.fail("invalid scoring request reserved quota")
+    monkeypatch.setattr(ml_quota, "consume", forbidden)
+    item = {"symbol": "AAPL", "date": "2026-09-01", "days_out": 30, "direction": "long"}
+    item[field] = value
+    response = client.post("/v1/score", json={"opportunities": [item]}, headers=_hdr())
+    assert response.status_code == 400
+    assert response.get_json()["error"]["code"] == "invalid_request"
+
+
+def test_score_refuses_an_item_from_a_different_market(client, monkeypatch):
+    _patch_appsrv(monkeypatch)
+    response = client.post("/v1/score", headers=_hdr(), json={"market": "2", "opportunities": [
+        {"symbol": "GLD", "date": "2026-09-01", "days_out": 30, "direction": "long", "market": "11"}]})
+    assert response.status_code == 400
+    assert "batch market" in response.get_json()["error"]["message"]
+
+
+def test_score_accepts_numeric_zero_market_without_replacing_it(client, monkeypatch):
+    from apiserver import appserver_client as ac, ml_quota
+    _mock_card_chain(monkeypatch)
+    monkeypatch.setattr(ml_quota, "consume", lambda customer, n: n)
+    called = []
+    monkeypatch.setattr(ac, "ml_scores", lambda market, items: called.append((market, items)) or [])
+    response = client.post("/v1/score", headers=_hdr(), json={"market": 0, "opportunities": [
+        {"symbol": "aapl", "date": "2026-09-01", "days_out": 30, "direction": "long"}]})
+    assert response.status_code == 200
+    assert called[0][0] == "0"
+    assert called[0][1][0]["symbol"] == "AAPL"
+
+
+@pytest.mark.parametrize("query", [
+    "min_win_rate=nan", "min_win_rate=-0.1", "min_win_rate=oops",
+    "min_avg_return=nan", "min_sharpe=inf", "min_median_return=oops",
+    "min_days=2.5", "min_days=-1", "max_days=0", "min_days=30&max_days=10",
+    "min_years=oops", "min_years=-1", "limit=oops", "limit=-1",
+])
+def test_invalid_scan_filters_do_not_silently_change_the_question(client, monkeypatch, query):
+    _patch_appsrv(monkeypatch, opportunities_multi=lambda *a, **k: [])
+    response = client.get(f"/v1/scan?markets=2&{query}", headers=_hdr())
+    assert response.status_code == 400
+
+
+def test_all_market_calendar_helpers_share_the_market_day(monkeypatch):
+    import datetime
+    from apiserver import cards, routes
+    monkeypatch.setattr(cards, "market_today", lambda: datetime.date(2024, 12, 31))
+    assert routes._today() == "2024-12-31"
+    assert routes._resolve_window("now")[0] == datetime.date(2024, 12, 31)
+    assert routes._chart_years("pe", 5) == "pe0-5"
+    assert routes._last_trading_day() == datetime.date(2024, 12, 31)
+    assert routes._resolve_period("year_end", False, "2024-12-31", 30) == ("2024-12-31", 1)
+
+
+def test_february_preset_and_reverse_cover_leap_day(monkeypatch):
+    import datetime
+    from apiserver import cards, routes
+    monkeypatch.setattr(cards, "market_today", lambda: datetime.date(2028, 2, 20))
+    assert routes._resolve_period("feb", False, "2028-02-20", 30) == ("2028-02-01", 29)
+    assert routes._resolve_period("mar", True, "2028-02-20", 30) == ("2028-04-01", 334)
+
+
+def test_cross_year_reverse_is_the_remaining_part_of_the_annual_cycle(monkeypatch):
+    import datetime
+    from apiserver import cards, routes
+    monkeypatch.setattr(cards, "market_today", lambda: datetime.date(2026, 9, 7))
+    assert routes._resolve_period("winter", True, "2026-09-07", 30) == ("2027-03-21", 276)
+
+
+def test_scan_return_filters_use_the_same_evidence_as_the_card(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    _mock_card_chain(monkeypatch, multi=[_opp()])
+    entries = [{"year": y, "pct": "-4,1,-6", "completed": True} for y in range(2016, 2026)]
+    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *a, **k: (
+        {"Avg Profit - All": -4, "Median Profit": -4, "Sharpe Ratio": -1,
+         "Trade Dir": "long", "Percent Profitable": 0}, entries))
+    response = client.get(f"/v1/scan?{_WIN}&markets=2&min_avg_return=2", headers=_hdr())
+    assert response.status_code == 200
+    assert response.get_json()["opportunities"] == []
+
+
+def test_scan_reranks_verified_candidates_before_applying_return_limit(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    first, second = _opp(symbol="OLD"), _opp(symbol="BEST")
+    first["sharpe_ratio"], second["sharpe_ratio"] = 5, 1
+    _mock_card_chain(monkeypatch, multi=[first, second])
+    def receipts(market, symbol, *args, **kwargs):
+        return ({"Trade Dir": "long", "Sharpe Ratio": -1 if symbol == "OLD" else 2}, list(_ENTRIES))
+    monkeypatch.setattr(ac, "chart_stats_and_years", receipts)
+    response = client.get(f"/v1/scan?{_WIN}&markets=2&limit=1", headers=_hdr())
+    assert response.status_code == 200
+    assert response.get_json()["opportunities"][0]["symbol"] == "BEST"
+
+
+@pytest.mark.parametrize("ranking", ["sharpe", "edge", "ml"])
+def test_scan_only_charges_ml_scores_returned_to_the_customer(client, monkeypatch, ranking):
+    from apiserver import appserver_client as ac, ml_quota
+    _mock_card_chain(monkeypatch, multi=[_opp(symbol="AAPL"), _opp(symbol="MSFT")])
+    budget = {"used": 0}
+    def consume(customer, n):
+        budget["used"] += n
+        return n
+    def refund(customer, n):
+        budget["used"] -= n
+    monkeypatch.setattr(ml_quota, "consume", consume)
+    monkeypatch.setattr(ml_quota, "refund", refund)
+    monkeypatch.setattr(ac, "ml_scores", lambda market, items: [
+        {"ml_score": 80, "win_prob": .8, "pred_return": 5, "pred_mfe": 7} for _ in items])
+    response = client.get(f"/v1/scan?{_WIN}&markets=2&limit=1&rank_by={ranking}", headers=_hdr())
+    assert response.status_code == 200
+    assert response.get_json()["count"] == 1
+    assert budget["used"] == 1
+
+
+def test_one_day_card_has_no_full_year_trend_summary(client, monkeypatch):
+    curve = [{"date": f"2026-09-{d:02}", "index": d * 3} for d in range(1, 31)]
+    _mock_card_chain(monkeypatch, curve=curve)
+    response = client.get("/v1/analyze/AAPL?market=2&entry_date=2026-09-01&days_out=1", headers=_hdr())
+    assert response.status_code == 200
+    assert response.get_json()["card"]["receipts"]["curve_summary"] is None
+
+
 @pytest.mark.parametrize("window", ["period=sep", "entry_date=2026-09-01&days_out=13"])
 @pytest.mark.parametrize("years", [1, 3, 99])
 def test_pinned_analysis_bypasses_detection_and_preserves_exact_window(client, monkeypatch, window, years):
@@ -283,7 +414,7 @@ def test_scan_evidence_view_enriches_only_winner_with_chart(client, monkeypatch)
     assert cards[0]["wave_viewer"]["pattern"]["symbol"] == "WIN"
 
 
-def test_default_scan_enriches_only_requested_rows(client, monkeypatch):
+def test_default_scan_verifies_candidate_pool_before_return_limit(client, monkeypatch):
     from apiserver import appserver_client as ac
     rows = [_opp(symbol=f"SYM{i}") for i in range(10)]
     chart_calls = {"count": 0}
@@ -299,7 +430,7 @@ def test_default_scan_enriches_only_requested_rows(client, monkeypatch):
     )
     assert response.status_code == 200
     assert response.get_json()["count"] == 5
-    assert chart_calls["count"] == 5
+    assert chart_calls["count"] == 10
 
 
 def test_shared_core_reused_across_users_but_ml_is_metered_per_request(app, monkeypatch):

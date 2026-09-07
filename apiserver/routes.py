@@ -12,6 +12,7 @@ JSON via the app error handlers; only genuine data gaps fail soft.
 import concurrent.futures
 import datetime
 import logging
+import math
 import os
 import re
 
@@ -146,6 +147,38 @@ def _direction_arg(raw):
     return _VALID_DIRECTIONS[d]
 
 
+def _integer(value, name, minimum=None, maximum=None):
+    if isinstance(value, bool) or not re.fullmatch(r"[+-]?[0-9]+", str(value).strip()):
+        raise ValueError("%s must be an integer" % name)
+    result = int(value)
+    if minimum is not None and maximum is not None and not minimum <= result <= maximum:
+        raise ValueError("%s must be between %s and %s" % (name, minimum, maximum))
+    if minimum is not None and result < minimum:
+        raise ValueError("%s must be at least %s" % (name, minimum))
+    if maximum is not None and result > maximum:
+        raise ValueError("%s must be at most %s" % (name, maximum))
+    return result
+
+
+def _numeric_arg(name, *, integer=False, default=None, minimum=None, maximum=None):
+    raw = request.args.get(name)
+    if raw is None:
+        return default
+    if integer:
+        return _integer(raw, name, minimum, maximum)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        raise ValueError("%s must be a finite number" % name)
+    if not math.isfinite(value):
+        raise ValueError("%s must be a finite number" % name)
+    if minimum is not None and value < minimum:
+        raise ValueError("%s must be at least %s" % (name, minimum))
+    if maximum is not None and value > maximum:
+        raise ValueError("%s must be at most %s" % (name, maximum))
+    return value
+
+
 def _clean_chart_args(entry_date, days_out, years, symbol=None):
     """Validate the path/query values that feed internal appserver paths. Defense in depth
     on top of appserver_client._seg() encoding: reject obviously bad input with a clean 400
@@ -157,15 +190,10 @@ def _clean_chart_args(entry_date, days_out, years, symbol=None):
             raise ValueError("non-canonical date")
     except (ValueError, TypeError):
         raise ValueError("entry_date must be YYYY-MM-DD")
-    try:
-        d = int(days_out)
-    except (ValueError, TypeError):
-        raise ValueError("days_out must be an integer")
-    if not (1 <= d <= 367):
-        raise ValueError("days_out must be between 1 and 367")
+    d = _integer(days_out, "days_out", 1, 367)
     if not str(years).isdigit() or not (1 <= int(years) <= 99):
         raise ValueError("years must be an integer between 1 and 99")
-    if symbol is not None and not _SYMBOL_RE.match(symbol):
+    if symbol is not None and (not isinstance(symbol, str) or not _SYMBOL_RE.fullmatch(symbol)):
         raise ValueError("symbol contains invalid characters")
     return entry_date, str(d), str(years)
 
@@ -296,7 +324,7 @@ def _resolve_window(window):
     Returns dates as datetime.date. OppList4 is keyed to a SINGLE entry date, so the scan
     fetches at the window's start date and then keeps only setups whose entry_date falls in
     the window - giving a true window over a single-date primitive."""
-    today = datetime.date.today()
+    today = cards.market_today()
     w = (window or "now").strip().lower()
     if ".." in w:
         lo_s, _, hi_s = w.partition("..")
@@ -321,7 +349,7 @@ def _min_win_rate_arg():
     pass a percent (90); silently matching nothing would be a confident lie, so values
     in (1, 100] auto-normalize (90 -> 0.9) with an explanatory note, and anything > 100
     raises ValueError (-> 400). Returns (value_or_None, note_or_None)."""
-    raw = request.args.get("min_win_rate", type=float)
+    raw = _numeric_arg("min_win_rate", minimum=0)
     if raw is None:
         return None, None
     if raw > 100:
@@ -376,7 +404,7 @@ def _last_trading_day(today=None):
     """The most recent weekday (Mon-Fri). A naive approximation (market holidays are not
     modeled), used ONLY for the daily-pick staleness note - which is phrased as a soft
     'may not have been generated', never a hard claim."""
-    d = today or datetime.date.today()
+    d = today or cards.market_today()
     while d.weekday() >= 5:
         d -= datetime.timedelta(days=1)
     return d
@@ -458,18 +486,19 @@ def symbols(market_id):
     return jsonify(out)
 
 
-def _column_filters_from_args():
-    """Parse the numeric COLUMN filters that the UI opportunity table also offers. They operate
-    on RAW OppList4 columns (present on every row, no win-rate enrichment needed), so they can be
-    applied early and cheaply: pattern length in calendar days (days_out), average and median
-    seasonal profit (percent, matching avg_return_pct / median_return_pct), and the Sharpe ratio.
+def _column_filters_from_args(*, evidence=True):
+    """Parse the numeric column filters shared by discovery and the verified scanner.
+    evidence=False applies only duration; /scan applies return/Sharpe thresholds after
+    loading completed evidence. Primitive discovery lists filter their detection columns.
     Returns a predicate keep(opp) -> bool. Units: returns are PERCENT (e.g. min_avg_return=5 means
     >= 5%), matching the percent-valued fields; win-rate stays a 0..1 fraction (min_win_rate)."""
-    min_days = request.args.get("min_days", type=int)
-    max_days = request.args.get("max_days", type=int)
-    min_avg = request.args.get("min_avg_return", type=float)
-    min_med = request.args.get("min_median_return", type=float)
-    min_sharpe = request.args.get("min_sharpe", type=float)
+    min_days = _numeric_arg("min_days", integer=True, minimum=1, maximum=367)
+    max_days = _numeric_arg("max_days", integer=True, minimum=1, maximum=367)
+    min_avg = _numeric_arg("min_avg_return")
+    min_med = _numeric_arg("min_median_return")
+    min_sharpe = _numeric_arg("min_sharpe")
+    if min_days is not None and max_days is not None and min_days > max_days:
+        raise ValueError("min_days must not exceed max_days")
 
     def keep(o):
         d = o.get("days_out")
@@ -477,6 +506,8 @@ def _column_filters_from_args():
             return False
         if max_days is not None and (d is None or d > max_days):
             return False
+        if not evidence:
+            return True
         if min_avg is not None and (o.get("avg_profit_pct") is None or o["avg_profit_pct"] < min_avg):
             return False
         if min_med is not None and (o.get("median_profit_pct") is None or o["median_profit_pct"] < min_med):
@@ -540,8 +571,8 @@ def _lookback_args(market=None, path="scan", *, pe_mode=False, name_map=None):
         occurrences); only the sanity bounds apply there.
     path is 'scan' (OppList4/Monthly_Opp grid, all markets) or 'symbol' (OppBySymbol grid, 5
     markets only). Returns (year1_str, year2_str). Raises ValueError on a bad/out-of-band value."""
-    years = request.args.get("years", default=10, type=int)
-    mwy_raw = request.args.get("min_winning_years", type=int)  # None when omitted
+    years = _numeric_arg("years", integer=True, default=10, minimum=1, maximum=99)
+    mwy_raw = _numeric_arg("min_winning_years", integer=True, minimum=0)
     if years is None or not (1 <= years <= 99):
         raise ValueError("years (lookback) must be an integer between 1 and 99")
     if mwy_raw is None:
@@ -584,7 +615,7 @@ def _resolve_period(period, reverse, base_entry, base_days):
     year - the wave-viewer 'Months & Qtrs' dropdown, exposed in the API. reverse complements the base
     window (the period, else the caller's entry_date+days_out); a full-year (buy & hold) cannot be
     reversed. Raises ValueError on a bad preset / un-reversible range."""
-    today = datetime.date.today()
+    today = cards.market_today()
     y = today.year
     p = (period or "").strip().lower().replace(" ", "_").replace("-", "_")
     p = _PERIOD_ALIASES.get(p, p)
@@ -601,6 +632,8 @@ def _resolve_period(period, reverse, base_entry, base_days):
         s, e = _PERIOD_RANGES[p]
         d0 = datetime.date(y, int(s[:2]), int(s[3:]))
         d1 = datetime.date(y, int(e[:2]), int(e[3:]))
+        if p == "feb":
+            d1 = datetime.date(y, 3, 1) - datetime.timedelta(days=1)
         if d1 <= d0:                      # wrap (winter)
             d1 = datetime.date(y + 1, int(e[:2]), int(e[3:]))
     else:
@@ -611,9 +644,13 @@ def _resolve_period(period, reverse, base_entry, base_days):
         if (d1 - d0).days + 1 >= 365:
             raise ValueError("a full-year (buy_hold) range cannot be reversed")
         rd0 = d1 + datetime.timedelta(days=1)
-        rd1 = d0 - datetime.timedelta(days=1)
-        if rd1 < rd0:
-            rd1 = rd1.replace(year=rd1.year + 1)
+        # Advance the anniversary BEFORE subtracting a day. Moving February 29
+        # itself into a non-leap year used to fail for reverse March windows.
+        try:
+            anniversary = d0.replace(year=d0.year + 1)
+        except ValueError:  # a February 29 entry's next calendar anniversary
+            anniversary = datetime.date(d0.year + 1, 3, 1)
+        rd1 = anniversary - datetime.timedelta(days=1)
         d0, d1 = rd0, rd1
     days_out = (d1 - d0).days + 1
     if not (1 <= days_out <= 367):
@@ -652,7 +689,7 @@ def _chart_years(pe_cycle, count):
     count = str(count)
     if pe_cycle == "consecutive":
         return count
-    phase = datetime.date.today().year % 4 if pe_cycle == "pe" else int(pe_cycle[2:])
+    phase = cards.market_today().year % 4 if pe_cycle == "pe" else int(pe_cycle[2:])
     return "pe%d-%s" % (phase, count)
 
 
@@ -685,6 +722,9 @@ def opportunities():
 
     try:
         direction = _direction_arg(request.args.get("direction"))  # long|short, optional
+        keep = _column_filters_from_args()
+        req_limit = _numeric_arg("limit", integer=True, default=25, minimum=0)
+        entry_date, _, _ = _clean_chart_args(entry_date, "1", "1")
         min_win_rate, mwr_note = _min_win_rate_arg()
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # consecutive | pe (current cycle)
         year1, year2 = _lookback_args(market=market, path="scan",
@@ -695,7 +735,6 @@ def opportunities():
     # Fetch RAW (no enrichment), apply the numeric column filters (pattern length, avg/median
     # profit %, Sharpe) on the raw rows FIRST, then enrich win_rate only on the survivors, so a
     # ChartData4 call is never spent on a row a column filter would have dropped.
-    keep = _column_filters_from_args()
     opps = appserver_client.opportunities(
         market, entry_date, year1=year1, year2=year2, direction=direction,
         enrich_win_rate=0, mode=_opp_mode(pe_cycle))
@@ -721,9 +760,6 @@ def opportunities():
     # limit: tier-capped to the plan's opp_limit (free 3, dev 100, pro 1000, business
     # 5000). A caller-supplied limit can only narrow, never exceed, the tier cap.
     tier_cap = g.customer["entitlements"]["opp_limit"]
-    req_limit = request.args.get("limit", default=25, type=int)
-    if req_limit < 0:
-        req_limit = 0
     effective_limit = min(req_limit, tier_cap)
     opps = opps[:effective_limit]
 
@@ -788,13 +824,14 @@ def _symbol_patterns_response(symbol):
     if scope_err:
         return scope_err
     try:
+        keep = _column_filters_from_args()
+        _clean_chart_args(_today(), "1", "1", symbol)
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # OppBySymbol mode: consecutive | pe
         year1, year2 = _lookback_args(market=market, path="symbol",
                                       pe_mode=_opp_mode(pe_cycle) != "consecutive")
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
 
-    keep = _column_filters_from_args()
     opps = appserver_client.opportunities_by_symbol(
         market, symbol, year1=year1, year2=year2, mode=_opp_mode(pe_cycle))
     opps = [o for o in opps if keep(o)]
@@ -1006,7 +1043,6 @@ def scan():
                     400)
     entry_lo, entry_hi, window_label = win
 
-    min_years = request.args.get("min_years", type=int)
     # Default ranking = Sharpe descending, mirroring TradeWave's own daily-pick + SMN 'AI'
     # selectors (filter on win metrics, then sort by Sharpe). edge_score stays available
     # as a rank_by option and is shown on every card.
@@ -1014,6 +1050,10 @@ def scan():
     if rank_by not in _RANK_KEYS:
         rank_by = "sharpe"
     try:
+        min_years = _numeric_arg("min_years", integer=True, minimum=0)
+        req_limit = _numeric_arg("limit", integer=True, default=25, minimum=0)
+        keep = _column_filters_from_args()
+        keep_window = _column_filters_from_args(evidence=False)
         direction = _direction_arg(request.args.get("direction"))
         min_win_rate, mwr_note = _min_win_rate_arg()
         pe_cycle = _resolve_pe_cycle(allow_positions=False)  # consecutive | pe (current cycle)
@@ -1025,20 +1065,12 @@ def scan():
         return _err("invalid_request", str(e), 400)
 
     tier_cap = g.customer["entitlements"]["opp_limit"]
-    req_limit = request.args.get("limit", default=25, type=int)  # matches openapi.yaml /scan default
-    if req_limit < 0:
-        req_limit = 0
     effective_limit = min(req_limit, tier_cap)
 
-    # Default Sharpe scans with no post-receipt filters need only the requested rows.
-    # Other rankings / trust filters may reorder or reject rows, so retain the bounded
-    # 50-row head for correctness. The depth is part of the shared cache key.
-    needs_full_head = bool(
-        min_win_rate is not None or min_years is not None or rank_by != "sharpe"
-    )
-    core_depth = _SCAN_ENRICH_CAP if needs_full_head else min(
-        effective_limit, _SCAN_ENRICH_CAP
-    )
+    # Detection Sharpe is a preliminary ranking. Completed evidence can change it,
+    # even for an unfiltered Sharpe request. Verify the bounded candidate pool before
+    # applying the caller's return limit; otherwise limit=1 can hide the real winner.
+    core_depth = _SCAN_ENRICH_CAP if effective_limit else 0
     column_filter_key = {
         key: request.args.get(key) for key in _SCAN_COLUMN_FILTER_PARAMS
         if request.args.get(key) is not None
@@ -1079,8 +1111,7 @@ def scan():
             if entry_date is not None and entry_lo <= entry_date <= entry_hi:
                 in_window.append(_price_safe_scan_opp(opp))
 
-        keep = _column_filters_from_args()
-        in_window = [opp for opp in in_window if keep(opp)]
+        in_window = [opp for opp in in_window if keep_window(opp)]
         in_window = _dedupe_scan_rows(in_window)
         evaluated = len(in_window)
         in_window.sort(key=lambda opp: opp.get("sharpe_ratio") or 0, reverse=True)
@@ -1144,7 +1175,7 @@ def scan():
     head = [record.get("opp") or {} for record in records]
 
     # Trust filters are customer/query overlays and are never cached into shared data.
-    filtered_records = records
+    filtered_records = [record for record in records if keep(record.get("opp") or {})]
     if min_win_rate is not None:
         filtered_records = [
             record for record in filtered_records
@@ -1159,7 +1190,19 @@ def scan():
     #    ever charged for ML scores actually delivered. Rows past the allowance are left
     #    unattempted (a true 'quota' note); attempted-but-unscored rows get the neutral
     #    'unavailable' note - never a false "upgrade for unlimited" nudge.
-    eligible = [record["opp"] for record in filtered_records
+    scoring_records = filtered_records
+    if min_years is not None:
+        scoring_records = [record for record in scoring_records
+                           if record.get("receipts_unavailable")
+                           or len(record.get("chart_entries") or []) >= min_years]
+    if rank_by in ("sharpe", "win_rate", "avg_return"):
+        field = {"sharpe": "sharpe_ratio", "win_rate": "win_rate",
+                 "avg_return": "avg_profit_pct"}[rank_by]
+        def receipt_rank(record):
+            value = record["opp"].get(field)
+            return value if value is not None else -math.inf
+        scoring_records = sorted(scoring_records, key=receipt_rank, reverse=True)[:effective_limit]
+    eligible = [record["opp"] for record in scoring_records
                 if _ml_eligible(record["opp"]["market"])]
     granted = ml_quota.consume(g.customer, len(eligible)) if eligible else 0
     attempted = eligible[:granted]
@@ -1214,12 +1257,14 @@ def scan():
     built.sort(key=lambda c: c["_sortkey"], reverse=True)
     pre_cap_count = len(built)
     built = built[:effective_limit]
+    # Edge/ML rankings may score candidates that do not make the returned page.
+    # They were evaluated internally, not delivered to this customer.
+    shown_ids = {id(card["_opp"]) for card in built}
+    ml_quota.refund(g.customer, sum(1 for opp in attempted
+                                   if opp.get("ml") and id(opp) not in shown_ids))
     # the FREE-TIER WALL, made visible: true only when the PLAN cap (not the caller's own
     # limit) was the binding constraint on how many ranked cards came back.
-    if not needs_full_head:
-        candidate_count_after_filters = evaluated_count
-    else:
-        candidate_count_after_filters = pre_cap_count
+    candidate_count_after_filters = pre_cap_count
     capped_by_plan = (
         candidate_count_after_filters > effective_limit and tier_cap < req_limit
     )
@@ -1242,7 +1287,7 @@ def scan():
         hold = o.get("days_out")
         # TradeWave counts the entry point as calendar day 1, so an N-day window
         # contains exactly the first N curve points (ending at start + N - 1).
-        section = curve[:hold] if isinstance(hold, int) and hold > 1 else curve
+        section = curve[:hold] if isinstance(hold, int) and hold > 0 else curve
         card["receipts"]["curve_summary"] = cards.curve_summary(section)
         if include_chart and card is primary:
             cards.attach_chart_evidence(
@@ -1355,9 +1400,11 @@ def _scan_sortkey(card, rank_by):
     if rank_by == "win_rate":
         return card["stats"].get("historical_win_rate") or 0
     if rank_by == "sharpe":
-        return card["stats"].get("sharpe_ratio") or 0
+        value = card["stats"].get("sharpe_ratio")
+        return value if value is not None else -math.inf
     if rank_by == "avg_return":
-        return card["stats"].get("avg_return_pct") or 0
+        value = card["stats"].get("avg_return_pct")
+        return value if value is not None else -math.inf
     if rank_by == "ml":
         ml = card.get("ml") or {}
         return ml.get("ml_win_prob") or 0
@@ -1611,7 +1658,10 @@ def score():
     # ML-eligible markets only (0-4, 11). The score request items are not market-tagged
     # in the contract, so the market is taken from the 'market' query/body param and
     # must be ML-eligible. Default to S&P 500 ('2'), an ML-eligible market.
-    market, m_err = _market_arg(request.args.get("market") or body.get("market") or "2")
+    raw_market = request.args.get("market")
+    if raw_market is None:
+        raw_market = body.get("market", "2")
+    market, m_err = _market_arg(raw_market)
     if m_err:
         return m_err
     if not _ml_eligible(market):
@@ -1631,18 +1681,24 @@ def score():
         if missing:
             return _err("invalid_request",
                         "opportunity missing required fields: %s" % ", ".join(missing), 400)
+        if "market" in it:
+            item_market, item_error = _market_arg(it["market"])
+            if item_error:
+                return item_error
+            if item_market != market:
+                return _err("invalid_request", "each opportunity must match the batch market; "
+                            "set market at the top level and split different markets into separate requests", 400)
         try:
-            days_out_i = int(it["days_out"])
-        except (ValueError, TypeError):
-            return _err("invalid_request", "days_out must be a number", 400)
-        try:
+            date, days, _ = _clean_chart_args(it["date"], it["days_out"], "1", it["symbol"])
             direction = _direction_arg(it["direction"])
+            if direction is None:
+                raise ValueError("direction must be long or short")
         except ValueError as e:
             return _err("invalid_request", str(e), 400)
         norm.append({
-            "symbol": it["symbol"],
-            "date": it["date"],
-            "days_out": days_out_i,
+            "symbol": it["symbol"].upper(),
+            "date": date,
+            "days_out": int(days),
             "direction": direction,
         })
 
@@ -1740,10 +1796,12 @@ def daily_pick():
     summary = tr.get("summary", {}) if isinstance(tr, dict) else {}
     live_record = {
         "count": summary.get("count"),
+        "judged_count": summary.get("judged_count"),
+        "pending_count": summary.get("pending_count"),
         "win_count": summary.get("win_count"),
         "win_rate": summary.get("win_rate"),
         "avg_return_pct": summary.get("avg_return_pct"),
-        "note": "Live forward-tested record of past daily picks (made in advance, scored later).",
+        "note": summary.get("note") or "Live forward-tested record of past daily picks (made in advance, scored later).",
     }
     if isinstance(card, dict):
         card.setdefault("receipts", {})["live_track_record"] = live_record

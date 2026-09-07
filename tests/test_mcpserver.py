@@ -37,6 +37,38 @@ def _run(awaitable):
     return asyncio.run(awaitable)
 
 
+def test_morning_briefing_preserves_stale_pick_and_incomplete_scan_context(monkeypatch):
+    import json
+    async def fake_get(path, params=None):
+        if path == "/daily-pick":
+            return {"card": {"symbol": "AAPL"}, "featured_date": "2026-06-01",
+                    "stale_note": "Latest available pick; no new pick today.", "as_of": "2026-09-07"}
+        if path == "/daily-pick/track-record":
+            return {"summary": {}, "picks": []}
+        return {"opportunities": [], "summary": "One market failed; scan incomplete.",
+                "market_failures": ["2"], "enrichment_capped": True}
+    monkeypatch.setattr(server, "_get", fake_get)
+    result = _run(server.morning_briefing(ctx=None))
+    body = json.loads(result.split("\n\n")[1])
+    assert body["pick_featured_date"] == "2026-06-01"
+    assert body["pick_stale_note"] == "Latest available pick; no new pick today."
+    assert body["scan_context"]["market_failures"] == ["2"]
+    assert body["scan_context"]["summary"] == "One market failed; scan incomplete."
+    assert "today's AI pick" not in result.split("\n\n")[0]
+
+
+def test_score_tool_preserves_the_requested_market(monkeypatch):
+    captured = {}
+    async def fake_post(path, body):
+        captured.update(body)
+        return {"scores": []}
+    monkeypatch.setattr(server, "_post", fake_post)
+    _run(server.score_opportunities(
+        opportunities=[{"symbol": "GLD", "date": "2026-09-01", "days_out": 30, "direction": "long"}],
+        ctx=None, market="11"))
+    assert captured["market"] == "11"
+
+
 @pytest.mark.parametrize("count", [10, 11])
 def test_text_evidence_reports_completed_sample_not_lookback_label(count):
     text = server._widget_text_fallback({"card": {

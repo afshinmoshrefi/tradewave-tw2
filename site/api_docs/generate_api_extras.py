@@ -51,8 +51,9 @@ _PATH_EXAMPLES = {"symbol": "DOV", "market_id": "2"}
 
 # The /score POST body example (seasonal-pattern inputs only; the response carries the ML block).
 _SCORE_BODY = {
+    "market": "2",
     "opportunities": [
-        {"symbol": "DOV", "date": "2026-06-02", "days_out": 30, "direction": "long", "market": "2"}
+        {"symbol": "DOV", "date": "2026-06-02", "days_out": 30, "direction": "long"}
     ]
 }
 

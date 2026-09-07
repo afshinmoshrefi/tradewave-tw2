@@ -10,12 +10,15 @@ exact response keys must be confirmed against appserver/appserver/appserver.py
 """
 import concurrent.futures
 import datetime
+import importlib.util
 import json
 import logging
 import os
 import re
 import threading
 import time
+from collections import defaultdict
+from pathlib import Path
 from urllib.parse import quote
 
 import requests
@@ -757,6 +760,10 @@ def ml_scores(market, items):
     if not norm:
         return out
 
+    alias_dates = defaultdict(set)
+    for it in norm:
+        alias_dates[(it["symbol"], it["daysOut"], it["direction"])].add(it["date"])
+
     # New appserver releases publish an unambiguous date-qualified key alongside
     # the original alias. Prefer it so two otherwise-identical windows with
     # different entry dates cannot overwrite one another in the response map;
@@ -787,7 +794,7 @@ def ml_scores(market, items):
         )
         legacy_key = f"{it['symbol']}|{it['daysOut']}|{it['direction']}"
         s = scores.get(qualified_key)
-        if s is None:
+        if s is None and len(alias_dates[(it["symbol"], it["daysOut"], it["direction"])]) == 1:
             s = scores.get(legacy_key)
         if not s:
             continue
@@ -813,6 +820,13 @@ def ml_scores(market, items):
 # returns are already stored as percentages (current_return/peak_return/actual_return).
 
 FEATURED_HISTORY_FILE = settings.FEATURED_HISTORY_FILE
+
+# `site` is also a Python stdlib module, so load the existing canonical source
+# by its repository path without changing global import resolution.
+_pick_spec = importlib.util.spec_from_file_location(
+    "_tradewave_pick_stats", Path(__file__).resolve().parents[1] / "site/lib/pick_stats.py")
+_pick_stats = importlib.util.module_from_spec(_pick_spec)
+_pick_spec.loader.exec_module(_pick_stats)
 
 
 class FeaturedHistoryUnavailable(RuntimeError):
@@ -862,26 +876,10 @@ def _realized_return_pct(entry):
 
 
 def _pick_result(entry):
-    """Map a pick to the contract result enum: win|loss|open.
-
-    Mirrors generate_scorecard.compute_stats: an OPEN pick whose peak (MFE) already
-    reached the predicted return counts as a win; otherwise open picks are 'open'.
-    Closed picks use the tracker's 'win' boolean, else the sign of the realized return.
-    """
-    status = entry.get("status")
-    if status == "closed":
-        if entry.get("win") is not None:
-            return "win" if entry["win"] else "loss"
-        rr = _realized_return_pct(entry)
-        if rr is None:
-            return "open"
-        return "win" if rr > 0 else "loss"
-    # open
-    peak = entry.get("peak_return")
-    pred = entry.get("pred_return")
-    if peak is not None and pred is not None and pred > 0 and peak >= pred:
-        return "win"
-    return "open"
+    """Use the same permanent target-hit/closed-profit rule as the public scorecard."""
+    if not _pick_stats.is_judged(entry):
+        return "open"
+    return "win" if _pick_stats.is_win(entry) else "loss"
 
 
 def daily_pick():
@@ -951,10 +949,9 @@ def daily_pick_raw():
 def track_record():
     """Historical realized win/loss record of past daily picks -> contract TrackRecord.
 
-    win_rate is wins / resolved (closed picks + open picks that already hit target),
-    expressed 0..1 to match the contract (the site computes the same set as a 0..100
-    %). avg_return_pct is the mean realized return over resolved picks. Raw prices are
-    never surfaced; only the percentage returns are.
+    win_rate is wins / judged, using the public scorecard's target-hit/closed-profit
+    rule. Returns use its target-exit result_return, with held-to-close and current
+    returns separately labeled. Unjudged picks never enter the denominator.
     """
     history = _load_featured_history()
     picks = []
@@ -962,11 +959,14 @@ def track_record():
     win_count = 0
     for e in history:
         result = _pick_result(e)
-        rr = _realized_return_pct(e)
+        rr = _pick_stats.result_return(e)
         picks.append({
             "symbol": e.get("symbol"),
             "featured_date": e.get("featured_date"),
             "return_pct": rr,
+            "held_to_close_return_pct": e.get("actual_return") if _pick_stats.is_resolved(e) else None,
+            "current_return_pct": e.get("current_return") if e.get("status") != "closed" else None,
+            "hit_target": _pick_stats.hit_target(e),
             "result": result,
         })
         if result in ("win", "loss"):
@@ -979,9 +979,15 @@ def track_record():
     return {
         "summary": {
             "count": len(picks),
+            "judged_count": resolved_count,
+            "pending_count": len(picks) - resolved_count,
             "win_count": win_count,
             "win_rate": win_rate,
             "avg_return_pct": avg_return,
+            "note": ("Forward-tested daily picks under the published target-exit rule: a target hit "
+                     "wins permanently and realizes the predicted gain; otherwise a completed pick "
+                     "uses its closing return. Win rate divides wins by judged_count; pending picks "
+                     "are excluded. Held-to-close and current returns are shown separately."),
         },
         "picks": picks,
     }

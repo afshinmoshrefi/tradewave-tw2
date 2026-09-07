@@ -1089,9 +1089,11 @@ flagship + 11 primitives).
 **Data shapes (verified vs the appserver):** opportunities = OppList4/OppBySymbol;
 `win_rate` = the share of strictly profitable completed trade observations,
 enriched per-symbol + cached gateway-side (redis db4, 6h TTL, direction in the key);
-`min_win_rate` filters on it (NOT `ml.win_prob`). `/scan` enriches
-only the requested Sharpe-ranked depth unless a receipt-dependent filter or alternate
-ranking requires the bounded 50-row head. Its price-safe scan core is shared for 120 seconds
+`min_win_rate` filters on it (NOT `ml.win_prob`). `/scan` verifies the bounded 50-row
+candidate pool before applying return/Sharpe filters, final ranking and the return limit.
+Detection ordering can change after completed evidence loads, including for default Sharpe.
+ML is charged only for scores in returned cards; discarded scored candidates are refunded.
+Its price-safe scan core is shared for 120 seconds
 with a Redis distributed single-flight lock. Auth, tier projection, rate limiting, ML quota,
 and ML scoring still run on every request. ML = MLScoreBatch
 + MLScorePending (two-phase), metered by API tier and limited to markets 0-4,11.
@@ -1118,7 +1120,25 @@ actual `years_tested` survives every card projection and is what MCP text report
 before listing cannot snap to the first quote and fabricate history. Engine excursions
 include entry zero, including one-interval holds; averages and compounded returns retain
 fractional percentage points. Cache versions are `chartdata_v2`, `gw:winrate:v2`, and
-`tw:api:scan-core:v3` so older semantics cannot return after deployment.
+`tw:api:scan-core:v4` so older semantics cannot return after deployment.
+
+**Expanded MCP/API audit (2026-09-07):** daily-pick track records now consume the
+canonical `site/lib/pick_stats.py` directly. The former gateway copy trusted stale
+`win` flags and mixed target-hit outcomes with later close/current returns. The API's
+`return_pct` is now `result_return`; `held_to_close_return_pct` and `current_return_pct`
+preserve separate transparency. `judged_count` is the win-rate denominator;
+`pending_count` never enters it. The live dev feed reproduction found 21 mismatched rows
+among 37 picks before this correction. MCP morning briefings preserve the featured date,
+staleness note and incomplete-scan context rather than dropping them during composition.
+
+Batch scoring validates symbol/date/duration/direction before reserving ML quota. Market
+is a batch-level parameter (also exposed by the MCP tool); a conflicting item market is
+rejected. Date-qualified ML keys remain authoritative, and legacy aliases cannot fill a
+missing score when multiple dates share the same symbol/duration/direction. Numeric
+filters reject malformed, non-finite or out-of-range input instead of silently defaulting.
+Scan windows, period presets, current PE position and staleness checks all use the US
+market date. February includes leap day; reverse March avoids invalid February 29
+anniversary arithmetic. A one-day hold cannot receive a full-year trend summary.
 
 Pinned `analyze_symbol` calls (entry date or period/reverse) bypass detection and accept
 analysis lookbacks 1-99; they never substitute a detected hold with the same entry date.

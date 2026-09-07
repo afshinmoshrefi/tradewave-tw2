@@ -50,9 +50,10 @@ paths:
         up to the caller's daily ML allowance (free 5/day, unlimited on Pro/Business);
         ml_remaining_today reflects how many ML calls remain today (null = unlimited).
         The reusable price-safe scan core is shared briefly across callers, but auth,
-        tier limits, rate limits, ML quota, and ML scoring run for every request. Default
-        Sharpe scans enrich only the requested depth; receipt-dependent filters and alternate
-        rankings use a bounded 50-row head. evaluated_count + enrichment_capped are surfaced,
+        tier limits, rate limits, ML quota, and ML scoring run for every request. Scans
+        verify a bounded 50-row candidate pool before applying return/Sharpe filters,
+        final ranking, and the requested result limit. ML scores omitted from the returned
+        page are refunded. evaluated_count + enrichment_capped are surfaced,
         and any partial market failure is explicit in market_failures.
       parameters:
         - { name: markets, in: query, schema: { type: string }, description: "csv of ids, list_markets names, or common aliases ('sp500', 'crypto', 'europe'), e.g. '2,11' or 'S&P 500 STOCKS,ETFs'. Unknown tokens are reported in markets_note; out-of-scope markets are skipped with an upgrade note. Default (omitted) = a liquid equities core (DOW 30, NASDAQ 100, S&P 500, ETFs) intersected with your scope, NOT every in-scope market - pass markets explicitly to scan others." }
@@ -610,12 +611,14 @@ components:
         return_pct: { type: number }
     TrackRecordSummary:
       type: object
-      description: Live forward-tested record of past daily picks.
+      description: Live forward-tested daily picks under the published target-exit rule, matching the public scorecard.
       properties:
-        count: { type: integer }
+        count: { type: integer, description: "all published picks, including pending" }
+        judged_count: { type: integer, description: "win-rate denominator: target-hit or completed picks" }
+        pending_count: { type: integer, description: "unjudged picks excluded from win rate and average return" }
         win_count: { type: integer }
-        win_rate: { type: number, description: "0..1 realized win rate of past picks" }
-        avg_return_pct: { type: number }
+        win_rate: { type: number, description: "0..1 wins / judged_count; a target hit wins permanently, otherwise a profitable close wins" }
+        avg_return_pct: { type: number, description: "mean target-exit result: predicted gain on a target hit, closing return on a completed miss" }
         note: { type: string }
     NextStep:
       type: object
@@ -774,6 +777,7 @@ components:
     ScoreRequest:
       type: object
       properties:
+        market: { type: string, default: "2", description: "market for every item in the batch; split different markets into separate requests" }
         opportunities:
           type: array
           maxItems: 100
@@ -784,7 +788,7 @@ components:
             properties:
               symbol: { type: string }
               date: { type: string, format: date }
-              days_out: { type: integer, description: "inclusive calendar-day count; entry day is day 1" }
+              days_out: { type: integer, minimum: 1, maximum: 367, description: "inclusive calendar-day count; entry day is day 1; ML is available only for exact windows of 10-90 days" }
               direction: { type: string, enum: [long, short] }
     MLScore:
       type: object
@@ -855,12 +859,7 @@ components:
       type: object
       properties:
         summary:
-          type: object
-          properties:
-            count: { type: integer }
-            win_count: { type: integer }
-            win_rate: { type: number }
-            avg_return_pct: { type: number }
+          $ref: "#/components/schemas/TrackRecordSummary"
         picks:
           type: array
           items:
@@ -868,7 +867,10 @@ components:
             properties:
               symbol: { type: string }
               featured_date: { type: string, format: date }
-              return_pct: { type: number }
+              return_pct: { type: number, nullable: true, description: "target-exit result: predicted gain on a target hit, closing return on a completed miss; null while unjudged" }
+              held_to_close_return_pct: { type: number, nullable: true, description: "actual window-close return, separately visible even after a target hit" }
+              current_return_pct: { type: number, nullable: true, description: "current open-window return; never substituted for a judged result" }
+              hit_target: { type: boolean }
               result: { type: string, enum: [win, loss, open] }
         disclaimer: { type: string, description: "exact regulatory disclaimer (performance record - 'past performance is not indicative...')" }
     Error:

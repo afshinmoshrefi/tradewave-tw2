@@ -1268,10 +1268,12 @@ async def explain_pick(ctx: Optional[Context] = None) -> str:
     description=(
         "The one-call MORNING BRIEFING. REACH FOR THIS on 'my briefing', 'good morning', "
         "'what's happening today', 'daily update', or any open-ended start-of-day prompt. "
-        "Returns one compact payload: todays_pick (today's AI daily pick as a Pattern Card with "
+        "Returns one compact payload: todays_pick (the latest published AI pick as a Pattern Card with "
         "its live forward-tested track record), track_record_summary (counts + the last 5 pick "
         "outcomes, losses included - the honest record), this_week (the top 5 distinct-symbol "
         "setups entering their seasonal window now, as compact ranked rows), and as_of. "
+        "Preserve pick_featured_date, pick_stale_note, and scan_context: an older pick is not "
+        "today's, and omitted markets or a bounded candidate pool make the scan incomplete. "
         "Composed server-side from the same gateway endpoints as explain_pick + "
         "whats_seasonal_now, so it is always consistent with them. Present the pick first, "
         "then the record, then what's opening this week."
@@ -1325,13 +1327,19 @@ async def morning_briefing(ctx: Optional[Context] = None) -> str:
 
     payload = {
         "todays_pick": todays_pick,
+        "pick_featured_date": pick.get("featured_date") if isinstance(pick, dict) else None,
+        "pick_stale_note": pick.get("stale_note") if isinstance(pick, dict) else None,
         "track_record_summary": track_record_summary,
         "this_week": this_week,
+        "scan_context": {key: scan.get(key) for key in (
+            "summary", "market_failures", "enrichment_capped", "capped_by_plan",
+            "evaluated_count", "count") if key in scan} if isinstance(scan, dict) else None,
         "as_of": (pick.get("as_of") if isinstance(pick, dict) else None)
                  or datetime.date.today().isoformat(),
     }
     return _lead(
-        "Your TradeWave morning briefing - today's AI pick (with its live track record), "
+        "Your TradeWave morning briefing - the latest published AI pick (check its featured date "
+        "and any staleness note), with its live track record, "
         "the recent pick outcomes, and what's entering its seasonal window this week:",
         payload,
         handoff=True,
@@ -1930,9 +1938,15 @@ async def score_opportunities(
         "entry date is day 1), direction "
         "(str, 'long' or 'short')."))],
     ctx: Context,
+    market: Annotated[Optional[str], Field(description=(
+        "Market containing these symbols, e.g. '11' for ETFs. Applies to every item; "
+        "split different markets into separate calls. Defaults to S&P 500 ('2')."))] = None,
 ) -> str:
     _bind_request_key(ctx)
-    data = await _post("/score", {"opportunities": opportunities})
+    body = {"opportunities": opportunities}
+    if market is not None:
+        body["market"] = market
+    data = await _post("/score", body)
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
     return json.dumps(data, separators=(',', ':'))

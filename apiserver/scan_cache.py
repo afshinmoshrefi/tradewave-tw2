@@ -25,8 +25,8 @@ from .gateway_redis import create_client
 log = logging.getLogger("apiserver.scan_cache")
 
 # Direction and completed-cohort semantics are part of the cached evidence contract.
-_CACHE_SCHEMA = 3
-_CACHE_PREFIX = "tw:api:scan-core:v3:"
+_CACHE_SCHEMA = 4
+_CACHE_PREFIX = "tw:api:scan-core:v4:"
 _FLIGHT_RESULT_TTL_SECONDS = 2
 _redis = create_client()
 _local_build_slots = threading.BoundedSemaphore(settings.SCAN_CACHE_LOCAL_BUILD_SLOTS)
