@@ -185,7 +185,56 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   Dev/Prod checkout, service, schedule, public feed or access rule is activated.
   Calibrated probabilities remain shelved in both selection and reader copy.
 
+  **Seasonal continuity correction implemented privately (2026-09-07).**
+  The owner rejected the visual JPM article because its native charts, study
+  link and analytical structure had disappeared. He explicitly wants additional
+  editorial visuals alongside TradeWave visuals, improvements to the existing
+  SMN product, meaningful angle variety and Michael Sacchitello's August 24
+  feedback. This is not authorization to replace SMN with generic financial news.
+  Source: [`codex/smn-continuity-20260907`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-continuity-20260907),
+  exact commit `569c7fc32d5b083bcc8bbffc42969a7307bea343`; comparison/design:
+  [`blog/SMN_CONTINUITY_DESIGN.md`](https://github.com/afshinmoshrefi/SMN/blob/569c7fc32d5b083bcc8bbffc42969a7307bea343/blog/SMN_CONTINUITY_DESIGN.md).
+  The actual transcript was retrieved again; Michael valued summary/table/charts
+  and requested clearer ordering, shorter nonrepetitive explanation and removal
+  of speculation. His draft-specific length comment is not a universal quota.
+  The generic finishing rules' 120-word seasonal cap is superseded for seasonal
+  editions. General-news history remains brief and relevant.
+
+  A result carrying a seasonal story card requires an explicit seasonal bundle
+  contract, with the complete card digest, commissioned angle, historical source
+  and exact TradeWave viewer identity. `seasonal_edition.py` retains completed
+  annual observations, native chartkit year bars and range-from-entry graphics,
+  key stats, study links and methodology. Additional editorial charts have their
+  own budget. Hero precedes one labeled summary; the connected opening leads to
+  the seasonal record, then current business context and useful risk/comparison.
+  Missing native evidence cannot silently become generic news. Phone charts use
+  the same observations arranged vertically; legitimate flat years are retained.
+  Native path/price charts need their own verified data and remain possible
+  additions according to the angle, not invented paths from annual extrema.
+  Both native and editorial images need actual final pixel inspection.
+
+  Local review: `smn-review-20260905/smn-continuity-20260907/report.html`;
+  `results/JPM-final/article.html` uses frozen September 6 evidence and retains
+  GROWTH_CHECK with an explicit seasonal contribution. It contains two native
+  TradeWave charts and two editorial charts. The study payload is
+  `2|JPM|2026-08-21|90|20`; both rendered links and inclusive endpoint were
+  verified, but the authenticated destination was not exercised. Sixty focused
+  tests passed, followed by thirty chart/seasonal tests after a mobile header
+  adjustment. Both browser layouts, final independent Astra review and actual
+  visual inspection passed. Seven text/review calls across retained iterations;
+  no new hero call. The final title and one heading received documented primary
+  edits before that independent review. This is one example, not a real-input
+  quality benchmark of all six original angle families or owner/Michael acceptance.
+  Astra article effort remains low; calibrated probabilities remain shelved.
+  **No deployment:** live SMN Dev remains `57055c2b905f4749de5938b11a0289d1e33eeeba`,
+  with article and queue services still started August 21 at 12:10:38 UTC.
+  Production, publication, schedules and access tiers were not changed.
+
   **Visual financial-news editing completed privately (2026-09-07 UTC).**
+  **Owner review: seasonal product continuity rejected.** The JPM-v3 layout
+  below passed technical checks but failed the owner's SMN identity requirement.
+  Its additional graphics were welcomed; removing the native TradeWave evidence
+  was not. The private seasonal correction above supersedes that presentation.
   Afshin requested source-backed charts and compelling heroes after finding the
   jobs preview too numerically dense. Source is preserved on
   [`codex/smn-visual-editorial-20260907`](https://github.com/afshinmoshrefi/SMN/tree/codex/smn-visual-editorial-20260907),
