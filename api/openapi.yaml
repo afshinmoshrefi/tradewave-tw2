@@ -111,7 +111,7 @@ paths:
         - { name: period, in: query, schema: { type: string, enum: [jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec, q1, q2, q3, q4, spring, summer, fall, winter, ytd, year_end, buy_hold] }, description: "wave-viewer date-range preset; overrides entry_date/days_out." }
         - { name: reverse, in: query, schema: { type: boolean }, description: "invert the period to all-of-year-except-that-window." }
         - { name: view, in: query, schema: { type: string, enum: [full, evidence, decision, table], default: full }, description: "response verbosity. 'full'/'evidence' = complete evidence card; 'decision' = lean; 'table' = compact. MCP defaults to evidence." }
-        - { name: include, in: query, schema: { type: string, enum: [chart] }, description: "include=chart attaches the canonical two-chart data and rendering specifications. MCP additionally renders them as native image content blocks." }
+        - { name: include, in: query, schema: { type: string, enum: [chart] }, description: "include=chart attaches the canonical two-chart data and rendering specifications. MCP Apps hosts can render the evidence widget; other hosts receive text evidence and the exact viewer link." }
       responses:
         "200":
           description: OK

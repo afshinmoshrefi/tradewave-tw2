@@ -325,6 +325,13 @@ test('accepts only the established Jan 1 to Jan 2 Buy and Hold normalization', (
   )).toBe(false);
 });
 
+test.each(['2026-01-01', '2027-01-01', '2027-09-01'])('exact API link accepts only its unchanged date: %s', entry_date => {
+  const requested = {market:'2',symbol:'AAPL',entry_date,days_out:1,years:3,pe_cycle:'cons'};
+  expect(taraEffectiveResponseMatches(requested, {...requested,cut_off_year:0}, 0, '2026-09-07', true)).toBe(true);
+  expect(taraEffectiveResponseMatches(requested, {...requested,entry_date:'2026-01-02',cut_off_year:0}, 0, '2026-09-07', true)).toBe(false);
+  expect(taraEffectiveResponseMatches(requested, {...requested,years:2,cut_off_year:0}, 0, '2026-09-07', true)).toBe(false);
+});
+
 test('requires the consolidated seasonal response to echo the exact request', () => {
   const request = {
     market: '2',

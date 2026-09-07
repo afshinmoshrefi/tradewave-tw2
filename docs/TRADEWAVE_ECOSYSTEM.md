@@ -1128,6 +1128,12 @@ payload and `view=evidence`. React validates the whole link, waits only for auth
 and applies it even when the opportunity table is empty. URL synchronization waits for
 application of the incoming state. Direction applies to that exact linked pattern and
 is restored on history navigation; a different pattern returns to automatic direction.
+The exact-link acknowledgement accepts the unchanged date (including January 1 and future
+display years); ordinary viewer requests retain their established date normalization.
+Custom analysis values remain visible in day/year dropdowns even below the usual menu
+minimum. A linked lookback longer than the symbol's available history is retained when
+within the web tier cap, with only available observations returned. Parser validation
+also preserves legacy viewer links with more than 99 years; 99 is the public API limit.
 
 **Auth + data (app box):** customer keys in Postgres `api_keys` (HMAC-SHA256 via
 `API_KEY_HMAC_SECRET`); usage in `api_usage_daily` + redis db4. Schema

@@ -427,6 +427,7 @@ export const taraEffectiveResponseMatches = (
   effective,
   requestedCutOffYear = 0,
   todayDate = '',
+  exactWindow = false,
 ) => {
   if (!effective) return false;
   // ChartData4 has always moved Jan 1 to Jan 2 internally to avoid its
@@ -453,7 +454,7 @@ export const taraEffectiveResponseMatches = (
     : normalizedEntryDate;
   const expected = {
     ...(requested || {}),
-    entry_date: canonicalEntryDate,
+    entry_date: exactWindow ? requestedEntryDate : canonicalEntryDate,
     cut_off_year: Number(
       requested?.cut_off_year ?? requestedCutOffYear ?? 0
     ),

@@ -1,4 +1,4 @@
-import { parseViewerPatternLink, linkedPatternDirection } from './viewerPatternLink'
+import { parseViewerPatternLink, linkedPatternDirection, includeSelectedWindowOption } from './viewerPatternLink'
 
 const resources = {'2':'S&P 500 STOCKS', '5':'US INDICES'}
 const query = (payload, suffix='') => '?o=' + encodeURIComponent(window.btoa(payload).replace(/=+$/,'')) + suffix
@@ -23,4 +23,13 @@ test.each([
 test('existing directionless links and PE reports still parse', () => {
   expect(parseViewerPatternLink(query('5|SPX|2026-01-01|366|PE2-24'), resources)).toMatchObject({years:'pe2-24',direction:null})
   expect(parseViewerPatternLink(query('2|AAPL|2026-09-01|30|10'), resources)).toMatchObject({years:'10',direction:null})
+  expect(parseViewerPatternLink(query('5|DJI|2026-09-01|30|120'), resources)).toMatchObject({years:'120'})
+})
+
+test('custom one-day and three-year analysis does not display the first dropdown option', () => {
+  const options = [{id:5,value:'5',label:'5'}, {id:10,value:'10',label:'10'}]
+  expect(includeSelectedWindowOption(options, '3', 999)[0].value).toBe('3')
+  expect(includeSelectedWindowOption(options, '1', 367)[0].value).toBe('1')
+  expect(includeSelectedWindowOption(options, '5', 999)).toBe(options)
+  expect(includeSelectedWindowOption(options, 'bad', 999)).toBe(options)
 })

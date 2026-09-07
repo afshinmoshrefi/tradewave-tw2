@@ -76,6 +76,7 @@ import {
 // import {fa-solid fa-circle-left} from "@fortawesome/free-solid-svg-icons";
 
 import { FaAngleRight } from "react-icons/fa";
+import { includeSelectedWindowOption } from './viewerPatternLink';
 
 const DAYS_OUT_OPTIONS = Array.from(
   { length: maxDaysOut - minDaysOut + 1 },
@@ -512,7 +513,7 @@ const SeasonalBarChart = (props) => {
 
 
 
-  const daysOutList = DAYS_OUT_OPTIONS
+  const daysOutList = useMemo(() => includeSelectedWindowOption(DAYS_OUT_OPTIONS, props.daysOut, maxDaysOut), [props.daysOut])
 
   const [seasonalYearsList, setSeasonalYearsList] = useState(() => {
     // initially set the years to 30 years manually.  make it work by getting metaData from appserver later
@@ -697,10 +698,14 @@ const SeasonalBarChart = (props) => {
         // maxSelectable = the largest unlocked option (tier cap wins over range).
         const maxSelectable = _yrCap != null ? Math.min(maxYears, _yrCap) : maxYears
         const curYears = parseInt(props.seasonalYears, 10)
+        // Exact API research can request more history than the symbol has.
+        // Keep that lookback visible; the engine returns only available years.
+        // The plan cap still applies and is never bypassed by a link.
+        const preserveLinkedLookback = props.chartDirection && (_yrCap == null || curYears <= _yrCap)
         ReactDOM.unstable_batchedUpdates(() => {
           props.SetMaxAvailableYears(effectiveMaxYears)
           setSeasonalYearsList(tmp)
-          if (!isNaN(curYears) && curYears > maxSelectable && maxSelectable >= minYears) {
+          if (!preserveLinkedLookback && !isNaN(curYears) && curYears > maxSelectable && maxSelectable >= minYears) {
             props.SetSeasonalYears(maxSelectable.toString())
           }
         })
@@ -831,6 +836,7 @@ const SeasonalBarChart = (props) => {
           effectiveRequest,
           props.trimYear,
           getTodayDate(),
+          Boolean(props.chartDirection),
         )) {
           props.SetSeasonalBarChartData([])
           props.SetTradeDetailData([])
@@ -3328,7 +3334,7 @@ const SeasonalBarChart = (props) => {
           </div>
 
           <div className='barchart-controls-div2' >
-            <SelectBox optionList={seasonalYearsList} value={props.seasonalYears} suffix=" years" name="years" sbChanged={selectboxChanged} />
+            <SelectBox optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" sbChanged={selectboxChanged} />
           </div>
           
           <div className='barchart-controls-div2' >
@@ -3395,7 +3401,7 @@ const SeasonalBarChart = (props) => {
 
 
           <div className='barchart-controls-div' style={StyleSeasonalYears}>
-            <SelectBox tooltipContent={props.tooltipSW ? 'b,Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).' : ''} optionList={seasonalYearsList} value={props.seasonalYears} suffix=" years" name="years" sbChanged={selectboxChanged} />
+            <SelectBox tooltipContent={props.tooltipSW ? 'b,Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).' : ''} optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" sbChanged={selectboxChanged} />
           </div>
           <div className='barchart-controls-div' style={StylePEselection} >
             <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" sbChanged={selectboxChanged} tooltipContent={props.tooltipSW ? 'b,Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.)' : ''} />
