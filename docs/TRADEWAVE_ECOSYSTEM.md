@@ -230,6 +230,31 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   with article and queue services still started August 21 at 12:10:38 UTC.
   Production, publication, schedules and access tiers were not changed.
 
+  **Cost audit, September 7: do not reuse writer-only pricing for this stack.**
+  The owner's OpenAI dashboard export for September 7 UTC, Default project,
+  totals $9.8276554 across 50 requests. All 30 Astra development responses
+  reconcile exactly to $9.4564875: $5.9069275 for visual prototypes and
+  $3.54956 for continuity iterations. The remaining $0.3711679 is GPT-5.1,
+  mini and nano usage, not individually attributed to jobs. The UTC day begins
+  September 6 at 8 p.m. New York time. No paid audit calls were made.
+  Input processing accounts for $7.6028875; all 30 Astra calls have zero cache
+  reads and 608,159 cache-write tokens. The 25% cache-write premium alone is
+  $1.5203975; reasoning is only $0.0936 of the output charge. The latest seasonal
+  rewrite/review pair uses 49,159/22,381 input tokens and costs $1.052735 before
+  repair, materially above the historical approximately $0.14 writer-only test.
+  Its 136,305-character prompt includes the full card and duplicated historical
+  evidence. The complete entry point still generates/reviews an upstream
+  article before a visual rewrite/review. Reconstructing saved JPM stage costs
+  gives about $2.78 without repairs or $4.05 with the recorded upstream repair
+  plus one finishing pair, excluding research and new hero costs. These are
+  illustrative dated-run combinations, not a measured production average.
+  Cost reduction remains unimplemented: deduplicate model context, retain full
+  raw evidence outside prompts, consolidate redundant writing stages while
+  keeping checks, use deliberate cache breakpoints and track total dollars
+  across revisions. Keep the approved visuals and measure quality after changes.
+  Audit and exact CSV/response reconciliation are local at
+  `smn-review-20260905/cost-audit-20260907/findings.md`.
+
   **Visual financial-news editing completed privately (2026-09-07 UTC).**
   **Owner review: seasonal product continuity rejected.** The JPM-v3 layout
   below passed technical checks but failed the owner's SMN identity requirement.
