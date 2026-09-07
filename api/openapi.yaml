@@ -767,11 +767,13 @@ components:
         direction: { type: string, enum: [long, short] }
         entry_date: { type: string, format: date }
         hold_days: { type: integer }
-        historical_win_rate: { type: number, description: "0..1, share of profitable years" }
-        sharpe_ratio: { type: number }
-        avg_return_pct: { type: number }
-        median_return_pct: { type: number }
+        historical_win_rate: { type: number, nullable: true, description: "0..1, share of profitable years" }
+        sharpe_ratio: { type: number, nullable: true }
+        avg_return_pct: { type: number, nullable: true }
+        median_return_pct: { type: number, nullable: true }
         years: { type: string }
+        years_tested: { type: integer, nullable: true, description: "completed observations for this setup" }
+        evidence_status: { type: string, nullable: true, description: "verified, no_data or unavailable for enriched alternate setups" }
     DailyPickResponse:
       type: object
       properties:

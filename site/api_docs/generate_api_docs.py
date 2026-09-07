@@ -1590,9 +1590,10 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Find the best seasonal trade setups for a market and date window, ranked by historical edge. Use when the user asks what to trade, when to enter, or which symbols have a strong seasonal tendency.</p>
+    <p>Find seasonal setups for one market and entry date, ranked by completed historical Sharpe. This primitive does not widen across a date window; use find_best_opportunities for windows. The first 50 duration-matching candidates receive verified evidence before statistical filtering and final ordering.</p>
     <p><strong>Inputs:</strong> <code class="inline-code">market</code> (required), <code class="inline-code">from</code>, <code class="inline-code">to</code>, <code class="inline-code">direction</code> (long | short), <code class="inline-code">min_win_rate</code> (0-1), <code class="inline-code">limit</code></p>
     <p><strong>Returns:</strong> ranked list - symbol, direction, entry date, holding period, Sharpe ratio, avg/median return %, win rate. ML fields are included only when the connected TradeWave account or developer key has ML access and the market is ML-eligible (ids 0-4, 11); otherwise they are null.</p>
+    <p>Historical statistics share the same completed cohort and election-cycle phase. <code class="inline-code">evidence_status</code> distinguishes verified, no_data, unavailable and not_evaluated rows; unverified historical fields are null.</p>
     <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/opportunities</code></p>
   </div>
 </div>
@@ -1726,6 +1727,7 @@ def build_data_dictionary() -> str:
 <p>Plain-English definitions of every field returned by the TradeWave API. All monetary returns are expressed as <strong>percentages</strong>. Raw prices and OHLCV data are never returned.</p>
 
 <h2>Core opportunity fields</h2>
+<p>Win rate, average/median return and Sharpe use the same completed, direction-aware history. Historical numbers are null when evidence is unavailable or was not evaluated within the bulk endpoint's 50-candidate cap.</p>
 <table>
   <thead>
     <tr><th>Field</th><th>Type</th><th>Definition</th></tr>
@@ -1759,7 +1761,17 @@ def build_data_dictionary() -> str:
     <tr>
       <td class="field-name">years</td>
       <td class="field-type">string</td>
-      <td>The lookback window label - always a string (e.g. "10", "5"). Represents how many years of historical instances are included in the statistical summary. Kept as a string to preserve the exact label used in the platform.</td>
+      <td>The requested lookback label, always a string (e.g. "10" or "pe2-5"). Consecutive N includes N prior entry years plus a completed current year when available; election-cycle N selects completed matching occurrences. The actual observation count is years_tested.</td>
+    </tr>
+    <tr>
+      <td class="field-name">years_tested</td>
+      <td class="field-type">integer or null</td>
+      <td>Completed observations used by the statistical summary. Null when the record could not be verified; zero means a valid empty cohort.</td>
+    </tr>
+    <tr>
+      <td class="field-name">evidence_status</td>
+      <td class="field-type">string</td>
+      <td>verified: completed evidence loaded; no_data: valid empty cohort; unavailable: evidence fetch failed; not_evaluated: beyond the bulk evidence cap. The latter two have null historical statistics.</td>
     </tr>
     <tr>
       <td class="field-name">sharpe_ratio</td>
