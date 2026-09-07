@@ -317,16 +317,21 @@ def _friendly_http_error(exc: httpx.HTTPStatusError) -> str:
     otherwise. Never the raw httpx repr (it embeds the internal gateway URL)."""
     code = None
     msg = None
+    scope = None
     try:
         err = exc.response.json().get("error") or {}
         code = err.get("code")
         msg = err.get("message")
+        scope = err.get("scope") or exc.response.headers.get("X-RateLimit-Scope")
     except Exception:  # noqa: BLE001 - non-JSON body / unexpected shape
         pass
     if isinstance(msg, str) and msg.strip():
         msg = msg.strip()
         if code == "rate_limited":
-            msg += " - wait a few seconds and retry; results are cached."
+            if scope == "day":
+                msg += " - wait until the daily allowance resets before retrying."
+            else:
+                msg += " - wait until the rate window resets before retrying."
         return msg
     return (f"The TradeWave gateway returned an error (HTTP {exc.response.status_code}). "
             "Try again in a moment.")
@@ -392,7 +397,13 @@ async def _request(method: str, path: str, *, params: dict[str, Any] | None = No
         raise GatewayError(_friendly_http_error(exc)) from None
     except httpx.HTTPError:
         raise GatewayError(_UNREACHABLE_RESULT) from None
-    return resp.json()
+    try:
+        data = resp.json()
+    except ValueError:
+        raise GatewayError("TradeWave returned an invalid response. Please try again in a moment.") from None
+    if not isinstance(data, dict):
+        raise GatewayError("TradeWave returned an invalid response. Please try again in a moment.")
+    return data
 
 
 async def _get(path: str, params: dict[str, Any] | None = None) -> Any:

@@ -393,6 +393,20 @@ def test_format_upgrade_messages():
 import httpx  # noqa: E402
 
 
+@pytest.mark.parametrize("content", [b"<html>broken</html>", b"null", b"[]", b"42"])
+def test_malformed_gateway_success_is_a_friendly_tool_error(monkeypatch, content):
+    async def check():
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, content=content))
+        async with httpx.AsyncClient(transport=transport) as client:
+            monkeypatch.setattr(server, "_gateway_client", client)
+            monkeypatch.setattr(server, "_gateway_slots", None)
+            monkeypatch.setattr(server, "_headers", lambda: {})
+            result = await server.analyze_symbol(symbol="AAPL", ctx=None)
+            assert result.isError is True
+            assert "invalid response" in result.structuredContent["error"]["message"]
+    _run(check())
+
+
 def _status_error(status, body=None, text=None):
     req = httpx.Request("GET", "http://127.0.0.1:8088/v1/x")
     if body is not None:
@@ -413,6 +427,13 @@ def test_friendly_http_error_rate_limited_adds_retry_hint():
     exc = _status_error(429, {"error": {"code": "rate_limited", "message": "rate limit exceeded"}})
     msg = server._friendly_http_error(exc)
     assert msg.startswith("rate limit exceeded") and "retry" in msg
+
+
+def test_day_limit_does_not_tell_the_model_to_retry_in_seconds():
+    exc = _status_error(429, {"error": {"code": "rate_limited", "scope": "day",
+                                         "message": "rate limit exceeded (day window)"}})
+    message = server._friendly_http_error(exc)
+    assert "daily" in message and "seconds" not in message
 
 
 def test_friendly_http_error_non_json_is_generic():

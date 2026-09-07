@@ -116,6 +116,15 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
 
 ## Low-level primitives (prefer the flagships unless you need this exact slice)
 
+Discovery statistics now use one completed cohort for win rate, average/median return,
+Sharpe and history count, including the requested election-cycle phase. Statistical
+filters and ordering follow that refresh. The bulk primitive evaluates at most 50
+duration-matching candidates; rows beyond that cap have null historical fields and
+`evidence_status=not_evaluated`. `unavailable` means a failed fetch; `no_data` means a
+valid empty cohort. Malformed chart/gateway responses are failures, never a zero-year
+record. AI scores must contain finite numeric values and valid score/probability ranges.
+Daily-limit errors tell the caller to wait for the daily reset.
+
 Most primitive descriptions open with: "Low-level primitive. Prefer
 find_best_opportunities / analyze_symbol unless you need this exact slice ..." so the
 model defers to the flagships by default. (`whoami` and `describe_tradewave` are the

@@ -795,6 +795,8 @@ def compact_setup(opp):
         "avg_return_pct": _round(opp.get("avg_profit_pct")),
         "median_return_pct": _round(opp.get("median_profit_pct")),
         "years": str(opp.get("years") or "10"),
+        "years_tested": opp.get("years_tested"),
+        "evidence_status": opp.get("evidence_status"),
     }
 
 

@@ -17,6 +17,7 @@ import logging
 import time
 
 import redis
+from flask import g, has_request_context
 
 from . import settings
 from .gateway_redis import create_client
@@ -63,6 +64,23 @@ def _key(user_id):
     return "mlq:%s:%s" % (user_id, time.strftime("%Y-%m-%d"))
 
 
+def _reservation(cust):
+    """Request-local ledger: refunds belong to the day and amount actually reserved.
+
+    Never put this on the cached customer or a process global: simultaneous requests
+    for the same user must not refund each other's usage. All gateway callers run
+    in a Flask request; stand-alone consumers retain the existing direct interface.
+    """
+    if not has_request_context():
+        return None
+    if not hasattr(g, "ml_reservations"):
+        g.ml_reservations = {}
+    user = cust["user_id"]
+    if user not in g.ml_reservations:
+        g.ml_reservations[user] = {"key": _key(user), "charged": 0}
+    return g.ml_reservations[user]
+
+
 def _limit(cust):
     """The tier's daily ML limit; None = unlimited."""
     return (cust.get("entitlements") or {}).get("ml_daily_limit")
@@ -95,9 +113,13 @@ def consume(cust, n):
     if lim == 0:
         return 0  # G11: a 0-limit tier gets NO AI - decide BEFORE the fail-open path below,
                   # so a Redis outage can never flip no-AI (explorer/navigator) into granted.
-    k = _key(cust["user_id"])
+    reservation = _reservation(cust)
+    k = reservation["key"] if reservation is not None else _key(cust["user_id"])
     try:
-        return int(_redis.eval(_CONSUME_LUA, 1, k, lim, n, _TTL))
+        granted = int(_redis.eval(_CONSUME_LUA, 1, k, lim, n, _TTL))
+        if reservation is not None:
+            reservation["charged"] += granted
+        return granted
     except redis.RedisError as e:
         log.warning("ml_quota consume failed for %s: %s", cust.get("user_id"), e)
         return n  # fail open - never block on a counter outage
@@ -110,7 +132,15 @@ def refund(cust, n):
     actually delivered. No-op for unlimited tiers or n <= 0; fails open on a Redis outage."""
     if n <= 0 or _limit(cust) is None:
         return
-    k = _key(cust["user_id"])
+    reservation = _reservation(cust)
+    if reservation is not None:
+        n = min(n, reservation["charged"])
+        if n <= 0:
+            return
+        # Retire the reservation even if Redis fails: an uncertain write must not
+        # be retried as a second refund against other successfully charged usage.
+        reservation["charged"] -= n
+    k = reservation["key"] if reservation is not None else _key(cust["user_id"])
     try:
         _redis.eval(_REFUND_LUA, 1, k, n, _TTL)
     except redis.RedisError as e:

@@ -61,6 +61,58 @@ def _hdr():
     return {"Authorization": "Bearer tw_live_test"}
 
 
+def test_browser_preflight_allows_supported_api_key_and_exposes_limits(app, monkeypatch):
+    from apiserver import app as appmod
+    monkeypatch.setattr(appmod, "CORS_ORIGINS", ["https://test.example"])
+    response = app.test_client().options("/v1/scan", headers={
+        "Origin": "https://test.example", "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "X-API-Key"})
+    assert response.status_code == 200
+    assert "X-API-Key" in response.headers["Access-Control-Allow-Headers"]
+    assert "Retry-After" in response.headers["Access-Control-Expose-Headers"]
+    assert "X-RateLimit-Reset" in response.headers["Access-Control-Expose-Headers"]
+    for origin in (None, "https://denied.example"):
+        response = app.test_client().get("/healthz", headers={"Origin": origin} if origin else {})
+        assert "Origin" in response.vary
+        assert "Access-Control-Allow-Origin" not in response.headers
+
+
+def test_authenticated_error_keeps_rate_headers(client, monkeypatch):
+    from apiserver import auth
+    monkeypatch.setattr(auth, "check_rate_limit", lambda cust: (True, {"X-RateLimit-Remaining": "17"}))
+    response = client.get("/v1/scan?limit=invalid", headers=_hdr())
+    assert response.status_code == 400
+    assert response.headers.get("X-RateLimit-Remaining") == "17"
+
+
+def test_primitive_return_filters_use_completed_evidence(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    rows = [{**_opp(symbol="NEGATIVE"), "avg_profit_pct": 20, "win_rate": None},
+            {**_opp(symbol="POSITIVE"), "avg_profit_pct": -20, "win_rate": None}]
+    _patch_appsrv(monkeypatch, opportunities=lambda *a, **k: copy.deepcopy(rows))
+    def enrich(obj):
+        obj["avg_profit_pct"] = -3 if obj["symbol"] == "NEGATIVE" else 3
+        return .5
+    monkeypatch.setattr(ac, "_win_rate_for_opp", enrich)
+    response = client.get("/v1/opportunities?market=2&min_avg_return=0", headers=_hdr())
+    assert response.status_code == 200
+    assert [row["symbol"] for row in response.json["opportunities"]] == ["POSITIVE"]
+
+
+def test_primitive_capped_rows_do_not_publish_unverified_detector_statistics(client, monkeypatch):
+    from apiserver import appserver_client as ac
+    rows = [_opp(symbol="FIRST"), _opp(symbol="CAPPED")]
+    _patch_appsrv(monkeypatch, opportunities=lambda *a, **k: copy.deepcopy(rows))
+    monkeypatch.setattr(ac, "MAX_WIN_RATE_ENRICH", 1)
+    monkeypatch.setattr(ac, "_win_rate_for_opp", lambda obj: .5)
+    response = client.get("/v1/opportunities?market=2&limit=2", headers=_hdr())
+    assert response.json["enrichment_capped"] is True
+    tail = response.json["opportunities"][1]
+    assert tail["symbol"] == "CAPPED" and tail["evidence_status"] == "not_evaluated"
+    assert all(tail[field] is None for field in (
+        "win_rate", "sharpe_ratio", "avg_profit_pct", "median_profit_pct", "years_tested"))
+
+
 @pytest.mark.parametrize("field,value", [
     ("symbol", ["AAPL"]), ("symbol", "AAPL/other"), ("symbol", 12),
     ("date", "2026-02-30"), ("date", "2026-9-1"), ("date", {"day": 1}),

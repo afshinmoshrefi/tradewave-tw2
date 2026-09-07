@@ -390,16 +390,14 @@ def list_symbols(market):
 # cheap, but a cold large list could fan out a lot of work; cap how many rows we enrich.
 MAX_WIN_RATE_ENRICH = 50
 
-# Gateway-side cache of the per-symbol historical win rate (ChartData4 'Percent
-# Profitable'). A warm /opportunities request reads win_rate from here instead of
-# re-fanning-out ChartData4 calls. The stat only moves on the daily data refresh, so a
-# few-hour TTL is safe. Redis db4 (settings.REDIS_DB) - the gateway's own db, never the
-# appserver's db0/2/3.
+# Gateway-side cache of completed opportunity evidence, including return/Sharpe
+# fields and history count. The key includes market day, direction and PE lookback;
+# a warm request restores the entire cohort, not a win rate beside detector stats.
+# Redis db4 is the gateway's own database, never the appserver's db0/2/3.
 import redis as _redis_mod  # noqa: E402
 
 _win_rate_cache = create_client()
 _WIN_RATE_TTL = 6 * 3600
-_WIN_RATE_NONE = "null"  # sentinel: computed, but no win rate available
 
 # Gateway-side curve cache. The appserver already caches the computation, but without
 # this layer every API response still spends an HTTP round trip and an appserver thread
@@ -408,30 +406,55 @@ _curve_cache = create_client()
 _CURVE_TTL = 6 * 3600
 
 
-def _win_rate_for_opp(obj):
-    """Source one opportunity's REAL historical win rate (0..1) from ChartData4's
-    'Percent Profitable'. Returns None when the entry date / days_out is missing or
-    the appserver has no stats for it. Relies on the appserver's ChartData4 cache.
+def _clear_opportunity_evidence(obj, status="not_evaluated"):
+    obj.update({name: None for name in (
+        "win_rate", "sharpe_ratio", "avg_profit_pct", "median_profit_pct", "years_tested")})
+    obj["evidence_status"] = status
 
-    A per-row ChartData4 call can fail (a single symbol's data gap, or a transient
-    appserver error under a cold-cache burst). Because this enriches a whole LIST, one
-    such failure must not abort the list: we degrade that single row to win_rate=None
-    (which min_win_rate then correctly excludes) and log it. This is a narrow,
-    per-symbol soft-fail on the downstream fetch only - not a blanket swallow of gateway
-    logic errors."""
+
+def _valid_cached_evidence(evidence):
+    numeric = {"win_rate", "sharpe_ratio", "avg_profit_pct", "median_profit_pct"}
+    return (isinstance(evidence, dict)
+            and set(evidence) == numeric | {"years_tested", "evidence_status"}
+            and evidence["evidence_status"] in ("verified", "no_data")
+            and type(evidence["years_tested"]) is int and evidence["years_tested"] >= 0
+            and all(evidence[key] is None or (type(evidence[key]) in (int, float)
+                    and _num(evidence[key]) is not None) for key in numeric)
+            and (evidence["win_rate"] is None or 0 <= evidence["win_rate"] <= 1))
+
+
+def _opportunity_years(years, mode):
+    from .seasonal_evidence import market_today
+    return f"pe{market_today().year % 4}-{years}" if mode == "pe" else str(years)
+
+
+def _win_rate_for_opp(obj):
+    """Refresh ALL historical fields from one completed, direction-aware cohort.
+
+    Retains the win-rate return value for callers, but also replaces the detector's
+    return/Sharpe fields. A warm cache must restore the same complete evidence set.
+    An outage clears unverifiable numbers and is never cached as an empty record.
+    """
+    from .seasonal_evidence import market_today
     entry_date = obj.get("entry_date")
     days_out = obj.get("days_out")
+    _clear_opportunity_evidence(obj, "unavailable")
     if not entry_date or days_out is None:
         return None
-    cache_key = (f"gw:winrate:v2:{obj.get('market')}:{obj.get('symbol')}:"
+    cache_key = (f"gw:opp-evidence:v3:{market_today()}:{obj.get('market')}:{obj.get('symbol')}:"
                  f"{entry_date}:{days_out}:{obj.get('years')}:{obj.get('direction') or 'long'}")
     try:
         cached = _win_rate_cache.get(cache_key)
     except _redis_mod.RedisError:
         cached = None  # redis down -> fall through to ChartData4 (pre-cache behavior)
     if cached is not None:
-        val = cached.decode() if isinstance(cached, (bytes, bytearray)) else cached
-        return None if val == _WIN_RATE_NONE else float(val)
+        try:
+            evidence = json.loads(cached)
+            if _valid_cached_evidence(evidence):
+                obj.update(evidence)
+                return obj["win_rate"]
+        except (TypeError, ValueError, KeyError):
+            pass  # corrupt cache entries are refetched, never treated as market data
     try:
         _chart, stats = _chart_data(obj["market"], obj["symbol"], entry_date, days_out,
                                    obj["years"], direction=obj.get("direction") or "long")
@@ -440,9 +463,17 @@ def _win_rate_for_opp(obj):
                     obj.get("market"), obj.get("symbol"), days_out, e)
         return None  # transient downstream failure - do not cache
     wr = _win_rate_from_stats(stats)
+    evidence = {
+        "win_rate": wr,
+        "sharpe_ratio": _num(stats.get("Sharpe Ratio")),
+        "avg_profit_pct": _num(stats.get("Avg Profit - All")),
+        "median_profit_pct": _num(stats.get("Median Profit")),
+        "years_tested": len(_chart),
+        "evidence_status": "verified" if _chart else "no_data",
+    }
+    obj.update(evidence)
     try:
-        _win_rate_cache.setex(cache_key, _WIN_RATE_TTL,
-                              _WIN_RATE_NONE if wr is None else str(wr))
+        _win_rate_cache.setex(cache_key, _WIN_RATE_TTL, json.dumps(evidence, allow_nan=False))
     except _redis_mod.RedisError:
         pass  # cache write best-effort; the computed result is already correct
     return wr
@@ -458,10 +489,10 @@ def opportunities(market, entry_date, year1="10", year2="9", day_range="-",
     'years' string). The 'prices', 'ml_enabled', 'OppActiveList', 'AvailableFilters'
     keys from OppList4 are intentionally not surfaced.
 
-    enrich_win_rate caps how many of the (post-direction-filter) rows get their REAL
-    historical win_rate sourced per symbol from ChartData4 ('Percent Profitable'); 0
-    means no enrichment. Rows past the cap keep win_rate=None. The OppList4 feed carries
-    no win rate of its own, so this is the only honest source for min_win_rate filtering.
+    enrich_win_rate caps how many post-direction-filter rows get their completed
+    historical statistics refreshed together from ChartData4; 0 returns detector
+    rows for the scanner's own evidence pass. The public route clears unverified
+    headline fields past its cap and applies statistical filters after enrichment.
     """
     dt = datetime.datetime.strptime(entry_date, "%Y-%m-%d")
     month_name = dt.strftime("%B")
@@ -483,7 +514,7 @@ def opportunities(market, entry_date, year1="10", year2="9", day_range="-",
     for row in rows:
         if not isinstance(row, list) or len(row) < len(_OPP_COLS):
             continue
-        obj = _opp_row_to_obj(row, market, year1)
+        obj = _opp_row_to_obj(row, market, _opportunity_years(year1, mode))
         if want_dir and obj["direction"] != want_dir:
             continue
         out.append(obj)
@@ -497,8 +528,9 @@ def opportunities_by_symbol(market, symbol, year1="10", year2="9", day_range="-"
                             top_pct=10, enrich_win_rate=True, mode="consecutive"):
     """Seasonal opportunities for one symbol, via OppBySymbol - the symbol's seasonal
     patterns across the year, sorted by Sharpe (the wave-viewer pattern dropdown data).
-    Same row shape as OppList4. By default every row's REAL historical win_rate is sourced
-    from ChartData4 ('Percent Profitable'). mode='pe' uses the presidential-cycle dataset."""
+    Same row shape as OppList4. By default every row's historical statistics are
+    refreshed from completed ChartData4 evidence and reranked. mode='pe' preserves
+    the presidential-cycle lookback for both detection and evidence."""
     path = (f"/OppBySymbol/{_seg(market)}/{_seg(symbol)}/{_seg(year1)}/{_seg(year2)}"
             f"/{_seg(day_range)}/{int(top_pct)}")
     params = {"mode": mode} if mode and mode != "consecutive" else None
@@ -510,10 +542,12 @@ def opportunities_by_symbol(market, symbol, year1="10", year2="9", day_range="-"
     for row in rows:
         if not isinstance(row, list) or len(row) < len(_OPP_COLS):
             continue
-        out.append(_opp_row_to_obj(row, market, year1))
+        out.append(_opp_row_to_obj(row, market, _opportunity_years(year1, mode)))
     if enrich_win_rate:
         for obj in out:
             obj["win_rate"] = _win_rate_for_opp(obj)
+        out.sort(key=lambda obj: obj["sharpe_ratio"] if obj.get("sharpe_ratio") is not None
+                 else float("-inf"), reverse=True)
     return out
 
 
@@ -567,8 +601,8 @@ def _chart_data(market, symbol, entry_date, days_out, years, direction=None):
     if direction:
         params["comparison_direction"] = _dir_to_public(direction)
     data = get(path, params=params)
-    if not isinstance(data, dict):
-        return [], {}
+    if not isinstance(data, dict) or "ChartData4" not in data or not isinstance(data.get("stats"), dict):
+        raise requests.RequestException("chart engine returned an invalid response")
     effective = data.get("request")
     if isinstance(effective, dict):
         expected_pe, _, expected_years = str(years).partition("-")
@@ -580,13 +614,20 @@ def _chart_data(market, symbol, entry_date, days_out, years, direction=None):
             raise requests.RequestException("chart engine did not honor the requested window or lookback")
         if direction and effective.get("comparison_direction") != _dir_to_public(direction):
             raise requests.RequestException("chart engine did not honor the requested direction")
-    chart = data.get("ChartData4", [])
-    stats = data.get("stats", {})
-    # ChartData4 can return a status string ('Not Enough Data') instead of a list.
-    if not isinstance(chart, list):
+    chart = data["ChartData4"]
+    stats = data["stats"]
+    # Only the documented gap sentinel is absence. An unexpected status or damaged
+    # row is an upstream failure, not evidence of a zero-year or partial record.
+    if chart == "Not Enough Data":
         chart = []
-    if not isinstance(stats, dict):
-        stats = {}
+    if not isinstance(chart, list):
+        raise requests.RequestException("chart engine returned invalid evidence")
+    for row in chart:
+        if (not isinstance(row, dict) or not str(row.get("year", "")).isdigit()
+                or not 1 <= int(row["year"]) <= 9999
+                or _num(str(row.get("pct", "")).split(",")[0]) is None
+                or ("completed" in row and not isinstance(row["completed"], bool))):
+            raise requests.RequestException("chart engine returned invalid evidence")
     from .seasonal_evidence import completed_entries, coherent_stats
     chart = completed_entries(chart, entry_date=entry_date, days_out=days_out,
                               as_of=stats.get("last_trade_date"), lookback=years)
@@ -796,17 +837,18 @@ def ml_scores(market, items):
         s = scores.get(qualified_key)
         if s is None and len(alias_dates[(it["symbol"], it["daysOut"], it["direction"])]) == 1:
             s = scores.get(legacy_key)
-        if not s:
+        if not isinstance(s, dict):
             continue
         mapped = {
-            "ml_score": s.get("ml_score"),
-            "win_prob": s.get("win_prob"),
-            "pred_return": s.get("pred_return"),
-            "pred_mfe": s.get("pred_mfe"),
+            "ml_score": _num(s.get("ml_score")),
+            "win_prob": _num(s.get("win_prob")),
+            "pred_return": _num(s.get("pred_return")),
+            "pred_mfe": _num(s.get("pred_mfe")),
         }
         # Structured unavailable/VIX states are useful to the TradeWave UI but
         # do not count as a delivered public API score or consume quota.
-        if any(_num(value) is None for value in mapped.values()):
+        if (any(value is None for value in mapped.values())
+                or not 0 <= mapped["ml_score"] <= 100 or not 0 <= mapped["win_prob"] <= 1):
             continue
         out[output_index] = mapped
     return out

@@ -1119,7 +1119,7 @@ years plus a completed current year; PE-N selects N completed matching occurrenc
 actual `years_tested` survives every card projection and is what MCP text reports. Lookbacks
 before listing cannot snap to the first quote and fabricate history. Engine excursions
 include entry zero, including one-interval holds; averages and compounded returns retain
-fractional percentage points. Cache versions are `chartdata_v2`, `gw:winrate:v2`, and
+fractional percentage points. Cache versions are `chartdata_v2`, `gw:opp-evidence:v3`, and
 `tw:api:scan-core:v4` so older semantics cannot return after deployment.
 
 **Expanded MCP/API audit (2026-09-07):** daily-pick track records now consume the
@@ -1139,6 +1139,26 @@ filters reject malformed, non-finite or out-of-range input instead of silently d
 Scan windows, period presets, current PE position and staleness checks all use the US
 market date. February includes leap day; reverse March avoids invalid February 29
 anniversary arithmetic. A one-day hold cannot receive a full-year trend summary.
+
+**General MCP/API audit (2026-09-07):** primitive discovery now refreshes win rate,
+average/median return, Sharpe and actual history count together before statistical
+filters and ranking. Election-cycle rows carry `pe{phase}-N` through evidence fetches;
+the former path selected PE patterns but enriched them with consecutive years.
+The bulk endpoint still caps evidence work at 50 duration-matching candidates. Rows
+past that cap have null historical fields and `evidence_status=not_evaluated`; failed
+fetches are `unavailable`, and a valid empty cohort is `no_data`. The full evidence
+cache uses `gw:opp-evidence:v3` with a US market-day key. Unpinned analysis ranks with
+completed history count; its fallback enriches the requested symbol after filtering.
+
+Malformed ChartData4 payloads/rows and malformed MCP gateway JSON are failures, never
+successful zero-year research. The documented `Not Enough Data` response remains a
+valid gap. ML values are normalized to finite numbers, with score 0-100 and probability
+0-1; invalid/unavailable scores remain refundable. Gateway ML refunds are limited to
+that request's successful reservations and original date bucket, preventing midnight
+and counter-outage recovery from decrementing other requests' usage. Browser preflight
+supports `X-API-Key`; rate headers are exposed and retained on authenticated error
+responses. Every CORS variant varies by Origin. MCP daily-limit errors name the daily
+reset rather than encouraging retries seconds later.
 
 Pinned `analyze_symbol` calls (entry date or period/reverse) bypass detection and accept
 analysis lookbacks 1-99; they never substitute a detected hold with the same entry date.

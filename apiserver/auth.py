@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from functools import wraps
 
 import redis
-from flask import g, jsonify, request
+from flask import g, jsonify, make_response, request
 
 from . import db, settings, tiers
 from .gateway_redis import create_client
@@ -183,12 +183,10 @@ def require_api_key(fn):
             return resp, 429
         g.customer = cust
         record_usage(cust, request.path)
-        resp = fn(*args, **kwargs)
-        # attach rate headers to successful responses too
-        try:
-            resp.headers.update(headers)
-        except AttributeError:
-            pass  # non-Response return (e.g. (dict, status)); blueprint normalizes it
+        resp = make_response(fn(*args, **kwargs))
+        # Normalize tuple/dict returns too, so authenticated errors and quota stubs
+        # carry the same rate metadata as successful responses.
+        resp.headers.update(headers)
         return resp
     return wrapper
 

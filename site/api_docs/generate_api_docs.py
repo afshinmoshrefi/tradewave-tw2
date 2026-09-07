@@ -1387,7 +1387,7 @@ def build_api_reference() -> str:
 
     body = f"""
 <h1>API Reference</h1>
-<p>All endpoints are under <code class="inline-code">{API_BASE}</code>. Every request requires <code class="inline-code">Authorization: Bearer &lt;key&gt;</code>.</p>
+<p>All endpoints are under <code class="inline-code">{API_BASE}</code>. Authenticate with <code class="inline-code">Authorization: Bearer &lt;key&gt;</code> or <code class="inline-code">X-API-Key: &lt;key&gt;</code>. Allowed browser origins can read the rate-limit and Retry-After headers.</p>
 
 <div class="callout">
   <p><strong>Seasonal patterns only.</strong> All returns are expressed as percentages. Raw OHLCV data and price levels are never returned. ML is available on every tier, metered per day (free 5/day, unlimited on Pro/Business).</p>

@@ -4,6 +4,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import redis
+from flask import Flask
 
 from apiserver import ml_quota
 
@@ -75,3 +76,48 @@ def test_unlimited_tier_never_touches_redis(monkeypatch):
     monkeypatch.setattr(ml_quota, "_redis", _UnavailableRedis())
     assert ml_quota.consume(_customer(None), 7) == 7
     ml_quota.refund(_customer(None), 7)
+
+
+def test_midnight_refund_uses_the_reservation_day(monkeypatch):
+    keys = []
+    day = ["2026-09-07"]
+    ledger = _AtomicRedis()
+    original_eval = ledger.eval
+    def evaluate(script, count, key, *args):
+        keys.append(key)
+        return original_eval(script, count, key, *args)
+    monkeypatch.setattr(ledger, "eval", evaluate)
+    monkeypatch.setattr(ml_quota, "_redis", ledger)
+    monkeypatch.setattr(ml_quota, "_key", lambda user: f"mlq:{user}:{day[0]}")
+    app = Flask(__name__)
+    with app.test_request_context():
+        cust = _customer()
+        assert ml_quota.consume(cust, 2) == 2
+        day[0] = "2026-09-08"
+        ml_quota.refund(cust, 1)
+    with app.test_request_context():
+        ml_quota.consume(_customer(), 1)
+    assert keys[0] == keys[1] and keys[0] != keys[2]
+
+
+def test_fail_open_refund_cannot_erase_other_requests_usage(monkeypatch):
+    app = Flask(__name__)
+    with app.test_request_context():
+        cust = _customer()
+        monkeypatch.setattr(ml_quota, "_redis", _UnavailableRedis())
+        assert ml_quota.consume(cust, 2) == 2
+        recovered = _AtomicRedis(initial=4)
+        monkeypatch.setattr(ml_quota, "_redis", recovered)
+        ml_quota.refund(cust, 2)
+        assert recovered.value == 4
+
+
+def test_refunds_cannot_exceed_the_requests_actual_reservation(monkeypatch):
+    ledger = _AtomicRedis(initial=3)
+    monkeypatch.setattr(ml_quota, "_redis", ledger)
+    with Flask(__name__).test_request_context():
+        cust = _customer()
+        assert ml_quota.consume(cust, 5) == 2
+        ml_quota.refund(cust, 99)
+        ml_quota.refund(cust, 99)
+        assert ledger.value == 3

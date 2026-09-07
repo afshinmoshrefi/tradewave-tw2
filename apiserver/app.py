@@ -42,10 +42,14 @@ def create_app():
         if allow:
             resp.headers["Access-Control-Allow-Origin"] = allow
             resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-            resp.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+            resp.headers["Access-Control-Allow-Headers"] = "Authorization, X-API-Key, Content-Type"
+            resp.headers["Access-Control-Expose-Headers"] = (
+                "Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining, "
+                "X-RateLimit-Reset, X-RateLimit-Scope"
+            )
             resp.headers["Access-Control-Max-Age"] = "600"
-            existing_vary = resp.headers.get("Vary")
-            resp.headers["Vary"] = f"{existing_vary}, Origin" if existing_vary else "Origin"
+        # Allowed, denied and same-origin responses are distinct cache variants.
+        resp.vary.add("Origin")
         started = getattr(g, "request_started_at", None)
         if started is not None:
             app_timing = f"app;dur={(time.perf_counter() - started) * 1000:.1f}"

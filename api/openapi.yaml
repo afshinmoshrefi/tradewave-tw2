@@ -191,6 +191,11 @@ paths:
         caller's daily ML allowance on ML-eligible markets (ids 0-4, 11); the ml block
         here keeps the legacy names {ml_score, win_prob, pred_return, pred_mfe}.
         ml_remaining_today reflects how many ML calls remain today (null = unlimited).
+        The first 50 duration-matching candidates receive completed historical evidence.
+        Win rate, average, median and Sharpe use that same direction and lookback;
+        statistical filters and final Sharpe ordering run after this refresh. Rows past
+        the cap have null historical fields and evidence_status=not_evaluated. Outages
+        use evidence_status=unavailable; a valid empty cohort uses no_data.
       parameters:
         - { name: market, in: query, required: true, schema: { type: string }, description: "market id '0'..'16'" }
         - { name: from, in: query, schema: { type: string, format: date }, description: "entry_date to evaluate; defaults to today" }
@@ -474,24 +479,26 @@ components:
         direction: { type: string, enum: [long, short], description: "long or short - which side of the seasonal pattern the stats assume" }
         entry_date: { type: string, format: date }
         days_out: { type: integer, description: "inclusive holding period in calendar days; entry day is day 1 and end = entry_date + (days_out - 1)" }
-        sharpe_ratio: { type: number }
-        avg_profit_pct: { type: number }
-        median_profit_pct: { type: number }
+        sharpe_ratio: { type: number, nullable: true }
+        avg_profit_pct: { type: number, nullable: true }
+        median_profit_pct: { type: number, nullable: true }
         win_rate: { type: number, nullable: true, description: "REAL historical win rate, 0..1: share of years the seasonal window finished profitable (any positive year; no threshold), from ChartData4 'Percent Profitable'. Distinct from ml.win_prob. May be null on the bulk list past the per-row enrichment cap." }
         years: { type: string, description: "lookback window label, stays a string" }
+        years_tested: { type: integer, nullable: true, description: "completed observations in this exact historical cohort; null when not verified" }
+        evidence_status: { type: string, enum: [verified, no_data, unavailable, not_evaluated], description: "historical evidence state; unverified rows have null historical statistics" }
         ml: { $ref: "#/components/schemas/MLScore", description: "ML block. Available on every tier, metered per day (free 5/day, Dev 100/day, Pro/Business unlimited); null only when the daily ML allowance is spent or the market is not ML-eligible (ids 0-4, 11). Legacy names (win_prob, pred_return, pred_mfe)." }
     OpportunityList:
       type: object
       description: >
         Single-entry-date ranked list. window_supported is false - this primitive does
         not widen across a date window (use /scan). evaluated_count + enrichment_capped
-        report the per-row win_rate enrichment cap so the min_win_rate filter is never
+        report the completed-evidence enrichment cap so statistical filters are never
         silently misleading.
       properties:
         entry_date: { type: string, format: date, description: "the single entry_date evaluated (echoes 'from', defaults to today)" }
         window_supported: { type: boolean, description: "always false here - 'to' does not widen the window; /scan owns windows" }
-        evaluated_count: { type: integer, description: "how many candidate rows were enriched with win_rate (the enrichment cap, e.g. 50)" }
-        enrichment_capped: { type: boolean, description: "true when more rows existed than were win_rate-enriched (rows past the cap have unknown win_rate)" }
+        evaluated_count: { type: integer, description: "how many candidate rows were attempted for completed historical evidence (maximum 50)" }
+        enrichment_capped: { type: boolean, description: "true when rows beyond the evidence cap have null historical statistics" }
         ml_remaining_today: { type: integer, nullable: true, description: "ML calls remaining today for this key (null = unlimited; 0 = daily limit reached). Free 5/day, Dev 100/day, Pro/Business unlimited." }
         opportunities:
           type: array

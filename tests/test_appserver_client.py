@@ -12,6 +12,97 @@ from apiserver import appserver_client as ac
 pytestmark = pytest.mark.unit
 
 
+@pytest.mark.parametrize("payload", [None, [], {}, {"ChartData4": "broken", "stats": {}},
+    {"ChartData4": [], "stats": []}, {"ChartData4": [None], "stats": {}},
+    {"ChartData4": [{"year": 2025, "pct": "NaN"}], "stats": {}}])
+def test_malformed_chart_is_an_outage_not_a_zero_year_record(monkeypatch, payload):
+    monkeypatch.setattr(ac, "get", lambda *a, **k: payload)
+    assert ac.chart_stats_and_years("2", "AAPL", "2026-09-01", 30, "10") == (None, None)
+
+
+def test_explicit_chart_data_gap_remains_a_valid_empty_record(monkeypatch):
+    monkeypatch.setattr(ac, "get", lambda *a, **k: {"ChartData4": "Not Enough Data", "stats": {}})
+    stats, entries = ac.chart_stats_and_years("2", "AAPL", "2026-09-01", 30, "10")
+    assert stats is not None and entries == []
+
+
+@pytest.mark.parametrize("score", [
+    {"ml_score": 101, "win_prob": .7, "pred_return": 2, "pred_mfe": 4},
+    {"ml_score": 70, "win_prob": 70, "pred_return": 2, "pred_mfe": 4},
+    {"ml_score": -1, "win_prob": .7, "pred_return": 2, "pred_mfe": 4},
+    "unavailable",
+])
+def test_invalid_ml_scores_are_undelivered_and_refundable(monkeypatch, score):
+    monkeypatch.setattr(ac, "post", lambda *a, **k: {"scores": {"AAPL|29|l": score}})
+    assert ac.ml_scores("2", [{"symbol": "AAPL", "date": "2026-09-01",
+                              "days_out": 30, "direction": "long"}]) == [None]
+
+
+def test_numeric_ml_strings_are_returned_as_contract_numbers(monkeypatch):
+    score = {"ml_score": "70", "win_prob": "0.7", "pred_return": "2", "pred_mfe": "4"}
+    monkeypatch.setattr(ac, "post", lambda *a, **k: {"scores": {"AAPL|29|l": score}})
+    result = ac.ml_scores("2", [{"symbol": "AAPL", "date": "2026-09-01",
+                                "days_out": 30, "direction": "long"}])[0]
+    assert result == {"ml_score": 70, "win_prob": .7, "pred_return": 2, "pred_mfe": 4}
+
+
+def test_primitive_evidence_refreshes_every_stat_and_preserves_cycle(monkeypatch):
+    import datetime
+    from apiserver import seasonal_evidence
+    monkeypatch.setattr(seasonal_evidence, "market_today", lambda: datetime.date(2026, 9, 7))
+    row = ["2026-09-01", "AAPL", 29, "Long", 9, 99, 88, None, None]
+    calls = []
+    def fake_get(path, params=None):
+        if path.startswith("/OppBySymbol"):
+            return {"OppBySymbol": [row]}
+        calls.append(path)
+        return {"ChartData4": [{"year": 2022, "pct": "-2", "completed": True},
+                               {"year": 2018, "pct": "4", "completed": True}],
+                "stats": {"Trade Dir": "long", "Risk Free Rate": 0}}
+    cache = {}
+    monkeypatch.setattr(ac, "get", fake_get)
+    monkeypatch.setattr(ac._win_rate_cache, "get", lambda key: cache.get(key))
+    monkeypatch.setattr(ac._win_rate_cache, "setex", lambda key, ttl, value: cache.update({key: value}))
+    for _ in range(2):  # a warm cache must restore all fields, too
+        obj = ac.opportunities_by_symbol("2", "AAPL", year1="10", mode="pe")[0]
+        assert obj["years"] == "pe2-10"
+        assert obj["avg_profit_pct"] == 1
+        assert obj["median_profit_pct"] == 1
+        assert obj["sharpe_ratio"] == .24
+        assert obj["win_rate"] == .5
+        assert obj["years_tested"] == 2
+    assert len(calls) == 1 and calls[0].endswith("/pe2-10")
+
+
+def test_primitive_outage_clears_detector_values_and_does_not_cache(monkeypatch):
+    from types import SimpleNamespace
+    writes = []
+    monkeypatch.setattr(ac, "_win_rate_cache", SimpleNamespace(
+        get=lambda key: None, setex=lambda *args: writes.append(args)))
+    monkeypatch.setattr(ac, "get", lambda *a, **k: {"ChartData4": "temporary failure"})
+    obj = ac._opp_row_to_obj(["2026-09-01", "AAPL", 29, "Long", 9, 99, 88, None, None], "2", "10")
+    assert ac._win_rate_for_opp(obj) is None
+    assert obj["evidence_status"] == "unavailable"
+    assert obj["avg_profit_pct"] is None and obj["sharpe_ratio"] is None
+    assert not writes
+
+
+@pytest.mark.parametrize("cached", ['{"evidence_status":"verified"}',
+    '{"evidence_status":"verified","win_rate":NaN}', 'broken'])
+def test_damaged_evidence_cache_is_refetched(monkeypatch, cached):
+    from types import SimpleNamespace
+    calls = []
+    monkeypatch.setattr(ac, "_win_rate_cache", SimpleNamespace(
+        get=lambda key: cached, setex=lambda *args: None))
+    def chart(*args, **kwargs):
+        calls.append(True)
+        return [{"year": 2025, "pct": "2"}], {"Percent Profitable": 100, "Avg Profit - All": 2}
+    monkeypatch.setattr(ac, "_chart_data", chart)
+    obj = {"market": "2", "symbol": "AAPL", "entry_date": "2026-09-01", "days_out": 30, "years": "10"}
+    assert ac._win_rate_for_opp(obj) == 1
+    assert obj["avg_profit_pct"] == 2 and calls == [True]
+
+
 def test_ml_legacy_alias_cannot_fill_a_different_dates_missing_score(monkeypatch):
     score = {"ml_score": 70, "win_prob": 0.7, "pred_return": 2, "pred_mfe": 4}
     monkeypatch.setattr(ac, "post", lambda *a, **k: {"scores": {

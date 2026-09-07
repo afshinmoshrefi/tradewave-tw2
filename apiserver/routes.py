@@ -488,8 +488,8 @@ def symbols(market_id):
 
 def _column_filters_from_args(*, evidence=True):
     """Parse the numeric column filters shared by discovery and the verified scanner.
-    evidence=False applies only duration; /scan applies return/Sharpe thresholds after
-    loading completed evidence. Primitive discovery lists filter their detection columns.
+    evidence=False applies only duration; return/Sharpe thresholds are applied after
+    loading completed evidence, including on primitive discovery lists.
     Returns a predicate keep(opp) -> bool. Units: returns are PERCENT (e.g. min_avg_return=5 means
     >= 5%), matching the percent-valued fields; win-rate stays a 0..1 fraction (min_win_rate)."""
     min_days = _numeric_arg("min_days", integer=True, minimum=1, maximum=367)
@@ -723,6 +723,7 @@ def opportunities():
     try:
         direction = _direction_arg(request.args.get("direction"))  # long|short, optional
         keep = _column_filters_from_args()
+        keep_window = _column_filters_from_args(evidence=False)
         req_limit = _numeric_arg("limit", integer=True, default=25, minimum=0)
         entry_date, _, _ = _clean_chart_args(entry_date, "1", "1")
         min_win_rate, mwr_note = _min_win_rate_arg()
@@ -732,9 +733,8 @@ def opportunities():
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
 
-    # Fetch RAW (no enrichment), apply the numeric column filters (pattern length, avg/median
-    # profit %, Sharpe) on the raw rows FIRST, then enrich win_rate only on the survivors, so a
-    # ChartData4 call is never spent on a row a column filter would have dropped.
+    # Duration can be filtered before evidence; return/Sharpe thresholds must use
+    # the same completed cohort as the published historical win rate.
     opps = appserver_client.opportunities(
         market, entry_date, year1=year1, year2=year2, direction=direction,
         enrich_win_rate=0, mode=_opp_mode(pe_cycle))
@@ -742,7 +742,7 @@ def opportunities():
     # single-market enumeration route (same bulk-exposure shape as /v1/scan), previously
     # unguarded (subscriber-UX audit 2026-07-10 sweep finding). No-op for a normal key.
     opps = _demo_scope_rows(opps)
-    opps = [o for o in opps if keep(o)]
+    opps = [o for o in opps if keep_window(o)]
 
     # P0: surface how many rows were actually win-rate-evaluated and whether the
     # enrichment cap was hit, so a min_win_rate filter is never silently misleading
@@ -751,8 +751,12 @@ def opportunities():
     evaluated_count = min(total_rows, enrich_n)
     enrichment_capped = total_rows > enrich_n
     for o in opps[:enrich_n]:
-        if o.get("win_rate") is None:
-            o["win_rate"] = appserver_client._win_rate_for_opp(o)
+        o["win_rate"] = appserver_client._win_rate_for_opp(o)
+    for o in opps[enrich_n:]:
+        appserver_client._clear_opportunity_evidence(o)
+    opps = [o for o in opps if keep(o)]
+    opps.sort(key=lambda o: o["sharpe_ratio"] if o.get("sharpe_ratio") is not None
+              else float("-inf"), reverse=True)
 
     if min_win_rate is not None:
         opps = [o for o in opps if o.get("win_rate") is not None and o["win_rate"] >= min_win_rate]
@@ -1508,18 +1512,19 @@ def analyze_symbol(symbol):
             # scan kept to this symbol, so 'find a trade -> tell me more about #1' stays coherent.
             scan_rows = appserver_client.opportunities(
                 market, _today(), year1=year1, year2=year2, direction=direction or None,
-                enrich_win_rate=5, mode=_opp_mode(pe_cycle))
+                enrich_win_rate=0, mode=_opp_mode(pe_cycle))
             opps = [o for o in scan_rows if o.get("symbol") == symbol]
             if not opps:
                 return _err("not_found",
                             "no seasonal setups for '%s' in market '%s'%s"
                             % (symbol, market, (" (%s)" % direction) if direction else ""), 404)
-        # pick the best setup by preliminary edge_score (win_rate already enriched by
-        # opportunities_by_symbol), build the rich card with receipts + seasonal curve.
+            for o in opps:
+                o["win_rate"] = appserver_client._win_rate_for_opp(o)
+        # Rank using the completed cohort, including its actual history count.
         for o in opps:
             prelim, _ = cards.compute_edge_score(
                 o.get("win_rate"), o.get("sharpe_ratio"),
-                int(o.get("years")) if str(o.get("years") or "").isdigit() else 0)
+                o.get("years_tested") if o.get("years_tested") is not None else 0)
             o["_edge"] = prelim
         opps.sort(key=lambda o: o["_edge"], reverse=True)
         best = opps[0]
