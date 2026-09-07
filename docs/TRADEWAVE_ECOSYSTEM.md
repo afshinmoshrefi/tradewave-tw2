@@ -387,7 +387,8 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   sales benchmark and holiday-drag detail missing from the cheaper draft.
   Primary editing still finds the expensive draft's opening smoother and the
   cycle paragraph dense; this is not proof of universal quality parity. The
-  inherited hero's unwanted wordmark remains a separate asset item. Fixes
+  initial hero's unwanted wordmark was a separate asset item, resolved in the
+  private editorial follow-up below. Fixes
   learned: keep angle IDs fixed, show reviewers the actual rendered stats
   table, and describe the exact annual-study link destination accurately.
   No reader prose was manually rewritten. Evidence and private article:
@@ -407,6 +408,40 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `/docs/auth`, and `/docs/auth/ci-cd-auth` on the same host. API auth is the
   general CI/CD recommendation; trusted private account-auth automation is
   documented for workflows specifically requiring the Codex account.
+
+  **Subscription editorial corrections completed privately, September 7.**
+  The owner authorized fixing the comparison's weaknesses. Pushed SMN source
+  `672eeb0e9f94a121203b299c3f59e766db948666` on
+  `codex/smn-subscription-editorial-20260907` continues private base `8eeaccd`.
+  Shared seasonal writer/reviewer rules now require a natural investor-question
+  opening, with the concrete same-period benchmark explained later. Secondary
+  cycle prose stays concise; exact observed years, counts, flat outcomes and
+  overlap notes remain in a source-bound expandable table. Desktop shows the
+  table; mobile stacks groups and all four outcome counts. The renderer rejects
+  inconsistent counts and duplicate/non-integer years, skips missing groups,
+  and preserves native TradeWave charts, statistics and exact study links.
+
+  The corrected COST preview is 424 words and passed all seven independent
+  Astra checks, 26 focused software tests and desktop/mobile inspection.
+  Opening score was 4/5, with a minor crowded-second-paragraph note. Conservative
+  source totals are 185/190 and 159/190 including chart copy. Two writing passes
+  plus final review used Astra Extra High through ChatGPT login: 46,546 input
+  and 21,521 output tokens, including 18,124 reasoning, in 808.031 worker seconds.
+  The initial polish was rejected as too terse; a prepared review for that
+  version was cancelled before execution. A restricted-session auth preflight
+  failure also started no model turn. There was no paid API fallback or new
+  research call. One separate built-in image edit removed unwanted hero
+  lettering. Original comparison artifacts, chart bytes and evidence remain
+  unchanged; no reader prose was manually rewritten after review.
+
+  This is a reviewed revision using existing prose and frozen evidence, not a
+  new blind generation, fresh-discovery cost, dedicated-plan capacity result
+  or deployment. The receiver still creates held drafts; this pilot records
+  article/evidence/review hashes before updating only the private status label.
+  No live queue, scheduler, publisher, model route, login or runtime was changed.
+  Final preview, receipts, findings and exact source revision:
+  `smn-review-20260905/subscription-editorial-20260907/results/COST/article.html`,
+  `findings.md` and `pilot-summary.json` in the same pilot directory.
 
   **Visual financial-news editing completed privately (2026-09-07 UTC).**
   **Owner review: seasonal product continuity rejected.** The JPM-v3 layout
