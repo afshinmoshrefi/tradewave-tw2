@@ -255,6 +255,43 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   Audit and exact CSV/response reconciliation are local at
   `smn-review-20260905/cost-audit-20260907/findings.md`.
 
+  **One fresh cost measurement, September 7 (not an approved-article average).**
+  The owner authorized one new private article with every provider request
+  metered. An unchanged `569c7fc` generator run for COST, with a September 7–
+  December 5 window fixed before calculating returns, consumed ten unique
+  Astra responses: **$4.6957375 at verified standard/low usage rates**.
+  Commission/plan: $0.53081; initial writing/repair: $0.532835; upstream
+  reviews: $1.6527725; final-edition writing/repair: $1.338435; final reviews:
+  $0.640885. Input processing was $3.9764875 (84.7%); there were 318,095 cache
+  writes and zero reads. Four repair/recheck calls contributed $2.1559075.
+  A fresh Tavily advanced search reported two credits ($0.016 at pay-as-you-go),
+  and one successful existing-provider Replicate FLUX 1.1 Pro Ultra hero is
+  $0.06 at its published fixed rate. Combined usage valuation: **$4.7717375**,
+  about 15.9 times the owner's former approximately $0.30/article reference.
+  Two native TradeWave charts plus one sales comparison incurred no model API
+  charge for drawing them; their surrounding writing/review is included above.
+  This was one manually commissioned/verified candidate, not market-wide
+  discovery. Automated research synthesis, fixed subscriptions/hosting and
+  primary-editor/Codex session work were not invoked or costed as article APIs.
+
+  **Do not call the full figure invoice-confirmed:** the 12:32 UTC export
+  increased from $9.8276554 to $11.8069754, matching the four final-edition calls
+  and their $1.97932/134,180 input tokens exactly. The six upstream receipts
+  ($2.7164175) remain unmatched in that export despite distinct September 7
+  timestamps and no duplicate response IDs in earlier artifacts. Billing delay
+  is possible, not established. A full reconciliation would total $14.5233929
+  absent unrelated usage. Preserve this qualification until an export matches.
+  The draft remains **on editorial hold**: final review flagged cumulative
+  source wording over its configured 190-word allowance. No extra paid retry
+  or manual approval was performed. Both browser layouts and actual chart
+  inspection passed; the hero added a readable Costco wordmark despite its
+  no-logo instruction, recorded as a prompt-compliance defect. Therefore this
+  is an actual **attempt cost**, not demonstrated cost per publishable article.
+  All receipts, explicit scope, private draft, screenshots and reconciliation
+  are in `smn-review-20260905/measured-article-20260907/findings.md` and
+  `report.html`. No app change or deployment; live Dev remains `57055c2`, with
+  both article/queue services still active since August 21 12:10:38 UTC.
+
   **Visual financial-news editing completed privately (2026-09-07 UTC).**
   **Owner review: seasonal product continuity rejected.** The JPM-v3 layout
   below passed technical checks but failed the owner's SMN identity requirement.
