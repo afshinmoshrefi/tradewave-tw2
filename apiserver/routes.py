@@ -105,7 +105,7 @@ def _demo_scope_rows(rows):
 
 
 def _today():
-    return datetime.date.today().isoformat()
+    return cards.market_today().isoformat()
 
 
 _VALID_VIEWS = ("full", "evidence", "decision", "table")
@@ -152,7 +152,9 @@ def _clean_chart_args(entry_date, days_out, years, symbol=None):
     instead of forwarding junk. Returns (entry_date, days_out, years) normalized, or raises
     ValueError with a user-facing message."""
     try:
-        datetime.datetime.strptime(entry_date, "%Y-%m-%d")
+        parsed_date = datetime.datetime.strptime(entry_date, "%Y-%m-%d").date()
+        if parsed_date.isoformat() != entry_date:
+            raise ValueError("non-canonical date")
     except (ValueError, TypeError):
         raise ValueError("entry_date must be YYYY-MM-DD")
     try:
@@ -633,23 +635,14 @@ def _chart_window_and_years(symbol, allow_positions=True):
     are validated. Raises ValueError on bad input."""
     pe_cycle = _resolve_pe_cycle(allow_positions=allow_positions)
     period, reverse = _period_args()
+    entry_date, days_out, years = _clean_chart_args(
+        request.args.get("entry_date") or _today(),
+        request.args.get("days_out", default="30"),
+        request.args.get("years", default="10"), symbol=symbol)
     if period or reverse:
-        if not _SYMBOL_RE.match(symbol):
-            raise ValueError("symbol contains invalid characters")
-        years_n = request.args.get("years", default=10, type=int)
-        if years_n is None or not (1 <= years_n <= 99):
-            raise ValueError("years must be an integer between 1 and 99")
         entry_date, days_out = _resolve_period(
-            period, reverse, request.args.get("entry_date") or _today(),
-            request.args.get("days_out", default=30, type=int) or 30)
-        days_out, years = str(days_out), str(years_n)
-    else:
-        entry_date, days_out, years = _clean_chart_args(
-            request.args.get("entry_date") or _today(),
-            request.args.get("days_out", default="30"),
-            request.args.get("years", default="10"),
-            symbol=symbol,
-        )
+            period, reverse, entry_date, int(days_out))
+        days_out = str(days_out)
     return entry_date, days_out, _chart_years(pe_cycle, years)
 
 
@@ -869,6 +862,7 @@ _PREFETCH_NOT_PROVIDED = object()
 _SCAN_SAFE_STATS = {
     "Percent Profitable", "Sharpe Ratio", "Avg Profit - All", "Median Profit",
     "Std Dev", "Annualized Return", "Cumulative Return", "Sharpe Ratio2",
+    "Trade Dir", "Risk Free Rate", "last_trade_date",
 }
 _SCAN_SAFE_OPP_FIELDS = {
     "symbol", "market", "direction", "entry_date", "days_out", "sharpe_ratio",
@@ -889,7 +883,7 @@ def _price_safe_scan_receipts(stats, chart_entries):
             if not isinstance(entry, dict):
                 continue
             safe_entries.append({
-                key: entry.get(key) for key in ("year", "pct") if key in entry
+                key: entry.get(key) for key in ("year", "pct", "completed") if key in entry
             })
     return safe_stats, safe_entries
 
@@ -919,7 +913,7 @@ def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank
             or prefetched_chart_entries is _PREFETCH_NOT_PROVIDED):
         stats, chart_entries = appserver_client.chart_stats_and_years(
             opp["market"], opp["symbol"], opp["entry_date"],
-            opp.get("days_out"), opp.get("years"))
+            opp.get("days_out"), opp.get("years"), direction=opp.get("direction") or "long")
         receipts_unavailable = stats is None and chart_entries is None
     else:
         stats = prefetched_stats
@@ -1095,13 +1089,16 @@ def scan():
         def _fetch_receipts(opp):
             stats, entries = appserver_client.chart_stats_and_years(
                 opp["market"], opp["symbol"], opp["entry_date"],
-                opp.get("days_out"), opp.get("years"))
+                opp.get("days_out"), opp.get("years"), direction=opp.get("direction") or "long")
             unavailable = stats is None and entries is None
             if unavailable:
                 stats, entries = {}, []
             safe_stats, safe_entries = _price_safe_scan_receipts(stats, entries)
-            if not unavailable and opp.get("win_rate") is None:
+            if not unavailable:
                 opp["win_rate"] = appserver_client._win_rate_from_stats(safe_stats)
+                opp["sharpe_ratio"] = cards._num(safe_stats.get("Sharpe Ratio"))
+                opp["avg_profit_pct"] = cards._num(safe_stats.get("Avg Profit - All"))
+                opp["median_profit_pct"] = cards._num(safe_stats.get("Median Profit"))
             return {
                 "opp": opp,
                 "stats": safe_stats,
@@ -1372,6 +1369,9 @@ def _scan_sortkey(card, rank_by):
 def analyze_symbol(symbol):
     """analyze_symbol: fuse OppBySymbol + ChartData4 + seasonal curve (+ Pro ML) into ONE
     rich PatternCard (the best setup) + compact other_setups[]."""
+    symbol = symbol.upper()
+    if not _SYMBOL_RE.fullmatch(symbol):
+        return _err("invalid_request", "symbol contains invalid characters", 400)
     r = _demo_guard_symbol(symbol)
     if r:
         return r
@@ -1423,55 +1423,37 @@ def analyze_symbol(symbol):
     try:
         direction = _direction_arg(request.args.get("direction"))
         pe_cycle = _resolve_pe_cycle(allow_positions=False)        # consecutive | pe (wave-viewer knob)
-        # OppBySymbol is a precomputed detection grid keyed by BOTH lookback and its
-        # market-specific winning-years floor. Never pair a custom lookback with the
-        # client's legacy default year2=9 (for example, 16/9 returns no ITW patterns).
-        year1, year2 = _lookback_args(
-            market=market,
-            path="symbol",
-            pe_mode=_opp_mode(pe_cycle) != "consecutive",
-            name_map=name_map,
-        )
-        years_n = int(year1)
         # PIN a specific window: an explicit entry_date (+days_out), or a period/reverse preset. This is
         # the "click THIS exact opportunity / change the date range" flow - analyze loads THAT window
         # instead of auto-picking the best setup.
         period, reverse = _period_args()
         pin_entry = request.args.get("entry_date")
-        pin_days = request.args.get("days_out", type=int)
-        if pin_entry is not None:
-            try:
-                datetime.datetime.strptime(pin_entry, "%Y-%m-%d")
-            except (ValueError, TypeError):
-                raise ValueError("entry_date must be in YYYY-MM-DD format")
-        if pin_days is not None and not (1 <= pin_days <= 367):
-            raise ValueError("days_out must be an integer between 1 and 367")
-        if period or reverse:
-            pin_entry, pin_days = _resolve_period(period, reverse, pin_entry or _today(), pin_days or 30)
+        if pin_entry is not None or period or reverse:
+            pin_entry, pin_days, yrs = _chart_window_and_years(symbol, allow_positions=False)
+            pin_days = int(pin_days)
+        else:
+            if request.args.get("days_out") is not None:
+                raise ValueError("days_out requires entry_date or period for an exact-window analysis")
+            year1, year2 = _lookback_args(
+                market=market, path="symbol", pe_mode=_opp_mode(pe_cycle) != "consecutive",
+                name_map=name_map)
+            yrs = _chart_years(pe_cycle, int(year1))
     except ValueError as e:
         return _err("invalid_request", str(e), 400)
 
-    yrs = _chart_years(pe_cycle, years_n)   # 'N' | 'pe{phase}-N' - drives the receipts/curve lookback
-    opps = appserver_client.opportunities_by_symbol(
+    # An exact window is direct research, independent of the precomputed detection
+    # grid (and its narrower recurrence bands). Never substitute a nearby setup.
+    opps = [] if pin_entry else appserver_client.opportunities_by_symbol(
         market, symbol, year1=year1, year2=year2, mode=_opp_mode(pe_cycle))
     if direction:
         want = appserver_client._dir_to_public(direction)
         opps = [o for o in opps if o["direction"] == want]
 
     if pin_entry:
-        # pin to the requested window: match a detected setup by entry_date (prefer the same
-        # days_out); if none matches, analyze the exact window directly (stats come from ChartData4).
-        best = next((o for o in opps if o.get("entry_date") == pin_entry
-                     and (pin_days is None or o.get("days_out") == pin_days)), None)
-        if best is None:
-            best = next((o for o in opps if o.get("entry_date") == pin_entry), None)
-        if best is None:
-            best = {"symbol": symbol, "market": market, "entry_date": pin_entry,
-                    "days_out": pin_days or 30,
-                    "direction": (want if direction else "long"),
-                    "win_rate": None, "sharpe_ratio": None,
-                    "avg_profit_pct": None, "median_profit_pct": None}
-            opps = [best] + opps
+        best = {"symbol": symbol, "market": market, "entry_date": pin_entry,
+                "days_out": pin_days, "direction": (want if direction else "long"),
+                "win_rate": None, "sharpe_ratio": None,
+                "avg_profit_pct": None, "median_profit_pct": None}
     else:
         if not opps:
             # OppBySymbol has no per-symbol file for some markets (e.g. ETFs/crypto) even when
@@ -1532,7 +1514,7 @@ def analyze_symbol(symbol):
     view = _view_arg()
     card = cards.project_card(card, view)
 
-    other = [cards.compact_setup(o) for o in opps[1:]]
+    other = [cards.compact_setup(o) for o in opps if o is not best]
     tier_cap = g.customer["entitlements"]["opp_limit"]
     other = other[: max(0, tier_cap - 1)]
 

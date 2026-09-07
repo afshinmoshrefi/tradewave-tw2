@@ -3869,13 +3869,14 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     start_date_year = int(date[:4])
 
     # Handle case where start date is dragged to future year
-    if start_date_year > today_year:
+    exact_window = request.args.get('exact_window') == '1'
+    if start_date_year > today_year and not exact_window:
         date = f'{today_year}-{date[5:]}'
 
     currentYear = datetime.datetime.strptime(date, '%Y-%m-%d').year
 
     # January 1st edge case - force to January 2nd
-    if date.endswith('-01-01'):
+    if date.endswith('-01-01') and not exact_window:
         year = date[:4]
         date = f'{year}-01-02'
 
@@ -3930,7 +3931,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     # ----------------------------------------------
     # Redis cache key
     # ----------------------------------------------
-    redis_key_chartdata = f'chartdata_{resourceID}_{symbol}_{date}_{daysOut}_{yrs}_{cut_off_year}'
+    redis_key_chartdata = f'chartdata_v2_{resourceID}_{symbol}_{date}_{daysOut}_{yrs}_{cut_off_year}'
     if _comparison_direction:
         redis_key_chartdata += f'_comparison_{_comparison_direction}'
     if _report_completed_years:
@@ -4024,7 +4025,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     trade_past = False
     active_trade_begin_last_year = False
 
-    if date < df.iloc[-1]['date']:
+    if date <= df.iloc[-1]['date']:
         d_end = inc_date_day(date, daysout)
         if last_date_in_csv >= d_end:
             trade_past = True
@@ -4055,6 +4056,10 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
 
     for y in range(years, endNum, -1):
         d_start_0 = inc_date_year(date, -y)
+        # A requested lookback can exceed a symbol's history. Snapping a date
+        # from before listing to its first quote invents duplicate observations.
+        if d_start_0 < first_date_in_csv or d_start_0 > last_date_in_csv:
+            continue
         year_int = int(d_start_0[:4])
         incomplete_observation = bool(
             (trade_active and y == 0)
@@ -4126,13 +4131,13 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         i1 = df1.index.tolist()[0]
 
         # Calculate MFE/MAE (high/low during trade)
-        if i1 - i0 < 2:
+        if i1 <= i0:
             high = c0
             low = c0
         else:
             trade_slice = df[i0 + 1:i1 + 1]
-            high = trade_slice['high'].max()
-            low = trade_slice['low'].min()
+            high = max(c0, trade_slice['high'].max())
+            low = min(c0, trade_slice['low'].min())
 
         # Calculate percentages
         ph = round(100 * (high - c0) / c0, 2)
@@ -4148,7 +4153,8 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         yearDict = {
             'year': currentYear - y,
             'pct': str(p) + ',' + str(ph) + ',' + str(pl),
-            'price': str(c0) + ',' + str(c1)
+            'price': str(c0) + ',' + str(c1),
+            'completed': not incomplete_observation,
         }
         chartData.append(yearDict)
         completed_flags.append(not incomplete_observation)
@@ -4207,7 +4213,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         and len(chartData) > 0
         and currentYear > chartData[-1]['year']
     ):
-        yearDict = {'year': currentYear, 'pct': '0,0,0', 'price': '0,0'}
+        yearDict = {'year': currentYear, 'pct': '0,0,0', 'price': '0,0', 'completed': False}
         chartData.append(yearDict)
 
     # ----------------------------------------------
@@ -4238,8 +4244,8 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         # Swap pos/neg counts
         pos, neg = neg, pos
         
-        pctArray_winners = [-1 * x for x in pctArray if x <= 0]
-        pctArray_losers = [x for x in pctArray if x > 0]
+        pctArray_winners = [-1 * x for x in pctArray if x < 0]
+        pctArray_losers = [x for x in pctArray if x >= 0]
         pctArray = [-1 * x for x in pctArray]
 
         avgProfit = statistics.mean(pctArray)
@@ -4250,8 +4256,8 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         avgProfit2 = statistics.mean(pctArray_low)
         profit_stdev2 = statistics.stdev(pctArray_low) if len(pctArray_low) > 1 else 0
     else:
-        pctArray_winners = [x for x in pctArray if x >= 0]
-        pctArray_losers = [x for x in pctArray if x < 0]
+        pctArray_winners = [x for x in pctArray if x > 0]
+        pctArray_losers = [x for x in pctArray if x <= 0]
         
         avgProfit = statistics.mean(pctArray)
         avgProfitW = 0 if len(pctArray_winners) == 0 else statistics.mean(pctArray_winners)
@@ -4261,13 +4267,15 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         profit_stdev2 = statistics.stdev(pctArray_high) if len(pctArray_high) > 1 else 0
 
     # Cumulative return
+    pos = len(pctArray_winners)
+    neg = len(pctArray_losers)
     tmp = 1
     for i in range(len(pctArray)):
         tmp *= (1 + pctArray[i] / 100)
     cumulativeReturn = (tmp - 1) * 100
 
     # Annualized return
-    annualizedReturn = round(((tmp ** (1 / len(pctArray))) - 1) * 100, 2)
+    annualizedReturn = round(((tmp ** (1 / len(pctArray))) - 1) * 100, 2) if tmp >= 0 else None
 
     # Median and standard deviation
     medianProfit = statistics.median(pctArray)
@@ -4284,7 +4292,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     else:
         sharpe_ratio2 = 0
 
-    formatted_cumulative_return = "{:,}".format(int(cumulativeReturn)) + '%'
+    formatted_cumulative_return = str(round(cumulativeReturn, 2)) + '%'
 
     # Additional market data
     high_52w = (df['high'] * df['adj_factor']).tail(252).max()
@@ -4298,12 +4306,12 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         'Trade Dir': longOrShort,
         'Num Winners': str(pos),
         'Num Losers': str(neg),
-        'Percent Profitable': str(round(100 * pos / len(pctArray))) + '%',
-        'Avg Profit - All': str(round(avgProfit)) + '%',
+        'Percent Profitable': str(round(100 * pos / len(pctArray), 2)) + '%',
+        'Avg Profit - All': str(round(avgProfit, 2)) + '%',
         'Avg Profit': str(round(avgProfitW, 2)) + '%',
         'Avg Loss': str(round(avgLossL, 2)) + '%',
         'Median Profit': str(round(medianProfit, 2)) + '%',
-        'Annualized Return': str(annualizedReturn) + '%',
+        'Annualized Return': str(annualizedReturn) + '%' if annualizedReturn is not None else None,
         'Cumulative Return': formatted_cumulative_return,
         'Std Dev': str(round(profit_stdev, 2)) + '%',
         'Sharpe Ratio': str(round(sharpe_ratio, 2)),
@@ -4313,6 +4321,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         'Trend Long1': lscore1,
         'Trend Short1': sscore1,
         'last_trade_date': df['date'].iloc[-1],
+        'Risk Free Rate': config.free_return,
         '52W High': high_52w,
         '52W Low': low_52w,
         'Avg Volume 20d': avg_volume_20d,

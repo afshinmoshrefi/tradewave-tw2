@@ -225,12 +225,8 @@ def _dir_to_internal(direction):
 def _num(v):
     """Coerce a numeric-ish value (str or number) to float, else None. years/labels
     are handled separately and stay strings - this is only for numeric columns."""
-    if v is None or v == "":
-        return None
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
+    from .seasonal_evidence import number
+    return number(v)
 
 
 def _engine_days_to_display(value):
@@ -281,9 +277,20 @@ def _publishable_stats(stats):
     if not isinstance(stats, dict):
         return {}
     out = {}
+    percentage_fields = {"Percent Profitable", "Avg Profit - All", "Avg Profit", "Avg Loss",
+                         "Median Profit", "Annualized Return", "Cumulative Return", "Std Dev"}
+    scalar_fields = {"Num Winners", "Num Losers", "Sharpe Ratio", "Sharpe Ratio2"}
     for internal_name, public_name in _PUBLIC_STAT_FIELDS.items():
         if internal_name in stats:
-            out[public_name] = stats[internal_name]
+            value = stats[internal_name]
+            # Preserve the established low-level string/percent contract even
+            # though the shared evidence calculations use numeric values.
+            if value is not None and internal_name in percentage_fields:
+                parsed = _num(value)
+                value = str(round(parsed, 2)) + "%" if parsed is not None else None
+            elif value is not None and internal_name in scalar_fields:
+                value = str(value) if _num(value) is not None else None
+            out[public_name] = value
     return out
 
 
@@ -413,8 +420,8 @@ def _win_rate_for_opp(obj):
     days_out = obj.get("days_out")
     if not entry_date or days_out is None:
         return None
-    cache_key = (f"gw:winrate:{obj.get('market')}:{obj.get('symbol')}:"
-                 f"{entry_date}:{days_out}:{obj.get('years')}")
+    cache_key = (f"gw:winrate:v2:{obj.get('market')}:{obj.get('symbol')}:"
+                 f"{entry_date}:{days_out}:{obj.get('years')}:{obj.get('direction') or 'long'}")
     try:
         cached = _win_rate_cache.get(cache_key)
     except _redis_mod.RedisError:
@@ -423,7 +430,8 @@ def _win_rate_for_opp(obj):
         val = cached.decode() if isinstance(cached, (bytes, bytearray)) else cached
         return None if val == _WIN_RATE_NONE else float(val)
     try:
-        _chart, stats = _chart_data(obj["market"], obj["symbol"], entry_date, days_out, obj["years"])
+        _chart, stats = _chart_data(obj["market"], obj["symbol"], entry_date, days_out,
+                                   obj["years"], direction=obj.get("direction") or "long")
     except requests.RequestException as e:
         log.warning("win_rate enrich skipped for %s/%s (days_out=%s): %s",
                     obj.get("market"), obj.get("symbol"), days_out, e)
@@ -542,7 +550,7 @@ def appserver_opportunities_safe(market, entry_date, year1, year2, direction, mo
 
 # --------------------------- patterns / chart data -------------------------
 
-def _chart_data(market, symbol, entry_date, days_out, years):
+def _chart_data(market, symbol, entry_date, days_out, years, direction=None):
     """Raw ChartData4 fetch from a public/display window.
 
     ``days_out`` is the inclusive calendar-day count exposed by the gateway.  Convert it
@@ -552,9 +560,23 @@ def _chart_data(market, symbol, entry_date, days_out, years):
     engine_days_out = _display_days_to_engine(days_out)
     path = (f"/ChartData4/{_seg(market)}/{_seg(entry_date)}/{_seg(symbol)}"
             f"/{_seg(engine_days_out)}/{_seg(years)}")
-    data = get(path)
+    params = {"exact_window": "1"}
+    if direction:
+        params["comparison_direction"] = _dir_to_public(direction)
+    data = get(path, params=params)
     if not isinstance(data, dict):
         return [], {}
+    effective = data.get("request")
+    if isinstance(effective, dict):
+        expected_pe, _, expected_years = str(years).partition("-")
+        if not expected_years:
+            expected_pe, expected_years = "cons", str(years)
+        expected = {"market": str(market), "symbol": str(symbol).upper(), "entry_date": entry_date,
+                    "days_out": int(days_out), "years": int(expected_years), "pe_cycle": expected_pe}
+        if any(str(effective.get(key)) != str(value) for key, value in expected.items()):
+            raise requests.RequestException("chart engine did not honor the requested window or lookback")
+        if direction and effective.get("comparison_direction") != _dir_to_public(direction):
+            raise requests.RequestException("chart engine did not honor the requested direction")
     chart = data.get("ChartData4", [])
     stats = data.get("stats", {})
     # ChartData4 can return a status string ('Not Enough Data') instead of a list.
@@ -562,15 +584,20 @@ def _chart_data(market, symbol, entry_date, days_out, years):
         chart = []
     if not isinstance(stats, dict):
         stats = {}
+    from .seasonal_evidence import completed_entries, coherent_stats
+    chart = completed_entries(chart, entry_date=entry_date, days_out=days_out,
+                              as_of=stats.get("last_trade_date"), lookback=years)
+    side = _dir_to_public(direction or stats.get("Trade Dir") or "long")
+    stats = coherent_stats(stats, chart, side, days_out)
     return chart, stats
 
 
-def pattern_stats(market, symbol, entry_date, days_out="30", years="10"):
+def pattern_stats(market, symbol, entry_date, days_out="30", years="10", direction=None):
     """Maps ChartData4 -> the publishable aggregate-stats subset (no price series,
     no price/volume levels). Used by /patterns. win_rate is the REAL historical win
     rate (share of profitable years, 0..1) - the same 'Percent Profitable' the UI
     shows, also exposed inside stats as percent_profitable."""
-    _chart, stats = _chart_data(market, symbol, entry_date, days_out, years)
+    _chart, stats = _chart_data(market, symbol, entry_date, days_out, years, direction=direction)
     return {
         "symbol": str(symbol),
         "market": str(market),
@@ -579,7 +606,7 @@ def pattern_stats(market, symbol, entry_date, days_out="30", years="10"):
     }
 
 
-def chart_stats_and_years(market, symbol, entry_date, days_out, years):
+def chart_stats_and_years(market, symbol, entry_date, days_out, years, direction=None):
     """Return (stats, chart_entries) for ONE setup: the ChartData4 stats dict PLUS the raw
     per-year entries [{year, pct, price}]. cards.py consumes the per-year entries (parsing
     the NET pct only and DROPPING price) to build the per_year receipts. This is the single
@@ -592,7 +619,7 @@ def chart_stats_and_years(market, symbol, entry_date, days_out, years):
         so the caller stamps the card receipts_unavailable instead of rendering a
         confident no-edge from missing data. Either way a multi-row scan never aborts."""
     try:
-        chart, stats = _chart_data(market, symbol, entry_date, days_out, years)
+        chart, stats = _chart_data(market, symbol, entry_date, days_out, years, direction=direction)
     except requests.RequestException as e:
         log.warning("chart_stats_and_years FETCH FAILED for %s/%s (days_out=%s): %s",
                     market, symbol, days_out, e)
@@ -668,7 +695,7 @@ def seasonal_chart(market, symbol, entry_date, days_out, years, direction=None):
     # ChartData4 gives the percentage stats + the historical win rate (Percent
     # Profitable). Both are cached on the appserver. Price/volume levels are dropped
     # by _publishable_stats; the price series is never requested.
-    _chart, stats = _chart_data(market, symbol, entry_date, days_out, years)
+    _chart, stats = _chart_data(market, symbol, entry_date, days_out, years, direction=direction)
 
     out = {
         "symbol": str(symbol),

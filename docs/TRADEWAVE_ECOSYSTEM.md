@@ -1087,9 +1087,9 @@ paid standalone API price display remains separately gated as described below.
 flagship + 11 primitives).
 
 **Data shapes (verified vs the appserver):** opportunities = OppList4/OppBySymbol;
-`win_rate` = ChartData4 stat `Percent Profitable` (share of profitable years, no
-threshold - matches the UI), enriched per-symbol + cached gateway-side
-(redis db4, 6h TTL); `min_win_rate` filters on it (NOT `ml.win_prob`). `/scan` enriches
+`win_rate` = the share of strictly profitable completed trade observations,
+enriched per-symbol + cached gateway-side (redis db4, 6h TTL, direction in the key);
+`min_win_rate` filters on it (NOT `ml.win_prob`). `/scan` enriches
 only the requested Sharpe-ranked depth unless a receipt-dependent filter or alternate
 ranking requires the bounded 50-row head. Its price-safe scan core is shared for 120 seconds
 with a Redis distributed single-flight lock. Auth, tier projection, rate limiting, ML quota,
@@ -1098,6 +1098,36 @@ and ML scoring still run on every request. ML = MLScoreBatch
 `/seasonal-chart` =
 consolidated_seasonal_chart2 (365-day high/low-normalized, year-averaged 0-100 curve -
 a price-SAFE shape, no price field). Daily pick/track-record = `site/data/featured_history.json`.
+
+**MCP/API evidence consistency (2026-09-07):** `apiserver/seasonal_evidence.py` owns the
+completed cohort and receipt-derived statistics used by cards, scan filters and primitive
+chart/stat responses. The gateway requests `comparison_direction` for the requested trade
+side and `exact_window=1`; it verifies the engine's effective request before publishing
+evidence. Engine aggregates previously auto-selected short for AAPL September while the card
+was labelled long, and the card overwrote only win rate. All summary returns now come from
+the same completed trade returns as receipts and bars; cached detection aggregates are used
+only when receipts are explicitly unavailable. Sharpe uses the engine's configured risk-free
+rate. A legacy Sharpe is retained only when its direction matches. Non-finite numbers are
+missing data, never JSON NaN or ranking inputs.
+
+ChartData4 marks each row `completed`; active nonzero bars and future placeholders remain
+available to the authenticated viewer but are excluded from gateway evidence/statistics.
+Flat completed years remain observations (non-wins). Consecutive N retains N prior entry
+years plus a completed current year; PE-N selects N completed matching occurrences. The
+actual `years_tested` survives every card projection and is what MCP text reports. Lookbacks
+before listing cannot snap to the first quote and fabricate history. Engine excursions
+include entry zero, including one-interval holds; averages and compounded returns retain
+fractional percentage points. Cache versions are `chartdata_v2`, `gw:winrate:v2`, and
+`tw:api:scan-core:v3` so older semantics cannot return after deployment.
+
+Pinned `analyze_symbol` calls (entry date or period/reverse) bypass detection and accept
+analysis lookbacks 1-99; they never substitute a detected hold with the same entry date.
+Unpinned best-setup discovery still uses detection bands. Invalid window values return 400.
+The server-generated Wave Viewer URL adds `direction=long|short` to the established `o`
+payload and `view=evidence`. React validates the whole link, waits only for auth/catalog,
+and applies it even when the opportunity table is empty. URL synchronization waits for
+application of the incoming state. Direction applies to that exact linked pattern and
+is restored on history navigation; a different pattern returns to automatic direction.
 
 **Auth + data (app box):** customer keys in Postgres `api_keys` (HMAC-SHA256 via
 `API_KEY_HMAC_SECRET`); usage in `api_usage_daily` + redis db4. Schema
@@ -1407,12 +1437,12 @@ filters (rows can't satisfy) or a loopback failure fall back to the gateway scan
 loopback uses `opp_table_years` (default 12); a market whose valid lookback differs returns empty ->
 /scan fallback.
 
-**Stat-truth: a loaded setup's win rate must match its OWN per-year record (fix 2026-06-21).** Two
+**Stat-truth: a loaded setup's win rate must match its OWN per-year record (2026-06-21, extended 2026-09-07).** Two
 compounding bugs let Tara claim "won 10 of 10 years" for an AAPL September window that really lost 6
 of 10: (a) the gateway card's `stats.historical_win_rate` was sourced from the appserver's aggregate
 Percent Profitable, which DISAGREED with the per-year rows (returned 0.6 = the loss fraction for a
-4/10 setup) - now derived from the per-year counts in `cards.py` (= wins/(wins+losses), the same
-source as the headline 'Won X/Y' and the bar chart); (b) Tara's deterministic announce-guard
+4/10 setup). The gateway now normalizes the entire completed cohort and all receipt-derived
+statistics, not just win rate; see the MCP/API evidence contract above. (b) Tara's deterministic announce-guard
 (`tara_gateway._ensure_load_named`) reused a STALE same-symbol card and read the buggy win_rate - now
 it matches the card to the loaded setup by `entry_date`, takes the win count from the card HEADLINE
 (authoritative), and REPLACES any reply whose win rate contradicts the loaded setup (a prompt rule -

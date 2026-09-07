@@ -61,6 +61,35 @@ def _hdr():
     return {"Authorization": "Bearer tw_live_test"}
 
 
+@pytest.mark.parametrize("window", ["period=sep", "entry_date=2026-09-01&days_out=13"])
+@pytest.mark.parametrize("years", [1, 3, 99])
+def test_pinned_analysis_bypasses_detection_and_preserves_exact_window(client, monkeypatch, window, years):
+    from apiserver import appserver_client as ac
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()])
+    def unexpected(*args, **kwargs):
+        raise AssertionError("exact research must not query the detection grid")
+    monkeypatch.setattr(ac, "opportunities_by_symbol", unexpected)
+    response = client.get(f"/v1/analyze/aapl?market=2&{window}&years={years}&direction=short", headers=_hdr())
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["card"]["symbol"] == "AAPL"
+    assert body["card"]["setup"]["hold_days"] == (30 if window.startswith("period") else 13)
+    assert body["card"]["stats"]["years"] == str(years)
+    assert body["card"]["direction"] == "short"
+    assert body["other_setups"] == []
+
+
+@pytest.mark.parametrize("query", [
+    "period=sep&days_out=oops", "period=sep&years=oops", "entry_date=2026-09-01&days_out=0",
+    "entry_date=2026-9-1", "entry_date=2026-02-30", "days_out=30",
+])
+def test_invalid_analysis_window_is_rejected_instead_of_silently_defaulting(client, monkeypatch, query):
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()])
+    response = client.get(f"/v1/analyze/AAPL?market=2&{query}", headers=_hdr())
+    assert response.status_code == 400
+    assert response.get_json()["error"]["code"] == "invalid_request"
+
+
 def test_daily_pick_source_failure_returns_503_json(client, monkeypatch):
     from apiserver import appserver_client
 

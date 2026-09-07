@@ -786,6 +786,9 @@ const SeasonalBarChart = (props) => {
     let url = `${asURL}/ChartData4/${marketId}/${props.startDate}/${props.symbol}/${days_out_processed}/${sy}`
     if (props.trimYear !== 0) url += `/${props.trimYear}`
     url += `?token=${token}`
+    if (props.chartDirection) {
+      url += `&comparison_direction=${props.chartDirection}&exact_window=1`
+    }
 
 
     twFetch(url, { signal: controller.signal })
@@ -934,7 +937,7 @@ const SeasonalBarChart = (props) => {
       unregisterAbort()
       abortRequest()
     }
-  }, [props.refreshKey, props.taraLoadGeneration, marketId, props.startDate, props.symbol, props.daysOut, props.seasonalYears, props.PEselected, props.trimYear, props.monthsAndQtrs, token])
+  }, [props.refreshKey, props.taraLoadGeneration, marketId, props.startDate, props.symbol, props.daysOut, props.seasonalYears, props.PEselected, props.trimYear, props.monthsAndQtrs, props.chartDirection, token])
 
   // Pair the original snapshot with the exact successful ChartData4 response
   // for the range produced by the protected Reverse Date Range branch.

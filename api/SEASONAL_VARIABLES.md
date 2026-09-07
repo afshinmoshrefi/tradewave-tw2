@@ -20,7 +20,16 @@ There are two different engines, with different rules. Conflating them is the mo
 | MCP tools | `find_best_opportunities`, `get_seasonal_opportunities`, `get_symbol_patterns` | `analyze_symbol`, `get_seasonal_pattern`, `get_opportunity_chart` |
 | `years` meaning | **year1** = lookback; paired with **year2** (min winning years) and CONSTRAINED to a per-market win-rate BAND (only in-band combos are precomputed) | a CONTINUOUS lookback length (1-99), scored on the fly; NO band, any value up to the symbol's available history |
 
-So `years` is band-constrained on the DETECTION tools and free on the ANALYSIS tools.
+So `years` is band-constrained on the DETECTION tools and free on pinned ANALYSIS requests.
+`analyze_symbol` without an entry date or preset first discovers the best setup and therefore
+uses the detection band. With a pinned window it directly evaluates that exact window,
+without querying or substituting a detected setup.
+
+The requested lookback is not the sample count: consecutive N covers N prior entry years
+plus the current year when completed. PE-N selects N completed matching occurrences.
+`years_tested` states the actual number of completed observations used by the statistics
+and receipts. Active partials and future placeholders are excluded; completed flat years
+remain non-winning observations. History before the symbol's first available entry is absent.
 
 ---
 

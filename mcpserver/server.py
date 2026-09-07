@@ -798,8 +798,11 @@ def _widget_text_fallback(data: dict[str, Any]) -> str:
                 window += f" ({hold_days} days)"
             pieces.append(window)
         if win_rate is not None:
-            years = stats.get("years") or card.get("years")
-            pieces.append(f"win rate {win_rate:.0f}%{f' over {years} years' if years else ''}")
+            years = stats.get("years_tested")
+            if years is None:
+                years = (card.get("receipts") or {}).get("years_tested")
+            sample = f" over {years} completed years" if years is not None else ""
+            pieces.append(f"win rate {win_rate:.0f}%{sample}")
         avg = _pct(stats.get("avg_return_pct"))
         median = _pct(stats.get("median_return_pct"))
         sharpe = _number(stats.get("sharpe_ratio"))

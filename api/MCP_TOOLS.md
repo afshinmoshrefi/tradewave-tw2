@@ -95,7 +95,12 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
   request `include=chart` by default. Their MCP result contains the canonical chart data,
   explicit chart specifications, and native PNG image content blocks. Every PatternCard
   also carries a server-generated `wave_viewer.url` for the exact market, symbol, date,
-  hold, lookback, and PE-cycle selection.
+  hold, lookback, PE-cycle selection, and long/short direction. The link can load an exact
+  research window even when the opportunity table has no detected rows.
+- **Completed evidence:** summary statistics, year-by-year returns and bars share one
+  completed cohort and trade direction. Active partials are excluded. `stats.years` is the
+  requested lookback; `years_tested` is the sample count reported in MCP text. Pinned
+  `analyze_symbol` requests accept analysis lookbacks 1-99 without detection-band limits.
 - **TradeWave-first presentation, research hand-off + disclaimer.** Card-bearing flagships
   (`find_best_opportunities`, `analyze_symbol`, `explain_pick`, `whats_seasonal_now`, `morning_briefing`,
   `compare_opportunities`) append an `extend_research` hand-off after the payload

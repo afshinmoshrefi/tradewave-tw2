@@ -23,6 +23,7 @@ import datetime
 import logging
 import os
 from urllib.parse import quote
+from .seasonal_evidence import completed_entries, coherent_stats, market_today, number
 
 log = logging.getLogger("apiserver.cards")
 
@@ -51,7 +52,7 @@ _ML_NOTES = {
     "shown": "ML score shown.",
     "quota": "Daily ML limit reached on your plan - upgrade for unlimited ML scoring.",
     "market": "ML not available for this market (ML covers US stocks and ETFs).",
-    "unavailable": "ML score not available for this setup - the ML model covers shorter seasonal holds (up to about 90 days).",
+    "unavailable": "ML score is currently unavailable for this setup. No ML allowance was charged for an undelivered score.",
     "na": "ML not available.",
 }
 
@@ -78,11 +79,7 @@ def _num(v):
     """Coerce a numeric-ish value (str '18%', '5.1', number) to float, else None."""
     if v is None or v == "":
         return None
-    s = str(v).strip().rstrip("%").strip()
-    try:
-        return float(s)
-    except (TypeError, ValueError):
-        return None
+    return number(v)
 
 
 def _round(v, n=2):
@@ -118,43 +115,16 @@ def _excursions(pct_str):
 # per-year receipts from ChartData4 entries                                   #
 # --------------------------------------------------------------------------- #
 
-def per_year_returns(chart_entries, lookback=None, direction="long"):
-    """Build the per-year receipt rows from raw ChartData4 entries.
+def per_year_returns(chart_entries, lookback=None, direction="long", **window):
+    """Completed trade returns, signed for direction, with counts from those rows.
 
-    Each entry is {'year': 2024, 'pct': 'net,mfe,mae', 'price': '...'}. We use ONLY the
-    net pct; `price` is dropped (price-safety invariant). The appserver appends an entry
-    for the in-progress current year; when that window has not run yet it is an all-zero
-    stub (net,mfe,mae == 0,0,0) and is NOT a completed year - we exclude it (it would fake
-    an extra 'loss' row). A current-year entry the appserver HAS scored (a real non-zero
-    partial) is kept, so per_year stays consistent with the appserver's own Percent
-    Profitable / Num Winners counts (which include it).
-
-    win = the TRADE's net% > 0 (sign-flipped for shorts, since a short profits when the
-    underlying falls); no threshold - matches the UI's direction-aware 'Percent Profitable'. The list is
-    bounded at lookback + 1 (the historical years plus the at-most-one current partial) so
-    it never runs away but never silently drops a real scored year. wins/losses/years_tested
-    are derived from THESE rows so the card is internally consistent.
-    Returns (rows, wins, losses); rows is chronological list of {year(str), return_pct, result}.
+    The shared selector excludes partials and placeholders, retains completed flat
+    observations, and applies the lookback bound. No raw price field is read.
+    A win is strictly positive; losses includes flat (non-winning) observations.
     """
     rows = []
-    if not isinstance(chart_entries, list):
-        chart_entries = []
-    try:
-        cap = int(lookback) if lookback not in (None, "") else None
-    except (TypeError, ValueError):
-        cap = None
-    for e in chart_entries:
-        if not isinstance(e, dict):
-            continue
+    for e in completed_entries(chart_entries, lookback=lookback, **window):
         net = _net_pct(e.get("pct"))
-        if net is None:
-            continue
-        # skip the in-progress current year when the appserver hasn't scored it yet (all
-        # three of net,mfe,mae are 0). A real scored partial year is kept.
-        parts = str(e.get("pct", "")).split(",")
-        is_zero_stub = all(_num(x) == 0.0 for x in parts) if parts else False
-        if is_zero_stub:
-            continue
         # The receipt is the TRADE's return: a short profits when the underlying
         # falls, so flip the sign for shorts before deciding win/loss. This keeps
         # per_year / wins / losses / best / worst consistent with the direction-aware
@@ -165,21 +135,16 @@ def per_year_returns(chart_entries, lookback=None, direction="long"):
             "return_pct": round(pnl, 2),
             "result": "win" if pnl > 0 else "loss",
         })
-    # bound at lookback + 1 (history + the at-most-one current partial); drop the OLDEST
-    # beyond that so the most recent years are kept. This only trims runaway lists; the
-    # normal case (10 history + 1 partial) passes through untouched.
-    if cap is not None and len(rows) > cap + 1:
-        rows = rows[-(cap + 1):]
     wins = sum(1 for r in rows if r["result"] == "win")
     losses = sum(1 for r in rows if r["result"] == "loss")
     return rows, wins, losses
 
 
-def per_year_bars(chart_entries, direction="long"):
+def per_year_bars(chart_entries, direction="long", **window):
     """Per-year bars for the Trend Chart visualization: each completed year's TRADE return
     PLUS its favorable / adverse excursion band, all as PERCENTAGES (never prices). Built
-    from the same ChartData4 entries as per_year_returns, with the unscored in-progress
-    current year (all-zero stub) excluded identically so bars and receipts stay consistent.
+    from the same completed ChartData4 entries as per_year_returns, excluding both
+    active partials and future placeholders so bars and receipts stay consistent.
 
     Direction-aware, mirroring per_year_returns: a SHORT profits when the underlying falls,
     so net is sign-flipped AND the excursions swap and flip (a short's favorable excursion is
@@ -190,15 +155,8 @@ def per_year_bars(chart_entries, direction="long"):
     bars = []
     if not isinstance(chart_entries, list):
         return bars
-    for e in chart_entries:
-        if not isinstance(e, dict):
-            continue
+    for e in completed_entries(chart_entries, **window):
         net, mfe, mae = _excursions(e.get("pct"))
-        if net is None:
-            continue
-        parts = str(e.get("pct", "")).split(",")
-        if parts and all(_num(x) == 0.0 for x in parts):
-            continue  # unscored in-progress current year - not a completed bar
         if direction == "short":
             t_net = -net
             t_mfe = (-mae) if mae is not None else None
@@ -208,8 +166,8 @@ def per_year_bars(chart_entries, direction="long"):
         bars.append({
             "year": str(e.get("year")),
             "net_pct": round(t_net, 2),
-            "mfe_pct": round(t_mfe, 2) if t_mfe is not None else None,
-            "mae_pct": round(t_mae, 2) if t_mae is not None else None,
+            "mfe_pct": round(max(0, t_mfe), 2) if t_mfe is not None else None,
+            "mae_pct": round(min(0, t_mae), 2) if t_mae is not None else None,
             "result": "win" if t_net > 0 else "loss",
         })
     return bars
@@ -318,7 +276,7 @@ def _short(d):
     return d.strftime("%b %d").replace(" 0", " ") if d else None
 
 
-def _wave_viewer(symbol, market_id, entry_date, hold_days, years):
+def _wave_viewer(symbol, market_id, entry_date, hold_days, years, direction="long"):
     """Build the exact, authenticated Wave Viewer destination for this pattern.
 
     The React app's established ``?o=`` contract is base64 of
@@ -338,7 +296,7 @@ def _wave_viewer(symbol, market_id, entry_date, hold_days, years):
     encoded = base64.b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
     return {
         "label": "Open and stress-test this exact pattern in TradeWave",
-        "url": "%s/app/?o=%s&view=evidence" % (base, quote(encoded, safe="")),
+        "url": "%s/app/?o=%s&view=evidence&direction=%s" % (base, quote(encoded, safe=""), direction),
         "opens": "Wave Viewer",
         "pattern": {
             "market_id": str(market_id),
@@ -346,6 +304,7 @@ def _wave_viewer(symbol, market_id, entry_date, hold_days, years):
             "entry_date": entry_date,
             "hold_days": hold_days,
             "years": str(years).lower(),
+            "direction": direction,
         },
         "value": ("Inspect individual years, change the lookback or PE cycle, adjust the "
                   "window, compare patterns, and save or share the setup."),
@@ -366,7 +325,7 @@ def _timing(entry_d, exit_d, as_of_str):
     opened; status is a plain-language read. Calendar days, no price."""
     if not entry_d:
         return None
-    today = _parse_date(as_of_str) or datetime.date.today()
+    today = _parse_date(as_of_str) or market_today()
     d2e = (entry_d - today).days
     if d2e > 1:
         status = "window opens in %d days" % d2e
@@ -375,7 +334,7 @@ def _timing(entry_d, exit_d, as_of_str):
     elif d2e == 0:
         status = "window opens today"
     elif exit_d and today <= exit_d:
-        status = "in the entry window now"
+        status = "hold window in progress; entry was %d days ago" % -d2e
     else:
         status = "window has passed for this cycle"
     return {"days_to_entry": d2e, "status": status}
@@ -465,25 +424,31 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
                     keeps the OppList-level stats and detected pattern, and its verdict degrades to
                     "data temporarily unavailable" - NEVER to a confident no-edge.
     """
-    as_of = as_of or datetime.date.today().isoformat()
+    as_of = as_of or market_today().isoformat()
     symbol = opp.get("symbol")
     direction = opp.get("direction") or "long"
     side = "BUY" if direction == "long" else "SELL"
 
+    if not receipts_unavailable:
+        chart_entries = completed_entries(
+            chart_entries, entry_date=opp.get("entry_date"), days_out=opp.get("days_out"),
+            as_of=(stats or {}).get("last_trade_date") or as_of, lookback=opp.get("years"))
+        stats = coherent_stats(stats, chart_entries, direction, opp.get("days_out"))
+
     # --- stats (distinct historical_win_rate vs ml_win_prob) ---
-    historical_win_rate = opp.get("win_rate")
+    historical_win_rate = opp.get("win_rate") if receipts_unavailable else None
     if historical_win_rate is None and isinstance(stats, dict):
         pp = stats.get("Percent Profitable")
         f = _num(pp)
         historical_win_rate = round(f / 100.0, 4) if f is not None else None
 
-    sharpe = opp.get("sharpe_ratio")
+    sharpe = opp.get("sharpe_ratio") if receipts_unavailable else None
     if sharpe is None and isinstance(stats, dict):
         sharpe = _num(stats.get("Sharpe Ratio"))
-    avg_return = opp.get("avg_profit_pct")
+    avg_return = opp.get("avg_profit_pct") if receipts_unavailable else None
     if avg_return is None and isinstance(stats, dict):
         avg_return = _num(stats.get("Avg Profit - All"))
-    median_return = opp.get("median_profit_pct")
+    median_return = opp.get("median_profit_pct") if receipts_unavailable else None
     if median_return is None and isinstance(stats, dict):
         median_return = _num(stats.get("Median Profit"))
 
@@ -623,7 +588,7 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
     tier_notes = _ML_NOTES.get(ml_state, _ML_NOTES["na"])
 
     wave_viewer = _wave_viewer(
-        symbol, opp.get("market"), _fmt(entry_d), hold_days, years_str)
+        symbol, opp.get("market"), _fmt(entry_d), hold_days, years_str, direction)
 
     card = {
         "rank": rank,
@@ -650,6 +615,7 @@ def build_pattern_card(opp, stats, chart_entries, *, market_name, ml=None,
             "annualized_return_pct": annualized_pct,
             "cumulative_return_pct": cumulative_pct,
             "years": years_str,
+            "years_tested": years_tested,
         },
         "ml": ml_block,
         "alignment": _pattern_alignment(historical_win_rate, ml_win_prob, ml_available),
@@ -678,6 +644,9 @@ def attach_chart_evidence(card, seasonal_curve, chart_entries, direction=None):
     repeating a full curve and per-year series on every runner-up.
     """
     direction = direction or card.get("direction") or "long"
+    receipt_years = {str(row["year"]) for row in (card.get("receipts") or {}).get("per_year", [])}
+    chart_entries = [{**row, "completed": True} for row in (chart_entries or [])
+                     if isinstance(row, dict) and str(row.get("year")) in receipt_years]
     card["chart"] = {
         # Backward-compatible raw arrays used by existing API clients.
         "trend_chart": [{"date": p.get("date"), "index": p.get("index")}
@@ -839,7 +808,7 @@ def compact_setup(opp):
 _DECISION_RECEIPT_KEYS = ("receipts_unavailable", "note", "years_tested", "wins", "losses",
                           "historical_win_rate", "avg_return_pct", "best_year", "worst_year",
                           "curve_summary", "live_track_record", "source", "as_of")
-_DECISION_STAT_KEYS = ("historical_win_rate", "sharpe_ratio", "avg_return_pct", "years")
+_DECISION_STAT_KEYS = ("historical_win_rate", "sharpe_ratio", "avg_return_pct", "years", "years_tested")
 
 
 def project_card(card, view="full"):
@@ -895,6 +864,7 @@ def _card_row(card):
         "hold_days": setup.get("hold_days"),
         "edge_score": card.get("edge_score"),
         "historical_win_rate": stats.get("historical_win_rate"),
+        "years_tested": (card.get("receipts") or {}).get("years_tested"),
         "ml_win_prob": ml.get("ml_win_prob"),
         "sharpe_ratio": stats.get("sharpe_ratio"),
         "headline": card.get("headline"),

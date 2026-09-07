@@ -24,11 +24,9 @@ from .gateway_redis import create_client
 
 log = logging.getLogger("apiserver.scan_cache")
 
-# v2 invalidates scan cores written before the public API normalized ``days_out``
-# to TradeWave's inclusive calendar-day count. Without a namespace bump, a warm
-# Redis entry can briefly reintroduce the legacy off-by-one value after deployment.
-_CACHE_SCHEMA = 2
-_CACHE_PREFIX = "tw:api:scan-core:v2:"
+# Direction and completed-cohort semantics are part of the cached evidence contract.
+_CACHE_SCHEMA = 3
+_CACHE_PREFIX = "tw:api:scan-core:v3:"
 _FLIGHT_RESULT_TTL_SECONDS = 2
 _redis = create_client()
 _local_build_slots = threading.BoundedSemaphore(settings.SCAN_CACHE_LOCAL_BUILD_SLOTS)

@@ -37,6 +37,25 @@ def _run(awaitable):
     return asyncio.run(awaitable)
 
 
+@pytest.mark.parametrize("count", [10, 11])
+def test_text_evidence_reports_completed_sample_not_lookback_label(count):
+    text = server._widget_text_fallback({"card": {
+        "symbol": "AAPL", "direction": "long",
+        "stats": {"historical_win_rate": .4, "years": "10", "years_tested": count},
+        "receipts": {"years_tested": count},
+    }})
+    assert f"over {count} completed years" in text
+    assert "over 10 years" not in text
+
+
+def test_unavailable_receipts_do_not_turn_requested_years_into_verified_sample():
+    text = server._widget_text_fallback({"card": {
+        "symbol": "AAPL", "stats": {"historical_win_rate": .9, "years": "10"},
+        "receipts": {"years_tested": None, "receipts_unavailable": True},
+    }})
+    assert "over 10" not in text
+
+
 @pytest.fixture
 def captured(monkeypatch):
     """Mock server._get and capture the (path, params) the tool sent to the gateway."""

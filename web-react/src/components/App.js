@@ -9,6 +9,7 @@
 
 import React, { useState, useLayoutEffect, useEffect, useMemo, useRef, useCallback } from "react"
 import ReactDOM from 'react-dom'
+import { parseViewerPatternLink, linkedPatternDirection } from './viewerPatternLink'
 import { getTodayDate, monthsOptionsList, DarkBGColor, LightBGColor } from './Common'
 import * as rdd from 'react-device-detect';
 import LessonBox from './LessonBox'
@@ -612,6 +613,8 @@ const App = () => {
   const taraAbortersRef = useRef(createTaraLoadAborters());
   const chatbotTipTimerRef = useRef(null);
   const queryStringLoadedRef = useRef(false);
+  const [queryStringApplied, SetQueryStringApplied] = useState(() => !new URLSearchParams(window.location.search).has('o'));
+  const [linkedPattern, SetLinkedPattern] = useState(null);
   const askHandledRef = useRef(false);  // one-shot guard for home-page ?ask= deep-link
   const arrivedViaPatternLink = useRef(window.location.search.length > 0 && window.location.search !== '?set=on');
   const historyInitialized = useRef(false);  // true after first URL is written
@@ -954,6 +957,7 @@ const App = () => {
     if (window.location.search.length > 0) {
       window.history.replaceState(null, '', window.location.pathname);
       queryStringLoadedRef.current = true;
+      SetQueryStringApplied(true);
       historyInitialized.current = false;
     }
     SetOpportunities([]); // clear opp table; a new fetch follows for the new market
@@ -1577,6 +1581,7 @@ const App = () => {
         if (window.location.search.length > 0) {
           window.history.replaceState(null, '', window.location.pathname);
           queryStringLoadedRef.current = true;
+          SetQueryStringApplied(true);
           historyInitialized.current = false;
         }
 
@@ -1632,6 +1637,7 @@ const App = () => {
         if (window.location.search.length > 0) {
           window.history.replaceState(null, '', window.location.pathname);
           queryStringLoadedRef.current = true;
+          SetQueryStringApplied(true);
           historyInitialized.current = false;
         }
 
@@ -1773,7 +1779,12 @@ const App = () => {
     SetChatbotIconBlink(false);
   };
 
+  const chartDirection = linkedPatternDirection(linkedPattern, {
+    resource: selectedSecurity, symbol, date: startDate, days: daysOut,
+    years: PEselected && PEselected !== 'cons' ? PEselected + '-' + seasonalYears : seasonalYears,
+  });
   const chartProps = {
+    chartDirection,
     startDate,
     symbol,
     company,
@@ -3092,29 +3103,25 @@ const App = () => {
         let urlParams = new URLSearchParams(queryString);
         let b64 = urlParams.get('o');
 
-        let param_str;
-        try { param_str = window.atob(b64); } catch (e) { console.error('Invalid querystring base64:', e.message); window.history.replaceState(null, '', window.location.href.split('?')[0]); return; }
-        // console.log('decoded=',param_str)
-
-        let params = param_str.split('|')
-
-
-        // the reason for opportunities.length > 0 is that there was a timing issue - pull down would change but
-        // kept the old list - by checking opportunities.length > 0 - its delaying the update until other things are 
-        // loaded and ready
-
-        if (token && b64 !== null && token.length > 0 && Object.keys(resourceObj).length > 0 && queryString.length > 0 && opportunities.length > 0) {
-          // let urlParams = new URLSearchParams(queryString);
-          let fg_id = params[0];
-          let resource_group = resourceObj[parseInt(fg_id)]
-          let symbol = params[1];
-          let date1 = params[2];
-          let days_hold = params[3];
-          let history_years = params[4].toLowerCase(); // tolowercase is because reports pass PE1 PE2  ..  app recognizes pe1 pe2 ..
-
-          if (fg_id === null || resource_group === null || symbol === null || date1 === null || days_hold === null || history_years === null) {
-            return
+        // A valid market catalog and authenticated session are sufficient. An
+        // empty opportunity table is a normal state, not a chart dependency.
+        if (token && b64 !== null && token.length > 0 && Object.keys(resourceObj).length > 0) {
+          const link = parseViewerPatternLink(queryString, resourceObj);
+          if (!link) {
+            urlParams.delete('o');
+            urlParams.delete('direction');
+            const remaining = urlParams.toString();
+            window.history.replaceState(null, '', window.location.pathname + (remaining ? '?' + remaining : ''));
+            queryStringLoadedRef.current = true;
+            SetQueryStringApplied(true);
+            return;
           }
+          const resource_group = link.resource;
+          const symbol = link.symbol;
+          const date1 = link.date;
+          const days_hold = link.days;
+          const history_years = link.years;
+          SetLinkedPattern(link);
 
 
           // SetStartDate(date1)
@@ -3194,11 +3201,12 @@ const App = () => {
 
           // keep the querystring in the URL so users can share pattern links
           queryStringLoadedRef.current = true;
+          SetQueryStringApplied(true);
         }
       }
     }
 
-  }, [token, Object.keys(resourceObj).length, opportunities.length])
+  }, [token, Object.keys(resourceObj).length])
 
   //-------------------------------------------------------------------------------
   // Keep URL querystring in sync with current pattern so the URL is always shareable
@@ -3206,6 +3214,7 @@ const App = () => {
   // browser back button walks through previously viewed patterns.
   //-------------------------------------------------------------------------------
   useEffect(() => {
+    if (!queryStringApplied) return;
     if (!symbol || !startDate || !selectedSecurity || !daysOut) return;
     if (Object.keys(resourceObj).length === 0) return;
 
@@ -3228,7 +3237,8 @@ const App = () => {
     // Preserve an explicit landing view while keeping legacy ?o= links unchanged.
     const requestedView = new URLSearchParams(window.location.search).get('view');
     const viewSuffix = requestedView ? '&view=' + encodeURIComponent(requestedView) : '';
-    const newUrl = window.location.pathname + '?o=' + b64 + viewSuffix;
+    const directionSuffix = chartDirection ? '&direction=' + chartDirection : '';
+    const newUrl = window.location.pathname + '?o=' + encodeURIComponent(b64) + viewSuffix + directionSuffix;
 
     const patternKey = symbol + '|' + startDate;
 
@@ -3248,7 +3258,7 @@ const App = () => {
     }
 
     prevPatternKey.current = patternKey;
-  }, [symbol, startDate, daysOut, seasonalYears, PEselected, selectedSecurity, Object.keys(resourceObj).length])
+  }, [symbol, startDate, daysOut, seasonalYears, PEselected, selectedSecurity, Object.keys(resourceObj).length, queryStringApplied, chartDirection])
 
   //-------------------------------------------------------------------------------
   // Handle browser back/forward button to restore previous patterns
@@ -3258,24 +3268,19 @@ const App = () => {
       const state = event.state;
       if (!state || !state.tw) return;
       if (!token || token.length === 0 || Object.keys(resourceObj).length === 0) return;
-
-      let param_str;
-      try { param_str = window.atob(state.tw); } catch (e) { return; }
-      const params = param_str.split('|');
-      if (params.length < 5) return;
-
-      const fg_id = params[0];
-      const resource_group = resourceObj[parseInt(fg_id)];
-      if (!resource_group) return;
-
-      const sym = params[1];
-      const date1 = params[2];
-      const days_hold = params[3];
-      const history_years = params[4].toLowerCase();
+      const restoredLink = parseViewerPatternLink(window.location.search, resourceObj);
+      if (!restoredLink) return;
+      const resource_group = restoredLink.resource;
+      const sym = restoredLink.symbol;
+      const date1 = restoredLink.date;
+      const days_hold = restoredLink.days;
+      const history_years = restoredLink.years;
 
       isPopstateNav.current = true;
       prevPatternKey.current = sym + '|' + date1;
 
+      ReactDOM.unstable_batchedUpdates(() => {
+      SetLinkedPattern(restoredLink);
       SetStartDate(date1);
       SetSymbol(sym);
       SetDaysOut(days_hold);
@@ -3298,7 +3303,7 @@ const App = () => {
       let trend_chart_start_date = incrementDate(date1, -trend_chart_left_gap_days);
       SetTrendChartStartDate(trend_chart_start_date);
       SetSelectedSecurity(resource_group);
-      SetOpportunities([]);
+      });
     };
 
     window.addEventListener('popstate', handlePopState);

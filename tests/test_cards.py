@@ -19,10 +19,11 @@ AS_OF = "2026-06-08"
 _LONG_ENTRIES = (
     [{"year": y, "pct": "%.2f,%.2f,-1.00" % (4.0, 6.0)} for y in range(2015, 2024)]
     + [{"year": 2024, "pct": "-3.00,2.00,-5.00"}]            # the one losing year
-    + [{"year": 2025, "pct": "0,0,0"}]                         # zero stub -> excluded
+    + [{"year": 2025, "pct": "0,0,0", "completed": False}]   # explicit placeholder
 )
 
 _STATS = {
+    "Trade Dir": "long",
     "Percent Profitable": "90%", "Sharpe Ratio": "1.5", "Avg Profit - All": "5%",
     "Median Profit": "3%", "Std Dev": "3.40%", "Annualized Return": "4%",
     "Cumulative Return": "50%", "Sharpe Ratio2": "1.80",
@@ -67,7 +68,7 @@ def test_wave_viewer_link_opens_exact_pattern(monkeypatch):
     encoded = link["url"].split("?o=", 1)[1].split("&", 1)[0]
     encoded += "=" * (-len(encoded) % 4)
     assert base64.b64decode(encoded).decode() == "2|TEST|2026-07-01|21|10"
-    assert link["url"].endswith("&view=evidence")
+    assert link["url"].endswith("&view=evidence&direction=long")
 
 
 def test_setup_timing_is_computed():
@@ -85,9 +86,11 @@ def test_setup_exit_date_counts_entry_as_calendar_day_one():
 def test_extended_stats_present_and_parsed():
     s = _build()["stats"]
     assert s["sharpe_ratio_mfe"] == 1.8
-    assert s["std_dev_pct"] == 3.4
-    assert s["annualized_return_pct"] == 4.0
-    assert s["cumulative_return_pct"] == 50.0
+    assert s["std_dev_pct"] == 2.21
+    assert s["avg_return_pct"] == 3.3
+    assert s["median_return_pct"] == 4.0
+    assert s["annualized_return_pct"] == 3.28
+    assert s["cumulative_return_pct"] == 38.06
 
 
 def test_extend_research_block():
@@ -169,11 +172,13 @@ def test_per_year_bars_short_flips_net_and_swaps_excursions():
     assert b["result"] == "loss"
 
 
-def test_short_aggregate_stats_are_not_double_flipped():
-    # the appserver's aggregate stats arrive already trade-relative; cards must NOT re-flip.
+def test_short_aggregate_stats_use_the_same_trade_returns_as_receipts():
+    # Inconsistent upstream aggregates cannot overwrite the direction-aware evidence.
     s = _build(direction="short")["stats"]
-    assert s["annualized_return_pct"] == 4.0
-    assert s["cumulative_return_pct"] == 50.0
+    assert s["avg_return_pct"] == -3.3
+    assert s["annualized_return_pct"] < 0
+    assert s["cumulative_return_pct"] < 0
+    assert s["sharpe_ratio"] is None  # the fixture's aggregate is explicitly long
 
 
 def test_excursions_parsing():
@@ -216,7 +221,7 @@ def test_project_decision_trims_but_keeps_decision_essentials():
     c = _build()
     d = cards.project_card(c, "decision")
     assert "per_year" not in d["receipts"]                    # heavy array dropped
-    assert set(d["stats"]) == {"historical_win_rate", "sharpe_ratio", "avg_return_pct", "years"}
+    assert set(d["stats"]) == {"historical_win_rate", "sharpe_ratio", "avg_return_pct", "years", "years_tested"}
     assert "edge_basis" not in d                              # detail dropped
     # token trim (2026-06-12 review): extend_research is per-card fixed-cost text; the MCP
     # envelope hand-off carries the same methodology once, so 'decision' drops it.
@@ -231,7 +236,7 @@ def test_project_table_is_a_compact_row():
     row = cards.project_card(_build(), "table")
     assert set(row) == {"rank", "symbol", "market", "direction", "bias", "entry_date",
                         "hold_days", "edge_score", "historical_win_rate", "ml_win_prob",
-                        "sharpe_ratio", "headline", "wave_viewer"}
+                        "sharpe_ratio", "headline", "wave_viewer", "years_tested"}
     assert row["symbol"] == "TEST" and row["market"] == "S&P 500 STOCKS"
 
 
@@ -254,7 +259,7 @@ def _build_custom(win_rate, sharpe, n_entries):
     opp = {"symbol": "TST", "market": "2", "direction": "long", "entry_date": "2026-07-01",
            "days_out": 21, "years": str(max(n_entries, 1)), "win_rate": win_rate,
            "avg_profit_pct": 2.0, "sharpe_ratio": sharpe}
-    return cards.build_pattern_card(opp, dict(_STATS), entries, market_name="S&P 500",
+    return cards.build_pattern_card(opp, {**_STATS, "Sharpe Ratio": sharpe}, entries, market_name="S&P 500",
                                    as_of=AS_OF, ml_state="market")
 
 
