@@ -1086,6 +1086,12 @@ paid standalone API price display remains separately gated as described below.
 **Contract:** `api/openapi.yaml` (12 endpoints) + `api/MCP_TOOLS.md` (17 tools - 6
 flagship + 11 primitives).
 
+**Future enhancements:** `api/MCP_INTEGRATION_ROADMAP.md` owns the maintained MCP/API
+backlog. Its September 7, 2026 list puts user-requested Portfolio Manager read/write
+access first (MCP-01). This is planned functionality: the current public API and MCP
+do not expose portfolio operations. The roadmap separates saved research-pattern
+management from brokerage holdings or personalized portfolio recommendations.
+
 **Data shapes (verified vs the appserver):** opportunities = OppList4/OppBySymbol;
 `win_rate` = the share of strictly profitable completed trade observations,
 enriched per-symbol + cached gateway-side (redis db4, 6h TTL, direction in the key);

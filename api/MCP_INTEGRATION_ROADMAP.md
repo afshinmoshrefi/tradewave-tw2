@@ -1,4 +1,99 @@
-# TradeWave MCP/API Integration — Research Blueprint
+# TradeWave MCP/API Enhancement Roadmap
+
+Updated September 7, 2026. This is the maintained list of future MCP/API enhancements.
+Portfolio Manager access is the owner's explicit high-priority request. The remaining
+ordering is proposed and can be adjusted. Entries below are planning items, not shipped
+capabilities or authorization to implement, publish, notify users, or place trades.
+
+## Prioritized Enhancement List
+
+| ID | Priority | Enhancement | Desired User Experience | API/MCP Work and Completion Condition |
+|---|---|---|---|---|
+| MCP-01 | **First: owner-requested** | **Portfolio Manager read/write access** | “Show my portfolios,” “What patterns are saved here?” and “Add this exact pattern to my research portfolio.” | Authenticated API operations and MCP tools to list portfolios, read saved patterns and add a selected pattern. Follow with create/rename, notes/tags, move and remove. Read back the saved result and verify it matches the website. See the detailed first-release scope below. |
+| MCP-02 | Next | Watchlist access and scanning | Read and edit named watchlists, then ask “What is seasonal in these symbols?” | User-scoped API/MCP watchlist operations; scan only the selected symbols; explicit empty-list, unavailable-data and quota outcomes. Reuse the identity boundary built for MCP-01. This remains an unimplemented item from the earlier plan. |
+| MCP-03 | Next | Saved scans and reusable research settings | “Run my usual ETF scan” without restating every filter. | Persist named market/filter/ranking/window/lookback/PE presets, with explicit defaults and a preview of the resolved request. Reloading a preset must reproduce the same settings; relative dates must be labeled. |
+| MCP-04 | Next | Alerts and calendar reminders | Set, inspect, change or cancel a reminder for a saved pattern's entry or exit. | Connect existing web reminder capabilities to user-scoped API/MCP operations. Respect timezone, inclusive calendar-day windows and notification choices. Avoid duplicate reminders on retries. Recurring change alerts depend on MCP-06. |
+| MCP-05 | Next | Reports, exports and controlled sharing | Generate a report or export a researched setup without leaving the conversation. | Expose the existing report workflow through the API/MCP; provide supported structured-data and chart exports. Keep private report creation separate from an explicit request to publish/share. Preserve the exact pattern, evidence dates and source labels in every export. |
+| MCP-06 | Later | Research history and “what changed?” | “What changed since I last looked at this setup?” | Store versioned snapshots of the same requested pattern, then explain actual changes in evidence, scores or timing. Distinguish revised data, a changed model and changed research settings. Do not reconstruct a historical result from today's data and label it a past snapshot. |
+| MCP-07 | Later | Advanced pattern comparisons | Compare exact setups, different holds/lookbacks, or consecutive versus PE-cycle evidence side by side. | Extend the existing ticker comparison tool with explicit pattern identities, aligned tables and chart overlays. Preserve different cohorts and sample counts rather than implying all comparisons used the same evidence. |
+| MCP-08 | Later | Earnings and event context | See whether a researched window overlaps a relevant known or estimated event. | Add source/date/coverage-aware event fields and clear estimated/unknown labels. Confirm available data coverage before implementation; an absent event must not be presented as proof that none exists. |
+| MCP-09 | Next | Evidence provenance and score calibration | Understand when evidence was refreshed, which model produced a score, and how comparable past scores performed. | Extend existing as-of dates and receipts with stable analysis/data/model versions, explicit units and reproducible cohort identifiers. Persist scores when issued before building calibration summaries; show denominators and limited samples. |
+| MCP-10 | Next | Consistent presentation across MCP clients | Get readable evidence and usable charts in each supported assistant; open or save the exact displayed setup. | Maintain a tested client compatibility matrix, widget and text/data fallback behavior, honest tool descriptions and exact-link round trips. Add save-to-portfolio actions after MCP-01. Existing widgets/charts are the starting point. |
+| MCP-11 | Next | Developer API and SDK completeness | Integrate the same capabilities reliably from an application or agent. | Audit and extend the existing Python/TypeScript SDKs, generated schemas, examples and error handling with each API change. Define compatibility/versioning, consistent batch semantics and stable pagination. Add resumable background jobs with progress/cancellation only for measured long-running workloads. |
+| MCP-12 | Next | Connection diagnostics and automated journey checks | Understand account access and reconnect problems, while operators detect regressions before users do. | Extend existing account/usage discovery with supported capabilities and read/write grants. Add credential-safe request identifiers and repeatable new-account, OAuth, quota, API-to-MCP and link-to-viewer checks, plus bounded load/recovery coverage. Build on the current tests and live verification; do not replace them with health-status checks alone. |
+
+## MCP-01: Portfolio Manager First Release
+
+**Current state, verified September 7:** the 17 published MCP tools and public v1 API have
+no portfolio operations. The website has internal portfolio listing and saved-report/pattern
+operations. OAuth already identifies the connected TradeWave account; a safe user-scoped
+portfolio bridge still needs to be built.
+
+The first release should support this complete loop:
+
+1. List the user's portfolio names and saved-pattern counts.
+2. Read the saved pattern configurations in a selected portfolio.
+3. Add the exact researched pattern to the selected portfolio from an MCP conversation
+   or a compatible widget. API clients use the same underlying operation.
+4. Return the portfolio/item identifiers, whether the item was newly added or already
+   present, and a link that opens the same saved pattern in the website.
+
+Follow-on management: create/rename portfolios, edit supported notes/tags, move patterns,
+and remove selected saved items. These use the same ownership and consistency controls.
+
+A saved pattern must retain market, symbol, entry date, inclusive calendar-day duration,
+long/short direction, lookback and PE-cycle/year-set selection. Display names are not
+sufficient identifiers. TradeWave windows use calendar days: entry is day 1, so
+`exit_date = entry_date + (days - 1)`. Returned year/lookback labels remain strings.
+
+Implementation requirements:
+
+- Resolve the caller to their own TradeWave account; never accept an arbitrary customer
+  ID from the model or let a shared service identity select another user's portfolio.
+  Define least-privilege read/write grants and enforce existing plan/portfolio limits.
+- Design the gateway-to-engine user delegation explicitly. Do not turn the existing
+  shared research service token into an unrestricted impersonation capability.
+- Make save retries idempotent and concurrent web/API/MCP edits safe. Audit existing
+  list-based storage and duplicate detection before exposing new writers.
+- Act on clear user intent and a selected destination. Clarify ambiguous destinations
+  or ambiguous bulk/destructive requests; do not ask repeatedly for a simple save the
+  user has already authorized.
+- Saving a pattern must not silently publish a report, enable notifications or execute
+  a broker order. Return a truthful success or failure and verify the website read-back.
+- Cover cross-account isolation, expired credentials, quota boundaries, duplicate
+  retries, simultaneous edits, unusual names, and full pattern-identity round trips.
+
+This item concerns the user's saved research library in TradeWave's Portfolio Manager.
+Reading brokerage positions, cost basis or P&L for personalized portfolio recommendations
+is a separate product scope. Earlier research text about `scan_my_portfolio` does not
+remove the owner's current request to read and save research patterns.
+
+## Existing Capabilities and Release Work
+
+The current surface already includes seasonal scans, symbol analysis, basic ticker
+comparisons, the morning briefing, daily-pick history, chart/evidence payloads, response
+views, account/usage discovery, OAuth/BYOK authentication, and Python/TypeScript SDKs.
+Future work above extends those capabilities; it does not treat them as absent.
+
+The September 7 correctness and recovery repairs are existing implementation work,
+documented in [the ecosystem reference](../docs/TRADEWAVE_ECOSYSTEM.md#7a-tw2-v2---public-api-gateway--mcp-live-on-prod-since-2026-07-04).
+Their remaining staging/production qualification is release work, not a feature to defer
+into this backlog. No staging or production deployment is authorized by creating this list.
+
+## Maintenance
+
+Use this file as the one enhancement list. Keep each item's ID, priority, scope and status
+current when implementation starts, then link the tested commit and verified environment
+when it ships. Current tool/API behavior remains canonical in [MCP_TOOLS.md](MCP_TOOLS.md),
+[openapi.yaml](openapi.yaml) and the ecosystem reference. Working-memory entries should
+point here rather than keeping a competing list.
+
+## Historical Research Blueprint: June 8, 2026
+
+The original research below is retained for rationale. Its tool counts, “today” statements,
+phase priorities, proposed names and feature-availability claims are historical. Several
+items have shipped or been superseded. The current list and MCP-01 scope above govern
+future planning; this archive is not a statement of present capabilities or legal advice.
 
 How to make the TradeWave MCP integration (ChatGPT/Claude) and its API analogue *stunningly useful*
 for securities researchers. Synthesized from a 15-agent persona panel + a 5-agent charting study +
