@@ -443,6 +443,81 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `smn-review-20260905/subscription-editorial-20260907/results/COST/article.html`,
   `findings.md` and `pilot-summary.json` in the same pilot directory.
 
+  **Six subscription articles published on SMN Dev, September 8, 2026.**
+  The owner explicitly authorized recreating that day's production articles
+  through the existing ChatGPT subscription and publishing them on Dev only.
+  This supersedes the earlier no-deployment instruction only for this manually
+  initiated static edition. It does not authorize production, a recurring
+  scheduler, distribution, a new server login or replacement of the live app.
+  Dev edition: https://smn-dev.trxstat.com/editions/2026-09-08/ . Each of its
+  six cards links to the recreated article and the production original.
+
+  Subjects and selected seasonal dates/day counts are preserved: HPQ, MRK,
+  QQQ, XLK, SPX and GC. New writers received primary-source evidence and
+  deterministic TradeWave history, not the old article prose. Annual charts
+  use 20 completed windows; overlapping midterm and era samples are secondary
+  comparisons. This is the updated method on production-selected subjects,
+  not a controlled model-only comparison with identical historical inputs.
+  Each article retains two native responsive TradeWave charts, the study
+  parameters/link, statistics and expandable samples, one additional factual
+  chart, one summary and a hero. Four built-in image edits removed garbled
+  lettering; two inspected production heroes were reused. Numeric graphics
+  were drawn by Python, with no image model supplying their values.
+
+  Official Codex CLI 0.153.1, saved ChatGPT authentication, Astra Extra High:
+  22 completed writing/review turns, 376,723 input and 124,423
+  output tokens (including 102,854 reasoning) in 4,551.377 worker seconds.
+  No paid OpenAI API writing calls or automatic API fallback occurred. This
+  does not price subscriptions, built-in image usage, existing market data,
+  research, or the coordinating session at zero. Account-wide meter changes
+  cannot establish the article-only cost or capacity of a dedicated $20 plan.
+  HPQ and MRK required substantive reader-payoff revisions; QQQ received a
+  targeted opening/conclusion improvement. Final independent editorial checks,
+  source allowances and local/live desktop/mobile page checks passed. Reviewed
+  text and image files are bound to recorded evidence and hashes. No article
+  prose was manually rewritten after its final subscription review.
+  Owner review of this new six-article edition remains pending. Source-cap
+  holds required small additional copy edits for MRK and QQQ; Python verified
+  the exact proposed edits before the final subscription runs. Future jobs
+  should reserve heading and accessibility wording before drafting to avoid
+  spending another review cycle on a few excess words.
+
+  Source: `codex/smn-dev-edition-20260908`, exact pushed SMN commit
+  `d5f1f8bf051e829292083cf13df122d5eb5a290b` (continuing accepted private `672eeb0`).
+  `blog/SUBSCRIPTION_DEV_PUBLICATION.md` records the protocol. The new static
+  installer accepts only hostname SMN / IP 192.168.1.180 / smn-dev.trxstat.com,
+  verifies its package, takes a brief dev lock, backs up affected files and
+  rolls back write failures. It installed the six articles, their public
+  assets, a dated landing page, Dev catalogs and a homepage edition section.
+  Existing source checkout, services, queues, distribution and older article
+  files were preserved. Production article bytes were independently confirmed
+  unchanged. This does not qualify the whole application for staging.
+
+  Checks: 46 focused source/publication tests, followed by 22 chart/seasonal
+  checks after a reference-label refinement (some checks overlap). Fixes include
+  correct treatment of an initial incomplete retained-history window, precise
+  SPX and GC measurement language, unsigned holdings weights, safe rendering
+  of exact TradeWave links emitted in Markdown, and reference-chart labels
+  that keep their qualification on desktop/mobile exports.
+
+  **Data limitations remain material.** Five annual histories passed their
+  exchange-session checks. GC's independent calendar audit remains held;
+  historical provider dating and contract-roll construction are unreconciled.
+  Its Dev article is an explicitly labelled reference-series illustration,
+  calculated from available recorded observations without filling prices or
+  pretending the strict audit passed. It is not a validated futures strategy
+  or futures-account return and remains ineligible for production. Also, the
+  edition uses first/last closes inside inclusive dates, while existing
+  ChartData4 may advance its endpoint and adjust leap crossings. The five
+  viewer parameters are verified, but numerical parity with that endpoint is
+  not established. Resolve both issues before production integration.
+
+  Exact public package, originals, primary evidence, job/review receipts,
+  charts, local/live screenshots, installation and integrity results:
+  `smn-review-20260908/subscription-dev-edition/` in the owner's orchestrator
+  workspace, particularly `edition-summary.json` and `dev-install-receipt.json`.
+  Dev rollback backup: `/var/lib/tradewave/release-state/subscription-2026-09-08-145248-da767c67`.
+
   **Visual financial-news editing completed privately (2026-09-07 UTC).**
   **Owner review: seasonal product continuity rejected.** The JPM-v3 layout
   below passed technical checks but failed the owner's SMN identity requirement.
