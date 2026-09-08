@@ -476,7 +476,8 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   source allowances and local/live desktop/mobile page checks passed. Reviewed
   text and image files are bound to recorded evidence and hashes. No article
   prose was manually rewritten after its final subscription review.
-  Owner review of this new six-article edition remains pending. Source-cap
+  The owner subsequently requested the exact-sample price-path addition recorded
+  below. Source-cap
   holds required small additional copy edits for MRK and QQQ; Python verified
   the exact proposed edits before the final subscription runs. Future jobs
   should reserve heading and accessibility wording before drafting to avoid
@@ -517,6 +518,56 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `smn-review-20260908/subscription-dev-edition/` in the owner's orchestrator
   workspace, particularly `edition-summary.json` and `dev-install-receipt.json`.
   Dev rollback backup: `/var/lib/tradewave/release-state/subscription-2026-09-08-145248-da767c67`.
+
+  **Article-specific price/seasonal paths added on SMN Dev (September 8).**
+  The owner explicitly requested recreating all six Dev articles with the old
+  price-plus-projection concept, calculated from each new article's own analysis
+  years. The production articles' different year samples must not supply these
+  new paths. Source `codex/smn-price-path-20260908`, exact pushed SMN commit
+  `651fbb75e4fd04699ab46f6b2e2bbcc900ec760c`, continues `d5f1f8b`; it preserves
+  the accepted private generator lineage and leaves the live app checkout intact.
+
+  `seasonal_price_path.py` binds the retained daily dataset and its audit to the
+  article card, reproduces every selected annual net/MFE/MAE observation, and
+  computes the pointwise median of individually normalized historical close
+  paths. The sampled year list is explicit, not a hardcoded 20-year default;
+  this edition's six articles happen to use 2006-2025. Calendar offsets align
+  each path to its own analysis window, using the latest recorded close on or
+  before each date. The 60-calendar-day horizon includes its anchor and is
+  distinct from the full-window annual return. No annual extrema, arbitrary
+  cycle drift or production consolidated curve is substituted for daily data.
+
+  In the new format, `seasonal_contract.price_path_required=True` requires
+  verified daily inputs in `source.price_path_input`. Missing inputs hold
+  generation/rendering instead of silently dropping the chart. The renderer
+  inserts the new figure after the opening. Desktop joins a year of observed
+  prices to the dashed orange historical illustration. Mobile keeps the same
+  values in two labelled panels, expanding the path with its own price scale.
+  Captions identify actual sample years, dated price anchors and illustrative
+  meaning; the downloadable path contains percentages, not raw provider prices.
+  Publication binds the exact figure wording, evidence and asset hashes to
+  the review. Earlier artifact bundles remain readable for comparison.
+
+  All six revised articles are live at the same September 8 Dev URLs. Their
+  original article JSON, heroes, existing native/editorial assets, statistics
+  and TradeWave study links remain byte-for-byte preserved where applicable.
+  Thirty-seven focused tests passed, with five publication tests repeated after
+  the final wording-binding guard. All 120 annual observations reconciled;
+  local/live desktop/mobile checks and 97 public-file hashes passed. Seven
+  subscription review turns used 138,479 input and 20,978 output tokens (15,862
+  reasoning), with zero new paid OpenAI API or image-generation calls. A review
+  suggestion to map historical September 12 to plotted September 7 for GC was
+  rejected: every retained path actually anchors on historical September 7.
+  Model review suggestions must be checked against the calculation.
+
+  GC's reference-series qualification and independent calendar hold remain;
+  the separate viewer endpoint-convention limitation above is unchanged. No
+  source-service, queue, login, production or distribution activation occurred.
+  The six production article hashes and Dev app checkout were verified unchanged.
+  This static edition update does not qualify the application for production.
+  Complete source/review/publication/rollback evidence and readable notes:
+  `smn-review-20260908/subscription-price-path/`, especially `README.md`,
+  `edition-summary.json`, `review-resolution.json` and `dev-install-receipt.json`.
 
   **Visual financial-news editing completed privately (2026-09-07 UTC).**
   **Owner review: seasonal product continuity rejected.** The JPM-v3 layout
