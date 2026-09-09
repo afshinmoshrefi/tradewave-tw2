@@ -2715,3 +2715,51 @@ historical files. This doc supersedes the collective memory content.
   gunicorn-reload), `reference_tw_level_gating`, `reference_tw1_*`, `user_profile`.
 - **Going forward:** memories should be short pointers/deltas; this doc carries the
   full picture.
+# Standalone DEV CSV refresh
+
+The scorer at 192.168.1.215 receives US, ETF, INDX and COMM CSVs from
+192.168.1.176. Daily price transport must not depend on whole-universe scoring
+readiness: an incomplete ETF population previously prevented every CSV from
+updating. `sync_dev_csv.sh` copies available CSVs under the source updater lock,
+checks checksums for same-date corrections, restarts the scorer when data changes,
+then evaluates the authoritative marker and all 26 context-series dates.
+
+The operational script is installed separately from the immutable application
+release, at `/usr/local/libexec/ml-scorer/sync_dev_csv.sh`. Deployment of this
+maintenance script does not change models, application code or the active release.
+The former `sync_dev_data.sh` cron entry is replaced, not run alongside it.
+
+```cron
+40 3-5 * * 2-6 ML_SCORER_DEV_DATA_SOURCE=root@192.168.1.176 /usr/bin/flock -n /run/lock/ml-scorer-dev-data-sync-cron.lock /usr/local/libexec/ml-scorer/sync_dev_csv.sh >> /var/log/ml_scorer_data_sync.log 2>&1
+```
+
+Install from a clean committed checkout, as root on the DEV scorer:
+
+```sh
+bash -n ml_scorer/sync_dev_csv.sh
+/home/flask/venv/bin/python tests/test_dev_csv_refresh.py
+install -d -m 0755 /usr/local/libexec/ml-scorer
+install -m 0755 ml_scorer/sync_dev_csv.sh /usr/local/libexec/ml-scorer/sync_dev_csv.sh
+```
+
+`/var/lib/ml_scorer/dev-data-transfer.json` records transfer time, changed file
+count, scorer data date and precise readiness blockers. Exit 3 means transport
+succeeded but scoring is not ready. Other nonzero exits indicate operational
+failure. `dev-data-generation.json` advances only when the authoritative marker
+is valid, unchanged through transfer, all context dates match the expected session,
+and the scorer health/schema/date checks pass. A failed run never claims a ready
+generation. Unchanged CSVs do not trigger a restart.
+
+## September 9 investigation
+
+- Cron was installed and running. Its early marker check returned a successful
+  no-op indefinitely, leaving the scorer at August 17.
+- Dev's ETF resource list and the central server's list diverged: 149 of dev's
+  432 target files were absent. Its September 8 marker had only 271 current ETF
+  targets (62.7% coverage against a 90% floor).
+- EODHD's direct ADVN.INDX and DECN.INDX responses stopped at August 28 even
+  though the direct AGQ.US response included September 9. This is an additional
+  upstream freshness problem, independent of cron and the ETF coverage gate.
+- Do not relabel old breadth rows or lower readiness thresholds to manufacture
+  a current generation. The transfer fix updates available prices while retaining
+  these blockers in the status report for upstream repair.
