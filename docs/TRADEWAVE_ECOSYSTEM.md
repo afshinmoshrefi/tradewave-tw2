@@ -18,6 +18,22 @@
 
 ## 1. The mental model (internalize this)
 
+- **Never duplicate a calculation TradeWave already provides (owner reaffirmed
+  September 9, 2026).** This applies to ALL mathematical TradeWave outputs,
+  not only seasonality. Clients, content generators, charts and AI workflows
+  must consume the engine's results unchanged for the identical study inputs.
+  No second implementation, alternative formula, client-side correction or
+  recalculation fallback is permitted for an existing TradeWave calculation.
+  Suspected errors must be reported as TradeWave engine bugs, discussed with
+  Afshin, and corrected in that engine after agreement. A genuinely new
+  calculation unavailable in TradeWave may be developed separately; first
+  establish that it is absent. Check output fidelity by comparing consumed
+  values with the engine response, not by creating another calculation engine.
+  Rendering and editorial work do not authorize changing mathematical rules.
+  Required agent workflow: `.claude/skills/tradewave-calculation-authority/SKILL.md`,
+  loaded by `CLAUDE.md` for work involving these outputs. Skill installation is
+  an instruction safeguard; the faulty SMN client still needs implementation
+  remediation and response-fidelity checks before it can be accepted.
 - **The appserver is the data engine.** It is the ONLY component with the market
   data (CSV/parquet) and the seasonal-pattern computation. **Everything else -
   the React wave-viewer, the web tier, every content generator (home page,
@@ -443,7 +459,45 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `smn-review-20260905/subscription-editorial-20260907/results/COST/article.html`,
   `findings.md` and `pilot-summary.json` in the same pilot directory.
 
-  **Six subscription articles published on SMN Dev, September 8, 2026.**
+  **Owner correction and verified calculation divergence, September 9, 2026.**
+  The September 8 edition below is NOT an accepted mathematical implementation.
+  Its independent calculations violate the engine-only requirement in section 1;
+  prior numerical checks established internal consistency, not TradeWave parity.
+  Writing and visual improvements remain useful, but do not approve these numbers.
+  The owner explicitly prohibits duplicating ANY existing TradeWave calculation,
+  even when the engine result appears wrong. Report a bug and discuss an engine
+  change with Afshin instead. This clarification does not authorize an engine
+  change, article regeneration or deployment during the investigation.
+
+  Verified MRK example: production dataset
+  `MRK_2026-09-05_238_pe2-15_dataset.json` has 15 completed midterm observations
+  (1966 through 2022 in four-year steps), 14 winners and one loser. Its 2026 zero
+  placeholder is incomplete and excluded. The recreation retained the calendar
+  window but `run_edition.py:prepare` called `cohort_policy.baseline_cell`, which
+  fixed the primary sample to 20 consecutive years (2006-2025), with 13 winners.
+  Only 2006, 2010, 2014, 2018 and 2022 overlap. This changed the selected study
+  before the writer received its evidence; it was not a writer arithmetic error.
+
+  `private_history.py:derive_history_panel` independently selects the first and
+  last sessions INSIDE the calendar window. Its weekend/holiday test explicitly
+  expects this incompatible exit rule. TradeWave `getChartData4` advances a
+  non-trading April 30 to the next session. In the shared 2010 observation,
+  Dev exits April 29, 2011 (+4.75%) versus production May 2 (+5.80%). In 2022,
+  Dev exits April 28, 2023 (+36.53%) versus production May 1 (+37.56%). These
+  differences and all 15 production net returns were reproduced from the
+  retained MRK prices before the owner's subsequent prohibition on duplicate
+  calculations. No further duplicate calculation should be introduced as a fix.
+  Root evidence: SMN source `651fbb75e4fd04699ab46f6b2e2bbcc900ec760c`, the
+  orchestration artifacts in `smn-review-20260908/subscription-dev-edition/`,
+  the live production MRK dataset and read-only engine inspection on `.176`.
+  Future remediation must obtain existing calculations from TradeWave and
+  compare article/chart values to those responses for identical study inputs.
+  Preserve the selected historical cohort when recreating an article; request
+  any additional cohort from TradeWave and label it as a separate comparison.
+  This is a documented unresolved defect, not an implemented fix.
+
+  **Six subscription articles published on SMN Dev, September 8, 2026
+  (historical implementation record; see September 9 correction above).**
   The owner explicitly authorized recreating that day's production articles
   through the existing ChatGPT subscription and publishing them on Dev only.
   This supersedes the earlier no-deployment instruction only for this manually
@@ -454,7 +508,8 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
 
   Subjects and selected seasonal dates/day counts are preserved: HPQ, MRK,
   QQQ, XLK, SPX and GC. New writers received primary-source evidence and
-  deterministic TradeWave history, not the old article prose. Annual charts
+  independently derived history from retained TradeWave prices, not the old
+  article prose or authoritative engine results. Annual charts
   use 20 completed windows; overlapping midterm and era samples are secondary
   comparisons. This is the updated method on production-selected subjects,
   not a controlled model-only comparison with identical historical inputs.
@@ -519,7 +574,8 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   workspace, particularly `edition-summary.json` and `dev-install-receipt.json`.
   Dev rollback backup: `/var/lib/tradewave/release-state/subscription-2026-09-08-145248-da767c67`.
 
-  **Article-specific price/seasonal paths added on SMN Dev (September 8).**
+  **Article-specific price/seasonal paths added on SMN Dev (September 8;
+  independent calculations rejected by the September 9 owner correction).**
   The owner explicitly requested recreating all six Dev articles with the old
   price-plus-projection concept, calculated from each new article's own analysis
   years. The production articles' different year samples must not supply these

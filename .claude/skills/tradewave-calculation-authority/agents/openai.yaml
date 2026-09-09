@@ -1,0 +1,5 @@
+interface:
+  display_name: "TradeWave Calculation Authority"
+  short_description: "Reuse TradeWave mathematics without recalculation"
+policy:
+  allow_implicit_invocation: true

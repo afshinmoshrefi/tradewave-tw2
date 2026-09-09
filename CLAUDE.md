@@ -1,6 +1,13 @@
 # TradeWave - Codebase Instructions for Agents
 
 ## READ FIRST
+**Before TradeWave/SMN work involving mathematical outputs, also read:**
+`.claude/skills/tradewave-calculation-authority/SKILL.md`. Every calculation
+TradeWave already provides must come from its engine unchanged; no duplicate
+calculation or downstream correction is allowed. Suspected calculation bugs
+must be discussed with Afshin and fixed in TradeWave after agreement. Genuinely
+new calculations are allowed only after verifying they are absent from TradeWave.
+
 **Before planning or doing ANY TradeWave task, read `docs/TRADEWAVE_ECOSYSTEM.md`.**
 It is the single, code-verified map of the whole TW1 + TW2 ecosystem (architecture,
 data flows, deploy, auth/billing, the TW1<->TW2 mapping, invariants, open gaps). It
