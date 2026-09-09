@@ -261,12 +261,37 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
 
 | Role | Public IP | VLAN | Tunnel hostname | SSH |
 |---|---|---|---|---|
-| dev (all tiers, one box) | 192.168.1.176 | - | `tw2-dev.trxstat.com`, `smn-dev` | local |
+| TW2 dev (all tiers, one box) | 192.168.1.176 | - | `tw2-dev.trxstat.com` | local |
+| SMN dev (separate VM) | 192.168.1.180 | - | `smn-dev.trxstat.com` | `root@192.168.1.180` |
 | stage-web | 185.53.209.8 | 10.0.0.94 | `tw2-stage.trxstat.com`, `smn-stage` | `root@185.53.209.8 -p 4369` |
 | stage-app | 199.244.48.157 | 10.0.0.92 | `tw2-stage-app.trxstat.com` | `root@199.244.48.157 -p 4369` |
 | prod-web | 194.113.195.141 | 10.0.0.98 | `tw2-prod.trxstat.com` (-> `tradewave.ai` at cutover) | `root@194.113.195.141 -p 4369` |
 | prod-app | 138.128.240.115 | 10.0.0.96 | `tw2-prod-app.trxstat.com` | `root@138.128.240.115 -p 4369` |
 | TW1 prod web | (ref) | 10.0.0.40 | owns `tradewave.ai` until cutover | - |
+
+**SMN Dev topology correction (2026-09-09):** the active SMN development site
+belongs to the separate VirtualBox guest `SMN`, `192.168.1.180`, with application
+source `/home/flask/blog` and static root `/var/www/smn`. Its primary Cloudflare
+tunnel is `smn-dev` (`d6a0e630-1657-4d77-8595-acf7a969e7f5`). TW2 `.176` retains
+an old SMN vhost and June content, which do not prove that the current SMN site
+is available. Do not reroute the hostname to that stale content as a repair.
+SMN content work is separate from the TW2 backend/frontend release pointers.
+
+The September 9 outage was Cloudflare HTTP 530/error 1033: its dedicated tunnel
+lost all connections at 04:31:06 UTC (00:31 Eastern), and the VM did not answer
+SSH or LAN neighbor discovery. The owner confirmed the server was down. This
+predates the Wave Viewer repair. An offline VM cannot run nginx or cloudflared;
+local TW2 application health therefore cannot certify SMN availability. The
+underlying reason the VM stopped requires its host/guest shutdown evidence.
+
+An emergency, static-only fallback was prepared on TW2 from the exact approved
+September 8 publication artifact (SMN source `651fbb75e4fd04699ab46f6b2e2bbcc900ec760c`):
+97 public files under `/var/www/smn-dev-recovery/20260909`, served through the
+`current` symlink by `ops/nginx/smn-dev-failover.conf`. It redirects the site root
+to the six-article edition; it does not restore the full SMN archive, generation,
+queues or other application services. Activation state and original DNS/nginx
+backups are under `/var/lib/tradewave/release-state/smn-dev-outage-20260909` on
+TW2. See `ops/OPERATIONS.md` for restoration and the exact live-state receipt.
 
 **All hosts are Cloudflare TUNNEL CNAMEs, never A records** (origin IPs never in
 DNS). Do NOT convert prod to an A record. cloudflared on each box dials out;

@@ -28,6 +28,50 @@ To sync staging+prod with the latest code: (React build if `web-react/src` chang
 
 2 CPU / 2 GB each. TW1 prod web is `10.0.0.40` (Kamatera VLAN). Prod SSH is `root@<ip> -p 4369`, same pattern as staging (confirmed 2026-05-22).
 
+## SMN Dev Outage and Temporary Static Recovery
+
+SMN Dev runs on its own VirtualBox VM `SMN` at `192.168.1.180`, not on TW2
+`192.168.1.176`. Its normal hostname is `smn-dev.trxstat.com`, application root
+`/home/flask/blog`, and static root `/var/www/smn`. The old SMN vhost/files left
+on TW2 are not the current development site. Check the public SMN hostname
+independently of TradeWave health, especially after a host restart.
+
+For Cloudflare 1033, inspect the exact DNS CNAME and that tunnel's connections,
+then check SSH/LAN reachability of its owning VM. A healthy TW2 tunnel does not
+imply the separate SMN tunnel is connected. Check the VirtualBox guest is running,
+then nginx/cloudflared inside the guest, before changing application code.
+VM startup after host boot must be configured and tested on the actual VirtualBox
+host; enabling a guest service cannot start a powered-off VM. Never enable content
+publishing/email schedulers as part of a static-site availability repair.
+
+September 9 emergency recovery: `ops/nginx/smn-dev-failover.conf` can serve only
+the already approved September 8 edition from
+`/var/www/smn-dev-recovery/current` on TW2. All 97 public artifact files were
+hash-checked through nginx; the public edition, QQQ article, hero and seasonal
+charts were checked in a browser. The home route temporarily redirects to that
+edition. Other SMN archives/services are not part of this fallback.
+
+The actual loaded TW2 vhost is `/etc/nginx/sites-enabled/smn-dev`, a regular file,
+not a symlink to `sites-available/smn-dev`. Inspect `nginx -T` and real paths;
+changing the unused available file does not activate the route.
+
+Recovery state is `/var/lib/tradewave/release-state/smn-dev-outage-20260909` on
+TW2. `dns-before.json` preserves the original record;
+`smn-dev.enabled.before` preserves the active vhost; `temporary-recovery-verified.json`
+records fallback activation. Credentials remain only in their existing protected
+store and must never enter receipts, Git or chat. DNS record ID and tunnel IDs
+are identifiers, not credentials.
+
+The primary CNAME is `d6a0e630-1657-4d77-8595-acf7a969e7f5.cfargotunnel.com`;
+the temporary fallback uses TW2's `9d56b19d-16a6-4f01-b818-d9ead4ec3e2a.cfargotunnel.com`.
+Before restoration, prove `.180` serves the current homepage/edition and its
+primary tunnel is connected. Under the short dev lock, restore only this DNS
+record's previous content, keep proxying/TTL unchanged, verify the full public
+homepage plus an edition article, then restore the saved TW2 enabled vhost and
+validate/reload nginx. Record a `primary-restored.json` receipt. Preserve the
+fallback artifact and backups until the primary has been verified; do not delete
+or rewrite the primary VM's site, source, catalogs, queues or production.
+
 ## What runs where
 
 **stage-app** = APIs + data. gunicorn `appserver:app` on **:80** (no nginx; CAP_NET_BIND_SERVICE). Postgres, Redis (user data). cloudflared → `tw2-stage-app.trxstat.com`. Has `/home/flask/data/` (US subset, 12 GB). DB backups live here.
