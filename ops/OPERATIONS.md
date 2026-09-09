@@ -291,6 +291,34 @@ Restart matrix (which service to bounce after the pull):
 | MailerLite lifecycle values in `secrets.env` | restart `tradewave-web`; each cron invocation also sources the new values |
 
 ### 2b. React bundle (build/ is gitignored - rsync to a release dir + symlink swap, NOT pull)
+
+The web service and nginx must use the same stable frontend pointer, independent
+of `.tw2-app-current`. The canonical web unit supplies
+`TW2_REACT_BUILD_DIR=/home/flask/web-react/build` and runs
+`ExecStartPre=/home/flask/venv/bin/python -m web.react_build`. Existing dev units
+may receive those two settings in `30-frontend-build.conf`; retain their effective
+backend `PYTHONPATH`/working directory. For an initial box bootstrap, install the
+frontend artifact before starting the web service. Do not replace the existing
+dev unit with a staging unit containing a VLAN placeholder.
+
+Before changing a backend pointer, run the candidate preflight as `flask` with
+`TW2_REACT_BUILD_DIR=/home/flask/web-react/build` and the candidate root as
+`PYTHONPATH`. It validates the shell, manifest, all referenced assets and lazy
+chunks. It must pass before the pointer write, while the old web workers are
+still available. The startup check repeats validation on every restart.
+`/healthz` now reports `frontend=ok` or returns 503 with `frontend=unavailable`;
+a database-only success is insufficient. Keep a browser smoke through nginx to
+cover nginx permissions, routing, authentication, and rendered chart loading.
+
+A backend-only activation keeps the verified frontend source provenance and
+needs no React rebuild. If the current frontend lives in a task worktree, copy
+the exact artifact into `web-react/releases/build-<source-sha>`, compare every
+file's SHA-256 including `.tradewave-source-sha`, then switch the stable pointer
+under the dev lock. Do not delete the old artifact or rollback pointers. For a
+web-path repair, restart `tradewave-web` and verify the authenticated viewer after
+that cold process start; testing only workers that predate the pointer change
+missed the September 9, 2026 outage.
+
 `/home/flask/web-react/build` is a **symlink** to `releases/build-<commit>`; nginx serves `/app/` through it. Deploy = ship a new release dir named by the source commit hash, then repoint the symlink (keeps `build-previous` for instant rollback). Build once on dev, ship the same bundle to stage-web then prod-web:
 ```
 # on dev:

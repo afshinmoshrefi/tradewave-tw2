@@ -721,6 +721,29 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
 
 ## 7. TW2 React app (`web-react/`, served at `/app/`)
 
+**Frontend/runtime separation (2026-09-09):** the deployed web unit sets
+`TW2_REACT_BUILD_DIR=/home/flask/web-react/build`, the same stable symlink nginx
+uses for `/app/` assets. `web/react_build.py` preserves the configured symlink
+between requests; it must not resolve and freeze its target at import time.
+An unconfigured local checkout retains its own `web-react/build` default.
+The web unit runs `python -m web.react_build` before starting Gunicorn, and
+`/healthz` checks both the database and that same frontend. Missing/unreadable
+index, malformed manifest, missing main or lazy chunk, empty asset, or a shell
+that names a different bundle fails readiness. Authenticated shell failures
+return a generic 503 without exposing filesystem paths.
+
+The September 9 dev outage was latent release drift: the September 7 API/MCP
+activation moved `.tw2-app-current` to a backend-only worktree while the running
+web workers retained their old directory. The September 9 11:40 UTC reboot made
+web follow the new checkout, which had no build. The previous database-only
+health probe still returned success. Backend-only activation must preserve the
+frontend artifact, validate the next-start web environment, and account for every
+service following the shared pointer. Store active frontend artifacts under
+`/home/flask/web-react/releases/`, outside disposable task worktrees. Operational
+checks and restart verification are in `ops/OPERATIONS.md` and
+`docs/RELEASE_PROCESS.md`.
+
+
 - CRA + react-scripts 5, React 17, `PUBLIC_URL=/app/`. **Build ONLY with
   `npm run build`** (the npm script supplies PUBLIC_URL=/app/; a raw
   `react-scripts build` used to emit root-relative /static/ asset paths and

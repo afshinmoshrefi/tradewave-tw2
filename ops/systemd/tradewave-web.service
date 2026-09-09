@@ -9,6 +9,7 @@ Group=flask
 WorkingDirectory=/home/flask/web
 EnvironmentFile=/etc/tradewave/secrets.env
 Environment=PYTHONPATH=/home/flask:/home/flask/web
+Environment=TW2_REACT_BUILD_DIR=/home/flask/web-react/build
 NoNewPrivileges=true
 ProtectSystem=full
 ProtectKernelTunables=true
@@ -16,6 +17,7 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
+ExecStartPre=/home/flask/venv/bin/python -m web.react_build
 ExecStart=/home/flask/venv/bin/gunicorn \
     --workers 2 \
     --worker-class sync \

@@ -80,6 +80,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_WEB_ROOT))
 import config
 import reverse_trial  # shared reverse-trial cutoff math (also imported by apiserver/auth.py)
+from react_build import ReactBuildError, react_build_dir, validate_react_build
 
 # --- Sentry (no-op when SENTRY_DSN is empty/placeholder) ---
 try:
@@ -604,17 +605,20 @@ def require_super_admin(view):
 
 @app.route("/healthz")
 def healthz():
-    """Cheap health probe - checks DB.
-    F2.2 - generic error response; details only to log.
-    """
+    """Check both the database and the frontend files needed by Wave Viewer."""
     try:
         s = DBSession()
         s.execute(select(User).limit(1))
         s.close()
-        return jsonify({"ok": True, "db": "ok", "ts": datetime.now(timezone.utc).isoformat()})
     except Exception:
         log.exception("/healthz DB probe failed")
         return jsonify({"ok": False, "error": "healthcheck_failed"}), 500
+    try:
+        validate_react_build(REACT_BUILD_INDEX.parent)
+    except ReactBuildError:
+        log.exception("/healthz frontend probe failed")
+        return jsonify({"ok": False, "db": "ok", "frontend": "unavailable", "error": "healthcheck_failed"}), 503
+    return jsonify({"ok": True, "db": "ok", "frontend": "ok", "ts": datetime.now(timezone.utc).isoformat()})
 
 
 # ============================================================
@@ -1749,7 +1753,7 @@ def mailerlite_webhook():
 # (replaces the milestone-1 nginx sub_filter stub)
 # ============================================================
 
-REACT_BUILD_INDEX = _REPO_ROOT / "web-react" / "build" / "index.html"
+REACT_BUILD_INDEX = react_build_dir(_REPO_ROOT) / "index.html"
 TW_HEADER_TEMPLATE = _REPO_ROOT / "site" / "templates" / "_tw_header.html"
 
 
@@ -1893,10 +1897,11 @@ def _render_app_shell(u):
     dev-only screenshot-bot route). Pure extraction: no behavior change vs.
     the original inline body of app_index().
     """
-    if not REACT_BUILD_INDEX.exists():
-        return jsonify({"error": "React build/index.html not found", "path": str(REACT_BUILD_INDEX)}), 500
-
-    html = REACT_BUILD_INDEX.read_text()
+    try:
+        html = REACT_BUILD_INDEX.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        log.exception("Wave Viewer frontend is unavailable")
+        return jsonify({"error": "Wave Viewer is temporarily unavailable"}), 503
     ltk = generate_ltk(u)
     user_id = str(u.id)
     # Access globals reflect the EFFECTIVE tier (reverse-trial elevation);

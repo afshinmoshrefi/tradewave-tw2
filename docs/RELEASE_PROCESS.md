@@ -86,6 +86,16 @@ Agents perform this sequence automatically:
 6. After testing/building, atomically acquire /var/lib/tradewave/release-state/dev-activation.lock and write owner/task metadata. Refetch main immediately.
 7. If main moved, release the lock, integrate it, and rerun only checks/builds affected by the new combination. Then retry.
 8. Record previous affected pointers. Activate the candidate through the effective systemd/nginx/release-pointer model and restart only affected services.
+   Before a backend pointer change, verify the web service's next-start frontend
+   path as well as its currently running process. `TW2_REACT_BUILD_DIR` must point
+   to the same stable `/home/flask/web-react/build` path nginx serves. Keep this
+   symlink unresolved at application startup. Run the candidate's
+   `python -m web.react_build` as `flask` with that environment before activation;
+   the web unit repeats this check in `ExecStartPre`. A backend-only task preserves
+   the verified frontend artifact and does not rebuild React. A shared backend
+   pointer changes what every following service loads on its next restart, even
+   when that service was not restarted during activation. For web-runtime/path
+   changes, test an actual web restart and then an authenticated `/app/` interaction.
 9. Prove the changed behavior live. UI work requires a rendered interaction check; backend/API work requires the relevant live contract or route; static work requires a content assertion. Build success, string markers, and HTTP 200 alone are not behavior proof.
 10. Advance origin/main with a non-forced concurrency-safe push. If it fails because main moved, roll dev back to recorded pointers and retry from newer main.
 11. Refetch and prove current main's application tree, active backend source, and affected artifact provenance match. Release the lock promptly.
