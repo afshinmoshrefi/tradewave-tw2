@@ -68,6 +68,16 @@ def _hdr():
     return {"Authorization": "Bearer tw_live_test"}
 
 
+@pytest.mark.parametrize('ranking', ['invalid_qa_rank', '', '   '])
+def test_scan_rejects_unsupported_ranking_before_discovery(client, monkeypatch, ranking):
+    _patch_appsrv(monkeypatch, opportunities_multi=lambda *a, **kw: pytest.fail('invalid rank reached discovery'))
+    response = client.get('/v1/scan', query_string={'markets': '2', 'rank_by': ranking}, headers=_hdr())
+    assert response.status_code == 400
+    assert response.json['error']['code'] == 'invalid_request'
+    assert 'rank_by' in response.json['error']['message']
+    assert 'sharpe' in response.json['error']['message']
+
+
 @pytest.mark.parametrize("path", [
     "/v1/opportunities?market=2&from=2027-09-01",
     "/v1/scan?markets=2&window=2027-09-01..2027-09-30",

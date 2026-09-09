@@ -3373,7 +3373,7 @@ def _sanitize_realtime_prices(prices):
 _commodity_symbols = None
 _equity_close_cache = {}
 _local_eod_quote_cache = {}
-_LOCAL_EOD_QUOTE_RESOURCES = frozenset({'0', '1', '2', '3', '4', '11'})
+_LOCAL_EOD_QUOTE_RESOURCES = frozenset({'0', '1', '2', '3', '4', '7', '11'})
 _LOCAL_EOD_QUOTE_CACHE_MAX = 128
 _LOCAL_EOD_FALLBACK_MAX_SYMBOLS = 12
 _REALTIME_PRICE_FRESH_SECONDS = 3300
@@ -3423,6 +3423,12 @@ def validate_realtime_quote_for_resource(resource_id, symbol, pair):
     normalized = _sanitize_realtime_prices({symbol: pair}).get(str(symbol).upper())
     if not normalized:
         return None
+    if str(resource_id) == '7' and _latest_equity_close(symbol) is not None:
+        # The bulk feed provides no exchange identity. LE is both Live Cattle
+        # and Lands' End, and the feed returns the equity quote. A matching
+        # ticker or plausible price cannot establish the futures namespace.
+        # Use the resource-specific, labeled EOD fallback (or leave it absent).
+        return None
     if str(resource_id) in {'0', '1', '2', '3', '4'}:
         sym = str(symbol).strip().upper()
         if sym in _load_commodity_symbols():
@@ -3448,7 +3454,7 @@ def _latest_local_eod_quote(resource_id, symbol, *, today=None):
     ):
         return None
     exchange = config.exchange_mapping.get(resource_id)
-    if exchange not in {'US', 'ETF'}:
+    if exchange not in {'US', 'ETF', 'COMM'}:
         return None
     exchange_root = os.path.realpath(os.path.join(config.csv_folder, exchange))
     price_path = os.path.realpath(

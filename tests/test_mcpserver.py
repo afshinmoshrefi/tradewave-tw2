@@ -37,6 +37,14 @@ def _run(awaitable):
     return asyncio.run(awaitable)
 
 
+def test_invalid_scan_ranking_is_rejected_before_gateway(monkeypatch):
+    async def unexpected(*a, **kw):
+        pytest.fail('Invalid rank reached the gateway')
+    monkeypatch.setattr(server, '_get', unexpected)
+    with pytest.raises(Exception, match='rank_by'):
+        _run(server.mcp.call_tool('find_best_opportunities', {'rank_by': 'invalid_qa_rank'}))
+
+
 @pytest.mark.parametrize('name', ['get_pick_track_record', 'list_markets'])
 def test_primitive_failures_use_the_mcp_error_flag(monkeypatch, name):
     async def unavailable(*a, **k):

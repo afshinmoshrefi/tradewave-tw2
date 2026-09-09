@@ -39,7 +39,7 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Literal, Optional
 
 import httpx
 from pydantic import Field
@@ -1047,7 +1047,7 @@ async def find_best_opportunities(
         "out-of-band value like 20-9 is REJECTED with the valid range - never lower it "
         "below the floor. This is a multi-market scan, so if a value is out of band for "
         "some scanned markets the response includes a lookback_note naming them."))] = None,
-    rank_by: Annotated[Optional[str], Field(description=(
+    rank_by: Annotated[Optional[Literal["edge", "win_rate", "sharpe", "ml", "avg_return"]], Field(description=(
         "Ranking method. Default 'sharpe' (mirrors TradeWave's daily-pick selection). "
         "Options: edge|win_rate|sharpe|ml|avg_return."))] = None,
     limit: Annotated[Optional[int], Field(description=(
@@ -1592,7 +1592,7 @@ async def whoami(ctx: Optional[Context] = None) -> str:
 _TRADEWAVE_GUIDE = (
     "HOW TRADEWAVE WORKS + HOW TO RESEARCH WITH IT\n\n"
     "What it is: TradeWave finds recurring SEASONAL price patterns (calendar windows that have paid "
-    "off across many years) and scores each with a 62-feature ML model. Every result is a Pattern Card: "
+    "off across many years) and scores each with a configured ML model. Every result is a Pattern Card: "
     "a headline + verdict, the entry/hold window, win rates, an ML probability, an edge_score, and "
     "year-by-year receipts. The daily AI pick also carries a LIVE forward-tested track record. "
     "Seasonal patterns only: TradeWave never returns raw prices - moves are percentages and the seasonal curve "
@@ -1607,7 +1607,7 @@ _TRADEWAVE_GUIDE = (
     "your own research.\n\n"
     "The THREE win rates (NEVER conflate them):\n"
     "  - historical_win_rate: share of past YEARS the seasonal window was profitable (in-sample seasonal history).\n"
-    "  - ml_win_prob: the 62-feature ML model's probability THIS instance works (per-instance, not history).\n"
+    "  - ml_win_prob: the configured ML model's probability THIS instance works (per-instance, not history).\n"
     "  - track_record.win_rate: the LIVE, forward-tested record of past daily picks (out-of-sample - the real proof).\n\n"
     "edge_score (0-100): a blend of historical_win_rate, Sharpe, years of history, and the ML score - one number to rank by.\n\n"
     "How to act on a card: respect the entry WINDOW (entering late or after it closes loses the edge). "
@@ -2103,26 +2103,17 @@ if __name__ == "__main__":
         # /.well-known/oauth-* discovery routes are more specific and still resolve.
         mcp.settings.streamable_http_path = "/"
 
-        class _McpPathAlias:
-            """ASGI wrapper: serve the legacy /mcp path identically to the root endpoint,
-            FOREVER - published setup instructions point clients at POST /mcp and must
-            keep working. Rewrites only the exact /mcp (and /mcp/) path; everything else
-            (root, /.well-known/oauth-*) passes through untouched."""
-
-            def __init__(self, app):
-                self.app = app
-
-            async def __call__(self, scope, receive, send):
-                if scope.get("type") == "http" and scope.get("path") in ("/mcp", "/mcp/"):
-                    scope = dict(scope)
-                    scope["path"] = "/"
-                    scope["raw_path"] = b"/"
-                await self.app(scope, receive, send)
+        try:
+            from mcpserver.http_transport import McpHttpCompatibility
+        except ModuleNotFoundError as exc:
+            if exc.name != 'mcpserver':
+                raise
+            from http_transport import McpHttpCompatibility
 
         # Mirrors FastMCP.run_streamable_http_async, with the alias wrapper in front
         # (the SDK offers no hook to mount the same session app at a second path).
         import uvicorn
-        uvicorn.run(_McpPathAlias(mcp.streamable_http_app()),
+        uvicorn.run(McpHttpCompatibility(mcp.streamable_http_app()),
                     host=mcp.settings.host, port=mcp.settings.port,
                     log_level=mcp.settings.log_level.lower())
     else:

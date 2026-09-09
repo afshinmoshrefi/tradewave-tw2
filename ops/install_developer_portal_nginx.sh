@@ -3,7 +3,8 @@
 set -euo pipefail
 
 SECRETS=/etc/tradewave/secrets.env
-TEMPLATE=/home/flask/ops/nginx/tradewave-developer-portal.conf
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TEMPLATE="$REPO/ops/nginx/tradewave-developer-portal.conf"
 DEST=/etc/nginx/sites-available/tradewave-developer-portal
 
 [ "$(id -u)" -eq 0 ] || { echo "FAIL: run as root" >&2; exit 1; }
@@ -47,6 +48,7 @@ install -d -m 0755 /etc/nginx/conf.d /etc/nginx/snippets /etc/nginx/sites-availa
 support_paths=(
   /etc/nginx/conf.d/tradewave-log-format.conf
   /etc/nginx/snippets/security_headers.conf
+  /etc/nginx/snippets/developer_security_headers.conf
   /etc/nginx/snippets/dotfile_deny.conf
   /etc/nginx/snippets/tw2-proxy-headers.conf
 )
@@ -60,11 +62,18 @@ restore_support_files() {
     if [ -f "$support_backup/.missing-$name" ]; then rm -f "$path"; else install -m 0644 "$support_backup/$name" "$path"; fi
   done
 }
-install -m 0644 /home/flask/ops/nginx/conf.d/tradewave-log-format.conf \
+install -m 0644 "$REPO/ops/nginx/conf.d/tradewave-log-format.conf" \
   /etc/nginx/conf.d/tradewave-log-format.conf
 for snippet in security_headers.conf dotfile_deny.conf tw2-proxy-headers.conf; do
-  install -m 0644 "/home/flask/ops/nginx/snippets/$snippet" "/etc/nginx/snippets/$snippet"
+  install -m 0644 "$REPO/ops/nginx/snippets/$snippet" "/etc/nginx/snippets/$snippet"
 done
+# The playground calls this environment's API across origins. Derive its policy
+# from the shared source so every other directive remains identical; only the
+# developer vhost includes this extended policy. Never add a second CSP header.
+sed "s|connect-src 'self'|connect-src 'self' https://$TW2_API_PUBLIC_HOST|" \
+  "$REPO/ops/nginx/snippets/security_headers.conf" \
+  > /etc/nginx/snippets/developer_security_headers.conf
+chmod 0644 /etc/nginx/snippets/developer_security_headers.conf
 
 # The final two-box topology binds gunicorn appserver directly to APP :80. Its
 # bootstrap-era nginx proxy vhost must not remain enabled when nginx is brought

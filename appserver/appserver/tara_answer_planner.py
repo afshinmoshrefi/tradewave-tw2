@@ -53,6 +53,8 @@ _TREND_ALIGNMENT_PATTERNS = (
 )
 
 _PATTERN_ANALYSIS_PATTERNS = (
+    re.compile(r"\bexplain (?:this|the) (?:selected |loaded |current )?"
+               r"(?:[A-Z][A-Z0-9.$^-]{0,10} )?(?:pattern|setup|window)\b", re.I),
     # A loaded chart makes terse imperatives unambiguous. Keep these out of the
     # provider path so "analyze" is as fast and complete as "analyze this pattern."
     re.compile(
@@ -209,6 +211,10 @@ _EXPLICIT_SYMBOL_QUERY_PATTERN = re.compile(
     r"(?i:\b(?:how\s+(?:does|did)|what\s+about|analy[sz]e|evaluate|assess|review|"
     r"show(?:\s+me)?|load|open|pull\s+up|bring\s+up)\s+(?:the\s+)?)"
     r"((?:[$^][A-Z0-9.-]{1,10})|(?:[A-Z][A-Z0-9.$^-]{0,10}))\b"
+)
+_EXPLICIT_AI_SYMBOL_PATTERN = re.compile(
+    r"(?i:\b(?:ai win(?: chance| probability)?|ai scores?)\b.{0,80}\bfor\s+)"
+    r"([A-Z][A-Z0-9.$^-]{0,10})\b"
 )
 _NON_SYMBOL_PATTERN_WORDS = {
     "AI",
@@ -488,7 +494,7 @@ def explicit_pattern_symbol(message: Any) -> Optional[str]:
     """
 
     text = str(message or "")
-    for pattern in (_EXPLICIT_PATTERN_SYMBOL_PATTERN, _EXPLICIT_SYMBOL_QUERY_PATTERN):
+    for pattern in (_EXPLICIT_PATTERN_SYMBOL_PATTERN, _EXPLICIT_SYMBOL_QUERY_PATTERN, _EXPLICIT_AI_SYMBOL_PATTERN):
         for match in pattern.finditer(text):
             symbol = match.group(1).upper()
             if symbol not in _NON_SYMBOL_PATTERN_WORDS:
@@ -512,6 +518,10 @@ def is_ai_horizon_explanation_question(message: Any) -> bool:
     """Whether the user wants the reason for the calibrated 30/60/90 horizons."""
 
     text = str(message or "").strip()
+    if _AI_HORIZON_MODEL_PATTERN.search(text) and re.search(
+        r"\b(?:scoring horizon|(?:ai |model )?horizon|exact .{0,30}window)\b", text, re.I
+    ):
+        return True
     if not text or not _AI_HORIZON_REASON_PATTERN.search(text):
         return False
     triplet = bool(re.search(r"\b30\b.{0,20}\b60\b.{0,20}\b90\b", text, re.I))
@@ -976,6 +986,9 @@ def is_pattern_advice_question(message: Any, wave_viewer: Any) -> bool:
 def needs_pattern_ai_context(message: Any, wave_viewer: Any) -> bool:
     """Whether this turn merits a current-condition AI read of the loaded setup."""
 
+    named = explicit_pattern_symbol(message)
+    if named and isinstance(wave_viewer, Mapping) and named != str(wave_viewer.get("symbol") or "").upper():
+        return False
     # These product/research-framework answers explain what the AI probability layer
     # does, but they do not need to block on a live scorer call. Their value is an
     # immediate, deterministic explanation from the already-loaded historical record.
@@ -985,9 +998,61 @@ def needs_pattern_ai_context(message: Any, wave_viewer: Any) -> bool:
         or is_ai_horizon_explanation_question(message)
     ):
         return False
-    return is_pattern_analysis_question(message, wave_viewer) or is_pattern_advice_question(
+    return is_loaded_ai_value_question(message, wave_viewer) or is_pattern_analysis_question(message, wave_viewer) or is_pattern_advice_question(
         message, wave_viewer
     )
+
+
+def is_loaded_ai_value_question(message: Any, wave_viewer: Any) -> bool:
+    """Request an actual server score, while leaving conceptual definitions alone."""
+    if not _has_loaded_pattern(wave_viewer):
+        return False
+    if is_pattern_analysis_question(message, wave_viewer):
+        return False
+    text = str(message or "").strip()
+    named = explicit_pattern_symbol(text)
+    if named and named != str(wave_viewer.get("symbol") or "").strip().upper():
+        return False
+    if re.search(r"\b(?:mean|defined|definition|calculated)\b", text, re.I):
+        return False
+    return bool(
+        re.search(r"\bai\b.{0,35}\b(?:win|chance|probability|percentage|score)\b", text, re.I)
+        and re.search(r"\b(?:what|which|show|tell|give|report|read|displayed|visible|percentage|numeric)\b", text, re.I)
+    )
+
+
+def build_loaded_ai_value_reply(message: Any, wave_viewer: Any) -> Optional[str]:
+    if not is_loaded_ai_value_question(message, wave_viewer):
+        return None
+    context = _normalized_ai_analysis(wave_viewer)
+    if context is None:
+        return (
+            "I could not retrieve the server's AI reading for this selected pattern in this "
+            "turn. That does not mean the AI Scores panel has no value. Check the panel's "
+            "named horizon; historical win rate is a separate measurement."
+        )
+    if context["status"] != "available":
+        return _analysis_ai_context_line({}, wave_viewer)
+    readings = []
+    for item in context.get("horizons") or []:
+        probability = item.get("win_probability")
+        if item.get("status") != "available" or probability is None:
+            continue
+        readings.append(
+            f"<b>{item['calendar_days']}-day AI Win Probability: {probability * 100:.0f}%</b>"
+        )
+    if not readings:
+        return "The server did not return a numeric AI Win Probability for this pattern. Missing is not zero."
+    full_days = context["full_pattern_calendar_days"]
+    if context["mode"] == "minimum_horizon":
+        scope = (f"The historical window is {full_days} calendar days; the separate AI reading "
+                 "uses the 10-day model minimum, so it is not an exact score for that shorter window.")
+    elif full_days > 90:
+        scope = (f"These are checkpoints from the same entry date, not a full {full_days}-day "
+                 "prediction. The 90-day reading is primary.")
+    else:
+        scope = f"The {full_days}-day reading matches the selected calendar window; any shorter readings are comparisons."
+    return "<br>".join(readings + [scope, "AI probability can be above or below the historical win rate; they measure different things."])
 
 
 def is_pattern_rank_question(message: Any, wave_viewer: Any) -> bool:
@@ -3863,6 +3928,11 @@ def build_ai_horizon_explanation_reply(
             f"<b>For this {full_days}-calendar-day pattern:</b> The current {full_days}-day "
             "reading remains primary, with a separate 30-day comparison."
         )
+    elif full_days >= 10:
+        longer_pattern_line = (
+            f"<b>For this {full_days}-calendar-day pattern:</b> The AI reading uses the "
+            f"exact {full_days}-day window from the selected entry date and direction."
+        )
     else:
         longer_pattern_line = (
             "<b>For longer patterns:</b> Tara provides separate 30-, 60-, and 90-day "
@@ -4477,10 +4547,6 @@ def build_deterministic_reply(
     if mcp_product is not None:
         return mcp_product
 
-    definitions = build_metric_definitions_reply(message)
-    if definitions is not None:
-        return definitions
-
     volume = build_volume_boundary_reply(message, screen_context)
     if volume is not None:
         return volume
@@ -4500,6 +4566,19 @@ def build_deterministic_reply(
         # resolve and load the explicitly named ticker instead of answering with stale
         # screen data under the wrong name.
         return None
+
+    ai_horizon = build_ai_horizon_explanation_reply(
+        message, wave_viewer, screen_context, current_year=current_year
+    )
+    if ai_horizon is not None:
+        return ai_horizon
+    ai_value = build_loaded_ai_value_reply(message, wave_viewer)
+    if ai_value is not None:
+        return ai_value
+    definitions = (None if is_pattern_analysis_question(message, wave_viewer)
+                   else build_metric_definitions_reply(message))
+    if definitions is not None:
+        return definitions
 
     overview = build_screen_overview_reply(
         message,
@@ -4540,14 +4619,6 @@ def build_deterministic_reply(
     )
     if rank is not None:
         return rank
-    ai_horizon = build_ai_horizon_explanation_reply(
-        message,
-        wave_viewer,
-        screen_context,
-        current_year=current_year,
-    )
-    if ai_horizon is not None:
-        return ai_horizon
     seasonality_value = build_seasonality_value_reply(
         message,
         wave_viewer,

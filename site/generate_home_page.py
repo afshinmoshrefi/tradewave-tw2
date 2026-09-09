@@ -1165,9 +1165,10 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                           "opens to its full per-year record, including the years "
                           "it failed. The daily pick is logged to a public track "
                           "record before the outcome, and losing picks stay up. "
-                          "The machine-learning model only adjusts a pattern's "
-                          "probability down, never up. It ranks what history "
-                          "supports and never predicts. You don't have to take "
+                          "The machine-learning model estimates win probability "
+                          "for its named horizon using market inputs. Its estimate "
+                          "can be above or below the historical win rate; both are "
+                          "shown separately and neither guarantees a profit. You don't have to take "
                           "our word for any of it."),
                 },
                 {
@@ -1507,10 +1508,10 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
                             "institutional desks use."
                         ),
                         (
-                            "TradeWave's AI probability score calibrates the historical win "
-                            "probability against current market conditions. It can lower "
-                            "confidence when today's setup is weaker, but it never raises the "
-                            "probability above what history supports."
+                            "TradeWave's AI Win Probability estimates the chance of a positive "
+                            "directional return over the named scoring horizon. It can be above "
+                            "or below the historical win rate, which measures completed past outcomes. "
+                            "Compare the two as separate research inputs."
                         ),
                         (
                             "The cleanest, highest-conviction waves sort straight to the top, "

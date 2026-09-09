@@ -1071,9 +1071,10 @@ def scan():
     # Default ranking = Sharpe descending, mirroring TradeWave's own daily-pick + SMN 'AI'
     # selectors (filter on win metrics, then sort by Sharpe). edge_score stays available
     # as a rank_by option and is shown on every card.
-    rank_by = (request.args.get("rank_by") or "sharpe").strip().lower()
+    rank_by = request.args.get("rank_by", "sharpe").strip().lower()
     if rank_by not in _RANK_KEYS:
-        rank_by = "sharpe"
+        return _err("invalid_request", "invalid 'rank_by' - use "
+                    + " | ".join(sorted(_RANK_KEYS)), 400)
     try:
         appserver_client.validate_discovery_date(entry_lo, today=cards.market_today())
         min_years = _numeric_arg("min_years", integer=True, minimum=0)

@@ -67,6 +67,9 @@ def test_equity_quote_guard_rejects_a_futures_namespace_collision():
     ns["_latest_equity_close"] = lambda symbol: 74.62
     validate = ns["validate_realtime_quote_for_resource"]
     assert validate("2", "ES", [7442.5, 0.1]) is None
+    assert validate("7", "ES", [7442.5, 0.1]) is None
+    assert validate("7", "LE", [10.71, -1.0]) is None
+    ns["_latest_equity_close"] = lambda symbol: None
     assert validate("7", "ES", [7442.5, 0.1]) == [7442.5, 0.1]
 
 
@@ -82,13 +85,24 @@ def _local_eod_quote_namespace(tmp_path):
         "os": os,
         "pd": pd,
         "_ML_SYMBOL_RE": re.compile(r"^[A-Z0-9.$^-]{1,15}$"),
-        "_LOCAL_EOD_QUOTE_RESOURCES": frozenset({"0", "1", "2", "3", "4", "11"}),
+        "_LOCAL_EOD_QUOTE_RESOURCES": frozenset({"0", "1", "2", "3", "4", "7", "11"}),
         "_LOCAL_EOD_QUOTE_CACHE_MAX": 128,
         "_local_eod_quote_cache": {},
     })
     (tmp_path / "US").mkdir()
     (tmp_path / "ETF").mkdir()
+    (tmp_path / "COMM").mkdir()
     return ns
+
+
+def test_futures_eod_fallback_uses_commodity_namespace(tmp_path):
+    ns = _local_eod_quote_namespace(tmp_path)
+    for exchange, closes in [('US', [10.89, 10.88]), ('COMM', [213.5, 216.85])]:
+        pd.DataFrame({'date': ['2026-09-04', '2026-09-08'], 'close': closes}).to_csv(
+            tmp_path / exchange / 'LE.csv', index=False)
+    quote = ns['_latest_local_eod_quote']('7', 'LE', today=datetime.date(2026, 9, 9))
+    assert quote['price'] == 216.85
+    assert quote['source'] == 'eod_close' and quote['date'] == '2026-09-08'
 
 
 def test_local_eod_quote_is_current_labeled_and_cache_tracks_file_replacement(tmp_path):

@@ -938,6 +938,10 @@ def classify_investor_intent(messages_or_text):
     latest = user_turns[-1].strip()
     previous = user_turns[-2].strip() if len(user_turns) > 1 else ""
 
+    if re.search(r"\b(?:testing methodology|backtest(?:ing)? methodology|"
+                 r"how (?:does )?tradewave tests?|how (?:are|is) .{0,40}"
+                 r"seasonal patterns? tested)\b", latest, re.I):
+        return "methodology"
     if _CAPABILITY_GUIDE_RE.search(latest):
         return "capabilities"
     named_symbol = _named_investment_advice_symbol(latest)
@@ -1010,6 +1014,26 @@ def classify_investor_intent(messages_or_text):
 
 def investor_guidance_response(intent):
     """Deterministic first-step education; no model and no market action."""
+    if intent == "methodology":
+        return (
+            "<b>How TradeWave tests a seasonal pattern:</b> Fix the security and market, "
+            "entry date, calendar-day duration, direction, and lookback/cycle. The engine "
+            "tests that same window against the available historical observations and "
+            "shows each year's outcome. Calendar duration includes the entry day; the "
+            "historical study keeps the selected window even when an AI checkpoint differs.<br><br>"
+            "<b>What the years count:</b> In consecutive mode, the lookback selects prior "
+            "entry years; a completed current-year occurrence can also appear. Missing history "
+            "and unfinished windows affect the completed sample. Election-cycle mode selects "
+            "matching completed occurrences. Use the engine's displayed sample size and "
+            "per-year record, rather than assuming a ten-year setting always means ten results.<br><br>"
+            "<b>Historical win rate:</b> The engine reports the share of completed observations "
+            "with a positive return in the selected direction. A falling price can be a win "
+            "for a short pattern; a flat outcome is not a win. Historical win rate is separate "
+            "from the model's AI Win Probability.<br><br>"
+            "<b>Assess the evidence:</b> Inspect losses, sample size, return distribution, "
+            "and sensitivity to the chosen window and lookback. Historical gross returns "
+            "do not establish a future profit after fees, spread, slippage, and taxes."
+        )
     if intent == "capabilities":
         return (
             "Tell me the outcome you want, and I will guide the research one step at a time. "

@@ -21,7 +21,7 @@ What you CANNOT cheaply or reliably conjure - the five things you are actually p
    trust and should not. Our windows, lookbacks, and the edge_score formula are fixed,
    documented, and explainable - not fit to flatter the result.
 
-3. Our trained ML model. `ml_win_prob` and the ML score come from a 62-feature model
+3. Our trained ML model. `ml_win_prob` and the ML score come from a configured model
    trained on millions of historical setups. You cannot reproduce it from a prompt; you
    would need the data, the features, the labels, and the training. It is delivered as a
    field, not as something you reason your way to.

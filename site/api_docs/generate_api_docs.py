@@ -1455,7 +1455,7 @@ def build_mcp_reference() -> str:
 <p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) for detected seasonal patterns, ML scoring, chart data, and the published daily-pick record. ChatGPT and Claude authorize a TradeWave account. Other developer clients can use OAuth when compatible or the developer bearer-authentication path. Access follows the account or developer credential used for the connection.</p>
 {preview_banner}
 <div class="callout">
-  <p><strong>A research partner, not a black box.</strong> TradeWave supplies a seasonal + 62-feature-ML statistical edge and the timing only. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
+  <p><strong>A research partner, not a black box.</strong> TradeWave supplies seasonal and machine-learning evidence about timing. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
 </div>
 
 <div class="callout">
@@ -1572,7 +1572,7 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Self-documents the method: what TradeWave measures (seasonal + 62-feature ML), what it is blind to (fundamentals, news, macro, live price), and how the assistant should pair it with its own research tools. Call this once so the model frames TradeWave correctly as a research partner.</p>
+    <p>Self-documents the method: what TradeWave measures (seasonal patterns and the configured ML model), what it is blind to (fundamentals, news, macro, live price), and how the assistant should pair it with its own research tools. Call this once so the model frames TradeWave correctly as a research partner.</p>
     <p><strong>Inputs:</strong> none</p>
     <p><strong>Maps to:</strong> static method description</p>
   </div>
@@ -1815,7 +1815,7 @@ def build_data_dictionary() -> str:
     <tr>
       <td class="field-name">ml_score</td>
       <td class="field-type">number</td>
-      <td>Composite ML score from the 62-feature model (higher = stronger predicted edge). Not directly interpretable as a probability - use <strong>win_prob</strong> for that.</td>
+      <td>AI Return Rank: the model-provided predicted-return percentile, from 0 to 100. It is separate from the probability of profit - use <strong>win_prob</strong> for that.</td>
     </tr>
     <tr>
       <td class="field-name">win_prob</td>

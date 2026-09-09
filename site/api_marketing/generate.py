@@ -602,7 +602,7 @@ def build_index() -> str:
       <div class="card diff-card">
         <div class="diff-icon">&#127917;</div>
         <h3>ML win-probability on seasonal patterns</h3>
-        <p>A 62-feature model trained on millions of historical setups scores every
+        <p>A configured model trained on millions of historical setups scores every
            seasonal opportunity with a win probability and predicted return before
            market open. Every tier includes ML scores (free starts at 5/day; Pro is unlimited).
            No other seasonality API offers it.</p>
@@ -974,7 +974,7 @@ def build_pricing() -> str:
       <h2 class="gradient-text-w">Unlimited ML win-probability scoring is the Pro upsell</h2>
       <p>Every plan includes ML scores - free starts at 5/day, Dev gets 100/day.
          Pro and Business unlock unlimited ML calls via the score_opportunities endpoint,
-         the 62-feature model that assigns win probability and predicted return to each setup.</p>
+         the configured model that assigns win probability and predicted return to each setup.</p>
     </div>
     <div class="grid-2" style="max-width:860px;margin:0 auto;">
       <div class="card">

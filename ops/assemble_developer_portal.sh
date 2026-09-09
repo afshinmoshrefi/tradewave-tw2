@@ -42,10 +42,10 @@ if [[ -r /etc/tradewave/secrets.env ]]; then
   set +a
 fi
 
-REPO=/home/flask
-PY="$REPO/venv/bin/python"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY=/home/flask/venv/bin/python
 SITE="$REPO/site"
-DOCROOT=/var/www/developers
+DOCROOT="${TW2_DEVELOPER_DOCROOT:-/var/www/developers}"
 GENERATOR_USER=flask
 FAVICON_HELPER="$REPO/ops/lib/tradewave_favicon.sh"
 

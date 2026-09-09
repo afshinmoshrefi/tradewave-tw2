@@ -58,3 +58,16 @@ def test_mcp_endpoint_has_path_aware_oauth_discovery():
         "proxy_pass http://tw2_mcpserver/.well-known/oauth-protected-resource;"
         in template
     )
+
+
+def test_playground_policy_extends_only_developer_vhost():
+    template = NGINX_TEMPLATE.read_text(encoding='utf-8')
+    installer = INSTALLER.read_text(encoding='utf-8')
+    portal = template.split('server_name __TW2_DEVELOPERS_PUBLIC_HOST__;')[1]
+    assert 'include /etc/nginx/snippets/developer_security_headers.conf;' in portal
+    assert 'include /etc/nginx/snippets/security_headers.conf;' not in portal
+    assert "connect-src 'self' https://$TW2_API_PUBLIC_HOST" in installer
+    assert '/etc/nginx/snippets/developer_security_headers.conf' in installer
+    shared = (ROOT / 'ops/nginx/snippets/security_headers.conf').read_text(encoding='utf-8')
+    assert 'api-dev.trxstat.com' not in shared
+    assert "object-src 'none'" in shared and "frame-ancestors 'self'" in shared

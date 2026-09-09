@@ -737,8 +737,12 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   partial or failed refresh cannot erase last-known-good quotes. Matching refreshes
   use a short Redis lock to avoid request stampedes. `OppList4` returns older cached
   quotes with `source=realtime_stale` and their provider timestamp; the Price tooltip
-  labels them as the last available real-time quote. Supported US/ETF rows retain the
+  labels them as the last available real-time quote. Supported US/ETF/COMM rows retain the
   explicitly labeled completed-close fallback for small isolated quote gaps.
+  The bare-symbol bulk feed carries no exchange identity. A futures ticker with an
+  existing US-equity history (for example LE: Live Cattle versus Lands' End) is
+  rejected on the futures board even if the quote looks plausible. Its bounded EOD
+  fallback reads `csv/COMM`, never `csv/US`, and retains the closing date/source.
 (Source: `appserver/appserver/appserver.py`, `web-react/src/components/TableBox.js`,
 `web-react/src/components/realtimePrices.js`, `web/app.py:616`, `config.py`.)
 
@@ -1221,6 +1225,22 @@ credential-bearing request/response objects in errors. API requests carry a shar
 market work; workers inherit only the deadline, never Flask customer state. A new upstream call cannot start
 after that budget expires. MCP bounds gateway calls, including semaphore queue wait, to
 110 seconds. These are upstream I/O budgets, not a hard deadline for database or CPU work.
+
+**QA input/transport contracts (2026-09-09):** `/v1/scan` defaults to Sharpe only
+when `rank_by` is omitted; an unknown or empty value returns `400 invalid_request`
+before discovery. The MCP ranking schema enumerates the same five choices.
+`mcpserver/http_transport.py` retains `/` and `/mcp` aliases and lets the SDK perform
+authentication, origin/host checks, and dispatch before normalizing its malformed-input
+errors. Unknown methods use -32601, malformed JSON -32700, and invalid envelopes
+-32600, preserving a valid request ID or using null when it cannot be established.
+Known-method parameter errors remain -32602; valid notifications return no RPC reply.
+Successful tool responses, OAuth routes, and authentication failures pass through.
+
+The developer nginx vhost alone includes `developer_security_headers.conf`, derived
+by its installer from the shared policy plus the configured HTTPS API origin in
+`connect-src`. A second CSP header would intersect policies and still block the
+playground. Both portal scripts resolve their source from the invoked worktree;
+the assembler accepts `TW2_DEVELOPER_DOCROOT` for a pre-publication preview.
 
 Redis connection failures and PostgreSQL connection/pool failures return a generic
 retryable 503 with Retry-After, and authenticated failures retain rate-limit headers.
@@ -1812,9 +1832,10 @@ current-condition ML section. The browser cannot supply or override this evidenc
 removes any incoming `wave_viewer.ai_analysis`, then calls the scorer callback registered in
 `current_app.extensions['tara_ai_analysis_context']`. The callback reuses the web product's
 `_ml_check_access`, `ml_score_resource_ids`, daily Redis keys, and ML scorer. A 10-90-calendar-day
-pattern receives a like-for-like AI Win Probability, PredR, and PMFE in Tara's prose; the composite
-AIS number is intentionally omitted there because it has no direct standalone interpretation. AIS
-remains available in the opportunity table and its dedicated explainer. Tara compares AI Win
+pattern receives a like-for-like AI Win Probability, PredR, and PMFE in Tara's prose. AIS is
+the model-provided predicted-return percentile (AI Return Rank), not a probability
+or an overall confidence score. It remains available in the opportunity table and
+its dedicated explainer. Tara compares AI Win
 Probability with the historical win rate only because both describe the exact same window. These
 names remain distinct: the former is a current-condition model estimate and the latter is the
 observed share of profitable completed years.
@@ -1843,6 +1864,18 @@ as "why does AI only do the first 90 days?" and explains that the models are tra
 for 10-90-calendar-day seasonal horizons, then shows how the 30/60/90 current-condition outlook and
 the complete-window historical record fit together. This route runs before provider selection and
 does not wait for a scorer call.
+
+Exact-window/scoring-horizon questions take this route before metric definitions,
+including spelled-out short durations such as "my exact nine-day window." A 1-9 day
+historical pattern keeps its selected length while its separate AI checkpoint uses
+the 10-day model minimum. Direct requests for a displayed AI percentage trigger the
+same server enrichment as pattern analysis and name each returned horizon. Missing
+chatbot context must not be described as proof that the website has no score. Zero
+is a valid score; an unavailable value remains absent. Methodology questions run
+before the investor screening funnel, with or without a selected pattern, and explain
+the engine's completed sample and directional win-rate definition without proposing
+a shortlist. The initial "Explain this selected AAPL pattern" QA wording is also a
+full analysis intent, so its AI context is retrieved before the explanation.
 
 When a chart pattern is loaded, terse commands such as `analyze`, `analyze this`, and `analyze it`
 are deterministic analysis intents. They must take the same enriched brief path as `analyze this

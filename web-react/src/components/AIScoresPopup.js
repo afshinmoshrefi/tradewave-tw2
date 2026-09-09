@@ -44,18 +44,18 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
     }
 
     const columns = [
-        { col: 'AIS', full: 'AI Score', desc: 'A composite quality score from 0 to 100. Higher means the AI sees stronger conditions supporting this pattern right now. Think of it as an overall confidence rating that combines multiple inputs into one number.', color: '#3b82f6' },
-        { col: 'Win%', full: 'AI Win Probability', desc: 'The AI-calibrated probability that this pattern will be profitable. Unlike the historical win rate (which only counts past years), this factors in current market conditions to give a more realistic estimate.', color: '#22c55e' },
-        { col: 'PredR', full: 'Predicted Return', desc: 'The AI-estimated average return for this pattern given current conditions. This adjusts the historical average profit by considering what the market environment looks like today.', color: '#a78bfa' },
-        { col: 'PMFE', full: 'Predicted MFE', desc: 'The model-estimated maximum favorable excursion: the largest direction-adjusted favorable move it estimates could occur before the pattern exit date. It is a model output, not a profit target or an exit instruction.', color: '#f59e0b' },
+        { col: 'AIS', full: 'AI Return Rank', desc: 'The model-provided predicted-return percentile, from 0 to 100. A higher rank places the estimate higher in the model reference distribution. It is not a probability of profit or a confidence rating.', color: '#3b82f6' },
+        { col: 'Win%', full: 'AI Win Probability', desc: 'The model-estimated probability of a positive directional return over the named scoring horizon. It can be above or below the historical win rate, which counts completed historical outcomes.', color: '#22c55e' },
+        { col: 'PredR', full: 'Predicted Return', desc: 'The model-estimated directional return over the named scoring horizon, using the available market inputs. It is separate from the historical average return.', color: '#a78bfa' },
+        { col: 'PMFE', full: 'Predicted MFE', desc: 'The model-estimated maximum favorable excursion over the named scoring horizon. It is a model output, not a profit target or an exit instruction.', color: '#f59e0b' },
     ]
 
     const scores = [
-        { range: '80 - 100', label: 'Very strong AI confidence in the pattern', color: '#22c55e' },
-        { range: '60 - 79', label: 'Solid conditions supporting the historical pattern', color: '#4ade80' },
-        { range: '40 - 59', label: 'Moderate - mixed readings from current data', color: '#f59e0b' },
-        { range: '20 - 39', label: 'Weak - current conditions do not favor this pattern', color: '#fb923c' },
-        { range: '0 - 19', label: 'Very weak - conditions conflict with the historical pattern', color: '#ef4444' },
+        { range: '80 - 100', label: '80th through 100th predicted-return percentile', color: '#22c55e' },
+        { range: '60 - 79', label: '60th through 79th predicted-return percentile', color: '#4ade80' },
+        { range: '40 - 59', label: '40th through 59th predicted-return percentile', color: '#f59e0b' },
+        { range: '20 - 39', label: '20th through 39th predicted-return percentile', color: '#fb923c' },
+        { range: '0 - 19', label: 'Below the 20th predicted-return percentile', color: '#ef4444' },
     ]
 
     return ReactDOM.createPortal(
@@ -89,10 +89,9 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                         How It Works
                     </div>
                     <p>
-                        For each pattern in the opportunity table, the AI analyzes <strong>59 features</strong> that
-                        describe the security and the broader market at this moment. These features include price
-                        trends, volatility, momentum, sector conditions, and more. An ensemble classifier
-                        trained on <strong>37 million data points</strong> then produces four calibrated scores.
+                        For eligible patterns, the configured model uses security and market inputs such as
+                        trends, volatility, momentum, and sector conditions. Feature counts and training
+                        details depend on the model version. The four outputs below have distinct meanings.
                     </p>
                     <p>
                         The result is a set of statistics that reflect not just "what has this pattern done
@@ -125,7 +124,7 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
 
                     <div className="ts-section-title">
                         <span className="ts-dot" style={{ backgroundColor: '#f59e0b' }}></span>
-                        Reading the AI Score (AIS)
+                        Reading AI Return Rank (AIS)
                     </div>
                     <table className="ts-range-table">
                         <thead>
@@ -166,8 +165,8 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             might occur or prescribe a target, partial sale, or early exit.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            <strong>Scores update daily.</strong> The AI re-scores every pattern each trading
-                            day using the latest market data. What you see reflects conditions as of today.
+                            <strong>Check the data date.</strong> Read the data-through date beside the score.
+                            A cached score is not evidence that its inputs were refreshed today.
                         </li>
                     </ul>
 
@@ -181,8 +180,16 @@ const AIScoresPopup = ({ onClose, iconRect }) => {
                             (futures, indices, crypto, FX) are not scored at this time.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
-                            Patterns longer than <strong>90 days</strong> are not scored. These show <strong>---</strong> in
-                            the AI columns. The AI models are trained on patterns up to 90 days in length.
+                            The model supports <strong>10 to 90 calendar days</strong>. A 1-9 day historical
+                            window keeps its real length and uses a separate 10-day AI checkpoint. A 10-90 day
+                            window uses its exact duration, with shorter 30/60-day comparisons where applicable.
+                            Longer patterns show 30-, 60-, and 90-day checkpoints; the 90-day reading is primary.
+                            Those checkpoints do not predict the full longer window.
+                        </li>
+                        <li style={{ marginBottom: '6px' }}>
+                            Fresh entry-time scores are requested from today through five calendar days before
+                            entry. No new entry-time reading is added after the pattern starts. An unavailable
+                            reading is not a zero score.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
                             When scores are loading, you will see a small spinning indicator. Scores that are
