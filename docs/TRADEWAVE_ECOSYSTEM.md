@@ -2109,6 +2109,35 @@ The MailerLite worker takes a Postgres advisory lock, reclaims ten-minute stale
 claims, and is a no-write operation unless production explicitly enables it.
 The X worker is also inert outside production and until its independent outbound
 flag is enabled. Routine deploy installs both workers' canonical cron entries.
+
+**ETF catalog and update-source alignment (verified 2026-09-09):** the nightly
+updater reads resource `11` from `/home/flask/data/ETF_symbols.csv`; the central
+production data server (`104.238.214.253`, SSH 4369) uses the same path to select
+its ETF downloads and serves `/home/flask/data/csv/ETF/<symbol>.csv`. Catalog row
+counts and modification dates do not prove parity. Dev and the production app
+had an identical 432-symbol catalog, while the central data server and dev scorer
+had a different 432-symbol catalog. Only 271 symbols overlapped, accounting for
+all 161 `source_missing` results and the 62.7% ETF coverage failure.
+
+Afshin selected the production data server's catalog as dev's authority. Dev's
+catalog now has SHA-256
+`68a92368113f4cc1f9186fe93805d9fe06e8e65168153926e7e5595b8f596c56`.
+The replaced file, 193 MB ETF price backup, and verification are retained at
+`/var/tmp/etf-catalog-alignment-20260909/`. The normal updater refreshed 153 ETF
+files: all 432 were available at the source and 424 reached September 8 (98.1%,
+passing the unchanged ETF policy); eight retain older source terminal dates.
+The production app's divergent catalog was inspected only and remains unchanged.
+
+For an authorized catalog replacement, back up the catalog and affected prices,
+coordinate with the EOD update lock and brief dev activation lock, swap the exact
+validated catalog atomically, and invalidate only Redis DB 0 `list_symbols_11`
+and `group_symbols_11`. Verify the authenticated live `GetListSymbols/11` response
+against the installed file. A scoped ETF refresh must write diagnostics outside
+the authoritative nightly marker; the full US/ETF update must still validate the
+current completed session before `/home/flask/ml_scorer/sync_dev_data.sh` on
+`192.168.1.215` can accept it. Never relabel an older session or weaken coverage
+to make the scorer refresh.
+
 App box:
 DB backup 03:30 + weekly restore drill. (`make_bulletproof.sh`, `OPERATIONS.md §16`.)
 
