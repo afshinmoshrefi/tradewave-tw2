@@ -26,12 +26,13 @@ import datetime
 import os
 import sys
 import time
+from pathlib import Path
 
 import pandas as pd
 import requests
 
-sys.path.insert(0, '/home/flask')
-sys.path.insert(0, '/home/flask/site/lib')
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 import config
 from blog_tools import assign_years_pyears
 from ga_snippet import ga_head_snippet
@@ -48,7 +49,7 @@ APPSERVER_URL = config.appserver_url.rstrip('/')
 
 OUTPUT_DIR = config.web_root_dir
 OUTPUT_FILENAME = 'daily-ai-pick.html'
-HEADER_PARTIAL = '/home/flask/site/templates/_tw_header.html'
+HEADER_PARTIAL = str(Path(__file__).resolve().parent / "templates" / "_tw_header.html")
 
 NUM_PER_GROUP = getattr(config, 'num_opps_per_fi', 10)
 TOP10_AVG_PROFIT_FILTER = getattr(config, 'top10_avg_profit_filter', 5)

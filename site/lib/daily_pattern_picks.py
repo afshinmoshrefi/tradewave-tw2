@@ -28,15 +28,41 @@ import json
 import logging
 import requests
 from datetime import datetime, date, timedelta
+from pathlib import Path
 
-sys.path.insert(0, '/home/flask')
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import config
+from data_updater.eod_readiness import latest_completed_us_equity_session
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s %(message)s'
 )
 log = logging.getLogger(__name__)
+
+
+def current_pick_data_identity():
+    """Require the same completed session as the existing EOD publication gate.
+
+    Check both sides of selection: a refresh or model restart during a request
+    must not produce a new public pick with mixed provenance.
+    """
+    expected = latest_completed_us_equity_session().isoformat()
+    response = requests.get(f'{config.ml_scorer_url.rstrip("/")}/health', timeout=10)
+    response.raise_for_status()
+    payload = response.json()
+    metadata = payload.get('metadata', payload)
+    if (metadata.get('context_data_complete') is not True
+            or metadata.get('data_as_of') != expected):
+        raise RuntimeError(
+            f'Daily pick deferred: scorer data through {metadata.get("data_as_of")} '
+            f'does not cover completed session {expected}')
+    fields = ('model_release', 'model_manifest_hash', 'feature_schema_hash',
+              'context_schema_version', 'data_generation_hash',
+              'data_source_manifest_hash', 'data_as_of')
+    if any(not metadata.get(field) for field in fields):
+        raise RuntimeError('Daily pick deferred: scorer provenance is incomplete')
+    return {field: metadata[field] for field in fields}
 
 
 def get_daily_picks(date, resource_ids, num_picks, direction, days_out_min,
@@ -59,6 +85,7 @@ def get_daily_picks(date, resource_ids, num_picks, direction, days_out_min,
     Returns:
         dict with 'picks' list and metadata from ML scorer
     """
+    identity = current_pick_data_identity()
     payload = {
         'date': date,
         'resource_ids': [str(r) for r in resource_ids],
@@ -79,6 +106,9 @@ def get_daily_picks(date, resource_ids, num_picks, direction, days_out_min,
     resp = requests.post(url, json=payload, timeout=300)
     resp.raise_for_status()
     result = resp.json()
+    if current_pick_data_identity() != identity:
+        raise RuntimeError('Daily pick deferred: model or data changed during selection')
+    result['metadata'] = identity
 
     log.info(f'Pre-filter: {result.get("candidates_after_prefilter", 0)}, '
              f'scored: {result.get("candidates_scored", 0)}, '

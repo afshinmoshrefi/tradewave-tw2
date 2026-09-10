@@ -21,12 +21,13 @@ from typing import Optional, List, Dict
 from jinja2 import Environment, FileSystemLoader
 import os
 import sys
-sys.path.insert(0, '/home/flask')
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent / 'lib'))
 import config
 import portal_urls  # per-env developer-portal URL for the footer link
 
 from daily_pattern_picks import get_daily_picks
+from market_clock import new_york_now
 from blog_tools import get_company_name, convert_param_base64
 from get_price_eod import get_quote_details
 from ga_snippet import ga_head_snippet
@@ -469,7 +470,7 @@ def select_featured_from_ml_scorer():
     history = load_featured_history()
 
     # If already picked today, reuse that entry
-    today_str = date.today().isoformat()
+    today_str = new_york_now().date().isoformat()
     for entry in history:
         if entry.get('featured_date') == today_str:
             print("   Reusing today's pick: %s (already selected)" % entry['symbol'])
@@ -481,7 +482,7 @@ def select_featured_from_ml_scorer():
             FEATURED_REPEAT_DAYS, ', '.join(sorted(recent_symbols))))
 
     # Find next weekday
-    today = date.today()
+    today = new_york_now().date()
     if today.weekday() >= 5:
         today = today + timedelta(days=(7 - today.weekday()))
     target = today.strftime('%Y-%m-%d')
@@ -550,13 +551,13 @@ def select_featured_from_ml_scorer():
 
     # Build pattern_param
     pattern_param = convert_param_base64(
-        resource_id, pick['symbol'], target, str(pick['daysOut']), years_str
+        resource_id, pick['symbol'], target, str(int(pick['daysOut']) + 1), years_str
     )
     wave_viewer_url = "/app/?o=%s" % pattern_param
 
     # Build history entry
     history_entry = {
-        'featured_date': date.today().isoformat(),
+        'featured_date': new_york_now().date().isoformat(),
         'symbol': pick['symbol'],
         'company_name': company_name,
         'date': target,
@@ -582,6 +583,7 @@ def select_featured_from_ml_scorer():
         'start_price': start_price,
         'end_date': (datetime.strptime(target, '%Y-%m-%d') + timedelta(days=pick['daysOut'])).strftime('%Y-%m-%d'),
         'status': 'open',
+        'scorer_metadata': result['metadata'],
     }
 
     # Save to history
@@ -702,9 +704,9 @@ def load_opportunities_from_csv(csv_path):
 
 def drop_closed_windows(opportunities, today=None):
     """STALE GUARD: drop opportunities whose trade window has already closed
-    (start_date + days before today). The CSV is refreshed manually, so without
+    (start_date + days - 1 before today). Without
     this the 'Top Patterns' section renders months-old windows under urgency copy."""
-    today = today or date.today()
+    today = today or new_york_now().date()
     current = []
     for opp in opportunities:
         try:
@@ -713,7 +715,7 @@ def drop_closed_windows(opportunities, today=None):
             print("   WARN stale-table guard: dropping %s (bad start_date %r)"
                   % (opp.get("symbol"), opp.get("start_date")), file=sys.stderr)
             continue
-        if start + timedelta(days=opp["days"]) >= today:
+        if start + timedelta(days=opp["days"] - 1) >= today:
             current.append(opp)
     dropped = len(opportunities) - len(current)
     if dropped:
@@ -795,7 +797,7 @@ def group_by_day_range(opportunities, limit_per_tab=10):
 
         try:
             start = datetime.strptime(opp["start_date"], "%Y-%m-%d")
-            end = start + timedelta(days=opp["days"])
+            end = start + timedelta(days=opp["days"] - 1)
             opp["start_date_formatted"] = start.strftime("%b %d")
             opp["end_date_formatted"] = end.strftime("%b %d")
             opp["days_until_start"] = (start - datetime.now()).days
@@ -909,7 +911,7 @@ def build_ledger_rows(limit=8):
             'symbol': entry.get('symbol', ''),
             'direction': direction,
             'direction_class': direction.lower(),
-            'days': entry.get('daysOut', 0),
+            'days': int(entry.get('daysOut', 0)) + 1,
             'win_prob': '%.1f' % (entry.get('win_prob', 0) * 100),
             'pred_return': '%+.1f' % entry.get('pred_return', 0),
             'current_return': ('%+.1f' % current) if current is not None else '--',
@@ -933,7 +935,7 @@ def _hero_headline(history):
         peak = entry.get('peak_return', 0) or 0
         if peak >= 5.0:
             symbol = entry['symbol']
-            days = entry['daysOut']
+            days = int(entry['daysOut']) + 1
             if entry['direction'] == 's':
                 return "$%s dropped %.1f%% in %d days." % (symbol, peak, days)
             return "$%s rose +%.1f%% in %d days." % (symbol, peak, days)
@@ -1265,6 +1267,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # Fixed-size forward-ledger preview. The public ledger grows forever;
         # the homepage remains eight current rows with a link to the full record.
         "ledger_rows": build_ledger_rows(limit=8),
+        "latest_pick_date": max((entry.get('featured_date', '') for entry in load_featured_history()), default='Unavailable'),
         "ledger_updated": (
             datetime.fromtimestamp(Path(FEATURED_HISTORY_FILE).stat().st_mtime).strftime("%b %d, %Y")
             if Path(FEATURED_HISTORY_FILE).exists() else date.today().strftime("%b %d, %Y")
@@ -1721,10 +1724,12 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 # =============================================================================
 
 def main():
-    global ALLOW_PRICE_FALLBACK, OUTPUT_DIR
+    global ALLOW_PRICE_FALLBACK, OUTPUT_DIR, OPPORTUNITIES_CSV
     parser = argparse.ArgumentParser(description="TradeWave homepage generator")
     parser.add_argument('--content-only', action='store_true',
                         help="Regenerate the page using the latest logged pick without selecting or logging a new one.")
+    parser.add_argument('--opportunities-csv', default=OPPORTUNITIES_CSV,
+                        help='Input CSV for an isolated content preview.')
     parser.add_argument('--output-dir', default=OUTPUT_DIR,
                         help="Output directory for an isolated content preview (defaults to the live docroot).")
     parser.add_argument('--allow-price-fallback', action='store_true',
@@ -1733,6 +1738,7 @@ def main():
                              "beats a wrong-price page).")
     args = parser.parse_args()
     OUTPUT_DIR = args.output_dir
+    OPPORTUNITIES_CSV = args.opportunities_csv
     ALLOW_PRICE_FALLBACK = args.allow_price_fallback
 
     print("TradeWave Homepage Generator")
@@ -1798,12 +1804,14 @@ def main():
             featured["symbol"], featured["ml_score"], featured["win_prob"] * 100))
         try:
             from svg_wave_chart import generate_wave_chart_svg
-            svg_path = "/home/flask/site/data/featured_chart.svg"
+            static_out = Path(OUTPUT_DIR) / "_static"
+            static_out.mkdir(parents=True, exist_ok=True)
+            svg_path = str(static_out / ".featured_chart.svg.tmp")
             generate_wave_chart_svg(
                 resource_id=featured['resource_id'],
                 symbol=featured['symbol'],
                 start_date=featured['date'],
-                days_out=featured['daysOut'],
+                days_out=int(featured['daysOut']) + 1,
                 years=featured['years'],
                 company_name=featured['company_name'],
                 output_path=svg_path,
@@ -1816,7 +1824,7 @@ def main():
             static_out = output_dir / "_static"
             static_out.mkdir(parents=True, exist_ok=True)
             dest_svg = static_out / "featured_chart.svg"
-            shutil.copy2(svg_path, str(dest_svg))
+            os.replace(svg_path, dest_svg)
             print("   Featured SVG copied to %s" % dest_svg)
 
             # Extract years count and label for story
@@ -1846,13 +1854,15 @@ def main():
                 "symbol": featured["symbol"],
                 "company_name": featured["company_name"],
                 "svg_url": "/_static/featured_chart.svg",
-                "wave_viewer_url": featured["wave_viewer_url"],
+                "wave_viewer_url": "/app/?o=" + convert_param_base64(
+                    featured["resource_id"], featured["symbol"], featured["date"],
+                    int(featured["daysOut"]) + 1, featured["years"]),
                 "story": (
                     "%s has averaged +%.1f%% in this %d-day window over the "
                     "past %s years (Sharpe %.2f). AI win probability: %.0f%%." % (
                         featured["symbol"],
                         featured["avg_profit"],
-                        featured["daysOut"],
+                        int(featured["daysOut"]) + 1,
                         years_display,
                         featured["sharpe_ratio"],
                         featured["win_prob"] * 100,
@@ -1860,7 +1870,7 @@ def main():
                 ),
                 "sharpe_ratio": featured["sharpe_ratio"],
                 "avg_return": featured["avg_profit"],
-                "days": featured["daysOut"],
+                "days": int(featured["daysOut"]) + 1,
                 "direction": "Long" if featured["direction"] == "l" else "Short",
                 "win_prob": "%.1f" % (featured["win_prob"] * 100),
                 "pred_return": "%.1f" % featured["pred_return"],
@@ -1891,7 +1901,9 @@ def main():
     output_dir = Path(OUTPUT_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / OUTPUT_FILENAME
-    output_path.write_text(html)
+    temporary_html = output_dir / ".home.html.tmp"
+    temporary_html.write_text(html, encoding="utf-8")
+    os.replace(temporary_html, output_path)
 
     # Copy the home page's embedded image assets into _static so the /_static/*
     # references resolve. The redesign embeds screenshots that have no other copy step

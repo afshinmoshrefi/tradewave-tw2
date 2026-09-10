@@ -160,6 +160,7 @@ def test_opportunity_price_merge_prefers_realtime_and_bounds_local_fallback():
     fallback_calls = []
     ns.update({
         "_LOCAL_EOD_FALLBACK_MAX_SYMBOLS": 2,
+        "_LOCAL_FUTURES_EOD_FALLBACK_MAX_SYMBOLS": 3,
         "validate_realtime_quote_for_resource": lambda _rid, _sym, pair: pair,
         "_latest_local_eod_quote": lambda _rid, sym: (
             fallback_calls.append(sym)
@@ -183,6 +184,15 @@ def test_opportunity_price_merge_prefers_realtime_and_bounds_local_fallback():
     fallback_calls.clear()
     broad_rows = [["2026-08-06", symbol] for symbol in ("A", "B", "C")]
     assert merge("2", broad_rows, [], {"AAPL": [200.0, 2.0]}) == {}
+    assert fallback_calls == []
+
+    # A futures-wide absence uses COMM closes, while the equity outage above
+    # remains bounded. Duplicate regular/active rows do not read a file twice.
+    futures = merge("7", broad_rows, broad_rows, {})
+    assert set(futures) == {"A", "B", "C"}
+    assert fallback_calls == ["A", "B", "C"]
+    fallback_calls.clear()
+    assert merge("7", broad_rows + [["2026-08-06", "D"]], [], {}) == {}
     assert fallback_calls == []
 
 

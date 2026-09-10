@@ -825,6 +825,16 @@ storm-breaker activation. Run away from the 02:00 UTC cron burst. Do not use
 
 ## When something breaks
 
+Homepage/public-record refresh: run `ops/install_site_refresh_cron.sh` as root on
+the WEB box (or combined dev box). It preserves the previous flask crontab under
+`/var/lib/tradewave/site/`, replaces only the three publication jobs, and uses the
+active dev release pointer. `run_site_refresh.sh home` refreshes the CSV then the
+homepage; `scorecard` updates the public record; `daily-pick` renders the separate
+Sharpe-ranked static page. All three load secrets and share `site/refresh.lock`.
+Logs are `homepage.log`, `scorecard.log`, and `daily_ai_pick_gen.log` under
+`/var/log/tradewave`. A stale scorer defers new featured selections and preserves
+their original dates. Restore data at its source; do not bypass this check.
+
 1. `ssh <box> 'systemctl status tradewave-* --no-pager'`
 2. `ssh <box> 'tail -50 /var/log/tradewave/{web,appserver}.error.log'`
 3. `ssh <box> 'journalctl -u tradewave-<svc> --no-pager -n 50'`

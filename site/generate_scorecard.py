@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 import sys
-sys.path.insert(0, '/home/flask')
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent / 'lib'))
 import config
 from blog_tools import convert_param_base64
@@ -37,7 +37,7 @@ OUTPUT_FILENAME = "scorecard.html"
 # Machine-citable ledger export (TYPE H, docs/marketing/content-engine/
 # CE_template_specs.md section 9) - served at /data/daily-pick-ledger.json.
 LEDGER_JSON_RELPATH = "data/daily-pick-ledger.json"
-TEMPLATES_DIR = "/home/flask/site/templates"
+TEMPLATES_DIR = str(Path(__file__).resolve().parent / "templates")
 DOMAIN_ROOT = config.domain_root
 APPSERVER_URL = config.appserver_url.rstrip('/')
 REALTIME_SERVICE_URL = config.realtime_service_url

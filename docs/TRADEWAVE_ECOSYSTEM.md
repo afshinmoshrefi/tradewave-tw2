@@ -2741,6 +2741,45 @@ workflow in `docs/testing/WAVE_VIEWER_LOOP.md`.
 
 ---
 
+## Publication and futures quote repair (2026-09-10)
+
+`site/home_opportunities.py` consumes the engine's OppList4 receipt directly:
+columns 7/8 are `avg_profit2` (TWA) and `sharpe_ratio2` (TWR). The former
+placeholder formulas were invalid and are removed. CSV `days` and viewer links
+are inclusive calendar counts (`daysOut + 1`); endpoint filters still take raw
+offsets. Homepage window ends use `start + days - 1`. The featured ledger keeps
+its existing raw `daysOut` storage contract; only display/link adapters add one.
+
+`ops/install_site_refresh_cron.sh` owns the homepage, scorecard, and static
+daily-pick jobs. Dev follows `/home/flask/.tw2-app-current`; staging/production
+WEB boxes follow `/home/flask`. `ops/run_site_refresh.sh` sources the environment
+and serializes these jobs on `/var/lib/tradewave/site/refresh.lock`. The homepage
+job refreshes the CSV before rendering at 07:00 UTC weekdays. Application source
+and templates follow the executing release; durable pick/CSV data stays under
+`/home/flask/site/data`. Content previews can supply `--opportunities-csv` and
+`--output-dir`; `--content-only` preserves the ledger and writes SVGs only to the
+selected output directory. The homepage distinguishes record refresh date from
+latest pick selection date.
+
+New featured picks require complete scorer metadata through the latest completed
+US session, using the existing EOD calendar policy. Model/data identity must stay
+unchanged before and after `/select`; accepted provenance is saved with the pick.
+An old pick may remain in the dated historical ledger, but stale scorer inputs
+cannot create a new daily entry. On September 10 UTC, 24/26 dev context sources
+reach September 9; vendor ADVN.INDX and DECN.INDX still end August 28. Both remain
+in EODHD's active catalog and are absent from its delisted catalog. No confirmed
+discontinuation or interchangeable replacement has been established. NSHU/NSHD
+also end August 28 and have different historical values. Do not substitute,
+forward-fill, relabel, or weaken the model freshness gate.
+
+The futures board can use up to 128 resource-specific local COMM closes when the
+central quote service supplies no usable namespaced prices. The equity fallback
+limit remains 12, the cache remains bounded, and every fallback carries its actual
+date and `source=eod_close`. This provides the correct Live Cattle LE quote while
+continuing to reject the colliding Lands' End equity price; it does not add an
+intraday futures subscription. Focused checks cover full-board gaps, cache bounds,
+direct engine receipt mapping, inclusive dates, and stale/changing scorer identity.
+
 ## 14. Memory cleanup (from the audit)
 
 The old store `/home/afshin/.claude/projects/-home-afshin/memory/` is a near-duplicate

@@ -25,6 +25,7 @@ import argparse
 import base64
 import csv
 import datetime
+import math
 import sys
 import time
 from pathlib import Path
@@ -32,9 +33,10 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-sys.path.insert(0, '/home/flask')
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'lib'))
 import config
+from market_clock import new_york_now
 from log_safety import scrub_secret_text
 
 # ---------------------------------------------------------------------------
@@ -132,9 +134,12 @@ def fetch_opp_list(
     token: str,
 ) -> List[List[Any]]:
     """Call /OppList4/ for one (resource, mode, day_range) combination."""
+    # The endpoint filters raw offsets, while the homepage buckets are inclusive.
+    low, high = (int(value) - 1 for value in day_range.split("-"))
+    engine_day_range = f"{low}-{high}"
     url = (
         "%s/OppList4/%s/%s/%s/%s/%s/%s/0/0?token=%s&mode=%s"
-        % (APPSERVER_URL, resource_id, month, day, years, pyears, day_range, token, mode)
+        % (APPSERVER_URL, resource_id, month, day, years, pyears, engine_day_range, token, mode)
     )
     try:
         resp = requests.get(url, timeout=REQUEST_TIMEOUT)
@@ -192,30 +197,29 @@ def make_pattern_param(resource_id: int, symbol: str, start_date: str,
 # OPP NORMALISATION
 # ---------------------------------------------------------------------------
 
-# OppList4 row shape from /home/flask/smn/get_top10_data.py:108:
-# ['Date','Symbol','DaysOut','Direction','Sharpe Ratio','avg_profit',
-#  'median_profit','cumulative_return','stddev']
-_OPP_COLS = ["Date", "Symbol", "DaysOut", "Direction", "SR", "AvgP",
-             "median", "CumRet", "StdDev"]
-
-
+# OppList4 supplies engine avg_profit2 (TWA) and sharpe_ratio2 (TWR).
+# daysOut is an elapsed offset; CSV and viewer links use inclusive calendar days.
 def normalize_opp(row: List[Any]) -> Optional[Dict[str, Any]]:
     """Turn a raw OppList4 row into a dict; defensively skip malformed rows."""
     if not isinstance(row, list) or len(row) < 9:
         return None
     try:
-        return {
+        opp = {
             "Date": str(row[0]),
             "Symbol": str(row[1]),
             "DaysOut": int(row[2]),
+            "days": int(row[2]) + 1,
             "Direction": str(row[3]),
             "SR": float(row[4]),
             "AvgP": float(row[5]),
             "median": float(row[6]),
-            "CumRet": float(row[7]),
-            "StdDev": float(row[8]),
+            "TWA": float(row[7]),
+            "TWR": float(row[8]),
         }
-    except Exception:
+        if opp["DaysOut"] < 0 or not all(math.isfinite(opp[k]) for k in ("SR", "AvgP", "median", "TWA", "TWR")):
+            return None
+        return opp
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
@@ -225,31 +229,6 @@ def day_range_for(days: int) -> Optional[str]:
     if 31 <= days <= 60:
         return "31-60"
     return None
-
-
-# ---------------------------------------------------------------------------
-# TWA / TWR
-# ---------------------------------------------------------------------------
-# The TW1 CSV has TWA + TWR columns; appserver.py:512 notes that TWR (also
-# called sr2 / TradeWave_Ratio) is off by default. Without TW1 source we
-# cannot match TW1's exact formula. Best-effort approximations below — these
-# are conservative and never NaN/inf; site/generate_home_page.py reads them
-# with float() and renders as-is. TW1_SPEC: replace with the real formulas
-# once we have TW1's home_opportunities.py.
-
-def compute_twa(opp: Dict[str, Any]) -> float:
-    """TradeWave Adjusted return — placeholder.
-    The existing CSV has TWA > median > AvgP roughly, so we approximate
-    as the upper-of (mean + half-stddev, median + half-stddev)."""
-    return round(max(opp["AvgP"], opp["median"]) + 0.5 * opp["StdDev"], 2)
-
-
-def compute_twr(opp: Dict[str, Any]) -> float:
-    """TradeWave Ratio — placeholder. Sharpe-like but less volatile."""
-    sr = opp["SR"]
-    if opp["StdDev"] <= 0:
-        return round(sr, 2)
-    return round(sr * (opp["CumRet"] / max(opp["StdDev"], 1.0)) / max(sr, 1.0), 2)
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +256,7 @@ def main() -> int:
     if not token:
         return 1
 
-    today = datetime.date.today()
+    today = new_york_now().date()
     cutoff_future = today + datetime.timedelta(days=FORWARD_WINDOW_DAYS)
 
     all_opps: List[Dict[str, Any]] = []
@@ -311,7 +290,7 @@ def main() -> int:
                         continue
                     if start < today or start > cutoff_future:
                         continue
-                    dr = day_range_for(opp["DaysOut"])
+                    dr = day_range_for(opp["days"])
                     if dr is None or dr != day_range:
                         continue
                     opp["resource_id"] = resource_id
@@ -353,18 +332,18 @@ def main() -> int:
             "start_date":    o["Date"],
             "symbol":        o["Symbol"],
             "company_name":  _name_cache.get(o["Symbol"], o["Symbol"]),
-            "days":          o["DaysOut"],
+            "days":          o["days"],
             "direction":     o["Direction"],
             "SR":            round(o["SR"], 2),
             "AvgP":          round(o["AvgP"], 2),
             "median":        round(o["median"], 2),
-            "TWA":           compute_twa(o),
-            "TWR":           compute_twr(o),
+            "TWA":           round(o["TWA"], 2),
+            "TWR":           round(o["TWR"], 2),
             "day_range":     o["day_range"],
             "mode":          o["mode_name"],
             "pattern_param": make_pattern_param(
                 o["resource_id"], o["Symbol"], o["Date"],
-                o["DaysOut"], o["pattern_mode_id"]),
+                o["days"], o["pattern_mode_id"]),
         })
 
     if args.dry_run:

@@ -834,7 +834,7 @@ body{background-image:none !important;}
         <div class="live-ledger-kicker"><span class="live-ledger-dot"></span>Public forward track record</div>
         <div class="live-ledger-summary">Showing the newest {{ content.ledger_rows|length }} of {{ content.scorecard_stats.total_picks }} picks &middot; {{ content.scorecard_stats.win_rate }}% win rate &middot; losses included</div>
       </div>
-      <div class="live-ledger-updated">Updated after the latest track record refresh<br>{{ content.ledger_updated }}<a href="{{ content.scorecard_url }}">Open full track record &rarr;</a></div>
+      <div class="live-ledger-updated">Track record refreshed {{ content.ledger_updated }}<br>Latest pick selected {{ content.latest_pick_date }}<a href="{{ content.scorecard_url }}">Open full track record &rarr;</a></div>
     </div>
     <div class="ledger-table-head ledger-grid" aria-hidden="true">
       <span class="lc-date">Date flagged</span><span class="lc-ticker">Ticker</span><span class="lc-dir">Direction</span><span class="lc-days lc-num">Days</span><span class="lc-win lc-num">Win prob</span><span class="lc-pred lc-num">Predicted</span><span class="lc-current lc-num">Current</span><span class="lc-peak lc-num">Peak</span><span class="lc-target">Target hit</span>

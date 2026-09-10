@@ -3376,6 +3376,7 @@ _local_eod_quote_cache = {}
 _LOCAL_EOD_QUOTE_RESOURCES = frozenset({'0', '1', '2', '3', '4', '7', '11'})
 _LOCAL_EOD_QUOTE_CACHE_MAX = 128
 _LOCAL_EOD_FALLBACK_MAX_SYMBOLS = 12
+_LOCAL_FUTURES_EOD_FALLBACK_MAX_SYMBOLS = 128
 _REALTIME_PRICE_FRESH_SECONDS = 3300
 _REALTIME_PRICE_STALE_SECONDS = 7 * 86400
 _REALTIME_PRICE_BULK_CHUNK_SIZE = 100
@@ -3441,9 +3442,9 @@ def validate_realtime_quote_for_resource(resource_id, symbol, pair):
 def _latest_local_eod_quote(resource_id, symbol, *, today=None):
     """Return a clearly labeled completed-close fallback without downloading.
 
-    This is used only for isolated gaps in an otherwise healthy realtime price
-    response. It never aliases tickers and never invokes ``get_symbol_csv`` in
-    the Opportunity Table request path.
+    This fills isolated equity gaps and the futures board, whose central feed
+    does not provide namespaced intraday quotes. It never aliases tickers and
+    never invokes ``get_symbol_csv`` in the Opportunity Table request path.
     """
 
     resource_id = str(resource_id)
@@ -3549,7 +3550,12 @@ def _opportunity_prices_for_rows(resource_id, regular_rows, active_rows, all_pri
         if len(row) > 1 and row[1]
     }
     missing_symbols = sorted(displayed_symbols.difference(prices))
-    if len(missing_symbols) > _LOCAL_EOD_FALLBACK_MAX_SYMBOLS:
+    # The central service has no live commodity subscription. Permit the
+    # bounded futures universe to use its own COMM closes, including collisions
+    # such as LE, while retaining the small-gap limit for equity outages.
+    fallback_limit = (_LOCAL_FUTURES_EOD_FALLBACK_MAX_SYMBOLS
+                      if str(resource_id) == "7" else _LOCAL_EOD_FALLBACK_MAX_SYMBOLS)
+    if len(missing_symbols) > fallback_limit:
         return prices
     for missing_symbol in missing_symbols:
         fallback = _latest_local_eod_quote(resource_id, missing_symbol)

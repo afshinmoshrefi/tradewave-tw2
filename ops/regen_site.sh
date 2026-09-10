@@ -14,9 +14,10 @@
 set -uo pipefail   # NOT -e: attempt every generator, report failures, never half-abort.
 
 PY=/home/flask/venv/bin/python
-SITE=/home/flask/site
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+SITE="$REPO_ROOT/site"
 SECRETS=/etc/tradewave/secrets.env
-FAVICON_HELPER=/home/flask/ops/lib/tradewave_favicon.sh
+FAVICON_HELPER="$REPO_ROOT/ops/lib/tradewave_favicon.sh"
 
 # --- env: bake with the correct public host or refuse -------------------------
 [ -r "$SECRETS" ] || { echo "FATAL: $SECRETS not readable"; exit 2; }
@@ -46,7 +47,7 @@ run() {  # run <label> <workdir> <cmd...>
 run_home_opportunities() {
   local label=home_opp
   local log="/tmp/regen_${label}.log"
-  local csv="$SITE/data/home_opportunities.csv"
+  local csv="/home/flask/site/data/home_opportunities.csv"
   local before_sha=""
   local after_sha=""
 

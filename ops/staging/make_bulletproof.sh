@@ -112,6 +112,7 @@ CUR=\$(sudo -u flask crontab -l 2>/dev/null | grep -vE 'mailerlite_lifecycle.py|
   echo "*/10 3-6 * * 2-6 \$W flock -n /var/log/tradewave/daily_pick_close_social.lock /home/flask/venv/bin/python /home/flask/site/m_daily_pick_close_social.py --send \$L/m_daily_pick_close_social.log 2>&1"
 } | grep -vE '^\$' | sort -u | sudo -u flask crontab -
 echo "web crontab entry count: \$(sudo -u flask crontab -l | grep -vcE '^#|^\$')"
+bash /home/flask/ops/install_site_refresh_cron.sh
 sudo -u flask crontab -l | grep -vE '^#|^\$' | sort
 REMOTE
 
