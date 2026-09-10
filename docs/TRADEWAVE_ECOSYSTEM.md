@@ -2139,7 +2139,11 @@ current completed session before `/home/flask/ml_scorer/sync_dev_data.sh` on
 to make the scorer refresh.
 
 The US/ETF completion marker and the scorer's 26-source context check are
-separate gates. An accepted US/ETF session does not prove that every required
+separate gates. Scorer `metadata.py:context_data_manifest()` defines
+`/health.data_as_of` as the oldest terminal date across all 26 required context
+files, not the date of every price CSV. `context_data_complete` means the
+required sources are present; it does not establish their freshness.
+An accepted US/ETF session does not prove that every required
 index or futures series is current. During the September 10 UTC retry, the
 central production `INDX/ADVN.csv` and `INDX/DECN.csv` both ended August 28; direct,
 read-only EODHD requests also returned no subsequent rows. The dev bridge must
