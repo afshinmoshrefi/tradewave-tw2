@@ -2138,6 +2138,15 @@ current completed session before `/home/flask/ml_scorer/sync_dev_data.sh` on
 `192.168.1.215` can accept it. Never relabel an older session or weaken coverage
 to make the scorer refresh.
 
+The US/ETF completion marker and the scorer's 26-source context check are
+separate gates. An accepted US/ETF session does not prove that every required
+index or futures series is current. During the September 10 UTC retry, the
+central production `INDX/ADVN.csv` and `INDX/DECN.csv` both ended August 28; direct,
+read-only EODHD requests also returned no subsequent rows. The dev bridge must
+retain its context-date check when the upstream source is incomplete. A later
+retry should inspect both the canonical marker and every required context date,
+then confirm the loaded scorer's `/health` date after any accepted restart.
+
 App box:
 DB backup 03:30 + weekly restore drill. (`make_bulletproof.sh`, `OPERATIONS.md §16`.)
 
