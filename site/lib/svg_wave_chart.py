@@ -194,32 +194,65 @@ def compute_sma(closes, period=50):
     return result
 
 
-def compute_projection(*args, **kwargs):
-    """Retired: normalized Trend Chart points are not percentage returns."""
-    raise RuntimeError('Use the TradeWave SeasonalProjection engine endpoint')
+def compute_projection(last_close, last_date, seasonal_data, period_days=30):
+    """Seasonal projection from last close price.
 
+    Walks the seasonal cycle by ARRAY INDEX (not by MM-DD) so the cycle
+    boundary stays continuous; cumulative_offset carries the cycle's annual
+    drift across each wrap.
+    """
+    if not seasonal_data:
+        return []
 
-def fetch_price_projection(resource_id, symbol, years, start_date, days_out,
-                           price_date, period_days, token):
-    url = (f"{config.appserver_url}/SeasonalProjection/{resource_id}/{start_date}"
-           f"/{symbol}/{int(days_out)-1}/{years}")
-    try:
-        response = requests.get(url, params={'token': token, 'exact_window': '1',
-            'price_date': price_date, 'period_days': period_days, 'timeframe': 'daily'}, timeout=60)
-        response.raise_for_status()
-        data = response.json()
-    except requests.RequestException as exc:
-        raise RuntimeError(scrub_secret_text(exc)) from None
-    study = data.get('study', {})
-    if (data.get('method') != 'mean_historical_price_returns_v1' or data.get('status') != 'ok'
-            or study.get('market') != str(resource_id) or study.get('symbol') != symbol
-            or study.get('entry_date') != start_date or study.get('years') != years
-            or study.get('days_out') != int(days_out)
-            or data.get('anchor', {}).get('date') != price_date
-            or data.get('horizon', {}).get('calendar_days') != period_days
-            or data.get('units', {}).get('points') != 'price' or not data.get('points')):
-        raise RuntimeError('Exact TradeWave price illustration unavailable')
-    return data
+    cycle_len = len(seasonal_data)
+    mmdd_to_idx = {}
+    for i, row in enumerate(seasonal_data):
+        mmdd = row[0][5:]
+        if mmdd not in mmdd_to_idx:
+            mmdd_to_idx[mmdd] = i
+
+    today_mmdd = last_date[5:]
+    today_idx = mmdd_to_idx.get(today_mmdd)
+    if today_idx is None:
+        sorted_mmdds = sorted(mmdd_to_idx.keys())
+        closest = None
+        for k in sorted_mmdds:
+            if k <= today_mmdd:
+                closest = k
+            else:
+                break
+        if closest is None:
+            closest = sorted_mmdds[-1]
+        today_idx = mmdd_to_idx[closest]
+
+    today_return = float(seasonal_data[today_idx][1])
+    cycle_drift = float(seasonal_data[cycle_len - 1][1]) - float(seasonal_data[0][1])
+
+    last_dt = datetime.datetime.strptime(last_date, "%Y-%m-%d")
+    future_dts = []
+    d = last_dt
+    while len(future_dts) < period_days:
+        d += timedelta(days=1)
+        if d.weekday() >= 5:
+            continue
+        future_dts.append(d)
+
+    points = []
+    cycle_idx = today_idx
+    cumulative_offset = 0.0
+    prev_dt = last_dt
+    for fdt in future_dts:
+        days_diff = (fdt - prev_dt).days
+        cycle_idx += days_diff
+        while cycle_idx >= cycle_len:
+            cycle_idx -= cycle_len
+            cumulative_offset += cycle_drift
+        future_return = float(seasonal_data[cycle_idx][1]) + cumulative_offset
+        proj_price = last_close * (1 + (future_return - today_return) / 100)
+        points.append((fdt.strftime("%Y-%m-%d"), proj_price))
+        prev_dt = fdt
+
+    return points
 
 
 def format_years_label(years_str):
@@ -700,13 +733,13 @@ def generate_wave_chart_svg(resource_id, symbol, start_date, days_out, years,
 
     # 3. Seasonal projection
     last_date = ohlc_display[-1][0] if ohlc_display else today.isoformat()
-    if not ohlc_display:
-        raise RuntimeError('Observed TradeWave close unavailable')
-    engine_projection = fetch_price_projection(resource_id, symbol, years, start_date,
-        days_out, last_date, projection_days, token)
-    if engine_projection['anchor']['price'] != float(ohlc_display[-1][4]):
-        raise RuntimeError('TradeWave price evidence changed; refresh both charts')
-    projection = engine_projection['points']
+    chart_start = (datetime.datetime.strptime(start_date, "%Y-%m-%d")
+                   - timedelta(days=14)).strftime("%Y-%m-%d")
+    seasonal_raw = fetch_seasonal_data(resource_id, symbol, years,
+                                       chart_start, start_date, token)
+    last_close = float(ohlc_display[-1][4]) if ohlc_display else 0
+    projection = compute_projection(last_close, last_date, seasonal_raw,
+                                    projection_days)
 
     # Layout positions
     # Top title bar

@@ -292,10 +292,10 @@ const TrendChartPopup = ({ onClose, iconRect }) => {
 
                     <div style={{ ...cardStyle, background: dark ? 'rgba(218,165,32,0.08)' : 'rgba(218,165,32,0.05)', border: `1px solid ${dark ? 'rgba(218,165,32,0.2)' : 'rgba(218,165,32,0.15)'}`, padding: '10px 14px' }}>
                         <div style={{ fontSize: '11px', lineHeight: 1.6 }}>
-                            <strong>How the projection works:</strong> TradeWave averages actual historical
-                            percentage-return paths from the completed years in the selected study and anchors
-                            the illustration to the latest dated close. The normalized trend chart above is a
-                            separate view. Projection periods count inclusive calendar days; the illustration is not a forecast.
+                            <strong>How the projection works:</strong> TradeWave takes the trend chart's path from
+                            today forward and rescales it to start at the current price. It shows where the price
+                            would go <em>if it followed the same historical seasonal trend</em>. You can adjust the
+                            projection to look 2 weeks, 1 month, 2 months, or 3 months ahead in Settings.
                         </div>
                     </div>
 

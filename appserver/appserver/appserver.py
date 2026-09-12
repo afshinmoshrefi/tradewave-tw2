@@ -4598,56 +4598,6 @@ def getYearsMetaData2(resourceID, year, month, day):
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-@app.route('/SeasonalProjection/<string:resourceID>/<string:date>/<string:symbol>/<string:daysOut>/<string:yrs>', methods=['GET'])
-@check_for_token
-def getSeasonalProjection(resourceID, date, symbol, daysOut, yrs):
-    """Engine-owned price illustration; ChartData4 owns entitlements and cohort."""
-    import re
-    from seasonal_projection import build_projection, completed_years, ProjectionUnavailable
-    try:
-        datetime.date.fromisoformat(date)
-        datetime.date.fromisoformat(request.args.get('price_date', ''))
-        if (not re.fullmatch(r'[A-Za-z0-9.^=_-]{1,32}', symbol)
-                or not re.fullmatch(r'(?:pe[0-3]-)?[1-9][0-9]{0,2}', yrs)
-                or not daysOut.isdigit() or not 1 <= int(daysOut) <= 365
-                or not 1 <= int(yrs.split('-')[-1]) <= 200):
-            raise ValueError('Invalid study')
-        period = int(request.args.get('period_days', '60'))
-        timeframe = request.args.get('timeframe', 'daily')
-        if not 2 <= period <= 366 or timeframe not in ('daily', 'weekly'):
-            raise ValueError('Invalid horizon')
-    except (TypeError, ValueError):
-        return jsonify({'status': 'unavailable', 'error': 'invalid_projection_request'}), 400
-
-    # Call the actual decorated engine route, including authentication, limits,
-    # effective date/year entitlement clamps and completed-cohort selection.
-    response = app.make_response(getChartData4(resourceID, date, symbol, daysOut, yrs))
-    if response.status_code != 200:
-        return response
-    receipt = response.get_json() or {}
-    try:
-        effective = receipt['request']
-        year_text = str(effective['years'])
-        if effective['pe_cycle'] != 'cons':
-            year_text = effective['pe_cycle'] + '-' + year_text
-        study = {**effective, 'years': year_text}
-        years = completed_years(receipt)
-        history = get_symbol_csv(study['symbol'], config.exchange_mapping[study['market']])
-        if isinstance(history, str) or history.empty:
-            raise ProjectionUnavailable('Price history unavailable')
-        result = build_projection(
-            history[['date', 'close']].to_dict('records'), study=study, years=years,
-            price_date=request.args['price_date'], period_days=period, timeframe=timeframe,
-            source={'cohort_owner': 'appserver.py::getChartData4',
-                    'price_owner': 'get_symbol_csv', 'mode': 'live_engine'})
-        # This authenticated viewer endpoint returns derived plotting data and
-        # provenance. Detailed historical price observations remain engine-local.
-        result.pop('observations', None)
-        return jsonify(result)
-    except (KeyError, TypeError, ValueError):
-        return jsonify({'status': 'unavailable', 'error': 'exact_projection_evidence_unavailable'}), 422
-
-
 @app.route('/ChartHistorical2/<string:resourceID>/<string:symbol>/<string:d0>/<string:d1>', methods=['GET'])
 @check_for_token
 @limiter.limit(config.rate_limit_ChartHistorical[0])

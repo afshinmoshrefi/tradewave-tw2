@@ -1,4 +1,3 @@
-import { alignEngineProjection } from './engineProjection';
 import React, { useState, useContext, useMemo, useEffect, useRef } from 'react';
 
 import { Line, Chart } from 'react-chartjs-2';
@@ -140,7 +139,7 @@ const formatEarningsDate = (dateStr) => {
     return `${months[parseInt(month, 10) - 1]} ${parseInt(day, 10)}, ${year}`;
 };
 
-const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_ARRAY, barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = EMPTY_ARRAY, SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', engineProjection = null, showMaxProjection = false, maxEngineProjection = null, maxAvailableYears = 0, seasonalYears = 0, projectionCapable = false, priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null, tooltipSW = true }) => {
+const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_ARRAY, barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = EMPTY_ARRAY, SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', consolidatedSeasonalData = EMPTY_ARRAY, showMaxProjection = false, maxYearsConsolidatedSeasonalData = EMPTY_ARRAY, maxAvailableYears = 0, seasonalYears = 0, projectionCapable = false, priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null, tooltipSW = true }) => {
 
     const { browserH, browserW, rdd, loggedinUser } = useContext(UserContext)
     const tc = useMemo(() => themeColors(UITheme), [UITheme])
@@ -558,14 +557,123 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
         ];
     }, [allCloses, bbConfig, seedLen]);
 
-    // Prices are returned by TradeWave; this component only aligns dates.
+    // ── Seasonal Projection computation ──
+    // Both the user-selected-sy line and the full-history line share this walk; the only
+    // per-call inputs are the enable flag and the cycle to walk. Wrapped so a malformed
+    // cycle row can't tear down the price chart via the error boundary.
+    const buildSeasonalProjection = (enabled, cycle) => {
+        const empty = { extraLabels: [], projectionData: [], projectionCount: 0 };
+        // projectionCapable = current price chart OR the current-year trade view of an
+        // ACTIVE trade (both end at the latest close, the projection's anchor).
+        if (!projectionCapable || !enabled || !Array.isArray(cycle) || cycle.length === 0 || labels.length === 0 || dataClose.length === 0) {
+            return empty;
+        }
+        try {
+
+        const lastClosePrice = dataClose[dataClose.length - 1];
+        if (lastClosePrice == null || isNaN(lastClosePrice)) return empty;
+
+        // Build MM-DD → cycle index lookup. The cycle is 365 calendar days starting at
+        // chart_start_date; we walk by index (not by MM-DD) so the cycle boundary is
+        // continuous instead of producing a wrap-around cliff for trending stocks.
+        const cycleLen = cycle.length;
+        const mmddToIdx = {};
+        for (let i = 0; i < cycleLen; i++) {
+            const mmdd = cycle[i][0].substring(5);
+            if (mmddToIdx[mmdd] === undefined) mmddToIdx[mmdd] = i;
+        }
+
+        // Find todayIdx for the last price chart date (anchor of the projection)
+        const lastLabel = labels[labels.length - 1]; // "YYYY-MM-DD"
+        const todayMmdd = lastLabel.substring(5);
+        let todayIdx = mmddToIdx[todayMmdd];
+        // Fallback for Feb 29 or any MM-DD missing from cycle: closest prior MM-DD
+        if (todayIdx === undefined) {
+            const sortedMmdds = Object.keys(mmddToIdx).sort();
+            let closest = null;
+            for (const k of sortedMmdds) {
+                if (k <= todayMmdd) closest = k;
+                else break;
+            }
+            if (closest === null) closest = sortedMmdds[sortedMmdds.length - 1];
+            todayIdx = mmddToIdx[closest];
+        }
+        const todayReturn = cycle[todayIdx][1];
+
+        // Cycle drift: the implied annual normalized appreciation. Used to keep the
+        // projection continuous when it walks past the last cycle row and wraps.
+        const cycleDrift = cycle[cycleLen - 1][1] - cycle[0][1];
+
+        // Generate future dates (skip weekends; for weekly, one point per week)
+        const periodDays = parseInt(projectionPeriod, 10) || 30;
+        // Weekly point spacing only when the chart itself is weekly-aggregated - the weekly
+        // aggregation applies to the current chart only, so the trade view stays daily.
+        const isWeeklyProj = priceChartTimeframe === 'weekly' && showCurrentLineChart;
+        // Map period to calendar weeks: 14→2wk, 30→4wk, 60→8wk, 90→13wk
+        const weeklyPointsMap = { 14: 2, 30: 4, 60: 8, 90: 13 };
+        const numPoints = isWeeklyProj ? (weeklyPointsMap[periodDays] || Math.round(periodDays / 7)) : periodDays;
+        const lastDate = new Date(lastLabel);
+        const futureDates = [];
+        let d = new Date(lastDate);
+        let tradingDayCount = 0;
+        while (futureDates.length < numPoints) {
+            d.setDate(d.getDate() + 1);
+            const dow = d.getDay();
+            if (dow === 0 || dow === 6) continue; // skip weekends
+            tradingDayCount++;
+            if (isWeeklyProj) {
+                // Emit a point every 5 trading days (end of each week)
+                if (tradingDayCount % 5 !== 0) continue;
+            }
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            futureDates.push(`${yyyy}-${mm}-${dd}`);
+        }
+
+        // Build projection prices by walking the cycle linearly. cumulativeOffset
+        // carries the annual drift across each wrap so the projection stays continuous.
+        const extraLabels = [];
+        const projectionValues = [];
+        let cycleIdx = todayIdx;
+        let cumulativeOffset = 0;
+        let prevDate = new Date(lastDate);
+        for (const fDate of futureDates) {
+            const curDate = new Date(fDate);
+            const daysDiff = Math.round((curDate - prevDate) / 86400000);
+            cycleIdx += daysDiff;
+            while (cycleIdx >= cycleLen) {
+                cycleIdx -= cycleLen;
+                cumulativeOffset += cycleDrift;
+            }
+            const futureReturn = cycle[cycleIdx][1] + cumulativeOffset;
+            const projectedPrice = lastClosePrice * (1 + (futureReturn - todayReturn) / 100);
+            extraLabels.push(fDate);
+            projectionValues.push(projectedPrice);
+            prevDate = curDate;
+        }
+
+        // Build full projection array: nulls for existing data, then connection point + future
+        const projectionData = new Array(dataClose.length - 1).fill(null);
+        projectionData.push(lastClosePrice); // connection point at last close
+        projectionData.push(...projectionValues);
+
+        return { extraLabels, projectionData, projectionCount: futureDates.length };
+        } catch (err) {
+            console.log('Seasonal projection compute error:', err?.message || err);
+            return empty;
+        }
+    };
+
     const projectionResult = useMemo(
-        () => alignEngineProjection(engineProjection, labels, projectionCapable && showProjection),
-        [engineProjection, labels, projectionCapable, showProjection]
+        () => buildSeasonalProjection(showProjection, consolidatedSeasonalData),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [showCurrentLineChart, projectionCapable, showProjection, consolidatedSeasonalData, labels, dataClose, projectionPeriod, priceChartTimeframe]
     );
     const maxProjectionResult = useMemo(
-        () => alignEngineProjection(maxEngineProjection, labels, projectionCapable && showMaxProjection),
-        [maxEngineProjection, labels, projectionCapable, showMaxProjection]
+        () => buildSeasonalProjection(showMaxProjection, maxYearsConsolidatedSeasonalData),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [showCurrentLineChart, projectionCapable, showMaxProjection, maxYearsConsolidatedSeasonalData, labels, dataClose, projectionPeriod, priceChartTimeframe]
     );
 
     // Both projections share the same last-close anchor + period + timeframe, so their
@@ -678,7 +786,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
                 pointHitRadius: 8,
                 pointHoverRadius: 3,
                 fill: false,
-                tension: 0,
+                tension: 0.3,
                 spanGaps: false,
             }] : []),
             ...(maxProjCount > 0 && maxProjectionResult.projectionData.length > 0 ? [{
@@ -692,7 +800,7 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = EMPTY_AR
                 pointHitRadius: 8,
                 pointHoverRadius: 3,
                 fill: false,
-                tension: 0,
+                tension: 0.3,
                 spanGaps: false,
             }] : []),
             ...(showVolume && paddedVolumeData.length > 0 ? [{
