@@ -18,6 +18,17 @@
 
 ## 1. The mental model (internalize this)
 
+- **Calculation authority (owner requirement, reaffirmed September 9, 2026):**
+  every mathematical result TradeWave already provides must be consumed unchanged
+  for the identical study. Never duplicate or correct it in SMN, a renderer,
+  model, helper or verifier. Preserve selected years/election phase, dates,
+  direction, instrument and engine conventions. A suspected error requires a
+  documented TradeWave bug and agreement with Afshin before an engine correction.
+  Genuinely new calculations are allowed only after establishing TradeWave does
+  not already provide them. Compare client values to retained engine responses;
+  a second implementation or a matching test is not authority. The installed
+  `tradewave-calculation-authority` skill enforces this agent workflow, not a
+  runtime guarantee. See section 7.1 for the open projection-units incident.
 - **The appserver is the data engine.** It is the ONLY component with the market
   data (CSV/parquet) and the seasonal-pattern computation. **Everything else -
   the React wave-viewer, the web tier, every content generator (home page,
@@ -836,11 +847,106 @@ already fetched for the same symbol:
 **Both cycles come from `/consolidated_seasonal_chart2`** and are fetched
 NOT in the chart itself but in `SeasonalBarChart.js` (:522 primary, :~580
 secondary), which owns the trend-chart data pipeline and lifts both cycles +
-`maxAvailableYears` to `App.js` state via setters. The chart is a pure consumer.
+`maxAvailableYears` to `App.js` state via setters. The chart consumes that curve
+but currently calculates projected prices locally; this is an unresolved
+calculation-authority and units problem, detailed below.
 Cycle math: walks by index (not MM-DD) with cumulative `cycleDrift` carried
 across each wrap, so trending stocks project continuously across the 365-day
 boundary. Same period selector (14/30/60/90d) and daily/weekly timeframe drive
 both lines.
+
+**OPEN: projection units and calculation ownership, confirmed September 12, 2026.**
+This blocks the unpublished September 10 SMN comparison edition. It does not
+authorize changing TradeWave mathematics or production. The previous Claude
+handoff omitted the blocker; its implication that only deployment remained is
+superseded by this record. Afshin reports Claude made no updates.
+
+Read-only production source inspection found the same revision
+`c398d648463c10b31f088982f6cd67bfd8c30a72` on the app and web hosts:
+
+- `appserver/appserver/appserver.py:5112-5125`, inside
+  `get_consolidated_seasonal_chart2`, scales each complete historical close
+  series between its own minimum and maximum to 0-100, averages those scaled
+  series, and returns `cons_seas_chart`. These are index points, not percentage
+  returns. The existing normalized Trend Chart and public seasonal-chart
+  contract legitimately use that shape; the endpoint itself should not be
+  silently redefined as return data.
+- `site/lib/svg_wave_chart.py:197-254`, `compute_projection`, treats a difference
+  between two such index values as a percentage change in the last close. Its
+  input is directly returned by `fetch_seasonal_data` from the endpoint above.
+  The helper's SHA-256 is
+  `870b216e3b3b3b44050069a2b3336e195e44f7879ad6c40810af1d4e763a1953`.
+- `web-react/src/components/LineChart.js:564-650`, `buildSeasonalProjection`,
+  contains the same index-difference-to-price conversion for both the selected
+  and full-history curves. `SeasonalBarChart.js:1253-1316` passes the endpoint's
+  curve through. Switching SMN to this viewer implementation is not a repair.
+  The production source was inspected; this audit did not exercise a signed-in
+  browser or prove the active production JS bundle's identity.
+- The TradeWave homepage generator also calls `generate_wave_chart_svg` from
+  this library. This identifies another caller to review, not proof that every
+  published homepage/chart was generated with the affected revision.
+
+The retained production-engine KMB export for the September 10 SMN edition
+contains last close **98.7 on September 9**, normalized curve value **61.05**
+for September 9 and **24.14** for November 4, and a supplied November 4 projected
+price **62.269830000000006**. These are copied source values; no corrective
+calculation was performed. A normalized curve's change does not establish a
+percentage price move. Comparing the projected move with a different-length
+seasonal window merely prompted investigation; the source's unit definitions
+establish the defect.
+
+**Affected pending edition:** HRL (`pe2-10`), TRV (`pe2-10`), IBM (`pe2-15`),
+KDP (`10`), KMB (`10`) and JNJ (`pe2-10`) all use that helper and remain on
+publication hold. Their primary ChartData4 yearly observations and statistics
+use a separate, production-matched path; this finding does not invalidate them.
+The price path uses the original lookback string, but that alone does not prove
+its actual effective annual membership equals the primary study. A repaired
+engine response must expose that membership explicitly.
+
+**Proposed repair, NOT yet agreed or implemented:** give the TradeWave appserver
+one authoritative price-projection result, based on actual historical percentage
+price changes over the corresponding dates in the exact selected observations.
+Proposed summary is the arithmetic mean of those per-observation return paths,
+anchored by the engine to the dated last close. This preserves the intended
+average-path concept without reusing the 0-100 shape as percentages. The
+normalized Trend Chart remains a separate unchanged result. Both viewer lines,
+the website library and SMN must consume the engine's returned points, with no
+client reimplementation. Afshin must agree to this methodology change first.
+
+The engine contract must identify units, method/version, price basis, actual
+historical years, original study/window, anchor date/price, explicit horizon and
+effective dates, calendar conventions and source provenance. A short article's
+price chart stays in underlying-price terms. Use the engine's next-session
+weekend/holiday convention; missing history must hold rather than change the
+cohort or fill prices downstream. Keep historical illustrations distinct from
+forecasts and from full-window ending returns. The existing helper's 60 emitted
+weekdays are not 60 calendar days; no horizon change has been approved. Settle
+and test the explicit horizon/holiday contract as part of the engine repair.
+Regression coverage belongs in the engine for units/cohorts/calendar/year
+boundaries; clients compare recorded engine points unchanged. A new source hash
+alone is not evidence that the units have been repaired.
+
+**Saved work / continuation:** SMN application branch
+`codex/smn-engine-editorial-20260910`, commit
+`354c7d254e723c9930bb9052b78527aeace59ed9`, contains the editorial changes and
+engine-consumption route. All six drafts have final subscription editorial
+reviews; 48 focused tests passed. Those gates predate the units discovery and
+cannot approve the projection. September 12 local JNJ/TRV desktop/mobile layout
+checks also passed, with pixel approval still pending. There is no September 10
+publication package, live deployment receipt, source activation or main integration.
+The exact source was copied and smoke-tested privately on `.176`; that was not
+deployment. The public SMN Dev recovery pointer still resolves to the September 9
+artifact serving the older September 8 edition. Production is unchanged.
+
+Evidence lives in the owner's orchestrator workspace at
+`smn-review-20260910/engine-editorial/`, particularly
+`production-engine-export.json`, `results/`, `jobs/`, `focused-tests-final.log`
+and `projection-incident-20260912/`. After the methodology agreement, repair and
+verify the engine on Dev, bind fresh results to the original six studies,
+regenerate affected figures, renew affected editorial/visual evidence, and only
+then complete SMN Dev publication and live comparison checks. Do not relabel
+the frozen September 10 edition as today's news. No production, scheduler,
+distribution or paid-API fallback is authorized by this continuation.
 
 **Toggles + hiding.**  `showProjection` and `showMaxProjection` persist via
 `Common.js:lsGet/lsSet` (localStorage keys `showProjection` /
