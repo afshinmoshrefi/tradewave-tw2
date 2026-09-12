@@ -58,16 +58,16 @@ const ProjectionPopup = ({ onClose, iconRect }) => {
     }
 
     const projectionPeriods = [
-        { label: '2 Weeks', color: accentBlue, note: 'Tight focus, less time for the trend to play out' },
-        { label: '1 Month', color: accentGreen, note: 'Good balance of visibility and reliability' },
-        { label: '2 Months', color: accentAmber, note: 'Broader view of the expected seasonal arc' },
-        { label: '3 Months', color: accentPurple, note: 'Full seasonal window perspective' },
+        { label: '2 Weeks', color: accentBlue, note: '14 inclusive calendar days' },
+        { label: '1 Month', color: accentGreen, note: '30 inclusive calendar days' },
+        { label: '2 Months', color: accentAmber, note: '60 inclusive calendar days' },
+        { label: '3 Months', color: accentPurple, note: '90 inclusive calendar days' },
     ]
 
     const steps = [
-        { num: '1', text: 'The trend chart shows the average seasonal path based on your selected years' },
-        { num: '2', text: 'Starting from today\'s closing price, a slice of that trend is extracted for the projection period' },
-        { num: '3', text: 'The slice is rescaled to start at the current price and overlaid as a dashed golden line' },
+        { num: '1', text: 'TradeWave uses the completed historical years from your selected seasonal study' },
+        { num: '2', text: 'For each historical year, the engine measures the actual percentage price changes over matching calendar dates' },
+        { num: '3', text: 'The engine averages those returns and anchors the illustration to the latest dated close. Weekends and holidays use the next available historical session' },
     ]
 
     const enableSteps = [
@@ -95,7 +95,7 @@ const ProjectionPopup = ({ onClose, iconRect }) => {
                         </div>
                         <div style={{ fontSize: '12px', opacity: 0.75 }}>
                             The seasonal projection overlays a dashed golden line on the current price chart,
-                            showing the historical seasonal path from today forward, scaled to the current price.
+                            showing the mean historical return path anchored to the latest dated close. Horizons count inclusive calendar days; this is an illustration, not a forecast.
                         </div>
                     </div>
 
@@ -159,7 +159,7 @@ const ProjectionPopup = ({ onClose, iconRect }) => {
                             <circle cx="220" cy="55" r="3" fill={textColor} />
                         </svg>
                         <div style={{ textAlign: 'center', fontSize: '10px', opacity: 0.6, marginTop: '6px' }}>
-                            The dashed golden line shows where price historically goes from this point in the seasonal cycle
+                            Illustrative example only. The actual dashed line is supplied by the TradeWave engine for the selected historical years.
                         </div>
                     </div>
 

@@ -824,6 +824,51 @@ checks and restart verification are in `ops/OPERATIONS.md` and
 (Source: `web-react/src/*`, `web/app.py:679`, `project_tw2_react_build_env.md`.)
 
 ### 7.1 Price chart + seasonal projections (`StockLineChart` -> `LineChart`)
+
+**September 12 correction, owner approved:** Afshin explicitly approved correcting
+the projection mathematics in TradeWave Dev after the normalized-index/return
+unit mismatch was explained. This supersedes the pending-approval status in the
+incident history below. Staging and production remain unchanged until their own
+authorized release.
+
+The authoritative implementation is
+`appserver/appserver/seasonal_projection.py::build_projection`, method
+`mean_historical_price_returns_v1`. The authenticated `SeasonalProjection` route
+first calls the real `getChartData4` route for entitlement normalization and the
+completed observation cohort. It then uses engine adjusted closes to average the
+actual historical percentage-return paths of exactly those years and anchors the
+result to an observed, dated engine close. Historical calendar anniversaries use
+the next available engine observation for weekends/holidays (Feb 29 anniversaries
+use the engine's relativedelta convention). No price or cohort is invented when
+the exact history is unavailable.
+
+Projection horizons are **inclusive calendar days**, with the observed anchor as
+day one. The daily grid contains nominal calendar dates, not promised future
+exchange sessions. Weekly display points are sampled by the engine, including
+the final horizon date. This replaces the mislabeled weekday-step horizon. The
+price illustration does not replace or recalculate primary seasonal-window
+returns, extrema, win rates, or the normalized 0–100 Trend Chart.
+
+Wave Viewer and `site/lib/svg_wave_chart.py` consume returned prices unchanged.
+The old `compute_projection` entry point raises rather than silently continuing
+the invalid conversion. Viewer responses must match the study, selected lookback,
+dated observed close and horizon; stale/mismatched responses cannot appear.
+The separate full-history line retains its consecutive-year convention. SMN
+must consume this same result with method, units, cohort, source hash and dated
+anchor intact; old normalized-index exports cannot qualify for publication.
+Detailed historical observation prices are omitted from the viewer endpoint;
+the engine retains those for internal audit. For an explicitly retained SMN
+edition, replay the same owning engine implementation on Dev against the
+retained production price snapshot and cohort, recording both hashes. Never
+replace the primary production study with the current Dev-adjusted history.
+
+Focused coverage: `tests/test_seasonal_projection.py` exercises actual return
+units, next-session dates, year boundary/leap anniversaries, complete cohorts,
+missing evidence, entitlement response propagation and calendar horizons.
+`engineProjection.test.js` verifies unchanged plotting values and rejection of
+stale identities, changed anchors and normalized legacy data. Runtime activation
+and the six September 10 SMN articles require separate live receipts; source
+implementation alone is not proof of publication.
 The price chart is a two-layer component: `StockLineChart.js` fetches
 `/appserver/ChartHistorical2/<res>/<sym>/<d0>/<d1>` (adjusted OHLCV, ISO dates)
 with SMA-seed padding, weekly aggregation, and localStorage-persisted user

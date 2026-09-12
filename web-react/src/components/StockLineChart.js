@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useContext, useMemo } from 'react'
 
 import LineChart from './LineChart'
+import useEngineProjection from './useEngineProjection'
 import { datePaddingDays, getTodayDate } from './Common'
 import { appserverURL } from './Common'
 import { twFetch } from './twFetch'
@@ -45,6 +46,8 @@ const StockLineChart = (props) => {
 
     const [lineChartMsg, SetLineChartMsg] = useState('Price Chart') // message shown when no linechart data
 
+    const priceSelectionKey = JSON.stringify([props.selectedSecurity, props.symbol, props.startDate, props.daysOut, props.seasonalYears, props.PEselected]);
+    const [priceEvidenceKey, setPriceEvidenceKey] = useState('');
     const [lineChartData, SetLineChartData] = useState([])
     const [smaSeedData, SetSmaSeedData] = useState([])
     // const [linePointStyle, SetLinePointStyle] = useState([])
@@ -367,6 +370,7 @@ const StockLineChart = (props) => {
                         props.SetTradeDate1(do1)
                         SetSmaSeedData(smaPreRows);
                         SetLineChartData(displayRows)
+                        setPriceEvidenceKey(priceSelectionKey)
 
                         // console.log('fetch line chart')
                         // console.log('charthistorical2=', t)
@@ -621,6 +625,21 @@ const StockLineChart = (props) => {
         showCurrentLineChart ||
         (props.tradeActive === true && lastSeasonalBar !== null && lastSeasonalBar['year'] === props.lineChartYear)
     );
+    // Anchor to the dated EOD engine close, even when a realtime quote is drawn.
+    const projectionAnchor = lineChartData[lineChartData.length - 1];
+    const projectionYears = value => props.PEselected && props.PEselected !== 'cons'
+        ? `${props.PEselected}-${value}` : String(value);
+    const projectionRequest = {
+        market: String(getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity)),
+        symbol: props.symbol, entry_date: props.startDate, days_out: Number(props.daysOut),
+        years: projectionYears(props.seasonalYears), price_date: projectionAnchor?.[0],
+        price: projectionAnchor?.[4], period_days: Number(props.projectionPeriod),
+        timeframe: showCurrentLineChart ? props.priceChartTimeframe : 'daily',
+    };
+    const projectionReady = projectionCapable && priceEvidenceKey === priceSelectionKey && Boolean(projectionAnchor);
+    const primaryProjection = useEngineProjection(projectionRequest, token, projectionReady && props.showProjection);
+    const fullProjection = useEngineProjection({ ...projectionRequest, years: String(props.maxAvailableYears) },
+        token, projectionReady && props.showMaxProjection && props.maxAvailableYears > 0);
     const showAllYearsProjectionControl = shouldShowAllYearsProjectionControl({
         projectionCapable,
         isMobile: rdd.isMobile,
@@ -647,11 +666,11 @@ const StockLineChart = (props) => {
             projection_capable: projectionCapable,
             selected_projection_visible: Boolean(
                 projectionCapable && props.showProjection &&
-                Array.isArray(props.consolidatedSeasonalData) && props.consolidatedSeasonalData.length > 0
+                Boolean(primaryProjection.result)
             ),
             full_history_projection_visible: Boolean(
                 projectionCapable && props.showMaxProjection &&
-                Array.isArray(props.maxYearsConsolidatedSeasonalData) && props.maxYearsConsolidatedSeasonalData.length > 0
+                Boolean(fullProjection.result)
             ),
             projection_period_days: props.projectionPeriod,
             selected_years: props.seasonalYears,
@@ -670,8 +689,8 @@ const StockLineChart = (props) => {
         props.tradeActive,
         props.showProjection,
         props.showMaxProjection,
-        props.consolidatedSeasonalData,
-        props.maxYearsConsolidatedSeasonalData,
+        primaryProjection.result,
+        fullProjection.result,
         props.projectionPeriod,
         props.seasonalYears,
         props.maxAvailableYears,
@@ -955,7 +974,7 @@ const StockLineChart = (props) => {
                                 </Tippy>
                             }
 
-                            {projectionCapable && !rdd.isMobile && props.consolidatedSeasonalData && props.consolidatedSeasonalData.length > 0 &&
+                            {projectionCapable && !rdd.isMobile &&
                                 <Tippy disabled={!props.tooltipSW} placement={'top'} content={
                                     <div theme="tw">{selectedProjectionLabel}</div>
                                 }>
@@ -1108,8 +1127,12 @@ const StockLineChart = (props) => {
             </div>
 
             <div className="linechart" style={{ ...linechartStyle, position: 'relative' }}>
+                {(primaryProjection.status === 'unavailable' || fullProjection.status === 'unavailable') &&
+                    <span role="status" style={{ position: 'absolute', top: 4, right: 12, zIndex: 2, fontSize: 11, color: tc.text }}>
+                        Seasonal illustration unavailable for this exact study
+                    </span>}
                 {lineChartData.length > 0
-                    ? <LineChart showCurrentLineChart={showCurrentLineChart} projectionCapable={projectionCapable} statDisplay={statDisplay} SetStatDisplay={SetStatDisplay} lineChartData={effectiveLineChartData} smaSeedData={effectiveSmaSeedData} barChartLongOrShort={props.barChartLongOrShort} tradeDate0={props.tradeDate0} tradeDate1={props.tradeDate1} activeTrade={props.tradeActive} saveStatDisplay={saveStatDisplay} statBoxCoordinates={props.statBoxCoordinates} SetStatBoxCoordinates={props.SetStatBoxCoordinates} UITheme={props.UITheme} showWatermark={props.showWatermark} priceChartType={props.priceChartType} showVolume={props.showVolume} maConfig={props.maConfig} bbConfig={props.bbConfig} priceLevels={priceLevels} SetPriceLevels={SetPriceLevels} selectedLevelId={selectedLevelId} SetSelectedLevelId={SetSelectedLevelId} drawingMode={drawingMode} SetDrawingMode={SetDrawingMode} showProjection={props.showProjection} projectionPeriod={props.projectionPeriod} consolidatedSeasonalData={props.consolidatedSeasonalData} showMaxProjection={props.showMaxProjection} maxYearsConsolidatedSeasonalData={props.maxYearsConsolidatedSeasonalData} maxAvailableYears={props.maxAvailableYears} seasonalYears={props.seasonalYears} priceChartTimeframe={props.priceChartTimeframe} showEarnings={props.showEarnings} tradeDetailData={props.tradeDetailData} tooltipSW={props.tooltipSW} />
+                    ? <LineChart showCurrentLineChart={showCurrentLineChart} projectionCapable={projectionCapable} statDisplay={statDisplay} SetStatDisplay={SetStatDisplay} lineChartData={effectiveLineChartData} smaSeedData={effectiveSmaSeedData} barChartLongOrShort={props.barChartLongOrShort} tradeDate0={props.tradeDate0} tradeDate1={props.tradeDate1} activeTrade={props.tradeActive} saveStatDisplay={saveStatDisplay} statBoxCoordinates={props.statBoxCoordinates} SetStatBoxCoordinates={props.SetStatBoxCoordinates} UITheme={props.UITheme} showWatermark={props.showWatermark} priceChartType={props.priceChartType} showVolume={props.showVolume} maConfig={props.maConfig} bbConfig={props.bbConfig} priceLevels={priceLevels} SetPriceLevels={SetPriceLevels} selectedLevelId={selectedLevelId} SetSelectedLevelId={SetSelectedLevelId} drawingMode={drawingMode} SetDrawingMode={SetDrawingMode} showProjection={props.showProjection} projectionPeriod={props.projectionPeriod} engineProjection={primaryProjection.result} showMaxProjection={props.showMaxProjection} maxEngineProjection={fullProjection.result} maxAvailableYears={props.maxAvailableYears} seasonalYears={props.seasonalYears} priceChartTimeframe={props.priceChartTimeframe} showEarnings={props.showEarnings} tradeDetailData={props.tradeDetailData} tooltipSW={props.tooltipSW} />
                     : <div className='barchart-background'><span style={{ fontSize: svFont, color: tc.watermark }} >{lineChartMsg}</span></div>
                 }
                 {props.lineChartYear === 0 && lineChartData.length > 0 &&
