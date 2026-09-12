@@ -46,7 +46,7 @@ const StockLineChart = (props) => {
 
     const [lineChartMsg, SetLineChartMsg] = useState('Price Chart') // message shown when no linechart data
 
-    const priceSelectionKey = JSON.stringify([props.selectedSecurity, props.symbol, props.startDate, props.daysOut, props.seasonalYears, props.PEselected]);
+    const priceSelectionKey = JSON.stringify([props.selectedSecurity, props.symbol, props.startDate, props.daysOut, props.seasonalYears, props.PEselected, props.lineChartYear]);
     const [priceEvidenceKey, setPriceEvidenceKey] = useState('');
     const [lineChartData, SetLineChartData] = useState([])
     const [smaSeedData, SetSmaSeedData] = useState([])
