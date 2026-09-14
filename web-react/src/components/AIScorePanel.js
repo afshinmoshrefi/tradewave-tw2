@@ -291,7 +291,12 @@ const AIViewTable = ({ view, displayDays, selectionOrigin, patternRecord }) => {
             <td>
               <HistoricalRecord
                 recurrence={view && view.selectedRecurrence}
-                patternRecord={view && view.isCurrent ? patternRecord : null}
+                patternRecord={
+                  view && patternRecord
+                    && Number(view.calendarDays) === Number(patternRecord.calendarDays)
+                    ? patternRecord
+                    : null
+                }
               />
             </td>
           </tr>
