@@ -165,3 +165,74 @@ def test_a_forced_direction_is_never_described_as_what_the_record_favors(monkeyp
         _forced_viewer("long", 10, 0), "user-42", "2")
     assert "TradeWave determined this pattern is LONG" in derived
     assert "pinned to" not in derived
+
+
+def test_pe_phase_parses_only_real_cohorts():
+    for value, expected in (
+        ("pe0", 0), ("pe1", 1), ("pe2", 2), ("pe3", 3), ("PE2", 2),
+        ("cons", None), ("consecutive", None), ("pe", None),
+        ("", None), (None, None), ("pe4", None), ("pe22", None),
+    ):
+        assert tara_gateway._pe_phase(value) == expected, value
+
+
+def _metadata_response(first_year, last_year):
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"StockMetaData": ["%d-01-01" % first_year, "%d-12-31" % last_year]}
+
+    return Response()
+
+
+def test_available_years_is_counted_per_cohort_not_per_calendar_year(monkeypatch):
+    """A PE cohort holds roughly a QUARTER of the calendar range. Returning the
+    consecutive count let a 20-year PE+2 request through; React then stepped the control
+    down to 9, the fetch had already gone out as pe2-20, and the transaction's request key
+    never matched the response - the viewer sat on "loading" (2026-09-14 MSFT report)."""
+    monkeypatch.setattr(
+        tara_gateway.requests, "get", lambda *a, **k: _metadata_response(1986, 2026)
+    )
+    monkeypatch.setattr(tara_gateway.config, "appserver_url", "http://appserver.test")
+
+    consecutive = tara_gateway._symbol_max_available_years("2", "MSFT", "tok", "cons")
+    assert consecutive == 40
+
+    for cycle in ("pe0", "pe1", "pe2", "pe3"):
+        cohort = tara_gateway._symbol_max_available_years("2", "MSFT", "tok", cycle)
+        assert cohort == 10, (cycle, cohort)
+        assert cohort < consecutive
+
+    # No cohort given behaves exactly as before.
+    assert tara_gateway._symbol_max_available_years("2", "MSFT", "tok") == 40
+
+
+def test_knob_only_pe_switch_clamps_to_the_cohort_count(monkeypatch):
+    """The reported turn: "use 20 years and switch to PE+2" on a consecutive MSFT view.
+    The action must reach the viewer carrying the cohort's real maximum, so the control it
+    sets and the chart request it triggers describe the same lookback."""
+    monkeypatch.setattr(
+        tara_gateway.requests, "get", lambda *a, **k: _metadata_response(1986, 2026)
+    )
+    monkeypatch.setattr(tara_gateway.config, "appserver_url", "http://appserver.test")
+
+    actions, cards, card_list = [], {}, []
+    tara_gateway._execute_tara_tool(
+        "update_view",
+        {"years": 20, "pe_cycle": "pe2"},
+        "user-42",
+        actions,
+        cards,
+        card_list,
+        user_token="tok",
+        current_view={"symbol": "MSFT", "market": "2", "entry_date": "2026-09-14",
+                      "days_out": 45, "years": 10, "pe_cycle": "cons"},
+        named_symbol_override="MSFT",
+        named_symbol_lookback=20,
+    )
+    specs = [a.get("spec", {}) for a in actions if a.get("type") == "set_view"]
+    assert specs, "the knob change must still reach the viewer"
+    assert specs[0].get("pe_cycle") == "pe2"
+    assert specs[0].get("years") == 10, specs

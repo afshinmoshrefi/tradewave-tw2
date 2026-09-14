@@ -2260,13 +2260,23 @@ def _opplist4_rows(market_id, token, years):
     return _opplist4_to_rows(ol) if isinstance(ol, list) else None
 
 
-def _symbol_max_available_years(market_id, symbol, token):
-    """Return the symbol's consecutive data limit from the viewer's StockMetaData source.
+def _symbol_max_available_years(market_id, symbol, token, pe_cycle=None):
+    """Return the symbol's selectable lookback from the viewer's StockMetaData source.
 
-    This mirrors ``SeasonalBarChart`` (end year minus start year) so a named-symbol change
-    can inherit the current lookback without asking a younger ticker for unavailable years.
-    It is a best-effort guard: failures leave the requested lookback unchanged and React's
-    existing metadata clamp remains the final defense.
+    This mirrors ``SeasonalBarChart``'s years-list builder. For consecutive years that is
+    end year minus start year. For a PE cohort it is the COUNT of years in that range
+    sharing the cycle's remainder (``yr % 4 == phase``), which collapses to roughly a
+    quarter of the range - MSFT's ~39 consecutive years are only 9 PE+2 observations.
+
+    Getting this wrong does not merely pick a large number: React independently steps the
+    years control DOWN to the selectable maximum, so a Tara action that asked for 20 PE+2
+    years fetched ``pe2-20`` while the control became 9. The transaction was waiting on a
+    request key built from 20, the response carried 9, nothing ever matched, and the
+    viewer sat on "loading" until a reload (2026-09-14 MSFT report; the access log shows
+    the ``/ChartData4/2/2026-09-14/MSFT/44/pe2-20`` request against a 9-year control).
+
+    Best effort: failures leave the requested lookback unchanged and React's clamp remains
+    the final defense.
     """
 
     market = str(market_id or "").strip()
@@ -2301,7 +2311,25 @@ def _symbol_max_available_years(market_id, symbol, token):
     except (TypeError, ValueError):
         return None
     available = last_year - first_year
-    return min(available, 99) if available > 0 else None
+    if available <= 0:
+        return None
+    phase = _pe_phase(pe_cycle)
+    if phase is not None:
+        # Mirror SeasonalBarChart: count years in [first, last) whose remainder matches.
+        available = sum(1 for yr in range(first_year, last_year) if yr % 4 == phase)
+        if available <= 0:
+            return None
+    return min(available, 99)
+
+
+def _pe_phase(pe_cycle):
+    """0..3 for an explicit pe0-pe3 cohort, else None (consecutive or unknown)."""
+    text = str(pe_cycle or "").strip().lower()
+    if len(text) == 3 and text.startswith("pe") and text[2].isdigit():
+        phase = int(text[2])
+        if 0 <= phase <= 3:
+            return phase
+    return None
 
 
 _HUNDRED_YEAR_SECURITY_RE = re.compile(
@@ -3356,8 +3384,13 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
             inp.get("market")
             or (current_view or {}).get("market") if isinstance(current_view, dict) else None
         ) or table_market
+        # The cohort this action lands on: an explicit pe_cycle in the spec wins,
+        # otherwise the view it is being applied to.
+        target_cycle = inp.get("pe_cycle") or (
+            (current_view or {}).get("pe_cycle") if isinstance(current_view, dict) else None
+        )
         available_years = _symbol_max_available_years(
-            target_market, target_symbol, user_token
+            target_market, target_symbol, user_token, target_cycle
         )
         if available_years is not None:
             effective_named_lookback = min(named_symbol_lookback, available_years)

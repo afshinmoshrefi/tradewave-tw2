@@ -398,7 +398,7 @@ def test_named_symbol_read_is_forced_to_inherit_current_lookback(monkeypatch):
 
     monkeypatch.setattr(tara_gateway, "run_tool", fake_run_tool)
     monkeypatch.setattr(
-        tara_gateway, "_symbol_max_available_years", lambda market, symbol, token: 16
+        tara_gateway, "_symbol_max_available_years", lambda market, symbol, token, pe_cycle=None: 16
     )
 
     tara_gateway._execute_tara_tool(
@@ -425,7 +425,7 @@ def test_named_symbol_inherited_lookback_steps_down_to_target_metadata(monkeypat
 
     monkeypatch.setattr(tara_gateway, "run_tool", fake_run_tool)
     monkeypatch.setattr(
-        tara_gateway, "_symbol_max_available_years", lambda market, symbol, token: 12
+        tara_gateway, "_symbol_max_available_years", lambda market, symbol, token, pe_cycle=None: 12
     )
 
     tara_gateway._execute_tara_tool(
