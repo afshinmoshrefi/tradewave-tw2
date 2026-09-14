@@ -3354,6 +3354,7 @@ def _enforce_named_symbol_action(
 
 def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                        table_market=None, opp_table=None, user_token=None,
+                       user_years_cap=None,
                        opp_table_years=None, full_history_request=None,
                        named_symbol_override=None, named_symbol_lookback=None,
                        current_view=None, view_intent=None, latest_user_text="",
@@ -3424,6 +3425,14 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
             cohort_max = _symbol_max_available_years(
                 effective_market, effective_symbol, user_token, effective_cycle
             )
+            # The viewer also caps years by PLAN (config.num_years_allowed_by_level:
+            # Explorer 10, Navigator 15, Analyst+ uncapped) and steps the control down to
+            # it, so an uncapped spec desynchronises exactly like the cohort case did.
+            if isinstance(user_years_cap, int) and user_years_cap > 0:
+                cohort_max = (
+                    min(cohort_max, user_years_cap)
+                    if isinstance(cohort_max, int) else user_years_cap
+                )
             if isinstance(cohort_max, int) and inp["years"] > cohort_max:
                 log.info(
                     "tara lookback clamped for %s %s: %s -> %s",
@@ -3510,6 +3519,7 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
 
 def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                         opp_table=None, opp_table_market=None, user_token=None,
+                        user_years_cap=None,
                         opp_table_years=None, full_history_request=None,
                         named_symbol_override=None, named_symbol_lookback=None,
                         viewer_entry_year=None, current_view=None, turn_id=None,
@@ -3730,6 +3740,7 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                 table_market=table_market,
                 opp_table=opp_table,
                 user_token=user_token,
+                user_years_cap=user_years_cap,
                 opp_table_years=opp_table_years,
                 full_history_request=full_history_request,
                 named_symbol_override=named_symbol_override,
@@ -3845,7 +3856,8 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
 
 def run_chat_with_openai_tools(messages, system, user_id, model,
                                opp_table=None, opp_table_market=None,
-                               user_token=None, opp_table_years=None,
+                               user_token=None, user_years_cap=None,
+                               opp_table_years=None,
                                full_history_request=None,
                                named_symbol_override=None,
                                named_symbol_lookback=None,
@@ -3979,6 +3991,7 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
                     table_market=table_market,
                     opp_table=opp_table,
                     user_token=user_token,
+                    user_years_cap=user_years_cap,
                     opp_table_years=opp_table_years,
                     full_history_request=full_history_request,
                     named_symbol_override=named_symbol_override,

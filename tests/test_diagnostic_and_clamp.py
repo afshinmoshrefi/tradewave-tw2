@@ -337,3 +337,39 @@ def test_the_clamp_never_blocks_the_action_when_metadata_is_unavailable(monkeypa
     specs = [a.get("spec", {}) for a in actions if a.get("type") == "set_view"]
     assert specs, "a metadata outage must not swallow the user's action"
     assert specs[0].get("years") == 20, specs
+
+
+def _clamped_years(inp, view, user_years_cap=None, first=1986, last=2026):
+    actions, cards, card_list = [], {}, []
+    tara_gateway._execute_tara_tool(
+        "update_view", inp, "user-42", actions, cards, card_list,
+        user_token="tok", user_years_cap=user_years_cap, current_view=view,
+    )
+    specs = [a.get("spec", {}) for a in actions if a.get("type") == "set_view"]
+    assert specs, "the action must still reach the viewer"
+    return specs[0].get("years")
+
+
+def test_the_plan_years_cap_is_applied_too(monkeypatch):
+    """The viewer caps the years control by PLAN (Explorer 10, Navigator 15) and steps a
+    larger value down to it, so an uncapped spec desynchronises the pending action exactly
+    as the cohort case did. Analyst+ has no cap and must be unaffected."""
+    monkeypatch.setattr(
+        tara_gateway.requests, "get", lambda *a, **k: _metadata_response(1986, 2026)
+    )
+    monkeypatch.setattr(tara_gateway.config, "appserver_url", "http://appserver.test")
+    view = {"symbol": "MSFT", "market": "2", "entry_date": "2026-09-14",
+            "days_out": 45, "years": 10, "pe_cycle": "cons"}
+
+    # Explorer: 40 consecutive years exist, but the plan allows 10.
+    assert _clamped_years({"years": 30}, view, user_years_cap=10) == 10
+    # Navigator: 15.
+    assert _clamped_years({"years": 30}, view, user_years_cap=15) == 15
+    # Analyst+ (no cap): limited only by the data.
+    assert _clamped_years({"years": 30}, view, user_years_cap=None) == 30
+    # Whichever limit is TIGHTER wins: a PE+2 cohort has ~10, below Navigator's 15.
+    assert _clamped_years({"years": 30, "pe_cycle": "pe2"}, view, user_years_cap=15) == 10
+    # ...and the plan wins when IT is tighter than the cohort.
+    assert _clamped_years({"years": 30, "pe_cycle": "pe2"}, view, user_years_cap=4) == 4
+    # An in-range request is never rewritten.
+    assert _clamped_years({"years": 8}, view, user_years_cap=10) == 8

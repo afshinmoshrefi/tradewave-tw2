@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, g
 from datetime import datetime, timedelta
 import datetime
 import html
@@ -2689,6 +2689,19 @@ def chat():
                     'years': cleaned["years"],
                 })
                 return finish(reply, [{"type": "set_view", "spec": cleaned}])
+        # The viewer caps the years control by PLAN and steps a larger value DOWN to it
+        # (config.num_years_allowed_by_level: Explorer 10, Navigator 15, Analyst+ none).
+        # A spec that ignores the cap desynchronises the pending action from the view it
+        # produces, which is the MSFT hang's failure mode on a capped tier.
+        try:
+            _jwt = getattr(g, 'chatbot_jwt', None) or {}
+            user_years_cap = config.num_years_allowed_by_level.get(
+                str(_jwt.get('user_level', '')), None
+            )
+        except Exception:
+            logging.warning("Tara plan years cap unavailable; leaving the lookback unclamped")
+            user_years_cap = None
+
         explicit_named_symbol = explicit_pattern_symbol(user_message)
         loaded_symbol = str(wave_viewer.get("symbol") or "").strip().upper()
         named_symbol_override = (
@@ -2759,6 +2772,7 @@ def chat():
                     opp_table=opportunities,
                     opp_table_market=opp_table_market,
                     user_token=user_token,
+                    user_years_cap=user_years_cap,
                     opp_table_years=opp_table_years,
                     full_history_request=full_history_request,
                     named_symbol_override=named_symbol_override,
@@ -2825,6 +2839,7 @@ def chat():
                     opp_table=opportunities,
                     opp_table_market=opp_table_market,
                     user_token=user_token,
+                    user_years_cap=user_years_cap,
                     opp_table_years=opp_table_years,
                     full_history_request=full_history_request,
                     named_symbol_override=named_symbol_override,
