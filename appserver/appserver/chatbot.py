@@ -40,6 +40,7 @@ from tradewave_api_calls_cb import (
 # plain no-tools chat when the gateway is not configured. See docs/TARA_GATEWAY_INTEGRATION.md.
 from tara_gateway import (
     build_best_waves_command,
+    build_direction_flip_reply,
     build_hundred_year_security_command,
     classify_investor_intent,
     classify_view_intent,
@@ -72,6 +73,7 @@ from tara_answer_planner import (
 from featured_patterns import is_hundred_year_view_spec
 from tara_prompt_context import (
     allowlisted_prompt_stats,
+    is_direction_flip_request,
     needs_opportunity_rows,
     needs_yearly_results,
     parse_knowledge_sections,
@@ -2628,6 +2630,18 @@ def chat():
         # Questions whose answer is completely determined by the loaded data and current UI state
         # bypass the provider. This prevents direction inversions and guarantees that a broad screen
         # question covers both the top chart and the bottom panel the user is actually viewing.
+        # "Switch this pattern to short" is answerable only as a structured what-if:
+        # direction is DETERMINED from the win/loss split and the viewer has no long/short
+        # control (invariant 0C). Provider-independent because the reply has a mandatory
+        # SHAPE, and the RESPONSE STYLE length rule reads a direction request as a view
+        # command and compresses any prompt-level instruction to two sentences.
+        if is_direction_flip_request(user_message):
+            flip_reply = build_direction_flip_reply(
+                wave_viewer, user_id, opp_table_market, user_message
+            )
+            if flip_reply:
+                return finish(flip_reply, [])
+
         planned_reply = None
         if investor_intent not in gateway_owned_intents:
             planned_reply = build_deterministic_reply(

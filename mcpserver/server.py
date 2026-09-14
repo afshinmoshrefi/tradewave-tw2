@@ -1184,9 +1184,11 @@ async def analyze_symbol(
     direction: Annotated[Optional[str], Field(description=(
         "'long' or 'short'. Omit to let the best setup decide."))] = None,
     days_out: Annotated[Optional[int], Field(description=(
-        "Preferred inclusive holding period in CALENDAR days: entry date is day 1 and "
-        "the end date is entry_date + (days_out - 1). With entry_date, PINS the exact "
-        "window; without it, biases setup selection."))] = None,
+        "Inclusive holding period in CALENDAR days: entry date is day 1 and the end "
+        "date is entry_date + (days_out - 1). REQUIRES a companion entry_date or period "
+        "- together they PIN the exact window. Sent on its own the request is REJECTED "
+        "(400, 'days_out requires entry_date or period for an exact-window analysis'). "
+        "To let TradeWave choose the setup, omit days_out entirely."))] = None,
     entry_date: Annotated[Optional[str], Field(description=(
         "'YYYY-MM-DD'. PIN analysis to THIS exact opportunity (the 'click this one / "
         "deep-dive THIS setup' flow) instead of auto-picking the best."))] = None,

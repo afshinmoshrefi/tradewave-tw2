@@ -721,10 +721,22 @@ _NEGATED_VIEW_REQUEST_RE = re.compile(
     re.IGNORECASE,
 )
 _DIAGNOSTIC_VIEW_REQUEST_RE = re.compile(
+    # (a) "why didn't / doesn't / failed to ..." - something did not happen
     r"\b(?:why|how)\b"
     r"(?=[^;.!?]{0,100}\b(?:did(?:n't|\s+not)|does(?:n't|\s+not)|failed|"
     r"fail(?:ed|ure)?|not\s+load|wasn't|was\s+not)\b)"
-    r"[^;.!?]{0,140}",
+    r"[^;.!?]{0,140}"
+    # (b) "why did that change / why does it show 9" - something DID happen and the user
+    #     wants it EXPLAINED. Without this the turn was classified as a view command that
+    #     must emit a chart action; the model correctly emitted none, and the protocol
+    #     guard then replaced the real answer with "I couldn't send the complete chart
+    #     action" (2026-09-14 MSFT 20-years/PE+2 report).
+    r"|\b(?:why|how\s+come)\b[^;.!?]{0,100}?"
+    r"\b(?:chang(?:e|ed|ing)|switch(?:ed)?|drop(?:ped)?|reduc(?:e|ed)|"
+    r"differ(?:ent|s)?|show(?:s|ing|n)?|display(?:s|ing|ed)?|becam?e|went)\b"
+    r"[^;.!?]{0,140}"
+    # (c) "which years are actually included" - an inventory question about current state
+    r"|\bwhich\s+years?\b[^;.!?]{0,60}?\b(?:includ|cover|use|count)",
     re.IGNORECASE,
 )
 _AUTO_VIEW_REQUEST_RE = re.compile(
@@ -3324,13 +3336,26 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
     target_symbol = str(named_symbol_override or "").strip().upper()
     effective_named_lookback = named_symbol_lookback
     action_symbol = str(inp.get("symbol") or "").strip().upper()
+    # A KNOB-ONLY update_view ("use 20 years and switch to PE+2") carries no symbol: it
+    # applies to whatever is already loaded, so the LOADED symbol is what the
+    # available-history clamp must be measured against. Without this the viewer was told
+    # to load more years than the cohort has, requested 20, received 9, and sat on the
+    # loading state (2026-09-14 MSFT report).
+    loaded_symbol = (
+        str((current_view or {}).get("symbol") or "").strip().upper()
+        if isinstance(current_view, dict) else ""
+    )
+    clamp_symbol = action_symbol or (loaded_symbol if name == "update_view" else "")
     if (
         target_symbol
-        and action_symbol == target_symbol
+        and clamp_symbol == target_symbol
         and isinstance(named_symbol_lookback, int)
         and name in {"analyze_symbol", "get_symbol_patterns", "update_view"}
     ):
-        target_market = inp.get("market") or table_market
+        target_market = (
+            inp.get("market")
+            or (current_view or {}).get("market") if isinstance(current_view, dict) else None
+        ) or table_market
         available_years = _symbol_max_available_years(
             target_market, target_symbol, user_token
         )
@@ -3346,10 +3371,15 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
         inp["years"] = effective_named_lookback
     card_count_before = len(card_list)
     if name == "update_view":                       # client-side UI action, not a gateway call
+        # A KNOB-ONLY change ("use 20 years and switch to PE+2") carries no symbol, so the
+        # available-history clamp used to be skipped and the viewer was told to load more
+        # years than the symbol has. It then requested 20, received 9, and sat on the
+        # loading state (2026-09-14 MSFT report). A spec with no symbol applies to whatever
+        # is already loaded, so the loaded symbol IS the target for clamping.
         if (
             target_symbol
             and isinstance(effective_named_lookback, int)
-            and action_symbol == target_symbol
+            and clamp_symbol == target_symbol
         ):
             inp = dict(inp)
             inp["years"] = effective_named_lookback
@@ -3992,3 +4022,250 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
                 "Please try again."
             )
     return final_text, actions
+
+
+# --------------------------------------------------------------------------
+# Opposite-direction ("switch this pattern to short") answers.
+#
+# Trade direction is DETERMINED by the appserver from the win/loss split and there is no
+# long/short control in the wave viewer (ecosystem invariant 0C). The honest answer is a
+# structured what-if: what TradeWave determined and why, the other side's real figures,
+# what they mean for a person, and an explicit note that the chart has not moved.
+#
+# Deterministic on purpose: the reply has a mandatory SHAPE, and a direction request reads
+# as a "view command" to the RESPONSE STYLE length rule, which compresses any prompt-level
+# instruction down to two sentences. Same conclusion the tooltip, MCP-product and
+# trend-arrow answers already reached. Release defect TW-R14-01 (2026-09-14).
+# --------------------------------------------------------------------------
+
+def _dirflip_int(value):
+    try:
+        return int(str(value).strip().replace(",", ""))
+    except (TypeError, ValueError):
+        return None
+
+
+def _dirflip_pct(value):
+    """Render a gateway percentage stat, which may arrive as a number or a '12.3%' string."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("%"):
+        return text
+    try:
+        return "%.2f%%" % float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _dirflip_num(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return "%.2f" % float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+_DIRFLIP_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+_DIRFLIP_DATE_RE = re.compile(
+    r"\b(\d{4})-(\d{2})-(\d{2})\b"
+    r"|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b"
+    r"|\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b",
+    re.I,
+)
+
+
+def _dirflip_message_month_days(text):
+    """Month/day pairs named in the user's message, as (month, day) tuples."""
+    found = set()
+    for m in _DIRFLIP_DATE_RE.finditer(str(text or "")):
+        if m.group(1):
+            found.add((int(m.group(2)), int(m.group(3))))
+        elif m.group(4):
+            found.add((_DIRFLIP_MONTHS[m.group(4)[:3].lower()], int(m.group(5))))
+        else:
+            found.add((_DIRFLIP_MONTHS[m.group(7)[:3].lower()], int(m.group(6))))
+    return found
+
+
+def _dirflip_message_targets_loaded_window(text, start_date, days_out):
+    """False when the turn names a window that is NOT the loaded one.
+
+    An explicit-date direction question about some OTHER window must not be answered
+    with the loaded pattern's record - that is defect TW-R14-04's failure shape in
+    reverse. With no date named, the loaded pattern is the subject by definition.
+    """
+    named = _dirflip_message_month_days(text)
+    if not named:
+        return True
+    try:
+        start = datetime.datetime.strptime(str(start_date), "%Y-%m-%d").date()
+        end = start + datetime.timedelta(days=max(1, int(days_out)) - 1)
+    except (TypeError, ValueError):
+        return False
+    loaded = {(start.month, start.day), (end.month, end.day)}
+    return bool(named & loaded)
+
+
+def build_direction_flip_reply(wave_viewer, user_id, market=None, message=None):
+    """Answer "switch this pattern to the other direction" without moving the chart.
+
+    Returns None when anything needed is missing, so the turn falls through to the
+    normal provider path rather than producing a half-answer.
+    """
+    wv = wave_viewer if isinstance(wave_viewer, dict) else {}
+    stats = wv.get("stats") if isinstance(wv.get("stats"), dict) else {}
+
+    symbol = str(wv.get("symbol") or "").strip().upper()
+    determined = str(wv.get("direction") or stats.get("Trade Dir") or "").strip().lower()
+    if not symbol or determined not in ("long", "short"):
+        log.info("direction-flip: no loaded symbol/direction (symbol=%r dir=%r)", symbol, determined)
+        return None
+    opposite = "short" if determined == "long" else "long"
+
+    winners = _dirflip_int(stats.get("Num Winners"))
+    losers = _dirflip_int(stats.get("Num Losers"))
+    if winners is None or losers is None or (winners + losers) <= 0:
+        log.info("direction-flip: missing win/loss counts (keys=%r)", sorted(stats.keys())[:12])
+        return None
+    total = winners + losers
+
+    # The opposite side's figures must come from TradeWave, never from negating the loaded
+    # card here - the appserver owns that transform (appserver.py longOrShort branch).
+    try:
+        days_out = int(str(wv.get("days_out")))
+    except (TypeError, ValueError):
+        log.info("direction-flip: bad days_out=%r", wv.get("days_out"))
+        return None
+    if not _dirflip_message_targets_loaded_window(
+        message, wv.get("start_date"), days_out
+    ):
+        # The turn names a different window; answering from the loaded record would be
+        # a confident answer to a question nobody asked.
+        log.info("direction-flip: message names a window other than the loaded one")
+        return None
+    tool_input = {
+        "symbol": symbol,
+        "entry_date": wv.get("start_date"),
+        "days_out": days_out,
+        "direction": opposite,
+    }
+    mk = wv.get("market") if wv.get("market") not in (None, "") else market
+    if mk not in (None, ""):
+        tool_input["market"] = str(mk)
+    years = _dirflip_int(wv.get("years"))
+    if years:
+        tool_input["years"] = years
+    # The ViewSpec vocabulary ("cons") is NOT the API's. /v1 chart endpoints accept
+    # consecutive|pe|pe0..pe3 (routes.py _PE_CYCLES_CHART); sending "cons" returns 400.
+    pe_cycle = str(wv.get("pe_cycle") or "").strip().lower()
+    pe_api = {
+        "": "consecutive", "cons": "consecutive", "consecutive": "consecutive",
+        "pe": "pe", "pe0": "pe0", "pe1": "pe1", "pe2": "pe2", "pe3": "pe3",
+    }.get(pe_cycle)
+    if pe_api:
+        tool_input["pe_cycle"] = pe_api
+
+    result = run_tool("analyze_symbol", tool_input, user_id)
+    if not isinstance(result, dict) or result.get("error"):
+        log.info("direction-flip: gateway said %.200r for input %.300r", result, tool_input)
+        return None
+    card = result.get("card") if isinstance(result.get("card"), dict) else result
+    card_stats = card.get("stats") if isinstance(card, dict) and isinstance(card.get("stats"), dict) else {}
+    if not card_stats:
+        log.info("direction-flip: no card stats (result keys=%r)", sorted(result.keys())[:12])
+        return None
+
+    opp_win_rate = card_stats.get("historical_win_rate")
+    opp_avg = _dirflip_pct(card_stats.get("avg_return_pct"))
+    opp_sharpe = _dirflip_num(card_stats.get("sharpe_ratio"))
+    if opp_avg is None and opp_sharpe is None and opp_win_rate is None:
+        log.info("direction-flip: empty figures %.200r", card_stats)
+        return None
+
+    # historical_win_rate arrives as a 0..1 fraction; render it as "W of N years".
+    opp_wins = None
+    try:
+        rate = float(opp_win_rate)
+        if 0.0 <= rate <= 1.0:
+            opp_wins = int(round(rate * total))
+    except (TypeError, ValueError):
+        opp_wins = None
+
+    up_years, down_years = (winners, losers) if determined == "long" else (losers, winners)
+
+    # Num Winners / Num Losers are DIRECTION-ADJUSTED by the appserver, and a DERIVED
+    # direction always yields winners >= losers (it picks whichever side the record
+    # favors, ties going long). So winners < losers proves the direction was FORCED -
+    # e.g. a URL that pins it - and claiming "the record favors it" would be false.
+    forced = winners < losers
+    if forced:
+        lead = (
+            "<b>This view is pinned to %s, which is not the side %s's record favors.</b> "
+            "Over these %d years the %s side won %d and lost %d. Left to itself TradeWave "
+            "labels a pattern by whichever side its record favors, so it would have called "
+            "this one %s."
+            % (determined.upper(), symbol, total, determined, winners, losers, opposite)
+        )
+    else:
+        lead = (
+            "<b>TradeWave determined this pattern is %s.</b> %s finished up in %d of the last "
+            "%d years, and TradeWave labels a pattern by the side its own record favors. That "
+            "is why there is no long/short switch on the chart."
+            % (determined.upper(), symbol, up_years, total)
+        )
+
+    bits = []
+    if opp_wins is not None:
+        bits.append("%d of %d years profitable" % (opp_wins, total))
+    if opp_avg:
+        bits.append("average %s" % opp_avg)
+    if opp_sharpe:
+        bits.append("Sharpe %s" % opp_sharpe)
+    figures = "<b>Going %s instead:</b> %s." % (opposite, ", ".join(bits)) if bits else ""
+
+    # A lopsided record makes the other side predictably poor. A close one does not, and
+    # saying otherwise would overstate the evidence.
+    share = float(up_years) / total
+    if share >= 0.7 or share <= 0.3:
+        meaning = (
+            "<b>What that means:</b> these are the mirror image of the %s record. Going %s "
+            "here means betting against a move that happened in %d of %d years, so the "
+            "losses are what you would expect rather than a surprise."
+            % (determined, opposite, up_years if determined == "long" else down_years, total)
+        )
+    else:
+        meaning = (
+            "<b>What that means:</b> these are the mirror image of the %s record. This "
+            "pattern's split is close (%d up years against %d down years), so the %s side "
+            "is not as one-sided as it usually is - worth reading the numbers rather than "
+            "assuming either direction." % (determined, up_years, down_years, opposite)
+        )
+
+    screen = (
+        "<b>On your screen:</b> the chart stays on the %s direction it is loaded with, so "
+        "treat the %s figures as a what-if rather than a loaded pattern."
+        % (determined, opposite)
+        if forced else
+        "<b>On your screen:</b> the chart stays on the determined %s direction, so treat "
+        "the %s figures as a what-if rather than a loaded pattern." % (determined, opposite)
+    )
+    offer = (
+        "Want me to try a different lookback? Changing the number of years changes the "
+        "up/down split, and that is the one thing that can change the determined direction."
+    )
+
+    parts = [lead]
+    if figures:
+        parts.append(figures)
+    parts.extend((meaning, screen, offer))
+    return "<br><br>".join(parts)

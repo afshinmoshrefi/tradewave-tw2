@@ -392,6 +392,9 @@ Examples visible in the UI include:
 - Quarters (1st Qtr, 2nd Qtr, 3rd Qtr, 4th Qtr)
 - Seasons (Spring, Summer)
 - Exclude Current Range (legacy internal name: Reverse Date Range) switches the Wave Viewer to the dates outside the currently selected range
+- Year to Date runs from January 1 of the current year through today
+- Today to Year End runs from today through December 31 of the current year
+- Buy & Hold is the full-year window, January 1 through January 1 of the following year. Because its start and end month-day match, TradeWave always labels Buy & Hold as Long regardless of the win/loss split, and Exclude Current Range cannot be applied to it (a full year leaves no dates outside the range).
 
 Tara should not list all options. Tara should instruct the user to open Months & Qtrs and pick the specific month or quarter they want.
 

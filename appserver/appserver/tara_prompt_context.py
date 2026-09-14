@@ -197,7 +197,25 @@ _TOPIC_ROUTES: Sequence[Tuple[re.Pattern[str], Tuple[str, ...]]] = (
     (re.compile(r"\bsettings?\b", re.I), ("Settings Window",)),
     (re.compile(r"\bbest waves?\b", re.I), ("Best Waves Selector (Desktop Only)",)),
     (re.compile(r"\bmonths?\b.*\bquarters?\b|\bmonths?\s*&\s*qtrs?\b|\bseason grouping\b", re.I), ("Months & Qtrs (Time Grouping)",)),
-    (re.compile(r"\breverse date range\b", re.I), ("Reverse Date Range",)),
+    # The Analysis menu's own actions had NO route, so "what does Compare Symbols do?"
+    # loaded nothing and "what is Buy and Hold?" fell through to the weak lexical
+    # fallback, which picked the unrelated MCP section and then blocked every other
+    # section. Route each menu label to the section that actually documents it.
+    (re.compile(r"\bcompare\s+symbols?\b|\bcompare\s+date\s+ranges?\b"
+                r"|\banalysis\s+(?:menu|report|reports)\b"
+                r"|\bcomparison\s+report\b", re.I), ("Interactive Analysis Reports",)),
+    (re.compile(r"\bbuy\s*(?:&|and)\s*hold\b|\bbuy[- ]and[- ]hold\b", re.I),
+     ("Interactive Analysis Reports", "How Trade Direction is Auto-Detected")),
+    (re.compile(r"\byear\s+to\s+date\b|\bytd\b|\btoday\s+to\s+year\s+end\b"
+                r"|\byear[- ]end\s+window\b", re.I), ("Months & Qtrs (Time Grouping)",)),
+    # "Exclude Current Range" is the USER-FACING menu label; "Reverse Date Range" is the
+    # legacy internal name kept as the ViewSpec value (Common.js:559) and the KB heading.
+    # Users type what the menu says, so both must select the section.
+    (re.compile(r"\breverse\s+date\s+range\b"
+                r"|\bexclude\s+(?:the\s+)?current\s+range\b"
+                r"|\bexclusion\s+(?:report|model)\b"
+                r"|\bexclude\s+(?:this|the|that)\s+(?:date\s+)?range\b"
+                r"|\bdates?\s+outside\b", re.I), ("Reverse Date Range",)),
     (re.compile(r"\bdrag(?:ging)?\b.*\b(?:window|trend chart)\b", re.I), ("Interactive Window Dragging on Trend Chart",)),
     (re.compile(r"\bdark mode\b|\blight mode\b|\btheme\b", re.I), ("Dark Mode / Light Mode",)),
     (re.compile(r"\b(?:green|red) square\b|\bdirection indicator\b", re.I), ("The Green or Red Square (Direction Indicator)", "How Trade Direction is Auto-Detected")),
@@ -368,6 +386,110 @@ def needs_yearly_results(message: Any) -> bool:
         re.I,
     )
     return bool(loaded_reference and not definition)
+
+
+# A request to see the LOADED pattern from the other side. Direction is DETERMINED by the
+# appserver from the win/loss split (ecosystem invariant 0C), so this needs a structured
+# what-if answer rather than a two-sentence view-command reply (defect TW-R14-01).
+#
+# People phrase this many ways ("what if I shorted this", "bet against it", "the other
+# way", "make it bearish"), so match on INTENT, not on one sentence shape. Coverage is
+# measured by test_direction_flip_detector_covers_natural_phrasings.
+
+# "long to short" / "short to long".
+_DIR_SWAP_RE = re.compile(
+    r"\b(?:long|short|bullish|bearish)\b[^.?!]{0,25}?\b(?:to|into|for)\b"
+    r"[^.?!]{0,25}?\b(?:short|long|bearish|bullish)\b",
+    re.I,
+)
+
+# An explicit flip verb aimed at the direction or at the loaded thing.
+_DIR_VERB_RE = re.compile(
+    r"\b(?:switch|flip|invert|convert|change|swap|reverse)\b[^.?!]{0,40}?"
+    r"\b(?:direction|trade|side|it|this|that|pattern|setup)\b",
+    re.I,
+)
+
+# "the other way", "opposite direction", "short side".
+_DIR_OTHER_RE = re.compile(
+    r"\b(?:the\s+)?(?:other|opposite|reverse|inverse)\s+(?:the\s+)?"
+    r"(?:way|direction|side|version|trade)\b"
+    r"|\b(?:short|long|bearish|bullish)\s+(?:side|version)\b",
+    re.I,
+)
+
+# A direction word applied to the LOADED thing: "short this", "this but short",
+# "shorted it", "go short here", "bet against it", "sold it short".
+_DIR_APPLY_RE = re.compile(
+    r"\b(?:short|shorts|shorted|shorting|long|bearish|bullish)\b[^.?!]{0,20}?"
+    r"\b(?:it|this|that|here|instead|the\s+pattern|the\s+setup|the\s+trade)\b"
+    r"|\b(?:it|this|that|the\s+pattern|the\s+setup|the\s+trade)\b[^.?!]{0,20}?"
+    r"\b(?:short|shorted|shorting|long|bearish|bullish)\b"
+    r"|\bbet(?:ting)?\s+against\b"
+    r"|\bsell(?:ing)?\s+(?:it\s+)?short\b|\bsold\s+(?:it\s+)?short\b"
+    r"|\bgo(?:ing)?\s+(?:the\s+other\s+way|short|long)\b"
+    r"|\bmake\s+it\s+(?:short|long|bearish|bullish)\b"
+    # "... as a short", with no this/it pronoun (e.g. an explicit-date request)
+    r"|\bas\s+(?:a\s+|the\s+)?(?:short|long|bearish|bullish)\b"
+    r"|\b(?:shorted|shorting)\s+[A-Z]{1,6}\b"
+    r"|\b(?:long|short)\s+or\s+(?:short|long)\b"
+    # plain buy/sell wording, with no "short" anywhere in the sentence
+    r"|\b(?:sell|selling|sold)\b[^.?!]{0,30}?\binstead\s+of\s+(?:buy|buying)"
+    r"|\b(?:buy|buying|bought)\b[^.?!]{0,30}?\binstead\s+of\s+(?:sell|selling)",
+    re.I,
+)
+
+# A bare "reverse it" is ambiguous: TradeWave also has the Exclude Current Range action
+# (legacy internal name: Reverse Date Range), so a reverse request that names
+# dates/window/range is NOT a direction flip.
+_DIR_DATE_RE = re.compile(
+    r"\bdate\s*range\b|\bdates?\b|\bwindow\b|\bcalendar\b|\bduration\b|\bdays?\b",
+    re.I,
+)
+_DIR_BARE_REVERSE_RE = re.compile(
+    r"\b(?:reverse|invert|flip)\b[^.?!]{0,15}?\b(?:it|this|that|the\s+trade)\b"
+    r"|\b(?:reverse|invert|flip)\s+(?:it|this|that)\b"
+    r"|\b(?:trade|pattern|setup|it|this|that)\b[^.?!]{0,20}?"
+    r"\b(?:reversed|inverted|flipped)\b",
+    re.I,
+)
+
+# A screen for setups that ALREADY determine that way is an ordinary scan, not a flip.
+_DIRECTION_SCAN_RE = re.compile(
+    r"\b(?:find|scan|search|screen|list|any|some|best|top|which)\b[^.?!]{0,40}?"
+    r"\b(?:short|long|bearish|bullish)\b[^.?!]{0,30}?"
+    r"\b(?:setups?|patterns?|opportunit\w+|trades?|stocks?|names?|tickers?|ideas?|plays?)\b",
+    re.I,
+)
+
+# A definition or a "why is it labelled this" question is answered elsewhere.
+_DIRECTION_DEFINE_RE = re.compile(
+    r"\bwhat\s+(?:is|are|does)\b[^.?!]{0,30}?\b(?:short|long|direction)\b"
+    r"|\bwhy\s+(?:is|are)\b[^.?!]{0,30}?\b(?:short|long)\b"
+    r"|\b(?:short|long)\b\s+mean\b",
+    re.I,
+)
+
+
+def is_direction_flip_request(message: Any) -> bool:
+    """Whether the turn asks to see the LOADED pattern in the opposite direction."""
+
+    text = str(message or "").strip()
+    if not text:
+        return False
+    if _DIRECTION_SCAN_RE.search(text):
+        return False
+    # Strong, unambiguous intent outranks the definition guard.
+    if _DIR_SWAP_RE.search(text) or _DIR_VERB_RE.search(text) or _DIR_OTHER_RE.search(text):
+        return True
+    if _DIRECTION_DEFINE_RE.search(text):
+        return False
+    if _DIR_APPLY_RE.search(text):
+        return True
+    # "reverse it" only counts when the turn is not about the date range.
+    if _DIR_BARE_REVERSE_RE.search(text) and not _DIR_DATE_RE.search(text):
+        return True
+    return False
 
 
 def needs_opportunity_rows(message: Any) -> bool:

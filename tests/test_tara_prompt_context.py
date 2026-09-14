@@ -257,3 +257,175 @@ def test_only_stable_prefix_has_a_cache_breakpoint():
     assert blocks[0]["cache_control"] == {"type": "ephemeral"}
     assert "cache_control" not in blocks[1]
     assert "cache_control" not in blocks[2]
+
+
+# ---------------------------------------------------------------------------
+# Direction-flip detection (release defect TW-R14-01).
+#
+# Direction is DETERMINED from the win/loss split and the viewer has no long/short
+# control, so these turns get a deterministic what-if answer. People phrase the ask many
+# ways, so this suite is the coverage contract: a first regex matched only 9 of 31
+# realistic phrasings. Add a phrasing here before widening the pattern.
+# ---------------------------------------------------------------------------
+
+DIRECTION_FLIP_PHRASINGS = [
+    "Switch this exact pattern from long to short. Keep all other settings",
+    "flip it to short",
+    "change the direction",
+    "reverse the direction",
+    "swap the direction please",
+    "show me the short side",
+    "what does this look like on the short side?",
+    "can you analyze this as a short",
+    "could we look at it as a short?",
+    "turn this into a long",
+    "what if I shorted this instead?",
+    "shorting this",
+    "I shorted it",
+    "how would this do if I sold it short?",
+    "can I trade this the other way?",
+    "show me the opposite direction",
+    "what about going the other way?",
+    "how about the other direction",
+    "go the other way on this one",
+    "I want to short this",
+    "short it instead",
+    "short this pattern instead",
+    "this but short",
+    "what if I go short here",
+    "what if I bet against it?",
+    "can you show the bearish version?",
+    "make it bearish",
+    "show this bearish",
+    "run this as a short trade",
+    "what would shorting this have returned?",
+    "is there a short version of this pattern?",
+    "invert this pattern",
+    "opposite side please",
+    "flip the trade",
+    "reverse it",
+    "what if the trade was reversed?",
+    "what happens if I sell this instead of buying?",
+    "what if I bought it instead of selling?",
+]
+
+NOT_DIRECTION_FLIP_PHRASINGS = [
+    # screening for setups that ALREADY determine that way is an ordinary scan
+    "find me short setups in energy",
+    "what are the best short patterns",
+    "which stocks have short opportunities",
+    # definitions and "why is it labelled that" are answered elsewhere
+    "what is a short trade",
+    "what does short mean?",
+    "why is this pattern short?",
+    # DURATION, not direction. "shorten/shortened/shorter" are different words from
+    # "short/shorted", and word boundaries keep them apart - but they read alike to a
+    # human, so the whole family is pinned here.
+    "show me a shorter duration",
+    "can you make the window shorter?",
+    "what if I shortened this instead?",
+    "can you shorten this?",
+    "make it shorter",
+    "shorten the window",
+    "shortened the pattern",
+    "I want a shorter hold",
+    "can we shorten the date range?",
+    "make this a shorter trade",
+    "shorten it to 10 days",
+    "what if the window were shortened?",
+    # TradeWave's Reverse Date Range is a different feature
+    "reverse the date range",
+    "use the reverse date range",
+    "change the dates",
+    # ordinary view commands
+    "analyze this pattern",
+    "change years to 20",
+    "load AAPL",
+    "switch to PE+2",
+    "change the market to NASDAQ",
+    "flip to the price chart tab",
+    "switch to the trend chart",
+    "show me the wave stats",
+    "what is MFE?",
+    "how did it do in 2019?",
+]
+
+
+def test_direction_flip_detector_covers_natural_phrasings():
+    from tara_prompt_context import is_direction_flip_request
+
+    missed = [t for t in DIRECTION_FLIP_PHRASINGS if not is_direction_flip_request(t)]
+    assert not missed, "direction-flip phrasings not detected: %r" % missed
+
+
+def test_direction_flip_detector_ignores_scans_definitions_and_view_commands():
+    from tara_prompt_context import is_direction_flip_request
+
+    wrong = [t for t in NOT_DIRECTION_FLIP_PHRASINGS if is_direction_flip_request(t)]
+    assert not wrong, "wrongly treated as a direction flip: %r" % wrong
+
+
+def test_exclude_current_range_menu_label_selects_its_knowledge_section():
+    """The Analysis menu says "Exclude Current Range"; "Reverse Date Range" is only the
+    legacy internal name (kept as the ViewSpec value in Common.js:559 and as the KB
+    heading). Users type what the menu shows, so the router must accept both or the
+    section silently never loads."""
+    import tara_prompt_context as tpc
+
+    for question in (
+        "what does exclude current range do?",
+        "how do I exclude the current range",
+        "exclude this date range",
+        "show me the exclusion report",
+        "reverse date range",
+    ):
+        hits = [h for rx, h in tpc._TOPIC_ROUTES if rx.search(question)]
+        assert any("Reverse Date Range" in h for h in hits), question
+
+
+# Every label a user can actually SEE and click must resolve to a knowledge section.
+# An unrouted label is a silent failure: nothing errors, Tara just answers from general
+# reasoning with none of the product facts. Found 2026-09-14 - the whole Analysis menu
+# was unrouted, and "what is Buy and Hold?" fell through to the lexical fallback, which
+# selected the unrelated MCP section and then short-circuited every other section.
+VISIBLE_UI_LABELS = {
+    "Compare Symbols": "Interactive Analysis Reports",
+    "Compare Date Ranges": "Interactive Analysis Reports",
+    "Buy & Hold": "Interactive Analysis Reports",
+    "Exclude Current Range": "Reverse Date Range",
+    "Year to Date": "Months & Qtrs (Time Grouping)",
+    "Today to Year End": "Months & Qtrs (Time Grouping)",
+    "Months & Qtrs": "Months & Qtrs (Time Grouping)",
+    "Best Waves": "Best Waves Selector (Desktop Only)",
+    "Portfolio Manager": "Portfolio Manager (Popup Window)",
+}
+
+
+def test_every_visible_ui_label_loads_its_knowledge_section():
+    import tara_prompt_context as tpc
+
+    sections = tpc.parse_knowledge_sections(
+        (APPSERVER / "chatbot_knowledge.txt").read_text(encoding="utf-8")
+    )
+
+    broken = {}
+    for label, expected in VISIBLE_UI_LABELS.items():
+        headings = tpc.select_topic_knowledge(
+            "what does %s do?" % label, sections
+        ).headings
+        if expected not in headings:
+            broken[label] = headings
+    assert not broken, "UI labels that do not load their section: %r" % broken
+
+
+def test_buy_and_hold_never_falls_through_to_the_mcp_section():
+    """The MCP section short-circuits selection, so a wrong match there starves the turn."""
+    import tara_prompt_context as tpc
+
+    sections = tpc.parse_knowledge_sections(
+        (APPSERVER / "chatbot_knowledge.txt").read_text(encoding="utf-8")
+    )
+
+    for question in ("what is Buy and Hold?", "what is buy & hold", "explain buy-and-hold"):
+        headings = tpc.select_topic_knowledge(question, sections).headings
+        assert "TradeWave in ChatGPT and Claude (MCP)" not in headings, question

@@ -2178,6 +2178,10 @@ def _ml_v2_long_bundle(opp, checkpoint_scores, metadata):
         'win_prob': display.get('win_prob'),
         'pred_return': display.get('pred_return'),
         'pred_mfe': display.get('pred_mfe'),
+        # Carry the display horizon's historical record + scorer stamp, not just its
+        # score numbers - omitting them printed "Historical Record: Not provided" on the
+        # exact-horizon card while the data existed (defect TW-R14-03).
+        'selected_recurrence': display.get('selected_recurrence'),
         'horizons': horizons,
         'source': {
             'symbol': opp['symbol'],

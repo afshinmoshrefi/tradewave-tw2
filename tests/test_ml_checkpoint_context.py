@@ -15,6 +15,7 @@ if str(APPSERVER_DIR) not in sys.path:
     sys.path.insert(0, str(APPSERVER_DIR))
 
 from ml_checkpoint_context import (  # noqa: E402
+    CACHE_SCHEMA_VERSION,
     CheckpointContextError,
     CheckpointProviderError,
     CheckpointScoringService,
@@ -276,6 +277,11 @@ def test_short_source_uses_ten_day_model_identity_without_changing_source_keys()
         "win_prob": 0.68,
         "pred_return": 2.4,
         "pred_mfe": 4.8,
+        # The displayed card mirrors the display horizon's fields. Its historical record
+        # and scorer stamp must travel with the score numbers, or the AI panel prints
+        # "Historical Record: Not provided" while the data exists (defect TW-R14-03).
+        "selected_recurrence": None,
+        "scorer": None,
         "horizons": [{
             "status": "available",
             "ml_score": 72.0,
@@ -365,8 +371,10 @@ def test_legacy_cache_is_exact_and_invalidates_with_scorer_generation():
         "l",
         expected_metadata=changed,
     ) is None
+    # Follow the constant, not a literal: the version is BUMPED whenever the cached shape
+    # changes (ml6 -> ml7 on 2026-09-14, when the historical record started being stored).
     assert legacy_pointer_key("AAPL", "2026-08-10", 29, "l").startswith(
-        "ml6:legacy:index:"
+        "%s:legacy:index:" % CACHE_SCHEMA_VERSION
     )
     assert legacy_value_key("AAPL", "2026-08-10", 29, "l", METADATA) != legacy_value_key(
         "AAPL", "2026-08-10", 29, "l", changed

@@ -93,7 +93,9 @@ const ENDPOINTS = {
     {name:"symbol", in:"path", ph:"DOV", def:"DOV", hint:"ticker"},
     {name:"market", in:"query", ph:"2", hint:"optional id; resolved if unique"},
     {name:"direction", in:"query", ph:"long | short", hint:"optional"},
-    {name:"days_out", in:"query", ph:"30", hint:"optional hold length"} ]},
+    {name:"entry_date", in:"query", ph:"2026-06-02", hint:"YYYY-MM-DD; pin a setup (pair with days_out)"},
+    {name:"days_out", in:"query", ph:"30", hint:"calendar days; REQUIRES entry_date or period (400 on its own)"},
+    {name:"period", in:"query", ph:"jan..dec | q1..q4 | ytd", hint:"preset window instead of entry_date+days_out"} ]},
   "markets": { method:"GET", path:"/markets", label:"List markets in your scope", cards:false, params:[] },
   "opportunities": { method:"GET", path:"/opportunities", label:"Opportunities (single-date primitive)", cards:false, params:[
     {name:"market", in:"query", ph:"2", def:"2", hint:"market id (required)"},
@@ -105,7 +107,11 @@ const ENDPOINTS = {
   "track-record": { method:"GET", path:"/daily-pick/track-record", label:"Daily-pick realized track record", cards:false, params:[] },
   "score": { method:"POST", path:"/score", label:"ML score setups (POST)", cards:false, body:true, params:[] }
 };
-const DEFAULT_BODY = JSON.stringify({opportunities:[{symbol:"DOV",date:"",days_out:30,direction:"long",market:"2"}]}, null, 2);
+// date must be a concrete YYYY-MM-DD: /score treats an empty string as a MISSING field
+// and rejects the whole request, so a blank default made the prefilled example unrunnable.
+// Built at page load so it never goes stale.
+const PG_TODAY = new Date().toISOString().slice(0, 10);
+const DEFAULT_BODY = JSON.stringify({opportunities:[{symbol:"DOV",date:PG_TODAY,days_out:30,direction:"long",market:"2"}]}, null, 2);
 """
 
 RUNNER_JS = r"""
@@ -232,6 +238,15 @@ function renderResult(ep, data){
   }
   let html = "";
   if(cards.length){ html += cards.map(renderCard).join(""); }
+  else if(data && data.error){
+    // A REJECTED request is not an empty result. Showing "No cards returned" for a 400
+    // hid the API's own message (e.g. "days_out requires entry_date or period"), so the
+    // user could not tell a bad request from a genuinely empty scan.
+    const err = data.error;
+    const msg = (err && (err.message || err.msg)) || (typeof err === "string" ? err : "");
+    const code = (err && err.code) ? ` <code>${String(err.code).replace(/</g,'&lt;')}</code>` : "";
+    html += `<div class="pg-empty"><strong>Request rejected.</strong>${code} ${String(msg).replace(/</g,'&lt;')}</div>`;
+  }
   else if(ep.cards){ html += `<div class="pg-empty">No cards returned (the API may have responded with a neutral bias or an empty scan). See the raw response below.</div>`; }
   html += `<details class="pg-raw" ${cards.length?'':'open'}><summary>Raw JSON response</summary><pre><code>${JSON.stringify(data,null,2).replace(/</g,'&lt;')}</code></pre></details>`;
   return html;

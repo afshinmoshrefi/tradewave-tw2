@@ -69,8 +69,23 @@ const recurrenceDetails = recurrence => {
   return { sampleSize, positiveYears, required, filterMissed }
 }
 
-const HistoricalRecord = ({ recurrence }) => {
-  const details = recurrenceDetails(recurrence)
+// The scorer only returns a historical record for the SHORTER comparison horizons it is
+// asked to recalculate. The card for the pattern's OWN duration is scored a different way
+// and carries none, so it rendered "Not provided" while the identical figure sat on the
+// Wave Stats panel (defect TW-R14-03). Fall back to the loaded pattern's own win/loss
+// record for that card: same pattern, same years, same question, and it cannot disagree
+// with the chart because it IS the chart's number.
+const patternRecordFallback = patternRecord => {
+  if (!patternRecord) return null
+  const sampleSize = integerOrNull(patternRecord.sampleSize)
+  const positiveYears = integerOrNull(patternRecord.positiveYears)
+  if (sampleSize === null || positiveYears === null) return null
+  if (sampleSize <= 0 || positiveYears < 0 || positiveYears > sampleSize) return null
+  return { sampleSize, positiveYears, required: null, filterMissed: false }
+}
+
+const HistoricalRecord = ({ recurrence, patternRecord }) => {
+  const details = recurrenceDetails(recurrence) || patternRecordFallback(patternRecord)
   if (!details) {
     return <span className="ai-score-panel__muted">Not provided</span>
   }
@@ -251,7 +266,7 @@ const metricTone = (view, metric) => {
   return value > 0 ? ' ai-score-panel__value--positive' : ' ai-score-panel__value--negative'
 }
 
-const AIViewTable = ({ view, displayDays, selectionOrigin }) => {
+const AIViewTable = ({ view, displayDays, selectionOrigin, patternRecord }) => {
   const days = Number(view && view.calendarDays)
   const isTableView = days === Number(displayDays)
   const status = view && view.status === 'available' ? '' : opportunityAICompactStatus(view)
@@ -273,7 +288,12 @@ const AIViewTable = ({ view, displayDays, selectionOrigin }) => {
         <tbody>
           <tr>
             <th scope="row">Historical Record</th>
-            <td><HistoricalRecord recurrence={view && view.selectedRecurrence} /></td>
+            <td>
+              <HistoricalRecord
+                recurrence={view && view.selectedRecurrence}
+                patternRecord={view && view.isCurrent ? patternRecord : null}
+              />
+            </td>
           </tr>
           <tr className="ai-score-panel__metric-row--primary">
             <th scope="row">AI Win Chance</th>
@@ -354,6 +374,7 @@ const checkpointSummary = views => {
 
 const AIScorePanel = ({
   viewModel = {},
+  patternRecord = null,
   onOpenGuide,
   onOpenPortfolio,
   onExportSnapshot,
@@ -593,6 +614,7 @@ const AIScorePanel = ({
               view={view}
               displayDays={displayDays}
               selectionOrigin={selectionOrigin}
+              patternRecord={patternRecord}
             />
           ))}
         </div>

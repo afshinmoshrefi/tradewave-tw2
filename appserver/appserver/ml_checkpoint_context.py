@@ -23,7 +23,13 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
 
 
-CACHE_SCHEMA_VERSION = "ml6"
+# ml7 (2026-09-14): normalize_legacy_score_result used to DROP selected_recurrence, and
+# write_cached_legacy_score normalizes before writing - so every cached score was stored
+# without its historical record and the 30/60/90 AI cards showed "Historical Record: Not
+# provided" (defect TW-R14-03). The stored shape changed, so the version must change too,
+# or the old recordless entries keep being served. Old keys are simply orphaned and expire
+# on their existing TTL; scores are recomputed on demand.
+CACHE_SCHEMA_VERSION = "ml7"
 CONTEXT_CONTRACT_VERSION = "tw2-duration-comparison-v3"
 MINIMUM_MODEL_CALENDAR_DAYS = 10
 MINIMUM_MODEL_DAYS_OUT = MINIMUM_MODEL_CALENDAR_DAYS - 1
@@ -347,13 +353,37 @@ def normalize_legacy_score_result(result: Mapping[str, Any]) -> Dict[str, Any]:
                 "retryable": bool(error.get("retryable", code != "vix_blocked")),
             },
         }
-    return {
+    normalized = {
         "status": "available",
         "ml_score": _score_number(result.get("ml_score"), "ml_score", minimum=0, maximum=100),
         "win_prob": _score_number(result.get("win_prob"), "win_prob", minimum=0, maximum=1),
         "pred_return": _score_number(result.get("pred_return"), "pred_return", minimum=-1000, maximum=1000),
         "pred_mfe": _score_number(result.get("pred_mfe"), "pred_mfe", minimum=-1000, maximum=1000),
     }
+    # This allowlist used to drop selected_recurrence, so the AI panel printed
+    # "Historical Record: Not provided" even when the scorer supplied the record
+    # (defect TW-R14-03). A legacy result may legitimately omit it, so keep it OPTIONAL:
+    # carry a valid record through, and stay silent rather than fail the whole score when
+    # it is absent or malformed.
+    record = _optional_selected_recurrence(result.get("selected_recurrence"))
+    if record is not None:
+        normalized["selected_recurrence"] = record
+    return normalized
+
+
+def _optional_selected_recurrence(value: Any) -> Optional[Dict[str, Any]]:
+    """Validate a selected recurrence when one is present; never raise.
+
+    _normalize_selected_recurrence is strict because a V3 checkpoint MUST carry the
+    record. A legacy score may not, and a missing explanation must not turn a usable
+    score into an error.
+    """
+    if not isinstance(value, Mapping):
+        return None
+    try:
+        return _normalize_selected_recurrence(value)
+    except CheckpointProviderError:
+        return None
 
 
 def assemble_minimum_horizon_bundle(
@@ -427,6 +457,11 @@ def assemble_minimum_horizon_bundle(
         "win_prob": normalized_score.get("win_prob"),
         "pred_return": normalized_score.get("pred_return"),
         "pred_mfe": normalized_score.get("pred_mfe"),
+        # The displayed card mirrors the display horizon's score fields; its historical
+        # record and scorer stamp were the only siblings left behind, so the panel printed
+        # "Historical Record: Not provided" with the data present (defect TW-R14-03).
+        "selected_recurrence": normalized_score.get("selected_recurrence"),
+        "scorer": normalized_score.get("scorer"),
         "horizons": [horizon],
         "source": source,
         "mixed_scorer_identity": False,

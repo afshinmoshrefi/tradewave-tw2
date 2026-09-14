@@ -44,6 +44,20 @@ SwiperCore.use([Pagination, Navigation, Virtual]);
 
 
 
+// The loaded pattern's own win/loss record, in the shape the AI panel's Historical Record
+// row expects. The scorer supplies a record only for the shorter comparison horizons it
+// recalculates, so the card for the pattern's OWN duration has none; this is the same
+// figure the Wave Stats panel shows, so the two can never disagree (defect TW-R14-03).
+const loadedPatternRecord = stats => {
+    if (!stats || typeof stats !== 'object') return null
+    const winners = Number(stats['Num Winners'])
+    const losers = Number(stats['Num Losers'])
+    if (!Number.isFinite(winners) || !Number.isFinite(losers)) return null
+    const sampleSize = winners + losers
+    if (sampleSize <= 0) return null
+    return { sampleSize, positiveYears: winners }
+}
+
 const MobileLayoutP = (props) => {
 
 
@@ -190,6 +204,7 @@ const MobileLayoutP = (props) => {
                     {hasAIScores && (
                         <SwiperSlide>
                             <AIScorePanel
+                            patternRecord={loadedPatternRecord(props.tradeDetailData)}
                                 compact
                                 viewModel={props.opportunityAIState}
                                 active={true}
