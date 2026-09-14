@@ -599,6 +599,107 @@ def build_tooltip_preference_command(message: Any) -> Optional[Dict[str, Any]]:
     return None
 
 
+# The Analysis menu opens dialogs, and Tara has NO action that can open one - her
+# ViewSpec vocabulary covers symbol, dates, years, cycle, overlays and lower panels only.
+# A request to open one therefore classified as a view command she could not satisfy, and
+# the protocol guard replaced her answer with "I couldn't send the complete chart action"
+# (2026-09-14 retest). Owner decision: point the user at the menu instead, the same way a
+# documented UI gap is already handled for the lower-panel slides.
+#
+# This must NEVER swallow a real comparison question. "Compare AAPL and MSFT" is a working
+# capability with its own contract - she reads both and names the winner - so the pointer
+# fires only on an explicit OPEN/LOCATE intent, and never when tickers are named.
+_ANALYSIS_OPEN_RE = re.compile(
+    r"\b(?:open|launch|start|run|bring\s+up|go\s+to|get\s+to|find|where(?:'s|\s+is|\s+do\s+i\s+find)?)\b",
+    re.I,
+)
+_ANALYSIS_TARGET_RE = re.compile(
+    r"\bcompare\s+symbols?\b|\bsymbol\s+comparison\b"
+    r"|\bcompare\s+date\s+ranges?\b"
+    r"|\bexclude\s+(?:the\s+)?current\s+range\b|\bexclusion\s+report\b",
+    re.I,
+)
+_ANALYSIS_MENU_RE = re.compile(
+    r"\banalysis\s+menu\b|\bwhat\s+can\s+i\s+do\b[^.?!]{0,30}\banalysis\b",
+    re.I,
+)
+# A comparison QUESTION, which Tara answers herself - never redirect these.
+_ANALYSIS_COMPARISON_RE = re.compile(
+    r"\b(?:vs\.?|versus)\b|\bwhich\s+(?:is|one)\b|\bbetter\b", re.I
+)
+_ANALYSIS_TICKER_RE = re.compile(r"(?<![A-Za-z0-9.])[A-Z]{1,5}(?![A-Za-z0-9.])")
+
+_ANALYSIS_MENU_ITEMS = (
+    ("Compare Symbols", "adds up to three more tickers to the loaded study and scores them "
+                        "all on the same dates, direction, cycle and completed years"),
+    ("Compare Date Ranges", "puts two date ranges for the loaded symbol side by side"),
+    ("Buy &amp; Hold", "switches to the Jan 1 to Jan 1 always-invested baseline across "
+                       "completed years"),
+    ("Exclude Current Range", "reloads the study on the dates OUTSIDE your selected range, "
+                              "then offers the exclusion report"),
+)
+
+
+def _analysis_names_symbols(text: str) -> bool:
+    """True when the turn names a ticker, which makes it a comparison question."""
+    if explicit_pattern_symbol(text):
+        return True
+    return len(set(_ANALYSIS_TICKER_RE.findall(str(text or "")))) >= 2
+
+
+def build_analysis_menu_reply(message: Any) -> Optional[str]:
+    """Answer Analysis-menu questions Tara cannot perform, without erroring."""
+
+    text = str(message or "").strip()
+    if not text:
+        return None
+
+    if _ANALYSIS_MENU_RE.search(text) and not _ANALYSIS_TARGET_RE.search(text):
+        lines = ["<b>The Analysis menu has four actions.</b> Open it from the toolbar "
+                 "above the chart, with a symbol already loaded."]
+        lines.extend("<b>%s</b> - %s." % (name, what) for name, what in _ANALYSIS_MENU_ITEMS)
+        lines.append("Tell me which one you want and I will explain what it shows.")
+        return "<br><br>".join(lines)
+
+    target = _ANALYSIS_TARGET_RE.search(text)
+    if not target:
+        return None
+    # A comparison question is Tara's own job, not a menu pointer.
+    if _ANALYSIS_COMPARISON_RE.search(text) or _analysis_names_symbols(text):
+        return None
+
+    label = target.group(0).lower()
+    if "exclu" in label:
+        return "<br><br>".join((
+            "<b>Exclude Current Range is in the Analysis menu, above the chart.</b> I cannot "
+            "open it for you, but it is two clicks away.",
+            "<b>What it does:</b> it reloads the study on the dates OUTSIDE your selected "
+            "range - not a short trade, just the rest of the calendar. Once that chart "
+            "loads, <b>View Exclusion Report</b> compares skipping those dates against Buy "
+            "and Hold over the same completed years.",
+            "<b>Before you open it:</b> set the exact date range you want to skip, and note "
+            "that a full-year range leaves nothing outside it.",
+        ))
+    if "date range" in label:
+        return "<br><br>".join((
+            "<b>Compare Date Ranges is in the Analysis menu, above the chart.</b> I cannot "
+            "open it for you.",
+            "It puts two date ranges for the loaded symbol side by side on the same history.",
+            "Want me to load a date range first so it is ready to compare?",
+        ))
+    return "<br><br>".join((
+        "<b>Compare Symbols is in the Analysis menu, above the chart.</b> I cannot open that "
+        "dialog for you, but it is two clicks away once a symbol is loaded.",
+        "<b>What it does:</b> it starts from the symbol already in the Wave Viewer and lets "
+        "you add up to three more. Every symbol is scored on the same dates, direction, "
+        "cycle and completed years, so the comparison is fair.",
+        "<b>Worth knowing:</b> if one symbol has less history than you asked for, the report "
+        "stops and offers the largest history they all share. Accepting that changes the "
+        "report only, never your Years setting.",
+        "I can also compare two or three symbols right here in chat - just name them.",
+    ))
+
+
 def build_tooltip_help_reply(message: Any) -> Optional[str]:
     """Explain the tooltip control without changing a preference the user did not choose."""
 
@@ -4550,6 +4651,10 @@ def build_deterministic_reply(
     volume = build_volume_boundary_reply(message, screen_context)
     if volume is not None:
         return volume
+
+    analysis_menu = build_analysis_menu_reply(message)
+    if analysis_menu is not None:
+        return analysis_menu
 
     trend_arrow = build_trend_arrow_reply(message, wave_viewer)
     if trend_arrow is not None:
