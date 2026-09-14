@@ -236,3 +236,104 @@ def test_knob_only_pe_switch_clamps_to_the_cohort_count(monkeypatch):
     assert specs, "the knob change must still reach the viewer"
     assert specs[0].get("pe_cycle") == "pe2"
     assert specs[0].get("years") == 10, specs
+
+
+def test_knob_change_on_the_loaded_symbol_is_clamped_without_a_named_override(monkeypatch):
+    """Codex retest 2026-09-14, the turn that still failed.
+
+    "Use 20 years and switch to PE+2 midterm years. Keep MSFT..." names the symbol that is
+    ALREADY loaded, so chatbot.py sets named_symbol_override=None by design, and the
+    named-symbol clamp never runs. The spec reached the viewer carrying years=20 while the
+    viewer's own control stepped down to the cohort maximum, and tara_actions.log recorded
+    status=failed reason=view_superseded expected years 20 / observed years 9 with the
+    chart blank. The clamp must therefore not depend on a named-symbol override.
+    """
+    monkeypatch.setattr(
+        tara_gateway.requests, "get", lambda *a, **k: _metadata_response(1986, 2026)
+    )
+    monkeypatch.setattr(tara_gateway.config, "appserver_url", "http://appserver.test")
+
+    actions, cards, card_list = [], {}, []
+    tara_gateway._execute_tara_tool(
+        "update_view",
+        {"years": 20, "pe_cycle": "pe2"},
+        "user-42",
+        actions,
+        cards,
+        card_list,
+        user_token="tok",
+        current_view={"symbol": "MSFT", "market": "2", "entry_date": "2026-09-14",
+                      "days_out": 45, "years": 10, "pe_cycle": "cons"},
+        # exactly as the live turn arrives: no override, no inherited lookback
+        named_symbol_override=None,
+        named_symbol_lookback=None,
+    )
+    specs = [a.get("spec", {}) for a in actions if a.get("type") == "set_view"]
+    assert specs, "the knob change must still reach the viewer"
+    assert specs[0].get("pe_cycle") == "pe2"
+    assert specs[0].get("years") == 10, specs
+
+
+def test_a_lookback_within_the_cohort_is_left_alone(monkeypatch):
+    """The clamp is a ceiling, never a rewrite: an in-range request must pass through."""
+    monkeypatch.setattr(
+        tara_gateway.requests, "get", lambda *a, **k: _metadata_response(1986, 2026)
+    )
+    monkeypatch.setattr(tara_gateway.config, "appserver_url", "http://appserver.test")
+
+    actions, cards, card_list = [], {}, []
+    tara_gateway._execute_tara_tool(
+        "update_view",
+        {"years": 6, "pe_cycle": "pe2"},
+        "user-42",
+        actions, cards, card_list,
+        user_token="tok",
+        current_view={"symbol": "MSFT", "market": "2", "entry_date": "2026-09-14",
+                      "days_out": 45, "years": 10, "pe_cycle": "cons"},
+    )
+    specs = [a.get("spec", {}) for a in actions if a.get("type") == "set_view"]
+    assert specs[0].get("years") == 6, specs
+
+
+def test_a_consecutive_lookback_is_not_clamped_to_a_cohort_count(monkeypatch):
+    """Switching years with NO pe_cycle must use the consecutive span, not a quarter of it."""
+    monkeypatch.setattr(
+        tara_gateway.requests, "get", lambda *a, **k: _metadata_response(1986, 2026)
+    )
+    monkeypatch.setattr(tara_gateway.config, "appserver_url", "http://appserver.test")
+
+    actions, cards, card_list = [], {}, []
+    tara_gateway._execute_tara_tool(
+        "update_view",
+        {"years": 20},
+        "user-42",
+        actions, cards, card_list,
+        user_token="tok",
+        current_view={"symbol": "MSFT", "market": "2", "entry_date": "2026-09-14",
+                      "days_out": 45, "years": 10, "pe_cycle": "cons"},
+    )
+    specs = [a.get("spec", {}) for a in actions if a.get("type") == "set_view"]
+    assert specs[0].get("years") == 20, specs
+
+
+def test_the_clamp_never_blocks_the_action_when_metadata_is_unavailable(monkeypatch):
+    """A failed lookup must leave the request untouched, not drop the action."""
+    def boom(*a, **k):
+        raise tara_gateway.requests.RequestException("metadata down")
+
+    monkeypatch.setattr(tara_gateway.requests, "get", boom)
+    monkeypatch.setattr(tara_gateway.config, "appserver_url", "http://appserver.test")
+
+    actions, cards, card_list = [], {}, []
+    tara_gateway._execute_tara_tool(
+        "update_view",
+        {"years": 20, "pe_cycle": "pe2"},
+        "user-42",
+        actions, cards, card_list,
+        user_token="tok",
+        current_view={"symbol": "MSFT", "market": "2", "entry_date": "2026-09-14",
+                      "days_out": 45, "years": 10, "pe_cycle": "cons"},
+    )
+    specs = [a.get("spec", {}) for a in actions if a.get("type") == "set_view"]
+    assert specs, "a metadata outage must not swallow the user's action"
+    assert specs[0].get("years") == 20, specs

@@ -3403,6 +3403,35 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
         inp = dict(inp)
         inp["years"] = effective_named_lookback
     card_count_before = len(card_list)
+    # An EXPLICIT lookback on the loaded symbol must be clamped too. The block above only
+    # fires for named_symbol_override, which chatbot.py deliberately leaves None when the
+    # user names the symbol ALREADY loaded ("keep MSFT") - exactly the reported turn. The
+    # viewer independently steps its years control down to the cohort maximum, so an
+    # unclamped spec makes the action's request key (20) and the resulting view (9)
+    # disagree, and the pending transaction fails 'view_superseded' with the chart blank
+    # (2026-09-14 MSFT report, tara_actions.log).
+    if name == "update_view" and isinstance(inp.get("years"), int):
+        effective_symbol = action_symbol or loaded_symbol
+        effective_market = (
+            inp.get("market")
+            or ((current_view or {}).get("market") if isinstance(current_view, dict) else None)
+            or table_market
+        )
+        effective_cycle = inp.get("pe_cycle") or (
+            (current_view or {}).get("pe_cycle") if isinstance(current_view, dict) else None
+        )
+        if effective_symbol:
+            cohort_max = _symbol_max_available_years(
+                effective_market, effective_symbol, user_token, effective_cycle
+            )
+            if isinstance(cohort_max, int) and inp["years"] > cohort_max:
+                log.info(
+                    "tara lookback clamped for %s %s: %s -> %s",
+                    effective_symbol, effective_cycle or "cons", inp["years"], cohort_max,
+                )
+                inp = dict(inp)
+                inp["years"] = cohort_max
+
     if name == "update_view":                       # client-side UI action, not a gateway call
         # A KNOB-ONLY change ("use 20 years and switch to PE+2") carries no symbol, so the
         # available-history clamp used to be skipped and the viewer was told to load more
