@@ -81,7 +81,14 @@ const patternRecordFallback = patternRecord => {
   const positiveYears = integerOrNull(patternRecord.positiveYears)
   if (sampleSize === null || positiveYears === null) return null
   if (sampleSize <= 0 || positiveYears < 0 || positiveYears > sampleSize) return null
-  return { sampleSize, positiveYears, required: null, filterMissed: false }
+  const direction = String(patternRecord.direction || '').trim().toLowerCase()
+  return {
+    sampleSize,
+    positiveYears,
+    required: null,
+    filterMissed: false,
+    direction: direction === 'long' || direction === 'short' ? direction : '',
+  }
 }
 
 const HistoricalRecord = ({ recurrence, patternRecord }) => {
@@ -90,11 +97,15 @@ const HistoricalRecord = ({ recurrence, patternRecord }) => {
     return <span className="ai-score-panel__muted">Not provided</span>
   }
 
-  const { sampleSize, positiveYears, required, filterMissed } = details
+  const { sampleSize, positiveYears, required, filterMissed, direction } = details
+  // Name the direction the count is measured on. A SHORT pattern's winning years are the
+  // years the underlying FELL, so a bare "6 of 10 years profitable" reads as a
+  // contradiction next to a mostly-red chart (owner, 2026-09-14).
+  const basis = direction ? ` (${direction})` : ''
 
   return (
     <span className="ai-score-panel__history-record">
-      <span>{sampleSize === 0 ? 'No completed years' : `${positiveYears} of ${sampleSize} years profitable`}</span>
+      <span>{sampleSize === 0 ? 'No completed years' : `${positiveYears} of ${sampleSize}${basis} years profitable`}</span>
       {filterMissed && required !== null && <small>Below filter: needs {required} of {sampleSize}</small>}
     </span>
   )

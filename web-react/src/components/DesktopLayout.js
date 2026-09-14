@@ -68,7 +68,7 @@ import { LEGACY_SEVEN_DAY_LESSONS_ENABLED } from './onboarding';
 // row expects. The scorer supplies a record only for the shorter comparison horizons it
 // recalculates, so the card for the pattern's OWN duration has none; this is the same
 // figure the Wave Stats panel shows, so the two can never disagree (defect TW-R14-03).
-const loadedPatternRecord = (stats, calendarDays) => {
+const loadedPatternRecord = (stats, calendarDays, direction) => {
     if (!stats || typeof stats !== 'object') return null
     const winners = Number(stats['Num Winners'])
     const losers = Number(stats['Num Losers'])
@@ -77,7 +77,7 @@ const loadedPatternRecord = (stats, calendarDays) => {
     if (sampleSize <= 0) return null
     const days = Number(calendarDays)
     if (!Number.isFinite(days) || days <= 0) return null
-    return { sampleSize, positiveYears: winners, calendarDays: days }
+    return { sampleSize, positiveYears: winners, calendarDays: days, direction }
 }
 
 const SWIPE_WITH_MOUSE = false;
@@ -1947,7 +1947,7 @@ const DesktopLayout = (props) => {
                         {hasAIScores && (
                             <SwiperSlide>
                                 <AIScorePanel
-                                    patternRecord={loadedPatternRecord(props.tradeDetailData, props.daysOut)}
+                                    patternRecord={loadedPatternRecord(props.tradeDetailData, props.daysOut, props.barChartLongOrShort)}
                                     viewModel={aiPanelViewModel}
                                     active={activeBottomSlide === 'ai_scores'}
                                     onOpenGuide={() => SetShowAIScoresGuide(true)}

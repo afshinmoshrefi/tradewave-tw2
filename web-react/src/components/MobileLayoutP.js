@@ -48,7 +48,7 @@ SwiperCore.use([Pagination, Navigation, Virtual]);
 // row expects. The scorer supplies a record only for the shorter comparison horizons it
 // recalculates, so the card for the pattern's OWN duration has none; this is the same
 // figure the Wave Stats panel shows, so the two can never disagree (defect TW-R14-03).
-const loadedPatternRecord = (stats, calendarDays) => {
+const loadedPatternRecord = (stats, calendarDays, direction) => {
     if (!stats || typeof stats !== 'object') return null
     const winners = Number(stats['Num Winners'])
     const losers = Number(stats['Num Losers'])
@@ -57,7 +57,7 @@ const loadedPatternRecord = (stats, calendarDays) => {
     if (sampleSize <= 0) return null
     const days = Number(calendarDays)
     if (!Number.isFinite(days) || days <= 0) return null
-    return { sampleSize, positiveYears: winners, calendarDays: days }
+    return { sampleSize, positiveYears: winners, calendarDays: days, direction }
 }
 
 const MobileLayoutP = (props) => {
@@ -206,7 +206,7 @@ const MobileLayoutP = (props) => {
                     {hasAIScores && (
                         <SwiperSlide>
                             <AIScorePanel
-                            patternRecord={loadedPatternRecord(props.tradeDetailData, props.daysOut)}
+                            patternRecord={loadedPatternRecord(props.tradeDetailData, props.daysOut, props.barChartLongOrShort)}
                                 compact
                                 viewModel={props.opportunityAIState}
                                 active={true}
