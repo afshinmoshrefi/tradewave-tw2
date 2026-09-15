@@ -24,6 +24,7 @@ import PublishArticle from "./PublishArticle";
 import AutoTrade from "./AutoTrade"
 import TradeReport from "./PortfolioTradeReport"
 import { BsListUl } from "react-icons/bs"
+import { liveSwiper } from './swiperInstance'
 
 
 // Import Swiper styles
@@ -72,7 +73,7 @@ const MobileLayoutL = (props) => {
     // auto switch displayed chart by an event not swipe
     const chartTo = (idx) => {
         // idx=0 is barchart idx=1 is linechart
-        props.swiper.slideTo(idx)
+        liveSwiper(props.swiper)?.slideTo(idx)
     }
 
 
@@ -112,23 +113,19 @@ const MobileLayoutL = (props) => {
 
     useEffect(() => { //reset the chart to barchart in mobile
 
-        // console.log('useEffect in mobile L called')
+        if (rdd.isTablet && browserW > browserH) return // can't call swiper when ipad landscape - get memory leak warning
 
-        if (rdd.isTablet && browserW > browserH) { } // can't call swiper when ipad landscape - get memory leak warning
-        else {
-            if (props.swiper) {
-                // console.log('rowIndexClicked=', props.rowIndexClicked)
-                if (props.rowIndexClicked == null) {
-                    // chartTo(0) // first time 
-                    // console.log('swiper=',props.swiper)
-                    props.swiper.slideTo(0)
+        // On rotation this first runs while props.swiper is still the portrait layout's
+        // destroyed instance (TW-BUG-0001); it runs again once this layout's Swiper
+        // registers, which is when the reset can actually apply.
+        const swiper = liveSwiper(props.swiper)
+        if (!swiper) return
+        if (props.rowIndexClicked == null) swiper.slideTo(0) // first time
+        else swiper.slideTo(1) // after selection made
 
-                }
-                else chartTo(1) // after selection made
-            }
-        }
+    }, [props.swiper, props.startDate, props.symbol, props.daysOut, props.seasonalYears, props.showMAE, props.showMFE, props.tradeDetailData, props.barChartLongOrShort])
 
-        // if (swiper) chartTo(0)
+    useEffect(() => {
         var cret = cumulativeReturn(props.seasonalBarChartData, props.barChartLongOrShort) //func moved to common.js
         var cretCompare = cumulativeReturn(props.compareSecurityBarChartData, props.barChartLongOrShort)
 

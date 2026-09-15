@@ -28,6 +28,7 @@ import AutoTrade from "./AutoTrade"
 import TradeReport from "./PortfolioTradeReport"
 import AIScorePanel from './AIScorePanel'
 import { supportsAIScoreSlide, resolveMobileSlideIndex } from './bottomSlides'
+import { liveSwiper } from './swiperInstance'
 
 
 // Import Swiper styles
@@ -103,7 +104,8 @@ const MobileLayoutP = (props) => {
     // what keeps chartTo(1) on the price chart once the AI slide is inserted.
     const chartTo = (destination) => {
         const idx = resolveMobileSlideIndex(destination, { hasAIScores })
-        if (idx >= 0 && props.swiper) props.swiper.slideTo(idx)
+        const swiper = liveSwiper(props.swiper)
+        if (idx >= 0 && swiper) swiper.slideTo(idx)
     }
 
 
