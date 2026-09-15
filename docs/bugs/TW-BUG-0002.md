@@ -1,11 +1,11 @@
 # TW-BUG-0002: The Right Resize Edge Can Change the Duration Without a Drag
 
-- Status: open
+- Status: in-progress
 - Confidence: reproduced
 - Priority: P1 (viewer failure or silent change of user intent)
 - First observed / last updated: 2026-09-15 (audit date; exact per-case wall times not retained)
-- Executor/session: unassigned; recorded by Codex, shared-bug-memory-20260915
-- Authorization: document and track; implementation not yet assigned or authorized by this task
+- Executor/session: Claude Code (claude-opus-5), session ac415bed-b1cf-4689-be18-536911d44893; claimed 2026-09-15T21:01Z; branch `claude/tw-bug-0002-right-resize-20260915`, worktree `/home/tradewave-worktrees/claude-tw-bug-0002-right-resize-20260915`; recorded by Codex, shared-bug-memory-20260915
+- Authorization: Afshin authorized the fix on 2026-09-15 ("fix codex's recommended 2 bugs first"); fast dev completion only, no staging/production
 - Affected baseline: dev frontend `fce41885ec8fbdc70fabc1fb56bde38c98339396`, `main.0ee1de72.js`
 - Staging/production: not tested; affected versions there are unknown
 
@@ -34,3 +34,4 @@ No fix commit, implementation branch, migration, build or deployment exists for 
 
 - 2026-09-15: Codex reproduced during read-only audit of fce41885; application unchanged. Findings recorded in `80fb093e08af4b9de8247c91853cc42f767961bb`.
 - 2026-09-15: Codex registered the finding with portable evidence and explicit acceptance criteria. Status remains open, owner unassigned. Use `git log -1 -- docs/bugs/TW-BUG-0002.md` for the latest record commit.
+- 2026-09-15T21:01Z: Claude Code claimed implementation (session ac415bed). Next: reproduce on dev `fce41885`, fix, focused tests, dev activation and live check.

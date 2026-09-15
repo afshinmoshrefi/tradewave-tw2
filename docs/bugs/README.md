@@ -2,12 +2,12 @@
 
 This is the shared, provider-neutral bug register. Read [how work is managed](../WORK_MANAGEMENT.md) before starting or handing off work. Use [the template](TEMPLATE.md) for new records.
 
-As recorded September 15, 2026: **7 open bug groups, 2 fixes verified on dev.** None of the seven has an implementation owner. Start with mobile rotation and right-handle duration when fixes are authorized; both can seriously disrupt user intent. Recording these bugs does not authorize their repair.
+As recorded September 15, 2026: **7 open bug groups, 2 fixes verified on dev.** On 2026-09-15 Claude Code claimed TW-BUG-0001 and TW-BUG-0002; the other five have no implementation owner. Start with mobile rotation and right-handle duration when fixes are authorized; both can seriously disrupt user intent. Recording these bugs does not authorize their repair.
 
 | ID | Priority | Status | User-visible issue |
 |---|---|---|---|
-| [TW-BUG-0001](TW-BUG-0001.md) | P1 | open | Mobile Rotation Can Crash the Viewer |
-| [TW-BUG-0002](TW-BUG-0002.md) | P1 | open | The Right Resize Edge Can Change the Duration Without a Drag |
+| [TW-BUG-0001](TW-BUG-0001.md) | P1 | in-progress | Mobile Rotation Can Crash the Viewer |
+| [TW-BUG-0002](TW-BUG-0002.md) | P1 | in-progress | The Right Resize Edge Can Change the Duration Without a Drag |
 | [TW-BUG-0003](TW-BUG-0003.md) | P2 | open | Starting on the Chart's Last Date Puts the Highlight on the Left |
 | [TW-BUG-0004](TW-BUG-0004.md) | P2 | open | Jan-Dec Highlights the Whole Year for Some PE Selections |
 | [TW-BUG-0005](TW-BUG-0005.md) | P2 | open | February 29 Breaks the Date and Data Display |
