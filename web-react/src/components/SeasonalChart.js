@@ -329,7 +329,8 @@ const SeasonalChart = (props) => {
     // console.log('ppppppppppppppppppppppppppppppppppppppppppppppprops.chartData=',props.chartData);
 
     const data = {
-        labels: props.chartLabels,
+        // Replace the category dates with each response so mounted charts cannot retain old windows.
+        labels: props.chartData.map(([date]) => date),
         datasets: [
             { fill: true },
             {
