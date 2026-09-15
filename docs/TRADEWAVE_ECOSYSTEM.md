@@ -702,6 +702,38 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   Jan-Dec starts a fresh window with the existing mode rules. The maximum-history
   projection request uses the same viewport policy. This prevents the label repair
   from exposing the old on-every-drag recentering as a jump back to a 14-day lead-in.
+- **Open Trend Chart interaction defects (dev audit 2026-09-15, runtime `fce41885`):**
+  the label and retained-window fixes pass normal forward/backward, years/PE and
+  latest-response checks, but six further user-visible cases were reproduced:
+  - **Final-date highlight:** the retained window permits its last date, while
+    `SeasonalChart.js:227` treats `startDate >= last_date_seasonal_chart` as a year
+    wrap. Buy & Hold -> Jan-Dec off -> drag Jan 1 to Nov 19 -> nudge forward 28
+    days lands on Dec 17, 2026 in a Dec 18, 2025-Dec 17, 2026 curve, but paints
+    indices 0-14 instead of the right edge. Default-zero indices conceal misses.
+  - **Jan-Dec with later PE years:** the same effect only adjusts the year once.
+    A Dec 17 start in PE (2028) or PE+1 (2029), on the current 2026 Jan-Dec axis,
+    paints the whole year. PE+3 (2027) works in the checked case.
+  - **Right-edge duration:** `onMouseUpRightResize` (`SeasonalChart.js:606`) derives
+    the entire duration from overlay width, including clipping and excluding the
+    inclusive entry day. Simply pressing/releasing the right handle on rolling
+    Jan 1 Buy & Hold changes 366 days to 351; a ten-day expansion of a fully
+    visible 30-day window becomes 39, not 40. Engine values themselves are intact.
+  - **Leap-day entry:** typing Feb 29, 2028 yields an accepted 365-point trend
+    response without that date, a highlight starting at index zero, failed primary
+    chart loading and `undefined` stats. Do not insert client-calculated leap-day
+    values; resolve the entry-date/engine contract and display handling together.
+  - **Input validation:** date Enter/blur handlers admit impossible calendar dates
+    such as `2026-02-31`, then the trend endpoint returns 400 `invalid chart date`
+    and the chart disappears. Invalid-format input while the trend array is
+    cleared also dereferences `[0][0]` (`SeasonalBarChart.js:1629,1728`) and throws.
+  - **Trend-only request failure:** an HTTP 500 injected only into the browser's
+    trend request leaves a blank Trend Chart placeholder without a trend error or
+    retry control; changing years recovers. The existing failed-load report is
+    internal (`SeasonalBarChart.js:1285,1343`), not a rendered chart error state.
+  A seventh finding, phone rotation failure, is recorded in section 7.2. Audit
+  evidence and scripts are under `/var/tmp/trend-chart-audit-20260915` on dev;
+  the local `trend-chart-audit-20260915/REPORT.md` links retained receipts and
+  screenshots. These are findings only; this audit changed no application code.
 - **Wave-viewer years selector overflow clamp (`SeasonalBarChart.js` ~283-297, fixed
   2026-07-09):** the years `<select>` is CONTROLLED; if `seasonalYears` exceeds every
   option (e.g. cons 95yr then switch regime to PE+2 whose list is 3..24), the browser
@@ -997,6 +1029,18 @@ browserH<browserW` (phone-landscape) -> `MobileLayoutL`; `browserH>browserW` (ph
 + tablet-portrait) -> `MobileLayoutP`. Rotating the device unmounts/remounts a different
 component at the same tree position (not a resize of one component), so device-scoped
 `useEffect`s re-run fresh on rotation.
+
+**Open phone rotation failure (dev audit 2026-09-15, runtime `fce41885`):**
+rotating a loaded portrait viewer into landscape reproduced a `MobileLayoutL`
+error boundary in Chromium iPhone emulation; Retry panel repeated it. The caught
+stack reaches `MobileLayoutL`'s reset effect (`:124`, `props.swiper.slideTo(0)`)
+and Swiper's `this.params.speed` read. The parent can still hold the destroyed
+previous layout's Swiper during the new layout's effect. Truthiness is insufficient
+as a liveness check. Fresh portrait and its real touch resize passed. This requires
+layout-instance lifecycle handling, followed by portrait/landscape rotation and
+retry checks; physical Safari was not exercised. Receipts/screenshots are under
+`/var/tmp/trend-chart-audit-20260915/mobile-confirm-rotate` (related chart findings
+are in section 7, "Open Trend Chart interaction defects").
 
 **Portrait vs landscape are NOT equivalent mobile experiences.** In `MobileLayoutP`,
 `OppTable` is docked permanently below the chart swiper (:203-205, both always visible
