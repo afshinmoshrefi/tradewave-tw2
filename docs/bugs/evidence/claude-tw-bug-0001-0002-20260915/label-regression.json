@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "layout": "desktop",
+      "mountedTransitions": 6,
+      "clearAndReload": true
+    },
+    {
+      "layout": "mobile portrait",
+      "mountedTransitions": 6,
+      "clearAndReload": true
+    },
+    {
+      "layout": "mobile landscape",
+      "mountedTransitions": 6,
+      "clearAndReload": true
+    }
+  ],
+  "fixtureSource": {
+    "captured": "2026-09-15",
+    "endpoint": "/consolidated_seasonal_chart2",
+    "environment": "dev",
+    "instrument": "AAPL",
+    "market": "2",
+    "years": "10",
+    "frontend_source_sha": "660ae608dabab53e3cdf52e0db70fa82c41f0336",
+    "notes": "Retained engine responses; dates and numerical values are unchanged. Credentials and browser state excluded."
+  }
+}

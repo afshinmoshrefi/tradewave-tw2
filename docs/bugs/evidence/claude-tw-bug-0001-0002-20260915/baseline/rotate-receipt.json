@@ -1,0 +1,391 @@
+{
+  "mode": "rotate",
+  "build": "live dev",
+  "cases": [
+    {
+      "name": "R01-portrait-loaded",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "MobileLayoutP",
+        "viewport": [
+          390,
+          844
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 5,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 0.9925053415896805
+      }
+    },
+    {
+      "name": "R01a-landscape",
+      "pass": false,
+      "issues": [
+        "no error panel",
+        "Swiper instance is live",
+        "no speed exception",
+        "landscape layout",
+        "trend chart mounted"
+      ],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          844,
+          390
+        ],
+        "errorPanels": [
+          "MobileLayoutL encountered an error"
+        ],
+        "swiperLive": false,
+        "barCanvas": false,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": false
+      }
+    },
+    {
+      "name": "R01c-portrait",
+      "pass": false,
+      "issues": [
+        "no speed exception"
+      ],
+      "state": {
+        "layout": "MobileLayoutP",
+        "viewport": [
+          390,
+          844
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 0.9925053415896805
+      }
+    },
+    {
+      "name": "R02a-landscape",
+      "pass": false,
+      "issues": [
+        "no error panel",
+        "Swiper instance is live",
+        "no speed exception",
+        "landscape layout",
+        "trend chart mounted"
+      ],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          844,
+          390
+        ],
+        "errorPanels": [
+          "MobileLayoutL encountered an error"
+        ],
+        "swiperLive": false,
+        "barCanvas": false,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": false
+      }
+    },
+    {
+      "name": "R02c-portrait",
+      "pass": false,
+      "issues": [
+        "no speed exception"
+      ],
+      "state": {
+        "layout": "MobileLayoutP",
+        "viewport": [
+          390,
+          844
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 0.9925053415896805
+      }
+    },
+    {
+      "name": "R03a-landscape",
+      "pass": false,
+      "issues": [
+        "no error panel",
+        "Swiper instance is live",
+        "no speed exception",
+        "landscape layout",
+        "trend chart mounted"
+      ],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          844,
+          390
+        ],
+        "errorPanels": [
+          "MobileLayoutL encountered an error"
+        ],
+        "swiperLive": false,
+        "barCanvas": false,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": false
+      }
+    },
+    {
+      "name": "R03c-portrait",
+      "pass": false,
+      "issues": [
+        "no speed exception"
+      ],
+      "state": {
+        "layout": "MobileLayoutP",
+        "viewport": [
+          390,
+          844
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 0.9925053415896805
+      }
+    },
+    {
+      "name": "R04-portrait-touch-right-edge-no-move",
+      "pass": false,
+      "issues": [
+        "no speed exception",
+        "Jan-Dec off"
+      ],
+      "state": {
+        "layout": "MobileLayoutP",
+        "viewport": [
+          390,
+          844
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 5,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": true,
+        "first": "2026-01-01",
+        "last": "2026-12-31",
+        "labels": 365,
+        "highlight": [
+          0,
+          365
+        ],
+        "ppd": 0.9925053415896805
+      }
+    },
+    {
+      "name": "R05-landscape-after-touch",
+      "pass": false,
+      "issues": [
+        "no error panel",
+        "Swiper instance is live",
+        "no speed exception",
+        "landscape layout"
+      ],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          844,
+          390
+        ],
+        "errorPanels": [
+          "MobileLayoutL encountered an error"
+        ],
+        "swiperLive": false,
+        "barCanvas": false,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": false
+      }
+    },
+    {
+      "name": "R06-retry-panel-recovers",
+      "pass": false,
+      "issues": [
+        "no error panel",
+        "Swiper instance is live",
+        "no speed exception",
+        "landscape layout",
+        "bar chart canvas"
+      ],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          844,
+          390
+        ],
+        "errorPanels": [
+          "MobileLayoutL encountered an error"
+        ],
+        "swiperLive": false,
+        "barCanvas": false,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": false
+      }
+    },
+    {
+      "name": "R07-portrait-after-retry",
+      "pass": false,
+      "issues": [
+        "no speed exception"
+      ],
+      "state": {
+        "layout": "MobileLayoutP",
+        "viewport": [
+          390,
+          844
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.0ee1de72.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": true,
+        "first": "2026-01-01",
+        "last": "2026-12-31",
+        "labels": 365,
+        "highlight": [
+          0,
+          365
+        ],
+        "ppd": 0.9925053415896805
+      }
+    }
+  ],
+  "errors": [],
+  "consoleErrors": [
+    "TypeError: Cannot read properties of undefined (reading 'speed')",
+    "TradeWave error caught: [MobileLayoutL]  TypeError: Cannot read properties of undefined (reading 'speed') [object Object]",
+    "TypeError: Cannot read properties of undefined (reading 'speed')",
+    "TradeWave error caught: [MobileLayoutL]  TypeError: Cannot read properties of undefined (reading 'speed') [object Object]",
+    "TypeError: Cannot read properties of undefined (reading 'speed')",
+    "TradeWave error caught: [MobileLayoutL]  TypeError: Cannot read properties of undefined (reading 'speed') [object Object]",
+    "TypeError: Cannot read properties of undefined (reading 'speed')",
+    "TradeWave error caught: [MobileLayoutL]  TypeError: Cannot read properties of undefined (reading 'speed') [object Object]",
+    "TypeError: Cannot read properties of undefined (reading 'speed')",
+    "TradeWave error caught: [MobileLayoutL]  TypeError: Cannot read properties of undefined (reading 'speed') [object Object]"
+  ],
+  "responses": [
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-01-01",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-01-01",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    }
+  ],
+  "execution_complete": true
+}

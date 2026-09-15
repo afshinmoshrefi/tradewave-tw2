@@ -1,0 +1,50 @@
+{
+  "mode": "landscape",
+  "build": "live dev",
+  "cases": [
+    {
+      "name": "L01-fresh-landscape-load",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "MobileLayoutL",
+        "viewport": [
+          844,
+          390
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 1,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 2.2397580888424287
+      }
+    }
+  ],
+  "errors": [],
+  "consoleErrors": [],
+  "responses": [
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    }
+  ],
+  "execution_complete": true
+}

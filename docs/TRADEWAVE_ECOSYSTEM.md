@@ -713,9 +713,15 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   from exposing the old on-every-drag recentering as a jump back to a 14-day lead-in.
 - **Trend interaction audit, September 15, 2026, frontend `fce41885`:**
   historical observations and current defect status live in [Bug Memory](bugs/README.md).
-  Renderer boundaries use a single year shift and default-zero indices; the
-  right-edge duration handler derives duration from overlay width; typed-date
-  handlers include calendar validation and empty-array fallback risks. See
+  Renderer boundaries use a single year shift and default-zero indices; typed-date
+  handlers include calendar validation and empty-array fallback risks.
+  **Right-edge duration (fixed 2026-09-15, main `99bce08d`):** the right resize edge
+  changes duration only by the whole day positions it moved (`trendRightResize.js`,
+  `rightResizeDays`), never from overlay width, which spans `days - 1` positions and
+  is cut off where the end runs past the chart. A leftward drag from a clipped edge
+  measures from the visible boundary; a rightward drag never shortens. The overlay
+  carries `noselect`: a drag that starts a text selection turns the next drag into a
+  native drag-and-drop with no mouseup, so the resize silently never completes. See
   [duration](bugs/TW-BUG-0002.md), [final date](bugs/TW-BUG-0003.md),
   [PE year mapping](bugs/TW-BUG-0004.md), [leap day](bugs/TW-BUG-0005.md),
   [input](bugs/TW-BUG-0006.md), and [failed requests](bugs/TW-BUG-0007.md)
@@ -1024,6 +1030,12 @@ component at the same tree position (not a resize of one component), so device-s
 hypothesis are tracked in [TW-BUG-0001](bugs/TW-BUG-0001.md). That record owns
 current status, rotation/retry acceptance checks and Chromium-versus-Safari limits.
 Truthiness of the parent-held Swiper object does not establish instance liveness.
+Fixed 2026-09-15 (main `99bce08d`): swiper/react `destroy(true, false)` deletes the
+instance's params, and App still hands that destroyed object to the next layout until
+its own Swiper registers. INVARIANT: a layout calls into `props.swiper` only through
+`liveSwiper` (`swiperInstance.js`); `MobileLayoutL`'s reset effect depends on
+`props.swiper` so it applies once the new Swiper registers. `DesktopLayout` uses its own
+`swiperRef`.
 
 **Portrait vs landscape are NOT equivalent mobile experiences.** In `MobileLayoutP`,
 `OppTable` is docked permanently below the chart swiper (:203-205, both always visible

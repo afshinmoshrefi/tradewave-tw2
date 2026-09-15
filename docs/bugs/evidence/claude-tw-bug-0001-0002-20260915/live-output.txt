@@ -1,0 +1,33 @@
+== rotate
+{"case":"R01-portrait-loaded","pass":true,"issues":[],"layout":"MobileLayoutP","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R01a-landscape","pass":true,"issues":[],"layout":"MobileLayoutL","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R01b-landscape-trend-usable","pass":true,"issues":[],"layout":"MobileLayoutL","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R01c-portrait","pass":true,"issues":[],"layout":"MobileLayoutP","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R02a-landscape","pass":true,"issues":[],"layout":"MobileLayoutL","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R02b-landscape-trend-usable","pass":true,"issues":[],"layout":"MobileLayoutL","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R02c-portrait","pass":true,"issues":[],"layout":"MobileLayoutP","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R03a-landscape","pass":true,"issues":[],"layout":"MobileLayoutL","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R03b-landscape-trend-usable","pass":true,"issues":[],"layout":"MobileLayoutL","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R03c-portrait","pass":true,"issues":[],"layout":"MobileLayoutP","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R04-portrait-touch-right-edge-no-move","pass":true,"issues":[],"layout":"MobileLayoutP","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R05-landscape-after-touch","pass":true,"issues":[],"layout":"MobileLayoutL","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R06-retry-panel-recovers","pass":true,"issues":[],"layout":"MobileLayoutL","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"R07-portrait-after-retry","pass":true,"issues":[],"layout":"MobileLayoutP","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+
+== resize
+{"case":"D01-buy-hold-rolling","pass":true,"issues":[],"layout":"desktop","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"D02-right-press-release-no-move","pass":true,"issues":[],"layout":"desktop","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"D03-clipped-edge-right-5","pass":true,"issues":[],"layout":"desktop","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"D04-clipped-edge-left-10","pass":true,"issues":[],"layout":"desktop","days":342,"start":"2026-01-01","highlight":[14,355],"window":["2025-12-18","2026-12-17"],"errors":[]}
+{"case":"D05-may1-30-days","pass":true,"issues":[],"layout":"desktop","days":30,"start":"2026-05-01","highlight":[14,43],"window":["2026-04-17","2027-04-16"],"errors":[]}
+{"case":"D06-right-plus-10","pass":true,"issues":[],"layout":"desktop","days":40,"start":"2026-05-01","highlight":[14,53],"window":["2026-04-17","2027-04-16"],"errors":[]}
+{"case":"D07-right-minus-10","pass":true,"issues":[],"layout":"desktop","days":30,"start":"2026-05-01","highlight":[14,43],"window":["2026-04-17","2027-04-16"],"errors":[]}
+{"case":"D08-right-plus-1","pass":true,"issues":[],"layout":"desktop","days":31,"start":"2026-05-01","highlight":[14,44],"window":["2026-04-17","2027-04-16"],"errors":[]}
+{"case":"D09-unclipped-no-move","pass":true,"issues":[],"layout":"desktop","days":31,"start":"2026-05-01","highlight":[14,44],"window":["2026-04-17","2027-04-16"],"errors":[]}
+{"case":"D10-minimum-duration","pass":true,"issues":[],"layout":"desktop","days":2,"start":"2026-05-01","highlight":[14,15],"window":["2026-04-17","2027-04-16"],"errors":[]}
+{"case":"D11-set-60-days","pass":true,"issues":[],"layout":"desktop","days":60,"start":"2026-05-01","highlight":[14,73],"window":["2026-04-17","2027-04-16"],"errors":[]}
+{"case":"D12-left-edge-forward-20","pass":true,"issues":[],"layout":"desktop","days":40,"start":"2026-05-21","highlight":[34,73],"window":["2026-04-17","2027-04-16"],"errors":[]}
+{"case":"D13-right-plus-5-after-left-drag","pass":true,"issues":[],"layout":"desktop","days":45,"start":"2026-05-21","highlight":[34,78],"window":["2026-04-17","2027-04-16"],"errors":[]}
+
+== landscape
+{"case":"L01-fresh-landscape-load","pass":true,"issues":[],"layout":"MobileLayoutL","days":366,"start":"2026-01-01","highlight":[14,365],"window":["2025-12-18","2026-12-17"],"errors":[]}

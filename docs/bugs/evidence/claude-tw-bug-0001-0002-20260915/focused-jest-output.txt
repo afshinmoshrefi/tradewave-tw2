@@ -1,0 +1,15 @@
+PASS src/components/bottomSlides.test.js
+PASS src/components/chatbotScreenContext.test.js
+PASS src/components/taraActionContract.test.js
+PASS src/components/startDateNudge.test.js
+PASS src/components/taraLoadAborters.test.js
+PASS src/components/trendChartRequestState.test.js
+PASS src/components/trendChartResizeTooltips.test.js
+PASS src/components/trendRightResize.test.js
+PASS src/components/swiperInstance.test.js
+
+Test Suites: 9 passed, 9 total
+Tests:       117 passed, 117 total
+Snapshots:   0 total
+Time:        4.686 s
+Ran all test suites matching /src\/components\/swiperInstance.test.js|src\/components\/trendRightResize.test.js|src\/components\/bottomSlides.test.js|src\/components\/trendChartRequestState.test.js|src\/components\/startDateNudge.test.js|src\/components\/trendChartResizeTooltips.test.js|src\/components\/taraActionContract.test.js|src\/components\/taraLoadAborters.test.js|src\/components\/chatbotScreenContext.test.js/i.
