@@ -178,4 +178,3 @@ async function run() {
 }
 
 run().catch(error => { console.error(error.stack); process.exitCode = 1; });
-
