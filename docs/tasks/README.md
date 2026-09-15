@@ -6,3 +6,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 |---|---|---|
 | [TW-TASK-0001](TW-TASK-0001.md) | verified | Shared bug memory and interchangeable-agent management instructions |
 | [TW-TASK-0002](TW-TASK-0002.md) | verified | Independent review of two fixes and repair of missing documentation evidence |
+| [TW-TASK-0003](TW-TASK-0003.md) | in-progress | Reusable dev MCP release authentication and complete staging promotion |
