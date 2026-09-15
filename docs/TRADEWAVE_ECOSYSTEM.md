@@ -679,6 +679,19 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   the pair through `startDateNudge.js` (`resolveStartDateNudge` / `trendChartStartDateFor`); the
   drag still skips blanking the seasonal data when the window stays inside the loaded range, and
   because it updates on mouse-up it costs one trend fetch per drag, not one per pixel.
+- **Trend Chart date-label replacement (fixed 2026-09-15):** `SeasonalChart` derives
+  explicit category labels from the dates in the current `chartData` engine tuples. Its
+  desktop and mobile callers do not supply a separate `chartLabels` prop. With Chart.js
+  3.6.0/react-chartjs-2 3.3.0, leaving labels undefined lets a mounted chart retain dates
+  from previous rolling windows. Buy & Hold -> Jan-Dec off -> left-edge forward drag
+  reproduced 365 current points on 687 retained labels, with blank plot space and a
+  misplaced opportunity highlight. The highlight uses current-response indices, so its
+  axis must use the same date order. Jan-Dec can appear to repair the defect because it
+  clears the data and remounts the Line. Keep engine values, dates, leap-day convention,
+  14-day lead-in and inclusive opportunity duration unchanged; only replace the labels.
+  `node tools/ui_capture/check_trend_chart_labels.js` exercises successive real engine
+  responses on one mounted chart at desktop and both mobile orientations, checking
+  exact labels, parsed positions, highlight alignment, numerical fidelity and reload.
 - **Wave-viewer years selector overflow clamp (`SeasonalBarChart.js` ~283-297, fixed
   2026-07-09):** the years `<select>` is CONTROLLED; if `seasonalYears` exceeds every
   option (e.g. cons 95yr then switch regime to PE+2 whose list is 3..24), the browser
