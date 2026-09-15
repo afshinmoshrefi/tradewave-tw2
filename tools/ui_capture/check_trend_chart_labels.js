@@ -81,7 +81,7 @@ async function run() {
       };
     });
     await loadModule(page, 'react-chartjs-2', fs.readFileSync(reactRequire.resolve('react-chartjs-2'), 'utf8'));
-    for (const name of ['Common', 'startDateNudge', 'viewerCycleState', 'trendChartResizeTooltips', 'SeasonalChart']) {
+    for (const name of ['Common', 'startDateNudge', 'viewerCycleState', 'trendChartResizeTooltips', 'trendRightResize', 'SeasonalChart']) {
       await loadModule(page, './' + name, compileComponent(name));
     }
     assert.deepEqual(errors, [], 'The component and real library modules must load');
