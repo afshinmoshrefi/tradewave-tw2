@@ -27,4 +27,24 @@ The previous release artifact does not include the newest fixes and is not appro
 ## Implementation and Handoff
 
 Branch `codex/staging-release-20260915`; worktree `/home/tradewave-worktrees/tw2-20260915-01`.
-Next: establish WorkOS device authorization and protected refresh-token storage, integrate preserved fixes, qualify and deploy. All new test results and runtime verification pending. Dev/staging not deployed by this task; production untouched.
+Preserved and cleanly applied both active-dev repairs without changing their source
+worktree. Six new sparse OppList4 regression tests cover missing middle/weekend
+days, all-missing output shape and empty results. Main's latest completed chart
+fixes TW-BUG-0001/0002/0008/0009 are included in this candidate. Open bugs
+TW-BUG-0003 through TW-BUG-0007 remain outside this repair's scope.
+
+Added dev-only root-protected WorkOS authorization-code/PKCE credential storage,
+refresh and mandatory-gate wrapper, plus a dedicated API test identity using normal
+Business limits (no customer subscription or production change). Public DCR does
+not enable device-code grants; browser sign-in/consent is required once. Six
+focused tests cover credential-file safety and token identity validation.
+
+Qualification so far: 1,461 Python passed / 5 skipped; separate MCP suite 58
+passed; React 46 suites / 447 tests passed; six additional auth security tests
+passed. Durable logs and final runtime pointers are in
+`/var/lib/tradewave/release-state/tw2-20260915-01/` on dev.
+
+Pending: owner OAuth consent, exact-SHA build, dev live qualification, then guarded
+staging promotion and live parity verification. No dev/staging runtime activation
+by this task yet. Production remains untouched. Do not deploy the older September
+14 artifact or describe this candidate as staging-approved before final gates pass.

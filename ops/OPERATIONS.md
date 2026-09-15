@@ -812,6 +812,36 @@ request errors, p95 at or below 15 seconds for the scan workload, and no gateway
 storm-breaker activation. Run away from the 02:00 UTC cron burst. Do not use
 `--skip-oauth` for a release decision.
 
+### Reusable dev release credentials (2026-09-15)
+
+Owner-approved setup uses `ops/dev_mcp_release_auth.py` (WorkOS authorization
+code + PKCE, public client, user consent) and `ops/provision_dev_release_key.py`
+(dedicated dev-only test API identity). Neither helper is permitted outside
+`TW2_ENV=dev`. Credentials stay on dev under
+`/var/lib/tradewave/release-auth/dev` (root-owned directory 0700, files 0600),
+never in Git, command arguments, handoffs, screenshots, or test output.
+
+For normal later releases, run as root on dev from the candidate worktree:
+`/home/flask/venv/bin/python ops/dev_mcp_release_auth.py run-gate`.
+This refreshes and verifies the real WorkOS user token, injects the two test
+credentials into the verifier's child environment, and executes the mandatory
+200-request / 50-concurrency gate above. It does not skip OAuth or bypass normal
+entitlements/rate limits. The dedicated API identity uses the normal Business
+rate limit; space repeat load batches so the rate window can recover.
+
+One-time setup (or owner-approved reauthentication after revoked/expired refresh
+credentials): run `register`, then `authorize`; start `callback` on dev and open
+the printed authorization URL in the owner's browser with SSH loopback forwarding
+`-L 127.0.0.1:8766:127.0.0.1:8766` to dev. The owner completes sign-in/consent.
+The callback expires after 20 minutes, accepts only matching state and PKCE, and
+validates RS256 signature, issuer, audience, expiry and a real user subject before
+storing tokens. Stop the temporary SSH tunnel afterward. Use `status` for
+redacted status. Device-code grants are not enabled for this public DCR client.
+Provision the dedicated API identity once with `ops/provision_dev_release_key.py`;
+later runs retain its active key. Neither helper changes production, purchases a
+subscription, or modifies a customer's account. Missing/revoked credentials block
+the release until repaired; they are never grounds to weaken the release gate.
+
 ## Reliability
 
 - **DB backups**: `ops/backup_db.sh` nightly 03:30 on stage-app → `/var/backups/tradewave/db_*.sql.gz`, 14-day prune. Restore verified weekly by `ops/restore_drill.sh`. **Restore test: `sudo -u flask /home/flask/ops/restore_drill.sh` on stage-app — must say PASS.**

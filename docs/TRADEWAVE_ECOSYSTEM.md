@@ -1649,6 +1649,15 @@ release gate is `ops/verify_mvp_release.py`; it requires API BYOK and WorkOS OAu
 handshakes, a non-null daily pick, bounded concurrent API load, and verifies the gateway
 storm breaker never fires.
 
+Reusable dev release authentication is managed by `ops/dev_mcp_release_auth.py`
+and `ops/provision_dev_release_key.py` (owner-authorized September 15 setup).
+The former uses a real WorkOS user authorization-code/PKCE flow with renewable
+tokens; the latter isolates API load checks in a dedicated dev test identity under
+normal Business limits. Credentials are root-only on dev in
+`/var/lib/tradewave/release-auth/dev`, outside Git. Neither helper operates on
+production or bypasses authentication, entitlement or rate-limit enforcement.
+See `ops/OPERATIONS.md` for setup and the subsequent one-command release gate.
+
 **URLs + edge (env-driven):** `site/lib/portal_urls.py` reads `TW2_PUBLIC_HOST`,
 `TW2_API_PUBLIC_HOST`, `TW2_MCP_PUBLIC_HOST`, `TW2_DEVELOPERS_PUBLIC_HOST`. Per env the
 public hostnames are: dev `api-dev` / `mcp-dev` / `developers-dev`.trxstat.com; staging
