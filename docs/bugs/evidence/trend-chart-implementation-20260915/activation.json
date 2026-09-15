@@ -1,0 +1,56 @@
+{
+  "candidate": "0ee9172f9a4a835d9883c7531108f38606df0e3c",
+  "owner": {
+    "task": "trend-chart-current-labels-20260915",
+    "origin_task": "01a0a5f9-df26-7a71-a2bf-b17ff8ca3848",
+    "pid": 31310,
+    "sha": "0ee9172f9a4a835d9883c7531108f38606df0e3c",
+    "started_at": "2026-09-15T17:51:45.688416+00:00"
+  },
+  "activated": true,
+  "frontend_verified": true,
+  "main_advanced": true,
+  "rollback": {
+    "frontend": "/home/flask/web-react/releases/build-660ae608dabab53e3cdf52e0db70fa82c41f0336",
+    "build_previous": "/home/flask/.tw2-fast-dev/38dca302/web-react/build",
+    "backend_unchanged": "/home/tradewave-worktrees/restore-overlay-integrated-20260912",
+    "bundle": "/app/static/js/main.38b06db4.js",
+    "bundle_sha256": "1065ef25aa5293fbb08265103c603343d396c800634c5eb8f7bd84f4ded7aef6"
+  },
+  "health": {
+    "db": "ok",
+    "frontend": "ok",
+    "ok": true,
+    "ts": "2026-09-15T17:51:46.315564+00:00"
+  },
+  "push": "To github.com:afshinmoshrefi/tradewave-tw2.git\n   fe0c271b..0ee9172f  HEAD -> main",
+  "main": "0ee9172f9a4a835d9883c7531108f38606df0e3c",
+  "artifact_file_hashes": {
+    "manifest.json": "50b3d8c3903af3f78d871b94557ab14f4e39ca192eaca3d2cfa863c867279a14",
+    "robots.txt": "90d24bc3bf698ac1e173739502298ccca72adf1f564fab05f484b8c48d1cadd2",
+    "index.html": "5068e3e910ddc92d80d627518c319162fb0c86c9122e572dd6e4e3a09c694010",
+    "asset-manifest.json": "6ff0451701c47a6305cc8abb37dcd73abc809b9d1bbf4f8ec956386d80283b57",
+    "favicon.png": "52eda5ac18e3470b372039c1aa34e74441fa7071ab801626ac90baf94f72a1af",
+    "logo192.png": "c386396ec70db3608075b5fbfaac4ab1ccaa86ba05a68ab393ec551eb66c3e00",
+    "favicon.ico": "3d10f7da6c603178340081668c4ac5b3ae9743ca9a262ab0fcd312fbb9f48bdd",
+    ".tradewave-source-sha": "3466e51c5772488e6bf8d6f1776da4a80d81905345281504cdb2faddb9d45671",
+    "logo512.png": "9ea4f4da7050c0cc408926f6a39c253624e9babb1d43c7977cd821445a60b461",
+    "images/uparrow8.png": "bafb9f92889a862c6797ff5d4cf0326bd94b76b7f4ebb9a44d08b1e0bb653158",
+    "images/hixsea_logo1.png": "e67f4b71cd7fb05d3da0e36d1fbe805631523abcc735010470f9f401d6178f09",
+    "images/hixsea_logo2.png": "63e2bf12a536a4ddc5cce777ad26b1b3e11ce84e6761e5c9efa9da54a2503418",
+    "images/downarrow8.png": "76c36002756850fdd2dd5f2f37dc6e906cc08172fdea494eb4a7a9e8b184715a",
+    "static/js/129.6830be97.chunk.js": "a896255eef7b065d370a2cf166a1d88ba839a90354e450e54cdcc4d9776ab7c3",
+    "static/js/159.4ef55f9a.chunk.js": "d70c4feb56a344feaf9ba2c45162c5484c92543b478b744d70891ee82926b817",
+    "static/js/main.21523192.js": "c042b1d065630dc2e53520c50b082b8ed2d1922cb992294fbe11e5bbea58cfc2",
+    "static/js/322.a0dc03eb.chunk.js": "cb71e28eb92e586aab5a25f66c8b3a3a2931f6a97bc0fa4ef87747485b64d243",
+    "static/js/main.21523192.js.LICENSE.txt": "439d068a4d12315eadaa03d6ac18ec16deb845ddfa4e68940089dd4616f4257d",
+    "static/js/322.a0dc03eb.chunk.js.LICENSE.txt": "14df695afae02547795a493bf9378ec07ec67068d6289412b54e3b2d7db0c626",
+    "static/css/main.9e70f4b0.css": "ceff3a2c2231c9c1ca79d4108c7865fe34671d7bb6f7928653a31f0ab92a6a97",
+    "static/css/129.3bcee188.chunk.css": "bc2f96cf5d7f8d30f95675a5db6585b3c4455491e4b37c8d2bcd7cadd8fc7196"
+  },
+  "backend_source_sha": "63a520ea8d5b58d9737e52442c1cba319350b281",
+  "backend_diff_from_candidate": "appserver/appserver/appserver.py | 23 +++++++++++++++++++----\n 1 file changed, 19 insertions(+), 4 deletions(-)",
+  "full_application_parity": false,
+  "limitation": "Existing uncommitted OppList4 sparse-data handling is preserved in the unchanged active backend; full application parity awaits its separate clean integration.",
+  "finished_at": "2026-09-15T17:52:15.173004+00:00"
+}

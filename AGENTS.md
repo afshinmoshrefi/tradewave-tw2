@@ -2,6 +2,10 @@
 
 These instructions apply to Codex, Claude, Cursor, Copilot, and any other agent working in this repository.
 
+## Shared Bug Memory and Interchangeable Agents
+
+Read `docs/WORK_MANAGEMENT.md`, `docs/bugs/README.md`, and `docs/tasks/README.md` before substantive work. These are shared across ChatGPT/Codex, Claude Code, Grok and any other authorized agent; no provider owns the project by default. Follow the same record, ownership, evidence and handoff requirements for bugs and features. Keep bug status and task state in the repository, with private agent memory only as a discovery pointer. This requirement takes precedence over older instructions that place task state only in provider-private memory. The protocol does not expand deployment or implementation authorization.
+
 ## Required reading
 
 Before planning or changing TradeWave code:

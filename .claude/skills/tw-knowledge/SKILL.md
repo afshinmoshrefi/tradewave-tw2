@@ -17,7 +17,7 @@ The #1 failure mode is fragmentation - the same fact scattered across many half-
 notes, so it gets re-derived. Prevent it: SEARCH first, UPDATE the canonical file in place,
 and DELETE/merge anything that now duplicates or contradicts it.
 
-## Two homes for knowledge (decide which, every time)
+## Canonical Homes for Knowledge (Decide Which, Every Time)
 
 1. **Implementation truth -> `docs/TRADEWAVE_ECOSYSTEM.md`** (in the repo, code-verified, committed).
    HOW TradeWave is built: architecture, components, data flows, the tier/entitlement +
@@ -26,20 +26,23 @@ and DELETE/merge anything that now duplicates or contradicts it.
    it WINS over any memory note that disagrees. If a durable implementation fact is currently
    only in a memory note, PROMOTE it into this doc and leave the memory note as a pointer.
 
-2. **Working knowledge -> memory files** (`/root/.claude/projects/-home-flask/memory/`,
-   indexed by `MEMORY.md`). Cross-session context that is NOT derivable from code or git:
-   project status/goals/deadlines, decisions + WHY, owner preferences, in-flight gotchas,
-   external pointers. Memory POINTS to the ecosystem doc for implementation detail; it does
-   not duplicate it.
+2. **Bugs and substantive task state -> shared repository records.** Follow
+   `docs/WORK_MANAGEMENT.md`. `docs/bugs/README.md` indexes open and resolved bugs;
+   `docs/tasks/README.md` indexes features and other substantive work. Records own
+   reproduction, status, ownership, decisions, evidence, commits, environment
+   verification and next steps. Search/update them before writing a private note.
+   Architecture owns implementation facts and links to records for defect status.
 
-   Canonical memory categories (one obvious destination per kind of fact):
-   - `user_*` - who the owner is (role, expertise, preferences).
-   - `feedback_*` - how to work: a correction or a confirmed approach, WITH the why and how-to-apply.
-   - `project_*` - ongoing work: goal, state, decisions, rationale (convert relative dates to absolute).
-   - `reference_*` - reusable playbooks + pointers to external resources (URLs, dashboards, tickets).
+3. **Provider-private memory -> discovery pointers and personal context only.**
+   Existing `/root/.claude/projects/-home-flask/memory/` files may point to the
+   canonical records, but must not be the only place a task can be resumed.
+   Preserve personal user preferences where appropriate; project-relevant owner
+   preferences and decisions belong in shared instructions/records as well.
+   Other providers need no access to this directory to continue the project.
+   Never require a private-memory write when that provider/environment lacks it.
 
 ## Procedure (every time)
-1. **Search before writing.** grep the memory dir AND `docs/TRADEWAVE_ECOSYSTEM.md` for the
+1. **Search before writing.** Search shared bugs/tasks and `docs/TRADEWAVE_ECOSYSTEM.md`, plus accessible private pointers, for the
    topic/keywords. Find the file that already owns it.
 2. **Update in place, or create.** If a file owns the topic, edit THAT file (correct, extend,
    re-date). Create a new file only if the topic genuinely has no home. One topic = one file.
@@ -76,8 +79,8 @@ notes into a single historical note (or delete); promote durable implementation 
 ecosystem doc; reconcile any memory that disagrees with the doc; trim MEMORY.md to match.
 
 ## Done-check
-- [ ] Every non-obvious fact/decision/gotcha from this task is written in its canonical home.
+- [ ] Every non-obvious fact/decision/gotcha from this task is written in its canonical home, accessible to another provider without private chat history.
 - [ ] Implementation truth landed in `docs/TRADEWAVE_ECOSYSTEM.md` (not just a memory note).
 - [ ] No new duplicate file; existing owners updated in place; stale content deleted.
-- [ ] `MEMORY.md` index matches the files on disk (one line each).
+- [ ] Shared indexes match their records. If private memory was changed, its index matches the files (one line each).
 - [ ] Anything I re-derived this session is now recorded so it won't be next time.

@@ -1,0 +1,13 @@
+(node:27913) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+PASS src/components/taraActionContract.test.js
+PASS src/components/startDateNudge.test.js
+PASS src/components/taraLoadAborters.test.js
+PASS src/components/trendChartRequestState.test.js
+
+Test Suites: 4 passed, 4 total
+Tests:       57 passed, 57 total
+Snapshots:   0 total
+Time:        3.502 s
+Ran all test suites within paths "src/components/startDateNudge.test.js", "src/components/trendChartRequestState.test.js", "src/components/taraLoadAborters.test.js", "src/components/taraActionContract.test.js".
+Test results written to: ../../../../var/tmp/trend-chart-current-labels-20260915/focused-jest-results.json

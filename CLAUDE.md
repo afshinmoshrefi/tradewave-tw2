@@ -1,5 +1,9 @@
 # TradeWave - Codebase Instructions for Agents
 
+## Shared Bug Memory and Interchangeable Agents
+
+Read `docs/WORK_MANAGEMENT.md`, `docs/bugs/README.md`, and `docs/tasks/README.md` before substantive work. These are shared across ChatGPT/Codex, Claude Code, Grok and any other authorized agent; no provider owns the project by default. Follow the same record, ownership, evidence and handoff requirements for bugs and features. Keep bug status and task state in the repository, with private agent memory only as a discovery pointer. This requirement takes precedence over older instructions that place task state only in provider-private memory. The protocol does not expand deployment or implementation authorization.
+
 ## READ FIRST
 **Before planning or doing ANY TradeWave task, read `docs/TRADEWAVE_ECOSYSTEM.md`.**
 It is the single, code-verified map of the whole TW1 + TW2 ecosystem (architecture,
