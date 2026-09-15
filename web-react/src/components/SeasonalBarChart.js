@@ -113,6 +113,11 @@ const SeasonalBarChart = (props) => {
   const reqCompareRef = useRef(0)
   const reqBHRef = useRef(0)
   const reqTrendRef = useRef(0)
+  const loadedTrendWindowRef = useRef(null)
+  const trendStudyKey = JSON.stringify([
+    String(marketId ?? ''), String(props.symbol || '').toUpperCase(),
+    String(props.seasonalYears), String(props.PEselected || 'cons'),
+  ])
   const reqMaxTrendRef = useRef(0)
   const reqOppBySymbolRef = useRef(0)
   const reqRangeReportRef = useRef(0)
@@ -1225,6 +1230,9 @@ const SeasonalBarChart = (props) => {
         ? incrementDate(props.startDate, -trend_chart_left_gap_days)
         : '',
       janDecStartDate: td.substring(0, 5) + '01-01',
+      studyKey: trendStudyKey,
+      loadedWindow: loadedTrendWindowRef.current,
+      chartData: props.consolidatedSeasonalData,
     })
     // A multi-field viewer transition can render briefly with the prior trend
     // start. Wait for the matching date state instead of issuing a mixed URL.
@@ -1316,6 +1324,13 @@ const SeasonalBarChart = (props) => {
           return
         }
         ReactDOM.unstable_batchedUpdates(() => {
+          // Record only an accepted current response. Array identity prevents a
+          // cleared or externally replaced chart from retaining these bounds.
+          loadedTrendWindowRef.current = {
+            studyKey: trendStudyKey,
+            janDecDateRange: props.janDecDateRange,
+            chart,
+          }
           props.SetConsolidatedSeasonalData(chart)
           markCaptureReady('trendChart', { symbol: props.symbol, points: chart.length })
           reportViewerLoad('trend', 'succeeded', requestView, loadGeneration, '', chart.length)
@@ -1362,6 +1377,9 @@ const SeasonalBarChart = (props) => {
         ? incrementDate(props.startDate, -trend_chart_left_gap_days)
         : '',
       janDecStartDate: td.substring(0, 5) + '01-01',
+      studyKey: trendStudyKey,
+      loadedWindow: loadedTrendWindowRef.current,
+      chartData: props.consolidatedSeasonalData,
     })
     if (!dateRequest.ok) return
 

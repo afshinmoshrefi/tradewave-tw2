@@ -662,8 +662,8 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   both return full payloads for the superseded view. Reproduce in a real browser with the
   Puppeteer harness (`docs/UI_CAPTURE_PIPELINE.md`) and read the live state out of the React
   fiber tree; the tell is a viewer request that reports `loading` but never appears on the wire.
-- **Start-date / trend-start pairing (fixed 2026-08-28):** the trend chart is fetched at
-  `chart_start_date = startDate - trend_chart_left_gap_days` (14, `Common.js`), and
+- **Start-date / trend-start pairing (fixed 2026-08-28):** the initial rolling trend window starts at
+  `startDate - trend_chart_left_gap_days` (14, `Common.js`), and
   `resolveTrendChartDateRequest` (`trendChartRequestState.js`) REFUSES to build the URL unless
   the stored `trendChartStartDate` still equals that derived value - a deliberate guard against
   pairing a stale trend start with a new symbol/date mid-transition. INVARIANT: every control
@@ -692,6 +692,16 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   `node tools/ui_capture/check_trend_chart_labels.js` exercises successive real engine
   responses on one mounted chart at desktop and both mobile orientations, checking
   exact labels, parsed positions, highlight alignment, numerical fidelity and reload.
+  **Stable rolling viewport:** a start-date adjustment inside the currently displayed
+  rolling curve retains its first/last dates. `SeasonalBarChart` records the accepted
+  response's study key, mode and array identity; `resolveTrendChartDateRequest` reuses
+  its first date only while the same array is displayed for the same market, symbol,
+  years and PE mode and the new start remains within its bounds. It still requests the
+  new opportunity start and preserves both date-pair and latest-response guards.
+  Moving outside the bounds, clearing/replacing data, changing study or switching
+  Jan-Dec starts a fresh window with the existing mode rules. The maximum-history
+  projection request uses the same viewport policy. This prevents the label repair
+  from exposing the old on-every-drag recentering as a jump back to a 14-day lead-in.
 - **Wave-viewer years selector overflow clamp (`SeasonalBarChart.js` ~283-297, fixed
   2026-07-09):** the years `<select>` is CONTROLLED; if `seasonalYears` exceeds every
   option (e.g. cons 95yr then switch regime to PE+2 whose list is 3..24), the browser
