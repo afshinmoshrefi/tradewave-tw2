@@ -22,6 +22,7 @@ import { brand, trend_chart_left_gap_days } from './Common'
 import { peCycleAfterYearDelta } from './viewerCycleState'
 import { getTrendChartResizeTooltips } from './trendChartResizeTooltips'
 import { trendChartStartDateFor } from './startDateNudge'
+import { rightResizeDays } from './trendRightResize'
 
 const SeasonalChart = (props) => {
 
@@ -71,6 +72,9 @@ const SeasonalChart = (props) => {
     // Reference to the last valid window position
     const needsRepositioning = useRef(false);
     const lastValidPosition = useRef({ x: 0, y: 0, width: 0, height: 0 });
+
+    // Where the drawn highlight ends, for right-edge drags (see trendRightResize.js).
+    const highlightSpanRef = useRef({ endPastChart: false, visibleDays: 0 });
 
 
 
@@ -240,6 +244,10 @@ const SeasonalChart = (props) => {
         if (xx1 === 0) xx1 = c;
         SetX0(xx0);
         SetX1(xx1);
+        highlightSpanRef.current = {
+            endPastChart: last_date_seasonal_chart !== '' && date1 > last_date_seasonal_chart,
+            visibleDays: xx1 - xx0 + 1,
+        };
 
         // Flag that we're loading a new opportunity
         opportunityLoading.current = true;
@@ -521,11 +529,18 @@ const SeasonalChart = (props) => {
 
         const styles = window.getComputedStyle(resizeableEle);
         let width = oppDivLTWH[2];
+        let resizeStartWidth = width;
         let x = 0;
 
         // Validate resize operations to ensure they stay within bounds
         const isValidResizeOperation = (newWidth) => {
             return newWidth >= minDaysOut * activePPDRef.current &&
+                newWidth <= maxDaysOut * activePPDRef.current;
+        };
+
+        // A right-edge width spans days - 1 positions, so the shortest window is one position wide.
+        const isValidRightResizeWidth = (newWidth) => {
+            return newWidth >= (minDaysOut - 1) * activePPDRef.current &&
                 newWidth <= maxDaysOut * activePPDRef.current;
         };
 
@@ -555,7 +570,7 @@ const SeasonalChart = (props) => {
             const newWidth = width + dx;
 
             // Only apply if it's within bounds
-            if (isValidResizeOperation(newWidth)) {
+            if (isValidRightResizeWidth(newWidth)) {
                 width = newWidth;
                 resizeableEle.style.width = `${width}px`;
             }
@@ -565,8 +580,13 @@ const SeasonalChart = (props) => {
             // Apply min/max constraints
             days = Math.max(minDaysOut, Math.min(maxDaysOut, days));
 
-            // Check if days has changed significantly enough to update
-            let daysChanged = (Math.abs(days - props.daysOut) <= 1) ? false : true;
+            let daysChanged = days !== Number(props.daysOut);
+
+            if (!daysChanged) {
+                // Snap a sub-day or no-op drag back onto the unchanged highlight.
+                width = resizeStartWidth;
+                resizeableEle.style.width = `${width}px`;
+            }
 
             if (daysChanged) {
                 // Calculate precise width without rounding
@@ -602,12 +622,20 @@ const SeasonalChart = (props) => {
             // Get actual width without rounding
             const w = parseFloat(resizeableEle.style.width || width);
 
-            // Calculate days based on current pixelsPerDay
-            let days = Math.round(w / activePPDRef.current);
+            // The duration follows how far the edge moved, not the overlay width.
+            const span = highlightSpanRef.current;
+            let days = rightResizeDays({
+                daysOut: props.daysOut,
+                deltaDays: (width - resizeStartWidth) / activePPDRef.current,
+                visibleDays: span.endPastChart ? span.visibleDays : undefined,
+                minDays: minDaysOut,
+                maxDays: maxDaysOut,
+            });
 
             if (debug_events) {
                 console.log('Mouse up resize:', {
                     width: w,
+                    startWidth: resizeStartWidth,
                     days,
                     daysOut: props.daysOut,
                     pixelsPerDay: pixelsPerDayRef.current,
@@ -617,7 +645,7 @@ const SeasonalChart = (props) => {
 
             // Check if this width is larger than our previously recorded maximum
             // If so, update pixelsPerDay for better accuracy
-            updatePixelsPerDay(w, days);
+            updatePixelsPerDay(w, Math.round(w / activePPDRef.current));
 
             onMouseUpRightResizeOperations(days);
         };
@@ -629,6 +657,7 @@ const SeasonalChart = (props) => {
             else cx = event.clientX;
 
             x = cx;
+            resizeStartWidth = width;
 
             activePPDRef.current = getExactPPDFromChart() ?? pixelsPerDayRef.current;
 
