@@ -1,0 +1,518 @@
+{
+  "mode": "resize",
+  "build": "live dev",
+  "cases": [
+    {
+      "name": "D01-buy-hold-rolling",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D02-right-press-release-no-move",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D03-clipped-edge-right-5",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D04-clipped-edge-left-10",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 342,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          355
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D05-may1-30-days",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-05-01",
+        "daysOut": 30,
+        "janDec": false,
+        "first": "2026-04-17",
+        "last": "2027-04-16",
+        "labels": 365,
+        "highlight": [
+          14,
+          43
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D06-right-plus-10",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-05-01",
+        "daysOut": 40,
+        "janDec": false,
+        "first": "2026-04-17",
+        "last": "2027-04-16",
+        "labels": 365,
+        "highlight": [
+          14,
+          53
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D07-right-minus-10",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-05-01",
+        "daysOut": 30,
+        "janDec": false,
+        "first": "2026-04-17",
+        "last": "2027-04-16",
+        "labels": 365,
+        "highlight": [
+          14,
+          43
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D08-right-plus-1",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-05-01",
+        "daysOut": 31,
+        "janDec": false,
+        "first": "2026-04-17",
+        "last": "2027-04-16",
+        "labels": 365,
+        "highlight": [
+          14,
+          44
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D09-unclipped-no-move",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-05-01",
+        "daysOut": 31,
+        "janDec": false,
+        "first": "2026-04-17",
+        "last": "2027-04-16",
+        "labels": 365,
+        "highlight": [
+          14,
+          44
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D10-minimum-duration",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-05-01",
+        "daysOut": 2,
+        "janDec": false,
+        "first": "2026-04-17",
+        "last": "2027-04-16",
+        "labels": 365,
+        "highlight": [
+          14,
+          15
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D11-set-60-days",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-05-01",
+        "daysOut": 60,
+        "janDec": false,
+        "first": "2026-04-17",
+        "last": "2027-04-16",
+        "labels": 365,
+        "highlight": [
+          14,
+          73
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D12-left-edge-forward-20",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-05-21",
+        "daysOut": 40,
+        "janDec": false,
+        "first": "2026-04-17",
+        "last": "2027-04-16",
+        "labels": 365,
+        "highlight": [
+          34,
+          73
+        ],
+        "ppd": 2.984263583347925
+      }
+    },
+    {
+      "name": "D13-right-plus-5-after-left-drag",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "desktop",
+        "viewport": [
+          1600,
+          1000
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-05-21",
+        "daysOut": 45,
+        "janDec": false,
+        "first": "2026-04-17",
+        "last": "2027-04-16",
+        "labels": 365,
+        "highlight": [
+          34,
+          78
+        ],
+        "ppd": 2.984263583347925
+      }
+    }
+  ],
+  "errors": [],
+  "consoleErrors": [],
+  "responses": [
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-01-01",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-04-17",
+        "market": "2",
+        "opp_start_date": "2026-05-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-04-17",
+        "market": "2",
+        "opp_start_date": "2026-05-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-04-17",
+        "market": "2",
+        "opp_start_date": "2026-05-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-04-17",
+        "market": "2",
+        "opp_start_date": "2026-05-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-04-17",
+        "market": "2",
+        "opp_start_date": "2026-05-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-04-17",
+        "market": "2",
+        "opp_start_date": "2026-05-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-04-17",
+        "market": "2",
+        "opp_start_date": "2026-05-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-04-17",
+        "market": "2",
+        "opp_start_date": "2026-05-21",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2026-04-17",
+        "market": "2",
+        "opp_start_date": "2026-05-21",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    }
+  ],
+  "execution_complete": true
+}

@@ -1,0 +1,255 @@
+{
+  "mode": "touch",
+  "build": "live dev",
+  "cases": [
+    {
+      "name": "T01-touch-start",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "MobileLayoutP",
+        "viewport": [
+          390,
+          844
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 5,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 366,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 0.9925053415896805
+      }
+    },
+    {
+      "name": "T02-touch-left-30",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "MobileLayoutP",
+        "viewport": [
+          390,
+          844
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 322,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          335
+        ],
+        "ppd": 0.9925053415896805
+      }
+    },
+    {
+      "name": "T03-touch-right-30",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "MobileLayoutP",
+        "viewport": [
+          390,
+          844
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 352,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 0.9925053415896805
+      }
+    },
+    {
+      "name": "T04-rotate-after-movement",
+      "pass": true,
+      "issues": [],
+      "state": {
+        "layout": "MobileLayoutL",
+        "viewport": [
+          844,
+          390
+        ],
+        "errorPanels": [],
+        "swiperLive": true,
+        "swiperIndex": 0,
+        "barCanvas": true,
+        "bundle": "http://127.0.0.1/app/static/js/main.35bdd7c9.js",
+        "trendChart": true,
+        "startDate": "2026-01-01",
+        "daysOut": 352,
+        "janDec": false,
+        "first": "2025-12-18",
+        "last": "2026-12-17",
+        "labels": 365,
+        "highlight": [
+          14,
+          365
+        ],
+        "ppd": 2.2397580888424287
+      }
+    }
+  ],
+  "errors": [],
+  "consoleErrors": [],
+  "responses": [
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    },
+    {
+      "status": 200,
+      "request": {
+        "chart_start_date": "2025-12-18",
+        "market": "2",
+        "opp_start_date": "2026-01-01",
+        "sy": "10",
+        "symbol": "AAPL"
+      }
+    }
+  ],
+  "execution_complete": true,
+  "touchMoveError": null,
+  "touchTrace": [
+    {
+      "type": "touchstart",
+      "x": 211,
+      "target": ""
+    },
+    {
+      "type": "touchend",
+      "target": ""
+    },
+    {
+      "type": "touchstart",
+      "x": 383,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchmove",
+      "x": 364,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchmove",
+      "x": 361,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchmove",
+      "x": 357,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchmove",
+      "x": 353,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchend",
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchstart",
+      "x": 25,
+      "target": ""
+    },
+    {
+      "type": "touchend",
+      "target": ""
+    },
+    {
+      "type": "touchstart",
+      "x": 197,
+      "target": ""
+    },
+    {
+      "type": "touchend",
+      "target": ""
+    },
+    {
+      "type": "touchstart",
+      "x": 353,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchmove",
+      "x": 372,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchmove",
+      "x": 376,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchmove",
+      "x": 379,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchmove",
+      "x": 383,
+      "target": "seasonal-opp-right-resizer"
+    },
+    {
+      "type": "touchend",
+      "target": "seasonal-opp-right-resizer"
+    }
+  ]
+}

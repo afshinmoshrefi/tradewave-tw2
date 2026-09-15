@@ -1,0 +1,37 @@
+{
+  "review_time_utc": "2026-09-15T21:55:31.465090+00:00",
+  "reviewed_main": "758c3d3e1389eec4096e973c2f655168e0a4f2c3",
+  "runtime_source": "99bce08d5c6cbbac88dd8832466e00a85cdca700",
+  "runtime_bundle": "static/js/main.35bdd7c9.js",
+  "served_bundle_hash_matches": true,
+  "artifact_hashes_checked": 21,
+  "broken_or_untracked_doc_links": [
+    "docs/bugs/evidence/claude-tw-bug-0001-0002-20260915/build.log",
+    "docs/bugs/evidence/claude-tw-bug-0001-0002-20260915/build.log"
+  ],
+  "doc_links_checked": 36,
+  "frontend_source_matches": true,
+  "historical_receipts": {
+    "rotate": {
+      "complete": true,
+      "cases": 14,
+      "failed": [],
+      "errors": [],
+      "console_errors": []
+    },
+    "resize": {
+      "complete": true,
+      "cases": 13,
+      "failed": [],
+      "errors": [],
+      "console_errors": []
+    },
+    "landscape": {
+      "complete": true,
+      "cases": 1,
+      "failed": [],
+      "errors": [],
+      "console_errors": []
+    }
+  }
+}

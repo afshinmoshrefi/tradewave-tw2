@@ -54,9 +54,21 @@ Not tested: physical iPhone Safari, Android, tablets, and a real (unforced) erro
 
 Next: none required. If rotation fails again, reopen this ID with the failing revision; rerun `verify-bugs.cjs --mode rotate` and `--mode landscape`.
 
+## Independent Review and Owner Confirmation (2026-09-15)
+
+Codex independently reviewed the implementation and reran all 28 original live cases
+on dev bundle `main.35bdd7c9.js`; all passed with no browser/console errors. Four
+additional touch/rotation cases passed with the handle explicitly revealed before
+each gesture. See [review, runnable commands and limitations](evidence/codex-review-0001-0002-20260915/README.md)
+and [summary](evidence/codex-review-0001-0002-20260915/summary.json).
+Afshin also confirmed both fixes worked in his testing; device and exact environment
+were not specified. The linked build log was missing from Git and is now restored.
+Status remains verified on dev; this review changed no application code.
+
 ## History
 
 - 2026-09-15: Codex reproduced during read-only audit of fce41885; application unchanged. Findings recorded in `80fb093e08af4b9de8247c91853cc42f767961bb`.
 - 2026-09-15: Codex registered the finding with portable evidence and explicit acceptance criteria. Status remains open, owner unassigned. Use `git log -1 -- docs/bugs/TW-BUG-0001.md` for the latest record commit.
 - 2026-09-15T21:01Z: Claude Code claimed implementation (session ac415bed). Next: reproduce on dev `fce41885`, fix, focused tests, dev activation and live check.
 - 2026-09-15: Claude Code (session ac415bed) reproduced on dev `fce41885`, fixed in `0bbf76b8`, integrated as `99bce08d`, activated and verified on dev (bundle `main.35bdd7c9.js`). Status verified on dev only.
+- 2026-09-15: Codex independent live review passed; Afshin reported both fixes work. Missing build-log evidence restored. Review branch `codex/review-bug-fixes-20260915`; latest record commit via `git log -1 -- docs/bugs/TW-BUG-0001.md`.

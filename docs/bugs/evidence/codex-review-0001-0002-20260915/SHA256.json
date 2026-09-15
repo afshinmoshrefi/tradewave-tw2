@@ -1,0 +1,16 @@
+{
+  "touch-trace-setup-probe.json": "4bfb913227956a2ae52856607358491c6545288e60fb6870b2f654c7ff5d6b10",
+  "summary.json": "04fc32b9d84c0b324559248c9bb89b18483ce056d68d34b5605389edfab543e2",
+  "R01b-landscape-trend-usable.png": "61014eeaa0c52513a4ce8192d950c9d063b3e7d12c35a11dd89b7ece7b7c29f8",
+  "touch-visible-setup-probe.json": "5683cdea45b5d3f1466671d053b27ac279b46a4c73fc73b2a17c5c8772c2525b",
+  "README.md": "a5651e5a05a593ddfb00c3f243f7db5a0eaf9f474f1d7fb3716e81a73ed6e4a0",
+  "rotate-receipt.json": "ad5ace3a0043c918ccca8ff67a54e5b34018a9245dc20d67802fb04ac40054a6",
+  "verify-touch.cjs": "88084db682b6e397afced16806c951cfc42c9f168a5e48425df747e26cca3354",
+  "landscape-receipt.json": "a4eec6e4710fd5aac10b5c0fdfdaf5ce4578518b9fe24cbbf118a09b1a3eeaa3",
+  "T03-touch-right-30.png": "21178284393e2660a30800747627628ad1d253bc4b78fd081ca68d9c8b823257",
+  "assert-receipt.py": "84dff7f887933a7402868d2725a580f72a399a6aa4c1b184897ef4d26735f5dd",
+  "touch-reenter-receipt.json": "f6b59ff852b6d89d0ad17156a760d1cd84139ea52cdf28d473d6698362288f36",
+  "resize-receipt.json": "10ff8d1eb4dba36aa0790b4e0ed7c1a4c29e67d2911eff0a7587a1bc50ec9d0f",
+  "D06-right-plus-10.png": "de716016a00ee775d5128b6ee6b51fb5ff069f51222c8ffc7c83ed2664b08ab4",
+  "documentation-review-before.json": "e3d2131d5132c04fc4babc570d775b2fa56eaf280c33a6eff4bce14c04ac816e"
+}

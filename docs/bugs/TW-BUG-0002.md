@@ -59,9 +59,20 @@ Receipts: [baseline](evidence/claude-tw-bug-0001-0002-20260915/baseline/resize-r
 - Dev activation 2026-09-15 (UTC, see [activation receipt](evidence/claude-tw-bug-0001-0002-20260915/activation.json)): artifact `/home/flask/web-react/releases/build-99bce08d5c6cbbac88dd8832466e00a85cdca700`, served bundle `main.35bdd7c9.js`, byte-identical to the build tested before activation except its provenance stamp. `build-previous` points to `build-fce41885ec8fbdc70fabc1fb56bde38c98339396` (rollback). The activation lock was taken with `mkdir`, main was refetched, live checks ran against the served bundle, then main advanced without force to `99bce08d` and the lock was released. Backend pointer and services were unchanged.
 - Parity limit (unchanged, pre-existing): the active backend still carries the uncommitted OppList4 repair (23 lines in `appserver/appserver/appserver.py`), so full application parity is not claimed. Staging and production: not deployed by this task.
 
-Not tested: touch drag with movement, physical Safari, leap-day windows (TW-BUG-0005 owns the leap-day contract; index arithmetic across a missing February 29 remains that record's scope), PE year-shifted highlights (TW-BUG-0004), and the final-date wrap (TW-BUG-0003). The left edge still derives its minimum width from `minDaysOut` positions and still has no selection protection other than the shared overlay class.
+Original implementer did not test touch drag with movement; see the independent review below for subsequent limited coverage. Still not tested: physical Safari, leap-day windows (TW-BUG-0005 owns the leap-day contract; index arithmetic across a missing February 29 remains that record's scope), PE year-shifted highlights (TW-BUG-0004), and the final-date wrap (TW-BUG-0003). The left edge still derives its minimum width from `minDaysOut` positions and still has no selection protection other than the shared overlay class.
 
 Next: none required. If the right edge regresses, reopen this ID and rerun `verify-bugs.cjs --mode resize`.
+
+## Independent Review and Owner Confirmation (2026-09-15)
+
+Codex independently reviewed the implementation and reran all 28 original live cases
+on dev bundle `main.35bdd7c9.js`; all passed with no browser/console errors. Four
+additional touch/rotation cases passed with the handle explicitly revealed before
+each gesture. See [review, runnable commands and limitations](evidence/codex-review-0001-0002-20260915/README.md)
+and [summary](evidence/codex-review-0001-0002-20260915/summary.json).
+Afshin also confirmed both fixes worked in his testing; device and exact environment
+were not specified. The linked build log was missing from Git and is now restored.
+Status remains verified on dev; this review changed no application code.
 
 ## History
 
@@ -69,3 +80,4 @@ Next: none required. If the right edge regresses, reopen this ID and rerun `veri
 - 2026-09-15: Codex registered the finding with portable evidence and explicit acceptance criteria. Status remains open, owner unassigned. Use `git log -1 -- docs/bugs/TW-BUG-0002.md` for the latest record commit.
 - 2026-09-15T21:01Z: Claude Code claimed implementation (session ac415bed). Next: reproduce on dev `fce41885`, fix, focused tests, dev activation and live check.
 - 2026-09-15: Claude Code (session ac415bed) reproduced on dev `fce41885`, fixed in `16feb436` and `222bdb67` (also consecutive-drag selection failure), integrated as `99bce08d`, activated and verified on dev (bundle `main.35bdd7c9.js`). Status verified on dev only.
+- 2026-09-15: Codex independent live review passed; Afshin reported both fixes work. Missing build-log evidence restored. Review branch `codex/review-bug-fixes-20260915`; latest record commit via `git log -1 -- docs/bugs/TW-BUG-0002.md`.

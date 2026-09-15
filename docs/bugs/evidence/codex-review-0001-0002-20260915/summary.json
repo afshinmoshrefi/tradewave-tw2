@@ -1,0 +1,36 @@
+{
+  "reviewed_source": "758c3d3e1389eec4096e973c2f655168e0a4f2c3",
+  "runtime_source": "99bce08d5c6cbbac88dd8832466e00a85cdca700",
+  "bundle": "main.35bdd7c9.js",
+  "verified_at_utc": "2026-09-15T22:01:26.775243+00:00",
+  "modes": {
+    "rotate": {
+      "cases": 14,
+      "passed": 14,
+      "browser_errors": [],
+      "console_errors": []
+    },
+    "resize": {
+      "cases": 13,
+      "passed": 13,
+      "browser_errors": [],
+      "console_errors": []
+    },
+    "landscape": {
+      "cases": 1,
+      "passed": 1,
+      "browser_errors": [],
+      "console_errors": []
+    },
+    "touch-reenter": {
+      "cases": 4,
+      "passed": 4,
+      "browser_errors": [],
+      "console_errors": []
+    }
+  },
+  "user_confirmation": "Afshin reported: I tested and they both worked. Device, exact steps and environment were not separately specified.",
+  "restored_build_log_original_sha256": "f4735f397ce63b238fb64eec1b30e1882810b3624518bdffbdf059560228b91d",
+  "restored_build_log_stored_sha256": "34dc69004a4ea59287ba5f6c6933885e489df2d79e3ac8e78a8c6dc1c6b8e5d4",
+  "restored_build_log_normalization": "Trailing whitespace removed; diagnostic content unchanged."
+}

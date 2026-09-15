@@ -2,7 +2,7 @@
 
 This is the shared, provider-neutral bug register. Read [how work is managed](../WORK_MANAGEMENT.md) before starting or handing off work. Use [the template](TEMPLATE.md) for new records.
 
-As recorded September 15, 2026: **5 open bug groups, 4 fixes verified on dev.** Claude Code fixed TW-BUG-0001 and TW-BUG-0002 on dev (main `99bce08d`). The five open records have no implementation owner; all are P2. Recording these bugs does not authorize their repair.
+As recorded September 15, 2026: **5 open bug groups, 4 fixes verified on dev.** Claude Code fixed TW-BUG-0001 and TW-BUG-0002 on dev (main `99bce08d`). Codex independently verified both fixes and Afshin confirmed they worked; evidence is linked in each record. The five open records have no implementation owner; all are P2. Recording these bugs does not authorize their repair.
 
 | ID | Priority | Status | User-visible issue |
 |---|---|---|---|
