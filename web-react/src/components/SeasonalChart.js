@@ -539,9 +539,10 @@ const SeasonalChart = (props) => {
         };
 
         // A right-edge width spans days - 1 positions, so the shortest window is one position wide.
-        const isValidRightResizeWidth = (newWidth) => {
-            return newWidth >= (minDaysOut - 1) * activePPDRef.current &&
-                newWidth <= maxDaysOut * activePPDRef.current;
+        // Clamp rather than ignore a move past a bound, so a fast drag still reaches it.
+        const clampRightResizeWidth = (newWidth) => {
+            return Math.max((minDaysOut - 1) * activePPDRef.current,
+                Math.min(maxDaysOut * activePPDRef.current, newWidth));
         };
 
         const onMouseEnter = () => {
@@ -567,13 +568,8 @@ const SeasonalChart = (props) => {
             x = cx;
 
             // Calculate new width and apply constraints
-            const newWidth = width + dx;
-
-            // Only apply if it's within bounds
-            if (isValidRightResizeWidth(newWidth)) {
-                width = newWidth;
-                resizeableEle.style.width = `${width}px`;
-            }
+            width = clampRightResizeWidth(width + dx);
+            resizeableEle.style.width = `${width}px`;
         };
 
         const onMouseUpRightResizeOperations = async (days) => {
@@ -1036,7 +1032,8 @@ const SeasonalChart = (props) => {
         <div className="seasonal-chart-parent" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }} >
 
             {/* these divs are for interactive resizing of the opp windows */}
-            <div ref={ref} className="seasonal-opp" style={oppDivStyle} >
+            {/* noselect: a drag that starts a text selection turns the next drag into a native drag-and-drop with no mouseup */}
+            <div ref={ref} className="seasonal-opp noselect" style={oppDivStyle} >
                 <Tippy disabled={!props.tooltipSW} placement="top-start" content={
                     <div theme="tw">{resizeTooltips.left}</div>
                 }>
