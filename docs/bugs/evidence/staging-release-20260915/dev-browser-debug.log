@@ -1,0 +1,2 @@
+{"phase":"opportunity-chart","diagnostic":{"canvases":[],"backgrounds":[{"text":"Gain-Loss Bar Chart","width":951.203125,"height":385.46875},{"text":"Trend Chart","width":779,"height":152.734375},{"text":"Price Chart","width":779.8125,"height":152.34375}],"selected":[{"className":"selected","text":"2026-09-16WMT217Long1.611.7%108.09"},{"className":"stripes","text":"2026-09-16AXP70Long1.147.6%324.19"}],"errorText":[]},"failedResponses":[],"pageErrors":[],"consoleErrors":[]}
+Waiting failed: 90000ms exceeded
