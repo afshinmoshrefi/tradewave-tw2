@@ -54,3 +54,7 @@ passed; UTC reproduction not separately run. Production: not accessed or tested.
 
 - 2026-09-16: Captured during staging qualification; isolated browser-date difference;
   recorded as an unresolved existing-code risk. No repair owner assigned.
+- 2026-09-16 production gate: Afshin was informed of the reproduced browser/market
+  date mismatch and explicitly instructed "continue deployment" with the issue
+  unchanged, planning to check it tonight. This is a release-risk deferral, not
+  verification or repair authorization. Production reproduction remains untested.

@@ -1,6 +1,6 @@
 # TW-TASK-0003: Reusable Dev MCP Release Authentication and Staging Promotion
 
-- Status: verified on staging (2026-09-16 UTC)
+- Status: verified on staging; production promotion in progress, awaiting operator execution (2026-09-16 UTC)
 - Confidence: reproduced
 - Priority: P1, release blocked by missing authenticated qualification
 - First observed: 2026-09-14; claim updated: 2026-09-15T22:10:00Z
@@ -100,3 +100,44 @@ production servers; promote this exact artifact, never rebuild it.
 This documentation-only completion is on `codex/staging-report-20260915`, based on
 the release SHA, so main and the live release stay pinned during the production
 approval gate. Do not mistake this report-only commit for another application build.
+
+## Production Promotion Authorization and Prepared Command
+
+2026-09-16: Afshin confirmed staging works, requested production promotion, confirmed
+today's APP and WEB infrastructure snapshots, and explicitly said "continue
+deployment" after discussion of TW-BUG-0010. The timezone issue remains unchanged;
+Afshin plans an evening check. This authorizes promotion, not a timezone repair.
+
+Resumed owner: Codex production-promotion-20260916. The same release manifest is
+now `prod_preflight`, with approvals bound to SHA `05ae209e` and the unchanged
+composite artifact. Main remains frozen. The report branch is still the shared
+coordination branch; no documentation commit is substituted for the application.
+
+Read-only checks verified production APP `138.128.240.115` and WEB
+`194.113.195.141` clean at `c398d648463c10b31f088982f6cd67bfd8c30a72`, canonical
+live process directories, no pointer drop-ins, the old frontend hash, nginx routes,
+and 26 GB / 9.3 GB available respectively. Both staging tiers still match the
+approved source, including all 21 frontend file hashes. The committed deployment
+preflight passed host/environment, WorkOS issuer, both service identities,
+systemd, Git and capacity gates. Evidence: release-state `evidence/prod-preflight*`.
+No dependency requirement or schema/migration changes from production's prior
+release were found. No production write has occurred during preparation.
+
+Operator command on dev:
+`bash /root/tradewave-handoffs/tw2-20260915-01/production/deploy-production.sh`
+
+The command requires same-day snapshot approval, rechecks identity and targets,
+captures checksum-verified local rollback snapshots on both production tiers,
+then promotes the exact existing build. It includes automatic rollback through
+all source/runtime/page/contract/rendered browser checks, including the 28 chart
+rotation/resize cases already exercised on staging. It records completion only
+after those gates pass. Expected production frontend: `main.81dfb8cb.js`.
+
+Rollback (operator execution only):
+`bash /root/tradewave-handoffs/tw2-20260915-01/production/rollback-production.sh`
+This requires the command-created snapshots at
+`/root/tradewave-snapshots/tw2-20260915-01-prod-release` on each tier.
+The rollback restores the current `c398d648` source and `build-c398d648463c` frontend.
+Next step: Afshin executes the guarded command; manager independently inspects
+receipts/live state and updates this record with verified outcome. Production is
+not yet deployed or verified by this task.
