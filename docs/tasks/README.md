@@ -6,4 +6,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 |---|---|---|
 | [TW-TASK-0001](TW-TASK-0001.md) | verified | Shared bug memory and interchangeable-agent management instructions |
 | [TW-TASK-0002](TW-TASK-0002.md) | verified | Independent review of two fixes and repair of missing documentation evidence |
-| [TW-TASK-0003](TW-TASK-0003.md) | verified on staging; production in progress | Exact production promotion authorized; preflight passed; awaiting human execution |
+| [TW-TASK-0003](TW-TASK-0003.md) | verified on staging and production | Exact release promoted; runtime, artifact, contract and rendered checks passed |

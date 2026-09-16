@@ -1,6 +1,6 @@
 # TW-TASK-0003: Reusable Dev MCP Release Authentication and Staging Promotion
 
-- Status: verified on staging; production promotion in progress, awaiting operator execution (2026-09-16 UTC)
+- Status: verified on staging and production (2026-09-16 UTC)
 - Confidence: reproduced
 - Priority: P1, release blocked by missing authenticated qualification
 - First observed: 2026-09-14; claim updated: 2026-09-15T22:10:00Z
@@ -141,3 +141,31 @@ The rollback restores the current `c398d648` source and `build-c398d648463c` fro
 Next step: Afshin executes the guarded command; manager independently inspects
 receipts/live state and updates this record with verified outcome. Production is
 not yet deployed or verified by this task.
+
+## Verified Production Completion
+
+Afshin executed the guarded command successfully on September 16. The manifest
+reached `complete` at 13:07:58 UTC and released manager ownership. Both production
+tiers now run `05ae209ecaba231e5816f835dc133f7c0cdf00e8`; all 21 frontend files
+and the backend fingerprint match the exact staging-qualified artifact. No rebuild
+or substitute merge occurred. An independent read-only follow-up verified clean
+Git trees, actual app/API/MCP/web process directories, no stale service overrides,
+the live frontend pointer, seven public HTML routes and the public bundle hash.
+
+Operator receipts passed the Explorer date-locked KO contract (11 chart rows,
+request/echo September 16), empty-response caching, required Tara probes, rendered
+Explorer opportunity/video/sort flow with native-resolution canvas and no loading
+covers, recurrence recovery, and landscape/rotation/resize regressions. Site
+regeneration had zero generator failures; deploy verification had zero failures
+and warnings. Developer documentation quickstart execution was separately skipped
+because no doc-CI API key was configured; do not claim those snippets were tested.
+Known Tara help-routing diagnostics remain nonblocking failures, not fixes.
+TW-BUG-0010 remains deferred at the owner's direction and was not repaired.
+
+Rollback snapshots are present on both production tiers at the path above (APP
+32 MB, WEB 236 MB); no rollback was needed. Detailed sanitized receipts and the
+timestamped deployment log remain under the release state's `evidence/production-*`.
+Final manifest is valid, requested target `prod`, state `complete`. Application
+main remains pinned at the promoted SHA; documentation completion stays on
+`codex/staging-report-20260915`. No production writes were made by the verifying
+agent. Next action: owner acceptance testing; no further deployment is pending.
