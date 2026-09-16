@@ -15,5 +15,12 @@ As recorded September 15, 2026: **5 open bug groups, 4 fixes verified on dev.** 
 | [TW-BUG-0007](TW-BUG-0007.md) | P2 | open | A Failed Trend Request Leaves an Empty Placeholder |
 | [TW-BUG-0008](TW-BUG-0008.md) | P1 | verified on dev | Retained category labels garble a replaced trend curve |
 | [TW-BUG-0009](TW-BUG-0009.md) | P2 | verified on dev | In-range start changes recenter the rolling chart |
+| [TW-BUG-0010](TW-BUG-0010.md) | P1 | open | Date-locked chart is blank when browser date differs from US market date |
+| [TW-BUG-0011](TW-BUG-0011.md) | P2 | open | Tara help questions are intercepted before the Analysis-menu helper |
+
+September 16 release update: **7 open groups, 4 dev-verified fixes**. The four fixes
+are now included in staging release `05ae209e`; see [TW-TASK-0003](../tasks/TW-TASK-0003.md)
+for exact environment checks and limits. The two new findings were documented, not
+repaired. This report-only branch does not advance the pinned application release.
 
 Status belongs in each record and this index; update both together. Preserve resolved records and reopen recurrences. Verification is environment-specific. See the evidence setup for limitations; the audit was not an exhaustive guarantee and production was not tested.
